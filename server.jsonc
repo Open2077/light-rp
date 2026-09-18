@@ -1,0 +1,142 @@
+{
+  // OPEN//77 Official Roleplay — production configuration.
+  //
+  // Credentials never live in this file: the platform license and the MySQL
+  // connection string come from the environment (see server.env.example and
+  // Start-LightRP.cmd). For a local test without a license use
+  // Start-LightRP-Local.cmd, which loads server.local.jsonc instead.
+  "$schema": "./config/server.schema.json",
+  "schemaVersion": 1,
+  "identity": {
+    "name": "Open//77 Official Roleplay",
+    "description": "Serveur Light RP officiel d'Open//77 : un personnage, un chat de proximité, des véhicules civils, un staff. Tapez /help en jeu.",
+    "locale": "fr-FR",
+    "tags": [
+      "roleplay",
+      "light-rp",
+      "français"
+    ],
+    "website": "https://open2077.net",
+    // Switch to "public" once the server runs on its public address with a license.
+    "visibility": "unlisted"
+  },
+  "network": {
+    "port": 11828,
+    // Replace with the address players reach: PUBLIC.IP:11828 (open 11828/UDP and 11829/TCP).
+    "publicEndpoint": "127.0.0.1:11828",
+    "maximumPlayers": 64
+  },
+  "simulation": {
+    "tickRate": 30,
+    "snapshotRate": 20,
+    "expectedGameBuild": 23100,
+    "helloTimeoutSeconds": 10,
+    "connectGateTimeoutSeconds": 8
+  },
+  "voice": {
+    "enabled": true,
+    "quality": "standard",
+    // Roleplay voice: you hear people you could actually hear.
+    "proximityDistance": 15,
+    "minimumClientProximityDistance": 1,
+    "maximumClientProximityDistance": 40,
+    "maximumChannelAudience": 64,
+    "maximumSimultaneousTalkers": 24,
+    "maximumTalkersPerRecipient": 8
+  },
+  "masterServer": {
+    "enabled": true,
+    "url": "https://master.open2077.net/",
+    "tokenEnvironmentVariable": "OP77_MASTER_TOKEN",
+    "identityFile": ".open77/master-identity.json",
+    "heartbeatIntervalSeconds": 30,
+    // Created at https://open2077.net/account/keys, provided through server.env.
+    "licenseKeyEnvironmentVariable": "OP77_LICENSE_KEY",
+    "requireConnectTicket": true,
+    "publishPlayerList": true
+  },
+  "resources": {
+    "enabled": true,
+    "root": "resources",
+    "load": [
+      "polyzone",
+      "open77_contextmenu",
+      "open77_admin",
+      "open77_shell",
+      "open77_pause",
+      "open77_watermark",
+      "open77_chat",
+      "open77_voice",
+      "open-voice",
+      "open77_weather",
+      "open77_nameplates",
+      "open77_blips",
+      "open77_notifications",
+      "open77_death",
+      "open77_appearance",
+      "open77_cyberware",
+      "open77_effects",
+      "open77_equipment",
+      "open77_wardrobe",
+      "open77_wardrobe_ui",
+      "open77_perspective",
+      "open77_animations",
+      "open77_prevention",
+      "open77_player_interactions",
+      "open77_vehicles",
+      "open77_elevators",
+      "open77_doors",
+      "open77_weapons",
+      "open77_props",
+      "open77_media",
+      "open77_remote_camera",
+      "open77_interactions",
+      "open77_worldui",
+      "open77_zones",
+      "lightrp"
+    ],
+    "autoStart": true,
+    "watchIntervalMilliseconds": 0,
+    "download": {
+      "enabled": true,
+      "listenUrl": "http://0.0.0.0:11829",
+      // Players download resources from here: put a TLS reverse proxy in front
+      // and set https://... ; plain HTTP works only with allowInsecureHttp.
+      "publicBaseUrl": "http://127.0.0.1:11829/",
+      "allowInsecureHttp": true,
+      "cacheDirectory": ".open77/resource-cache",
+      "signingKeyFile": ".open77/resource-signing-key.json",
+      "chunkSizeBytes": 1048576
+    }
+  },
+  "requiredMods": {
+    "enabled": false,
+    "unsecured": false,
+    "packages": []
+  },
+  "accessControl": {
+    "file": "acl.jsonc"
+  },
+  "database": {
+    // Characters, saved positions and reports. Degrades to session-only when absent.
+    "enabled": true,
+    "connectionString": "",
+    "connectionStringEnvironmentVariable": "OP77_DATABASE_CONNECTION",
+    "maxRows": 10000
+  },
+  "http": {
+    "enabled": false,
+    "allowedHosts": [],
+    "timeoutSeconds": 10,
+    "maxResponseBytes": 1048576
+  },
+  "warden": {
+    "enabled": true,
+    // Loopback: reach it through an SSH tunnel or a TLS reverse proxy, never raw on the internet.
+    "listenUrl": "http://127.0.0.1:11830",
+    "hubFileGatewayOrigin": "https://files.open2077.net"
+  },
+  "startup": {
+    "commands": []
+  }
+}

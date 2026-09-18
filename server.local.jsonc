@@ -1,0 +1,127 @@
+{
+  // Local test profile: no master, no license, loopback only.
+  //
+  // devLocalAuth accepts unauthenticated clients and binds the game socket to
+  // 127.0.0.1, so this file can never be used for a public server: the loader
+  // refuses devLocalAuth unless masterServer.enabled=false, visibility=private
+  // and requireConnectTicket=false. Start with Start-LightRP-Local.cmd.
+  "$schema": "./config/server.schema.json",
+  "schemaVersion": 1,
+  "identity": {
+    "name": "Open//77 Official Roleplay (local)",
+    "description": "Local test of the Light RP starter.",
+    "locale": "fr-FR",
+    "tags": [ "roleplay", "light-rp", "development" ],
+    "visibility": "private"
+  },
+  "network": {
+    "port": 11828,
+    "publicEndpoint": "127.0.0.1:11828",
+    "maximumPlayers": 16
+  },
+  "simulation": {
+    "tickRate": 30,
+    "snapshotRate": 20,
+    "expectedGameBuild": 23100,
+    "helloTimeoutSeconds": 10
+  },
+  "voice": {
+    "enabled": true,
+    "quality": "standard",
+    "proximityDistance": 15,
+    "minimumClientProximityDistance": 1,
+    "maximumClientProximityDistance": 40,
+    "maximumChannelAudience": 16,
+    "maximumSimultaneousTalkers": 8,
+    "maximumTalkersPerRecipient": 8
+  },
+  "masterServer": {
+    "enabled": false,
+    "url": null,
+    "tokenEnvironmentVariable": "OP77_MASTER_TOKEN",
+    "identityFile": ".open77/master-identity.json",
+    "heartbeatIntervalSeconds": 30,
+    "licenseKeyEnvironmentVariable": "OP77_LICENSE_KEY",
+    "requireConnectTicket": false,
+    "devLocalAuth": true
+  },
+  "resources": {
+    "enabled": true,
+    "root": "resources",
+    "load": [
+      "polyzone",
+      "open77_contextmenu",
+      "open77_admin",
+      "open77_shell",
+      "open77_pause",
+      "open77_watermark",
+      "open77_chat",
+      "open77_voice",
+      "open-voice",
+      "open77_weather",
+      "open77_nameplates",
+      "open77_blips",
+      "open77_notifications",
+      "open77_death",
+      "open77_appearance",
+      "open77_cyberware",
+      "open77_effects",
+      "open77_equipment",
+      "open77_wardrobe",
+      "open77_wardrobe_ui",
+      "open77_perspective",
+      "open77_animations",
+      "open77_prevention",
+      "open77_player_interactions",
+      "open77_vehicles",
+      "open77_elevators",
+      "open77_doors",
+      "open77_weapons",
+      "open77_props",
+      "open77_media",
+      "open77_remote_camera",
+      "open77_interactions",
+      "open77_worldui",
+      "open77_zones",
+      "lightrp"
+    ],
+    "autoStart": true,
+    "watchIntervalMilliseconds": 0,
+    "download": {
+      "enabled": true,
+      "listenUrl": "http://127.0.0.1:11829",
+      "publicBaseUrl": "http://127.0.0.1:11829/",
+      "allowInsecureHttp": true,
+      "cacheDirectory": ".open77/resource-cache",
+      "signingKeyFile": ".open77/resource-signing-key.json",
+      "chunkSizeBytes": 1048576
+    }
+  },
+  "requiredMods": {
+    "enabled": false,
+    "unsecured": false,
+    "packages": []
+  },
+  "accessControl": {
+    "file": "acl.jsonc"
+  },
+  "database": {
+    "enabled": true,
+    "connectionString": "",
+    "connectionStringEnvironmentVariable": "OP77_DATABASE_CONNECTION",
+    "maxRows": 10000
+  },
+  "http": {
+    "enabled": false,
+    "allowedHosts": [],
+    "timeoutSeconds": 10,
+    "maxResponseBytes": 1048576
+  },
+  "warden": {
+    "enabled": true,
+    "listenUrl": "http://127.0.0.1:11830"
+  },
+  "startup": {
+    "commands": []
+  }
+}

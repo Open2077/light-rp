@@ -1,0 +1,25 @@
+# The server distribution is downloaded, not versioned: only what this project
+# adds on top of open77-server-<version>-win-x64.zip is tracked.
+*
+!.gitignore
+!README.md
+!server.jsonc
+!server.local.jsonc
+!server.env.example
+!acl.jsonc
+!Start-LightRP.cmd
+!Start-LightRP-Local.cmd
+!templates/
+!templates/lightrp/
+!templates/lightrp/**
+!resources/
+!resources/gamemodes/
+!resources/gamemodes/lightrp/
+!resources/gamemodes/lightrp/**
+
+# Never commit these even if the rules above change.
+server.env
+.open77/
+*.log
+logs/
+data/
