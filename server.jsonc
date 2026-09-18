@@ -11,10 +11,11 @@
     "name": "Open//77 Official Roleplay",
     "description": "Serveur Light RP officiel d'Open//77 : un personnage, un chat de proximité, des véhicules civils, un staff. Tapez /help en jeu.",
     "locale": "fr-FR",
+    // Tags are lowercase ASCII slugs (max 16, 24 characters each).
     "tags": [
       "roleplay",
       "light-rp",
-      "français"
+      "fr"
     ],
     "website": "https://open2077.net",
     // Switch to "public" once the server runs on its public address with a license.
