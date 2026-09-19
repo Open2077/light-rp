@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/state/store";
-import { emit, sendAction } from "@/bridge/open77";
+import { emit, on, sendAction } from "@/bridge/open77";
 import { PAGE_EVENTS, type InventoryDialogPayload, type InventoryItem, type InventorySnapshot } from "@/bridge/protocol";
 import { Button, Icon, Keycap } from "@/design/components";
 import "./inventory.css";
@@ -28,8 +28,10 @@ export function InventoryDialog() {
   const close = useCallback(() => { sendAction({ type: "inventory.close" }); closeDialog(); }, [closeDialog]);
 
   useEffect(() => {
+    emit(PAGE_EVENTS.dialogState, { kind: "inventory", open: visible });
     if (!visible) return;
     emit(PAGE_EVENTS.focus, { active: true });
+    const offClose = on<{ kind?: string }>(PAGE_EVENTS.dialogClose, (p) => { if (!p?.kind || p.kind === "inventory") close(); });
     const onKey = (e: KeyboardEvent) => {
       if ((e.key === "Escape" || e.key === "i" || e.key === "I") && !e.repeat) {
         const target = e.target as HTMLElement | null;
@@ -38,7 +40,7 @@ export function InventoryDialog() {
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); emit(PAGE_EVENTS.focus, { active: false }); };
+    return () => { window.removeEventListener("keydown", onKey); offClose(); emit(PAGE_EVENTS.focus, { active: false }); };
   }, [visible, close]);
 
   if (!visible || !dialog) return null;
@@ -205,7 +207,7 @@ function Panel({ inv, side, search, onSearch, selected, drag, onPointerDown, onC
           <span className="o77-readout o77-disabled">{inv.items.length} / {inv.slots} SLOTS</span>
         </div>
       </header>
-      <div className="inv__grid" style={{ gridTemplateColumns: `repeat(${COLUMNS}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }}>
+      <div className="inv__grid" style={{ gridTemplateColumns: `repeat(${COLUMNS}, minmax(0, 1fr))`, gridAutoRows: "auto" }} data-rows={rows}>
         {ground && inv.items.length === 0 && <div className="inv__ground-hint" data-inv={inv.id} data-slot={1}><Icon name="package-open" size={22} /><span>DROP HERE</span></div>}
         {Array.from({ length: inv.slots }, (_, i) => i + 1).map((slot) => {
           const item = bySlot.get(slot);

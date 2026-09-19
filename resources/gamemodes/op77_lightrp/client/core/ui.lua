@@ -6,7 +6,7 @@
 -- what to draw. The player menu (F1) takes the keyboard only; dialogs take the
 -- keyboard and the cursor.
 local E = LightRpEvents
-local Ui = { page = nil, ready = false, menuOpen = false, queued = {} }
+local Ui = { page = nil, ready = false, menuOpen = false, queued = {}, dialogs = {} } -- dialogs[kind] = open?
 LightRpUi = Ui
 
 local function log(format, ...)
@@ -123,6 +123,11 @@ function Ui.create()
     -- mounts and releases it when the character is registered.
     page:on("lightrp:ui:focus", function(payload)
         Ui.setPromptFocus(type(payload) == "table" and payload.active == true)
+    end)
+
+    -- Which page dialogs are on screen, so a toggle key closes instead of reopening.
+    page:on(E.page.dialogState, function(payload)
+        if type(payload) == "table" and type(payload.kind) == "string" then Ui.dialogs[payload.kind] = payload.open == true end
     end)
 
     return true

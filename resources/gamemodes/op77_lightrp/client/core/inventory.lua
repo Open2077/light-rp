@@ -9,7 +9,10 @@ LightRpInventory = Inventory
 local function log(format, ...) LightRpUi.log(format, ...) end
 
 function Inventory.open()
-    log("inventory key pressed")
+    if LightRpUi.dialogs and LightRpUi.dialogs.inventory then
+        LightRpUi.send(E.page.dialogClose, { kind = "inventory" })
+        return
+    end
     local accepted, reason = TriggerServerEvent(E.net.action, { type = "inventory.open" })
     if not accepted then log("inventory.open refused: %s", tostring(reason)) end
 end

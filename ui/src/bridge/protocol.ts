@@ -7,7 +7,9 @@ export const PAGE_EVENTS = {
   action: "lightrp:ui:action",
   close: "lightrp:ui:close",
   focus: "lightrp:ui:focus",
+  dialogState: "lightrp:ui:dialog:state", // page -> Lua: { kind, open } so a toggle key can close instead of reopening
   // Lua -> page
+  dialogClose: "lightrp:ui:dialog:close", // Lua -> page: { kind } close that dialog
   state: "lightrp:ui:state",
   hud: "lightrp:ui:hud",
   open: "lightrp:ui:open",

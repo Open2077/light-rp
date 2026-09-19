@@ -5,6 +5,8 @@ LightRpEvents = {
         ready = "lightrp:ui:ready",     -- page -> Lua: painted and listening
         action = "lightrp:ui:action",   -- page -> Lua: { type = "...", ... } forwarded to the server
         close = "lightrp:ui:close",     -- page -> Lua: the player asked to close the menu (Backspace, Escape, F1)
+        dialogState = "lightrp:ui:dialog:state", -- page -> Lua: { kind, open } which dialogs are on screen
+        dialogClose = "lightrp:ui:dialog:close", -- Lua -> page: { kind } close that dialog
         state = "lightrp:ui:state",     -- Lua -> page: full state or a patch
         hud = "lightrp:ui:hud",         -- Lua -> page: sampled vitals / vehicle / voice
         open = "lightrp:ui:open",       -- Lua -> page: the player menu opens
