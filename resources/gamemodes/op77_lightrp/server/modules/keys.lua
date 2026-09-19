@@ -147,6 +147,22 @@ function Keys.lock(vehicleId, locked, byPlayerId)
     return true
 end
 
+-- "bip" on lock, "bip bip" on unlock, through the synchronised horn so every
+-- client in range hears the same pattern at the same moment.
+function Keys.beep(vehicleId, locked)
+    local horn = Config.horn
+    if type(horn) ~= "table" or type(Open77.vehicles.triggerHorn) ~= "function" then return end
+    local count = locked and (horn.lock or 1) or (horn.unlock or 2)
+    if count <= 0 then return end
+    CreateThread(function()
+        for i = 1, count do
+            if Open77.vehicles.get(vehicleId) == nil then return end
+            pcall(Open77.vehicles.triggerHorn, vehicleId, horn.bipMs or 110)
+            if i < count then Wait((horn.bipMs or 110) + (horn.gapMs or 170)) end
+        end
+    end)
+end
+
 local function distanceTo(playerId, vehicleId)
     local p = Open77.players.position(playerId)
     local v = Open77.vehicles.get(vehicleId)
@@ -170,7 +186,7 @@ function Keys.toggle(playerId, vehicleId)
     local locked = Open77.vehicles.isLocked(vehicleId) == true
     local ok, reason = Keys.lock(vehicleId, not locked, playerId)
     if not ok then return false, reason end
-    if Config.hornMs and Config.hornMs > 0 then pcall(Open77.vehicles.triggerHorn, vehicleId, Config.hornMs) end
+    Keys.beep(vehicleId, not locked)
     return true, not locked
 end
 

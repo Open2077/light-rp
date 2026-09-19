@@ -32,7 +32,9 @@ LightRpConfig = {
     -- (Not `keys`: that table holds the key bindings above.)
     vehicleKeys = {
         range = 8.0,
-        hornMs = 150, -- a short honk confirms the lock; 0 disables
+        -- The horn is the platform's network-synchronised one, so everyone
+        -- around hears the same thing: one "bip" to lock, "bip bip" to unlock.
+        horn = { bipMs = 110, gapMs = 170, lock = 1, unlock = 2 }, -- counts; 0 disables
     },
 
     spawn = {
