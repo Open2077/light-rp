@@ -45,6 +45,7 @@ client_script "client/core/hud.lua"
 client_script "client/core/interact.lua"
 client_script "client/core/keys.lua"
 client_script "client/core/movement.lua"
+client_script "client/core/talkers.lua"
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
