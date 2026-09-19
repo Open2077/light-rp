@@ -108,10 +108,10 @@ function Ui.create()
             return
         end
         if payload.type == "character.wardrobe.open" then
+            -- Not a command any more (/wardrobe is staff-only): the server opens
+            -- the wardrobe UI through the same client event the command fired.
             Ui.setMenuOpen(false)
             Ui.setPromptFocus(false)
-            TriggerServerEvent("open77:command:execute", "wardrobe")
-            return
         end
         local accepted, reason = TriggerServerEvent(E.net.action, payload)
         if not accepted then

@@ -4,11 +4,6 @@ local readyRequests = {}
 
 local CHAT_SUGGESTIONS = {
     {
-        command = "/help",
-        help = "Show chat and command help.",
-        parameters = {}
-    },
-    {
         command = "/clear",
         help = "Clear your local chat history.",
         parameters = {}
@@ -80,14 +75,7 @@ RegisterNetEvent("chat:ready", function()
     TriggerClientEvent("chat:addSuggestions", player, CHAT_SUGGESTIONS)
 end)
 
-RegisterCommand("help", function(player)
-    push(player, {
-        type = "system",
-        author = "COMMANDS",
-        text = "Type / to browse available commands. Use the arrow keys to select a suggestion and Tab to complete it.",
-        color = { 0, 229, 255 }
-    })
-end, false)
+-- /help is registered by the gamemode (op77_lightrp).
 
 RegisterCommand("clear", function(player)
     TriggerClientEvent("chat:clear", player)

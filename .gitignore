@@ -24,6 +24,15 @@
 !resources/system/open-voice/**
 !resources/system/open77_chat/
 !resources/system/open77_chat/**
+# Platform packages whose out-of-character commands were made staff-only.
+!resources/system/open77_appearance/
+!resources/system/open77_appearance/**
+!resources/system/open77_weather/
+!resources/system/open77_weather/**
+!resources/system/open77_vehicles/
+!resources/system/open77_vehicles/**
+!resources/system/open77_elevators/
+!resources/system/open77_elevators/**
 !ui/
 !ui/**
 

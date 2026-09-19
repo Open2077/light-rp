@@ -516,6 +516,24 @@ LightRP.action("character.archive", function(playerId, payload)
     LightRP.result(playerId, ok, ok and "Character archived." or explain(reason), "character.archive")
 end)
 
+-- The wardrobe UI (open77_wardrobe_ui) listens for this client event; /wardrobe
+-- used to fire it and is staff-only now. Only active characters dress up.
+LightRP.action("character.wardrobe.open", function(playerId)
+    local c = characters[playerId]
+    if c == nil or c.status ~= "active" then return LightRP.result(playerId, false, "Finish your character first.", "character.wardrobe.open") end
+    TriggerClientEvent("open77:wardrobe_ui:open", playerId)
+end)
+
+-- Commands that step out of the roleplay are staff-only on this server; their
+-- suggestions are pulled from the player's chat index once it is up.
+local HIDDEN_SUGGESTIONS = { "/wardrobe", "/appearance", "/barber", "/gender", "/weather", "/weather.status", "/weather.time", "/vehicle.list", "/vehicle.damage.dump", "/elevator.list", "/clear", "/id" }
+function Characters.onUiReady(playerId)
+    SetTimeout(1500, function()
+        if GetPlayerName(playerId) == nil or LightRP.staff.isStaff(playerId) then return end
+        for _, command in ipairs(HIDDEN_SUGGESTIONS) do TriggerEvent("chat:removeSuggestion", playerId, command) end
+    end)
+end
+
 -- The player closed the first-spawn briefing: never show it again on this account.
 LightRP.action("welcome.ack", function(playerId)
     local c = characters[playerId]
