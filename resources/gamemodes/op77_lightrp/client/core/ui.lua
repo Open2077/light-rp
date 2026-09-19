@@ -24,16 +24,28 @@ function Ui.send(name, payload)
     return Ui.page:send(name, payload or {})
 end
 
+-- The player menu is RageUI-style: the player keeps walking and looking around
+-- while it is open. Only its navigation keys are withheld from the game (so
+-- Escape does not pause and Enter/arrows do not leak); everything else passes.
+local MENU_KEYS = { "escape", "enter", "backspace", "up", "down", "left", "right" }
+
 function Ui.setMenuOpen(open)
     if Ui.page == nil then return end
     if open then
         Ui.menuOpen = true
-        Ui.page:setFocus(true, false)
+        local consumed, why = Ui.page:setConsumedKeys(MENU_KEYS)
+        if not consumed then log("consumed keys refused (%s): the menu will block movement", tostring(why)) end
+        local focused, reason = Ui.page:setFocus(true, false, true)
+        if not focused then
+            log("keep-input focus refused (%s), falling back to full keyboard focus", tostring(reason))
+            Ui.page:setFocus(true, false)
+        end
         Ui.send(E.page.open, {})
     else
         if not Ui.menuOpen then return end
         Ui.menuOpen = false
         Ui.page:setFocus(false, false)
+        Ui.page:setConsumedKeys({})
         Ui.send(E.page.closed, {})
         TriggerServerEvent(E.net.action, { type = "menu.close" })
     end

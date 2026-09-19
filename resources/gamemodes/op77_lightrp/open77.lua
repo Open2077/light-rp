@@ -63,5 +63,6 @@ permissions {
     "acl.read",
     -- client
     "input.actions",
+    "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "ui.vanilla.hud",
 }
