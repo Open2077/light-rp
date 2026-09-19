@@ -1,16 +1,18 @@
--- Proximity interactions on the client: for every point the server sends, a
--- ground ring and an "E" prompt drawn natively by the plugin (Open77.anchors,
--- render = "ring" / "card": frame-tight, no page involved). The local position
--- is sampled ten times a second; the prompt of the nearest point in range is
--- the only one visible, and E sends that point's id to the server, which
--- re-checks the distance itself.
+-- Proximity interactions on the client. For every point the server sends:
+--   * a small ground ring drawn natively by the plugin (Open77.anchors,
+--     render = "ring"), only reported within a few metres so it appears as you
+--     walk up;
+--   * an optional vanilla map blip (Open77.blips) so the point is on the map;
+--   * one shared page anchor ("interact") that the HUD page turns into a keycap
+--     and a few words, moved onto the nearest point in range.
+-- E sends that point's id to the server, which re-checks the distance itself.
 local E = LightRpEvents
 local Config = LightRpConfig
-local Interact = { points = {}, near = nil, ready = false }
+local Interact = { points = {}, near = nil, promptAnchor = nil }
 LightRpInteract = Interact
 
-local RING = { accent = "#FFCC00B3", radius = 2.5, thickness = 2.0, groundOffset = 0.05 }
-local CARD = { color = "#F2F3F5", accent = "#FFCC00", background = "#0A0A0CF0", progress = -1, showDistance = true }
+local RING_ACCENT = "#FFCC00B3"
+local sendPrompt
 
 local function log(format, ...) LightRpUi.log(format, ...) end
 
@@ -18,40 +20,77 @@ local function anchorsAvailable()
     return type(Open77.anchors) == "table" and type(Open77.anchors.create) == "function"
 end
 
-local function clear()
-    if anchorsAvailable() then
-        for _, point in ipairs(Interact.points) do
-            if point.ring then pcall(Open77.anchors.remove, point.ring) end
-            if point.card then pcall(Open77.anchors.remove, point.card) end
-        end
-    end
-    Interact.points = {}
-    Interact.near = nil
+local function blipsAvailable()
+    return type(Open77.blips) == "table" and type(Open77.blips.create) == "function"
 end
 
-local function cardPresentation(point)
-    return { label = point.prompt or "Interact", sublabel = point.label, key = point.key or "E",
-        color = CARD.color, accent = CARD.accent, background = CARD.background, progress = CARD.progress, showDistance = CARD.showDistance }
+local function clear()
+    for _, point in ipairs(Interact.points) do
+        if point.ring and anchorsAvailable() then pcall(Open77.anchors.remove, point.ring) end
+        if point.blip and blipsAvailable() then pcall(Open77.blips.remove, point.blip) end
+    end
+    Interact.points = {}
+    if Interact.near then Interact.near = nil; sendPrompt(nil) end
+end
+
+-- The shared prompt anchor follows the nearest point; the page draws the words.
+function sendPrompt(point)
+    if Interact.promptAnchor and anchorsAvailable() then
+        if point then
+            Open77.anchors.update(Interact.promptAnchor, {
+                position = { x = point.position.x, y = point.position.y, z = point.position.z + (point.promptHeight or 1.1) }, visible = true,
+            })
+        else
+            Open77.anchors.update(Interact.promptAnchor, { visible = false })
+        end
+    end
+    LightRpUi.send(E.page.interact, point and { id = point.id, prompt = point.prompt or "Interact", key = point.key or "E" } or {})
+end
+
+local function ensurePromptAnchor()
+    if Interact.promptAnchor or not anchorsAvailable() or LightRpUi.page == nil then return end
+    local id, err = Open77.anchors.create({
+        page = LightRpUi.page, position = { x = 0, y = 0, z = 0 }, tag = "interact", maxDistance = 12.0, visible = false,
+    })
+    if id then Interact.promptAnchor = id else log("prompt anchor refused: %s", tostring(err)) end
+end
+
+local function createBlip(point)
+    if not blipsAvailable() or type(point.blip) ~= "table" then return nil end
+    for _, sprite in ipairs({ point.blip.sprite, "vehicle", "objective" }) do
+        if sprite then
+            local id = Open77.blips.create({
+                position = point.position, sprite = sprite,
+                title = point.blip.title or point.label or "Point of interest",
+                description = point.blip.description or point.prompt or "",
+                active = true, visibleThroughWalls = false,
+            })
+            if id then return id end
+        end
+    end
+    log("blip refused for %s", tostring(point.id))
+    return nil
 end
 
 local function build(list)
     clear()
+    ensurePromptAnchor()
     for _, entry in ipairs(list) do
         if type(entry) == "table" and type(entry.position) == "table" then
-            local point = { id = entry.id, position = entry.position, radius = tonumber(entry.radius) or 2.5, label = entry.label, prompt = entry.prompt, key = entry.key or "E" }
+            local ring = type(entry.ring) == "table" and entry.ring or {}
+            local point = {
+                id = entry.id, position = entry.position, radius = tonumber(entry.radius) or 2.5,
+                label = entry.label, prompt = entry.prompt, key = entry.key or "E",
+                promptHeight = tonumber(entry.promptHeight) or 1.1, blip = entry.blip,
+            }
             if anchorsAvailable() then
-                local ring, ringErr = Open77.anchors.create({
-                    position = point.position, maxDistance = 60.0, render = "ring",
-                    presentation = { accent = RING.accent, radius = point.radius, thickness = RING.thickness, groundOffset = RING.groundOffset },
+                local id, err = Open77.anchors.create({
+                    position = point.position, maxDistance = tonumber(ring.maxDistance) or 8.0, render = "ring",
+                    presentation = { accent = ring.accent or RING_ACCENT, radius = tonumber(ring.radius) or 0.9, thickness = tonumber(ring.thickness) or 2.0, groundOffset = 0.05 },
                 })
-                if ring then point.ring = ring else log("ring anchor refused for %s: %s", tostring(point.id), tostring(ringErr)) end
-                local card, cardErr = Open77.anchors.create({
-                    position = { x = point.position.x, y = point.position.y, z = point.position.z + (tonumber(entry.promptHeight) or 2.0) },
-                    maxDistance = 14.0, render = "card", visible = false,
-                    presentation = cardPresentation(point),
-                })
-                if card then point.card = card else log("card anchor refused for %s: %s", tostring(point.id), tostring(cardErr)) end
+                if id then point.ring = id else log("ring anchor refused for %s: %s", tostring(point.id), tostring(err)) end
             end
+            point.blip = createBlip(point) -- nil when the point asks for none
             Interact.points[#Interact.points + 1] = point
         end
     end
@@ -72,9 +111,8 @@ end
 
 local function setNear(point)
     if Interact.near == point then return end
-    if Interact.near and Interact.near.card then pcall(Open77.anchors.update, Interact.near.card, { visible = false }) end
     Interact.near = point
-    if point and point.card then pcall(Open77.anchors.update, point.card, { visible = true }) end
+    sendPrompt(point)
 end
 
 CreateThread(function()

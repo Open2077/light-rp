@@ -12,6 +12,7 @@ LightRpEvents = {
         notice = "lightrp:ui:notice",   -- Lua -> page: { kind, title, body, source, durationMs }
         result = "lightrp:ui:result",   -- Lua -> page: { ok, text, action }
         dialog = "lightrp:ui:dialog",   -- Lua -> page: { kind = "rental", ... } opens a dialog
+        interact = "lightrp:ui:interact", -- Lua -> page: { id, prompt, key } for the nearest point in range, {} when none
     },
     -- client <-> server (network events)
     net = {

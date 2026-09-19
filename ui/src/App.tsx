@@ -8,6 +8,7 @@ import { CharacterWizard } from "@/features/character/CharacterWizard";
 import { NoticeLane } from "@/features/notices/NoticeLane";
 import { WelcomeModal } from "@/features/welcome/WelcomeModal";
 import { RentalDialog } from "@/features/rental/RentalDialog";
+import { InteractPrompt } from "@/features/hud/InteractPrompt";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -50,6 +51,7 @@ export function App() {
   return (
     <>
       <Hud />
+      <InteractPrompt />
       <NoticeLane />
       <CharacterWizard />
       <WelcomeModal />

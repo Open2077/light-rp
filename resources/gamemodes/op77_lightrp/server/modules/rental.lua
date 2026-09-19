@@ -36,7 +36,11 @@ local function spawnDesk(spot)
         LightRP.log("rental desk %s: NPC API unavailable, the desk is invisible but still works", spot.id)
         return nil
     end
-    local candidates = spot.npc and spot.npc.candidates or Config.npcCandidates or {}
+    -- A random face from the crowd pool, then the rest of the pool as fallbacks.
+    local pool = spot.npc and spot.npc.candidates or Config.npcPool or {}
+    local candidates = {}
+    for i, candidate in ipairs(pool) do candidates[i] = candidate end
+    for i = #candidates, 2, -1 do local j = math.random(i); candidates[i], candidates[j] = candidates[j], candidates[i] end
     for _, candidate in ipairs(candidates) do
         local definition = {
             position = { x = spot.position.x, y = spot.position.y, z = spot.position.z },
@@ -85,8 +89,9 @@ CreateThread(function()
         spot.npcId = spawnDesk(spot)
         spots[spot.id] = spot
         LightRP.interaction(interactionId(spot), {
-            position = spot.position, radius = Config.interactRadius or 2.5,
-            label = spot.name, prompt = "Rent a vehicle", key = Config.key or "E", promptHeight = 2.0,
+            position = spot.position, radius = Config.interactRadius or 2.0,
+            label = spot.name, prompt = "Rent a vehicle", key = Config.key or "E", promptHeight = 1.1,
+            ring = Config.ring, blip = Config.blip and { sprite = Config.blip.sprite, title = spot.name, description = Config.blip.description } or nil,
         })
     end
     LightRP.log("rental: %d desk(s) open, %d min per rental", #(Config.spots or {}), Config.durationMinutes or 30)

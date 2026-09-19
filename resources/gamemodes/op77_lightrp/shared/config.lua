@@ -113,20 +113,27 @@ LightRpConfig = {
     rentals = {
         enabled = true,
         key = "E",
-        interactRadius = 2.5,
+        interactRadius = 2.0,      -- metres: E works inside this
+        ring = { radius = 0.9, maxDistance = 7.0 }, -- small ring at the desk's feet, shown as you walk up
         durationMinutes = 30,
-        -- Tried in order until the platform accepts one (records need no catalogue).
-        npcCandidates = {
-            { template = "civilian_female_relaxed_01" },
-            { template = "citizen__corporat_ma" },
-            { record = "Character.kab_victim_male_rich_corpo" },
-            { template = "gang_valentinos_ranged_01" },
+        blip = { sprite = "Zzz01_CarForPurchaseVariant", title = "Vehicle rental", description = "Rent a car by the half hour. Return it at any desk." },
+        -- Crowd civilians (docs/generated/npc-records-2.31.csv, category civilian,
+        -- risk candidate). One is picked at random per desk; the list is tried
+        -- until the platform accepts a record.
+        npcPool = {
+            { record = "Character.mws_hey_07_zetatech_executive" },  -- corporate, male
+            { record = "Character.sts_hey_rey_06_receptionist" },    -- corporate, female
+            { record = "Character.quickhits_target_003" },           -- rich, male
+            { record = "Character.mws_thenerves_crowd_01" },         -- rich, male
+            { record = "Character.quickhits_target_002" },           -- creole, male
+            { record = "Character.ma_std_rcr_slacker_02" },          -- youngster, male
+            { record = "Character.mws_thenerves_driver_01" },        -- youngster, female
         },
         spots = {
             {
                 id = "citycenter", name = "Rent-a-Ride // City Center",
                 position = { x = -654.821594, y = -383.462616, z = 8.189293 }, heading = 90.0,
-                parking = { position = { x = -654.8, y = -377.5, z = 8.2 }, heading = 90.0 },
+                parking = { position = { x = -654.762451, y = -389.363800, z = 7.991211 }, heading = 143.600037 },
                 stock = {
                     { key = "maimai",   price = 60 },
                     { key = "hella",    price = 120 },

@@ -4,7 +4,8 @@
    `?menu=1` opens the player menu, `?staff=1` grants staff,
    `?registered=1` skips the wizard, `?step=appearance|confirm` starts the wizard
    at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing,
-   `?dialog=rental` opens a rental desk, `?rental=1` starts with a car out. */
+   `?dialog=rental` opens a rental desk, `?rental=1` starts with a car out,
+   `?interact=1` shows the proximity prompt. */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 
@@ -86,6 +87,10 @@ export function installMockBridge(): void {
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
+          if (params.get("interact") === "1") {
+            fire(PAGE_EVENTS.interact, { id: "rental.citycenter", prompt: "Rent a vehicle", key: "E" });
+            setInterval(() => fire("open77:anchors", { anchors: [{ id: "1", tag: "interact", kind: "position", x: 0.52 + Math.sin(Date.now() / 900) * 0.01, y: 0.55, depth: 3, distance: 3, onScreen: true }] }), 33);
+          }
           if (params.get("dialog") === "rental") fire(PAGE_EVENTS.dialog, { kind: "rental", spot: { id: "citycenter", name: "Rent-a-Ride // City Center", durationMinutes: 30, stock: [
             { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
             { key: "cortes", label: "Villefort Cortes", category: "Street", price: 140 }, { key: "semimaru", label: "Yaiba Semimaru", category: "Bikes", price: 90 },

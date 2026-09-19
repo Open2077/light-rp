@@ -68,5 +68,6 @@ permissions {
     "input.actions",
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks are NPCs
+    "ui.vanilla.map",       -- map blips on the interaction points
     "ui.vanilla.hud",
 }

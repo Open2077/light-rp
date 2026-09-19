@@ -34,7 +34,8 @@ local function clientList()
     for _, id in ipairs(order) do
         local d = interactions[id]
         if d then
-            list[#list + 1] = { id = id, position = d.position, radius = d.radius, label = d.label, prompt = d.prompt, key = d.key, promptHeight = d.promptHeight }
+            list[#list + 1] = { id = id, position = d.position, radius = d.radius, label = d.label, prompt = d.prompt, key = d.key,
+                promptHeight = d.promptHeight, ring = d.ring, blip = d.blip }
         end
     end
     return list

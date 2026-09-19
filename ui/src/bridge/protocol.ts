@@ -15,6 +15,7 @@ export const PAGE_EVENTS = {
   notice: "lightrp:ui:notice",
   result: "lightrp:ui:result",
   dialog: "lightrp:ui:dialog",
+  interact: "lightrp:ui:interact",
 } as const;
 
 export type BodyFamily = "male" | "female";
