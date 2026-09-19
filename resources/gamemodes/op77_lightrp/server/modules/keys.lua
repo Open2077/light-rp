@@ -15,7 +15,7 @@
 --   LightRP.keys.lock(vehicleId, locked)        -- street lock, holders keep their access
 --   LightRP.keys.toggle(playerId, vehicleId)    -- what the L key does, validated
 --   hook onVehicleLockChanged(vehicleId, locked, byPlayerId)
-local Config = LightRpConfig.keys
+local Config = LightRpConfig.vehicleKeys
 local Keys = LightRP.module("keys", {})
 
 local ledger = {}      -- vehicleId -> { label, owner = identity|nil, holders = { [identity] = { at, label } } }

@@ -29,7 +29,8 @@ LightRpConfig = {
     -- Vehicle keys: L locks or unlocks the vehicle you sit in or the closest one
     -- within `range`, if your character holds a key for it. A locked vehicle
     -- stays open for its key holders (per-player lock exceptions).
-    keys = {
+    -- (Not `keys`: that table holds the key bindings above.)
+    vehicleKeys = {
         range = 8.0,
         hornMs = 150, -- a short honk confirms the lock; 0 disables
     },

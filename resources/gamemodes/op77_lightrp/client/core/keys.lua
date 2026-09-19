@@ -24,7 +24,7 @@ local function targetVehicle()
         if ok and type(seat) == "table" and seat.vehicleId ~= nil then return seat.vehicleId end
     end
     if type(Open77.vehicles.closest) == "function" then
-        local ok, entry = pcall(Open77.vehicles.closest, Config.keys.range or 8.0)
+        local ok, entry = pcall(Open77.vehicles.closest, Config.vehicleKeys.range or 8.0)
         if ok and type(entry) == "table" then return entry.id or entry.vehicleId end
     end
     return nil
