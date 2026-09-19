@@ -22,6 +22,7 @@ dependencies {
 -- Downloaded by clients: never put credentials in shared/.
 shared_script "shared/events.lua"
 shared_script "shared/config.lua"
+shared_script "shared/items.lua"
 
 -- Server: core first, then modules (each registers itself with LightRP.module).
 server_script "server/core/framework.lua"
@@ -35,6 +36,7 @@ server_script "server/modules/vehicles.lua"
 server_script "server/modules/keys.lua"
 server_script "server/modules/rental.lua"
 server_script "server/modules/wardrobe.lua"
+server_script "server/modules/inventory.lua"
 server_script "server/modules/staff.lua"
 server_script "server/modules/ui.lua"
 server_script "server/main.lua"
@@ -46,6 +48,7 @@ client_script "client/core/interact.lua"
 client_script "client/core/keys.lua"
 client_script "client/core/movement.lua"
 client_script "client/core/talkers.lua"
+client_script "client/core/inventory.lua"
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the

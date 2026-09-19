@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DialogPayload, HudState, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
+import type { DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 
 export interface Notice {
   id: string;
@@ -59,6 +59,7 @@ interface Store {
   setResult(ok: boolean, text: string, action?: string): void;
   openDialog(payload: DialogPayload): void;
   closeDialog(): void;
+  updateInventories(list: InventorySnapshot[]): void;
 }
 
 let noticeSequence = 0;
@@ -76,6 +77,17 @@ export const useStore = create<Store>((set) => ({
   applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch }, rentalReceivedAt: patch.rental ? Date.now() : s.rentalReceivedAt })),
   openDialog: (payload) => set({ dialog: payload }),
   closeDialog: () => set({ dialog: undefined }),
+  // Fresh snapshots replace the matching side of the open inventory dialog; a
+  // snapshot for an unknown id (the server switched the secondary) lands on the right.
+  updateInventories: (list) => set((s) => {
+    if (!s.dialog || s.dialog.kind !== "inventory") return {};
+    let { left, right } = s.dialog;
+    for (const snap of list) {
+      if (snap.id === left.id) left = snap;
+      else right = snap;
+    }
+    return { dialog: { ...s.dialog, left, right } };
+  }),
   setHud: (hud) => set({ hud }),
   openMenu: () => set({ menuOpen: true }),
   closeMenu: () => set({ menuOpen: false }),

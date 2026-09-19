@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import {
-  Activity, ArrowLeftRight, BadgeCheck, Banknote, Beef, Calendar, Car, Check, Clock, CreditCard, Footprints, Landmark, Wallet, ChevronLeft, ChevronRight, CircleHelp,
+  Activity, Apple, ArrowLeftRight, BadgeCheck, Bandage, Banknote, Battery, Beef, Box, Calendar, Candy, Car, Check, Cigarette, Clock, CreditCard, CupSoda,
+  Flame, Footprints, Hammer, Hand, Landmark, PackageOpen, Pill, Sandwich, Smartphone, Wallet, Watch, Wrench, ChevronLeft, ChevronRight, CircleHelp,
   Droplet, FileText, Fuel, HeartPulse, IdCard, Info, Keyboard, KeyRound, Loader, MapPin,
   MessageSquare, Mic, MicOff, OctagonAlert, Package, Radio, Settings, Shield, ShieldAlert,
   Siren, Terminal, TriangleAlert, User, Users, X, Zap, CheckCheck, type LucideIcon,
@@ -10,7 +11,9 @@ import {
    only the resource's own files). Stroke-only, currentColor, 12–20px. Add a glyph
    here when a component needs it: the name is the Lucide kebab-case id. */
 const GLYPHS: Record<string, LucideIcon> = {
-  activity: Activity, "arrow-left-right": ArrowLeftRight, calendar: Calendar, clock: Clock, footprints: Footprints, "credit-card": CreditCard, landmark: Landmark, wallet: Wallet, "badge-check": BadgeCheck, banknote: Banknote, beef: Beef, car: Car, check: Check,
+  activity: Activity, "arrow-left-right": ArrowLeftRight, calendar: Calendar, clock: Clock, footprints: Footprints,
+  apple: Apple, bandage: Bandage, battery: Battery, box: Box, candy: Candy, cigarette: Cigarette, "cup-soda": CupSoda, flame: Flame, hammer: Hammer,
+  hand: Hand, "package-open": PackageOpen, pill: Pill, sandwich: Sandwich, smartphone: Smartphone, watch: Watch, wrench: Wrench, "credit-card": CreditCard, landmark: Landmark, wallet: Wallet, "badge-check": BadgeCheck, banknote: Banknote, beef: Beef, car: Car, check: Check,
   "check-check": CheckCheck, "chevron-left": ChevronLeft, "chevron-right": ChevronRight, "circle-help": CircleHelp,
   droplet: Droplet, "file-text": FileText, fuel: Fuel, "heart-pulse": HeartPulse, "id-card": IdCard, info: Info,
   keyboard: Keyboard, "key-round": KeyRound, loader: Loader, "map-pin": MapPin, "message-square": MessageSquare,
@@ -29,7 +32,7 @@ export interface IconProps {
 }
 
 export function Icon({ name, size = 16, style, className }: IconProps) {
-  const Glyph = GLYPHS[name];
+  const Glyph = GLYPHS[name] ?? GLYPHS.package!;
   if (!Glyph) {
     return (
       <span aria-hidden="true" title={"missing icon: " + name} className={className}

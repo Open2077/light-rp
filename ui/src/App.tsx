@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { announceReady, on, requestClose } from "@/bridge/open77";
-import { PAGE_EVENTS, type DialogPayload, type HudState, type NoticePayload, type ResultPayload, type UiStatePatch } from "@/bridge/protocol";
+import { PAGE_EVENTS, type DialogPayload, type HudState, type InventorySnapshot, type NoticePayload, type ResultPayload, type UiStatePatch } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { Hud } from "@/features/hud/Hud";
 import { PlayerMenu } from "@/features/menu/PlayerMenu";
@@ -8,6 +8,7 @@ import { CharacterWizard } from "@/features/character/CharacterWizard";
 import { NoticeLane } from "@/features/notices/NoticeLane";
 import { WelcomeModal } from "@/features/welcome/WelcomeModal";
 import { RentalDialog } from "@/features/rental/RentalDialog";
+import { InventoryDialog } from "@/features/inventory/Inventory";
 import { InteractPrompt } from "@/features/hud/InteractPrompt";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
@@ -21,6 +22,7 @@ export function App() {
   const setResult = useStore((s) => s.setResult);
   const setConnected = useStore((s) => s.setConnected);
   const openDialog = useStore((s) => s.openDialog);
+  const updateInventories = useStore((s) => s.updateInventories);
 
   useEffect(() => {
     const offs = [
@@ -43,10 +45,11 @@ export function App() {
         pushNotice({ kind: r.ok ? "success" : "error", title: r.ok ? undefined : "DENIED", body: r.text, source: "LIGHT RP", durationMs: 6000 });
       }),
       on<DialogPayload>(PAGE_EVENTS.dialog, (d) => { if (d?.kind) openDialog(d); }),
+      on<{ inventories?: InventorySnapshot[] }>(PAGE_EVENTS.inventory, (p) => { if (Array.isArray(p?.inventories)) updateInventories(p.inventories); }),
     ];
     announceReady();
     return () => offs.forEach((off) => off());
-  }, [applyState, setHud, openMenu, closeMenu, pushNotice, setResult, setConnected, openDialog]);
+  }, [applyState, setHud, openMenu, closeMenu, pushNotice, setResult, setConnected, openDialog, updateInventories]);
 
   return (
     <>
@@ -56,6 +59,7 @@ export function App() {
       <CharacterWizard />
       <WelcomeModal />
       <RentalDialog />
+      <InventoryDialog />
       <PlayerMenu />
     </>
   );

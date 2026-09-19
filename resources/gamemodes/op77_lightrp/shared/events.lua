@@ -13,6 +13,7 @@ LightRpEvents = {
         result = "lightrp:ui:result",   -- Lua -> page: { ok, text, action }
         dialog = "lightrp:ui:dialog",   -- Lua -> page: { kind = "rental", ... } opens a dialog
         interact = "lightrp:ui:interact", -- Lua -> page: { id, prompt, key } for the nearest point in range, {} when none
+        inventory = "lightrp:ui:inventory", -- Lua -> page: { inventories = { snapshot, ... } } fresh copies of what is on screen
     },
     -- client <-> server (network events)
     net = {
@@ -25,5 +26,6 @@ LightRpEvents = {
         interactions = "op77_lightrp:interactions", -- server -> client: the proximity points to draw
         interact = "op77_lightrp:interact",   -- client -> server: E pressed at a point (id)
         keysToggle = "op77_lightrp:keys:toggle", -- client -> server: L pressed for a vehicle (id)
+        inventory = "op77_lightrp:inventory",  -- server -> client: inventory snapshots for the page
     },
 }

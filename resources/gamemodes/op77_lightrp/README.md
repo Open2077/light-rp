@@ -127,6 +127,14 @@ Modèle FiveM : un véhicule est verrouillé pour la rue et ouvert pour ceux qui
 
 API : `LightRP.keys.give(vehicleId, playerId, { label, owner })`, `take`, `clear`, `has`, `holders`, `lock(vehicleId, locked)`, `toggle(playerId, vehicleId)` (validé : clé + distance `keys.range` ou assis dedans, klaxon court). Hook `onVehicleLockChanged`. Touche L (`lightrp.vehiclelock`, rebindable) : le véhicule occupé, sinon le plus proche. Les clés disparaissent avec le véhicule (`onVehicleRemoved`). Staff : `/lightrp.givekeys`, `/lightrp.takekeys`. La location livre la voiture verrouillée avec la clé dans la poche du loueur.
 
+## Inventaire (`shared/items.lua`, `server/modules/inventory.lua`, page `features/inventory/`)
+
+Modèle ox_inventory : grilles de cases à poids maximum, stacks d'items identiques (même `name` + mêmes `metadata`, jusqu'à `stack` du template), tout mouvement validé côté serveur. Kinds : `player:<identifier>#<slot>` (persistant, chargé avec le personnage, items de départ dans `config.inventory.starting`), `trunk:<vehicleId>` (session, le véhicule ouvrable le plus proche : déverrouillé ou clé en poche), `drop:<n>` (session, tas au sol avec point d'interaction E « Pick up », expire après `drop.ttlMinutes`), `stash:<id>` (persistant, points de `config.inventory.stashes`). Table `lightrp_inventories` (items en JSON).
+
+Templates dans `shared/items.lua` : `label`, `description`, `weight` (kg), `stack`, `icon` (nom Lucide connu de la page, repli `package`), `category`, `use = { consume, food, drink, health, notice }`. Un autre module peut brancher `LightRP.inventory.onUse(name, fn)`. API : `addItem(invId, name, count, metadata)`, `removeItem`, `count`, `canHold`, `move`, `use`, `drop`, `give`, `open(playerId, invId?)`, `playerId(playerId)`; hook `onItemUsed`. Actions page : `inventory.open|close|move|use|drop|give`. Touche I (`lightrp.inventory`). Staff : `/lightrp.giveitem <id|me> <item> [n]`, `/lightrp.items`.
+
+Page : deux panneaux (joueur à gauche, secondaire à droite ou zone « DROP HERE » qui crée un tas), colonne centrale avec le champ Amount et Use / Give / Drop, drag & drop (Shift = moitié, Amount = quantité), clic droit Use / Give / Split / Drop, recherche par panneau, infobulle, 1–5 sur les premières cases. Les snapshots frais arrivent par `lightrp:ui:inventory` à tous ceux qui regardent l'inventaire modifié.
+
 ## Ce que voit le joueur
 
 - HUD : vie, armure, endurance, faim, soif, micro avec portée (WHISPER 4 m / NORMAL 15 m /

@@ -1,0 +1,690 @@
+-- Inventories, the ox_inventory way: slot grids with a weight cap, stacks of
+-- identical items, and every move validated here. Kinds:
+--   player:<identifier>#<slot>  persistent, one per character, loaded with it
+--   trunk:<vehicleId>           session-only, opened next to a vehicle you can open
+--   drop:<n>                    session-only, a pile on the ground with a pick-up point
+--   stash:<id>                  persistent, a config point in the world
+-- The page shows two inventories (left = the player's, right = the secondary)
+-- and asks; the server answers with fresh snapshots to everyone watching.
+--
+--   LightRP.inventory.addItem(invId, name, count, metadata) / removeItem(invId, name, count)
+--   LightRP.inventory.count(invId, name)   LightRP.inventory.playerId(playerId) -> invId
+--   LightRP.inventory.onUse(name, fn(playerId, item, template) -> consumed?)
+--   hook onItemUsed(playerId, name, item)
+local Config = LightRpConfig.inventory
+local Items = LightRpItems
+local Db = LightRP.db
+local Inv = LightRP.module("inventory", {})
+
+Db.schema([[
+    CREATE TABLE IF NOT EXISTS lightrp_inventories (
+        id          VARCHAR(96)  NOT NULL PRIMARY KEY,
+        kind        VARCHAR(16)  NOT NULL,
+        label       VARCHAR(64)  NOT NULL DEFAULT '',
+        slots       INT          NOT NULL,
+        max_weight  DOUBLE       NOT NULL,
+        items       MEDIUMTEXT   NOT NULL,
+        updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+]])
+
+local registry = {}     -- id -> inventory
+local playerInv = {}    -- playerId -> inventory id
+local secondary = {}    -- playerId -> inventory id currently open on the right (or "ground")
+local useHandlers = {}  -- item name -> fn
+local dropSequence = 0
+Inv.registry = registry
+
+local json = Open77.json
+
+-- ---------------------------------------------------------------------------
+-- Helpers
+
+local function template(name) return Items[name] end
+
+local function metaEqual(a, b)
+    if a == nil and b == nil then return true end
+    if a == nil or b == nil then return false end
+    return json.encode(a) == json.encode(b)
+end
+
+local function itemWeight(item)
+    local t = template(item.name)
+    return (t and t.weight or 0) * (item.count or 0)
+end
+
+function Inv.weightOf(inv)
+    local total = 0
+    for _, item in pairs(inv.items) do total = total + itemWeight(item) end
+    return total
+end
+
+local function stackMax(name)
+    local t = template(name)
+    return math.max(1, math.floor(tonumber(t and t.stack) or 1))
+end
+
+local function firstFreeSlot(inv)
+    for slot = 1, inv.slots do if inv.items[slot] == nil then return slot end end
+    return nil
+end
+
+local function snapshotItem(slot, item)
+    local t = template(item.name) or {}
+    return {
+        slot = slot, name = item.name, count = item.count, metadata = item.metadata,
+        label = item.metadata and item.metadata.label or t.label or item.name, description = t.description,
+        weight = t.weight or 0, icon = t.icon or "package", category = t.category, usable = t.use ~= nil or useHandlers[item.name] ~= nil,
+        stack = stackMax(item.name),
+    }
+end
+
+function Inv.snapshot(inv)
+    local items = {}
+    for slot = 1, inv.slots do
+        local item = inv.items[slot]
+        if item then items[#items + 1] = snapshotItem(slot, item) end
+    end
+    return { id = inv.id, kind = inv.kind, label = inv.label, slots = inv.slots, maxWeight = inv.maxWeight, weight = Inv.weightOf(inv), items = items }
+end
+
+local function persist(inv)
+    if not inv.persistent or not Db.ready then return end
+    Db.run([[INSERT INTO lightrp_inventories (id, kind, label, slots, max_weight, items) VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE items = VALUES(items), slots = VALUES(slots), max_weight = VALUES(max_weight), label = VALUES(label)]],
+        { inv.id, inv.kind, inv.label or "", inv.slots, inv.maxWeight, json.encode(inv.items) or "{}" })
+end
+
+-- Everyone looking at this inventory gets the new snapshot.
+local function publish(inv)
+    local snap = Inv.snapshot(inv)
+    for viewer in pairs(inv.viewers) do
+        if GetPlayerName(viewer) == nil then inv.viewers[viewer] = nil
+        else TriggerClientEvent(LightRpEvents.net.inventory, viewer, { inventories = { snap } }) end
+    end
+end
+
+local function changed(inv)
+    persist(inv)
+    publish(inv)
+    if inv.kind == "drop" and next(inv.items) == nil then Inv.removeDrop(inv) end
+end
+
+local function decodeItems(text)
+    local ok, value = pcall(json.decode, text or "{}")
+    local items = {}
+    if ok and type(value) == "table" then
+        for k, v in pairs(value) do
+            local slot = tonumber(k)
+            if slot and type(v) == "table" and template(v.name) and (tonumber(v.count) or 0) > 0 then
+                items[math.floor(slot)] = { name = v.name, count = math.floor(tonumber(v.count)), metadata = v.metadata }
+            end
+        end
+    end
+    return items
+end
+
+-- ---------------------------------------------------------------------------
+-- Registry
+
+local function register(inv)
+    inv.items = inv.items or {}
+    inv.viewers = inv.viewers or {}
+    registry[inv.id] = inv
+    return inv
+end
+
+local function loadPersistent(id, kind, label, slots, maxWeight, onCreate)
+    if registry[id] then return registry[id] end
+    local inv = { id = id, kind = kind, label = label, slots = slots, maxWeight = maxWeight, persistent = true, items = {} }
+    local row = Db.ready and Db.single("SELECT items, slots, max_weight FROM lightrp_inventories WHERE id = ?", { id })
+    if row then
+        inv.items = decodeItems(row.items)
+    else
+        if onCreate then onCreate(inv) end
+        persist(inv)
+    end
+    return register(inv)
+end
+
+function Inv.get(id) return registry[id] end
+
+function Inv.player(playerId)
+    local id = playerInv[playerId]
+    return id and registry[id] or nil
+end
+
+function Inv.playerId(playerId) return playerInv[playerId] end
+
+local function trunkOf(vehicleId)
+    local id = "trunk:" .. tostring(vehicleId)
+    if registry[id] then return registry[id] end
+    local vehicle = Open77.vehicles.get(vehicleId)
+    if vehicle == nil then return nil end
+    local label = "Trunk"
+    for _, entry in ipairs(LightRpConfig.vehicles.catalog) do if entry.record == vehicle.record then label = entry.label end end
+    return register({ id = id, kind = "trunk", label = label, slots = Config.trunk.slots, maxWeight = Config.trunk.weight, vehicleId = vehicleId })
+end
+
+local function stashOf(spot)
+    return loadPersistent("stash:" .. spot.id, "stash", spot.name, spot.slots or Config.stash.slots, spot.weight or Config.stash.weight)
+end
+
+-- ---------------------------------------------------------------------------
+-- Drops: a pile on the ground with a pick-up point
+
+local function newDrop(position)
+    dropSequence = dropSequence + 1
+    local id = "drop:" .. dropSequence
+    local inv = register({ id = id, kind = "drop", label = "Dropped items", slots = Config.drop.slots, maxWeight = Config.drop.weight,
+        position = { x = position.x, y = position.y, z = position.z }, createdAt = LightRP.nowMs() })
+    LightRP.interaction(id, {
+        position = inv.position, radius = Config.drop.radius or 2.0, label = "Dropped items", prompt = "Pick up", key = "E", promptHeight = 0.6,
+        marker = Config.drop.marker, ring = false,
+    })
+    return inv
+end
+
+function Inv.removeDrop(inv)
+    if inv == nil or inv.kind ~= "drop" then return end
+    registry[inv.id] = nil
+    LightRP.removeInteraction(inv.id)
+    for viewer in pairs(inv.viewers) do
+        if secondary[viewer] == inv.id then secondary[viewer] = "ground"; Inv.push(viewer) end
+    end
+end
+
+local function nearestDrop(position, radius)
+    local best, bestDistance
+    for _, inv in pairs(registry) do
+        if inv.kind == "drop" then
+            local dx, dy, dz = position.x - inv.position.x, position.y - inv.position.y, position.z - inv.position.z
+            local d = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if d <= radius and (bestDistance == nil or d < bestDistance) then best, bestDistance = inv, d end
+        end
+    end
+    return best
+end
+
+-- ---------------------------------------------------------------------------
+-- Access: who may touch what, decided here on every request
+
+local function distanceTo(playerId, position)
+    local p = Open77.players.position(playerId)
+    if p == nil or position == nil then return math.huge end
+    local dx, dy, dz = p.x - position.x, p.y - position.y, p.z - position.z
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+local function canAccess(playerId, inv)
+    if inv == nil then return false, "unknown_inventory" end
+    if inv.id == playerInv[playerId] then return true end
+    if inv.kind == "trunk" then
+        local position = Open77.vehicles.getPosition and Open77.vehicles.getPosition(inv.vehicleId) or (Open77.vehicles.get(inv.vehicleId) or {}).position
+        if position == nil then return false, "vehicle_gone" end
+        if distanceTo(playerId, position) > (Config.trunk.range or 4.5) then return false, "too_far" end
+        if Open77.vehicles.isLocked(inv.vehicleId) == true and not LightRP.keys.has(inv.vehicleId, playerId) then return false, "locked" end
+        return true
+    end
+    if inv.kind == "drop" then
+        if distanceTo(playerId, inv.position) > (Config.drop.radius or 2.0) + 1.5 then return false, "too_far" end
+        return true
+    end
+    if inv.kind == "stash" then
+        local spot = inv.spot
+        if spot and distanceTo(playerId, spot.position) > (Config.stash.range or 3.5) then return false, "too_far" end
+        return true
+    end
+    return false, "forbidden"
+end
+
+-- ---------------------------------------------------------------------------
+-- Mutations. All return ok, reason.
+
+local function place(inv, name, count, metadata, preferredSlot)
+    local max = stackMax(name)
+    local remaining = count
+    if preferredSlot then
+        local target = inv.items[preferredSlot]
+        if target == nil then
+            local put = math.min(remaining, max)
+            inv.items[preferredSlot] = { name = name, count = put, metadata = metadata }
+            remaining = remaining - put
+        elseif target.name == name and metaEqual(target.metadata, metadata) and target.count < max then
+            local put = math.min(remaining, max - target.count)
+            target.count = target.count + put
+            remaining = remaining - put
+        end
+    end
+    -- Top up existing stacks first, then open slots.
+    if remaining > 0 and max > 1 then
+        for slot = 1, inv.slots do
+            local item = inv.items[slot]
+            if remaining > 0 and item and item.name == name and metaEqual(item.metadata, metadata) and item.count < max then
+                local put = math.min(remaining, max - item.count)
+                item.count = item.count + put
+                remaining = remaining - put
+            end
+        end
+    end
+    while remaining > 0 do
+        local slot = firstFreeSlot(inv)
+        if slot == nil then break end
+        local put = math.min(remaining, max)
+        inv.items[slot] = { name = name, count = put, metadata = metadata }
+        remaining = remaining - put
+    end
+    return count - remaining
+end
+
+function Inv.canHold(inv, name, count, metadata)
+    local t = template(name)
+    if t == nil then return false, "unknown_item" end
+    if Inv.weightOf(inv) + t.weight * count > inv.maxWeight + 1e-6 then return false, "too_heavy" end
+    -- Room: stacks that can still grow plus free slots.
+    local max, room = stackMax(name), 0
+    for slot = 1, inv.slots do
+        local item = inv.items[slot]
+        if item == nil then room = room + max
+        elseif item.name == name and metaEqual(item.metadata, metadata) then room = room + (max - item.count) end
+        if room >= count then return true end
+    end
+    return false, "no_room"
+end
+
+function Inv.addItem(invId, name, count, metadata, slot)
+    local inv = registry[invId]
+    if inv == nil then return false, "unknown_inventory" end
+    count = math.floor(tonumber(count) or 1)
+    if count <= 0 then return false, "invalid_count" end
+    local ok, reason = Inv.canHold(inv, name, count, metadata)
+    if not ok then return false, reason end
+    place(inv, name, count, metadata, slot)
+    changed(inv)
+    return true
+end
+
+function Inv.count(invId, name)
+    local inv = registry[invId]
+    if inv == nil then return 0 end
+    local total = 0
+    for _, item in pairs(inv.items) do if item.name == name then total = total + item.count end end
+    return total
+end
+
+function Inv.removeItem(invId, name, count)
+    local inv = registry[invId]
+    if inv == nil then return false, "unknown_inventory" end
+    count = math.floor(tonumber(count) or 1)
+    if Inv.count(invId, name) < count then return false, "not_enough" end
+    for slot = inv.slots, 1, -1 do
+        local item = inv.items[slot]
+        if count > 0 and item and item.name == name then
+            local take = math.min(count, item.count)
+            item.count = item.count - take
+            count = count - take
+            if item.count <= 0 then inv.items[slot] = nil end
+        end
+    end
+    changed(inv)
+    return true
+end
+
+local function takeFromSlot(inv, slot, count)
+    local item = inv.items[slot]
+    if item == nil then return nil end
+    local taken = { name = item.name, count = math.min(count, item.count), metadata = item.metadata }
+    item.count = item.count - taken.count
+    if item.count <= 0 then inv.items[slot] = nil end
+    return taken
+end
+
+-- A drag: from one slot to another, in the same inventory or across the two open ones.
+function Inv.move(playerId, fromId, fromSlot, toId, toSlot, count)
+    local from, to = registry[fromId], registry[toId]
+    local ok, reason = canAccess(playerId, from)
+    if not ok then return false, reason end
+    ok, reason = canAccess(playerId, to)
+    if not ok then return false, reason end
+    fromSlot, toSlot = math.floor(tonumber(fromSlot) or 0), math.floor(tonumber(toSlot) or 0)
+    if fromSlot < 1 or fromSlot > from.slots or toSlot < 1 or toSlot > to.slots then return false, "invalid_slot" end
+    if from == to and fromSlot == toSlot then return true end
+    local source = from.items[fromSlot]
+    if source == nil then return false, "empty_slot" end
+    count = math.floor(tonumber(count) or source.count)
+    if count <= 0 or count > source.count then return false, "invalid_count" end
+    local target = to.items[toSlot]
+    local max = stackMax(source.name)
+
+    if target ~= nil and (target.name ~= source.name or not metaEqual(target.metadata, source.metadata)) then
+        -- Swap, whole stacks only.
+        if count ~= source.count then return false, "swap_needs_whole_stack" end
+        if from ~= to then
+            local fromWeight = Inv.weightOf(from) - itemWeight(source) + itemWeight(target)
+            local toWeight = Inv.weightOf(to) - itemWeight(target) + itemWeight(source)
+            if fromWeight > from.maxWeight + 1e-6 or toWeight > to.maxWeight + 1e-6 then return false, "too_heavy" end
+        end
+        from.items[fromSlot], to.items[toSlot] = target, source
+    else
+        local room = target and (max - target.count) or max
+        if room <= 0 then return false, "stack_full" end
+        local moving = math.min(count, room)
+        if from ~= to then
+            local t = template(source.name)
+            if Inv.weightOf(to) + t.weight * moving > to.maxWeight + 1e-6 then return false, "too_heavy" end
+        end
+        local taken = takeFromSlot(from, fromSlot, moving)
+        if target then target.count = target.count + taken.count
+        else to.items[toSlot] = taken end
+    end
+    changed(from)
+    if to ~= from then changed(to) end
+    return true
+end
+
+function Inv.use(playerId, slot)
+    local inv = Inv.player(playerId)
+    if inv == nil then return false, "no_inventory" end
+    local item = inv.items[math.floor(tonumber(slot) or 0)]
+    if item == nil then return false, "empty_slot" end
+    local t = template(item.name)
+    local handler = useHandlers[item.name]
+    if t == nil or (t.use == nil and handler == nil) then return false, "not_usable" end
+    local life = Open77.players.getLifeState(playerId)
+    if life == nil or life.phase ~= "alive" then return false, "not_alive" end
+    local consume = t.use and t.use.consume ~= false
+    if handler then
+        local ok, result = pcall(handler, playerId, item, t)
+        if not ok then LightRP.log("use handler for %s failed: %s", item.name, tostring(result)) return false, "use_failed" end
+        if result == false then return false, "use_refused" end
+        if t.use == nil then consume = result ~= "keep" end
+    end
+    if t.use then
+        if (t.use.food or t.use.drink) and LightRP.needs then
+            local needs = LightRP.needs.get(playerId)
+            LightRP.needs.set(playerId, needs.food + (t.use.food or 0), needs.drink + (t.use.drink or 0))
+        end
+        if t.use.health and type(Open77.players.heal) == "function" then pcall(Open77.players.heal, playerId, t.use.health) end
+        if t.use.notice then LightRP.notice(playerId, { kind = "item", title = t.label, body = t.use.notice, durationMs = 4000 }) end
+    end
+    if consume then
+        item.count = item.count - 1
+        if item.count <= 0 then inv.items[math.floor(tonumber(slot))] = nil end
+        changed(inv)
+    end
+    LightRP.eachModule("onItemUsed", playerId, item.name, item)
+    return true, t.label
+end
+
+function Inv.onUse(name, fn) useHandlers[name] = fn end
+
+-- Drop on the ground: into the pile at your feet, or a new one.
+function Inv.drop(playerId, slot, count)
+    local inv = Inv.player(playerId)
+    if inv == nil then return false, "no_inventory" end
+    slot = math.floor(tonumber(slot) or 0)
+    local item = inv.items[slot]
+    if item == nil then return false, "empty_slot" end
+    count = math.floor(tonumber(count) or item.count)
+    if count <= 0 or count > item.count then return false, "invalid_count" end
+    local position = Open77.players.position(playerId)
+    if position == nil then return false, "position_unknown" end
+    local pile = nearestDrop(position, Config.drop.radius or 2.0) or newDrop(position)
+    local ok, reason = Inv.canHold(pile, item.name, count, item.metadata)
+    if not ok then return false, reason end
+    local taken = takeFromSlot(inv, slot, count)
+    place(pile, taken.name, taken.count, taken.metadata)
+    changed(inv)
+    changed(pile)
+    return true, pile
+end
+
+-- Hand to the closest player within reach.
+function Inv.give(playerId, slot, count)
+    local inv = Inv.player(playerId)
+    if inv == nil then return false, "no_inventory" end
+    slot = math.floor(tonumber(slot) or 0)
+    local item = inv.items[slot]
+    if item == nil then return false, "empty_slot" end
+    count = math.floor(tonumber(count) or item.count)
+    if count <= 0 or count > item.count then return false, "invalid_count" end
+    local here = Open77.players.position(playerId)
+    if here == nil then return false, "position_unknown" end
+    local target, best
+    for id, p in pairs(Open77.players.positions() or {}) do
+        id = tonumber(id)
+        if id and id ~= playerId and (p.bucket or 0) == (here.bucket or 0) and playerInv[id] then
+            local dx, dy, dz = p.x - here.x, p.y - here.y, p.z - here.z
+            local d = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if d <= (Config.giveRange or 3.0) and (best == nil or d < best) then target, best = id, d end
+        end
+    end
+    if target == nil then return false, "nobody_near" end
+    local other = Inv.player(target)
+    local ok, reason = Inv.canHold(other, item.name, count, item.metadata)
+    if not ok then return false, reason == "too_heavy" and "target_too_heavy" or "target_no_room" end
+    local taken = takeFromSlot(inv, slot, count)
+    place(other, taken.name, taken.count, taken.metadata)
+    changed(inv)
+    changed(other)
+    local t = template(taken.name)
+    LightRP.notice(target, { kind = "item", title = "Received", body = string.format("%dx %s from %s", taken.count, t and t.label or taken.name, LightRP.characters.displayName(playerId)), durationMs = 6000 })
+    return true, { target = target, name = taken.name, count = taken.count, label = t and t.label or taken.name }
+end
+
+-- ---------------------------------------------------------------------------
+-- Open / close: what the page shows
+
+local function secondaryFor(playerId)
+    local id = secondary[playerId]
+    if id == nil or id == "ground" then return { kind = "ground", id = "ground", label = "Drop", slots = Config.drop.slots, maxWeight = Config.drop.weight, weight = 0, items = {} } end
+    local inv = registry[id]
+    if inv == nil or not canAccess(playerId, inv) then
+        secondary[playerId] = "ground"
+        return secondaryFor(playerId)
+    end
+    return Inv.snapshot(inv)
+end
+
+function Inv.push(playerId)
+    local inv = Inv.player(playerId)
+    if inv == nil then return end
+    TriggerClientEvent(LightRpEvents.net.inventory, playerId, { inventories = { Inv.snapshot(inv), secondaryFor(playerId) } })
+end
+
+local function stopWatching(playerId)
+    for _, inv in pairs(registry) do inv.viewers[playerId] = nil end
+end
+
+-- Pick the secondary: the one asked for, else the nearest openable vehicle, else the nearest pile.
+local function pickSecondary(playerId, wanted)
+    if wanted and registry[wanted] and canAccess(playerId, registry[wanted]) then return wanted end
+    local position = Open77.players.position(playerId)
+    if position == nil then return "ground" end
+    if type(Open77.vehicles.closest) == "function" then
+        local ok, entry = pcall(Open77.vehicles.closest, position, { radius = Config.trunk.range or 4.5 })
+        local vehicleId = ok and type(entry) == "table" and (entry.id or entry.vehicleId) or nil
+        if vehicleId then
+            local trunk = trunkOf(vehicleId)
+            if trunk and canAccess(playerId, trunk) then return trunk.id end
+        end
+    end
+    local pile = nearestDrop(position, Config.drop.radius or 2.0)
+    if pile then return pile.id end
+    return "ground"
+end
+
+function Inv.open(playerId, wanted)
+    local inv = Inv.player(playerId)
+    if inv == nil then return false, "no_inventory" end
+    stopWatching(playerId)
+    secondary[playerId] = pickSecondary(playerId, wanted)
+    inv.viewers[playerId] = true
+    local other = registry[secondary[playerId]]
+    if other then other.viewers[playerId] = true end
+    LightRP.dialog(playerId, "inventory", { left = Inv.snapshot(inv), right = secondaryFor(playerId) })
+    return true
+end
+
+function Inv.close(playerId)
+    stopWatching(playerId)
+    secondary[playerId] = nil
+end
+
+-- Dragging onto the empty "Drop" panel makes a pile; onto a pile, fills it.
+local function moveToGround(playerId, fromSlot, count)
+    local ok, result = Inv.drop(playerId, fromSlot, count)
+    if not ok then return false, result end
+    secondary[playerId] = result.id
+    result.viewers[playerId] = true
+    Inv.push(playerId)
+    return true
+end
+
+-- ---------------------------------------------------------------------------
+-- Lifecycle
+
+function Inv.onCharacterLoaded(playerId, c)
+    stopWatching(playerId)
+    secondary[playerId] = nil
+    playerInv[playerId] = nil
+    if c == nil or c.status ~= "active" or c.identifier == nil then return end
+    local id = "player:" .. c.identifier .. "#" .. (c.key or "default")
+    local inv = loadPersistent(id, "player", LightRP.characters.displayName(playerId), Config.player.slots, Config.player.weight, function(fresh)
+        for _, start in ipairs(Config.starting or {}) do
+            if template(start.name) then place(fresh, start.name, start.count or 1, start.metadata) end
+        end
+    end)
+    inv.label = LightRP.characters.displayName(playerId)
+    playerInv[playerId] = id
+end
+
+function Inv.onCharacterActivated(playerId, c) Inv.onCharacterLoaded(playerId, c) end
+
+function Inv.onDisconnected(playerId)
+    stopWatching(playerId)
+    local id = playerInv[playerId]
+    playerInv[playerId] = nil
+    secondary[playerId] = nil
+    if id and registry[id] then persist(registry[id]); registry[id] = nil end
+end
+
+function Inv.onDatabaseReady()
+    for _, id in ipairs(GetPlayers()) do
+        local c = LightRP.characters.get(id)
+        if c and c.status == "active" then Inv.onCharacterLoaded(id, c) end
+    end
+end
+
+AddEventHandler("onVehicleRemoved", function(id)
+    local trunk = registry["trunk:" .. tostring(id)]
+    if trunk == nil then return end
+    registry[trunk.id] = nil
+    for viewer in pairs(trunk.viewers) do
+        if secondary[viewer] == trunk.id then secondary[viewer] = "ground"; Inv.push(viewer) end
+    end
+end)
+
+-- Stashes from config: interaction points that open them on the right.
+local stashSpots = {}
+CreateThread(function()
+    Wait(600)
+    for _, spot in ipairs(Config.stashes or {}) do
+        stashSpots["stash." .. spot.id] = spot
+        LightRP.interaction("stash." .. spot.id, {
+            position = spot.position, radius = Config.stash.interactRadius or 2.0, label = spot.name, prompt = "Open", key = "E", promptHeight = spot.promptHeight or 1.0,
+            marker = spot.marker or Config.stash.marker, ring = false,
+        })
+    end
+    if #(Config.stashes or {}) > 0 then LightRP.log("inventory: %d stash(es) placed", #Config.stashes) end
+end)
+
+function Inv.onInteract(playerId, id)
+    local spot = stashSpots[id]
+    if spot then
+        local stash = stashOf(spot)
+        stash.spot = spot
+        Inv.open(playerId, stash.id)
+        return
+    end
+    if registry[id] and registry[id].kind == "drop" then Inv.open(playerId, id) end
+end
+
+-- Piles that nobody touched for a while go away.
+CreateThread(function()
+    while true do
+        Wait(30000)
+        local now = LightRP.nowMs()
+        local ttl = (Config.drop.ttlMinutes or 10) * 60000
+        for _, inv in pairs(registry) do
+            if inv.kind == "drop" and now - (inv.touchedAt or inv.createdAt or now) > ttl and next(inv.viewers) == nil then Inv.removeDrop(inv) end
+        end
+    end
+end)
+
+-- ---------------------------------------------------------------------------
+-- Actions and commands
+
+local REASONS = {
+    unknown_inventory = "That inventory is gone.", too_far = "Too far away.", locked = "The vehicle is locked.", vehicle_gone = "The vehicle is gone.",
+    invalid_slot = "Invalid slot.", empty_slot = "Nothing there.", invalid_count = "Invalid amount.", swap_needs_whole_stack = "Move the whole stack to swap.",
+    stack_full = "That stack is full.", too_heavy = "Too heavy to carry.", no_room = "No room.", not_usable = "You cannot use that.", not_alive = "Not right now.",
+    nobody_near = "Nobody close enough to hand it to.", target_too_heavy = "They cannot carry that.", target_no_room = "They have no room.",
+    no_inventory = "Finish your character first.", unknown_item = "Unknown item.", not_enough = "Not enough of that.", use_refused = "That did nothing.",
+    position_unknown = "Your position is unknown.", forbidden = "You cannot open that.",
+}
+local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
+Inv.explain = explain
+
+local function touched(id) local inv = registry[id]; if inv then inv.touchedAt = LightRP.nowMs() end end
+
+LightRP.action("inventory.open", function(playerId, payload)
+    local ok, reason = Inv.open(playerId, payload.target)
+    if not ok then LightRP.result(playerId, false, explain(reason), "inventory.open") end
+end)
+
+LightRP.action("inventory.close", function(playerId) Inv.close(playerId) end)
+
+LightRP.action("inventory.move", function(playerId, payload)
+    local from, to = payload.from or {}, payload.to or {}
+    if to.inventory == "ground" then
+        local ok, reason = moveToGround(playerId, from.slot, payload.count)
+        if not ok then LightRP.result(playerId, false, explain(reason), "inventory.move") end
+        return
+    end
+    local ok, reason = Inv.move(playerId, from.inventory, from.slot, to.inventory, to.slot, payload.count)
+    if not ok then LightRP.result(playerId, false, explain(reason), "inventory.move") else touched(from.inventory); touched(to.inventory) end
+end)
+
+LightRP.action("inventory.use", function(playerId, payload)
+    local ok, result = Inv.use(playerId, payload.slot)
+    if not ok then LightRP.result(playerId, false, explain(result), "inventory.use") end
+end)
+
+LightRP.action("inventory.drop", function(playerId, payload)
+    local ok, result = moveToGround(playerId, payload.slot, payload.count)
+    if not ok then LightRP.result(playerId, false, explain(result), "inventory.drop") end
+end)
+
+LightRP.action("inventory.give", function(playerId, payload)
+    local ok, result = Inv.give(playerId, payload.slot, payload.count)
+    LightRP.result(playerId, ok, ok and string.format("%dx %s handed to %s.", result.count, result.label, LightRP.characters.displayName(result.target)) or explain(result), "inventory.give")
+end)
+
+LightRP.command("lightrp.giveitem", { restricted = true, usage = "/lightrp.giveitem <id|me> <item> [count]" }, function(source, args)
+    local target = (args[1] == nil or args[1] == "me") and source or tonumber(args[1])
+    if target == nil or GetPlayerName(target) == nil or args[2] == nil then return false end
+    local id = playerInv[target]
+    if id == nil then return false, explain("no_inventory") end
+    local ok, reason = Inv.addItem(id, string.lower(args[2]), tonumber(args[3]) or 1)
+    return ok, ok and string.format("%s x%d given to %s.", args[2], tonumber(args[3]) or 1, LightRP.characters.displayName(target)) or explain(reason)
+end)
+
+LightRP.command("lightrp.items", { restricted = true }, function()
+    local names = {}
+    for name in pairs(Items) do names[#names + 1] = name end
+    table.sort(names)
+    return true, table.concat(names, ", ")
+end)
+
+LightRP.log("inventory ready: %d item template(s)", (function() local n = 0 for _ in pairs(Items) do n = n + 1 end return n end)())

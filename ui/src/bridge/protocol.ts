@@ -16,6 +16,7 @@ export const PAGE_EVENTS = {
   result: "lightrp:ui:result",
   dialog: "lightrp:ui:dialog",
   interact: "lightrp:ui:interact",
+  inventory: "lightrp:ui:inventory",
 } as const;
 
 export type BodyFamily = "male" | "female";
@@ -124,7 +125,18 @@ export interface RentalDialogPayload {
   kind: "rental";
   spot: { id: string; name: string; stock: RentalStockItem[]; durationMinutes: number };
 }
-export type DialogPayload = RentalDialogPayload;
+/** One slot of an inventory as the server sees it. */
+export interface InventoryItem {
+  slot: number; name: string; count: number; metadata?: Record<string, unknown>;
+  label: string; description?: string; weight: number; icon: IconNameWire; category?: string; usable: boolean; stack: number;
+}
+export type IconNameWire = string;
+export interface InventorySnapshot {
+  id: string; kind: "player" | "trunk" | "drop" | "stash" | "ground"; label: string;
+  slots: number; maxWeight: number; weight: number; items: InventoryItem[];
+}
+export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot }
+export type DialogPayload = RentalDialogPayload | InventoryDialogPayload;
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -153,6 +165,12 @@ export type UiAction =
   | { type: "money.pay"; target: number; amount: number }
   | { type: "rental.rent"; spot: string; key: string; pay: "cash" | "bank" }
   | { type: "rental.return" }
+  | { type: "inventory.open"; target?: string }
+  | { type: "inventory.close" }
+  | { type: "inventory.move"; from: { inventory: string; slot: number }; to: { inventory: string; slot: number }; count: number }
+  | { type: "inventory.use"; slot: number }
+  | { type: "inventory.drop"; slot: number; count: number }
+  | { type: "inventory.give"; slot: number; count: number }
   | { type: "staff.tp"; target: "me" | number; location: string }
   | { type: "staff.heal"; target: "me" | number }
   | { type: "staff.announce"; text: string }

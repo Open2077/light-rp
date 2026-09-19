@@ -25,6 +25,24 @@ LightRpConfig = {
         interact = { id = "lightrp.interact", name = "Light RP: interact", key = "E" },
         lock = { id = "lightrp.vehiclelock", name = "Light RP: lock / unlock vehicle", key = "L" },
         walk = { id = "lightrp.walkmode", name = "Light RP: walk mode (cycle)", key = "A" },
+        inventory = { id = "lightrp.inventory", name = "Light RP: inventory", key = "I" },
+    },
+
+    -- Inventories (shared/items.lua holds the item templates). Weights in kg.
+    inventory = {
+        player = { slots = 30, weight = 40.0 },
+        trunk = { slots = 20, weight = 80.0, range = 4.5 },      -- the closest vehicle you can open
+        stash = { slots = 40, weight = 250.0, range = 3.5, interactRadius = 2.0,
+            marker = { shape = "cylinder", radius = 0.7, height = 0.5, color = { r = 255, g = 204, b = 0, a = 140 }, maxDistance = 25.0, groundOffset = 0.05 } },
+        drop = { slots = 20, weight = 200.0, radius = 2.0, ttlMinutes = 10,
+            marker = { shape = "cylinder", radius = 0.45, height = 0.25, color = { r = 255, g = 204, b = 0, a = 120 }, maxDistance = 20.0, groundOffset = 0.03 } },
+        giveRange = 3.0,
+        -- What a new character carries.
+        starting = { { name = "phone", count = 1 }, { name = "idcard", count = 1 }, { name = "water", count = 2 }, { name = "burrito", count = 1 } },
+        -- Persistent stashes in the world (pick positions with /pos).
+        stashes = {
+            -- { id = "citycenter", name = "Storage // City Center", position = { x = 0, y = 0, z = 0 }, slots = 40, weight = 250 },
+        },
     },
 
     -- Walk modes cycled by the walk key: run (platform default), walk, slow walk.
