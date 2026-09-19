@@ -27,7 +27,8 @@ Db.schema([[
         account_name  VARCHAR(64) NOT NULL DEFAULT '',
         active_key    VARCHAR(64) NOT NULL DEFAULT 'default',
         created_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_seen     TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+        last_seen     TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        welcome_seen_at TIMESTAMP NULL
     )
 ]])
 -- v2 of the character table: one row per (account, slot). The v1 table (one row
@@ -150,7 +151,7 @@ end
 local function emptyCharacter(playerId, identifier, key)
     return {
         identifier = identifier, key = key,
-        accountName = GetPlayerName(playerId) or ("Joueur " .. tostring(playerId)),
+        accountName = GetPlayerName(playerId) or ("Player " .. tostring(playerId)),
         status = "draft", joinedAtMs = LightRP.nowMs(), playtimeMs = 0, food = 100, drink = 100,
         appearanceRevision = 0,
     }
@@ -166,6 +167,13 @@ local function migrate()
         Db.run("RENAME TABLE lightrp_characters TO lightrp_characters_v1")
         LightRP.log("migrated: legacy lightrp_characters kept as lightrp_characters_v1")
         for _, sql in ipairs(Db.pending) do Db.run(sql) end
+    end
+    -- Accounts created before the first-spawn briefing existed.
+    local welcome = Db.single([[SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'lightrp_accounts' AND COLUMN_NAME = 'welcome_seen_at']])
+    if welcome and tonumber(welcome.n) == 0 then
+        Db.run("ALTER TABLE lightrp_accounts ADD COLUMN welcome_seen_at TIMESTAMP NULL")
+        LightRP.log("migrated: lightrp_accounts.welcome_seen_at added")
     end
 end
 
@@ -194,9 +202,10 @@ local function load(playerId, key)
     Db.run([[INSERT INTO lightrp_accounts (identifier, account_name) VALUES (?, ?)
              ON DUPLICATE KEY UPDATE account_name = VALUES(account_name), last_seen = CURRENT_TIMESTAMP]],
         { identifier, GetPlayerName(playerId) or "" })
-    local account = Db.single("SELECT active_key FROM lightrp_accounts WHERE identifier = ?", { identifier })
+    local account = Db.single("SELECT active_key, welcome_seen_at FROM lightrp_accounts WHERE identifier = ?", { identifier })
     key = key or (account and account.active_key) or "default"
     local c = emptyCharacter(playerId, identifier, key)
+    c.welcomeSeen = account ~= nil and account.welcome_seen_at ~= nil
     characters[playerId] = c
     local row = Db.single([[SELECT status, first_name, last_name, birth_date, origin, story, body_family, appearance_rev, appearance_at,
         last_x, last_y, last_z, last_heading, food, drink, playtime_ms FROM lightrp_characters WHERE identifier = ? AND character_key = ?]],
@@ -371,7 +380,7 @@ AddEventHandler("open77:appearance:characterCreated", function(player, userId, k
     persistCivil(c)
     if Db.ready then Db.run("UPDATE lightrp_characters SET appearance_at = CURRENT_TIMESTAMP WHERE identifier = ? AND character_key = ?", { c.identifier, c.key }) end
     LightRP.state(playerId, "character")
-    LightRP.notice(playerId, { kind = "success", title = "Corps enregistré", body = "Votre apparence est sauvegardée. Terminez votre identité pour entrer en ville." })
+    LightRP.notice(playerId, { kind = "success", title = "Body saved", body = "Your appearance is stored. Finish your identity to enter the city." })
 end)
 
 AddEventHandler("open77:appearance:saved", function(player, userId, key, revision)
@@ -384,7 +393,7 @@ AddEventHandler("open77:appearance:saved", function(player, userId, key, revisio
             { c.appearanceRevision, c.identifier, c.key })
     end
     LightRP.state(playerId, "character")
-    LightRP.notice(playerId, { kind = "success", title = "Apparence sauvegardée", body = "Révision " .. tostring(c.appearanceRevision) .. "." })
+    LightRP.notice(playerId, { kind = "success", title = "Appearance saved", body = "Revision " .. tostring(c.appearanceRevision) .. "." })
 end)
 
 -- ---------------------------------------------------------------------------
@@ -413,6 +422,9 @@ LightRP.stateProvider("character", function(playerId)
         maxSlots = CC.maxSlots,
         origins = origins,
         minAge = CC.minAge, currentYear = CC.currentYear,
+        -- First-spawn briefing: once per account, after the character is active.
+        welcomePending = LightRpConfig.welcome.enabled and c.status == "active" and not c.welcomeSeen,
+        welcomeReadSeconds = LightRpConfig.welcome.readSeconds or 15,
     }
 end)
 
@@ -459,59 +471,70 @@ end)
 -- Actions (the wizard and the Personnage tab) + commands
 
 local REASONS = {
-    invalid_name = "Nom refusé : lettres, tirets et apostrophes, " .. Config.names.minLength .. " à " .. Config.names.maxLength .. " caractères par mot.",
-    invalid_birth_date = string.format("Date de naissance invalide (AAAA-MM-JJ, %d à %d ans en %d).", CC.minAge, CC.maxAge, CC.currentYear),
+    invalid_name = "Name refused: letters, hyphens and apostrophes, " .. Config.names.minLength .. " to " .. Config.names.maxLength .. " characters per word.",
+    invalid_birth_date = string.format("Invalid birth date (YYYY-MM-DD, %d to %d years old in %d).", CC.minAge, CC.maxAge, CC.currentYear),
     invalid_origin = "Origine inconnue.",
-    identity_missing = "Renseignez d'abord l'identité.",
-    appearance_missing = "Le corps n'est pas encore enregistré : ouvrez le miroir et validez votre apparence.",
-    database_required = "Cette action demande la base de données.",
+    identity_missing = "Fill in the identity first.",
+    appearance_missing = "The body is not saved yet: open the mirror and confirm your appearance.",
+    database_required = "This action needs the database.",
     invalid_slot = "Emplacement invalide.", unknown_slot = "Emplacement vide.", slot_in_use = "Ce personnage est en jeu.",
-    no_free_slot = "Tous les emplacements sont pris.", not_loaded = "Personnage non chargé.",
+    no_free_slot = "All slots are taken.", not_loaded = "Character not loaded.",
 }
-local function explain(reason) return REASONS[reason] or ("Refusé : " .. tostring(reason)) end
+local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
 
 LightRP.action("character.identity", function(playerId, payload)
     local ok, reason = Characters.setIdentity(playerId, payload)
     if not ok then return LightRP.result(playerId, false, explain(reason), "character.identity") end
-    LightRP.result(playerId, true, "Identité enregistrée : " .. Characters.displayName(playerId), "character.identity")
+    LightRP.result(playerId, true, "Identity saved: " .. Characters.displayName(playerId), "character.identity")
 end)
 
 LightRP.action("register", function(playerId, payload) -- kept for the old page contract
     local ok, reason = Characters.setIdentity(playerId, payload)
-    LightRP.result(playerId, ok, ok and ("Identité enregistrée : " .. Characters.displayName(playerId)) or explain(reason), "register")
+    LightRP.result(playerId, ok, ok and ("Identity saved: " .. Characters.displayName(playerId)) or explain(reason), "register")
 end)
 
 LightRP.action("character.finish", function(playerId)
     local ok, reason = Characters.finish(playerId)
     if not ok then return LightRP.result(playerId, false, explain(reason), "character.finish") end
-    LightRP.result(playerId, true, "Bienvenue à Night City, " .. Characters.displayName(playerId) .. ".", "character.finish")
+    LightRP.result(playerId, true, "Welcome to Night City, " .. Characters.displayName(playerId) .. ".", "character.finish")
 end)
 
 LightRP.action("character.select", function(playerId, payload)
     local ok, reason = Characters.select(playerId, payload.key)
-    LightRP.result(playerId, ok, ok and ("Personnage chargé : " .. Characters.displayName(playerId)) or explain(reason), "character.select")
+    LightRP.result(playerId, ok, ok and ("Character loaded: " .. Characters.displayName(playerId)) or explain(reason), "character.select")
 end)
 
 LightRP.action("character.new", function(playerId)
     local ok, reason = Characters.startNew(playerId)
-    LightRP.result(playerId, ok, ok and "Nouvel emplacement ouvert : créez ce personnage." or explain(reason), "character.new")
+    LightRP.result(playerId, ok, ok and "New slot opened: create this character." or explain(reason), "character.new")
 end)
 
 LightRP.action("character.archive", function(playerId, payload)
     local ok, reason = Characters.archive(playerId, payload.key)
-    LightRP.result(playerId, ok, ok and "Personnage archivé." or explain(reason), "character.archive")
+    LightRP.result(playerId, ok, ok and "Character archived." or explain(reason), "character.archive")
 end)
 
-LightRP.command("register", { usage = "/register <Prénom> <Nom>" }, function(source, args)
+-- The player closed the first-spawn briefing: never show it again on this account.
+LightRP.action("welcome.ack", function(playerId)
+    local c = characters[playerId]
+    if c == nil then return end
+    c.welcomeSeen = true
+    if Db.ready and c.identifier then
+        Db.run("UPDATE lightrp_accounts SET welcome_seen_at = CURRENT_TIMESTAMP WHERE identifier = ?", { c.identifier })
+    end
+    LightRP.state(playerId, "character")
+end)
+
+LightRP.command("register", { usage = "/register <FirstName> <LastName>" }, function(source, args)
     if args[1] == nil or args[2] == nil or (args.n or #args) > 2 then return false end
     local ok, reason = Characters.setIdentity(source, { firstName = args[1], lastName = args[2] })
     if not ok then return false, explain(reason) end
     local c = characters[source]
     if c and c.status ~= "active" then LightRP.openMenu(source, "character") end
-    return true, "Identité enregistrée : " .. Characters.displayName(source) .. (c and c.status ~= "active" and " — terminez la création (F5)." or "")
+    return true, "Identity saved: " .. Characters.displayName(source) .. (c and c.status ~= "active" and " — finish the creation (F5)." or "")
 end)
 
 LightRP.command("characters", {}, function(source)
     LightRP.openMenu(source, "character")
-    return true, "Personnages (F5 → Personnage)."
+    return true, "Characters (F5 → Character)."
 end)

@@ -7,10 +7,10 @@ import { IdentityForm } from "@/features/character/CharacterWizard";
 import "./menu.css";
 
 const TABS: TabItem<MenuView>[] = [
-  { value: "character", label: "Personnage", icon: "id-card" },
-  { value: "vehicles", label: "Véhicules", icon: "car" },
+  { value: "character", label: "Character", icon: "id-card" },
+  { value: "vehicles", label: "Vehicles", icon: "car" },
   { value: "staff", label: "Staff", icon: "shield" },
-  { value: "help", label: "Aide", icon: "terminal" },
+  { value: "help", label: "Help", icon: "terminal" },
 ];
 
 /* The main menu (F5): three-column terminal layout from the design system,
@@ -48,7 +48,7 @@ export function Menu() {
           <div className="menu__head-right">
             <Badge tone={state.character.registered ? "accent" : "outline"}>{name}</Badge>
             <Badge>ID {String(state.character.playerId).padStart(3, "0")}</Badge>
-            <Button variant="ghost" size="sm" icon="x" onClick={requestClose}>Fermer</Button>
+            <Button variant="ghost" size="sm" icon="x" onClick={requestClose}>Close</Button>
           </div>
         </header>
         <div className="menu__grid">
@@ -61,7 +61,7 @@ export function Menu() {
           </div>
         </div>
         <footer className="menu__foot">
-          <span className="o77-readout o77-disabled"><Keycap size="sm">ESC</Keycap> FERMER · <Keycap size="sm">F5</Keycap> MENU</span>
+          <span className="o77-readout o77-disabled"><Keycap size="sm">ESC</Keycap> CLOSE · <Keycap size="sm">F5</Keycap> MENU</span>
           {lastResult && Date.now() - lastResult.at < 8000 && (
             <span className={"o77-readout " + (lastResult.ok ? "o77-accent" : "menu__foot--bad")}>{lastResult.text}</span>
           )}
@@ -79,42 +79,42 @@ function CharacterView() {
   const freeSlots = character.maxSlots - character.slots.length;
   return (
     <div className="menu__stack">
-      <SectionHeader index="01" title="Identité" subtitle={character.userId ? `MASTER // ${character.userId.slice(0, 8)}` : "MASTER // —"}
-        right={<Button size="sm" variant="ghost" icon="id-card" onClick={() => setEditing((v) => !v)}>{editing ? "Fermer" : "Modifier"}</Button>} />
+      <SectionHeader index="01" title="Identity" subtitle={character.userId ? `MASTER // ${character.userId.slice(0, 8)}` : "MASTER // —"}
+        right={<Button size="sm" variant="ghost" icon="id-card" onClick={() => setEditing((v) => !v)}>{editing ? "Close" : "Edit"}</Button>} />
       {editing ? (
-        <IdentityForm character={character} submitLabel="Enregistrer" onSubmitted={() => setEditing(false)} />
+        <IdentityForm character={character} submitLabel="Save" onSubmitted={() => setEditing(false)} />
       ) : (
         <div className="menu__stats">
-          <Stat label="NOM" value={character.firstName ? `${character.firstName} ${character.lastName}` : "—"} />
-          <Stat label="NAISSANCE" value={character.birthDate ?? "—"} />
-          <Stat label="ORIGINE" value={origin ?? "—"} />
-          <Stat label="STATUT" value={character.status === "active" ? "ACTIF" : "BROUILLON"} />
+          <Stat label="NAME" value={character.firstName ? `${character.firstName} ${character.lastName}` : "—"} />
+          <Stat label="BORN" value={character.birthDate ?? "—"} />
+          <Stat label="ORIGIN" value={origin ?? "—"} />
+          <Stat label="STATUS" value={character.status === "active" ? "ACTIVE" : "DRAFT"} />
         </div>
       )}
       {character.story && !editing && <p className="menu__story">{character.story}</p>}
 
-      <SectionHeader index="02" title="Apparence" subtitle={character.bodyFamily ? `${character.bodyFamily.toUpperCase()} · RÉVISION ${character.appearanceRevision}` : "NON ENREGISTRÉE"}
+      <SectionHeader index="02" title="Appearance" subtitle={character.bodyFamily ? `${character.bodyFamily.toUpperCase()} · REVISION ${character.appearanceRevision}` : "NOT SAVED"}
         right={character.appearanceSavedAt && <span className="o77-readout o77-disabled">{character.appearanceSavedAt.slice(0, 16)}</span>} />
       <div className="menu__actions">
-        <Button size="sm" variant="secondary" icon="user" onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc" })}>Miroir</Button>
-        <Button size="sm" variant="secondary" icon="settings" onClick={() => sendAction({ type: "character.appearance.open", mode: "hairdresser" })}>Coiffeur</Button>
-        <Button size="sm" variant="secondary" icon="package" onClick={() => sendAction({ type: "character.wardrobe.open" })}>Garde-robe</Button>
-        <span className="o77-readout o77-dim">Corps, visage et tenue sont sauvegardés sur le serveur pour ce personnage.</span>
+        <Button size="sm" variant="secondary" icon="user" onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc" })}>Mirror</Button>
+        <Button size="sm" variant="secondary" icon="settings" onClick={() => sendAction({ type: "character.appearance.open", mode: "hairdresser" })}>Hairdresser</Button>
+        <Button size="sm" variant="secondary" icon="package" onClick={() => sendAction({ type: "character.wardrobe.open" })}>Wardrobe</Button>
+        <span className="o77-readout o77-dim">Body, face and outfit are saved on the server for this character.</span>
       </div>
 
-      <SectionHeader index="03" title="Personnages" subtitle={`${character.slots.length} / ${character.maxSlots} EMPLACEMENTS`}
-        right={<Button size="sm" icon="users" disabled={freeSlots <= 0 || character.status !== "active"} onClick={() => sendAction({ type: "character.new" })}>Nouveau</Button>} />
+      <SectionHeader index="03" title="Characters" subtitle={`${character.slots.length} / ${character.maxSlots} SLOTS`}
+        right={<Button size="sm" icon="users" disabled={freeSlots <= 0 || character.status !== "active"} onClick={() => sendAction({ type: "character.new" })}>New</Button>} />
       <div className="menu__list">
         {character.slots.map((slot) => {
           const current = slot.key === character.key;
           return (
             <ListRow key={slot.key} icon="id-card" selected={current}
-              title={slot.name ?? "Personnage sans nom"}
-              subtitle={`${slot.status === "active" ? "Actif" : "Brouillon"}${slot.bodyFamily ? ` · ${slot.bodyFamily}` : ""} · ${formatDuration(slot.playtimeMs)} de jeu`}
+              title={slot.name ?? "Unnamed character"}
+              subtitle={`${slot.status === "active" ? "Active" : "Draft"}${slot.bodyFamily ? ` · ${slot.bodyFamily}` : ""} · ${formatDuration(slot.playtimeMs)} played`}
               meta={slot.key.toUpperCase()}
-              right={current ? <Badge tone="accent">EN JEU</Badge> : (
+              right={current ? <Badge tone="accent">PLAYING</Badge> : (
                 <>
-                  <Button size="sm" variant="secondary" onClick={() => sendAction({ type: "character.select", key: slot.key })}>Jouer</Button>
+                  <Button size="sm" variant="secondary" onClick={() => sendAction({ type: "character.select", key: slot.key })}>Play</Button>
                   <Button size="sm" variant="ghost" icon="x" onClick={() => sendAction({ type: "character.archive", key: slot.key })} />
                 </>
               )} />
@@ -122,12 +122,12 @@ function CharacterView() {
         })}
       </div>
 
-      <SectionHeader index="04" title="État" subtitle="BESOINS" />
+      <SectionHeader index="04" title="Condition" subtitle="NEEDS" />
       <div className="menu__stats">
-        <Stat label="FAIM" value={`${Math.round(needs.food)}%`} />
-        <Stat label="SOIF" value={`${Math.round(needs.drink)}%`} />
-        <Stat label="TEMPS DE JEU" value={formatDuration(character.playtimeMs ?? 0)} />
-        <Stat label="COMPTE" value={character.accountName || "—"} />
+        <Stat label="HUNGER" value={`${Math.round(needs.food)}%`} />
+        <Stat label="THIRST" value={`${Math.round(needs.drink)}%`} />
+        <Stat label="PLAYTIME" value={formatDuration(character.playtimeMs ?? 0)} />
+        <Stat label="ACCOUNT" value={character.accountName || "—"} />
       </div>
     </div>
   );
@@ -141,15 +141,15 @@ function VehiclesView() {
   const visible = vehicles.catalog.filter((v) => (category === "all" || v.category === category) && (!v.staffOnly || staff.isStaff));
   return (
     <div className="menu__stack">
-      <SectionHeader index="03" title="Garage" subtitle={`${vehicles.owned.length} VÉHICULE(S) DEHORS`}
-        right={vehicles.owned.length > 0 && <Button size="sm" variant="danger" icon="x" onClick={() => sendAction({ type: "vehicle.return" })}>Rendre</Button>} />
-      <Tabs items={[{ value: "all", label: "Tous" }, ...categories.map((c) => ({ value: c, label: c }))]} value={category} onChange={setCategory} />
+      <SectionHeader index="03" title="Garage" subtitle={`${vehicles.owned.length} VEHICLE(S) OUT`}
+        right={vehicles.owned.length > 0 && <Button size="sm" variant="danger" icon="x" onClick={() => sendAction({ type: "vehicle.return" })}>Return</Button>} />
+      <Tabs items={[{ value: "all", label: "All" }, ...categories.map((c) => ({ value: c, label: c }))]} value={category} onChange={setCategory} />
       <div className="menu__list">
         {visible.map((v) => (
           <ListRow key={v.key} icon="car" title={v.label} subtitle={v.category} meta={v.staffOnly ? "STAFF" : v.key}
-            right={<Button size="sm" variant="secondary" onClick={() => sendAction({ type: "vehicle.spawn", key: v.key })}>Appeler</Button>} />
+            right={<Button size="sm" variant="secondary" onClick={() => sendAction({ type: "vehicle.spawn", key: v.key })}>Call</Button>} />
         ))}
-        {visible.length === 0 && <span className="o77-readout o77-disabled">AUCUN MODÈLE</span>}
+        {visible.length === 0 && <span className="o77-readout o77-disabled">NO MODEL</span>}
       </div>
     </div>
   );
@@ -165,30 +165,30 @@ function StaffView() {
       <SectionHeader index="04" title="Staff" subtitle={(state.staff.role ?? "ACL").toUpperCase()} />
       <div className="menu__two">
         <label className="o77-input">
-          <span className="o77-input__label">CIBLE</span>
+          <span className="o77-input__label">TARGET</span>
           <span className="o77-input__field">
             <select className="o77-input__control menu__select" value={target} onChange={(e) => setTarget(e.target.value)}>
-              <option value="me">Moi</option>
+              <option value="me">Me</option>
               {state.online.map((p) => <option key={p.id} value={p.id}>{String(p.id).padStart(3, "0")} · {p.name}</option>)}
             </select>
           </span>
         </label>
         <div className="menu__actions menu__actions--end">
-          <Button size="sm" variant="secondary" icon="heart-pulse" onClick={() => sendAction({ type: "staff.heal", target: targetValue() })}>Soigner</Button>
-          <Button size="sm" variant="secondary" icon="users" disabled={target === "me"} onClick={() => sendAction({ type: "staff.bring", target: Number(target) })}>Amener</Button>
+          <Button size="sm" variant="secondary" icon="heart-pulse" onClick={() => sendAction({ type: "staff.heal", target: targetValue() })}>Heal</Button>
+          <Button size="sm" variant="secondary" icon="users" disabled={target === "me"} onClick={() => sendAction({ type: "staff.bring", target: Number(target) })}>Bring</Button>
         </div>
       </div>
-      <span className="o77-readout o77-dim">TÉLÉPORTER LA CIBLE</span>
+      <span className="o77-readout o77-dim">TELEPORT THE TARGET</span>
       <div className="menu__chips">
         {state.locations.map((l) => (
           <Button key={l.name} size="sm" variant="ghost" icon="map-pin" onClick={() => sendAction({ type: "staff.tp", target: targetValue(), location: l.name })}>{l.label}</Button>
         ))}
       </div>
-      <SectionHeader title="Annonce" subtitle="TOUT LE SERVEUR" />
+      <SectionHeader title="Announcement" subtitle="WHOLE SERVER" />
       <div className="menu__two">
-        <Input label="MESSAGE" icon="radio" value={announce} onChange={(e) => setAnnounce(e.target.value)} placeholder="Message du staff" maxLength={200} />
+        <Input label="MESSAGE" icon="radio" value={announce} onChange={(e) => setAnnounce(e.target.value)} placeholder="Staff message" maxLength={200} />
         <div className="menu__actions menu__actions--end">
-          <Button size="sm" icon="radio" disabled={announce.trim().length < 2} onClick={() => { sendAction({ type: "staff.announce", text: announce.trim() }); setAnnounce(""); }}>Envoyer</Button>
+          <Button size="sm" icon="radio" disabled={announce.trim().length < 2} onClick={() => { sendAction({ type: "staff.announce", text: announce.trim() }); setAnnounce(""); }}>Send</Button>
         </div>
       </div>
     </div>
@@ -197,17 +197,19 @@ function StaffView() {
 
 function HelpView() {
   const rows: Array<[string, string]> = [
-    ["texte", "Parole en jeu, 20 m, sous le nom du personnage"],
-    ["/w · /s", "Chuchoter (4 m) · crier (45 m)"],
-    ["/ooc", "Hors-jeu, tout le serveur"],
-    ["/me · /do · /try · /roll", "Action · scène · tentative · dé"],
-    ["/pm <id>", "Message privé"],
-    ["/car · /cars · /dv", "Appeler, lister, rendre un véhicule"],
-    ["/who · /rules · /report", "Présents · règles · signalement"],
+    ["text", "In-character speech, 20 m, under the character's name"],
+    ["/w · /s", "Whisper (4 m) · shout (45 m)"],
+    ["/ooc", "Out of character, whole server"],
+    ["/me · /do · /try · /roll", "Action · scene · attempt · dice"],
+    ["/pm <id>", "Private message"],
+    ["/car · /cars · /dv", "Call, list, return a vehicle"],
+    ["/who · /rules · /report", "Who is in town · rules · report"],
   ];
+  const replayWelcome = useStore((s) => s.setWelcomeReplay);
   return (
     <div className="menu__stack">
-      <SectionHeader index="05" title="Commandes" subtitle="CHAT" />
+      <SectionHeader index="05" title="Commands" subtitle="CHAT"
+        right={<Button size="sm" variant="ghost" icon="info" onClick={() => { replayWelcome(true); requestClose(); }}>Welcome briefing</Button>} />
       <div className="menu__list">
         {rows.map(([cmd, text]) => <ListRow key={cmd} title={<span className="menu__mono">{cmd}</span>} subtitle={text} />)}
       </div>

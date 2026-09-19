@@ -36,8 +36,8 @@ local function tick()
             c.food = math.max(0, before.food - Config.foodPerTick)
             c.drink = math.max(0, before.drink - Config.drinkPerTick)
             local crossed = function(key) return before[key] > Config.warnAt and c[key] <= Config.warnAt end
-            if crossed("food") then LightRP.notice(playerId, { kind = "warning", title = "FAIM", body = "Vous avez faim. Trouvez de quoi manger." }) end
-            if crossed("drink") then LightRP.notice(playerId, { kind = "warning", title = "SOIF", body = "Vous avez soif. Trouvez de quoi boire." }) end
+            if crossed("food") then LightRP.notice(playerId, { kind = "warning", title = "HUNGRY", body = "You are hungry. Find something to eat." }) end
+            if crossed("drink") then LightRP.notice(playerId, { kind = "warning", title = "THIRSTY", body = "You are thirsty. Find something to drink." }) end
             if (c.food <= 0 or c.drink <= 0) and Config.starveDamagePerTick > 0 then
                 pcall(Open77.players.damage, playerId, Config.starveDamagePerTick, { cause = "script", weapon = "lightrp:needs" })
             end

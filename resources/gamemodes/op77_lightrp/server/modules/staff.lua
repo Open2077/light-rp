@@ -94,7 +94,7 @@ end
 
 function Staff.announce(text)
     LightRP.chat.broadcast("STAFF", text, Config.chat.colors.staff)
-    LightRP.broadcastNotice({ kind = "staff", title = "Annonce du staff", body = text, durationMs = 12000 })
+    LightRP.broadcastNotice({ kind = "staff", title = "Staff announcement", body = text, durationMs = 12000 })
 end
 
 function Staff.report(playerId, message)
@@ -106,7 +106,7 @@ function Staff.report(playerId, message)
     end
     for _, id in ipairs(GetPlayers()) do
         if Staff.isStaff(id) then
-            LightRP.notice(id, { kind = "staff", title = "Signalement", body = reporter .. " : " .. message, durationMs = 15000 })
+            LightRP.notice(id, { kind = "staff", title = "Report", body = reporter .. ": " .. message, durationMs = 15000 })
         end
     end
 end
@@ -117,7 +117,7 @@ end
 local function gated(permission, handler)
     return function(playerId, payload)
         if not Staff.allowed(playerId, permission) then
-            return LightRP.result(playerId, false, "Refusé : il vous manque " .. permission .. ".", payload.type)
+            return LightRP.result(playerId, false, "Denied: you lack " .. permission .. ".", payload.type)
         end
         handler(playerId, payload)
     end
@@ -126,34 +126,34 @@ end
 LightRP.action("staff.tp", gated("command.lightrp.tp", function(playerId, payload)
     local target = parseTarget(playerId, payload.target == "me" and "me" or tostring(payload.target or ""))
     local location = locationsByName[string.lower(tostring(payload.location or ""))]
-    if target == nil or location == nil then return LightRP.result(playerId, false, "Cible ou lieu inconnu.", "staff.tp") end
+    if target == nil or location == nil then return LightRP.result(playerId, false, "Unknown target or place.", "staff.tp") end
     Staff.moveTo(target, location.position, location.heading, function(ok, reason)
-        LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " → " .. location.label) or ("Téléportation refusée : " .. tostring(reason)), "staff.tp")
+        LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " → " .. location.label) or ("Teleport refused: " .. tostring(reason)), "staff.tp")
     end)
 end))
 
 LightRP.action("staff.bring", gated("command.lightrp.bring", function(playerId, payload)
     local target = parseTarget(playerId, tostring(payload.target or ""))
-    if target == nil or target == playerId then return LightRP.result(playerId, false, "Cible inconnue.", "staff.bring") end
+    if target == nil or target == playerId then return LightRP.result(playerId, false, "Unknown target.", "staff.bring") end
     local here = Open77.players.position(playerId)
-    if here == nil then return LightRP.result(playerId, false, "Votre position est inconnue.", "staff.bring") end
+    if here == nil then return LightRP.result(playerId, false, "Your position is unknown.", "staff.bring") end
     Staff.moveTo(target, { x = here.x + 1.5, y = here.y, z = here.z }, 0, function(ok, reason)
-        LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " amené.") or ("Refusé : " .. tostring(reason)), "staff.bring")
+        LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " brought to you.") or ("Denied: " .. tostring(reason)), "staff.bring")
     end)
 end))
 
 LightRP.action("staff.heal", gated("command.lightrp.heal", function(playerId, payload)
     local target = parseTarget(playerId, payload.target == "me" and "me" or tostring(payload.target or ""))
-    if target == nil then return LightRP.result(playerId, false, "Cible inconnue.", "staff.heal") end
+    if target == nil then return LightRP.result(playerId, false, "Unknown target.", "staff.heal") end
     local ok, reason = Staff.heal(target)
-    LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " soigné.") or ("Refusé : " .. tostring(reason)), "staff.heal")
+    LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " healed.") or ("Denied: " .. tostring(reason)), "staff.heal")
 end))
 
 LightRP.action("staff.announce", gated("command.lightrp.announce", function(playerId, payload)
     local text = tostring(payload.text or ""):sub(1, 200)
-    if #text < 2 then return LightRP.result(playerId, false, "Message trop court.", "staff.announce") end
+    if #text < 2 then return LightRP.result(playerId, false, "Message too short.", "staff.announce") end
     Staff.announce(text)
-    LightRP.result(playerId, true, "Annonce envoyée.", "staff.announce")
+    LightRP.result(playerId, true, "Announcement sent.", "staff.announce")
 end))
 
 -- ---------------------------------------------------------------------------
@@ -163,10 +163,10 @@ LightRP.command("report", { usage = "/report <message>" }, function(source, args
     local text = LightRP.joinArgs(args)
     if text == "" then return false end
     Staff.report(source, text:sub(1, 512))
-    return true, "Signalement transmis au staff. Merci."
+    return true, "Report sent to the staff. Thank you."
 end)
 
-LightRP.command("lightrp.tp", { restricted = true, usage = "/lightrp.tp <id|me> <lieu | x y z>" }, function(source, args, raw)
+LightRP.command("lightrp.tp", { restricted = true, usage = "/lightrp.tp <id|me> <place | x y z>" }, function(source, args, raw)
     local target = parseTarget(source, args[1])
     if target == nil then return false end
     local location = args[2] and locationsByName[string.lower(args[2])]
@@ -178,12 +178,12 @@ LightRP.command("lightrp.tp", { restricted = true, usage = "/lightrp.tp <id|me> 
         if x == nil or y == nil or z == nil then
             local names = {}
             for _, l in ipairs(Config.locations) do names[#names + 1] = l.name end
-            return false, "Lieux : " .. table.concat(names, ", ") .. " (ou x y z)"
+            return false, "Places: " .. table.concat(names, ", ") .. " (or x y z)"
         end
         position, heading, label = { x = x, y = y, z = z }, 0, string.format("%.1f, %.1f, %.1f", x, y, z)
     end
     Staff.moveTo(target, position, heading, function(ok, reason)
-        LightRP.reply(source, raw, ok, ok and (LightRP.characters.displayName(target) .. " → " .. label) or ("Téléportation refusée : " .. tostring(reason)))
+        LightRP.reply(source, raw, ok, ok and (LightRP.characters.displayName(target) .. " → " .. label) or ("Teleport refused: " .. tostring(reason)))
     end)
 end)
 
@@ -191,9 +191,9 @@ LightRP.command("lightrp.bring", { restricted = true, usage = "/lightrp.bring <i
     local target = parseTarget(source, args[1])
     if target == nil or target == source then return false end
     local here = Open77.players.position(source)
-    if here == nil then return false, "Votre position est inconnue." end
+    if here == nil then return false, "Your position is unknown." end
     Staff.moveTo(target, { x = here.x + 1.5, y = here.y, z = here.z }, 0, function(ok, reason)
-        LightRP.reply(source, raw, ok, ok and (LightRP.characters.displayName(target) .. " amené.") or ("Refusé : " .. tostring(reason)))
+        LightRP.reply(source, raw, ok, ok and (LightRP.characters.displayName(target) .. " brought to you.") or ("Denied: " .. tostring(reason)))
     end)
 end)
 
@@ -201,9 +201,9 @@ LightRP.command("lightrp.goto", { restricted = true, usage = "/lightrp.goto <id>
     local target = parseTarget(source, args[1])
     if target == nil or target == source then return false end
     local there = Open77.players.position(target)
-    if there == nil then return false, "Position de la cible inconnue." end
+    if there == nil then return false, "Target position unknown." end
     Staff.moveTo(source, { x = there.x + 1.5, y = there.y, z = there.z }, 0, function(ok, reason)
-        LightRP.reply(source, raw, ok, ok and ("Vous êtes auprès de " .. LightRP.characters.displayName(target)) or ("Refusé : " .. tostring(reason)))
+        LightRP.reply(source, raw, ok, ok and ("You are next to " .. LightRP.characters.displayName(target)) or ("Denied: " .. tostring(reason)))
     end)
 end)
 
@@ -211,26 +211,26 @@ LightRP.command("lightrp.heal", { restricted = true, usage = "/lightrp.heal <id|
     local target = parseTarget(source, args[1])
     if target == nil then return false end
     local ok, reason = Staff.heal(target)
-    return ok, ok and (LightRP.characters.displayName(target) .. " soigné.") or ("Refusé : " .. tostring(reason))
+    return ok, ok and (LightRP.characters.displayName(target) .. " healed.") or ("Denied: " .. tostring(reason))
 end)
 
 LightRP.command("lightrp.announce", { restricted = true, usage = "/lightrp.announce <message>" }, function(_, args)
     local text = LightRP.joinArgs(args)
     if text == "" then return false end
     Staff.announce(text:sub(1, 200))
-    return true, "Annonce envoyée."
+    return true, "Announcement sent."
 end)
 
-LightRP.command("lightrp.setname", { restricted = true, usage = "/lightrp.setname <id> <Prénom> <Nom>" }, function(source, args)
+LightRP.command("lightrp.setname", { restricted = true, usage = "/lightrp.setname <id> <FirstName> <LastName>" }, function(source, args)
     local target = parseTarget(source, args[1])
     if target == nil or args[2] == nil or args[3] == nil then return false end
     local ok, reason = LightRP.characters.setIdentity(target, { firstName = args[2], lastName = args[3] })
-    if not ok then return false, "Nom refusé : " .. tostring(reason) end
-    LightRP.chat.system(target, "Le staff a renommé votre personnage : " .. LightRP.characters.displayName(target))
-    return true, "Personnage renommé : " .. LightRP.characters.displayName(target)
+    if not ok then return false, "Name refused: " .. tostring(reason) end
+    LightRP.chat.system(target, "The staff renamed your character: " .. LightRP.characters.displayName(target))
+    return true, "Character renamed: " .. LightRP.characters.displayName(target)
 end)
 
-LightRP.command("lightrp.car", { restricted = true, usage = "/lightrp.car <modèle>" }, function(source, args)
+LightRP.command("lightrp.car", { restricted = true, usage = "/lightrp.car <model>" }, function(source, args)
     if args[1] == nil then return false end
     return LightRP.vehicles.request(source, args[1], true)
 end)
@@ -239,6 +239,6 @@ LightRP.command("lightrp.status", { restricted = true }, function()
     local players = GetPlayers()
     local registered = 0
     for _, id in ipairs(players) do if LightRP.characters.isRegistered(id) then registered = registered + 1 end end
-    return true, string.format("%s: %d joueurs (%d personnages), base de données %s.",
-        Config.serverName, #players, registered, Db.ready and "active" or "absente")
+    return true, string.format("%s: %d players (%d characters), database %s.",
+        Config.serverName, #players, registered, Db.ready and "online" or "offline")
 end)

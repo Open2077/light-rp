@@ -3,13 +3,13 @@
    state, ticking HUD, a notice, and answers to actions. Query flags:
    `?menu=1&view=vehicles` opens the menu, `?staff=1` grants staff,
    `?registered=1` skips the wizard, `?step=appearance|confirm` starts the wizard
-   at that step, `?vehicle=1` seats the player. */
+   at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing. */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
-  { key: "europe", label: "Europe" }, { key: "asia", label: "Asie" }, { key: "latam", label: "Amérique latine" },
+  { key: "europe", label: "Europe" }, { key: "asia", label: "Asia" }, { key: "latam", label: "Latin America" },
 ];
 
 export function installMockBridge(): void {
@@ -23,7 +23,7 @@ export function installMockBridge(): void {
     registered, status: registered ? "active" : "draft", step, key: "default",
     firstName: step !== "identity" ? "Yuki" : undefined, lastName: step !== "identity" ? "Tanaka" : undefined,
     birthDate: step !== "identity" ? "2052-03-14" : undefined, origin: step !== "identity" ? "night_city" : undefined,
-    story: step !== "identity" ? "Netrunner à mi-temps, coursière le reste du temps. Dort peu, roule vite." : undefined,
+    story: step !== "identity" ? "Part-time netrunner, courier the rest of the time. Sleeps little, drives fast." : undefined,
     bodyFamily: step === "confirm" || step === "done" ? "female" : undefined,
     appearanceRevision: step === "confirm" || step === "done" ? 3 : 0, appearanceSavedAt: step === "done" ? "2077-09-19 22:41:00" : undefined,
     appearanceTracked: true, accountName: "Nightwolf", playerId: 7, userId: "712e7c14-aeb4-47ee-b563-f6216c078e55", playtimeMs: 5_640_000,
@@ -32,6 +32,7 @@ export function installMockBridge(): void {
          { key: "slot2", status: "draft", name: "Marco Reyes", bodyFamily: "male", playtimeMs: 0 }]
       : [{ key: "default", status: "draft", playtimeMs: 0 }],
     maxSlots: 3, origins: ORIGINS, minAge: 18, currentYear: 2077,
+    welcomePending: registered && params.get("welcome") === "1", welcomeReadSeconds: Number(params.get("read") ?? 15),
   };
   const state: UiState = {
     server: { name: "Open//77 Official Roleplay", playersOnline: 12, maxPlayers: 64, version: "2.31.13+op77.82" },
@@ -46,7 +47,7 @@ export function installMockBridge(): void {
       owned: [],
     },
     staff: { isStaff: params.get("staff") === "1", role: "operator" },
-    locations: [{ name: "city", label: "City Center ouest" }, { name: "hospital", label: "Hôpital" }, { name: "stoop", label: "King Stoop" }, { name: "coast", label: "Côte sud-ouest" }],
+    locations: [{ name: "city", label: "City Center West" }, { name: "hospital", label: "Hospital" }, { name: "stoop", label: "King Stoop" }, { name: "coast", label: "South-west Coast" }],
     online: [{ id: 3, name: "w0dm4n" }, { id: 8, name: "szys" }, { id: 12, name: "fronterawave" }],
   };
   const hud: HudState = {
@@ -71,7 +72,7 @@ export function installMockBridge(): void {
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, { view: params.get("view") ?? "character" });
-          setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Bienvenue à Night City", body: "Serveur Light RP. Créez votre personnage, /help pour les commandes.", source: "LIGHT RP", durationMs: 9000 }), 400);
+          setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Welcome to Night City", body: "Light RP server. F5 opens your menu, /help lists the commands.", source: "LIGHT RP", durationMs: 9000 }), 400);
         }, 30);
       }
       if (name === PAGE_EVENTS.close) fire(PAGE_EVENTS.closed, {});
@@ -84,7 +85,7 @@ export function installMockBridge(): void {
               const hasBody = c.bodyFamily != null;
               patchCharacter({ firstName: action.firstName, lastName: action.lastName, birthDate: action.birthDate, origin: action.origin, story: action.story,
                 step: c.status === "active" ? "done" : hasBody ? "confirm" : "appearance" });
-              result(true, `Identité enregistrée : ${action.firstName} ${action.lastName}`, action.type);
+              result(true, `Identity saved: ${action.firstName} ${action.lastName}`, action.type);
               break;
             }
             case "character.appearance.open":
@@ -93,51 +94,54 @@ export function installMockBridge(): void {
                 const c = state.character;
                 patchCharacter({ bodyFamily: action.family ?? c.bodyFamily ?? "female", appearanceRevision: c.appearanceRevision + 1,
                   appearanceSavedAt: "2077-09-19 22:41:00", step: c.status === "active" ? "done" : c.firstName ? "confirm" : "identity" });
-                fire(PAGE_EVENTS.notice, { kind: "success", title: "Apparence sauvegardée", body: `Révision ${state.character.appearanceRevision}.`, source: "LIGHT RP", durationMs: 5000 });
+                fire(PAGE_EVENTS.notice, { kind: "success", title: "Appearance saved", body: `Revision ${state.character.appearanceRevision}.`, source: "LIGHT RP", durationMs: 5000 });
               }, 2000);
               break;
             case "character.finish":
-              patchCharacter({ status: "active", registered: true, step: "done",
+              patchCharacter({ status: "active", registered: true, step: "done", welcomePending: true,
                 slots: state.character.slots.map((s) => (s.key === state.character.key ? { ...s, status: "active", name: `${state.character.firstName} ${state.character.lastName}`, bodyFamily: state.character.bodyFamily } : s)) });
-              result(true, `Bienvenue à Night City, ${state.character.firstName} ${state.character.lastName}.`, action.type);
+              result(true, `Welcome to Night City, ${state.character.firstName} ${state.character.lastName}.`, action.type);
               break;
             case "character.new": {
               const key = `slot${state.character.slots.length + 1}`;
               patchCharacter({ key, status: "draft", registered: false, step: "identity", firstName: undefined, lastName: undefined, birthDate: undefined,
                 origin: undefined, story: undefined, bodyFamily: undefined, appearanceRevision: 0, appearanceSavedAt: undefined,
                 slots: [...state.character.slots, { key, status: "draft", playtimeMs: 0 }] });
-              result(true, "Nouvel emplacement ouvert : créez ce personnage.", action.type);
+              result(true, "New slot opened: create this character.", action.type);
               break;
             }
             case "character.select": {
               const slot = state.character.slots.find((s) => s.key === action.key);
               if (slot) patchCharacter({ key: slot.key, status: slot.status, registered: slot.status === "active", step: slot.status === "active" ? "done" : "identity",
                 firstName: slot.name?.split(" ")[0], lastName: slot.name?.split(" ")[1], bodyFamily: slot.bodyFamily });
-              result(true, `Personnage chargé : ${slot?.name ?? action.key}`, action.type);
+              result(true, `Character loaded: ${slot?.name ?? action.key}`, action.type);
               break;
             }
             case "character.archive":
               patchCharacter({ slots: state.character.slots.filter((s) => s.key !== action.key) });
-              result(true, "Personnage archivé.", action.type);
+              result(true, "Character archived.", action.type);
               break;
             case "vehicle.spawn": {
               const entry = state.vehicles.catalog.find((v) => v.key === action.key);
               state.vehicles = { ...state.vehicles, owned: entry ? [{ id: 4294967306, key: entry.key, label: entry.label }] : [] };
               fire(PAGE_EVENTS.state, { vehicles: state.vehicles });
-              result(true, `${entry?.label ?? action.key} livré à côté de vous.`, action.type);
+              result(true, `${entry?.label ?? action.key} delivered next to you.`, action.type);
               break;
             }
             case "vehicle.return":
               state.vehicles = { ...state.vehicles, owned: [] };
               fire(PAGE_EVENTS.state, { vehicles: state.vehicles });
-              result(true, "Véhicule rendu.", action.type);
+              result(true, "Vehicle returned.", action.type);
+              break;
+            case "welcome.ack":
+              patchCharacter({ welcomePending: false });
               break;
             case "voice.range":
               hud.voice = { ...hud.voice, range: action.range };
               fire(PAGE_EVENTS.hud, { ...hud });
               break;
             default:
-              result(true, `${action.type} accepté`, action.type);
+              result(true, `${action.type} accepted`, action.type);
           }
         }, 120);
       }

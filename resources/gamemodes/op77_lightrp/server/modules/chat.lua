@@ -37,7 +37,7 @@ end
 
 local function needsCharacter(playerId)
     if not Config.requireCharacterForIc or registered(playerId) then return false end
-    Chat.system(playerId, "Pas encore de personnage : F5 ou /register Prénom Nom. En attendant, /ooc parle hors-jeu.")
+    Chat.system(playerId, "No character yet: F5 or /register FirstName LastName. Meanwhile, /ooc talks out of character.")
     return true
 end
 
@@ -61,15 +61,15 @@ local function speech(name, range, formatAuthor, color, usage)
     end)
 end
 
-speech("w", Config.whisperRange, function(n) return n .. " chuchote" end, colors.whisper, "/w <message>  (4 m)")
-speech("s", Config.shoutRange, function(n) return n .. " crie" end, colors.shout, "/s <message>  (45 m)")
+speech("w", Config.whisperRange, function(n) return n .. " whispers" end, colors.whisper, "/w <message>  (4 m)")
+speech("s", Config.shoutRange, function(n) return n .. " shouts" end, colors.shout, "/s <message>  (45 m)")
 speech("me", Config.meRange, function(n) return "* " .. n end, colors.me, "/me <action>")
 
 LightRP.command("do", { usage = "/do <description>" }, function(source, args)
     local text = join(args)
     if text == "" then return false end
     if needsCharacter(source) then return nil end
-    Chat.sayNear(source, Config.meRange, "* Scène", text .. " (( " .. displayName(source) .. " ))", colors["do"])
+    Chat.sayNear(source, Config.meRange, "* Scene", text .. " (( " .. displayName(source) .. " ))", colors["do"])
 end)
 
 LightRP.command("try", { usage = "/try <action>" }, function(source, args)
@@ -77,14 +77,14 @@ LightRP.command("try", { usage = "/try <action>" }, function(source, args)
     if text == "" then return false end
     if needsCharacter(source) then return nil end
     local success = math.random(100) <= (LightRpConfig.tryChancePercent or 50)
-    Chat.sayNear(source, Config.meRange, "* " .. displayName(source), text .. (success and " et réussit." or " et échoue."), colors["try"])
+    Chat.sayNear(source, Config.meRange, "* " .. displayName(source), text .. (success and " and succeeds." or " and fails."), colors["try"])
 end)
 
 LightRP.command("roll", { usage = "/roll [2..1000000]" }, function(source, args)
     local maximum = math.floor(tonumber(args[1]) or 100)
     if maximum < 2 or maximum > 1000000 then return false end
     if needsCharacter(source) then return nil end
-    Chat.sayNear(source, Config.meRange, "* " .. displayName(source), string.format("lance un dé (1-%d) : %d", maximum, math.random(maximum)), colors["try"])
+    Chat.sayNear(source, Config.meRange, "* " .. displayName(source), string.format("rolls a die (1-%d): %d", maximum, math.random(maximum)), colors["try"])
 end)
 
 LightRP.command("ooc", { usage = "/ooc <message>" }, function(source, args)
@@ -97,14 +97,14 @@ LightRP.command("pm", { usage = "/pm <id> <message>" }, function(source, args)
     local target = tonumber(args[1])
     local text = join(args, 2)
     if target == nil or text == "" then return false end
-    if GetPlayerName(target) == nil then return false, "Aucun joueur avec l'id " .. tostring(target) end
-    Chat.say(target, "PM de " .. (GetPlayerName(source) or tostring(source)) .. " (" .. tostring(source) .. ")", text, colors.ooc)
-    Chat.say(source, "PM à " .. (GetPlayerName(target) or tostring(target)), text, colors.ooc)
+    if GetPlayerName(target) == nil then return false, "No player with id " .. tostring(target) end
+    Chat.say(target, "PM from " .. (GetPlayerName(source) or tostring(source)) .. " (" .. tostring(source) .. ")", text, colors.ooc)
+    Chat.say(source, "PM to " .. (GetPlayerName(target) or tostring(target)), text, colors.ooc)
 end)
 
 LightRP.command("rules", {}, function(source)
     for _, line in ipairs(LightRpConfig.rules) do Chat.system(source, line) end
-    return true, "Règles envoyées."
+    return true, "Rules sent."
 end)
 
 LightRP.command("who", {}, function(source)
@@ -112,12 +112,12 @@ LightRP.command("who", {}, function(source)
     local names = {}
     for _, id in ipairs(players) do names[#names + 1] = displayName(id) end
     table.sort(names)
-    return true, string.format("%d en ville : %s", #players, table.concat(names, ", "))
+    return true, string.format("%d in town: %s", #players, table.concat(names, ", "))
 end)
 
 LightRP.command("help", {}, function(source)
     LightRP.openMenu(source, "help")
-    return true, "Aide ouverte (F5 → Aide)."
+    return true, "Help opened (F5 → Help)."
 end)
 
 -- /report is filed by the staff module (it owns the table); chat only announces.

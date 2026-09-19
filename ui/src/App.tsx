@@ -6,6 +6,7 @@ import { Hud } from "@/features/hud/Hud";
 import { Menu } from "@/features/menu/Menu";
 import { CharacterWizard } from "@/features/character/CharacterWizard";
 import { NoticeLane } from "@/features/notices/NoticeLane";
+import { WelcomeModal } from "@/features/welcome/WelcomeModal";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -30,7 +31,7 @@ export function App() {
       on<ResultPayload>(PAGE_EVENTS.result, (r) => {
         if (!r) return;
         setResult(r.ok, r.text);
-        pushNotice({ kind: r.ok ? "success" : "error", title: r.ok ? undefined : "REFUSÉ", body: r.text, source: "LIGHT RP", durationMs: 6000 });
+        pushNotice({ kind: r.ok ? "success" : "error", title: r.ok ? undefined : "DENIED", body: r.text, source: "LIGHT RP", durationMs: 6000 });
       }),
     ];
     announceReady();
@@ -42,6 +43,7 @@ export function App() {
       <Hud />
       <NoticeLane />
       <CharacterWizard />
+      <WelcomeModal />
       <Menu />
     </>
   );

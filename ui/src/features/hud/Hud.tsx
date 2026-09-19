@@ -20,7 +20,7 @@ export function Hud() {
     <div className="hud" aria-hidden="true">
       <div className="hud__top-right">
         <StatusChip icon="id-card" label="ID" value={String(character.playerId).padStart(3, "0")} />
-        <StatusChip icon="users" label="EN VILLE" value={`${server.playersOnline}/${server.maxPlayers}`} />
+        <StatusChip icon="users" label="IN TOWN" value={`${server.playersOnline}/${server.maxPlayers}`} />
         <StatusChip label="" value={hud.clock} tone="accent" />
         {staff.isStaff && <Badge tone="danger">STAFF</Badge>}
       </div>
@@ -51,7 +51,7 @@ export function Hud() {
             <span className="o77-readout o77-dim">{hud.vehicle.label ?? "VEHICLE"}</span>
             <Badge tone="accent">{hud.vehicle.gear ?? "N"}</Badge>
           </div>
-          <VitalBar tone="accent" label="ETAT" value={(hud.vehicle.health ?? 1) * 100} size="sm" width={140} segments={14} />
+          <VitalBar tone="accent" label="CONDITION" value={(hud.vehicle.health ?? 1) * 100} size="sm" width={140} segments={14} />
         </div>
       )}
     </div>

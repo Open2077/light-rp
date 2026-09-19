@@ -11,9 +11,9 @@ import "./wizard.css";
    shows the step the server still misses and asks. */
 
 const STEPS: Array<{ id: CharacterStep; label: string }> = [
-  { id: "identity", label: "IDENTITÉ" },
-  { id: "appearance", label: "APPARENCE" },
-  { id: "confirm", label: "CONFIRMATION" },
+  { id: "identity", label: "IDENTITY" },
+  { id: "appearance", label: "APPEARANCE" },
+  { id: "confirm", label: "CONFIRM" },
 ];
 
 function useDialogFocus(active: boolean) {
@@ -40,19 +40,19 @@ function WizardBody({ character }: { character: CharacterState }) {
   // go back to re-read a step they already filled.
   useEffect(() => { setPage(character.step); }, [character.step]);
   const stepIndex = Math.max(0, STEPS.findIndex((s) => s.id === page));
-  const slotLabel = character.key === "default" ? "PERSONNAGE 1" : `PERSONNAGE ${character.key.replace("slot", "")}`;
+  const slotLabel = character.key === "default" ? "CHARACTER 1" : `CHARACTER ${character.key.replace("slot", "")}`;
 
   return (
     <div className="wizard o77-interactive">
       <div className="wizard__void" aria-hidden="true">
         <span className="wizard__void-mark">Open<span>//</span>77</span>
-        <span className="wizard__void-tag">CRÉATION DE PERSONNAGE // LE MONDE ATTEND</span>
+        <span className="wizard__void-tag">CHARACTER CREATION // THE CITY IS WAITING</span>
       </div>
       <div className="wizard__frame">
         <header className="wizard__head">
           <div>
             <span className="o77-tag o77-accent">OPEN//77 // OFFICIAL ROLEPLAY</span>
-            <h1 className="wizard__title">Nouveau personnage</h1>
+            <h1 className="wizard__title">New character</h1>
           </div>
           <div className="wizard__head-right">
             <Badge tone="outline">{slotLabel}</Badge>
@@ -104,15 +104,15 @@ export function IdentityForm({ character, submitLabel, onSubmitted }: { characte
   return (
     <div className="wizard__stack">
       <div className="wizard__two">
-        <Input label="PRÉNOM" icon="user" autoFocus value={fields.firstName} onChange={(e) => set({ firstName: e.target.value })} placeholder="Prénom" maxLength={24} />
-        <Input label="NOM" icon="user" value={fields.lastName} onChange={(e) => set({ lastName: e.target.value })} placeholder="Nom" maxLength={24} />
+        <Input label="FIRST NAME" icon="user" autoFocus value={fields.firstName} onChange={(e) => set({ firstName: e.target.value })} placeholder="First name" maxLength={24} />
+        <Input label="LAST NAME" icon="user" value={fields.lastName} onChange={(e) => set({ lastName: e.target.value })} placeholder="Last name" maxLength={24} />
       </div>
       <div className="wizard__two">
-        <Input label={`NAISSANCE · ${character.currentYear}`} icon="id-card" value={fields.birthDate ?? ""} onChange={(e) => set({ birthDate: e.target.value })}
-          placeholder="AAAA-MM-JJ" maxLength={10} invalid={!birthOk || !ageOk}
-          hint={age !== null && birthOk ? (ageOk ? `${age} ANS` : `${character.minAge} ANS MINIMUM`) : "FACULTATIF"} />
+        <Input label={`BORN · NIGHT CITY ${character.currentYear}`} icon="id-card" value={fields.birthDate ?? ""} onChange={(e) => set({ birthDate: e.target.value })}
+          placeholder="YYYY-MM-DD" maxLength={10} invalid={!birthOk || !ageOk}
+          hint={age !== null && birthOk ? (ageOk ? `${age} YEARS OLD` : `${character.minAge} YEARS MINIMUM`) : "OPTIONAL"} />
         <label className="o77-input">
-          <span className="o77-input__label">ORIGINE</span>
+          <span className="o77-input__label">ORIGIN</span>
           <span className="o77-input__field">
             <select className="o77-input__control wizard__select" value={fields.origin ?? ""} onChange={(e) => set({ origin: e.target.value })}>
               <option value="">—</option>
@@ -122,15 +122,15 @@ export function IdentityForm({ character, submitLabel, onSubmitted }: { characte
         </label>
       </div>
       <label className="o77-input">
-        <span className="o77-input__label">HISTOIRE · {(fields.story ?? "").length}/600</span>
+        <span className="o77-input__label">BACKSTORY · {(fields.story ?? "").length}/600</span>
         <span className="o77-input__field wizard__textarea-field">
           <textarea className="o77-input__control wizard__textarea" value={fields.story ?? ""} onChange={(e) => set({ story: e.target.value.slice(0, 600) })}
-            placeholder="Quelques lignes sur qui vous êtes à Night City. Facultatif." rows={4} />
+            placeholder="A few lines about who you are in Night City. Optional." rows={4} />
         </span>
       </label>
       <div className="wizard__actions">
         <Button icon="badge-check" disabled={!valid} onClick={submit}>{submitLabel}</Button>
-        <span className="o77-readout o77-dim">Le nom est celui que les autres lisent ; le compte reste privé.</span>
+        <span className="o77-readout o77-dim">The name is what the others read; your account stays private.</span>
       </div>
     </div>
   );
@@ -139,8 +139,8 @@ export function IdentityForm({ character, submitLabel, onSubmitted }: { characte
 function IdentityStep({ character }: { character: CharacterState }) {
   return (
     <div className="wizard__stack">
-      <SectionHeader index="01" title="État civil" subtitle="QUI ÊTES-VOUS" />
-      <IdentityForm character={character} submitLabel={character.firstName ? "Enregistrer" : "Continuer"} />
+      <SectionHeader index="01" title="Identity" subtitle="WHO ARE YOU" />
+      <IdentityForm character={character} submitLabel={character.firstName ? "Save" : "Continue"} />
     </div>
   );
 }
@@ -149,21 +149,21 @@ function AppearanceStep({ character }: { character: CharacterState }) {
   const saved = character.bodyFamily != null;
   return (
     <div className="wizard__stack">
-      <SectionHeader index="02" title="Corps et visage" subtitle={saved ? `${character.bodyFamily?.toUpperCase()} · RÉVISION ${character.appearanceRevision}` : "AUCUNE APPARENCE ENREGISTRÉE"} />
+      <SectionHeader index="02" title="Body and face" subtitle={saved ? `${character.bodyFamily?.toUpperCase()} · REVISION ${character.appearanceRevision}` : "NO APPEARANCE SAVED"} />
       <p className="wizard__text">
-        Le miroir ouvre l'éditeur de personnage du jeu. Validez-y votre apparence : elle est sauvegardée sur le serveur
-        et suivra ce personnage à chaque connexion. Choisissez d'abord le corps.
+        The mirror opens the game's character editor. Confirm your look in there: it is saved on the server
+        and follows this character every time you connect. Pick the body first.
       </p>
       <div className="wizard__chips">
         <Button variant={character.bodyFamily === "female" ? "primary" : "secondary"} icon="user"
-          onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc", family: "female" })}>Corps féminin</Button>
+          onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc", family: "female" })}>Female body</Button>
         <Button variant={character.bodyFamily === "male" ? "primary" : "secondary"} icon="user"
-          onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc", family: "male" })}>Corps masculin</Button>
+          onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc", family: "male" })}>Male body</Button>
         <Button variant="ghost" icon="settings" disabled={!saved}
-          onClick={() => sendAction({ type: "character.appearance.open", mode: "hairdresser" })}>Coiffeur</Button>
+          onClick={() => sendAction({ type: "character.appearance.open", mode: "hairdresser" })}>Hairdresser</Button>
       </div>
       <p className="wizard__text o77-dim">
-        {saved ? "Apparence enregistrée. Vous pourrez la retoucher plus tard depuis le menu Personnage." : "En attente d'une première sauvegarde du miroir."}
+        {saved ? "Appearance saved. You can touch it up later from the Character menu." : "Waiting for a first save from the mirror."}
       </p>
     </div>
   );
@@ -175,20 +175,20 @@ function ConfirmStep({ character }: { character: CharacterState }) {
   const ready = character.step === "confirm" || character.step === "done";
   return (
     <div className="wizard__stack">
-      <SectionHeader index="03" title="Résumé" subtitle="ENTRER EN VILLE" />
+      <SectionHeader index="03" title="Summary" subtitle="ENTER THE CITY" />
       <div className="wizard__summary">
-        <Row label="NOM" value={character.firstName ? `${character.firstName} ${character.lastName}` : "—"} />
-        <Row label="NAISSANCE" value={character.birthDate ? `${character.birthDate} · ${character.currentYear - Number(character.birthDate.slice(0, 4))} ANS` : "—"} />
-        <Row label="ORIGINE" value={origin ?? "—"} />
-        <Row label="CORPS" value={character.bodyFamily ? character.bodyFamily.toUpperCase() : (character.appearanceTracked ? "NON ENREGISTRÉ" : "NON SUIVI")} />
-        {character.story && <Row label="HISTOIRE" value={character.story} wide />}
+        <Row label="NAME" value={character.firstName ? `${character.firstName} ${character.lastName}` : "—"} />
+        <Row label="BORN" value={character.birthDate ? `${character.birthDate} · ${character.currentYear - Number(character.birthDate.slice(0, 4))} YEARS OLD` : "—"} />
+        <Row label="ORIGIN" value={origin ?? "—"} />
+        <Row label="BODY" value={character.bodyFamily ? character.bodyFamily.toUpperCase() : (character.appearanceTracked ? "NOT SAVED" : "NOT TRACKED")} />
+        {character.story && <Row label="BACKSTORY" value={character.story} wide />}
       </div>
       <div className="wizard__actions">
         <Button size="lg" icon="badge-check" disabled={!ready || sent} onClick={() => { setSent(true); sendAction({ type: "character.finish" }); setTimeout(() => setSent(false), 3000); }}>
-          Entrer dans Night City
+          Enter Night City
         </Button>
-        <Button variant="ghost" icon="package" onClick={() => sendAction({ type: "character.wardrobe.open" })}>Garde-robe</Button>
-        {!ready && <span className="o77-readout menu__foot--bad">Une étape manque encore.</span>}
+        <Button variant="ghost" icon="package" onClick={() => sendAction({ type: "character.wardrobe.open" })}>Wardrobe</Button>
+        {!ready && <span className="o77-readout menu__foot--bad">One step is still missing.</span>}
       </div>
     </div>
   );

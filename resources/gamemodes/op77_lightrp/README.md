@@ -95,6 +95,12 @@ disponibles pour les autres modules.
 Sans base de données, l'étape apparence est ignorée (`appearanceTracked = false`) et tout vit le
 temps de la session.
 
+### Briefing de premier spawn
+
+Quand le personnage devient actif pour la première fois (`character.finish`), le serveur pousse `character.welcomePending = true` (colonne `lightrp_accounts.welcome_seen_at` NULL, une fois par compte). La page affiche `features/welcome/WelcomeModal` : image de Night City (`web/img/night-city.jpg`), texte anglais qui explique le Light Roleplay, et un bouton OK verrouillé pendant `welcome.readSeconds` (config, 15 s). Le clic envoie l'action `welcome.ack`, qui date la colonne et ne remontre plus la modale. L'onglet Aide (bouton « Welcome briefing ») la rejoue sans délai.
+
+Tous les textes joueur (page, notices, réponses de commandes, libellés de la config) sont en anglais.
+
 ## Ce que voit le joueur
 
 - HUD : vie, armure, endurance, faim, soif, micro avec portée (WHISPER 4 m / NORMAL 15 m /

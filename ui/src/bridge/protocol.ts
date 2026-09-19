@@ -55,6 +55,8 @@ export interface CharacterState {
   origins: Array<{ key: string; label: string }>;
   minAge: number;
   currentYear: number;
+  welcomePending: boolean;     // first-spawn briefing not acknowledged yet (once per account)
+  welcomeReadSeconds?: number; // how long the OK button stays locked
 }
 
 export interface NeedsState { food: number; drink: number }
@@ -108,6 +110,7 @@ export type UiAction =
   | { type: "character.select"; key: string }
   | { type: "character.new" }
   | { type: "character.archive"; key: string }
+  | { type: "welcome.ack" }
   | { type: "vehicle.spawn"; key: string }
   | { type: "vehicle.return" }
   | { type: "staff.tp"; target: "me" | number; location: string }

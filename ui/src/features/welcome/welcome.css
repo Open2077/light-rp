@@ -1,0 +1,47 @@
+.welcome {
+  position: absolute; inset: 0; z-index: 45; display: grid; place-items: center; padding: var(--sp-8);
+  background: var(--surface-scrim); backdrop-filter: var(--blur-modal);
+}
+.welcome__frame {
+  width: min(920px, 100%); max-height: 100%; overflow: hidden; display: flex; flex-direction: column;
+  background: var(--surface-panel); clip-path: var(--clip-chamfer-lg);
+  box-shadow: inset 0 0 0 1px var(--line-soft), var(--shadow-panel);
+  animation: o77-wipe-in var(--dur-slow) var(--ease-mech) both;
+}
+
+/* Hero: the skyline, darkened toward the panel so the title sits on it. */
+.welcome__hero { position: relative; aspect-ratio: 16 / 6.2; overflow: hidden; background: var(--o77-ink-900); }
+.welcome__hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 35%; filter: saturate(1.05) contrast(1.05); }
+.welcome__hero-shade {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(to top, var(--surface-panel) 0%, rgba(10, 10, 12, .55) 38%, rgba(10, 10, 12, 0) 70%),
+    linear-gradient(to right, rgba(10, 10, 12, .55) 0%, rgba(10, 10, 12, 0) 55%);
+}
+.welcome__hero-shade::after { content: ""; position: absolute; inset: 0; background: var(--tex-scanline); opacity: .35; }
+.welcome__hero-text { position: absolute; left: var(--sp-8); right: var(--sp-8); bottom: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-2); }
+.welcome__title { margin: 0; font: var(--type-display); font-size: var(--fs-display); line-height: 1; color: var(--text-hi); text-shadow: 0 2px 18px rgba(0, 0, 0, .8); }
+.welcome__title span { color: var(--accent); }
+.welcome__sub { font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--text-body); }
+
+/* Body */
+.welcome__body { display: flex; flex-direction: column; gap: var(--sp-6); padding: var(--sp-6) var(--sp-8); overflow: auto; }
+.welcome__lead { margin: 0; font: var(--type-body); font-size: var(--fs-body-lg); color: var(--text-body); }
+.welcome__lead b { color: var(--text-hi); font-weight: 600; }
+.welcome__pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); }
+.welcome__pillar { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-5); background: var(--surface-raised); clip-path: var(--clip-notch); box-shadow: inset 0 0 0 1px var(--line-hairline); }
+.welcome__pillar-head { display: flex; align-items: center; gap: var(--sp-3); color: var(--accent); }
+.welcome__pillar-index { font: var(--type-display); font-size: var(--fs-body-lg); line-height: 1; color: var(--text-disabled); }
+.welcome__pillar-title { margin: 0; font: var(--type-label); text-transform: uppercase; letter-spacing: var(--ls-label); color: var(--text-hi); }
+.welcome__pillar-text { margin: 0; font: var(--type-body); color: var(--text-body); }
+.welcome__rules { display: flex; align-items: center; gap: var(--sp-5); flex-wrap: wrap; padding: var(--sp-4) var(--sp-5); background: var(--accent-quiet); box-shadow: inset 2px 0 0 var(--accent); }
+.welcome__rules-list { display: flex; gap: var(--sp-5); flex-wrap: wrap; list-style: none; margin: 0; padding: 0; font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--text-hi); }
+.welcome__rules-list li::before { content: "//"; color: var(--accent); margin-right: var(--sp-2); }
+.welcome__keys { margin-left: auto; display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+/* Footer: the read timer and the gate. */
+.welcome__foot { display: flex; align-items: center; gap: var(--sp-6); padding: var(--sp-5) var(--sp-8); border-top: 1px solid var(--line-hairline); background: var(--o77-ink-900); }
+.welcome__timer { flex: 1; display: flex; flex-direction: column; gap: var(--sp-3); }
+.welcome__bar { height: 3px; background: var(--line-hairline); overflow: hidden; }
+.welcome__bar-fill { height: 100%; background: var(--accent); transform-origin: left; transition: transform .12s linear; }
+.welcome__ok { min-width: 180px; }

@@ -51,20 +51,20 @@ end
 
 -- Shared by /car, /lightrp.car and the menu. Returns ok, text.
 function Vehicles.request(playerId, key, allowStaffOnly)
-    if not Config.enabled then return false, "Les véhicules sont désactivés." end
+    if not Config.enabled then return false, "Vehicles are disabled." end
     local entry = byKey[string.lower(tostring(key or ""))]
-    if entry == nil then return false, "Modèle inconnu. /cars pour la liste." end
-    if entry.staffOnly and not allowStaffOnly then return false, "Ce modèle est réservé : demandez au staff." end
+    if entry == nil then return false, "Unknown model. /cars for the list." end
+    if entry.staffOnly and not allowStaffOnly then return false, "This model is restricted: ask the staff." end
     local last = lastSpawnMs[playerId]
     local now = LightRP.nowMs()
     if last and now - last < Config.cooldownMs then
-        return false, string.format("Patientez %d s avant un nouveau véhicule.", math.ceil((Config.cooldownMs - (now - last)) / 1000))
+        return false, string.format("Wait %d s before another vehicle.", math.ceil((Config.cooldownMs - (now - last)) / 1000))
     end
     local id, reason = spawn(playerId, entry)
-    if id == nil then return false, "Véhicule refusé : " .. tostring(reason) end
+    if id == nil then return false, "Vehicle refused: " .. tostring(reason) end
     lastSpawnMs[playerId] = now
     LightRP.state(playerId, "vehicles")
-    return true, entry.label .. " livré à côté de vous."
+    return true, entry.label .. " delivered next to you."
 end
 
 LightRP.stateProvider("vehicles", function(playerId)
@@ -96,20 +96,20 @@ end)
 
 LightRP.action("vehicle.return", function(playerId)
     local removed = Vehicles.removeAll(playerId)
-    LightRP.result(playerId, true, removed > 0 and "Véhicule rendu." or "Vous n'avez aucun véhicule.", "vehicle.return")
+    LightRP.result(playerId, true, removed > 0 and "Vehicle returned." or "You have no vehicle out.", "vehicle.return")
 end)
 
-LightRP.command("car", { usage = "/car <modèle>" }, function(source, args)
+LightRP.command("car", { usage = "/car <model>" }, function(source, args)
     if args[1] == nil then return false end
     return Vehicles.request(source, args[1], false)
 end)
 
 LightRP.command("dv", {}, function(source)
     local removed = Vehicles.removeAll(source)
-    return true, removed > 0 and "Véhicule rendu." or "Vous n'avez aucun véhicule."
+    return true, removed > 0 and "Vehicle returned." or "You have no vehicle out."
 end)
 
 LightRP.command("cars", {}, function(source)
     LightRP.openMenu(source, "vehicles")
-    return true, "Garage ouvert (F5 → Véhicules)."
+    return true, "Garage opened (F5 → Vehicles)."
 end)

@@ -132,13 +132,13 @@ RegisterNetEvent(E.net.action, function(payload)
     actionLastMs[playerId] = now
     local handler = actions[payload.type]
     if handler == nil then
-        LightRP.result(playerId, false, "Action inconnue : " .. payload.type, payload.type)
+        LightRP.result(playerId, false, "Unknown action: " .. payload.type, payload.type)
         return
     end
     local ok, err = pcall(handler, playerId, payload)
     if not ok then
         LightRP.log("action %s by %d failed: %s", payload.type, playerId, tostring(err))
-        LightRP.result(playerId, false, "Action refusée (erreur interne).", payload.type)
+        LightRP.result(playerId, false, "Action refused (internal error).", payload.type)
     end
 end)
 
@@ -150,7 +150,7 @@ end)
 
 -- ---------------------------------------------------------------------------
 -- Commands: one wrapper so every command logs and answers the same way.
---   LightRP.command("car", { restricted = false, usage = "/car <modèle>" }, function(source, args, raw) ... end)
+--   LightRP.command("car", { restricted = false, usage = "/car <model>" }, function(source, args, raw) ... end)
 -- The handler returns ok, text (or nothing to stay silent).
 
 function LightRP.command(name, options, handler)
@@ -159,7 +159,7 @@ function LightRP.command(name, options, handler)
         local ok, textOrErr, text = pcall(handler, source, args, raw)
         if not ok then
             LightRP.log("command %s failed: %s", name, tostring(textOrErr))
-            LightRP.reply(source, raw, false, "Commande en erreur, voir le journal du serveur.")
+            LightRP.reply(source, raw, false, "Command failed, see the server log.")
             return
         end
         if textOrErr == nil then return end

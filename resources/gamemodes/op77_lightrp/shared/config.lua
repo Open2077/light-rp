@@ -4,25 +4,28 @@ LightRpConfig = {
 
     welcome = {
         enabled = true,
-        title = "Bienvenue à Night City",
-        text = "Serveur Light RP. Créez votre personnage (F5 ou /register Prénom Nom), /help pour les commandes.",
+        title = "Welcome to Night City",
+        text = "Light RP server. F5 opens your menu, /help lists the commands.",
+        -- The first-spawn briefing (page WelcomeModal): the OK button unlocks after
+        -- this many seconds so the player actually reads it. Shown once per account.
+        readSeconds = 15,
     },
     rules = {
-        "1. Restez dans votre personnage : le chat normal est RP (IC), /ooc pour le hors-jeu.",
-        "2. Pas de kill sans raison RP, pas de fuite en cours de scène (RDM/VDM interdits).",
-        "3. Respectez les autres joueurs : pas de harcèlement, pas de méta-gaming.",
-        "4. Un véhicule à la fois, garez-le avant de le rendre avec /dv.",
-        "5. Un problème ? /report <message> prévient le staff.",
+        "1. Stay in character: plain chat is in-character (IC), /ooc for out-of-character talk.",
+        "2. No kills without a roleplay reason, no fleeing mid-scene (no RDM/VDM).",
+        "3. Respect the other players: no harassment, no metagaming.",
+        "4. One vehicle at a time; park it before returning it with /dv.",
+        "5. A problem? /report <message> alerts the staff.",
     },
 
     -- The menu key. Rebindable by the player in Pause > Settings > Key bindings.
     keys = {
-        menu = { id = "lightrp.menu", name = "Light RP : menu", key = "F5" },
+        menu = { id = "lightrp.menu", name = "Light RP: menu", key = "F5" },
     },
 
     spawn = {
-        arrival = { name = "city", label = "City Center ouest", position = { x = -667.14, y = -382.61, z = 9.16 }, heading = 90.0 },
-        hospital = { name = "hospital", label = "Hôpital", position = { x = -1441.0, y = 1269.0, z = 123.0 }, heading = 0.0 },
+        arrival = { name = "city", label = "City Center West", position = { x = -667.14, y = -382.61, z = 9.16 }, heading = 90.0 },
+        hospital = { name = "hospital", label = "Hospital", position = { x = -1441.0, y = 1269.0, z = 123.0 }, heading = 0.0 },
         health = 1.0,          -- fraction of the maximum, as the life primitives expect
         graceMs = 4000,
         respawnDelayMs = 10000,
@@ -32,13 +35,13 @@ LightRpConfig = {
     },
 
     locations = {
-        { name = "city",     label = "City Center ouest",    position = { x = -667.14, y = -382.61, z = 9.16 },     heading = 90.0 },
-        { name = "hospital", label = "Hôpital",              position = { x = -1441.0, y = 1269.0, z = 123.0 },    heading = 0.0 },
+        { name = "city",     label = "City Center West",    position = { x = -667.14, y = -382.61, z = 9.16 },     heading = 90.0 },
+        { name = "hospital", label = "Hospital",             position = { x = -1441.0, y = 1269.0, z = 123.0 },    heading = 0.0 },
         { name = "stoop",    label = "King Stoop",           position = { x = -410.22, y = 722.73, z = 115.0 },    heading = 0.0 },
-        { name = "north",    label = "Promenade nord",       position = { x = -469.47, y = 930.99, z = 56.45 },    heading = 0.0 },
-        { name = "dealer",   label = "Concession Westbrook", position = { x = -1442.2, y = 127.4, z = 18.0 },      heading = 0.0 },
-        { name = "coast",    label = "Côte sud-ouest",       position = { x = -1716.38, y = -2421.28, z = 62.59 }, heading = 0.0 },
-        { name = "lab",      label = "Laboratoire",          position = { x = 1669.75, y = -739.12, z = 49.86 },   heading = 180.0 },
+        { name = "north",    label = "North Promenade",      position = { x = -469.47, y = 930.99, z = 56.45 },    heading = 0.0 },
+        { name = "dealer",   label = "Westbrook Dealership", position = { x = -1442.2, y = 127.4, z = 18.0 },      heading = 0.0 },
+        { name = "coast",    label = "South-west Coast",     position = { x = -1716.38, y = -2421.28, z = 62.59 }, heading = 0.0 },
+        { name = "lab",      label = "Laboratory",           position = { x = 1669.75, y = -739.12, z = 49.86 },   heading = 180.0 },
     },
 
     chat = {
@@ -113,10 +116,10 @@ LightRpConfig = {
             { key = "badlands",   label = "Badlands" },
             { key = "ncus",      label = "NUSA" },
             { key = "europe",    label = "Europe" },
-            { key = "asia",      label = "Asie" },
-            { key = "latam",     label = "Amérique latine" },
-            { key = "africa",    label = "Afrique" },
-            { key = "orbit",     label = "Orbite" },
+            { key = "asia",      label = "Asia" },
+            { key = "latam",     label = "Latin America" },
+            { key = "africa",    label = "Africa" },
+            { key = "orbit",     label = "Orbit" },
         },
     },
     tryChancePercent = 50,

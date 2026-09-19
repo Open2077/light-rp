@@ -91,7 +91,7 @@ function Spawn.onLifeState(playerId, phase)
             bucket = current.bucket or 0, health = Config.spawn.health, graceMs = Config.spawn.graceMs,
         })
         if ok then
-            LightRP.notice(playerId, { kind = "warning", title = "Hôpital", body = "Vous vous réveillez à l'hôpital. Les soins ont été facturés à votre assurance.", durationMs = 10000 })
+            LightRP.notice(playerId, { kind = "warning", title = "Hospital", body = "You wake up at the hospital. The bill went to your insurance.", durationMs = 10000 })
         else
             LightRP.log("hospital respawn for %d rejected: %s", playerId, tostring(reason))
         end
@@ -107,7 +107,7 @@ function Spawn.onCharacterActivated(playerId)
         LightRP.log("arrival placement for %d after creation rejected: %s", playerId, tostring(reason))
         return
     end
-    LightRP.notice(playerId, { kind = "info", title = Config.welcome.title, body = Config.welcome.text, durationMs = 12000 })
+    LightRP.chat.system(playerId, Config.welcome.text)
 end
 
 -- Another slot took over: go where that character was, or to the arrival point

@@ -16,7 +16,7 @@ export const EMPTY_STATE: UiState = {
   server: { name: "Open//77 Official Roleplay", playersOnline: 0, maxPlayers: 0 },
   character: {
     registered: false, status: "draft", step: "identity", key: "default", appearanceRevision: 0, appearanceTracked: false,
-    accountName: "", playerId: 0, slots: [], maxSlots: 1, origins: [], minAge: 18, currentYear: 2077,
+    accountName: "", playerId: 0, slots: [], maxSlots: 1, origins: [], minAge: 18, currentYear: 2077, welcomePending: false,
   },
   needs: { food: 100, drink: 100 },
   vehicles: { catalog: [], owned: [] },
@@ -43,7 +43,9 @@ interface Store {
   menuView: MenuView;
   notices: Notice[];
   lastResult?: { ok: boolean; text: string; at: number };
+  welcomeReplay: boolean; // the Help tab asked for the briefing again
   setConnected(value: boolean): void;
+  setWelcomeReplay(value: boolean): void;
   applyState(patch: UiStatePatch): void;
   setHud(hud: HudState): void;
   openMenu(view?: MenuView): void;
@@ -64,7 +66,9 @@ export const useStore = create<Store>((set) => ({
   menuOpen: false,
   menuView: "character",
   notices: [],
+  welcomeReplay: false,
   setConnected: (value) => set({ connected: value }),
+  setWelcomeReplay: (value) => set({ welcomeReplay: value }),
   applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch } })),
   setHud: (hud) => set({ hud }),
   openMenu: (view) => set((s) => ({ menuOpen: true, menuView: view ?? s.menuView })),
