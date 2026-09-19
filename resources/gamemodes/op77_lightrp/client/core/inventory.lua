@@ -8,7 +8,13 @@ LightRpInventory = Inventory
 
 local function log(format, ...) LightRpUi.log(format, ...) end
 
+local lastPress = 0
+
+-- One press = one toggle. The page only reports its state; it never acts on I.
 function Inventory.open()
+    local now = GetGameTimer and GetGameTimer() or (os and os.clock() * 1000) or 0
+    if now - lastPress < 350 then return end
+    lastPress = now
     if LightRpUi.dialogs and LightRpUi.dialogs.inventory then
         LightRpUi.send(E.page.dialogClose, { kind = "inventory" })
         return

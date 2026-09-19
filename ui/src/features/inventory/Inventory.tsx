@@ -32,12 +32,10 @@ export function InventoryDialog() {
     if (!visible) return;
     emit(PAGE_EVENTS.focus, { active: true });
     const offClose = on<{ kind?: string }>(PAGE_EVENTS.dialogClose, (p) => { if (!p?.kind || p.kind === "inventory") close(); });
+    // Escape closes here; the I key is the Lua mapping's alone (it toggles from
+    // the dialog state), otherwise one press would be handled twice and race.
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key === "Escape" || e.key === "i" || e.key === "I") && !e.repeat) {
-        const target = e.target as HTMLElement | null;
-        if (e.key !== "Escape" && target && target.tagName === "INPUT") return;
-        e.preventDefault(); close();
-      }
+      if (e.key === "Escape" && !e.repeat) { e.preventDefault(); close(); }
     };
     window.addEventListener("keydown", onKey);
     return () => { window.removeEventListener("keydown", onKey); offClose(); emit(PAGE_EVENTS.focus, { active: false }); };
