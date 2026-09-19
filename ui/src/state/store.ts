@@ -19,6 +19,7 @@ export const EMPTY_STATE: UiState = {
     accountName: "", playerId: 0, slots: [], maxSlots: 1, origins: [], minAge: 18, currentYear: 2077, welcomePending: false,
   },
   needs: { food: 100, drink: 100 },
+  money: { currency: "€$", cash: 0, history: [] },
   vehicles: { catalog: [], owned: [] },
   staff: { isStaff: false },
   locations: [],

@@ -101,6 +101,14 @@ Quand le personnage devient actif pour la première fois (`character.finish`), l
 
 Tous les textes joueur (page, notices, réponses de commandes, libellés de la config) sont en anglais.
 
+## Argent et banque (`server/modules/economy.lua`)
+
+Un portefeuille par personnage actif : argent liquide + compte bancaire numéroté `XXX-XXX` (lettres et chiffres sans O/I/0/1). Tables `lightrp_wallets` (compte, propriétaire, cash, bank) et `lightrp_transactions` (registre signé : opening, deposit, withdraw, transfer_in/out, pay_in/out, fee, refund, staff, salary…). Le portefeuille s'ouvre à l'activation du personnage (`economy.startingCash` / `startingBank`) ou au premier chargement d'un personnage actif qui n'en a pas ; il suit le slot (hook `onCharacterLoaded`).
+
+API pour les autres modules (jobs, boutiques, loyers) : `LightRP.money.addCash/removeCash/addBank/removeBank(playerId, amount, kind, note, counterparty)`, `deposit/withdraw`, `transfer(playerId, "XXX-XXX", amount, note)`, `pay(playerId, targetId, amount)` (main à main, `economy.payRange`), `creditAccount(number, …)` (fonctionne hors ligne), `findAccount`, `format`. Hook `onMoneyChanged(playerId, wallet, delta, balance, kind)`. Les soldes ne passent jamais sous zéro ; un drapeau `busy` par portefeuille évite deux opérations entrelacées.
+
+Page : état `money` (`cash`, `bank { number, balance }`, `history`), actions `money.deposit|withdraw|transfer|pay` (prêtes pour la future page ATM). Commandes : `/money`, `/bank`, `/pay <id> <montant>`, `/transfer <compte> <montant> [note]`, `/deposit`, `/withdraw` (tant que `economy.counterCommands`), staff `/lightrp.givemoney`, `/lightrp.takemoney`, `/lightrp.account`.
+
 ## Ce que voit le joueur
 
 - HUD : vie, armure, endurance, faim, soif, micro avec portée (WHISPER 4 m / NORMAL 15 m /

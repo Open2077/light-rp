@@ -4,6 +4,7 @@ import { requestClose, sendAction } from "@/bridge/open77";
 import type { MenuView } from "@/bridge/protocol";
 import { Badge, Button, Input, ListRow, Panel, SectionHeader, Tabs, Keycap, type TabItem } from "@/design/components";
 import { IdentityForm } from "@/features/character/CharacterWizard";
+import { formatMoney, ledger, transactionLabel } from "@/bridge/money";
 import "./menu.css";
 
 const TABS: TabItem<MenuView>[] = [
@@ -74,6 +75,7 @@ export function Menu() {
 function CharacterView() {
   const character = useStore((s) => s.state.character);
   const needs = useStore((s) => s.state.needs);
+  const money = useStore((s) => s.state.money);
   const [editing, setEditing] = useState(false);
   const origin = character.origins.find((o) => o.key === character.origin)?.label;
   const freeSlots = character.maxSlots - character.slots.length;
@@ -93,7 +95,26 @@ function CharacterView() {
       )}
       {character.story && !editing && <p className="menu__story">{character.story}</p>}
 
-      <SectionHeader index="02" title="Appearance" subtitle={character.bodyFamily ? `${character.bodyFamily.toUpperCase()} · REVISION ${character.appearanceRevision}` : "NOT SAVED"}
+      <SectionHeader index="02" title="Wallet" subtitle={money.bank ? `NIGHT CITY BANK · ACCOUNT ${money.bank.number}` : "NO ACCOUNT YET"} />
+      <div className="menu__stats">
+        <Stat label="CASH" value={formatMoney(money.cash, money.currency)} />
+        <Stat label="BANK" value={money.bank ? formatMoney(money.bank.balance, money.currency) : "—"} />
+        <Stat label="ACCOUNT NO" value={money.bank?.number ?? "—"} mono />
+        <Stat label="TOTAL" value={formatMoney(money.cash + (money.bank?.balance ?? 0), money.currency)} />
+      </div>
+      {ledger(money).length > 0 && (
+        <div className="menu__list">
+          {ledger(money).slice(0, 6).map((t, i) => (
+            <ListRow key={i} icon={t.wallet === "bank" ? "landmark" : "banknote"} title={transactionLabel(t)}
+              subtitle={[t.counterparty, t.note].filter(Boolean).join(" — ") || (t.wallet === "bank" ? "Bank" : "Cash")}
+              meta={t.at?.slice(0, 16)}
+              right={<span className={"menu__amount" + (t.amount < 0 ? " menu__amount--out" : "")}>{formatMoney(t.amount, money.currency, true)}</span>} />
+          ))}
+        </div>
+      )}
+      <span className="o77-readout o77-dim">/pay &lt;id&gt; &lt;amount&gt; hands cash over · /transfer &lt;account&gt; &lt;amount&gt; wires money · /bank shows the ledger</span>
+
+      <SectionHeader index="03" title="Appearance" subtitle={character.bodyFamily ? `${character.bodyFamily.toUpperCase()} · REVISION ${character.appearanceRevision}` : "NOT SAVED"}
         right={character.appearanceSavedAt && <span className="o77-readout o77-disabled">{character.appearanceSavedAt.slice(0, 16)}</span>} />
       <div className="menu__actions">
         <Button size="sm" variant="secondary" icon="user" onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc" })}>Mirror</Button>
@@ -102,7 +123,7 @@ function CharacterView() {
         <span className="o77-readout o77-dim">Body, face and outfit are saved on the server for this character.</span>
       </div>
 
-      <SectionHeader index="03" title="Characters" subtitle={`${character.slots.length} / ${character.maxSlots} SLOTS`}
+      <SectionHeader index="04" title="Characters" subtitle={`${character.slots.length} / ${character.maxSlots} SLOTS`}
         right={<Button size="sm" icon="users" disabled={freeSlots <= 0 || character.status !== "active"} onClick={() => sendAction({ type: "character.new" })}>New</Button>} />
       <div className="menu__list">
         {character.slots.map((slot) => {
@@ -122,7 +143,7 @@ function CharacterView() {
         })}
       </div>
 
-      <SectionHeader index="04" title="Condition" subtitle="NEEDS" />
+      <SectionHeader index="05" title="Condition" subtitle="NEEDS" />
       <div className="menu__stats">
         <Stat label="HUNGER" value={`${Math.round(needs.food)}%`} />
         <Stat label="THIRST" value={`${Math.round(needs.drink)}%`} />
@@ -202,6 +223,10 @@ function HelpView() {
     ["/ooc", "Out of character, whole server"],
     ["/me · /do · /try · /roll", "Action · scene · attempt · dice"],
     ["/pm <id>", "Private message"],
+    ["/money · /bank", "Your wallet · account number and last operations"],
+    ["/pay <id> <amount>", "Hand cash to someone next to you"],
+    ["/transfer <XXX-XXX> <amount>", "Wire money to a bank account"],
+    ["/deposit · /withdraw", "Move money between your pocket and the bank"],
     ["/car · /cars · /dv", "Call, list, return a vehicle"],
     ["/who · /rules · /report", "Who is in town · rules · report"],
   ];
@@ -217,11 +242,11 @@ function HelpView() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="menu__stat">
       <span className="o77-readout o77-dim">{label}</span>
-      <span className="menu__stat-value">{value}</span>
+      <span className={"menu__stat-value" + (mono ? " menu__mono" : "")}>{value}</span>
     </div>
   );
 }

@@ -38,6 +38,16 @@ export function installMockBridge(): void {
     server: { name: "Open//77 Official Roleplay", playersOnline: 12, maxPlayers: 64, version: "2.31.13+op77.82" },
     character,
     needs: { food: 64, drink: 38 },
+    money: registered ? {
+      currency: "€$", cash: 340, bank: { number: "K7F-2QD", balance: 2860 },
+      history: [
+        { wallet: "bank", kind: "salary", amount: 420, balanceAfter: 2860, counterparty: "NC Sanitation", note: "Garbage run · route 4", at: "2077-09-19 21:10:00" },
+        { wallet: "cash", kind: "pay_out", amount: -60, balanceAfter: 340, counterparty: "Marco Reyes", at: "2077-09-19 20:48:00" },
+        { wallet: "bank", kind: "transfer_out", amount: -300, balanceAfter: 2440, counterparty: "Judy Alvarez · 9QM-T3W", note: "Rent", at: "2077-09-18 23:05:00" },
+        { wallet: "cash", kind: "withdraw", amount: 400, balanceAfter: 400, counterparty: "Night City Bank", at: "2077-09-18 22:59:00" },
+        { wallet: "bank", kind: "opening", amount: 1500, balanceAfter: 1500, counterparty: "Night City Bank", note: "Account opened", at: "2077-09-17 19:30:00" },
+      ],
+    } : { currency: "€$", cash: 0, history: [] },
     vehicles: {
       catalog: [
         { key: "hella", label: "Archer Hella", category: "Street" }, { key: "quartz", label: "Archer Quartz", category: "Street" },
@@ -133,6 +143,20 @@ export function installMockBridge(): void {
               fire(PAGE_EVENTS.state, { vehicles: state.vehicles });
               result(true, "Vehicle returned.", action.type);
               break;
+            case "money.deposit": case "money.withdraw": {
+              const m = state.money;
+              if (!m.bank) { result(false, "You have no wallet yet.", action.type); break; }
+              const out = action.type === "money.deposit";
+              if ((out ? m.cash : m.bank.balance) < action.amount) { result(false, "Insufficient funds.", action.type); break; }
+              const cash = m.cash + (out ? -action.amount : action.amount);
+              const bank = { ...m.bank, balance: m.bank.balance + (out ? action.amount : -action.amount) };
+              state.money = { ...m, cash, bank, history: [
+                { wallet: out ? "bank" : "cash", kind: out ? "deposit" : "withdraw", amount: action.amount, balanceAfter: out ? bank.balance : cash, counterparty: "Night City Bank" },
+                ...m.history] };
+              fire(PAGE_EVENTS.state, { money: state.money });
+              result(true, `€$ ${action.amount.toLocaleString("en-US")} ${out ? "deposited" : "withdrawn"}.`, action.type);
+              break;
+            }
             case "welcome.ack":
               patchCharacter({ welcomePending: false });
               break;

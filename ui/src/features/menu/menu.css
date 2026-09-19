@@ -21,6 +21,8 @@
 .menu__stat-value { font: var(--type-hud-readout); font-size: var(--fs-title); color: var(--text-hi); }
 .menu__story { margin: 0; padding: var(--sp-5); background: var(--surface-raised); clip-path: var(--clip-notch); font: var(--type-body); color: var(--text-body); box-shadow: inset 2px 0 0 var(--accent); }
 .menu__mono { font-family: var(--font-mono); text-transform: none; letter-spacing: 0; color: var(--accent); }
+.menu__amount { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--o77-green); white-space: nowrap; }
+.menu__amount--out { color: var(--text-hi); }
 .menu__select { appearance: none; background: transparent; border: 0; outline: none; color: var(--text-hi); font-family: var(--font-mono); }
 .menu__select option { background: var(--surface-panel); color: var(--text-body); }
 

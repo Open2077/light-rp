@@ -197,6 +197,7 @@ local function load(playerId, key)
     if not Db.ready or identifier == nil then
         local c = emptyCharacter(playerId, identifier, key or "default")
         characters[playerId] = c
+        LightRP.eachModule("onCharacterLoaded", playerId, c)
         return c
     end
     Db.run([[INSERT INTO lightrp_accounts (identifier, account_name) VALUES (?, ?)
@@ -234,6 +235,7 @@ local function load(playerId, key)
         if appearance.updated_at then c.appearanceSavedAt = tostring(appearance.updated_at) end
     end
     c.slots = loadSlots(identifier)
+    LightRP.eachModule("onCharacterLoaded", playerId, c)
     return c
 end
 

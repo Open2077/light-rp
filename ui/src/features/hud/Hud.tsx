@@ -1,5 +1,6 @@
 import { useStore } from "@/state/store";
 import { Badge, StatusChip, VitalBar } from "@/design/components";
+import { formatMoney } from "@/bridge/money";
 import "./hud.css";
 
 /* Gameplay overlay, inside the HUD safe area. Layout contract from the design
@@ -9,6 +10,7 @@ export function Hud() {
   const hud = useStore((s) => s.hud);
   const character = useStore((s) => s.state.character);
   const needs = useStore((s) => s.state.needs);
+  const money = useStore((s) => s.state.money);
   const server = useStore((s) => s.state.server);
   const staff = useStore((s) => s.state.staff);
   const menuOpen = useStore((s) => s.menuOpen);
@@ -21,6 +23,8 @@ export function Hud() {
       <div className="hud__top-right">
         <StatusChip icon="id-card" label="ID" value={String(character.playerId).padStart(3, "0")} />
         <StatusChip icon="users" label="IN TOWN" value={`${server.playersOnline}/${server.maxPlayers}`} />
+        <StatusChip icon="banknote" label="CASH" value={formatMoney(money.cash, money.currency)} />
+        {money.bank && <StatusChip icon="landmark" label="BANK" value={formatMoney(money.bank.balance, money.currency)} />}
         <StatusChip label="" value={hud.clock} tone="accent" />
         {staff.isStaff && <Badge tone="danger">STAFF</Badge>}
       </div>

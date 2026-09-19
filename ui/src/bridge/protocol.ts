@@ -61,6 +61,24 @@ export interface CharacterState {
 
 export interface NeedsState { food: number; drink: number }
 
+/** One ledger line of the character's wallet. `amount` is signed. */
+export interface MoneyTransaction {
+  wallet: "cash" | "bank";
+  kind: string; // opening, deposit, withdraw, transfer_in, transfer_out, pay_in, pay_out, fee, refund, staff, salary...
+  amount: number;
+  balanceAfter: number;
+  counterparty?: string;
+  note?: string;
+  at?: string;
+}
+/** Cash in the pocket and the bank account; `bank` is absent for a draft character. */
+export interface MoneyState {
+  currency: string;
+  cash: number;
+  bank?: { number: string; balance: number };
+  history: MoneyTransaction[];
+}
+
 export interface VehicleEntry { key: string; label: string; category: string; staffOnly?: boolean }
 export interface OwnedVehicle { id: number; key: string; label: string }
 
@@ -74,6 +92,7 @@ export interface UiState {
   server: ServerInfo;
   character: CharacterState;
   needs: NeedsState;
+  money: MoneyState;
   vehicles: { catalog: VehicleEntry[]; owned: OwnedVehicle[]; cooldownUntil?: number };
   staff: StaffState;
   locations: Array<{ name: string; label: string }>;
@@ -111,6 +130,10 @@ export type UiAction =
   | { type: "character.new" }
   | { type: "character.archive"; key: string }
   | { type: "welcome.ack" }
+  | { type: "money.deposit"; amount: number }
+  | { type: "money.withdraw"; amount: number }
+  | { type: "money.transfer"; to: string; amount: number; note?: string }
+  | { type: "money.pay"; target: number; amount: number }
   | { type: "vehicle.spawn"; key: string }
   | { type: "vehicle.return" }
   | { type: "staff.tp"; target: "me" | number; location: string }

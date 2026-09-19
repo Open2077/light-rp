@@ -104,6 +104,20 @@ LightRpConfig = {
 
     names = { minLength = 2, maxLength = 24, allowAccents = true },
 
+    -- Money: one wallet per active character (cash + bank account XXX-XXX).
+    -- Whole eddies only. Jobs, shops and rent will move money through
+    -- LightRP.money.*; the ATM page will raise the money.* actions.
+    economy = {
+        currency = "€$",
+        startingCash = 250,
+        startingBank = 1500,
+        maxTransaction = 1000000000,
+        payRange = 6.0,          -- metres: /pay hands cash to someone next to you
+        transferFee = 0,         -- flat fee per bank transfer, on top of the amount
+        counterCommands = true,  -- /deposit and /withdraw anywhere, until the ATM UI exists
+        historyLength = 10,      -- ledger lines kept in memory and shown on the page
+    },
+
     -- Character creation and slots. The body and the face are made in the native
     -- creator (open77_appearance) at the first join; the wizard collects the rest.
     characters = {
