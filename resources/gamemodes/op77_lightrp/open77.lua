@@ -71,6 +71,7 @@ permissions {
     "input.actions",
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks are NPCs
+    "world.markers",        -- native 3D markers at rental desks
     "ui.vanilla.map",       -- map blips on the interaction points
     "vehicles.read",        -- closest vehicle / seat for the L key
     "ui.vanilla.hud",

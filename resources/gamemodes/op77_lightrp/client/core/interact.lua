@@ -1,7 +1,6 @@
 -- Proximity interactions on the client. For every point the server sends:
---   * a small ground ring drawn natively by the plugin (Open77.anchors,
---     render = "ring"), only reported within a few metres so it appears as you
---     walk up;
+--   * a persistent native 3D marker (Open77.markers) when configured, otherwise
+--     a small ground ring (Open77.anchors, render = "ring") unless ring = false;
 --   * an optional vanilla map blip (Open77.blips) so the point is on the map;
 --   * one shared page anchor ("interact") that the HUD page turns into a keycap
 --     and a few words, moved onto the nearest point in range.
@@ -24,8 +23,13 @@ local function blipsAvailable()
     return type(Open77.blips) == "table" and type(Open77.blips.create) == "function"
 end
 
+local function markersAvailable()
+    return type(Open77.markers) == "table" and type(Open77.markers.create) == "function"
+end
+
 local function clear()
     for _, point in ipairs(Interact.points) do
+        if point.marker and markersAvailable() then pcall(Open77.markers.remove, point.marker) end
         if point.ring and anchorsAvailable() then pcall(Open77.anchors.remove, point.ring) end
         if point.blip and blipsAvailable() then pcall(Open77.blips.remove, point.blip) end
     end
@@ -72,6 +76,22 @@ local function createBlip(point)
     return nil
 end
 
+local function createMarker(point, marker)
+    if not markersAvailable() then
+        log("3D marker unavailable for %s: update the Open77 client (world.markers API required)", tostring(point.id))
+        return nil
+    end
+    local id, err = Open77.markers.create({
+        position = { x = point.position.x, y = point.position.y, z = point.position.z + (tonumber(marker.groundOffset) or 0.05) },
+        shape = marker.shape or "cylinder", radius = tonumber(marker.radius) or 0.9, height = tonumber(marker.height) or 0.65,
+        color = marker.color, style = marker.style or "objective", scale = marker.scale, rotation = marker.rotation,
+        minDistance = tonumber(marker.minDistance) or 0, maxDistance = tonumber(marker.maxDistance) or 30.0,
+        visible = marker.visible ~= false,
+    })
+    if not id then log("3D marker refused for %s: %s", tostring(point.id), tostring(err)) end
+    return id
+end
+
 local function build(list)
     clear()
     ensurePromptAnchor()
@@ -83,7 +103,9 @@ local function build(list)
                 label = entry.label, prompt = entry.prompt, key = entry.key or "E",
                 promptHeight = tonumber(entry.promptHeight) or 1.1, blip = entry.blip,
             }
-            if anchorsAvailable() then
+            if type(entry.marker) == "table" then
+                point.marker = createMarker(point, entry.marker)
+            elseif entry.ring ~= false and anchorsAvailable() then
                 local id, err = Open77.anchors.create({
                     position = point.position, maxDistance = tonumber(ring.maxDistance) or 8.0, render = "ring",
                     presentation = { accent = ring.accent or RING_ACCENT, radius = tonumber(ring.radius) or 0.9, thickness = tonumber(ring.thickness) or 2.0, groundOffset = 0.05 },

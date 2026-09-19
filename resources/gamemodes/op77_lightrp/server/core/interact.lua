@@ -1,5 +1,5 @@
 -- Proximity interactions. A module registers a world point once; every client
--- gets the list (a ground ring and an "E" prompt drawn natively next to it) and
+-- gets the list (a configured 3D marker or ground ring, and a WebUI "E" prompt) and
 -- presses E. The server re-checks the distance from its own position feed and
 -- fans the press out to the modules: `onInteract(playerId, id, definition)`.
 --
@@ -35,7 +35,7 @@ local function clientList()
         local d = interactions[id]
         if d then
             list[#list + 1] = { id = id, position = d.position, radius = d.radius, label = d.label, prompt = d.prompt, key = d.key,
-                promptHeight = d.promptHeight, ring = d.ring, blip = d.blip }
+                promptHeight = d.promptHeight, marker = d.marker, ring = d.ring, blip = d.blip }
         end
     end
     return list

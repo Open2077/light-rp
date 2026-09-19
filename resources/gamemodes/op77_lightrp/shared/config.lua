@@ -118,7 +118,7 @@ LightRpConfig = {
 
     names = { minLength = 2, maxLength = 24, allowAccents = true },
 
-    -- Vehicle rental desks: an NPC, a ring on the ground, E to talk. Each desk
+    -- Vehicle rental desks: an NPC, a native 3D marker, E to talk. Each desk
     -- has its own stock (keys from vehicles.catalog) and prices. One rental per
     -- player, returned at any desk or taken back after durationMinutes.
     -- `parking` is where the car appears: pick it with /pos standing on the spot.
@@ -126,7 +126,11 @@ LightRpConfig = {
         enabled = true,
         key = "E",
         interactRadius = 2.0,      -- metres: E works inside this
-        ring = { radius = 0.9, maxDistance = 7.0 }, -- small ring at the desk's feet, shown as you walk up
+        marker = {
+            shape = "cylinder", radius = 0.9, height = 0.65,
+            color = { r = 255, g = 204, b = 0, a = 160 },
+            maxDistance = 30.0, groundOffset = 0.05,
+        }, -- translucent wall fading upwards; visual size is separate from interactRadius
         durationMinutes = 30,
         blip = { sprite = "Zzz01_CarForPurchaseVariant", title = "Vehicle rental", description = "Rent a car by the half hour. Return it at any desk." },
         -- Crowd civilians (docs/generated/npc-records-2.31.csv, category civilian,

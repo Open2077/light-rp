@@ -95,7 +95,8 @@ CreateThread(function()
         LightRP.interaction(interactionId(spot), {
             position = spot.position, radius = Config.interactRadius or 2.0,
             label = spot.name, prompt = "Rent a vehicle", key = Config.key or "E", promptHeight = 1.1,
-            ring = Config.ring, blip = Config.blip and { sprite = Config.blip.sprite, title = spot.name, description = Config.blip.description } or nil,
+            marker = Config.marker, ring = false,
+            blip = Config.blip and { sprite = Config.blip.sprite, title = spot.name, description = Config.blip.description } or nil,
         })
     end
     LightRP.log("rental: %d desk(s) open, %d min per rental", #(Config.spots or {}), Config.durationMinutes or 30)
