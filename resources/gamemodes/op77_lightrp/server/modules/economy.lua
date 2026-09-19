@@ -468,19 +468,6 @@ LightRP.command("transfer", { usage = "/transfer <account XXX-XXX> <amount> [not
     return true, string.format("%s sent to %s (%s).", Money.format(args[2]), result.ownerName, result.number)
 end)
 
-if Config.counterCommands then
-    LightRP.command("deposit", { usage = "/deposit <amount>" }, function(source, args)
-        if args[1] == nil then return false end
-        local ok, reason = Money.deposit(source, args[1])
-        return ok, ok and (Money.format(args[1]) .. " deposited.") or explain(reason)
-    end)
-    LightRP.command("withdraw", { usage = "/withdraw <amount>" }, function(source, args)
-        if args[1] == nil then return false end
-        local ok, reason = Money.withdraw(source, args[1])
-        return ok, ok and (Money.format(args[1]) .. " withdrawn.") or explain(reason)
-    end)
-end
-
 -- Staff -------------------------------------------------------------------
 
 local function parseTarget(source, value)

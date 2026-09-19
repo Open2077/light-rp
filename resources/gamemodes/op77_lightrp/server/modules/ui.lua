@@ -22,10 +22,6 @@ function Ui.onDisconnected()
     LightRP.broadcastState({ "server", "online" })
 end
 
-LightRP.action("menu.open", function(playerId, payload)
-    LightRP.openMenu(playerId, payload.view)
-end)
-
 LightRP.action("menu.close", function() end) -- the client closes locally; nothing to do here
 
 CreateThread(function()

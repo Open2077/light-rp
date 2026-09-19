@@ -7,4 +7,6 @@ export type { ButtonProps, ButtonVariant, ButtonSize, PanelProps, BadgeTone, Sec
 export { VitalBar, MicIndicator, Notification } from "./hud";
 export type { VitalBarProps, VitalTone, MicIndicatorProps, MicState, VoiceRange, NotificationProps, NoticeKind } from "./hud";
 export { Input, Toggle, Tabs, ListRow, Modal } from "./forms";
+export { RageMenu, isPickable } from "./RageMenu";
+export type { RageMenuProps, RageMenuItem, RageItemType } from "./RageMenu";
 export type { InputProps, ToggleProps, TabsProps, TabItem, ListRowProps, ModalProps, ModalAction, ModalKind } from "./forms";

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { HudState, MenuView, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
+import type { HudState, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 
 export interface Notice {
   id: string;
@@ -40,8 +40,7 @@ interface Store {
   connected: boolean;
   state: UiState;
   hud: HudState;
-  menuOpen: boolean;
-  menuView: MenuView;
+  menuOpen: boolean; // the F1 player menu
   notices: Notice[];
   lastResult?: { ok: boolean; text: string; at: number };
   welcomeReplay: boolean; // the Help tab asked for the briefing again
@@ -49,9 +48,8 @@ interface Store {
   setWelcomeReplay(value: boolean): void;
   applyState(patch: UiStatePatch): void;
   setHud(hud: HudState): void;
-  openMenu(view?: MenuView): void;
+  openMenu(): void;
   closeMenu(): void;
-  setMenuView(view: MenuView): void;
   pushNotice(notice: Omit<Notice, "id" | "createdAt"> & { id?: string }): void;
   dismissNotice(id: string): void;
   removeNotice(id: string): void;
@@ -65,16 +63,14 @@ export const useStore = create<Store>((set) => ({
   state: EMPTY_STATE,
   hud: EMPTY_HUD,
   menuOpen: false,
-  menuView: "character",
   notices: [],
   welcomeReplay: false,
   setConnected: (value) => set({ connected: value }),
   setWelcomeReplay: (value) => set({ welcomeReplay: value }),
   applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch } })),
   setHud: (hud) => set({ hud }),
-  openMenu: (view) => set((s) => ({ menuOpen: true, menuView: view ?? s.menuView })),
+  openMenu: () => set({ menuOpen: true }),
   closeMenu: () => set({ menuOpen: false }),
-  setMenuView: (view) => set({ menuView: view }),
   pushNotice: (notice) => set((s) => ({
     notices: [...s.notices.slice(-5), { ...notice, id: notice.id ?? `n${++noticeSequence}`, createdAt: Date.now() }],
   })),

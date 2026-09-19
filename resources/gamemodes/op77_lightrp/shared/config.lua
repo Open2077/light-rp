@@ -5,7 +5,7 @@ LightRpConfig = {
     welcome = {
         enabled = true,
         title = "Welcome to Night City",
-        text = "Light RP server. F5 opens your menu, /help lists the commands.",
+        text = "Light RP server. F1 opens your player menu, /help lists the commands.",
         -- The first-spawn briefing (page WelcomeModal): the OK button unlocks after
         -- this many seconds so the player actually reads it. Shown once per account.
         readSeconds = 15,
@@ -18,9 +18,10 @@ LightRpConfig = {
         "5. A problem? /report <message> alerts the staff.",
     },
 
-    -- The menu key. Rebindable by the player in Pause > Settings > Key bindings.
+    -- The player menu key (RageUI-style list menu). Rebindable in Pause > Settings
+    -- > Key bindings. New id on purpose: the old F5 terminal binding is forgotten.
     keys = {
-        menu = { id = "lightrp.menu", name = "Light RP: menu", key = "F5" },
+        menu = { id = "lightrp.playermenu", name = "Light RP: player menu", key = "F1" },
     },
 
     spawn = {
@@ -114,7 +115,6 @@ LightRpConfig = {
         maxTransaction = 1000000000,
         payRange = 6.0,          -- metres: /pay hands cash to someone next to you
         transferFee = 0,         -- flat fee per bank transfer, on top of the amount
-        counterCommands = true,  -- /deposit and /withdraw anywhere, until the ATM UI exists
         historyLength = 10,      -- ledger lines kept in memory and shown on the page
     },
 

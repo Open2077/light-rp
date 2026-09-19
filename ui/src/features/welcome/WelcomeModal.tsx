@@ -33,11 +33,10 @@ const HOUSE_RULES = ["Stay in character", "No random kills, no car ramming", "Re
 export function WelcomeModal() {
   const character = useStore((s) => s.state.character);
   const connected = useStore((s) => s.connected);
-  const menuOpen = useStore((s) => s.menuOpen);
   const replay = useStore((s) => s.welcomeReplay);
   const setReplay = useStore((s) => s.setWelcomeReplay);
   const pending = character.status === "active" && character.welcomePending;
-  const visible = connected && !menuOpen && (pending || replay);
+  const visible = connected && (pending || replay);
 
   useEffect(() => {
     if (!visible) return;

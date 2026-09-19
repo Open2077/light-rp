@@ -532,11 +532,5 @@ LightRP.command("register", { usage = "/register <FirstName> <LastName>" }, func
     local ok, reason = Characters.setIdentity(source, { firstName = args[1], lastName = args[2] })
     if not ok then return false, explain(reason) end
     local c = characters[source]
-    if c and c.status ~= "active" then LightRP.openMenu(source, "character") end
-    return true, "Identity saved: " .. Characters.displayName(source) .. (c and c.status ~= "active" and " — finish the creation (F5)." or "")
-end)
-
-LightRP.command("characters", {}, function(source)
-    LightRP.openMenu(source, "character")
-    return true, "Characters (F5 → Character)."
+    return true, "Identity saved: " .. Characters.displayName(source) .. (c and c.status ~= "active" and " — finish the creation on screen." or "")
 end)

@@ -16,8 +16,6 @@ export const PAGE_EVENTS = {
   result: "lightrp:ui:result",
 } as const;
 
-export type MenuView = "character" | "vehicles" | "staff" | "help";
-
 export type BodyFamily = "male" | "female";
 export type CharacterStatus = "draft" | "active" | "archived";
 /** The wizard step still missing, as the server sees it. */
@@ -134,12 +132,9 @@ export type UiAction =
   | { type: "money.withdraw"; amount: number }
   | { type: "money.transfer"; to: string; amount: number; note?: string }
   | { type: "money.pay"; target: number; amount: number }
-  | { type: "vehicle.spawn"; key: string }
-  | { type: "vehicle.return" }
   | { type: "staff.tp"; target: "me" | number; location: string }
   | { type: "staff.heal"; target: "me" | number }
   | { type: "staff.announce"; text: string }
   | { type: "staff.bring"; target: number }
   | { type: "voice.range"; range: "whisper" | "normal" | "shout" }
-  | { type: "menu.open"; view?: MenuView }
   | { type: "menu.close" };

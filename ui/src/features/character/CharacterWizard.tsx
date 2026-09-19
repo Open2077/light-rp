@@ -27,8 +27,7 @@ function useDialogFocus(active: boolean) {
 export function CharacterWizard() {
   const character = useStore((s) => s.state.character);
   const connected = useStore((s) => s.connected);
-  const menuOpen = useStore((s) => s.menuOpen);
-  const visible = connected && character.status !== "active" && !menuOpen;
+  const visible = connected && character.status !== "active";
   useDialogFocus(visible);
   if (!visible) return null;
   return <WizardBody character={character} />;
@@ -188,7 +187,7 @@ function ConfirmStep({ character }: { character: CharacterState }) {
           Enter Night City
         </Button>
         <Button variant="ghost" icon="package" onClick={() => sendAction({ type: "character.wardrobe.open" })}>Wardrobe</Button>
-        {!ready && <span className="o77-readout menu__foot--bad">One step is still missing.</span>}
+        {!ready && <span className="o77-readout wizard__missing">One step is still missing.</span>}
       </div>
     </div>
   );

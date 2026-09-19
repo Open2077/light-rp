@@ -35,4 +35,5 @@
 .wizard__summary { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
 .wizard__row { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); background: var(--surface-raised); clip-path: var(--clip-notch); }
 .wizard__row--wide { grid-column: 1 / -1; }
+.wizard__missing { color: var(--text-danger); }
 .wizard__row-value { font: var(--type-label); text-transform: none; color: var(--text-hi); word-break: break-word; }

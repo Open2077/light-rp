@@ -115,9 +115,16 @@ LightRP.command("who", {}, function(source)
     return true, string.format("%d in town: %s", #players, table.concat(names, ", "))
 end)
 
+local HELP = {
+    "Plain chat is in-character speech (20 m). /w whisper (4 m), /s shout (45 m), /ooc out of character.",
+    "/me <action> · /do <scene> · /try <attempt> · /roll [max] · /pm <id> <message>",
+    "/money · /bank · /pay <id> <amount> · /transfer <XXX-XXX> <amount> [note]",
+    "/who · /rules · /report <message> · F1 opens your player menu.",
+}
+
 LightRP.command("help", {}, function(source)
-    LightRP.openMenu(source, "help")
-    return true, "Help opened (F5 → Help)."
+    for _, line in ipairs(HELP) do Chat.system(source, line) end
+    return true, "That is every command."
 end)
 
 -- /report is filed by the staff module (it owns the table); chat only announces.

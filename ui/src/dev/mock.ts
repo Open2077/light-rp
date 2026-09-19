@@ -1,7 +1,7 @@
 /* Browser stand-in for the game's bridge. Installed by main.tsx when
    `window.Open77` is absent (vite dev, screenshots). Plays a plausible session:
    state, ticking HUD, a notice, and answers to actions. Query flags:
-   `?menu=1&view=vehicles` opens the menu, `?staff=1` grants staff,
+   `?menu=1` opens the player menu, `?staff=1` grants staff,
    `?registered=1` skips the wizard, `?step=appearance|confirm` starts the wizard
    at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing. */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
@@ -81,8 +81,8 @@ export function installMockBridge(): void {
         setTimeout(() => {
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
-          if (params.get("menu") === "1") fire(PAGE_EVENTS.open, { view: params.get("view") ?? "character" });
-          setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Welcome to Night City", body: "Light RP server. F5 opens your menu, /help lists the commands.", source: "LIGHT RP", durationMs: 9000 }), 400);
+          if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
+          setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Welcome to Night City", body: "Light RP server. F1 opens your player menu, /help lists the commands.", source: "LIGHT RP", durationMs: 9000 }), 400);
         }, 30);
       }
       if (name === PAGE_EVENTS.close) fire(PAGE_EVENTS.closed, {});
@@ -130,18 +130,6 @@ export function installMockBridge(): void {
             case "character.archive":
               patchCharacter({ slots: state.character.slots.filter((s) => s.key !== action.key) });
               result(true, "Character archived.", action.type);
-              break;
-            case "vehicle.spawn": {
-              const entry = state.vehicles.catalog.find((v) => v.key === action.key);
-              state.vehicles = { ...state.vehicles, owned: entry ? [{ id: 4294967306, key: entry.key, label: entry.label }] : [] };
-              fire(PAGE_EVENTS.state, { vehicles: state.vehicles });
-              result(true, `${entry?.label ?? action.key} delivered next to you.`, action.type);
-              break;
-            }
-            case "vehicle.return":
-              state.vehicles = { ...state.vehicles, owned: [] };
-              fire(PAGE_EVENTS.state, { vehicles: state.vehicles });
-              result(true, "Vehicle returned.", action.type);
               break;
             case "money.deposit": case "money.withdraw": {
               const m = state.money;

@@ -1,9 +1,10 @@
 -- The single WebUI surface of the framework and the bridge around it.
 --
--- One page hosts the HUD, the notices, the registration prompt and the menu.
--- The surface stays visible and transparent at all times (the hide->show path
--- does not repaint on current client builds); the page decides what to draw.
--- Focus (keyboard + cursor) is taken only while the menu or a prompt is open.
+-- One page hosts the HUD, the notices, the creation wizard, the briefing and the
+-- player menu. The surface stays visible and transparent at all times (the
+-- hide->show path does not repaint on current client builds); the page decides
+-- what to draw. The player menu (F1) takes the keyboard only; dialogs take the
+-- keyboard and the cursor.
 local E = LightRpEvents
 local Ui = { page = nil, ready = false, menuOpen = false, queued = {} }
 LightRpUi = Ui
@@ -23,12 +24,12 @@ function Ui.send(name, payload)
     return Ui.page:send(name, payload or {})
 end
 
-function Ui.setMenuOpen(open, view)
+function Ui.setMenuOpen(open)
     if Ui.page == nil then return end
     if open then
         Ui.menuOpen = true
-        Ui.page:setFocus(true, true)
-        Ui.send(E.page.open, { view = view })
+        Ui.page:setFocus(true, false)
+        Ui.send(E.page.open, {})
     else
         if not Ui.menuOpen then return end
         Ui.menuOpen = false
@@ -119,6 +120,3 @@ end
 RegisterNetEvent(E.net.state, function(patch) Ui.send(E.page.state, patch) end)
 RegisterNetEvent(E.net.notice, function(payload) Ui.send(E.page.notice, payload) end)
 RegisterNetEvent(E.net.result, function(payload) Ui.send(E.page.result, payload) end)
-RegisterNetEvent(E.net.menuOpen, function(payload)
-    Ui.setMenuOpen(true, type(payload) == "table" and payload.view or nil)
-end)

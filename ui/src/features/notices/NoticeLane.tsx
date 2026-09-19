@@ -9,7 +9,6 @@ export function NoticeLane() {
   const notices = useStore((s) => s.notices);
   const dismiss = useStore((s) => s.dismissNotice);
   const remove = useStore((s) => s.removeNotice);
-  const menuOpen = useStore((s) => s.menuOpen);
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -31,7 +30,7 @@ export function NoticeLane() {
 
   if (notices.length === 0) return null;
   return (
-    <div className={"notices o77-stack" + (menuOpen ? " notices--menu" : "")}>
+    <div className="notices o77-stack">
       {notices.map((n) => (
         <Notification key={n.id} kind={n.kind} title={n.title} body={n.body} source={n.source}
           remaining={1 - Math.min(1, (Date.now() - n.createdAt) / n.durationMs)} dismissing={n.dismissing}

@@ -13,9 +13,8 @@ export function Hud() {
   const money = useStore((s) => s.state.money);
   const server = useStore((s) => s.state.server);
   const staff = useStore((s) => s.state.staff);
-  const menuOpen = useStore((s) => s.menuOpen);
 
-  if (!hud.ready || menuOpen || (useStore.getState().connected && character.status !== "active")) return null;
+  if (!hud.ready || (useStore.getState().connected && character.status !== "active")) return null;
   const name = character.registered ? `${character.firstName} ${character.lastName}` : character.accountName;
 
   return (

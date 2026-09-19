@@ -111,9 +111,6 @@ function LightRP.broadcastState(keys)
     for _, id in ipairs(GetPlayers()) do LightRP.state(id, keys) end
 end
 
-function LightRP.openMenu(playerId, view)
-    TriggerClientEvent(E.net.menuOpen, playerId, { view = view })
-end
 
 -- ---------------------------------------------------------------------------
 -- Actions from the page (validated server side, one handler per type)

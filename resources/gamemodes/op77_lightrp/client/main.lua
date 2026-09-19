@@ -1,4 +1,4 @@
--- Client entry: create the surface, start the HUD sampler, bind the menu key.
+-- Client entry: create the surface, start the HUD sampler, bind the player menu key (F1).
 local Config = LightRpConfig
 
 AddEventHandler("onClientResourceStart", function(name)
@@ -11,11 +11,8 @@ AddEventHandler("onClientResourceStart", function(name)
         LightRpUi.toggleMenu()
     end)
     if ok then
-        LightRpUi.log("menu bound to %s", tostring(effective))
+        LightRpUi.log("player menu bound to %s", tostring(effective))
     else
-        LightRpUi.log("menu key mapping failed: %s", tostring(effective))
+        LightRpUi.log("player menu key mapping failed: %s", tostring(effective))
     end
 end)
-
--- The menu also opens from the chat: /menu.
-RegisterNetEvent("open77:lightrp:menu", function() LightRpUi.setMenuOpen(true) end)

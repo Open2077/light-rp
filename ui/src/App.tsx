@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { announceReady, on } from "@/bridge/open77";
-import { PAGE_EVENTS, type HudState, type MenuView, type NoticePayload, type ResultPayload, type UiStatePatch } from "@/bridge/protocol";
+import { announceReady, on, requestClose } from "@/bridge/open77";
+import { PAGE_EVENTS, type HudState, type NoticePayload, type ResultPayload, type UiStatePatch } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { Hud } from "@/features/hud/Hud";
-import { Menu } from "@/features/menu/Menu";
+import { PlayerMenu } from "@/features/menu/PlayerMenu";
 import { CharacterWizard } from "@/features/character/CharacterWizard";
 import { NoticeLane } from "@/features/notices/NoticeLane";
 import { WelcomeModal } from "@/features/welcome/WelcomeModal";
@@ -23,7 +23,13 @@ export function App() {
     const offs = [
       on<UiStatePatch>(PAGE_EVENTS.state, (patch) => { applyState(patch ?? {}); setConnected(true); }),
       on<HudState>(PAGE_EVENTS.hud, (hud) => { if (hud) setHud(hud); }),
-      on<{ view?: MenuView }>(PAGE_EVENTS.open, (p) => openMenu(p?.view)),
+      // The player menu waits for an active character: during creation or the
+      // briefing the key hands the focus straight back.
+      on(PAGE_EVENTS.open, () => {
+        const c = useStore.getState().state.character;
+        if (c.status !== "active" || c.welcomePending || useStore.getState().welcomeReplay) { requestClose(); return; }
+        openMenu();
+      }),
       on(PAGE_EVENTS.closed, () => closeMenu()),
       on<NoticePayload>(PAGE_EVENTS.notice, (n) => pushNotice({
         id: n?.id, kind: n?.kind ?? "info", title: n?.title, body: n?.body, source: n?.source, durationMs: n?.durationMs ?? 8000,
@@ -44,7 +50,7 @@ export function App() {
       <NoticeLane />
       <CharacterWizard />
       <WelcomeModal />
-      <Menu />
+      <PlayerMenu />
     </>
   );
 }

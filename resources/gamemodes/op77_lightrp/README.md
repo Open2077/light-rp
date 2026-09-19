@@ -109,6 +109,10 @@ API pour les autres modules (jobs, boutiques, loyers) : `LightRP.money.addCash/r
 
 Page : état `money` (`cash`, `bank { number, balance }`, `history`), actions `money.deposit|withdraw|transfer|pay` (prêtes pour la future page ATM). Commandes : `/money`, `/bank`, `/pay <id> <montant>`, `/transfer <compte> <montant> [note]`, `/deposit`, `/withdraw` (tant que `economy.counterCommands`), staff `/lightrp.givemoney`, `/lightrp.takemoney`, `/lightrp.account`.
 
+## Menu joueur (F1)
+
+Menu liste façon RageUI (design system : Menus / RageMenu, porté en `ui/src/design/components/RageMenu.tsx` avec des classes `o77-rage*`) : une colonne, une ligne surlignée, flèches pour bouger, Entrée pour descendre, Retour arrière / Échap pour remonter, F1 pour fermer. `features/menu/PlayerMenu.tsx` construit l'arbre depuis l'état serveur à chaque rendu et garde une pile `{ key, index }`. Premier sous-menu : **Identity** (ID citoyen, prénom, nom, naissance, origine, compte bancaire, temps de jeu, statut). Le client Lua prend le clavier seul (`setFocus(true, false)`) ; le menu ne s'ouvre qu'avec un personnage actif et hors briefing. Il n'y a plus de menu « terminal », ni de commandes de spawn ou de dépôt pour les joueurs : véhicules par `/lightrp.car` et `/lightrp.dv` (staff), argent par l'ATM à venir.
+
 ## Ce que voit le joueur
 
 - HUD : vie, armure, endurance, faim, soif, micro avec portée (WHISPER 4 m / NORMAL 15 m /

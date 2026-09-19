@@ -53,7 +53,7 @@ end
 function Vehicles.request(playerId, key, allowStaffOnly)
     if not Config.enabled then return false, "Vehicles are disabled." end
     local entry = byKey[string.lower(tostring(key or ""))]
-    if entry == nil then return false, "Unknown model. /cars for the list." end
+    if entry == nil then return false, "Unknown model." end
     if entry.staffOnly and not allowStaffOnly then return false, "This model is restricted: ask the staff." end
     local last = lastSpawnMs[playerId]
     local now = LightRP.nowMs()
@@ -89,27 +89,11 @@ function Vehicles.onDisconnected(playerId)
     if Config.removeOnDisconnect then Vehicles.removeAll(playerId) end
 end
 
-LightRP.action("vehicle.spawn", function(playerId, payload)
-    local ok, text = Vehicles.request(playerId, payload.key, LightRP.staff.isStaff(playerId))
-    LightRP.result(playerId, ok, text, "vehicle.spawn")
-end)
-
-LightRP.action("vehicle.return", function(playerId)
-    local removed = Vehicles.removeAll(playerId)
-    LightRP.result(playerId, true, removed > 0 and "Vehicle returned." or "You have no vehicle out.", "vehicle.return")
-end)
-
-LightRP.command("car", { usage = "/car <model>" }, function(source, args)
-    if args[1] == nil then return false end
-    return Vehicles.request(source, args[1], false)
-end)
-
-LightRP.command("dv", {}, function(source)
-    local removed = Vehicles.removeAll(source)
-    return true, removed > 0 and "Vehicle returned." or "You have no vehicle out."
-end)
-
-LightRP.command("cars", {}, function(source)
-    LightRP.openMenu(source, "vehicles")
-    return true, "Garage opened (F5 → Vehicles)."
+-- No player-facing spawn: vehicles will come from the dealership and the garage.
+-- /lightrp.car lives in staff.lua; the staff cleans up with /lightrp.dv.
+LightRP.command("lightrp.dv", { restricted = true, usage = "/lightrp.dv [id]" }, function(source, args)
+    local target = tonumber(args[1]) or source
+    if GetPlayerName(target) == nil then return false end
+    local removed = Vehicles.removeAll(target)
+    return true, string.format("%d vehicle(s) removed.", removed)
 end)

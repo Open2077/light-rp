@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import {
-  Activity, ArrowLeftRight, BadgeCheck, Banknote, Beef, Car, Check, CreditCard, Landmark, Wallet, ChevronLeft, ChevronRight, CircleHelp,
+  Activity, ArrowLeftRight, BadgeCheck, Banknote, Beef, Calendar, Car, Check, Clock, CreditCard, Landmark, Wallet, ChevronLeft, ChevronRight, CircleHelp,
   Droplet, FileText, Fuel, HeartPulse, IdCard, Info, Keyboard, KeyRound, Loader, MapPin,
   MessageSquare, Mic, MicOff, OctagonAlert, Package, Radio, Settings, Shield, ShieldAlert,
   Siren, Terminal, TriangleAlert, User, Users, X, Zap, CheckCheck, type LucideIcon,
@@ -10,7 +10,7 @@ import {
    only the resource's own files). Stroke-only, currentColor, 12–20px. Add a glyph
    here when a component needs it: the name is the Lucide kebab-case id. */
 const GLYPHS: Record<string, LucideIcon> = {
-  activity: Activity, "arrow-left-right": ArrowLeftRight, "credit-card": CreditCard, landmark: Landmark, wallet: Wallet, "badge-check": BadgeCheck, banknote: Banknote, beef: Beef, car: Car, check: Check,
+  activity: Activity, "arrow-left-right": ArrowLeftRight, calendar: Calendar, clock: Clock, "credit-card": CreditCard, landmark: Landmark, wallet: Wallet, "badge-check": BadgeCheck, banknote: Banknote, beef: Beef, car: Car, check: Check,
   "check-check": CheckCheck, "chevron-left": ChevronLeft, "chevron-right": ChevronRight, "circle-help": CircleHelp,
   droplet: Droplet, "file-text": FileText, fuel: Fuel, "heart-pulse": HeartPulse, "id-card": IdCard, info: Info,
   keyboard: Keyboard, "key-round": KeyRound, loader: Loader, "map-pin": MapPin, "message-square": MessageSquare,
