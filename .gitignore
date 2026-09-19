@@ -22,6 +22,8 @@
 !resources/system/open77_contextmenu/**
 !resources/system/open-voice/
 !resources/system/open-voice/**
+!resources/system/open77_chat/
+!resources/system/open77_chat/**
 !ui/
 !ui/**
 

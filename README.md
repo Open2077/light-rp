@@ -89,7 +89,7 @@ base, extraire la nouvelle archive par-dessus, remettre ces fichiers, redémarre
 
 ## Packages plateforme rehabillés
 
-`resources/system/open77_contextmenu` (menu ALT + clic) et `resources/system/open-voice` (indicateur vocal F11) sont des copies de la distribution dont la page `web/` a été réécrite dans le design system Open//77 RP (tokens et polices copiés dans chaque `web/`, car une page WebUI ne charge que les fichiers de sa propre ressource). Le protocole Lua ↔ page est inchangé. Ils sont versionnés ici : après une mise à jour du serveur, vérifier avec `git status` que la nouvelle distribution n'a pas écrasé `web/` et rejouer le commit si besoin.
+`resources/system/open77_contextmenu` (menu ALT + clic), `resources/system/open-voice` (indicateur vocal F11) et `resources/system/open77_chat` (chat T) sont des copies de la distribution dont la page `web/` a été réécrite dans le design system Open//77 RP (tokens et polices copiés dans chaque `web/`, car une page WebUI ne charge que les fichiers de sa propre ressource). Le protocole Lua ↔ page est inchangé. Ils sont versionnés ici : après une mise à jour du serveur, vérifier avec `git status` que la nouvelle distribution n'a pas écrasé `web/` et rejouer le commit si besoin.
 
 ## Ports utilisés
 

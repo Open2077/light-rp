@@ -1,0 +1,101 @@
+/* Open//77 chat in the RP design system's language. Tokens come from tokens.css.
+   Two states: closed, the log is a bare HUD readout at the top-left that fades
+   when idle; open (T), it becomes a notched panel with the composer below.
+   Protocol, ids and state classes (.open .is-empty .stale .transmitting
+   .disabled .has-items .selected .near-limit) are unchanged. */
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+body { pointer-events: none; user-select: none; font-family: var(--font-core); color: var(--text-body); -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; }
+[hidden] { display: none !important; }
+
+.chat { position: absolute; top: var(--hud-safe-y); left: var(--hud-safe-x); width: min(620px, 44vw); display: flex; flex-direction: column; gap: 3px; isolation: isolate; }
+.chat.open { pointer-events: auto; }
+.chat.disabled { display: none; }
+
+/* ---------- header / footer: open only ---------- */
+.chat__head, .chat__foot { display: none; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: 5px var(--sp-5); font: var(--type-hud-readout); letter-spacing: var(--ls-label); }
+.chat.open .chat__head, .chat.open .chat__foot { display: flex; }
+.chat__head { background: var(--accent); color: var(--text-on-accent); clip-path: var(--clip-notch); position: relative; overflow: hidden; }
+.chat__head::after { content: ""; position: absolute; inset: 0; background: var(--tex-scanline); opacity: .35; pointer-events: none; }
+.chat__tag, .chat__link { position: relative; }
+.chat__slash { color: var(--accent); }
+.chat__head .chat__slash { color: var(--text-on-accent); opacity: .6; }
+.chat__link { opacity: .8; display: inline-flex; align-items: center; gap: 6px; }
+.chat__dot { width: 6px; height: 6px; background: var(--text-on-accent); border-radius: 50%; animation: o77-blink 1.4s steps(1) infinite; }
+.chat__foot { background: var(--o77-ink-800); color: var(--text-disabled); justify-content: flex-start; gap: var(--sp-5); }
+
+/* ---------- log ---------- */
+.chat__frame { position: relative; }
+.chat__log { display: flex; flex-direction: column; gap: 2px; max-height: 30vh; overflow: hidden; padding: 4px 0; scrollbar-width: thin; scrollbar-color: var(--accent) transparent; transition: max-height var(--dur-base) var(--ease-mech); }
+.chat.open .chat__log { max-height: 36vh; overflow-y: auto; padding: var(--sp-3) 0; background: var(--surface-hud); backdrop-filter: var(--blur-hud); box-shadow: inset 0 0 0 1px var(--line-hairline), var(--shadow-hud); }
+.chat__empty { display: none; padding: var(--sp-4) var(--sp-5); font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--text-disabled); }
+.chat.open.is-empty .chat__empty { display: block; }
+.chat__latest { position: absolute; right: var(--sp-4); bottom: var(--sp-3); padding: 3px 8px; border: 0; cursor: pointer; background: var(--accent); color: var(--text-on-accent); font: var(--type-hud-readout); letter-spacing: var(--ls-label); clip-path: var(--clip-tag); }
+
+/* One line: time · author · text. Closed, lines carry a text shadow instead of a plate. */
+.message { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--sp-3); padding: 3px var(--sp-5); font: var(--type-body); font-size: var(--fs-label); line-height: var(--lh-snug); color: var(--text-hi); --message-color: var(--accent); --channel-color: var(--accent); transition: opacity var(--dur-slow) var(--ease-out); animation: o77-toast-in var(--dur-base) var(--ease-mech) both; }
+.chat:not(.open) .message { text-shadow: 0 1px 2px rgba(0, 0, 0, .95), 0 0 8px rgba(0, 0, 0, .7); }
+.chat:not(.open) .message.stale { opacity: 0; }
+.message-time { font: var(--type-hud-readout); color: var(--text-disabled); letter-spacing: 0; }
+.chat:not(.open) .message-time { display: none; }
+.message-author { font: var(--type-label); text-transform: uppercase; letter-spacing: .06em; color: var(--message-color); white-space: nowrap; }
+.message-author small { margin-left: 5px; font: var(--type-hud-readout); color: var(--text-dim); text-transform: uppercase; }
+.message-player-id { font: var(--type-hud-readout); color: var(--text-disabled); }
+.message-channel { font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--channel-color); padding: 1px 6px; background: var(--o77-ink-700); clip-path: var(--clip-tag); }
+.message-text { color: var(--text-hi); overflow-wrap: anywhere; }
+.message-segment.bold { font-weight: 700; }
+.message.is-mention { box-shadow: inset 2px 0 0 var(--accent); background: var(--accent-quiet); }
+
+/* Kinds */
+.message-system .message-marker, .message-error .message-marker, .message-warning .message-marker { font: var(--type-hud-readout); color: var(--message-color); }
+.message-system .message-source, .message-error .message-source, .message-warning .message-source { font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--message-color); }
+.message-system .message-text { color: var(--text-body); }
+.message-error { --message-color: var(--o77-red); }
+.message-error .message-text { color: var(--o77-red); }
+.message-warning { --message-color: var(--o77-yellow-300); }
+.message-action .action-text { color: var(--o77-magenta); font-style: italic; }
+.message-join .presence-text, .message-leave .presence-text { font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--text-dim); }
+.presence-state { width: 6px; height: 6px; border-radius: 50%; background: var(--o77-green); align-self: center; }
+.message-leave .presence-state { background: var(--o77-red); }
+.message-announce { flex-direction: column; align-items: stretch; gap: 3px; padding: 0; margin: 3px var(--sp-4); background: var(--surface-panel); box-shadow: inset 0 0 0 1px var(--line-soft); clip-path: var(--clip-notch); }
+.message-announcement-heading { display: flex; align-items: center; justify-content: space-between; padding: 4px var(--sp-4); background: var(--accent); color: var(--text-on-accent); font: var(--type-hud-readout); letter-spacing: var(--ls-tag); }
+.message-announcement-heading .message-time { color: var(--text-on-accent); opacity: .7; }
+.message-announce .message-text { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+
+/* ---------- command index ---------- */
+.chat__suggest { display: none; flex-direction: column; background: var(--surface-panel); box-shadow: inset 0 0 0 1px var(--line-hairline); }
+.chat.open .chat__suggest.has-items { display: flex; }
+.chat__suggest-head { display: flex; align-items: center; gap: 6px; padding: 5px var(--sp-5); font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--text-disabled); border-bottom: 1px solid var(--line-hairline); }
+.chat__suggest-count { margin-left: auto; color: var(--accent); }
+.chat__suggest-list { display: flex; flex-direction: column; padding: 3px 0; }
+.suggestion { display: grid; grid-template-columns: 22px auto 1fr; align-items: baseline; gap: var(--sp-3); padding: 5px var(--sp-5); cursor: pointer; color: var(--text-body); transition: background var(--dur-instant) var(--ease-snap); }
+.suggestion.selected { background: var(--accent); color: var(--text-on-accent); }
+.suggestion-index { font: var(--type-hud-readout); color: var(--text-disabled); }
+.suggestion.selected .suggestion-index { color: var(--text-on-accent); opacity: .7; }
+.suggestion-syntax { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--fs-label); }
+.suggestion-command { color: var(--accent); font-weight: 400; }
+.suggestion.selected .suggestion-command { color: var(--text-on-accent); }
+.suggestion-params { color: var(--text-dim); }
+.suggestion.selected .suggestion-params { color: var(--text-on-accent); opacity: .8; }
+.suggestion-help { font: var(--type-body); font-size: var(--fs-tag); color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggestion.selected .suggestion-help { color: var(--text-on-accent); }
+
+/* ---------- composer ---------- */
+.chat__composer { display: none; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3) 0 var(--sp-4); height: 40px; background: var(--surface-input, var(--o77-ink-900)); box-shadow: inset 0 0 0 1px var(--line-soft); clip-path: var(--clip-notch); }
+.chat.open .chat__composer { display: flex; }
+.chat.input-focused .chat__composer { box-shadow: inset 0 0 0 1px var(--accent); }
+.chat__prompt { font: var(--type-display); font-size: var(--fs-body-lg); color: var(--accent); line-height: 1; }
+.chat__composer input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text-hi); font: var(--type-body); font-size: var(--fs-body); caret-color: var(--accent); }
+.chat__composer input::placeholder { color: var(--text-disabled); }
+.chat__count { font: var(--type-hud-readout); color: var(--text-disabled); font-variant-numeric: tabular-nums; }
+.chat__count.near-limit { color: var(--o77-red); }
+.chat__send { border: 0; padding: 0; background: transparent; cursor: pointer; display: flex; }
+.chat__send:disabled { opacity: .4; cursor: default; }
+.chat.transmitting .chat__composer { animation: o77-flicker .4s linear 1; }
+
+/* Keycap (design system core). */
+.chat__key { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; padding: 1px 5px; margin-right: 4px; font: var(--type-hud-readout); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-body); background: var(--o77-ink-700); box-shadow: inset 0 0 0 1px var(--line-soft); clip-path: var(--clip-keycap); }
+.chat__key--accent { color: var(--text-on-accent); background: var(--accent); box-shadow: none; margin: 0; padding: 3px 8px; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
