@@ -24,5 +24,6 @@ LightRpEvents = {
         dialog = "op77_lightrp:dialog",       -- server -> client: open a page dialog
         interactions = "op77_lightrp:interactions", -- server -> client: the proximity points to draw
         interact = "op77_lightrp:interact",   -- client -> server: E pressed at a point (id)
+        keysToggle = "op77_lightrp:keys:toggle", -- client -> server: L pressed for a vehicle (id)
     },
 }

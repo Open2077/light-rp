@@ -119,6 +119,12 @@ Menu liste façon RageUI (design system : Menus / RageMenu, porté en `ui/src/de
 
 **Location** (`server/modules/rental.lua`, page `features/rental/RentalDialog.tsx`) : les agences sont dans `config.rentals.spots` (PNJ via `Open77.npcs.create`, candidats essayés dans l'ordre ; stock = clés de `vehicles.catalog` avec prix ; `parking` = point d'apparition à relever avec `/pos`). Un joueur ne peut avoir qu'une location à la fois ; il paie en cash ou en banque via `LightRP.money`, le véhicule apparaît sur le parking pour `durationMinutes`, puis est repris (notice) ; retour possible à n'importe quelle agence (bouton « Return vehicle »), et nettoyage à la déconnexion ou au changement de personnage. Historique dans `lightrp_rentals`. Staff : `/lightrp.rentals`. État page `rental.active` (puce HUD avec le décompte), actions `rental.rent { spot, key, pay }` et `rental.return`.
 
+## Clés de véhicule (`server/modules/keys.lua`, `client/core/keys.lua`)
+
+Modèle FiveM : un véhicule est verrouillé pour la rue et ouvert pour ceux qui en ont la clé. La plateforme a exactement cette forme : verrou canonique (`Open77.vehicles.setLockedForAll`) + exceptions par joueur (`setLockedForPlayer`). Une clé est une entrée du registre `LightRP.keys.ledger[vehicleId].holders[identifier#slot]` (liée au personnage, pas à la session : réappliquée à la reconnexion et au changement de slot via `onCharacterLoaded`) et une exception posée tant que le joueur est en ligne. Réplication par state bags : `Open77.state.entity("vehicle", id).keys = { label, owner, holders }` et `Open77.state.player(id).vehicleKeys = { [vehicleId] = label }` (lu par le client pour savoir s'il peut appuyer sur L).
+
+API : `LightRP.keys.give(vehicleId, playerId, { label, owner })`, `take`, `clear`, `has`, `holders`, `lock(vehicleId, locked)`, `toggle(playerId, vehicleId)` (validé : clé + distance `keys.range` ou assis dedans, klaxon court). Hook `onVehicleLockChanged`. Touche L (`lightrp.vehiclelock`, rebindable) : le véhicule occupé, sinon le plus proche. Les clés disparaissent avec le véhicule (`onVehicleRemoved`). Staff : `/lightrp.givekeys`, `/lightrp.takekeys`. La location livre la voiture verrouillée avec la clé dans la poche du loueur.
+
 ## Ce que voit le joueur
 
 - HUD : vie, armure, endurance, faim, soif, micro avec portée (WHISPER 4 m / NORMAL 15 m /

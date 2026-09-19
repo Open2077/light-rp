@@ -168,6 +168,9 @@ function Rental.rent(playerId, spotId, key, pay)
         if item.price > 0 then refund(playerId, item.price, "refund", "Rental refused: " .. tostring(reason), spot.name) end
         return false, "vehicle_refused"
     end
+    -- Keys first, then the street lock: the renter keeps access, nobody else.
+    LightRP.keys.give(vehicleId, playerId, { label = item.label, owner = true })
+    LightRP.keys.lock(vehicleId, true, playerId)
     local now = LightRP.nowMs()
     local r = { spotId = spot.id, key = item.key, label = item.label, vehicleId = vehicleId, startedAt = now,
         expiresAt = now + (Config.durationMinutes or 30) * 60000, price = item.price, paidWith = pay }
@@ -180,7 +183,7 @@ function Rental.rent(playerId, spotId, key, pay)
     end
     LightRP.state(playerId, "rental")
     LightRP.notice(playerId, { kind = "success", title = spot.name, durationMs = 10000,
-        body = string.format("%s is parked outside for %d minutes. Bring it back to any desk when you are done.", item.label, Config.durationMinutes or 30) })
+        body = string.format("%s is parked outside for %d minutes, locked, keys in your pocket (L). Bring it back to any desk when you are done.", item.label, Config.durationMinutes or 30) })
     LightRP.log("rental: %s rented %s at %s for %s (%s)", LightRP.characters.displayName(playerId), item.key, spot.id, LightRP.money.format(item.price), pay)
     return true, r
 end

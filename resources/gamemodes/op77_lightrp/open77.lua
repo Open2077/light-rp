@@ -32,6 +32,7 @@ server_script "server/modules/needs.lua"
 server_script "server/modules/economy.lua"
 server_script "server/modules/chat.lua"
 server_script "server/modules/vehicles.lua"
+server_script "server/modules/keys.lua"
 server_script "server/modules/rental.lua"
 server_script "server/modules/staff.lua"
 server_script "server/modules/ui.lua"
@@ -41,6 +42,7 @@ server_script "server/main.lua"
 client_script "client/core/ui.lua"
 client_script "client/core/hud.lua"
 client_script "client/core/interact.lua"
+client_script "client/core/keys.lua"
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -55,6 +57,7 @@ permissions {
     "local.events",
     -- server
     "world.vehicles",
+    "state.write",          -- vehicle keys live in state bags
     "players.life.read",
     "players.life.kill",
     "players.life.revive",
@@ -69,5 +72,6 @@ permissions {
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks are NPCs
     "ui.vanilla.map",       -- map blips on the interaction points
+    "vehicles.read",        -- closest vehicle / seat for the L key
     "ui.vanilla.hud",
 }

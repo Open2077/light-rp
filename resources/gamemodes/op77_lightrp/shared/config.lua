@@ -23,6 +23,15 @@ LightRpConfig = {
     keys = {
         menu = { id = "lightrp.playermenu", name = "Light RP: player menu", key = "F1" },
         interact = { id = "lightrp.interact", name = "Light RP: interact", key = "E" },
+        lock = { id = "lightrp.vehiclelock", name = "Light RP: lock / unlock vehicle", key = "L" },
+    },
+
+    -- Vehicle keys: L locks or unlocks the vehicle you sit in or the closest one
+    -- within `range`, if your character holds a key for it. A locked vehicle
+    -- stays open for its key holders (per-player lock exceptions).
+    keys = {
+        range = 8.0,
+        hornMs = 150, -- a short honk confirms the lock; 0 disables
     },
 
     spawn = {
