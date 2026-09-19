@@ -111,7 +111,7 @@ export interface HudState {
   voice: { state: "off" | "idle" | "talking" | "muted"; level: number; range: "whisper" | "normal" | "shout" };
   clock: string; // HH:MM in-game
   street?: string;
-  walk?: { mode: string; label: string; speed?: number }; // set while a walk mode is on
+  walk?: { mode: string; label: string; speed?: number; index?: number; count?: number }; // current walk mode once the key was used
 }
 
 export type NoticeKindWire = "info" | "success" | "warning" | "error" | "police" | "money" | "item" | "message" | "contract" | "staff";

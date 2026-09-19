@@ -69,7 +69,7 @@ export function installMockBridge(): void {
     ready: true, health: { value: 78, max: 100 }, stamina: { value: 92, max: 100 }, armor: 40,
     vehicle: params.get("vehicle") === "1" ? { active: true, label: "ARCHER QUARTZ", speedKph: 87, gear: "3", health: 0.9 } : { active: false },
     voice: { state: "idle", level: 0, range: "normal" }, clock: "22:41", street: "KANDA ST",
-    walk: params.get("walk") === "1" ? { mode: "walk", label: "WALK", speed: 1.5 } : undefined,
+    walk: params.get("walk") === "1" ? { mode: "walk", label: "WALK", speed: 1.5, index: 2, count: 3 } : undefined,
   };
 
   const patchCharacter = (patch: Partial<CharacterState>) => {

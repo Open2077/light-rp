@@ -1,6 +1,7 @@
 import { useStore } from "@/state/store";
 import { Badge, StatusChip, VitalBar } from "@/design/components";
 import { useEffect, useState } from "react";
+import { WalkFlash } from "./WalkFlash";
 import "./hud.css";
 
 /* Gameplay overlay, inside the HUD safe area: bottom-left vitals, bottom-right
@@ -28,11 +29,12 @@ export function Hud() {
 
   return (
     <div className="hud" aria-hidden="true">
+      <WalkFlash />
       <div className="hud__bottom-left">
         <div className="hud__identity">
           <span className="hud__wordmark">Open<span>//</span>77</span>
           <span className="hud__name">{name}</span>
-          {hud.walk && <Badge tone="accent">{hud.walk.label}</Badge>}
+          {hud.walk && hud.walk.speed != null && <Badge tone="accent">{hud.walk.label}</Badge>}
         </div>
         <div className="hud__vitals">
           <VitalBar tone="health" value={hud.health.value} max={hud.health.max} />

@@ -20,7 +20,7 @@ local view = {
     vehicle = { active = false },
     voice = { state = "idle", level = 0, range = Config.voice.default },
     clock = "--:--",
-    walk = nil, -- { mode, label, speed } while a walk mode is on (client/core/movement.lua)
+    walk = nil, -- { mode, label, speed, index, count } once the player touched the walk key (client/core/movement.lua)
 }
 
 local function sampleStats()

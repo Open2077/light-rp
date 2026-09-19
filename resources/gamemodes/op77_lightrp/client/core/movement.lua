@@ -29,7 +29,9 @@ function Movement.apply(index)
     else
         log("Open77.movement unavailable: walk modes are display-only")
     end
-    if LightRpHud and LightRpHud.setWalk then LightRpHud.setWalk(mode.speed and { mode = mode.id, label = mode.label, speed = mode.speed } or nil) end
+    if LightRpHud and LightRpHud.setWalk then
+        LightRpHud.setWalk({ mode = mode.id, label = mode.label, speed = mode.speed, index = index, count = #list })
+    end
     return mode
 end
 
