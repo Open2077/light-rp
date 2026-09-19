@@ -11,6 +11,7 @@ LightRpEvents = {
         closed = "lightrp:ui:closed",   -- Lua -> page: the menu is closed, drop focus visuals
         notice = "lightrp:ui:notice",   -- Lua -> page: { kind, title, body, source, durationMs }
         result = "lightrp:ui:result",   -- Lua -> page: { ok, text, action }
+        dialog = "lightrp:ui:dialog",   -- Lua -> page: { kind = "rental", ... } opens a dialog
     },
     -- client <-> server (network events)
     net = {
@@ -19,5 +20,8 @@ LightRpEvents = {
         state = "op77_lightrp:state",         -- server -> client: state or patch
         notice = "op77_lightrp:notice",       -- server -> client: notice payload
         result = "op77_lightrp:result",       -- server -> client: action result
+        dialog = "op77_lightrp:dialog",       -- server -> client: open a page dialog
+        interactions = "op77_lightrp:interactions", -- server -> client: the proximity points to draw
+        interact = "op77_lightrp:interact",   -- client -> server: E pressed at a point (id)
     },
 }

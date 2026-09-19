@@ -26,11 +26,13 @@ shared_script "shared/config.lua"
 -- Server: core first, then modules (each registers itself with LightRP.module).
 server_script "server/core/framework.lua"
 server_script "server/core/persistence.lua"
+server_script "server/core/interact.lua"
 server_script "server/modules/characters.lua"
 server_script "server/modules/needs.lua"
 server_script "server/modules/economy.lua"
 server_script "server/modules/chat.lua"
 server_script "server/modules/vehicles.lua"
+server_script "server/modules/rental.lua"
 server_script "server/modules/staff.lua"
 server_script "server/modules/ui.lua"
 server_script "server/main.lua"
@@ -38,6 +40,7 @@ server_script "server/main.lua"
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
 client_script "client/core/hud.lua"
+client_script "client/core/interact.lua"
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -64,5 +67,6 @@ permissions {
     -- client
     "input.actions",
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
+    "world.npcs",           -- rental desks are NPCs
     "ui.vanilla.hud",
 }

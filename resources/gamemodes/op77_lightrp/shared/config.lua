@@ -22,6 +22,7 @@ LightRpConfig = {
     -- > Key bindings. New id on purpose: the old F5 terminal binding is forgotten.
     keys = {
         menu = { id = "lightrp.playermenu", name = "Light RP: player menu", key = "F1" },
+        interact = { id = "lightrp.interact", name = "Light RP: interact", key = "E" },
     },
 
     spawn = {
@@ -104,6 +105,38 @@ LightRpConfig = {
     },
 
     names = { minLength = 2, maxLength = 24, allowAccents = true },
+
+    -- Vehicle rental desks: an NPC, a ring on the ground, E to talk. Each desk
+    -- has its own stock (keys from vehicles.catalog) and prices. One rental per
+    -- player, returned at any desk or taken back after durationMinutes.
+    -- `parking` is where the car appears: pick it with /pos standing on the spot.
+    rentals = {
+        enabled = true,
+        key = "E",
+        interactRadius = 2.5,
+        durationMinutes = 30,
+        -- Tried in order until the platform accepts one (records need no catalogue).
+        npcCandidates = {
+            { template = "civilian_female_relaxed_01" },
+            { template = "citizen__corporat_ma" },
+            { record = "Character.kab_victim_male_rich_corpo" },
+            { template = "gang_valentinos_ranged_01" },
+        },
+        spots = {
+            {
+                id = "citycenter", name = "Rent-a-Ride // City Center",
+                position = { x = -654.821594, y = -383.462616, z = 8.189293 }, heading = 90.0,
+                parking = { position = { x = -654.8, y = -377.5, z = 8.2 }, heading = 90.0 },
+                stock = {
+                    { key = "maimai",   price = 60 },
+                    { key = "hella",    price = 120 },
+                    { key = "cortes",   price = 140 },
+                    { key = "semimaru", price = 90 },
+                    { key = "supron",   price = 180 },
+                },
+            },
+        },
+    },
 
     -- Money: one wallet per active character (cash + bank account XXX-XXX).
     -- Whole eddies only. Jobs, shops and rent will move money through

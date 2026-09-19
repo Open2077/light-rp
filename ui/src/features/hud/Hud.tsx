@@ -1,16 +1,30 @@
 import { useStore } from "@/state/store";
 import { Badge, StatusChip, VitalBar } from "@/design/components";
 import { formatMoney } from "@/bridge/money";
+import { useEffect, useState } from "react";
 import "./hud.css";
 
 /* Gameplay overlay, inside the HUD safe area. Layout contract from the design
    system's in-game-hud kit: bottom-left vitals + voice, top-right status rail,
    bottom-right vehicle cluster while seated. The centre stays clear. */
+function countdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export function Hud() {
   const hud = useStore((s) => s.hud);
   const character = useStore((s) => s.state.character);
   const needs = useStore((s) => s.state.needs);
   const money = useStore((s) => s.state.money);
+  const rental = useStore((s) => s.state.rental);
+  const rentalAt = useStore((s) => s.rentalReceivedAt);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!rental.active) return;
+    const timer = setInterval(() => tick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [rental.active]);
   const server = useStore((s) => s.state.server);
   const staff = useStore((s) => s.state.staff);
 
@@ -24,6 +38,7 @@ export function Hud() {
         <StatusChip icon="users" label="IN TOWN" value={`${server.playersOnline}/${server.maxPlayers}`} />
         <StatusChip icon="banknote" label="CASH" value={formatMoney(money.cash, money.currency)} />
         {money.bank && <StatusChip icon="landmark" label="BANK" value={formatMoney(money.bank.balance, money.currency)} />}
+        {rental.active && <StatusChip icon="car" label="RENTAL" tone="accent" value={countdown(rental.active.remainingMs - (Date.now() - rentalAt))} />}
         <StatusChip label="" value={hud.clock} tone="accent" />
         {staff.isStaff && <Badge tone="danger">STAFF</Badge>}
       </div>

@@ -3,7 +3,8 @@
    state, ticking HUD, a notice, and answers to actions. Query flags:
    `?menu=1` opens the player menu, `?staff=1` grants staff,
    `?registered=1` skips the wizard, `?step=appearance|confirm` starts the wizard
-   at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing. */
+   at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing,
+   `?dialog=rental` opens a rental desk, `?rental=1` starts with a car out. */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 
@@ -48,6 +49,9 @@ export function installMockBridge(): void {
         { wallet: "bank", kind: "opening", amount: 1500, balanceAfter: 1500, counterparty: "Night City Bank", note: "Account opened", at: "2077-09-17 19:30:00" },
       ],
     } : { currency: "€$", cash: 0, history: [] },
+    rental: params.get("rental") === "1"
+      ? { active: { spotId: "citycenter", spotName: "Rent-a-Ride // City Center", key: "hella", label: "Archer Hella", price: 120, paidWith: "cash", remainingMs: 17 * 60000 + 42000 } }
+      : {},
     vehicles: {
       catalog: [
         { key: "hella", label: "Archer Hella", category: "Street" }, { key: "quartz", label: "Archer Quartz", category: "Street" },
@@ -82,6 +86,10 @@ export function installMockBridge(): void {
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
+          if (params.get("dialog") === "rental") fire(PAGE_EVENTS.dialog, { kind: "rental", spot: { id: "citycenter", name: "Rent-a-Ride // City Center", durationMinutes: 30, stock: [
+            { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
+            { key: "cortes", label: "Villefort Cortes", category: "Street", price: 140 }, { key: "semimaru", label: "Yaiba Semimaru", category: "Bikes", price: 90 },
+            { key: "supron", label: "Mahir Supron", category: "Utility", price: 180 }, { key: "type66", label: "Quadra Type-66", category: "Sport", price: 900 } ] } });
           setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Welcome to Night City", body: "Light RP server. F1 opens your player menu, /help lists the commands.", source: "LIGHT RP", durationMs: 9000 }), 400);
         }, 30);
       }
@@ -145,6 +153,22 @@ export function installMockBridge(): void {
               result(true, `€$ ${action.amount.toLocaleString("en-US")} ${out ? "deposited" : "withdrawn"}.`, action.type);
               break;
             }
+            case "rental.rent": {
+              if (state.rental.active) { result(false, "You already have a vehicle out. Return it first.", action.type); break; }
+              const price = action.key === "type66" ? 900 : action.key === "supron" ? 180 : action.key === "cortes" ? 140 : action.key === "hella" ? 120 : action.key === "semimaru" ? 90 : 60;
+              const m = state.money;
+              if ((action.pay === "bank" ? (m.bank?.balance ?? 0) : m.cash) < price) { result(false, "Insufficient funds.", action.type); break; }
+              state.money = action.pay === "bank" && m.bank ? { ...m, bank: { ...m.bank, balance: m.bank.balance - price } } : { ...m, cash: m.cash - price };
+              state.rental = { active: { spotId: action.spot, spotName: "Rent-a-Ride // City Center", key: action.key, label: action.key.toUpperCase(), price, paidWith: action.pay, remainingMs: 30 * 60000 } };
+              fire(PAGE_EVENTS.state, { money: state.money, rental: state.rental });
+              result(true, `${action.key.toUpperCase()} rented for €$ ${price}.`, action.type);
+              break;
+            }
+            case "rental.return":
+              state.rental = {};
+              fire(PAGE_EVENTS.state, { rental: state.rental });
+              result(true, "Vehicle returned.", action.type);
+              break;
             case "welcome.ack":
               patchCharacter({ welcomePending: false });
               break;

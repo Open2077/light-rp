@@ -14,6 +14,7 @@ export const PAGE_EVENTS = {
   closed: "lightrp:ui:closed",
   notice: "lightrp:ui:notice",
   result: "lightrp:ui:result",
+  dialog: "lightrp:ui:dialog",
 } as const;
 
 export type BodyFamily = "male" | "female";
@@ -91,6 +92,7 @@ export interface UiState {
   character: CharacterState;
   needs: NeedsState;
   money: MoneyState;
+  rental: RentalState;
   vehicles: { catalog: VehicleEntry[]; owned: OwnedVehicle[]; cooldownUntil?: number };
   staff: StaffState;
   locations: Array<{ name: string; label: string }>;
@@ -114,6 +116,21 @@ export type NoticeKindWire = "info" | "success" | "warning" | "error" | "police"
 export interface NoticePayload { id?: string; kind?: NoticeKindWire; title?: string; body?: string; source?: string; durationMs?: number }
 export interface ResultPayload { ok: boolean; text: string; action?: string }
 
+/** A rental desk's offer, sent when the player presses E at the desk. */
+export interface RentalStockItem { key: string; label: string; category: string; price: number }
+export interface RentalDialogPayload {
+  kind: "rental";
+  spot: { id: string; name: string; stock: RentalStockItem[]; durationMinutes: number };
+}
+export type DialogPayload = RentalDialogPayload;
+
+export interface ActiveRental {
+  spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
+  remainingMs: number; // at the time the state was pushed
+  vehicleId?: number;
+}
+export interface RentalState { active?: ActiveRental }
+
 export interface IdentityFields { firstName: string; lastName: string; birthDate?: string; origin?: string; story?: string }
 
 /** Actions the page raises; the server validates every one of them. Two are
@@ -132,6 +149,8 @@ export type UiAction =
   | { type: "money.withdraw"; amount: number }
   | { type: "money.transfer"; to: string; amount: number; note?: string }
   | { type: "money.pay"; target: number; amount: number }
+  | { type: "rental.rent"; spot: string; key: string; pay: "cash" | "bank" }
+  | { type: "rental.return" }
   | { type: "staff.tp"; target: "me" | number; location: string }
   | { type: "staff.heal"; target: "me" | number }
   | { type: "staff.announce"; text: string }

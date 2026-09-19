@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { announceReady, on, requestClose } from "@/bridge/open77";
-import { PAGE_EVENTS, type HudState, type NoticePayload, type ResultPayload, type UiStatePatch } from "@/bridge/protocol";
+import { PAGE_EVENTS, type DialogPayload, type HudState, type NoticePayload, type ResultPayload, type UiStatePatch } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { Hud } from "@/features/hud/Hud";
 import { PlayerMenu } from "@/features/menu/PlayerMenu";
 import { CharacterWizard } from "@/features/character/CharacterWizard";
 import { NoticeLane } from "@/features/notices/NoticeLane";
 import { WelcomeModal } from "@/features/welcome/WelcomeModal";
+import { RentalDialog } from "@/features/rental/RentalDialog";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -18,6 +19,7 @@ export function App() {
   const pushNotice = useStore((s) => s.pushNotice);
   const setResult = useStore((s) => s.setResult);
   const setConnected = useStore((s) => s.setConnected);
+  const openDialog = useStore((s) => s.openDialog);
 
   useEffect(() => {
     const offs = [
@@ -36,13 +38,14 @@ export function App() {
       })),
       on<ResultPayload>(PAGE_EVENTS.result, (r) => {
         if (!r) return;
-        setResult(r.ok, r.text);
+        setResult(r.ok, r.text, r.action);
         pushNotice({ kind: r.ok ? "success" : "error", title: r.ok ? undefined : "DENIED", body: r.text, source: "LIGHT RP", durationMs: 6000 });
       }),
+      on<DialogPayload>(PAGE_EVENTS.dialog, (d) => { if (d?.kind) openDialog(d); }),
     ];
     announceReady();
     return () => offs.forEach((off) => off());
-  }, [applyState, setHud, openMenu, closeMenu, pushNotice, setResult, setConnected]);
+  }, [applyState, setHud, openMenu, closeMenu, pushNotice, setResult, setConnected, openDialog]);
 
   return (
     <>
@@ -50,6 +53,7 @@ export function App() {
       <NoticeLane />
       <CharacterWizard />
       <WelcomeModal />
+      <RentalDialog />
       <PlayerMenu />
     </>
   );

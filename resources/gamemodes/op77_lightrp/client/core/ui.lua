@@ -132,3 +132,4 @@ end
 RegisterNetEvent(E.net.state, function(patch) Ui.send(E.page.state, patch) end)
 RegisterNetEvent(E.net.notice, function(payload) Ui.send(E.page.notice, payload) end)
 RegisterNetEvent(E.net.result, function(payload) Ui.send(E.page.result, payload) end)
+RegisterNetEvent(E.net.dialog, function(payload) Ui.send(E.page.dialog, payload) end)

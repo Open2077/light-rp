@@ -5,6 +5,7 @@ AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
     if not LightRpUi.create() then return end
     LightRpHud.start()
+    LightRpInteract.bind()
 
     local key = Config.keys.menu
     local ok, effective = RegisterKeyMapping(key.id, key.name, key.key, function()

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { HudState, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
+import type { DialogPayload, HudState, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 
 export interface Notice {
   id: string;
@@ -20,6 +20,7 @@ export const EMPTY_STATE: UiState = {
   },
   needs: { food: 100, drink: 100 },
   money: { currency: "€$", cash: 0, history: [] },
+  rental: {},
   vehicles: { catalog: [], owned: [] },
   staff: { isStaff: false },
   locations: [],
@@ -42,7 +43,9 @@ interface Store {
   hud: HudState;
   menuOpen: boolean; // the F1 player menu
   notices: Notice[];
-  lastResult?: { ok: boolean; text: string; at: number };
+  lastResult?: { ok: boolean; text: string; at: number; action?: string };
+  dialog?: DialogPayload;      // the open server dialog (rental desk...)
+  rentalReceivedAt: number;    // when `rental` last arrived, to count the time down
   welcomeReplay: boolean; // the Help tab asked for the briefing again
   setConnected(value: boolean): void;
   setWelcomeReplay(value: boolean): void;
@@ -53,7 +56,9 @@ interface Store {
   pushNotice(notice: Omit<Notice, "id" | "createdAt"> & { id?: string }): void;
   dismissNotice(id: string): void;
   removeNotice(id: string): void;
-  setResult(ok: boolean, text: string): void;
+  setResult(ok: boolean, text: string, action?: string): void;
+  openDialog(payload: DialogPayload): void;
+  closeDialog(): void;
 }
 
 let noticeSequence = 0;
@@ -65,9 +70,12 @@ export const useStore = create<Store>((set) => ({
   menuOpen: false,
   notices: [],
   welcomeReplay: false,
+  rentalReceivedAt: Date.now(),
   setConnected: (value) => set({ connected: value }),
   setWelcomeReplay: (value) => set({ welcomeReplay: value }),
-  applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch } })),
+  applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch }, rentalReceivedAt: patch.rental ? Date.now() : s.rentalReceivedAt })),
+  openDialog: (payload) => set({ dialog: payload }),
+  closeDialog: () => set({ dialog: undefined }),
   setHud: (hud) => set({ hud }),
   openMenu: () => set({ menuOpen: true }),
   closeMenu: () => set({ menuOpen: false }),
@@ -76,5 +84,5 @@ export const useStore = create<Store>((set) => ({
   })),
   dismissNotice: (id) => set((s) => ({ notices: s.notices.map((n) => (n.id === id ? { ...n, dismissing: true } : n)) })),
   removeNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
-  setResult: (ok, text) => set({ lastResult: { ok, text, at: Date.now() } }),
+  setResult: (ok, text, action) => set({ lastResult: { ok, text, action, at: Date.now() } }),
 }));
