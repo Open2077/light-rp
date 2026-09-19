@@ -118,14 +118,16 @@ LightRpConfig = {
         durationMinutes = 30,
         blip = { sprite = "Zzz01_CarForPurchaseVariant", title = "Vehicle rental", description = "Rent a car by the half hour. Return it at any desk." },
         -- Crowd civilians (docs/generated/npc-records-2.31.csv, category civilian,
-        -- risk candidate). One is picked at random per desk; the list is tried
-        -- until the platform accepts a record.
+        -- risk candidate, reaction preset NoReaction: they neither flee nor
+        -- panic). One is picked at random per desk; the list is tried until the
+        -- platform accepts a record. The native AI is switched off on top.
         npcPool = {
-            { record = "Character.mws_hey_07_zetatech_executive" },  -- corporate, male
+            { record = "Character.mws_hey_07_zetatech_executive" },  -- corporate suit, male
             { record = "Character.sts_hey_rey_06_receptionist" },    -- corporate, female
-            { record = "Character.quickhits_target_003" },           -- rich, male
+            { record = "Character.kab_victim_male_rich_corpo" },     -- arasaka corpo, male
             { record = "Character.mws_thenerves_crowd_01" },         -- rich, male
-            { record = "Character.quickhits_target_002" },           -- creole, male
+            { record = "Character.mws_thenerves_driver_02" },        -- lowlife, male
+            { record = "Character.ma_std_rcr_slacker_01" },          -- workout, male
             { record = "Character.ma_std_rcr_slacker_02" },          -- youngster, male
             { record = "Character.mws_thenerves_driver_01" },        -- youngster, female
         },

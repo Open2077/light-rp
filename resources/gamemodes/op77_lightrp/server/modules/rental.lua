@@ -49,15 +49,19 @@ local function spawnDesk(spot)
             persistent = false,
             despawnWhenUnobserved = false,
             streamingRadius = 150.0,
+            -- A desk clerk: no threats, no stimuli, no barks.
+            behavior = { combatEnabled = false, perceptionEnabled = false, voiceEnabled = false },
         }
         if candidate.record then definition.record = candidate.record else definition.template = candidate.template end
         if type(Open77.npcs.damage) == "table" then definition.damagePolicy = Open77.npcs.damage.invulnerable or Open77.npcs.damage.immortal end
         if type(Open77.npcs.ai) == "table" then definition.aiMode = Open77.npcs.ai.tasks end
         local ok, npcId, reason = pcall(Open77.npcs.create, definition)
         if ok and npcId then
-            pcall(Open77.npcs.setCombatEnabled, npcId, false)
-            pcall(Open77.npcs.setPerceptionEnabled, npcId, false)
-            LightRP.log("rental desk %s: NPC %s spawned as %s", spot.id, tostring(npcId), candidate.record or candidate.template)
+            -- The native agent is what makes a civilian wander or flee: stop it.
+            -- Rendering and collision stay; the body stands where it was put.
+            local stillOk, stillErr = pcall(Open77.npcs.setAIEnabled, npcId, false)
+            if not stillOk or stillErr == false then LightRP.log("rental desk %s: setAIEnabled refused: %s", spot.id, tostring(stillErr)) end
+            LightRP.log("rental desk %s: NPC %s spawned as %s (AI off)", spot.id, tostring(npcId), candidate.record or candidate.template)
             return npcId
         end
         LightRP.log("rental desk %s: %s refused (%s), trying the next candidate", spot.id, candidate.record or candidate.template, tostring(ok and npcId == nil and reason or npcId))
