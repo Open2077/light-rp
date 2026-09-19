@@ -64,6 +64,16 @@ interface Store {
 
 let noticeSequence = 0;
 
+/** Lua serialises an empty table as `{}`: make every snapshot's `items` an array. */
+export function normalizeInventory(snap: InventorySnapshot): InventorySnapshot {
+  return { ...snap, items: Array.isArray(snap.items) ? snap.items : [] };
+}
+function normalizeDialog(payload: DialogPayload): DialogPayload {
+  if (payload.kind === "inventory") return { ...payload, left: normalizeInventory(payload.left), right: normalizeInventory(payload.right) };
+  if (payload.kind === "rental") return { ...payload, spot: { ...payload.spot, stock: Array.isArray(payload.spot.stock) ? payload.spot.stock : [] } };
+  return payload;
+}
+
 export const useStore = create<Store>((set) => ({
   connected: false,
   state: EMPTY_STATE,
@@ -75,14 +85,15 @@ export const useStore = create<Store>((set) => ({
   setConnected: (value) => set({ connected: value }),
   setWelcomeReplay: (value) => set({ welcomeReplay: value }),
   applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch }, rentalReceivedAt: patch.rental ? Date.now() : s.rentalReceivedAt })),
-  openDialog: (payload) => set({ dialog: payload }),
+  openDialog: (payload) => set({ dialog: normalizeDialog(payload) }),
   closeDialog: () => set({ dialog: undefined }),
   // Fresh snapshots replace the matching side of the open inventory dialog; a
   // snapshot for an unknown id (the server switched the secondary) lands on the right.
   updateInventories: (list) => set((s) => {
     if (!s.dialog || s.dialog.kind !== "inventory") return {};
     let { left, right } = s.dialog;
-    for (const snap of list) {
+    for (const raw of list) {
+      const snap = normalizeInventory(raw);
       if (snap.id === left.id) left = snap;
       else right = snap;
     }

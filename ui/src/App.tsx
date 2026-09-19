@@ -9,6 +9,7 @@ import { NoticeLane } from "@/features/notices/NoticeLane";
 import { WelcomeModal } from "@/features/welcome/WelcomeModal";
 import { RentalDialog } from "@/features/rental/RentalDialog";
 import { InventoryDialog } from "@/features/inventory/Inventory";
+import { ErrorBoundary } from "@/design/ErrorBoundary";
 import { InteractPrompt } from "@/features/hud/InteractPrompt";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
@@ -53,14 +54,14 @@ export function App() {
 
   return (
     <>
-      <Hud />
-      <InteractPrompt />
-      <NoticeLane />
-      <CharacterWizard />
-      <WelcomeModal />
-      <RentalDialog />
-      <InventoryDialog />
-      <PlayerMenu />
+      <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
+      <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
+      <ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary>
+      <ErrorBoundary name="wizard"><CharacterWizard /></ErrorBoundary>
+      <ErrorBoundary name="welcome"><WelcomeModal /></ErrorBoundary>
+      <ErrorBoundary name="rental"><RentalDialog /></ErrorBoundary>
+      <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
+      <ErrorBoundary name="menu"><PlayerMenu /></ErrorBoundary>
     </>
   );
 }

@@ -641,7 +641,14 @@ local function touched(id) local inv = registry[id]; if inv then inv.touchedAt =
 
 LightRP.action("inventory.open", function(playerId, payload)
     local ok, reason = Inv.open(playerId, payload.target)
+    LightRP.log("inventory.open by %d: %s (secondary %s)", playerId, ok and "ok" or tostring(reason), tostring(secondary[playerId]))
     if not ok then LightRP.result(playerId, false, explain(reason), "inventory.open") end
+end)
+
+-- Staff: open the inventory without the key (diagnostics).
+LightRP.command("lightrp.inv", { restricted = true }, function(source)
+    local ok, reason = Inv.open(source)
+    return ok, ok and "Inventory opened." or explain(reason)
 end)
 
 LightRP.action("inventory.close", function(playerId) Inv.close(playerId) end)
