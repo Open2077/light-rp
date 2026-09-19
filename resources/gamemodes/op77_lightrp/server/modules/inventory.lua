@@ -35,7 +35,8 @@ local useHandlers = {}  -- item name -> fn
 local dropSequence = 0
 Inv.registry = registry
 
-local json = Open77.json
+-- Server Lua exposes the FiveM-style global `json` (Open77.json is the client namespace).
+local json = (type(Open77) == "table" and type(Open77.json) == "table") and Open77.json or json
 
 -- ---------------------------------------------------------------------------
 -- Helpers
