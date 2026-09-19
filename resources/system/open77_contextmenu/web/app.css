@@ -1,0 +1,83 @@
+/* Open//77 target actions, in the RP design system's language (HUD / ContextMenu
+   + TargetEye). Tokens come from tokens.css; the Lua side may still override the
+   accent and the scale through `appearance`. Protocol and ids are unchanged. */
+:root { color-scheme: dark; --ui-scale: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+body { user-select: none; cursor: none; font-family: var(--font-core); color: var(--text-body); }
+[hidden] { display: none !important; }
+#workspace { position: fixed; inset: 0; }
+
+/* ---------- TargetEye ---------- */
+.eye {
+  position: absolute; width: calc(40px * var(--ui-scale)); height: calc(40px * var(--ui-scale));
+  display: grid; place-items: center; pointer-events: none; --eye-color: var(--o77-ink-200);
+  transition: color var(--dur-fast) var(--ease-snap);
+}
+.eye__corner { position: absolute; width: 10px; height: 10px; border: 0 solid var(--eye-color); transition: border-color var(--dur-fast) var(--ease-snap); }
+.eye__corner--tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
+.eye__corner--tr { top: 0; right: 0; border-width: 2px 2px 0 0; }
+.eye__corner--bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+.eye__corner--br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+.eye__core {
+  width: calc(24px * var(--ui-scale)); height: calc(24px * var(--ui-scale)); display: grid; place-items: center;
+  color: var(--eye-color); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .8));
+}
+.eye__core svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.eye.available { --eye-color: var(--accent); }
+.eye.available .eye__core { background: var(--accent-quiet); animation: o77-pulse-ring 1.6s var(--ease-out) infinite; }
+.eye.blocked { --eye-color: var(--o77-red); }
+
+/* ---------- ContextMenu column ---------- */
+.ctx {
+  position: absolute; outline: none; cursor: default;
+  width: calc(252px * var(--ui-scale)); max-width: calc(100vw - 48px); max-height: calc(100vh - 16px);
+  display: flex; flex-direction: column;
+  background: var(--surface-hud); backdrop-filter: var(--blur-hud);
+  box-shadow: inset 0 0 0 1px var(--line-soft), var(--shadow-hud);
+  clip-path: var(--clip-notch); overflow: hidden;
+  animation: o77-wipe-in var(--dur-fast) var(--ease-mech) both;
+}
+.ctx__head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
+  padding: 6px var(--sp-5); background: var(--accent); color: var(--text-on-accent); position: relative;
+}
+.ctx__head::after { content: ""; position: absolute; inset: 0; background: var(--tex-scanline); opacity: .35; pointer-events: none; }
+.ctx__title, .ctx__tag { position: relative; font: var(--type-hud-readout); letter-spacing: var(--ls-tag); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctx__title { flex: 1 0 auto; }
+.ctx__tag { opacity: .7; flex: 0 1 auto; min-width: 0; }
+
+.ctx__status {
+  display: flex; align-items: center; gap: var(--sp-3); padding: 8px var(--sp-5);
+  font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--text-dim);
+}
+.ctx__status.error { color: var(--o77-red); }
+
+.ctx__rows { min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 0; scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+.group { padding: 7px var(--sp-5) 3px; font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--text-disabled); overflow-wrap: anywhere; }
+.action {
+  display: flex; align-items: center; gap: var(--sp-4); width: 100%; text-align: left;
+  padding: 8px var(--sp-5); border: 0; outline: none; background: transparent; cursor: pointer;
+  color: var(--text-body); font: var(--type-label); text-transform: uppercase; letter-spacing: .08em;
+  transition: background var(--dur-instant) var(--ease-snap);
+}
+.action .icon { width: 16px; display: flex; justify-content: center; flex: 0 0 16px; }
+.action .icon svg, .action .icon .spinner { width: 14px; height: 14px; }
+.action .icon svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.action .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action.danger { color: var(--o77-red); }
+.action:not(:disabled):hover, #menu.keyboard .action:focus { background: var(--accent); color: var(--text-on-accent); }
+.action.danger:not(:disabled):hover, #menu.keyboard .action.danger:focus { background: var(--o77-red); color: var(--o77-white); }
+.action:disabled { cursor: wait; opacity: .45; }
+.action.pending { opacity: 1; color: var(--accent); }
+
+.ctx__desc {
+  padding: var(--sp-3) var(--sp-5); box-shadow: inset 2px 0 0 var(--accent), inset 0 1px 0 var(--line-hairline);
+  font: var(--type-body); font-size: var(--fs-tag); color: var(--text-dim);
+}
+.ctx__legend { padding: 5px var(--sp-5); background: var(--o77-ink-800); font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--text-disabled); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.spinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--line-hairline); border-top-color: var(--accent); border-radius: 50%; animation: spin .65s linear infinite; flex: 0 0 auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

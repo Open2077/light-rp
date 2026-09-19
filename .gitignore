@@ -16,6 +16,12 @@
 !resources/gamemodes/
 !resources/gamemodes/op77_lightrp/
 !resources/gamemodes/op77_lightrp/**
+# Platform packages we restyled with the design system (re-apply after a server update).
+!resources/system/
+!resources/system/open77_contextmenu/
+!resources/system/open77_contextmenu/**
+!resources/system/open-voice/
+!resources/system/open-voice/**
 !ui/
 !ui/**
 

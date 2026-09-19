@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OPEN//77 Voice</title>
+  <!-- Open//77 RP design system: tokens and self-hosted fonts are copies of the
+       gamemode's (each WebUI origin can only load its own files). -->
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <!-- MicIndicator (design system, HUD kit): a notched plate, bottom-right. Row one:
+       mic glyph, state readout, 14-bar input meter. Row two: the reach presets as
+       tags, the active one filled, the cycle key as a keycap. -->
+  <section id="voice" class="mic" aria-live="polite" aria-label="Voice status">
+    <div id="error" class="mic__error" role="status"></div>
+    <div class="mic__plate">
+      <div class="mic__row">
+        <span class="mic__glyph" aria-hidden="true">
+          <svg id="micOn" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          <svg id="micOff" viewBox="0 0 24 24" hidden><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        </span>
+        <span id="stateLabel" class="mic__state">OPEN</span>
+        <span id="meter" class="mic__meter" role="meter" aria-label="Microphone input level"></span>
+        <span id="talkers" class="mic__talkers" title="Players heard right now" hidden><i></i><span id="talkerCount">0</span></span>
+      </div>
+      <div class="mic__row mic__row--ranges">
+        <span id="ranges" class="mic__ranges"></span>
+        <span class="mic__reach"><b id="modeLabel">NORMAL</b><span class="mic__sep">·</span><span id="distance">20</span>M</span>
+        <kbd id="cycleKey" class="mic__key" title="Cycle the voice range">F11</kbd>
+      </div>
+    </div>
+  </section>
+  <script src="app.js"></script>
+</body>
+</html>

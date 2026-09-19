@@ -1,0 +1,74 @@
+/* OPEN//77 voice HUD in the RP design system's language (HUD / MicIndicator).
+   Tokens come from tokens.css. The Lua payload is unchanged; the page only maps
+   its states and reach presets onto the system's voice colours. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; user-select: none; font-family: var(--font-core); color: var(--text-body); }
+[hidden] { display: none !important; }
+
+.mic {
+  position: fixed; right: var(--hud-safe-x); bottom: var(--hud-safe-y);
+  display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2);
+  --state-color: var(--voice-idle); --mode-color: var(--voice-live);
+  opacity: 0; transform: translateY(6px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+.mic.visible { opacity: 1; transform: none; }
+.mic.state-idle     { --state-color: var(--voice-idle); }
+.mic.state-detected { --state-color: var(--accent); }
+.mic.state-talking  { --state-color: var(--voice-live); }
+.mic.state-muted    { --state-color: var(--voice-muted); }
+.mic.state-offline  { --state-color: var(--voice-off); }
+
+.mic__plate {
+  display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); width: fit-content;
+  background: var(--surface-hud); backdrop-filter: var(--blur-hud); clip-path: var(--clip-notch);
+  box-shadow: var(--shadow-hud); transition: box-shadow var(--dur-fast) var(--ease-snap);
+}
+.mic.state-talking .mic__plate { box-shadow: var(--glow-accent); }
+
+.mic__row { display: flex; align-items: center; gap: var(--sp-4); }
+.mic__row--ranges { justify-content: flex-end; }
+
+.mic__glyph { display: flex; width: 16px; height: 16px; color: var(--state-color); transition: color var(--dur-fast) linear; }
+.mic__glyph svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mic.state-talking .mic__glyph { animation: o77-flicker 1.6s infinite; }
+
+.mic__state { min-width: 74px; font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--state-color); transition: color var(--dur-fast) linear; }
+
+/* 14 bars rising from 5 to 16 px; lit in the reach colour, the last three in the peak colour. */
+.mic__meter { display: flex; gap: 2px; align-items: flex-end; height: 16px; }
+.mic__meter i { display: block; width: 3px; background: var(--o77-ink-600); transition: background var(--dur-instant) linear; }
+.mic__meter i.lit { background: var(--mode-color); }
+.mic__meter i.lit.peak { background: var(--voice-peak); }
+.mic.state-muted .mic__meter i, .mic.state-offline .mic__meter i { background: var(--o77-ink-700); }
+
+/* Reach presets as tags; the active one is filled with its colour. */
+.mic__ranges { display: flex; align-items: center; gap: var(--sp-2); }
+.mic__range {
+  font: var(--type-hud-readout); letter-spacing: .12em; padding: 3px 8px; clip-path: var(--clip-tag);
+  background: var(--o77-ink-700); color: var(--text-dim); transition: var(--t-hover); white-space: nowrap;
+}
+.mic__range--on { color: var(--text-on-accent); background: var(--range-color, var(--mode-color)); }
+.mic__range-m { opacity: .6; margin-left: 5px; }
+.mic__reach { display: flex; align-items: baseline; gap: 5px; font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--text-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mic__reach b { color: var(--mode-color); font-weight: inherit; }
+.mic__sep { color: var(--text-disabled); }
+.mic.mode-changing .mic__reach b { animation: range-flash 320ms var(--ease-out); }
+@keyframes range-flash { 0% { opacity: .2; transform: translateY(2px); } 100% { opacity: 1; transform: none; } }
+
+/* Keycap (design system core). */
+.mic__key {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 16px; padding: 1px 5px;
+  font: var(--type-hud-readout); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-body); background: var(--o77-ink-700); box-shadow: inset 0 0 0 1px var(--line-soft); clip-path: var(--clip-keycap);
+}
+
+/* Players heard right now, only while someone is audible. */
+.mic__talkers { display: inline-flex; align-items: center; gap: 5px; margin-left: var(--sp-2); color: var(--o77-green); font: var(--type-hud-readout); }
+.mic__talkers i { width: 6px; height: 6px; border-radius: 50%; background: var(--o77-green); box-shadow: 0 0 6px var(--o77-green); animation: rx-pulse 1.1s ease-in-out infinite; }
+@keyframes rx-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* Transient server rejection, above the plate. */
+.mic__error { max-width: 340px; text-align: right; font: var(--type-hud-readout); letter-spacing: .04em; color: var(--o77-red); text-shadow: 0 1px 2px rgba(0, 0, 0, .9); opacity: 0; transition: opacity var(--dur-fast) linear; }
+.mic__error.active { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
