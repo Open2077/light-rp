@@ -260,11 +260,12 @@
 .o77-rage__rows { padding: 4px 0; overflow: hidden; background: var(--surface-hud); backdrop-filter: var(--blur-hud); box-shadow: inset 0 0 0 1px var(--line-hairline); }
 .o77-rage__sep { height: 1px; margin: 5px var(--sp-5); background: var(--line-hairline); }
 .o77-rage__caption { padding: 7px var(--sp-5) 3px; font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--text-disabled); }
-.o77-rage__row { display: flex; align-items: center; gap: var(--sp-4); padding: 7px var(--sp-5); color: var(--text-body); transition: background var(--dur-instant) var(--ease-snap); --rage-dim: var(--text-disabled); }
+.o77-rage__row { display: flex; align-items: center; gap: var(--sp-4); padding: 7px var(--sp-5); color: var(--text-body); transition: background var(--dur-instant) var(--ease-snap); --rage-dim: var(--text-hi); }
+.o77-rage__row--disabled { --rage-dim: var(--text-disabled); }
 .o77-rage__row--danger { color: var(--o77-red); }
 .o77-rage__row--disabled { color: var(--text-disabled); }
 .o77-rage__row--disabled .o77-rage__icon { opacity: .5; }
-.o77-rage__row--on { background: var(--accent); color: var(--text-on-accent); --rage-dim: rgba(5, 5, 6, .6); }
+.o77-rage__row--on { background: var(--accent); color: var(--text-on-accent); --rage-dim: var(--text-on-accent); }
 .o77-rage__row--on.o77-rage__row--danger { background: var(--o77-red); color: var(--o77-white); --rage-dim: rgba(255, 255, 255, .7); }
 .o77-rage__text { flex: 1; min-width: 0; font: var(--type-label); text-transform: uppercase; letter-spacing: .08em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .o77-rage__meta { font: var(--type-hud-readout); color: var(--rage-dim); white-space: nowrap; }
@@ -286,4 +287,4 @@
 .o77-rage__counter { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: 4px var(--sp-5); background: var(--o77-ink-800); font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--text-disabled); }
 .o77-rage__counter-n { color: var(--accent); }
 .o77-rage__desc { margin-top: 3px; padding: var(--sp-4) var(--sp-5); background: var(--surface-hud); backdrop-filter: var(--blur-hud); box-shadow: inset 2px 0 0 var(--accent); font: var(--type-body); font-size: var(--fs-tag); color: var(--text-dim); }
-.o77-rage__legend { margin-top: 6px; display: flex; flex-wrap: wrap; gap: var(--sp-4); font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--text-disabled); }
+.o77-rage__legend { margin-top: 3px; display: flex; flex-wrap: wrap; gap: var(--sp-4); padding: 5px var(--sp-5); background: var(--surface-hud); backdrop-filter: var(--blur-hud); box-shadow: inset 0 0 0 1px var(--line-hairline); font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--text-body); }
