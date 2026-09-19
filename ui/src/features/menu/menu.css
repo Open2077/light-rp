@@ -1,3 +1,3 @@
-/* The player menu sits top-left, inside the HUD safe area; the top-right rail and
-   the bottom-left vitals stay visible around it. */
-.player-menu { position: absolute; left: var(--hud-safe-x); top: var(--hud-safe-y); z-index: 40; animation: o77-wipe-in var(--dur-base) var(--ease-mech) both; }
+/* The player menu sits top-right, inside the HUD safe area: the chat owns the
+   top-left, the vitals the bottom-left, the vehicle and voice the bottom-right. */
+.player-menu { position: absolute; right: var(--hud-safe-x); top: var(--hud-safe-y); z-index: 40; animation: o77-wipe-in var(--dur-base) var(--ease-mech) both; }

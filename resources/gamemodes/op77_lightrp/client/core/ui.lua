@@ -67,7 +67,7 @@ function Ui.create()
     local page, err = WebUI.create({
         entry = "web/index.html",
         layer = "hud",
-        zIndex = 700,
+        zIndex = 720, -- above open77_chat (700): the F1 menu draws over the chat log
         width = 1920,
         height = 1080,
         fps = 60,

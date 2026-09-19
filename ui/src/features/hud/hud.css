@@ -1,8 +1,6 @@
 .hud { position: absolute; inset: 0; }
 .hud > * { position: absolute; }
 
-.hud__top-right { top: var(--hud-safe-y); right: var(--hud-safe-x); display: flex; align-items: center; gap: var(--hud-cluster-gap); }
-
 .hud__bottom-left { left: var(--hud-safe-x); bottom: var(--hud-safe-y); display: flex; flex-direction: column; gap: var(--hud-gap); align-items: flex-start; }
 .hud__identity { display: flex; align-items: baseline; gap: var(--sp-4); }
 .hud__wordmark { font: var(--type-display); font-size: var(--fs-label); color: var(--text-hi); letter-spacing: .04em; }
@@ -14,8 +12,10 @@
 }
 .hud__needs { display: flex; gap: var(--sp-5); margin-top: var(--sp-1); }
 
-.hud__bottom-right {
-  right: var(--hud-safe-x); bottom: var(--hud-safe-y); display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-3);
+/* Bottom-right stack, kept above the voice plate (open-voice, ~64 px tall). */
+.hud__bottom-right { right: var(--hud-safe-x); bottom: calc(var(--hud-safe-y) + 84px); display: flex; flex-direction: column; align-items: flex-end; gap: var(--hud-gap); }
+.hud__vehicle {
+  display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-3);
   padding: var(--sp-4) var(--sp-5); background: var(--surface-hud); backdrop-filter: var(--blur-hud); clip-path: var(--clip-chamfer); box-shadow: var(--shadow-hud);
 }
 .hud__speed { display: flex; align-items: baseline; gap: var(--sp-3); }

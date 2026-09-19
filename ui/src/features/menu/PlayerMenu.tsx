@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/state/store";
 import { requestClose } from "@/bridge/open77";
 import { RageMenu, type RageMenuItem } from "@/design/components";
-import { formatMoney } from "@/bridge/money";
+import { formatMoney, ledger, transactionLabel } from "@/bridge/money";
 import type { CharacterState, MoneyState } from "@/bridge/protocol";
 import "./menu.css";
 
@@ -32,11 +32,28 @@ function buildTree(character: CharacterState, money: MoneyState): Record<string,
         { label: "CHARACTER" },
         { id: "identity", type: "submenu", text: "Identity", icon: "id-card", meta: `ID ${id}`, target: "identity",
           description: "Your citizen record: ID, name, birth date, origin and bank account." },
+        { id: "bank", type: "submenu", text: "Bank", icon: "landmark", meta: money.bank ? formatMoney(money.bank.balance, money.currency) : "—", target: "bank",
+          description: "Cash, account balance, account number and your last operations." },
         { separator: true },
         { label: "SERVER" },
         { id: "briefing", type: "item", text: "Server briefing", icon: "info", description: "Read the welcome briefing again: what Light Roleplay means here." },
         { separator: true },
         { id: "close", type: "item", text: "Close", icon: "x", description: "Close the menu. Backspace or Escape does the same." },
+      ],
+    },
+    bank: {
+      title: "BANK", subtitle: money.bank ? `NIGHT CITY BANK // ${money.bank.number}` : "NO ACCOUNT YET", tag: "BANK",
+      items: [
+        { id: "cash", type: "item", text: "Cash", icon: "banknote", meta: formatMoney(money.cash, money.currency), description: "What you carry. /pay <id> <amount> hands it to someone next to you." },
+        { id: "balance", type: "item", text: "Account", icon: "landmark", meta: money.bank ? formatMoney(money.bank.balance, money.currency) : "—", description: "Your balance at Night City Bank." },
+        { id: "number", type: "item", text: "Account number", icon: "credit-card", meta: money.bank?.number ?? "—", description: "Give it to whoever has to wire you money: /transfer <number> <amount>." },
+        { id: "total", type: "item", text: "Total", icon: "wallet", meta: formatMoney(money.cash + (money.bank?.balance ?? 0), money.currency) },
+        ...(ledger(money).length > 0 ? [{ separator: true } as RageMenuItem, { label: "LAST OPERATIONS" } as RageMenuItem] : []),
+        ...ledger(money).slice(0, 6).map((t, i): RageMenuItem => ({
+          id: `tx${i}`, type: "item", text: transactionLabel(t), icon: t.wallet === "bank" ? "landmark" : "banknote",
+          meta: formatMoney(t.amount, money.currency, true), danger: t.amount < 0 && t.kind !== "deposit" && t.kind !== "withdraw",
+          description: [t.counterparty, t.note, t.at?.slice(0, 16)].filter(Boolean).join(" · ") || undefined,
+        })),
       ],
     },
     identity: {
