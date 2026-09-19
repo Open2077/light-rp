@@ -57,6 +57,44 @@ function Bank.onConnected(playerId) ... end   -- aussi onDisconnected, onReady, 
 Ajoutez la ligne `server_script` dans `open77.lua`, la clé dans `UiState` (`protocol.ts`) et
 l'onglet dans `features/menu/Menu.tsx`.
 
+## Création de personnage et identité persistante
+
+Un compte (identité Master, `GetPlayerIdentifier`) possède jusqu'à `characters.maxSlots` personnages,
+chacun sous une `character_key` (`default`, `slot2`, `slot3`). La même clé sert à `open77_appearance`
+(corps et visage, table `open77_characters` + `open77_player_appearances`) et à `open77_wardrobe`
+(tenues, `open77_character_presentation`) : le framework ne stocke jamais l'apparence lui-même, il
+lit ces tables et écoute les événements hôte `open77:appearance:characterCreated` et
+`open77:appearance:saved` pour tenir `body_family`, `appearance_rev`, `appearance_at`.
+
+Tables : `lightrp_accounts` (compte → slot actif) et `lightrp_characters` (état civil, statut
+`draft`/`active`/`archived`, position, besoins, temps de jeu). Une ancienne table v1 (un
+personnage par compte) est renommée `lightrp_characters_v1` au premier démarrage.
+
+**Le workflow**, piloté par `character.step` que le serveur calcule (`identity` → `appearance` →
+`confirm` → `done`) :
+
+1. Première connexion : `open77_appearance` tient la porte de préparation et ouvre l'éditeur natif
+   avant le monde ; le corps est validé et sauvegardé par lui (`characterCreated`).
+2. Dans le monde, le wizard « Nouveau personnage » (dialogue avec focus) demande l'état civil :
+   prénom, nom, date de naissance (calendrier 2077, âge minimum configurable), origine, histoire
+   → action `character.identity`.
+3. Étape « Corps et visage » : boutons *Corps féminin* / *Corps masculin* / *Coiffeur*. Le client
+   ferme la page et demande le miroir au package apparence (`open77:appearance:requestOpen`). La
+   sauvegarde revient par `saved` et le serveur pousse la révision.
+4. Étape « Confirmation » : résumé, *Garde-robe* (`/wardrobe` via le bus de commandes) et *Entrer
+   dans Night City* → `character.finish` : statut `active`, slot actif, placement au point d'arrivée
+   (`onCharacterActivated`).
+
+Ensuite l'onglet **Personnage** du menu : modifier l'état civil, rouvrir miroir / coiffeur /
+garde-robe, gérer les emplacements (*Jouer* → `character.select` déclenche
+`open77:appearance:setCharacter` et replace le joueur à la dernière position de ce personnage ;
+*Nouveau* → `character.new` ouvre un brouillon ; *×* → `character.archive`). Les hooks de module
+`onCharacterActivated(playerId, character)` et `onCharacterSwitched(playerId, character)` sont
+disponibles pour les autres modules.
+
+Sans base de données, l'étape apparence est ignorée (`appearanceTracked = false`) et tout vit le
+temps de la session.
+
 ## Ce que voit le joueur
 
 - HUD : vie, armure, endurance, faim, soif, micro avec portée (WHISPER 4 m / NORMAL 15 m /

@@ -80,11 +80,26 @@ function Ui.create()
         Ui.setPromptFocus(false)
     end)
 
-    -- Every action is forwarded to the server as-is; the server validates.
+    -- Every action is forwarded to the server as-is; the server validates. Two
+    -- exceptions open another package's native screen and must leave from here:
+    -- the appearance mirror and the wardrobe take the game's input themselves.
     page:on(E.page.action, function(payload)
         if type(payload) ~= "table" or type(payload.type) ~= "string" then return end
         if payload.type == "voice.range" and LightRpHud then LightRpHud.setVoiceRange(payload.range) end
-        if payload.type == "register" then Ui.setPromptFocus(true) end
+        if payload.type == "character.appearance.open" then
+            local mode = payload.mode == "hairdresser" and "hairdresser" or "ripperdoc"
+            local family = (payload.family == "male" or payload.family == "female") and payload.family or nil
+            Ui.setMenuOpen(false)
+            Ui.setPromptFocus(false)
+            TriggerServerEvent("open77:appearance:requestOpen", mode, family)
+            return
+        end
+        if payload.type == "character.wardrobe.open" then
+            Ui.setMenuOpen(false)
+            Ui.setPromptFocus(false)
+            TriggerServerEvent("open77:command:execute", "wardrobe")
+            return
+        end
         local accepted, reason = TriggerServerEvent(E.net.action, payload)
         if not accepted then
             Ui.send(E.page.result, { ok = false, text = "network refused: " .. tostring(reason), action = payload.type })

@@ -14,7 +14,10 @@ export interface Notice {
 
 export const EMPTY_STATE: UiState = {
   server: { name: "Open//77 Official Roleplay", playersOnline: 0, maxPlayers: 0 },
-  character: { registered: false, accountName: "", playerId: 0 },
+  character: {
+    registered: false, status: "draft", step: "identity", key: "default", appearanceRevision: 0, appearanceTracked: false,
+    accountName: "", playerId: 0, slots: [], maxSlots: 1, origins: [], minAge: 18, currentYear: 2077,
+  },
   needs: { food: 100, drink: 100 },
   vehicles: { catalog: [], owned: [] },
   staff: { isStaff: false },

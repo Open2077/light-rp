@@ -224,7 +224,7 @@ end)
 LightRP.command("lightrp.setname", { restricted = true, usage = "/lightrp.setname <id> <Prénom> <Nom>" }, function(source, args)
     local target = parseTarget(source, args[1])
     if target == nil or args[2] == nil or args[3] == nil then return false end
-    local ok, reason = LightRP.characters.register(target, args[2], args[3])
+    local ok, reason = LightRP.characters.setIdentity(target, { firstName = args[2], lastName = args[3] })
     if not ok then return false, "Nom refusé : " .. tostring(reason) end
     LightRP.chat.system(target, "Le staff a renommé votre personnage : " .. LightRP.characters.displayName(target))
     return true, "Personnage renommé : " .. LightRP.characters.displayName(target)

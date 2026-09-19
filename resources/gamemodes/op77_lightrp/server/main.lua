@@ -96,6 +96,27 @@ function Spawn.onLifeState(playerId, phase)
     end)
 end
 
+-- A character just finished the wizard: they start at the arrival point, whatever
+-- position the draft may have sampled while they were being built.
+function Spawn.onCharacterActivated(playerId)
+    local point = Config.spawn.arrival
+    local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:character_activated")
+    if not ok then
+        LightRP.log("arrival placement for %d after creation rejected: %s", playerId, tostring(reason))
+        return
+    end
+    LightRP.notice(playerId, { kind = "info", title = Config.welcome.title, body = Config.welcome.text, durationMs = 12000 })
+end
+
+-- Another slot took over: go where that character was, or to the arrival point
+-- when it is new. The appearance package reloads the body on its side.
+function Spawn.onCharacterSwitched(playerId, character)
+    if character == nil or character.status ~= "active" then return end
+    local point = character.position and { name = "saved", position = character.position, heading = character.heading or 0 } or Config.spawn.arrival
+    local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:character_switch")
+    if not ok then LightRP.log("placement for %d after switch rejected: %s", playerId, tostring(reason)) end
+end
+
 function Spawn.onDisconnected(playerId)
     joinSpawns[playerId] = nil
 end

@@ -100,6 +100,25 @@ LightRpConfig = {
     },
 
     names = { minLength = 2, maxLength = 24, allowAccents = true },
+
+    -- Character creation and slots. The body and the face are made in the native
+    -- creator (open77_appearance) at the first join; the wizard collects the rest.
+    characters = {
+        maxSlots = 3,
+        currentYear = 2077,   -- Night City's calendar, for the birth date
+        minAge = 18,
+        maxAge = 90,
+        origins = {
+            { key = "night_city", label = "Night City" },
+            { key = "badlands",   label = "Badlands" },
+            { key = "ncus",      label = "NUSA" },
+            { key = "europe",    label = "Europe" },
+            { key = "asia",      label = "Asie" },
+            { key = "latam",     label = "Amérique latine" },
+            { key = "africa",    label = "Afrique" },
+            { key = "orbit",     label = "Orbite" },
+        },
+    },
     tryChancePercent = 50,
 
     -- Who the UI treats as staff: any of these ACL permissions.

@@ -19,6 +19,7 @@
 .menu__stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-5); }
 .menu__stat { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-5); background: var(--surface-raised); clip-path: var(--clip-notch); }
 .menu__stat-value { font: var(--type-hud-readout); font-size: var(--fs-title); color: var(--text-hi); }
+.menu__story { margin: 0; padding: var(--sp-5); background: var(--surface-raised); clip-path: var(--clip-notch); font: var(--type-body); color: var(--text-body); box-shadow: inset 2px 0 0 var(--accent); }
 .menu__mono { font-family: var(--font-mono); text-transform: none; letter-spacing: 0; color: var(--accent); }
 .menu__select { appearance: none; background: transparent; border: 0; outline: none; color: var(--text-hi); font-family: var(--font-mono); }
 .menu__select option { background: var(--surface-panel); color: var(--text-body); }

@@ -4,7 +4,7 @@ import { PAGE_EVENTS, type HudState, type MenuView, type NoticePayload, type Res
 import { useStore } from "@/state/store";
 import { Hud } from "@/features/hud/Hud";
 import { Menu } from "@/features/menu/Menu";
-import { RegisterDialog } from "@/features/character/RegisterDialog";
+import { CharacterWizard } from "@/features/character/CharacterWizard";
 import { NoticeLane } from "@/features/notices/NoticeLane";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
@@ -41,7 +41,7 @@ export function App() {
     <>
       <Hud />
       <NoticeLane />
-      <RegisterDialog />
+      <CharacterWizard />
       <Menu />
     </>
   );

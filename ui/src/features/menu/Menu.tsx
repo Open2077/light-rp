@@ -3,6 +3,7 @@ import { useStore } from "@/state/store";
 import { requestClose, sendAction } from "@/bridge/open77";
 import type { MenuView } from "@/bridge/protocol";
 import { Badge, Button, Input, ListRow, Panel, SectionHeader, Tabs, Keycap, type TabItem } from "@/design/components";
+import { IdentityForm } from "@/features/character/CharacterWizard";
 import "./menu.css";
 
 const TABS: TabItem<MenuView>[] = [
@@ -73,23 +74,55 @@ export function Menu() {
 function CharacterView() {
   const character = useStore((s) => s.state.character);
   const needs = useStore((s) => s.state.needs);
-  const [first, setFirst] = useState(character.firstName ?? "");
-  const [last, setLast] = useState(character.lastName ?? "");
-  const valid = first.trim().length >= 2 && last.trim().length >= 2;
+  const [editing, setEditing] = useState(false);
+  const origin = character.origins.find((o) => o.key === character.origin)?.label;
+  const freeSlots = character.maxSlots - character.slots.length;
   return (
     <div className="menu__stack">
-      <SectionHeader index="01" title="Identité" subtitle={character.userId ? `MASTER // ${character.userId.slice(0, 8)}` : "MASTER // —"} />
-      <div className="menu__two">
-        <Input label="PRÉNOM" icon="user" value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Prénom" maxLength={24} />
-        <Input label="NOM" icon="user" value={last} onChange={(e) => setLast(e.target.value)} placeholder="Nom" maxLength={24} />
-      </div>
+      <SectionHeader index="01" title="Identité" subtitle={character.userId ? `MASTER // ${character.userId.slice(0, 8)}` : "MASTER // —"}
+        right={<Button size="sm" variant="ghost" icon="id-card" onClick={() => setEditing((v) => !v)}>{editing ? "Fermer" : "Modifier"}</Button>} />
+      {editing ? (
+        <IdentityForm character={character} submitLabel="Enregistrer" onSubmitted={() => setEditing(false)} />
+      ) : (
+        <div className="menu__stats">
+          <Stat label="NOM" value={character.firstName ? `${character.firstName} ${character.lastName}` : "—"} />
+          <Stat label="NAISSANCE" value={character.birthDate ?? "—"} />
+          <Stat label="ORIGINE" value={origin ?? "—"} />
+          <Stat label="STATUT" value={character.status === "active" ? "ACTIF" : "BROUILLON"} />
+        </div>
+      )}
+      {character.story && !editing && <p className="menu__story">{character.story}</p>}
+
+      <SectionHeader index="02" title="Apparence" subtitle={character.bodyFamily ? `${character.bodyFamily.toUpperCase()} · RÉVISION ${character.appearanceRevision}` : "NON ENREGISTRÉE"}
+        right={character.appearanceSavedAt && <span className="o77-readout o77-disabled">{character.appearanceSavedAt.slice(0, 16)}</span>} />
       <div className="menu__actions">
-        <Button icon="badge-check" disabled={!valid} onClick={() => sendAction({ type: "register", firstName: first.trim(), lastName: last.trim() })}>
-          {character.registered ? "Renommer" : "Enregistrer"}
-        </Button>
-        <span className="o77-readout o77-dim">Lettres, tirets et apostrophes. Le nom est celui que les autres lisent.</span>
+        <Button size="sm" variant="secondary" icon="user" onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc" })}>Miroir</Button>
+        <Button size="sm" variant="secondary" icon="settings" onClick={() => sendAction({ type: "character.appearance.open", mode: "hairdresser" })}>Coiffeur</Button>
+        <Button size="sm" variant="secondary" icon="package" onClick={() => sendAction({ type: "character.wardrobe.open" })}>Garde-robe</Button>
+        <span className="o77-readout o77-dim">Corps, visage et tenue sont sauvegardés sur le serveur pour ce personnage.</span>
       </div>
-      <SectionHeader index="02" title="État" subtitle="BESOINS" />
+
+      <SectionHeader index="03" title="Personnages" subtitle={`${character.slots.length} / ${character.maxSlots} EMPLACEMENTS`}
+        right={<Button size="sm" icon="users" disabled={freeSlots <= 0 || character.status !== "active"} onClick={() => sendAction({ type: "character.new" })}>Nouveau</Button>} />
+      <div className="menu__list">
+        {character.slots.map((slot) => {
+          const current = slot.key === character.key;
+          return (
+            <ListRow key={slot.key} icon="id-card" selected={current}
+              title={slot.name ?? "Personnage sans nom"}
+              subtitle={`${slot.status === "active" ? "Actif" : "Brouillon"}${slot.bodyFamily ? ` · ${slot.bodyFamily}` : ""} · ${formatDuration(slot.playtimeMs)} de jeu`}
+              meta={slot.key.toUpperCase()}
+              right={current ? <Badge tone="accent">EN JEU</Badge> : (
+                <>
+                  <Button size="sm" variant="secondary" onClick={() => sendAction({ type: "character.select", key: slot.key })}>Jouer</Button>
+                  <Button size="sm" variant="ghost" icon="x" onClick={() => sendAction({ type: "character.archive", key: slot.key })} />
+                </>
+              )} />
+          );
+        })}
+      </div>
+
+      <SectionHeader index="04" title="État" subtitle="BESOINS" />
       <div className="menu__stats">
         <Stat label="FAIM" value={`${Math.round(needs.food)}%`} />
         <Stat label="SOIF" value={`${Math.round(needs.drink)}%`} />

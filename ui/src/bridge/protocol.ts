@@ -6,6 +6,7 @@ export const PAGE_EVENTS = {
   ready: "lightrp:ui:ready",
   action: "lightrp:ui:action",
   close: "lightrp:ui:close",
+  focus: "lightrp:ui:focus",
   // Lua -> page
   state: "lightrp:ui:state",
   hud: "lightrp:ui:hud",
@@ -17,14 +18,43 @@ export const PAGE_EVENTS = {
 
 export type MenuView = "character" | "vehicles" | "staff" | "help";
 
+export type BodyFamily = "male" | "female";
+export type CharacterStatus = "draft" | "active" | "archived";
+/** The wizard step still missing, as the server sees it. */
+export type CharacterStep = "identity" | "appearance" | "confirm" | "done";
+
+export interface CharacterSlot {
+  key: string;
+  status: CharacterStatus;
+  name?: string;
+  bodyFamily?: BodyFamily;
+  playtimeMs: number;
+  lastSeen?: string;
+}
+
 export interface CharacterState {
-  registered: boolean;
+  registered: boolean;      // status === "active"
+  status: CharacterStatus;
+  step: CharacterStep;
+  key: string;
   firstName?: string;
   lastName?: string;
+  birthDate?: string;       // YYYY-MM-DD, Night City calendar
+  origin?: string;
+  story?: string;
+  bodyFamily?: BodyFamily;
+  appearanceRevision: number;
+  appearanceSavedAt?: string;
+  appearanceTracked: boolean; // false without a database: the body step is skipped
   accountName: string;
   playerId: number;
   userId?: string;
   playtimeMs?: number;
+  slots: CharacterSlot[];
+  maxSlots: number;
+  origins: Array<{ key: string; label: string }>;
+  minAge: number;
+  currentYear: number;
 }
 
 export interface NeedsState { food: number; drink: number }
@@ -65,9 +95,19 @@ export type NoticeKindWire = "info" | "success" | "warning" | "error" | "police"
 export interface NoticePayload { id?: string; kind?: NoticeKindWire; title?: string; body?: string; source?: string; durationMs?: number }
 export interface ResultPayload { ok: boolean; text: string; action?: string }
 
-/** Actions the page raises; the server validates every one of them. */
+export interface IdentityFields { firstName: string; lastName: string; birthDate?: string; origin?: string; story?: string }
+
+/** Actions the page raises; the server validates every one of them. Two are
+ *  handled by the client Lua itself because they open another package's native
+ *  screen: character.appearance.open and character.wardrobe.open. */
 export type UiAction =
-  | { type: "register"; firstName: string; lastName: string }
+  | ({ type: "character.identity" } & IdentityFields)
+  | { type: "character.appearance.open"; mode: "ripperdoc" | "hairdresser"; family?: BodyFamily }
+  | { type: "character.wardrobe.open" }
+  | { type: "character.finish" }
+  | { type: "character.select"; key: string }
+  | { type: "character.new" }
+  | { type: "character.archive"; key: string }
   | { type: "vehicle.spawn"; key: string }
   | { type: "vehicle.return" }
   | { type: "staff.tp"; target: "me" | number; location: string }
