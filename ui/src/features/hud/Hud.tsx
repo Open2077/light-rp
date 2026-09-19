@@ -1,6 +1,5 @@
 import { useStore } from "@/state/store";
-import { Badge, MicIndicator, StatusChip, VitalBar } from "@/design/components";
-import { sendAction } from "@/bridge/open77";
+import { Badge, StatusChip, VitalBar } from "@/design/components";
 import "./hud.css";
 
 /* Gameplay overlay, inside the HUD safe area. Layout contract from the design
@@ -14,7 +13,7 @@ export function Hud() {
   const staff = useStore((s) => s.state.staff);
   const menuOpen = useStore((s) => s.menuOpen);
 
-  if (!hud.ready || menuOpen) return null;
+  if (!hud.ready || menuOpen || (useStore.getState().connected && character.status !== "active")) return null;
   const name = character.registered ? `${character.firstName} ${character.lastName}` : character.accountName;
 
   return (
@@ -24,7 +23,6 @@ export function Hud() {
         <StatusChip icon="users" label="EN VILLE" value={`${server.playersOnline}/${server.maxPlayers}`} />
         <StatusChip label="" value={hud.clock} tone="accent" />
         {staff.isStaff && <Badge tone="danger">STAFF</Badge>}
-        {!character.registered && <Badge tone="outline">/REGISTER</Badge>}
       </div>
 
       <div className="hud__bottom-left">
@@ -41,9 +39,6 @@ export function Hud() {
             <VitalBar tone="drink" value={needs.drink} size="sm" width={78} segments={10} />
           </div>
         </div>
-        <MicIndicator state={hud.voice.state} level={hud.voice.level} range={hud.voice.range}
-          rangeMetres={{ whisper: 4, normal: 15, shout: 40 }}
-          onRangeChange={(range) => sendAction({ type: "voice.range", range })} />
       </div>
 
       {hud.vehicle.active && (

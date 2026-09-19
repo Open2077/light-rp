@@ -1,4 +1,10 @@
 .wizard { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--sp-8); z-index: 40; }
+.wizard__void { position: absolute; inset: 0; background: var(--surface-void); background-image: var(--tex-grid); }
+.wizard__void::after { content: ""; position: absolute; inset: 0; background: var(--tex-scanline); opacity: .6; }
+.wizard__void-mark { position: absolute; left: var(--hud-safe-x); top: var(--hud-safe-y); font: var(--type-display); font-size: var(--fs-title); color: var(--text-hi); }
+.wizard__void-mark span { color: var(--accent); }
+.wizard__void-tag { position: absolute; right: var(--hud-safe-x); bottom: var(--hud-safe-y); font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--text-disabled); }
+.wizard__frame { position: relative; }
 .wizard__frame {
   width: min(760px, 100%); background: var(--surface-panel); clip-path: var(--clip-chamfer-lg);
   box-shadow: inset 0 0 0 1px var(--line-soft), var(--shadow-panel); animation: o77-wipe-in var(--dur-slow) var(--ease-mech) both;

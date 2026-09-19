@@ -23,7 +23,7 @@ LightRpConfig = {
     spawn = {
         arrival = { name = "city", label = "City Center ouest", position = { x = -667.14, y = -382.61, z = 9.16 }, heading = 90.0 },
         hospital = { name = "hospital", label = "Hôpital", position = { x = -1441.0, y = 1269.0, z = 123.0 }, heading = 0.0 },
-        health = 100,
+        health = 1.0,          -- fraction of the maximum, as the life primitives expect
         graceMs = 4000,
         respawnDelayMs = 10000,
         restoreLastPosition = true,

@@ -44,6 +44,10 @@ function WizardBody({ character }: { character: CharacterState }) {
 
   return (
     <div className="wizard o77-interactive">
+      <div className="wizard__void" aria-hidden="true">
+        <span className="wizard__void-mark">Open<span>//</span>77</span>
+        <span className="wizard__void-tag">CRÉATION DE PERSONNAGE // LE MONDE ATTEND</span>
+      </div>
       <div className="wizard__frame">
         <header className="wizard__head">
           <div>

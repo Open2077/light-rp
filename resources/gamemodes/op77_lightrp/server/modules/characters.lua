@@ -230,12 +230,14 @@ end
 
 local function persistCivil(c)
     if not Db.ready or c.identifier == nil then return end
+    -- The bridge refuses a positional array with holes, so optional columns travel
+    -- as "" and become NULL in SQL.
     Db.run([[INSERT INTO lightrp_characters (identifier, character_key, status, first_name, last_name, birth_date, origin, story, body_family, appearance_rev)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?)
              ON DUPLICATE KEY UPDATE status = VALUES(status), first_name = VALUES(first_name), last_name = VALUES(last_name),
                  birth_date = VALUES(birth_date), origin = VALUES(origin), story = VALUES(story),
                  body_family = COALESCE(VALUES(body_family), body_family), appearance_rev = GREATEST(appearance_rev, VALUES(appearance_rev))]],
-        { c.identifier, c.key, c.status, c.firstName, c.lastName, c.birthDate, c.origin, c.story, c.bodyFamily, c.appearanceRevision or 0 })
+        { c.identifier, c.key, c.status, c.firstName or "", c.lastName or "", c.birthDate or "", c.origin or "", c.story or "", c.bodyFamily or "", c.appearanceRevision or 0 })
 end
 
 local function save(playerId)

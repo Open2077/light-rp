@@ -1,11 +1,4 @@
 {
-  // In-game rights for Open//77 Official Roleplay.
-  //
-  // The single authorisation source: a restricted command `/x.y` needs the
-  // permission `command.x.y`; `command.lightrp.*` covers every staff command
-  // of the gamemode. Roles come from open77_admin/acl-roles.example.jsonc.
-  // Warden's "In-game rights" page edits this same file; the console command
-  // `acl.reload` applies a manual edit without a restart.
   "version": 2,
   "roles": [
     {
@@ -56,13 +49,21 @@
     {
       "name": "owner",
       "userId": "712e7c14-aeb4-47ee-b563-f6216c078e55",
-      "publicKey": "DlLgjdEbqBDbLjk9bp06tpnV+36Zy4YsSSZFkbGCbN19ffTqUGjwWnJugMIJb6pcKHdHNVtufIVV+/KrTDjY8Q==",
-      "permissions": [ "*" ]
+      "publicKey": "DlLgjdEbqBDbLjk9bp06tpnV\u002B36Zy4YsSSZFkbGCbN19ffTqUGjwWnJugMIJb6pcKHdHNVtufIVV\u002B/KrTDjY8Q==",
+      "permissions": [
+        "*"
+      ]
     },
     {
       "name": "w0dm4n",
       "userId": "8094fefa-ac75-443d-b8fb-11283fcebb54",
       "role": "operator",
+      "permissions": []
+    },
+    {
+      "name": "Yuki [712e7c14]",
+      "userId": "712e7c14-aeb4-47ee-b563-f6216c078e55",
+      "role": "owner",
       "permissions": []
     }
   ]

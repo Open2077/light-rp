@@ -66,7 +66,9 @@ local function applyJoinSpawn(playerId)
 end
 
 function Spawn.onGameplayReady(playerId)
-    applyJoinSpawn(playerId)
+    -- A draft character is not placed: the wizard covers the world and the
+    -- arrival happens on character.finish (onCharacterActivated).
+    if LightRP.characters.isRegistered(playerId) then applyJoinSpawn(playerId) end
     if Config.welcome.enabled then
         LightRP.notice(playerId, { kind = "info", title = Config.welcome.title, body = Config.welcome.text, durationMs = 12000 })
         LightRP.chat.system(playerId, Config.welcome.text)
@@ -74,7 +76,7 @@ function Spawn.onGameplayReady(playerId)
 end
 
 function Spawn.onReady(playerId)
-    if joinSpawns[playerId] ~= "waiting" then return end
+    if joinSpawns[playerId] ~= "waiting" or not LightRP.characters.isRegistered(playerId) then return end
     joinSpawns[playerId] = nil
     applyJoinSpawn(playerId)
 end
