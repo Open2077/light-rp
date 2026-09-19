@@ -2,7 +2,8 @@
 
 Projet de démarrage d'un serveur **Light Roleplay** pour OPEN//77 : la distribution serveur
 officielle (`2.31.13+op77.82`, Windows x64) déjà extraite ici, une configuration prête, un ACL, et
-le gamemode `lightrp` (personnages, chat de proximité, véhicules civils, hôpital, staff).
+le framework `op77_lightrp` (personnages, chat de proximité, besoins, véhicules civils, hôpital, staff) avec
+sa WebUI globale React + TypeScript habillée du design system Open//77 RP.
 
 ```
 E:\Open77\LightRP
@@ -13,12 +14,20 @@ E:\Open77\LightRP
 ├── server.env.example              variables d'environnement à copier dans server.env
 ├── Start-LightRP.cmd               démarrage production (lit server.env)
 ├── Start-LightRP-Local.cmd         démarrage local
-├── templates\lightrp\              template pour l'assistant de première installation
-└── resources\gamemodes\lightrp\    le gamemode (voir son README)
+├── templates\op77_lightrp\         template pour l'assistant de première installation
+├── ui\                             source de la WebUI (Vite + React + TS) → build dans resources\...\op77_lightrp\web
+└── resources\gamemodes\op77_lightrp\  le framework (voir son README)
 ```
 
-Seuls la configuration, l'ACL, les scripts de démarrage, le template et `resources/gamemodes/lightrp`
-sont suivis par git (`.gitignore` en liste blanche). Les binaires viennent du zip.
+Seuls la configuration, l'ACL, les scripts de démarrage, le template, `ui/` (sans `node_modules`) et
+`resources/gamemodes/op77_lightrp` sont suivis par git (`.gitignore` en liste blanche). Les binaires
+viennent du zip.
+
+## WebUI
+
+La page du framework se construit avec Node 20+ : `cd ui && npm install && npm run build`. Le
+résultat (`web/`) est versionné, donc un clone démarre sans Node. `npm run dev` ouvre la page dans
+un navigateur avec un bridge simulé pour travailler le design sans le jeu.
 
 ## Démarrer en local (aujourd'hui)
 
@@ -61,22 +70,22 @@ Warden → *In-game rights* → *Known identities* → *Rights*, ou à la main d
 `acl.reload` dans la console. L'identité d'un joueur se lit avec `identity.dump` dans sa console
 de jeu, ou dans Warden.
 
-Les commandes du gamemode réservées au staff sont sous `command.lightrp.*` ; l'admin console
+Les commandes du framework réservées au staff sont sous `command.lightrp.*` ; l'admin console
 officielle (`/admin`, `/adminfull`) a les siennes sous `command.admin.*`.
 
 ## Jouer
 
-`/help` en jeu liste tout. L'essentiel : `/register Prénom Nom` crée le personnage, le chat
-normal est la parole en jeu à 20 m, `/ooc` pour le hors-jeu, `/me` `/do` `/try` `/roll`, `/car
-<modèle>` et `/dv` pour un véhicule, `/report` pour prévenir le staff. Détails et réglages dans
-`resources/gamemodes/lightrp/README.md`.
+**F5** ouvre le menu terminal (Personnage, Véhicules, Staff, Aide) ; à la première connexion un
+dialogue demande le nom du personnage. Le chat normal est la parole en jeu à 20 m, `/ooc` pour le
+hors-jeu, `/me` `/do` `/try` `/roll`, `/car <modèle>` et `/dv` pour un véhicule, `/report` pour
+prévenir le staff. Détails et réglages dans `resources/gamemodes/op77_lightrp/README.md`.
 
 ## Mettre à jour le serveur
 
 Le zip est une installation neuve, pas une migration. Arrêter le serveur, sauvegarder `server.jsonc`,
 `acl.jsonc`, `server.env`, `.open77/` (identité Master et clé de signature des ressources) et la
-base, extraire la nouvelle archive par-dessus, remettre ces fichiers, redémarrer. Le gamemode
-`lightrp` n'est pas dans l'archive : il ne bouge pas.
+base, extraire la nouvelle archive par-dessus, remettre ces fichiers, redémarrer. Le framework
+`op77_lightrp` n'est pas dans l'archive : il ne bouge pas.
 
 ## Ports utilisés
 

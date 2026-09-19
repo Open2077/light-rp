@@ -10,14 +10,18 @@
 !Start-LightRP.cmd
 !Start-LightRP-Local.cmd
 !templates/
-!templates/lightrp/
-!templates/lightrp/**
+!templates/op77_lightrp/
+!templates/op77_lightrp/**
 !resources/
 !resources/gamemodes/
-!resources/gamemodes/lightrp/
-!resources/gamemodes/lightrp/**
+!resources/gamemodes/op77_lightrp/
+!resources/gamemodes/op77_lightrp/**
+!ui/
+!ui/**
 
 # Never commit these even if the rules above change.
+ui/node_modules/
+ui/dist/
 server.env
 .open77/
 *.log

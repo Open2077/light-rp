@@ -1,0 +1,101 @@
+# op77_lightrp
+
+Le framework Light Roleplay d'**Open//77 Official Roleplay**, en un seul package : serveur,
+client et une WebUI globale React + TypeScript habillée du design system Open//77 RP
+(jaune sur noir, chanfreins, lisibilités mono, mouvement mécanique).
+
+```
+op77_lightrp/
+├── open77.lua                 manifeste : scripts, dépendances, permissions, page WebUI
+├── shared/
+│   ├── events.lua             tous les noms d'événements (miroir de ui/src/bridge/protocol.ts)
+│   └── config.lua             spawn, lieux, chat, besoins, voix, véhicules, touches (téléchargé par les clients)
+├── server/
+│   ├── core/framework.lua     LightRP : modules, actions, commandes, état de la page, notices
+│   ├── core/persistence.lua   LightRP.db : le bridge MySQL, schémas, dégradation sans base
+│   ├── modules/characters.lua personnages (nom, position, temps de jeu), /register
+│   ├── modules/needs.lua      faim / soif
+│   ├── modules/chat.lua       parole RP par distance, /me /do /try /roll /w /s /ooc /pm /who /rules /help
+│   ├── modules/vehicles.lua   un véhicule civil par joueur, /car /cars /dv
+│   ├── modules/staff.lua      ACL, /lightrp.*, /report, actions staff de la page
+│   ├── modules/ui.lua         clé `server` de l'état, diffusion périodique
+│   └── main.lua               arrivée (dernière position) et réveil à l'hôpital
+├── client/
+│   ├── core/ui.lua            la surface WebUI, le bridge, le focus, les relais réseau
+│   ├── core/hud.lua           échantillonnage vitaux / véhicule / voix / horloge → page
+│   └── main.lua               création, touche F5 (rebindable)
+└── web/                       la page construite (ne pas éditer : `npm run build` dans ../../../ui)
+```
+
+## Architecture
+
+**Une page, un état.** Le serveur publie l'état du joueur par clés (`server`, `character`,
+`needs`, `vehicles`, `staff`, `locations`, `online`), chaque module fournissant la sienne via
+`LightRP.stateProvider(clé, fn)`. `LightRP.state(playerId, clés)` pousse la clé au client, qui
+la relaie à la page (`lightrp:ui:state`) ; la page fusionne le patch dans son store (zustand).
+
+**Actions validées côté serveur.** La page émet `lightrp:ui:action { type, ... }`, le client
+le transmet tel quel (`op77_lightrp:action`), le serveur dispatch vers `LightRP.action(type, fn)`.
+La réponse revient par `LightRP.result(playerId, ok, texte)` et s'affiche en toast. Les actions
+staff vérifient la même permission ACL que la commande équivalente.
+
+**Le client ne décide rien.** Il crée la surface, échantillonne le HUD dix fois par seconde,
+prend le focus quand le menu ou le dialogue d'identité est ouvert, et relaie.
+
+### Écrire un module
+
+```lua
+-- server/modules/bank.lua
+local Bank = LightRP.module("bank", {})
+LightRP.db.schema([[CREATE TABLE IF NOT EXISTS lightrp_bank (...)]])
+LightRP.stateProvider("bank", function(playerId) return { balance = Bank.balance(playerId) } end)
+LightRP.action("bank.withdraw", function(playerId, payload) ... LightRP.result(playerId, true, "Retrait effectué.") end)
+LightRP.command("bank", { usage = "/bank" }, function(source) LightRP.openMenu(source, "bank") return true, "Banque ouverte." end)
+function Bank.onConnected(playerId) ... end   -- aussi onDisconnected, onReady, onGameplayReady, onLifeState, onDatabaseReady, onUiReady
+```
+
+Ajoutez la ligne `server_script` dans `open77.lua`, la clé dans `UiState` (`protocol.ts`) et
+l'onglet dans `features/menu/Menu.tsx`.
+
+## Ce que voit le joueur
+
+- HUD : vie, armure, endurance, faim, soif, micro avec portée (WHISPER 4 m / NORMAL 15 m /
+  SHOUT 40 m), id de session, population, horloge ; compteur véhicule quand il conduit.
+- À la première connexion, un dialogue d'identité demande prénom et nom ; tant qu'il n'est pas
+  rempli, seul `/ooc` fonctionne dans le chat.
+- **F5** ouvre le menu terminal : Personnage, Véhicules, Staff (si ACL), Aide.
+- Le chat normal est la parole en jeu à 20 m, sous le nom du personnage.
+
+| Commande | Effet |
+|---|---|
+| `/register <Prénom> <Nom>` | Crée ou renomme le personnage. |
+| `/w` · `/s` · `/ooc` | Chuchoter (4 m) · crier (45 m) · hors-jeu (global). |
+| `/me` · `/do` · `/try` · `/roll [max]` | Action · scène · tentative (50 %) · dé. |
+| `/pm <id> <texte>` | Message privé. |
+| `/car <modèle>` · `/cars` · `/dv` | Appeler · ouvrir le garage · rendre. |
+| `/who` · `/rules` · `/help` · `/report <texte>` | Présents · règles · aide · signalement au staff. |
+
+Staff (`command.lightrp.<nom>` dans `acl.jsonc`) : `/lightrp.tp <id|me> <lieu|x y z>`,
+`/lightrp.bring <id>`, `/lightrp.goto <id>`, `/lightrp.heal <id|me>`, `/lightrp.announce <texte>`,
+`/lightrp.setname <id> <Prénom> <Nom>`, `/lightrp.car <modèle>`, `/lightrp.status`.
+
+## Persistance
+
+Tables `lightrp_characters` (identité Master, compte, prénom/nom, dernière position, faim, soif,
+temps de jeu) et `lightrp_reports`. Sans base configurée le framework démarre et le dit dans le
+journal ; tout vit alors le temps de la session.
+
+## WebUI
+
+Source dans `ui/` à la racine du projet (Vite, React 18, TypeScript strict, zustand,
+lucide-react). `npm run build` type-vérifie puis écrit `web/` (app.js, app.css, index.html,
+polices auto-hébergées). `npm run dev` sert la page dans un navigateur avec un bridge simulé :
+`?menu=1&view=vehicles&staff=1&registered=1&vehicle=1` pour forcer un état.
+
+Le design system est porté dans `ui/src/design` : `tokens.css` (jetons du kit), `components/`
+(Button, Panel, Badge, SectionHeader, HazardStripe, Keycap, StatusChip, VitalBar, MicIndicator,
+Notification, Input, Toggle, Tabs, ListRow, Modal). Aucune ressource externe : polices et icônes
+sont embarquées, l'hôte WebUI ne sert que les fichiers de la ressource.
+
+Après une modification serveur : `ensure op77_lightrp` dans la console. Après un changement de la
+page ou du client, reconnexion des joueurs (`reload_policy "reconnect"`).

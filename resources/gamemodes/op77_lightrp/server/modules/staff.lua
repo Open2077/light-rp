@@ -1,0 +1,244 @@
+-- Staff: who is staff (ACL), the moderation commands, reports. Every command is
+-- restricted (`command.lightrp.<name>` in acl.jsonc); the page's Staff tab raises
+-- the same operations through actions that check the same ACL.
+local Config = LightRpConfig
+local Db = LightRP.db
+local Staff = LightRP.module("staff", {})
+
+Db.schema([[
+    CREATE TABLE IF NOT EXISTS lightrp_reports (
+        id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        identifier VARCHAR(64)  NOT NULL,
+        reporter   VARCHAR(96)  NOT NULL,
+        message    VARCHAR(512) NOT NULL,
+        created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        handled    TINYINT(1)   NOT NULL DEFAULT 0
+    )
+]])
+
+local locationsByName = {}
+for _, location in ipairs(Config.locations) do locationsByName[string.lower(location.name)] = location end
+
+-- ACL reads: Open77.acl.isAllowed(playerId, permission) behind acl.read.
+function Staff.allowed(playerId, permission)
+    if type(Open77.acl) ~= "table" or type(Open77.acl.isAllowed) ~= "function" then return false end
+    local ok, result = pcall(Open77.acl.isAllowed, playerId, permission)
+    return ok and result == true
+end
+
+function Staff.isStaff(playerId)
+    for _, permission in ipairs(Config.staffPermissions) do
+        if Staff.allowed(playerId, permission) then return true end
+    end
+    return false
+end
+
+function Staff.role(playerId)
+    if type(Open77.acl) ~= "table" or type(Open77.acl.roles) ~= "function" then return nil end
+    local ok, roles = pcall(Open77.acl.roles, playerId)
+    if ok and type(roles) == "table" and roles[1] then return tostring(roles[1]) end
+    return nil
+end
+
+LightRP.stateProvider("staff", function(playerId)
+    local staff = Staff.isStaff(playerId)
+    return { isStaff = staff, role = staff and Staff.role(playerId) or nil }
+end)
+
+LightRP.stateProvider("locations", function()
+    local list = {}
+    for _, location in ipairs(Config.locations) do list[#list + 1] = { name = location.name, label = location.label } end
+    return list
+end)
+
+-- ---------------------------------------------------------------------------
+-- Moving players
+
+local function parseTarget(source, value)
+    if value == nil or value == "" or value == "me" then return source end
+    local id = tonumber(value)
+    if id == nil or GetPlayerName(id) == nil then return nil end
+    return id
+end
+
+-- Alive: teleport. Dead: respawn there. `callback(ok, reason)`.
+function Staff.moveTo(playerId, position, heading, callback)
+    local life = Open77.players.getLifeState(playerId)
+    if life == nil then return callback(false, "player_not_found") end
+    if life.phase == "dead" then
+        return callback(Open77.players.respawn(playerId, {
+            position = position, heading = heading or 0, bucket = life.bucket or 0,
+            health = Config.spawn.health, graceMs = Config.spawn.graceMs,
+        }))
+    end
+    CreateThread(function()
+        local promise, reason = Open77.players.teleport(playerId, position, { heading = heading or 0, dismount = true })
+        if promise == nil then return callback(false, reason) end
+        local placed, why = promise:await()
+        callback(placed ~= nil and placed ~= false, why)
+    end)
+end
+
+function Staff.heal(playerId)
+    local life = Open77.players.getLifeState(playerId)
+    if life and life.phase ~= "alive" then
+        local ok, reason = Open77.players.revive(playerId, {})
+        if not ok then return false, reason end
+    else
+        local ok, reason = Open77.players.heal(playerId, 10000)
+        if not ok then return false, reason end
+    end
+    LightRP.needs.refill(playerId)
+    return true
+end
+
+function Staff.announce(text)
+    LightRP.chat.broadcast("STAFF", text, Config.chat.colors.staff)
+    LightRP.broadcastNotice({ kind = "staff", title = "Annonce du staff", body = text, durationMs = 12000 })
+end
+
+function Staff.report(playerId, message)
+    local c = LightRP.characters.get(playerId)
+    local reporter = LightRP.characters.displayName(playerId)
+    LightRP.log("REPORT from %s (%s): %s", reporter, c and c.identifier or "?", message)
+    if c and c.identifier then
+        Db.run("INSERT INTO lightrp_reports (identifier, reporter, message) VALUES (?, ?, ?)", { c.identifier, reporter, message })
+    end
+    for _, id in ipairs(GetPlayers()) do
+        if Staff.isStaff(id) then
+            LightRP.notice(id, { kind = "staff", title = "Signalement", body = reporter .. " : " .. message, durationMs = 15000 })
+        end
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- Actions (page): the ACL gate is the same permission the command carries.
+
+local function gated(permission, handler)
+    return function(playerId, payload)
+        if not Staff.allowed(playerId, permission) then
+            return LightRP.result(playerId, false, "Refusé : il vous manque " .. permission .. ".", payload.type)
+        end
+        handler(playerId, payload)
+    end
+end
+
+LightRP.action("staff.tp", gated("command.lightrp.tp", function(playerId, payload)
+    local target = parseTarget(playerId, payload.target == "me" and "me" or tostring(payload.target or ""))
+    local location = locationsByName[string.lower(tostring(payload.location or ""))]
+    if target == nil or location == nil then return LightRP.result(playerId, false, "Cible ou lieu inconnu.", "staff.tp") end
+    Staff.moveTo(target, location.position, location.heading, function(ok, reason)
+        LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " → " .. location.label) or ("Téléportation refusée : " .. tostring(reason)), "staff.tp")
+    end)
+end))
+
+LightRP.action("staff.bring", gated("command.lightrp.bring", function(playerId, payload)
+    local target = parseTarget(playerId, tostring(payload.target or ""))
+    if target == nil or target == playerId then return LightRP.result(playerId, false, "Cible inconnue.", "staff.bring") end
+    local here = Open77.players.position(playerId)
+    if here == nil then return LightRP.result(playerId, false, "Votre position est inconnue.", "staff.bring") end
+    Staff.moveTo(target, { x = here.x + 1.5, y = here.y, z = here.z }, 0, function(ok, reason)
+        LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " amené.") or ("Refusé : " .. tostring(reason)), "staff.bring")
+    end)
+end))
+
+LightRP.action("staff.heal", gated("command.lightrp.heal", function(playerId, payload)
+    local target = parseTarget(playerId, payload.target == "me" and "me" or tostring(payload.target or ""))
+    if target == nil then return LightRP.result(playerId, false, "Cible inconnue.", "staff.heal") end
+    local ok, reason = Staff.heal(target)
+    LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " soigné.") or ("Refusé : " .. tostring(reason)), "staff.heal")
+end))
+
+LightRP.action("staff.announce", gated("command.lightrp.announce", function(playerId, payload)
+    local text = tostring(payload.text or ""):sub(1, 200)
+    if #text < 2 then return LightRP.result(playerId, false, "Message trop court.", "staff.announce") end
+    Staff.announce(text)
+    LightRP.result(playerId, true, "Annonce envoyée.", "staff.announce")
+end))
+
+-- ---------------------------------------------------------------------------
+-- Commands
+
+LightRP.command("report", { usage = "/report <message>" }, function(source, args)
+    local text = LightRP.joinArgs(args)
+    if text == "" then return false end
+    Staff.report(source, text:sub(1, 512))
+    return true, "Signalement transmis au staff. Merci."
+end)
+
+LightRP.command("lightrp.tp", { restricted = true, usage = "/lightrp.tp <id|me> <lieu | x y z>" }, function(source, args, raw)
+    local target = parseTarget(source, args[1])
+    if target == nil then return false end
+    local location = args[2] and locationsByName[string.lower(args[2])]
+    local position, heading, label
+    if location then
+        position, heading, label = location.position, location.heading or 0, location.label
+    else
+        local x, y, z = tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+        if x == nil or y == nil or z == nil then
+            local names = {}
+            for _, l in ipairs(Config.locations) do names[#names + 1] = l.name end
+            return false, "Lieux : " .. table.concat(names, ", ") .. " (ou x y z)"
+        end
+        position, heading, label = { x = x, y = y, z = z }, 0, string.format("%.1f, %.1f, %.1f", x, y, z)
+    end
+    Staff.moveTo(target, position, heading, function(ok, reason)
+        LightRP.reply(source, raw, ok, ok and (LightRP.characters.displayName(target) .. " → " .. label) or ("Téléportation refusée : " .. tostring(reason)))
+    end)
+end)
+
+LightRP.command("lightrp.bring", { restricted = true, usage = "/lightrp.bring <id>" }, function(source, args, raw)
+    local target = parseTarget(source, args[1])
+    if target == nil or target == source then return false end
+    local here = Open77.players.position(source)
+    if here == nil then return false, "Votre position est inconnue." end
+    Staff.moveTo(target, { x = here.x + 1.5, y = here.y, z = here.z }, 0, function(ok, reason)
+        LightRP.reply(source, raw, ok, ok and (LightRP.characters.displayName(target) .. " amené.") or ("Refusé : " .. tostring(reason)))
+    end)
+end)
+
+LightRP.command("lightrp.goto", { restricted = true, usage = "/lightrp.goto <id>" }, function(source, args, raw)
+    local target = parseTarget(source, args[1])
+    if target == nil or target == source then return false end
+    local there = Open77.players.position(target)
+    if there == nil then return false, "Position de la cible inconnue." end
+    Staff.moveTo(source, { x = there.x + 1.5, y = there.y, z = there.z }, 0, function(ok, reason)
+        LightRP.reply(source, raw, ok, ok and ("Vous êtes auprès de " .. LightRP.characters.displayName(target)) or ("Refusé : " .. tostring(reason)))
+    end)
+end)
+
+LightRP.command("lightrp.heal", { restricted = true, usage = "/lightrp.heal <id|me>" }, function(source, args)
+    local target = parseTarget(source, args[1])
+    if target == nil then return false end
+    local ok, reason = Staff.heal(target)
+    return ok, ok and (LightRP.characters.displayName(target) .. " soigné.") or ("Refusé : " .. tostring(reason))
+end)
+
+LightRP.command("lightrp.announce", { restricted = true, usage = "/lightrp.announce <message>" }, function(_, args)
+    local text = LightRP.joinArgs(args)
+    if text == "" then return false end
+    Staff.announce(text:sub(1, 200))
+    return true, "Annonce envoyée."
+end)
+
+LightRP.command("lightrp.setname", { restricted = true, usage = "/lightrp.setname <id> <Prénom> <Nom>" }, function(source, args)
+    local target = parseTarget(source, args[1])
+    if target == nil or args[2] == nil or args[3] == nil then return false end
+    local ok, reason = LightRP.characters.register(target, args[2], args[3])
+    if not ok then return false, "Nom refusé : " .. tostring(reason) end
+    LightRP.chat.system(target, "Le staff a renommé votre personnage : " .. LightRP.characters.displayName(target))
+    return true, "Personnage renommé : " .. LightRP.characters.displayName(target)
+end)
+
+LightRP.command("lightrp.car", { restricted = true, usage = "/lightrp.car <modèle>" }, function(source, args)
+    if args[1] == nil then return false end
+    return LightRP.vehicles.request(source, args[1], true)
+end)
+
+LightRP.command("lightrp.status", { restricted = true }, function()
+    local players = GetPlayers()
+    local registered = 0
+    for _, id in ipairs(players) do if LightRP.characters.isRegistered(id) then registered = registered + 1 end end
+    return true, string.format("%s: %d joueurs (%d personnages), base de données %s.",
+        Config.serverName, #players, registered, Db.ready and "active" or "absente")
+end)

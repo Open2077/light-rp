@@ -94,7 +94,7 @@
       "open77_interactions",
       "open77_worldui",
       "open77_zones",
-      "lightrp"
+      "op77_lightrp"
     ],
     "autoStart": true,
     "watchIntervalMilliseconds": 0,

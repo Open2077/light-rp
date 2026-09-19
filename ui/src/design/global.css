@@ -1,0 +1,45 @@
+/* Global page rules for the in-game surface: transparent body over the 3D scene,
+   nothing selectable, no scrollbars. Component styles live next to their component. */
+@import "./tokens.css";
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font: var(--type-body);
+  color: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+/* The page is always present and always transparent; a closed surface is a
+   surface with nothing to draw (see the client's ui core). Only the open menu
+   and the dialogs take the pointer. */
+#root { pointer-events: none; }
+.o77-interactive { pointer-events: auto; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+input { user-select: text; }
+kbd { font: inherit; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--o77-ink-400); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Utility text roles from the system voice */
+.o77-readout { font: var(--type-hud-readout); letter-spacing: var(--ls-label); text-transform: uppercase; }
+.o77-tag { font: var(--type-hud-readout); letter-spacing: var(--ls-tag); text-transform: uppercase; }
+.o77-label { font: var(--type-label); letter-spacing: var(--ls-label); text-transform: uppercase; }
+.o77-display { font: var(--type-display); }
+.o77-dim { color: var(--text-dim); }
+.o77-disabled { color: var(--text-disabled); }
+.o77-accent { color: var(--accent); }
