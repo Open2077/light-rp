@@ -104,7 +104,7 @@ function WelcomeBody({ name, playerId, readSeconds, onClose }: { name: string; p
               {HOUSE_RULES.map((r) => <li key={r}>{r}</li>)}
             </ul>
             <span className="welcome__keys o77-readout o77-dim">
-              <Keycap size="sm">F5</Keycap> MENU · /help COMMANDS
+              <Keycap size="sm">F1</Keycap> MENU · <Keycap size="sm">E</Keycap> INTERACT · /help COMMANDS
             </span>
           </div>
         </div>

@@ -1,2 +1,4 @@
-.notices { position: absolute; top: calc(var(--hud-safe-y) + 44px); right: var(--hud-safe-x); align-items: flex-end; }
+/* Centre-left of the screen, stacked downwards from the middle; the top-right
+   rail and the bottom-left vitals stay clear. */
+.notices { position: absolute; left: var(--hud-safe-x); top: 50%; transform: translateY(-50%); align-items: flex-start; max-width: 380px; }
 .o77-notice { position: relative; }
