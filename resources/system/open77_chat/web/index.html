@@ -12,25 +12,15 @@
 </head>
 <body>
   <main id="chat" class="chat" aria-label="Open//77 chat">
-    <!-- Header: only while typing. Tag + link readout + line counter. -->
-    <header class="chat__head" aria-hidden="true">
-      <span class="chat__tag">OPEN//77 <span class="chat__slash">//</span> CHAT</span>
-      <span class="chat__link"><i class="chat__dot" aria-hidden="true"></i>LINK ACTIVE · <span id="messageCount">00</span> LINES</span>
-    </header>
-
     <!-- The log: a HUD readout when closed (fades when idle), a panel when open. -->
     <div class="chat__frame">
       <section id="messages" class="chat__log" role="log" aria-live="polite" aria-relevant="additions" aria-label="Chat messages"></section>
-      <div id="emptyState" class="chat__empty" aria-hidden="true"><span class="chat__slash">//</span> NO SIGNAL</div>
+      <div id="emptyState" class="chat__empty" aria-hidden="true">No messages yet.</div>
       <button id="scrollLatest" class="chat__latest" type="button" hidden><span id="unreadCount">1</span> NEW ↓</button>
     </div>
 
     <!-- Command index, above the composer while the line starts with "/". -->
     <section id="suggestions" class="chat__suggest" aria-label="Command suggestions">
-      <header class="chat__suggest-head">
-        <span class="chat__slash">//</span> COMMAND INDEX
-        <span id="suggestionCount" class="chat__suggest-count">00 MATCHES</span>
-      </header>
       <div id="suggestionList" class="chat__suggest-list" role="listbox"></div>
     </section>
 
@@ -43,9 +33,8 @@
     </section>
 
     <footer class="chat__foot" aria-hidden="true">
-      <span><kbd class="chat__key">ESC</kbd> CLOSE</span>
-      <span><kbd class="chat__key">TAB</kbd> COMPLETE</span>
-      <span><kbd class="chat__key">↑</kbd><kbd class="chat__key">↓</kbd> HISTORY</span>
+      <span><kbd class="chat__key">ESC</kbd> Close</span>
+      <span><kbd class="chat__key">TAB</kbd> Complete</span>
     </footer>
   </main>
   <script src="app.js"></script>

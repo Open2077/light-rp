@@ -26,10 +26,10 @@
   const input = document.getElementById("input");
   const characterCount = document.getElementById("characterCount");
   const sendButton = document.getElementById("sendButton");
-  const messageCount = document.getElementById("messageCount");
+
   const suggestionsNode = document.getElementById("suggestions");
   const suggestionList = document.getElementById("suggestionList");
-  const suggestionCount = document.getElementById("suggestionCount");
+
   const scrollLatest = document.getElementById("scrollLatest");
   const unreadCount = document.getElementById("unreadCount");
 
@@ -65,7 +65,6 @@
     const empty = messages.children.length === 0;
     root.classList.toggle("is-empty", empty);
     emptyState.setAttribute("aria-hidden", String(!empty));
-    messageCount.textContent = formatCount(messages.children.length);
   }
 
   function updateComposerState() {
@@ -274,7 +273,6 @@
       visibleSuggestions = [];
       selectedSuggestion = 0;
       suggestionsNode.classList.remove("has-items");
-      suggestionCount.textContent = "00 MATCHES";
       return;
     }
 
@@ -284,7 +282,6 @@
       .sort((left, right) => left.command.length - right.command.length || left.command.localeCompare(right.command))
       .slice(0, 7);
     selectedSuggestion = Math.max(0, Math.min(selectedSuggestion, visibleSuggestions.length - 1));
-    suggestionCount.textContent = `${formatCount(visibleSuggestions.length)} ${visibleSuggestions.length === 1 ? "MATCH" : "MATCHES"}`;
 
     visibleSuggestions.forEach((item, index) => {
       const row = document.createElement("div");
