@@ -1,29 +1,22 @@
 {
-  // OPEN//77 Official Roleplay — production configuration.
-  //
-  // Credentials never live in this file: the platform license and the MySQL
-  // connection string come from the environment (see server.env.example and
-  // Start-LightRP.cmd). For a local test without a license use
-  // Start-LightRP-Local.cmd, which loads server.local.jsonc instead.
   "$schema": "./config/server.schema.json",
   "schemaVersion": 1,
   "identity": {
     "name": "Open//77 Official Roleplay",
-    "description": "Serveur Light RP officiel d'Open//77 : un personnage, un chat de proximité, des véhicules civils, un staff. Tapez /help en jeu.",
+    "description": "Serveur Light RP officiel d\u0027Open//77 : un personnage, un chat de proximit\u00E9, des v\u00E9hicules civils, un staff. Tapez /help en jeu.",
     "locale": "fr-FR",
-    // Tags are lowercase ASCII slugs (max 16, 24 characters each).
     "tags": [
       "roleplay",
       "light-rp",
       "fr"
     ],
-    "website": "https://open2077.net",
-    // Switch to "public" once the server runs on its public address with a license.
+    "website": "https://open2077.net/",
+    "icon": "server-icon.png",
+    "banner": "server-banner.png",
     "visibility": "unlisted"
   },
   "network": {
     "port": 11828,
-    // Replace with the address players reach: PUBLIC.IP:11828 (open 11828/UDP and 11829/TCP).
     "publicEndpoint": "127.0.0.1:11828",
     "maximumPlayers": 64
   },
@@ -32,18 +25,24 @@
     "snapshotRate": 20,
     "expectedGameBuild": 23100,
     "helloTimeoutSeconds": 10,
-    "connectGateTimeoutSeconds": 8
+    "connectGateTimeoutSeconds": 8,
+    "playerInterestRadius": 0,
+    "playerInterestHysteresis": 60
   },
   "voice": {
     "enabled": true,
     "quality": "standard",
-    // Roleplay voice: you hear people you could actually hear.
     "proximityDistance": 15,
     "minimumClientProximityDistance": 1,
     "maximumClientProximityDistance": 40,
     "maximumChannelAudience": 64,
     "maximumSimultaneousTalkers": 24,
-    "maximumTalkersPerRecipient": 8
+    "maximumTalkersPerRecipient": 8,
+    "globalEgressKbps": 0,
+    "recipientEgressKbps": 0,
+    "ingressRejectLimit": 200,
+    "ingressRejectWindowSeconds": 10,
+    "ingressBackoffMilliseconds": 250
   },
   "masterServer": {
     "enabled": true,
@@ -51,10 +50,10 @@
     "tokenEnvironmentVariable": "OP77_MASTER_TOKEN",
     "identityFile": ".open77/master-identity.json",
     "heartbeatIntervalSeconds": 30,
-    // Created at https://open2077.net/account/keys, provided through server.env.
     "licenseKeyEnvironmentVariable": "OP77_LICENSE_KEY",
     "requireConnectTicket": true,
-    "publishPlayerList": true
+    "publishPlayerList": true,
+    "devLocalAuth": false
   },
   "resources": {
     "enabled": true,
@@ -100,8 +99,6 @@
     "download": {
       "enabled": true,
       "listenUrl": "http://0.0.0.0:11829",
-      // Players download resources from here: put a TLS reverse proxy in front
-      // and set https://... ; plain HTTP works only with allowInsecureHttp.
       "publicBaseUrl": "http://127.0.0.1:11829/",
       "allowInsecureHttp": true,
       "cacheDirectory": ".open77/resource-cache",
@@ -118,7 +115,6 @@
     "file": "acl.jsonc"
   },
   "database": {
-    // Characters, saved positions and reports. Degrades to session-only when absent.
     "enabled": true,
     "connectionString": "",
     "connectionStringEnvironmentVariable": "OP77_DATABASE_CONNECTION",
@@ -130,9 +126,13 @@
     "timeoutSeconds": 10,
     "maxResponseBytes": 1048576
   },
+  "httpHandlers": {
+    "enabled": false,
+    "listenUrl": "http://127.0.0.1:11781",
+    "timeoutSeconds": 5
+  },
   "warden": {
     "enabled": true,
-    // Loopback: reach it through an SSH tunnel or a TLS reverse proxy, never raw on the internet.
     "listenUrl": "http://127.0.0.1:11830",
     "hubFileGatewayOrigin": "https://files.open2077.net"
   },

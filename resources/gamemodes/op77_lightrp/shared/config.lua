@@ -41,8 +41,10 @@ LightRpConfig = {
         },
         blip = { sprite = "clothes", title = "Wardrobe", description = "Change your outfit and manage your saved looks." },
         spots = {
-            -- First changing room: next to the City Center rental desk (adjust with /pos).
-            { id = "citycenter", name = "Wardrobe // City Center", position = { x = -648.9, y = -383.5, z = 8.19 } },
+            { id = "citycenter", name = "Wardrobe // City Center",  position = { x = -629.602417, y = -391.612671, z = 8.186066 } },
+            { id = "north",      name = "Wardrobe // Northside",    position = { x = -787.005127, y = 765.159668, z = 22.459297 } },
+            { id = "hospital",   name = "Wardrobe // Hospital",     position = { x = -1419.849854, y = 1264.845093, z = 23.070534 } },
+            { id = "lab",        name = "Wardrobe // Lab district", position = { x = 1617.371826, y = -783.505493, z = 49.979195 } },
         },
     },
 
