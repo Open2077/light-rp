@@ -44,6 +44,7 @@ client_script "client/core/ui.lua"
 client_script "client/core/hud.lua"
 client_script "client/core/interact.lua"
 client_script "client/core/keys.lua"
+client_script "client/core/movement.lua"
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -75,5 +76,6 @@ permissions {
     "world.markers",        -- native 3D markers at rental desks
     "ui.vanilla.map",       -- map blips on the interaction points
     "vehicles.read",        -- closest vehicle / seat for the L key
+    "players.controls",     -- walk modes (Open77.movement.setWalkMode)
     "ui.vanilla.hud",
 }

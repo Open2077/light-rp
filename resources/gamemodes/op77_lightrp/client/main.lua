@@ -7,6 +7,7 @@ AddEventHandler("onClientResourceStart", function(name)
     LightRpHud.start()
     LightRpInteract.bind()
     LightRpKeys.bind()
+    LightRpMovement.bind()
 
     local key = Config.keys.menu
     local ok, effective = RegisterKeyMapping(key.id, key.name, key.key, function()

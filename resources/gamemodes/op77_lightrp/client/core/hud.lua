@@ -20,6 +20,7 @@ local view = {
     vehicle = { active = false },
     voice = { state = "idle", level = 0, range = Config.voice.default },
     clock = "--:--",
+    walk = nil, -- { mode, label, speed } while a walk mode is on (client/core/movement.lua)
 }
 
 local function sampleStats()
@@ -98,6 +99,8 @@ function Hud.setVoiceRange(range)
         pcall(Open77.voice.setProximityDistance, metres)
     end
 end
+
+function Hud.setWalk(walk) view.walk = walk end
 
 local function hideVanillaReadouts()
     if Hud.hidden or type(Open77.hud) ~= "table" or type(Open77.hud.setVisible) ~= "function" then return end

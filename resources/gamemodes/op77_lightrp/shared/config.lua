@@ -24,6 +24,18 @@ LightRpConfig = {
         menu = { id = "lightrp.playermenu", name = "Light RP: player menu", key = "F1" },
         interact = { id = "lightrp.interact", name = "Light RP: interact", key = "E" },
         lock = { id = "lightrp.vehiclelock", name = "Light RP: lock / unlock vehicle", key = "L" },
+        walk = { id = "lightrp.walkmode", name = "Light RP: walk mode (cycle)", key = "A" },
+    },
+
+    -- Walk modes cycled by the walk key: run (platform default), walk, slow walk.
+    -- `speed` is metres per second for Open77.movement.setWalkMode (0.5..2.5);
+    -- no speed means the request is released and the player runs normally.
+    movement = {
+        modes = {
+            { id = "run",  label = "RUN" },
+            { id = "walk", label = "WALK", speed = 1.5 },
+            { id = "slow", label = "SLOW WALK", speed = 0.9 },
+        },
     },
 
     -- Wardrobe points: a 3D marker on the ground, E opens the wardrobe UI of
