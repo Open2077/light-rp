@@ -342,8 +342,7 @@
     open = Boolean(value);
     root.classList.toggle("open", open);
     composer.setAttribute("aria-hidden", String(!open));
-    root.querySelector(".chat-header").setAttribute("aria-hidden", String(!open));
-    root.querySelector(".chat-footer").setAttribute("aria-hidden", String(!open));
+    root.querySelector(".chat__foot")?.setAttribute("aria-hidden", String(!open));
 
     for (const child of messages.children) {
       if (open) {
