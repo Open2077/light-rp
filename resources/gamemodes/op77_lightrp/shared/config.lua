@@ -26,6 +26,26 @@ LightRpConfig = {
         lock = { id = "lightrp.vehiclelock", name = "Light RP: lock / unlock vehicle", key = "L" },
     },
 
+    -- Wardrobe points: a 3D marker on the ground, E opens the wardrobe UI of
+    -- the platform for an active character. Add a spot per changing room; pick
+    -- positions with /pos. Rule of the server: no /wardrobe for players.
+    wardrobes = {
+        enabled = true,
+        key = "E",
+        prompt = "Change outfit",
+        interactRadius = 2.0,
+        marker = {
+            shape = "cylinder", radius = 0.9, height = 0.65,
+            color = { r = 255, g = 204, b = 0, a = 160 },
+            maxDistance = 30.0, groundOffset = 0.05,
+        },
+        blip = { sprite = "clothes", title = "Wardrobe", description = "Change your outfit and manage your saved looks." },
+        spots = {
+            -- First changing room: next to the City Center rental desk (adjust with /pos).
+            { id = "citycenter", name = "Wardrobe // City Center", position = { x = -648.9, y = -383.5, z = 8.19 } },
+        },
+    },
+
     -- Vehicle keys: L locks or unlocks the vehicle you sit in or the closest one
     -- within `range`, if your character holds a key for it. A locked vehicle
     -- stays open for its key holders (per-player lock exceptions).

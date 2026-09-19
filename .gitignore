@@ -33,6 +33,8 @@
 !resources/system/open77_vehicles/**
 !resources/system/open77_elevators/
 !resources/system/open77_elevators/**
+!resources/system/open77_wardrobe_ui/
+!resources/system/open77_wardrobe_ui/**
 !ui/
 !ui/**
 
