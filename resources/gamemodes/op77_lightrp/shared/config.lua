@@ -37,8 +37,8 @@ LightRpConfig = {
         drop = { slots = 20, weight = 200.0, radius = 2.0, ttlMinutes = 10,
             marker = { shape = "cylinder", radius = 0.45, height = 0.25, color = { r = 255, g = 204, b = 0, a = 120 }, maxDistance = 20.0, groundOffset = 0.03 } },
         giveRange = 3.0,
-        -- What a new character carries.
-        starting = { { name = "phone", count = 1 }, { name = "idcard", count = 1 }, { name = "water", count = 2 }, { name = "burrito", count = 1 } },
+        -- Granted once when a new character's inventory is created; existing inventories are kept.
+        starting = { { name = "water", count = 5 }, { name = "burrito", count = 5 } },
         -- Persistent stashes in the world (pick positions with /pos).
         stashes = {
             -- { id = "citycenter", name = "Storage // City Center", position = { x = 0, y = 0, z = 0 }, slots = 40, weight = 250 },
@@ -80,13 +80,27 @@ LightRpConfig = {
 
     -- Vehicle keys: L locks or unlocks the vehicle you sit in or the closest one
     -- within `range`, if your character holds a key for it. A locked vehicle
-    -- stays open for its key holders (per-player lock exceptions).
+    -- blocks entry and trunk access for everyone until a key holder unlocks it.
     -- (Not `keys`: that table holds the key bindings above.)
     vehicleKeys = {
         range = 8.0,
         -- The horn is the platform's network-synchronised one, so everyone
         -- around hears the same thing: one "bip" to lock, "bip bip" to unlock.
         horn = { bipMs = 110, gapMs = 170, lock = 1, unlock = 2 }, -- counts; 0 disables
+    },
+
+    vehicleContext = {
+        enabled = true,
+        range = 4.5,             -- trunk, hood, storage, engine and lights
+        remoteRange = 8.0,       -- key fob lock / horn / information
+        stationarySpeed = 0.5,  -- m/s: park before operating trunk/hood or engine
+        cooldownMs = 300,
+        hornCooldownMs = 2500,
+        hornDurationMs = 450,
+        -- Only trunk (bit 4 = 16) and hood (bit 5 = 32) are offered. Bikes
+        -- have neither; other models default to both (48). No cabin doors/windows.
+        -- Example override: ["Vehicle.custom"] = { doors = 16 } -- trunk only
+        models = {},
     },
 
     spawn = {
@@ -159,7 +173,7 @@ LightRpConfig = {
             { key = "supron",   label = "Mahir Supron",        category = "Utility", record = "Vehicle.v_standard25_mahir_supron_player" },
             { key = "columbus", label = "Villefort Columbus",  category = "Utility", record = "Vehicle.v_standard25_villefort_columbus_player" },
             { key = "merrimac", label = "Thorton Merrimac",    category = "Utility", record = "Vehicle.v_standard25_thorton_merrimac_player" },
-            { key = "semimaru", label = "Yaiba Semimaru",      category = "Bikes",   record = "Vehicle.v_sport1_yaiba_semimaru_player" },
+            { key = "semimaru", label = "Yaiba Semimaru",      category = "Sport",   record = "Vehicle.v_sport1_yaiba_semimaru_player" },
             { key = "kusanagi", label = "Yaiba Kusanagi",      category = "Bikes",   record = "Vehicle.v_sportbike1_yaiba_kusanagi_player" },
             { key = "apollo",   label = "Brennan Apollo",      category = "Bikes",   record = "Vehicle.v_sportbike3_brennan_apollo_player" },
             { key = "type66",   label = "Quadra Type-66",      category = "Sport",   record = "Vehicle.v_sport2_quadra_type66_player",     staffOnly = true },
@@ -204,12 +218,12 @@ LightRpConfig = {
                 id = "citycenter", name = "Rent-a-Ride // City Center",
                 position = { x = -654.821594, y = -383.462616, z = 8.189293 }, heading = 90.0,
                 parking = { position = { x = -654.762451, y = -389.363800, z = 7.991211 }, heading = 143.600037 },
+                -- Entry-level wheels only: what a newcomer can afford by the half hour.
                 stock = {
-                    { key = "maimai",   price = 60 },
-                    { key = "hella",    price = 120 },
-                    { key = "cortes",   price = 140 },
-                    { key = "semimaru", price = 90 },
-                    { key = "supron",   price = 180 },
+                    { key = "maimai", price = 50 },  -- Makigai MaiMai, the city's tin can
+                    { key = "galena", price = 80 },  -- Thorton Galena, old economy hatch
+                    { key = "colby",  price = 100 }, -- Thorton Colby, worn pickup
+                    { key = "apollo", price = 60 },  -- Brennan Apollo, cheap dirt bike
                 },
             },
         },
