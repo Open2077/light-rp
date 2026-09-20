@@ -10,8 +10,13 @@ local LOGO = "assets/logo.png"
 local MAP_TITLE = "OPEN//77 / OFFICIAL ROLEPLAY"
 
 function Branding.apply()
+    Branding.applyPauseMenu()
+    Branding.applyMap()
+end
+
+function Branding.applyPauseMenu()
     if type(Open77.pauseMenu) ~= "table" then
-        LightRpUi.log("pause menu API unavailable: no branding")
+        LightRpUi.log("pause menu API unavailable: no pause menu branding")
         return
     end
     if type(Open77.pauseMenu.setAccentColor) == "function" then
@@ -22,7 +27,6 @@ function Branding.apply()
         local ok, reason = Open77.pauseMenu.setLogo(LOGO)
         if not ok then LightRpUi.log("pause menu logo refused: %s", tostring(reason)) end
     end
-    Branding.applyMap()
 end
 
 function Branding.applyMap()
