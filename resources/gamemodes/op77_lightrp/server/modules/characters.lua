@@ -53,6 +53,10 @@ Db.schema([[
         food           DOUBLE      NOT NULL DEFAULT 100,
         drink          DOUBLE      NOT NULL DEFAULT 100,
         playtime_ms    BIGINT      NOT NULL DEFAULT 0,
+        job            VARCHAR(32) NOT NULL DEFAULT 'unemployed',
+        job_grade      INT         NOT NULL DEFAULT 0,
+        gang           VARCHAR(32) NOT NULL DEFAULT 'none',
+        gang_grade     INT         NOT NULL DEFAULT 0,
         created_at     TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
         last_seen      TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (identifier, character_key)
@@ -178,6 +182,16 @@ local function migrate()
         Db.run("ALTER TABLE lightrp_accounts ADD COLUMN welcome_seen_at TIMESTAMP NULL")
         LightRP.log("migrated: lightrp_accounts.welcome_seen_at added")
     end
+    -- Characters created before jobs and gangs existed.
+    for column, ddl in pairs({ job = "VARCHAR(32) NOT NULL DEFAULT 'unemployed'", job_grade = "INT NOT NULL DEFAULT 0",
+                               gang = "VARCHAR(32) NOT NULL DEFAULT 'none'", gang_grade = "INT NOT NULL DEFAULT 0" }) do
+        local present = Db.single(string.format([[SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'lightrp_characters' AND COLUMN_NAME = '%s']], column))
+        if present and tonumber(present.n) == 0 then
+            Db.run(string.format("ALTER TABLE lightrp_characters ADD COLUMN %s %s", column, ddl))
+            LightRP.log("migrated: lightrp_characters.%s added", column)
+        end
+    end
 end
 
 local function loadSlots(identifier)
@@ -212,7 +226,8 @@ local function load(playerId, key)
     c.welcomeSeen = account ~= nil and account.welcome_seen_at ~= nil
     characters[playerId] = c
     local row = Db.single([[SELECT status, first_name, last_name, birth_date, origin, story, body_family, appearance_rev, appearance_at,
-        last_x, last_y, last_z, last_heading, food, drink, playtime_ms FROM lightrp_characters WHERE identifier = ? AND character_key = ?]],
+        last_x, last_y, last_z, last_heading, food, drink, playtime_ms, job, job_grade, gang, gang_grade
+        FROM lightrp_characters WHERE identifier = ? AND character_key = ?]],
         { identifier, key })
     if row then
         c.status = row.status or "draft"
@@ -228,6 +243,8 @@ local function load(playerId, key)
         end
         c.food, c.drink = tonumber(row.food) or 100, tonumber(row.drink) or 100
         c.playtimeMs = tonumber(row.playtime_ms) or 0
+        c.job, c.jobGrade = row.job or "unemployed", tonumber(row.job_grade) or 0
+        c.gang, c.gangGrade = row.gang or "none", tonumber(row.gang_grade) or 0
     end
     -- The appearance package is the authority on the body: pick up what it has,
     -- including a first character created before this module ran.
@@ -257,7 +274,10 @@ end
 local function save(playerId)
     local c = characters[playerId]
     if c == nil or not Db.ready or c.identifier == nil or c.firstName == nil then return end
-    local playtime = LightRP.nowMs() - (c.joinedAtMs or LightRP.nowMs())
+    local now = LightRP.nowMs()
+    local playtime = now - (c.joinedAtMs or now)
+    c.joinedAtMs = now
+    c.playtimeMs = (c.playtimeMs or 0) + playtime
     local last = c.lastKnown
     if last then
         Db.run([[UPDATE lightrp_characters SET playtime_ms = playtime_ms + ?, last_seen = CURRENT_TIMESTAMP,
@@ -472,10 +492,19 @@ function Characters.onDisconnected(playerId)
     end)
 end
 
+Characters.save = save
+
+-- Position every 5 s (the disconnect hook cannot read a gone player), the row
+-- every 60 s so a crash loses at most a minute of position and playtime.
 CreateThread(function()
+    local ticks = 0
     while true do
-        Wait(20000)
+        Wait(5000)
+        ticks = ticks + 1
         for playerId in pairs(characters) do Characters.samplePosition(playerId) end
+        if ticks % 12 == 0 then
+            for playerId, c in pairs(characters) do if c.status == "active" then save(playerId) end end
+        end
     end
 end)
 
@@ -555,3 +584,17 @@ LightRP.command("register", { usage = "/register <FirstName> <LastName>" }, func
     local c = characters[source]
     return true, "Identity saved: " .. Characters.displayName(source) .. (c and c.status ~= "active" and " — finish the creation on screen." or "")
 end)
+
+-- A character handoff and a checkout must not race across yielding DB calls.
+Characters.switching = {}
+for _, method in ipairs({ "select", "startNew" }) do
+    local original = Characters[method]
+    Characters[method] = function(playerId, ...)
+        if Characters.switching[playerId] or (LightRP.shops and LightRP.shops.isBusy(playerId)) then return false, "busy" end
+        Characters.switching[playerId] = true
+        local result = table.pack(pcall(original, playerId, ...))
+        Characters.switching[playerId] = nil
+        if not result[1] then error(result[2]) end
+        return table.unpack(result, 2, result.n)
+    end
+end

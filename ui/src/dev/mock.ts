@@ -9,6 +9,8 @@
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
+import { shopFixture } from "./shopFixture";
+import { basketSummary } from "@/features/shop/model";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -21,6 +23,7 @@ export function installMockBridge(): void {
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
 
   const registered = params.get("registered") === "1";
+  const shop = shopFixture();
   const step = (params.get("step") as CharacterState["step"] | null) ?? (registered ? "done" : "identity");
   const character: CharacterState = {
     registered, status: registered ? "active" : "draft", step, key: "default",
@@ -52,6 +55,8 @@ export function installMockBridge(): void {
         { wallet: "bank", kind: "opening", amount: 1500, balanceAfter: 1500, counterparty: "Night City Bank", note: "Account opened", at: "2077-09-17 19:30:00" },
       ],
     } : { currency: "€$", cash: 0, history: [] },
+    job: { name: "sanitation", label: "NC Sanitation", tag: "SANITATION", grade: 1, gradeLabel: "Collector", salary: 60, paycheckMinutes: 30 },
+    gang: { name: "valentinos", label: "Valentinos", tag: "VALENTINOS", color: "#D9A441", grade: 0, gradeLabel: "Recruit" },
     rental: params.get("rental") === "1"
       ? { active: { spotId: "citycenter", spotName: "Rent-a-Ride // City Center", key: "hella", label: "Archer Hella", price: 120, paidWith: "cash", remainingMs: 17 * 60000 + 42000 } }
       : {},
@@ -89,6 +94,7 @@ export function installMockBridge(): void {
         setTimeout(() => {
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
+          if (params.get("dialog") === "shop") fire(PAGE_EVENTS.dialog, shop);
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
           if (params.get("interact") === "1") {
             fire(PAGE_EVENTS.interact, { id: "rental.citycenter", prompt: "Rent a vehicle", key: "E" });
@@ -113,7 +119,7 @@ export function installMockBridge(): void {
             { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
             { key: "cortes", label: "Villefort Cortes", category: "Street", price: 140 }, { key: "semimaru", label: "Yaiba Semimaru", category: "Sport", price: 90 },
             { key: "supron", label: "Mahir Supron", category: "Utility", price: 180 } ] } });
-          if (registered) setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Welcome to Night City", body: "Light RP server. F1 opens your player menu, /help lists the commands.", source: "LIGHT RP", durationMs: 9000 }), 400);
+          if (registered && params.get("dialog") !== "shop") setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Welcome to Night City", body: "Light RP server. F1 opens your player menu, /help lists the commands.", source: "LIGHT RP", durationMs: 9000 }), 400);
         }, 30);
       }
       if (name === PAGE_EVENTS.close) fire(PAGE_EVENTS.closed, {});
@@ -121,6 +127,21 @@ export function installMockBridge(): void {
         const action = payload as UiAction;
         setTimeout(() => {
           switch (action.type) {
+            case "shop.close": break;
+            case "shop.checkout": {
+              const summary = basketSummary(shop, Object.fromEntries(action.lines.map(line => [line.name, line.count])), action.mode, action.pay);
+              const ok = !summary.issue;
+              if (ok) {
+                shop.money = { ...shop.money, [action.pay]: shop.money[action.pay] + (action.mode === "buy" ? -summary.total : summary.total) };
+                shop.items = shop.items.map(item => ({ ...item, owned: item.owned + (action.mode === "buy" ? 1 : -1) * (action.lines.find(line => line.name === item.name)?.count ?? 0) }));
+                shop.inventory = { ...shop.inventory, weight: summary.afterWeight,
+                  items: shop.items.filter(item => item.owned > 0).flatMap(item => Array.from({ length: Math.ceil(item.owned / item.stack) }, (_, index) => ({ ...item, slot: 0, count: Math.min(item.stack, item.owned - index * item.stack), usable: true }))).map((item, i) => ({ ...item, slot: i + 1 })) };
+              }
+              shop.nextRequest = action.request + 1;
+              fire(PAGE_EVENTS.shop, { session: action.session, request: action.request, ok,
+                text: ok ? `${action.mode === "buy" ? "Purchase" : "Sale"} complete. Preview only — no real items or money.` : summary.issue, state: { ...shop } });
+              break;
+            }
             case "character.identity": {
               const c = state.character;
               const hasBody = c.bodyFamily != null;

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import {
   Activity, Apple, ArrowLeftRight, BadgeCheck, Bandage, Banknote, Battery, Beef, Box, BriefcaseMedical, Calendar, Candy, Car, Check, Cigarette, Clock, Coffee, CreditCard, CupSoda, Pizza, Soup,
-  Flame, Footprints, Hammer, Hand, Landmark, PackageOpen, Pill, Sandwich, Smartphone, Wallet, Watch, Wrench, ChevronLeft, ChevronRight, CircleHelp,
+  Briefcase, Flame, Footprints, Hammer, Hand, Landmark, PackageOpen, Pill, Sandwich, Smartphone, Wallet, Watch, Wrench, ChevronLeft, ChevronRight, CircleHelp,
   Droplet, FileText, Fuel, HeartPulse, IdCard, Info, Keyboard, KeyRound, Loader, MapPin,
   MessageSquare, Mic, MicOff, OctagonAlert, Package, Radio, Settings, Shield, ShieldAlert,
   Siren, Terminal, TriangleAlert, User, Users, X, Zap, CheckCheck, Search, ArrowDown, ArrowRight, Backpack, Split, type LucideIcon,
@@ -15,7 +15,7 @@ const GLYPHS: Record<string, LucideIcon> = {
   search: Search, "arrow-down": ArrowDown, "arrow-right": ArrowRight, backpack: Backpack, split: Split,
   activity: Activity, "arrow-left-right": ArrowLeftRight, calendar: Calendar, clock: Clock, footprints: Footprints,
   apple: Apple, bandage: Bandage, battery: Battery, box: Box, candy: Candy, cigarette: Cigarette, "cup-soda": CupSoda, flame: Flame, hammer: Hammer,
-  hand: Hand, "package-open": PackageOpen, pill: Pill, sandwich: Sandwich, smartphone: Smartphone, watch: Watch, wrench: Wrench, "credit-card": CreditCard, landmark: Landmark, wallet: Wallet, "badge-check": BadgeCheck, banknote: Banknote, beef: Beef, car: Car, check: Check,
+  briefcase: Briefcase, hand: Hand, "package-open": PackageOpen, pill: Pill, sandwich: Sandwich, smartphone: Smartphone, watch: Watch, wrench: Wrench, "credit-card": CreditCard, landmark: Landmark, wallet: Wallet, "badge-check": BadgeCheck, banknote: Banknote, beef: Beef, car: Car, check: Check,
   "check-check": CheckCheck, "chevron-left": ChevronLeft, "chevron-right": ChevronRight, "circle-help": CircleHelp,
   droplet: Droplet, "file-text": FileText, fuel: Fuel, "heart-pulse": HeartPulse, "id-card": IdCard, info: Info,
   keyboard: Keyboard, "key-round": KeyRound, loader: Loader, "map-pin": MapPin, "message-square": MessageSquare,

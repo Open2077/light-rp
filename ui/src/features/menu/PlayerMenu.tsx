@@ -3,7 +3,7 @@ import { useStore } from "@/state/store";
 import { requestClose } from "@/bridge/open77";
 import { RageMenu, type RageMenuItem } from "@/design/components";
 import { formatMoney, ledger, transactionLabel } from "@/bridge/money";
-import type { CharacterState, MoneyState } from "@/bridge/protocol";
+import type { CharacterState, GangState, JobState, MoneyState } from "@/bridge/protocol";
 import "./menu.css";
 
 /* The player menu (F1): a RageUI-style list menu, keyboard only, top-left. The
@@ -20,7 +20,7 @@ function formatDuration(ms: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}H${String(minutes % 60).padStart(2, "0")}`;
 }
 
-function buildTree(character: CharacterState, money: MoneyState): Record<string, MenuNode> {
+function buildTree(character: CharacterState, money: MoneyState, job: JobState, gang: GangState): Record<string, MenuNode> {
   const name = `${character.firstName ?? ""} ${character.lastName ?? ""}`.trim() || character.accountName;
   const id = String(character.playerId).padStart(3, "0");
   const origin = character.origins.find((o) => o.key === character.origin)?.label;
@@ -66,6 +66,11 @@ function buildTree(character: CharacterState, money: MoneyState): Record<string,
           description: "Night City calendar, year " + character.currentYear + "." },
         { id: "origin", type: "item", text: "Origin", icon: "map-pin", meta: origin ?? "—" },
         { separator: true },
+        { id: "job", type: "item", text: "Job", icon: "briefcase", meta: job.name === "unemployed" ? "UNEMPLOYED" : `${job.tag} · ${job.gradeLabel.toUpperCase()}`,
+          description: job.name === "unemployed" ? "No job yet. Ask around town." : `${job.label}, grade ${job.grade}${job.salary > 0 ? ` · ${formatMoney(job.salary, money.currency)} every ${job.paycheckMinutes ?? 30} min` : ""}.` },
+        { id: "gang", type: "item", text: "Gang", icon: "shield", meta: gang.name === "none" ? "NONE" : `${gang.tag} · ${gang.gradeLabel.toUpperCase()}`,
+          description: gang.name === "none" ? "No affiliation." : `${gang.label}, ${gang.gradeLabel} (grade ${gang.grade}).` },
+        { separator: true },
         { id: "account", type: "item", text: "Bank account", icon: "landmark", meta: money.bank?.number ?? "—",
           description: money.bank ? `Night City Bank. Balance ${formatMoney(money.bank.balance, money.currency)}, ${formatMoney(money.cash, money.currency)} in your pocket.` : "No account yet." },
         { id: "playtime", type: "item", text: "Time in the city", icon: "clock", meta: formatDuration(character.playtimeMs ?? 0) },
@@ -80,6 +85,8 @@ export function PlayerMenu() {
   const open = useStore((s) => s.menuOpen);
   const character = useStore((s) => s.state.character);
   const money = useStore((s) => s.state.money);
+  const job = useStore((s) => s.state.job);
+  const gang = useStore((s) => s.state.gang);
   const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
   const [stack, setStack] = useState<Array<{ key: string; index: number }>>([{ key: "root", index: ROOT_INDEX }]);
 
@@ -94,7 +101,7 @@ export function PlayerMenu() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const tree = useMemo(() => buildTree(character, money), [character, money]);
+  const tree = useMemo(() => buildTree(character, money, job, gang), [character, money, job, gang]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;

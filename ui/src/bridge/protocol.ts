@@ -20,6 +20,7 @@ export const PAGE_EVENTS = {
   dialog: "lightrp:ui:dialog",
   interact: "lightrp:ui:interact",
   inventory: "lightrp:ui:inventory",
+  shop: "lightrp:ui:shop",
   actionStart: "lightrp:ui:activity:start",
   actionStarted: "lightrp:ui:activity:started",
   actionFinish: "lightrp:ui:activity:finish",
@@ -106,6 +107,8 @@ export interface UiState {
   needs: NeedsState;
   money: MoneyState;
   rental: RentalState;
+  job: JobState;
+  gang: GangState;
   vehicles: { catalog: VehicleEntry[]; owned: OwnedVehicle[]; cooldownUntil?: number };
   staff: StaffState;
   locations: Array<{ name: string; label: string }>;
@@ -149,7 +152,22 @@ export interface InventorySnapshot {
   slots: number; maxWeight: number; weight: number; items: InventoryItem[];
 }
 export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot; toggleKey?: string }
-export type DialogPayload = RentalDialogPayload | InventoryDialogPayload;
+export interface ShopItem {
+  name: string; label: string; description?: string; icon: string; image?: string;
+  category: string; weight: number; stack: number; buy?: number; sell?: number; owned: number;
+  effects?: InventoryItem["effects"];
+}
+export interface ShopDialogPayload {
+  kind: "shop"; session: string; revision: number; nextRequest: number;
+  shop: { id: string; name: string; label: string; subtitle?: string; template: string };
+  items: ShopItem[]; payments: Array<"cash" | "bank">; maxLines: number; maxPerItem: number;
+  inventory: InventorySnapshot; money: { currency: string; cash: number; bank: number };
+}
+export interface ShopUpdate {
+  session: string; request?: number; ok?: boolean; text?: string; closed?: boolean;
+  catalogueChanged?: boolean; refresh?: boolean; state?: ShopDialogPayload;
+}
+export type DialogPayload = RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload;
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -159,12 +177,17 @@ export interface ActiveRental {
 }
 export interface RentalState { active?: ActiveRental }
 
+export interface JobState { name: string; label: string; tag: string; grade: number; gradeLabel: string; salary: number; paycheckMinutes?: number }
+export interface GangState { name: string; label: string; tag: string; color?: string; grade: number; gradeLabel: string }
+
 export interface IdentityFields { firstName: string; lastName: string; birthDate?: string; origin?: string; story?: string }
 
 /** Actions the page raises; the server validates every one of them. Two are
  *  handled by the client Lua itself because they open another package's native
  *  screen: character.appearance.open and character.wardrobe.open. */
 export type UiAction =
+  | { type: "shop.checkout"; session: string; request: number; revision: number; mode: "buy" | "sell"; pay: "cash" | "bank"; lines: Array<{ name: string; count: number }> }
+  | { type: "shop.close"; session: string }
   | ({ type: "character.identity" } & IdentityFields)
   | { type: "character.appearance.open"; mode: "ripperdoc" | "hairdresser"; family?: BodyFamily }
   | { type: "character.wardrobe.open" }

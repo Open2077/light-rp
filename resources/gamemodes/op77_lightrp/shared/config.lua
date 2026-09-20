@@ -78,6 +78,11 @@ LightRpConfig = {
         },
     },
 
+    -- Jobs and gangs (catalogue in shared/jobs.lua). Paychecks go to the bank.
+    jobs = {
+        paycheckMinutes = 30, -- 0 disables paychecks
+    },
+
     -- Vehicle keys: L locks or unlocks the vehicle you sit in or the closest one
     -- within `range`, if your character holds a key for it. A locked vehicle
     -- blocks entry and trunk access for everyone until a key holder unlocks it.
@@ -198,7 +203,7 @@ LightRpConfig = {
             maxDistance = 30.0, groundOffset = 0.05,
         }, -- translucent wall fading upwards; visual size is separate from interactRadius
         durationMinutes = 30,
-        blip = { sprite = "Zzz01_CarForPurchaseVariant", title = "Vehicle rental", description = "Rent a car by the half hour. Return it at any desk." },
+        blip = { sprite = "Zzz01_CarForPurchaseVariant", title = "Rent-a-Ride", description = "Rent a car by the half hour. Return it at any desk." },
         -- Crowd civilians (docs/generated/npc-records-2.31.csv, category civilian,
         -- risk candidate, reaction preset NoReaction: they neither flee nor
         -- panic). One is picked at random per desk; the list is tried until the

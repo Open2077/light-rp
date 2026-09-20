@@ -21,6 +21,8 @@ export const EMPTY_STATE: UiState = {
   needs: { food: 100, drink: 100 },
   money: { currency: "€$", cash: 0, history: [] },
   rental: {},
+  job: { name: "unemployed", label: "Unemployed", tag: "CIVILIAN", grade: 0, gradeLabel: "Citizen", salary: 0 },
+  gang: { name: "none", label: "No gang", tag: "—", grade: 0, gradeLabel: "—" },
   vehicles: { catalog: [], owned: [] },
   staff: { isStaff: false },
   locations: [],
@@ -73,6 +75,7 @@ export function normalizeInventory(snap: InventorySnapshot): InventorySnapshot {
 function normalizeDialog(payload: DialogPayload): DialogPayload {
   if (payload.kind === "inventory") return { ...payload, left: normalizeInventory(payload.left), right: normalizeInventory(payload.right) };
   if (payload.kind === "rental") return { ...payload, spot: { ...payload.spot, stock: Array.isArray(payload.spot.stock) ? payload.spot.stock : [] } };
+  if (payload.kind === "shop") return { ...payload, items: Array.isArray(payload.items) ? payload.items : [], payments: Array.isArray(payload.payments) ? payload.payments : [], inventory: normalizeInventory(payload.inventory) };
   return payload;
 }
 
