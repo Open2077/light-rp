@@ -56,6 +56,7 @@ client_script "client/core/keys.lua"
 client_script "client/core/movement.lua"
 client_script "client/core/talkers.lua"
 client_script "client/core/inventory.lua"
+client_script "client/core/branding.lua"
 client_script "client/core/actions.lua"
 client_script "client/core/vehicle_context.lua"
 client_script "client/main.lua"
@@ -65,6 +66,10 @@ client_script "client/main.lua"
 web_ui_page "web/index.html"
 web_ui_auto_create false
 web_files { "web/**" }
+
+-- Pause menu branding: the server logo beside the OPEN//77 mark (client/core/branding.lua sets the accent).
+pause_menu_logo "assets/logo.png"
+files { "assets/logo.png" }
 
 permissions {
     -- both sides
@@ -91,4 +96,5 @@ permissions {
     "vehicles.read",        -- closest vehicle / seat for the L key
     "players.controls",     -- walk modes (Open77.movement.setWalkMode)
     "ui.vanilla.hud",
+    "pause_menu.customize", -- accent + logo of the pause menu
 }
