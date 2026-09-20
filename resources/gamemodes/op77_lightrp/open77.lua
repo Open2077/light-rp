@@ -97,4 +97,5 @@ permissions {
     "players.controls",     -- walk modes (Open77.movement.setWalkMode)
     "ui.vanilla.hud",
     "pause_menu.customize", -- accent + logo of the pause menu
+    "map.control",          -- title + accent of the native map
 }
