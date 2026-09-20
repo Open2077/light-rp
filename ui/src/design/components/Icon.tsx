@@ -1,16 +1,18 @@
 import type { CSSProperties } from "react";
 import {
-  Activity, Apple, ArrowLeftRight, BadgeCheck, Bandage, Banknote, Battery, Beef, Box, Calendar, Candy, Car, Check, Cigarette, Clock, CreditCard, CupSoda,
+  Activity, Apple, ArrowLeftRight, BadgeCheck, Bandage, Banknote, Battery, Beef, Box, BriefcaseMedical, Calendar, Candy, Car, Check, Cigarette, Clock, Coffee, CreditCard, CupSoda, Pizza, Soup,
   Flame, Footprints, Hammer, Hand, Landmark, PackageOpen, Pill, Sandwich, Smartphone, Wallet, Watch, Wrench, ChevronLeft, ChevronRight, CircleHelp,
   Droplet, FileText, Fuel, HeartPulse, IdCard, Info, Keyboard, KeyRound, Loader, MapPin,
   MessageSquare, Mic, MicOff, OctagonAlert, Package, Radio, Settings, Shield, ShieldAlert,
-  Siren, Terminal, TriangleAlert, User, Users, X, Zap, CheckCheck, type LucideIcon,
+  Siren, Terminal, TriangleAlert, User, Users, X, Zap, CheckCheck, Search, ArrowDown, ArrowRight, Backpack, Split, type LucideIcon,
 } from "lucide-react";
 
 /* Lucide, bundled (the design system loads it from a CDN; the in-game host serves
    only the resource's own files). Stroke-only, currentColor, 12–20px. Add a glyph
    here when a component needs it: the name is the Lucide kebab-case id. */
 const GLYPHS: Record<string, LucideIcon> = {
+  "briefcase-medical": BriefcaseMedical, coffee: Coffee, pizza: Pizza, soup: Soup,
+  search: Search, "arrow-down": ArrowDown, "arrow-right": ArrowRight, backpack: Backpack, split: Split,
   activity: Activity, "arrow-left-right": ArrowLeftRight, calendar: Calendar, clock: Clock, footprints: Footprints,
   apple: Apple, bandage: Bandage, battery: Battery, box: Box, candy: Candy, cigarette: Cigarette, "cup-soda": CupSoda, flame: Flame, hammer: Hammer,
   hand: Hand, "package-open": PackageOpen, pill: Pill, sandwich: Sandwich, smartphone: Smartphone, watch: Watch, wrench: Wrench, "credit-card": CreditCard, landmark: Landmark, wallet: Wallet, "badge-check": BadgeCheck, banknote: Banknote, beef: Beef, car: Car, check: Check,

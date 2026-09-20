@@ -1,10 +1,8 @@
--- Vehicle keys, the way roleplay servers do it: a vehicle is locked for the
--- street and open for whoever holds a key. The platform already has that shape
--- (canonical lock + per-player exceptions), so a key is an entry in this ledger
--- plus an exception on the vehicle for the holder while they are online.
+-- Vehicle keys authorise an explicit lock/unlock, never automatic entry.
+-- A locked vehicle is locked for everyone, including its owner and key holders.
 --
 -- Keys are bound to a character (identifier + slot), not to a session id: a
--- holder who reconnects or switches slot gets the right exceptions back.
+-- holder who reconnects or switches slot gets the right keys back, not a bypass.
 -- Replication: the vehicle's state bag carries `keys` ({ label, holders, owner })
 -- and the player's bag carries `vehicleKeys` ({ [vehicleId] = label }), which is
 -- what the client reads to know it may press L next to a car.
@@ -12,7 +10,7 @@
 --   LightRP.keys.give(vehicleId, playerId, { label = "Archer Hella", owner = true })
 --   LightRP.keys.take(vehicleId, playerId)      LightRP.keys.clear(vehicleId)
 --   LightRP.keys.has(vehicleId, playerId)       LightRP.keys.holders(vehicleId)
---   LightRP.keys.lock(vehicleId, locked)        -- street lock, holders keep their access
+--   LightRP.keys.lock(vehicleId, locked)        -- same lock for everyone
 --   LightRP.keys.toggle(playerId, vehicleId)    -- what the L key does, validated
 --   hook onVehicleLockChanged(vehicleId, locked, byPlayerId)
 local Config = LightRpConfig.vehicleKeys
@@ -63,21 +61,16 @@ local function publishPlayer(playerId)
     pcall(bag.set, bag, "vehicleKeys", mine)
 end
 
--- The exception is what the platform enforces; the ledger is what we remember.
-local function applyException(vehicleId, playerId)
-    local identity = identityOf(playerId)
-    local entry = ledger[vehicleId]
-    if entry and identity and entry.holders[identity] then
-        return Open77.vehicles.setLockedForPlayer(vehicleId, playerId, false)
-    end
+-- Scrub any old automatic-entry exception without changing the vehicle's lock.
+local function clearException(vehicleId, playerId)
     if type(Open77.vehicles.clearLockedForPlayer) == "function" then
         return Open77.vehicles.clearLockedForPlayer(vehicleId, playerId)
     end
     return Open77.vehicles.setLockedForPlayer(vehicleId, playerId, nil)
 end
 
-local function applyAllExceptions(vehicleId)
-    for _, id in ipairs(GetPlayers()) do pcall(applyException, vehicleId, id) end
+local function clearAllExceptions(vehicleId)
+    for _, id in ipairs(GetPlayers()) do pcall(clearException, vehicleId, id) end
 end
 
 function Keys.has(vehicleId, playerId)
@@ -103,7 +96,7 @@ function Keys.give(vehicleId, playerId, options)
     entry.label = options.label or entry.label or "Vehicle"
     if options.owner then entry.owner = identity end
     entry.holders[identity] = { at = LightRP.nowMs(), playerId = playerId }
-    applyException(vehicleId, playerId)
+    clearException(vehicleId, playerId)
     publishVehicle(vehicleId)
     publishPlayer(playerId)
     LightRP.log("keys: %s now holds the keys of vehicle %s (%s)", LightRP.characters.displayName(playerId), tostring(vehicleId), entry.label)
@@ -115,7 +108,7 @@ function Keys.take(vehicleId, playerId)
     if entry == nil or identity == nil or entry.holders[identity] == nil then return false, "no_key" end
     entry.holders[identity] = nil
     if entry.owner == identity then entry.owner = nil end
-    applyException(vehicleId, playerId)
+    clearException(vehicleId, playerId)
     if next(entry.holders) == nil then ledger[vehicleId] = nil end
     publishVehicle(vehicleId)
     publishPlayer(playerId)
@@ -125,23 +118,17 @@ end
 function Keys.clear(vehicleId)
     if ledger[vehicleId] == nil then return false, "no_keys" end
     ledger[vehicleId] = nil
-    if Open77.vehicles.get(vehicleId) then applyAllExceptions(vehicleId) end
+    if Open77.vehicles.get(vehicleId) then clearAllExceptions(vehicleId) end
     publishVehicle(vehicleId)
     for _, id in ipairs(GetPlayers()) do publishPlayer(id) end
     return true
 end
 
--- Street lock. Locking uses the all-or-nothing bit (it revokes exceptions), so
--- the holders' exceptions are laid down again right after.
+-- Both directions clear overrides: clients must all receive the same state.
 function Keys.lock(vehicleId, locked, byPlayerId)
     if Open77.vehicles.get(vehicleId) == nil then return false, "unknown_vehicle" end
-    local ok, reason
-    if locked then
-        ok, reason = Open77.vehicles.setLockedForAll(vehicleId, true)
-        if ok then applyAllExceptions(vehicleId) end
-    else
-        ok, reason = Open77.vehicles.setLocked(vehicleId, false)
-    end
+    if type(locked) ~= "boolean" then return false, "invalid_lock" end
+    local ok, reason = Open77.vehicles.setLockedForAll(vehicleId, locked)
     if not ok then return false, reason or "lock_refused" end
     LightRP.eachModule("onVehicleLockChanged", vehicleId, locked == true, byPlayerId)
     return true
@@ -163,9 +150,7 @@ function Keys.beep(vehicleId, locked)
     end)
 end
 
-local function distanceTo(playerId, vehicleId)
-    local p = Open77.players.position(playerId)
-    local v = Open77.vehicles.get(vehicleId)
+local function distanceTo(p, v, vehicleId)
     local vp = v and (v.position or (type(Open77.vehicles.getPosition) == "function" and Open77.vehicles.getPosition(vehicleId)))
     if p == nil or vp == nil then return nil end
     local dx, dy, dz = p.x - vp.x, p.y - vp.y, p.z - vp.z
@@ -175,12 +160,15 @@ end
 -- The L key: validated here, never trusted from the client.
 function Keys.toggle(playerId, vehicleId)
     vehicleId = tonumber(vehicleId) or vehicleId
-    if vehicleId == nil or Open77.vehicles.get(vehicleId) == nil then return false, "unknown_vehicle" end
+    local vehicle = vehicleId and Open77.vehicles.get(vehicleId)
+    if vehicle == nil then return false, "unknown_vehicle" end
     if not Keys.has(vehicleId, playerId) then return false, "no_key" end
+    local position = Open77.players.position(playerId)
+    if position == nil or position.bucket ~= vehicle.bucket then return false, "too_far" end
     local seat = Open77.vehicles.getPlayerSeat(playerId)
     local inside = seat ~= nil and tostring(seat.vehicleId) == tostring(vehicleId)
     if not inside then
-        local distance = distanceTo(playerId, vehicleId)
+        local distance = distanceTo(position, vehicle, vehicleId)
         if distance == nil or distance > (Config.range or 8.0) then return false, "too_far" end
     end
     local locked = Open77.vehicles.isLocked(vehicleId) == true
@@ -194,7 +182,7 @@ end
 -- Hooks, network, commands
 
 function Keys.onCharacterLoaded(playerId)
-    for vehicleId in pairs(ledger) do pcall(applyException, vehicleId, playerId) end
+    for vehicleId in pairs(ledger) do pcall(clearException, vehicleId, playerId) end
     publishPlayer(playerId)
 end
 

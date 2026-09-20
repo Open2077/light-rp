@@ -84,6 +84,9 @@ local function validBirthDate(value)
     if not y then return nil end
     y, m, d = tonumber(y), tonumber(m), tonumber(d)
     if m < 1 or m > 12 or d < 1 or d > 31 then return nil end
+    local leap = y % 4 == 0 and (y % 100 ~= 0 or y % 400 == 0)
+    local days = { 31, leap and 29 or 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
+    if d > days[m] then return nil end
     -- Night City lives in 2077; the calendar is the game's.
     local age = CC.currentYear - y
     if age < CC.minAge or age > CC.maxAge then return nil end
@@ -286,7 +289,12 @@ function Characters.setIdentity(playerId, fields)
     if fields.birthDate ~= nil and fields.birthDate ~= "" and birth == nil then return false, "invalid_birth_date" end
     local origin = fields.origin ~= nil and fields.origin ~= "" and originByKey[tostring(fields.origin)] and tostring(fields.origin) or nil
     if fields.origin ~= nil and fields.origin ~= "" and origin == nil then return false, "invalid_origin" end
-    local story = fields.story ~= nil and tostring(fields.story):sub(1, 600) or nil
+    local story = fields.story ~= nil and tostring(fields.story) or nil
+    if story then
+        if utf8.len(story) == nil then return false, "invalid_story" end
+        local boundary = utf8.offset(story, 601)
+        if boundary then story = story:sub(1, boundary - 1) end
+    end
     if story == "" then story = nil end
     c.firstName, c.lastName, c.birthDate, c.origin, c.story = first, last, birth, origin, story
     persistCivil(c)
@@ -423,7 +431,9 @@ LightRP.stateProvider("character", function(playerId)
         slots = c.slots or {},
         maxSlots = CC.maxSlots,
         origins = origins,
-        minAge = CC.minAge, currentYear = CC.currentYear,
+        minAge = CC.minAge, maxAge = CC.maxAge, currentYear = CC.currentYear,
+        nameMinLength = Config.names.minLength, nameMaxLength = Config.names.maxLength,
+        nameAllowAccents = Config.names.allowAccents,
         -- First-spawn briefing: once per account, after the character is active.
         welcomePending = LightRpConfig.welcome.enabled and c.status == "active" and not c.welcomeSeen,
         welcomeReadSeconds = LightRpConfig.welcome.readSeconds or 15,
@@ -476,6 +486,7 @@ local REASONS = {
     invalid_name = "Name refused: letters, hyphens and apostrophes, " .. Config.names.minLength .. " to " .. Config.names.maxLength .. " characters per word.",
     invalid_birth_date = string.format("Invalid birth date (YYYY-MM-DD, %d to %d years old in %d).", CC.minAge, CC.maxAge, CC.currentYear),
     invalid_origin = "Origine inconnue.",
+    invalid_story = "Your backstory contains invalid text. Please enter it again.",
     identity_missing = "Fill in the identity first.",
     appearance_missing = "The body is not saved yet: open the mirror and confirm your appearance.",
     database_required = "This action needs the database.",

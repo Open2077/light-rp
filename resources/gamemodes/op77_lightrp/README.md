@@ -27,7 +27,30 @@ op77_lightrp/
 └── web/                       la page construite (ne pas éditer : `npm run build` dans ../../../ui)
 ```
 
-## Architecture
+## Kit d'interactions : progression et QTE
+
+Barre ou anneau de progression, maintien de touche et QTE de précision à plusieurs étapes,
+dans la DA jaune/noir allégée. API client `LightRpActions` et exports `ActionProgress`,
+`ActionHold`, `ActionSkillCheck`, `ActionCancel`, `ActionIsActive`, `ActionResult`, prêts pour
+les futurs jobs. [Contrats, exemples Lua, options et tests](docs/action-ui.md).
+
+Aperçu navigateur : `http://127.0.0.1:5177/?registered=1&actions=1` (Vite).
+En jeu, staff : `/lightrp.uitest progress|circle|hold|timing|sequence|cancel`.
+Les démonstrations n'attribuent aucune récompense ; les futurs jobs doivent valider leurs actions côté serveur.
+
+## Location de véhicules
+
+Catalogue photo avec recherche, catégories et tri, récapitulatif avant paiement,
+choix cash/banque et retour confirmé. Banque locale de **18 visuels** des véhicules
+du catalogue. [Configuration, sources des images et tests](docs/vehicle-rental.md).
+Aperçu : `http://127.0.0.1:5177/?registered=1&dialog=rental`.
+
+## Architecture du framework
+
+Catalogue RP : **30 objets dont 18 consommables illustrés** (9 aliments, 6 boissons,
+3 soins), avec effets, poids et piles configurables dans `shared/items.lua`.
+[Catalogue et ajout d'items](docs/item-catalogue.md) · Aperçu :
+`http://127.0.0.1:5177/?registered=1&items=1`.
 
 **Une page, un état.** Le serveur publie l'état du joueur par clés (`server`, `character`,
 `needs`, `vehicles`, `staff`, `locations`, `online`), chaque module fournissant la sienne via
@@ -123,25 +146,46 @@ Les agences utilisent désormais un **cylindre 3D jaune translucide, avec un dé
 
 ## Clés de véhicule (`server/modules/keys.lua`, `client/core/keys.lua`)
 
-Modèle FiveM : un véhicule est verrouillé pour la rue et ouvert pour ceux qui en ont la clé. La plateforme a exactement cette forme : verrou canonique (`Open77.vehicles.setLockedForAll`) + exceptions par joueur (`setLockedForPlayer`). Une clé est une entrée du registre `LightRP.keys.ledger[vehicleId].holders[identifier#slot]` (liée au personnage, pas à la session : réappliquée à la reconnexion et au changement de slot via `onCharacterLoaded`) et une exception posée tant que le joueur est en ligne. Réplication par state bags : `Open77.state.entity("vehicle", id).keys = { label, owner, holders }` et `Open77.state.player(id).vehicleKeys = { [vehicleId] = label }` (lu par le client pour savoir s'il peut appuyer sur L).
+Une clé autorise à verrouiller / déverrouiller explicitement : **un véhicule verrouillé est fermé pour tout le monde, propriétaire compris**. Les deux opérations passent par `Open77.vehicles.setLockedForAll` pour supprimer les exceptions individuelles. Une clé est une entrée du registre `LightRP.keys.ledger[vehicleId].holders[identifier#slot]`, liée au personnage, pas à la session. La reconnexion, le changement de personnage ou le partage de clés ne déverrouillent jamais la voiture. Réplication par state bags : `Open77.state.entity("vehicle", id).keys = { label, owner, holders }` et `Open77.state.player(id).vehicleKeys = { [vehicleId] = label }` (lu par le client pour savoir s'il peut appuyer sur L).
 
-API : `LightRP.keys.give(vehicleId, playerId, { label, owner })`, `take`, `clear`, `has`, `holders`, `lock(vehicleId, locked)`, `toggle(playerId, vehicleId)` (validé : clé + distance `keys.range` ou assis dedans, klaxon court). Hook `onVehicleLockChanged`. Touche L (`lightrp.vehiclelock`, rebindable) : le véhicule occupé, sinon le plus proche. Les clés disparaissent avec le véhicule (`onVehicleRemoved`). Staff : `/lightrp.givekeys`, `/lightrp.takekeys`. La location livre la voiture verrouillée avec la clé dans la poche du loueur.
+API : `LightRP.keys.give(vehicleId, playerId, { label, owner })`, `take`, `clear`, `has`, `holders`, `lock(vehicleId, locked)`, `toggle(playerId, vehicleId)` (validé : clé, même bucket, distance `vehicleKeys.range` ou assis dedans, klaxon court). Hook `onVehicleLockChanged`. Touche L (`lightrp.vehiclelock`, rebindable) : le véhicule occupé, sinon le plus proche. Les clés disparaissent avec le véhicule (`onVehicleRemoved`). Staff : `/lightrp.givekeys`, `/lightrp.takekeys`. La location livre la voiture verrouillée avec la clé dans la poche du loueur : appuyer sur L pour entrer.
+
+## Menu véhicule Alt + clic
+
+Les détenteurs des clés disposent d'actions RP via `open77_contextmenu` : verrouiller / déverrouiller, ouvrir / fermer les portes, le coffre et le capot, accéder à l'inventaire du coffre ciblé, commander les vitres, le moteur à l'arrêt, les feux et le klaxon, consulter l'état du véhicule. Les choix suivent l'état courant et les masques d'ouvrants configurés par modèle ; les motos n'affichent pas de portes / vitres / coffre. Le package contextmenu reste générique, sans action par défaut.
+
+Chaque demande est revérifiée côté serveur (clés, personnage actif et vivant, proximité, bucket, conducteur / occupants, vitesse, anti-spam). Le déverrouillage reste obligatoire pour ouvrir un coffre ou une porte. Paramètres : `shared/config.lua` → `vehicleContext`. Détails, API et tests : [docs/vehicle-context.md](docs/vehicle-context.md).
 
 ## Inventaire (`shared/items.lua`, `server/modules/inventory.lua`, page `features/inventory/`)
 
-Modèle ox_inventory : grilles de cases à poids maximum, stacks d'items identiques (même `name` + mêmes `metadata`, jusqu'à `stack` du template), tout mouvement validé côté serveur. Kinds : `player:<identifier>#<slot>` (persistant, chargé avec le personnage, items de départ dans `config.inventory.starting`), `trunk:<vehicleId>` (session, le véhicule ouvrable le plus proche : déverrouillé ou clé en poche), `drop:<n>` (session, tas au sol avec point d'interaction E « Pick up », expire après `drop.ttlMinutes`), `stash:<id>` (persistant, points de `config.inventory.stashes`). Table `lightrp_inventories` (items en JSON).
+Modèle ox_inventory : grilles de cases à poids maximum, stacks d'items identiques (même `name` + mêmes `metadata`, jusqu'à `stack` du template), tout mouvement validé côté serveur. Kinds : `player:<identifier>#<slot>` (persistant, chargé avec le personnage, items de départ dans `config.inventory.starting`), `trunk:<vehicleId>` (session, véhicule proche dans le même bucket, obligatoirement déverrouillé, même avec les clés), `drop:<n>` (session, tas au sol avec point d'interaction E « Pick up », expire après `drop.ttlMinutes`), `stash:<id>` (persistant, points de `config.inventory.stashes`). Table `lightrp_inventories` (items en JSON).
+
+Verrouiller retire immédiatement le coffre de l'inventaire de tous ses utilisateurs, sans fermer leurs poches ni déplacer d'objets. Les transferts déjà en cours sont revérifiés côté serveur et refusés si le coffre est devenu verrouillé, distant ou dans un autre bucket. Les abonnements périmés sont retirés avant toute publication. I près d'un véhicule verrouillé ouvre uniquement les poches et explique qu'il faut déverrouiller le coffre. Tests isolés : `pwsh -NoProfile -File tests/run-lua.ps1 -Test vehicle_access_test.lua` depuis la ressource (aucun jeu requis).
 
 Templates dans `shared/items.lua` : `label`, `description`, `weight` (kg), `stack`, `icon` (nom Lucide connu de la page, repli `package`), `category`, `use = { consume, food, drink, health, notice }`. Un autre module peut brancher `LightRP.inventory.onUse(name, fn)`. API : `addItem(invId, name, count, metadata)`, `removeItem`, `count`, `canHold`, `move`, `use`, `drop`, `give`, `open(playerId, invId?)`, `playerId(playerId)`; hook `onItemUsed`. Actions page : `inventory.open|close|move|use|drop|give`. Touche I (`lightrp.inventory`). Staff : `/lightrp.giveitem <id|me> <item> [n]`, `/lightrp.items`.
 
-Page : deux panneaux (joueur à gauche, secondaire à droite ou zone « DROP HERE » qui crée un tas), colonne centrale avec le champ Amount et Use / Give / Drop, drag & drop (Shift = moitié, Amount = quantité), clic droit Use / Give / Split / Drop, recherche par panneau, infobulle, 1–5 sur les premières cases. Les snapshots frais arrivent par `lightrp:ui:inventory` à tous ceux qui regardent l'inventaire modifié.
+Page : deux grilles aérées (poches à gauche, coffre / tas / stockage au centre) et une fiche objet à droite. Sans stockage proche, une zone de dépôt remplace la seconde grille. Un clic sélectionne ; un déplacement de plus de 6 px commence le glisser-déposer. La fiche affiche description, poids unitaire / total, quantité (1 / moitié / tout), utilisation, transfert, division, don au joueur le plus proche et dépôt. Les boutons Don / Dépôt demandent confirmation ; déposer par glisser-déposer reste direct. Le serveur vérifie toujours propriété, proximité, poids, métadonnées et quantités. Un coffre ne peut pas être glissé vers le sol en visant par erreur une case du joueur : il faut d'abord prendre l'objet.
+
+Recherche indépendante par panneau sans renumérotation des cases, clic droit pour les actions rapides, flèches pour naviguer dans la grille, 1–5 pour sélectionner les premières cases, Shift + glisser pour la moitié d'une pile. Échap ferme d'abord une confirmation / un menu contextuel / un drag, puis l'inventaire, même depuis un champ texte. Tab reste dans la fenêtre. Les actions attendent le serveur (pas de modification optimiste ni de double envoi pendant l'attente) ; les snapshots frais arrivent par `lightrp:ui:inventory` à tous ceux qui regardent l'inventaire modifié. Une mise à jour ou une perte de focus annule les glisser-déposer devenus périmés. Grilles défilantes, états vides et erreurs explicites, transitions courtes avec respect de `prefers-reduced-motion`.
+
+Tests UI : `ui/tests/inventory.browser.cjs` contre le serveur Vite. Le bridge simulé vérifie les actions réellement émises, les réponses serveur, les quantités, le focus, les annulations de drag, les tableaux Lua vides, les résolutions 720p / 1080p / 1440p / ultralarge et les alertes HUD. Installer Playwright dans l'environnement de test (ou fournir `PLAYWRIGHT_MODULE`), puis lancer `node tests/inventory.browser.cjs` depuis `ui`. `UI_URL` et `BROWSER_CHANNEL` permettent de changer le serveur et le navigateur ; par défaut Vite sur `127.0.0.1:5177` et Edge.
+
+Le HUD et l'inventaire gardent l'identité jaune / noir du serveur : `--accent` du design system pour les actions principales, les sélections, les jauges de vie / endurance et les repères de navigation. Typographie sobre, fonds noirs translucides, aucune grosse plaque derrière les besoins. Les alertes et les autres besoins conservent leurs couleurs sémantiques.
+
+**I ouvre et referme l'inventaire**. Le raccourci de fermeture est fourni par `Open77.input.keyFor` : il suit une éventuelle réaffectation dans les paramètres. Une fois le clavier capturé, la page ferme au relâchement d'un nouvel appui, sans réagir au relâchement initial ni aux répétitions de touche ; la lettre reste saisissable dans la recherche. Le client applique un court anti-rebond au retour du focus pour éviter une réouverture immédiate. Échap reste disponible depuis les champs texte. Tests des helpers : `node --experimental-strip-types --test tests/inventory-model.test.ts` (Node 22.6+).
 
 ## Ce que voit le joueur
 
-- HUD : vie, armure, endurance, faim, soif, micro avec portée (WHISPER 4 m / NORMAL 15 m /
-  SHOUT 40 m), id de session, population, horloge ; compteur véhicule quand il conduit.
-- À la première connexion, un dialogue d'identité demande prénom et nom ; tant qu'il n'est pas
-  rempli, seul `/ooc` fonctionne dans le chat.
-- **F5** ouvre le menu terminal : Personnage, Véhicules, Staff (si ACL), Aide.
+- HUD bas gauche : vie principale et quatre jauges distinctes (armure, endurance, faim, soif),
+  sans grosse plaque ni répétition du nom / logo. Les jauges évoluent en douceur, les variations
+  de vie sont affichées brièvement, les alertes n'apparaissent que sous les seuils critiques.
+  Une ombre diffuse garde les libellés lisibles sur le monde. Le HUD s'efface pendant l'inventaire.
+  Voix et compteur véhicule restent dans leurs emplacements habituels.
+- À la première connexion, un [wizard en quatre étapes](docs/character-creation.md)
+  guide l'identité, l'histoire facultative, l'apparence et le récapitulatif. Design noir/jaune,
+  retour arrière sans perdre les saisies, validation serveur et navigation clavier.
+  Tant que l'identité n'est pas remplie, seul `/ooc` fonctionne dans le chat.
+- **F1** ouvre le menu joueur (identité, informations et aide) ; **I** ouvre l'inventaire.
 - Le chat normal est la parole en jeu à 20 m, sous le nom du personnage.
 
 | Commande | Effet |

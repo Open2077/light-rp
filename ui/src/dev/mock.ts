@@ -8,6 +8,7 @@
    `?interact=1` shows the proximity prompt, `?dialog=inventory` opens the inventory (with a trunk on the right). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
+import { itemCatalogue } from "./itemCatalogue";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -33,7 +34,8 @@ export function installMockBridge(): void {
       ? [{ key: "default", status: "active", name: "Yuki Tanaka", bodyFamily: "female", playtimeMs: 5_640_000, lastSeen: "2077-09-19" },
          { key: "slot2", status: "draft", name: "Marco Reyes", bodyFamily: "male", playtimeMs: 0 }]
       : [{ key: "default", status: "draft", playtimeMs: 0 }],
-    maxSlots: 3, origins: ORIGINS, minAge: 18, currentYear: 2077,
+    maxSlots: 3, origins: ORIGINS, minAge: 18, maxAge: 90, currentYear: 2077,
+    nameMinLength: 2, nameMaxLength: 24, nameAllowAccents: true,
     welcomePending: registered && params.get("welcome") === "1", welcomeReadSeconds: Number(params.get("read") ?? 15),
   };
   const state: UiState = {
@@ -103,11 +105,15 @@ export function installMockBridge(): void {
             right: { id: "trunk:7306", kind: "trunk", label: "Archer Hella", slots: 20, maxWeight: 80, weight: 8, items: [
               { slot: 1, name: "repairkit", label: "Repair Kit", count: 1, weight: 3.0, icon: "hammer", usable: false, stack: 2 },
               { slot: 2, name: "trashbag", label: "Trash Bag", count: 1, weight: 4.0, icon: "package", usable: false, stack: 5 } ] } });
+          if (params.get("items") === "1") fire(PAGE_EVENTS.dialog, { kind: "inventory",
+            left: { id: "player:catalogue", kind: "player", label: "RP consumables · preview", slots: 30, maxWeight: 40,
+              weight: itemCatalogue.reduce((sum, item) => sum + item.weight * item.count, 0), items: itemCatalogue },
+            right: { id: "ground", kind: "ground", label: "Ground", slots: 1, maxWeight: 0, weight: 0, items: [] } });
           if (params.get("dialog") === "rental") fire(PAGE_EVENTS.dialog, { kind: "rental", spot: { id: "citycenter", name: "Rent-a-Ride // City Center", durationMinutes: 30, stock: [
             { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
-            { key: "cortes", label: "Villefort Cortes", category: "Street", price: 140 }, { key: "semimaru", label: "Yaiba Semimaru", category: "Bikes", price: 90 },
-            { key: "supron", label: "Mahir Supron", category: "Utility", price: 180 }, { key: "type66", label: "Quadra Type-66", category: "Sport", price: 900 } ] } });
-          setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Welcome to Night City", body: "Light RP server. F1 opens your player menu, /help lists the commands.", source: "LIGHT RP", durationMs: 9000 }), 400);
+            { key: "cortes", label: "Villefort Cortes", category: "Street", price: 140 }, { key: "semimaru", label: "Yaiba Semimaru", category: "Sport", price: 90 },
+            { key: "supron", label: "Mahir Supron", category: "Utility", price: 180 } ] } });
+          if (registered) setTimeout(() => fire(PAGE_EVENTS.notice, { kind: "info", title: "Welcome to Night City", body: "Light RP server. F1 opens your player menu, /help lists the commands.", source: "LIGHT RP", durationMs: 9000 }), 400);
         }, 30);
       }
       if (name === PAGE_EVENTS.close) fire(PAGE_EVENTS.closed, {});
@@ -124,12 +130,14 @@ export function installMockBridge(): void {
               break;
             }
             case "character.appearance.open":
+              fire(PAGE_EVENTS.characterEditor, { active: true });
               // The native mirror would open here; the mock "saves" a body two seconds later.
               setTimeout(() => {
                 const c = state.character;
                 patchCharacter({ bodyFamily: action.family ?? c.bodyFamily ?? "female", appearanceRevision: c.appearanceRevision + 1,
                   appearanceSavedAt: "2077-09-19 22:41:00", step: c.status === "active" ? "done" : c.firstName ? "confirm" : "identity" });
                 fire(PAGE_EVENTS.notice, { kind: "success", title: "Appearance saved", body: `Revision ${state.character.appearanceRevision}.`, source: "LIGHT RP", durationMs: 5000 });
+                fire(PAGE_EVENTS.characterEditor, { active: false });
               }, 2000);
               break;
             case "character.finish":

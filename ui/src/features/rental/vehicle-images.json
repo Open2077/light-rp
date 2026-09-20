@@ -1,0 +1,25 @@
+{
+  "sourcePage": "https://vulkk.com/2024/02/02/cyberpunk-2077-vehicles-complete-catalog-and-guide/",
+  "credit": "Vehicle screenshots: VULKK. Cyberpunk 2077 and vehicle designs: CD PROJEKT RED. Illustrative paint/appearance; not a guaranteed rental colour.",
+  "retrieved": "2026-09-20",
+  "vehicles": {
+    "hella": { "file": "hella.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Hella-EC-D-1360-Angle.jpg" },
+    "bandit": { "file": "bandit.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Quartz-Bandit-Angle.jpg" },
+    "quartz": { "file": "quartz.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Quartz-EC-T2-R660-Angle.jpg" },
+    "cortes": { "file": "cortes.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Cortes-V5000-Valor-Angle.jpg" },
+    "colby": { "file": "colby.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Colby-C125-Angle.jpg" },
+    "galena": { "file": "galena.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Galena-G240-Angle.jpg" },
+    "maimai": { "file": "maimai.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Maimai-P126-Angle.jpg" },
+    "hozuki": { "file": "hozuki.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Hozuki-Hoseki-Angle.jpg" },
+    "thrax": { "file": "thrax.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Thrax-388-Jefferson-Angle.jpg" },
+    "supron": { "file": "supron.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Supron-FS3-Angle.jpg" },
+    "columbus": { "file": "columbus.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Columbus-V340-F-Freight-Angle.jpg" },
+    "merrimac": { "file": "merrimac.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Merrimac-Warlock-Angle.jpg" },
+    "semimaru": { "file": "semimaru.jpg", "source": "https://vulkk.com/wp-content/uploads/2025/07/Yaiba-ARV-Q340-Semimaru-Angle-scaled.jpg" },
+    "kusanagi": { "file": "kusanagi.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Kusanagi-CT-3X-Angle.jpg" },
+    "apollo": { "file": "apollo.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Apollo-Angle.jpg" },
+    "type66": { "file": "type66.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Type-66-640TS-Angle.jpg" },
+    "shion": { "file": "shion.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Shion-MZ2-Angle.jpg" },
+    "caliburn": { "file": "caliburn.jpg", "source": "https://vulkk.com/wp-content/uploads/2024/01/Caliburn-Angle.jpg" }
+  }
+}

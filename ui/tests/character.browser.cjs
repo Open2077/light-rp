@@ -1,0 +1,108 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs');
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const base = { registered: false, status: 'draft', step: 'identity', key: 'default', appearanceRevision: 0, appearanceTracked: true, accountName: 'Test', playerId: 1, slots: [], maxSlots: 3, minAge: 18, maxAge: 90, currentYear: 2077, welcomePending: false, origins: [{ key: 'night_city', label: 'Night City' }, { key: 'badlands', label: 'Badlands' }, { key: 'ncus', label: 'NUSA' }, { key: 'europe', label: 'Europe' }, { key: 'asia', label: 'Asia' }, { key: 'latam', label: 'Latin America' }] };
+(async () => {
+  const browser = await chromium.launch({ headless: true, channel: process.env.BROWSER_CHANNEL || 'msedge' });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.addInitScript(() => {
+      const handlers = new Map();
+      window.testBridge = { sent: [], ready: false, fire: (name, payload) => (handlers.get(`lightrp:ui:${name}`) || []).forEach(fn => fn(payload)) };
+      window.Open77 = { on: (name, fn) => handlers.set(name, [...(handlers.get(name) || []), fn]), emit: (name, payload) => { window.testBridge.sent.push({ name, payload }); if (name.endsWith(':ready')) window.testBridge.ready = true; }, ready() {} };
+    });
+    await page.goto(process.env.UI_URL || 'http://127.0.0.1:5177');
+    await page.waitForFunction(() => window.testBridge?.ready);
+    const fire = (name, payload) => page.evaluate(({ name, payload }) => window.testBridge.fire(name, payload), { name, payload });
+    const actions = () => page.evaluate(() => window.testBridge.sent.filter(x => x.name === 'lightrp:ui:action').map(x => x.payload));
+    const shot = async name => { if (process.env.SCREENSHOT_DIR) { await page.waitForFunction(() => getComputedStyle(document.querySelector('.creator__page')).opacity === '1'); fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true }); await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, `character-${name}.png`) }); } };
+    await fire('state', { character: base });
+    await page.locator('.creator').waitFor();
+    await page.waitForTimeout(500);
+    await shot('identity');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    assert.equal(await page.locator('input[aria-invalid="true"]').count(), 2);
+    assert.equal((await actions()).length, 0);
+    await page.locator('input[name=firstName]').fill('Élodie');
+    await page.locator('input[name=lastName]').fill("O'Neil");
+    await page.locator('input[name=birthDate]').fill('2053-02-29');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    assert.equal(await page.locator('input[name=birthDate]').getAttribute('aria-invalid'), 'true');
+    await page.locator('input[name=birthDate]').fill('2052-02-29');
+    await page.keyboard.press('Enter');
+    await page.getByRole('heading', { name: 'Where are you coming from?' }).waitFor();
+    await page.getByRole('radio', { name: 'Badlands', exact: true }).check();
+    await page.locator('textarea').fill('Une nouvelle vie. '.repeat(20));
+    await shot('background');
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    assert.equal(await page.locator('input[name=firstName]').inputValue(), 'Élodie');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    assert(await page.getByRole('radio', { name: 'Badlands', exact: true }).isChecked());
+    assert.match(await page.locator('textarea').inputValue(), /nouvelle vie/);
+    await fire('result', { action: 'character.identity', ok: true, text: 'Stale result' });
+    await page.getByRole('button', { name: 'Save & continue', exact: true }).click();
+    await page.locator('button[type=submit]').evaluate(el => { el.click(); el.click(); });
+    assert.equal((await actions()).length, 1, 'no duplicate save');
+    await fire('result', { action: 'rental.rent', ok: true, text: 'Unrelated' });
+    assert(await page.locator('button[type=submit]').isDisabled());
+    await fire('result', { action: 'character.identity', ok: false, text: 'Please try a different name.' });
+    assert.match(await page.locator('.creator__feedback').innerText(), /different name/);
+    assert.match(await page.locator('textarea').inputValue(), /nouvelle vie/);
+    await page.getByRole('button', { name: 'Save & continue', exact: true }).click();
+    const submitted = (await actions()).at(-1);
+    await fire('result', { action: 'character.identity', ok: true, text: 'Saved' });
+    assert(await page.locator('button[type=submit]').isDisabled(), 'wait for authoritative state too');
+    let saved = { ...base, ...submitted, step: 'appearance' }; delete saved.type;
+    await fire('state', { character: saved });
+    await page.getByRole('heading', { name: 'Put a face to the name.' }).waitFor();
+    assert(await page.getByRole('button', { name: 'Review character', exact: true }).isDisabled());
+    await shot('appearance');
+    await page.getByRole('radio', { name: /Feminine/ }).check();
+    await page.getByRole('button', { name: 'Open appearance editor', exact: true }).click();
+    assert.deepEqual((await actions()).at(-1), { type: 'character.appearance.open', mode: 'ripperdoc', family: 'female' });
+    await page.waitForSelector('.creator--editor', { state: 'attached' });
+    await fire('character:editor', { active: false });
+    await page.getByRole('heading', { name: 'Put a face to the name.' }).waitFor();
+    assert(await page.getByRole('button', { name: 'Review character', exact: true }).isDisabled(), 'cancel is not a save');
+    await page.getByRole('button', { name: 'Open appearance editor', exact: true }).click();
+    saved = { ...saved, bodyFamily: 'female', appearanceRevision: 1, step: 'confirm' };
+    await fire('state', { character: saved });
+    await fire('character:editor', { active: false });
+    await page.getByRole('button', { name: 'Enter Night City', exact: true }).waitFor();
+    await shot('review');
+    assert((await page.evaluate(() => window.testBridge.sent)).some(x => x.name.endsWith(':focus') && x.payload.active === true));
+    // Long content, keyboard focus, all steps and narrow/ultrawide layouts.
+    for (const viewport of [{ width: 1280, height: 720 }, { width: 2560, height: 1080 }, { width: 800, height: 600 }, { width: 390, height: 720 }]) {
+      await page.setViewportSize(viewport);
+      for (const step of ['review', 'appearance', 'background', 'identity']) {
+        const target = { ...saved, key: `${viewport.width}-${step}`, step: step === 'review' ? 'confirm' : step === 'background' ? 'identity' : step, story: 'é'.repeat(600) };
+        await fire('state', { character: target });
+        if (step === 'background') await page.getByRole('button', { name: 'Continue', exact: true }).click();
+        await page.waitForTimeout(320);
+        assert(await page.locator('.creator__main').evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'no horizontal overflow');
+        assert(await page.locator('.creator__footer').evaluate(el => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1; }), 'navigation always visible');
+      }
+    }
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await fire('state', { character: { ...saved, key: 'final' } });
+    await page.getByRole('button', { name: 'Enter Night City', exact: true }).click();
+    await fire('result', { action: 'character.finish', ok: false, text: 'Appearance missing' });
+    assert.match(await page.locator('.creator__feedback').innerText(), /Appearance missing/);
+    await page.getByRole('button', { name: 'Enter Night City', exact: true }).click();
+    await fire('result', { action: 'character.finish', ok: true, text: 'Welcome' });
+    assert.equal(await page.locator('.creator').count(), 1, 'result alone never activates');
+    await fire('state', { character: { ...saved, key: 'final', status: 'active', registered: true, step: 'done' } });
+    await page.waitForSelector('.creator', { state: 'detached' });
+    await fire('state', { character: { ...base, key: 'new', origins: {}, appearanceTracked: false } });
+    assert.equal(await page.locator('input[name=firstName]').inputValue(), '', 'new slot has no prior draft');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('.creator').count(), 1);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    assert.equal(await page.locator('.creator__page').evaluate(el => getComputedStyle(el).animationName), 'none');
+    assert.deepEqual(errors, []);
+    console.log('PASS: guided creation, validation, draft/back, failures, duplicate/stale replies, state ordering, editor cancel/save, server-only activation, 4 viewports/all steps, slot reset, reduced motion');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

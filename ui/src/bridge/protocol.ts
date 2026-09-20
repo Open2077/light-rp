@@ -10,6 +10,7 @@ export const PAGE_EVENTS = {
   dialogState: "lightrp:ui:dialog:state", // page -> Lua: { kind, open } so a toggle key can close instead of reopening
   // Lua -> page
   dialogClose: "lightrp:ui:dialog:close", // Lua -> page: { kind } close that dialog
+  characterEditor: "lightrp:ui:character:editor", // Lua -> page: native editor handoff { active, error? }
   state: "lightrp:ui:state",
   hud: "lightrp:ui:hud",
   open: "lightrp:ui:open",
@@ -19,6 +20,10 @@ export const PAGE_EVENTS = {
   dialog: "lightrp:ui:dialog",
   interact: "lightrp:ui:interact",
   inventory: "lightrp:ui:inventory",
+  actionStart: "lightrp:ui:activity:start",
+  actionStarted: "lightrp:ui:activity:started",
+  actionFinish: "lightrp:ui:activity:finish",
+  actionResult: "lightrp:ui:activity:result",
 } as const;
 
 export type BodyFamily = "male" | "female";
@@ -57,6 +62,10 @@ export interface CharacterState {
   maxSlots: number;
   origins: Array<{ key: string; label: string }>;
   minAge: number;
+  maxAge?: number;
+  nameMinLength?: number;
+  nameMaxLength?: number;
+  nameAllowAccents?: boolean;
   currentYear: number;
   welcomePending: boolean;     // first-spawn briefing not acknowledged yet (once per account)
   welcomeReadSeconds?: number; // how long the OK button stays locked
@@ -122,7 +131,7 @@ export interface NoticePayload { id?: string; kind?: NoticeKindWire; title?: str
 export interface ResultPayload { ok: boolean; text: string; action?: string }
 
 /** A rental desk's offer, sent when the player presses E at the desk. */
-export interface RentalStockItem { key: string; label: string; category: string; price: number }
+export interface RentalStockItem { key: string; label: string; category: string; price: number; image?: string }
 export interface RentalDialogPayload {
   kind: "rental";
   spot: { id: string; name: string; stock: RentalStockItem[]; durationMinutes: number };
@@ -131,17 +140,20 @@ export interface RentalDialogPayload {
 export interface InventoryItem {
   slot: number; name: string; count: number; metadata?: Record<string, unknown>;
   label: string; description?: string; weight: number; icon: IconNameWire; category?: string; usable: boolean; stack: number;
+  image?: string;
+  effects?: { food?: number; drink?: number; health?: number };
 }
 export type IconNameWire = string;
 export interface InventorySnapshot {
   id: string; kind: "player" | "trunk" | "drop" | "stash" | "ground"; label: string;
   slots: number; maxWeight: number; weight: number; items: InventoryItem[];
 }
-export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot }
+export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot; toggleKey?: string }
 export type DialogPayload = RentalDialogPayload | InventoryDialogPayload;
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
+  image?: string;
   remainingMs: number; // at the time the state was pushed
   vehicleId?: number;
 }

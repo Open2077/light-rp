@@ -5,6 +5,14 @@ local Config = LightRpConfig
 local Db = LightRP.db
 local Staff = LightRP.module("staff", {})
 
+LightRP.command("lightrp.uitest", { restricted = true, usage = "/lightrp.uitest <progress|circle|hold|timing|sequence|cancel>" }, function(playerId, args)
+    local mode = args[1] or "progress"
+    local valid = { progress = true, circle = true, hold = true, timing = true, sequence = true, cancel = true }
+    if not valid[mode] or not playerId or playerId <= 0 then return false end
+    TriggerClientEvent(LightRpEvents.net.actionDemo, playerId, mode)
+    return true, "UI interaction preview: " .. mode
+end)
+
 Db.schema([[
     CREATE TABLE IF NOT EXISTS lightrp_reports (
         id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,

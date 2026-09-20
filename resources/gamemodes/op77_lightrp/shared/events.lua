@@ -7,6 +7,7 @@ LightRpEvents = {
         close = "lightrp:ui:close",     -- page -> Lua: the player asked to close the menu (Backspace, Escape, F1)
         dialogState = "lightrp:ui:dialog:state", -- page -> Lua: { kind, open } which dialogs are on screen
         dialogClose = "lightrp:ui:dialog:close", -- Lua -> page: { kind } close that dialog
+        characterEditor = "lightrp:ui:character:editor", -- Lua -> page: { active, error? } native editor handoff
         state = "lightrp:ui:state",     -- Lua -> page: full state or a patch
         hud = "lightrp:ui:hud",         -- Lua -> page: sampled vitals / vehicle / voice
         open = "lightrp:ui:open",       -- Lua -> page: the player menu opens
@@ -16,6 +17,10 @@ LightRpEvents = {
         dialog = "lightrp:ui:dialog",   -- Lua -> page: { kind = "rental", ... } opens a dialog
         interact = "lightrp:ui:interact", -- Lua -> page: { id, prompt, key } for the nearest point in range, {} when none
         inventory = "lightrp:ui:inventory", -- Lua -> page: { inventories = { snapshot, ... } } fresh copies of what is on screen
+        actionStart = "lightrp:ui:activity:start",
+        actionStarted = "lightrp:ui:activity:started",
+        actionFinish = "lightrp:ui:activity:finish",
+        actionResult = "lightrp:ui:activity:result",
     },
     -- client <-> server (network events)
     net = {
@@ -29,5 +34,6 @@ LightRpEvents = {
         interact = "op77_lightrp:interact",   -- client -> server: E pressed at a point (id)
         keysToggle = "op77_lightrp:keys:toggle", -- client -> server: L pressed for a vehicle (id)
         inventory = "op77_lightrp:inventory",  -- server -> client: inventory snapshots for the page
+        actionDemo = "op77_lightrp:activity:demo", -- staff-only visual playground, never grants rewards
     },
 }

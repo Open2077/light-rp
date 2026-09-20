@@ -23,7 +23,7 @@ exports("setEnabled",function(token,value) local r=owner();return registry.setEn
 exports("list",function() local r=owner();return registry.list(r) end)
 exports("isOpen",function() return active end)
 exports("isReady",function() return ready and page~=nil end)
-exports("getVersion",function() return "1.1.0" end)
+exports("getVersion",function() return "1.2.0" end)
 exports("getContext",function() return selection end)
 exports("getTarget",function() return selection and selection.target end)
 
@@ -158,8 +158,12 @@ local function pick(payload)
         local allowed=not action.canInteract or call(action,action.canInteract,context,request,budget)==true
         if not validRequest(request) then return end
         if allowed and registry.get(action.token)==action and registry.matches(action,context) then
+            -- Navigation is presentation-only. Namespace folders by the real
+            -- provider so another resource cannot merge into its submenu.
+            local submenu=action.submenu and {id=action.owner.."/"..action.submenu.id,
+                label=action.submenu.label,icon=action.submenu.icon or "interact"} or nil
             rows[#rows+1]={token=action.token,label=action.label,description=action.description,
-                group=action.group,icon=action.icon,danger=action.danger}
+                group=action.group,icon=action.icon,danger=action.danger,submenu=submenu}
             visibleActions[action.token]=true
             if #rows>=config.maxActions then break end
         end

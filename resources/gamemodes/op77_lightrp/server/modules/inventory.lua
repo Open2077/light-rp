@@ -33,6 +33,7 @@ local playerInv = {}    -- playerId -> inventory id
 local secondary = {}    -- playerId -> inventory id currently open on the right (or "ground")
 local useHandlers = {}  -- item name -> fn
 local dropSequence = 0
+local canAccess
 Inv.registry = registry
 
 -- Server Lua exposes the FiveM-style global `json` (Open77.json is the client namespace).
@@ -77,6 +78,8 @@ local function snapshotItem(slot, item)
         label = item.metadata and item.metadata.label or t.label or item.name, description = t.description,
         weight = t.weight or 0, icon = t.icon or "package", category = t.category, usable = t.use ~= nil or useHandlers[item.name] ~= nil,
         stack = stackMax(item.name),
+        image = t.image,
+        effects = t.use and { food = t.use.food, drink = t.use.drink, health = t.use.health } or nil,
     }
 end
 
@@ -101,6 +104,9 @@ local function publish(inv)
     local snap = Inv.snapshot(inv)
     for viewer in pairs(inv.viewers) do
         if GetPlayerName(viewer) == nil then inv.viewers[viewer] = nil
+        elseif not canAccess(viewer, inv) then
+            inv.viewers[viewer] = nil
+            if secondary[viewer] == inv.id then Inv.push(viewer) end
         else TriggerClientEvent(LightRpEvents.net.inventory, viewer, { inventories = { snap } }) end
     end
 end
@@ -217,14 +223,20 @@ local function distanceTo(playerId, position)
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
-local function canAccess(playerId, inv)
+canAccess = function(playerId, inv)
     if inv == nil then return false, "unknown_inventory" end
     if inv.id == playerInv[playerId] then return true end
     if inv.kind == "trunk" then
-        local position = Open77.vehicles.getPosition and Open77.vehicles.getPosition(inv.vehicleId) or (Open77.vehicles.get(inv.vehicleId) or {}).position
+        local vehicle = Open77.vehicles.get(inv.vehicleId)
+        if vehicle == nil then return false, "vehicle_gone" end
+        local playerPosition = Open77.players.position(playerId)
+        if playerPosition == nil or playerPosition.bucket ~= vehicle.bucket then return false, "too_far" end
+        local position = vehicle.position or (Open77.vehicles.getPosition and Open77.vehicles.getPosition(inv.vehicleId))
         if position == nil then return false, "vehicle_gone" end
         if distanceTo(playerId, position) > (Config.trunk.range or 4.5) then return false, "too_far" end
-        if Open77.vehicles.isLocked(inv.vehicleId) == true and not LightRP.keys.has(inv.vehicleId, playerId) then return false, "locked" end
+        -- Keys permit unlocking, not bypassing a locked trunk. Fail closed if
+        -- the platform cannot supply its lock state.
+        if Open77.vehicles.isLocked(inv.vehicleId) ~= false then return false, "locked" end
         return true
     end
     if inv.kind == "drop" then
@@ -401,11 +413,20 @@ function Inv.use(playerId, slot)
         if t.use == nil then consume = result ~= "keep" end
     end
     if t.use then
+        -- Do not consume a medical item when the native rejects the heal (or
+        -- the API is unavailable). Apply this before any other template effect.
+        if t.use.health then
+            if type(Open77.players.heal) ~= "function" then return false, "use_failed" end
+            local ok, applied, reason = pcall(Open77.players.heal, playerId, t.use.health)
+            if not ok or applied ~= true then
+                LightRP.log("heal for %s refused: %s", item.name, tostring(reason or applied))
+                return false, "use_failed"
+            end
+        end
         if (t.use.food or t.use.drink) and LightRP.needs then
             local needs = LightRP.needs.get(playerId)
             LightRP.needs.set(playerId, needs.food + (t.use.food or 0), needs.drink + (t.use.drink or 0))
         end
-        if t.use.health and type(Open77.players.heal) == "function" then pcall(Open77.players.heal, playerId, t.use.health) end
         if t.use.notice then LightRP.notice(playerId, { kind = "item", title = t.label, body = t.use.notice, durationMs = 4000 }) end
     end
     if consume then
@@ -481,6 +502,7 @@ local function secondaryFor(playerId)
     if id == nil or id == "ground" then return { kind = "ground", id = "ground", label = "Drop", slots = Config.drop.slots, maxWeight = Config.drop.weight, weight = 0, items = {} } end
     local inv = registry[id]
     if inv == nil or not canAccess(playerId, inv) then
+        if inv then inv.viewers[playerId] = nil end
         secondary[playerId] = "ground"
         return secondaryFor(playerId)
     end
@@ -493,6 +515,22 @@ function Inv.push(playerId)
     TriggerClientEvent(LightRpEvents.net.inventory, playerId, { inventories = { Inv.snapshot(inv), secondaryFor(playerId) } })
 end
 
+-- Revoke every open trunk immediately, before another drag can be submitted.
+-- The player's pockets remain open; subsequent requests are still revalidated.
+function Inv.onVehicleLockChanged(vehicleId, locked)
+    if not locked then return end
+    local trunk = registry["trunk:" .. tostring(vehicleId)]
+    if trunk == nil then return end
+    for viewer in pairs(trunk.viewers) do
+        trunk.viewers[viewer] = nil
+        if secondary[viewer] == trunk.id then
+            secondary[viewer] = "ground"
+            Inv.push(viewer)
+            LightRP.notice(viewer, { kind = "info", title = "Trunk closed", body = "The vehicle has been locked." })
+        end
+    end
+end
+
 local function stopWatching(playerId)
     for _, inv in pairs(registry) do inv.viewers[playerId] = nil end
 end
@@ -502,34 +540,59 @@ local function pickSecondary(playerId, wanted)
     if wanted and registry[wanted] and canAccess(playerId, registry[wanted]) then return wanted end
     local position = Open77.players.position(playerId)
     if position == nil then return "ground" end
+    local trunkReason
     if type(Open77.vehicles.closest) == "function" then
-        local ok, entry = pcall(Open77.vehicles.closest, position, { radius = Config.trunk.range or 4.5 })
+        -- A player anchor scopes the search to their routing bucket.
+        local ok, entry = pcall(Open77.vehicles.closest, playerId, { radius = Config.trunk.range or 4.5 })
         local vehicleId = ok and type(entry) == "table" and (entry.id or entry.vehicleId) or nil
         if vehicleId then
             local trunk = trunkOf(vehicleId)
-            if trunk and canAccess(playerId, trunk) then return trunk.id end
+            if trunk then
+                local allowed, reason = canAccess(playerId, trunk)
+                if allowed then return trunk.id end
+                trunkReason = reason
+            end
         end
     end
     local pile = nearestDrop(position, Config.drop.radius or 2.0)
     if pile then return pile.id end
-    return "ground"
+    return "ground", trunkReason
 end
 
 function Inv.open(playerId, wanted)
     local inv = Inv.player(playerId)
     if inv == nil then return false, "no_inventory" end
+    if wanted and wanted ~= "ground" then
+        local allowed, reason = canAccess(playerId, registry[wanted])
+        if not allowed then return false, reason end
+    end
     stopWatching(playerId)
-    secondary[playerId] = pickSecondary(playerId, wanted)
+    local selected, reason = pickSecondary(playerId, wanted)
+    secondary[playerId] = selected
     inv.viewers[playerId] = true
     local other = registry[secondary[playerId]]
     if other then other.viewers[playerId] = true end
     LightRP.dialog(playerId, "inventory", { left = Inv.snapshot(inv), right = secondaryFor(playerId) })
+    if reason == "locked" then
+        LightRP.notice(playerId, { kind = "info", title = "Trunk locked", body = "Unlock the vehicle before opening its trunk." })
+    end
     return true
 end
 
 function Inv.close(playerId)
     stopWatching(playerId)
     secondary[playerId] = nil
+end
+
+-- Explicit target from the vehicle menu, never substitute the nearest car.
+function Inv.openTrunk(playerId, vehicleId)
+    if Inv.player(playerId) == nil then return false, "no_inventory" end
+    local trunk = trunkOf(vehicleId)
+    local allowed, reason = canAccess(playerId, trunk)
+    if not allowed then return false, reason end
+    local opened, failure = Open77.vehicles.openDoor(vehicleId, "trunk")
+    if not opened then return false, failure or "trunk_unavailable" end
+    return Inv.open(playerId, trunk.id)
 end
 
 -- Dragging onto the empty "Drop" panel makes a pile; onto a pile, fills it.
@@ -633,6 +696,8 @@ local REASONS = {
     nobody_near = "Nobody close enough to hand it to.", target_too_heavy = "They cannot carry that.", target_no_room = "They have no room.",
     no_inventory = "Finish your character first.", unknown_item = "Unknown item.", not_enough = "Not enough of that.", use_refused = "That did nothing.",
     position_unknown = "Your position is unknown.", forbidden = "You cannot open that.",
+    use_failed = "This item could not be used. It has not been consumed.",
+    trunk_unavailable = "The trunk could not be opened.",
 }
 local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
 Inv.explain = explain
@@ -656,6 +721,12 @@ LightRP.action("inventory.close", function(playerId) Inv.close(playerId) end)
 LightRP.action("inventory.move", function(playerId, payload)
     local from, to = payload.from or {}, payload.to or {}
     if to.inventory == "ground" then
+        -- Ground drops always come from the player's pockets. Never interpret a
+        -- trunk/stash slot as a player slot with the same number.
+        if from.inventory ~= playerInv[playerId] then
+            LightRP.result(playerId, false, "Only items in your pockets can be dropped on the ground.", "inventory.move")
+            return
+        end
         local ok, reason = moveToGround(playerId, from.slot, payload.count)
         if not ok then LightRP.result(playerId, false, explain(reason), "inventory.move") end
         return

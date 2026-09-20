@@ -75,7 +75,8 @@ local function stockOf(spot)
     for _, item in ipairs(spot.stock or {}) do
         local entry = LightRP.vehicles.byKey[string.lower(item.key)]
         if entry then
-            list[#list + 1] = { key = entry.key, label = entry.label, category = entry.category, price = math.max(0, math.floor(tonumber(item.price) or 0)) }
+            list[#list + 1] = { key = entry.key, label = entry.label, category = entry.category, image = item.image or entry.image,
+                price = math.max(0, math.floor(tonumber(item.price) or 0)) }
         else
             LightRP.log("rental desk %s: unknown vehicle key %s in stock", spot.id, tostring(item.key))
         end
@@ -111,7 +112,7 @@ local function view(playerId)
     local r = rentals[playerId]
     if r == nil then return nil end
     return { spotId = r.spotId, spotName = spots[r.spotId] and spots[r.spotId].name or r.spotId, key = r.key, label = r.label,
-        price = r.price, paidWith = r.paidWith, remainingMs = remaining(r), vehicleId = r.vehicleId }
+        image = r.image, price = r.price, paidWith = r.paidWith, remainingMs = remaining(r), vehicleId = r.vehicleId }
 end
 
 LightRP.stateProvider("rental", function(playerId) return { active = view(playerId) } end)
@@ -169,11 +170,11 @@ function Rental.rent(playerId, spotId, key, pay)
         if item.price > 0 then refund(playerId, item.price, "refund", "Rental refused: " .. tostring(reason), spot.name) end
         return false, "vehicle_refused"
     end
-    -- Keys first, then the street lock: the renter keeps access, nobody else.
+    -- Keys authorise the renter to unlock; the car starts locked for everyone.
     LightRP.keys.give(vehicleId, playerId, { label = item.label, owner = true })
     LightRP.keys.lock(vehicleId, true, playerId)
     local now = LightRP.nowMs()
-    local r = { spotId = spot.id, key = item.key, label = item.label, vehicleId = vehicleId, startedAt = now,
+    local r = { spotId = spot.id, key = item.key, label = item.label, image = item.image, vehicleId = vehicleId, startedAt = now,
         expiresAt = now + (Config.durationMinutes or 30) * 60000, price = item.price, paidWith = pay }
     rentals[playerId] = r
     if Db.ready and c.identifier then
@@ -184,7 +185,7 @@ function Rental.rent(playerId, spotId, key, pay)
     end
     LightRP.state(playerId, "rental")
     LightRP.notice(playerId, { kind = "success", title = spot.name, durationMs = 10000,
-        body = string.format("%s is parked outside for %d minutes, locked, keys in your pocket (L). Bring it back to any desk when you are done.", item.label, Config.durationMinutes or 30) })
+        body = string.format("%s is parked outside for %d minutes. You have the keys: press L to unlock it. Bring it back to any desk when you are done.", item.label, Config.durationMinutes or 30) })
     LightRP.log("rental: %s rented %s at %s for %s (%s)", LightRP.characters.displayName(playerId), item.key, spot.id, LightRP.money.format(item.price), pay)
     return true, r
 end

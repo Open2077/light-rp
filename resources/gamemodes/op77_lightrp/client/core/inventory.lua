@@ -10,8 +10,10 @@ local function log(format, ...) LightRpUi.log(format, ...) end
 
 local lastPress = 0
 
--- One press = one toggle. The page only reports its state; it never acts on I.
+-- Native input opens the inventory. Once it captures the keyboard, the WebUI
+-- handles the same binding on key-up (except while typing in a text field).
 function Inventory.open()
+    if LightRpActions and LightRpActions.isActive() then return end
     local now = GetGameTimer and GetGameTimer() or (os and os.clock() * 1000) or 0
     if now - lastPress < 350 then return end
     lastPress = now
@@ -21,6 +23,12 @@ function Inventory.open()
     end
     local accepted, reason = TriggerServerEvent(E.net.action, { type = "inventory.open" })
     if not accepted then log("inventory.open refused: %s", tostring(reason)) end
+end
+
+function Inventory.closed()
+    -- Do not let a native callback queued before focus release immediately
+    -- reopen the inventory after its WebUI close action.
+    lastPress = GetGameTimer and GetGameTimer() or (os and os.clock() * 1000) or 0
 end
 
 function Inventory.bind()

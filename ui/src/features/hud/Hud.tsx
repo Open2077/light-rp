@@ -2,6 +2,7 @@ import { useStore } from "@/state/store";
 import { Badge, StatusChip, VitalBar } from "@/design/components";
 import { useEffect, useState } from "react";
 import { WalkFlash } from "./WalkFlash";
+import { PlayerVitals } from "./PlayerVitals";
 import "./hud.css";
 
 /* Gameplay overlay, inside the HUD safe area: bottom-left vitals, bottom-right
@@ -15,7 +16,7 @@ function countdown(ms: number): string {
 export function Hud() {
   const hud = useStore((s) => s.hud);
   const character = useStore((s) => s.state.character);
-  const needs = useStore((s) => s.state.needs);
+  const inventoryOpen = useStore((s) => s.dialog?.kind === "inventory");
   const rental = useStore((s) => s.state.rental);
   const rentalAt = useStore((s) => s.rentalReceivedAt);
   const [, tick] = useState(0);
@@ -25,26 +26,12 @@ export function Hud() {
     return () => clearInterval(timer);
   }, [rental.active]);
   if (!hud.ready || (useStore.getState().connected && character.status !== "active")) return null;
-  const name = character.registered ? `${character.firstName} ${character.lastName}` : character.accountName;
 
   return (
-    <div className="hud" aria-hidden="true">
+    <div className={`hud${inventoryOpen ? " hud--quiet" : ""}`} aria-hidden="true">
       <WalkFlash />
       <div className="hud__bottom-left">
-        <div className="hud__identity">
-          <span className="hud__wordmark">Open<span>//</span>77</span>
-          <span className="hud__name">{name}</span>
-          {hud.walk && hud.walk.speed != null && <Badge tone="accent">{hud.walk.label}</Badge>}
-        </div>
-        <div className="hud__vitals">
-          <VitalBar tone="health" value={hud.health.value} max={hud.health.max} />
-          <VitalBar tone="armor" value={hud.armor} max={100} size="sm" showValue={false} />
-          <VitalBar tone="stamina" value={hud.stamina.value} max={hud.stamina.max} size="sm" showValue={false} />
-          <div className="hud__needs">
-            <VitalBar tone="food" value={needs.food} size="sm" width={78} segments={10} />
-            <VitalBar tone="drink" value={needs.drink} size="sm" width={78} segments={10} />
-          </div>
-        </div>
+        <PlayerVitals />
       </div>
 
       <div className="hud__bottom-right">

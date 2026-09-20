@@ -1,6 +1,8 @@
 local page
 local pageReady = false
 local visible = true
+local requestedVisible = true
+local hudBlocks = {}
 local visibilityRevision = 0
 local configured = false
 local cycleKey = "F11"
@@ -124,22 +126,41 @@ RegisterNetEvent("open-voice:state", function(payload)
     publish(Open77.voice.status() or {})
 end)
 
-local function setHudVisible(value)
+local function applyHudVisibility(immediate)
+    local nextVisible = requestedVisible and next(hudBlocks) == nil
+    if visible == nextVisible then
+        -- A previous soft hide may still be fading on the native surface.
+        if immediate and not visible and page then page:hide() end
+        return
+    end
     visibilityRevision = visibilityRevision + 1
     local revision = visibilityRevision
-    visible = value == true
+    visible = nextVisible
     if page and visible then page:show() end
     lastPayload = ""
     publish(Open77.voice.status() or {})
     if not visible and page then
         local target = page
+        -- Full-screen flows must not leave this higher WebUI over their buttons.
+        if immediate then target:hide(); return end
         CreateThread(function()
             Wait(220) -- Let the existing 200 ms fade finish before suspending CEF.
             if page == target and not visible and revision == visibilityRevision then target:hide() end
         end)
     end
 end
+local function setHudVisible(value)
+    requestedVisible = value == true
+    applyHudVisibility(false)
+end
 AddEventHandler("open-voice:setHudVisible", setHudVisible)
+
+-- Independent reasons compose with the existing visibility preference.
+AddEventHandler("open-voice:setHudBlocked", function(reason, blocked)
+    if type(reason) ~= "string" or #reason < 1 or #reason > 80 then return end
+    hudBlocks[reason] = blocked == true and true or nil
+    applyHudVisibility(blocked == true)
+end)
 
 RegisterNetEvent("open-voice:error", function(reason)
     errorText = tostring(reason or "VOICE REQUEST REJECTED"):upper():sub(1, 80)
@@ -177,7 +198,7 @@ AddEventHandler("onClientResourceStart", function(name)
         fps = 60,
         zIndex = 760,
         transparent = true,
-        visible = true,
+        visible = visible,
     })
     if not page then
         print("[open-voice] HUD unavailable: " .. tostring(reason))

@@ -7,6 +7,7 @@
   const workspace = $('workspace'), menu = $('menu'), actions = $('actions'), status = $('status'), eye = $('eye');
   const title = $('title'), tag = $('tag'), desc = $('desc'), legend = $('legend'), eyeGlyph = $('eyeGlyph');
   let epoch = 0, opened = false, anchor = {x: .5, y: .5}, busy = false, scale = 1, showGroups = false, pointerFrame = 0, keyName = 'ALT';
+  let menuRows = [], currentSubmenu = null, targetHead = {head: 'TARGET', tag: ''};
 
   // Lucide glyphs (design system icon set), local: no icon font, no remote asset.
   // The registry only accepts these seven names plus the internal ones below.
@@ -21,6 +22,8 @@
     eye: [['path', 'M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0a1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0'], ['circle', {cx: 12, cy: 12, r: 3}]],
     ban: [['circle', {cx: 12, cy: 12, r: 10}], ['path', 'm4.9 4.9 14.2 14.2']],
     scan: [['path', 'M3 7V5a2 2 0 0 1 2-2h2'], ['path', 'M17 3h2a2 2 0 0 1 2 2v2'], ['path', 'M21 17v2a2 2 0 0 1-2 2h-2'], ['path', 'M7 21H5a2 2 0 0 1-2-2v-2']],
+    forward: [['path', 'm9 5 7 7-7 7']],
+    back: [['path', 'm15 5-7 7 7 7']],
   };
   const NS = 'http://www.w3.org/2000/svg';
   function draw(svg, name) {
@@ -95,8 +98,86 @@
   }
   function setLegend(text) { legend.textContent = text; }
 
+  function renderRows(keyboard = false, restoreFolder = null) {
+    actions.replaceChildren(); message(''); describe('');
+    const folder = currentSubmenu && menuRows.find(row => row.submenu?.id === currentSubmenu)?.submenu;
+    if (!folder) currentSubmenu = null;
+    title.textContent = folder ? folder.label : targetHead.head;
+    tag.textContent = targetHead.tag;
+    actions.setAttribute('aria-label', folder ? folder.label : 'Available actions');
+    actions.classList.toggle('is-submenu', !!folder);
+    const entries = [], folders = new Set();
+    if (folder) {
+      entries.push({label: 'Back', icon: 'back', back: true});
+      entries.push(...menuRows.filter(row => row.submenu?.id === currentSubmenu));
+    } else {
+      // Fold only the already-authorised rows supplied by Lua. No folder can
+      // reveal an unavailable child, and navigation never dispatches an action.
+      for (const row of menuRows) {
+        if (!row.submenu) { entries.push(row); continue; }
+        if (folders.has(row.submenu.id)) continue;
+        folders.add(row.submenu.id);
+        entries.push({label: row.submenu.label, icon: row.submenu.icon, folder: row.submenu.id, group: row.group});
+      }
+    }
+    let group = '';
+    for (const action of entries) {
+      if (showGroups && action.group && action.group !== group) {
+        group = action.group; const heading = document.createElement('div'); heading.className = 'group'; heading.textContent = group; actions.append(heading);
+      }
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'action' + (action.danger ? ' danger' : '') + (action.back ? ' action--back' : ''); button.setAttribute('role', 'menuitem');
+      if (action.folder) {
+        button.dataset.folder = action.folder;
+        button.setAttribute('aria-haspopup', 'menu');
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-controls', 'actions');
+      } else if (!action.back) button.dataset.token = action.token;
+      const glyph = document.createElement('span'); glyph.className = 'icon'; glyph.setAttribute('aria-hidden', 'true'); glyph.append(icon(action.icon));
+      const label = document.createElement('span'); label.className = 'label'; label.textContent = action.label;
+      button.title = action.description ? action.label + ' — ' + action.description : String(action.label || '');
+      if (action.description) button.setAttribute('aria-description', action.description);
+      button.append(glyph, label);
+      if (action.folder) {
+        const arrow = document.createElement('span'); arrow.className = 'icon submenu-arrow'; arrow.setAttribute('aria-hidden', 'true'); arrow.append(icon('forward')); button.append(arrow);
+      }
+      const show = () => describe(action.description || '');
+      button.addEventListener('mouseenter', show);
+      button.addEventListener('focus', show);
+      button.addEventListener('click', event => {
+        event.stopPropagation(); if (busy) return;
+        const fromKeyboard = event.detail === 0;
+        if (action.back) { goBack(fromKeyboard); return; }
+        if (action.folder) { currentSubmenu = action.folder; renderRows(fromKeyboard); return; }
+        busy = true;
+        for (const b of actions.querySelectorAll('button')) b.disabled = true;
+        emit('context:select', {token: action.token});
+      });
+      actions.append(button);
+    }
+    const first = actions.querySelector('button');
+    eye.classList.toggle('available', !!first);
+    draw(eyeGlyph, first ? 'eye' : 'ban');
+    if (!first) message('No actions');
+    setLegend(first ? 'HOLD [' + keyName + '] · ' + (folder ? '← BACK · ESC CLOSE' : '↑↓ · ENTER') : 'HOLD [' + keyName + '] · PICK ANOTHER TARGET');
+    menu.classList.toggle('keyboard', keyboard);
+    actions.scrollTop = 0;
+    place();
+    const restored = restoreFolder && [...actions.querySelectorAll('[data-folder]')].find(button => button.dataset.folder === restoreFolder);
+    // Opening with the keyboard focuses the first real action, not Back.
+    const focus = restored || (keyboard && (actions.querySelector('[data-token]') || first)) || menu;
+    focus.focus({preventScroll: true});
+  }
+  function goBack(keyboard = false) {
+    if (busy || !currentSubmenu) return false;
+    const previous = currentSubmenu;
+    currentSubmenu = null;
+    renderRows(keyboard, previous);
+    return true;
+  }
+
   Open77.on('context:open', p => {
     epoch = p.epoch; opened = true; busy = false; anchor = {x: .5, y: .5};
+    menuRows = []; currentSubmenu = null;
     keyName = String(p.key || 'ALT').toUpperCase();
     appearance(p.appearance); workspace.hidden = false; menu.hidden = true;
     actions.replaceChildren(); message(''); describe(''); eye.classList.remove('available', 'blocked');
@@ -106,11 +187,13 @@
   });
   Open77.on('context:close', () => {
     opened = false; busy = false; workspace.hidden = true; menu.hidden = true;
+    menuRows = []; currentSubmenu = null;
     actions.replaceChildren(); eye.classList.remove('available', 'blocked');
   });
   Open77.on('context:loading', p => {
     if (!opened || !Number.isSafeInteger(p.epoch) || p.epoch < epoch) return;
     epoch = p.epoch; busy = true; anchor = {x: p.x, y: p.y}; menu.hidden = false;
+    menuRows = []; currentSubmenu = null;
     actions.replaceChildren(); describe(''); eye.classList.remove('available', 'blocked'); draw(eyeGlyph, 'scan');
     title.textContent = 'SCANNING'; tag.textContent = '';
     setLegend('HOLD [' + keyName + ']');
@@ -125,39 +208,10 @@
   });
   Open77.on('context:menu', p => {
     if (!opened || p.epoch !== epoch) return;
-    busy = false; actions.replaceChildren(); message(''); describe(''); let group = '';
-    const head = describeTarget(p.target, p.distance);
-    title.textContent = head.head; tag.textContent = head.tag;
-    const rows = Array.isArray(p.actions) ? p.actions : [];
-    for (const action of rows) {
-      if (showGroups && action.group !== group) {
-        group = action.group; const heading = document.createElement('div'); heading.className = 'group'; heading.textContent = group; actions.append(heading);
-      }
-      const button = document.createElement('button'); button.type = 'button'; button.className = 'action' + (action.danger ? ' danger' : ''); button.setAttribute('role', 'menuitem');
-      button.dataset.token = action.token;
-      const glyph = document.createElement('span'); glyph.className = 'icon'; glyph.setAttribute('aria-hidden', 'true'); glyph.append(icon(action.icon));
-      const label = document.createElement('span'); label.className = 'label'; label.textContent = action.label;
-      button.title = action.description ? action.label + ' — ' + action.description : String(action.label || '');
-      if (action.description) button.setAttribute('aria-description', action.description);
-      button.append(glyph, label);
-      // The description panel follows the hovered / focused row, like the design system's menus.
-      const show = () => describe(action.description || '');
-      button.addEventListener('mouseenter', show);
-      button.addEventListener('focus', show);
-      button.addEventListener('click', event => {
-        event.stopPropagation(); if (busy) return; busy = true;
-        for (const b of actions.querySelectorAll('button')) b.disabled = true;
-        emit('context:select', {token: action.token});
-      });
-      actions.append(button);
-    }
-    const first = actions.querySelector('button');
-    eye.classList.toggle('available', !!first);
-    draw(eyeGlyph, first ? 'eye' : 'ban');
-    if (!first) message('No actions');
-    setLegend(first ? 'HOLD [' + keyName + '] · ↑↓ · ENTER' : 'HOLD [' + keyName + '] · PICK ANOTHER TARGET');
-    menu.classList.remove('keyboard');
-    place(); menu.focus({preventScroll: true});
+    busy = false; currentSubmenu = null;
+    targetHead = describeTarget(p.target, p.distance);
+    menuRows = Array.isArray(p.actions) ? p.actions : [];
+    renderRows();
   });
   Open77.on('context:busy', p => {
     if (!opened || p.epoch !== epoch) return;
@@ -185,10 +239,18 @@
   document.addEventListener('click', event => {
     if (opened && !busy && !menu.contains(event.target)) emit('context:pick', {x: event.clientX / innerWidth, y: event.clientY / innerHeight});
   });
-  document.addEventListener('contextmenu', event => { event.preventDefault(); if (opened) emit('context:cancel'); });
+  document.addEventListener('contextmenu', event => {
+    event.preventDefault();
+    if (opened && !busy && !goBack()) emit('context:cancel');
+  });
   document.addEventListener('keydown', event => {
     if (!opened) return;
     if (event.key === 'Escape') { event.preventDefault(); emit('context:cancel'); }
+    if (event.key === 'ArrowLeft' || event.key === 'Backspace') { event.preventDefault(); goBack(true); }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      if (!busy && document.activeElement?.dataset.folder) document.activeElement.click();
+    }
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
       event.preventDefault(); const buttons = [...actions.querySelectorAll('button:not(:disabled)')]; if (!buttons.length) return;
       const current = buttons.indexOf(document.activeElement);

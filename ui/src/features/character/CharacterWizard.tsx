@@ -1,206 +1,180 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/state/store";
-import { emit, sendAction } from "@/bridge/open77";
-import { PAGE_EVENTS, type CharacterState, type CharacterStep, type IdentityFields } from "@/bridge/protocol";
-import { Badge, Button, HazardStripe, Input, Modal, SectionHeader } from "@/design/components";
+import { emit, on, sendAction } from "@/bridge/open77";
+import { PAGE_EVENTS, type BodyFamily, type CharacterState, type IdentityFields, type UiAction } from "@/bridge/protocol";
+import { Icon } from "@/design/components";
+import { identityFields, initialPage, ORIGIN_NOTES, STEPS, validateIdentity, type WizardPage } from "./model";
 import "./wizard.css";
 
-/* Character creation, over the world, driven by the server's `character.step`:
-   identity (civil state) -> appearance (native mirror, body saved by
-   open77_appearance) -> confirm. The wizard never decides a step is done; it
-   shows the step the server still misses and asks. */
-
-const STEPS: Array<{ id: CharacterStep; label: string }> = [
-  { id: "identity", label: "IDENTITY" },
-  { id: "appearance", label: "APPEARANCE" },
-  { id: "confirm", label: "CONFIRM" },
-];
-
-function useDialogFocus(active: boolean) {
-  useEffect(() => {
-    if (!active) return;
-    emit(PAGE_EVENTS.focus, { active: true });
-    return () => emit(PAGE_EVENTS.focus, { active: false });
-  }, [active]);
-}
-
 export function CharacterWizard() {
-  const character = useStore((s) => s.state.character);
-  const connected = useStore((s) => s.connected);
-  const visible = connected && character.status !== "active";
-  useDialogFocus(visible);
-  if (!visible) return null;
-  return <WizardBody character={character} />;
+  const character = useStore(s => s.state.character);
+  const connected = useStore(s => s.connected);
+  if (!connected || character.status === "active") return null;
+  return <WizardBody key={`${character.playerId}:${character.key}`} character={character} />;
 }
 
 function WizardBody({ character }: { character: CharacterState }) {
-  const [page, setPage] = useState<CharacterStep>(character.step);
-  // Follow the server: when it advances, the page advances; the player may still
-  // go back to re-read a step they already filled.
-  useEffect(() => { setPage(character.step); }, [character.step]);
-  const stepIndex = Math.max(0, STEPS.findIndex((s) => s.id === page));
-  const slotLabel = character.key === "default" ? "CHARACTER 1" : `CHARACTER ${character.key.replace("slot", "")}`;
+  const [page, setPage] = useState<WizardPage>(() => initialPage(character));
+  const [fields, setFields] = useState(() => identityFields(character));
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [family, setFamily] = useState<BodyFamily>(character.bodyFamily ?? "male");
+  const [editor, setEditor] = useState(false);
+  const [sent, setSent] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [slow, setSlow] = useState(false);
+  const pending = useRef<string | null>(null);
+  const submittedIdentity = useRef<IdentityFields | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const previousCharacter = useRef(character);
+  const result = useStore(s => s.lastResult);
+  const resultBefore = useRef(result);
+  const errors = validateIdentity(fields, character);
+  const index = STEPS.findIndex(s => s.id === page);
+  const origins = Array.isArray(character.origins) ? character.origins : [];
+  const origin = origins.find(o => o.key === fields.origin)?.label;
+  const busy = !!sent;
+  const dirty = JSON.stringify(fields) !== JSON.stringify(identityFields(character));
+  const canReview = character.step === "confirm" || character.step === "done";
+  const bodyChanged = !!character.bodyFamily && family !== character.bodyFamily;
+  const set = (patch: Partial<IdentityFields>) => { setFields(f => ({ ...f, ...patch })); setFeedback(""); };
+  const move = (next: WizardPage) => { if (!pending.current) { setPage(next); setFeedback(""); } };
 
-  return (
-    <div className="wizard o77-interactive">
-      <div className="wizard__void" aria-hidden="true">
-        <span className="wizard__void-mark">Open<span>//</span>77</span>
-        <span className="wizard__void-tag">CHARACTER CREATION // THE CITY IS WAITING</span>
-      </div>
-      <div className="wizard__frame">
-        <header className="wizard__head">
-          <div>
-            <span className="o77-tag o77-accent">OPEN//77 // OFFICIAL ROLEPLAY</span>
-            <h1 className="wizard__title">New character</h1>
-          </div>
-          <div className="wizard__head-right">
-            <Badge tone="outline">{slotLabel}</Badge>
-            <Badge>{character.accountName}</Badge>
-          </div>
-        </header>
-        <HazardStripe height={4} />
-        <ol className="wizard__steps">
-          {STEPS.map((s, i) => {
-            const done = STEPS.findIndex((x) => x.id === character.step) > i || character.step === "done";
-            const current = s.id === page;
-            return (
-              <li key={s.id} className={"wizard__step" + (current ? " wizard__step--on" : "") + (done ? " wizard__step--done" : "")}
-                onClick={() => (done || i <= stepIndex) && setPage(s.id)}>
-                <span className="wizard__step-index">{String(i + 1).padStart(2, "0")}</span>
-                <span className="wizard__step-label">{s.label}</span>
-                {done && <span className="wizard__step-check">OK</span>}
-              </li>
-            );
-          })}
-        </ol>
-        <div className="wizard__content">
-          {page === "identity" && <IdentityStep character={character} />}
-          {page === "appearance" && <AppearanceStep character={character} />}
-          {(page === "confirm" || page === "done") && <ConfirmStep character={character} />}
-        </div>
-      </div>
-    </div>
-  );
-}
+  useEffect(() => {
+    emit(PAGE_EVENTS.focus, { active: !editor });
+    return () => emit(PAGE_EVENTS.focus, { active: false });
+  }, [editor]);
+  useEffect(() => on<{ active: boolean; error?: string }>(PAGE_EVENTS.characterEditor, value => {
+    setEditor(value.active === true);
+    if (value.error) setFeedback(value.error);
+  }), []);
+  useEffect(() => {
+    const previous = previousCharacter.current;
+    previousCharacter.current = character;
+    if (previous.step !== character.step || previous.appearanceRevision !== character.appearanceRevision) {
+      if (pending.current !== "character.identity") setPage(initialPage(character));
+    }
+    if (character.bodyFamily) setFamily(character.bodyFamily);
+  }, [character]);
+  useEffect(() => {
+    if (!result || result === resultBefore.current || result.action !== pending.current) return;
+    // State and acknowledgements can arrive separately; keep the draft intact
+    // until both confirm this save, rather than replacing it with stale state.
+    if (result.ok && pending.current === "character.identity") {
+      const submitted = submittedIdentity.current;
+      if (!submitted || !character.firstName || !character.lastName
+        || character.firstName.toLowerCase() !== submitted.firstName.toLowerCase()
+        || character.lastName.toLowerCase() !== submitted.lastName.toLowerCase()
+        || (character.birthDate ?? "") !== (submitted.birthDate ?? "")
+        || (character.origin ?? "") !== (submitted.origin ?? "")
+        || (character.story ?? "") !== (submitted.story ?? "")) return;
+    }
+    resultBefore.current = result;
+    const action = pending.current;
+    // Completion is authoritative: never activate a character from a success toast.
+    if (result.ok && action === "character.finish") return;
+    pending.current = null; setSent(null); setSlow(false);
+    if (!result.ok) { setFeedback(result.text); return; }
+    if (action === "character.identity") {
+      const c = useStore.getState().state.character;
+      setFields(identityFields(c)); setPage("appearance");
+    }
+  }, [result, character]);
+  useEffect(() => {
+    if (!sent) return;
+    const timer = window.setTimeout(() => setSlow(true), 12000);
+    return () => window.clearTimeout(timer);
+  }, [sent]);
+  useEffect(() => {
+    if (editor) return;
+    heading.current?.focus();
+    root.current?.querySelector(".creator__scroll")?.scrollTo(0, 0);
+  }, [page, editor]);
+  useEffect(() => {
+    if (editor) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.code === "Escape") { e.preventDefault(); e.stopPropagation(); }
+      if (e.key !== "Tab") return;
+      const nodes = [...(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? [])].filter(el => el.getClientRects().length > 0);
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === heading.current)) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [editor]);
 
-export function IdentityForm({ character, submitLabel, onSubmitted }: { character: CharacterState; submitLabel: string; onSubmitted?: () => void }) {
-  const [fields, setFields] = useState<IdentityFields>({
-    firstName: character.firstName ?? "", lastName: character.lastName ?? "",
-    birthDate: character.birthDate ?? "", origin: character.origin ?? "", story: character.story ?? "",
-  });
-  const set = (patch: Partial<IdentityFields>) => setFields((f) => ({ ...f, ...patch }));
-  const nameOk = fields.firstName.trim().length >= 2 && fields.lastName.trim().length >= 2;
-  const birthOk = !fields.birthDate || /^\d{4}-\d{2}-\d{2}$/.test(fields.birthDate);
-  const age = fields.birthDate && birthOk ? character.currentYear - Number(fields.birthDate.slice(0, 4)) : null;
-  const ageOk = age === null || (age >= character.minAge && age <= 90);
-  const valid = nameOk && birthOk && ageOk;
-  const submit = () => {
-    if (!valid) return;
-    sendAction({ type: "character.identity", firstName: fields.firstName.trim(), lastName: fields.lastName.trim(),
-      birthDate: fields.birthDate || undefined, origin: fields.origin || undefined, story: fields.story?.trim() || undefined });
-    onSubmitted?.();
+  const issue = (action: UiAction) => {
+    if (pending.current) return;
+    pending.current = action.type; resultBefore.current = useStore.getState().lastResult;
+    setSent(action.type); setFeedback(""); setSlow(false); sendAction(action);
   };
-  return (
-    <div className="wizard__stack">
-      <div className="wizard__two">
-        <Input label="FIRST NAME" icon="user" autoFocus value={fields.firstName} onChange={(e) => set({ firstName: e.target.value })} placeholder="First name" maxLength={24} />
-        <Input label="LAST NAME" icon="user" value={fields.lastName} onChange={(e) => set({ lastName: e.target.value })} placeholder="Last name" maxLength={24} />
-      </div>
-      <div className="wizard__two">
-        <Input label={`BORN · NIGHT CITY ${character.currentYear}`} icon="id-card" value={fields.birthDate ?? ""} onChange={(e) => set({ birthDate: e.target.value })}
-          placeholder="YYYY-MM-DD" maxLength={10} invalid={!birthOk || !ageOk}
-          hint={age !== null && birthOk ? (ageOk ? `${age} YEARS OLD` : `${character.minAge} YEARS MINIMUM`) : "OPTIONAL"} />
-        <label className="o77-input">
-          <span className="o77-input__label">ORIGIN</span>
-          <span className="o77-input__field">
-            <select className="o77-input__control wizard__select" value={fields.origin ?? ""} onChange={(e) => set({ origin: e.target.value })}>
-              <option value="">—</option>
-              {character.origins.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-            </select>
-          </span>
-        </label>
-      </div>
-      <label className="o77-input">
-        <span className="o77-input__label">BACKSTORY · {(fields.story ?? "").length}/600</span>
-        <span className="o77-input__field wizard__textarea-field">
-          <textarea className="o77-input__control wizard__textarea" value={fields.story ?? ""} onChange={(e) => set({ story: e.target.value.slice(0, 600) })}
-            placeholder="A few lines about who you are in Night City. Optional." rows={4} />
-        </span>
-      </label>
-      <div className="wizard__actions">
-        <Button icon="badge-check" disabled={!valid} onClick={submit}>{submitLabel}</Button>
-        <span className="o77-readout o77-dim">The name is what the others read; your account stays private.</span>
-      </div>
-    </div>
-  );
-}
+  const identityNext = () => {
+    setTouched({ firstName: true, lastName: true, birthDate: true });
+    if (Object.keys(errors).length) {
+      root.current?.querySelector<HTMLInputElement>(`[name="${Object.keys(errors)[0]}"]`)?.focus(); return;
+    }
+    move("background");
+  };
+  const saveIdentity = () => {
+    if (Object.keys(errors).length) { move("identity"); setTouched({ firstName: true, lastName: true, birthDate: true }); return; }
+    const payload = { firstName: fields.firstName.trim(), lastName: fields.lastName.trim(), birthDate: fields.birthDate || undefined, origin: fields.origin || undefined, story: fields.story?.trim() || undefined };
+    submittedIdentity.current = payload;
+    issue({ type: "character.identity", ...payload });
+  };
+  const openEditor = () => {
+    setFeedback(""); setEditor(true);
+    emit(PAGE_EVENTS.focus, { active: false });
+    sendAction({ type: "character.appearance.open", mode: "ripperdoc", family });
+  };
+  const title = { identity: "Every story starts with a name.", background: "Where are you coming from?", appearance: "Put a face to the name.", review: `Welcome to Night City${character.firstName ? `, ${character.firstName}` : ""}.` }[page];
+  const subtitle = { identity: "This is who other players will meet. Your account name stays separate.", background: "A little context makes a character yours. Both of these choices are optional.", appearance: "Choose a body, then shape your look in the character editor.", review: "One last look before your story begins. You can go back and change anything." }[page];
+  const name = `${fields.firstName} ${fields.lastName}`.trim();
 
-function IdentityStep({ character }: { character: CharacterState }) {
-  return (
-    <div className="wizard__stack">
-      <SectionHeader index="01" title="Identity" subtitle="WHO ARE YOU" />
-      <IdentityForm character={character} submitLabel={character.firstName ? "Save" : "Continue"} />
-    </div>
-  );
+  return <div ref={root} className={`creator o77-interactive${editor ? " creator--editor" : ""}`} role="dialog" aria-modal={!editor} aria-labelledby="creator-title" aria-hidden={editor || undefined}>
+    <aside className="creator__scene">
+      <div className="creator__brand"><span className="creator__brand-mark">LIGHT<span>/</span>RP</span><span>A new life in Night City</span></div>
+      <div className="creator__scene-copy"><span className="creator__eyebrow">Your city. Your story.</span><h1>Not another face<br />in the crowd.<br /><em>Yours.</em></h1><p>Find your people. Make your own way.<br />Leave something behind.</p></div>
+      <div className="creator__passport"><span className="creator__avatar">{fields.firstName.trim().charAt(0).toUpperCase() || "?"}{fields.lastName.trim().charAt(0).toUpperCase()}</span><div><span className="creator__eyebrow">Your character</span><strong>{name || "A new beginning"}</strong><span>{origin || "A story still unwritten"}</span></div><Icon name="arrow-right" size={20} /></div>
+      <div className="creator__scene-foot"><span>Night City / {character.currentYear}</span><span>Make yourself at home.</span></div>
+    </aside>
+    <main className="creator__main">
+      <header className="creator__top"><span>Character creation</span><span>{character.key === "default" ? "Character 01" : `Character ${character.key.replace("slot", "").padStart(2, "0")}`}</span></header>
+      <nav aria-label="Character creation steps" className="creator__nav"><ol>{STEPS.map((s, i) => <li key={s.id}><button type="button" aria-current={page === s.id ? "step" : undefined} disabled={busy || i > index} onClick={() => move(s.id)}><span className="creator__step-num">{i < index ? <Icon name="check" size={14} /> : i + 1}</span><span>{s.label}</span></button></li>)}</ol><div className="creator__progress"><i style={{ width: `${(index + 1) * 25}%` }} /></div></nav>
+      <form className="creator__form" aria-busy={busy} onSubmit={e => { e.preventDefault(); if (busy) return; if (page === "identity") identityNext(); else if (page === "background") saveIdentity(); else if (page === "review" && canReview && !dirty) issue({ type: "character.finish" }); }}>
+        <div className="creator__scroll">
+          <section key={page} className="creator__page">
+            <span className="creator__eyebrow">Step 0{index + 1} / 04 <span>— {STEPS[index]?.detail}</span></span>
+            <h2 id="creator-title" ref={heading} tabIndex={-1}>{title}</h2><p className="creator__intro">{subtitle}</p>
+            {page === "identity" && <>
+              <div className="creator__two">{(["firstName", "lastName"] as const).map((key, i) => <label className="creator__field" key={key}><span>{i === 0 ? "First name" : "Last name"}<small>Required</small></span><input name={key} value={fields[key]} onChange={e => set({ [key]: e.target.value })} onBlur={() => setTouched(t => ({ ...t, [key]: true }))} autoComplete="off" spellCheck={false} maxLength={character.nameMaxLength ?? 24} placeholder={i === 0 ? "e.g. Alex" : "e.g. Morgan"} aria-invalid={!!(touched[key] && errors[key])} aria-describedby={`hint-${key}`} disabled={busy} /><span id={`hint-${key}`} className={`creator__hint${touched[key] && errors[key] ? " creator__hint--error" : ""}`}>{touched[key] && errors[key] ? errors[key] : `${character.nameMinLength ?? 2}–${character.nameMaxLength ?? 24} characters`}</span></label>)}</div>
+              <label className="creator__field creator__birth"><span>Date of birth<small>Optional</small></span><div className="creator__date"><Icon name="calendar" size={18} /><input name="birthDate" value={fields.birthDate ?? ""} onChange={e => set({ birthDate: e.target.value })} onBlur={() => setTouched(t => ({ ...t, birthDate: true }))} placeholder="YYYY-MM-DD" maxLength={10} inputMode="numeric" autoComplete="off" aria-invalid={!!(touched.birthDate && errors.birthDate)} aria-describedby="hint-birth" disabled={busy} />{fields.birthDate && !errors.birthDate && <span className="creator__age">{character.currentYear - Number(fields.birthDate.slice(0, 4))} years</span>}</div><span id="hint-birth" className={`creator__hint${touched.birthDate && errors.birthDate ? " creator__hint--error" : ""}`}>{touched.birthDate && errors.birthDate ? errors.birthDate : `The year is ${character.currentYear}. Choose an age between ${character.minAge} and ${character.maxAge ?? 90}, or leave this blank.`}</span></label>
+              <div className="creator__note"><Icon name="info" size={18} /><p>A character, not a username.<span>Use a roleplay name. Numbers and special symbols are not accepted.</span></p></div>
+            </>}
+            {page === "background" && <>
+              <fieldset className="creator__origins" disabled={busy}><legend>Place of origin <small>Optional</small></legend><div>{origins.map(o => <label className={`creator__origin${fields.origin === o.key ? " is-selected" : ""}`} key={o.key}><input type="radio" name="origin" value={o.key} checked={fields.origin === o.key} onChange={() => set({ origin: o.key })} /><Icon name="map-pin" size={17} /><span>{o.label}</span>{fields.origin === o.key && <Icon name="check" size={16} />}</label>)}</div></fieldset>
+              <div className="creator__origin-note"><span>{fields.origin ? ORIGIN_NOTES[fields.origin] ?? "Your roots are part of the story. What comes next is up to you." : "Leave your past open, or choose where it began."}</span>{fields.origin && <button type="button" onClick={() => set({ origin: "" })} disabled={busy}>Clear</button>}</div>
+              <label className="creator__field"><span>Your story<small>Optional</small></span><textarea name="story" value={fields.story ?? ""} onChange={e => set({ story: e.target.value })} maxLength={600} rows={4} placeholder="What brought you here? What are you looking for? A few lines are enough." disabled={busy} /><span className="creator__hint creator__story-hint"><span>No long biography needed. Leave room for what happens next.</span><span>{(fields.story ?? "").length} / 600</span></span></label>
+            </>}
+            {page === "appearance" && <>
+              {!character.appearanceTracked && <div className="creator__note"><Icon name="info" /><p>Local session<span>Appearance persistence is unavailable on this server. This step is optional.</span></p></div>}
+              <fieldset className="creator__bodies"><legend>Body type</legend><div>{(["male", "female"] as const).map(body => <label key={body} className={`creator__body${family === body ? " is-selected" : ""}`}><input type="radio" name="body" value={body} checked={family === body} onChange={() => setFamily(body)} /><span className="creator__body-art"><Icon name="user" size={64} /></span><span><strong>{body === "male" ? "Masculine" : "Feminine"}</strong><small>Face, hair & details in the editor</small></span><span className="creator__radio">{family === body && <i />}</span></label>)}</div></fieldset>
+              <div className="creator__editor-guide"><Icon name={character.bodyFamily ? "badge-check" : "settings"} size={24} /><div><strong>{character.bodyFamily ? "An appearance is saved." : "The details make the difference."}</strong><p>Open the editor, customise your look, then confirm to return here. Cancelling keeps your previous look.</p></div></div>
+              <button type="button" className="creator__button creator__button--primary creator__open-editor" onClick={openEditor}>Open appearance editor<Icon name="arrow-right" size={18} /></button>
+            </>}
+            {page === "review" && <>
+              <div className="creator__review"><div className="creator__review-name"><span className="creator__avatar">{character.firstName?.charAt(0)}{character.lastName?.charAt(0)}</span><div><small>Your identity</small><h3>{character.firstName} {character.lastName}</h3></div><button type="button" onClick={() => move("identity")} disabled={busy}>Edit<Icon name="chevron-right" size={14} /></button></div><dl><div><dt>Date of birth</dt><dd>{character.birthDate || "Not specified"}</dd></div><div><dt>Origin</dt><dd>{origins.find(o => o.key === character.origin)?.label || "Not specified"}</dd></div><div><dt>Appearance</dt><dd>{character.bodyFamily ? `${character.bodyFamily === "male" ? "Masculine" : "Feminine"} · Saved` : character.appearanceTracked ? "Not saved yet" : "Local session"}</dd></div></dl>{character.story && <p className="creator__review-story">{character.story}</p>}<button type="button" className="creator__text-button" onClick={() => move("appearance")} disabled={busy}>Revisit appearance<Icon name="chevron-right" size={14} /></button></div>
+              <div className="creator__note"><Icon name="footprints" size={21} /><p>You're almost home.<span>After confirming, a quick welcome guide will help you find your feet.</span></p></div>
+              {dirty && <div className="creator__feedback" role="alert">You have unsaved identity changes. Go back to Background and save them first.</div>}
+            </>}
+          </section>
+        </div>
+        <footer className="creator__footer">
+          {(feedback || slow) && <div className="creator__feedback" role="alert"><Icon name="triangle-alert" size={17} /><span>{feedback || "Still waiting for the server. Your request has not been sent twice. If this continues, reconnect to resume your saved character."}</span></div>}
+          <div className="creator__footer-actions"><button type="button" className="creator__back" disabled={index === 0 || busy} onClick={() => move(STEPS[index - 1]!.id)}><Icon name="chevron-left" size={17} />Back</button><span className="creator__footer-hint">{page === "identity" ? "Let's start with the essentials." : page === "background" ? "Your background is entirely up to you." : page === "appearance" ? (canReview && !bodyChanged ? "Ready when you are." : "Confirm your look in the editor to continue.") : "Your next chapter is waiting."}</span>
+          {page === "appearance" ? <button type="button" className="creator__button creator__button--primary" disabled={!canReview || bodyChanged} onClick={() => move("review")}>Review character<Icon name="arrow-right" size={18} /></button> : <button type="submit" className="creator__button creator__button--primary" disabled={busy || (page === "review" && (!canReview || dirty))}>{busy ? <><Icon name="loader" className="creator__spinner" />{sent === "character.finish" ? "Entering the city…" : "Saving identity…"}</> : <>{page === "review" ? "Enter Night City" : page === "background" ? "Save & continue" : "Continue"}<Icon name="arrow-right" size={18} /></>}</button>}</div>
+        </footer>
+      </form>
+    </main>
+  </div>;
 }
-
-function AppearanceStep({ character }: { character: CharacterState }) {
-  const saved = character.bodyFamily != null;
-  return (
-    <div className="wizard__stack">
-      <SectionHeader index="02" title="Body and face" subtitle={saved ? `${character.bodyFamily?.toUpperCase()} · REVISION ${character.appearanceRevision}` : "NO APPEARANCE SAVED"} />
-      <p className="wizard__text">
-        The mirror opens the game's character editor. Confirm your look in there: it is saved on the server
-        and follows this character every time you connect. Pick the body first.
-      </p>
-      <div className="wizard__chips">
-        <Button variant={character.bodyFamily === "female" ? "primary" : "secondary"} icon="user"
-          onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc", family: "female" })}>Female body</Button>
-        <Button variant={character.bodyFamily === "male" ? "primary" : "secondary"} icon="user"
-          onClick={() => sendAction({ type: "character.appearance.open", mode: "ripperdoc", family: "male" })}>Male body</Button>
-        <Button variant="ghost" icon="settings" disabled={!saved}
-          onClick={() => sendAction({ type: "character.appearance.open", mode: "hairdresser" })}>Hairdresser</Button>
-      </div>
-      <p className="wizard__text o77-dim">
-        {saved ? "Appearance saved. You can touch it up later from the Character menu." : "Waiting for a first save from the mirror."}
-      </p>
-    </div>
-  );
-}
-
-function ConfirmStep({ character }: { character: CharacterState }) {
-  const [sent, setSent] = useState(false);
-  const origin = character.origins.find((o) => o.key === character.origin)?.label;
-  const ready = character.step === "confirm" || character.step === "done";
-  return (
-    <div className="wizard__stack">
-      <SectionHeader index="03" title="Summary" subtitle="ENTER THE CITY" />
-      <div className="wizard__summary">
-        <Row label="NAME" value={character.firstName ? `${character.firstName} ${character.lastName}` : "—"} />
-        <Row label="BORN" value={character.birthDate ? `${character.birthDate} · ${character.currentYear - Number(character.birthDate.slice(0, 4))} YEARS OLD` : "—"} />
-        <Row label="ORIGIN" value={origin ?? "—"} />
-        <Row label="BODY" value={character.bodyFamily ? character.bodyFamily.toUpperCase() : (character.appearanceTracked ? "NOT SAVED" : "NOT TRACKED")} />
-        {character.story && <Row label="BACKSTORY" value={character.story} wide />}
-      </div>
-      <div className="wizard__actions">
-        <Button size="lg" icon="badge-check" disabled={!ready || sent} onClick={() => { setSent(true); sendAction({ type: "character.finish" }); setTimeout(() => setSent(false), 3000); }}>
-          Enter Night City
-        </Button>
-        <Button variant="ghost" icon="package" onClick={() => sendAction({ type: "character.wardrobe.open" })}>Wardrobe</Button>
-        {!ready && <span className="o77-readout wizard__missing">One step is still missing.</span>}
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
-  return (
-    <div className={"wizard__row" + (wide ? " wizard__row--wide" : "")}>
-      <span className="o77-readout o77-dim">{label}</span>
-      <span className="wizard__row-value">{value}</span>
-    </div>
-  );
-}
-
-// Used by the Personnage tab too.
-export { Modal as WizardModal };

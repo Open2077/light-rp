@@ -1,0 +1,67 @@
+.activity { --action-accent: var(--accent, #ffcc00); position: absolute; left: 50%; bottom: clamp(80px, 12vh, 170px); transform: translateX(-50%); width: min(440px, calc(100vw - 40px)); padding: 22px 25px 18px; color: #f3f2e9; background: linear-gradient(120deg, #111216f7, #121318eb); border: 1px solid #ffffff12; border-radius: 8px; box-shadow: 0 16px 50px #0005; font: 14px/1.45 "Segoe UI", sans-serif; pointer-events: none; z-index: 48; animation: activity-arrive .22s ease both; }
+.activity--timing { width: min(490px, calc(100vw - 40px)); }
+.activity--ring { width: min(415px, calc(100vw - 40px)); }
+.activity__eyebrow { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 20px; font: 10px/1.2 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: #bcbdb3; }
+.activity__eyebrow > span:first-child { display: flex; align-items: center; gap: 9px; }
+.activity__eyebrow i { height: 3px; width: 3px; background: var(--action-accent); border-radius: 50%; }
+.activity__eyebrow b { color: #777c80; font-weight: 400; }
+.activity__main { display: flex; align-items: center; gap: 15px; min-height: 48px; }
+.activity__icon { color: var(--action-accent); display: grid; place-items: center; width: 39px; height: 39px; flex: 0 0 39px; background: #ffcc000a; border-radius: 8px; }
+.activity__copy { flex: 1; min-width: 0; }
+.activity__copy h2 { margin: 0; font: 600 20px/1.25 var(--font-core); letter-spacing: -.3px; overflow-wrap: anywhere; }
+.activity__copy p { color: #a5a9ab; margin: 5px 0 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.activity__percent { font: 500 27px/1 var(--font-core); font-variant-numeric: tabular-nums; }
+.activity__percent small { font: 11px/1 "Segoe UI", sans-serif; color: #aaa; margin-left: 3px; }
+.activity__track { position: relative; height: 4px; margin-top: 23px; background: #ffffff12; border-radius: 3px; }
+.activity__fill { display: block; width: 100%; height: 100%; background: var(--action-accent); transform-origin: left; border-radius: inherit; will-change: transform; }
+.activity__track--timing { height: 28px; margin: 24px 3px 0; background: repeating-linear-gradient(90deg, transparent, transparent calc(10% - 1px), #ffffff16 calc(10% - 1px), #ffffff16 10%), #ffffff06; border: 1px solid #ffffff15; border-radius: 3px; }
+.activity__zone { position: absolute; top: -1px; bottom: -1px; background: repeating-linear-gradient(120deg, #ffcc0038 0, #ffcc0038 3px, #ffcc0017 3px, #ffcc0017 7px); border: 1px solid var(--action-accent); border-radius: 3px; }
+.activity__zone i { position: absolute; left: 50%; top: 4px; bottom: 4px; width: 1px; background: #ffcc0060; }
+.activity__cursor { position: absolute; top: -7px; bottom: -7px; width: 3px; background: #fffce4; border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 8px #000b; will-change: left; }
+.activity__cursor::before { content: ""; position: absolute; top: -4px; left: -3px; width: 9px; height: 5px; background: #fffce4; clip-path: polygon(0 0,100% 0,50% 100%); }
+.activity__footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; min-height: 27px; margin-top: 16px; font-size: 12px; }
+.activity__instruction { display: flex; gap: 8px; align-items: center; color: #d4d5d0; }
+.activity kbd, .action-lab kbd { display: inline-grid; place-items: center; min-width: 23px; padding: 2px 5px; color: #e1e2dc; font: 11px/1.6 "Segoe UI", sans-serif; border: 1px solid #ffffff26; border-radius: 4px; background: #ffffff06; }
+.activity__instruction kbd { color: var(--action-accent); border-color: #ffcc0055; background: #ffcc000a; transition: background .12s, color .12s; }
+.activity__instruction kbd.is-down { background: var(--action-accent); color: #18170e; }
+.activity__time { font-variant-numeric: tabular-nums; color: #949b9f; font-size: 11px; }
+.activity__steps { display: flex; gap: 5px; }
+.activity__steps i { display: block; width: 8px; height: 4px; border-radius: 1px; background: #ffffff20; }
+.activity__steps .is-current { background: var(--action-accent); width: 16px; }
+.activity__steps .is-done { background: #b7bba9; }
+.activity__cancel { display: flex; gap: 6px; align-items: center; border-top: 1px solid #ffffff0c; margin-top: 13px; padding-top: 12px; color: #929899; font-size: 10px; }
+.activity__cancel kbd { min-width: 0; font-size: 9px; padding: 0 4px; }
+.activity__cancel > span { margin-left: auto; }
+.activity__dial { position: relative; width: 76px; height: 76px; flex: 0 0 76px; display: grid; place-items: center; }
+.activity__dial > svg:first-child { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.activity__dial circle { fill: none; stroke: #ffffff15; stroke-width: 3; }
+.activity__dial .activity__arc { stroke: var(--action-accent); stroke-linecap: round; }
+.activity__dial > span { font: 600 21px var(--font-core); font-variant-numeric: tabular-nums; }
+.activity__dial small { font-size: 10px; margin-left: 2px; color: #aaa; }
+.activity__dial > svg:not(:first-child) { color: var(--action-accent); }
+.activity.is-success { --action-accent: #bfe78c; }
+.activity.is-failed { --action-accent: #f18b80; }
+.activity.is-cancelled { --action-accent: #aab0b3; }
+.activity.is-success .activity__instruction, .activity.is-failed .activity__instruction { color: var(--action-accent); }
+.activity[data-phase="feedback"] .activity__instruction { color: var(--action-accent); }
+.action-lab { position: absolute; inset: 0; overflow: auto; padding: clamp(30px, 6vw, 90px); color: #eeefe8; background: linear-gradient(120deg, #0c0d11f5, #121719c4), url("/img/night-city.jpg") center / cover; font: 14px/1.6 "Segoe UI", sans-serif; }
+.action-lab header > span { font: 11px var(--font-mono); color: var(--accent); letter-spacing: .2em; text-transform: uppercase; }
+.action-lab h1 { font: 600 clamp(36px, 4vw, 62px)/1.08 var(--font-core); letter-spacing: -2px; margin: 27px 0 20px; }
+.action-lab h1 em { color: var(--accent); font-style: normal; }
+.action-lab header p { color: #a6acad; }
+.action-lab__presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin-top: 38px; max-width: 1400px; }
+.action-lab__presets button { position: relative; padding: 25px; text-align: left; color: #f2f0e9; background: #121519cf; border: 1px solid #ffffff15; border-radius: 8px; transition: border-color .18s, transform .18s, background .18s; cursor: pointer; }
+.action-lab__presets button:hover:not(:disabled) { transform: translateY(-4px); border-color: #ffcc0080; background: #202019; }
+.action-lab__presets button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.action-lab__presets button.is-selected { border-top-color: var(--accent); }
+.action-lab__presets button:disabled { cursor: default; opacity: .65; }
+.action-lab__presets button > svg { color: var(--accent); margin-bottom: 27px; }
+.action-lab__presets strong { display: block; font: 600 20px var(--font-core); }
+.action-lab__presets p { min-height: 50px; color: #9ba4a7; font: 12px/1.7 "Segoe UI", sans-serif; margin: 10px 0 20px; }
+.action-lab__number { position: absolute; right: 22px; top: 20px; color: #697173; font: 10px var(--font-mono); }
+.action-lab__try { display: flex; justify-content: space-between; align-items: center; color: #dadbd4; font: 11px "Segoe UI", sans-serif; }
+.action-lab footer { display: flex; justify-content: space-between; max-width: 1400px; margin-top: 22px; color: #889195; font-size: 11px; }
+@keyframes activity-arrive { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+@media (max-width: 1000px) { .action-lab__presets { grid-template-columns: repeat(3, minmax(0, 1fr)); } .action-lab { padding-bottom: 360px; } }
+@media (max-width: 600px) { .action-lab__presets { grid-template-columns: 1fr; } .action-lab footer { flex-direction: column; gap: 10px; } .activity { bottom: 50px; } }
+@media (prefers-reduced-motion: reduce) { .activity { animation: none; } .activity *, .action-lab * { transition: none !important; } }

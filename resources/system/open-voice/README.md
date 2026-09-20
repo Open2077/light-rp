@@ -45,6 +45,13 @@ each canonical server response. `open-voice:cycle` and
 `open-voice:setHudVisible` are equivalent local events. None of these APIs can
 submit an arbitrary distance; reach remains server-owned.
 
+Full-screen flows can emit the local event `open-voice:setHudBlocked(reason, blocked)`
+using a stable, resource-prefixed reason (for example `op77_lightrp:onboarding`).
+Blocking hides the WebUI surface immediately, without waiting for the cosmetic fade.
+The HUD returns only after all reasons are released and `setHudVisible` still allows
+it. Release your reason when the flow finishes and on resource stop; reapply it when
+`open-voice` starts again. This only affects the indicator, never microphone capture.
+
 Trusted server packages can emit
 `open-voice:setPlayerMode(playerId, modeName)` or
 `open-voice:cyclePlayerMode(playerId)`. After a canonical application,

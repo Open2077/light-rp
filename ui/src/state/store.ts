@@ -38,6 +38,8 @@ export const EMPTY_HUD: HudState = {
 };
 
 interface Store {
+  activityActive: boolean;
+  setActivityActive(value: boolean): void;
   connected: boolean;
   state: UiState;
   hud: HudState;
@@ -75,6 +77,8 @@ function normalizeDialog(payload: DialogPayload): DialogPayload {
 }
 
 export const useStore = create<Store>((set) => ({
+  activityActive: false,
+  setActivityActive: (value) => set({ activityActive: value }),
   connected: false,
   state: EMPTY_STATE,
   hud: EMPTY_HUD,
@@ -84,7 +88,12 @@ export const useStore = create<Store>((set) => ({
   rentalReceivedAt: Date.now(),
   setConnected: (value) => set({ connected: value }),
   setWelcomeReplay: (value) => set({ welcomeReplay: value }),
-  applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch }, rentalReceivedAt: patch.rental ? Date.now() : s.rentalReceivedAt })),
+  applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch,
+    ...(patch.character ? { character: { ...patch.character,
+      origins: Array.isArray(patch.character.origins) ? patch.character.origins : [],
+      slots: Array.isArray(patch.character.slots) ? patch.character.slots : [],
+    } } : {}),
+  }, rentalReceivedAt: patch.rental ? Date.now() : s.rentalReceivedAt })),
   openDialog: (payload) => set({ dialog: normalizeDialog(payload) }),
   closeDialog: () => set({ dialog: undefined }),
   // Fresh snapshots replace the matching side of the open inventory dialog; a

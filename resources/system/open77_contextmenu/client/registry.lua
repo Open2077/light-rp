@@ -5,6 +5,7 @@ local kinds = { player=true, vehicle=true, npc=true, prop=true, door=true,
 local function finite(n) return type(n)=="number" and n==n and math.abs(n)<math.huge end
 local function text(v,n) return type(v)=="string" and #v>0 and #v<=n and not v:find("[%c]") end
 local function name(v) return text(v,64) and v:match("^[%w_%.:%-]+$")~=nil end
+local icons = {interact=true,person=true,vehicle=true,info=true,lock=true,tool=true,location=true}
 local function copy(v)
     if type(v)~="table" then return v end
     local out={};for k,item in pairs(v) do out[k]=copy(item) end;return out
@@ -73,7 +74,14 @@ function ContextMenuRegistry.new(alive)
         if d.canInteract~=nil and not name(d.canInteract) then return nil,"invalid_predicate" end
         if d.description~=nil and not text(d.description,180) then return nil,"invalid_description" end
         if d.group~=nil and not text(d.group,40) then return nil,"invalid_group" end
-        if d.icon~=nil and not ({interact=true,person=true,vehicle=true,info=true,lock=true,tool=true,location=true})[d.icon] then return nil,"invalid_icon" end
+        if d.icon~=nil and not icons[d.icon] then return nil,"invalid_icon" end
+        if d.submenu~=nil then
+            if type(d.submenu)~="table" or not name(d.submenu.id) or not text(d.submenu.label,40)
+                or (d.submenu.icon~=nil and not icons[d.submenu.icon]) then return nil,"invalid_submenu" end
+            for field in pairs(d.submenu) do
+                if field~="id" and field~="label" and field~="icon" then return nil,"invalid_submenu" end
+            end
+        end
         for _,field in ipairs({"enabled","networked","allowSelf","selfOnly","danger"}) do
             if d[field]~=nil and type(d[field])~="boolean" then return nil,"invalid_"..field end
         end
@@ -105,10 +113,10 @@ function ContextMenuRegistry.new(alive)
             onSelect=d.onSelect,canInteract=d.canInteract,types=types,records=records,
             distance=distance,order=order,enabled=d.enabled~=false,networked=d.networked,
             allowSelf=d.allowSelf==true,selfOnly=d.selfOnly==true,danger=d.danger==true,
-            entities=copy(d.entities),data=copy(d.data)}
+            entities=copy(d.entities),data=copy(d.data),submenu=copy(d.submenu)}
         -- Keep only supported fields; never retain a provider's Lua table.
         local definition={}
-        for _,field in ipairs({"id","label","onSelect","canInteract","description","group","icon","enabled","networked","allowSelf","selfOnly","danger","distance","order","types","records","entities","data"}) do
+        for _,field in ipairs({"id","label","onSelect","canInteract","description","group","icon","enabled","networked","allowSelf","selfOnly","danger","distance","order","types","records","entities","data","submenu"}) do
             definition[field]=copy(d[field])
         end
         actions[token].definition=definition

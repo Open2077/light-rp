@@ -3,6 +3,7 @@ import { on } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { Keycap } from "@/design/components";
 import "./interact.css";
+import { useStore } from "@/state/store";
 
 /* The proximity prompt: a keycap and a few words beside the thing you can use.
    The client Lua keeps one page anchor (tag "interact") on the nearest point in
@@ -14,6 +15,7 @@ interface AnchorFrame { anchors?: Array<{ tag?: string; x: number; y: number; on
 interface InteractPayload { prompt?: string; key?: string }
 
 export function InteractPrompt() {
+  const activityActive = useStore((s) => s.activityActive);
   const [prompt, setPrompt] = useState<InteractPayload | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const seen = useRef(false);
@@ -36,7 +38,7 @@ export function InteractPrompt() {
 
   if (!prompt) return null;
   return (
-    <div ref={ref} className="interact" aria-live="polite" style={{ opacity: 0 }}>
+    <div ref={ref} className="interact" aria-live="polite" style={{ opacity: 0, visibility: activityActive ? "hidden" : "visible" }}>
       <Keycap tone="accent">{prompt.key ?? "E"}</Keycap>
       <span className="interact__text">{prompt.prompt}</span>
     </div>

@@ -158,6 +158,7 @@ CreateThread(function()
 end)
 
 function Interact.press()
+    if LightRpActions and LightRpActions.isActive() then return false end
     local point = Interact.near
     if point == nil then return false end
     TriggerServerEvent(E.net.interact, point.id)
