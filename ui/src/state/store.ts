@@ -75,6 +75,7 @@ export function normalizeInventory(snap: InventorySnapshot): InventorySnapshot {
 function normalizeDialog(payload: DialogPayload): DialogPayload {
   if (payload.kind === "inventory") return { ...payload, left: normalizeInventory(payload.left), right: normalizeInventory(payload.right) };
   if (payload.kind === "rental") return { ...payload, spot: { ...payload.spot, stock: Array.isArray(payload.spot.stock) ? payload.spot.stock : [] } };
+  if (payload.kind === "jobcenter") return { ...payload, jobs: Array.isArray(payload.jobs) ? payload.jobs : [] };
   if (payload.kind === "shop") return { ...payload, items: Array.isArray(payload.items) ? payload.items : [], payments: Array.isArray(payload.payments) ? payload.payments : [], inventory: normalizeInventory(payload.inventory) };
   return payload;
 }

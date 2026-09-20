@@ -167,7 +167,9 @@ export interface ShopUpdate {
   session: string; request?: number; ok?: boolean; text?: string; closed?: boolean;
   catalogueChanged?: boolean; refresh?: boolean; state?: ShopDialogPayload;
 }
-export type DialogPayload = RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload;
+export interface JobOffer { name: string; label: string; tag: string; grades: number; entryGrade: { label: string; salary: number } }
+export interface JobCenterDialogPayload { kind: "jobcenter"; spot: { id: string; name: string }; jobs: JobOffer[]; paycheckMinutes: number }
+export type DialogPayload = RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload;
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -208,6 +210,8 @@ export type UiAction =
   | { type: "inventory.use"; slot: number }
   | { type: "inventory.drop"; slot: number; count: number }
   | { type: "inventory.give"; slot: number; count: number }
+  | { type: "jobs.apply"; spot: string; job: string }
+  | { type: "jobs.quit" }
   | { type: "staff.tp"; target: "me" | number; location: string }
   | { type: "staff.heal"; target: "me" | number }
   | { type: "staff.announce"; text: string }

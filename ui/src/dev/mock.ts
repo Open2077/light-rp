@@ -115,6 +115,12 @@ export function installMockBridge(): void {
             left: { id: "player:catalogue", kind: "player", label: "RP consumables · preview", slots: 30, maxWeight: 40,
               weight: itemCatalogue.reduce((sum, item) => sum + item.weight * item.count, 0), items: itemCatalogue },
             right: { id: "ground", kind: "ground", label: "Ground", slots: 1, maxWeight: 0, weight: 0, items: [] } });
+          if (params.get("dialog") === "jobcenter") fire(PAGE_EVENTS.dialog, { kind: "jobcenter", spot: { id: "citycenter", name: "Job Center // City Center" }, paycheckMinutes: 30, jobs: [
+            { name: "sanitation", label: "NC Sanitation", tag: "SANITATION", grades: 4, entryGrade: { label: "Trainee", salary: 40 } },
+            { name: "delivery", label: "Night Courier", tag: "COURIER", grades: 3, entryGrade: { label: "Runner", salary: 45 } },
+            { name: "mechanic", label: "Rust & Chrome Garage", tag: "MECHANIC", grades: 4, entryGrade: { label: "Apprentice", salary: 50 } },
+            { name: "taxi", label: "Delamain Partner", tag: "TAXI", grades: 2, entryGrade: { label: "Driver", salary: 50 } },
+            { name: "trauma", label: "Street Medic", tag: "MEDIC", grades: 3, entryGrade: { label: "Volunteer", salary: 55 } } ] });
           if (params.get("dialog") === "rental") fire(PAGE_EVENTS.dialog, { kind: "rental", spot: { id: "citycenter", name: "Rent-a-Ride // City Center", durationMinutes: 30, stock: [
             { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
             { key: "cortes", label: "Villefort Cortes", category: "Street", price: 140 }, { key: "semimaru", label: "Yaiba Semimaru", category: "Sport", price: 90 },
@@ -214,6 +220,16 @@ export function installMockBridge(): void {
               state.rental = {};
               fire(PAGE_EVENTS.state, { rental: state.rental });
               result(true, "Vehicle returned.", action.type);
+              break;
+            case "jobs.apply":
+              state.job = { name: action.job, label: action.job.toUpperCase(), tag: action.job.toUpperCase(), grade: 0, gradeLabel: "Entry", salary: 40, paycheckMinutes: 30 };
+              fire(PAGE_EVENTS.state, { job: state.job });
+              result(true, `Hired: ${action.job}.`, action.type);
+              break;
+            case "jobs.quit":
+              state.job = { name: "unemployed", label: "Unemployed", tag: "CIVILIAN", grade: 0, gradeLabel: "Citizen", salary: 0, paycheckMinutes: 30 };
+              fire(PAGE_EVENTS.state, { job: state.job });
+              result(true, "You quit your job.", action.type);
               break;
             case "welcome.ack":
               patchCharacter({ welcomePending: false });

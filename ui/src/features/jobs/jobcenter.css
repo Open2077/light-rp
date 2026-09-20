@@ -1,0 +1,18 @@
+.jobcenter { position: absolute; inset: 0; z-index: 44; display: grid; place-items: center; padding: var(--sp-8); background: var(--surface-scrim); backdrop-filter: var(--blur-modal); }
+.jobcenter__frame {
+  width: min(680px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface-panel); clip-path: var(--clip-chamfer-lg);
+  box-shadow: inset 0 0 0 1px var(--line-soft), var(--shadow-panel); animation: o77-wipe-in var(--dur-base) var(--ease-mech) both;
+}
+.jobcenter__head { display: flex; align-items: center; gap: var(--sp-5); padding: var(--sp-5) var(--sp-6); }
+.jobcenter__head-icon { display: grid; place-items: center; width: 36px; height: 36px; color: var(--text-on-accent); background: var(--accent); clip-path: var(--clip-notch); }
+.jobcenter__head-text { flex: 1; display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.jobcenter__title { margin: 0; font: var(--type-display); font-size: var(--fs-title); color: var(--text-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jobcenter__body { display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--sp-6); overflow: auto; }
+.jobcenter__current { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-5); padding: var(--sp-4) var(--sp-5); background: var(--accent-quiet); box-shadow: inset 2px 0 0 var(--accent); }
+.jobcenter__current--none { background: var(--surface-raised); box-shadow: inset 2px 0 0 var(--line-soft); }
+.jobcenter__current-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.jobcenter__current-label { font: var(--type-label); text-transform: uppercase; letter-spacing: var(--ls-label); color: var(--text-hi); }
+.jobcenter__list { display: flex; flex-direction: column; }
+.jobcenter__pay { font-family: var(--font-mono); font-size: var(--fs-tag); letter-spacing: var(--ls-label); color: var(--text-hi); white-space: nowrap; }
+.jobcenter__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-4) var(--sp-6); border-top: 1px solid var(--line-hairline); background: var(--o77-ink-900); }

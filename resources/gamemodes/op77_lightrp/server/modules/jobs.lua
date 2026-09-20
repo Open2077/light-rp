@@ -108,6 +108,10 @@ function Jobs.setGang(playerId, name, grade)
     return true, gang
 end
 
+local REASONS = { no_character = "That player has no active character.", unknown_job = "Unknown job. /lightrp.jobs lists them.",
+    unknown_gang = "Unknown gang. /lightrp.jobs lists them.", unknown_grade = "That grade does not exist for it.", database_error = "The database refused." }
+local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
+
 -- ---------------------------------------------------------------------------
 -- State for the page, replication, paychecks
 
@@ -139,11 +143,103 @@ CreateThread(function()
 end)
 
 -- ---------------------------------------------------------------------------
+-- Job centers: a clerk and a desk that hands out the listed jobs
+
+local centers = {} -- interaction id -> center
+
+local function spawnClerk(center)
+    if type(Open77.npcs) ~= "table" or type(Open77.npcs.create) ~= "function" then return nil end
+    local pool = LightRpConfig.rentals and LightRpConfig.rentals.npcPool or {}
+    local candidates = {}
+    for i, candidate in ipairs(pool) do candidates[i] = candidate end
+    for i = #candidates, 2, -1 do local j = math.random(i); candidates[i], candidates[j] = candidates[j], candidates[i] end
+    for _, candidate in ipairs(candidates) do
+        local definition = {
+            position = { x = center.position.x, y = center.position.y, z = center.position.z }, yaw = tonumber(center.heading) or 0.0, bucket = 0,
+            persistent = false, despawnWhenUnobserved = false, streamingRadius = 150.0,
+            behavior = { combatEnabled = false, perceptionEnabled = false, voiceEnabled = false },
+        }
+        if candidate.record then definition.record = candidate.record else definition.template = candidate.template end
+        if type(Open77.npcs.damage) == "table" then definition.damagePolicy = Open77.npcs.damage.invulnerable or Open77.npcs.damage.immortal end
+        if type(Open77.npcs.ai) == "table" then definition.aiMode = Open77.npcs.ai.tasks end
+        local ok, npcId = pcall(Open77.npcs.create, definition)
+        if ok and npcId then
+            pcall(Open77.npcs.setAIEnabled, npcId, false)
+            LightRP.log("job center %s: clerk %s spawned as %s (AI off)", center.id, tostring(npcId), candidate.record or candidate.template)
+            return npcId
+        end
+    end
+    LightRP.log("job center %s: no clerk candidate accepted; the desk still works", center.id)
+    return nil
+end
+
+local function offersOf(center)
+    local list = {}
+    for _, name in ipairs(center.jobs or {}) do
+        local def = JOBS[name]
+        if def and name ~= "unemployed" then
+            local count = 0
+            for _ in pairs(def.grades) do count = count + 1 end
+            local entry = def.grades[0] or {}
+            list[#list + 1] = { name = name, label = def.label, tag = def.tag, grades = count, entryGrade = { label = entry.label or "", salary = entry.salary or 0 } }
+        end
+    end
+    return list
+end
+
+CreateThread(function()
+    Wait(700)
+    for _, entry in ipairs(Config.centers or {}) do
+        local center = {}
+        for k, v in pairs(entry) do center[k] = v end
+        center.offers = offersOf(center)
+        center.npcId = spawnClerk(center)
+        local id = "jobcenter." .. center.id
+        centers[id] = center
+        LightRP.interaction(id, {
+            position = center.position, radius = Config.centerRadius or 2.0,
+            label = center.name, prompt = Config.centerPrompt or "Job center", key = "E", promptHeight = 1.1,
+            marker = center.marker or Config.centerMarker, ring = false,
+            blip = Config.centerBlip and { sprite = Config.centerBlip.sprite, title = center.name, description = Config.centerBlip.description } or nil,
+        })
+    end
+    if #(Config.centers or {}) > 0 then LightRP.log("jobs: %d job center(s) open", #Config.centers) end
+end)
+
+function Jobs.onInteract(playerId, id)
+    local center = centers[id]
+    if center == nil then return end
+    local c = LightRP.characters.get(playerId)
+    if c == nil or c.status ~= "active" then return LightRP.result(playerId, false, "Finish your character first.", "jobs.open") end
+    LightRP.dialog(playerId, "jobcenter", { spot = { id = center.id, name = center.name }, jobs = center.offers, paycheckMinutes = Config.paycheckMinutes or 30 })
+end
+
+local function nearCenter(playerId, center)
+    return LightRP.nearInteraction(playerId, { position = center.position, radius = Config.centerRadius or 2.0 }, 4.0)
+end
+
+LightRP.action("jobs.apply", function(playerId, payload)
+    local center = centers["jobcenter." .. tostring(payload.spot or "")]
+    if center == nil then return LightRP.result(playerId, false, "That desk does not exist.", "jobs.apply") end
+    if not nearCenter(playerId, center) then return LightRP.result(playerId, false, "Walk up to the desk.", "jobs.apply") end
+    local wanted = string.lower(tostring(payload.job or ""))
+    local offered = false
+    for _, offer in ipairs(center.offers) do if offer.name == wanted then offered = true end end
+    if not offered then return LightRP.result(playerId, false, "This desk does not offer that job.", "jobs.apply") end
+    if Jobs.get(playerId).name == wanted then return LightRP.result(playerId, false, "That is already your job.", "jobs.apply") end
+    local ok, result = Jobs.setJob(playerId, wanted, 0)
+    LightRP.result(playerId, ok, ok and string.format("Hired: %s, %s.", result.label, result.gradeLabel) or explain(result), "jobs.apply")
+end)
+
+LightRP.action("jobs.quit", function(playerId)
+    if Jobs.get(playerId).name == "unemployed" then return LightRP.result(playerId, false, "You have no job to quit.", "jobs.quit") end
+    local ok, result = Jobs.setJob(playerId, "unemployed", 0)
+    LightRP.result(playerId, ok, ok and "You quit your job." or explain(result), "jobs.quit")
+end)
+
+-- ---------------------------------------------------------------------------
 -- Staff commands
 
-local REASONS = { no_character = "That player has no active character.", unknown_job = "Unknown job. /lightrp.jobs lists them.",
-    unknown_gang = "Unknown gang. /lightrp.jobs lists them.", unknown_grade = "That grade does not exist for it.", database_error = "The database refused." }
-local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
 
 local function target(source, value)
     if value == nil or value == "" or value == "me" then return source end

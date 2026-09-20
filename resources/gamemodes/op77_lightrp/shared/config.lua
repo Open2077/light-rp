@@ -81,6 +81,19 @@ LightRpConfig = {
     -- Jobs and gangs (catalogue in shared/jobs.lua). Paychecks go to the bank.
     jobs = {
         paycheckMinutes = 30, -- 0 disables paychecks
+        -- Job centers: a clerk (crowd NPC, AI off), a marker, E opens the desk.
+        -- `jobs` lists what that desk offers; applying starts at grade 0.
+        centers = {
+            {
+                id = "citycenter", name = "Job Center // City Center",
+                position = { x = -645.578979, y = -412.519470, z = 8.196312 }, heading = 56.899963,
+                jobs = { "sanitation", "delivery", "mechanic", "taxi", "trauma" },
+            },
+        },
+        centerPrompt = "Job center",
+        centerRadius = 2.0,
+        centerMarker = { shape = "cylinder", radius = 0.9, height = 0.65, color = { r = 255, g = 204, b = 0, a = 160 }, maxDistance = 30.0, groundOffset = 0.05 },
+        centerBlip = { sprite = "tech", title = "Job Center", description = "Find work: sanitation, courier, mechanic, taxi, medic." },
     },
 
     -- Vehicle keys: L locks or unlocks the vehicle you sit in or the closest one
