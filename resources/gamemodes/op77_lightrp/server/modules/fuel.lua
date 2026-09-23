@@ -94,15 +94,19 @@ local function write(vehicleId, tank)
     return true
 end
 
--- Litres burned over dt seconds. Below walking pace the engine is charged as idling.
+-- Litres burned over dt seconds. A moving car burns by distance whatever the
+-- engine bit says (the owner's report can lag behind the ignition); a stopped
+-- car burns the idle rate only while its engine runs.
 local function burn(engineOn, speedMps, dtSeconds)
-    if not engineOn or dtSeconds <= 0 then return 0.0 end
+    if dtSeconds <= 0 then return 0.0 end
     if type(speedMps) ~= "number" or speedMps ~= speedMps or speedMps < 0 then speedMps = 0.0 end
     local litres
     if speedMps >= 1.0 then
         litres = (speedMps * dtSeconds / 1000.0) * (Config.litresPerHundredKm or 12.0) / 100.0
-    else
+    elseif engineOn then
         litres = (Config.idleLitresPerMinute or 0.08) * dtSeconds / 60.0
+    else
+        return 0.0
     end
     return litres * (Config.multiplier or 1.0)
 end
@@ -251,7 +255,14 @@ local function tick(snapshot, dtSeconds)
         return
     end
     local engineOn = (flags & flagEngine) ~= 0
-    local used = burn(engineOn, tonumber(snapshot.speed) or 0.0, dtSeconds)
+    local speed = tonumber(snapshot.speed) or 0.0
+    if speed >= 1.0 and not engineOn and not tank.flagNoted then
+        -- Diagnostic, once per vehicle: the owner's report is moving the car
+        -- with the engine bit clear. Distance burn does not depend on it.
+        tank.flagNoted = true
+        LightRP.log("fuel: vehicle %s moves at %.1f m/s with engine flag off (flags=%d)", tostring(id), speed, flags)
+    end
+    local used = burn(engineOn, speed, dtSeconds)
     if used <= 0 then return end
     local before = tank.litres
     -- Sub-tenth burns still accumulate: keep the exact value, publish the rounded one.
@@ -490,8 +501,10 @@ LightRP.command("lightrp.fuel", { restricted = true, usage = "/lightrp.fuel [veh
     if id == nil then return false, "No vehicle: sit in one, stand next to one or give an id." end
     local info = Fuel.info(id)
     if info == nil then return false, "Unknown vehicle " .. tostring(id) end
-    return true, string.format("vehicle %s: %.1f / %.0f L (%d%%)%s engine=%s", tostring(id), info.litres, info.capacity,
-        math.floor(info.fraction * 100 + 0.5), info.empty and " EMPTY" or (info.low and " LOW" or ""), tostring(Open77.vehicles.isEngineOn(id)))
+    local snapshot = Open77.vehicles.get(id) or {}
+    return true, string.format("vehicle %s: %.1f / %.0f L (%d%%)%s engine=%s speed=%.1f m/s flags=%s rate=%.0f L/100km x%.2f", tostring(id), info.litres, info.capacity,
+        math.floor(info.fraction * 100 + 0.5), info.empty and " EMPTY" or (info.low and " LOW" or ""), tostring(Open77.vehicles.isEngineOn(id)),
+        tonumber(snapshot.speed) or 0, tostring(snapshot.flags), Config.litresPerHundredKm or 12, Config.multiplier or 1)
 end)
 
 LightRP.command("lightrp.refuel", { restricted = true, usage = "/lightrp.refuel [vehicleId] [litres]" }, function(source, args)
