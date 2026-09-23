@@ -35,6 +35,20 @@ local function sampleStats()
     view.ready = true
 end
 
+-- Server-owned tank on the vehicle's state bag (server/modules/fuel.lua).
+local function sampleFuel(vehicleId)
+    if type(Open77.state) ~= "table" or type(Open77.state.entity) ~= "function" then return nil end
+    local ok, bag = pcall(Open77.state.entity, "vehicle", vehicleId)
+    if not ok or bag == nil then return nil end
+    local okLitres, litres = pcall(function() return bag:get("fuel") end)
+    if not okLitres or type(litres) ~= "number" then return nil end
+    local okMax, capacity = pcall(function() return bag:get("fuelMax") end)
+    capacity = (okMax and type(capacity) == "number" and capacity > 0) and capacity or 60
+    local fraction = math.max(0, math.min(1, litres / capacity))
+    local reserve = (Config.fuel and Config.fuel.reserve) or 0.15
+    return { litres = litres, capacity = capacity, fraction = fraction, low = fraction <= reserve, empty = litres <= 0 }
+end
+
 local function sampleVehicle()
     if type(Open77.vehicles) ~= "table" or type(Open77.vehicles.getPlayerSeat) ~= "function" or type(Open77.vehicles.get) ~= "function" then
         view.vehicle = { active = false }
@@ -55,6 +69,7 @@ local function sampleVehicle()
         speedKph = math.abs(number(vehicle.speed, 0)) * 3.6,
         gear = reversing and "R" or (gear == 0 and "N" or tostring(gear)),
         health = math.max(0, math.min(1, number(vehicle.health, 1))),
+        fuel = sampleFuel(seat.vehicleId),
     }
 end
 

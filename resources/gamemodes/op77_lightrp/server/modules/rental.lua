@@ -172,6 +172,7 @@ function Rental.rent(playerId, spotId, key, pay)
     end
     -- Keys authorise the renter to unlock; the car starts locked for everyone.
     LightRP.keys.give(vehicleId, playerId, { label = item.label, owner = true })
+    if LightRP.fuel then LightRP.fuel.seed(vehicleId, "rental") end -- a rental never comes with a full tank
     LightRP.keys.lock(vehicleId, true, playerId)
     local now = LightRP.nowMs()
     local r = { spotId = spot.id, key = item.key, label = item.label, image = item.image, vehicleId = vehicleId, startedAt = now,

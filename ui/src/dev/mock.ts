@@ -74,7 +74,10 @@ export function installMockBridge(): void {
   };
   const hud: HudState = {
     ready: true, health: { value: 78, max: 100 }, stamina: { value: 92, max: 100 }, armor: 40,
-    vehicle: params.get("vehicle") === "1" ? { active: true, label: "ARCHER QUARTZ", speedKph: 87, gear: "3", health: 0.9 } : { active: false },
+    vehicle: params.get("vehicle") === "1" ? { active: true, label: "ARCHER QUARTZ", speedKph: 87, gear: "3", health: 0.9,
+      fuel: params.get("fuel") === "empty" ? { litres: 0, capacity: 55, fraction: 0, low: true, empty: true }
+        : params.get("fuel") === "low" ? { litres: 6.4, capacity: 55, fraction: 0.116, low: true, empty: false }
+        : { litres: 31.7, capacity: 55, fraction: 0.576, low: false, empty: false } } : { active: false },
     voice: { state: "idle", level: 0, range: "normal" }, clock: "22:41", street: "KANDA ST",
     walk: params.get("walk") === "1" ? { mode: "walk", label: "WALK", speed: 1.5, index: 2, count: 3 } : undefined,
   };
@@ -84,6 +87,14 @@ export function installMockBridge(): void {
     fire(PAGE_EVENTS.state, { character: state.character });
   };
   const result = (ok: boolean, text: string, action: string) => fire(PAGE_EVENTS.result, { ok, text, action });
+  let pumpLitres = params.get("fuel") === "empty" ? 0 : 18.3;
+  let cans = { empty: 1, full: 0 };
+  const fuelFixture = () => ({
+    kind: "fuel" as const, spot: { id: "citycenter", name: "Gas Station // City Center" }, pricePerLitre: 3, pumpRange: 7,
+    vehicle: params.get("novehicle") === "1" ? undefined : { id: 7306, label: "Thorton Galena", litres: pumpLitres, capacity: 55, moving: false },
+    jerrycan: { litres: 20, refillPrice: 60, buyPrice: 85, ...cans },
+    money: { currency: "€$", cash: state.money.cash, bank: state.money.bank?.balance ?? 0 },
+  });
 
   const bridge: Open77Bridge = {
     on(name, handler) { (handlers.get(name) ?? handlers.set(name, new Set()).get(name)!).add(handler); },
@@ -121,6 +132,7 @@ export function installMockBridge(): void {
             { name: "mechanic", label: "Rust & Chrome Garage", tag: "MECHANIC", grades: 4, entryGrade: { label: "Apprentice", salary: 50 } },
             { name: "taxi", label: "Delamain Partner", tag: "TAXI", grades: 2, entryGrade: { label: "Driver", salary: 50 } },
             { name: "trauma", label: "Street Medic", tag: "MEDIC", grades: 3, entryGrade: { label: "Volunteer", salary: 55 } } ] });
+          if (params.get("dialog") === "fuel") fire(PAGE_EVENTS.dialog, fuelFixture());
           if (params.get("dialog") === "rental") fire(PAGE_EVENTS.dialog, { kind: "rental", spot: { id: "citycenter", name: "Rent-a-Ride // City Center", durationMinutes: 30, stock: [
             { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
             { key: "cortes", label: "Villefort Cortes", category: "Street", price: 140 }, { key: "semimaru", label: "Yaiba Semimaru", category: "Sport", price: 90 },
@@ -214,6 +226,24 @@ export function installMockBridge(): void {
               state.rental = { active: { spotId: action.spot, spotName: "Rent-a-Ride // City Center", key: action.key, label: action.key.toUpperCase(), price, paidWith: action.pay, remainingMs: 30 * 60000 } };
               fire(PAGE_EVENTS.state, { money: state.money, rental: state.rental });
               result(true, `${action.key.toUpperCase()} rented for €$ ${price}.`, action.type);
+              break;
+            }
+            case "fuel.buy": {
+              const price = Math.ceil(action.litres * 3);
+              if (action.pay === "cash") state.money.cash -= price; else if (state.money.bank) state.money.bank.balance -= price;
+              pumpLitres = Math.min(55, pumpLitres + action.litres);
+              fire(PAGE_EVENTS.state, { money: state.money });
+              result(true, `Refuelled ${action.litres} L for €$ ${price}.`, action.type);
+              fire(PAGE_EVENTS.dialog, fuelFixture());
+              break;
+            }
+            case "fuel.jerrycan": {
+              const price = cans.empty > 0 ? 60 : 85;
+              cans = { empty: Math.max(0, cans.empty - 1), full: cans.full + 1 };
+              if (action.pay === "cash") state.money.cash -= price; else if (state.money.bank) state.money.bank.balance -= price;
+              fire(PAGE_EVENTS.state, { money: state.money });
+              result(true, `${price === 60 ? "Jerrycan refilled" : "Jerrycan bought"} for €$ ${price}.`, action.type);
+              fire(PAGE_EVENTS.dialog, fuelFixture());
               break;
             }
             case "rental.return":

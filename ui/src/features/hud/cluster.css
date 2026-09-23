@@ -1,0 +1,45 @@
+/* Vehicle cluster: three arc gauges on translucent plates. Yellow is the lit
+   state, dim yellow the track, red the fuel reserve and the alarms. */
+.cluster { position: relative; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .55)); }
+.cluster__svg { position: absolute; inset: 0; overflow: visible; }
+.cl-plate { fill: var(--surface-hud, rgba(10, 11, 13, .78)); stroke: rgba(255, 255, 255, .08); stroke-width: 1; }
+.cl-plate--side { fill: rgba(10, 11, 13, .62); }
+.cl-frame { fill: none; stroke: rgba(255, 204, 0, .35); stroke-width: 1.2; }
+.cl-hair { fill: none; stroke: rgba(255, 204, 0, .55); stroke-width: 1.2; }
+.cl-hair--slash { stroke: rgba(255, 255, 255, .22); }
+.cl-ticks line { stroke: rgba(255, 255, 255, .28); stroke-width: 1; }
+.cl-ticks line.is-major { stroke: rgba(255, 255, 255, .6); stroke-width: 1.4; }
+.cl-scale { font: 500 10px var(--font-mono); fill: #d8dbd6; text-anchor: middle; dominant-baseline: middle; letter-spacing: .04em; }
+.cl-seg { fill: none; stroke-linecap: butt; }
+.cl-seg__cell { stroke: rgba(255, 204, 0, .16); transition: stroke .25s ease, filter .25s ease; }
+.cl-seg__cell.is-on { stroke: var(--accent); filter: drop-shadow(0 0 4px rgba(255, 204, 0, .55)); }
+.cl-seg--fuel .cl-seg__cell.is-reserve { stroke: rgba(255, 70, 70, .22); }
+.cl-seg--fuel .cl-seg__cell.is-reserve.is-on { stroke: #ff3b3b; filter: drop-shadow(0 0 5px rgba(255, 59, 59, .6)); }
+.cluster--fuel-low .cl-seg--fuel .cl-seg__cell.is-on { stroke: #ff3b3b; filter: drop-shadow(0 0 5px rgba(255, 59, 59, .6)); }
+.cluster--fuel-empty .cl-seg--fuel .cl-seg__cell { animation: cl-blink 1.1s steps(1, end) infinite; }
+.cl-needle { fill: var(--accent); filter: drop-shadow(0 0 4px rgba(255, 204, 0, .7)); }
+.cl-gear { fill: rgba(255, 204, 0, .08); stroke: var(--accent); stroke-width: 1.6; filter: drop-shadow(0 0 6px rgba(255, 204, 0, .35)); }
+.cl-name-plate { fill: rgba(10, 11, 13, .8); stroke: rgba(255, 204, 0, .4); stroke-width: 1.2; }
+
+.cluster > span, .cluster > div { position: absolute; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; }
+.cluster__speed { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.cluster__dashes { display: flex; gap: 6px; margin-bottom: 4px; }
+.cluster__dashes i { width: 16px; height: 2px; background: rgba(255, 255, 255, .25); }
+.cluster__dashes i.is-on { background: #fff; }
+.cluster__speed-value { font: var(--type-display); font-size: 52px; line-height: 1; color: var(--text-hi); text-shadow: 0 0 14px rgba(255, 255, 255, .55), var(--glow-text); font-variant-numeric: tabular-nums; }
+.cluster__speed-unit { font: var(--type-hud-readout); letter-spacing: .3em; color: var(--text-body); }
+.cluster__gear { display: flex; flex-direction: column; align-items: center; }
+.cluster__gear small { position: absolute; top: -21px; font: var(--type-hud-readout); letter-spacing: .3em; color: var(--text-dim); }
+.cluster__gear b { font: var(--type-display); font-size: 24px; line-height: 1; color: var(--accent); text-shadow: 0 0 10px rgba(255, 204, 0, .6); }
+.cluster__side { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text-body); }
+.cluster__side svg { color: #fff; margin-bottom: 2px; }
+.cluster__side--fuel svg { color: var(--accent); }
+.cluster__side-label { font: var(--type-hud-readout); letter-spacing: .22em; color: var(--text-body); padding-bottom: 4px; border-bottom: 1px solid rgba(255, 255, 255, .25); }
+.cluster__side-value { font: var(--type-display); font-size: 30px; line-height: 1; color: var(--text-hi); text-shadow: 0 0 10px rgba(255, 255, 255, .4); font-variant-numeric: tabular-nums; }
+.cluster__side-unit { font: var(--type-hud-readout); letter-spacing: .12em; color: var(--text-dim); }
+.cluster--fuel-low .cluster__side--fuel .cluster__side-unit, .cluster--fuel-empty .cluster__side--fuel .cluster__side-value, .cluster--fuel-empty .cluster__side--fuel .cluster__side-unit { color: #ff3b3b; }
+.cluster__flag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; font: var(--type-hud-readout); letter-spacing: .2em; color: #1a1500; background: var(--accent); clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); box-shadow: 0 0 12px rgba(255, 204, 0, .45); }
+.cluster__flag--empty { color: #fff; background: #d82c2c; box-shadow: 0 0 12px rgba(255, 59, 59, .5); animation: cl-blink 1.1s steps(1, end) infinite; }
+.cluster__name { left: 50%; font: var(--type-hud-readout); font-size: 12px; letter-spacing: .34em; color: #e6e7e2; text-shadow: 0 0 8px rgba(255, 255, 255, .25); }
+@keyframes cl-blink { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .cluster * { animation: none !important; transition: none !important; } }

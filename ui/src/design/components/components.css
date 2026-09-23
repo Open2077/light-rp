@@ -112,6 +112,7 @@
 .o77-vital--drink { --vital-fill: var(--vital-drink); --vital-track: var(--vital-drink-track); }
 .o77-vital--stamina { --vital-fill: var(--vital-stamina); --vital-track: var(--vital-stamina-track); }
 .o77-vital--accent { --vital-fill: var(--accent); --vital-track: var(--o77-yellow-800); }
+.o77-vital--fuel { --vital-fill: var(--o77-yellow-500); --vital-track: var(--o77-yellow-800); }
 
 /* ---------- MicIndicator ---------- */
 .o77-mic {

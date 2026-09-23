@@ -107,6 +107,36 @@ LightRpConfig = {
         horn = { bipMs = 110, gapMs = 170, lock = 1, unlock = 2 }, -- counts; 0 disables
     },
 
+    -- Fuel. Every network vehicle carries a tank in its state bag (`fuel` litres,
+    -- `fuelMax` capacity), burned by the server from the replicated speed while
+    -- the engine runs. Empty tank = engine cut and throttle locked until someone
+    -- refuels: at a gas station pump (E next to the pump, car parked within
+    -- pumpRange) or with a jerrycan from the inventory. Tanks by catalog category.
+    fuel = {
+        enabled = true,
+        tickMs = 1000,
+        litresPerHundredKm = 14.0,   -- burned by distance while moving
+        idleLitresPerMinute = 0.10,  -- burned by time while the engine idles
+        multiplier = 1.0,            -- scales both rates (staff: /lightrp.fuelrate)
+        tanks = { default = 60, Street = 55, Utility = 90, Sport = 65, Bikes = 18 }, -- litres, by vehicles.catalog category
+        reserve = 0.15,              -- fraction: HUD turns amber and the driver is warned once
+        rentalTank = { min = 0.35, max = 0.75 }, -- rentals are delivered with a partial tank
+        pricePerLitre = 3,           -- eddies, whole litres only at the pump
+        pumpRange = 7.0,             -- metres between the pump point and the vehicle
+        parkedSpeed = 0.5,           -- m/s: the car has to be stopped to refuel
+        jerrycan = { litres = 20, deposit = 25, range = 4.0 }, -- item `jerrycan`; the can comes back empty and refills at any pump
+        prompt = "Refuel",
+        interactRadius = 2.5,
+        marker = { shape = "cylinder", radius = 1.1, height = 0.5, color = { r = 255, g = 204, b = 0, a = 150 }, maxDistance = 40.0, groundOffset = 0.05 },
+        blip = { sprite = "GasStationVariant", title = "Gas Station", description = "Fuel by the litre. Jerrycans sold and refilled." },
+        -- Pump points: stand next to the pump, park the car within pumpRange.
+        -- Pick positions with /pos. The first one is a placeholder next to the
+        -- City Center rental parking until real station coordinates are set.
+        stations = {
+            { id = "citycenter", name = "Gas Station // City Center", position = { x = -650.5, y = -395.0, z = 7.99 } },
+        },
+    },
+
     vehicleContext = {
         enabled = true,
         range = 4.5,             -- trunk, hood, storage, engine and lights

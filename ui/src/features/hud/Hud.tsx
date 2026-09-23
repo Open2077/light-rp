@@ -1,5 +1,6 @@
 import { useStore } from "@/state/store";
-import { Badge, StatusChip, VitalBar } from "@/design/components";
+import { StatusChip } from "@/design/components";
+import { VehicleCluster } from "./VehicleCluster";
 import { useEffect, useState } from "react";
 import { WalkFlash } from "./WalkFlash";
 import { PlayerVitals } from "./PlayerVitals";
@@ -36,19 +37,7 @@ export function Hud() {
 
       <div className="hud__bottom-right">
         {rental.active && <StatusChip icon="car" label="RENTAL" tone="accent" value={countdown(rental.active.remainingMs - (Date.now() - rentalAt))} />}
-        {hud.vehicle.active && (
-        <div className="hud__vehicle">
-          <div className="hud__speed">
-            <span className="hud__speed-value">{String(Math.round(hud.vehicle.speedKph ?? 0)).padStart(3, "0")}</span>
-            <span className="hud__speed-unit">KM/H</span>
-          </div>
-          <div className="hud__vehicle-meta">
-            <span className="o77-readout o77-dim">{hud.vehicle.label ?? "VEHICLE"}</span>
-            <Badge tone="accent">{hud.vehicle.gear ?? "N"}</Badge>
-          </div>
-          <VitalBar tone="accent" label="CONDITION" value={(hud.vehicle.health ?? 1) * 100} size="sm" width={140} segments={14} />
-        </div>
-        )}
+        {hud.vehicle.active && <VehicleCluster vehicle={hud.vehicle} />}
       </div>
     </div>
   );

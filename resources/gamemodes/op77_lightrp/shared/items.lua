@@ -147,6 +147,15 @@ LightRpItems = {
         label = "Keycard", description = "A building access card.",
         weight = 0.05, stack = 1, icon = "key-round", category = "document",
     },
+    jerrycan = {
+        label = "Jerrycan (full)", description = "20 litres of fuel. Use it next to a vehicle to pour it into the tank.",
+        weight = 16.0, stack = 1, icon = "fuel", category = "tool",
+        -- No `use` effects: server/modules/fuel.lua registers the use handler.
+    },
+    jerrycan_empty = {
+        label = "Jerrycan (empty)", description = "An empty can. Any gas station pump refills it.",
+        weight = 1.5, stack = 2, icon = "fuel", category = "tool",
+    },
     trashbag = {
         label = "Trash Bag", description = "Full. Heavy. Somebody has to carry it.",
         weight = 4.0, stack = 5, icon = "package", category = "misc",

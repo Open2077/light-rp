@@ -58,6 +58,7 @@ function Context.perform(playerId, payload)
     elseif kind == "door" then
         ok, reason = Open77.vehicles.setDoorOpen(id, action.door, action.value)
     elseif kind == "engine" then
+        if action.value and LightRP.fuel and LightRP.fuel.isEmpty(id) then return false, "The tank is empty. Refuel first." end
         ok, reason = Open77.vehicles.setEngine(id, action.value)
     elseif kind == "lights" then
         ok, reason = Open77.vehicles.setLights(id, action.value)

@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/design/ErrorBoundary";
 import { InteractPrompt } from "@/features/hud/InteractPrompt";
 import { Actions } from "@/features/actions/Actions";
 import { ShopDialog } from "@/features/shop/ShopDialog";
+import { FuelDialog } from "@/features/fuel/FuelDialog";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -64,6 +65,7 @@ export function App() {
       <ErrorBoundary name="welcome"><WelcomeModal /></ErrorBoundary>
       <ErrorBoundary name="rental"><RentalDialog /></ErrorBoundary>
       <ErrorBoundary name="shop"><ShopDialog /></ErrorBoundary>
+      <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>
       <ErrorBoundary name="menu"><PlayerMenu /></ErrorBoundary>

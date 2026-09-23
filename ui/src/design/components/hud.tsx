@@ -3,7 +3,7 @@ import { Icon, type IconName } from "./Icon";
 import { cx } from "./core";
 
 /* ---------- VitalBar ---------- */
-export type VitalTone = "health" | "armor" | "food" | "drink" | "stamina" | "accent";
+export type VitalTone = "health" | "armor" | "food" | "drink" | "stamina" | "accent" | "fuel";
 const VITAL_META: Record<VitalTone, { code: string; icon: IconName }> = {
   health: { code: "HP", icon: "heart-pulse" },
   armor: { code: "AR", icon: "shield" },
@@ -11,6 +11,7 @@ const VITAL_META: Record<VitalTone, { code: string; icon: IconName }> = {
   drink: { code: "DR", icon: "droplet" },
   stamina: { code: "ST", icon: "zap" },
   accent: { code: "--", icon: "activity" },
+  fuel: { code: "FUEL", icon: "fuel" },
 };
 const BAR_HEIGHT = { sm: "var(--bar-h-sm)", md: "var(--bar-h-md)", lg: "var(--bar-h-lg)" } as const;
 

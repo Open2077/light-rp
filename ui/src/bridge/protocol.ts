@@ -122,12 +122,15 @@ export interface HudState {
   health: { value: number; max: number };
   stamina: { value: number; max: number };
   armor: number;
-  vehicle: { active: boolean; label?: string; speedKph?: number; gear?: string; health?: number };
+  vehicle: { active: boolean; label?: string; speedKph?: number; gear?: string; health?: number; fuel?: FuelGauge };
   voice: { state: "off" | "idle" | "talking" | "muted"; level: number; range: "whisper" | "normal" | "shout" };
   clock: string; // HH:MM in-game
   street?: string;
   walk?: { mode: string; label: string; speed?: number; index?: number; count?: number }; // current walk mode once the key was used
 }
+
+/** The tank of the vehicle the player sits in, read from its state bag. */
+export interface FuelGauge { litres: number; capacity: number; fraction: number; low: boolean; empty: boolean }
 
 export type NoticeKindWire = "info" | "success" | "warning" | "error" | "police" | "money" | "item" | "message" | "contract" | "staff";
 export interface NoticePayload { id?: string; kind?: NoticeKindWire; title?: string; body?: string; source?: string; durationMs?: number }
@@ -169,7 +172,18 @@ export interface ShopUpdate {
 }
 export interface JobOffer { name: string; label: string; tag: string; grades: number; entryGrade: { label: string; salary: number } }
 export interface JobCenterDialogPayload { kind: "jobcenter"; spot: { id: string; name: string }; jobs: JobOffer[]; paycheckMinutes: number }
-export type DialogPayload = RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload;
+/** A gas station pump, sent when the player presses E at it. `vehicle` is the
+ *  car parked at the pump (absent when none is within pumpRange). */
+export interface FuelDialogPayload {
+  kind: "fuel";
+  spot: { id: string; name: string };
+  pricePerLitre: number;
+  pumpRange: number;
+  vehicle?: { id: number; label: string; litres: number; capacity: number; moving: boolean };
+  jerrycan: { litres: number; refillPrice: number; buyPrice: number; empty: number; full: number };
+  money: { currency: string; cash: number; bank: number };
+}
+export type DialogPayload = RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | FuelDialogPayload;
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -204,6 +218,8 @@ export type UiAction =
   | { type: "money.pay"; target: number; amount: number }
   | { type: "rental.rent"; spot: string; key: string; pay: "cash" | "bank" }
   | { type: "rental.return" }
+  | { type: "fuel.buy"; spot: string; vehicle: number; litres: number; pay: "cash" | "bank" }
+  | { type: "fuel.jerrycan"; spot: string; pay: "cash" | "bank" }
   | { type: "inventory.open"; target?: string }
   | { type: "inventory.close" }
   | { type: "inventory.move"; from: { inventory: string; slot: number }; to: { inventory: string; slot: number }; count: number }

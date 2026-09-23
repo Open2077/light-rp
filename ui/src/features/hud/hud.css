@@ -27,11 +27,3 @@
 
 /* Bottom-right stack, kept above the voice plate (open-voice, ~64 px tall). */
 .hud__bottom-right { right: var(--hud-safe-x); bottom: calc(var(--hud-safe-y) + 84px); display: flex; flex-direction: column; align-items: flex-end; gap: var(--hud-gap); }
-.hud__vehicle {
-  display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5); background: var(--surface-hud); backdrop-filter: var(--blur-hud); clip-path: var(--clip-chamfer); box-shadow: var(--shadow-hud);
-}
-.hud__speed { display: flex; align-items: baseline; gap: var(--sp-3); }
-.hud__speed-value { font: var(--type-display); font-size: var(--fs-head); color: var(--text-hi); text-shadow: var(--glow-text); }
-.hud__speed-unit { font: var(--type-hud-readout); letter-spacing: var(--ls-tag); color: var(--text-dim); }
-.hud__vehicle-meta { display: flex; align-items: center; gap: var(--sp-4); }
