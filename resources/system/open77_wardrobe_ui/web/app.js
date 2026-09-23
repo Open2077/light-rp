@@ -3,7 +3,18 @@
   const M=WardrobeModel, $=id=>document.getElementById(id), emit=(name,value={})=>Open77.emit(name,value);
   let baseline, draft, confirmed, catalogue=[], lookup={}, mode="equipment", outfit=0, slot="Head", page=0, yaw=180;
   let busy=false, previewPending=false, pendingConfirm=null, favoritesOnly=false, favoritesReady=false, favorites=new Set();
-  const PAGE_SIZE=24;
+  const PAGE_SIZE=30;
+  // Vanilla inventory icons cut from the game's item atlases (icons/<m|f>/<record>.webp,
+  // see icons/manifest.json). `family` picks the body the icon was rendered on.
+  let family="m", icons={};
+  fetch("icons/manifest.json").then(r=>r.ok?r.json():{}).then(v=>{icons=v || {};if(draft)renderItems();}).catch(()=>{});
+  function iconFor(record){const entry=icons[record] || icons[canonical(record)] || {};return entry[family] || entry[family==="m"?"f":"m"] || "";}
+  function art(record,className){
+    const box=document.createElement("span");box.className=className;const src=iconFor(record);
+    if(!src){box.classList.add("none");return box;}
+    const img=document.createElement("img");img.src=src;img.alt="";img.loading="lazy";img.draggable=false;img.decoding="async";
+    img.onerror=()=>{img.remove();box.classList.add("none");};box.append(img);return box;
+  }
   const errors={save_timeout:"The server has not confirmed the save. You can retry; your draft is still here.",presentation_revision_conflict:"Your saved wardrobe changed elsewhere. The latest saved look has been restored. Please try your changes again.",revision_conflict:"Your saved wardrobe changed elsewhere. The latest saved look has been restored.",presentation_database_error:"Your look could not be saved. Your previous saved wardrobe is safe.",incompatible_body_family:"This item does not fit your current body type.",restricted_record:"This clothing item is not available on this server.",item_unavailable:"This clothing item is unavailable. Your last preview has been restored.",presentation_character_changed:"Your character changed. Close the wardrobe and open it again."};
   function message(text,kind="") { $("status").textContent=text; $("status").className="status "+kind; }
   function reason(text) { return errors[text] || "Could not apply this change ("+String(text || "unknown error").replace(/_/g," ")+")."; }
@@ -59,7 +70,7 @@
       const choose=document.createElement("button");choose.className="choose catalog-card";choose.dataset.record=item.record;choose.setAttribute("aria-pressed",String(selected));
       choose.title=M.title(item.record);const title=document.createElement("strong");title.textContent=M.title(item.record);
       const subtitle=document.createElement("small");subtitle.textContent=selected?"SELECTED":M.labels[item.slot].toUpperCase();
-      choose.append(title,subtitle);choose.onclick=()=>preview(()=>editSlot(item.record));
+      choose.append(art(item.record,"art"),title,subtitle);choose.onclick=()=>preview(()=>editSlot(item.record));
       const favorite=document.createElement("button");favorite.className="favorite";favorite.classList.toggle("on",favorites.has(item.record));favorite.textContent=favorites.has(item.record)?"★":"☆";
       favorite.setAttribute("aria-label",(favorites.has(item.record)?"Remove favorite ":"Favorite ")+M.title(item.record));
       favorite.disabled=!favoritesReady;favorite.onclick=()=>{favoritesReady=false;document.querySelectorAll(".favorite").forEach(button=>button.disabled=true);emit("wardrobe:favorite",{record:item.record,enabled:!favorites.has(item.record)});};
@@ -82,7 +93,8 @@
     const nav=$("slots");nav.replaceChildren();
     M.slots.forEach(name=>{const b=document.createElement("button");b.textContent=M.labels[name].toUpperCase();b.classList.toggle("selected",name===slot);b.setAttribute("aria-pressed",String(name===slot));b.onclick=()=>{slot=name;page=0;render();};nav.append(b);});
     $("slot-label").textContent=M.labels[slot].toUpperCase();
-    const value=visualValue(currentSlots()[slot]);$("selected-name").textContent=mode==="outfits" && value===undefined?"Use equipment · "+itemName(draft.equipment[slot]):mode==="outfits" && value===false?"Hidden in this outfit":itemName(value);
+    const value=visualValue(currentSlots()[slot]);
+    $("selected-art").replaceChildren(art(value || "","art"));$("selected-art").classList.toggle("empty",!value);$("selected-name").textContent=mode==="outfits" && value===undefined?"Use equipment · "+itemName(draft.equipment[slot]):mode==="outfits" && value===false?"Hidden in this outfit":itemName(value);
     $("inherit").hidden=mode!=="outfits";$("remove").textContent=mode==="outfits"?"HIDE SLOT":"REMOVE";
     $("semantics").textContent=mode==="outfits"?"Hide slot shows nothing. Use equipment lets your worn clothing show through.":"Equipment is what your character wears underneath an outfit.";
     renderItems();updateControls();
@@ -124,6 +136,7 @@
     (value.catalogue || []).forEach(item=>{lookup[item.record.toLowerCase()]=item;if(item.tweakDbId)lookup[item.tweakDbId.toLowerCase()]=item;});
     busy=false;previewPending=false;favoritesReady=false;favorites=new Set();confirmed=null;mode="equipment";outfit=draft.wardrobe.active===false?0:draft.wardrobe.active;slot="Head";page=0;yaw=180;
     $("search").value="";favoritesOnly=false;$("filter").textContent="ALL CLOTHING";$("filter").setAttribute("aria-pressed","false");$("room").hidden=false;$("confirm").hidden=true;
+    family=String(value.family || "").toLowerCase().startsWith("f")?"f":"m";
     $("family").textContent=(value.family || "").toUpperCase()+" · "+(value.persistence==="ready"?"CHARACTER WARDROBE":"SESSION WARDROBE");
     $("camera-controls").hidden=!value.orbitAvailable;render();$("search").focus();message("Loading clothing catalogue…");
   });

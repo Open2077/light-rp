@@ -5,6 +5,20 @@ The shortcut can be reassigned in Open77's keybind settings. This resource uses
 freeroam's offline design system, drawer/navigation pattern, catalogue cards,
 and action buttons; it requires no external fonts, icons or services.
 
+## Clothing icons
+
+Every catalogue card shows the game's own inventory icon of the garment,
+rendered on the player's body family: `web/icons/<m|f>/<Items.Record>.webp`,
+indexed by `web/icons/manifest.json` (1790 of the 1991 clothing records; the
+rest are abstract base records such as `Items.Boots` that a player never
+sees, and get a placeholder). The icons are cut out of the vanilla item
+atlases (`base/gameplay/gui/common/icons/items/item_icons<N>.inkatlas`) with
+WolvenKit; `tools/build-icons.py` rebuilds the whole set from an installed
+game and the platform's `docs/generated/clothing-2.31.json`. Part names follow
+`clothing_player_<slot>_item_<appearanceName>_<Male|Female>_[TPP_]`, matched
+on the record's `appearanceName`. Icons are 128 px tall WebP, about 19 MB for
+both families; the WebUI host serves `.webp` as `image/webp`.
+
 ## Player workflow
 
 Choose **Equipment** to change worn clothing, or **Outfits** to edit one of
