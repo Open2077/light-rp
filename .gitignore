@@ -70,6 +70,7 @@ neuralink-ui/screens/
 !tools/test-safezones-client.py
 !tools/test-armament.py
 !tools/test-armament-client.py
+!tools/test-weapon-hud.py
 # Platform packages whose out-of-character commands were made staff-only.
 !resources/system/open77_appearance/
 !resources/system/open77_appearance/**

@@ -61,6 +61,8 @@ RegisterNetEvent(NET, function(payload)
     if cached then syncControls(cached.state) end
     send(payload)
 end)
+function Armament.state() return cached and cached.state end
+
 function Armament.bind(page)
     selectionControls(true)
     page:on(PAGE, forward)

@@ -1,0 +1,19 @@
+.weapon-status{width:290px;max-width:calc(100vw - 36px);padding:0 12px;border-right:2px solid var(--o77-yellow,#ffcc00);background:var(--surface-hud);box-shadow:var(--shadow-hud);pointer-events:none}
+.weapon-status__hand{display:flex;align-items:center;gap:10px;min-height:66px;padding:10px 0;color:var(--o77-yellow,#ffcc00)}
+.weapon-status__hand+.weapon-status__hand{border-top:1px solid #ffffff12}
+.weapon-status__hand>svg{flex-shrink:0}
+.weapon-status__identity{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.weapon-status__identity>span{font:8px var(--font-mono);letter-spacing:.07em;color:var(--text-dim)}
+.weapon-status__identity>strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-hi);font:500 12px var(--font-core)}
+.weapon-status__track{height:2px;background:#ffffff15;margin-top:2px}
+.weapon-status__track>i{display:block;height:100%;background:currentColor;transition:width .1s linear}
+.weapon-status__magazine{display:flex;flex-direction:column;align-items:flex-end;min-width:42px;font-family:var(--font-mono)}
+.weapon-status__magazine>b{font-size:29px;font-weight:500;line-height:1;letter-spacing:-.06em}
+.weapon-status__magazine>span{font-size:9px;color:var(--text-dim);margin-top:4px}
+.weapon-status__reserve{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid #ffffff12;font:9px var(--font-mono);letter-spacing:.06em;color:var(--text-dim)}
+.weapon-status__reserve>strong{font-size:14px;font-weight:400;color:var(--text-hi)}
+.weapon-status__reserve small{font-size:8px;color:var(--text-dim);font-weight:400}
+.weapon-status__hand.is-empty{color:#ff8278}
+.weapon-status__hand.is-reloading .weapon-status__identity>span{color:var(--o77-yellow,#ffcc00)}
+@media(max-width:600px){.weapon-status{width:230px;padding:0 9px}.weapon-status__hand{gap:7px;min-height:60px}.weapon-status__identity>strong{font-size:11px}.weapon-status__magazine>b{font-size:25px}}
+@media(prefers-reduced-motion:reduce){.weapon-status__track>i{transition:none}}

@@ -4,6 +4,7 @@ import { VehicleCluster } from "./VehicleCluster";
 import { useEffect, useState } from "react";
 import { WalkFlash } from "./WalkFlash";
 import { PlayerVitals } from "./PlayerVitals";
+import { WeaponStatus } from "./WeaponStatus";
 import { SafezoneStatus } from "./SafezoneStatus";
 import "./hud.css";
 
@@ -42,6 +43,7 @@ export function Hud() {
       <div className="hud__bottom-right">
         {rental.active && <StatusChip icon="car" label="RENTAL" tone="accent" value={countdown(rental.active.remainingMs - (Date.now() - rentalAt))} />}
         {hud.vehicle.active && <VehicleCluster vehicle={hud.vehicle} />}
+        <WeaponStatus />
       </div>
     </div>
   );

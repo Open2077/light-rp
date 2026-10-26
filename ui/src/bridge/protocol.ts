@@ -173,6 +173,9 @@ export interface HudState {
   vehicle: { active: boolean; label?: string; speedKph?: number; gear?: string; health?: number; fuel?: FuelGauge };
   voice: { state: "off" | "idle" | "talking" | "muted"; level: number; range: "whisper" | "normal" | "shout" };
   clock: string; // HH:MM in-game
+  weapon?: { active: boolean; reserve?: number; hands?: Array<{
+    hand: "right" | "left"; label: string; magazine?: number; capacity?: number; reloading: boolean;
+  }> };
   street?: string;
   walk?: { mode: string; label: string; speed?: number; index?: number; count?: number }; // current walk mode once the key was used
 }

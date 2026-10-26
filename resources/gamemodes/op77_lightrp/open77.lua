@@ -94,6 +94,7 @@ client_script "client/core/creator.lua"
 client_script "client/core/tutorial_voice.lua"
 client_script "client/core/tutorial.lua"
 client_script "client/core/tutorial_context.lua"
+client_script "client/core/weapon_hud.lua"
 client_script "client/core/hud.lua"
 client_script "client/core/interact.lua"
 client_script "client/core/keys.lua"
@@ -163,6 +164,7 @@ permissions {
     "screen.read",          -- wait for native loading before revealing the scene
     "player.appearance.read", -- observe native editor lifetime before restoring the cinematic
     "ui.vanilla.hud",
+    "player.weapons.read", -- read-only magazine and reload HUD snapshots
     "pause_menu.customize", -- accent + logo of the pause menu
     "map.control",          -- title + accent of the native map
 }

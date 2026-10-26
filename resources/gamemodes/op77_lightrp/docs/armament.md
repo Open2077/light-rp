@@ -102,6 +102,19 @@ crée une présentation qu'après un refus définitif `weapon_not_owned`. Retire
 un slot natif ne supprime pas son item natif local. Le registre RP ne doit
 jamais reconstruire une propriété depuis ces objets locaux.
 
+## HUD d’armes
+
+Le composant natif `weapon` est masqué ; le HUD RP en bas à droite affiche
+les armes réellement sorties, le chargeur/capacité de chaque main et une seule
+réserve partagée. Les états **RELOADING** et **EMPTY** sont en anglais. Une arme
+rangée, un personnage mort, un changement d’inventaire ou une lecture périmée
+retirent le panneau. Le réticule reste géré par le jeu.
+
+Les compteurs sont des snapshots natifs locaux en lecture seule, demandés au
+plus toutes les 200 ms avec une seule lecture en vol. Seule une completion
+réussie publie un panneau complet ; les valeurs inconnues restent `—` et ne
+sont jamais affichées comme zéro. Ces lectures ne modifient pas le stock SQL.
+
 ## Code et vérification
 
 - `shared/armament.lua` : catalogue public et templates d'objets.
