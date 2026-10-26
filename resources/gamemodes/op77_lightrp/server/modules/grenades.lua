@@ -1,0 +1,203 @@
+-- Inventory owns every grenade; native gadgets are an exact, disposable projection.
+local W,Inv,Db,C=LightRP.armament,LightRP.inventory,LightRP.db,LightRpGrenades.items
+local G={states={},internal={}}
+LightRP.grenades=G
+local NET="op77_lightrp:grenades"
+local lastRequest={}
+Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_grenades (
+ inventory_id VARCHAR(96) PRIMARY KEY, revision INT NOT NULL DEFAULT 0, selected_item VARCHAR(64) NOT NULL DEFAULT ''
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_grenade_operations (
+ inventory_id VARCHAR(96) NOT NULL, mutation VARCHAR(96) NOT NULL, operation VARCHAR(16) NOT NULL,
+ PRIMARY KEY(inventory_id,mutation)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+local function count(inv,name)
+ local n=0;for _,item in pairs(inv and inv.items or {})do if item.name==name then n=n+item.count end end;return n
+end
+local function load(inv)
+ if G.states[inv.id]then return G.states[inv.id]end
+ local ok,rows=Db.read("SELECT revision,selected_item FROM lightrp_grenades WHERE inventory_id=?",{inv.id})
+ if not ok then return nil,"Grenade storage is unavailable."end
+ local s=rows[1]and{revision=tonumber(rows[1].revision),selected=rows[1].selected_item~="" and rows[1].selected_item or nil}or{revision=0}
+ if not W.integer(s.revision,0,2147483646)or(s.selected and not C[s.selected])then return nil,"Stored grenade selection is invalid."end
+ G.states[inv.id]=s;return s
+end
+local function save(inv,s,mutation,operation,changes)
+ local queries={{query="INSERT INTO lightrp_grenades (inventory_id,revision,selected_item) VALUES (?,?,?) ON DUPLICATE KEY UPDATE revision=VALUES(revision),selected_item=VALUES(selected_item)",values={inv.id,s.revision,s.selected or ""}}}
+ if mutation then queries[#queries+1]={query="INSERT INTO lightrp_grenade_operations (inventory_id,mutation,operation) VALUES (?,?,?)",values={inv.id,mutation,operation}}end
+ G.internal[inv.id]=true
+ local called,ok,why=pcall(Inv.commitDrafts,changes or {},queries,function()G.states[inv.id]=s end)
+ G.internal[inv.id]=nil
+ return called and ok==true,called and why or "Grenade transaction failed."
+end
+local function runtime(player)
+ local rt=W.runtime[player]
+ return W.current(rt)and rt or nil
+end
+function G.view(player)
+ local rt=runtime(player);local inv=Inv.player(player);local s=inv and G.states[inv.id];local g=rt and rt.grenade
+ return {ready=g and g.ready==true and not rt.quarantine or false,busy=rt and rt.busy==true and not rt.observing or false,
+ revision=s and s.revision or 0,selected=s and s.selected,label=s and s.selected and C[s.selected].label,
+ count=s and s.selected and count(inv,s.selected)or 0,error=g and g.error or rt and rt.quarantine and "Equipment synchronization timed out. Wait for completion or reconnect." or nil}
+end
+function G.push(player)TriggerClientEvent(NET,player,{kind="state",state=G.view(player)})end
+local function quantity(rows,record)
+ if type(rows)~="table"then return nil end
+ local found
+ for _,r in ipairs(rows)do
+  if r.record==record then
+   if not W.integer(r.quantity,0,999)then return nil end
+   found=math.min(found or r.quantity,r.quantity)
+  end
+ end
+ return found or 0
+end
+local function reconcile(rt,allowReset)
+ local g=rt.grenade
+ if not g or not g.projected then return true end
+ local rows,why=W.native(rt,"requestGadgets","gadgets")
+ if not rows then return false,why end
+ local remaining=quantity(rows,C[g.projected].record)
+ if remaining==nil then return false,"Native grenade count is unavailable. Synchronize before throwing."end
+ if remaining>g.quantity then
+  if allowReset then return true end
+  return false,"Native grenade stock exceeds inventory. Synchronize before throwing."
+ end
+ local spent=g.quantity-remaining
+ if spent>0 then
+  local ok,error=Inv.transaction(rt.player,function(inv)
+   if not W.current(rt)then return false,"Character changed."end
+   if count(inv,g.projected)<spent then return false,"Grenade ownership changed."end
+   local draft=Inv.draft(inv);local removing=spent
+   for slot=draft.slots,1,-1 do
+    local item=draft.items[slot]
+    if item and item.name==g.projected and removing>0 then local n=math.min(removing,item.count);item.count=item.count-n;removing=removing-n;if item.count==0 then draft.items[slot]=nil end end
+   end
+   local s=G.states[inv.id];local nextState={revision=s.revision+1,selected=count(draft,s.selected)>0 and s.selected or nil}
+   return save(inv,nextState,nil,"consume",{{inv,draft}})
+  end)
+  if not ok then return false,error end
+ end
+ g.quantity=remaining;g.dirty=false
+ if remaining==0 and not G.states[rt.inventory].selected then g.projected=nil end
+ return true
+end
+local function take(rt,record)
+ local result,why=W.native(rt,"takeGadget","takeGadget",record)
+ if not result and why~="gadget_not_owned"and why~="no_active_gadget"then return false,why end
+ return true
+end
+local function project(rt)
+ local inv=Inv.player(rt.player);local s=G.states[inv.id];local g=rt.grenade
+ if g.projected then local ok,why=take(rt,C[g.projected].record);if not ok then return false,why end end
+ if s.selected and s.selected~=g.projected then local ok,why=take(rt,C[s.selected].record);if not ok then return false,why end end
+ if not s.selected then local ok,why=take(rt,nil);if not ok then return false,why end;g.projected=nil;g.quantity=0;return true end
+ g.projected=nil
+ local n=count(inv,s.selected)
+ if not W.integer(n,0,999)then return false,"Grenade stock must be at most 999."end
+ if n>0 then
+  local result,why=W.native(rt,"giveGadget","giveGadget",C[s.selected].record,n,{equip=true})
+  if not result then return false,why end
+ end
+ local rows,why=W.native(rt,"requestGadgets","gadgets");if not rows then return false,why end
+ local actual=quantity(rows,C[s.selected].record)
+ if actual~=n then return false,"Native grenade projection differs from inventory. No items were refunded."end
+ if n>0 then
+  local active=false;for _,r in ipairs(rows)do if r.record==C[s.selected].record and r.active==true then active=true end end
+  if not active then return false,"The grenade throw slot could not be verified."end
+ end
+ g.projected=s.selected;g.quantity=n;return true
+end
+function G.start(player,operation,item,mutation,request)
+ local rt=runtime(player)
+ if not rt then return false,"Character inventory is not ready."end
+ if rt.busy or rt.quarantine then return false,"Equipment synchronization is in progress or awaiting a delayed request."end
+ local life=Open77.players.getLifeState(player)
+ if not life or life.phase~="alive"then return false,"Your character must be alive."end
+ rt.grenade=rt.grenade or {ready=false}
+ local g=rt.grenade;rt.busy=true;rt.observing=operation=="observe"
+ if not rt.observing then g.ready=false;g.error=nil;W.push(player);G.push(player)end
+ CreateThread(function()
+  Wait(0) -- generic Inv.use must release its mutex before reconciliation
+  local called,ok,why=pcall(function()
+   local inv=Inv.player(player);local s,error=load(inv);if not s then return false,error end
+   local settled,failure=reconcile(rt,operation~="observe");if not settled then return false,failure end
+   if operation=="observe"then return true end
+   if operation=="equip"or operation=="unequip"then
+    local saved,reason=Inv.transaction(player,function(currentInv)
+     if not W.current(rt)then return false,"Character changed."end
+     local read,prior=Db.read("SELECT operation FROM lightrp_grenade_operations WHERE inventory_id=? AND mutation=?",{currentInv.id,mutation})
+     if not read then return false,"Grenade storage is unavailable."end
+     if prior[1]then return prior[1].operation==operation,"Request key already used."end
+     if operation=="equip"and(not C[item]or count(currentInv,item)<1)then return false,"This grenade is not in your inventory."end
+     local currentState=G.states[currentInv.id]
+     return save(currentInv,{revision=currentState.revision+1,selected=operation=="equip"and item or nil},mutation,operation)
+    end)
+    if not saved then return false,reason end
+   end
+   return project(rt)
+  end)
+  if not W.current(rt)then return end
+  rt.busy=false;rt.observing=false;g.ready=called and ok==true
+  if g.ready then g.error=nil else g.error=tostring(called and why or ok)end
+  W.push(player);G.push(player)
+  if request then TriggerClientEvent(NET,player,{kind="response",request=request,ok=g.ready,error=g.error,state=G.view(player)})end
+ end)
+ return true
+end
+-- Equipped grenade stock cannot leave its inventory before a settled unequip.
+local prepare=W.prepare
+W.prepare=function(changes)
+ for _,change in ipairs(changes)do
+  local inv,draft=change[1],change[2]
+  for name in pairs(C)do
+   local before,after=count(inv,name),count(draft,name)
+   if after>999 then return false,"Grenade stock is limited to 999 per type."end
+   if after>0 and not inv.persistent then return false,"Grenades require durable storage."end
+   if before~=after and not G.internal[inv.id]then
+    local s,why=load(inv);if not s then return false,why end
+    if s.selected==name then return false,"Unequip the grenade before changing its inventory stock."end
+    for _,rt in pairs(W.runtime)do if rt.inventory==inv.id and rt.busy and rt.grenade then return false,"Equipment synchronization is in progress."end end
+   end
+  end
+ end
+ return prepare(changes)
+end
+for name in pairs(C)do
+ local itemName=name
+ Inv.onUse(name,function(player)
+  local id=W.uuid();if not id then return false end
+  local ok,why=G.start(player,"equip",itemName,"use:"..id)
+  if not ok then LightRP.notice(player,{kind="error",title="Grenades",body=why});return false end
+  return "keep"
+ end)
+end
+RegisterNetEvent(NET,function(p)
+ local player=tonumber(source)
+ if not player or player<=0 or type(p)~="table"or type(p.request)~="string"or #p.request>96 then return end
+ if p.operation=="state"then G.push(player);return end
+ local at=Open77.time.monotonic();if lastRequest[player]and at-lastRequest[player]<.15 then TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=false,error="Please wait before the next grenade request."});return end;lastRequest[player]=at
+ if p.operation~="sync"and p.operation~="unequip"then return end
+ if type(p.mutation)~="string"or #p.mutation<8 or #p.mutation>96 or not p.mutation:match("^[%w:_%-]+$")then return end
+ local ok,why=G.start(player,p.operation,nil,p.mutation,p.request)
+ if not ok then TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=false,error=why})end
+end)
+AddEventHandler("onGadgetConsumed",function(player,record)
+ local rt=runtime(tonumber(player));local g=rt and rt.grenade
+ if g and g.projected and C[g.projected].record==record then g.dirty=true end
+end)
+LightRP.module("grenades",{onDisconnected=function(player)lastRequest[player]=nil end,onUiReady=function(player)G.push(player)end,
+ onLifeState=function(player)G.push(player)end,onCharacterLoaded=function(player)G.push(player)end,
+ onDatabaseReady=function()LightRP.log("grenades ready: 9 inventory gadget types")end})
+CreateThread(function()
+ while true do
+  for _,id in ipairs(GetPlayers())do
+   local player=tonumber(id);local rt=runtime(player)
+   if rt and not rt.busy and not rt.quarantine then
+    if not rt.grenade then G.start(player,"sync")
+    elseif rt.grenade.ready and rt.grenade.projected then G.start(player,"observe")end
+   end
+  end
+  Wait(500)
+ end
+end)

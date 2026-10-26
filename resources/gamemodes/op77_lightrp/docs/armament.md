@@ -104,7 +104,7 @@ jamais reconstruire une propriété depuis ces objets locaux.
 
 ## HUD d’armes
 
-Le composant natif `weapon` est masqué ; le HUD RP en bas à droite affiche
+Le composant natif `weapon` est masqué ; le HUD RP intégré aux statuts en bas à gauche affiche
 les armes réellement sorties, le chargeur/capacité de chaque main et une seule
 réserve partagée. Les états **RELOADING** et **EMPTY** sont en anglais. Une arme
 rangée, un personnage mort, un changement d’inventaire ou une lecture périmée
@@ -120,7 +120,7 @@ sont jamais affichées comme zéro. Ces lectures ne modifient pas le stock SQL.
 Le [catalogue complet du wiki](weapon-catalogue.md) recense 198 entrées avec
 images locales et 195 correspondances de records Open77. Le [plan grenades et
 extension des familles](grenades-inventory-design.md) décrit leur intégration
-comme objets comptés et les migrations nécessaires pour les autres armes.
+comme objets comptés (neuf types intégrés) et les migrations nécessaires pour les autres armes.
 
 ## Code et vérification
 

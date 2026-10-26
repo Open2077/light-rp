@@ -1,4 +1,4 @@
-import { PAGE_EVENTS, type ArmamentArgs, type ArmamentHand, type ArmamentOperation, type ArmamentState, type ArmamentWeapon, type InventoryDialogPayload, type InventoryItem } from "@/bridge/protocol";
+import { PAGE_EVENTS, type GrenadeState, type ArmamentArgs, type ArmamentHand, type ArmamentOperation, type ArmamentState, type ArmamentWeapon, type InventoryDialogPayload, type InventoryItem } from "@/bridge/protocol";
 
 export function armamentMock(fire: (name: string, value: unknown) => void, params: URLSearchParams) {
   const copy = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -8,12 +8,29 @@ export function armamentMock(fire: (name: string, value: unknown) => void, param
     pistol(2, "weapon_nue", "Tsunami Nue", "22222222-2222-4222-8222-222222222222"),
     { slot: 3, name: "ammo_pistol_box", label: "Pistol ammunition box", count: 3, stack: 10, weight: 0.3, icon: "package", usable: true, category: "ammo", description: "A sealed box. Its contents are added to your shared pistol ammunition." },
     { slot: 4, name: "water", label: "Bottle of Water", count: 3, stack: 10, weight: 0.5, icon: "droplet", usable: true, category: "drink" },
+    {slot:5,name:"grenade_frag",label:"F-GX Frag Grenade",count:3,stack:10,weight:.4,usable:true,category:"grenade",icon:"package",image:"img/items/grenade_frag.png"},
+    {slot:6,name:"grenade_emp",label:"EMP Grenade",count:2,stack:10,weight:.4,usable:true,category:"grenade",icon:"package",image:"img/items/grenade_emp.png"},
   ] }, right: { id: "trunk:7306", kind: "trunk", label: "Archer Hella", slots: 20, maxWeight: 80, weight: 3, items: [{ slot: 1, name: "repairkit", label: "Repair Kit", count: 1, stack: 2, weight: 3, icon: "wrench", usable: false }] } };
   const state: ArmamentState = { ready: true, busy: false, revision: 0, ammo: { pistol: { remaining: 0, label: "Pistol rounds" } } };
   const completed = new Map<string, { state: ArmamentState }>();
   const push = () => fire(PAGE_EVENTS.armament, { kind: "state", state: copy(state) });
   const inventoryPush = () => fire(PAGE_EVENTS.inventory, { inventories: [copy(inventory.left)] });
-  const boot = () => { push(); if (params.get("weapons") === "1") fire(PAGE_EVENTS.dialog, copy(inventory)); };
+  const grenade: GrenadeState={ready:true,busy:false,revision:0,count:params.get("grenadehud")==="1"?3:0,...(params.get("grenadehud")==="1"?{selected:"grenade_frag",label:"F-GX Frag Grenade"}:{})};
+  const grenadePush=()=>fire("lightrp:ui:grenades",{kind:"state",state:copy(grenade)});
+  const useGrenade=(slot:number)=>{
+    const item=inventory.left.items.find(i=>i.slot===slot&&i.category==="grenade");if(!item)return false;
+    grenade.busy=true;grenadePush();
+    setTimeout(()=>{grenade.selected=item.name;grenade.label=item.label;grenade.count=item.count;grenade.ready=true;grenade.busy=false;grenade.revision++;grenadePush();},420);
+    return true;
+  };
+  const receiveGrenade=(raw:unknown)=>{
+    const p=raw as {operation:string;request:string};if(p.operation==="state"){grenadePush();return;}
+    grenade.busy=true;grenadePush();setTimeout(()=>{
+      if(p.operation==="unequip"){delete grenade.selected;delete grenade.label;grenade.count=0;}
+      grenade.busy=false;grenade.ready=true;grenade.revision++;grenadePush();fire("lightrp:ui:grenades",{kind:"response",request:p.request,ok:true,state:copy(grenade)});
+    },420);
+  };
+  const boot = () => { push();grenadePush(); if (params.get("weapons") === "1") fire(PAGE_EVENTS.dialog, copy(inventory)); };
   const receive = (raw: unknown) => {
     const p = raw as ArmamentArgs & { operation: ArmamentOperation; request: string; mutation?: string };
     const reply = (ok: boolean, data?: { state: ArmamentState }, error?: string) => fire(PAGE_EVENTS.armament, { kind: "response", request: p.request, ok, data, error });
@@ -50,5 +67,5 @@ export function armamentMock(fire: (name: string, value: unknown) => void, param
       reply(true, data);
     }, 420);
   };
-  return { boot, receive };
+  return { boot, receive, receiveGrenade, useGrenade };
 }

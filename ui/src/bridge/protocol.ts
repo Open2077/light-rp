@@ -207,6 +207,7 @@ export interface InventorySnapshot {
   slots: number; maxWeight: number; weight: number; items: InventoryItem[];
 }
 export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot; toggleKey?: string }
+export interface GrenadeState { ready: boolean; busy: boolean; revision: number; selected?: string; label?: string; count: number; error?: string }
 export type ArmamentHand = "right" | "left";
 export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "ammo" | "sync";
 export interface ArmamentWeapon {

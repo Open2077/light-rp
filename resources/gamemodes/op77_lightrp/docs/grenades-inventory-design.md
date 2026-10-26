@@ -1,8 +1,8 @@
-# Grenades as inventory items — integration design
+# Inventory grenades
 
-The wiki index supplies nine grenade types with verified Open77 gadget records:
+Nine counted inventory items are implemented using the Stable 156 gadget API:
 
-| Item ID | Native gadget record |
+| Item ID | Native record |
 |---|---|
 | `grenade_frag` | `Items.GrenadeFragRegular` |
 | `grenade_emp` | `Items.GrenadeEMPRegular` |
@@ -14,97 +14,78 @@ The wiki index supplies nine grenade types with verified Open77 gadget records:
 | `grenade_flashbang` | `Items.GrenadeFlashRegular` |
 | `grenade_ozobs_nose` | `Items.GrenadeOzobsNose` |
 
-These are catalogue entries; the grenade runtime module is not implemented by
-this import. This design uses the documented Stable 156 API rather than treating
-grenades as pistols or implementing a second explosion simulation.
+## Using grenades
 
-## Inventory and selection
+Select an item in your pockets and press **Select grenade**. Selection preserves
+the inventory count and equips its native throw slot. Use the game's throw
+control to throw it; fresh native gadget readbacks remove the spent units from
+the inventory. The last throw clears the selection automatically. The middle equipment column shows the selected type and owned
+count, with **Unequip grenade** and **Synchronize grenades** controls. Native
+weapon wheels and quick-slot cycling stay blocked. Safezone grenade input claims
+compose with the inventory's readiness/stock claims.
 
-A grenade is a counted inventory item, using `stack=10` (a proposed RP limit),
-its English label and `img/items/grenade_*.png`. It does not use a weapon UUID,
-weapon slot 1/4, a loaded magazine or an ammunition box. Its native destination
-is `EquipmentArea.QuickSlot`. Keep the complete count in the durable inventory
-and persist selected item type, projection generation and mutation receipts.
+Grenades weigh 0.4 kg and stack to ten per slot. Total stock is limited to 999
+per type. Unequip before transferring, removing or adding selected stock.
+Grenades can move between slots without changing their total quantity. Ground
+piles and temporary trunks are excluded; unequipped stock uses durable storage.
+Staff can grant, for example, `/lightrp.giveitem me grenade_frag 3`.
 
-`Use` in inventory chooses the grenade type. The existing native weapon wheel
-stays blocked; add a `SwitchItem` claim owned by grenade inventory to prevent
-native quick-slot cycling. The `Grenade` action remains usable for throwing,
-except while synchronizing or when a safezone blocks it. Combine those claims
-through `LightRpControlClaims` so one feature cannot release another's block.
+## Durable ownership and native projection
 
-## Native projection queue
+`shared/grenades.lua` defines the nine verified records and local item art.
+`server/modules/grenades.lua` stores selected item/revision in
+`lightrp_grenades`, with idempotent selection receipts in
+`lightrp_grenade_operations`. Quantities remain in the ordinary inventory JSON.
+`Inv.commitDrafts` commits observed consumption and grenade state together;
+a failed transaction leaves the authoritative cache untouched.
 
-The server APIs require `network.events` and the `open77_weapons` resource:
+The module shares the weapon controller's authenticated native completion queue,
+player/incarnation checks and timeout quarantine. Only one writer runs at a time.
+Before a selection, switch or resync it reconciles the previous projection.
+It then removes the previous/selected native stack with `takeGadget`, gives the
+exact owned count using `giveGadget(...,{equip=true})`, and verifies quantity and
+active throw slot with `requestGadgets`. Queue acceptance alone is not success.
+A repeated selection removes/replaces presentation; it does not add a second
+stack. A partial failure can be retried without crediting or refunding items.
 
-```lua
-Open77.weapons.giveGadget(playerId, record, count, { equip = true })
-Open77.weapons.takeGadget(playerId, record) -- remove the local presentation stack
-Open77.weapons.requestGadgets(playerId)
-```
+The reserved `onGadgetConsumed` event marks the projection dirty. The inventory
+is reconciled from complete, fresh, correlated gadget snapshots every 500 ms;
+the event's unversioned `remaining` value is not applied directly. Duplicate or
+old reports trigger no second deduction when the native quantity is unchanged.
+Only decreases consume inventory. An unexplained native increase blocks throwing
+until an explicit synchronization resets native stock to the inventory count.
 
-`giveGadget` is additive, not an exact setter. Never call it on every inventory
-open, poll or retry. First reconcile the old selected stack, remove its native
-presentation, then grant the exact committed count and request a readback.
-Await `open77:weapons:completed(playerId, requestId, operation, accepted, reason,
-result)` for each dependent step. Queue acceptance is not success. Correlate
-player, request, operation, inventory and incarnation. Reuse/factor the armament
-projection queue and its timeout quarantine rather than creating a competing
-native writer. A failed projection does not refund or mint inventory items.
+Native explosions already replicate and enter existing damage/safezone/blast
+policies. This module never spawns a second explosion or reapplies damage.
+The circular status HUD includes a small selected-grenade count beside the
+weapon/vital group. Player-facing text is English.
 
-## Consumption, moves and persistence
+## Failure and lifecycle behavior
 
-The official resource emits reserved `onGadgetConsumed(playerId, record,
-remaining[, tweakDbId])` after native consumption and suppresses the reports
-caused by its own `takeGadget` operations. Use that event to mark the selected
-stack dirty and request a fresh correlated gadget snapshot. Reconcile a lower
-native count with the durable inventory in one `Inv.transaction` /
-`Inv.commitDrafts` transaction, together with the projection receipt/revision.
-A native count increase never creates inventory items.
+A native timeout quarantines all equipment writes for that incarnation until a
+late authenticated completion or reconnect. Death/character replacement retires
+old queue jobs; the new body projects the saved selection and current inventory.
+An unavailable snapshot or failed consumption transaction blocks further throws
+until synchronization succeeds. Owner-reported native counts retain the same
+anti-cheat and crash-before-report limitations as weapon ammo; they are not an
+independent proof of each throw. Live grenade effect/animation/other-player blast
+checks remain necessary on the game client.
 
-The consumption event has no inventory mutation nonce. Do not decrement the
-inventory once per callback or apply an old `remaining=0` blindly after a new
-equip: duplicates and delayed reports can otherwise destroy items. A fresh
-queued readback gives the current native quantity; repeated observations of the
-same quantity make no additional deduction. Reject old incarnation results.
-Native owner observations retain the same authority limitations as weapon ammo.
+## Verification
 
-Before switching grenade types, dropping, trading, storing or disconnecting,
-settle observable consumption. While projection is pending, reject movements of
-the selected grenade stock. After a settled unequip, transfers use the ordinary
-inventory transaction. Allow moving slots in the same inventory if total owned
-quantity is unchanged. Reconnection restores the selected type from persistent
-intent and inventory quantity, not by granting the last cached native amount.
+`tools/test-grenades.py` loads the actual inventory, weapon queue and grenade
+modules with asynchronous native and SQL boundaries. It covers exact counts,
+selection replay, item Use, multiple notifications, SQL rollback/recovery,
+switch/unequip, transfer guards, unexpected native increases and timeout
+quarantine. `tools/test-grenades-client.py` verifies input/readiness/stock claims,
+safezone composition and reference-only client forwarding.
 
-## Damage and HUD
+## Remaining firearm catalogue expansion
 
-Native grenade explosions already replicate and enter the damage arbiter.
-Do not call `Open77.effects.explosion` for the same throw; that would duplicate
-damage. Preserve safezone protection and the official blast relay. An
-`onPlayerExplosion` owner report alone is not an ownership or damage verdict.
-
-Extend the RP HUD with the selected grenade label and one remaining count.
-Unknown/stale native counts remain unavailable. Hide its selection during
-creation/death and when no grenade is selected. Keep all player-facing text in
-English, alongside the existing weapon magazine HUD.
-
-## Required integration checks
-
-Test count-preserving equip/re-equip and inventory opens; one throw consumes
-one item; duplicate/old reports do not double-consume; moving/equipping while
-busy is refused; SQL rollback preserves items; timeouts quarantine projections;
-death/reconnect invalidate old jobs; safezones block throws; two clients see a
-single explosion. Native timing, perk interactions and smoke/recon effects need
-in-game checks on Stable 156.
-
-## Expanding firearms and melee from the catalogue
-
-The current controller stores one pistol ammo budget. Expanding its allowlist
-alone would incorrectly feed every gun pistol ammo and reject melee weapons
-because they have no magazine. Introduce separate durable ammunition pools for
-handgun/SMG, rifle/LMG/precision, shotgun and sniper families, verified against
-live native ammo records. Migrate the existing integer to the handgun pool.
-Enable dual only for native-supported pistol pairs. Melee needs no ammo budget
-or magazine readback; thrown knives retain their native return behavior and
-must not be consumed like grenades. Heavy machine guns and temporary/quest
-weapons require separate equip/drop capability checks. Three unresolved wiki
-records remain disabled until a live TweakDB lookup validates them.
+The firearm controller still holds one pistol ammo pool. Enabling the full
+catalogue requires separate handgun/SMG, rifle/LMG/precision, shotgun and sniper
+pools verified against live ammo records, plus a migration of the existing stock.
+Melee skips ammo readback entirely; thrown knives retain native return behavior.
+Heavy/temporary weapons need equip/drop checks. Coronation, Sihil and Boar Carver
+remain unresolved in the current reference. Catalogue presence is not a native
+grant allowlist.

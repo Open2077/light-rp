@@ -60,7 +60,7 @@ def main():
                  'recordEvidence':'reviewed_alias'if name in OVERRIDES else'image_filename_exact'if record else'unresolved',
                  'image':'img/items/'+item_id+'.png','sourcePage':'https://cyberpunk.fandom.com'+link['href'],
                  'sourceImage':re.sub(r'/scale-to-width-down/\d+','/scale-to-width-down/256',image.get('data-src',image.get('src')))+'&format=original','sourceImageName':image_name,
-                 'integrationStatus':'implemented'if item_id in ['weapon_lexington','weapon_nue']else'needs_native_record'if not record else'catalogued_not_enabled'}
+                 'integrationStatus':'implemented'if item_id in ['weapon_lexington','weapon_nue'] or kind=='grenade'else'needs_native_record'if not record else'catalogued_not_enabled'}
             rows.append(row)
     assert len({r['itemId']for r in rows})==len(rows)
     IMAGES.mkdir(parents=True,exist_ok=True)

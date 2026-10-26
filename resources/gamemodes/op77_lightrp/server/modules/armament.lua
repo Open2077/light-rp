@@ -32,6 +32,7 @@ function W.push(player)
     local rt=W.runtime[player]
     if rt and not current(rt) then return end
     TriggerClientEvent(NET,player,{kind="state",state=W.view(player)})
+    if LightRP.grenades then LightRP.grenades.push(player) end
 end
 local function native(rt,method,operation,...)
     if not current(rt) or not alive(rt.player) then return nil,"Your character changed or is not alive." end
@@ -52,6 +53,7 @@ local function native(rt,method,operation,...)
     if job.accepted~=true then return nil,tostring(job.reason or "Native weapon request refused.") end
     return job.result or {}
 end
+W.native = native
 AddEventHandler("open77:weapons:completed",function(player,id,operation,accepted,reason,result)
     local key=tostring(player)..":"..tostring(id)
     local job=W.pending[key]

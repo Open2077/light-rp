@@ -6,7 +6,7 @@ The index contains **198 inventory candidates**, including **9 grenade types**. 
 
 The full native reference contains 1,925 rows, including aliases, NPC/test weapons, vehicles and cyberware. It is evidence for the crosswalk, not an inventory grant allowlist.
 
-Runtime integration currently supports Lexington and Nue. The other rows are catalogued for integration; listing an item or finding its record does not establish native equip/reload compatibility. See [grenade design](grenades-inventory-design.md).
+Runtime integration currently supports Lexington, Nue and the nine grenade types. The other rows are catalogued for integration; listing an item or finding its record does not establish native equip/reload compatibility. See [grenade design](grenades-inventory-design.md).
 
 | Category | Entries |
 |---|---:|

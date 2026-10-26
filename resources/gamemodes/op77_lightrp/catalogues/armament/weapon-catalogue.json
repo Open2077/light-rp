@@ -3041,7 +3041,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/CHAR_Incendiary_Grenade",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/4/48/GrenadeIncendiaryRegular.png/revision/latest/scale-to-width-down/256?cb=20240511123928&format=original",
       "sourceImageName": "GrenadeIncendiaryRegular.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "4c1dde0bb1a9f4906785d2fad020e3256036b5242bc7915cdda21b3115e0dd18",
       "bytes": 29011
     },
@@ -3057,7 +3057,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/EMP_Grenade",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/c/cf/GrenadeEMPRegular.png/revision/latest/scale-to-width-down/256?cb=20240511123912&format=original",
       "sourceImageName": "GrenadeEMPRegular.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "4190236eedea3c7e71dc4973fad873b8226d9804a21b27aa599ac413994f573a",
       "bytes": 31316
     },
@@ -3073,7 +3073,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/F-GX_Frag_Grenade",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/d/d5/GrenadeFragRegular.png/revision/latest/scale-to-width-down/256?cb=20240511123927&format=original",
       "sourceImageName": "GrenadeFragRegular.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "44c20c94cb8e1db6b9d1863016232723325d2d71c5dcf5481fe4de0965c52eba",
       "bytes": 21367
     },
@@ -3089,7 +3089,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/GASH_Antipersonnel_Grenade",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/2/23/GrenadeCuttingRegular.png/revision/latest/scale-to-width-down/256?cb=20240511123859&format=original",
       "sourceImageName": "GrenadeCuttingRegular.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "f5b828018f27c23c9f63b77f05942ff5a0468215d8b430146a3129bb73d8f3b8",
       "bytes": 42689
     },
@@ -3105,7 +3105,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/MOLODETS_BioHaz_Grenade",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/a/a2/GrenadeBiohazardRegular.png/revision/latest/scale-to-width-down/256?cb=20240511123843&format=original",
       "sourceImageName": "GrenadeBiohazardRegular.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "d8cb35820fb5e3d4b315a0ec16fc50de26c6c0abce454ca62eaee5fc88837bfa",
       "bytes": 40864
     },
@@ -3121,7 +3121,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Ozob%27s_Nose",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/a/ac/GrenadeOzobsNose.png/revision/latest/scale-to-width-down/256?cb=20240511123941&format=original",
       "sourceImageName": "GrenadeOzobsNose.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "67869e924994b94d5766bcc0f8f20a5be871e38a4811d43495f12fb3b171c292",
       "bytes": 21007
     },
@@ -3137,7 +3137,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Recon_Grenade",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/b/b6/GrenadeReconRegular.png/revision/latest/scale-to-width-down/256?cb=20240511123956&format=original",
       "sourceImageName": "GrenadeReconRegular.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "a0cb8870230552ff1a4ece2ace8cea2d49b27802d409efac6750399cb5fa5bcd",
       "bytes": 34556
     },
@@ -3153,7 +3153,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Smoke_Grenade",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/5/59/GrenadeSmokeRegular.png/revision/latest/scale-to-width-down/256?cb=20240511124010&format=original",
       "sourceImageName": "GrenadeSmokeRegular.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "aae72434e31416c19fa058f9b56f5ca2f7c9b89e38926ebe401ee0f4c6d3687f",
       "bytes": 38858
     },
@@ -3169,7 +3169,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/X-22_Flashbang_Grenade",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/8/89/GrenadeFlashRegular.png/revision/latest/scale-to-width-down/256?cb=20240511123926&format=original",
       "sourceImageName": "GrenadeFlashRegular.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "bddb17e1f498585deaf572ca073e1e801952433e273a4176b12e055425f73560",
       "bytes": 38006
     }

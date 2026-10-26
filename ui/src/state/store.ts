@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ArmamentPending, ArmamentState, DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
+import type { ArmamentPending, ArmamentState, GrenadeState, DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 import type { ExtraSafezoneRules } from "@/features/safezones/model";
 
 export interface Notice {
@@ -51,6 +51,10 @@ interface Store {
   hud: HudState;
   safezone?: SafezonePresence;
   armament?: ArmamentState;
+  grenades?: GrenadeState;
+  setGrenades(state: GrenadeState): void;
+  grenadePending?: string;
+  setGrenadePending(request?: string): void;
   armamentPending?: ArmamentPending;
   armamentFeedback?: { text: string; error: boolean };
   menuOpen: boolean; // the F1 player menu
@@ -130,6 +134,8 @@ export const useStore = create<Store>((set) => ({
   setHud: (hud) => set({ hud }),
   setSafezone: (safezone) => set({ safezone }),
   setArmament: (armament) => set({ armament }),
+  setGrenades: (grenades) => set({ grenades }),
+  setGrenadePending: (grenadePending) => set({ grenadePending }),
   setArmamentPending: (armamentPending) => set({ armamentPending }),
   setArmamentFeedback: (armamentFeedback) => set({ armamentFeedback }),
   openMenu: () => set({ menuOpen: true }),

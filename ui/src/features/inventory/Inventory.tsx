@@ -5,6 +5,7 @@ import { PAGE_EVENTS, type InventoryDialogPayload, type InventoryItem, type Inve
 import { Icon } from "@/design/components";
 import { emptySlot, itemAt, itemIdentity, itemAmount, kg, matchesToggleKey, quantity, transferSlot, type SlotRef } from "./model";
 import { ItemArt, ItemEffects } from "./ItemArt";
+import { useGrenadeEvents } from "./Grenades";
 import { ArmamentItemActions, ArmamentPanel } from "./Armament";
 import { armamentItem, refreshArmament, useArmamentEvents } from "./armament";
 import "./inventory.css";
@@ -15,6 +16,7 @@ type Confirmation = "drop" | "give";
 
 export function InventoryDialog() {
   useArmamentEvents();
+  useGrenadeEvents();
   const dialog = useStore((s) => s.dialog);
   const closeDialog = useStore((s) => s.closeDialog);
   const visible = dialog?.kind === "inventory";
@@ -49,6 +51,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
   const pending = useRef(false);
   const [status, setStatus] = useState<{ text: string; error?: boolean }>({ text: "Select an item to see its details." });
   const result = useStore((s) => s.lastResult);
+  const grenadeBusy = useStore(s => s.grenades?.busy || !!s.grenadePending);
   const lastHandledResult = useRef(result);
   const selectedItem = itemAt(selected, [left, right]);
   const mine = selected?.inventory === left.id;
@@ -101,6 +104,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
   };
   const perform = (action: "use" | "transfer" | "split") => {
     if (!selected || !selectedItem || busy) return;
+    if (action === "use" && selectedItem.category === "grenade" && grenadeBusy) return;
     if (action === "use" && mine && selectedItem.usable && !armamentItem(selectedItem)) issue({ type: "inventory.use", slot: selected.slot });
     if (action === "transfer" && canTransfer && moveSlot !== undefined) issue({ type: "inventory.move", from: selected, to: { inventory: destination.id, slot: moveSlot }, count });
     if (action === "split" && selectedItem.count > 1 && freeSlot !== undefined && count > 0) {
@@ -218,10 +222,14 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
     <div className="inventory__workspace">
       <header className="inventory__header"><div><span className="inventory__eyebrow"><b>Light RP /</b> Personal belongings</span><h1 id="inventory-title">Inventory<span>.</span></h1></div>
         <button className="inventory__close" aria-label="Close inventory" onClick={onClose}><span>Close</span><kbd>{payload.toggleKey ?? "I"}</kbd><kbd>Esc</kbd><Icon name="x" size={18} /></button></header>
-      <ArmamentPanel inventoryBusy={busy} />
       <div className="inventory__layout">
-        {(["left", "right"] as const).map((side) => <InventoryPanel key={side} inventory={payload[side]} side={side} search={search[side]}
-          onSearch={(value) => setSearch((old) => ({ ...old, [side]: value }))} selected={selected} busy={busy} drag={drag} select={select} onPointerDown={pointerDown} onContext={context} />)}
+        <InventoryPanel inventory={left} side="left" search={search.left}
+          onSearch={(value) => setSearch((old) => ({ ...old, left: value }))} selected={selected} busy={busy} drag={drag} select={select} onPointerDown={pointerDown} onContext={context} />
+        <div className="inventory__center">
+          <ArmamentPanel inventoryBusy={busy} />
+          <InventoryPanel inventory={right} side="right" search={search.right}
+            onSearch={(value) => setSearch((old) => ({ ...old, right: value }))} selected={selected} busy={busy} drag={drag} select={select} onPointerDown={pointerDown} onContext={context} />
+        </div>
         <aside className="inventory-detail" data-currency={selectedItem?.name === "cash" || undefined} aria-label="Item details"><span className="inventory__eyebrow">{selectedItem ? "Selected item" : "Item details"}</span>
           {selectedItem ? <>
             <div className="inventory-detail__item" key={`${selected?.inventory}:${selected?.slot}:${selectedItem.name}`}>
@@ -240,7 +248,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
               <p>{itemAmount(selectedItem, count)} {selectedItem.label}{confirmation === "give" ? ". The server checks who is close enough." : ". Other players can pick this up."}</p>
               <div><button className="inventory-button inventory-button--primary" disabled={busy || !count} onClick={confirm}>Confirm {confirmation}</button><button className="inventory-button" onClick={() => setConfirmation(null)}>Cancel</button></div></div>
               : <div className="inventory-detail__actions">
-                {mine && selectedItem.usable && !armamentItem(selectedItem) && <button className="inventory-button inventory-button--primary" disabled={busy} onClick={() => perform("use")}><Icon name="hand" size={16} />Use one<Icon name="arrow-right" size={15} /></button>}
+                {mine && selectedItem.usable && !armamentItem(selectedItem) && <button className="inventory-button inventory-button--primary" disabled={busy || selectedItem.category === "grenade" && grenadeBusy} onClick={() => perform("use")}><Icon name="hand" size={16} />{selectedItem.category === "grenade" ? "Select grenade" : "Use one"}<Icon name="arrow-right" size={15} /></button>}
                 {destination.kind !== "ground" && <button className={`inventory-button${!mine || !selectedItem.usable ? " inventory-button--primary" : ""}`} disabled={busy || !canTransfer} onClick={() => perform("transfer")}><Icon name="arrow-left-right" size={16} />{mine ? "Move to storage" : "Take item"}</button>}
                 <button className="inventory-button" disabled={busy || selectedItem.count < 2 || freeSlot === undefined || !count} onClick={() => perform("split")}><Icon name="split" size={16} />Split stack</button>
                 {mine && <><button className="inventory-button" disabled={busy || !count} onClick={() => setConfirmation("give")}><Icon name="users" size={16} />Give to nearby player</button><button className="inventory-button inventory-button--subtle" disabled={busy || !count} onClick={() => setConfirmation("drop")}><Icon name="arrow-down" size={16} />Drop on ground</button></>}
@@ -253,7 +261,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
     {drag && <div ref={ghost} className="inventory-ghost" style={{ transform: `translate(${drag.x + 15}px, ${drag.y + 15}px)` }}><ItemArt item={drag.item} size="drag" /><div>{drag.item.label}<small>{itemAmount(drag.item, drag.count)}</small></div></div>}
     {menu && selectedItem && <div className="inventory-menu" role="menu" aria-label={`${selectedItem.label} actions`} style={{ left: Math.max(8, Math.min(menu.x, innerWidth - 244)), top: Math.max(8, Math.min(menu.y, innerHeight - 280)) }}>
       <span>{selectedItem.label}</span>
-      {mine && selectedItem.usable && !armamentItem(selectedItem) && <button role="menuitem" onClick={() => perform("use")}><Icon name="hand" size={14} />Use one</button>}
+      {mine && selectedItem.usable && !armamentItem(selectedItem) && <button role="menuitem" disabled={busy || selectedItem.category === "grenade" && grenadeBusy} onClick={() => perform("use")}><Icon name="hand" size={14} />{selectedItem.category === "grenade" ? "Select grenade" : "Use one"}</button>}
       {destination.kind !== "ground" && <button role="menuitem" disabled={!canTransfer} onClick={() => perform("transfer")}><Icon name="arrow-left-right" size={14} />{mine ? "Move to storage" : "Take item"}</button>}
       <button role="menuitem" disabled={selectedItem.count < 2 || freeSlot === undefined || !count} onClick={() => perform("split")}><Icon name="split" size={14} />Split stack</button>
       {mine && <><button role="menuitem" disabled={!count} onClick={() => { setMenu(null); setConfirmation("give"); }}><Icon name="users" size={14} />Give to nearby player</button><button role="menuitem" disabled={!count} onClick={() => { setMenu(null); setConfirmation("drop"); }}><Icon name="arrow-down" size={14} />Drop on ground</button></>}
@@ -273,9 +281,9 @@ function InventoryPanel({ inventory: inv, side, search, onSearch, selected, busy
   const matches = (item: InventoryItem | undefined) => !!item && (!query || `${item.label} ${item.name} ${item.category ?? ""}`.toLocaleLowerCase().includes(query));
   const slots = Array.from({ length: inv.slots }, (_, index) => index + 1).filter((slot) => !query || matches(bySlot.get(slot)));
   const pct = inv.maxWeight > 0 ? Math.min(100, Math.max(0, inv.weight / inv.maxWeight * 100)) : 0;
-  const title = side === "left" ? "Pockets" : ground ? "Nearby" : inv.kind === "trunk" ? "Vehicle storage" : inv.kind === "drop" ? "On the ground" : "Storage";
+  const title = side === "left" ? "Pockets" : "Nearby";
   return <section className={`inventory-panel inventory-panel--${side}`} aria-label={title}>
-    <header className="inventory-panel__head"><div className="inventory-panel__title"><Icon name={side === "left" ? "backpack" : inv.kind === "trunk" ? "car" : "package-open"} size={20} /><div><h2>{title}</h2><p>{ground ? "Items you leave here are visible to others." : inv.label}</p></div></div>
+    <header className="inventory-panel__head"><div className="inventory-panel__title"><Icon name={side === "left" ? "backpack" : inv.kind === "trunk" ? "car" : "package-open"} size={20} /><div><h2>{title}</h2><p>{ground ? "Items you leave here are visible to others." : side === "right" && inv.kind === "trunk" ? `Vehicle storage · ${inv.label}` : inv.label}</p></div></div>
       {!ground && <div className={`inventory-weight${pct > 90 ? " is-heavy" : ""}`}><span><strong>{kg(inv.weight)}</strong> / {kg(inv.maxWeight)} kg</span><div><i style={{ width: `${pct}%` }} /></div></div>}
     </header>
     {ground ? <div className="inventory-ground" data-inv="ground" data-slot="1"><Icon name="arrow-down" size={25} /><h3>Leave something here</h3><p>Drag an item from your pockets<br />to place it on the ground.</p><span>Or select an item and choose Drop.</span></div> : <>

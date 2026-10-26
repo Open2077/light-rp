@@ -19,7 +19,7 @@ local function syncControls(state)
     if not LightRpControlClaims then return end
     local equipped = state and (state.right or state.left)
     local blocked = state and (state.busy == true or (equipped and state.ready ~= true)) or false
-    for _, action in ipairs({"Attack", "Reload"}) do
+    for _, action in ipairs({"Attack", "Reload", "Grenade"}) do
         LightRpControlClaims.set("armament", action, blocked == true)
     end
 end

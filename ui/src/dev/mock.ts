@@ -118,6 +118,7 @@ export function installMockBridge(): void {
     emit(name, payload) {
       console.log("[mock] emit", name, payload);
       if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
+      if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
       if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
       if (name === PAGE_EVENTS.ready) {
         setTimeout(() => {
@@ -325,6 +326,8 @@ export function installMockBridge(): void {
             case "welcome.ack":
               patchCharacter({ welcomePending: false });
               break;
+            case "inventory.use":
+              armament.useGrenade(action.slot);result(true,"Item selected.",action.type);break;
             case "voice.range":
               hud.voice = { ...hud.voice, range: action.range };
               fire(PAGE_EVENTS.hud, { ...hud });

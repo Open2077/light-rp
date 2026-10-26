@@ -1,29 +1,38 @@
+import { useState } from "react";
 import { Crosshair } from "lucide-react";
 import { Icon } from "@/design/components";
 import { useStore } from "@/state/store";
 import type { ArmamentHand, ArmamentWeapon, InventoryItem } from "@/bridge/protocol";
 import { performArmament, refreshArmament, retryArmament, weaponInstance } from "./armament";
+import { GrenadeEquipment } from "./Grenades";
 import "./armament.css";
 
 const knownCount = (value?: number) => Number.isInteger(value) && value! >= 0 ? String(value) : "?";
 
+function WeaponArt({name}:{name?:string}) {
+  const [failed,setFailed]=useState<string>();
+  return name&&/^weapon_[a-z0-9_]+$/.test(name)&&failed!==name
+    ? <img className="inventory-armament__art" src={`img/items/${name}.png`} alt="" onError={()=>setFailed(name)} />
+    : <Crosshair size={23} strokeWidth={1.4} aria-hidden="true"/>;
+}
 export function ArmamentPanel({ inventoryBusy }: { inventoryBusy: boolean }) {
   const state = useStore(s => s.armament), pending = useStore(s => s.armamentPending), feedback = useStore(s => s.armamentFeedback);
   const disabled = inventoryBusy || !state || state.busy || !!pending;
   const syncDisabled = inventoryBusy || state?.busy || !!pending;
   const card = (hand: ArmamentHand, weapon?: ArmamentWeapon) => <section className={`inventory-armament__hand${weapon ? " is-equipped" : ""}`} aria-label={hand === "right" ? "Right hand" : "Left hand"}>
     <header><span>{hand === "right" ? "Right hand" : "Left hand"}</span></header>
-    <div><Crosshair size={23} strokeWidth={1.4} aria-hidden="true" /><span><strong>{weapon?.label ?? "No weapon"}</strong><small>{weapon ? `Serial ${weapon.instanceId.slice(0, 8)}` : "Select a pistol in your pockets"}</small></span>
+    <div><WeaponArt name={weapon?.name}/><span><strong>{weapon?.label ?? "No weapon"}</strong><small>{weapon ? `Serial ${weapon.instanceId.slice(0, 8)}` : "Select a pistol in your pockets"}</small></span>
       {weapon && <button className="inventory-armament__remove" aria-label={`Unequip the weapon in your ${hand === "right" ? "right hand" : "left hand"}`} disabled={disabled} onClick={() => performArmament("unequip", { hand })}><Icon name="x" size={13} /></button>}</div>
     {weapon && <footer><span>Magazine</span><b>{knownCount(weapon.magazine)} <i>/ {knownCount(weapon.capacity)}</i></b></footer>}
   </section>;
   return <section className="inventory-armament" aria-label="Equipment and ammunition">
-    <div className="inventory-armament__head"><span className="inventory__eyebrow">Equipment</span><span className={state?.busy || pending ? "is-busy" : ""}><i />{pending?.uncertain ? "Needs verification" : state?.busy || pending ? "Synchronizing…" : state?.ready ? "Ready" : "Unavailable"}</span></div>
+    <div className="inventory-armament__head"><span className="inventory__eyebrow">Weapons</span><span className={state?.busy || pending ? "is-busy" : ""}><i />{pending?.uncertain ? "Needs verification" : state?.busy || pending ? "Synchronizing…" : state?.ready ? "Ready" : "Unavailable"}</span></div>
     <div className="inventory-armament__layout">
       {card("right", state?.right)}{card("left", state?.left)}
       <div className="inventory-armament__stock"><span>Shared pistol ammunition</span><strong>{state?.ready ? knownCount(state.ammo?.pistol?.remaining) : "—"}<small>rounds</small></strong><p>Includes loaded magazines · one pool for both hands.</p></div>
       <div className="inventory-armament__tools"><button disabled={disabled || !state?.ready || !state?.right && !state?.left} onClick={() => performArmament("holster")}><Icon name="hand" size={13} />Holster weapons</button><button disabled={syncDisabled} onClick={() => performArmament("sync")}><Icon name="activity" size={13} />Synchronize</button>{!state?.ready && <button disabled={!!pending} onClick={() => { void refreshArmament(); }}>Refresh status</button>}</div>
     </div>
+    <GrenadeEquipment inventoryBusy={inventoryBusy} />
     {(pending?.uncertain || state?.error || feedback) && <div className={`inventory-armament__feedback${pending?.uncertain || state?.error || feedback?.error ? " is-error" : ""}`} role="status"><Icon name={pending?.uncertain || state?.error || feedback?.error ? "triangle-alert" : "check"} size={13} /><span>{state?.error || feedback?.text}</span>{pending?.uncertain && <button onClick={retryArmament}>Check request</button>}</div>}
   </section>;
 }
