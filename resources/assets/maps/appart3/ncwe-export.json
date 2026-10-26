@@ -2,15 +2,15 @@
   "generator": "NCWE Studio",
   "project": "appart3",
   "projectId": "c9da839c-b8d8-45fd-b590-9063d01cf325",
-  "exportedUtc": "2026-10-26T10:13:20.9041229+00:00",
+  "exportedUtc": "2026-10-26T11:12:16.0814869+00:00",
   "game": "2.5",
   "archiveXl": "1.28.0",
   "resource": "appart3",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "requiredMod": "appart3-assets",
   "package": "dist/appart3.zip",
-  "sha256": "55cd93fdec96d9fbd3643e99bda350785c00d0dac8d032ebf1ad77abe5ac448d",
-  "bytes": 44702,
+  "sha256": "86b54acbe7cb0ec6b557dacb5e3c9ec3b49b1e3a1e993d48d59e8674cb39c854",
+  "bytes": 44876,
   "entries": [
     "archive/pc/mod/ncwe_c9da839cb8d845fdb5909063d01cf325.archive",
     "archive/pc/mod/ncwe_c9da839cb8d845fdb5909063d01cf325.archive.xl"
@@ -25,5 +25,5 @@
   "sounds": [],
   "soundEmitters": 0,
   "syncedSounds": 0,
-  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\ab69b065-6913-450d-a618-01ecd9be0f57\\scratchpad\\reexport\\appart3.json\\ncwe-c9da839cb8d845fdb5909063d01cf325-20261026-101320-f5b0921c"
+  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\ab69b065-6913-450d-a618-01ecd9be0f57\\scratchpad\\reexport\\appart3.json\\ncwe-c9da839cb8d845fdb5909063d01cf325-20261026-111215-c7c444e2"
 }

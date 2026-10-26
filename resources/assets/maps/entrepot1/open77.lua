@@ -2,7 +2,7 @@
 -- The package is preloaded as the required mod "entrepot1-assets": the launcher installs it
 -- before Cyberpunk starts. Changing it needs a dedicated-server restart, then a fresh game launch.
 resource "entrepot1"
-version "1.0.15"
+version "1.0.16"
 auto_start true
 
 dependency "archivexl >=1.28.0"
