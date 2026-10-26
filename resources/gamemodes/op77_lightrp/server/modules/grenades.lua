@@ -136,7 +136,7 @@ function G.start(player,operation,item,mutation,request)
      if prior[1]then return prior[1].operation==operation,"Request key already used."end
      if operation=="equip"and(not C[item]or count(currentInv,item)<1)then return false,"This grenade is not in your inventory."end
      local currentState=G.states[currentInv.id]
-     return save(currentInv,{revision=currentState.revision+1,selected=operation=="equip"and item or nil},mutation,operation)
+     return save(currentInv,{revision=currentState.revision+1,selected=operation=="equip"and currentState.selected~=item and item or nil},mutation,operation)
     end)
     if not saved then return false,reason end
    end

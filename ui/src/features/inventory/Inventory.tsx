@@ -51,6 +51,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
   const pending = useRef(false);
   const [status, setStatus] = useState<{ text: string; error?: boolean }>({ text: "Select an item to see its details." });
   const result = useStore((s) => s.lastResult);
+  const selectedGrenade = useStore(s => s.grenades?.selected);
   const grenadeBusy = useStore(s => s.grenades?.busy || !!s.grenadePending);
   const lastHandledResult = useRef(result);
   const selectedItem = itemAt(selected, [left, right]);
@@ -248,7 +249,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
               <p>{itemAmount(selectedItem, count)} {selectedItem.label}{confirmation === "give" ? ". The server checks who is close enough." : ". Other players can pick this up."}</p>
               <div><button className="inventory-button inventory-button--primary" disabled={busy || !count} onClick={confirm}>Confirm {confirmation}</button><button className="inventory-button" onClick={() => setConfirmation(null)}>Cancel</button></div></div>
               : <div className="inventory-detail__actions">
-                {mine && selectedItem.usable && !armamentItem(selectedItem) && <button className="inventory-button inventory-button--primary" disabled={busy || selectedItem.category === "grenade" && grenadeBusy} onClick={() => perform("use")}><Icon name="hand" size={16} />{selectedItem.category === "grenade" ? "Select grenade" : "Use one"}<Icon name="arrow-right" size={15} /></button>}
+                {mine && selectedItem.usable && !armamentItem(selectedItem) && <button className="inventory-button inventory-button--primary" disabled={busy || selectedItem.category === "grenade" && grenadeBusy} onClick={() => perform("use")}><Icon name="hand" size={16} />{selectedItem.category === "grenade" ? (selectedGrenade === selectedItem.name ? "Store grenade" : "Select grenade") : "Use one"}<Icon name="arrow-right" size={15} /></button>}
                 {destination.kind !== "ground" && <button className={`inventory-button${!mine || !selectedItem.usable ? " inventory-button--primary" : ""}`} disabled={busy || !canTransfer} onClick={() => perform("transfer")}><Icon name="arrow-left-right" size={16} />{mine ? "Move to storage" : "Take item"}</button>}
                 <button className="inventory-button" disabled={busy || selectedItem.count < 2 || freeSlot === undefined || !count} onClick={() => perform("split")}><Icon name="split" size={16} />Split stack</button>
                 {mine && <><button className="inventory-button" disabled={busy || !count} onClick={() => setConfirmation("give")}><Icon name="users" size={16} />Give to nearby player</button><button className="inventory-button inventory-button--subtle" disabled={busy || !count} onClick={() => setConfirmation("drop")}><Icon name="arrow-down" size={16} />Drop on ground</button></>}
@@ -261,7 +262,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
     {drag && <div ref={ghost} className="inventory-ghost" style={{ transform: `translate(${drag.x + 15}px, ${drag.y + 15}px)` }}><ItemArt item={drag.item} size="drag" /><div>{drag.item.label}<small>{itemAmount(drag.item, drag.count)}</small></div></div>}
     {menu && selectedItem && <div className="inventory-menu" role="menu" aria-label={`${selectedItem.label} actions`} style={{ left: Math.max(8, Math.min(menu.x, innerWidth - 244)), top: Math.max(8, Math.min(menu.y, innerHeight - 280)) }}>
       <span>{selectedItem.label}</span>
-      {mine && selectedItem.usable && !armamentItem(selectedItem) && <button role="menuitem" disabled={busy || selectedItem.category === "grenade" && grenadeBusy} onClick={() => perform("use")}><Icon name="hand" size={14} />{selectedItem.category === "grenade" ? "Select grenade" : "Use one"}</button>}
+      {mine && selectedItem.usable && !armamentItem(selectedItem) && <button role="menuitem" disabled={busy || selectedItem.category === "grenade" && grenadeBusy} onClick={() => perform("use")}><Icon name="hand" size={14} />{selectedItem.category === "grenade" ? (selectedGrenade === selectedItem.name ? "Store grenade" : "Select grenade") : "Use one"}</button>}
       {destination.kind !== "ground" && <button role="menuitem" disabled={!canTransfer} onClick={() => perform("transfer")}><Icon name="arrow-left-right" size={14} />{mine ? "Move to storage" : "Take item"}</button>}
       <button role="menuitem" disabled={selectedItem.count < 2 || freeSlot === undefined || !count} onClick={() => perform("split")}><Icon name="split" size={14} />Split stack</button>
       {mine && <><button role="menuitem" disabled={!count} onClick={() => { setMenu(null); setConfirmation("give"); }}><Icon name="users" size={14} />Give to nearby player</button><button role="menuitem" disabled={!count} onClick={() => { setMenu(null); setConfirmation("drop"); }}><Icon name="arrow-down" size={14} />Drop on ground</button></>}

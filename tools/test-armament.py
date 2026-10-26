@@ -141,10 +141,14 @@ reply=request({operation="equip",hand="left",slot=leftSlot,instanceId=leftItem.m
 assert(W.view(1).ready and W.view(1).left and W.view(1).ammo.pistol.remaining==87,"dual never doubles the shared pool")
 assert(nativeRows[1].magazine+nativeRows[4].magazine+nativeReserve==87)
 assert(W.damageGate({attacker=1,victim=2,weaponTdbId="hash:"..nativeRows[1].record})==nil,"ready owned weapon damage remains allowed")
--- Inventory Use redraws an already equipped left pistol without moving it
--- into the right hand or crediting any ammunition.
+-- Inventory Use toggles the equipped pistol off without crediting ammunition.
 assert(Inv.use(1,leftSlot));tick(1800)
-assert(W.view(1).left.instanceId==leftItem.metadata.instanceId and W.view(1).ammo.pistol.remaining==87)
+assert(not W.view(1).left and W.view(1).right and W.view(1).ammo.pistol.remaining==87)
+assert(Inv.use(1,leftSlot));tick(1800)
+assert(W.view(1).right.instanceId==leftItem.metadata.instanceId and not W.view(1).left and W.view(1).ammo.pistol.remaining==87)
+assert(Inv.use(1,leftSlot));tick(1800)
+assert(not W.view(1).right and not W.view(1).left and W.view(1).ammo.pistol.remaining==87)
+assert(Inv.use(1,rightSlot));tick(1800)
 -- An ambiguous native write must not overlap a replacement job. A forged
 -- target/operation completion cannot release its quarantine.
 suppressNative=true

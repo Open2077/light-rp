@@ -54,7 +54,7 @@ export function ArmamentItemActions({ item, mine, inventoryBusy }: { item: Inven
       <button className="inventory-button inventory-button--primary" disabled={disabled || !state?.ready} onClick={() => performArmament("equip", { hand: "right", slot: item.slot, instanceId })}><Crosshair size={16} aria-hidden="true" />Equip right hand</button>
       <button className="inventory-button" disabled={disabled || !state?.ready} onClick={() => performArmament("equip", { hand: "left", slot: item.slot, instanceId })}><Crosshair size={16} aria-hidden="true" />Equip left hand</button>
     </> : <>
-      <button className="inventory-button inventory-button--primary" disabled={disabled || !state?.ready} onClick={() => performArmament("equip", { hand: equipped, slot: item.slot, instanceId })}><Crosshair size={16} aria-hidden="true" />Use weapon</button>
+      <button className="inventory-button inventory-button--primary" disabled={disabled} onClick={() => performArmament("unequip", { hand: equipped, instanceId })}><Crosshair size={16} aria-hidden="true" />Store weapon</button>
       <button className="inventory-button" disabled={disabled} onClick={() => performArmament("unequip", { hand: equipped })}><Icon name="hand" size={16} />Unequip this hand</button>
     </>}
     <p>Both pistols share ammunition. Only compatible pairs can be equipped.</p>

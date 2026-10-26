@@ -403,7 +403,10 @@ for name in pairs(C.weapons) do Inv.onUse(name,function(player,item)
     for k,v in pairs(inv and inv.items or {}) do if v==item then slot=k;break end end
     local s=inv and W.states[inv.id];local mutation=W.uuid()
     if not slot or not s or not mutation then return false end
-    local ok,why=beginMutation(player,{operation="equip",hand=(s.left== (item.metadata and item.metadata.instanceId) and "left" or "right"),slot=slot,instanceId=item.metadata and item.metadata.instanceId,baseRevision=s.revision,mutation="equip:"..mutation})
+    local instance=item.metadata and item.metadata.instanceId
+    local equipped=instance and (s.right==instance or s.left==instance)
+    local operation=equipped and "unequip" or "equip"
+    local ok,why=beginMutation(player,{operation=operation,hand=(s.left==instance and "left" or "right"),slot=slot,instanceId=instance,baseRevision=s.revision,mutation=operation..":"..mutation})
     if ok then return "keep" end
     LightRP.notice(player,{kind="error",title="Equipment",body=why});return false
 end) end

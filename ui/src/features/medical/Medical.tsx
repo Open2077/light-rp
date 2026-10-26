@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { HeartPulse, ShieldPlus, Clock3, ArrowRight } from "lucide-react";
+import { Skull, ShieldPlus, ArrowRight } from "lucide-react";
 import { emit, on } from "@/bridge/open77";
 import "./medical.css";
 const PAGE="lightrp:ui:medical";
@@ -22,17 +22,24 @@ export function Medical() {
   const transferring=state.phase==="hospital",recovering=state.phase==="reviving";
   const title=transferring?"Medical transfer":recovering?"Recovery in progress":"You are unconscious";
   return <div className="medical-overlay">
+    <svg className="medical-lifeline" viewBox="0 0 1600 400" preserveAspectRatio="none" aria-hidden="true"><path d="M0 220 H220 L250 200 L280 240 L310 220 H460 L500 180 L535 260 L580 25 L635 375 L685 145 L730 220 H970 L1000 195 L1030 245 L1060 220 H1600"/></svg>
+    <div className="medical-brand" aria-hidden="true">OPEN<span>//</span>77 <span>EMERGENCY PROTOCOL</span></div>
     <section className="medical-down" role="dialog" aria-modal="false" aria-label="Unconscious status">
-      <div className="medical-down__symbol"><HeartPulse size={24}/></div>
-      <div className="medical-down__body"><span className="medical-down__eyebrow">LIGHT RP / EMERGENCY CARE</span><h1>{title}</h1>
-        <p>{transferring?"Your hospital transfer is being synchronized.":recovering?"Your treatment is being confirmed. Stay connected.":state.receiving?"Someone is stabilizing you. Stay connected until treatment finishes.":"Stay with us. Another person can revive you with a Trauma Stabilization Kit."}</p>
-        {state.error&&<p className="medical-down__error" role="status">{state.error}</p>}
-        {!state.persisted?<div className="medical-down__waiting"><Clock3 size={13}/>Saving medical state…</div>:
-          !state.canGiveUp?<div className="medical-down__waiting"><Clock3 size={13}/>{state.receiving||recovering?"Receiving medical assistance":transferring?"Transferring to hospital":<>Hospital transfer unlocks in <b>{minutes}:{String(seconds%60).padStart(2,"0")}</b></>}</div>:
-          confirm?<div className="medical-down__confirm"><span>Leave the scene and wake up at the hospital?</span><div><button onClick={()=>{setConfirm(false);emit(PAGE,{operation:"giveup"})}}>Confirm hospital transfer<ArrowRight size={13}/></button><button className="is-secondary" onClick={()=>setConfirm(false)}>Keep waiting</button></div></div>:
-          <button className="medical-down__giveup" onClick={()=>setConfirm(true)}>Give up and go to hospital<ArrowRight size={13}/></button>}
-        <div className="medical-down__hint"><ShieldPlus size={13}/>You can still speak to nearby players while waiting for help.</div>
+      <Skull className="medical-down__skull" strokeWidth={1.2} aria-hidden="true"/>
+      <span className="medical-down__eyebrow">YOU ARE</span>
+      <h1 aria-label={title}>{transferring?"TRANSFER":recovering?"RECOVERING":"DEAD"}</h1>
+      <div className="medical-down__timer" aria-label="Hospital transfer countdown">{minutes}:{String(seconds%60).padStart(2,"0")}</div>
+      <span className="medical-down__status" role="status">{!state.persisted?"Saving medical state…":transferring?"Transferring to hospital":recovering||state.receiving?"Receiving medical assistance":state.canGiveUp?"Hospital transfer available":"Hospital transfer unlocks in"}</span>
+      <p>{transferring?"Your hospital transfer is being synchronized.":recovering?"Your treatment is being confirmed. Stay connected.":state.receiving?"Someone is stabilizing you. Stay connected until treatment finishes.":"Another person can revive you with a Trauma Stabilization Kit."}</p>
+      {state.error&&<p className="medical-down__error" role="alert">{state.error}</p>}
+      <div className="medical-down__actions">
+        {state.persisted&&state.canGiveUp&&(confirm?<>
+          <span className="medical-down__question">Leave the scene and wake up at the hospital?</span>
+          <div className="medical-down__buttons"><button onClick={()=>{setConfirm(false);emit(PAGE,{operation:"giveup"})}}>Confirm hospital transfer<ArrowRight size={16}/></button><button className="is-secondary" onClick={()=>setConfirm(false)}>Keep waiting</button></div>
+        </>:<button onClick={()=>setConfirm(true)}>Give up and go to hospital<ArrowRight size={16}/></button>)}
       </div>
+      <div className="medical-down__hint"><ShieldPlus size={14}/>You can still speak to nearby players while waiting for help.</div>
     </section>
+    <div className="medical-footer" aria-hidden="true"><span>VITAL SIGNAL // LOST</span><span>TRAUMA RESPONSE SYSTEM</span></div>
   </div>;
 }
