@@ -13,6 +13,21 @@ permet de créer un cercle/cylindre, une boîte orientée ou un polygone avec
 plancher et plafond. Le placement utilise la position acceptée par le serveur.
 La prévisualisation est un brouillon : elle ne protège personne avant publication.
 
+Trois cases configurent chaque zone :
+
+- **Interdire de courir** : force la marche et bloque le sprint ; la préférence
+  de déplacement précédente est restaurée à la sortie, sans empêcher une marche lente.
+- **Interdire de tirer** : bloque la commande native de tir. Décocher permet
+  l'animation de tir, mais ne retire pas la protection PvP serveur de la safezone.
+- **Toute la hauteur (haut et bas)** : le contour horizontal s'applique à tous
+  les étages, au ciel et au sous-sol. Plancher/plafond sont conservés dans le
+  brouillon mais ignorés tant que cette case est cochée.
+
+Les anciennes zones reçoivent les valeurs `blockRun=false`, `blockShoot=true`,
+`fullHeight=false`, sans réécriture SQL obligatoire. Les règles des zones qui
+se chevauchent se cumulent : une restriction active suffit. Leur état apparaît
+dans le HUD bas-gauche, au-dessus des jauges, uniquement en phase de jeu.
+
 Les droits joueur sont vérifiés sur chaque opération :
 
 - `command.admin.safezones.view` : consulter et ouvrir le gestionnaire.
@@ -78,6 +93,16 @@ La protection des collisions de véhicules, PNJ natifs et effets du monde dépen
 de leur passage et de leur attribution dans le pipeline de dégâts. Les tirs
 entre joueurs entrants et sortants constituent le périmètre garanti à valider
 en jeu. Pas de changement des équipes, friendly fire global, santé ou god mode.
+
+La géométrie en hauteur complète reste exacte horizontalement : polygone sans
+bornes Z ; cercle et boîte interrogés à l'altitude du joueur avec `options.origin`
+sur le même snapshot frais contrôlé par `containsPlayer`. Le dessin de l'éditeur
+montre seulement une tranche locale, pas des murs infinis.
+
+Les commandes client sont des claims `Sprint`/`Attack` de `input.actions`,
+libérés en sortie, indisponibilité de politique, mort et arrêt de ressource.
+Le mode marche conserve séparément le choix du joueur, pour que la touche de
+déplacement ne puisse pas contourner la restriction ou perdre ce choix.
 
 ## Contrat réseau
 

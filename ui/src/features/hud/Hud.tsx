@@ -4,6 +4,7 @@ import { VehicleCluster } from "./VehicleCluster";
 import { useEffect, useState } from "react";
 import { WalkFlash } from "./WalkFlash";
 import { PlayerVitals } from "./PlayerVitals";
+import { SafezoneStatus } from "./SafezoneStatus";
 import "./hud.css";
 
 /* Gameplay overlay, inside the HUD safe area: bottom-left vitals, bottom-right
@@ -34,6 +35,7 @@ export function Hud() {
     <div className={`hud${inventoryOpen ? " hud--quiet" : ""}`} aria-hidden="true">
       <WalkFlash />
       <div className="hud__bottom-left">
+        <SafezoneStatus />
         <PlayerVitals />
       </div>
 

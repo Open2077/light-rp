@@ -47,8 +47,9 @@ function Open77.zones.containsPlayer(p,d,options)
  assert(options and options.bucket==GetPlayerRoutingBucket(p) and options.maxAgeMs==2000 and options.grace==0,"fresh bucket-aware exact-boundary options")
  local v=positions[p];if not v then return nil,"stale_player" end
  if (v.ageMs or 0)>options.maxAgeMs then return nil,"stale_player" end
- if d.shape=="cylinder" then return (v.x-d.position.x)^2+(v.y-d.position.y)^2<=d.radius^2 and math.abs(v.z-d.position.z)<=d.maxHeight end
- if d.shape=="box" then local h=math.rad(-d.rotation);local x,y=v.x-d.position.x,v.y-d.position.y;local a,b=x*math.cos(h)-y*math.sin(h),x*math.sin(h)+y*math.cos(h);return math.abs(a)<=d.size.x/2 and math.abs(b)<=d.size.y/2 and math.abs(v.z-d.position.z)<=d.size.z/2 end
+ local origin=options.origin or d.position
+ if d.shape=="cylinder" then return (v.x-origin.x)^2+(v.y-origin.y)^2<=d.radius^2 and math.abs(v.z-origin.z)<=d.maxHeight end
+ if d.shape=="box" then local h=math.rad(-d.rotation);local x,y=v.x-origin.x,v.y-origin.y;local a,b=x*math.cos(h)-y*math.sin(h),x*math.sin(h)+y*math.cos(h);return math.abs(a)<=d.size.x/2 and math.abs(b)<=d.size.y/2 and math.abs(v.z-origin.z)<=d.size.z/2 end
  error("geometry test adapter only implements circle and box; polygon validation is exercised separately")
 end
 LightRP={log=function() end}
@@ -199,12 +200,40 @@ invalid.points={{x=0,y=0,z=10},{x=2,y=0,z=10},{x=4,y=0,z=10}};assert(not G.valid
 invalid.points={{x=0,y=0,z=10},{x=5,y=0,z=10},{x=5,y=5,z=10},{x=2,y=2,z=10},{x=0,y=5,z=10}};assert(G.validate(invalid),"simple concave polygon accepted")
 local box=zone("box");box.heading=450;assert(G.validate(box).heading==90,"heading canonicalized")
 local canon=assert(G.validate(zone()));assert(not canon.length and not canon.points,"irrelevant shape fields stripped")
+assert(canon.blockRun==false and canon.blockShoot==true and canon.fullHeight==false,"legacy rule defaults")
+local badRule=zone();badRule.blockRun="false";assert(not G.validate(badRule),"rule types are strict")
+local height=zone();height.fullHeight=true;height.minZ=10;height.maxZ=10
+height=assert(G.validate(height));height.id="height";height.revision=1
+S.records.height=height;assert(S.rebuild())
+for _,altitude in ipairs({-50000,50000}) do
+ positions[1]={x=0,y=0,z=altitude}
+ assert(select(2,S.protected(1))==true,"full height covers both sky and underground")
+ positions[1].x=11;assert(select(2,S.protected(1))==false,"full height keeps the horizontal boundary")
+end
+height.shape="box";height.length=20;height.width=10;height.heading=90;assert(S.rebuild())
+positions[1]={x=0,y=9,z=50000};assert(select(2,S.protected(1)),"full-height oriented box")
+positions[1].x=6;assert(not select(2,S.protected(1)),"rotated box horizontal extent remains exact")
+S.records.height=nil
+local unlimitedPoly=assert(G.validate(invalid));unlimitedPoly.fullHeight=true
+local definition=G.definition(unlimitedPoly)
+assert(definition.shape=="poly" and definition.minZ==nil and definition.maxZ==nil,"full-height polygon has no vertical bounds")
+local a=assert(G.validate(zone()));a.id="a";a.blockShoot=false;a.blockRun=true
+local b=assert(G.validate(zone()));b.id="b";b.blockShoot=true;b.blockRun=false
+S.records.a,S.records.b=a,b;assert(S.rebuild());positions[1]={x=0,y=0,z=10}
+local selected,inside,unknown,policy=S.protected(1)
+assert(inside and not unknown and selected.id=="a" and policy.blockRun and policy.blockShoot,"overlapping rules combine without depending on iteration order")
+S.presence(1);local signal=messages[#messages].p
+assert(signal.zone.blockRun and signal.zone.blockShoot,"effective rules reach client presence")
+S.records.b=nil;assert(S.rebuild());S.presence(1)
+assert(messages[#messages].p.zone.blockRun and messages[#messages].p.zone.blockShoot==false,"rule-only changes update presence")
+assert(installedArbiter({victim=1,attacker=2})==false,"allowing shoot input does not remove PvP protection")
+S.records.a=nil;assert(S.rebuild())
 local original=Open77.zones.containsPlayer
 Open77.zones.containsPlayer=function() error("host read failed") end
 S.records.test=G.validate(zone());S.records.test.id="test";S.records.test.revision=1;assert(S.rebuild())
 assert(installedArbiter({victim=1,attacker=2})==false,"arbiter exception fails closed")
 Open77.zones.containsPlayer=original
-print("PASS: safezone ACL, typed geometry, sessions, PvP/buckets/boundaries/staleness, SQL rollback/reload, idempotency, revision races and arbiter failure")
+print("PASS: safezone ACL, geometry/full height, rule defaults/overlaps/presence, PvP/buckets/freshness, SQL rollback/reload, retries, revision races and arbiter failure")
 ''')
 
 if sql_connection:

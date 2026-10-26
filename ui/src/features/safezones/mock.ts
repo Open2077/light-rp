@@ -6,12 +6,23 @@ export function safezonesMock(fire: (name: string, value: unknown) => void, para
   const position = { x: -1200, y: 1100, z: 44 };
   const allowed = params.get("staff") === "1";
   const zones: Zone[] = [{ ...fresh({ position, bucket: 0, session: "mock" }), id: "kabuki-clinic", label: "Clinique de Kabuki", revision: 1 }];
+  if (params.get("safezonesLegacy") === "1") {
+    const legacy: Partial<Zone> = { ...zones[0] };
+    delete legacy.blockRun; delete legacy.blockShoot; delete legacy.fullHeight;
+    zones[0] = legacy as Zone;
+  }
   let generation = 1, step = 0;
   const replies = new Map<string, unknown>();
-  const snapshot = () => fire(PAGE_EVENTS.safezones, { kind: "snapshot", ready: true, generation, zones: clone(zones) });
+  const presence = () => {
+    if (params.get("safezonesPresence") !== "1") return;
+    const active = zones.filter(z => z.enabled).map(normalizeZone), zone = active[0];
+    fire(PAGE_EVENTS.safezones, { kind: "presence", ready: true, zone: zone ? {
+      id: zone.id, label: zone.label, blockRun: active.some(z => z.blockRun), blockShoot: active.some(z => z.blockShoot),
+    } : undefined });
+  };
+  const snapshot = () => { fire(PAGE_EVENTS.safezones, { kind: "snapshot", ready: true, generation, zones: clone(zones) }); presence(); };
   const boot = () => {
     snapshot();
-    if (params.get("safezonesPresence") === "1") fire(PAGE_EVENTS.safezones, { kind: "presence", ready: true, zone: { id: zones[0]!.id, label: zones[0]!.label } });
     if (params.get("safezones") === "1") fire(PAGE_EVENTS.safezones, { kind: "open" });
   };
   const receive = (payload: unknown) => {

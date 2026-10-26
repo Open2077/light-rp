@@ -29,13 +29,25 @@ function S.protected(player)
     if not G.integer(bucket,0,2147483647) then return nil,false,true end
     local list=buckets[bucket]
     if not list then return nil,false,false end
-    local options={bucket=bucket,maxAgeMs=2000,grace=0}
+    local selected,unknown=nil,false
+    local policy={blockRun=false,blockShoot=false}
+    local position
     for _,entry in ipairs(list) do
+        local options={bucket=bucket,maxAgeMs=2000,grace=0}
+        if entry.zone.fullHeight and entry.zone.shape~="poly" then
+            position=position or G.point(Open77.players.position(player))
+            if not position then return nil,false,true end
+            options.origin=G.origin(entry.zone,position)
+        end
         local inside,why=Open77.zones.containsPlayer(player,entry.prepared,options)
-        if inside==nil then return nil,false,true end
-        if inside then return entry.zone,true,false end
+        if inside==nil then unknown=true end
+        if inside then
+            if not selected or entry.zone.id<selected.id then selected=entry.zone end
+            policy.blockRun=policy.blockRun or entry.zone.blockRun==true
+            policy.blockShoot=policy.blockShoot or entry.zone.blockShoot~=false
+        end
     end
-    return nil,false,false
+    return selected,selected~=nil,unknown,policy
 end
 local function arbitrate(event)
     if type(event)~="table" then return nil end
@@ -67,12 +79,12 @@ local installed,installError=install()
 if not installed then LightRP.log("safezones unavailable: %s",installError) end
 local lastPresence={}
 function S.presence(player)
-    local ok,zone,inside,unknown=pcall(S.protected,player)
+    local ok,zone,inside,unknown,policy=pcall(S.protected,player)
     local ready=S.available and ok and not unknown
-    local key=(ready and "ready:" or "unavailable:")..(inside and zone and (zone.id..":"..zone.label) or "")
+    local key=(ready and "ready:" or "unavailable:")..(inside and zone and (zone.id..":"..zone.label..":"..tostring(policy.blockRun)..":"..tostring(policy.blockShoot)) or "")
     if lastPresence[player]==key then return end
     lastPresence[player]=key
-    TriggerClientEvent(NET,player,{kind="presence",ready=ready,zone=ready and inside and {id=zone.id,label=zone.label} or nil})
+    TriggerClientEvent(NET,player,{kind="presence",ready=ready,zone=ready and inside and {id=zone.id,label=zone.label,blockRun=policy.blockRun,blockShoot=policy.blockShoot} or nil})
 end
 LightRP.module("safezones",{
     onDatabaseReady=function()

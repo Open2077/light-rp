@@ -9,6 +9,27 @@ local presence = { kind = "presence", ready = false }
 local drawKey = "lightrp:safezones:draft"
 local drawWarning, started = false, false
 local function send(value) Ui.send(PAGE, value) end
+local heldActions,controlWarnings={},{}
+local function blockAction(action,blocked)
+    if (heldActions[action]==true)==blocked then return end
+    local api=Open77.input and Open77.input.setActionBlocked
+    if type(api)~="function" then return end
+    local ok,result,why=pcall(api,action,blocked)
+    if ok and result==true then heldActions[action]=blocked;return end
+    if not controlWarnings[action] then
+        controlWarnings[action]=true
+        Ui.log("safezone control %s unavailable: %s",action,tostring(ok and why or result))
+    end
+end
+local function syncControls(release)
+    local character=not release and Open77.character.state()
+    local zone=not release and presence.ready and presence.zone
+        and character and character.alive and character.attached and presence.zone or nil
+    local blockRun=zone and zone.blockRun==true or false
+    blockAction("Sprint",blockRun)
+    blockAction("Attack",zone and zone.blockShoot~=false or false)
+    if LightRpMovement and LightRpMovement.setSafezone then LightRpMovement.setSafezone(blockRun) end
+end
 local sequence = 0
 local outgoing, draining, lastSent = {}, false, -1000
 local function forward(payload)
@@ -60,7 +81,8 @@ RegisterNetEvent(NET, function(value)
         local generation = tonumber(value.generation)
         if not generation or generation < snapshot.generation then return end
         snapshot = value
-    elseif value.kind == "presence" then presence = value
+        if not value.ready then presence={kind="presence",ready=false};syncControls() end
+    elseif value.kind == "presence" then presence = value;syncControls()
     elseif value.kind == "open" then
         if not Ui.characterReady or Ui.creationActive or Ui.actionFocus then
             return send({ kind = "invalidate", error = "Finish your current activity before editing zones." })
@@ -79,7 +101,15 @@ local function point(p) return type(p) == "table" and finite(p.x) and finite(p.y
 -- Draw only boundary walls, without a misleading fan across concave polygons.
 -- debugDraw batches expire even if resource shutdown prevents explicit cleanup.
 function Editor.geometry(zone)
-    if type(zone) ~= "table" or not finite(zone.minZ) or not finite(zone.maxZ) or zone.minZ >= zone.maxZ then return nil end
+    if type(zone) ~= "table" or not finite(zone.minZ) or not finite(zone.maxZ) or (not zone.fullHeight and zone.minZ >= zone.maxZ) then return nil end
+    local low,high=zone.minZ,zone.maxZ
+    if zone.fullHeight then
+        -- Infinite walls cannot be drawn. Show a local slice around the author;
+        -- the published rule ignores Z, and the inspector labels that explicitly.
+        local state=Open77.character.state()
+        local altitude=state and state.position and state.position.z or zone.center and zone.center.z or 0
+        low,high=altitude-10,altitude+20
+    end
     local points = {}
     if zone.shape == "circle" and point(zone.center) and finite(zone.radius) and zone.radius > 0 and zone.radius <= 250 then
         for i = 0, 47 do
@@ -103,13 +133,13 @@ function Editor.geometry(zone)
     local batch = { lines = {}, triangles = {}, ttl = 0.35, maxDistance = 1000 }
     local function line(a, b, color) batch.lines[#batch.lines + 1] = { a = a, b = b, color = color or "#ffcc00ed" } end
     for i, p in ipairs(points) do
-        local a, b = { x = p.x, y = p.y, z = zone.minZ }, { x = p.x, y = p.y, z = zone.maxZ }
+        local a, b = { x = p.x, y = p.y, z = low }, { x = p.x, y = p.y, z = high }
         line(a, b)
         -- Small cross makes each editable vertex visible at the floor.
-        line({ x = p.x - .15, y = p.y, z = zone.minZ }, { x = p.x + .15, y = p.y, z = zone.minZ }, "#f2f3f5ff")
+        line({ x = p.x - .15, y = p.y, z = low }, { x = p.x + .15, y = p.y, z = low }, "#f2f3f5ff")
         if #points > 1 and (zone.shape ~= "poly" or #points >= 3 or i < #points) then
             local q = points[i % #points + 1]
-            local c, d = { x = q.x, y = q.y, z = zone.minZ }, { x = q.x, y = q.y, z = zone.maxZ }
+            local c, d = { x = q.x, y = q.y, z = low }, { x = q.x, y = q.y, z = high }
             line(a, c); line(b, d)
             if #points >= 3 then
                 batch.triangles[#batch.triangles + 1] = { a = a, b = b, c = c, color = "#ffcc001f" }
@@ -154,6 +184,7 @@ function Editor.start()
     CreateThread(function()
         while true do
             Wait(100)
+            syncControls()
             if Editor.active then
                 local state = Open77.character.state()
                 if not state or not state.alive or not state.attached then
@@ -175,5 +206,5 @@ function Editor.start()
 end
 
 AddEventHandler("onClientResourceStop", function(name)
-    if name == GetCurrentResourceName() then cleanup() end
+    if name == GetCurrentResourceName() then cleanup();syncControls(true) end
 end)

@@ -15,7 +15,6 @@ const errorText = (error: unknown) => error instanceof Error ? error.message : "
 export function Safezones() {
   const [opened, setOpened] = useState(false), [zones, setZones] = useState<Zone[]>([]);
   const [ready, setReady] = useState(false), [permissions, setPermissions] = useState(NO_PERMISSIONS);
-  const [presence, setPresence] = useState<{ id: string; label: string }>();
   const [draft, setDraft] = useState<Zone>(), [original, setOriginal] = useState("");
   const [session, setSession] = useState(""), [world, setWorld] = useState(false), [selected, setSelected] = useState(0);
   const [query, setQuery] = useState(""), [index, setIndex] = useState(0), [busy, setBusy] = useState(false);
@@ -86,9 +85,11 @@ export function Safezones() {
         generation.current = revision;
         setReady(event.ready === true);
         setZones(Array.isArray(event.zones) ? event.zones.map(normalizeZone) : []);
-        if (!event.ready) setPresence(undefined);
+        if (!event.ready) useStore.getState().setSafezone(undefined);
       } else if (event.kind === "presence") {
-        setPresence(event.ready === true ? event.zone : undefined); setReady(event.ready === true);
+        const zone = event.ready === true ? event.zone : undefined;
+        useStore.getState().setSafezone(zone ? { id: zone.id, label: zone.label, blockRun: zone.blockRun ?? false, blockShoot: zone.blockShoot ?? true } : undefined);
+        setReady(event.ready === true);
       } else if (event.kind === "editor" && current.current.opened) {
         setWorld(event.mode === "world");
       } else if (event.kind === "captureKey") {
@@ -98,7 +99,7 @@ export function Safezones() {
         useStore.getState().pushNotice({ kind: "warning", title: "Zones protégées", body: event.error || "La session d'édition a été fermée.", durationMs: 8000 });
       }
     });
-    return () => { live.current = false; off(); emit(PAGE_EVENTS.safezones, { operation: "close" }); };
+    return () => { live.current = false; off(); useStore.getState().setSafezone(undefined); emit(PAGE_EVENTS.safezones, { operation: "close" }); };
   }, [capture, close, refresh, run]);
   useEffect(() => {
     if (!opened) return;
@@ -202,10 +203,9 @@ export function Safezones() {
   const activeIndex = isPickable(entries[index]) ? index : Math.max(0, entries.findIndex(isPickable));
   const problem = draft ? invalid(draft) : undefined;
   const vertex = draft?.points[selected];
-  const numeric = (name: string, value: number, change: (value: number) => void, step = 0.1) => <Input label={name} type="number" step={step} value={Number.isFinite(value) ? value : ""} disabled={locked || !permissions.edit} onChange={event => change(event.currentTarget.valueAsNumber)} />;
+  const numeric = (name: string, value: number, change: (value: number) => void, step = 0.1, disabled = false) => <Input label={name} type="number" step={step} value={Number.isFinite(value) ? value : ""} disabled={locked || !permissions.edit || disabled} onChange={event => change(event.currentTarget.valueAsNumber)} />;
 
   return <>
-    {ready && presence && <div className="safezone-presence" role="status"><Icon name="shield" size={17} /><div><b>ZONE PROTÉGÉE</b><span>{presence.label}</span></div><small>PvP désactivé</small></div>}
     {opened && <>
       <div className={`safezone-toolstrip ${world ? "safezone-toolstrip--world" : ""}`}>
         <Icon name="shield" size={18} /><span><b>ZONE / ÉDITEUR</b><small>{draft ? `${draft.label} · ${shapeName[draft.shape]}` : "Gestion des zones protégées"}</small></span>
@@ -223,9 +223,18 @@ export function Safezones() {
             <Input label="Nom de la zone" maxLength={80} value={draft.label} disabled={locked || !permissions.edit} onChange={event => update({ label: event.target.value })} />
             <div className="safezone-shapes" role="group" aria-label="Forme de la zone">{SHAPES.map(shape => <Button key={shape} size="sm" variant={draft.shape === shape ? "primary" : "secondary"} disabled={locked || !permissions.edit} onClick={() => update({ shape })}>{shapeName[shape]}</Button>)}</div>
             <div className="safezone-metadata"><span>INSTANCE <b>{draft.bucket}</b></span><label><input type="checkbox" checked={draft.enabled} disabled={locked || !permissions.edit} onChange={event => update({ enabled: event.target.checked })} /> Protection active après publication</label></div>
+            <fieldset className="safezone-restrictions" disabled={locked || !permissions.edit}>
+              <legend>Règles de la zone</legend>
+              <label><input type="checkbox" checked={draft.blockRun} onChange={event => update({ blockRun: event.target.checked })} />Interdire de courir</label>
+              <label><input type="checkbox" checked={draft.blockShoot} onChange={event => update({ blockShoot: event.target.checked })} />Interdire de tirer</label>
+              <label><input type="checkbox" checked={draft.fullHeight} onChange={event => update({ fullHeight: event.target.checked,
+                minZ: Number.isFinite(draft.minZ) ? draft.minZ : draft.center.z - 1,
+                maxZ: Number.isFinite(draft.maxZ) ? draft.maxZ : draft.center.z + 5 })} />Toute la hauteur (haut et bas)</label>
+              <p>{draft.fullHeight ? "La zone couvre toute la colonne verticale. Le plancher et le plafond sont ignorés ; leurs valeurs sont conservées." : "Le plancher et le plafond délimitent les étages protégés. Activez toute la hauteur pour protéger la colonne entière."}</p>
+            </fieldset>
             <div className="safezone-grid">
-              {numeric("Plancher Z", draft.minZ, minZ => update({ minZ }))}
-              {numeric("Plafond Z", draft.maxZ, maxZ => update({ maxZ }))}
+              {numeric("Plancher Z", draft.minZ, minZ => update({ minZ }), 0.1, draft.fullHeight)}
+              {numeric("Plafond Z", draft.maxZ, maxZ => update({ maxZ }), 0.1, draft.fullHeight)}
               {draft.shape === "circle" && numeric("Rayon (m)", draft.radius, radius => update({ radius }))}
               {draft.shape === "box" && <>{numeric("Longueur (m)", draft.length, length => update({ length }))}{numeric("Largeur (m)", draft.width, width => update({ width }))}{numeric("Rotation (°)", draft.heading, heading => update({ heading }), 1)}</>}
             </div>

@@ -1,0 +1,9 @@
+.hud-safezone { display:flex; align-items:flex-start; gap:10px; max-width:330px; padding:9px 12px; border-left:2px solid var(--o77-green); background:var(--surface-hud); box-shadow:var(--shadow-hud); pointer-events:none; }
+.hud-safezone>svg { color:var(--o77-green); margin-top:2px; }
+.hud-safezone__body { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.hud-safezone__label { color:var(--o77-green); font:9px var(--font-mono); letter-spacing:.06em; white-space:nowrap; }
+.hud-safezone__label b { padding:0 3px; color:var(--text-dim); }
+.hud-safezone strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 13px var(--font-core); color:var(--text-hi); }
+.hud-safezone__rules { display:flex; flex-wrap:wrap; align-items:center; gap:5px 12px; margin-top:2px; }
+.hud-safezone__rules>span { display:flex; align-items:center; gap:5px; font:10px var(--font-core); color:var(--text-dim); }
+.hud-safezone__rules svg { flex-shrink:0; color:var(--text-body); }

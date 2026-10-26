@@ -34,10 +34,16 @@ function G.validate(raw)
     if not label then return nil,"Choose a name of 1–80 characters." end
     if not G.integer(raw.bucket,0,2147483647) then return nil,"Invalid routing bucket." end
     if type(raw.enabled)~="boolean" then return nil,"Invalid activation state." end
-    if not G.finite(raw.minZ) or not G.finite(raw.maxZ) or math.abs(raw.minZ)>100000 or math.abs(raw.maxZ)>100000 or raw.maxZ-raw.minZ<0.1 or raw.maxZ-raw.minZ>200 then return nil,"Height must be between 0.1 and 200 metres." end
+    for _,name in ipairs({"blockRun","blockShoot","fullHeight"}) do
+        if raw[name]~=nil and type(raw[name])~="boolean" then return nil,"Invalid zone rule: "..name end
+    end
+    local fullHeight=raw.fullHeight==true
+    if not G.finite(raw.minZ) or not G.finite(raw.maxZ) or math.abs(raw.minZ)>100000 or math.abs(raw.maxZ)>100000
+        or (not fullHeight and (raw.maxZ-raw.minZ<0.1 or raw.maxZ-raw.minZ>200)) then return nil,"Height must be between 0.1 and 200 metres." end
     local center=G.point(raw.center)
     if not center then return nil,"Invalid zone centre." end
     local z={label=label,bucket=raw.bucket,enabled=raw.enabled,shape=raw.shape,center=center,minZ=raw.minZ,maxZ=raw.maxZ}
+    z.blockRun,z.blockShoot,z.fullHeight=raw.blockRun==true,raw.blockShoot~=false,fullHeight
     if raw.id~=nil and raw.id~="" then
         if type(raw.id)~="string" or #raw.id>64 or not raw.id:match("^[%w_-]+$") then return nil,"Invalid zone ID." end
         z.id=raw.id
@@ -74,10 +80,16 @@ function G.validate(raw)
     return z
 end
 function G.definition(z)
-    local center={x=z.center.x,y=z.center.y,z=(z.minZ+z.maxZ)/2}
-    if z.shape=="circle" then return {shape="cylinder",position=center,radius=z.radius,maxHeight=(z.maxZ-z.minZ)/2} end
-    if z.shape=="box" then return {shape="box",position=center,size={x=z.length,y=z.width,z=z.maxZ-z.minZ},rotation=z.heading} end
+    local center={x=z.center.x,y=z.center.y,z=z.fullHeight and 0 or (z.minZ+z.maxZ)/2}
+    -- Full-height circles/boxes are queried at the player's altitude using
+    -- options.origin, preserving exact planar maths without a faceted circle.
+    if z.shape=="circle" then return {shape="cylinder",position=center,radius=z.radius,maxHeight=z.fullHeight and 2000 or (z.maxZ-z.minZ)/2} end
+    if z.shape=="box" then return {shape="box",position=center,size={x=z.length,y=z.width,z=z.fullHeight and 4000 or z.maxZ-z.minZ},rotation=z.heading} end
+    if z.fullHeight then return {shape="poly",points=z.points} end
     return {shape="poly",points=z.points,minZ=z.minZ,maxZ=z.maxZ}
+end
+function G.origin(z,position)
+    if z.fullHeight and z.shape~="poly" then return {x=z.center.x,y=z.center.y,z=position.z} end
 end
 -- Authorship bounds include the whole volume, not only its displayed centre.
 function G.withinAnchor(z,anchor)
@@ -85,7 +97,8 @@ function G.withinAnchor(z,anchor)
     for _,p in ipairs(points) do
         local dx,dy=p.x-anchor.x,p.y-anchor.y
         local extra=z.shape=="circle" and z.radius or z.shape=="box" and math.sqrt(z.length^2+z.width^2)/2 or 0
-        if math.sqrt(dx*dx+dy*dy)+extra>G.AUTHOR_RADIUS or math.abs(z.minZ-anchor.z)>G.AUTHOR_RADIUS or math.abs(z.maxZ-anchor.z)>G.AUTHOR_RADIUS then return false end
+        if math.sqrt(dx*dx+dy*dy)+extra>G.AUTHOR_RADIUS
+            or (not z.fullHeight and (math.abs(z.minZ-anchor.z)>G.AUTHOR_RADIUS or math.abs(z.maxZ-anchor.z)>G.AUTHOR_RADIUS)) then return false end
     end
     return true
 end

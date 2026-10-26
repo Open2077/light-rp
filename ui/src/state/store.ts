@@ -12,6 +12,9 @@ export interface Notice {
   dismissing?: boolean;
 }
 
+/** Authoritative safezone presence, including the combined rules of overlapping zones. */
+export interface SafezonePresence { id: string; label: string; blockRun: boolean; blockShoot: boolean }
+
 export const EMPTY_STATE: UiState = {
   server: { name: "Open//77 Official Roleplay", playersOnline: 0, maxPlayers: 0 },
   character: {
@@ -45,6 +48,7 @@ interface Store {
   connected: boolean;
   state: UiState;
   hud: HudState;
+  safezone?: SafezonePresence;
   menuOpen: boolean; // the F1 player menu
   notices: Notice[];
   lastResult?: { ok: boolean; text: string; at: number; action?: string };
@@ -55,6 +59,7 @@ interface Store {
   setWelcomeReplay(value: boolean): void;
   applyState(patch: UiStatePatch): void;
   setHud(hud: HudState): void;
+  setSafezone(safezone: SafezonePresence | undefined): void;
   openMenu(): void;
   closeMenu(): void;
   pushNotice(notice: Omit<Notice, "id" | "createdAt"> & { id?: string }): void;
@@ -88,6 +93,7 @@ export const useStore = create<Store>((set) => ({
   connected: false,
   state: EMPTY_STATE,
   hud: EMPTY_HUD,
+  safezone: undefined,
   menuOpen: false,
   notices: [],
   welcomeReplay: false,
@@ -115,6 +121,7 @@ export const useStore = create<Store>((set) => ({
     return { dialog: { ...s.dialog, left, right } };
   }),
   setHud: (hud) => set({ hud }),
+  setSafezone: (safezone) => set({ safezone }),
   openMenu: () => set({ menuOpen: true }),
   closeMenu: () => set({ menuOpen: false }),
   pushNotice: (notice) => set((s) => ({
