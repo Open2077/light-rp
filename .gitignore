@@ -75,6 +75,8 @@ neuralink-ui/screens/
 !tools/test-grenades-client.py
 !tools/test-hotbar.py
 !tools/test-hotbar-client.py
+!tools/test-medical.py
+!tools/test-medical-client.py
 !tools/import-weapon-assets.py
 !tools/test-safezones-menu-ui.cjs
 # Platform packages whose out-of-character commands were made staff-only.

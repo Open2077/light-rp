@@ -84,6 +84,10 @@ Aucun grant d'arme ni de munitions n'est automatique à la connexion.
 **1–5** utilisent les objets de la première ligne des poches ; maintenir **Tab**
 affiche la [hotbar](resources/gamemodes/op77_lightrp/docs/hotbar.md).
 
+Un joueur inconscient attend au moins **90 secondes** avant de pouvoir abandonner.
+Un autre joueur peut le stabiliser en **8 secondes** avec un `trauma_kit` :
+[système médical](resources/gamemodes/op77_lightrp/docs/medical.md).
+
 **F1** ouvre le menu joueur ; à la première connexion le parcours de création
 présente l'identité, l'apparence et l'arrivée en ville. Le chat normal est la parole en jeu à 20 m, `/ooc` pour le
 hors-jeu, `/me` `/do` `/try` `/roll`, `/car <modèle>` et `/dv` pour un véhicule, `/report` pour

@@ -37,6 +37,8 @@ local function joinPoint(playerId)
     -- nobody else is left inside it.
     local guided = LightRP.tutorial and LightRP.tutorial.spawnPoint(playerId)
     if guided then return guided end
+    local medical = LightRP.medical and LightRP.medical.spawnPoint(playerId)
+    if medical then return medical end
     -- Logged out at home: wake up inside it.
     local home = LightRP.housing and LightRP.housing.spawnPoint and LightRP.housing.spawnPoint(playerId)
     if home then return home end
@@ -79,6 +81,15 @@ local function applyJoinSpawn(playerId)
     attempt()
 end
 
+-- Medical recovery reuses this scheduler so a reconnect cannot trigger a
+-- second join placement after restoring a saved unconscious character.
+function Spawn.restoreMedical(playerId)
+    if joinSpawns[playerId] == "pending" then return true end
+    joinSpawns[playerId] = nil
+    applyJoinSpawn(playerId)
+    return true
+end
+
 function Spawn.onGameplayReady(playerId)
     -- A draft character is not placed: the wizard covers the world and the
     -- arrival happens on character.finish (onCharacterActivated).
@@ -97,6 +108,7 @@ end
 
 function Spawn.onLifeState(playerId, phase)
     if phase ~= "dead" or readinessHeld(playerId) then return end
+    if LightRP.medical and LightRP.medical.handlesDeath(playerId) then return end
     SetTimeout(Config.spawn.respawnDelayMs, function()
         local current = Open77.players.getLifeState(playerId)
         if current == nil or current.phase ~= "dead" then return end
@@ -134,6 +146,7 @@ end
 function Spawn.onCharacterSwitched(playerId, character)
     if character == nil or character.status ~= "active" then return end
     local point = LightRP.tutorial and LightRP.tutorial.spawnPoint(playerId)
+        or (LightRP.medical and LightRP.medical.spawnPoint(playerId))
         or (character.position and { name = "saved", position = character.position, heading = character.heading or 0 }) or Config.spawn.arrival
     local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:character_switch", point.bucket or 0)
     if not ok then LightRP.log("placement for %d after switch rejected: %s", playerId, tostring(reason)) end
