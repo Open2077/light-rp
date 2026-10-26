@@ -2,7 +2,7 @@ import { PAGE_EVENTS, type ArmamentArgs, type ArmamentHand, type ArmamentOperati
 
 export function armamentMock(fire: (name: string, value: unknown) => void, params: URLSearchParams) {
   const copy = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-  const pistol = (slot: number, name: string, label: string, instanceId: string): InventoryItem => ({ slot, name, label, count: 1, stack: 1, weight: 1.2, usable: true, category: "weapon", icon: "crosshair", metadata: { instanceId }, description: "A serialized pistol. Equip it from your pockets." });
+  const pistol = (slot: number, name: string, label: string, instanceId: string): InventoryItem => ({ slot, name, label, count: 1, stack: 1, weight: 1.2, usable: true, category: "weapon", icon: "crosshair", image: `img/items/${name}.png`, metadata: { instanceId }, description: "A serialized pistol. Equip it from your pockets." });
   const inventory: InventoryDialogPayload = { kind: "inventory", toggleKey: "I", left: { id: "player:1", kind: "player", label: "Yuki Tanaka", slots: 30, maxWeight: 40, weight: 4.1, items: [
     pistol(1, "weapon_lexington", "Militech Lexington", "11111111-1111-4111-8111-111111111111"),
     pistol(2, "weapon_nue", "Tsunami Nue", "22222222-2222-4222-8222-222222222222"),

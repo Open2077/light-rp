@@ -115,6 +115,13 @@ plus toutes les 200 ms avec une seule lecture en vol. Seule une completion
 réussie publie un panneau complet ; les valeurs inconnues restent `—` et ne
 sont jamais affichées comme zéro. Ces lectures ne modifient pas le stock SQL.
 
+## Catalogue d’extension et images
+
+Le [catalogue complet du wiki](weapon-catalogue.md) recense 198 entrées avec
+images locales et 195 correspondances de records Open77. Le [plan grenades et
+extension des familles](grenades-inventory-design.md) décrit leur intégration
+comme objets comptés et les migrations nécessaires pour les autres armes.
+
 ## Code et vérification
 
 - `shared/armament.lua` : catalogue public et templates d'objets.
