@@ -24,6 +24,7 @@ dependencies {
 
 -- Downloaded by clients: never put credentials in shared/.
 shared_script "shared/events.lua"
+shared_script "shared/safezones.lua"
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
@@ -35,6 +36,9 @@ shared_script "shared/vehicle_context.lua"
 -- Server: core first, then modules (each registers itself with LightRP.module).
 server_script "server/core/framework.lua"
 server_script "server/core/persistence.lua"
+server_script "server/modules/safezones_store.lua"
+server_script "server/modules/safezones.lua"
+server_script "server/modules/safezones_admin.lua"
 server_script "server/core/interact.lua"
 server_script "server/modules/characters.lua"
 server_script "server/modules/neuralink_bridge.lua"
@@ -79,6 +83,7 @@ server_script "server/main.lua"
 
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
+client_script "client/core/safezones.lua"
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
 client_script "client/core/tutorial_voice.lua"
@@ -125,6 +130,7 @@ permissions {
     "players.life.respawn",
     "players.teleport",
     "players.damage.apply",
+    "combat.config",        -- pre-hit, server-authoritative safezone policy
     "players.stats.read",
     "players.animations.read",
     "players.animations.control",
@@ -139,6 +145,7 @@ permissions {
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks are NPCs
     "world.markers",        -- native 3D markers at rental desks
+    "world.debug",          -- staff-only draft boundary preview
     "ui.vanilla.map",       -- map blips on the interaction points
     "vehicles.read",        -- closest vehicle / seat for the L key
     "players.controls",     -- walk modes (Open77.movement.setWalkMode)

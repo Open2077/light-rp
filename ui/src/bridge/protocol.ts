@@ -2,6 +2,7 @@
    shapes the server pushes through it. Mirror of shared/events.lua: change both. */
 
 export const PAGE_EVENTS = {
+  safezones: "lightrp:ui:safezones",
   support: "lightrp:ui:support",
   animationsAction: "lightrp:ui:animations:action",
   animationsState: "lightrp:ui:animations:state",

@@ -14,6 +14,7 @@ import { jobFixture } from "./jobFixture";
 import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
 import { basketSummary } from "@/features/shop/model";
+import { safezonesMock } from "@/features/safezones/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -24,6 +25,7 @@ export function installMockBridge(): void {
   const params = new URLSearchParams(location.search);
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
+  const safezones = safezonesMock(fire, params);
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -106,8 +108,10 @@ export function installMockBridge(): void {
     off(name, handler) { handlers.get(name)?.delete(handler); },
     emit(name, payload) {
       console.log("[mock] emit", name, payload);
+      if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
       if (name === PAGE_EVENTS.ready) {
         setTimeout(() => {
+          safezones.boot();
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
           if (params.get("dialog") === "shop") fire(PAGE_EVENTS.dialog, shop);

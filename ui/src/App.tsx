@@ -23,6 +23,7 @@ import { DealershipDialog } from "@/features/dealership/DealershipDialog";
 import { FuelDialog, FuelApproach } from "@/features/fuel/FuelDialog";
 import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
+import { Safezones } from "@/features/safezones/Safezones";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -66,6 +67,7 @@ export function App() {
 
   return (
     <>
+      <ErrorBoundary name="safezones"><Safezones /></ErrorBoundary>
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>

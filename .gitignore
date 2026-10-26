@@ -54,6 +54,8 @@ neuralink-ui/screens/
 !tools/test-support.py
 !tools/test-housing.py
 !tools/test-housing-ui.py
+!tools/test-safezones.py
+!tools/test-safezones-client.py
 # Platform packages whose out-of-character commands were made staff-only.
 !resources/system/open77_appearance/
 !resources/system/open77_appearance/**
@@ -77,3 +79,6 @@ server.env
 *.log
 logs/
 data/
+
+# Local architecture and UI reference notes (never publish).
+/README*.local.md

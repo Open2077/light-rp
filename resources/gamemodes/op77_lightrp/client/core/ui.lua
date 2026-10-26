@@ -82,6 +82,7 @@ local MENU_KEYS = { "escape", "enter", "backspace", "up", "down", "left", "right
 
 function Ui.setMenuOpen(open)
     if Ui.page == nil then return end
+    if open and LightRpSafezones and LightRpSafezones.active then return end
     if open and (Ui.dialogs.tutorial or Ui.dialogs.support or Ui.dialogs.housing) then return end
     if open and LightRpAnimations then LightRpAnimations.close() end
     if open and Ui.creationActive then
@@ -198,6 +199,7 @@ function Ui.create()
         return false
     end
     Ui.page = page
+    if LightRpSafezones then LightRpSafezones.bind(page) end
     if LightRpCreator then LightRpCreator.bind(page) end
     if LightRpTutorial then LightRpTutorial.bind(page) end
     if LightRpSupport then LightRpSupport.bind(page) end

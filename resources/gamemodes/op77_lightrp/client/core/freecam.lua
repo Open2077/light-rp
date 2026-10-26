@@ -64,6 +64,7 @@ local function notice(reason)
 end
 
 local function busy()
+    if LightRpSafezones and LightRpSafezones.active then return true end
     if Ui.promptActive or Ui.actionFocus or Ui.supportMode or Ui.creationActive or not Ui.characterReady then return true end
     for _, open in pairs(Ui.dialogs) do if open then return true end end
     return (LightRpConsumables and LightRpConsumables.isActive())
