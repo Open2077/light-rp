@@ -327,6 +327,13 @@ exports("uninstall", function(playerId)
     return result ~= nil, err
 end)
 
+-- Puts a player's interface away (a gamemode panel that needs the screen and the keyboard).
+exports("closeInterface", function(playerId)
+    if type(playerId) ~= "number" then return false end
+    TriggerClientEvent("op77_neuralink:close", playerId)
+    return true
+end)
+
 -- The phone number of a connected player's current line, or nil.
 exports("getNumber", function(playerId)
     local s = type(playerId) == "number" and Lines.session(playerId)

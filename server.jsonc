@@ -66,6 +66,14 @@
     "enabled": true,
     "root": "resources",
     "load": [
+      "archivexl",
+      "lobby",
+      "open77_lobby_cubes",
+      "kabuki_appart1",
+      "appart3",
+      "entrepot1",
+      "ncpd_watson",
+      "ncwe_local",
       "polyzone",
       "open77_contextmenu",
       "open77_admin",
@@ -117,8 +125,8 @@
     }
   },
   "requiredMods": {
-    "enabled": false,
-    "unsecured": false,
+    "enabled": true,
+    "unsecured": true,
     "packages": []
   },
   "accessControl": {

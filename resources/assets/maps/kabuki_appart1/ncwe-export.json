@@ -1,0 +1,29 @@
+{
+  "generator": "NCWE Studio",
+  "project": "appart-kabuki",
+  "projectId": "1ac6cd64-ece1-438d-86c0-5ac954c80bef",
+  "exportedUtc": "2026-10-26T10:22:19.2694737+00:00",
+  "game": "2.5",
+  "archiveXl": "1.28.0",
+  "resource": "kabuki_appart1",
+  "version": "1.0.1",
+  "requiredMod": "kabuki_appart1-assets",
+  "package": "dist/kabuki-appart1.zip",
+  "sha256": "e2ecd9d092f84ca3c5ec99d46501f21d03ae812cdb7a227dbe24926c88906b8f",
+  "bytes": 40702,
+  "entries": [
+    "archive/pc/mod/ncwe_1ac6cd64ece1438d86c05ac954c80bef.archive",
+    "archive/pc/mod/ncwe_1ac6cd64ece1438d86c05ac954c80bef.archive.xl"
+  ],
+  "changes": {
+    "Transformed": 0,
+    "Deleted": 0,
+    "Added": 179,
+    "Roads": 1,
+    "Elements": 39
+  },
+  "sounds": [],
+  "soundEmitters": 0,
+  "syncedSounds": 0,
+  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\ab69b065-6913-450d-a618-01ecd9be0f57\\scratchpad\\reexport\\kabuki_appart1.json\\ncwe-1ac6cd64ece1438d86c05ac954c80bef-20261026-102219-fcda4a3f"
+}

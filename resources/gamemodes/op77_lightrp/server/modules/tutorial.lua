@@ -418,7 +418,11 @@ end)
 function Tutorial.onInventoryOpened(player) advance(player,"inventory",following.inventory) end
 -- op77_neuralink installed the implant (neuralink_bridge.lua relays it).
 function Tutorial.onNeuralinkInstalled(player)
-    if implantReady(player) then advance(player,"neuralink",following.neuralink) end
+    local s = active(player)
+    if not s or s.step~="neuralink" or not implantReady(player) then return end
+    -- the next step's panel needs the screen and the keyboard: put the phone away first
+    pcall(function() exports.op77_neuralink:closeInterface(player) end)
+    advance(player,"neuralink",following.neuralink)
 end
 -- Called only after the ordinary, server-authorised vehicle action succeeds.
 function Tutorial.onVehicleContextAction(player,vehicle,action)

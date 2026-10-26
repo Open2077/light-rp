@@ -251,6 +251,11 @@
 .accent--cyan .accent__swatch i:nth-child(3) { background: #ff4fd8; }
 .accent--magenta .accent__swatch i:nth-child(2) { background: radial-gradient(circle at 50% 30%, #ff9bec, #ff2bd6 55%, #c2009c); }
 .accent--magenta .accent__swatch i:nth-child(3) { background: #00e5ff; }
+.accent--style-cyberpunk .accent__swatch i:nth-child(1) { background: #0a1622; }
+.accent--style-cyberpunk .accent__swatch i:nth-child(2) { background: #ff3b48; }
+.accent--style-cyberpunk .accent__swatch i:nth-child(3) { background: #2ee6f5; }
+.accent--style-sao .accent__swatch i:nth-child(2) { background: radial-gradient(circle at 50% 30%, #ffe58a, #f5c518 55%, #e29b00); }
+.accent--style-sao .accent__swatch i:nth-child(3) { background: #00e5ff; }
 .about { margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .about div { display: grid; grid-template-columns: 180px 1fr; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: rgba(var(--surface-rgb), 0.6); box-shadow: inset 0 0 0 1px rgba(120, 130, 145, 0.14); }
 .about dt { font-size: 14px; color: var(--ink-dim); }

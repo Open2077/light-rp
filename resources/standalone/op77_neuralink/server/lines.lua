@@ -241,6 +241,10 @@ function Lines.saveSettings(playerId, patch)
         if patch.theme ~= "light" and patch.theme ~= "dark" then return nil, "invalid_settings" end
         settings.theme = patch.theme
     end
+    if patch.style ~= nil then
+        if patch.style ~= "cyberpunk" and patch.style ~= "sao" then return nil, "invalid_settings" end
+        settings.style = patch.style
+    end
     local ok, err = Store.update("UPDATE nl_lines SET settings = ? WHERE id = ?", { json.encode(settings), s.line.id })
     if not ok then return nil, err end
     s.line.settings = settings

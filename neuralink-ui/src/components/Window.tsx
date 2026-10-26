@@ -35,7 +35,7 @@ export function Window({ icon, title, subtitle, tag, actions, children, footer, 
         <div className="win__actions">
           {actions}
           {!canBack && (
-            <button type="button" className="icon-btn" aria-label="Close window" onClick={goBack}>
+            <button type="button" className="icon-btn win__close" aria-label="Close window" onClick={goBack}>
               <X size={18} strokeWidth={2.4} />
             </button>
           )}

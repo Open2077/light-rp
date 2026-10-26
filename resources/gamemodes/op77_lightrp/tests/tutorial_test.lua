@@ -58,7 +58,8 @@ GetPlayers=function() return {1} end
 CreateThread=function() end
 -- op77_neuralink's export: the first day's implant step asks it
 local implant=false
-exports={op77_neuralink={isInstalled=function(_,id) return implant end}}
+local closed=0
+exports={op77_neuralink={isInstalled=function(_,id) return implant end,closeInterface=function(_,id) closed=closed+1 end}}
 dofile("server/modules/tutorial.lua")
 local function state() return providers.tutorial(1) end
 local function action(operation,extra)
@@ -108,8 +109,11 @@ assert(state().todo and #state().todo==3 and state().todo[1].key=="F2","the card
 T.onInventoryOpened(1);action("finish");assert(state().step=="neuralink","nothing else moves the implant step")
 commands.tutorial(1,{"pause"});assert(state().active and state().step=="neuralink","no pause without a Neural-Link")
 T.onNeuralinkInstalled(1);assert(state().step=="neuralink","the event alone is not enough: the implant must really be there")
+assert(closed==0,"the phone stays open while the implant is missing")
 implant=true;T.onNeuralinkInstalled(1);assert(state().step=="voice","an installed implant moves on")
+assert(closed==1,"the phone is put away for the voice step")
 T.onNeuralinkInstalled(1);assert(state().step=="voice","a second installation does not skip a step")
+assert(closed==1,"a later installation leaves the phone alone")
 action("finish");assert(state().step=="voice","voice is optional but cannot complete the entire guide")
 action("voice-configured");assert(state().step=="identity","already configured keeps the guide moving")
 action("finish");assert(state().step=="identity","browser cannot skip authoritative objectives")

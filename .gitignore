@@ -27,6 +27,18 @@
 !resources/assets/maps/lobby/**
 !resources/assets/maps/open77_lobby_cubes/
 !resources/assets/maps/open77_lobby_cubes/**
+# NCWE interiors (re-exported for Cyberpunk 2.5 / ArchiveXL 1.28): kabuki_appart1 is the
+# starter studio the first day ends in; the others are LightRP's buildings.
+!resources/assets/maps/kabuki_appart1/
+!resources/assets/maps/kabuki_appart1/**
+!resources/assets/maps/appart3/
+!resources/assets/maps/appart3/**
+!resources/assets/maps/entrepot1/
+!resources/assets/maps/entrepot1/**
+!resources/assets/maps/ncpd_watson/
+!resources/assets/maps/ncpd_watson/**
+!resources/assets/maps/ncwe_local/
+!resources/assets/maps/ncwe_local/**
 # LightRP's own standalone resources: the Neural-Link phone and the icon catalogue.
 !resources/standalone/
 !resources/standalone/op77_neuralink/
