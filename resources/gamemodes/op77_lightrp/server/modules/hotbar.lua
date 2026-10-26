@@ -51,5 +51,6 @@ LightRP.module("hotbar",{
  onCharacterLoaded=function(player)H.push(player)end,onCharacterActivated=function(player)H.push(player)end,
  onGameplayReady=function(player)H.push(player)end,onUiReady=function(player)H.push(player)end,
  onLifeState=function(player)H.push(player)end,
+ onDatabaseReady=function()for _,player in ipairs(GetPlayers())do H.push(tonumber(player))end end,
  onDisconnected=function(player)lastUse[player]=nil end,
 })

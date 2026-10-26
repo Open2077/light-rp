@@ -7,7 +7,7 @@ local held,untilTime,lastUse,sequence=false,0,-1000,0
 local lastPublished
 local showKey,slotKeys="TAB",{"1","2","3","4","5"}
 local function allowed(checkBusy)
- if not Ui.characterReady or Ui.creationActive or Ui.menuOpen or Ui.promptActive or Ui.actionFocus then return false end
+ if not Ui.characterReady or Ui.creationActive or Ui.menuOpen or Ui.promptActive or Ui.actionFocus or Ui.supportMode=="menu"or Ui.supportMode=="form"then return false end
  for _,open in pairs(Ui.dialogs or {})do if open then return false end end
  if checkBusy~=false then
   if LightRpMedical and LightRpMedical.isActive()then return false end

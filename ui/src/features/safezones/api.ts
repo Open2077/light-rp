@@ -12,9 +12,9 @@ export function request<T>(operation: string, payload: Record<string, unknown> =
       if (reply.kind !== "response" || reply.request !== request) return;
       clearTimeout(timer); stop();
       if (reply.ok) resolve(reply.data as T);
-      else reject(new Error(reply.error || "La demande a été refusée."));
+      else reject(new Error(reply.error || "The request was refused."));
     });
-    const timer = window.setTimeout(() => { stop(); reject(new ZoneRequestTimeout("Le serveur ne répond pas. Votre brouillon est conservé ; réessayez pour vérifier l'enregistrement.")); }, 12000);
+    const timer = window.setTimeout(() => { stop(); reject(new ZoneRequestTimeout("The server has not answered. Your draft is kept; retry to check the saved result.")); }, 12000);
     emit(PAGE_EVENTS.safezones, { ...payload, operation, request });
   }));
   queue = task.then(() => undefined, () => undefined).then(() => new Promise(resolve => setTimeout(resolve, 220)));

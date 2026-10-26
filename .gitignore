@@ -76,6 +76,7 @@ neuralink-ui/screens/
 !tools/test-hotbar.py
 !tools/test-hotbar-client.py
 !tools/import-weapon-assets.py
+!tools/test-safezones-menu-ui.cjs
 # Platform packages whose out-of-character commands were made staff-only.
 !resources/system/open77_appearance/
 !resources/system/open77_appearance/**
@@ -92,6 +93,7 @@ neuralink-ui/screens/
 
 # Never commit these even if the rules above change.
 ui/node_modules/
+/ui/node_modules
 ui/dist/
 ui/artifacts/
 server.env
