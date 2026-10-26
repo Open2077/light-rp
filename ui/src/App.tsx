@@ -23,6 +23,7 @@ import { DealershipDialog } from "@/features/dealership/DealershipDialog";
 import { FuelDialog, FuelApproach } from "@/features/fuel/FuelDialog";
 import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
+import { Medical } from "@/features/medical/Medical";
 import { Safezones } from "@/features/safezones/Safezones";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
@@ -88,6 +89,7 @@ export function App() {
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>
       <ErrorBoundary name="menu"><PlayerMenu /></ErrorBoundary>
       <ErrorBoundary name="actions"><Actions /></ErrorBoundary>
+      <ErrorBoundary name="medical"><Medical /></ErrorBoundary>
       <ErrorBoundary name="animations"><AnimationMenu /></ErrorBoundary>
     </>
   );

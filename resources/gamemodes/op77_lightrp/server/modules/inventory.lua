@@ -106,6 +106,7 @@ end
 -- Everyone looking at this inventory gets the new snapshot.
 local function publish(inv)
     local snap = Inv.snapshot(inv)
+    if LightRP.hotbar then LightRP.hotbar.inventoryChanged(inv, snap) end
     for viewer in pairs(inv.viewers) do
         if GetPlayerName(viewer) == nil then inv.viewers[viewer] = nil
         elseif not canAccess(viewer, inv) then
@@ -389,10 +390,17 @@ function Inv.canHold(inv, name, count, metadata)
 end
 
 -- Detached drafts: SQL commits before any authoritative cache is changed.
+local function copyMetadata(value)
+    if type(value) ~= "table" then return value end
+    local result = {}
+    for key, child in pairs(value) do result[key] = copyMetadata(child) end
+    return result
+end
+
 function Inv.draft(inv)
     local draft = { slots = inv.slots, maxWeight = inv.maxWeight, items = {} }
     for slot, item in pairs(inv.items) do
-        draft.items[slot] = { name = item.name, count = item.count, metadata = item.metadata }
+        draft.items[slot] = { name = item.name, count = item.count, metadata = copyMetadata(item.metadata) }
     end
     return draft
 end
@@ -444,8 +452,15 @@ function Inv.publishCommitted(inv)
 end
 Inv.releaseBusy = releaseBusy
 
-local function commitDrafts(changes)
+local function commitDrafts(changes, extraQueries, afterCommit)
     local writes, receipts = {}, {}
+    if LightRP.armament and LightRP.armament.prepare then
+        local ok, reason, queries, committed = LightRP.armament.prepare(changes)
+        if not ok then return false, reason end
+        for _, query in ipairs(queries or {}) do writes[#writes + 1] = query end
+        if committed then receipts[#receipts + 1] = committed end
+    end
+    for _, query in ipairs(extraQueries or {}) do writes[#writes + 1] = query end
     for _, change in ipairs(changes) do
         local inv, draft = change[1], change[2]
         if inv.persistent then writes[#writes + 1] = Inv.writeDraft(inv, draft) end
@@ -457,7 +472,7 @@ local function commitDrafts(changes)
     end
     if #writes > 0 then
         if not Db.ready then
-            if LightRP.money then return false, "database_unavailable" end
+            if LightRP.money or LightRP.armament or #(extraQueries or {}) > 0 then return false, "database_unavailable" end
         else
             local ok, reason = Db.transaction(writes)
             if not ok then return false, reason end
@@ -465,9 +480,12 @@ local function commitDrafts(changes)
     end
     for _, change in ipairs(changes) do Inv.applyDraft(change[1], change[2]) end
     for _, commit in ipairs(receipts) do commit() end
+    if afterCommit then afterCommit() end
     for _, change in ipairs(changes) do Inv.publishCommitted(change[1]) end
     return true
 end
+
+Inv.commitDrafts = commitDrafts
 
 -- Cash APIs use the same inventory lock as drag/drop, shops and consumption.
 function Inv.prepareCash(playerId, delta)
@@ -1208,5 +1226,12 @@ for _, method in ipairs({ "use", "completeUse", "drop", "give", "produce" }) do
     Inv[method] = serialise(Inv[method], function(playerId) return { Inv.player(playerId) } end)
 end
 Inv.move = serialise(Inv.move, function(_, fromId, _, toId) return { registry[fromId], registry[toId] } end)
+
+-- Custom item transactions share the exact lock used by drag/drop and use.
+Inv.transaction = serialise(function(playerId, fn)
+    local inv = Inv.player(playerId)
+    if not inv then return false, "no_inventory" end
+    return fn(inv)
+end, function(playerId) return { Inv.player(playerId) } end)
 
 LightRP.log("inventory ready: %d item template(s)", (function() local n = 0 for _ in pairs(Items) do n = n + 1 end return n end)())

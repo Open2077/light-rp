@@ -1,0 +1,23 @@
+.medical-overlay{position:absolute;inset:0;z-index:55;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;overflow:auto;background:radial-gradient(ellipse at 50% 42%,rgba(5,5,6,.52),rgba(5,5,6,.85) 80%),linear-gradient(0deg,rgba(5,5,6,.72),rgba(5,5,6,.12));color:var(--text-hi,#f2f3f5);pointer-events:auto;animation:medical-fade-in .65s ease-out both}
+.medical-lifeline{position:absolute;inset:25% 0;width:100%;height:50%;fill:none;stroke:var(--o77-yellow-400,#ffcc00);stroke-width:2;opacity:1;pointer-events:none}
+.medical-lifeline__track{opacity:.12}.medical-lifeline__pulse{stroke-dasharray:100 900;animation:medical-heartbeat 4s linear infinite;opacity:.55;filter:drop-shadow(0 0 5px #ffcc0066)}
+@keyframes medical-heartbeat{from{stroke-dashoffset:100}to{stroke-dashoffset:-900}}
+@keyframes medical-fade-in{from{opacity:0}to{opacity:1}}
+.medical-brand,.medical-footer{position:absolute;left:32px;right:32px;display:flex;align-items:center;gap:5px;font:14px var(--font-display);letter-spacing:.08em}
+.medical-brand{top:26px}.medical-brand>span:last-child{margin-left:14px;font:10px var(--font-mono);opacity:.65}.medical-footer{bottom:24px;justify-content:space-between;font:10px var(--font-mono);opacity:.6}
+.medical-down{box-sizing:border-box;min-width:0;position:relative;display:flex;align-items:center;flex-direction:column;text-align:center;width:min(720px,100%);padding:80px 24px 70px}
+.medical-down__skull{object-fit:contain;filter:drop-shadow(0 0 12px #ffcc0020);width:clamp(64px,10vh,110px);height:clamp(64px,10vh,110px);margin-bottom:20px;color:var(--o77-yellow-400,#ffcc00)}
+.medical-down__eyebrow{font:500 16px var(--font-core);letter-spacing:.5em;padding-left:.5em}
+.medical-down h1{font:400 clamp(56px,10vw,140px)/1.15 var(--font-display);letter-spacing:-.05em;margin:5px 0 18px;color:var(--o77-yellow-400,#ffcc00);text-shadow:0 4px 32px #0008}
+.medical-down__timer{font:400 clamp(36px,5vh,54px)/1.2 var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:.05em;color:var(--o77-yellow-400,#ffcc00)}
+.medical-down__status{font:600 11px var(--font-core);letter-spacing:.15em;text-transform:uppercase;margin-top:8px}
+.medical-down p{max-width:440px;font:14px/1.6 var(--font-core);margin:22px 0 0;color:var(--text-body,#c3c7d1);text-shadow:0 2px 8px #000}
+.medical-down__actions{min-height:54px;margin-top:26px;display:flex;align-items:center;flex-direction:column;gap:12px;width:100%}
+.medical-down__buttons{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.medical-down button{display:flex;align-items:center;justify-content:center;gap:24px;min-height:46px;padding:12px 22px;background:var(--o77-yellow-400,#ffcc00);color:var(--o77-black,#050506);border:1px solid var(--o77-yellow-400,#ffcc00);font:600 12px var(--font-core);text-transform:uppercase;letter-spacing:.06em;cursor:pointer;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
+.medical-down button:hover{background:var(--o77-yellow-300,#ffdd40)}.medical-down button.is-secondary{background:#05050680;color:var(--text-hi,#f2f3f5);border-color:#ffffff40}.medical-down button.is-secondary:hover{background:#ffffff18}.medical-down button:focus-visible{outline:3px solid currentColor;outline-offset:-5px}
+.medical-down__question{font:13px var(--font-core)}.medical-down__hint{display:flex;align-items:center;gap:8px;font:11px/1.5 var(--font-core);margin-top:20px;color:var(--text-body,#c3c7d1);text-shadow:0 2px 8px #000}.medical-down__error{color:var(--o77-yellow-200,#ffeb85)!important;font-weight:600!important;opacity:1!important}
+@media(max-width:600px){.medical-brand,.medical-footer{left:18px;right:18px}.medical-brand>span:last-child{font-size:8px;margin-left:6px}.medical-footer{font-size:8px}.medical-down{padding:90px 20px 70px}.medical-down__hint{max-width:300px}.medical-down h1{font-size:clamp(24px,8vw,48px)}}
+@media(max-height:700px){.medical-down{padding-top:65px;padding-bottom:65px}.medical-down__skull{object-fit:contain;filter:drop-shadow(0 0 12px #ffcc0020);width:52px;height:52px;margin-bottom:8px}.medical-down h1{font-size:64px;margin-bottom:8px}.medical-down p{margin-top:12px}.medical-down__actions{margin-top:16px}.medical-down__hint{margin-top:10px}}
+
+@media(prefers-reduced-motion:reduce){.medical-overlay,.medical-lifeline__pulse{animation:none}.medical-lifeline__pulse{stroke-dasharray:none;opacity:.2}}

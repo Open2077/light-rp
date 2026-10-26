@@ -117,10 +117,18 @@ end
 
 function Hud.setWalk(walk) view.walk = walk end
 
+local hiddenReadouts = {}
 local function hideVanillaReadouts()
     if Hud.hidden or type(Open77.hud) ~= "table" or type(Open77.hud.setVisible) ~= "function" then return end
-    for _, component in ipairs({ "health", "stamina", "speedometer" }) do pcall(Open77.hud.setVisible, component, false) end
-    Hud.hidden = true
+    local allHidden = true
+    for _, component in ipairs({ "health", "stamina", "speedometer", "weapon" }) do
+        if not hiddenReadouts[component] then
+            local called, accepted = pcall(Open77.hud.setVisible, component, false)
+            hiddenReadouts[component] = called and accepted == true
+        end
+        allHidden = allHidden and hiddenReadouts[component]
+    end
+    Hud.hidden = allHidden
 end
 
 function Hud.start()
@@ -130,6 +138,7 @@ function Hud.start()
             sampleVehicle()
             sampleVoice()
             sampleClock()
+            if LightRpWeaponHud then view.weapon = LightRpWeaponHud.sample() end
             if view.ready then hideVanillaReadouts() end
             LightRpUi.send(E.page.hud, view)
             Wait(100)

@@ -20,6 +20,7 @@ dependencies {
     "open77_contextmenu >=1.2.0",
     "open77_animations >=1.0.0",
     "open77_icons >=1.0.0",
+    "open77_weapons >=0.2.0",
 }
 
 -- Downloaded by clients: never put credentials in shared/.
@@ -28,6 +29,9 @@ shared_script "shared/safezones.lua"
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
+shared_script "shared/medical.lua"
+shared_script "shared/armament.lua"
+shared_script "shared/grenades.lua"
 shared_script "shared/consumables.lua"
 shared_script "shared/fuel.lua"
 shared_script "shared/jobs.lua"
@@ -46,6 +50,10 @@ server_script "server/modules/creator.lua"
 server_script "server/modules/creator_placement.lua"
 server_script "server/modules/needs.lua"
 server_script "server/modules/inventory.lua"
+server_script "server/modules/armament_store.lua"
+server_script "server/modules/armament.lua"
+server_script "server/modules/grenades.lua"
+server_script "server/modules/hotbar.lua"
 server_script "server/modules/economy.lua"
 server_script "server/modules/jobs.lua"
 server_script "server/config/job_runs.lua"
@@ -62,6 +70,8 @@ server_script "server/modules/rental.lua"
 server_script "server/modules/wardrobe.lua"
 server_script "server/modules/consumables.lua"
 server_script "server/modules/refueling.lua"
+server_script "server/modules/medical_store.lua"
+server_script "server/modules/medical.lua"
 server_script "server/config/garages.lua"
 server_script "server/modules/garages.lua"
 server_script "server/config/dealerships.lua"
@@ -83,12 +93,14 @@ server_script "server/main.lua"
 
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
+client_script "client/core/control_claims.lua"
 client_script "client/core/safezones.lua"
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
 client_script "client/core/tutorial_voice.lua"
 client_script "client/core/tutorial.lua"
 client_script "client/core/tutorial_context.lua"
+client_script "client/core/weapon_hud.lua"
 client_script "client/core/hud.lua"
 client_script "client/core/interact.lua"
 client_script "client/core/homes.lua"
@@ -97,8 +109,12 @@ client_script "client/core/movement.lua"
 client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
 client_script "client/core/inventory.lua"
+client_script "client/core/armament.lua"
+client_script "client/core/grenades.lua"
+client_script "client/core/hotbar.lua"
 client_script "client/core/branding.lua"
 client_script "client/core/actions.lua"
+client_script "client/core/medical.lua"
 client_script "client/core/consumables.lua"
 client_script "client/core/refueling.lua"
 client_script "client/core/animations.lua"
@@ -158,6 +174,7 @@ permissions {
     "screen.read",          -- wait for native loading before revealing the scene
     "player.appearance.read", -- observe native editor lifetime before restoring the cinematic
     "ui.vanilla.hud",
+    "player.weapons.read", -- read-only magazine and reload HUD snapshots
     "pause_menu.customize", -- accent + logo of the pause menu
     "map.control",          -- title + accent of the native map
 }
