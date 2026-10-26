@@ -555,7 +555,19 @@ local function validBody(body)
         if seen[id] then return false end
         seen[id] = true
         local keys = #group.keys
-        if keys == 0 or keys > 64 then return false end
+        if keys > 64 then return false end
+        local morphs = group.morphs
+        if morphs ~= nil and type(morphs) ~= "table" then return false end
+        local morphCount = morphs and #morphs or 0
+        if morphCount > 64 or (keys == 0 and morphCount == 0) then return false end
+        local entries = 0
+        for morphIndex, morph in pairs(morphs or {}) do
+            entries = entries + 1
+            if not isInteger(morphIndex) or morphIndex < 1 or morphIndex > morphCount
+                or type(morph) ~= "table" or #morph ~= 2
+                or not fixedHash(morph[1], false) or not fixedHash(morph[2], false) then return false end
+        end
+        if entries ~= morphCount then return false end
         for keyIndex, key in pairs(group.keys) do
             if not isInteger(keyIndex) or keyIndex < 1 or keyIndex > keys or type(key) ~= "table"
                 or not fixedHash(key[1], false) or not fixedHash(key[2], false) or #key ~= 2 then return false end
@@ -582,6 +594,22 @@ end
 -- the world to reload it; while absent, observers hold no proxy of it.
 local absent = {}
 
+-- Report publication readiness without exposing customization or identity data.
+-- Useful when a native roster entry exists but its proxy cannot yet be created.
+RegisterCommand("appearance.status", function(player, _, raw)
+    player = tonumber(player)
+    if not player or player <= 0 then return end
+    local rows = {}
+    for _, peer in ipairs(Open77.players.inScope(player)) do
+        rows[#rows + 1] = ("player=%s body=%s absent=%s presentation=%s family=%s")
+            :format(tostring(peer), tostring(bodies[peer] ~= nil), tostring(absent[peer] == true),
+                tostring(Presentation.records[peer] ~= nil), tostring(sessionBodyFamily[peer] or "pending"))
+    end
+    local message = table.concat(rows, " ; ")
+    print("[open77_appearance] status viewer=" .. tostring(player) .. " " .. message)
+    commandResult(player, raw, true, message)
+end, false)
+
 RegisterNetEvent("open77:appearance:body", function(body, characterKey, revision, logical, sequence)
     local player = tonumber(source)
     local expected = player and sessionAppearance[player]
@@ -590,21 +618,22 @@ RegisterNetEvent("open77:appearance:body", function(body, characterKey, revision
         or body.family ~= sessionBodyFamily[player] or not matchesAppearance(expected.snapshot, logical) then return end
     bodies[player] = body
     absent[player] = nil
-    TriggerClientEvent("open77:appearance:body", -1, player, body)
+    Presentation.sendToObservers("open77:appearance:body", player, body)
     TriggerClientEvent("open77:appearance:bodyAck", player, characterKey, revision, sequence)
 end)
 
 local function bodyAbsent(player)
     if absent[player] then return end
     absent[player] = true
-    TriggerClientEvent("open77:appearance:body", -1, player, false)
+    Presentation.sendToObservers("open77:appearance:body", player, false)
 end
 
 RegisterNetEvent("open77:session:gameplayReady", function()
     local player = tonumber(source)
     if player == nil then return end
-    for other, body in pairs(bodies) do
-        if other ~= player and not absent[other] then
+    for _, other in ipairs(Open77.players.inScope(player)) do
+        local body = bodies[other]
+        if other ~= player and body and not absent[other] then
             TriggerClientEvent("open77:appearance:body", player, other, body)
         end
     end
@@ -616,6 +645,7 @@ end)
 -- The host queues this local event after the synchronous routing/roster update;
 -- native presence is consumed before Lua presentation on the client frame.
 local function replayPeer(viewer, player)
+    if not Presentation.inScope(viewer, player) then return end
     if bodies[player] and not absent[player] then
         TriggerClientEvent("open77:appearance:body", viewer, player, bodies[player])
     end
@@ -639,11 +669,13 @@ AddEventHandler("onPlayerBucketChange", function(player, bucket, previous)
         or not GetPlayerName(player) or GetPlayerRoutingBucket(player) ~= bucket then return end
     -- Use the current authoritative roster, not positions (cleared on transfer)
     -- or client-supplied instance IDs. Ignore superseded moves/disconnected IDs.
-    for _, other in ipairs(GetPlayersInBucket(bucket)) do
+    for _, other in ipairs(Open77.players.inScope(player)) do
         if other ~= player then
             replayPeer(player, other)
-            replayPeer(other, player)
         end
+    end
+    for _, other in ipairs(Open77.players.observers(player)) do
+        if other ~= player then replayPeer(other, player) end
     end
 end)
 

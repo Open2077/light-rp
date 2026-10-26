@@ -1,7 +1,7 @@
 """Build web/icons from the game's own inventory icon atlases.
 
 The wardrobe shows one vanilla inventory icon per clothing record and body
-family (web/icons/<m|f>/<Items.X>.webp, indexed by web/icons/manifest.json).
+family (web/icons/<m|f>/<short-hash>.webp, indexed by web/icons/manifest.json).
 The icons come from the player's installed game, cut out of the item atlases:
 
   1. WolvenKit CLI extracts the atlas descriptors and textures
@@ -21,7 +21,7 @@ Usage (PowerShell or bash, Python 3 with Pillow):
 Records without a vanilla icon (abstract base records such as Items.Boots or
 Items.EmptySlots*) are left out of the manifest; the page draws a placeholder.
 """
-import argparse, glob, json, os, re, subprocess, sys, collections
+import argparse, glob, hashlib, json, os, re, subprocess, sys, collections
 from PIL import Image
 
 HEIGHT = 112
@@ -64,12 +64,19 @@ def index_parts(items):
 
 def build(index, catalogue, png, dest):
     textures = {}
+    filenames = {}
     manifest, sizes = {}, []
     for it in json.load(open(catalogue, encoding="utf-8"))["items"]:
         entry = index.get(str(it.get("appearanceName") or "").rstrip("_").lower())
         if not entry:
             continue
         record, out = it["record"], {}
+        # Cache roots include a 64-character resource-set digest. Full record
+        # names can exceed Windows MAX_PATH there, even if source paths work.
+        filename = hashlib.sha256(record.encode("utf-8")).hexdigest()[:16] + ".webp"
+        if filename in filenames and filenames[filename] != record:
+            raise ValueError(f"Icon filename collision: {record}")
+        filenames[filename] = record
         for gender, key, other in (("m", "Male", "Female"), ("f", "Female", "Male")):
             part = entry.get(key + "_tpp") or entry.get(key) or entry.get(other + "_tpp") or entry.get(other)
             if not part:
@@ -86,10 +93,10 @@ def build(index, catalogue, png, dest):
                 crop = crop.crop(bbox)
             crop = crop.resize((max(1, round(crop.width * HEIGHT / max(1, crop.height))), HEIGHT), Image.LANCZOS)
             folder = os.path.join(dest, gender); os.makedirs(folder, exist_ok=True)
-            fn = os.path.join(folder, record + ".webp")
+            fn = os.path.join(folder, filename)
             crop.save(fn, "WEBP", quality=QUALITY, method=4)
             sizes.append(os.path.getsize(fn))
-            out[gender] = f"icons/{gender}/{record}.webp"
+            out[gender] = f"icons/{gender}/{filename}"
         if out:
             manifest[record] = out
     json.dump(manifest, open(os.path.join(dest, "manifest.json"), "w", encoding="utf-8"), separators=(",", ":"))

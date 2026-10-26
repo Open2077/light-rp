@@ -158,7 +158,7 @@
     eye.classList.toggle('available', !!first);
     draw(eyeGlyph, first ? 'eye' : 'ban');
     if (!first) message('No actions');
-    setLegend(first ? 'HOLD [' + keyName + '] · ' + (folder ? '← BACK · ESC CLOSE' : '↑↓ · ENTER') : 'HOLD [' + keyName + '] · PICK ANOTHER TARGET');
+    setLegend(first ? (folder ? '← BACK · ESC CLOSE' : 'HOLD [' + keyName + '] · ↑↓ · ENTER') : 'HOLD [' + keyName + '] · PICK ANOTHER TARGET');
     menu.classList.toggle('keyboard', keyboard);
     actions.scrollTop = 0;
     place();

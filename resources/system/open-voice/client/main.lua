@@ -22,7 +22,7 @@ local function acceptModes(payload)
         if type(candidate) ~= "table" then return false end
         local name = tostring(candidate.name or "")
         local distance = tonumber(candidate.distance)
-        if #name < 1 or #name > 24 or not distance or distance < 0.5 or distance > 1000 then
+        if #name < 1 or #name > 24 or not distance or distance ~= distance or distance < 0.5 or distance > 1000 then
             return false
         end
         parsed[index] = {
@@ -114,12 +114,15 @@ RegisterNetEvent("open-voice:state", function(payload)
     end
     local mode = modeByName[tostring(payload.mode or "")]
     if mode then
+        local distance = tonumber(payload.distance) or mode.distance
+        if distance ~= distance or distance < 0.5 or distance > 1000 then return end
         current = {
             mode = mode.name,
             label = tostring(payload.label or mode.label),
-            distance = tonumber(payload.distance) or mode.distance,
+            distance = distance,
             color = tostring(payload.color or mode.color),
         }
+        OpenVoiceRangePreview.confirm(current.mode, current.distance, visible)
         TriggerEvent("open-voice:modeChanged", current.mode, current.distance,
             current.label, current.color)
     end
@@ -128,6 +131,7 @@ end)
 
 local function applyHudVisibility(immediate)
     local nextVisible = requestedVisible and next(hudBlocks) == nil
+    if not nextVisible then OpenVoiceRangePreview.hide() end
     if visible == nextVisible then
         -- A previous soft hide may still be fading on the native surface.
         if immediate and not visible and page then page:hide() end
@@ -248,6 +252,7 @@ end)
 
 AddEventHandler("onClientResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end
+    OpenVoiceRangePreview.reset()
     page, pageReady = nil, false
 end)
 

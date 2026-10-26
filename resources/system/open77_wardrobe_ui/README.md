@@ -1,4 +1,15 @@
-# Open77 wardrobe
+# open77_wardrobe_ui
+
+This resource is the in-game wardrobe: a fitting room where players preview and save worn clothing, star favorite items, and build up to seven named outfits that other players see once saved.
+
+- **Docs:** none yet
+- **Starts:** on its own
+- **Needs:** `open77_appearance`, `open77_equipment`, `open77_wardrobe`
+- **Runs on:** client
+
+It sits on top of [`open77_appearance`](../open77_appearance/) and the standalone
+[`open77_equipment`](../../standalone/open77_equipment/) and
+[`open77_wardrobe`](../../standalone/open77_wardrobe/) resources.
 
 Open **Freeroam → Player → Wardrobe**, press **F2**, or use **/wardrobe**.
 The shortcut can be reassigned in Open77's keybind settings. This resource uses
@@ -8,7 +19,7 @@ and action buttons; it requires no external fonts, icons or services.
 ## Clothing icons
 
 Every catalogue card shows the game's own inventory icon of the garment,
-rendered on the player's body family: `web/icons/<m|f>/<Items.Record>.webp`,
+rendered on the player's body family: `web/icons/<m|f>/<short-hash>.webp`,
 indexed by `web/icons/manifest.json` (1790 of the 1991 clothing records; the
 rest are abstract base records such as `Items.Boots` that a player never
 sees, and get a placeholder). The icons are cut out of the vanilla item
@@ -18,6 +29,16 @@ game and the platform's `docs/generated/clothing-2.31.json`. Part names follow
 `clothing_player_<slot>_item_<appearanceName>_<Male|Female>_[TPP_]`, matched
 on the record's `appearanceName`. Icons are 128 px tall WebP, about 19 MB for
 both families; the WebUI host serves `.webp` as `image/webp`.
+
+Icon filenames use the first 16 hexadecimal digits of SHA-256 of the clothing
+record ID. The manifest keeps the complete record IDs as keys. This keeps paths
+short under the client's signed-resource cache (which adds a 64-character set
+digest); legacy full-record filenames reached 260 characters on Windows and
+blocked activation of the whole resource set. Run
+`pwsh -File tools/compact-icon-paths.ps1` to validate all mappings. Existing
+legacy icons can be migrated with `-Apply -BackupDirectory <new backup folder>`;
+the migration backs up and verifies every image, without recompression. Keep
+backups outside `web/` so they are not included by `web/**`.
 
 ## Player workflow
 
@@ -123,7 +144,7 @@ Five mapped q005/q115 entities had built-in meshes but failed attachment using
 both ordinary equipment and engine-created ItemIDs on a prepared player proxy.
 The real `Items.q115_thrusters` and all three `Items.Q005_Militech_Suit` variants
 remain reachable, as does `Items.q203_samurai_jacket`. The exact classification
-records the measured failure without claiming these five entities have no assets.
+records the failure without claiming these five entities have no assets.
 
 The UI uses the native `nonvisual` flag generated from the exact audited
 record-ID list. It does not hide clothes merely because they carry an
@@ -131,9 +152,7 @@ record-ID list. It does not hide clothes merely because they carry an
 copying worn clothing into an outfit preserves their empty visual meaning.
 
 The browser readiness handshake retries probes and queues an early open request.
-The test deliberately drops its first ready event to verify recovery; a dropped
-event was a diagnostic hypothesis, not a confirmed cause of the live open failure.
-The observed failure involved the clothing restoration barrier instead.
+The test deliberately drops its first ready event to verify recovery.
 
 ## Verification
 
@@ -154,7 +173,7 @@ For an in-game check with two connected players:
 6. Check **Escape**, death/respawn, and vehicle entry/exit. The wardrobe should
    release focus on close and reopen normally once alive and on foot.
 
-`node --test resources/system/open77_wardrobe_ui/tests/model.test.cjs` checks
+`tests/model.test.cjs` (run with `node --test`) checks
 cancel isolation, optimistic revision/key, patch omission, protected underwear,
 active outfit zero, all seven outfits, reset, and hidden/inherited slot semantics.
 
@@ -169,4 +188,4 @@ and usable save controls at 720p/1080p. Install Playwright in a developer tools
 location; `PLAYWRIGHT_MODULE` can select its module and `OP77_TEST_BROWSER` can
 select an installed Chromium/Edge executable. Run from the repository root.
 This verifies page behavior, not native rendering or network synchronization;
-the latter still requires the two-client live test performed during integration.
+those need the in-game check above.

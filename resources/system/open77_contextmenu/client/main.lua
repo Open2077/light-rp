@@ -24,6 +24,7 @@ exports("list",function() local r=owner();return registry.list(r) end)
 exports("isOpen",function() return active end)
 exports("isReady",function() return ready and page~=nil end)
 exports("getVersion",function() return "1.2.0" end)
+exports("getActivationKey",function() return Open77.input.keyFor("contextmenu.activate") or ContextMenuConfig.key end)
 exports("getContext",function() return selection end)
 exports("getTarget",function() return selection and selection.target end)
 

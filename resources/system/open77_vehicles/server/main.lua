@@ -76,10 +76,29 @@ local function list(source, raw, bucket)
         for _, occupant in ipairs(vehicle.occupants or {}) do
             seats[#seats + 1] = string.format("%s:%d", occupant.seat, occupant.playerId)
         end
+        -- The age of the last ACCEPTED motion sample, on the same
+        -- GetGameTimer() clock as everything else here. `none` means no sample
+        -- has ever been accepted (or the stamp was cleared with the authority);
+        -- it is never printed as 0, because a sample accepted this very tick is
+        -- genuinely 0 ms old and the two must not read the same.
+        local age = vehicle.motionAgeMs
+        -- The AI driving task, through the existing accessor rather than a new
+        -- one: `state` is a registry lookup and returns nothing when the car
+        -- has no AI job. A refusal carries a reason string, and that is printed
+        -- as the reason -- reporting a refusal as `none` would read as "no AI
+        -- task" and turn a denied diagnostic into a false negative.
+        local task, taskReason = Open77.vehicles.ai.state(vehicle.id)
+        local ai = "none"
+        if task ~= nil then
+            ai = string.format("%s/%s", tostring(task.mode), tostring(task.status))
+        elseif taskReason ~= nil then
+            ai = tostring(taskReason)
+        end
         output(source, raw, true, string.format(
-            "id=%d model=%s bucket=%d pos=%.2f,%.2f,%.2f health=%.2f owner=%d epoch=%d occupants=[%s]",
+            "id=%d model=%s bucket=%d pos=%.2f,%.2f,%.2f speed=%.2f motionAgeMs=%s health=%.2f owner=%d epoch=%d ai=%s occupants=[%s]",
             vehicle.id, vehicle.record, vehicle.bucket, vehicle.x, vehicle.y, vehicle.z,
-            vehicle.health, vehicle.physicsOwner, vehicle.authorityEpoch, table.concat(seats, ",")))
+            vehicle.speed, age == nil and "none" or string.format("%.0f", age),
+            vehicle.health, vehicle.physicsOwner, vehicle.authorityEpoch, ai, table.concat(seats, ",")))
     end
 end
 

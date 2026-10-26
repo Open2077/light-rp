@@ -1,11 +1,23 @@
 # open77_chat
 
+This resource is the in-game chat: players press T to talk and run slash commands with completion, and other resources post messages and register command suggestions through it.
 `open77_chat` is Open77's server-distributed chat resource. It provides an animated WebUI chat
 overlay, authenticated messages, slash-command dispatch, completion, and a small client API for
-other resources. Its HUD follows the CyberM/Open77 Design System: the passive feed stays compact in
+other resources. Its HUD follows the Open77 Design System: the passive feed stays compact in
 the top-left corner, while opening chat unfolds the full channel panel and command index. The surface
 requests the runtime's maximum 240 fps cadence for uncapped-feeling input and transitions; an idle
 page is damage-driven and does not repaint continuously.
+
+If the client WebHost restarts, the chat resource restores its last 48 messages
+in order (at most 256 KiB of serialized history). The composer closes and releases
+input; press `T` to reopen it after recovery. `chat:clear` and the `clear` export
+also clear the retained history. This recovery state belongs to the running Lua
+resource and is not retained across resource stops or game restarts.
+
+- **Docs:** [Chat, slash commands, and completion](https://open2077.net/docs/chat)
+- **Starts:** on its own
+- **Needs:** nothing
+- **Runs on:** server and client
 
 ## Controls
 
@@ -18,8 +30,7 @@ page is damage-driven and does not repaint continuously.
 The open panel also shows message length, connection state, and a new-message control if the player
 has scrolled away from the latest entry. Closing it folds the controls away; recent messages remain
 in the passive feed and fade after their configured duration. The passive feed is shorter than the
-open list and is always pinned to the newest row; `scripts/tests/chat-scroll-browser.cjs` checks
-that contract headlessly (open, send, Esc, mixed-height error rows) at three window geometries.
+open list and is always pinned to the newest row.
 
 ## Messages and commands
 
@@ -110,5 +121,5 @@ Exports:
 - WebUI content is rendered as text, never injected as HTML.
 - Local client events cannot invoke protected server commands.
 
-See the full [chat guide](../../docs/chat.md) and the repository
+See the full [chat guide](https://open2077.net/docs/chat) and the repository
 [license](../../LICENSE).

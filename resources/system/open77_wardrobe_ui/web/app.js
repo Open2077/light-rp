@@ -4,7 +4,7 @@
   let baseline, draft, confirmed, catalogue=[], lookup={}, mode="equipment", outfit=0, slot="Head", page=0, yaw=180;
   let busy=false, previewPending=false, pendingConfirm=null, favoritesOnly=false, favoritesReady=false, favorites=new Set();
   const PAGE_SIZE=30;
-  // Vanilla inventory icons cut from the game's item atlases (icons/<m|f>/<record>.webp,
+  // Vanilla inventory icons cut from the game's item atlases (icons/<m|f>/<short-hash>.webp,
   // see icons/manifest.json). `family` picks the body the icon was rendered on.
   let family="m", icons={};
   fetch("icons/manifest.json").then(r=>r.ok?r.json():{}).then(v=>{icons=v || {};if(draft)renderItems();}).catch(()=>{});
@@ -19,7 +19,8 @@
   function message(text,kind="") { $("status").textContent=text; $("status").className="status "+kind; }
   function reason(text) { return errors[text] || "Could not apply this change ("+String(text || "unknown error").replace(/_/g," ")+")."; }
   function visualValue(value) { return value && (lookup[String(value).toLowerCase()] || {}).nonvisual === true ? false : value; }
-  function itemName(value) { value=visualValue(value);return value ? M.title((lookup[String(value).toLowerCase()] || {}).record || value) : "No item equipped"; }
+  function catalogTitle(item) { return item.label || M.title(item.record); }
+  function itemName(value) { value=visualValue(value);return value ? catalogTitle(lookup[String(value).toLowerCase()] || {record:value}) : "No item equipped"; }
   function currentSlots() { return mode==="equipment"?draft.equipment:draft.wardrobe.outfits[outfit]; }
   function editSlot(value) {
     currentSlots()[slot]=value;
@@ -61,18 +62,18 @@
   }
   function renderItems() {
     const q=$("search").value.trim().toLowerCase();
-    const entries=catalogue.filter(item=>item.slot===slot && (!favoritesOnly || favorites.has(item.record)) && (!q || (M.title(item.record)+" "+item.record).toLowerCase().includes(q)));
+    const entries=catalogue.filter(item=>item.slot===slot && (!favoritesOnly || favorites.has(item.record)) && (!q || (catalogTitle(item)+" "+item.record).toLowerCase().includes(q)));
     const maxPage=Math.max(0,Math.ceil(entries.length/PAGE_SIZE)-1);page=Math.min(page,maxPage);
     const grid=$("catalogue");grid.replaceChildren();
     entries.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).forEach(item=>{
       const row=document.createElement("div");row.className="item";row.setAttribute("role","listitem");
       const selected=canonical(currentSlots()[slot])===item.record;row.classList.toggle("selected",selected);
       const choose=document.createElement("button");choose.className="choose catalog-card";choose.dataset.record=item.record;choose.setAttribute("aria-pressed",String(selected));
-      choose.title=M.title(item.record);const title=document.createElement("strong");title.textContent=M.title(item.record);
+      choose.title=catalogTitle(item);const title=document.createElement("strong");title.textContent=catalogTitle(item);
       const subtitle=document.createElement("small");subtitle.textContent=selected?"SELECTED":M.labels[item.slot].toUpperCase();
       choose.append(art(item.record,"art"),title,subtitle);choose.onclick=()=>preview(()=>editSlot(item.record));
       const favorite=document.createElement("button");favorite.className="favorite";favorite.classList.toggle("on",favorites.has(item.record));favorite.textContent=favorites.has(item.record)?"★":"☆";
-      favorite.setAttribute("aria-label",(favorites.has(item.record)?"Remove favorite ":"Favorite ")+M.title(item.record));
+      favorite.setAttribute("aria-label",(favorites.has(item.record)?"Remove favorite ":"Favorite ")+catalogTitle(item));
       favorite.disabled=!favoritesReady;favorite.onclick=()=>{favoritesReady=false;document.querySelectorAll(".favorite").forEach(button=>button.disabled=true);emit("wardrobe:favorite",{record:item.record,enabled:!favorites.has(item.record)});};
       row.append(choose,favorite);grid.append(row);
     });
@@ -150,7 +151,7 @@
     if(!draft)return;
     const first=catalogue.length===0;
     for(const item of value.items || []){if(item.nonvisual !== true)catalogue.push(item);lookup[item.record.toLowerCase()]=item;if(item.tweakDbId)lookup[item.tweakDbId.toLowerCase()]=item;}
-    if(value.complete){catalogue.sort((a,b)=>M.title(a.record).localeCompare(M.title(b.record)));render();if(!dirty())message("Select clothing to try it on. Save when your look is ready.");}
+    if(value.complete){catalogue.sort((a,b)=>catalogTitle(a).localeCompare(catalogTitle(b)));render();if(!dirty())message("Select clothing to try it on. Save when your look is ready.");}
     else if(first)render();
   });
   Open77.on("wardrobe:closed",()=>{$("room").hidden=true;$("confirm").hidden=true;baseline=null;draft=null;busy=false;previewPending=false;});

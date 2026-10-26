@@ -1,8 +1,14 @@
 # open77_vehicles
 
+This resource adds `vehicle.*` commands that spawn, lock, paint, damage, repair and seat players in server-owned network vehicles, plus client exports to read them.
 `open77_vehicles` is the reference resource for Open77's server-authoritative network vehicle
 system. The server owns identity, durable state, occupancy, and physics authority. Clients render a
 spatially streamed REDengine projection.
+
+- **Docs:** [Network vehicles](https://open2077.net/docs/vehicles)
+- **Starts:** on its own
+- **Needs:** nothing
+- **Runs on:** server and client
 
 ## Authority model
 
@@ -116,5 +122,5 @@ vehicle.repair
 Mutation commands are restricted and require the corresponding `command.vehicle.*` ACL permission
 when invoked by a player.
 
-See the [vehicle guide](../../wiki/vehicles.md),
-[vehicle model catalog](../../docs/vehicle-models.md), and repository [license](../../LICENSE).
+See the [vehicle guide](https://open2077.net/docs/vehicles),
+the [Game data reference](https://open2077.net/docs/data-reference) for vehicle records, and the repository [license](../../LICENSE).

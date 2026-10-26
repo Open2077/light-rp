@@ -1,8 +1,14 @@
 # open77_weather
 
+This resource keeps the server clock and weather in sync, so players see the same time of day and the same sky, and it gives operators `weather.*` commands to change them.
 `open77_weather` provides a server-authoritative session clock and synchronized weather. The server
 advances time, chooses weather transitions, and publishes a revisioned state. Clients compensate
 for network latency and project the accepted state into REDengine.
+
+- **Docs:** [Synchronised time and weather](https://open2077.net/docs/weather)
+- **Starts:** on its own
+- **Needs:** nothing
+- **Runs on:** server and client
 
 ## Structure
 
@@ -20,8 +26,8 @@ should receive `world.environment`.
 `server/main.lua` is also what the host's `Open77.environment.*` facade calls: the `environment.*`
 exports at the bottom of that file are the seam between the platform surface (installed in every
 VM, gated by `world.environment`) and this authority. The authority deliberately stays here rather
-than in a C# service, because the only code that can move a sky is `client/main.lua` — a host-owned
-clock would be a clock nobody applies. Documented in `wiki/weather.md`.
+than in a C# service, because the only code that can move a sky is `client/main.lua`: a host-owned
+clock would be a clock nobody applies. Documented in [Synchronised time and weather](https://open2077.net/docs/weather).
 
 ## Configuration
 
@@ -34,11 +40,11 @@ The default state starts at `12:00:00`. Operators can change the initial state a
 ### Reloading
 
 Those values are *initial* values, so they apply at boot and not again. The authority hands its live
-state — clock, preset, transition, `randomWeather`, revision and authority epoch — to the host through
+state (clock, preset, transition, `randomWeather`, revision and authority epoch) to the host through
 `Open77.state`, and adopts it again when the resource reloads. A `reload` therefore picks up changed
 code and a changed preset catalogue **without** moving the sky: the time of day keeps running and a
 server that pinned its weather stays pinned. Clients see the same authority epoch and a revision that
-only grows, so they cannot tell the reload happened, which is correct — the authority did not restart.
+only grows, so they cannot tell the reload happened, which is correct: the authority did not restart.
 
 Carried state deliberately does not survive the resource going down. `stop`, `restart` and `refresh`
 bring the authority back up at the configured defaults, and the server re-asserts whatever its
@@ -50,7 +56,7 @@ A carried snapshot is validated before it is adopted: it is refused if `protocol
 falls back to the configured defaults. **Bump `protocol` whenever the carried shape changes**, so a
 snapshot written by an older version of this resource is refused rather than half-adopted. It was
 bumped to `3` when the carried snapshot became a default scope plus an array of per-bucket
-overrides — and the wire snapshot gained the matching `scope` field — so the first reload after that
+overrides (and the wire snapshot gained the matching `scope` field), so the first reload after that
 deployment intentionally starts the authority from its configured defaults.
 
 ## Commands
@@ -132,4 +138,4 @@ projection primitive used by this resource.
   advance every `tolerance / 8` real seconds (each re-assert is a world time-jump; see the wiki).
 - Stopping the resource releases its vanilla environment overrides.
 
-See the [weather guide](../../wiki/weather.md) and repository [license](../../LICENSE).
+See the [weather guide](https://open2077.net/docs/weather) and repository [license](../../LICENSE).
