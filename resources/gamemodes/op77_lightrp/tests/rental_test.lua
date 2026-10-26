@@ -9,7 +9,9 @@ local byKey = {}
 for _, entry in ipairs(LightRpConfig.vehicles.catalog) do byKey[entry.key] = entry end
 assert(byKey.semimaru.category == "Sport")
 byKey.hella.image = "img/vehicles/catalogue.jpg"
-LightRpConfig.rentals.spots[1].stock[2].image = "img/vehicles/agency.jpg"
+-- The desk's stock is the test's own: the contract is checked against known keys and prices, whatever the live desk sells.
+LightRpConfig.rentals.spots[1].stock = { { key = "maimai", price = 50 }, { key = "hella", price = 120, image = "img/vehicles/agency.jpg" },
+    { key = "galena", price = 80 }, { key = "colby", price = 100 }, { key = "apollo", price = 60 } }
 Open77 = {
     players = { getLifeState = function() return { phase = alive and "alive" or "dead" } end,
         position = function() return { bucket = 42 } end },

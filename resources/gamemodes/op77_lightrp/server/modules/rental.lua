@@ -97,7 +97,9 @@ CreateThread(function()
             position = spot.position, radius = Config.interactRadius or 2.0,
             label = spot.name, prompt = "Rent a vehicle", key = Config.key or "E", promptHeight = 1.1,
             marker = Config.marker, ring = false,
-            blip = Config.blip and { sprite = Config.blip.sprite, title = spot.name, description = Config.blip.description } or nil,
+            blip = Config.blip and { icon = Config.blip.icon, color = Config.blip.color, size = Config.blip.size,
+                sprite = Config.blip.sprite, title = Config.blip.title or "Rent-a-Ride",
+                description = (spot.name or "Rent-a-Ride") .. "\n" .. (Config.blip.description or "") } or nil,
         })
     end
     LightRP.log("rental: %d desk(s) open, %d min per rental", #(Config.spots or {}), Config.durationMinutes or 30)
@@ -171,8 +173,8 @@ function Rental.rent(playerId, spotId, key, pay)
         return false, "vehicle_refused"
     end
     -- Keys authorise the renter to unlock; the car starts locked for everyone.
-    LightRP.keys.give(vehicleId, playerId, { label = item.label, owner = true })
     if LightRP.fuel then LightRP.fuel.seed(vehicleId, "rental") end -- a rental never comes with a full tank
+    LightRP.keys.give(vehicleId, playerId, { label = item.label, owner = true })
     LightRP.keys.lock(vehicleId, true, playerId)
     local now = LightRP.nowMs()
     local r = { spotId = spot.id, key = item.key, label = item.label, image = item.image, vehicleId = vehicleId, startedAt = now,

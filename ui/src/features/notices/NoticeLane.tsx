@@ -7,6 +7,8 @@ import "./notices.css";
    results. FIFO, six deep, each with its own lifetime bar; wipe-out then removal. */
 export function NoticeLane() {
   const notices = useStore((s) => s.notices);
+  const creating = useStore((s) => s.connected && s.state.character.status !== "active");
+  const cinematic = useStore(s => s.state.tutorial?.active && (s.state.tutorial.step === "intro" || s.state.tutorial.dialogue || s.state.tutorial.step === "outro"));
   const dismiss = useStore((s) => s.dismissNotice);
   const remove = useStore((s) => s.removeNotice);
   const [, tick] = useState(0);
@@ -28,7 +30,7 @@ export function NoticeLane() {
     }
   });
 
-  if (notices.length === 0) return null;
+  if (creating || cinematic || notices.length === 0) return null;
   return (
     <div className="notices o77-stack">
       {notices.map((n) => (

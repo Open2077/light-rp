@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Camera, Volume2, VolumeX, Sun } from "lucide-react";
 import { useStore } from "@/state/store";
 import { emit, on, sendAction } from "@/bridge/open77";
-import { PAGE_EVENTS, type BodyFamily, type CharacterState, type IdentityFields, type UiAction } from "@/bridge/protocol";
+import { PAGE_EVENTS, type CharacterState, type IdentityFields, type UiAction } from "@/bridge/protocol";
 import { Icon } from "@/design/components";
 import { identityFields, initialPage, ORIGIN_NOTES, STEPS, validateIdentity, type WizardPage } from "./model";
 import "./wizard.css";
@@ -14,10 +15,17 @@ export function CharacterWizard() {
 }
 
 function WizardBody({ character }: { character: CharacterState }) {
+  const supportOpen = useStore(s => s.dialog?.kind === "support");
   const [page, setPage] = useState<WizardPage>(() => initialPage(character));
   const [fields, setFields] = useState(() => identityFields(character));
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [family, setFamily] = useState<BodyFamily>(character.bodyFamily ?? "male");
+  const family = character.bodyFamily ?? "male";
+  const nativePending = character.appearanceTracked && !character.bodyFamily;
+  const [scene, setScene] = useState<{ phase: string; error?: string }>({ phase: "waiting" });
+  const placing = scene.phase === "placement";
+  const sceneReady = scene.phase === "ready";
+  const [muted, setMuted] = useState(false);
+  const [reduced, setReduced] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [editor, setEditor] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -36,25 +44,34 @@ function WizardBody({ character }: { character: CharacterState }) {
   const busy = !!sent;
   const dirty = JSON.stringify(fields) !== JSON.stringify(identityFields(character));
   const canReview = character.step === "confirm" || character.step === "done";
-  const bodyChanged = !!character.bodyFamily && family !== character.bodyFamily;
   const set = (patch: Partial<IdentityFields>) => { setFields(f => ({ ...f, ...patch })); setFeedback(""); };
   const move = (next: WizardPage) => { if (!pending.current) { setPage(next); setFeedback(""); } };
 
   useEffect(() => {
-    emit(PAGE_EVENTS.focus, { active: !editor });
+    if (supportOpen) return;
+    emit(PAGE_EVENTS.focus, { active: !editor && !nativePending && !placing });
     return () => emit(PAGE_EVENTS.focus, { active: false });
-  }, [editor]);
+  }, [editor, nativePending, placing, supportOpen]);
   useEffect(() => on<{ active: boolean; error?: string }>(PAGE_EVENTS.characterEditor, value => {
     setEditor(value.active === true);
     if (value.error) setFeedback(value.error);
   }), []);
+  useEffect(() => on<{ phase: string; error?: string }>(PAGE_EVENTS.creator, setScene), []);
+  useEffect(() => {
+    emit(PAGE_EVENTS.creator, { shot: page, muted, reducedMotion: reduced });
+  }, [page, muted, reduced, editor]);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const changed = () => setReduced(media.matches);
+    media.addEventListener("change", changed);
+    return () => media.removeEventListener("change", changed);
+  }, []);
   useEffect(() => {
     const previous = previousCharacter.current;
     previousCharacter.current = character;
     if (previous.step !== character.step || previous.appearanceRevision !== character.appearanceRevision) {
       if (pending.current !== "character.identity") setPage(initialPage(character));
     }
-    if (character.bodyFamily) setFamily(character.bodyFamily);
   }, [character]);
   useEffect(() => {
     if (!result || result === resultBefore.current || result.action !== pending.current) return;
@@ -86,12 +103,12 @@ function WizardBody({ character }: { character: CharacterState }) {
     return () => window.clearTimeout(timer);
   }, [sent]);
   useEffect(() => {
-    if (editor) return;
+    if (editor || nativePending || placing || supportOpen) return;
     heading.current?.focus();
     root.current?.querySelector(".creator__scroll")?.scrollTo(0, 0);
-  }, [page, editor]);
+  }, [page, editor, nativePending, placing, supportOpen]);
   useEffect(() => {
-    if (editor) return;
+    if (editor || nativePending || placing || supportOpen) return;
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.code === "Escape") { e.preventDefault(); e.stopPropagation(); }
       if (e.key !== "Tab") return;
@@ -102,7 +119,7 @@ function WizardBody({ character }: { character: CharacterState }) {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [editor]);
+  }, [editor, nativePending, placing, supportOpen]);
 
   const issue = (action: UiAction) => {
     if (pending.current) return;
@@ -127,20 +144,26 @@ function WizardBody({ character }: { character: CharacterState }) {
     emit(PAGE_EVENTS.focus, { active: false });
     sendAction({ type: "character.appearance.open", mode: "ripperdoc", family });
   };
-  const title = { identity: "Every story starts with a name.", background: "Where are you coming from?", appearance: "Put a face to the name.", review: `Welcome to Night City${character.firstName ? `, ${character.firstName}` : ""}.` }[page];
-  const subtitle = { identity: "This is who other players will meet. Your account name stays separate.", background: "A little context makes a character yours. Both of these choices are optional.", appearance: "Choose a body, then shape your look in the character editor.", review: "One last look before your story begins. You can go back and change anything." }[page];
+  const title = { identity: "A new name.\nA new beginning.", background: "Every arrival\nhas a story.", appearance: "Make yourself\nat home.", review: `Welcome to Night City${character.firstName ? `, ${character.firstName}` : ""}.` }[page];
+  const subtitle = { identity: "This is who other players will meet. Your account name stays separate.", background: "A little context makes a character yours. Both of these choices are optional.", appearance: "Your look is saved. Take a moment, or revisit the details before you head into the city.", review: "One last look before your story begins. You can go back and change anything." }[page];
   const name = `${fields.firstName} ${fields.lastName}`.trim();
 
-  return <div ref={root} className={`creator o77-interactive${editor ? " creator--editor" : ""}`} role="dialog" aria-modal={!editor} aria-labelledby="creator-title" aria-hidden={editor || undefined}>
+  const hidden = editor || nativePending || placing || supportOpen;
+  return <div ref={root} className={`creator o77-interactive${hidden ? " creator--editor" : ""}${reduced ? " creator--still" : ""}${!sceneReady ? " creator--preparing" : ""}`} role="dialog" aria-modal={!hidden} aria-labelledby="creator-title" aria-hidden={hidden || undefined}>
+    <div className="creator__loading-cover" aria-hidden="true" />
+    <div className="creator__shade" aria-hidden="true" />
+    <header className="creator__masthead">
+      <div className="creator__brand"><span className="creator__brand-mark">LIGHT<span>/</span>RP</span><span>YOUR NEXT CHAPTER</span></div>
+      <div className="creator__location"><span className="creator__live-dot" /><span>NIGHT CITY <b> / </b> ARRIVAL</span><Sun size={14} /><span>12:00</span></div>
+    </header>
     <aside className="creator__scene">
-      <div className="creator__brand"><span className="creator__brand-mark">LIGHT<span>/</span>RP</span><span>A new life in Night City</span></div>
-      <div className="creator__scene-copy"><span className="creator__eyebrow">Your city. Your story.</span><h1>Not another face<br />in the crowd.<br /><em>Yours.</em></h1><p>Find your people. Make your own way.<br />Leave something behind.</p></div>
-      <div className="creator__passport"><span className="creator__avatar">{fields.firstName.trim().charAt(0).toUpperCase() || "?"}{fields.lastName.trim().charAt(0).toUpperCase()}</span><div><span className="creator__eyebrow">Your character</span><strong>{name || "A new beginning"}</strong><span>{origin || "A story still unwritten"}</span></div><Icon name="arrow-right" size={20} /></div>
-      <div className="creator__scene-foot"><span>Night City / {character.currentYear}</span><span>Make yourself at home.</span></div>
+      <div className="creator__scene-copy"><span className="creator__eyebrow">Chapter 01 / Arrival</span><h1>A city of millions.<br /><em>A story that's yours.</em></h1></div>
+      <nav aria-label="Character creation steps" className="creator__nav"><ol>{STEPS.map((s, i) => <li key={s.id}><button type="button" aria-current={page === s.id ? "step" : undefined} disabled={busy || i > index} onClick={() => move(s.id)}><span className="creator__step-num">{i < index ? <Icon name="check" size={14} /> : `0${i + 1}`}</span><span>{s.label}</span><span className="creator__step-line" /></button></li>)}</ol></nav>
+      <div className="creator__passport"><span className="creator__eyebrow">One way to Night City</span><strong>{name || "Your seat is waiting."}</strong><span>{origin ? `${origin} → Night City` : "Somewhere behind you. Everything ahead."}</span></div>
     </aside>
     <main className="creator__main">
-      <header className="creator__top"><span>Character creation</span><span>{character.key === "default" ? "Character 01" : `Character ${character.key.replace("slot", "").padStart(2, "0")}`}</span></header>
-      <nav aria-label="Character creation steps" className="creator__nav"><ol>{STEPS.map((s, i) => <li key={s.id}><button type="button" aria-current={page === s.id ? "step" : undefined} disabled={busy || i > index} onClick={() => move(s.id)}><span className="creator__step-num">{i < index ? <Icon name="check" size={14} /> : i + 1}</span><span>{s.label}</span></button></li>)}</ol><div className="creator__progress"><i style={{ width: `${(index + 1) * 25}%` }} /></div></nav>
+      <header className="creator__top"><span>NEW RESIDENT</span><span>0{index + 1} <b>/</b> 04</span></header>
+      <div className="creator__progress"><i style={{ width: `${(index + 1) * 25}%` }} /></div>
       <form className="creator__form" aria-busy={busy} onSubmit={e => { e.preventDefault(); if (busy) return; if (page === "identity") identityNext(); else if (page === "background") saveIdentity(); else if (page === "review" && canReview && !dirty) issue({ type: "character.finish" }); }}>
         <div className="creator__scroll">
           <section key={page} className="creator__page">
@@ -158,9 +181,9 @@ function WizardBody({ character }: { character: CharacterState }) {
             </>}
             {page === "appearance" && <>
               {!character.appearanceTracked && <div className="creator__note"><Icon name="info" /><p>Local session<span>Appearance persistence is unavailable on this server. This step is optional.</span></p></div>}
-              <fieldset className="creator__bodies"><legend>Body type</legend><div>{(["male", "female"] as const).map(body => <label key={body} className={`creator__body${family === body ? " is-selected" : ""}`}><input type="radio" name="body" value={body} checked={family === body} onChange={() => setFamily(body)} /><span className="creator__body-art"><Icon name="user" size={64} /></span><span><strong>{body === "male" ? "Masculine" : "Feminine"}</strong><small>Face, hair & details in the editor</small></span><span className="creator__radio">{family === body && <i />}</span></label>)}</div></fieldset>
+              <div className="creator__appearance-card"><Icon name="badge-check" size={26} /><div><span className="creator__eyebrow">Your appearance</span><strong>{character.bodyFamily === "female" ? "Feminine" : "Masculine"} · Saved</strong><p>The person in front of you. The rest is up to you.</p></div></div>
               <div className="creator__editor-guide"><Icon name={character.bodyFamily ? "badge-check" : "settings"} size={24} /><div><strong>{character.bodyFamily ? "An appearance is saved." : "The details make the difference."}</strong><p>Open the editor, customise your look, then confirm to return here. Cancelling keeps your previous look.</p></div></div>
-              <button type="button" className="creator__button creator__button--primary creator__open-editor" onClick={openEditor}>Open appearance editor<Icon name="arrow-right" size={18} /></button>
+              <button type="button" className="creator__button creator__button--primary creator__open-editor" disabled={!sceneReady} onClick={openEditor}>Open appearance editor<Icon name="arrow-right" size={18} /></button>
             </>}
             {page === "review" && <>
               <div className="creator__review"><div className="creator__review-name"><span className="creator__avatar">{character.firstName?.charAt(0)}{character.lastName?.charAt(0)}</span><div><small>Your identity</small><h3>{character.firstName} {character.lastName}</h3></div><button type="button" onClick={() => move("identity")} disabled={busy}>Edit<Icon name="chevron-right" size={14} /></button></div><dl><div><dt>Date of birth</dt><dd>{character.birthDate || "Not specified"}</dd></div><div><dt>Origin</dt><dd>{origins.find(o => o.key === character.origin)?.label || "Not specified"}</dd></div><div><dt>Appearance</dt><dd>{character.bodyFamily ? `${character.bodyFamily === "male" ? "Masculine" : "Feminine"} · Saved` : character.appearanceTracked ? "Not saved yet" : "Local session"}</dd></div></dl>{character.story && <p className="creator__review-story">{character.story}</p>}<button type="button" className="creator__text-button" onClick={() => move("appearance")} disabled={busy}>Revisit appearance<Icon name="chevron-right" size={14} /></button></div>
@@ -171,10 +194,15 @@ function WizardBody({ character }: { character: CharacterState }) {
         </div>
         <footer className="creator__footer">
           {(feedback || slow) && <div className="creator__feedback" role="alert"><Icon name="triangle-alert" size={17} /><span>{feedback || "Still waiting for the server. Your request has not been sent twice. If this continues, reconnect to resume your saved character."}</span></div>}
-          <div className="creator__footer-actions"><button type="button" className="creator__back" disabled={index === 0 || busy} onClick={() => move(STEPS[index - 1]!.id)}><Icon name="chevron-left" size={17} />Back</button><span className="creator__footer-hint">{page === "identity" ? "Let's start with the essentials." : page === "background" ? "Your background is entirely up to you." : page === "appearance" ? (canReview && !bodyChanged ? "Ready when you are." : "Confirm your look in the editor to continue.") : "Your next chapter is waiting."}</span>
-          {page === "appearance" ? <button type="button" className="creator__button creator__button--primary" disabled={!canReview || bodyChanged} onClick={() => move("review")}>Review character<Icon name="arrow-right" size={18} /></button> : <button type="submit" className="creator__button creator__button--primary" disabled={busy || (page === "review" && (!canReview || dirty))}>{busy ? <><Icon name="loader" className="creator__spinner" />{sent === "character.finish" ? "Entering the city…" : "Saving identity…"}</> : <>{page === "review" ? "Enter Night City" : page === "background" ? "Save & continue" : "Continue"}<Icon name="arrow-right" size={18} /></>}</button>}</div>
+          <div className="creator__footer-actions"><button type="button" className="creator__back" disabled={index === 0 || busy} onClick={() => move(STEPS[index - 1]!.id)}><Icon name="chevron-left" size={17} />Back</button><span className="creator__footer-hint">{page === "identity" ? "Let's start with the essentials." : page === "background" ? "Your background is entirely up to you." : page === "appearance" ? (canReview ? "Ready when you are." : "Confirm your look in the editor to continue.") : "Your next chapter is waiting."}</span>
+          {page === "appearance" ? <button type="button" className="creator__button creator__button--primary" disabled={!canReview} onClick={() => move("review")}>Review character<Icon name="arrow-right" size={18} /></button> : <button type="submit" className="creator__button creator__button--primary" disabled={busy || (page === "review" && (!canReview || dirty))}>{busy ? <><Icon name="loader" className="creator__spinner" />{sent === "character.finish" ? "Entering the city…" : "Saving identity…"}</> : <>{page === "review" ? "Enter Night City" : page === "background" ? "Save & continue" : "Continue"}<Icon name="arrow-right" size={18} /></>}</button>}</div>
         </footer>
       </form>
     </main>
+    <footer className="creator__film-footer">
+      <span className="creator__film-note">SAME STREETS. DIFFERENT STORIES.</span>
+      <div className="creator__scene-state" role="status">{scene.phase === "error" ? <><span>{scene.error}</span><button type="button" onClick={() => emit(PAGE_EVENTS.creator, { retry: true })}>Retry scene</button></> : !["ready", "editor", "closed"].includes(scene.phase) ? <><Icon name="loader" className="creator__spinner" size={12} />Setting the scene…</> : null}</div>
+      <div className="creator__scene-controls"><button type="button" aria-label="Reduce camera motion" aria-pressed={reduced} title={reduced ? "Resume camera movement" : "Hold the camera still"} onClick={() => setReduced(v => !v)}><Camera size={16} /><span>{reduced ? "STILL CAMERA" : "CINEMATIC"}</span></button><span className="creator__control-divider" /><button type="button" aria-label="Mute background music" aria-pressed={muted} onClick={() => setMuted(v => !v)}>{muted ? <VolumeX size={16} /> : <Volume2 size={16} />}<span>CLOUDY DAY</span><span className={`creator__equalizer${muted ? " is-muted" : ""}`} aria-hidden="true"><i /><i /><i /><i /></span></button></div>
+    </footer>
   </div>;
 }

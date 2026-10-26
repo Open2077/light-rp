@@ -17,6 +17,25 @@ Constraints: NO words or typography, no logos, no UI border, no decorative parti
 
 ## Subject substitutions
 
+## Cash — 2026-09-24
+
+Generated with the built-in image_gen tool via the imagegen skill (no CLI/API).
+Project asset: `ui/public/img/items/cash.png`, shipped as `web/img/items/cash.png`.
+Final prompt:
+
+```text
+Use case: stylized-concept
+Asset type: a single transparent PNG inventory item icon for a Cyberpunk-inspired roleplay game, matching realistic everyday industrial inventory props.
+Subject: one compact bundle of futuristic eurodollar banknotes, slightly fanned at one corner, bound with a narrow charcoal paper band with a small ochre-yellow accent. Muted olive, warm grey and pale teal engraved abstract security patterns, thin holographic foil stripe, visibly layered slightly worn paper edges. Clearly recognizable as cash at small size.
+Style: premium realistic 3D game prop render, restrained industrial detailing, believable Night City currency, readable at 80px.
+Composition: square canvas, one centered bundle, three-quarter view slightly from above, entire object visible, occupies 80% of canvas with comfortable margins.
+Lighting: neutral soft studio key light, subtle cool edge light, crisp silhouette.
+Background: genuinely transparent alpha, no checkerboard drawn, no floor, no scenery, no cast shadow beyond the item.
+Constraints: no real-world currency reproduction, no words or numbers, no logos, no UI border, no decorative particles, no additional objects, no watermark.
+```
+
+## Consumables
+
 - `soda.png`: one aluminum soda can, magenta and cream industrial label with an abstract heart symbol, worn silver rim, condensation, futuristic convenience-store packaging.
 - `burrito.png`: one toasted street-food burrito, half wrapped in crinkled silver foil and a black/yellow paper sleeve, cut end showing rice, vegetables and synthetic meat, appetizing recognizable food.
 - `synthmeat.png`: one wooden street-food skewer with four glossy grilled synthetic-meat cubes and green peppers, diagonal orientation, small folded charcoal paper sleeve over the handle.
@@ -34,4 +53,3 @@ Constraints: NO words or typography, no logos, no UI border, no decorative parti
 - `bandage.png`: one rolled sterile gauze bandage partly unrolled, resting against its compact sealed charcoal and off-white medical foil packet with a teal geometric medical symbol.
 - `medkit.png`: one handheld futuristic medical inhaler, compact charcoal body with white sanitary shell, teal cartridge window, capped mouthpiece and small orange activation button, worn consumer medical equipment, no needle.
 - `firstaid.png`: one compact first aid hard case, white and graphite impact-resistant shell with two teal latches, recessed handle and bold abstract teal medical symbol on the front, rugged field medical equipment.
-

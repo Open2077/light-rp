@@ -19,6 +19,7 @@ GetCurrentResourceName = function() return "open-voice" end
 CreateThread = function(fn) threads[#threads + 1] = coroutine.create(fn) end
 Wait = function() coroutine.yield() end
 exports = function(name, fn) exportsMap[name] = fn end
+dofile("../../system/open-voice/client/range_preview.lua")
 dofile("../../system/open-voice/client/main.lua")
 local block = handlers["open-voice:setHudBlocked"]
 block("onboarding", true)

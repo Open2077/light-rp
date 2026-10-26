@@ -10,6 +10,9 @@ import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type Ui
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
 import { shopFixture } from "./shopFixture";
+import { jobFixture } from "./jobFixture";
+import { garageFixture } from "./garageFixture";
+import { dealershipFixture } from "./dealershipFixture";
 import { basketSummary } from "@/features/shop/model";
 
 const ORIGINS = [
@@ -24,13 +27,15 @@ export function installMockBridge(): void {
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
+  const garage = garageFixture();
+  const dealership = dealershipFixture();
   const step = (params.get("step") as CharacterState["step"] | null) ?? (registered ? "done" : "identity");
   const character: CharacterState = {
     registered, status: registered ? "active" : "draft", step, key: "default",
     firstName: step !== "identity" ? "Yuki" : undefined, lastName: step !== "identity" ? "Tanaka" : undefined,
     birthDate: step !== "identity" ? "2052-03-14" : undefined, origin: step !== "identity" ? "night_city" : undefined,
     story: step !== "identity" ? "Part-time netrunner, courier the rest of the time. Sleeps little, drives fast." : undefined,
-    bodyFamily: step === "confirm" || step === "done" ? "female" : undefined,
+    bodyFamily: "female",
     appearanceRevision: step === "confirm" || step === "done" ? 3 : 0, appearanceSavedAt: step === "done" ? "2077-09-19 22:41:00" : undefined,
     appearanceTracked: true, accountName: "Nightwolf", playerId: 7, userId: "712e7c14-aeb4-47ee-b563-f6216c078e55", playtimeMs: 5_640_000,
     slots: registered
@@ -106,6 +111,8 @@ export function installMockBridge(): void {
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
           if (params.get("dialog") === "shop") fire(PAGE_EVENTS.dialog, shop);
+          if (params.get("dialog") === "garage") fire(PAGE_EVENTS.dialog, garage);
+          if (params.get("dialog") === "dealership") fire(PAGE_EVENTS.dialog, dealership);
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
           if (params.get("interact") === "1") {
             fire(PAGE_EVENTS.interact, { id: "rental.citycenter", prompt: "Rent a vehicle", key: "E" });
@@ -126,12 +133,7 @@ export function installMockBridge(): void {
             left: { id: "player:catalogue", kind: "player", label: "RP consumables · preview", slots: 30, maxWeight: 40,
               weight: itemCatalogue.reduce((sum, item) => sum + item.weight * item.count, 0), items: itemCatalogue },
             right: { id: "ground", kind: "ground", label: "Ground", slots: 1, maxWeight: 0, weight: 0, items: [] } });
-          if (params.get("dialog") === "jobcenter") fire(PAGE_EVENTS.dialog, { kind: "jobcenter", spot: { id: "citycenter", name: "Job Center // City Center" }, paycheckMinutes: 30, jobs: [
-            { name: "sanitation", label: "NC Sanitation", tag: "SANITATION", grades: 4, entryGrade: { label: "Trainee", salary: 40 } },
-            { name: "delivery", label: "Night Courier", tag: "COURIER", grades: 3, entryGrade: { label: "Runner", salary: 45 } },
-            { name: "mechanic", label: "Rust & Chrome Garage", tag: "MECHANIC", grades: 4, entryGrade: { label: "Apprentice", salary: 50 } },
-            { name: "taxi", label: "Delamain Partner", tag: "TAXI", grades: 2, entryGrade: { label: "Driver", salary: 50 } },
-            { name: "trauma", label: "Street Medic", tag: "MEDIC", grades: 3, entryGrade: { label: "Volunteer", salary: 55 } } ] });
+          if (params.get("dialog") === "jobcenter") fire(PAGE_EVENTS.dialog, jobFixture());
           if (params.get("dialog") === "fuel") fire(PAGE_EVENTS.dialog, fuelFixture());
           if (params.get("dialog") === "rental") fire(PAGE_EVENTS.dialog, { kind: "rental", spot: { id: "citycenter", name: "Rent-a-Ride // City Center", durationMinutes: 30, stock: [
             { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
@@ -145,6 +147,31 @@ export function installMockBridge(): void {
         const action = payload as UiAction;
         setTimeout(() => {
           switch (action.type) {
+            case "dealership.buy": {
+              const item = dealership.stock.find(v => v.key === action.key);
+              if (!item || action.request !== dealership.nextRequest) break;
+              const ok = dealership.money[action.pay] >= item.price;
+              if (ok) dealership.money[action.pay] -= item.price;
+              dealership.nextRequest++;
+              fire("lightrp:ui:dealership", { session: dealership.session, request: action.request, ok,
+                vehicleId: ok ? "1b922040-preview-owned" : undefined,
+                text: ok ? `Your ${item.label} is waiting at ${dealership.garage.name}.` : "Insufficient funds.", state: structuredClone(dealership) });
+              break;
+            }
+            case "dealership.close": break;
+            case "garage.retrieve":
+            case "garage.store": {
+              const vehicle = garage.vehicles.find(v => v.id === action.vehicle);
+              if (!vehicle || action.request !== garage.nextRequest) break;
+              vehicle.status = action.type === "garage.retrieve" ? "out" : "stored";
+              vehicle.canRetrieve = vehicle.status === "stored";
+              vehicle.canStore = vehicle.status === "out";
+              garage.nextRequest++;
+              fire("lightrp:ui:garage", { session: garage.session, request: action.request, ok: true,
+                text: vehicle.status === "out" ? "Your vehicle is parked outside. Press L to unlock." : "Vehicle and trunk stored safely.", state: structuredClone(garage) });
+              break;
+            }
+            case "garage.close": break;
             case "shop.close": break;
             case "shop.checkout": {
               const summary = basketSummary(shop, Object.fromEntries(action.lines.map(line => [line.name, line.count])), action.mode, action.pay);
@@ -251,14 +278,33 @@ export function installMockBridge(): void {
               fire(PAGE_EVENTS.state, { rental: state.rental });
               result(true, "Vehicle returned.", action.type);
               break;
-            case "jobs.apply":
-              state.job = { name: action.job, label: action.job.toUpperCase(), tag: action.job.toUpperCase(), grade: 0, gradeLabel: "Entry", salary: 40, paycheckMinutes: 30 };
-              fire(PAGE_EVENTS.state, { job: state.job });
+            case "jobs.apply": {
+              const offer = jobFixture().jobs.find((j) => j.name === action.job);
+              if (!offer) { result(false, "Unknown job.", action.type); break; }
+              state.job = { name: offer.name, label: offer.label, tag: offer.tag, grade: 0, gradeLabel: offer.entryGrade.label, salary: offer.entryGrade.salary, paycheckMinutes: 30 };
+              state.jobRun = { active: false };
+              fire(PAGE_EVENTS.state, { job: state.job, jobRun: state.jobRun });
               result(true, `Hired: ${action.job}.`, action.type);
               break;
+            }
+            case "jobs.locate":
+              result(true, "GPS set. No shift or employment required.", action.type); break;
+            case "jobs.start": {
+              const offer = jobFixture().jobs.find((j) => j.name === state.job.name);
+              if (!offer?.route) { result(false, "Choose a job first.", action.type); break; }
+              state.jobRun = { active: true, id: "mock-work-order", job: offer.name, label: offer.route.label, reward: offer.route.reward,
+                index: 1, total: 4, icon: offer.recruitment?.icon, hint: "Follow the yellow marker. Press E at the work point.",
+                objective: { label: "Collect the first load", kind: "work", position: { x: 0, y: 0, z: 0 }, radius: 2.6 } };
+              fire(PAGE_EVENTS.state, { jobRun: state.jobRun });
+              result(true, "Work order assigned.", action.type); break;
+            }
+            case "jobs.cancel":
+              state.jobRun = { active: false }; fire(PAGE_EVENTS.state, { jobRun: state.jobRun });
+              result(true, "Work order cancelled.", action.type); break;
             case "jobs.quit":
               state.job = { name: "unemployed", label: "Unemployed", tag: "CIVILIAN", grade: 0, gradeLabel: "Citizen", salary: 0, paycheckMinutes: 30 };
-              fire(PAGE_EVENTS.state, { job: state.job });
+              state.jobRun = { active: false };
+              fire(PAGE_EVENTS.state, { job: state.job, jobRun: state.jobRun });
               result(true, "You quit your job.", action.type);
               break;
             case "welcome.ack":

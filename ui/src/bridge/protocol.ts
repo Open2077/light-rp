@@ -2,6 +2,11 @@
    shapes the server pushes through it. Mirror of shared/events.lua: change both. */
 
 export const PAGE_EVENTS = {
+  support: "lightrp:ui:support",
+  animationsAction: "lightrp:ui:animations:action",
+  animationsState: "lightrp:ui:animations:state",
+  animationsCatalog: "lightrp:ui:animations:catalog",
+  animationsPreferences: "lightrp:ui:animations:preferences",
   // page -> Lua
   ready: "lightrp:ui:ready",
   action: "lightrp:ui:action",
@@ -10,6 +15,9 @@ export const PAGE_EVENTS = {
   dialogState: "lightrp:ui:dialog:state", // page -> Lua: { kind, open } so a toggle key can close instead of reopening
   // Lua -> page
   dialogClose: "lightrp:ui:dialog:close", // Lua -> page: { kind } close that dialog
+  creator: "lightrp:ui:creator",
+  tutorial: "lightrp:ui:tutorial",
+  freecam: "lightrp:ui:freecam", // page -> Lua: { operation: "toggle" }; Lua -> page: FreecamState
   characterEditor: "lightrp:ui:character:editor", // Lua -> page: native editor handoff { active, error? }
   state: "lightrp:ui:state",
   hud: "lightrp:ui:hud",
@@ -102,12 +110,15 @@ export interface ServerInfo { name: string; playersOnline: number; maxPlayers: n
 /** Everything the server knows about this player that the UI shows. Sent whole on
  *  connect, then as partial patches (every top-level key optional). */
 export interface UiState {
+  tutorial?: TutorialState;
   server: ServerInfo;
   character: CharacterState;
   needs: NeedsState;
   money: MoneyState;
   rental: RentalState;
   job: JobState;
+  jobRun?: JobRunState;
+  jobWork?: JobWorkState;
   gang: GangState;
   vehicles: { catalog: VehicleEntry[]; owned: OwnedVehicle[]; cooldownUntil?: number };
   staff: StaffState;
@@ -115,6 +126,41 @@ export interface UiState {
   online: Array<{ id: number; name: string }>;
 }
 export type UiStatePatch = Partial<UiState>;
+
+/** The free camera, as client/core/freecam.lua publishes it. `keys` are the effective bindings. */
+export interface FreecamState {
+  active: boolean;
+  phase?: "preparing" | "active";
+  paused?: boolean;
+  hints?: boolean;
+  keys?: Record<string, string>;
+  radius?: number;
+  distance?: number;
+  speed?: number;
+  fov?: number;
+}
+
+export interface TutorialStop { step: string; label: string; x: number; y: number; state: "done" | "now" | "next" }
+
+export interface TutorialState {
+  active: boolean; available: boolean; status?: "active" | "paused" | "done";
+  key?: string; step?: string; revision?: number; index?: number; total?: number;
+  title?: string; hint?: string; line?: string; contact?: string; role?: string;
+  /** A line is plain text, or text with the example UI (`demo`) played beside it. */
+  dialogue?: string; lines?: Array<string | { text: string; demo?: string }>;
+  /** The destination as the reveal camera titles it; the example UI of the objective card. */
+  place?: string; direction?: string; demo?: string;
+  /** The arrival hall from above (metres from the square, x east, y north), one entry per stop. */
+  map?: TutorialStop[];
+  /** The guide's own name (the quoted hint), the label of the last dialogue button, where the step is played. */
+  guide?: string; action?: string; kind?: string; where?: "lobby" | "city";
+  /** What the objective card lists, in order; `key` names a binding (menu, inventory, interact) drawn as a key cap. */
+  todo?: Array<{ key?: "menu" | "inventory" | "interact" | "context"; text: string }>;
+  practice?: { prop: string; vehicle: number; position: { x: number; y: number; z: number } };
+  practiceError?: string;
+  opening?: { eyebrow?: string; title?: [string, string]; subtitle?: string; place?: string };
+  objective?: { position: { x: number; y: number; z: number }; label: string; radius: number; kind?: string; interaction?: string };
+}
 
 /** Sampled on the client every ~100 ms: vitals, vehicle, voice. */
 export interface HudState {
@@ -148,10 +194,11 @@ export interface InventoryItem {
   label: string; description?: string; weight: number; icon: IconNameWire; category?: string; usable: boolean; stack: number;
   image?: string;
   effects?: { food?: number; drink?: number; health?: number };
+  useAction?: { label: string; durationMs: number; icon: IconNameWire };
 }
 export type IconNameWire = string;
 export interface InventorySnapshot {
-  id: string; kind: "player" | "trunk" | "drop" | "stash" | "ground"; label: string;
+  id: string; kind: "player" | "trunk" | "drop" | "stash" | "ground" | "housing"; label: string;
   slots: number; maxWeight: number; weight: number; items: InventoryItem[];
 }
 export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot; toggleKey?: string }
@@ -170,20 +217,60 @@ export interface ShopUpdate {
   session: string; request?: number; ok?: boolean; text?: string; closed?: boolean;
   catalogueChanged?: boolean; refresh?: boolean; state?: ShopDialogPayload;
 }
-export interface JobOffer { name: string; label: string; tag: string; grades: number; entryGrade: { label: string; salary: number } }
+export interface JobOffer {
+  name: string; label: string; tag: string; grades: number; entryGrade: { label: string; salary: number };
+  recruitment?: { image?: string; icon?: string; environment?: string; headline?: string; description?: string; steps?: string[] };
+  route?: { label: string; reward: number; stops: number; estimate: string; description: string };
+  work?: { raw:string; product:string; collectCount:number; collectWeight:number; inputCount:number; outputCount:number; price:number };
+}
+export interface JobWorkState {
+  active:boolean; job?:string; kind?:"collect"|"process"|"sell"; label?:string; icon?:string;
+  busy?:boolean; cycles?:number; weight?:number; maxWeight?:number;
+  raw?:string; product?:string; rawCount?:number; productCount?:number; earned?:number;
+}
+export interface JobRunState {
+  active: boolean; id?: string; job?: string; label?: string; reward?: number;
+  index?: number; total?: number; busy?: boolean; working?: boolean; icon?: string; hint?: string;
+  objective?: { label: string; kind: "work" | "lift" | "return"; position: { x: number; y: number; z: number }; radius: number };
+}
 export interface JobCenterDialogPayload { kind: "jobcenter"; spot: { id: string; name: string }; jobs: JobOffer[]; paycheckMinutes: number }
+export interface PersonalVehicle {
+  id: string; key: string; label: string; category: string; status: "stored" | "out";
+  garageId: string; garageName: string; health: number; canRetrieve: boolean; canStore: boolean; hint?: string;
+}
+export interface GarageDialogPayload {
+  kind: "garage"; session: string; nextRequest: number;
+  spot: { id: string; name: string }; vehicles: PersonalVehicle[]; maxOutside: number;
+}
+export interface GarageUpdate {
+  session: string; request?: number; ok?: boolean; text?: string; closed?: boolean; state?: GarageDialogPayload;
+}
+export interface DealershipOffer extends RentalStockItem { description?: string }
+export interface DealershipDialogPayload {
+  kind: "dealership"; session: string; nextRequest: number;
+  dealer: { id: string; name: string; subtitle?: string }; garage: { id: string; name: string };
+  stock: DealershipOffer[]; money: { currency: string; cash: number; bank: number };
+}
+export interface DealershipUpdate {
+  session: string; request?: number; ok?: boolean; text?: string; closed?: boolean; state?: DealershipDialogPayload; vehicleId?: string;
+}
 /** A gas station pump, sent when the player presses E at it. `vehicle` is the
  *  car parked at the pump (absent when none is within pumpRange). */
 export interface FuelDialogPayload {
   kind: "fuel";
-  spot: { id: string; name: string };
+  spot: { id: string; name: string; pump?: number; pumps?: number };
   pricePerLitre: number;
   pumpRange: number;
-  vehicle?: { id: number; label: string; litres: number; capacity: number; moving: boolean };
+  vehicle?: FuelVehicle;
+  vehicles?: FuelVehicle[];
+  litresPerSecond?: number;
+  minimumFillMs?: number;
+  busy?: boolean;
   jerrycan: { litres: number; refillPrice: number; buyPrice: number; empty: number; full: number };
   money: { currency: string; cash: number; bank: number };
 }
-export type DialogPayload = RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | FuelDialogPayload;
+export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
+export type DialogPayload = RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean };
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -202,6 +289,10 @@ export interface IdentityFields { firstName: string; lastName: string; birthDate
  *  handled by the client Lua itself because they open another package's native
  *  screen: character.appearance.open and character.wardrobe.open. */
 export type UiAction =
+  | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
+  | { type: "dealership.close"; session: string }
+  | { type: "garage.retrieve" | "garage.store"; session: string; request: number; vehicle: string }
+  | { type: "garage.close"; session: string }
   | { type: "shop.checkout"; session: string; request: number; revision: number; mode: "buy" | "sell"; pay: "cash" | "bank"; lines: Array<{ name: string; count: number }> }
   | { type: "shop.close"; session: string }
   | ({ type: "character.identity" } & IdentityFields)
@@ -220,6 +311,7 @@ export type UiAction =
   | { type: "rental.return" }
   | { type: "fuel.buy"; spot: string; vehicle: number; litres: number; pay: "cash" | "bank" }
   | { type: "fuel.jerrycan"; spot: string; pay: "cash" | "bank" }
+  | { type: "fuel.refresh"; spot: string }
   | { type: "inventory.open"; target?: string }
   | { type: "inventory.close" }
   | { type: "inventory.move"; from: { inventory: string; slot: number }; to: { inventory: string; slot: number }; count: number }
@@ -228,6 +320,9 @@ export type UiAction =
   | { type: "inventory.give"; slot: number; count: number }
   | { type: "jobs.apply"; spot: string; job: string }
   | { type: "jobs.quit" }
+  | { type: "jobs.start" }
+  | { type: "jobs.locate"; job:string; stage:"collect"|"process"|"sell" }
+  | { type: "jobs.cancel" }
   | { type: "staff.tp"; target: "me" | number; location: string }
   | { type: "staff.heal"; target: "me" | number }
   | { type: "staff.announce"; text: string }

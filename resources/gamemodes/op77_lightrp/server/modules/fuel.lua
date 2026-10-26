@@ -26,7 +26,6 @@ local Fuel = LightRP.module("fuel", {})
 
 local KEY, KEY_MAX = "fuel", "fuelMax"
 local tanks = {}     -- vehicleId -> { litres, capacity, empty, warned, record }
-local stations = {}  -- interaction id -> station definition
 local stored = {}    -- ownerId -> litres (owned vehicles in a garage, mirrored in SQL)
 Fuel.tanks = tanks
 
@@ -185,9 +184,10 @@ function Fuel.set(vehicleId, litres)
     if tank == nil then return nil, "vehicle_not_found" end
     litres = tonumber(litres)
     if litres == nil or litres ~= litres then return nil, "invalid_amount" end
+    local old, exact = tank.litres, tank.exact
     tank.litres = round1(math.max(0, math.min(tank.capacity, litres)))
     tank.exact = tank.litres -- the sub-tenth accumulator of the tick restarts from a set
-    write(vehicleId, tank)
+    if not write(vehicleId, tank) then tank.litres, tank.exact = old, exact; return nil, "state_write_failed" end
     if tank.litres <= 0 then cut(vehicleId, tank, true) else revive(vehicleId, tank) end
     return tank.litres
 end
@@ -200,8 +200,8 @@ function Fuel.add(vehicleId, litres)
     local room = math.max(0, tank.capacity - tank.litres)
     local added = round1(math.min(room, litres))
     if added <= 0 then return 0 end
-    Fuel.set(vehicleId, tank.litres + added)
-    return added
+    local level = Fuel.set(vehicleId, tank.litres + added)
+    return level and added or 0
 end
 
 -- "rental" = a random partial tank; "full"; or a fraction 0..1.
@@ -309,181 +309,10 @@ AddEventHandler("onVehicleRemoved", function(id)
 end)
 
 -- ---------------------------------------------------------------------------
--- Gas stations: pump points with a marker, a blip and the "fuel" dialog
+-- Gas stations
 
-local function stationVehicle(playerId, station)
-    -- The car has to be at the pump, not the player: the pump point is the anchor.
-    if type(Open77.vehicles.nearby) ~= "function" then return nil end
-    local ok, list = pcall(Open77.vehicles.nearby, station.position, Config.pumpRange or 7.0, { limit = 4 })
-    if not ok or type(list) ~= "table" then return nil end
-    local best, bestDistance
-    for _, entry in ipairs(list) do
-        local id = entry.id or entry.vehicleId
-        local p = id and Open77.vehicles.getPosition(id)
-        if p then
-            local dx, dy, dz = p.x - station.position.x, p.y - station.position.y, p.z - station.position.z
-            local d = math.sqrt(dx * dx + dy * dy + dz * dz)
-            if bestDistance == nil or d < bestDistance then best, bestDistance = id, d end
-        end
-    end
-    return best
-end
+-- Pump sessions and jerrycans live in refueling.lua, loaded after inventory.
 
-local function vehiclePayload(vehicleId)
-    if vehicleId == nil then return nil end
-    local info = Fuel.info(vehicleId)
-    local snapshot = Open77.vehicles.get(vehicleId)
-    if info == nil or snapshot == nil then return nil end
-    return { id = vehicleId, label = Fuel.labelOf(snapshot.record), litres = info.litres, capacity = info.capacity,
-        moving = (tonumber(snapshot.speed) or 0) > (Config.parkedSpeed or 0.5) }
-end
-
-local function jerrycanPayload(playerId)
-    local can = Config.jerrycan or {}
-    local price = tonumber(Config.pricePerLitre) or 3
-    local inv = LightRP.inventory
-    local invId = inv and inv.playerId(playerId)
-    return {
-        litres = can.litres or 20,
-        refillPrice = math.ceil((can.litres or 20) * price),
-        buyPrice = math.ceil((can.litres or 20) * price + (can.deposit or 0)),
-        empty = invId and inv.count(invId, "jerrycan_empty") or 0,
-        full = invId and inv.count(invId, "jerrycan") or 0,
-    }
-end
-
-local function payload(playerId, station)
-    local w = LightRP.money and LightRP.money.get(playerId)
-    return {
-        spot = { id = station.id, name = station.name },
-        pricePerLitre = tonumber(Config.pricePerLitre) or 3,
-        vehicle = vehiclePayload(stationVehicle(playerId, station)),
-        pumpRange = Config.pumpRange or 7.0,
-        jerrycan = jerrycanPayload(playerId),
-        money = { currency = LightRpConfig.economy.currency or "€$", cash = w and w.cash or 0, bank = w and w.bank or 0 },
-    }
-end
-
-CreateThread(function()
-    Wait(800)
-    for _, entry in ipairs(Config.stations or {}) do
-        local station = {}
-        for k, v in pairs(entry) do station[k] = v end
-        local id = "fuel." .. station.id
-        stations[id] = station
-        LightRP.interaction(id, {
-            position = station.position, radius = Config.interactRadius or 2.5,
-            label = station.name, prompt = Config.prompt or "Refuel", key = "E", promptHeight = 1.0,
-            marker = station.marker or Config.marker, ring = false,
-            blip = Config.blip and { sprite = Config.blip.sprite, title = station.name, description = Config.blip.description } or nil,
-        })
-    end
-    if #(Config.stations or {}) > 0 then LightRP.log("fuel: %d gas station pump(s) open", #Config.stations) end
-end)
-
-function Fuel.onInteract(playerId, id)
-    local station = stations[id]
-    if station == nil then return end
-    local c = LightRP.characters.get(playerId)
-    if c == nil or c.status ~= "active" then return LightRP.result(playerId, false, "Finish your character first.", "fuel.open") end
-    LightRP.dialog(playerId, "fuel", payload(playerId, station))
-end
-
-local function nearPump(playerId, station)
-    local p = Open77.players.position(playerId)
-    local life = Open77.players.getLifeState(playerId)
-    return p and (p.bucket or 0) == 0 and life and life.phase == "alive"
-        and LightRP.nearInteraction(playerId, { position = station.position, radius = Config.interactRadius or 2.5 }, 2.5)
-end
-
-local function charge(playerId, pay, amount, note, counterparty)
-    if pay == "bank" then return LightRP.money.removeBank(playerId, amount, "fuel", note, counterparty) end
-    return LightRP.money.removeCash(playerId, amount, "fuel", note, counterparty)
-end
-
-LightRP.action("fuel.buy", function(playerId, data)
-    local station = stations["fuel." .. tostring(data.spot or "")]
-    if station == nil then return LightRP.result(playerId, false, "That pump does not exist.", "fuel.buy") end
-    if not nearPump(playerId, station) then return LightRP.result(playerId, false, "Walk up to the pump.", "fuel.buy") end
-    local vehicleId = tonumber(data.vehicle)
-    local atPump = stationVehicle(playerId, station)
-    if vehicleId == nil or atPump ~= vehicleId then return LightRP.result(playerId, false, "Park the vehicle next to the pump.", "fuel.buy") end
-    local snapshot = Open77.vehicles.get(vehicleId)
-    if snapshot == nil then return LightRP.result(playerId, false, "That vehicle is gone.", "fuel.buy") end
-    if (tonumber(snapshot.speed) or 0) > (Config.parkedSpeed or 0.5) then return LightRP.result(playerId, false, "Stop the vehicle first.", "fuel.buy") end
-    local info = Fuel.info(vehicleId)
-    local room = math.floor(info.capacity - info.litres)
-    local litres = math.floor(tonumber(data.litres) or 0)
-    if litres <= 0 or room <= 0 then return LightRP.result(playerId, false, "The tank is full.", "fuel.buy") end
-    litres = math.min(litres, room)
-    local pay = data.pay == "bank" and "bank" or "cash"
-    local price = math.ceil(litres * (tonumber(Config.pricePerLitre) or 3))
-    local ok, reason = charge(playerId, pay, price, string.format("%d L · %s", litres, Fuel.labelOf(snapshot.record)), station.name)
-    if not ok then return LightRP.result(playerId, false, LightRP.money.explain and LightRP.money.explain(reason) or "Payment refused.", "fuel.buy") end
-    local added = Fuel.add(vehicleId, litres)
-    LightRP.result(playerId, true, string.format("Refuelled %d L for %s.", added, LightRP.money.format(price)), "fuel.buy")
-    LightRP.dialog(playerId, "fuel", payload(playerId, station))
-end)
-
--- A full can: refill an empty one you carry, or buy can + fuel.
-LightRP.action("fuel.jerrycan", function(playerId, data)
-    local station = stations["fuel." .. tostring(data.spot or "")]
-    if station == nil then return LightRP.result(playerId, false, "That pump does not exist.", "fuel.jerrycan") end
-    if not nearPump(playerId, station) then return LightRP.result(playerId, false, "Walk up to the pump.", "fuel.jerrycan") end
-    local inv = LightRP.inventory
-    local invId = inv and inv.playerId(playerId)
-    if invId == nil then return LightRP.result(playerId, false, "No inventory.", "fuel.jerrycan") end
-    local can = jerrycanPayload(playerId)
-    local refill = can.empty > 0
-    local price = refill and can.refillPrice or can.buyPrice
-    local pay = data.pay == "bank" and "bank" or "cash"
-    if refill then
-        -- Free the slot first so a single-slot inventory can still swap the can.
-        local removed = inv.removeItem(invId, "jerrycan_empty", 1)
-        if not removed then return LightRP.result(playerId, false, "Could not take your empty can.", "fuel.jerrycan") end
-    end
-    if not inv.canHold(inv.get(invId), "jerrycan", 1) then
-        if refill then inv.addItem(invId, "jerrycan_empty", 1) end
-        return LightRP.result(playerId, false, "No room for a full jerrycan.", "fuel.jerrycan")
-    end
-    local ok, reason = charge(playerId, pay, price, refill and "Jerrycan refill" or "Jerrycan + fuel", station.name)
-    if not ok then
-        if refill then inv.addItem(invId, "jerrycan_empty", 1) end
-        return LightRP.result(playerId, false, LightRP.money.explain and LightRP.money.explain(reason) or "Payment refused.", "fuel.jerrycan")
-    end
-    inv.addItem(invId, "jerrycan", 1)
-    LightRP.result(playerId, true, string.format("%s for %s.", refill and "Jerrycan refilled" or "Jerrycan bought", LightRP.money.format(price)), "fuel.jerrycan")
-    LightRP.dialog(playerId, "fuel", payload(playerId, station))
-end)
-
--- Using a jerrycan: pour it into the closest vehicle, keep the empty can.
-if LightRP.inventory and LightRP.inventory.onUse then
-    LightRP.inventory.onUse("jerrycan", function(playerId, item)
-        local can = Config.jerrycan or {}
-        if Open77.vehicles.getPlayerSeat(playerId) then
-            LightRP.result(playerId, false, "Step out of the vehicle to use the jerrycan.", "inventory.use")
-            return false
-        end
-        local ok, entry = pcall(Open77.vehicles.closest, playerId, { radius = can.range or 4.0 })
-        local vehicleId = ok and type(entry) == "table" and (entry.id or entry.vehicleId) or nil
-        if vehicleId == nil then
-            LightRP.result(playerId, false, "No vehicle close enough to pour fuel into.", "inventory.use")
-            return false
-        end
-        local added = Fuel.add(vehicleId, can.litres or 20)
-        if added <= 0 then
-            LightRP.result(playerId, false, "That tank is already full.", "inventory.use")
-            return false
-        end
-        local snapshot = Open77.vehicles.get(vehicleId)
-        LightRP.notice(playerId, { kind = "item", title = "JERRYCAN", body = string.format("You pour %.0f L into the %s.", added, Fuel.labelOf(snapshot and snapshot.record)), durationMs = 5000 })
-        local invId = LightRP.inventory.playerId(playerId)
-        if invId then LightRP.inventory.addItem(invId, "jerrycan_empty", 1) end
-        return true
-    end)
-end
-
--- ---------------------------------------------------------------------------
 -- Staff
 
 local function pickVehicle(source, value)

@@ -21,3 +21,5 @@ export const itemCatalogue: InventoryItem[] = [
   { name: "medkit", label: "MaxDoc", weight: .6, stack: 5, category: "medical", icon: "pill", effects: { health: 70 } },
   { name: "firstaid", label: "Field First Aid Kit", weight: 1, stack: 3, category: "medical", icon: "briefcase-medical", effects: { health: 45 } },
 ].map((item, i) => ({ ...item, slot: i + 1, count: 2, usable: true, image: `img/items/${item.name}.png`, description: "Catalogue preview · values and descriptions can be configured in shared/items.lua." }));
+itemCatalogue.push({ name: "cash", label: "Eurodollars", slot: 19, count: 12500, weight: 0, stack: 1000000000, usable: false,
+  category: "currency", icon: "banknote", image: "img/items/cash.png", description: "Physical cash. One unit is worth €$1. Split, give or store it like any other item. Only the cash in your pockets can be spent." });

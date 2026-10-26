@@ -3,7 +3,7 @@ import { useStore } from "@/state/store";
 import { emit, on, sendAction } from "@/bridge/open77";
 import { PAGE_EVENTS, type InventoryDialogPayload, type InventoryItem, type InventorySnapshot, type UiAction } from "@/bridge/protocol";
 import { Icon } from "@/design/components";
-import { emptySlot, itemAt, itemIdentity, kg, matchesToggleKey, quantity, transferSlot, type SlotRef } from "./model";
+import { emptySlot, itemAt, itemIdentity, itemAmount, kg, matchesToggleKey, quantity, transferSlot, type SlotRef } from "./model";
 import { ItemArt, ItemEffects } from "./ItemArt";
 import "./inventory.css";
 
@@ -217,21 +217,21 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
       <div className="inventory__layout">
         {(["left", "right"] as const).map((side) => <InventoryPanel key={side} inventory={payload[side]} side={side} search={search[side]}
           onSearch={(value) => setSearch((old) => ({ ...old, [side]: value }))} selected={selected} busy={busy} drag={drag} select={select} onPointerDown={pointerDown} onContext={context} />)}
-        <aside className="inventory-detail" aria-label="Item details"><span className="inventory__eyebrow">{selectedItem ? "Selected item" : "Item details"}</span>
+        <aside className="inventory-detail" data-currency={selectedItem?.name === "cash" || undefined} aria-label="Item details"><span className="inventory__eyebrow">{selectedItem ? "Selected item" : "Item details"}</span>
           {selectedItem ? <>
             <div className="inventory-detail__item" key={`${selected?.inventory}:${selected?.slot}:${selectedItem.name}`}>
               <div className="inventory-detail__art"><ItemArt item={selectedItem} size="detail" /></div>
-              <span className="inventory-detail__category">{selectedItem.category ?? "Personal item"}</span><h2>{selectedItem.label}</h2>
+              <span className="inventory-detail__category">{selectedItem.category ?? "Personal item"}{selectedItem.useAction && <span title={`${selectedItem.useAction.label} · Escape to cancel`}> · {selectedItem.useAction.durationMs / 1000}s</span>}</span><h2>{selectedItem.label}</h2>
               <p>{selectedItem.description || "Keep it in your pockets or move it to storage."}</p>
               <ItemEffects item={selectedItem} />
-              <dl><div><dt>Weight each</dt><dd>{kg(selectedItem.weight)} kg</dd></div><div><dt>In this stack</dt><dd>{selectedItem.count} <span>· {kg(selectedItem.weight * selectedItem.count)} kg</span></dd></div></dl>
+              <dl><div><dt>Weight each</dt><dd>{selectedItem.weight === 0 ? "Weightless" : `${kg(selectedItem.weight)} kg`}</dd></div><div><dt>In this stack</dt><dd>{itemAmount(selectedItem)} <span>· {kg(selectedItem.weight * selectedItem.count)} kg</span></dd></div></dl>
             </div>
             <div className="inventory-quantity"><label htmlFor="inventory-amount">Quantity <span>{amount.trim() === "" ? "All items" : `${count} selected`}</span></label>
-              <div className="inventory-quantity__row"><input id="inventory-amount" aria-label="Quantity" inputMode="numeric" type="text" placeholder={String(selectedItem.count)} value={amount} disabled={busy} aria-invalid={count === 0} onChange={(event) => { setAmount(event.target.value.replace(/[^0-9]/g, "").slice(0, 7)); setConfirmation(null); }} />
+              <div className="inventory-quantity__row"><input id="inventory-amount" aria-label="Quantity" inputMode="numeric" type="text" placeholder={String(selectedItem.count)} value={amount} disabled={busy} aria-invalid={count === 0} onChange={(event) => { setAmount(event.target.value.replace(/[^0-9]/g, "").slice(0, 10)); setConfirmation(null); }} />
                 <button disabled={busy} onClick={() => { setAmount("1"); setConfirmation(null); }}>1</button><button disabled={busy || selectedItem.count < 2} onClick={() => { setAmount(String(Math.floor(selectedItem.count / 2))); setConfirmation(null); }}>Half</button><button disabled={busy} onClick={() => { setAmount(""); setConfirmation(null); }}>All</button></div>
             </div>
             {confirmation ? <div className="inventory-confirm" role="alert"><strong>{confirmation === "drop" ? "Drop on the ground?" : "Give to the nearest player?"}</strong>
-              <p>{count} × {selectedItem.label}{confirmation === "give" ? ". The server checks who is close enough." : ". Other players can pick this up."}</p>
+              <p>{itemAmount(selectedItem, count)} {selectedItem.label}{confirmation === "give" ? ". The server checks who is close enough." : ". Other players can pick this up."}</p>
               <div><button className="inventory-button inventory-button--primary" disabled={busy || !count} onClick={confirm}>Confirm {confirmation}</button><button className="inventory-button" onClick={() => setConfirmation(null)}>Cancel</button></div></div>
               : <div className="inventory-detail__actions">
                 {mine && selectedItem.usable && <button className="inventory-button inventory-button--primary" disabled={busy} onClick={() => perform("use")}><Icon name="hand" size={16} />Use one<Icon name="arrow-right" size={15} /></button>}
@@ -244,7 +244,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
       </div>
       <footer className="inventory__footer"><span className={status.error ? "inventory__feedback is-error" : "inventory__feedback"} role="status"><Icon name={busy ? "loader" : status.error ? "triangle-alert" : "info"} size={14} />{status.text}</span><span><kbd>Shift</kbd> + drag half <i /> <kbd>1–5</kbd> select <i /> Right-click actions</span></footer>
     </div>
-    {drag && <div ref={ghost} className="inventory-ghost" style={{ transform: `translate(${drag.x + 15}px, ${drag.y + 15}px)` }}><ItemArt item={drag.item} size="drag" /><div>{drag.item.label}<small>{drag.count} items</small></div></div>}
+    {drag && <div ref={ghost} className="inventory-ghost" style={{ transform: `translate(${drag.x + 15}px, ${drag.y + 15}px)` }}><ItemArt item={drag.item} size="drag" /><div>{drag.item.label}<small>{itemAmount(drag.item, drag.count)}</small></div></div>}
     {menu && selectedItem && <div className="inventory-menu" role="menu" aria-label={`${selectedItem.label} actions`} style={{ left: Math.max(8, Math.min(menu.x, innerWidth - 244)), top: Math.max(8, Math.min(menu.y, innerHeight - 280)) }}>
       <span>{selectedItem.label}</span>
       {mine && selectedItem.usable && <button role="menuitem" onClick={() => perform("use")}><Icon name="hand" size={14} />Use one</button>}
@@ -291,7 +291,7 @@ function InventoryPanel({ inventory: inv, side, search, onSearch, selected, busy
               if (target) { target.focus(); select({ inventory: inv.id, slot: Number(target.dataset.slot) }); }
             }}>
             <span className="inventory-slot__index">{side === "left" && slot <= 5 ? slot : String(slot).padStart(2, "0")}</span>
-            {item ? <><span className="inventory-slot__count" key={`${item.name}:${item.count}`}>×{item.count}</span><span className="inventory-slot__icon"><ItemArt item={item} /></span><span className="inventory-slot__label">{item.label}</span></> : <span className="inventory-slot__empty">·</span>}
+            {item ? <><span className="inventory-slot__count" title={itemAmount(item)} key={`${item.name}:${item.count}`}>{itemAmount(item, item.count, true)}</span><span className="inventory-slot__icon"><ItemArt item={item} /></span><span className="inventory-slot__label">{item.label}</span></> : <span className="inventory-slot__empty">·</span>}
           </button>;
         })}
         {slots.length === 0 && <div className="inventory-no-results"><Icon name="search" size={25} /><h3>No matching items</h3><p>Try another name or clear your search.</p><button className="inventory-button" onClick={() => onSearch("")}>Clear search</button></div>}

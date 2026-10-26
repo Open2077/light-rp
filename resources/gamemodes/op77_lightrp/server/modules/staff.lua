@@ -106,17 +106,8 @@ function Staff.announce(text)
 end
 
 function Staff.report(playerId, message)
-    local c = LightRP.characters.get(playerId)
-    local reporter = LightRP.characters.displayName(playerId)
-    LightRP.log("REPORT from %s (%s): %s", reporter, c and c.identifier or "?", message)
-    if c and c.identifier then
-        Db.run("INSERT INTO lightrp_reports (identifier, reporter, message) VALUES (?, ?, ?)", { c.identifier, reporter, message })
-    end
-    for _, id in ipairs(GetPlayers()) do
-        if Staff.isStaff(id) then
-            LightRP.notice(id, { kind = "staff", title = "Report", body = reporter .. ": " .. message, durationMs = 15000 })
-        end
-    end
+    if not LightRP.support then return false end
+    return LightRP.support.open(playerId,"player",LightRP.support.text(message,2000))
 end
 
 -- ---------------------------------------------------------------------------
@@ -167,12 +158,7 @@ end))
 -- ---------------------------------------------------------------------------
 -- Commands
 
-LightRP.command("report", { usage = "/report <message>" }, function(source, args)
-    local text = LightRP.joinArgs(args)
-    if text == "" then return false end
-    Staff.report(source, text:sub(1, 512))
-    return true, "Report sent to the staff. Thank you."
-end)
+-- /report is registered by support.lua and opens the durable private desk.
 
 LightRP.command("lightrp.tp", { restricted = true, usage = "/lightrp.tp <id|me> <place | x y z>" }, function(source, args, raw)
     local target = parseTarget(source, args[1])

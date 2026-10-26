@@ -1,33 +1,50 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Icon } from "@/design/components";
 import { useStore } from "@/state/store";
+import "./vitals.css";
 
-const percent = (value: number, max = 100) => Number.isFinite(value) && max > 0 ? Math.max(0, Math.min(100, value / max * 100)) : 0;
+const percent = (value: number, max = 100) => Number.isFinite(value) && Number.isFinite(max) && max > 0 ? Math.max(0, Math.min(100, value / max * 100)) : 0;
+// A 300-degree sweep, with an opening at the bottom. All five gauges share the
+// same geometry; only the health gauge is enlarged, never its stroke/text alone.
+const SWEEP = "M 28.5 87.239 A 43 43 0 1 1 71.5 87.239";
 
 /** Native samples can arrive frequently. Motion is handled by CSS, not a render loop. */
-function Meter({ label, icon, value, max = 100, color, primary = false, warn = false }: {
-  label: string; icon: string; value: number; max?: number; color: string; primary?: boolean; warn?: boolean;
+function Meter({ id, label, icon, value, max = 100, color, primary = false, warn = false }: {
+  id: string; label: string; icon: string; value: number; max?: number; color: string; primary?: boolean; warn?: boolean;
 }) {
   const pct = percent(value, max);
   const rounded = Math.round(Number.isFinite(value) ? Math.max(0, value) : 0);
   const previous = useRef(rounded);
-  const [change, setChange] = useState(0);
+  const sequence = useRef(0);
+  const [change, setChange] = useState<{ value: number; id: number } | null>(null);
   useEffect(() => {
     const difference = rounded - previous.current;
     previous.current = rounded;
     if (!primary || difference === 0) return;
-    setChange(difference);
-    const timer = window.setTimeout(() => setChange(0), 1400);
+    setChange({ value: difference, id: ++sequence.current });
+    const timer = window.setTimeout(() => setChange(null), 1400);
     return () => window.clearTimeout(timer);
   }, [rounded, primary]);
+  const progress = { strokeDashoffset: 100 - pct, opacity: pct > 0 ? 1 : 0 };
   return (
-    <div className={`player-vital${primary ? " player-vital--health" : ""}${warn ? " player-vital--low" : ""}`}
-      style={{ "--vital-color": warn ? "#ff7d78" : color } as CSSProperties}>
-      <div className="player-vital__heading"><Icon name={icon} size={primary ? 16 : 13} /><span>{label}</span>
-        <span className="player-vital__number">{rounded}{primary && <small> / {Math.round(max)}</small>}</span>
-        {primary && change !== 0 && <span key={rounded} className={`player-vital__delta${change < 0 ? " is-loss" : ""}`}>{change > 0 ? "+" : ""}{change}</span>}
+    <div data-vital={id} data-percent={pct}
+      className={`player-vital${primary ? " player-vital--health" : ""}${warn ? " player-vital--low" : ""}${primary && pct <= 10 ? " player-vital--critical" : ""}${pct === 0 && !warn ? " player-vital--empty" : ""}`}
+      style={{ "--vital-color": warn ? "#ff8278" : color } as CSSProperties}>
+      <div className="player-vital__dial">
+        <svg className="player-vital__gauge" viewBox="0 0 100 100" aria-hidden="true">
+          <circle className="player-vital__face" cx="50" cy="50" r="36" />
+          <path className="player-vital__rim" d={SWEEP} />
+          <path className="player-vital__track" d={SWEEP} />
+          <path className="player-vital__trail" d={SWEEP} pathLength="100" style={progress} />
+          <path className="player-vital__fill" d={SWEEP} pathLength="100" style={progress} />
+        </svg>
+        <div className="player-vital__readout">
+          <Icon className="player-vital__icon" name={icon} size={primary ? 20 : 14} />
+          <span className={`player-vital__number${String(rounded).length > 3 ? " player-vital__number--compact" : ""}`}>{rounded}</span>
+        </div>
+        {primary && change && <span key={change.id} className={`player-vital__delta${change.value < 0 ? " is-loss" : ""}`}>{change.value > 0 ? "+" : ""}{change.value}</span>}
       </div>
-      <div className="player-vital__track"><span className="player-vital__trail" style={{ width: `${pct}%` }} /><span className="player-vital__fill" style={{ width: `${pct}%` }} /></div>
+      <div className="player-vital__caption"><span>{label}</span>{primary && <span className="player-vital__limit">/ {Math.round(Number.isFinite(max) && max > 0 ? max : 0)}</span>}</div>
     </div>
   );
 }
@@ -36,15 +53,17 @@ export function PlayerVitals() {
   const { health, armor, stamina } = useStore((s) => s.hud);
   const needs = useStore((s) => s.state.needs);
   const lowHealth = percent(health.value, health.max) <= 25;
-  const warnings = [lowHealth && "Low health", needs.food <= 20 && "Hungry", needs.drink <= 20 && "Thirsty"].filter(Boolean);
+  const food = percent(needs.food);
+  const drink = percent(needs.drink);
+  const warnings = [lowHealth && "Low health", food <= 20 && "Hungry", drink <= 20 && "Thirsty"].filter(Boolean);
   return <div className="player-vitals">
-    {warnings.length > 0 && <div className="player-vitals__warning"><Icon name="triangle-alert" size={12} />{warnings.join(" · ")}</div>}
-    <Meter label="Health" icon="heart-pulse" value={health.value} max={health.max} color="var(--accent)" primary warn={lowHealth} />
+    {warnings.length > 0 && <div className="player-vitals__warning"><Icon name="triangle-alert" size={11} /><span>{warnings.join(" · ")}</span></div>}
+    <Meter id="health" label="Health" icon="heart-pulse" value={health.value} max={health.max} color="var(--accent)" primary warn={lowHealth} />
     <div className="player-vitals__secondary">
-      <Meter label="Armor" icon="shield" value={armor} color="#a8bfd2" />
-      <Meter label="Energy" icon="zap" value={percent(stamina.value, stamina.max)} color="var(--accent)" />
-      <Meter label="Food" icon="apple" value={needs.food} color="#e7c48a" warn={needs.food <= 20} />
-      <Meter label="Water" icon="droplet" value={needs.drink} color="#8fc7d6" warn={needs.drink <= 20} />
+      <Meter id="armor" label="Armor" icon="shield" value={armor} color="#bdccd9" />
+      <Meter id="energy" label="Energy" icon="zap" value={percent(stamina.value, stamina.max)} color="var(--accent)" />
+      <Meter id="food" label="Food" icon="apple" value={food} color="#e7b877" warn={food <= 20} />
+      <Meter id="water" label="Water" icon="droplet" value={drink} color="#72cbd5" warn={drink <= 20} />
     </div>
   </div>;
 }

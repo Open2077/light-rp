@@ -1,0 +1,109 @@
+.first-day { position: fixed; inset: 0; pointer-events: none; z-index: 810; color: #f4f2e9; font-family: 'Chakra Petch', sans-serif; }
+.first-day--modal { pointer-events: auto; }
+.first-day__modal { position: absolute; inset: 0; outline: none; }
+.first-day__eyebrow { font: 600 11px 'Share Tech Mono', monospace; letter-spacing: .12em; color: #f4d655; }
+.first-day button { font: 600 14px 'Chakra Petch', sans-serif; border: 1px solid #ffffff24; background: #121917ec; color: #d2d6cc; padding: 12px 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 14px; transition: background .18s, color .18s, transform .18s; }
+.first-day button:hover, .first-day button:focus-visible { background: #263029; color: white; outline: 2px solid #f4d655; outline-offset: 4px; }
+.first-day button:active { transform: translateY(1px); }
+.first-day button:disabled { opacity: .5; cursor: wait; }
+.first-day button.first-day__primary { background: #f4d655; color: #141912; border-color: #f4d655; }
+.first-day__objective { position: absolute; top: 50%; right: 2.4vw; width: min(372px, 31vw); translate: 0 -50%; background: linear-gradient(200deg,#0c1413f4,#0c1413d8); border-right: 2px solid #f4d655; box-shadow: 0 10px 44px #0005; animation: first-day-slide .45s cubic-bezier(.2,.8,.2,1) both; }
+.first-day__objective header { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 20px 12px; }
+.first-day__count { font: 11px 'Share Tech Mono', monospace; color: #809087; letter-spacing: .08em; }
+.first-day__count b { color: #f4f2e9; font-size: 15px; font-weight: 600; }
+.first-day__steps { display: flex; gap: 4px; margin: 0; padding: 0 20px; list-style: none; }
+.first-day__steps li { flex: 1; height: 3px; background: #ffffff16; transition: background .5s ease; }
+.first-day__steps li.is-done { background: #f4d65599; }
+.first-day__steps li.is-now { background: #f4d655; animation: first-day-now 1.6s ease-in-out infinite; }
+.first-day__task { padding: 18px 20px 14px; animation: first-day-in .4s ease both; }
+.first-day__task h2 { margin: 0 0 14px; font-size: 22px; font-weight: 600; line-height: 1.2; }
+.first-day__task p { margin: 0; font-size: 14px; line-height: 1.65; color: #bec7bf; }
+.first-day__todo { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.first-day__todo li { display: flex; align-items: center; gap: 12px; font-size: 14px; line-height: 1.4; color: #d7ddd4; animation: first-day-row .4s ease both; }
+.first-day__todo li > span:last-child { flex: 1; }
+.first-day__key { flex: none; min-width: 34px; height: 30px; padding: 0 9px; display: inline-grid; place-items: center; background: #f4d655; color: #141912 !important; font: 700 14px 'Chakra Petch', sans-serif !important; border-radius: 4px; box-shadow: 0 3px 0 #9c8523, 0 0 0 0 #f4d65588; animation: first-day-key 1.8s ease-in-out infinite; }
+.first-day__bullet { flex: none; width: 34px; height: 30px; display: inline-grid; place-items: center; color: #f4d655; border: 1px solid #f4d65540; border-radius: 4px; }
+.first-day__distance { display: flex; align-items: center; gap: 10px; margin: 0 20px 14px; padding: 9px 12px; background: #f4d65512; border: 1px solid #f4d65530; font-size: 12px; color: #aab5aa; }
+.first-day__distance b { color: #f4d655; font: 600 15px 'Share Tech Mono', monospace; min-width: 52px; }
+.first-day__distance > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.first-day__beacon { display: inline-grid; place-items: center; color: #f4d655; animation: first-day-bob 1.1s ease-in-out infinite; }
+/* A finished step: centre top, a tick drawn, the run of steps with the new one lit. */
+.first-day__done { position: absolute; top: 15vh; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 18px; padding: 16px 26px 16px 18px; background: linear-gradient(100deg, #10201af4, #0c1413ea); border-bottom: 2px solid #7fd38a; box-shadow: 0 16px 60px #0008; white-space: nowrap; animation: first-day-done 2.6s cubic-bezier(.2,.8,.2,1) both; }
+.first-day__done .first-day__eyebrow { color: #7fd38a; }
+.first-day__done b { display: block; margin-top: 4px; font-size: 22px; font-weight: 600; color: #f4f2e9; }
+.first-day__done ol { display: flex; gap: 4px; margin: 0 0 0 10px; padding: 0; list-style: none; align-self: flex-end; }
+.first-day__done li { width: 14px; height: 4px; background: #ffffff1c; }
+.first-day__done li.is-done { background: #7fd38a; }
+.first-day__done li.is-now { background: #f4d655; animation: first-day-now 1s ease-in-out infinite; }
+.first-day__tick { width: 46px; height: 46px; flex: none; }
+.first-day__tick circle { fill: #7fd38a1f; stroke: #7fd38a; stroke-width: 2.5; stroke-dasharray: 145; stroke-dashoffset: 145; animation: first-day-draw .55s .1s ease-out forwards; }
+.first-day__tick path { fill: none; stroke: #7fd38a; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: first-day-draw .35s .55s ease-out forwards; }
+.first-day__objective blockquote { margin: 0 20px 16px; padding: 12px 0 0; border-top: 1px solid #ffffff12; font-size: 12px; line-height: 1.7; color: #99a69c; }
+.first-day__objective blockquote span { display: block; color: #edce65; letter-spacing: .1em; font: 10px monospace; margin-bottom: 7px; }
+.first-day__objective footer { display: flex; gap: 10px; justify-content: space-between; padding: 11px 20px; background: #ffffff05; font: 10px monospace; color: #85978c; }
+.first-day kbd { font: inherit; color: #eee0a0; }
+.first-day__curtain { position: absolute; inset: 0; background: #080e0c; transition: background 1.4s; }
+.first-day__curtain.is-open { background: linear-gradient(90deg,#060d0abb,transparent 65%),linear-gradient(0deg,#060d0a99,transparent 30%); }
+.first-day__opening { position: absolute; left: 8vw; top: 25vh; animation: first-day-in 1.5s ease both; }
+.first-day__opening > span { color: #f4d655; font: 12px monospace; letter-spacing: .2em; }
+.first-day__opening h1 { font-size: clamp(45px,6vw,110px); line-height: .98; letter-spacing: -.05em; margin: 25px 0; font-weight: 500; }
+.first-day__opening em { font-style: normal; color: #f4d655; }
+.first-day__opening p { color: #c7cec7; font-size: 16px; }
+.first-day__opening-foot { position: absolute; bottom: 7vh; left: 8vw; right: 6vw; display: flex; align-items: center; justify-content: space-between; color: #adbbae; font: 11px monospace; letter-spacing: .08em; }
+.first-day__conversation { position: absolute; bottom: 6vh; left: 50%; transform: translateX(-50%); width: min(1000px,86vw); padding: 25px 34px 20px; background: linear-gradient(120deg,#0c1413f7,#111a15f2); border-top: 2px solid #f4d655; box-shadow: 0 12px 80px #0008; }
+.first-day__speaker { display: flex; align-items: center; gap: 16px; }
+.first-day__portrait { position: relative; display: grid; place-items: center; width: 46px; height: 46px; background: #f4d65519; color: #f4d655; font-size: 26px; }
+.first-day__portrait > span { position: absolute; width: 5px; height: 5px; background: #f4d655; bottom: 5px; right: 5px; border-radius: 50%; }
+.first-day__speaker h2 { margin: 3px 0 0; font-size: 23px; line-height: 1; }
+.first-day__pages { margin-left: auto; display: flex; gap: 5px; }
+.first-day__pages i { width: 18px; height: 3px; background: #ffffff1c; transition: background .3s; }
+.first-day__pages i.is-done { background: #f4d65599; }
+.first-day__pages i.is-now { background: #f4d655; }
+.first-day__portrait.is-talking > span { animation: first-day-talk .5s ease-in-out infinite; }
+.first-day__portrait.is-talking { box-shadow: 0 0 0 1px #f4d65555; }
+.first-day__line { cursor: default; }
+.first-day__unsaid { color: transparent; }
+.first-day__conversation footer kbd { padding: 1px 6px; margin-right: 6px; border: 1px solid #ffffff2a; border-radius: 3px; font: 10px 'Share Tech Mono', monospace; color: #c9cfc6; }
+.first-day__way { display: inline-flex; align-items: center; gap: 8px; color: #c9cfc6; }
+.first-day__waykey { display: inline-grid; place-items: center; min-width: 20px; height: 18px; padding: 0 5px; background: #f4d65522; border: 1px solid #f4d65577; border-radius: 3px; color: #f4d655 !important; font: 700 11px 'Chakra Petch', sans-serif !important; }
+
+/* The flight to the next stop: cinema bars, the place lower left, the hall from above lower right. */
+.first-day__reveal { position: absolute; inset: 0; }
+.first-day__bar { position: absolute; left: 0; right: 0; height: 9vh; background: #030605; }
+.first-day__bar--top { top: 0; animation: first-day-bar-top .6s cubic-bezier(.2,.8,.2,1) both; }
+.first-day__bar--bottom { bottom: 0; animation: first-day-bar-bottom .6s cubic-bezier(.2,.8,.2,1) both; }
+.first-day__reveal-title { position: absolute; left: 6vw; bottom: calc(9vh + 5vh); max-width: 46vw; text-shadow: 0 2px 18px #000c; animation: first-day-in .7s .25s ease both; }
+.first-day__reveal-title .first-day__eyebrow { display: inline-flex; align-items: center; gap: 8px; }
+.first-day__reveal-title h2 { margin: 12px 0 8px; font-size: clamp(34px, 3.6vw, 64px); font-weight: 500; line-height: 1; letter-spacing: -.02em; }
+.first-day__reveal-title p { margin: 0 0 16px; font-size: 16px; color: #c7cec7; }
+.first-day__reveal-title p b { color: #f4d655; font-family: 'Share Tech Mono', monospace; }
+.first-day__reveal-time { display: block; width: 260px; height: 2px; background: #ffffff22; }
+.first-day__reveal-time i { display: block; height: 100%; background: #f4d655; transform-origin: left; animation: first-day-time linear both; }
+.first-day__reveal-map { position: absolute; right: 5vw; bottom: calc(9vh + 4vh); width: min(250px, 22vw); padding: 12px 14px; background: #0c1413cc; border-top: 2px solid #f4d655; animation: first-day-in .7s .45s ease both; }
+.first-day__reveal-map .demo-map { margin-top: 8px; }
+.first-day__reveal-skip { position: absolute; right: 5vw; top: calc(9vh + 3vh); display: flex; align-items: center; gap: 10px; font: 12px 'Share Tech Mono', monospace; letter-spacing: .08em; color: #c7cec7; animation: first-day-in .5s .8s ease both; }
+.first-day__reveal-skip .first-day__key { animation: none; min-width: 60px; }
+.first-day__line { font-size: clamp(16px,1.3vw,24px); line-height: 1.65; margin: 22px 0 25px; min-height: 3.3em; animation: first-day-in .35s ease both; }
+.first-day__conversation footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid #ffffff15; padding-top: 18px; }
+.first-day__conversation footer > span { color: #92a096; font-size: 12px; }
+.first-day__conversation footer > button:first-child { background: none; padding-left: 0; border-color: transparent; color: #a7b3a9; font-size: 12px; }
+.first-day__options { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(520px,85vw); padding: 36px; background: #101914fa; border-top: 2px solid #f4d655; box-shadow: 0 0 0 100vmax #0007; }
+.first-day__options h2 { margin: 20px 0 15px; font-size: 34px; font-weight: 500; }
+.first-day__options p { color: #afbeb1; line-height: 1.7; font-size: 15px; }
+.first-day__options > div { display: flex; flex-direction: column; gap: 12px; margin: 25px 0; }
+.first-day__options small { color: #94a496; font-size: 12px; }
+.first-day__error { position: absolute; top: 5vh; left: 50%; transform: translateX(-50%); background: #361d16; padding: 15px 25px; color: #ffd7ba; max-width: 85vw; }
+@keyframes first-day-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+@keyframes first-day-slide { from { opacity: 0; translate: 16px -50%; } to { opacity: 1; translate: 0 -50%; } }
+@keyframes first-day-row { from { opacity: 0; translate: 14px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes first-day-now { 50% { opacity: .45; } }
+@keyframes first-day-key { 0%, 100% { box-shadow: 0 3px 0 #9c8523, 0 0 0 0 #f4d65577; translate: 0 0; } 50% { box-shadow: 0 2px 0 #9c8523, 0 0 0 7px #f4d65500; translate: 0 1px; } }
+@keyframes first-day-bob { 50% { translate: 0 3px; } }
+@keyframes first-day-done { 0% { opacity: 0; translate: -50% -14px; scale: .96; } 12%, 82% { opacity: 1; translate: -50% 0; scale: 1; } 100% { opacity: 0; translate: -50% -10px; } }
+@keyframes first-day-draw { to { stroke-dashoffset: 0; } }
+@keyframes first-day-talk { 50% { scale: 1.8; opacity: .5; } }
+@keyframes first-day-bar-top { from { translate: 0 -100%; } }
+@keyframes first-day-bar-bottom { from { translate: 0 100%; } }
+@keyframes first-day-time { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 1100px) { .first-day__objective { width: 310px; max-width: 42vw; } .first-day__conversation footer > span { display: none; } .first-day__reveal-map { display: none; } .first-day__reveal-title { max-width: 80vw; } }
+@media (prefers-reduced-motion: reduce) { .first-day *, .first-day *::before { animation: none !important; transition: none !important; } }

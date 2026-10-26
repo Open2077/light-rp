@@ -1,0 +1,96 @@
+/* Five floating dials. No blocking plate: the dark faces stay legible over the
+   world, while the larger yellow health dial anchors LightRP's visual identity. */
+.player-vitals {
+  --vital-size: 56px;
+  --vital-health-size: 86px;
+  --vital-group-gap: 14px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--vital-group-gap);
+  isolation: isolate;
+  font-family: var(--font-core);
+  text-shadow: 0 1px 3px #000, 0 1px 8px #000b;
+  pointer-events: none;
+}
+.player-vitals::before {
+  content: "";
+  position: absolute;
+  inset: -15px -25px -24px;
+  z-index: -1;
+  background: radial-gradient(ellipse at 45% 70%, #080b0d80, transparent 72%);
+  pointer-events: none;
+}
+.player-vitals__secondary { display: flex; align-items: flex-end; gap: 10px; }
+.player-vital { --dial-size: var(--vital-size); position: relative; width: var(--dial-size); flex: 0 0 auto; }
+.player-vital--health { --dial-size: var(--vital-health-size); }
+.player-vital__dial { position: relative; width: 100%; aspect-ratio: 1; }
+.player-vital__gauge { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 3px #0006); }
+.player-vital__face { fill: #0b1013d9; stroke: #ffffff0d; stroke-width: 1; }
+.player-vital__gauge path { fill: none; stroke-linecap: round; }
+.player-vital__rim { stroke: #080b0dc9; stroke-width: 11; }
+.player-vital__track { stroke: #ffffff2c; stroke-width: 5; }
+.player-vital__fill, .player-vital__trail { stroke-width: 5; stroke-dasharray: 100 100; }
+.player-vital__fill { stroke: var(--vital-color); transition: stroke-dashoffset .4s cubic-bezier(.22,1,.36,1), stroke .25s; }
+.player-vital__trail { stroke: #ffffffe0; transition: stroke-dashoffset .7s .14s ease, opacity .2s .65s; }
+.player-vital--health .player-vital__fill, .player-vital--health .player-vital__trail { stroke-width: 5.5; }
+.player-vital__readout { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--dial-size) * .018); transform: translateY(calc(var(--dial-size) * -.036)); }
+.player-vital__icon { width: calc(var(--dial-size) * .215); height: calc(var(--dial-size) * .215); color: var(--vital-color); transition: color .25s, opacity .25s; }
+.player-vital__number { font: 600 calc(var(--dial-size) * .286)/1.3125 var(--font-core); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: #f2f4f5; }
+.player-vital--health .player-vital__readout { gap: calc(var(--dial-size) * .023); transform: translateY(calc(var(--dial-size) * -.045)); }
+.player-vital--health .player-vital__icon { width: calc(var(--dial-size) * .233); height: calc(var(--dial-size) * .233); }
+.player-vital--health .player-vital__number { font-size: calc(var(--dial-size) * .303); line-height: 1.25; }
+.player-vital__number--compact { font-size: calc(var(--dial-size) * .22); }
+.player-vital--health .player-vital__number--compact { font-size: calc(var(--dial-size) * .255); }
+.player-vital__caption { min-height: 15px; margin-top: 2px; display: flex; justify-content: center; align-items: baseline; gap: 4px; white-space: nowrap; font: 600 10px/15px var(--font-core); color: #d1d8dc; letter-spacing: .015em; }
+.player-vital__limit { font: 400 9px/15px var(--font-mono); color: #acb5bb; }
+.player-vital--empty .player-vital__icon { opacity: .5; }
+.player-vital--empty .player-vital__number { color: #b4bec6; }
+.player-vital--low .player-vital__number { color: #ffb3ab; }
+.player-vital--critical .player-vital__icon { animation: vital-critical 1.8s ease-in-out infinite; }
+.player-vitals__warning {
+  position: absolute;
+  left: calc(var(--vital-health-size) + var(--vital-group-gap));
+  right: -4px;
+  bottom: calc(var(--vital-size) + 26px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: max-content;
+  max-width: calc(100% - var(--vital-health-size) - var(--vital-group-gap) + 4px);
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: #101013a8;
+  color: #ffb4a0;
+  font: 500 10px/14px var(--font-core);
+  animation: vital-warning .25s ease both;
+}
+.player-vitals__warning > span { min-width: 0; }
+.player-vital__delta {
+  position: absolute;
+  top: -17px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: #c8eba9;
+  font: 600 13px/18px var(--font-core);
+  font-variant-numeric: tabular-nums;
+  animation: vital-delta 1.4s ease both;
+}
+.player-vital__delta.is-loss { color: #ffa298; }
+@keyframes vital-delta { 0% { opacity: 0; transform: translateY(4px); } 18%, 60% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); } }
+@keyframes vital-warning { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes vital-critical { 50% { opacity: .5; } }
+@media (max-width: 1280px) {
+  .player-vitals { --vital-size: 52px; --vital-health-size: 78px; --vital-group-gap: 12px; }
+  .player-vitals__secondary { gap: 8px; }
+}
+@media (max-width: 600px) {
+  .player-vitals { --vital-size: 48px; --vital-health-size: 72px; --vital-group-gap: 10px; }
+  .player-vitals__secondary { gap: 7px; }
+  .player-vital__caption { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-vital__fill, .player-vital__trail, .player-vital__icon { transition: none; }
+  .player-vital__delta, .player-vitals__warning, .player-vital--critical .player-vital__icon { animation: none; }
+}

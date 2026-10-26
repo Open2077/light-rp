@@ -13,6 +13,9 @@ local lastPress = 0
 -- Native input opens the inventory. Once it captures the keyboard, the WebUI
 -- handles the same binding on key-up (except while typing in a text field).
 function Inventory.open()
+    if LightRpUi.dialogs and LightRpUi.dialogs.support then return end
+    if LightRpRefueling and LightRpRefueling.isActive() then return end
+    if LightRpConsumables and LightRpConsumables.isActive() then return end
     if LightRpActions and LightRpActions.isActive() then return end
     local now = GetGameTimer and GetGameTimer() or (os and os.clock() * 1000) or 0
     if now - lastPress < 350 then return end

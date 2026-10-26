@@ -71,6 +71,7 @@ function Context.perform(playerId, payload)
             C.locked(v) and "Locked" or "Unlocked", C.engineOn(v) and "on" or "off", C.lights(v), math.floor((v.health or 0) * 100 + 0.5))
     end
     if not ok then return false, "Vehicle action refused: " .. tostring(reason or "unavailable") end
+    if LightRP.tutorial then LightRP.tutorial.onVehicleContextAction(playerId,id,action.id) end
     return true, action.label .. " — done."
 end
 

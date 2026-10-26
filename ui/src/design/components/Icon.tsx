@@ -1,16 +1,19 @@
 import type { CSSProperties } from "react";
 import {
-  Activity, Apple, ArrowLeftRight, BadgeCheck, Bandage, Banknote, Battery, Beef, Box, BriefcaseMedical, Calendar, Candy, Car, Check, Cigarette, Clock, Coffee, CreditCard, CupSoda, Pizza, Soup,
+  Activity, Apple, ArrowLeftRight, BadgeCheck, Bandage, Banknote, Battery, Beef, Box, BriefcaseMedical, Calendar, Candy, Car, Check, Cigarette, Clock, Coffee, CreditCard, CupSoda, Pizza, Soup, Fan, Trash2,
   Briefcase, Flame, Footprints, Hammer, Hand, Landmark, PackageOpen, Pill, Sandwich, Smartphone, Wallet, Watch, Wrench, ChevronLeft, ChevronRight, CircleHelp,
   Droplet, FileText, Fuel, HeartPulse, IdCard, Info, Keyboard, KeyRound, Loader, MapPin,
   MessageSquare, Mic, MicOff, OctagonAlert, Package, Radio, Settings, Shield, ShieldAlert,
-  Siren, Terminal, TriangleAlert, User, Users, X, Zap, CheckCheck, Search, ArrowDown, ArrowRight, Backpack, Split, type LucideIcon,
+  Siren, Terminal, TriangleAlert, User, Users, Utensils, X, Zap, CheckCheck, Search, ArrowDown, ArrowRight, Backpack, Split, Video,
+  Lock, LockOpen, ShoppingCart, MessageCircle, Coins, Send, Route, Gauge, Plus, MousePointerClick, type LucideIcon,
 } from "lucide-react";
 
 /* Lucide, bundled (the design system loads it from a CDN; the in-game host serves
    only the resource's own files). Stroke-only, currentColor, 12–20px. Add a glyph
    here when a component needs it: the name is the Lucide kebab-case id. */
 const GLYPHS: Record<string, LucideIcon> = {
+  lock: Lock, "lock-open": LockOpen, "shopping-cart": ShoppingCart, "message-circle": MessageCircle, coins: Coins, send: Send, route: Route, gauge: Gauge, plus: Plus, "mouse-pointer-click": MousePointerClick,
+  video: Video, fan: Fan, "trash-2": Trash2, utensils: Utensils,
   "briefcase-medical": BriefcaseMedical, coffee: Coffee, pizza: Pizza, soup: Soup,
   search: Search, "arrow-down": ArrowDown, "arrow-right": ArrowRight, backpack: Backpack, split: Split,
   activity: Activity, "arrow-left-right": ArrowLeftRight, calendar: Calendar, clock: Clock, footprints: Footprints,

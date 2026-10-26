@@ -1,0 +1,6 @@
+.rp-housing .rp-support__form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+.rp-housing .rp-support__form-actions button { padding:10px 14px; cursor:pointer; border:1px solid var(--rp-line, #3c3c40); background:#28282a; color:#efefef; }
+.rp-housing .rp-support__form-actions button[type=submit] { background:#ffd400; color:#191919; border-color:#ffd400; }
+.rp-housing .rp-support__form-actions button.is-danger { background:#c74242; color:white; border-color:#c74242; }
+.rp-housing .rp-support__form-actions button:disabled { opacity:.5; cursor:wait; }
+.rp-housing .rp-support__record dd { overflow-wrap:anywhere; }

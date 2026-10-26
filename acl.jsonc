@@ -65,6 +65,12 @@
       "userId": "712e7c14-aeb4-47ee-b563-f6216c078e55",
       "role": "owner",
       "permissions": []
+    },
+    {
+      "name": "LightRPUI [83152e61]",
+      "userId": "83152e61-3cf1-4765-87d3-72a2664df714",
+      "role": "owner",
+      "permissions": []
     }
   ]
 }

@@ -11,7 +11,9 @@ local function readinessHeld(playerId)
     return not Open77.ready.isReady(playerId)
 end
 
-local function placeAt(playerId, position, heading, weapon)
+-- `bucket`: where the point is (the arrival hall has its own); nil keeps the
+-- player's bucket.
+local function placeAt(playerId, position, heading, weapon, bucket)
     local life = Open77.players.getLifeState(playerId)
     if life == nil then return false, "player_not_found" end
     if life.phase == "alive" or life.phase == "recovering" then
@@ -21,12 +23,23 @@ local function placeAt(playerId, position, heading, weapon)
         return false, "transition_in_progress"
     end
     return Open77.players.respawn(playerId, {
-        position = position, heading = heading or 0, bucket = life.bucket or 0,
+        position = position, heading = heading or 0, bucket = bucket or life.bucket or 0,
         health = Config.spawn.health, graceMs = Config.spawn.graceMs,
     })
 end
+-- For the modules that move a character themselves (the first day guide).
+function Spawn.place(playerId, point, weapon)
+    return placeAt(playerId, point.position, point.heading, weapon or "lightrp:place", point.bucket)
+end
 
 local function joinPoint(playerId)
+    -- The first day guide owns the arrival hall: a hall step wakes up there, and
+    -- nobody else is left inside it.
+    local guided = LightRP.tutorial and LightRP.tutorial.spawnPoint(playerId)
+    if guided then return guided end
+    -- Logged out at home: wake up inside it.
+    local home = LightRP.housing and LightRP.housing.spawnPoint and LightRP.housing.spawnPoint(playerId)
+    if home then return home end
     local c = LightRP.characters.get(playerId)
     if Config.spawn.restoreLastPosition and c and c.position then
         return { name = "saved", position = c.position, heading = c.heading or 0 }
@@ -48,9 +61,10 @@ local function applyJoinSpawn(playerId)
     local function attempt()
         if joinSpawns[playerId] ~= "pending" then return end
         local point = joinPoint(playerId)
-        local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:join_spawn")
+        local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:join_spawn", point.bucket)
         if ok then
             joinSpawns[playerId] = "complete"
+            if point.home then LightRP.housing.arrived(playerId, point) end
             LightRP.log("player %d (%s) placed at %s (%.2f, %.2f, %.2f)", playerId, LightRP.characters.displayName(playerId),
                 point.name or "?", point.position.x, point.position.y, point.position.z)
             return
@@ -86,11 +100,16 @@ function Spawn.onLifeState(playerId, phase)
     SetTimeout(Config.spawn.respawnDelayMs, function()
         local current = Open77.players.getLifeState(playerId)
         if current == nil or current.phase ~= "dead" then return end
+        -- During a hall step of the first day guide: back at the hall's door.
+        local guided = LightRP.tutorial and LightRP.tutorial.deathPoint(playerId)
+        local point = guided or Config.spawn.hospital
         local ok, reason = Open77.players.respawn(playerId, {
-            position = Config.spawn.hospital.position, heading = Config.spawn.hospital.heading or 0,
-            bucket = current.bucket or 0, health = Config.spawn.health, graceMs = Config.spawn.graceMs,
+            position = point.position, heading = point.heading or 0,
+            bucket = point.bucket or current.bucket or 0, health = Config.spawn.health, graceMs = Config.spawn.graceMs,
         })
-        if ok then
+        if ok and guided then
+            LightRP.notice(playerId, { kind = "info", title = "Arrival Hall", body = "Nothing is lost here. You are back at the door of the hall.", durationMs = 8000 })
+        elseif ok then
             LightRP.notice(playerId, { kind = "warning", title = "Hospital", body = "You wake up at the hospital. The bill went to your insurance.", durationMs = 10000 })
         else
             LightRP.log("hospital respawn for %d rejected: %s", playerId, tostring(reason))
@@ -101,8 +120,8 @@ end
 -- A character just finished the wizard: they start at the arrival point, whatever
 -- position the draft may have sampled while they were being built.
 function Spawn.onCharacterActivated(playerId)
-    local point = Config.spawn.arrival
-    local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:character_activated")
+    local point = LightRP.tutorial and LightRP.tutorial.spawnPoint(playerId) or Config.spawn.arrival
+    local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:character_activated", point.bucket)
     if not ok then
         LightRP.log("arrival placement for %d after creation rejected: %s", playerId, tostring(reason))
         return
@@ -114,8 +133,9 @@ end
 -- when it is new. The appearance package reloads the body on its side.
 function Spawn.onCharacterSwitched(playerId, character)
     if character == nil or character.status ~= "active" then return end
-    local point = character.position and { name = "saved", position = character.position, heading = character.heading or 0 } or Config.spawn.arrival
-    local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:character_switch")
+    local point = LightRP.tutorial and LightRP.tutorial.spawnPoint(playerId)
+        or (character.position and { name = "saved", position = character.position, heading = character.heading or 0 }) or Config.spawn.arrival
+    local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:character_switch", point.bucket or 0)
     if not ok then LightRP.log("placement for %d after switch rejected: %s", playerId, tostring(reason)) end
 end
 

@@ -27,16 +27,189 @@ op77_lightrp/
 └── web/                       la page construite (ne pas éditer : `npm run build` dans ../../../ui)
 ```
 
+## Bureau staff RP et reports
+
+`/admin` ouvre le menu RP compact façon RageUI : file de reports, citoyens,
+interventions confirmées et historique, avec sous-menus au clavier et panneaux
+de détails voisins. Les déplacements restent libres pendant la navigation.
+`/report`, `/reports` ou **F1 → Reports & support** donnent aux
+joueurs un suivi privé et persistant, avec admin assigné, réponses, statuts,
+notifications et possibilité de réouverture. Les notes internes restent réservées
+au staff. `/adminfull` conserve la console technique officielle.
+
+[Parcours, permissions, stockage, limites et tests](docs/admin-support.md).
+
+## Création de personnage et scène d'arrivée
+
+### Placement de la scène
+
+Commande staff : `/lightrp.scene` (ACL `command.lightrp.scene`). Elle masque
+l'assistant de création, libère les contrôles et réserve un bucket privé à midi,
+par temps ensoleillé. Aucun déplacement automatique : marcher jusqu'au lieu choisi.
+
+- `/lightrp.scene sit` : pose assise à la position et dans la direction actuelles.
+- `/lightrp.scene walk` : se relever pour changer de lieu ; F7 change la perspective.
+- `/lightrp.scene move 0 0 0.05` : monter l'ancrage de 5 cm (axes monde X/Y/Z,
+  valeurs entre -1 et 1 m). La pose est relancée après chaque ajustement.
+- `/lightrp.scene turn 15` : ajouter 15 degrés à l'orientation.
+- `/lightrp.scene preview 3.6 -1.5 0.4 1.2 48` : aperçu caméra devant le
+  personnage (distance, décalage latéral, hauteur caméra, hauteur visée, FOV).
+  Masque le HUD et joue la musique à faible volume ; `walk` restaure la vue.
+- `/lightrp.scene save` : enregistrer l'ancrage de la pose et son orientation dans
+  le KVP `creator.placement.draft`, avec copie lisible dans le journal serveur.
+- `/lightrp.scene stop` : terminer le réglage et restaurer le bucket précédent.
+
+L'enregistrement reste un brouillon : reporter les valeurs validées dans
+`characters.arrivalScene.position/heading` de `shared/config.lua`. `autoStart`
+active la scène à la fin du choix natif du corps. Le banc validé est celui du
+décor : `bench = false` évite de créer un second meuble au même endroit.
+
+Le parcours propose identité, origine/histoire facultatives, révision de
+l'apparence puis confirmation. Chaque étape dispose d'un plan dans `shots`, en
+coordonnées relatives au personnage (X droite, Y devant, Z hauteur). Les plans
+s'enchaînent en douceur ; le bouton **Still camera** et la préférence système
+de mouvement réduit suppriment les mouvements. **Cloudy Day** se joue localement
+à `musicVolume = 0.12`, avec un bouton de sourdine.
+
+La scène possède un bucket isolé, ensoleillé à midi, libéré au départ. L'arrivée
+charge le quartier via la transaction de respawn avant d'asseoir le personnage ;
+`approachOffset` place les pieds sur le trottoir, hors du collider du banc.
+L'image reste couverte tant que la pose native n'est pas présentée. Un échec de
+chargement ou de caméra donne un bouton de nouvelle tentative. L'éditeur natif
+rend ensuite la main à la scène ; confirmer le personnage libère caméra, musique,
+HUD et immobilisation avant le spawn du joueur. Les modifications d'apparence
+restent gérées et sauvegardées par `open77_appearance`.
+
+Le manifeste doit conserver `player.appearance.read` : la scène attend la
+fermeture réelle de l'éditeur, y compris après annulation, avant de reprendre
+la caméra et le focus. Les brouillons enregistrés reprennent à la bonne étape
+après reconnexion ; un personnage confirmé rejoint directement la ville.
+
+## Premier jour : tutoriel dans le hall d'arrivée
+
+Après la confirmation du personnage, **Your first day** se joue dans le hall
+d'arrivée : la ville blanche de la ressource de carte `lobby`, hors de Night
+City, dans son propre bucket de routage (620000). Le paquet `open77_lobby_cubes`
+y tient la nuit et le ciel dégagé. Un travelling remonte l'avenue, puis Mara, la
+guide, attend sur la place. Les dialogues sont textuels ; la musique reste
+locale et discrète.
+
+Le parcours apprend les vraies mécaniques, dans cet ordre. Les nouveaux chapitres
+voix et Alt sont détaillés dans le [guide d'intégration](docs/first-day-interactions-voice.md).
+
+1. Marcher jusqu'à Mara et lui parler : la vie en ville et les règles RP.
+2. Configurer la voix : périphériques, push-to-talk clavier/souris ou activation,
+   puis test local. « Déjà configuré » et « Passer » restent disponibles.
+3. Ouvrir le menu joueur et consulter **Identity** (identité, compte bancaire).
+4. Ouvrir l'inventaire.
+5. Aller à la boutique du hall et **acheter** une boisson : un vrai panier, un
+   vrai paiement (`onShopCheckout`, émis par `server/modules/shops.lua`).
+6. Boire : l'étape attend la fin réelle de l'action, validée côté serveur.
+7. Parler au banquier (compte, espèces, virements, `/pay`) puis au mécano.
+8. Pratiquer **Alt + clic gauche** : inspecter une caisse, déverrouiller sa voiture
+   d'entraînement, ouvrir puis fermer le coffre avec le vrai menu contextuel.
+9. Parler au pompiste (carburant, jerrican).
+10. Activité d'entraînement à la foire aux métiers : **collecter** une caisse,
+   la **transformer** à l'établi, **vendre** les pièces à Juno. C'est le module
+   des activités libres (`job_work`) avec un métier `tutorial` : vrais objets,
+   vrai paiement en banque, un seul lot par appui. Chaque site ne s'ouvre que
+   pour l'étape du guide qui le demande (`Tutorial.allowsWork`) : ce n'est pas
+   un revenu. Aucun métier n'est choisi dans le hall.
+11. Retourner voir Mara : elle ouvre la porte, le personnage arrive à City
+   Center West, dans le bucket de la ville, et Mara conclut par message.
+
+**F1 → First day guide** permet de mettre en pause, reprendre ou revisiter le
+parcours. `/tutorial` reprend au dernier objectif, `/tutorial pause` laisse
+jouer librement et `/tutorial restart` rejoue tout le premier jour, scène
+d'ouverture comprise, pour un personnage existant. Les touches affichées suivent les raccourcis reconfigurés.
+
+Présentation (`LightRpTutorialConfig.reveal`, `ui/src/features/tutorial/`) :
+
+- **Montrer le chemin** : à chaque nouvelle destination à plus de 12 m, après
+  le bandeau « Step complete », la caméra s'élève derrière le joueur, survole
+  l'itinéraire (des points dorés s'allument au sol à son passage), se pose sur
+  le lieu puis revient en fondu (~5,6 s). Le joueur est figé pendant le vol et
+  libéré dès le retour. Bandes cinéma, nom du lieu, direction, distance et plan
+  du hall à l'écran. `SPACE` passe (`lightrp.tutorial.skip`), `G` rejoue le vol
+  à tout moment (`lightrp.tutorial.way`) : deux RegisterKeyMapping. Jamais par
+  dessus un menu, un dialogue, la caméra libre ou en véhicule.
+- **Exemples d'interface** : une réplique peut être `{ text, demo }` ; la démo
+  joue au-dessus du dialogue (compteur du véhicule avec la jauge qui descend en
+  réserve, étapes de la pompe, clé et bips, location, carte d'identité, espèces
+  et banque, virement, menu véhicule, plan du hall, collecter/transformer/vendre).
+  Une étape peut avoir `demo` : une mini animation dans la carte d'objectif
+  (touche F1 puis Identity, inventaire, panier, boire, activités). Ce sont des
+  images des vrais écrans : elles n'envoient aucune action.
+- Les répliques s'écrivent à l'écran ; `SPACE`/`Entrée` affiche la ligne
+  entière, puis passe à la suivante.
+
+Qui est où : le guide décide du lieu de réveil tant qu'une étape du hall est en
+cours (`Tutorial.spawnPoint` / `deathPoint`, lus par `server/main.lua`) : à la
+connexion et après une mort, le personnage revient à la porte du hall. Mettre le
+guide en pause dans le hall ramène en ville (personne n'y reste enfermé) ;
+reprendre une étape du hall y ramène ; revisiter un guide terminé repart du hall
+sans la scène d'ouverture. Un personnage enregistré dans le hall sans étape du
+hall en cours se réveille en ville. Les citoyens déjà créés ne sont pas forcés à
+suivre le tutoriel.
+
+La table `lightrp_tutorial` stocke le checkpoint par compte et personnage, avec
+une révision pour refuser les réponses périmées et les doublons. La progression
+vient des hooks `onInventoryOpened`, `onShopCheckout`, `onItemUsed` et
+`onJobWorkCompleted` ; les messages du
+navigateur ne peuvent créer ni métier, ni objets, ni argent. Parler à un contact
+exige d'être vivant, près de lui et dans le bucket du hall. La pause, un
+changement de personnage, la mort et l'arrêt de la ressource libèrent caméra,
+son et contrôles.
+
+Configuration : `shared/tutorial.lua` contient le hall (`lobby` : origine,
+bucket, point d'arrivée, boîte), les contacts (nom, rôle, position, orientation,
+fiches de PNJ essayées dans l'ordre), l'ordre et les textes des étapes, le plan
+d'ouverture et le volume. Les positions sont en mètres depuis le centre de la
+place, comme les pose le générateur de la carte : si le hall est déplacé, seule
+`origin` change, avec les deux entrées qui en dépendent (`lobby_market` dans
+`server/config/shops.lua`, le métier `tutorial` dans
+`server/config/job_work.lua`) et la boîte de `open77_lobby_cubes/zone.lua`. Le bucket doit
+être le même dans `shared/tutorial.lua`, ces deux entrées et
+`open77_lobby_cubes/server.lua`. `enabled = false` désactive le guide et remet le
+briefing initial. La préférence système de mouvement réduit désactive le
+travelling.
+
+Tests dédiés : `tests/tutorial_test.lua`, `tests/tutorial_client_test.lua`,
+`tests/hospital_respawn_test.lua` (réveil dans le hall, placement avec bucket)
+et `ui/tests/tutorial.browser.cjs`. Reste à vérifier en jeu : la pose des PNJ
+sur leurs dalles, les plans de caméra, le trajet complet et le passage du hall
+à la ville.
+
 ## Kit d'interactions : progression et QTE
 
-Barre ou anneau de progression, maintien de touche et QTE de précision à plusieurs étapes,
-dans la DA jaune/noir allégée. API client `LightRpActions` et exports `ActionProgress`,
-`ActionHold`, `ActionSkillCheck`, `ActionCancel`, `ActionIsActive`, `ActionResult`, prêts pour
-les futurs jobs. [Contrats, exemples Lua, options et tests](docs/action-ui.md).
+Les points de carte utilisent maintenant les SVG du package standalone
+`open77_icons` : icônes dédiées par activité, accent jaune, groupes conservés
+et objectifs de tournée spécifiques. [Catalogue LightRP et intégration](docs/map-blips.md).
+
+La même barre jaune sans panneau de fond sert à manger, boire, fumer, faire le plein
+et travailler. Toute nouvelle action temporisée passe par `LightRpActions.progress`
+ou l'export `ActionProgress`. Le kit conserve aussi l'anneau, le maintien de touche
+et les QTE via `ActionHold`, `ActionSkillCheck`, `ActionCancel`, `ActionIsActive`
+et `ActionResult`. [Contrats, exemples Lua, options et tests](docs/action-ui.md).
 
 Aperçu navigateur : `http://127.0.0.1:5177/?registered=1&actions=1` (Vite).
 En jeu, staff : `/lightrp.uitest progress|circle|hold|timing|sequence|cancel`.
 Les démonstrations n'attribuent aucune récompense ; les futurs jobs doivent valider leurs actions côté serveur.
+
+## Job Center et activités libres
+
+Trois métiers publics : **Sanitation**, **Scrapper**, **AC Cleaner**. Le bureau utilise trois
+panneaux inclinés illustrés qui s'agrandissent au survol ou au clavier.
+**Sanitation/Scrapper** : récolte → transformation → vente, sans prise de service
+ni métier obligatoire. E démarre la boucle au point ; Échap l'arrête. Les objets
+ont un poids et passent par le vrai inventaire et les coffres. Le bureau propose
+les GPS des trois étapes et une embauche facultative. `/work sanitation|scrapper
+[collect|process|sell]`, `/work stop`.
+
+Les points, recettes, durées et prix des activités libres sont dans
+`server/config/job_work.lua`. Seul **AC Cleaner** conserve ses ordres de travail,
+ses points temporaires dans `server/config/job_runs.lua` et `/job start|status|gps|cancel`.
+[Configuration, sécurité, fonctionnement et tests](docs/jobs.md) · [Prompts des artworks](docs/job-art-prompts.md).
 
 ## Location de véhicules
 
@@ -45,7 +218,26 @@ choix cash/banque et retour confirmé. Banque locale de **18 visuels** des véhi
 du catalogue. [Configuration, sources des images et tests](docs/vehicle-rental.md).
 Aperçu : `http://127.0.0.1:5177/?registered=1&dialog=rental`.
 
+## Boutiques NPC
+
+Catalogue illustré jaune/noir, recherche et catégories, panier multi-objets,
+achat/revente, quantités, cash/banque et capacité du sac. Premier vendeur de nourriture
+au City Center : `(-667.559082, -378.390808, 9.193733)`, yaw `-125.597023`, interaction **E**.
+
+Les NPC partagent un **template** (`street_food`) défini dans `server/config/shops.lua` :
+changer le template met à jour toutes les boutiques liées. Achats/ventes atomiques
+(argent, inventaire et reçu en une transaction), anti-double paiement et validations
+côté serveur ; base de données requise. [Configuration et API](docs/shops.md).
+Aperçu navigateur : `http://127.0.0.1:5177/?registered=1&dialog=shop`.
+
 ## Architecture du framework
+
+### Portée vocale
+
+**F11** alterne chuchotement / normal / cri. Le package `open-voice` affiche un
+cercle 3D jaune pendant **3 secondes**, au rayon confirmé par le serveur
+(**3 / 20 / 40 m**). Il suit le joueur et disparaît automatiquement, sans nouvelle
+WebUI. [Configuration et validation](docs/voice-range.md).
 
 Catalogue RP : **30 objets dont 18 consommables illustrés** (9 aliments, 6 boissons,
 3 soins), avec effets, poids et piles configurables dans `shared/items.lua`.
@@ -126,7 +318,7 @@ Tous les textes joueur (page, notices, réponses de commandes, libellés de la c
 
 ## Argent et banque (`server/modules/economy.lua`)
 
-Un portefeuille par personnage actif : argent liquide + compte bancaire numéroté `XXX-XXX` (lettres et chiffres sans O/I/0/1). Tables `lightrp_wallets` (compte, propriétaire, cash, bank) et `lightrp_transactions` (registre signé : opening, deposit, withdraw, transfer_in/out, pay_in/out, fee, refund, staff, salary…). Le portefeuille s'ouvre à l'activation du personnage (`economy.startingCash` / `startingBank`) ou au premier chargement d'un personnage actif qui n'en a pas ; il suit le slot (hook `onCharacterLoaded`).
+Le liquide est l'item **`cash` / Eurodollars** : 1 unité = €$1, **0 kg**, transférable, divisible, stockable et échangeable comme les autres objets. Seul l'argent dans les poches est dépensable ; le HUD le compte directement dans l'inventaire. Le compte bancaire `XXX-XXX` reste séparé dans `lightrp_wallets.bank`. Les anciens soldes sont convertis une seule fois, avec sauvegarde avant conversion dans `lightrp_cash_migrations` et transaction atomique. Les nouveaux personnages reçoivent `economy.startingCash` en item et `startingBank` en banque. Voir [docs/cash-inventory.md](docs/cash-inventory.md) pour migration, persistance et tests.
 
 API pour les autres modules (jobs, boutiques, loyers) : `LightRP.money.addCash/removeCash/addBank/removeBank(playerId, amount, kind, note, counterparty)`, `deposit/withdraw`, `transfer(playerId, "XXX-XXX", amount, note)`, `pay(playerId, targetId, amount)` (main à main, `economy.payRange`), `creditAccount(number, …)` (fonctionne hors ligne), `findAccount`, `format`. Hook `onMoneyChanged(playerId, wallet, delta, balance, kind)`. Les soldes ne passent jamais sous zéro ; un drapeau `busy` par portefeuille évite deux opérations entrelacées.
 
@@ -135,6 +327,18 @@ Page : état `money` (`cash`, `bank { number, balance }`, `history`), actions `m
 ## Menu joueur (F1)
 
 Menu liste façon RageUI (design system : Menus / RageMenu, porté en `ui/src/design/components/RageMenu.tsx` avec des classes `o77-rage*`) : une colonne, une ligne surlignée, flèches pour bouger, Entrée pour descendre, Retour arrière / Échap pour remonter, F1 pour fermer. `features/menu/PlayerMenu.tsx` construit l'arbre depuis l'état serveur à chaque rendu et garde une pile `{ key, index }`. Premier sous-menu : **Identity** (ID citoyen, prénom, nom, naissance, origine, compte bancaire, temps de jeu, statut). Le client Lua prend le clavier seul (`setFocus(true, false)`) ; le menu ne s'ouvre qu'avec un personnage actif et hors briefing. Il n'y a plus de menu « terminal », ni de commandes de spawn ou de dépôt pour les joueurs : véhicules par `/lightrp.car` et `/lightrp.dv` (staff), argent par l'ATM à venir.
+
+## Caméra libre (`client/core/freecam.lua`, page `features/freecam/`)
+
+La vue se détache du personnage et vole autour de lui pour regarder une scène sous un autre angle. Le corps reste où il est, complet et en troisième personne (`thirdPersonBody`), quelle que soit la perspective de départ : c'est une caméra, pas un noclip. Elle s'ouvre depuis le menu joueur (ligne **Free camera**) ou avec sa touche (F5 par défaut) ; à pied uniquement, jamais pendant une action, un dialogue, la création ou une caméra du tutoriel.
+
+- **Rayon** : l'objectif reste à `freecam.radius` mètres du personnage (25 par défaut, 100 au plus) et ne descend pas à plus de `freecam.below` mètres sous ses pieds. La limite se longe en glissant ; la jauge du bandeau vire à l'orange puis au rouge.
+- **Touches** : toutes passent par `RegisterKeyMapping` (`Config.freecam.keys`), donc réglables dans Pause > Paramètres > Raccourcis. Avancer / reculer / gauche / droite suivent la disposition du clavier (WASD, ZQSD en AZERTY), Espace / C montent et descendent, Maj accélère, Ctrl ralentit, molette = vitesse, Ctrl + molette = zoom, R revient derrière le personnage, H masque le rappel, Retour arrière ou la touche d'ouverture quittent.
+- **Fluidité** : vitesse, rotation et zoom sont lissés (`freecam.smoothing`), l'entrée et la sortie fondent sur `blendMs`. Parti de la troisième personne, le plan démarre exactement où était la vue.
+- **Rappel des touches** : bandeau passif en bas de l'écran, dessiné depuis les touches effectives, avec distance / rayon, vitesse et focale. Le chat, la pause ou le menu F1 figent le plan sans le fermer.
+- **Fermeture automatique** : mort, montée en véhicule, dialogue ouvert, personnage déplacé de plus de `freecam.leash` mètres, vue reprise par le moteur, arrêt de la ressource. Les blocages du personnage sont rendus un par un (pas de `resetControls`, qui lâcherait aussi le mode de marche).
+
+Limites de la plateforme : pas de collision de l'objectif (il traverse les murs dans le rayon) et le monde reste chargé autour du corps, pas de la caméra. Tests : `tests/freecam_client_test.lua`, `ui/tests/freecam.browser.cjs`.
 
 ## Interactions de proximité et location de véhicules
 
@@ -152,9 +356,9 @@ API : `LightRP.keys.give(vehicleId, playerId, { label, owner })`, `take`, `clear
 
 ## Menu véhicule Alt + clic
 
-Les détenteurs des clés disposent d'actions RP via `open77_contextmenu` : verrouiller / déverrouiller, ouvrir / fermer les portes, le coffre et le capot, accéder à l'inventaire du coffre ciblé, commander les vitres, le moteur à l'arrêt, les feux et le klaxon, consulter l'état du véhicule. Les choix suivent l'état courant et les masques d'ouvrants configurés par modèle ; les motos n'affichent pas de portes / vitres / coffre. Le package contextmenu reste générique, sans action par défaut.
+Les détenteurs des clés disposent d'un menu principal limité à quatre entrées : verrouillage, **Coffre & capot**, **Commandes véhicule** et état. Le premier sous-menu contient les ouvrants coffre/capot et l'inventaire du coffre ciblé ; le second contient le moteur à l'arrêt, les feux et le klaxon. Les portes latérales, leurs commandes générales et les vitres sont retirées, y compris de la liste des actions acceptées côté serveur. Les choix suivent l'état courant ; les motos n'affichent pas de coffre/capot. Retour, flèche gauche, Retour arrière ou clic droit remonte au menu principal ; Échap ferme tout. Le package contextmenu reste générique, sans action par défaut.
 
-Chaque demande est revérifiée côté serveur (clés, personnage actif et vivant, proximité, bucket, conducteur / occupants, vitesse, anti-spam). Le déverrouillage reste obligatoire pour ouvrir un coffre ou une porte. Paramètres : `shared/config.lua` → `vehicleContext`. Détails, API et tests : [docs/vehicle-context.md](docs/vehicle-context.md).
+Chaque demande est revérifiée côté serveur (clés, personnage actif et vivant, proximité, bucket, conducteur / occupants, vitesse, anti-spam). Le déverrouillage reste obligatoire pour ouvrir un coffre ou un capot. Paramètres : `shared/config.lua` → `vehicleContext`. Détails, API et tests : [docs/vehicle-context.md](docs/vehicle-context.md).
 
 ## Inventaire (`shared/items.lua`, `server/modules/inventory.lua`, page `features/inventory/`)
 
@@ -203,9 +407,27 @@ Staff (`command.lightrp.<nom>` dans `acl.jsonc`) : `/lightrp.tp <id|me> <lieu|x 
 
 ## Persistance
 
+### Véhicules personnels et concessionnaire
+
+**City Motors** propose un catalogue de véhicules à acheter (cash ou banque),
+accessible avec **E** à son point en ville. Le **Public Garage** permet de sortir
+et ranger les voitures personnelles ; elles restent récupérables après reboot ou
+suppression admin. **Aucune voiture de départ n'est attribuée.**
+Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`.
+SQL est obligatoire pour ces fonctionnalités ; elles se ferment en cas d'erreur
+de stockage. Voir [configuration, API et garanties](docs/personal-vehicles.md).
+
 Tables `lightrp_characters` (identité Master, compte, prénom/nom, dernière position, faim, soif,
 temps de jeu) et `lightrp_reports`. Sans base configurée le framework démarre et le dit dans le
 journal ; tout vit alors le temps de la session.
+
+## Housing
+
+Appartements et maisons instanciés, achat/location, clés persistantes, coffre par
+contrat et attribution administrative. **F1 → My homes** ou `/housing` pour les
+joueurs ; **/admin → Housing** ou `/housingadmin` pour créer les modèles, capturer
+les points et ajouter/supprimer des logements. SQL est obligatoire.
+Voir le [guide housing](docs/housing.md) pour le parcours complet et les garanties.
 
 ## WebUI
 

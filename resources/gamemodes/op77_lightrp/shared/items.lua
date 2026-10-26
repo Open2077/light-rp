@@ -12,6 +12,11 @@
 --   use          nil = not usable; otherwise { consume = true, food = +n, drink = +n, health = +n, notice = "..." }
 --                other modules can also hook a name with LightRP.inventory.onUse(name, fn)
 LightRpItems = {
+    cash = {
+        label = "Eurodollars", description = "Physical cash: €$1 per unit. Split, give or store it. Only pocket cash can be spent.",
+        weight = 0, stack = 1000000000, icon = "banknote", category = "currency",
+        image = "img/items/cash.png",
+    },
     water = {
         label = "Bottle of Water", description = "Still water. Night City tap, allegedly filtered.",
         weight = 0.5, stack = 10, icon = "droplet", category = "drink",
@@ -136,7 +141,7 @@ LightRpItems = {
         weight = 0.4, stack = 10, icon = "battery", category = "misc",
     },
     scrap = {
-        label = "Scrap", description = "Bits of metal and plastic. Sells by the kilo.",
+        label = "Scrap", description = "Recovered metal and electronics. Process four units into salvaged parts at the workshop.",
         weight = 1.0, stack = 50, icon = "box", category = "misc",
     },
     documents = {
@@ -148,17 +153,34 @@ LightRpItems = {
         weight = 0.05, stack = 1, icon = "key-round", category = "document",
     },
     jerrycan = {
-        label = "Jerrycan (full)", description = "20 litres of fuel. Use it next to a vehicle to pour it into the tank.",
+        label = "Jerrycan", description = "Use on foot beside a parked vehicle with its engine off. Pouring takes time; unused fuel stays in the can.",
         weight = 16.0, stack = 1, icon = "fuel", category = "tool",
-        -- No `use` effects: server/modules/fuel.lua registers the use handler.
+        -- No instant effects: inventory routes this item to refueling.beginCan.
     },
     jerrycan_empty = {
         label = "Jerrycan (empty)", description = "An empty can. Any gas station pump refills it.",
         weight = 1.5, stack = 2, icon = "fuel", category = "tool",
     },
+    -- The first day guide's practice activity (server/config/job_work.lua, job `tutorial`).
+    practice_crate = {
+        label = "Practice Crate", description = "A sealed crate from the arrival hall's job fair. Open it at the workbench.",
+        weight = 3.0, stack = 5, icon = "package", category = "misc",
+    },
+    practice_parts = {
+        label = "Practice Parts", description = "Sorted parts from a practice crate. The buyer at the job fair pays for them.",
+        weight = 1.5, stack = 20, icon = "package-open", category = "material",
+    },
     trashbag = {
-        label = "Trash Bag", description = "Full. Heavy. Somebody has to carry it.",
+        label = "Trash Bag", description = "Full. Heavy. Sort it at the recycling station to recover saleable materials.",
         weight = 4.0, stack = 5, icon = "package", category = "misc",
+    },
+    recyclables = {
+        label = "Sorted Recyclables", description = "A sorted bundle recovered from waste. The recycling buyer pays for it.",
+        weight = 2.0, stack = 20, icon = "package-open", category = "material",
+    },
+    salvaged_parts = {
+        label = "Salvaged Parts", description = "Reusable parts recovered from scrap. Sell them at the salvage depot.",
+        weight = 2.0, stack = 20, icon = "wrench", category = "material",
     },
 }
 

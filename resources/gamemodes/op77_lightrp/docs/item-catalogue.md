@@ -1,8 +1,9 @@
 # RP item catalogue
 
-`shared/items.lua` is the authoritative template catalogue: 30 items, including
-18 illustrated food, drink and medical consumables. Existing identifiers stay
-unchanged; saved inventories need no migration. New characters start with only
+`shared/items.lua` is the authoritative template catalogue: 33 items, including
+18 illustrated consumables and illustrated zero-weight cash (`cash`, €$1 per unit).
+Cash migration is described in [cash-inventory.md](cash-inventory.md).
+New characters receive their starting money as cash, plus
 5 bottles of water and 5 burritos, configured in `shared/config.lua` under
 `inventory.starting`. The grant happens once when their inventory is created;
 existing inventories are not replaced or refilled. No shop or job reward is added.
@@ -39,7 +40,10 @@ generated illustrations, not extracted vanilla game assets or canonical balance.
 
 The other 12 existing items keep their vector icons: `cigarettes`, `lighter`,
 `phone`, `idcard`, `watch`, `wrench`, `repairkit`, `battery`, `scrap`, `documents`,
-`keycard`, `trashbag`. Tool-specific gameplay is not added by this catalogue.
+`keycard`, `trashbag`. `scrap` and `trashbag` feed the free-work recipes described
+in [jobs.md](jobs.md). The new outputs `salvaged_parts` and `recyclables` weigh
+2 kg each, stack to 20 and can be sold at their respective buyers. Existing
+raw item names, weights and saved stacks are preserved.
 
 ## Adding an item
 

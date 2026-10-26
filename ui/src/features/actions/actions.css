@@ -44,6 +44,19 @@
 .activity.is-cancelled { --action-accent: #aab0b3; }
 .activity.is-success .activity__instruction, .activity.is-failed .activity__instruction { color: var(--action-accent); }
 .activity[data-phase="feedback"] .activity__instruction { color: var(--action-accent); }
+.activity--minimal { bottom: clamp(55px, 9vh, 130px); width: min(580px, calc(100vw - 48px)); padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; text-shadow: 0 1px 3px #000, 0 0 8px #000b; }
+.activity__headline { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.activity__headline h2 { min-width: 0; margin: 0; font: 600 17px/1.3 var(--font-core); overflow-wrap: anywhere; }
+.activity__readout { display: flex; align-items: baseline; gap: 14px; flex-shrink: 0; color: var(--action-accent); font: 12px var(--font-mono); }
+.activity--minimal .activity__percent { font: 18px/1 var(--font-mono); }
+.activity--minimal .activity__percent small { color: inherit; font: 12px var(--font-mono); }
+.activity--minimal .activity__time { color: var(--text-hi); font: 12px var(--font-mono); }
+.activity--minimal .activity__track { height: 8px; margin-top: 9px; border-radius: 0; background: #f2f3f54d; box-shadow: 0 1px 3px #0008, 0 0 0 1px #0003; }
+.activity--minimal .activity__fill { box-shadow: 0 0 8px #ffcc0033; }
+.activity__meta { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-top: 8px; color: var(--text-hi); font: 12px/1.4 var(--font-core); }
+.activity__meta > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.activity__stop { display: inline-flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.activity--minimal kbd { min-width: 0; padding: 0 4px; border-color: #f2f3f573; border-radius: 0; background: none; font: 10px/1.4 var(--font-mono); }
 .action-lab { position: absolute; inset: 0; overflow: auto; padding: clamp(30px, 6vw, 90px); color: #eeefe8; background: linear-gradient(120deg, #0c0d11f5, #121719c4), url("/img/night-city.jpg") center / cover; font: 14px/1.6 "Segoe UI", sans-serif; }
 .action-lab header > span { font: 11px var(--font-mono); color: var(--accent); letter-spacing: .2em; text-transform: uppercase; }
 .action-lab h1 { font: 600 clamp(36px, 4vw, 62px)/1.08 var(--font-core); letter-spacing: -2px; margin: 27px 0 20px; }

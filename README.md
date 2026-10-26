@@ -70,15 +70,17 @@ Warden → *In-game rights* → *Known identities* → *Rights*, ou à la main d
 `acl.reload` dans la console. L'identité d'un joueur se lit avec `identity.dump` dans sa console
 de jeu, ou dans Warden.
 
-Les commandes du framework réservées au staff sont sous `command.lightrp.*` ; l'admin console
-officielle (`/admin`, `/adminfull`) a les siennes sous `command.admin.*`.
+Les commandes du framework réservées au staff sont sous `command.lightrp.*`.
+`/admin` ouvre désormais le bureau RP (ACL `command.admin`) ; `/adminfull` conserve
+la console technique officielle. Les reports ont leurs droits dédiés :
+[bureau staff et suivi des tickets](resources/gamemodes/op77_lightrp/docs/admin-support.md).
 
 ## Jouer
 
-**F5** ouvre le menu terminal (Personnage, Véhicules, Staff, Aide) ; à la première connexion un
-dialogue demande le nom du personnage. Le chat normal est la parole en jeu à 20 m, `/ooc` pour le
+**F1** ouvre le menu joueur ; à la première connexion le parcours de création
+présente l'identité, l'apparence et l'arrivée en ville. Le chat normal est la parole en jeu à 20 m, `/ooc` pour le
 hors-jeu, `/me` `/do` `/try` `/roll`, `/car <modèle>` et `/dv` pour un véhicule, `/report` pour
-prévenir le staff. Détails et réglages dans `resources/gamemodes/op77_lightrp/README.md`.
+ouvrir un dossier privé suivi par le staff. Détails et réglages dans `resources/gamemodes/op77_lightrp/README.md`.
 
 ## Mettre à jour le serveur
 

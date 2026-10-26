@@ -1,0 +1,27 @@
+-- Only the host ACL grants staff access. Never accept roles or identities from the page.
+LightRpSupportConfig = {
+    createCooldownMs = 60000,
+    maxOpenTickets = 3,
+    reopenDays = 7,
+    pageSize = 25,
+    categories = { "help", "player", "bug", "other" },
+    permissions = {
+        view = "command.admin",
+        reports = "command.lightrp.reports",
+        assign = "command.lightrp.reportassign",
+        audit = "command.lightrp.audit",
+        gotoPlayer = "command.lightrp.goto",
+        bring = "command.lightrp.bring",
+        returnPlayer = "command.lightrp.bring",
+        heal = "command.lightrp.heal",
+        rename = "command.lightrp.setname",
+        job = "command.lightrp.setjob",
+        gang = "command.lightrp.setgang",
+        credit = "command.lightrp.givemoney",
+        debit = "command.lightrp.takemoney",
+        warn = "command.lightrp.warn",
+        kick = "command.admin.moderate.kick",
+        ban = "command.admin.moderate.ban",
+        announce = "command.lightrp.announce",
+    },
+}

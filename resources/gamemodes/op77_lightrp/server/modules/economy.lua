@@ -1,6 +1,7 @@
--- Money. Each active character owns one wallet: cash in the pocket and a bank
+-- Money. Cash is the zero-weight inventory item `cash`; wallet.cash is only a
+-- compatibility projection. Each active character also owns a bank
 -- account numbered XXX-XXX (letters and digits, no O/I/0/1 so it can be read
--- out loud). Balances are server-owned and written through on every change;
+-- out loud). Balances/items are server-owned and written through on every change;
 -- every movement lands in lightrp_transactions. Other modules (jobs, shops,
 -- rent) go through LightRP.money.* and never touch the tables.
 --
@@ -17,6 +18,20 @@
 local Config = LightRpConfig.economy
 local Db = LightRP.db
 local Money = LightRP.module("money", {})
+local Inv = LightRP.inventory
+
+-- Immutable recovery record + idempotency key. The legacy wallet.cash column
+-- is zeroed atomically with delivery, and is never a live balance again.
+Db.schema([[
+    CREATE TABLE IF NOT EXISTS lightrp_cash_migrations (
+        account_number CHAR(7) NOT NULL PRIMARY KEY,
+        inventory_id VARCHAR(96) NOT NULL,
+        legacy_cash BIGINT NOT NULL,
+        inventory_before MEDIUMTEXT NOT NULL,
+        slots_before INT NOT NULL,
+        migrated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+]])
 
 Db.schema([[
     CREATE TABLE IF NOT EXISTS lightrp_wallets (
@@ -47,6 +62,7 @@ Db.schema([[
 ]])
 
 local wallets = {}   -- playerId -> { number, identifier, key, ownerName, cash, bank, history, busy }
+local settling = {} -- identifier#character -> an in-flight atomic shop checkout
 local byNumber = {}  -- account number -> playerId (online wallets only)
 Money.byPlayer = wallets
 
@@ -111,8 +127,8 @@ local function stamp()
 end
 
 local function persist(w)
-    if not Db.ready then return true end
-    return Db.run("UPDATE lightrp_wallets SET cash = ?, bank = ? WHERE account_number = ?", { w.cash, w.bank, w.number })
+    if not Db.ready then return false, "database_unavailable" end
+    return Db.run("UPDATE lightrp_wallets SET bank = ? WHERE account_number = ?", { w.bank, w.number })
 end
 
 -- One ledger line. `history` is the in-memory tail of an online wallet (nil for
@@ -149,6 +165,73 @@ local function changed(playerId, w, wallet, delta, kind)
     LightRP.eachModule("onMoneyChanged", playerId, wallet, delta, w[wallet], kind)
 end
 
+local function ledger(w, wallet, kind, delta, balance, counterparty, note)
+    local entry = { wallet = wallet, kind = kind, amount = delta, balanceAfter = balance,
+        counterparty = counterparty, note = note, at = stamp() }
+    local write = { query = [[INSERT INTO lightrp_transactions (account_number, wallet, kind, amount, balance_after, counterparty, note)
+        VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''))]],
+        values = { w.number, wallet, kind, delta, balance, counterparty or "", note or "" } }
+    return write, function()
+        table.insert(w.history, 1, entry)
+        while #w.history > (Config.historyLength or 10) do table.remove(w.history) end
+    end
+end
+
+-- Inventory transfers keep the HUD/ledger in step, without mirroring cash to SQL.
+function Money.inventoryReceipt(inv, after)
+    if inv.kind ~= "player" or after == Inv.cashOf(inv) then return end
+    local id, w = inv.playerId, wallets[inv.playerId]
+    if not w or inv.cashReady ~= true or inv.id ~= "player:" .. w.identifier .. "#" .. w.key then return nil, nil, "no_wallet" end
+    if w.busy then return nil, nil, "busy" end
+    local delta = after - Inv.cashOf(inv)
+    local write, receipt = ledger(w, "cash", "inventory", delta, after, nil, "Physical cash moved")
+    return write, function()
+        w.cash = after
+        receipt()
+        if wallets[id] == w then pcall(changed, id, w, "cash", delta, "inventory") end
+    end
+end
+
+local function migrateCash(playerId, w)
+    local inv = Inv and Inv.player(playerId)
+    if not inv then return false, "no_inventory" end
+    if inv.busy then return false, "busy" end
+    inv.busy = true
+    local called, ok, reason = pcall(function()
+        local read, rows = Db.read("SELECT account_number FROM lightrp_cash_migrations WHERE account_number = ?", { w.number })
+        if not read then return false, "database_error" end
+        if rows[1] then
+            if w.cash ~= 0 then return false, "legacy_cash_not_zero" end
+            w.cash = Inv.cashOf(inv)
+            return true
+        end
+        local amount = math.tointeger(w.cash)
+        if not amount or amount < 0 or amount > 9007199254740991 then return false, "invalid_legacy_cash" end
+        local draft = Inv.draft(inv)
+        local fits, why = Inv.adjustCash(draft, amount)
+        if not fits and why == "no_room" then
+            -- Never discard another item or an old balance during migration.
+            draft.slots = draft.slots + math.ceil(amount / LightRpItems.cash.stack)
+            fits, why = Inv.adjustCash(draft, amount)
+        end
+        if not fits then return false, why end
+        local before = Inv.writeDraft(inv, inv).values[6]
+        local saved, failure = Db.transaction({
+            { query = [[INSERT INTO lightrp_cash_migrations (account_number, inventory_id, legacy_cash, inventory_before, slots_before)
+                VALUES (?, ?, ?, ?, ?)]], values = { w.number, inv.id, amount, before, inv.slots } },
+            Inv.writeDraft(inv, draft),
+            { query = "UPDATE lightrp_wallets SET cash = 0 WHERE account_number = ?", values = { w.number } },
+        })
+        if not saved then return false, failure end
+        Inv.applyDraft(inv, draft)
+        w.cash = Inv.cashOf(inv)
+        LightRP.log("cash migrated for account %s: %d eddies (recovery snapshot saved)", w.number, amount)
+        return true
+    end)
+    Inv.releaseBusy(inv)
+    return called and ok == true, called and reason or "database_error"
+end
+
 -- ---------------------------------------------------------------------------
 -- Load / unload, following the character
 
@@ -176,10 +259,14 @@ end
 local function load(playerId, c)
     unload(playerId)
     if c == nil or c.status ~= "active" then return nil end
+    if not Db.ready or not Inv or not Inv.player(playerId) then return nil end
+    local owner = tostring(c.identifier) .. "#" .. c.key
+    while settling[owner] do Wait(10) end
     local w, reason
     if Db.ready and c.identifier then
-        local row = Db.single("SELECT account_number, owner_name, cash, bank FROM lightrp_wallets WHERE identifier = ? AND character_key = ?",
-            { c.identifier, c.key })
+        local read, rows = Db.read("SELECT account_number, owner_name, cash, bank FROM lightrp_wallets WHERE identifier = ? AND character_key = ?", { c.identifier, c.key })
+        if not read then return nil end
+        local row = rows[1]
         if row then
             w = { identifier = c.identifier, key = c.key, ownerName = LightRP.characters.displayName(playerId),
                 number = row.account_number, cash = tonumber(row.cash) or 0, bank = tonumber(row.bank) or 0 }
@@ -197,12 +284,26 @@ local function load(playerId, c)
         end
         LightRP.log("wallet %s opened for %s", w.number, w.ownerName)
     end
+    local migrated, failure = migrateCash(playerId, w)
+    if not migrated then
+        LightRP.log("cash migration for %d blocked: %s; stored balances preserved", playerId, tostring(failure))
+        LightRP.notice(playerId, { kind = "error", title = "Wallet unavailable", body = "Your money is safe, but could not be loaded. Please reconnect or contact staff." })
+        return nil
+    end
     wallets[playerId] = w
+    Inv.player(playerId).cashReady = true
     byNumber[w.number] = playerId
     return w
 end
 
-function Money.get(playerId) return wallets[playerId] end
+function Money.get(playerId)
+    local w = wallets[playerId]
+    local inv = Inv and Inv.player(playerId)
+    if w and inv and inv.cashReady and inv.id == "player:" .. w.identifier .. "#" .. w.key then
+        w.cash = Inv.cashOf(inv)
+        return w
+    end
+end
 
 function Money.onCharacterLoaded(playerId, c)
     load(playerId, c)
@@ -234,7 +335,7 @@ end
 -- Movements. Every function returns ok, reason.
 
 local function guard(playerId, amount)
-    local w = wallets[playerId]
+    local w = Money.get(playerId)
     if w == nil then return nil, "no_wallet" end
     if w.busy then return nil, "busy" end
     local n = Money.validAmount(amount)
@@ -244,6 +345,7 @@ end
 
 -- delta may be negative; the wallet never goes below zero.
 local function change(playerId, wallet, delta, kind, note, counterparty)
+    if wallet == "cash" then return Money.exchange(playerId, wallet, delta, nil, nil, kind, note, counterparty) end
     local w, n = guard(playerId, math.abs(delta))
     if w == nil then return false, n end
     if delta < 0 then n = -n end
@@ -264,20 +366,89 @@ function Money.removeCash(playerId, amount, kind, note, counterparty) return cha
 function Money.addBank(playerId, amount, kind, note, counterparty) return change(playerId, "bank", math.abs(tonumber(amount) or 0), kind or "credit", note, counterparty) end
 function Money.removeBank(playerId, amount, kind, note, counterparty) return change(playerId, "bank", -math.abs(tonumber(amount) or 0), kind or "debit", note, counterparty) end
 
+-- Internal commerce primitive. Inventory callers pass their SAME draft as the
+-- final argument. Other callers supply a prepared SQL write (or list) and a
+-- non-yielding cache commit. Cash creates/locks a pocket draft when needed.
+-- Neither cache changes until the SQL commit succeeds.
+function Money.exchange(playerId, wallet, delta, inventoryWrite, commitItems, kind, note, counterparty, inventoryDraft)
+    if wallet ~= "cash" and wallet ~= "bank" then return false, "invalid_payment" end
+    local w, n = guard(playerId, math.abs(delta))
+    if not w then return false, n end
+    if not Db.ready then return false, "database_unavailable" end
+    if delta < 0 then n = -n end
+    local after = w[wallet] + n
+    if after < 0 then return false, "insufficient_funds" end
+    if after > 9007199254740991 then return false, "invalid_amount" end
+    local cash
+    if wallet == "cash" then
+        if inventoryDraft then
+            -- Shops already own this lock; change the SAME staged inventory,
+            -- never overwrite their delivery with a separately copied cash bag.
+            local inv = Inv.player(playerId)
+            if not inv or not inv.busy then return false, "busy" end
+            if inventoryDraft.cashDelta ~= n then
+                local ok, failure = Inv.adjustCash(inventoryDraft, n)
+                if not ok then return false, failure end
+            end
+            if Inv.cashOf(inventoryDraft) ~= after then return false, "invalid_amount" end
+            inventoryWrite = Inv.writeDraft(inv, inventoryDraft)
+        else
+            local failure
+            cash, failure = Inv.prepareCash(playerId, n)
+            if not cash then return false, failure end
+        end
+    end
+    w.busy = true
+    local owner = tostring(w.identifier) .. "#" .. w.key
+    settling[owner] = true
+    settling[w.number] = true
+    local writes = {}
+    if wallet == "bank" then
+        writes[#writes + 1] = { query = "UPDATE lightrp_wallets SET bank = ? WHERE account_number = ?", values = { after, w.number } }
+    end
+    if inventoryWrite then
+        if inventoryWrite.query then writes[#writes + 1] = inventoryWrite
+        else for _, write in ipairs(inventoryWrite) do writes[#writes + 1] = write end end
+    end
+    if cash then writes[#writes + 1] = cash.write end
+    local receiptWrite, receipt = ledger(w, wallet, kind, n, after, counterparty, note)
+    writes[#writes + 1] = receiptWrite
+    local called, ok, reason = pcall(Db.transaction, writes)
+    if not called or ok ~= true then
+        w.busy = false
+        settling[owner] = nil
+        settling[w.number] = nil
+        if cash then Inv.releaseBusy(cash.inventory) end
+        return false, called and reason or "database_error"
+    end
+    w[wallet] = after
+    if cash then Inv.applyDraft(cash.inventory, cash.draft) end
+    if commitItems then commitItems() end
+    receipt()
+    w.busy = false
+    settling[owner] = nil
+    settling[w.number] = nil
+    if cash then Inv.releaseBusy(cash.inventory); Inv.publishCommitted(cash.inventory) end
+    if wallets[playerId] == w then
+        local published, failure = pcall(changed, playerId, w, wallet, n, kind)
+        if not published then LightRP.log("committed checkout: wallet notification failed: %s", tostring(failure)) end
+    end
+    return true
+end
+
 -- Cash <-> bank inside one wallet, atomically for the cache.
 local function move(playerId, from, to, amount, kindOut, kindIn)
     local w, n = guard(playerId, amount)
     if w == nil then return false, n end
     if w[from] < n then return false, "insufficient_funds" end
-    w.busy = true
-    w[from], w[to] = w[from] - n, w[to] + n
-    local ok = persist(w)
-    if not ok then w[from], w[to] = w[from] + n, w[to] - n; w.busy = false; return false, "database_error" end
-    record(w.number, w.history, from, kindOut, -n, w[from], "Night City Bank", nil)
-    record(w.number, w.history, to, kindIn, n, w[to], "Night City Bank", nil)
-    w.busy = false
-    changed(playerId, w, to, n, kindIn)
-    return true
+    local cashDelta = from == "cash" and -n or n
+    local bankAfter = w.bank - cashDelta
+    if bankAfter > 9007199254740991 then return false, "invalid_amount" end
+    local bankReceipt, commitReceipt = ledger(w, "bank", kindOut, -cashDelta, bankAfter, "Night City Bank", nil)
+    return Money.exchange(playerId, "cash", cashDelta, {
+        { query = "UPDATE lightrp_wallets SET bank = ? WHERE account_number = ?", values = { bankAfter, w.number } },
+        bankReceipt,
+    }, function() w.bank = bankAfter; commitReceipt() end, kindIn, nil, "Night City Bank")
 end
 
 function Money.deposit(playerId, amount) return move(playerId, "cash", "bank", amount, "deposit", "deposit") end
@@ -298,6 +469,7 @@ end
 function Money.creditAccount(number, amount, kind, note, counterparty)
     local target = Money.findAccount(number)
     if target == nil then return false, "unknown_account" end
+    if settling[target.number] then return false, "busy" end
     local n = Money.validAmount(amount)
     if n == nil then return false, "invalid_amount" end
     if target.playerId then
@@ -364,21 +536,8 @@ function Money.pay(playerId, targetId, amount)
     if here == nil or there == nil or (here.bucket or 0) ~= (there.bucket or 0) or distance(here, there) > (Config.payRange or 6) then
         return false, "too_far"
     end
-    w.busy, tw.busy = true, true
-    w.cash, tw.cash = w.cash - n, tw.cash + n
-    local ok1 = persist(w)
-    local ok2 = ok1 and persist(tw)
-    if not ok2 then
-        w.cash, tw.cash = w.cash + n, tw.cash - n
-        if ok1 then persist(w) end
-        w.busy, tw.busy = false, false
-        return false, "database_error"
-    end
-    record(w.number, w.history, "cash", "pay_out", -n, w.cash, tw.ownerName, nil)
-    record(tw.number, tw.history, "cash", "pay_in", n, tw.cash, w.ownerName, nil)
-    w.busy, tw.busy = false, false
-    changed(playerId, w, "cash", -n, "pay_out")
-    changed(targetId, tw, "cash", n, "pay_in")
+    local ok, failure = Inv.transferCash(playerId, targetId, n)
+    if not ok then return false, failure end
     LightRP.notice(targetId, { kind = "money", title = "Cash received", body = string.format("%s from %s", Money.format(n), w.ownerName), durationMs = 8000 })
     return true, tw
 end
@@ -392,7 +551,7 @@ end
 -- State, actions, commands
 
 LightRP.stateProvider("money", function(playerId)
-    local w = wallets[playerId]
+    local w = Money.get(playerId)
     if w == nil then return { currency = Config.currency, cash = 0, history = {} } end
     return { currency = Config.currency, cash = w.cash, bank = { number = w.number, balance = w.bank }, history = w.history }
 end)
@@ -400,6 +559,9 @@ end)
 local REASONS = {
     no_wallet = "You have no wallet yet: finish your character first.",
     target_no_wallet = "That player has no wallet yet.",
+    no_inventory = "Your inventory could not be loaded. Reconnect or contact staff; no money was moved.",
+    no_room = "Make room in your inventory for the cash. Nothing was charged.",
+    database_unavailable = "The database is unavailable. No money was moved.",
     busy = "Another operation is still running, try again.",
     invalid_amount = "Invalid amount: whole eddies, greater than zero.",
     insufficient_funds = "Insufficient funds.",
@@ -511,8 +673,18 @@ LightRP.command("lightrp.account", { restricted = true, usage = "/lightrp.accoun
         local online = byNumber[number]
         w = online and wallets[online]
         if w == nil and Db.ready then
-            local row = Db.single("SELECT account_number, owner_name, cash, bank FROM lightrp_wallets WHERE account_number = ?", { number })
-            if row then w = { number = row.account_number, ownerName = row.owner_name, cash = tonumber(row.cash) or 0, bank = tonumber(row.bank) or 0 } end
+            local row = Db.single("SELECT account_number, identifier, character_key, owner_name, cash, bank FROM lightrp_wallets WHERE account_number = ?", { number })
+            if row then
+                local cash = tonumber(row.cash) or 0
+                local read, rows = Db.read("SELECT items FROM lightrp_inventories WHERE id = ?", { "player:" .. row.identifier .. "#" .. row.character_key })
+                if not read then return false, explain("database_unavailable") end
+                if rows[1] then
+                    local ok, items = pcall(json.decode, rows[1].items)
+                    if not ok or type(items) ~= "table" then return false, "Stored inventory could not be read." end
+                    cash = cash + Inv.cashOf({ items = items })
+                end
+                w = { number = row.account_number, ownerName = row.owner_name, cash = cash, bank = tonumber(row.bank) or 0 }
+            end
         end
     else
         local target = parseTarget(source, args[1])

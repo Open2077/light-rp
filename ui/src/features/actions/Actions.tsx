@@ -90,6 +90,19 @@ function ActionRun({ definition: d, external, dismiss }: { definition: ActionDef
   const step = d.steps[view.step];
   const instruction = view.phase === "ready" ? "Get ready" : timing ? view.phase === "feedback" ? view.feedback : "Press in the yellow zone"
     : d.kind === "hold" ? view.held ? "Keep holding" : view.feedback.startsWith("Released") ? view.feedback : "Hold to continue" : "In progress";
+  if (d.kind === "progress" && !ring) return <section className={`activity activity--minimal${result ? ` is-${result.status}` : ""}`} aria-label={d.label} data-phase={view.phase} data-kind={d.kind}>
+    <div className="activity__headline">
+      <h2>{d.label}</h2>
+      <span className="activity__readout">{result ? <span role="status">{resultTitle(result)}</span> : <><span className="activity__time">{Math.ceil(view.remainingMs / 1000)}s</span><span className="activity__percent">{Math.floor(view.progress * 100)}<small>%</small></span></>}</span>
+    </div>
+    <div className="activity__track" role="progressbar" aria-label={d.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(view.progress * 100)}>
+      <span className="activity__fill" style={{ transform: `scaleX(${view.progress})` }} />
+    </div>
+    <div className="activity__meta">
+      <span>{result ? reasons[result.reason] ?? "The action was stopped." : d.description}</span>
+      {!result && d.cancellable && <span className="activity__stop"><kbd>Esc</kbd> Stop</span>}
+    </div>
+  </section>;
   return <section className={`activity activity--${ring ? "ring" : timing ? "timing" : "bar"}${result ? ` is-${result.status}` : ""}${view.held ? " is-held" : ""}`} aria-label={d.label} data-phase={view.phase} data-kind={d.kind}>
     <div className="activity__eyebrow"><span>Light RP <i /> {timing ? "Precision action" : d.kind === "hold" ? "Hold action" : "Activity"}</span>
       {timing && <span>{Math.min(view.step + 1, d.steps.length)} <b>/ {d.steps.length}</b></span>}</div>

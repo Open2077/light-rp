@@ -22,7 +22,7 @@
   "simulation": {
     "tickRate": 30,
     "snapshotRate": 20,
-    "expectedGameBuild": 23100,
+    "expectedGameBuild": 25000,
     "helloTimeoutSeconds": 10
   },
   "voice": {
@@ -49,7 +49,16 @@
     "enabled": true,
     "root": "resources",
     "load": [
+      "archivexl",
+      "ncwe_local",
+      "ncpd_watson",
+      "appart3",
+      "lobby",
+      "open77_lobby_cubes",
+      "entrepot1",
+      "kabuki_appart1",
       "polyzone",
+      "open77_icons",
       "open77_contextmenu",
       "open77_admin",
       "open77_shell",
@@ -81,7 +90,8 @@
       "open77_interactions",
       "open77_worldui",
       "open77_zones",
-      "op77_lightrp"
+      "op77_lightrp",
+      "op77_neuralink"
     ],
     "autoStart": true,
     "watchIntervalMilliseconds": 0,
@@ -96,8 +106,8 @@
     }
   },
   "requiredMods": {
-    "enabled": false,
-    "unsecured": false,
+    "enabled": true,
+    "unsecured": true,
     "packages": []
   },
   "accessControl": {

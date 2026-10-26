@@ -57,6 +57,7 @@ export function VehicleCluster({ vehicle }: { vehicle: HudState["vehicle"] }) {
   const fuelState = !fuel ? "none" : fuel.empty ? "empty" : fuel.low ? "low" : "ok";
   const gear = vehicle.gear ?? "N";
   const label = (vehicle.label ?? "VEHICLE").toUpperCase();
+  const fuelReadout = fuel ? String(fuel.empty ? 0 : Math.max(0, Math.round(fuel.litres))) : "--";
 
   return <div className="cluster-frame" style={{ width: Math.round(W * SCALE), height: Math.round(H * SCALE) }} aria-hidden="true">
     <div className={`cluster cluster--fuel-${fuelState}`} style={{ width: W, height: H, transform: `scale(${SCALE})` }}>
@@ -76,20 +77,20 @@ export function VehicleCluster({ vehicle }: { vehicle: HudState["vehicle"] }) {
         <Segments cx={RIGHT.x} cy={RIGHT.y} r={SIDE_R} from={10} to={170} count={12} fill={fuelFraction} reserve={2} reversed width={9} tone="fuel" />
       </svg>
 
-      <div className="cluster__speed" style={{ left: CENTRE.x, top: CENTRE.y - 4 }}>
+      <div className="cluster__speed" style={{ left: CENTRE.x, top: CENTRE.y + 10 }}>
         <span className="cluster__speed-value">{String(Math.min(999, Math.round(speed))).padStart(3, "0")}</span>
         <span className="cluster__speed-unit">KM/H</span>
       </div>
-      <div className="cluster__gear" style={{ left: CENTRE.x, top: CENTRE.y + 66 }}><b>{gear}</b></div>
+      <div className="cluster__gear" style={{ left: CENTRE.x, top: CENTRE.y + 72 }}><b>{gear}</b></div>
 
-      <div className="cluster__side" style={{ left: LEFT.x + 6, top: LEFT.y }}>
+      <div className="cluster__side" style={{ left: LEFT.x + 14, top: LEFT.y + 10 }}>
         <Icon name="activity" size={20} />
         <span className="cluster__side-value">{Math.round(health * 100)}</span>
         <span className="cluster__side-unit">COND</span>
       </div>
-      <div className="cluster__side cluster__side--fuel" style={{ left: RIGHT.x - 6, top: RIGHT.y }}>
+      <div className="cluster__side cluster__side--fuel" style={{ left: RIGHT.x - 14, top: RIGHT.y + 10 }}>
         <Icon name="fuel" size={20} />
-        <span className="cluster__side-value">{fuel ? (fuel.empty ? "0" : Math.round(fuel.litres)) : "--"}</span>
+        <span className={`cluster__side-value${fuelReadout.length > 3 ? " cluster__side-value--compact" : ""}`}>{fuelReadout}</span>
         <span className="cluster__side-unit">{fuelState === "empty" ? "EMPTY" : fuelState === "low" ? "RESERVE" : "LITRES"}</span>
       </div>
 

@@ -29,7 +29,10 @@ CreateThread(function()
             position = spot.position, radius = Config.interactRadius or 2.0,
             label = spot.name, prompt = Config.prompt or "Change outfit", key = Config.key or "E", promptHeight = spot.promptHeight or 1.1,
             marker = spot.marker or Config.marker, ring = false,
-            blip = Config.blip and { sprite = Config.blip.sprite, title = spot.name, description = Config.blip.description } or nil,
+            -- One map category; the interaction and description keep the branch name.
+            blip = Config.blip and { icon = Config.blip.icon, color = Config.blip.color, size = Config.blip.size,
+                sprite = Config.blip.sprite, title = Config.blip.title or "Wardrobe",
+                description = (spot.name or "Wardrobe") .. "\n" .. (Config.blip.description or "") } or nil,
         })
     end
     LightRP.log("wardrobe: %d point(s) placed", #(Config.spots or {}))

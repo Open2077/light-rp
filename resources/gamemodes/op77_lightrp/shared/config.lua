@@ -21,6 +21,8 @@ LightRpConfig = {
     -- The player menu key (RageUI-style list menu). Rebindable in Pause > Settings
     -- > Key bindings. New id on purpose: the old F5 terminal binding is forgotten.
     keys = {
+        animations = { id = "lightrp.animations", name = "Light RP: animations", key = "F3" },
+        animationStop = { id = "lightrp.animations.stop", name = "Light RP: stop animation", key = "X" },
         menu = { id = "lightrp.playermenu", name = "Light RP: player menu", key = "F1" },
         interact = { id = "lightrp.interact", name = "Light RP: interact", key = "E" },
         lock = { id = "lightrp.vehiclelock", name = "Light RP: lock / unlock vehicle", key = "L" },
@@ -42,6 +44,38 @@ LightRpConfig = {
         -- Persistent stashes in the world (pick positions with /pos).
         stashes = {
             -- { id = "citycenter", name = "Storage // City Center", position = { x = 0, y = 0, z = 0 }, slots = 40, weight = 250 },
+        },
+    },
+
+    -- Free camera (player menu or its key): the view leaves the character and
+    -- flies around it; the body stays where it is, complete and in third person.
+    -- On foot only. Every key below is rebindable in Pause > Settings > Key bindings;
+    -- forward/back/strafe_* follow the keyboard layout (WASD, ZQSD on AZERTY).
+    freecam = {
+        enabled = true,
+        radius = 25.0,       -- metres the lens may travel from the character (3..100)
+        below = 0.5,         -- metres under the character's feet, so nobody films through floors
+        leash = 4.0,         -- the camera closes if the character is moved further than this
+        speed = 4.0, minSpeed = 0.5, maxSpeed = 15.0, -- metres per second; the wheel changes it
+        boost = 3.0, precision = 0.25,                -- multipliers of the boost / precision keys
+        sensitivity = 0.12,  -- degrees per mouse count at a 60 degree lens
+        fov = { default = 60, min = 20, max = 100 },  -- precision key + wheel zooms
+        smoothing = { move = 9.0, look = 18.0, zoom = 8.0 }, -- higher is snappier, lower floats more
+        blendMs = 450,       -- glide out of / back into the player's own view
+        entry = { back = 3.2, up = 1.9, pitch = -8 }, -- first shot when coming from first person
+        keys = {
+            toggle = { id = "lightrp.freecam", name = "Light RP: free camera", key = "F5" },
+            forward = { id = "lightrp.freecam.forward", name = "Free camera: forward", key = "forward" },
+            back = { id = "lightrp.freecam.back", name = "Free camera: back", key = "back" },
+            left = { id = "lightrp.freecam.left", name = "Free camera: left", key = "strafe_left" },
+            right = { id = "lightrp.freecam.right", name = "Free camera: right", key = "strafe_right" },
+            up = { id = "lightrp.freecam.up", name = "Free camera: up", key = "SPACE" },
+            down = { id = "lightrp.freecam.down", name = "Free camera: down", key = "C" },
+            boost = { id = "lightrp.freecam.boost", name = "Free camera: fast", key = "SHIFT" },
+            slow = { id = "lightrp.freecam.slow", name = "Free camera: precise / zoom with the wheel", key = "CTRL" },
+            reset = { id = "lightrp.freecam.reset", name = "Free camera: back behind the character", key = "R" },
+            hints = { id = "lightrp.freecam.hints", name = "Free camera: show / hide the key reminder", key = "H" },
+            exit = { id = "lightrp.freecam.exit", name = "Free camera: leave", key = "BACKSPACE" },
         },
     },
 
@@ -69,7 +103,7 @@ LightRpConfig = {
             color = { r = 255, g = 204, b = 0, a = 160 },
             maxDistance = 30.0, groundOffset = 0.05,
         },
-        blip = { sprite = "clothes", title = "Wardrobe", description = "Change your outfit and manage your saved looks." },
+        blip = { icon = "shirt", sprite = "clothes", title = "Wardrobe", description = "Change your outfit and manage your saved looks." },
         spots = {
             { id = "citycenter", name = "Wardrobe // City Center",  position = { x = -629.602417, y = -391.612671, z = 8.186066 } },
             { id = "north",      name = "Wardrobe // Northside",    position = { x = -787.005127, y = 765.159668, z = 22.459297 } },
@@ -87,13 +121,13 @@ LightRpConfig = {
             {
                 id = "citycenter", name = "Job Center // City Center",
                 position = { x = -645.578979, y = -412.519470, z = 8.196312 }, heading = 56.899963,
-                jobs = { "sanitation", "delivery", "mechanic", "taxi", "trauma" },
+                jobs = { "sanitation", "scrapper", "ac_cleaner" },
             },
         },
         centerPrompt = "Job center",
         centerRadius = 2.0,
         centerMarker = { shape = "cylinder", radius = 0.9, height = 0.65, color = { r = 255, g = 204, b = 0, a = 160 }, maxDistance = 30.0, groundOffset = 0.05 },
-        centerBlip = { sprite = "tech", title = "Job Center", description = "Find work: sanitation, courier, mechanic, taxi, medic." },
+        centerBlip = { icon = "briefcase-business", sprite = "tech", title = "Job Center", description = "Find work: sanitation, scrap recovery and rooftop AC cleaning." },
     },
 
     -- Vehicle keys: L locks or unlocks the vehicle you sit in or the closest one
@@ -125,17 +159,34 @@ LightRpConfig = {
         rentalTank = { min = 0.35, max = 0.75 }, -- rentals are delivered with a partial tank
         pricePerLitre = 3,           -- eddies, whole litres only at the pump
         pumpRange = 7.0,             -- metres between the pump point and the vehicle
-        parkedSpeed = 0.5,           -- m/s: the car has to be stopped to refuel
+        parkedSpeed = 0.25,
+        clusterRadius = 35.0,       -- maximum separation within one station
+        clusterHeight = 4.0,        -- do not merge stations on different floors
+        litresPerSecond = 1.2,
+        minimumFillMs = 5000,
+        approachTimeoutMs = 45000,
+        vehicleUseRange = 3.8,
+        animation = { profile = "barlean", clip = "stand_bar_lean0__2h_on_bar__01__tapping__01" },
         jerrycan = { litres = 20, deposit = 25, range = 4.0 }, -- item `jerrycan`; the can comes back empty and refills at any pump
         prompt = "Refuel",
         interactRadius = 2.5,
-        marker = { shape = "cylinder", radius = 1.1, height = 0.5, color = { r = 255, g = 204, b = 0, a = 150 }, maxDistance = 40.0, groundOffset = 0.05 },
-        blip = { sprite = "GasStationVariant", title = "Gas Station", description = "Fuel by the litre. Jerrycans sold and refilled." },
-        -- Pump points: stand next to the pump, park the car within pumpRange.
-        -- Pick positions with /pos. The first one is a placeholder next to the
-        -- City Center rental parking until real station coordinates are set.
+        marker = false, -- interact with the real pumps, no forest of ground rings
+        blip = { icon = "fuel", sprite = "tech", title = "Fuel station", description = "Engine off. Refuel on foot; jerrycans available." },
+        -- Standing points immediately in front of the real world pumps.
+        -- Nearby points automatically share one centred station map blip.
         stations = {
-            { id = "citycenter", name = "Gas Station // City Center", position = { x = -650.5, y = -395.0, z = 7.99 } },
+            { id = "pump01", name = "Fuel station", position = { x = -595.785522, y = -722.328979, z = 8.715637 } },
+            { id = "pump02", name = "Fuel station", position = { x = -588.274170, y = -721.420044, z = 8.718803 } },
+            { id = "pump03", name = "Fuel station", position = { x = -588.936157, y = -717.189331, z = 8.717735 } },
+            { id = "pump04", name = "Fuel station", position = { x = -596.575928, y = -718.674561, z = 8.715202 } },
+            { id = "pump05", name = "Fuel station", position = { x = -597.285767, y = -713.731201, z = 8.715065 } },
+            { id = "pump06", name = "Fuel station", position = { x = -589.784546, y = -712.189575, z = 8.719681 } },
+            { id = "pump07", name = "Fuel station", position = { x = -590.538818, y = -708.434448, z = 8.739944 } },
+            { id = "pump08", name = "Fuel station", position = { x = -597.938599, y = -710.005127, z = 8.740982 } },
+            { id = "pump09", name = "Fuel station", position = { x = -598.561096, y = -704.878418, z = 8.719795 } },
+            { id = "pump10", name = "Fuel station", position = { x = -591.512207, y = -703.419617, z = 8.714996 } },
+            { id = "pump11", name = "Fuel station", position = { x = -591.772949, y = -699.219849, z = 8.719849 } },
+            { id = "pump12", name = "Fuel station", position = { x = -599.259888, y = -700.860901, z = 8.716759 } },
         },
     },
 
@@ -155,7 +206,7 @@ LightRpConfig = {
 
     spawn = {
         arrival = { name = "city", label = "City Center West", position = { x = -667.14, y = -382.61, z = 9.16 }, heading = 90.0 },
-        hospital = { name = "hospital", label = "Hospital", position = { x = -1441.0, y = 1269.0, z = 123.0 }, heading = 0.0 },
+        hospital = { name = "hospital", label = "Hospital", position = { x = -1355.739746, y = 1737.886597, z = 18.200012 }, heading = 0.0 },
         health = 1.0,          -- fraction of the maximum, as the life primitives expect
         graceMs = 4000,
         respawnDelayMs = 10000,
@@ -166,7 +217,7 @@ LightRpConfig = {
 
     locations = {
         { name = "city",     label = "City Center West",    position = { x = -667.14, y = -382.61, z = 9.16 },     heading = 90.0 },
-        { name = "hospital", label = "Hospital",             position = { x = -1441.0, y = 1269.0, z = 123.0 },    heading = 0.0 },
+        { name = "hospital", label = "Hospital",             position = { x = -1355.739746, y = 1737.886597, z = 18.200012 }, heading = 0.0 },
         { name = "stoop",    label = "King Stoop",           position = { x = -410.22, y = 722.73, z = 115.0 },    heading = 0.0 },
         { name = "north",    label = "North Promenade",      position = { x = -469.47, y = 930.99, z = 56.45 },    heading = 0.0 },
         { name = "dealer",   label = "Westbrook Dealership", position = { x = -1442.2, y = 127.4, z = 18.0 },      heading = 0.0 },
@@ -248,7 +299,7 @@ LightRpConfig = {
             maxDistance = 30.0, groundOffset = 0.05,
         }, -- translucent wall fading upwards; visual size is separate from interactRadius
         durationMinutes = 30,
-        blip = { sprite = "Zzz01_CarForPurchaseVariant", title = "Rent-a-Ride", description = "Rent a car by the half hour. Return it at any desk." },
+        blip = { icon = "key-round", sprite = "Zzz01_CarForPurchaseVariant", title = "Rent-a-Ride", description = "Rent a car by the half hour. Return it at any desk." },
         -- Crowd civilians (docs/generated/npc-records-2.31.csv, category civilian,
         -- risk candidate, reaction preset NoReaction: they neither flee nor
         -- panic). One is picked at random per desk; the list is tried until the
@@ -295,6 +346,26 @@ LightRpConfig = {
     -- Character creation and slots. The body and the face are made in the native
     -- creator (open77_appearance) at the first join; the wizard collects the rest.
     characters = {
+        arrivalScene = {
+            autoStart = true,
+            -- Ground under the seat. Camera offsets use X right / Y forward.
+            position = { x = -1529.316650, y = 982.267017, z = 23.607117 },
+            heading = 0.0,
+            approachOffset = { x = 0, y = 1.1, z = 0 }, -- streamed arrival on the pavement
+            bench = false, -- existing planter bench in the city, do not duplicate it
+            benchOffset = { x = 0, y = -0.12, z = 0 },
+            benchYawOffset = 180,
+            bucketBase = 610000,
+            music = "assets/audio/cloudy-day.mp3",
+            musicVolume = 0.12,
+            shots = {
+                arrival = { x = -1.5, y = 3.6, z = 0.40, aimX = 0, aimZ = 1.20, fov = 48 },
+                identity = { x = -1.1, y = 3.1, z = 0.42, aimX = 0, aimZ = 1.10, fov = 49 },
+                background = { x = 1.9, y = 3.8, z = 0.65, aimX = -0.30, aimZ = 1.12, fov = 51 },
+                appearance = { x = -0.75, y = 2.35, z = 0.98, aimX = 0.13, aimZ = 1.27, fov = 39 },
+                review = { x = -2.4, y = 4.15, z = 0.42, aimX = 0.42, aimZ = 1.15, fov = 48 },
+            },
+        },
         maxSlots = 3,
         currentYear = 2077,   -- Night City's calendar, for the birth date
         minAge = 18,

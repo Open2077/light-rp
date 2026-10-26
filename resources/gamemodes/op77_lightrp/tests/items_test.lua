@@ -37,8 +37,8 @@ local counts, total = { food = 0, drink = 0, medical = 0 }, 0
 for name, t in pairs(LightRpItems) do
     total = total + 1
     assert(type(t.label) == "string" and #t.label > 0, name)
-    assert(t.weight > 0 and t.stack >= 1 and t.stack % 1 == 0, name)
-    if t.image then
+    assert(t.weight >= 0 and (t.weight > 0 or name == "cash") and t.stack >= 1 and t.stack % 1 == 0, name)
+    if t.image and name ~= "cash" then
         counts[t.category] = counts[t.category] + 1
         assert(t.image == "img/items/" .. name .. ".png", name)
         for _, base in ipairs({ "../../../ui/public/", "web/" }) do
@@ -64,7 +64,12 @@ for name, t in pairs(LightRpItems) do
         assert(inv.items[1].count == t.stack and inv.items[2].count == 1, name .. " stack splitting")
     end
 end
-assert(total == 30 and counts.food == 9 and counts.drink == 6 and counts.medical == 3)
+assert(total == 37 and counts.food == 9 and counts.drink == 6 and counts.medical == 3)
+assert(LightRpItems.cash.weight == 0 and LightRpItems.cash.use == nil)
+for _, base in ipairs({ "../../../ui/public/", "web/" }) do
+    local file = assert(io.open(base .. LightRpItems.cash.image, "rb"))
+    assert(file:read(8) == "\137PNG\13\10\26\10"); file:close()
+end
 inv.items = { [1] = { name = "water", count = 1, metadata = { image = "https://example.invalid/track.png", effects = { health = 999 } } } }
 local snap = Inv.snapshot(inv).items[1]
 assert(snap.image == LightRpItems.water.image and snap.effects.health == nil, "metadata cannot replace art or effects")
@@ -75,4 +80,4 @@ for _, heal in ipairs({ function() return false, "rejected" end, function() erro
     local ok, reason = Inv.use(1, 1)
     assert(not ok and reason == "use_failed" and Inv.count(inv.id, "firstaid") == 1, "failed heals keep the item")
 end
-print("PASS: starting items granted once; 30 templates; 18 packaged illustrations; effects, death checks, consumption, stacks and metadata isolation")
+print("PASS: starting items granted once; 37 templates; 19 packaged illustrations; zero-weight cash; effects, death checks, consumption, stacks and metadata isolation")

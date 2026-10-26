@@ -293,6 +293,7 @@ function Characters.samplePosition(playerId)
     local c = characters[playerId]
     if c == nil then return end
     local position = Open77.players.position(playerId)
+    if LightRP.housing then position = LightRP.housing.savedPosition(playerId, position) end
     if position then c.lastKnown = { x = position.x, y = position.y, z = position.z } end
 end
 
@@ -323,10 +324,28 @@ function Characters.setIdentity(playerId, fields)
     return true
 end
 
+-- Staff rename preserves every other civil field and acknowledges only a
+-- successful durable write. The ordinary creation wizard owns setIdentity.
+function Characters.adminRename(playerId, firstName, lastName)
+    local c=characters[playerId]
+    if not c or c.status~="active" or not Db.ready then return false,"character_unavailable" end
+    local first,last=titleCase(tostring(firstName or "")),titleCase(tostring(lastName or ""))
+    if not validName(first) or not validName(last) then return false,"invalid_name" end
+    local ok=Db.run("UPDATE lightrp_characters SET first_name=?,last_name=? WHERE identifier=? AND character_key=?",{first,last,c.identifier,c.key})
+    if not ok then return false,"database_error" end
+    if characters[playerId]~=c then return false,"character_changed" end
+    c.firstName,c.lastName=first,last
+    c.slots=loadSlots(c.identifier)
+    LightRP.state(playerId,{"character","online"})
+    LightRP.broadcastState("online")
+    return true
+end
+
 -- Step 3: the player confirms. The body must exist when persistence is on.
 function Characters.finish(playerId)
     local c = characters[playerId]
     if c == nil or c.firstName == nil then return false, "identity_missing" end
+    if LightRP.creator and LightRP.creator.isPreparing(playerId) then return false, "scene_preparing" end
     if Db.ready then
         local appearance = appearanceRow(c.identifier, c.key)
         if appearance == nil or appearance.status ~= "active" then return false, "appearance_missing" end
@@ -334,13 +353,18 @@ function Characters.finish(playerId)
         c.appearanceRevision = tonumber(appearance.revision) or 0
     end
     local wasActive = c.status == "active"
+    if LightRP.creator then LightRP.creator.stop(playerId) end
     c.status = "active"
     persistCivil(c)
     if Db.ready then
         Db.run("UPDATE lightrp_accounts SET active_key = ? WHERE identifier = ?", { c.key, c.identifier })
         c.slots = loadSlots(c.identifier)
     end
-    LightRP.state(playerId, { "character", "online" })
+    if not wasActive and LightRP.tutorial then
+        local ok, why = LightRP.tutorial.startFor(playerId, c, true)
+        if not ok and why then LightRP.notice(playerId, {kind="warning",title="First day guide",body=why}) end
+    end
+    LightRP.state(playerId, { "character", "online", "tutorial" })
     if not wasActive then LightRP.eachModule("onCharacterActivated", playerId, c) end
     return true
 end
@@ -455,7 +479,8 @@ LightRP.stateProvider("character", function(playerId)
         nameMinLength = Config.names.minLength, nameMaxLength = Config.names.maxLength,
         nameAllowAccents = Config.names.allowAccents,
         -- First-spawn briefing: once per account, after the character is active.
-        welcomePending = LightRpConfig.welcome.enabled and c.status == "active" and not c.welcomeSeen,
+        welcomePending = LightRpConfig.welcome.enabled and not (LightRpTutorialConfig and LightRpTutorialConfig.enabled)
+            and c.status == "active" and not c.welcomeSeen,
         welcomeReadSeconds = LightRpConfig.welcome.readSeconds or 15,
     }
 end)
@@ -512,6 +537,7 @@ end)
 -- Actions (the wizard and the Personnage tab) + commands
 
 local REASONS = {
+    scene_preparing = "Your arrival is still loading. Please wait a moment before entering the city.",
     invalid_name = "Name refused: letters, hyphens and apostrophes, " .. Config.names.minLength .. " to " .. Config.names.maxLength .. " characters per word.",
     invalid_birth_date = string.format("Invalid birth date (YYYY-MM-DD, %d to %d years old in %d).", CC.minAge, CC.maxAge, CC.currentYear),
     invalid_origin = "Origine inconnue.",
@@ -590,7 +616,11 @@ Characters.switching = {}
 for _, method in ipairs({ "select", "startNew" }) do
     local original = Characters[method]
     Characters[method] = function(playerId, ...)
-        if Characters.switching[playerId] or (LightRP.shops and LightRP.shops.isBusy(playerId)) then return false, "busy" end
+        if Characters.switching[playerId] or (LightRP.shops and LightRP.shops.isBusy(playerId))
+            or (LightRP.jobRuns and LightRP.jobRuns.isBusy(playerId))
+            or (LightRP.jobWork and LightRP.jobWork.isBusy(playerId))
+            or (LightRP.garage and LightRP.garage.isBusy(playerId))
+            or (LightRP.housing and LightRP.housing.isBusy(playerId)) then return false, "busy" end
         Characters.switching[playerId] = true
         local result = table.pack(pcall(original, playerId, ...))
         Characters.switching[playerId] = nil

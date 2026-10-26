@@ -3,27 +3,8 @@
 .hud > * { position: absolute; }
 
 .hud__bottom-left { left: var(--hud-safe-x); bottom: var(--hud-safe-y); display: flex; flex-direction: column; gap: var(--hud-gap); align-items: flex-start; }
-.player-vitals { position: relative; width: 330px; padding: 10px 0 3px; font-family: "Segoe UI", sans-serif; text-shadow: 0 1px 4px #000, 0 1px 12px #000a; }
-.player-vitals::before { content: ""; position: absolute; inset: -28px -35px -26px -32px; z-index: -1; background: radial-gradient(ellipse at 38% 80%, #080b0dd1, #080b0d00 72%); pointer-events: none; }
-.player-vitals__secondary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 17px; margin-top: 19px; }
-.player-vital__heading { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; font-size: 10px; font-weight: 500; color: #d7dcdf; }
-.player-vital__heading > svg { color: var(--vital-color); }
-.player-vital__number { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 12px; color: #f4f5f5; }
-.player-vital__track { position: relative; height: 3px; border-radius: 3px; background: #ffffff29; box-shadow: 0 1px 4px #0008; overflow: hidden; }
-.player-vital__fill, .player-vital__trail { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--vital-color); transition: width .4s cubic-bezier(.22,1,.36,1), background .3s; }
-.player-vital__trail { background: #ffffff83; transition: width .6s .15s ease; }
-.player-vital--health .player-vital__heading { position: relative; font-size: 12px; margin-bottom: 9px; gap: 8px; }
-.player-vital--health .player-vital__number { font-size: 27px; font-weight: 600; line-height: 1; letter-spacing: -.8px; }
-.player-vital__number small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: #bdc3c8; }
-.player-vital--health .player-vital__track { height: 5px; }
-.player-vital--low .player-vital__number { color: #ff9892; }
-.player-vital__delta { position: absolute; right: 0; bottom: 34px; color: #b9e4a9; font-size: 13px; animation: vital-delta 1.4s ease both; }
-.player-vital__delta.is-loss { color: #ff9892; }
-.player-vitals__warning { position: absolute; bottom: calc(100% + 3px); display: flex; align-items: center; gap: 6px; color: #ffae96; font-size: 11px; animation: vital-warning .3s ease both; }
-@keyframes vital-delta { 0% { opacity: 0; transform: translateY(5px); } 20%, 65% { opacity: 1; } 100% { opacity: 0; transform: translateY(-9px); } }
-@keyframes vital-warning { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (max-width: 1280px) { .player-vitals { width: 310px; } .player-vitals__secondary { gap: 12px; } }
-@media (prefers-reduced-motion: reduce) { .hud, .player-vital__fill, .player-vital__trail { transition: none; } .player-vital__delta, .player-vitals__warning { animation: none; } }
+@media (max-width: 600px) { .hud__bottom-left { left: 18px; bottom: 18px; } }
+@media (prefers-reduced-motion: reduce) { .hud { transition: none; } }
 
 /* Bottom-right stack, kept above the voice plate (open-voice, ~64 px tall). */
 .hud__bottom-right { right: var(--hud-safe-x); bottom: calc(var(--hud-safe-y) + 84px); display: flex; flex-direction: column; align-items: flex-end; gap: var(--hud-gap); }

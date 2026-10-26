@@ -8,21 +8,26 @@ server checks the real sender's keys again for every request.
 ## Actions
 
 - Lock or unlock. Key possession never bypasses a locked vehicle.
-- Open/close each supported door, trunk and hood.
-- Open all cabin doors; close all supported doors, trunk and hood together.
+- Open/close the trunk and hood.
 - Access the selected trunk's inventory: opens the physical trunk and the
   inventory for **that exact vehicle**, not a nearby replacement.
-- Raise/lower the supported windows, independently of broken-glass damage.
 - Start/stop the engine while parked.
 - Lights off, headlights, high beams.
 - Sound a short synchronised horn pulse.
 - Check model name, lock, engine, lights and overall condition.
 
-The 26 registered definitions are alternatives, not 26 permanent rows: open/close,
-lock/unlock and engine choices follow the latest replicated state. An already
-selected light mode is hidden. Bikes have no door/window/trunk entries; unknown
-car layouts use the conservative front-doors/trunk/hood profile. Admin actions
-remain separate and retain their own ACL checks.
+The root has at most four Light RP entries: lock/unlock, **Trunk & hood**,
+**Vehicle controls**, and status. Trunk inventory and openings live in the first
+submenu; engine, lights and horn live in the second. Empty submenus are omitted.
+Click Back, press Left/Backspace, or right-click to return to root. Escape or
+releasing Alt closes the entire menu. Navigation keeps the same target and never
+executes an action.
+
+The 14 registered definitions are state-dependent alternatives, not 14 permanent
+rows. Bikes have no trunk/hood entries. Cabin door actions, all-door commands and
+window controls have been removed from both the menu and server allowlist, at the
+user's request after in-game testing. Old/forged requests for those IDs are rejected.
+Admin entries remain separate and retain their own ACL checks.
 
 The trunk remains physically open after closing the inventory, until explicitly
 closed. Locking immediately revokes its inventory viewers and rejects in-flight
@@ -36,17 +41,17 @@ sends only an action ID and the exact network vehicle ID; it cannot select a
 native function, mask, lock state, horn duration or authority identity.
 
 - Active, living character, keys, matching routing bucket and proximity required.
-- Doors, storage and engine require a parked vehicle (default <= 0.5 m/s).
+- Trunk, hood, storage and engine require a parked vehicle (default <= 0.5 m/s).
 - Trunk inventory is accessed from outside, within the inventory's own range too.
 - Cabin controls belong to the driver. From outside, they require a parked,
   unoccupied car. A key holder cannot remotely stop someone else's car.
-- A seated driver can operate windows/lights while doors are locked.
+- A seated driver can operate the lights while doors are locked.
 - Engine controls cannot revive a destroyed/undriveable vehicle.
 - Native failures are reported, never converted to success.
 - General cooldown: 300 ms; independent horn cooldown: 2.5 s; horn pulse: 450 ms.
 - No free repairs, deletion, forced entry, seat ejection, fuel or invented plates.
 
-Door/window changes preserve unrelated masks and flags. Open77 replicates these
+Trunk/hood changes preserve unrelated masks and flags. Open77 replicates these
 states to observers and stream-in clients; no direct client-side mutation or
 permanent polling thread is installed by this consumer.
 
@@ -54,18 +59,15 @@ permanent polling thread is installed by this consumer.
 
 `LightRpConfig.vehicleContext` controls enablement, near/remote ranges, parked
 speed, cooldowns and model opening masks. Defaults are 4.5 m for physical/cabin
-actions and 8 m for lock, horn and status. Six door bits represent front left,
-front right, rear left, rear right, trunk and hood; four window bits represent
-the first four doors. These are model policies, not native capability detection:
-unusual/custom models may not animate all generic slots. Configure their masks
-after checking the model in game. Do not infer rear doors from the catalogue's
-generic seat count.
+actions and 8 m for lock, horn and status. Only opening bits 4 (trunk = 16) and
+5 (hood = 32) are used, default 48; bikes default to zero. These are model policies,
+not native capability detection: configure unusual/custom models after checking
+them in game. Setting other bits does not re-enable removed cabin door actions.
 
 ```lua
--- Example for a two-door car with a trunk and hood:
+-- Example for a custom car exposing only a trunk:
 LightRpConfig.vehicleContext.models["Vehicle.my_custom_car"] = {
-    doors = 51,   -- bits 0, 1, 4, 5
-    windows = 3, -- bits 0, 1
+    doors = 16,
 }
 ```
 
@@ -84,11 +86,17 @@ From the resource directory:
 ```powershell
 pwsh -NoProfile -File tests/run-lua.ps1 -Test vehicle_context_test.lua
 pwsh -NoProfile -File tests/run-lua.ps1 -Test vehicle_access_test.lua
+pwsh -NoProfile -File tests/run-lua.ps1 -Test context_submenu_test.lua
 ```
 
 Tests run the actual consumer, standalone registry and server modules against
 mocked native APIs. They cover all actions, registration/restart, key changes,
 exact trunk selection, lock revocation, masks, malformed requests, life, range,
 buckets, occupancy, moving vehicles, cooldowns, bikes/coupes and native refusal.
+The standalone registry/controller test checks submenu validation, provider
+isolation and leaf dispatch. `node tests/context-submenus.browser.cjs` from `ui`
+checks the real WebUI in a headless browser with a simulated bridge: four-entry
+root, mouse/keyboard/back, stale replies, errors, layout and reduced motion.
+Set `PLAYWRIGHT_MODULE` to an installed Playwright path if needed.
 They do not assert model-specific animation quality; in-game checks are left to
 the user as requested.

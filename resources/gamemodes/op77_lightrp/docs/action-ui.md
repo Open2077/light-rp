@@ -1,6 +1,16 @@
 # Action UI — progress, hold and timing checks
 
-Client-side interaction kit for future Light RP jobs. Yellow/black, compact bottom-centre widgets, keyboard-only interaction, animated progress and explicit success/failure/cancellation feedback. No job, payout or item mutation is bundled with the kit.
+Shared client-side interaction kit for Light RP. The default timed action uses a
+wide yellow progress bar at the bottom centre, without a background panel. Eating,
+drinking, smoking, refuelling, gathering, processing and AC maintenance all use
+this same renderer through `LightRpActions.progress`. New timed actions should
+use that API rather than create their own overlay.
+
+Keep `description` to the item or action details: the shared bar already displays
+the remaining time and Escape shortcut. Ring, hold and precision-check variants
+remain available through the same kit, with keyboard interaction and explicit
+success/failure/cancellation feedback. No payout or item mutation is bundled
+with presentation; each caller's server validates completion.
 
 ## Try it
 

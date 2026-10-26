@@ -17,6 +17,7 @@ function countdown(ms: number): string {
 export function Hud() {
   const hud = useStore((s) => s.hud);
   const character = useStore((s) => s.state.character);
+  const tutorial = useStore((s) => s.state.tutorial);
   const inventoryOpen = useStore((s) => s.dialog?.kind === "inventory");
   const rental = useStore((s) => s.state.rental);
   const rentalAt = useStore((s) => s.rentalReceivedAt);
@@ -27,6 +28,7 @@ export function Hud() {
     return () => clearInterval(timer);
   }, [rental.active]);
   if (!hud.ready || (useStore.getState().connected && character.status !== "active")) return null;
+  if (tutorial?.active && (tutorial.step === "intro" || tutorial.dialogue)) return null;
 
   return (
     <div className={`hud${inventoryOpen ? " hud--quiet" : ""}`} aria-hidden="true">

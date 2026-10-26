@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const base = { registered: false, status: 'draft', step: 'identity', key: 'default', appearanceRevision: 0, appearanceTracked: true, accountName: 'Test', playerId: 1, slots: [], maxSlots: 3, minAge: 18, maxAge: 90, currentYear: 2077, welcomePending: false, origins: [{ key: 'night_city', label: 'Night City' }, { key: 'badlands', label: 'Badlands' }, { key: 'ncus', label: 'NUSA' }, { key: 'europe', label: 'Europe' }, { key: 'asia', label: 'Asia' }, { key: 'latam', label: 'Latin America' }] };
+const base = { registered: false, status: 'draft', bodyFamily: 'female', step: 'identity', key: 'default', appearanceRevision: 0, appearanceTracked: true, accountName: 'Test', playerId: 1, slots: [], maxSlots: 3, minAge: 18, maxAge: 90, currentYear: 2077, welcomePending: false, origins: [{ key: 'night_city', label: 'Night City' }, { key: 'badlands', label: 'Badlands' }, { key: 'ncus', label: 'NUSA' }, { key: 'europe', label: 'Europe' }, { key: 'asia', label: 'Asia' }, { key: 'latam', label: 'Latin America' }] };
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: process.env.BROWSER_CHANNEL || 'msedge' });
   try {
@@ -21,6 +21,17 @@ const base = { registered: false, status: 'draft', step: 'identity', key: 'defau
     const shot = async name => { if (process.env.SCREENSHOT_DIR) { await page.waitForFunction(() => getComputedStyle(document.querySelector('.creator__page')).opacity === '1'); fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true }); await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, `character-${name}.png`) }); } };
     await fire('state', { character: base });
     await page.locator('.creator').waitFor();
+    await fire('creator', { phase: 'ready' });
+    await fire('creator', { phase: 'placement' });
+    await page.waitForSelector('.creator--editor', { state: 'attached' });
+    assert.equal(await page.locator('.creator').getAttribute('aria-hidden'), 'true');
+    await page.waitForFunction(() => window.testBridge.sent.some(x => x.name === 'lightrp:ui:focus' && x.payload.active === false));
+    await fire('creator', { phase: 'ready' });
+    await page.waitForSelector('.creator--editor', { state: 'detached' });
+    assert.equal(await page.locator('.creator').evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
+    await page.getByRole('button', { name: 'Mute background music' }).click();
+    assert.equal(await page.getByRole('button', { name: 'Mute background music' }).getAttribute('aria-pressed'), 'true');
+    assert((await page.evaluate(() => window.testBridge.sent)).some(x => x.name === 'lightrp:ui:creator' && x.payload.muted === true));
     await page.waitForTimeout(500);
     await shot('identity');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
@@ -33,7 +44,7 @@ const base = { registered: false, status: 'draft', step: 'identity', key: 'defau
     assert.equal(await page.locator('input[name=birthDate]').getAttribute('aria-invalid'), 'true');
     await page.locator('input[name=birthDate]').fill('2052-02-29');
     await page.keyboard.press('Enter');
-    await page.getByRole('heading', { name: 'Where are you coming from?' }).waitFor();
+    await page.getByRole('heading', { name: 'Every arrival has a story.' }).waitFor();
     await page.getByRole('radio', { name: 'Badlands', exact: true }).check();
     await page.locator('textarea').fill('Une nouvelle vie. '.repeat(20));
     await shot('background');
@@ -57,15 +68,15 @@ const base = { registered: false, status: 'draft', step: 'identity', key: 'defau
     assert(await page.locator('button[type=submit]').isDisabled(), 'wait for authoritative state too');
     let saved = { ...base, ...submitted, step: 'appearance' }; delete saved.type;
     await fire('state', { character: saved });
-    await page.getByRole('heading', { name: 'Put a face to the name.' }).waitFor();
+    await page.getByRole('heading', { name: 'Make yourself at home.' }).waitFor();
     assert(await page.getByRole('button', { name: 'Review character', exact: true }).isDisabled());
     await shot('appearance');
-    await page.getByRole('radio', { name: /Feminine/ }).check();
+    assert.equal(await page.getByRole('radio', { name: /Feminine/ }).count(), 0, 'native body selection is preserved');
     await page.getByRole('button', { name: 'Open appearance editor', exact: true }).click();
     assert.deepEqual((await actions()).at(-1), { type: 'character.appearance.open', mode: 'ripperdoc', family: 'female' });
     await page.waitForSelector('.creator--editor', { state: 'attached' });
     await fire('character:editor', { active: false });
-    await page.getByRole('heading', { name: 'Put a face to the name.' }).waitFor();
+    await page.getByRole('heading', { name: 'Make yourself at home.' }).waitFor();
     assert(await page.getByRole('button', { name: 'Review character', exact: true }).isDisabled(), 'cancel is not a save');
     await page.getByRole('button', { name: 'Open appearance editor', exact: true }).click();
     saved = { ...saved, bodyFamily: 'female', appearanceRevision: 1, step: 'confirm' };

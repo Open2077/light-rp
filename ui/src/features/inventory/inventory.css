@@ -89,6 +89,13 @@
 .inventory-quantity__row { display: flex; align-items: stretch; gap: 4px; }
 .inventory-quantity input { width: 59px; min-width: 0; border: 1px solid #ffffff22; border-radius: 4px; height: 35px; background: #ffffff04; padding: 6px 8px; color: #f1f1ed; text-align: center; font-variant-numeric: tabular-nums; }
 .inventory-quantity input[aria-invalid="true"] { border-color: #f29183; }
+.inventory-detail[data-currency] .inventory-quantity input { width: 106px; font-size: 12px; }
+.inventory-detail[data-currency] dl > div { flex-wrap: wrap; gap: 2px 8px; }
+.inventory-detail[data-currency] dd { white-space: nowrap; }
+@media (max-height: 800px) {
+  .inventory-detail[data-currency] .inventory-detail__art { height: 48px; }
+  .inventory-detail[data-currency] .inventory-detail__item > p { font-size: 11px; line-height: 1.6; }
+}
 .inventory-quantity button { flex: 1; padding: 5px; border-radius: 4px; background: #ffffff06; color: #dce0df; font-size: 11px; }
 .inventory-quantity button:hover:not(:disabled) { background: #ffffff15; }
 .inventory-detail__actions { display: flex; flex-direction: column; gap: 7px; }

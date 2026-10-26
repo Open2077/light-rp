@@ -15,6 +15,10 @@ export function matchesToggleKey(event: Pick<KeyboardEvent, "key" | "code" | "al
     || (missingLogicalKey && (event.code.toUpperCase() === target || (/^[A-Z]$/.test(key) && event.code === `Key${key}`)));
 }
 export const kg = (value: number) => new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(value);
+const counts = new Intl.NumberFormat("en");
+const compactCounts = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
+export const itemAmount = (item: InventoryItem, count = item.count, compact = false) => item.name === "cash"
+  ? `€$ ${compact && count >= 100000 ? compactCounts.format(count) : counts.format(count)}` : `×${counts.format(count)}`;
 export const quantity = (value: string, available: number) => value.trim() === "" ? available
   : /^\d+$/.test(value) && Number(value) > 0 ? Math.min(Number(value), available) : 0;
 export const itemAt = (ref: SlotRef | null, inventories: InventorySnapshot[]) => ref

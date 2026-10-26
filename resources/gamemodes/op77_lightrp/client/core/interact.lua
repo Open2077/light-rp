@@ -1,16 +1,18 @@
 -- Proximity interactions on the client. For every point the server sends:
 --   * a persistent native 3D marker (Open77.markers) when configured, otherwise
 --     a small ground ring (Open77.anchors, render = "ring") unless ring = false;
---   * an optional vanilla map blip (Open77.blips) so the point is on the map;
+--   * an optional custom SVG map blip (open77_icons), with a native fallback;
 --   * one shared page anchor ("interact") that the HUD page turns into a keycap
 --     and a few words, moved onto the nearest point in range.
 -- E sends that point's id to the server, which re-checks the distance itself.
 local E = LightRpEvents
 local Config = LightRpConfig
-local Interact = { points = {}, near = nil, promptAnchor = nil }
+local Interact = { points = {}, locals = {}, near = nil, promptAnchor = nil }
 LightRpInteract = Interact
 
 local RING_ACCENT = "#FFCC00B3"
+local BLIP_ACCENT, BLIP_SIZE = "#FFCC00", 40
+local customBlips = {} -- native handles are owned by the icon service, not us
 local sendPrompt
 
 local function log(format, ...) LightRpUi.log(format, ...) end
@@ -23,6 +25,30 @@ local function blipsAvailable()
     return type(Open77.blips) == "table" and type(Open77.blips.create) == "function"
 end
 
+local function iconCall(method, ...)
+    return pcall(function(...)
+        return exports.open77_icons[method](exports.open77_icons, ...)
+    end, ...)
+end
+
+local function removeBlip(id)
+    if customBlips[id] then
+        local called, ok, reason = iconCall("remove", id)
+        if not called or not ok then log("custom blip cleanup: %s", tostring(called and reason or ok)) end
+        customBlips[id] = nil
+    elseif blipsAvailable() then pcall(Open77.blips.remove, id) end
+end
+
+function Interact.trackBlip(id)
+    if customBlips[id] then
+        local called, ok, reason = iconCall("track", id)
+        if not called then return false, tostring(ok) end
+        return ok, reason
+    end
+    if not blipsAvailable() then return false, "blips_unavailable" end
+    return Open77.blips.track(id)
+end
+
 local function markersAvailable()
     return type(Open77.markers) == "table" and type(Open77.markers.create) == "function"
 end
@@ -31,7 +57,7 @@ local function clear()
     for _, point in ipairs(Interact.points) do
         if point.marker and markersAvailable() then pcall(Open77.markers.remove, point.marker) end
         if point.ring and anchorsAvailable() then pcall(Open77.anchors.remove, point.ring) end
-        if point.blip and blipsAvailable() then pcall(Open77.blips.remove, point.blip) end
+        if point.blip then removeBlip(point.blip) end
     end
     Interact.points = {}
     if Interact.near then Interact.near = nil; sendPrompt(nil) end
@@ -61,16 +87,37 @@ end
 
 local function createBlip(point)
     if not blipsAvailable() or type(point.blip) ~= "table" then return nil end
-    for _, sprite in ipairs({ point.blip.sprite, "vehicle", "objective" }) do
-        if sprite then
-            local id = Open77.blips.create({
-                position = point.position, sprite = sprite,
-                title = point.blip.title or point.label or "Point of interest",
-                description = point.blip.description or point.prompt or "",
-                active = true, visibleThroughWalls = false,
-            })
-            if id then return id end
-        end
+    local definition = {
+        position = point.blip.position or point.position,
+        sprite = point.blip.sprite or "objective",
+        icon = point.blip.icon or "map-pin", size = point.blip.size or BLIP_SIZE,
+        color = point.blip.color or BLIP_ACCENT,
+        title = point.blip.title or point.label or "Point of interest",
+        description = point.blip.description or point.prompt or "",
+        active = true, visibleThroughWalls = false,
+        routable = point.blip.routable == true,
+    }
+    if exports ~= nil then
+        local called, custom, reason = iconCall("create", definition)
+        if called and custom then customBlips[custom] = true; return custom end
+        log("custom blip %s refused for %s: %s; using native fallback",
+            tostring(definition.icon), tostring(point.id), tostring(called and reason or custom))
+    end
+    local sprites = {}
+    if point.blip.sprite then sprites[#sprites + 1] = point.blip.sprite end
+    -- An unsupported/missing icon should never turn a shop into a car rental.
+    if point.blip.sprite ~= "objective" then sprites[#sprites + 1] = "objective" end
+    for _, sprite in ipairs(sprites) do
+        -- Older clients retain useful locations; never borrow a misleading car
+        -- sprite. Do not send service-only fields to the native fallback.
+        local id, err = Open77.blips.create({
+            position = definition.position, sprite = sprite, title = definition.title,
+            description = definition.description, active = true, visibleThroughWalls = false,
+            routable = definition.routable,
+            color = type(Open77.blips.setColor) == "function" and definition.color or nil,
+        })
+        if id then return id end
+        log("blip sprite %s refused for %s: %s", tostring(sprite), tostring(point.id), tostring(err))
     end
     log("blip refused for %s", tostring(point.id))
     return nil
@@ -90,6 +137,27 @@ local function createMarker(point, marker)
     })
     if not id then log("3D marker refused for %s: %s", tostring(point.id), tostring(err)) end
     return id
+end
+
+-- Private client objectives share the same E key and proximity prompt as public
+-- desks, but survive a refresh of the server's public interaction list.
+function Interact.setLocal(id, entry, callback)
+    local old = Interact.locals[id]
+    if old then
+        if Interact.near == old then Interact.near = nil; sendPrompt(nil) end
+        if old.marker then pcall(Open77.markers.remove, old.marker) end
+        if old.blip then removeBlip(old.blip) end
+        Interact.locals[id] = nil
+    end
+    if not entry then return end
+    ensurePromptAnchor()
+    local point = { id = id, position = entry.position, radius = entry.radius or 2.6,
+        prompt = entry.prompt, key = "E", promptHeight = 0.7, blip = entry.blip, callback = callback,
+        passive = entry.passive == true }
+    if entry.marker then point.marker = createMarker(point, entry.marker) end
+    point.blip = createBlip(point)
+    Interact.locals[id] = point
+    return point.blip
 end
 
 local function build(list)
@@ -140,7 +208,7 @@ end
 CreateThread(function()
     while true do
         Wait(100)
-        if #Interact.points > 0 then
+        if #Interact.points > 0 or next(Interact.locals) then
             local p = localPosition()
             if p == nil then
                 setNear(nil)
@@ -149,7 +217,15 @@ CreateThread(function()
                 for _, point in ipairs(Interact.points) do
                     local dx, dy, dz = p.x - point.position.x, p.y - point.position.y, p.z - point.position.z
                     local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-                    if distance <= point.radius and (bestDistance == nil or distance < bestDistance) then best, bestDistance = point, distance end
+                    local fueling = LightRpRefueling and LightRpRefueling.isActive()
+                    local seated = point.id:match("^fuel%.") and Open77.vehicles.getPlayerSeat and Open77.vehicles.getPlayerSeat()
+                    if not fueling and not seated and distance <= point.radius and (bestDistance == nil or distance < bestDistance) then best, bestDistance = point, distance end
+                end
+                for _, point in pairs(Interact.locals) do
+                    local dx, dy, dz = p.x - point.position.x, p.y - point.position.y, p.z - point.position.z
+                    local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+                    local allowed = not (LightRpRefueling and LightRpRefueling.isActive()) or point.id=="fuel.current"
+                    if allowed and not point.passive and distance <= point.radius and (bestDistance == nil or distance <= bestDistance + 0.5) then best, bestDistance = point, distance end
                 end
                 setNear(best)
             end
@@ -161,7 +237,7 @@ function Interact.press()
     if LightRpActions and LightRpActions.isActive() then return false end
     local point = Interact.near
     if point == nil then return false end
-    TriggerServerEvent(E.net.interact, point.id)
+    if point.callback then point.callback() else TriggerServerEvent(E.net.interact, point.id) end
     return true
 end
 

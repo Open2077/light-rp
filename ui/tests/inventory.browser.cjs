@@ -4,6 +4,7 @@
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const water = { slot: 2, name: 'water', label: 'Bottle of Water', count: 6, weight: .5, icon: 'droplet', usable: true, stack: 10, description: 'Still water.', category: 'Drink' };
+water.useAction = { label: 'Drinking', durationMs: 6500, icon: 'droplet' };
 const left = { id: 'player:test', kind: 'player', label: 'UI Test', slots: 30, maxWeight: 40, weight: 3.3, items: [{ slot: 1, name: 'phone', label: 'Phone', count: 1, weight: .3, icon: 'smartphone', usable: false, stack: 1 }, water] };
 const right = { id: 'trunk:test', kind: 'trunk', label: 'Archer Hella', slots: 20, maxWeight: 80, weight: 1, items: [{ ...water, slot: 1, count: 2 }] };
 const dialog = { kind: 'inventory', left, right };
@@ -44,6 +45,7 @@ const hud = { ready: true, health: { value: 78, max: 100 }, stamina: { value: 90
     await slot(left.id, 2).click();
     assert.equal((await actions()).length, 0, 'a click must select, not move');
     assert.equal(await page.locator('.inventory-detail h2').innerText(), water.label);
+    assert.match(await page.locator('.inventory-detail__category').innerText(), /Drink\s*· 6\.5s/i);
     await page.getByRole('button', { name: 'Use one', exact: true }).click();
     assert.deepEqual(await actions(), [{ type: 'inventory.use', slot: 2 }]);
     assert.equal(await page.getByRole('button', { name: 'Use one', exact: true }).isDisabled(), true);

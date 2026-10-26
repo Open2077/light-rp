@@ -1,6 +1,13 @@
 {
   "$schema": "./config/server.schema.json",
   "schemaVersion": 1,
+  "rcon": {
+    "enabled": true,
+    "bindAddress": "127.0.0.1",
+    "port": 11831,
+    "passwordEnvironmentVariable": "OP77_RCON_PASSWORD",
+    "permissions": ["*"]
+  },
   "identity": {
     "name": "Open//77 Official Roleplay",
     "description": "Serveur Light RP officiel d\u0027Open//77 : un personnage, un chat de proximit\u00E9, des v\u00E9hicules civils, un staff. Tapez /help en jeu.",
@@ -23,7 +30,7 @@
   "simulation": {
     "tickRate": 30,
     "snapshotRate": 20,
-    "expectedGameBuild": 23100,
+    "expectedGameBuild": 25000,
     "helloTimeoutSeconds": 10,
     "connectGateTimeoutSeconds": 8,
     "playerInterestRadius": 0,
@@ -91,7 +98,11 @@
       "open77_interactions",
       "open77_worldui",
       "open77_zones",
-      "op77_lightrp"
+      "open77_icons",
+      "open77_gizmos_demo",
+      "open77_gizmos_editor",
+        "op77_lightrp",
+        "op77_neuralink"
     ],
     "autoStart": true,
     "watchIntervalMilliseconds": 0,

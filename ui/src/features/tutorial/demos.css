@@ -1,0 +1,212 @@
+/* First day examples: pictures of the real screens, in the guide's colours
+   (gold #f4d655 on deep green-black). Each loops on its own timers; CSS only
+   eases between the stages. */
+
+/* ---------- Shared pieces ---------- */
+.demo-cap { display: inline-grid; place-items: center; min-width: 30px; height: 28px; padding: 0 8px; border-radius: 4px; background: #1b2420; border: 1px solid #f4d65566; color: #f4d655; font: 700 13px 'Chakra Petch', sans-serif; box-shadow: 0 3px 0 #0a0f0d; transition: transform .12s, box-shadow .12s, background .12s, color .12s; flex: none; }
+.demo-cap--wide { min-width: 42px; }
+.demo-cap.is-on { background: #f4d655; color: #141912; translate: 0 2px; box-shadow: 0 1px 0 #9c8523, 0 0 0 6px #f4d65522; }
+.demo-item { position: relative; display: inline-grid; place-items: center; width: 40px; height: 40px; background: #ffffff0d; border: 1px solid #ffffff1c; border-radius: 4px; color: #e7e3c9; flex: none; }
+.demo-item img { width: 34px; height: 34px; object-fit: contain; }
+.demo-item b { position: absolute; right: 2px; bottom: 0; font: 600 10px 'Share Tech Mono', monospace; color: #f4f2e9; text-shadow: 0 1px 2px #000; }
+.demo-caption { margin: 12px 0 0; font-size: 12px; color: #9fab9f; letter-spacing: .02em; }
+.demo-caption b { color: #f4d655; font-weight: 600; }
+.demo-alert { color: #ff5b4f !important; animation: demo-blink 1s steps(1, end) infinite; }
+.demo-bar { position: relative; display: block; height: 6px; background: #ffffff14; border-radius: 3px; overflow: hidden; flex: 1; }
+.demo-bar i { position: absolute; inset: 0 auto 0 0; background: #f4d655; border-radius: 3px; transition: width .6s cubic-bezier(.3,.7,.3,1); }
+.demo-bar i.is-low { background: #ff5b4f; }
+.demo-bar i.is-run { transition: width 2.1s linear; }
+.demo-fly { position: absolute; left: 50%; font: 700 13px 'Share Tech Mono', monospace; white-space: nowrap; pointer-events: none; }
+.demo-fly--in { top: -6px; color: #7fd38a; animation: demo-fly-in 1.6s ease both; }
+.demo-fly--out { bottom: -4px; color: #ffb48a; animation: demo-fly-out 1.6s ease both; }
+
+/* ---------- The showcase beside a dialogue ---------- */
+/* The dialogue and its example share one column at the bottom: the example sits on
+   the dialogue's right edge, whatever the dialogue's height. */
+.first-day__talk { position: absolute; bottom: 6vh; left: 50%; transform: translateX(-50%); width: min(1000px, 86vw); display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
+.first-day__talk .first-day__conversation { position: relative; bottom: auto; left: auto; transform: none; width: 100%; box-sizing: border-box; }
+.first-day__showcase { position: relative; width: min(430px, 100%); box-sizing: border-box; padding: 16px 20px 20px; background: linear-gradient(160deg, #0c1413f2, #101a16e8); border-left: 2px solid #f4d655; box-shadow: 0 14px 60px #0009; animation: demo-panel-in .5s cubic-bezier(.2,.8,.2,1) both; }
+.first-day__showcase > header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.first-day__showcase > header span { font: 600 10px 'Share Tech Mono', monospace; letter-spacing: .16em; color: #141912; background: #f4d655; padding: 2px 6px; }
+.first-day__showcase > header b { font-size: 16px; font-weight: 600; color: #f4f2e9; }
+
+/* ---------- Map of the hall ---------- */
+.demo-map { display: block; width: 100%; height: auto; max-height: 300px; overflow: visible; }
+.demo-map--compact { max-height: 190px; }
+.demo-map__ground { fill: #ffffff07; stroke: #ffffff14; stroke-width: .6; }
+.demo-map__avenue { stroke: #ffffff10; stroke-width: 7; }
+.demo-map__route { fill: none; stroke: #f4d65555; stroke-width: 1; stroke-dasharray: 2.5 2.5; animation: demo-dash 1.2s linear infinite; }
+.demo-map__stop circle { fill: #0c1413; stroke: #8d9a90; stroke-width: 1; transition: fill .4s, stroke .4s; }
+.demo-map__stop.is-done circle { fill: #f4d65588; stroke: #f4d655; }
+.demo-map__stop.is-now circle { fill: #f4d655; stroke: #fff6c8; }
+.demo-map__stop .demo-map__ping { fill: none !important; stroke: #f4d655 !important; stroke-width: .8; transform-box: fill-box; transform-origin: center; animation: demo-ping 1.4s ease-out infinite; }
+.demo-map__stop text { font: 600 5.2px 'Chakra Petch', sans-serif; fill: #f4f2e9; text-anchor: middle; paint-order: stroke; stroke: #0c1413; stroke-width: 1.6px; }
+.demo-map__stop.is-next text { fill: #9fab9f; }
+
+/* ---------- Rules ---------- */
+.demo-rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.demo-rules li { display: flex; gap: 12px; align-items: flex-start; padding: 9px 12px; background: #ffffff06; border: 1px solid transparent; color: #8f9c92; transition: all .35s ease; }
+.demo-rules li svg { color: #6f7c72; flex: none; margin-top: 2px; transition: color .35s; }
+.demo-rules li b { display: block; font-size: 14px; font-weight: 600; }
+.demo-rules li span { font-size: 12px; }
+.demo-rules li.is-seen { color: #bcc6bd; }
+.demo-rules li.is-on { color: #f4f2e9; background: #f4d65514; border-color: #f4d65544; translate: 6px 0; }
+.demo-rules li.is-on svg { color: #f4d655; }
+.demo-chat { display: inline-block; margin-top: 4px; padding: 2px 8px; background: #0a0f0d; border-left: 2px solid #72cbd5; font: 12px 'Share Tech Mono', monospace; color: #c8eef2; }
+.demo-rules li.is-on .demo-chat { animation: demo-type 1.2s steps(20, end) both; overflow: hidden; white-space: nowrap; }
+
+/* ---------- Citizen card ---------- */
+.demo-card { position: relative; }
+.demo-card__band { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f4d655; color: #141912; font: 700 11px 'Share Tech Mono', monospace; letter-spacing: .1em; }
+.demo-card__body { display: flex; gap: 16px; padding: 14px 12px; background: #ffffff08; border: 1px solid #ffffff14; border-top: 0; }
+.demo-card__photo { display: grid; place-items: center; width: 66px; height: 78px; background: #ffffff0c; color: #9fab9f; }
+.demo-card__body small { display: block; font: 10px 'Share Tech Mono', monospace; color: #8d9a90; letter-spacing: .12em; margin-top: 4px; }
+.demo-card__body b { display: block; font-size: 17px; font-weight: 600; color: #f4f2e9; margin-bottom: 6px; }
+.demo-card__account { font-family: 'Share Tech Mono', monospace !important; padding: 2px 6px; margin-left: -6px; transition: background .4s, color .4s; }
+.demo-card__account.is-on { background: #f4d65526; color: #f4d655 !important; box-shadow: 0 0 0 1px #f4d65580; }
+
+/* ---------- Cash / bank, transfer ---------- */
+.demo-money { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.demo-money__col { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 14px; background: #ffffff07; border: 1px solid #ffffff14; transition: border-color .3s, background .3s; }
+.demo-money__col svg { color: #f4d655; margin-bottom: 4px; }
+.demo-money__col small { font: 10px 'Share Tech Mono', monospace; letter-spacing: .14em; color: #8d9a90; }
+.demo-money__col b { font: 600 22px 'Share Tech Mono', monospace; color: #f4f2e9; }
+.demo-money__col span { font-size: 11px; color: #9fab9f; line-height: 1.45; }
+.demo-money__col code { color: #f4d655; }
+.demo-money__col.is-on { border-color: #f4d65577; background: #f4d65510; }
+.demo-transfer__row { display: flex; align-items: center; gap: 8px; }
+.demo-account { position: relative; flex: 1; padding: 10px 12px; background: #ffffff07; border: 1px solid #ffffff14; transition: border-color .3s; }
+.demo-account small { display: block; font: 10px 'Share Tech Mono', monospace; color: #8d9a90; letter-spacing: .12em; }
+.demo-account b { font: 600 13px 'Share Tech Mono', monospace; color: #f4f2e9; }
+.demo-account em { display: flex; align-items: center; gap: 5px; margin-top: 4px; font: normal 600 12px 'Share Tech Mono', monospace; color: #7fd38a; animation: demo-panel-in .3s ease both; }
+.demo-account.is-done { border-color: #7fd38a88; }
+.demo-transfer__wire { position: relative; width: 70px; height: 2px; background: #ffffff1c; flex: none; }
+.demo-transfer__wire i { position: absolute; top: 50%; left: 0; translate: -50% -50%; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #f4d655; color: #141912; opacity: 0; }
+.demo-transfer__wire.is-1 i { opacity: 1; animation: demo-wire 1.4s ease-in-out both; }
+.demo-warn { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 12px; color: #c9b77a; }
+
+/* ---------- Panels: rental desk, vehicle menu, bank ---------- */
+.demo-panel { background: #ffffff06; border: 1px solid #ffffff14; }
+.demo-panel__head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid #ffffff12; font: 600 12px 'Share Tech Mono', monospace; letter-spacing: .1em; color: #d7ddd4; }
+.demo-panel__head svg { color: #f4d655; }
+.demo-panel__head > span:last-child:not(.demo-cap) { margin-left: auto; color: #8d9a90; }
+.demo-list { list-style: none; margin: 0; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.demo-list li { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 10px; font-size: 13px; color: #bcc6bd; border: 1px solid transparent; transition: all .3s ease; }
+.demo-list li span { flex: 1; }
+.demo-list li b { font: 600 12px 'Share Tech Mono', monospace; color: #f4d655; }
+.demo-list li.is-on { background: #f4d65517; border-color: #f4d65555; color: #f4f2e9; }
+.demo-list li.is-dim { opacity: .35; }
+.demo-press { position: absolute; right: 8px; padding: 3px 10px; background: #f4d655; color: #141912; font: normal 700 11px 'Chakra Petch', sans-serif; animation: demo-press .5s ease both; }
+.demo-result { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 12px; text-align: center; animation: demo-panel-in .4s ease both; }
+.demo-result > svg { color: #7fd38a; }
+.demo-result b { font-size: 17px; color: #f4f2e9; }
+.demo-result b.is-on { color: #7fd38a; animation: demo-pop .5s ease both; }
+.demo-result small { font: 10px 'Share Tech Mono', monospace; letter-spacing: .14em; color: #8d9a90; }
+.demo-result > span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9fab9f; }
+.demo-result b:first-of-type { font-family: 'Chakra Petch', sans-serif; }
+.demo-panel .demo-result b { font-size: 24px; font-family: 'Share Tech Mono', monospace; }
+
+/* ---------- Key fob ---------- */
+.demo-keys { display: flex; align-items: center; gap: 20px; }
+.demo-keys__car { position: relative; display: grid; place-items: center; width: 130px; height: 110px; color: #cfd6cc; transition: color .3s; }
+.demo-keys__car.is-locked { color: #ff8278; }
+.demo-ripple { position: absolute; inset: 14px; border: 2px solid #f4d655; border-radius: 50%; animation: demo-ping .7s ease-out both; }
+.demo-ripple--late { animation-delay: .35s; }
+.demo-keys__state { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.demo-keys__state b { display: flex; align-items: center; gap: 6px; font: 700 15px 'Share Tech Mono', monospace; letter-spacing: .08em; }
+.demo-keys__state b.is-locked { color: #ff8278; }
+.demo-keys__state b.is-open { color: #7fd38a; }
+.demo-keys__state span { font-size: 12px; color: #9fab9f; }
+
+/* ---------- Dashboard, pump, jerrycan ---------- */
+.demo-gauge { display: flex; flex-direction: column; align-items: center; padding-top: 6px; }
+.demo-gauge .cluster-frame { zoom: 1.45; }
+.demo-pump { display: flex; gap: 14px; align-items: stretch; }
+.demo-pump ol { list-style: none; margin: 0; padding: 0; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.demo-pump li { display: flex; align-items: center; gap: 10px; padding: 7px 8px; font-size: 13px; color: #8d9a90; transition: all .3s ease; }
+.demo-pump li > span:first-child { display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid #ffffff22; border-radius: 50%; flex: none; }
+.demo-pump li .demo-cap { margin-left: auto; }
+.demo-pump li.is-on { color: #f4f2e9; background: #f4d65514; }
+.demo-pump li.is-on > span:first-child { border-color: #f4d655; color: #f4d655; }
+.demo-pump li.is-done { color: #bcc6bd; }
+.demo-pump li.is-done > span:first-child { background: #7fd38a; border-color: #7fd38a; color: #0c1413; }
+.demo-pump__meter { width: 120px; padding: 12px; display: flex; flex-direction: column; gap: 2px; background: #050807; border: 1px solid #ffffff18; opacity: .45; transition: opacity .3s, border-color .3s; }
+.demo-pump__meter.is-on { opacity: 1; border-color: #f4d65577; }
+.demo-pump__meter small { font: 10px 'Share Tech Mono', monospace; letter-spacing: .14em; color: #8d9a90; }
+.demo-pump__meter b { font: 600 24px 'Share Tech Mono', monospace; color: #f4d655; margin-bottom: 6px; }
+.demo-can { display: flex; align-items: center; gap: 14px; }
+.demo-can > svg { color: #f4d655; flex: none; animation: demo-nudge 1.2s ease-in-out infinite; }
+.demo-can__slot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px; background: #ffffff07; border: 1px solid #ffffff14; }
+.demo-can__slot b { font-size: 13px; color: #f4f2e9; }
+.demo-can__slot small, .demo-can__tank small { font: 10px 'Share Tech Mono', monospace; color: #8d9a90; letter-spacing: .1em; }
+.demo-can__tank { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.demo-can__tank .demo-bar { flex: none; height: 10px; }
+.demo-can__tank b { font-size: 13px; color: #d7ddd4; }
+
+/* ---------- Collect / process / sell ---------- */
+.demo-work { position: relative; display: flex; gap: 10px; padding-top: 14px; }
+.demo-work__stage { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px; background: #ffffff06; border: 1px solid #ffffff12; color: #8d9a90; transition: all .35s ease; }
+.demo-work__stage > span { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: #ffffff0a; }
+.demo-work__stage b { font-size: 13px; font-weight: 600; }
+.demo-work__stage.is-on { color: #f4f2e9; border-color: #f4d65577; background: #f4d65512; translate: 0 -4px; }
+.demo-work__stage.is-on > span { background: #f4d655; color: #141912; }
+.demo-work__stage.is-done > span { color: #7fd38a; }
+.demo-work__arrow { position: absolute; right: -14px; top: 38%; z-index: 1; color: #f4d65599; }
+
+/* ---------- In the objective card ---------- */
+.first-day__demo { margin: 14px 0 0; padding: 12px; background: #050a08aa; border: 1px solid #ffffff12; animation: first-day-in .4s ease both; }
+.demo-mini { display: flex; align-items: center; gap: 12px; min-height: 64px; }
+.demo-mini__menu { list-style: none; margin: 0; padding: 4px; flex: 1; display: flex; flex-direction: column; gap: 2px; background: #0f1714; border: 1px solid #ffffff14; opacity: 0; translate: -6px 0; transition: opacity .3s, translate .3s; }
+.demo-mini__menu.is-open { opacity: 1; translate: 0 0; }
+.demo-mini__menu li { display: flex; align-items: center; justify-content: space-between; padding: 3px 8px; font-size: 11px; color: #9fab9f; transition: background .25s, color .25s; }
+.demo-mini__menu li.is-on { background: #f4d65522; color: #f4f2e9; }
+.demo-mini__menu li.is-picked { background: #f4d655; color: #141912; }
+.demo-mini__grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; flex: 1; opacity: 0; scale: .96; transition: opacity .3s, scale .3s; }
+.demo-mini__grid.is-open { opacity: 1; scale: 1; }
+.demo-mini__grid > span:empty { height: 40px; background: #ffffff06; border: 1px solid #ffffff10; border-radius: 4px; }
+.demo-mini__grid .demo-item { width: auto; }
+.demo-mini__shop { flex: 1; display: flex; align-items: center; gap: 8px; }
+.demo-mini__shop > span:first-child { position: relative; opacity: .5; transition: opacity .3s; }
+.demo-mini__shop > span:first-child.is-on { opacity: 1; }
+.demo-mini__shop > span:first-child > svg { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; padding: 2px; border-radius: 50%; background: #f4d655; color: #141912; }
+.demo-mini__pay { display: flex; border: 1px solid #ffffff1c; }
+.demo-mini__pay i { padding: 4px 7px; font: normal 600 10px 'Share Tech Mono', monospace; color: #8d9a90; transition: all .25s; }
+.demo-mini__pay i.is-on { background: #f4d65533; color: #f4f2e9; }
+.demo-mini__confirm { margin-left: auto; display: grid; place-items: center; min-width: 74px; height: 28px; padding: 0 8px; border: 1px solid #f4d65566; font: 700 10px 'Chakra Petch', sans-serif; letter-spacing: .08em; color: #f4d655; transition: all .25s; }
+.demo-mini__confirm.is-on { background: #f4d655; color: #141912; animation: demo-press .5s ease both; }
+.demo-mini__confirm.is-done { background: #7fd38a; border-color: #7fd38a; color: #0c1413; }
+.demo-mini__use { position: relative; opacity: .5; transition: opacity .3s; }
+.demo-mini__use.is-on { opacity: 1; }
+.demo-mini__use i { position: absolute; left: 50%; bottom: -9px; translate: -50% 0; padding: 0 5px; background: #f4d655; color: #141912; font: normal 700 9px 'Chakra Petch', sans-serif; opacity: 0; transition: opacity .25s; }
+.demo-mini__use.is-on i { opacity: 1; }
+.demo-ring { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #8d9a90; background: conic-gradient(#f4d655 var(--p, 0%), #ffffff14 0); flex: none; }
+.demo-ring::before { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: #0c1413; }
+.demo-ring svg { position: relative; }
+.demo-ring.is-run { animation: demo-ring 2s linear both; color: #f4d655; }
+.demo-ring.is-done { --p: 100%; background: #7fd38a; color: #0c1413; }
+.demo-ring.is-done::before { display: none; }
+.demo-mini__vital { flex: 1; display: flex; align-items: center; gap: 8px; color: #72cbd5; }
+.demo-mini__vital .demo-bar i { background: #72cbd5; }
+.demo-mini__progress { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.demo-mini__progress small { font-size: 11px; color: #bcc6bd; }
+.demo-mini__token { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #ffffff22; color: #f4d655; transition: all .35s ease; flex: none; }
+.demo-mini__token.is-gone { opacity: .2; scale: .8; }
+.demo-mini__token.is-wait { opacity: .3; }
+.demo-mini__token.is-new { border-color: #7fd38a; color: #7fd38a; animation: demo-pop .45s ease both; }
+.demo-mini__token b { position: absolute; top: -14px; font: 700 10px 'Share Tech Mono', monospace; color: #7fd38a; }
+
+@property --p { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+@keyframes demo-ring { from { --p: 0%; } to { --p: 100%; } }
+@keyframes demo-panel-in { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+@keyframes demo-fly-in { 0% { opacity: 0; translate: -50% 18px; } 20%, 70% { opacity: 1; translate: -50% -4px; } 100% { opacity: 0; translate: -50% -14px; } }
+@keyframes demo-fly-out { 0% { opacity: 0; translate: -50% -6px; } 20%, 70% { opacity: 1; translate: -50% 6px; } 100% { opacity: 0; translate: -50% 16px; } }
+@keyframes demo-ping { from { opacity: .9; scale: .6; } to { opacity: 0; scale: 1.5; } }
+@keyframes demo-dash { to { stroke-dashoffset: -5; } }
+@keyframes demo-blink { 50% { opacity: .35; } }
+@keyframes demo-type { from { max-width: 0; } to { max-width: 100%; } }
+@keyframes demo-wire { from { left: 0; } to { left: 100%; } }
+@keyframes demo-press { 0% { scale: 1; } 40% { scale: .92; } 100% { scale: 1; } }
+@keyframes demo-pop { 0% { scale: .6; opacity: 0; } 60% { scale: 1.12; opacity: 1; } 100% { scale: 1; } }
+@keyframes demo-nudge { 50% { translate: 4px 0; } }
+@media (max-height: 800px) { .first-day__showcase { width: min(380px, 100%); padding: 12px 16px 14px; } }
+@media (prefers-reduced-motion: reduce) { .first-day__showcase *, .first-day__demo * { animation: none !important; transition: none !important; } }

@@ -6,156 +6,106 @@ import { Icon } from "@/design/components";
 import { formatMoney } from "@/bridge/money";
 import "./fuel.css";
 
-/* A gas station pump. Opened by E at the pump point; the server tells us which
-   vehicle is parked at the pump (if any), its tank, the price per litre and the
-   jerrycans in the player's pockets. Every purchase is one server action; the
-   server answers with a result and a refreshed payload, so the gauge fills from
-   what the tank really holds. */
-
 export function FuelDialog() {
-  const dialog = useStore((s) => s.dialog);
-  const close = useStore((s) => s.closeDialog);
+  const dialog = useStore(s => s.dialog), close = useStore(s => s.closeDialog);
   const visible = dialog?.kind === "fuel";
   useEffect(() => {
     emit(PAGE_EVENTS.dialogState, { kind: "fuel", open: visible });
     if (!visible) return;
     emit(PAGE_EVENTS.focus, { active: true });
-    const off = on<{ kind?: string }>(PAGE_EVENTS.dialogClose, (p) => { if (!p?.kind || p.kind === "fuel") close(); });
-    return () => { off(); emit(PAGE_EVENTS.focus, { active: false }); };
+    const off = on<{ kind?: string }>(PAGE_EVENTS.dialogClose, p => { if (!p?.kind || p.kind === "fuel") close(); });
+    const update = on<FuelDialogPayload>("lightrp:ui:fuel:snapshot", p => {
+      const current = useStore.getState().dialog;
+      if (current?.kind === "fuel" && current.spot.id === p?.spot?.id) useStore.getState().openDialog(p);
+    });
+    return () => { off(); update(); emit(PAGE_EVENTS.focus, { active: false }); };
   }, [visible, close]);
-  if (dialog?.kind !== "fuel") return null;
-  return <FuelBody key={dialog.spot.id} payload={dialog} onClose={close} />;
+  return dialog?.kind === "fuel" ? <FuelBody key={dialog.spot.id} payload={dialog} close={close} /> : null;
 }
-
-const SEGMENTS = 24;
-
-function FuelBody({ payload, onClose }: { payload: FuelDialogPayload; onClose: () => void }) {
-  const { spot, vehicle, jerrycan, money } = payload;
-  const result = useStore((s) => s.lastResult);
-  const root = useRef<HTMLDivElement>(null);
+function FuelBody({ payload: p, close }: { payload: FuelDialogPayload; close: () => void }) {
+  const [vehicleId, setVehicleId] = useState(p.vehicle?.id);
+  const [litres, setLitres] = useState<number | null>(null);
   const [pay, setPay] = useState<"cash" | "bank">("cash");
-  const [litres, setLitres] = useState<number | null>(null); // null = fill up
-  const [sent, setSent] = useState<string | null>(null);
-  const pending = useRef<string | null>(null);
-  const resultBefore = useRef(result);
-  const [feedback, setFeedback] = useState<{ text: string; error?: boolean } | null>(null);
-  const fmt = (value: number) => formatMoney(value, money.currency);
-
-  const room = vehicle ? Math.max(0, Math.floor(vehicle.capacity - vehicle.litres)) : 0;
-  const wanted = vehicle ? Math.max(0, Math.min(room, litres ?? room)) : 0;
-  const price = Math.ceil(wanted * payload.pricePerLitre);
-  const balance = pay === "bank" ? money.bank : money.cash;
-  const short = Math.max(0, price - balance);
-  const fraction = vehicle ? Math.max(0, Math.min(1, vehicle.litres / vehicle.capacity)) : 0;
-  const preview = vehicle ? Math.max(0, Math.min(1, (vehicle.litres + wanted) / vehicle.capacity)) : 0;
-  const state = !vehicle ? "none" : vehicle.litres <= 0 ? "empty" : fraction <= 0.15 ? "low" : "ok";
-  const canBuy = !!vehicle && !vehicle.moving && wanted > 0 && short === 0 && !sent;
-  const canPrice = jerrycan.empty > 0 ? jerrycan.refillPrice : jerrycan.buyPrice;
-  const canShort = Math.max(0, canPrice - balance);
-
+  const [pending, setPending] = useState<string | null>(null), [message, setMessage] = useState("");
+  const result = useStore(s => s.lastResult);
+  const baseline = useRef(result), sent = useRef(false), root = useRef<HTMLDivElement>(null);
+  // Empty Lua tables can arrive as {} rather than []; live refresh must not
+  // crash the panel when the last vehicle leaves the forecourt.
+  const vehicles = Array.isArray(p.vehicles) ? p.vehicles : (p.vehicle ? [p.vehicle] : []);
+  const v = vehicles.find(v => v.id === vehicleId) ?? vehicles[0];
+  const room = v ? Math.max(0, Math.floor(v.capacity - v.litres)) : 0;
+  const amount = Math.max(0, Math.min(room, litres ?? room));
+  const cost = Math.ceil(amount * p.pricePerLitre), balance = p.money[pay];
+  const duration = Math.max((p.minimumFillMs ?? 5000) / 1000, Math.ceil(amount / (p.litresPerSecond ?? 1.2)));
+  const canCost = p.jerrycan.empty ? p.jerrycan.refillPrice : p.jerrycan.buyPrice;
+  const fmt = (n: number) => formatMoney(n, p.money.currency);
+  const blocked = p.busy ? "This pump is in use" : !v ? "Park beside the pump" : v.unavailable || (v.engineOn ? "Switch off the engine first" : v.moving ? "Park the vehicle first" : !room ? "Tank already full" : cost > balance ? "Insufficient funds" : "");
+  useEffect(() => { root.current?.focus(); }, []);
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    root.current?.focus();
-    return () => { if (previous?.isConnected) previous.focus(); };
-  }, []);
+    if (!pending || !result || result === baseline.current || result.action !== pending) return;
+    sent.current = false; setPending(null); setMessage(result.text);
+  }, [result, pending]);
   useEffect(() => {
-    if (!result || result === resultBefore.current || result.action !== pending.current) return;
-    resultBefore.current = result; pending.current = null; setSent(null);
-    setFeedback({ text: result.text, error: !result.ok });
-    if (result.ok) setLitres(null);
-  }, [result]);
+    if (pending) return;
+    const timer = window.setInterval(() => sendAction({ type: "fuel.refresh", spot: p.spot.id }), 2500);
+    return () => clearInterval(timer);
+  }, [p.spot.id, pending]);
   useEffect(() => {
-    if (!sent) return;
-    const timer = window.setTimeout(() => setFeedback({ text: "The pump has not answered yet. Close and reopen it to check the tank before paying again.", error: true }), 12000);
-    return () => window.clearTimeout(timer);
-  }, [sent]);
+    if (!pending) return;
+    const timer = window.setTimeout(() => setMessage("Still waiting for the pump. Close and reopen to check its state; do not submit again."), 9000);
+    return () => clearTimeout(timer);
+  }, [pending]);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (!e.repeat) onClose(); }
-      if (e.key === "Tab") {
-        const controls = Array.from(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]') ?? [])
-          .filter((el) => el.getClientRects().length > 0);
-        const first = controls[0], last = controls[controls.length - 1];
-        if (e.shiftKey && (document.activeElement === first || document.activeElement === root.current)) { e.preventDefault(); last?.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
-      }
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (!e.repeat) close(); }
+      if (e.key !== "Tab") return;
+      const buttons = Array.from(root.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled)') ?? []);
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === root.current)) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
+    window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key);
+  }, [close]);
   const issue = (action: UiAction) => {
-    if (pending.current) return;
-    pending.current = action.type; resultBefore.current = useStore.getState().lastResult;
-    setSent(action.type); setFeedback(null); sendAction(action);
+    if (sent.current) return;
+    sent.current = true; baseline.current = result; setPending(action.type); setMessage(""); sendAction(action);
   };
-  const quick = [10, 20, 30];
-
-  return <div ref={root} tabIndex={-1} className="pump o77-interactive" role="dialog" aria-modal="true" aria-labelledby="pump-title">
-    <div className="pump__panel" aria-busy={!!sent}>
-      <header className="pump__header">
-        <div><span className="pump__eyebrow"><i />LIGHT RP / GAS STATION</span><h1 id="pump-title">Fill her up<span>.</span></h1></div>
-        <button className="pump__close" onClick={onClose} aria-label="Close pump">Close <kbd>Esc</kbd><Icon name="x" size={18} /></button>
-      </header>
-      <div className="pump__location"><span><Icon name="map-pin" size={14} />{spot.name}</span><span><Icon name="fuel" size={14} />{fmt(payload.pricePerLitre)} / L</span></div>
-
-      <section className={`pump__tank pump__tank--${state}`} aria-label="Vehicle at the pump">
-        {vehicle ? <>
-          <div className="pump__tank-head">
-            <div><span className="pump__eyebrow">AT THE PUMP</span><h2>{vehicle.label}</h2></div>
-            <div className="pump__readout"><strong>{Math.round(vehicle.litres)}</strong><span>/ {Math.round(vehicle.capacity)} L</span></div>
-          </div>
-          <div className="pump__gauge" role="img" aria-label={`Tank ${Math.round(fraction * 100)} percent`}>
-            {Array.from({ length: SEGMENTS }, (_, i) => {
-              const at = (i + 1) / SEGMENTS;
-              const cls = at <= fraction + 1e-4 ? " is-on" : at <= preview + 1e-4 ? " is-preview" : "";
-              return <span key={i} className={`pump__cell${cls}`} />;
-            })}
-          </div>
-          <div className="pump__tank-foot">
-            <span>{state === "empty" ? <><Icon name="triangle-alert" size={12} /> Tank empty · engine cut</> : state === "low" ? <><Icon name="fuel" size={12} /> Running on reserve</> : `${Math.round(fraction * 100)}% full`}</span>
-            <span>{vehicle.moving ? "Stop the vehicle to refuel" : room > 0 ? `${room} L to the brim` : "Tank is full"}</span>
-          </div>
-        </> : <div className="pump__none"><Icon name="car" size={30} /><h2>No vehicle at the pump</h2><p>Park within {Math.round(payload.pumpRange)} m of the pump and step out. You can still buy a jerrycan below.</p></div>}
-      </section>
-
-      {vehicle && room > 0 && <section className="pump__order" aria-label="Fuel amount">
-        <div className="pump__amount">
-          <span className="pump__eyebrow">AMOUNT</span>
-          <div className="pump__chips">
-            {quick.filter((q) => q < room).map((q) => <button key={q} disabled={!!sent} aria-pressed={litres === q} onClick={() => { setLitres(q); setFeedback(null); }}>{q} L</button>)}
-            <button disabled={!!sent} aria-pressed={litres === null} onClick={() => { setLitres(null); setFeedback(null); }}>Fill up · {room} L</button>
-          </div>
-          <input className="pump__slider" type="range" min={1} max={room} step={1} value={wanted} disabled={!!sent} aria-label="Litres"
-            onChange={(e) => { const v = Number(e.target.value); setLitres(v >= room ? null : v); setFeedback(null); }} />
-        </div>
-        <fieldset className="pump__payment" disabled={!!sent}><legend>Pay with</legend>{(["cash", "bank"] as const).map((method) => <label key={method} className={pay === method ? "is-selected" : ""}>
-          <input type="radio" name="pump-payment" value={method} checked={pay === method} onChange={() => { setPay(method); setFeedback(null); }} />
-          <Icon name={method === "cash" ? "banknote" : "credit-card"} size={16} /><span>{method === "cash" ? "Cash" : "Bank"}<small>{fmt(method === "cash" ? money.cash : money.bank)}</small></span><i aria-hidden="true" />
-        </label>)}</fieldset>
-      </section>}
-
-      {vehicle && room > 0 && <div className="pump__total">
-        <div><span>{wanted} L × {fmt(payload.pricePerLitre)}</span><strong>{fmt(price)}</strong></div>
-        {short > 0 && <p className="pump__short" role="status">You need {fmt(short)} more in {pay === "cash" ? "cash" : "your bank account"}.</p>}
-        <button className="pump__primary" disabled={!canBuy} onClick={() => { if (canBuy && vehicle) issue({ type: "fuel.buy", spot: spot.id, vehicle: vehicle.id, litres: wanted, pay }); }}>
-          {sent === "fuel.buy" ? "Pumping…" : vehicle.moving ? "Stop the vehicle first" : `Refuel ${wanted} L`}<Icon name={sent === "fuel.buy" ? "loader" : "fuel"} size={17} />
-        </button>
-      </div>}
-
-      <section className="pump__cans" aria-label="Jerrycans">
-        <div className="pump__can-info">
-          <Icon name="fuel" size={20} />
-          <div><strong>Jerrycan · {jerrycan.litres} L</strong><small>{jerrycan.empty > 0 ? `You carry ${jerrycan.empty} empty can${jerrycan.empty > 1 ? "s" : ""}: refill for ${fmt(jerrycan.refillPrice)}.` : `Can + fuel for ${fmt(jerrycan.buyPrice)}. Bring it back empty and refill for ${fmt(jerrycan.refillPrice)}.`}{jerrycan.full > 0 ? ` ${jerrycan.full} full in your pockets.` : ""}</small></div>
-        </div>
-        <button className="pump__secondary" disabled={!!sent || canShort > 0} title={canShort > 0 ? `You need ${fmt(canShort)} more` : undefined}
-          onClick={() => issue({ type: "fuel.jerrycan", spot: spot.id, pay })}>
-          {sent === "fuel.jerrycan" ? "Filling…" : jerrycan.empty > 0 ? `Refill can · ${fmt(jerrycan.refillPrice)}` : `Buy full can · ${fmt(jerrycan.buyPrice)}`}
-        </button>
-      </section>
-
-      {feedback && <p className={`pump__feedback${feedback.error ? " is-error" : ""}`} role={feedback.error ? "alert" : "status"}>{feedback.text}</p>}
-      <footer className="pump__footer"><span><Icon name="info" size={13} />Out of fuel on the road? Use a jerrycan from your inventory next to the car.</span><span><kbd>Esc</kbd> Back to the city</span></footer>
-    </div>
+  return <div className="pump o77-interactive" ref={root} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="pump-title">
+    <header className="pump__header"><div className="pump__brand"><Icon name="fuel" size={27} /><span>LIGHT RP<small>SELF-SERVICE / CHOOH2</small></span></div><button className="pump__close" onClick={close} aria-label="Close pump"><Icon name="x" size={19} /></button></header>
+    <div className="pump__intro"><span className="pump__eyebrow">{p.spot.name} · PUMP {String(p.spot.pump ?? 1).padStart(2, "0")}</span><h1 id="pump-title">A little further<span>.</span></h1><p>Park. Engine off. Step outside.</p></div>
+    <div className="pump__tariff"><span>Price per litre</span><strong>{fmt(p.pricePerLitre)} <small>/ L</small></strong></div>
+    <section className="pump__vehicle">
+      <label className="pump__eyebrow" htmlFor="pump-vehicle">YOUR VEHICLE AT THIS PUMP</label>
+      {vehicles.length ? <>
+        <select id="pump-vehicle" value={v?.id} disabled={!!pending} onChange={e => { setVehicleId(Number(e.target.value)); setLitres(null); }}>
+          {vehicles.map(car => <option key={car.id} value={car.id}>{car.label} · #{car.id}</option>)}
+        </select>
+        {v && <><div className="pump__readout"><strong>{v.litres.toFixed(1)} <small>L</small></strong><span>{v.capacity} L capacity</span></div>
+          <div className="pump__gauge" role="img" aria-label={"Tank " + Math.round(v.litres / v.capacity * 100) + " percent"}><i style={{ width: Math.min(100, (v.litres + amount) / v.capacity * 100) + "%" }} /><b style={{ width: Math.min(100, v.litres / v.capacity * 100) + "%" }} /></div>
+          <div className="pump__legend"><span><i /> Current fuel</span><span><i /> After your fill</span></div>
+        </>}
+      </> : <div className="pump__empty"><Icon name="car" size={28} /><p>No vehicle nearby<small>Park within {p.pumpRange} m. The list refreshes automatically.</small></p></div>}
+    </section>
+    {v && room > 0 && <section className="pump__amount">
+      <div className="pump__section-title"><label htmlFor="pump-litres">How much?</label><strong>{amount} L <small>≈ {duration}s</small></strong></div>
+      <div className="pump__chips">{[10, 20, 30].filter(n => n < room).map(n => <button key={n} disabled={!!pending} aria-pressed={litres === n} onClick={() => setLitres(n)}>{n} L</button>)}<button disabled={!!pending} aria-pressed={litres === null} onClick={() => setLitres(null)}>Fill up</button></div>
+      <input id="pump-litres" type="range" min={1} max={room} step={1} value={amount} disabled={!!pending} aria-label="Litres" onChange={e => setLitres(Number(e.target.value))} />
+    </section>}
+    <fieldset className="pump__payment" disabled={!!pending}><legend>Payment method</legend>{(["cash", "bank"] as const).map(method => <label key={method} className={pay === method ? "is-selected" : ""}><input type="radio" name="fuel-payment" checked={pay === method} onChange={() => setPay(method)} /><Icon name={method === "cash" ? "banknote" : "credit-card"} size={17} /><span>{method === "cash" ? "Cash" : "Bank"}<small>{fmt(p.money[method])}</small></span></label>)}</fieldset>
+    {v && <div className="pump__checkout"><div><span>Estimated total</span><strong>{fmt(cost)}</strong></div><button className="pump__primary" disabled={!!pending || !!blocked} onClick={() => issue({ type: "fuel.buy", spot: p.spot.id, vehicle: v.id, litres: amount, pay })}>{pending === "fuel.buy" ? "Preparing…" : blocked || "Continue to vehicle"}<Icon name="arrow-right" size={18} /></button></div>}
+    <p className="pump__instructions"><Icon name="info" size={16} /><span>Then stand beside your vehicle and press <kbd>E</kbd>. Stay still while filling. Payment is taken only when the action completes.</span></p>
+    <section className="pump__can"><Icon name="fuel" size={21} /><div><strong>On-the-road backup</strong><small>{p.jerrycan.empty ? "Refill your empty can" : "Jerrycan + " + p.jerrycan.litres + " L of fuel"}</small></div><button disabled={!!pending || !!p.busy || canCost > balance} onClick={() => issue({ type: "fuel.jerrycan", spot: p.spot.id, pay })}>{pending === "fuel.jerrycan" ? "Preparing…" : fmt(canCost)}</button></section>
+    {message && <p className="pump__feedback" role="alert">{message}</p>}
+    <footer className="pump__footer"><span><kbd>Esc</kbd> Close</span><span>Timed filling · Cancel without charge</span></footer>
   </div>;
+}
+export function FuelApproach() {
+  const [state, setState] = useState<{ label: string; deadline: number; cancelKey: string } | null>(null);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => on<{ phase: string; label: string; expiresMs: number; cancelKey?: string }>("lightrp:ui:fuel:state", p => {
+    setState(p.phase === "approach" ? { label: p.label, deadline: Date.now() + p.expiresMs, cancelKey: p.cancelKey ?? "X" } : null);
+  }), []);
+  useEffect(() => { if (!state) return; const t = setInterval(() => setNow(Date.now()), 200); return () => clearInterval(t); }, [state]);
+  if (!state) return null;
+  return <aside className="pump-route" role="status"><Icon name="fuel" size={24} /><div><span>PUMP RESERVED · {Math.max(0, Math.ceil((state.deadline - now) / 1000))}s</span><strong>Walk beside your {state.label}</strong><p>Face the vehicle. <kbd>E</kbd> Start filling <b>·</b> <kbd>{state.cancelKey}</kbd> Cancel</p></div></aside>;
 }

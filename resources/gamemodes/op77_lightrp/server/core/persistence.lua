@@ -28,11 +28,38 @@ function Db.single(sql, params)
     return row
 end
 
+-- A commerce checkout is one transaction: items, balance and receipt must
+-- commit together. Never fall back to a sequence of independent writes.
+function Db.transaction(queries)
+    if not Db.ready then return false, "database_unavailable" end
+    if type(MySQL.transaction) ~= "table" or type(MySQL.transaction.await) ~= "function" then
+        return false, "transaction_unavailable"
+    end
+    local ok, committed, reason = pcall(MySQL.transaction.await, queries)
+    if not ok or committed ~= true then
+        LightRP.log("db transaction refused: %s", tostring(ok and reason or committed))
+        return false, "database_error"
+    end
+    return true
+end
+
 function Db.query(sql, params)
     if not Db.ready then return {} end
     local ok, rows = pcall(function() return MySQL.query.await(sql, params) end)
     if not ok then LightRP.log("db query failed: %s", tostring(rows)) return {} end
     return rows or {}
+end
+
+-- Unlike query(), this distinguishes an empty result from an unavailable DB.
+-- Ownership must never be interpreted as an empty garage after a failed read.
+function Db.read(sql, params)
+    if not Db.ready then return false, "database_unavailable" end
+    local ok, rows = pcall(function() return MySQL.query.await(sql, params) end)
+    if not ok or type(rows) ~= "table" then
+        LightRP.log("db read failed: %s", tostring(rows))
+        return false, "database_error"
+    end
+    return true, rows
 end
 
 CreateThread(function()

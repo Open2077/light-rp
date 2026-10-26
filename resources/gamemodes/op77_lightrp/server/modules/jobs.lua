@@ -69,6 +69,8 @@ local function persist(c)
 end
 
 function Jobs.setJob(playerId, name, grade)
+    if LightRP.jobRuns and LightRP.jobRuns.isBusy(playerId) then return false, "busy" end
+    if LightRP.jobWork and LightRP.jobWork.isBusy(playerId) then return false, "busy" end
     local c = LightRP.characters.get(playerId)
     if c == nil or c.status ~= "active" then return false, "no_character" end
     name = string.lower(tostring(name or ""))
@@ -155,7 +157,7 @@ local function spawnClerk(center)
     for i = #candidates, 2, -1 do local j = math.random(i); candidates[i], candidates[j] = candidates[j], candidates[i] end
     for _, candidate in ipairs(candidates) do
         local definition = {
-            position = { x = center.position.x, y = center.position.y, z = center.position.z }, yaw = tonumber(center.heading) or 0.0, bucket = 0,
+            position = { x = center.position.x, y = center.position.y, z = center.position.z }, yaw = tonumber(center.heading) or 0.0, bucket = center.bucket or 0,
             persistent = false, despawnWhenUnobserved = false, streamingRadius = 150.0,
             behavior = { combatEnabled = false, perceptionEnabled = false, voiceEnabled = false },
         }
@@ -181,7 +183,10 @@ local function offersOf(center)
             local count = 0
             for _ in pairs(def.grades) do count = count + 1 end
             local entry = def.grades[0] or {}
-            list[#list + 1] = { name = name, label = def.label, tag = def.tag, grades = count, entryGrade = { label = entry.label or "", salary = entry.salary or 0 } }
+            list[#list + 1] = { name = name, label = def.label, tag = def.tag, grades = count,
+                entryGrade = { label = entry.label or "", salary = entry.salary or 0 }, recruitment = def.recruitment,
+                route = LightRP.jobRuns and LightRP.jobRuns.preview(name),
+                work = LightRP.jobWork and LightRP.jobWork.preview(name) }
         end
     end
     return list
@@ -198,9 +203,11 @@ CreateThread(function()
         centers[id] = center
         LightRP.interaction(id, {
             position = center.position, radius = Config.centerRadius or 2.0,
+            bucket = center.bucket, -- nil: every bucket (the city desks); the arrival hall's desk has its own
             label = center.name, prompt = Config.centerPrompt or "Job center", key = "E", promptHeight = 1.1,
             marker = center.marker or Config.centerMarker, ring = false,
-            blip = Config.centerBlip and { sprite = Config.centerBlip.sprite, title = center.name, description = Config.centerBlip.description } or nil,
+            blip = Config.centerBlip and { icon = Config.centerBlip.icon, color = Config.centerBlip.color, size = Config.centerBlip.size,
+                sprite = Config.centerBlip.sprite, title = center.name, description = Config.centerBlip.description } or nil,
         })
     end
     if #(Config.centers or {}) > 0 then LightRP.log("jobs: %d job center(s) open", #Config.centers) end
@@ -215,7 +222,10 @@ function Jobs.onInteract(playerId, id)
 end
 
 local function nearCenter(playerId, center)
-    return LightRP.nearInteraction(playerId, { position = center.position, radius = Config.centerRadius or 2.0 }, 4.0)
+    local p = Open77.players.position(playerId)
+    local life = Open77.players.getLifeState(playerId)
+    return p and (p.bucket or 0) == (center.bucket or 0) and life and life.phase == "alive"
+        and LightRP.nearInteraction(playerId, { position = center.position, radius = Config.centerRadius or 2.0 }, 2.0)
 end
 
 LightRP.action("jobs.apply", function(playerId, payload)
