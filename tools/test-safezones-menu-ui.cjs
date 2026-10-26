@@ -1,0 +1,55 @@
+/* Run a Vite preview first. Requires Playwright and Chromium; see docs/safezones.md. */
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');const assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}),args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:1920,height:1080}}),errors=[];page.on('pageerror',e=>errors.push(String(e)));
+ await page.addInitScript(()=>{const handlers=new Map();let bridge;window.zoneTest={calls:[],fire:(n,d)=>{for(const fn of handlers.get(n)||[])fn(d);}};Object.defineProperty(window,'Open77',{configurable:true,get:()=>bridge,set:v=>{bridge=v;const on=v.on.bind(v),emit=v.emit.bind(v);v.on=(n,f)=>{if(!handlers.has(n))handlers.set(n,new Set());handlers.get(n).add(f);on(n,f);};v.emit=(n,p)=>{if(n==='lightrp:ui:safezones')window.zoneTest.calls.push(structuredClone(p));emit(n,p);};}});});
+ const menu=page.locator('.safezone-menu'),current=()=>menu.locator('.o77-rage__row--on .o77-rage__text');
+ const choose=async(text,enter=true)=>{for(let i=0;i<80;i++){if(await current().textContent()===text){if(enter)await page.keyboard.press('Enter');return;}await page.keyboard.press('ArrowDown');await page.waitForTimeout(18);}throw new Error('Menu entry not reachable: '+text+' current='+await current().textContent());};
+ const waitRow=async(text)=>page.waitForFunction(text=>[...document.querySelectorAll('.safezone-menu .o77-rage__text')].some(n=>n.textContent===text),text);
+ const type=async(value)=>{await page.keyboard.type(value);await page.keyboard.press('Enter');};
+ await page.goto(`${process.env.SAFEZONE_MENU_URL || 'http://127.0.0.1:5183'}/?registered=1&staff=1&safezones=1&safezonesLegacy=1&safezonesPresence=1`);
+ await menu.waitFor();await page.waitForTimeout(400);
+ assert.equal(await menu.locator('input,form,textarea,select').count(),0);assert.equal(await page.locator('.safezone-inspector,.safezone-workspace,.safezone-confirm').count(),0);
+ assert.equal(await page.locator('.hud-safezone').getByText('SAFE ZONE',{exact:false}).count(),1);
+ await page.screenshot({path:'/tmp/light-rp-safezones-menu-list.png'});
+ await choose('Create a zone');await waitRow('Name');await choose('Name');await type('City Clinic');
+ await page.waitForFunction(()=>document.querySelector('.safezone-menu .o77-rage__subtitle')?.textContent==='City Clinic');
+ await choose('Restrictions');await waitRow('Block running');await choose('Block running');
+ for(const label of['Block jumping','Block melee','Block grenades','Block native consumables','Block reloading','Block weapon wheel']){await choose(label);assert.equal(await menu.locator('.o77-rage__row--on .o77-rage__check--on').count(),1);}
+ await choose('Block shooting');assert.equal(await menu.locator('.o77-rage__row--on .o77-rage__check--on').count(),0);
+ await page.screenshot({path:'/tmp/light-rp-safezones-menu-rules.png'});
+ await page.keyboard.press('Backspace');await choose('Geometry and placement');await choose('Radius');await type('18.5');
+ await choose('Full height (above and below)');
+ assert.equal(await menu.locator('.o77-rage__row').filter({hasText:'Floor Z'}).getAttribute('class').then(s=>s.includes('--disabled')),true);
+ await page.keyboard.press('Backspace');await choose('Shape',false);await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
+ await choose('Polygon vertices');
+ for(let i=0;i<3;i++){await page.evaluate(()=>window.zoneTest.fire('lightrp:ui:safezones',{kind:'captureKey'}));await page.waitForTimeout(500);}
+ await choose('Vertex 2');await choose('X');await type('-1195.25');
+ await page.keyboard.press('Backspace');await page.keyboard.press('Backspace');
+ await choose('Place in the world');await page.locator('.safezone-world-hint').waitFor();assert.equal(await menu.count(),0);
+ await page.evaluate(()=>window.zoneTest.fire('lightrp:ui:safezones',{kind:'editor',mode:'menu'}));await menu.waitFor();
+ await choose('Publish zone');await page.getByText('Zone saved. Its published settings are now active.',{exact:true}).waitFor();
+ const save=await page.evaluate(()=>window.zoneTest.calls.find(p=>p.operation==='save'));
+ assert.equal(save.zone.label,'City Clinic');assert.equal(save.zone.fullHeight,true);assert.equal(save.zone.blockRun,true);assert.equal(save.zone.blockShoot,false);assert.equal(save.zone.points.length,3);assert.equal(save.zone.points[1].x,-1195.25);
+ for(const key of['blockJump','blockMelee','blockGrenades','blockConsumables','blockReload','blockWeaponWheel'])assert.equal(save.zone[key],true);
+ assert.equal(await menu.locator('input,form,textarea,select').count(),0);
+ await choose('Name');await type('Keep this draft');await page.keyboard.press('Escape');await waitRow('Discard draft');await choose('Keep editing');
+ await choose('Name');await page.keyboard.type('Cancelled name');await page.keyboard.press('Escape');
+ assert.equal(await menu.locator('.o77-rage__subtitle').textContent(),'Keep this draft','Escape cancels row edit without losing previous draft');
+ await choose('Delete zone');await waitRow('Confirm deletion');await choose('Keep this zone');await choose('Delete zone');await choose('Confirm deletion');
+ await page.getByText('Zone deleted.',{exact:true}).waitFor();
+ await page.evaluate(()=>window.zoneTest.fire('lightrp:ui:safezones',{kind:'invalidate',error:'Your editing permission was removed.'}));await page.waitForTimeout(80);assert.equal(await menu.count(),0);
+ const calls=await page.evaluate(()=>window.zoneTest.calls);assert(calls.some(p=>p.operation==='input'&&p.mode==='typing'));assert(!calls.some(p=>p.operation==='input'&&p.mode==='form'));assert(calls.some(p=>p.operation==='delete'&&p.baseRevision===1));assert.deepEqual(errors,[]);
+ await page.goto(`${process.env.SAFEZONE_MENU_URL || 'http://127.0.0.1:5183'}/?registered=1&staff=1&safezones=1&safezonesReadOnly=1`);
+ await menu.waitFor();await page.waitForTimeout(400);await choose('Kabuki Clinic');await waitRow('Name');
+ assert.equal(await menu.getByText('READ ONLY',{exact:true}).count(),1);
+ await choose('Restrictions');await choose('Block jumping');
+ assert.equal(await menu.locator('.o77-rage__row--on .o77-rage__check--on').count(),0,'View-only rows cannot change restrictions');
+ await page.keyboard.press('Backspace');await choose('Geometry and placement');await choose('Radius');
+ const readCalls=await page.evaluate(()=>window.zoneTest.calls);
+ assert(!readCalls.some(p=>['capture','save','delete'].includes(p.operation)),'Viewing settings never starts an authoring session or mutation');
+ assert(!readCalls.some(p=>p.operation==='input'&&p.mode==='typing'),'Read-only exact values cannot enter edit mode');
+ assert.deepEqual(errors,[]);
+ await browser.close();console.log(JSON.stringify({passed:true,checks:['same admin menu shell','no form or inspector','keyboard name and exact coordinates','all six restriction toggles','full-height retains Z','polygon capture and vertex edit','world/menu preview','publish/delete confirmations','draft kept and cancelled text restored','ACL invalidation','typing keyboard without cursor','read-only settings without authoring or mutation'],screenshots:['/tmp/light-rp-safezones-menu-list.png','/tmp/light-rp-safezones-menu-rules.png']}));
+})().catch(e=>{console.error(e);process.exit(1)});

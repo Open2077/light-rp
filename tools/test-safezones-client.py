@@ -41,6 +41,9 @@ function tick(ms)
 end
 page={handlers={}}
 function page:on(name,fn) self.handlers[name]=fn end
+function page:setConsumedKeys(value) self.consumed=value;return true end
+function page:setFocus(keyboard,cursor) self.keyboard=keyboard;self.cursor=cursor;return true end
+LightRpUi.page=page
 function receive(p) net["op77_lightrp:safezones"](p) end
 function fromPage(p) page.handlers["lightrp:ui:safezones"](p) end
 ''')
@@ -67,6 +70,13 @@ fromPage({operation="preview",zone=zone});tick(100)
 assert(#draws>0,"active drafts draw actual debug batches")
 keys.F9();assert(LightRpSafezones.mode=="world" and inputs[#inputs]=="closed")
 keys.F10();assert(messages[#messages].p.kind=="captureKey")
+fromPage({operation="input",mode="typing"})
+assert(LightRpSafezones.mode=="typing" and page.keyboard==true and page.cursor==false,"menu row typing captures keyboard without a cursor")
+local beforeTypingKeys=#messages
+keys.F9();keys.F10()
+assert(LightRpSafezones.mode=="typing" and #messages==beforeTypingKeys,"world/capture bindings do not interrupt row text entry")
+fromPage({operation="input",mode="menu"})
+assert(LightRpSafezones.mode=="menu" and inputs[#inputs]=="menu","typing returns to the existing staff keyboard menu")
 fromPage({operation="list"});fromPage({operation="capture"});tick(500)
 assert(outgoing[#outgoing].at-outgoing[#outgoing-1].at>=180,"all request paths share the throttle")
 assert(outgoing[#outgoing].p.request~=outgoing[#outgoing-1].p.request)

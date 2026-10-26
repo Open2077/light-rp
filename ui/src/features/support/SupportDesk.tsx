@@ -117,7 +117,7 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       ...(overview?.permissions.audit?[submenu("history","Staff history",()=>{setHistoryPage(1);push({kind:"history"});},{icon:"file-text",description:"Who acted, why and whether the intervention completed."})]:[]),
       submenu("tools","Personal tools",()=>push({kind:"tools"}),{icon:"shield",disabled:!overview,description:"Noclip, god mode and the advanced console."}),
       ...(overview?.permissions.housing?[submenu("housing","Housing",()=>{close();emit(PAGE_EVENTS.action,{type:"housing.open",admin:true});},{icon:"map-pin",description:"Interior templates, dwellings and resident assignments."})]:[]),
-      ...(overview?.permissions.safezones?[submenu("safezones","Zones protégées",()=>{close();emit(PAGE_EVENTS.safezones,{operation:"open"});},{icon:"shield",description:"Créer et éditer les volumes de protection PvP dans le monde."})]:[]),
+      ...(overview?.permissions.safezones?[submenu("safezones","Safe zones",()=>{close();emit(PAGE_EVENTS.safezones,{operation:"open"});},{icon:"shield",description:"Create and edit world-space PvP protection zones."})]:[]),
     ]:[submenu("reports","My reports",()=>push({kind:"tickets"}),{icon:"message-square",description:"Private conversations with staff, including closed cases."}),item("new","New report",()=>setForm({kind:"new",body:""}),{icon:"message-square",description:"Describe a problem and follow its handling here."})];
     entries.push({separator:true},item("refresh","Refresh",refresh,{icon:"activity"}),item("close","Close menu",close,{icon:"x"}));
   }else if(top.kind==="tools"){

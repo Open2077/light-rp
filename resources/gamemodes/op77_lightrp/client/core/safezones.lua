@@ -69,9 +69,14 @@ local function clearDraw()
     if Open77.debugDraw and Open77.debugDraw.clear then pcall(Open77.debugDraw.clear, drawKey) end
 end
 local function input(mode)
-    if mode ~= "menu" and mode ~= "form" and mode ~= "world" then mode = "closed" end
+    if mode ~= "menu" and mode ~= "form" and mode ~= "typing" and mode ~= "world" then mode = "closed" end
     Editor.mode = mode
     if mode == "world" or mode == "closed" then Ui.setSupportInput("closed")
+    elseif mode == "typing" then
+        -- A menu row owns full keyboard input while its value is being edited.
+        -- Keep the cursor hidden; this is still the existing keyboard menu.
+        Ui.setSupportInput("form")
+        if Ui.page then Ui.page:setConsumedKeys({}); Ui.page:setFocus(true, false) end
     else Ui.setSupportInput(mode) end
 end
 local function cleanup(notify)
@@ -179,13 +184,13 @@ end
 function Editor.start()
     if started then return end
     started = true
-    RegisterKeyMapping("lightrp.safezones.inspector", "Safezones: world / inspector", "F9", function()
-        if not Editor.active then return end
+    RegisterKeyMapping("lightrp.safezones.inspector", "Safezones: world / menu", "F9", function()
+        if not Editor.active or Editor.mode == "typing" then return end
         local mode = Editor.mode == "world" and "menu" or "world"
         input(mode); send({ kind = "editor", mode = mode })
     end)
     RegisterKeyMapping("lightrp.safezones.capture", "Safezones: capture current position", "F10", function()
-        if Editor.active and Editor.draft then send({ kind = "captureKey" }) end
+        if Editor.active and Editor.draft and Editor.mode ~= "typing" then send({ kind = "captureKey" }) end
     end)
     CreateThread(function()
         while true do

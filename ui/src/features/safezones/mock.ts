@@ -5,7 +5,8 @@ import { PAGE_EVENTS } from "@/bridge/protocol";
 export function safezonesMock(fire: (name: string, value: unknown) => void, params: URLSearchParams) {
   const position = { x: -1200, y: 1100, z: 44 };
   const allowed = params.get("staff") === "1";
-  const zones: Zone[] = [{ ...fresh({ position, bucket: 0, session: "mock" }), id: "kabuki-clinic", label: "Clinique de Kabuki", revision: 1 }];
+  const readOnly = params.get("safezonesReadOnly") === "1";
+  const zones: Zone[] = [{ ...fresh({ position, bucket: 0, session: "mock" }), id: "kabuki-clinic", label: "Kabuki Clinic", revision: 1 }];
   if (params.get("safezonesLegacy") === "1") {
     const legacy: Partial<Zone> = { ...zones[0] };
     delete legacy.blockRun; delete legacy.blockShoot; delete legacy.fullHeight;
@@ -34,8 +35,9 @@ export function safezonesMock(fire: (name: string, value: unknown) => void, para
     if (p.operation === "open") { if (allowed) fire(PAGE_EVENTS.safezones, { kind: "open" }); return; }
     const respond = (ok: boolean, data?: unknown, error?: string) => fire(PAGE_EVENTS.safezones, { kind: "response", request: p.request, ok, data, error });
     setTimeout(() => {
-      if (!allowed) { respond(false, undefined, "Permission staff requise."); return; }
-      if (p.operation === "list") respond(true, { ready: true, zones: clone(zones), permissions: { view: true, edit: true, publish: true, delete: true } });
+      if (!allowed) { respond(false, undefined, "Staff permission required."); return; }
+      if (p.operation === "list") respond(true, { ready: true, zones: clone(zones), permissions: { view: true, edit: !readOnly, publish: !readOnly, delete: !readOnly } });
+      else if (readOnly && p.operation !== "cancel") respond(false, undefined, "Zone editing permission denied.");
       else if (p.operation === "capture") {
         const angle = step++ * Math.PI / 2;
         respond(true, { position: { x: position.x + Math.cos(angle) * 8, y: position.y + Math.sin(angle) * 8, z: position.z }, bucket: 0, session: "browser-safezone-session" });
@@ -43,7 +45,7 @@ export function safezonesMock(fire: (name: string, value: unknown) => void, para
       else if (p.operation === "save" && p.zone) {
         if (p.mutation && replies.has(p.mutation)) { respond(true, replies.get(p.mutation)); return; }
         const old = zones.find(z => z.id === p.zone!.id);
-        if (old && old.revision !== p.baseRevision) { respond(false, undefined, "Cette zone a changé. Rechargez-la avant de publier."); return; }
+        if (old && old.revision !== p.baseRevision) { respond(false, undefined, "This zone changed. Reload it before publishing."); return; }
         const saved = normalizeZone({ ...clone(p.zone), id: p.zone.id || `mock-zone-${Date.now()}`, revision: (old?.revision ?? 0) + 1 });
         if (old) zones.splice(zones.indexOf(old), 1, saved); else zones.push(saved);
         const data = { zone: clone(saved) }; if (p.mutation) replies.set(p.mutation, data);
@@ -51,7 +53,7 @@ export function safezonesMock(fire: (name: string, value: unknown) => void, para
       } else if (p.operation === "delete") {
         if (p.mutation && replies.has(p.mutation)) { respond(true, replies.get(p.mutation)); return; }
         const i = zones.findIndex(z => z.id === p.id);
-        if (i < 0 || zones[i]!.revision !== p.baseRevision) { respond(false, undefined, "La zone a changé. Rechargez la liste."); return; }
+        if (i < 0 || zones[i]!.revision !== p.baseRevision) { respond(false, undefined, "This zone changed. Refresh the list."); return; }
         zones.splice(i, 1); const data = { id: p.id }; if (p.mutation) replies.set(p.mutation, data);
         generation++; snapshot(); respond(true, data);
       }
