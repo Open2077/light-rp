@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/design/ErrorBoundary";
 import { InteractPrompt } from "@/features/hud/InteractPrompt";
 import { Actions } from "@/features/actions/Actions";
 import { ShopDialog } from "@/features/shop/ShopDialog";
+import { VehicleCustomization } from "@/features/customization/VehicleCustomization";
 import { GarageDialog } from "@/features/garage/GarageDialog";
 import { HousingDialog } from "@/features/housing/HousingDialog";
 import { DealershipDialog } from "@/features/dealership/DealershipDialog";
@@ -79,6 +80,7 @@ export function App() {
       <ErrorBoundary name="rental"><RentalDialog /></ErrorBoundary>
       <ErrorBoundary name="shop"><ShopDialog /></ErrorBoundary>
       <ErrorBoundary name="garage"><GarageDialog /></ErrorBoundary>
+      <ErrorBoundary name="customization"><VehicleCustomization /></ErrorBoundary>
       <ErrorBoundary name="housing"><HousingDialog /></ErrorBoundary>
       <ErrorBoundary name="dealership"><DealershipDialog /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>

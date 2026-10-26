@@ -31,6 +31,7 @@ shared_script "shared/consumables.lua"
 shared_script "shared/fuel.lua"
 shared_script "shared/jobs.lua"
 shared_script "shared/vehicle_context.lua"
+shared_script "shared/vehicle_customization.lua"
 
 -- Server: core first, then modules (each registers itself with LightRP.module).
 server_script "server/core/framework.lua"
@@ -60,6 +61,7 @@ server_script "server/modules/consumables.lua"
 server_script "server/modules/refueling.lua"
 server_script "server/config/garages.lua"
 server_script "server/modules/garages.lua"
+server_script "server/modules/vehicle_customization.lua"
 server_script "server/config/dealerships.lua"
 server_script "server/modules/dealerships.lua"
 server_script "server/config/shops.lua"
@@ -100,6 +102,7 @@ client_script "client/core/animations.lua"
 client_script "client/core/job_runs.lua"
 client_script "client/core/job_work.lua"
 client_script "client/core/vehicle_context.lua"
+client_script "client/core/vehicle_customization.lua"
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the

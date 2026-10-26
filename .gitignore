@@ -66,6 +66,7 @@ neuralink-ui/screens/
 !tools/test-support.py
 !tools/test-housing.py
 !tools/test-housing-ui.py
+!tools/test-vehicle-customization.py
 # Platform packages whose out-of-character commands were made staff-only.
 !resources/system/open77_appearance/
 !resources/system/open77_appearance/**
