@@ -1,0 +1,2 @@
+-- Marker only: makes the loader a client resource too, so client resources that declare
+-- dependency "archivexl >=..." (an NCWE world with custom sounds) can resolve it on the client.

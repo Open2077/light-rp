@@ -1,0 +1,70 @@
+/* Page base: a transparent full-screen surface over the game. */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 18px;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; }
+button:disabled { cursor: default; }
+input, textarea { font: inherit; color: inherit; user-select: text; -webkit-user-select: text; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid rgba(var(--holo-rgb), 0.8); outline-offset: 2px; }
+input:focus-visible, textarea:focus-visible { outline: none; }
+svg { display: block; flex: none; }
+
+/* The stage: a fixed 1920x1080 logical canvas scaled to the viewport. */
+.nl-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+  pointer-events: none;
+  contain: layout style;
+}
+.nl-stage > * { pointer-events: none; }
+.nl-hit { pointer-events: auto; }
+
+/* Thin holographic scrollbars. */
+.nl-scroll { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(60, 70, 85, 0.35) transparent; }
+.nl-scroll::-webkit-scrollbar { width: 6px; }
+.nl-scroll::-webkit-scrollbar-track { background: transparent; }
+.nl-scroll::-webkit-scrollbar-thumb { background: rgba(60, 70, 85, 0.28); border-radius: 3px; }
+.nl-scroll::-webkit-scrollbar-thumb:hover { background: rgba(var(--sel-rgb), 0.8); }
+
+.mono { font-family: var(--font-mono); letter-spacing: 0.04em; }
+.label { font-family: var(--font-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::before, :root[data-motion="reduced"] *::after {
+  animation-duration: 1ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+}

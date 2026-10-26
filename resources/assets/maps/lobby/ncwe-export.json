@@ -1,0 +1,31 @@
+{
+  "generator": "NCWE Studio",
+  "project": "Lobby tutoriel",
+  "projectId": "921c0b34-6b8a-4f74-bdb1-cb992621778b",
+  "exportedUtc": "2026-10-25T19:06:03.0533343+00:00",
+  "game": "2.5",
+  "archiveXl": "1.28.0",
+  "resource": "lobby",
+  "version": "1.0.9",
+  "requiredMod": "lobby-assets",
+  "package": "dist/lobby.zip",
+  "sha256": "18156aef4ca8deeedda0de25041b4a91b06c94043c047e9f220e7fbe636fae31",
+  "bytes": 1696376,
+  "entries": [
+    "archive/pc/mod/ncwe_921c0b346b8a4f74bdb1cb992621778b.archive",
+    "archive/pc/mod/ncwe_921c0b346b8a4f74bdb1cb992621778b.archive.xl"
+  ],
+  "changes": {
+    "Transformed": 0,
+    "Deleted": 0,
+    "Added": 371,
+    "Roads": 0,
+    "Elements": 113
+  },
+  "sounds": [
+    "sounds/city_ruins_rays_of_light_nierautomata_or_5d10df.mp3"
+  ],
+  "soundEmitters": 1,
+  "syncedSounds": 0,
+  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\4cd67aa4-88c6-4f4b-8c24-3264d6b350c4\\scratchpad\\axl128\\staging\\ncwe-921c0b346b8a4f74bdb1cb992621778b-20261025-190602-939c8a37"
+}

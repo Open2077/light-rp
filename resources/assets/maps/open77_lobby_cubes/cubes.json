@@ -1,0 +1,1455 @@
+{
+ "origin": {
+  "x": 6724.0,
+  "y": 2417.0,
+  "z": 400.0
+ },
+ "cubes": [
+  {
+   "id": "cube_anim_001",
+   "group": "monument_inner",
+   "position": {
+    "x": 6730.0,
+    "y": 2417.0,
+    "z": 418.0
+   },
+   "size": 0.73,
+   "glow": true,
+   "rotation": {
+    "x": -22.6,
+    "y": 22.6,
+    "z": 271.3
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 5,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 0
+   }
+  },
+  {
+   "id": "cube_anim_002",
+   "group": "monument_inner",
+   "position": {
+    "x": 6728.854,
+    "y": 2420.527,
+    "z": 419.6
+   },
+   "size": 1.09,
+   "glow": false,
+   "rotation": {
+    "x": -31.6,
+    "y": -21.8,
+    "z": 41.2
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 6,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 36
+   }
+  },
+  {
+   "id": "cube_anim_003",
+   "group": "monument_inner",
+   "position": {
+    "x": 6725.854,
+    "y": 2422.706,
+    "z": 421.2
+   },
+   "size": 0.87,
+   "glow": false,
+   "rotation": {
+    "x": -8.0,
+    "y": -17.4,
+    "z": 1.5
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 7,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 72
+   }
+  },
+  {
+   "id": "cube_anim_004",
+   "group": "monument_inner",
+   "position": {
+    "x": 6722.146,
+    "y": 2422.706,
+    "z": 422.8
+   },
+   "size": 0.81,
+   "glow": false,
+   "rotation": {
+    "x": -31.2,
+    "y": 24.8,
+    "z": 62.3
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 5,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 108
+   }
+  },
+  {
+   "id": "cube_anim_005",
+   "group": "monument_inner",
+   "position": {
+    "x": 6719.146,
+    "y": 2420.527,
+    "z": 424.4
+   },
+   "size": 0.82,
+   "glow": false,
+   "rotation": {
+    "x": -3.2,
+    "y": 8.1,
+    "z": 239.3
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 6,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 144
+   }
+  },
+  {
+   "id": "cube_anim_006",
+   "group": "monument_inner",
+   "position": {
+    "x": 6718.0,
+    "y": 2417.0,
+    "z": 418.0
+   },
+   "size": 0.94,
+   "glow": true,
+   "rotation": {
+    "x": -24.5,
+    "y": 16.7,
+    "z": 246.0
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 7,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 180
+   }
+  },
+  {
+   "id": "cube_anim_007",
+   "group": "monument_inner",
+   "position": {
+    "x": 6719.146,
+    "y": 2413.473,
+    "z": 419.6
+   },
+   "size": 0.75,
+   "glow": false,
+   "rotation": {
+    "x": 30.0,
+    "y": -21.0,
+    "z": 166.5
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 5,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 216
+   }
+  },
+  {
+   "id": "cube_anim_008",
+   "group": "monument_inner",
+   "position": {
+    "x": 6722.146,
+    "y": 2411.294,
+    "z": 421.2
+   },
+   "size": 0.85,
+   "glow": false,
+   "rotation": {
+    "x": 27.3,
+    "y": 29.6,
+    "z": 116.2
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 6,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 252
+   }
+  },
+  {
+   "id": "cube_anim_009",
+   "group": "monument_inner",
+   "position": {
+    "x": 6725.854,
+    "y": 2411.294,
+    "z": 422.8
+   },
+   "size": 0.85,
+   "glow": false,
+   "rotation": {
+    "x": -27.2,
+    "y": -6.3,
+    "z": 170.9
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 7,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 288
+   }
+  },
+  {
+   "id": "cube_anim_010",
+   "group": "monument_inner",
+   "position": {
+    "x": 6728.854,
+    "y": 2413.473,
+    "z": 424.4
+   },
+   "size": 1.23,
+   "glow": false,
+   "rotation": {
+    "x": -22.8,
+    "y": 27.2,
+    "z": 139.8
+   },
+   "spin": 30,
+   "bob": 0.5,
+   "period": 5,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 6.0,
+    "speed": 12.0,
+    "phase": 324
+   }
+  },
+  {
+   "id": "cube_anim_011",
+   "group": "monument_outer",
+   "position": {
+    "x": 6736.84,
+    "y": 2419.034,
+    "z": 424.0
+   },
+   "size": 1.44,
+   "glow": false,
+   "rotation": {
+    "x": 2.0,
+    "y": -27.3,
+    "z": 230.7
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 8,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 9.0,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_012",
+   "group": "monument_outer",
+   "position": {
+    "x": 6734.686,
+    "y": 2424.403,
+    "z": 425.7
+   },
+   "size": 1.11,
+   "glow": false,
+   "rotation": {
+    "x": 10.6,
+    "y": -4.4,
+    "z": 91.2
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 9,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 34.714285714285715,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_013",
+   "group": "monument_outer",
+   "position": {
+    "x": 6730.416,
+    "y": 2428.307,
+    "z": 427.4
+   },
+   "size": 1.89,
+   "glow": false,
+   "rotation": {
+    "x": 23.3,
+    "y": -14.2,
+    "z": 358.5
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 10,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 60.42857142857143,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_014",
+   "group": "monument_outer",
+   "position": {
+    "x": 6724.874,
+    "y": 2429.971,
+    "z": 429.1
+   },
+   "size": 1.36,
+   "glow": true,
+   "rotation": {
+    "x": 0.3,
+    "y": 3.9,
+    "z": 298.6
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 11,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 86.14285714285714,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_015",
+   "group": "monument_outer",
+   "position": {
+    "x": 6719.16,
+    "y": 2429.065,
+    "z": 430.8
+   },
+   "size": 2.18,
+   "glow": false,
+   "rotation": {
+    "x": -12.4,
+    "y": 13.4,
+    "z": 82.8
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 8,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 111.85714285714286,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_016",
+   "group": "monument_outer",
+   "position": {
+    "x": 6714.404,
+    "y": 2425.771,
+    "z": 432.5
+   },
+   "size": 1.07,
+   "glow": false,
+   "rotation": {
+    "x": 11.1,
+    "y": -0.8,
+    "z": 11.9
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 9,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 137.57142857142858,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_017",
+   "group": "monument_outer",
+   "position": {
+    "x": 6711.549,
+    "y": 2420.739,
+    "z": 434.2
+   },
+   "size": 2.03,
+   "glow": false,
+   "rotation": {
+    "x": -26.4,
+    "y": 21.0,
+    "z": 359.4
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 10,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 163.28571428571428,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_018",
+   "group": "monument_outer",
+   "position": {
+    "x": 6711.16,
+    "y": 2414.966,
+    "z": 424.0
+   },
+   "size": 1.09,
+   "glow": false,
+   "rotation": {
+    "x": -14.9,
+    "y": 34.4,
+    "z": 289.6
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 11,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 189.0,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_019",
+   "group": "monument_outer",
+   "position": {
+    "x": 6713.314,
+    "y": 2409.597,
+    "z": 425.7
+   },
+   "size": 1.96,
+   "glow": false,
+   "rotation": {
+    "x": 11.2,
+    "y": 3.3,
+    "z": 136.1
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 8,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 214.71428571428572,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_020",
+   "group": "monument_outer",
+   "position": {
+    "x": 6717.584,
+    "y": 2405.693,
+    "z": 427.4
+   },
+   "size": 1.56,
+   "glow": false,
+   "rotation": {
+    "x": 14.1,
+    "y": 24.8,
+    "z": 299.0
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 9,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 240.42857142857142,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_021",
+   "group": "monument_outer",
+   "position": {
+    "x": 6723.126,
+    "y": 2404.029,
+    "z": 429.1
+   },
+   "size": 1.78,
+   "glow": true,
+   "rotation": {
+    "x": 34.1,
+    "y": 13.6,
+    "z": 94.7
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 10,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 266.14285714285717,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_022",
+   "group": "monument_outer",
+   "position": {
+    "x": 6728.84,
+    "y": 2404.935,
+    "z": 430.8
+   },
+   "size": 2.06,
+   "glow": false,
+   "rotation": {
+    "x": 2.6,
+    "y": -19.9,
+    "z": 261.6
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 11,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 291.85714285714283,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_023",
+   "group": "monument_outer",
+   "position": {
+    "x": 6733.596,
+    "y": 2408.229,
+    "z": 432.5
+   },
+   "size": 1.87,
+   "glow": false,
+   "rotation": {
+    "x": -31.6,
+    "y": -5.6,
+    "z": 55.9
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 8,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 317.57142857142856,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_024",
+   "group": "monument_outer",
+   "position": {
+    "x": 6736.451,
+    "y": 2413.261,
+    "z": 434.2
+   },
+   "size": 1.92,
+   "glow": false,
+   "rotation": {
+    "x": -11.9,
+    "y": 7.1,
+    "z": 325.2
+   },
+   "spin": 14,
+   "bob": 0.8,
+   "period": 9,
+   "orbit": {
+    "centre": {
+     "x": 6724.0,
+     "y": 2417.0
+    },
+    "radius": 13.0,
+    "speed": -6.0,
+    "phase": 343.2857142857143,
+    "arc": 90
+   }
+  },
+  {
+   "id": "cube_anim_025",
+   "group": "portal",
+   "position": {
+    "x": 6712.5,
+    "y": 2310.5,
+    "z": 406.0
+   },
+   "size": 1.36,
+   "glow": false,
+   "rotation": {
+    "x": 13.8,
+    "y": 10.1,
+    "z": 178.1
+   },
+   "spin": 24,
+   "bob": 0.5,
+   "period": 5
+  },
+  {
+   "id": "cube_anim_026",
+   "group": "portal",
+   "position": {
+    "x": 6711.5,
+    "y": 2310.5,
+    "z": 411.0
+   },
+   "size": 1.37,
+   "glow": false,
+   "rotation": {
+    "x": 16.8,
+    "y": -21.8,
+    "z": 295.0
+   },
+   "spin": 24,
+   "bob": 0.5,
+   "period": 6
+  },
+  {
+   "id": "cube_anim_027",
+   "group": "portal",
+   "position": {
+    "x": 6716.0,
+    "y": 2310.5,
+    "z": 417.5
+   },
+   "size": 0.94,
+   "glow": false,
+   "rotation": {
+    "x": -31.4,
+    "y": 2.5,
+    "z": 226.9
+   },
+   "spin": 24,
+   "bob": 0.5,
+   "period": 7
+  },
+  {
+   "id": "cube_anim_028",
+   "group": "portal",
+   "position": {
+    "x": 6721.5,
+    "y": 2310.5,
+    "z": 419.5
+   },
+   "size": 0.85,
+   "glow": true,
+   "rotation": {
+    "x": -24.2,
+    "y": -28.5,
+    "z": 355.7
+   },
+   "spin": 24,
+   "bob": 0.5,
+   "period": 5
+  },
+  {
+   "id": "cube_anim_029",
+   "group": "portal",
+   "position": {
+    "x": 6727.0,
+    "y": 2310.5,
+    "z": 419.0
+   },
+   "size": 1.09,
+   "glow": true,
+   "rotation": {
+    "x": 20.3,
+    "y": -27.9,
+    "z": 168.5
+   },
+   "spin": 24,
+   "bob": 0.5,
+   "period": 6
+  },
+  {
+   "id": "cube_anim_030",
+   "group": "portal",
+   "position": {
+    "x": 6732.5,
+    "y": 2310.5,
+    "z": 417.0
+   },
+   "size": 1.22,
+   "glow": false,
+   "rotation": {
+    "x": 33.5,
+    "y": -22.8,
+    "z": 153.7
+   },
+   "spin": 24,
+   "bob": 0.5,
+   "period": 7
+  },
+  {
+   "id": "cube_anim_031",
+   "group": "portal",
+   "position": {
+    "x": 6736.5,
+    "y": 2310.5,
+    "z": 410.5
+   },
+   "size": 1.33,
+   "glow": false,
+   "rotation": {
+    "x": -31.1,
+    "y": -10.4,
+    "z": 330.4
+   },
+   "spin": 24,
+   "bob": 0.5,
+   "period": 5
+  },
+  {
+   "id": "cube_anim_032",
+   "group": "portal",
+   "position": {
+    "x": 6735.5,
+    "y": 2310.5,
+    "z": 405.0
+   },
+   "size": 0.87,
+   "glow": false,
+   "rotation": {
+    "x": 23.7,
+    "y": -29.1,
+    "z": 181.8
+   },
+   "spin": 24,
+   "bob": 0.5,
+   "period": 6
+  },
+  {
+   "id": "cube_anim_033",
+   "group": "avenue",
+   "position": {
+    "x": 6727.955,
+    "y": 2325.0,
+    "z": 412.711
+   },
+   "size": 0.95,
+   "glow": true,
+   "rotation": {
+    "x": 18.1,
+    "y": -8.7,
+    "z": 238.7
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 7
+  },
+  {
+   "id": "cube_anim_034",
+   "group": "avenue",
+   "position": {
+    "x": 6719.665,
+    "y": 2330.0,
+    "z": 409.556
+   },
+   "size": 1.2,
+   "glow": false,
+   "rotation": {
+    "x": 9.0,
+    "y": -1.9,
+    "z": 286.9
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 8
+  },
+  {
+   "id": "cube_anim_035",
+   "group": "avenue",
+   "position": {
+    "x": 6728.763,
+    "y": 2335.0,
+    "z": 409.707
+   },
+   "size": 1.34,
+   "glow": false,
+   "rotation": {
+    "x": -19.7,
+    "y": -33.6,
+    "z": 119.1
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 9
+  },
+  {
+   "id": "cube_anim_036",
+   "group": "avenue",
+   "position": {
+    "x": 6720.379,
+    "y": 2340.0,
+    "z": 409.087
+   },
+   "size": 1.46,
+   "glow": false,
+   "rotation": {
+    "x": 26.4,
+    "y": -9.7,
+    "z": 43.5
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 10
+  },
+  {
+   "id": "cube_anim_037",
+   "group": "avenue",
+   "position": {
+    "x": 6727.575,
+    "y": 2345.0,
+    "z": 410.717
+   },
+   "size": 0.66,
+   "glow": false,
+   "rotation": {
+    "x": 2.0,
+    "y": 8.9,
+    "z": 191.8
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 11
+  },
+  {
+   "id": "cube_anim_038",
+   "group": "avenue",
+   "position": {
+    "x": 6718.56,
+    "y": 2350.0,
+    "z": 411.683
+   },
+   "size": 1.47,
+   "glow": false,
+   "rotation": {
+    "x": 7.6,
+    "y": 5.1,
+    "z": 343.1
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 7
+  },
+  {
+   "id": "cube_anim_039",
+   "group": "avenue",
+   "position": {
+    "x": 6728.909,
+    "y": 2355.0,
+    "z": 411.67
+   },
+   "size": 1.16,
+   "glow": true,
+   "rotation": {
+    "x": 19.8,
+    "y": -14.1,
+    "z": 312.2
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 8
+  },
+  {
+   "id": "cube_anim_040",
+   "group": "avenue",
+   "position": {
+    "x": 6718.256,
+    "y": 2360.0,
+    "z": 410.085
+   },
+   "size": 1.02,
+   "glow": false,
+   "rotation": {
+    "x": -32.2,
+    "y": -16.4,
+    "z": 292.6
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 9
+  },
+  {
+   "id": "cube_anim_041",
+   "group": "avenue",
+   "position": {
+    "x": 6729.42,
+    "y": 2365.0,
+    "z": 411.228
+   },
+   "size": 1.47,
+   "glow": false,
+   "rotation": {
+    "x": 10.9,
+    "y": -14.7,
+    "z": 53.0
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 10
+  },
+  {
+   "id": "cube_anim_042",
+   "group": "avenue",
+   "position": {
+    "x": 6717.642,
+    "y": 2370.0,
+    "z": 412.676
+   },
+   "size": 1.36,
+   "glow": false,
+   "rotation": {
+    "x": -9.4,
+    "y": 25.2,
+    "z": 351.4
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 11
+  },
+  {
+   "id": "cube_anim_043",
+   "group": "avenue",
+   "position": {
+    "x": 6728.977,
+    "y": 2375.0,
+    "z": 411.723
+   },
+   "size": 1.46,
+   "glow": false,
+   "rotation": {
+    "x": -29.2,
+    "y": 3.0,
+    "z": 22.1
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 7
+  },
+  {
+   "id": "cube_anim_044",
+   "group": "avenue",
+   "position": {
+    "x": 6718.192,
+    "y": 2380.0,
+    "z": 408.212
+   },
+   "size": 0.77,
+   "glow": false,
+   "rotation": {
+    "x": 18.2,
+    "y": 3.7,
+    "z": 341.4
+   },
+   "spin": 18,
+   "bob": 0.9,
+   "period": 8
+  },
+  {
+   "id": "cube_anim_045",
+   "group": "metier_police",
+   "position": {
+    "x": 6747.9,
+    "y": 2357.1,
+    "z": 401.75
+   },
+   "size": 0.45,
+   "glow": true,
+   "rotation": {
+    "x": -14.8,
+    "y": 21.8,
+    "z": 65.4
+   },
+   "spin": 45,
+   "bob": 0.12,
+   "period": 3.0
+  },
+  {
+   "id": "cube_anim_046",
+   "group": "metier_medic",
+   "position": {
+    "x": 6761.9,
+    "y": 2357.1,
+    "z": 401.75
+   },
+   "size": 0.45,
+   "glow": true,
+   "rotation": {
+    "x": -3.9,
+    "y": 33.5,
+    "z": 329.6
+   },
+   "spin": 45,
+   "bob": 0.12,
+   "period": 3.0
+  },
+  {
+   "id": "cube_anim_047",
+   "group": "metier_garage",
+   "position": {
+    "x": 6775.9,
+    "y": 2357.1,
+    "z": 401.75
+   },
+   "size": 0.45,
+   "glow": true,
+   "rotation": {
+    "x": -14.0,
+    "y": -22.8,
+    "z": 167.7
+   },
+   "spin": 45,
+   "bob": 0.12,
+   "period": 3.0
+  },
+  {
+   "id": "cube_anim_048",
+   "group": "metier_taxi",
+   "position": {
+    "x": 6789.9,
+    "y": 2357.1,
+    "z": 401.75
+   },
+   "size": 0.45,
+   "glow": true,
+   "rotation": {
+    "x": 31.6,
+    "y": 2.3,
+    "z": 59.3
+   },
+   "spin": 45,
+   "bob": 0.12,
+   "period": 3.0
+  },
+  {
+   "id": "cube_anim_049",
+   "group": "metier_delivery",
+   "position": {
+    "x": 6744.1,
+    "y": 2320.9,
+    "z": 401.75
+   },
+   "size": 0.45,
+   "glow": true,
+   "rotation": {
+    "x": -29.4,
+    "y": 26.1,
+    "z": 281.3
+   },
+   "spin": 45,
+   "bob": 0.12,
+   "period": 3.0
+  },
+  {
+   "id": "cube_anim_050",
+   "group": "metier_builder",
+   "position": {
+    "x": 6758.1,
+    "y": 2320.9,
+    "z": 401.75
+   },
+   "size": 0.45,
+   "glow": true,
+   "rotation": {
+    "x": 11.9,
+    "y": -28.1,
+    "z": 279.8
+   },
+   "spin": 45,
+   "bob": 0.12,
+   "period": 3.0
+  },
+  {
+   "id": "cube_anim_051",
+   "group": "metier_cook",
+   "position": {
+    "x": 6772.1,
+    "y": 2320.9,
+    "z": 401.75
+   },
+   "size": 0.45,
+   "glow": true,
+   "rotation": {
+    "x": -30.9,
+    "y": 18.2,
+    "z": 286.8
+   },
+   "spin": 45,
+   "bob": 0.12,
+   "period": 3.0
+  },
+  {
+   "id": "cube_anim_052",
+   "group": "metier_info",
+   "position": {
+    "x": 6786.1,
+    "y": 2320.9,
+    "z": 401.75
+   },
+   "size": 0.45,
+   "glow": true,
+   "rotation": {
+    "x": -5.5,
+    "y": -19.5,
+    "z": 187.5
+   },
+   "spin": 45,
+   "bob": 0.12,
+   "period": 3.0
+  },
+  {
+   "id": "cube_anim_053",
+   "group": "lieu_banque",
+   "position": {
+    "x": 6724.0,
+    "y": 2448.8,
+    "z": 409.0
+   },
+   "size": 0.9,
+   "glow": true,
+   "rotation": {
+    "x": -9.8,
+    "y": 15.5,
+    "z": 179.0
+   },
+   "spin": 36,
+   "bob": 0.3,
+   "period": 4.0
+  },
+  {
+   "id": "cube_anim_054",
+   "group": "lieu_boutique",
+   "position": {
+    "x": 6757.0,
+    "y": 2417.0,
+    "z": 406.0
+   },
+   "size": 0.9,
+   "glow": true,
+   "rotation": {
+    "x": 33.3,
+    "y": 7.9,
+    "z": 151.6
+   },
+   "spin": 36,
+   "bob": 0.3,
+   "period": 4.0
+  },
+  {
+   "id": "cube_anim_055",
+   "group": "lieu_garage",
+   "position": {
+    "x": 6690.0,
+    "y": 2417.0,
+    "z": 407.0
+   },
+   "size": 0.9,
+   "glow": true,
+   "rotation": {
+    "x": 28.2,
+    "y": 2.6,
+    "z": 173.9
+   },
+   "spin": 36,
+   "bob": 0.3,
+   "period": 4.0
+  },
+  {
+   "id": "cube_anim_056",
+   "group": "lieu_station",
+   "position": {
+    "x": 6684.0,
+    "y": 2339.0,
+    "z": 408.2
+   },
+   "size": 0.9,
+   "glow": true,
+   "rotation": {
+    "x": -19.0,
+    "y": -34.1,
+    "z": 124.8
+   },
+   "spin": 36,
+   "bob": 0.3,
+   "period": 4.0
+  }
+ ],
+ "points": {
+  "arrivee": {
+   "label": "Arrivée",
+   "position": {
+    "x": 6724.0,
+    "y": 2316.0,
+    "z": 400.12
+   },
+   "heading": 0,
+   "text": "Bienvenue. Suivez la ligne lumineuse jusqu'à la place."
+  },
+  "place": {
+   "label": "Place centrale",
+   "position": {
+    "x": 6724.0,
+    "y": 2403.0,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Le coeur du tutoriel : chaque lieu autour de la place explique une partie du jeu."
+  },
+  "banque": {
+   "label": "Banque",
+   "position": {
+    "x": 6724.0,
+    "y": 2444.3,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Compte, dépôts, retraits et virements."
+  },
+  "boutique": {
+   "label": "Boutique",
+   "position": {
+    "x": 6757.0,
+    "y": 2417.0,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Acheter des objets, l'inventaire."
+  },
+  "garage": {
+   "label": "Garage",
+   "position": {
+    "x": 6691.0,
+    "y": 2417.0,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Sortir, ranger et réparer un véhicule."
+  },
+  "station": {
+   "label": "Station essence",
+   "position": {
+    "x": 6698.0,
+    "y": 2339.0,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Le carburant : faire le plein, le jerrican."
+  },
+  "metiers": {
+   "label": "Métiers",
+   "position": {
+    "x": 6754.0,
+    "y": 2339.0,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Chaque stand présente un métier."
+  },
+  "metier_police": {
+   "label": "Police",
+   "position": {
+    "x": 6746.0,
+    "y": 2353.4,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Stand du métier : Police."
+  },
+  "metier_medic": {
+   "label": "Médecin",
+   "position": {
+    "x": 6760.0,
+    "y": 2353.4,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Stand du métier : Médecin."
+  },
+  "metier_garage": {
+   "label": "Mécanicien",
+   "position": {
+    "x": 6774.0,
+    "y": 2353.4,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Stand du métier : Mécanicien."
+  },
+  "metier_taxi": {
+   "label": "Taxi",
+   "position": {
+    "x": 6788.0,
+    "y": 2353.4,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Stand du métier : Taxi."
+  },
+  "metier_delivery": {
+   "label": "Livreur",
+   "position": {
+    "x": 6746.0,
+    "y": 2324.6,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Stand du métier : Livreur."
+  },
+  "metier_builder": {
+   "label": "Ouvrier",
+   "position": {
+    "x": 6760.0,
+    "y": 2324.6,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Stand du métier : Ouvrier."
+  },
+  "metier_cook": {
+   "label": "Restauration",
+   "position": {
+    "x": 6774.0,
+    "y": 2324.6,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Stand du métier : Restauration."
+  },
+  "metier_info": {
+   "label": "À venir",
+   "position": {
+    "x": 6788.0,
+    "y": 2324.6,
+    "z": 400.0
+   },
+   "heading": null,
+   "text": "Stand du métier : À venir."
+  }
+ }
+}

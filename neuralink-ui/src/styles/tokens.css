@@ -1,0 +1,143 @@
+/* Neural-Link tokens. SAO white glass, gold selection, cyan hologram edges.
+   `data-accent` on <html> swaps the selection colour; `--intensity` (0.3..1)
+   scales every glow and scanline. Logical canvas: 1920 x 1080 (the stage is
+   scaled to the viewport by Stage.tsx). */
+:root {
+  --intensity: 0.8;
+
+  /* glass */
+  --glass-hi: rgba(255, 255, 255, 0.95);
+  --glass: rgba(246, 248, 251, 0.88);
+  --glass-lo: rgba(226, 231, 238, 0.8);
+  --glass-dim: rgba(214, 220, 228, 0.62);
+  --glass-edge: rgba(255, 255, 255, 0.98);
+  --glass-shade: rgba(32, 40, 52, 0.12);
+  --glass-gradient: linear-gradient(180deg, var(--glass-hi) 0%, var(--glass) 48%, var(--glass-lo) 100%);
+
+  /* solid surfaces drawn on the glass (rows, discs, fields, rings) and the
+     highlight line on their top edge: what the dark theme repaints */
+  --surface-rgb: 255, 255, 255;
+  --hl: #fff;
+  --tint-1: 243, 246, 250;
+  --tint-2: 240, 244, 248;
+  --tint-3: 236, 241, 246;
+  --tint-4: 232, 237, 243;
+  --tint-5: 226, 231, 238;
+  --tint-6: 222, 228, 236;
+  --tint-7: 205, 212, 222;
+  --tint-8: 232, 236, 241;
+  --tint-9: 230, 235, 241;
+  --tint-10: 227, 232, 238;
+  --icon: #7a808b;
+  --icon-danger: #9a5560;
+
+  /* ink on glass */
+  --ink: #3a3f48;
+  --ink-hi: #1f232a;
+  --ink-dim: #6f7682;
+  --ink-faint: #9aa1ac;
+  --ink-on-sel: #ffffff;
+
+  /* selection (accent) */
+  --sel: #f5c518;
+  --sel-hi: #ffe58a;
+  --sel-deep: #e29b00;
+  --sel-rgb: 245, 197, 24;
+
+  /* hologram edge */
+  --holo: #00e5ff;
+  --holo-rgb: 0, 229, 255;
+  --holo-2: #7df9ff;
+
+  /* signal */
+  --ok: #2fdc8c;
+  --ok-deep: #10a865;
+  --danger: #ff3b5c;
+  --danger-deep: #d0153a;
+  --warn: #ffb020;
+  --online: #3cf08f;
+  --magenta: #ff2bd6;
+
+  /* type */
+  --font-label: "Saira Condensed", "Rajdhani", "Bahnschrift SemiCondensed", "Arial Narrow", sans-serif;
+  --font-body: "Rajdhani", "Saira Condensed", "Bahnschrift", "Segoe UI", sans-serif;
+  --font-mono: "Share Tech Mono", "Cascadia Mono", "Consolas", monospace;
+
+  /* geometry */
+  --btn: 80px;
+  --btn-gap: 16px;
+  --slab-h: 56px;
+  --r-slab: 6px;
+  --r-window: 10px;
+
+  /* effects (scaled by intensity) */
+  --holo-line: rgba(var(--holo-rgb), calc(0.55 * var(--intensity)));
+  --holo-glow: 0 0 0 1px rgba(var(--holo-rgb), calc(0.32 * var(--intensity))), 0 0 22px rgba(var(--holo-rgb), calc(0.2 * var(--intensity)));
+  --holo-glow-strong: 0 0 0 1px rgba(var(--holo-rgb), calc(0.6 * var(--intensity))), 0 0 28px rgba(var(--holo-rgb), calc(0.38 * var(--intensity)));
+  --sel-glow: 0 0 0 1px rgba(var(--sel-rgb), 0.55), 0 0 24px rgba(var(--sel-rgb), calc(0.55 * var(--intensity)));
+  --shadow-float: 0 14px 34px rgba(5, 10, 20, 0.38), 0 2px 6px rgba(5, 10, 20, 0.25);
+  --shadow-soft: 0 6px 16px rgba(5, 10, 20, 0.3);
+  --scan-alpha: calc(0.075 * var(--intensity));
+
+  /* motion */
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --snap: cubic-bezier(0.2, 0.9, 0.25, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --fast: 140ms;
+  --mid: 260ms;
+}
+
+/* Dark theme: smoked black glass, light ink, the same gold selection and cyan
+   hologram edges (they read stronger on black). Surfaces step up in lightness
+   where the light theme steps up in whiteness, so hover / active still lift. */
+:root[data-theme="dark"] {
+  --glass-hi: rgba(38, 46, 60, 0.94);
+  --glass: rgba(22, 28, 38, 0.9);
+  --glass-lo: rgba(12, 16, 23, 0.88);
+  --glass-dim: rgba(18, 23, 32, 0.72);
+  --glass-edge: rgba(150, 230, 255, 0.35);
+  --glass-shade: rgba(0, 0, 0, 0.4);
+
+  --surface-rgb: 44, 53, 70;
+  --hl: rgba(255, 255, 255, 0.12);
+  --tint-1: 30, 37, 49;
+  --tint-2: 32, 39, 52;
+  --tint-3: 28, 35, 47;
+  --tint-4: 26, 32, 43;
+  --tint-5: 24, 30, 40;
+  --tint-6: 22, 28, 38;
+  --tint-7: 14, 18, 25;
+  --tint-8: 26, 32, 43;
+  --tint-9: 25, 31, 42;
+  --tint-10: 23, 29, 39;
+  --icon: #b7c0ce;
+  --icon-danger: #ff8fa3;
+
+  --ink: #d3dae5;
+  --ink-hi: #f3f6fb;
+  --ink-dim: #98a3b4;
+  --ink-faint: #6d7889;
+
+  --shadow-float: 0 14px 34px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 6px 16px rgba(0, 0, 0, 0.45);
+  --scan-alpha: calc(0.05 * var(--intensity));
+}
+
+:root[data-accent="cyan"] {
+  --sel: #19d9f5;
+  --sel-hi: #9ff4ff;
+  --sel-deep: #0094c2;
+  --sel-rgb: 25, 217, 245;
+  --holo: #ff4fd8;
+  --holo-rgb: 255, 79, 216;
+  --holo-2: #ff9bea;
+}
+
+:root[data-accent="magenta"] {
+  --sel: #ff2bd6;
+  --sel-hi: #ff9bec;
+  --sel-deep: #c2009c;
+  --sel-rgb: 255, 43, 214;
+  --holo: #00e5ff;
+  --holo-rgb: 0, 229, 255;
+}

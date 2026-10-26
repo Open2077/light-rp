@@ -1,0 +1,43 @@
+/* Toasts (top right) + the mock control strip. */
+.toasts { position: absolute; right: 40px; top: 34px; width: 430px; display: flex; flex-direction: column; gap: 12px; z-index: 45; perspective: 1200px; }
+.toast {
+  position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px 16px 14px; border-radius: 10px; overflow: hidden;
+  color: var(--ink);
+  background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.96), rgba(var(--tint-3), 0.9));
+  box-shadow: inset 0 1px 0 var(--hl), var(--holo-glow), var(--shadow-float);
+  transform-origin: 100% 50%;
+  animation: toast-in 520ms var(--ease-out) both;
+}
+.toast::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--holo); box-shadow: 0 0 10px rgba(var(--holo-rgb), 0.9); }
+.toast--message::before { background: var(--sel); box-shadow: 0 0 10px rgba(var(--sel-rgb), 0.9); }
+.toast--missed::before, .toast--error::before { background: var(--danger); box-shadow: 0 0 10px rgba(255, 59, 92, 0.9); }
+.toast--call::before { background: var(--ok); box-shadow: 0 0 10px rgba(47, 220, 140, 0.9); }
+@keyframes toast-in {
+  0% { opacity: 0; transform: translateX(80px) rotateY(-30deg); }
+  20% { opacity: 0.9; }
+  28% { opacity: 0.3; }
+  40% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+.toast.is-leaving { animation: toast-out 320ms ease-in both; }
+@keyframes toast-out { to { opacity: 0; transform: translateX(60px) scale(0.96); } }
+.toast__icon { width: 42px; height: 42px; flex: none; border-radius: 50%; display: grid; place-items: center; color: #fff; background: radial-gradient(circle at 50% 30%, #9ff4ff, var(--holo) 55%, #0094c2); box-shadow: 0 0 12px rgba(var(--holo-rgb), 0.55); }
+.toast--message .toast__icon { background: radial-gradient(circle at 50% 30%, var(--sel-hi), var(--sel) 55%, var(--sel-deep)); box-shadow: 0 0 12px rgba(var(--sel-rgb), 0.6); }
+.toast--missed .toast__icon, .toast--error .toast__icon { background: radial-gradient(circle at 50% 30%, #ff9fb0, var(--danger) 55%, var(--danger-deep)); box-shadow: 0 0 12px rgba(255, 59, 92, 0.55); }
+.toast--call .toast__icon { background: radial-gradient(circle at 50% 30%, #b5f8d6, var(--ok) 55%, var(--ok-deep)); }
+.toast__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.toast__top { display: flex; align-items: baseline; gap: 10px; }
+.toast__title { flex: 1; font-family: var(--font-label); font-weight: 600; font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toast__time { font-size: 12px; color: var(--ink-faint); }
+.toast__body { font-size: 17px; font-weight: 600; line-height: 1.25; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.toast__life { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; transform-origin: 0 50%; background: linear-gradient(90deg, rgba(var(--holo-rgb), 0.85), rgba(var(--sel-rgb), 0.85)); animation: life linear both; }
+.toast__scan { position: absolute; inset: 0; background: repeating-linear-gradient(180deg, rgba(0, 40, 70, var(--scan-alpha)) 0 1px, transparent 1px 4px); pointer-events: none; }
+.toast.is-actionable { cursor: pointer; }
+.toast.is-actionable:hover { box-shadow: inset 0 1px 0 var(--hl), var(--holo-glow-strong), var(--shadow-float); }
+
+/* Mock-only control strip (not part of the game UI). */
+.mockpanel { position: fixed; left: 10px; bottom: 10px; z-index: 9999; display: flex; gap: 4px; align-items: center; padding: 6px 8px; border-radius: 8px; font: 12px/1 var(--font-mono); color: #cfe; background: rgba(10, 14, 20, 0.82); box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.4); pointer-events: auto; }
+.mockpanel b { color: #0ef; margin-right: 4px; }
+.mockpanel button { padding: 5px 8px; border-radius: 4px; color: #def; background: rgba(var(--surface-rgb), 0.08); font: inherit; }
+.mockpanel button:hover { background: rgba(0, 229, 255, 0.3); }
+.mockpanel--min { padding: 6px 10px; }

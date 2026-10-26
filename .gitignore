@@ -16,6 +16,29 @@
 !resources/gamemodes/
 !resources/gamemodes/op77_lightrp/
 !resources/gamemodes/op77_lightrp/**
+# ArchiveXL runtime dependency (official 1.28.0 release zip, MIT) and the lobby map
+# the first day takes place in: without them the server cannot run the tutorial.
+!resources/assets/
+!resources/assets/loaders/
+!resources/assets/loaders/archivexl/
+!resources/assets/loaders/archivexl/**
+!resources/assets/maps/
+!resources/assets/maps/lobby/
+!resources/assets/maps/lobby/**
+!resources/assets/maps/open77_lobby_cubes/
+!resources/assets/maps/open77_lobby_cubes/**
+# LightRP's own standalone resources: the Neural-Link phone and the icon catalogue.
+!resources/standalone/
+!resources/standalone/op77_neuralink/
+!resources/standalone/op77_neuralink/**
+!resources/standalone/open77_icons/
+!resources/standalone/open77_icons/**
+# Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
+!neuralink-ui/
+!neuralink-ui/**
+neuralink-ui/node_modules/
+neuralink-ui/dist/
+neuralink-ui/screens/
 # Platform packages we restyled with the design system (re-apply after a server update).
 !resources/system/
 !resources/system/open77_contextmenu/
@@ -24,6 +47,13 @@
 !resources/system/open-voice/**
 !resources/system/open77_chat/
 !resources/system/open77_chat/**
+!resources/system/open77_admin/
+!resources/system/open77_admin/server/
+!resources/system/open77_admin/server/main.lua
+!tools/
+!tools/test-support.py
+!tools/test-housing.py
+!tools/test-housing-ui.py
 # Platform packages whose out-of-character commands were made staff-only.
 !resources/system/open77_appearance/
 !resources/system/open77_appearance/**
@@ -41,6 +71,7 @@
 # Never commit these even if the rules above change.
 ui/node_modules/
 ui/dist/
+ui/artifacts/
 server.env
 .open77/
 *.log
