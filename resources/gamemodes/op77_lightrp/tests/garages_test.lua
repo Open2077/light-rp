@@ -240,3 +240,16 @@ Custom.onDisconnected(1);assert(world[ownedVehicle].paint.primary.r==255 and not
 assert(Custom.open(1,first,"citycenter"));positions[1].bucket=7
 Custom.onLifeState(1,"dead");positions[1].bucket=0;assert(not G.isBusy(1))
 print("customization: previews, autosave exclusion, black paint, parking/reboot, DB rollback, delayed cleanup, removal races and authenticated RPC passed")
+
+assert(points["customization.auto_studio_1"] and points["customization.auto_studio_2"],"both requested workshop points registered")
+local workshop=LightRpVehicleCustomization.workshops[1]
+assert(not G.customizationCandidate(1,workshop.id),"remote workshop interaction refused")
+positions[1]=clone(workshop.position);positions[1].bucket=0
+world[ownedVehicle].position=clone(workshop.position)
+Custom.onInteract(1,"customization.auto_studio_1")
+assert(G.isBusy(1) and messages[#messages].payload.kind=="open","workshop opens nearest owned vehicle")
+Custom.onDisconnected(1);assert(not G.isBusy(1))
+positions[1]=clone(LightRpVehicleCustomization.workshops[2].position);positions[1].bucket=0
+world[ownedVehicle].position=clone(positions[1])
+Custom.onInteract(1,"customization.auto_studio_2");assert(G.isBusy(1));Custom.onDisconnected(1)
+print("customization workshops: exact configured points, proximity and nearest-owned access passed")

@@ -3,6 +3,7 @@
 local C, Db, E = LightRpGarages, LightRP.db, LightRpEvents
 local Garage = LightRP.module("garage", {})
 local rows, live, places, sessions, ownerBusy = {}, {}, {}, {}, {}
+local customizationPlaces = {} -- trusted workshop configuration, separate from storage garages
 local edits = {} -- player -> leased owned vehicle; preview paint is never durable
 local loaded, sequence = false, 0
 local send, snapshot
@@ -43,8 +44,8 @@ local function guard(id, place)
     if (LightRP.characters.switching or {})[id] then return false, "Your character is changing. Please wait." end
     local life, p = Open77.players.getLifeState(id), Open77.players.position(id)
     if not life or life.phase ~= "alive" then return false, "You cannot use the garage right now." end
-    if not place or not p or (p.bucket or 0) ~= place.bucket or distance(p, place.position) > C.interactRadius + 0.75 then
-        return false, "Walk up to the public garage marker."
+    if not place or not p or (p.bucket or 0) ~= place.bucket or distance(p, place.position) > (place.interactRadius or C.interactRadius) + 0.75 then
+        return false, "Walk up to the garage or workshop marker."
     end
     if Open77.vehicles.getPlayerSeat(id) then return false, "Park nearby and step out of the vehicle first." end
     return true
@@ -191,7 +192,7 @@ end
 local function canStore(playerId, row, place)
     local v = row.vehicleId and Open77.vehicles.get(row.vehicleId)
     if not v then return false, "This vehicle is already in storage." end
-    if v.bucket ~= place.bucket or distance(v.position, place.position) > C.storeRadius then
+    if v.bucket ~= place.bucket or distance(v.position, place.position) > (place.storeRadius or C.storeRadius) then
         return false, "Bring your vehicle into the garage area first."
     end
     if (v.speed or 0) > C.stationarySpeed then return false, "Stop the vehicle before parking it." end
@@ -215,13 +216,32 @@ end
 local function editGuard(playerId, row)
     local edit = row and row.edit
     if not edit or edit.player ~= playerId or identity(playerId) ~= owner(row) then return false, "Your vehicle session changed." end
-    local ok, why = guard(playerId, places[edit.garage])
+    local ok, why = guard(playerId, edit.place)
     if not ok then return false, why end
     if row.vehicleId ~= edit.vehicleId then return false, "The vehicle is no longer outside." end
-    return canStore(playerId, row, places[edit.garage])
+    return canStore(playerId, row, edit.place)
+end
+function Garage.registerCustomizationLocation(place)
+    assert(type(place.id) == "string" and type(place.position) == "table" and not places[place.id]
+        and not customizationPlaces[place.id], "Invalid workshop location")
+    customizationPlaces[place.id] = place
+end
+function Garage.customizationCandidate(playerId, placeId)
+    local place = customizationPlaces[placeId]
+    local ok, why = guard(playerId, place)
+    if not ok then return nil, why end
+    local nearest, range = nil, place.storeRadius
+    for _, row in pairs(rows) do
+        if owner(row) == identity(playerId) and row.vehicleId then
+            local v = Open77.vehicles.get(row.vehicleId)
+            local d = v and v.bucket == place.bucket and distance(v.position, place.position) or math.huge
+            if d <= range then nearest, range = row.id, d end
+        end
+    end
+    return nearest, nearest and nil or "Park your personal vehicle within 6 m of the workshop point and step out."
 end
 function Garage.beginCustomization(playerId, ownedId, token, garageId)
-    local row, place = rows[ownedId], places[garageId]
+    local row, place = rows[ownedId], customizationPlaces[garageId] or places[garageId]
     local ok, why = guard(playerId, place)
     if not ok then return nil, why end
     if not row or owner(row) ~= identity(playerId) then return nil, "This is not your character's vehicle." end
@@ -231,7 +251,7 @@ function Garage.beginCustomization(playerId, ownedId, token, garageId)
     local props = Open77.vehicles.getProperties(row.vehicleId)
     if not props then return nil, "Could not read vehicle properties." end
     local paint = copy(props.paint or { applied = false })
-    row.edit = { player = playerId, token = token, garage = garageId, vehicleId = row.vehicleId, savedPaint = paint }
+    row.edit = { player = playerId, token = token, place = place, vehicleId = row.vehicleId, savedPaint = paint }
     edits[playerId] = row
     return { id = row.id, vehicleId = row.vehicleId, label = label(row), paint = copy(paint) }
 end

@@ -75,3 +75,23 @@ CreateThread(function()
         end
     end
 end)
+
+function Custom.onInteract(id, point)
+    local workshop = type(point) == "string" and point:match("^customization%.(.+)$")
+    if not workshop then return end
+    local owned, why = G.customizationCandidate(id, workshop)
+    if owned then
+        local ok; ok, why = Custom.open(id, owned, workshop)
+        if ok then return end
+    end
+    LightRP.result(id, false, why, "customization.open")
+end
+for index, place in ipairs(C.workshops) do
+    G.registerCustomizationLocation(place)
+    LightRP.interaction("customization." .. place.id, { position = place.position, bucket = place.bucket,
+        radius = place.interactRadius, label = place.name, prompt = "Customize personal vehicle", key = "E",
+        marker = LightRpGarages.marker, ring = false,
+        blip = index == 1 and { icon = "palette", sprite = "Zzz01_CarForPurchaseVariant", title = "Auto Studio",
+            description = "Personal vehicle paint customization" } or nil })
+end
+LightRP.log("vehicle customization ready: %d workshop points, %d category", #C.workshops, #C.categories)

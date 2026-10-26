@@ -8,6 +8,18 @@ safezone PRs.
 
 ## Player flow
 
+Two world access points use **E**, in bucket 0:
+
+- Auto Studio // Bay 01: `(-1034.573364, -1702.693726, 11.015274)`.
+- Auto Studio // Bay 02: `(-1025.970703, -1709.572754, 11.015274)`.
+
+Park your owned vehicle within 6 m of a point, step out, and approach its marker.
+The server selects the nearest vehicle owned by the active character; the same
+stationary/empty, proximity and persistence rules apply. The first bay carries
+the shared Auto Studio map marker. Locations are in the shared customization config.
+
+The garage shortcut is also available:
+
 Retrieve an owned vehicle at a Public Garage, leave it stationary in the garage
 area, step out and reopen the garage. Select the car and choose **Customize
 vehicle**. All occupants must be out. Rentals, staff-spawned cars and other
@@ -25,7 +37,7 @@ right and zoom are local presentation controls. Camera radius is limited to
 4–10 m; default radius 6.5 m, height 2.1 m, 55-degree FOV and 10 degrees/second.
 These values live in `shared/vehicle_customization.lua`.
 
-Escape, Close, death, removal, movement, character changes, leaving the garage,
+Escape, Close, death, removal, movement, character changes, leaving the garage/workshop,
 a five-minute expiry or disconnect release the session and restore the most
 recently saved finish. Saving before closing keeps that finish. A save already
 committing when the client leaves is allowed to finish for the original owned
