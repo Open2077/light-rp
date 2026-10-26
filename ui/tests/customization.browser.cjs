@@ -22,7 +22,11 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
   await p.goto('http://customization.test/');await p.waitForFunction(()=>testBridge.ready);
   const fire=(payload)=>p.evaluate(payload=>testBridge.fire('customization',payload),payload);
   await p.evaluate(()=>testBridge.fire('state',{character:{status:'active',registered:true,key:'default',step:'done',welcomePending:false,slots:[],origins:[]}}));
-  await fire(state);const ui=p.getByRole('dialog',{name:'AUTO STUDIO_'});await ui.waitFor();
+  await p.evaluate(()=>testBridge.fire('notice',{title:'Test notice',body:'Gameplay notification',durationMs:60000}));
+  assert.equal(await p.locator('.gameplay-interface').getAttribute('hidden'),null);
+  await fire({kind:'presentation',session:state.session});
+  await p.waitForFunction(()=>document.querySelector('.gameplay-interface').hidden);
+  await fire(state);const ui=p.getByRole('dialog',{name:'AUTO STUDIO_'});await ui.waitFor();assert(await p.locator('.gameplay-interface').isHidden());assert(await p.locator('.notices').isHidden());
   const calls=()=>p.evaluate(()=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization').map(x=>x.payload));
   const untilCalls=async n=>{await p.waitForFunction(n=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization').length>=n,n);return(await calls()).at(-1);};
   const payButton=()=>p.getByRole('button',{name:'Apply paint · €$ 1,000',exact:true});
@@ -54,7 +58,8 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
    await p.setViewportSize({width,height});await p.waitForTimeout(100);
    const boxes=await Promise.all(['.workshop__panel','.workshop__checkout','.workshop__camera'].map(s=>p.locator(s).boundingBox()));
    for(const box of boxes)assert(box.x>=0&&box.y>=0&&box.x+box.width<=width&&box.y+box.height<=height);
-   assert(!overlap(boxes[0],boxes[1])&&!overlap(boxes[0],boxes[2])&&!overlap(boxes[1],boxes[2]),'controls must not overlap');
+   assert(boxes[1].x>=boxes[0].x&&boxes[1].x+boxes[1].width<=boxes[0].x+boxes[0].width,'payment stays inside the original left panel');
+   assert(!overlap(boxes[0],boxes[2]),'camera controls stay outside the left panel');
    await p.screenshot({path:path.join(output,`vehicle-customization-${width}.png`)});
   }
   await p.getByRole('button',{name:'Pause rotation',exact:true}).click();assert.equal((await calls()).at(-1).command,'rotate');
@@ -70,9 +75,9 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
   sent=await untilCalls(count+2);assert.equal(sent.request,6);assert.equal(sent.operation,'save');
   await fire({kind:'response',session:state.session,request:6,nextRequest:7,ok:false,paint:paid,text:'The database is unavailable. No money was moved.'});
   await p.getByRole('status').filter({hasText:'No money was moved'}).waitFor();
-  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);assert.equal((await calls()).at(-1).operation,'close');
-  await fire(state);await ui.waitFor();await fire({kind:'closed',session:'stale'});assert.equal(await ui.count(),1);await fire({kind:'closed',session:state.session});assert.equal(await ui.count(),0);
+  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);assert.equal((await calls()).at(-1).operation,'close');assert.equal(await p.locator('.gameplay-interface').getAttribute('hidden'),null);assert(await p.locator('.notices').isVisible());
+  await fire(state);await ui.waitFor();await fire({kind:'closed',session:'stale'});assert.equal(await ui.count(),1);assert(await p.locator('.gameplay-interface').isHidden());await fire({kind:'closed',session:state.session});assert.equal(await ui.count(),0);
   await fire({kind:'unavailable',session:'failed',text:'Vehicle preview is unavailable.'});await p.getByText('Vehicle preview is unavailable.',{exact:true}).waitFor();
-  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and responsive layout');
+  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup');
  }finally{await b.close()}
 })().catch(e=>{console.error(e);process.exit(1)});

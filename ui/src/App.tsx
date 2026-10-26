@@ -28,6 +28,7 @@ import { Freecam } from "@/features/freecam/Freecam";
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
 export function App() {
+  const customizationActive = useStore(s => s.customizationActive);
   const applyState = useStore((s) => s.applyState);
   const setHud = useStore((s) => s.setHud);
   const openMenu = useStore((s) => s.openMenu);
@@ -67,6 +68,7 @@ export function App() {
 
   return (
     <>
+      <div className="gameplay-interface" hidden={customizationActive}>
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
@@ -80,7 +82,6 @@ export function App() {
       <ErrorBoundary name="rental"><RentalDialog /></ErrorBoundary>
       <ErrorBoundary name="shop"><ShopDialog /></ErrorBoundary>
       <ErrorBoundary name="garage"><GarageDialog /></ErrorBoundary>
-      <ErrorBoundary name="customization"><VehicleCustomization /></ErrorBoundary>
       <ErrorBoundary name="housing"><HousingDialog /></ErrorBoundary>
       <ErrorBoundary name="dealership"><DealershipDialog /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
@@ -89,6 +90,8 @@ export function App() {
       <ErrorBoundary name="menu"><PlayerMenu /></ErrorBoundary>
       <ErrorBoundary name="actions"><Actions /></ErrorBoundary>
       <ErrorBoundary name="animations"><AnimationMenu /></ErrorBoundary>
+      </div>
+      <ErrorBoundary name="customization"><VehicleCustomization /></ErrorBoundary>
     </>
   );
 }

@@ -11,7 +11,7 @@ interface Paint { applied:boolean; primary?:RGB; secondary?:RGB }
 interface Draft { primary:string; secondary:string; stock:boolean }
 interface Wallet { cash:number; bank:number; currency:string }
 interface Session { kind:"open"; session:string; nextRequest:number; price:number;money:Wallet;vehicle:{id:string;vehicleId:number;label:string;paint:Paint};categories:Array<{id:string;label:string;description:string}> }
-interface Response { kind:"response"|"closed"|"unavailable";session:string;request?:number;nextRequest?:number;operation?:string;ok?:boolean;text?:string;money?:Wallet;paint?:Paint }
+interface Response { kind:"response"|"closed"|"unavailable"|"presentation";session:string;request?:number;nextRequest?:number;operation?:string;ok?:boolean;text?:string;money?:Wallet;paint?:Paint }
 const swatches = ["#FFCC00","#F2F3F5","#111114","#656A76","#AA172C","#F06624","#233F80","#38B8CB","#28705A","#71609C","#E0A4BB","#BAA281"];
 function hex(rgb?:RGB) { return rgb ? `#${[rgb.r,rgb.g,rgb.b].map(v=>v.toString(16).padStart(2,"0")).join("").toUpperCase()}` : "#FFCC00"; }
 function draftOf(p:Paint):Draft {return {primary:hex(p.primary),secondary:hex(p.secondary),stock:!p.applied};}
@@ -19,15 +19,24 @@ function signature(d:Draft) {return d.stock?"factory":`${d.primary.toUpperCase()
 function valid(d:Draft) {return d.stock||(/^#[0-9a-f]{6}$/i.test(d.primary)&&/^#[0-9a-f]{6}$/i.test(d.secondary));}
 export function VehicleCustomization() {
   const [session,setSession] = useState<Session>();
-  useEffect(()=>on<Session|Response>(PAGE,p=>{
-    if(p.kind==="open") {useStore.getState().closeDialog();setSession(p);}
+  const presentation = useRef<string>();
+  useEffect(()=>{
+    const off=on<Session|Response>(PAGE,p=>{
+    if(p.kind==="presentation"){presentation.current=p.session;useStore.getState().setCustomizationActive(true);return;}
+    if(p.kind==="open") {presentation.current=p.session;useStore.getState().setCustomizationActive(true);useStore.getState().closeDialog();setSession(p);}
     else if(p.kind==="unavailable") {
-      const store=useStore.getState();store.closeDialog();store.pushNotice({kind:"error",title:"Auto Studio",body:p.text??"Vehicle preview is unavailable.",source:"LIGHT RP",durationMs:6000});
+      if(presentation.current&&presentation.current!==p.session)return;
+      presentation.current=undefined;
+      const store=useStore.getState();store.setCustomizationActive(false);store.closeDialog();store.pushNotice({kind:"error",title:"Auto Studio",body:p.text??"Vehicle preview is unavailable.",source:"LIGHT RP",durationMs:6000});
     }
-    else if(p.kind==="closed") setSession(s=>s?.session===p.session?undefined:s);
-  }),[]);
+    else if(p.kind==="closed"&&presentation.current===p.session) {
+      presentation.current=undefined;useStore.getState().setCustomizationActive(false);setSession(s=>s?.session===p.session?undefined:s);
+    }
+    });
+    return()=>{off();useStore.getState().setCustomizationActive(false);};
+  },[]);
   if(!session)return null;
-  return <Workshop key={session.session} session={session} close={()=>{emit(PAGE,{operation:"close",session:session.session});setSession(undefined);}}/>;
+  return <Workshop key={session.session} session={session} close={()=>{emit(PAGE,{operation:"close",session:session.session});presentation.current=undefined;useStore.getState().setCustomizationActive(false);setSession(undefined);}}/>;
 }
 function Workshop({session,close}:{session:Session;close():void}) {
   const [draft,setDraft]=useState(()=>draftOf(session.vehicle.paint));
@@ -98,26 +107,27 @@ function Workshop({session,close}:{session:Session;close():void}) {
       else if(!e.shiftKey&&(document.activeElement===nodes.at(-1)||document.activeElement===root.current)){e.preventDefault();nodes[0]?.focus();}
     }
   }}>
-    <header className="workshop__header"><div><span className="workshop__eyebrow">OPEN // 77 <i>VEHICLE CUSTOMIZATION</i></span><h1 id="workshop-title">AUTO STUDIO<span>_</span></h1><p>{session.vehicle.label}<span>#{session.vehicle.id.slice(0,8).toUpperCase()}</span></p></div><button className="workshop__exit" onClick={close}><X size={16}/>Leave studio<kbd>ESC</kbd></button></header>
     <section className="workshop__panel" aria-label="Paint customization">
-      <nav className="workshop__categories" aria-label="Customization categories">{session.categories.map(c=><button key={c.id} aria-current={c.id==="paint"?"page":undefined} disabled={c.id!=="paint"}><Palette size={17}/>{c.label}<span>01</span></button>)}</nav>
+    <header className="workshop__header"><div><span className="workshop__eyebrow">OPEN // 77 <i>VEHICLE CUSTOMIZATION</i></span><h1 id="workshop-title">AUTO STUDIO<span>_</span></h1><p>{session.vehicle.label}<span>#{session.vehicle.id.slice(0,8).toUpperCase()}</span></p></div><button className="workshop__exit" aria-label="Close customization" onClick={close}><X size={17}/></button></header>
+      <nav className="workshop__categories" aria-label="Customization categories">{session.categories.map(c=><button key={c.id} aria-current={c.id==="paint"?"page":undefined} disabled={c.id!=="paint"}><span className="workshop__category-icon"><Palette size={17}/></span><strong>{c.label}<small>{c.description}</small></strong><span>01</span></button>)}</nav>
       <div className="workshop__editor">
         <div className="workshop__editor-title"><h2>Choose your finish</h2><span>{pending==="preview"||queued?"UPDATING…":"LIVE PREVIEW"}</span></div>
         <div className="workshop__channels" role="group" aria-label="Paint channel">{(["primary","secondary"] as const).map(c=><button key={c} aria-pressed={channel===c} onClick={()=>setChannel(c)}><i style={{background:draft[c]}}/>{c==="primary"?"Primary":"Secondary"}</button>)}</div>
-        <div className="workshop__swatches" role="group" aria-label="Paint presets">{swatches.map(value=><button key={value} disabled={purchasing} aria-label={`Paint ${value}`} aria-pressed={!draft.stock&&selected.toUpperCase()===value} style={{background:value}} onClick={()=>choose(value)}>{!draft.stock&&selected.toUpperCase()===value&&<Check size={17} style={{color:["#111114","#233F80","#AA172C","#28705A","#71609C"].includes(value)?"#fff":"#050506"}}/>}</button>)}</div>
+        <div className="workshop__swatches" role="group" aria-label="Paint presets">{swatches.map(value=><button key={value} disabled={purchasing} aria-label={`Paint ${value}`} aria-pressed={!draft.stock&&selected.toUpperCase()===value} onClick={()=>choose(value)}><i style={{background:value}}/>{!draft.stock&&selected.toUpperCase()===value&&<Check size={17} style={{color:["#111114","#233F80","#AA172C","#28705A","#71609C"].includes(value)?"#fff":"#050506"}}/>}</button>)}</div>
         <label className="workshop__hex"><span>Custom color</span><div><input type="color" aria-label="Color picker" disabled={purchasing} value={/^#[0-9a-f]{6}$/i.test(selected)?selected:"#000000"} onChange={e=>choose(e.target.value.toUpperCase())}/><input aria-label="Hex color" maxLength={7} spellCheck={false} disabled={purchasing} value={selected} onChange={e=>update({...latest.current,[channel]:e.target.value.toUpperCase(),stock:false})}/></div></label>
         <button className="workshop__factory" aria-pressed={draft.stock} disabled={purchasing} onClick={()=>update({...latest.current,stock:true},true)}><RotateCcw size={14}/>Factory finish</button>
       </div>
-    </section>
     <aside className="workshop__checkout" aria-label="Paint purchase" aria-busy={purchasing}>
       <span className="workshop__eyebrow">YOUR PAINT JOB</span><div className="workshop__price"><span>Body paint</span><strong>{amount(session.price)}</strong></div>
       <p>Both color channels included.</p>
       <div className="workshop__payment" role="group" aria-label="Payment method">{(["cash","bank"] as const).map(method=><button key={method} aria-pressed={pay===method} disabled={purchasing} onClick={()=>setPay(method)}><span>{method==="cash"?"Cash":"Bank"}</span><strong>{amount(money[method])}</strong></button>)}</div>
       {feedback&&<p className={`workshop__feedback${feedback.ok===false?" is-error":""}`} role="status">{feedback.text}</p>}
       {money[pay]<session.price&&<p className="workshop__feedback is-error" role="status">Not enough {pay==="cash"?"cash":"money in your bank account"}.</p>}
-      <Button variant="primary" block disabled={!!pending||queued||!valid(draft)||!changed||money[pay]<session.price} onClick={purchase}>{purchasing?"Processing payment…":`Apply paint · ${amount(session.price)}`}<ArrowRight size={16}/></Button>
+      <Button className="workshop__apply" variant="primary" block disabled={!!pending||queued||!valid(draft)||!changed||money[pay]<session.price} onClick={purchase}>{purchasing?"Processing payment…":`Apply paint · ${amount(session.price)}`}<ArrowRight size={16}/></Button>
       <small>{feedback?.ok?"Your finish is saved to this vehicle.":"Free preview. Pay only when you apply."}</small>
+      <button className="workshop__leave" onClick={close}>Leave studio<kbd>ESC</kbd></button>
     </aside>
+    </section>
     <div className="workshop__camera" aria-label="Vehicle camera controls"><button aria-label="Rotate left" onClick={()=>camera("left")}><ChevronLeft size={18}/></button><button aria-label={rotating?"Pause rotation":"Resume rotation"} aria-pressed={rotating} onClick={()=>{setRotating(!rotating);camera("rotate",!rotating);}}>{rotating?<Pause size={15}/>:<Play size={15}/>}<span>{rotating?"Auto orbit":"Orbit paused"}</span></button><button aria-label="Rotate right" onClick={()=>camera("right")}><ChevronRight size={18}/></button><i/><button aria-label="Zoom in" onClick={()=>camera("zoomIn")}><ZoomIn size={18}/></button><button aria-label="Zoom out" onClick={()=>camera("zoomOut")}><ZoomOut size={18}/></button></div>
   </div>;
 }

@@ -8,6 +8,10 @@ local function stop(notify)
     session = nil
     if notify then TriggerServerEvent(NET, { operation = "close", session = s.id }) end
     if s.camera then Open77.camera.destroy(s.camera) end -- destroying the active definition returns the view
+    if s.cinematic then
+        local restored, reason = Open77.hud.setCinematic(false) -- ordinary HUD claims remain intact
+        if not restored then Ui.log("vehicle cinematic release failed: %s", tostring(reason)) end
+    end
     if s.frozen then Open77.character.setFrozen(false) end
     Ui.dialogs.customization = nil
     Ui.setPromptFocus(false)
@@ -46,6 +50,10 @@ local function start(p)
     Ui.setMenuOpen(false)
     Ui.dialogs.customization = true
     Ui.setPromptFocus(true)
+    local hidden, reason = Open77.hud.setCinematic(true, 0.01)
+    if not hidden then Ui.log("vehicle cinematic unavailable: %s", tostring(reason)); refuse(p.session); return end
+    s.cinematic = true
+    Ui.send(PAGE, { kind = "presentation", session = s.id })
     CreateThread(function()
         local ok, failure = pcall(function()
             local accepted, blend = Open77.camera.activate(camera, { blendMs = C.blendMs })

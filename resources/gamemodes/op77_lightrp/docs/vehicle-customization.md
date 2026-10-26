@@ -26,8 +26,11 @@ vehicle**. All occupants must be out. Rentals, staff-spawned cars and other
 characters' vehicles are not eligible.
 
 Auto Studio uses the existing yellow/black design tokens and shared buttons.
-A compact paint panel sits at the lower left, payment at the lower right, with
-the actual game vehicle visible between them. Camera controls remain separate.
+The original full-height left panel groups the vehicle header, category rows,
+paint controls and payment footer. Components use circular color swatches,
+underlined channel/payment selectors, a single HEX field and a restrained outlined
+apply button. The actual game vehicle remains visible to the right, with camera
+controls at the bottom of the remaining viewport.
 Body paint is the only exposed category. Select Primary or Secondary, choose a
 preset or enter `#RRGGBB`; every valid change previews automatically. Pure black is a real color, distinct
 from **Factory finish**. Presets and the color picker preview immediately; HEX edits preview after a
@@ -89,6 +92,24 @@ player claim, and destroys its own camera on refusal, interruption or stop.
 It does not teleport the vehicle/player or change routing buckets. Scripted
 cameras have no native collision avoidance: use open pickup bays and survey
 configured garage locations in-game.
+
+## Clean presentation
+
+The existing freecam uses the same `Open77.camera` definition/view/cleanup API.
+Auto Studio additionally uses the documented `Open77.hud.setCinematic(true, 0.01)`
+claim (`ui.vanilla.hud`, available since op77.78): native HUD/minimap, nonfocused
+resource interfaces (voice, chat history, watermark) and world labels are masked.
+The minimum 1% bars preserve the original full-height menu framing. The focused
+workshop WebUI remains usable. Releasing with `setCinematic(false)` preserves
+ordinary HUD hide claims and claims belonging to other resources.
+
+Because the workshop and the RP HUD share one WebUI, a session-correlated
+`customizationActive` store flag separately hides the gameplay-interface wrapper
+(HUD, notices, prompts and other page overlays), without unmounting those features
+or losing their state. It starts when the camera prepares and ends on close,
+refusal, death, movement, removal or resource stop. Stale close events cannot
+unhide the HUD beneath a newer workshop session. Payment feedback stays visible
+inside the workshop.
 
 ## Native capability map
 
