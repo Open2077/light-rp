@@ -349,6 +349,7 @@ export function installMockBridge(): void {
     hud.stamina = { value: 70 + Math.round(Math.sin(t / 8) * 20), max: 100 };
     if (hud.vehicle.active) hud.vehicle = { ...hud.vehicle, speedKph: 80 + Math.round(Math.sin(t / 10) * 25) };
     fire(PAGE_EVENTS.hud, { ...hud });
+    if(params.get("hotbar")==="1")fire("lightrp:ui:hotbar",{kind:"state",state:armament.hotbar(),visible:true,showKey:"TAB",slotKeys:["1","2","3","4","5"]});
   }, 100);
 
   window.Open77 = bridge;

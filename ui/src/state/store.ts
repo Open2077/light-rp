@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ArmamentPending, ArmamentState, GrenadeState, DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
+import type { ArmamentPending, ArmamentState, GrenadeState, HotbarState, DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 import type { ExtraSafezoneRules } from "@/features/safezones/model";
 
 export interface Notice {
@@ -49,6 +49,8 @@ interface Store {
   connected: boolean;
   state: UiState;
   hud: HudState;
+  hotbar?: HotbarState;
+  setHotbar(state: HotbarState): void;
   safezone?: SafezonePresence;
   armament?: ArmamentState;
   grenades?: GrenadeState;
@@ -132,6 +134,7 @@ export const useStore = create<Store>((set) => ({
     return { dialog: { ...s.dialog, left, right } };
   }),
   setHud: (hud) => set({ hud }),
+  setHotbar: (hotbar) => set({ hotbar }),
   setSafezone: (safezone) => set({ safezone }),
   setArmament: (armament) => set({ armament }),
   setGrenades: (grenades) => set({ grenades }),

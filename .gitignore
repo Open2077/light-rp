@@ -73,6 +73,8 @@ neuralink-ui/screens/
 !tools/test-weapon-hud.py
 !tools/test-grenades.py
 !tools/test-grenades-client.py
+!tools/test-hotbar.py
+!tools/test-hotbar-client.py
 !tools/import-weapon-assets.py
 # Platform packages whose out-of-character commands were made staff-only.
 !resources/system/open77_appearance/

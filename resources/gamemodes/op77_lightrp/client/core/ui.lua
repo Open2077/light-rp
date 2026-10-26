@@ -83,6 +83,7 @@ local MENU_KEYS = { "escape", "enter", "backspace", "up", "down", "left", "right
 function Ui.setMenuOpen(open)
     if Ui.page == nil then return end
     if open and LightRpSafezones and LightRpSafezones.active then return end
+    if open and LightRpMedical and LightRpMedical.isActive() then return end
     if open and (Ui.dialogs.tutorial or Ui.dialogs.support or Ui.dialogs.housing) then return end
     if open and LightRpAnimations then LightRpAnimations.close() end
     if open and Ui.creationActive then
@@ -205,6 +206,7 @@ function Ui.create()
     if LightRpSupport then LightRpSupport.bind(page) end
     if LightRpArmamentClient then LightRpArmamentClient.bind(page) end
     if LightRpGrenadesClient then LightRpGrenadesClient.bind(page) end
+    if LightRpHotbar then LightRpHotbar.bind(page) end
     syncVoiceHud() -- hidden until the authoritative character state is ready
     if LightRpActions then LightRpActions.bind(page) end
     if LightRpAnimations then LightRpAnimations.bind(page) end

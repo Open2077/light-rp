@@ -3,6 +3,7 @@ import { StatusChip } from "@/design/components";
 import { VehicleCluster } from "./VehicleCluster";
 import { useEffect, useState } from "react";
 import { WalkFlash } from "./WalkFlash";
+import { Hotbar } from "./Hotbar";
 import { PlayerVitals } from "./PlayerVitals";
 import { WeaponStatus } from "./WeaponStatus";
 import { GrenadeStatus } from "../inventory/Grenades";
@@ -36,6 +37,7 @@ export function Hud() {
   return (
     <div className={`hud${inventoryOpen ? " hud--quiet" : ""}`} aria-hidden="true">
       <WalkFlash />
+      <Hotbar />
       <div className="hud__bottom-left">
         <SafezoneStatus />
         <WeaponStatus />

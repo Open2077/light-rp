@@ -106,6 +106,7 @@ end
 -- Everyone looking at this inventory gets the new snapshot.
 local function publish(inv)
     local snap = Inv.snapshot(inv)
+    if LightRP.hotbar then LightRP.hotbar.inventoryChanged(inv, snap) end
     for viewer in pairs(inv.viewers) do
         if GetPlayerName(viewer) == nil then inv.viewers[viewer] = nil
         elseif not canAccess(viewer, inv) then

@@ -67,5 +67,5 @@ export function armamentMock(fire: (name: string, value: unknown) => void, param
       reply(true, data);
     }, 420);
   };
-  return { boot, receive, receiveGrenade, useGrenade };
+  return { boot, receive, receiveGrenade, useGrenade, hotbar:()=>({ready:true,inventoryId:inventory.left.id,revision:0,items:copy(inventory.left.items.filter(i=>i.slot<=5))}) };
 }

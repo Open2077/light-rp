@@ -81,6 +81,9 @@ Les pistolets d'inventaire, boîtes de 30 balles et équipement des deux mains
 disposent d'un [guide de prototype et de ses limites natives](resources/gamemodes/op77_lightrp/docs/armament.md).
 Aucun grant d'arme ni de munitions n'est automatique à la connexion.
 
+**1–5** utilisent les objets de la première ligne des poches ; maintenir **Tab**
+affiche la [hotbar](resources/gamemodes/op77_lightrp/docs/hotbar.md).
+
 **F1** ouvre le menu joueur ; à la première connexion le parcours de création
 présente l'identité, l'apparence et l'arrivée en ville. Le chat normal est la parole en jeu à 20 m, `/ooc` pour le
 hors-jeu, `/me` `/do` `/try` `/roll`, `/car <modèle>` et `/dv` pour un véhicule, `/report` pour

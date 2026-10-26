@@ -202,6 +202,7 @@ export interface InventoryItem {
   useAction?: { label: string; durationMs: number; icon: IconNameWire };
 }
 export type IconNameWire = string;
+export interface HotbarState { ready: boolean; inventoryId?: string; revision: number; items: InventoryItem[]; visible: boolean; showKey?: string; slotKeys?: string[] }
 export interface InventorySnapshot {
   id: string; kind: "player" | "trunk" | "drop" | "stash" | "ground" | "housing"; label: string;
   slots: number; maxWeight: number; weight: number; items: InventoryItem[];

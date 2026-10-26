@@ -280,6 +280,7 @@ function InventoryPanel({ inventory: inv, side, search, onSearch, selected, busy
   const query = search.trim().toLocaleLowerCase();
   const matches = (item: InventoryItem | undefined) => !!item && (!query || `${item.label} ${item.name} ${item.category ?? ""}`.toLocaleLowerCase().includes(query));
   const slots = Array.from({ length: inv.slots }, (_, index) => index + 1).filter((slot) => !query || matches(bySlot.get(slot)));
+  const quickKeys = useStore(s=>s.hotbar?.slotKeys);
   const pct = inv.maxWeight > 0 ? Math.min(100, Math.max(0, inv.weight / inv.maxWeight * 100)) : 0;
   const title = side === "left" ? "Pockets" : "Nearby";
   return <section className={`inventory-panel inventory-panel--${side}`} aria-label={title}>
@@ -304,7 +305,7 @@ function InventoryPanel({ inventory: inv, side, search, onSearch, selected, busy
               const target = buttons[buttons.indexOf(event.currentTarget) + offset];
               if (target) { target.focus(); select({ inventory: inv.id, slot: Number(target.dataset.slot) }); }
             }}>
-            <span className="inventory-slot__index">{side === "left" && slot <= 5 ? slot : String(slot).padStart(2, "0")}</span>
+            <span className="inventory-slot__index">{side === "left" && slot <= 5 ? <kbd className="inventory-slot__shortcut" title="Quick use without opening inventory">{quickKeys?.[slot-1]??slot}</kbd> : String(slot).padStart(2, "0")}</span>
             {item ? <><span className="inventory-slot__count" title={itemAmount(item)} key={`${item.name}:${item.count}`}>{itemAmount(item, item.count, true)}</span><span className="inventory-slot__icon"><ItemArt item={item} /></span><span className="inventory-slot__label">{item.label}</span></> : <span className="inventory-slot__empty">·</span>}
           </button>;
         })}
