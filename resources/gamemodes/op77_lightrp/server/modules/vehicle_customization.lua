@@ -2,6 +2,11 @@ local G, C = LightRP.garage, LightRpVehicleCustomization
 local Custom = LightRP.module("vehicleCustomization", {})
 local NET = LightRpEvents.net.customization
 local sessions, sequence = {}, 0
+local price = assert(LightRP.money.validAmount(LightRpCustomizationPricing.paint), "Invalid paint price")
+local function wallet(id)
+    local w = LightRP.money.get(id)
+    if w then return { cash = w.cash, bank = w.bank, currency = LightRpConfig.economy.currency } end
+end
 local function close(id)
     local s = sessions[id]; if not s then return end
     sessions[id] = nil
@@ -26,13 +31,14 @@ function Custom.open(id, vehicle, garage)
     if sessions[id] then return false, "Close your current customization session first." end
     sequence = sequence + 1
     local token = "custom:" .. sequence .. ":" .. LightRP.nowMs()
+    if not wallet(id) then return false, "Your wallet is not ready yet." end
     local state, why = G.beginCustomization(id, vehicle, token, garage)
     if not state then return false, why end
-    local s = { id = token, nextRequest = 1, vehicle = state.vehicleId, expires = LightRP.nowMs() + C.sessionMs }
+    local s = { id = token, nextRequest = 1, vehicle = state.vehicleId, expires = LightRP.nowMs() + C.sessionMs, price = price }
     sessions[id] = s
     G.closeVisit(id)
     TriggerClientEvent(NET, id, { kind = "open", session = token, nextRequest = 1, vehicle = state,
-        categories = C.categories })
+        categories = C.categories, price = s.price, money = wallet(id) })
     return true
 end
 LightRP.action("customization.open", function(id, p)
@@ -55,13 +61,14 @@ RegisterNetEvent(NET, function(p)
     local paint, error
     if validate then paint, error = validate(p) else error = "Unknown customization category." end
     local now = LightRP.nowMs()
-    if now - (s.lastAt or -1000) < C.previewIntervalMs then error = "Please wait before changing the finish again."; paint = nil end
+    if p.operation == "preview" and now - (s.lastAt or -1000) < C.previewIntervalMs then error = "Please wait before changing the finish again."; paint = nil end
     s.lastAt, s.nextRequest, s.busy = now, s.nextRequest + 1, true
     local ok = false
-    if paint then ok, error = G.customizePaint(id, s.id, paint, p.operation == "save") end
+    if p.operation == "save" and p.pay ~= "cash" and p.pay ~= "bank" then paint, error = nil, "Choose cash or bank." end
+    if paint then ok, error = G.customizePaint(id, s.id, paint, p.operation == "save", { method = p.pay, amount = s.price }) end
     s.busy = nil
-    s.last = { kind = "response", request = p.request, operation = p.operation, ok = ok,
-        text = ok and (p.operation == "save" and "Paint saved to your vehicle." or "Preview applied. Save to keep this finish.") or error }
+    s.last = { kind = "response", request = p.request, operation = p.operation, ok = ok, money = wallet(id), paint = G.customizationPaint(id, s.id),
+        text = ok and (p.operation == "save" and "Paint purchased and saved to your vehicle." or "Preview applied.") or error }
     reply(id, s, s.last)
 end)
 function Custom.onDisconnected(id) close(id) end

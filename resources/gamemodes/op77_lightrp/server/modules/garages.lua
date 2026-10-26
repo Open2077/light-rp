@@ -277,12 +277,29 @@ function Garage.endCustomization(playerId, token)
     capture(row)
     return true
 end
-function Garage.customizePaint(playerId, token, paint, commit)
+local function colorKey(value)
+    if type(value) == "string" then return value:upper() end
+    if type(value) == "table" then return string.format("#%02X%02X%02X", value.r, value.g, value.b) end
+end
+local function samePaint(a,b)
+    if a.applied ~= b.applied then return false end
+    return not a.applied or (colorKey(a.primary) == colorKey(b.primary) and colorKey(a.secondary) == colorKey(b.secondary))
+end
+function Garage.customizationPaint(playerId, token)
+    local row = edits[playerId]
+    if row and row.edit.token == token then return copy(row.edit.savedPaint) end
+end
+function Garage.customizePaint(playerId, token, paint, commit, payment)
     local row = edits[playerId]
     local valid, why = Garage.customizationValid(playerId, token)
     if not valid then return false, why end
     if row.busy or ownerBusy[owner(row)] then return false, "Vehicle save is still running." end
     local edit, key, operation = row.edit, owner(row), {}
+    if commit then
+        if not payment or (payment.method ~= "cash" and payment.method ~= "bank")
+            or not LightRP.money or not LightRP.money.validAmount(payment.amount) then return false, "Choose a valid payment method." end
+        if samePaint(paint, edit.savedPaint) then return false, "Choose a different finish before purchasing." end
+    end
     row.busy, ownerBusy[key] = true, operation
     local ran, ok, reason = pcall(function()
         local target = copy(paint); target.lightsHue = edit.savedPaint.lightsHue
@@ -294,12 +311,15 @@ function Garage.customizePaint(playerId, token, paint, commit)
         -- Save the complete canonical properties before acknowledging success.
         local encoded = json.encode(props)
         if not encoded then return false, "Could not encode vehicle properties." end
-        local saved = Db.run("UPDATE lightrp_owned_vehicles SET garage_id = ?, properties = ? WHERE id = ?",
-            { row.garage_id, encoded, row.id })
-        if not saved then return false, "Paint could not be saved. Your previous finish is kept." end
-        edit.savedPaint = copy(props.paint)
-        row.props.paint = copy(props.paint) -- removal during SQL must not overwrite the confirmed finish
-        row.dirty = true
+        local saved, failure = LightRP.money.exchange(playerId, payment.method, -payment.amount,
+            { query = "UPDATE lightrp_owned_vehicles SET garage_id = ?, properties = ? WHERE id = ?",
+              values = { row.garage_id, encoded, row.id } },
+            function()
+                edit.savedPaint = copy(props.paint)
+                row.props.paint = copy(props.paint) -- removal during SQL cannot overwrite the purchased finish
+                row.dirty = true
+            end, "vehicle_paint", "Body paint for vehicle " .. row.id, "Auto Studio")
+        if not saved then return false, LightRP.money.explain(failure) end
         return true
     end)
     if not ran or not ok then

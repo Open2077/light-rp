@@ -25,12 +25,21 @@ area, step out and reopen the garage. Select the car and choose **Customize
 vehicle**. All occupants must be out. Rentals, staff-spawned cars and other
 characters' vehicles are not eligible.
 
-Auto Studio uses the existing yellow/black design tokens, shared buttons and
-section headers. The transparent right side shows the actual game vehicle.
+Auto Studio uses the existing yellow/black design tokens and shared buttons.
+A compact paint panel sits at the lower left, payment at the lower right, with
+the actual game vehicle visible between them. Camera controls remain separate.
 Body paint is the only exposed category. Select Primary or Secondary, choose a
-preset or enter `#RRGGBB`, preview, then save. Pure black is a real color, distinct
-from **Factory finish**. A preset immediately requests a preview; custom HEX and
-color-picker edits are applied with **Preview color** or **Save changes**.
+preset or enter `#RRGGBB`; every valid change previews automatically. Pure black is a real color, distinct
+from **Factory finish**. Presets and the color picker preview immediately; HEX edits preview after a
+short typing delay. Rapid clicks coalesce to the latest selection while a native
+request is pending. There is no Preview button.
+
+Previews are free. **Apply paint** purchases the selected finish for **1,000 €$**
+(flat price including both channels), paid from Cash or Bank. The server-only
+`server/config/vehicle_customization.lua` owns this tariff. The page displays the
+quote and available balances; insufficient funds and unchanged paint disable
+purchase. No payment is sent automatically or retried on a timeout. Resetting an
+existing custom finish to factory paint is also a paint job at this tariff.
 
 The camera automatically orbits the stationary car. Pause/resume, step left or
 right and zoom are local presentation controls. Camera radius is limited to
@@ -47,8 +56,14 @@ vehicle. Its server response is not routed to a replacement session.
 
 There is no second vehicle database and no new schema. The garage owns the
 lease, current network ID, durable ownership UUID and last confirmed paint.
-Every save writes the canonical `getProperties` snapshot to the existing
-`lightrp_owned_vehicles.properties` field before returning success. Retrieval
+Every purchase passes the canonical `getProperties` snapshot to
+`LightRP.money.exchange`: wallet/inventory cash debit, the existing
+`lightrp_owned_vehicles.properties` UPDATE and the `vehicle_paint` ledger receipt
+commit in **one SQL transaction** before success is acknowledged. Client prices
+are ignored. Duplicate request replay and a confirmed-paint equality check prevent
+double charges. A failed transaction leaves both the original money and finish.
+The garage service accepts only trusted payment tables; public RPC payment methods
+are restricted to cash/bank and the session's server-issued quote. Retrieval
 already calls `setProperties` on the newly spawned car, including confirmed
 paint, damage, health and existing lights hue. Network IDs are never persisted.
 
@@ -56,15 +71,17 @@ Authoritative previews are visible to other viewers. Garage capture/periodic
 saves replace preview paint with the lease's last confirmed paint. Thus an
 autosave, reconnect or hard crash cannot accidentally make a preview durable.
 Close restores confirmed paint. If native restoration fails, the lease stays
-locked and the garage worker retries rather than saving the preview. DB errors
-restore the confirmed finish and never acknowledge a successful save.
+locked and the garage worker retries rather than saving the preview. DB errors or insufficient funds
+restore the confirmed finish and never acknowledge a successful purchase.
 Damage is captured independently; repainting never repairs the vehicle.
 
 All mutations validate the source player, current active character, life state,
 bucket, garage proximity, ownership, stationary/empty vehicle and session token.
 Each session accepts ordered requests and replays only the previous response;
 client-supplied native names, model changes or unknown categories are refused.
-Preview traffic is limited to one accepted new request per 200 ms. Garage
+Preview traffic is limited to one accepted new preview per 200 ms; the UI
+spaces queued previews by 230 ms. Payment requests remain serialized and are not
+blocked just because an immediately preceding preview completed quickly. Garage
 operations and character switching wait for the active customization lease.
 
 The camera refuses an already-held view, freezes only this resource's local
@@ -116,9 +133,13 @@ already declared; this change grants no additional permissions.
   Covers ownership and character isolation, black-vs-stock paint, preview autosave
   exclusion, cancellation, failed writes, delayed close, removal during SQL,
   parking/retrieval, restart, RPC replay/validation, orbit/pause/zoom and cleanup.
+  The payment suite loads the real economy and inventory modules to check atomic
+  cash/bank purchase, server pricing, unchanged-paint protection, insufficient funds,
+  transaction failure, duplicate requests and disconnect while SQL is pending.
 - `npm run build --prefix ui`.
 - `PLAYWRIGHT_MODULE=/path/to/playwright CHROMIUM_PATH=/path/to/chrome node ui/tests/customization.browser.cjs`:
-  preview/save/invalid HEX/stale acknowledgement/error feedback, camera requests,
+  automatic/coalesced palette and HEX previews, quoted bank purchase, balance updates,
+  unchanged-paint/insufficient-cash guards, stale acknowledgement/error feedback, camera requests,
   Escape and 1920x1080, 1280x720, 800x600 layouts; screenshots in ignored
   `ui/artifacts/vehicle-customization-*.png`.
 - MCP validation has the same pre-existing 47 errors and one warning as the base
