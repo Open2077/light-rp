@@ -10,6 +10,7 @@ AddEventHandler("onClientResourceStart", function(name)
     LightRpMovement.bind()
     LightRpInventory.bind()
     LightRpBranding.apply()
+    if LightRpSafezones then LightRpSafezones.start() end
 
     local key = Config.keys.menu
     local ok, effective = RegisterKeyMapping(key.id, key.name, key.key, function()

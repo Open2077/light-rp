@@ -1,0 +1,7 @@
+/* Reuse the staff/F1 menu shell. World authoring adds only a small key hint. */
+.safezone-menu .o77-rage__desc{white-space:pre-wrap;overflow-wrap:anywhere;max-height:110px}
+.safezone-menu .o77-rage__subtitle{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.safezone-world-hint{position:absolute;left:50%;bottom:60px;transform:translateX(-50%);max-width:calc(100vw - 40px);padding:10px 16px;border-top:1px solid var(--accent);background:var(--surface-hud);box-shadow:var(--shadow-hud);text-align:center;pointer-events:none}
+.safezone-world-hint b{display:block;max-width:440px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--type-label);color:var(--text-hi)}
+.safezone-world-hint span{display:block;margin-top:5px;font:10px var(--font-mono);letter-spacing:.05em;color:var(--accent)}
+.safezone-world-hint small{display:block;margin-top:7px;font:11px var(--font-core);color:var(--o77-yellow-200)}

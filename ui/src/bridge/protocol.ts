@@ -3,6 +3,8 @@
 
 export const PAGE_EVENTS = {
   customization: "lightrp:ui:customization",
+  armament: "lightrp:ui:armament",
+  safezones: "lightrp:ui:safezones",
   support: "lightrp:ui:support",
   animationsAction: "lightrp:ui:animations:action",
   animationsState: "lightrp:ui:animations:state",
@@ -172,6 +174,9 @@ export interface HudState {
   vehicle: { active: boolean; label?: string; speedKph?: number; gear?: string; health?: number; fuel?: FuelGauge };
   voice: { state: "off" | "idle" | "talking" | "muted"; level: number; range: "whisper" | "normal" | "shout" };
   clock: string; // HH:MM in-game
+  weapon?: { active: boolean; reserve?: number; hands?: Array<{
+    hand: "right" | "left"; label: string; magazine?: number; capacity?: number; reloading: boolean;
+  }> };
   street?: string;
   walk?: { mode: string; label: string; speed?: number; index?: number; count?: number }; // current walk mode once the key was used
 }
@@ -198,11 +203,30 @@ export interface InventoryItem {
   useAction?: { label: string; durationMs: number; icon: IconNameWire };
 }
 export type IconNameWire = string;
+export interface HotbarState { ready: boolean; inventoryId?: string; revision: number; items: InventoryItem[]; visible: boolean; showKey?: string; slotKeys?: string[] }
 export interface InventorySnapshot {
   id: string; kind: "player" | "trunk" | "drop" | "stash" | "ground" | "housing"; label: string;
   slots: number; maxWeight: number; weight: number; items: InventoryItem[];
 }
 export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot; toggleKey?: string }
+export interface GrenadeState { ready: boolean; busy: boolean; revision: number; selected?: string; label?: string; count: number; error?: string }
+export type ArmamentHand = "right" | "left";
+export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "ammo" | "sync";
+export interface ArmamentWeapon {
+  instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;
+  magazine?: number; capacity?: number;
+}
+export interface ArmamentState {
+  ready: boolean; busy: boolean; revision: number;
+  right?: ArmamentWeapon; left?: ArmamentWeapon;
+  ammo: { pistol: { remaining: number; label: string } };
+  error?: string;
+}
+export interface ArmamentArgs { slot?: number; instanceId?: string; hand?: ArmamentHand; baseRevision?: number }
+export interface ArmamentPending {
+  operation: Exclude<ArmamentOperation, "state">; args: ArmamentArgs; mutation: string;
+  uncertain: boolean;
+}
 export interface ShopItem {
   name: string; label: string; description?: string; icon: string; image?: string;
   category: string; weight: number; stack: number; buy?: number; sell?: number; owned: number;
