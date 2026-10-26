@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
+import type { ArmamentPending, ArmamentState, DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 import type { ExtraSafezoneRules } from "@/features/safezones/model";
 
 export interface Notice {
@@ -50,6 +50,9 @@ interface Store {
   state: UiState;
   hud: HudState;
   safezone?: SafezonePresence;
+  armament?: ArmamentState;
+  armamentPending?: ArmamentPending;
+  armamentFeedback?: { text: string; error: boolean };
   menuOpen: boolean; // the F1 player menu
   notices: Notice[];
   lastResult?: { ok: boolean; text: string; at: number; action?: string };
@@ -61,6 +64,9 @@ interface Store {
   applyState(patch: UiStatePatch): void;
   setHud(hud: HudState): void;
   setSafezone(safezone: SafezonePresence | undefined): void;
+  setArmament(value: ArmamentState): void;
+  setArmamentPending(value: ArmamentPending | undefined): void;
+  setArmamentFeedback(value: { text: string; error: boolean } | undefined): void;
   openMenu(): void;
   closeMenu(): void;
   pushNotice(notice: Omit<Notice, "id" | "createdAt"> & { id?: string }): void;
@@ -123,6 +129,9 @@ export const useStore = create<Store>((set) => ({
   }),
   setHud: (hud) => set({ hud }),
   setSafezone: (safezone) => set({ safezone }),
+  setArmament: (armament) => set({ armament }),
+  setArmamentPending: (armamentPending) => set({ armamentPending }),
+  setArmamentFeedback: (armamentFeedback) => set({ armamentFeedback }),
   openMenu: () => set({ menuOpen: true }),
   closeMenu: () => set({ menuOpen: false }),
   pushNotice: (notice) => set((s) => ({

@@ -15,6 +15,7 @@ import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
+import { armamentMock } from "@/features/inventory/armamentMock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -26,6 +27,7 @@ export function installMockBridge(): void {
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
   const safezones = safezonesMock(fire, params);
+  const armament = armamentMock(fire, params);
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -109,9 +111,11 @@ export function installMockBridge(): void {
     emit(name, payload) {
       console.log("[mock] emit", name, payload);
       if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
+      if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
       if (name === PAGE_EVENTS.ready) {
         setTimeout(() => {
           safezones.boot();
+          armament.boot();
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
           if (params.get("dialog") === "shop") fire(PAGE_EVENTS.dialog, shop);
@@ -122,7 +126,7 @@ export function installMockBridge(): void {
             fire(PAGE_EVENTS.interact, { id: "rental.citycenter", prompt: "Rent a vehicle", key: "E" });
             setInterval(() => fire("open77:anchors", { anchors: [{ id: "1", tag: "interact", kind: "position", x: 0.52 + Math.sin(Date.now() / 900) * 0.01, y: 0.55, depth: 3, distance: 3, onScreen: true }] }), 33);
           }
-          if (params.get("dialog") === "inventory") fire(PAGE_EVENTS.dialog, { kind: "inventory",
+          if (params.get("dialog") === "inventory" && params.get("weapons") !== "1") fire(PAGE_EVENTS.dialog, { kind: "inventory",
             left: { id: "player:1", kind: "player", label: "Yuki Tanaka", slots: 30, maxWeight: 40, weight: 6.3, items: [
               { slot: 1, name: "phone", label: "Phone", count: 1, weight: 0.3, icon: "smartphone", usable: false, stack: 1, description: "Your holo." },
               { slot: 2, name: "water", label: "Bottle of Water", count: 3, weight: 0.5, icon: "droplet", usable: true, stack: 10, description: "Still water." },

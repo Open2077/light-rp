@@ -20,6 +20,7 @@ dependencies {
     "open77_contextmenu >=1.2.0",
     "open77_animations >=1.0.0",
     "open77_icons >=1.0.0",
+    "open77_weapons >=0.1.0",
 }
 
 -- Downloaded by clients: never put credentials in shared/.
@@ -28,6 +29,7 @@ shared_script "shared/safezones.lua"
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
+shared_script "shared/armament.lua"
 shared_script "shared/consumables.lua"
 shared_script "shared/fuel.lua"
 shared_script "shared/jobs.lua"
@@ -46,6 +48,8 @@ server_script "server/modules/creator.lua"
 server_script "server/modules/creator_placement.lua"
 server_script "server/modules/needs.lua"
 server_script "server/modules/inventory.lua"
+server_script "server/modules/armament_store.lua"
+server_script "server/modules/armament.lua"
 server_script "server/modules/economy.lua"
 server_script "server/modules/jobs.lua"
 server_script "server/config/job_runs.lua"
@@ -83,6 +87,7 @@ server_script "server/main.lua"
 
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
+client_script "client/core/control_claims.lua"
 client_script "client/core/safezones.lua"
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
@@ -96,6 +101,7 @@ client_script "client/core/movement.lua"
 client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
 client_script "client/core/inventory.lua"
+client_script "client/core/armament.lua"
 client_script "client/core/branding.lua"
 client_script "client/core/actions.lua"
 client_script "client/core/consumables.lua"

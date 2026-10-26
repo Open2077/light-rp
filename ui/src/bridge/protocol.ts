@@ -2,6 +2,7 @@
    shapes the server pushes through it. Mirror of shared/events.lua: change both. */
 
 export const PAGE_EVENTS = {
+  armament: "lightrp:ui:armament",
   safezones: "lightrp:ui:safezones",
   support: "lightrp:ui:support",
   animationsAction: "lightrp:ui:animations:action",
@@ -203,6 +204,23 @@ export interface InventorySnapshot {
   slots: number; maxWeight: number; weight: number; items: InventoryItem[];
 }
 export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot; toggleKey?: string }
+export type ArmamentHand = "right" | "left";
+export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "ammo" | "sync";
+export interface ArmamentWeapon {
+  instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;
+  magazine?: number; capacity?: number;
+}
+export interface ArmamentState {
+  ready: boolean; busy: boolean; revision: number;
+  right?: ArmamentWeapon; left?: ArmamentWeapon;
+  ammo: { pistol: { remaining: number; label: string } };
+  error?: string;
+}
+export interface ArmamentArgs { slot?: number; instanceId?: string; hand?: ArmamentHand; baseRevision?: number }
+export interface ArmamentPending {
+  operation: Exclude<ArmamentOperation, "state">; args: ArmamentArgs; mutation: string;
+  uncertain: boolean;
+}
 export interface ShopItem {
   name: string; label: string; description?: string; icon: string; image?: string;
   category: string; weight: number; stack: number; buy?: number; sell?: number; owned: number;

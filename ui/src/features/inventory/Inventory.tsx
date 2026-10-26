@@ -5,6 +5,8 @@ import { PAGE_EVENTS, type InventoryDialogPayload, type InventoryItem, type Inve
 import { Icon } from "@/design/components";
 import { emptySlot, itemAt, itemIdentity, itemAmount, kg, matchesToggleKey, quantity, transferSlot, type SlotRef } from "./model";
 import { ItemArt, ItemEffects } from "./ItemArt";
+import { ArmamentItemActions, ArmamentPanel } from "./Armament";
+import { armamentItem, refreshArmament, useArmamentEvents } from "./armament";
 import "./inventory.css";
 
 type Drag = { from: SlotRef; item: InventoryItem; count: number; x: number; y: number; active: boolean };
@@ -12,6 +14,7 @@ type Menu = { x: number; y: number };
 type Confirmation = "drop" | "give";
 
 export function InventoryDialog() {
+  useArmamentEvents();
   const dialog = useStore((s) => s.dialog);
   const closeDialog = useStore((s) => s.closeDialog);
   const visible = dialog?.kind === "inventory";
@@ -19,6 +22,7 @@ export function InventoryDialog() {
   useEffect(() => {
     emit(PAGE_EVENTS.dialogState, { kind: "inventory", open: visible });
     if (!visible) return;
+    void refreshArmament();
     emit(PAGE_EVENTS.focus, { active: true });
     const offClose = on<{ kind?: string }>(PAGE_EVENTS.dialogClose, (p) => { if (!p?.kind || p.kind === "inventory") close(); });
     return () => { offClose(); emit(PAGE_EVENTS.focus, { active: false }); };
@@ -97,7 +101,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
   };
   const perform = (action: "use" | "transfer" | "split") => {
     if (!selected || !selectedItem || busy) return;
-    if (action === "use" && mine && selectedItem.usable) issue({ type: "inventory.use", slot: selected.slot });
+    if (action === "use" && mine && selectedItem.usable && !armamentItem(selectedItem)) issue({ type: "inventory.use", slot: selected.slot });
     if (action === "transfer" && canTransfer && moveSlot !== undefined) issue({ type: "inventory.move", from: selected, to: { inventory: destination.id, slot: moveSlot }, count });
     if (action === "split" && selectedItem.count > 1 && freeSlot !== undefined && count > 0) {
       const splitCount = amount.trim() && count < selectedItem.count ? count : Math.floor(selectedItem.count / 2);
@@ -214,6 +218,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
     <div className="inventory__workspace">
       <header className="inventory__header"><div><span className="inventory__eyebrow"><b>Light RP /</b> Personal belongings</span><h1 id="inventory-title">Inventory<span>.</span></h1></div>
         <button className="inventory__close" aria-label="Close inventory" onClick={onClose}><span>Close</span><kbd>{payload.toggleKey ?? "I"}</kbd><kbd>Esc</kbd><Icon name="x" size={18} /></button></header>
+      <ArmamentPanel inventoryBusy={busy} />
       <div className="inventory__layout">
         {(["left", "right"] as const).map((side) => <InventoryPanel key={side} inventory={payload[side]} side={side} search={search[side]}
           onSearch={(value) => setSearch((old) => ({ ...old, [side]: value }))} selected={selected} busy={busy} drag={drag} select={select} onPointerDown={pointerDown} onContext={context} />)}
@@ -226,6 +231,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
               <ItemEffects item={selectedItem} />
               <dl><div><dt>Weight each</dt><dd>{selectedItem.weight === 0 ? "Weightless" : `${kg(selectedItem.weight)} kg`}</dd></div><div><dt>In this stack</dt><dd>{itemAmount(selectedItem)} <span>· {kg(selectedItem.weight * selectedItem.count)} kg</span></dd></div></dl>
             </div>
+            {armamentItem(selectedItem) && <ArmamentItemActions item={selectedItem} mine={mine} inventoryBusy={busy} />}
             <div className="inventory-quantity"><label htmlFor="inventory-amount">Quantity <span>{amount.trim() === "" ? "All items" : `${count} selected`}</span></label>
               <div className="inventory-quantity__row"><input id="inventory-amount" aria-label="Quantity" inputMode="numeric" type="text" placeholder={String(selectedItem.count)} value={amount} disabled={busy} aria-invalid={count === 0} onChange={(event) => { setAmount(event.target.value.replace(/[^0-9]/g, "").slice(0, 10)); setConfirmation(null); }} />
                 <button disabled={busy} onClick={() => { setAmount("1"); setConfirmation(null); }}>1</button><button disabled={busy || selectedItem.count < 2} onClick={() => { setAmount(String(Math.floor(selectedItem.count / 2))); setConfirmation(null); }}>Half</button><button disabled={busy} onClick={() => { setAmount(""); setConfirmation(null); }}>All</button></div>
@@ -234,7 +240,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
               <p>{itemAmount(selectedItem, count)} {selectedItem.label}{confirmation === "give" ? ". The server checks who is close enough." : ". Other players can pick this up."}</p>
               <div><button className="inventory-button inventory-button--primary" disabled={busy || !count} onClick={confirm}>Confirm {confirmation}</button><button className="inventory-button" onClick={() => setConfirmation(null)}>Cancel</button></div></div>
               : <div className="inventory-detail__actions">
-                {mine && selectedItem.usable && <button className="inventory-button inventory-button--primary" disabled={busy} onClick={() => perform("use")}><Icon name="hand" size={16} />Use one<Icon name="arrow-right" size={15} /></button>}
+                {mine && selectedItem.usable && !armamentItem(selectedItem) && <button className="inventory-button inventory-button--primary" disabled={busy} onClick={() => perform("use")}><Icon name="hand" size={16} />Use one<Icon name="arrow-right" size={15} /></button>}
                 {destination.kind !== "ground" && <button className={`inventory-button${!mine || !selectedItem.usable ? " inventory-button--primary" : ""}`} disabled={busy || !canTransfer} onClick={() => perform("transfer")}><Icon name="arrow-left-right" size={16} />{mine ? "Move to storage" : "Take item"}</button>}
                 <button className="inventory-button" disabled={busy || selectedItem.count < 2 || freeSlot === undefined || !count} onClick={() => perform("split")}><Icon name="split" size={16} />Split stack</button>
                 {mine && <><button className="inventory-button" disabled={busy || !count} onClick={() => setConfirmation("give")}><Icon name="users" size={16} />Give to nearby player</button><button className="inventory-button inventory-button--subtle" disabled={busy || !count} onClick={() => setConfirmation("drop")}><Icon name="arrow-down" size={16} />Drop on ground</button></>}
@@ -247,7 +253,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
     {drag && <div ref={ghost} className="inventory-ghost" style={{ transform: `translate(${drag.x + 15}px, ${drag.y + 15}px)` }}><ItemArt item={drag.item} size="drag" /><div>{drag.item.label}<small>{itemAmount(drag.item, drag.count)}</small></div></div>}
     {menu && selectedItem && <div className="inventory-menu" role="menu" aria-label={`${selectedItem.label} actions`} style={{ left: Math.max(8, Math.min(menu.x, innerWidth - 244)), top: Math.max(8, Math.min(menu.y, innerHeight - 280)) }}>
       <span>{selectedItem.label}</span>
-      {mine && selectedItem.usable && <button role="menuitem" onClick={() => perform("use")}><Icon name="hand" size={14} />Use one</button>}
+      {mine && selectedItem.usable && !armamentItem(selectedItem) && <button role="menuitem" onClick={() => perform("use")}><Icon name="hand" size={14} />Use one</button>}
       {destination.kind !== "ground" && <button role="menuitem" disabled={!canTransfer} onClick={() => perform("transfer")}><Icon name="arrow-left-right" size={14} />{mine ? "Move to storage" : "Take item"}</button>}
       <button role="menuitem" disabled={selectedItem.count < 2 || freeSlot === undefined || !count} onClick={() => perform("split")}><Icon name="split" size={14} />Split stack</button>
       {mine && <><button role="menuitem" disabled={!count} onClick={() => { setMenu(null); setConfirmation("give"); }}><Icon name="users" size={14} />Give to nearby player</button><button role="menuitem" disabled={!count} onClick={() => { setMenu(null); setConfirmation("drop"); }}><Icon name="arrow-down" size={14} />Drop on ground</button></>}

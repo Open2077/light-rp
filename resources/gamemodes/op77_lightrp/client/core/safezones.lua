@@ -14,7 +14,10 @@ local function blockAction(action,blocked)
     if (heldActions[action]==true)==blocked then return end
     local api=Open77.input and Open77.input.setActionBlocked
     if type(api)~="function" then return end
-    local ok,result,why=pcall(api,action,blocked)
+    local ok,result,why
+    if LightRpControlClaims then
+        ok,result,why=pcall(LightRpControlClaims.set,"safezones",action,blocked)
+    else ok,result,why=pcall(api,action,blocked) end
     if ok and result==true then heldActions[action]=blocked;return end
     if not controlWarnings[action] then
         controlWarnings[action]=true
