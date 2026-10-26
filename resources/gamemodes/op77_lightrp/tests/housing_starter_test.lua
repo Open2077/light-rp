@@ -16,7 +16,10 @@ function AddEventHandler() end
 local function runThreads() local queue = threads; threads = {}; for i = 1, #queue do queue[i]() end end
 
 local characters = {}
+local providers, pushed = {}, {}
 LightRP = {
+    stateProvider = function(key, fn) providers[key] = fn end,
+    state = function(id, key) pushed[#pushed + 1] = { id = id, key = key } end,
     db = { ready = true, schema = function() end, single = function() return nil end,
         read = function(sql) if sql:find("UUID") then uuid = uuid + 1; return true, { { id = "lease-" .. uuid } } end return true, {} end,
         transaction = function(list) for _, w in ipairs(list) do writes[#writes + 1] = w end return true end },
@@ -74,6 +77,12 @@ assert(H.sessions[1].phase == "inside" and buckets[1] == LightRpHousing.bucketBa
 assert(positions[1].z == cfg.points.spawn.z)
 assert(characters[1].lastKnown.x == cfg.entrance.x, "the saved position is the street door, never the interior")
 assert(Starter.grant(1).id == row.id, "one studio per character")
+local homes = providers.homes(1)
+assert(#homes == 1 and homes[1].id == row.id and homes[1].owned and homes[1].building == cfg.building and homes[1].entrance.x == cfg.entrance.x,
+    "the studio is on its resident's map")
+local sent = false
+for _, p in ipairs(pushed) do if p.id == 1 and p.key == "homes" then sent = true end end
+assert(sent, "receiving the studio pushes the homes list")
 assert(points["housing.exit." .. row.id] and points["housing.stash." .. row.id] and points["housing.wardrobe." .. row.id])
 assert(points["housing.door." .. row.id].label == cfg.building)
 
@@ -107,6 +116,7 @@ assert(H.spawnPoint(1) == nil)
 names[2] = "p2"; positions[2] = { x = 0, y = 0, z = 0 }; buckets[2] = 0
 assert(H.handle(2, { action = "release", id = row2.id, revision = S.properties[row2.id].revision }))
 assert(Starter.home(characters[2]) == nil)
+assert(#providers.homes(2) == 0, "a released home leaves the map")
 join(3)
 assert(Starter.grant(3).id == row2.id)
 local starters = 0; for _, r in pairs(S.properties) do if r.data.starter then starters = starters + 1 end end

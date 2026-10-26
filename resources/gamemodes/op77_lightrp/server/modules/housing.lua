@@ -167,6 +167,27 @@ function H.snapshot(player, admin, options)
     end
     return out
 end
+-- The homes a character lives in or holds a key to, for its map and GPS
+-- (client/core/homes.lua): pushed again after every tenancy or key change.
+function H.homes(player)
+    local c=character(player)
+    local out={}
+    if not c or not H.available() then return out end
+    for _,row in pairs(S.properties) do
+        local lease=contract(row)
+        if not row.deleted and S.active(lease) and (S.owns(lease,c) or H.hasKey(player,lease)) then
+            out[#out+1]={id=row.id,label=row.data.label,entrance=S.clone(row.data.entrance),owned=S.owns(lease,c),
+                building=row.data.starter and C.starter and C.starter.building or nil}
+        end
+    end
+    table.sort(out,function(a,b)return a.id<b.id end)
+    return out
+end
+LightRP.stateProvider("homes",function(player) return H.homes(player) end)
+function H.syncHomes()
+    for _,id in ipairs(GetPlayers()) do id=tonumber(id);if id and character(id) then LightRP.state(id,"homes") end end
+end
+
 function H.open(player, admin)
     local state,why=H.snapshot(player,admin)
     if not state then return false,why end
@@ -221,11 +242,12 @@ local function relocation(player, s, point, targetBucket, arriving)
             else H.sessions[player]=nil end
             LightRP.sendInteractions(player)
             LightRP.inventory.refreshHousingAccess()
+    H.syncHomes()
             LightRP.notice(player,{kind="info",title=arriving and s.label or "Back in Night City",body=arriving and "Your home is ready." or "You have left the dwelling."})
         else
             s.phase="recovery"
             LightRP.log("housing relocation for %d failed: %s",player,tostring(why))
-            LightRP.notice(player,{kind="warning",title="Housing travel",body="The world did not finish loading. Use /housing leave to return safely."})
+            LightRP.notice(player,{kind="warning",title="Housing travel",body="The world did not finish loading. F1 > My homes > Leave returns you safely."})
         end
     end)
 end
@@ -257,7 +279,7 @@ function H.preview(player,t)
     if #GetPlayersInBucket(s.bucket)>0 then return nil,"The preview instance is occupied." end
     H.sessions[player]=s;c.lastKnown=S.clone(exterior)
     relocation(player,s,t.data.points.spawn,s.bucket,true)
-    return {message="Previewing the interior. Use /housing leave to return.",close=true}
+    return {message="Previewing the interior. F1 > My homes > Leave returns you.",close=true}
 end
 function H.leave(player, forced)
     local s=H.sessions[player]
@@ -267,7 +289,7 @@ function H.leave(player, forced)
     if not c then return nil,why end
     local row=property(s.property)
     if not forced and not s.preview and s.phase~="recovery" and (not row or not near(player,template(row).data.points.exit,s.bucket)) then
-        return nil,"Walk to the exit, or use /housing leave if a transition failed."
+        return nil,"Walk to the exit, or use F1 > My homes > Leave if a transition failed."
     end
     relocation(player,s,s.exterior,0,false)
     return {message="Returning to the city.",close=true}
@@ -328,6 +350,7 @@ function H.arrived(player,point)
                 s.phase="inside"
                 LightRP.sendInteractions(player)
                 LightRP.inventory.refreshHousingAccess()
+    H.syncHomes()
                 LightRP.notice(player,{kind="info",title=s.label,body="Welcome home."})
                 return
             end
@@ -393,6 +416,7 @@ function H.acquire(player,row,mode,target)
         "housing_"..mode,row.data.label,"bank")
     if not ok then return nil,why end
     LightRP.inventory.refreshHousingAccess()
+    H.syncHomes()
     return {message=mode=="rent" and "Lease started. Rent is prepaid; renew before it expires." or "Dwelling assigned to your character."}
 end
 function H.retire(player,row,reason,refund)
@@ -408,6 +432,7 @@ function H.retire(player,row,reason,refund)
     local ok,why=commit(player,refund or 0,writes,function() S.properties[row.id]=updated;S.contracts[lease.id]=retired end,"housing_sale",row.data.label,"bank")
     if not ok then return nil,why end
     LightRP.inventory.refreshHousingAccess()
+    H.syncHomes()
     for id,s in pairs(H.sessions) do if s.property==row.id then H.leave(id,true) end end
     return {message="Dwelling released. Stored belongings can be recovered at its former entrance from My homes."}
 end
@@ -453,6 +478,7 @@ function H.ownerAction(player,row,p)
     if not ok then return nil,"The access change could not be saved." end
     S.contracts[lease.id]=edited;S.properties[row.id]=updated
     LightRP.inventory.refreshHousingAccess()
+    H.syncHomes()
     return {message="Dwelling access updated."}
 end
 
@@ -576,9 +602,6 @@ LightRP.action("housing.open",function(player,p)
     local ok,why=H.open(player,p.admin==true)
     if not ok then LightRP.result(player,false,why,"housing.open") end
 end)
-LightRP.command("housing",{usage="/housing [leave]"},function(player,args)
-    if args[1]=="leave" then local result,why=H.leave(player,true);return result~=nil,result and result.message or why end
-    return H.open(player,false)
-end)
+-- No /housing: F1 > My homes opens the menu, and its Leave entry also ends a stuck transfer.
 LightRP.command("housingadmin",{},function(player) return H.open(player,true) end)
 LightRP.admin.handlers.housing=H.handle
