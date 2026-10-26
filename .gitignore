@@ -66,6 +66,7 @@ neuralink-ui/screens/
 !tools/test-support.py
 !tools/test-housing.py
 !tools/test-housing-ui.py
+!tools/test-vehicle-customization.py
 !tools/test-safezones.py
 !tools/test-safezones-client.py
 !tools/test-armament.py

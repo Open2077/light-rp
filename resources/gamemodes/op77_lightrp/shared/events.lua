@@ -2,6 +2,7 @@
 LightRpEvents = {
     -- page <-> client Lua (WebUI bridge)
     page = {
+        customization = "lightrp:ui:customization",
         support = "lightrp:ui:support",
         animationsAction = "lightrp:ui:animations:action",
         animationsState = "lightrp:ui:animations:state",
@@ -35,6 +36,7 @@ LightRpEvents = {
     },
     -- client <-> server (network events)
     net = {
+        customization = "op77_lightrp:customization",
         support = "op77_lightrp:support",
         action = "op77_lightrp:action",       -- client -> server: a validated UI action
         ready = "op77_lightrp:ready",         -- client -> server: the page is up, send my state

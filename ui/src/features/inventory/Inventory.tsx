@@ -6,7 +6,7 @@ import { Icon } from "@/design/components";
 import { emptySlot, itemAt, itemIdentity, itemAmount, kg, matchesToggleKey, quantity, transferSlot, type SlotRef } from "./model";
 import { ItemArt, ItemEffects } from "./ItemArt";
 import { useGrenadeEvents } from "./Grenades";
-import { ArmamentItemActions, ArmamentPanel } from "./Armament";
+import { ArmamentItemActions, ArmamentPanel } from "./ArmamentPanel";
 import { armamentItem, refreshArmament, useArmamentEvents } from "./armament";
 import "./inventory.css";
 

@@ -84,7 +84,7 @@ function Ui.setMenuOpen(open)
     if Ui.page == nil then return end
     if open and LightRpSafezones and LightRpSafezones.active then return end
     if open and LightRpMedical and LightRpMedical.isActive() then return end
-    if open and (Ui.dialogs.tutorial or Ui.dialogs.support or Ui.dialogs.housing) then return end
+    if open and (Ui.dialogs.tutorial or Ui.dialogs.support or Ui.dialogs.housing or Ui.dialogs.customization) then return end
     if open and LightRpAnimations then LightRpAnimations.close() end
     if open and Ui.creationActive then
         Ui.setPromptFocus(not editorSuspended)
@@ -123,6 +123,7 @@ end
 -- shows or hides it through the same close/action channel, so a dialog and the
 -- menu share one focus owner.
 function Ui.setPromptFocus(active)
+    if not active and LightRpVehicleCustomizationClient and LightRpVehicleCustomizationClient.isActive() then return end
     if Ui.supportMode then return end -- the compact menu owns its input policy
     if not active and (Ui.dialogs.support or Ui.dialogs.housing) then return end
     if active and LightRpCreator and LightRpCreator.isPlacing() then return end
@@ -212,6 +213,7 @@ function Ui.create()
     if LightRpActions then LightRpActions.bind(page) end
     if LightRpAnimations then LightRpAnimations.bind(page) end
     if LightRpFreecam then LightRpFreecam.bind(page) end
+    if LightRpVehicleCustomizationClient then LightRpVehicleCustomizationClient.bind(page) end
 
     page:on(E.page.ready, function()
         Ui.ready = true

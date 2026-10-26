@@ -2,6 +2,7 @@
    shapes the server pushes through it. Mirror of shared/events.lua: change both. */
 
 export const PAGE_EVENTS = {
+  customization: "lightrp:ui:customization",
   armament: "lightrp:ui:armament",
   safezones: "lightrp:ui:safezones",
   support: "lightrp:ui:support",
@@ -313,6 +314,7 @@ export interface IdentityFields { firstName: string; lastName: string; birthDate
  *  handled by the client Lua itself because they open another package's native
  *  screen: character.appearance.open and character.wardrobe.open. */
 export type UiAction =
+  | { type: "customization.open"; vehicle: string; garage: string }
   | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
   | { type: "dealership.close"; session: string }
   | { type: "garage.retrieve" | "garage.store"; session: string; request: number; vehicle: string }

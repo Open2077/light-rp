@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/design/ErrorBoundary";
 import { InteractPrompt } from "@/features/hud/InteractPrompt";
 import { Actions } from "@/features/actions/Actions";
 import { ShopDialog } from "@/features/shop/ShopDialog";
+import { VehicleCustomization } from "@/features/customization/VehicleCustomization";
 import { GarageDialog } from "@/features/garage/GarageDialog";
 import { HousingDialog } from "@/features/housing/HousingDialog";
 import { DealershipDialog } from "@/features/dealership/DealershipDialog";
@@ -29,6 +30,7 @@ import { Safezones } from "@/features/safezones/Safezones";
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
 export function App() {
+  const customizationActive = useStore(s => s.customizationActive);
   const applyState = useStore((s) => s.applyState);
   const setHud = useStore((s) => s.setHud);
   const openMenu = useStore((s) => s.openMenu);
@@ -68,6 +70,7 @@ export function App() {
 
   return (
     <>
+      <div className="gameplay-interface" hidden={customizationActive}>
       <ErrorBoundary name="safezones"><Safezones /></ErrorBoundary>
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
@@ -91,6 +94,8 @@ export function App() {
       <ErrorBoundary name="actions"><Actions /></ErrorBoundary>
       <ErrorBoundary name="medical"><Medical /></ErrorBoundary>
       <ErrorBoundary name="animations"><AnimationMenu /></ErrorBoundary>
+      </div>
+      <ErrorBoundary name="customization"><VehicleCustomization /></ErrorBoundary>
     </>
   );
 }
