@@ -31,9 +31,12 @@ complete neural phone for Open77 roleplay servers:
   activity); moderation with `/screamsheet.delete <id>` and player reports;
 - an **app system**: other client resources add their own apps to the menu.
 
-The interface (SAO main-menu language, holographic, animated) is built from
+The interface is built from
 `E:/Open77/LightRP/neuralink-ui` into `web/` (`npm run build`). The contract
-between the page and the client Lua is [PROTOCOL.md](PROTOCOL.md).
+between the page and the client Lua is [PROTOCOL.md](PROTOCOL.md). Two looks, chosen
+in Settings > Display (`settings.style`): **Night City** by default (navy glass, cut
+corners, cyan lines, red selection, octagonal buttons, glitch transitions;
+`src/styles/cyberpunk.css`) and **Aincrad**, the original SAO-style white glass.
 
 ## Use
 
@@ -48,9 +51,9 @@ between the page and the client Lua is [PROTOCOL.md](PROTOCOL.md).
 
 `shared/config.lua`: key, limits (contacts, message length, group size, call
 participants), rate limits, ring duration, the call voice effect, the ringtone
-radius and files. Interface sounds (`audio/ui_*`, all played from Lua) are SAO / ALO UI
-samples, except the close sound; ringtones and the close sound are Cyberpunk 2077's own
-phone sounds (extracted from a local install). All mono; ringtones keep their full length, which is their declared duration (the server
+radius and files. Every sound (`audio/*`, all played from Lua: interface, ringtones,
+implant installation) is a Cyberpunk 2077 UI or phone sample (extracted from a local
+install). All mono; ringtones keep their full length, which is their declared duration (the server
 loops them with it). The samples' rights stay with their holders: replace them
 before any public or commercial release.
 
@@ -67,6 +70,7 @@ Server:
 exports.op77_neuralink:getNumber(playerId)          -- "NNN-NNNN" or nil
 exports.op77_neuralink:getPlayerByNumber(number)    -- player id or nil
 exports.op77_neuralink:notify(playerId, title, body) -- a system toast on their interface
+exports.op77_neuralink:closeInterface(playerId)     -- put their interface away (a gamemode panel needs the screen)
 exports.op77_neuralink:isInstalled(playerId)        -- the player's line has an implant
 exports.op77_neuralink:install(playerId)            -- true | false, reason (a ripperdoc installs it)
 exports.op77_neuralink:uninstall(playerId)          -- true | false, reason (ends a call in progress)

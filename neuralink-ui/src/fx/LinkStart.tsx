@@ -1,7 +1,19 @@
 /* "Link start": a thin light ring expands from the centre of the view, a hex
    shimmer band sweeps across, the scanlines flash once. Pure CSS animations on
-   transform/opacity; unmounted when the opening phase ends. */
+   transform/opacity; unmounted when the opening phase ends. The Night City
+   style turns it into a glitched boot (cyberpunk.css) with its own words. */
+import { useEffect } from "react";
+import { useSettings } from "@/store/store";
+import { play } from "./sound";
+
 export function LinkStart() {
+  const cyber = useSettings().style !== "sao";
+  // the glitch lands just after the "open" sound, on its own slot
+  useEffect(() => {
+    if (!cyber) return undefined;
+    const t = window.setTimeout(() => play("glitch"), 90);
+    return () => window.clearTimeout(t);
+  }, [cyber]);
   return (
     <div className="linkstart" aria-hidden>
       <span className="linkstart__flash" />
@@ -20,8 +32,8 @@ export function LinkStart() {
         </svg>
       </div>
       <div className="linkstart__text">
-        <span className="linkstart__word label">Link start</span>
-        <span className="linkstart__sub mono">neural handshake · ok</span>
+        <span className="linkstart__word label">{cyber ? "Neural-Link" : "Link start"}</span>
+        <span className="linkstart__sub mono">{cyber ? "kiroshi nl-77 · synapse handshake ok" : "neural handshake · ok"}</span>
       </div>
     </div>
   );

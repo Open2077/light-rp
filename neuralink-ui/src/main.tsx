@@ -9,6 +9,7 @@ import "@/styles/social.css";
 import "@/styles/call.css";
 import "@/styles/toasts.css";
 import "@/styles/implant.css";
+import "@/styles/cyberpunk.css";
 import { App } from "./App";
 import { ErrorBoundary } from "./shell/ErrorBoundary";
 

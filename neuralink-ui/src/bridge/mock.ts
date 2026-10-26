@@ -12,6 +12,7 @@
      &ended=1                 show a call-ended card
      &sync=1                  start with ready=false (synchronising) for 3 s
      &accent=cyan|magenta     start with that accent
+     &style=sao               the original SAO look (default: cyberpunk)
      &social=live             a stranger screams every ~20 s, a ping every other time
      &district=Japantown      the district nl:clock reports (default Kabuki)
      &implant=0|ripper|fail   no implant yet (ripper: only a ripperdoc installs it; fail: the first install fails)
@@ -73,6 +74,7 @@ export function installMockBridge(): void {
     ...DEFAULT_SETTINGS,
     accent: accent === "cyan" || accent === "magenta" ? accent : "sao",
     theme: params.get("theme") === "dark" ? "dark" : "light",
+    style: params.get("style") === "sao" ? "sao" : "cyberpunk",
   };
 
   const implantFlag = params.get("implant");

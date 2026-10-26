@@ -136,7 +136,8 @@ interface Settings {
   dnd: boolean;                   // do not disturb: no ring, toasts muted
   accent: "sao" | "cyan" | "magenta";   // sao = white glass + gold selection (default)
   intensity: number;              // 0.3..1: hologram glow/scanline strength
-  theme: "light" | "dark";        // dark = smoked black glass, light ink
+  theme: "light" | "dark";        // dark = smoked black glass, light ink (sao style only)
+  style: "cyberpunk" | "sao";     // cyberpunk = navy glass, cut corners, cyan lines, red selection (default)
 }
 interface Contact { id: number; name: string; number: string; favorite: boolean; online: boolean; }
 interface Member { number: string; name: string; isMe: boolean; owner: boolean; online: boolean; }

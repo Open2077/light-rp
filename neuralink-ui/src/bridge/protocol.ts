@@ -7,6 +7,8 @@ export type AppId = "home" | "phone" | "messages" | "contacts" | "settings" | "s
 export type Ringtone = "aurora" | "link" | "pulse" | "silent";
 export type Accent = "sao" | "cyan" | "magenta";
 export type Theme = "light" | "dark";
+/** cyberpunk = navy glass, cut corners, cyan lines, red selection (default); sao = the original white glass. */
+export type Style = "cyberpunk" | "sao";
 
 export interface Settings {
   ringtone: Ringtone;
@@ -15,6 +17,7 @@ export interface Settings {
   accent: Accent;
   intensity: number; // 0.3..1
   theme: Theme;
+  style: Style;
 }
 
 export interface Line { number: string; name: string }
@@ -323,7 +326,7 @@ export const ERROR_SLUGS = [
 ] as const;
 export type ErrorSlug = (typeof ERROR_SLUGS)[number];
 
-export const DEFAULT_SETTINGS: Settings = { ringtone: "aurora", volume: 0.7, dnd: false, accent: "sao", intensity: 0.8, theme: "light" };
+export const DEFAULT_SETTINGS: Settings = { ringtone: "aurora", volume: 0.7, dnd: false, accent: "sao", intensity: 0.8, theme: "light", style: "cyberpunk" };
 
 export const NUMBER_RE = /^\d{3}-\d{4}$/;
 export const MAX_BODY = 500;

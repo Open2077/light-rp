@@ -288,6 +288,9 @@ RegisterNetEvent("op77_neuralink:test", function(link)
     if type(link) == "table" then open(link) else close() end
 end)
 
+-- A server resource puts the interface away (exports.op77_neuralink:closeInterface).
+RegisterNetEvent("op77_neuralink:close", function() close() end)
+
 -- Escape outside a text field reaches the game (the page has the mouse only):
 -- the pause menu opens, so the interface steps aside.
 AddEventHandler("open77:pauseKey", function() close() end)

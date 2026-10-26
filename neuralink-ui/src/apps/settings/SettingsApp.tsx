@@ -2,7 +2,7 @@
    theme, hologram intensity. Changes apply at once and save debounced. */
 import { BellOff, Cpu, Palette, Play, Settings as SettingsIcon, Volume2 } from "lucide-react";
 import { useStore, useSettings, type SettingsSection } from "@/store/store";
-import type { Accent, Ringtone } from "@/bridge/protocol";
+import type { Accent, Ringtone, Style } from "@/bridge/protocol";
 import { Window } from "@/components/Window";
 import { Segmented, SectionTitle, Slider, Toggle } from "@/components/ui";
 import { changeSettings } from "@/store/actions";
@@ -14,6 +14,11 @@ const RINGTONES: { id: Ringtone; label: string; hint: string }[] = [
   { id: "link", label: "Rockerboy", hint: "Kerry's private line" },
   { id: "pulse", label: "Landline", hint: "An old corded phone" },
   { id: "silent", label: "Silent", hint: "Vibration only" },
+];
+
+const STYLES: { id: Style; label: string; hint: string }[] = [
+  { id: "cyberpunk", label: "Night City", hint: "Navy glass, cut corners, red selection" },
+  { id: "sao", label: "Aincrad", hint: "The original holographic glass" },
 ];
 
 const ACCENTS: { id: Accent; label: string; hint: string }[] = [
@@ -76,6 +81,34 @@ function DisplaySection() {
   const s = useSettings();
   return (
     <>
+      <SectionTitle>Interface</SectionTitle>
+      <div className="accents">
+        {STYLES.map((st) => (
+          <button
+            key={st.id}
+            type="button"
+            className={`accent accent--style-${st.id} ${s.style === st.id ? "is-on" : ""}`}
+            onClick={() => { play("select"); changeSettings({ style: st.id }, 0); }}
+          >
+            <span className="accent__swatch"><i /><i /><i /></span>
+            <span className="label">{st.label}</span>
+            <span className="accent__hint">{st.hint}</span>
+          </button>
+        ))}
+      </div>
+      {s.style === "sao" && <SaoLook />}
+      <SectionTitle>Hologram</SectionTitle>
+      <Slider label="Intensity" min={0.3} max={1} value={s.intensity} onInput={(v) => changeSettings({ intensity: v })} display={`${Math.round(s.intensity * 100)}%`} />
+      <div className="form__note">Glow, scanlines and ambient particles follow this level.</div>
+    </>
+  );
+}
+
+/** Theme and accent only exist for the SAO look: Night City has its own colours. */
+function SaoLook() {
+  const s = useSettings();
+  return (
+    <>
       <SectionTitle>Theme</SectionTitle>
       <Toggle checked={s.theme === "dark"} onChange={(v) => changeSettings({ theme: v ? "dark" : "light" }, 0)} label="Dark mode" hint="Smoked black glass, light text" />
       <SectionTitle>Accent</SectionTitle>
@@ -93,9 +126,6 @@ function DisplaySection() {
           </button>
         ))}
       </div>
-      <SectionTitle>Hologram</SectionTitle>
-      <Slider label="Intensity" min={0.3} max={1} value={s.intensity} onInput={(v) => changeSettings({ intensity: v })} display={`${Math.round(s.intensity * 100)}%`} />
-      <div className="form__note">Glow, scanlines and ambient particles follow this level.</div>
     </>
   );
 }

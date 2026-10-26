@@ -74,14 +74,14 @@ NeuralConfig = {
         pulse  = { file = "audio/ring_pulse.wav",  duration = 21.318 }, -- old landline
     },
 
-    -- Interface sounds (SAO samples), played by the client with Play2DSound when the
+    -- Interface sounds (Cyberpunk 2077 UI samples), played by the client with Play2DSound when the
     -- page asks (`nl:sound { name = "ui:<name>" }`); gain multiplies the player's volume.
     uiSounds = {
         tick       = { file = "audio/ui_tick.wav",       gain = 0.35 },
         select     = { file = "audio/ui_select.wav",     gain = 0.7 },
         back       = { file = "audio/ui_back.wav",       gain = 0.7 },
         open       = { file = "audio/ui_open.wav",       gain = 0.8 },
-        close      = { file = "audio/ui_close.wav",      gain = 0.8 },  -- Cyberpunk ui_phone_off
+        close      = { file = "audio/ui_close.wav",      gain = 0.8 },
         send       = { file = "audio/ui_send.wav",       gain = 0.7 },
         chime      = { file = "audio/ui_message.wav",    gain = 0.85 },
         receive    = { file = "audio/ui_panel.wav",      gain = 0.7 },
@@ -89,8 +89,11 @@ NeuralConfig = {
         disconnect = { file = "audio/ui_disconnect.wav", gain = 0.8 },
         error      = { file = "audio/ui_warning.wav",    gain = 0.7 },
         toast      = { file = "audio/ui_system.wav",     gain = 0.75 },
-        -- The implant installation sequence (Cyberpunk 2077 UI samples, the SAO
-        -- NerveGear start-up for the end). They share two slots, "a" and "b":
+        -- the Night City style's glitched boot; it borrows an installation slot
+        -- (no interface while installing) to stay under the 16 handles
+        glitch     = { file = "audio/ui_glitch.wav",     gain = 0.6, slot = "implant:a" },
+        -- The implant installation sequence (Cyberpunk 2077 UI samples, the q110
+        -- "personal link" for the end). They share two slots, "a" and "b":
         -- a sound cuts the previous one of its own slot.
         implant_denied    = { file = "audio/implant_denied.wav",    gain = 0.8, slot = "implant:a" },
         implant_glitch    = { file = "audio/implant_glitch.wav",    gain = 0.7, slot = "implant:a" },
@@ -104,6 +107,6 @@ NeuralConfig = {
     },
 
     defaults = {
-        settings = { ringtone = "aurora", volume = 0.8, dnd = false, accent = "sao", intensity = 0.8, theme = "light" },
+        settings = { ringtone = "aurora", volume = 0.8, dnd = false, accent = "sao", intensity = 0.8, theme = "light", style = "cyberpunk" },
     },
 }
