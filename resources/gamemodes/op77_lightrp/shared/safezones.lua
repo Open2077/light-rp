@@ -1,7 +1,7 @@
 -- Safezone wire validation. This file contains no private data or world reads.
 local G = { MAX_ZONES = 64, MAX_POINTS = 32, AUTHOR_RADIUS = 500 }
 -- One contract for validation, overlap aggregation and native input claims.
--- Weapon selection (NextWeapon) deliberately remains available to the inventory.
+-- Weapon selection is owned by the inventory, independently of zone rules.
 G.RULES={
     {key="blockRun",action="Sprint",default=false},
     {key="blockShoot",action="Attack",default=true},

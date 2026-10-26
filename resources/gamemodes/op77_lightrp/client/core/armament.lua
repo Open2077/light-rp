@@ -6,6 +6,15 @@ local Armament = {}
 LightRpArmamentClient = Armament
 local cached, queue, draining = nil, {}, false
 local sequence, lastSent = 0, -1000
+-- Inventory is the weapon-selection owner. These claims do not affect native
+-- Lua equip/setActive operations, firing or the independent safezone claims.
+local function selectionControls(blocked)
+    if not LightRpControlClaims then return end
+    for _, action in ipairs({"WeaponWheel", "NextWeapon"}) do
+        local ok, reason = LightRpControlClaims.set("inventory-weapons", action, blocked)
+        if ok ~= true then Ui.log("inventory weapon control %s unavailable: %s", action, tostring(reason)) end
+    end
+end
 local function syncControls(state)
     if not LightRpControlClaims then return end
     local equipped = state and (state.right or state.left)
@@ -48,10 +57,12 @@ RegisterNetEvent(NET, function(payload)
     if payload.kind == "response" and payload.ok and type(payload.data) == "table" and type(payload.data.state) == "table" then
         cached = {kind="state", state=payload.data.state}
     end
+    selectionControls(true)
     if cached then syncControls(cached.state) end
     send(payload)
 end)
 function Armament.bind(page)
+    selectionControls(true)
     page:on(PAGE, forward)
     page:on(LightRpEvents.page.ready, function()
         if cached then send(cached) end
@@ -60,5 +71,5 @@ function Armament.bind(page)
 end
 
 AddEventHandler("onClientResourceStop", function(name)
-    if name == GetCurrentResourceName() then syncControls(nil) end
+    if name == GetCurrentResourceName() then syncControls(nil); selectionControls(false) end
 end)

@@ -24,9 +24,9 @@ function request(operation: ArmamentOperation, args: ArmamentArgs = {}, mutation
       if (event.kind !== "response" || event.request !== request) return;
       clearTimeout(timer); stop();
       if (event.ok) resolve(event.data ?? {});
-      else reject(new Error(event.error || "L'action sur l'armement a été refusée."));
+      else reject(new Error(event.error || "The equipment request was refused."));
     });
-    const timer = window.setTimeout(() => { stop(); reject(new ArmamentTimeout("Aucune réponse. L'action peut être en cours ; vérifiez son résultat avant de recommencer.")); }, 14000);
+    const timer = window.setTimeout(() => { stop(); reject(new ArmamentTimeout("No response yet. The request may still be in progress; check its result before trying again.")); }, 14000);
     emit(PAGE_EVENTS.armament, { operation, request, ...args, ...(mutation ? { mutation } : {}) });
   }));
   queue = task.then(() => undefined, () => undefined).then(() => new Promise(resolve => setTimeout(resolve, 220)));
@@ -38,7 +38,7 @@ export async function refreshArmament() {
     const result = await request("state");
     if (result.state) useStore.getState().setArmament(result.state);
   } catch (reason) {
-    useStore.getState().setArmamentFeedback({ text: reason instanceof Error ? reason.message : "Armement indisponible.", error: true });
+    useStore.getState().setArmamentFeedback({ text: reason instanceof Error ? reason.message : "Equipment is unavailable.", error: true });
   }
 }
 
@@ -51,10 +51,10 @@ async function execute(intent: ArmamentPending) {
     const result = await request(intent.operation, intent.args, intent.mutation);
     if (result.state) useStore.getState().setArmament(result.state);
     useStore.getState().setArmamentPending(undefined);
-    useStore.getState().setArmamentFeedback({ text: "Demande traitée. L'équipement affiché suit l'état du serveur.", error: false });
+    useStore.getState().setArmamentFeedback({ text: "Request saved. Equipment will update once synchronization completes.", error: false });
   } catch (reason) {
     useStore.getState().setArmamentPending(reason instanceof ArmamentTimeout ? { ...intent, uncertain: true } : undefined);
-    useStore.getState().setArmamentFeedback({ text: reason instanceof Error ? reason.message : "La demande a échoué.", error: true });
+    useStore.getState().setArmamentFeedback({ text: reason instanceof Error ? reason.message : "The request failed.", error: true });
   } finally { running = false; }
 }
 

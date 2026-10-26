@@ -20,6 +20,10 @@ function page:on(n,f)self.handlers[n]=f end
 for name in ['control_claims.lua','armament.lua']:lua.execute((root/name).read_text())
 lua.execute('''
 LightRpArmamentClient.bind(page)
+assert(claims.WeaponWheel and claims.NextWeapon, "inventory owns native weapon selection immediately")
+LightRpControlClaims.set("safezones","WeaponWheel",true)
+LightRpControlClaims.set("safezones","WeaponWheel",false)
+assert(claims.WeaponWheel and claims.NextWeapon, "leaving a zone cannot restore the native wheel")
 page.handlers.ready();assert(#threads==1);threads[1]();assert(out[1].operation=="state")
 local receive=net["op77_lightrp:armament"]
 receive({kind="state",state={busy=true,ready=false,right={instanceId="serial"}}})
@@ -29,7 +33,7 @@ receive({kind="state",state={busy=false,ready=true,right={instanceId="serial"}}}
 assert(claims.Attack and not claims.Reload)
 LightRpControlClaims.set("safezones","Attack",false);assert(not claims.Attack)
 receive({kind="state",state={ready=false,right={instanceId="serial"}}});assert(claims.Attack)
-events.onClientResourceStop("op77_lightrp");assert(not claims.Attack)
+events.onClientResourceStop("op77_lightrp");assert(not claims.Attack and not claims.WeaponWheel and not claims.NextWeapon)
 for i=1,33 do page.handlers["lightrp:ui:armament"]({operation="sync",request="r"..i}) end
 assert(sent[#sent].ok==false and sent[#sent].request=="r33")
 ''')

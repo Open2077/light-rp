@@ -8,6 +8,13 @@ crée pas une arme possédée dans l'inventaire RP.
 
 ## Utilisation
 
+La sélection native (`WeaponWheel`, `NextWeapon`) est bloquée par le module
+inventaire pour toute la session, indépendamment des safezones. Les tirs et la
+recharge restent disponibles selon leurs règles habituelles. Les appels serveur
+`assign`/`setActive` restent autorisés. Sélectionner un objet pour l'équiper,
+puis **Use weapon** pour le ressortir après **Holster weapons** ; retirer la
+référence avec **Unequip this hand**. Les libellés joueurs sont en anglais.
+
 Depuis l'inventaire, équiper le Lexington ou le Nue à droite, puis éventuellement
 l'autre modèle à gauche. Les emplacements natifs utilisés sont **1 et 4**.
 Une arme ne peut pas occuper les deux mains ; deux instances du même modèle
