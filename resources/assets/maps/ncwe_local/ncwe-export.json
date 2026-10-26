@@ -1,0 +1,29 @@
+{
+  "generator": "NCWE Studio",
+  "project": "elevator",
+  "projectId": "7ccd5903-f4df-4146-aea1-721e45dd1674",
+  "exportedUtc": "2026-10-26T10:12:46.6856029+00:00",
+  "game": "2.5",
+  "archiveXl": "1.28.0",
+  "resource": "ncwe_local",
+  "version": "1.0.11",
+  "requiredMod": "ncwe_local-assets",
+  "package": "dist/ncwe-local.zip",
+  "sha256": "394c51f3f9f5add55a9f3152f8a2e4d460c7e39e7facf730153957ed40a536f8",
+  "bytes": 6839,
+  "entries": [
+    "archive/pc/mod/ncwe_7ccd5903f4df4146aea1721e45dd1674.archive",
+    "archive/pc/mod/ncwe_7ccd5903f4df4146aea1721e45dd1674.archive.xl"
+  ],
+  "changes": {
+    "Transformed": 0,
+    "Deleted": 0,
+    "Added": 0,
+    "Roads": 0,
+    "Elements": 0
+  },
+  "sounds": [],
+  "soundEmitters": 0,
+  "syncedSounds": 0,
+  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\ab69b065-6913-450d-a618-01ecd9be0f57\\scratchpad\\reexport\\ncwe_local.json\\ncwe-7ccd5903f4df4146aea1721e45dd1674-20261026-101246-4abc16e6"
+}
