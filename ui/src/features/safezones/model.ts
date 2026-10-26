@@ -1,6 +1,23 @@
 export interface Point { x: number; y: number; z: number }
 export type Shape = "circle" | "box" | "poly";
-export interface Zone {
+export interface ExtraSafezoneRules {
+  blockJump: boolean; blockMelee: boolean; blockGrenades: boolean;
+  blockConsumables: boolean; blockReload: boolean; blockWeaponWheel: boolean;
+}
+export const EXTRA_RESTRICTIONS = [
+  { key: "blockJump", label: "Interdire de sauter" },
+  { key: "blockMelee", label: "Interdire le corps à corps" },
+  { key: "blockGrenades", label: "Interdire les grenades" },
+  { key: "blockConsumables", label: "Interdire les consommables natifs" },
+  { key: "blockReload", label: "Interdire de recharger" },
+  { key: "blockWeaponWheel", label: "Bloquer la roue des armes" },
+] as const;
+export function extraRuleDefaults(value: Partial<ExtraSafezoneRules> = {}): ExtraSafezoneRules {
+  return { blockJump: value.blockJump ?? false, blockMelee: value.blockMelee ?? false,
+    blockGrenades: value.blockGrenades ?? false, blockConsumables: value.blockConsumables ?? false,
+    blockReload: value.blockReload ?? false, blockWeaponWheel: value.blockWeaponWheel ?? false };
+}
+export interface Zone extends ExtraSafezoneRules {
   id: string; label: string; bucket: number; enabled: boolean; revision: number;
   shape: Shape; center: Point; radius: number; length: number; width: number;
   heading: number; minZ: number; maxZ: number; points: Point[];
@@ -12,7 +29,7 @@ export interface Capture { position: Point; bucket: number; session: string }
 export interface Wire {
   kind: string; request?: string; ok?: boolean; error?: string; data?: unknown;
   zones?: Zone[]; ready?: boolean; generation?: number; mode?: "world" | "menu";
-  zone?: { id: string; label: string; blockRun?: boolean; blockShoot?: boolean };
+  zone?: { id: string; label: string; blockRun?: boolean; blockShoot?: boolean } & Partial<ExtraSafezoneRules>;
 }
 export const SHAPES: Shape[] = ["circle", "box", "poly"];
 export const shapeName: Record<Shape, string> = { circle: "Cylindre", box: "Boîte orientée", poly: "Polygone" };
@@ -21,12 +38,13 @@ export function fresh(c: Capture): Zone {
   return { id: "", label: "Nouvelle zone", bucket: c.bucket, enabled: true, revision: 0,
     shape: "circle", center: { ...c.position }, radius: 10, length: 20, width: 12,
     heading: 0, minZ: c.position.z - 1, maxZ: c.position.z + 5, points: [],
-    blockRun: false, blockShoot: true, fullHeight: false };
+    blockRun: false, blockShoot: true, fullHeight: false, ...extraRuleDefaults() };
 }
 export function normalizeZone(z: Zone): Zone {
   // Empty Lua arrays arrive as {}. Unused geometry fields may be omitted by the server.
   return { ...z, radius: z.radius ?? 10, length: z.length ?? 20, width: z.width ?? 12, heading: z.heading ?? 0,
     blockRun: z.blockRun ?? false, blockShoot: z.blockShoot ?? true, fullHeight: z.fullHeight ?? false,
+    ...extraRuleDefaults(z),
     center: z.center ?? { x: 0, y: 0, z: z.minZ ?? 0 }, points: Array.isArray(z.points) ? z.points : [] };
 }
 export function invalid(z: Zone): string | undefined {

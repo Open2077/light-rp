@@ -201,6 +201,12 @@ invalid.points={{x=0,y=0,z=10},{x=5,y=0,z=10},{x=5,y=5,z=10},{x=2,y=2,z=10},{x=0
 local box=zone("box");box.heading=450;assert(G.validate(box).heading==90,"heading canonicalized")
 local canon=assert(G.validate(zone()));assert(not canon.length and not canon.points,"irrelevant shape fields stripped")
 assert(canon.blockRun==false and canon.blockShoot==true and canon.fullHeight==false,"legacy rule defaults")
+local extraRules={"blockJump","blockMelee","blockGrenades","blockConsumables","blockReload","blockWeaponWheel"}
+for _,flag in ipairs(extraRules) do
+ assert(canon[flag]==false,"legacy restriction defaults off: "..flag)
+ local value=zone();value[flag]="true";assert(not G.validate(value),"boolean only: "..flag)
+ value[flag]=true;assert(G.validate(value)[flag],"canonical rule preserved: "..flag)
+end
 local badRule=zone();badRule.blockRun="false";assert(not G.validate(badRule),"rule types are strict")
 local height=zone();height.fullHeight=true;height.minZ=10;height.maxZ=10
 height=assert(G.validate(height));height.id="height";height.revision=1
@@ -226,6 +232,14 @@ S.presence(1);local signal=messages[#messages].p
 assert(signal.zone.blockRun and signal.zone.blockShoot,"effective rules reach client presence")
 S.records.b=nil;assert(S.rebuild());S.presence(1)
 assert(messages[#messages].p.zone.blockRun and messages[#messages].p.zone.blockShoot==false,"rule-only changes update presence")
+for _,flag in ipairs(extraRules) do
+ local count=#messages
+ a[flag]=true;S.presence(1)
+ assert(#messages==count+1 and messages[#messages].p.zone[flag]==true,"each rule independently updates presence")
+end
+S.records.b=b;assert(S.rebuild());S.presence(1)
+for _,flag in ipairs(extraRules) do assert(messages[#messages].p.zone[flag],"overlap keeps stricter optional rules") end
+S.records.b=nil;assert(S.rebuild())
 assert(installedArbiter({victim=1,attacker=2})==false,"allowing shoot input does not remove PvP protection")
 S.records.a=nil;assert(S.rebuild())
 local original=Open77.zones.containsPlayer

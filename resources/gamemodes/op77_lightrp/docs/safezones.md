@@ -28,6 +28,29 @@ Les anciennes zones reçoivent les valeurs `blockRun=false`, `blockShoot=true`,
 se chevauchent se cumulent : une restriction active suffit. Leur état apparaît
 dans le HUD bas-gauche, au-dessus des jauges, uniquement en phase de jeu.
 
+Six restrictions supplémentaires sont indépendantes, décochées par défaut :
+
+| Champ | Case de l'éditeur | Action native |
+| --- | --- | --- |
+| `blockJump` | Interdire de sauter | `Jump` (peut aussi bloquer le franchissement) |
+| `blockMelee` | Interdire le corps à corps | `Melee` |
+| `blockGrenades` | Interdire les grenades | `Grenade` |
+| `blockConsumables` | Interdire les consommables natifs | `Consumable` |
+| `blockReload` | Interdire de recharger | `Reload` |
+| `blockWeaponWheel` | Bloquer la roue des armes | `WeaponWheel` |
+
+Les consommables natifs sont les raccourcis de soins du jeu ; cette case ne
+bloque pas la nourriture et les boissons de l'inventaire RP. Le changement
+d'arme reste disponible : aucune restriction `NextWeapon` n'est appliquée.
+Les drapeaux sont validés comme booléens, persistés dans la définition JSON et
+agrégés sur toutes les zones superposées. Le contrat partagé `G.RULES` aligne
+validation, cumul serveur, présence et claims client. Une modification de règle
+est diffusée même si le joueur reste dans la même zone.
+
+Le MCP Devkit `.156` confirme ces actions pour `input.actions`. Les mécanismes
+`Jump` et `Melee` y restent qualifiés d'inférés : vérifier leur effet natif sur
+le client cible ; une simulation Lua ne prouve pas le comportement REDengine.
+
 Les droits joueur sont vérifiés sur chaque opération :
 
 - `command.admin.safezones.view` : consulter et ouvrir le gestionnaire.

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
+import type { ExtraSafezoneRules } from "@/features/safezones/model";
 
 export interface Notice {
   id: string;
@@ -13,7 +14,7 @@ export interface Notice {
 }
 
 /** Authoritative safezone presence, including the combined rules of overlapping zones. */
-export interface SafezonePresence { id: string; label: string; blockRun: boolean; blockShoot: boolean }
+export interface SafezonePresence extends ExtraSafezoneRules { id: string; label: string; blockRun: boolean; blockShoot: boolean }
 
 export const EMPTY_STATE: UiState = {
   server: { name: "Open//77 Official Roleplay", playersOnline: 0, maxPlayers: 0 },

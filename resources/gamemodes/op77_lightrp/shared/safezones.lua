@@ -1,5 +1,17 @@
 -- Safezone wire validation. This file contains no private data or world reads.
 local G = { MAX_ZONES = 64, MAX_POINTS = 32, AUTHOR_RADIUS = 500 }
+-- One contract for validation, overlap aggregation and native input claims.
+-- Weapon selection (NextWeapon) deliberately remains available to the inventory.
+G.RULES={
+    {key="blockRun",action="Sprint",default=false},
+    {key="blockShoot",action="Attack",default=true},
+    {key="blockJump",action="Jump",default=false},
+    {key="blockMelee",action="Melee",default=false},
+    {key="blockGrenades",action="Grenade",default=false},
+    {key="blockConsumables",action="Consumable",default=false},
+    {key="blockReload",action="Reload",default=false},
+    {key="blockWeaponWheel",action="WeaponWheel",default=false},
+}
 LightRpSafezoneGeometry = G
 function G.finite(n) return type(n)=="number" and n==n and math.abs(n)<math.huge end
 function G.integer(n,low,high) return G.finite(n) and n%1==0 and n>=low and n<=high end
@@ -34,8 +46,9 @@ function G.validate(raw)
     if not label then return nil,"Choose a name of 1–80 characters." end
     if not G.integer(raw.bucket,0,2147483647) then return nil,"Invalid routing bucket." end
     if type(raw.enabled)~="boolean" then return nil,"Invalid activation state." end
-    for _,name in ipairs({"blockRun","blockShoot","fullHeight"}) do
-        if raw[name]~=nil and type(raw[name])~="boolean" then return nil,"Invalid zone rule: "..name end
+    if raw.fullHeight~=nil and type(raw.fullHeight)~="boolean" then return nil,"Invalid zone rule: fullHeight" end
+    for _,rule in ipairs(G.RULES) do
+        if raw[rule.key]~=nil and type(raw[rule.key])~="boolean" then return nil,"Invalid zone rule: "..rule.key end
     end
     local fullHeight=raw.fullHeight==true
     if not G.finite(raw.minZ) or not G.finite(raw.maxZ) or math.abs(raw.minZ)>100000 or math.abs(raw.maxZ)>100000
@@ -43,7 +56,11 @@ function G.validate(raw)
     local center=G.point(raw.center)
     if not center then return nil,"Invalid zone centre." end
     local z={label=label,bucket=raw.bucket,enabled=raw.enabled,shape=raw.shape,center=center,minZ=raw.minZ,maxZ=raw.maxZ}
-    z.blockRun,z.blockShoot,z.fullHeight=raw.blockRun==true,raw.blockShoot~=false,fullHeight
+    z.fullHeight=fullHeight
+    for _,rule in ipairs(G.RULES) do
+        z[rule.key]=raw[rule.key]
+        if z[rule.key]==nil then z[rule.key]=rule.default end
+    end
     if raw.id~=nil and raw.id~="" then
         if type(raw.id)~="string" or #raw.id>64 or not raw.id:match("^[%w_-]+$") then return nil,"Invalid zone ID." end
         z.id=raw.id

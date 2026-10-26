@@ -1,4 +1,4 @@
-import { clone, fresh, normalizeZone, type Zone } from "./model";
+import { clone, EXTRA_RESTRICTIONS, fresh, normalizeZone, type Zone } from "./model";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 
 /** Browser fixture only: publishes no presence unless explicitly requested. */
@@ -9,6 +9,7 @@ export function safezonesMock(fire: (name: string, value: unknown) => void, para
   if (params.get("safezonesLegacy") === "1") {
     const legacy: Partial<Zone> = { ...zones[0] };
     delete legacy.blockRun; delete legacy.blockShoot; delete legacy.fullHeight;
+    for (const { key } of EXTRA_RESTRICTIONS) delete legacy[key];
     zones[0] = legacy as Zone;
   }
   let generation = 1, step = 0;
@@ -18,6 +19,7 @@ export function safezonesMock(fire: (name: string, value: unknown) => void, para
     const active = zones.filter(z => z.enabled).map(normalizeZone), zone = active[0];
     fire(PAGE_EVENTS.safezones, { kind: "presence", ready: true, zone: zone ? {
       id: zone.id, label: zone.label, blockRun: active.some(z => z.blockRun), blockShoot: active.some(z => z.blockShoot),
+      ...Object.fromEntries(EXTRA_RESTRICTIONS.map(({ key }) => [key, active.some(z => z[key])])),
     } : undefined });
   };
   const snapshot = () => { fire(PAGE_EVENTS.safezones, { kind: "snapshot", ready: true, generation, zones: clone(zones) }); presence(); };

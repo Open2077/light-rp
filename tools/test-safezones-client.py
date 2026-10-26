@@ -45,6 +45,7 @@ function receive(p) net["op77_lightrp:safezones"](p) end
 function fromPage(p) page.handlers["lightrp:ui:safezones"](p) end
 ''')
 lua.execute((root / 'resources/gamemodes/op77_lightrp/client/core/movement.lua').read_text())
+lua.execute((root / 'resources/gamemodes/op77_lightrp/shared/safezones.lua').read_text())
 lua.execute((root / 'resources/gamemodes/op77_lightrp/client/core/safezones.lua').read_text())
 lua.execute('''
 LightRpSafezones.bind(page);LightRpSafezones.start()
@@ -98,5 +99,21 @@ assert(slice and slice.lines[1].a.z==80 and slice.lines[1].b.z==110,"full-height
 receive({kind="presence",ready=true,zone={id="safe",label="Safe",blockRun=true,blockShoot=true}})
 events.onClientResourceStop("op77_lightrp")
 assert(actionClaims.Sprint==false and actionClaims.Attack==false,"resource stop releases input claims")
+local extra={blockJump="Jump",blockMelee="Melee",blockGrenades="Grenade",blockConsumables="Consumable",blockReload="Reload",blockWeaponWheel="WeaponWheel"}
+local rules={id="all",label="All",blockShoot=false,blockRun=false}
+for flag in pairs(extra) do rules[flag]=true end
+receive({kind="presence",ready=true,zone=rules})
+for _,action in pairs(extra) do assert(actionClaims[action],"enabled rule claims "..action) end
+assert(actionClaims.Attack==false and actionClaims.NextWeapon==nil,"no implicit shoot or weapon-selection block")
+rules.blockGrenades=false;rules.blockConsumables=false
+receive({kind="presence",ready=true,zone=rules})
+assert(actionClaims.Grenade==false and actionClaims.Consumable==false and actionClaims.Jump and actionClaims.Reload,"same-zone updates release only disabled restrictions")
+receive({kind="presence",ready=true})
+for _,action in pairs(extra) do assert(actionClaims[action]==false,"exit releases "..action) end
+receive({kind="presence",ready=true,zone=rules});character.alive=false;tick(100)
+for _,action in pairs(extra) do assert(actionClaims[action]==false,"death releases "..action) end
+character.alive=true;receive({kind="presence",ready=true,zone=rules})
+events.onClientResourceStop("op77_lightrp")
+for _,action in pairs(extra) do assert(actionClaims[action]==false,"stop releases "..action) end
 ''')
 print('PASS: client readiness, requests, 3D preview/full-height slice, inspector/world, independent run/shoot claims, walk preference, death/exit/stop cleanup')

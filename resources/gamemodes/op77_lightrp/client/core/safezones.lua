@@ -26,8 +26,14 @@ local function syncControls(release)
     local zone=not release and presence.ready and presence.zone
         and character and character.alive and character.attached and presence.zone or nil
     local blockRun=zone and zone.blockRun==true or false
-    blockAction("Sprint",blockRun)
-    blockAction("Attack",zone and zone.blockShoot~=false or false)
+    for _,rule in ipairs(LightRpSafezoneGeometry.RULES) do
+        local blocked=false
+        if zone then
+            blocked=zone[rule.key]
+            if blocked==nil then blocked=rule.default end
+        end
+        blockAction(rule.action,blocked)
+    end
     if LightRpMovement and LightRpMovement.setSafezone then LightRpMovement.setSafezone(blockRun) end
 end
 local sequence = 0

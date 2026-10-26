@@ -30,7 +30,8 @@ function S.protected(player)
     local list=buckets[bucket]
     if not list then return nil,false,false end
     local selected,unknown=nil,false
-    local policy={blockRun=false,blockShoot=false}
+    local policy={}
+    for _,rule in ipairs(G.RULES) do policy[rule.key]=false end
     local position
     for _,entry in ipairs(list) do
         local options={bucket=bucket,maxAgeMs=2000,grace=0}
@@ -43,8 +44,11 @@ function S.protected(player)
         if inside==nil then unknown=true end
         if inside then
             if not selected or entry.zone.id<selected.id then selected=entry.zone end
-            policy.blockRun=policy.blockRun or entry.zone.blockRun==true
-            policy.blockShoot=policy.blockShoot or entry.zone.blockShoot~=false
+            for _,rule in ipairs(G.RULES) do
+                local blocked=entry.zone[rule.key]
+                if blocked==nil then blocked=rule.default end
+                policy[rule.key]=policy[rule.key] or blocked
+            end
         end
     end
     return selected,selected~=nil,unknown,policy
@@ -81,10 +85,18 @@ local lastPresence={}
 function S.presence(player)
     local ok,zone,inside,unknown,policy=pcall(S.protected,player)
     local ready=S.available and ok and not unknown
-    local key=(ready and "ready:" or "unavailable:")..(inside and zone and (zone.id..":"..zone.label..":"..tostring(policy.blockRun)..":"..tostring(policy.blockShoot)) or "")
+    local key=(ready and "ready:" or "unavailable:")..(inside and zone and (zone.id..":"..zone.label) or "")
+    if ready and inside then
+        for _,rule in ipairs(G.RULES) do key=key..":"..tostring(policy[rule.key]) end
+    end
     if lastPresence[player]==key then return end
     lastPresence[player]=key
-    TriggerClientEvent(NET,player,{kind="presence",ready=ready,zone=ready and inside and {id=zone.id,label=zone.label,blockRun=policy.blockRun,blockShoot=policy.blockShoot} or nil})
+    local effective
+    if ready and inside then
+        effective={id=zone.id,label=zone.label}
+        for _,rule in ipairs(G.RULES) do effective[rule.key]=policy[rule.key] end
+    end
+    TriggerClientEvent(NET,player,{kind="presence",ready=ready,zone=effective})
 end
 LightRP.module("safezones",{
     onDatabaseReady=function()

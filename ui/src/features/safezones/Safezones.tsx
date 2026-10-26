@@ -4,7 +4,7 @@ import { PAGE_EVENTS } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { Badge, Button, Icon, Input, Keycap, RageMenu, isPickable, type RageMenuItem } from "@/design/components";
 import { mutationKey, request, ZoneRequestTimeout } from "./api";
-import { clone, fresh, invalid, normalizeZone, SHAPES, shapeName, type Capture, type Listing, type Permissions, type Wire, type Zone } from "./model";
+import { clone, extraRuleDefaults, EXTRA_RESTRICTIONS, fresh, invalid, normalizeZone, SHAPES, shapeName, type Capture, type Listing, type Permissions, type Wire, type Zone } from "./model";
 import "./safezones.css";
 
 type Entry = RageMenuItem & { run?: () => void };
@@ -88,7 +88,7 @@ export function Safezones() {
         if (!event.ready) useStore.getState().setSafezone(undefined);
       } else if (event.kind === "presence") {
         const zone = event.ready === true ? event.zone : undefined;
-        useStore.getState().setSafezone(zone ? { id: zone.id, label: zone.label, blockRun: zone.blockRun ?? false, blockShoot: zone.blockShoot ?? true } : undefined);
+        useStore.getState().setSafezone(zone ? { id: zone.id, label: zone.label, blockRun: zone.blockRun ?? false, blockShoot: zone.blockShoot ?? true, ...extraRuleDefaults(zone) } : undefined);
         setReady(event.ready === true);
       } else if (event.kind === "editor" && current.current.opened) {
         setWorld(event.mode === "world");
@@ -227,6 +227,8 @@ export function Safezones() {
               <legend>Règles de la zone</legend>
               <label><input type="checkbox" checked={draft.blockRun} onChange={event => update({ blockRun: event.target.checked })} />Interdire de courir</label>
               <label><input type="checkbox" checked={draft.blockShoot} onChange={event => update({ blockShoot: event.target.checked })} />Interdire de tirer</label>
+              {EXTRA_RESTRICTIONS.map(rule => <label key={rule.key}><input type="checkbox" checked={draft[rule.key]} onChange={event => update({ [rule.key]: event.target.checked })} />{rule.label}</label>)}
+              <p>Les consommables natifs désignent les soins/inhalateurs et leur raccourci du jeu, pas les aliments ou boissons de l'inventaire RP.</p>
               <label><input type="checkbox" checked={draft.fullHeight} onChange={event => update({ fullHeight: event.target.checked,
                 minZ: Number.isFinite(draft.minZ) ? draft.minZ : draft.center.z - 1,
                 maxZ: Number.isFinite(draft.maxZ) ? draft.maxZ : draft.center.z + 5 })} />Toute la hauteur (haut et bas)</label>
