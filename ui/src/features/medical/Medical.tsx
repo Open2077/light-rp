@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Skull, ShieldPlus, ArrowRight } from "lucide-react";
+import { ShieldPlus, ArrowRight } from "lucide-react";
 import { emit, on } from "@/bridge/open77";
 import "./medical.css";
 const PAGE="lightrp:ui:medical";
@@ -22,10 +22,14 @@ export function Medical() {
   const transferring=state.phase==="hospital",recovering=state.phase==="reviving";
   const title=transferring?"Medical transfer":recovering?"Recovery in progress":"You are unconscious";
   return <div className="medical-overlay">
-    <svg className="medical-lifeline" viewBox="0 0 1600 400" preserveAspectRatio="none" aria-hidden="true"><path d="M0 220 H220 L250 200 L280 240 L310 220 H460 L500 180 L535 260 L580 25 L635 375 L685 145 L730 220 H970 L1000 195 L1030 245 L1060 220 H1600"/></svg>
+    <svg className="medical-lifeline" viewBox="0 0 1600 400" preserveAspectRatio="none" aria-hidden="true">
+      <defs><path id="medical-pulse" pathLength="1000" d="M0 220 H220 L250 200 L280 240 L310 220 H460 L500 180 L535 260 L580 25 L635 375 L685 145 L730 220 H970 L1000 195 L1030 245 L1060 220 H1600"/></defs>
+      <use href="#medical-pulse" className="medical-lifeline__track"/>
+      <use href="#medical-pulse" className="medical-lifeline__pulse"/>
+    </svg>
     <div className="medical-brand" aria-hidden="true">OPEN<span>//</span>77 <span>EMERGENCY PROTOCOL</span></div>
     <section className="medical-down" role="dialog" aria-modal="false" aria-label="Unconscious status">
-      <Skull className="medical-down__skull" strokeWidth={1.2} aria-hidden="true"/>
+      <img className="medical-down__skull" src="img/medical/cyberpunk-skull.png" alt="" aria-hidden="true"/>
       <span className="medical-down__eyebrow">YOU ARE</span>
       <h1 aria-label={title}>{transferring?"TRANSFER":recovering?"RECOVERING":"DEAD"}</h1>
       <div className="medical-down__timer" aria-label="Hospital transfer countdown">{minutes}:{String(seconds%60).padStart(2,"0")}</div>
