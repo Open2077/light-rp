@@ -41,24 +41,27 @@ function G.view(player)
  count=s and s.selected and count(inv,s.selected)or 0,error=g and g.error or rt and rt.quarantine and "Equipment synchronization timed out. Wait for completion or reconnect." or nil}
 end
 function G.push(player)TriggerClientEvent(NET,player,{kind="state",state=G.view(player)})end
-local function quantity(rows,record)
- if type(rows)~="table"then return nil end
- local found
- for _,r in ipairs(rows)do
-  if r.record==record then
-   if not W.integer(r.quantity,0,999)then return nil end
-   found=math.min(found or r.quantity,r.quantity)
-  end
- end
- return found or 0
+-- Cyberpunk 2.x throws spend a rechargeable charge pool. Gadget inventory
+-- membership is not a throw counter and can remain constant across every use.
+local function chargeCount(state,record)
+ if type(state)~="table"or state.kind~="grenade"or state.record~=record then return nil end
+ if not W.integer(state.count,0,999)or not W.integer(state.capacity,1,999)or state.count>state.capacity then return nil end
+ return state.count
+end
+local function supported()
+ local api=Open77.consumables
+ return type(api)=="table"and type(api.configure)=="function"and type(api.snapshot)=="function"
 end
 local function reconcile(rt,allowReset)
  local g=rt.grenade
  if not g or not g.projected then return true end
- local rows,why=W.native(rt,"requestGadgets","gadgets")
- if not rows then return false,why end
- local remaining=quantity(rows,C[g.projected].record)
- if remaining==nil then return false,"Native grenade count is unavailable. Synchronize before throwing."end
+ local state,why=W.nativeConsumable(rt,"snapshot","grenade")
+ if not state then return false,why end
+ local remaining=chargeCount(state,C[g.projected].record)
+ if remaining==nil then return false,"Native grenade charges are unavailable. Synchronize before throwing."end
+ if (state.recharge~=false or state.managed~=true)and not allowReset then
+  return false,"Finite grenade charge control was lost. Synchronize before throwing."
+ end
  if remaining>g.quantity then
   if allowReset then return true end
   return false,"Native grenade stock exceeds inventory. Synchronize before throwing."
@@ -77,36 +80,33 @@ local function reconcile(rt,allowReset)
    return save(inv,nextState,nil,"consume",{{inv,draft}})
   end)
   if not ok then return false,error end
+  LightRP.log("grenade charges player=%d item=%s spent=%d stock=%d",rt.player,g.projected,spent,count(Inv.player(rt.player),g.projected))
  end
  g.quantity=remaining;g.dirty=false
  if remaining==0 and not G.states[rt.inventory].selected then g.projected=nil end
  return true
 end
-local function take(rt,record)
- local result,why=W.native(rt,"takeGadget","takeGadget",record)
- if not result and why~="gadget_not_owned"and why~="no_active_gadget"then return false,why end
- return true
-end
 local function project(rt)
  local inv=Inv.player(rt.player);local s=G.states[inv.id];local g=rt.grenade
- if g.projected then local ok,why=take(rt,C[g.projected].record);if not ok then return false,why end end
- if s.selected and s.selected~=g.projected then local ok,why=take(rt,C[s.selected].record);if not ok then return false,why end end
- if not s.selected then local ok,why=take(rt,nil);if not ok then return false,why end;g.projected=nil;g.quantity=0;return true end
- g.projected=nil
- local n=count(inv,s.selected)
+ local n=s.selected and count(inv,s.selected)or 0
  if not W.integer(n,0,999)then return false,"Grenade stock must be at most 999."end
- if n>0 then
-  local result,why=W.native(rt,"giveGadget","giveGadget",C[s.selected].record,n,{equip=true})
-  if not result then return false,why end
+ local record=s.selected and C[s.selected].record or C.grenade_frag.record
+ g.projected=nil -- partial native writes are pending projection, never spent stock
+ local state,why=W.nativeConsumable(rt,"configure","grenade",{
+  record=record,count=n,capacity=math.max(1,n),equipped=n>0,recharge=false,
+ })
+ if not state then
+  if why=="consumables_unavailable_on_this_client"or why=="unsupported_operation"then
+   return false,"Finite grenade charges require a compatible Open77 client. Update the client before using grenades."
+  end
+  return false,why
  end
- local rows,why=W.native(rt,"requestGadgets","gadgets");if not rows then return false,why end
- local actual=quantity(rows,C[s.selected].record)
- if actual~=n then return false,"Native grenade projection differs from inventory. No items were refunded."end
- if n>0 then
-  local active=false;for _,r in ipairs(rows)do if r.record==C[s.selected].record and r.active==true then active=true end end
-  if not active then return false,"The grenade throw slot could not be verified."end
+ if chargeCount(state,record)~=n or state.equipped~=(n>0)or state.recharge~=false or state.managed~=true then
+  return false,"Finite grenade charges could not be verified. No inventory items were refunded."
  end
- g.projected=s.selected;g.quantity=n;return true
+ g.projected=s.selected;g.quantity=n
+ LightRP.log("grenade kit player=%d item=%s charges=%d capacity=%d recharge=false verified",rt.player,tostring(s.selected or "none"),n,state.capacity)
+ return true
 end
 function G.start(player,operation,item,mutation,request)
  local rt=runtime(player)
@@ -115,7 +115,12 @@ function G.start(player,operation,item,mutation,request)
  local life=Open77.players.getLifeState(player)
  if not life or life.phase~="alive"then return false,"Your character must be alive."end
  rt.grenade=rt.grenade or {ready=false}
- local g=rt.grenade;rt.busy=true;rt.observing=operation=="observe"
+ local g=rt.grenade
+ if not supported()then
+  g.ready=false;g.error="Finite grenade charges are unavailable on this server. Grenades remain disabled.";G.push(player)
+  return false,g.error
+ end
+ rt.busy=true;rt.observing=operation=="observe"
  if not rt.observing then g.ready=false;g.error=nil;W.push(player);G.push(player)end
  CreateThread(function()
   Wait(0) -- generic Inv.use must release its mutex before reconciliation
@@ -182,13 +187,14 @@ RegisterNetEvent(NET,function(p)
  local ok,why=G.start(player,p.operation,nil,p.mutation,p.request)
  if not ok then TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=false,error=why})end
 end)
-AddEventHandler("onGadgetConsumed",function(player,record)
+AddEventHandler("onConsumableUsed",function(player,kind,record)
+ if kind~="grenade"then return end
  local rt=runtime(tonumber(player));local g=rt and rt.grenade
  if g and g.projected and C[g.projected].record==record then g.dirty=true end
 end)
 LightRP.module("grenades",{onDisconnected=function(player)lastRequest[player]=nil end,onUiReady=function(player)G.push(player)end,
  onLifeState=function(player)G.push(player)end,onCharacterLoaded=function(player)G.push(player)end,
- onDatabaseReady=function()LightRP.log("grenades ready: 9 inventory gadget types")end})
+ onDatabaseReady=function()LightRP.log("grenades ready: 9 finite charge kits; gadget stack sizes are not throw counts")end})
 CreateThread(function()
  while true do
   for _,id in ipairs(GetPlayers())do

@@ -20,7 +20,7 @@ dependencies {
     "open77_contextmenu >=1.2.0",
     "open77_animations >=1.0.0",
     "open77_icons >=1.0.0",
-    "open77_weapons >=0.1.0",
+    "open77_weapons >=0.2.0",
 }
 
 -- Downloaded by clients: never put credentials in shared/.

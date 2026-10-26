@@ -34,9 +34,9 @@ function W.push(player)
     TriggerClientEvent(NET,player,{kind="state",state=W.view(player)})
     if LightRP.grenades then LightRP.grenades.push(player) end
 end
-local function native(rt,method,operation,...)
+local function nativeUsing(rt,api,method,operation,...)
     if not current(rt) or not alive(rt.player) then return nil,"Your character changed or is not alive." end
-    local fn=Open77.weapons and Open77.weapons[method]
+    local fn=api and api[method]
     if type(fn)~="function" then return nil,"The required weapon API is unavailable on this server." end
     local called,id,reason=pcall(fn,rt.player,...)
     if not called or not id then return nil,tostring(reason or id or "Weapon request refused.") end
@@ -53,7 +53,9 @@ local function native(rt,method,operation,...)
     if job.accepted~=true then return nil,tostring(job.reason or "Native weapon request refused.") end
     return job.result or {}
 end
+local function native(rt,method,operation,...) return nativeUsing(rt,Open77.weapons,method,operation,...) end
 W.native = native
+function W.nativeConsumable(rt,method,...) return nativeUsing(rt,Open77.consumables,method,"consumable",...) end
 AddEventHandler("open77:weapons:completed",function(player,id,operation,accepted,reason,result)
     local key=tostring(player)..":"..tostring(id)
     local job=W.pending[key]

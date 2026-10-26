@@ -21,23 +21,35 @@ function db.transaction(queries)
  end
  return true
 end
-gadgetStock={};gadgetJobs={};gadgetActive=nil;suppressGadgets=false
+-- Real 2.x semantics: inventory membership does NOT shrink on throws.
+-- Usable charges are a separate, managed pool. Legacy gadget readers must not
+-- be used to infer consumption or these regression tests fail immediately.
+gadgetStock={ ["Items.GrenadeFragRegular"]=5,["Items.GrenadeEMPRegular"]=2 }
+chargeKit={kind="grenade",record="Items.GrenadeFragRegular",count=2,capacity=2,equipped=true,recharge=true,managed=false,sequence=0}
+chargeJobs={};suppressGadgets=false;failChargeConfigure=false
 for _,method in ipairs({"requestGadgets","giveGadget","takeGadget"})do
+ Open77.weapons[method]=function()error("Legacy gadget stacks are not throw counts")end
+end
+Open77.consumables={}
+for _,method in ipairs({"configure","snapshot"})do
  local name=method
- Open77.weapons[name]=function(player,...)
-  sequence=sequence+1;gadgetJobs[#gadgetJobs+1]={id=sequence,player=player,op=name=="requestGadgets"and"gadgets"or name,args=table.pack(...)};return sequence
+ Open77.consumables[name]=function(player,kind,options)
+  sequence=sequence+1;chargeJobs[#chargeJobs+1]={id=sequence,player=player,method=name,kind=kind,options=options};return sequence
  end
 end
 CreateThread(function()
  while true do
   if not suppressGadgets then
-   local pending=gadgetJobs;gadgetJobs={}
+   local pending=chargeJobs;chargeJobs={}
    for _,j in ipairs(pending)do
-    local a=j.args
-    if j.op=="giveGadget"then gadgetStock[a[1]]=(gadgetStock[a[1]]or 0)+a[2];gadgetActive=a[1]
-    elseif j.op=="takeGadget"then local record=a[1]or gadgetActive;if record then gadgetStock[record]=0;if gadgetActive==record then gadgetActive=nil end end end
-    local rows={};for record,n in pairs(gadgetStock)do if n>0 then rows[#rows+1]={slot=1,record=record,tweakDbId="hash:"..record,quantity=n,active=gadgetActive==record}end end
-    for _,fn in ipairs(events["open77:weapons:completed"])do fn(j.player,j.id,j.op,true,nil,j.op=="gadgets"and rows or{gadget={quantity=0}})end
+    assert(j.kind=="grenade","grenade integration must never alter healing charges")
+    if j.method=="configure"then
+     local a=j.options
+     chargeKit={kind=j.kind,record=a.record,count=a.count,capacity=a.capacity,equipped=a.equipped,recharge=a.recharge,managed=true,sequence=chargeKit.sequence+1}
+    end
+    local accepted,reason=true,nil
+    if j.method=="configure"and failChargeConfigure then chargeKit.count=math.max(0,chargeKit.count-1);accepted=false;reason="consumable_readback_mismatch"end
+    for _,fn in ipairs(events["open77:weapons:completed"])do fn(j.player,j.id,"consumable",accepted,reason,W.clone(chargeKit))end
    end
   end
   Wait(25)
@@ -49,36 +61,40 @@ local function start(op,item,key)
  for i=1,40 do if not W.runtime[1].busy then break end;tick(50)end
  local ok,why=G.start(1,op,item,key);assert(ok,why);tick(900)
 end
-assert(Inv.addItem(inv.id,"grenade_frag",3));assert(Inv.addItem(inv.id,"grenade_emp",2))
+assert(Inv.addItem(inv.id,"grenade_frag",5));assert(Inv.addItem(inv.id,"grenade_emp",2))
 local frag="Items.GrenadeFragRegular";local emp="Items.GrenadeEMPRegular"
 start("equip","grenade_frag","test:frag:equip")
-assert(G.view(1).ready and G.view(1).count==3 and gadgetStock[frag]==3,"equip projects ownership without consuming")
+assert(G.view(1).ready and G.view(1).count==5 and chargeKit.count==5 and not chargeKit.recharge and chargeKit.managed,"equip projects ownership without consuming")
 start("equip","grenade_frag","test:frag:equip")
-assert(gadgetStock[frag]==3 and Inv.count(inv.id,"grenade_frag")==3,"replayed selection does not duplicate native stock")
+assert(chargeKit.count==5 and Inv.count(inv.id,"grenade_frag")==5,"replayed selection does not duplicate native stock")
+failChargeConfigure=true;start("sync",nil,"test:partial:write")
+assert(not G.view(1).ready and Inv.count(inv.id,"grenade_frag")==5,"partial native writes do not consume inventory")
+failChargeConfigure=false;start("sync",nil,"test:partial:retry")
+assert(G.view(1).ready and chargeKit.count==5 and Inv.count(inv.id,"grenade_frag")==5)
 assert(not Inv.removeItem(inv.id,"grenade_frag",1),"equipped grenade stock is locked")
-gadgetStock[frag]=2
-for _,fn in ipairs(events.onGadgetConsumed)do fn(1,frag,2);fn(1,frag,0);fn(1,frag,2)end
+chargeKit.count=4;chargeKit.sequence=chargeKit.sequence+1
+for _,fn in ipairs(events.onConsumableUsed)do fn(1,"grenade",frag,4,1,10);fn(1,"grenade",frag,0,1,9);fn(1,"grenade",frag,4,1,10)end
 tick(1400)
-assert(Inv.count(inv.id,"grenade_frag")==2,"duplicate/stale notifications reconcile one fresh count")
+assert(Inv.count(inv.id,"grenade_frag")==4 and gadgetStock[frag]==5,"unchanged gadget stack, duplicate/stale notifications reconcile one fresh count")
 -- SQL failure cannot remove inventory items; native spent count is retried.
-failSql=true;gadgetStock[frag]=1;tick(1200)
-assert(Inv.count(inv.id,"grenade_frag")==2 and not G.view(1).ready)
+failSql=true;chargeKit.count=3;tick(1200)
+assert(Inv.count(inv.id,"grenade_frag")==4 and not G.view(1).ready)
 failSql=false;start("sync",nil,"test:sync:retry")
-assert(Inv.count(inv.id,"grenade_frag")==1 and gadgetStock[frag]==1)
+assert(Inv.count(inv.id,"grenade_frag")==3 and chargeKit.count==3)
 start("equip","grenade_emp","test:emp:equip")
-assert(gadgetStock[frag]==0 and gadgetStock[emp]==2 and G.view(1).selected=="grenade_emp")
+assert(chargeKit.record==emp and chargeKit.count==2 and G.view(1).selected=="grenade_emp")
 -- An unauthorized native increase is never credited; sync resets it exactly.
-gadgetStock[emp]=9;tick(1200);assert(Inv.count(inv.id,"grenade_emp")==2 and not G.view(1).ready)
-start("sync",nil,"test:emp:reset");assert(gadgetStock[emp]==2 and G.view(1).ready)
+chargeKit.count=9;chargeKit.capacity=9;tick(1200);assert(Inv.count(inv.id,"grenade_emp")==2 and not G.view(1).ready)
+start("sync",nil,"test:emp:reset");assert(chargeKit.count==2 and G.view(1).ready)
 start("unequip",nil,"test:emp:unequip")
-assert(not G.view(1).selected and gadgetStock[emp]==0 and Inv.count(inv.id,"grenade_emp")==2)
+assert(not G.view(1).selected and chargeKit.count==0 and not chargeKit.equipped and Inv.count(inv.id,"grenade_emp")==2)
 assert(Inv.removeItem(inv.id,"grenade_emp",1))
 -- Generic item Use selects a grenade while preserving the stack.
 local fragSlot=slotOf("grenade_frag")
 for i=1,40 do if not W.runtime[1].busy then break end;tick(50)end
 assert(Inv.use(1,fragSlot));tick(1300)
-assert(G.view(1).selected=="grenade_frag" and Inv.count(inv.id,"grenade_frag")==1 and gadgetStock[frag]==1)
-gadgetStock[frag]=0;tick(1400)
+assert(G.view(1).selected=="grenade_frag" and Inv.count(inv.id,"grenade_frag")==3 and chargeKit.count==3)
+chargeKit.count=0;tick(1400)
 assert(Inv.count(inv.id,"grenade_frag")==0 and not G.view(1).selected,"last throw clears selection without trapping future grants")
 -- Pending native gadget writes use the weapon queue's timeout quarantine.
 for i=1,40 do if not W.runtime[1].busy then break end;tick(50)end
@@ -86,5 +102,8 @@ suppressGadgets=true;assert(G.start(1,"sync"));tick(13000)
 assert(W.runtime[1].quarantine and not G.view(1).ready)
 assert(not G.start(1,"sync"));suppressGadgets=false;tick(300)
 assert(not W.runtime[1].quarantine)
-print("PASS: counted grenade selection, exact native stock, fresh consumption/replays, SQL rollback, switch/unequip, inventory locks, generic Use and timeout quarantine")
+local api=Open77.consumables;Open77.consumables=nil
+assert(not G.start(1,"sync")and not G.view(1).ready,"unsupported clients/servers cannot fall back to unlimited gadget stacks")
+Open77.consumables=api
+print("PASS: finite grenade charges with constant gadget membership, recharge disabled, fresh consumption/replays, SQL rollback, switch/unequip, inventory locks, generic Use and timeout quarantine")
 ''')
