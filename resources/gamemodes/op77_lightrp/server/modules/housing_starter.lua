@@ -80,6 +80,7 @@ function Starter.grant(player)
         S.properties[unit.id], S.contracts[leaseId] = updated, lease
         H.refreshPoints()
         LightRP.inventory.refreshHousingAccess()
+        H.syncHomes()
         LightRP.log("housing: %s received %s", LightRP.characters.displayName(player), unit.data.label)
         return updated
     end)

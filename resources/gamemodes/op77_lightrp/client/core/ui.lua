@@ -237,6 +237,12 @@ function Ui.create()
         if payload.type == "fuel.refresh" then TriggerServerEvent(E.net.fuelRefresh,payload); return end
         if payload.type == "inventory.close" and LightRpInventory then LightRpInventory.closed() end
         if payload.type == "voice.range" and LightRpHud then LightRpHud.setVoiceRange(payload.range) end
+        -- The route to a home's entrance is local: nothing to ask the server.
+        if payload.type == "homes.track" then
+            local ok = LightRpHomes and LightRpHomes.track(payload.id, payload.entrance, payload.label)
+            if ok ~= true then Ui.send(E.page.result, { ok = false, text = "The route could not be set.", action = payload.type }) end
+            return
+        end
         if payload.type == "character.appearance.open" then
             local mode = payload.mode == "hairdresser" and "hairdresser" or "ripperdoc"
             local family = (payload.family == "male" or payload.family == "female") and payload.family or nil

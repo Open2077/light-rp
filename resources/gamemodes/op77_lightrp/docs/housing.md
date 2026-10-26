@@ -5,7 +5,8 @@ d'intérieur se créent en jeu et persistent sans modification des fichiers Lua.
 
 ## Accès joueur
 
-- **F1 → My homes**, `/housing` ou **E** devant une entrée.
+- **F1 → My homes** ou **E** devant une entrée. Chaque logement du joueur (ou dont il a une clé)
+  a son point **My home** sur la carte, et la fiche d'un logement propose **Set GPS to the entrance**.
 - **At this entrance** liste tous les appartements de l'immeuble : plusieurs
   logements peuvent partager le même point extérieur.
 - Les listes proposent une recherche et des pages de dix logements. La carte
@@ -20,7 +21,7 @@ d'intérieur se créent en jeu et persistent sans modification des fichiers Lua.
   clés à d'autres personnages connectés. Les clés persistent après déconnexion.
 - Une porte déverrouillée autorise les visiteurs. Le coffre et le vestiaire sont
   réservés au résident et aux détenteurs d'une clé.
-- **E** à la sortie ramène au point extérieur. `/housing leave` permet également
+- **E** à la sortie ramène au point extérieur. **Leave** (racine de F1 → My homes) permet également
   de sortir, notamment après un échec de chargement.
 - Un logement acheté peut être revendu au serveur, par défaut à **50 % du prix
   réellement payé**. Abandonner une location ou une attribution ne rembourse rien.
@@ -50,7 +51,7 @@ Permission : **`command.lightrp.housing`**. Les rôles disposant de
 5. Capturer éventuellement **wardrobe**. Ce point utilise le vestiaire LightRP
    existant ; il peut être supprimé sans supprimer l'intérieur.
 6. **Preview private instance** permet de visiter le modèle dans une instance de
-   test. `/housing leave` revient exactement au point de départ.
+   test. **Leave** (F1 → My homes) revient exactement au point de départ.
 
 Le menu conserve les contrôles de déplacement et de caméra. Seuls les formulaires
 prennent la souris et le clavier. Un modèle est utilisable après capture des trois
