@@ -2,7 +2,7 @@
 -- The package is preloaded as the required mod "appart3-assets": the launcher installs it
 -- before Cyberpunk starts. Changing it needs a dedicated-server restart, then a fresh game launch.
 resource "appart3"
-version "1.0.5"
+version "1.0.6"
 auto_start true
 
 dependency "archivexl >=1.28.0"

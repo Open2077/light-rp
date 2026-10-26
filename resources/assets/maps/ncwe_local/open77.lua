@@ -2,7 +2,7 @@
 -- The package is preloaded as the required mod "ncwe_local-assets": the launcher installs it
 -- before Cyberpunk starts. Changing it needs a dedicated-server restart, then a fresh game launch.
 resource "ncwe_local"
-version "1.0.11"
+version "1.0.12"
 auto_start true
 
 dependency "archivexl >=1.28.0"

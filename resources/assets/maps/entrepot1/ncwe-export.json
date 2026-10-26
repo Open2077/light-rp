@@ -2,15 +2,15 @@
   "generator": "NCWE Studio",
   "project": "entrepot1",
   "projectId": "5c4811ec-3e5c-4453-96fe-9912e26a4090",
-  "exportedUtc": "2026-10-26T10:15:25.8198559+00:00",
+  "exportedUtc": "2026-10-26T11:15:42.6114833+00:00",
   "game": "2.5",
   "archiveXl": "1.28.0",
   "resource": "entrepot1",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "requiredMod": "entrepot1-assets",
   "package": "dist/entrepot1.zip",
-  "sha256": "9d323a56a7db3b6ca99865e81460fde06d1a8fefdcdc0b763468eaa7e4a89ac4",
-  "bytes": 2716286,
+  "sha256": "27873480d8e5ad14a8d27d4c765b81bec33ab99474394723c4977484e3288ebc",
+  "bytes": 2717339,
   "entries": [
     "archive/pc/mod/ncwe_5c4811ec3e5c445396fe9912e26a4090.archive",
     "archive/pc/mod/ncwe_5c4811ec3e5c445396fe9912e26a4090.archive.xl"
@@ -25,5 +25,5 @@
   "sounds": [],
   "soundEmitters": 0,
   "syncedSounds": 0,
-  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\ab69b065-6913-450d-a618-01ecd9be0f57\\scratchpad\\reexport\\entrepot1.json\\ncwe-5c4811ec3e5c445396fe9912e26a4090-20261026-101525-0aeb2923"
+  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\ab69b065-6913-450d-a618-01ecd9be0f57\\scratchpad\\reexport\\entrepot1.json\\ncwe-5c4811ec3e5c445396fe9912e26a4090-20261026-111541-7ac63225"
 }

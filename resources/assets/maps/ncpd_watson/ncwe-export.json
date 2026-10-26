@@ -2,22 +2,22 @@
   "generator": "NCWE Studio",
   "project": "ncpd",
   "projectId": "725ec849-f93a-4431-af83-e8d86deed316",
-  "exportedUtc": "2026-10-26T10:16:32.1922058+00:00",
+  "exportedUtc": "2026-10-26T12:24:42.4171375+00:00",
   "game": "2.5",
   "archiveXl": "1.28.0",
   "resource": "ncpd_watson",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "requiredMod": "ncpd_watson-assets",
   "package": "dist/ncpd-watson.zip",
-  "sha256": "8f741d232d4f7b0e3f52cb66a3222f01390055b3d75943a1d3be57150829ab16",
-  "bytes": 14409057,
+  "sha256": "b4d5129beb7c81f86ebf5a63b3bc99d9a7381db62d2ab9d18115ea059baaf643",
+  "bytes": 14409495,
   "entries": [
     "archive/pc/mod/ncwe_725ec849f93a4431af83e8d86deed316.archive",
     "archive/pc/mod/ncwe_725ec849f93a4431af83e8d86deed316.archive.xl"
   ],
   "changes": {
     "Transformed": 0,
-    "Deleted": 395,
+    "Deleted": 403,
     "Added": 3635,
     "Roads": 0,
     "Elements": 1199
@@ -25,5 +25,5 @@
   "sounds": [],
   "soundEmitters": 0,
   "syncedSounds": 0,
-  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\ab69b065-6913-450d-a618-01ecd9be0f57\\scratchpad\\reexport\\ncpd_watson.json\\ncwe-725ec849f93a4431af83e8d86deed316-20261026-101629-fad4e66d"
+  "sourceExport": "C:\\Users\\Nightwolf\\AppData\\Local\\Temp\\claude\\E--SteamLibrary-steamapps-common-Cyberpunk-2077\\ab69b065-6913-450d-a618-01ecd9be0f57\\scratchpad\\reexport\\ncpd_watson.json\\ncwe-725ec849f93a4431af83e8d86deed316-20261026-122439-7a9696a4"
 }

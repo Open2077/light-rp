@@ -2,7 +2,7 @@
 -- The package is preloaded as the required mod "ncpd_watson-assets": the launcher installs it
 -- before Cyberpunk starts. Changing it needs a dedicated-server restart, then a fresh game launch.
 resource "ncpd_watson"
-version "1.0.5"
+version "1.0.7"
 auto_start true
 
 dependency "archivexl >=1.28.0"
