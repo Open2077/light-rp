@@ -19,3 +19,9 @@
 .board-games .o77-btn{gap:var(--sp-5)}
 @media(max-width:1100px){.board-games__sidebar{width:240px;left:16px;top:16px;gap:10px}.board-games h2{font-size:23px}.board-games__toolbar{left:auto;right:16px;transform:none;gap:10px}.board-games__toolbar>span{display:none}.board-games__toolbar .o77-btn{font-size:11px;padding:8px}}
 @media(max-height:700px){.board-games__sidebar{gap:8px}.board-games__instructions{padding:8px 12px}.board-games__instructions p{margin:3px 0}.board-games h2{font-size:23px}}
+.board-games__sidebar{max-height:calc(100vh - 52px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--o77-ink-400) transparent}
+.board-games__field{display:flex;flex-direction:column;gap:5px;margin:10px 0;color:var(--text-dim);font:var(--type-label);font-size:11px;letter-spacing:.04em}
+.board-games__field input,.board-games__field select{min-width:0;width:100%;padding:9px;border:1px solid var(--line-neutral);background:var(--surface-input);color:var(--text-hi);font:var(--type-body);font-size:13px;border-radius:0;outline:none}
+.board-games__field input:focus,.board-games__field select:focus{border-color:var(--accent)}
+.board-games__tiles{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+.board-games__modes+.board-games__modes{margin-top:8px}

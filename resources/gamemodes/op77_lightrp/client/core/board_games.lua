@@ -79,11 +79,15 @@ local function localXY(board,p)
     local dx,dy=p.x-board.position.x,p.y-board.position.y
     return (dx*math.cos(a)+dy*math.sin(a))/SCALE,(-dx*math.sin(a)+dy*math.cos(a))/SCALE
 end
+local function extra(board)
+    local adapter=LightRpTabletopExtraClient
+    return adapter and board and adapter.supports(board.kind) and adapter or nil
+end
 local function sendView(force)
     if not force and GetGameTimer()-lastView < 120 then return end
     lastView=GetGameTimer()
     local board=active and Client.boards[active.id]
-    Ui.send(VIEW, {active=active~=nil or draft~=nil,placing=draft~=nil,
+    local payload={active=active~=nil or draft~=nil,placing=draft~=nil,
         boardId=board and board.id,kind=draft and draft.kind or board and board.kind,
         turn=board and board.game.turn,ply=board and (board.game.ply or 0),
         canConfigure=board and (board.game.ply or 0)==0 and not board.game.chain,status=board and board.game.status,winner=board and board.game.winner,
@@ -95,7 +99,11 @@ local function sendView(force)
         end)(),selected=active and active.selected,axis=draft and draft.axis,
         text=draft and "Mouse: position • hold click: move • X/Y/Z: axis • Q/D: rotate • PgUp/PgDn: height • E: place • Backspace: cancel"
             or (board and board.kind=="connect4" and "Click a column to drop a disc • Backspace: leave • Target your board to pick it up"
-                or "Drag a piece or click its start and destination • Backspace: leave • Target your board to pick it up")})
+                or "Drag a piece or click its start and destination • Backspace: leave • Target your board to pick it up")}
+    local adapter=extra(board)
+    if LightRpTabletopExtraClient then LightRpTabletopExtraClient.setActive(adapter and board.id or nil) end
+    if adapter then for key,value in pairs(adapter.view(board)) do payload[key]=value end end
+    Ui.send(VIEW,payload)
 end
 local contextBlocked,contextGeneration,contextWorker=false,0,false
 local function disableContext(value)
@@ -172,6 +180,8 @@ local function stop(notify,reason,details)
 end
 function Client.isActive() return active~=nil or draft~=nil end
 local function cameraPose(board,view)
+    local adapter=extra(board)
+    if adapter then local pose=adapter.camera(board,view);if pose then return pose end end
     if view=="orbit" then
         local angle=math.rad(active and active.orbitAngle or -90)
         local radius=active and active.orbitRadius or 1.8
@@ -296,6 +306,7 @@ end
 local function pointerAction(board,event)
     pointer={x=event.x,y=event.y}
     if event.blocked then
+        local adapter=extra(board);if adapter then adapter.pointer(board,event) end
         active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;active.orbitDrag=nil;pointerDown=false;return
     end
     if event.rightPressed and active.cameraView=="orbit" then active.orbitDrag={x=event.x,y=event.y} end
@@ -306,6 +317,8 @@ local function pointerAction(board,event)
         active.orbitHeight=math.max(.4,math.min(2.8,active.orbitHeight+(event.y-old.y)*2))
         active.orbitDrag={x=event.x,y=event.y};applyCamera()
     end
+    local adapter=extra(board)
+    if adapter and adapter.pointer(board,event) then return end
     if not canMove(board) then active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;return end
     if event.pressed then
         pointerDown=true
@@ -378,6 +391,7 @@ dragPose=function(board,pieceId)
     end
 end
 local function pieceTargets(board)
+    local adapter=extra(board);if adapter then return adapter.pieceTargets(board) end
     local result={}
     for row,line in pairs(board.game.board or {}) do
         for col,p in pairs(line) do
@@ -423,6 +437,7 @@ local function clearGeometry(id)
     tags[id]=nil
 end
 local function modelName(board,piece)
+    local adapter=extra(board);if adapter then return adapter.model(board,piece) end
     if not piece then return board.kind.."_board" end
     return board.kind.."_"..piece.side.."_"..piece.kind
 end
@@ -435,12 +450,12 @@ local function failBoard(id,reason)
     if active and tostring(active.id)==id then stop(true,"model_unavailable",reason) end
 end
 local function propYaw(board,piece)
-    return ((board.rotation or 0)+(piece and piece.kind=="knight" and piece.side=="white" and 180 or 0))%360
+    return ((board.rotation or 0)+(piece and tonumber(piece.yaw) or 0)+(piece and piece.kind=="knight" and piece.side=="white" and 180 or 0))%360
 end
 local function createProp(board,piece,position,isGhost)
     if not Open77.props or type(Open77.props.create)~="function" then return nil,"native props are unavailable" end
     local name=modelName(board,piece)
-    local handle,why=Open77.props.create({model=DEPOT..name..".ent",kind="prop",position=position,
+    local handle,why=Open77.props.create({model=name:sub(-4)==".ent" and name or DEPOT..name..".ent",kind="prop",position=position,
         yaw=propYaw(board,piece),scale=SCALE,physics="none",collision=false,visible=true})
     if not handle then return nil,why end
     local record={handle=handle,name=name,position={x=position.x,y=position.y,z=position.z},yaw=propYaw(board,piece),
@@ -627,6 +642,10 @@ local function renderPreview()
         if tags.preview then Open77.debugDraw.clear("boardGames:preview");tags.preview=nil end
         return
     end
+    if extra(board) and not draft then
+        if tags.preview then Open77.debugDraw.clear("boardGames:preview");tags.preview=nil end
+        return
+    end
     local geometry={lines={},triangles={},ttl=.4,maxDistance=18,thickness=2}
     local function line(a,b,color) geometry.lines[#geometry.lines+1]={a=a,b=b,color=color or "#ffcc00ff"} end
     if draft then
@@ -682,7 +701,7 @@ local function placeDraft(kind)
     takeInput();sendView(true)
 end
 local function beginPlacement(p)
-    if type(p)~="table" or (p.kind~="chess" and p.kind~="checkers" and p.kind~="connect4") then return end
+    if type(p)~="table" or (p.kind~="chess" and p.kind~="checkers" and p.kind~="connect4" and not extra(p)) then return end
     if placementUnavailable(true) or (Ui.promptActive and not Ui.dialogs.inventory and not Client.isActive()) then
         notice("Close the current dialog before placing your board.");return
     end
@@ -710,6 +729,7 @@ local function finishPlacementHandoff()
     placeDraft(pending.kind)
 end
 function Client.bind(page)
+    if LightRpTabletopExtraClient then LightRpTabletopExtraClient.bind(page) end
     page:on(POINTER,function(p)
         if not Client.isActive() or type(p)~="table" then return end
         if p.blocked or p.cancelled then
@@ -751,10 +771,11 @@ RegisterNetEvent("lightrp:boardGames:state",function(payload)
     for _,board in ipairs(payload.boards) do
         if type(board)=="table" and board.id and board.position and board.game then
             nextBoards[board.id]=board
+            local adapter=extra(board);if adapter then adapter.observe(board) end
             boardSound(board)
             if not Client.boards[board.id] then
                 LightRpInteract.setLocal("boardGames."..board.id,{position=board.position,radius=1.8,
-                    prompt=(board.kind=="chess" and "Chess" or board.kind=="connect4" and "Connect Four" or "Checkers").." — Play"},function()
+                    prompt=(board.kind=="chess" and "Chess" or board.kind=="connect4" and "Connect Four" or board.kind=="roulette" and "Roulette" or board.kind=="dominoes" and "Dominoes" or board.kind=="cardtower" and "House of Cards" or "Checkers").." — Play"},function()
                     if not Client.isActive() then request("join",{boardId=board.id}) end
                 end)
             end

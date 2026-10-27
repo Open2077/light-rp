@@ -51,6 +51,7 @@
     "load": [
       "archivexl",
       "open77_board_games",
+      "open77_tabletop_extra",
       "ncwe_local",
       "ncpd_watson",
       "appart3",

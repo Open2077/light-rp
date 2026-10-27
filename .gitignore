@@ -26,6 +26,8 @@
 !resources/assets/models/
 !resources/assets/models/open77_board_games/
 !resources/assets/models/open77_board_games/**
+!resources/assets/models/open77_tabletop_extra/
+!resources/assets/models/open77_tabletop_extra/**
 !resources/assets/maps/lobby/
 !resources/assets/maps/lobby/**
 !resources/assets/maps/open77_lobby_cubes/
@@ -72,6 +74,11 @@ neuralink-ui/screens/
 !tools/test-board-games-startup.py
 !tools/generate-board-game-models.py
 !tools/build-board-game-props.py
+!tools/build-tabletop-extra-props.py
+!tools/test-tabletop-extra.py
+!tools/test-tabletop-extra-client.py
+!tools/test-tabletop-extra-server.py
+!tools/test-tabletop-extra-props.py
 !tools/test-board-game-props.py
 !tools/generate-board-game-sounds.py
 !tools/test-support.py

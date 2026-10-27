@@ -21,7 +21,16 @@ local function active(player)
     local life=Open77.players.getLifeState(player)
     return inv and inv.persistent and life and life.phase=="alive" and inv or nil
 end
+local function extra(kind) return LightRP.tabletopExtra and LightRP.tabletopExtra.supports(kind) end
+local function newGame(kind,mode)
+    if extra(kind) then return LightRpTabletopExtraRules.new(kind,mode or "duel",math.random(1,2147483646)) end
+    return LightRPBoardRules.new(kind)
+end
 local function ready(b)
+    if b.kind=="roulette" or b.kind=="cardtower" then
+        for _,id in pairs(b.players) do if active(id) and near(id,b,4) then return true end end
+        return false
+    end
     local slots=b.mode=="teams" and {"white","black","white2","black2"} or b.mode=="solo" and {"white"} or {"white","black"}
     for _,slot in ipairs(slots) do
         local id=b.players[slot]
@@ -32,8 +41,8 @@ end
 local function actor(b)
     if b.game.status~="playing" or not ready(b) then return nil end
     if b.mode=="solo" and b.game.turn=="black" then return 0 end
-    local slot=b.game.turn
-    if b.mode=="teams" and math.floor((b.game.ply or 0)/2)%2==1 then slot=slot.."2" end
+    local slot=b.game.seatTurn or b.game.turn
+    if not b.game.seatTurn and b.mode=="teams" and math.floor((b.game.ply or 0)/2)%2==1 then slot=slot.."2" end
     return b.players[slot]
 end
 local function push(player)
@@ -42,9 +51,19 @@ local function push(player)
         for _,b in pairs(boards) do
             if (p.bucket or 0)==b.bucket then
                 local inv=Inv.player(player)
+                local game=b.game
+                if extra(b.kind) then
+                    local seat
+                    for key,id in pairs(b.players) do if id==player then seat=key end end
+                    game=LightRpTabletopExtraRules.view(b.game,seat)
+                    if b.kind=="roulette" then
+                        game.yourStake=0
+                        for _,bet in ipairs(b.game._money or {}) do if inv and bet.inventory==inv.id then game.yourStake=game.yourStake+bet.amount end end
+                    end
+                end
                 list[#list+1]={id=b.id,kind=b.kind,position=b.position,rotation=b.rotation,
                     owner=b.owner,owned=inv and inv.id==b.ownerInventory or false,
-                    players=b.players,revision=b.revision,game=b.game,mode=b.mode or "duel",
+                    players=b.players,revision=b.revision,game=game,mode=b.mode or "duel",serverNow=extra(b.kind) and LightRP.tabletopExtra.now() or nil,
                     ready=ready(b),actor=actor(b),moveSequence=b.moveSequence or 0,lastSound=b.lastSound}
             end
         end
@@ -65,15 +84,18 @@ local function updatedGame(b,game)
     n.game=game;n.revision=b.revision+1;n.moveSequence=(b.moveSequence or 0)+1
     local capture=#(game.captured or {})>#(b.game.captured or {})
     n.lastSound=game.status=="won" and "game-win" or b.kind=="connect4" and "connect4-drop" or b.kind..(capture and "-capture" or "-move")
+    if extra(b.kind) then n.lastSound=game.status=="collapsed" and "checkers-capture" or "checkers-move" end
     return n
 end
-local function commitGame(b,game)
+local function commitGame(b,game,queries,changes)
     local n=updatedGame(b,game)
-    return Inv.commitDrafts({}, {write(n)}, function()
+    local sql={write(n)};for _,query in ipairs(queries or {}) do sql[#sql+1]=query end
+    return Inv.commitDrafts(changes or {}, sql, function()
         b.game=game;b.revision=n.revision;b.moveSequence=n.moveSequence;b.lastSound=n.lastSound
     end)
 end
 local function queueAI(b)
+    if (b.kind=="roulette" or b.kind=="cardtower") then return end
     if b.aiPending or b.busy or b.mode~="solo" or actor(b)~=0 then return end
     local token,revision,original={},b.revision,b.game
     local cancelled={}
@@ -94,7 +116,8 @@ local function queueAI(b)
         -- available between slices; only the short durable commit owns busy.
         local locked=false
         local called,ok,why=pcall(function()
-            local game,move=LightRPBoardRules.aiMove(original,yieldSearch)
+            local rules=extra(b.kind) and LightRpTabletopExtraRules or LightRPBoardRules
+            local game,move=rules.aiMove(original,yieldSearch)
             if not game then return false,move end
             yieldSearch()
             b.busy=true;locked=true
@@ -144,7 +167,7 @@ local function place(player,p,inv)
     local id
     repeat serial=serial+1;id=tostring(math.floor(Open77.time.unix()))..":"..serial until not boards[id]
     local b={id=id,kind=p.kind,owner=player,ownerInventory=inv.id,position=candidate.position,
-        rotation=p.rotation or 0,bucket=candidate.bucket,players={},revision=0,mode="duel",moveSequence=0,game=LightRPBoardRules.new(p.kind)}
+        rotation=p.rotation or 0,bucket=candidate.bucket,players={},revision=0,mode="duel",moveSequence=0,game=newGame(p.kind,"duel")}
     local ok,why=Inv.commitDrafts({{inv,draft}},{write(b)},function() boards[b.id]=b;pending[player]=nil end)
     return ok,why
 end
@@ -172,12 +195,16 @@ local function handle(player,p,inv)
         if p.action=="mode" or p.action=="reset" then
             if inv.id~=b.ownerInventory then return false,"Only the owner can configure this board." end
             if p.action=="mode" and (b.game.ply or 0)>0 then return false,"Start a new game before changing the mode." end
-            if p.action=="mode" and b.game.chain then return false,"Finish the current game before changing the mode." end
+            if p.action=="mode" and b.kind=="checkers" and b.game.chain then return false,"Finish the current game before changing the mode." end
             local mode=p.action=="reset" and (b.mode or "duel") or p.mode
             if mode~="duel" and mode~="teams" and mode~="solo" then return false,"Invalid game mode." end
             local n={};for k,v in pairs(b) do n[k]=v end
-            n.mode=mode;n.game=LightRPBoardRules.new(b.kind);n.revision=b.revision+1
-            return Inv.commitDrafts({}, {write(n)}, function()
+            local refunds,reason={}
+            if extra(b.kind) then refunds,reason=LightRP.tabletopExtra.refunds(b) end
+            if not refunds then return false,reason end
+            n.mode=mode;n.game=newGame(b.kind,mode);n.revision=b.revision+1
+            local queries={write(n)};for _,query in ipairs(refunds) do queries[#queries+1]=query end
+            return Inv.commitDrafts({}, queries, function()
                 local wasSeated=seated(player)==b
                 for _,id in pairs(b.players) do if id~=player then notice(id,"The owner started a new game. Press E to rejoin.") end end
                 b.mode=mode;b.game=n.game;b.revision=n.revision;b.aiPending=nil;b.players=wasSeated and {white=player} or {}
@@ -190,7 +217,16 @@ local function handle(player,p,inv)
             for i=1,draft.slots do if not draft.items[i] then slot=i;break end end
             if not slot then return false,"Inventory full." end
             draft.items[slot]={name=item,count=1}
-            return Inv.commitDrafts({{inv,draft}},{{query="DELETE FROM lightrp_board_games WHERE id=?",values={b.id}}},function() boards[b.id]=nil end)
+            local refunds,reason={}
+            if extra(b.kind) then refunds,reason=LightRP.tabletopExtra.refunds(b) end
+            if not refunds then return false,reason end
+            local queries={{query="DELETE FROM lightrp_board_games WHERE id=?",values={b.id}}};for _,query in ipairs(refunds) do queries[#queries+1]=query end
+            return Inv.commitDrafts({{inv,draft}},queries,function() boards[b.id]=nil end)
+        elseif p.action=="game" and extra(b.kind) then
+            if not ready(b) then return false,"The table is not ready." end
+            if p.revision~=b.revision then return false,"The table has changed. Try again." end
+            if b.kind=="dominoes" and actor(b)~=player then return false,"It is not your turn." end
+            return LightRP.tabletopExtra.act(player,b,p.operation,p.data or {},function(game,queries,changes) return commitGame(b,game,queries,changes) end)
         elseif p.action=="move" then
             if actor(b)~=player then return false,"It is not your turn or a player is missing." end
             if p.revision~=b.revision then return false,"The board has changed. Try again." end
@@ -269,5 +305,17 @@ CreateThread(function()
         end
         if changed then broadcast() end
         for _,b in pairs(boards) do queueAI(b) end
+        for _,b in pairs(boards) do
+            if b.kind=="roulette" and b.game.phase=="spinning" and not b.busy and LightRP.tabletopExtra.now()>=b.game.spin.endsAt then
+                b.busy=true
+                local called,ok,why=pcall(function()
+                    local game=LightRpTabletopExtraRules.act(b.game,"white","settle",{nowMs=LightRP.tabletopExtra.now()})
+                    if game then return commitGame(b,game) end
+                end)
+                b.busy=nil
+                if called and ok then broadcast() end
+                if not called or (ok==false) then LightRP.log("roulette settlement failed board=%s: %s",b.id,tostring(called and why or ok)) end
+            end
+        end
     end
 end)

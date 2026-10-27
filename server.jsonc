@@ -68,6 +68,7 @@
     "load": [
       "archivexl",
       "open77_board_games",
+      "open77_tabletop_extra",
       "lobby",
       "open77_lobby_cubes",
       "kabuki_appart1",

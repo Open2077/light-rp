@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { emit, on } from "@/bridge/open77";
 import { Button, Keycap, Panel } from "@/design/components";
 import { useStore } from "@/state/store";
+import { TabletopExtraControls, type ExtraState } from "./TabletopExtraControls";
 import "./board-games.css";
 
 type CameraView = "top" | "white" | "black" | "orbit";
@@ -11,6 +12,7 @@ interface View {
   winner?: string; side?: string; selected?: { row: number; col: number }; axis?: string; text?: string;
   mode?: "solo" | "duel" | "teams"; owned?: boolean; ready?: boolean; actor?: number;
   isActor?: boolean; playerCount?: number; ply?: number; canConfigure?: boolean;
+  extra?: ExtraState; selectedTile?: string;
   cameraView?: CameraView; cameraViews?: CameraView[];
 }
 const CAMERAS: [CameraView, string][] = [["top", "Overhead"], ["white", "White side"], ["black", "Black side"], ["orbit", "Orbit"]];
@@ -42,7 +44,10 @@ export function BoardGames() {
   const result = view.status === "draw" ? "Draw" : view.status === "won" ? `${sideName(view.winner)} wins` : `${sideName(view.turn)} to move`;
   const slots = view.mode === "teams" ? 4 : view.mode === "solo" ? 1 : 2;
   const waiting = view.ready === false && view.status === "playing";
-  const status = view.placing ? "Board placement" : waiting ? "Waiting for players" : result;
+  const openPlay = view.kind === "roulette" || view.kind === "cardtower";
+  const extraGame = openPlay || view.kind === "dominoes";
+  const names: Record<string,string> = {chess:"Chess",checkers:"Checkers",connect4:"Connect Four",roulette:"Roulette",dominoes:"Dominoes",cardtower:"Card Tower"};
+  const status = view.placing ? "Board placement" : waiting ? "Waiting for players" : openPlay ? view.extra?.status === "collapsed" ? "Tower collapsed" : "Open table" : result;
   return <div className="board-games" aria-label="Board game"
     onContextMenu={event => event.preventDefault()}
     onPointerMove={event => pointer(event)}
@@ -59,30 +64,31 @@ export function BoardGames() {
     onWheel={event => { if (!view.placing && view.cameraView === "orbit") emit("lightrp:boardGames:camera", { view: "orbit", zoom: Math.sign(event.deltaY) }); }}>
     <aside className="board-games__sidebar" onPointerDown={blockPointer} onPointerUp={blockPointer} onPointerMove={blockPointer} onWheel={event => event.stopPropagation()}>
       <div className="board-games__brand"><span>OPEN//77</span><span>TABLETOP_</span></div>
-      <h2>{view.kind === "connect4" ? "Connect Four" : view.kind === "checkers" ? "Checkers" : "Chess"}</h2>
+      <h2>{names[view.kind??"chess"]??"Tabletop"}</h2>
       <Panel title={view.placing ? "PLACEMENT" : "MATCH STATUS"} meta={view.placing ? "01 / SETUP" : view.mode === "teams" ? "TEAM PLAY" : "TABLE SESSION"} chamfer="sm">
         <p className={`board-games__status${view.isActor ? " board-games__status--turn" : ""}`}>{status}</p>
         {!view.placing && <>
           {view.side && <p>You play {sideName(view.side)}{view.mode === "teams" ? " team" : ""}.</p>}
           <p className="board-games__meta">{view.mode === "solo" ? "Solo vs AI" : view.mode === "teams" ? "2v2 teams" : "1v1"} · {view.playerCount ?? 0}/{slots} players</p>
-          {view.ready && view.status === "playing" && <p className="board-games__turn" role="status">{view.actor === 0 ? "AI is thinking…" : view.isActor ? "Your turn" : view.mode === "teams" && view.side === view.turn ? "Your teammate’s turn" : "Opponent’s turn"}</p>}
+          {view.ready && view.status === "playing" && !openPlay && <p className="board-games__turn" role="status">{view.actor === 0 ? "AI is thinking…" : view.isActor ? "Your turn" : view.mode === "teams" && view.side === view.turn ? "Your teammate’s turn" : "Opponent’s turn"}</p>}
         </>}
         {view.placing && <p className="board-games__description">Place your board on a clear, level surface. Drag with the left mouse button to position it.</p>}
       </Panel>
       {!view.placing && view.owned && <Panel title="GAME SETUP" chamfer="sm">
-        {(view.canConfigure ?? view.ply === 0) ? <div className="board-games__modes" role="group" aria-label="Game mode">
+        {!openPlay && (view.canConfigure ?? view.ply === 0) ? <div className="board-games__modes" role="group" aria-label="Game mode">
           {([['solo', 'Solo vs AI'], ['duel', '1v1'], ['teams', '2v2']] as const).map(([mode, label]) => <Button key={mode} size="sm" variant={(view.mode ?? "duel") === mode ? "primary" : "secondary"} aria-pressed={(view.mode ?? "duel") === mode}
             onClick={() => emit("lightrp:boardGames:mode", { mode })}>{label}</Button>)}
-        </div> : <p className="board-games__description">Start a new game to change the game mode.</p>}
+        </div> : !openPlay && <p className="board-games__description">Start a new game to change the game mode.</p>}
         {(view.ply ?? 0) > 0 && <Button size="sm" block variant="secondary" onClick={() => emit("lightrp:boardGames:reset", {})}>New game</Button>}
       </Panel>}
+      {!view.placing && extraGame && view.extra && <TabletopExtraControls key={view.kind} kind={view.kind!} game={view.extra} selectedTile={view.selectedTile} ready={view.ready} isActor={view.isActor}/> }
       <div className="board-games__instructions">
         {view.placing ? <>
           <p><Keycap size="sm">X/Y/Z</Keycap><span>Movement axis · {view.axis?.toUpperCase() ?? "XY"}</span></p>
           <p><Keycap size="sm">Q / D</Keycap><span>Rotate board</span></p>
           <p><Keycap size="sm">PG↑ / PG↓</Keycap><span>Adjust height</span></p>
         </> : <>
-          <p><Keycap tone="accent" size="sm">LMB</Keycap><span>{view.kind === "connect4" ? "Drop a disc in a column" : "Drag a piece or click its destination"}</span></p>
+          <p><Keycap tone="accent" size="sm">LMB</Keycap><span>{view.kind === "connect4" ? "Drop a disc in a column" : extraGame ? view.kind === "dominoes" ? "Select a domino and play an end" : view.kind === "cardtower" ? "Place cards on the table" : "Use the betting controls" : "Drag a piece or click its destination"}</span></p>
           <p><Keycap size="sm">RMB</Keycap><span>Rotate in orbit view</span></p>
           <p><Keycap size="sm">SCROLL</Keycap><span>Zoom in orbit view</span></p>
         </>}

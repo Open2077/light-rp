@@ -1,0 +1,1702 @@
+{
+  "version": "1.0.0",
+  "namespace": "open77\\assets\\op77_lightrp\\tabletop_extra",
+  "models": [
+    {
+      "name": "roulette_table",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_table.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_table.ent",
+      "triangles": 6400,
+      "materials": [
+        "#5A3822FF",
+        "#8C592FFF",
+        "#174C32FF",
+        "#B79048FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.42,
+          -0.42,
+          -0.045
+        ],
+        "max": [
+          0.42,
+          0.42,
+          0.058
+        ]
+      }
+    },
+    {
+      "name": "roulette_wheel",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_wheel.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_wheel.ent",
+      "triangles": 7124,
+      "materials": [
+        "#8C592FFF",
+        "#174C32FF",
+        "#242424FF",
+        "#B79048FF",
+        "#A82025FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.32,
+          -0.32,
+          0
+        ],
+        "max": [
+          0.32,
+          0.32,
+          0.114
+        ]
+      }
+    },
+    {
+      "name": "dominos_board",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\dominos_board.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\dominos_board.ent",
+      "triangles": 290,
+      "materials": [
+        "#5A3822FF",
+        "#174C32FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.5,
+          -0.375,
+          -0.028
+        ],
+        "max": [
+          0.5,
+          0.375,
+          0.001
+        ]
+      }
+    },
+    {
+      "name": "cardtower_board",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\cardtower_board.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\cardtower_board.ent",
+      "triangles": 288,
+      "materials": [
+        "#8C592FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.5,
+          -0.375,
+          -0.025
+        ],
+        "max": [
+          0.5,
+          0.375,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "roulette_ball",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_ball.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_ball.ent",
+      "triangles": 528,
+      "materials": [
+        "#FFFFFDFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.009,
+          -0.009,
+          -0.009
+        ],
+        "max": [
+          0.009,
+          0.009,
+          0.009
+        ]
+      }
+    },
+    {
+      "name": "domino_0_0",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_0.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_0.ent",
+      "triangles": 300,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00809
+        ]
+      }
+    },
+    {
+      "name": "domino_0_1",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_1.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_1.ent",
+      "triangles": 324,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_0_2",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_2.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_2.ent",
+      "triangles": 348,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_0_3",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_3.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_3.ent",
+      "triangles": 372,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_0_4",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_4.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_4.ent",
+      "triangles": 396,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_0_5",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_5.ent",
+      "triangles": 420,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_0_6",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_6.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_6.ent",
+      "triangles": 444,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_1_1",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_1.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_1.ent",
+      "triangles": 348,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_1_2",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_2.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_2.ent",
+      "triangles": 372,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_1_3",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_3.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_3.ent",
+      "triangles": 396,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_1_4",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_4.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_4.ent",
+      "triangles": 420,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_1_5",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_5.ent",
+      "triangles": 444,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_1_6",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_6.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_6.ent",
+      "triangles": 468,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_2_2",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_2.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_2.ent",
+      "triangles": 396,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_2_3",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_3.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_3.ent",
+      "triangles": 420,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_2_4",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_4.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_4.ent",
+      "triangles": 444,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_2_5",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_5.ent",
+      "triangles": 468,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_2_6",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_6.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_6.ent",
+      "triangles": 492,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_3_3",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_3.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_3.ent",
+      "triangles": 444,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_3_4",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_4.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_4.ent",
+      "triangles": 468,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_3_5",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_5.ent",
+      "triangles": 492,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_3_6",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_6.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_6.ent",
+      "triangles": 516,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_4_4",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_4.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_4.ent",
+      "triangles": 492,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_4_5",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_5.ent",
+      "triangles": 516,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_4_6",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_6.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_6.ent",
+      "triangles": 540,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_5_5",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_5_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_5_5.ent",
+      "triangles": 540,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_5_6",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_5_6.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_5_6.ent",
+      "triangles": 564,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "domino_6_6",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_6_6.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_6_6.ent",
+      "triangles": 588,
+      "materials": [
+        "#FAF8F2FF",
+        "#12110FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.013,
+          -0.025999999999999995,
+          0
+        ],
+        "max": [
+          0.013,
+          0.025999999999999995,
+          0.00813
+        ]
+      }
+    },
+    {
+      "name": "playing_card",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.044,
+          -0.0315,
+          -0.00025
+        ],
+        "max": [
+          0.044,
+          0.0315,
+          0.00025
+        ]
+      }
+    },
+    {
+      "name": "playing_card_flat",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_flat.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_flat.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.044,
+          -0.0315,
+          -0.00025
+        ],
+        "max": [
+          0.044,
+          0.0315,
+          0.00025
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_left",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.00023883919951117843,
+          -0.0315,
+          -7.386363636363637e-05
+        ],
+        "max": [
+          0.02623883919951118,
+          0.0315,
+          0.08414526186429844
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_left_fall_1",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_1.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_1.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.0002125930230757714,
+          -0.0315,
+          -0.00013154545427153513
+        ],
+        "max": [
+          0.046516592926656136,
+          0.0315,
+          0.07496428957694305
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_left_fall_2",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_2.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_2.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.00017268628602762148,
+          -0.0315,
+          -0.0001807745740362469
+        ],
+        "max": [
+          0.06380533634678652,
+          0.0315,
+          0.060966347255759
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_left_fall_3",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_3.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_3.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.00012168327007464136,
+          -0.0315,
+          -0.00021838768688720042
+        ],
+        "max": [
+          0.07699414905436919,
+          0.0315,
+          0.043050898753160954
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_left_fall_4",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_4.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_4.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -6.286126899053141e-05,
+          -0.0315,
+          -0.000241967892210723
+        ],
+        "max": [
+          0.08523555932716502,
+          0.0315,
+          0.022369134576877777
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_left_fall_5",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_5.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          0.0,
+          -0.0315,
+          -0.00025
+        ],
+        "max": [
+          0.088,
+          0.0315,
+          0.00025
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_right",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.02623883919951118,
+          -0.0315,
+          -7.386363636363637e-05
+        ],
+        "max": [
+          0.00023883919951117843,
+          0.0315,
+          0.08414526186429844
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_right_fall_1",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_1.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_1.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.046516592926656136,
+          -0.0315,
+          -0.00013154545427153513
+        ],
+        "max": [
+          0.0002125930230757714,
+          0.0315,
+          0.07496428957694305
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_right_fall_2",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_2.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_2.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.06380533634678652,
+          -0.0315,
+          -0.0001807745740362469
+        ],
+        "max": [
+          0.00017268628602762148,
+          0.0315,
+          0.060966347255759
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_right_fall_3",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_3.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_3.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.07699414905436919,
+          -0.0315,
+          -0.00021838768688720042
+        ],
+        "max": [
+          0.00012168327007464136,
+          0.0315,
+          0.043050898753160954
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_right_fall_4",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_4.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_4.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.08523555932716502,
+          -0.0315,
+          -0.000241967892210723
+        ],
+        "max": [
+          6.286126899053141e-05,
+          0.0315,
+          0.022369134576877777
+        ]
+      }
+    },
+    {
+      "name": "playing_card_lean_right_fall_5",
+      "mesh": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_5.ent",
+      "triangles": 144,
+      "materials": [
+        "#FCFCF5FF",
+        "#8E1820FF",
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.088,
+          -0.0315,
+          -0.00025
+        ],
+        "max": [
+          -0.0,
+          0.0315,
+          0.00025
+        ]
+      }
+    }
+  ],
+  "textures": [
+    {
+      "name": "wood_ivory",
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_ivory.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "113769ac15bf98d2135189304df196c9015068dbc8a2f9f322078bb6dd7e4519"
+    },
+    {
+      "name": "wood_ebony",
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_ebony.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "39039c8bb2603891415cc1c7bd42a2c14a88dd162e405e137e080a32988ba27d"
+    },
+    {
+      "name": "wood_natural",
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_natural.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "93dcbe4295b97ae37ca30578505b7728efb4f164a3b3d440474fdd3fd1485c8c"
+    },
+    {
+      "name": "wood_grain",
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_grain.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "1ccb4c7ec32c2eff69fd2c274195641ad4f11fa32f41c7887f5e467744586e69"
+    },
+    {
+      "name": "roulette_numbers",
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\roulette_numbers.xbm",
+      "width": 1024,
+      "height": 1024,
+      "mips": 11,
+      "bytes": 5592404,
+      "sourceSha256": "99b2fcceae26449766d51f6e076a13d02e4fedfecd555ac33a5cf394df1645f1"
+    },
+    {
+      "name": "card_face",
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\card_face.xbm",
+      "width": 512,
+      "height": 768,
+      "mips": 10,
+      "bytes": 2097148,
+      "sourceSha256": "3a7f0e4bff8c3bbfc23de4c9888d8994779569dcd9b4eec5aacc6dc592f304be"
+    },
+    {
+      "name": "card_back",
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\card_back.xbm",
+      "width": 512,
+      "height": 768,
+      "mips": 10,
+      "bytes": 2097148,
+      "sourceSha256": "532701ed92430650004522466b6cef88a75fea7563b3ba089ed367550b3413fc"
+    },
+    {
+      "name": "felt_green",
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\felt_green.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "a9c63f019811f2ca49ff31ccca895229afd4fcd8908eb02a50eebe09805839df"
+    }
+  ],
+  "files": [
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\cardtower_board.ent",
+      "sha256": "157a5cad6b2c8fbda976a8beda36c6c98e593f26795c4c8dd1aaaab138e175b1",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\cardtower_board.mesh",
+      "sha256": "8906d8e1bb493958501b1969573dd26a57c925bd18c1dbfbb72ac8fa391e6b8a",
+      "bytes": 9835
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_0.ent",
+      "sha256": "46cb59f49cbae783c958f0883392fdbda24f9857f1f0e93a4db3e4b5dd40f886",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_0.mesh",
+      "sha256": "838092bf1cd8e05c4717504524865b4d686598c20c5445904ffb82be797d9359",
+      "bytes": 9991
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_1.ent",
+      "sha256": "c4be97e0ed5e3fda896c7c8befa83a4ab4354dc37773ce91b4d3b3756a288bf8",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_1.mesh",
+      "sha256": "b755b897730faf6b43d001c813f7ef4af887ca7082bfb263617c610ef6dee653",
+      "bytes": 11225
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_2.ent",
+      "sha256": "0091ae254965fa1d7edc25ec5003130bc8b942b3344e43b503ff24167fa5847d",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_2.mesh",
+      "sha256": "31795c65ff44a8404e0033c3ae480247724ff22f704e8fd666ae9c33d7f97abf",
+      "bytes": 11480
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_3.ent",
+      "sha256": "73f5ec3b933975b30e032f6bf2cbd25e28fe9ac740f540d1ec5c0c25ddf20ffb",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_3.mesh",
+      "sha256": "93f66847c2a19ebd9804e2c599fb4132ad7d22389f93f7cc21f692d44b433633",
+      "bytes": 11611
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_4.ent",
+      "sha256": "cf81d3e241713d9427107879c3c303373ca4a64c16a38cb3139180543bb6a880",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_4.mesh",
+      "sha256": "6dbc9f10a508405557eb012024f48e59d8057398d34e8539ca61d37bf66da282",
+      "bytes": 11812
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_5.ent",
+      "sha256": "c70cf81f3ced56f2a411343eeb8a2cb26493e56206bdb1f18d73b21607a6dafb",
+      "bytes": 13690
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_5.mesh",
+      "sha256": "f074a5aceddae63327b4015367f60fcb92a219ee3e05e5d38022682efd0903fc",
+      "bytes": 12077
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_6.ent",
+      "sha256": "d6cb62bd4c5c714371716066d7d2107449f6f91e2553fbdcf58cd92ce5265da4",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_0_6.mesh",
+      "sha256": "dc5197991decfc45351489275d8ae65450f3a801f3204e4e7862bc28b86c3570",
+      "bytes": 12131
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_1.ent",
+      "sha256": "447a95d1f5346513a7cf61e570c3933844ebedfcf400f33a029a9f796de3531b",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_1.mesh",
+      "sha256": "8548c8f9480a009ca2c1bba71e66bbfe23246033d9d5a8894b69a32aa788e880",
+      "bytes": 11402
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_2.ent",
+      "sha256": "74e9419bed7d790dfba9e1d1aea68c8faf95d78c0dcece485f3f3568b89cdfc3",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_2.mesh",
+      "sha256": "4562be6b7ba0d526ed68b46d39f3979e4fa1a1028646068035d647d89c4d6635",
+      "bytes": 11615
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_3.ent",
+      "sha256": "a5ec5a00fca298ecd239fb0fd2a0b371dc7a7269b7502bd19ec9aa7d37641633",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_3.mesh",
+      "sha256": "5491dc4fc9d592630a27b83a5d20726eb7a0d19b9b33f6000d6bf244005cae20",
+      "bytes": 11816
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_4.ent",
+      "sha256": "1931d5f7f21d605d3312251c67755d14fb28b82d875031feb0eb6f14afa75308",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_4.mesh",
+      "sha256": "c99509946cf2652cd8482437e9d0c67d0336c7848d669486115e29f6e8890f04",
+      "bytes": 12081
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_5.ent",
+      "sha256": "2c7ff5c4a4fed2bf2dd69e40468ff980526c5cd4e3df0f598257075b4e12d538",
+      "bytes": 13690
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_5.mesh",
+      "sha256": "3168786cea24ca2d881662a2ebcb39930960622d5a6c9dbfb64e8b7ffd715ccb",
+      "bytes": 12199
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_6.ent",
+      "sha256": "7810040954800d4447a82af412b90f6f8d90852625e169ec9c961c6b99321bb5",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_1_6.mesh",
+      "sha256": "30c8b92e6ce0a758b24e12a2d1eee27183fbf5084565941ddb36977f3132ad74",
+      "bytes": 12293
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_2.ent",
+      "sha256": "c90d416ecb185cc4bbdaa4ef1bdb6ff835353337a6ce2988c87c5c881385388e",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_2.mesh",
+      "sha256": "44bdb5e98260271c082c21d47f4c00d72791f92f72aabb000f3fdebf6efc98b7",
+      "bytes": 11788
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_3.ent",
+      "sha256": "73006b05f700cdf26a512ca572226acc42e9324c822c81b4effb03071e5f0293",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_3.mesh",
+      "sha256": "e8663e9c0e7b8a61fe0458acad8652c6db9d685292a778215400a6aff24ae79b",
+      "bytes": 12080
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_4.ent",
+      "sha256": "ea9586c0bc8c4e2666eb61eef2944590f8518291b88009081e40e04d4d70a45e",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_4.mesh",
+      "sha256": "ac72200e4901e4c5ed110cfd455dbd07e7c0c267c18c1dd27d15fc1ce285aaee",
+      "bytes": 12207
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_5.ent",
+      "sha256": "ddefc7f4c461fb541f8f5ebdca9d0212ff239212a3c41afc39284f31f1756c93",
+      "bytes": 13690
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_5.mesh",
+      "sha256": "6ce9995f028458afc9475fbc8d00e1df6b406c892908d2ddae8ee6266a882865",
+      "bytes": 12443
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_6.ent",
+      "sha256": "4f52c1a623ed4c636e35abb00de2f95841c148ad4972ab2612441714c83e7b05",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_2_6.mesh",
+      "sha256": "772c20f6b97d511b0e5e2794bbf0a469ea2c2661b56b2bebe5d7899b4ae1167a",
+      "bytes": 12449
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_3.ent",
+      "sha256": "4c10e02929f546a9dce2fdb8e85edc3563c649bbb8475dc4f8c53d890ea89ad6",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_3.mesh",
+      "sha256": "ede59e83db13541e44574cc4deb926255a9ef93b7021a2fe4fd5d207ca0f923d",
+      "bytes": 12277
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_4.ent",
+      "sha256": "6a459390e86a03e3cb011d3238c7972599a29a34d5246e398405b697f788fcfb",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_4.mesh",
+      "sha256": "b7951ed04a7050ff0e78aa0294682f79ce0e9bf899fd7c3550b55d7f8b1e5bb1",
+      "bytes": 12503
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_5.ent",
+      "sha256": "f64623bab2454d91519806a58f5773fad947e584fba12f4b8490bc159851ad56",
+      "bytes": 13690
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_5.mesh",
+      "sha256": "19d4b1fcc725d7d88c32128ab3e8571d97605b245c737927de1c2c6134c5cb2e",
+      "bytes": 12502
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_6.ent",
+      "sha256": "3810f3d499f33bcb96ff609b98c6724cf3f551157ca0c80730189db8ce26ba32",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_3_6.mesh",
+      "sha256": "b33ea892709bf95814b1ad7303ff918c22dd98e08a1babbd4078e42cc1768e57",
+      "bytes": 12648
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_4.ent",
+      "sha256": "105f1f7a1f936e7fdf90d617f3a22a66536a2302b49f9f164f4830d67be78f86",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_4.mesh",
+      "sha256": "597a5e402f3a9982f8052e215d0a2d1259764e0c1fe09b74bb03db223ca2bf20",
+      "bytes": 12458
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_5.ent",
+      "sha256": "67edfbdaa5040fbfd5be6f3669ee2fbad0d549fecfff77ef035b4c306a0f8e2c",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_5.mesh",
+      "sha256": "eaffc8fb6df3fa40845d495cd7e493f6cf81e46470fd95e4f76a18e0c8f344ab",
+      "bytes": 12657
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_6.ent",
+      "sha256": "820fb706fe8dee3d6b6faebb43af47e7bbea5f380c8cb3b80a1ae5fc4133074c",
+      "bytes": 13690
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_4_6.mesh",
+      "sha256": "66f45b29b812292aeee1852b21534746430280248ae64bdff0ca9226b3c2c078",
+      "bytes": 12870
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_5_5.ent",
+      "sha256": "b9a8e7395e9fdf4a0ad75cfe222737c817884376ce2fb6bb9ee6439eec995d8a",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_5_5.mesh",
+      "sha256": "499971ba99d015305a16c15202d5c1a7c0fcaf1caa935d0d37370b0e7b06c957",
+      "bytes": 12844
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_5_6.ent",
+      "sha256": "186cde8e48761be129894d148b7a7ab8080b2410e5ece34cf8ab76f9866f84c1",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_5_6.mesh",
+      "sha256": "284ac89d4692ce0f4bda45387d89ea04fc972c8abe1a7dfb9bf029db6777720b",
+      "bytes": 13063
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_6_6.ent",
+      "sha256": "bc057620acb25f19710939e8b6ade7d8938d23af48a4a592d048add53629df47",
+      "bytes": 13690
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\domino_6_6.mesh",
+      "sha256": "dacb552c13490acc4ba1bd966adca875fc798fbbce6ab4dcfb85f9febaf6076f",
+      "bytes": 13151
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\dominos_board.ent",
+      "sha256": "31dbb5e1f0c7d57c93feb5d17e7ab97be5297b2fc447af38c2cab36b7b51e114",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\dominos_board.mesh",
+      "sha256": "03c9f9d0a901172ef6127e7f31643b2931a8768781c0ed069b77d8be51b33070",
+      "bytes": 10714
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card.ent",
+      "sha256": "b0afa9594b17affe5eb50ee281726aabc7f3750e7aa9d81c85633b32135b6ff6",
+      "bytes": 13694
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card.mesh",
+      "sha256": "66ac7e9d225f232ce82001ea59d178a65f0652b640957e26c2e458810c0e3ed1",
+      "bytes": 8081
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_flat.ent",
+      "sha256": "9f94ad14f826704aec5735d966a35ba50fc09fb8943e4eea6a939e2fd87af0f2",
+      "bytes": 13694
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_flat.mesh",
+      "sha256": "66ac7e9d225f232ce82001ea59d178a65f0652b640957e26c2e458810c0e3ed1",
+      "bytes": 8081
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left.ent",
+      "sha256": "511e2f1dda450d45045ab6cb63e27cb4f85b62a14394c29d39bf1489c80669ab",
+      "bytes": 13696
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left.mesh",
+      "sha256": "e9f6670dc4d2381fddf1b39cca1e373b7ebca1340c7d95f2e6f147168cb0ff26",
+      "bytes": 8520
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_1.ent",
+      "sha256": "b6c74327b412622a7b6aca89a7720ce742198b774f71a1a5e47cef33b67338ac",
+      "bytes": 13702
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_1.mesh",
+      "sha256": "6835f222be69a33997e57aa8170163056ca4c6c68a023a67ca84e875a454d9ff",
+      "bytes": 8473
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_2.ent",
+      "sha256": "1fe28ad7238ac41cf95a5a8e3e800c378007abf32b38f9d50957ac60a6984409",
+      "bytes": 13701
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_2.mesh",
+      "sha256": "d4c43977770ddfc6333c0125ca02ce869d25d5fc7586724dea42b93828b8e1f8",
+      "bytes": 8454
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_3.ent",
+      "sha256": "fcbd4d36869089ca872d07dd56220be0a31697d000687931050cd241c1bad406",
+      "bytes": 13700
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_3.mesh",
+      "sha256": "49f86aa01c52a2e483e0899548764ae626a32a5214b5e867f74f9439c4fff69a",
+      "bytes": 8356
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_4.ent",
+      "sha256": "2f145db523ddf3dbbfd06a201391a00144dfdbe4231ebf2221097cc9a1cf4b65",
+      "bytes": 13701
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_4.mesh",
+      "sha256": "6f14b5c18ed85618e1c6873f103be1d7198adb1434bd521f7c0b1394fa0a1c11",
+      "bytes": 8350
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_5.ent",
+      "sha256": "b8a37b691bad0e0829c26d78c9a6660a85df4a8a6f419d6e5e8dffe02c528da3",
+      "bytes": 13702
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_left_fall_5.mesh",
+      "sha256": "8bf452c259b4602abed1eac112f64038b3efa2839b98fd78b8e1239f45c53cd3",
+      "bytes": 8105
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right.ent",
+      "sha256": "c6a7e37462a64c70b799aab178ac6ed4cf3820eb38d49efc0324b456bd044f66",
+      "bytes": 13695
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right.mesh",
+      "sha256": "79ebc970d427505982272eca6fe20f3ad4b953de166acc1d1a78e12b323ebab5",
+      "bytes": 8396
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_1.ent",
+      "sha256": "baedc714eefc6caceb0322f6f3fd0735f4dad34bc7963df64d0b491d2333137f",
+      "bytes": 13704
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_1.mesh",
+      "sha256": "f9dbc1c79438cafbbb4fd04b7e6aa8d0bcfb846e2032df0223fdfe9fc6584b2a",
+      "bytes": 8372
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_2.ent",
+      "sha256": "8463e1cd6aece796ba02006c4870a07a0daf4f09d6905fc772204fca6cf3fa4e",
+      "bytes": 13703
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_2.mesh",
+      "sha256": "71890ff40948d4f971556e73102bd3533b82ccc08068fa397be726fbb20712e6",
+      "bytes": 8360
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_3.ent",
+      "sha256": "53e0e16b5e47dc3b6c91192e5e1ef9efcfd8092f84ac5790a3514d2a95beeaaf",
+      "bytes": 13703
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_3.mesh",
+      "sha256": "d445de7b58c460c325147ce0d794bec1c9db1cbac943f048634b22fc761a25c3",
+      "bytes": 8396
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_4.ent",
+      "sha256": "fca8b996b69eda194ea027d5c03ffabeb375e37c7d6dcc1c214ede848d31a00c",
+      "bytes": 13703
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_4.mesh",
+      "sha256": "3ab7ff0d8149ded3030a29d9dde60323e711bd88ed05332c1311e740531fa283",
+      "bytes": 8384
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_5.ent",
+      "sha256": "b6d21f1a9c6fb0abce06e63da9c3d3e4d693d0798650fe30bb4bf303e33a3d8c",
+      "bytes": 13703
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\playing_card_lean_right_fall_5.mesh",
+      "sha256": "45d137129943e56c2944ba958179726b6c463a3b4421e6d3271e90ad194fffb2",
+      "bytes": 8031
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_ball.ent",
+      "sha256": "1ed1e323884ae66ddd637f1547e675315de67085337abab653ca2b27528264d6",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_ball.mesh",
+      "sha256": "1a2fbba881b042e6ae0c722349e137997f40a292c0ef2279b1d4d89fe6545bdb",
+      "bytes": 14202
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_table.ent",
+      "sha256": "7603e89ed976e82acfae62068a43708216dd02770327d73eb481b651d5b8a314",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_table.mesh",
+      "sha256": "5e1b12fff57c974f64a527098d433c498460b644276ddcbcb131551bd68c15c0",
+      "bytes": 88051
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_wheel.ent",
+      "sha256": "1e7e22c0f9394018931564880b9beb0b0c9846471cbeccafab24e127c0930c31",
+      "bytes": 13691
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\roulette_wheel.mesh",
+      "sha256": "aefe3839e9320ef7c031c02ea35f6744f2d19ae804ad502de780be93b8250986",
+      "bytes": 125509
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\card_back.xbm",
+      "sha256": "d033c6a646fc9b7d8640c5f5cb675198bba8ec05ad4a2a485ccf93d691862436",
+      "bytes": 16224
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\card_face.xbm",
+      "sha256": "a5b2b715d2e58cb709d36adb65705b87a6d84c3d45b105a8e4ba4dc0556eeaad",
+      "bytes": 12934
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\felt_green.xbm",
+      "sha256": "2adf760bacaa82fb59b1db962697c514280ec9a6c1235eee33d434760901541f",
+      "bytes": 66948
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\roulette_numbers.xbm",
+      "sha256": "655b82bbaec7c9569c8a06bb7d5a276adcf04b6047b3ad9730fc06b6d1eef822",
+      "bytes": 132909
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_ebony.xbm",
+      "sha256": "fffcf81e013947c48875dc4a9a4ce06b32d2e6f1d26f82141a8ef63350e3d57f",
+      "bytes": 29729
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_grain.xbm",
+      "sha256": "50966a50d5b1a87ace2a4b065539aecfae70b899f8257c2d6e1bca9497b2e3f3",
+      "bytes": 68193
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_ivory.xbm",
+      "sha256": "28b05cad42a40382f59e510bbf3f7bf5c2edbbcc569a34e2157cd31931fc8e10",
+      "bytes": 45367
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_natural.xbm",
+      "sha256": "8421192eaef661d7daeb24d79124c8b2713ef6e2df85517c1f974d34cab354f4",
+      "bytes": 89246
+    }
+  ],
+  "rouletteOrder": [
+    0,
+    32,
+    15,
+    19,
+    4,
+    21,
+    2,
+    25,
+    17,
+    34,
+    6,
+    27,
+    13,
+    36,
+    11,
+    30,
+    8,
+    23,
+    10,
+    5,
+    24,
+    16,
+    33,
+    1,
+    20,
+    14,
+    31,
+    9,
+    22,
+    18,
+    29,
+    7,
+    28,
+    12,
+    35,
+    3,
+    26
+  ],
+  "roulettePocketRadius": 0.27,
+  "rouletteBallCenterZ": 0.025,
+  "cardLeanHorizontal": 0.026,
+  "cardLeanHeight": 0.0840713982279348,
+  "cardFallAngles": [
+    72.81520409891245,
+    58.25216327912996,
+    43.689122459347466,
+    29.12608163956498,
+    14.563040819782486,
+    0.0
+  ],
+  "archiveSha256": "817accbb317418018bf887454d8484af1bc51e678768b08ce9fa25daeef674cc",
+  "zipSha256": "7624792e2544664d61d0af3832fe50d394bf39d31cbab11e11f6920d9d4a0663",
+  "buildWork": "/tmp/tabletop-extra-props/build",
+  "materialDependencies": [
+    "engine\\materials\\metal_base.remt",
+    "engine\\textures\\editor\\white.xbm"
+  ]
+}
