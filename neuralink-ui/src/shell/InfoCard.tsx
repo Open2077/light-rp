@@ -6,6 +6,7 @@ import { useStore } from "@/store/store";
 import { copyText, pad2 } from "@/lib/format";
 import { play } from "@/fx/sound";
 import { WeatherIcon } from "@/components/Weather";
+import { Holo3D } from "@/components/Holo3D";
 import { missedSince, unreadTotal } from "./menu";
 
 /** Slowly drifting "neural sync" value, 94..99.9 %. Purely cosmetic. */
@@ -38,6 +39,7 @@ export function InfoCard() {
 
   return (
     <div className="tilt tilt--card">
+      <Holo3D cut={16} depth={6}>
       <aside className="card nl-hit">
         <div className="card__top">
           <span className="card__brand mono">NEURAL-LINK</span>
@@ -78,6 +80,7 @@ export function InfoCard() {
           <span className={`card__stat ${missed ? "is-alert" : ""}`} title="Missed calls"><PhoneMissed size={15} /> <b className="mono">{missed}</b></span>
         </div>
       </aside>
+      </Holo3D>
     </div>
   );
 }

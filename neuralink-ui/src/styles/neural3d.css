@@ -1,0 +1,305 @@
+/* Neural 3D (Night City style): the interface as thick holographic glass
+   floating in real perspective. Loaded last; everything visual is scoped under
+   :root[data-style=cyberpunk] and the SAO look only gets the neutral layout.
+
+   - the plane: perspective, each group (card, column, sub-panel, window, call)
+     on its own angle and depth, sliding against the pointer (parallax) and
+     tilting with it; the whole thing sways when the mouse rests (fx/space.ts);
+   - Holo3D slabs (components/Holo3D.tsx): depth frames = glass thickness,
+     a bloom behind, comets of light orbiting the border, corner brackets in
+     front, a glint following the cursor, a local tilt under the cursor;
+   - column buttons as thick octagonal pucks, energy running down the spine;
+   - an assembly from the depth on open, glitch tears, a fall back on close.
+
+   3D rule: clip-path, filter, mask and opacity < 1 flatten their subtree.
+   Only leaves (frames, bloom, halo rings, faces) carry them; the chain
+   .plane > .tilt > .nl3d keeps transform-style: preserve-3d. */
+
+@property --nl-a { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+
+/* ---------------------------------------------------------------- neutral (SAO) */
+.nl3d { position: relative; }
+.nl3d--fill, .nl3d--fill > .nl3d__face { width: 100%; height: 100%; }
+.nl3d__face { position: relative; }
+.nl3d__bloom, .nl3d__depth, .nl3d__glint, .nl3d__halo, .nl3d__corners, .rb__rim { display: none; }
+.neural-field { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
+.synapse { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 6; }
+
+/* ---------------------------------------------------------------- glass */
+:root[data-style="cyberpunk"] {
+  --glass-hi: rgba(11, 30, 44, 0.84);
+  --glass: rgba(6, 19, 30, 0.8);
+  --glass-lo: rgba(3, 11, 19, 0.78);
+  --glass-gradient:
+    linear-gradient(160deg, rgba(46, 230, 245, 0.07) 0%, transparent 32%),
+    linear-gradient(180deg, var(--glass-hi) 0%, var(--glass) 42%, var(--glass-lo) 100%);
+  --nl-edge: rgba(46, 230, 245, 0.42);
+  --nl-hot: #a4f7ff;
+}
+
+/* ---------------------------------------------------------------- the plane */
+:root[data-style="cyberpunk"] .plane { perspective: 1450px; perspective-origin: 50% 47%; transform-style: preserve-3d; }
+:root[data-style="cyberpunk"] .tilt {
+  transform-style: preserve-3d;
+  transition: none;
+  transform:
+    translate3d(calc(var(--mx) * var(--px, -6px) * 0.5), calc(var(--my) * var(--py, -4px) * 0.5), var(--tz, 0px))
+    rotateY(calc(var(--ry) + var(--mx) * var(--ty, 2deg) * 0.5))
+    rotateX(calc(var(--rx, 0deg) - var(--my) * var(--tx, 1.5deg)));
+}
+:root[data-style="cyberpunk"] .tilt--card { --ry: 25deg; --rx: 3deg; --tz: -40px; --px: -26px; --py: -12px; --ty: 6deg; left: 104px; top: 330px; width: 384px; transform-origin: 100% 50%; animation: none; }
+:root[data-style="cyberpunk"] .tilt--panel { --ry: 11deg; --rx: 1deg; --tz: 46px; --px: -10px; --py: -6px; transform-origin: 0% 50%; }
+:root[data-style="cyberpunk"] .tilt--window { --ry: -9deg; --rx: 1deg; --tz: -60px; --px: 22px; --py: 12px; --ty: 6deg; left: 1070px; top: 135px; width: 770px; height: 800px; transform-origin: 0% 50%; }
+:root[data-style="cyberpunk"] .tilt--call { --ry: -8deg; --rx: 2deg; --tz: -10px; --px: 18px; --py: 10px; transform-origin: 15% 50%; }
+
+/* ---------------------------------------------------------------- the slab */
+:root[data-style="cyberpunk"] .nl3d {
+  --cc3: var(--nl-c, 16px);
+  transform-style: preserve-3d;
+  transform: rotateY(calc(var(--lx, 0) * 2deg)) rotateX(calc(var(--ly, 0) * -1.5deg)) translateZ(0);
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: nl-assemble 900ms cubic-bezier(0.16, 0.84, 0.2, 1) backwards;
+}
+:root[data-style="cyberpunk"] .nl3d__face { transform: translateZ(0); }
+:root[data-style="cyberpunk"] .nl3d__bloom, :root[data-style="cyberpunk"] .nl3d__depth,
+:root[data-style="cyberpunk"] .nl3d__glint, :root[data-style="cyberpunk"] .nl3d__halo, :root[data-style="cyberpunk"] .nl3d__corners { display: block; pointer-events: none; }
+
+/* thickness: the cut-corner frame repeated behind the face */
+:root[data-style="cyberpunk"] .nl3d__depth { position: absolute; inset: 0; transform-style: preserve-3d; }
+:root[data-style="cyberpunk"] .nl3d__depth i {
+  position: absolute; inset: 0;
+  --bwx: 1px;
+  --bcx: rgba(46, 230, 245, calc(0.5 - var(--k) / var(--n) * 0.36));
+  border: var(--bwx) solid var(--bcx);
+  background:
+    linear-gradient(135deg, transparent calc(var(--cc3) * 0.7071 - 0.5px), var(--bcx) calc(var(--cc3) * 0.7071 - 0.5px) calc(var(--cc3) * 0.7071 + var(--bwx)), transparent 0) border-box,
+    linear-gradient(-45deg, transparent calc(var(--cc3) * 0.7071 - 0.5px), var(--bcx) calc(var(--cc3) * 0.7071 - 0.5px) calc(var(--cc3) * 0.7071 + var(--bwx)), transparent 0) border-box,
+    rgba(46, 230, 245, 0.025) padding-box;
+  clip-path: polygon(var(--cc3) 0, 100% 0, 100% calc(100% - var(--cc3)), calc(100% - var(--cc3)) 100%, 0 100%, 0 var(--cc3));
+  transform: translateZ(calc(var(--k) * -5px));
+  animation: nl-extrude 760ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(420ms + var(--k) * 45ms);
+}
+/* the back plate: a darker sheet so the slab reads solid */
+:root[data-style="cyberpunk"] .nl3d__depth i:last-child { --bcx: rgba(46, 230, 245, 0.16); background: rgba(2, 8, 14, 0.5); }
+
+/* bloom: a soft cyan light behind the glass, breathing */
+:root[data-style="cyberpunk"] .nl3d__bloom {
+  position: absolute; inset: -24px;
+  transform: translateZ(-60px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(46, 230, 245, 0.22), rgba(46, 230, 245, 0.06) 55%, transparent 72%);
+  filter: blur(18px);
+  animation: nl-breathe 5.5s ease-in-out infinite;
+}
+:root[data-style="cyberpunk"] .nl3d--sel .nl3d__bloom { background: radial-gradient(ellipse at 50% 45%, rgba(255, 59, 72, 0.22), transparent 70%); }
+:root[data-style="cyberpunk"] .nl3d--ok .nl3d__bloom { background: radial-gradient(ellipse at 50% 45%, rgba(46, 230, 168, 0.2), transparent 70%); }
+
+/* the halo: light comets orbiting the border (a crisp ring and its glow) */
+:root[data-style="cyberpunk"] .nl3d__halo { position: absolute; inset: 0; transform: translateZ(3px); animation: nl-orbit 6.5s linear infinite; }
+:root[data-style="cyberpunk"] .nl3d.is-hover .nl3d__halo { animation-duration: 3.2s; }
+:root[data-style="cyberpunk"] .nl3d__halo::before, :root[data-style="cyberpunk"] .nl3d__halo::after {
+  content: ""; position: absolute;
+  /* a steady cyan rim (the mockup's lit edges) under two running comets */
+  background:
+    conic-gradient(from var(--nl-a),
+      transparent 0deg, transparent 40deg,
+      rgba(46, 230, 245, 0) 60deg, rgba(46, 230, 245, 0.9) 92deg, #ffffff 100deg, rgba(164, 247, 255, 0) 112deg,
+      transparent 150deg, transparent 200deg,
+      rgba(255, 59, 72, 0) 232deg, rgba(255, 59, 72, 0.95) 262deg, #ffd0d4 268deg, rgba(255, 59, 72, 0) 280deg,
+      transparent 320deg),
+    linear-gradient(rgba(46, 230, 245, 0.42), rgba(46, 230, 245, 0.42));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+:root[data-style="cyberpunk"] .nl3d__halo::before {
+  inset: -1px; padding: 2px;
+  clip-path: polygon(var(--cc3) 0, 100% 0, 100% calc(100% - var(--cc3)), calc(100% - var(--cc3)) 100%, 0 100%, 0 var(--cc3));
+}
+:root[data-style="cyberpunk"] .nl3d__halo::after { inset: -7px; padding: 8px; filter: blur(7px); opacity: 0.85; animation: nl-rim 4.5s ease-in-out infinite; }
+@keyframes nl-rim { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+:root[data-style="cyberpunk"] .nl3d--ok .nl3d__halo::before, :root[data-style="cyberpunk"] .nl3d--ok .nl3d__halo::after { filter: hue-rotate(-30deg); }
+:root[data-style="cyberpunk"] .nl3d--ok .nl3d__halo::after { filter: hue-rotate(-30deg) blur(7px); }
+
+/* corner brackets hovering in front of the glass */
+:root[data-style="cyberpunk"] .nl3d__corners { position: absolute; inset: -12px; transform: translateZ(22px); transform-style: preserve-3d; }
+:root[data-style="cyberpunk"] .nl3d__corners i {
+  position: absolute; width: 30px; height: 30px; border: 2px solid var(--nl-hot);
+  filter: drop-shadow(0 0 5px rgba(46, 230, 245, 0.95));
+  animation: nl-corner 3.2s ease-in-out infinite;
+}
+:root[data-style="cyberpunk"] .nl3d__corners i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; }
+:root[data-style="cyberpunk"] .nl3d__corners i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; animation-delay: 0.8s; }
+:root[data-style="cyberpunk"] .nl3d__corners i:nth-child(3) { right: 0; bottom: 0; border-left: 0; border-top: 0; animation-delay: 1.6s; border-color: #ff6570; filter: drop-shadow(0 0 5px rgba(255, 59, 72, 0.95)); }
+:root[data-style="cyberpunk"] .nl3d__corners i:nth-child(4) { left: 0; bottom: 0; border-right: 0; border-top: 0; animation-delay: 2.4s; }
+
+/* glint: a specular light following the cursor and a slow iridescent sweep */
+:root[data-style="cyberpunk"] .nl3d__glint {
+  position: absolute; inset: 0; transform: translateZ(1px); mix-blend-mode: screen;
+  clip-path: polygon(var(--cc3) 0, 100% 0, 100% calc(100% - var(--cc3)), calc(100% - var(--cc3)) 100%, 0 100%, 0 var(--cc3));
+  background:
+    radial-gradient(420px circle at var(--gx, 22%) var(--gy, 12%), rgba(164, 247, 255, 0.13), transparent 50%),
+    linear-gradient(112deg, transparent 0 40%, rgba(164, 247, 255, 0.07) 46%, rgba(255, 120, 200, 0.05) 50%, rgba(164, 247, 255, 0.07) 54%, transparent 60%) 0 0 / 300% 100% no-repeat;
+  animation: nl-sweep 9s ease-in-out 2s infinite;
+  opacity: 0.9;
+  transition: opacity 300ms;
+}
+
+/* ---------------------------------------------------------------- per group */
+/* the card glitches in on its face (the tilt keeps its 3D) */
+:root[data-style="cyberpunk"] .tilt--card .nl3d__face { animation: cp-glitch-in 620ms steps(1, end) 520ms backwards; }
+:root[data-style="cyberpunk"] .shell.is-open .tilt--card .nl3d__face { animation-delay: 0ms; animation-duration: 380ms; }
+:root[data-style="cyberpunk"] .shell.is-opening .tilt--card .nl3d { animation-delay: 160ms; }
+:root[data-style="cyberpunk"] .shell.is-opening .tilt--panel .nl3d { animation-delay: 420ms; }
+:root[data-style="cyberpunk"] .shell.is-opening .tilt--window .nl3d { animation-delay: 560ms; }
+:root[data-style="cyberpunk"] .tilt--window .nl3d, :root[data-style="cyberpunk"] .tilt--call .nl3d { --nl-in-ry: 24deg; }
+/* the sub-panel's glitch must not leave a clip-path behind: its rows float in 3D */
+:root[data-style="cyberpunk"] .subpanel { animation-fill-mode: backwards; transform-style: preserve-3d; }
+:root[data-style="cyberpunk"] .nl3d--board > .nl3d__face, :root[data-style="cyberpunk"] .subpanel__rows { transform-style: preserve-3d; }
+:root[data-style="cyberpunk"] .subpanel__head { transform: translateZ(10px); }
+:root[data-style="cyberpunk"] .nl3d--board .nl3d__depth i { --bcx: rgba(46, 230, 245, calc(0.3 - var(--k) / var(--n) * 0.2)); }
+:root[data-style="cyberpunk"] .nl3d--board { padding: 8px; margin: -8px; }
+:root[data-style="cyberpunk"] .slab { transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1); animation-fill-mode: backwards; }
+:root[data-style="cyberpunk"] .slab:hover { transform: translateZ(14px) translateX(2px); }
+:root[data-style="cyberpunk"] .slab.is-active { transform: translateZ(8px); }
+
+/* ---------------------------------------------------------------- the column */
+:root[data-style="cyberpunk"] .column {
+  transform-style: preserve-3d;
+  transform:
+    translate3d(calc(var(--mx) * -3px), calc(var(--my) * -2px), 70px)
+    rotateY(calc(16deg + var(--mx) * 2.5deg)) rotateX(calc(var(--my) * -1.5deg));
+}
+:root[data-style="cyberpunk"] .column__slot { transform-style: preserve-3d; animation-fill-mode: backwards; }
+:root[data-style="cyberpunk"] .rb { transform-style: preserve-3d; transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+:root[data-style="cyberpunk"] .rb:hover { transform: translateZ(18px) scale(1.04); }
+:root[data-style="cyberpunk"] .rb:active { transform: translateZ(6px) scale(0.97); }
+:root[data-style="cyberpunk"] .rb.is-selected { transform: translateZ(24px); }
+:root[data-style="cyberpunk"] .rb__disc { transform: translateZ(0); }
+:root[data-style="cyberpunk"] .rb__icon { transform: translateZ(0); }
+/* the puck's rim: octagon frames stacked behind the disc */
+:root[data-style="cyberpunk"] .rb__rim { display: block; position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
+:root[data-style="cyberpunk"] .rb__rim i {
+  position: absolute; inset: 0;
+  --cc: 22%; --bwx: 1.5px; --bcx: rgba(46, 230, 245, 0.5);
+  border: var(--bwx) solid var(--bcx);
+  background:
+    linear-gradient(135deg, transparent calc(var(--cc) * 0.7071 - 0.5px), var(--bcx) calc(var(--cc) * 0.7071 - 0.5px) calc(var(--cc) * 0.7071 + var(--bwx)), transparent 0) border-box,
+    linear-gradient(-45deg, transparent calc(var(--cc) * 0.7071 - 0.5px), var(--bcx) calc(var(--cc) * 0.7071 - 0.5px) calc(var(--cc) * 0.7071 + var(--bwx)), transparent 0) border-box,
+    linear-gradient(45deg, transparent calc(var(--cc) * 0.7071 - 0.5px), var(--bcx) calc(var(--cc) * 0.7071 - 0.5px) calc(var(--cc) * 0.7071 + var(--bwx)), transparent 0) border-box,
+    linear-gradient(-135deg, transparent calc(var(--cc) * 0.7071 - 0.5px), var(--bcx) calc(var(--cc) * 0.7071 - 0.5px) calc(var(--cc) * 0.7071 + var(--bwx)), transparent 0) border-box,
+    rgba(4, 14, 22, 0.85) padding-box;
+  clip-path: polygon(var(--cc) 0, calc(100% - var(--cc)) 0, 100% var(--cc), 100% calc(100% - var(--cc)), calc(100% - var(--cc)) 100%, var(--cc) 100%, 0 calc(100% - var(--cc)), 0 var(--cc));
+}
+:root[data-style="cyberpunk"] .rb__rim i:nth-child(1) { transform: translateZ(-4px); }
+:root[data-style="cyberpunk"] .rb__rim i:nth-child(2) { transform: translateZ(-8px); --bcx: rgba(46, 230, 245, 0.38); }
+:root[data-style="cyberpunk"] .rb__rim i:nth-child(3) { transform: translateZ(-12px); --bcx: rgba(46, 230, 245, 0.26); }
+:root[data-style="cyberpunk"] .rb__rim i:nth-child(4) { transform: translateZ(-16px); --bcx: rgba(46, 230, 245, 0.16); }
+:root[data-style="cyberpunk"] .rb.is-selected .rb__rim i { --bcx: rgba(255, 59, 72, 0.7); background-color: rgba(60, 4, 10, 0.85); }
+:root[data-style="cyberpunk"] .rb.is-selected .rb__rim i:nth-child(n+3) { --bcx: rgba(255, 59, 72, 0.35); }
+:root[data-style="cyberpunk"] .rb--danger .rb__rim i { --bcx: rgba(255, 59, 72, 0.45); }
+:root[data-style="cyberpunk"] .rb--ok .rb__rim i { --bcx: rgba(46, 230, 168, 0.6); }
+/* the selected puck: an orbiting ring of light and a red bloom */
+:root[data-style="cyberpunk"] .rb.is-selected::before {
+  content: ""; position: absolute; inset: -11px; pointer-events: none; transform: translateZ(4px);
+  background: conic-gradient(from var(--nl-a), transparent 0 30%, rgba(255, 59, 72, 0.95) 45%, #fff 48%, transparent 60%, transparent 80%, rgba(46, 230, 245, 0.9) 92%, transparent);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  padding: 2px;
+  clip-path: polygon(22% 0, 78% 0, 100% 22%, 100% 78%, 78% 100%, 22% 100%, 0 78%, 0 22%);
+  animation: nl-orbit 2.4s linear infinite;
+}
+:root[data-style="cyberpunk"] .rb.is-selected .rb__disc { filter: drop-shadow(0 0 14px rgba(255, 59, 72, 0.75)); }
+/* the spine: impulses running down it */
+:root[data-style="cyberpunk"] .column__spine { width: 3px; }
+:root[data-style="cyberpunk"] .column__spine::after {
+  content: ""; position: absolute; inset: 0 -2px;
+  background: linear-gradient(180deg, transparent, rgba(164, 247, 255, 0.95) 40%, #fff 50%, rgba(46, 230, 245, 0.9) 60%, transparent) 0 -160px / 100% 140px no-repeat;
+  filter: blur(1px) drop-shadow(0 0 6px rgba(46, 230, 245, 0.95));
+  animation: nl-spine 2.6s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+/* ---------------------------------------------------------------- field and fibres */
+:root[data-style="cyberpunk"] .neural-field { mix-blend-mode: screen; animation: fade-in 1400ms ease 200ms both; }
+:root[data-style="cyberpunk"] .synapse .syn { transition: opacity 260ms ease; }
+/* the fibres wait for the panels to land (they would follow them in flight) */
+:root[data-style="cyberpunk"] .synapse { transition: opacity 500ms ease; }
+:root[data-style="cyberpunk"] .shell.is-opening .synapse { opacity: 0; transition: none; }
+:root[data-style="cyberpunk"] .syn path { fill: none; stroke-linecap: round; }
+:root[data-style="cyberpunk"] .syn__bloom { stroke: rgba(46, 230, 245, 0.55); stroke-width: 8; }
+:root[data-style="cyberpunk"] .syn__core { stroke: var(--nl-hot); stroke-width: 1.6; }
+:root[data-style="cyberpunk"] .syn__flow { stroke: #fff; stroke-width: 2; stroke-dasharray: 3 16; animation: nl-flow 0.9s linear infinite; opacity: 0.85; }
+:root[data-style="cyberpunk"] .syn__dot { fill: #fff; filter: drop-shadow(0 0 5px #2ee6f5) drop-shadow(0 0 10px #2ee6f5); }
+:root[data-style="cyberpunk"] .syn__end { fill: #04101a; stroke: var(--nl-hot); stroke-width: 1.5; }
+:root[data-style="cyberpunk"] .syn--0 .syn__bloom { stroke: rgba(255, 59, 72, 0.55); }
+:root[data-style="cyberpunk"] .syn--0 .syn__core { stroke: #ff8c94; }
+:root[data-style="cyberpunk"] .syn--0 .syn__dot { filter: drop-shadow(0 0 5px #ff3b48) drop-shadow(0 0 10px #ff3b48); }
+:root[data-style="cyberpunk"] .syn--0 .syn__end { stroke: #ff8c94; }
+
+/* ---------------------------------------------------------------- glitch, close */
+:root[data-style="cyberpunk"] .nl3d.is-glitch > .nl3d__face { animation: nl-tear 300ms steps(1, end) both; }
+:root[data-style="cyberpunk"] .nl3d.is-glitch > .nl3d__halo { animation-duration: 0.6s; }
+:root[data-style="cyberpunk"] .shell.is-closing .tilt--card { animation: none; }
+:root[data-style="cyberpunk"] .shell.is-closing .nl3d { animation: nl-fall 300ms cubic-bezier(0.5, 0, 0.75, 0) both; }
+:root[data-style="cyberpunk"] .shell.is-closing :is(.synapse, .neural-field) { opacity: 0; transition: opacity 180ms ease; }
+
+/* ---------------------------------------------------------------- keyframes */
+@keyframes nl-assemble {
+  0% { opacity: 0; transform: translateZ(-420px) rotateY(var(--nl-in-ry, -26deg)) rotateX(16deg); }
+  45% { opacity: 1; }
+  70% { transform: translateZ(18px) rotateY(0deg) rotateX(-1.5deg); }
+  100% { opacity: 1; transform: rotateY(0) rotateX(0) translateZ(0); }
+}
+@keyframes nl-extrude { from { opacity: 0; transform: translateZ(0); } }
+@keyframes nl-fall { to { opacity: 0; transform: translateZ(-260px) rotateX(-12deg); } }
+@keyframes nl-orbit { to { --nl-a: 360deg; } }
+@keyframes nl-breathe { 0%, 100% { opacity: 0.65; transform: translateZ(-60px) scale(1); } 50% { opacity: 1; transform: translateZ(-60px) scale(1.04); } }
+@keyframes nl-corner { 0%, 100% { opacity: 1; } 45% { opacity: 0.45; } 50% { opacity: 1; } 53% { opacity: 0.3; } 56% { opacity: 1; } }
+@keyframes nl-sweep { 0%, 15% { background-position: 0 0, 120% 0; } 55%, 100% { background-position: 0 0, -20% 0; } }
+@keyframes nl-spine { from { background-position: 0 -160px; } to { background-position: 0 calc(100% + 160px); } }
+@keyframes nl-flow { to { stroke-dashoffset: -38; } }
+@keyframes nl-tear {
+  0% { transform: translateX(-8px); clip-path: inset(10% 0 62% 0); filter: drop-shadow(-4px 0 rgba(255, 59, 72, 0.9)) drop-shadow(4px 0 rgba(46, 230, 245, 0.9)); }
+  20% { transform: translateX(10px); clip-path: inset(48% 0 18% 0); }
+  40% { transform: translateX(-4px); clip-path: inset(0 0 0 0); filter: drop-shadow(-2px 0 rgba(255, 59, 72, 0.8)) drop-shadow(2px 0 rgba(46, 230, 245, 0.8)); }
+  60% { transform: translateX(3px); clip-path: inset(70% 0 4% 0); }
+  80%, 100% { transform: none; clip-path: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="cyberpunk"] .nl3d, :root[data-style="cyberpunk"] .nl3d__depth i { animation: none; }
+}
+:root[data-motion="reduced"][data-style="cyberpunk"] :is(.nl3d, .nl3d__depth i, .nl3d__halo, .nl3d__glint, .nl3d__bloom, .nl3d__corners i, .column__spine::after) { animation: none; }
+
+/* ---------------------------------------------------------------- mockup match */
+/* Round column pucks (the mockup): glass discs with a lit cyan ring, stacked
+   round rims for the thickness. Specificity beats the "no circles" rule. */
+:root[data-style="cyberpunk"] .nl-stage .column .rb .rb__disc.rb__disc,
+:root[data-style="cyberpunk"] .nl-stage .column .rb .rb__rim.rb__rim i,
+:root[data-style="cyberpunk"] .nl-stage .column .rb.rb::before { border-radius: 50% !important; clip-path: none; }
+:root[data-style="cyberpunk"] .column .rb__disc {
+  border: 2px solid rgba(46, 230, 245, 0.85);
+  background: radial-gradient(circle at 50% 30%, rgba(30, 80, 100, 0.95), rgba(6, 20, 32, 0.95) 62%, rgba(3, 10, 17, 0.96));
+  box-shadow: 0 0 14px rgba(46, 230, 245, 0.55), inset 0 0 14px rgba(46, 230, 245, 0.25), inset 0 2px 0 rgba(164, 247, 255, 0.35);
+}
+:root[data-style="cyberpunk"] .column .rb:hover .rb__disc { border-color: var(--nl-hot); box-shadow: 0 0 22px rgba(46, 230, 245, 0.8), inset 0 0 18px rgba(46, 230, 245, 0.35); }
+:root[data-style="cyberpunk"] .column .rb.is-selected .rb__disc {
+  border-color: #ff8c94;
+  background: radial-gradient(circle at 50% 30%, #ff6570, #d01826 55%, #6e0911);
+  box-shadow: 0 0 26px rgba(255, 59, 72, 0.85), inset 0 2px 0 rgba(255, 200, 205, 0.5);
+}
+:root[data-style="cyberpunk"] .column .rb--danger .rb__disc { border-color: rgba(255, 59, 72, 0.9); box-shadow: 0 0 14px rgba(255, 59, 72, 0.5), inset 0 0 12px rgba(255, 59, 72, 0.2); }
+:root[data-style="cyberpunk"] .column .rb--ok .rb__disc { border-color: #a6ffe0; background: radial-gradient(circle at 50% 30%, #4af0b8, #13a070 60%, #0b5c42); box-shadow: 0 0 22px rgba(46, 230, 168, 0.75); }
+:root[data-style="cyberpunk"] .column .rb__rim i { border: 1.5px solid var(--bcx); background: rgba(4, 14, 22, 0.88); }
+:root[data-style="cyberpunk"] .column .rb.is-selected::before { inset: -9px; }
+:root[data-style="cyberpunk"] .column .rb.is-pulse::after { border-radius: 50% !important; clip-path: none; }
+
+/* brighter glass and lit edges, closer to the mockup */
+:root[data-style="cyberpunk"] {
+  --glass-hi: rgba(16, 44, 62, 0.82);
+  --glass: rgba(9, 28, 42, 0.78);
+  --glass-lo: rgba(5, 17, 28, 0.76);
+}
+:root[data-style="cyberpunk"] .nl3d__face > :is(.holo, .card, .subpanel) { --bc: rgba(120, 240, 255, 0.95); }
+:root[data-style="cyberpunk"] .nl3d__bloom { inset: -34px; }

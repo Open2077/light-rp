@@ -17,6 +17,16 @@
 .status__city { font-size: 12px; color: var(--ink-faint); letter-spacing: 0.22em; margin-top: 4px; }
 .status__sync { font-size: 15px; color: var(--sel-deep); }
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.nsync { display: flex; flex-direction: column; gap: 9px; padding: 2px 4px; }
+.nsync__row { display: grid; grid-template-columns: 190px 1fr 64px; align-items: center; gap: 16px; animation: fade-up 420ms var(--ease-out) both; animation-delay: calc(120ms + var(--i) * 70ms); }
+.nsync__label { font-size: 15px; letter-spacing: 0.14em; color: var(--ink); text-transform: uppercase; }
+.nsync__track { position: relative; height: 9px; background: rgba(var(--holo-rgb), 0.1); overflow: hidden; }
+.nsync__fill { position: absolute; inset: 0; transform-origin: 0 50%; background: linear-gradient(90deg, rgba(var(--holo-rgb), 0.55), var(--holo) 70%, var(--holo-2)); box-shadow: 0 0 10px rgba(var(--holo-rgb), 0.8); transition: transform 1.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.nsync__fill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent) -40% 0 / 30% 100% no-repeat; animation: nsync-run 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * 0.4s); }
+.nsync__ticks { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(3, 10, 17, 0.9) calc(25% - 1px) 25%); }
+.nsync__val { display: flex; align-items: center; justify-content: flex-end; gap: 10px; font-size: 20px; color: var(--ink-hi); }
+.nsync__val i { width: 3px; height: 18px; background: var(--sel); box-shadow: 0 0 8px rgba(var(--sel-rgb), 0.9); }
+@keyframes nsync-run { 0% { background-position: -40% 0; } 60%, 100% { background-position: 140% 0; } }
 .stat { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px; border-radius: 12px; background: rgba(var(--surface-rgb), 0.7); box-shadow: inset 0 0 0 1px rgba(120, 130, 145, 0.15); animation: fade-up 400ms var(--ease-out) both; }
 .stat__icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--sel-deep); background: rgba(var(--sel-rgb), 0.14); }
 .stat__val { font-size: 32px; color: var(--ink-hi); line-height: 1; }

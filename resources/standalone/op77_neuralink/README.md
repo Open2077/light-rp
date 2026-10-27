@@ -5,9 +5,16 @@ projects a holographic interface in front of the eyes. This resource is a
 complete neural phone for Open77 roleplay servers:
 
 - **an implant to install first**: a character starts without one; F2 then shows
-  "no Neural-Link detected" and offers an animated Kiroshi installation
-  (firmware, cortical port, synaptic connection, optic calibration, identity
-  binding). `config.implant` turns the requirement off or leaves the
+  a Kiroshi diagnostic seen through the player's eyes, over the game dimmed
+  behind dark glass: the eyelids open, the ocular suite boots, a WebGL wireframe
+  scan of the head finds no Neural-Link and waits for Install or Cancel. The
+  installation then runs the uplink, cortex mapping, optic nerve and spinal
+  binding, the implant docking on cortical port C7 and a hologram self-test
+  (about 22 seconds, faster with reduced motion), and the eyelids close on the
+  interface. Each beat has its Cyberpunk 2077 sound (generated cue table:
+  `neuralink-ui/src/implant/sounds.ts`). A refused installation stops on a fault
+  panel with Retry.
+  `config.implant` turns the requirement off or leaves the
   installation to a ripperdoc resource (exports `install`, `uninstall`,
   `isInstalled`);
 - **a phone line per character** (`NNN-NNNN`), assigned on first use and kept

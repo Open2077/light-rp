@@ -2,6 +2,7 @@
    selected button by the triangular pointer. */
 import { useStore, topView } from "@/store/store";
 import { Slab } from "@/components/Slab";
+import { Holo3D } from "@/components/Holo3D";
 import { Pointer } from "@/components/HoloPanel";
 import { clamp } from "@/lib/format";
 import { MENU_TITLES, panelRows, rowMatches } from "./menu";
@@ -26,6 +27,7 @@ export function SubPanel({ anchorY, missed }: { anchorY: number; missed: number 
 
   return (
     <div className="tilt tilt--panel" style={{ left: PANEL.x, top: y, width: PANEL.w }}>
+      <Holo3D cut={12} depth={3} className="nl3d--board">
       <section className="subpanel nl-hit" aria-label={meta.title}>
         <Pointer y={pointerY} />
         <header className="subpanel__head">
@@ -58,6 +60,7 @@ export function SubPanel({ anchorY, missed }: { anchorY: number; missed: number 
           <span>↑↓ select</span><span>⏎ open</span><span>esc back</span>
         </footer>
       </section>
+      </Holo3D>
     </div>
   );
 }

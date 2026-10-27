@@ -5,11 +5,11 @@
    the Settings preview asks Lua for the real file (`nl:sound preview:<name>`). */
 import { emit, isMock } from "@/bridge/open77";
 import { getStore, selectSettings } from "@/store/store";
+import type { InstallSound } from "@/implant/sounds";
 
 export type UiSound = "tick" | "select" | "back" | "open" | "close" | "send" | "chime" | "receive" | "connect" | "disconnect" | "error" | "toast" | "glitch"
-  // the implant installation (Lua plays them on two shared slots, see implant/timeline.ts)
-  | "implant_denied" | "implant_glitch" | "implant_boot" | "implant_flash" | "implant_calibrate" | "implant_granted"
-  | "implant_insert" | "implant_scan" | "implant_online";
+  // the implant installation (cues on its clock, generated in implant/sounds.ts)
+  | InstallSound;
 
 let lastTick = 0;
 

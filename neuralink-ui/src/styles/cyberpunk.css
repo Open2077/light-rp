@@ -75,7 +75,7 @@
 
 /* Corners: the game draws no circles in its menus. Everything angular, bar the
    few things that only read as circles. */
-:root[data-style="cyberpunk"] .nl-stage *:not(.avatar__voice):not(.status__orbit):not(.iid__iris):not(.ion__ring):not(.cp-round) {
+:root[data-style="cyberpunk"] .nl-stage *:not(.avatar__voice):not(.status__orbit):not(.cp-round) {
   border-radius: 0 !important;
 }
 
@@ -83,7 +83,7 @@
 :root[data-style="cyberpunk"] :is(
   .holo, .card, .subpanel__head, .slab, .btn, .icon-btn, .win__back, .field__box, .toggle, .slider, .seg,
   .stat, .pill, .lrow, .trow, .crow, .mrow, .prow, .chip, .accent, .ring-opt, .rb__label, .status__id, .empty__icon,
-  .toast, .inpill, .callhud, .endcard, .nolink__panel, .nolink__install, .irail, .iid__card, .dial__key
+  .toast, .inpill, .callhud, .endcard, .dial__key
 ) {
   --cc: var(--c, 12px);
   --bwx: var(--bw, 1.5px);
@@ -99,7 +99,7 @@
 
 /* Four cuts: octagons (column buttons, avatars, icon chips). */
 :root[data-style="cyberpunk"] :is(.rb__disc, .avatar__disc, .slab__icon, .win__icon, .subpanel__icon, .stat__icon, .check, .rb__badge,
-  .cbtn__disc, .incoming__wave, .inpill__icon, .inpill__wave, .callhud__icon, .callhud__mic, .endcard__icon, .toast__icon, .callbtn, .irail__mark) {
+  .cbtn__disc, .incoming__wave, .inpill__icon, .inpill__wave, .callhud__icon, .callhud__mic, .endcard__icon, .toast__icon, .callbtn) {
   --cc: var(--c, 22%);
   --bwx: var(--bw, 2px);
   --bcx: var(--bc, var(--line));
@@ -458,17 +458,6 @@
 :root[data-style="cyberpunk"] .callbtn { --bc: #a6ffe0; --fill: linear-gradient(180deg, #1fc890, #0b6b4c); box-shadow: none; }
 :root[data-style="cyberpunk"] .callbtn.is-off { filter: none; opacity: 1; --bc: var(--line-dim); --fill: rgba(6, 18, 28, 0.8); color: var(--ink-faint); }
 :root[data-style="cyberpunk"] .callbtn__glow { border-color: rgba(46, 230, 168, 0.6); clip-path: polygon(22% 0, 78% 0, 100% 22%, 100% 78%, 78% 100%, 22% 100%, 0 78%, 0 22%); animation-timing-function: steps(6, end); }
-
-/* the implant gate and installer */
-:root[data-style="cyberpunk"] .nolink__panel { --c: 18px; --bc: rgba(255, 59, 72, 0.85); --fill: linear-gradient(180deg, rgba(30, 6, 10, 0.94), rgba(12, 3, 6, 0.94)); }
-:root[data-style="cyberpunk"] .nolink__install { --c: 10px; }
-:root[data-style="cyberpunk"] .irail { --c: 10px; --bc: var(--line-dim); --fill: linear-gradient(180deg, rgba(10, 28, 41, 0.9), rgba(4, 13, 21, 0.9)); }
-:root[data-style="cyberpunk"] .irail.is-done { --bc: var(--line); }
-:root[data-style="cyberpunk"] .irail.is-active { --bc: #ff8c94; --fill: linear-gradient(180deg, #ff3b48, #a30f1a); box-shadow: none; text-shadow: none; }
-:root[data-style="cyberpunk"] .irail__mark { --c: 8px; --bw: 1.5px; --bc: var(--line-dim); --fill: transparent; box-shadow: none; }
-:root[data-style="cyberpunk"] .irail.is-done .irail__mark { --bc: var(--holo); --fill: var(--holo); color: #04101a; box-shadow: none; }
-:root[data-style="cyberpunk"] .irail.is-active .irail__mark { --bc: #fff; --fill: #fff; color: var(--sel-deep); box-shadow: none; }
-:root[data-style="cyberpunk"] .iid__card { --c: 18px; --bc: var(--line); --fill: linear-gradient(180deg, rgba(10, 28, 41, 0.94), rgba(4, 13, 21, 0.94)); }
 
 /* ================================================================ toasts */
 :root[data-style="cyberpunk"] .toast {

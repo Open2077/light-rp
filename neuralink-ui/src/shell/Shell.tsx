@@ -1,11 +1,16 @@
 /* The opened interface: link-start sequence, info card, SAO column, sub-panel
-   and the window host, all on a slightly tilted 3D plane that follows the
-   mouse a few degrees. Without an implant the implant gate takes its place. */
+   and the window host, all on a 3D plane that follows the (smoothed) mouse and
+   sways on its own when it rests. The Night City style adds the neural field
+   behind, the synapse fibres between the panels and random glitch bursts.
+   Without an implant the implant gate takes its place. */
 import { useEffect, useRef } from "react";
-import { getStore, implantGate, useStore } from "@/store/store";
+import { getStore, implantGate, useSettings, useStore } from "@/store/store";
 import { play } from "@/fx/sound";
 import { LinkStart } from "@/fx/LinkStart";
 import { Particles } from "@/fx/Particles";
+import { NeuralField } from "@/fx/NeuralField";
+import { pointerTo, space, stepSpace } from "@/fx/space";
+import { Synapse } from "./Synapse";
 import { InfoCard } from "./InfoCard";
 import { Column, columnLayout } from "./Column";
 import { SubPanel } from "./SubPanel";
@@ -24,7 +29,9 @@ export function Shell() {
   const openSeq = useStore((s) => s.openSeq);
   const ready = useStore((s) => !!s.state?.ready);
   const gated = useStore(implantGate);
+  const night = useSettings().style !== "sao";
   const planeRef = useRef<HTMLDivElement>(null);
+  const live = phase === "open" || phase === "opening";
 
   // Phase timers: opening -> open, closing -> closed.
   useEffect(() => {
@@ -41,36 +48,53 @@ export function Shell() {
     return undefined;
   }, [phase, openSeq]);
 
-  // Mouse parallax: two CSS variables on the plane, written once per frame.
+  // The plane follows the pointer (smoothed, swaying when it rests): --mx/--my
+  // on the plane, the same values in `space` for the canvases.
   useEffect(() => {
-    let raf = 0;
-    let mx = 0, my = 0;
     const move = (e: PointerEvent) => {
       document.documentElement.dataset.input = "mouse";
-      mx = (e.clientX / window.innerWidth) * 2 - 1;
-      my = (e.clientY / window.innerHeight) * 2 - 1;
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        const el = planeRef.current;
-        if (!el || reducedMotion()) return;
-        el.style.setProperty("--mx", mx.toFixed(3));
-        el.style.setProperty("--my", my.toFixed(3));
-      });
+      pointerTo((e.clientX / window.innerWidth) * 2 - 1, (e.clientY / window.innerHeight) * 2 - 1);
     };
     const key = (e: KeyboardEvent) => { if (e.key.startsWith("Arrow") || e.key === "Enter") document.documentElement.dataset.input = "kbd"; };
     window.addEventListener("pointermove", move, { passive: true });
     window.addEventListener("keydown", key);
+    let raf = 0, last = performance.now();
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      const el = planeRef.current;
+      if (!el || reducedMotion()) return;
+      stepSpace(Math.min(0.1, Math.max(0, (now - last) / 1000)), false);
+      last = now;
+      el.style.setProperty("--mx", space.x.toFixed(4));
+      el.style.setProperty("--my", space.y.toFixed(4));
+    };
+    if (live) raf = requestAnimationFrame(tick);
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("keydown", key); cancelAnimationFrame(raf); };
-  }, []);
+  }, [live]);
+
+  // Glitch bursts: now and then one floating panel tears for a fraction of a second.
+  useEffect(() => {
+    if (!live || !night || reducedMotion()) return;
+    let timer = 0, off = 0;
+    const burst = () => {
+      const panels = Array.from(document.querySelectorAll<HTMLElement>(".plane .nl3d"));
+      const el = panels[Math.floor(Math.random() * panels.length)];
+      if (el) { el.classList.add("is-glitch"); off = window.setTimeout(() => el.classList.remove("is-glitch"), 180 + Math.random() * 160); }
+      timer = window.setTimeout(burst, 4200 + Math.random() * 5200);
+    };
+    timer = window.setTimeout(burst, 3600);
+    return () => { window.clearTimeout(timer); window.clearTimeout(off); };
+  }, [live, night]);
 
   return (
     <div className={`shell is-${phase}`} key={openSeq}>
       {phase === "opening" && !gated && <LinkStart />}
-      {!gated && <Particles running={phase === "open" || phase === "opening"} />}
+      {!gated && !night && <Particles running={live} />}
+      {!gated && night && <NeuralField running={live} />}
       <div className="plane" ref={planeRef}>
         {!ready ? <SyncOverlay /> : gated ? <ImplantGate /> : <ShellBody />}
       </div>
+      {!gated && night && ready && <Synapse />}
     </div>
   );
 }
