@@ -693,8 +693,11 @@ local function placeDraft(kind)
         notice("You cannot place a board while your character is unavailable.");return
     end
     local hit=Open77.camera.screenRaycast(.5,.5,3,{static=true,dynamic=true})
-    local pos=hit and hit.hit and hit.position or {x=state.position.x,y=state.position.y+1,z=state.position.z-.8}
-    draft={kind=kind,position={x=pos.x,y=pos.y,z=pos.z+.015},rotation=0,axis="xy",height=0}
+    local pos=hit and hit.hit and hit.position or {x=state.position.x,y=state.position.y+1,z=state.position.z}
+    -- Start within reach even when the camera ray hits geometry below the map.
+    -- The height axis remains free so players can lower the preview afterwards.
+    local initialZ=math.max(pos.z+.015,state.position.z+.35)
+    draft={kind=kind,position={x=pos.x,y=pos.y,z=initialZ},rotation=0,axis="xy",height=0}
     local prop,why=createProp(draft,nil,draft.position,true)
     if not prop then draft=nil;unavailable(why);return end
     ghostProp=prop
