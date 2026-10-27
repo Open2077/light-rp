@@ -39,12 +39,17 @@
 !resources/assets/maps/ncpd_watson/**
 !resources/assets/maps/ncwe_local/
 !resources/assets/maps/ncwe_local/**
-# LightRP's own standalone resources: the Neural-Link phone and the icon catalogue.
+!resources/assets/maps/cardealer/
+!resources/assets/maps/cardealer/**
+# LightRP's own standalone resources: the Neural-Link phone, the icon catalogue
+# and the roleplay action bubbles.
 !resources/standalone/
 !resources/standalone/op77_neuralink/
 !resources/standalone/op77_neuralink/**
 !resources/standalone/open77_icons/
 !resources/standalone/open77_icons/**
+!resources/standalone/op77_actionbubble/
+!resources/standalone/op77_actionbubble/**
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**
