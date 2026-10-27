@@ -14,8 +14,8 @@ All item labels, controls, status messages and errors are in English.
 Use an item to place its board. The inventory closes before placement takes the
 cursor. Hold the mouse to move it, use X/Y/Z to constrain
 an axis, Q/D to rotate, Page Up/Down to adjust height, and E to confirm.
-Backspace or Escape cancels. Placement must be within 4 metres. Each character
-can place three boards; the server limit is 64.
+Backspace or Escape cancels. Placement must be within 4 metres. There is no
+per-character or server-wide placement count limit; nearby props stream as needed.
 
 Press E near a board to join. The owner can choose Solo vs AI, 1v1 or 2v2 before
 the first move. Teams share a colour; full turns alternate White 1, Black 1,
@@ -30,8 +30,8 @@ rotation and scroll zoom. Left-drag moves the selected prop visually; the server
 receives the move only on release. Native and custom HUDs and nearby interaction
 prompts are hidden during play and restored on exit.
 Connect Four uses a camera facing its upright grid: click a column to drop a
-disc. Backspace or Escape leaves the seat. Alt near the board returns it to its
-owner's inventory, even after reconnecting, and closes all seated players' views.
+disc. Backspace or Escape leaves the seat. The target menu's Pick up board action
+returns it to its owner's inventory, even after reconnecting, and closes all seated players' views.
 
 Chess supports castling, en passant, checkmate/stalemate, repetition, insufficient
 material and promotion. The mouse interface promotes to a queen automatically;

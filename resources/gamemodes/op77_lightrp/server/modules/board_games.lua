@@ -1,6 +1,7 @@
 -- The durable board and its inventory item change in the same SQL transaction.
 local Inv, Db = LightRP.inventory, LightRP.db
 local boards, pending, last, playerBusy = {}, {}, {}, {}
+local lastDiagnostic = {}
 local loaded, serial, placementBusy = false, 0, false
 local REQUEST, STATE, PLACE = "lightrp:boardGames:request", "lightrp:boardGames:state", "lightrp:boardGames:place"
 Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_board_games (
@@ -132,13 +133,9 @@ local function place(player,p,inv)
     local here=Open77.players.position(player)
     local candidate={position={x=pos.x,y=pos.y,z=pos.z},bucket=here and here.bucket or 0}
     if not near(player,candidate,4) then return false,"Place the board nearby." end
-    local count,all=0,0
     for _,b in pairs(boards) do
-        all=all+1
-        if b.ownerInventory==inv.id then count=count+1 end
         if b.bucket==candidate.bucket and (b.position.x-pos.x)^2+(b.position.y-pos.y)^2+(b.position.z-pos.z)^2<1.5^2 then return false,"Another board is too close." end
     end
-    if count>=3 or all>=64 then return false,"Board limit reached." end
     local draft=Inv.draft(inv); local found
     for slot,item in pairs(draft.items) do
         if item.name==spec.item then found=true;item.count=item.count-1;if item.count==0 then draft.items[slot]=nil end;break end
@@ -218,8 +215,16 @@ for kind,spec in pairs(LightRpBoardGames) do
 end
 RegisterNetEvent(REQUEST,function(p)
     local player=tonumber(source)
-    if not player or type(p)~="table" or playerBusy[player] then return end
+    if not player or player<=0 or type(p)~="table" then return end
     local now=LightRP.nowMs()
+    if p.action=="diagnostic" then
+        if p.event~="stop" or type(p.reason)~="string" or #p.reason>64 or (lastDiagnostic[player] and now-lastDiagnostic[player]<2000) then return end
+        lastDiagnostic[player]=now
+        local function clean(value,limit) return tostring(value or ""):sub(1,limit):gsub("[%c]"," ") end
+        LightRP.log("board_games client stop player=%d board=%s reason=%s details=%s",player,clean(p.boardId,96),clean(p.reason,64),clean(p.details,180))
+        return -- Diagnostics must not consume the gameplay action rate budget.
+    end
+    if playerBusy[player] then return end
     if last[player] and now-last[player]<150 then return end
     last[player]=now
     if p.action=="sync" then push(player);return end
@@ -250,7 +255,7 @@ LightRP.module("board_games",{
         loaded=true;broadcast()
     end,
     onUiReady=push,
-    onDisconnected=function(player) last[player]=nil;release(player) end,
+    onDisconnected=function(player) last[player]=nil;lastDiagnostic[player]=nil;release(player) end,
     onCharacterLoaded=release,
     onLifeState=function(player) if not active(player) then release(player) end end,
 })

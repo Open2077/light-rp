@@ -299,4 +299,25 @@ LightRPBoardRules.aiMove=real
 print('AI server strict scheduler: worst '..maxResumeInstructions..' instructions/resume across '..aiResumeCount..' resumes')
 assert(maxResumeInstructions<=25000)
 """)
-print('board games server: lifecycle, ownership, replay, transactions, restart, teams and cooperative solo AI tests passed')
+lua.execute("""
+-- Stop telemetry is bounded, sanitized and independent from gameplay throttling.
+local handle=handlers['lightrp:boardGames:request'];source=4;clock=clock+3000
+local prior=#logs
+handle({action='diagnostic',event='stop',reason='client_error',boardId='solo-chain',details='line 258'..string.char(10)..'probe'})
+assert(#logs==prior+1 and not logs[#logs]:find(string.char(10),1,true))
+handle({action='diagnostic',event='stop',reason='ui_leave'});assert(#logs==prior+1)
+events[4]=nil;handle({action='sync'});assert(events[4] and events[4].boards,'diagnostics consumed the gameplay rate budget')
+clock=clock+3000;handle({action='diagnostic',event='stop',reason=string.rep('x',65)});assert(#logs==prior+1)
+""")
+lua.execute("dbrows={};tasks={};inventories[1].items={[1]={name='chess_board',count=70}}")
+lua.execute(server_source)
+lua.execute("""
+modules.board_games.onDatabaseReady()
+for i=1,70 do
+ positions[1].x=i*2;positions[1].y=0;positions[1].z=0;positions[1].bucket=0
+ assert(uses.chess_board(1)=='keep')
+ request(1,{action='place',kind='chess',position={x=i*2,y=0,z=0}})
+end
+assert(#boards(1)==70,'placement count limits must remain removed')
+""")
+print('board games server: lifecycle, ownership, replay, transactions, restart, teams, cooperative AI, diagnostics and 70 unlimited placements passed')

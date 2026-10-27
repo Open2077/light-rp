@@ -18,11 +18,19 @@ function LightRpUi.send(name,p)
  elseif name=='dialogClose' then closeRequest=p
  elseif name=='notice' then lastNotice=p.body end
 end
-function LightRpUi.log(...) error(string.format(...)) end
+logs,diagnostics={},{}
+function LightRpUi.log(...)
+ local text=string.format(...)
+ logs[#logs+1]=text
+ if not text:find('board games stop:',1,true) then error(text) end
+end
 function LightRpUi.setMenuOpen(v) LightRpUi.menuOpen=v end
 function RegisterNetEvent(n,f) events[n]=f end
 function AddEventHandler(n,f) handlers[n]=f end
-function TriggerServerEvent(n,p) requests[#requests+1]=p end
+function TriggerServerEvent(n,p)
+ if p.action=='diagnostic' then diagnostics[#diagnostics+1]=p else requests[#requests+1]=p end
+ return true
+end
 function TriggerEvent(name,owner,value)
  assert(name=='open-voice:setHudBlocked' and owner=='op77_lightrp:boardGames')
  voiceHudBlocked=value
@@ -34,19 +42,40 @@ function GetCurrentResourceName() return 'test' end
 LightRpInteract={points={}}
 function LightRpInteract.setLocal(id,p,callback) LightRpInteract.points[id]=p and {p=p,callback=callback} or nil end
 LightRpControlClaims={set=function() return true end}
-exports={open77_contextmenu={setTargetingEnabled=function()return true end}}
+exportCallbacks={}
+exports=setmetatable({},{__call=function(_,name,fn)exportCallbacks[name]=fn end})
+function GetInvokingResource()return invokingResource end
 local char={alive=true,attached=true,position={x=0,y=0,z=.5}}
-Open77={network={status=function()return {playerId=7}end},character={},input={},camera={},debugDraw={},audio={},props={},hud={}}
+Open77={network={status=function()return {playerId=7}end},character={},input={},camera={},debugDraw={},audio={},props={},hud={},exports={}}
+contextTargetingEnabled=true;contextCloseCalls=0
+function Open77.exports.call(resource,name,definition)
+ assert(resource=='open77_contextmenu')
+ local result
+ if name=='registerProps' then
+  assert(definition.id=='boardGames.pickup' and definition.networked==false and definition.distance==2)
+  targetDefinition=definition;result='board-pickup-token'
+ elseif name=='setTargetingEnabled' then contextTargetingEnabled=definition;result=true
+ elseif name=='close' then contextCloseCalls=contextCloseCalls+1;result=true
+ else error('unexpected context export '..tostring(name))end
+ return {await=function()
+  if delayContext and name=='setTargetingEnabled' then coroutine.yield()end
+  return result
+ end}
+end
 function Open77.character.state() return char end
 function Open77.character.setFrozen(v) frozen=v;return true end
 function Open77.input.isDown(k) return keys[k]==true end
 function Open77.input.isCaptured() return focus end
 function Open77.input.cursor()return {x=.5,y=.5,inBounds=true}end
-function Open77.camera.cameras()return {held=camera~=nil,activeCamera=camera}end
+function Open77.camera.cameras()
+ if registryNil then return nil end
+ if registryOverride then return registryOverride end
+ return {held=camera~=nil,activeCamera=camera}
+end
 function Open77.camera.create(spec)
  if spec.lookAt then assert(spec.position.y<spec.lookAt.y or spec.position.x~=spec.lookAt.x)
  else assert(spec.rotation.pitch < -85)end
- cameraSpec=spec;return 'camera'
+ cameraSpec=spec;return cameraReturnId or 'camera'
 end
 function Open77.camera.activate(id)camera=id;return true end
 function Open77.camera.setTransform(id,p)
@@ -60,7 +89,7 @@ function Open77.hud.setCinematic(value,height)
  if value then assert(height==.01)end
  cinematic=value;return true
 end
-function Open77.camera.destroy(id) assert(id=='camera');camera=nil;stoppedCamera=true;return true end
+function Open77.camera.destroy(id) assert(id=='camera' or id==cameraReturnId);camera=nil;stoppedCamera=true;return true end
 function Open77.camera.screenRay(x,y)
  if forcedRay then return forcedRay end
  if cameraSpec and cameraSpec.lookAt and camera then
@@ -165,6 +194,13 @@ lua.execute(r'''
 LightRpBoardGameModels={board=function()error('debug models must not be used')end,piece=function()error('debug models must not be used')end}
 local C=LightRpBoardGamesClient
 C.bind(page);C.start();assert(#requests==0);step();assert(#requests==0);step();assert(last().action=='sync')
+-- A delayed target-disable export cannot win after a rapid game exit.
+delayContext=true
+events['lightrp:boardGames:place']({kind='chess'});step();step()
+assert(contextTargetingEnabled==false)
+pageHandlers['lightrp:boardGames:leave']({});step();step();step()
+delayContext=false
+assert(not C.isActive() and contextTargetingEnabled==true and not focus,'late target claims must restore the final state')
 -- Item use must hand off inventory focus before opening placement.
 LightRpUi.dialogs.inventory=true;LightRpUi.promptActive=true;focus=true
 LightRpUi.menuOpen=true
@@ -240,6 +276,12 @@ local function pawnY()
  end
 end
 waitUntil(function()return nativeCount(1)==33 end,'complete initial chess mesh')
+-- Left press and an in-flight camera snapshot must retain the playing session.
+local leftCount=#requests
+registryNil=true;pointer({x=4.5/8,y=6.5/8,pressed=true});step()
+assert(C.isActive() and camera and #requests==leftCount)
+pointer({blocked=true});step();registryNil=false
+assert(C.isActive() and cinematic and voiceHudBlocked)
 local before=pawnY();assert(before)
 local oldCreates,oldRemoves=createdProps,removedProps
 local heldRequestCount=#requests
@@ -274,7 +316,19 @@ assert(not nativeProps[pawnHandle],'promotion replaces the pawn handle')
 edge('BACKSPACE');assert(last().action=='leave' and not camera and not frozen and not focus and stoppedCamera and cinematic==false and ordinaryHudClaim and voiceHudBlocked==false)
 -- Membership removal snapshot prevents reopening; nearby owner can retrieve via Alt.
 board.players={};events['lightrp:boardGames:state']({boards={board}})
-edge('ALT');assert(last().action=='pickup')
+local altCount=#requests;edge('ALT');assert(#requests==altCount,'ALT alone must never pick up a board')
+assert(targetDefinition and targetDefinition.canInteract=='boardGamesCanPickup' and targetDefinition.onSelect=='boardGamesPickup')
+local pickupContext={target={kind='prop',propId=boardProp(0),networked=false}}
+invokingResource='forged';assert(exportCallbacks.boardGamesCanPickup(pickupContext)==false)
+invokingResource='open77_contextmenu'
+assert(exportCallbacks.boardGamesCanPickup(pickupContext)==true)
+local pieceContext={target={kind='prop',propId=pawnHandle,networked=false}}
+assert(exportCallbacks.boardGamesCanPickup(pieceContext)==false,'targeting a piece cannot retrieve its board')
+board.owned=false;assert(exportCallbacks.boardGamesCanPickup(pickupContext)==false);board.owned=true
+Open77.character.state().position.x=3;assert(exportCallbacks.boardGamesCanPickup(pickupContext)==false)
+Open77.character.state().position.x=0
+assert(exportCallbacks.boardGamesPickup(pickupContext)==true and last().action=='pickup' and last().boardId==1)
+invokingResource=nil
 -- Switching nearest full boards must release old tags BEFORE allocating replacements.
 local second={id=2,owned=false,position={x=2,y=0,z=0},rotation=0,players={},revision=1,kind='chess',game=LightRPBoardRules.new('chess')}
 events['lightrp:boardGames:state']({boards={board,second}});step()
@@ -287,11 +341,21 @@ Open77.character.state().position.x=0;step()
 waitUntil(function()return nativeCount(1)==33 and nativeCount(2)==33 end,'nearby native boards stream back in')
 -- Lobby mode protocol is owner-only and locks once the game has started.
 Open77.character.state().position.x=0
+cameraReturnId=77
 local solo={id=3,owned=true,position={x=0,y=0,z=0},rotation=0,players={white=7},revision=1,
  kind='chess',mode='solo',ready=true,actor=7,game=LightRPBoardRules.new('chess')}
 events['lightrp:boardGames:state']({boards={solo}});step()
 assert(view.mode=='solo' and view.owned and view.ready and view.isActor and view.playerCount==1)
 assert(view.cameraView=='top' and #view.cameraViews==4)
+clock=clock+1300;registryOverride={held=true,activeCamera='77'};step()
+assert(C.isActive(),'numeric and string camera IDs represent the same camera')
+registryOverride={held=false};for i=1,20 do step()end
+assert(C.isActive(),'unknown camera IDs must not close the game')
+registryOverride={held=true,activeCamera='other-owner'};step();for i=1,6 do step()end
+assert(C.isActive(),'a transient foreign camera must respect the ownership grace')
+for i=1,12 do step()end
+assert(not C.isActive() and diagnostics[#diagnostics].reason=='camera_switched')
+registryOverride=nil;events['lightrp:boardGames:state']({boards={solo}});step();assert(C.isActive())
 for _,name in ipairs({'white','black','orbit','top'})do
  pageHandlers['lightrp:boardGames:camera']({view=name});assert(view.cameraView==name)
 end

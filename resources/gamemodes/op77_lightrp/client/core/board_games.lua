@@ -21,7 +21,7 @@ local SOUND_NAMES={['chess-move']=true,['chess-capture']=true,['checkers-move']=
     ['checkers-capture']=true,['connect4-drop']=true,['game-win']=true}
 local function request(action, payload)
     payload = payload or {}; payload.action = action
-    TriggerServerEvent(NET, payload)
+    return TriggerServerEvent(NET, payload)
 end
 local function notice(text)
     Ui.send(LightRpEvents.page.notice, { kind = "info", title = "Board Games", body = text })
@@ -94,11 +94,33 @@ local function sendView(force)
             local count=0;for _,id in pairs(board.players or {}) do if id then count=count+1 end end;return count
         end)(),selected=active and active.selected,axis=draft and draft.axis,
         text=draft and "Mouse: position • hold click: move • X/Y/Z: axis • Q/D: rotate • PgUp/PgDn: height • E: place • Backspace: cancel"
-            or (board and board.kind=="connect4" and "Click a column to drop a disc • Backspace: leave • ALT near your board: pick up"
-                or "Drag a piece or click its start and destination • Backspace: leave • ALT near your board: pick up")})
+            or (board and board.kind=="connect4" and "Click a column to drop a disc • Backspace: leave • Target your board to pick it up"
+                or "Drag a piece or click its start and destination • Backspace: leave • Target your board to pick it up")})
 end
+local contextBlocked,contextGeneration,contextWorker=false,0,false
 local function disableContext(value)
-    pcall(function() exports.open77_contextmenu:setTargetingEnabled(not value) end)
+    contextBlocked=value==true;contextGeneration=contextGeneration+1
+    if contextWorker then return end
+    contextWorker=true
+    CreateThread(function()
+        Wait(0)
+        while true do
+            local generation,wanted=contextGeneration,contextBlocked
+            local pending,why=Open77.exports.call("open77_contextmenu","setTargetingEnabled",not wanted)
+            local ok
+            if pending then ok,why=pending:await() end
+            if ok~=true then Ui.log("board games context claim failed: %s",tostring(why)) end
+            if wanted and generation==contextGeneration and ok==true then
+                local closing=Open77.exports.call("open77_contextmenu","close")
+                if closing then closing:await() end
+                if generation==contextGeneration and Client.isActive() and Ui.page then Ui.page:setFocus(false,true) end
+            end
+            -- Serialize rapid enter/leave changes: an old disable request must
+            -- never finish after the final enable request and keep target locked.
+            if generation==contextGeneration then break end
+        end
+        contextWorker=false
+    end)
 end
 local function takeInput()
     TriggerEvent("open-voice:setHudBlocked","op77_lightrp:boardGames",true)
@@ -125,8 +147,18 @@ local function releaseInput()
         end
     end
 end
-local function stop(notify)
+local lastDiagnostic=-10000
+local function stop(notify,reason,details)
     local old=active
+    if old or draft or pendingPlacement then
+        reason=tostring(reason or "unspecified"):sub(1,64)
+        details=tostring(details or ""):sub(1,180)
+        Ui.log("board games stop: %s board=%s %s",reason,tostring(old and old.id or "placement"),details)
+        if GetGameTimer()-lastDiagnostic>=2000 then
+            lastDiagnostic=GetGameTimer()
+            request("diagnostic",{event="stop",reason=reason,boardId=old and old.id,details=details})
+        end
+    end
     pendingPlacement=nil
     active,draft,pointer=nil,nil,nil
     if clearGhost then clearGhost() end
@@ -169,7 +201,7 @@ end
 local function startView(board)
     if failedBoards[tostring(board.id)] then notice(ASSET_HELP);request("leave",{boardId=board.id});return end
     if active and active.id==board.id then return end
-    if Client.isActive() then stop(true) end
+    if Client.isActive() then stop(true,"switch_board") end
     local registry=Open77.camera.cameras()
     if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or Ui.supportMode or not Ui.page
         or Ui.promptActive or not registry or registry.held then request("leave",{boardId=board.id});return end
@@ -179,10 +211,10 @@ local function startView(board)
     if not Open77.camera.activate(camera,{blendMs=250}) then Open77.camera.destroy(camera);request("leave",{boardId=board.id});return end
     if not Open77.character.setFrozen(true) then Open77.camera.destroy(camera);request("leave",{boardId=board.id});return end
     active={id=board.id,camera=camera,cameraView=view,frozen=true,revision=board.revision,
-        orbitAngle=-90,orbitRadius=1.8,orbitHeight=1.2}
+        orbitAngle=-90,orbitRadius=1.8,orbitHeight=1.2,cameraGraceUntil=GetGameTimer()+1200}
     takeInput()
     local hidden,reason=Open77.hud.setCinematic(true,.01)
-    if not hidden then notice("The game HUD could not be hidden: "..tostring(reason));stop(true);return end
+    if not hidden then notice("The game HUD could not be hidden: "..tostring(reason));stop(true,"hud_unavailable",reason);return end
     active.cinematic=true
     sendView(true)
 end
@@ -400,7 +432,7 @@ end
 local function failBoard(id,reason)
     if not failedBoards[id] then failedBoards[id]=true;unavailable(reason) end
     clearGeometry(id)
-    if active and tostring(active.id)==id then stop(true) end
+    if active and tostring(active.id)==id then stop(true,"model_unavailable",reason) end
 end
 local function propYaw(board,piece)
     return ((board.rotation or 0)+(piece and piece.kind=="knight" and piece.side=="white" and 180 or 0))%360
@@ -426,14 +458,14 @@ local function transformProp(record,position,yaw)
     -- Raw entity templates load asynchronously. Retain the original handle while
     -- they stream in; changing model or transform must never substitute a cube.
     if GetGameTimer()-record.created<3000 then return true end
-    if record.ghost then unavailable(why);stop(false) else failBoard(record.boardId,why) end
+    if record.ghost then unavailable(why);stop(false,"preview_transform_failed",why) else failBoard(record.boardId,why) end
     return false
 end
 local function validateProps()
     if next(ownedProps)==nil then return end
     local rows,why=Open77.props.list()
     if type(rows)~="table" then
-        if ghostProp then unavailable(why);stop(false) end
+        if ghostProp then unavailable(why);stop(false,"props_unavailable",why) end
         for id in pairs(renderCaches) do failBoard(id,why) end
         return
     end
@@ -453,7 +485,7 @@ local function validateProps()
     for _,failure in ipairs(failures) do
         local record=failure.record
         if record.handle then
-            if record.ghost then unavailable(failure.why);stop(false)
+            if record.ghost then unavailable(failure.why);stop(false,"preview_model_failed",failure.why)
             else failBoard(record.boardId,failure.why) end
         end
     end
@@ -498,6 +530,45 @@ local function ensureBoard(board)
     end end
     cache.initialized=true
 end
+local function pickupBoard(context)
+    if GetInvokingResource()~="open77_contextmenu" or Client.isActive() or pendingPlacement then return end
+    if not Ui.characterReady or Ui.creationActive or Ui.menuOpen or Ui.actionFocus or Ui.supportMode or Ui.promptActive then return end
+    if type(context)~="table" or type(context.target)~="table" then return end
+    local target=context.target
+    if target.kind~="prop" or target.networked~=false or (type(target.propId)~="string" and type(target.propId)~="number") then return end
+    local record=ownedProps[tostring(target.propId)]
+    if not record or record.ghost or not record.boardId then return end
+    local cache=renderCaches[record.boardId]
+    local board=Client.boards[tonumber(record.boardId) or record.boardId]
+    if not cache or cache.board~=record or not board or not board.owned then return end
+    local character=Open77.character.state()
+    if not character or character.alive~=true or character.attached~=true or not character.position
+        or distance(character.position,board.position)>2 then return end
+    return board
+end
+exports("boardGamesCanPickup",function(context) return pickupBoard(context)~=nil end)
+exports("boardGamesPickup",function(context)
+    local board=pickupBoard(context);if not board then return false end
+    return request("pickup",{boardId=board.id})==true
+end)
+local function registerPickup()
+    CreateThread(function()
+        Wait(0)
+        local pending,why=Open77.exports.call("open77_contextmenu","registerProps",{
+            id="boardGames.pickup",label="Pick up board",icon="package",networked=false,distance=2,
+            canInteract="boardGamesCanPickup",onSelect="boardGamesPickup",
+        })
+        local token
+        if pending then token,why=pending:await() end
+        if not token then Ui.log("board games target registration failed: %s",tostring(why)) end
+    end)
+end
+AddEventHandler("onClientResourceStart",function(name)
+    if name==GetCurrentResourceName() or name=="open77_contextmenu" then
+        registerPickup()
+        if name=="open77_contextmenu" then disableContext(Client.isActive()) end
+    end
+end)
 local function startRenderer()
     rendererRunning=true
     CreateThread(function()
@@ -615,7 +686,7 @@ local function beginPlacement(p)
     if placementUnavailable(true) or (Ui.promptActive and not Ui.dialogs.inventory and not Client.isActive()) then
         notice("Close the current dialog before placing your board.");return
     end
-    if Client.isActive() then stop(true) end
+    if Client.isActive() then stop(true,"switch_to_placement") end
     Ui.setMenuOpen(false)
     if Ui.dialogs.inventory then
         -- React closes the inventory asynchronously. Its cleanup releases focus
@@ -659,7 +730,7 @@ function Client.bind(page)
         if not applyCamera() then notice("This camera view is unavailable.") end
         sendView(true)
     end)
-    page:on("lightrp:boardGames:leave",function() if Client.isActive() then stop(true) end end)
+    page:on("lightrp:boardGames:leave",function() if Client.isActive() then stop(true,"ui_leave") end end)
     page:on("lightrp:boardGames:confirm",confirmPlacement)
     page:on("lightrp:boardGames:mode",function(p)
         local board=active and Client.boards[active.id]
@@ -683,7 +754,7 @@ RegisterNetEvent("lightrp:boardGames:state",function(payload)
             boardSound(board)
             if not Client.boards[board.id] then
                 LightRpInteract.setLocal("boardGames."..board.id,{position=board.position,radius=1.8,
-                    prompt=(board.kind=="chess" and "Chess" or board.kind=="connect4" and "Connect Four" or "Checkers").." — play • ALT: pick up"},function()
+                    prompt=(board.kind=="chess" and "Chess" or board.kind=="connect4" and "Connect Four" or "Checkers").." — Play"},function()
                     if not Client.isActive() then request("join",{boardId=board.id}) end
                 end)
             end
@@ -696,13 +767,35 @@ RegisterNetEvent("lightrp:boardGames:state",function(payload)
     if active and nextBoards[active.id] and active.revision~=nextBoards[active.id].revision then
         active.selected=nil;active.drag=nil;active.clickDestination=nil;active.pendingMove=nil;active.dropPressed=nil;active.revision=nextBoards[active.id].revision
     end
-    if active and (not nextBoards[active.id] or not member(nextBoards[active.id])) then stop(false) end
+    if active and not nextBoards[active.id] then stop(false,"board_removed")
+    elseif active and not member(nextBoards[active.id]) then stop(false,"seat_removed") end
     if not draft then for _,board in pairs(nextBoards) do if member(board) then startView(board);break end end end
     sendView(true)
 end)
+local function cameraKey(id)
+    if type(id)=="number" then
+        if id~=id then return end
+        return id%1==0 and string.format("%.0f",id) or tostring(id)
+    end
+    if type(id)=="string" and id~="" then return id end
+end
+local function cameraSwitched(session,registry,now)
+    if now<(session.cameraGraceUntil or 0) then return false end
+    local actual=type(registry)=="table" and cameraKey(registry.activeCamera)
+    local expected=cameraKey(session.camera)
+    if actual and expected and actual~=expected and registry.held==true then
+        if session.foreignCamera~=actual then
+            session.foreignCamera=actual;session.foreignCameraSince=now
+        end
+        return now-(session.foreignCameraSince or now)>750
+    end
+    session.foreignCamera=nil;session.foreignCameraSince=nil
+    return false -- nil/in-flight camera snapshots are not proof of a new owner
+end
 function Client.start()
     if started then return end;started=true
     startRenderer()
+    registerPickup()
     CreateThread(function()
         -- Do not spend the activation pass on network/state work. The host's
         -- instruction meter spans script files; scheduled work starts after commit.
@@ -717,7 +810,7 @@ function Client.start()
                 clearSounds(false)
                 finishPlacementHandoff()
                 local keys={}
-                for _,k in ipairs({"E","ALT","BACKSPACE","ESC","Q","D","PAGEUP","PAGEDOWN","X","Y","Z","mouse1"}) do keys[k]=Open77.input.isDown(k)==true end
+                for _,k in ipairs({"E","BACKSPACE","ESC","Q","D","PAGEUP","PAGEDOWN","X","Y","Z","mouse1"}) do keys[k]=Open77.input.isDown(k)==true end
                 local function pressed(k) return keys[k] and not previous[k] end
                 local events=pointerEvents;pointerEvents={}
                 if draft then
@@ -730,9 +823,26 @@ function Client.start()
                         end
                     end
                 end
-                if Client.isActive() and (not state or not state.alive or not state.attached or not Ui.characterReady
-                    or Ui.creationActive or Ui.menuOpen or Ui.actionFocus or Ui.supportMode) then stop(true) end
-                if Client.isActive() and (pressed("BACKSPACE") or pressed("ESC")) then stop(true) end
+                if Client.isActive() then
+                    local why
+                    if state and state.alive==false then why="character_dead"
+                    elseif state and state.attached==false then why="character_detached"
+                    elseif not Ui.characterReady then why="character_not_ready"
+                    elseif Ui.creationActive then why="creator_open"
+                    elseif Ui.menuOpen then why="menu_open"
+                    elseif Ui.actionFocus then why="action_focus"
+                    elseif Ui.supportMode then why="support_open"
+                    elseif not state then
+                        if active then
+                            active.missingStateSince=active.missingStateSince or now
+                            if now-active.missingStateSince>750 then why="character_unavailable" end
+                        else why="character_unavailable" end
+                    elseif active then active.missingStateSince=nil end
+                    if why then stop(true,why) end
+                end
+                if Client.isActive() and (pressed("BACKSPACE") or pressed("ESC")) then
+                    stop(true,pressed("BACKSPACE") and "key_backspace" or "key_escape")
+                end
                 if draft then
                     for _,axis in ipairs({"X","Y","Z"}) do if pressed(axis) then draft.axis=draft.axis==axis:lower() and "xy" or axis:lower() end end
                     local change=((keys.PAGEUP and 1 or 0)-(keys.PAGEDOWN and 1 or 0))*dt*.0003
@@ -749,20 +859,12 @@ function Client.start()
                 elseif active then
                     local board=Client.boards[active.id]
                     local registry=Open77.camera.cameras()
-                    if not board or distance(state.position,board.position)>4 or not registry or registry.activeCamera~=active.camera then stop(true)
+                    if not board then stop(true,"board_unavailable")
+                    elseif state and state.position and distance(state.position,board.position)>4 then stop(true,"distance")
+                    elseif cameraSwitched(active,registry,now) then
+                        stop(true,"camera_switched","expected="..tostring(active.camera).." actual="..tostring(registry and registry.activeCamera).." held="..tostring(registry and registry.held))
                     else
-                        for _,event in ipairs(events) do
-                            if active then pointerAction(board,event) end
-                        end
-                    end
-                elseif pressed("ALT") and state and state.position and not Ui.menuOpen and not Ui.actionFocus and not Ui.promptActive and not Ui.supportMode then
-                    local closest,range=nil,1.8
-                    for _,board in pairs(Client.boards) do local d=distance(state.position,board.position)
-                        if board.owned and d<range then closest,range=board,d end
-                    end
-                    if closest then
-                        pcall(function() exports.open77_contextmenu:close() end)
-                        request("pickup",{boardId=closest.id})
+                        for _,event in ipairs(events) do if active then pointerAction(board,event) end end
                     end
                 end
                 previous=keys
@@ -789,7 +891,7 @@ function Client.start()
             end)
             if not ok then
                 Ui.log("board games client: %s",tostring(why))
-                if Client.isActive() then stop(true) end
+                if Client.isActive() then stop(true,"client_error",tostring(why)) end
             end
         end
     end)
@@ -797,7 +899,7 @@ end
 AddEventHandler("onClientResourceStop",function(name)
     if name~=GetCurrentResourceName() then return end
     rendererRunning=false;renderAllowed={};renderCandidates={}
-    stop(false);clearSounds(true)
+    stop(false,"resource_stop");clearSounds(true)
     for id in pairs(renderCaches) do clearGeometry(id) end
     for id in pairs(tags) do clearGeometry(id) end
     for id in pairs(Client.boards) do LightRpInteract.setLocal("boardGames."..id,nil) end
