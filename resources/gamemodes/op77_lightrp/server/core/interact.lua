@@ -7,6 +7,9 @@
 --       position = { x, y, z }, radius = 2.5, label = "Rent-a-Ride", prompt = "Rent a vehicle", key = "E",
 --   })
 --   LightRP.dialog(playerId, "rental", payload)   -- open a page dialog (lightrp:ui:dialog)
+--
+-- `jobs = { "sanitation" }` keeps a point (marker, prompt, map blip, E) to the
+-- players who hold one of those jobs; the list is sent again when a job changes.
 local E = LightRpEvents
 local interactions = {}   -- id -> definition
 local order = {}          -- ids in registration order (stable client list)
@@ -39,6 +42,15 @@ function LightRP.removeInteraction(id)
     LightRP.broadcastInteractions()
 end
 
+-- A job point is listed to, and pressed by, its job's players only.
+local function allowed(playerId, d)
+    if type(d.jobs) ~= "table" then return true end
+    local job = LightRP.jobs and LightRP.jobs.get(playerId)
+    if not job then return false end
+    for _, name in ipairs(d.jobs) do if name == job.name then return true end end
+    return false
+end
+
 local function clientList(playerId)
     local list = {}
     local bucket = type(GetPlayerRoutingBucket) == "function" and GetPlayerRoutingBucket(playerId) or 0
@@ -46,7 +58,7 @@ local function clientList(playerId)
     local groups,selected={},{}
     for index,id in ipairs(order) do
         local d=interactions[id]
-        if d and d.streamGroup and (d.bucket==nil or d.bucket==bucket) then
+        if d and d.streamGroup and (d.bucket==nil or d.bucket==bucket) and allowed(playerId,d) then
             local group=groups[d.streamGroup] or {limit=math.min(32,math.max(1,math.floor(tonumber(d.streamLimit) or 32))),points={}}
             groups[d.streamGroup]=group
             local p=d.position
@@ -60,7 +72,7 @@ local function clientList(playerId)
     end
     for _, id in ipairs(order) do
         local d = interactions[id]
-        if d and (d.bucket == nil or d.bucket == bucket) and (not d.streamGroup or selected[id]) then
+        if d and (d.bucket == nil or d.bucket == bucket) and (not d.streamGroup or selected[id]) and allowed(playerId, d) then
             list[#list + 1] = { id = id, position = d.position, radius = d.radius, label = d.label, prompt = d.prompt, key = d.key,
                 promptHeight = d.promptHeight, marker = d.marker, ring = d.ring, blip = d.blip }
         end
@@ -100,7 +112,7 @@ RegisterNetEvent(E.net.interact, function(id)
     local now = LightRP.nowMs()
     if lastPress[playerId] and now - lastPress[playerId] < 400 then return end
     lastPress[playerId] = now
-    if not within(playerId, definition) then return end
+    if not within(playerId, definition) or not allowed(playerId, definition) then return end
     LightRP.eachModule("onInteract", playerId, id, definition)
 end)
 
@@ -113,4 +125,7 @@ end)
 
 local Interact = LightRP.module("interact", {})
 function Interact.onGameplayReady(playerId) LightRP.sendInteractions(playerId) end
+-- job points follow the job
+function Interact.onJobChanged(playerId) LightRP.sendInteractions(playerId) end
+function Interact.onCharacterActivated(playerId) LightRP.sendInteractions(playerId) end
 function Interact.onDisconnected(playerId) lastPress[playerId] = nil end

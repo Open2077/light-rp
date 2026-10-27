@@ -13,6 +13,7 @@ import { shopFixture } from "./shopFixture";
 import { jobFixture } from "./jobFixture";
 import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
+import { missionMock } from "./missionFixture";
 import { basketSummary } from "@/features/shop/model";
 
 const ORIGINS = [
@@ -28,6 +29,7 @@ export function installMockBridge(): void {
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
   const garage = garageFixture();
+  const mission = missionMock(params, (n, p) => fire(n, p));
   const dealership = dealershipFixture();
   const step = (params.get("step") as CharacterState["step"] | null) ?? (registered ? "done" : "identity");
   const character: CharacterState = {
@@ -108,11 +110,30 @@ export function installMockBridge(): void {
       console.log("[mock] emit", name, payload);
       if (name === PAGE_EVENTS.ready) {
         setTimeout(() => {
+          // ?run=courier|task: an active work order; &near=1 stands on the marker
+          const runKind = params.get("run");
+          if (runKind) {
+            state.job = runKind === "courier"
+              ? { name: "delivery", label: "Courier", tag: "COURIER", grade: 0, gradeLabel: "Rider", salary: 0, paycheckMinutes: 30 }
+              : state.job;
+            state.jobRun = mockRun(runKind === "courier");
+          }
+          // what the character wears, for the inventory's Worn column
+          state.worn = { ready: true, family: "f", slots: { Head: "Items.Balaclava_02_basic_04", Face: false, InnerChest: "Items.TShirt_01_basic_01",
+            OuterChest: "Items.Coat_01_basic_01", Legs: "Items.Pants_01_basic_01", Feet: "Items.Boots_01_basic_01", Outfit: false } };
+          // ?outfit=1: an outfit worn as a layer, a cap over it, its glasses hidden
+          if (params.get("outfit") === "1") state.worn = { ...state.worn, outfit: { label: "Street", image: undefined },
+            sources: { Head: "over", Face: "hidden", InnerChest: "outfit", OuterChest: "outfit", Legs: "outfit", Feet: "outfit" },
+            hidden: { Face: "Items.Glasses_01_basic_01" }, slots: { ...state.worn.slots, Face: false } };
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
+          if (runKind) fire(PAGE_EVENTS.jobRun, { distance: params.get("near") === "1" ? 2 : 438, menuKey: "F1", gps: params.get("gps") !== "0" });
           if (params.get("dialog") === "shop") fire(PAGE_EVENTS.dialog, shop);
           if (params.get("dialog") === "garage") fire(PAGE_EVENTS.dialog, garage);
           if (params.get("dialog") === "dealership") fire(PAGE_EVENTS.dialog, dealership);
+          if (params.get("dialog") === "mission") mission.open();
+          else if (params.get("queue") === "1") mission.queueOnly();
+          if (params.get("mission") === "1") mission.running();
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
           if (params.get("interact") === "1") {
             fire(PAGE_EVENTS.interact, { id: "rental.citycenter", prompt: "Rent a vehicle", key: "E" });
@@ -120,12 +141,14 @@ export function installMockBridge(): void {
           }
           if (params.get("dialog") === "inventory") fire(PAGE_EVENTS.dialog, { kind: "inventory",
             left: { id: "player:1", kind: "player", label: "Yuki Tanaka", slots: 30, maxWeight: 40, weight: 6.3, items: [
-              { slot: 1, name: "phone", label: "Phone", count: 1, weight: 0.3, icon: "smartphone", usable: false, stack: 1, description: "Your holo." },
+              { slot: 1, name: "phone", label: "Phone", count: 1, weight: 0.3, icon: "smartphone", image: "img/items/phone.png", usable: false, stack: 1, description: "Your holo." },
               { slot: 2, name: "water", label: "Bottle of Water", count: 3, weight: 0.5, icon: "droplet", usable: true, stack: 10, description: "Still water." },
               { slot: 3, name: "burrito", label: "Burrito", count: 2, weight: 0.4, icon: "sandwich", usable: true, stack: 10 },
               { slot: 4, name: "bandage", label: "Bandage", count: 4, weight: 0.2, icon: "bandage", usable: true, stack: 10 },
-              { slot: 7, name: "wrench", label: "Wrench", count: 1, weight: 1.2, icon: "wrench", usable: false, stack: 1 },
-              { slot: 9, name: "scrap", label: "Scrap", count: 12, weight: 1.0, icon: "box", usable: false, stack: 50 } ] },
+              { slot: 7, name: "wrench", label: "Wrench", count: 1, weight: 1.2, icon: "wrench", image: "img/items/wrench.png", usable: false, stack: 1 },
+              { slot: 9, name: "scrap", label: "Scrap", count: 12, weight: 1.0, icon: "box", image: "img/items/scrap.png", usable: false, stack: 50 },
+              { slot: 10, name: "clothing", label: "Aviator Glasses", count: 1, weight: 0.2, icon: "glasses", category: "clothing", usable: true, stack: 1, description: "A garment. Use it to put it on or take it off.", metadata: { record: "Items.Glasses_01_basic_01", slot: "Face" } },
+              { slot: 11, name: "cash", label: "Cash", count: 459, weight: 0, icon: "banknote", category: "currency", usable: false, stack: 1000000 } ] },
             right: { id: "trunk:7306", kind: "trunk", label: "Archer Hella", slots: 20, maxWeight: 80, weight: 8, items: [
               { slot: 1, name: "repairkit", label: "Repair Kit", count: 1, weight: 3.0, icon: "hammer", usable: false, stack: 2 },
               { slot: 2, name: "trashbag", label: "Trash Bag", count: 1, weight: 4.0, icon: "package", usable: false, stack: 5 } ] } });
@@ -145,6 +168,7 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.close) fire(PAGE_EVENTS.closed, {});
       if (name === PAGE_EVENTS.action) {
         const action = payload as UiAction;
+        if (mission.handle(action)) return;
         setTimeout(() => {
           switch (action.type) {
             case "dealership.buy": {
@@ -287,14 +311,28 @@ export function installMockBridge(): void {
               result(true, `Hired: ${action.job}.`, action.type);
               break;
             }
+            case "clothing.refresh":
+              fire(PAGE_EVENTS.state, { worn: state.worn }); break;
+            case "clothing.makeOutfit":
+              if (state.worn) { state.worn = { ...state.worn, outfit: { label: action.name || "My outfit" },
+                sources: Object.fromEntries(Object.entries(state.worn.slots).filter(([, v]) => v).map(([k]) => [k, "outfit"])) }; fire(PAGE_EVENTS.state, { worn: state.worn }); }
+              result(true, "Your outfit is made.", "inventory.makeOutfit"); break;
+            case "clothing.takeOff":
+              if (state.worn) { state.worn = { ...state.worn, slots: { ...state.worn.slots, [action.slot]: false } }; fire(PAGE_EVENTS.state, { worn: state.worn }); }
+              result(true, "Taking it off…", "inventory.takeOff"); break;
             case "jobs.locate":
               result(true, "GPS set. No shift or employment required.", action.type); break;
             case "jobs.start": {
               const offer = jobFixture().jobs.find((j) => j.name === state.job.name);
               if (!offer?.route) { result(false, "Choose a job first.", action.type); break; }
-              state.jobRun = { active: true, id: "mock-work-order", job: offer.name, label: offer.route.label, reward: offer.route.reward,
-                index: 1, total: 4, icon: offer.recruitment?.icon, hint: "Follow the yellow marker. Press E at the work point.",
-                objective: { label: "Collect the first load", kind: "work", position: { x: 0, y: 0, z: 0 }, radius: 2.6 } };
+              state.jobRun = offer.route.variable
+                ? { active: true, id: "mock-work-order", job: offer.name, label: offer.route.label, reward: 342,
+                    index: 2, total: 6, icon: "package", orders: 3, carried: 1, distanceKm: 2.4,
+                    hint: "Collect the order at the marker (E). Keep 1 kg free in your bag.",
+                    objective: { label: "Pick up · Burger stand", kind: "pickup", position: { x: 0, y: 0, z: 0 }, radius: 2.6 } }
+                : { active: true, id: "mock-work-order", job: offer.name, label: offer.route.label, reward: offer.route.reward,
+                    index: 1, total: 4, icon: offer.recruitment?.icon, hint: "Follow the yellow marker. Press E at the work point.",
+                    objective: { label: "Collect the first load", kind: "work", position: { x: 0, y: 0, z: 0 }, radius: 2.6 } };
               fire(PAGE_EVENTS.state, { jobRun: state.jobRun });
               result(true, "Work order assigned.", action.type); break;
             }
@@ -336,4 +374,23 @@ export function installMockBridge(): void {
   window.Open77 = bridge;
   window.__lightrpMock = true;
   document.body.style.background = "radial-gradient(ellipse at 40% 30%, #1b2230 0%, #0b0d12 60%, #050506 100%)";
+}
+
+/** A run in progress for ?run=: a courier with three orders (one picked up), or a task route. */
+function mockRun(courier: boolean): import("@/bridge/protocol").JobRunState {
+  if (courier) {
+    const pick = ["Station kiosk", "Misty's Esoterica", "Tom's Diner"], drop = ["Megabuilding H10", "Afterlife", "Lizzie's Bar"];
+    const steps = [...pick.map((p, i) => ({ kind: "pickup" as const, place: p, order: i + 1 })), ...drop.map((p, i) => ({ kind: "dropoff" as const, place: p, order: i + 1 }))];
+    const index = 2;
+    return { active: true, id: "mock-run", job: "delivery", jobLabel: "Courier", label: "Delivery run", reward: 554, icon: "package",
+      index, total: steps.length, orders: 3, carried: 1, distanceKm: 4.4, expiresInMs: 23 * 60000 + 14000,
+      hint: "Go to the yellow marker and press E to collect the order. It needs 1 kg free in your bag.",
+      stops: steps.map((s, i) => ({ ...s, label: `${s.kind === "pickup" ? "Pick up" : "Deliver"} · ${s.place}`, state: i + 1 < index ? "done" as const : i + 1 === index ? "now" as const : "todo" as const })),
+      objective: { label: `Pick up · ${pick[1]}`, place: pick[1], kind: "pickup", position: { x: 0, y: 0, z: 0 }, radius: 2.6 } };
+  }
+  const places = ["Collect the first load", "Arasaka Waterfront bins", "Kabuki market", "Return to the depot"];
+  return { active: true, id: "mock-run", job: "sanitation", jobLabel: "NC Sanitation", label: "Collection round", reward: 220, icon: "trash-2",
+    index: 3, total: places.length, expiresInMs: 2 * 60000 + 40000, hint: "Follow the yellow marker. Press E at the work point.",
+    stops: places.map((p, i) => ({ kind: i === 3 ? "return" as const : "work" as const, label: p, place: p, state: i + 1 < 3 ? "done" as const : i + 1 === 3 ? "now" as const : "todo" as const })),
+    objective: { label: places[2]!, place: places[2], kind: "work", position: { x: 0, y: 0, z: 0 }, radius: 2.6 } };
 }

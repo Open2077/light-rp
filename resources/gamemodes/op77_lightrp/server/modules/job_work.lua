@@ -41,11 +41,19 @@ local function open(id, point)
     return LightRP.tutorial ~= nil and LightRP.tutorial.allowsWork ~= nil and LightRP.tutorial.allowsWork(id, point.kind) == true
 end
 local function push(id) LightRP.state(id,"jobWork") end
+-- Real work needs the job (a Job Center hires you); practice sites are the guide's.
+local function employed(id,job,definition)
+    return definition.tutorial or LightRP.jobs.get(id).name==job
+end
+local function hireText(job)
+    local def=LightRpJobs and LightRpJobs[job]
+    return "This is "..(def and def.label or job).." work. Get hired at a Job Center first (briefcase on the map)."
+end
 function Work.isBusy(id) return sessions[id] and sessions[id].committing==true or false end
 function Work.isActive(id) return sessions[id]~=nil end
 function Work.preview(job)
     local d=C.jobs[job]; if not d then return nil end
-    return {raw=LightRpItems[d.raw].label,product=LightRpItems[d.product].label,
+    return {raw=LightRpItems[d.raw].label,product=LightRpItems[d.product].label,rawItem=d.raw,productItem=d.product,
         collectCount=d.collected,collectWeight=d.collected*LightRpItems[d.raw].weight,
         inputCount=d.input,outputCount=d.produced,price=d.price}
 end
@@ -119,8 +127,9 @@ function Work.begin(id,pointId)
     lastBegin[id]=now
     if sessions[id] then return false,"You are already working. Escape stops the current activity." end
     if not open(id,p) then return false,"This practice site belongs to the first day guide. Follow your current objective." end
+    if not employed(id,p.job,p.definition) then return false,hireText(p.job) end
     if not valid(id,p) then return false,"Stand on foot at the work point with an active, living character." end
-    if LightRP.jobRuns and LightRP.jobRuns.snapshot(id).active then return false,"Finish or cancel the AC maintenance order first." end
+    if LightRP.jobRuns and LightRP.jobRuns.snapshot(id).active then return false,"Finish or cancel your current work order first (F1 → My job)." end
     local s={point=p,character=LightRP.characters.get(id),inventory=Inv.player(id),cycles=0,earned=0}
     local b,why=batch(s)
     if not b then return false,explain(why) end
@@ -178,6 +187,7 @@ function Work.complete(id,payload)
 end
 function Work.locate(id,job,kind)
     local d=C.jobs[job]; if not d then return false,"Unknown activity." end
+    if not employed(id,job,d) then return false,hireText(job) end
     kind=kind or "collect"
     local nearest,distance,pointId
     local position=Open77.players.position(id); if not position then return false,"Your character is not ready." end
@@ -187,7 +197,7 @@ function Work.locate(id,job,kind)
     end end
     if not nearest then return false,"Unknown work stage." end
     TriggerClientEvent(E.net.workGps,id,{id=pointId,position=nearest.position,label=nearest.label,icon=d.icon,radius=C.range})
-    return true,"GPS set. Press E at the point. No shift or employment required."
+    return true,"GPS set. Press E at the point to work."
 end
 function Work.onInteract(id,point)
     if not points[point] then return end
@@ -203,6 +213,11 @@ LightRP.command("work",{usage="/work <sanitation|scrapper> [collect|process|sell
 end)
 function Work.onLifeState(id,phase) if phase~="alive" then Work.cancel(id) end end
 function Work.onCharacterSwitched(id) Work.cancel(id) end
+-- a new job: the old job's work stops and its GPS point goes
+function Work.onJobChanged(id)
+    Work.cancel(id,"Your job changed. Work stopped; completed batches stay in your inventory.")
+    TriggerClientEvent(E.net.workGps,id,{clear=true})
+end
 function Work.onDisconnected(id)
     local s=sessions[id]; sessions[id],lastBegin[id]=nil,nil
     if s then stopAnimation(id,s) end
@@ -220,9 +235,10 @@ CreateThread(function()
     for id,p in pairs(points) do
         local icon=p.kind=="sell" and "banknote" or p.kind=="process" and "hammer" or p.definition.icon
         LightRP.interaction(id,{position=p.position,radius=C.range,bucket=p.definition.bucket or 0,label=p.label,key="E",ring=false,
+            jobs=not p.definition.tutorial and {p.job} or nil,
             prompt=p.kind=="sell" and ("Sell "..LightRpItems[p.definition.product].label) or (p.label.." · E to work"),
             marker={shape="cylinder",radius=.6,height=.4,color={r=255,g=204,b=0,a=150},maxDistance=35},
-            blip={icon=icon,sprite="tech",title=p.label,routable=true,description=p.kind=="sell" and (LightRP.money.format(p.definition.price).." per "..LightRpItems[p.definition.product].label) or (p.definition.tutorial and "First day guide · practice site" or "Free activity · items, weight and vehicle trunks · no shift required")}})
+            blip={icon=icon,sprite="tech",title=p.label,routable=true,description=p.kind=="sell" and (LightRP.money.format(p.definition.price).." per "..LightRpItems[p.definition.product].label) or (p.definition.tutorial and "First day guide · practice site" or "Your job · your own pace · items, weight and vehicle trunks")}})
     end
     while true do Wait(250); Work.tick() end
 end)

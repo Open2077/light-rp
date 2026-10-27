@@ -132,6 +132,11 @@ local function change(player, s, step, status)
     if status=="active" and C.steps[step].kind=="neuralink" and implantReady(player) and following[step] then
         return change(player, s, following[step], "active")
     end
+    -- dressed already (a second first day, clothes from the creator): nothing to change
+    if status=="active" and C.steps[step].kind=="dress" and following[step]
+        and LightRP.wardrobe and LightRP.wardrobe.isDressed(player) then
+        return change(player, s, following[step], "active")
+    end
     return true
 end
 local function advance(player, from, to)
@@ -272,6 +277,9 @@ local function objectiveOf(player, s, def)
     elseif def.kind == "shop" then
         local spot = byId(LightRpShops and LightRpShops.locations, L.shop)
         return spot and { position = spot.position, label = def.prompt, kind = "interact", interaction = "shop." .. L.shop, radius = 2.5 }
+    elseif def.kind == "dress" then
+        local spot = byId(LightRpConfig.wardrobes and LightRpConfig.wardrobes.spots, def.wardrobe)
+        return spot and { position = spot.position, label = def.prompt, kind = "interact", interaction = "wardrobe." .. spot.id, radius = 2.0 }
     elseif def.kind == "practice" then
         local point, id = site(def.stage)
         return point and { position = point.position, label = point.label, kind = "interact", interaction = id, radius = 2.5 }
@@ -416,6 +424,10 @@ RegisterNetEvent(LightRpEvents.net.tutorial,function(payload)
 end)
 
 function Tutorial.onInventoryOpened(player) advance(player,"inventory",following.inventory) end
+-- A look saved in a fitting room (wardrobe.lua relays open77_appearance): dressed or not.
+function Tutorial.onDressed(player, dressed)
+    if dressed then advance(player,"dress",following.dress) end
+end
 -- op77_neuralink installed the implant (neuralink_bridge.lua relays it).
 function Tutorial.onNeuralinkInstalled(player)
     local s = active(player)

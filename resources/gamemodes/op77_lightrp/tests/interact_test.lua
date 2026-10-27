@@ -175,7 +175,19 @@ assert(buildBlip({ sprite = "objective" }) == nil and #attempts == 1, "do not re
 assert(buildBlip({ sprite = "unsupported_sprite" }) == nil and #attempts == 2)
 build({})
 assert(next(markers) == nil and next(blips) == nil, "blip rebuilds must clean up previous handles")
-print("PASS: rental 3D marker, interaction/range, cleanup, legacy points and food/neutral blip resolution")
+-- a job point: listed to and pressed by its job's players only
+local myJob = "unemployed"
+LightRP.jobs = { get = function() return { name = myJob } end }
+LightRP.interaction("work.sanitation.bins", { position = desk.position, radius = 2, jobs = { "sanitation" }, prompt = "Work" })
+local function listed(id) for _, e in ipairs(serverList) do if e.id == id then return true end end end
+assert(not listed("work.sanitation.bins"), "no job, no point")
+now = now + 1000; pressed = nil; authoritativePosition = desk.position; serverPress("work.sanitation.bins")
+assert(pressed == nil, "a hidden point cannot be pressed")
+myJob = "sanitation"; LightRP.sendInteractions(1); assert(listed("work.sanitation.bins"), "hired: the point shows")
+now = now + 1000; serverPress("work.sanitation.bins"); assert(pressed == "work.sanitation.bins")
+myJob = "unemployed"; LightRP.sendInteractions(1); assert(not listed("work.sanitation.bins"))
+LightRP.removeInteraction("work.sanitation.bins"); LightRP.jobs = nil
+print("PASS: rental 3D marker, interaction/range, cleanup, legacy points and food/neutral blip resolution, job-only points")
 
 -- Service-owned custom blips must never be tracked/removed using LightRP's
 -- native owner. Exercise public rebuilds and private objectives together.

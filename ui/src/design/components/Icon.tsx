@@ -5,7 +5,8 @@ import {
   Droplet, FileText, Fuel, HeartPulse, IdCard, Info, Keyboard, KeyRound, Loader, MapPin,
   MessageSquare, Mic, MicOff, OctagonAlert, Package, Radio, Settings, Shield, ShieldAlert,
   Siren, Terminal, TriangleAlert, User, Users, Utensils, X, Zap, CheckCheck, Search, ArrowDown, ArrowRight, Backpack, Split, Video,
-  Lock, LockOpen, ShoppingCart, MessageCircle, Coins, Send, Route, Gauge, Plus, MousePointerClick, type LucideIcon,
+  Lock, LockOpen, ShoppingCart, MessageCircle, Coins, Send, Route, Gauge, Plus, MousePointerClick,
+  House, BookOpen, Building2, Navigation, Recycle, Bike, Timer, ArrowLeft, ListChecks, Scale, Shirt, Glasses, Eye, Crown, UserPlus, UserMinus, LogOut, Undo2, Swords, type LucideIcon,
 } from "lucide-react";
 
 /* Lucide, bundled (the design system loads it from a CDN; the in-game host serves
@@ -25,6 +26,9 @@ const GLYPHS: Record<string, LucideIcon> = {
   mic: Mic, "mic-off": MicOff, "octagon-alert": OctagonAlert, package: Package, radio: Radio, settings: Settings,
   shield: Shield, "shield-alert": ShieldAlert, siren: Siren, terminal: Terminal, "triangle-alert": TriangleAlert,
   user: User, users: Users, x: X, zap: Zap,
+  house: House, "book-open": BookOpen, "building-2": Building2, navigation: Navigation, recycle: Recycle, bike: Bike,
+  timer: Timer, "arrow-left": ArrowLeft, "list-checks": ListChecks, scale: Scale, shirt: Shirt, glasses: Glasses, eye: Eye,
+  crown: Crown, "user-plus": UserPlus, "user-minus": UserMinus, "log-out": LogOut, "undo-2": Undo2, swords: Swords,
 };
 
 export type IconName = keyof typeof GLYPHS | string;

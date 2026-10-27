@@ -3,7 +3,7 @@ local events,handlers,sent={},{},{}
 local options,done,callback,available=true,nil,nil,true
 local cancelled,tracked,waits,animationStops=0,0,0,{}
 CreateThread=function(fn) fn() end;Wait=function(ms) assert(ms==900);waits=waits+1 end
-Open77={animations={cancel=function(id) animationStops[#animationStops+1]=id end}}
+Open77={animations={cancel=function(id) animationStops[#animationStops+1]=id end},blips={setWaypoint=function(p) assert(p.x and p.y and p.z); tracked=tracked+1; return true end}}
 RegisterNetEvent=function(n,f) events[n]=f end;AddEventHandler=function(n,f) handlers[n]=f end
 GetCurrentResourceName=function() return "op77_lightrp" end
 TriggerServerEvent=function(e,p) sent[#sent+1]={e,p} end

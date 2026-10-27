@@ -154,7 +154,7 @@ function Interact.setLocal(id, entry, callback)
     local point = { id = id, position = entry.position, radius = entry.radius or 2.6,
         prompt = entry.prompt, key = "E", promptHeight = 0.7, blip = entry.blip, callback = callback,
         passive = entry.passive == true }
-    if entry.marker then point.marker = createMarker(point, entry.marker) end
+    if entry.marker then point.marker, point.markerVisible = createMarker(point, entry.marker), entry.marker.visible ~= false end
     point.blip = createBlip(point)
     Interact.locals[id] = point
     return point.blip
@@ -172,7 +172,7 @@ local function build(list)
                 promptHeight = tonumber(entry.promptHeight) or 1.1, blip = entry.blip,
             }
             if type(entry.marker) == "table" then
-                point.marker = createMarker(point, entry.marker)
+                point.marker, point.markerVisible = createMarker(point, entry.marker), entry.marker.visible ~= false
             elseif entry.ring ~= false and anchorsAvailable() then
                 local id, err = Open77.anchors.create({
                     position = point.position, maxDistance = tonumber(ring.maxDistance) or 8.0, render = "ring",
@@ -200,6 +200,7 @@ local function localPosition()
 end
 
 local function setNear(point)
+    if Interact.hidden then point = nil end -- a full-screen page (the fitting room) covers the world
     if Interact.near == point then return end
     Interact.near = point
     sendPrompt(point)
@@ -233,7 +234,23 @@ CreateThread(function()
     end
 end)
 
+-- Hide the prompt, markers and rings while a full-screen page is open: they
+-- would float over it (the fitting room films the player standing in one).
+function Interact.setHidden(hidden)
+    hidden = hidden == true
+    if (Interact.hidden == true) == hidden then return end
+    Interact.hidden = hidden or nil
+    if hidden then setNear(nil) end
+    local function each(point)
+        if point.marker and markersAvailable() and point.markerVisible ~= false then pcall(Open77.markers.update, point.marker, { visible = not hidden }) end
+        if point.ring and anchorsAvailable() then pcall(Open77.anchors.update, point.ring, { visible = not hidden }) end
+    end
+    for _, point in ipairs(Interact.points) do each(point) end
+    for _, point in pairs(Interact.locals) do each(point) end
+end
+
 function Interact.press()
+    if Interact.hidden then return false end
     if LightRpActions and LightRpActions.isActive() then return false end
     local point = Interact.near
     if point == nil then return false end

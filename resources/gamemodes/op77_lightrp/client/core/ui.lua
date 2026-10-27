@@ -297,6 +297,7 @@ RegisterNetEvent(E.net.notice, function(payload) Ui.send(E.page.notice, payload)
 RegisterNetEvent(E.net.result, function(payload) Ui.send(E.page.result, payload) end)
 RegisterNetEvent(E.net.shop, function(payload) Ui.send(E.page.shop, payload) end)
 RegisterNetEvent(E.net.garage, function(payload) Ui.send(E.page.garage, payload) end)
+RegisterNetEvent(E.net.mission, function(payload) Ui.send(E.page.mission, payload) end)
 RegisterNetEvent(E.net.dealership, function(payload) Ui.send(E.page.dealership, payload) end)
 
 for _, event in ipairs({ "open77:appearance:confirmed", "open77:appearance:cancelled" }) do

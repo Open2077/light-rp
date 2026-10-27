@@ -9,7 +9,7 @@
 --
 --   LightRP.inventory.addItem(invId, name, count, metadata) / removeItem(invId, name, count)
 --   LightRP.inventory.count(invId, name)   LightRP.inventory.playerId(playerId) -> invId
---   LightRP.inventory.onUse(name, fn(playerId, item, template) -> consumed?)
+--   LightRP.inventory.onUse(name, fn(playerId, item, template) -> false (refused) | "keep", text? (not consumed) | other (consumed))
 --   hook onItemUsed(playerId, name, item)
 local Config = LightRpConfig.inventory
 local Items = LightRpItems
@@ -72,6 +72,13 @@ local function firstFreeSlot(inv)
     return nil
 end
 
+-- Item art comes from the template. The only per-item exception is a garment's
+-- own icon, from the fitting room's shared icon library (clothing / outfit items).
+local function metadataImage(item)
+    local image = type(item.metadata) == "table" and item.metadata.image
+    if type(image) == "string" and #image <= 80 and image:match("^open77://open77_wardrobe_ui/web/icons/[mf]/%x+%.webp$") then return image end
+end
+
 local function snapshotItem(slot, item)
     local t = template(item.name) or {}
     local action = LightRpConsumableProfiles and LightRpConsumableProfiles[t.consumeAction]
@@ -80,7 +87,7 @@ local function snapshotItem(slot, item)
         label = item.name=="jerrycan" and string.format("Jerrycan · %.1f L",tonumber((item.metadata or {}).fuelLitres) or 20) or item.metadata and item.metadata.label or t.label or item.name, description = t.description,
         weight = t.weight or 0, icon = t.icon or "package", category = t.category, usable = item.name=="jerrycan" or t.use ~= nil or useHandlers[item.name] ~= nil,
         stack = stackMax(item.name),
-        image = t.image,
+        image = metadataImage(item) or t.image,
         effects = t.use and { food = t.use.food, drink = t.use.drink, health = t.use.health } or nil,
         useAction = action and { label = action.label, durationMs = action.durationMs, icon = action.icon } or nil,
     }
@@ -511,6 +518,22 @@ function Inv.addItem(invId, name, count, metadata, slot)
     return commitDrafts({ { inv, draft } })
 end
 
+-- Several items at once, all or nothing: { { name, count, metadata }, ... }.
+function Inv.addItems(invId, list)
+    local inv = registry[invId]
+    if inv == nil then return false, "unknown_inventory" end
+    if type(list) ~= "table" or #list == 0 then return false, "invalid_count" end
+    local draft = Inv.draft(inv)
+    for _, entry in ipairs(list) do
+        local count = math.tointeger(tonumber(entry.count) or 1)
+        if type(entry.name) ~= "string" or not template(entry.name) or entry.name == "cash" or not count or count <= 0 then return false, "invalid_count" end
+        local ok, reason = Inv.canHold(draft, entry.name, count, entry.metadata)
+        if not ok then return false, reason end
+        place(draft, entry.name, count, entry.metadata)
+    end
+    return commitDrafts({ { inv, draft } })
+end
+
 function Inv.count(invId, name)
     local inv = registry[invId]
     if inv == nil then return 0 end
@@ -536,6 +559,38 @@ function Inv.removeItem(invId, name, count)
         end
     end
     return commitDrafts({ { inv, draft } })
+end
+
+-- Would the bag still hold `list` once one unit leaves `freeSlot`? (a garment
+-- swapped for the one worn: the worn ones come back as the used one leaves).
+function Inv.canSwap(invId, freeSlot, list)
+    local inv = registry[invId]
+    if inv == nil then return false, "unknown_inventory" end
+    local draft = Inv.draft(inv)
+    local item = freeSlot and draft.items[freeSlot]
+    if item then item.count = item.count - 1; if item.count <= 0 then draft.items[freeSlot] = nil end end
+    for _, entry in ipairs(list or {}) do
+        local ok, reason = Inv.canHold(draft, entry.name, entry.count or 1, entry.metadata)
+        if not ok then return false, reason end
+        place(draft, entry.name, entry.count or 1, entry.metadata)
+    end
+    return true
+end
+
+-- One unit of the first `name` stack whose metadata passes `match` (a garment by record).
+function Inv.removeMatching(invId, name, match)
+    local inv = registry[invId]
+    if inv == nil then return false, "unknown_inventory" end
+    local draft = Inv.draft(inv)
+    for slot = draft.slots, 1, -1 do
+        local item = draft.items[slot]
+        if item and item.name == name and match(item.metadata or {}) then
+            item.count = item.count - 1
+            if item.count <= 0 then draft.items[slot] = nil end
+            return commitDrafts({ { inv, draft } })
+        end
+    end
+    return false, "not_enough"
 end
 
 local function takeFromSlot(inv, slot, count)
@@ -609,9 +664,10 @@ local function applyUse(playerId, slot, expected)
     if t == nil or (t.use == nil and handler == nil) then return false, "not_usable" end
     local life = Open77.players.getLifeState(playerId)
     if life == nil or life.phase ~= "alive" then return false, "not_alive" end
-    local consume = t.use and t.use.consume ~= false
+    local consume, text = t.use and t.use.consume ~= false, nil
     if handler then
-        local ok, result = pcall(handler, playerId, item, t)
+        local ok, result
+        ok, result, text = pcall(handler, playerId, item, t)
         if not ok then LightRP.log("use handler for %s failed: %s", item.name, tostring(result)) return false, "use_failed" end
         if result == false then return false, "use_refused" end
         if t.use == nil then consume = result ~= "keep" end
@@ -639,7 +695,8 @@ local function applyUse(playerId, slot, expected)
         changed(inv)
     end
     LightRP.eachModule("onItemUsed", playerId, item.name, item)
-    return true, t.label
+    -- A kept item sends no snapshot: the third value tells the caller to answer.
+    return true, type(text) == "string" and text or t.label, not consume
 end
 
 function Inv.use(playerId, slot)
@@ -971,6 +1028,8 @@ function Inv.open(playerId, wanted)
     local other = registry[secondary[playerId]]
     if other then other.viewers[playerId] = true end
     LightRP.dialog(playerId, "inventory", { left = Inv.snapshot(inv), right = secondaryFor(playerId) })
+    -- the Worn column: what the character wears right now (server/modules/clothing.lua)
+    if LightRP.clothing and LightRP.clothing.pushWorn then LightRP.clothing.pushWorn(playerId) end
     LightRP.eachModule("onInventoryOpened", playerId)
     if reason == "locked" then
         LightRP.notice(playerId, { kind = "info", title = "Trunk locked", body = "Unlock the vehicle before opening its trunk." })
@@ -991,6 +1050,7 @@ function Inv.openTrunk(playerId, vehicleId)
     if not allowed then return false, reason end
     local opened, failure = Open77.vehicles.openDoor(vehicleId, "trunk")
     if not opened then return false, failure or "trunk_unavailable" end
+    if LightRP.bubbles then LightRP.bubbles.act(playerId, "Opens the trunk", { vehicle = vehicleId, icon = "trunk", duration = 4 }) end
     return Inv.open(playerId, trunk.id)
 end
 
@@ -1153,8 +1213,9 @@ LightRP.action("inventory.move", function(playerId, payload)
 end)
 
 LightRP.action("inventory.use", function(playerId, payload)
-    local ok, result = Inv.use(playerId, payload.slot)
-    if not ok then LightRP.result(playerId, false, explain(result), "inventory.use") end
+    local ok, result, kept = Inv.use(playerId, payload.slot)
+    if not ok then LightRP.result(playerId, false, explain(result), "inventory.use")
+    elseif kept then LightRP.result(playerId, true, result, "inventory.use") end
 end)
 
 LightRP.action("inventory.drop", function(playerId, payload)

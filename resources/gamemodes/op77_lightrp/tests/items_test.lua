@@ -38,15 +38,17 @@ for name, t in pairs(LightRpItems) do
     total = total + 1
     assert(type(t.label) == "string" and #t.label > 0, name)
     assert(t.weight >= 0 and (t.weight > 0 or name == "cash") and t.stack >= 1 and t.stack % 1 == 0, name)
-    if t.image and name ~= "cash" then
-        counts[t.category] = counts[t.category] + 1
+    if t.image then
         assert(t.image == "img/items/" .. name .. ".png", name)
         for _, base in ipairs({ "../../../ui/public/", "web/" }) do
             local file = assert(io.open(base .. t.image, "rb"), "missing asset: " .. base .. t.image)
             assert(file:read(8) == "\137PNG\13\10\26\10", name .. " must be a PNG")
             file:close()
         end
-        assert(t.use and t.use.consume == true, name)
+    end
+    if t.use and counts[t.category] ~= nil then
+        counts[t.category] = counts[t.category] + 1
+        assert(t.use.consume == true, name)
         inv.items = {}
         assert(Inv.addItem(inv.id, name, 2))
         local item = Inv.snapshot(inv).items[1]
@@ -64,7 +66,7 @@ for name, t in pairs(LightRpItems) do
         assert(inv.items[1].count == t.stack and inv.items[2].count == 1, name .. " stack splitting")
     end
 end
-assert(total == 37 and counts.food == 9 and counts.drink == 6 and counts.medical == 3)
+assert(total == 40 and counts.food == 9 and counts.drink == 6 and counts.medical == 3)
 assert(LightRpItems.cash.weight == 0 and LightRpItems.cash.use == nil)
 for _, base in ipairs({ "../../../ui/public/", "web/" }) do
     local file = assert(io.open(base .. LightRpItems.cash.image, "rb"))
@@ -80,4 +82,4 @@ for _, heal in ipairs({ function() return false, "rejected" end, function() erro
     local ok, reason = Inv.use(1, 1)
     assert(not ok and reason == "use_failed" and Inv.count(inv.id, "firstaid") == 1, "failed heals keep the item")
 end
-print("PASS: starting items granted once; 37 templates; 19 packaged illustrations; zero-weight cash; effects, death checks, consumption, stacks and metadata isolation")
+print("PASS: starting items granted once; 40 templates; packaged illustrations; zero-weight cash; effects, death checks, consumption, stacks and metadata isolation")

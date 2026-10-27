@@ -3,7 +3,8 @@
 Sanitation and Scrapper are free **collect → process → sell** activities. Any
 active, living character can use their public points on foot, even while
 unemployed or holding another job. There is no shift, mission, ordered route or
-completion bonus for these two activities. AC Cleaner retains its work orders.
+completion bonus for these two activities. The Courier works by work orders (below);
+it replaced AC Cleaner at the job centers.
 
 ## Player flow
 
@@ -113,12 +114,86 @@ The first-day guide points item workers to collection. Its checkpoint advances
 after the first saved batch and survives reconnection; it no longer requires a
 Sanitation/Scrapper shift. Hook: `onJobWorkCompleted(player,job,kind)`.
 
+## Courier (food and parcel delivery)
+
+The job centers offer **Courier** (job id `delivery`, which keeps the former "Night
+Courier" grades) in place of AC Cleaner. A courier collects a run anywhere from the
+player menu (F1 → My job → Start a run): its route has `remoteDispatch = true` in
+`server/config/job_runs.lua`. A job center desk ("Start a run", or `/job start`
+there) hands one out too.
+
+Each run is drawn by the server when it is collected (`Generators.delivery` in
+`server/modules/job_runs.lua`):
+
+1. a number of orders between `orders.min` and `orders.max`;
+2. one **pickup** per order, drawn from `pickups` (all different while the list is
+   long enough, never the same point twice in a row); then
+3. one **drop-off** per order, drawn from `dropoffs` the same way.
+
+At a pickup, E runs a short progress bar and puts one `delivery_order` (1 kg) in the
+courier's bag; a full bag is refused before the bar starts. At a drop-off, the bar
+hands one over; without an order in the bag the drop-off refuses (`/job cancel`
+abandons the run). The last drop-off pays, in the bank, with a receipt in
+`lightrp_job_run_receipts` (same atomic payment as every work order).
+
+**Pay** = `base + perStop × stops + perKm × length`, rounded and kept within
+`[min, max]`, where `length` is the straight-line route from where the run was
+collected through every stop, in km. It is fixed when the run is drawn and shown on the work-order HUD with
+the number of orders, the orders carried and the distance. The job center shows
+"From <min>" and the order range.
+
+Cancelling, a job switch, death, staying out of the public world for more than
+`awayGraceMs` (90 s, `server/config/job_runs.lua`: a loading screen or a fitting room
+does not end a run) or expiry (`lifetimeMs`) end the run and take the undelivered
+orders back from the bag. Orders left over by a
+run that ended elsewhere (a server restart) are removed when the courier joins and
+when a new run starts.
+
+**Points: TEST LOCATIONS ONLY.** `server/config/delivery.lua` holds three pickups and
+five drop-offs around City Center, Kabuki and Northside, a few metres off existing
+interaction points, to try the loop. Replace `pickups` and `dropoffs` with the real
+locations (restaurants, megabuildings): `{ id, name, position = { x, y, z } }`, on the
+ground, reachable on foot. Nothing else needs to change; restart the server.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `orders.min` / `orders.max` | 2 / 3 | orders per run (as many pickups, then drop-offs) |
+| `pickupMs` / `dropoffMs` | 4500 / 3500 | progress bar at a pickup / drop-off |
+| `pay.base` / `perStop` / `perKm` | 40 / 20 / 90 | €$ per run / per stop / per km of route |
+| `pay.min` / `pay.max` | 80 / 900 | bounds of a run's pay |
+| `lifetimeMs` | 45 min | an unfinished run expires |
+
+Recruitment artwork: `img/jobs/delivery.webp` (prompt in `docs/job-art-prompts.md`).
+
+## Job guide and F1 → My job
+
+**Job guide.** Every public job has a `guide` in `shared/jobs.lua`: pages of
+`{ title, body, demo, tips }`. The page opens it by itself once a player is hired at a
+job center and closes the desk, and again from F1 → My job → Job guide. `demo` names an
+animated picture drawn by the page (`ui/src/features/jobs/guideDemos.tsx`; the list is
+in the comment at the top of `shared/jobs.lua`); an unknown name shows the job's icon.
+The last page of a job with remote dispatch offers "Start my first run".
+
+**F1 → My job** (`ui/src/features/menu/PlayerMenu.tsx`) works the job from anywhere:
+
+- the job guide;
+- a work-order job (`job.run`): Start a run (anywhere with `remoteDispatch`, otherwise
+  it explains where the desk is), then the current stop, GPS to my next stop
+  (`jobs.gps`) and Abandon this run behind a confirmation (`jobs.cancel`);
+- free item work (`job.work`): the GPS of the collection point, the processing site
+  and the buyer (`jobs.locate`);
+- the paycheck of the grade. Unemployed: where to find a job.
+
+The job state (`stateProvider("job")` in `server/modules/jobs.lua`) carries `guide`,
+`art`, `run` (`Runs.preview`, with `remote`) and `work` (`Work.preview`, with the item
+names for the pictures).
+
 ## AC maintenance
 
-AC Cleaner alone keeps `/job start|status|gps|cancel`, the employment desk,
-three timed rooftop tasks, public service exits and a €$260 bank payment on
-completion. Its temporary test locations remain in `server/config/job_runs.lua`.
-An AC order and an item-work loop cannot run simultaneously.
+AC Cleaner is no longer offered at the job centers. Characters who already hold it
+keep its work order: collected at the employment desk, three timed rooftop tasks,
+public service exits and a €$260 bank payment on completion. Its temporary test locations remain in `server/config/job_runs.lua`.
+A work order (AC or courier) and an item-work loop cannot run simultaneously.
 
 ## Verification
 

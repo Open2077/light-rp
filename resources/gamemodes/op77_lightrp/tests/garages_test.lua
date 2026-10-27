@@ -31,8 +31,12 @@ function Db.run(sql,p)
     if sql:find("INSERT INTO lightrp_owned_vehicles",1,true) then
         for _,r in pairs(dbRows) do if r.grant_key==p[8] then return false end end
         dbRows[p[1]]={id=p[1],identifier=p[2],character_key=p[3],model=p[4],record=p[5],garage_id=p[6],properties=p[7],grant_key=p[8]}
+    elseif sql:find("SET state = 'stored'",1,true) then
+        local r=dbRows[p[2]]; if not r or r.state~="impound" then return true,0 end
+        r.state,r.impound_reason,r.impound_fee,r.garage_id="stored",nil,0,p[1]
     elseif sql:find("UPDATE lightrp_owned_vehicles",1,true) then
-        dbRows[p[3]].garage_id,dbRows[p[3]].properties=p[1],p[2]
+        for i=1,6 do assert(p[i]~=nil,"no nil in a parameter list (the bridge refuses holes)") end
+        local r=dbRows[p[6]]; r.garage_id,r.properties,r.state,r.impound_reason,r.impound_fee=p[1],p[2],p[3],p[4]~="" and p[4] or nil,p[5]
     elseif sql:find("INSERT INTO lightrp_inventories",1,true) then inventories[p[1]]=p[6] end
     return true,1
 end
@@ -51,7 +55,17 @@ LightRP={ db=Db, module=function(name,t) LightRP[name]=t;return t end, command=n
     keys={lock=function(id,value) world[id].locked=value;return true end,give=function() return true end},
 }
 for _,v in ipairs(LightRpConfig.vehicles.catalog) do LightRP.vehicles.byKey[v.key]=v end
-Open77={players={position=function(id) return positions[id] end,getLifeState=function(id) return lives[id] and {phase=lives[id]} end},vehicles={}}
+local wallets={ [1]={cash=100,bank=1000}, [2]={cash=0,bank=0} }
+local notices={}
+LightRP.notice=function(id,n) notices[#notices+1]={id=id,body=n.body} end
+LightRP.money={format=function(n) return "€$"..n end,explain=function(r) return "Denied: "..tostring(r) end,
+    exchange=function(id,wallet,delta,write,commit)
+        if wallets[id][wallet]+delta<0 then return false,"insufficient_funds" end
+        if not Db.transaction({write}) then return false,"database_error" end
+        wallets[id][wallet]=wallets[id][wallet]+delta; commit(); return true end}
+Open77={players={position=function(id) return positions[id] end,getLifeState=function(id) return lives[id] and {phase=lives[id]} end},vehicles={},
+    state={entity=function(_,id) local v=world[id] or {};v.bag=v.bag or {}
+        return {set=function(_,k,value) v.bag[k]=value;return true end,get=function(_,k) return v.bag[k] end} end}}
 local V=Open77.vehicles
 V.get=function(id) return world[id] end
 V.all=function(bucket) local a={};for _,v in pairs(world) do if not bucket or v.bucket==bucket then a[#a+1]=v end end;return a end
@@ -114,9 +128,15 @@ assert(perform("store",first) and not world[id],"park after save")
 assert(perform("retrieve",first));id=nextVehicle
 assert(world[id].health==.43 and Inv.count("personal:"..first,"water")==3,"condition and stable trunk restored")
 assert(world[id].paint.applied==false,"stock livery retained on retrieval")
-V.remove(id);open();assert(lastDialog.vehicles[1].status=="stored" or lastDialog.vehicles[2].status=="stored")
-failDb=true;assert(not perform("retrieve",first),"recovery write must succeed first");failDb=false
-assert(perform("retrieve",first));id=nextVehicle
+V.remove(id);open()
+local function entry(rowId) for _,v in ipairs(lastDialog.vehicles) do if v.id==rowId then return v end end end
+assert(entry(first).status=="impound" and entry(first).impound.fee==LightRpGarages.impound.fees.lost,"a vehicle gone from the world is towed")
+assert(notices[#notices].id==1 and notices[#notices].body:find("impound"),"the owner is told")
+assert(not perform("retrieve",first),"an impounded vehicle is recovered, not retrieved")
+assert(not perform("recover",first),"a fee needs a payment method")
+failDb=true;assert(not perform("recover",first,1,{pay="bank"}) and wallets[1].bank==1000,"failed release never charges");failDb=false
+assert(perform("recover",first,1,{pay="bank"}),"fee paid at the garage");id=nextVehicle
+assert(wallets[1].bank==1000-LightRpGarages.impound.fees.lost and world[id] and dbRows[first].state=="out","released and driven out")
 assert(Inv.count("personal:"..first,"water")==3,"forced delete keeps trunk")
 failRemove=true;assert(not perform("store",first) and world[id]);assert(not perform("retrieve",first));failRemove=false
 assert(perform("store",first))
@@ -133,17 +153,45 @@ seats[1]={vehicleId=900};assert(not G.open(1,"citycenter"));seats[1]=nil
 open();chars[1].key="slot2";assert(not perform("retrieve",first),"character isolation");chars[1].key="default"
 -- A change during an awaited persistence write cannot deliver to the next slot.
 open();assert(perform("retrieve",first));id=nextVehicle;V.remove(id);open()
-intercept=function() chars[1].key="slot2" end
-assert(not perform("retrieve",first),"identity rechecked after yield");chars[1].key="default"
+-- the release write first, then the delivery's own write switches the character
+intercept=function() intercept=function() chars[1].key="slot2" end end
+local before=nextVehicle
+assert(perform("recover",first,1,{pay="bank"}) and nextVehicle==before,"identity rechecked after yield: released, not delivered")
+chars[1].key="default";open();assert(entry(first).status=="stored")
 -- Missing removal events are detected by the bounded maintenance worker.
 open();assert(perform("retrieve",first));id=nextVehicle;world[id]=nil
 local worker=coroutine.create(threads[#threads]);for _=1,10 do assert(coroutine.resume(worker));tick=tick+2000 end
-open();assert(perform("retrieve",first));id=nextVehicle
--- Reboot: fresh registry/handlers, same SQL ownership and trunk snapshots.
+open();assert(entry(first).status=="impound","the worker tows a lost vehicle")
+wallets[1].cash=0;assert(not perform("recover",first,1,{pay="cash"}),"insufficient funds");wallets[1].cash=100
+assert(perform("recover",first,1,{pay="bank"}));id=nextVehicle
+-- The owner sends it to the impound from a garage: towed from wherever it is,
+-- even far away and occupied, trunk and condition kept.
+world[id].position={x=5000,y=0,z=0};world[id].occupants={{playerId=2}};world[id].health=.6
+assert(not perform("impound",second),"a stored vehicle is collected, not towed")
+assert(perform("impound",first) and not world[id] and dbRows[first].state=="impound","towed and removed from the world")
+assert(entry(first).impound.fee==LightRpGarages.impound.fees.requested and Inv.count("personal:"..first,"water")==3)
+assert(not perform("impound",first),"already at the impound")
+assert(perform("recover",first,1,{pay="bank"}));id=nextVehicle;assert(world[id].health==.6,"condition kept through the impound")
+-- Staff tow: /lightrp.impound <vehicle id>.
+assert(not G.towLive(99999),"only personal vehicles");assert(G.towLive(id) and not world[id] and dbRows[first].state=="impound")
+assert(perform("recover",first,1,{pay="bank"}));id=nextVehicle
+-- Resource restart: fresh registry/handlers, same SQL; the car left outside is
+-- still in the world with its tag: removed, and towed (free).
+assert(dbRows[first].state=="out" and world[id].bag.lightrpOwned==first)
+handlers={};threads={};LightRP.inventory=nil
+dofile("server/modules/inventory.lua");Inv=LightRP.inventory
+dofile("server/modules/garages.lua");G=LightRP.garage;G.onDatabaseReady()
+assert(not world[id],"no second copy of the car in the world")
+open();assert(#lastDialog.vehicles==2 and entry(first).status=="impound" and entry(second).status=="stored")
+assert(entry(first).impound.fee==LightRpGarages.impound.fees.restart and dbRows[first].state=="impound","left outside at a restart: impound")
+local bank=wallets[1].bank
+assert(perform("recover",first),"a restart costs nothing");assert(wallets[1].bank==bank and world[nextVehicle].health==.6)
+assert(Inv.count("personal:"..first,"water")==3,"trunk survives the restart and a new network ID")
+-- Process reboot: the world is empty, the vehicle still marked out is towed.
 world={};handlers={};threads={};LightRP.inventory=nil
 dofile("server/modules/inventory.lua");Inv=LightRP.inventory
 dofile("server/modules/garages.lua");G=LightRP.garage;G.onDatabaseReady()
-open();assert(#lastDialog.vehicles==2);for _,v in ipairs(lastDialog.vehicles) do assert(v.status=="stored") end
-assert(perform("retrieve",first));assert(world[nextVehicle].health==.43)
-assert(Inv.count("personal:"..first,"water")==3,"trunk survives reboot and new network ID")
-print("garages_test: ownership, replay, storage, recovery, reboot, trunk, identity and failure checks passed")
+notices={};G.onGameplayReady(1);assert(#notices==1 and notices[1].body:find("free of charge"),"told once on joining")
+G.onGameplayReady(1);assert(#notices==1,"not twice")
+open();assert(entry(first).status=="impound" and perform("recover",first))
+print("garages_test: ownership, replay, storage, recovery, impound (restart, lost, requested, staff, fees, notices, no duplicates), trunk, identity and failure checks passed")

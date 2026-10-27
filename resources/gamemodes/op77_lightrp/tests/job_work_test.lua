@@ -73,7 +73,19 @@ local function gotoPoint(job,kind)
     now=now+600
     for _,p in ipairs(C.jobs[job].points) do if p.kind==kind then position=clone(p.position);position.bucket=0;return "work."..job.."."..p.id end end
 end
-local function begin(job,kind) local id=gotoPoint(job,kind);assert(W.begin(1,id));return clone(last) end
+-- the job is held by the worker (a Job Center hire); the tests below work as that job
+LightRP.jobs={get=function() return {name=char.job} end}
+do
+    char.job="unemployed"
+    local ok,why=W.begin(1,gotoPoint("scrapper","collect"))
+    assert(not ok and why:find("Job Center"),"no job, no work")
+    assert(not W.locate(1,"sanitation"),"no GPS for a job you do not hold")
+    -- the points are registered by the module's start thread: run it to its first wait
+    local co=coroutine.create(threads[#threads]);coroutine.resume(co);coroutine.resume(co)
+    assert(points["work.scrapper.workshop"].jobs[1]=="scrapper","a work point is listed to its job only")
+    for id,p in pairs(points) do if id:find("^work%.tutorial%.") then assert(p.jobs==nil,"practice sites stay the guide's") end end
+end
+local function begin(job,kind) char.job=job;local id=gotoPoint(job,kind);assert(W.begin(1,id));return clone(last) end
 local function finish()
     local token=last.token;now=now+last.durationMs+5
     assert(W.complete(1,{token=token,status="success",count=999999,total=999999}))

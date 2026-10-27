@@ -1,4 +1,5 @@
--- Only AC Cleaner uses work orders. Sanitation/Scrapper: see job_work.lua.
+-- Work orders: AC Cleaner's fixed route below, and the courier's routes drawn at
+-- random for each order (`generator`, server/config/delivery.lua). Sanitation/Scrapper: see job_work.lua.
 -- AC Cleaner uses TEMPORARY TEST POINTS, pending final locations.
 -- These markers represent loads / machinery; they do not modify map props.
 -- Server-owned routes. Coordinates are not accepted from the client.
@@ -9,6 +10,9 @@ local function work(label, x, y, z, duration)
 end
 LightRpJobRuns = {
     range = 2.6, lifetimeMs = 90 * 60000, cooldownMs = 15000,
+    -- How long a run survives its worker being out of the public world (a loading
+    -- screen, a fitting room, an interior) before it ends.
+    awayGraceMs = 90000,
     -- Service access is deliberately independent of employment: cancelling or
     -- reconnecting on a roof must NEVER remove the way back down.
     lifts = {
@@ -20,6 +24,15 @@ LightRpJobRuns = {
             label = "Rooftop maintenance", reward = 260, estimate = "5–8 min", icon = "fan",
             description = "Use the marked service access, clean the rooftop cooling units, then return your maintenance report.",
             steps = {}, -- Temporary test deck below; replace with the real HVAC locations.
+        },
+        delivery = {
+            generator = "delivery", label = "Delivery run", icon = "package",
+            -- Dispatch sends the route anywhere in the city: the player menu (F1 →
+            -- My job → Start a run) collects it without visiting a job center.
+            remoteDispatch = true,
+            estimate = "Random route · paid by distance",
+            description = "Collect each order at its pickup point, then deliver them one by one. The route is drawn when you collect it; the pay follows its length.",
+            steps = {}, -- drawn per order
         },
     },
 }

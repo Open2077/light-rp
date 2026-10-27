@@ -13,6 +13,7 @@ import { RentalDialog } from "@/features/rental/RentalDialog";
 import { InventoryDialog } from "@/features/inventory/Inventory";
 import { JobCenterDialog } from "@/features/jobs/JobCenterDialog";
 import { JobRunHud } from "@/features/jobs/JobRunHud";
+import { JobGuide } from "@/features/jobs/JobGuide";
 import { ErrorBoundary } from "@/design/ErrorBoundary";
 import { InteractPrompt } from "@/features/hud/InteractPrompt";
 import { Actions } from "@/features/actions/Actions";
@@ -23,6 +24,9 @@ import { DealershipDialog } from "@/features/dealership/DealershipDialog";
 import { FuelDialog, FuelApproach } from "@/features/fuel/FuelDialog";
 import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
+import { MissionDialog } from "@/features/missions/MissionDialog";
+import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
+import { MissionSquadHud } from "@/features/missions/MissionSquadHud";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -69,6 +73,8 @@ export function App() {
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
+      <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
+      <ErrorBoundary name="mission-squad"><MissionSquadHud /></ErrorBoundary>
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
       <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>
       <ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary>
@@ -81,9 +87,11 @@ export function App() {
       <ErrorBoundary name="garage"><GarageDialog /></ErrorBoundary>
       <ErrorBoundary name="housing"><HousingDialog /></ErrorBoundary>
       <ErrorBoundary name="dealership"><DealershipDialog /></ErrorBoundary>
+      <ErrorBoundary name="mission"><MissionDialog /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>
+      <ErrorBoundary name="job-guide"><JobGuide /></ErrorBoundary>
       <ErrorBoundary name="menu"><PlayerMenu /></ErrorBoundary>
       <ErrorBoundary name="actions"><Actions /></ErrorBoundary>
       <ErrorBoundary name="animations"><AnimationMenu /></ErrorBoundary>

@@ -24,6 +24,7 @@ view = function(id, session)
     return { kind = "dealership", session = session.id, nextRequest = session.nextRequest,
         dealer = { id = session.place.id, name = session.place.name, subtitle = session.place.subtitle },
         garage = LightRP.garage.location(session.place.garage), stock = session.stock,
+        delivery = session.place.delivery and { name = session.place.delivery.name } or nil,
         money = { currency = LightRpConfig.economy.currency, cash = wallet and wallet.cash or 0, bank = wallet and wallet.bank or 0 } }
 end
 send = function(id, session, response)
@@ -54,6 +55,32 @@ function Dealer.open(id, placeId)
     LightRP.dialog(id,"dealership",view(id,session))
     return true
 end
+-- After a purchase: where to find the vehicle. A dealership with a delivery bay
+-- drives it out there at once; otherwise, or when the bay cannot take it, it
+-- waits at the garage. Either way a private blip and GPS route lead the buyer to
+-- it (client/core/vehicle_gps.lua). Returns the text for the purchase screen.
+local function handOver(id, place, rowId)
+    local garage = LightRP.garage.location(place.garage)
+    local name = LightRP.garage.label and LightRP.garage.label(rowId) or "Your vehicle"
+    local bay, why = place.delivery, nil
+    if bay then
+        local ran, delivered, text, vehicleId = pcall(LightRP.garage.deliver, id, rowId, bay)
+        if ran and delivered then
+            TriggerClientEvent(E.net.vehicleGps, id, { position = bay.position, title = name, description = bay.name, vehicle = vehicleId })
+            local body = string.format("%s is waiting for you at %s. Follow the GPS, then press L next to it to unlock it.", name, bay.name)
+            pcall(LightRP.notice, id, { kind = "success", title = "Your new vehicle", body = body, durationMs = 12000 })
+            return body
+        end
+        why = ran and text or "the delivery failed"
+        if not ran then LightRP.log("dealership delivery failed: %s", tostring(delivered)) end
+    end
+    TriggerClientEvent(E.net.vehicleGps, id, { position = garage.position, title = garage.name,
+        description = name .. " is stored here. Press E at the garage.", garage = true })
+    local body = why and string.format("%s could not be driven out (%s) and is waiting at %s. Follow the GPS and press E at the garage.", name, why, garage.name)
+        or string.format("%s is waiting at %s. Follow the GPS and press E at the garage.", name, garage.name)
+    if bay then pcall(LightRP.notice, id, { kind = "success", title = "Your new vehicle", body = body, durationMs = 12000 }) end
+    return body
+end
 function Dealer.buy(id, payload)
     local session = sessions[id]
     if type(payload) ~= "table" or not session or session.id ~= payload.session then return false, "Reopen the dealership." end
@@ -80,7 +107,7 @@ function Dealer.buy(id, payload)
         for _,item in ipairs(session.place.stock) do if item.key==payload.key then current=item;break end end
         if not current or current.price~=offer.price then return false,"The offer changed. Reopen the dealership to review the price." end
         return LightRP.garage.purchase(id,offer.key,session.place.garage,"dealer:"..session.id..":"..request,
-            {amount=offer.price,method=payload.pay,vendor=session.place.name,validate=function()
+            {amount=offer.price,method=payload.pay,vendor=session.place.name,silent=session.place.delivery~=nil,validate=function()
                 if sessions[id]~=session or identity(id)~=session.owner then return false,"This visit was cancelled before payment." end
                 return guard(id,session.place)
             end})
@@ -88,7 +115,11 @@ function Dealer.buy(id, payload)
     session.busy=nil
     if not ran then LightRP.log("dealership purchase failed: %s",tostring(ok));ok,result=false,"Purchase could not be confirmed. Reopen the dealership to check your balance and garage." end
     local vehicleId = ok and result or nil
-    local message = ok and ("Purchase complete. Your vehicle is waiting at " .. LightRP.garage.location(session.place.garage).name .. ".") or result
+    local message = result
+    if ok then
+        local placed, text = pcall(handOver, id, session.place, result)
+        message = placed and text or ("Purchase complete. Your vehicle is waiting at " .. LightRP.garage.location(session.place.garage).name .. ".")
+    end
     session.last={request=request,key=payload.key,pay=payload.pay,ok=ok,text=message,vehicleId=vehicleId}
     session.expires=LightRP.nowMs()+C.sessionMs
     send(id,session,{request=request,ok=ok,text=message,vehicleId=vehicleId})
@@ -119,9 +150,19 @@ for _,place in ipairs(C.locations) do
     end
     place.bucket=place.bucket or 0;locations[place.id]=place
     if C.enabled then LightRP.interaction("dealership."..place.id,{position=place.position,radius=C.range,bucket=place.bucket,
-        label=place.name,prompt="Browse vehicles",key="E",marker=LightRpGarages.marker,ring=false,
-        blip={icon="car-front",sprite="Zzz01_CarForPurchaseVariant",title="Vehicle Dealership",description=place.name.."\nBuy a personal vehicle. Delivered to your public garage."}}) end
+        label=place.name,prompt="Browse vehicles",key="E",marker=LightRpGarages.marker,ring=false,promptHeight=place.clerk and 1.1 or nil,
+        blip={icon="car-front",sprite="Zzz01_CarForPurchaseVariant",title="Vehicle Dealership",description=place.name..(place.delivery
+            and "\nBuy a personal vehicle. Handed over at the delivery bay, keys included." or "\nBuy a personal vehicle. Delivered to your public garage.")}}) end
 end
+-- A sales clerk at the desks that ask for one (crowd NPC, AI off; jobs.lua).
+CreateThread(function()
+    Wait(700)
+    for _,place in pairs(locations) do
+        if place.clerk and C.enabled and LightRP.jobs and LightRP.jobs.spawnClerk then
+            place.npcId=LightRP.jobs.spawnClerk({id=place.id,kind="dealership",position=place.position,heading=place.heading,bucket=place.bucket})
+        end
+    end
+end)
 CreateThread(function()
     while true do
         Wait(2000)

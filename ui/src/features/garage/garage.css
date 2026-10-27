@@ -68,3 +68,15 @@
 @media(max-width:760px) { .garage { padding: 18px; }.garage__workspace { height: 95vh; }.garage__layout { overflow-y: auto; display: block; padding: 15px 0; }.garage__list { max-height: 360px; }.garage__detail { border-left: 0; border-top: 1px solid #ffffff16; padding: 20px 0 0; margin-top: 20px; overflow: visible; }.garage__preview { display: none; }.garage__header { padding-bottom: 14px; }.garage__bar { font-size: 10px; flex-wrap: wrap; }.garage__footer { font-size: 9px; }.garage-card__body { padding: 10px; }.garage-card h2 { font-size: 14px; }.garage-card footer { flex-direction: column; } }
 @media(max-height:700px) and (min-width:761px) { .garage { padding: 20px 4vw; }.garage__workspace { height: 94vh; }.garage__header { padding-bottom: 10px; }.garage__header p { display: none; }.garage__layout { padding: 15px 0; }.garage__preview { height: 100px; margin: 10px 0; }.garage__detail dl { margin-top: 10px; }.garage__bottom { padding-top: 14px; } }
 @media(prefers-reduced-motion:reduce) { .garage, .garage *, .garage [aria-busy="true"] .garage__primary svg { animation: none !important; transition: none !important; } }
+
+/* The impound: status, payment choice and the tow link. */
+.garage__status.is-impound { color: #ff8a7a; border-color: #ff5b4f55; }.garage__status.is-impound i { background: #ff5b4f; }
+.garage__pay { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0; }
+.garage__pay button { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid #ffffff22; background: #ffffff08; color: var(--text); font-size: 12px !important; }
+.garage__pay button small { margin-left: auto; color: var(--text-dim); font: 10px var(--font-mono); }
+.garage__pay button[aria-checked="true"] { border-color: var(--accent); background: #ffcc0014; }
+.garage__tow { display: flex; align-items: center; justify-content: center; gap: 7px; color: #ff8a7a; }
+.garage__tow:hover:not(:disabled) { color: #ffb0a5; }
+/* The actions stay in view: on a short window the details scroll under them. */
+.garage__bottom { position: sticky; bottom: 0; z-index: 1; background: linear-gradient(to bottom, #11121200, #111212 18px); }
+@media(max-width:760px) { .garage__bottom { position: static; background: none; } }

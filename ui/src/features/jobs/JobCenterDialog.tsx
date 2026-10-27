@@ -15,7 +15,12 @@ export function JobCenterDialog() {
     emit(PAGE_EVENTS.focus, { active: true });
     emit(PAGE_EVENTS.dialogState, { kind: "jobcenter", open: true });
     const off = on<{ kind?: string }>(PAGE_EVENTS.dialogClose, (p) => { if (!p?.kind || p.kind === "jobcenter") close(); });
-    return () => { off(); emit(PAGE_EVENTS.dialogState, { kind: "jobcenter", open: false }); emit(PAGE_EVENTS.focus, { active: false }); };
+    return () => {
+      off(); emit(PAGE_EVENTS.dialogState, { kind: "jobcenter", open: false }); emit(PAGE_EVENTS.focus, { active: false });
+      // Hired here: the new job's guide opens once the desk is closed.
+      const { jobGuideQueued, openJobGuide } = useStore.getState();
+      if (jobGuideQueued) openJobGuide(jobGuideQueued);
+    };
   }, [visible, close]);
   if (dialog?.kind !== "jobcenter") return null;
   return <JobCenterBody key={dialog.spot.id} payload={dialog} onClose={close} />;
@@ -42,6 +47,7 @@ function JobCenterBody({ payload, onClose }: { payload: JobCenterDialogPayload; 
   const [confirm, setConfirm] = useState<"apply" | "quit" | "cancel" | null>(null);
   const [sent, setSent] = useState<string | null>(null);
   const pending = useRef<string | null>(null);
+  const applied = useRef<string | null>(null);
   const resultBefore = useRef(result);
   const [feedback, setFeedback] = useState<{ text: string; error?: boolean } | null>(null);
   const offer = payload.jobs.find((entry) => entry.name === selected) ?? payload.jobs[0];
@@ -66,7 +72,11 @@ function JobCenterBody({ payload, onClose }: { payload: JobCenterDialogPayload; 
     const action = pending.current;
     resultBefore.current = result; pending.current = null; setSent(null);
     setFeedback({ text: result.text, error: !result.ok });
-    if (result.ok) { setConfirm(null); if (action === "jobs.start" || action === "jobs.locate") onClose(); }
+    if (result.ok) {
+      setConfirm(null);
+      if (action === "jobs.apply" && applied.current) useStore.getState().queueJobGuide(applied.current);
+      if (action === "jobs.start" || action === "jobs.locate") onClose();
+    }
   }, [result, onClose]);
   useEffect(() => {
     if (!sent) return;
@@ -97,6 +107,7 @@ function JobCenterBody({ payload, onClose }: { payload: JobCenterDialogPayload; 
   const issue = (action: UiAction) => {
     if (pending.current) return;
     pending.current = action.type; resultBefore.current = useStore.getState().lastResult;
+    if (action.type === "jobs.apply") applied.current = action.job;
     setSent(action.type); setFeedback(null); sendAction(action);
   };
   const browseKey = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -144,8 +155,8 @@ function JobCenterBody({ payload, onClose }: { payload: JobCenterDialogPayload; 
           {employed ? <button className="jobcenter__text" disabled={!!sent} onClick={() => { setFeedback(null); setConfirm("quit"); }}>Leave this job <Icon name="arrow-right" size={13} /></button> : <small>You are not employed yet.</small>}
         </div>
         {offer && <><div className="jobcenter__terms"><span className="jobcenter__eyebrow">{current ? "YOUR GRADE" : "STARTING GRADE"}</span><strong>{current ? job.gradeLabel : offer.entryGrade.label}</strong><small>{offer.grades} career grades</small></div>
-          <div className="jobcenter__terms"><span className="jobcenter__eyebrow">{offer.work?"SELL FINISHED GOODS":"COMPLETE A RUN"}</span><strong>{offer.work?`${fmt(offer.work.price)} / unit`:offer.route ? fmt(offer.route.reward) : "Not available"}</strong><small>{offer.work?`${offer.work.inputCount} ${offer.work.raw} → ${offer.work.outputCount} ${offer.work.product}`:offer.route ? `${offer.route.stops} tasks · ${offer.route.estimate} · Bank payment` : "No route configured"}</small></div>
-          {offer.work?<button className="jobcenter__primary" disabled={!!sent} onClick={()=>issue({type:"jobs.locate",job:offer.name,stage:"collect"})}>{sent?"Setting GPS…":"Find a collection point"}<Icon name="map-pin" size={19}/></button>:
+          <div className="jobcenter__terms"><span className="jobcenter__eyebrow">{offer.work?"SELL FINISHED GOODS":"COMPLETE A RUN"}</span><strong>{offer.work?`${fmt(offer.work.price)} / unit`:offer.route ? (offer.route.variable ? `From ${fmt(offer.route.reward)}` : fmt(offer.route.reward)) : "Not available"}</strong><small>{offer.work?`${offer.work.inputCount} ${offer.work.raw} → ${offer.work.outputCount} ${offer.work.product}`:offer.route ? (offer.route.orders ? `${offer.route.orders.min}–${offer.route.orders.max} orders · ${offer.route.estimate} · Bank payment` : `${offer.route.stops} tasks · ${offer.route.estimate} · Bank payment`) : "No route configured"}</small></div>
+          {offer.work?<button className="jobcenter__primary" disabled={!!sent} onClick={()=>{ if (!current) { setFeedback(null); setConfirm("apply"); } else issue({type:"jobs.locate",job:offer.name,stage:"collect"}); }}>{sent?"Setting GPS…":current?"Find a collection point":`Choose ${offer.label}`}<Icon name={current?"map-pin":"arrow-right"} size={19}/></button>:
           <button className="jobcenter__primary" disabled={!!sent || (current && !offer.route && !run?.active)} onClick={() => {
             setFeedback(null);
             if (!current) setConfirm("apply");
@@ -153,21 +164,21 @@ function JobCenterBody({ payload, onClose }: { payload: JobCenterDialogPayload; 
             else issue({ type: "jobs.start" });
           }}>{sent === "jobs.start" ? "Requesting route…" : current ? run?.active ? "Continue my run" : "Start a run" : `Choose ${offer.label}`}<Icon name="arrow-right" size={19} /></button>}</>}
       </footer>
-      {offer?.work&&<div className="jobcenter__footnote"><span>FREE ACTIVITY · No shift or employment required · {offer.work.collectWeight} kg per collection</span><div className="jobcenter__work-links">
-        <button className="jobcenter__text" disabled={!!sent} onClick={()=>issue({type:"jobs.locate",job:offer.name,stage:"process"})}>Processing GPS <Icon name="hammer" size={14}/></button>
-        <button className="jobcenter__text" disabled={!!sent} onClick={()=>issue({type:"jobs.locate",job:offer.name,stage:"sell"})}>Buyer GPS <Icon name="banknote" size={14}/></button>
+      {offer?.work&&<div className="jobcenter__footnote"><span>{current ? "YOUR JOB · YOUR OWN PACE, NO SHIFT" : "HIRE FIRST · ITS WORK POINTS SHOW ON YOUR MAP ONCE HIRED"} · {offer.work.collectWeight} kg per collection</span><div className="jobcenter__work-links">
+        {current&&<button className="jobcenter__text" disabled={!!sent} onClick={()=>issue({type:"jobs.locate",job:offer.name,stage:"process"})}>Processing GPS <Icon name="hammer" size={14}/></button>}
+        {current&&<button className="jobcenter__text" disabled={!!sent} onClick={()=>issue({type:"jobs.locate",job:offer.name,stage:"sell"})}>Buyer GPS <Icon name="banknote" size={14}/></button>}
         {!current&&<button className="jobcenter__text" disabled={!!sent} onClick={()=>{setFeedback(null);setConfirm("apply");}}>Choose as my job <Icon name="briefcase" size={14}/></button>}
       </div></div>}
       <div className="jobcenter__footnote"><span><kbd>←</kbd><kbd>→</kbd> Explore jobs <span>·</span> Hover or focus to discover</span>
         {run?.active ? <button className="jobcenter__text" disabled={!!sent || run.busy} onClick={() => setConfirm("cancel")}>Cancel current run · No payment <Icon name="x" size={13} /></button>
-          : <span>{offer?.work?"Collect → Process → Sell · Keep your items between sessions":"AC maintenance · GPS included · Paid on completion"}</span>}</div>
+          : <span>{offer?.work?"Collect → Process → Sell · Keep your items between sessions":offer?.route?.variable?"Random route · GPS included · Paid by distance":"Work order · GPS included · Paid on completion"}</span>}</div>
       {feedback && !confirm && <p className={`jobcenter__feedback${feedback.error ? " is-error" : ""}`} role={feedback.error ? "alert" : "status"}>{feedback.text}</p>}
     </div>
     {confirm && <div className="jobcenter__veil"><div className="jobcenter__confirm" ref={confirmation} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="job-confirm-title" aria-describedby="job-confirm-description" aria-busy={!!sent}>
       <span className="jobcenter__confirm-icon"><Icon name={confirm === "quit" ? "briefcase" : offer?.recruitment?.icon ?? "briefcase"} size={28} /></span>
       <span className="jobcenter__eyebrow">{confirm === "quit" ? "LEAVE YOUR JOB" : "YOUR NEXT CHAPTER"}</span>
       <h2 id="job-confirm-title">{confirm === "cancel" ? "Abandon this run?" : confirm === "quit" ? `Leave ${job.label}?` : `Join ${offer?.label}?`}</h2>
-      <p id="job-confirm-description">{confirm === "cancel" ? "Your progress will be lost and no payment will be issued. Your job stays unchanged and rooftop service exits remain available." : confirm === "quit" ? "You will become unemployed and stop receiving this salary. Any unfinished run is cancelled. Joining again starts at the entry grade." : `${employed ? `This replaces ${job.label} and cancels any unfinished run. ` : ""}You start as ${offer?.entryGrade.label}. Your existing grade will not carry over.`}</p>
+      <p id="job-confirm-description">{confirm === "cancel" ? `Your progress will be lost and no payment will be issued. Your job stays unchanged${run?.orders ? "; the undelivered orders leave your bag." : " and rooftop service exits remain available."}` : confirm === "quit" ? "You will become unemployed and stop receiving this salary. Any unfinished run is cancelled. Joining again starts at the entry grade." : `${employed ? `This replaces ${job.label} and cancels any unfinished run. ` : ""}You start as ${offer?.entryGrade.label}. Your existing grade will not carry over.`}</p>
       {confirm === "apply" && <div className="jobcenter__confirm-pay"><span>Starting bank paycheck</span><strong>{pays ? `${fmt(offer?.entryGrade.salary ?? 0)} / ${payload.paycheckMinutes} min` : "Automatic salary disabled"}</strong></div>}
       {feedback && <p className={`jobcenter__feedback${feedback.error ? " is-error" : ""}`} role={feedback.error ? "alert" : "status"}>{feedback.text}</p>}
       <button className="jobcenter__primary" disabled={!!sent || (confirm === "apply" && (!offer || current))} onClick={() => {

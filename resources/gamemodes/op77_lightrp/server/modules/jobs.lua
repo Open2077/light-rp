@@ -110,7 +110,7 @@ function Jobs.setGang(playerId, name, grade)
     return true, gang
 end
 
-local REASONS = { no_character = "That player has no active character.", unknown_job = "Unknown job. /lightrp.jobs lists them.",
+local REASONS = { no_character = "That player has no active character.", busy = "Wait for the current step to finish, then try again.", unknown_job = "Unknown job. /lightrp.jobs lists them.",
     unknown_gang = "Unknown gang. /lightrp.jobs lists them.", unknown_grade = "That grade does not exist for it.", database_error = "The database refused." }
 local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
 
@@ -120,6 +120,13 @@ local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring
 LightRP.stateProvider("job", function(playerId)
     local job = Jobs.get(playerId)
     job.paycheckMinutes = Config.paycheckMinutes or 30
+    -- The job guide (shared/jobs.lua) and how the work is done: a work order
+    -- (`run`, job_runs) or free item work (`work`, job_work). Static per job.
+    local def = JOBS[job.name]
+    job.guide = def and def.guide or nil
+    job.art = def and def.recruitment and { image = def.recruitment.image, icon = def.recruitment.icon } or nil
+    job.run = LightRP.jobRuns and LightRP.jobRuns.preview(job.name) or nil
+    job.work = LightRP.jobWork and LightRP.jobWork.preview(job.name) or nil
     return job
 end)
 LightRP.stateProvider("gang", function(playerId) return Jobs.gang(playerId) end)
@@ -167,13 +174,16 @@ local function spawnClerk(center)
         local ok, npcId = pcall(Open77.npcs.create, definition)
         if ok and npcId then
             pcall(Open77.npcs.setAIEnabled, npcId, false)
-            LightRP.log("job center %s: clerk %s spawned as %s (AI off)", center.id, tostring(npcId), candidate.record or candidate.template)
+            LightRP.log("%s %s: clerk %s spawned as %s (AI off)", center.kind or "job center", center.id, tostring(npcId), candidate.record or candidate.template)
             return npcId
         end
     end
-    LightRP.log("job center %s: no clerk candidate accepted; the desk still works", center.id)
+    LightRP.log("%s %s: no clerk candidate accepted; the desk still works", center.kind or "job center", center.id)
     return nil
 end
+-- Other desks (the dealerships) staff their counter the same way:
+-- { id, kind, position, heading, bucket }.
+Jobs.spawnClerk = spawnClerk
 
 local function offersOf(center)
     local list = {}
@@ -243,6 +253,8 @@ end)
 
 LightRP.action("jobs.quit", function(playerId)
     if Jobs.get(playerId).name == "unemployed" then return LightRP.result(playerId, false, "You have no job to quit.", "jobs.quit") end
+    -- quitting ends a run in progress (onJobChanged) and stops item work
+    if LightRP.jobWork and LightRP.jobWork.isActive(playerId) then LightRP.jobWork.cancel(playerId) end
     local ok, result = Jobs.setJob(playerId, "unemployed", 0)
     LightRP.result(playerId, ok, ok and "You quit your job." or explain(result), "jobs.quit")
 end)

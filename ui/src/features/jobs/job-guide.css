@@ -1,0 +1,67 @@
+/* The job guide modal (JobGuide.tsx): the job center's black and yellow, over the game. */
+.job-guide { position: absolute; inset: 0; z-index: 46; display: grid; place-items: center; padding: clamp(16px, 4vh, 48px) clamp(16px, 4vw, 80px); background: #05070899; backdrop-filter: blur(3px); color: #f5f4ee; outline: none; animation: job-guide-in .25s ease-out both; }
+.job-guide *, .job-guide *::before, .job-guide *::after { box-sizing: border-box; }
+.job-guide button { font: inherit; cursor: pointer; }
+.job-guide button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.job-guide kbd { font: 10px/1 var(--font-mono); border: 1px solid #ffffff29; border-radius: 3px; padding: 4px 5px; color: #c4c6bf; }
+
+.job-guide__frame { display: grid; grid-template-columns: minmax(230px, 300px) minmax(0, 1fr); width: min(1080px, 100%); max-height: 100%; min-height: min(620px, 100%); background: #0b0d0e; border: 1px solid #ffffff1c; border-top: 3px solid var(--accent); box-shadow: 0 30px 90px #000c; overflow: hidden; }
+
+.job-guide__side { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; padding: 24px 20px; background: #15181a; overflow: hidden; }
+.job-guide__art { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; filter: saturate(.8) brightness(.7); }
+.job-guide__shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, #0b0d0e33 0%, #0b0d0ecc 45%, #0b0d0ef7 70%); }
+.job-guide__who { display: flex; flex-direction: column; gap: 6px; }
+.job-guide__eyebrow { display: flex; align-items: center; gap: 9px; color: #c9cbc3; font: 10px/1.4 var(--font-mono); letter-spacing: .14em; }
+.job-guide__eyebrow i { width: 18px; height: 3px; background: var(--accent); transform: skewX(-18deg); }
+.job-guide__tag { margin-top: 10px; color: var(--accent); font: 10px/1.4 var(--font-mono); letter-spacing: .1em; }
+.job-guide__who strong { font: 600 34px/1 var(--font-core); letter-spacing: -.03em; }
+.job-guide__who small { color: #b5b9b1; font-size: 12px; }
+.job-guide__steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.job-guide__steps button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: none; background: none; color: #a9ada6; text-align: left; font-size: 12px !important; transition: background .2s, color .2s; }
+.job-guide__steps button b { font: 10px var(--font-mono); color: #7e837c; }
+.job-guide__steps button span { flex: 1; }
+.job-guide__steps button:hover { color: #fff; background: #ffffff0d; }
+.job-guide__steps button.is-seen { color: #d9dcd3; }
+.job-guide__steps button.is-seen svg { color: #7fd38a; }
+.job-guide__steps button.is-on { color: #111; background: var(--accent); font-weight: 600; }
+.job-guide__steps button.is-on b { color: #111; }
+
+.job-guide__main { display: flex; flex-direction: column; min-width: 0; padding: 22px clamp(20px, 3vw, 40px) 18px; overflow: auto; }
+.job-guide__top { display: flex; justify-content: space-between; align-items: center; }
+.job-guide__count { font: 22px var(--font-mono); color: var(--accent); }
+.job-guide__count small { font-size: 12px; color: #7e837c; }
+.job-guide__close { display: flex; align-items: center; gap: 10px; border: none; background: none; color: #cccfc9; font-size: 12px !important; }
+.job-guide__close:hover { color: var(--accent); }
+.job-guide__stage { display: grid; place-items: center; min-height: 210px; margin: 16px 0 6px; padding: 22px 18px 26px; background: radial-gradient(ellipse at 50% 0%, #ffcc000f, transparent 70%), #101314; border: 1px solid #ffffff12; }
+.job-guide__glyph { color: #ffcc0055; }
+.job-guide__text { animation: job-guide-text .3s ease-out both; }
+.job-guide__text h2 { margin: 18px 0 10px; font: 600 26px/1.15 var(--font-core); letter-spacing: -.02em; }
+.job-guide__text p { margin: 0; max-width: 68ch; color: #c9ccc4; font-size: 14px; line-height: 1.65; }
+.job-guide__tips { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.job-guide__tips li { display: flex; gap: 8px; align-items: baseline; color: #a9b0a8; font-size: 12px; line-height: 1.5; }
+.job-guide__tips svg { flex: none; color: var(--accent); translate: 0 2px; }
+.job-guide__nav { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: auto; padding-top: 22px; }
+.job-guide__back { display: flex; align-items: center; gap: 7px; border: 1px solid #ffffff22; background: none; color: #d4d6cf; padding: 11px 16px; font-size: 13px !important; }
+.job-guide__back:disabled { opacity: .3; cursor: default; }
+.job-guide__dots { display: flex; gap: 6px; }
+.job-guide__dots i { width: 18px; height: 3px; background: #ffffff20; transition: background .2s; }
+.job-guide__dots i.is-seen { background: #ffcc0066; }
+.job-guide__dots i.is-on { background: var(--accent); }
+.job-guide__end { display: flex; gap: 10px; }
+.job-guide__next { display: flex; align-items: center; gap: 12px; border: none; background: var(--accent); color: #111; padding: 12px 20px; font-weight: 600; font-size: 14px !important; }
+.job-guide__next:hover { filter: brightness(1.08); }
+.job-guide__alt { display: flex; align-items: center; gap: 8px; border: 1px solid var(--accent); background: none; color: var(--accent); padding: 11px 16px; font-weight: 600; font-size: 13px !important; }
+.job-guide__alt:hover { background: #ffcc0014; }
+.job-guide__hint { margin: 12px 0 0; display: flex; align-items: center; gap: 6px; color: #7e837c; font-size: 11px; }
+.job-guide__hint b { color: #b5b9b1; font-weight: 500; }
+
+@media (max-width: 820px), (max-height: 640px) {
+  .job-guide__frame { grid-template-columns: 1fr; }
+  .job-guide__side { flex-direction: row; align-items: flex-end; padding: 16px; }
+  .job-guide__steps { display: none; }
+  .job-guide__who strong { font-size: 26px; }
+  .job-guide__stage { min-height: 170px; }
+}
+@keyframes job-guide-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes job-guide-text { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .job-guide, .job-guide * { animation: none !important; transition: none !important; } }

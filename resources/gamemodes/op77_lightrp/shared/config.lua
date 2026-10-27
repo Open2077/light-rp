@@ -104,7 +104,14 @@ LightRpConfig = {
             maxDistance = 30.0, groundOffset = 0.05,
         },
         blip = { icon = "shirt", sprite = "clothes", title = "Wardrobe", description = "Change your outfit and manage your saved looks." },
+        -- A fitting room is private: from these shared buckets (the city is 0) the player
+        -- changes in bucket privateBucketBase + their id, and comes back on closing.
+        privateBucketBase = 710000,
+        sharedBuckets = { 620000 }, -- the first day's arrival hall (LightRpTutorialConfig.lobby.bucket)
         spots = {
+            -- The arrival hall's boutique, back corner (lobby map, shop interior; tutorial step "dress").
+            { id = "lobby_fitting", name = "Fitting room // Arrival Hall", position = { x = 6780.0, y = 2427.0, z = 400.03 },
+              bucket = 620000, noBlip = true },
             { id = "citycenter", name = "Wardrobe // City Center",  position = { x = -629.602417, y = -391.612671, z = 8.186066 } },
             { id = "north",      name = "Wardrobe // Northside",    position = { x = -787.005127, y = 765.159668, z = 22.459297 } },
             { id = "hospital",   name = "Wardrobe // Hospital",     position = { x = -1419.849854, y = 1264.845093, z = 23.070534 } },
@@ -121,7 +128,7 @@ LightRpConfig = {
             {
                 id = "citycenter", name = "Job Center // City Center",
                 position = { x = -645.578979, y = -412.519470, z = 8.196312 }, heading = 56.899963,
-                jobs = { "sanitation", "scrapper", "ac_cleaner" },
+                jobs = { "sanitation", "scrapper", "delivery" },
             },
         },
         centerPrompt = "Job center",

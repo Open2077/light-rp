@@ -1,3 +1,4 @@
+import { normalizeMission, normalizeParty, normalizeQueue } from "@/features/missions/model";
 import { create } from "zustand";
 import type { DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 
@@ -51,6 +52,12 @@ interface Store {
   dialog?: DialogPayload;      // the open server dialog (rental desk...)
   rentalReceivedAt: number;    // when `rental` last arrived, to count the time down
   welcomeReplay: boolean; // the Help tab asked for the briefing again
+  /** The job guide on screen (a job name), and the one waiting for the job center to close. */
+  jobGuide?: string;
+  jobGuideQueued?: string;
+  queueJobGuide(job: string): void;
+  openJobGuide(job: string): void;
+  closeJobGuide(): void;
   setConnected(value: boolean): void;
   setWelcomeReplay(value: boolean): void;
   applyState(patch: UiStatePatch): void;
@@ -73,6 +80,7 @@ export function normalizeInventory(snap: InventorySnapshot): InventorySnapshot {
   return { ...snap, items: Array.isArray(snap.items) ? snap.items : [] };
 }
 function normalizeDialog(payload: DialogPayload): DialogPayload {
+  if (payload.kind === "mission") return normalizeMission(payload);
   if (payload.kind === "dealership") return { ...payload, stock: Array.isArray(payload.stock) ? payload.stock : [] };
   if (payload.kind === "garage") return { ...payload, vehicles: Array.isArray(payload.vehicles) ? payload.vehicles : [] };
   if (payload.kind === "inventory") return { ...payload, left: normalizeInventory(payload.left), right: normalizeInventory(payload.right) };
@@ -94,7 +102,12 @@ export const useStore = create<Store>((set) => ({
   rentalReceivedAt: Date.now(),
   setConnected: (value) => set({ connected: value }),
   setWelcomeReplay: (value) => set({ welcomeReplay: value }),
+  queueJobGuide: (job) => set({ jobGuideQueued: job }),
+  openJobGuide: (job) => set({ jobGuide: job, jobGuideQueued: undefined }),
+  closeJobGuide: () => set({ jobGuide: undefined }),
   applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch,
+    ...("party" in patch ? { party: normalizeParty(patch.party) } : {}),
+    ...("missionQueue" in patch ? { missionQueue: normalizeQueue(patch.missionQueue) } : {}),
     ...(patch.character ? { character: { ...patch.character,
       origins: Array.isArray(patch.character.origins) ? patch.character.origins : [],
       slots: Array.isArray(patch.character.slots) ? patch.character.slots : [],

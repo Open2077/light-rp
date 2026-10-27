@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/state/store";
-import { emit, on, requestClose } from "@/bridge/open77";
+import { emit, on, requestClose, sendAction } from "@/bridge/open77";
 import { matchesToggleKey } from "@/features/inventory/model";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { RageMenu, type RageMenuItem } from "@/design/components";
 import { formatMoney, ledger, transactionLabel } from "@/bridge/money";
-import type { CharacterState, GangState, JobState, MoneyState } from "@/bridge/protocol";
+import type { CharacterState, GangState, JobRunState, JobState, MoneyState } from "@/bridge/protocol";
 import "./menu.css";
 
 /* The player menu (F1): a RageUI-style list menu, keyboard only, top-left. The
@@ -22,8 +22,78 @@ function formatDuration(ms: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}H${String(minutes % 60).padStart(2, "0")}`;
 }
 
-function buildTree(character: CharacterState, money: MoneyState, job: JobState, gang: GangState, freecamKey?: string): Record<string, MenuNode> {
-  const name = `${character.firstName ?? ""} ${character.lastName ?? ""}`.trim() || character.accountName;
+/* F1 → My job: how the job is worked, from anywhere. A work-order job (job.run)
+   starts, follows and abandons its run here; free item work (job.work) sets the
+   GPS of each stage; every job with a guide opens it; Resign leaves the job
+   (it ends a run in progress, without pay). */
+function jobNodes(job: JobState, run: JobRunState | undefined, money: MoneyState): Record<string, MenuNode> {
+  const fmt = (n: number) => formatMoney(n, money.currency);
+  const items: RageMenuItem[] = [];
+  const guide = Array.isArray(job.guide) ? job.guide.length : 0;
+  if (job.name === "unemployed") {
+    items.push({ id: "job-find", type: "item", text: "Find a job", icon: "briefcase", meta: "JOB CENTER",
+      description: "Job Centers hire on the spot, no experience needed: follow the briefcase on the map and press E at the clerk. Sanitation, Scrapper and Courier take anyone, and each job comes with its own guide." });
+  } else {
+    if (guide > 0) items.push({ id: "job-guide", type: "item", text: "Job guide", icon: "book-open", meta: `${guide} PAGES`,
+      description: `How ${job.label} works, step by step and with pictures: where to go, what to press, how you are paid.` });
+    const route = job.run;
+    if (route) {
+      items.push({ separator: true }, { label: "WORK ORDERS" });
+      if (run?.active) {
+        items.push(
+          { id: "run-status", type: "item", text: run.objective?.label ?? run.label ?? "Current run", icon: run.icon ?? "route",
+            meta: `STOP ${run.index ?? 1}/${run.total ?? 1}`,
+            description: [run.hint, run.orders ? `${run.carried ?? 0} of ${run.orders} orders carried · ${run.distanceKm ?? 0} km route.` : undefined,
+              run.reward ? `${fmt(run.reward)} when the run is complete.` : undefined].filter(Boolean).join(" ") },
+          { id: "run-gps", type: "item", text: "GPS to my next stop", icon: "navigation",
+            description: "Sets your GPS on the yellow marker of your next stop again, if you lost the route." },
+          { id: "run-cancel", type: "submenu", target: "runcancel", text: "Abandon this run", icon: "x", danger: true, disabled: run.busy,
+            description: `Ends the run now. No pay is issued${run.orders ? " and the undelivered orders leave your bag" : ""}. Your job stays the same: you can start another one right after.` });
+      } else {
+        const pay = route.variable ? `FROM ${fmt(route.reward)}` : fmt(route.reward);
+        const what = route.orders
+          ? `${route.orders.min} to ${route.orders.max} orders drawn at random: you pick each one up, then deliver each one to its address. The pay follows the length of the route (from ${fmt(route.reward)}), into your bank at the last delivery.`
+          : `${route.stops} tasks on a set route, ${fmt(route.reward)} into your bank when every task is done.`;
+        items.push(route.remote
+          ? { id: "run-start", type: "item", text: "Start a run", icon: "route", meta: pay,
+              description: `Dispatch sends you a route right now, wherever you are. ${what} Then follow the GPS and the work order card on the right.` }
+          : { id: "run-start", type: "item", text: "Start a run", icon: "route", meta: "AT A DESK",
+              description: `This job's work orders are handed out at a Job Center desk: follow the briefcase on the map, press E at the clerk, then Start a run. ${what}` });
+      }
+    }
+    const work = job.work;
+    if (work) {
+      items.push({ separator: true }, { label: "FREE WORK" },
+        { id: "work-collect", type: "item", text: "Collection point GPS", icon: "map-pin", meta: work.raw.toUpperCase(),
+          description: `Sets your GPS on the nearest collection point. Press E there: ${work.raw} goes into your bag, again and again until it is full. A vehicle trunk carries more.` },
+        { id: "work-process", type: "item", text: "Processing GPS", icon: "hammer", meta: work.product.toUpperCase(),
+          description: `Sets your GPS on the processing site. Press E there: every ${work.inputCount} ${work.raw} becomes ${work.outputCount} ${work.product}.` },
+        { id: "work-sell", type: "item", text: "Buyer GPS", icon: "banknote", meta: `${fmt(work.price)} / UNIT`,
+          description: `Sets your GPS on the buyer. Press E there: every ${work.product} in your bag is sold at ${fmt(work.price)}, paid into your bank.` });
+    }
+    items.push({ separator: true },
+      { id: "job-pay", type: "item", text: "Paycheck", icon: "landmark", meta: job.salary > 0 ? `${fmt(job.salary)} / ${job.paycheckMinutes ?? 30} MIN` : "—",
+        description: job.salary > 0 ? `${job.gradeLabel}: ${fmt(job.salary)} into your bank every ${job.paycheckMinutes ?? 30} minutes while you are in town, on top of what you earn working.` : "This grade has no salary." },
+      { id: "job-quit", type: "submenu", target: "jobquit", text: "Resign", icon: "x", danger: true, disabled: run?.busy,
+        description: `Leave ${job.label} and become unemployed${run?.active ? ". Your run in progress ends without pay" : ""}. A Job Center hires you again any time.` });
+  }
+  return {
+    job: { title: "MY JOB", subtitle: job.name === "unemployed" ? "NO JOB YET" : `${job.label.toUpperCase()} // ${job.gradeLabel.toUpperCase()}`, tag: "JOB", items },
+    runcancel: { title: "ABANDON RUN?", subtitle: "NO PAY WILL BE ISSUED", tag: "ABANDON", items: [
+      { id: "run-cancel-confirm", type: "item", text: "Yes, abandon this run", icon: "x", danger: true,
+        description: `The run ends without pay${run?.orders ? "; the orders still in your bag are taken back" : ""}.` },
+      { id: "run-cancel-keep", type: "item", text: "No, keep going", icon: "arrow-left", description: "Back to your job." },
+    ] },
+    jobquit: { title: "RESIGN?", subtitle: `${job.label.toUpperCase()} // ${job.gradeLabel.toUpperCase()}`, tag: "RESIGN", items: [
+      { id: "job-quit-confirm", type: "item", text: `Yes, leave ${job.label}`, icon: "x", danger: true,
+        description: `You become unemployed${run?.active ? "; the run in progress ends without pay" : ""}. Grade and salary are lost; a Job Center hires you again at the entry grade.` },
+      { id: "job-quit-keep", type: "item", text: "No, keep my job", icon: "arrow-left", description: "Back to your job." },
+    ] },
+  };
+}
+
+function buildTree(character: CharacterState, money: MoneyState, job: JobState, gang: GangState, run: JobRunState | undefined, freecamKey?: string): Record<string, MenuNode> {
+  const name = `${character.firstName ?? ""} ${character.lastName ?? ""}`.trim() || character.accountName || "";
   const id = String(character.playerId).padStart(3, "0");
   const origin = character.origins.find((o) => o.key === character.origin)?.label;
   const age = character.birthDate ? character.currentYear - Number(character.birthDate.slice(0, 4)) : null;
@@ -36,6 +106,10 @@ function buildTree(character: CharacterState, money: MoneyState, job: JobState, 
           description: "Your citizen record: ID, name, birth date, origin and bank account." },
         { id: "bank", type: "submenu", text: "Bank", icon: "landmark", meta: money.bank ? formatMoney(money.bank.balance, money.currency) : "—", target: "bank",
           description: "Cash, account balance, account number and your last operations." },
+        { id: "job", type: "submenu", text: "My job", icon: "briefcase", target: "job",
+          meta: job.name === "unemployed" ? "NONE" : run?.active ? `RUN ${run.index ?? 1}/${run.total ?? 1}` : job.label.toUpperCase(),
+          description: job.name === "unemployed" ? "No job yet: where to find one."
+            : `${job.label}: the job guide${job.run ? ", your work orders (start, GPS, abandon)" : ""}${job.work ? ", the GPS of each work stage" : ""} and your paycheck.` },
         { id: "animations", type: "item", text: "Animations", icon: "hand", description: "Gestures, postures and activities. Your favorites and quick-access animations in a dedicated side panel." },
         { id: "freecam", type: "item", text: "Free camera", icon: "video", meta: freecamKey,
           description: "Detach the view from your character to watch the scene from another angle. On foot, within a short range; your character stays in place." },
@@ -86,6 +160,7 @@ function buildTree(character: CharacterState, money: MoneyState, job: JobState, 
           description: character.story ? character.story : "No backstory written." },
       ],
     },
+    ...jobNodes(job, run, money),
   };
 }
 
@@ -95,6 +170,8 @@ export function PlayerMenu() {
   const money = useStore((s) => s.state.money);
   const job = useStore((s) => s.state.job);
   const gang = useStore((s) => s.state.gang);
+  const jobRun = useStore((s) => s.state.jobRun);
+  const openJobGuide = useStore((s) => s.openJobGuide);
   const tutorial = useStore((s) => s.state.tutorial);
   const staff = useStore((s) => s.state.staff);
   const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
@@ -131,10 +208,10 @@ export function PlayerMenu() {
   }, [open, toggleKey]);
 
   const tree = useMemo(() => {
-    const nodes = buildTree(character, money, job, gang, freecamKey);
+    const nodes = buildTree(character, money, job, gang, jobRun, freecamKey);
     if (staff.isStaff && nodes.root) nodes.root.items.splice(nodes.root.items.length - 2, 0, {id:"admin",type:"item",text:"Staff desk",icon:"shield",description:"LightRP administration and support cases."});
     return nodes;
-  }, [character, money, job, gang, staff.isStaff, freecamKey]);
+  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;
@@ -151,6 +228,15 @@ export function PlayerMenu() {
     if (item.id === "animations") { requestClose(); emit(PAGE_EVENTS.animationsAction, { action: "open" }); return; }
     if (item.id === "freecam") { requestClose(); emit(PAGE_EVENTS.freecam, { operation: "toggle" }); return; }
     if (item.id === "housing") { requestClose(); emit(PAGE_EVENTS.action, { type: "housing.open" }); return; }
+    if (item.id === "job-guide") { requestClose(); openJobGuide(job.name); return; }
+    if (item.id === "run-start") { requestClose(); sendAction({ type: "jobs.start", from: "menu" }); return; }
+    if (item.id === "run-gps") { requestClose(); sendAction({ type: "jobs.gps" }); return; }
+    if (item.id === "run-cancel-confirm") { sendAction({ type: "jobs.cancel" }); setStack((s) => s.slice(0, -1)); return; }
+    if (item.id === "run-cancel-keep" || item.id === "job-quit-keep") { setStack((s) => s.slice(0, -1)); return; }
+    if (item.id === "job-quit-confirm") { sendAction({ type: "jobs.quit" }); setStack((s) => s.slice(0, -1)); return; }
+    if (item.id === "work-collect" || item.id === "work-process" || item.id === "work-sell") {
+      requestClose(); sendAction({ type: "jobs.locate", job: job.name, stage: item.id.slice(5) as "collect" | "process" | "sell" }); return;
+    }
     if (item.id === "close") requestClose();
   };
 
