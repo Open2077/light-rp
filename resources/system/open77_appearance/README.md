@@ -53,6 +53,17 @@ them per authenticated Open77 GUID and server-owned character key.
 - `/appearance.status` reports body/presentation readiness for the caller's scoped peers, without customization or identity data.
 - `/wardrobe` opens the optional [`open77_wardrobe_ui`](../open77_wardrobe_ui/) fitting room (also F2).
 
+## What a player wears (server)
+
+```lua
+local shown = exports.open77_appearance:visibleOutfit(playerId)
+-- { equipment = { Head = record|false, ... }, wardrobe = { active = index|false, outfits = { ["1"] = {...} }, names = {...} } }
+AddEventHandler("open77:presentation:committed", function(playerId, shown) end) -- after each fitting-room save
+```
+
+`visibleOutfit` is nil until the player's record is loaded. The event fires on
+the server after a fitting-room commit is saved, with the same projection.
+
 ## Client exports
 
 ```lua

@@ -251,6 +251,37 @@ local function visible(player, record)
     return result
 end
 
+-- ---------------------------------------------------------------------------
+-- Take-away: a host gamemode (LightRP) can turn a saved look into inventory
+-- items, as separate pieces or as one complete outfit. The host switches the
+-- offer on per player (export setTakeAway) before opening the fitting room,
+-- receives the checked pieces as the server event open77:presentation:takeAway
+-- (player, { mode, name, family, pieces = { { slot, record, label, icon } } })
+-- and answers with the export takeAwayResult(player, ok, text). Pieces always
+-- come from what the character really wears after a save, once per save.
+local takeAwayOffer, openedLook, takeable = {}, {}, {}
+local LOOK_SLOTS = { "Head", "Face", "InnerChest", "OuterChest", "Legs", "Feet", "Outfit" }
+local function resolvedLook(player, record)
+    local shown = visible(player, record)
+    local active, look = shown.wardrobe.active, {}
+    local over = active ~= nil and active ~= false and shown.wardrobe.outfits[tostring(active)] or nil
+    for _, slot in ipairs(LOOK_SLOTS) do
+        local value
+        if over and over[slot] ~= nil then value = over[slot] else value = shown.equipment[slot] end
+        if value then look[slot] = value end
+    end
+    return look
+end
+local function cleanText(value, limit)
+    if type(value) ~= "string" then return nil end
+    value = value:gsub("[%c]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if value == "" then return nil end
+    return value:sub(1, limit)
+end
+local function recordTitle(record)
+    return (tostring(record):gsub("^Items%.", ""):gsub("_", " "))
+end
+
 local function broadcast(player, record)
     local shown = visible(player, record)
     P.sendToObservers("open77:equipment:record", player, shown.equipment)
@@ -274,6 +305,14 @@ end)
 
 -- Server-only, generation-owned costumes. These never enter the SQL record or
 -- replace saved transmog outfits. A second activity must wait for the owner.
+-- What a player wears now (equipment, saved outfits, the active one), as the
+-- fitting room shows it; nil before their record is loaded.
+exports("visibleOutfit", function(player)
+    player = tonumber(player)
+    if not player or not P.records[player] then return nil end
+    return visible(player, P.records[player])
+end)
+
 exports("setTemporaryOutfit", function(player, values)
     local owner, generation = GetInvokingResource(), GetInvokingResourceGeneration()
     if type(owner) ~= "string" or not generation or generation <= 0
@@ -368,6 +407,7 @@ local function uiState(player)
     if not record then return { available=false, error="presentation_not_ready" } end
     local state = visible(player, record)
     state.available = true
+    state.takeAway = takeAwayOffer[player] == true
     state.revision = revision(record)
     state.characterKey = P.characters[player] or "default"
     state.family = P.families[player] or "female"
@@ -394,6 +434,7 @@ RegisterNetEvent("open77:presentation:uiRequest", function()
     local now = GetGameTimer()
     if now - (lastUiRequest[player] or -250) < 250 then return end
     lastUiRequest[player] = now
+    if P.records[player] then openedLook[player], takeable[player] = resolvedLook(player, P.records[player]), nil end
     TriggerClientEvent("open77:presentation:uiState", player, uiState(player))
 end)
 
@@ -477,6 +518,9 @@ RegisterNetEvent("open77:presentation:commit", function(request, patch)
             TriggerClientEvent("open77:equipment:self", player, shown.equipment)
             TriggerClientEvent("open77:wardrobe:self", player, shown.wardrobe)
             broadcast(player, record)
+            -- Server resources (a gamemode's tutorial) learn what the player now wears.
+            TriggerEvent("open77:presentation:committed", player, shown)
+            takeable[player] = takeAwayOffer[player] == true or nil
             return true
         end)
         if not current(player, user, character, epoch) then return end
@@ -488,6 +532,86 @@ RegisterNetEvent("open77:presentation:commit", function(request, patch)
     if not queued then reply(false, "presentation_busy") end
 end)
 
+exports("setTakeAway", function(player, enabled)
+    player = tonumber(player)
+    if not player or player <= 0 then return false end
+    takeAwayOffer[player] = enabled == true or nil
+    if not takeAwayOffer[player] then takeable[player] = nil end
+    return true
+end)
+exports("takeAwayResult", function(player, ok, text)
+    player = tonumber(player)
+    if not player then return false end
+    if ok == true then
+        if P.records[player] then openedLook[player] = resolvedLook(player, P.records[player]) end
+    elseif takeAwayOffer[player] then takeable[player] = true end -- a full bag can retry
+    TriggerClientEvent("open77:presentation:takeAwayResult", player, ok == true, cleanText(text, 160))
+    return true
+end)
+RegisterNetEvent("open77:presentation:takeAway", function(request)
+    local player = tonumber(source)
+    if not player or not takeAwayOffer[player] then return end
+    local function refuse(text) TriggerClientEvent("open77:presentation:takeAwayResult", player, false, text) end
+    if type(request) ~= "table" or (request.mode ~= "pieces" and request.mode ~= "outfit") then return end
+    if not takeable[player] then refuse("Save your look first."); return end
+    local record = P.records[player]
+    if not record or temporaryOutfit(player) then refuse("Your look is not available right now."); return end
+    -- The page only names the pieces and lends their labels and icons.
+    local asked, labels, icons = {}, {}, {}
+    for _, piece in ipairs(type(request.pieces) == "table" and request.pieces or {}) do
+        if type(piece) == "table" and type(piece.slot) == "string" then
+            asked[piece.slot] = true
+            labels[piece.slot] = cleanText(piece.label, 64)
+            local icon = cleanText(piece.icon, 40)
+            if icon and icon:match("^icons/[mf]/%x+%.webp$") then icons[piece.slot] = icon end
+        end
+    end
+    local look, before, pieces = resolvedLook(player, record), openedLook[player] or {}, {}
+    for _, slot in ipairs(LOOK_SLOTS) do
+        local value = look[slot]
+        local wanted = request.mode == "outfit" or (asked[slot] and before[slot] ~= value)
+        if value and wanted then
+            pieces[#pieces + 1] = { slot = slot, record = value, label = labels[slot] or recordTitle(value), icon = icons[slot] }
+        end
+    end
+    if #pieces == 0 then refuse(request.mode == "outfit" and "You wear nothing to take." or "Nothing new to take with you."); return end
+    takeable[player] = nil
+    TriggerEvent("open77:presentation:takeAway", player, { mode = request.mode, pieces = pieces,
+        name = cleanText(request.name, 40) or "My look", family = P.families[player] or "female" })
+end)
+-- Server resources dress a player from a stored look (LightRP's clothing
+-- items): equipment is slot -> record | false, laid over what they wear, with
+-- the active transmog outfit switched off so the clothes show. It goes through
+-- the same serialized, persisted commit as the fitting room. The result
+-- arrives as the server event open77:presentation:lookApplied(player, token, ok, reason).
+exports("applyLook", function(player, equipment, token)
+    player = tonumber(player)
+    if not player or not P.records[player] then return false, "presentation_not_ready" end
+    if temporaryOutfit(player) then return false, "temporary_outfit_active" end
+    local clean = slotSet(equipment, P.families[player], true)
+    if not clean or next(clean) == nil then return false, "invalid_equipment" end
+    local queued = P.enqueue(player, function(user, character, epoch)
+        local ok, applied, reason = pcall(function()
+            local original = load(player, user, character, epoch)
+            if not original then return false, "character_changed" end
+            local record = copy(original)
+            for slot, value in pairs(clean) do record.equipment[slot] = value end
+            record.wardrobe.active = nil
+            if not save(player, user, character, epoch, record) then return false, "character_changed" end
+            local shown = visible(player, record)
+            TriggerClientEvent("open77:equipment:self", player, shown.equipment)
+            TriggerClientEvent("open77:wardrobe:self", player, shown.wardrobe)
+            broadcast(player, record)
+            TriggerEvent("open77:presentation:committed", player, shown)
+            return true
+        end)
+        if not current(player, user, character, epoch) then return end
+        if not ok then print("[open77_presentation] applyLook failed: " .. tostring(applied)) end
+        TriggerEvent("open77:presentation:lookApplied", player, token, ok and applied == true, ok and reason or "presentation_database_error")
+    end)
+    if not queued then return false, "presentation_busy" end
+    return true
+end)
 RegisterNetEvent("open77:session:gameplayReady", function() P.ready(tonumber(source)) end)
 RegisterNetEvent("open77:presentation:request", function()
     local player = tonumber(source)
@@ -560,6 +684,7 @@ AddEventHandler("playerDropped", function()
     P.families[player] = nil
     lastRequest[player] = nil
     lastUiRequest[player] = nil
+    takeAwayOffer[player], openedLook[player], takeable[player] = nil, nil, nil
 end)
 
 -- Host notifications run after the state transition and cross VM boundaries;

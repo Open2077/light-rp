@@ -1,7 +1,7 @@
 """Build web/icons from the game's own inventory icon atlases.
 
 The wardrobe shows one vanilla inventory icon per clothing record and body
-family (web/icons/<m|f>/<short-hash>.webp, indexed by web/icons/manifest.json).
+family (web/icons/<m|f>/<short-hash>.webp, indexed by web/icons/manifest.json and its script twin manifest.js).
 The icons come from the player's installed game, cut out of the item atlases:
 
   1. WolvenKit CLI extracts the atlas descriptors and textures
@@ -100,6 +100,15 @@ def build(index, catalogue, png, dest):
         if out:
             manifest[record] = out
     json.dump(manifest, open(os.path.join(dest, "manifest.json"), "w", encoding="utf-8"), separators=(",", ":"))
+    # The page loads the manifest as a script: the game's browser refuses fetch() on its resource scheme.
+    with open(os.path.join(dest, "manifest.js"), "w", encoding="utf-8", newline="
+") as js:
+        js.write("// Generated from manifest.json (tools/build-icons.py): clothing record -> {m, f} icon paths.
+")
+        js.write("// A script, not a fetch: the game's browser refuses fetch() on its resource scheme.
+")
+        js.write("window.WardrobeIcons=" + json.dumps(manifest, separators=(",", ":")) + ";
+")
     print(f"{len(manifest)} records, {len(sizes)} icons, {sum(sizes) / 1e6:.1f} MB")
 
 
