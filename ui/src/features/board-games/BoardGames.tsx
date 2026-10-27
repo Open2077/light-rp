@@ -13,7 +13,7 @@ interface View {
   isActor?: boolean; playerCount?: number; ply?: number; canConfigure?: boolean;
   cameraView?: CameraView; cameraViews?: CameraView[];
 }
-const CAMERAS: [CameraView, string][] = [["top", "Overhead"], ["white", "Your side"], ["black", "Opposite side"], ["orbit", "Orbit"]];
+const CAMERAS: [CameraView, string][] = [["top", "Overhead"], ["white", "White side"], ["black", "Black side"], ["orbit", "Orbit"]];
 export function BoardGames() {
   const [view, setView] = useState<View>({});
   const lastMove = useRef(0);

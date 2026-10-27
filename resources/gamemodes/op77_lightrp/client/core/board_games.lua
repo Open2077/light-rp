@@ -101,6 +101,7 @@ local function disableContext(value)
     pcall(function() exports.open77_contextmenu:setTargetingEnabled(not value) end)
 end
 local function takeInput()
+    TriggerEvent("open-voice:setHudBlocked","op77_lightrp:boardGames",true)
     Ui.setMenuOpen(false)
     Ui.dialogs.boardGames=true
     Ui.promptActive=true
@@ -113,6 +114,7 @@ local function takeInput()
     end
 end
 local function releaseInput()
+    TriggerEvent("open-voice:setHudBlocked","op77_lightrp:boardGames",false)
     Ui.dialogs.boardGames=nil
     Ui.promptActive=false
     if Ui.page then Ui.page:setFocus(false,false) end

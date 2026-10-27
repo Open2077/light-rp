@@ -35,7 +35,7 @@ const dist = path.resolve(process.env.BOARD_GAMES_WEB_DIR || path.resolve(__dirn
     await page.getByText('White to move', { exact: true }).waitFor();
     await page.getByText('You play Black.', { exact: true }).waitFor();
     assert(await page.locator('.gameplay-interface').isHidden(), 'HUD and interaction must be hidden during a game');
-    await page.getByRole('button', { name: 'Opposite side', exact: true }).click();
+    await page.getByRole('button', { name: 'Black side', exact: true }).click();
     assert(await page.evaluate(() => testBridge.sent.some(e => e.name === 'lightrp:boardGames:camera' && e.payload.view === 'black')));
     await show({active:true,kind:'chess',cameraView:'orbit',side:'black',turn:'white',status:'playing'});
     await page.mouse.move(800,300);await page.mouse.down({button:'right'});await page.mouse.move(850,320);await page.mouse.up({button:'right'});

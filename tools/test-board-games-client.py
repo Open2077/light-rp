@@ -23,6 +23,10 @@ function LightRpUi.setMenuOpen(v) LightRpUi.menuOpen=v end
 function RegisterNetEvent(n,f) events[n]=f end
 function AddEventHandler(n,f) handlers[n]=f end
 function TriggerServerEvent(n,p) requests[#requests+1]=p end
+function TriggerEvent(name,owner,value)
+ assert(name=='open-voice:setHudBlocked' and owner=='op77_lightrp:boardGames')
+ voiceHudBlocked=value
+end
 function CreateThread(f) threads[#threads+1]=coroutine.create(f) end
 function Wait() coroutine.yield() end
 function GetGameTimer() return clock end
@@ -219,7 +223,7 @@ local board={id=1,owned=true,position={x=0,y=0,z=0},rotation=0,players={},revisi
 events['lightrp:boardGames:state']({boards={board}});step()
 assert(not C.isActive());LightRpInteract.points['boardGames.1'].callback();assert(last().action=='join')
 board.players={white=7,black=9};events['lightrp:boardGames:state']({boards={board}});step()
-assert(C.isActive() and camera and frozen and focus and cinematic)
+assert(C.isActive() and camera and frozen and focus and cinematic and voiceHudBlocked)
 -- Press at e2, release at e4: one authoritative move request with snapshot revision.
 local pointer=pageHandlers['lightrp:boardGames:pointer']
 pointer({x=4.5/8,y=6.5/8,pressed=true});step()
@@ -267,7 +271,7 @@ waitUntil(function()
  for _,p in pairs(nativeProps)do if p.name=='chess_white_queen' and p.position.y<.2 then return true end end
 end,'promoted native prop')
 assert(not nativeProps[pawnHandle],'promotion replaces the pawn handle')
-edge('BACKSPACE');assert(last().action=='leave' and not camera and not frozen and not focus and stoppedCamera and cinematic==false and ordinaryHudClaim)
+edge('BACKSPACE');assert(last().action=='leave' and not camera and not frozen and not focus and stoppedCamera and cinematic==false and ordinaryHudClaim and voiceHudBlocked==false)
 -- Membership removal snapshot prevents reopening; nearby owner can retrieve via Alt.
 board.players={};events['lightrp:boardGames:state']({boards={board}})
 edge('ALT');assert(last().action=='pickup')
@@ -388,6 +392,7 @@ assert(not C.isActive() and last().action=='leave','failed board projections mus
 handlers.onClientResourceStop('test');assert(next(batches)==nil and next(LightRpInteract.points)==nil and next(soundHandles)==nil and next(nativeProps)==nil)
 for i=1,20 do step()end
 assert(next(batches)==nil and next(nativeProps)==nil,'cancelled renderer jobs must not resurrect native props')
+assert(voiceHudBlocked==false,'resource stop restores the voice HUD claim')
 print('board games client inventory handoff, lifecycle, modes, teams, Connect Four drop, spatial audio, native props, streaming and budgets, failures and cleanup: OK; peak Lua instructions per tick: '..peakInstructions)
 ''')
 
