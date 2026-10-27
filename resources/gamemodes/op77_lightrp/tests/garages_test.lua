@@ -34,6 +34,12 @@ function Db.run(sql,p)
     elseif sql:find("SET state = 'stored'",1,true) then
         local r=dbRows[p[2]]; if not r or r.state~="impound" then return true,0 end
         r.state,r.impound_reason,r.impound_fee,r.garage_id="stored",nil,0,p[1]
+    elseif sql:find("SET garage_id = ?, properties = ? WHERE id = ?",1,true) then
+        for i=1,3 do assert(p[i]~=nil,"no nil in a parameter list (the bridge refuses holes)") end
+        local r=dbRows[p[3]]; r.garage_id,r.properties=p[1],p[2]
+    elseif sql:find("SET properties = ? WHERE id = ?",1,true) then
+        for i=1,2 do assert(p[i]~=nil,"no nil in a parameter list (the bridge refuses holes)") end
+        dbRows[p[2]].properties=p[1]
     elseif sql:find("UPDATE lightrp_owned_vehicles",1,true) then
         for i=1,6 do assert(p[i]~=nil,"no nil in a parameter list (the bridge refuses holes)") end
         local r=dbRows[p[6]]; r.garage_id,r.properties,r.state,r.impound_reason,r.impound_fee=p[1],p[2],p[3],p[4]~="" and p[4] or nil,p[5]
@@ -195,3 +201,123 @@ notices={};G.onGameplayReady(1);assert(#notices==1 and notices[1].body:find("fre
 G.onGameplayReady(1);assert(#notices==1,"not twice")
 open();assert(entry(first).status=="impound" and perform("recover",first))
 print("garages_test: ownership, replay, storage, recovery, impound (restart, lost, requested, staff, fees, notices, no duplicates), trunk, identity and failure checks passed")
+
+-- Customization starts from the recovered vehicle, out in the world.
+open();assert(entry(first).status=="out","the recovered vehicle is out")
+
+-- Customization uses the same durable garage, with previews excluded from saves.
+local testWallet={cash=100000,bank=100000}
+LightRP.money={format=function(n) return "€$"..n end,validAmount=function(n) return type(n)=="number" and n>0 and n%1==0 and n end,
+ get=function()return testWallet end,explain=function(e)return e end,
+ exchange=function(_,method,delta,write,commit)
+  if testWallet[method]+delta<0 then return false,"insufficient_funds" end
+  local ok=Db.transaction({write});if not ok then return false,"database_error" end
+  testWallet[method]=testWallet[method]+delta;commit();return true
+ end}
+
+local function rgb(value)
+    if type(value)=="table" then return clone(value) end
+    return {r=tonumber(value:sub(2,3),16),g=tonumber(value:sub(4,5),16),b=tonumber(value:sub(6,7),16)}
+end
+local failPaint=false
+V.setPaint=function(vehicle,paint)
+    if failPaint then return false,"paint_refused" end
+    local v=world[vehicle];if not v then return false,"vehicle_not_found" end
+    v.paint={applied=true,primary=rgb(paint.primary),secondary=rgb(paint.secondary),lightsHue=v.paint and v.paint.lightsHue}
+    event("onVehicleUpdated",tostring(vehicle));return true
+end
+V.resetPaint=function(vehicle)
+    local v=world[vehicle];if not v or failPaint then return false end
+    v.paint={applied=false};event("onVehicleUpdated",tostring(vehicle));return true
+end
+V.setLightsHue=function(vehicle,hue)
+    local v=world[vehicle];if not v then return false end
+    v.paint=v.paint or {applied=false};v.paint.lightsHue=hue;return true
+end
+local ownedVehicle=nextVehicle
+local ownedHealth=world[ownedVehicle].health -- customization never repairs
+assert(not G.beginCustomization(2,first,"stolen","citycenter"),"other owner rejected")
+world[ownedVehicle].occupants={{playerId=2}};assert(not G.beginCustomization(1,first,"occupied","citycenter"));world[ownedVehicle].occupants={}
+world[ownedVehicle].paint.lightsHue=.55
+local edit=assert(G.beginCustomization(1,first,"paint:test","citycenter"))
+assert(G.isBusy(1) and edit.id==first)
+assert(not G.open(1,"citycenter"),"edit locks parking and character switching")
+local yellow={applied=true,primary="#FFCC00",secondary="#101820"}
+local black={applied=true,primary="#000000",secondary="#000000"}
+assert(G.customizePaint(1,"paint:test",yellow,false))
+assert(world[ownedVehicle].paint.primary.r==255 and world[ownedVehicle].health==ownedHealth)
+-- A full autosave interval while previewing must keep factory paint durable.
+local editWorker=coroutine.create(threads[#threads]);for _=1,10 do assert(coroutine.resume(editWorker));tick=tick+2000 end
+assert(not json.decode(dbRows[first].properties).paint.applied,"autosave never saves preview")
+assert(G.endCustomization(1,"paint:test") and not world[ownedVehicle].paint.applied)
+assert(not G.isBusy(1),"cleanup releases garage lock")
+assert(world[ownedVehicle].paint.lightsHue==.55,"factory preview reset preserves existing light tint")
+assert(G.beginCustomization(1,first,"paint:black","citycenter"))
+assert(G.customizePaint(1,"paint:black",black,true,{method="bank",amount=1000}))
+assert(json.decode(dbRows[first].properties).paint.applied and json.decode(dbRows[first].properties).paint.primary.r==0,"black is real saved paint")
+assert(G.customizePaint(1,"paint:black",yellow,false))
+assert(G.endCustomization(1,"paint:black"))
+assert(world[ownedVehicle].paint.applied and world[ownedVehicle].paint.primary.r==0,"cancel restores last saved paint")
+open();assert(perform("store",first));assert(perform("retrieve",first));ownedVehicle=nextVehicle
+assert(world[ownedVehicle].paint.applied and world[ownedVehicle].paint.primary.r==0 and world[ownedVehicle].health==ownedHealth,"retrieve restores exact color without repairing")
+assert(world[ownedVehicle].paint.lightsHue==.55,"light tint survives paint save and retrieval")
+assert(G.beginCustomization(1,first,"paint:dbfail","citycenter"))
+failDb=true;assert(not G.customizePaint(1,"paint:dbfail",yellow,true,{method="bank",amount=1000}));failDb=false
+assert(world[ownedVehicle].paint.primary.r==0 and json.decode(dbRows[first].properties).paint.primary.r==0,"failed save rolls back preview")
+failPaint=true;assert(not G.customizePaint(1,"paint:dbfail",yellow,false));assert(not G.endCustomization(1,"paint:dbfail"));failPaint=false
+assert(G.isBusy(1),"failed rollback keeps lease to protect persistence")
+assert(G.endCustomization(1,"paint:dbfail"))
+-- Close/disconnect during SQL cannot race the save acknowledgement or free a preview.
+assert(G.beginCustomization(1,first,"paint:disconnect","citycenter"))
+intercept=function() assert(not G.endCustomization(1,"paint:disconnect")) end
+assert(G.customizePaint(1,"paint:disconnect",yellow,true,{method="bank",amount=1000}))
+assert(not G.isBusy(1) and world[ownedVehicle].paint.primary.r==255)
+-- Removal during SQL still stores the newly confirmed paint for the next spawn.
+assert(G.beginCustomization(1,first,"paint:removed","citycenter"))
+intercept=function() V.remove(ownedVehicle) end
+assert(G.customizePaint(1,"paint:removed",black,true,{method="bank",amount=1000}));G.endCustomization(1,"paint:removed")
+-- A vanished vehicle goes to the impound (not back to its garage): recover it there.
+open();assert(entry(first).status=="impound" and perform("recover",first,1,{pay="bank"}));ownedVehicle=nextVehicle
+assert(world[ownedVehicle].paint.primary.r==0,"removal during save cannot overwrite confirmed color")
+-- Restart with real persisted properties and a new runtime ID.
+world={};handlers={};threads={}
+dofile("server/modules/garages.lua");G=LightRP.garage;G.onDatabaseReady()
+open();assert(entry(first).status=="impound" and perform("recover",first,1,{pay="bank"}),"out at the restart: impound");ownedVehicle=nextVehicle
+assert(world[ownedVehicle].paint.applied and world[ownedVehicle].paint.primary.r==0,"paint survives process restart")
+
+-- Exercise the public RPC: source-bound identity, sequencing, validation and replay.
+dofile("shared/vehicle_customization.lua");dofile("server/config/vehicle_customization.lua")
+RegisterNetEvent=function(name,fn) handlers[name]={fn} end
+source=1
+dofile("server/modules/vehicle_customization.lua")
+local Custom=LightRP.vehicleCustomization
+assert(Custom.open(1,first,"citycenter"))
+local opened=messages[#messages].payload
+local rpc=handlers["op77_lightrp:customization"][1]
+local req={session=opened.session,request=1,operation="save",pay="bank",category="paint",primary="#FFCC00",secondary="#000000"}
+source=2;rpc(req);assert(world[ownedVehicle].paint.primary.r==0,"forged source cannot change paint")
+source=1;rpc(req);assert(messages[#messages].payload.ok and world[ownedVehicle].paint.primary.r==255)
+local durable=dbRows[first].properties;rpc(req);assert(dbRows[first].properties==durable,"duplicate save is not repeated")
+tick=tick+250;rpc({session=opened.session,request=2,operation="save",pay="bank",category="paint",primary="invalid",secondary="#000000"})
+assert(messages[#messages].payload.ok==false and dbRows[first].properties==durable,"invalid RGB refused")
+tick=tick+250;rpc({session=opened.session,request=3,operation="save",category="performance",primary="#000000",secondary="#000000"})
+assert(messages[#messages].payload.ok==false,"future categories have no implicit native access")
+tick=tick+250;rpc({session=opened.session,request=4,operation="preview",category="paint",primary="#000000",secondary="#000000"})
+assert(world[ownedVehicle].paint.primary.r==0)
+Custom.onDisconnected(1);assert(world[ownedVehicle].paint.primary.r==255 and not G.isBusy(1),"disconnect discards only unsaved preview")
+assert(Custom.open(1,first,"citycenter"));positions[1].bucket=7
+Custom.onLifeState(1,"dead");positions[1].bucket=0;assert(not G.isBusy(1))
+print("customization: previews, autosave exclusion, black paint, parking/reboot, DB rollback, delayed cleanup, removal races and authenticated RPC passed")
+
+assert(points["customization.auto_studio_1"] and points["customization.auto_studio_2"],"both requested workshop points registered")
+local workshop=LightRpVehicleCustomization.workshops[1]
+assert(not G.customizationCandidate(1,workshop.id),"remote workshop interaction refused")
+positions[1]=clone(workshop.position);positions[1].bucket=0
+world[ownedVehicle].position=clone(workshop.position)
+Custom.onInteract(1,"customization.auto_studio_1")
+assert(G.isBusy(1) and messages[#messages].payload.kind=="open","workshop opens nearest owned vehicle")
+Custom.onDisconnected(1);assert(not G.isBusy(1))
+positions[1]=clone(LightRpVehicleCustomization.workshops[2].position);positions[1].bucket=0
+world[ownedVehicle].position=clone(positions[1])
+Custom.onInteract(1,"customization.auto_studio_2");assert(G.isBusy(1));Custom.onDisconnected(1)
+print("customization workshops: exact configured points, proximity and nearest-owned access passed")

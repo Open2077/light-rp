@@ -19,6 +19,7 @@ local function permitted(player,right) return S.allowed(player,"view") and S.all
 local function grants(player)
     local out={};for name in pairs(C.permissions) do out[name]=S.allowed(player,name) end
     out.housing=LightRP.housing and LightRP.housing.allowed(player) or false
+    out.safezones=LightRP.safezones and LightRP.safezones.allowed(player,"view") or false
     for _,entry in ipairs({{"noclip","admin.self.noclip"},{"god","admin.self.god"},{"advanced","adminfull"},{"observe","admin.player.observe"}}) do out[entry[1]]=LightRP.staff.allowed(player,"command."..entry[2]) end
     return out
 end

@@ -8,6 +8,8 @@
 local C, Db, E = LightRpGarages, LightRP.db, LightRpEvents
 local Garage = LightRP.module("garage", {})
 local rows, live, places, sessions, ownerBusy = {}, {}, {}, {}, {}
+local customizationPlaces = {} -- trusted workshop configuration, separate from storage garages
+local edits = {} -- player -> leased owned vehicle; preview paint is never durable
 local loaded, loading, sequence = false, false, 0
 local send, snapshot
 Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_owned_vehicles (
@@ -49,15 +51,15 @@ local function guard(id, place)
     if (LightRP.characters.switching or {})[id] then return false, "Your character is changing. Please wait." end
     local life, p = Open77.players.getLifeState(id), Open77.players.position(id)
     if not life or life.phase ~= "alive" then return false, "You cannot use the garage right now." end
-    if not place or not p or (p.bucket or 0) ~= place.bucket or distance(p, place.position) > C.interactRadius + 0.75 then
-        return false, "Walk up to the public garage marker."
+    if not place or not p or (p.bucket or 0) ~= place.bucket or distance(p, place.position) > (place.interactRadius or C.interactRadius) + 0.75 then
+        return false, "Walk up to the garage or workshop marker."
     end
     if Open77.vehicles.getPlayerSeat(id) then return false, "Park nearby and step out of the vehicle first." end
     return true
 end
 function Garage.isBusy(id)
     local key = identity(id)
-    return key and ownerBusy[key] ~= nil or false
+    return edits[id] ~= nil or (key and ownerBusy[key] ~= nil or false)
 end
 function Garage.ownedId(vehicleId)
     local row = live[tonumber(vehicleId)]
@@ -71,6 +73,8 @@ local function capture(row)
     if not row.vehicleId then return end
     local props = Open77.vehicles.getProperties(row.vehicleId)
     if type(props) == "table" then
+        -- Autosaves and removal recovery keep the last confirmed paint, never a preview.
+        if row.edit then props.paint = row.edit.savedPaint end
         row.props = props
         row.dirty = true
         row.revision = (row.revision or 0) + 1
@@ -256,6 +260,7 @@ function Garage.purchase(playerId, model, garageId, grantKey, payment)
         or (payment.method ~= "cash" and payment.method ~= "bank") then return false, "Invalid payment." end
     return createOwnership(playerId, model, garageId, grantKey, payment)
 end
+function Garage.closeVisit(id) sessions[id] = nil end
 function Garage.location(id)
     local place = places[id]
     return place and { id = place.id, name = place.name, position = place.position }
@@ -275,13 +280,148 @@ end
 local function canStore(playerId, row, place)
     local v = row.vehicleId and Open77.vehicles.get(row.vehicleId)
     if not v then return false, "This vehicle is already in storage." end
-    if v.bucket ~= place.bucket or distance(v.position, place.position) > C.storeRadius then
+    if v.bucket ~= place.bucket or distance(v.position, place.position) > (place.storeRadius or C.storeRadius) then
         return false, "Bring your vehicle into the garage area first."
     end
     if (v.speed or 0) > C.stationarySpeed then return false, "Stop the vehicle before parking it." end
     if #(v.occupants or {}) > 0 then return false, "Everyone must leave the vehicle before it can be stored." end
     if identity(playerId) ~= owner(row) then return false, "This is not your character's vehicle." end
     return true
+end
+
+-- Trusted customization service. Durable IDs and ownership stay inside the garage.
+local function copy(value)
+    if type(value) ~= "table" then return value end
+    local out = {}; for k,v in pairs(value) do out[k] = copy(v) end; return out
+end
+local function applyPaint(id, paint)
+    local ok, why
+    if paint.applied then ok, why = Open77.vehicles.setPaint(id, { primary = paint.primary, secondary = paint.secondary })
+    else ok, why = Open77.vehicles.resetPaint(id) end
+    if not ok then return false, why or "Vehicle paint was refused." end
+    return Open77.vehicles.setLightsHue(id, paint.lightsHue)
+end
+local function editGuard(playerId, row)
+    local edit = row and row.edit
+    if not edit or edit.player ~= playerId or identity(playerId) ~= owner(row) then return false, "Your vehicle session changed." end
+    local ok, why = guard(playerId, edit.place)
+    if not ok then return false, why end
+    if row.vehicleId ~= edit.vehicleId then return false, "The vehicle is no longer outside." end
+    return canStore(playerId, row, edit.place)
+end
+function Garage.registerCustomizationLocation(place)
+    assert(type(place.id) == "string" and type(place.position) == "table" and not places[place.id]
+        and not customizationPlaces[place.id], "Invalid workshop location")
+    customizationPlaces[place.id] = place
+end
+function Garage.customizationCandidate(playerId, placeId)
+    local place = customizationPlaces[placeId]
+    local ok, why = guard(playerId, place)
+    if not ok then return nil, why end
+    local nearest, range = nil, place.storeRadius
+    for _, row in pairs(rows) do
+        if owner(row) == identity(playerId) and row.vehicleId then
+            local v = Open77.vehicles.get(row.vehicleId)
+            local d = v and v.bucket == place.bucket and distance(v.position, place.position) or math.huge
+            if d <= range then nearest, range = row.id, d end
+        end
+    end
+    return nearest, nearest and nil or "Park your personal vehicle within 6 m of the workshop point and step out."
+end
+function Garage.beginCustomization(playerId, ownedId, token, garageId)
+    local row, place = rows[ownedId], customizationPlaces[garageId] or places[garageId]
+    local ok, why = guard(playerId, place)
+    if not ok then return nil, why end
+    if not row or owner(row) ~= identity(playerId) then return nil, "This is not your character's vehicle." end
+    if row.busy or row.edit or Garage.isBusy(playerId) then return nil, "Another vehicle operation is running." end
+    ok, why = canStore(playerId, row, place)
+    if not ok then return nil, why end
+    local props = Open77.vehicles.getProperties(row.vehicleId)
+    if not props then return nil, "Could not read vehicle properties." end
+    local paint = copy(props.paint or { applied = false })
+    row.edit = { player = playerId, token = token, place = place, vehicleId = row.vehicleId, savedPaint = paint }
+    edits[playerId] = row
+    return { id = row.id, vehicleId = row.vehicleId, label = label(row), paint = copy(paint) }
+end
+function Garage.customizationValid(playerId, token)
+    local row = edits[playerId]
+    if not row or row.edit.token ~= token or row.edit.closeRequested then return false, "Reopen vehicle customization." end
+    return editGuard(playerId, row)
+end
+function Garage.endCustomization(playerId, token)
+    local row = edits[playerId]
+    if not row or row.edit.token ~= token then return true end
+    if row.busy then row.edit.closeRequested = true; return false end
+    local edit = row.edit
+    if Open77.vehicles.get(edit.vehicleId) then
+        local ok, why = applyPaint(edit.vehicleId, edit.savedPaint)
+        if not ok then
+            -- Keep the lease so periodic cleanup retries instead of persisting a preview.
+            edit.closeRequested = true
+            LightRP.log("customization paint restore pending: %s", tostring(why)); return false
+        end
+    end
+    row.edit, edits[playerId] = nil, nil
+    capture(row)
+    return true
+end
+local function colorKey(value)
+    if type(value) == "string" then return value:upper() end
+    if type(value) == "table" then return string.format("#%02X%02X%02X", value.r, value.g, value.b) end
+end
+local function samePaint(a,b)
+    if a.applied ~= b.applied then return false end
+    return not a.applied or (colorKey(a.primary) == colorKey(b.primary) and colorKey(a.secondary) == colorKey(b.secondary))
+end
+function Garage.customizationPaint(playerId, token)
+    local row = edits[playerId]
+    if row and row.edit.token == token then return copy(row.edit.savedPaint) end
+end
+function Garage.customizePaint(playerId, token, paint, commit, payment)
+    local row = edits[playerId]
+    local valid, why = Garage.customizationValid(playerId, token)
+    if not valid then return false, why end
+    if row.busy or ownerBusy[owner(row)] then return false, "Vehicle save is still running." end
+    local edit, key, operation = row.edit, owner(row), {}
+    if commit then
+        if not payment or (payment.method ~= "cash" and payment.method ~= "bank")
+            or not LightRP.money or not LightRP.money.validAmount(payment.amount) then return false, "Choose a valid payment method." end
+        if samePaint(paint, edit.savedPaint) then return false, "Choose a different finish before purchasing." end
+    end
+    row.busy, ownerBusy[key] = true, operation
+    local ran, ok, reason = pcall(function()
+        local target = copy(paint); target.lightsHue = edit.savedPaint.lightsHue
+        local applied, failure = applyPaint(edit.vehicleId, target)
+        if not applied then return false, failure end
+        if not commit then return true end
+        local props = Open77.vehicles.getProperties(edit.vehicleId)
+        if not props then return false, "Could not read the new paint." end
+        -- Save the complete canonical properties before acknowledging success.
+        local encoded = json.encode(props)
+        if not encoded then return false, "Could not encode vehicle properties." end
+        -- A vehicle out of the impound has no garage yet: the bridge refuses nil parameters.
+        local write = row.garage_id ~= nil
+            and { query = "UPDATE lightrp_owned_vehicles SET garage_id = ?, properties = ? WHERE id = ?",
+                  values = { row.garage_id, encoded, row.id } }
+            or { query = "UPDATE lightrp_owned_vehicles SET properties = ? WHERE id = ?", values = { encoded, row.id } }
+        local saved, failure = LightRP.money.exchange(playerId, payment.method, -payment.amount, write,
+            function()
+                edit.savedPaint = copy(props.paint)
+                row.props.paint = copy(props.paint) -- removal during SQL cannot overwrite the purchased finish
+                row.dirty = true
+            end, "vehicle_paint", "Body paint for vehicle " .. row.id, "Auto Studio")
+        if not saved then return false, LightRP.money.explain(failure) end
+        return true
+    end)
+    if not ran or not ok then
+        local restored, failure = applyPaint(edit.vehicleId, edit.savedPaint)
+        if not restored then edit.closeRequested = true; LightRP.log("customization rollback pending: %s", tostring(failure)) end
+    end
+    capture(row) -- also captures damage received during an asynchronous SQL write
+    row.busy = nil
+    if ownerBusy[key] == operation then ownerBusy[key] = nil end
+    if edit.closeRequested then Garage.endCustomization(playerId, token) end
+    return ran and ok == true, ran and reason or "Vehicle customization failed."
 end
 
 -- `check` replaces the "at the garage marker" guard for a delivery that is not
@@ -578,7 +718,7 @@ function Garage.perform(playerId, payload)
     if LightRP.nowMs() > session.expires then valid, why = false, "Garage session expired. Speak to the garage again." end
     local row = type(payload.vehicle) == "string" and rows[payload.vehicle]
     if not row or owner(row) ~= session.owner then valid, why = false, "This is not your character's vehicle." end
-    if row and row.busy then valid, why = false, "This vehicle is being saved. Please try again shortly." end
+    if row and (row.busy or row.edit) then valid, why = false, "This vehicle is being saved. Please try again shortly." end
     -- Only `pay` comes from the page, and only the recovery reads it.
     local handlers = {
         ["garage.retrieve"] = function(p, r, place) return retrieve(p, r, place) end,
@@ -659,6 +799,9 @@ CreateThread(function()
     while true do
         Wait(2000); elapsed = elapsed + 2000
         if Db.ready and not loaded then Garage.onDatabaseReady() end
+        for id, row in pairs(edits) do
+            if row.edit.closeRequested or not editGuard(id, row) then Garage.endCustomization(id, row.edit.token) end
+        end
         for id, session in pairs(sessions) do
             if LightRP.nowMs() > session.expires or not guard(id, session.place) or identity(id) ~= session.owner then
                 TriggerClientEvent(E.net.garage, id, { session = session.id, closed = true })

@@ -7,6 +7,9 @@ import { Icon } from "@/design/components";
 import { emptySlot, itemAt, itemIdentity, itemAmount, kg, matchesToggleKey, quantity, transferSlot, type SlotRef } from "./model";
 import { ItemArt, ItemEffects } from "./ItemArt";
 import { WARDROBE_ROOT, WORN_SLOTS, garmentIcon, garmentTitle } from "./garment";
+import { useGrenadeEvents } from "./Grenades";
+import { ArmamentItemActions, ArmamentPanel } from "./ArmamentPanel";
+import { armamentItem, refreshArmament, useArmamentEvents } from "./armament";
 import "./inventory.css";
 
 /* The inventory: Worn (what the character wears) on the left, Pockets in the
@@ -22,6 +25,8 @@ type Hover = { ref: SlotRef; x: number; y: number };
 const QUICK = 5;
 
 export function InventoryDialog() {
+  useArmamentEvents();
+  useGrenadeEvents();
   const dialog = useStore((s) => s.dialog);
   const closeDialog = useStore((s) => s.closeDialog);
   const visible = dialog?.kind === "inventory";
@@ -29,6 +34,7 @@ export function InventoryDialog() {
   useEffect(() => {
     emit(PAGE_EVENTS.dialogState, { kind: "inventory", open: visible });
     if (!visible) return;
+    void refreshArmament();
     emit(PAGE_EVENTS.focus, { active: true });
     // the server pushes `worn` with the dialog; this is a late fallback (actions are throttled)
     const refresh = window.setTimeout(() => sendAction({ type: "clothing.refresh" }), 600);
@@ -67,6 +73,9 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
   const character = useStore((s) => s.state.character);
   const money = useStore((s) => s.state.money);
   const worn = useStore((s) => s.state.worn);
+  const selectedGrenade = useStore(s => s.grenades?.selected);
+  const grenadeBusy = useStore(s => s.grenades?.busy || !!s.grenadePending);
+  const quickKeys = useStore(s => s.hotbar?.slotKeys);
   const lastHandledResult = useRef(result);
   const selectedItem = itemAt(selected, [left, right]);
   const mine = selected?.inventory === left.id;
@@ -135,7 +144,7 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
   };
   const useAt = (ref: SlotRef) => {
     const item = itemAt(ref, [left, right]);
-    if (!item || busy || ref.inventory !== left.id || !item.usable) return;
+    if (!item || busy || ref.inventory !== left.id || !item.usable || armamentItem(item) || item.category === "grenade" && grenadeBusy) return;
     issue({ type: "inventory.use", slot: ref.slot });
   };
   /** Double-click / menu on a Worn slot: take off, hide an outfit piece, show a hidden one, take the outfit off. */
@@ -147,7 +156,8 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
   };
   const perform = (action: "use" | "transfer" | "split") => {
     if (!selected || !selectedItem || busy) return;
-    if (action === "use" && mine && selectedItem.usable) issue({ type: "inventory.use", slot: selected.slot });
+    if (action === "use" && selectedItem.category === "grenade" && grenadeBusy) return;
+    if (action === "use" && mine && selectedItem.usable && !armamentItem(selectedItem)) issue({ type: "inventory.use", slot: selected.slot });
     if (action === "transfer" && canTransfer && moveSlot !== undefined) issue({ type: "inventory.move", from: selected, to: { inventory: destination.id, slot: moveSlot }, count });
     if (action === "split" && selectedItem.count > 1 && freeSlot !== undefined && count > 0) {
       const splitCount = amount.trim() && count < selectedItem.count ? count : Math.floor(selectedItem.count / 2);
@@ -293,11 +303,14 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
           <div className="inv-quick">
             <h3>Quick slots <span>1 – {QUICK}</span></h3>
             <div className="inv-quick__row">{Array.from({ length: Math.min(QUICK, left.slots) }, (_, i) => i + 1).map((slot) =>
-              <Tile key={slot} inv={left} slot={slot} item={left.items.find((it) => it.slot === slot)} wide keyLabel={String(slot)} {...tileProps} />)}</div>
+              <Tile key={slot} inv={left} slot={slot} item={left.items.find((it) => it.slot === slot)} wide keyLabel={quickKeys?.[slot - 1] ?? String(slot)} {...tileProps} />)}</div>
           </div>
         </section>
 
-        <SidePanel inv={right} {...tileProps} />
+        <div className="inv-right">
+          <ArmamentPanel inventoryBusy={busy} />
+          <SidePanel inv={right} {...tileProps} />
+        </div>
       </div>
 
       <footer className="inv-keys">
@@ -317,7 +330,8 @@ function InventoryBody({ payload, onClose }: { payload: InventoryDialogPayload; 
         <div><button className="inv-btn inv-btn--primary" disabled={busy || !count} onClick={confirm}>Confirm</button><button className="inv-btn" onClick={() => setConfirmation(null)}>Back</button></div></div> : <>
         {selectedItem.count > 1 && <div className="inv-menu__qty"><input aria-label="Quantity" inputMode="numeric" placeholder={String(selectedItem.count)} value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))} />
           <button onClick={() => setAmount("1")}>1</button><button onClick={() => setAmount(String(Math.floor(selectedItem.count / 2)))}>½</button><button onClick={() => setAmount("")}>All</button></div>}
-        {mine && selectedItem.usable && <button role="menuitem" onClick={() => perform("use")}><Icon name={isGarment(selectedItem) ? "shirt" : "hand"} size={14} />{isGarment(selectedItem) ? "Wear" : "Use one"}<kbd>2×CLICK</kbd></button>}
+        {armamentItem(selectedItem) && <ArmamentItemActions item={selectedItem} mine={mine} inventoryBusy={busy} />}
+        {mine && selectedItem.usable && !armamentItem(selectedItem) && <button role="menuitem" disabled={selectedItem.category === "grenade" && grenadeBusy} onClick={() => perform("use")}><Icon name={isGarment(selectedItem) ? "shirt" : "hand"} size={14} />{isGarment(selectedItem) ? "Wear" : selectedItem.category === "grenade" ? (selectedGrenade === selectedItem.name ? "Store grenade" : "Select grenade") : "Use one"}<kbd>2×CLICK</kbd></button>}
         {destination.kind !== "ground" && <button role="menuitem" disabled={!canTransfer} onClick={() => perform("transfer")}><Icon name="arrow-left-right" size={14} />{mine ? "Move to storage" : "Take"}<kbd>SHIFT</kbd></button>}
         <button role="menuitem" disabled={selectedItem.count < 2 || freeSlot === undefined || !count} onClick={() => perform("split")}><Icon name="split" size={14} />Split stack</button>
         {mine && <><button role="menuitem" disabled={!count} onClick={() => setConfirmation("give")}><Icon name="users" size={14} />Give to nearby player</button>

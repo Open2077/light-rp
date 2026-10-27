@@ -71,6 +71,20 @@ neuralink-ui/screens/
 !tools/test-support.py
 !tools/test-housing.py
 !tools/test-housing-ui.py
+!tools/test-vehicle-customization.py
+!tools/test-safezones.py
+!tools/test-safezones-client.py
+!tools/test-armament.py
+!tools/test-armament-client.py
+!tools/test-weapon-hud.py
+!tools/test-grenades.py
+!tools/test-grenades-client.py
+!tools/test-hotbar.py
+!tools/test-hotbar-client.py
+!tools/test-medical.py
+!tools/test-medical-client.py
+!tools/import-weapon-assets.py
+!tools/test-safezones-menu-ui.cjs
 # Platform packages whose out-of-character commands were made staff-only.
 !resources/system/open77_appearance/
 !resources/system/open77_appearance/**
@@ -87,6 +101,7 @@ neuralink-ui/screens/
 
 # Never commit these even if the rules above change.
 ui/node_modules/
+/ui/node_modules
 ui/dist/
 ui/artifacts/
 server.env
@@ -94,3 +109,6 @@ server.env
 *.log
 logs/
 data/
+
+# Local architecture and UI reference notes (never publish).
+/README*.local.md

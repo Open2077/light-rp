@@ -18,6 +18,9 @@ function Movement.apply(index)
     index = ((index - 1) % #list) + 1
     local mode = list[index]
     Movement.index = index
+    if Movement.safezone and (not mode.speed or mode.speed>1.5) then
+        mode={id="safezone",label="WALK",speed=1.5}
+    end
     if available() then
         local ok, result, reason
         if mode.speed then
@@ -36,6 +39,12 @@ function Movement.apply(index)
 end
 
 function Movement.cycle() return Movement.apply(Movement.index + 1) end
+function Movement.setSafezone(blocked)
+    blocked=blocked==true
+    if Movement.safezone==blocked then return end
+    Movement.safezone=blocked
+    Movement.apply(Movement.index)
+end
 
 function Movement.bind()
     local key = Config.keys.walk

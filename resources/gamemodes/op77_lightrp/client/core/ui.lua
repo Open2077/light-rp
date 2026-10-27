@@ -82,7 +82,9 @@ local MENU_KEYS = { "escape", "enter", "backspace", "up", "down", "left", "right
 
 function Ui.setMenuOpen(open)
     if Ui.page == nil then return end
-    if open and (Ui.dialogs.tutorial or Ui.dialogs.support or Ui.dialogs.housing) then return end
+    if open and LightRpSafezones and LightRpSafezones.active then return end
+    if open and LightRpMedical and LightRpMedical.isActive() then return end
+    if open and (Ui.dialogs.tutorial or Ui.dialogs.support or Ui.dialogs.housing or Ui.dialogs.customization) then return end
     if open and LightRpAnimations then LightRpAnimations.close() end
     if open and Ui.creationActive then
         Ui.setPromptFocus(not editorSuspended)
@@ -121,6 +123,7 @@ end
 -- shows or hides it through the same close/action channel, so a dialog and the
 -- menu share one focus owner.
 function Ui.setPromptFocus(active)
+    if not active and LightRpVehicleCustomizationClient and LightRpVehicleCustomizationClient.isActive() then return end
     if Ui.supportMode then return end -- the compact menu owns its input policy
     if not active and (Ui.dialogs.support or Ui.dialogs.housing) then return end
     if active and LightRpCreator and LightRpCreator.isPlacing() then return end
@@ -198,13 +201,19 @@ function Ui.create()
         return false
     end
     Ui.page = page
+    if LightRpSafezones then LightRpSafezones.bind(page) end
     if LightRpCreator then LightRpCreator.bind(page) end
     if LightRpTutorial then LightRpTutorial.bind(page) end
     if LightRpSupport then LightRpSupport.bind(page) end
+    if LightRpArmamentClient then LightRpArmamentClient.bind(page) end
+    if LightRpGrenadesClient then LightRpGrenadesClient.bind(page) end
+    if LightRpHotbar then LightRpHotbar.bind(page) end
+    if LightRpMedical then LightRpMedical.bind(page) end
     syncVoiceHud() -- hidden until the authoritative character state is ready
     if LightRpActions then LightRpActions.bind(page) end
     if LightRpAnimations then LightRpAnimations.bind(page) end
     if LightRpFreecam then LightRpFreecam.bind(page) end
+    if LightRpVehicleCustomizationClient then LightRpVehicleCustomizationClient.bind(page) end
 
     page:on(E.page.ready, function()
         Ui.ready = true

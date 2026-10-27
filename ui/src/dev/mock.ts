@@ -15,6 +15,8 @@ import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
 import { missionMock } from "./missionFixture";
 import { basketSummary } from "@/features/shop/model";
+import { safezonesMock } from "@/features/safezones/mock";
+import { armamentMock } from "@/features/inventory/armamentMock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -25,6 +27,8 @@ export function installMockBridge(): void {
   const params = new URLSearchParams(location.search);
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
+  const safezones = safezonesMock(fire, params);
+  const armament = armamentMock(fire, params);
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -86,6 +90,13 @@ export function installMockBridge(): void {
         : params.get("fuel") === "low" ? { litres: 6.4, capacity: 55, fraction: 0.116, low: true, empty: false }
         : { litres: 31.7, capacity: 55, fraction: 0.576, low: false, empty: false } } : { active: false },
     voice: { state: "idle", level: 0, range: "normal" }, clock: "22:41", street: "KANDA ST",
+    weapon: params.has("weaponhud") ? {
+      active: params.get("weaponhud") !== "holstered", reserve: params.get("weaponhud") === "unknown" ? undefined : 59,
+      hands: [
+        { hand: "right", label: "Militech Lexington", magazine: params.get("weaponhud") === "unknown" ? undefined : params.get("weaponhud") === "empty" ? 0 : 21, capacity: 21, reloading: params.get("weaponhud") === "reload" },
+        ...(params.get("weaponhud") === "dual" ? [{ hand: "left" as const, label: "Tsunami Nue", magazine: 10, capacity: 10, reloading: false }] : []),
+      ],
+    } : undefined,
     walk: params.get("walk") === "1" ? { mode: "walk", label: "WALK", speed: 1.5, index: 2, count: 3 } : undefined,
   };
 
@@ -108,6 +119,9 @@ export function installMockBridge(): void {
     off(name, handler) { handlers.get(name)?.delete(handler); },
     emit(name, payload) {
       console.log("[mock] emit", name, payload);
+      if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
+      if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
+      if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
       if (name === PAGE_EVENTS.ready) {
         setTimeout(() => {
           // ?run=courier|task: an active work order; &near=1 stands on the marker
@@ -125,6 +139,8 @@ export function installMockBridge(): void {
           if (params.get("outfit") === "1") state.worn = { ...state.worn, outfit: { label: "Street", image: undefined },
             sources: { Head: "over", Face: "hidden", InnerChest: "outfit", OuterChest: "outfit", Legs: "outfit", Feet: "outfit" },
             hidden: { Face: "Items.Glasses_01_basic_01" }, slots: { ...state.worn.slots, Face: false } };
+          safezones.boot();
+          armament.boot();
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
           if (runKind) fire(PAGE_EVENTS.jobRun, { distance: params.get("near") === "1" ? 2 : 438, menuKey: "F1", gps: params.get("gps") !== "0" });
@@ -139,7 +155,7 @@ export function installMockBridge(): void {
             fire(PAGE_EVENTS.interact, { id: "rental.citycenter", prompt: "Rent a vehicle", key: "E" });
             setInterval(() => fire("open77:anchors", { anchors: [{ id: "1", tag: "interact", kind: "position", x: 0.52 + Math.sin(Date.now() / 900) * 0.01, y: 0.55, depth: 3, distance: 3, onScreen: true }] }), 33);
           }
-          if (params.get("dialog") === "inventory") fire(PAGE_EVENTS.dialog, { kind: "inventory",
+          if (params.get("dialog") === "inventory" && params.get("weapons") !== "1") fire(PAGE_EVENTS.dialog, { kind: "inventory",
             left: { id: "player:1", kind: "player", label: "Yuki Tanaka", slots: 30, maxWeight: 40, weight: 6.3, items: [
               { slot: 1, name: "phone", label: "Phone", count: 1, weight: 0.3, icon: "smartphone", image: "img/items/phone.png", usable: false, stack: 1, description: "Your holo." },
               { slot: 2, name: "water", label: "Bottle of Water", count: 3, weight: 0.5, icon: "droplet", usable: true, stack: 10, description: "Still water." },
@@ -348,6 +364,8 @@ export function installMockBridge(): void {
             case "welcome.ack":
               patchCharacter({ welcomePending: false });
               break;
+            case "inventory.use":
+              armament.useGrenade(action.slot);result(true,"Item selected.",action.type);break;
             case "voice.range":
               hud.voice = { ...hud.voice, range: action.range };
               fire(PAGE_EVENTS.hud, { ...hud });
@@ -369,6 +387,7 @@ export function installMockBridge(): void {
     hud.stamina = { value: 70 + Math.round(Math.sin(t / 8) * 20), max: 100 };
     if (hud.vehicle.active) hud.vehicle = { ...hud.vehicle, speedKph: 80 + Math.round(Math.sin(t / 10) * 25) };
     fire(PAGE_EVENTS.hud, { ...hud });
+    if(params.get("hotbar")==="1")fire("lightrp:ui:hotbar",{kind:"state",state:armament.hotbar(),visible:true,showKey:"TAB",slotKeys:["1","2","3","4","5"]});
   }, 100);
 
   window.Open77 = bridge;

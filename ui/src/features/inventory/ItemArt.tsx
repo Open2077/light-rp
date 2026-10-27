@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { InventoryItem } from "@/bridge/protocol";
 import { Icon } from "@/design/components";
+import { Crosshair } from "lucide-react";
 
 // Templates supply resource-local art. Never load arbitrary metadata URLs or
 // remote images inside the game's browser. Legacy/custom items keep their icon.
@@ -14,6 +15,7 @@ export function ItemArt({ item, size = "slot" }: { item: InventoryItem; size?: "
   return <span className={`inventory-art inventory-art--${size}`} aria-hidden="true">
     {image && failed !== image
       ? <img src={image} alt="" draggable={false} decoding="async" onError={() => setFailed(image)} />
+      : item.category === "weapon" ? <Crosshair aria-hidden="true" size={size === "detail" ? 58 : size === "drag" ? 25 : 32} />
       : <Icon name={item.icon} size={size === "detail" ? 58 : size === "drag" ? 25 : 32} />}
   </span>;
 }
