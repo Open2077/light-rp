@@ -15,6 +15,9 @@ LightRpShops = {
             -- buy = player pays; sell = player receives. Omit either price to
             -- disable that direction. Supplies are unlimited, not fake stock.
             items = {
+                { name = "chess_board", buy = 250, sell = 60 },
+                { name = "checkers_board", buy = 150, sell = 35 },
+                { name = "connect4_board", buy = 200, sell = 50 },
                 { name = "water", buy = 8, sell = 2 },
                 { name = "burrito", buy = 18, sell = 5 },
                 { name = "noodles", buy = 24, sell = 6 },

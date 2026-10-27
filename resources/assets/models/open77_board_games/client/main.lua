@@ -1,0 +1,2 @@
+-- Data-only marker keeps the asset dependency in the signed client resource set.
+-- Props are created by op77_lightrp using the authored .ent paths in the archive.

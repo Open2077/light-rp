@@ -50,6 +50,7 @@
     "root": "resources",
     "load": [
       "archivexl",
+      "open77_board_games",
       "ncwe_local",
       "ncpd_watson",
       "appart3",

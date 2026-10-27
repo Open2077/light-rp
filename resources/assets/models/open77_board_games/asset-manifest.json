@@ -1,0 +1,733 @@
+{
+  "version": "1.1.0",
+  "style": "original matte carved wood; white/black chess and checkers; blue/red/yellow stained-wood Connect Four",
+  "namespace": "open77\\assets\\op77_lightrp\\board_games",
+  "models": [
+    {
+      "name": "chess_board",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_board.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_board.ent",
+      "triangles": 164,
+      "materials": [
+        "#5A3822FF",
+        "#D5B68BFF",
+        "#4A2C1AFF",
+        "#D9A75EFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.56,
+          -0.56,
+          -0.036
+        ],
+        "max": [
+          0.56,
+          0.56,
+          0.004
+        ]
+      }
+    },
+    {
+      "name": "checkers_board",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\checkers_board.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\checkers_board.ent",
+      "triangles": 236,
+      "materials": [
+        "#5A3822FF",
+        "#D5B68BFF",
+        "#4A2C1AFF",
+        "#D9A75EFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.56,
+          -0.56,
+          -0.036
+        ],
+        "max": [
+          0.56,
+          0.56,
+          0.004
+        ]
+      }
+    },
+    {
+      "name": "connect4_board",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\connect4_board.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\connect4_board.ent",
+      "triangles": 6120,
+      "materials": [
+        "#2159BFFF",
+        "#5A3822FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.5700000000000001,
+          -0.14,
+          0.0
+        ],
+        "max": [
+          0.5700000000000001,
+          0.14,
+          0.9199999999999999
+        ]
+      }
+    },
+    {
+      "name": "chess_white_pawn",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_white_pawn.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_white_pawn.ent",
+      "triangles": 1128,
+      "materials": [
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.079
+        ]
+      }
+    },
+    {
+      "name": "chess_white_rook",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_white_rook.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_white_rook.ent",
+      "triangles": 720,
+      "materials": [
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.089
+        ]
+      }
+    },
+    {
+      "name": "chess_white_knight",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_white_knight.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_white_knight.ent",
+      "triangles": 1540,
+      "materials": [
+        "#FAF8F2FF",
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.104
+        ]
+      }
+    },
+    {
+      "name": "chess_white_bishop",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_white_bishop.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_white_bishop.ent",
+      "triangles": 744,
+      "materials": [
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.108
+        ]
+      }
+    },
+    {
+      "name": "chess_white_queen",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_white_queen.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_white_queen.ent",
+      "triangles": 1672,
+      "materials": [
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.11099999999999999
+        ]
+      }
+    },
+    {
+      "name": "chess_white_king",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_white_king.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_white_king.ent",
+      "triangles": 720,
+      "materials": [
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.124
+        ]
+      }
+    },
+    {
+      "name": "chess_black_pawn",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_black_pawn.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_black_pawn.ent",
+      "triangles": 1128,
+      "materials": [
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.079
+        ]
+      }
+    },
+    {
+      "name": "chess_black_rook",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_black_rook.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_black_rook.ent",
+      "triangles": 720,
+      "materials": [
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.089
+        ]
+      }
+    },
+    {
+      "name": "chess_black_knight",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_black_knight.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_black_knight.ent",
+      "triangles": 1540,
+      "materials": [
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.104
+        ]
+      }
+    },
+    {
+      "name": "chess_black_bishop",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_black_bishop.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_black_bishop.ent",
+      "triangles": 744,
+      "materials": [
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.108
+        ]
+      }
+    },
+    {
+      "name": "chess_black_queen",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_black_queen.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_black_queen.ent",
+      "triangles": 1672,
+      "materials": [
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.11099999999999999
+        ]
+      }
+    },
+    {
+      "name": "chess_black_king",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\chess_black_king.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\chess_black_king.ent",
+      "triangles": 720,
+      "materials": [
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.034,
+          -0.034,
+          0
+        ],
+        "max": [
+          0.034,
+          0.034,
+          0.124
+        ]
+      }
+    },
+    {
+      "name": "checkers_white_man",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\checkers_white_man.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\checkers_white_man.ent",
+      "triangles": 384,
+      "materials": [
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.032,
+          -0.032,
+          0
+        ],
+        "max": [
+          0.032,
+          0.032,
+          0.014
+        ]
+      }
+    },
+    {
+      "name": "checkers_white_king",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\checkers_white_king.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\checkers_white_king.ent",
+      "triangles": 960,
+      "materials": [
+        "#FAF8F2FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.032,
+          -0.032,
+          0
+        ],
+        "max": [
+          0.032,
+          0.032,
+          0.031
+        ]
+      }
+    },
+    {
+      "name": "checkers_black_man",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\checkers_black_man.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\checkers_black_man.ent",
+      "triangles": 384,
+      "materials": [
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.032,
+          -0.032,
+          0
+        ],
+        "max": [
+          0.032,
+          0.032,
+          0.014
+        ]
+      }
+    },
+    {
+      "name": "checkers_black_king",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\checkers_black_king.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\checkers_black_king.ent",
+      "triangles": 960,
+      "materials": [
+        "#10100FFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.032,
+          -0.032,
+          0
+        ],
+        "max": [
+          0.032,
+          0.032,
+          0.031
+        ]
+      }
+    },
+    {
+      "name": "connect4_white_disc",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\connect4_white_disc.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\connect4_white_disc.ent",
+      "triangles": 96,
+      "materials": [
+        "#C92C2CFF"
+      ],
+      "bounds": {
+        "min": [
+          -0.052,
+          -0.025,
+          -0.052
+        ],
+        "max": [
+          0.052,
+          0.025,
+          0.052
+        ]
+      }
+    },
+    {
+      "name": "connect4_black_disc",
+      "mesh": "open77\\assets\\op77_lightrp\\board_games\\connect4_black_disc.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\board_games\\connect4_black_disc.ent",
+      "triangles": 96,
+      "materials": [
+        "#EDC525FF"
+      ],
+      "bounds": {
+        "min": [
+          -0.052,
+          -0.025,
+          -0.052
+        ],
+        "max": [
+          0.052,
+          0.025,
+          0.052
+        ]
+      }
+    }
+  ],
+  "textures": [
+    {
+      "name": "wood_ivory",
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\textures\\wood_ivory.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "113769ac15bf98d2135189304df196c9015068dbc8a2f9f322078bb6dd7e4519"
+    },
+    {
+      "name": "wood_ebony",
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\textures\\wood_ebony.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "39039c8bb2603891415cc1c7bd42a2c14a88dd162e405e137e080a32988ba27d"
+    },
+    {
+      "name": "wood_natural",
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\textures\\wood_natural.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "93dcbe4295b97ae37ca30578505b7728efb4f164a3b3d440474fdd3fd1485c8c"
+    },
+    {
+      "name": "wood_grain",
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\textures\\wood_grain.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "1ccb4c7ec32c2eff69fd2c274195641ad4f11fa32f41c7887f5e467744586e69"
+    }
+  ],
+  "files": [
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_black_king.ent",
+      "sha256": "348ac20c63698d3e90834d426bf198bee673a5ed0c34e89afadf530b7354cb08",
+      "bytes": 13693
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_black_king.mesh",
+      "sha256": "3e1c72af0686353fe96e774e6adb4cc828c1a0efac53fc7e1c0118b87f9fe694",
+      "bytes": 17261
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_black_man.ent",
+      "sha256": "f388b6e3973e755c6a94f7b4c24d5a2d48213a1e2ae769d5b8cc6c0ce83b1bae",
+      "bytes": 13690
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_black_man.mesh",
+      "sha256": "8dd6cf66351fa55c90033fc2b881d9a547eaf2d81102d1b08922eb66fa94d216",
+      "bytes": 10674
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_board.ent",
+      "sha256": "7315854355a02dae311190663eb9db0591d74791e60332878ebe46a34620724b",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_board.mesh",
+      "sha256": "a8d536ce78ca72179af42664bd0c42b1eac586d8f81d842e1b2dc286bf438457",
+      "bytes": 8912
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_white_king.ent",
+      "sha256": "851b831badb60976868e4c48c85f14eae70f6442ef1446ee1be3d437e7c0e58d",
+      "bytes": 13694
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_white_king.mesh",
+      "sha256": "6bd3906d0f6b818c3e50599d2fc9f94b9aeffeb6e5dd1f95d60d4f46621d9be8",
+      "bytes": 17261
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_white_man.ent",
+      "sha256": "e16bc0b54565fa1a554a7db67bd363f646019f7a9a6733b2fe5115b38382ea32",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\checkers_white_man.mesh",
+      "sha256": "7e11e57f7fd0564f2462b99ab01feedc1ea686fceb31d64b6ff471006d41caa6",
+      "bytes": 10674
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_bishop.ent",
+      "sha256": "fcfdc50609efbf23a139b856f8afe700f1ea48748b56b963e4d63a77fe087964",
+      "bytes": 13690
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_bishop.mesh",
+      "sha256": "0b37c96ef7e244865d0debf19a54ab6e724f29328fce73eda3da2103d12fa60c",
+      "bytes": 18681
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_king.ent",
+      "sha256": "9ead728fdd6af81d6cf8bd1d8447a7f80f813ab1ad04ddd6de9dac06ddc95488",
+      "bytes": 13686
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_king.mesh",
+      "sha256": "5447ffe007f9eb6179c6f5c976d9ac799bd67a0586eac91b20571cc406377451",
+      "bytes": 16620
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_knight.ent",
+      "sha256": "0913b8f22bae72645a1a7b3e56b25d84d78664239c2ae1a70a24d124719e42f7",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_knight.mesh",
+      "sha256": "3eadfc809b69752190b02d1ef54e8937fa840d8f84af7a69808ae80e8208f225",
+      "bytes": 36086
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_pawn.ent",
+      "sha256": "e05cd559084bbbcbeccd667f6333fce6691171a207622e9b11c00085fbe49e6e",
+      "bytes": 13685
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_pawn.mesh",
+      "sha256": "392d71ac213d9813dcf32e70b6727cfe1c5cf59c30d8f0c9d9cdfe6e1eb92816",
+      "bytes": 25440
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_queen.ent",
+      "sha256": "be57c58767a30e5689826c0d428166c62428df2a6459761164ea1c90e3f0f721",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_queen.mesh",
+      "sha256": "15bc63328056a7e698133842e898d57c918bdce314e03316b7638d181cd1582e",
+      "bytes": 34587
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_rook.ent",
+      "sha256": "734036d52d3b92424630a72a06d0369ddecd06a4fa279f6f074573f1f4bc57e8",
+      "bytes": 13685
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_black_rook.mesh",
+      "sha256": "e69b63af95949ff2c1f451ddb7db1fea0a5e33a5527f189a5013256944596381",
+      "bytes": 16114
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_board.ent",
+      "sha256": "06dc29d6e39214eedfb6c443ca6d0b1bd982cda534480d73362df84509632a10",
+      "bytes": 13682
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_board.mesh",
+      "sha256": "786e2fa714bac117b669748b4683ece805bc1f77e4643555e5aeebbbf0d0f803",
+      "bytes": 8428
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_bishop.ent",
+      "sha256": "2d0791f7ab6026d05861db9c7f7f3afe44234538f9c30e84487810876fc903d6",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_bishop.mesh",
+      "sha256": "6066caf26a571837f56736d7d215ac30582861a125d0cf0677683986f42aa28e",
+      "bytes": 18681
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_king.ent",
+      "sha256": "2bb411e79c203280e90b4b439da6311bccadd5dcce19807cc322ddf66b3a368d",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_king.mesh",
+      "sha256": "4c027f69d99f8a62962ff1dcd5bf9af430dd99564dc75b7d69efe8ed8e50a340",
+      "bytes": 16620
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_knight.ent",
+      "sha256": "c57f7224b16f7333d89e100fcb7b8cc8b426526ee5513131e914805ecf2e9866",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_knight.mesh",
+      "sha256": "454dfd79e967832a5851f2aac6a80c8aa60439a3f2e73184dcd401f6539dddbc",
+      "bytes": 36494
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_pawn.ent",
+      "sha256": "6a234c9d166e5b224c289496198ca404b1c5635c1938158541a1717c9fe87461",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_pawn.mesh",
+      "sha256": "11ac59d0ce8469bdb2451e19fb7c348121ae764763f97d43b5d16bfcfe72849c",
+      "bytes": 25440
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_queen.ent",
+      "sha256": "0dc45d5127182cc0c1192e1f9b67ff038af496c242f0789a9c73ad9729385491",
+      "bytes": 13689
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_queen.mesh",
+      "sha256": "9130879627105d7699b631342a4baaaa9d513226b979d24bee62a75ea056eecd",
+      "bytes": 34587
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_rook.ent",
+      "sha256": "7f33a9ef0418105169916427c788a7b700a2d5c0f501c7da403cd7c45e40d769",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\chess_white_rook.mesh",
+      "sha256": "b94f734bad5a23ff37b0e217c5ceed98a10aa0b8fbd9ee56092ee8b813b1b9e2",
+      "bytes": 16114
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\connect4_black_disc.ent",
+      "sha256": "ac67aacd5b519873780ae559ee279e980227de790f5eb05939b0094aed9e8a1d",
+      "bytes": 13691
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\connect4_black_disc.mesh",
+      "sha256": "8687bcf47157efb02428ffd3f4022a85ef19b7e0d49615b22b906ca498b81076",
+      "bytes": 6119
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\connect4_board.ent",
+      "sha256": "942de3c1625928f1818ab90b273719500474e949de190a889d4dcc5d013b143a",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\connect4_board.mesh",
+      "sha256": "213572d26da84da2502d5b1c44bd8b4c82891b297eca4cc8eacb3966589fcae5",
+      "bytes": 64297
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\connect4_white_disc.ent",
+      "sha256": "bc384506b15040614619bce84265a3e14d915312d5d65bbcb77711e49fe56397",
+      "bytes": 13694
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\connect4_white_disc.mesh",
+      "sha256": "3f75d9af04e34625791dc1967fc8d05093dad38b9e993390c119619b1eefe2ef",
+      "bytes": 6113
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\textures\\wood_ebony.xbm",
+      "sha256": "fffcf81e013947c48875dc4a9a4ce06b32d2e6f1d26f82141a8ef63350e3d57f",
+      "bytes": 29729
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\textures\\wood_grain.xbm",
+      "sha256": "50966a50d5b1a87ace2a4b065539aecfae70b899f8257c2d6e1bca9497b2e3f3",
+      "bytes": 68193
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\textures\\wood_ivory.xbm",
+      "sha256": "28b05cad42a40382f59e510bbf3f7bf5c2edbbcc569a34e2157cd31931fc8e10",
+      "bytes": 45367
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\board_games\\textures\\wood_natural.xbm",
+      "sha256": "8421192eaef661d7daeb24d79124c8b2713ef6e2df85517c1f974d34cab354f4",
+      "bytes": 89246
+    }
+  ],
+  "archiveSha256": "e8c07cf647e145a1b57f42cdb530e178ee0cead2a7195f15daf228b48daddc54",
+  "zipSha256": "3754597f1e5472265d58aa8baf95f606f625b8961fdb4df2bac2ab805b10c938",
+  "buildWork": "/tmp/board-game-props/build",
+  "sourceMeshSchemaSha256": "2776243ecb0d5a9d0897bd6620c5dc03993c50350eb115cf4e8d3d4269ed0af8",
+  "materialDependencies": [
+    "engine\\materials\\metal_base.remt"
+  ]
+}

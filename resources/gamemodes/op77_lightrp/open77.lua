@@ -13,6 +13,7 @@ auto_start true
 reload_policy "reconnect"
 
 dependencies {
+    "open77_board_games >=1.1.0",
     "open77_chat >=0.5.0",
     "open77_notifications >=1.0.0",
     "open77_vehicles >=0.1.0",
@@ -29,6 +30,8 @@ shared_script "shared/safezones.lua"
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
+shared_script "shared/board_games.lua"
+shared_script "shared/board_games_rules.lua"
 shared_script "shared/medical.lua"
 shared_script "shared/armament.lua"
 shared_script "shared/grenades.lua"
@@ -51,6 +54,7 @@ server_script "server/modules/creator.lua"
 server_script "server/modules/creator_placement.lua"
 server_script "server/modules/needs.lua"
 server_script "server/modules/inventory.lua"
+server_script "server/modules/board_games.lua"
 server_script "server/modules/armament_store.lua"
 server_script "server/modules/armament.lua"
 server_script "server/modules/grenades.lua"
@@ -97,6 +101,7 @@ server_script "server/main.lua"
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
 client_script "client/core/control_claims.lua"
+client_script "client/core/board_games.lua"
 client_script "client/core/safezones.lua"
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
@@ -135,7 +140,7 @@ web_files { "web/**" }
 
 -- Pause menu branding: the server logo beside the OPEN//77 mark (client/core/branding.lua sets the accent).
 pause_menu_logo "assets/logo.png"
-files { "assets/logo.png", "assets/audio/cloudy-day.mp3" }
+files { "assets/logo.png", "assets/audio/cloudy-day.mp3", "assets/audio/board-games/*.wav" }
 
 permissions {
     -- both sides
@@ -167,6 +172,7 @@ permissions {
     "world.npcs",           -- rental desks are NPCs
     "world.markers",        -- native 3D markers at rental desks
     "world.debug",          -- staff-only draft boundary preview
+    "world.query",          -- board placement and pointer projection
     "ui.vanilla.map",       -- map blips on the interaction points
     "vehicles.read",        -- closest vehicle / seat for the L key
     "players.controls",     -- walk modes (Open77.movement.setWalkMode)

@@ -67,6 +67,7 @@
     "root": "resources",
     "load": [
       "archivexl",
+      "open77_board_games",
       "lobby",
       "open77_lobby_cubes",
       "kabuki_appart1",

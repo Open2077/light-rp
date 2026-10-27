@@ -9,6 +9,7 @@ AddEventHandler("onClientResourceStart", function(name)
     LightRpKeys.bind()
     LightRpMovement.bind()
     LightRpInventory.bind()
+    if LightRpBoardGamesClient then LightRpBoardGamesClient.start() end
     LightRpBranding.apply()
     if LightRpSafezones then LightRpSafezones.start() end
 

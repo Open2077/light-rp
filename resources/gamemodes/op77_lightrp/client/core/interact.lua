@@ -208,7 +208,9 @@ end
 CreateThread(function()
     while true do
         Wait(100)
-        if #Interact.points > 0 or next(Interact.locals) then
+        if LightRpBoardGamesClient and LightRpBoardGamesClient.isActive() then
+            setNear(nil)
+        elseif #Interact.points > 0 or next(Interact.locals) then
             local p = localPosition()
             if p == nil then
                 setNear(nil)
@@ -234,6 +236,7 @@ CreateThread(function()
 end)
 
 function Interact.press()
+    if LightRpBoardGamesClient and LightRpBoardGamesClient.isActive() then return false end
     if LightRpActions and LightRpActions.isActive() then return false end
     local point = Interact.near
     if point == nil then return false end

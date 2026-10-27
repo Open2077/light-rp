@@ -1,0 +1,1 @@
+-- Data-only asset loader. Native visual props belong to the gameplay resource.
