@@ -110,7 +110,12 @@
       "open77_icons",
       "open77_gizmos_demo",
       "open77_gizmos_editor",
+        "open77_chimera",
+        "op77_map3d",
+        "op77_loadscreen",
         "op77_actionbubble",
+        "op77_speedometer",
+        "op77_weaponhud",
         "op77_lightrp",
         "op77_neuralink"
     ],

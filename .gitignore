@@ -50,6 +50,19 @@
 !resources/standalone/open77_icons/**
 !resources/standalone/op77_actionbubble/
 !resources/standalone/op77_actionbubble/**
+# The LightRP loading screen (join + zone changes).
+!resources/standalone/op77_loadscreen/
+!resources/standalone/op77_loadscreen/**
+# The holographic speedometer (replaces the vehicle cluster while it runs).
+!resources/standalone/op77_speedometer/
+!resources/standalone/op77_speedometer/**
+# The holographic weapon HUD (replaces the weapon readout while it runs).
+!resources/standalone/op77_weaponhud/
+!resources/standalone/op77_weaponhud/**
+# The 3D city map, minimap and GPS (game map export in web/data, page source in ui/).
+!resources/standalone/op77_map3d/
+!resources/standalone/op77_map3d/**
+resources/standalone/op77_map3d/ui/node_modules/
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**

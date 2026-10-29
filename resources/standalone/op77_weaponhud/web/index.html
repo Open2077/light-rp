@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Weapon HUD</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <!-- The holographic weapon HUD, the mirror of op77_speedometer at the bottom left.
+       #stage is placed (left/bottom/scale from the config, lifted by the inset), #rig
+       carries the recoil kick, #plane the 3D tilt and the unfold/fold, #holo the glow,
+       scanlines and flicker. Everything inside is laid out on a flat 420 x 210 px plane. -->
+  <div id="stage" class="stage" aria-hidden="true">
+    <div id="rig" class="rig">
+      <div id="plane" class="plane">
+        <div class="haze"></div>
+        <div id="holo" class="holo">
+          <i class="corner corner--tl"></i><i class="corner corner--tr"></i><i class="corner corner--bl"></i><i class="corner corner--br"></i>
+
+          <div class="head">
+            <div class="name"><b></b><span id="name">WEAPON</span></div>
+            <div class="badges"><span id="klass" class="badge"></span><span id="kind" class="kind"></span></div>
+          </div>
+
+          <div id="cells" class="cells"></div>
+
+          <div class="readout">
+            <svg id="digits" class="digits" viewBox="0 0 228 112" width="228" height="112"></svg>
+            <div class="side">
+              <span class="side__label">RESERVE</span>
+              <span id="reserve" class="side__value">---</span>
+              <span id="tag" class="tag"></span>
+            </div>
+          </div>
+
+          <div class="foot">
+            <div class="progress"><i id="progress"></i></div>
+            <span id="leftHand" class="lefthand"></span>
+          </div>
+
+          <div class="sweep"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
