@@ -74,7 +74,7 @@ function MissionBody({ initial, onClose }: { initial: MissionDialogPayload; onCl
   };
 
   const withNames = (party?.members ?? []).filter(m => m.id !== data.me.id).map(m => initials(m.name).toUpperCase());
-  const identity = `${initials(data.me.name).toUpperCase()} · #${data.me.citizen} · TIER ${data.me.tier}${withNames.length ? ` · WITH ${withNames.join(", ")}` : ""}`;
+  const identity = `${initials(data.me.name).toUpperCase()} · #${data.me.citizen} · REP ${data.me.reputation}${withNames.length ? ` · WITH ${withNames.join(", ")}` : ""}`;
 
   return <div className="mission o77-interactive" role="dialog" aria-modal="true" aria-labelledby="mission-title" ref={root} tabIndex={-1}
     onKeyDown={e => {
@@ -157,10 +157,10 @@ function DifficultyRow({ d, selected, mine, money, onSelect, onOpen }: { d: Miss
       <div><dt>PAYOUT</dt><dd>{money(d.payout)}</dd></div>
       <div><dt>TIME</dt><dd>~{d.minutes} MIN</dd></div>
       <div><dt>OPERATORS</dt><dd>{d.min}-{d.max}</dd></div>
-      <div><dt>MIN REP</dt><dd>TIER {d.tier}</dd></div>
+      <div><dt>UNLOCK</dt><dd>{d.requires ? `CLEAR ${d.requires}` : "OPEN"}</dd></div>
     </dl>
     <div className="mission-row__tagged">
-      {d.locked ? <span className="mission-row__lock"><Icon name="lock" size={14} />TIER {d.tier} REQUIRED</span>
+      {d.locked ? <span className="mission-row__lock"><Icon name="lock" size={14} />COMPLETE {d.requires} FIRST</span>
         : <span><b>{d.tagged}</b>/ {d.max} TAGGED{mine && <em>YOU</em>}</span>}
       <Meter value={d.locked ? 0 : d.tagged} max={d.max} tone={tone} />
     </div>
@@ -184,7 +184,7 @@ function BoardView({ data, diff, board, mine, countdown, money }: { data: Missio
       <div><dt><Icon name="banknote" size={12} />PAYOUT</dt><dd>{money(diff.payout)}</dd></div>
       <div><dt><Icon name="timer" size={12} />TIME</dt><dd>~{diff.minutes} MIN</dd></div>
       <div><dt><Icon name="users" size={12} />OPERATORS</dt><dd>{diff.min}-{diff.max}</dd></div>
-      <div><dt><Icon name="shield" size={12} />MIN REP</dt><dd>TIER {diff.tier}</dd></div>
+      <div><dt><Icon name="shield" size={12} />COMPLETED</dt><dd>{diff.cleared ?? 0}×</dd></div>
     </dl>
     <div className={`mission__count${countdown != null ? " is-countdown" : ""}`}>
       <span className="mission__count-big"><b>{board.members.length}</b>/{board.max}</span>

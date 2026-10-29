@@ -231,11 +231,14 @@ local function relocation(player, s, point, targetBucket, arriving)
     s.phase=arriving and "entering" or "leaving"
     local c=character(player)
     LightRP.inventory.close(player)
+    local cover=LightRP.zoneLoading and LightRP.zoneLoading.cover(player,{title=arriving and s.label or "Night City",
+        subtitle=arriving and "Private residence" or "Street level",zone=arriving and "Residence" or nil})
     CreateThread(function()
         local promise,why=Open77.players.teleport(player,point,{heading=point.heading or 0,bucket=targetBucket,fade=true,
             timeoutMs=S.integer(C.transitionTimeoutMs,1000,30000) or 30000})
         local placed
         if promise then placed,why=promise:await() end
+        if LightRP.zoneLoading then LightRP.zoneLoading.release(player,cover) end
         if H.sessions[player]~=s or not current(player,c) then return end
         if placed and placed~=false and GetPlayerRoutingBucket(player)==targetBucket then
             if arriving then s.phase="inside"

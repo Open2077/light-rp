@@ -35,7 +35,7 @@ end
 local function releaseScene()
     if sound then Open77.audio.destroy(sound); sound=nil end
     if frozen then Open77.character.setFrozen(false); frozen=false end
-    if hud then Open77.hud.setVisible("all",true); hud=false end
+    if hud then if LightRpHud then LightRpHud.restoreVanilla() else Open77.hud.setVisible("all", true) end; hud=false end
     if chat~=nil then pcall(function() exports.open77_chat:setEnabled(chat) end); chat=nil end
     TriggerEvent("open-voice:setHudBlocked","op77_lightrp:tutorial",false)
     started=nil

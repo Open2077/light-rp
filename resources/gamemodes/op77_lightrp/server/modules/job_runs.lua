@@ -218,11 +218,14 @@ function Runs.begin(id, payload)
     end
     if step.kind == "lift" then
         run.busy = true; push(id)
+        local cover = LightRP.zoneLoading and LightRP.zoneLoading.cover(id, { title = step.label or "Service lift",
+            subtitle = "Service lift", expectedMs = 3000 })
         CreateThread(function()
             local called, placed = pcall(function()
                 local promise = Open77.players.teleport(id, step.destination, { heading = step.heading or 0, dismount = true })
                 return promise and promise:await()
             end)
+            if LightRP.zoneLoading then LightRP.zoneLoading.release(id, cover) end
             run.busy = false
             if not current(id, run) then return end
             if called and placed then advance(id, run) else push(id); notify(id, "Service access failed. Press E to retry.", "error") end

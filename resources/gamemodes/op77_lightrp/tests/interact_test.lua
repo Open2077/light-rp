@@ -231,3 +231,37 @@ assert(blips[LightRpInteract.points[1].blip], "stopped provider cannot break int
 build({})
 assert(next(custom)==nil and next(blips)==nil)
 print("PASS: custom icon options, grouped position, service GPS/cleanup ownership, private objectives, old-client/provider fallback")
+
+-- The 3D city map (op77_map3d) mirrors every point that has a blip, when it runs.
+local mapBlips, mapState = {}, "running"
+GetResourceState = function(name) assert(name == "op77_map3d"); return mapState end
+GetCurrentResourceName = function() return "op77_lightrp" end
+function exports.open77_icons:create() return nil, "svg_client_required" end
+exports.op77_map3d = {}
+function exports.op77_map3d:addBlip(def) mapBlips["op77_lightrp:" .. def.id] = def; return "op77_lightrp:" .. def.id end
+function exports.op77_map3d:removeBlip(id) assert(mapBlips[id], "removes only what it added"); mapBlips[id] = nil; return true end
+build({
+    { id = "home.unit1", position = desk.position, ring = false, blip = { icon = "house", color = "#FFCC00B3", title = "Home" } },
+    { id = "mission.raid", position = desk.position, ring = false, blip = { sprite = "objective", title = "Raid" } },
+    { id = "shop.247", position = desk.position, ring = false, blip = { icon = "shopping-basket", title = "24/7" } },
+    { id = "talk", position = desk.position, ring = false },
+})
+local home, mission, shop = mapBlips["op77_lightrp:home.unit1"], mapBlips["op77_lightrp:mission.raid"], mapBlips["op77_lightrp:shop.247"]
+assert(home and home.icon == "home" and home.category == "housing" and home.color == "#FFCC00" and home.label == "Home")
+assert(mission and mission.icon == "mission" and mission.category == "mission")
+assert(shop and shop.icon == "store" and shop.category == "service")
+assert(mapBlips["op77_lightrp:talk"] == nil, "a point without a blip stays off the map")
+mapBlips = {}
+serverEvents["op77_map3d:ready"]()
+assert(mapBlips["op77_lightrp:home.unit1"] and mapBlips["op77_lightrp:shop.247"], "a (re)started map gets every point again")
+LightRpInteract.setLocal("job.current", { position = desk.position, prompt = "Drop the parcel", blip = { icon = "package", title = "Work order" } })
+assert(mapBlips["op77_lightrp:job.current"].category == "job" and mapBlips["op77_lightrp:job.current"].pulse)
+LightRpInteract.setLocal("job.current", nil)
+assert(mapBlips["op77_lightrp:job.current"] == nil, "a finished objective leaves the map")
+build({})
+assert(next(mapBlips) == nil, "a new list replaces the old points on the map")
+mapState = "stopped"
+build({ { id = "shop.247", position = desk.position, ring = false, blip = { icon = "shopping-basket" } } })
+assert(#LightRpInteract.points == 1, "no map running: interactions still work")
+build({})
+print("PASS: op77_map3d mirror (icons, categories, colour, re-sync on ready, private objectives, cleanup, map stopped)")

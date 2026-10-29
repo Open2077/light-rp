@@ -16,6 +16,18 @@
 local C = LightRpMissions
 local E = LightRpEvents
 local Missions = LightRP.module("missions", {})
+
+-- Inside a mission (raids included) the city has no signal: the 3D map and minimap
+-- (op77_map3d, when it runs) drown in static for the operator until they are back.
+local function setMapJam(id, on)
+    pcall(function()
+        if on then
+            exports.op77_map3d:jam(id, { id = "mission:" .. id, strength = 1, label = C.mapJamLabel or "NO SIGNAL · MISSION ZONE" })
+        else
+            exports.op77_map3d:unjam("srv:" .. GetCurrentResourceName() .. ":mission:" .. id)
+        end
+    end)
+end
 local Db = LightRP.db
 
 local points, order = {}, {}
@@ -76,6 +88,49 @@ local function saveRep(id)
         { identifier, key, r.rep, r.completed })
 end
 function Missions.reputation(id) return (reputation[id] or {}).rep or 0 end
+
+-- Unlocks: a difficulty opens once the character completed the one before it at
+-- the same mission point (the first is always open). Reputation is still earned
+-- and shown, it no longer gates anything.
+Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_mission_clears (
+    identifier VARCHAR(128) NOT NULL, character_key VARCHAR(64) NOT NULL,
+    point_id VARCHAR(64) NOT NULL, difficulty VARCHAR(32) NOT NULL, completed INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (identifier, character_key, point_id, difficulty)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+local clears = {} -- playerId -> { [pointId] = { [difficulty] = count } }
+local function loadClears(id)
+    clears[id] = {}
+    local identifier, key = owner(id)
+    if not identifier or not Db.ready then return end
+    for _, row in ipairs(Db.query("SELECT point_id, difficulty, completed FROM lightrp_mission_clears WHERE identifier = ? AND character_key = ?", { identifier, key }) or {}) do
+        clears[id][row.point_id] = clears[id][row.point_id] or {}
+        clears[id][row.point_id][row.difficulty] = tonumber(row.completed) or 0
+    end
+end
+function Missions.cleared(id, pointId, diffId)
+    return ((clears[id] or {})[pointId] or {})[diffId] or 0
+end
+function Missions.addClear(id, pointId, diffId, count)
+    clears[id] = clears[id] or {}
+    clears[id][pointId] = clears[id][pointId] or {}
+    local n = math.max(0, (clears[id][pointId][diffId] or 0) + (count or 1))
+    clears[id][pointId][diffId] = n
+    local identifier, key = owner(id)
+    if not identifier or not Db.ready then return end
+    Db.run("INSERT INTO lightrp_mission_clears (identifier, character_key, point_id, difficulty, completed) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE completed = VALUES(completed)",
+        { identifier, key, pointId, diffId, n })
+end
+-- the difficulty before `d` at its point, or nil for the first
+local function previousOf(point, d)
+    for i, other in ipairs(point.difficulties) do
+        if other.id == d.id then return point.difficulties[i - 1] end
+    end
+end
+function Missions.unlocked(id, point, d)
+    local before = previousOf(point, d)
+    return not before or Missions.cleared(id, point.id, before.id) > 0
+end
 function Missions.tier(id)
     local rep, tier = Missions.reputation(id), 1
     for i, threshold in ipairs(C.reputation.tiers) do if rep >= threshold then tier = i end end
@@ -170,20 +225,22 @@ local REASONS = {
     character = { "You have no active character.", "%s has no active character." },
     mission = { "You are already on a mission.", "%s is already on a mission." },
     down = { "You are down.", "%s is down." },
-    tier = { "You need reputation tier %d.", "%s needs reputation tier %d." },
+    tier = { "Complete %s first.", "%s must complete %s first." },
     away = { "You are not at the mission point.", "%s is not at the mission point." },
 }
-local function reason(code, id, self, d)
+local function reason(code, id, self, d, point)
     local r = REASONS[code]
-    if self then return r[1]:format(d and d.tier) end
-    return r[2]:format(name(id), d and d.tier)
+    local before = point and d and previousOf(point, d)
+    local what = before and (before.label .. " " .. point.title) or ""
+    if self then return r[1]:format(what) end
+    return r[2]:format(name(id), what)
 end
 local function eligible(id, point, d, radius)
     if not LightRP.characters.isRegistered(id) then return false, "character" end
     if instanceOf[id] then return false, "mission" end
     local life = Open77.players.getLifeState(id)
     if life and life.phase ~= "alive" then return false, "down" end
-    if Missions.tier(id) < d.tier then return false, "tier" end
+    if not Missions.unlocked(id, point, d) then return false, "tier" end
     if not near(id, point, radius) then return false, "away" end
     return true
 end
@@ -205,7 +262,7 @@ local function tag(id, pointId, diffId, group)
     if #list > d.max then return false, string.format("Your squad is %d: %s takes %d operators at most.", #list, d.label, d.max) end
     for _, member in ipairs(list) do
         local ok, code = eligible(member, point, d, member == id and C.tagRadius or C.groupRadius)
-        if not ok then return false, reason(code, member, member == id, d) end
+        if not ok then return false, reason(code, member, member == id, d, point) end
     end
     for _, member in ipairs(list) do
         if queueOf[member] then untag(member) end
@@ -268,17 +325,49 @@ local function instanceView(inst)
         endsInMs = math.max(0, inst.endsAt - now()), members = #inst.members, squad = squadView(inst) }
 end
 
+-- Leaving a mission (done, failed or abandoned) puts the operator back on their
+-- feet at full health; a body still respawning is healed once it stands.
+local function healOnReturn(id)
+    if type(Open77.players.heal) ~= "function" then return end
+    for _ = 1, 40 do
+        local life = Open77.players.getLifeState(id)
+        if not life then return end
+        if life.phase == "alive" then
+            local ok, applied, why = pcall(Open77.players.heal, id, 10000)
+            if not ok or applied == false then LightRP.log("missions: %s could not be healed (%s)", name(id), tostring(ok and why or applied)) end
+            return
+        end
+        Wait(250)
+    end
+end
+
 local function sendHome(id, point, slot)
     local spot = point.position
     local p = { x = spot.x + ((slot or 1) - 1) * 0.8, y = spot.y - 1.5, z = spot.z }
+    -- an operator down at the end of the mission comes back alive at the point
+    local life = Open77.players.getLifeState(id)
+    local cover = LightRP.zoneLoading and LightRP.zoneLoading.cover(id, { title = "Night City", subtitle = point.title,
+        zone = "Shared city", target = p })
+    if life and life.phase ~= "alive" then
+        local ok, why = Open77.players.respawn(id, { position = p, heading = 0, bucket = 0,
+            health = LightRpConfig.spawn and LightRpConfig.spawn.health or nil })
+        if not ok then
+            SetPlayerRoutingBucket(id, 0)
+            LightRP.log("missions: %s could not be respawned at the point (%s)", name(id), tostring(why))
+        end
+        CreateThread(function() healOnReturn(id) end)
+        return
+    end
     CreateThread(function()
         local promise, why = Open77.players.teleport(id, p, { heading = 0, bucket = 0, fade = true, dismount = true, timeoutMs = 30000 })
         local placed
         if promise then placed, why = promise:await() end
+        if LightRP.zoneLoading then LightRP.zoneLoading.release(id, cover) end
         if not placed then
             SetPlayerRoutingBucket(id, 0)
             LightRP.log("missions: %s could not be brought back (%s)", name(id), tostring(why))
         end
+        healOnReturn(id)
     end)
 end
 
@@ -298,17 +387,27 @@ local function finish(inst, success, why)
     end
     for slot, id in ipairs(inst.members) do
         instanceOf[id] = nil
+        setMapJam(id, false)
         if success then
             if LightRP.money then LightRP.money.addBank(id, d.payout, "mission", "Mission: " .. point.title .. " (" .. d.label .. ")") end
             reputation[id] = reputation[id] or { rep = 0, completed = 0 }
             reputation[id].completed = reputation[id].completed + 1
             Missions.addReputation(id, C.reputationGain[d.id] or 0)
+            local opens = Missions.cleared(id, point.id, d.id) == 0 and point.difficulties[(function()
+                for i, other in ipairs(point.difficulties) do if other.id == d.id then return i + 1 end end
+            end)() or 0]
+            Missions.addClear(id, point.id, d.id)
+            if opens then
+                LightRP.notice(id, { kind = "success", title = "UNLOCKED", durationMs = 10000,
+                    body = string.format("%s · %s is now open to you.", point.title, opens.label) })
+            end
             LightRP.notice(id, { kind = "success", title = "MISSION COMPLETE", durationMs = 10000,
                 body = string.format("%s · %s. %s paid to your account, +%d reputation.", point.title, d.label, LightRP.money and LightRP.money.format(d.payout) or tostring(d.payout), C.reputationGain[d.id] or 0) })
         else
             LightRP.notice(id, { kind = "error", title = "MISSION FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the operation was lost.") })
         end
         sendHome(id, point, slot)
+        if inst.loadout then Missions.restoreArms(id) end
         pushQueue(id)
     end
     LightRP.log("missions: %s %s (%s) %s%s", inst.id, point.title, d.label, success and "complete" or "failed", why and (": " .. why) or "")
@@ -318,16 +417,41 @@ end
 function Missions.complete(instanceId) local inst = instances[instanceId]; if not inst then return false end finish(inst, true); return true end
 function Missions.fail(instanceId, why) local inst = instances[instanceId]; if not inst then return false end finish(inst, false, why); return true end
 function Missions.instanceOf(id) return instanceOf[id] and instances[instanceOf[id]] end
+-- A death inside a running mission belongs to its script (no unconscious state, no hospital).
+function Missions.handlesDeath(id) return instanceOf[id] ~= nil end
+-- A mission that hands out its own weapons (inst.loadout = true) owns the native
+-- slots meanwhile; the character's RP weapons come back when the player leaves it.
+function Missions.handlesLoadout(id)
+    local inst = instanceOf[id] and instances[instanceOf[id]]
+    return inst ~= nil and inst.loadout == true
+end
+local function restoreArms(id)
+    CreateThread(function()
+        Wait(3000)
+        if instanceOf[id] or not LightRP.armament or type(LightRP.armament.synchronize) ~= "function" then return end
+        local ok, err = pcall(LightRP.armament.synchronize, id)
+        if not ok then LightRP.log("missions: weapons of %s not restored (%s)", name(id), tostring(err)) end
+    end)
+end
+Missions.restoreArms = restoreArms
+function Missions.point(id) return points[id] end
+function Missions.difficulty(inst) return diffOf(points[inst.point], inst.difficulty) end
+function Missions.name(id) return name(id) end
+function Missions.pushSquad(inst) for _, id in ipairs(inst.members) do pushQueue(id) end end
+-- More time on the clock of a running mission (a script's own phases).
+function Missions.extend(inst, seconds) inst.endsAt = inst.endsAt + seconds * 1000; Missions.pushSquad(inst) end
 function Missions.register(pointId, script) scripts[pointId] = script end
 
 -- One operator leaves a running mission (abandon, disconnect, character change).
 local function leaveInstance(id, why, goHome)
     local inst = instanceOf[id] and instances[instanceOf[id]]
     instanceOf[id] = nil
+    if inst then setMapJam(id, false) end
     if not inst then return end
     removeMember(inst, id)
     local script = scripts[inst.point]
     if script and script.onLeave then pcall(script.onLeave, inst, id, why) end
+    if inst.loadout then Missions.restoreArms(id) end
     if goHome then
         sendHome(id, points[inst.point], 1)
         LightRP.notice(id, { kind = "warning", title = "MISSION ABANDONED", body = "You left " .. points[inst.point].title .. ". No payout." })
@@ -368,16 +492,19 @@ local function launch(lobby)
     for slot, m in ipairs(lobby.members) do
         queueOf[m.id] = nil
         instanceOf[m.id] = inst.id
+        setMapJam(m.id, true)
         inst.members[#inst.members + 1] = m.id
         if viewers[m.id] then
             TriggerClientEvent(E.net.mission, m.id, { session = viewers[m.id].session, closed = true })
             viewers[m.id] = nil
         end
         local spot = point.start[((slot - 1) % #point.start) + 1]
+        local cover = LightRP.zoneLoading and LightRP.zoneLoading.cover(m.id, { title = point.title, subtitle = d.label, zone = "Mission" })
         CreateThread(function()
             local promise, why = Open77.players.teleport(m.id, spot, { heading = spot.heading or 0, bucket = inst.bucket, fade = true, dismount = true, timeoutMs = 30000 })
             local placed
             if promise then placed, why = promise:await() end
+            if LightRP.zoneLoading then LightRP.zoneLoading.release(m.id, cover) end
             if not placed and instanceOf[m.id] == inst.id then
                 LightRP.log("missions: %s could not reach %s (%s)", name(m.id), inst.id, tostring(why))
                 LightRP.notice(m.id, { kind = "error", title = "MISSION", body = "The mission area did not load. You stay in the city." })
@@ -428,7 +555,8 @@ local function snapshot(id, pointId)
     for _, d in ipairs(point.difficulties) do
         local lobby = boardFor(id, point, d)
         difficulties[#difficulties + 1] = { id = d.id, label = d.label, blurb = d.blurb, payout = d.payout, minutes = d.minutes,
-            min = d.min, max = d.max, tier = d.tier, locked = tier < d.tier, tagged = lobby and #lobby.members or 0 }
+            min = d.min, max = d.max, tier = d.tier, locked = not Missions.unlocked(id, point, d), tagged = lobby and #lobby.members or 0,
+            requires = previousOf(point, d) and previousOf(point, d).label or nil, cleared = Missions.cleared(id, point.id, d.id) }
         boards[d.id] = lobbyView(lobby, point, d)
     end
     local mine = queueOf[id] and lobbies[queueOf[id]]
@@ -523,16 +651,23 @@ function Missions.onCharacterLoaded(id)
     if instanceOf[id] then leaveInstance(id, "character", false) end
     viewers[id] = nil
     loadRep(id)
+    loadClears(id)
 end
 Missions.onCharacterActivated = Missions.onCharacterLoaded
 function Missions.onDisconnected(id)
     if queueOf[id] then untag(id) end
     if instanceOf[id] then leaveInstance(id, "disconnected", false) end
-    viewers[id], reputation[id], lastTag[id] = nil, nil, nil
+    viewers[id], reputation[id], lastTag[id], clears[id] = nil, nil, nil, nil
 end
-function Missions.onDatabaseReady() for _, id in ipairs(GetPlayers()) do loadRep(tonumber(id)) end end
+function Missions.onDatabaseReady() for _, id in ipairs(GetPlayers()) do loadRep(tonumber(id)); loadClears(tonumber(id)) end end
 function Missions.onLifeState(id, phase)
     if phase ~= "alive" and queueOf[id] then untag(id, "You went down: you are no longer tagged.") end
+    local inst = instanceOf[id] and instances[instanceOf[id]]
+    local script = inst and scripts[inst.point]
+    if script and script.onLifeState then
+        local ok, err = pcall(script.onLifeState, inst, id, phase)
+        if not ok then LightRP.log("missions: %s onLifeState failed: %s", inst.point, tostring(err)) end
+    end
 end
 function Missions.onInteract(id, point)
     local pointId = point:match("^mission%.(.+)$")
@@ -628,6 +763,18 @@ LightRP.command("missions.size", { restricted = true, usage = "/missions.size <p
     for _, lobby in pairs(lobbies) do if lobby.point == point.id and lobby.difficulty == d.id then evaluate(lobby) end end
     pushPoint(point.id)
     return true, string.format("%s %s: %d-%d operators.", point.title, d.label, d.min, d.max)
+end)
+-- Staff: /missions.unlock <playerId> <pointId> <difficulty> counts that difficulty as completed
+-- (so the next one opens); /missions.unlock <playerId> <pointId> <difficulty> reset forgets it.
+LightRP.command("missions.unlock", { restricted = true, usage = "/missions.unlock <playerId> <pointId> <difficulty> [reset]" }, function(_, args)
+    local id, point = staffTarget(args), points[tostring(args[2] or "")]
+    local d = point and diffOf(point, tostring(args[3] or ""))
+    if not id or not d or not LightRP.characters.isRegistered(id) then return false end
+    if args[4] == "reset" then Missions.addClear(id, point.id, d.id, -Missions.cleared(id, point.id, d.id))
+    else Missions.addClear(id, point.id, d.id) end
+    local v = viewers[id]
+    if v then pushPoint(v.point) end
+    return true, string.format("%s: %s %s completed %d time(s).", name(id), point.title, d.label, Missions.cleared(id, point.id, d.id))
 end)
 LightRP.command("missions.rep", { restricted = true, usage = "/missions.rep <playerId> <points>" }, function(_, args)
     local id, amount = staffTarget(args), tonumber(args[2])

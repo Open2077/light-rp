@@ -34,6 +34,7 @@ export const PAGE_EVENTS = {
   inventory: "lightrp:ui:inventory",
   shop: "lightrp:ui:shop",
   mission: "lightrp:ui:mission", // Lua -> page: MissionUpdate (live board)
+  raid: "lightrp:ui:raid", // Lua -> page: RaidState (server/modules/mission_chimera.lua)
   actionStart: "lightrp:ui:activity:start",
   actionStarted: "lightrp:ui:activity:started",
   actionFinish: "lightrp:ui:activity:finish",
@@ -148,6 +149,7 @@ export interface UiState {
 export interface MissionDifficulty {
   id: string; label: string; blurb: string; payout: number; minutes: number;
   min: number; max: number; tier: number; locked: boolean; tagged: number;
+  requires?: string; cleared?: number; // the difficulty to complete first at this point; how often this one was completed
 }
 export interface MissionLobbyMember { id: number; name: string; citizen: string; tier: number; host: boolean; squad?: string }
 export interface MissionBoard {
@@ -172,6 +174,19 @@ export interface PartyState {
 export type MissionQueueState = false
   | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean }
   | { running: true; instance: string; title: string; difficulty: string; difficultyId: string; endsInMs: number; members: number; squad: MissionSquadMember[] };
+/** The raid (server/modules/mission_chimera.lua view()), plus one-shot fields. */
+export interface RaidState {
+  instance?: string; phase: "ready" | "launch" | "placing" | "intro" | "fight" | "victory" | "wipe" | "ended";
+  title?: string; difficulty?: string; difficultyId?: string; result?: "victory" | "failed";
+  operators?: Array<{ id: number; name: string; ready: boolean; down: boolean; loaded?: boolean }>;
+  loaded?: boolean; arena?: { x: number; y: number; z: number }; bossId?: string;
+  readyEndsInMs?: number; launchInMs?: number; readyKey?: string;
+  boss?: { healthPercent: number; phase: string; label: string; enraged: boolean; repairing?: boolean; repairInMs?: number; target?: number; targetName?: string };
+  adds?: number; lives?: number; respawnInMs?: number; out?: boolean; fightSeconds?: number; enrageInMs?: number;
+  announce?: { title: string; body: string; tone: "info" | "warning" | "danger" | "success"; at: number };
+  intro?: { boss: { x: number; y: number; z: number }; durationMs: number; difficulty: string; operators: number };
+  loadouts?: Array<{ id: string; label: string; blurb: string }>; loadout?: string;
+}
 /** One operator in the squad frame of a running mission. `state`: alive, down (waiting for a revive), dead, recovering. */
 export interface MissionSquadMember { id: number; name: string; citizen: string; host: boolean; health: number; maxHealth: number; armor: number; state: "alive" | "down" | "dead" | "recovering" }
 export type UiStatePatch = Partial<UiState>;
@@ -389,6 +404,8 @@ export interface IdentityFields { firstName: string; lastName: string; birthDate
  *  handled by the client Lua itself because they open another package's native
  *  screen: character.appearance.open and character.wardrobe.open. */
 export type UiAction =
+  | { type: "raid.ready" }
+  | { type: "raid.loadout"; id: string }
   | { type: "mission.tag" | "mission.tagGroup"; session: string; difficulty: string }
   | { type: "mission.untag" | "mission.launch" | "mission.close"; session: string }
   | { type: "party.invite" | "party.kick" | "party.promote"; target: number }

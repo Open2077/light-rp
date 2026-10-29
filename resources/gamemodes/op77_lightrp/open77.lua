@@ -21,6 +21,7 @@ dependencies {
     "open77_animations >=1.0.0",
     "open77_icons >=1.0.0",
     "open77_weapons >=0.2.0",
+    "open77_chimera >=1.0.0", -- the raid boss (server/modules/mission_chimera.lua)
 }
 
 -- Downloaded by clients: never put credentials in shared/.
@@ -41,6 +42,7 @@ shared_script "shared/vehicle_customization.lua"
 -- Server: core first, then modules (each registers itself with LightRP.module).
 server_script "server/core/framework.lua"
 server_script "server/core/persistence.lua"
+server_script "server/modules/zone_loading.lua" -- loading cover over zone changes (op77_loadscreen)
 server_script "server/modules/safezones_store.lua"
 server_script "server/modules/safezones.lua"
 server_script "server/modules/safezones_admin.lua"
@@ -60,6 +62,7 @@ server_script "server/modules/jobs.lua"
 server_script "server/config/missions.lua"
 server_script "server/modules/parties.lua"
 server_script "server/modules/missions.lua"
+server_script "server/modules/mission_chimera.lua"
 server_script "server/config/job_runs.lua"
 server_script "server/config/delivery.lua"
 server_script "server/modules/job_runs.lua"
@@ -99,12 +102,14 @@ server_script "server/modules/housing.lua"
 server_script "server/modules/housing_admin.lua"
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
+server_script "server/modules/camera.lua"
 server_script "server/main.lua"
 
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
 client_script "client/core/control_claims.lua"
 client_script "client/core/safezones.lua"
+client_script "client/core/safezone_tile.lua" -- the green tile by the voice plate (web/safezone/)
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
 client_script "client/core/tutorial_voice.lua"
@@ -118,6 +123,7 @@ client_script "client/core/vehicle_gps.lua"
 client_script "client/core/wardrobe.lua"
 client_script "client/core/keys.lua"
 client_script "client/core/movement.lua"
+client_script "client/core/camera.lua"
 client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
 client_script "client/core/inventory.lua"
@@ -132,6 +138,7 @@ client_script "client/core/refueling.lua"
 client_script "client/core/animations.lua"
 client_script "client/core/job_runs.lua"
 client_script "client/core/job_work.lua"
+client_script "client/core/raid.lua"
 client_script "client/core/vehicle_context.lua"
 client_script "client/core/vehicle_customization.lua"
 client_script "client/main.lua"
@@ -144,7 +151,7 @@ web_files { "web/**" }
 
 -- Pause menu branding: the server logo beside the OPEN//77 mark (client/core/branding.lua sets the accent).
 pause_menu_logo "assets/logo.png"
-files { "assets/logo.png", "assets/audio/cloudy-day.mp3" }
+files { "assets/logo.png", "assets/audio/cloudy-day.mp3", "assets/audio/raid_*.wav", "assets/audio/raid_ost.mp3" }
 
 permissions {
     -- both sides
@@ -160,6 +167,8 @@ permissions {
     "players.life.respawn",
     "players.teleport",
     "players.damage.apply",
+    "world.effects",        -- the raid's strikes: replicated explosions in the arena bucket
+    "world.explosions",     -- ... that hurt the operators standing in them
     "combat.config",        -- pre-hit, server-authoritative safezone policy
     "players.stats.read",
     "players.animations.read",
@@ -174,7 +183,7 @@ permissions {
     "input.actions",
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks are NPCs
-    "world.markers",        -- native 3D markers at rental desks
+    "world.markers",        -- native 3D markers at rental desks and the raid's strike telegraphs
     "world.debug",          -- staff-only draft boundary preview
     "ui.vanilla.map",       -- map blips on the interaction points
     "vehicles.read",        -- closest vehicle / seat for the L key
@@ -184,9 +193,10 @@ permissions {
     "player.freeze",        -- creator owns/releases only its local freeze claim
     "world.environment",    -- noon/sun only in the private creation bucket
     "audio.play",           -- local, quiet creation soundtrack
-    "screen.read",          -- wait for native loading before revealing the scene
+    "screen.read",          -- wait for native loading before revealing the scene (and the raid's arena)
     "player.appearance.read", -- observe native editor lifetime before restoring the cinematic
     "ui.vanilla.hud",
+    "camera.style",         -- the dynamic shoulder camera by default, /camchange (client/core/camera.lua)
     "player.weapons.read", -- read-only magazine and reload HUD snapshots
     "pause_menu.customize", -- accent + logo of the pause menu
     "map.control",          -- title + accent of the native map

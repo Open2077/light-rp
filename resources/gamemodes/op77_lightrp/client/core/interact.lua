@@ -49,6 +49,46 @@ function Interact.trackBlip(id)
     return Open77.blips.track(id)
 end
 
+-- The 3D city map (op77_map3d), when it runs, shows the same places as the game's map.
+-- Its blips are keyed by point id, so sending them again (map restarted) is harmless.
+local MAP_ICONS = {
+    house = "home", ["shopping-basket"] = "store", shirt = "shirt", fuel = "fuel", ["key-round"] = "car",
+    warehouse = "garage", ["car-front"] = "car", package = "briefcase", ["arrow-up-down"] = "briefcase",
+}
+local MAP_CATEGORIES = { home = "housing", store = "service", shirt = "service", fuel = "service", car = "vehicle", garage = "vehicle" }
+local mapPoints = {} -- point id -> definition sent to op77_map3d
+
+local function mapCall(method, ...)
+    if type(GetResourceState) ~= "function" or exports == nil or GetResourceState("op77_map3d") ~= "running" then return false end
+    return pcall(function(...) return exports.op77_map3d[method](exports.op77_map3d, ...) end, ...)
+end
+
+local function mapAdd(point)
+    local b = point.blip
+    local kind = tostring(point.id):match("^([%w_]+)%.")
+    local icon = kind == "mission" and "mission" or MAP_ICONS[b.icon] or (kind == "job" and "briefcase") or "pin"
+    local def = {
+        id = tostring(point.id), position = b.position or point.position, icon = icon,
+        color = type(b.color) == "string" and b.color:match("^#%x%x%x%x%x%x") or nil,
+        label = b.title or point.label or "Point of interest", description = b.description or point.prompt,
+        category = kind == "mission" and "mission" or kind == "job" and "job" or MAP_CATEGORIES[icon] or "default",
+        pulse = kind == "job",
+    }
+    mapPoints[def.id] = def
+    mapCall("addBlip", def)
+end
+
+local function mapRemove(id)
+    id = tostring(id)
+    if not mapPoints[id] then return end
+    mapPoints[id] = nil
+    if type(GetCurrentResourceName) == "function" then mapCall("removeBlip", GetCurrentResourceName() .. ":" .. id) end
+end
+
+AddEventHandler("op77_map3d:ready", function()
+    for _, def in pairs(mapPoints) do mapCall("addBlip", def) end
+end)
+
 local function markersAvailable()
     return type(Open77.markers) == "table" and type(Open77.markers.create) == "function"
 end
@@ -58,6 +98,7 @@ local function clear()
         if point.marker and markersAvailable() then pcall(Open77.markers.remove, point.marker) end
         if point.ring and anchorsAvailable() then pcall(Open77.anchors.remove, point.ring) end
         if point.blip then removeBlip(point.blip) end
+        mapRemove(point.id)
     end
     Interact.points = {}
     if Interact.near then Interact.near = nil; sendPrompt(nil) end
@@ -86,6 +127,7 @@ local function ensurePromptAnchor()
 end
 
 local function createBlip(point)
+    if type(point.blip) == "table" then mapAdd(point) end
     if not blipsAvailable() or type(point.blip) ~= "table" then return nil end
     local definition = {
         position = point.blip.position or point.position,
@@ -147,6 +189,7 @@ function Interact.setLocal(id, entry, callback)
         if Interact.near == old then Interact.near = nil; sendPrompt(nil) end
         if old.marker then pcall(Open77.markers.remove, old.marker) end
         if old.blip then removeBlip(old.blip) end
+        mapRemove(id)
         Interact.locals[id] = nil
     end
     if not entry then return end

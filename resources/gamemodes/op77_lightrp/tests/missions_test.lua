@@ -24,7 +24,7 @@ _G.json = { encode = function(v)
     end
     return enc(v)
 end }
-local sent, notices, results, dialogs, states, paid, teleports = {}, {}, {}, {}, {}, {}, {}
+local sent, notices, results, dialogs, states, paid, teleports, healed = {}, {}, {}, {}, {}, {}, {}, {}
 _G.GetPlayers = function() local t = {} for id in pairs(positions) do t[#t + 1] = tostring(id) end table.sort(t) return t end
 _G.GetPlayerRoutingBucket = function(id) return buckets[id] or 0 end
 _G.SetPlayerRoutingBucket = function(id, b) buckets[id] = b return true end
@@ -33,6 +33,7 @@ _G.Open77 = { players = {
     position = function(id) local p = positions[id]; return p and { x = p.x, y = p.y, z = p.z, bucket = buckets[id] or 0 } end,
     get = function(id) return { position = positions[id], health = hp[id] or 100, maxHealth = 100, armor = 40, lifePhase = phase[id] or "alive" } end,
     getLifeState = function(id) return { phase = life[id] or "alive" } end,
+    heal = function(id, amount) healed[id] = amount; return true, amount end,
     teleport = function(id, spot, opts)
         teleports[#teleports + 1] = { id = id, spot = spot, bucket = opts.bucket }
         return { await = function() buckets[id] = opts.bucket; positions[id] = { x = spot.x, y = spot.y, z = spot.z }; return true end }
@@ -106,7 +107,8 @@ assert(#squadState.members == 2 and squadState.members[1].leader, "party state f
 
 -- ── difficulty view ──
 local s = open(4)
-assert(#s.difficulties == 3 and s.difficulties[1].id == "standard" and not s.difficulties[1].locked and s.difficulties[3].locked, "critical locked at tier 1")
+assert(#s.difficulties == 3 and s.difficulties[1].id == "standard" and not s.difficulties[1].locked and s.difficulties[2].locked and s.difficulties[3].locked, "only the first difficulty is open")
+assert(s.difficulties[2].requires == "STANDARD" and s.difficulties[3].requires == s.difficulties[2].label and s.difficulties[1].requires == nil)
 assert(s.me.tier == 1 and s.boards.standard.max == 4)
 assert(#s.nearby >= 2, "players around to invite")
 
@@ -114,10 +116,10 @@ assert(#s.nearby >= 2, "players around to invite")
 local r = act(4, "mission.tag", { difficulty = "standard" })
 assert(r.ok, r.text)
 assert(view(4).count == 1 and view(4).state == "open" and view(4).host)
--- the critical board refuses a tier 1
+-- the critical board refuses who has not completed hard here
 clock = clock + 2000
 r = act(3, "mission.tag", { difficulty = "critical" })
-assert(not r.ok and r.text:find("tier 3"))
+assert(not r.ok and r.text:find("Complete HARD", 1, true), r.text)
 -- the squad (1 lead, 2) tags as a group: joins Vi's lobby (room for 2)
 clock = clock + 2000
 r = act(1, "mission.tagGroup", { difficulty = "standard" })
@@ -148,6 +150,15 @@ tick()
 assert(view(3) == false and view(4).state == "open", "wandered off: untagged, countdown cancelled")
 positions[3] = { x = at.x + 3, y = at.y, z = at.z }
 
+-- the 3D map, jammed for operators inside a mission
+local mapJams = {}
+_G.GetCurrentResourceName = _G.GetCurrentResourceName or function() return "op77_lightrp" end
+_G.exports = _G.exports or {}
+exports.op77_map3d = {
+    jam = function(_, target, def) mapJams[target] = def; return "srv:op77_lightrp:" .. def.id end,
+    unjam = function(_, id) for t in pairs(mapJams) do if id:find("mission:" .. t, 1, true) then mapJams[t] = nil end end; return true end,
+}
+
 -- ── the host launches with the minimum ──
 r = act(1, "mission.launch")
 assert(not r.ok and r.text:find("host"))
@@ -157,6 +168,7 @@ tick(LightRpMissions.hostCountdown * 1000 + 100)
 local inst = Missions.instanceOf(4)
 assert(inst and #inst.members == 3 and buckets[4] == inst.bucket and buckets[1] == inst.bucket and buckets[2] == inst.bucket, "launched in its bucket")
 assert(view(4).running and view(4).title == P.title)
+assert(mapJams[4] and mapJams[1] and mapJams[2] and mapJams[4].strength == 1, "every operator's map is jammed in the mission")
 -- the squad frame: every operator, health / armor / life state, pushed when it changes
 local squad = view(4).squad
 assert(#squad == 3 and squad[1].host and squad[1].health == 100 and squad[1].armor == 40 and squad[1].state == "alive", "squad frame")
@@ -178,14 +190,22 @@ assert(not Missions.open(4, P.id))
 -- ── an operator abandons; the mission completes for the others ──
 commands.mission(2, { "leave" })
 assert(not Missions.instanceOf(2) and buckets[2] == 0 and #inst.members == 2)
+assert(not mapJams[2] and mapJams[4], "leaving lifts the jam for that operator only")
 assert(commands["missions.complete"](0, { "4" }))
 assert(not Missions.instanceOf(4) and buckets[4] == 0 and buckets[1] == 0, "home again")
+assert(next(mapJams) == nil, "the map comes back for everyone at the end")
 assert(paid[4] == 12000 and paid[1] == 12000 and not paid[2], "payout to the finishers only")
+assert(healed[4] and healed[1] and healed[2], "everyone leaving the mission is healed, the one who abandoned too")
 assert(Missions.reputation(4) == LightRpMissions.reputationGain.standard)
 
--- ── reputation opens tiers ──
-assert(commands["missions.rep"](0, { "3", "1500" }))
-assert(Missions.tier(3) == 3 and not open(3).difficulties[3].locked)
+-- ── completing a difficulty opens the next one at this point; reputation opens nothing ──
+assert(not open(4).difficulties[2].locked and open(4).difficulties[3].locked, "a standard completed opens hard, not critical")
+assert(Missions.cleared(4, P.id, "standard") == 1 and Missions.cleared(2, P.id, "standard") == 0)
+assert(open(2).difficulties[2].locked, "the one who abandoned did not complete it")
+assert(commands["missions.rep"](0, { "3", "5000" }))
+assert(open(3).difficulties[2].locked, "reputation alone opens nothing")
+assert(commands["missions.unlock"](0, { "3", P.id, "standard" }) and commands["missions.unlock"](0, { "3", P.id, "hard" }))
+assert(not open(3).difficulties[3].locked, "staff unlock")
 
 -- ── time runs out ──
 clock = clock + 2000

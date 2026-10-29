@@ -38,4 +38,12 @@ request = nil; life = { phase = "dead", bucket = 0 }
 assert(LightRP.spawn.place(1, door, "test") and request.position == door.position and request.bucket == 620000, "a placement names its bucket")
 LightRP.tutorial.deathPoint = function() return nil end; pending = nil; request = nil; life = { phase = "dead", bucket = 0 }
 LightRP.spawn.onLifeState(1, "dead"); pending(); hospital(request.position); assert(request.bucket == 0)
-print("PASS: hospital coordinates, staff destination, delayed death respawn, revive guard, arrival hall door and bucketed placement")
+-- a death inside a mission is the mission's (it respawns its operators in its arena)
+LightRP.missions = { handlesDeath = function() return true end }
+pending = nil; request = nil; life = { phase = "dead", bucket = 3000002 }
+LightRP.spawn.onLifeState(1, "dead"); assert(pending == nil and request == nil, "no hospital during a mission")
+-- the mission ends during the delay: still not the hospital's (the mission sends them home)
+LightRP.missions = { handlesDeath = function() return false end }
+LightRP.spawn.onLifeState(1, "dead"); LightRP.missions.handlesDeath = function() return true end; pending(); assert(request == nil)
+LightRP.missions = nil
+print("PASS: hospital coordinates, staff destination, delayed death respawn, revive guard, arrival hall door, bucketed placement, mission deaths left to the mission")

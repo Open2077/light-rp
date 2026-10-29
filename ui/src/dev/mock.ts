@@ -150,6 +150,31 @@ export function installMockBridge(): void {
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
           if (params.get("mission") === "1") mission.running();
+          const raidPhase = params.get("raid");
+          if (raidPhase) {
+            mission.running();
+            const ops = [{ id: 7, name: "Vi Asada", ready: true, down: false }, { id: 87, name: "Kei Mori", ready: raidPhase !== "ready", down: false },
+              { id: 132, name: "Rosa Vasquez", ready: false, down: raidPhase === "fight" }];
+            const kits = [{ id: "assault", label: "ASSAULT", blurb: "Militech Ajax rifle and a Lexington sidearm. Reliable at every range." },
+              { id: "breacher", label: "BREACHER", blurb: "Carnage shotgun and an Unity. Get close, hit its weak spots hard." },
+              { id: "marksman", label: "MARKSMAN", blurb: "Grad precision rifle and a Nue. Pick the parts off from cover." },
+              { id: "gunner", label: "GUNNER", blurb: "Defender light machine gun and a Lexington. Suppress the reinforcements." },
+              { id: "tech", label: "TECH", blurb: "Achilles tech rifle and a Copperhead. Charged shots through its plating." }];
+            if (raidPhase === "ready" && params.get("picked") !== "1") ops[0]!.ready = false;
+            if (params.get("loading") === "1") { (ops[0] as { loaded?: boolean }).loaded = false; (ops[2] as { loaded?: boolean }).loaded = false; }
+            const base = { instance: "mission:1", title: "Chimera Protocol", difficulty: "HARD", difficultyId: "hard", operators: ops, readyKey: "Y",
+              loadouts: raidPhase === "ready" ? kits : undefined, loadout: "breacher", loaded: params.get("loading") !== "1" };
+            const fight = { boss: { healthPercent: 58, phase: "exposed", label: "CHIMERA", enraged: params.get("enraged") === "1", target: params.get("lock") === "1" ? 7 : 87, targetName: "Kei Mori" },
+              adds: 4, lives: 5, fightSeconds: 214, enrageInMs: 386000 };
+            const state = raidPhase === "ready" ? { ...base, phase: "ready", readyEndsInMs: 31000 }
+              : raidPhase === "launch" ? { ...base, phase: "launch", launchInMs: 4000 }
+              : raidPhase === "intro" ? { ...base, phase: "intro", intro: { boss: { x: 0, y: 0, z: 0 }, durationMs: Number(params.get("introMs") ?? 60000), difficulty: "HARD", operators: 3 } }
+              : raidPhase === "victory" ? { ...base, phase: "victory", ...fight, boss: { ...fight.boss, healthPercent: 0 } }
+              : raidPhase === "wipe" ? { ...base, phase: "wipe", ...fight }
+              : { ...base, phase: "fight", ...fight, respawnInMs: params.get("dead") === "1" ? 12000 : undefined,
+                  announce: params.get("announce") === "1" ? { title: "ARMOR BREACHED", body: "Its plating is gone. Hit the exposed parts.", tone: "warning", at: 0 } : undefined };
+            setTimeout(() => fire(PAGE_EVENTS.raid, state), raidPhase === "intro" ? 0 : 100);
+          }
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
           if (params.get("interact") === "1") {
             fire(PAGE_EVENTS.interact, { id: "rental.citycenter", prompt: "Rent a vehicle", key: "E" });

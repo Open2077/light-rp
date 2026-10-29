@@ -9,7 +9,9 @@ local function stop(notify)
     if notify then TriggerServerEvent(NET, { operation = "close", session = s.id }) end
     if s.camera then Open77.camera.destroy(s.camera) end -- destroying the active definition returns the view
     if s.cinematic then
-        local restored, reason = Open77.hud.setCinematic(false) -- ordinary HUD claims remain intact
+        -- ordinary HUD claims remain intact; the player's own /cinematic comes back
+        local restored, reason
+        if LightRpCamera then restored, reason = LightRpCamera.restoreCinematic() else restored, reason = Open77.hud.setCinematic(false) end
         if not restored then Ui.log("vehicle cinematic release failed: %s", tostring(reason)) end
     end
     if s.frozen then Open77.character.setFrozen(false) end

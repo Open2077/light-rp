@@ -132,6 +132,7 @@ local HELP = {
     "/me <action> · /do <scene> · /try <attempt> · /roll [max] · /pm <id> <message>",
     "/money · /bank · /pay <id> <amount> · /transfer <XXX-XXX> <amount> [note]",
     "/who · /rules · /report <message> · F1 opens your player menu.",
+    "/camchange [classic|shoulder|centered|left|right|reset] third-person camera · /cinematic [on|off] hides the HUD.",
 }
 
 LightRP.command("help", {}, function(source)

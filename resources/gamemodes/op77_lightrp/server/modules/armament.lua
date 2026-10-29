@@ -201,7 +201,13 @@ local function project(rt)
     if verified then rt.projectedRecords={[1]=d.right.record};if d.left then rt.projectedRecords[4]=d.left.record end end
     return verified,verificationError
 end
+-- A mission that hands out its own loadout (the raid) owns the native slots
+-- while it runs: no RP projection over it, no RP gate on its damage.
+local function missionLoadout(player)
+    return LightRP.missions and LightRP.missions.handlesLoadout and LightRP.missions.handlesLoadout(player)
+end
 function W.synchronize(player,onlyObserve)
+    if missionLoadout(player) then return true end
     local rt=W.runtime[player]
     if not current(rt) then return false,"Your character is not ready." end
     if rt.busy then return false,"Weapon synchronization is already in progress." end
@@ -425,6 +431,7 @@ local function damageGate(event)
     if type(event)~="table" or event.source=="vehicle" then return nil end
     local player=tonumber(event.attacker)
     if not player or player<=0 then return nil end
+    if missionLoadout(player) then return nil end
     local rt=W.runtime[player]
     local hash=tostring(event.weaponTdbId or ""):lower()
     local managed=hashes[hash]

@@ -3,11 +3,9 @@
 -- order (restaurants, depots), then a drop-off per order (megabuildings,
 -- apartments). The pay follows the route's length.
 --
--- TEST POINTS ONLY: the locations below are placeholders around City Center,
--- Kabuki and Northside, a few metres off existing interaction points, to try the
--- loop. Replace `pickups` and `dropoffs` with the real locations; nothing else
--- needs to change. A point is { id (unique), name (shown on the GPS and the HUD),
--- position = { x, y, z } (on the ground, reachable on foot) }.
+-- Locations given by the server owner (2026-10-29). A point is { id (unique), name
+-- (shown on the GPS and the HUD), position = { x, y, z } (on the ground, reachable
+-- on foot) }; names can be changed freely, ids are what runs in progress refer to.
 LightRpDelivery = {
     orders = { min = 2, max = 3 },   -- orders per run: as many pickups, then as many drop-offs
     pickupMs = 4500,                 -- the progress bar at a pickup (collecting the order)
@@ -19,15 +17,17 @@ LightRpDelivery = {
     pay = { base = 40, perStop = 20, perKm = 90, min = 80, max = 900 },
 
     pickups = {
-        { id = "test_noodles", name = "Noodle bar (test)",       position = { x = -662.5, y = -378.4, z = 9.19 } },
-        { id = "test_burger",  name = "Burger stand (test)",     position = { x = -640.0, y = -388.0, z = 8.19 } },
-        { id = "test_fuel",    name = "Station kiosk (test)",    position = { x = -605.8, y = -715.0, z = 8.72 } },
+        { id = "charter_hill_depot",  name = "Charter Hill depot",  position = { x = -103.268875, y = 215.001312, z = 14.742729 } },
+        { id = "charter_hill_market", name = "Charter Hill market", position = { x = -198.342453, y = 132.630508, z = 14.664162 } },
+        { id = "downtown_food_stand", name = "Downtown food stand", position = { x = -679.844360, y = -370.317505, z = 8.614265 } },
+        { id = "coastview_depot",     name = "Coastview depot",     position = { x = -1822.422852, y = -1972.984253, z = 52.500000 } },
     },
     dropoffs = {
-        { id = "test_plaza",    name = "City Center plaza (test)",   position = { x = -625.6, y = -391.6, z = 8.19 } },
-        { id = "test_deck",     name = "Market deck (test)",         position = { x = -671.1, y = -382.6, z = 9.16 } },
-        { id = "test_alley",    name = "Back alley block (test)",    position = { x = -1070.9, y = -108.4, z = 7.48 } },
-        { id = "test_kabuki",   name = "Kabuki megabuilding (test)", position = { x = -713.8, y = 886.1, z = 32.67 } },
-        { id = "test_northside", name = "Northside block (test)",    position = { x = -783.0, y = 765.2, z = 22.46 } },
+        { id = "h10_mid",             name = "Megabuilding H10 // Mid floor",   position = { x = -1395.902344, y = 1286.751465, z = 119.082413 } },
+        { id = "h10_lower",           name = "Megabuilding H10 // Lower floor", position = { x = -1391.615723, y = 1300.340454, z = 115.082382 } },
+        { id = "h10_upper",           name = "Megabuilding H10 // Upper floor", position = { x = -1414.874512, y = 1252.311768, z = 123.082397 } },
+        { id = "charter_hill_apts",   name = "Charter Hill apartments",         position = { x = -393.496185, y = 104.165359, z = 22.133102 } },
+        { id = "wellsprings_home",    name = "Wellsprings residence",           position = { x = -2084.058838, y = -1137.153809, z = 36.972992 } },
+        { id = "vista_del_rey_block", name = "Vista del Rey block",             position = { x = -537.433105, y = -1436.147583, z = 6.876602 } },
     },
 }

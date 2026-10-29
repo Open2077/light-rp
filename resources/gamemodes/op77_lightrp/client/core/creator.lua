@@ -39,7 +39,7 @@ local function release(keepChatHidden)
     if bench then Open77.props.remove(bench); bench = nil end
     if sound then Open77.audio.destroy(sound); sound = nil end
     if frozen then Open77.character.setFrozen(false); frozen = false end
-    if hud then Open77.hud.setVisible("all", true); hud = false end
+    if hud then if LightRpHud then LightRpHud.restoreVanilla() else Open77.hud.setVisible("all", true) end; hud = false end
     if chatEnabled ~= nil and not keepChatHidden then
         pcall(function() exports.open77_chat:setEnabled(chatEnabled) end)
         chatEnabled = nil

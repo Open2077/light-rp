@@ -3,8 +3,58 @@
 -- hidden once the first sample is in.
 local Config = LightRpConfig
 local E = LightRpEvents
-local Hud = { ready = false, voiceRange = Config.voice.default, hidden = false }
+local Hud = { ready = false, voiceRange = Config.voice.default, hidden = false, externalSpeedometer = false, externalWeaponHud = false }
 LightRpHud = Hud
+
+-- op77_speedometer (standalone, the holographic speedometer) draws the vehicle readout
+-- while it runs: the page's vehicle cluster then stands down. It announces itself with
+-- op77_speedometer:state and answers op77_speedometer:query (sent from Hud.start).
+AddEventHandler("op77_speedometer:state", function(state)
+    Hud.externalSpeedometer = type(state) == "table" and state.active == true
+end)
+-- op77_weaponhud (standalone, the holographic weapon HUD at the bottom left) likewise: the
+-- page's weapon readout stands down while it runs. It is lifted above the grenade chip,
+-- which sits in the same corner, and shows the RP names of the weapons (raid kit,
+-- character arms) rather than the game's.
+AddEventHandler("op77_weaponhud:state", function(state)
+    Hud.externalWeaponHud = type(state) == "table" and state.active == true
+end)
+AddEventHandler("onClientResourceStop", function(name)
+    if name == "op77_speedometer" then Hud.externalSpeedometer = false end
+    if name == "op77_weaponhud" then Hud.externalWeaponHud = false end
+end)
+
+local GRENADE_CHIP_LIFT = 30 -- the chip spans y 922-940 above the gauges (CSS px of 1080)
+local weaponHudSent = { inset = -1, labels = nil }
+local function weaponLabels()
+    local map, keys = {}, {}
+    local raid = LightRpRaidClient and LightRpRaidClient.state
+    if raid and type(raid.kit) == "table" then
+        for record, label in pairs(raid.kit) do if type(label) == "string" then map[record] = label end end
+    end
+    local arms = LightRpArmamentClient and LightRpArmamentClient.state and LightRpArmamentClient.state()
+    if type(arms) == "table" then
+        for _, hand in ipairs({ arms.right, arms.left }) do
+            if type(hand) == "table" and type(hand.record) == "string" and type(hand.label) == "string" then map[hand.record] = hand.label end
+        end
+    end
+    for record, label in pairs(map) do keys[#keys + 1] = record .. "=" .. label end
+    table.sort(keys)
+    return map, table.concat(keys, ";")
+end
+local function syncWeaponHud()
+    local chip = LightRpGrenadesClient and LightRpGrenadesClient.chipShown and LightRpGrenadesClient.chipShown() or false
+    local inset = chip and GRENADE_CHIP_LIFT or 0
+    if inset ~= weaponHudSent.inset then
+        weaponHudSent.inset = inset
+        TriggerEvent("op77_weaponhud:inset", GetCurrentResourceName(), inset)
+    end
+    local map, key = weaponLabels()
+    if key ~= weaponHudSent.labels then
+        weaponHudSent.labels = key
+        TriggerEvent("op77_weaponhud:labels", GetCurrentResourceName(), map)
+    end
+end
 
 local function number(value, fallback)
     local parsed = tonumber(value)
@@ -50,6 +100,7 @@ local function sampleFuel(vehicleId)
 end
 
 local function sampleVehicle()
+    if Hud.externalSpeedometer then view.vehicle = { active = false } return end
     if type(Open77.vehicles) ~= "table" or type(Open77.vehicles.getPlayerSeat) ~= "function" or type(Open77.vehicles.get) ~= "function" then
         view.vehicle = { active = false }
         return
@@ -131,14 +182,34 @@ local function hideVanillaReadouts()
     Hud.hidden = allHidden
 end
 
+-- A scene that hid the whole vanilla HUD (raid intro, tutorial, creator) gives it back
+-- with setVisible("all", true), which also brings back what this gamemode keeps hidden
+-- (and the 3D map's native minimap): hide those again right away.
+function Hud.restoreVanilla()
+    if type(Open77.hud) ~= "table" or type(Open77.hud.setVisible) ~= "function" then return end
+    pcall(Open77.hud.setVisible, "all", true)
+    hiddenReadouts = {}
+    Hud.hidden = false
+    hideVanillaReadouts()
+    TriggerEvent("op77:hud:vanillaRestored")
+end
+
 function Hud.start()
+    TriggerEvent("op77_speedometer:query")
+    TriggerEvent("op77_weaponhud:query")
     CreateThread(function()
         while true do
             sampleStats()
             sampleVehicle()
             sampleVoice()
             sampleClock()
-            if LightRpWeaponHud then view.weapon = LightRpWeaponHud.sample() end
+            if Hud.externalWeaponHud then
+                view.weapon = { active = false }
+                syncWeaponHud()
+            elseif LightRpWeaponHud then
+                view.weapon = LightRpWeaponHud.sample()
+                weaponHudSent.inset, weaponHudSent.labels = -1, nil
+            end
             if view.ready then hideVanillaReadouts() end
             LightRpUi.send(E.page.hud, view)
             Wait(100)

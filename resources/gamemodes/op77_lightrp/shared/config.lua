@@ -29,6 +29,7 @@ LightRpConfig = {
         walk = { id = "lightrp.walkmode", name = "Light RP: walk mode (cycle)", key = "A" },
         inventory = { id = "lightrp.inventory", name = "Light RP: inventory", key = "I" },
         hotbar = { id = "lightrp.hotbar", name = "Light RP: show quick slots (hold)", key = "TAB" },
+        raidReady = { id = "lightrp.raid.ready", name = "Light RP: raid ready check", key = "Y" },
     },
 
     -- Inventories (shared/items.lua holds the item templates). Weights in kg.

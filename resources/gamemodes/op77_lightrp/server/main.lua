@@ -28,8 +28,16 @@ local function placeAt(playerId, position, heading, weapon, bucket)
     })
 end
 -- For the modules that move a character themselves (the first day guide).
+-- A loading cover hides the move; the client lifts it once the body stands on
+-- the point (server/modules/zone_loading.lua).
+local PLACE_TITLES = { arrival_hall = "Arrival Hall", tutorial_practice = "Practice Area", city = "City Center West" }
 function Spawn.place(playerId, point, weapon)
-    return placeAt(playerId, point.position, point.heading, weapon or "lightrp:place", point.bucket)
+    local cover = LightRP.zoneLoading and LightRP.zoneLoading.cover(playerId, {
+        title = point.label or PLACE_TITLES[point.name] or "Night City",
+        subtitle = (point.bucket or 0) ~= 0 and "First day" or "Shared city", target = point.position })
+    local ok, reason = placeAt(playerId, point.position, point.heading, weapon or "lightrp:place", point.bucket)
+    if not ok and LightRP.zoneLoading then LightRP.zoneLoading.release(playerId, cover) end
+    return ok, reason
 end
 
 local function joinPoint(playerId)
@@ -109,7 +117,10 @@ end
 function Spawn.onLifeState(playerId, phase)
     if phase ~= "dead" or readinessHeld(playerId) then return end
     if LightRP.medical and LightRP.medical.handlesDeath(playerId) then return end
+    -- a mission respawns its own operators (in its arena, or at the point when it ends)
+    if LightRP.missions and LightRP.missions.handlesDeath and LightRP.missions.handlesDeath(playerId) then return end
     SetTimeout(Config.spawn.respawnDelayMs, function()
+        if LightRP.missions and LightRP.missions.handlesDeath and LightRP.missions.handlesDeath(playerId) then return end
         local current = Open77.players.getLifeState(playerId)
         if current == nil or current.phase ~= "dead" then return end
         -- During a hall step of the first day guide: back at the hall's door.

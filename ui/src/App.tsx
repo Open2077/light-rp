@@ -28,6 +28,7 @@ import { Freecam } from "@/features/freecam/Freecam";
 import { MissionDialog } from "@/features/missions/MissionDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
 import { MissionSquadHud } from "@/features/missions/MissionSquadHud";
+import { RaidHud } from "@/features/missions/RaidHud";
 import { Medical } from "@/features/medical/Medical";
 import { Safezones } from "@/features/safezones/Safezones";
 
@@ -81,6 +82,7 @@ export function App() {
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
       <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
       <ErrorBoundary name="mission-squad"><MissionSquadHud /></ErrorBoundary>
+      <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
       <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>
       <ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary>

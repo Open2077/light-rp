@@ -2,6 +2,8 @@ local NET,PAGE="op77_lightrp:grenades","lightrp:ui:grenades"
 local Ui=LightRpUi
 LightRpGrenadesClient={}
 local cached,sequence={ready=false,count=0},0
+-- Whether the page shows the grenade chip (Grenades.tsx GrenadeStatus: ready, selected, count > 0).
+function LightRpGrenadesClient.chipShown() return cached.ready==true and cached.selected~=nil and cached.selected~=false and (tonumber(cached.count) or 0)>0 end
 local function controls(release)
  if not LightRpControlClaims then return end
  LightRpControlClaims.set("grenade-inventory","SwitchItem",not release)
