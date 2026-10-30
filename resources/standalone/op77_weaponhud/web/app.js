@@ -165,6 +165,8 @@
     const melee = current.melee || d.capacity == null;
     if (!current.melee && d.capacity && cells.length === 0) buildCells(d.capacity);
     stage.classList.toggle("is-melee", !!current.melee);
+    const meleeClass = document.getElementById("meleeClass");
+    if (meleeClass) meleeClass.textContent = current.class === "BLUNT" ? "BLUNT" : "BLADE";
     stage.classList.toggle("is-reloading", !!d.reloading && !melee);
     stage.classList.toggle("is-empty", !!d.empty && !d.reloading && !melee);
     stage.classList.toggle("is-low", !!d.low && !d.empty && !d.reloading);

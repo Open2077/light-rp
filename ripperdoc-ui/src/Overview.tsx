@@ -1,8 +1,8 @@
-import { CYBERWARE, SECTION, SECTIONS, roman, type Body } from "./data";
+import { SECTION, SECTIONS, roman, type Body } from "./data";
 import { iconImage, type Manifest } from "./media";
 import { anchorPoint, bodyBox } from "./Stage";
 import { play } from "./sfx";
-import type { Phase } from "./App";
+import type { Phase, Session } from "./App";
 
 /* The paperdoll overview: the twelve sections in two columns around the body, like the game's
    ripperdoc screen. Hover lights the system on the body and draws a lead from the group to its
@@ -19,11 +19,12 @@ function groupGeometry(manifest: Manifest, body: Body, index: number, side: "lef
 }
 
 interface Props {
-  body: Body; manifest: Manifest; phase: Phase; hovered: string | null; installed: Record<string, string[]>;
+  body: Body; manifest: Manifest; phase: Phase; hovered: string | null; session: Session;
   onHover(id: string | null): void; onDive(id: string): void;
 }
 
-export function Overview({ body, manifest, phase, hovered, installed, onHover, onDive }: Props) {
+export function Overview({ body, manifest, phase, hovered, session, onHover, onDive }: Props) {
+  const installed = session.installed;
   return (
     <div className={`rd-overview ${phase === "diving" ? "is-diving" : ""} ${phase === "surfacing" ? "is-surfacing" : ""}`}>
       <svg className="rd-leads" width="1920" height="1080" viewBox="0 0 1920 1080">
@@ -43,7 +44,7 @@ export function Overview({ body, manifest, phase, hovered, installed, onHover, o
           );
         })}
       </svg>
-      {hovered && phase === "overview" && <Peek body={body} manifest={manifest} id={hovered} installed={installed[hovered] ?? []} />}
+      {hovered && phase === "overview" && <Peek body={body} manifest={manifest} id={hovered} installed={installed[hovered] ?? []} session={session} />}
       {SECTIONS.map((s, i) => {
         const g = groupGeometry(manifest, body, i, s.side);
         const list = installed[s.id] ?? [];
@@ -65,7 +66,7 @@ export function Overview({ body, manifest, phase, hovered, installed, onHover, o
             <div className="rd-group-slots">
               {slots.map((k) => {
                 const id = list[k];
-                const item = id ? CYBERWARE[id] : undefined;
+                const item = id ? session.items[id] : undefined;
                 const locked = k >= s.slots;
                 return (
                   <div key={k} className={`rd-slot ${item ? `filled r-${item.rarity}` : locked ? "locked" : "empty"}`}>
@@ -85,9 +86,10 @@ export function Overview({ body, manifest, phase, hovered, installed, onHover, o
 }
 
 /* A holographic card floating in front of the body, next to the hovered system's anchor. */
-function Peek({ body, manifest, id, installed }: { body: Body; manifest: Manifest; id: string; installed: string[] }) {
+function Peek({ body, manifest, id, installed, session }: { body: Body; manifest: Manifest; id: string; installed: string[]; session: Session }) {
   const s = SECTION[id]!;
   const a = anchorPoint(manifest, body, id);
+  const stockCount = session.stock.filter((x) => x.section === id).length;
   const left = s.side === "left" ? a.x + 46 : a.x - 46 - 270;
   const top = Math.min(860, Math.max(110, a.y - 30));
   return (
@@ -96,7 +98,8 @@ function Peek({ body, manifest, id, installed }: { body: Body; manifest: Manifes
       <div className="rd-peek-name">{s.label}</div>
       <ul>
         {installed.length === 0 && <li className="none">No implant</li>}
-        {installed.map((x) => <li key={x}><i style={{ background: `var(--r-${CYBERWARE[x]?.rarity ?? "common"})` }} />{CYBERWARE[x]?.name ?? x}</li>)}
+        {installed.map((x) => <li key={x}><i style={{ background: `var(--r-${session.items[x]?.rarity ?? "common"})` }} />{session.items[x]?.name ?? x}</li>)}
+        {stockCount === 0 && <li className="none">Nothing in stock for this system</li>}
       </ul>
       <div className="rd-peek-foot"><kbd>LMB</kbd> OPEN SYSTEM</div>
     </div>

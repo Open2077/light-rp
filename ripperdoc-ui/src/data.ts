@@ -29,6 +29,9 @@ export interface Cyberware {
   effect: string;
   lore: string;
   stats: { label: string; value: string }[];
+  parts?: number;          // salvaged parts the surgery needs
+  requires?: string;       // an implant that must be installed first (it is replaced)
+  family?: string;         // one implant per family: a better model replaces the lesser one
 }
 
 const a = (mx: number, my: number, fx: number, fy: number) => ({ male: { x: mx, y: my }, female: { x: fx, y: fy } });
@@ -56,7 +59,7 @@ export const SECTIONS: SectionDef[] = [
     blurb: "Heart, blood and the pumps that keep it moving under fire." },
   { id: "immune", label: "Immune System", code: "IM-11", side: "right", slots: 2, locked: 0, anchor: a(0.5, 0.315, 0.53, 0.33), still: true,
     blurb: "Toxin filters, pain editors and shock countermeasures." },
-  { id: "legs", label: "Legs", code: "LG-12", side: "right", slots: 1, locked: 0, anchor: a(0.36, 0.69, 0.44, 0.66),
+  { id: "legs", label: "Legs", code: "LG-12", side: "right", slots: 2, locked: 0, anchor: a(0.36, 0.69, 0.44, 0.66),
     blurb: "Tendons, ankles and the jump that clears the second floor." },
 ];
 
@@ -171,11 +174,18 @@ export const CATALOGUE: Cyberware[] = [
     "Charged jump: hold to leap higher.", "Built to land on roofs.", [["Jump height", "+60%"]]),
 ];
 
+// The demo stock needs salvaged parts too (about one part per €$ 800).
+for (const item of CATALOGUE) item.parts ??= Math.max(4, Math.round(item.price / 800));
+
 export const CYBERWARE = Object.fromEntries(CATALOGUE.map((x) => [x.id, x])) as Record<string, Cyberware>;
 
 export interface Clinic { name: string; doctor: string; tagline?: string }
 
 export interface OpenPayload {
+  live?: boolean;          // the server runs the operations (rd:action -> rd:result / rd:state)
+  catalogue?: Cyberware[]; // the clinic's stock (server-owned); the demo catalogue otherwise
+  parts?: { have: number; carried?: number; stored?: number; label?: string };
+  removalFee?: number;
   body?: Body;
   clinic?: Clinic;
   wallet?: number;
@@ -184,7 +194,10 @@ export interface OpenPayload {
   patient?: { name?: string; id?: string };
 }
 
-export const DEMO: Required<OpenPayload> = {
+export const DEMO: Required<Omit<OpenPayload, "catalogue">> = {
+  live: false,
+  parts: { have: 42, label: "Salvaged Parts" },
+  removalFee: 250,
   body: "male",
   clinic: { name: "Viktor's Clinic", doctor: "Viktor Vektor", tagline: "Licensed // Watson // Kabuki" },
   wallet: 48250,

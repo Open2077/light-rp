@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CYBERWARE, DEMO, SECTION, SECTIONS, type Body, type Cyberware, type OpenPayload } from "./data";
-import { emit, inGame, onClose, onOpen, ready } from "./bridge";
+import { CATALOGUE, DEMO, SECTION, SECTIONS, type Body, type Cyberware, type OpenPayload } from "./data";
+import { emit, inGame, onClose, onOpen, onResult, onState, ready } from "./bridge";
 import { loadManifest, type Manifest } from "./media";
 import { play, preload } from "./sfx";
 import { Stage } from "./Stage";
@@ -12,25 +12,67 @@ import { Procedure } from "./Procedure";
 export type Phase = "closed" | "boot" | "overview" | "diving" | "section" | "surfacing" | "leaving";
 
 export interface Session {
+  live: boolean;
   body: Body;
   clinic: NonNullable<OpenPayload["clinic"]>;
   wallet: number;
+  parts: { have: number; carried: number; stored: number; label: string };
   capacityMax: number;
+  removalFee: number;
   installed: Record<string, string[]>;
   patient: NonNullable<OpenPayload["patient"]>;
+  stock: Cyberware[];                    // the clinic's catalogue
+  items: Record<string, Cyberware>;      // the same, by id
 }
 
-const fromPayload = (p: OpenPayload): Session => ({
-  body: p.body === "female" ? "female" : "male",
-  clinic: p.clinic ?? DEMO.clinic,
-  wallet: typeof p.wallet === "number" ? p.wallet : DEMO.wallet,
-  capacityMax: p.capacity?.max ?? DEMO.capacity.max,
-  installed: p.installed ?? structuredClone(DEMO.installed),
-  patient: p.patient ?? DEMO.patient,
-});
+const fromPayload = (p: OpenPayload): Session => {
+  const stock = p.catalogue && p.catalogue.length > 0 ? p.catalogue : CATALOGUE;
+  return {
+    live: p.live === true,
+    body: p.body === "female" ? "female" : "male",
+    clinic: p.clinic ?? DEMO.clinic,
+    wallet: typeof p.wallet === "number" ? p.wallet : DEMO.wallet,
+    parts: {
+      have: p.parts?.have ?? (p.live ? 0 : DEMO.parts.have),
+      carried: p.parts?.carried ?? (p.live ? 0 : 6), stored: p.parts?.stored ?? (p.live ? 0 : DEMO.parts.have - 6),
+      label: p.parts?.label ?? "Salvaged Parts",
+    },
+    capacityMax: p.capacity?.max ?? DEMO.capacity.max,
+    removalFee: p.removalFee ?? DEMO.removalFee,
+    installed: p.installed ?? (p.live ? {} : structuredClone(DEMO.installed)),
+    patient: p.patient ?? DEMO.patient,
+    stock,
+    items: Object.fromEntries(stock.map((x) => [x.id, x])),
+  };
+};
 
-export const capacityUsed = (installed: Record<string, string[]>) =>
-  Object.values(installed).flat().reduce((sum, id) => sum + (CYBERWARE[id]?.capacity ?? 0), 0);
+export const capacityUsed = (s: Session) =>
+  Object.values(s.installed).flat().reduce((sum, id) => sum + (s.items[id]?.capacity ?? 0), 0);
+
+/** The installed implant of the same family (it is replaced by a better model). */
+export const familyMate = (s: Session, item: Cyberware): Cyberware | undefined => {
+  if (!item.family) return undefined;
+  for (const id of Object.values(s.installed).flat()) {
+    const other = s.items[id];
+    if (other && other.id !== item.id && other.family === item.family) return other;
+  }
+  return undefined;
+};
+
+/** Why the clinic would refuse this installation, or null. Same rules as the server. */
+export function refusal(s: Session, item: Cyberware): string | null {
+  const installed = Object.values(s.installed).flat();
+  if (installed.includes(item.id)) return "Already installed.";
+  const mate = familyMate(s, item);
+  if (item.requires && !installed.includes(item.requires)) return `Requires ${s.items[item.requires]?.name ?? item.requires} installed first.`;
+  if (mate && mate.id !== item.requires && mate.tier > item.tier) return `${mate.name} is a better model: remove it first.`;
+  const section = SECTION[item.section];
+  if (!mate && section && (s.installed[item.section] ?? []).length >= section.slots) return "No free slot in this system: remove an implant first.";
+  if (capacityUsed(s) - (mate?.capacity ?? 0) + item.capacity > s.capacityMax) return "Cyberware capacity exceeded.";
+  if (item.price > s.wallet) return "Not enough eurodollars in your bank account.";
+  if ((item.parts ?? 0) > s.parts.have) return `Not enough ${s.parts.label.toLowerCase()}.`;
+  return null;
+}
 
 /* 1920x1080 design canvas scaled to the viewport: every coordinate below is canvas pixels. */
 function useCanvasScale() {
@@ -44,6 +86,14 @@ function useCanvasScale() {
   return scale;
 }
 
+export interface ProcedureState {
+  item: Cyberware;
+  mode: "install" | "remove";
+  startedAt: number;
+  minMs: number;
+  result?: { ok: boolean; message?: string };
+}
+
 export function App() {
   const scale = useCanvasScale();
   const [phase, setPhase] = useState<Phase>("closed");
@@ -51,9 +101,12 @@ export function App() {
   const [manifest, setManifest] = useState<Manifest>({});
   const [hovered, setHovered] = useState<string | null>(null);
   const [section, setSection] = useState<string>(SECTIONS[0]!.id);
-  const [procedure, setProcedure] = useState<{ item: Cyberware; mode: "install" | "remove" } | null>(null);
+  const [procedure, setProcedure] = useState<ProcedureState | null>(null);
+  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const timers = useRef<number[]>([]);
   const later = (ms: number, fn: () => void) => { timers.current.push(window.setTimeout(fn, ms)); };
+  const procedureRef = useRef<ProcedureState | null>(null);
+  procedureRef.current = procedure;
 
   const open = useCallback((payload: OpenPayload) => {
     timers.current.forEach(clearTimeout);
@@ -77,7 +130,20 @@ export function App() {
     void loadManifest().then(setManifest);
     preload();
     onOpen(open);
-    onClose(() => { timers.current.forEach(clearTimeout); setPhase("closed"); });
+    onClose(() => { timers.current.forEach(clearTimeout); setProcedure(null); setPhase("closed"); });
+    // The server's answer to the running operation, then the fresh state.
+    onResult((r) => {
+      const p = procedureRef.current;
+      if (r.op === "deposit" || !p || (r.item && r.item !== p.item.id)) {
+        // Not a surgery (parts handed over): a short line under the header.
+        setToast({ ok: r.ok === true, text: r.message ?? "" });
+        play(r.ok ? "bought" : "denied");
+        window.setTimeout(() => setToast(null), 4200);
+        return;
+      }
+      setProcedure({ ...p, result: { ok: r.ok === true, message: r.message } });
+    });
+    onState((payload) => setSession((s) => ({ ...fromPayload(payload), body: payload.body ?? s.body })));
     ready();
     if (!inGame()) {
       // Browser preview: ?body=female, ?section=<id> opens straight on a section.
@@ -90,6 +156,17 @@ export function App() {
     }
     return () => timers.current.forEach(clearTimeout);
   }, [open]);
+
+  // An operation ends when the server answered AND the surgery has played long enough.
+  useEffect(() => {
+    if (!procedure?.result) return;
+    const wait = Math.max(0, procedure.startedAt + procedure.minMs - performance.now());
+    const id = window.setTimeout(() => {
+      play(procedure.result!.ok ? (procedure.mode === "install" ? "granted" : "equip") : "denied");
+      window.setTimeout(() => setProcedure((p) => (p === procedure ? null : p)), procedure.result!.ok ? 1100 : 2600);
+    }, wait);
+    return () => window.clearTimeout(id);
+  }, [procedure]);
 
   const dive = useCallback((id: string) => {
     if (phase !== "overview") return;
@@ -130,32 +207,50 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, procedure, surface, close, cycle]);
 
-  const used = useMemo(() => capacityUsed(session.installed), [session.installed]);
+  const used = useMemo(() => capacityUsed(session), [session]);
 
-  const startProcedure = (item: Cyberware, mode: "install" | "remove", replace?: string) => {
+  const startProcedure = (item: Cyberware, mode: "install" | "remove"): string | null => {
+    if (procedure) return "An operation is already in progress.";
     if (mode === "install") {
-      if (item.price > session.wallet) { play("denied"); return "funds"; }
-      const freed = replace ? CYBERWARE[replace]?.capacity ?? 0 : 0;
-      if (used - freed + item.capacity > session.capacityMax) { play("denied"); return "capacity"; }
+      const why = refusal(session, item);
+      if (why) { play("denied"); return why; }
+    } else if (session.wallet < session.removalFee) {
+      play("denied");
+      return "Not enough eurodollars for the removal.";
     }
-    setProcedure({ item, mode });
+    const state: ProcedureState = { item, mode, startedAt: performance.now(), minMs: mode === "install" ? 4600 : 2200 };
+    setProcedure(state);
     play(mode === "install" ? "install" : "unequip");
-    emit("rd:action", { op: mode, section: item.section, item: item.id, replace: replace ?? null });
-    const ms = mode === "install" ? 4600 : 1800;
-    later(ms, () => {
-      setSession((s) => {
-        const list = [...(s.installed[item.section] ?? [])];
-        if (mode === "remove") {
-          return { ...s, installed: { ...s.installed, [item.section]: list.filter((id) => id !== item.id) } };
-        }
-        const at = replace ? list.indexOf(replace) : -1;
-        if (at >= 0) list[at] = item.id; else list.push(item.id);
-        return { ...s, wallet: s.wallet - item.price, installed: { ...s.installed, [item.section]: list } };
+    emit("rd:action", { op: mode, item: item.id });
+    if (!session.live) {
+      // Browser preview: the clinic is simulated here.
+      later(state.minMs - 400, () => {
+        setSession((s) => {
+          const mate = mode === "install" ? familyMate(s, item) : undefined;
+          const list = (s.installed[item.section] ?? []).filter((id) => id !== item.id && id !== mate?.id);
+          const installed = { ...s.installed };
+          if (mate && mate.section !== item.section) installed[mate.section] = (installed[mate.section] ?? []).filter((id) => id !== mate.id);
+          installed[item.section] = mode === "install" ? [...list, item.id] : list;
+          return mode === "install"
+            ? { ...s, installed, wallet: s.wallet - item.price, parts: { ...s.parts, have: s.parts.have - (item.parts ?? 0) } }
+            : { ...s, installed, wallet: s.wallet - s.removalFee };
+        });
+        setProcedure((p) => (p && p.item.id === item.id ? { ...p, result: { ok: true } } : p));
       });
-      play(mode === "install" ? "granted" : "equip");
-      later(900, () => setProcedure(null));
-    });
+    }
     return null;
+  };
+
+  // Hand the parts in the pocket to the clinic (kept for this character, any number of trips).
+  const deposit = () => {
+    if (session.parts.carried <= 0) { play("denied"); return; }
+    play("press");
+    emit("rd:action", { op: "deposit", item: "parts" });
+    if (!session.live) {
+      setSession((s) => ({ ...s, parts: { ...s.parts, stored: s.parts.stored + s.parts.carried, carried: 0 } }));
+      setToast({ ok: true, text: `${session.parts.carried} salvaged parts handed over.` });
+      window.setTimeout(() => setToast(null), 4200);
+    }
   };
 
   if (phase === "closed" && inGame()) return null;
@@ -168,7 +263,7 @@ export function App() {
         <div className="rd-backdrop" />
         <Stage body={session.body} manifest={manifest} phase={phase} focus={focusSection}>
           {(phase === "overview" || phase === "boot" || phase === "diving" || phase === "surfacing") && (
-            <Overview body={session.body} manifest={manifest} phase={phase} hovered={hovered} installed={session.installed}
+            <Overview body={session.body} manifest={manifest} phase={phase} hovered={hovered} session={session}
               onHover={setHovered} onDive={dive} />
           )}
         </Stage>
@@ -177,9 +272,10 @@ export function App() {
             leaving={phase === "surfacing"} busy={procedure !== null}
             onBack={surface} onCycle={cycle} onProcedure={startProcedure} />
         )}
-        <TopBar session={session} used={used} phase={phase} section={phase === "section" ? SECTION[section] : undefined} />
+        <TopBar session={session} used={used} phase={phase} section={phase === "section" ? SECTION[section] : undefined} onDeposit={deposit} />
+        {toast && <div className={`rd-toast ${toast.ok ? "ok" : "bad"}`}>{toast.text}</div>}
         <BottomBar phase={phase} />
-        {procedure && <Procedure item={procedure.item} mode={procedure.mode} body={session.body} />}
+        {procedure && <Procedure state={procedure} body={session.body} />}
         <div className="rd-fx-scan" />
         <div className="rd-fx-vignette" />
         <div className="rd-fx-lines" />

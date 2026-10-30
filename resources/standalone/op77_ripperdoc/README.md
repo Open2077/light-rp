@@ -8,9 +8,40 @@ des propres assets du jeu, retravaillés (étalonnage ambre et graphite) :
 - les icônes de cyberware de l'inventaire ;
 - les sons de l'onglet cyberware, du zoom du paperdoll, de la pose d'implant et du menu.
 
-**État : UI seule, pour validation.** Le catalogue est une démo (`ripperdoc-ui/src/data.ts`), et
-l'« installation » est jouée localement par la page. Le système d'installation viendra ensuite et
-alimentera `open`. Voir PROTOCOL.md.
+**Sur LightRP, la clinique est réelle** (`op77_lightrp/server/modules/cyberware.lua`) :
+- le catalogue, les prix, les pièces et les effets viennent du serveur (`server/config/cyberware.lua`) ;
+- chaque opération est payée en banque, en Salvaged Parts et en capacité, puis persistée par personnage ;
+- les implants sont réappliqués à chaque connexion, changement de personnage et réapparition.
+
+Sans serveur (aperçu navigateur, console `ripperdoc.open`), la page reprend son catalogue de démo et
+simule les opérations. Voir PROTOCOL.md.
+
+## Cyberware LightRP (ce que la clinique pose vraiment)
+
+| Système | Implants | Effet réel (plateforme) |
+|---|---|---|
+| Jambes | Reinforced Tendons, Mk.2 / Fortified Ankles | Double saut durable (`Open77.cyberware`, legs) / plus de dégâts de chute |
+| Bras | Gorilla Arms, Mk.2 / Mantis Blades, Electric | Poings durables (`gorilla_arms`) / lames sur l'emplacement de bras, touche **B** |
+| Nerveux | Neofiber, Mk.2 | Dash et Air Dash (`Open77.dash`), **Ctrl** + direction |
+| Système d'exploitation | Sandevistan Mk.1, Mk.3 | Overdrive réflexe (`Open77.reflex`), touche **Z** |
+| Squelette | Kinetic Impact Frame / Titanium Bones, Epimorphic Skeleton | Ground Slam (`Open77.abilities`), **G** en l'air / santé max |
+| Peau | Subdermal Armor, Mk.2 | Armure |
+| Circulatoire | Biomonitor, Iron Lungs, Adrenaline Booster | Régénération de la santé, endurance max, régénération de l'endurance |
+
+Les autres systèmes (cortex, yeux, visage, mains, immunitaire) restent vides : aucun implant que la
+plateforme sait appliquer pour l'instant.
+
+**Économie.** Les prix sont calés sur le travail (environ 2 000 à 3 000 €$/h ; les récompenses de
+missions et de raids sont ignorées, pas encore équilibrées). Chaque implant demande aussi des
+Salvaged Parts (job Scrapper). Comme un joueur n'en porte que 20, la clinique garde le stock de
+chaque personnage : bouton « Hand over » dans le bandeau, autant de voyages qu'il le faut.
+- Les modèles Mk.2 et Mk.3 exigent le modèle précédent et le remplacent.
+- Une famille ne contient qu'un implant à la fois.
+- La capacité est de 60 : impossible de tout porter.
+- Un retrait coûte 250 €$.
+
+Staff (console) : `lightrp.cyberware <id> list|status|blades|give <item>|take <item>`,
+`ripperdoc.action <id> install|remove|deposit <item|parts>`.
 
 ## Parcours
 
@@ -26,7 +57,8 @@ alimentera `open`. Voir PROTOCOL.md.
    - À droite : la carte de l'implant.
    - A/D : système précédent ou suivant.
 4. **Opération** : on maintient E ou le bouton, puis une procédure chirurgicale se déroule (étapes,
-   barre). Le slot se remplit et les eddies sont débités (aperçu seulement).
+   barre). La dernière étape attend la réponse du serveur. En cas d'échec, la procédure s'interrompt
+   et le paiement est remboursé.
 5. **Échap** remonte au corps entier, puis quitte. Sur LightRP, quitter fait se lever du fauteuil.
 
 ## Déclenchement sur LightRP

@@ -3,7 +3,7 @@ import { eddies, type SectionDef } from "./data";
 import type { Phase, Session } from "./App";
 
 /* Clinic header, wallet, cyberware capacity (segmented, game-like) and a live vitals strip. */
-export function TopBar({ session, used, phase, section }: { session: Session; used: number; phase: Phase; section?: SectionDef }) {
+export function TopBar({ session, used, phase, section, onDeposit }: { session: Session; used: number; phase: Phase; section?: SectionDef; onDeposit(): void }) {
   const segments = 30;
   const per = session.capacityMax / segments;
   const filled = Math.round(used / per);
@@ -42,7 +42,13 @@ export function TopBar({ session, used, phase, section }: { session: Session; us
             {Array.from({ length: segments }, (_, i) => <i key={i} className={i < filled ? (filled > segments * 0.85 ? "hot" : "on") : ""} style={{ ["--i" as string]: i }} />)}
           </div>
         </div>
-        <div className="rd-wallet"><span>BALANCE</span><b>€$ {eddies(shownWallet)}</b></div>
+        <div className="rd-parts">
+          <span>{session.parts.label.toUpperCase()}</span>
+          <b>{session.parts.have}</b>
+          <em>{session.parts.stored} AT THE CLINIC · {session.parts.carried} ON YOU</em>
+          {session.parts.carried > 0 && <button className="rd-handover" onClick={onDeposit}>HAND OVER {session.parts.carried}</button>}
+        </div>
+        <div className="rd-wallet"><span>BANK</span><b>€$ {eddies(shownWallet)}</b></div>
       </div>
     </div>
   );

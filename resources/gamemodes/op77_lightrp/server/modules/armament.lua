@@ -204,7 +204,9 @@ end
 -- A mission that hands out its own loadout (the raid) owns the native slots
 -- while it runs: no RP projection over it, no RP gate on its damage.
 local function missionLoadout(player)
-    return LightRP.missions and LightRP.missions.handlesLoadout and LightRP.missions.handlesLoadout(player)
+    return (LightRP.missions and LightRP.missions.handlesLoadout and LightRP.missions.handlesLoadout(player))
+        -- drawn Mantis Blades own the arm slot the same way (server/modules/cyberware.lua)
+        or (LightRP.cyberware and LightRP.cyberware.handlesLoadout and LightRP.cyberware.handlesLoadout(player))
 end
 function W.synchronize(player,onlyObserve)
     if missionLoadout(player) then return true end

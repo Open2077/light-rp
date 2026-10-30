@@ -101,16 +101,17 @@ local function createPage()
         local name = type(payload) == "table" and type(payload.name) == "string" and payload.name or ""
         if name:match("^[%w_]+$") then playSound(name) end
     end)
-    -- The installation system is not wired yet: the page's actions are only logged.
+    -- An install / removal: the server's clinic owner decides and answers (rd:result, rd:state).
     page:on("rd:action", function(payload)
-        if type(payload) == "table" then
-            print(("[ripperdoc] preview action %s %s/%s"):format(tostring(payload.op), tostring(payload.section), tostring(payload.item)))
-        end
+        if type(payload) ~= "table" then return end
+        TriggerServerEvent("op77_ripperdoc:action", { op = payload.op, item = payload.item, replace = payload.replace })
     end)
 end
 
 RegisterNetEvent("op77_ripperdoc:open", function(payload) open(type(payload) == "table" and payload or {}) end)
 RegisterNetEvent("op77_ripperdoc:close", function() close(false) end)
+RegisterNetEvent("op77_ripperdoc:result", function(result) if isOpen then send("rd:result", type(result) == "table" and result or {}) end end)
+RegisterNetEvent("op77_ripperdoc:update", function(payload) if isOpen then send("rd:state", type(payload) == "table" and payload or {}) end end)
 
 AddEventHandler("onClientResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end

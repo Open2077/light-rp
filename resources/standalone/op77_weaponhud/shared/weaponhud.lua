@@ -140,11 +140,31 @@ local function classOf(text)
     end
 end
 
--- "Items.Preset_Lexington_Default" -> "LEXINGTON"
+-- "Items.Preset_Lexington_Default" -> "LEXINGTON", "Items.MantisBlades" -> "MANTIS BLADES"
 function W.recordName(record)
     local name = tostring(record or ""):gsub("^Items%.", ""):gsub("^Preset_", ""):gsub("^Base_", "")
-        :gsub("_Default$", ""):gsub("_", " ")
+        :gsub("_Default$", ""):gsub("_", " "):gsub("(%l)(%u)", "%1 %2")
     return name:upper()
+end
+
+-- Arm cyberware held as a weapon (ArmsCW): no magazine, no reserve. Neither the shipped catalogue
+-- nor Open77.data.weapon knows them, so the record / item type decides.
+local ARMS = {
+    { match = "MantisBlades", name = "MANTIS BLADES", type = "ARM BLADES", class = "BLADE" },
+    { match = "NanoWires", name = "MONOWIRE", type = "ARM WIRE", class = "BLADE" },
+    { match = "StrongArms", name = "GORILLA ARMS", type = "ARM FISTS", class = "BLUNT" },
+}
+local function armWeapon(record, itemType)
+    local text = tostring(record or "") .. " " .. tostring(itemType or "")
+    for _, arm in ipairs(ARMS) do
+        if text:find(arm.match, 1, true) then
+            local name = arm.name
+            if text:find("Electric", 1, true) then name = "ELECTRIC " .. name
+            elseif text:find("Thermal", 1, true) then name = "THERMAL " .. name
+            elseif text:find("Chemical", 1, true) then name = "CHEMICAL " .. name end
+            return { name = name, type = arm.type, class = arm.class }
+        end
+    end
 end
 
 -- record + Open77.data.weapon(record) (may be nil) + the shipped catalogue + labels -> name, type, class
@@ -158,6 +178,11 @@ function W.describe(record, info, catalogue, labels, names)
     local class = classOf(info.evolution) or (entry and CLASS[entry:sub(1, 1)])
     if not class and type(info.tags) == "table" then class = classOf(table.concat(info.tags, ",")) end
     local kind = typeLabel(info.itemType) or (entry and typeLabel(entry:sub(2)))
+    local arm = armWeapon(record, info.itemType)
+    if arm then
+        local labelled = (type(labels) == "table" and labels[record]) or (type(names) == "table" and names[record])
+        return { name = tostring(labelled or arm.name):upper(), type = arm.type, class = arm.class, melee = true }
+    end
     local melee = class == "BLADE" or class == "BLUNT"
     return { name = tostring(name):upper(), type = kind, class = class, melee = melee }
 end

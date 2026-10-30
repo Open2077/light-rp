@@ -30,6 +30,8 @@ files { "web/media/sfx/*.mp3" }
 permissions {
     -- both sides
     "network.events",
+    -- server: op77_ripperdoc:closed / op77_ripperdoc:action to the clinic's owner (host events)
+    "local.events",
     -- client
     "audio.play",            -- the interface sounds (the page names them, Lua plays them)
 }

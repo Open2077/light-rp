@@ -41,6 +41,13 @@ do
     assert(W.describe("Items.Preset_Lexington_Default", nil, WeaponHudCatalogue, { ["Items.Preset_Lexington_Default"] = "Service pistol" }).name == "SERVICE PISTOL")
     assert(W.describe("Items.Preset_Unknown_Thing", {}, {}).name == "UNKNOWN THING")
     assert(W.describe("", nil, {}).name == "WEAPON")
+    -- arm cyberware: melee, a readable name, never an ammo counter
+    local mantis = W.describe("Items.MantisBlades", nil, WeaponHudCatalogue)
+    assert(mantis.melee and mantis.name == "MANTIS BLADES" and mantis.type == "ARM BLADES" and mantis.class == "BLADE", "mantis blades")
+    local electric = W.describe("Items.AdvancedMantisBladesElectricLegendaryPlusPlus", nil, WeaponHudCatalogue)
+    assert(electric.melee and electric.name == "ELECTRIC MANTIS BLADES", electric.name)
+    assert(W.describe("x", { itemType = "ItemType.Cyb_NanoWires" }, {}).melee, "monowire by item type")
+    assert(W.recordName("Items.SomeNewWeapon") == "SOME NEW WEAPON")
     assert(W.describe("x", { itemType = "ItemType.Wea_SubmachineGun", evolution = "WeaponEvolution.Smart" }, {}).class == "SMART")
     assert(W.describe("x", { itemType = "ItemType.Wea_SubmachineGun" }, {}).type == "SMG")
     local katana = W.describe("Items.Preset_Katana_Default", nil, WeaponHudCatalogue)

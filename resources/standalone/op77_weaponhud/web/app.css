@@ -147,3 +147,17 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 @media (prefers-reduced-motion: reduce) {
   .stage.is-on .plane, .stage.is-on .holo, .stage.is-off .plane, .stage.is-off .holo, .sweep, .rig.kick { animation-duration: 1ms !important; }
 }
+
+/* ── melee: an edge instead of the magazine (blades, blunt, arm cyberware) ── */
+.melee { position: absolute; left: 0; top: 56px; width: 420px; height: 112px; display: none; }
+.stage.is-melee .melee { display: block; }
+.stage.is-melee .readout .digits, .stage.is-melee .cells, .stage.is-melee .side { display: none; }
+.melee__edge { position: absolute; left: 0; top: 0; overflow: visible; }
+.melee__edge .edge-back { fill: rgba(var(--accent-rgb), .12); stroke: rgba(var(--accent-rgb), .45); stroke-width: 1.5; }
+.melee__edge .edge-front { fill: none; stroke: var(--core); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 240; animation: wh-edge 2.4s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), .8)); }
+.melee__edge .edge-guard { stroke: rgba(var(--accent-rgb), .7); stroke-width: 3; }
+@keyframes wh-edge { 0% { stroke-dashoffset: 240; } 45%, 100% { stroke-dashoffset: 0; } 70% { opacity: 1; } 85% { opacity: .55; } }
+.melee__text { position: absolute; left: 250px; top: 0; width: 170px; display: flex; flex-direction: column; gap: 6px; }
+.melee__class { font: 700 40px/46px var(--font-core); letter-spacing: .08em; color: var(--core); }
+.melee__hint { font: 400 13px/16px var(--font-mono); letter-spacing: .14em; color: rgba(var(--accent-rgb), .7); }
+.stage.is-melee .tag { display: none; }

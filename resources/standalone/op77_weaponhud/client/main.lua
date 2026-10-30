@@ -177,12 +177,17 @@ local function publish(rows)
     else
         cur.name = held.name
     end
-    lastData = {
-        magazine = right.magazine, capacity = right.capacity, reserve = right.reserve, reloading = reloading,
-        shots = change.shots, reloaded = change.reloaded == true,
-        low = W.low(right.magazine, right.capacity, pageConfig), empty = right.magazine == 0,
-        left = left and { magazine = left.magazine, capacity = left.capacity } or nil,
-    }
+    if lastShow and lastShow.melee then
+        -- blades, fists, arm cyberware: no magazine, no reserve, never "NO AMMO"
+        lastData = { melee = true, shots = 0, reloaded = false, low = false, empty = false }
+    else
+        lastData = {
+            magazine = right.magazine, capacity = right.capacity, reserve = right.reserve, reloading = reloading,
+            shots = change.shots, reloaded = change.reloaded == true,
+            low = W.low(right.magazine, right.capacity, pageConfig), empty = right.magazine == 0,
+            left = left and { magazine = left.magazine, capacity = left.capacity } or nil,
+        }
+    end
     send("weapon:data", lastData)
     held = cur
 end

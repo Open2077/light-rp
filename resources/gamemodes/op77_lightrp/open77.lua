@@ -103,6 +103,8 @@ server_script "server/modules/housing_admin.lua"
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"
+server_script "server/config/cyberware.lua"
+server_script "server/modules/cyberware.lua"
 server_script "server/modules/ripperdoc.lua"
 server_script "server/main.lua"
 
@@ -121,6 +123,7 @@ client_script "client/core/hud.lua"
 client_script "client/core/interact.lua"
 client_script "client/core/homes.lua"
 client_script "client/core/vehicle_gps.lua"
+client_script "client/core/cyberware.lua"
 client_script "client/core/wardrobe.lua"
 client_script "client/core/keys.lua"
 client_script "client/core/movement.lua"
@@ -172,6 +175,20 @@ permissions {
     "world.explosions",     -- ... that hurt the operators standing in them
     "combat.config",        -- pre-hit, server-authoritative safezone policy
     "players.stats.read",
+    "players.stats.apply",         -- cyberware passives: health/stamina maxima and regeneration
+    "players.life.falldamage",     -- cyberware: Fortified Ankles
+    "players.cyberware.define",    -- cyberware: Reinforced Tendons, Gorilla Arms (durable implants)
+    "players.cyberware.read",
+    "players.cyberware.manage",
+    "players.dash.define",         -- cyberware: Neofiber (Dash / Air Dash)
+    "players.dash.manage",
+    "players.dash.read",
+    "players.abilities.define",    -- cyberware: Kinetic Impact Frame (Ground Slam)
+    "players.abilities.manage",
+    "players.abilities.read",
+    "players.reflex.define",       -- cyberware: Sandevistan (reflex overdrive)
+    "players.reflex.manage",
+    "players.reflex.read",
     "players.animations.read",
     "players.animations.control",
     "database.access",

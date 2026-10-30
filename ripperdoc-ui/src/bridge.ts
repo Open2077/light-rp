@@ -22,6 +22,18 @@ export function onClose(handler: () => void): void {
   window.Open77?.on("rd:close", () => handler());
 }
 
+export interface ActionResult { ok?: boolean; message?: string; op?: string; item?: string }
+
+/** The server's answer to the page's last `rd:action`. */
+export function onResult(handler: (result: ActionResult) => void): void {
+  window.Open77?.on("rd:result", (raw) => handler((raw ?? {}) as ActionResult));
+}
+
+/** Fresh state after an operation (same shape as `rd:open`). */
+export function onState(handler: (payload: OpenPayload) => void): void {
+  window.Open77?.on("rd:state", (raw) => handler((raw ?? {}) as OpenPayload));
+}
+
 export function emit(name: "rd:close" | "rd:sound" | "rd:action", payload: unknown = {}): void {
   try { window.Open77?.emit(name, payload); } catch (err) { console.error("[ripperdoc] emit", name, err); }
 }

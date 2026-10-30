@@ -2,8 +2,9 @@
 -- clinic interface (op77_ripperdoc) once the sit-down has played; leaving the interface stands
 -- him up, and a scene that ends another way closes it.
 --
--- The interface is UI only for now: it receives who the patient is (body, name, bank balance)
--- and shows its demo catalogue. The installation system plugs in here later.
+-- The clinic sells what server/modules/cyberware.lua knows: the page gets that catalogue, the
+-- character's installed implants, bank balance and salvaged parts, and every install / removal
+-- it asks for goes through LightRP.cyberware.operate (payment, parts, surgery, persistence).
 local Ripperdoc = LightRP.module("ripperdoc", {})
 
 local C = {
@@ -11,7 +12,6 @@ local C = {
     -- the sit-down (v01__v_sits_down_on_operating_chair, 6800 ms) before the interface opens
     openDelayMs = 6600,
     clinic = { name = "Street Clinic", doctor = "Ripperdoc on duty", tagline = "Night City // licensed surgery" },
-    capacityMax = 90,
 }
 
 local seated = {} -- playerId -> spot id of the chair the interface was opened for
@@ -26,15 +26,28 @@ end
 local function payloadFor(playerId)
     local c = LightRP.characters and LightRP.characters.get(playerId)
     local wallet = LightRP.money and LightRP.money.get(playerId)
-    return {
-        body = c and c.bodyFamily == "female" and "female" or "male",
-        clinic = C.clinic,
-        wallet = wallet and wallet.bank or 0,
-        capacity = { max = C.capacityMax },
-        patient = { name = LightRP.characters and LightRP.characters.displayName(playerId) or GetPlayerName(playerId),
-            id = wallet and wallet.number or nil },
-    }
+    local payload = LightRP.cyberware and LightRP.cyberware.view(playerId) or {}
+    payload.body = c and c.bodyFamily == "female" and "female" or "male"
+    payload.clinic = C.clinic
+    payload.patient = { name = LightRP.characters and LightRP.characters.displayName(playerId) or GetPlayerName(playerId),
+        id = wallet and wallet.number or nil }
+    return payload
 end
+
+function Ripperdoc.isSeated(playerId) return seated[playerId] ~= nil end
+
+-- An install / removal asked by the page (relayed by op77_ripperdoc): the answer, then the
+-- fresh state (installed list, balance, parts) once the surgery is over.
+AddEventHandler("op77_ripperdoc:action", function(playerId, p)
+    playerId = tonumber(playerId)
+    if not playerId or type(p) ~= "table" or not LightRP.cyberware then return end
+    local op, item = tostring(p.op or ""), tostring(p.item or "")
+    LightRP.cyberware.operate(playerId, op, item, function(ok, message)
+        LightRP.log("ripperdoc: %s %s for %d -> %s (%s)", op, item, playerId, ok and "ok" or "refused", tostring(message))
+        call("op77_ripperdoc", "result", playerId, { ok = ok == true, message = message, op = op, item = item })
+        call("op77_ripperdoc", "update", playerId, payloadFor(playerId))
+    end)
+end)
 
 AddEventHandler("op77_scenes:started", function(p)
     if type(p) ~= "table" or p.scene ~= C.scene then return end
