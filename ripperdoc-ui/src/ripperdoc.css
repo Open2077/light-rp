@@ -91,7 +91,10 @@ kbd {
 
 /* --------------------------------------------------------------------------------------------
    Overview groups */
-.rd-overview { position: absolute; inset: 0; transition: opacity .4s ease, filter .4s ease; }
+/* Only the groups take the pointer: the full-screen container, tilted in 3D, would cover them. */
+.rd-overview { position: absolute; inset: 0; transition: opacity .4s ease, filter .4s ease; pointer-events: none; }
+.rd-overview .rd-group { pointer-events: auto; }
+.rd-layer, .rd-stage, .rd-room { pointer-events: none; }
 .rd-overview.is-diving { opacity: 0; filter: blur(8px); pointer-events: none; transition-duration: .35s; }
 .rd-overview.is-surfacing { animation: rd-fade-in .5s ease .1s both; }
 .rd-phase-boot .rd-overview { pointer-events: none; }
