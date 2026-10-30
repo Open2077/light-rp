@@ -89,7 +89,11 @@ Wait = function() coroutine.yield() end
 local lastPress
 TriggerServerEvent = function(event, id) lastPress = { event, id } end
 RegisterKeyMapping = function() return true, "E" end
+local exported = {}
+exports = function(name, fn) exported[name] = fn end
 dofile("client/core/interact.lua")
+assert(type(exported.InteractSetLocal) == "function", "InteractSetLocal export")
+exports = nil -- the custom-icon cases below install their own exports table
 local build = handlers[LightRpEvents.net.interactions]
 build(serverList)
 local point = LightRpInteract.points[1]

@@ -48,6 +48,7 @@ Open77.hud={setVisible=function(component,value)
 end}
 function CreateThread(f)threads[#threads+1]=coroutine.create(f)end
 function Wait(ms)coroutine.yield(ms)end
+function TriggerEvent()end
 ''')
 lua.execute((root/'client/core/hud.lua').read_text())
 lua.execute('''
