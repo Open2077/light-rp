@@ -50,6 +50,9 @@
 !resources/standalone/open77_icons/**
 !resources/standalone/op77_actionbubble/
 !resources/standalone/op77_actionbubble/**
+# LightRP edition of open77_scenes (ripperdoc chairs on the LightRP E prompt).
+!resources/standalone/op77_scenes/
+!resources/standalone/op77_scenes/**
 # The LightRP loading screen (join + zone changes).
 !resources/standalone/op77_loadscreen/
 !resources/standalone/op77_loadscreen/**

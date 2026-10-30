@@ -203,6 +203,26 @@ function Interact.setLocal(id, entry, callback)
     return point.blip
 end
 
+-- Another resource's E points (op77_scenes: the ripperdoc chairs), on the same keycap
+-- prompt as ours: a press fires the client event `event` with `data` (functions cannot
+-- cross VMs). `entry = nil` removes the point. Ids live under "ext:", never ours.
+exports("InteractSetLocal", function(id, entry, event, data)
+    if type(id) ~= "string" or id == "" or #id > 160 then return false, "invalid_id" end
+    id = "ext:" .. id
+    if entry == nil then Interact.setLocal(id, nil); return true end
+    if type(entry) ~= "table" or type(entry.position) ~= "table" or type(event) ~= "string" or event == "" then
+        return false, "invalid_entry"
+    end
+    local p = entry.position
+    if type(p.x) ~= "number" or type(p.y) ~= "number" or type(p.z) ~= "number" then return false, "invalid_position" end
+    Interact.setLocal(id, {
+        position = { x = p.x, y = p.y, z = p.z },
+        radius = math.max(0.5, math.min(tonumber(entry.radius) or 2.6, 6.0)),
+        prompt = type(entry.prompt) == "string" and entry.prompt:sub(1, 48) or "Interact",
+    }, function() TriggerEvent(event, data) end)
+    return true
+end)
+
 local function build(list)
     clear()
     ensurePromptAnchor()
