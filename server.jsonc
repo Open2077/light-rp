@@ -118,6 +118,7 @@
         "op77_weaponhud",
         "op77_lightrp",
         "op77_scenes",
+        "op77_ripperdoc",
         "op77_neuralink"
     ],
     "autoStart": true,

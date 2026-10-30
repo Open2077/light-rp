@@ -103,6 +103,7 @@ server_script "server/modules/housing_admin.lua"
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"
+server_script "server/modules/ripperdoc.lua"
 server_script "server/main.lua"
 
 -- Client: core first, then modules.

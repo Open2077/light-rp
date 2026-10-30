@@ -37,7 +37,8 @@
     "open77_worldui",
     "open77_zones",
     "op77_lightrp",
-    "op77_scenes"
+    "op77_scenes",
+    "op77_ripperdoc"
   ],
   "requiresDatabase": true,
   "defaultTags": [

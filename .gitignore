@@ -53,6 +53,9 @@
 # LightRP edition of open77_scenes (ripperdoc chairs on the LightRP E prompt).
 !resources/standalone/op77_scenes/
 !resources/standalone/op77_scenes/**
+# The ripperdoc clinic interface (page built from ripperdoc-ui, media generated from the game).
+!resources/standalone/op77_ripperdoc/
+!resources/standalone/op77_ripperdoc/**
 # The LightRP loading screen (join + zone changes).
 !resources/standalone/op77_loadscreen/
 !resources/standalone/op77_loadscreen/**
@@ -72,6 +75,13 @@ resources/standalone/op77_map3d/ui/node_modules/
 neuralink-ui/node_modules/
 neuralink-ui/dist/
 neuralink-ui/screens/
+# Source of the ripperdoc page (npm run build writes into op77_ripperdoc/web; scripts/build-assets.py
+# regenerates public/media from the game, its output ships in op77_ripperdoc/web/media).
+!ripperdoc-ui/
+!ripperdoc-ui/**
+ripperdoc-ui/node_modules/
+ripperdoc-ui/.work/
+ripperdoc-ui/public/media/
 # Platform packages we restyled with the design system (re-apply after a server update).
 !resources/system/
 !resources/system/open77_contextmenu/
@@ -128,3 +138,4 @@ data/
 
 # Local architecture and UI reference notes (never publish).
 /README*.local.md
+ripperdoc-ui/scripts/__pycache__/
