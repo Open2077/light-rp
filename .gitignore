@@ -135,6 +135,8 @@ server.env
 *.log
 logs/
 data/
+# ...except the 3D map's data: generated from the game files (tools/export_web.py), not operator state
+!resources/standalone/op77_map3d/web/data/
 
 # Local architecture and UI reference notes (never publish).
 /README*.local.md
