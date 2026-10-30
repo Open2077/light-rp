@@ -72,6 +72,21 @@ if (!inGame) {
       ] : []),
     ] });
     if (q.has("jam")) dispatchLocal("map3d:jam", { strength: Number(q.get("jam")), label: q.get("label") ?? undefined });
+    // ?zones=1: influence zones at every density level, one of them filling up and emptying
+    if (q.has("zones")) {
+      const levels = [{ min: 1, id: "low", label: "QUIET" }, { min: 3, id: "medium", label: "ACTIVE" }, { min: 6, id: "high", label: "BUSY" }, { min: 12, id: "peak", label: "HOTSPOT" }];
+      const level = (n: number) => levels.reduce((k, l, i) => (n >= l.min ? i + 1 : k), 0);
+      let crowd = 4;
+      const send = () => dispatchLocal("map3d:influence", { enabled: true, levels, zones: [
+        { id: "z1", x: -1420, y: 160, z: 20, radius: 260, count: 14, level: level(14) },
+        { id: "z2", x: -1150, y: 330, z: 18, radius: 160, count: crowd, level: level(crowd) },
+        { id: "z3", x: -1700, y: -120, z: 12, radius: 110, count: 1, level: 1 },
+        { id: "z4", x: -980, y: -60, z: 22, radius: 200, count: 7, level: level(7) },
+        { id: "z5", x: -760, y: 900, z: 30, radius: 140, count: 3, level: level(3) },
+      ] });
+      send();
+      if (!q.has("still")) setInterval(() => { crowd = crowd >= 13 ? 2 : crowd + 1; send(); }, 3000);
+    }
     if (q.has("open")) dispatchLocal("map3d:open", {});
     if (q.has("dist")) setTimeout(() => dispatchLocal("map3d:focus", { x: Number(q.get("fx") ?? -1450), y: Number(q.get("fy") ?? 150), distance: Number(q.get("dist")) }), 300);
     if (q.has("route")) dispatchLocal("map3d:route", { x: -747.8, y: 914.6, z: 30 });

@@ -1,6 +1,24 @@
 -- op77_map3d: blip validation, the client (page, blips, owners, waypoint mirror, open)
 -- and the server (targets, late joiners, cleanup). Run: pwsh -File tests/run-lua.ps1
-dofile("shared/config.lua"); dofile("shared/blip.lua"); dofile("shared/jam.lua")
+dofile("shared/config.lua"); dofile("shared/blip.lua"); dofile("shared/jam.lua"); dofile("shared/influence.lua")
+-- influence zones: touching cells are one zone, graded by players, densest first
+do
+  local I, IC = Map3DInfluence, Map3DConfig.influence
+  assert(I.level(1, IC.levels) == 1 and I.level(5, IC.levels) == 2 and I.level(6, IC.levels) == 3 and I.level(40, IC.levels) == 4)
+  local pts = {}
+  for k = 1, 7 do pts[#pts + 1] = { x = 1000 + k * 30, y = 500 + (k % 2) * 40, z = 10 } end   -- a crowd across two cells
+  pts[#pts + 1] = { x = -2000, y = -2000, z = 5 }                                             -- someone alone
+  pts[#pts + 1] = { x = 4000, y = 4000 }; pts[#pts + 1] = { x = 4010, y = 4005 }             -- a pair
+  local zones = I.cluster(pts, IC)
+  assert(#zones == 3, "three zones")
+  assert(zones[1].count == 7 and zones[1].level == 3, "the crowd is one zone, BUSY")
+  assert(zones[1].x % IC.snap == 0 and zones[1].radius >= IC.minRadius and zones[1].radius <= IC.maxRadius, "snapped and bounded")
+  assert(zones[2].count == 2 and zones[2].level == 1 and zones[3].count == 1, "densest first")
+  local groups = I.cluster(pts, { cell = IC.cell, levels = IC.levels, minPlayers = 2 })
+  assert(#groups == 2, "minPlayers 2: the lone player is not shown")
+  assert(I.signature(zones) == I.signature(I.cluster(pts, IC)), "stable for the same positions")
+  assert(#I.cluster({}, IC) == 0)
+end
 -- jam validation: zones need a position and a radius; strength fades over `fade`
 assert(Map3DJam.normalize({ radius = 5 }) == nil, "a zone needs a position")
 local z = assert(Map3DJam.normalize({ position = { x = 0, y = 0 }, radius = 100, fade = 50, strength = 0.8 }))
@@ -302,6 +320,19 @@ pageHandlers["map3d:hello"]({})
 local patches = 0
 for _, s in ipairs(pageSent) do if s.name == "map3d:config" then patches = patches + 1 end end
 assert(patches == 3, "base config, then the runtime minimap and theme patches")
+-- influence zones from the server reach the map pages, and a page that reloads gets them back
+netHandlers["op77_map3d:influence"]({ enabled = true, levels = { { min = 1, id = "low", label = "QUIET" } },
+  zones = { { id = "z1", x = 10, y = 20, z = 3, radius = 120, count = 4, level = 2 }, { id = "bad", x = "?" } } })
+local inf = lastPage("map3d:influence")
+assert(inf and inf.enabled and #inf.zones == 1 and inf.zones[1].count == 4 and inf.levels[1].label == "QUIET", "invalid zones dropped")
+assert(lastEvent("op77_map3d:influence").zones[1].id == "z1", "other resources hear about them")
+exported.setInfluenceVisible(false)
+assert(lastPage("map3d:influenceVisible").visible == false)
+pageSent = {}
+pageHandlers["map3d:hello"]({})
+assert(lastPage("map3d:influence").zones[1].id == "z1" and lastPage("map3d:influenceVisible").visible == false, "replayed to a reloaded page")
+exported.setInfluenceVisible(true)
+assert(exported.getInfluence().enabled)
 -- server blips
 netHandlers["op77_map3d:blips"]({ set = { { id = "srv:x:1", x = 9, y = 9, label = "Garage" } } })
 assert(lastPage("map3d:blips").upsert[1].id == "srv:x:1")
@@ -358,4 +389,43 @@ assert(#toClient == 1 and toClient[1].target == 2 and toClient[1].payload.upsert
 toClient = {}
 sCommands["map3d.unjam"](0, { n = 0 })
 assert(#toClient == 1 and toClient[1].payload.remove[1], "unjam lifts the command's jams")
+-- influence zones on the server: grouped per bucket, sent when they change, hidden
+-- players left out, the owner's switch
+do
+  local pos = {
+    [1] = { x = 100, y = 100, z = 5, bucket = 0 }, [2] = { x = 140, y = 120, z = 5, bucket = 0 },
+  }
+  Open77.players.positions = function() return pos end
+  local function influenceFor(target)
+    for i = #toClient, 1, -1 do local e = toClient[i]; if e.name == "op77_map3d:influence" and e.target == target then return e.payload end end
+  end
+  toClient = {}
+  _G.source = 1; sNet["op77_map3d:hello"]()
+  local inf = influenceFor(1)
+  assert(inf and inf.enabled and #inf.zones == 1 and inf.zones[1].count == 2 and inf.levels[1].label == "QUIET", "the hello carries the zones")
+  -- player 2 enters a mission bucket: player 1 sees only themself, player 2 sees their instance
+  pos[2] = { x = 140, y = 120, z = 5, bucket = 3000001 }
+  toClient = {}
+  sExports.setInfluenceEnabled(true)
+  assert(influenceFor(1).zones[1].count == 1 and influenceFor(2).zones[1].count == 1, "zones stay in their bucket")
+  -- nothing changed: nothing sent
+  toClient = {}
+  sExports.setInfluenceEnabled(true)
+  local again = 0 for _, e in ipairs(toClient) do if e.name == "op77_map3d:influence" then again = again + 1 end end
+  assert(again == 2, "a fresh enable resends to everyone")
+  -- a hidden player is left out
+  sExports.setInfluenceHidden(2, true)
+  assert(#sExports.getInfluenceZones(3000001) == 0 and #sExports.getInfluenceZones(0) == 1)
+  -- the server owner turns it off: everyone is told, nothing more is sent
+  toClient = {}
+  sCommands["map3d.influence"](0, { "off", n = 1 })
+  assert(influenceFor(1).enabled == false and #influenceFor(1).zones == 0 and influenceFor(2).enabled == false)
+  assert(not sExports.isInfluenceEnabled() and #sExports.getInfluenceZones(0) == 0)
+  toClient = {}
+  _G.source = 1; sNet["op77_map3d:hello"]()
+  assert(influenceFor(1).enabled == false, "a late joiner learns it is off")
+  sCommands["map3d.influence"](0, { "on", n = 1 })
+  assert(sExports.isInfluenceEnabled())
+end
+
 print("PASS: map3d blips (validation, owners, cleanup), page lifecycle, waypoint mirror both ways, open/close focus, runtime config replay, server targets and late joiners")

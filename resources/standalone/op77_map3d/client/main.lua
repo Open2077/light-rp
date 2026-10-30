@@ -17,6 +17,9 @@ local jams = {}            -- id -> jam (normalized) + owner
 local serverJams = {}      -- id -> jam from the server
 local jamSent = { strength = -1 }
 local lastPos = nil        -- { x, y } of the player, for the zones
+-- Influence zones from the server (shared/influence.lua): where the players are.
+local influence = { enabled = false, zones = {} }
+local influenceShown = true -- a resource's own switch (setInfluenceVisible), on top of the player's
 local userMinimap = true   -- the player's own switch on the map (prefs.hud.minimap)
 local uiBusy = false       -- another interface holds the cursor (inventory, F1 menu, phone...)
 local prefs = nil          -- the map page's display choices, replayed to the minimap
@@ -538,6 +541,7 @@ local function createSurface(role)
         if waypoint then page:send("map3d:route", waypoint) end
         if role == "full" and open then page:send("map3d:open", {}) end
         if jamSent.strength > 0 then page:send("map3d:jam", jamSent) end
+        if role ~= "holo" then page:send("map3d:influence", influence); page:send("map3d:influenceVisible", { visible = influenceShown }) end
         if role == "holo" then page:send("map3d:holo", holoRoute or { clear = true, pts = {} }); syncHolo() end
         if role == "mini" then
             if prefs then page:send("map3d:prefs", prefs) end
@@ -712,6 +716,25 @@ RegisterNetEvent("op77_map3d:jams", function(payload)
     for _, id in ipairs(payload.remove or {}) do serverJams[id] = nil end
     syncJam()
 end)
+-- Influence zones: the server's feature switch and the zones of this player's bucket.
+RegisterNetEvent("op77_map3d:influence", function(p)
+    if type(p) ~= "table" then return end
+    local zones = {}
+    for _, z in ipairs(type(p.zones) == "table" and p.zones or {}) do
+        if type(z) == "table" and tonumber(z.x) and tonumber(z.y) and tonumber(z.radius) then
+            zones[#zones + 1] = { id = tostring(z.id), x = tonumber(z.x), y = tonumber(z.y), z = tonumber(z.z) or 0,
+                radius = tonumber(z.radius), count = tonumber(z.count) or 1, level = tonumber(z.level) or 1 }
+        end
+    end
+    local levels = {}
+    for _, l in ipairs(type(p.levels) == "table" and p.levels or {}) do
+        if type(l) == "table" then levels[#levels + 1] = { min = tonumber(l.min) or 1, id = tostring(l.id or ""), label = tostring(l.label or "") } end
+    end
+    influence = { enabled = p.enabled == true, zones = zones, levels = levels }
+    send("map3d:influence", influence)
+    TriggerEvent("op77_map3d:influence", influence)
+end)
+
 RegisterNetEvent("op77_map3d:waypoint", function(p) setWaypoint(type(p) == "table" and p.x and p or nil, "server") end)
 RegisterNetEvent("op77_map3d:open", function(focus) setOpen(true, focus) end)
 
@@ -756,6 +779,14 @@ exports("setTheme", function(theme)
     if type(theme) ~= "table" then return false end
     configPatches[#configPatches + 1] = { theme = theme }
     send("map3d:theme", theme)
+    return true
+end)
+-- Influence zones: what the server sent, and a resource's own switch (a gamemode that
+-- wants the zones off in some screen); the player's own is in the map's legend.
+exports("getInfluence", function() return influence end)
+exports("setInfluenceVisible", function(visible)
+    influenceShown = visible ~= false
+    send("map3d:influenceVisible", { visible = influenceShown })
     return true
 end)
 exports("setMinimapVisible", function(visible)

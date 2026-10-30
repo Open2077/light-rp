@@ -47,6 +47,33 @@ Map3DConfig = {
     -- Other players near you shown as blips (category "player").
     nearbyPlayers = { enabled = true, radius = 350, interval = 1.0, color = "#3FE0D0" },
 
+    -- Influence zones: where the players are, drawn on the map and the minimap so the
+    -- others can find them (a heat field on the ground, the buildings lit, a beacon over
+    -- the busiest). The server groups the positions (shared/influence.lua) and sends only
+    -- zones, never a player. `enabled = false` turns the feature off for the whole server
+    -- (nothing is gathered or sent; also exports.op77_map3d:setInfluenceEnabled(false) or
+    -- the console command `map3d.influence off`). When on, each player can hide it from
+    -- the map's legend ("Activity zones").
+    influence = {
+        enabled = true,
+        interval = 3,         -- seconds between updates
+        cell = 150,           -- metres: players in touching cells are one zone
+        padding = 70,         -- metres around the outermost player of a zone
+        minRadius = 90, maxRadius = 900,
+        snap = 25,            -- the zone's centre is snapped to this grid (a lone player is not tracked to the metre)
+        minPlayers = 1,       -- players a zone needs to show (2: groups only)
+        maxZones = 24,
+        sameBucket = true,    -- zones of your own routing bucket only (instances and missions stay private)
+        -- density levels, by players in the zone (lowest first); the page colours them
+        -- with page.influence.colors, in the same order
+        levels = {
+            { min = 1, id = "low", label = "QUIET" },
+            { min = 3, id = "medium", label = "ACTIVE" },
+            { min = 6, id = "high", label = "BUSY" },
+            { min = 12, id = "peak", label = "HOTSPOT" },
+        },
+    },
+
     -- Page settings (theme, minimap, full map, GPS, categories, texts).
     page = {
         theme = {
@@ -74,6 +101,17 @@ Map3DConfig = {
             enabled = true,
             units = "metric",    -- metric | imperial
             avoidHighways = false,
+        },
+        -- How the influence zones look (the server's `influence` above decides whether
+        -- there are any): one colour per density level, labels on the open map,
+        -- player counts in them, and whether the minimap shows the zones too.
+        influence = {
+            colors = { "#3FE0D0", "#FFCC00", "#FF8A1F", "#FF2E3C" },
+            labels = true,
+            showCount = true,
+            minimap = true,
+            buildings = true,    -- the buildings inside a zone light up
+            beaconLevel = 2,     -- from this level on, a column of light marks the zone
         },
         categories = {
             { id = "player", label = "Players", icon = "user", color = "#3FE0D0" },

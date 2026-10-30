@@ -18,6 +18,7 @@ reload_policy "reconnect"
 shared_script "shared/config.lua"
 shared_script "shared/blip.lua"
 shared_script "shared/jam.lua"
+shared_script "shared/influence.lua"
 
 server_script "server/main.lua"
 

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { MapData } from "./data";
 import type { Theme } from "./config";
+import { MAX_ZONES } from "./influence";
 
 // The city: the game's own 3D map meshes and its building point cloud, drawn with
 // flat, theme-driven shaders (no lights, no textures): black volumes, yellow lines.
@@ -26,6 +27,10 @@ export interface WorldUniforms {
   uLod: { value: number };
   uFocus: { value: THREE.Vector3 };
   uCut: { value: number };
+  // influence zones (influence.ts): scene x, scene z, radius, strength; their colours; how many
+  uZone: { value: THREE.Vector4[] };
+  uZoneColor: { value: THREE.Color[] };
+  uZoneCount: { value: number };
 }
 
 export class World {
@@ -38,6 +43,9 @@ export class World {
     uLod: { value: 0.0025 },
     uFocus: { value: new THREE.Vector3() },
     uCut: { value: 0 },
+    uZone: { value: Array.from({ length: MAX_ZONES }, () => new THREE.Vector4()) },
+    uZoneColor: { value: Array.from({ length: MAX_ZONES }, () => new THREE.Color()) },
+    uZoneCount: { value: 0 },
   };
   readonly pickables: THREE.Mesh[] = [];
   private layers = new Map<string, THREE.Object3D>();
@@ -167,7 +175,8 @@ export class World {
       }`;
     const fragment = /* glsl */ `
       uniform vec3 uFace; uniform vec3 uTop; uniform vec3 uEdge; uniform float uEdgeStrength;
-      uniform vec3 uFocus; uniform float uCut;
+      uniform vec3 uFocus; uniform float uCut; uniform float uTime;
+      uniform vec4 uZone[${MAX_ZONES}]; uniform vec3 uZoneColor[${MAX_ZONES}]; uniform int uZoneCount;
       varying vec3 vLocal; varying vec3 vLocalN; varying vec3 vSize; varying vec3 vWorld; varying float vTall; varying vec3 vNormal;
       ${FOG}${FLAT_NORMAL}
       void main(){
@@ -203,6 +212,21 @@ export class World {
         float fade = fogFactor(vWorld);
         float strength = uEdgeStrength * mix(0.35, 0.8, vTall) * mix(1.0, 1.5, top);
         vec3 c = mix(base, uEdge, clamp(line * strength, 0.0, 1.0) * (1.0 - fade));
+        // influence zones: inside one, the outlines take its colour and burn brighter, the
+        // walls warm up from the ground and a scan band climbs them
+        float zi = 0.0; vec3 zc = vec3(0.0);
+        for (int i = 0; i < ${MAX_ZONES}; i++) {
+          if (i >= uZoneCount) break;
+          vec4 z = uZone[i];
+          float k = (1.0 - smoothstep(z.z * 0.3, z.z * 1.08, distance(vWorld.xz, z.xy))) * z.w;
+          if (k > zi) { zi = k; zc = uZoneColor[i]; }
+        }
+        if (zi > 0.002) {
+          float h = vLocal.y + 0.5;
+          float band = smoothstep(0.93, 1.0, fract(vWorld.y / 45.0 - uTime * 0.35));
+          c = mix(c, zc * 1.35, clamp(line * (strength + 0.7), 0.0, 1.0) * zi * (1.0 - fade));
+          c += zc * zi * (0.16 * pow(1.0 - h, 2.0) + band * 0.22 * (1.0 - top)) * (1.0 - fade);
+        }
         gl_FragColor = vec4(mix(c, uFogColor, fade), 1.0);
       }`;
     const CELL = 600;

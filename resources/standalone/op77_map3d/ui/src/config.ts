@@ -81,11 +81,21 @@ export interface CategoryConfig {
   visible?: boolean;
 }
 
+export interface InfluenceConfig {
+  colors: string[]; // one per density level, lowest first
+  labels: boolean; // level and count over each zone on the open map
+  showCount: boolean;
+  minimap: boolean; // the minimap shows the zones too
+  buildings: boolean; // the buildings inside a zone light up
+  beaconLevel: number; // from this level on, a column of light
+}
+
 export interface MapConfig {
   theme: Theme;
   minimap: MinimapConfig;
   map: MapViewConfig;
   gps: GpsConfig;
+  influence: InfluenceConfig;
   categories: CategoryConfig[];
   keys: Record<string, string>; // labels shown in the help bar
   locale: Record<string, string>;
@@ -160,6 +170,14 @@ export const DEFAULT_CONFIG: MapConfig = {
     routeWidth: 1,
     animationSpeed: 1.6,
   },
+  influence: {
+    colors: ["#3FE0D0", "#FFCC00", "#FF8A1F", "#FF2E3C"],
+    labels: true,
+    showCount: true,
+    minimap: true,
+    buildings: true,
+    beaconLevel: 2,
+  },
   categories: [
     { id: "player", label: "Players", icon: "user" },
     { id: "service", label: "Services", icon: "store" },
@@ -185,6 +203,10 @@ export const DEFAULT_CONFIG: MapConfig = {
     view2d: "2D",
     search: "Search places",
     holo: "Holo GPS",
+    influence: "Activity zones",
+    density: "DENSITY",
+    players: "players",
+    player: "player",
     minimap: "Minimap",
     noSignal: "NO SIGNAL",
     noResults: "Nothing found",

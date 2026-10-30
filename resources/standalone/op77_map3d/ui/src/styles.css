@@ -97,6 +97,9 @@ button { all: unset; cursor: pointer; }
 .m3-legend .m3-toggle.is-on i { background: var(--m3-accent); border-color: var(--m3-accent); color: #050506; }
 .m3-legend .m3-toggle:not(.is-on) span { color: var(--m3-dim); }
 .m3.has-search .m3-legend { top: 128px; }
+/* the legend stops above the tool column (zoom, north, 2D/3D, recenter) and scrolls */
+.m3-legend { max-height: calc(100% - 400px); }
+.m3.has-search .m3-legend { max-height: calc(100% - 454px); }
 
 .m3-search { position: absolute; right: 32px; top: 74px; width: 260px; display: none; z-index: 3; }
 .m3.has-search .m3-search { display: block; }
@@ -184,6 +187,21 @@ button { all: unset; cursor: pointer; }
 .m3-blip.is-pulse .m3-blip__pin::after { content: ""; position: absolute; inset: -6px; border: 1.5px solid var(--blip-color); animation: m3-pulse 1.6s ease-out infinite; }
 
 .m3-districts { position: absolute; inset: 0; overflow: hidden; }
+/* influence zones: level and players over each zone (its colour in --zc) */
+.m3-zones { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.m3-zone { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; transform-origin: 0 0; }
+.m3-zone b, .m3-zone span { translate: -50% -100%; white-space: nowrap; }
+.m3-zone b { padding: 2px 8px 1px; font: 700 11px var(--m3-mono); letter-spacing: .24em; color: #050506; background: var(--zc);
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); box-shadow: 0 0 18px var(--zc); }
+.m3-zone span { order: -1; font: 600 11px var(--m3-core); letter-spacing: .14em; color: var(--zc); text-shadow: 0 0 8px #000, 0 0 3px #000; text-transform: uppercase; }
+.m3-zone::after { content: ""; width: 1px; height: 18px; background: linear-gradient(var(--zc), transparent); translate: -50% -100%; opacity: .8; }
+.m3.is-jammed .m3-zones { visibility: hidden; }
+/* the density scale under the activity switch: one chip per level */
+.m3-density { list-style: none; margin: 2px 0 4px; padding: 0 6px 0 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.m3-density li { display: grid; gap: 3px; font: 600 9px var(--m3-core); letter-spacing: .1em; color: var(--m3-text); min-width: 0; }
+.m3-density li i { height: 4px; background: var(--zc); box-shadow: 0 0 8px var(--zc); }
+.m3-density li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m3-density li em { font: 9px var(--m3-mono); color: var(--m3-dim); font-style: normal; }
 .m3-district { position: absolute; left: 0; top: 0; }
 .m3-district span { display: block; transform: translate(-50%, -50%); font: 400 15px var(--m3-display); letter-spacing: .3em; color: rgba(242, 243, 245, .55); text-shadow: 0 0 10px #000, 0 0 3px #000; white-space: nowrap; }
 

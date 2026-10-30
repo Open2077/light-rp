@@ -10,6 +10,7 @@ import { MarkerLayer, escapeHtml, type Blip } from "./markers";
 import { iconSvg, maneuverSvg } from "./icons";
 import { formatDistance, toScene, type GamePos } from "./coords";
 import { HoloGps } from "./holo";
+import { InfluenceLayer, type InfluenceZone } from "./influence";
 import { inGame } from "./bridge";
 
 interface PlayerState { x: number; y: number; z: number; yaw: number; camYaw: number; speed: number; vehicle: boolean; valid: boolean }
@@ -51,6 +52,13 @@ export class MapApp {
   private role: "both" | "mini" | "full" | "holo" = "both";
   private holo: HoloGps | null = null;
   private lastHolo = 0;
+  // influence zones: the server's switch and zones, a resource's switch (the player's own
+  // is prefs.layers.influence), the layer and its labels on the open map
+  private influence: InfluenceLayer | null = null;
+  private influenceState: { enabled: boolean; zones: InfluenceZone[]; levels: { min: number; id: string; label: string }[] } = { enabled: false, zones: [], levels: [] };
+  private influenceAllowed = true;
+  private influenceAt = 0;
+  private zoneEls = new Map<string, HTMLElement>();
   // what the player switched on or off (HUD parts, layers, legend categories), kept
   private prefs: Prefs = loadPrefs();
   private canvasKey = "";
@@ -101,6 +109,8 @@ export class MapApp {
     });
     on("map3d:holo", (p) => this.holo?.setRoute(p && Array.isArray(p.pts) ? p : null));
     on("map3d:jam", (p) => this.setJam(p));
+    on("map3d:influence", (p) => this.setInfluence(p));
+    on("map3d:influenceVisible", (p) => { this.influenceAllowed = p?.visible !== false; this.dirty = true; });
     // the open map's choices reach the minimap through Lua
     on("map3d:prefs", (p) => { if (this.role !== "full" && this.role !== "both") { this.prefs = normalizePrefs(p); this.applyPrefs(); } });
     on("map3d:open", (p) => this.setOpen(true, p));
@@ -175,6 +185,7 @@ export class MapApp {
       this.controls.maxPitch = THREE.MathUtils.degToRad(this.cfg.map.maxPitch);
     }
     this.routeView.setColors(t.accent);
+    this.influence?.setLook(this.cfg.influence);
     this.holo?.setAccent(t.accent);
     this.routeView.setWidth(this.cfg.gps.routeWidth);
     this.routeView.setSpeed(this.cfg.gps.animationSpeed);
@@ -202,6 +213,7 @@ export class MapApp {
     ui.full = this.el("div", "m3-full", r);
     this.mapLayer = new MarkerLayer(ui.full, "map");
     ui.districts = this.el("div", "m3-districts", ui.full);
+    ui.zones = this.el("div", "m3-zones", ui.full);
     // the jam overlay sits over the map and its blips, under the panels
     ui.jamFull = this.el("div", "m3-jam", ui.full, JAM_HTML);
     ui.header = this.el("header", "m3-header", ui.full,
@@ -279,7 +291,7 @@ export class MapApp {
       `<button data-cat="${escapeHtml(c.id)}" class="${hidden.has(c.id) ? "is-off" : ""}" style="--chip:${escapeHtml(c.color ?? "var(--m3-accent)")}">${iconSvg(c.icon, 16)}<span>${escapeHtml(c.label)}</span><em data-count="${escapeHtml(c.id)}">0</em></button>`).join("") +
       `<h3>HUD</h3>` + toggle("hud", "minimap", L.minimap ?? "Minimap") + toggle("hud", "holo", L.holo ?? "Holo GPS") +
       `<h3>LAYERS</h3>` + toggle("layers", "buildings", "Buildings") + toggle("layers", "roadBorders", "Road lines") +
-      toggle("layers", "metro", "Metro") + toggle("layers", "labels", "Districts");
+      toggle("layers", "metro", "Metro") + toggle("layers", "labels", "Districts") + this.influenceLegend(toggle);
     this.ui.legend.onclick = (e) => {
       const b = (e.target as HTMLElement).closest("button");
       if (!b) return;
@@ -299,6 +311,67 @@ export class MapApp {
       this.applyPrefs();
       emit("map3d:prefs", p);
     };
+  }
+
+  /** The switch and the density scale (levels from the server, colours from the page). */
+  private influenceLegend(toggle: (group: "hud" | "layers", id: string, label: string) => string): string {
+    const s = this.influenceState;
+    if (!s.enabled) return "";
+    const L = this.cfg.locale;
+    const colors = this.cfg.influence.colors;
+    const levels = s.levels.length ? s.levels : colors.map((_, i) => ({ min: i + 1, id: String(i + 1), label: String(i + 1) }));
+    const scale = levels.map((l, i) => `<li style="--zc:${escapeHtml(colors[Math.min(i, colors.length - 1)] ?? "#FFCC00")}"><i></i><span>${escapeHtml(l.label)}</span><em>${l.min}+</em></li>`).join("");
+    // a row under the switch: one chip per level, its name and from how many players
+    return toggle("layers", "influence", L.influence ?? "Activity zones") + `<ul class="m3-density" title="${escapeHtml(L.density ?? "DENSITY")}">${scale}</ul>`;
+  }
+
+  private setInfluence(p: any): void {
+    const zones: InfluenceZone[] = Array.isArray(p?.zones) ? p.zones.filter((z: any) => z && [z.x, z.y, z.radius].every((n) => typeof n === "number" && isFinite(n)))
+      .map((z: any) => ({ id: String(z.id), x: z.x, y: z.y, z: typeof z.z === "number" ? z.z : 0, radius: z.radius, count: Math.max(1, Number(z.count) || 1), level: Math.max(1, Number(z.level) || 1) })) : [];
+    const wasEnabled = this.influenceState.enabled;
+    this.influenceState = { enabled: p?.enabled === true, zones, levels: Array.isArray(p?.levels) ? p.levels : [] };
+    this.influence?.set(this.influenceState.enabled ? zones : []);
+    if (wasEnabled !== this.influenceState.enabled || this.ui.legend?.querySelector(".m3-density") === null) this.buildLegend();
+    this.dirty = true;
+  }
+
+  /** Whether the zones are drawn in this view (server, resource and player switches). */
+  private influenceVisible(mini: boolean): boolean {
+    const s = this.influenceState;
+    return s.enabled && this.influenceAllowed && this.prefs.layers.influence !== false && (!mini || this.cfg.influence.minimap);
+  }
+
+  private tickInfluence(t: number, mini: boolean): void {
+    if (!this.influence) return;
+    const dt = this.influenceAt ? Math.min(0.25, t - this.influenceAt) : 0;
+    this.influenceAt = t;
+    this.influence.setView(!mini, this.influenceVisible(mini));
+    this.influence.tick(t, dt);
+  }
+
+  /** Level and players over each zone, on the open map. */
+  private placeZoneLabels(W: number, H: number): void {
+    const show = this.influence && this.influenceVisible(false) && this.cfg.influence.labels;
+    const seen = new Set<string>();
+    if (show) {
+      const L = this.cfg.locale;
+      for (const z of this.influence!.zonesForLabels()) {
+        const id = z.zone.id;
+        seen.add(id);
+        let el = this.zoneEls.get(id);
+        if (!el) { el = this.el("div", "m3-zone", this.ui.zones); this.zoneEls.set(id, el); }
+        const level = this.influenceState.levels[z.zone.level - 1];
+        const count = z.zone.count;
+        const html = `<b>${escapeHtml(level?.label ?? "")}</b>` + (this.cfg.influence.showCount ? `<span>${count} ${escapeHtml(count === 1 ? L.player ?? "player" : L.players ?? "players")}</span>` : "");
+        if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; }
+        el.style.setProperty("--zc", z.color);
+        const v = z.top.project(this.mapCam);
+        const vis = v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05 && z.alpha > 0.05;
+        el.style.display = vis ? "" : "none";
+        if (vis) { el.style.opacity = z.alpha.toFixed(2); el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(0)}px, ${((-v.y * 0.5 + 0.5) * H).toFixed(0)}px)`; }
+      }
+    }
+    for (const [id, el] of this.zoneEls) if (!seen.has(id)) { el.remove(); this.zoneEls.delete(id); }
   }
 
   /** Static over the map and minimap: partial lets the map show through, full hides it. */
@@ -345,6 +418,10 @@ export class MapApp {
     this.renderer.autoClear = false;
     this.world = new World(this.data, this.cfg.theme);
     this.scene.add(this.world.root, this.routeView.group);
+    this.influence = new InfluenceLayer(this.world.uniforms);
+    this.influence.setLook(this.cfg.influence);
+    this.influence.set(this.influenceState.zones);
+    this.scene.add(this.influence.group);
     this.graph = new RoadGraph(this.data.roads);
     const start = toScene(this.player);
     this.controls = new MapControls(this.mapCam, this.canvas, {
@@ -818,17 +895,19 @@ export class MapApp {
     if (mode === "full") {
       // every frame while the camera moves; otherwise only for changes and the route's animation
       const moving = this.controls.update(dt);
-      const animate = !!this.route && t - this.lastFull >= 1 / Math.max(1, this.cfg.map.idleFps);
+      const animate = (!!this.route || !!(this.influence?.active && this.influenceVisible(false))) && t - this.lastFull >= 1 / Math.max(1, this.cfg.map.idleFps);
       if (moving || this.dirty || animate) { this.lastFull = t; this.renderFull(t, rect.w, rect.h); }
     } else if (mode === "mini") {
       const due = t - this.lastMini >= 1 / Math.max(1, this.cfg.minimap.fps) - 0.002;
-      if (due && (this.dirty || !!this.route || this.view.settling)) { this.lastMini = t; this.renderMini(t, rect.w, rect.h); }
+      const zones = !!(this.influence?.active && this.influenceVisible(true));
+      if (due && (this.dirty || !!this.route || this.view.settling || zones)) { this.lastMini = t; this.renderMini(t, rect.w, rect.h); }
     }
   };
 
   private renderFull(t: number, W: number, H: number): void {
     this.world.uniforms.uTime.value = t;
     this.routeView.tick(t);
+    this.tickInfluence(t, false);
     this.mapCam.aspect = W / H;
     this.mapCam.updateProjectionMatrix();
     const dist = this.controls.current.distance;
@@ -843,6 +922,7 @@ export class MapApp {
     r.clear();
     r.render(this.scene, this.mapCam);
     this.mapLayer.project(this.mapCam, { x: 0, y: 0, w: W, h: H }, { distance: dist });
+    this.placeZoneLabels(W, H);
     // district names and the compass
     const showDistricts = dist > 1400;
     for (const d of this.districtEls) {
@@ -859,6 +939,7 @@ export class MapApp {
   private renderMini(t: number, w: number, h: number): void {
     this.world.uniforms.uTime.value = t;
     this.routeView.tick(t);
+    this.tickInfluence(t, true);
     const m = this.cfg.minimap;
     const p = this.player;
     const v = this.view;

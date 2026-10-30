@@ -115,6 +115,92 @@ local function clearJams(owner)
     return #gone
 end
 
+-- Influence zones (shared/influence.lua): every `interval` seconds the positions are
+-- grouped per routing bucket and each player gets the zones of their own bucket, only
+-- when they changed. Players a resource hides (staff invisibility...) are left out.
+local IC = Map3DConfig.influence or {}
+local influenceOn = IC.enabled ~= false
+local influenceHidden = {}   -- player id -> true
+local influenceSent = {}     -- player id -> signature last sent ("" = disabled)
+local function positions()
+    if type(Open77.players.positions) == "function" then
+        local ok, all = pcall(Open77.players.positions)
+        if ok and type(all) == "table" then return all end
+    end
+    local out = {}
+    for _, id in ipairs(players()) do
+        local ok, p = pcall(Open77.players.position, id)
+        if ok and type(p) == "table" then out[id] = p end
+    end
+    return out
+end
+local function bucketOf(id, p)
+    if not IC.sameBucket then return 0 end
+    local fromPosition = tonumber(p and p.bucket)
+    if fromPosition then return fromPosition end
+    return type(GetPlayerRoutingBucket) == "function" and tonumber(GetPlayerRoutingBucket(id)) or 0
+end
+local function zonesByBucket()
+    local pts, all = {}, positions()
+    for id, p in pairs(all) do
+        id = tonumber(id)
+        if id and not influenceHidden[id] and tonumber(p.x) and tonumber(p.y) then
+            local b = bucketOf(id, p)
+            pts[b] = pts[b] or {}
+            pts[b][#pts[b] + 1] = { x = p.x, y = p.y, z = p.z }
+        end
+    end
+    local out = {}
+    for b, list in pairs(pts) do out[b] = Map3DInfluence.cluster(list, IC) end
+    return out, all
+end
+local function sendInfluence(target, zones)
+    local sig = influenceOn and Map3DInfluence.signature(zones) or ""
+    if influenceSent[target] == sig then return end
+    influenceSent[target] = sig
+    TriggerClientEvent("op77_map3d:influence", target, { enabled = influenceOn, zones = influenceOn and zones or {}, levels = IC.levels })
+end
+local function influenceTick()
+    if not influenceOn then return end
+    local byBucket, all = zonesByBucket()
+    for _, id in ipairs(players()) do
+        sendInfluence(id, byBucket[bucketOf(id, all[id] or all[tostring(id)])] or {})
+    end
+end
+CreateThread(function()
+    while true do
+        Wait(math.floor(math.max(1, tonumber(IC.interval) or 3) * 1000))
+        local ok, err = pcall(influenceTick)
+        if not ok then print("[map3d] influence: " .. tostring(err)) end
+    end
+end)
+local function setInfluenceEnabled(on)
+    influenceOn = on == true
+    if influenceOn then influenceSent = {}; influenceTick()
+    else for _, id in ipairs(players()) do sendInfluence(id, {}) end end
+    print("[map3d] influence zones " .. (influenceOn and "on" or "off"))
+    return true
+end
+exports("setInfluenceEnabled", setInfluenceEnabled)
+exports("isInfluenceEnabled", function() return influenceOn end)
+-- leave a player out of the zones (staff invisibility, a hidden role...)
+exports("setInfluenceHidden", function(player, hidden)
+    if not tonumber(player) then return false end
+    influenceHidden[tonumber(player)] = hidden ~= false or nil
+    return true
+end)
+exports("getInfluenceZones", function(bucket)
+    if not influenceOn then return {} end
+    return (zonesByBucket())[tonumber(bucket) or 0] or {}
+end)
+-- Server owner switch (ACL command.map3d.influence), also from the console:
+--   map3d.influence on|off
+RegisterCommand("map3d.influence", function(_, args)
+    local v = tostring(args[1] or ""):lower()
+    if v == "on" or v == "off" then setInfluenceEnabled(v == "on")
+    else print("[map3d] influence zones are " .. (influenceOn and "on" or "off") .. " (map3d.influence on|off)") end
+end, true)
+
 -- A client that (re)starts the resource asks for its blips.
 RegisterNetEvent("op77_map3d:hello", function()
     local src = tonumber(source)
@@ -129,10 +215,19 @@ RegisterNetEvent("op77_map3d:hello", function()
         if not r.targets or r.targets[src] then jamSet[#jamSet + 1] = wire(id, r.jam) end
     end
     TriggerClientEvent("op77_map3d:jams", src, { set = jamSet })
+    -- the influence zones of its bucket (or the feature's switch, off)
+    influenceSent[src] = nil
+    if influenceOn then
+        local byBucket, all = zonesByBucket()
+        sendInfluence(src, byBucket[bucketOf(src, all[src] or all[tostring(src)])] or {})
+    else
+        sendInfluence(src, {})
+    end
 end)
 
 AddEventHandler("playerDropped", function()
     local src = tonumber(source)
+    influenceSent[src], influenceHidden[src] = nil, nil
     for _, r in pairs(blips) do if r.targets then r.targets[src] = nil end end
     for _, r in pairs(jams) do if r.targets then r.targets[src] = nil end end
 end)
