@@ -4,6 +4,9 @@
 -- Pure functions, shared so the tests run them as the server does.
 Map3DInfluence = {}
 local I = Map3DInfluence
+-- A zone shows a crowd, never a person: whatever the configuration says, fewer players
+-- than this never make a zone (a zone of one or two would follow them around the city).
+I.MIN_GROUP = 3
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
@@ -58,7 +61,7 @@ function I.cluster(points, cfg)
             for _, c in ipairs(members) do
                 for _, p in ipairs(c.points) do far = math.max(far, math.sqrt((p.x - x) ^ 2 + (p.y - y) ^ 2)) end
             end
-            -- the centre is snapped: a lone player's zone does not track them metre by metre
+            -- the centre is snapped: a zone does not follow its players metre by metre
             local snap = clamp(tonumber(cfg.snap) or 25, 0, 500)
             if snap > 0 then x = math.floor(x / snap + 0.5) * snap; y = math.floor(y / snap + 0.5) * snap end
             zones[#zones + 1] = {
@@ -67,7 +70,7 @@ function I.cluster(points, cfg)
             }
         end
     end
-    local minPlayers = math.max(1, math.floor(tonumber(cfg.minPlayers) or 1))
+    local minPlayers = math.max(I.MIN_GROUP, math.floor(tonumber(cfg.minPlayers) or 5))
     local out = {}
     for _, z in ipairs(zones) do
         if z.count >= minPlayers then

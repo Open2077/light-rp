@@ -335,10 +335,10 @@ export class MapApp {
     this.dirty = true;
   }
 
-  /** Whether the zones are drawn in this view (server, resource and player switches). */
+  /** Whether the zones are drawn in this view: the open map only (server, resource and player switches). */
   private influenceVisible(mini: boolean): boolean {
     const s = this.influenceState;
-    return s.enabled && this.influenceAllowed && this.prefs.layers.influence !== false && (!mini || this.cfg.influence.minimap);
+    return !mini && s.enabled && this.influenceAllowed && this.prefs.layers.influence !== false;
   }
 
   private tickInfluence(t: number, mini: boolean): void {
@@ -899,8 +899,7 @@ export class MapApp {
       if (moving || this.dirty || animate) { this.lastFull = t; this.renderFull(t, rect.w, rect.h); }
     } else if (mode === "mini") {
       const due = t - this.lastMini >= 1 / Math.max(1, this.cfg.minimap.fps) - 0.002;
-      const zones = !!(this.influence?.active && this.influenceVisible(true));
-      if (due && (this.dirty || !!this.route || this.view.settling || zones)) { this.lastMini = t; this.renderMini(t, rect.w, rect.h); }
+      if (due && (this.dirty || !!this.route || this.view.settling)) { this.lastMini = t; this.renderMini(t, rect.w, rect.h); }
     }
   };
 

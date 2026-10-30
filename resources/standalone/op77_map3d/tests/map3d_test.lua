@@ -1,21 +1,24 @@
 -- op77_map3d: blip validation, the client (page, blips, owners, waypoint mirror, open)
 -- and the server (targets, late joiners, cleanup). Run: pwsh -File tests/run-lua.ps1
 dofile("shared/config.lua"); dofile("shared/blip.lua"); dofile("shared/jam.lua"); dofile("shared/influence.lua")
--- influence zones: touching cells are one zone, graded by players, densest first
+-- influence zones: touching cells are one zone, graded by players, densest first; a
+-- crowd only (5 by default, never fewer than 3 whatever the setting)
 do
   local I, IC = Map3DInfluence, Map3DConfig.influence
-  assert(I.level(1, IC.levels) == 1 and I.level(5, IC.levels) == 2 and I.level(6, IC.levels) == 3 and I.level(40, IC.levels) == 4)
+  assert(IC.minPlayers == 5 and IC.levels[1].min == 5)
+  assert(I.level(5, IC.levels) == 1 and I.level(12, IC.levels) == 2 and I.level(20, IC.levels) == 3 and I.level(40, IC.levels) == 4)
   local pts = {}
   for k = 1, 7 do pts[#pts + 1] = { x = 1000 + k * 30, y = 500 + (k % 2) * 40, z = 10 } end   -- a crowd across two cells
+  for k = 1, 12 do pts[#pts + 1] = { x = -500 + k * 8, y = 300, z = 4 } end                 -- a bigger one
   pts[#pts + 1] = { x = -2000, y = -2000, z = 5 }                                             -- someone alone
   pts[#pts + 1] = { x = 4000, y = 4000 }; pts[#pts + 1] = { x = 4010, y = 4005 }             -- a pair
+  for k = 1, 3 do pts[#pts + 1] = { x = 7000 + k * 5, y = 7000 } end                         -- a trio
   local zones = I.cluster(pts, IC)
-  assert(#zones == 3, "three zones")
-  assert(zones[1].count == 7 and zones[1].level == 3, "the crowd is one zone, BUSY")
+  assert(#zones == 2, "only the crowds make zones: no lone player, pair or trio")
+  assert(zones[1].count == 12 and zones[1].level == 2 and zones[2].count == 7 and zones[2].level == 1, "densest first, graded")
   assert(zones[1].x % IC.snap == 0 and zones[1].radius >= IC.minRadius and zones[1].radius <= IC.maxRadius, "snapped and bounded")
-  assert(zones[2].count == 2 and zones[2].level == 1 and zones[3].count == 1, "densest first")
-  local groups = I.cluster(pts, { cell = IC.cell, levels = IC.levels, minPlayers = 2 })
-  assert(#groups == 2, "minPlayers 2: the lone player is not shown")
+  local loose = I.cluster(pts, { cell = IC.cell, levels = IC.levels, minPlayers = 1 })
+  assert(#loose == 3 and loose[3].count == 3, "a setting below 3 is raised to 3: the trio shows, the pair and the lone player never")
   assert(I.signature(zones) == I.signature(I.cluster(pts, IC)), "stable for the same positions")
   assert(#I.cluster({}, IC) == 0)
 end
@@ -392,9 +395,10 @@ assert(#toClient == 1 and toClient[1].payload.remove[1], "unjam lifts the comman
 -- influence zones on the server: grouped per bucket, sent when they change, hidden
 -- players left out, the owner's switch
 do
-  local pos = {
-    [1] = { x = 100, y = 100, z = 5, bucket = 0 }, [2] = { x = 140, y = 120, z = 5, bucket = 0 },
-  }
+  -- players 1..6 together in the street, 7..11 in a mission instance
+  local pos = {}
+  for id = 1, 6 do pos[id] = { x = 100 + id * 10, y = 100, z = 5, bucket = 0 } end
+  for id = 7, 11 do pos[id] = { x = 100 + id * 10, y = 100, z = 5, bucket = 3000001 } end
   Open77.players.positions = function() return pos end
   local function influenceFor(target)
     for i = #toClient, 1, -1 do local e = toClient[i]; if e.name == "op77_map3d:influence" and e.target == target then return e.payload end end
@@ -402,19 +406,25 @@ do
   toClient = {}
   _G.source = 1; sNet["op77_map3d:hello"]()
   local inf = influenceFor(1)
-  assert(inf and inf.enabled and #inf.zones == 1 and inf.zones[1].count == 2 and inf.levels[1].label == "QUIET", "the hello carries the zones")
-  -- player 2 enters a mission bucket: player 1 sees only themself, player 2 sees their instance
-  pos[2] = { x = 140, y = 120, z = 5, bucket = 3000001 }
+  assert(inf and inf.enabled and #inf.zones == 1 and inf.zones[1].count == 6 and inf.levels[1].label == "ACTIVE", "the hello carries the zones")
+  -- player 2 joins the instance: 5 left in the street (still a zone), 6 in the instance
+  pos[2].bucket = 3000001
   toClient = {}
   sExports.setInfluenceEnabled(true)
-  assert(influenceFor(1).zones[1].count == 1 and influenceFor(2).zones[1].count == 1, "zones stay in their bucket")
+  assert(influenceFor(1).zones[1].count == 5 and influenceFor(2).zones[1].count == 6, "zones stay in their bucket")
+  -- one more leaves the street: 4 people are not a crowd, and nobody's position is sent
+  pos[6] = { x = 5000, y = 5000, z = 5, bucket = 0 }
+  toClient = {}
+  sExports.setInfluenceEnabled(true)
+  assert(#influenceFor(1).zones == 0, "below the threshold there is no zone, not even the lone player's")
+  pos[6] = { x = 160, y = 100, z = 5, bucket = 0 }
   -- nothing changed: nothing sent
   toClient = {}
   sExports.setInfluenceEnabled(true)
   local again = 0 for _, e in ipairs(toClient) do if e.name == "op77_map3d:influence" then again = again + 1 end end
   assert(again == 2, "a fresh enable resends to everyone")
-  -- a hidden player is left out
-  sExports.setInfluenceHidden(2, true)
+  -- hidden players are left out: the instance falls from 6 to 4, under the threshold
+  sExports.setInfluenceHidden(7, true); sExports.setInfluenceHidden(8, true)
   assert(#sExports.getInfluenceZones(3000001) == 0 and #sExports.getInfluenceZones(0) == 1)
   -- the server owner turns it off: everyone is told, nothing more is sent
   toClient = {}

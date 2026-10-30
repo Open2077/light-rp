@@ -85,7 +85,6 @@ export interface InfluenceConfig {
   colors: string[]; // one per density level, lowest first
   labels: boolean; // level and count over each zone on the open map
   showCount: boolean;
-  minimap: boolean; // the minimap shows the zones too
   buildings: boolean; // the buildings inside a zone light up
   beaconLevel: number; // from this level on, a column of light
 }
@@ -174,7 +173,6 @@ export const DEFAULT_CONFIG: MapConfig = {
     colors: ["#3FE0D0", "#FFCC00", "#FF8A1F", "#FF2E3C"],
     labels: true,
     showCount: true,
-    minimap: true,
     buildings: true,
     beaconLevel: 2,
   },
