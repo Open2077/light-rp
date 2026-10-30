@@ -1,6 +1,5 @@
 -- The cyberware module (server/modules/cyberware.lua) against a fake platform and framework:
--- refusals (parts, money, requirements, capacity, slots, not seated), payment and refund,
--- family upgrades, durable legs/arms transactions, session grants, passives, Mantis Blades,
+-- refusals (money, not seated), payment and refund, no limit (any model, family replacement), durable legs/arms transactions, session grants, passives, Mantis Blades,
 -- removal and the staff command.
 local clock, threads = 0, {}
 _G.CreateThread = function(fn) threads[#threads + 1] = coroutine.create(fn) end
@@ -156,20 +155,16 @@ end
 
 -- The clinic's view
 local view = Cyber.view(7)
-assert(view.live and #view.catalogue == #LightRpCyberwareConfig.items and view.capacity.max == 60, "catalogue view")
-assert(view.parts.label == "Salvaged Parts" and view.wallet == 0)
+assert(view.live and #view.catalogue == #LightRpCyberwareConfig.items and view.wallet == 0, "catalogue view")
+assert(view.capacity == nil and view.parts == nil, "eurodollars only: no capacity, no parts")
+assert(view.catalogue[1].requires == nil, "no prerequisites")
 
--- Refusals: parts first, then money (nothing is taken)
-bank[7] = 100000
-local r = op("install", "neofiber")
-assert(not r.ok and r.message:match("salvaged parts"), r.message)
-assert(bank[7] == 100000, "no money taken on a refusal")
-parts["inv7"] = 500
+-- Refusal: money (nothing is taken)
 bank[7] = 1000
-r = op("install", "neofiber")
+local r = op("install", "neofiber")
 assert(not r.ok and r.message:match("eurodollars"), r.message)
-assert(parts["inv7"] == 500, "no parts taken when the payment fails")
-bank[7] = 400000
+assert(bank[7] == 1000, "no money taken on a refusal")
+bank[7] = 500000
 
 -- Not on the chair
 P.seated = false
@@ -177,45 +172,28 @@ r = op("install", "neofiber")
 assert(not r.ok and r.message:match("operating chair"))
 P.seated = true
 
--- Requirements
-r = op("install", "neofiber_mk2")
-assert(not r.ok and r.message:match("Requires Neofiber"), r.message)
-
--- Parts handed over to the clinic in trips (a pocket holds 20): the stock is used first
-parts["inv7"] = 12
-r = op("deposit", "parts")
-assert(r.ok and parts["inv7"] == 0 and stock["u1#default"] == 12, "12 parts handed over")
-r = op("deposit", "parts")
-assert(not r.ok and r.message:match("no salvaged parts"), "nothing to hand over")
-parts["inv7"] = 500
-assert(Cyber.view(7).parts.have == 512 and Cyber.view(7).parts.stored == 12, "the view counts stock + pocket")
-
--- Dash: paid, persisted, granted (12 parts from the stock, 3 from the pocket)
-r = op("install", "neofiber")
-assert(r.ok, r.message)
-assert(bank[7] == 400000 - 13000 and parts["inv7"] == 500 - 3 and stock["u1#default"] == 0, "price, stock then pocket")
-assert(rows["u1#default#neofiber"], "persisted")
-assert(P.grants.dash[7] == "lightrp.dash.basic", "dash granted")
-
--- Upgrade in the family: replaces the lesser model
+-- No limit: a Mk.2 straight away, paid, persisted, granted
 r = op("install", "neofiber_mk2")
 assert(r.ok, r.message)
-assert(rows["u1#default#neofiber_mk2"] and not rows["u1#default#neofiber"], "the Mk.1 is replaced")
+assert(bank[7] == 500000 - 30000, "price taken")
+assert(rows["u1#default#neofiber_mk2"], "persisted")
 assert(P.grants.dash[7] == "lightrp.dash.advanced", "advanced dash granted")
--- ... and the lesser model cannot come back over it
+-- ... and any model of the family replaces it, even a lesser one (one native dash)
 r = op("install", "neofiber")
-assert(not r.ok and r.message:match("better model"), r.message)
+assert(r.ok, r.message)
+assert(rows["u1#default#neofiber"] and not rows["u1#default#neofiber_mk2"], "replaced")
+assert(P.grants.dash[7] == "lightrp.dash.basic", "basic dash granted")
 
--- Durable legs through the platform, and a failed surgery refunds everything
-local before, beforeParts = bank[7], parts["inv7"]
+-- Durable legs through the platform, and a failed surgery refunds the price
+local before = bank[7]
 P.failNext = "native_timeout"
 r = op("install", "reinforced_tendons")
 assert(not r.ok and r.message:match("refunded"), r.message)
-assert(bank[7] == before and parts["inv7"] == beforeParts - 12 and stock["u1#default"] == 12, "money back, parts kept by the clinic")
+assert(bank[7] == before, "refunded")
 assert(not rows["u1#default#reinforced_tendons"])
-r = op("install", "reinforced_tendons")
+r = op("install", "reinforced_tendons_mk2")
 assert(r.ok, r.message)
-assert(P.records[7].legs and P.records[7].legs.grade.id == "training", "platform legs installed")
+assert(P.records[7].legs and P.records[7].legs.grade.id == "athlete", "platform legs installed (athlete)")
 
 -- Passives
 r = op("install", "titanium_bones"); assert(r.ok, r.message)
@@ -223,23 +201,21 @@ r = op("install", "subdermal_armor"); assert(r.ok, r.message)
 r = op("install", "fortified_ankles"); assert(r.ok, r.message)
 assert(P.stats.healthMax == 125 and P.armor[7] == 30 and P.fall[7] == false, "health, armor and fall damage applied")
 r = op("install", "epimorphic_skeleton"); assert(r.ok, r.message)
-assert(P.stats.healthMax == 160, "the better bones replace the bonus, they do not stack: " .. tostring(P.stats.healthMax))
+assert(P.stats.healthMax == 160, "the bones replace each other, they do not stack: " .. tostring(P.stats.healthMax))
+
+-- Everything at once: no capacity
+for _, id in ipairs({ "sandevistan_mk3", "impact_frame", "biomonitor", "iron_lungs", "adrenaline_booster", "subdermal_armor_mk2" }) do
+    r = op("install", id); assert(r.ok, id .. ": " .. tostring(r.message))
+end
+assert(P.grants.reflex[7] == "lightrp.overdrive.combat" and P.grants.abilities[7] == "lightrp.ground_slam", "overdrive and slam granted")
+assert(P.armor[7] == 60 and P.stats.staminaMax == 140, "armor Mk.2 and lungs")
 
 -- Arms: Gorilla Arms, then Mantis Blades take the slot (Gorilla Arms leave the platform)
-r = op("install", "gorilla_arms"); assert(r.ok, r.message)
-assert(P.records[7].arms and P.records[7].arms.grade.id == "training")
+r = op("install", "gorilla_arms_mk2"); assert(r.ok, r.message)
+assert(P.records[7].arms and P.records[7].arms.grade.id == "industrial")
 r = op("install", "mantis_blades"); assert(r.ok, r.message)
 assert(P.records[7].arms == nil, "Gorilla Arms removed from the platform for the blades")
-assert(rows["u1#default#mantis_blades"] and not rows["u1#default#gorilla_arms"])
-
--- Capacity is a real limit (43 used: + Sandevistan 14 + Iron Lungs 3 = 60, then nothing fits)
-r = op("install", "sandevistan_mk1"); assert(r.ok, r.message)
-r = op("install", "iron_lungs"); assert(r.ok, r.message)
-r = op("install", "biomonitor")
-assert(not r.ok and r.message:match("capacity"), "capacity exceeded: " .. tostring(r.message))
-op("remove", "sandevistan_mk1")
-op("remove", "iron_lungs")
-assert(P.grants.reflex[7] == nil, "a removed Sandevistan takes its grant with it")
+assert(rows["u1#default#mantis_blades"] and not rows["u1#default#gorilla_arms_mk2"])
 
 -- Mantis Blades: B draws them (the armament stands aside), B again sheathes them
 _G.source = 7
@@ -251,21 +227,23 @@ netHandlers["op77_lightrp:cyberware:blades"]()
 pump()
 assert(not Cyber.handlesLoadout(7) and synced >= 1, "sheathed: RP weapons projected again")
 
--- Removal: a fee, and a dependency must go first
-r = op("remove", "reinforced_tendons"); assert(r.ok, r.message)
+-- Removal: a fee
+r = op("remove", "reinforced_tendons_mk2"); assert(r.ok, r.message)
 assert(P.records[7].legs == nil, "legs removed from the platform")
 local fee = bank[7]
 r = op("remove", "epimorphic_skeleton"); assert(r.ok, r.message)
 assert(bank[7] == fee - LightRpCyberwareConfig.removalFee, "removal fee")
 assert(P.stats.healthMax == 100, "health back to the body's own")
+r = op("remove", "sandevistan_mk3"); assert(r.ok, r.message)
+assert(P.grants.reflex[7] == nil, "a removed Sandevistan takes its grant with it")
 
 -- Persistence across a reconnect: what is in the table is projected again
 Cyber.onDisconnected(7)
 P.grants.dash[7] = nil
 Cyber.onCharacterLoaded(7, character)
 pump()
-assert(Cyber.installed(7).neofiber_mk2 and Cyber.installed(7).mantis_blades, "reloaded from the table")
-assert(P.grants.dash[7] == "lightrp.dash.advanced", "grants come back on load")
+assert(Cyber.installed(7).neofiber and Cyber.installed(7).mantis_blades, "reloaded from the table")
+assert(P.grants.dash[7] == "lightrp.dash.basic", "grants come back on load")
 
 -- Staff command
 commands["lightrp.cyberware"](0, { "7", "give", "sandevistan_mk1" })

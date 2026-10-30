@@ -10,7 +10,7 @@ des propres assets du jeu, retravaillés (étalonnage ambre et graphite) :
 
 **Sur LightRP, la clinique est réelle** (`op77_lightrp/server/modules/cyberware.lua`) :
 - le catalogue, les prix, les pièces et les effets viennent du serveur (`server/config/cyberware.lua`) ;
-- chaque opération est payée en banque, en Salvaged Parts et en capacité, puis persistée par personnage ;
+- chaque opération est payée en eurodollars (banque), puis persistée par personnage ;
 - les implants sont réappliqués à chaque connexion, changement de personnage et réapparition.
 
 Sans serveur (aperçu navigateur, console `ripperdoc.open`), la page reprend son catalogue de démo et
@@ -23,7 +23,7 @@ simule les opérations. Voir PROTOCOL.md.
 | Jambes | Reinforced Tendons, Mk.2 / Fortified Ankles | Double saut durable (`Open77.cyberware`, legs) / plus de dégâts de chute |
 | Bras | Gorilla Arms, Mk.2 / Mantis Blades, Electric | Poings durables (`gorilla_arms`) / lames sur l'emplacement de bras, touche **B** |
 | Nerveux | Neofiber, Mk.2 | Dash et Air Dash (`Open77.dash`), **Ctrl** + direction |
-| Système d'exploitation | Sandevistan Mk.1, Mk.3 | Overdrive réflexe (`Open77.reflex`), touche **Z** |
+| Système d'exploitation | Sandevistan Mk.1, Mk.3 | Overdrive réflexe (`Open77.reflex`), touche **X** |
 | Squelette | Kinetic Impact Frame / Titanium Bones, Epimorphic Skeleton | Ground Slam (`Open77.abilities`), **G** en l'air / santé max |
 | Peau | Subdermal Armor, Mk.2 | Armure |
 | Circulatoire | Biomonitor, Iron Lungs, Adrenaline Booster | Régénération de la santé, endurance max, régénération de l'endurance |
@@ -31,17 +31,16 @@ simule les opérations. Voir PROTOCOL.md.
 Les autres systèmes (cortex, yeux, visage, mains, immunitaire) restent vides : aucun implant que la
 plateforme sait appliquer pour l'instant.
 
-**Économie.** Les prix sont calés sur le travail (environ 2 000 à 3 000 €$/h ; les récompenses de
-missions et de raids sont ignorées, pas encore équilibrées). Chaque implant demande aussi des
-Salvaged Parts (job Scrapper). Comme un joueur n'en porte que 20, la clinique garde le stock de
-chaque personnage : bouton « Hand over » dans le bandeau, autant de voyages qu'il le faut.
-- Les modèles Mk.2 et Mk.3 exigent le modèle précédent et le remplacent.
-- Une famille ne contient qu'un implant à la fois.
-- La capacité est de 60 : impossible de tout porter.
+**Économie.** Tout s'achète en eurodollars (banque), sans autre ressource. Les prix sont calés sur
+le travail : environ 2 000 à 3 000 €$/h, en ignorant les récompenses de missions et de raids, qui
+ne sont pas encore équilibrées.
+- **Aucune limite** : pas de capacité, pas de prérequis, on équipe ce qu'on veut.
+- Une famille correspond à un seul emplacement natif (bras, jambes, Dash, Overdrive…) : un autre
+  modèle de la même famille remplace celui qui est installé.
 - Un retrait coûte 250 €$.
 
 Staff (console) : `lightrp.cyberware <id> list|status|blades|give <item>|take <item>`,
-`ripperdoc.action <id> install|remove|deposit <item|parts>`.
+`ripperdoc.action <id> install|remove <item>`.
 
 ## Parcours
 

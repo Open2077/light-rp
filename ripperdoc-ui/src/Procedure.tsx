@@ -4,9 +4,9 @@ import { iconImage, sectionVideo } from "./media";
 import type { ProcedureState } from "./App";
 
 /* The operation itself. The close-up goes hot, the steps scroll like a surgical log; the last
-   step waits for the clinic's answer (payment, parts, the implant's native installation), then
+   step waits for the clinic's answer (payment, the implant's native installation), then
    the implant locks in, or the surgery is aborted and the patient refunded. */
-const INSTALL_STEPS = ["Payment cleared // parts on the tray", "Local anaesthesia", "Incision // dermal layer", "Socket alignment", "Neural handshake", "Integration verified"];
+const INSTALL_STEPS = ["Payment cleared", "Local anaesthesia", "Incision // dermal layer", "Socket alignment", "Neural handshake", "Integration verified"];
 const REMOVE_STEPS = ["Neural disconnect", "Extraction", "Socket sealed"];
 
 export function Procedure({ state, body }: { state: ProcedureState; body: Body }) {

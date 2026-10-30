@@ -45,7 +45,7 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
           <div className="rd-closeup-tags">
             <span style={{ left: "16%", top: "22%" }}>[{def.code}]</span>
             <span style={{ left: "70%", top: "30%" }}>SYNC {94 + (index % 5)}.{index}%</span>
-            <span style={{ left: "64%", top: "74%" }}>NEURAL LOAD {Math.round((used / Math.max(1, session.capacityMax)) * 100)}%</span>
+            <span style={{ left: "64%", top: "74%" }}>IMPLANTS {String(used).padStart(2, "0")} // ONLINE</span>
             <span style={{ left: "22%", top: "70%" }}>TISSUE // STABLE</span>
           </div>
           <div className="rd-brackets"><i /><i /><i /><i /></div>
@@ -120,7 +120,7 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
       </div>
 
       {focus && (
-        <DetailCard key={focus.id} item={focus} session={session} used={used} owned={installed.includes(focus.id)} busy={busy} error={error}
+        <DetailCard key={focus.id} item={focus} session={session} owned={installed.includes(focus.id)} busy={busy} error={error}
           onAct={(mode) => {
             const why = onProcedure(focus, mode);
             setError(why);
@@ -132,17 +132,13 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
 }
 
 interface CardProps {
-  item: Cyberware; session: Session; used: number; owned: boolean; busy: boolean; error: string | null;
+  item: Cyberware; session: Session; owned: boolean; busy: boolean; error: string | null;
   onAct(mode: "install" | "remove"): void;
 }
 
-function DetailCard({ item, session, used, owned, busy, error, onAct }: CardProps) {
+function DetailCard({ item, session, owned, busy, error, onAct }: CardProps) {
   const mate = owned ? undefined : familyMate(session, item);
   const why = owned ? null : refusal(session, item);
-  const requires = item.requires ? session.items[item.requires] : undefined;
-  const requiresOk = !requires || Object.values(session.installed).flat().includes(requires.id);
-  const after = used - (mate?.capacity ?? 0) + item.capacity;
-  const parts = item.parts ?? 0;
   return (
     <div className={`rd-detail r-${item.rarity}`}>
       <div className="rd-detail-head">
@@ -163,17 +159,14 @@ function DetailCard({ item, session, used, owned, busy, error, onAct }: CardProp
       <p className="lore">{item.lore}</p>
       {!owned && (
         <ul className="rd-needs">
-          <li className={item.price <= session.wallet ? "ok" : "bad"}><span>Eurodollars</span><b>€$ {eddies(item.price)}</b></li>
-          {parts > 0 && <li className={parts <= session.parts.have ? "ok" : "bad"}><span>{session.parts.label}</span><b>{parts} <i>/ {session.parts.have}</i></b></li>}
-          <li className={after <= session.capacityMax ? "ok" : "bad"}><span>Capacity</span><b>+{item.capacity} <i>→ {after}/{session.capacityMax}</i></b></li>
-          {requires && <li className={requiresOk ? "ok" : "bad"}><span>Requires</span><b>{requires.name}</b></li>}
+          <li className={item.price <= session.wallet ? "ok" : "bad"}><span>Price</span><b>€$ {eddies(item.price)} <i>/ €$ {eddies(session.wallet)}</i></b></li>
         </ul>
       )}
       {mate && <div className="replace">REPLACES <b>{mate.name}</b></div>}
-      {owned && <div className="rd-detail-foot"><span>▲ {item.capacity} CAPACITY</span><span>REMOVAL €$ {eddies(session.removalFee)}</span></div>}
+      {owned && <div className="rd-detail-foot"><span>INSTALLED</span><span>REMOVAL €$ {eddies(session.removalFee)}</span></div>}
       {(error ?? why) && <div className="rd-detail-error">{error ?? why}</div>}
       <HoldButton disabled={busy || (!owned && why !== null)} danger={owned}
-        label={owned ? "HOLD TO REMOVE" : why ? "UNAVAILABLE" : mate ? "HOLD TO UPGRADE" : "HOLD TO INSTALL"}
+        label={owned ? "HOLD TO REMOVE" : why ? "UNAVAILABLE" : mate ? "HOLD TO REPLACE" : "HOLD TO INSTALL"}
         onDone={() => onAct(owned ? "remove" : "install")} />
     </div>
   );

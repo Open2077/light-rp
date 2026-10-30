@@ -8,7 +8,7 @@ On LightRP the clinic's owner is `op77_lightrp` (server/modules/ripperdoc.lua + 
 | Event | Payload | Meaning |
 |---|---|---|
 | `rd:open` | `OpenPayload` (below) | Show the interface: boot sequence, then the full body. |
-| `rd:state` | `OpenPayload` | Fresh state after an operation (installed, bank, parts). |
+| `rd:state` | `OpenPayload` | Fresh state after an operation (installed, bank). |
 | `rd:result` | `{ ok, message, op, item }` | The answer to the page's last `rd:action`. |
 | `rd:close` | `{}` | Hide it at once (the scene ended, the server closed it). |
 
@@ -17,9 +17,7 @@ interface OpenPayload {
   live?: boolean;                                  // true: the server runs every operation
   catalogue?: Cyberware[];                         // the clinic's stock (server-owned prices)
   installed?: Record<string, string[]>;           // section id -> catalogue ids
-  wallet?: number;                                 // bank balance
-  parts?: { have: number; carried?: number; stored?: number; label?: string };
-  capacity?: { max: number };
+  wallet?: number;                                 // bank balance (the only currency)
   removalFee?: number;
   body?: "male" | "female";
   clinic?: { name: string; doctor: string; tagline?: string };
@@ -27,7 +25,7 @@ interface OpenPayload {
 }
 interface Cyberware {
   id: string; name: string; section: string; icon: string; rarity: string; tier: number;
-  capacity: number; price: number; parts?: number; requires?: string; family?: string;
+  price: number; family?: string;                  // a family is one native slot: same family = replace
   maker: string; effect: string; lore: string; stats: { label: string; value: string }[];
 }
 ```
@@ -43,7 +41,7 @@ simulates the operations itself. Section ids: `frontal_cortex`, `ocular`, `arms`
 | `ui:ready` | — | Replays a pending `rd:open`. |
 | `rd:close` | `{}` | The patient left (Esc on the full body): focus back to the game, `op77_ripperdoc:closed` to the server. |
 | `rd:sound` | `{ name }` | Plays `web/media/sfx/<name>.mp3` with Play2DSound (one handle per slot). |
-| `rd:action` | `{ op: "install" \| "remove" \| "deposit", item }` | Relayed to the server (`op77_ripperdoc:action`), answered by `rd:result` then `rd:state`. `deposit` (item `"parts"`) hands the carried salvaged parts to the clinic. |
+| `rd:action` | `{ op: "install" \| "remove", item }` | Relayed to the server (`op77_ripperdoc:action`), answered by `rd:result` then `rd:state`. |
 
 ## Server
 
@@ -58,4 +56,4 @@ AddEventHandler("op77_ripperdoc:closed", function(playerId) end)                
 ```
 
 Console (restricted): `ripperdoc.open <playerId> [male|female]`, `ripperdoc.close <playerId>`,
-`ripperdoc.action <playerId> <install|remove|deposit> <item|parts>` (the page's request, for support).
+`ripperdoc.action <playerId> <install|remove> <item>` (the page's request, for support).

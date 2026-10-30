@@ -5,18 +5,14 @@
 -- Ownership is durable per character (lightrp_cyberware); effects are projected again on every
 -- load, switch and respawn:
 --   legs / arms -> Open77.cyberware durable implants (the platform's own record and receipts;
---                  money and parts are taken first and given back if the surgery fails)
+--                  the price is taken first and given back if the surgery fails)
 --   blades      -> Mantis Blades on the arm slot, drawn with their own key (armament steps aside)
 --   dash / slam / overdrive -> session grants (Open77.dash / abilities / reflex)
 --   passive     -> health/stamina maxima and regeneration, armor, fall damage
 --
 --   LightRP.cyberware.installed(playerId)  -> { [id] = true }
---   LightRP.cyberware.view(playerId)       -> the clinic payload (catalogue, installed, money, parts)
---   LightRP.cyberware.operate(playerId, op, itemId, done) -- op "install" | "remove" | "deposit"; done(ok, message)
---
--- Salvaged parts weigh 2 kg (20 at most in a pocket) while chrome needs up to 80: the clinic keeps
--- each character's parts (lightrp_cyberware_parts), handed over in as many trips as it takes.
--- A surgery takes the clinic's stock first, then the pocket; a failed one refunds into the stock.
+--   LightRP.cyberware.view(playerId)       -> the clinic payload (catalogue, installed, bank balance)
+--   LightRP.cyberware.operate(playerId, op, itemId, done) -- op "install" | "remove"; done(ok, message)
 --   LightRP.cyberware.handlesLoadout(playerId) -> true while the Mantis Blades are drawn
 local C = LightRpCyberwareConfig
 local Db = LightRP.db
@@ -35,16 +31,7 @@ Db.schema([[
     )
 ]])
 
-Db.schema([[
-    CREATE TABLE IF NOT EXISTS lightrp_cyberware_parts (
-        identifier    VARCHAR(64) NOT NULL,
-        character_key VARCHAR(32) NOT NULL,
-        parts         INT         NOT NULL DEFAULT 0,
-        PRIMARY KEY (identifier, character_key)
-    )
-]])
-
-local state = {}        -- playerId -> { identifier, key, installed = {id=true}, stored, busy, drawn, baseline }
+local state = {}        -- playerId -> { identifier, key, installed = {id=true}, busy, drawn, baseline }
 local definitions = {}  -- "dash:basic" / "overdrive:street" / "slam" / "legs" / "arms" -> registered definition id
 
 local function log(fmt, ...) LightRP.log("cyberware: " .. fmt, ...) end
@@ -81,7 +68,8 @@ CreateThread(function()
             local settings = { inputKey = C.overdriveKey, presentation = "native" }
             for k, v in pairs(values) do settings[k] = v end
             local id = "lightrp.overdrive." .. preset
-            local result, why = Open77.reflex.define({ id = id, version = 1, profile = "reflex_overdrive", config = settings })
+            -- version 2: the default key moved from Z (AZERTY forward) to X
+            local result, why = Open77.reflex.define({ id = id, version = 2, profile = "reflex_overdrive", config = settings })
             if result and result.ok then definitions["overdrive:" .. preset] = id else log("overdrive %s refused: %s", preset, tostring(why)) end
         end
     end
@@ -108,12 +96,6 @@ local function installedList(st)
     return list
 end
 
-local function capacityUsed(st)
-    local used = 0
-    for _, item in ipairs(installedList(st)) do used = used + item.capacity end
-    return used
-end
-
 local function familyOf(st, family)
     for _, item in ipairs(installedList(st)) do if item.family == family then return item end end
 end
@@ -123,22 +105,6 @@ function Cyber.installed(playerId)
     local out = {}
     for id in pairs(st and st.installed or {}) do out[id] = true end
     return out
-end
-
-local function carriedParts(playerId)
-    local invId = LightRP.inventory and LightRP.inventory.playerId(playerId)
-    return invId and LightRP.inventory.count(invId, C.partsItem) or 0
-end
-
-local function storedParts(playerId)
-    local st = state[playerId]
-    return st and st.stored or 0
-end
-
-local function setStored(st, value)
-    st.stored = math.max(0, math.floor(value))
-    Db.run([[INSERT INTO lightrp_cyberware_parts (identifier, character_key, parts) VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE parts = VALUES(parts)]], { st.identifier, st.key, st.stored })
 end
 
 local function bankOf(playerId)
@@ -154,17 +120,13 @@ function Cyber.view(playerId)
         local stats = {}
         for i, pair in ipairs(item.stats or {}) do stats[i] = { label = pair[1], value = pair[2] } end
         catalogue[#catalogue + 1] = { id = item.id, name = item.name, section = item.section, icon = item.icon,
-            rarity = item.rarity, tier = item.tier, capacity = item.capacity, price = item.price, parts = item.parts,
-            requires = item.requires, family = item.family, maker = item.maker, effect = item.effect, lore = item.lore, stats = stats }
+            rarity = item.rarity, tier = item.tier, price = item.price, family = item.family, maker = item.maker, effect = item.effect, lore = item.lore, stats = stats }
     end
     for _, item in ipairs(installedList(st)) do
         installed[item.section] = installed[item.section] or {}
         table.insert(installed[item.section], item.id)
     end
-    local partsLabel = LightRpItems and LightRpItems[C.partsItem] and LightRpItems[C.partsItem].label or C.partsItem
-    local carried, stored = carriedParts(playerId), storedParts(playerId)
     return { live = true, catalogue = catalogue, installed = installed, wallet = bankOf(playerId),
-        capacity = { max = C.capacity }, parts = { have = carried + stored, carried = carried, stored = stored, label = partsLabel },
         removalFee = C.removalFee, busy = st ~= nil and st.busy ~= nil }
 end
 
@@ -435,31 +397,16 @@ end)
 local function refuse(done, text) done(false, text) return false end
 
 local function chargeOrFail(playerId, item)
-    local st = state[playerId]
-    local invId = LightRP.inventory.playerId(playerId)
-    if not invId then return false, "Your inventory is not ready." end
-    local stored, carried = st.stored or 0, LightRP.inventory.count(invId, C.partsItem)
-    if stored + carried < item.parts then return false, "Not enough salvaged parts." end
     local remove = C.payFrom == "cash" and LightRP.money.removeCash or LightRP.money.removeBank
     local paid, why = remove(playerId, item.price, "cyberware", "Cyberware: " .. item.name)
     if not paid then return false, why == "insufficient_funds" and "Not enough eurodollars in your bank account." or "Payment failed." end
-    -- the clinic's stock first, the pocket for the rest
-    local fromPocket = math.max(0, item.parts - stored)
-    if fromPocket > 0 and not LightRP.inventory.removeItem(invId, C.partsItem, fromPocket) then
-        local add = C.payFrom == "cash" and LightRP.money.addCash or LightRP.money.addBank
-        add(playerId, item.price, "refund", "Cyberware refund: " .. item.name)
-        return false, "Your salvaged parts could not be taken."
-    end
-    setStored(st, stored - (item.parts - fromPocket))
     return true
 end
 
--- A failed surgery: the money back, the parts kept by the clinic for the next try.
+-- A failed surgery: the money back.
 local function refund(playerId, item)
     local add = C.payFrom == "cash" and LightRP.money.addCash or LightRP.money.addBank
     add(playerId, item.price, "refund", "Cyberware refund: " .. item.name)
-    local st = state[playerId]
-    if st then setStored(st, (st.stored or 0) + item.parts) end
 end
 
 local function store(st, add, remove)
@@ -484,27 +431,13 @@ function Cyber.operate(playerId, op, itemId, done)
     local st, item = state[playerId], byId[itemId]
     if not C.enabled then return refuse(done, "The clinic is closed.") end
     if not st then return refuse(done, "Your character is not ready.") end
-    if not item and op ~= "deposit" then return refuse(done, "Unknown implant.") end
+    if not item then return refuse(done, "Unknown implant.") end
     if st.busy then return refuse(done, "An operation is already in progress.") end
     if not seated(playerId) then return refuse(done, "Lie down on the operating chair first.") end
     if not alive(playerId) then return refuse(done, "Not now.") end
 
-    if op == "deposit" then
-        local invId = LightRP.inventory.playerId(playerId)
-        local carried = invId and LightRP.inventory.count(invId, C.partsItem) or 0
-        if carried <= 0 then return refuse(done, "You carry no salvaged parts.") end
-        if not LightRP.inventory.removeItem(invId, C.partsItem, carried) then return refuse(done, "Your parts could not be taken.") end
-        setStored(st, (st.stored or 0) + carried)
-        log("%d handed over %d parts (stock %d)", playerId, carried, st.stored)
-        done(true, ("%d salvaged parts handed over. The clinic keeps %d for you."):format(carried, st.stored))
-        return true
-    end
-
     if op == "remove" then
         if not st.installed[item.id] then return refuse(done, "This implant is not installed.") end
-        for _, other in ipairs(installedList(st)) do
-            if other.requires == item.id then return refuse(done, "Remove " .. other.name .. " first.") end
-        end
         local paid = LightRP.money.removeBank(playerId, C.removalFee, "cyberware", "Implant removal: " .. item.name)
         if not paid then return refuse(done, "The removal costs " .. LightRP.money.format(C.removalFee) .. ".") end
         st.busy = op
@@ -529,15 +462,9 @@ function Cyber.operate(playerId, op, itemId, done)
 
     if op ~= "install" then return refuse(done, "Unknown operation.") end
     if st.installed[item.id] then return refuse(done, "Already installed.") end
+    -- No limit: anything can be fitted. A family is one native slot (the arm slot, the legs, the
+    -- dash, the overdrive...): another model of it simply replaces the one installed.
     local replaced = familyOf(st, item.family)
-    if item.requires and not st.installed[item.requires] then
-        return refuse(done, "Requires " .. (byId[item.requires] and byId[item.requires].name or item.requires) .. " installed first.")
-    end
-    if replaced and replaced.id ~= item.requires and replaced.tier > item.tier then
-        return refuse(done, replaced.name .. " is a better model: remove it first.")
-    end
-    local used = capacityUsed(st) - (replaced and replaced.capacity or 0)
-    if used + item.capacity > C.capacity then return refuse(done, "Cyberware capacity exceeded.") end
     local charged, why = chargeOrFail(playerId, item)
     if not charged then return refuse(done, why) end
     st.busy = op
@@ -569,14 +496,12 @@ local function load(playerId, c)
     local previous = state[playerId]
     if previous and previous.drawn then sheathe(playerId, false) end
     if not c or not c.identifier then state[playerId] = nil return end
-    local st = { identifier = c.identifier, key = c.key, installed = {}, stored = 0, baseline = previous and previous.baseline }
+    local st = { identifier = c.identifier, key = c.key, installed = {}, baseline = previous and previous.baseline }
     if Db.ready then
         for _, row in ipairs(Db.query("SELECT item FROM lightrp_cyberware WHERE identifier = ? AND character_key = ?",
             { c.identifier, c.key }) or {}) do
             if byId[row.item] then st.installed[row.item] = true end
         end
-        local parts = Db.single("SELECT parts FROM lightrp_cyberware_parts WHERE identifier = ? AND character_key = ?", { c.identifier, c.key })
-        st.stored = parts and tonumber(parts.parts) or 0
     end
     state[playerId] = st
     CreateThread(function()
@@ -643,7 +568,7 @@ RegisterCommand("lightrp.cyberware", function(src, args)
     if verb == "list" then
         local names = {}
         for _, item in ipairs(installedList(st)) do names[#names + 1] = item.id end
-        return reply(("cyberware of %d: %s (capacity %d/%d)"):format(target, #names > 0 and table.concat(names, ", ") or "none", capacityUsed(st), C.capacity))
+        return reply(("cyberware of %d: %s"):format(target, #names > 0 and table.concat(names, ", ") or "none"))
     end
     if verb == "blades" then draw(target) return reply(("cyberware blades toggled for %d"):format(target)) end
     if verb == "status" then

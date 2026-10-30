@@ -23,27 +23,25 @@ export interface Cyberware {
   icon: string;            // media/icon/<icon>.webp
   rarity: Rarity;
   tier: number;            // 1..5
-  capacity: number;        // capacity points
+  capacity?: number;       // unused: no cyberware limit
   price: number;           // eurodollars
   maker: string;
   effect: string;
   lore: string;
   stats: { label: string; value: string }[];
-  parts?: number;          // salvaged parts the surgery needs
-  requires?: string;       // an implant that must be installed first (it is replaced)
-  family?: string;         // one implant per family: a better model replaces the lesser one
+  family?: string;         // one native slot: another model of the family replaces the installed one
 }
 
 const a = (mx: number, my: number, fx: number, fy: number) => ({ male: { x: mx, y: my }, female: { x: fx, y: fy } });
 
 export const SECTIONS: SectionDef[] = [
-  { id: "frontal_cortex", label: "Frontal Cortex", code: "FC-01", side: "left", slots: 3, locked: 1, anchor: a(0.5, 0.05, 0.53, 0.055),
+  { id: "frontal_cortex", label: "Frontal Cortex", code: "FC-01", side: "left", slots: 3, locked: 0, anchor: a(0.5, 0.05, 0.53, 0.055),
     blurb: "Memory, processing and the quiet voice that decides first." },
   { id: "ocular", label: "Ocular System", code: "OC-02", side: "left", slots: 1, locked: 0, anchor: a(0.5, 0.093, 0.53, 0.097),
     blurb: "Optics, zoom, threat tagging and low-light vision." },
   { id: "arms", label: "Arms", code: "AR-03", side: "left", slots: 1, locked: 0, anchor: a(0.24, 0.33, 0.29, 0.36),
     blurb: "Forearm housings: blades, wires, launchers, raw strength." },
-  { id: "skeleton", label: "Skeleton", code: "SK-04", side: "left", slots: 2, locked: 1, anchor: a(0.44, 0.27, 0.47, 0.28), still: true,
+  { id: "skeleton", label: "Skeleton", code: "SK-04", side: "left", slots: 2, locked: 0, anchor: a(0.44, 0.27, 0.47, 0.28), still: true,
     blurb: "Load-bearing frame, marrow and the plating bolted onto it." },
   { id: "nervous", label: "Nervous System", code: "NS-05", side: "left", slots: 3, locked: 0, anchor: a(0.5, 0.36, 0.53, 0.37), still: true,
     blurb: "Reflexes, reaction windows and signal speed." },
@@ -53,9 +51,9 @@ export const SECTIONS: SectionDef[] = [
     blurb: "Sandevistan, Berserk or a cyberdeck: the one chip that runs the rest." },
   { id: "face", label: "Face", code: "FA-08", side: "right", slots: 1, locked: 0, anchor: a(0.5, 0.115, 0.53, 0.12),
     blurb: "Jaw, mask and subdermal face plating." },
-  { id: "hands", label: "Hands", code: "HA-09", side: "right", slots: 2, locked: 1, anchor: a(0.9, 0.465, 0.83, 0.475),
+  { id: "hands", label: "Hands", code: "HA-09", side: "right", slots: 2, locked: 0, anchor: a(0.9, 0.465, 0.83, 0.475),
     blurb: "Grip, smart link and the tremor you will never have again." },
-  { id: "circulatory", label: "Circulatory System", code: "CS-10", side: "right", slots: 3, locked: 1, anchor: a(0.54, 0.245, 0.56, 0.25), still: true,
+  { id: "circulatory", label: "Circulatory System", code: "CS-10", side: "right", slots: 3, locked: 0, anchor: a(0.54, 0.245, 0.56, 0.25), still: true,
     blurb: "Heart, blood and the pumps that keep it moving under fire." },
   { id: "immune", label: "Immune System", code: "IM-11", side: "right", slots: 2, locked: 0, anchor: a(0.5, 0.315, 0.53, 0.33), still: true,
     blurb: "Toxin filters, pain editors and shock countermeasures." },
@@ -174,9 +172,6 @@ export const CATALOGUE: Cyberware[] = [
     "Charged jump: hold to leap higher.", "Built to land on roofs.", [["Jump height", "+60%"]]),
 ];
 
-// The demo stock needs salvaged parts too (about one part per €$ 800).
-for (const item of CATALOGUE) item.parts ??= Math.max(4, Math.round(item.price / 800));
-
 export const CYBERWARE = Object.fromEntries(CATALOGUE.map((x) => [x.id, x])) as Record<string, Cyberware>;
 
 export interface Clinic { name: string; doctor: string; tagline?: string }
@@ -184,24 +179,20 @@ export interface Clinic { name: string; doctor: string; tagline?: string }
 export interface OpenPayload {
   live?: boolean;          // the server runs the operations (rd:action -> rd:result / rd:state)
   catalogue?: Cyberware[]; // the clinic's stock (server-owned); the demo catalogue otherwise
-  parts?: { have: number; carried?: number; stored?: number; label?: string };
   removalFee?: number;
   body?: Body;
   clinic?: Clinic;
   wallet?: number;
-  capacity?: { max: number };
   installed?: Record<string, string[]>;
   patient?: { name?: string; id?: string };
 }
 
 export const DEMO: Required<Omit<OpenPayload, "catalogue">> = {
   live: false,
-  parts: { have: 42, label: "Salvaged Parts" },
   removalFee: 250,
   body: "male",
   clinic: { name: "Viktor's Clinic", doctor: "Viktor Vektor", tagline: "Licensed // Watson // Kabuki" },
   wallet: 48250,
-  capacity: { max: 90 },
   installed: {
     frontal_cortex: ["ram_upgrade"], operating_system: ["sandevistan_c1"], ocular: ["kiroshi_basic"],
     hands: ["smart_link"], circulatory: ["biomonitor", "tyrosine_injector"], integumentary: ["subdermal_armor"],

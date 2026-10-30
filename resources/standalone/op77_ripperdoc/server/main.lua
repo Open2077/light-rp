@@ -56,7 +56,7 @@ RegisterNetEvent("op77_ripperdoc:action", function(p)
     if lastAction[pid] and t - lastAction[pid] < 0.5 then return end
     lastAction[pid] = t
     local op, item = p.op, p.item
-    if (op ~= "install" and op ~= "remove" and op ~= "deposit") or type(item) ~= "string" or #item > 64 or not item:match("^[%w_]+$") then return end
+    if (op ~= "install" and op ~= "remove") or type(item) ~= "string" or #item > 64 or not item:match("^[%w_]+$") then return end
     TriggerEvent("op77_ripperdoc:action", pid, { op = op, item = item, replace = type(p.replace) == "string" and p.replace or nil })
 end)
 
@@ -90,8 +90,8 @@ end, true)
 -- Staff / support: the same request the page sends (install / remove), answered like one.
 RegisterCommand("ripperdoc.action", function(_, args)
     local pid, op, item = playerId(args[1]), args[2], args[3]
-    if not pid or (op ~= "install" and op ~= "remove" and op ~= "deposit") or type(item) ~= "string" then
-        print("[ripperdoc] usage: ripperdoc.action <playerId> <install|remove|deposit> <item|parts>") return
+    if not pid or (op ~= "install" and op ~= "remove") or type(item) ~= "string" then
+        print("[ripperdoc] usage: ripperdoc.action <playerId> <install|remove> <item>") return
     end
     print(("[ripperdoc] console action %s %s for %d"):format(op, item, pid))
     TriggerEvent("op77_ripperdoc:action", pid, { op = op, item = item })

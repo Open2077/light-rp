@@ -18,6 +18,7 @@ kbd {
 /* --------------------------------------------------------------------------------------------
    Backdrop, room, floor */
 .rd-backdrop {
+  pointer-events: none;
   position: absolute; inset: 0;
   background:
     radial-gradient(38% 52% at 50% 46%, rgba(255, 204, 0, .10), transparent 70%),
@@ -27,6 +28,7 @@ kbd {
 }
 .rd-room { position: absolute; inset: 0; perspective: 1800px; perspective-origin: 50% 46%; --rx: 0deg; --ry: 0deg; --px: 0; --py: 0; }
 .rd-floor {
+  pointer-events: none; /* tilted towards the camera, it would sit in front of the bottom groups */
   position: absolute; left: -400px; right: -400px; top: 760px; height: 900px; transform-origin: 50% 0;
   transform: rotateX(78deg) translateZ(0) rotateZ(calc(var(--ry) * -.4));
   background:

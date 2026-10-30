@@ -1,6 +1,6 @@
 -- Cyberware on the client: the Mantis Blades key. The server (server/modules/cyberware.lua)
 -- checks the implant, draws or sheathes the blades and makes the armament step aside; Dash
--- (Ctrl), Ground Slam (G) and the Sandevistan (Z) are bound by their platform resources.
+-- (Ctrl), Ground Slam (G) and the Sandevistan (X) are bound by their platform resources.
 local KEY = { id = "lightrp.cyberware.blades", name = "Light RP: Mantis Blades (draw / sheathe)", key = "B" }
 
 CreateThread(function()

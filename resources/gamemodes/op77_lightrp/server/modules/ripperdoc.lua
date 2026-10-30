@@ -3,8 +3,8 @@
 -- him up, and a scene that ends another way closes it.
 --
 -- The clinic sells what server/modules/cyberware.lua knows: the page gets that catalogue, the
--- character's installed implants, bank balance and salvaged parts, and every install / removal
--- it asks for goes through LightRP.cyberware.operate (payment, parts, surgery, persistence).
+-- character's installed implants and bank balance, and every install / removal
+-- it asks for goes through LightRP.cyberware.operate (payment, surgery, persistence).
 local Ripperdoc = LightRP.module("ripperdoc", {})
 
 local C = {
@@ -37,7 +37,7 @@ end
 function Ripperdoc.isSeated(playerId) return seated[playerId] ~= nil end
 
 -- An install / removal asked by the page (relayed by op77_ripperdoc): the answer, then the
--- fresh state (installed list, balance, parts) once the surgery is over.
+-- fresh state (installed list, balance) once the surgery is over.
 AddEventHandler("op77_ripperdoc:action", function(playerId, p)
     playerId = tonumber(playerId)
     if not playerId or type(p) ~= "table" or not LightRP.cyberware then return end
