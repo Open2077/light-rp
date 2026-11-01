@@ -732,7 +732,11 @@ RegisterNetEvent("op77_map3d:influence", function(p)
     end
     influence = { enabled = p.enabled == true, zones = zones, levels = levels }
     send("map3d:influence", influence)
-    TriggerEvent("op77_map3d:influence", influence)
+    -- Other resources hear it under another name: a local TriggerEvent also reaches
+    -- RegisterNetEvent handlers, so re-raising "op77_map3d:influence" re-entered this
+    -- handler every tick, forever, and its three page sends flooded the WebUI pipe
+    -- until no interface could draw (no HUD, no chat) -- 2026-11-01.
+    TriggerEvent("op77_map3d:influenceChanged", influence)
 end)
 
 RegisterNetEvent("op77_map3d:waypoint", function(p) setWaypoint(type(p) == "table" and p.x and p or nil, "server") end)

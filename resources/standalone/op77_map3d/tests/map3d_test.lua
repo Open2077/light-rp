@@ -328,7 +328,10 @@ netHandlers["op77_map3d:influence"]({ enabled = true, levels = { { min = 1, id =
   zones = { { id = "z1", x = 10, y = 20, z = 3, radius = 120, count = 4, level = 2 }, { id = "bad", x = "?" } } })
 local inf = lastPage("map3d:influence")
 assert(inf and inf.enabled and #inf.zones == 1 and inf.zones[1].count == 4 and inf.levels[1].label == "QUIET", "invalid zones dropped")
-assert(lastEvent("op77_map3d:influence").zones[1].id == "z1", "other resources hear about them")
+assert(lastEvent("op77_map3d:influenceChanged").zones[1].id == "z1", "other resources hear about them")
+-- The runtime delivers a local TriggerEvent to RegisterNetEvent handlers too: the
+-- client must never re-raise the server's own event name (it looped forever).
+assert(lastEvent("op77_map3d:influence") == nil, "the server's event is not re-raised locally")
 exported.setInfluenceVisible(false)
 assert(lastPage("map3d:influenceVisible").visible == false)
 pageSent = {}
