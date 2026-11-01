@@ -69,7 +69,7 @@ local function step()
         local ok, state = pcall(Open77.screen.loadingState)
         if ok and type(state) == "table" then cover:native(state, now()) end
     end
-    apply(cover:update(now(), cover:hasTargets() and body() or {}))
+    apply(cover:update(now(), cover:needsBody() and body() or {}))
 end
 
 -- --------------------------------------------------------------- requests
