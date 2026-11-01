@@ -7,7 +7,11 @@
 --     carries a `target`, once the body stands within `targetRadius` of it, alive
 --     and grounded, for `targetStableMs`, with no native loading screen active;
 --   * the game's own loading screen is active (Open77.screen.loadingState), for
---     longer than `nativeDelayMs` (a cycle that ends at once is never covered).
+--     longer than `nativeDelayMs` (a cycle that ends at once is never covered),
+--     unless its state has not changed for `nativeStaleMs` while the body stands
+--     alive and grounded: the platform's respawn (LightRP places a joining
+--     character with kill + respawn) closes the game's loading screen without
+--     the client ever reporting the end, and the cover sat at ~39 % for 90 s.
 -- It then stays for `settleMs` more (the bar lands on 100 %), and never goes
 -- before `minVisibleMs` so that it reads as a loading screen, not a flash.
 LoadscreenCover = {}
@@ -21,6 +25,7 @@ M.defaults = {
     timeoutMs = 30000,          -- a request nobody releases
     maxTimeoutMs = 120000,
     nativeTimeoutMs = 90000,    -- a native cycle that never reports its end
+    nativeStaleMs = 4000,       -- ... let go sooner when the body is already up
     targetRadius = 4.0,
     targetStableMs = 800,
     expectedMs = 7000,          -- the page's estimate curve until real progress arrives
@@ -111,10 +116,12 @@ function M:native(state, now)
     local prev = self.nativeState
     if prev.revision and state.revision and state.revision < prev.revision then return end
     local active = state.active == true
+    local changed = prev.active ~= active or prev.revision ~= state.revision
     self.nativeState = {
         active = active,
         revision = state.revision,
         since = active and (prev.active and prev.since or now) or nil,
+        changedAt = changed and now or prev.changedAt,
         progress = (state.progressKnown and finite(state.progress)) and math.max(0, math.min(1, state.progress)) or nil,
     }
 end
@@ -127,7 +134,11 @@ function M:update(now, env)
     local cfg, actions = self.cfg, {}
     env = env or {}
     local native = self.nativeState
+    -- A native state that stopped changing while the body stands up is over.
+    local stale = native.changedAt ~= nil and (now - native.changedAt) >= cfg.nativeStaleMs
+        and env.alive == true and env.grounded == true
     local nativeActive = native.active and native.since ~= nil and (now - native.since) < cfg.nativeTimeoutMs
+        and not stale
     -- 1. close what is done
     for i = #self.requests, 1, -1 do
         local r = self.requests[i]
@@ -190,6 +201,11 @@ function M:update(now, env)
 end
 
 function M:active() return self.visible or #self.requests > 0 end
+-- The body is read only when something decides on it: a target, or a native
+-- cycle that may have ended unreported.
+function M:needsBody()
+    return self.nativeState.active == true or self:hasTargets()
+end
 function M:hasTargets()
     for _, r in ipairs(self.requests) do if r.target then return true end end
     return false

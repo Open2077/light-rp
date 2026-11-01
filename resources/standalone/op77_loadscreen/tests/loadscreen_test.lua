@@ -97,6 +97,30 @@ assert(kinds(c:update(300, {})) == "show")
 assert(kinds(c:update(C.defaults.nativeTimeoutMs, {})) == "complete")
 assert(kinds(c:update(C.defaults.nativeTimeoutMs + 700, {})) == "hide")
 
+-- a native cycle that stops changing while the body stands up is over (a respawn
+-- closes the game's loading screen without reporting it)
+c = C.new()
+local up = { position = { x = 0, y = 0, z = 0 }, alive = true, grounded = true }
+c:native({ active = true, revision = 1 }, 0)
+c:native({ active = true, revision = 2, progressKnown = true, progress = 0.39 }, 300)
+assert(kinds(c:update(300, up)) == "show,progress")
+c:native({ active = true, revision = 2, progressKnown = true, progress = 0.39 }, 2000) -- the same state, polled
+assert(kinds(c:update(4299, up)) == "", "4 s since the last change")
+assert(kinds(c:update(4300, up)) == "complete", "stale and standing: lifted")
+assert(kinds(c:update(4950, up)) == "hide")
+-- a moving bar keeps it up however long, and so does a body that is not up yet
+c = C.new()
+c:native({ active = true, revision = 1 }, 0)
+assert(kinds(c:update(300, up)) == "show")
+for t = 1000, 12000, 1000 do
+    c:native({ active = true, revision = 1 + t, progressKnown = true, progress = t / 20000 }, t)
+    assert(not kinds(c:update(t, up)):find("complete"), "progress still moving")
+end
+assert(kinds(c:update(15000, { alive = false })) == "", "a body not up keeps the cover")
+assert(kinds(c:update(15000, { alive = true, grounded = false })) == "", "in the air keeps it too")
+assert(kinds(c:update(16000, up)) == "complete")
+assert(c:needsBody() == false or c.nativeState.active == true)
+
 -- ---------------------------------------------------------------- client wiring
 local clock = 0
 local handlers, netHandlers, exported, threads = {}, {}, {}, {}
