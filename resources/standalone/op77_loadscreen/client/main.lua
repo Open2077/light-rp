@@ -51,6 +51,9 @@ local function apply(actions)
     end
 end
 
+-- The game's own loading screens (pristine load, teleports, respawns).
+local nativeAvailable = Open77.screen and type(Open77.screen.loadingState) == "function"
+
 local function body()
     local ok, s = pcall(Open77.character.state)
     if not ok or type(s) ~= "table" then return {} end
@@ -58,6 +61,14 @@ local function body()
 end
 
 local function step()
+    -- Read the native state every tick as well as on its events: the client does
+    -- not deliver `open77:loadingScreen:*` to server resources while the session
+    -- is still being swapped in, so the end of the join load never arrived and the
+    -- cover stayed up until nativeTimeoutMs (90 s) on the arrival, at 100 %.
+    if nativeAvailable then
+        local ok, state = pcall(Open77.screen.loadingState)
+        if ok and type(state) == "table" then cover:native(state, now()) end
+    end
     apply(cover:update(now(), cover:hasTargets() and body() or {}))
 end
 
@@ -83,7 +94,6 @@ exports("release", function(id) return closeCover(id ~= nil and tostring(id) or 
 exports("isActive", function() return cover:active() end)
 
 -- --------------------------------------------------------------- native loading screens
-local nativeAvailable = Open77.screen and type(Open77.screen.loadingState) == "function"
 if nativeAvailable then
     AddEventHandler("open77:loadingScreen:changed", function(state)
         cover:native(state, now())
