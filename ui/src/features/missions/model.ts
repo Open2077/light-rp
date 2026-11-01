@@ -1,4 +1,4 @@
-import type { MissionBoard, MissionDialogPayload, MissionQueueState, PartyState } from "@/bridge/protocol";
+import type { MissionBoard, MissionDialogPayload, MissionObjective, MissionQueueState, PartyState } from "@/bridge/protocol";
 
 /* Lua serialises an empty table as `{}`: every list of a mission snapshot and of
    the squad state becomes an array here, before anything renders it. */
@@ -12,7 +12,9 @@ export function normalizeMission(p: MissionDialogPayload): MissionDialogPayload 
 
 export function normalizeQueue(q: MissionQueueState | undefined): MissionQueueState | undefined {
   if (!q || typeof q !== "object" || !q.running) return q;
-  return { ...q, squad: list(q.squad) };
+  const objective = q.objective && typeof q.objective === "object"
+    ? { ...q.objective, checkpoints: q.objective.checkpoints ? list<NonNullable<MissionObjective["checkpoints"]>[number]>(q.objective.checkpoints) : undefined } : undefined;
+  return { ...q, squad: list(q.squad), objective };
 }
 
 export function normalizeParty(p: PartyState | undefined): PartyState | undefined {

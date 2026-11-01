@@ -235,11 +235,13 @@ local function reason(code, id, self, d, point)
     if self then return r[1]:format(what) end
     return r[2]:format(name(id), what)
 end
-local function eligible(id, point, d, radius)
+local function eligible(id, point, d, radius, test)
     if not LightRP.characters.isRegistered(id) then return false, "character" end
     if instanceOf[id] then return false, "mission" end
     local life = Open77.players.getLifeState(id)
     if life and life.phase ~= "alive" then return false, "down" end
+    -- an editor test run starts wherever its author stands, at any difficulty
+    if test then return bucketOf(id) == 0, "away" end
     if not Missions.unlocked(id, point, d) then return false, "tier" end
     if not near(id, point, radius) then return false, "away" end
     return true
@@ -319,10 +321,17 @@ local function squadView(inst)
     return list
 end
 
-local function instanceView(inst)
+local function instanceView(inst, viewer)
     local point, d = points[inst.point], diffOf(points[inst.point], inst.difficulty)
-    return { running = true, instance = inst.id, title = point.title, difficulty = d.label, difficultyId = d.id,
+    local view = { running = true, instance = inst.id, title = point.title, difficulty = d.label, difficultyId = d.id,
         endsInMs = math.max(0, inst.endsAt - now()), members = #inst.members, squad = squadView(inst) }
+    -- what the mission script wants on the HUD (objective, wave, out-of-zone countdown)
+    local script = scripts[inst.point]
+    if script and script.view then
+        local ok, objective = pcall(script.view, inst, viewer)
+        if ok then view.objective = objective else LightRP.log("missions: %s view failed: %s", inst.point, tostring(objective)) end
+    end
+    return view
 end
 
 -- Leaving a mission (done, failed or abandoned) puts the operator back on their
@@ -388,7 +397,10 @@ local function finish(inst, success, why)
     for slot, id in ipairs(inst.members) do
         instanceOf[id] = nil
         setMapJam(id, false)
-        if success then
+        if success and inst.test then
+            LightRP.notice(id, { kind = "success", title = "TEST RUN COMPLETE", durationMs = 10000,
+                body = point.title .. " · " .. d.label .. ". Editor test runs pay nothing and unlock nothing." })
+        elseif success then
             if LightRP.money then LightRP.money.addBank(id, d.payout, "mission", "Mission: " .. point.title .. " (" .. d.label .. ")") end
             reputation[id] = reputation[id] or { rep = 0, completed = 0 }
             reputation[id].completed = reputation[id].completed + 1
@@ -411,6 +423,12 @@ local function finish(inst, success, why)
         pushQueue(id)
     end
     LightRP.log("missions: %s %s (%s) %s%s", inst.id, point.title, d.label, success and "complete" or "failed", why and (": " .. why) or "")
+    if point.retired then
+        local busy = false
+        for _, other in pairs(instances) do busy = busy or other.point == point.id end
+        if not busy and points[point.id] == point then points[point.id] = nil end
+        return
+    end
     pushPoint(inst.point)
 end
 
@@ -441,6 +459,8 @@ function Missions.pushSquad(inst) for _, id in ipairs(inst.members) do pushQueue
 -- More time on the clock of a running mission (a script's own phases).
 function Missions.extend(inst, seconds) inst.endsAt = inst.endsAt + seconds * 1000; Missions.pushSquad(inst) end
 function Missions.register(pointId, script) scripts[pointId] = script end
+function Missions.unregister(pointId) scripts[pointId] = nil end
+function Missions.instances() local list = {}; for _, inst in pairs(instances) do list[#list + 1] = inst end; return list end
 
 -- One operator leaves a running mission (abandon, disconnect, character change).
 local function leaveInstance(id, why, goHome)
@@ -469,7 +489,7 @@ local function launch(lobby)
     -- last check: everyone still there
     for i = #lobby.members, 1, -1 do
         local m = lobby.members[i]
-        local ok = eligible(m.id, point, d, C.leash)
+        local ok = eligible(m.id, point, d, C.leash, lobby.test)
         if not ok then
             table.remove(lobby.members, i)
             queueOf[m.id] = nil
@@ -487,7 +507,7 @@ local function launch(lobby)
     lobbies[lobby.id] = nil
     instanceSeq = instanceSeq + 1
     local inst = { id = "mission:" .. instanceSeq, point = point.id, difficulty = d.id, bucket = C.bucketBase + instanceSeq,
-        members = {}, startedAt = now(), endsAt = now() + d.minutes * 60000, state = "running" }
+        members = {}, startedAt = now(), endsAt = now() + d.minutes * 60000, state = "running", test = lobby.test == true }
     instances[inst.id] = inst
     for slot, m in ipairs(lobby.members) do
         queueOf[m.id] = nil
@@ -581,7 +601,7 @@ end
 
 LightRP.stateProvider("missionQueue", function(id)
     local inst = instanceOf[id] and instances[instanceOf[id]]
-    if inst then return instanceView(inst) end
+    if inst then return instanceView(inst, id) end
     local lobby = queueOf[id] and lobbies[queueOf[id]]
     if not lobby then return false end
     local point, d = points[lobby.point], diffOf(points[lobby.point], lobby.difficulty)
@@ -787,6 +807,77 @@ end)
 
 -- ---------------------------------------------------------------------------
 -- Points
+
+-- A point added at runtime (the mission editor publishes them): replaces the one
+-- with the same id. A running instance keeps playing on the old definition's
+-- script state; its board, lobbies and interaction follow the new one.
+local function registerInteraction(point)
+    if not C.enabled then return end
+    LightRP.interaction("mission." .. point.id, { position = point.position, radius = 2.0, bucket = 0,
+        label = point.title, prompt = "Open the mission board", key = "E", marker = C.marker, ring = false,
+        blip = { sprite = "objective", title = point.title, description = point.type .. " · " .. point.location } })
+end
+function Missions.addPoint(point)
+    assert(type(point) == "table" and type(point.id) == "string" and type(point.difficulties) == "table" and #point.difficulties > 0
+        and type(point.start) == "table" and #point.start > 0 and type(point.position) == "table", "Invalid mission point")
+    local old = points[point.id]
+    if not old then order[#order + 1] = point.id end
+    points[point.id] = point
+    -- lobbies on a difficulty that no longer exists, or now too small, are dropped
+    for _, lobby in pairs(lobbies) do
+        if lobby.point == point.id then
+            local d = diffOf(point, lobby.difficulty)
+            if not d or #lobby.members > d.max then
+                for i = #lobby.members, 1, -1 do untag(lobby.members[i].id, point.title .. " changed: you are no longer tagged.") end
+            else evaluate(lobby) end
+        end
+    end
+    registerInteraction(point)
+    pushPoint(point.id)
+end
+function Missions.removePoint(pointId)
+    local point = points[pointId]
+    if not point then return false end
+    LightRP.removeInteraction("mission." .. pointId)
+    for _, lobby in pairs(lobbies) do
+        if lobby.point == pointId then
+            for i = #lobby.members, 1, -1 do untag(lobby.members[i].id, point.title .. " was withdrawn: you are no longer tagged.") end
+        end
+    end
+    for id, v in pairs(viewers) do
+        if v.point == pointId then TriggerClientEvent(E.net.mission, id, { session = v.session, closed = true }); viewers[id] = nil end
+    end
+    for i, key in ipairs(order) do if key == pointId then table.remove(order, i) break end end
+    local busy = false
+    for _, inst in pairs(instances) do busy = busy or inst.point == pointId end
+    if busy then point.retired = true else points[pointId] = nil end
+    return true
+end
+-- Launch a mission now for these players, without the board (the editor's test
+-- run). Members must be registered, alive, in the city and not on a mission.
+function Missions.launchNow(pointId, difficultyId, members)
+    local point = points[pointId]
+    local d = point and diffOf(point, difficultyId)
+    if not d then return false, "Unknown mission or difficulty." end
+    for _, id in ipairs(members) do
+        if instanceOf[id] then return false, name(id) .. " is already on a mission." end
+        if queueOf[id] then untag(id) end
+        if not LightRP.characters.isRegistered(id) then return false, "Finish your character first." end
+        if bucketOf(id) ~= 0 then return false, "Leave your current instance first." end
+    end
+    lobbySeq = lobbySeq + 1
+    local lobby = { id = "lobby:" .. lobbySeq, point = point.id, difficulty = d.id, members = {}, state = "countdown", forced = true, test = true }
+    for _, id in ipairs(members) do lobby.members[#lobby.members + 1] = { id = id } end
+    lobbies[lobby.id] = lobby
+    local min = d.min
+    d.min = 1
+    local ok, err = pcall(launch, lobby)
+    d.min = min
+    lobbies[lobby.id] = nil
+    if not ok then return false, tostring(err) end
+    for _, id in ipairs(members) do if instanceOf[id] then return true end end
+    return false, "Nobody could be launched."
+end
 
 for _, point in ipairs(C.points) do
     assert(type(point.id) == "string" and not points[point.id] and #point.difficulties > 0 and #point.start > 0, "Invalid mission point config")

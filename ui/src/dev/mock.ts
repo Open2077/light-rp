@@ -16,6 +16,7 @@ import { dealershipFixture } from "./dealershipFixture";
 import { missionMock } from "./missionFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
+import { missionEditorMock } from "@/features/missioneditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
 
 const ORIGINS = [
@@ -28,6 +29,7 @@ export function installMockBridge(): void {
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
   const safezones = safezonesMock(fire, params);
+  const missionEditor = missionEditorMock(fire, params);
   const armament = armamentMock(fire, params);
 
   const registered = params.get("registered") === "1";
@@ -120,6 +122,7 @@ export function installMockBridge(): void {
     emit(name, payload) {
       console.log("[mock] emit", name, payload);
       if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
+      if (name === PAGE_EVENTS.missionEditor) { missionEditor.receive(payload); return; }
       if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
       if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
       if (name === PAGE_EVENTS.ready) {
@@ -140,6 +143,7 @@ export function installMockBridge(): void {
             sources: { Head: "over", Face: "hidden", InnerChest: "outfit", OuterChest: "outfit", Legs: "outfit", Feet: "outfit" },
             hidden: { Face: "Items.Glasses_01_basic_01" }, slots: { ...state.worn.slots, Face: false } };
           safezones.boot();
+          missionEditor.boot();
           armament.boot();
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);

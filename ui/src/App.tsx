@@ -31,6 +31,8 @@ import { MissionSquadHud } from "@/features/missions/MissionSquadHud";
 import { RaidHud } from "@/features/missions/RaidHud";
 import { Medical } from "@/features/medical/Medical";
 import { Safezones } from "@/features/safezones/Safezones";
+import { MissionEditor } from "@/features/missioneditor/MissionEditor";
+import { MissionObjectiveHud } from "@/features/missions/MissionObjectiveHud";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -77,11 +79,13 @@ export function App() {
     <>
       <div className="gameplay-interface" hidden={customizationActive}>
       <ErrorBoundary name="safezones"><Safezones /></ErrorBoundary>
+      <ErrorBoundary name="mission-editor"><MissionEditor /></ErrorBoundary>
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
       <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
       <ErrorBoundary name="mission-squad"><MissionSquadHud /></ErrorBoundary>
+      <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
       <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>

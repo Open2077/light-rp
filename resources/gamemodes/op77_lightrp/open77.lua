@@ -27,6 +27,7 @@ dependencies {
 -- Downloaded by clients: never put credentials in shared/.
 shared_script "shared/events.lua"
 shared_script "shared/safezones.lua"
+shared_script "shared/mission_defs.lua"   -- authored missions: format + validation (editor, engine, page)
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
@@ -63,6 +64,8 @@ server_script "server/config/missions.lua"
 server_script "server/modules/parties.lua"
 server_script "server/modules/missions.lua"
 server_script "server/modules/mission_chimera.lua"
+server_script "server/modules/mission_engine.lua"  -- runtime of the authored missions
+server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
 server_script "server/config/job_runs.lua"
 server_script "server/config/delivery.lua"
 server_script "server/modules/job_runs.lua"
@@ -143,6 +146,8 @@ client_script "client/core/animations.lua"
 client_script "client/core/job_runs.lua"
 client_script "client/core/job_work.lua"
 client_script "client/core/raid.lua"
+client_script "client/core/mission_editor.lua"
+client_script "client/core/mission_run.lua"
 client_script "client/core/vehicle_context.lua"
 client_script "client/core/vehicle_customization.lua"
 client_script "client/main.lua"
@@ -202,7 +207,8 @@ permissions {
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks are NPCs
     "world.markers",        -- native 3D markers at rental desks and the raid's strike telegraphs
-    "world.debug",          -- staff-only draft boundary preview
+    "world.debug",          -- staff-only draft boundary preview, authored missions' perimeter walls
+    "world.query",          -- mission editor: place an element where the crosshair points (camera.aimRay)
     "ui.vanilla.map",       -- map blips on the interaction points
     "vehicles.read",        -- closest vehicle / seat for the L key
     "players.controls",     -- walk modes (Open77.movement.setWalkMode)
