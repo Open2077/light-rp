@@ -66,7 +66,9 @@ export function missionMock(params: URLSearchParams, fire: Fire) {
           { id: 301, name: "J. Okonkwo", citizen: "301", host: true, health: 100, maxHealth: 100, armor: 60, state: "alive" },
           { id: 7, name: "Vi Asada", citizen: "007", host: false, health: 72, maxHealth: 100, armor: 35, state: "alive" },
           { id: 87, name: "Kei Mori", citizen: "087", host: false, health: 0, maxHealth: 100, armor: 0, state: "down" },
-          { id: 132, name: "Rosa Vasquez", citizen: "132", host: false, health: 22, maxHealth: 100, armor: 10, state: "alive" }] } });
+          { id: 132, name: "Rosa Vasquez", citizen: "132", host: false, health: 22, maxHealth: 100, armor: 10, state: "alive" }],
+        // &objective=eliminate|waves|oob: an authored mission's tracker (mission_engine view)
+        objective: objectiveFixture(params.get("objective")) } });
     },
     handle(action: UiAction): boolean {
       switch (action.type) {
@@ -85,4 +87,11 @@ export function missionMock(params: URLSearchParams, fire: Fire) {
       return true;
     },
   };
+}
+
+function objectiveFixture(kind: string | null) {
+  if (!kind) return undefined;
+  if (kind === "waves") return { kind: "waves", phase: "intermission", enemiesLeft: 0, kills: 14, lives: 2, wave: 2, waves: 5, nextWaveInMs: 12000 };
+  return { kind: "eliminate", phase: "fight", enemiesLeft: 6, kills: 5, lives: 3, outOfBoundsMs: kind === "oob" ? 8000 : undefined,
+    checkpoints: [{ label: "Loading bay", reached: true, required: true }, { label: "Office stairs", reached: false, required: true }, { label: "Roof", reached: false, required: false }] };
 }

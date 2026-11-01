@@ -1,0 +1,46 @@
+/* Mission editor: the safe-zone keyboard shell, plus a legend and a crosshair in the world view. */
+.mission-editor .o77-rage__desc{max-height:130px}
+.mission-editor-hint{min-width:420px}
+.mission-editor-hint__legend{display:flex;justify-content:center;gap:12px;margin-top:7px;font-style:normal}
+.mission-editor-hint__legend em{font:10px var(--font-mono);letter-spacing:.05em;font-style:normal;color:var(--text-mid)}
+.mission-editor-hint__legend em::before{content:"";display:inline-block;width:8px;height:8px;margin-right:5px;vertical-align:-1px}
+.mission-editor-hint__legend .is-board::before{background:#f2f3f5}
+.mission-editor-hint__legend .is-start::before{background:#3ddc84}
+.mission-editor-hint__legend .is-spawn::before{background:#ff4d4d}
+.mission-editor-hint__legend .is-cpspawn::before{background:#ff9f1c}
+.mission-editor-hint__legend .is-checkpoint::before{background:#22d8e2}
+.mission-editor-hint__legend .is-wave::before{background:#d65bff}
+.mission-editor-crosshair{position:absolute;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%);pointer-events:none}
+.mission-editor-crosshair::before,.mission-editor-crosshair::after{content:"";position:absolute;background:var(--accent);box-shadow:0 0 4px #000}
+.mission-editor-crosshair::before{left:8px;top:0;width:2px;height:18px}
+.mission-editor-crosshair::after{left:0;top:8px;width:18px;height:2px}
+
+/* Build mode: crosshair in the tool's colour, aimed element above it, tool strip at the bottom. */
+.mission-build-crosshair{--tool:#ffcc00;position:absolute;left:50%;top:50%;width:26px;height:26px;transform:translate(-50%,-50%);pointer-events:none;
+  border:2px solid var(--tool);border-radius:50%;box-shadow:0 0 6px #000,inset 0 0 4px #000}
+.mission-build-crosshair::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:var(--tool)}
+.mission-build-aim{position:absolute;left:50%;top:calc(50% - 64px);transform:translateX(-50%);padding:5px 12px;background:#0d0d10e0;border-top:2px solid #fff;
+  text-align:center;pointer-events:none;white-space:nowrap}
+.mission-build-aim b{display:block;font:600 13px var(--font-core);color:#fff}
+.mission-build-aim span{display:block;margin-top:2px;font:9px var(--font-mono);letter-spacing:.1em;color:rgba(242,240,234,.6)}
+.mission-build{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);width:min(980px,calc(100vw - 40px));padding:10px 16px 8px;
+  background:#0d0d10ec;border-top:2px solid #ffcc00;box-shadow:0 14px 40px #000a;color:#f2f0ea;pointer-events:none}
+.mission-build header{display:flex;align-items:center;gap:10px}
+.mission-build__tag{padding:1px 8px;background:#ffcc00;color:#0b0b0d;font:600 10px var(--font-mono);letter-spacing:.16em}
+.mission-build header b{font:600 13px var(--font-core);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mission-build header em{margin-left:auto;font:10px var(--font-mono);letter-spacing:.1em;font-style:normal;color:#fff}
+.mission-build__tools{display:flex;gap:4px;margin:9px 0 0;padding:0;list-style:none}
+.mission-build__tools li{--tool:#fff;flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:5px 4px;border:1px solid rgba(242,240,234,.12);
+  font:10px var(--font-mono);letter-spacing:.06em;color:rgba(242,240,234,.55);text-transform:uppercase;white-space:nowrap}
+.mission-build__tools li svg{color:var(--tool);opacity:.6}
+.mission-build__tools li.is-on{border-color:var(--tool);background:color-mix(in srgb,var(--tool) 16%,transparent);color:#fff}
+.mission-build__tools li.is-on svg{opacity:1}
+.mission-build__help{margin:8px 0 0;font:13px var(--font-core);color:#fff}
+.mission-build__brush{margin:4px 0 0;font:11px var(--font-mono);letter-spacing:.03em;color:rgba(242,240,234,.75)}
+.mission-build__brush span{display:inline-block;min-width:58px;margin-right:6px;font-size:9px;letter-spacing:.14em;color:#ffcc00}
+.mission-build__feedback{margin:6px 0 0;padding:4px 8px;border-left:2px solid #8be04e;background:rgba(139,224,78,.08);font:12px var(--font-core);color:#d8f5c4}
+.mission-build__feedback.is-error{border-left-color:#e3303a;background:rgba(227,48,58,.1);color:#ffd7d9}
+.mission-build footer{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;padding-top:6px;border-top:1px solid rgba(242,240,234,.1);
+  font:9px var(--font-mono);letter-spacing:.1em;color:rgba(242,240,234,.55)}
+.mission-build footer kbd{margin-right:4px;padding:0 4px;border:1px solid rgba(242,240,234,.35);font:9px var(--font-mono);color:#fff}
+.mission-build__tip{margin-left:auto;color:#ffcc00}

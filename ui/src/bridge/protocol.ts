@@ -5,6 +5,7 @@ export const PAGE_EVENTS = {
   customization: "lightrp:ui:customization",
   armament: "lightrp:ui:armament",
   safezones: "lightrp:ui:safezones",
+  missionEditor: "lightrp:ui:missioneditor",
   support: "lightrp:ui:support",
   animationsAction: "lightrp:ui:animations:action",
   animationsState: "lightrp:ui:animations:state",
@@ -173,7 +174,15 @@ export interface PartyState {
 }
 export type MissionQueueState = false
   | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean }
-  | { running: true; instance: string; title: string; difficulty: string; difficultyId: string; endsInMs: number; members: number; squad: MissionSquadMember[] };
+  | { running: true; instance: string; title: string; difficulty: string; difficultyId: string; endsInMs: number; members: number; squad: MissionSquadMember[]; objective?: MissionObjective };
+/** An authored mission's progress for this operator (server/modules/mission_engine.lua view()). Countdowns are from the push. */
+export interface MissionObjective {
+  kind: "eliminate" | "waves"; phase: "staging" | "fight" | "intermission" | "wave" | "done";
+  enemiesLeft: number; kills: number; lives: number; startsInMs?: number;
+  wave?: number; waves?: number; nextWaveInMs?: number;
+  checkpoints?: Array<{ label: string; reached: boolean; required: boolean }>;
+  outOfBoundsMs?: number; respawnInMs?: number; spectating?: boolean;
+}
 /** The raid (server/modules/mission_chimera.lua view()), plus one-shot fields. */
 export interface RaidState {
   instance?: string; phase: "ready" | "launch" | "placing" | "intro" | "fight" | "victory" | "wipe" | "ended";
