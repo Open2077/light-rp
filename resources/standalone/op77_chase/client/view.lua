@@ -21,6 +21,21 @@ function V.clock(ms)
 end
 
 local function secs(ms) return ("%ds"):format(math.max(0, math.ceil((num(ms) or 0) / 1000))) end
+
+-- At most `max` bytes, cut on a UTF-8 boundary (the HUD would cut it anyway, maybe
+-- through what matters: a suffix is kept by cutting the name before it).
+local function fit(text, max)
+    text = tostring(text or "")
+    if #text <= max then return text end
+    local cut = max
+    while cut > 0 do
+        local b = text:byte(cut + 1)
+        if not b or b < 0x80 or b >= 0xC0 then break end
+        cut = cut - 1
+    end
+    return text:sub(1, cut)
+end
+V.fit = fit
 local function metres(m) m = num(m); return m and ("%d m"):format(math.floor(m + 0.5)) or "-" end
 
 local function modeLabel(mode, wanted)
@@ -85,7 +100,7 @@ local function duel(p)
     local score = ("%d - %d"):format(num(p.scoreSelf) or 0, num(p.scoreOpponent) or 0)
     local hud = {
         activity = p.activity or "chase.1v1", title = "NCPD Chase", phase = PHASE[state] or "running",
-        subtitle = duelRound(p) .. (p.opponentName and (" - vs " .. tostring(p.opponentName)) or ""),
+        subtitle = fit(duelRound(p) .. (p.opponentName and (" - vs " .. tostring(p.opponentName)) or ""), 80),
         stats = { { label = "Role", value = runner and "RUNNER" or (role == "cop" and "COP" or "-") }, { label = "Score", value = score } },
     }
     local left = num(p.remainingMs)
@@ -158,8 +173,8 @@ local function wantedScoreboard(p, teams)
     local rows = {}
     for _, row in ipairs(p.scoreboard) do
         if type(row) == "table" and row.name then
-            local name = tostring(row.name)
-            if row.left then name = name .. " (left)" end
+            local suffix = row.left and " (left)" or ""
+            local name = fit(row.name, 32 - #suffix) .. suffix
             rows[#rows + 1] = { name = name, self = row.self == true or nil,
                 values = { tostring(num(row.points) or 0), V.clock(row.runnerMs), tostring(num(row.arrests) or 0), tostring(num(row.assists) or 0) },
                 team = teams and (row.runner and 1 or 2) or nil }
@@ -206,7 +221,7 @@ local function wanted(p)
     local hud = {
         activity = WANTED, title = "Most Wanted", phase = PHASE[state] or "running",
         subtitle = runner and (roundText .. " - YOU RUN")
-            or (p.runnerName and ("%s - runner %s"):format(roundText, tostring(p.runnerName)) or roundText),
+            or (p.runnerName and fit(("%s - runner %s"):format(roundText, tostring(p.runnerName)), 80) or roundText),
     }
     local left = num(p.remainingMs)
     local playing = state == "placing" or state == "countdown" or state == "active"

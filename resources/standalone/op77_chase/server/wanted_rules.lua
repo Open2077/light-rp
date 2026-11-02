@@ -230,10 +230,9 @@ function R.step(round, t, now, sample)
     for _, c in pairs(cops) do if c.released and not c.down and not c.pos then known = false end end
     local graceMs = (t.escapeGraceSeconds or 12) * 1000
     if known and nearest >= (t.escapeDistance or 150) and round.shakeArmed then
-        local was = round.escapeMeter or 0.0
-        round.escapeMeter = was + (graceMs > 0 and (elapsed / graceMs) or 1.0)
+        if not round.escapeFilling then events[#events + 1] = { kind = "shake_started" } end
+        round.escapeMeter = (round.escapeMeter or 0.0) + (graceMs > 0 and (elapsed / graceMs) or 1.0)
         round.escapeFilling = true
-        if was <= 0.0 then events[#events + 1] = { kind = "shake_started" } end
         if round.escapeMeter >= 1.0 then
             round.escapeMeter, round.escapeFilling, round.shakeArmed = 0.0, false, false
             round.shakes = (round.shakes or 0) + 1
