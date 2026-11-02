@@ -668,6 +668,17 @@ local function startRenderer()
         end
     end)
 end
+-- The held piece follows the cursor every frame from the main loop; the
+-- animation thread walks pieces in slices and could lag it by several frames.
+local function moveHeldPiece()
+    local drag=active and active.drag
+    if not drag or not drag.moved or not pointerDown then return end
+    local board=Client.boards[active.id];local cache=board and renderCaches[tostring(board.id)]
+    local piece=cache and cache.pieces[drag.pieceId]
+    if not piece then return end
+    local p,direct=dragPose(board,drag.pieceId)
+    if p and direct then transformProp(piece,p,piece.yaw) end
+end
 local function renderPreview()
     local board=draft or (active and Client.boards[active.id])
     if not board then
@@ -832,7 +843,7 @@ applyState=function(payload)
             boardSound(board)
             if not Client.boards[board.id] then
                 LightRpInteract.setLocal("boardGames."..board.id,{position=board.position,radius=1.8,
-                    prompt=(board.kind=="chess" and "Chess" or board.kind=="connect4" and "Connect Four" or board.kind=="roulette" and "Roulette" or "Checkers").." — Play"},function()
+                    prompt=((LightRpBoardGames and LightRpBoardGames[board.kind] or {}).title or "Table").." — Play"},function()
                     if not Client.isActive() then request("join",{boardId=board.id}) end
                 end)
             end
@@ -970,6 +981,7 @@ function Client.start()
                 end
                 renderAllowed=allowed
                 for id in pairs(renderCaches) do if not allowed[id] then clearGeometry(id) end end
+                moveHeldPiece()
                 renderPreview()
                 if Client.isActive() then sendView(false) end
             end) end

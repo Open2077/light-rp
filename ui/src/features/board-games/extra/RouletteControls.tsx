@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Button, Panel } from "@/design/components";
 import { emit } from "@/bridge/open77";
 import { useStore } from "@/state/store";
-export interface ExtraState {
+import type { ExtraControlsProps } from "./registry";
+interface RouletteState {
   kind?: string;phase?: string;round?: number;yourStake?: number;status?: string;
   result?: {outcome:number;color:string;payouts?:Array<{gross:number}>};
 }
-export function TabletopExtraControls({game,ready}:{game:ExtraState;ready?:boolean}) {
+export function RouletteControls({game:state,ready}:ExtraControlsProps) {
+ const game=state as RouletteState;
  const [amount,setAmount]=useState(10),[bet,setBet]=useState('red');
  const cash=useStore(s=>s.state.money.cash);
  const action=(operation:string,data:Record<string,unknown>={})=>emit('lightrp:tabletop:action',{operation,data});

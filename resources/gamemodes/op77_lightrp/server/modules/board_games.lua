@@ -23,11 +23,11 @@ local function active(player)
 end
 local function extra(kind) return LightRP.tabletopExtra and LightRP.tabletopExtra.supports(kind) end
 local function newGame(kind,mode)
-    if extra(kind) then return LightRpTabletopExtraRules.new(kind,mode or "duel") end
+    if extra(kind) then return LightRP.tabletopExtra.new(kind,mode or "duel") end
     return LightRPBoardRules.new(kind)
 end
 local function ready(b)
-    if b.kind=="roulette" then
+    if LightRP.tabletopExtra and LightRP.tabletopExtra.openPlay(b.kind) then
         for _,id in pairs(b.players) do if active(id) and near(id,b,4) then return true end end
         return false
     end
@@ -94,13 +94,7 @@ local function push(player)
             if bucket==(b.bucket or 0) then
                 local inv=Inv.player(player)
                 local game=b.game
-                if extra(b.kind) then
-                    game=LightRpTabletopExtraRules.view(b.game)
-                    if b.kind=="roulette" then
-                        game.yourStake=0
-                        for _,bet in ipairs(b.game._money or {}) do if inv and bet.inventory==inv.id then game.yourStake=game.yourStake+bet.amount end end
-                    end
-                end
+                if extra(b.kind) then game=LightRP.tabletopExtra.view(b,inv) end
                 list[#list+1]={id=b.id,kind=b.kind,position=b.position,rotation=b.rotation,
                     owner=b.owner,owned=inv and inv.id==b.ownerInventory or false,
                     players=b.players,revision=b.revision,game=game,mode=b.mode or "duel",serverNow=extra(b.kind) and LightRP.tabletopExtra.now() or nil,
@@ -135,7 +129,7 @@ local function commitGame(b,game,queries,changes)
     end)
 end
 local function queueAI(b)
-    if b.kind=="roulette" then return end
+    if extra(b.kind) then return end
     if b.aiPending or b.busy or b.mode~="solo" or actor(b)~=0 then return end
     local token,revision,original={},b.revision,b.game
     local cancelled={}
@@ -349,16 +343,18 @@ CreateThread(function()
         if changed or refreshTick%5==0 then broadcast() end -- a lost part heals within 10 s
         for player in pairs(pushPending) do push(player) end
         for _,b in pairs(boards) do queueAI(b) end
+        local X=LightRP.tabletopExtra
         for _,b in pairs(boards) do
-            if b.kind=="roulette" and b.game.phase=="spinning" and not b.busy and LightRP.tabletopExtra.now()>=b.game.spin.endsAt then
+            local h=X and X.games[b.kind]
+            if h and h.due and not b.busy and h.due(b,X.now()) then
                 b.busy=true
                 local called,ok,why=pcall(function()
-                    local game=LightRpTabletopExtraRules.act(b.game,"white","settle",{nowMs=LightRP.tabletopExtra.now()})
-                    if game then return commitGame(b,game) end
+                    local game,queries=h.settle(b,X.now())
+                    if game then return commitGame(b,game,queries) end
                 end)
                 b.busy=nil
                 if called and ok then broadcast() end
-                if not called or (ok==false) then LightRP.log("roulette settlement failed board=%s: %s",b.id,tostring(called and why or ok)) end
+                if not called or (ok==false) then LightRP.log("%s settlement failed board=%s: %s",b.kind,b.id,tostring(called and why or ok)) end
             end
         end
     end
