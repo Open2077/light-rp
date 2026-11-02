@@ -19,6 +19,7 @@ LightRpShops = {
                 { name = "checkers_board", buy = 150, sell = 35 },
                 { name = "connect4_board", buy = 200, sell = 50 },
                 { name = "roulette_table", buy = 800, sell = 200 },
+                { name = "fortune_wheel", buy = 1200, sell = 300 },
                 { name = "water", buy = 8, sell = 2 },
                 { name = "burrito", buy = 18, sell = 5 },
                 { name = "noodles", buy = 24, sell = 6 },
