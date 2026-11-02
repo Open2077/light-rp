@@ -284,12 +284,12 @@ export type ArmamentHand = "right" | "left";
 export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "ammo" | "sync";
 export interface ArmamentWeapon {
   instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;
-  magazine?: number; capacity?: number;
+  magazine?: number; capacity?: number; ammo?: string; class?: string; dual?: boolean;
 }
 export interface ArmamentState {
   ready: boolean; busy: boolean; revision: number;
   right?: ArmamentWeapon; left?: ArmamentWeapon;
-  ammo: { pistol: { remaining: number; label: string } };
+  ammo: { pistol: { remaining: number; label: string; item?: string } } & Record<string, { remaining: number; label: string; item?: string } | undefined>;
   error?: string;
 }
 export interface ArmamentArgs { slot?: number; instanceId?: string; hand?: ArmamentHand; baseRevision?: number }
