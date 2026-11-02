@@ -305,11 +305,32 @@ local function launch(gig, members)
     return true
 end
 
+-- Where a player stands (`position` is nil after two idle seconds: the full read then).
+local function positionOf(id)
+    local p = Open77.players.position(id)
+    if p then return p end
+    local ok, read = pcall(Open77.players.get, id)
+    if ok and type(read) == "table" and type(read.position) == "table" then return read.position end
+end
+-- Distance to the meet point: horizontal metres, and whether the height is close enough
+-- (a point placed on a floor above or below the street still counts), or nil.
+local function meetDistance(id, point)
+    local p = point and positionOf(id)
+    if not p or bucketOf(id) ~= 0 then return nil end
+    local flat = math.sqrt((p.x - point.position.x) ^ 2 + (p.y - point.position.y) ^ 2)
+    return flat, math.abs(p.z - point.position.z) <= (C.meetHeight or 15)
+end
+local function atMeet(id, point)
+    local flat, level = meetDistance(id, point)
+    return flat ~= nil and level and flat <= C.meetRadius
+end
+Fixers.atMeet = atMeet
+
 -- Crew present at the meet point.
 local function present(gig)
     local point = pointOf(gig)
     local list = {}
-    for _, id in ipairs(gig.crew) do if point and Missions.near(id, point, C.meetRadius) then list[#list + 1] = id end end
+    for _, id in ipairs(gig.crew) do if point and atMeet(id, point) then list[#list + 1] = id end end
     return list
 end
 
@@ -402,7 +423,18 @@ local function onAction(playerId, a)
     if type(a) ~= "table" or a.source ~= "op77_lightrp" or type(a.ref) ~= "string" or not a.ref:match("^gig:") then return end
     local gig = gigOfRef(a.ref)
     if not gig then resolve(a.messageId, "Expired"); return end
-    local function answer(ok, msg) if msg then LightRP.result(playerId, ok, msg, "fixer." .. a.action) end end
+    -- The answer shows in the phone (a Neural-Link toast: the player pressed the button
+    -- there, and the LightRP notices sit behind it) and in the HUD; refusals are logged.
+    local function answer(ok, msg)
+        if not msg then return end
+        LightRP.result(playerId, ok, msg, "fixer." .. a.action)
+        neural(function() return exports.op77_neuralink:notify(playerId, ok and "GIG" or "GIG · NOT NOW", msg) end)
+        if not ok then
+            log("fixers: %s %s on gig %d refused: %s", name(playerId), tostring(a.action), gig.id, msg)
+            -- and the fixer says why, in the conversation (it stays written there)
+            text(gig, playerId, msg)
+        end
+    end
     if a.action == "accept" and a.messageId == gig.offerMessage then
         if playerId ~= gig.owner or gig.state ~= "offered" then return answer(false, "That offer is not yours anymore.") end
         local ok, why = free(playerId, true)
@@ -438,12 +470,18 @@ local function onAction(playerId, a)
     elseif a.action == "go" then
         if playerId ~= gig.owner then return answer(false, "Only " .. name(gig.owner) .. " says go.") end
         if gig.state ~= "accepted" then return answer(false, gig.state == "countdown" and "The countdown is running." or "That job is closed.") end
+        local point = pointOf(gig)
+        if not atMeet(playerId, point) then
+            local flat = meetDistance(playerId, point)
+            return answer(false, flat and string.format("Get to the meet point first: you're %d m away. Pin it from the brief.", math.floor(flat + 0.5))
+                or "Get to the meet point first (pin it from the brief).")
+        end
         local d = diffOf(gig)
         local here = present(gig)
         if #here < (d and d.min or 1) then
             return answer(false, string.format("%s needs %d operator(s) at the meet point (%d there).", d and d.label or "This job", d and d.min or 1, #here))
         end
-        if not Missions.near(playerId, pointOf(gig), C.meetRadius) then return answer(false, "Get to the meet point first.") end
+        log("fixers: %s says go on gig %d with %d operator(s) at the meet", name(playerId), gig.id, #here)
         startCountdown(gig, here, true)
     elseif a.action == "bail" then
         if gig.state == "running" then return answer(false, "You're on the job: /mission leave to abandon it.") end
