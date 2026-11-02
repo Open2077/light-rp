@@ -123,16 +123,16 @@ LightRpConfig = {
             -- roughly: map pixels -> world through a fit on the five gun stores (2-18 m),
             -- z from the 3D map's street network. To be moved onto each shop's counter in game.
             { id = "clothing_176", name = "Clothing Store // City Center", position = { x = -1896.40, y = 39.24, z = 14.53 } }, -- site marker 176, z from the nearest road (none within 30 m)
-            { id = "clothing_179", name = "Clothing Store // Heywood 1", position = { x = -1559.26, y = -297.02, z = 15.40 } }, -- site marker 179
-            { id = "clothing_185", name = "Clothing Store // Heywood 2", position = { x = -2444.19, y = -652.83, z = 12.67 } }, -- site marker 185, z from the nearest road (none within 30 m)
-            { id = "clothing_202", name = "Clothing Store // Pacifica", position = { x = -2484.87, y = -2504.32, z = 16.78 } }, -- site marker 202
-            { id = "clothing_206", name = "Clothing Store // Badlands", position = { x = 1221.67, y = -585.90, z = 32.52 } }, -- site marker 206
-            { id = "clothing_193", name = "Clothing Store // Santo Domingo 1", position = { x = -1015.14, y = -1533.33, z = 23.05 } }, -- site marker 193
-            { id = "clothing_210", name = "Clothing Store // Santo Domingo 2", position = { x = 262.39, y = -1462.87, z = 8.95 } }, -- site marker 210, z from the nearest road (none within 30 m)
-            { id = "clothing_134", name = "Clothing Store // Watson 1", position = { x = -1893.79, y = 2482.99, z = 18.00 } }, -- site marker 134, z from the nearest road (none within 30 m)
-            { id = "clothing_171", name = "Clothing Store // Watson 2", position = { x = -1120.81, y = 1747.83, z = 22.78 } }, -- site marker 171
-            { id = "clothing_794", name = "Clothing Store // Watson 3", position = { x = -1510.24, y = 1725.60, z = 18.00 } }, -- site marker 794
-            { id = "clothing_148", name = "Clothing Store // Westbrook 1", position = { x = -651.24, y = 1200.61, z = 32.54 } }, -- site marker 148
+            { id = "clothing_179", name = "Clothing Store // Heywood 1", position = { x = -1583.147827, y = -274.218903, z = -4.055000 } }, -- site marker 179, moved onto the shop in game
+            { id = "clothing_185", name = "Clothing Store // Heywood 2", position = { x = -2427.479492, y = -669.060669, z = 7.306526 } }, -- site marker 185, moved onto the shop in game
+            { id = "clothing_202", name = "Clothing Store // Pacifica", position = { x = -2467.025879, y = -2534.797607, z = 17.349373 } }, -- site marker 202, moved onto the shop in game
+            { id = "clothing_206", name = "Clothing Store // Badlands", position = { x = 1209.411865, y = -568.905518, z = 32.995987 } }, -- site marker 206, moved onto the shop in game
+            { id = "clothing_193", name = "Clothing Store // Santo Domingo 1", position = { x = -1015.802185, y = -1559.615234, z = 25.700897 } }, -- site marker 193, moved onto the shop in game
+            { id = "clothing_210", name = "Clothing Store // Santo Domingo 2", position = { x = 252.429825, y = -1473.184082, z = 9.500000 } }, -- site marker 210, moved onto the shop in game
+            { id = "clothing_134", name = "Clothing Store // Watson 1", position = { x = -1892.363403, y = 2493.874023, z = 18.647926 } }, -- site marker 134, moved onto the shop in game
+            { id = "clothing_171", name = "Clothing Store // Watson 2", position = { x = -1120.799194, y = 1754.370972, z = 33.791740 } }, -- site marker 171, moved onto the shop in game
+            { id = "clothing_794", name = "Clothing Store // Watson 3", position = { x = -1527.275513, y = 1691.166260, z = 18.701965 } }, -- site marker 794, moved onto the shop in game
+            { id = "clothing_148", name = "Clothing Store // Westbrook 1", position = { x = -645.631348, y = 1185.507202, z = 28.607452 } }, -- site marker 148, moved onto the shop in game
             { id = "clothing_159", name = "Clothing Store // Westbrook 2", position = { x = -219.67, y = -42.74, z = 7.00 } }, -- site marker 159, z from the nearest road (none within 30 m)
         },
     },
@@ -262,6 +262,10 @@ LightRpConfig = {
 
     spawn = {
         arrival = { name = "city", label = "City Center West", position = { x = -667.14, y = -382.61, z = 9.16 }, heading = 90.0 },
+        -- Where the first day's guide leaves the newcomer in Night City (and where a
+        -- character saved inside the arrival hall wakes up). The starter studio is
+        -- still given; its door is on the map. Unset: the guide takes them into it.
+        afterTutorial = { name = "after_tutorial", label = "Night City", position = { x = -1084.080322, y = -1531.998657, z = 25.779922 }, heading = -40.989071 },
         hospital = { name = "hospital", label = "Hospital", position = { x = -1355.739746, y = 1737.886597, z = 18.200012 }, heading = 0.0 },
         health = 1.0,          -- fraction of the maximum, as the life primitives expect
         graceMs = 4000,
