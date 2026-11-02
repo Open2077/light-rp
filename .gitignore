@@ -69,6 +69,11 @@
 !resources/standalone/op77_map3d/
 !resources/standalone/op77_map3d/**
 resources/standalone/op77_map3d/ui/node_modules/
+# NCPD Chase: the 1v1 cop/runner activity (Pursuit's rules) and its overlay.
+!resources/standalone/op77_chase/
+!resources/standalone/op77_chase/**
+!resources/standalone/op77_chase_hud/
+!resources/standalone/op77_chase_hud/**
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**

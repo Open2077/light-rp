@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NCPD Chase</title>
+  <link rel="stylesheet" href="hud.css">
+</head>
+<body>
+  <!-- The chase overlay: a band (role, clock, score, gap), the arrest / escape meter under
+       it, a hint line, and a centre card for the beats (countdown, round result, match
+       result). Everything is driven by app state pushed from client/main.lua. -->
+  <div id="hud" class="hud" hidden>
+    <div class="band" id="band">
+      <div class="cell role" id="roleCell"><div class="label">Role</div><div class="value" id="role">-</div></div>
+      <div class="cell"><div class="label" id="clockLabel">Time</div><div class="value" id="clock">-</div></div>
+      <div class="cell" id="scoreCell"><div class="label" id="roundLabel">Round</div><div class="value" id="score">0 - 0</div></div>
+      <div class="cell" id="sepCell" hidden><div class="label">Gap</div><div class="value" id="sep">-</div></div>
+    </div>
+    <div class="meter" id="meter" hidden>
+      <div class="caption"><span id="meterLabel">Arrest</span><span id="meterPct">0%</span></div>
+      <div class="track"><div class="fill" id="fill"></div></div>
+    </div>
+    <div class="hint" id="hint" hidden></div>
+    <div class="card" id="card" hidden>
+      <div class="kicker" id="cardKicker">NCPD Chase</div>
+      <div class="title" id="cardTitle"></div>
+      <div class="sub" id="cardSub"></div>
+    </div>
+  </div>
+  <div id="queue" class="queue" hidden>
+    <span class="dot"></span><b>NCPD CHASE</b><span id="queueText">Queued</span><span class="muted">/chase leave to cancel</span>
+  </div>
+  <script src="hud.js"></script>
+</body>
+</html>
