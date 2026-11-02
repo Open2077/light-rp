@@ -69,6 +69,9 @@
 !resources/standalone/op77_map3d/
 !resources/standalone/op77_map3d/**
 resources/standalone/op77_map3d/ui/node_modules/
+# Staff fireworks shows and server-wide announcements (opening night over The Crossing).
+!resources/standalone/op77_fireworks/
+!resources/standalone/op77_fireworks/**
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**
