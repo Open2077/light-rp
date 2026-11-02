@@ -329,6 +329,25 @@ exports("install", function(playerId)
     local result, err = Lines.setInstalled(playerId, true)
     return result ~= nil, err
 end)
+-- Another server resource asks for the implant (LightRP's first day skip). Installing
+-- writes the database, which an export may not wait for (export_yielded): this is an
+-- event, run on our own thread. The answer is op77_neuralink:implantChanged (true),
+-- sent by Lines.setInstalled, or op77_neuralink:installFailed (playerId, reason).
+AddEventHandler("op77_neuralink:requestInstall", function(playerId)
+    if type(playerId) ~= "number" then return end
+    CreateThread(function()
+        if Lines.isInstalled(playerId) then
+            TriggerEvent("op77_neuralink:implantChanged", playerId, true)
+            return
+        end
+        local called, result, err = pcall(Lines.setInstalled, playerId, true)
+        if not called or result == nil then
+            local reason = called and (err or "server_error") or "server_error"
+            Neural.log("requested install for player %d failed: %s", playerId, tostring(called and reason or result))
+            TriggerEvent("op77_neuralink:installFailed", playerId, reason)
+        end
+    end)
+end)
 exports("uninstall", function(playerId)
     if type(playerId) ~= "number" then return false, "invalid_player" end
     local result, err = Lines.setInstalled(playerId, false)

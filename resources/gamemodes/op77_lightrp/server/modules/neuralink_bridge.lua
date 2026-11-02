@@ -39,5 +39,11 @@ end
 local SEQUENCE_REST_MS = 12000
 AddEventHandler("op77_neuralink:implantChanged", function(playerId, installed)
     if installed ~= true or type(playerId) ~= "number" or not LightRP.tutorial then return end
+    -- A skipped first day asked for the implant itself: no sequence plays, it leaves now.
+    if LightRP.tutorial.onImplantFitted then LightRP.tutorial.onImplantFitted(playerId) end
     SetTimeout(SEQUENCE_REST_MS, function() LightRP.tutorial.onNeuralinkInstalled(playerId) end)
+end)
+AddEventHandler("op77_neuralink:installFailed", function(playerId, reason)
+    if type(playerId) ~= "number" or not (LightRP.tutorial and LightRP.tutorial.onImplantFailed) then return end
+    LightRP.tutorial.onImplantFailed(playerId, reason)
 end)

@@ -40,6 +40,7 @@
 .first-day__tick path { fill: none; stroke: #7fd38a; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: first-day-draw .35s .55s ease-out forwards; }
 .first-day__objective blockquote { margin: 0 20px 16px; padding: 12px 0 0; border-top: 1px solid #ffffff12; font-size: 12px; line-height: 1.7; color: #99a69c; }
 .first-day__objective blockquote span { display: block; color: #edce65; letter-spacing: .1em; font: 10px monospace; margin-bottom: 7px; }
+.first-day__skip { display: flex; align-items: center; gap: 8px; margin: 0 20px 14px; padding: 9px 12px; border: 1px solid #f4d65544; background: #f4d65512; color: #e9dfae; font: 600 12px 'Chakra Petch', sans-serif; letter-spacing: .04em; }
 .first-day__objective footer { display: flex; gap: 10px; justify-content: space-between; padding: 11px 20px; background: #ffffff05; font: 10px monospace; color: #85978c; }
 .first-day kbd { font: inherit; color: #eee0a0; }
 .first-day__curtain { position: absolute; inset: 0; background: #080e0c; transition: background 1.4s; }
@@ -50,6 +51,7 @@
 .first-day__opening em { font-style: normal; color: #f4d655; }
 .first-day__opening p { color: #c7cec7; font-size: 16px; }
 .first-day__opening-foot { position: absolute; bottom: 7vh; left: 8vw; right: 6vw; display: flex; align-items: center; justify-content: space-between; color: #adbbae; font: 11px monospace; letter-spacing: .08em; }
+.first-day__opening-actions { display: flex; align-items: center; gap: 12px; }
 .first-day__conversation { position: absolute; bottom: 6vh; left: 50%; transform: translateX(-50%); width: min(1000px,86vw); padding: 25px 34px 20px; background: linear-gradient(120deg,#0c1413f7,#111a15f2); border-top: 2px solid #f4d655; box-shadow: 0 12px 80px #0008; }
 .first-day__speaker { display: flex; align-items: center; gap: 16px; }
 .first-day__portrait { position: relative; display: grid; place-items: center; width: 46px; height: 46px; background: #f4d65519; color: #f4d655; font-size: 26px; }

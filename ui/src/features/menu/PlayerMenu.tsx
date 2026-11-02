@@ -209,9 +209,13 @@ export function PlayerMenu() {
 
   const tree = useMemo(() => {
     const nodes = buildTree(character, money, job, gang, jobRun, freecamKey);
+    // While the first day runs, leaving it is one choice away (the objective card points here).
+    const guide = nodes.root?.items.findIndex((i) => "id" in i && i.id === "tutorial") ?? -1;
+    if (tutorial?.active && guide >= 0) nodes.root!.items.splice(guide + 1, 0, {id:"tutorial-skip",type:"item",text:"Skip the tutorial",icon:"log-out",
+      description:"Leave the first day now: your Neural-Link is installed and you get your Kabuki starter studio, its door a short walk away. You can come back to the guide later."});
     if (staff.isStaff && nodes.root) nodes.root.items.splice(nodes.root.items.length - 2, 0, {id:"admin",type:"item",text:"Staff desk",icon:"shield",description:"LightRP administration and support cases."});
     return nodes;
-  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey]);
+  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;
@@ -224,6 +228,7 @@ export function PlayerMenu() {
     if (item.type === "submenu" && item.target && tree[item.target]) return setStack((s) => [...s, { key: item.target!, index: 0 }]);
     if (item.id === "briefing") { setWelcomeReplay(true); requestClose(); return; }
     if (item.id === "tutorial") { requestClose(); emit(PAGE_EVENTS.tutorial, { operation: "options" }); return; }
+    if (item.id === "tutorial-skip") { requestClose(); emit(PAGE_EVENTS.tutorial, { operation: "skip-ask" }); return; }
     if (item.id === "support" || item.id === "admin") { requestClose(); emit(PAGE_EVENTS.support, {operation:"open",scope:item.id === "admin" ? "staff" : "player"}); return; }
     if (item.id === "animations") { requestClose(); emit(PAGE_EVENTS.animationsAction, { action: "open" }); return; }
     if (item.id === "freecam") { requestClose(); emit(PAGE_EVENTS.freecam, { operation: "toggle" }); return; }

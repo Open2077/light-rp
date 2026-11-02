@@ -129,13 +129,29 @@ voix et Alt sont détaillés dans le [guide d'intégration](docs/first-day-inter
    vrai paiement en banque, un seul lot par appui. Chaque site ne s'ouvre que
    pour l'étape du guide qui le demande (`Tutorial.allowsWork`) : ce n'est pas
    un revenu. Aucun métier n'est choisi dans le hall.
-13. Retourner voir Mara : elle ouvre la porte, le personnage arrive à City
-   Center West, dans le bucket de la ville, et Mara conclut par message.
+13. Retourner voir Mara : elle ouvre la porte, le personnage reçoit son studio de
+   départ à Kabuki (sa porte est sur la carte) et arrive au point
+   `spawn.afterTutorial` (`shared/config.lua`), une esplanade de Westbrook à
+   environ 115 m de cette porte, dans le bucket de la ville. Mara conclut par
+   message. Sans `spawn.afterTutorial`, il se réveille directement dans le studio.
+
+**Passer le premier jour.** Dès l'arrivée, l'écran d'ouverture propose **Skip
+the tutorial**. Ensuite, la carte d'objectif affiche en permanence **Press F1 to
+skip the tutorial** : tant que le guide tourne, le menu joueur (F1) porte l'entrée
+**Skip the tutorial**, juste sous **First day guide** (qui la propose aussi), et
+`/tutorial skip` fait de même. Une confirmation précède toujours le saut. Le serveur installe
+le Neural-Link s'il manque (événement `op77_neuralink:requestInstall`, l'implant
+reste obligatoire en ville), marque le guide terminé, puis fait exactement comme
+la fin normale (étape 13) : studio de départ donné, arrivée au point
+`spawn.afterTutorial`. Sauter le vestiaire du hall peut laisser le personnage dans
+les vêtements du créateur : l'armoire du studio, à deux pas, l'habille. Un joueur
+déjà en ville reste où il est. Seule la paie d'entraînement n'est pas gagnée ;
+l'argent et le sac de départ viennent de la création du personnage.
 
 **F1 → First day guide** permet de mettre en pause, reprendre ou revisiter le
 parcours. `/tutorial` reprend au dernier objectif, `/tutorial pause` laisse
-jouer librement et `/tutorial restart` rejoue tout le premier jour, scène
-d'ouverture comprise, pour un personnage existant. Les touches affichées suivent les raccourcis reconfigurés.
+jouer librement, `/tutorial skip` passe le premier jour et `/tutorial restart`
+rejoue tout le premier jour, scène d'ouverture comprise, pour un personnage existant. Les touches affichées suivent les raccourcis reconfigurés.
 
 Présentation (`LightRpTutorialConfig.reveal`, `ui/src/features/tutorial/`) :
 

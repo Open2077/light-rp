@@ -83,6 +83,18 @@ exports.op77_neuralink:install(playerId)            -- true | false, reason (a r
 exports.op77_neuralink:uninstall(playerId)          -- true | false, reason (ends a call in progress)
 ```
 
+`install` and `uninstall` write the database. An export may not wait for it: called
+from another resource they fail with `export_yielded`. From another resource, ask
+with an event instead; it runs on this resource's own thread:
+
+```lua
+TriggerEvent("op77_neuralink:requestInstall", playerId)
+-- answer: "op77_neuralink:implantChanged" (playerId, true)
+--      or "op77_neuralink:installFailed"  (playerId, reason)
+```
+
+LightRP's first day skip uses it (`server/modules/tutorial.lua`, `neuralink_bridge.lua`).
+
 Client:
 
 ```lua

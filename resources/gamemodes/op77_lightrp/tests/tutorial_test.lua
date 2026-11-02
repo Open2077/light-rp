@@ -59,7 +59,14 @@ CreateThread=function() end
 -- op77_neuralink's export: the first day's implant step asks it
 local implant=false
 local closed=0
-exports={op77_neuralink={isInstalled=function(_,id) return implant end,closeInterface=function(_,id) closed=closed+1 end}}
+exports={op77_neuralink={isInstalled=function(_,id) return implant end,closeInterface=function(_,id) closed=closed+1 end,
+ -- an export may not wait for a database write: a skip must never install through one
+ install=function() error("export_yielded") end}}
+-- A skip asks op77_neuralink with an event; its answer comes back later (neuralink_bridge).
+local installs,timers=0,{}
+TriggerEvent=function(name,id) if name=="op77_neuralink:requestInstall" then installs=installs+1 end end
+SetTimeout=function(_,fn) timers[#timers+1]=fn end
+local function expire() local due=timers;timers={};for _,fn in ipairs(due) do fn() end end
 dofile("server/modules/tutorial.lua")
 local function state() return providers.tutorial(1) end
 local function action(operation,extra)
@@ -218,6 +225,60 @@ failWrite=true;action("pause");assert(p.bucket==private and state().active,"a fa
 failWrite=false;action("pause");assert(p.bucket==0 and not next(cars) and not next(props),"pausing leaves the private lesson and follows the normal city exit")
 action("resume");assert(p.bucket==private and state().practice and cars[state().practice.vehicle].trunk,"resuming rebuilds the saved private checkpoint")
 assert(commands.tutorial(1,{"restart"}));assert(p.bucket==L.bucket and state().step=="intro" and not next(cars),"restarting returns to the shared intro")
+-- Skipping the first day, right after the creator: implant, studio, done.
+local function freshArrival()
+ rows={};implant=false;installs=0;T.onDisconnected(1);T.onCharacterLoaded(1,c)
+ assert(T.startFor(1,c,true) and state().step=="intro")
+ local a=L.arrival.position;p={x=a.x,y=a.y,z=a.z,bucket=L.bucket};life="alive"
+end
+freshArrival();timers={}
+life="dying";action("skip");assert(state().active and state().step=="intro" and installs==0,"no skip while not on one's feet")
+life="alive";local saved=p;p=nil;action("skip");p=saved;assert(state().active and installs==0,"no skip while the server has no position")
+action("skip");assert(installs==1 and state().active and state().step=="intro","no implant yet: it is asked for, the guide waits")
+action("skip");assert(installs==1,"a second click while waiting does not ask twice")
+T.onImplantFailed(1,"no_line");assert(state().active and state().step=="intro" and not implant,"a failed implant keeps the guide, nothing is half done")
+expire();assert(state().active,"the late timer of an answered request does nothing")
+action("skip");assert(installs==2,"after a failure the skip can be asked again")
+expire();assert(state().active and state().step=="intro","no answer: the wait ends, the guide stays")
+T.onImplantFitted(1);assert(state().active,"an implant nobody waits for any more does not skip")
+local studio,movedIn={},0
+LightRP.housing={starter={grant=function(pl) studio[#studio+1]=pl;return {id=7} end,moveIn=function() movedIn=movedIn+1;p={x=1,y=2,z=3,bucket=900};return {id=7} end}}
+placed={};action("skip");assert(installs==3 and state().active,"asked once more")
+T.onImplantFitted(1);assert(state().active,"the announcement alone is not enough: the implant must really be there")
+action("skip");assert(installs==4,"the stale wait was released")
+implant=true;T.onImplantFitted(1)
+assert(state().status=="done" and not state().active,"the implant fitted, the skip ends the guide")
+assert(studio[1]==1 and movedIn==0 and placed[1]==LightRpConfig.spawn.afterTutorial.name and p.bucket==0,"like the guide's end: the studio is given, the newcomer goes to the city point after the guide")
+assert(math.abs(p.x-LightRpConfig.spawn.afterTutorial.position.x)<0.01 and math.abs(p.y-LightRpConfig.spawn.afterTutorial.position.y)<0.01,"the same point as the guide's end")
+T.onImplantFitted(1);assert(#studio==1 and #placed==1,"a duplicate answer does nothing")
+assert(T.spawnPoint(1)==nil and T.deathPoint(1)==nil and not T.allowsWork(1,"collect"),"a skipped guide decides nothing")
+T.onDisconnected(1);T.onCharacterLoaded(1,c);assert(state().status=="done","the skip survives reconnect")
+action("skip");assert(installs==4 and state().status=="done","a skip packet without a guide does nothing")
+placed={};action("resume");assert(state().active and state().step=="meet" and placed[1]==L.arrival.name,"Mara is still there afterwards")
+-- Without a city point after the guide, the skip (like the guide's end) wakes them inside the studio.
+local cityPoint=LightRpConfig.spawn.afterTutorial;LightRpConfig.spawn.afterTutorial=nil
+freshArrival();implant=true;studio,movedIn={},0
+placed={};action("skip");assert(state().status=="done" and movedIn==1 and #studio==0 and #placed==0,"no city point: the newcomer wakes up in the studio")
+LightRpConfig.spawn.afterTutorial=cityPoint
+-- No studio (housing off): from the hall the door opens on the city; an installed implant leaves at once.
+freshArrival();implant=true;LightRP.housing=nil
+placed={};action("skip");assert(state().status=="done" and installs==0,"an implant in place is not asked for again")
+assert(placed[1]==LightRpConfig.spawn.afterTutorial.name and p.bucket==0,"without a studio the city's arrival")
+-- From the private Alt lesson: its car and crate are returned.
+rows={[rowkey("account","default")]={step="vehicle_open",status="active",revision=30}}
+T.onCharacterLoaded(1,c);p=hall("mechanic");T.onGameplayReady(1);assert(p.bucket==private and state().practice and next(cars))
+placed={};action("skip");assert(state().status=="done" and not next(cars) and not next(props) and p.bucket==0,"a skip leaves the private lesson clean")
+-- /tutorial skip does the same; a refused way out keeps the checkpoint and is retried by the command.
+freshArrival();refusePlace=true;local ok,said=commands.tutorial(1,{"skip"})
+assert(ok and said:find("Neural%-Link") and installs==1 and state().active,"the command says it is fitting the implant")
+implant=true;T.onImplantFitted(1);refusePlace=false
+assert(state().status=="done" and p.bucket==L.bucket,"a refused placement keeps the player in the hall, the guide done")
+ok,said=commands.tutorial(1,{"skip"});assert(ok and p.bucket==0 and placed[#placed]==LightRpConfig.spawn.afterTutorial.name,"/tutorial skip retries the door")
+freshArrival();ok=commands.tutorial(1,{"skip"});implant=true;T.onImplantFitted(1);assert(ok and state().status=="done","/tutorial skip from the arrival")
+-- A player who leaves while the implant is fitted takes the wait with them.
+freshArrival();action("skip");T.onDisconnected(1);T.onCharacterLoaded(1,c);implant=true;T.onImplantFitted(1)
+assert(state().active and state().step=="intro","a reconnect does not inherit an old skip")
+
 -- Checkpoints of the earlier guide (steps that no longer exist) still load.
 for old,new in pairs({employment="collect",shift="outro",whatever="meet"}) do
  rows={[rowkey("account","default")]={step=old,status="active",revision=4}};T.onDisconnected(1);T.onCharacterLoaded(1,c)
@@ -227,4 +288,4 @@ end
 changedDuringWrite=function() chars[1]={identifier="account",key="slot2",status="active"};T.onCharacterLoaded(1,chars[1]) end
 action("pause");assert(not state().active,"a yielded old save cannot take over the next character")
 Db.ready=false;T.onCharacterLoaded(1,chars[1]);assert(T.startFor(1,chars[1]),"no-DB mode never leaves a permanent loading lock")
-print("PASS: hall configuration, lifecycle, bucket/proximity/life gates, real action hooks (inventory, purchase, drink, practice collect/process/sell), hall <-> city placement, persistence, pause/resume, duplicates, slot races, legacy accounts")
+print("PASS: hall configuration, lifecycle, bucket/proximity/life gates, real action hooks (inventory, purchase, drink, practice collect/process/sell), hall <-> city placement, persistence, pause/resume, skip (implant, studio, city fallback, private lesson), duplicates, slot races, legacy accounts")

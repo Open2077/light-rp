@@ -4,6 +4,11 @@ The arrival-hall guide includes 13 chapters. Voice comes immediately after meeti
 Mara. The Alt lessons follow Rook's garage introduction, before the fuel station.
 Existing characters can use **F1 → First day guide** or `/tutorial restart`.
 `/tutorial` resumes the saved checkpoint; `/tutorial pause` pauses the guide.
+A newcomer who does not want the guide picks **Skip the tutorial** on the arrival
+screen (or **F1 → First day guide → Skip the first day**, or `/tutorial skip`):
+the implant is installed, the guide is marked done and they arrive where the
+guide's end leaves everyone (`spawn.afterTutorial`, near their Kabuki starter
+studio). See the README, "Passer le premier jour".
 
 ## Voice, at the player's pace
 

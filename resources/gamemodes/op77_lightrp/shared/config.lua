@@ -262,10 +262,11 @@ LightRpConfig = {
 
     spawn = {
         arrival = { name = "city", label = "City Center West", position = { x = -667.14, y = -382.61, z = 9.16 }, heading = 90.0 },
-        -- Where the first day's guide leaves the newcomer in Night City (and where a
-        -- character saved inside the arrival hall wakes up). The starter studio is
+        -- Where the first day's guide leaves the newcomer in Night City, at its end or
+        -- skipped (and where a character saved inside the arrival hall wakes up): a
+        -- Westbrook esplanade about 115 m from the starter studio's door. The studio is
         -- still given; its door is on the map. Unset: the guide takes them into it.
-        afterTutorial = { name = "after_tutorial", label = "Night City", position = { x = -1084.080322, y = -1531.998657, z = 25.779922 }, heading = -40.989071 },
+        afterTutorial = { name = "after_tutorial", label = "Night City", position = { x = -756.581, y = 777.257, z = 22.454 }, heading = 52.6 },
         hospital = { name = "hospital", label = "Hospital", position = { x = -1355.739746, y = 1737.886597, z = 18.200012 }, heading = 0.0 },
         health = 1.0,          -- fraction of the maximum, as the life primitives expect
         graceMs = 4000,
