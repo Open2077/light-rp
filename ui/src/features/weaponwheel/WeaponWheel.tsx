@@ -96,7 +96,7 @@ export function WeaponWheel() {
       else if (request) {
         performArmament("select", request);
         r.current.committedAt = Date.now();
-        setChosen(slot.key); emit(PAGE, { kind: "chosen" });
+        setChosen(slot.key); emit(PAGE, { kind: "chosen", unarmed: slot.kind === "unarmed" });
         say(slot.kind === "unarmed" ? { title: "HANDS EMPTY", text: "Weapons stowed in your pockets." } : { title: "IN HAND", text: slot.weapon!.label });
       }
       finish();

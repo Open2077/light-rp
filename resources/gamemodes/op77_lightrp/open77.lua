@@ -162,7 +162,7 @@ web_files { "web/**" }
 
 -- Pause menu branding: the server logo beside the OPEN//77 mark (client/core/branding.lua sets the accent).
 pause_menu_logo "assets/logo.png"
-files { "assets/logo.png", "assets/audio/cloudy-day.mp3", "assets/audio/raid_*.wav", "assets/audio/wheel_*.wav", "assets/audio/raid_ost.mp3" }
+files { "assets/logo.png", "assets/audio/cloudy-day.mp3", "assets/audio/raid_*.wav", "assets/audio/raid_ost.mp3" }
 
 permissions {
     -- both sides

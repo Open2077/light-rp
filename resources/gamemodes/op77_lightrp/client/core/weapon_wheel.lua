@@ -7,14 +7,27 @@ local PAGE = "lightrp:ui:weaponwheel"
 local Ui = LightRpUi
 local Wheel = { open = false, key = "CTRL" }
 LightRpWeaponWheel = Wheel
-local playing = {}
 local openedAt = 0
 
-local function sound(name, volume)
-    if not (Open77.audio and type(Open77.audio.play2D) == "function") then return end
-    if playing[name] then pcall(Open77.audio.destroy, playing[name]); playing[name] = nil end
-    local ok, id = pcall(Open77.audio.play2D, "assets/audio/wheel_" .. name .. ".wav", { volume = volume or 0.5 })
-    if ok and id then playing[name] = id end
+-- The game's own UI sounds (Wwise events, the game's mixer), posted like the vanilla
+-- menus post them: Open77.sfx.play2d (permission world.effects).
+local SFX = {
+    open = "ui_radial_menu_open",               -- the game's radial menu
+    hover = "ui_menu_hover",                    -- one slot to the next
+    equip = "ui_menu_item_weapon_equip",        -- a weapon chosen
+    unarmed = "ui_menu_item_weapon_unequip",    -- hands emptied
+    close = "ui_radial_menu_close",
+}
+Wheel.SFX = SFX
+local warned = false
+local function sound(name)
+    local event = SFX[name]
+    if not event or not (Open77.sfx and type(Open77.sfx.play2d) == "function") then return end
+    local ok, played, why = pcall(Open77.sfx.play2d, event)
+    if (not ok or played == false) and not warned then
+        warned = true
+        Ui.log("weapon wheel sound %s refused: %s", event, tostring(ok and why or played))
+    end
 end
 
 -- Nothing else may own the input, and the character must stand on its own feet.
@@ -36,7 +49,7 @@ local function close(commit, reason)
     Wheel.open = false
     if Ui.page and not Ui.menuOpen and not Ui.promptActive and not Ui.actionFocus then Ui.page:setFocus(false, false) end
     Ui.send(PAGE, { kind = commit and "commit" or "cancel", reason = reason })
-    if not commit then sound("cancel", 0.3) end
+    sound("close")
 end
 Wheel.close = close
 
@@ -49,15 +62,15 @@ local function openWheel()
     Ui.send(PAGE, { kind = "open", key = Wheel.key })
     -- the pockets may have changed since the last push (a purchase, a gift)
     if LightRpArmamentClient.refresh then LightRpArmamentClient.refresh() end
-    sound("open", 0.38)
+    sound("open")
 end
 Wheel.openWheel = openWheel
 
 function Wheel.bind(page)
     page:on(PAGE, function(p)
         if type(p) ~= "table" then return end
-        if p.kind == "hover" then sound("tick", 0.3)
-        elseif p.kind == "chosen" then sound("select", 0.5)
+        if p.kind == "hover" then sound("hover")
+        elseif p.kind == "chosen" then sound(p.unarmed == true and "unarmed" or "equip")
         elseif p.kind == "close" then close(p.commit == true, "page") end
     end)
     local key = LightRpConfig.keys.weaponWheel
