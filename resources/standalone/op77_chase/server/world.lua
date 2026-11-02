@@ -112,9 +112,12 @@ end
 local function flagsFor(spec)
     local flags = Open77 and Open77.vehicles and Open77.vehicles.flags
     if type(flags) ~= "table" then return nil end
-    local mask = flags.engineOn or 0
+    local mask = spec.engineOff and 0 or (flags.engineOn or 0)
     if spec.lightsOn then mask = mask | (flags.lightsOn or 0) end
     if spec.sirenOn then mask = mask | (flags.sirenOn or 0) end
+    -- Roadblock cars (Most Wanted): scenery nobody can take or shoot out of the way.
+    if spec.locked then mask = mask | (flags.locked or 0) end
+    if spec.immortal then mask = mask | (flags.immortal or 0) end
     return mask ~= 0 and mask or nil
 end
 
@@ -177,10 +180,26 @@ end
 function W.hud(id, payload) TriggerClientEvent("op77_chase:hud", id, payload) end
 function W.queueHud(id, payload) TriggerClientEvent("op77_chase:queue", id, payload) end
 
+-- Players whose client shows Light RP's activity HUD (it says so with op77_chase:hudFeed):
+-- their chase messages go to the HUD's feed instead of a notification. Everyone else
+-- (an older Light RP without the HUD, a queued player in the city) gets notifications.
+W.hudFeed = {}
+
+local TONES = { info = "info", success = "success", warning = "danger", error = "danger" }
+
 function W.notify(id, kind, message, durationMs, title)
+    if W.hudFeed[id] then
+        TriggerClientEvent("op77_chase:feed", id, { text = message, tone = TONES[kind or "info"] or "info", title = title })
+        return
+    end
     if type(Open77.notifications) ~= "table" or type(Open77.notifications.send) ~= "function" then return end
     pcall(Open77.notifications.send, id, { type = kind or "info", title = title or "NCPD Chase", message = message,
         durationMs = durationMs or 5000 })
+end
+
+-- A server-wide line from Light RP (op77_lightrp:announce, host-wide event).
+function W.announce(text, opts)
+    TriggerEvent("op77_lightrp:announce", text, opts or {})
 end
 
 -- The answer to a chat command (same channel as Light RP's own command replies).

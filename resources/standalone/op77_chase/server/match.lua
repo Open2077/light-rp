@@ -128,6 +128,7 @@ local function hudPayload(match, id, now, extra)
     local round = match.chase
     local role = match.roles[id]
     local payload = {
+        activity = cfg().activity.id,
         matchId = match.id, state = match.state, mode = match.mode, role = role,
         opponentName = other and displayName(match, other.id) or nil,
         round = match.round, roundCount = Chase.roundCount(match),
@@ -156,6 +157,11 @@ local function hudPayload(match, id, now, extra)
     end
     if m and m.boarding and (match.state == "countdown" or match.state == "active") then
         payload.boarding = m.boarding
+    end
+    -- The minimap would show the runner to the cop (op77_map3d, players within 350 m):
+    -- the client hides these players' dots while the chase lasts.
+    if role == "cop" and (cfg().minimap or {}).hideRunnerFromCops ~= false then
+        payload.hideDots = { roleId(match, "runner") }
     end
     if extra then for k, v in pairs(extra) do payload[k] = v end end
     return payload

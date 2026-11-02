@@ -68,12 +68,14 @@ local function stubs()
         end
     end
     _G.AddEventHandler = function(name, fn) env.handlers[name] = fn end
+    _G.RegisterNetEvent = function(name, fn) env.net = env.net or {}; env.net[name] = fn end
     _G.TriggerEvent = function(name, ...) env.events[#env.events + 1] = { name = name, args = table.pack(...) } end
     _G.RegisterCommand = function(name, fn, restricted) env.commands[name] = { fn = fn, restricted = restricted } end
     _G.GetCurrentResourceName = function() return "op77_chase" end
     _G.MySQL = nil
 
     ChaseWorld = {
+        hudFeed = {},
         now = function() return env.clock end,
         position = function(id) return env.pos[id] end,
         alive = function(id) if env.alive[id] == nil then return true end return env.alive[id] end,
@@ -208,6 +210,9 @@ do
     local cop1, runner1 = roleOf(match, "cop"), roleOf(match, "runner")
     assert(cop1 and runner1 and cop1 ~= runner1)
     assert(env.hud[cop1].state == "countdown" and env.hud[cop1].role == "cop" and env.hud[runner1].role == "runner")
+    assert(env.hud[cop1].activity == "chase.1v1", "the client knows which chase it draws")
+    assert(env.hud[cop1].hideDots and env.hud[cop1].hideDots[1] == runner1 and env.hud[runner1].hideDots == nil,
+        "the cop's minimap hides the runner; the runner's hides nobody")
     assert(noted(runner1, "RUNNER") and noted(cop1, "COP"))
 
     -- Round 1: GO, a stopped runner 10 m from the cop is busted in ~4 s.

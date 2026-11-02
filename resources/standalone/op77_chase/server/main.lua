@@ -54,7 +54,7 @@ AddEventHandler("onResourceStop", function(name)
         Chase.coreStopped(W.now())
         for _, entry in ipairs(Q.entries) do W.queueHud(entry.id, { queued = false }) end
         Q.reset()
-        ChaseCore.lastStatus = nil
+        ChaseCore.resetStatus()
     end
 end)
 
@@ -64,7 +64,9 @@ local noticeAt = {}
 
 local function pushQueue()
     for i, entry in ipairs(Q.entries) do
-        W.queueHud(entry.id, { queued = true, position = i, total = #Q.entries, mode = entry.mode })
+        -- busy: Light RP refuses him right now (another activity): the client leaves its HUD alone.
+        W.queueHud(entry.id, { activity = C.activity.id, queued = true, position = i, total = #Q.entries, mode = entry.mode,
+            busy = entry.notReadySince ~= nil or nil })
     end
 end
 
@@ -85,6 +87,10 @@ end
 -- Queue a player. `checked`: Light RP already ran activityCheck (the hub join).
 local function enqueue(id, mode, checked)
     if Chase.matchOf(id) then return false, "You are already in a chase." end
+    -- One chase queue at a time (server/wanted_main.lua owns the Most Wanted side).
+    if ChaseWantedMain and ChaseWantedMain.claims(id) then
+        return false, "You are already queued for Most Wanted. /wanted leave first."
+    end
     mode = Q.normalizeMode(mode)
     local position, total = Q.position(id)
     if position then return true, ("You are already queued (%d/%d)."):format(position, total) end
@@ -174,10 +180,20 @@ AddEventHandler("op77_lightrp:characterChanged", function(playerId)
     if id then dequeue(id) end
 end)
 
+-- The client says whether Light RP's activity HUD is up (client/main.lua): while it is,
+-- this player's chase messages go to its feed (ChaseWorld.notify). It only ever changes
+-- where this player's own messages are drawn.
+RegisterNetEvent("op77_chase:hudFeed", function(on)
+    local id = validId(source)
+    if id == nil then return end
+    W.hudFeed[id] = on == true or nil
+end)
+
 AddEventHandler("playerDropped", function()
     local id = validId(source)
     if id == nil then return end
     noticeAt[id] = nil
+    W.hudFeed[id] = nil
     dequeue(id)
     -- Light RP sends `dropped` for an owned player; this covers the order of the two.
     if Chase.matchOf(id) then Chase.dropped(id, W.now(), "disconnected") end
@@ -295,5 +311,11 @@ CreateThread(function()
         end
     end
 end)
+
+-- For server/wanted_main.lua: one chase queue at a time.
+ChaseMain = {
+    claims = function(id) return Q.has(id) or Chase.matchOf(id) ~= nil end,
+    dequeue = function(id, text) return dequeue(id, text) end,
+}
 
 log("loaded (%s, buckets %d-%d)", C.activity.id, C.buckets.from, C.buckets.to)

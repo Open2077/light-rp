@@ -222,9 +222,46 @@ do
     W.reply(3, "/chase", true, "ok"); W.reply(0, "chase.status", true, "console only")
     assert(env.client[1].name == "op77_chase:hud" and env.client[2].name == "op77_chase:queue")
     assert(env.client[3].name == "open77:command:result" and env.client[3].args[2] == true and #env.client == 3)
+    -- While the client shows Light RP's activity HUD, messages go to its feed instead.
+    env.client = {}
+    W.hudFeed[3] = true
+    W.notify(3, "warning", "Roadblock ahead!", 3000, "Most Wanted")
+    W.notify(7, "success", "to a notification")
+    assert(#env.client == 1 and env.client[1].name == "op77_chase:feed" and env.client[1].target == 3)
+    local item = env.client[1].args[1]
+    assert(item.text == "Roadblock ahead!" and item.tone == "danger" and item.title == "Most Wanted", "warning -> danger tone")
+    assert(#sent == 2 and sent[2].id == 7 and sent[2].n.title == "NCPD Chase")
+    W.notify(3, "info", "x"); assert(env.client[2].args[1].tone == "info")
+    W.hudFeed[3] = nil
+    W.notify(3, "info", "back to notifications"); assert(#sent == 3 and #env.client == 2)
+    -- A server-wide line through Light RP.
+    env.events = {}
+    W.announce("Most Wanted starts in 45s", { activity = "chase.wanted" })
+    assert(env.events[1].name == "op77_lightrp:announce" and env.events[1].args[1] == "Most Wanted starts in 45s"
+        and env.events[1].args[2].activity == "chase.wanted")
     Open77.notifications = nil
     W.notify(3, "info", "silent") -- no notifications resource: nothing, no error
     print("PASS world presentation")
 end
 
-print("PASS: op77_chase adapters (contract calls, raising exports, status dedupe, placement teleport/respawn/failures, cars + fallback + sweep, HUD/notify/reply)")
+-- ── ChaseCore: a second activity (Most Wanted) on the same adapter ──
+do
+    local C = ChaseCore
+    env.calls, env.events = {}, {}
+    env.answers.activityCheck = true
+    assert(C.check(7, "chase.wanted") == true and env.calls[1].args[2] == "chase.wanted")
+    env.answers.activityOwner = "chase.wanted"
+    assert(C.owned(7, "chase.wanted") and not C.owned(7))
+    C.result(7, { placement = 1 }, "chase.wanted")
+    assert(env.events[1].args[2] == "chase.wanted")
+    -- Statuses are deduplicated per activity: the same status for the other id still goes.
+    C.resetStatus()
+    local st = { phase = "idle", players = 0, queued = 0, joinable = true, detail = "x" }
+    assert(C.status(st) == true and C.status(st, false, "chase.wanted") == true)
+    assert(C.status(st) == false and C.status(st, false, "chase.wanted") == false)
+    C.resetStatus()
+    assert(C.status(st, false, "chase.wanted") == true, "Light RP restarted: sent again")
+    print("PASS core per activity")
+end
+
+print("PASS: op77_chase adapters (contract calls, raising exports, status dedupe per activity, placement teleport/respawn/failures, cars + fallback + sweep, HUD/feed/notify/announce/reply)")
