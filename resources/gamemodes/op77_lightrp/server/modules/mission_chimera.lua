@@ -146,7 +146,9 @@ local function spawnAdd(inst, raid, center)
                 position = position, yaw = yaw, bucket = inst.bucket,
                 aiMode = Open77.npcs.ai.native, damagePolicy = Open77.npcs.damage.mortal,
                 streamingRadius = 200, persistent = false, despawnWhenUnobserved = false,
-                loadout = { combat = { group = ADD_GROUP, acquirePlayers = true } },
+                -- their hits on the operators are server-owned: reported by the client that
+                -- owns them (client/core/raid.lua) and applied below, like an authored mission's
+                loadout = { combat = { group = ADD_GROUP, acquirePlayers = true, authoritativePlayerHits = true } },
                 behavior = { hitPricing = "platform", aiEnabled = true, combatEnabled = true },
             }
             if candidate.record then definition.record = candidate.record else definition.template = candidate.template end
@@ -748,6 +750,28 @@ RegisterNetEvent("op77_lightrp:raid:hit", function(npcId)
 end)
 
 -- A late arrival (reconnect into the page, a resource restart) asks for the state.
+-- A reinforcement hit an operator (the boss's own hits are applied by open77_chimera).
+-- Same checks and caps as an authored mission (Engine.applyNpcHit): the HUD health is
+-- the server's, and nothing else moved it.
+local function reinforcementHit(reporter, victimId, npcId, epoch, amount)
+    local victim, damage, reportedEpoch = tonumber(victimId), tonumber(amount), tonumber(epoch)
+    if not victim or not damage or damage ~= damage or damage <= 0 or not reportedEpoch then return false, "invalid" end
+    local inst = Missions.instanceOf(victim)
+    local raid = inst and raids[inst.id]
+    if not raid or raid.phase ~= "fight" then return false, "no_raid" end
+    local key
+    for id in pairs(raid.adds) do if tostring(id) == tostring(npcId) then key = id end end
+    if key == nil then return false, "not_a_reinforcement" end
+    local engine = LightRP.missionEngine
+    if not engine or type(engine.applyNpcHit) ~= "function" then return false, "engine_missing" end
+    return engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage)
+end
+LightRP.raidReinforcementHit = reinforcementHit
+RegisterNetEvent("op77_lightrp:raid:npcHit", function(victimId, npcId, epoch, amount)
+    local reporter = tonumber(source)
+    if reporter and reporter > 0 then reinforcementHit(reporter, victimId, npcId, epoch, amount) end
+end)
+
 RegisterNetEvent("op77_lightrp:raid:hello", function()
     local id = tonumber(source)
     local inst = id and Missions.instanceOf(id)

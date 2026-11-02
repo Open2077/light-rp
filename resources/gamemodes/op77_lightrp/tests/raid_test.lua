@@ -315,6 +315,20 @@ mockReserve = nil
 local adds = 0 for _ in pairs(npcs) do adds = adds + 1 end
 assert(adds == s.adds + s.addsPerOperator, "wave of " .. adds)
 assert(loopsOf(LightRpRaid.fx.drop) == adds, "a flare where every reinforcement drops")
+-- a reinforcement's hit on an operator goes through the authored missions' checks
+-- (Engine.applyNpcHit); the boss's own hits are open77_chimera's, anything else is refused
+local someAdd
+for npcId, n in pairs(npcs) do if n.def.loadout and n.def.loadout.combat.authoritativePlayerHits then someAdd = npcId end end
+assert(someAdd, "reinforcements opt into server-owned player hits")
+local applied = {}
+local engine = LightRP.missionEngine
+LightRP.missionEngine = { applyNpcHit = function(inst2, reporter, victim, key, epoch, damage)
+    applied[#applied + 1] = { inst = inst2, reporter = reporter, victim = victim, key = key, epoch = epoch, damage = damage }; return true end }
+assert(LightRP.raidReinforcementHit(1, "1", tostring(someAdd), "4", "12.5"))
+assert(#applied == 1 and applied[1].key == someAdd and applied[1].victim == 1 and applied[1].epoch == 4 and applied[1].damage == 12.5, "a reinforcement hit is applied")
+assert(not LightRP.raidReinforcementHit(1, "1", "boss-or-unknown", "4", "12.5") and #applied == 1, "not a reinforcement: refused")
+assert(not LightRP.raidReinforcementHit(1, "1", tostring(someAdd), "4", "-3") and #applied == 1, "a negative amount is refused")
+LightRP.missionEngine = engine
 assert(playedName(LightRpRaid.fx.phase[1]) and playedName(LightRpRaid.fx.phase[1]).opts.bucket == inst.bucket, "the phase change flashes on the machine")
 assert(any(1, "announce").title == "REINFORCEMENTS" or any(1, "announce").title == "ARMOR BREACHED")
 assert(last(1).boss.healthPercent == 74 and last(1).adds == adds)
