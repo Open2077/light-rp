@@ -378,16 +378,16 @@ if LightRP.command then LightRP.command("lightrp.netprobe", { restricted = true,
                 actAt=now+2000,seatTurn="white",turnEndsAt=now+22000,objects={},round=3,kind="blackjack",shoe={left=302,cut=false,total=312}},
             id="probe",position={x=0,y=0,z=0},owned=true,rotation=0,kind="blackjack",actor=player}
     end
-    local probes={
-        {id="uniform",cards={{t=now,c="6D"},{t=now+1,c="2H"}}},
-        {id="hetero",cards={{t=now,c="9C"},{h=true,t=now+1}}},
-        {id="subset",cards={{t=now,c="9C"},{t=now+1}}},
-        {id="boolobj",x={h=true}},
-        {id="boolarr",cards={{h=true}}},
-        {id="emptyobj",captured={},objects={}},
-        {id="sample",boards={sample({h=true,t=now+1300})}},
-        {id="sample_nohole",boards={sample({t=now+1300,c="9S"})}},
-    }
+    -- Depth ladder: depthN nests N tables below the payload (the event
+    -- arguments array adds one more level on the wire).
+    local function nested(depth) local t={v=1};for _=2,depth do t={a=t} end;return t end
+    local probes={}
+    for depth=4,10 do probes[#probes+1]={id="depth"..depth,n=nested(depth)} end
+    local noHands=sample({h=true,t=now+1300});noHands.game.hands={}
+    local noDealer=sample({h=true,t=now+1300});noDealer.game.dealer={total=9,soft=false}
+    probes[#probes+1]={id="sample",boards={sample({h=true,t=now+1300})}}
+    probes[#probes+1]={id="sample_nohands",boards={noHands}}
+    probes[#probes+1]={id="sample_nodealer",boards={noDealer}}
     for _,payload in ipairs(probes) do
         local ok,why=TriggerClientEvent("lightrp:boardGames:probe",player,payload)
         LightRP.log("board_games netprobe sent %s ok=%s %s",payload.id,tostring(ok),tostring(why))
