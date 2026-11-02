@@ -650,6 +650,9 @@ local function script(def)
             if not run.prepared then LightRP.log("mission %s: perimeter not prepared by the zone service, local maths used", inst.id) end
             inst.run = run
             sendVisuals(inst)
+            if inst.loadout and LightRP.armament and type(LightRP.armament.push) == "function" then
+                for _, id in ipairs(inst.members) do pcall(LightRP.armament.push, id) end
+            end
         end,
         onTick = function(inst)
             local run = inst.run

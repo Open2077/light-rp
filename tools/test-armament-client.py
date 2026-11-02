@@ -33,8 +33,13 @@ receive({kind="state",state={busy=false,ready=true,right={instanceId="serial"}}}
 assert(claims.Attack and not claims.Reload)
 LightRpControlClaims.set("safezones","Attack",false);assert(not claims.Attack)
 receive({kind="state",state={ready=false,right={instanceId="serial"}}});assert(claims.Attack)
+-- a mission kit (or drawn blades): the armament stands aside; a "not ready" state after a death
+-- must not gate the kit's fire, and the kit's two weapons switch natively
+receive({kind="state",state={ready=false,busy=false,standAside=true,right={instanceId="serial"}}})
+assert(not claims.Attack and not claims.Reload and not claims.WeaponWheel and not claims.NextWeapon, "standing aside: no gate")
+receive({kind="state",state={ready=false,right={instanceId="serial"}}});assert(claims.Attack and claims.WeaponWheel, "back from the mission: gated again")
 events.onClientResourceStop("op77_lightrp");assert(not claims.Attack and not claims.WeaponWheel and not claims.NextWeapon)
 for i=1,33 do page.handlers["lightrp:ui:armament"]({operation="sync",request="r"..i}) end
 assert(sent[#sent].ok==false and sent[#sent].request=="r33")
 ''')
-print('PASS: armament bridge caching, queue bound, and independent safezone/equipment input claims')
+print('PASS: armament bridge caching, queue bound, independent safezone/equipment input claims, standing aside for a mission kit')

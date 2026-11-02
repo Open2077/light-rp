@@ -18,7 +18,8 @@ end
 local function syncControls(state)
     if not LightRpControlClaims then return end
     local equipped = state and (state.right or state.left)
-    local blocked = state and (state.busy == true or (equipped and state.ready ~= true)) or false
+    -- standing aside (a mission kit, drawn blades): the native weapons are not ours to gate
+    local blocked = state and state.standAside ~= true and (state.busy == true or (equipped and state.ready ~= true)) or false
     for _, action in ipairs({"Attack", "Reload", "Grenade"}) do
         LightRpControlClaims.set("armament", action, blocked == true)
     end
@@ -57,7 +58,8 @@ RegisterNetEvent(NET, function(payload)
     if payload.kind == "response" and payload.ok and type(payload.data) == "table" and type(payload.data.state) == "table" then
         cached = {kind="state", state=payload.data.state}
     end
-    selectionControls(true)
+    -- a mission kit's two weapons switch natively (wheel/slots) while the armament stands aside
+    selectionControls(not (cached and cached.state and cached.state.standAside == true))
     if cached then syncControls(cached.state) end
     send(payload)
 end)

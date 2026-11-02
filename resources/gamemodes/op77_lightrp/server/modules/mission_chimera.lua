@@ -590,6 +590,8 @@ Missions.register(POINT, {
         raids[inst.id] = raid
         inst.loadout = true
         for _, id in ipairs(inst.members) do raid.loadouts[id] = C.loadouts[1].id end
+        -- the armament stands aside: its client stops gating the attack (armament.lua standAside)
+        if LightRP.armament and type(LightRP.armament.push) == "function" then for _, id in ipairs(inst.members) do pcall(LightRP.armament.push, id) end end
         LightRP.log("raid %s: ready check for %d operator(s), %s", inst.id, #inst.members, inst.difficulty)
         push(inst, raid, { sound = "raid_title" })
     end,

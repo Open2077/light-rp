@@ -66,6 +66,16 @@ local function arsenal(inv, s)
     return list
 end
 W.arsenal = arsenal
+-- A mission that hands out its own loadout (an authored mission's kit, the raid) or drawn
+-- Mantis Blades own the native slots: the armament stands aside, and its client must not
+-- gate the attack on an RP weapon state it is not maintaining. After a death in a mission
+-- the state stayed "not ready" (synchronize returns early while standing aside) and the
+-- kit could not fire (2026-11-02).
+function W.standsAside(player)
+    return (LightRP.missions and LightRP.missions.handlesLoadout and LightRP.missions.handlesLoadout(player))
+        or (LightRP.cyberware and LightRP.cyberware.handlesLoadout and LightRP.cyberware.handlesLoadout(player))
+        or false
+end
 function W.view(player)
     local rt=W.runtime[player];local inv=Inv.player(player)
     if not rt or not inv or not current(rt) then return {ready=false,busy=false,revision=0,ammo={pistol={remaining=0,label="Pistol rounds"}},error="Your character inventory is not ready."} end
@@ -73,7 +83,7 @@ function W.view(player)
     local stock={};for kind,spec in pairs(C.ammo) do stock[kind]={remaining=rounds(inv,kind),label=spec.label,item=spec.item} end
     return {inventoryId=inv.id,generation=rt.epoch,ready=Db.ready and rt.ready==true,busy=rt.busy==true and not rt.observing,revision=s and s.revision or 0,
         right=handState(rt,s,"right"),left=handState(rt,s,"left"),
-        ammo=stock,error=rt.error,holstered=rt.holstered==true,arsenal=arsenal(inv,s)}
+        ammo=stock,error=rt.error,holstered=rt.holstered==true,arsenal=arsenal(inv,s),standAside=W.standsAside(player)==true}
 end
 function W.push(player)
     local rt=W.runtime[player]
@@ -305,9 +315,8 @@ end
 -- A mission that hands out its own loadout (the raid) owns the native slots
 -- while it runs: no RP projection over it, no RP gate on its damage.
 local function missionLoadout(player)
-    return (LightRP.missions and LightRP.missions.handlesLoadout and LightRP.missions.handlesLoadout(player))
-        -- drawn Mantis Blades own the arm slot the same way (server/modules/cyberware.lua)
-        or (LightRP.cyberware and LightRP.cyberware.handlesLoadout and LightRP.cyberware.handlesLoadout(player))
+    -- drawn Mantis Blades own the arm slot the same way (server/modules/cyberware.lua)
+    return W.standsAside(player)
 end
 function W.synchronize(player,onlyObserve)
     if missionLoadout(player) then return true end
