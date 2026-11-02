@@ -100,6 +100,53 @@ local function allBlips()
     return list
 end
 
+-- ---------------------------------------------------------------------------
+-- Nearby player dots a resource keeps off the map (a chase hides the runner from the
+-- cops). owner -> true (every player) or { [tostring(playerId)] = true }; the union is
+-- hidden, and an owner's choice goes when it stops.
+
+local hiddenDots = {}
+local shownDots = {}   -- dot id -> player id, as the nearby loop last drew them
+
+local function dotHidden(pid)
+    if pid == nil then return false end
+    local key = tostring(pid)
+    for _, set in pairs(hiddenDots) do
+        if set == true or set[key] then return true end
+    end
+    return false
+end
+
+local function dropHiddenDots()
+    local gone = {}
+    for id, pid in pairs(shownDots) do
+        if dotHidden(pid) then gone[#gone + 1] = id; shownDots[id] = nil end
+    end
+    if #gone > 0 then send("map3d:blips", { remove = gone }) end
+end
+
+-- hidden = true: hide `ids` (server player ids), or every player when ids is nil;
+-- hidden = false: show again what this resource hid. Replaces this resource's choice.
+local function setPlayerDotsHidden(hidden, ids, owner)
+    if hidden ~= true then
+        hiddenDots[owner] = nil
+        return true
+    end
+    if ids == nil then
+        hiddenDots[owner] = true
+    elseif type(ids) == "table" then
+        local set = {}
+        for _, pid in ipairs(ids) do
+            if type(pid) == "number" or type(pid) == "string" then set[tostring(pid)] = true end
+        end
+        hiddenDots[owner] = next(set) and set or nil
+    else
+        return false, "ids must be a list of player ids"
+    end
+    dropHiddenDots()
+    return true
+end
+
 local function addBlip(def, owner)
     local b, why = B.normalize(def)
     if not b then return nil, why end
@@ -435,7 +482,6 @@ end)
 -- Other players around you.
 CreateThread(function()
     local cfg = C.nearbyPlayers or {}
-    local shown = {}
     while true do
         Wait(math.floor((cfg.interval or 1) * 1000))
         if pageReady and cfg.enabled and type(Open77.players.nearby) == "function" then
@@ -443,9 +489,10 @@ CreateThread(function()
             local now = {}
             if ok and type(list) == "table" then
                 for _, p in ipairs(list) do
-                    if not p.isLocal and type(p.position) == "table" then
+                    local pid = p.playerId or p.id
+                    if not p.isLocal and type(p.position) == "table" and not dotHidden(pid) then
                         local id = "player:" .. tostring(p.id or p.playerId)
-                        now[id] = true
+                        now[id] = pid
                         send("map3d:blip", { id = id, x = p.position.x, y = p.position.y, z = p.position.z or 0,
                             icon = "user", label = p.name or ("#" .. tostring(p.id or "?")), category = "player",
                             color = cfg.color, routable = true, scale = 0.85 })
@@ -453,9 +500,9 @@ CreateThread(function()
                 end
             end
             local gone = {}
-            for id in pairs(shown) do if not now[id] then gone[#gone + 1] = id end end
+            for id in pairs(shownDots) do if not now[id] then gone[#gone + 1] = id end end
             if #gone > 0 then send("map3d:blips", { remove = gone }) end
-            shown = now
+            shownDots = now
         end
     end
 end)
@@ -687,6 +734,7 @@ AddEventHandler("onClientResourceStop", function(name)
     end
     clearOwner(name)
     clearJams(name)
+    hiddenDots[name] = nil
 end)
 
 -- ---------------------------------------------------------------------------
@@ -793,6 +841,10 @@ exports("setInfluenceVisible", function(visible)
     send("map3d:influenceVisible", { visible = influenceShown })
     return true
 end)
+-- Nearby players' dots: true + ids hides those players, true alone hides them all,
+-- false shows again what the calling resource hid (README, "Player dots").
+exports("setPlayerDotsHidden", function(hidden, ids) return setPlayerDotsHidden(hidden, ids, caller()) end)
+exports("arePlayerDotsHidden", function(pid) return dotHidden(pid) end)
 exports("setMinimapVisible", function(visible)
     minimapVisible = visible ~= false
     send("map3d:minimap", { visible = minimapVisible })

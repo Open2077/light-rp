@@ -76,11 +76,9 @@ resources/standalone/op77_map3d/ui/node_modules/
 # (saved courses, best times) is operator state and stays ignored by the data/ rule.
 !resources/standalone/op77_race/
 !resources/standalone/op77_race/**
-# NCPD Chase: the 1v1 cop/runner activity (Pursuit's rules) and its overlay.
+# NCPD Chase: the 1v1 cop/runner activity (Pursuit's rules) and Most Wanted.
 !resources/standalone/op77_chase/
 !resources/standalone/op77_chase/**
-!resources/standalone/op77_chase_hud/
-!resources/standalone/op77_chase_hud/**
 # Turf War, the gang war activity (Light RP activity contract).
 !resources/standalone/op77_turf/
 !resources/standalone/op77_turf/**

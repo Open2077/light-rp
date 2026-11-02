@@ -4,18 +4,21 @@
 -- database). A synchronous export RAISES when the call fails (missing resource, missing
 -- export, callee error), so every call is wrapped and turned into `nil|false, reason`.
 --
---   ChaseCore.register(def)            activityRegister
---   ChaseCore.check(playerId)          activityCheck   -> true | false, reason (player-facing)
---   ChaseCore.enter(playerId)          activityEnter   -> true | false, reason
---   ChaseCore.leave(playerId, opts)    activityLeave   -> true | false, reason
---   ChaseCore.owner(playerId)          activityOwner   -> activityId | nil
---   ChaseCore.player(playerId)         activityPlayer  -> { name, identifier, characterKey } | nil
---   ChaseCore.result(playerId, result) "op77_lightrp:activity:result" (host-wide TriggerEvent)
---   ChaseCore.status(status)           "op77_lightrp:activity:status", only when it changed
-ChaseCore = { resource = "op77_lightrp", lastStatus = nil }
+-- This resource provides two activities (chase.1v1 and chase.wanted): every call takes
+-- the activity id last, and defaults to chase.1v1.
+--
+--   ChaseCore.register(def)                  activityRegister
+--   ChaseCore.check(playerId, aid?)          activityCheck   -> true | false, reason (player-facing)
+--   ChaseCore.enter(playerId, aid?)          activityEnter   -> true | false, reason
+--   ChaseCore.leave(playerId, opts, aid?)    activityLeave   -> true | false, reason
+--   ChaseCore.owner(playerId)                activityOwner   -> activityId | nil
+--   ChaseCore.player(playerId)               activityPlayer  -> { name, identifier, characterKey } | nil
+--   ChaseCore.result(playerId, result, aid?) "op77_lightrp:activity:result" (host-wide TriggerEvent)
+--   ChaseCore.status(status, force, aid?)    "op77_lightrp:activity:status", only when it changed
+ChaseCore = { resource = "op77_lightrp", lastStatus = {} }
 local C = ChaseCore
 
-local function activityId() return ChaseConfig.activity.id end
+local function activityId(aid) return aid or ChaseConfig.activity.id end
 
 local function log(fmt, ...)
     print(("[op77_chase] " .. fmt):format(...))
@@ -39,8 +42,8 @@ end
 
 -- The contract's reasons are player-facing sentences; a transport failure is not, so it
 -- becomes a generic sentence (and the log keeps the real reason).
-local function verdict(name, playerId, ...)
-    local ok, why = C.call(name, playerId, activityId(), ...)
+local function verdict(name, playerId, aid)
+    local ok, why = C.call(name, playerId, activityId(aid))
     if ok == true then return true end
     if ok == nil then
         log("%s(%s) failed: %s", name, tostring(playerId), tostring(why))
@@ -49,11 +52,11 @@ local function verdict(name, playerId, ...)
     return false, why or "You cannot join a chase right now."
 end
 
-function C.check(playerId) return verdict("activityCheck", playerId) end
-function C.enter(playerId) return verdict("activityEnter", playerId) end
+function C.check(playerId, aid) return verdict("activityCheck", playerId, aid) end
+function C.enter(playerId, aid) return verdict("activityEnter", playerId, aid) end
 
-function C.leave(playerId, opts)
-    local ok, why = C.call("activityLeave", playerId, activityId(), opts or { returnPlayer = true })
+function C.leave(playerId, opts, aid)
+    local ok, why = C.call("activityLeave", playerId, activityId(aid), opts or { returnPlayer = true })
     if ok ~= true then
         log("activityLeave(%s) refused: %s", tostring(playerId), tostring(why))
         return false, why
@@ -66,7 +69,7 @@ function C.owner(playerId)
     return type(owner) == "string" and owner or nil
 end
 
-function C.owned(playerId) return C.owner(playerId) == activityId() end
+function C.owned(playerId, aid) return C.owner(playerId) == activityId(aid) end
 
 function C.player(playerId)
     local info = C.call("activityPlayer", playerId)
@@ -74,16 +77,20 @@ function C.player(playerId)
     return info
 end
 
-function C.result(playerId, result)
-    TriggerEvent("op77_lightrp:activity:result", playerId, activityId(), result)
+function C.result(playerId, result, aid)
+    TriggerEvent("op77_lightrp:activity:result", playerId, activityId(aid), result)
 end
 
--- Sent on change only. `status` = { phase, players, queued, joinable, detail }.
-function C.status(status, force)
+-- Sent on change only, per activity. `status` = { phase, players, queued, joinable, detail }.
+function C.status(status, force, aid)
+    aid = activityId(aid)
     local key = ("%s|%d|%d|%s|%s"):format(tostring(status.phase), status.players or 0, status.queued or 0,
         tostring(status.joinable), tostring(status.detail))
-    if not force and key == C.lastStatus then return false end
-    C.lastStatus = key
-    TriggerEvent("op77_lightrp:activity:status", activityId(), status)
+    if not force and key == C.lastStatus[aid] then return false end
+    C.lastStatus[aid] = key
+    TriggerEvent("op77_lightrp:activity:status", aid, status)
     return true
 end
+
+-- Light RP restarted: it forgot every status; the next one is sent whatever it says.
+function C.resetStatus() C.lastStatus = {} end
