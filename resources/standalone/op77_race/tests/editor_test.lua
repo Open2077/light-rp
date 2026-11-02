@@ -55,7 +55,7 @@ H.test("name, laps, save; the course joins the catalogue", function()
     H.command("race.editor", 1, { "laps", "2" })
     local registrations = #H.coreCalls("activityRegister")
     H.command("race.editor", 1, { "save" })
-    H.eq(#H.coreCalls("activityRegister"), registrations + 3, "a saved course registers again (trial choices)")
+    H.eq(#H.coreCalls("activityRegister"), registrations + #RaceConfig.activities, "a saved course registers again (trial and vs AI choices)")
     local draft = Ed.sessions[1].draft
     H.ok(draft.id, "saved with an id")
     H.eq(draft.name, "Harbour Loop")

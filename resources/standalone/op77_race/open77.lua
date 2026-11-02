@@ -30,6 +30,7 @@ server_script "server/courses.lua"
 server_script "server/records.lua"
 server_script "server/activity.lua"
 server_script "server/engine.lua"
+server_script "server/bots.lua"
 server_script "server/lobby.lua"
 server_script "server/editor.lua"
 server_script "server/main.lua"
@@ -41,7 +42,9 @@ permissions {
     -- both sides
     "network.events",       -- state and queue to the racer, keys to the server, notifications
     -- server
-    "world.vehicles",       -- loaner cars: create, hold (flags), seat, forced exit, remove
+    "world.vehicles",       -- loaner cars: create, hold (flags), seat, forced exit, remove;
+                            --   bot cars: Open77.vehicles.ai (attachDriver, followRoute...)
+    "world.npcs",           -- bot drivers and runners (staff bot mode): create, tasks, remove
     "world.effects",        -- server: checkpoint firework (Open77.effects.play); client: sfx / vfx
     "players.teleport",     -- runners to the start line / last checkpoint; fallback return
     "players.life.read",    -- life state (death in a race, readiness)

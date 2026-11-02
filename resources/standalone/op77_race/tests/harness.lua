@@ -270,6 +270,7 @@ Open77.vehicles = {
     remove = function(id)
         if not H.vehicles[id] then return nil, "vehicle_not_found" end
         H.vehicles[id] = nil
+        if H.ai then H.ai[id] = nil end -- removing the car releases its AI controller
         H.vehicleLog[#H.vehicleLog + 1] = { op = "remove", id = id }
         return true
     end,
@@ -314,6 +315,131 @@ function H.drive(id, x, y, z)
     end
 end
 
+-- ---------------------------------------------------------------- bot natives --
+
+-- NPCs and the vehicle AI (bots). Installed by the tests that use them, BEFORE H.load:
+-- the AI event subscription happens when server/bots.lua loads.
+H.npcs, H.ai, H.aiHandlers, H.npcLog, H.aiLog = {}, {}, {}, {}, {}
+H.refuseRecords, H.refuseAttach = {}, false
+function H.installBotNatives()
+    local npcSequence, taskSequence = 0, 0
+    local function npcLog(op, id, extra) H.npcLog[#H.npcLog + 1] = { op = op, id = id, extra = extra } end
+    local function aiLog(op, id, extra) H.aiLog[#H.aiLog + 1] = { op = op, id = id, extra = extra } end
+    local function task(id, kind, target, opts)
+        local n = H.npcs[id]
+        if not n then return nil, "npc_not_found" end
+        taskSequence = taskSequence + 1
+        n.task = { id = taskSequence, kind = kind, target = target, opts = opts }
+        npcLog(kind, id, n.task)
+        return taskSequence
+    end
+    Open77.npcs = {
+        ai = { tasks = 0, frozen = 1, native = 2 },
+        damage = { mortal = 0, immortal = 1, invulnerable = 2 },
+        channels = { movement = 1, look = 2, action = 3, fullBody = 4 },
+        create = function(def)
+            if type(def.aiMode) ~= "number" or type(def.damagePolicy) ~= "number" then error("number expected, got string") end
+            if H.refuseRecords[def.record] then return nil, "npc_record_invalid" end
+            npcSequence = npcSequence + 1
+            local id = 7000 + npcSequence
+            H.npcs[id] = { id = id, record = def.record, x = def.position.x, y = def.position.y, z = def.position.z,
+                bucket = def.bucket, aiMode = def.aiMode, damagePolicy = def.damagePolicy, behavior = def.behavior,
+                simulator = 1 }
+            npcLog("create", id, def)
+            return id
+        end,
+        remove = function(id)
+            if not H.npcs[id] then return false end
+            H.npcs[id] = nil
+            npcLog("remove", id)
+            return true
+        end,
+        get = function(id)
+            local n = H.npcs[id]
+            if not n then return nil end
+            return { id = id, x = n.x, y = n.y, z = n.z, bucket = n.bucket, health = 100 }
+        end,
+        presence = function(id)
+            local n = H.npcs[id]
+            if not n then return nil, "npc_not_found" end
+            return { id = id, x = n.x, y = n.y, z = n.z, bucket = n.bucket, alive = true, authorityPlayerId = n.simulator }
+        end,
+        setBucket = function(id, bucket) if H.npcs[id] then H.npcs[id].bucket = bucket end return true end,
+        tasks = {
+            clear = function(id) if H.npcs[id] then H.npcs[id].task = nil; npcLog("clear", id) end return true end,
+            moveTo = function(id, position, opts) return task(id, "moveTo", position, opts) end,
+            patrol = function(id, points, opts) return task(id, "patrol", points, opts) end,
+        },
+    }
+    local function controller(id) return H.ai[id] end
+    Open77.vehicles.ai = {
+        attachDriver = function(vehicleId, opts)
+            if H.refuseAttach then return nil, "ai_attach_refused" end
+            if not H.vehicles[vehicleId] then return nil, "vehicle_not_found" end
+            if H.ai[vehicleId] then return nil, "ai_controller_conflict" end
+            H.ai[vehicleId] = { npcId = opts and opts.npcId or nil, status = "idle", routes = {}, stops = 0 }
+            aiLog("attach", vehicleId, opts)
+            return { vehicleId = tostring(vehicleId), status = "idle" }
+        end,
+        followRoute = function(vehicleId, opts)
+            local c = controller(vehicleId)
+            if not c then return nil, "ai_not_attached" end
+            if #opts.points < 1 or #opts.points > 64 then return nil, "invalid_points" end
+            c.routes[#c.routes + 1] = opts
+            c.route, c.status = opts, "running"
+            aiLog("route", vehicleId, opts)
+            return { vehicleId = tostring(vehicleId), status = "running" }
+        end,
+        driveTo = function(vehicleId, opts)
+            local c = controller(vehicleId)
+            if not c then return nil, "ai_not_attached" end
+            c.routes[#c.routes + 1] = opts
+            c.status = "running"
+            aiLog("driveTo", vehicleId, opts)
+            return { vehicleId = tostring(vehicleId), status = "running" }
+        end,
+        setBehavior = function(vehicleId, behavior)
+            local c = controller(vehicleId); if not c then return nil, "ai_not_attached" end
+            c.behavior = behavior; return { status = c.status }
+        end,
+        setSpeed = function(vehicleId, speed)
+            local c = controller(vehicleId); if not c then return nil, "ai_not_attached" end
+            c.speed = speed; return { status = c.status }
+        end,
+        state = function(vehicleId)
+            local c = controller(vehicleId); if not c then return nil end
+            return { vehicleId = tostring(vehicleId), status = c.status }
+        end,
+        stop = function(vehicleId)
+            local c = controller(vehicleId); if not c then return nil, "ai_not_attached" end
+            c.stops, c.status = c.stops + 1, "stopped"
+            aiLog("stop", vehicleId)
+            return { status = c.status }
+        end,
+        removeDriver = function(vehicleId)
+            if not H.ai[vehicleId] then return nil, "ai_not_attached" end
+            H.ai[vehicleId] = nil
+            aiLog("removeDriver", vehicleId)
+            return { status = "detached" }
+        end,
+        on = function(event, handler) H.aiHandlers[event] = handler; return true end,
+    }
+end
+
+-- An AI lifecycle event for this vehicle (the state carries string ids, as the runtime's).
+function H.aiEvent(event, vehicleId, extra)
+    local handler = H.aiHandlers[event]
+    if handler == nil then return false end
+    local state = { vehicleId = tostring(vehicleId) }
+    for key, value in pairs(extra or {}) do state[key] = value end
+    handler(state)
+    runReady()
+    return true
+end
+function H.placeVehicle(id, x, y, z) local v = H.vehicles[id]; v.x, v.y, v.z = x, y, z end
+function H.placeNpc(id, x, y, z) local n = H.npcs[id]; n.x, n.y, n.z = x, y, z end
+function H.count(map) local n = 0; for _ in pairs(map) do n = n + 1 end return n end
+
 -- ---------------------------------------------------------------- io --
 
 H.files = {}
@@ -347,6 +473,7 @@ H.core = {
     registered = {}, owner = {}, returns = {}, calls = {},
     eligible = {},          -- playerId -> false, reason (true by default)
     refuseRegister = false,
+    bots = false,           -- staff bot mode, as activityBots() answers it
 }
 local core = H.core
 local function call(name, ...) core.calls[#core.calls + 1] = { name = name, args = table.pack(...) } end
@@ -384,6 +511,10 @@ H.coreExports = {
         return true
     end,
     activityOwner = function(_, playerId) return core.owner[playerId] end,
+    activityBots = function()
+        call("activityBots")
+        return core.bots == true
+    end,
     activityPlayer = function(_, playerId)
         local p = H.players[playerId]
         if not p then return nil end
@@ -410,7 +541,7 @@ end
 H.SERVER = {
     "shared/config.lua", "shared/race.lua",
     "server/builtin_courses.lua", "server/courses.lua", "server/records.lua", "server/activity.lua",
-    "server/engine.lua", "server/lobby.lua", "server/editor.lua", "server/main.lua",
+    "server/engine.lua", "server/bots.lua", "server/lobby.lua", "server/editor.lua", "server/main.lua",
 }
 
 -- ---------------------------------------------------------------- asserts --

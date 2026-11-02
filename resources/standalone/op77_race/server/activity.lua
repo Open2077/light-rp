@@ -8,7 +8,8 @@
 -- missing, export_yielded...): every call is wrapped and turned into false, reason.
 local Config = RaceConfig
 
-RaceActivity = { registered = false }
+-- bots: the core's staff bot mode (activityBots() / op77_lightrp:activity:bots).
+RaceActivity = { registered = false, bots = false }
 local A = RaceActivity
 
 local byId, byKey = {}, {}
@@ -36,13 +37,16 @@ A.call = call
 function A.definition(activityId) return byId[activityId] end
 function A.mine(activityId) return type(activityId) == "string" and byId[activityId] ~= nil end
 
--- The time trial offers its courses as join choices in Light RP's Activities panel
--- (at most 8, handed back as options.course); street and rooftop races rotate theirs.
--- /timetrial <course> reaches every course.
+-- The time trial and the race vs AI offer their courses as join choices in Light RP's
+-- Activities panel (at most 8, handed back as options.course); street and rooftop races
+-- rotate theirs. /timetrial <course> and /race.join pve <course> reach every course.
+local function choosesCourse(def) return def.mode == "trial" or def.mode == "pve" end
+A.choosesCourse = choosesCourse
+
 local function courseChoices(def)
-    if def.mode ~= "trial" or type(RaceCourses) ~= "table" then return nil end
+    if not choosesCourse(def) or type(RaceCourses) ~= "table" then return nil end
     local modes = {}
-    for _, summary in ipairs(RaceCourses.list("trial")) do
+    for _, summary in ipairs(RaceCourses.list(def.mode)) do
         if #modes >= 8 then break end
         modes[#modes + 1] = { id = summary.id, label = summary.name }
     end
@@ -59,7 +63,7 @@ function A.registration(def)
         minPlayers = def.minPlayers,
         maxPlayers = def.maxPlayers,
         modes = courseChoices(def),
-        modeKey = def.mode == "trial" and "course" or nil,
+        modeKey = choosesCourse(def) and "course" or nil,
         caps = {
             rpWeapons = Config.caps.rpWeapons == true,
             rpItems = Config.caps.rpItems == true,
@@ -82,8 +86,27 @@ function A.register()
     end
     if all and not A.registered then log("activities registered with " .. Config.core) end
     A.registered = all
-    if all then lastStatus = {} end
+    if all then
+        lastStatus = {}
+        -- The bots event may have fired while we were down or before the core knew us.
+        A.readBots()
+    end
     return all
+end
+
+-- Staff bot mode. Off unless the core says on; a core without the export means off.
+-- Returns true when the value changed.
+function A.setBots(enabled, why)
+    enabled = enabled == true
+    if A.bots == enabled then return false end
+    A.bots = enabled
+    log(("bot mode %s (%s)"):format(enabled and "ON" or "off", tostring(why or "?")))
+    return true
+end
+
+function A.readBots()
+    local value = call("activityBots")
+    return A.setBots(value == true, "activityBots")
 end
 
 local function sentence(reason, fallback)

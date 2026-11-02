@@ -190,7 +190,7 @@ H.test("the core stops mid-race: racers sent back by us, registered again on its
     H.fire("onResourceStart", "op77_lightrp")
     H.advance(1000)
     H.ok(RaceActivity.registered)
-    H.eq(#H.coreCalls("activityRegister"), registrations + 3)
+    H.eq(#H.coreCalls("activityRegister"), registrations + #RaceConfig.activities)
 end)
 
 H.test("an ineligible player is told why and nothing starts", function()

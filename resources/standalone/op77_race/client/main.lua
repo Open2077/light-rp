@@ -14,7 +14,7 @@ local resultFor = nil      -- instance:run whose result card was pushed
 local hudShown = false     -- the activity HUD currently shows ours
 local keys = {}
 
-local LABEL = { trial = "Time Trial", grid = "Street Race", foot = "Rooftop Race" }
+local LABEL = { trial = "Time Trial", grid = "Street Race", foot = "Rooftop Race", pve = "Street Race vs AI" }
 -- The Activities panel lives in Light RP: /race opens it through Light RP's own
 -- validated UI action (server/modules/activities.lua, `activities.control`).
 local CORE_ACTION = "op77_lightrp:action"
@@ -118,8 +118,11 @@ local function raceHud(s)
             { label = "Record", value = s.recordMs and time(s.recordMs) or "-" } }
     else
         local place = placeOf(s, rows)
+        -- vs AI, a one-lap course has room for the personal best against the AI
+        local fourth = laps > 1 and { label = "Best lap", value = s.bestLapMs and time(s.bestLapMs) or "-" }
+            or s.mode == "pve" and { label = "Best vs AI", value = s.personalBestMs and time(s.personalBestMs) or "-" } or nil
         view.stats = { { label = "Position", value = place and ("%d/%d"):format(place, rows and #rows or s.racers or 1) or "-" },
-            checkpoint, lap, laps > 1 and { label = "Best lap", value = s.bestLapMs and time(s.bestLapMs) or "-" } or nil }
+            checkpoint, lap, fourth }
     end
     -- a list with holes would stop at the first nil
     local stats = {}
@@ -169,7 +172,8 @@ local function queueHud(q)
     }
     if type(q.windowMs) == "number" then
         view.timer = { remainingMs = math.floor(q.windowMs), label = "STARTS IN" }
-        view.objective = queued >= maximum and "Grid full" or "Grid forming. Others can still join."
+        view.objective = queued >= maximum and "Grid full"
+            or q.bots and "Grid forming. Bots fill the empty slots." or "Grid forming. Others can still join."
     else
         view.objective = ("Waiting for %s"):format(plural(math.max(1, minimum - queued), "more racer"))
     end
@@ -240,6 +244,15 @@ local function pushResult(s)
         if outcome.rank then line("Board", "#" .. tostring(outcome.rank)) end
     elseif rows then
         line("Racers", tostring(#rows))
+        if s.mode == "pve" and finished then
+            if outcome.personalBest then
+                line("Best vs AI", outcome.previousBestMs and ("New, was " .. time(outcome.previousBestMs)) or "New")
+            elseif s.personalBestMs then
+                line("Best vs AI", time(s.personalBestMs))
+            end
+        elseif s.mode ~= "pve" and (tonumber(s.bots) or 0) > 0 then
+            line("Bots", tostring(s.bots) .. ", test race not recorded")
+        end
     end
     item.durationMs = math.max(4000, math.min(15000, math.floor(tonumber(s.remainingMs) or 8000)))
     push("result", item)

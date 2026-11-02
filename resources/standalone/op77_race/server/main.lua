@@ -51,16 +51,18 @@ local function pushQueues(now)
     local seen = {}
     for _, def in ipairs(Config.activities) do
         local q = L.queues[def.key]
-        if def.mode ~= "trial" and q then
+        if def.queued and q then
             local window = L.windowRemainingMs(def.key, now)
+            local bots = L.botsHere(def)
             for _, playerId in ipairs(q.members) do
                 seen[playerId] = true
-                local digest = ("%s|%d|%s"):format(def.key, #q.members, tostring(q.windowEndsAt))
+                local digest = ("%s|%d|%s|%s"):format(def.key, #q.members, tostring(q.windowEndsAt), tostring(bots))
                 if queueShown[playerId] ~= digest then
                     queueShown[playerId] = digest
                     TriggerClientEvent("op77_race:queue", playerId, {
                         activity = def.id, label = def.label, mode = def.mode, queued = #q.members,
-                        minPlayers = def.minPlayers, maxPlayers = def.maxPlayers, windowMs = window,
+                        minPlayers = L.minimum(def), maxPlayers = def.maxPlayers, windowMs = window,
+                        bots = bots or nil,
                     })
                 end
             end
@@ -104,10 +106,13 @@ local function statusFor(def, now)
     if running > 0 then phase = "running" elseif queued > 0 then phase = "lobby" end
     if def.mode == "trial" then
         detail = running > 0 and ("%d on the clock"):format(players) or ("%d courses"):format(courses)
+    elseif def.mode == "pve" then
+        detail = running > 0 and ("%d racing the AI"):format(players)
+            or queued > 0 and "Crew gathering" or ("%d courses"):format(courses)
     elseif L.windowRemainingMs(def.key, now) ~= nil then
         detail = "Grid forming"
     elseif queued > 0 then
-        detail = ("%d of %d waiting"):format(queued, def.minPlayers)
+        detail = ("%d of %d waiting"):format(queued, L.minimum(def))
     elseif running > 0 then
         detail = "Race in progress"
     else
@@ -177,6 +182,13 @@ AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activit
     if A.owner(id) == activityId then A.leave(id, activityId, { returnPlayer = true }) end
 end)
 
+-- Staff bot mode (/lightrp.bots on|off in op77_lightrp). Read again after every
+-- successful registration (activityBots()), since this may fire while we are down.
+-- Off: no new race is filled with bots; one already running finishes with its bots.
+AddEventHandler("op77_lightrp:activity:bots", function(enabled)
+    if A.setBots(enabled == true, "event") then changed() end
+end)
+
 AddEventHandler("op77_lightrp:activity:dropped", function(playerId, activityId, reason)
     local id = playerIdOf(playerId)
     if id == nil or not A.mine(activityId) then return end
@@ -225,6 +237,8 @@ AddEventHandler("onResourceStop", function(name)
         -- stood before entering. The queues go too (admission needs the core).
         log("core stopped: closing every race")
         A.registered = false
+        -- The core starts again with bot mode off; registration reads it back.
+        A.setBots(false, "core_stopped")
         A.forgetStatus()
         E.stopAll({ fallback = true, reason = "core_stopped" })
         L.clear()
@@ -316,7 +330,8 @@ end)
 
 -- ---------------------------------------------------------------- commands --
 
-local MODES = { trial = "trial", timetrial = "trial", grid = "grid", street = "grid", foot = "foot", rooftop = "foot" }
+local MODES = { trial = "trial", timetrial = "trial", grid = "grid", street = "grid", foot = "foot", rooftop = "foot",
+    pve = "pve", ai = "pve", vsai = "pve" }
 
 -- /race opens Light RP's Activities panel, where every race is listed and joined.
 RegisterCommand("race", function(source)
@@ -336,7 +351,7 @@ RegisterCommand("race.join", function(source, args, raw)
     local id = playerIdOf(source)
     if id == nil then return output(source, raw, false, "race.join must be used in-game") end
     local def = A.byKey[MODES[tostring(args[1] or "trial"):lower()] or ""]
-    if def == nil then return output(source, raw, false, "usage: /race.join trial|street|rooftop [course]") end
+    if def == nil then return output(source, raw, false, "usage: /race.join trial|street|rooftop|pve [course]") end
     local ok, why = joinAndReport(id, def, { course = args[2] })
     output(source, raw, ok, ok and ("Joined " .. def.label) or tostring(why))
 end, false)
@@ -358,7 +373,8 @@ end, false)
 
 RegisterCommand("race.status", function(source, _, raw)
     local now = E.nowMs()
-    local lines = { ("core %s: %s"):format(Config.core, A.registered and "registered" or "not registered") }
+    local lines = { ("core %s: %s, bot mode %s"):format(Config.core, A.registered and "registered" or "not registered",
+        A.bots and "ON" or "off") }
     for _, def in ipairs(Config.activities) do
         local s = statusFor(def, now)
         lines[#lines + 1] = ("%s: %s, %d racing, %d queued (%s)"):format(def.id, s.phase, s.players, s.queued, s.detail)
@@ -407,7 +423,7 @@ end, true)
 -- Staff: start a queued street or rooftop race now, even below its minimum.
 RegisterCommand("race.force", function(source, args, raw)
     local def = A.byKey[MODES[tostring(args[1] or "grid"):lower()] or ""]
-    if def == nil or def.mode == "trial" then return output(source, raw, false, "usage: /race.force street|rooftop") end
+    if def == nil or not def.queued then return output(source, raw, false, "usage: /race.force street|rooftop") end
     if L.size(def.key) == 0 then return output(source, raw, false, "Nobody is queued") end
     local ok, reason = L.launch(def, E.nowMs(), true)
     output(source, raw, ok, ok and (def.label .. " started") or tostring(reason))
