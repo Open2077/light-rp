@@ -244,7 +244,10 @@ function exports.open77_icons:create() return nil, "svg_client_required" end
 exports.op77_map3d = {}
 function exports.op77_map3d:addBlip(def) mapBlips["op77_lightrp:" .. def.id] = def; return "op77_lightrp:" .. def.id end
 function exports.op77_map3d:removeBlip(id) assert(mapBlips[id], "removes only what it added"); mapBlips[id] = nil; return true end
+dofile("client/core/map_icons.lua")
 build({
+    { id = "shop.gunstore_2", position = desk.position, ring = false, blip = { icon = "crosshair", sprite = "guns", color = "#FFCC00",
+        title = "Rapid Fire", map = "smg", mapCategory = "weapons", mapColor = "#FF7A1A" } },
     { id = "home.unit1", position = desk.position, ring = false, blip = { icon = "house", color = "#FFCC00B3", title = "Home" } },
     { id = "mission.raid", position = desk.position, ring = false, blip = { sprite = "objective", title = "Raid" } },
     { id = "shop.247", position = desk.position, ring = false, blip = { icon = "shopping-basket", title = "24/7" } },
@@ -254,6 +257,14 @@ local home, mission, shop = mapBlips["op77_lightrp:home.unit1"], mapBlips["op77_
 assert(home and home.icon == "home" and home.category == "housing" and home.color == "#FFCC00" and home.label == "Home")
 assert(mission and mission.icon == "mission" and mission.category == "mission")
 assert(shop and shop.icon == "store" and shop.category == "service")
+-- a gun store draws its weapon family, in its own category and colour (the map only)
+local guns = mapBlips["op77_lightrp:shop.gunstore_2"]
+assert(guns and guns.icon == LightRpMapIcons.smg and guns.icon:sub(1, 4) == "<svg" and #guns.icon < 16384, "drawn SMG icon")
+assert(guns.category == "weapons" and guns.color == "#FF7A1A" and guns.label == "Rapid Fire")
+for _, name in ipairs({ "pistol", "smg", "shotgun", "rifle", "sniper" }) do
+    local svg = LightRpMapIcons[name]
+    assert(svg and svg:find('viewBox="0 0 24 24"', 1, true) and svg:find("currentColor", 1, true), name .. " icon")
+end
 assert(mapBlips["op77_lightrp:talk"] == nil, "a point without a blip stays off the map")
 mapBlips = {}
 serverEvents["op77_map3d:ready"]()
@@ -268,4 +279,4 @@ mapState = "stopped"
 build({ { id = "shop.247", position = desk.position, ring = false, blip = { icon = "shopping-basket" } } })
 assert(#LightRpInteract.points == 1, "no map running: interactions still work")
 build({})
-print("PASS: op77_map3d mirror (icons, categories, colour, re-sync on ready, private objectives, cleanup, map stopped)")
+print("PASS: op77_map3d mirror (icons, drawn gun-store icons, categories, colour, re-sync on ready, private objectives, cleanup, map stopped)")

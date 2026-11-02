@@ -66,12 +66,17 @@ end
 local function mapAdd(point)
     local b = point.blip
     local kind = tostring(point.id):match("^([%w_]+)%.")
-    local icon = kind == "mission" and "mission" or MAP_ICONS[b.icon] or (kind == "job" and "briefcase") or "pin"
+    -- `blip.map` names a drawn icon of client/core/map_icons.lua (the gun stores' weapons);
+    -- `mapCategory` / `mapColor` place and tint it on the 3D map only
+    local drawn = type(b.map) == "string" and LightRpMapIcons and LightRpMapIcons[b.map] or nil
+    local icon = drawn or kind == "mission" and "mission" or MAP_ICONS[b.icon] or (kind == "job" and "briefcase") or "pin"
+    local tint = type(b.mapColor) == "string" and b.mapColor or b.color
     local def = {
         id = tostring(point.id), position = b.position or point.position, icon = icon,
-        color = type(b.color) == "string" and b.color:match("^#%x%x%x%x%x%x") or nil,
+        color = type(tint) == "string" and tint:match("^#%x%x%x%x%x%x") or nil,
         label = b.title or point.label or "Point of interest", description = b.description or point.prompt,
-        category = kind == "mission" and "mission" or kind == "job" and "job" or MAP_CATEGORIES[icon] or "default",
+        category = type(b.mapCategory) == "string" and b.mapCategory
+            or kind == "mission" and "mission" or kind == "job" and "job" or MAP_CATEGORIES[icon] or "default",
         pulse = kind == "job",
     }
     mapPoints[def.id] = def

@@ -121,6 +121,9 @@ Map3DConfig = {
             { id = "mission", label = "Missions", icon = "mission", color = "#FF2E3C" },
             { id = "vehicle", label = "Vehicles", icon = "car", color = "#7FB4D6" },
             { id = "housing", label = "Housing", icon = "home", color = "#8FE04A" },
+            -- LightRP's gun stores (each pin draws its own weapon: op77_lightrp map_icons.lua)
+            { id = "weapons", label = "Gun stores", color = "#FF7A1A",
+                icon = [[<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" fill-rule="evenodd"><g transform="translate(12 12) scale(1.08) translate(-12 -12.6)"><path d="M2.8 6.2H19.3V5.5h1v.7h.6q.8 0 .8.8v2.4q0 .8-.8.8h-6.4l-.2.6q-.6 2.2-2.4 2.2h-1.6l-1 5.8q-.1.8-.9.8H5.3q-.8 0-.7-.8l1-6.6q-1.3-.1-2.1-.8l-.6-.6Q2.4 10.6 2.4 9.8V7.4L2 6.8q0-.6.8-.6zM10.5 10.6h2.8q-.4 1.6-1.7 1.6h-1.3zM4 7.1h.5v2.4H4zM5.2 7.1h.5v2.4h-.5zM6.4 7.1h.5v2.4h-.5zM11.6 7.1h3.4V8h-3.4z"/><path d="M11.2 10.6h.7l-.3 1.3h-.6z"/><path d="M2.4 5.2h1.2l.4 1H2.6z"/></g></svg>]] },
             { id = "default", label = "Other", icon = "pin" },
         },
     },
