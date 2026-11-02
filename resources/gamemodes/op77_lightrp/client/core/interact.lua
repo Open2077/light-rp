@@ -98,15 +98,32 @@ local function markersAvailable()
     return type(Open77.markers) == "table" and type(Open77.markers.create) == "function"
 end
 
+local function removePoint(point)
+    if point.marker and markersAvailable() then pcall(Open77.markers.remove, point.marker) end
+    if point.ring and anchorsAvailable() then pcall(Open77.anchors.remove, point.ring) end
+    if point.blip then removeBlip(point.blip) end
+    mapRemove(point.id)
+    if Interact.near == point then Interact.near = nil; sendPrompt(nil) end
+end
+
 local function clear()
-    for _, point in ipairs(Interact.points) do
-        if point.marker and markersAvailable() then pcall(Open77.markers.remove, point.marker) end
-        if point.ring and anchorsAvailable() then pcall(Open77.anchors.remove, point.ring) end
-        if point.blip then removeBlip(point.blip) end
-        mapRemove(point.id)
-    end
+    for _, point in ipairs(Interact.points) do removePoint(point) end
     Interact.points = {}
     if Interact.near then Interact.near = nil; sendPrompt(nil) end
+end
+
+-- Everything the client draws from an entry, as one comparable string: a point whose
+-- entry did not change keeps its marker, blips and pin when a new list arrives.
+local function signature(value, depth)
+    if type(value) ~= "table" then return type(value):sub(1, 1) .. tostring(value) end
+    depth = depth or 0
+    if depth > 6 then return "{...}" end
+    local keys = {}
+    for key in pairs(value) do keys[#keys + 1] = key end
+    table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+    local parts = {}
+    for i, key in ipairs(keys) do parts[i] = tostring(key) .. "=" .. signature(value[key], depth + 1) end
+    return "{" .. table.concat(parts, ",") .. "}"
 end
 
 -- The shared prompt anchor follows the nearest point; the page draws the words.
@@ -254,6 +271,12 @@ local function addPoint(entry)
                 if id then point.ring = id else log("ring anchor refused for %s: %s", tostring(point.id), tostring(err)) end
             end
             point.blip = createBlip(point) -- nil when the point asks for none
+            -- Kept across lists only when everything it asked for exists: a refused
+            -- marker or blip (quota, older client) is tried again with the next list.
+            local complete = (type(entry.marker) ~= "table" or point.marker ~= nil)
+                and (type(entry.blip) ~= "table" or point.blip ~= nil)
+                and (type(entry.marker) == "table" or entry.ring == false or not anchorsAvailable() or point.ring ~= nil)
+            point.signature = (entry.id ~= nil and complete) and signature(entry) or nil
             Interact.points[#Interact.points + 1] = point
         end
 end
@@ -263,28 +286,63 @@ end
 -- died part way, so every shop after the wardrobes was never built. The first points
 -- go at once, the rest in slices with a yield between them; a newer list stops an
 -- older build still running.
+--
+-- Only what changed is touched: a point whose entry is identical keeps its marker,
+-- blips and 3D-map pin. The whole set used to be torn down and rebuilt for every list,
+-- and the server re-sent one every 2-4 s while driving (the nearest housing entrances):
+-- 86 full rebuilds of 44 points in 17 min on 2026-11-02, amid the NPC churn of a
+-- session that ended in an engine crash.
 local SLICE = 6
 local generation = 0
 local function build(list)
     generation = generation + 1
     local mine = generation
-    clear()
     ensurePromptAnchor()
-    visualFull = false
+    local wanted = {}
+    for _, entry in ipairs(list) do
+        if type(entry) == "table" and entry.id ~= nil and wanted[entry.id] == nil then wanted[entry.id] = entry end
+    end
+    local kept, keptIds, removed = {}, {}, 0
+    for _, point in ipairs(Interact.points) do
+        local entry = point.id ~= nil and wanted[point.id] or nil
+        if entry ~= nil and not keptIds[point.id] and point.signature ~= nil and point.signature == signature(entry) then
+            kept[#kept + 1] = point
+            keptIds[point.id] = true
+        else
+            removePoint(point)
+            removed = removed + 1
+        end
+    end
+    Interact.points = kept
+    -- Removed custom blips free the visual budget: worth one more custom try.
+    if removed > 0 or #kept == 0 then visualFull = false end
+    local pending = {}
+    for _, entry in ipairs(list) do
+        if type(entry) ~= "table" or entry.id == nil or not keptIds[entry.id] then
+            pending[#pending + 1] = entry
+            if type(entry) == "table" and entry.id ~= nil then keptIds[entry.id] = true end
+        end
+    end
+    local added, keptCount = #pending, #kept
+    local function report()
+        if added > 0 or removed > 0 then
+            log("%d interaction point(s) (%d kept, %d added, %d removed)", #Interact.points, keptCount, added, removed)
+        end
+    end
     local index = 0
     local function slice()
-        local stop = math.min(#list, index + SLICE)
-        while index < stop do index = index + 1; addPoint(list[index]) end
+        local stop = math.min(#pending, index + SLICE)
+        while index < stop do index = index + 1; addPoint(pending[index]) end
     end
     slice()
-    if index >= #list then log("%d interaction point(s)", #Interact.points); return end
+    if index >= #pending then report(); return end
     CreateThread(function()
-        while index < #list do
+        while index < #pending do
             Wait(0)
             if mine ~= generation then return end
             slice()
         end
-        log("%d interaction point(s)", #Interact.points)
+        report()
     end)
 end
 Interact.build = build
