@@ -1,16 +1,16 @@
 -- Activities (server/modules/activities.lua) and their hub, The Crossing
 -- (server/modules/activities_hub.lua). Server only: nothing here is downloaded.
 --
--- Activity providers (op77_arena, op77_race, op77_chase, op77_fireworks...) run
+-- Activity providers (op77_arena, op77_race, op77_chase, op77_turf...) run
 -- their own instances in their own routing buckets:
---   arena 4100000-4199999 · race 4200000-4299999 · chase 4300000-4399999
+--   arena 4100000-4199999 · race 4200000-4299999 · chase 4300000-4399999 · turf 4400000-4499999
 -- (city 0, arrival hall 620000, tutorial practice 700000+id, fitting rooms
 -- 710000+id, dwellings 1000000+id, missions 3000000+n).
 LightRpActivities = {
     enabled = true,
     -- The providers' bucket ranges. Vehicles there are the activity's own: no RP
     -- fuel burns in them (server/modules/fuel.lua).
-    buckets = { { 4100000, 4199999 }, { 4200000, 4299999 }, { 4300000, 4399999 } },
+    buckets = { { 4100000, 4199999 }, { 4200000, 4299999 }, { 4300000, 4399999 }, { 4400000, 4499999 } },
 
     -- Eligibility: no activity within this long of taking damage.
     damageCooldownMs = 60000,
