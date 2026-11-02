@@ -305,7 +305,7 @@ local handle=handlers['lightrp:boardGames:request'];source=4;clock=clock+3000
 local prior=#logs
 handle({action='diagnostic',event='stop',reason='client_error',boardId='solo-chain',details='line 258'..string.char(10)..'probe'})
 assert(#logs==prior+1 and not logs[#logs]:find(string.char(10),1,true))
-handle({action='diagnostic',event='stop',reason='ui_leave'});assert(#logs==prior+1)
+handle({action='diagnostic',event='stop',reason='client_error'});assert(#logs==prior+1)
 events[4]=nil;handle({action='sync'});assert(events[4] and events[4].boards,'diagnostics consumed the gameplay rate budget')
 clock=clock+3000;handle({action='diagnostic',event='stop',reason=string.rep('x',65)});assert(#logs==prior+1)
 """)

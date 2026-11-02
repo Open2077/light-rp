@@ -272,8 +272,11 @@ RegisterNetEvent(REQUEST,function(p)
     if not player or player<=0 or type(p)~="table" then return end
     local now=LightRP.nowMs()
     if p.action=="diagnostic" then
-        if (p.event~="stop" and p.event~="render") or type(p.reason)~="string" or #p.reason>64 or (lastDiagnostic[player] and now-lastDiagnostic[player]<1000) then return end
-        lastDiagnostic[player]=now
+        if (p.event~="stop" and p.event~="render") or type(p.reason)~="string" or #p.reason>64 then return end
+        -- One diagnostic per reason per second, so a render summary cannot hide the state trace.
+        lastDiagnostic[player]=lastDiagnostic[player] or {}
+        if lastDiagnostic[player][p.reason] and now-lastDiagnostic[player][p.reason]<1000 then return end
+        lastDiagnostic[player][p.reason]=now
         local function clean(value,limit) return tostring(value or ""):sub(1,limit):gsub("[%c]"," ") end
         LightRP.log("board_games client %s player=%d board=%s reason=%s details=%s",p.event,player,clean(p.boardId,96),clean(p.reason,64),clean(p.details,180))
         return -- Diagnostics must not consume the gameplay action rate budget.
