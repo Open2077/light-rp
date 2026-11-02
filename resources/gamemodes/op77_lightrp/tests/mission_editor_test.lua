@@ -42,6 +42,7 @@ _G.SetPlayerRoutingBucket = function(id, b) buckets[id] = b return true end
 _G.GetPlayerIdentifier = function(id) return "license:" .. id end
 _G.GetPlayerName = function(id) return "P" .. id end
 _G.TriggerClientEvent = function(name, target, payload) sent[#sent + 1] = { name = name, target = target, payload = payload } end
+_G.TriggerLatentClientEvent = function(name, target, _, payload) sent[#sent + 1] = { name = name, target = target, payload = payload, latent = true }; return #sent end
 _G.RegisterNetEvent = function(name, fn) netHandlers[name] = fn end
 _G.AddEventHandler = function() end
 
@@ -393,4 +394,16 @@ assert(not Missions.instanceOf(1) and noticed("ZONE CLEARED"), "behaviour missio
 local del = request(1, "delete", { id = id, baseRevision = 2, mutation = "mutation-0006" })
 assert(del.ok and not Missions.point(id), "deleted: the board is gone")
 assert(#request(1, "list").data.missions == 2, "two missions left")
+-- a list past 900 JSON values leaves as a latent event (a plain one is refused at 1024)
+assert(not sent[#sent].latent or LightRP.missionEditor.countValues(sent[#sent].payload) > 900)
+local listed = request(1, "list")
+local values = LightRP.missionEditor.countValues(listed)
+assert((sent[#sent].latent == true) == (values > 900), "latent exactly past 900 values (" .. values .. ")")
+for i = 1, 12 do
+    local r = request(1, "save", { mission = base(), mutation = "bulk-mission-" .. i })
+    assert(r.ok, tostring(r.error))
+end
+listed = request(1, "list")
+assert(sent[#sent].latent and LightRP.missionEditor.countValues(listed) > 900 and #listed.data.missions >= 12, "a long list goes latent")
+
 print("PASS: mission editor (format, storage, protocol, test runs, elimination + checkpoints, perimeter kill, respawns, wipe, survival waves, behaviours, withdrawal)")
