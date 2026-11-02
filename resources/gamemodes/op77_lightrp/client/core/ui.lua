@@ -210,6 +210,7 @@ function Ui.create()
     if LightRpArmamentClient then LightRpArmamentClient.bind(page) end
     if LightRpGrenadesClient then LightRpGrenadesClient.bind(page) end
     if LightRpHotbar then LightRpHotbar.bind(page) end
+    if LightRpWeaponWheel then LightRpWeaponWheel.bind(page) end
     if LightRpMedical then LightRpMedical.bind(page) end
     syncVoiceHud() -- hidden until the authoritative character state is ready
     if LightRpActions then LightRpActions.bind(page) end

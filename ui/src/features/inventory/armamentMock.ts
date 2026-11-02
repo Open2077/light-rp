@@ -12,6 +12,25 @@ export function armamentMock(fire: (name: string, value: unknown) => void, param
     {slot:6,name:"grenade_emp",label:"EMP Grenade",count:2,stack:10,weight:.4,usable:true,category:"grenade",icon:"package",image:"img/items/grenade_emp.png"},
   ] }, right: { id: "trunk:7306", kind: "trunk", label: "Archer Hella", slots: 20, maxWeight: 80, weight: 3, items: [{ slot: 1, name: "repairkit", label: "Repair Kit", count: 1, stack: 2, weight: 3, icon: "wrench", usable: false }] } };
   const state: ArmamentState = { ready: true, busy: false, revision: 0, ammo: { pistol: { remaining: 0, label: "Pistol rounds" } } };
+  // ?wheel=N: the weapon wheel with N weapons of every family in the pockets
+  if (params.has("wheel")) {
+    const all: Array<[string, string, string, string, string]> = [
+      ["weapon_lexington", "Militech Lexington", "pistol", "pistol", "Handgun rounds"], ["weapon_overture", "Malorian Arms Overture", "revolver", "pistol", "Handgun rounds"],
+      ["weapon_m221_saratoga", "M221 Saratoga", "smg", "pistol", "Handgun rounds"], ["weapon_m2038_tactician", "Militech M2038 Tactician", "shotgun", "shotgun", "Shotgun shells"],
+      ["weapon_m251s_ajax", "Militech M251s Ajax", "rifle", "rifle", "Rifle rounds"], ["weapon_m2067_defender", "Militech M2067 Defender", "lmg", "rifle", "Rifle rounds"],
+      ["weapon_m_179e_achilles", "M-179e Achilles", "precision", "rifle", "Rifle rounds"], ["weapon_nekomata", "Tsunami Nekomata", "sniper", "sniper", "Sniper rounds"],
+      ["weapon_nue", "Tsunami Nue", "pistol", "pistol", "Handgun rounds"], ["weapon_carnage", "Budget Arms Carnage", "shotgun", "shotgun", "Shotgun shells"],
+    ];
+    const rounds: Record<string, number> = { pistol: 84, rifle: 0, shotgun: 24, sniper: 10 };
+    const count = Math.max(0, Math.min(all.length, Number(params.get("wheel")) || 6));
+    state.arsenal = all.slice(0, count).map(([name, label, cls, ammo, ammoLabel], i) => ({ slot: 10 + i, instanceId: `${(i + 1).toString(16).repeat(8)}-0000-4000-8000-00000000000${i}`,
+      name, label, class: cls, ammo, ammoLabel, rounds: rounds[ammo], image: `img/items/${name}.png`, dual: cls === "pistol" || cls === "revolver" }));
+    if (params.get("wheelhand") !== "none" && state.arsenal.length) {
+      const w = state.arsenal[Math.min(state.arsenal.length - 1, Number(params.get("wheelhand") ?? 0) || 0)]!;
+      w.hand = "right"; state.right = { instanceId: w.instanceId, name: w.name, label: w.label, record: "Items.Preset", nativeSlot: 1, ammo: w.ammo, class: w.class };
+      state.holstered = params.get("holstered") === "1";
+    }
+  }
   const completed = new Map<string, { state: ArmamentState }>();
   const push = () => fire(PAGE_EVENTS.armament, { kind: "state", state: copy(state) });
   const inventoryPush = () => fire(PAGE_EVENTS.inventory, { inventories: [copy(inventory.left)] });
@@ -49,6 +68,7 @@ export function armamentMock(fire: (name: string, value: unknown) => void, param
       else if (other && state.ammo.pistol.remaining < 62) error = "Not enough ammunition for two pistols. Open more boxes before trying again.";
       if (p.hand === "left" && !state.right) error = "Equip a right-hand pistol first.";
     } else if (p.operation === "ammo" && (item?.name !== "ammo_pistol_box" || item.count < 1)) error = "There is no sealed ammunition box in this slot.";
+    else if (p.operation === "select" && !p.unarmed && !state.arsenal?.some(w => w.instanceId === p.instanceId)) error = "That weapon is no longer in your pockets.";
     if (error) { state.error = error; push(); reply(false, undefined, error); return; }
     state.busy = true; state.error = undefined; push();
     setTimeout(() => {
@@ -57,6 +77,13 @@ export function armamentMock(fire: (name: string, value: unknown) => void, param
           record: item.name === "weapon_nue" ? "Items.Preset_Nue_Default" : "Items.Preset_Lexington_Default", nativeSlot: p.hand === "right" ? 1 : 4 };
         state[p.hand] = weapon;
       } else if (p.operation === "unequip" && p.hand) { delete state[p.hand as ArmamentHand]; }
+      else if (p.operation === "select") {
+        delete state.left; state.holstered = false;
+        for (const w of state.arsenal ?? []) delete w.hand;
+        const w = p.unarmed ? undefined : state.arsenal?.find(x => x.instanceId === p.instanceId);
+        if (w) { w.hand = "right"; state.right = { instanceId: w.instanceId, name: w.name, label: w.label, record: "Items.Preset", nativeSlot: 1, ammo: w.ammo, class: w.class }; }
+        else delete state.right;
+      }
       else if (p.operation === "ammo" && item) {
         item.count--; if (!item.count) inventory.left.items = inventory.left.items.filter(i => i !== item);
         inventory.left.weight = Math.max(0, inventory.left.weight - item.weight);
