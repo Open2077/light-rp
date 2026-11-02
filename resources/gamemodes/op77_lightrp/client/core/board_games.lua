@@ -445,7 +445,10 @@ local function unavailable(reason)
     notice(ASSET_HELP.." "..tostring(reason or ""))
 end
 local function failBoard(id,reason)
-    if not failedBoards[id] then failedBoards[id]=true;unavailable(reason) end
+    if not failedBoards[id] then
+        failedBoards[id]=true;unavailable(reason)
+        request("diagnostic",{event="render",reason="board_failed",boardId=id,details=tostring(reason or ""):sub(1,180)})
+    end
     clearGeometry(id)
     if active and tostring(active.id)==id then stop(true,"model_unavailable",reason) end
 end
@@ -584,6 +587,32 @@ AddEventHandler("onClientResourceStart",function(name)
         if name=="open77_contextmenu" then disableContext(Client.isActive()) end
     end
 end)
+-- Temporary render diagnostics: the client log never reaches the server, so a
+-- board that stays invisible is reported only when the summary changes.
+local lastRenderReport,lastRenderSummary=-10000,nil
+local function renderReport(nearCount)
+    local now=GetGameTimer()
+    if now-lastRenderReport<5000 then return end
+    local known,caches,pieces,failed=0,0,0,0
+    for _ in pairs(Client.boards) do known=known+1 end
+    for _,cache in pairs(renderCaches) do caches=caches+1;for _ in pairs(cache.pieces) do pieces=pieces+1 end end
+    for _ in pairs(failedBoards) do failed=failed+1 end
+    local rows,why=Open77.props.list()
+    local total,rendered,broken,backend,err=0,0,0,"",""
+    if type(rows)=="table" then
+        for _,row in ipairs(rows) do
+            total=total+1
+            if row.rendered==true then rendered=rendered+1 end
+            if row.failed==true then broken=broken+1;err=tostring(row.error or err) end
+            backend=tostring(row.backend or backend)
+        end
+    else err="list:"..tostring(why) end
+    local summary=string.format("known=%d near=%d caches=%d pieces=%d failedBoards=%d props=%d rendered=%d failed=%d backend=%s err=%s",
+        known,nearCount,caches,pieces,failed,total,rendered,broken,backend,err)
+    if summary==lastRenderSummary then return end
+    lastRenderReport=now;lastRenderSummary=summary
+    request("diagnostic",{event="render",reason="render_summary",details=summary:sub(1,180)})
+end
 local function startRenderer()
     rendererRunning=true
     CreateThread(function()
@@ -768,7 +797,12 @@ function Client.bind(page)
     page:on(LightRpEvents.page.ready,function() request("sync") end)
 end
 RegisterNetEvent("lightrp:boardGames:place",beginPlacement)
+local applyState
 RegisterNetEvent("lightrp:boardGames:state",function(payload)
+    local ok,why=pcall(applyState,payload)
+    if not ok then request("diagnostic",{event="render",reason="state_error",details=tostring(why):sub(1,180)}) end
+end)
+applyState=function(payload)
     if type(payload)~="table" or type(payload.boards)~="table" then return end
     local nextBoards={}
     for _,board in ipairs(payload.boards) do
@@ -795,7 +829,7 @@ RegisterNetEvent("lightrp:boardGames:state",function(payload)
     elseif active and not member(nextBoards[active.id]) then stop(false,"seat_removed") end
     if not draft then for _,board in pairs(nextBoards) do if member(board) then startView(board);break end end end
     sendView(true)
-end)
+end
 local function cameraKey(id)
     if type(id)=="number" then
         if id~=id then return end
@@ -909,6 +943,7 @@ function Client.start()
                     renderCandidates[i]=near[i];allowed[tostring(near[i].board.id)]=true
                 end
                 renderAllowed=allowed
+                if #near>0 then renderReport(#near) end
                 for id in pairs(renderCaches) do if not allowed[id] then clearGeometry(id) end end
                 renderPreview()
                 if Client.isActive() then sendView(false) end
