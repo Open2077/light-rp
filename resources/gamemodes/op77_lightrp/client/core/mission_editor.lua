@@ -100,12 +100,63 @@ local function countValues(value, depth)
     return n
 end
 Editor.countValues = countValues
+-- The sandbox's json.encode stops at 1024 values too (it returned nil on the 1065-value
+-- list, 2026-11-02): this one is plain Lua. Lists are tables with keys 1..n only; an
+-- empty table is {} (the page normalizes lists); NaN and infinities become null.
+local ESCAPES = { ['"'] = '\\"', ["\\"] = "\\\\", ["\b"] = "\\b", ["\f"] = "\\f", ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t" }
+local function encodeString(s)
+    return '"' .. s:gsub('[%c"\\]', function(c) return ESCAPES[c] or string.format("\\u%04x", c:byte()) end) .. '"'
+end
+local function encode(value, depth, out)
+    local t = type(value)
+    if t == "nil" then out[#out + 1] = "null"
+    elseif t == "boolean" then out[#out + 1] = value and "true" or "false"
+    elseif t == "number" then
+        if value ~= value or value == math.huge or value == -math.huge then out[#out + 1] = "null"
+        elseif math.type(value) == "integer" then out[#out + 1] = tostring(value)
+        else out[#out + 1] = string.format("%.14g", value) end
+    elseif t == "string" then out[#out + 1] = encodeString(value)
+    elseif t == "table" then
+        if depth > 32 then error("too deep") end
+        local n, count = #value, 0
+        for _ in pairs(value) do count = count + 1 end
+        if n > 0 and n == count then
+            out[#out + 1] = "["
+            for i = 1, n do
+                if i > 1 then out[#out + 1] = "," end
+                encode(value[i], depth + 1, out)
+            end
+            out[#out + 1] = "]"
+        else
+            out[#out + 1] = "{"
+            local first = true
+            for k, v in pairs(value) do
+                if type(k) == "string" or type(k) == "number" then
+                    if not first then out[#out + 1] = "," end
+                    first = false
+                    out[#out + 1] = encodeString(tostring(k))
+                    out[#out + 1] = ":"
+                    encode(v, depth + 1, out)
+                end
+            end
+            out[#out + 1] = "}"
+        end
+    else out[#out + 1] = "null" end
+    return out
+end
+function Editor.encodeJson(value) return table.concat(encode(value, 0, {})) end
+local partSeq = 0
 local function sendParts(value)
-    local ok, text = pcall(json.encode, value.data)
+    local ok, text = pcall(Editor.encodeJson, value)
     if not ok or type(text) ~= "string" then
-        report("parts:encode", "a large response could not be encoded (%s)", tostring(text))
-        return send({ kind = "response", request = value.request, ok = false, error = "The answer was too large to show. Your draft is kept." })
+        report("parts:encode", "a large event could not be encoded (%s)", tostring(text))
+        if value.kind == "response" then
+            send({ kind = "response", request = value.request, ok = false, error = "The answer was too large to show. Your draft is kept." })
+        end
+        return
     end
+    partSeq = partSeq + 1
+    local id = "parts:" .. partSeq
     local parts, at = {}, 1
     while at <= #text do
         local stop = math.min(#text, at + PART_BYTES - 1)
@@ -118,15 +169,13 @@ local function sendParts(value)
         parts[#parts + 1] = text:sub(at, stop)
         at = stop + 1
     end
-    for i, part in ipairs(parts) do
-        send({ kind = "response", request = value.request, ok = value.ok, error = value.error, part = i, parts = #parts, text = part })
-    end
+    for i, part in ipairs(parts) do send({ kind = "parts", id = id, part = i, parts = #parts, text = part }) end
 end
 Editor.sendParts = sendParts
 
 RegisterNetEvent(NET, function(value)
     if type(value) ~= "table" then return end
-    if value.kind == "response" and value.data ~= nil and countValues(value) > PAGE_VALUES then return sendParts(value) end
+    if countValues(value) > PAGE_VALUES then return sendParts(value) end
     if value.kind == "open" then
         if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or (LightRpSafezones and LightRpSafezones.active) then
             return send({ kind = "invalidate", error = "Finish your current activity before editing missions." })

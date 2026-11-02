@@ -4,24 +4,42 @@ import type { Wire } from "./model";
 
 export const mutationKey = () => `mission:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 12)}`;
 export class MissionRequestTimeout extends Error {}
+
+/* Every editor event, with large ones joined back: the client sends an event past 900
+   values as JSON text parts (client/core/mission_editor.lua sendParts), each part an
+   event { kind: "parts", id, part, parts, text }. */
+const pending = new Map<string, string[]>();
+const listeners = new Set<(event: Wire) => void>();
+let attached = false;
+export function onEditor(handler: (event: Wire) => void): () => void {
+  listeners.add(handler);
+  if (!attached) {
+    attached = true;
+    on<Wire>(PAGE_EVENTS.missionEditor, event => {
+      let whole: Wire | undefined = event;
+      if (event.kind === "parts" && typeof event.id === "string" && typeof event.part === "number" && typeof event.parts === "number") {
+        const list = pending.get(event.id) ?? [];
+        list[event.part - 1] = event.text ?? "";
+        pending.set(event.id, list);
+        if (list.filter(p => p !== undefined).length < event.parts) return;
+        pending.delete(event.id);
+        try { whole = JSON.parse(list.join("")) as Wire; } catch { whole = undefined; }
+        if (!whole) return;
+      }
+      for (const fn of [...listeners]) fn(whole);
+    });
+  }
+  return () => { listeners.delete(handler); };
+}
 let queue = Promise.resolve();
 /** One request at a time to the client (captures) or the server (list, save, delete, test). */
 export function request<T>(operation: string, payload: Record<string, unknown> = {}): Promise<T> {
   const task = queue.then(() => new Promise<T>((resolve, reject) => {
     const request = mutationKey();
-    // a large answer comes as JSON text in parts (client/core/mission_editor.lua sendParts)
-    const parts: string[] = [];
-    const stop = on<Wire>(PAGE_EVENTS.missionEditor, reply => {
+    const stop = onEditor(reply => {
       if (reply.kind !== "response" || reply.request !== request) return;
-      let data: unknown = reply.data;
-      if (typeof reply.parts === "number" && reply.parts > 0 && typeof reply.part === "number") {
-        parts[reply.part - 1] = reply.text ?? "";
-        if (parts.filter(p => p !== undefined).length < reply.parts) return;
-        try { data = JSON.parse(parts.join("")); }
-        catch { clearTimeout(timer); stop(); reject(new Error("The answer arrived damaged. Your draft is kept; retry.")); return; }
-      }
       clearTimeout(timer); stop();
-      if (reply.ok) resolve(data as T);
+      if (reply.ok) resolve(reply.data as T);
       else reject(new Error(reply.error || "The request was refused."));
     });
     const timer = window.setTimeout(() => { stop(); reject(new MissionRequestTimeout("The server has not answered. Your draft is kept; retry to check the saved result.")); }, 12000);

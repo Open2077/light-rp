@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { emit, on } from "@/bridge/open77";
+import { emit } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { RageMenu, isPickable, type RageMenuItem } from "@/design/components";
-import { MissionRequestTimeout, mutationKey, request } from "./api";
+import { MissionRequestTimeout, mutationKey, onEditor, request } from "./api";
 import {
   BEHAVIOR_HELP, BEHAVIOR_LABEL, BEHAVIORS, BRUSH, clone, DIFFICULTIES, ENEMIES, enemyLabel, fresh, LIMITS, newId, normalizeMission, problems,
   SHAPE_LABEL, SHAPES, TOOL_LABEL, TRIGGER_LABEL, TRIGGERS, TYPE_LABEL, TYPES,
-  type Behavior, type Brush, type Capture, type Checkpoint, type Listing, type Mission, type Point, type Ref, type Spawn, type Tool, type Wave, type Wire,
+  type Behavior, type Brush, type Capture, type Checkpoint, type Listing, type Mission, type Point, type Ref, type Spawn, type Tool, type Wave,
 } from "./model";
 import { applyBuild, type BuildAction, type BuildState } from "./build";
 import { BuildHud } from "./BuildHud";
@@ -32,6 +32,8 @@ const coords = (p: Point) => `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixe
 export function MissionEditor() {
   const [opened, setOpened] = useState(false), [missions, setMissions] = useState<Mission[]>([]), [ready, setReady] = useState(false);
   const [fixers, setFixers] = useState<{ id: string; name: string }[]>([]);
+  // the list fills mission by mission (`mission` events after `list`)
+  const [loading, setLoading] = useState<{ received: number; total: number } | null>(null);
   const [draft, setDraft] = useState<Mission>(), [original, setOriginal] = useState("");
   const [stack, setStack] = useState<Page[]>([{ kind: "list" }]), [world, setWorld] = useState(false);
   const [editing, setEditing] = useState<TextEdit>(), [stepIndex, setStepIndex] = useState(1);
@@ -54,9 +56,13 @@ export function MissionEditor() {
   const refresh = useCallback(async () => {
     const data = await request<Listing>("list");
     if (!live.current) return;
-    setMissions(Array.isArray(data.missions) ? data.missions.map(normalizeMission) : []);
     setReady(data.ready === true);
     setFixers(Array.isArray(data.fixers) ? data.fixers : []);
+    if (data.streamed) {
+      // each mission arrives in its own event: the menu stays usable meanwhile
+      setMissions([]);
+      setLoading(data.total ? { received: 0, total: data.total } : null);
+    } else setMissions(Array.isArray(data.missions) ? data.missions.map(normalizeMission) : []);
   }, []);
   const run = useCallback(async (task: () => Promise<void>) => {
     if (working.current) return;
@@ -117,7 +123,15 @@ export function MissionEditor() {
 
   useEffect(() => {
     live.current = true;
-    const off = on<Wire>(PAGE_EVENTS.missionEditor, event => {
+    const off = onEditor(event => {
+      if (event.kind === "mission" && event.mission) {
+        const m = normalizeMission(event.mission);
+        setMissions(previous => [...previous.filter(x => x.id !== m.id), m]
+          .sort((a, b) => a.title === b.title ? a.id.localeCompare(b.id) : a.title.localeCompare(b.title)));
+        setLoading(previous => previous ? { ...previous, received: Math.min(previous.total, previous.received + 1) } : previous);
+        return;
+      }
+      if (event.kind === "listed") { setLoading(null); return; }
       if (event.kind === "open") {
         useStore.getState().closeDialog(); useStore.getState().closeMenu();
         setOpened(true); setWorld(false); setError(""); void run(refresh);
@@ -211,7 +225,8 @@ export function MissionEditor() {
     if (!live.current) return;
     const saved = normalizeMission(result.mission); setDraft(saved); setOriginal(JSON.stringify(saved));
     mutation.current = undefined; setUnconfirmed(undefined);
-    setFeedback(saved.enabled ? "Mission published. Its board is live in the city." : "Mission saved (disabled: no board in the city).");
+    setFeedback(!saved.enabled ? "Mission saved (disabled: no board in the city)."
+      : saved.fixer?.enabled ? "Gig published. No board: the fixers hand it out." : "Mission published. Its board is live in the city.");
     await refresh();
   });
   const remove = () => run(async () => {
@@ -278,7 +293,8 @@ export function MissionEditor() {
       { separator: true },
       ...missions.map(m => item(`mission:${m.id}`, m.title, () => { void edit(m); }, { icon: m.type === "waves" ? "shield" : "swords", meta: !m.enabled ? "DISABLED" : m.fixer.enabled ? `GIG · ${TYPE_LABEL[m.type].toUpperCase()}` : TYPE_LABEL[m.type].toUpperCase(), disabled: busy,
         description: `${TYPE_LABEL[m.type]} · ${m.spawns.length} spawn point(s) · ${m.checkpoints.length} checkpoint(s)${m.type === "waves" ? ` · ${m.waves.length} wave(s)` : ""} · revision ${m.revision}` })),
-      ...(!missions.length ? [item("empty", ready ? "No authored mission yet" : "Storage unavailable", undefined, { disabled: true })] : []), { separator: true },
+      ...(loading ? [item("loading", `Loading missions ${loading.received}/${loading.total}`, undefined, { disabled: true, icon: "activity" })] : []),
+      ...(!missions.length && !loading ? [item("empty", ready ? "No authored mission yet" : busy ? "Waiting..." : "Storage unavailable", undefined, { disabled: true })] : []), { separator: true },
       item("refresh", "Refresh", () => { void run(refresh); }, { icon: "activity", disabled: busy }), item("close", "Close editor", close, { icon: "x", disabled: busy })];
   } else if (draft) {
     subtitle = draft.title;
