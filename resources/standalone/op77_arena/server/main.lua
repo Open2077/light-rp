@@ -767,7 +767,9 @@ Open77.combat.onDamage(function(event)
     -- legitimate melee weapon ID. The ordinary verified-loadout gate follows.
     if instance and instance.ruleset == "blade" and event.attackKind ~= "melee" then return false end
 
-    if instance and instance.format ~= "ffa" then
+    -- op77_arena: the PvE ruleset is free-for-all in shape but has two sides
+    -- (players, bots), answered by the same `Deathmatch.arena.sideOf`.
+    if instance and (instance.format ~= "ffa" or instance.ruleset == "pve") then
         local victimSide = DM.arena.sideOf(tonumber(event.victim))
         local attackerSide = DM.arena.sideOf(attackerId)
         if victimSide and attackerSide == victimSide and tonumber(event.victim) ~= attackerId then

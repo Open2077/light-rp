@@ -4,7 +4,8 @@
 -- notices are turned into Light RP's shared activity HUD through the op77_lightrp
 -- client exports (ActivityHudShow / ActivityHudPush / ActivityHudClear). Every call
 -- is protected: an older core without those exports degrades to Light RP notices.
--- No key is bound here.
+-- No key is bound here. Bots carry `LightRpArena.bots.prefix` ("[BOT] ") on every
+-- name: scoreboard, teams, kill feed.
 
 local L = LightRpArena
 local CORE = L.core
@@ -50,6 +51,41 @@ S.clear = clear
 -- ---------------------------------------------------------------------------
 -- Engine state -> activity HUD
 
+-- Bots: a negative participant id, or the engine's `bot` flag (kept on the row of a
+-- bot removed since). One marker, whatever the engine prefixed the name with.
+local BOT_PREFIX = (type(L.bots) == "table" and type(L.bots.prefix) == "string") and L.bots.prefix or "[BOT] "
+
+local function isBot(row)
+    return type(row) == "table" and (row.bot == true or (tonumber(row.id) or 0) < 0)
+end
+S.isBot = isBot
+
+local function markBot(name)
+    name = tostring(name or "?")
+    if name:sub(1, #BOT_PREFIX) == BOT_PREFIX then return name end
+    name = name:gsub("^%[?[Bb][Oo][Tt]%]?%s*", "")
+    return BOT_PREFIX .. (name ~= "" and name or "?")
+end
+S.markBot = markBot
+
+local function nameOf(row)
+    if isBot(row) then return markBot(row.name) end
+    return row.name or "?"
+end
+S.nameOf = nameOf
+
+local function hasBots(s)
+    if type(s.instance) == "table" and (tonumber(s.instance.bots) or 0) > 0 then return true end
+    for _, row in ipairs(s.rows or {}) do
+        if isBot(row) and row.active ~= false then return true end
+    end
+    return false
+end
+
+local function isPve(s)
+    return type(s.instance) == "table" and s.instance.ruleset == "pve"
+end
+
 local function decode(payload)
     if type(payload) == "table" and type(payload.stateFragments) == "table" then
         payload = table.concat(payload.stateFragments)
@@ -69,6 +105,7 @@ S.decode = decode
 local function titleOf(s)
     local instance = s.instance or {}
     if instance.ruleset == "blade" or s.mode == "blade" then return L.activities.blade.label end
+    if instance.ruleset == "pve" then return L.activities.pve.label end
     local format = instance.format or s.mode
     if format == "1v1" then return L.activities.duel.label end
     if format == "2v2" or format == "3v3" then return L.activities.teams.label .. " " .. format end
@@ -92,7 +129,7 @@ local function scoreboard(s, columns, values, teamOf)
     for _, row in ipairs(s.rows or {}) do
         if #rows >= 16 then break end
         if row.active ~= false then
-            rows[#rows + 1] = { name = row.name or "?", values = values(row), self = row.id == me, team = teamOf and teamOf(row) or nil }
+            rows[#rows + 1] = { name = nameOf(row), values = values(row), self = row.id == me, team = teamOf and teamOf(row) or nil }
         end
     end
     if #rows == 0 then return nil end
@@ -115,17 +152,39 @@ local function shieldProgress(s)
     return #progress > 0 and progress or nil
 end
 
+-- PvE: the players are one side, the bots the other; kills per side.
+local function pveTeams(s)
+    local players, bots = 0, 0
+    for _, row in ipairs(s.rows or {}) do
+        local kills = tonumber(row.kills) or 0
+        if isBot(row) then bots = bots + kills else players = players + kills end
+    end
+    return {
+        { name = "Players", color = "#FFCC00", score = players, self = true },
+        { name = BOT_PREFIX .. "Gangs", color = "danger", score = bots },
+    }
+end
+
 local function ffaHud(s)
     local self = s.self or {}
     local blade = (s.instance and s.instance.ruleset == "blade") or s.mode == "blade"
+    local pve = isPve(s)
     local phase = phaseOf(s)
     local subtitle = s.round and ("Round %d"):format(s.round) or nil
     if not blade and type(s.weapon) == "table" and s.weapon.label then
         subtitle = (subtitle and subtitle .. " - " or "") .. s.weapon.label
     end
     local combatants = tonumber(s.participantCount) or 0
+    local hints = {
+        { key = "CHAT", label = "/arena.leave" },
+        { key = "CHAT", label = "/arena.weapon list" },
+    }
+    -- Bots in a PvP round: practice, and the player is told so.
+    if not pve and hasBots(s) then hints[#hints + 1] = { key = "BOTS", label = "Practice: not recorded" } end
+    local activity = L.activities.ffa.id
+    if blade then activity = L.activities.blade.id elseif pve then activity = L.activities.pve.id end
     return {
-        activity = blade and L.activities.blade.id or L.activities.ffa.id,
+        activity = activity,
         title = titleOf(s),
         subtitle = subtitle,
         phase = phase,
@@ -138,13 +197,11 @@ local function ffaHud(s)
             { label = "Streak", value = self.streak or 0 },
         },
         progress = shieldProgress(s),
+        teams = pve and pveTeams(s) or nil,
         scoreboard = scoreboard(s, { "K", "D", "Score" }, function(row)
             return { row.kills or 0, row.deaths or 0, row.score or 0 }
-        end),
-        hints = {
-            { key = "CHAT", label = "/arena.leave" },
-            { key = "CHAT", label = "/arena.weapon list" },
-        },
+        end, pve and function(row) return isBot(row) and 2 or 1 end or nil),
+        hints = hints,
     }
 end
 
@@ -163,9 +220,14 @@ local function arenaHud(s)
     if duel then
         for _, row in ipairs(s.rows or {}) do
             if row.id == me then mineName = row.name or mineName
-            elseif row.name then theirName = row.name end
+            elseif row.name or isBot(row) then theirName = nameOf(row) end
         end
     end
+    local hints = {
+        { key = "CHAT", label = "/arena.leave" },
+        { key = "CHAT", label = "/arena.kit" },
+    }
+    if hasBots(s) then hints[#hints + 1] = { key = "BOTS", label = "Practice: not recorded" } end
 
     local objective
     if raw == "buy" then objective = "Pick a kit: /arena.kit"
@@ -201,10 +263,7 @@ local function arenaHud(s)
             if team == side then return 1 elseif team == other then return 2 end
             return nil
         end),
-        hints = {
-            { key = "CHAT", label = "/arena.leave" },
-            { key = "CHAT", label = "/arena.kit" },
-        },
+        hints = hints,
     }
 end
 
@@ -237,7 +296,23 @@ function S.resultFor(s)
         }
     end
     if raw ~= "standings" and raw ~= "resolved" then return nil end
+    if isPve(s) then
+        local teams = pveTeams(s)
+        local won = teams[1].score > teams[2].score
+        return ("r:%s:%s"):format(tostring(s.instanceId), tostring(s.round)), {
+            title = won and "PLAYERS WIN" or "BOTS WIN",
+            placement = won and 1 or 2,
+            subtitle = ("Players %d - %d bots"):format(teams[1].score, teams[2].score),
+            lines = {
+                { label = "Kills", value = self.kills or 0 },
+                { label = "Deaths", value = self.deaths or 0 },
+                { label = "Score", value = self.score or 0 },
+            },
+            durationMs = 8000,
+        }
+    end
     local winnerName = result.winnerName
+    if winnerName ~= nil and (tonumber(result.winnerId) or 0) < 0 then winnerName = markBot(winnerName) end
     return ("r:%s:%s"):format(tostring(s.instanceId), tostring(s.round)), {
         title = (result.winnerId ~= nil and result.winnerId == selfId(s)) and "ROUND WON" or "ROUND OVER",
         placement = (self.rank and self.rank > 0) and self.rank or nil,
@@ -294,7 +369,9 @@ RegisterNetEvent("deathmatch:killfeed", function(payload)
     if type(payload) ~= "table" or not S.shown then return end
     local me = S.state and selfId(S.state) or nil
     local killer = payload.killerName
+    if killer ~= nil and (payload.killerBot == true or (tonumber(payload.killerId) or 0) < 0) then killer = markBot(killer) end
     local victim = payload.victimName or "?"
+    if payload.victimBot == true or (tonumber(payload.victimId) or 0) < 0 then victim = markBot(victim) end
     local text = killer and (killer .. " > " .. victim) or (victim .. " died")
     if payload.headshot then text = text .. " (headshot)" end
     local tone = nil

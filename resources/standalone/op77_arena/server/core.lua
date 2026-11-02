@@ -13,6 +13,7 @@ C.resource = LightRpArena.core
 local EVENTS = {
     result = "op77_lightrp:activity:result",
     status = "op77_lightrp:activity:status",
+    bots = "op77_lightrp:activity:bots",   -- staff bot mode (/lightrp.bots), listened to only
 }
 C.events = EVENTS
 
@@ -75,6 +76,13 @@ function C.player(playerId)
     local player = C.call("activityPlayer", playerId)
     if type(player) == "table" then return player end
     return nil
+end
+
+-- Staff bot mode (/lightrp.bots on|off). Read after every successful registration:
+-- the event alone misses a switch flipped while this resource or the core restarted.
+-- An older core without the export answers off.
+function C.bots()
+    return C.call("activityBots") == true
 end
 
 function C.result(playerId, activityId, result)

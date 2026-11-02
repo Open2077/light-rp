@@ -7,8 +7,9 @@
 --      Night). Read by server/lightrp.lua and client/hud.lua.
 --   2. The engine overrides that make it a hosted activity: the city is the lobby
 --      (bucket 0, never fenced, nobody placed on join), buckets in Light RP's arena
---      range 4100000-4199999, one Combat Zone and one Blade Night, bots off, the
---      Freeroam arena geometry, short Light RP-style text.
+--      range 4100000-4199999, one Combat Zone, one Blade Night and one PvE Combat
+--      Zone, bots only where server/lightrp.lua asks for them, the Freeroam arena
+--      geometry, short Light RP-style text.
 --
 -- Shared: downloaded by every client. Never put anything secret here.
 
@@ -38,6 +39,26 @@ LightRpArena = {
             minPlayers = 4, maxPlayers = 6,
             modes = { { id = "2v2", label = "2v2" }, { id = "3v3", label = "3v3" } },
         },
+        pve = {
+            id = "arena.pve", label = "Combat Zone · PvE", kind = "pvp",
+            description = "Players together against gang bots. Solo or with your crew, no friendly fire.",
+            minPlayers = 1, maxPlayers = 6,
+        },
+    },
+
+    -- The PvE Combat Zone (arena.pve): open to everyone, no staff switch. The players
+    -- are one side, the engine's bots the other; more players, more bots.
+    pve = {
+        maxPlayers = 6,            -- people per PvE round (the bots take the other seats)
+        botsFirst = 3,             -- bots for the first player
+        botsPerPlayer = 2,         -- more bots for every further player
+        botsMax = 10,
+        profile = nil,             -- engine difficulty profile; nil = DeathmatchConfig.bots.difficulty
+    },
+
+    -- Crews (options.squad from Light RP): one crew, one instance, one side.
+    crews = {
+        gatherMs = 4000,           -- a team queue holds a crew this long for its members to arrive
     },
 
     duel = {
@@ -55,6 +76,10 @@ LightRpArena = {
         blade = { first = 30, second = 20, third = 15, other = 5, minHumans = 3, minRoundMs = 90000 },
         duel = { win = 20, loss = 5 },
         teams = { win = 25, loss = 5 },
+        -- PvE: about 60 % of the PvP numbers, and only for a player who fought at
+        -- least minRoundMs of the round, so a fast kill-limit round cannot be farmed.
+        -- Won = the players killed more bots than the bots killed players.
+        pve = { win = 18, loss = 3, minRoundMs = 120000 },
         maxPerResult = 50,
         nightMultiplier = 2,
     },
@@ -70,7 +95,25 @@ LightRpArena = {
         endText = "Arena Night is over. Thanks for fighting.",
     },
 
-    allowBots = false,             -- never fill a Light RP match with bots
+    allowBots = false,             -- outside bot mode, never fill a Light RP match with bots
+
+    -- Staff bot mode (/lightrp.bots on|off, op77_lightrp): one player starts what
+    -- normally needs several and the engine's own bots (server/bots.lua: Cyberpunk's
+    -- native combat AI, three mutually hostile gangs) fill the missing places. Nothing
+    -- is recorded meanwhile: no Light RP result, no career, round or rating row.
+    bots = {
+        fillTarget = 6,            -- Combat Zone / Blade Night: bodies (players + bots) a round aims for
+        ffa = true,                -- fill Combat Zone rounds
+        blade = true,              -- fill Blade Night rounds (the gang bots keep their guns: no melee bot exists)
+        teams = true,              -- complete Team Arena rosters (each side's missing slots)
+        duel = true,               -- /duel bot, and the random duel queue falls back to a bot
+        teamWaitMs = 0,            -- a queued team player waits this long for other people before bots complete the roster
+        duelWaitMs = 0,            -- the random duel queue waits this long for a person before a bot takes the duel
+        profile = nil,             -- engine difficulty profile (relaxed|standard|veteran); nil = DeathmatchConfig.bots.difficulty
+        prefix = "[BOT] ",         -- the marker on every bot name: scoreboard, teams, kill feed
+        inFlightMs = 20000,        -- paced bot spawns still arriving are counted this long
+    },
+
     returnTimeoutMs = 12000,       -- waiting for a downed player to stand before the way home
     joinThrottleMs = 700,
     checkCacheMs = 1500,           -- activityCheck result reused while queued
@@ -110,6 +153,10 @@ Config.formats["3v3"].label = "Team Arena 3v3"
 Config.arena.bestOf = 3
 Config.arena.queue.fillWithBots = false
 Config.bots.fillWithBots = false
+-- Bot mode (server/lightrp.lua) fills with the engine's own add/addToArena; these two
+-- keep /dm.bot fill and the bot names in step with it.
+Config.bots.fillTarget = LightRpArena.bots.fillTarget
+Config.bots.namePrefix = LightRpArena.bots.prefix
 Config.loadout.promptOnFirstRound = false -- no picker page: /arena.weapon instead
 
 -- Career, rounds and Elo in Light RP's database, under our own prefix.
@@ -126,6 +173,13 @@ tunables.fillWithBots.value = false
 tunables.arenaFillWithBots.value = false
 
 -- Blade Night: the Blade FFA ruleset. No Mantis Blades: implants are Light RP's.
+-- The PvE Combat Zone: a free-for-all ruleset with a bucket of its own (as Blade
+-- Night), server/instances.lua `ownBucketRuleset`.
+Config.pve = {
+    bucket = 4100002,
+    label = LightRpArena.activities.pve.label,
+}
+
 Config.blade = {
     bucket = 4100001,
     label = "Blade Night",
