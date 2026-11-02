@@ -16,7 +16,7 @@ import "@/features/safezones/safezones.css";
 import "./missioneditor.css";
 
 type Kind = "list" | "mission" | "general" | "perimeter" | "vertices" | "vertex" | "starts" | "start" | "spawns" | "spawn"
-  | "checkpoints" | "checkpoint" | "waves" | "wave" | "rules" | "fixer" | "difficulties" | "difficulty" | "test" | "issues" | "discard" | "delete"
+  | "checkpoints" | "checkpoint" | "waves" | "wave" | "rules" | "fixer" | "worldboss" | "difficulties" | "difficulty" | "test" | "issues" | "discard" | "delete"
   | "brush" | "route";
 type Page = { kind: Kind; selected?: string; index?: number; key?: string };
 type Entry = RageMenuItem & { run?: () => void; change?: (patch: Partial<RageMenuItem>) => void };
@@ -226,7 +226,8 @@ export function MissionEditor() {
     const saved = normalizeMission(result.mission); setDraft(saved); setOriginal(JSON.stringify(saved));
     mutation.current = undefined; setUnconfirmed(undefined);
     setFeedback(!saved.enabled ? "Mission saved (disabled: no board in the city)."
-      : saved.fixer?.enabled ? "Gig published. No board: the fixers hand it out." : "Mission published. Its board is live in the city.");
+      : saved.fixer?.enabled ? "Gig published. No board: the fixers hand it out."
+      : saved.worldBoss?.enabled ? "World boss published. No board: it appears at random in the city." : "Mission published. Its board is live in the city.");
     await refresh();
   });
   const remove = () => run(async () => {
@@ -291,7 +292,7 @@ export function MissionEditor() {
   if (top.kind === "list") {
     entries = [item("create", "Create a mission", () => { void edit(); }, { icon: "plus", disabled: busy || !ready, description: ready ? "Start a private draft where you stand: board, start and perimeter around you. Nothing changes until publication." : "Mission storage is unavailable." }),
       { separator: true },
-      ...missions.map(m => item(`mission:${m.id}`, m.title, () => { void edit(m); }, { icon: m.type === "waves" ? "shield" : "swords", meta: !m.enabled ? "DISABLED" : m.fixer.enabled ? `GIG · ${TYPE_LABEL[m.type].toUpperCase()}` : TYPE_LABEL[m.type].toUpperCase(), disabled: busy,
+      ...missions.map(m => item(`mission:${m.id}`, m.title, () => { void edit(m); }, { icon: m.type === "waves" ? "shield" : "swords", meta: !m.enabled ? "DISABLED" : m.fixer.enabled ? `GIG · ${TYPE_LABEL[m.type].toUpperCase()}` : m.worldBoss.enabled ? `BOSS · ${TYPE_LABEL[m.type].toUpperCase()}` : TYPE_LABEL[m.type].toUpperCase(), disabled: busy,
         description: `${TYPE_LABEL[m.type]} · ${m.spawns.length} spawn point(s) · ${m.checkpoints.length} checkpoint(s)${m.type === "waves" ? ` · ${m.waves.length} wave(s)` : ""} · revision ${m.revision}` })),
       ...(loading ? [item("loading", `Loading missions ${loading.received}/${loading.total}`, undefined, { disabled: true, icon: "activity" })] : []),
       ...(!missions.length && !loading ? [item("empty", ready ? "No authored mission yet" : busy ? "Waiting..." : "Storage unavailable", undefined, { disabled: true })] : []), { separator: true },
@@ -315,6 +316,8 @@ export function MissionEditor() {
           submenu("checkpoints", "Checkpoints", { kind: "checkpoints" }, { meta: `${m.checkpoints.length} / ${LIMITS.checkpoints}`, description: "Points the squad must reach. Entering one wakes its spawn points." }),
           ...(m.type === "waves" ? [submenu("waves", "Waves", { kind: "waves" }, { meta: `${m.waves.length} / ${LIMITS.waves}`, description: "The waves in order. Each starts its delay after the previous one is cleared." })] : []),
           submenu("rules", "Rules", { kind: "rules" }, { meta: `${m.outOfBounds.graceSeconds}s · ${m.respawn.lives} lives`, description: "Out-of-zone delay, team respawns." }),
+          submenu("worldboss", "World boss", { kind: "worldboss" }, { meta: m.worldBoss.enabled ? "BOSS" : "OFF", description: m.worldBoss.enabled
+            ? "A world boss: no board, it appears at random in the city and anybody fights it; the reward is shared by contribution." : "Turn this mission into an open-world boss event." }),
           submenu("fixer", "Fixer gig", { kind: "fixer" }, { meta: m.fixer.enabled ? "GIG" : "BOARD", description: m.fixer.enabled
             ? "A fixer gig: no board in the city. The fixers text it to players at random; they share it with their crew." : "A board mission (players tag in). Turn it into a fixer gig here." }),
           submenu("difficulties", "Difficulties and rewards", { kind: "difficulties" }, { description: "Payout, time limit, squad size and enemy strength per difficulty." }),
@@ -494,13 +497,33 @@ export function MissionEditor() {
         const contactIds = ["any", ...fixers.map(f => f.id)];
         const contactName = (id: string) => id === "any" ? "Any fixer (random)" : fixers.find(f => f.id === id)?.name ?? id;
         entries = [
-          toggle("fixerEnabled", "Fixer gig", m.fixer.enabled, enabled => update(d => ({ fixer: { ...d.fixer, enabled } })),
+          toggle("fixerEnabled", "Fixer gig", m.fixer.enabled, enabled => update(d => ({ fixer: { ...d.fixer, enabled }, worldBoss: enabled ? { ...d.worldBoss, enabled: false } : d.worldBoss })),
             "On: no board in the city, nobody tags in. The fixers text this job to players at random (Neural-Link), with the meet point = the board position. Off: a board mission."),
           choice("fixerContact", "Fixer", contactIds, contactName, contactIds.includes(m.fixer.contact) ? m.fixer.contact : "any",
             contact => update(d => ({ fixer: { ...d.fixer, contact } })), "Who sends the job. Any: a random fixer each time."),
           textEntry("fixerBrief", "Fixer brief", m.fixer.brief, v => { if (v.trim().length > 240) return "240 characters at most."; update(d => ({ fixer: { ...d.fixer, brief: v.trim() } })); return undefined; }, 240,
             "The objective the fixer writes once the job is taken. Empty: the mission description."),
           item("fixerHelp", "How a gig plays", undefined, { disabled: true, description: "A fixer texts one player: Take the job / Pass. Taken: the brief with the meet point (Pin on map) and the objective; the player shares the job with contacts or numbers, who join the crew. Everyone who took it meets at the point: countdown, then the mission runs at the offered difficulty and pays each operator." }),
+        ];
+        break;
+      }
+      case "worldboss": {
+        const spawnIds = m.spawns.filter(s => s.trigger === "start").map(s => s.id);
+        const spawnLabel = (id: string) => m.spawns.find(s => s.id === id)?.label ?? "Choose...";
+        const w = m.worldBoss;
+        const set = (patch: Partial<typeof w>) => update(d => ({ worldBoss: { ...d.worldBoss, ...patch } }));
+        entries = [
+          toggle("wbEnabled", "World boss", w.enabled, enabled => update(d => ({ worldBoss: { ...d.worldBoss, enabled, boss: d.worldBoss.boss || spawnIds[0] || "" },
+            fixer: enabled ? { ...d.fixer, enabled: false } : d.fixer })),
+            "On: no board, nobody tags in. It appears at random in the city (bucket 0) and anybody in the zone fights it. The perimeter is the event zone (no out-of-zone death)."),
+          ...(spawnIds.length ? [choice("wbBoss", "Boss", spawnIds, spawnLabel, spawnIds.includes(w.boss) ? w.boss : spawnIds[0]!, boss => set({ boss }),
+            "The start spawn point whose enemies are the boss (its name is the boss's). The other start spawns guard it; non-start spawns come as reinforcements at 66 % and 33 %.")]
+            : [item("wbNoSpawn", "Boss", undefined, { disabled: true, meta: "NO START SPAWN", description: "Place a spawn point that spawns at the start: it will be the boss." })]),
+          numberEntry("wbHealth", "Boss health", w.health, health => set({ health }), 1, 200, "x", 1, true),
+          numberEntry("wbReward", "Reward pool", w.reward, reward => set({ reward }), 0, 1000000, "€$", 1000, true),
+          numberEntry("wbMinShare", "Minimum share", w.minShare, minShare => set({ minShare }), 0, 50, "%", 1, true),
+          numberEntry("wbMinutes", "Time limit", w.minutes, minutes => set({ minutes }), 5, 120, "min", 1, true),
+          item("wbHelp", "How a world boss plays", undefined, { disabled: true, description: "Announced to the whole city with a blip. Entering the zone shows the boss bar, the objective and your share. Every point of damage on the boss and its guards counts, plus each kill; at the end the pool is shared by score among those at or above the minimum share. A latecomer's last shot or an idle player gets nothing. Time out: the boss leaves, nobody is paid." }),
         ];
         break;
       }
