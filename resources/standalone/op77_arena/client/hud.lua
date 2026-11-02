@@ -258,12 +258,16 @@ function S.apply(s)
         clear()
         return false
     end
-    local ok = call("ActivityHudShow", hud)
-    S.shown = ok == true
+    local ok, why = call("ActivityHudShow", hud)
+    -- A rate-limited update leaves the previous HUD on screen: still ours to clear.
+    if ok == true then S.shown = true elseif why ~= "rate_limited" then S.shown = false end
     local key, card = S.resultFor(s)
     if key ~= nil and key ~= S.resultKey then
         S.resultKey = key
-        if S.shown then call("ActivityHudPush", "result", card) end
+        local pushed = S.shown and call("ActivityHudPush", "result", card) == true
+        if not pushed then
+            notify(card.placement == 1 and "success" or "info", card.title, card.subtitle, card.durationMs)
+        end
     end
     return S.shown
 end
