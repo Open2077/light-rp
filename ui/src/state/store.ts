@@ -153,7 +153,8 @@ export const useStore = create<Store>((set) => ({
   setHud: (hud) => set({ hud }),
   setHotbar: (hotbar) => set({ hotbar }),
   setSafezone: (safezone) => set({ safezone }),
-  setArmament: (armament) => set({ armament }),
+  // Lua sends an empty list as {}: keep `arsenal` an array for every reader
+  setArmament: (armament) => set({ armament: armament && !Array.isArray(armament.arsenal) ? { ...armament, arsenal: [] } : armament }),
   setGrenades: (grenades) => set({ grenades }),
   setGrenadePending: (grenadePending) => set({ grenadePending }),
   setArmamentPending: (armamentPending) => set({ armamentPending }),

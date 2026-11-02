@@ -41,6 +41,7 @@ end
 
 -- Nothing else may own the input, and the character must stand on its own feet.
 local function allowed()
+    if Ui.loadingScreen and Ui.loadingScreen() then return false end
     if not Ui.page or not Ui.characterReady or Ui.creationActive or Ui.menuOpen or Ui.promptActive or Ui.actionFocus or Ui.supportMode then return false end
     for _, open in pairs(Ui.dialogs or {}) do if open then return false end end
     if LightRpMissionEditor and LightRpMissionEditor.active then return false end
@@ -53,10 +54,28 @@ local function allowed()
     return true
 end
 Wheel.allowed = allowed
+-- the first owner that refuses, for the log (same order as allowed)
+function Wheel.refusal()
+    if not Ui.page then return "no page" end
+    if Ui.loadingScreen and Ui.loadingScreen() then return "loading screen" end
+    for _, k in ipairs({ "characterReady", "creationActive", "menuOpen", "promptActive", "actionFocus", "supportMode" }) do
+        local v = Ui[k]
+        if (k == "characterReady" and not v) or (k ~= "characterReady" and v) then return k .. "=" .. tostring(v) end
+    end
+    for name, open in pairs(Ui.dialogs or {}) do if open then return "dialog " .. tostring(name) end end
+    if LightRpMissionEditor and LightRpMissionEditor.active then return "mission editor" end
+    if LightRpSafezones and LightRpSafezones.active then return "safezones" end
+    if LightRpFreecam and LightRpFreecam.isActive and LightRpFreecam.isActive() then return "freecam" end
+    if LightRpMedical and LightRpMedical.isActive() then return "medical" end
+    local c = Open77.character.state()
+    if not c then return "no character state" end
+    return string.format("alive=%s attached=%s mounted=%s", tostring(c.alive), tostring(c.attached), tostring(c.vehicle and c.vehicle.mounted))
+end
 
 local function close(commit, reason)
     if not Wheel.open then return end
     Wheel.open = false
+    Ui.log("weapon wheel closed (%s, %s)", commit and "commit" or "cancel", tostring(reason))
     if Ui.page and not Ui.menuOpen and not Ui.promptActive and not Ui.actionFocus then Ui.page:setFocus(false, false) end
     Ui.send(PAGE, { kind = commit and "commit" or "cancel", reason = reason })
     sound("close")
@@ -76,12 +95,13 @@ local function openWheel()
         if latched then close(true, "toggle") end
         return
     end
-    if not allowed() then return end
+    if not allowed() then Ui.log("weapon wheel refused: %s", Wheel.refusal()); return end
     -- the mouse only: movement keys stay with the game
     local ok, why = Ui.page:setFocus(false, true)
     if not ok then Ui.log("weapon wheel focus refused: %s", tostring(why)); return end
     Wheel.open, openedAt, latched, sawDown = true, GetGameTimer(), false, keyDown() == true
     Ui.send(PAGE, { kind = "open", key = Wheel.key })
+    Ui.log("weapon wheel open (key %s, down %s)", tostring(Wheel.key), tostring(sawDown))
     -- the pockets may have changed since the last push (a purchase, a gift)
     if LightRpArmamentClient and LightRpArmamentClient.refresh then LightRpArmamentClient.refresh() end
     sound("open")
@@ -92,7 +112,10 @@ local function released()
     if not Wheel.open then return end
     -- a tap: the wheel stays open, a click or the key again picks
     if not latched and GetGameTimer() - openedAt < TAP_MS then
-        latched = true
+        -- the key read down at the press proves nothing now: only a key still (or again)
+        -- down after the latch (a synthesized release) makes a later "up" a release
+        latched, sawDown = true, false
+        Ui.log("weapon wheel latched (released after %d ms)", GetGameTimer() - openedAt)
         Ui.send(PAGE, { kind = "latch", key = Wheel.key })
         return
     end

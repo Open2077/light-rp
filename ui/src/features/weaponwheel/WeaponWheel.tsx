@@ -66,7 +66,11 @@ export function WeaponWheel() {
   const [latched, setLatched] = useState(false);
 
   const slots = useMemo<Slot[]>(() => {
-    const list: Slot[] = [{ key: "unarmed", kind: "unarmed" }, ...(armament?.arsenal ?? []).map(w => ({ key: w.instanceId, kind: "weapon" as const, weapon: w }))];
+    // An empty Lua list arrives as {} (a JSON object), not []: with no weapon in the pockets
+    // `.map` threw, the boundary hid the wheel and it stayed hidden (2026-11-02).
+    const raw: unknown = armament?.arsenal;
+    const arsenal: ArsenalWeapon[] = Array.isArray(raw) ? raw : [];
+    const list: Slot[] = [{ key: "unarmed", kind: "unarmed" }, ...arsenal.filter(w => w && typeof w.instanceId === "string").map(w => ({ key: w.instanceId, kind: "weapon" as const, weapon: w }))];
     while (list.length < MIN_SLOTS) list.push({ key: `empty:${list.length}`, kind: "empty" });
     return list;
   }, [armament?.arsenal]);
