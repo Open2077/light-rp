@@ -29,7 +29,7 @@ LightRpConfig = {
         walk = { id = "lightrp.walkmode", name = "Light RP: walk mode (cycle)", key = "F4" },
         inventory = { id = "lightrp.inventory", name = "Light RP: inventory", key = "I" },
         hotbar = { id = "lightrp.hotbar", name = "Light RP: show quick slots (hold)", key = "TAB" },
-        weaponWheel = { id = "lightrp.weaponwheel", name = "Light RP: weapon wheel (hold)", key = "CTRL" },
+        weaponWheel = { id = "lightrp.weaponwheel", name = "Light RP: weapon wheel (hold)", key = "TAB" },
         raidReady = { id = "lightrp.raid.ready", name = "Light RP: raid ready check", key = "Y" },
     },
 

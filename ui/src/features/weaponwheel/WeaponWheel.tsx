@@ -5,8 +5,9 @@ import { useStore } from "@/state/store";
 import { performArmament } from "../inventory/armament";
 import "./weaponwheel.css";
 
-/* The weapon wheel (hold CTRL, client/core/weapon_wheel.lua). Every weapon in the
-   pockets on a radial, "unarmed" at the top. The mouse aims a virtual stick: its
+/* The weapon wheel (hold TAB, client/core/weapon_wheel.lua). Every weapon in the
+   pockets on a radial, "holster" at the top: whatever is in the hands goes away (a gun,
+   the fists, the blades) and the loadout stays; it works with empty pockets. The mouse aims a virtual stick: its
    movement, not the pointer position, picks the slot, so the wheel works wherever
    the pointer starts. Releasing the key commits (server operation `select`). */
 
@@ -57,7 +58,7 @@ export function WeaponWheel() {
   const [phase, setPhase] = useState<Phase>("closed");
   const [index, setIndex] = useState(0);
   const [aim, setAim] = useState<number | null>(null);
-  const [key, setKey] = useState("CTRL");
+  const [key, setKey] = useState("TAB");
   const [chosen, setChosen] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [kick, setKick] = useState(0);
@@ -89,15 +90,23 @@ export function WeaponWheel() {
       const slot = r.current.slots[r.current.index], a = r.current.armament, store = useStore.getState();
       if (!slot) { finish(); return; }
       const busy = !!(store.armamentPending || a?.busy);
-      let request: { instanceId?: string; unarmed?: boolean } | null = null;
+      if (slot.kind === "unarmed") {
+        // The server holsters whatever is in the hands, armament or not (B does the same).
+        emit(PAGE, { kind: "holster" });
+        r.current.committedAt = Date.now();
+        setChosen(slot.key); emit(PAGE, { kind: "chosen", unarmed: true });
+        say({ title: "HOLSTERED", text: "Hands free. Your loadout stays with you." });
+        finish();
+        return;
+      }
+      let request: { instanceId?: string } | null = null;
       if (slot.kind === "weapon" && slot.weapon && !(a?.right?.instanceId === slot.weapon.instanceId && !a?.holstered)) request = { instanceId: slot.weapon.instanceId };
-      if (slot.kind === "unarmed" && (a?.right || a?.left)) request = { unarmed: true };
       if (request && busy) say({ title: "EQUIPMENT BUSY", text: "Synchronizing — try again in a moment.", error: true });
       else if (request) {
         performArmament("select", request);
         r.current.committedAt = Date.now();
-        setChosen(slot.key); emit(PAGE, { kind: "chosen", unarmed: slot.kind === "unarmed" });
-        say(slot.kind === "unarmed" ? { title: "HANDS EMPTY", text: "Weapons stowed in your pockets." } : { title: "IN HAND", text: slot.weapon!.label });
+        setChosen(slot.key); emit(PAGE, { kind: "chosen", unarmed: false });
+        say({ title: "IN HAND", text: slot.weapon!.label });
       }
       finish();
     };
@@ -107,7 +116,7 @@ export function WeaponWheel() {
         const a = r.current.armament, s = r.current.slots;
         const held = a?.right?.instanceId ? s.findIndex(x => x.key === a.right!.instanceId) : 0;
         r.current.vec = { x: 0, y: 0 }; r.current.last = null; r.current.index = Math.max(0, held);
-        setIndex(Math.max(0, held)); setAim(null); setChosen(null); setKey(p.key || "CTRL");
+        setIndex(Math.max(0, held)); setAim(null); setChosen(null); setKey(p.key || "TAB");
         r.current.phase = "open"; setPhase("open");
       } else if (p?.kind === "commit") commit();
       else if (p?.kind === "cancel") cancel();
@@ -200,7 +209,7 @@ export function WeaponWheel() {
               <span className={`ww__rounds${(s.weapon.rounds ?? 0) <= 0 ? " is-empty" : ""}`}>{pad(s.weapon.rounds)}</span>
               {s.weapon.hand && <i className={`ww__held${armament?.holstered ? " is-holstered" : ""}`} />}
             </>}
-            {s.kind === "unarmed" && <><Fist size={46} /><span className="ww__item-label">UNARMED</span></>}
+            {s.kind === "unarmed" && <><Fist size={46} /><span className="ww__item-label">HOLSTER</span></>}
             {s.kind === "empty" && <span className="ww__dash" />}
           </div>;
         })}
@@ -216,8 +225,9 @@ export function WeaponWheel() {
             {hovered.kind === "unarmed" && <>
               <span className="ww__tag">HOLSTER</span>
               <span className="ww__fist"><Fist size={54} /></span>
-              <b className="ww__name">Unarmed</b>
-              <span className={`ww__chip ww__chip--${armament?.right || armament?.left ? "accent" : "dim"}`}>{armament?.right || armament?.left ? "EMPTY BOTH HANDS" : "HANDS ARE EMPTY"}</span>
+              <b className="ww__name">Hands down</b>
+              <span className="ww__chip ww__chip--accent">PUT AWAY WHAT YOU HOLD</span>
+              <span className="ww__serial">Guns, fists or blades · B does the same</span>
             </>}
             {hovered.kind === "empty" && <><span className="ww__tag">EMPTY</span><b className="ww__name">No weapon</b><span className="ww__serial">Gun stores sell them</span></>}
           </div>

@@ -386,9 +386,39 @@ local function draw(playerId)
     end)
 end
 
+-- Sheathes drawn blades; false when there were none (the armament's holster asks first).
+function Cyber.sheatheBlades(playerId)
+    local st = state[playerId]
+    if not st or not st.drawn then return false end
+    sheathe(playerId)
+    return true
+end
+
+-- Something in the hands (a weapon, the fists): the server's weapon report first, the
+-- armament's own state when the report is missing.
+local function handsBusy(playerId)
+    local ok, weapons = pcall(Open77.weapons.get, playerId)
+    if ok and type(weapons) == "table" and weapons.drawn ~= nil then return weapons.drawn == true end
+    local W = LightRP.armament
+    local view = W and type(W.view) == "function" and W.view(playerId)
+    return type(view) == "table" and (view.right ~= nil or view.left ~= nil) and view.holstered ~= true
+end
+
+-- B, the vanilla holster key: puts away whatever is in the hands (blades, a gun, the
+-- fists); with empty hands it draws the Mantis Blades of a player who has them, and
+-- does nothing otherwise (no "no blades installed" notice on every B).
 RegisterNetEvent("op77_lightrp:cyberware:blades", function()
     local playerId = tonumber(source)
-    if playerId and state[playerId] then draw(playerId) end
+    if not playerId then return end
+    local st = state[playerId]
+    if st and st.drawn then sheathe(playerId) return end
+    if handsBusy(playerId) then
+        local W = LightRP.armament
+        if W and type(W.holster) == "function" then W.holster(playerId) end
+        return
+    end
+    local blades = st and familyOf(st, "arms")
+    if blades and blades.kind == "blades" then draw(playerId) end
 end)
 
 -- ---------------------------------------------------------------------------
