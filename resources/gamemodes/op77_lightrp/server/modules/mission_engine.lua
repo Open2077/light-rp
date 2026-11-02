@@ -22,6 +22,7 @@ local Engine = LightRP.module("missionEngine", {})
 local NET = "op77_lightrp:missionrun"
 local COMBAT_GROUP = "lightrp_mission"
 local START_DELAY_MS = 6000      -- the arena streams in before the first enemies
+local BRIEFING_MS = 30000        -- the loadout pick: the fight starts once all are ready, or after this
 local SPAWNS_PER_TICK = 4
 local RETARGET_MS = 6000
 local ENGAGE_RANGE = 90
@@ -409,14 +410,25 @@ end
 -- `loadout` on the definition picks a kit of LightRpRaid.loadouts ("none": the
 -- operators bring their own); without it the first kit (assault) is handed out.
 
+local function kitList() return type(LightRpRaid) == "table" and LightRpRaid.loadouts or {} end
+local function kitById(id)
+    for _, kit in ipairs(kitList()) do if kit.id == id then return kit end end
+end
+-- The kit preselected for a mission (its `loadout`, else the first); nil: no kits at all.
 local function kitFor(def)
     local wanted = def.loadout or "assault"
     if wanted == "none" then return nil end
-    local kits = type(LightRpRaid) == "table" and LightRpRaid.loadouts or {}
-    for _, kit in ipairs(kits) do if kit.id == wanted then return kit end end
-    return kits[1]
+    return kitById(wanted) or kitList()[1]
 end
 Engine.kitFor = kitFor
+-- What the briefing lists (id, label, blurb), like the raid's ready check.
+local KIT_VIEW
+local function kitView()
+    if KIT_VIEW then return KIT_VIEW end
+    KIT_VIEW = {}
+    for _, kit in ipairs(kitList()) do KIT_VIEW[#KIT_VIEW + 1] = { id = kit.id, label = kit.label, blurb = kit.blurb } end
+    return KIT_VIEW
+end
 
 local waitingWeapons = {}
 AddEventHandler("open77:weapons:completed", function(player, request, _, accepted, reason, result)
@@ -459,7 +471,7 @@ local function equip(inst, id)
     run.equipping = run.equipping or {}
     if run.equipping[id] then return end
     run.equipping[id] = true
-    local kit = run.kit
+    local kit = kitById(run.choice and run.choice[id]) or run.kit
     CreateThread(function()
         Wait(1500) -- the operator lands in the arena first
         for attempt = 1, 6 do
@@ -491,6 +503,39 @@ local function equip(inst, id)
     end)
 end
 Engine.equip = equip
+
+-- The briefing (staging), like the raid's ready check: each operator picks a kit (page
+-- action mission.loadout, keys 1-5) and says ready (mission.ready, Enter); the kit is
+-- handed out on ready, and to whoever is not ready when the fight starts. A downed
+-- operator may pick another one: it comes with the next life.
+local function canChoose(run, id)
+    return run.kit ~= nil and (run.phase == "staging" or run.respawns[id] ~= nil or run.down[id] ~= nil or run.reviving[id] ~= nil)
+end
+local function allReady(inst)
+    local run = inst.run
+    for _, id in ipairs(inst.members) do if not run.ready[id] then return false end end
+    return #inst.members > 0
+end
+LightRP.action("mission.loadout", function(id, payload)
+    local inst = Missions.instanceOf(id)
+    local run = inst and inst.run
+    local kit = type(payload) == "table" and kitById(payload.id)
+    if not run or not kit or not canChoose(run, id) then return end
+    run.choice[id] = kit.id
+    -- already ready in the briefing: the new kit at once
+    if run.phase == "staging" and run.ready[id] then equip(inst, id) end
+    run.dirty = true
+    push(inst)
+end)
+LightRP.action("mission.ready", function(id)
+    local inst = Missions.instanceOf(id)
+    local run = inst and inst.run
+    if not run or run.phase ~= "staging" or run.ready[id] then return end
+    run.ready[id] = true
+    equip(inst, id)
+    run.dirty = true
+    push(inst)
+end)
 
 -- ---------------------------------------------------------------------------
 -- NPC hits on the operators. The mission's NPCs opt into authoritativePlayerHits: the
@@ -562,6 +607,15 @@ local function view(inst, viewer)
     end
     if viewer and run.respawns[viewer] then v.respawnInMs = math.max(0, run.respawns[viewer] - t) end
     if viewer and run.out[viewer] then v.spectating = true end
+    if run.kit and viewer then
+        v.loadout, v.canChoose = run.choice[viewer], canChoose(run, viewer)
+        if v.canChoose then v.loadouts = kitView() end
+        if run.phase == "staging" then
+            local n = 0
+            for _, id in ipairs(inst.members) do if run.ready[id] then n = n + 1 end end
+            v.ready, v.readyCount, v.squadSize = run.ready[viewer] == true, n, #inst.members
+        end
+    end
     return v
 end
 
@@ -582,16 +636,23 @@ local function script(def)
             run.kit = kitFor(def)
             -- the armament stands aside for the whole run (Missions.handlesLoadout)
             inst.loadout = run.kit ~= nil
+            run.choice, run.ready = {}, {}
+            for _, id in ipairs(inst.members) do run.choice[id] = run.kit and run.kit.id or nil end
+            -- the briefing: the arena streams in (START_DELAY_MS at least), the kits are picked
+            run.minStartAt = run.startAt
+            if run.kit then run.startAt = now() + BRIEFING_MS end
             if not run.prepared then LightRP.log("mission %s: perimeter not prepared by the zone service, local maths used", inst.id) end
             inst.run = run
             sendVisuals(inst)
-            for _, id in ipairs(inst.members) do equip(inst, id) end
         end,
         onTick = function(inst)
             local run = inst.run
             if not run or run.phase == "done" then return end
             if run.phase == "staging" then
-                if now() < run.startAt then return end
+                local t = now()
+                if t < run.minStartAt or (t < run.startAt and not allReady(inst)) then return end
+                -- whoever did not say ready gets the kit they had picked
+                for _, id in ipairs(inst.members) do if run.kit and not run.ready[id] then run.ready[id] = true; equip(inst, id) end end
                 if run.def.type == "waves" then
                     run.phase, run.nextWaveAt = "intermission", now() + (run.def.waves[1].delaySeconds or 0) * 1000
                     announce(inst, "HOLD THE ZONE", string.format("%d waves. The first one lands in %d s.", #run.def.waves, run.def.waves[1].delaySeconds), "contract")
