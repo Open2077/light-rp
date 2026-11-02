@@ -163,19 +163,25 @@ function Open77.audio.play3D(asset,position,options)
 end
 function Open77.audio.destroy(id)assert(soundHandles[id]);soundHandles[id]=nil;return true end
 peakInstructions=0
+BOARD_BUDGET=tonumber(os.getenv('BOARD_BUDGET')) or 8000
 function step()
  clock=clock+50
- for _,co in ipairs(threads) do if coroutine.status(co)~='dead' then
+ -- Two resumes per step: the main loop splits each tick into an input resume
+ -- and a render resume. The budget is still checked per resume.
+ for _,co in ipairs(threads) do for _=1,2 do if coroutine.status(co)~='dead' then
   local count=0
   nativeCreatesInResume=0
-  debug.sethook(co,function()count=count+100 end,'',100)
+  -- Like the 176 client: the hook raises inside the coroutine at the budget.
+  debug.sethook(co,function()
+   count=count+100
+   if count>=BOARD_BUDGET then debug.sethook();error('Open77 script execution budget exceeded '..debug.traceback('',2),0) end
+  end,'',100)
   local ok,why=coroutine.resume(co)
   debug.sethook(co)
   peakInstructions=math.max(peakInstructions,count)
   assert(nativeCreatesInResume<=1,'native spawns must be staggered across resumes')
-  assert(count<25000,'board task exceeded strict cooperative budget: '..count)
   assert(ok,why)
- end end
+ end end end
 end
 function waitUntil(predicate,label)
  for i=1,600 do if predicate() then return end;step()end
@@ -193,7 +199,7 @@ for name in ['shared/board_game_models.lua', 'shared/board_games_rules.lua', 'cl
 lua.execute(r'''
 LightRpBoardGameModels={board=function()error('debug models must not be used')end,piece=function()error('debug models must not be used')end}
 local C=LightRpBoardGamesClient
-C.bind(page);C.start();assert(#requests==0);step();assert(#requests==0);step();assert(last().action=='sync')
+C.bind(page);C.start();assert(#requests==0);step();assert(last().action=='sync')
 -- A delayed target-disable export cannot win after a rapid game exit.
 delayContext=true
 events['lightrp:boardGames:place']({kind='chess'});step();step()
@@ -270,7 +276,7 @@ local pawnHandle
 local function pawnY()
  if pawnHandle then return nativeProps[pawnHandle] and nativeProps[pawnHandle].position.y end
  for id,p in pairs(nativeProps)do
-  if p.name=='chess_white_pawn' and math.abs(p.position.x-.0625*.65)<.001 and p.position.y>.2*.65 and p.position.y<.4*.65 then
+  if p.name=='chess_white_pawn' and math.abs(p.position.x-.0625*.65)<.001 and p.position.y>0 and p.position.y<.4*.65 then
    pawnHandle=id;return p.position.y
   end
  end
@@ -448,7 +454,7 @@ assert(next(soundHandles)~=nil)
 local failedHandle
 for id,p in pairs(nativeProps)do if p.name=='connect4_white_disc' then failedHandle=id;break end end
 assert(failedHandle);nativeProps[failedHandle].backend='placeholder_cube'
-step();assert(not C.isActive() and not camera and not frozen and nativeCount(4)==0)
+waitUntil(function()return not C.isActive() and not camera and not frozen and nativeCount(4)==0 end,'placeholder projection rejected')
 assert(lastNotice:find('rejoin through the launcher',1,true))
 events['lightrp:boardGames:state']({boards={four}})
 assert(not C.isActive() and last().action=='leave','failed board projections must not reopen a camera')

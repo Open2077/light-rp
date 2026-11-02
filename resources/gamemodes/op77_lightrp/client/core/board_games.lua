@@ -241,6 +241,7 @@ local function planePoint(board)
     if t<=0 or t>15 then return end
     return {x=ray.origin.x+ray.direction.x*t,y=ray.origin.y+ray.direction.y*t,z=board.position.z}
 end
+local PIECE_HEIGHTS={pawn=.079,rook=.089,knight=.104,bishop=.108,queen=.111,king=.124}
 local function square(board,ignorePiece)
     if board.kind=="connect4" then
         local p=cursor();if not p then return end
@@ -259,30 +260,41 @@ local function square(board,ignorePiece)
     end
     -- Pick the visible body of a tall piece before falling back to the board
     -- plane. Side views otherwise project a queen's head onto the next square.
+    -- The ray is moved into the board's unscaled frame once, so each piece is a
+    -- local axis-aligned box tested without tables: the 176 client allows only
+    -- about 10k instructions per resume, and this runs every frame.
     local mouse=cursor()
     local ray=mouse and Open77.camera.screenRay(mouse.x,mouse.y,15)
     local closest,hitRow,hitCol=15,nil,nil
-    local heights={pawn=.079,rook=.089,knight=.104,bishop=.108,queen=.111,king=.124,man=.014}
     if ray then
-        local n=board.kind=="checkers" and 10 or 8
-        for r,line in pairs(board.game.board) do for c,piece in pairs(line) do
-            if type(piece)=="table" and tostring(piece.id)~=ignorePiece then
-                local center=world(board,(tonumber(c)-.5)/n-.5,(tonumber(r)-.5)/n-.5,.004)
-                local radius=(board.kind=="checkers" and .035 or .037)*SCALE
-                local height=(board.kind=="checkers" and piece.kind=="king" and .032 or heights[piece.kind] or .1)*SCALE
-                local low,high={x=center.x-radius,y=center.y-radius,z=center.z},{x=center.x+radius,y=center.y+radius,z=center.z+height}
+        local a=math.rad(board.rotation or 0);local c,s=math.cos(a),math.sin(a)
+        local dx,dy=ray.origin.x-board.position.x,ray.origin.y-board.position.y
+        local ox,oy,oz=(dx*c+dy*s)/SCALE,(-dx*s+dy*c)/SCALE,(ray.origin.z-board.position.z)/SCALE
+        local vx,vy,vz=(ray.direction.x*c+ray.direction.y*s)/SCALE,(-ray.direction.x*s+ray.direction.y*c)/SCALE,ray.direction.z/SCALE
+        local checkers=board.kind=="checkers"
+        local n=checkers and 10 or 8
+        local radius=checkers and .035 or .037
+        for r,line in pairs(board.game.board) do for col,piece in pairs(line) do
+            if type(piece)=="table" and (ignorePiece==nil or tostring(piece.id)~=ignorePiece) then
+                local height=checkers and (piece.kind=="king" and .032 or .014) or PIECE_HEIGHTS[piece.kind] or .1
+                local cx,cy=(tonumber(col)-.5)/n-.5,(tonumber(r)-.5)/n-.5
                 local enter,leave=0,15
-                for _,axis in ipairs({"x","y","z"}) do
-                    local d,o=ray.direction[axis],ray.origin[axis]
+                local lo,hi,o,d
+                for axis=1,3 do
+                    if axis==1 then lo,hi,o,d=cx-radius,cx+radius,ox,vx
+                    elseif axis==2 then lo,hi,o,d=cy-radius,cy+radius,oy,vy
+                    else lo,hi,o,d=.004,.004+height,oz,vz end
                     if math.abs(d)<.000001 then
-                        if o<low[axis] or o>high[axis] then leave=-1;break end
+                        if o<lo or o>hi then leave=-1;break end
                     else
-                        local a,b=(low[axis]-o)/d,(high[axis]-o)/d
-                        if a>b then a,b=b,a end
-                        enter=math.max(enter,a);leave=math.min(leave,b)
+                        local t1,t2=(lo-o)/d,(hi-o)/d
+                        if t1>t2 then t1,t2=t2,t1 end
+                        if t1>enter then enter=t1 end
+                        if t2<leave then leave=t2 end
+                        if leave<enter then break end
                     end
                 end
-                if leave>=enter and enter<closest then closest,hitRow,hitCol=enter,tonumber(r),tonumber(c) end
+                if leave>=enter and enter<closest then closest,hitRow,hitCol=enter,tonumber(r),tonumber(col) end
             end
         end end
     end
@@ -479,7 +491,7 @@ local function transformProp(record,position,yaw)
     if record.ghost then unavailable(why);stop(false,"preview_transform_failed",why) else failBoard(record.boardId,why) end
     return false
 end
-local function validateProps()
+local function validateProps(yieldFn)
     if next(ownedProps)==nil then return end
     local rows,why=Open77.props.list()
     if type(rows)~="table" then
@@ -487,18 +499,30 @@ local function validateProps()
         for id in pairs(renderCaches) do failBoard(id,why) end
         return
     end
+    -- From its own thread, yield in slices: three nearby boards are ~100 props.
+    -- Ids are snapshotted because other threads add props while this one waits.
     local byId={}
-    for _,row in ipairs(rows) do byId[tostring(row.id)]=row end
+    for index,row in ipairs(rows) do
+        byId[tostring(row.id)]=row
+        if yieldFn and index%40==0 then yieldFn() end
+    end
+    local ids={};for id in pairs(ownedProps) do ids[#ids+1]=id end
     local failures={}
-    for id,record in pairs(ownedProps) do
-        local row=byId[id]
-        local backend=row and tostring(row.backend or ""):lower() or ""
-        local fallback=backend:find("marker",1,true) or backend:find("fallback",1,true)
-            or backend:find("placeholder",1,true) or backend:find("cube",1,true)
-        if row and row.rendered==true and not row.failed and not fallback then record.ready=true end
-        if (row and (row.failed==true or fallback)) or (GetGameTimer()-record.created>3000 and not record.ready) then
-            failures[#failures+1]={record=record,why=row and (row.error or row.backend) or "model did not load"}
+    for index,id in ipairs(ids) do
+        local record,row=ownedProps[id],byId[id]
+        -- A ready prop is re-checked only when its back-end changes (e.g. to a
+        -- placeholder), which keeps the common path to a few instructions.
+        if record and not (record.ready and row and not row.failed and row.backend==record.backend) then
+            record.backend=row and row.backend
+            local backend=row and tostring(row.backend or ""):lower() or ""
+            local fallback=backend:find("marker",1,true) or backend:find("fallback",1,true)
+                or backend:find("placeholder",1,true) or backend:find("cube",1,true)
+            if row and row.rendered==true and not row.failed and not fallback then record.ready=true end
+            if (row and (row.failed==true or fallback)) or (GetGameTimer()-record.created>3000 and not record.ready) then
+                failures[#failures+1]={record=record,why=row and (row.error or row.backend) or "model did not load"}
+            end
         end
+        if yieldFn and index%25==0 then yieldFn() end
     end
     for _,failure in ipairs(failures) do
         local record=failure.record
@@ -587,34 +611,6 @@ AddEventHandler("onClientResourceStart",function(name)
         if name=="open77_contextmenu" then disableContext(Client.isActive()) end
     end
 end)
--- Temporary render diagnostics: the client log never reaches the server, so a
--- board that stays invisible is reported only when the summary changes.
-local lastRenderReport,lastRenderSummary=-10000,nil
-local function renderReport(nearCount,state)
-    local now=GetGameTimer()
-    if now-lastRenderReport<5000 then return end
-    local known,caches,pieces,failed=0,0,0,0
-    for _ in pairs(Client.boards) do known=known+1 end
-    for _,cache in pairs(renderCaches) do caches=caches+1;for _ in pairs(cache.pieces) do pieces=pieces+1 end end
-    for _ in pairs(failedBoards) do failed=failed+1 end
-    local rows,why=Open77.props.list()
-    local total,rendered,broken,backend,err=0,0,0,"",""
-    if type(rows)=="table" then
-        for _,row in ipairs(rows) do
-            total=total+1
-            if row.rendered==true then rendered=rendered+1 end
-            if row.failed==true then broken=broken+1;err=tostring(row.error or err) end
-            backend=tostring(row.backend or backend)
-        end
-    else err="list:"..tostring(why) end
-    local pos=state and state.position
-    local summary=string.format("known=%d near=%d caches=%d pieces=%d failedBoards=%d props=%d rendered=%d failed=%d backend=%s err=%s pos=%s",
-        known,nearCount,caches,pieces,failed,total,rendered,broken,backend,err,
-        pos and string.format("%.0f,%.0f,%.0f",pos.x or 0,pos.y or 0,pos.z or 0) or "nil")
-    if summary==lastRenderSummary then return end
-    lastRenderReport=now;lastRenderSummary=summary
-    request("diagnostic",{event="render",reason="render_summary",details=summary:sub(1,180)})
-end
 local function startRenderer()
     rendererRunning=true
     CreateThread(function()
@@ -632,14 +628,23 @@ local function startRenderer()
             Wait(16)
             local now=GetGameTimer();local dt=math.min(100,math.max(1,now-previousTime));previousTime=now
             local amount=1-math.exp(-dt/100)
-            local changes=0
-            for id,cache in pairs(renderCaches) do
-                local board=Client.boards[tonumber(id) or id]
+            -- Snapshot the ids: other threads clear caches while this one yields.
+            -- Yield after each board's targets and every few pieces, changed or
+            -- not, to stay inside the 176 client's per-resume budget.
+            local ids={};for id in pairs(renderCaches) do ids[#ids+1]=id end
+            for _,id in ipairs(ids) do
+                local cache=renderCaches[id]
+                local board=cache and Client.boards[tonumber(id) or id]
                 if board and renderAllowed[id] then
                     local targets=pieceTargets(board)
-                    for key,piece in pairs(cache.pieces) do
-                        local target=targets[key]
-                        if target then
+                    local held=active and active.id==board.id and active.drag and active.drag.pieceId or nil
+                    local keys={held}
+                    for key in pairs(cache.pieces) do if key~=held then keys[#keys+1]=key end end
+                    Wait(0)
+                    for index,key in ipairs(keys) do
+                        if renderCaches[id]~=cache or not renderAllowed[id] then break end
+                        local piece,target=cache.pieces[key],targets[key]
+                        if piece and target then
                             local override,direct=dragPose(board,key)
                             local p=override or world(board,target.position.x,target.position.y,target.position.z)
                             local from=piece.position
@@ -648,13 +653,9 @@ local function startRenderer()
                                 local gain=direct and 1 or amount
                                 local nextPosition={x=from.x+(p.x-from.x)*gain,y=from.y+(p.y-from.y)*gain,z=from.z+(p.z-from.z)*gain}
                                 if not transformProp(piece,nextPosition,yaw) then break end
-                                changes=changes+1
-                                if changes%4==0 then
-                                    Wait(0)
-                                    if renderCaches[id]~=cache or not renderAllowed[id] then break end
-                                end
                             end
                         end
+                        if index%12==0 then Wait(0) end
                     end
                 end
             end
@@ -663,7 +664,7 @@ local function startRenderer()
     CreateThread(function()
         while rendererRunning do
             Wait(250)
-            if rendererRunning then validateProps() end
+            if rendererRunning then validateProps(function() Wait(0) end) end
         end
     end)
 end
@@ -821,19 +822,7 @@ RegisterNetEvent("lightrp:boardGames:state",function(part)
     local ok,why=pcall(applyState,payload)
     if not ok then request("diagnostic",{event="render",reason="state_error",details=tostring(why):sub(1,180)}) end
 end)
-local lastStateTrace
 applyState=function(payload)
-    local listed,keyed,firstKey=0,0,nil
-    if type(payload)=="table" and type(payload.boards)=="table" then
-        for _ in ipairs(payload.boards) do listed=listed+1 end
-        for k in pairs(payload.boards) do keyed=keyed+1;firstKey=firstKey or k end
-    end
-    local trace=("payload=%s boards=%s ipairs=%d pairs=%d firstKey=%s(%s)"):format(type(payload),type(payload)=="table" and type(payload.boards) or "-",
-        listed,keyed,tostring(firstKey),type(firstKey))
-    if trace~=lastStateTrace then
-        lastStateTrace=trace
-        request("diagnostic",{event="render",reason="state_received",details=trace})
-    end
     if type(payload)~="table" or type(payload.boards)~="table" then return end
     local nextBoards={}
     for _,board in ipairs(payload.boards) do
@@ -957,6 +946,12 @@ function Client.start()
                     end
                 end
                 previous=keys
+            end)
+            -- The 176 client allows about 10k instructions per resume: input and
+            -- actions above, streaming and the preview below, in separate resumes.
+            if ok then Wait(0) end
+            if ok then ok,why=pcall(function()
+                local state=Open77.character.state()
                 local near,allowed={},{}
                 if state and state.position then
                     for _,board in pairs(Client.boards) do
@@ -974,11 +969,10 @@ function Client.start()
                     renderCandidates[i]=near[i];allowed[tostring(near[i].board.id)]=true
                 end
                 renderAllowed=allowed
-                renderReport(#near,state)
                 for id in pairs(renderCaches) do if not allowed[id] then clearGeometry(id) end end
                 renderPreview()
                 if Client.isActive() then sendView(false) end
-            end)
+            end) end
             if not ok then
                 Ui.log("board games client: %s",tostring(why))
                 if why~=Client.lastLoopError then
