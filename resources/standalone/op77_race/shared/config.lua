@@ -1,0 +1,184 @@
+-- op77_race public configuration. This file is sent to clients: no secrets and no
+-- authority decisions belong here (the server re-validates everything it reads from it).
+
+RaceConfig = {
+    -- The gamemode that owns players, return points and rewards (the activity contract).
+    core = "op77_lightrp",
+
+    -- One instance = one routing bucket, inside the range Light RP gave the races.
+    bucketBase = 4200000,
+    bucketCount = 100000,
+
+    -- The three activities this resource provides. `key` is internal, `id` is the
+    -- contract's namespaced id. caps: nothing from the RP world comes along (no RP
+    -- weapons, no RP items, needs frozen, no personal vehicles).
+    activities = {
+        {
+            key = "trial", id = "race.trial", mode = "trial", kind = "race",
+            label = "Time Trial",
+            description = "Solo against the clock. Loaner car or on foot, best times on the board.",
+            minPlayers = 1, maxPlayers = 1,
+        },
+        {
+            key = "grid", id = "race.grid", mode = "grid", kind = "race",
+            label = "Street Race",
+            description = "Two to eight drivers on a starting grid, identical loaner cars.",
+            minPlayers = 2, maxPlayers = 8,
+            -- Once the minimum is queued, the join window stays open this long (new
+            -- arrivals do not restart it); a full grid starts after fullSeconds.
+            joinSeconds = 30, fullSeconds = 5,
+        },
+        {
+            key = "foot", id = "race.foot", mode = "foot", kind = "race",
+            label = "Rooftop Race",
+            description = "Two to eight runners across the rooftops. No implants handed out.",
+            minPlayers = 2, maxPlayers = 8,
+            joinSeconds = 25, fullSeconds = 5,
+        },
+    },
+    caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
+
+    engine = {
+        -- Minimum loading window after the grid is set (the car streams in, the
+        -- runner settles); early readiness does not shorten it.
+        loadSeconds = { trial = 4, grid = 15, foot = 4 },
+        loadAfterRestartSeconds = 2,
+        -- A racer still not ready after this is classified DNF and sent back.
+        readyTimeoutSeconds = 60,
+        countdownSeconds = 3,
+        durationSeconds = 1200,
+        -- Once the winner finishes, the others have this long to cross the line.
+        finishGraceSeconds = 30,
+        resultsSeconds = { trial = 15, grid = 12, foot = 12 },
+        checkpointRadius = 7.0,
+        -- Do not accept a parallel street on a bridge above the course.
+        checkpointZTolerance = 4.0,
+        checkpointDebounceMs = 500,
+        maxSegmentMetres = 80.0,
+        tickMs = 100,
+        seatPollMs = 500,
+        holdCheckMs = 500,
+        rankingPushMs = 1000,
+        footStartSpacing = 2.0,
+        teleportTimeoutMs = 30000,
+        -- Fallback lanes when a vehicle course has fewer authored slots than racers
+        -- (never used by the shipped courses: each has eight surveyed slots).
+        startGrid = { lanes = 2, laneSpacing = 3.25, rowSpacing = 5.5 },
+        vehicle = {
+            default = "archer_hella",
+            driverSeat = "seat_front_left",
+            -- Placed on the final mark once materialized, unless the driver is
+            -- already mounted (Freeroam's proven settle pass).
+            settleAfterMs = 1200,
+            settleMaxDriftMetres = 3.0,
+            -- ForcedExit needs a short native window before the car is removed.
+            exitSettleMs = 1500,
+            primaryColor = { r = 24, g = 24, b = 24 },
+            secondaryColor = { r = 255, g = 204, b = 0 },
+        },
+        -- Stable ids stored in course data. A record never comes from a course file
+        -- or a browser: the server resolves the id through this allow-list.
+        vehicles = {
+            { id = "on_foot", label = "On foot" },
+            { id = "archer_hella", label = "Archer Hella EC-D i360", record = "Vehicle.v_standard2_archer_hella_player" },
+            { id = "quadra_turbo_r", label = "Quadra Turbo-R V-Tech", record = "Vehicle.v_sport1_quadra_turbo_r_player" },
+            { id = "quadra_type66_avenger", label = "Quadra Type-66 Avenger", record = "Vehicle.v_sport2_quadra_type66_avenger_player" },
+            { id = "rayfield_caliburn", label = "Rayfield Caliburn", record = "Vehicle.v_sport1_rayfield_caliburn_player" },
+            { id = "herrera_outlaw", label = "Herrera Outlaw GTS", record = "Vehicle.v_sport1_herrera_outlaw_player" },
+            { id = "mizutani_shion", label = "Mizutani Shion MZ2", record = "Vehicle.v_sport2_mizutani_shion_player" },
+            { id = "porsche_911", label = "Porsche 911 II Turbo", record = "Vehicle.v_sport2_porsche_911turbo_player" },
+            { id = "archer_quartz_nomad", label = "Archer Quartz Sidewinder", record = "Vehicle.v_standard2_archer_quartz_nomad_player" },
+        },
+    },
+
+    -- Reputation proposed to Light RP with each result; the core clamps it per result
+    -- and caps it per account per day. Never cash, never items.
+    rewards = {
+        trialFinish = 5, personalBest = 5, courseRecord = 10,
+        heatFinish = 10,
+        -- Placement bonus (1st, 2nd, 3rd), only when at least two racers started.
+        placement = { 20, 10, 5 },
+    },
+
+    -- Best times of the time trial (data/records.json), per course revision.
+    records = { keep = 20, show = 5 },
+
+    editor = {
+        sessionMinutes = 30,
+        worldBucket = 0,
+        vehicleSpawnDistance = 4.5,
+        vehicleSpawnLiftMetres = 0.35,
+        minimumCheckpoints = 1,
+        maximumCheckpoints = 96,
+        minimumLaps = 1, maximumLaps = 20,
+        minimumRadius = 2.0, maximumRadius = 30.0,
+        maximumNameBytes = 64,
+        maximumDescriptionBytes = 240,
+        minimumGridSlots = 1,
+        minimumGridSpacing = 2.75,
+        -- Editor preview markers drawn at once (start + grid + the latest checkpoints).
+        previewMarkers = 24,
+    },
+
+    visuals = {
+        enabled = true,
+        checkpointViewDistance = 180.0,
+        checkpointMarker = { radius = 2.5, height = 3.5, lift = 3.0 },
+    },
+
+    -- op77_map3d (the minimap / GPS Light RP runs instead of the vanilla one).
+    map = {
+        resource = "op77_map3d",
+        category = "default",
+        color = "#FFCC00",
+        finishColor = "#FFFFFF",
+        -- Vehicle races get a road route to the next checkpoint; on foot, only a pin.
+        routeVehicles = true,
+    },
+
+    presentation = {
+        gridReadySfx = "ui_menu_onpress",
+        countdownSfx = "sq024_race_countdown_start",
+        countdownTickSfx = "ui_menu_onpress",
+        countdownGoSfx = "ui_jingle_quest_new",
+        goSfx = "sq024_race_start_fireworks",
+        checkpointSfx = "ui_menu_onpress",
+        lapSfx = "ui_jingle_quest_update",
+        finishSfx = "ui_jingle_quest_success",
+        -- One visual-only shell per accepted crossing, to the race bucket only, at
+        -- most one per instance per minIntervalMs (client effect quota).
+        checkpointFirework = { enabled = true, effect = "race.firework.burst", height = 12.0, range = 180.0, minIntervalMs = 1500 },
+        -- One-shots with an explicit duration (a nil duration never expires and
+        -- holds a client effect-quota slot for the session).
+        startVfx = {
+            { effect = "race.flare.smoke", lateral = -5.5, forward = 2.0, z = 0.20, duration = 8.0 },
+            { effect = "race.flare.smoke", lateral = 5.5, forward = 2.0, z = 0.20, duration = 8.0 },
+            { effect = "race.firework.burst", lateral = 0.0, forward = 5.0, z = 6.0, duration = 7.5 },
+        },
+    },
+
+    -- Where a racer is sent when Light RP cannot take them back (core stopped or
+    -- activityLeave refused) and no point was captured: The Crossing lobby.
+    fallbackPoint = { x = -756.581, y = 777.257, z = 22.454, heading = 52.6, bucket = 0 },
+
+    -- Rebindable in Pause > Settings > Key bindings. Taken elsewhere in the Light RP
+    -- load list: TAB, F1-F5, F9-F11, Alt, N, E, I, L, X, Y, H, G, R, C, M (Light RP),
+    -- F6/F7 (open77_remote_camera), F8 (voice range), DELETE (mission editor),
+    -- PAGEUP/PAGEDOWN (op77_map3d zoom fallback). These stay clear of all of them.
+    keys = {
+        respawn = { id = "op77_race.respawn", name = "Race: back to the last checkpoint (on foot)", key = "END" },
+        restart = { id = "op77_race.restart", name = "Race: restart the time trial", key = "HOME" },
+    },
+    -- Course editor (staff: ACL command.race.editor opens the session; the keys do
+    -- nothing without one). The rest is /race.editor <action>.
+    editorKeys = {
+        start = { id = "op77_race.editor.start", name = "Race editor: capture the start", key = "UP" },
+        checkpoint = { id = "op77_race.editor.checkpoint", name = "Race editor: add a checkpoint", key = "INSERT" },
+        grid = { id = "op77_race.editor.grid", name = "Race editor: add a grid slot", key = "RIGHT" },
+        undo = { id = "op77_race.editor.undo", name = "Race editor: undo the last checkpoint", key = "DOWN" },
+    },
+
+    ui = { zIndex = 730, fps = 30 },
+
+    debug = false,
+}

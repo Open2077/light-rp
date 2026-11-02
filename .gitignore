@@ -69,6 +69,10 @@
 !resources/standalone/op77_map3d/
 !resources/standalone/op77_map3d/**
 resources/standalone/op77_map3d/ui/node_modules/
+# Races as Light RP activities (time trial, street race, rooftop race). Its data/
+# (saved courses, best times) is operator state and stays ignored by the data/ rule.
+!resources/standalone/op77_race/
+!resources/standalone/op77_race/**
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**

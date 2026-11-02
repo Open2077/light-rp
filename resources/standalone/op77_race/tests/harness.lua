@@ -1,0 +1,438 @@
+-- Test harness for op77_race: a fake Open77 runtime (players, vehicles, effects, io,
+-- notifications, clock), a coroutine scheduler for CreateThread / Wait / SetTimeout,
+-- event buses, and a stub of the op77_lightrp activity contract. Run from the
+-- resource root (tests/run-lua.ps1 sets the working directory).
+local H = {}
+
+-- ---------------------------------------------------------------- clock + threads --
+
+H.clock = 0
+local threads, timers = {}, {}
+
+function CreateThread(fn)
+    threads[#threads + 1] = { co = coroutine.create(fn), wakeAt = H.clock }
+end
+function Wait(ms)
+    assert(coroutine.isyieldable(), "Wait called outside a thread")
+    coroutine.yield(math.max(0, ms or 0))
+end
+function SetTimeout(ms, fn) timers[#timers + 1] = { at = H.clock + (ms or 0), fn = fn } end
+
+local function runReady()
+    local progressed = true
+    while progressed do
+        progressed = false
+        for index = #threads, 1, -1 do
+            local t = threads[index]
+            if t and t.wakeAt <= H.clock then
+                local ok, delay = coroutine.resume(t.co)
+                if not ok then error("thread failed: " .. tostring(delay) .. "\n" .. debug.traceback(t.co)) end
+                if coroutine.status(t.co) == "dead" then table.remove(threads, index)
+                else t.wakeAt = H.clock + math.max(1, delay or 0) end
+                progressed = true
+            end
+        end
+        for index = #timers, 1, -1 do
+            local timer = timers[index]
+            if timer and timer.at <= H.clock then
+                table.remove(timers, index)
+                CreateThread(timer.fn)
+                progressed = true
+            end
+        end
+    end
+end
+H.runReady = runReady
+
+-- Advances the fake clock in steps, running every due thread and timer.
+function H.advance(ms, step)
+    step = step or 50
+    local target = H.clock + ms
+    runReady()
+    while H.clock < target do
+        H.clock = math.min(target, H.clock + step)
+        runReady()
+    end
+end
+
+-- ---------------------------------------------------------------- logs --
+
+H.logs = {}
+H.verbose = false
+local realPrint = print
+function print(...)
+    local parts = {}
+    for i = 1, select("#", ...) do parts[#parts + 1] = tostring(select(i, ...)) end
+    local line = table.concat(parts, " ")
+    H.logs[#H.logs + 1] = line
+    if H.verbose then realPrint(line) end
+end
+H.print = realPrint
+function H.logged(pattern)
+    for _, line in ipairs(H.logs) do if line:find(pattern) then return true end end
+    return false
+end
+
+-- ---------------------------------------------------------------- json --
+
+local function encode(value, out)
+    local kind = type(value)
+    if kind == "nil" then out[#out + 1] = "null"
+    elseif kind == "boolean" then out[#out + 1] = tostring(value)
+    elseif kind == "number" then out[#out + 1] = (math.type(value) == "integer" and tostring(value)) or string.format("%.14g", value)
+    elseif kind == "string" then out[#out + 1] = '"' .. value:gsub('[%c"\\]', function(c) return string.format("\\u%04x", c:byte()) end) .. '"'
+    elseif kind == "table" then
+        if #value > 0 or next(value) == nil then
+            out[#out + 1] = "["
+            for i, child in ipairs(value) do if i > 1 then out[#out + 1] = "," end encode(child, out) end
+            out[#out + 1] = "]"
+        else
+            out[#out + 1] = "{"
+            local first = true
+            for key, child in pairs(value) do
+                if not first then out[#out + 1] = "," end
+                first = false
+                encode(tostring(key), out); out[#out + 1] = ":"; encode(child, out)
+            end
+            out[#out + 1] = "}"
+        end
+    else error("cannot encode " .. kind) end
+end
+json = { encode = function(value) local out = {}; encode(value, out); return table.concat(out) end }
+
+-- ---------------------------------------------------------------- events --
+
+H.handlers, H.netHandlers, H.commands = {}, {}, {}
+H.events, H.clientEvents = {}, {}
+
+function AddEventHandler(name, fn)
+    H.handlers[name] = H.handlers[name] or {}
+    table.insert(H.handlers[name], fn)
+end
+function RegisterNetEvent(name, fn)
+    if fn then H.netHandlers[name] = fn end
+end
+function TriggerEvent(name, ...)
+    H.events[#H.events + 1] = { name = name, args = table.pack(...) }
+    return true
+end
+function TriggerClientEvent(name, target, ...)
+    H.clientEvents[#H.clientEvents + 1] = { name = name, target = target, args = table.pack(...) }
+    return true
+end
+function TriggerServerEvent(name, ...)
+    H.clientEvents[#H.clientEvents + 1] = { name = name, server = true, args = table.pack(...) }
+    return true
+end
+function RegisterCommand(name, fn, restricted) H.commands[name] = { fn = fn, restricted = restricted } end
+function GetCurrentResourceName() return "op77_race" end
+
+-- Delivers a host event to every handler (what TriggerEvent from another resource does).
+function H.fire(name, ...)
+    for _, fn in ipairs(H.handlers[name] or {}) do fn(...) end
+    runReady()
+end
+function H.fireNet(name, playerId, ...)
+    local fn = assert(H.netHandlers[name], "no net handler " .. name)
+    source = playerId
+    fn(...)
+    source = nil
+    runReady()
+end
+function H.command(name, playerId, args, raw)
+    local entry = assert(H.commands[name], "no command " .. name)
+    args = args or {}
+    args.n = #args
+    entry.fn(playerId, args, raw or name)
+    runReady()
+end
+
+function H.eventsNamed(name)
+    local found = {}
+    for _, event in ipairs(H.events) do if event.name == name then found[#found + 1] = event end end
+    return found
+end
+function H.clientNamed(name, target)
+    local found = {}
+    for _, event in ipairs(H.clientEvents) do
+        if event.name == name and (target == nil or event.target == target) then found[#found + 1] = event end
+    end
+    return found
+end
+function H.lastClient(name, target)
+    local found = H.clientNamed(name, target)
+    return found[#found]
+end
+
+-- ---------------------------------------------------------------- players --
+
+H.players = {}
+H.notices = {}
+function H.addPlayer(id, name, position)
+    position = position or { x = 0, y = 0, z = 0 }
+    H.players[id] = { name = name or ("P" .. id), x = position.x, y = position.y, z = position.z, bucket = position.bucket or 0,
+        life = "alive", godMode = false, frozen = false }
+    return H.players[id]
+end
+function H.move(id, x, y, z)
+    local p = H.players[id]
+    p.x, p.y, p.z = x, y, z
+end
+
+local function checked(id)
+    if math.type(id) ~= "integer" or id < 1 then error("id must be positive (uncatchable in the real runtime)") end
+    return H.players[id]
+end
+
+H.teleports, H.respawns, H.effects = {}, {}, {}
+H.teleportFails = false
+
+Open77 = {
+    time = { monotonic = function() return H.clock / 1000 end },
+    players = {
+        name = function(id) local p = checked(id); return p and p.name or nil end,
+        position = function(id)
+            local p = checked(id)
+            return p and { x = p.x, y = p.y, z = p.z, bucket = p.bucket } or nil
+        end,
+        getHealth = function(id) local p = checked(id); return p and { godMode = p.godMode } or nil end,
+        setGodMode = function(id, value) local p = checked(id); if not p then return false, "no_player" end p.godMode = value == true; return true end,
+        setFrozen = function(id, value)
+            local p = checked(id)
+            if not p or p.life ~= "alive" then return false, "not_alive" end
+            p.frozen = value == true
+            return true
+        end,
+        getLifeState = function(id) local p = checked(id); return p and { phase = p.life } or nil end,
+        respawn = function(id, opts)
+            local p = checked(id)
+            if not p or p.life ~= "dead" then return false, "not_dead" end
+            H.respawns[#H.respawns + 1] = { id = id, opts = opts }
+            p.life, p.x, p.y, p.z = "alive", opts.position.x, opts.position.y, opts.position.z
+            p.bucket = opts.bucket or p.bucket
+            p.frozen = false
+            return true
+        end,
+        teleport = function(id, position, opts)
+            local p = checked(id)
+            if not p then return nil, "no_player" end
+            opts = opts or {}
+            local record = { id = id, position = position, opts = opts }
+            H.teleports[#H.teleports + 1] = record
+            return { await = function()
+                Wait(200)
+                if H.teleportFails then return nil, "teleport_failed" end
+                -- A bucket change lifts a freeze, as in the runtime.
+                if opts.bucket ~= nil and opts.bucket ~= p.bucket then p.frozen = false end
+                p.x, p.y, p.z = position.x, position.y, position.z
+                if opts.bucket ~= nil then p.bucket = opts.bucket end
+                return true
+            end }
+        end,
+    },
+    effects = { play = function(name, opts) H.effects[#H.effects + 1] = { name = name, opts = opts }; return true end },
+    notifications = { send = function(id, def) H.notices[#H.notices + 1] = { id = id, def = def }; return "n" end },
+}
+
+function H.noticeFor(id, pattern)
+    for _, n in ipairs(H.notices) do
+        if n.id == id and (pattern == nil or tostring(n.def.message):find(pattern)) then return n end
+    end
+    return nil
+end
+
+-- ---------------------------------------------------------------- vehicles --
+
+H.vehicles, H.seats, H.vehicleLog = {}, {}, {}
+local vehicleSequence = 0
+local flags = { frozen = 1, lightsOn = 2, engineOn = 4 }
+Open77.vehicles = {
+    flags = flags,
+    create = function(spec)
+        vehicleSequence = vehicleSequence + 1
+        local id = vehicleSequence
+        H.vehicles[id] = { id = id, record = spec.record, x = spec.position.x, y = spec.position.y, z = spec.position.z,
+            bucket = spec.bucket, flags = spec.flags or 0 }
+        H.vehicleLog[#H.vehicleLog + 1] = { op = "create", id = id, spec = spec }
+        return id
+    end,
+    get = function(id)
+        local v = H.vehicles[id]
+        if not v then return nil, "vehicle_not_found" end
+        return { id = v.id, x = v.x, y = v.y, z = v.z, bucket = v.bucket, flags = v.flags }
+    end,
+    update = function(id, patch)
+        local v = H.vehicles[id]
+        if not v then return nil, "vehicle_not_found" end
+        if patch.flags then v.flags = patch.flags end
+        return true
+    end,
+    remove = function(id)
+        if not H.vehicles[id] then return nil, "vehicle_not_found" end
+        H.vehicles[id] = nil
+        H.vehicleLog[#H.vehicleLog + 1] = { op = "remove", id = id }
+        return true
+    end,
+    warpPlayerIntoVehicle = function(playerId, vehicleId, seat, opts)
+        local v, p = H.vehicles[vehicleId], H.players[playerId]
+        if not v or not p then return nil, "unavailable" end
+        H.seats[playerId] = { vehicleId = vehicleId, seat = seat, exitLocked = opts and opts.exitLocked == true }
+        p.x, p.y, p.z = v.x, v.y, v.z
+        if opts and opts.moveBucket then p.bucket = v.bucket end
+        return true
+    end,
+    getPlayerSeat = function(playerId)
+        local seat = H.seats[playerId]
+        if not seat then return nil end
+        return { vehicleId = seat.vehicleId, seat = seat.seat, exitLocked = seat.exitLocked }
+    end,
+    setPlayerExitLocked = function(playerId, locked)
+        if H.seats[playerId] then H.seats[playerId].exitLocked = locked end
+        return true
+    end,
+    forcePlayerOutOfVehicle = function(playerId, vehicleId)
+        H.seats[playerId] = nil
+        H.vehicleLog[#H.vehicleLog + 1] = { op = "exit", id = vehicleId, player = playerId }
+        return true
+    end,
+    setTransform = function(id, transform)
+        local v = H.vehicles[id]
+        if not v then return nil, "vehicle_not_found" end
+        v.x, v.y, v.z = transform.position.x, transform.position.y, transform.position.z
+        v.flags = 0
+        return true
+    end,
+}
+
+-- Drives the player (and the car they sit in) to a point.
+function H.drive(id, x, y, z)
+    H.move(id, x, y, z)
+    local seat = H.seats[id]
+    if seat and H.vehicles[seat.vehicleId] then
+        local v = H.vehicles[seat.vehicleId]
+        v.x, v.y, v.z = x, y, z
+    end
+end
+
+-- ---------------------------------------------------------------- io --
+
+H.files = {}
+Open77.io = {
+    readJson = function(path)
+        local value = H.files[path]
+        if value == nil then return nil, "not_found" end
+        return value
+    end,
+    writeJson = function(path, value) H.files[path] = value; return true end,
+    makeDirectory = function() return true end,
+    list = function(dir)
+        local entries = {}
+        for path in pairs(H.files) do
+            local name = path:match("^" .. dir .. "/([^/]+)$")
+            if name then entries[#entries + 1] = { name = name, type = "file" } end
+        end
+        return entries
+    end,
+    remove = function(path)
+        if H.files[path] == nil then return false, "not_found" end
+        H.files[path] = nil
+        return true
+    end,
+}
+
+-- ---------------------------------------------------------------- core stub --
+
+-- A stand-in for op77_lightrp's side of the activity contract.
+H.core = {
+    registered = {}, owner = {}, returns = {}, calls = {},
+    eligible = {},          -- playerId -> false, reason (true by default)
+    refuseRegister = false,
+}
+local core = H.core
+local function call(name, ...) core.calls[#core.calls + 1] = { name = name, args = table.pack(...) } end
+H.coreExports = {
+    activityRegister = function(_, def)
+        call("activityRegister", def)
+        if core.refuseRegister then return false, "core_not_ready" end
+        core.registered[def.id] = def
+        return true
+    end,
+    activityCheck = function(_, playerId, activityId)
+        call("activityCheck", playerId, activityId)
+        local verdict = core.eligible[playerId]
+        if verdict then return false, verdict end
+        if core.owner[playerId] then return false, "You are already in an activity." end
+        return true
+    end,
+    activityEnter = function(_, playerId, activityId)
+        call("activityEnter", playerId, activityId)
+        local verdict = core.eligible[playerId]
+        if verdict then return false, verdict end
+        local p = H.players[playerId]
+        core.owner[playerId] = activityId
+        core.returns[playerId] = { x = p.x, y = p.y, z = p.z, bucket = p.bucket }
+        return true
+    end,
+    activityLeave = function(_, playerId, activityId, opts)
+        call("activityLeave", playerId, activityId, opts)
+        if core.owner[playerId] ~= activityId then return false, "not_owner" end
+        core.owner[playerId] = nil
+        if opts == nil or opts.returnPlayer ~= false then
+            local back, p = core.returns[playerId], H.players[playerId]
+            if back and p then p.x, p.y, p.z, p.bucket = back.x, back.y, back.z, back.bucket end
+        end
+        return true
+    end,
+    activityOwner = function(_, playerId) return core.owner[playerId] end,
+    activityPlayer = function(_, playerId)
+        local p = H.players[playerId]
+        if not p then return nil end
+        return { name = p.name, identifier = "license:" .. playerId, characterKey = "char1" }
+    end,
+}
+exports = { op77_lightrp = H.coreExports }
+
+function H.coreCalls(name, playerId)
+    local found = {}
+    for _, c in ipairs(core.calls) do
+        if c.name == name and (playerId == nil or c.args[1] == playerId) then found[#found + 1] = c end
+    end
+    return found
+end
+
+-- ---------------------------------------------------------------- loading --
+
+function H.load(files)
+    for _, file in ipairs(files) do dofile(file) end
+    runReady()
+end
+
+H.SERVER = {
+    "shared/config.lua", "shared/race.lua",
+    "server/builtin_courses.lua", "server/courses.lua", "server/records.lua", "server/activity.lua",
+    "server/engine.lua", "server/lobby.lua", "server/editor.lua", "server/main.lua",
+}
+
+-- ---------------------------------------------------------------- asserts --
+
+function H.eq(actual, expected, message)
+    if actual ~= expected then
+        error(("%s: expected %s, got %s"):format(message or "assertion", tostring(expected), tostring(actual)), 2)
+    end
+end
+function H.ok(value, message)
+    if not value then error((message or "assertion failed"), 2) end
+    return value
+end
+
+local passed = 0
+function H.test(name, fn)
+    fn()
+    passed = passed + 1
+    realPrint("  ok  " .. name)
+end
+function H.done(name)
+    realPrint(("%s: %d passed"):format(name, passed))
+end
+
+return H
