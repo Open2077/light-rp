@@ -41,6 +41,12 @@ local function trace(reason,boardId,format,...)
     request("diagnostic",{event="trace",reason=reason,boardId=boardId,details=(ok and details or tostring(format)):sub(1,180)})
 end
 Client.trace=trace
+local function guarded(name,fn,...)
+    local ok,result=pcall(fn,...)
+    if ok then return result end
+    local message=tostring(result)
+    if threadErrors[message]==nil then threadErrors[message]=true;trace("thread_error",nil,"%s: %s",name,message) end
+end
 local function notice(text)
     Ui.send(LightRpEvents.page.notice, { kind = "info", title = "Board Games", body = text })
 end
@@ -594,7 +600,13 @@ local function ensureBoard(board)
         Wait(0);beats.render=GetGameTimer()
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end
-    local targets=pieceTargets(board)
+    -- Targets can cost several thousand instructions (chess, casino tables):
+    -- compute them guarded, then yield before diffing so that several nearby
+    -- tables never add up to one resume beyond the 176 client budget.
+    local targets=guarded("render targets "..tostring(board.kind),pieceTargets,board)
+    if not targets then return end
+    Wait(0);beats.render=GetGameTimer()
+    if not aliveBoard(board) or renderCaches[id]~=cache then return end
     for key,piece in pairs(cache.pieces) do
         local target=targets[key]
         if not target or piece.name~=modelName(board,target.piece) then
@@ -660,12 +672,6 @@ end)
 -- (generation tokens retire the old one) and reports it. Work that does not
 -- yield runs under pcall so an error names its line instead of killing the
 -- thread.
-local function guarded(name,fn,...)
-    local ok,result=pcall(fn,...)
-    if ok then return result end
-    local message=tostring(result)
-    if threadErrors[message]==nil then threadErrors[message]=true;trace("thread_error",nil,"%s: %s",name,message) end
-end
 local function animate(board,cache,targets,keys,from,to,amount)
     for index=from,math.min(to,#keys) do
         if renderCaches[tostring(board.id)]~=cache then return end
@@ -693,6 +699,7 @@ function THREADS.render(generation)
         for _,entry in ipairs(renderCandidates) do
             if generations.render~=generation then return end
             if aliveBoard(entry.board) then ensureBoard(entry.board) end
+            Wait(0);beats.render=GetGameTimer()
         end
         Wait(100)
     end
@@ -936,6 +943,9 @@ local function assemble(payload)
     assembling=nil
     return {boards=all}
 end
+RegisterNetEvent("lightrp:boardGames:probe",function(payload)
+    trace("probe_received",nil,"%s",tostring(type(payload)=="table" and payload.id))
+end)
 RegisterNetEvent("lightrp:boardGames:state",function(part)
     local payload=assemble(part)
     if payload==nil then return end

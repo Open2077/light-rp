@@ -363,6 +363,37 @@ RegisterNetEvent(REQUEST,function(p)
     broadcast()
     for _,b in pairs(boards) do queueAI(b) end
 end)
+-- Temporary network probe: the 176 client silently drops the state part that
+-- holds a blackjack table in play. Each probe isolates one shape; the client
+-- traces the ones it receives (probe_received), so the missing ids name it.
+if LightRP.command then LightRP.command("lightrp.netprobe", { restricted = true, usage = "/lightrp.netprobe" }, function(source)
+    local player=tonumber(source)
+    if not player or player<1 then return false,"Run it in game." end
+    local now=LightRP.nowMs()
+    local hand={betAt=now,bet=25,total=8,cards={{t=now,c="6D"},{t=now+900,c="2H"}},stake=25,soft=false}
+    local function sample(hole)
+        return {lastSound="checkers-move",serverNow=now,revision=10,moveSequence=10,ready=true,players={white=player},mode="duel",
+            game={phase="playing",animEnd=now+2000,mode="duel",dealtAt=now,hands={white=hand},ply=10,
+                dealer={total=9,cards={{t=now+400,c="9C"},hole},soft=false},captured={},status="playing",shuffledAt=now,
+                actAt=now+2000,seatTurn="white",turnEndsAt=now+22000,objects={},round=3,kind="blackjack",shoe={left=302,cut=false,total=312}},
+            id="probe",position={x=0,y=0,z=0},owned=true,rotation=0,kind="blackjack",actor=player}
+    end
+    local probes={
+        {id="uniform",cards={{t=now,c="6D"},{t=now+1,c="2H"}}},
+        {id="hetero",cards={{t=now,c="9C"},{h=true,t=now+1}}},
+        {id="subset",cards={{t=now,c="9C"},{t=now+1}}},
+        {id="boolobj",x={h=true}},
+        {id="boolarr",cards={{h=true}}},
+        {id="emptyobj",captured={},objects={}},
+        {id="sample",boards={sample({h=true,t=now+1300})}},
+        {id="sample_nohole",boards={sample({t=now+1300,c="9S"})}},
+    }
+    for _,payload in ipairs(probes) do
+        local ok,why=TriggerClientEvent("lightrp:boardGames:probe",player,payload)
+        LightRP.log("board_games netprobe sent %s ok=%s %s",payload.id,tostring(ok),tostring(why))
+    end
+    return true,"Sent "..#probes.." network probes; see the server log."
+end) end
 LightRP.module("board_games",{
     onDatabaseReady=function()
         local ok,rows=Db.read("SELECT id,owner_inventory,data FROM lightrp_board_games",{})

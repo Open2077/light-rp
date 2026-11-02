@@ -346,6 +346,13 @@ assert(hasSecond,'new nearest board should be rendered')
 Open77.character.state().position.x=60;step();assert(next(nativeProps)==nil,'distant native props must stream out')
 Open77.character.state().position.x=0;step()
 waitUntil(function()return nativeCount(1)==33 and nativeCount(2)==33 end,'nearby native boards stream back in')
+-- Several complete tables nearby must not add up to one render resume over budget
+-- (live: the render thread died with 7-8 tables in range and new pieces never appeared).
+local many={}
+for i=1,6 do many[i]={id=100+i,owned=false,position={x=4+i*3,y=0,z=0},rotation=0,players={},revision=1,kind='chess',game=LightRPBoardRules.new('chess')} end
+events['lightrp:boardGames:state']({boards=many});step()
+waitUntil(function() local n=0;for i=1,6 do n=n+propsForBoard(4+i*3,'chess') end;return n==6*33 end,'six nearby chess boards')
+for i=1,40 do step() end
 -- Lobby mode protocol is owner-only and locks once the game has started.
 Open77.character.state().position.x=0
 cameraReturnId=77
