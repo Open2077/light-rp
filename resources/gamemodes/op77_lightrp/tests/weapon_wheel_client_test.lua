@@ -45,8 +45,8 @@ handlers["lightrp:ui:weaponwheel"]({ kind = "chosen" }); assert(sounds[#sounds] 
 handlers["lightrp:ui:weaponwheel"]({ kind = "chosen", unarmed = true }); assert(sounds[#sounds] == "ui_menu_item_weapon_unequip")
 -- the holster slot: the server puts away whatever is in the hands (gun, fists, blades)
 handlers["lightrp:ui:weaponwheel"]({ kind = "holster" }); assert(serverEvents[#serverEvents] == "op77_lightrp:armament:holster", "holster goes to the server")
--- release: the page commits, the focus goes back
-map.onReleased()
+-- release (held past a tap): the page commits, the focus goes back
+clock = 400; map.onReleased()
 assert(not W.open and last().payload.kind == "commit" and focus[#focus].keyboard == false and focus[#focus].cursor == false)
 assert(sounds[#sounds] == "ui_radial_menu_close")
 map.onReleased(); assert(last().payload.kind == "commit" and #sent == 2, "a release without a wheel does nothing")
@@ -75,6 +75,34 @@ map.onPressed(); assert(W.open, "opens before the armament bridge exists"); W.cl
 map.onPressed(); assert(W.open)
 LightRpUi.menuOpen = true; coroutine.resume(threads[1]); coroutine.resume(threads[1])
 assert(not W.open and last().payload.kind == "cancel" and last().payload.reason == "interrupted"); LightRpUi.menuOpen = nil
-map.onPressed(); clock = 1000; keyDown = false; coroutine.resume(threads[1])
+clock = 600; keyDown = true; map.onPressed(); coroutine.resume(threads[1]); assert(W.open, "held: stays open")
+clock = 1000; keyDown = false; coroutine.resume(threads[1])
 assert(not W.open and last().payload.kind == "commit" and last().payload.reason == "released", "missed release still commits")
-print("PASS: weapon wheel client (TAB hold mapping, opens without weapons, holster to the server, mouse-only focus, open/commit/cancel, click close, input owners, vehicle/death refusals, game UI sounds, safety loop)")
+
+-- a tap: the wheel stays open (latched), the page is told, the key again commits
+clock = 2000; map.onPressed(); clock = 2100; map.onReleased()
+assert(W.open and W.latched() and last().payload.kind == "latch" and last().payload.key == "TAB", "a tap latches the wheel")
+clock = 2600; coroutine.resume(threads[1]); assert(W.open, "a latched wheel with the key up stays open")
+map.onPressed(); assert(not W.open and last().payload.kind == "commit" and last().payload.reason == "toggle", "the key again picks")
+-- a tap then a left click on the page commits
+clock = 3000; map.onPressed(); map.onReleased(); assert(W.latched())
+handlers["lightrp:ui:weaponwheel"]({ kind = "close", commit = true }); assert(not W.open and last().payload.kind == "commit")
+
+-- a key state that never reads the consumed key down (Jeremzzzer, 2026-11-02): the
+-- safety loop no longer closes the held wheel at 0.4 s; only the release or a timeout does
+clock = 5000; keyDown = false; map.onPressed()
+clock = 5500; coroutine.resume(threads[1]); assert(W.open, "isDown false without ever reading down is no release")
+clock = 6000; map.onReleased(); assert(not W.open and last().payload.reason == "release", "the mapping's release commits")
+clock = 7000; map.onPressed(); clock = 7000 + W.LATCH_MS + 1; coroutine.resume(threads[1])
+assert(not W.open and last().payload.kind == "cancel" and last().payload.reason == "timeout", "an unanswered wheel times out")
+
+-- the release the client synthesizes when the page takes the cursor, key still held:
+-- latched, then the real release (seen by isDown) commits
+clock = 30000; keyDown = true; map.onPressed(); clock = 30016; map.onReleased(); assert(W.latched())
+clock = 30200; coroutine.resume(threads[1]); assert(W.open)
+clock = 30800; keyDown = false; coroutine.resume(threads[1])
+assert(not W.open and last().payload.reason == "released", "a held key released after a phantom release commits")
+-- or a second release from the mapping while latched commits
+clock = 40000; keyDown = true; map.onPressed(); map.onReleased(); clock = 40600; map.onReleased()
+assert(not W.open and last().payload.kind == "commit" and last().payload.reason == "release")
+print("PASS: weapon wheel client (TAB hold mapping, opens without weapons, holster to the server, mouse-only focus, open/commit/cancel, click close, input owners, vehicle/death refusals, game UI sounds, safety loop, tap latch, key state blind to the consumed key, timeout)")

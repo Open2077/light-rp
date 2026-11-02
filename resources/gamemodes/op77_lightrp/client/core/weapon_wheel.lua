@@ -8,7 +8,15 @@ local PAGE = "lightrp:ui:weaponwheel"
 local Ui = LightRpUi
 local Wheel = { open = false, key = "TAB" }
 LightRpWeaponWheel = Wheel
-local openedAt = 0
+-- A release sooner than TAP_MS after the press is a tap (or the release the client
+-- synthesizes when the page takes the cursor): the wheel stays open ("latched") and a
+-- click or the key again picks. A latched wheel nobody answers closes after LATCH_MS.
+-- `isDown` only counts as release evidence once it has read the key down during this
+-- opening: a client whose key state misses the consumed key read it "up" at once, and
+-- the safety loop closed the wheel 0.4 s after it opened (Jeremzzzer, 2026-11-02).
+local TAP_MS, LATCH_MS = 250, 15000
+local openedAt, latched, sawDown = 0, false, false
+Wheel.TAP_MS, Wheel.LATCH_MS = TAP_MS, LATCH_MS
 
 -- The game's own UI sounds (Wwise events, the game's mixer), posted like the vanilla
 -- menus post them: Open77.sfx.play2d (permission world.effects).
@@ -55,18 +63,56 @@ local function close(commit, reason)
 end
 Wheel.close = close
 
+local function keyDown()
+    if not (Open77.input and type(Open77.input.isDown) == "function") then return nil end
+    local ok, down = pcall(Open77.input.isDown, Wheel.key)
+    if ok and type(down) == "boolean" then return down end
+    return nil
+end
+
 local function openWheel()
-    if Wheel.open or not allowed() then return end
+    -- the key again on a latched wheel picks the aimed slot
+    if Wheel.open then
+        if latched then close(true, "toggle") end
+        return
+    end
+    if not allowed() then return end
     -- the mouse only: movement keys stay with the game
     local ok, why = Ui.page:setFocus(false, true)
     if not ok then Ui.log("weapon wheel focus refused: %s", tostring(why)); return end
-    Wheel.open, openedAt = true, GetGameTimer()
+    Wheel.open, openedAt, latched, sawDown = true, GetGameTimer(), false, keyDown() == true
     Ui.send(PAGE, { kind = "open", key = Wheel.key })
     -- the pockets may have changed since the last push (a purchase, a gift)
     if LightRpArmamentClient and LightRpArmamentClient.refresh then LightRpArmamentClient.refresh() end
     sound("open")
 end
 Wheel.openWheel = openWheel
+
+local function released()
+    if not Wheel.open then return end
+    -- a tap: the wheel stays open, a click or the key again picks
+    if not latched and GetGameTimer() - openedAt < TAP_MS then
+        latched = true
+        Ui.send(PAGE, { kind = "latch", key = Wheel.key })
+        return
+    end
+    close(true, "release")
+end
+Wheel.released = released
+function Wheel.latched() return Wheel.open and latched end
+
+-- The safety loop's view of the key: a release the mapping never delivered (focus
+-- change, alt-tab) commits, but only once the key was seen down; a wheel with no
+-- proof of a held key (latched, or a key state that never reads down) times out.
+local function watch()
+    if not Wheel.open then return end
+    if not allowed() then close(false, "interrupted"); return end
+    local now, down = GetGameTimer(), keyDown()
+    if down == true then sawDown = true
+    elseif down == false and sawDown and now - openedAt > 350 then close(true, "released"); return end
+    if not sawDown and now - openedAt > LATCH_MS then close(false, "timeout") end
+end
+Wheel.watch = watch
 
 function Wheel.bind(page)
     page:on(PAGE, function(p)
@@ -78,17 +124,13 @@ function Wheel.bind(page)
     end)
     local key = LightRpConfig.keys.weaponWheel
     local ok, effective = RegisterKeyMapping({ id = key.id, name = key.name, key = key.key, hold = true, consume = true,
-        onPressed = openWheel, onReleased = function() close(true, "release") end })
-    if ok then Wheel.key = effective else Ui.log("weapon wheel mapping refused: %s", tostring(effective)) end
+        onPressed = openWheel, onReleased = released })
+    if ok and type(effective) == "string" and effective ~= "" then Wheel.key = effective
+    elseif not ok then Ui.log("weapon wheel mapping refused: %s", tostring(effective)) end
     CreateThread(function()
         while true do
             Wait(120)
-            if Wheel.open then
-                if not allowed() then close(false, "interrupted")
-                -- a release the mapping never delivered (focus change, alt-tab): commit anyway
-                elseif GetGameTimer() - openedAt > 350 and Open77.input and type(Open77.input.isDown) == "function"
-                    and Open77.input.isDown(Wheel.key) == false then close(true, "released") end
-            end
+            watch()
         end
     end)
 end
