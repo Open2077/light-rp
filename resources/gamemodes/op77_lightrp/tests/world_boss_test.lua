@@ -231,7 +231,7 @@ npcs[guards[1]].health, npcs[guards[2]].health = 0, 0
 fire("onNpcDied", tostring(guards[1]), "player:2", "player_hit")
 fire("onNpcDied", tostring(guards[2]), "player:2", "player_hit")
 seconds(2)
-assert(math.abs(WB.shareOf(1) - 3000 / 3400 * 100) < 0.01 and math.abs(WB.shareOf(2) - 400 / 3400 * 100) < 0.01, "shares: damage + kills")
+assert(math.abs(WB.shareOf(1) - 3000 / 3125 * 100) < 0.01 and math.abs(WB.shareOf(2) - 125 / 3125 * 100) < 0.01, "shares: damage + kills earned by damage")
 -- 60 % of the boss: the first reinforcements
 assert(ev.reinforced[1], "reinforcements at 66 %")
 local reinforcements = 0
@@ -239,6 +239,7 @@ for _, n in ipairs(notices) do if n.title == "REINFORCEMENTS" then reinforcement
 assert(reinforcements >= 1, "the zone is told")
 npcs[bossId].health = 1500
 fire("onNpcDamaged", tostring(bossId), "player:1", "500", "1500", "player_hit")
+fire("onNpcDamaged", tostring(bossId), "player:2", "300", "1500", "player_hit")
 seconds(2)
 assert(ev.reinforced[2], "and at 33 %")
 
@@ -247,10 +248,11 @@ fire("onNpcDamaged", tostring(bossId), "player:3", "1500", "0", "player_hit")
 fire("onNpcDied", tostring(bossId), "player:3", "player_hit")
 npcs[bossId].health = 0
 -- player 3 dealt 1500 there: make it a real latecomer instead (last shot only)
-ev.contrib[3].damage, ev.contrib[3].bossDamage, ev.contrib[3].score = 0, 0, C.bossKillPoints
+local late = ev.contrib[3]
+late.damage, late.bossDamage, late.on[tostring(bossId)] = 10, 10, 10
+late.score = 10 + C.killShare * 5000 * (10 / (C.killAssist * 5000))
 seconds(2)
 assert(ev.phase == "cleanup", "boss down")
-local total = 3500 + 400 + C.bossKillPoints
 assert(paid[1] and paid[2] and not paid[3] and not paid[4], "the latecomer and the far player get nothing")
 assert(paid[1] + paid[2] <= 30000 and paid[1] > paid[2], "the pool shared by score among the eligible")
 assert(ev.results[3].share < 5 and not ev.results[3].eligible)
@@ -291,6 +293,51 @@ assert(providers.worldBoss(2) == false, "HUD gone")
 left = 0
 for _ in pairs(npcs) do left = left + 1 end
 assert(left == 0, "the escaped boss and guards removed")
+
+-- ── a crowd: 40 players, 30 fighting, 3 watching, 3 arriving for the last shot, 4 away ──
+paid, notices = {}, {}
+for id = 1, 40 do
+    chars[id] = "Crowd " .. id; buckets[id] = 0
+    if id <= 36 then positions[id] = { x = 480 + (id % 6) * 8, y = 480 + math.floor(id / 6) * 6, z = 10 }
+    else positions[id] = { x = 2000 + id, y = 0, z = 10 } end
+end
+assert(commands["worldboss.start"](0, {}))
+seconds(3)
+ev = WB.current()
+local boss
+for _, n in pairs(ev.bossNpcs) do boss = n end
+for id = 1, 36 do assert(providers.worldBoss(id) and providers.worldBoss(id).inZone, "in the zone: " .. id) end
+for id = 37, 40 do assert(providers.worldBoss(id) == false, "away: no HUD " .. id) end
+assert(ev.fighters == 36, "36 in the zone")
+local hp = npcs[boss].health
+local t0, ticks = os.clock(), 0
+for round = 1, 6 do
+    for id = 1, 30 do
+        local dmg = 10 + id
+        hp = hp - dmg; npcs[boss].health = math.max(1, hp)
+        fire("onNpcDamaged", tostring(boss), "player:" .. id, tostring(dmg), tostring(math.max(1, hp)), "player_hit")
+    end
+    seconds(1); ticks = ticks + 2
+end
+local perTick = (os.clock() - t0) / ticks * 1000
+-- three latecomers: one small hit each, one takes the kill
+for id = 34, 36 do fire("onNpcDamaged", tostring(boss), "player:" .. id, "10", tostring(math.max(1, hp - 10)), "player_hit") end
+npcs[boss].health = 0
+fire("onNpcDied", tostring(boss), "player:34", "player_hit")
+seconds(2)
+assert(ev.phase == "cleanup", "boss down")
+local payees, total = 0, 0
+for id = 1, 30 do assert(paid[id] and paid[id] > 0, "every real fighter is paid, even with an average share under 5 %: " .. id); payees = payees + 1; total = total + paid[id] end
+for id = 31, 40 do assert(not paid[id], "watchers, latecomers and the away get nothing: " .. id) end
+assert(total <= 30000 and total > 29900, "the whole pool shared: " .. total)
+assert(paid[30] > paid[1], "more damage, more pay")
+assert(ev.need < 5 and ev.need > 0.5, "the paying share follows the crowd: " .. ev.need)
+local told34
+for _, n in ipairs(notices) do if n.id == 34 and n.title == "WORLD BOSS DOWN" then told34 = n.body end end
+assert(told34 and told34:find("no reward"), "the last shot is told why")
+seconds(C.cleanupSeconds + 3)
+assert(WB.current() == nil)
+print(string.format("crowd: 30 paid of 40, need %.2f %%, %.3f ms per tick with 36 in the zone", ev.need, perTick))
 
 -- ── withdrawn: out of the catalogue ──
 Engine.withdraw("wb-1")

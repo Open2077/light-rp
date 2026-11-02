@@ -9,7 +9,8 @@
 --              and their own share. Leaving it costs nothing.
 --   reinforce  the non-start spawn points come at 66 % and 33 % of the boss's health.
 --   credit     onNpcDamaged / onNpcDied with the server-validated source "player:<id>"
---              (platform hit pricing): damage points + killPoints per kill.
+--              (platform hit pricing): damage points + a kill bonus earned by the damage
+--              the killer dealt to that target.
 --   the end    boss down: the pool is shared by contribution among those at or above the
 --              mission's minimum share (a latecomer's last shot or an idle player: nothing).
 --              Time out: the boss leaves, nobody is paid.
@@ -87,10 +88,18 @@ WB.inZone = inZone
 -- ---------------------------------------------------------------------------
 -- Contribution
 
+local function maxHealthOf(ev, key, npcId)
+    if not ev.npcMax[key] then
+        local ok, npc = pcall(Open77.npcs.get, tonumber(npcId) or npcId)
+        local m = ok and type(npc) == "table" and tonumber(npc.maxHealth)
+        if m and m > 0 then ev.npcMax[key] = m end
+    end
+    return ev.npcMax[key] or 100
+end
 local function entry(ev, id)
     local c = ev.contrib[id]
     if not c then
-        c = { damage = 0, bossDamage = 0, kills = 0, score = 0, name = name(id), firstAt = now() }
+        c = { damage = 0, bossDamage = 0, kills = 0, score = 0, on = {}, name = name(id), firstAt = now() }
         ev.contrib[id] = c
     end
     return c
@@ -106,6 +115,17 @@ local function shareOf(ev, id)
     return c.score / total * 100
 end
 WB.shareOf = function(id) return event and shareOf(event, id) or 0 end
+-- The share that pays. The mission's minimum, lowered when many fight so a crowd still
+-- gets paid: never under a quarter (fairShareFraction) of an equal share between
+-- everyone who scored. A last shot or a watcher stays far below it either way.
+local function needed(ev)
+    local n = 0
+    for _, c in pairs(ev.contrib) do if c.score > 0 then n = n + 1 end end
+    local w = ev.def.worldBoss
+    if n <= 0 then return w.minShare end
+    return math.min(w.minShare, (C.fairShareFraction or 0.25) * 100 / n)
+end
+WB.needed = function() return event and needed(event) or 0 end
 
 local function playerOf(source)
     local id = tonumber(tostring(source or ""):match("^player:(%d+)$"))
@@ -121,6 +141,8 @@ AddEventHandler("onNpcDamaged", function(npcId, source, amount)
     if not id or not value or value ~= value or value <= 0 then return end
     local c = entry(ev, id)
     value = math.min(value, 100000)
+    maxHealthOf(ev, key, npcId)
+    c.on[key] = (c.on[key] or 0) + value
     c.damage = c.damage + value
     if ev.bossNpcs[key] then c.bossDamage = c.bossDamage + value end
     c.score = c.score + value
@@ -135,7 +157,9 @@ AddEventHandler("onNpcDied", function(npcId, source)
     if not id then return end
     local c = entry(ev, id)
     c.kills = c.kills + 1
-    c.score = c.score + (ev.bossNpcs[key] and C.bossKillPoints or C.killPoints)
+    local max = maxHealthOf(ev, key, npcId)
+    local earned = math.min(1, (c.on[key] or 0) / math.max(1, (C.killAssist or 0.1) * max))
+    c.score = c.score + (C.killShare or 0.25) * max * earned
     ev.dirty = true
 end)
 
@@ -166,7 +190,7 @@ local function view(ev, id)
         id = ev.id, title = ev.def.title, location = ev.location, boss = ev.bossLabel, phase = ev.phase,
         bossHealth = ev.bossFraction, enemiesLeft = ev.run.alive + #ev.run.queue, fighters = ev.fighters,
         endsInMs = ev.phase == "fight" and math.max(0, ev.endsAt - now()) or nil,
-        share = math.floor(share * 10 + 0.5) / 10, minShare = w.minShare, eligible = share >= w.minShare and (c and c.score or 0) > 0,
+        share = math.floor(share * 10 + 0.5) / 10, minShare = math.floor(needed(ev) * 10 + 0.5) / 10, eligible = share >= needed(ev) and (c and c.score or 0) > 0,
         damage = c and math.floor(c.damage + 0.5) or 0, kills = c and c.kills or 0, reward = w.reward,
         inZone = ev.inZone[id] == true,
         -- a bystander in the zone still sees how it ended
@@ -237,7 +261,7 @@ local function start(def, why)
     local bossSpawn = run.spawns[boss.boss]
     local ev = { id = run.instance, def = run.def, run = run, startedAt = now(), endsAt = now() + boss.minutes * 60000,
         phase = "fight", contrib = {}, npcs = {}, bossNpcs = {}, bossMax = {}, inZone = {}, watchers = {}, hudKeys = {},
-        reinforced = {}, bossFraction = 1, fighters = 0,
+        reinforced = {}, bossFraction = 1, fighters = 0, npcMax = {},
         bossLabel = bossSpawn and bossSpawn.label or "The boss", location = def.location ~= "" and def.location or "Night City" }
     -- every enemy of the event is known by id (credit) and the boss's apart (its bar)
     run.onCreated = function(npcId, s)
@@ -269,9 +293,11 @@ local function finish(ev, success, why)
     -- the pool, shared by score among those at or above the minimum share
     local total = totalScore(ev)
     local eligibleScore = 0
+    local need = needed(ev)
+    ev.need = need
     for id, c in pairs(ev.contrib) do
         c.share = total > 0 and c.score / total * 100 or 0
-        c.eligible = success and c.score > 0 and c.share >= w.minShare
+        c.eligible = success and c.score > 0 and c.share >= need
         if c.eligible then eligibleScore = eligibleScore + c.score end
     end
     local paid = 0
@@ -291,7 +317,7 @@ local function finish(ev, success, why)
             if not success then body = (why or "The boss got away.") .. string.format(" Your share: %.1f %%. Nobody is paid.", c.share)
             elseif pay > 0 then body = string.format("Your share: %.1f %% (%d damage, %d kill%s). %s paid to your account, +%d reputation.",
                 c.share, math.floor(c.damage + 0.5), c.kills, c.kills == 1 and "" or "s", money(pay), C.reputation)
-            else body = string.format("Your share: %.1f %%, under the %d %% needed: no reward. Fight it, don't watch it.", c.share, w.minShare) end
+            else body = string.format("Your share: %.1f %%, under the %.1f %% needed: no reward. Fight it, don't watch it.", c.share, need) end
             LightRP.notice(id, { kind = success and (pay > 0 and "success" or "warning") or "error",
                 title = success and "WORLD BOSS DOWN" or "WORLD BOSS ESCAPED", body = body, durationMs = 12000 })
         end
@@ -378,8 +404,8 @@ local function tick(ev)
             ev.inZone[id] = inside or nil
             if inside then
                 LightRP.notice(id, { kind = "contract", title = "WORLD BOSS ZONE", durationMs = 9000,
-                    body = string.format("Take down %s with everyone here. Your share of %s follows your damage and kills; under %d %% you get nothing.",
-                        ev.bossLabel, money(ev.def.worldBoss.reward), ev.def.worldBoss.minShare) })
+                    body = string.format("Take down %s with everyone here. Your share of %s follows your damage and kills; a last shot or watching earns nothing.",
+                        ev.bossLabel, money(ev.def.worldBoss.reward)) })
             end
         end
         if inside then

@@ -20,16 +20,20 @@ LightRpWorldBosses = {
 
     -- How far past the perimeter a player still counts as in the zone (HUD, targets).
     zoneMargin = 40.0,
-    -- Contribution: every point of damage counts 1, every kill adds `killPoints` (a kill
-    -- of the boss adds `bossKillPoints`: the last shot is worth little on purpose).
-    killPoints = 150,
-    bossKillPoints = 150,
+    -- Contribution: every point of damage counts 1; a kill adds killShare of the
+    -- target's max health, in full only when the killer dealt at least killAssist of it
+    -- (less in proportion): a last shot on someone else's work is worth next to nothing.
+    killShare = 0.25,
+    killAssist = 0.10,
     -- Reputation for every rewarded fighter.
     reputation = 150,
     -- The guards still standing when the boss falls leave after this.
     cleanupSeconds = 45,
     -- How long the end (BOSS DOWN / GOT AWAY, your pay) stays on the zone's HUD.
     resultSeconds = 10,
+    -- With many fighters the minimum share drops to this fraction of an equal share
+    -- (30 fighters: 0.25 * 100 / 30 = 0.8 %), never above the mission's minimum.
+    fairShareFraction = 0.25,
     -- Enemies past the zone (perimeter + zoneMargin + this) are sent back to their post.
     leashMetres = 15,
     -- The boss's spawn: if no boss stands after this, the event is called off.
