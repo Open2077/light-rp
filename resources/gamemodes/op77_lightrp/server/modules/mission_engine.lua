@@ -56,14 +56,16 @@ local function announce(inst, title, body, kind)
 end
 local function push(inst) Missions.pushSquad(inst) end
 
--- What the clients draw while the mission runs: the perimeter and the checkpoints.
+-- What the clients draw while the mission runs: the checkpoints. The perimeter is not
+-- drawn for the players (user request 2026-11-02: "on s'en fout"); leaving it still
+-- starts the out-of-zone countdown on the page.
 local function visuals(run)
     local cps = {}
     for i, c in ipairs(run.def.checkpoints) do
         cps[i] = { id = c.id, label = c.label, position = c.position, radius = c.radius, required = c.required, reached = run.reached[c.id] == true }
     end
     return { kind = "state", instance = run.instance, type = run.def.type, title = run.def.title,
-        perimeter = run.def.perimeter, graceSeconds = run.def.outOfBounds.graceSeconds, checkpoints = cps }
+        graceSeconds = run.def.outOfBounds.graceSeconds, checkpoints = cps }
 end
 local function sendVisuals(inst, only)
     local payload = visuals(inst.run)
@@ -95,7 +97,7 @@ local function create(inst, entry)
         aiMode = Open77.npcs.ai.native, damagePolicy = Open77.npcs.damage.mortal,
         streamingRadius = 200, persistent = false, despawnWhenUnobserved = false,
         difficulty = { healthMultiplier = run.difficulty.enemyHealth, damageMultiplier = run.difficulty.enemyDamage },
-        loadout = { combat = { group = COMBAT_GROUP, acquirePlayers = true } },
+        loadout = { combat = { group = COMBAT_GROUP, acquirePlayers = true, authoritativePlayerHits = true } },
         behavior = { hitPricing = "platform", aiEnabled = true, combatEnabled = true } }
     if enemy.record then def.record = enemy.record else def.template = enemy.template end
     local ok, npcId, why = pcall(Open77.npcs.create, def)
@@ -402,6 +404,143 @@ local function respawnTick(inst)
 end
 
 -- ---------------------------------------------------------------------------
+-- The mission kit: native weapons for the run (LightRP's armament stands aside while
+-- Missions.handlesLoadout says so and gives the character's own weapons back after).
+-- `loadout` on the definition picks a kit of LightRpRaid.loadouts ("none": the
+-- operators bring their own); without it the first kit (assault) is handed out.
+
+local function kitFor(def)
+    local wanted = def.loadout or "assault"
+    if wanted == "none" then return nil end
+    local kits = type(LightRpRaid) == "table" and LightRpRaid.loadouts or {}
+    for _, kit in ipairs(kits) do if kit.id == wanted then return kit end end
+    return kits[1]
+end
+Engine.kitFor = kitFor
+
+local waitingWeapons = {}
+AddEventHandler("open77:weapons:completed", function(player, request, _, accepted, reason, result)
+    waitingWeapons[tostring(player) .. ":" .. tostring(request)] = { accepted = accepted, reason = reason, result = result }
+end)
+local function weapons(player, method, ...)
+    if type(Open77.weapons) ~= "table" or type(Open77.weapons[method]) ~= "function" then return nil, "weapons_api_unavailable" end
+    local ok, request, why = pcall(Open77.weapons[method], player, ...)
+    if not ok or not request then return nil, ok and why or request end
+    local key = tostring(player) .. ":" .. tostring(request)
+    local deadline = now() + 10000
+    while not waitingWeapons[key] and now() < deadline do Wait(50) end
+    local done = waitingWeapons[key]
+    waitingWeapons[key] = nil
+    if not done then return nil, "request_timeout" end
+    if not done.accepted then return nil, done.reason end
+    return done.result or true
+end
+local function slotsOf(snapshot) return type(snapshot) == "table" and (snapshot.slots or snapshot) or {} end
+local function capacityOf(snapshot, slot)
+    for _, row in ipairs(slotsOf(snapshot)) do
+        if type(row) == "table" and tonumber(row.slot) == slot and type(row.ammo) == "table" then return tonumber(row.ammo.capacity) end
+    end
+end
+-- In hand: slot 1 holds the kit's primary with rounds in it.
+local function armed(snapshot, kit)
+    for _, row in ipairs(slotsOf(snapshot)) do
+        if type(row) == "table" and tonumber(row.slot) == 1 then
+            local a = type(row.ammo) == "table" and row.ammo or {}
+            local rounds = tonumber(a.total) or ((tonumber(a.reserve) or 0) + (tonumber(a.magazine) or 0))
+            return row.record == kit.primary and rounds > 0
+        end
+    end
+    return false
+end
+
+local function equip(inst, id)
+    local run = inst.run
+    if not run or not run.kit then return end
+    run.equipping = run.equipping or {}
+    if run.equipping[id] then return end
+    run.equipping[id] = true
+    local kit = run.kit
+    CreateThread(function()
+        Wait(1500) -- the operator lands in the arena first
+        for attempt = 1, 6 do
+            if inst.run ~= run or run.phase == "done" or not alive(id) then break end
+            local function step(method, ...)
+                local result, why = weapons(id, method, ...)
+                if not result and why ~= "weapon_slot_empty" then
+                    LightRP.log("mission %s: kit %s for %s: %s refused (%s)", inst.id, kit.id, name(id), method, tostring(why))
+                end
+                return result
+            end
+            step("clear")
+            step("assign", kit.primary, 1, { active = true, addToInventory = true })
+            step("assign", kit.secondary, 2, { active = false, addToInventory = true })
+            for slot = 1, 2 do
+                step("setAmmo", slot, { reserve = kit.reserve[slot], activate = slot == 1 })
+                local capacity = capacityOf(step("requestSnapshot"), slot)
+                if capacity then step("setAmmo", slot, { magazine = capacity, activate = slot == 1 }) end
+            end
+            step("setActive", 1)
+            if armed(weapons(id, "requestSnapshot"), kit) then
+                LightRP.log("mission %s: kit %s handed to %s", inst.id, kit.id, name(id))
+                break
+            end
+            LightRP.log("mission %s: kit %s for %s not in hand (attempt %d), retrying", inst.id, kit.id, name(id), attempt)
+            Wait(3000)
+        end
+        run.equipping[id] = nil
+    end)
+end
+Engine.equip = equip
+
+-- ---------------------------------------------------------------------------
+-- NPC hits on the operators. The mission's NPCs opt into authoritativePlayerHits: the
+-- engine no longer lets their shots drain the native health, the client that owns the
+-- NPC reports each hit (client/core/mission_run.lua relays open77:npcPlayerHit) and the
+-- server applies it to the canonical health the HUD shows. Without this the HUD stayed
+-- at 100 while the native body died (2026-11-02, "The House").
+
+local INCOMING = { maxPerHit = 40, maxPerSecond = 120, range = 150 }
+local incomingWindow = {}
+local function bucketOf(id)
+    local ok, life = pcall(Open77.players.getLifeState, id)
+    return ok and type(life) == "table" and life.bucket or nil, ok and type(life) == "table" and life.phase or nil
+end
+local function isMember(inst, id)
+    for _, m in ipairs(inst.members) do if m == id then return true end end
+    return false
+end
+function Engine.npcHit(reporter, victimId, npcId, epoch, amount)
+    local victim, damage, reportedEpoch = tonumber(victimId), tonumber(amount), tonumber(epoch)
+    if not victim or not damage or damage ~= damage or damage <= 0 or not reportedEpoch then return false, "invalid" end
+    local inst = Missions.instanceOf(victim)
+    local run = inst and inst.run
+    if not run or run.phase == "done" or not isMember(inst, reporter) then return false, "no_run" end
+    local key
+    for id in pairs(run.enemies) do if tostring(id) == tostring(npcId) then key = id end end
+    if key == nil then return false, "not_this_mission" end
+    local ok, npc = pcall(Open77.npcs.get, key)
+    if not ok or type(npc) ~= "table" or (tonumber(npc.health) or 0) <= 0 then return false, "npc_gone" end
+    -- only the client that owns the NPC's simulation reports its hits, for its current lease
+    if tostring(npc.authorityPlayerId) ~= tostring(reporter) or tonumber(npc.authorityEpoch) ~= reportedEpoch then return false, "not_owner" end
+    local victimBucket, phase = bucketOf(victim)
+    if victimBucket ~= inst.bucket or (phase ~= "alive" and phase ~= "recovering") then return false, "victim_not_here" end
+    local p, n = positionOf(victim), npc.position
+    if p and type(n) == "table" and distance(p, n) > INCOMING.range then return false, "too_far" end
+    damage = math.min(damage, INCOMING.maxPerHit)
+    local t, w = now(), incomingWindow[victim]
+    if not w or t - w.since >= 1000 then w = { since = t, total = 0 }; incomingWindow[victim] = w end
+    if w.total + damage > INCOMING.maxPerSecond then return false, "rate" end
+    w.total = w.total + damage
+    local applied, why = Open77.players.damage(victim, damage, { attacker = key, cause = "firearm" })
+    if applied == false then LightRP.log("mission %s: hit on %s refused (%s)", inst.id, name(victim), tostring(why)) end
+    return applied ~= false, why
+end
+RegisterNetEvent(NET .. ":npcHit", function(victimId, npcId, epoch, amount)
+    local reporter = tonumber(source)
+    if reporter and reporter > 0 then Engine.npcHit(reporter, victimId, npcId, epoch, amount) end
+end)
+
+-- ---------------------------------------------------------------------------
 -- The script
 
 local function view(inst, viewer)
@@ -440,9 +579,13 @@ local function script(def)
                 radius = def.perimeter.radius, length = def.perimeter.length, width = def.perimeter.width, heading = def.perimeter.heading,
                 points = def.perimeter.points, minZ = def.perimeter.minZ, maxZ = def.perimeter.maxZ, fullHeight = def.perimeter.fullHeight }))
             run.prepared = ok and prepared or nil
+            run.kit = kitFor(def)
+            -- the armament stands aside for the whole run (Missions.handlesLoadout)
+            inst.loadout = run.kit ~= nil
             if not run.prepared then LightRP.log("mission %s: perimeter not prepared by the zone service, local maths used", inst.id) end
             inst.run = run
             sendVisuals(inst)
+            for _, id in ipairs(inst.members) do equip(inst, id) end
         end,
         onTick = function(inst)
             local run = inst.run
@@ -472,7 +615,11 @@ local function script(def)
             local run = inst.run
             if not run or run.phase == "done" then return end
             if phase == "alive" or phase == "recovering" then
-                if phase == "alive" then run.down[id], run.reviving[id], run.retries[id] = nil, nil, nil end
+                if phase == "alive" then
+                    run.down[id], run.reviving[id], run.retries[id] = nil, nil, nil
+                    -- a new life: the kit again (a respawn leaves the hands empty)
+                    equip(inst, id)
+                end
                 run.outside[id] = nil
                 LightRP.state(id, "missionQueue")
                 return
