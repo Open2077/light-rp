@@ -162,4 +162,45 @@ net["op77_lightrp:missionrun"]({ kind = "end", instance = "mission:1" })
 before = #toServer; events["open77:npcPlayerHit"]("7", "1", "1", "5", "2"); assert(#toServer == before, "no relay outside a mission")
 count = 0; for _ in pairs(markers) do count = count + 1 end
 assert(count == 0 and drawn["lightrp:missions:perimeter"] == nil, "cleared at the end")
-print("PASS: mission editor client (open, feet/aim capture, relay, preview + focus, build mode: hover, ghost, click/select/delete/tool/rotate, facing, weapons blocked, close) and mission run (markers, no perimeter drawn, NPC hit relay, cleanup)")
+-- a response past 900 values reaches the page as JSON text parts (page:send stops at 1024)
+do
+    local encodedLast
+    local savedJson = json
+    json = { encode = function(v)
+        local function enc(x)
+            if type(x) == "table" then
+                if #x > 0 then local p = {} for _, y in ipairs(x) do p[#p + 1] = enc(y) end return "[" .. table.concat(p, ",") .. "]" end
+                local p = {} for k, y in pairs(x) do p[#p + 1] = string.format("%q:%s", tostring(k), enc(y)) end table.sort(p) return "{" .. table.concat(p, ",") .. "}"
+            elseif type(x) == "string" then return string.format("%q", x) end
+            return tostring(x)
+        end
+        encodedLast = enc(v); return encodedLast
+    end }
+    local missions = {}
+    for i = 1, 150 do
+        local spawns = {}
+        for j = 1, 6 do spawns[j] = { id = "s" .. j, label = "Spawn é " .. j, position = { x = j, y = j, z = j }, count = 3, route = {} } end
+        missions[i] = { id = "m" .. i, title = "Mission " .. i .. " — Kabuki", spawns = spawns }
+    end
+    local before = #sentToPage
+    net["op77_lightrp:missioneditor"]({ kind = "response", request = "big-1", ok = true, data = { ready = true, missions = missions } })
+    local parts, joined, total = {}, {}, nil
+    for i = before + 1, #sentToPage do
+        local p = sentToPage[i].payload
+        if p.request == "big-1" then parts[#parts + 1] = p; total = p.parts; joined[p.part] = p.text end
+    end
+    assert(#parts >= 2 and total == #parts, "split in parts: " .. #parts)
+    for _, p in ipairs(parts) do
+        assert(#p.text <= 48 * 1024 and p.data == nil and p.ok == true, "small parts, no table payload")
+        local first = p.text:byte(1)
+        assert(first < 0x80 or first >= 0xC0, "a part never starts inside a UTF-8 sequence")
+    end
+    assert(table.concat(joined) == encodedLast, "the parts join back into the exact JSON")
+    -- a small response is relayed as is
+    before = #sentToPage
+    net["op77_lightrp:missioneditor"]({ kind = "response", request = "small-1", ok = true, data = { ready = true, missions = {} } })
+    assert(sentToPage[#sentToPage].payload.data and sentToPage[#sentToPage].payload.parts == nil, "small: as is")
+    json = savedJson
+end
+
+print("PASS: mission editor client (large responses in JSON parts, open, feet/aim capture, relay, preview + focus, build mode: hover, ghost, click/select/delete/tool/rotate, facing, weapons blocked, close) and mission run (markers, no perimeter drawn, NPC hit relay, cleanup)")
