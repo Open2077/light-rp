@@ -169,7 +169,8 @@ local function view(ev, id)
         share = math.floor(share * 10 + 0.5) / 10, minShare = w.minShare, eligible = share >= w.minShare and (c and c.score or 0) > 0,
         damage = c and math.floor(c.damage + 0.5) or 0, kills = c and c.kills or 0, reward = w.reward,
         inZone = ev.inZone[id] == true,
-        result = ev.results and ev.results[id] or nil,
+        -- a bystander in the zone still sees how it ended
+        result = ev.results and (ev.results[id] or { success = ev.success == true, share = 0, pay = 0, eligible = false, damage = 0, kills = 0 }) or nil,
     }
 end
 LightRP.stateProvider("worldBoss", function(id)
@@ -253,7 +254,9 @@ WB.start = start
 local function finish(ev, success, why)
     if ev.phase == "done" or ev.phase == "cleanup" then return end
     ev.phase = success and "cleanup" or "done"
-    ev.cleanupAt = now() + (success and C.cleanupSeconds or 0) * 1000
+    ev.success = success == true
+    -- an escape keeps its result on the zone's HUD a few seconds (no enemies left to clean up)
+    ev.cleanupAt = now() + (success and C.cleanupSeconds or C.escapeSeconds or 8) * 1000
     local w = ev.def.worldBoss
     ev.results = {}
     -- the pool, shared by score among those at or above the minimum share
@@ -284,6 +287,14 @@ local function finish(ev, success, why)
             else body = string.format("Your share: %.1f %%, under the %d %% needed: no reward. Fight it, don't watch it.", c.share, w.minShare) end
             LightRP.notice(id, { kind = success and (pay > 0 and "success" or "warning") or "error",
                 title = success and "WORLD BOSS DOWN" or "WORLD BOSS ESCAPED", body = body, durationMs = 12000 })
+        end
+    end
+    if not success then
+        -- whoever stands in the zone without a share yet is told too
+        for id in pairs(ev.inZone) do
+            if not ev.contrib[id] and GetPlayerName(id) then
+                LightRP.notice(id, { kind = "error", title = "WORLD BOSS ESCAPED", durationMs = 8000, body = (why or "The boss got away.") .. " Nobody is paid." })
+            end
         end
     end
     if success then
@@ -321,7 +332,10 @@ end
 local function tick(ev)
     local W = engine()
     local t = now()
-    if ev.phase == "done" then close(ev); return end
+    if ev.phase == "done" then
+        if t >= (ev.cleanupAt or 0) then close(ev) end
+        return
+    end
     if ev.phase == "cleanup" then
         if W then W.enemiesTick(ev.inst) end
         if t >= ev.cleanupAt then close(ev) end

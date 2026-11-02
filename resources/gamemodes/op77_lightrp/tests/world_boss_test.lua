@@ -252,8 +252,21 @@ assert(commands["worldboss.start"](0, {}))
 seconds(3)
 ev = WB.current()
 for _, npcId in pairs(ev.bossNpcs) do fire("onNpcDamaged", tostring(npcId), "player:1", "100", "4900", "player_hit") end
+notices = {}
 seconds(10 * 60 + 2)
-assert(WB.current() == nil and next(paid) == nil, "escaped: nobody paid")
+assert(next(paid) == nil, "escaped: nobody paid")
+left = 0
+for _ in pairs(npcs) do left = left + 1 end
+assert(left == 0, "the escaped boss and guards removed at once")
+local esc = providers.worldBoss(2)
+assert(esc and esc.result and esc.result.success == false and esc.result.pay == 0, "a bystander in the zone sees it got away")
+assert(providers.worldBoss(1).result.success == false, "the fighter too")
+local toldBystander
+for _, n in ipairs(notices) do if n.id == 2 and n.title == "WORLD BOSS ESCAPED" then toldBystander = true end end
+assert(toldBystander, "the zone is told it escaped")
+seconds(10)
+assert(WB.current() == nil, "closed a few seconds later")
+assert(providers.worldBoss(2) == false, "HUD gone")
 left = 0
 for _ in pairs(npcs) do left = left + 1 end
 assert(left == 0, "the escaped boss and guards removed")
