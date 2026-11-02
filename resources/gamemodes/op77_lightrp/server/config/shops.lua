@@ -32,7 +32,9 @@ LightRpShops = {
                 { name = "electrolyte", buy = 16, sell = 4 },
             },
         },
-        -- Gun stores, one weapon family each (shared/armament.lua). Serialized firearms:
+        -- Gun stores, one weapon family each (shared/armament.lua). On the 3D map each
+        -- store shows its family's drawn icon (blip.map, client/core/map_icons.lua) in
+        -- the "Gun stores" category (op77_map3d config). Serialized firearms:
         -- each purchase mints a server serial (armament); they are never bought back,
         -- a shop takes only plain items. Each store sells the ammunition its guns fire.
         gun_store = {
@@ -114,7 +116,8 @@ LightRpShops = {
             orientation = { x = 0.0, y = 0.0, z = -0.279220, w = 0.960227 },
             yaw = -32.427353, bucket = 0,
             npc = { record = "Character.std_rcr_gunsmith_01" },
-            blip = { icon = "crosshair", sprite = "guns", description = "Pistols and revolvers, handgun ammunition." },
+            blip = { icon = "crosshair", sprite = "guns", description = "Pistols and revolvers, handgun ammunition.",
+                map = "pistol", mapCategory = "weapons", mapColor = "#FF7A1A" },
         },
         {
             id = "gunstore_2", template = "smg_store", name = "Rapid Fire",
@@ -122,7 +125,8 @@ LightRpShops = {
             orientation = { x = 0.0, y = 0.0, z = 0.999599, w = 0.028313 },
             yaw = 176.755157, bucket = 0,
             npc = { record = "Character.std_rcr_gunsmith_01" },
-            blip = { icon = "crosshair", sprite = "guns", description = "Submachine guns, handgun ammunition." },
+            blip = { icon = "crosshair", sprite = "guns", description = "Submachine guns, handgun ammunition.",
+                map = "smg", mapCategory = "weapons", mapColor = "#FF7A1A" },
         },
         {
             id = "gunstore_3", template = "shotgun_store", name = "Twelve Gauge",
@@ -130,7 +134,8 @@ LightRpShops = {
             orientation = { x = 0.0, y = 0.0, z = -0.917391, w = 0.397988 },
             yaw = -133.095093, bucket = 0,
             npc = { record = "Character.std_rcr_gunsmith_01" },
-            blip = { icon = "crosshair", sprite = "guns", description = "Shotguns and shells." },
+            blip = { icon = "crosshair", sprite = "guns", description = "Shotguns and shells.",
+                map = "shotgun", mapCategory = "weapons", mapColor = "#FF7A1A" },
         },
         {
             id = "gunstore_4", template = "rifle_store", name = "Frontline Surplus",
@@ -138,7 +143,8 @@ LightRpShops = {
             orientation = { x = 0.0, y = 0.0, z = -0.891697, w = 0.452633 },
             yaw = -126.174515, bucket = 0,
             npc = { record = "Character.std_rcr_gunsmith_01" },
-            blip = { icon = "crosshair", sprite = "guns", description = "Assault rifles, a light machine gun, rifle ammunition." },
+            blip = { icon = "crosshair", sprite = "guns", description = "Assault rifles, a light machine gun, rifle ammunition.",
+                map = "rifle", mapCategory = "weapons", mapColor = "#FF7A1A" },
         },
         {
             id = "gunstore_5", template = "marksman_store", name = "Long Shot",
@@ -146,7 +152,8 @@ LightRpShops = {
             orientation = { x = 0.0, y = 0.0, z = 0.072213, w = -0.997389 },
             yaw = -8.282229, bucket = 0,
             npc = { record = "Character.std_rcr_gunsmith_01" },
-            blip = { icon = "crosshair", sprite = "guns", description = "Precision and sniper rifles, their ammunition." },
+            blip = { icon = "crosshair", sprite = "guns", description = "Precision and sniper rifles, their ammunition.",
+                map = "sniper", mapCategory = "weapons", mapColor = "#FF7A1A" },
         },
         -- The shop of the arrival hall (first day guide, shared/tutorial.lua), in
         -- the hall's routing bucket: the newcomer's first real checkout.
