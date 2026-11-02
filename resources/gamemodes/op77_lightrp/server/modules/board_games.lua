@@ -307,6 +307,9 @@ RegisterNetEvent(REQUEST,function(p)
     if p.action=="place" then placementBusy=true end
     playerBusy[player]=true;inv.busy=true
     local called,ok,why=pcall(handle,player,p,inv)
+    if p.action=="join" or p.action=="leave" then
+        LightRP.log("board_games %s player=%d board=%s ok=%s reason=%s",p.action,player,tostring(p.boardId),tostring(called and ok),tostring(called and why or ok))
+    end
     if p.action=="place" then placementBusy=false end
     if Inv.releaseBusy then Inv.releaseBusy(inv) else inv.busy=nil end
     playerBusy[player]=nil

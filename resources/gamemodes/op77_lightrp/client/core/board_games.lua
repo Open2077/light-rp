@@ -213,13 +213,25 @@ local function startView(board)
     if active and active.id==board.id then return end
     if Client.isActive() then stop(true,"switch_board") end
     local registry=Open77.camera.cameras()
+    -- Every refusal is reported: a silent leave looks like "E does nothing".
+    local function refuse(reason)
+        request("diagnostic",{event="render",reason="view_refused",boardId=board.id,details=tostring(reason):sub(1,180)})
+        request("leave",{boardId=board.id})
+    end
     if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or Ui.supportMode or not Ui.page
-        or Ui.promptActive or not registry or registry.held then request("leave",{boardId=board.id});return end
+        or Ui.promptActive or not registry or registry.held then
+        refuse(("ready=%s creation=%s action=%s support=%s page=%s prompt=%s registry=%s held=%s"):format(tostring(Ui.characterReady),
+            tostring(Ui.creationActive),tostring(Ui.actionFocus),tostring(Ui.supportMode),tostring(Ui.page~=nil),tostring(Ui.promptActive),
+            tostring(registry~=nil),tostring(registry and registry.held)))
+        return
+    end
     local view=board.kind=="connect4" and "white" or "top"
     local camera,why=Open77.camera.create(cameraPose(board,view))
-    if not camera then notice("Camera unavailable: "..tostring(why));request("leave",{boardId=board.id});return end
-    if not Open77.camera.activate(camera,{blendMs=250}) then Open77.camera.destroy(camera);request("leave",{boardId=board.id});return end
-    if not Open77.character.setFrozen(true) then Open77.camera.destroy(camera);request("leave",{boardId=board.id});return end
+    if not camera then notice("Camera unavailable: "..tostring(why));refuse("camera_create "..tostring(why));return end
+    local activated,reason=Open77.camera.activate(camera,{blendMs=250})
+    if not activated then Open77.camera.destroy(camera);refuse("camera_activate "..tostring(reason));return end
+    local frozen,frozenWhy=Open77.character.setFrozen(true)
+    if not frozen then Open77.camera.destroy(camera);refuse("freeze "..tostring(frozenWhy));return end
     active={id=board.id,camera=camera,cameraView=view,frozen=true,revision=board.revision,
         orbitAngle=-90,orbitRadius=1.8,orbitHeight=1.2,cameraGraceUntil=GetGameTimer()+1200}
     takeInput()
