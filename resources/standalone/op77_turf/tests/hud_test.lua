@@ -155,7 +155,9 @@ do
     assert(#host.shows == 1 and host.shows[1].phase == "running" and host.shows[1].hints[1].key == "J", "the HUD with the rebound key")
     assert(markerCount() == 6, "a ring and a beacon per zone")
     local ring
-    for _, o in pairs(host.markers) do if o.shape == "cylinder" and o.radius == CFG.sites[1].zones[1].radius then ring = o end end
+    -- every zone has the same radius and pairs() order is random: match zone A by position
+    local zoneA = CFG.sites[1].zones[1]
+    for _, o in pairs(host.markers) do if o.shape == "cylinder" and o.position.x == zoneA.x and o.position.y == zoneA.y then ring = o end end
     assert(ring and ring.position.z > CFG.sites[1].zones[1].z and ring.maxDistance == CFG.markers.maxDistance)
     assert(host.blips.turf_A and host.blips.turf_A.color == "#D9A441" and host.blips.turf_C.pulse == true)
 
