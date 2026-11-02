@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { RouletteControls } from "./RouletteControls";
+import { BlackjackControls } from "./BlackjackControls";
 
 /* Casino tables plug into the board-game overlay here: one entry per kind,
    matching the Lua registrations (LightRpTabletopExtraClient.register on the
@@ -17,4 +18,5 @@ export interface ExtraGame {
 }
 export const EXTRA_GAMES: Record<string, ExtraGame> = {
   roulette: { name: "Roulette", openPlay: true, hint: "Use the betting controls", Controls: RouletteControls },
+  blackjack: { name: "Blackjack", openPlay: true, hint: "Bet, then Hit, Stand or Double from the panel", Controls: BlackjackControls },
 };

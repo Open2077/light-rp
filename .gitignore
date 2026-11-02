@@ -125,3 +125,10 @@ data/
 
 # Local architecture and UI reference notes (never publish).
 /README*.local.md
+# Blackjack table: native props and its build/test tools.
+!resources/assets/models/open77_casino_blackjack/
+!resources/assets/models/open77_casino_blackjack/**
+!tools/build-casino-blackjack-props.py
+!tools/test-casino-blackjack.py
+!tools/test-casino-blackjack-server.py
+!tools/test-casino-blackjack-client.py
