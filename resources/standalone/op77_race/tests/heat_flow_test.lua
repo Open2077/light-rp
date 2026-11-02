@@ -29,10 +29,17 @@ H.test("street race: one queued player waits, the second opens the join window",
     H.eq(L.windowRemainingMs("grid"), nil, "no window below the minimum")
     H.ok(H.noticeFor(1, "Waiting for 1 more"))
     H.eq(H.core.owner[1], nil, "queued players are not owned yet")
+    local lobby = H.lastClient("op77_race:queue", 1).args[1]
+    H.eq(lobby.activity, "race.grid"); H.eq(lobby.queued, 1); H.eq(lobby.minPlayers, 2); H.eq(lobby.windowMs, nil)
+    local sent = #H.clientNamed("op77_race:queue", 1)
+    H.advance(1000)
+    H.eq(#H.clientNamed("op77_race:queue", 1), sent, "the lobby is sent on change only")
     H.fireNet("op77_race:join", 2, { activity = "grid" })
     H.fireNet("op77_race:join", 3, { activity = "grid" })
     H.advance(200)
     H.ok(L.windowRemainingMs("grid") > 25000, "join window open")
+    lobby = H.lastClient("op77_race:queue", 1).args[1]
+    H.eq(lobby.queued, 3); H.ok(lobby.windowMs > 25000, "the grid's countdown reaches the lobby HUD")
     local status = H.eventsNamed("op77_lightrp:activity:status")
     local last = status[#status]
     H.ok(last.args[1] == "race.grid" and last.args[2].phase == "lobby" and last.args[2].queued == 3, "lobby status")
@@ -44,6 +51,7 @@ H.test("launch: everyone re-checked; the ineligible one is told and left out", f
     H.core.eligible[3] = nil
     H.ok(H.noticeFor(3, "You are in a vehicle%. You left the queue%."))
     H.eq(L.size("grid"), 0)
+    for id = 1, 3 do H.eq(H.lastClient("op77_race:queue", id).args[1], false, "out of the queue: lobby HUD gone") end
     local inst = instance(1)
     H.ok(inst and inst == instance(2), "one instance for both")
     H.eq(racer(3), nil)

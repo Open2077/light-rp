@@ -926,7 +926,7 @@ function E.instanceOf(playerId)
 end
 function E.busy(playerId) return racers[playerId] ~= nil end
 
--- The player asked to quit (hub, F1, /leave, our panel). Forfeit, then back to Light RP.
+-- The player asked to quit (hub, F1, /leave, /race.leave). Forfeit, then back to Light RP.
 function E.leave(playerId, reason)
     local racer = racers[playerId]
     local inst = racer and instances[racer.instanceId]

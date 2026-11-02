@@ -18,6 +18,7 @@ import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
+import { activityHudMock } from "@/features/activityhud/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -29,6 +30,7 @@ export function installMockBridge(): void {
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
   const safezones = safezonesMock(fire, params);
+  const activityHud = activityHudMock(fire, params);
   const missionEditor = missionEditorMock(fire, params);
   const armament = armamentMock(fire, params);
 
@@ -147,6 +149,7 @@ export function installMockBridge(): void {
           safezones.boot();
           missionEditor.boot();
           armament.boot();
+          setTimeout(() => activityHud.boot(), 60); // ?activity=race|trial|arena|turf|lobby|countdown|result|editor|demo
   // ?wheel=N: hold Control to open the wheel (as the CTRL key mapping does), ?wheelopen=1 opens it at once
   if (params.has("wheel")) {
     let open = false;

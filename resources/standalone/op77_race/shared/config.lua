@@ -178,7 +178,6 @@ RaceConfig = {
         undo = { id = "op77_race.editor.undo", name = "Race editor: undo the last checkpoint", key = "DOWN" },
     },
 
-    ui = { zIndex = 730, fps = 30 },
 
     debug = false,
 }

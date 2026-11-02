@@ -6,14 +6,15 @@
 --
 -- Server: activity adapter, instances (engine), queues (lobby), courses, best times,
 --         staff course editor, commands.
--- Client: race page (HUD, /race panel, results), checkpoint markers, op77_map3d
---         blip + GPS, sounds, rebindable keys, editor preview.
--- Page:   web/ (plain HTML/CSS/JS, no build step).
+-- Client: the race drawn by Light RP's activity HUD (op77_lightrp client exports
+--         ActivityHud*), checkpoint markers, op77_map3d blip + GPS, sounds,
+--         rebindable keys, editor preview. No page of its own: /race opens Light RP's
+--         Activities panel.
 resource "op77_race"
 version "0.1.0"
 open77_version ">=0.0.1"
 auto_start true
--- The client owns a WebUI surface: a live reload would leave a stale one.
+-- Key mappings and native markers are registered once per client session.
 reload_policy "reconnect"
 
 -- No hard dependency on op77_lightrp: when the core stops this resource keeps running,
@@ -36,13 +37,9 @@ server_script "server/main.lua"
 client_script "client/markers.lua"
 client_script "client/main.lua"
 
-web_ui_page "web/index.html"
-web_ui_auto_create false
-web_files { "web/**" }
-
 permissions {
     -- both sides
-    "network.events",       -- state to the racer, panel/keys to the server, notifications
+    "network.events",       -- state and queue to the racer, keys to the server, notifications
     -- server
     "world.vehicles",       -- loaner cars: create, hold (flags), seat, forced exit, remove
     "world.effects",        -- server: checkpoint firework (Open77.effects.play); client: sfx / vfx

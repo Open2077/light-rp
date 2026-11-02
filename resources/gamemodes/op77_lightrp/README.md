@@ -611,6 +611,71 @@ joueurs ; **/admin → Housing** ou `/housingadmin` pour créer les modèles, ca
 les points et ajouter/supprimer des logements. SQL est obligatoire.
 Voir le [guide housing](docs/housing.md) pour le parcours complet et les garanties.
 
+## HUD d'activité (`client/core/activity_hud.lua`, page `features/activityhud/`)
+
+Le HUD commun des activités (arène, course, poursuite, guerre de territoire…) : une ressource
+fournisseur décrit son état, Light RP le dessine dans son design. C'est un pur calque, sans focus,
+sans entrée et sans touche. Un seul HUD à la fois : un `Show` plus récent remplace l'ancien, quelle
+que soit la ressource qui l'envoie. Exports **client** (toujours sous `pcall`, l'appel lève si
+`op77_lightrp` est arrêté) :
+
+```lua
+local ok, why = exports.op77_lightrp:ActivityHudShow(hud)      -- remplace tout l'état
+exports.op77_lightrp:ActivityHudPush("feed", { text = "Vi took the zone", tone = "success" })
+exports.op77_lightrp:ActivityHudPush("banner", { title = "FINAL LAP", text = "...", tone = "accent", durationMs = 2500 })
+exports.op77_lightrp:ActivityHudPush("result", { title = "Street Race", placement = 2, subtitle = "Watson Loop",
+    lines = { { label = "Time", value = "3:02.48" } }, durationMs = 9000 })
+exports.op77_lightrp:ActivityHudClear()
+```
+
+Chaque appel rend `true` ou `false, raison` (`invalid_hud`, `invalid_kind`, `invalid_payload`,
+`not_owner`, `rate_limited`, `ui_unavailable`). Tout est validé et borné côté Lua ; un champ
+invalide est ignoré, jamais transmis tel quel.
+
+| Champ de `hud` | Contenu | Bornes |
+| --- | --- | --- |
+| `activity` | identifiant libre (`race.grid`) | 48 car., `[%w_%-.:]` |
+| `title`, `subtitle` | nom de l'activité, lieu ou mode | 48 / 80 car., titre par défaut « Activity » |
+| `phase` | `lobby` · `countdown` · `running` · `ended` | autre valeur → `running` |
+| `timer` | `{ remainingMs, label, countUp }` | 0 à 24 h, libellé 16 car. |
+| `countdown` | ms avant le départ (phase `countdown`) | ≤ 60 s ; **≤ 10 est lu en secondes** |
+| `objective` | une ligne sous le bandeau | 120 car. |
+| `stats` | `{ { label, value } }` | 4 au plus, 24 car. chacun |
+| `progress` | `{ { id, label, value 0..1, tone } }` | 3 au plus |
+| `teams` | `{ { name, color, score, self } }` | 4 au plus ; `color` = `#rgb`/`#rrggbb` ou un ton |
+| `scoreboard` | `{ columns = {...}, rows = { { name, values, self, team } } }` | 4 colonnes, 16 lignes, une seule `self` |
+| `hints` | `{ { key, label } }` | 4 au plus |
+
+- **Temps relatifs** : `timer.remainingMs` et `countdown` valent au moment de l'envoi, la page
+  décompte seule. Un `countUp` n'avance qu'en phase `running` (un temps final reste figé). Ne pas
+  renvoyer le HUD à chaque frame : à chaque changement d'état suffit (30 appels/s au plus).
+- Un `countdown` en millisecondes qui tombe à 10 ou moins serait lu en secondes : envoyer `0`.
+- `countdown` absent en phase `countdown` : « GET READY ». Au-delà de 5 s, une puce « STARTS IN » ;
+  les 5 dernières secondes en grands chiffres, puis « GO ».
+- Tons : `accent` (jaune, réservé au joueur et aux temps forts), `danger`, `info`, `success`.
+- `team` d'une ligne : index (1..4) ou nom d'une équipe de `teams`.
+- Pushs : `feed` (5 lignes au plus, effacées après ~5 s), `banner` (0,8 à 10 s, 3 s par défaut),
+  `result` (titre ou `placement` 1..999 / court texte comme « DNF », 2 à 30 s, 8 s par défaut,
+  6 lignes au plus).
+- **Propriété** : `Push` et `Clear` sont refusés (`not_owner`) quand le HUD affiché appartient à
+  une autre ressource. Un `Clear` du propriétaire laisse la carte de résultat et la dernière
+  bannière finir leur temps.
+- **Fin de vie** : le HUD disparaît à l'arrêt ou au redémarrage de la ressource propriétaire, et
+  à un changement de personnage.
+
+À l'écran : bandeau en haut au centre (phase, titre, horloge, deux équipes de part et d'autre ou
+puces d'équipes dessous, objectif), panneau à droite à la place du bon de travail (stats, barres,
+classement centré sur le joueur, raccourcis), fil en haut à droite près de la minimap (en haut à
+gauche sous 1600 px), compte à rebours, bannières et carte de résultat au centre. Pendant un match
+(toute phase sauf `lobby`), les cadrans faim/soif, leur alerte et le bon de travail s'effacent
+(besoins gelés dans les activités) ; santé, armure, énergie, chat, voix et notifications restent.
+En `lobby` à côté d'un bon de travail, le bon garde sa place et les raccourcis montent sous le
+bandeau. Le HUD se masque quand le menu F1 ou une boîte de dialogue est ouvert.
+
+Aperçu sans jeu : `npm run dev` puis `?registered=1&activity=race` (`trial`, `arena`, `turf`,
+`lobby`, `countdown`, `result`, `editor`, `demo` pour une course complète). Tests :
+`tests/activity_hud_client_test.lua`.
+
 ## WebUI
 
 Source dans `ui/` à la racine du projet (Vite, React 18, TypeScript strict, zustand,

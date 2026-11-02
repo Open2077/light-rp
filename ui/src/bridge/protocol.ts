@@ -36,6 +36,7 @@ export const PAGE_EVENTS = {
   shop: "lightrp:ui:shop",
   mission: "lightrp:ui:mission", // Lua -> page: MissionUpdate (live board)
   raid: "lightrp:ui:raid", // Lua -> page: RaidState (server/modules/mission_chimera.lua)
+  activityHud: "lightrp:ui:activityhud", // Lua -> page: ActivityHudMessage (client/core/activity_hud.lua)
   actionStart: "lightrp:ui:activity:start",
   actionStarted: "lightrp:ui:activity:started",
   actionFinish: "lightrp:ui:activity:finish",

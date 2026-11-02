@@ -12,7 +12,7 @@ local L = RaceLobby
 
 local queues = {}   -- activity key -> { members = { playerId... }, windowEndsAt, lastCourse }
 L.queues = queues
-local trialCourse = {} -- playerId -> last course chosen for a trial (the panel remembers it)
+local trialCourse = {} -- playerId -> last course chosen for a trial (a later join without one reuses it)
 
 local noop = function() end
 L.hooks = {

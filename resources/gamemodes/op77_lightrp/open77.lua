@@ -148,6 +148,7 @@ client_script "client/core/grenades.lua"
 client_script "client/core/hotbar.lua"
 client_script "client/core/branding.lua"
 client_script "client/core/actions.lua"
+client_script "client/core/activity_hud.lua"   -- shared in-match HUD of the activity providers (exports ActivityHud*)
 client_script "client/core/medical.lua"
 client_script "client/core/consumables.lua"
 client_script "client/core/refueling.lua"

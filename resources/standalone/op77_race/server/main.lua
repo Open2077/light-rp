@@ -35,48 +35,43 @@ local function output(source, raw, success, text)
     end
 end
 
--- Panels: players who opened the race panel get a fresh menu when something changes.
-local menuOpen = {}
-local menuDirty, statusDirty = false, true
-
-local function menuFor(playerId)
-    local now = E.nowMs()
-    local info = A.player(playerId)
-    local key = A.characterKey(info)
-    local activities = {}
-    for _, def in ipairs(Config.activities) do
-        local running, players = E.count(def.mode)
-        activities[#activities + 1] = {
-            key = def.key, id = def.id, label = def.label, description = def.description,
-            minPlayers = def.minPlayers, maxPlayers = def.maxPlayers,
-            queued = L.size(def.key), running = running, players = players,
-            windowMs = L.windowRemainingMs(def.key, now),
-            courses = #RaceCourses.ids(def.mode),
-        }
-    end
-    local courses = {}
-    for _, summary in ipairs(RaceCourses.list("trial")) do
-        summary.top = RaceRecords.top(summary.id, summary.revision, Config.records.show)
-        local best = key and RaceRecords.best(summary.id, summary.revision, key)
-        summary.bestMs = best and best.timeMs or nil
-        summary.rank = key and RaceRecords.rank(summary.id, summary.revision, key) or nil
-        courses[#courses + 1] = summary
-    end
-    return {
-        activities = activities,
-        courses = courses,
-        queued = L.queuedIn(playerId),
-        racing = E.busy(playerId),
-        available = A.registered,
-    }
-end
-
-local function pushMenu(playerId)
-    TriggerClientEvent("op77_race:menu", playerId, json.encode(menuFor(playerId)))
-end
+-- The races are joined from Light RP's Activities panel; the core's status of each
+-- activity is refreshed when a queue or an instance changes.
+local statusDirty = true
 
 local function changed()
-    menuDirty, statusDirty = true, true
+    statusDirty = true
+end
+
+-- Queued players keep playing in the RP world; their lobby (queue size, the grid's
+-- countdown) is drawn by Light RP's activity HUD from this event, sent on change only.
+local queueShown = {} -- playerId -> digest of what they were last sent
+
+local function pushQueues(now)
+    local seen = {}
+    for _, def in ipairs(Config.activities) do
+        local q = L.queues[def.key]
+        if def.mode ~= "trial" and q then
+            local window = L.windowRemainingMs(def.key, now)
+            for _, playerId in ipairs(q.members) do
+                seen[playerId] = true
+                local digest = ("%s|%d|%s"):format(def.key, #q.members, tostring(q.windowEndsAt))
+                if queueShown[playerId] ~= digest then
+                    queueShown[playerId] = digest
+                    TriggerClientEvent("op77_race:queue", playerId, {
+                        activity = def.id, label = def.label, mode = def.mode, queued = #q.members,
+                        minPlayers = def.minPlayers, maxPlayers = def.maxPlayers, windowMs = window,
+                    })
+                end
+            end
+        end
+    end
+    for playerId in pairs(queueShown) do
+        if not seen[playerId] then
+            queueShown[playerId] = nil
+            if Open77.players.name(playerId) ~= nil then TriggerClientEvent("op77_race:queue", playerId, false) end
+        end
+    end
 end
 
 E.hooks.push = function(playerId, payload) TriggerClientEvent("op77_race:state", playerId, payload) end
@@ -129,7 +124,7 @@ end
 
 -- ---------------------------------------------------------------- joining --
 
--- Our own entry points (panel, commands) check eligibility first; the core's join
+-- Our own entry points (commands, op77_race:join) check eligibility first; the core's join
 -- event arrives already checked.
 local function joinChecked(playerId, def, options)
     if def == nil then return false, "Unknown race." end
@@ -184,10 +179,14 @@ AddEventHandler("op77_lightrp:activity:dropped", function(playerId, activityId, 
 end)
 
 local function registerNow()
-    if A.register() then
-        pushStatus(true)
-        menuDirty = true
-    end
+    if A.register() then pushStatus(true) end
+end
+
+-- The time trial's courses are join choices in the Activities panel: a saved or
+-- deleted course registers again (the core replaces the definition, keeps its status).
+local function coursesChanged()
+    changed()
+    if A.registered then registerNow() end
 end
 
 -- Registration retries every 3 s until the core accepts, and again whenever the core
@@ -243,7 +242,7 @@ AddEventHandler("onPlayerDisconnected", function(value)
     E.disconnect(id)
     L.forget(id)
     Ed.forget(id)
-    menuOpen[id] = nil
+    queueShown[id] = nil
     changed()
 end)
 
@@ -262,20 +261,10 @@ RegisterNetEvent("op77_race:ready", function()
     if id == nil then return end
     E.push(id)
     if Ed.sessions[id] then Ed.push(id) end
+    queueShown[id] = nil -- the next tick sends the queue again
 end)
 
-RegisterNetEvent("op77_race:openMenu", function()
-    local id = playerIdOf(source)
-    if id == nil or throttled(id, 200) then return end
-    menuOpen[id] = true
-    pushMenu(id)
-end)
-
-RegisterNetEvent("op77_race:closeMenu", function()
-    local id = playerIdOf(source)
-    if id then menuOpen[id] = nil end
-end)
-
+-- Kept for scripts and binds: the same join as the Activities panel and the commands.
 RegisterNetEvent("op77_race:join", function(payload)
     local id = playerIdOf(source)
     if id == nil or type(payload) ~= "table" or throttled(id) then return end
@@ -322,10 +311,11 @@ end)
 
 local MODES = { trial = "trial", timetrial = "trial", grid = "grid", street = "grid", foot = "foot", rooftop = "foot" }
 
+-- /race opens Light RP's Activities panel, where every race is listed and joined.
 RegisterCommand("race", function(source)
     local id = playerIdOf(source)
     if id == nil then return output(source, "race", false, "race must be used in-game") end
-    TriggerClientEvent("op77_race:panel", id, true)
+    TriggerClientEvent("op77_race:activities", id)
 end, false)
 
 RegisterCommand("timetrial", function(source, args, raw)
@@ -388,7 +378,7 @@ RegisterCommand("race.editor", function(source, args, raw)
         return output(source, raw, true, table.concat(names, ", "))
     elseif action == "delete" then
         local ok, reason = RaceCourses.remove(args[2])
-        if ok then changed() end
+        if ok then coursesChanged() end
         return output(source, raw, ok, ok and "Course deleted" or Ed.message(reason))
     end
     if id == nil then return output(source, raw, false, "race.editor " .. action .. " must be used in-game") end
@@ -403,7 +393,7 @@ RegisterCommand("race.editor", function(source, args, raw)
     local value = args[2]
     if action == "name" then value = raw:match("^%S+%s+%S+%s+(.+)$") end
     local ok, message = Ed.action(id, action, value, nil)
-    if ok and action == "save" then changed() end
+    if ok and action == "save" then coursesChanged() end
     output(source, raw, ok, ok and message or Ed.message(message))
 end, true)
 
@@ -422,7 +412,7 @@ RaceCourses.load()
 RaceRecords.load()
 
 CreateThread(function()
-    local lastStatusAt, lastMenuAt = 0, 0
+    local lastStatusAt = 0
     while true do
         Wait(Engine.tickMs or 100)
         local now = E.nowMs()
@@ -430,15 +420,11 @@ CreateThread(function()
         if not ok then log("engine tick failed: " .. tostring(err)) end
         ok, err = pcall(L.tick, now)
         if not ok then log("lobby tick failed: " .. tostring(err)) end
+        ok, err = pcall(pushQueues, now)
+        if not ok then log("queue push failed: " .. tostring(err)) end
         if statusDirty or now - lastStatusAt >= 2000 then
             statusDirty, lastStatusAt = false, now
             pushStatus(false)
-        end
-        if menuDirty and now - lastMenuAt >= 500 then
-            menuDirty, lastMenuAt = false, now
-            for playerId in pairs(menuOpen) do
-                if Open77.players.name(playerId) ~= nil then pushMenu(playerId) else menuOpen[playerId] = nil end
-            end
         end
     end
 end)

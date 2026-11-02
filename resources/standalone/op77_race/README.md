@@ -12,9 +12,11 @@ Freeroam:
 
 ## How it works
 
-- **Admission.** The Light RP hub sends `op77_lightrp:activity:join`; our own entry
-  points (`/race` panel, `/timetrial`, `/race.join`) call `activityCheck` first. A time
-  trial starts at once. Street and rooftop races queue: once the minimum is waiting, a
+- **Admission.** Races are joined from Light RP's Activities panel (`/race` opens it):
+  the hub sends `op77_lightrp:activity:join`. The time trial registers its courses as
+  join choices (`modes`, at most 8, `modeKey = "course"`, registered again when a
+  course is saved or deleted), handed back as `options.course`. Our own entry points
+  (`/timetrial`, `/race.join`) call `activityCheck` first. A time trial starts at once. Street and rooftop races queue: once the minimum is waiting, a
   join window opens (30 s / 25 s, 5 s when full), then every queued player is checked
   again and the race starts with as many as the course takes.
 - **Entering.** `activityEnter` for each racer (the core captures the return point and
@@ -44,7 +46,7 @@ Freeroam:
 
 | | |
 |---|---|
-| `/race` | The race panel: activities, queues, time trial courses with their top 5 and your best |
+| `/race` | Opens Light RP's Activities panel, where the three races are listed and joined |
 | `/timetrial [course]` | Start a time trial |
 | `/race.join trial\|street\|rooftop [course]` | Join |
 | `/race.leave` | Leave the race (forfeit) or the queue |
@@ -55,8 +57,24 @@ Freeroam:
 
 The next checkpoint shows as a native marker (raised chevron for a car, ring and arrow
 on foot) and as an edge-pinned blip on `op77_map3d`; in a car, the map3d GPS routes to
-it and the player's own waypoint is given back afterwards. The HUD, countdown and
-results are this resource's own page (`web/`).
+it and the player's own waypoint is given back afterwards.
+
+Everything else on screen is Light RP's shared activity HUD (client exports
+`ActivityHudShow` / `ActivityHudPush` / `ActivityHudClear` of `op77_lightrp`, see its
+README); this resource has no page of its own.
+
+| Moment | In the activity HUD |
+|---|---|
+| Queued (street, rooftop) | Lobby: queue size, `STARTS IN` once the grid forms, *Leave queue*. Sent by the server (`op77_race:queue`) on change only; the player keeps roaming |
+| Loading, countdown | `GET READY`, then the countdown to GO (sound as before) |
+| Racing | Count-up clock, checkpoint, lap and course bar; time trial: personal best and record; heat: position, best lap and the live ranking (checkpoints, finish times, `OUT`) |
+| Pulses | GO, `LAP n/N` / `FINAL LAP` and `FINISH` banners; each checkpoint's split in the feed |
+| Results | `BACK IN` count-down, then the result card once per run: placement (or `DNF`), time, best lap, previous best, record, board rank |
+| Course editor | Checkpoints, grid, start and laps, the last message, the editor keys |
+
+Hints follow the live key bindings: `HOME` restart (time trial), `END` last checkpoint
+(on foot), `/race.leave` to quit. If Light RP is down or still loading its page, the
+client retries every second and shows the HUD again once it answers.
 
 ## Staff
 
