@@ -219,7 +219,7 @@ RegisterCommand("chase", function(source, args, raw)
     if id == nil then W.reply(source, raw, false, "In game only.") return end
     local sub = tostring(args and args[1] or ""):lower()
     if sub == "leave" or sub == "quit" or sub == "cancel" then
-        if dequeue(id) then W.reply(id, raw, true, "You left the chase queue.") return end
+        if dequeue(id) then ChaseCore.unqueue(id); W.reply(id, raw, true, "You left the chase queue.") return end
         if Chase.leaveRequest(id, W.now()) then publishStatus(); W.reply(id, raw, true, "You left the chase.") return end
         W.reply(id, raw, false, "You are not queued or in a chase.")
     elseif sub == "status" then

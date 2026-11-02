@@ -228,6 +228,7 @@ RegisterCommand("turf", function(source, args, raw)
     local sub = tostring(args and args[1] or ""):lower()
     if sub == "leave" or sub == "quit" or sub == "cancel" then
         local done, where = Turf.leaveRequest(id, now)
+        if done and where == "queue" then TurfCore.unqueue(id) end
         publishStatus()
         if done then W.reply(id, raw, true, where == "queue" and "You left the turf war queue." or "You left the turf war.") return end
         W.reply(id, raw, false, "You are not queued or in a turf war.")

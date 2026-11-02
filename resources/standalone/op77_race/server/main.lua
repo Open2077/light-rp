@@ -145,7 +145,14 @@ end
 
 local function leave(playerId, reason)
     if E.leave(playerId, reason or "left") then return true, "You left the race." end
-    if L.leave(playerId) then return true, "You left the queue." end
+    local key = L.queuedIn(playerId)
+    if L.leave(playerId) then
+        -- joined from Light RP's panel, the hub still lists him as queued: clear it there
+        -- too (activityLeave on a queued-only player; never on an owned one)
+        local def = key and A.byKey[key]
+        if def and A.owner(playerId) == nil then A.call("activityLeave", playerId, def.id, { returnPlayer = false }) end
+        return true, "You left the queue."
+    end
     return false, "You are not in a race or a queue."
 end
 

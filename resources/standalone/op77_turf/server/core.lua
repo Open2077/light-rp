@@ -81,6 +81,15 @@ function C.owner(playerId)
     return type(owner) == "string" and owner or nil
 end
 
+-- The player left our queue through one of our own commands. If he had joined from
+-- Light RP's panel, the hub still lists him as queued (and refuses a new join to this
+-- activity) until it expires; activityLeave on a queued-only player clears that. Never
+-- for an owned player: activityLeave would send him home.
+function C.unqueue(playerId)
+    if C.owner(playerId) ~= nil then return false end
+    return C.call("activityLeave", playerId, activityId(), { returnPlayer = false }) == true
+end
+
 function C.owned(playerId) return C.owner(playerId) == activityId() end
 
 function C.player(playerId)
