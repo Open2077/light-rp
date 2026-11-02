@@ -69,6 +69,9 @@
 !resources/standalone/op77_map3d/
 !resources/standalone/op77_map3d/**
 resources/standalone/op77_map3d/ui/node_modules/
+# Turf War, the gang war activity (Light RP activity contract).
+!resources/standalone/op77_turf/
+!resources/standalone/op77_turf/**
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**
