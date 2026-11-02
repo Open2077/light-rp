@@ -65,23 +65,33 @@ local STATE_PART_BYTES=3500
 local stateSeq={}
 local function sendState(player,list,bucket)
     local seq=(stateSeq[player] or 0)+1;stateSeq[player]=seq
-    local parts,current,size={}, {},0
+    local parts,current,size,sizes,kinds={}, {},0,{},{}
+    local currentKinds={}
     for _,entry in ipairs(list) do
         local encoded=json.encode(entry)
         local bytes=type(encoded)=="string" and #encoded or STATE_PART_BYTES
-        if #current>0 and size+bytes>STATE_PART_BYTES then parts[#parts+1]=current;current={};size=0 end
+        if #current>0 and size+bytes>STATE_PART_BYTES then
+            parts[#parts+1]=current;sizes[#sizes+1]=size;kinds[#kinds+1]=table.concat(currentKinds,"+")
+            current={};size=0;currentKinds={}
+        end
         current[#current+1]=entry;size=size+bytes
+        currentKinds[#currentKinds+1]=entry.kind..((entry.game and entry.game.phase) and ("/"..tostring(entry.game.phase)) or "")
     end
-    parts[#parts+1]=current
+    parts[#parts+1]=current;sizes[#sizes+1]=size;kinds[#kinds+1]=table.concat(currentKinds,"+")
     local ok,why=true,nil
     for index,part in ipairs(parts) do
         local sent,reason=TriggerClientEvent(STATE,player,{boards=part,seq=seq,part=index,parts=#parts})
         if sent==false then ok,why=false,reason end
     end
-    local trace=("%d|%d|%s|%s"):format(#list,#parts,tostring(ok),tostring(bucket))
+    -- Logged whenever the part layout changes: the client reports the seq and
+    -- the missing part numbers when an assembly never completes.
+    local layout={}
+    for index=1,#parts do layout[index]=index..":"..sizes[index].."B "..kinds[index] end
+    local trace=("%d|%s|%s|%s"):format(#list,table.concat(layout,","),tostring(ok),tostring(bucket))
     if stateLogged[player]~=trace then
         stateLogged[player]=trace
-        LightRP.log("board_games state push player=%d boards=%d parts=%d bucket=%s ok=%s reason=%s",player,#list,#parts,tostring(bucket),tostring(ok),tostring(why))
+        LightRP.log("board_games state push player=%d seq=%d boards=%d parts=%d bucket=%s ok=%s reason=%s layout=%s",player,seq,#list,#parts,
+            tostring(bucket),tostring(ok),tostring(why),table.concat(layout," | "))
     end
 end
 local function push(player)
@@ -212,10 +222,6 @@ local function handle(player,p,inv)
     if p.action=="place" then return place(player,p,inv) end
     local b=type(p.boardId)=="string" and boards[p.boardId]
     if not b or b.busy then return false,"Board unavailable." end
-    if p.action=="leave" then
-        for side,id in pairs(b.players) do if id==player then b.players[side]=nil end end
-        return true
-    end
     if not near(player,b,4) then return false,"Move closer to the board." end
     if p.action=="join" then
         if seated(player) then return false,"You are already in a game." end
@@ -309,6 +315,18 @@ RegisterNetEvent(REQUEST,function(p)
         local function clean(value,limit) return tostring(value or ""):sub(1,limit):gsub("[%c]"," ") end
         LightRP.log("board_games client %s player=%d board=%s reason=%s details=%s",p.event,player,clean(p.boardId,96),clean(p.reason,64),clean(p.details,180))
         return -- Diagnostics must not consume the gameplay action rate budget.
+    end
+    -- Leaving never waits: it touches no inventory and a busy, rate-limited or
+    -- settling table must not keep a player seated against their will.
+    if p.action=="leave" then
+        local b=type(p.boardId)=="string" and boards[p.boardId]
+        local left=0
+        for _,board in pairs(b and {b} or boards) do
+            for side,id in pairs(board.players) do if id==player then board.players[side]=nil;left=left+1 end end
+        end
+        LightRP.log("board_games leave player=%d board=%s seats=%d",player,tostring(p.boardId),left)
+        broadcast()
+        return
     end
     local function dropped(why)
         if p.action~="sync" then LightRP.log("board_games dropped %s player=%d board=%s op=%s: %s",tostring(p.action),player,tostring(p.boardId),tostring(p.operation),why) end

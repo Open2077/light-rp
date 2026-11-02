@@ -64,7 +64,7 @@ lua.globals().beginMeter()
 lua.globals().LightRpBoardGamesClient.start()
 start_cost = lua.globals().endMeter()
 assert len(lua.globals().requests) == 0, 'board sync ran synchronously during start()'
-assert start_cost < 100, f'board start() unexpectedly expensive: {start_cost}'
+assert start_cost < 160, f'board start() unexpectedly expensive: {start_cost}'  # three renderer threads with watchdog generations
 print(f'continuous activation: {whole} instructions across {len(scripts)} scripts')
 print(f'added board scripts: {added} instructions; deferred start: {start_cost}')
 for name,cost in measurements:

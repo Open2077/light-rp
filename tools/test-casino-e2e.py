@@ -182,7 +182,7 @@ function pageEvent(name,payload) local fn=assert(pageHandlers[name],'no page han
 -- Native props: asynchronous loading, transform history, the 256-per-owner quota.
 nativeProps,modelReadyAt,nextNativeId={},{},0
 DEPOTS={'open77\\assets\\op77_lightrp\\casino_blackjack\\','open77\\assets\\op77_lightrp\\casino_slots\\',
- 'open77\\assets\\op77_lightrp\\casino_fortune\\','open77\\assets\\op77_lightrp\\tabletop_extra\\'}
+ 'open77\\assets\\op77_lightrp\\casino_fortune\\','open77\\assets\\op77_lightrp\\tabletop_extra\\','open77\\assets\\op77_lightrp\\board_games\\'}
 function Open77.props.create(o)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
  local ok=false;for _,d in ipairs(DEPOTS) do if o.model:find(d,1,true)==1 then ok=true end end
@@ -264,9 +264,10 @@ class Sim:
             manifest = json.loads((ROOT/f'resources/assets/models/open77_casino_{pack}/asset-manifest.json').read_text())
             for m in manifest['models']:
                 models[m['name']] = True
-        manifest = json.loads((ROOT/'resources/assets/models/open77_tabletop_extra/asset-manifest.json').read_text())
-        for m in manifest.get('models', []):
-            models[m['name']] = True
+        for pack in ('open77_tabletop_extra', 'open77_board_games'):
+            manifest = json.loads((ROOT/f'resources/assets/models/{pack}/asset-manifest.json').read_text())
+            for m in manifest.get('models', []):
+                models[m['name']] = True
         g.availableModels = c.table_from(models)
         g.heavyModels = c.table_from({m: True for m in models_heavy})
         c.execute(CLIENT_HOST)
@@ -442,6 +443,32 @@ def place(sim, kind, item, press_after=None):
     return next(iter(new)) if new else None
 
 # =========================================================================================
+def connect4():
+    """Board games share the JSON path: a Connect Four row with holes arrives as an object."""
+    sim = Sim()
+    sim.advance(500)
+    board_id = place(sim, 'connect4', 'connect4_board')
+    check(board_id, 'E placed the Connect Four board')
+    sim.wait_for(lambda: sim.named(board_id, 'connect4_board'), 'board prop')
+    sim.interact(board_id)
+    sim.wait_for(lambda: sim.client.eval('LightRpBoardGamesClient.isActive()'), 'seated camera')
+    sim.page('lightrp:boardGames:mode', {'mode': 'solo'})
+    sim.advance(1500)
+    b = sim.board(board_id)
+    check(b is not None and b.mode == 'solo', f'solo mode: board mode {b and b.mode}, notices {sim.notices()}, diagnostics {sim.diagnostics()}')
+    rev = sim.board(board_id).revision
+    sim.client.execute(f'TriggerServerEvent("lightrp:boardGames:request",{{action="move",boardId="{board_id}",fromRow=0,fromCol=0,toRow=6,toCol=4,revision={rev}}})')
+    sim.wait_for(lambda: len(sim.named(board_id, 'connect4_white_disc')) == 1, 'player disc prop', 8000)
+    sim.wait_for(lambda: len(sim.named(board_id, 'connect4_black_disc')) == 1, 'AI disc prop', 15000)
+    sim.advance(3000)
+    discs = sim.named(board_id, 'connect4_')
+    discs = [d for d in discs if d['name'] != 'connect4_board']
+    check(all(d['z'] < .9 for d in discs), f'discs settled into the grid {discs}')
+    no_render_failures(sim, 'connect4')
+    print(f'connect4 e2e: place, join, solo, drop, AI reply, discs visible and settled: OK ({len(discs)} discs)')
+    return sim
+
+# =========================================================================================
 def blackjack():
     sim = Sim()
     sim.advance(500)
@@ -608,7 +635,7 @@ def blackjack_live():
 
 if __name__ == '__main__':
     # Scenarios written so far; slots and fortune still need theirs.
-    only = sys.argv[1:] or [n for n in ('blackjack', 'slots', 'fortune') if n in globals()]
+    only = sys.argv[1:] or [n for n in ('connect4', 'blackjack', 'slots', 'fortune') if n in globals()]
     dump = {}
     for name in only:
         sim = globals()[name]()

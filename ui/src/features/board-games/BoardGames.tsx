@@ -26,7 +26,23 @@ export function BoardGames() {
     });
     return () => { off(); useStore.getState().setBoardGamesActive(false); };
   }, []);
-  if (!view.active && !view.placing) return null;
+  // The game owns Escape for its pause menu, so Lua may never see it; when the
+  // page has the keyboard, Escape or Backspace (outside a text field) leaves.
+  const open = !!(view.active || view.placing);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = !!target && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA");
+      if (event.key === "Escape" || (event.key === "Backspace" && !typing)) {
+        event.preventDefault();
+        emit("lightrp:boardGames:leave", {});
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  if (!open) return null;
   const pointer = (event: ReactPointerEvent, edge?: "pressed" | "released" | "rightPressed" | "rightReleased") => {
     const now = performance.now();
     if (!edge && now - lastMove.current < 16) return;
@@ -93,7 +109,7 @@ export function BoardGames() {
           <p><Keycap size="sm">SCROLL</Keycap><span>Zoom in orbit view</span></p>
         </>}
       </div>
-      <Button variant="ghost" size="sm" onClick={() => emit("lightrp:boardGames:leave", {})}>{view.placing ? "Cancel placement" : "Leave table"}<Keycap size="sm">ESC</Keycap></Button>
+      <Button variant="ghost" size="sm" onClick={() => emit("lightrp:boardGames:leave", {})}>{view.placing ? "Cancel placement" : "Leave table"}<Keycap size="sm">BACKSPACE</Keycap></Button>
     </aside>
     <footer className="board-games__toolbar" onPointerDown={blockPointer} onPointerUp={blockPointer} onPointerMove={blockPointer} onWheel={event => event.stopPropagation()}>
       {view.placing ? <>

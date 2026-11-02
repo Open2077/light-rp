@@ -89,6 +89,14 @@ const dist = path.resolve(process.env.BOARD_GAMES_WEB_DIR || path.resolve(__dirn
       }
       console.log(`board games browser: replayed ${count} recorded casino views`);
     }
+    // Leaving from the keyboard: Escape anywhere, Backspace outside a text field.
+    const leaves = () => page.evaluate(() => testBridge.sent.filter(e => e.name === 'lightrp:boardGames:leave').length);
+    await show({ active: true, kind: 'chess', side: 'white', turn: 'white', status: 'playing' });
+    let leftBefore = await leaves(); await page.keyboard.press('Escape'); assert.equal(await leaves(), leftBefore + 1, "Escape leaves the table");
+    await show({active:true,kind:'blackjack',ready:true,status:'playing',extra:{kind:'blackjack',phase:'betting',round:1,hands:{},dealer:{cards:{}},mySeat:'white',legal:{},clientNow:1}});
+    await page.getByLabel("Bet amount").focus(); leftBefore = await leaves(); await page.keyboard.press('Backspace');
+    assert.equal(await leaves(), leftBefore, "Backspace in the bet field edits the amount");
+    await page.locator('h2').click(); await page.keyboard.press('Backspace'); assert.equal(await leaves(), leftBefore + 1, "Backspace outside a field leaves");
     await show({ active: false });
     await page.locator('.board-games').waitFor({ state: 'detached' });
     assert.equal(await page.locator('.board-games').count(), 0);

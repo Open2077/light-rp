@@ -362,7 +362,9 @@ registryOverride={held=true,activeCamera='other-owner'};step();for i=1,6 do step
 assert(C.isActive(),'a transient foreign camera must respect the ownership grace')
 for i=1,12 do step()end
 assert(not C.isActive() and diagnostics[#diagnostics].reason=='camera_switched')
-registryOverride=nil;events['lightrp:boardGames:state']({boards={solo}});step();assert(C.isActive())
+-- A stale snapshot right after a leave must not reopen the view; a later one may.
+registryOverride=nil;events['lightrp:boardGames:state']({boards={solo}});step();assert(not C.isActive(),'stale seat after a leave')
+clock=clock+3100;events['lightrp:boardGames:state']({boards={solo}});step();assert(C.isActive())
 for _,name in ipairs({'white','black','orbit','top'})do
  pageHandlers['lightrp:boardGames:camera']({view=name});assert(view.cameraView==name)
 end

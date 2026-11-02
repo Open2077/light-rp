@@ -99,7 +99,7 @@ for r=1,3 do assert(near(z('slot_strip_'..r),L.paylineZ+(stops[r]+1)*L.pitch),'r
 assert(view.extra.spinning==false and view.extra.result.multiplier==200 and view.extra.result.gross==2000)
 -- Win feedback: lamp lit (blinking), then four coins (x200) fall into the tray.
 advance(3100);assert(at('slot_lamp_on',0,0,0),'win lamp lit')
-advance(3300)
+advance(3220) -- coin 1 falls from 150 ms after the win, coin 2 from 290 ms: check between
 local falling=0
 for _,p in pairs(nativeProps) do if p.name=='slot_coin' and not near(p.position.y/K,L.coinPark[2]) then
  falling=falling+1;assert(p.position.z/K>=L.trayZ-1e-9 and p.position.z/K<=L.chuteZ+1e-9 and p.position.y/K<=L.chuteY+1e-9)

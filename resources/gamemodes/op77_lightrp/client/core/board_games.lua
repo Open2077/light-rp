@@ -17,6 +17,7 @@ local clearGhost
 -- A board whose props do not render is hidden, then retried: heavy packs
 -- (the blackjack table is 60 props from a 3 MB archive) can stream slowly.
 local failedBoards,notifiedBoards={},{}
+local leftBoards={}
 local LOAD_GRACE_MS,RETRY_MS=15000,20000
 -- Tables render up to RENDER_RADIUS metres away, nearest first, while their
 -- props fit PROP_BUDGET (the client quota is 256 props per resource; the rest
@@ -190,6 +191,9 @@ local function stop(notify,reason,details)
     if old and old.camera then Open77.camera.destroy(old.camera) end
     if old and old.frozen then Open77.character.setFrozen(false) end
     if old and notify then request("leave",{boardId=old.id}) end
+    -- A snapshot sent before the server processed the leave still seats us:
+    -- do not reopen this table until the server agrees or 3 s pass.
+    if old then leftBoards[tostring(old.id)]=GetGameTimer()+3000 end
     releaseInput();sendView(true)
 end
 function Client.isActive() return active~=nil or draft~=nil end
@@ -648,63 +652,105 @@ AddEventHandler("onClientResourceStart",function(name)
         if name=="open77_contextmenu" then disableContext(Client.isActive()) end
     end
 end)
-local function startRenderer()
-    rendererRunning=true
-    CreateThread(function()
-        while rendererRunning do
-            Wait(0)
-            for _,entry in ipairs(renderCandidates) do
-                if aliveBoard(entry.board) then ensureBoard(entry.board) end
+-- A coroutine that exceeds the 176 client budget dies without a trace. Each
+-- renderer thread beats every pass; the main loop restarts a silent one
+-- (generation tokens retire the old one) and reports it. Work that does not
+-- yield runs under pcall so an error names its line instead of killing the
+-- thread.
+local beats,generations,threadErrors={},{},{}
+local function guarded(name,fn,...)
+    local ok,result=pcall(fn,...)
+    if ok then return result end
+    local message=tostring(result)
+    if threadErrors[message]==nil then threadErrors[message]=true;trace("thread_error",nil,"%s: %s",name,message) end
+end
+local function animate(board,cache,targets,keys,from,to,amount)
+    for index=from,math.min(to,#keys) do
+        if renderCaches[tostring(board.id)]~=cache then return end
+        local key=keys[index]
+        local piece,target=cache.pieces[key],targets[key]
+        if piece and target then
+            local override,direct=dragPose(board,key)
+            local p=override or world(board,target.position.x,target.position.y,target.position.z)
+            local from=piece.position
+            local yaw=propYaw(board,target.piece)
+            if distance(p,from)>.00002 or piece.yaw~=yaw then
+                -- `snap` targets (pose swaps, server-clock timelines) jump without smoothing.
+                local gain=(direct or target.piece.snap) and 1 or amount
+                local nextPosition={x=from.x+(p.x-from.x)*gain,y=from.y+(p.y-from.y)*gain,z=from.z+(p.z-from.z)*gain}
+                if not transformProp(piece,nextPosition,yaw) then return end
             end
-            Wait(100)
         end
-    end)
-    CreateThread(function()
-        local previousTime=GetGameTimer()
-        while rendererRunning do
-            Wait(16)
-            local now=GetGameTimer();local dt=math.min(100,math.max(1,now-previousTime));previousTime=now
-            local amount=1-math.exp(-dt/100)
-            -- Snapshot the ids: other threads clear caches while this one yields.
-            -- Yield after each board's targets and every few pieces, changed or
-            -- not, to stay inside the 176 client's per-resume budget.
-            local ids={};for id in pairs(renderCaches) do ids[#ids+1]=id end
-            for _,id in ipairs(ids) do
-                local cache=renderCaches[id]
-                local board=cache and Client.boards[tonumber(id) or id]
-                if board and renderAllowed[id] then
-                    local targets=pieceTargets(board)
+    end
+end
+local THREADS={}
+function THREADS.render(generation)
+    while rendererRunning and generations.render==generation do
+        beats.render=GetGameTimer()
+        Wait(0)
+        for _,entry in ipairs(renderCandidates) do
+            if generations.render~=generation then return end
+            if aliveBoard(entry.board) then ensureBoard(entry.board) end
+        end
+        Wait(100)
+    end
+end
+function THREADS.animate(generation)
+    local previousTime=GetGameTimer()
+    while rendererRunning and generations.animate==generation do
+        beats.animate=GetGameTimer()
+        Wait(16)
+        local now=GetGameTimer();local dt=math.min(100,math.max(1,now-previousTime));previousTime=now
+        local amount=1-math.exp(-dt/100)
+        -- Snapshot the ids: other threads clear caches while this one yields.
+        -- Yield after each board's targets and every 12 pieces, changed or
+        -- not, to stay inside the 176 client's per-resume budget.
+        local ids={};for id in pairs(renderCaches) do ids[#ids+1]=id end
+        for _,id in ipairs(ids) do
+            local cache=renderCaches[id]
+            local board=cache and Client.boards[tonumber(id) or id]
+            if board and renderAllowed[id] then
+                local targets=guarded("animate targets "..tostring(board.kind),pieceTargets,board)
+                if targets then
                     local held=active and active.id==board.id and active.drag and active.drag.pieceId or nil
                     local keys={held}
                     for key in pairs(cache.pieces) do if key~=held then keys[#keys+1]=key end end
                     Wait(0)
-                    for index,key in ipairs(keys) do
+                    for from=1,#keys,12 do
                         if renderCaches[id]~=cache or not renderAllowed[id] then break end
-                        local piece,target=cache.pieces[key],targets[key]
-                        if piece and target then
-                            local override,direct=dragPose(board,key)
-                            local p=override or world(board,target.position.x,target.position.y,target.position.z)
-                            local from=piece.position
-                            local yaw=propYaw(board,target.piece)
-                            if distance(p,from)>.00002 or piece.yaw~=yaw then
-                                -- `snap` targets (pose swaps, server-clock timelines) jump without smoothing.
-                                local gain=(direct or target.piece.snap) and 1 or amount
-                                local nextPosition={x=from.x+(p.x-from.x)*gain,y=from.y+(p.y-from.y)*gain,z=from.z+(p.z-from.z)*gain}
-                                if not transformProp(piece,nextPosition,yaw) then break end
-                            end
-                        end
-                        if index%12==0 then Wait(0) end
+                        guarded("animate pieces "..tostring(board.kind),animate,board,cache,targets,keys,from,from+11,amount)
+                        if from+12<=#keys then Wait(0) end
                     end
                 end
             end
         end
-    end)
-    CreateThread(function()
-        while rendererRunning do
-            Wait(250)
-            if rendererRunning then validateProps(function() Wait(0) end) end
+    end
+end
+function THREADS.validate(generation)
+    while rendererRunning and generations.validate==generation do
+        beats.validate=GetGameTimer()
+        Wait(250)
+        if rendererRunning then validateProps(function() Wait(0) end) end
+    end
+end
+local function spawnThread(name)
+    generations[name]=(generations[name] or 0)+1;beats[name]=GetGameTimer()
+    local generation=generations[name]
+    CreateThread(function() THREADS[name](generation) end)
+end
+local function watchThreads()
+    if not rendererRunning then return end
+    local now=GetGameTimer()
+    for name in pairs(THREADS) do
+        if now-(beats[name] or now)>5000 then
+            trace("thread_stalled",nil,"%s silent for %d ms, restarting",name,now-beats[name])
+            spawnThread(name)
         end
-    end)
+    end
+end
+local function startRenderer()
+    rendererRunning=true
+    spawnThread("render");spawnThread("animate");spawnThread("validate")
 end
 -- The held piece follows the cursor every frame from the main loop; the
 -- animation thread walks pieces in slices and could lag it by several frames.
@@ -871,7 +917,14 @@ local assembling
 -- and drop a partial set as soon as a newer sequence starts.
 local function assemble(payload)
     if type(payload)~="table" or type(payload.parts)~="number" or payload.parts<=1 then return payload end
-    if not assembling or assembling.seq~=payload.seq then assembling={seq=payload.seq,parts=payload.parts,received={},count=0} end
+    if not assembling or assembling.seq~=payload.seq then
+        if assembling and assembling.count<assembling.parts then
+            local missing={}
+            for index=1,assembling.parts do if not assembling.received[index] then missing[#missing+1]=tostring(index) end end
+            trace("state_parts_lost",nil,"seq=%s got=%d/%d missing=%s",tostring(assembling.seq),assembling.count,assembling.parts,table.concat(missing,","))
+        end
+        assembling={seq=payload.seq,parts=payload.parts,received={},count=0}
+    end
     if type(payload.part)~="number" or assembling.received[payload.part] then return end
     assembling.received[payload.part]=type(payload.boards)=="table" and payload.boards or {}
     assembling.count=assembling.count+1
@@ -915,7 +968,14 @@ applyState=function(payload)
     end
     if active and not nextBoards[active.id] then stop(false,"board_removed")
     elseif active and not member(nextBoards[active.id]) then stop(false,"seat_removed") end
-    if not draft then for _,board in pairs(nextBoards) do if member(board) then startView(board);break end end end
+    if not draft then
+        local now=GetGameTimer()
+        for _,board in pairs(nextBoards) do
+            local id=tostring(board.id)
+            if leftBoards[id] and (now>leftBoards[id] or not member(board)) then leftBoards[id]=nil end
+            if member(board) and not leftBoards[id] then startView(board);break end
+        end
+    end
     sendView(true)
 end
 local function cameraKey(id)
@@ -1046,6 +1106,7 @@ function Client.start()
                 renderAllowed=allowed
                 for id in pairs(renderCaches) do if not allowed[id] then clearGeometry(id) end end
                 moveHeldPiece()
+                watchThreads()
                 renderPreview()
                 if Client.isActive() then sendView(false) end
             end) end
