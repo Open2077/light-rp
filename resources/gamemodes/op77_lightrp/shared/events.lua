@@ -32,6 +32,7 @@ LightRpEvents = {
         dealership = "lightrp:ui:dealership",
         raid = "lightrp:ui:raid",             -- Lua -> page: raid state (ready check, boss, announcements, intro)
         mission = "lightrp:ui:mission",       -- Lua -> page: { session, state? , closed? } live mission board
+        activityHud = "lightrp:ui:activityhud", -- Lua -> page: { op = "show", hud } | { op = "push", kind, item } | { op = "clear" } (client/core/activity_hud.lua)
         actionStart = "lightrp:ui:activity:start",
         actionStarted = "lightrp:ui:activity:started",
         actionFinish = "lightrp:ui:activity:finish",
