@@ -1020,6 +1020,7 @@
     },
     {
       "name": "fortune_face",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_face.xbm",
       "width": 1024,
       "height": 2048,
@@ -1029,6 +1030,7 @@
     },
     {
       "name": "fortune_blur",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_blur.xbm",
       "width": 512,
       "height": 512,
@@ -1038,6 +1040,7 @@
     },
     {
       "name": "fortune_felt",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_felt.xbm",
       "width": 1024,
       "height": 512,
@@ -1047,6 +1050,7 @@
     },
     {
       "name": "fortune_marquee",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_marquee.xbm",
       "width": 1024,
       "height": 256,
@@ -1056,6 +1060,7 @@
     },
     {
       "name": "fortune_medals",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_medals.xbm",
       "width": 512,
       "height": 256,
@@ -1487,28 +1492,28 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_blur.xbm",
-      "sha256": "6cf638b090df9cedcef820c5b8bffb641392665c88afaa92f6a4a196c564f8c0",
-      "bytes": 419890
+      "sha256": "2734e1f77a948dbd77f0a0436c31ae5a6369e3fdda67412e067a1da043d5811d",
+      "bytes": 420068
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_face.xbm",
-      "sha256": "8a63e6b0762b4526b4c0ff882e69813534d66c1fe2f0212d8f1df1c6508cba05",
-      "bytes": 459613
+      "sha256": "49e5083815ce3acf3616fa13185b19bbdc3e0801be428a1680d1183b29de05a0",
+      "bytes": 460198
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_felt.xbm",
-      "sha256": "a71be4e025f6e1653500beb994852869ea3e001fb9270507a1033cf39c963645",
-      "bytes": 248979
+      "sha256": "706f5920068b29b76d5b72186e2bb66679c82f23ac6b0a3c75ecc9850af4afa0",
+      "bytes": 248619
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_marquee.xbm",
-      "sha256": "4b41275ab5bce847b685f62f727a8056768b0e576a1e2b51431a9d3af7b4051b",
-      "bytes": 66500
+      "sha256": "ab0b2aa29caa03539aad9916db5b64f02bf24bcaf9950fd38d7a5b0f502a4aaa",
+      "bytes": 66371
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_medals.xbm",
-      "sha256": "a08e9fa899273942b35c0846168700de12fecb1bf02556f29b1adc5928c4bce0",
-      "bytes": 43933
+      "sha256": "a145d661077b5c062e0c77c131b5e0dace298223f7612e7ba7d25012ca873064",
+      "bytes": 44038
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_ebony.xbm",
@@ -1599,9 +1604,9 @@
     "spotY": -0.68,
     "feltZ": 1.252
   },
-  "archiveSha256": "0609464d2e18a014c62203d41146f8fefba58a88db9b46868c1828784d8907ab",
-  "zipSha256": "677c24de39f1f097f24f4d55dae0ae1879366912f901329d17aa4cd8ca0d725c",
-  "buildWork": "/home/dop42/.cache/casino-fortune-build",
+  "archiveSha256": "a34a9de8ba96d87bc2626bb259ec8eb84de746fce3b76675be82139b04893f20",
+  "zipSha256": "707fe11c13f02523b05970fe77bfe33e1f69339dfd4d74433352dd4a27db77ae",
+  "buildWork": "/home/dop42/.cache/lrp-rebuild/casino-fortune",
   "materialDependencies": [
     "engine\\materials\\metal_base.remt",
     "engine\\textures\\editor\\white.xbm"

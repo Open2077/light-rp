@@ -1863,6 +1863,7 @@
   },
   {
    "name": "bj_felt",
+   "flipV": true,
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_felt.xbm",
    "width": 2048,
    "height": 1024,
@@ -1872,6 +1873,7 @@
   },
   {
    "name": "bj_cards",
+   "flipV": true,
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_cards.xbm",
    "width": 2048,
    "height": 1024,
@@ -1881,6 +1883,7 @@
   },
   {
    "name": "bj_chips",
+   "flipV": true,
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_chips.xbm",
    "width": 512,
    "height": 512,
@@ -2702,18 +2705,18 @@
   },
   {
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_cards.xbm",
-   "sha256": "5d64ede13d667e94e1d2fa1afdf06200d8dd9766797d808c746608ef68812d0d",
-   "bytes": 211478
+   "sha256": "5bbe98fd0f475924f99119c658c7c02ede9aef47d1124e427657884e72fa80bb",
+   "bytes": 211795
   },
   {
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_chips.xbm",
-   "sha256": "84167104803e3a66ee55c43c4bf222b337ce84829074b64589e9ebd98d2d44e1",
-   "bytes": 35549
+   "sha256": "31553935b02a923617a73c7c7a9fa69f686e77533ab97ba6c98764c7f4aaa6c0",
+   "bytes": 35291
   },
   {
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_felt.xbm",
-   "sha256": "f49b6a76d9918f646425d305b23d61171609048269dcc3797730c91292c7bf74",
-   "bytes": 2032542
+   "sha256": "b7a3adce8989d90302968bc98769a095e8bf3dfd271f482eb89e06416d59b24f",
+   "bytes": 2031861
   },
   {
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_ebony.xbm",
@@ -2766,9 +2769,9 @@
    "1000": 10
   }
  },
- "archiveSha256": "ed5660f0b73135a2d68b695576a867ca30792aaaa985057d6a7ad1f80f5b80cf",
- "zipSha256": "72927a56e17228ec3124761b6aac83c03415cb0ff8dab9d52589dd354668d46e",
- "buildWork": "/home/dop42/.cache/casino-blackjack-build/build",
+ "archiveSha256": "6aba33a80ce1003947d369debe35859451ba9c31eebe309066e4bc1c595b4a2c",
+ "zipSha256": "6b0577bcfbb2a551741a91b226e7885f9d5478ede013e8b8d2e229ee130fb259",
+ "buildWork": "/home/dop42/.cache/lrp-rebuild/casino-blackjack",
  "materialDependencies": [
   "engine\\materials\\metal_base.remt",
   "engine\\textures\\editor\\white.xbm"

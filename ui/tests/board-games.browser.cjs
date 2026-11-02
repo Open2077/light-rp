@@ -74,6 +74,21 @@ const dist = path.resolve(process.env.BOARD_GAMES_WEB_DIR || path.resolve(__dirn
     await show({active:true,kind:'fortune',ready:true,status:'playing',extra:{kind:'fortune',round:1,phase:'betting',recent:{},bets:{},totals:{},mine:{}}});
     await page.getByRole('heading',{name:'Fortune Wheel'}).waitFor();
     assert.deepEqual(errors, [], 'casino panels must render fresh tables');
+    // Every view the real Lua client sent during tools/test-casino-e2e.py
+    // (E2E_VIEWS_OUT), JSON round-tripped: the panel must survive each stage.
+    if (process.env.CASINO_E2E_VIEWS) {
+      const recorded = JSON.parse(fs.readFileSync(process.env.CASINO_E2E_VIEWS, 'utf8'));
+      let count = 0;
+      for (const [game, views] of Object.entries(recorded)) {
+        for (const view of views) {
+          await show(view);
+          if (view.active && !view.placing) assert.equal(await page.locator('.board-games').count(), 1, `${game}: overlay hidden by ${JSON.stringify(view).slice(0, 300)}`);
+          assert.deepEqual(errors, [], `${game}: page error on ${JSON.stringify(view).slice(0, 300)}`);
+          count++;
+        }
+      }
+      console.log(`board games browser: replayed ${count} recorded casino views`);
+    }
     await show({ active: false });
     await page.locator('.board-games').waitFor({ state: 'detached' });
     assert.equal(await page.locator('.board-games').count(), 0);

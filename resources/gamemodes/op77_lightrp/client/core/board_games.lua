@@ -18,6 +18,11 @@ local clearGhost
 -- (the blackjack table is 60 props from a 3 MB archive) can stream slowly.
 local failedBoards,notifiedBoards={},{}
 local LOAD_GRACE_MS,RETRY_MS=15000,20000
+-- Tables render up to RENDER_RADIUS metres away, nearest first, while their
+-- props fit PROP_BUDGET (the client quota is 256 props per resource; the rest
+-- is headroom for the placement ghost and new pieces).
+local RENDER_RADIUS,PROP_BUDGET=40,220
+local PROP_ESTIMATE={chess=33,checkers=41,connect4=43,roulette=3,slots=16,blackjack=60,fortune=45}
 local ASSET_HELP="Close the game and rejoin through the launcher to install the board-game assets."
 local sounds, soundSequences = {}, {}
 local SOUND_NAMES={['chess-move']=true,['chess-capture']=true,['checkers-move']=true,
@@ -1019,7 +1024,7 @@ function Client.start()
                 if state and state.position then
                     for _,board in pairs(Client.boards) do
                         local d=distance(state.position,board.position)
-                        if d<14 then near[#near+1]={board=board,d=d} end
+                        if d<RENDER_RADIUS then near[#near+1]={board=board,d=d} end
                     end
                     table.sort(near,function(a,b)
                         if active and a.board.id==active.id then return true end
@@ -1027,9 +1032,16 @@ function Client.start()
                         return a.d<b.d
                     end)
                 end
+                -- Nearest first (the active table always), within the per-resource
+                -- client prop quota (256): a blackjack table alone is up to 60 props.
                 renderCandidates={}
-                for i=1,math.min(3,#near) do
-                    renderCandidates[i]=near[i];allowed[tostring(near[i].board.id)]=true
+                local props=0
+                for _,entry in ipairs(near) do
+                    local id=tostring(entry.board.id);local cache=renderCaches[id]
+                    local cost=PROP_ESTIMATE[entry.board.kind] or 45
+                    if cache then cost=1;for _ in pairs(cache.pieces) do cost=cost+1 end end
+                    if #renderCandidates>0 and props+cost>PROP_BUDGET then break end
+                    props=props+cost;renderCandidates[#renderCandidates+1]=entry;allowed[id]=true
                 end
                 renderAllowed=allowed
                 for id in pairs(renderCaches) do if not allowed[id] then clearGeometry(id) end end

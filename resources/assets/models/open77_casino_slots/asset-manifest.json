@@ -296,6 +296,7 @@
   "textures": [
     {
       "name": "slot_symbols",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_symbols.xbm",
       "width": 1024,
       "height": 1024,
@@ -305,6 +306,7 @@
     },
     {
       "name": "slot_marquee",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_marquee.xbm",
       "width": 1024,
       "height": 512,
@@ -314,6 +316,7 @@
     },
     {
       "name": "slot_belly",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_belly.xbm",
       "width": 1024,
       "height": 256,
@@ -455,18 +458,18 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_belly.xbm",
-      "sha256": "cd35edd2d3082e60eb796bf7270d09b1e93159c415c37d352c7bb03e1b1b1a92",
-      "bytes": 43694
+      "sha256": "2b7d1e9a1631d28e70c7ed95f51991f4a4ae7c685e075f48532040f42ddcbc16",
+      "bytes": 43366
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_marquee.xbm",
-      "sha256": "956c04667985e3fb4a4d2b9320aa011be47c8bba5b0b3d30265999b3c32a7a06",
-      "bytes": 74780
+      "sha256": "a06e79c2aa55293a5dc253a44f2812aa55e0ad395c04d53fbd1f424aec120a23",
+      "bytes": 74528
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_symbols.xbm",
-      "sha256": "c3636b7485df04151e57a32c94891d55cfd9dd9bd69c080124a9dcac21850e19",
-      "bytes": 44157
+      "sha256": "2682d8c3cf5045bd9e4f3ca1ce2a7ee4be73658855c64de510f1329c0e49a769",
+      "bytes": 43876
     }
   ],
   "symbols": [
@@ -567,9 +570,9 @@
       0.4
     ]
   },
-  "archiveSha256": "a2b2c06714fe14cb2dd172e0806350f5b23e6e26bca8103e9d106e9ec3cfc3b2",
-  "zipSha256": "c466e3a4ea3bf54eb6387ee983c602ed91c9b5b942ca75f9564aa4078cf83f3a",
-  "buildWork": "/home/dop42/.cache/casino-slots-build/build",
+  "archiveSha256": "99f7656f1b85cf87f513ba46cf55570bf5c75b65f94fe008cf3627b82ace0609",
+  "zipSha256": "8e27bac865ed860c7d762349d13eaef8c57eab2c37979a448f42c402a18237c6",
+  "buildWork": "/home/dop42/.cache/lrp-rebuild/casino-slots",
   "materialDependencies": [
     "engine\\materials\\metal_base.remt",
     "engine\\textures\\editor\\white.xbm"

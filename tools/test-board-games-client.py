@@ -343,7 +343,7 @@ Open77.character.state().position.x=2;step()
 waitUntil(function()return nativeCount(2)==33 end,'new nearest chess cache')
 local hasSecond=boardProp(2)~=nil
 assert(hasSecond,'new nearest board should be rendered')
-Open77.character.state().position.x=40;step();assert(next(nativeProps)==nil,'distant native props must stream out')
+Open77.character.state().position.x=60;step();assert(next(nativeProps)==nil,'distant native props must stream out')
 Open77.character.state().position.x=0;step()
 waitUntil(function()return nativeCount(1)==33 and nativeCount(2)==33 end,'nearby native boards stream back in')
 -- Lobby mode protocol is owner-only and locks once the game has started.

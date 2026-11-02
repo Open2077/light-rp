@@ -134,3 +134,4 @@ data/
 !tools/test-casino-blackjack.py
 !tools/test-casino-blackjack-server.py
 !tools/test-casino-blackjack-client.py
+!tools/test-casino-e2e.py

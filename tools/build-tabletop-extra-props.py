@@ -99,9 +99,15 @@ def artwork():
  im.putdata(px);result['felt_green']=im
  return result
 
+# The engine samples rows bottom-up relative to our UVs (seen in game: text
+# upside down), so the cooked bytes are flipped vertically; sources/ keeps the
+# drawing upright. Set FLIP_V=False to cook the image as drawn.
+FLIP_V=True
+def cooked(image):return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if FLIP_V else image
+
 def encode_texture(directory,name,image,template):
  image=image.convert('RGBA');source=RESOURCE/'sources'/(name+'.png');image.save(source)
- width,height=image.size;data=bytearray();mips=[];level=image
+ width,height=image.size;data=bytearray();mips=[];level=cooked(image)
  while True:
   block=level.tobytes();w,h=level.size;mips.append({'$type':'rendRenderTextureBlobMipMapInfo','layout':{'$type':'rendRenderTextureBlobMemoryLayout','rowPitch':w*4,'slicePitch':len(block)},'placement':{'$type':'rendRenderTextureBlobPlacement','offset':len(data),'size':len(block)}});data.extend(block)
   if (w,h)==(1,1):break
@@ -110,7 +116,7 @@ def encode_texture(directory,name,image,template):
  blob=r['renderTextureResource']['renderResourceBlobPC']['Data'];header=blob['header'];header['mipMapInfo']=mips;header['sizeInfo']['width']=width;header['sizeInfo']['height']=height
  header['textureInfo'].update(mipCount=len(mips),sliceSize=len(data),textureDataSize=len(data));blob['textureData']['Bytes']=base64.b64encode(data).decode()
  (directory/(name+'.xbm.json')).write_text(json.dumps(obj,separators=(',',':')))
- return {'name':name,'depot':DEPOT+'\\textures\\'+name+'.xbm','width':width,'height':height,'mips':len(mips),'bytes':len(data),'sourceSha256':hashlib.sha256(source.read_bytes()).hexdigest()}
+ return {'name':name,'flipV':FLIP_V,'depot':DEPOT+'\\textures\\'+name+'.xbm','width':width,'height':height,'mips':len(mips),'bytes':len(data),'sourceSha256':hashlib.sha256(source.read_bytes()).hexdigest()}
 
 ORIGINAL_MATERIAL=base.material
 
@@ -190,7 +196,7 @@ def verify(work,manifest):
   assert len(blob['header']['mipMapInfo'])==texture['mips']
   source=RESOURCE/'sources'/(texture['name']+'.png');image=Image.open(source).convert('RGBA')
   assert hashlib.sha256(source.read_bytes()).hexdigest()==texture['sourceSha256']
-  assert data[:image.width*image.height*4]==image.tobytes() and all(v==255 for v in data[3::4])
+  assert data[:image.width*image.height*4]==(cooked(image) if texture.get('flipV') else image).tobytes() and all(v==255 for v in data[3::4])
  by_name={m['name']:m for m in manifest['models']}
  assert set(ORDER)==set(range(37)) and len(ORDER)==37
  assert abs(by_name['roulette_ball']['bounds']['max'][2]-.009)<1e-6

@@ -113,6 +113,7 @@
     },
     {
       "name": "roulette_numbers",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\roulette_numbers.xbm",
       "width": 1024,
       "height": 1024,
@@ -122,6 +123,7 @@
     },
     {
       "name": "felt_green",
+      "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\felt_green.xbm",
       "width": 256,
       "height": 256,
@@ -163,13 +165,13 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\felt_green.xbm",
-      "sha256": "2adf760bacaa82fb59b1db962697c514280ec9a6c1235eee33d434760901541f",
-      "bytes": 66948
+      "sha256": "40ef50c015dc6c74b9045cbca3be77adee739c0b175d99761a620c6c7bb4affa",
+      "bytes": 67059
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\roulette_numbers.xbm",
-      "sha256": "655b82bbaec7c9569c8a06bb7d5a276adcf04b6047b3ad9730fc06b6d1eef822",
-      "bytes": 132909
+      "sha256": "e883688b127f9ed936a5a3be1f470aaa5e64c2d52c6682241184696d1f62c377",
+      "bytes": 132957
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\tabletop_extra\\textures\\wood_ebony.xbm",
@@ -233,9 +235,9 @@
   ],
   "roulettePocketRadius": 0.27,
   "rouletteBallCenterZ": 0.025,
-  "archiveSha256": "718c98668060ba6cf36753f5eaac876bd595ee24f2bd0c57760951e0cfc46f68",
-  "zipSha256": "29ab4ebfae5154e91e15ca8d22e348ed4038b77f42ab6a94850b4f41b22e6d71",
-  "buildWork": "/tmp/claude-1000/-home-dop42/08c32821-6f86-4dc7-91ca-50370bd4093f/scratchpad/tabletop-build",
+  "archiveSha256": "81ae7c9f020cb3c50b1dd797a4867be9a4ce7a895a4c84d680c2a9b3202c6307",
+  "zipSha256": "e869bacd95418e4b0e5ab1c888f26f576cab02011d4119fff4d12491804cb02d",
+  "buildWork": "/home/dop42/.cache/lrp-rebuild/tabletop-extra",
   "materialDependencies": [
     "engine\\materials\\metal_base.remt",
     "engine\\textures\\editor\\white.xbm"
