@@ -436,6 +436,19 @@ end
 -- between shot and poll could restore already-spent rounds.
 local function beginMutation(player,p,callback)
     local rt=W.runtime[player]
+    -- the 2 s observe pass only reads: a request landing during it (a wheel pick) runs
+    -- right after it instead of being refused as "in progress"
+    if current(rt) and rt.busy and rt.observing then
+        CreateThread(function()
+            local deadline=now()+2
+            while current(rt) and rt.busy and rt.observing and now()<deadline do Wait(25) end
+            local ok,why=beginMutation(player,p,callback)
+            if not ok then
+                if callback then callback(false,why) else LightRP.notice(player,{kind="error",title="Equipment",body=why}) end
+            end
+        end)
+        return true
+    end
     if not current(rt) or rt.busy then return false,"Weapon synchronization is in progress or the character is unavailable." end
     if rt.quarantine then return false,"A timed-out native request is quarantined until completion or reconnect." end
     if not alive(player) then return false,"Your character must be alive." end

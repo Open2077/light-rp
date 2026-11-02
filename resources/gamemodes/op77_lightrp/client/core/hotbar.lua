@@ -7,6 +7,7 @@ local held,untilTime,lastUse,sequence=false,0,-1000,0
 local lastPublished
 local showKey,slotKeys="TAB",{"1","2","3","4","5"}
 local function allowed(checkBusy)
+ if Ui.loadingScreen and Ui.loadingScreen()then return false end
  if not Ui.characterReady or Ui.creationActive or Ui.menuOpen or Ui.promptActive or Ui.actionFocus or Ui.supportMode=="menu"or Ui.supportMode=="form"then return false end
  for _,open in pairs(Ui.dialogs or {})do if open then return false end end
  if checkBusy~=false then
@@ -21,7 +22,9 @@ end
 local function publish(force)
  local eligible=allowed(false)
  if not eligible then held=false;untilTime=0 end
- local visible=eligible and(held or GetGameTimer()<untilTime)or false
+ -- TAB also opens the weapon wheel: the quick slots stay out of its way
+ local wheel=LightRpWeaponWheel and LightRpWeaponWheel.open
+ local visible=eligible and not wheel and(held or GetGameTimer()<untilTime)or false
  local stamp=table.concat({tostring(cached.inventoryId),tostring(cached.revision),tostring(cached.ready),tostring(visible),showKey,table.concat(slotKeys,",")},":")
  if stamp==lastPublished and not force then return end
  lastPublished=stamp
@@ -45,7 +48,8 @@ function H.bind(page)
  page:on(LightRpEvents.page.ready,function()publish(true);TriggerServerEvent(NET,{operation="state"})end)
  local key=LightRpConfig.keys.hotbar
  local ok,effective=RegisterKeyMapping({id=key.id,name=key.name,key=key.key,hold=true,consume=true,
-  onPressed=function()if allowed(false)then held=true;publish()end end,
+  -- the wheel shares TAB and wins when it can open (bound after the hotbar, it fires second)
+  onPressed=function()if allowed(false)and not(LightRpWeaponWheel and LightRpWeaponWheel.allowed and LightRpWeaponWheel.key==showKey and LightRpWeaponWheel.allowed())then held=true;publish()end end,
   onReleased=function()held=false;publish()end})
  if ok then showKey=effective else Ui.log("hotbar show mapping refused: %s",tostring(effective))end
  for slot=1,5 do

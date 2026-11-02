@@ -65,6 +65,17 @@ local function log(format, ...)
 end
 Ui.log = log
 
+-- A loading screen covers the world (the game's own, the shell's, or op77_loadscreen's):
+-- world keys (the weapon wheel, the quick slots) must not act behind it.
+function Ui.loadingScreen()
+    if Open77.screen and type(Open77.screen.isLoading) == "function" then
+        local ok, loading = pcall(Open77.screen.isLoading)
+        if ok and loading == true then return true end
+    end
+    local ok, active = pcall(function() return exports.op77_loadscreen:isActive() end)
+    return ok and active == true
+end
+
 -- Send to the page; buffered until it announces itself.
 function Ui.send(name, payload)
     if Ui.page == nil then return false end

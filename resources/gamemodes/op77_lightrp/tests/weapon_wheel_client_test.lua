@@ -65,6 +65,8 @@ LightRpUi.menuOpen = true; map.onPressed(); assert(not W.open and #sent == count
 LightRpUi.dialogs.inventory = true; map.onPressed(); assert(not W.open, "a dialog owns the input"); LightRpUi.dialogs.inventory = nil
 character.vehicle = { mounted = true }; map.onPressed(); assert(not W.open, "not in a vehicle"); character.vehicle = nil
 character.alive = false; map.onPressed(); assert(not W.open, "not while down"); character.alive = true
+-- not behind a loading screen (it opened behind the shell cover, in game 2026-11-02)
+LightRpUi.loadingScreen = function() return true end; map.onPressed(); assert(not W.open, "not behind a loading screen"); LightRpUi.loadingScreen = nil
 -- no equipment state (no weapon, nothing bought yet): the wheel still opens, to put the fists down
 local state = LightRpArmamentClient.state; LightRpArmamentClient.state = function() return nil end
 map.onPressed(); assert(W.open, "opens with no equipment state"); W.close(false, "test"); LightRpArmamentClient.state = state
@@ -80,19 +82,21 @@ clock = 1000; keyDown = false; coroutine.resume(threads[1])
 assert(not W.open and last().payload.kind == "commit" and last().payload.reason == "released", "missed release still commits")
 
 -- a tap: the wheel stays open (latched), the page is told, the key again commits
-clock = 2000; map.onPressed(); clock = 2100; map.onReleased()
+clock = 2000; keyDown = true; map.onPressed(); clock = 2100; keyDown = false; map.onReleased()
 assert(W.open and W.latched() and last().payload.kind == "latch" and last().payload.key == "TAB", "a tap latches the wheel")
 clock = 2600; coroutine.resume(threads[1]); assert(W.open, "a latched wheel with the key up stays open")
+clock = 4000; coroutine.resume(threads[1]); assert(W.open, "still open: the key read down at the press is no release (in game 2026-11-02)")
 map.onPressed(); assert(not W.open and last().payload.kind == "commit" and last().payload.reason == "toggle", "the key again picks")
 -- a tap then a left click on the page commits
-clock = 3000; map.onPressed(); map.onReleased(); assert(W.latched())
+clock = 4500; keyDown = true; map.onPressed(); keyDown = false; map.onReleased(); assert(W.latched())
+clock = 5000; coroutine.resume(threads[1]); assert(W.open, "latched after a real tap")
 handlers["lightrp:ui:weaponwheel"]({ kind = "close", commit = true }); assert(not W.open and last().payload.kind == "commit")
 
 -- a key state that never reads the consumed key down (Jeremzzzer, 2026-11-02): the
 -- safety loop no longer closes the held wheel at 0.4 s; only the release or a timeout does
-clock = 5000; keyDown = false; map.onPressed()
-clock = 5500; coroutine.resume(threads[1]); assert(W.open, "isDown false without ever reading down is no release")
-clock = 6000; map.onReleased(); assert(not W.open and last().payload.reason == "release", "the mapping's release commits")
+clock = 6000; keyDown = false; map.onPressed()
+clock = 6500; coroutine.resume(threads[1]); assert(W.open, "isDown false without ever reading down is no release")
+clock = 6900; map.onReleased(); assert(not W.open and last().payload.reason == "release", "the mapping's release commits")
 clock = 7000; map.onPressed(); clock = 7000 + W.LATCH_MS + 1; coroutine.resume(threads[1])
 assert(not W.open and last().payload.kind == "cancel" and last().payload.reason == "timeout", "an unanswered wheel times out")
 

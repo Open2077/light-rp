@@ -242,6 +242,12 @@ assert(W.view(1).ready and W.view(1).right and W.view(1).holstered==true and (ho
 -- a pocket refresh of holstered hands stays holstered
 holstersBefore=holsterCount;assert(Inv.addItem(inv.id,"ammo_pistol",5));tick(4500)
 assert(W.view(1).holstered==true and holsterCount>holstersBefore,"reprojection keeps the holster")
+-- a pick that lands during the periodic observe pass waits for it instead of being refused
+suppressNative=true;assert(W.synchronize(1,true));assert(W.runtime[1].busy and W.runtime[1].observing)
+source=1;local raced;CreateThread(function()net["op77_lightrp:armament"]({operation="select",instanceId=rightItem.metadata.instanceId,baseRevision=W.view(1).revision,mutation="test:wheel:race",request="race-1"})end)
+tick(100);suppressNative=false;tick(2500)
+for i=#messages,1,-1 do local m=messages[i];if m.p.kind=="response"and m.p.request=="race-1"then raced=m.p;break end end
+assert(raced and raced.ok,"a select during an observe pass is not refused: "..tostring(raced and raced.error))
 -- selecting the holstered weapon draws it again
 reply=request({operation="select",instanceId=rightItem.metadata.instanceId,baseRevision=W.view(1).revision,mutation="test:wheel:draw"});assert(reply and reply.ok);tick(1800)
 assert(W.view(1).holstered==false and W.view(1).right.instanceId==rightItem.metadata.instanceId)
