@@ -192,12 +192,13 @@ local function sortedIds(filter)
 end
 
 -- Which courses an activity mode can run: the trial runs every course, a street race
--- needs a vehicle course with at least two surveyed slots, a rooftop race an on-foot one.
+-- (against players or against AI) needs a vehicle course with at least two surveyed
+-- slots, a rooftop race an on-foot one.
 function C.eligible(course, mode)
     if course == nil then return false end
     if mode == "trial" then return true end
     if mode == "foot" then return S.onFoot(course) end
-    if mode == "grid" then return not S.onFoot(course) and #(course.grid or {}) >= 2 end
+    if mode == "grid" or mode == "pve" then return not S.onFoot(course) and #(course.grid or {}) >= 2 end
     return false
 end
 

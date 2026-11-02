@@ -1,7 +1,9 @@
 -- Time-trial best times, one board per course revision, in data/records.json (Open77.io,
 -- this resource's own data directory). A character keeps one entry per course: its
 -- personal best. Editing a course (new revision) starts a fresh board. Only finished
--- time-trial runs reach this file; grid starts are not comparable and stay out.
+-- time-trial runs reach the course boards; grid starts are not comparable and stay out.
+-- Races vs AI keep a separate personal best per course under "vsai:<courseId>"; a street
+-- or rooftop race the staff switch filled with bots writes nothing at all.
 -- Light RP still receives every result through the contract and keeps its own stats.
 local Config = RaceConfig
 
@@ -100,6 +102,10 @@ function R.submit(courseId, revision, key, name, timeMs, vehicle)
     outcome.rank = find(b.entries, key)
     return outcome
 end
+
+-- The board of a course's best times against AI (race.pve): kept apart from the time
+-- trial's, so no time set against bots ever ranks among the players' times.
+function R.vsAiBoard(courseId) return "vsai:" .. tostring(courseId) end
 
 function R.best(courseId, revision, key)
     local b = boards[courseId]

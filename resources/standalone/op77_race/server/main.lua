@@ -51,9 +51,9 @@ local function pushQueues(now)
     local seen = {}
     for _, def in ipairs(Config.activities) do
         local q = L.queues[def.key]
-        if def.mode ~= "trial" and q then
+        if def.queued and q then
             local window = L.windowRemainingMs(def.key, now)
-            local bots = L.botMode()
+            local bots = L.botsHere(def)
             for _, playerId in ipairs(q.members) do
                 seen[playerId] = true
                 local digest = ("%s|%d|%s|%s"):format(def.key, #q.members, tostring(q.windowEndsAt), tostring(bots))
@@ -106,6 +106,9 @@ local function statusFor(def, now)
     if running > 0 then phase = "running" elseif queued > 0 then phase = "lobby" end
     if def.mode == "trial" then
         detail = running > 0 and ("%d on the clock"):format(players) or ("%d courses"):format(courses)
+    elseif def.mode == "pve" then
+        detail = running > 0 and ("%d racing the AI"):format(players)
+            or queued > 0 and "Crew gathering" or ("%d courses"):format(courses)
     elseif L.windowRemainingMs(def.key, now) ~= nil then
         detail = "Grid forming"
     elseif queued > 0 then
@@ -327,7 +330,8 @@ end)
 
 -- ---------------------------------------------------------------- commands --
 
-local MODES = { trial = "trial", timetrial = "trial", grid = "grid", street = "grid", foot = "foot", rooftop = "foot" }
+local MODES = { trial = "trial", timetrial = "trial", grid = "grid", street = "grid", foot = "foot", rooftop = "foot",
+    pve = "pve", ai = "pve", vsai = "pve" }
 
 -- /race opens Light RP's Activities panel, where every race is listed and joined.
 RegisterCommand("race", function(source)
@@ -347,7 +351,7 @@ RegisterCommand("race.join", function(source, args, raw)
     local id = playerIdOf(source)
     if id == nil then return output(source, raw, false, "race.join must be used in-game") end
     local def = A.byKey[MODES[tostring(args[1] or "trial"):lower()] or ""]
-    if def == nil then return output(source, raw, false, "usage: /race.join trial|street|rooftop [course]") end
+    if def == nil then return output(source, raw, false, "usage: /race.join trial|street|rooftop|pve [course]") end
     local ok, why = joinAndReport(id, def, { course = args[2] })
     output(source, raw, ok, ok and ("Joined " .. def.label) or tostring(why))
 end, false)
@@ -419,7 +423,7 @@ end, true)
 -- Staff: start a queued street or rooftop race now, even below its minimum.
 RegisterCommand("race.force", function(source, args, raw)
     local def = A.byKey[MODES[tostring(args[1] or "grid"):lower()] or ""]
-    if def == nil or def.mode == "trial" then return output(source, raw, false, "usage: /race.force street|rooftop") end
+    if def == nil or not def.queued then return output(source, raw, false, "usage: /race.force street|rooftop") end
     if L.size(def.key) == 0 then return output(source, raw, false, "Nobody is queued") end
     local ok, reason = L.launch(def, E.nowMs(), true)
     output(source, raw, ok, ok and (def.label .. " started") or tostring(reason))

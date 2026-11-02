@@ -307,6 +307,10 @@ function E.payload(playerId, shared)
         payload.personalBestMs = best and best.timeMs or nil
         payload.recordMs = record and record.timeMs or nil
         payload.recordName = record and record.name or nil
+    elseif inst.mode == "pve" and racer.key then
+        -- the separate best vs AI, never the time trial's board
+        local best = RaceRecords.best(RaceRecords.vsAiBoard(course.id), course.revision, racer.key)
+        payload.personalBestMs = best and best.timeMs or nil
     end
     local guided = racer.state == "loading" or racer.state == "countdown" or racer.state == "racing"
     local checkpoint = guided and racer.nextCheckpoint and course.checkpoints[racer.nextCheckpoint]
@@ -343,9 +347,26 @@ E.pushInstance = pushInstance
 
 -- ---------------------------------------------------------------- results --
 
+-- A street race filled with bots by the staff switch (a race vs AI is not a test).
+local function testRace(inst) return inst.hadBots == true and inst.mode ~= "pve" end
+E.testRace = testRace
+
+-- Race vs AI: less than against players, and nothing on a course or a run too short to
+-- be anything but farming.
+local function pveReputation(inst, racer, starters)
+    local pve = type(Config.pve) == "table" and Config.pve or {}
+    local rewards = type(pve.rewards) == "table" and pve.rewards or {}
+    if S.routeMetres(inst.course) * (inst.course.laps or 1) < (tonumber(pve.minimumMetres) or 0) then return 0 end
+    if (racer.timeMs or 0) < (tonumber(pve.minimumSeconds) or 0) * 1000 then return 0 end
+    local rep = tonumber(rewards.finish) or 0
+    if starters >= 2 then rep = rep + ((rewards.placement or {})[racer.finishPlace] or 0) end
+    return rep
+end
+
 local function reputationFor(inst, racer, starters)
     local rewards = Config.rewards
-    if racer.state ~= "finished" or inst.hadBots then return 0 end
+    if racer.state ~= "finished" or testRace(inst) then return 0 end
+    if inst.mode == "pve" then return pveReputation(inst, racer, starters) end
     if inst.mode == "trial" then
         local rep = rewards.trialFinish or 0
         if racer.outcome and racer.outcome.personalBest then rep = rep + (rewards.personalBest or 0) end
@@ -379,11 +400,12 @@ local function sendResult(inst, playerId, racer)
         placement = finished and racer.finishPlace or nil,
         score = score,
         won = finished and racer.finishPlace == 1 and (inst.mode == "trial" or starters >= 2),
-        -- A race against bots is a staff test: the core records nothing for it, even when
-        -- bot mode was switched off while it ran.
-        test = inst.hadBots == true or nil,
+        -- A race the staff switch filled with bots is a test: the core records nothing for
+        -- it, even when bot mode was switched off while it ran. A race vs AI is recorded.
+        test = testRace(inst) or nil,
         stats = {
             bots = inst.hadBots and bots().starters(inst) or nil,
+            vsAi = inst.mode == "pve" or nil,
             mode = inst.mode,
             courseId = inst.course.id,
             courseRevision = inst.course.revision,
@@ -395,7 +417,7 @@ local function sendResult(inst, playerId, racer)
             checkpoints = racer.completed or 0,
             racers = starters,
             personalBest = racer.outcome and racer.outcome.personalBest or nil,
-            courseRecord = racer.outcome and racer.outcome.courseRecord or nil,
+            courseRecord = inst.mode ~= "pve" and racer.outcome and racer.outcome.courseRecord or nil,
             dnfReason = (not finished) and racer.dnfReason or nil,
         },
         reputation = reputationFor(inst, racer, starters),
@@ -833,10 +855,16 @@ E.afterFinish = afterFinish
 
 local function finish(inst, playerId, racer, now)
     placeFinisher(inst, playerId, racer, now)
-    -- Best times are time-trial runs only, and never a race that had bots in it.
+    -- The time trial's board takes time-trial runs only, never a race that had bots in
+    -- it. A race vs AI keeps its own best per course (a separate board), personal only.
     if inst.mode == "trial" and racer.key and not inst.hadBots then
         racer.outcome = RaceRecords.submit(inst.course.id, inst.course.revision, racer.key, racer.name,
             racer.timeMs, inst.course.vehicle)
+    elseif inst.mode == "pve" and racer.key then
+        local outcome = RaceRecords.submit(RaceRecords.vsAiBoard(inst.course.id), inst.course.revision, racer.key,
+            racer.name, racer.timeMs, inst.course.vehicle)
+        racer.outcome = outcome and { personalBest = outcome.personalBest, previousBestMs = outcome.previousBestMs,
+            rank = outcome.rank } or nil
     end
     sendResult(inst, playerId, racer)
     E.hooks.pulse(playerId, { kind = "finish", place = racer.finishPlace, timeMs = racer.timeMs, outcome = racer.outcome,

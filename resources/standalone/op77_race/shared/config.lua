@@ -24,6 +24,8 @@ RaceConfig = {
             label = "Street Race",
             description = "Two to eight drivers on a starting grid, identical loaner cars.",
             minPlayers = 2, maxPlayers = 8,
+            -- queued: a heat that waits for its players (join window, re-check at launch)
+            queued = true,
             -- Once the minimum is queued, the join window stays open this long (new
             -- arrivals do not restart it); a full grid starts after fullSeconds.
             joinSeconds = 30, fullSeconds = 5,
@@ -33,7 +35,16 @@ RaceConfig = {
             label = "Rooftop Race",
             description = "Two to eight runners across the rooftops. No implants handed out.",
             minPlayers = 2, maxPlayers = 8,
+            queued = true,
             joinSeconds = 25, fullSeconds = 5,
+        },
+        {
+            -- Public, no staff switch: solo or with a crew, AI drivers fill the rest of
+            -- the grid (`pve` below). The course is chosen like the time trial's.
+            key = "pve", id = "race.pve", mode = "pve", kind = "race",
+            label = "Street Race vs AI",
+            description = "Solo or with your crew against AI drivers on a full grid. Pick the course.",
+            minPlayers = 1, maxPlayers = 8,
         },
     },
     caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
@@ -41,7 +52,7 @@ RaceConfig = {
     engine = {
         -- Minimum loading window after the grid is set (the car streams in, the
         -- runner settles); early readiness does not shorten it.
-        loadSeconds = { trial = 4, grid = 15, foot = 4 },
+        loadSeconds = { trial = 4, grid = 15, foot = 4, pve = 15 },
         loadAfterRestartSeconds = 2,
         -- A racer still not ready after this is classified DNF and sent back.
         readyTimeoutSeconds = 60,
@@ -49,7 +60,7 @@ RaceConfig = {
         durationSeconds = 1200,
         -- Once the winner finishes, the others have this long to cross the line.
         finishGraceSeconds = 30,
-        resultsSeconds = { trial = 15, grid = 12, foot = 12 },
+        resultsSeconds = { trial = 15, grid = 12, foot = 12, pve = 12 },
         checkpointRadius = 7.0,
         -- Do not accept a parallel street on a bridge above the course.
         checkpointZTolerance = 4.0,
@@ -102,6 +113,22 @@ RaceConfig = {
 
     -- Best times of the time trial (data/records.json), per course revision.
     records = { keep = 20, show = 5 },
+
+    -- Crews (the core's options.squad = { id, leader, members } on join): a crew races in
+    -- one instance, on adjacent slots, and is never split across two. Its members join one
+    -- by one; a launch waits up to gatherSeconds for the ones still on their way.
+    crews = { gatherSeconds = 5 },
+
+    -- Street Race vs AI (race.pve): AI drivers (the bots below) fill the grid behind the
+    -- player or the crew. Results are recorded by the core like any activity, for less
+    -- reputation than racing players, and never on a course too short to mean anything.
+    -- Its times stay off the time trial's board: a separate best vs AI per course.
+    pve = {
+        fillTo = 6,                -- racers in total (players + AI), within the course's grid
+        rewards = { finish = 6, placement = { 12, 6, 3 } }, -- about 60% of a street race
+        minimumMetres = 1500,      -- course length (all laps) below which no reputation is proposed
+        minimumSeconds = 60,       -- finish time below which no reputation is proposed
+    },
 
     -- Staff bot mode (op77_lightrp `/lightrp.bots on|off`, off at every start): a street
     -- or rooftop race opens its grid with ONE player and NPC bots fill the empty places.

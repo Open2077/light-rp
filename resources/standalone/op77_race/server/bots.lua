@@ -454,10 +454,10 @@ function B.fill(inst, count)
     local joined = #inst.bots
     if joined > 0 then
         inst.hadBots = true
-        for _, playerId in ipairs(inst.members) do
-            E.hooks.notice(playerId, "info", inst.label,
-                ("Bot mode: %d bot%s on the grid. Nothing is recorded."):format(joined, joined == 1 and "" or "s"))
-        end
+        local text = inst.mode == "pve"
+            and ("%d AI driver%s on the grid."):format(joined, joined == 1 and "" or "s")
+            or ("Bot mode: %d bot%s on the grid. Nothing is recorded."):format(joined, joined == 1 and "" or "s")
+        for _, playerId in ipairs(inst.members) do E.hooks.notice(playerId, "info", inst.label, text) end
     end
     log(("%s: %d of %d bot(s) on the grid"):format(inst.id, joined, count))
     return joined

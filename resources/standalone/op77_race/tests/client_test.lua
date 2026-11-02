@@ -258,6 +258,37 @@ H.test("queued for a street race: a lobby HUD with the grid's countdown, gone wi
     H.eq(hud.clears, clears + 1)
 end)
 
+H.test("bots: [BOT] rows in the ranking, the vs-AI best, a staff bot race marked as a test", function()
+    decoded["bot-rows"] = {
+        { id = "bot4", name = "[BOT] Razor", bot = true, rank = 1, state = "racing", progress = 6 },
+        { id = 1, name = "Ann", rank = 2, state = "racing", progress = 5 },
+    }
+    H.netHandlers["op77_race:state"](state({ instance = "pve:1", run = 1, activity = "race.pve", mode = "pve", laps = 1,
+        completed = 5, progressTotal = 12, personalBestMs = 151200, bots = 1, racers = 2, canRestart = false, rows = "bot-rows" }))
+    local view = shown()
+    H.eq(view.title, "Street Race vs AI")
+    H.eq(view.scoreboard.rows[1].name, "[BOT] Razor")
+    H.eq(stat(view, "Position"), "2/2"); H.eq(stat(view, "Best vs AI"), "2:31.200")
+    local rows = { { id = 1, name = "Ann", rank = 1, state = "finished", timeMs = 149000, progress = 12 },
+        { id = "bot4", name = "[BOT] Razor", bot = true, rank = 2, state = "finished", timeMs = 150000, progress = 12 } }
+    H.netHandlers["op77_race:state"](state({ instance = "pve:1", run = 1, activity = "race.pve", mode = "pve", phase = "results",
+        state = "finished", place = 1, timeMs = 149000, remainingMs = 12000, bots = 1, rows = rows,
+        outcome = { personalBest = true, previousBestMs = 151200 } }))
+    local card = pushed().item
+    H.eq(card.title, "Street Race vs AI")
+    H.eq(card.lines[#card.lines].label, "Best vs AI"); H.eq(card.lines[#card.lines].value, "New, was 2:31.200")
+    H.netHandlers["op77_race:state"](state({ instance = "grid:9", run = 1, activity = "race.grid", mode = "grid", phase = "results",
+        state = "finished", place = 2, timeMs = 160000, remainingMs = 12000, bots = 3, rows = rows }))
+    card = pushed().item
+    H.eq(card.lines[#card.lines].label, "Bots"); H.eq(card.lines[#card.lines].value, "3, test race not recorded")
+    H.netHandlers["op77_race:clear"]()
+    H.netHandlers["op77_race:queue"]({ activity = "race.grid", label = "Street Race", mode = "grid", queued = 1, minPlayers = 1,
+        maxPlayers = 8, windowMs = 20000, bots = true })
+    H.eq(shown().objective, "Grid forming. Bots fill the empty slots.")
+    H.netHandlers["op77_race:queue"](false)
+    H.netHandlers["op77_race:clear"]()
+end)
+
 H.test("/race opens Light RP's Activities panel", function()
     H.netHandlers["op77_race:activities"]()
     local sent = H.clientEvents[#H.clientEvents]
