@@ -149,6 +149,98 @@ TurfConfig = {
     -- Combat teams (Open77.combat.setTeam) of the two sides: teammates never hurt each other.
     teamIds = { 4401, 4402 },
 
+    -- NPC bots (server/bots.lua): staff bot mode (op77_lightrp `/lightrp.bots on`) fills the
+    -- missing places of a turf war, and the Gang Sweep's NPC gang is made of them. They
+    -- fight with the engine's own combat AI (aiMode native, relationship groups,
+    -- per-player attitude); the server only sets their objectives (guard / move tasks),
+    -- prices the hits and counts them on the zones and the scoreboard.
+    bots = {
+        -- Bot mode: each side is filled up to max(perSide, the larger side's humans).
+        perSide = 3,
+        -- The humans' side gets bot teammates too (1 human: you + 2 bots vs 3 bots).
+        -- Needs Open77.npcs.setAttitude (a teammate must be told not to shoot you).
+        allies = true,
+        maxPerSide = 6,
+        maxBots = 10,
+        prefix = "[BOT] ",
+        names = { "Rook", "Vex", "Static", "Hex", "Grit", "Nova", "Razor", "Echo", "Brick", "Jinx", "Sable", "Dagger" },
+        -- A side without a gang is given the first of these its rival does not hold.
+        gangOrder = { "maelstrom", "tyger_claws", "valentinos", "sixth_street", "animals", "voodoo_boys" },
+        -- Gang records, tried in order, then `fallback` (proven template aliases). A record
+        -- the headless server cannot check fails on the clients only: a body no client has
+        -- simulated for `authorityTimeoutMs` is rebuilt with the next record.
+        records = {
+            maelstrom = { "Character.cpz_maelstrom_grunt1_ranged1_lexington_wa", "Character.maelstrom_grunt2_ranged2_ajax_ma" },
+            valentinos = { "Character.dtn_valentinos_grunt1_ranged1_nova_ma", "Character.valentinos_grunt2_ranged2_ajax_wa" },
+            tyger_claws = { "Character.dtn_tyger_claws_gangster1_ranged1_copperhead_ma", "Character.tyger_claws_biker1_ranged1_nue_wa" },
+            sixth_street = { "Character.rcr_sixth_street_grunt_short_range_w_medium", "Character.sixthstreet_hooligan_ranged1_nova_ma" }, -- unproven
+            animals = { "Character.animals_grunt1_ranged1_nova_mb", "Character.animals_grunt2_ranged2_pulsar_mb" },                       -- unproven
+            voodoo_boys = { "Character.voodooboys_grunt1_ranged2_saratoga_ma", "Character.voodooboys_grunt1_ranged2_saratoga_wa" },
+        },
+        fallback = { "hostile_female_ranged_lab", "gang_valentinos_ranged_01", "gang_tygerclaws_ranged_01" },
+        health = 100,
+        streamingRadius = 260,
+        streamingHysteresis = 40,
+        spawnLiftMetres = 0.35,
+        spawnRing = 2.5,           -- bodies spread on a ring around a spawn point
+        spawnSpacingMs = 400,      -- one body created at a time, this far apart
+        spawnSettleMs = 5000,      -- no body in the first seconds after this VM started
+        corpseLingerMs = 1200,     -- a dead body stays this long (death animation), then goes
+        authorityTimeoutMs = 30000,
+        -- Objectives (movement channel only; the engine fights on its own).
+        tasks = {
+            retaskMs = 6000,        -- at most one new destination per bot this often
+            combatQuietMs = 5000,   -- ... and only once no hit has named it for this long
+            guardRadius = 3.0,      -- leash around a zone: its radius plus this
+            arriveMetres = 8.0,     -- farther than this from its zone: moveTo first, then guard
+            moveTimeoutMs = 30000,
+            speed = "run",
+            pushShare = 0.5,        -- share of a side's bots that push to the enemy's zones
+        },
+        -- Hit pricing (client reports, clamped, rate-bounded per victim and per pair).
+        damage = { maxPerHit = 34, fallback = 18, perSecond = 90, pairIntervalMs = 90, maxDistance = 150 },
+        creditWindowMs = 10000,    -- a death within this of a bot's hit is that bot's kill
+        outOfBoundsSeconds = 8,    -- out of the site: walked back to its spawn ...
+        rebuildAfterSeconds = 16,  -- ... still out after this long: rebuilt there
+    },
+
+    -- Gang Sweep (turf.pve): the public PvE variant, no staff switch. Solo or with your
+    -- crew, take a district's zones from the NPC gang holding it. Results are recorded by
+    -- Light RP (unless staff bot mode is on), with lower reputation than the war and no
+    -- weekly influence.
+    pve = {
+        enabled = true,
+        activity = {
+            id = "turf.pve",
+            label = "Gang Sweep",
+            kind = "event",
+            description = "Take a district from the NPC gang holding it. Solo or with your crew: "
+                .. "the more you are, the more of them. Engine combat AI, reputation, no influence.",
+            minPlayers = 1,
+            maxPlayers = 8,            -- a full Light RP squad (party.maxSize 8)
+            caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
+        },
+        maxSweeps = 2,             -- sweeps at once (NPC budget); more crews wait their turn
+        gatherSeconds = 8,         -- a crew's members join within this, then the sweep starts
+        soloGatherSeconds = 1,
+        baseBots = 3,              -- 1 human: 3 gangers; +2 per extra human
+        botsPerHuman = 2,
+        maxBots = 10,
+        pushShare = 0.34,          -- the holders mostly guard their zones
+        timeLimitSeconds = 480,
+        targetScore = 600,
+        -- The holders start with every zone: their zone points run at this rate (3 zones
+        -- held untouched reach the target in ~400 s, inside the time limit).
+        holderZoneRate = 0.5,
+        joinCutoffSeconds = 120,   -- a crew member may still join this long before the end
+        -- Who holds each site (a crew of that gang meets the first other of bots.gangOrder).
+        holders = { kabuki = "tyger_claws", badlands = "animals", afterlife = "valentinos" },
+        -- Reputation: the war's amounts x this, and nothing unless the sweep lasted
+        -- minWarSeconds, the fighter played minPlaySeconds and captured or eliminated someone.
+        reputationScale = 0.6,
+        rewards = { minWarSeconds = 240, minPlaySeconds = 180, needsAction = true },
+    },
+
     -- The sites: a district each, 3 capture zones, two side spawns, round bounds.
     -- `spawnable = false` keeps a zone out of the respawn choice (tight interiors).
     -- `enabled = false`: staff only (/turf.schedule <id> / /turf.start <id>), never voted.

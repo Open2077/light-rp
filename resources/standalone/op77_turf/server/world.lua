@@ -142,6 +142,19 @@ function W.setTeam(id, team)
     return ok and done == true
 end
 
+-- A bot's hit on a fighter (players.stats.apply). A managed NPC's own engine damage is
+-- never applied by the platform, so the server applies the clamped, checked amount the
+-- victim's client reported. `attacker` is the NPC id exactly as the platform gave it.
+-- Returns true | false, reason (a fresh spawn's protection refuses, normally).
+function W.damagePlayer(id, amount, attacker)
+    if type(Open77.players) ~= "table" or type(Open77.players.damage) ~= "function" then
+        return false, "damage_api_unavailable"
+    end
+    local ok, done, why = pcall(Open77.players.damage, id, amount, { attacker = attacker, cause = "firearm" })
+    if not ok then return false, tostring(done) end
+    return done == true, why
+end
+
 -- Global PvP is off on Light RP (platform default): a war is a PvP scope, the explicit
 -- roster of living fighters in the bucket. Returns the scope id, or nil plus a reason.
 function W.createScope(bucket, ids)
