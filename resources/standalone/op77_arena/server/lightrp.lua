@@ -738,9 +738,30 @@ local function crewGathering(group, t)
     return false
 end
 
+-- Groups onto two sides of `teamSize`, in the order given: each on the side with
+-- fewer players where it fits whole, skipped (for the next match) where it does not.
+local function packSides(groups, teamSize, capacity)
+    local roster, sides, count = {}, {}, { 0, 0 }
+    for _, group in ipairs(groups) do
+        local size = #group.ids
+        local side = count[1] <= count[2] and 1 or 2
+        if count[side] + size > teamSize then side = side == 1 and 2 or 1 end
+        if count[side] + size <= teamSize then
+            for _, id in ipairs(group.ids) do
+                roster[#roster + 1] = id
+                sides[id] = side
+            end
+            count[side] = count[side] + size
+        end
+        if #roster >= capacity then break end
+    end
+    return roster, sides
+end
+
 -- Arena.planRoster (server/arena.lua): who plays a team match and on which side.
--- Crews stay whole and on one side; the rest keep the queue order. Outside bot
--- mode only a full roster forms; in bot mode the engine completes each side.
+-- Crews stay whole and on one side; the rest keep the queue order (when that order
+-- cannot fill the match, the biggest groups go first). Outside bot mode only a full
+-- roster forms; in bot mode the engine completes each side.
 function H.planRoster(format, queue, capacity)
     if format ~= "2v2" and format ~= "3v3" then return nil end
     local teamSize = math.floor(capacity / 2)
@@ -758,21 +779,23 @@ function H.planRoster(format, queue, capacity)
         end
         group.ids[#group.ids + 1] = id
     end
-    local roster, sides, count = {}, {}, { 0, 0 }
-    for _, group in ipairs(groups) do
-        local size = #group.ids
-        if size <= teamSize and not crewGathering(group, t) then
-            local side = count[1] <= count[2] and 1 or 2
-            if count[side] + size > teamSize then side = side == 1 and 2 or 1 end
-            if count[side] + size <= teamSize then
-                for _, id in ipairs(group.ids) do
-                    roster[#roster + 1] = id
-                    sides[id] = side
-                end
-                count[side] = count[side] + size
-            end
+    local ready = {}
+    for index, group in ipairs(groups) do
+        if #group.ids <= teamSize and not crewGathering(group, t) then
+            group.order = index
+            ready[#ready + 1] = group
         end
-        if #roster >= capacity then break end
+    end
+    local roster, sides = packSides(ready, teamSize, capacity)
+    if #roster < capacity then
+        local biggest = {}
+        for index, group in ipairs(ready) do biggest[index] = group end
+        table.sort(biggest, function(a, b)
+            if #a.ids ~= #b.ids then return #a.ids > #b.ids end
+            return a.order < b.order
+        end)
+        local otherRoster, otherSides = packSides(biggest, teamSize, capacity)
+        if #otherRoster > #roster then roster, sides = otherRoster, otherSides end
     end
     if #roster < capacity and not botsFor("teams") then return { roster = {}, sides = {} } end
     return { roster = roster, sides = sides }

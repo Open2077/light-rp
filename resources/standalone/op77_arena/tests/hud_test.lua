@@ -213,4 +213,64 @@ do
     say("PASS resource stop")
 end
 
-say("PASS: op77_arena hud (shape, limits, result once, feed, fallback to notices, rate limit, clear)")
+-- ── bots: the [BOT] marker everywhere, the practice hint, PvE sides ──
+do
+    env.pushes, env.events = {}, {}
+    -- Combat Zone with bots (staff bot mode): names marked, hint shown.
+    env.net["deathmatch:state"](ffaState({ instanceId = 20, instance = { id = 20, format = "ffa", ruleset = "standard", bots = 2 },
+        rows = {
+            { id = 3, name = "Jackie", kills = 4, deaths = 1, score = 400, active = true },
+            { id = -1, name = "[BOT] Ash", bot = true, kills = 2, deaths = 2, score = 200, active = true },
+            { id = -2, name = "BOT 2", kills = 1, deaths = 3, score = 100, active = true },
+        } }))
+    local hud = env.shows[#env.shows]
+    assert(hud.scoreboard.rows[1].name == "Jackie")
+    assert(hud.scoreboard.rows[2].name == "[BOT] Ash", "the engine's prefix is not doubled")
+    assert(hud.scoreboard.rows[3].name == "[BOT] 2", "the engine's fallback name is re-marked")
+    local hinted = false
+    for _, hint in ipairs(hud.hints) do if hint.key == "BOTS" and hint.label:find("not recorded") then hinted = true end end
+    assert(hinted and #hud.hints <= 4, "bot practice is said on screen")
+    -- Without bots: no hint.
+    env.net["deathmatch:state"](ffaState({ instanceId = 21 }))
+    hud = env.shows[#env.shows]
+    for _, hint in ipairs(hud.hints) do assert(hint.key ~= "BOTS") end
+    -- Kill feed.
+    env.net["deathmatch:killfeed"]({ killerId = -1, killerName = "Ash", killerBot = true, victimId = 3, victimName = "Jackie" })
+    assert(env.pushes[#env.pushes].payload.text == "[BOT] Ash > Jackie" and env.pushes[#env.pushes].payload.tone == "danger")
+    env.net["deathmatch:killfeed"]({ killerId = 3, killerName = "Jackie", victimId = -2, victimName = "[BOT] Rook", victimBot = true })
+    assert(env.pushes[#env.pushes].payload.text == "Jackie > [BOT] Rook")
+    -- A duel against a bot: the opponent's name is marked.
+    env.net["deathmatch:state"]({
+        playerId = 3, participant = true, mode = "1v1", phase = "active", roundState = "active", instanceId = 22, remainingMs = 5000,
+        instance = { id = 22, format = "1v1", ruleset = "standard", bots = 1 },
+        self = { id = 3, kills = 0, deaths = 0 },
+        arena = { side = 1, format = "1v1", round = 1, bestOf = 3, wins = { 0, 0 }, aliveByTeam = { 1, 1 } },
+        rows = { { id = 3, name = "Jackie", team = 1 }, { id = -5, name = "Ash", team = 2, bot = true } },
+    })
+    hud = env.shows[#env.shows]
+    assert(hud.teams[2].name == "[BOT] Ash" and hud.scoreboard.rows[2].name == "[BOT] Ash")
+    local duelHint = false
+    for _, hint in ipairs(hud.hints) do if hint.key == "BOTS" then duelHint = true end end
+    assert(duelHint and #hud.hints <= 4)
+    -- PvE: its own activity and title, players vs bots, no practice hint (it is recorded).
+    local pve = ffaState({ instanceId = 23, mode = "ffa", instance = { id = 23, format = "ffa", ruleset = "pve", bots = 3 },
+        rows = {
+            { id = 3, name = "Jackie", kills = 4, deaths = 1, score = 400, active = true },
+            { id = 4, name = "Vee", kills = 2, deaths = 0, score = 200, active = true },
+            { id = -7, name = "[BOT] Ash", bot = true, kills = 1, deaths = 3, score = 100, active = true },
+        } })
+    env.net["deathmatch:state"](pve)
+    hud = env.shows[#env.shows]
+    assert(hud.activity == "arena.pve" and hud.title == LightRpArena.activities.pve.label)
+    assert(hud.teams[1].name == "Players" and hud.teams[1].score == 6 and hud.teams[1].self == true)
+    assert(hud.teams[2].name == "[BOT] Gangs" and hud.teams[2].score == 1)
+    assert(hud.scoreboard.rows[1].team == 1 and hud.scoreboard.rows[3].team == 2 and hud.scoreboard.rows[3].name == "[BOT] Ash")
+    for _, hint in ipairs(hud.hints) do assert(hint.key ~= "BOTS", "PvE is not practice") end
+    env.pushes = {}
+    pve.phase, pve.roundState, pve.result = "standings", "standings", { winnerId = 3, winnerName = "Jackie" }
+    env.net["deathmatch:state"](pve)
+    assert(#env.pushes == 1 and env.pushes[1].payload.title == "PLAYERS WIN" and env.pushes[1].payload.subtitle == "Players 6 - 1 bots")
+    say("PASS bots + PvE hud")
+end
+
+say("PASS: op77_arena hud (shape, limits, result once, feed, fallback to notices, rate limit, clear, bots, PvE)")
