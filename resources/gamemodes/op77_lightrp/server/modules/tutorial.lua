@@ -30,7 +30,7 @@ local function insideHall(p)
         and p.z >= L.min.z and p.z <= L.max.z
 end
 local function cityArrival()
-    local a = LightRpConfig.spawn.arrival
+    local a = LightRpConfig.spawn.afterTutorial or LightRpConfig.spawn.arrival
     return { name = a.name, position = a.position, heading = a.heading, bucket = 0 }
 end
 local function hallArrival(player,step)
@@ -350,14 +350,19 @@ local function pause(player, s)
 end
 
 -- The end of the hall: the checkpoint first, then the door. The newcomer is
--- given a starter studio and wakes up in it (server/modules/housing_starter.lua);
--- without one, the door opens on the city's arrival. A refused placement leaves
--- the city step with the player still in the hall; /tutorial retries it.
+-- given a starter studio (server/modules/housing_starter.lua). With a city point
+-- after the guide (spawn.afterTutorial) they arrive there and find the studio's
+-- door on the map; without one they wake up inside it; with no studio either,
+-- the door opens on the city's arrival. A refused placement leaves the city step
+-- with the player still in the hall; /tutorial retries it.
 local function depart(player, s)
     local ok, why = change(player, s, "outro", "active")
     if not ok then return false, why end
     local starter = LightRP.housing and LightRP.housing.starter
-    if starter then
+    if starter and LightRpConfig.spawn.afterTutorial then
+        local home, reason = starter.grant(player)
+        if not home then LightRP.log("tutorial: no starter studio for %d (%s)", player, tostring(reason)) end
+    elseif starter then
         local home, reason = starter.moveIn(player)
         if home then return true end
         LightRP.log("tutorial: no starter studio for %d (%s), going to the city", player, tostring(reason))

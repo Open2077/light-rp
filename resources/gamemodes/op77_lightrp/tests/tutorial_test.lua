@@ -165,7 +165,7 @@ talk("station","attendant","collect")
 
 -- Pausing in the hall opens the door: nobody is left locked in.
 placed={};p=hall("attendant");action("pause")
-assert(state().status=="paused" and placed[1]==LightRpConfig.spawn.arrival.name and p.bucket==0,"continuing alone leaves the hall for the city")
+assert(state().status=="paused" and placed[1]==LightRpConfig.spawn.afterTutorial.name and p.bucket==0,"continuing alone leaves the hall for the city")
 T.onDisconnected(1);T.onCharacterLoaded(1,c);assert(state().status=="paused" and state().step=="collect")
 assert(T.spawnPoint(1)==nil and T.deathPoint(1)==nil,"a paused guide does not decide where one wakes up")
 assert(not T.allowsWork(1,"collect"),"a paused guide closes the practice sites")
@@ -190,9 +190,14 @@ T.onJobWorkCompleted(1,L.work,"sell");assert(state().step=="depart","the sale en
 assert(not T.allowsWork(1,"collect"),"the practice is not an income once learnt")
 
 -- Leaving: the checkpoint, then the door to the city.
+local granted,movedIn={},0
+LightRP.housing={starter={grant=function(pl) granted[#granted+1]=pl; return {id=7} end,moveIn=function() movedIn=movedIn+1; return {id=7} end}}
 p=hall("guide");action("talk");placed={};refusePlace=true;action("next")
 assert(state().step=="outro" and #placed==0,"a refused placement keeps the earned checkpoint")
-refusePlace=false;assert(commands.tutorial(1,{}));assert(placed[1]==LightRpConfig.spawn.arrival.name and p.bucket==0,"/tutorial retries the way to the city")
+assert(granted[1]==1 and movedIn==0,"the starter studio is given, the newcomer is not taken inside it")
+refusePlace=false;assert(commands.tutorial(1,{}));assert(placed[1]==LightRpConfig.spawn.afterTutorial.name and p.bucket==0,"/tutorial retries the way to the city")
+assert(math.abs(p.x-LightRpConfig.spawn.afterTutorial.position.x)<0.01 and math.abs(p.y-LightRpConfig.spawn.afterTutorial.position.y)<0.01,"the city point after the guide")
+LightRP.housing=nil
 assert(T.spawnPoint(1)==nil,"the city step wakes up by the usual rules")
 assert(state().where=="city" and #state().lines==3 and state().objective==nil,"the last word is a message, in the city")
 action("pause");action("resume");assert(state().step=="outro","the checkpoint survives a pause")

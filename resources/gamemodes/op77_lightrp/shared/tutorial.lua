@@ -183,7 +183,7 @@ LightRpTutorialConfig = {
             lines = {
                 { text = "There you go: a name, money, wheels to rent, and a way to earn. In the city, sanitation and scrap work exactly like the practice you just did; the job center hands out the rest.", demo = "work" },
                 "Which job you take is your story, not mine: the job center, the shops, the rental desk and the wardrobe are marked on your map out there. Respect the people you meet.",
-                "One last thing: Night City Housing gave you a starter studio in Kabuki. This door takes you straight home. You can come back to this guide any time with /tutorial. Ready?",
+                "One last thing: Night City Housing gave you a starter studio in Kabuki: the Kabuki Studios door is on your map. This door takes you into the city. You can come back to this guide any time with /tutorial. Ready?",
             } },
         outro = { index = 15, where = "city", kind = "outro", action = "See you around, Mara", title = "The rest is your story",
             hint = "You know how to get started. Find a job, explore or meet your neighbours.",
