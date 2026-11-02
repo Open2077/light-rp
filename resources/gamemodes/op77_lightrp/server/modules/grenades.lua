@@ -199,7 +199,8 @@ CreateThread(function()
  while true do
   for _,id in ipairs(GetPlayers())do
    local player=tonumber(id);local rt=runtime(player)
-   if rt and not rt.busy and not rt.quarantine then
+   -- an activity's own kit owns the native slots: no RP grenade projection over it
+   if rt and not rt.busy and not rt.quarantine and not(LightRP.activities and LightRP.activities.current(player)and not LightRP.activities.allows(player,"rpWeapons"))then
     if not rt.grenade then G.start(player,"sync")
     elseif rt.grenade.ready and rt.grenade.projected then G.start(player,"observe")end
    end

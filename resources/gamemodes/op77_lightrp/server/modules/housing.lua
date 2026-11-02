@@ -19,6 +19,7 @@ local function activePlayer(player)
     if not c or (LightRP.characters.switching or {})[player] then return nil,"Finish loading your character first." end
     if not life or life.phase~="alive" then return nil,"You cannot do that right now." end
     if Open77.vehicles.getPlayerSeat(player) then return nil,"Step out of the vehicle first." end
+    if LightRP.activities and LightRP.activities.owns(player) then return nil,"Not during an activity or a mission." end
     return c
 end
 function H.allowed(player)

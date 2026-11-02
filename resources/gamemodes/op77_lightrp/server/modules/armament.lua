@@ -74,6 +74,8 @@ W.arsenal = arsenal
 function W.standsAside(player)
     return (LightRP.missions and LightRP.missions.handlesLoadout and LightRP.missions.handlesLoadout(player))
         or (LightRP.cyberware and LightRP.cyberware.handlesLoadout and LightRP.cyberware.handlesLoadout(player))
+        -- an activity without caps.rpWeapons hands out its own (server/modules/activities.lua)
+        or (LightRP.activities and not LightRP.activities.allows(player, "rpWeapons"))
         or false
 end
 function W.view(player)

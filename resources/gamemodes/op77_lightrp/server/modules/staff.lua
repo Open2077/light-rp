@@ -100,10 +100,42 @@ function Staff.heal(playerId)
     return true
 end
 
-function Staff.announce(text)
-    LightRP.chat.broadcast("STAFF", text, Config.chat.colors.staff)
-    LightRP.broadcastNotice({ kind = "staff", title = "Staff announcement", body = text, durationMs = 12000 })
+-- `opts` (another resource's announcement, below): { title, durationMs }; the
+-- title also signs the chat line. Without it: the staff announcement.
+function Staff.announce(text, opts)
+    local title = type(opts) == "table" and opts.title or nil
+    LightRP.chat.broadcast(title and title:upper() or "STAFF", text, Config.chat.colors.staff)
+    LightRP.broadcastNotice({ kind = "staff", title = title or "Staff announcement", body = text,
+        durationMs = type(opts) == "table" and opts.durationMs or 12000 })
 end
+
+-- The same announcement for other server resources (op77_fireworks...):
+--   TriggerEvent("op77_lightrp:announce", text, { title = "Opening night", durationMs = 10000 })
+-- A host-wide server event: never a network event, a client cannot raise it.
+local lastResourceAnnounce = -math.huge
+local function announceText(value, min, max)
+    if type(value) ~= "string" then return nil end
+    value = value:gsub("%c", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    if #value < min then return nil end
+    if #value > max then
+        local cut = max
+        while cut > 0 do local b = value:byte(cut + 1); if not b or b < 0x80 or b >= 0xC0 then break end; cut = cut - 1 end
+        value = value:sub(1, cut)
+    end
+    return value
+end
+AddEventHandler("op77_lightrp:announce", function(text, opts)
+    text = announceText(text, 2, 200)
+    if not text then return end
+    local now = LightRP.nowMs()
+    if now - lastResourceAnnounce < 1000 then LightRP.log("announce dropped (one per second): %s", text); return end
+    lastResourceAnnounce = now
+    opts = type(opts) == "table" and opts or {}
+    local duration = tonumber(opts.durationMs) or 12000
+    if duration ~= duration then duration = 12000 end
+    duration = math.floor(math.max(3000, math.min(30000, duration)))
+    Staff.announce(text, { title = announceText(opts.title, 1, 40), durationMs = duration })
+end)
 
 function Staff.report(playerId, message)
     if not LightRP.support then return false end

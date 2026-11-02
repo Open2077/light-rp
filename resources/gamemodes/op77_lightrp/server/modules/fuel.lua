@@ -246,6 +246,8 @@ local function tick(snapshot, dtSeconds)
     local flagEngine, flagDestroyed = flagsOf()
     local flags = tonumber(snapshot.flags) or 0
     if flagDestroyed ~= 0 and (flags & flagDestroyed) ~= 0 then return end
+    -- an activity's own cars (its routing bucket) run on its rules, not on RP fuel
+    if LightRP.activities and LightRP.activities.ownsBucket(snapshot.bucket) then return end
     local tank = tankOf(id, snapshot)
     if tank == nil then return end
     if tank.litres <= 0 then

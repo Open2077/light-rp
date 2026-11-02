@@ -156,6 +156,7 @@ end
 -- remote: asked from the player menu rather than at a job center desk; only a
 -- route with `remoteDispatch` accepts it.
 function Runs.start(id, remote)
+    if LightRP.activities and LightRP.activities.owns(id) then return false, "Not during an activity or a mission." end
     if LightRP.jobWork and LightRP.jobWork.isActive(id) then return false, "Stop your current item work first (Escape)." end
     if Runs.isBusy(id) then return false, "Please wait for the current operation to finish." end
     if runs[id] then push(id); return false, "Finish or cancel your current work order first." end

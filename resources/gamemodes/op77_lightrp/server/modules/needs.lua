@@ -31,7 +31,8 @@ local function tick()
     for _, playerId in ipairs(GetPlayers()) do
         local c = character(playerId)
         local life = Open77.players.getLifeState(playerId)
-        if c and life and life.phase == "alive" then
+        -- frozen while a mission or an activity owns the player (unless its caps say otherwise)
+        if c and life and life.phase == "alive" and (not LightRP.activities or LightRP.activities.allows(playerId, "needs")) then
             local before = { food = c.food or 100, drink = c.drink or 100 }
             c.food = math.max(0, before.food - Config.foodPerTick)
             c.drink = math.max(0, before.drink - Config.drinkPerTick)

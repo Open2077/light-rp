@@ -119,8 +119,11 @@ function Spawn.onLifeState(playerId, phase)
     if LightRP.medical and LightRP.medical.handlesDeath(playerId) then return end
     -- a mission respawns its own operators (in its arena, or at the point when it ends)
     if LightRP.missions and LightRP.missions.handlesDeath and LightRP.missions.handlesDeath(playerId) then return end
+    -- ... and so does an activity (server/modules/activities.lua)
+    if LightRP.activities and LightRP.activities.owns(playerId) then return end
     SetTimeout(Config.spawn.respawnDelayMs, function()
         if LightRP.missions and LightRP.missions.handlesDeath and LightRP.missions.handlesDeath(playerId) then return end
+        if LightRP.activities and LightRP.activities.owns(playerId) then return end
         local current = Open77.players.getLifeState(playerId)
         if current == nil or current.phase ~= "dead" then return end
         -- During a hall step of the first day guide: back at the hall's door.

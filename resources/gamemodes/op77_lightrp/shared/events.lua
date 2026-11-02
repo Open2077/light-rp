@@ -74,6 +74,7 @@ LightRpEvents = {
         workGps = "op77_lightrp:work:gps",
         jobGps = "op77_lightrp:job:gps",
         vehicleGps = "op77_lightrp:vehicle:gps", -- server -> client: route to a vehicle just bought (or the garage holding it)
+        activitiesGps = "op77_lightrp:activities:gps", -- server -> client: route to a contract board or The Crossing (activities_hub.lua)
         consume = "op77_lightrp:consume:state", -- server-owned preparation / playback / finish
         consumeReady = "op77_lightrp:consume:ready",
         consumeFinish = "op77_lightrp:consume:finish",

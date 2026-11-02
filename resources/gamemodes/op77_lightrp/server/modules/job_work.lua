@@ -126,6 +126,7 @@ function Work.begin(id,pointId)
     if now-(lastBegin[id] or -1000)<500 then return false,"Please wait a moment." end
     lastBegin[id]=now
     if sessions[id] then return false,"You are already working. Escape stops the current activity." end
+    if LightRP.activities and LightRP.activities.owns(id) then return false,"Not during an activity or a mission." end
     if not open(id,p) then return false,"This practice site belongs to the first day guide. Follow your current objective." end
     if not employed(id,p.job,p.definition) then return false,hireText(p.job) end
     if not valid(id,p) then return false,"Stand on foot at the work point with an active, living character." end

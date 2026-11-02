@@ -360,6 +360,10 @@ local function draw(playerId)
         notice(playerId, "warning", "MANTIS BLADES", "Not during this mission.")
         return
     end
+    if LightRP.activities and not LightRP.activities.allows(playerId, "rpWeapons") then
+        notice(playerId, "warning", "MANTIS BLADES", "Not during this activity.")
+        return
+    end
     -- Safe zones take weapons away (clinics are in one): say so instead of failing silently.
     local zones = LightRP.safezones
     if zones and type(zones.protected) == "function" then

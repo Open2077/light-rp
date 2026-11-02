@@ -722,6 +722,7 @@ local function applyUse(playerId, slot, expected)
 end
 
 function Inv.use(playerId, slot)
+    if LightRP.activities and not LightRP.activities.allows(playerId, "rpItems") then return false, "activity" end
     local inv = Inv.player(playerId)
     if not inv then return false, "no_inventory" end
     slot = math.floor(tonumber(slot) or 0)
@@ -923,6 +924,7 @@ end
 
 -- Drop on the ground: into the pile at your feet, or a new one.
 function Inv.drop(playerId, slot, count)
+    if LightRP.activities and not LightRP.activities.allows(playerId, "rpItems") then return false, "activity" end
     local inv = Inv.player(playerId)
     if inv == nil then return false, "no_inventory" end
     slot = math.floor(tonumber(slot) or 0)
@@ -951,6 +953,7 @@ end
 
 -- Hand to the closest player within reach.
 function Inv.give(playerId, slot, count)
+    if LightRP.activities and not LightRP.activities.allows(playerId, "rpItems") then return false, "activity" end
     local inv = Inv.player(playerId)
     if inv == nil then return false, "no_inventory" end
     slot = math.floor(tonumber(slot) or 0)
@@ -1212,6 +1215,7 @@ local REASONS = {
     use_failed = "This item could not be used. It has not been consumed.",
     trunk_unavailable = "The trunk could not be opened.",
     busy = "Your inventory is busy. Wait for the current operation to finish.",
+    activity = "Your RP items stay put away during this activity.",
 }
 local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
 Inv.explain = explain

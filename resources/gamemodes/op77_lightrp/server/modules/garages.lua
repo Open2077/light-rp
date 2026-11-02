@@ -49,6 +49,7 @@ local function guard(id, place)
     if not ok then return false, why end
     if not identity(id) then return false, "Finish loading your character first." end
     if (LightRP.characters.switching or {})[id] then return false, "Your character is changing. Please wait." end
+    if LightRP.activities and not LightRP.activities.allows(id, "vehicles") then return false, "Not during an activity." end
     local life, p = Open77.players.getLifeState(id), Open77.players.position(id)
     if not life or life.phase ~= "alive" then return false, "You cannot use the garage right now." end
     if not place or not p or (p.bucket or 0) ~= place.bucket or distance(p, place.position) > (place.interactRadius or C.interactRadius) + 0.75 then

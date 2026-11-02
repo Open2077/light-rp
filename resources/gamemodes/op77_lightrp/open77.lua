@@ -111,6 +111,9 @@ server_script "server/modules/camera.lua"
 server_script "server/config/cyberware.lua"
 server_script "server/modules/cyberware.lua"
 server_script "server/modules/ripperdoc.lua"
+server_script "server/config/activities.lua"
+server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
+server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
 server_script "server/main.lua"
 
 -- Client: core first, then modules.
@@ -131,6 +134,7 @@ client_script "client/core/weapon_wheel.lua"
 client_script "client/core/map_places.lua"
 client_script "client/core/homes.lua"
 client_script "client/core/vehicle_gps.lua"
+client_script "client/core/activities.lua"     -- Neural-Link app "Gigs & Arena", contract GPS
 client_script "client/core/cyberware.lua"
 client_script "client/core/wardrobe.lua"
 client_script "client/core/keys.lua"
