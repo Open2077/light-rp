@@ -59,11 +59,11 @@ LightRpActivities = {
         -- Terminals around the arrival point. `offset` is in metres from the
         -- center, along its heading (forward) and to its right; `position`
         -- (absolute, from /lightrp.survey) replaces the offset once surveyed.
+        -- One terminal: the panel has the Contracts tab (a `kind = "contracts"`
+        -- terminal would open the same panel on that tab).
         terminals = {
             { id = "board", kind = "activities", label = "The Crossing",
-                prompt = "Open the activities board", offset = { forward = 5.0, right = -2.0 } }, -- survey in game
-            { id = "contracts", kind = "contracts", label = "Contracts",
-                prompt = "Browse the contract boards", offset = { forward = 5.0, right = 2.0 } }, -- survey in game
+                prompt = "Open activities & contracts", offset = { forward = 5.0, right = 0.0 } }, -- survey in game
         },
         -- The map pin (game map + op77_map3d) on the activities terminal.
         blip = { title = "Activities", description = "The Crossing · arena, races, chases, events",
@@ -78,6 +78,6 @@ LightRpActivities = {
         delayMs = 8000,
         title = "THE CROSSING",
         body = "Arena, races, chases and events start at The Crossing, the esplanade where you arrived. "
-            .. "Its terminals are on your map; the Neural-Link app Gigs & Arena works from anywhere.",
+            .. "Its terminal is on your map; the Neural-Link app Gigs & Arena works from anywhere.",
     },
 }

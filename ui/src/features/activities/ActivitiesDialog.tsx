@@ -7,7 +7,7 @@ import { KIND_ICON, KIND_LABEL, formatClock, formatTime, mineLine, statusLine } 
 import "./activities.css";
 
 /* The Activities panel (server/modules/activities.lua, activities_hub.lua): opened
-   by The Crossing's terminals, F1 > Activities and the Neural-Link app Gigs & Arena.
+   by The Crossing's terminal, F1 > Activities and the Neural-Link app Gigs & Arena.
    Three tabs: the activities (status, join / leave, your record, the leaderboard),
    the contract boards of the city (a GPS route to each) and the squad. Everything
    comes from the `activities` and `party` state; nothing is assumed. */

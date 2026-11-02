@@ -1,8 +1,8 @@
 -- The Crossing: the activities hub on the Westbrook esplanade where newcomers
--- arrive (server/config/activities.lua). Two terminals beside the arrival point:
--- the activities board (the Activities panel, with its map pin) and the
--- contracts board (the mission boards of the city, with a GPS route to each;
--- the mission boards themselves work as before). It also points newcomers to
+-- arrive (server/config/activities.lua). A terminal beside the arrival point
+-- opens the Activities panel (with its map pin); its Contracts tab lists the
+-- mission boards of the city, with a GPS route to each (the boards themselves
+-- work as before). A `kind = "contracts"` terminal opens the panel on that tab. It also points newcomers to
 -- The Crossing once their first day ends, and gives staff a survey command.
 local C = LightRpActivities
 local H = C.hub

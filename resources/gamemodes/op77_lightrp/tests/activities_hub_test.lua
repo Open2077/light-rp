@@ -5,6 +5,10 @@
 dofile("shared/events.lua")
 dofile("shared/config.lua")
 dofile("server/config/activities.lua")
+assert(#LightRpActivities.hub.terminals == 1, "one terminal: activities and contracts are tabs of one panel")
+-- a contracts terminal still works when a server adds one (it opens the same panel on its tab)
+table.insert(LightRpActivities.hub.terminals, { id = "contracts", kind = "contracts", label = "Contracts",
+    prompt = "Browse the contract boards", offset = { forward = 5.0, right = 2.0 } })
 local noop = function() end
 local interactions, dialogs, notices, clientEvents, timers, commands, providers = {}, {}, {}, {}, {}, {}, {}
 LightRP = {
@@ -53,7 +57,7 @@ local A, Hub = LightRP.activities, LightRP.activitiesHub
 -- terminals: forward 5 m and 2 m to the left / right of a hub facing 52.6 degrees
 local board, contracts = interactions["activities.board"], interactions["activities.contracts"]
 assert(board and contracts and board.bucket == 0)
-assert(math.abs(board.position.x - (-761.768)) < 0.01 and math.abs(board.position.y - 778.705) < 0.01, "offset along the heading")
+assert(math.abs(board.position.x - (-760.553)) < 0.01 and math.abs(board.position.y - 780.294) < 0.01, "offset along the heading")
 assert(math.abs(contracts.position.x - (-759.338)) < 0.01 and math.abs(contracts.position.y - 781.883) < 0.01)
 assert(board.blip and board.blip.title == "Activities" and board.blip.mapCategory == "mission" and board.blip.map == "crossing", "the map pin")
 assert(contracts.blip == nil, "one pin for the hub")

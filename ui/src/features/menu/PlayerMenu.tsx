@@ -99,7 +99,7 @@ function jobNodes(job: JobState, run: JobRunState | undefined, money: MoneyState
 function activityItems(act: ActivitiesState | undefined): RageMenuItem[] {
   const items: RageMenuItem[] = [{ id: "activities", type: "item", text: "Activities", icon: "swords",
     meta: act?.current ? "IN PLAY" : act?.queued ? "WAITING" : act ? `${act.list.length} OPEN` : undefined,
-    description: "Arena, races, chases and events: status, join, your record and the leaderboards. The Crossing's terminals and the Neural-Link app Gigs & Arena open the same panel." }];
+    description: "Arena, races, chases and events: status, join, your record and the leaderboards. The Crossing's terminal and the Neural-Link app Gigs & Arena open the same panel." }];
   if (act?.current && !act.current.returning) items.push({ id: "activity-leave", type: "item", text: `Leave ${act.current.label}`, icon: "log-out", danger: true,
     disabled: act.current.leaving, description: "Ends your participation. You come back where you were before it started, healed, with your own weapons." });
   else if (act?.queued) items.push({ id: "activity-leave", type: "item", text: `Cancel ${act.queued.label}`, icon: "x",
