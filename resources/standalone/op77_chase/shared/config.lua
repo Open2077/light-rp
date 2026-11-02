@@ -248,6 +248,7 @@ ChaseConfig.wanted = {
         notReadyNoticeSeconds = 30,
         announce = true,            -- op77_lightrp:announce when a lobby countdown starts
         announceEverySeconds = 300,
+        squadHoldSeconds = 10,      -- a crew waits this long for crewmates still on their way
     },
 
     match = {
