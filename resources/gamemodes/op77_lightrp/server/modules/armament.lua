@@ -40,6 +40,32 @@ local function handState(rt,s,hand)
         ammo=spec.ammo,class=spec.class,dual=spec.dual==true,
         magazine=observed and observed.magazine,capacity=observed and observed.capacity}
 end
+-- Every serialized weapon in the pockets, for the weapon wheel: handguns first,
+-- then by class and name, with the rounds of its ammunition type in the pockets.
+local CLASS_ORDER = { pistol = 1, revolver = 2, smg = 3, shotgun = 4, rifle = 5, lmg = 6, precision = 7, sniper = 8 }
+local function arsenal(inv, s)
+    local list = {}
+    for slot, item in pairs(inv and inv.items or {}) do
+        local spec = C.weapons[item.name]
+        local id = spec and type(item.metadata) == "table" and item.metadata.instanceId
+        if id then
+            local template = LightRpItems[item.name] or {}
+            list[#list + 1] = { slot = slot, instanceId = id, name = item.name, label = spec.label, class = spec.class,
+                ammo = spec.ammo, ammoLabel = C.ammo[spec.ammo] and C.ammo[spec.ammo].label, rounds = rounds(inv, spec.ammo),
+                image = template.image, dual = spec.dual == true,
+                hand = s and (s.right == id and "right" or s.left == id and "left") or nil }
+        end
+    end
+    table.sort(list, function(a, b)
+        local ca, cb = CLASS_ORDER[a.class] or 9, CLASS_ORDER[b.class] or 9
+        if ca ~= cb then return ca < cb end
+        if a.label ~= b.label then return a.label < b.label end
+        return a.instanceId < b.instanceId
+    end)
+    while #list > 15 do table.remove(list) end
+    return list
+end
+W.arsenal = arsenal
 function W.view(player)
     local rt=W.runtime[player];local inv=Inv.player(player)
     if not rt or not inv or not current(rt) then return {ready=false,busy=false,revision=0,ammo={pistol={remaining=0,label="Pistol rounds"}},error="Your character inventory is not ready."} end
@@ -47,7 +73,7 @@ function W.view(player)
     local stock={};for kind,spec in pairs(C.ammo) do stock[kind]={remaining=rounds(inv,kind),label=spec.label,item=spec.item} end
     return {inventoryId=inv.id,generation=rt.epoch,ready=Db.ready and rt.ready==true,busy=rt.busy==true and not rt.observing,revision=s and s.revision or 0,
         right=handState(rt,s,"right"),left=handState(rt,s,"left"),
-        ammo=stock,error=rt.error}
+        ammo=stock,error=rt.error,holstered=rt.holstered==true,arsenal=arsenal(inv,s)}
 end
 function W.push(player)
     local rt=W.runtime[player]
@@ -244,6 +270,12 @@ local function project(rt)
     snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
     local verified,verificationError=readback(rt,rowsOf(snapshot))
     if verified then rt.projectedRecords={[1]=d.right.record};if d.left then rt.projectedRecords[4]=d.left.record end end
+    -- a character coming into the world (connect, respawn) gets its loadout back in
+    -- the holster, never in its hands; so does a pocket refresh of holstered hands
+    if verified and rt.holstered then
+        local holstered,why=native(rt,"holster","holster")
+        if not holstered then LightRP.log("armament: holster after projection refused for %d: %s",rt.player,tostring(why)) end
+    end
     return verified,verificationError
 end
 -- Characters from before rounds were items kept a hidden pistol stock (s.ammo).
@@ -350,6 +382,23 @@ local function apply(player,p,inv,reserved)
         local otherItem=other and W.find(inv,other)
         if otherItem and C.weapons[otherItem.name].record==C.weapons[item.name].record then return false,"Two identical pistol models are not supported by this tested projection yet." end
         nextState[p.hand]=p.instanceId
+        rt.holstered=false
+    elseif p.operation=="select" then
+        if missionLoadout(player) then return false,"Your mission loadout is in your hands." end
+        if p.unarmed==true then
+            nextState.right,nextState.left=nil,nil
+        else
+            local item=type(p.instanceId)=="string" and W.find(inv,p.instanceId)
+            if not item then return false,"That weapon is no longer in your pockets." end
+            local spec=C.weapons[item.name]
+            if nextState.left==p.instanceId then nextState.left=nil end
+            -- a handgun keeps its left-hand partner; anything else holds the right hand alone
+            local partner=nextState.left and W.find(inv,nextState.left)
+            local partnerSpec=partner and C.weapons[partner.name]
+            if not (spec.dual and partnerSpec and partnerSpec.dual and partnerSpec.record~=spec.record) then nextState.left=nil end
+            nextState.right=p.instanceId
+            rt.holstered=false
+        end
     elseif p.operation=="unequip" then
         if p.hand~="right" and p.hand~="left" then return false,"Choose a hand." end
         if p.instanceId and nextState[p.hand]~=p.instanceId then return false,"The equipped firearm changed." end
@@ -423,7 +472,7 @@ local function attach(player)
     local prior=W.runtime[player]
     if prior and current(prior) then return end
     epochs[player]=(epochs[player] or 0)+1
-    local rt={player=player,inventory=inv.id,epoch=epochs[player],ready=false,busy=false,observed={}}
+    local rt={player=player,inventory=inv.id,epoch=epochs[player],ready=false,busy=false,observed={},holstered=true}
     W.runtime[player]=rt
     local s,why=W.load(inv)
     if not s then rt.error=why;W.push(player);return end
@@ -471,10 +520,10 @@ RegisterNetEvent(NET,function(p)
             rt.busy=true;W.push(player)
             CreateThread(function()
                 local result,why=native(rt,"holster","holster")
-                if current(rt) then rt.busy=false;rt.error=result and nil or why;W.push(player) end
+                if current(rt) then rt.busy=false;rt.error=result and nil or why;if result then rt.holstered=true end;W.push(player) end
             end)
         end
-    elseif operation=="equip" or operation=="unequip" or operation=="ammo" then
+    elseif operation=="equip" or operation=="unequip" or operation=="ammo" or operation=="select" then
         ok,error=beginMutation(player,p,function(accepted,why)
             if not current(rt) then return end
             TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=accepted,error=why,data={state=W.view(player)}})

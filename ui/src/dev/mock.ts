@@ -125,6 +125,8 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.missionEditor) { missionEditor.receive(payload); return; }
       if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
       if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
+    // the weapon wheel: Lua releases the focus and answers commit / cancel
+    if (name === "lightrp:ui:weaponwheel") { const p = payload as { kind?: string; commit?: boolean }; if (p?.kind === "close") fire("lightrp:ui:weaponwheel", { kind: p.commit ? "commit" : "cancel" }); return; }
       if (name === PAGE_EVENTS.ready) {
         setTimeout(() => {
           // ?run=courier|task: an active work order; &near=1 stands on the marker
@@ -145,6 +147,14 @@ export function installMockBridge(): void {
           safezones.boot();
           missionEditor.boot();
           armament.boot();
+  // ?wheel=N: hold Control to open the wheel (as the CTRL key mapping does), ?wheelopen=1 opens it at once
+  if (params.has("wheel")) {
+    let open = false;
+    const show = () => { if (!open) { open = true; fire("lightrp:ui:weaponwheel", { kind: "open", key: "CTRL" }); } };
+    window.addEventListener("keydown", e => { if (e.key === "Control") show(); });
+    window.addEventListener("keyup", e => { if (e.key === "Control" && open) { open = false; fire("lightrp:ui:weaponwheel", { kind: "commit" }); } });
+    if (params.get("wheelopen") === "1") setTimeout(show, 600);
+  }
           fire(PAGE_EVENTS.state, state);
           fire(PAGE_EVENTS.hud, hud);
           if (runKind) fire(PAGE_EVENTS.jobRun, { distance: params.get("near") === "1" ? 2 : 438, menuKey: "F1", gps: params.get("gps") !== "0" });

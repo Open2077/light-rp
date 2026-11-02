@@ -281,7 +281,12 @@ export interface InventorySnapshot {
 export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot; toggleKey?: string }
 export interface GrenadeState { ready: boolean; busy: boolean; revision: number; selected?: string; label?: string; count: number; error?: string }
 export type ArmamentHand = "right" | "left";
-export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "ammo" | "sync";
+export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "ammo" | "sync" | "select";
+/** A serialized weapon in the pockets, as the weapon wheel lists it. */
+export interface ArsenalWeapon {
+  slot: number; instanceId: string; name: string; label: string; class?: string; ammo?: string; ammoLabel?: string;
+  rounds?: number; image?: string; dual?: boolean; hand?: "right" | "left";
+}
 export interface ArmamentWeapon {
   instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;
   magazine?: number; capacity?: number; ammo?: string; class?: string; dual?: boolean;
@@ -289,10 +294,11 @@ export interface ArmamentWeapon {
 export interface ArmamentState {
   ready: boolean; busy: boolean; revision: number;
   right?: ArmamentWeapon; left?: ArmamentWeapon;
+  holstered?: boolean; arsenal?: ArsenalWeapon[];
   ammo: { pistol: { remaining: number; label: string; item?: string } } & Record<string, { remaining: number; label: string; item?: string } | undefined>;
   error?: string;
 }
-export interface ArmamentArgs { slot?: number; instanceId?: string; hand?: ArmamentHand; baseRevision?: number }
+export interface ArmamentArgs { slot?: number; instanceId?: string; hand?: ArmamentHand; baseRevision?: number; unarmed?: boolean }
 export interface ArmamentPending {
   operation: Exclude<ArmamentOperation, "state">; args: ArmamentArgs; mutation: string;
   uncertain: boolean;

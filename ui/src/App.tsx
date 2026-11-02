@@ -33,6 +33,7 @@ import { Medical } from "@/features/medical/Medical";
 import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
 import { MissionObjectiveHud } from "@/features/missions/MissionObjectiveHud";
+import { WeaponWheel } from "@/features/weaponwheel/WeaponWheel";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -88,6 +89,7 @@ export function App() {
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
+      <ErrorBoundary name="weapon-wheel"><WeaponWheel /></ErrorBoundary>
       <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>
       <ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary>
       <ErrorBoundary name="wizard"><CharacterWizard /></ErrorBoundary>

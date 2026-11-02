@@ -62,6 +62,8 @@ RegisterNetEvent(NET, function(payload)
     send(payload)
 end)
 function Armament.state() return cached and cached.state end
+-- a fresh state push (the weapon wheel asks when it opens)
+function Armament.refresh() forward({operation="state"}) end
 
 function Armament.bind(page)
     selectionControls(true)

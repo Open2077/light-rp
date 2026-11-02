@@ -83,6 +83,7 @@ local function complete(job)
   else nativeOwned[a[1]]=true;nativeRows[a[2]]={record=a[1],capacity=a[1]:find("Nue")and 10 or 21,magazine=0}end
  elseif job.op=="remove"then nativeRows[a[1]]=nil
  elseif job.op=="clear"then nativeRows={};nativeReserve=0
+ elseif job.op=="holster"then holsterCount=(holsterCount or 0)+1
  elseif job.op=="setAmmo"then local row=nativeRows[a[1]];assert(row);row.magazine=a[2].magazine or row.magazine;nativeReserve=a[2].reserve or nativeReserve end
  local result=job.op=="snapshot"and snapshot()or{}
  for _,fn in ipairs(events["open77:weapons:completed"]or{})do fn(job.player,job.id,job.op,accepted,reason,result)end
@@ -222,7 +223,29 @@ assert(Inv.count(inv.id,"ammo_rifle")==42 and Inv.count(inv.id,"ammo_pistol")==h
 assert(Inv.addItem(inv.id,"ammo_rifle_box",1));local rifleBox=slotOf("ammo_rifle_box")
 reply=request({operation="ammo",slot=rifleBox,baseRevision=W.view(1).revision,mutation="test:family:box"});assert(reply and reply.ok);tick(1800)
 assert(Inv.count(inv.id,"ammo_rifle")==72 and Inv.count(inv.id,"ammo_rifle_box")==0 and nativeTotal()==72)
+-- The weapon wheel: the pockets' weapons, handguns first; select draws one, or empties the hands.
+local list=W.view(1).arsenal
+assert(#list>=3 and list[1].class=="pistol" and list[#list].class=="rifle","handguns first, then by class")
+for _,w in ipairs(list)do assert(w.instanceId and w.label and w.ammoLabel and w.rounds==Inv.count(inv.id,LightRpArmament.ammo[w.ammo].item),"rounds per type")end
+reply=request({operation="select",instanceId=rightItem.metadata.instanceId,baseRevision=W.view(1).revision,mutation="test:wheel:lex"});assert(reply and reply.ok);tick(1800)
+assert(W.view(1).ready and W.view(1).right.instanceId==rightItem.metadata.instanceId and not W.view(1).left and W.view(1).holstered==false,"the wheel draws the Lexington")
+for _,w in ipairs(W.view(1).arsenal)do if w.instanceId==rightItem.metadata.instanceId then assert(w.hand=="right")end end
+reply=request({operation="select",instanceId="not-a-serial-1",baseRevision=W.view(1).revision,mutation="test:wheel:missing"})
+assert(reply and not reply.ok,"a weapon that left the pockets cannot be selected")
+reply=request({operation="select",unarmed=true,baseRevision=W.view(1).revision,mutation="test:wheel:unarmed"});assert(reply and reply.ok);tick(1800)
+assert(not W.view(1).right and not W.view(1).left and next(nativeRows)==nil,"unarmed: both hands empty")
+-- Back in the world (reconnect, respawn): the weapon stays equipped but comes back holstered.
+reply=request({operation="select",instanceId=rightItem.metadata.instanceId,baseRevision=W.view(1).revision,mutation="test:wheel:again"});assert(reply and reply.ok);tick(1800)
+local holstersBefore=holsterCount or 0
+hooks.armament.onLifeState(1,"dead");hooks.armament.onLifeState(1,"alive");tick(1800)
+assert(W.view(1).ready and W.view(1).right and W.view(1).holstered==true and (holsterCount or 0)>holstersBefore,"equipped, but holstered")
+-- a pocket refresh of holstered hands stays holstered
+holstersBefore=holsterCount;assert(Inv.addItem(inv.id,"ammo_pistol",5));tick(4500)
+assert(W.view(1).holstered==true and holsterCount>holstersBefore,"reprojection keeps the holster")
+-- selecting the holstered weapon draws it again
+reply=request({operation="select",instanceId=rightItem.metadata.instanceId,baseRevision=W.view(1).revision,mutation="test:wheel:draw"});assert(reply and reply.ok);tick(1800)
+assert(W.view(1).holstered==false and W.view(1).right.instanceId==rightItem.metadata.instanceId)
 local dup=Inv.draft(inv);dup.items[20]={name=rightItem.name,count=1,metadata={instanceId=rightItem.metadata.instanceId}}
 assert(not Inv.commitDrafts({{inv,dup}}),"duplicate serial refused")
-print("PASS: serialized grants, draft isolation, SQL rollback, atomic boxes/replay, async equip, equipped-transfer and ephemeral-storage guards, spent-ammo sync, shared dual pool, rounds as inventory items (shots, purchases, drops, increases, empty), legacy stock migration, weapon families (handgun pairs only, rifle pool apart), timeout quarantine and stale completions")
+print("PASS: serialized grants, draft isolation, SQL rollback, atomic boxes/replay, async equip, equipped-transfer and ephemeral-storage guards, spent-ammo sync, shared dual pool, rounds as inventory items (shots, purchases, drops, increases, empty), legacy stock migration, weapon families (handgun pairs only, rifle pool apart), weapon wheel (arsenal, select, unarmed, holstered on return), timeout quarantine and stale completions")
 ''')
