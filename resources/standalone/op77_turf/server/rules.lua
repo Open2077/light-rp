@@ -197,7 +197,8 @@ function R.stepZone(zone, counts, dt, cap)
     end
     zone.capturing = s
     zone.progress = zone.progress + rate
-    if zone.progress >= 1.0 then
+    -- (fifteen 1/15 steps sum to 0.9999...: a hair of slack keeps 15 s at 15 s)
+    if zone.progress >= 1.0 - 1e-9 then
         local previous = zone.owner
         zone.owner, zone.capturing, zone.progress = s, nil, 0.0
         return { kind = "captured", side = s, previous = previous, zone = zone.def.id }

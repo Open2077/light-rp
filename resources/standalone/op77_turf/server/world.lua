@@ -54,15 +54,10 @@ function W.connected(id)
     return false
 end
 
+-- No ambient population in a war bucket (the forms Freeroam's PvP arena and op77_chase use).
 function W.setupBucket(bucket)
-    local rb = Open77.routingBuckets
-    if type(rb) == "table" and type(rb.setPopulationEnabled) == "function" then
-        pcall(rb.setPopulationEnabled, bucket, false)
-        if type(rb.setLockdownMode) == "function" then pcall(rb.setLockdownMode, bucket, "relaxed") end
-    else
-        pcall(SetRoutingBucketPopulationEnabled, bucket, false)
-        pcall(SetRoutingBucketEntityLockdownMode, bucket, "relaxed")
-    end
+    pcall(SetRoutingBucketPopulationEnabled, bucket, false)
+    pcall(SetRoutingBucketEntityLockdownMode, bucket, "relaxed")
 end
 
 -- Loading cover (op77_loadscreen, optional): an id, or nil when the resource is absent.

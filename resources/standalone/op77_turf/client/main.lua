@@ -200,6 +200,8 @@ end)
 
 RegisterNetEvent("op77_turf:clear", function()
     clearHud()
+    -- The server's fallback flag lives with each war entry: try (and report) again next time.
+    hud.missing = false
     removeZones()
     state = { shared = nil, personal = nil, board = nil, site = nil, queued = nil }
 end)
