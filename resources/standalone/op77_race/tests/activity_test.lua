@@ -13,6 +13,8 @@ H.test("registration matches the contract", function()
     H.eq(def.minPlayers, 1); H.eq(def.maxPlayers, 1)
     H.eq(def.caps.rpWeapons, false); H.eq(def.caps.rpItems, false); H.eq(def.caps.needs, false); H.eq(def.caps.vehicles, false)
     H.eq(H.core.registered["race.grid"].maxPlayers, 8)
+    H.eq(def.modeKey, "course", "a trial is joined with a course")
+    H.eq(H.core.registered["race.grid"].modeKey, nil); H.eq(H.core.registered["race.grid"].modes, nil)
     H.eq(H.core.registered["race.foot"].minPlayers, 2)
 end)
 

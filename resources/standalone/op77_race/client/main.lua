@@ -1,22 +1,248 @@
--- op77_race client: the race page (HUD, panel, results), checkpoint visuals, sounds,
--- the rebindable keys and the staff editor preview. Nothing here decides anything:
--- the server owns admission, timing and checkpoints.
+-- op77_race client: the race in Light RP's activity HUD (op77_lightrp's client exports
+-- ActivityHudShow / Push / Clear), the checkpoint visuals, sounds, the rebindable keys
+-- and the staff editor preview. Nothing here decides anything: the server owns
+-- admission, timing and checkpoints. This resource has no page of its own.
 local Config = RaceConfig
 local P = Config.presentation or {}
 local M = RaceMarkers
+local S = RaceShared
 
-local page, pageReady, creating = nil, false, false
-local panelOpen, wantPanel = false, false
-local state, editorState, lastMenu = nil, nil, nil
+local state, editorState, queueState = nil, nil, nil
 local effects = {}         -- sfx / vfx handles of the current run
 local countdownFor = nil   -- instance:run whose countdown sound already played
+local resultFor = nil      -- instance:run whose result card was pushed
+local hudShown = false     -- the activity HUD currently shows ours
+local keys = {}
+
+local LABEL = { trial = "Time Trial", grid = "Street Race", foot = "Rooftop Race" }
+-- The Activities panel lives in Light RP: /race opens it through Light RP's own
+-- validated UI action (server/modules/activities.lua, `activities.control`).
+local CORE_ACTION = "op77_lightrp:action"
 
 local function log(level, text)
     if Open77.log and Open77.log[level] then Open77.log[level]("[race] " .. tostring(text)) end
 end
 
-local function send(name, payload)
-    if page and pageReady then pcall(page.send, page, name, payload) end
+-- ---------------------------------------------------------------- HUD bridge --
+
+-- The core's client exports are synchronous and raise when op77_lightrp is down:
+-- every call is wrapped and becomes false, reason.
+local function core(name, ...)
+    local ok, first, second = pcall(function(...)
+        local proxy = exports[Config.core]
+        return proxy[name](proxy, ...)
+    end, ...)
+    if not ok then return false, "core_unavailable" end
+    return first, second
+end
+
+local function push(kind, item)
+    local ok, why = core("ActivityHudPush", kind, item)
+    if not ok then log("debug", ("activity HUD %s: %s"):format(kind, tostring(why))) end
+    return ok == true
+end
+
+local function decode(value)
+    if type(value) == "table" then return value end
+    if type(value) ~= "string" or value == "" then return nil end
+    local codec = type(Open77.json) == "table" and Open77.json or (type(json) == "table" and json or nil)
+    if codec == nil or type(codec.decode) ~= "function" then return nil end
+    local ok, decoded = pcall(codec.decode, value)
+    return ok and type(decoded) == "table" and decoded or nil
+end
+
+local time = S.formatTime -- 1:23.456, the precision results are decided at
+
+local function plural(n, word) return ("%d %s%s"):format(n, word, n == 1 and "" or "s") end
+
+local function hints(list)
+    local out = {}
+    for _, h in ipairs(list) do if h.key then out[#out + 1] = h end end
+    return out
+end
+
+-- ---------------------------------------------------------------- views --
+
+local function subtitleOf(s)
+    local course = type(s.course) == "table" and s.course or {}
+    local parts = {}
+    if course.name then parts[#parts + 1] = course.name end
+    if not course.onFoot and course.vehicle then parts[#parts + 1] = course.vehicle end
+    return table.concat(parts, " · ")
+end
+
+-- The live ranking (two racers or more), our row marked.
+local function ranking(s)
+    local rows = decode(s.rows)
+    if type(rows) ~= "table" or #rows < 2 then return nil end
+    for _, row in ipairs(rows) do row.self = row.id == s.self end
+    return rows
+end
+
+local function placeOf(s, rows)
+    if s.place then return s.place end
+    for _, row in ipairs(rows or {}) do if row.self then return row.rank end end
+    return nil
+end
+
+local function board(s, rows)
+    local total = tonumber(s.progressTotal) or 0
+    local out = {}
+    for _, row in ipairs(rows) do
+        local outOfRace = row.state == "dnf" or row.state == "left"
+        out[#out + 1] = {
+            name = row.name,
+            self = row.self or nil,
+            values = {
+                total > 0 and ("%d/%d"):format(row.progress or 0, total) or tostring(row.progress or 0),
+                row.state == "finished" and time(row.timeMs) or outOfRace and "OUT" or "-",
+            },
+        }
+    end
+    return { columns = { "CP", "TIME" }, rows = out }
+end
+
+local function raceHud(s)
+    local rows = ranking(s)
+    local laps = tonumber(s.laps) or 1
+    local view = {
+        activity = s.activity, title = LABEL[s.mode] or s.label or "Race", subtitle = subtitleOf(s),
+        progress = { { id = "course", label = "Course",
+            value = (tonumber(s.progressTotal) or 0) > 0 and (s.completed or 0) / s.progressTotal or 0 } },
+    }
+    local checkpoint = { label = "Checkpoint", value = ("%d/%d"):format(s.completed or 0, s.progressTotal or 0) }
+    local lap = laps > 1 and { label = "Lap", value = ("%d/%d"):format(math.min(s.lap or 1, laps), laps) } or nil
+    if s.mode == "trial" then
+        view.stats = { checkpoint, lap,
+            { label = "Personal best", value = s.personalBestMs and time(s.personalBestMs) or "-" },
+            { label = "Record", value = s.recordMs and time(s.recordMs) or "-" } }
+    else
+        local place = placeOf(s, rows)
+        view.stats = { { label = "Position", value = place and ("%d/%d"):format(place, rows and #rows or s.racers or 1) or "-" },
+            checkpoint, lap, laps > 1 and { label = "Best lap", value = s.bestLapMs and time(s.bestLapMs) or "-" } or nil }
+    end
+    -- a list with holes would stop at the first nil
+    local stats = {}
+    for i = 1, 4 do if view.stats[i] then stats[#stats + 1] = view.stats[i] end end
+    view.stats = stats
+    if rows then view.scoreboard = board(s, rows) end
+    view.hints = hints({
+        s.canRestart and { key = keys.restart, label = "Restart" } or {},
+        s.canRespawn and { key = keys.respawn, label = "Last checkpoint" } or {},
+        { key = "/race.leave", label = "Quit" },
+    })
+
+    local phase, racer = s.phase, s.state
+    if phase == "loading" then
+        view.phase, view.objective = "countdown", rows and "Waiting for the grid" or "Get ready"
+    elseif phase == "countdown" then
+        -- 10 ms or less would read as seconds: the last instant is a plain 0
+        local left = math.floor(tonumber(s.remainingMs) or 0)
+        view.phase, view.countdown = "countdown", left > 10 and left or 0
+    elseif phase == "active" and racer == "racing" then
+        view.phase = "running"
+        view.timer = { remainingMs = math.floor(tonumber(s.elapsedMs) or 0), label = "TIME", countUp = true }
+        if type(s.next) == "table" and s.next.finish then view.objective = "Cross the finish line" end
+    elseif phase == "active" or phase == "results" or phase == "closing" then
+        view.phase = "ended"
+        if racer == "finished" then
+            view.timer = { remainingMs = math.floor(tonumber(s.timeMs) or 0), label = "TIME", countUp = true }
+            if phase == "active" then view.objective = "Finished. Waiting for the others." end
+        elseif racer == "dnf" or racer == "left" then
+            view.objective = "Out of the race"
+        end
+        if phase == "results" then
+            view.timer = { remainingMs = math.floor(tonumber(s.remainingMs) or 0), label = "BACK IN" }
+        end
+    else
+        view.phase = "running"
+    end
+    return view
+end
+
+local function queueHud(q)
+    local queued, minimum, maximum = tonumber(q.queued) or 1, tonumber(q.minPlayers) or 2, tonumber(q.maxPlayers) or 8
+    local view = {
+        activity = q.activity, title = q.label or LABEL[q.mode] or "Race", subtitle = "In the queue", phase = "lobby",
+        stats = { { label = "Queued", value = ("%d/%d"):format(queued, maximum) } },
+        hints = { { key = "/race.leave", label = "Leave queue" } },
+    }
+    if type(q.windowMs) == "number" then
+        view.timer = { remainingMs = math.floor(q.windowMs), label = "STARTS IN" }
+        view.objective = queued >= maximum and "Grid full" or "Grid forming. Others can still join."
+    else
+        view.objective = ("Waiting for %s"):format(plural(math.max(1, minimum - queued), "more racer"))
+    end
+    return view
+end
+
+local function editorHud(e)
+    local d = type(e.draft) == "table" and e.draft or {}
+    return {
+        activity = "race.editor", title = "Course editor", subtitle = d.name or d.id or "New course", phase = "lobby",
+        objective = e.message or "/race.editor save when you are done",
+        stats = {
+            { label = "Checkpoints", value = #(d.checkpoints or {}) },
+            { label = "Grid", value = #(d.grid or {}) },
+            { label = "Start", value = d.start and "Set" or "Missing" },
+            { label = "Laps", value = d.laps or 1 },
+        },
+        hints = hints({
+            { key = keys["editor.start"], label = "Start" },
+            { key = keys["editor.checkpoint"], label = "Checkpoint" },
+            { key = keys["editor.grid"], label = "Grid slot" },
+            { key = keys["editor.undo"], label = "Undo" },
+        }),
+    }
+end
+
+-- One HUD at a time: the editor, else the race, else the queue.
+local function render()
+    local view
+    if editorState then view = editorHud(editorState)
+    elseif state then view = raceHud(state)
+    elseif queueState then view = queueHud(queueState) end
+    if view == nil then
+        if hudShown then core("ActivityHudClear") end
+        hudShown = false
+        return true
+    end
+    local ok, why = core("ActivityHudShow", view)
+    hudShown = ok == true
+    if not hudShown then log("debug", "activity HUD: " .. tostring(why)) end
+    return hudShown
+end
+
+-- The result card, once per run, when the results arrive.
+local function pushResult(s)
+    local finished = s.state == "finished"
+    local rows = ranking(s)
+    local outcome = type(s.outcome) == "table" and s.outcome or {}
+    local item = { title = LABEL[s.mode] or "Race", subtitle = s.course and s.course.name or nil, lines = {} }
+    local function line(label, value) if value ~= nil then item.lines[#item.lines + 1] = { label = label, value = value } end end
+    if not finished then
+        item.placement = "DNF"
+    elseif rows then
+        item.placement = s.place
+    elseif outcome.courseRecord then
+        item.title = "Course record"
+    elseif outcome.personalBest then
+        item.title = "Personal best"
+    else
+        item.title = "Finished"
+    end
+    if finished then line("Time", time(s.timeMs)) end
+    if (tonumber(s.laps) or 1) > 1 and s.bestLapMs then line("Best lap", time(s.bestLapMs)) end
+    if s.mode == "trial" and finished then
+        if outcome.personalBest and outcome.previousBestMs then line("Previous best", time(outcome.previousBestMs))
+        elseif s.personalBestMs then line("Personal best", time(s.personalBestMs)) end
+        if s.recordMs then line("Record", time(s.recordMs)) end
+        if outcome.rank then line("Board", "#" .. tostring(outcome.rank)) end
+    elseif rows then
+        line("Racers", tostring(#rows))
+    end
+    item.durationMs = math.max(4000, math.min(15000, math.floor(tonumber(s.remainingMs) or 8000)))
+    push("result", item)
 end
 
 -- ---------------------------------------------------------------- effects --
@@ -64,8 +290,6 @@ end
 
 -- ---------------------------------------------------------------- keys --
 
-local keys = {}
-
 local function keyFor(binding)
     local ok, key = pcall(Open77.input.keyFor, binding.id)
     return ok and key or binding.key
@@ -74,7 +298,7 @@ end
 local function refreshKeys()
     for name, binding in pairs(Config.keys) do keys[name] = keyFor(binding) end
     for name, binding in pairs(Config.editorKeys) do keys["editor." .. name] = keyFor(binding) end
-    send("race:keys", keys)
+    if state or editorState then render() end
 end
 
 local function headingForEditor()
@@ -111,74 +335,6 @@ end
 
 AddEventHandler("open77:keybinds:changed", refreshKeys)
 
--- ---------------------------------------------------------------- page --
-
-local function visible()
-    return panelOpen or state ~= nil or editorState ~= nil
-end
-
-local function syncVisibility()
-    if page == nil then return end
-    if visible() then pcall(page.show, page) else pcall(page.hide, page) end
-end
-
-local function setPanel(open)
-    open = open == true
-    if page == nil or not pageReady then wantPanel = open; return end
-    panelOpen = open
-    if open then
-        if type(page.setConsumedKeys) == "function" then pcall(page.setConsumedKeys, page, { "escape" }) end
-        syncVisibility()
-        pcall(page.setFocus, page, true, true)
-        send("race:panel", { open = true })
-        TriggerServerEvent("op77_race:openMenu")
-    else
-        pcall(page.setFocus, page, false, false)
-        if type(page.setConsumedKeys) == "function" then pcall(page.setConsumedKeys, page, {}) end
-        send("race:panel", { open = false })
-        TriggerServerEvent("op77_race:closeMenu")
-        syncVisibility()
-    end
-end
-
-local function createPage()
-    if creating or page ~= nil then return end
-    creating = true
-    local options = {
-        entry = "web/index.html", layer = "hud", width = 1920, height = 1080, transparent = true,
-        -- Created visible (transparent, empty) so the page loads; hidden once ready
-        -- while there is nothing to show.
-        visible = true, fps = Config.ui.fps or 30, zIndex = Config.ui.zIndex or 730,
-    }
-    local created, why
-    for _ = 1, 120 do
-        created, why = WebUI.create(options)
-        if created or why ~= "resource_preparing" then break end
-        Wait(250)
-    end
-    creating = false
-    if not created then log("error", "no WebUI surface: " .. tostring(why)) return end
-    page = created
-    page:on("race:ready", function()
-        pageReady = true
-        send("race:config", { labels = { trial = "Time Trial", grid = "Street Race", foot = "Rooftop Race" } })
-        refreshKeys()
-        if state then send("race:state", state) end
-        if editorState then send("race:editor", editorState) end
-        if lastMenu then send("race:menu", { json = lastMenu }) end
-        syncVisibility()
-        if wantPanel then wantPanel = false; setPanel(true) end
-    end)
-    page:on("race:close", function() setPanel(false) end)
-    page:on("race:join", function(payload)
-        if type(payload) ~= "table" then return end
-        TriggerServerEvent("op77_race:join", { activity = payload.activity, course = payload.course })
-    end)
-    page:on("race:leave", function() TriggerServerEvent("op77_race:leave") end)
-    page:on("race:restart", function() TriggerServerEvent("op77_race:restart") end)
-    page:on("race:refresh", function() TriggerServerEvent("op77_race:openMenu") end)
-end
-
 -- ---------------------------------------------------------------- server --
 
 RegisterNetEvent("op77_race:state", function(payload)
@@ -192,8 +348,11 @@ RegisterNetEvent("op77_race:state", function(payload)
         sfx(P.countdownSfx, "op77_race_countdown", 4.0)
     end
     M.sync(payload)
-    send("race:state", payload)
-    syncVisibility()
+    render()
+    if payload.phase == "results" and resultFor ~= runKey then
+        resultFor = runKey
+        pushResult(payload)
+    end
 end)
 
 RegisterNetEvent("op77_race:pulse", function(payload)
@@ -201,63 +360,75 @@ RegisterNetEvent("op77_race:pulse", function(payload)
     if payload.kind == "go" then
         sfx(P.goSfx, "op77_race_go", 4.0)
         startVfx()
+        push("banner", { title = "GO", tone = "success", durationMs = 1200 })
     elseif payload.kind == "checkpoint" then
         sfx(P.checkpointSfx, "op77_race_checkpoint", 1.0)
+        push("feed", { text = ("Checkpoint %d/%d  %s"):format(payload.completed or 0, payload.total or 0, time(payload.splitMs)) })
     elseif payload.kind == "lap" then
         sfx(P.lapSfx, "op77_race_lap", 3.0)
+        local final = payload.lap ~= nil and payload.lap == payload.laps
+        push("banner", { title = final and "FINAL LAP" or ("LAP %d/%d"):format(payload.lap or 1, payload.laps or 1),
+            text = payload.lastLapMs and ("Last lap " .. time(payload.lastLapMs)) or nil, durationMs = 2200 })
     elseif payload.kind == "finish" then
         sfx(P.finishSfx, "op77_race_finish", 4.0)
+        local outcome = type(payload.outcome) == "table" and payload.outcome or {}
+        push("banner", { title = "FINISH", tone = "success", durationMs = 2000,
+            text = outcome.courseRecord and "Course record" or outcome.personalBest and "Personal best" or time(payload.timeMs) })
     end
-    send("race:pulse", payload)
 end)
 
 RegisterNetEvent("op77_race:clear", function()
     state, countdownFor = nil, nil
     M.clear()
     stopEffects()
-    send("race:clear", {})
-    syncVisibility()
+    render()
 end)
 
-RegisterNetEvent("op77_race:menu", function(encoded)
-    if type(encoded) ~= "string" then return end
-    lastMenu = encoded
-    send("race:menu", { json = encoded })
+-- The queue of a street or rooftop race: { activity, label, mode, queued, minPlayers,
+-- maxPlayers, windowMs } while queued, false once out of it (launched or left).
+RegisterNetEvent("op77_race:queue", function(payload)
+    queueState = type(payload) == "table" and payload or nil
+    render()
 end)
 
-RegisterNetEvent("op77_race:panel", function(open)
-    if page == nil then CreateThread(createPage) end
-    setPanel(open == true)
+-- /race: the races are joined from Light RP's Activities panel.
+RegisterNetEvent("op77_race:activities", function()
+    TriggerServerEvent(CORE_ACTION, { type = "activities.control", operation = "open" })
 end)
 
 RegisterNetEvent("op77_race:editor", function(payload)
     editorState = type(payload) == "table" and payload or nil
     M.preview(editorState and editorState.draft or nil)
-    send("race:editor", editorState or { closed = true })
-    syncVisibility()
+    render()
 end)
 
 -- ---------------------------------------------------------------- lifecycle --
 
 AddEventHandler("onClientResourceStart", function(name)
+    if name == Config.core then
+        -- A restarted core forgot our HUD: the watchdog below shows it again.
+        hudShown = false
+        return
+    end
     if name ~= GetCurrentResourceName() then return end
     registerKeys()
-    CreateThread(function()
-        createPage()
-        -- After a reconnect or a resource restart mid-race, ask for the current state.
-        TriggerServerEvent("op77_race:ready")
-    end)
-    -- Keep the checkpoint marker alive (a lost native handle is rebuilt).
+    -- After a reconnect or a resource restart mid-race, ask for the current state.
+    TriggerServerEvent("op77_race:ready")
     CreateThread(function()
         while true do
             Wait(1000)
+            -- Keep the checkpoint marker alive (a lost native handle is rebuilt).
             if state ~= nil then M.sync(state) end
+            -- A HUD refused while Light RP was down or still loading its page.
+            if not hudShown and (state or editorState or queueState) then render() end
         end
     end)
 end)
 
 AddEventHandler("onClientResourceStop", function(name)
+    if name == Config.core then hudShown = false return end
     if name ~= GetCurrentResourceName() then return end
+    -- Light RP drops the HUD of a stopped owner by itself.
     M.clear()
     M.clearPreview()
     stopEffects()

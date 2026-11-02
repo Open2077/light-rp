@@ -36,6 +36,19 @@ A.call = call
 function A.definition(activityId) return byId[activityId] end
 function A.mine(activityId) return type(activityId) == "string" and byId[activityId] ~= nil end
 
+-- The time trial offers its courses as join choices in Light RP's Activities panel
+-- (at most 8, handed back as options.course); street and rooftop races rotate theirs.
+-- /timetrial <course> reaches every course.
+local function courseChoices(def)
+    if def.mode ~= "trial" or type(RaceCourses) ~= "table" then return nil end
+    local modes = {}
+    for _, summary in ipairs(RaceCourses.list("trial")) do
+        if #modes >= 8 then break end
+        modes[#modes + 1] = { id = summary.id, label = summary.name }
+    end
+    return #modes > 0 and modes or nil
+end
+
 function A.registration(def)
     return {
         id = def.id,
@@ -45,6 +58,8 @@ function A.registration(def)
         description = def.description,
         minPlayers = def.minPlayers,
         maxPlayers = def.maxPlayers,
+        modes = courseChoices(def),
+        modeKey = def.mode == "trial" and "course" or nil,
         caps = {
             rpWeapons = Config.caps.rpWeapons == true,
             rpItems = Config.caps.rpItems == true,

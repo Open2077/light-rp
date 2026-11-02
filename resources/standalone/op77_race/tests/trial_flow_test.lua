@@ -205,6 +205,7 @@ H.test("a player id below 1 never reaches the runtime", function()
     H.fire("op77_lightrp:activity:join", 0, "race.trial", {})
     H.fire("op77_lightrp:activity:join", "abc", "race.trial", {})
     H.command("race", 0, {})
+    H.eq(H.lastClient("op77_race:activities", 0), nil)
     H.command("timetrial", 0, {})
 end)
 
@@ -217,6 +218,23 @@ H.test("a dead driver is out of the run and revived before going back", function
     H.eq(racer(1), nil)
     H.eq(H.players[1].life, "alive", "respawned before activityLeave")
     H.eq(H.players[1].bucket, 0)
+end)
+
+H.test("the Activities panel offers the trial's courses; the choice comes back as options.course", function()
+    local def = H.core.registered["race.trial"]
+    H.eq(def.modeKey, "course")
+    H.ok(type(def.modes) == "table" and #def.modes >= 1 and #def.modes <= 8, "one to eight course choices")
+    for _, mode in ipairs(def.modes) do
+        local course = RaceCourses.get(mode.id)
+        H.ok(course and RaceCourses.eligible(course, "trial"), mode.id .. " is a trial course")
+        H.eq(mode.label, course.name)
+    end
+    local chosen = def.modes[#def.modes].id
+    H.fire("op77_lightrp:activity:join", 1, "race.trial", { course = chosen, from = "panel" })
+    H.eq(instance(1).course.id, chosen)
+    H.fire("op77_lightrp:activity:leaveRequest", 1, "race.trial")
+    H.advance(4000)
+    H.eq(racer(1), nil)
 end)
 
 H.done("trial_flow_test")
