@@ -7,7 +7,8 @@ Writes public/media/ (served as ./media/ by the page, shipped in op77_ripperdoc/
   video/<body>_<section>.webm  the paperdoll close-ups, VP9 with alpha, graded to the LightRP DA
   video/<body>_body.webm       the full-body idle loop
   still/<body>_<system>.webp   the full-body system overlays (hover highlight), registered on the loop
-  icon/<cw_name>.webp          the game's cyberware item icons (2160p atlas parts)
+  icon/<fnv1a(cw_name)>.webp   the game's cyberware item icons (2160p atlas parts); the file is a short
+                               hash of the name (src/media.ts iconFile): Windows paths stay under 260
   ui/*.webp                    rings, dot field, cables from the ripperdoc atlas, graded
   sfx/<name>.mp3               the game's UI sounds (needs the NCWE probe; skipped without it)
   manifest.json                sizes, durations, still registration boxes, icon list
@@ -29,6 +30,15 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def icon_file(name):
+    """FNV-1a 32 of the icon name, 8 hex digits: the same as src/media.ts iconFile."""
+    h = 0x811c9dc5
+    for ch in name.encode("ascii"):
+        h = ((h ^ ch) * 0x01000193) & 0xffffffff
+    return "%08x" % h
+
 MEDIA = ROOT / "public" / "media"
 DEFAULT_GAME = r"E:\SteamLibrary\steamapps\common\Cyberpunk 2077"
 DEFAULT_CLI = r"E:\Apps\WolvenKit.Console\WolvenKit.CLI.exe"
@@ -245,7 +255,7 @@ def main():
     if "icons" in only:
         icons = []
         for source in sorted(png.glob("item_icons*.inkatlas/2160p/cw*.png")):
-            target = MEDIA / "icon" / (source.stem + ".webp")
+            target = MEDIA / "icon" / (icon_file(source.stem) + ".webp")
             target.parent.mkdir(parents=True, exist_ok=True)
             Image.open(source).convert("RGBA").save(target, "WEBP", quality=88, method=6)
             icons.append(source.stem)
