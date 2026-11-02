@@ -62,6 +62,8 @@ export function WeaponWheel() {
   const [chosen, setChosen] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [kick, setKick] = useState(0);
+  // a tap on the key: the wheel stays open and a click (or the key again) picks
+  const [latched, setLatched] = useState(false);
 
   const slots = useMemo<Slot[]>(() => {
     const list: Slot[] = [{ key: "unarmed", kind: "unarmed" }, ...(armament?.arsenal ?? []).map(w => ({ key: w.instanceId, kind: "weapon" as const, weapon: w }))];
@@ -116,9 +118,10 @@ export function WeaponWheel() {
         const a = r.current.armament, s = r.current.slots;
         const held = a?.right?.instanceId ? s.findIndex(x => x.key === a.right!.instanceId) : 0;
         r.current.vec = { x: 0, y: 0 }; r.current.last = null; r.current.index = Math.max(0, held);
-        setIndex(Math.max(0, held)); setAim(null); setChosen(null); setKey(p.key || "TAB");
+        setIndex(Math.max(0, held)); setAim(null); setChosen(null); setKey(p.key || "TAB"); setLatched(false);
         r.current.phase = "open"; setPhase("open");
-      } else if (p?.kind === "commit") commit();
+      } else if (p?.kind === "latch") setLatched(true);
+      else if (p?.kind === "commit") commit();
       else if (p?.kind === "cancel") cancel();
     });
     const move = (e: MouseEvent) => {
@@ -235,7 +238,9 @@ export function WeaponWheel() {
         </div>
       </div>
       <div className="ww__hints">
-        <span><kbd>{key}</kbd>RELEASE TO EQUIP</span>
+        {latched
+          ? <span><kbd>CLICK</kbd><kbd>{key}</kbd>EQUIP</span>
+          : <span><kbd>{key}</kbd>RELEASE TO EQUIP</span>}
         <span><kbd>MOUSE</kbd>AIM</span>
         <span><kbd>WHEEL</kbd>CYCLE</span>
         <span><kbd>RMB</kbd>CANCEL</span>
