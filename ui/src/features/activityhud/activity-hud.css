@@ -1,0 +1,172 @@
+/* Activity HUD: the in-match layer of the activity providers. Tokens only: near-black
+   HUD plates with scanlines, chamfers, one yellow accent for the player and the
+   highlights, signal colours for state only, mono readouts, stepped motion. */
+.ah { position: absolute; inset: 0; z-index: 29; pointer-events: none; color: var(--text-body); font: var(--type-body); transition: opacity var(--dur-base) var(--ease-snap); }
+.ah.is-quiet { opacity: 0; }
+:where(.ah) :where(ul, dl, p, h2) { margin: 0; padding: 0; list-style: none; } /* zero specificity: the blocks below set their own padding */
+
+/* shared plate: the work order's sheet */
+.ah-head__plate, .ah-panel, .ah-result {
+  position: relative;
+  background: var(--tex-scanline), linear-gradient(180deg, rgba(10, 10, 12, .9), rgba(6, 6, 8, .78));
+  box-shadow: var(--shadow-hud);
+}
+.ah-head__plate::before, .ah-panel::before, .ah-result::before { content: ""; position: absolute; inset: 0; pointer-events: none; border: 1px solid var(--line-hairline); border-left: 2px solid var(--accent); clip-path: inherit; }
+
+/* ---------- header strip, top centre ---------- */
+.ah-head { position: absolute; top: var(--hud-safe-y); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); max-width: min(760px, 70vw); animation: ah-drop .32s steps(4, end) both; }
+.ah.is-lowered .ah-head { top: calc(var(--hud-safe-y) + 52px); } /* the mission queue chip holds the very top */
+.ah-head__plate { display: flex; align-items: center; gap: var(--sp-6); min-height: 44px; padding: var(--sp-3) var(--sp-6) var(--sp-3) calc(var(--chamfer-md) + 6px); clip-path: var(--clip-chamfer); }
+.ah-head__id { display: flex; align-items: center; gap: var(--sp-4); min-width: 0; }
+.ah-head__id b { color: var(--text-hi); font: var(--fw-bold) var(--fs-body)/1 var(--font-core); letter-spacing: var(--ls-label); text-transform: uppercase; white-space: nowrap; }
+.ah-head__id small { color: var(--text-dim); font: var(--fw-medium) var(--fs-label)/1 var(--font-core); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.ah-head__mid { display: flex; align-items: center; gap: var(--sp-5); padding-left: var(--sp-6); border-left: 1px solid var(--line-hairline); }
+
+.ah-phase { flex: none; padding: 4px 12px 3px 7px; font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--ls-label); clip-path: var(--clip-tag); color: var(--text-dim); background: var(--o77-ink-600); }
+.ah-phase.is-countdown { color: var(--text-accent); background: var(--accent-quiet-strong); }
+.ah-phase.is-running { color: var(--text-on-accent); background: var(--accent); }
+.ah-phase.is-ended { color: var(--text-hi); background: var(--o77-ink-500); }
+
+.ah-clock { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 76px; }
+.ah-clock small { color: var(--text-disabled); font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: var(--ls-label); }
+.ah-clock b { color: var(--text-hi); font: var(--fw-bold) 22px/1 var(--font-mono); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.ah-clock.is-up b { color: var(--text-accent); text-shadow: var(--glow-text); }
+.ah-clock.is-low b { color: var(--text-danger); animation: ah-blink 1s steps(2, end) infinite; }
+.ah-versus { color: var(--text-disabled); font: var(--fw-bold) var(--fs-label)/1 var(--font-mono); letter-spacing: var(--ls-label); }
+
+/* two teams flank the clock */
+.ah-side { display: flex; align-items: center; gap: var(--sp-4); padding-bottom: 3px; border-bottom: 2px solid var(--team); }
+.ah-side.is-right { flex-direction: row-reverse; }
+.ah-side span { color: var(--text-dim); font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--ls-label); text-transform: uppercase; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ah-side b { color: var(--text-hi); font: var(--fw-bold) 24px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.ah-side.is-self span { color: var(--text-accent); }
+
+/* three or four teams: chips under the strip */
+.ah-teams { display: flex; gap: var(--sp-3); }
+.ah-teams li { display: flex; align-items: center; gap: var(--sp-4); padding: 4px 10px 4px 0; background: var(--surface-hud); clip-path: var(--clip-chamfer-sm); }
+.ah-teams i { align-self: stretch; width: 3px; background: var(--team); }
+.ah-teams span { color: var(--text-dim); font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--ls-label); text-transform: uppercase; }
+.ah-teams b { color: var(--text-hi); font: var(--fw-bold) var(--fs-body)/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.ah-teams li.is-self { box-shadow: inset 0 0 0 1px var(--line-soft); }
+.ah-teams li.is-self span { color: var(--text-accent); }
+
+.ah-objective { display: flex; align-items: center; gap: var(--sp-3); padding: 4px 12px; background: var(--surface-hud); color: var(--text-hi); font: var(--type-label); letter-spacing: .02em; clip-path: var(--clip-chamfer-sm); }
+.ah-objective svg { color: var(--accent); }
+.ah-head > .ah-hints { padding: 5px 10px; background: var(--surface-hud); clip-path: var(--clip-chamfer-sm); }
+
+/* ---------- countdown, centre ---------- */
+.ah-count { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
+.ah-count b { color: var(--accent); font: var(--fw-regular) 112px/1 var(--font-display); text-shadow: var(--glow-text), 0 4px 24px rgba(0, 0, 0, .7); animation: ah-count .9s steps(5, end) both; }
+.ah-count b.is-go { letter-spacing: .06em; animation-duration: .6s; }
+.ah-count.is-far, .ah-count.is-wait { padding: var(--sp-4) var(--sp-8); background: var(--surface-hud); clip-path: var(--clip-chamfer); }
+.ah-count.is-far small { color: var(--text-dim); font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--ls-tag); }
+.ah-count.is-far span { color: var(--text-hi); font: var(--fw-bold) 30px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.ah-count.is-wait span { color: var(--text-accent); font: var(--fw-bold) var(--fs-label)/1 var(--font-mono); letter-spacing: var(--ls-tag); animation: ah-blink 1.4s steps(2, end) infinite; }
+
+/* ---------- match panel, the work order's slot ---------- */
+.ah-panel {
+  position: absolute; top: 31vh; right: var(--hud-safe-x); width: clamp(280px, 19vw, 340px); max-height: max(38vh, 300px); overflow: hidden;
+  display: flex; flex-direction: column;
+  clip-path: polygon(var(--chamfer-lg) 0, 100% 0, 100% calc(100% - var(--chamfer-md)), calc(100% - var(--chamfer-md)) 100%, 0 100%, 0 var(--chamfer-lg));
+  animation: ah-slide .42s steps(6, end) both;
+}
+.ah-panel > * { flex: none; }
+.ah-panel > * + * { border-top: 1px solid var(--line-hairline); }
+
+.ah-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5) var(--sp-6); padding: var(--sp-6) var(--sp-6) var(--sp-5) var(--sp-8); }
+.ah-stats.n1 { grid-template-columns: 1fr; }
+.ah-stats.n3 { grid-template-columns: repeat(3, 1fr); }
+.ah-stats div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ah-stats dt { color: var(--text-disabled); font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: var(--ls-label); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ah-stats dd { margin: 0; color: var(--text-hi); font: var(--fw-bold) 20px/1 var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ah-stats div:first-child dd { color: var(--text-accent); text-shadow: var(--glow-text); }
+
+.ah-bars { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-5) var(--sp-6) var(--sp-5) var(--sp-8); }
+.ah-bar { --bar: var(--accent); }
+.ah-bar.is-danger { --bar: var(--o77-red); }
+.ah-bar.is-info { --bar: var(--o77-steel); }
+.ah-bar.is-success { --bar: var(--o77-green); }
+.ah-bar__head { display: flex; justify-content: space-between; margin-bottom: 4px; font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); text-transform: uppercase; }
+.ah-bar__head b { color: var(--text-hi); }
+.ah-bar__track { height: var(--bar-h-sm); background: var(--o77-ink-500); }
+.ah-bar__track i { display: block; height: 100%; background: var(--bar); transition: width var(--dur-slow) steps(6, end); }
+
+.ah-board { display: flex; flex-direction: column; gap: 1px; padding: var(--sp-4) var(--sp-5) var(--sp-4) var(--sp-7); min-height: 0; overflow: hidden; }
+.ah-panel > .ah-board { flex: 0 1 auto; } /* the last resort on a short screen: the table gives, the hints stay */
+.ah-board__row { display: grid; align-items: center; gap: var(--sp-4); padding: 4px 6px; font: var(--fw-medium) var(--fs-label)/1.2 var(--font-core); color: var(--text-dim); }
+.ah-board__row > b { font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); color: var(--text-disabled); }
+.ah-board__row > span:not(.ah-board__name) { text-align: right; font: var(--fw-bold) var(--fs-tag)/1 var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ah-board__row.is-head { padding-top: 0; padding-bottom: 2px; font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-disabled); }
+.ah-board__row.is-head > span { font: inherit !important; }
+.ah-board__name { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.ah-board__name i { flex: none; width: 6px; height: 6px; }
+.ah-board__name em { font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ah-board__row.is-self { background: var(--accent-quiet); box-shadow: inset 2px 0 0 var(--accent); color: var(--text-hi); }
+.ah-board__row.is-self > b { color: var(--text-accent); }
+.ah-board__gap { height: 6px; margin: 1px 6px; background: radial-gradient(circle, var(--o77-ink-400) 1px, transparent 1.5px) center / 8px 6px repeat-x; }
+
+.ah-hints { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-6); padding: var(--sp-4) var(--sp-6) var(--sp-4) var(--sp-8); background: rgba(0, 0, 0, .25); }
+.ah-hints li { display: flex; align-items: center; gap: var(--sp-3); color: var(--text-body); font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.ah-key { text-transform: none; }
+
+/* ---------- feed, left of the minimap ---------- */
+.ah-feed { position: absolute; top: var(--hud-safe-y); right: calc(var(--hud-safe-x) + 304px); width: 300px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.ah-feed li { --rail: var(--o77-ink-400); max-width: 100%; padding: 5px 10px 5px 12px; background: var(--surface-hud); box-shadow: inset -2px 0 0 var(--rail); color: var(--text-body); font: var(--type-label); clip-path: var(--clip-chamfer-sm); animation: ah-feed-in .24s steps(4, end) both, ah-life var(--life) linear both; }
+.ah-feed li.is-accent { --rail: var(--accent); color: var(--text-hi); }
+.ah-feed li.is-danger { --rail: var(--o77-red); }
+.ah-feed li.is-info { --rail: var(--o77-steel); }
+.ah-feed li.is-success { --rail: var(--o77-green); }
+/* narrower screens: the header reaches the minimap, the feed takes the free top-left corner */
+@media (max-width: 1600px) {
+  .ah-feed { right: auto; left: var(--hud-safe-x); align-items: flex-start; }
+  .ah-feed li { box-shadow: inset 2px 0 0 var(--rail); }
+}
+
+/* ---------- banner ---------- */
+.ah-banner { position: absolute; top: 22vh; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); min-width: 420px; padding: var(--sp-5) var(--sp-12);
+  background: linear-gradient(90deg, transparent, rgba(6, 6, 8, .84) 22%, rgba(6, 6, 8, .84) 78%, transparent); text-align: center;
+  --tone: var(--accent); animation: o77-wipe-in .28s steps(5, end) both, ah-life var(--life) linear both; }
+.ah-banner::before, .ah-banner::after { content: ""; position: absolute; left: 22%; right: 22%; height: 1px; background: var(--tone); opacity: .6; }
+.ah-banner::before { top: 0; } .ah-banner::after { bottom: 0; }
+.ah-banner.is-danger { --tone: var(--o77-red); }
+.ah-banner.is-info { --tone: var(--o77-steel); }
+.ah-banner.is-success { --tone: var(--o77-green); }
+.ah-banner b { color: var(--tone); font: var(--fw-regular) 34px/1.05 var(--font-display); letter-spacing: .04em; text-transform: uppercase; text-shadow: 0 2px 18px rgba(0, 0, 0, .8); }
+.ah-banner.is-accent b { text-shadow: var(--glow-text); }
+.ah-banner p { color: var(--text-body); font: var(--type-label); letter-spacing: .02em; }
+
+/* ---------- result card ---------- */
+.ah-result { position: absolute; top: 44%; left: 50%; transform: translate(-50%, -50%); width: min(460px, 90vw); clip-path: var(--clip-chamfer-lg); animation: ah-pop .36s steps(5, end) both; }
+.ah-result__top { display: flex; align-items: center; gap: var(--sp-7); padding: var(--sp-7) var(--sp-8) var(--sp-6) calc(var(--chamfer-lg) + 10px); }
+.ah-result__place { display: flex; align-items: flex-start; flex: none; }
+.ah-result__place b { color: var(--text-hi); font: var(--fw-regular) 64px/1 var(--font-display); }
+.ah-result__place b.is-word { font-size: 40px; letter-spacing: .04em; }
+.ah-result__place sup { margin: 6px 0 0 4px; color: var(--text-dim); font: var(--fw-bold) var(--fs-body)/1 var(--font-mono); letter-spacing: .06em; }
+.ah-result.is-first .ah-result__place b, .ah-result.is-first .ah-result__place sup { color: var(--accent); text-shadow: var(--glow-text); }
+.ah-result__id { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ah-result__id small { color: var(--text-accent); font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--ls-tag); }
+.ah-result__id h2 { color: var(--text-hi); font: var(--fw-bold) var(--fs-title)/var(--lh-snug) var(--font-core); text-transform: uppercase; letter-spacing: .02em; }
+.ah-result__id p { color: var(--text-dim); font: var(--type-label); }
+.ah-result__lines { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; padding: 0 var(--sp-6) var(--sp-6) calc(var(--chamfer-lg) + 10px); }
+.ah-result__lines div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-4); padding: 7px 10px; background: rgba(255, 255, 255, .025); border-bottom: 1px solid var(--line-hairline); min-width: 0; }
+.ah-result__lines dt { color: var(--text-disabled); font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: var(--ls-label); text-transform: uppercase; white-space: nowrap; }
+.ah-result__lines dd { margin: 0; color: var(--text-hi); font: var(--fw-bold) var(--fs-label)/1 var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ah-result__life { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--accent); transform-origin: left; animation: ah-shrink var(--life) linear both; }
+
+/* ---------- Light RP's HUD steps aside while a match runs ---------- */
+/* Needs are frozen inside an activity, so their dials and warning only take room;
+   the work order waits. Health, armour, energy, chat, voice and notices stay. */
+html[data-activity-hud]:not([data-activity-hud="lobby"]) .player-vital[data-vital="food"],
+html[data-activity-hud]:not([data-activity-hud="lobby"]) .player-vital[data-vital="water"],
+html[data-activity-hud]:not([data-activity-hud="lobby"]) .player-vitals__warning,
+html[data-activity-hud]:not([data-activity-hud="lobby"]) .wo { display: none; }
+
+@keyframes ah-drop { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes ah-slide { 0% { opacity: 0; transform: translateX(24px); } 40% { opacity: .5; } 100% { opacity: 1; transform: none; } }
+@keyframes ah-pop { from { opacity: 0; transform: translate(-50%, -46%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes ah-count { 0% { opacity: 0; transform: scale(1.5); } 30% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: .2; transform: scale(.9); } }
+@keyframes ah-feed-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@keyframes ah-life { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes ah-shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes ah-blink { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .ah, .ah * { animation: none !important; transition: none !important; } }
