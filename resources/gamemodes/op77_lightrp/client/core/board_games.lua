@@ -800,7 +800,24 @@ function Client.bind(page)
 end
 RegisterNetEvent("lightrp:boardGames:place",beginPlacement)
 local applyState
-RegisterNetEvent("lightrp:boardGames:state",function(payload)
+local assembling
+-- The server splits the state into numbered parts; apply only a complete set,
+-- and drop a partial set as soon as a newer sequence starts.
+local function assemble(payload)
+    if type(payload)~="table" or type(payload.parts)~="number" or payload.parts<=1 then return payload end
+    if not assembling or assembling.seq~=payload.seq then assembling={seq=payload.seq,parts=payload.parts,received={},count=0} end
+    if type(payload.part)~="number" or assembling.received[payload.part] then return end
+    assembling.received[payload.part]=type(payload.boards)=="table" and payload.boards or {}
+    assembling.count=assembling.count+1
+    if assembling.count<assembling.parts then return end
+    local all={}
+    for index=1,assembling.parts do for _,board in ipairs(assembling.received[index] or {}) do all[#all+1]=board end end
+    assembling=nil
+    return {boards=all}
+end
+RegisterNetEvent("lightrp:boardGames:state",function(part)
+    local payload=assemble(part)
+    if payload==nil then return end
     local ok,why=pcall(applyState,payload)
     if not ok then request("diagnostic",{event="render",reason="state_error",details=tostring(why):sub(1,180)}) end
 end)
@@ -820,9 +837,6 @@ applyState=function(payload)
     if type(payload)~="table" or type(payload.boards)~="table" then return end
     local nextBoards={}
     for _,board in ipairs(payload.boards) do
-        if type(board)=="table" and board.game==nil and type(board.gameJson)=="string" then
-            board.game=Open77.json.decode(board.gameJson);board.gameJson=nil
-        end
         if type(board)=="table" and board.id and board.position and board.game then
             nextBoards[board.id]=board
             local adapter=extra(board);if adapter then adapter.observe(board) end

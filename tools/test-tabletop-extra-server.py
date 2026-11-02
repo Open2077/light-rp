@@ -86,7 +86,13 @@ Open77={players={},time={unix=function() return wall/1000 end}}
 function Open77.players.position(id) return positions[id] end
 function Open77.players.getLifeState(id) return life[id] end
 function GetPlayers() return {'1','2','3','4','5'} end
-function TriggerClientEvent(name,id,p) events[id]=clone(p) end
+-- Reassemble numbered state parts the way the client does.
+function TriggerClientEvent(name,id,data)
+ local part=clone(data);local previous=events[id]
+ if type(part)=='table' and part.parts and part.part>1 and previous and previous.seq==part.seq then
+  for _,b in ipairs(part.boards) do previous.boards[#previous.boards+1]=b end
+ else events[id]=part end
+end
 function RegisterNetEvent(name,fn) handlers[name]=fn end
 function AddEventHandler(name,fn) handlers[name]=fn end
 function Wait(ms) return coroutine.yield(ms) end

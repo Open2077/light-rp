@@ -45,33 +45,53 @@ local function actor(b)
     if not b.game.seatTurn and b.mode=="teams" and math.floor((b.game.ply or 0)/2)%2==1 then slot=slot.."2" end
     return b.players[slot]
 end
--- Build 176 can refuse a state envelope that build 156 accepted. Log why once,
--- then resend each game as the JSON text already used for persistence.
-local stateLogged,stateFailures={},{}
-local function sendState(player,list)
-    local ok,why=TriggerClientEvent(STATE,player,{boards=list})
-    local here=Open77.players.position(player)
-    local trace=("%d|%s|%s"):format(#list,tostring(ok),tostring(here and here.bucket))
+-- Build 176 can answer a nil or stale position for a player who is in the
+-- world, so the bucket comes from the routing table; the client filters by
+-- distance itself. An unknown bucket never overwrites the client with an
+-- empty list: the push is retried by the board loop instead.
+local stateLogged,pushPending={},{}
+local function bucketOf(player)
+    if Open77.routingBuckets and Open77.routingBuckets.getPlayer then
+        local bucket=Open77.routingBuckets.getPlayer(player)
+        if bucket~=nil then return bucket end
+    end
+    local p=Open77.players.position(player)
+    return p and p.bucket
+end
+-- The 176 client never delivers a state event carrying several boards (about
+-- 15 KB), while small ones arrive. Send numbered parts of at most ~3.5 KB; the
+-- client applies the list only once every part of the same sequence is in.
+local STATE_PART_BYTES=3500
+local stateSeq={}
+local function sendState(player,list,bucket)
+    local seq=(stateSeq[player] or 0)+1;stateSeq[player]=seq
+    local parts,current,size={}, {},0
+    for _,entry in ipairs(list) do
+        local encoded=json.encode(entry)
+        local bytes=type(encoded)=="string" and #encoded or STATE_PART_BYTES
+        if #current>0 and size+bytes>STATE_PART_BYTES then parts[#parts+1]=current;current={};size=0 end
+        current[#current+1]=entry;size=size+bytes
+    end
+    parts[#parts+1]=current
+    local ok,why=true,nil
+    for index,part in ipairs(parts) do
+        local sent,reason=TriggerClientEvent(STATE,player,{boards=part,seq=seq,part=index,parts=#parts})
+        if sent==false then ok,why=false,reason end
+    end
+    local trace=("%d|%d|%s|%s"):format(#list,#parts,tostring(ok),tostring(bucket))
     if stateLogged[player]~=trace then
         stateLogged[player]=trace
-        LightRP.log("board_games state push player=%d boards=%d of %d ok=%s reason=%s position=%s bucket=%s",player,#list,
-            (function() local n=0;for _ in pairs(boards) do n=n+1 end;return n end)(),tostring(ok),tostring(why),
-            here and ("%.1f,%.1f,%.1f"):format(here.x or 0,here.y or 0,here.z or 0) or "nil",tostring(here and here.bucket))
-    end
-    if ok~=false then return end
-    for _,entry in ipairs(list) do entry.gameJson=json.encode(entry.game);entry.game=nil end
-    local again,reason=TriggerClientEvent(STATE,player,{boards=list})
-    local key=tostring(why).."|"..tostring(again).."|"..tostring(reason)
-    if not stateFailures[key] then
-        stateFailures[key]=true
-        LightRP.log("board_games state push refused (%s); encoded retry ok=%s reason=%s",tostring(why),tostring(again),tostring(reason))
+        LightRP.log("board_games state push player=%d boards=%d parts=%d bucket=%s ok=%s reason=%s",player,#list,#parts,tostring(bucket),tostring(ok),tostring(why))
     end
 end
 local function push(player)
-    local p=Open77.players.position(player); local list={}
-    if p then
+    local bucket=bucketOf(player)
+    if bucket==nil then pushPending[player]=true;return end
+    pushPending[player]=nil
+    local list={}
+    do
         for _,b in pairs(boards) do
-            if (p.bucket or 0)==b.bucket then
+            if bucket==(b.bucket or 0) then
                 local inv=Inv.player(player)
                 local game=b.game
                 if extra(b.kind) then
@@ -88,7 +108,7 @@ local function push(player)
             end
         end
     end
-    sendState(player,list)
+    sendState(player,list,bucket)
 end
 local function broadcast() for _,id in ipairs(GetPlayers()) do push(tonumber(id)) end end
 local function write(b)
@@ -312,11 +332,12 @@ LightRP.module("board_games",{
         loaded=true;broadcast()
     end,
     onUiReady=push,
-    onDisconnected=function(player) last[player]=nil;lastDiagnostic[player]=nil;stateLogged[player]=nil;release(player) end,
+    onDisconnected=function(player) last[player]=nil;lastDiagnostic[player]=nil;stateLogged[player]=nil;pushPending[player]=nil;stateSeq[player]=nil;release(player) end,
     onCharacterLoaded=release,
     onLifeState=function(player) if not active(player) then release(player) end end,
 })
 AddEventHandler("onPlayerBucketChange",function(player) release(tonumber(player)) end)
+local refreshTick=0
 CreateThread(function()
     while true do
         Wait(2000)
@@ -324,7 +345,9 @@ CreateThread(function()
         for _,b in pairs(boards) do
             for side,id in pairs(b.players) do if not active(id) or not near(id,b,5) then b.players[side]=nil;changed=true end end
         end
-        if changed then broadcast() end
+        refreshTick=refreshTick+1
+        if changed or refreshTick%5==0 then broadcast() end -- a lost part heals within 10 s
+        for player in pairs(pushPending) do push(player) end
         for _,b in pairs(boards) do queueAI(b) end
         for _,b in pairs(boards) do
             if b.kind=="roulette" and b.game.phase=="spinning" and not b.busy and LightRP.tabletopExtra.now()>=b.game.spin.endsAt then
