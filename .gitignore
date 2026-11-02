@@ -82,6 +82,10 @@ resources/standalone/op77_map3d/ui/node_modules/
 # Turf War, the gang war activity (Light RP activity contract).
 !resources/standalone/op77_turf/
 !resources/standalone/op77_turf/**
+# The arena activities (Combat Zone, Blade Night, duels, team arenas): the
+# Deathmatch engine hosted as a Light RP activity provider.
+!resources/standalone/op77_arena/
+!resources/standalone/op77_arena/**
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**
