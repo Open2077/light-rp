@@ -109,9 +109,27 @@ map:focus({ x = 0, y = 0 }, 800)     -- fly the open map's camera there
 map:setTheme({ accent = "#3FE0D0", buildingEdge = "#3FE0D0", roadEdge = "#3FE0D0" })
 map:setConfig({ minimap = { anchor = "bottom-right", shape = "circle" } })
 map:setMinimapVisible(false)
+map:setPlayerDotsHidden(true, { 12 })   -- see "Player dots"
 ```
 
 Blips belong to the resource that created them and disappear when it stops.
+
+### Player dots
+
+The map draws the players within `nearbyPlayers.radius` (350 m) as dots. An activity
+where that would give the game away (a chase: the cops would see the runner) hides them,
+opt-in, for as long as it needs:
+
+```lua
+map:setPlayerDotsHidden(true, { runnerId })  -- hide these players (server ids)
+map:setPlayerDotsHidden(true)                -- hide every player
+map:setPlayerDotsHidden(false)               -- show again what this resource hid
+map:arePlayerDotsHidden(runnerId)            -- true if any resource hides that player
+```
+
+Each call replaces the calling resource's previous choice; several resources' choices
+add up; a hidden dot goes at once, not at the next refresh. Everything a resource hid
+comes back when it stops. Blips and the player's own arrow are not affected.
 
 ### Jamming
 

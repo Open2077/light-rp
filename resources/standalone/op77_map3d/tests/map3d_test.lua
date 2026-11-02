@@ -149,6 +149,32 @@ Open77.vehicles = nil
 Open77.character.isInVehicle = function() return false end
 Open77.perspective = nil
 Open77.character.state = realState
+-- nearby player dots: shown, hidden by a resource (at once), back when it unhides or stops
+local function lastDot() for i = #pageSent, 1, -1 do local s = pageSent[i]; if s.name == "map3d:blip" and s.payload.id:find("^player:") then return s.payload, i end end end
+assert(lastDot().id == "player:7" and lastDot().label == "Jack", "a nearby player is a dot")
+invoking = "op77_chase"
+assert(exported.setPlayerDotsHidden(true, { 7 }))
+local hid = lastPage("map3d:blips")
+assert(hid and hid.remove and hid.remove[1] == "player:7", "hiding removes the dot at once")
+assert(exported.arePlayerDotsHidden(7) and not exported.arePlayerDotsHidden(8))
+local _, mark = lastDot()
+runThreads(3)
+local _, after = lastDot()
+assert(after == mark, "a hidden player is not drawn again")
+invoking = "other"
+assert(exported.setPlayerDotsHidden(false), "another resource's false does not lift the chase's hide")
+runThreads(3)
+assert(select(2, lastDot()) == mark and exported.arePlayerDotsHidden(7))
+invoking = "op77_chase"
+assert(exported.setPlayerDotsHidden(false) and not exported.arePlayerDotsHidden(7))
+runThreads(3)
+assert(select(2, lastDot()) > mark, "shown again")
+assert(exported.setPlayerDotsHidden(true), "true alone hides every player")
+assert(exported.arePlayerDotsHidden(7) and exported.arePlayerDotsHidden(1234))
+assert(not exported.setPlayerDotsHidden(true, "7"), "ids must be a list")
+handlers.onClientResourceStop("op77_chase")
+assert(not exported.arePlayerDotsHidden(7), "a stopping resource takes its hide along")
+invoking = "shop"
 -- updates and ownership
 assert(exported.updateBlip(id, { label = "Shop" }) and lastPage("map3d:blip").label == "Shop")
 invoking = "other"
