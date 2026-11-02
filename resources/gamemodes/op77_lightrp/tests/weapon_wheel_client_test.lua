@@ -21,7 +21,7 @@ LightRpUi = { page = page, characterReady = true, dialogs = {}, log = function()
 LightRpArmamentClient = { state = function() return { ready = true } end, refresh = function() refreshed = refreshed + 1 end }
 Open77 = {
     character = { state = function() return character end },
-    audio = { play2D = function(path, o) sounds[#sounds + 1] = path; return #sounds end, destroy = function() end },
+    sfx = { play2d = function(event) sounds[#sounds + 1] = event; return true end },
     input = { isDown = function() return keyDown end },
 }
 dofile("client/core/weapon_wheel.lua")
@@ -35,19 +35,22 @@ local function last() return sent[#sent] end
 map.onPressed()
 assert(W.open and focus[#focus].keyboard == false and focus[#focus].cursor == true, "mouse-only focus")
 assert(last().name == "lightrp:ui:weaponwheel" and last().payload.kind == "open" and last().payload.key == "CTRL")
-assert(refreshed == 1 and sounds[#sounds]:find("wheel_open", 1, true))
+assert(refreshed == 1 and sounds[#sounds] == "ui_radial_menu_open", "the game's radial menu sound")
 map.onPressed(); assert(#focus == 1, "a second press does not reopen")
--- the page's feedback sounds
-handlers["lightrp:ui:weaponwheel"]({ kind = "hover" }); assert(sounds[#sounds]:find("wheel_tick", 1, true))
-handlers["lightrp:ui:weaponwheel"]({ kind = "chosen" }); assert(sounds[#sounds]:find("wheel_select", 1, true))
+-- the page's feedback: the game's own UI events
+handlers["lightrp:ui:weaponwheel"]({ kind = "hover" }); assert(sounds[#sounds] == "ui_menu_hover")
+handlers["lightrp:ui:weaponwheel"]({ kind = "chosen" }); assert(sounds[#sounds] == "ui_menu_item_weapon_equip")
+handlers["lightrp:ui:weaponwheel"]({ kind = "chosen", unarmed = true }); assert(sounds[#sounds] == "ui_menu_item_weapon_unequip")
 -- release: the page commits, the focus goes back
 map.onReleased()
 assert(not W.open and last().payload.kind == "commit" and focus[#focus].keyboard == false and focus[#focus].cursor == false)
+assert(sounds[#sounds] == "ui_radial_menu_close")
 map.onReleased(); assert(last().payload.kind == "commit" and #sent == 2, "a release without a wheel does nothing")
 
 -- right click on the page: cancel
 map.onPressed(); handlers["lightrp:ui:weaponwheel"]({ kind = "close", commit = false })
-assert(not W.open and last().payload.kind == "cancel" and sounds[#sounds]:find("wheel_cancel", 1, true))
+assert(not W.open and last().payload.kind == "cancel" and sounds[#sounds] == "ui_radial_menu_close")
+for _, event in ipairs(sounds) do assert(event:match("^ui_"), "only the game's UI events: " .. event) end
 -- left click: commit
 map.onPressed(); handlers["lightrp:ui:weaponwheel"]({ kind = "close", commit = true })
 assert(not W.open and last().payload.kind == "commit")
@@ -67,4 +70,4 @@ LightRpUi.menuOpen = true; coroutine.resume(threads[1]); coroutine.resume(thread
 assert(not W.open and last().payload.kind == "cancel" and last().payload.reason == "interrupted"); LightRpUi.menuOpen = nil
 map.onPressed(); clock = 1000; keyDown = false; coroutine.resume(threads[1])
 assert(not W.open and last().payload.kind == "commit" and last().payload.reason == "released", "missed release still commits")
-print("PASS: weapon wheel client (CTRL hold mapping, mouse-only focus, open/commit/cancel, click close, input owners, vehicle/death refusals, sounds, safety loop)")
+print("PASS: weapon wheel client (CTRL hold mapping, mouse-only focus, open/commit/cancel, click close, input owners, vehicle/death refusals, game UI sounds, safety loop)")
