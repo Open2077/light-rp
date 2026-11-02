@@ -153,6 +153,30 @@ local function dispatch(player, p)
     return nil, "Unknown mission editor operation."
 end
 
+-- A plain net event stops at 1024 JSON values (kMaximumEventValues) and a refused one
+-- says nothing to anybody: the list (whole definitions) went past it with a third
+-- mission, and publishing "never answered" (2026-11-02). Past 900 values, latent
+-- (262 144 values). Counted generously: every key and every value.
+local LATENT_VALUES, LATENT_RATE = 900, 512 * 1024
+local function countValues(value, depth)
+    if type(value) ~= "table" then return 1 end
+    if (depth or 0) > 16 then return 1 end
+    local n = 1
+    for _, item in pairs(value) do n = n + 1 + countValues(item, (depth or 0) + 1) end
+    return n
+end
+Editor.countValues = countValues
+local function reply(player, response)
+    local count = countValues(response)
+    if count > LATENT_VALUES and type(TriggerLatentClientEvent) == "function" then
+        local id, why = TriggerLatentClientEvent(NET, player, LATENT_RATE, response)
+        if id then LightRP.log("mission editor: reply of %d values sent as a latent event", count); return end
+        LightRP.log("mission editor: latent reply refused (%s, %d values)", tostring(why), count)
+    end
+    local ok, why = TriggerClientEvent(NET, player, response)
+    if ok == false then LightRP.log("mission editor: reply refused (%s, %d values)", tostring(why), count) end
+end
+
 RegisterNetEvent(NET, function(p)
     local player = tonumber(source)
     if not player or player <= 0 or type(p) ~= "table" or type(p.request) ~= "string" or #p.request < 1 or #p.request > 96
@@ -165,7 +189,7 @@ RegisterNetEvent(NET, function(p)
     lastRequest[player] = at
     local ok, data, err = pcall(dispatch, player, p)
     if not ok then LightRP.log("mission editor request failed: %s", tostring(data)); data, err = nil, "The server could not complete this request." end
-    TriggerClientEvent(NET, player, { kind = "response", request = p.request, ok = data ~= nil, data = data, error = err })
+    reply(player, { kind = "response", request = p.request, ok = data ~= nil, data = data, error = err })
 end)
 
 LightRP.command("lightrp.missions", { restricted = true, usage = "/lightrp.missions (open the mission editor)" }, function(player)
