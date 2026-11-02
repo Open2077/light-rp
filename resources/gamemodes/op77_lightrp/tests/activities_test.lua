@@ -374,4 +374,36 @@ local okCmd, text = commands.leave(P, {})
 assert(not okCmd and text:find("not in an activity"))
 okCmd, text = commands["lightrp.activities"](0, {})
 assert(okCmd and text:find("race.trial") and text:find("missions"))
-print("PASS: activity registry, eligibility order, ownership and return, caps, leave/dropped/timeout, provider stop and reload, clamped and capped results, stats and leaderboards, missions provider, bot mode")
+
+-- ---------------------------------------------------------------------------
+-- Crews: only the leader starts an activity, the eligible members follow with
+-- the same squad, an ineligible member is told why and stays out
+character(2); positions[2] = { x = -750.5, y = 777.2, z = 22.4 }; buckets[2] = 0; life[2] = "alive"
+character(3); positions[3] = { x = -752.5, y = 777.2, z = 22.4 }; buckets[3] = 0; life[3] = "alive"; seats[3] = { vehicle = 9 }
+local crew = { id = "crew:7", leader = P, members = { P, 2, 3 }, invites = {} }
+LightRP.parties = { of = function(id) if id == P or id == 2 or id == 3 then return crew end end }
+ok, why = A.requestJoin(2, "race.trial", "panel")
+assert(not ok and why == "Your crew leader starts activities. Leave the crew to go solo.", why)
+assert(providers.activities(2).crewLeader == "Runner1", "the member's panel names the leader")
+local firstEvent, firstNotice = #events + 1, #notices + 1
+ok, why = A.requestJoin(P, "race.trial", "neuralink", { target = 2, laps = 3 })
+assert(ok and why:find("with 1 crew member", 1, true) and why:find("Runner3 stays out: step out of the vehicle first", 1, true), why)
+local joins = {}
+for i = firstEvent, #events do if events[i].name == "op77_lightrp:activity:join" then joins[#joins + 1] = events[i] end end
+assert(#joins == 2 and joins[1].args[1] == P and joins[2].args[1] == 2, "the leader, then the eligible member")
+local mineOpts, theirs = joins[1].args[3], joins[2].args[3]
+assert(mineOpts.target == 2 and theirs.target == nil, "a challenge target stays the leader's")
+assert(theirs.from == "neuralink" and theirs.laps == 3 and theirs.squad.id == "crew:7" and theirs.squad.leader == P and #theirs.squad.members == 3, "same options and squad")
+assert(mineOpts.squad ~= theirs.squad, "each join carries its own copy of the squad")
+local told = {}
+for i = firstNotice, #notices do told[notices[i].id] = notices[i].def.body end
+assert(told[2] and told[2]:find("queued the crew for Time Trial", 1, true), "the member is told")
+assert(told[3] and told[3]:find("You stay out: step out of the vehicle first", 1, true), "the ineligible member is told why")
+ok, why = A.requestJoin(P, "race.trial"); assert(not ok and why:find("already queued"))
+-- the leader leaves the queue: the member they queued leaves it too
+ok = A.requestLeave(P)
+assert(ok and lastEvent("op77_lightrp:activity:leaveRequest").args[1] == 2, "the crew leaves the queue with its leader")
+assert(not providers.activities(2).queued, "the member is out of the queue")
+seats[3] = nil
+LightRP.parties = nil
+print("PASS: activity registry, eligibility order, ownership and return, caps, leave/dropped/timeout, provider stop and reload, clamped and capped results, stats and leaderboards, missions provider, bot mode, crew joins")
