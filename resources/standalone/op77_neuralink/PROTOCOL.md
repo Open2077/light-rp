@@ -115,6 +115,37 @@ Errors are short slugs the page turns into human text: `unknown_number`,
 `invalid_handle`, `unknown_handle`, `unknown_post`, `not_author`; the implant
 adds `not_installed` and `ripperdoc_required`.
 
+## Rich messages (other server resources)
+
+A server resource (the LightRP fixers) texts players from its own NPC line, with a card,
+buttons and a location. Database work cannot run in an export (exports cannot yield), so
+these go through a host-wide event answered on the event the caller names:
+
+    TriggerEvent("op77_neuralink:rpc", requestId, op, args, replyEvent)
+    -> TriggerEvent(replyEvent, requestId, ok, result1, result2)    -- ok false: result1 = reason
+
+| op | args | result |
+|---|---|---|
+| `npcLine` | `{ key, number?, name }` | the line's number (identifier `npc:<key>`, the wished number when free) |
+| `sendMessage` | `{ from = number, to = playerId or number, body, meta? }` | `messageId, threadId` (stored even when the recipient is offline) |
+| `updateMessage` | `{ id, patch }` | `true`; keys of `patch` merged into the meta, `false` removes one |
+
+`meta` (column `nl_messages.meta`, JSON): `{ source, ref, card = { tag, title, subtitle, lines[] },
+actions = { { id, label, style = "primary"|"danger"|"ghost", input = "contact"? } },
+location = { x, y, z, label }, resolved = { label, tone = "ok"|"danger"|"dim" } }`.
+A message with `resolved` shows its label instead of its buttons.
+
+- Page op `messages.action { messageId, action, value? }`: a member of the thread pressed a
+  button (value: the number picked when `input = "contact"`). The server checks membership,
+  the action and `resolved`, then raises `TriggerEvent("op77_neuralink:messageAction", playerId,
+  { messageId, threadId, action, value, source, ref, number })`. The owner answers with `updateMessage`.
+- Page op `map.pin { x, y, z, label? }`: handled by the client (no server): a waypoint through
+  `op77_map3d` (it mirrors the game's), else `Open77.blips.setWaypoint`; event `op77_neuralink:waypoint`.
+- Push `nl:messageUpdate { message }`: a rich message changed (its buttons were answered).
+- A player's text to an NPC line raises `op77_neuralink:npcMessage (playerId, { npc, threadId, body, number })`.
+- NPC senders carry `sender.npc = true`; their name shows without a contact.
+- Test: `/neuralink.test action <playerId> <messageId> <action> [number]` presses a button as that player.
+
 ## Shapes
 
 ```ts

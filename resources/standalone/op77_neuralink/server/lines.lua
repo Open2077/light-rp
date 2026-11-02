@@ -94,6 +94,45 @@ local function loadOrCreateLine(identity)
     return nil, "no_number"
 end
 
+-- Lines with no player behind them that speak for a resource (the LightRP fixers):
+-- identifier "npc:<key>". Their name shows wherever the viewer has no contact for them.
+local npcByLine, npcByNumber = {}, {}
+function Lines.isNpcLine(lineId) return lineId and npcByLine[lineId] or nil end
+function Lines.npcName(number) return number and npcByNumber[number] or nil end
+function Lines.ensureNpcLine(key, number, name)
+    if type(key) ~= "string" or not key:match("^[%w_%-]+$") or #key > 48 then return nil, "invalid_key" end
+    name = type(name) == "string" and name:sub(1, 64) or key
+    local identifier = "npc:" .. key
+    local row, err = Store.single("SELECT id, number FROM nl_lines WHERE identifier = ? AND character_key = 'default'", { identifier })
+    if row == nil then return nil, err end
+    if row then
+        Store.update("UPDATE nl_lines SET name = ? WHERE id = ?", { name, row.id })
+    else
+        -- the wished number when it is free, else a random one
+        local wanted = Lines.validNumber(number) and number or nil
+        for attempt = 1, 12 do
+            local candidate = (attempt == 1 and wanted) or string.format("%d%02d-%04d", math.random(2, 9), math.random(0, 99), math.random(0, 9999))
+            local id, insertErr = Store.insert(
+                "INSERT INTO nl_lines (number, identifier, character_key, name, settings, created_at, installed_at) VALUES (?, ?, 'default', ?, ?, ?, ?)",
+                { candidate, identifier, name, json.encode(C.defaults.settings), Neural.nowMs(), Neural.nowMs() })
+            if id then row = { id = id, number = candidate } break end
+            if insertErr ~= "conflict" then return nil, insertErr end
+        end
+        if not row then return nil, "no_number" end
+    end
+    npcByLine[row.id], npcByNumber[row.number] = key, name
+    return { id = row.id, number = row.number, name = name }
+end
+
+-- The registry is memory: a restart of this resource reads the NPC lines back (the
+-- resource that owns them may not declare them again before its next text).
+Store.onReady(function()
+    local rows = Store.query("SELECT id, number, identifier, name FROM nl_lines WHERE identifier LIKE 'npc:%'", {})
+    for _, row in ipairs(rows or {}) do
+        npcByLine[row.id], npcByNumber[row.number] = row.identifier:sub(5), row.name or row.number
+    end
+end)
+
 -- Test harness: an offline line owned by nobody real ("test:<number>").
 function Lines.ensureTestLine(number, name)
     if not Lines.validNumber(number) then return nil, "invalid_number" end
@@ -148,7 +187,7 @@ function Lines.nameFor(viewerPlayerId, number)
     local s = viewerPlayerId and sessions[viewerPlayerId]
     if s and s.line.number == number then return s.line.name end
     local contact = s and s.contacts[number]
-    return contact and contact.name or number
+    return contact and contact.name or npcByNumber[number] or number
 end
 
 function Lines.contactList(playerId)

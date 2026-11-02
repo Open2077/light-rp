@@ -276,3 +276,23 @@
 .netlist__c { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; font-size: 14px; font-weight: 700; color: var(--ink-dim); animation: key-in 400ms var(--spring) both; animation-delay: calc(var(--i) * 40ms + 200ms); }
 .netlist__c:not(.is-on) { opacity: 0.55; filter: grayscale(0.7); }
 .netlist__c.is-on { color: var(--ink-hi); }
+
+/* Rich messages (MessageMeta): a job card, a map pin, answer buttons, a contact picker. */
+.bubble--rich { max-width: 86%; flex-direction: column; align-items: stretch; }
+.rich { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px; user-select: none; -webkit-user-select: none; }
+.rich__card { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: rgba(var(--tint-3), 0.55); box-shadow: inset 0 0 0 1px rgba(120, 130, 145, 0.22); }
+.rich__tag { font-size: 11px; letter-spacing: 0.18em; color: var(--sel); }
+.rich__title { font-size: 17px; color: var(--ink-hi); }
+.rich__sub { font-size: 14px; color: var(--ink-dim); }
+.rich__lines { margin: 4px 0 0; padding-left: 16px; font-size: 14px; color: var(--ink); }
+.rich__lines li { margin: 1px 0; }
+.rich__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.rich__actions .btn, .rich__pin { display: inline-flex; align-items: center; gap: 6px; }
+.rich__actions .btn.is-on { outline: 2px solid var(--sel); outline-offset: 1px; }
+.rich__pin { align-self: flex-start; }
+.rich__resolved { align-self: flex-start; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 10px; border-radius: 10px; }
+.rich__resolved--ok { color: var(--ok); background: rgba(47, 220, 140, 0.12); }
+.rich__resolved--danger { color: var(--sel); background: rgba(255, 59, 72, 0.1); }
+.rich__resolved--dim { color: var(--ink-dim); background: rgba(120, 130, 145, 0.14); }
+.rich__picker { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; border-top: 1px solid rgba(120, 130, 145, 0.2); }
+.rich__picker .label { font-size: 12px; letter-spacing: 0.12em; color: var(--ink-dim); }

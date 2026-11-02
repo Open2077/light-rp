@@ -180,3 +180,6 @@
 .mission-op.is-dead strong { text-decoration: line-through; }
 .mission-op.is-dead .mission-op__state { background: rgba(242, 240, 234, .2); }
 .mission-op.is-recovering .mission-op__state { background: rgba(46, 230, 224, .2); color: #2ee6e0; }
+/* fixer gig chip (FixerGigHud): crew taken = half lit, at the meet point = lit */
+.mission__meter i.is-half { background: rgba(139, 224, 78, .35); }
+.mission-queue.is-gig .mission-queue__tag { background: #ff3fb8; color: #0b0b0d; }

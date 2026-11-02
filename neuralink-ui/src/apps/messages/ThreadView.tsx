@@ -10,6 +10,7 @@ import { Avatar, Empty, IconBtn, Loader } from "@/components/ui";
 import { dial, groupCall, loadOlder, loadThread, navigate, retryPending, sendMessage } from "@/store/actions";
 import { dayLabel, hhmm, startOfDay } from "@/lib/format";
 import { threadPeer } from "./ThreadList";
+import { RichMessage } from "./RichMessage";
 
 const GAP_MS = 10 * 60_000;
 
@@ -169,8 +170,9 @@ export function ThreadView({ threadId, canBack }: { threadId: number; canBack: b
                     {it.showName && <div className="bname" style={{ ["--hue" as string]: hue(it.m.sender.number) }}>{it.m.sender.name}</div>}
                     <div className={`bubble-row ${it.m.mine ? "is-mine" : ""} ${it.first ? "is-first" : ""} ${it.last ? "is-last" : ""} ${isNew(it.m.id) ? "is-new" : ""}`}>
                       {group && !it.m.mine && <span className="bubble-row__av">{it.last && <Avatar name={it.m.sender.name} seed={it.m.sender.number} size={30} />}</span>}
-                      <div className="bubble">
+                      <div className={`bubble ${it.m.meta ? "bubble--rich" : ""}`}>
                         <span className="bubble__text">{it.m.body}</span>
+                        {it.m.meta && <RichMessage m={it.m} />}
                         <span className="bubble__time mono">{hhmm(it.m.at)}</span>
                       </div>
                     </div>

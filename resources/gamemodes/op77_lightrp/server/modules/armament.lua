@@ -222,7 +222,14 @@ local function readback(rt,rows)
     return true
 end
 local function project(rt)
-    local d,why=desired(rt);if not d then return false,why end
+    local d,why=desired(rt)
+    if not d then
+        -- no valid loadout: no native weapon may stay in hand (a mission kit left over, a
+        -- stale projection). The kit once stayed after a mission because of this return.
+        local cleared=native(rt,"clear","clear")
+        if cleared then rt.observed={};rt.allowedHashes={};rt.projectedRecords=nil;rt.baseline=nil end
+        return false,why
+    end
     local snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
     local rows=rowsOf(snapshot)
     local settled,settleError=settleExisting(rt,rows)
@@ -319,7 +326,14 @@ local function missionLoadout(player)
     return W.standsAside(player)
 end
 function W.synchronize(player,onlyObserve)
-    if missionLoadout(player) then return true end
+    if missionLoadout(player) then
+        -- the mission's kit owns the native slots now: the projection made before it is
+        -- not ours to reconcile. Kept, it made the return refuse ("could not be
+        -- reconciled") and the kit stayed in hand after the mission (2026-11-02).
+        local rt=W.runtime[player]
+        if rt then rt.projectedRecords=nil;rt.baseline=nil end
+        return true
+    end
     local rt=W.runtime[player]
     if not current(rt) then return false,"Your character is not ready." end
     if rt.busy then return false,"Weapon synchronization is already in progress." end

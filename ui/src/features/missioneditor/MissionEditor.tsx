@@ -16,7 +16,7 @@ import "@/features/safezones/safezones.css";
 import "./missioneditor.css";
 
 type Kind = "list" | "mission" | "general" | "perimeter" | "vertices" | "vertex" | "starts" | "start" | "spawns" | "spawn"
-  | "checkpoints" | "checkpoint" | "waves" | "wave" | "rules" | "difficulties" | "difficulty" | "test" | "issues" | "discard" | "delete"
+  | "checkpoints" | "checkpoint" | "waves" | "wave" | "rules" | "fixer" | "difficulties" | "difficulty" | "test" | "issues" | "discard" | "delete"
   | "brush" | "route";
 type Page = { kind: Kind; selected?: string; index?: number; key?: string };
 type Entry = RageMenuItem & { run?: () => void; change?: (patch: Partial<RageMenuItem>) => void };
@@ -31,6 +31,7 @@ const coords = (p: Point) => `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixe
 /** Staff mission editor (/lightrp.missions): the keyboard shell of /admin and the safe zones. */
 export function MissionEditor() {
   const [opened, setOpened] = useState(false), [missions, setMissions] = useState<Mission[]>([]), [ready, setReady] = useState(false);
+  const [fixers, setFixers] = useState<{ id: string; name: string }[]>([]);
   const [draft, setDraft] = useState<Mission>(), [original, setOriginal] = useState("");
   const [stack, setStack] = useState<Page[]>([{ kind: "list" }]), [world, setWorld] = useState(false);
   const [editing, setEditing] = useState<TextEdit>(), [stepIndex, setStepIndex] = useState(1);
@@ -55,6 +56,7 @@ export function MissionEditor() {
     if (!live.current) return;
     setMissions(Array.isArray(data.missions) ? data.missions.map(normalizeMission) : []);
     setReady(data.ready === true);
+    setFixers(Array.isArray(data.fixers) ? data.fixers : []);
   }, []);
   const run = useCallback(async (task: () => Promise<void>) => {
     if (working.current) return;
@@ -274,7 +276,7 @@ export function MissionEditor() {
   if (top.kind === "list") {
     entries = [item("create", "Create a mission", () => { void edit(); }, { icon: "plus", disabled: busy || !ready, description: ready ? "Start a private draft where you stand: board, start and perimeter around you. Nothing changes until publication." : "Mission storage is unavailable." }),
       { separator: true },
-      ...missions.map(m => item(`mission:${m.id}`, m.title, () => { void edit(m); }, { icon: m.type === "waves" ? "shield" : "swords", meta: m.enabled ? TYPE_LABEL[m.type].toUpperCase() : "DISABLED", disabled: busy,
+      ...missions.map(m => item(`mission:${m.id}`, m.title, () => { void edit(m); }, { icon: m.type === "waves" ? "shield" : "swords", meta: !m.enabled ? "DISABLED" : m.fixer.enabled ? `GIG · ${TYPE_LABEL[m.type].toUpperCase()}` : TYPE_LABEL[m.type].toUpperCase(), disabled: busy,
         description: `${TYPE_LABEL[m.type]} · ${m.spawns.length} spawn point(s) · ${m.checkpoints.length} checkpoint(s)${m.type === "waves" ? ` · ${m.waves.length} wave(s)` : ""} · revision ${m.revision}` })),
       ...(!missions.length ? [item("empty", ready ? "No authored mission yet" : "Storage unavailable", undefined, { disabled: true })] : []), { separator: true },
       item("refresh", "Refresh", () => { void run(refresh); }, { icon: "activity", disabled: busy }), item("close", "Close editor", close, { icon: "x", disabled: busy })];
@@ -297,6 +299,8 @@ export function MissionEditor() {
           submenu("checkpoints", "Checkpoints", { kind: "checkpoints" }, { meta: `${m.checkpoints.length} / ${LIMITS.checkpoints}`, description: "Points the squad must reach. Entering one wakes its spawn points." }),
           ...(m.type === "waves" ? [submenu("waves", "Waves", { kind: "waves" }, { meta: `${m.waves.length} / ${LIMITS.waves}`, description: "The waves in order. Each starts its delay after the previous one is cleared." })] : []),
           submenu("rules", "Rules", { kind: "rules" }, { meta: `${m.outOfBounds.graceSeconds}s · ${m.respawn.lives} lives`, description: "Out-of-zone delay, team respawns." }),
+          submenu("fixer", "Fixer gig", { kind: "fixer" }, { meta: m.fixer.enabled ? "GIG" : "BOARD", description: m.fixer.enabled
+            ? "A fixer gig: no board in the city. The fixers text it to players at random; they share it with their crew." : "A board mission (players tag in). Turn it into a fixer gig here." }),
           submenu("difficulties", "Difficulties and rewards", { kind: "difficulties" }, { description: "Payout, time limit, squad size and enemy strength per difficulty." }),
           { separator: true },
           ...(issues.length ? [submenu("issues", `Fix ${issues.length} issue${issues.length > 1 ? "s" : ""}`, { kind: "issues" }, { icon: "triangle-alert", danger: true, description: issues[0] })] : []),
@@ -468,6 +472,20 @@ export function MissionEditor() {
             item("removeWave", "Remove this wave", () => { update(d => ({ waves: d.waves.filter((_, j) => j !== i) })); pop(); }, { danger: true, disabled: readOnly }),
           ];
         }
+        break;
+      }
+      case "fixer": {
+        const contactIds = ["any", ...fixers.map(f => f.id)];
+        const contactName = (id: string) => id === "any" ? "Any fixer (random)" : fixers.find(f => f.id === id)?.name ?? id;
+        entries = [
+          toggle("fixerEnabled", "Fixer gig", m.fixer.enabled, enabled => update(d => ({ fixer: { ...d.fixer, enabled } })),
+            "On: no board in the city, nobody tags in. The fixers text this job to players at random (Neural-Link), with the meet point = the board position. Off: a board mission."),
+          choice("fixerContact", "Fixer", contactIds, contactName, contactIds.includes(m.fixer.contact) ? m.fixer.contact : "any",
+            contact => update(d => ({ fixer: { ...d.fixer, contact } })), "Who sends the job. Any: a random fixer each time."),
+          textEntry("fixerBrief", "Fixer brief", m.fixer.brief, v => { if (v.trim().length > 240) return "240 characters at most."; update(d => ({ fixer: { ...d.fixer, brief: v.trim() } })); return undefined; }, 240,
+            "The objective the fixer writes once the job is taken. Empty: the mission description."),
+          item("fixerHelp", "How a gig plays", undefined, { disabled: true, description: "A fixer texts one player: Take the job / Pass. Taken: the brief with the meet point (Pin on map) and the objective; the player shares the job with contacts or numbers, who join the crew. Everyone who took it meets at the point: countdown, then the mission runs at the offered difficulty and pays each operator." }),
+        ];
         break;
       }
       case "rules":

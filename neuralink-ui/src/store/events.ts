@@ -97,6 +97,7 @@ export function useBridgeEvents(): void {
           play("receive");
         }
       }),
+      on("nl:messageUpdate", (p) => { if (p?.message && typeof p.message.id === "number") getStore().messageUpdated(p.message); }),
       on("nl:call", (c) => {
         const prev = getStore().state?.call;
         getStore().setCall(c ?? null);

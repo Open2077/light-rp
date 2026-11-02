@@ -133,7 +133,11 @@ end
 local function dispatch(player, p)
     if not Editor.allowed(player) then return nil, "Mission editor permission denied." end
     local op = p.operation
-    if op == "list" then return { missions = Editor.list(), ready = Editor.ready and Db.ready } end
+    if op == "list" then
+        local fixers = {}
+        for i, c in ipairs(type(LightRpFixers) == "table" and LightRpFixers.contacts or {}) do fixers[i] = { id = c.id, name = c.name } end
+        return { missions = Editor.list(), ready = Editor.ready and Db.ready, fixers = fixers }
+    end
     if op == "save" or op == "delete" then
         local a = actor(player)
         local key = type(p.mutation) == "string" and #p.mutation >= 8 and #p.mutation <= 96 and p.mutation or nil

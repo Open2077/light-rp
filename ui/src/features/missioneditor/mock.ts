@@ -30,7 +30,7 @@ export function missionEditorMock(fire: (name: string, value: unknown) => void, 
         return;
       }
       if (!allowed) { respond(false, undefined, "Mission editor permission denied."); return; }
-      if (p.operation === "list") respond(true, { ready: true, missions: clone(missions) });
+      if (p.operation === "list") respond(true, { ready: true, missions: clone(missions), fixers: [{ id: "okoro", name: "Mama Okoro" }, { id: "ledger", name: "Silas \"Ledger\" Varga" }, { id: "nix", name: "Nix Delacroix" }] });
       else if (p.operation === "save" && p.mission) {
         if (p.mutation && replies.has(p.mutation)) { respond(true, replies.get(p.mutation)); return; }
         const old = missions.find(m => m.id === p.mission!.id);

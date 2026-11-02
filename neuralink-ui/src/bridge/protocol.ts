@@ -39,14 +39,28 @@ export interface ThreadSummary {
   isOwner: boolean;
 }
 
+/** A button of a rich message. `input: "contact"` asks for a contact or a number first. */
+export interface MessageAction { id: string; label: string; style?: "primary" | "danger" | "ghost"; input?: "contact" }
+/** What another resource attaches to a message (a fixer's job offer): a card, buttons,
+    a location to pin on the map, and once answered the resolved state. */
+export interface MessageMeta {
+  source?: string;
+  ref?: string;
+  card?: { title: string; subtitle?: string; tag?: string; lines?: string[] };
+  actions?: MessageAction[];
+  location?: { x: number; y: number; z: number; label?: string };
+  resolved?: { action?: string; label: string; tone?: "ok" | "danger" | "dim" };
+}
+
 export interface Message {
   id: number;
   threadId: number;
   kind: "text" | "system";
-  sender: { number: string; name: string };
+  sender: { number: string; name: string; npc?: boolean };
   body: string;
   at: number;
   mine: boolean;
+  meta?: MessageMeta | null;
 }
 
 export type RecentStatus = "answered" | "missed" | "declined" | "busy" | "unavailable";
@@ -240,6 +254,8 @@ export interface InboundEvents {
   "nl:close": Record<string, never>;
   "nl:thread": ThreadPayload;
   "nl:message": MessagePayload;
+  /** A rich message changed (its buttons were answered, its job closed). */
+  "nl:messageUpdate": { message: Message };
   "nl:call": CallState | null;
   "nl:callEnded": CallEndedPayload;
   "nl:talkers": TalkersPayload;
@@ -271,6 +287,10 @@ export interface RequestOps {
   "threads.direct": { args: { number: string }; data: { threadId: number } };
   "threads.read": { args: { threadId: number }; data: Record<string, never> };
   "messages.send": { args: { threadId: number; body: string }; data: { id: number } };
+  /** A button of a rich message (value: the number picked for `input: "contact"`). */
+  "messages.action": { args: { messageId: number; action: string; value?: string }; data: Record<string, never> };
+  /** Client-side: a waypoint on the map (the message's location). */
+  "map.pin": { args: { x: number; y: number; z: number; label?: string }; data: Record<string, never> };
   "groups.create": { args: { title: string; numbers: string[] }; data: { threadId: number } };
   "groups.rename": { args: { threadId: number; title: string }; data: Record<string, never> };
   "groups.add": { args: { threadId: number; number: string }; data: Record<string, never> };

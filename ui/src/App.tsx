@@ -27,6 +27,7 @@ import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
 import { MissionDialog } from "@/features/missions/MissionDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
+import { FixerGigHud } from "@/features/missions/FixerGigHud";
 import { MissionSquadHud } from "@/features/missions/MissionSquadHud";
 import { RaidHud } from "@/features/missions/RaidHud";
 import { Medical } from "@/features/medical/Medical";
@@ -85,6 +86,7 @@ export function App() {
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
       <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
+      <ErrorBoundary name="fixer-gig"><FixerGigHud /></ErrorBoundary>
       <ErrorBoundary name="mission-squad"><MissionSquadHud /></ErrorBoundary>
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>

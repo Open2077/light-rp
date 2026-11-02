@@ -182,6 +182,21 @@ function M.validate(raw)
         d.loadout = raw.loadout
     end
 
+    -- A fixer gig (server/modules/fixers.lua): no board in the city, nobody tags in.
+    -- The fixers hand it out by message to a player, who can share it with contacts.
+    --   contact  "any" (a random fixer) or the id of one of LightRpFixers.contacts
+    --   brief    what the fixer writes about the job ("" = the mission description)
+    d.fixer = { enabled = false, contact = "any", brief = "" }
+    if raw.fixer ~= nil then
+        local fx = raw.fixer
+        if type(fx) ~= "table" or (fx.enabled ~= nil and type(fx.enabled) ~= "boolean") then return nil, "Invalid fixer settings." end
+        local contact = fx.contact == nil and "any" or fx.contact
+        if not key(contact) then return nil, "Fixer: invalid contact." end
+        local brief = optionalText(fx.brief, 240)
+        if brief == nil then return nil, "Fixer: the brief is limited to 240 characters." end
+        d.fixer = { enabled = fx.enabled == true, contact = contact, brief = brief }
+    end
+
     local rs = type(raw.respawn) == "table" and raw.respawn or {}
     d.respawn = { seconds = rs.seconds == nil and 10 or rs.seconds, lives = rs.lives == nil and 3 or rs.lives }
     if not G.integer(d.respawn.seconds, 3, 60) then return nil, "Respawn delay must be 3–60 seconds." end
@@ -308,7 +323,9 @@ function M.point(def)
     return { id = def.id, title = def.title, type = M.TYPE_LABELS[def.type], location = def.location ~= "" and def.location or "Night City",
         description = def.description ~= "" and def.description or (def.type == "waves" and "Hold the zone until the last wave falls."
             or "Clear the zone. Leave nobody standing."),
-        position = def.point, start = starts, difficulties = clone(def.difficulties), custom = true }
+        position = def.point, start = starts, difficulties = clone(def.difficulties), custom = true,
+        fixer = def.fixer and def.fixer.enabled == true or nil,
+        fixerContact = def.fixer and def.fixer.contact or nil, fixerBrief = def.fixer and def.fixer.brief or nil }
 end
 
 -- How many enemies a spawn point puts out at a difficulty.
