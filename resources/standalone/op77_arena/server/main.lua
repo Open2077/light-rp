@@ -183,6 +183,17 @@ local function placeAt(playerId, position, heading, bucket, reason, graceMs)
     DM.suppressDeath(playerId, 2500)
     DM.scoring.suppressDeath(playerId, 2500)
 
+    -- op77_arena patch: a hosting resource may move the body itself
+    -- (`Deathmatch.moveBody`, server/lightrp.lua: teleport the living, respawn
+    -- the dead) and leaves the player's armor and regeneration to the host, whose
+    -- stats they are. Without the hook this is the upstream kill -> respawn.
+    if type(DM.moveBody) == "function" then
+        local moved, moveReason = DM.moveBody(playerId, position, heading, bucket,
+            reason, graceMs, life)
+        if not moved then return false, moveReason end
+        DM.bounds.hold(playerId, graceMs)
+    else
+
     local phase = phaseOf(life)
     if phase == "alive" or phase == "recovering" then
         local killed, killReason = Open77.players.kill(playerId, {
@@ -212,6 +223,7 @@ local function placeAt(playerId, position, heading, bucket, reason, graceMs)
 
     Open77.players.setArmor(playerId, 0)
     Open77.players.setRegen(playerId, 0)
+    end -- op77_arena patch: end of the upstream body move
 
     -- The token makes the check belong to THIS placement: a player re-placed
     -- inside the window -- a round start landing on a join, say -- must not be
@@ -654,7 +666,12 @@ local pendingStates, pendingPlayers = {}, {}
 local pendingHead, pendingTail = 1, 0
 broadcastState = function()
     for playerId in pairs(players) do
-        if not pendingPlayers[playerId] then
+        -- op77_arena patch: a host decides who receives the push at all
+        -- (`Deathmatch.wantsState`), so an RP server does not stream arena state
+        -- to every citizen twice a second. Without the hook: everybody, upstream.
+        if type(DM.wantsState) == "function" and not DM.wantsState(playerId) then
+            -- not a subscriber
+        elseif not pendingPlayers[playerId] then
             pendingTail = pendingTail + 1
             pendingStates[pendingTail] = playerId
             pendingPlayers[playerId] = true
@@ -951,6 +968,17 @@ RegisterNetEvent("deathmatch:ready", function()
     if playerId == nil then return end
     local record = ensurePlayer(playerId)
     if record == nil then return end
+
+    -- op77_arena patch: hosted, the city is the lobby and a join places nobody.
+    -- Upstream, this announce sends a fresh connection through `sendToLobby`, a
+    -- kill -> respawn onto `Config.lobby.center` -- on an RP server that would be
+    -- a free teleport (and an escape from any scene) for whoever sends it.
+    if Config.placeOnJoin == false then
+        record.announced = true
+        record.placed = true
+        pushState(playerId)
+        return
+    end
     record.announced = true
     record.placed = true
 
