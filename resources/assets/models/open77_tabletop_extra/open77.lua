@@ -1,4 +1,4 @@
--- Original roulette, dominoes and card-tower props. No vanilla overrides.
+-- Original roulette props. No vanilla overrides.
 resource "open77_tabletop_extra"
 version "1.0.0"
 open77_version ">=0.0.1"

@@ -778,7 +778,7 @@ RegisterNetEvent("lightrp:boardGames:state",function(payload)
             boardSound(board)
             if not Client.boards[board.id] then
                 LightRpInteract.setLocal("boardGames."..board.id,{position=board.position,radius=1.8,
-                    prompt=(board.kind=="chess" and "Chess" or board.kind=="connect4" and "Connect Four" or board.kind=="roulette" and "Roulette" or board.kind=="dominoes" and "Dominoes" or board.kind=="cardtower" and "House of Cards" or "Checkers").." — Play"},function()
+                    prompt=(board.kind=="chess" and "Chess" or board.kind=="connect4" and "Connect Four" or board.kind=="roulette" and "Roulette" or "Checkers").." — Play"},function()
                     if not Client.isActive() then request("join",{boardId=board.id}) end
                 end)
             end

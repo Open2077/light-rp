@@ -12,7 +12,7 @@ interface View {
   winner?: string; side?: string; selected?: { row: number; col: number }; axis?: string; text?: string;
   mode?: "solo" | "duel" | "teams"; owned?: boolean; ready?: boolean; actor?: number;
   isActor?: boolean; playerCount?: number; ply?: number; canConfigure?: boolean;
-  extra?: ExtraState; selectedTile?: string;
+  extra?: ExtraState;
   cameraView?: CameraView; cameraViews?: CameraView[];
 }
 const CAMERAS: [CameraView, string][] = [["top", "Overhead"], ["white", "White side"], ["black", "Black side"], ["orbit", "Orbit"]];
@@ -44,10 +44,9 @@ export function BoardGames() {
   const result = view.status === "draw" ? "Draw" : view.status === "won" ? `${sideName(view.winner)} wins` : `${sideName(view.turn)} to move`;
   const slots = view.mode === "teams" ? 4 : view.mode === "solo" ? 1 : 2;
   const waiting = view.ready === false && view.status === "playing";
-  const openPlay = view.kind === "roulette" || view.kind === "cardtower";
-  const extraGame = openPlay || view.kind === "dominoes";
-  const names: Record<string,string> = {chess:"Chess",checkers:"Checkers",connect4:"Connect Four",roulette:"Roulette",dominoes:"Dominoes",cardtower:"Card Tower"};
-  const status = view.placing ? "Board placement" : waiting ? "Waiting for players" : openPlay ? view.extra?.status === "collapsed" ? "Tower collapsed" : "Open table" : result;
+  const openPlay = view.kind === "roulette";
+  const names: Record<string,string> = {chess:"Chess",checkers:"Checkers",connect4:"Connect Four",roulette:"Roulette"};
+  const status = view.placing ? "Board placement" : waiting ? "Waiting for players" : openPlay ? "Open table" : result;
   return <div className="board-games" aria-label="Board game"
     onContextMenu={event => event.preventDefault()}
     onPointerMove={event => pointer(event)}
@@ -81,14 +80,14 @@ export function BoardGames() {
         </div> : !openPlay && <p className="board-games__description">Start a new game to change the game mode.</p>}
         {(view.ply ?? 0) > 0 && <Button size="sm" block variant="secondary" onClick={() => emit("lightrp:boardGames:reset", {})}>New game</Button>}
       </Panel>}
-      {!view.placing && extraGame && view.extra && <TabletopExtraControls key={view.kind} kind={view.kind!} game={view.extra} selectedTile={view.selectedTile} ready={view.ready} isActor={view.isActor}/> }
+      {!view.placing && openPlay && view.extra && <TabletopExtraControls game={view.extra} ready={view.ready}/> }
       <div className="board-games__instructions">
         {view.placing ? <>
           <p><Keycap size="sm">X/Y/Z</Keycap><span>Movement axis · {view.axis?.toUpperCase() ?? "XY"}</span></p>
           <p><Keycap size="sm">Q / D</Keycap><span>Rotate board</span></p>
           <p><Keycap size="sm">PG↑ / PG↓</Keycap><span>Adjust height</span></p>
         </> : <>
-          <p><Keycap tone="accent" size="sm">LMB</Keycap><span>{view.kind === "connect4" ? "Drop a disc in a column" : extraGame ? view.kind === "dominoes" ? "Select a domino and play an end" : view.kind === "cardtower" ? "Place cards on the table" : "Use the betting controls" : "Drag a piece or click its destination"}</span></p>
+          <p><Keycap tone="accent" size="sm">LMB</Keycap><span>{view.kind === "connect4" ? "Drop a disc in a column" : openPlay ? "Use the betting controls" : "Drag a piece or click its destination"}</span></p>
           <p><Keycap size="sm">RMB</Keycap><span>Rotate in orbit view</span></p>
           <p><Keycap size="sm">SCROLL</Keycap><span>Zoom in orbit view</span></p>
         </>}

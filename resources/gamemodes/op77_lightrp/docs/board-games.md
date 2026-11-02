@@ -88,22 +88,18 @@ The browser test accepts `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH` and optional
 `BOARD_GAMES_WEB_DIR`. Final camera, picking, audio and native rendering still
 need an in-game check with actual clients.
 
-## Roulette, dominoes and card towers
+## Roulette
 
-Additional native props are delivered by `open77_tabletop_extra` (47 props with original textures). The launcher must download the new preload package before reconnecting. All item labels and controls are English.
+Additional native props are delivered by `open77_tabletop_extra` (3 props with original textures). The launcher must download the new preload package before reconnecting. All item labels and controls are English.
 
 - `roulette_table`: European single-zero wheel and a separately animated ball. Place whole-dollar RP cash bets, then spin. The server chooses the outcome, closes betting during the eight-second spin and stores winnings atomically. Straight numbers return 36 times the stake, dozens 3 times and even-chance bets 2 times; returns include the original stake. Zero loses outside bets. Pending winnings and refunds belong to the character inventory and survive disconnections and restarts. Resetting or retrieving a table refunds unspun stakes; both are blocked during a spin.
-- `dominoes_set`: double-six dominoes, private hands, draw/pass and legal end matching. Supports two-player games, alternating four-player teams and solo AI.
-- `cardtower_set`: cooperative card construction. Place a two-card leaning frame or a flat roof, with selectable level and rotation. Support and load checks determine stability. Unsupported placement or excessive overlap starts a synchronized simulated gravity collapse. Card tilt uses authored native pose variants because the prop API exposes yaw only.
 
-These games share placement, cameras, HUD suppression and owner-only retrieval through the target menu. There is no numerical placement limit. Ordinary distance and overlap checks still apply.
+The table shares placement, cameras, HUD suppression and owner-only retrieval through the target menu with the board games. There is no numerical placement limit. Ordinary distance and overlap checks still apply.
 
-Admin item commands:
+Admin item command:
 
 ```text
 /lightrp.giveitem me roulette_table 1
-/lightrp.giveitem me dominoes_set 1
-/lightrp.giveitem me cardtower_set 1
 ```
 
-Validation: `tools/test-tabletop-extra.py`, `tools/test-tabletop-extra-client.py`, `tools/test-tabletop-extra-server.py`, `tools/build-tabletop-extra-props.py --verify-only`, and `ui/tests/board-games.browser.cjs`. Server tests cover atomic cash debits, failed storage, exactly-once payouts after restarts, offline refunds, recycled player IDs, private hands, solo AI and cooperative placement.
+Validation: `tools/test-tabletop-extra.py`, `tools/test-tabletop-extra-client.py`, `tools/test-tabletop-extra-server.py`, `tools/build-tabletop-extra-props.py --verify-only`, and `ui/tests/board-games.browser.cjs`. Server tests cover atomic cash debits, failed storage, exactly-once payouts after restarts, offline refunds and recycled player IDs.

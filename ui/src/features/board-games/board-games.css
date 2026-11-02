@@ -23,5 +23,4 @@
 .board-games__field{display:flex;flex-direction:column;gap:5px;margin:10px 0;color:var(--text-dim);font:var(--type-label);font-size:11px;letter-spacing:.04em}
 .board-games__field input,.board-games__field select{min-width:0;width:100%;padding:9px;border:1px solid var(--line-neutral);background:var(--surface-input);color:var(--text-hi);font:var(--type-body);font-size:13px;border-radius:0;outline:none}
 .board-games__field input:focus,.board-games__field select:focus{border-color:var(--accent)}
-.board-games__tiles{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
 .board-games__modes+.board-games__modes{margin-top:8px}

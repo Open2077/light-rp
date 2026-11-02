@@ -10,7 +10,7 @@ Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_roulette_claims (
  PRIMARY KEY(round_key,inventory_id), INDEX roulette_unpaid(inventory_id,paid,available_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
 function X.now() return math.floor(Open77.time.unix()*1000) end
-function X.supports(kind) return kind=="roulette" or kind=="dominoes" or kind=="cardtower" end
+function X.supports(kind) return kind=="roulette" end
 local function copy(t) if type(t)~="table" then return t end;local n={};for k,v in pairs(t) do n[k]=copy(v) end;return n end
 local function seatOf(b,player) for seat,id in pairs(b.players) do if id==player then return seat end end end
 local function claimQueries(key,totals,at)
@@ -32,12 +32,6 @@ function X.act(player,b,operation,data,commit)
  local seat=seatOf(b,player)
  if not seat then return false,"Join the table first." end
  if type(operation)~="string" or type(data)~="table" then return false,"Invalid tabletop action." end
- if b.kind~="roulette" then
-  local safe={tileId=data.tileId,['end']=data['end'],x=data.x,y=data.y,level=data.level,orientation=data.orientation,yaw=data.yaw,nowMs=X.now()}
-  local game,why=R.act(b.game,seat,operation,safe)
-  if not game then return false,why end
-  return commit(game)
- end
  if operation=="bet" then
   local amount=tonumber(data.amount)
   if not amount or amount~=math.floor(amount) or amount<1 or amount>1000000 then return false,"Bet between 1 and 1,000,000 in whole RP dollars." end

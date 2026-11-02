@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Cook original roulette, double-six dominoes and authored card-tower poses.
+"""Cook the original roulette table, rotor and ball.
 
 Uses the existing native board-prop cooker as a read-only schema/tool library.
 Only this resource and --work receive outputs. Requires Pillow for original
-number/card artwork, .NET and WolvenKit from the inspected local lab.
+number artwork, .NET and WolvenKit from the inspected local lab.
 """
 import argparse,base64,copy,hashlib,importlib.util,json,math,os,random,struct,subprocess,zipfile
 from pathlib import Path
@@ -15,7 +15,7 @@ LAB=ROOT.parent/'dop-tests'
 ORDER=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
 REDS={1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
 GREEN,RED,BLACK,BRASS,BALL='#174C32FF','#A82025FF','#12110FFF','#B79048FF','#FFFFFDFF'
-NUMBER,CARD_FRONT,CARD_BACK='#242424FF','#FCFCF5FF','#8E1820FF'
+NUMBER='#242424FF'
 FONT=Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
 spec=importlib.util.spec_from_file_location('native_boards',ROOT/'tools/build-board-game-props.py');base=importlib.util.module_from_spec(spec);spec.loader.exec_module(base)
 base.RESOURCE=RESOURCE;base.DEPOT=DEPOT
@@ -29,27 +29,6 @@ def quad(out,points,c,uv=None):
   out.append(f)
 
 def ring(out,profile,c,sides=128):g.lathe(out,profile,c,sides)
-
-def bevel_box(out,w,h,z,t,c,bevel=.002):
- """Closed rectangular solid with chamfered top/bottom edges and rounded corners."""
- corner=min(w,h)*.10;n=8;rings=[]
- for zz,shrink in ((z,bevel),(z+bevel,0),(z+t-bevel,0),(z+t,bevel)):
-  row=[]
-  for cx,cy,start in ((w/2-corner,h/2-corner,0),(-w/2+corner,h/2-corner,90),(-w/2+corner,-h/2+corner,180),(w/2-corner,-h/2+corner,270)):
-   for i in range(n+1):
-    a=math.radians(start+i*90/n);rr=max(.00005,corner-shrink)
-    row.append([cx+rr*math.cos(a),cy+rr*math.sin(a),zz])
-  rings.append(row)
- for a,b in zip(rings,rings[1:]):
-  for i in range(len(a)):j=(i+1)%len(a);quad(out,[a[i],a[j],b[j],b[i]],c)
- for i in range(len(rings[0])):
-  j=(i+1)%len(rings[0]);g.tri(out,[0,0,z],rings[0][j],rings[0][i],c);g.tri(out,[0,0,z+t],rings[-1][i],rings[-1][j],c)
-
-def carpet_board():
- out=[];bevel_box(out,1,.75,-.028,.028,base.WOOD_FRAME,.004)
- # Inset felt top with a narrow, visible wooden rim.
- quad(out,[[-.47,-.345,.001],[.47,-.345,.001],[.47,.345,.001],[-.47,.345,.001]],GREEN)
- return out
 
 def roulette_table():
  out=[]
@@ -95,74 +74,12 @@ def roulette_wheel():
   out.extend(part)
  return out
 
-PIPS={0:[],1:[(0,0)],2:[(-1,-1),(1,1)],3:[(-1,-1),(0,0),(1,1)],4:[(-1,-1),(-1,1),(1,-1),(1,1)],5:[(-1,-1),(-1,1),(0,0),(1,-1),(1,1)],6:[(-1,-1),(-1,0),(-1,1),(1,-1),(1,0),(1,1)]}
-def domino(a,b):
- out=[];bevel_box(out,.026,.052,0,.008,base.WHITE,.00075)
- # Dark fine inlay separates the two halves without an oversized black stripe.
- g.box(out,0,0,.00804,.021,.00048,.00010,BLACK)
- for number,cy in ((a,-.013),(b,.013)):
-  for px,py in PIPS[number]:
-   cx,yy=px*.006,cy+py*.006
-   for i in range(24):
-    aa=i*math.tau/24;bb=(i+1)*math.tau/24
-    g.tri(out,[cx,yy,.00813],[cx+.0017*math.cos(aa),yy+.0017*math.sin(aa),.00813],[cx+.0017*math.cos(bb),yy+.0017*math.sin(bb),.00813],BLACK)
- return out
-
-def card():
- out=[];x,y,z=.044,.0315,.00025;radius=.0026;outline=[]
- for cx,cy,start in ((x-radius,y-radius,0),(-x+radius,y-radius,90),(-x+radius,-y+radius,180),(x-radius,-y+radius,270)):
-  for i in range(9):
-   a=math.radians(start+i*90/8);outline.append([cx+radius*math.cos(a),cy+radius*math.sin(a)])
- def uv(p,back=False):return [.5+(p[1]/.063 if back else -p[1]/.063),.5-p[0]/.088]
- for i,a in enumerate(outline):
-  bb=outline[(i+1)%len(outline)]
-  out.append({'a':[0,0,z],'b':[a[0],a[1],z],'c':[bb[0],bb[1],z],'color':CARD_FRONT,'uv':[uv([0,0]),uv(a),uv(bb)]})
-  out.append({'a':[0,0,-z],'b':[bb[0],bb[1],-z],'c':[a[0],a[1],-z],'color':CARD_BACK,'uv':[uv([0,0],True),uv(bb,True),uv(a,True)]})
-  quad(out,[[a[0],a[1],-z],[bb[0],bb[1],-z],[bb[0],bb[1],z],[a[0],a[1],z]],base.WHITE)
- return out
-
-def leaned_card(angle,side):
- out=copy.deepcopy(card());a=math.radians(angle);sign=1 if side=='left' else -1
- for f in out:
-  for key in ('a','b','c'):
-   x,y,z=f[key];x+=.044
-   f[key]=[sign*(x*math.cos(a)-z*math.sin(a)),y,x*math.sin(a)+z*math.cos(a)]
-  if sign<0:
-   f['b'],f['c']=f['c'],f['b']
-   if 'uv' in f:f['uv'][1],f['uv'][2]=f['uv'][2],f['uv'][1]
- return out
-
 def models():
- result={'roulette_table':roulette_table(),'roulette_wheel':roulette_wheel(),'dominos_board':carpet_board(),'cardtower_board':[]}
- bevel_box(result['cardtower_board'],1,.75,-.025,.025,base.NATURAL,.003)
- ball=[];base.sphere(g,ball,(0,0,0),.009,BALL);result['roulette_ball']=ball
- for a in range(7):
-  for b in range(a,7):result[f'domino_{a}_{b}']=domino(a,b)
- result['playing_card']=card();result['playing_card_flat']=card()
- angle=math.degrees(math.acos(.026/.088))
- for side in ('left','right'):
-  result['playing_card_lean_'+side]=leaned_card(angle,side)
-  for step in range(1,6):result[f'playing_card_lean_{side}_fall_{step}']=leaned_card(angle*(1-step/5),side)
- return result
+ ball=[];base.sphere(g,ball,(0,0,0),.009,BALL)
+ return {'roulette_table':roulette_table(),'roulette_wheel':roulette_wheel(),'roulette_ball':ball}
 
 
 def font(size):return ImageFont.truetype(str(FONT),size)
-def spade(draw,cx,cy,size,fill):
- # A smooth original four-Bezier spade silhouette, rather than a stock icon.
- curves=[((0,-.65),(-.14,-.42),(-.64,-.10),(-.50,.20)),
-         ((-.50,.20),(-.40,.45),(-.10,.40),(0,.18)),
-         ((0,.18),(.10,.40),(.40,.45),(.50,.20)),
-         ((.50,.20),(.64,-.10),(.14,-.42),(0,-.65))]
- points=[]
- for a,b,c,d in curves:
-  for i in range(17):
-   t=i/16;s=1-t
-   xx=s*s*s*a[0]+3*s*s*t*b[0]+3*s*t*t*c[0]+t*t*t*d[0]
-   yy=s*s*s*a[1]+3*s*s*t*b[1]+3*s*t*t*c[1]+t*t*t*d[1]
-   points.append((cx+xx*size,cy+yy*size))
- draw.polygon(points,fill=fill)
- draw.polygon([(cx,cy+.10*size),(cx-.07*size,cy+.39*size),(cx-.16*size,cy+.54*size),(cx+.16*size,cy+.54*size),(cx+.07*size,cy+.39*size)],fill=fill)
-
 def artwork():
  result={}
  im=Image.new('RGBA',(1024,1024),(45,30,19,255));d=ImageDraw.Draw(im)
@@ -175,16 +92,6 @@ def artwork():
   x=512+math.sin(math.radians(angle))*488;y=512-math.cos(math.radians(angle))*488
   im.alpha_composite(label,(round(x-45),round(y-45)))
  result['roulette_numbers']=im
- im=Image.new('RGBA',(512,768),(247,245,234,255));d=ImageDraw.Draw(im)
- d.rounded_rectangle((8,8,503,759),radius=25,outline=(204,199,182,255),width=2)
- d.text((37,27),'A',font=font(70),fill=(19,18,16,255));spade(d,61,133,35,(19,18,16,255));spade(d,256,387,167,(19,18,16,255))
- corner=Image.new('RGBA',(100,170));dd=ImageDraw.Draw(corner);dd.text((11,0),'A',font=font(70),fill=(19,18,16,255));spade(dd,36,106,35,(19,18,16,255));im.alpha_composite(corner.rotate(180),(405,590));result['card_face']=im
- im=Image.new('RGBA',(512,768),(244,235,216,255));d=ImageDraw.Draw(im)
- d.rounded_rectangle((22,22,489,745),radius=23,fill=(144,25,34,255),outline=(122,20,27,255),width=4)
- d.rounded_rectangle((36,36,475,731),radius=15,outline=(242,211,177,255),width=3)
- for y in range(50,725,22):
-  for x in range(48,470,22):d.polygon([(x,y-7),(x+7,y),(x,y+7),(x-7,y)],outline=(219,149,130,255),width=1)
- d.ellipse((170,294,342,474),fill=(144,25,34,255),outline=(242,211,177,255),width=4);d.ellipse((181,305,331,463),outline=(242,211,177,255),width=2);spade(d,256,385,80,(242,211,177,255));result['card_back']=im
  rng=random.Random(77177);im=Image.new('RGBA',(256,256));px=[]
  for y in range(256):
   for x in range(256):
@@ -208,11 +115,11 @@ def encode_texture(directory,name,image,template):
 ORIGINAL_MATERIAL=base.material
 
 def material(color):
- if color in (NUMBER,CARD_FRONT,CARD_BACK,GREEN):
-  name={NUMBER:'roulette_numbers',CARD_FRONT:'card_face',CARD_BACK:'card_back',GREEN:'felt_green'}[color]
+ if color in (NUMBER,GREEN):
+  name={NUMBER:'roulette_numbers',GREEN:'felt_green'}[color]
   result=ORIGINAL_MATERIAL(base.WHITE)
   result['values'][0]['BaseColor']=base.ref(DEPOT+'\\textures\\'+name+'.xbm');result['values'][1]['BaseColorScale'].update(X=1,Y=1,Z=1)
-  result['values'][2]['RoughnessScale']=.9 if color==GREEN else .42 if color in (CARD_FRONT,CARD_BACK) else .5
+  result['values'][2]['RoughnessScale']=.9 if color==GREEN else .5
   return result
  if color in (BRASS,BALL):
   result=ORIGINAL_MATERIAL(base.WHITE);result['values'][0]['BaseColor']=base.ref('engine\\textures\\editor\\white.xbm')
@@ -223,7 +130,7 @@ base.material=material
 
 def glb(path,faces):
  colors=base.glb(path,faces)
- # Preserve explicit UVs for labels and both authored card faces, after the
+ # Preserve explicit UVs for the number labels, after the
  # shared cooker has generated positions, smoothed normals and white COLOR0/1.
  raw=bytearray(path.read_bytes());json_length=struct.unpack_from('<I',raw,12)[0];doc=json.loads(raw[20:20+json_length]);binary=28+json_length;groups={}
  for face in faces:groups.setdefault(face['color'],[]).append(face)
@@ -240,7 +147,7 @@ def verify(work,manifest):
  spec=importlib.util.spec_from_file_location('archive_checks',ROOT/'tools/test-board-game-props.py');checks=importlib.util.module_from_spec(spec);spec.loader.exec_module(checks)
  archive=work/'archive';verified=work/'verified';packed=(work/'packed/archive.archive').read_bytes()
  entries=checks.archive_entries(packed);files=manifest['files']
- assert len(entries)==len(files)==102 and len(manifest['models'])==47 and len(manifest['textures'])==8
+ assert len(entries)==len(files)==12 and len(manifest['models'])==3 and len(manifest['textures'])==6
  assert set(entries)=={checks.fnv(row['depot']) for row in files}
  allowed={row['depot'] for row in files}|set(manifest['materialDependencies'])
  for row in files:
@@ -267,8 +174,8 @@ def verify(work,manifest):
      uv=next(e for e in elements if e['usage']=='PS_TexCoord' and e['usageIndex']==0);stream=uv['streamIndex'];offset=vertices['byteOffsets']['Elements'][stream];stride=layout['slotStrides']['Elements'][stream]
      values=[struct.unpack_from('<ee',pixels,offset+j*stride) for j in range(chunk['numVertices'])]
      assert all(math.isfinite(v) for pair in values for v in pair) and len(set(values))>1
-     if model['materials'][chunk_index] in (NUMBER,CARD_FRONT,CARD_BACK):
-      assert all(-.001<=v<=1.001 for pair in values for v in pair),(name,'atlas/card UV out of bounds')
+     if model['materials'][chunk_index]==NUMBER:
+      assert all(-.001<=v<=1.001 for pair in values for v in pair),(name,'atlas UV out of bounds')
     mats=r['localMaterialBuffer']['materials'];names={e['name']['$value'] for e in r['materialEntries']}
     assert all(0<=e['index']<len(mats) for e in r['materialEntries'])
     assert all(c['$value'] in names for a in r['appearances'] for c in a['Data']['chunkMaterials'])
@@ -286,18 +193,11 @@ def verify(work,manifest):
   assert data[:image.width*image.height*4]==image.tobytes() and all(v==255 for v in data[3::4])
  by_name={m['name']:m for m in manifest['models']}
  assert set(ORDER)==set(range(37)) and len(ORDER)==37
- for a in range(7):
-  for b in range(a,7):assert f'domino_{a}_{b}' in by_name
  assert abs(by_name['roulette_ball']['bounds']['max'][2]-.009)<1e-6
- for side,sign in (('left',1),('right',-1)):
-  model=by_name['playing_card_lean_'+side];assert abs(model['bounds']['max'][2]-manifest['cardLeanHeight'])<.0003
-  final=by_name[f'playing_card_lean_{side}_fall_5']['bounds']
-  assert abs((final['min'][0]+final['max'][0])/2-sign*.044)<1e-6
- assert manifest['cardFallAngles'][0]>72 and manifest['cardFallAngles'][-1]==0
  with zipfile.ZipFile(RESOURCE/'dist/open77_tabletop_extra.zip') as z:
   assert z.testzip() is None and z.namelist()==['archive/pc/mod/0_open77_tabletop_extra.archive']
   assert z.read(z.namelist()[0])==packed
- print('VERIFIED: 47 native props, 8 opaque mipmapped textures, 102 exact RDAR entries, geometry/bindings/poses/package hashes',flush=True)
+ print('VERIFIED: 3 native props, 6 opaque mipmapped textures, 12 exact RDAR entries, geometry/bindings/package hashes',flush=True)
 
 
 def main():
@@ -331,7 +231,7 @@ def main():
  with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
   info=zipfile.ZipInfo('archive/pc/mod/0_open77_tabletop_extra.archive',(2026,1,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,cooked.read_bytes())
  files=[{'depot':str(p.relative_to(archive)).replace('/','\\'),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in sorted(archive.rglob('*')) if p.is_file()]
- manifest={'version':'1.0.0','namespace':DEPOT,'models':records,'textures':textures,'files':files,'rouletteOrder':ORDER,'roulettePocketRadius':.27,'rouletteBallCenterZ':.025,'cardLeanHorizontal':.026,'cardLeanHeight':math.sqrt(.088**2-.026**2),'cardFallAngles':[math.degrees(math.acos(.026/.088))*(1-step/5) for step in range(6)],'archiveSha256':hashlib.sha256(cooked.read_bytes()).hexdigest(),'zipSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'buildWork':str(work),'materialDependencies':['engine\\materials\\metal_base.remt','engine\\textures\\editor\\white.xbm']}
+ manifest={'version':'1.0.0','namespace':DEPOT,'models':records,'textures':textures,'files':files,'rouletteOrder':ORDER,'roulettePocketRadius':.27,'rouletteBallCenterZ':.025,'archiveSha256':hashlib.sha256(cooked.read_bytes()).hexdigest(),'zipSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'buildWork':str(work),'materialDependencies':['engine\\materials\\metal_base.remt','engine\\textures\\editor\\white.xbm']}
  (RESOURCE/'asset-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('COOKED',len(records),'models,',len(textures),'textures,',len(files),'native files, ZIP',output.stat().st_size,'bytes',flush=True)
  verify(work,manifest)
 if __name__=='__main__':main()

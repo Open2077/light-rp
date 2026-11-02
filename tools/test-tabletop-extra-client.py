@@ -35,10 +35,10 @@ for name in ['shared/tabletop_extra_rules.lua', 'client/core/tabletop_extra.lua'
 lua.execute(r'''
 local R,E,C=LightRpTabletopExtraRules,LightRpTabletopExtraClient,LightRpBoardGamesClient
 C.bind(page);C.start();step();step()
-assert(E.supports('roulette') and E.supports('dominoes') and E.supports('cardtower') and not E.supports('chess'))
+assert(E.supports('roulette') and not E.supports('dominoes') and not E.supports('cardtower') and not E.supports('chess'))
 local now=1700000000000
 local roulette={id=101,kind='roulette',owned=true,position={x=0,y=0,z=0},rotation=0,
- players={white=7,black=9},actor=7,ready=true,mode='duel',revision=1,serverNow=now,game=assert(R.new('roulette','duel',17))}
+ players={white=7,black=9},actor=7,ready=true,mode='duel',revision=1,serverNow=now,game=assert(R.new('roulette','duel'))}
 events['lightrp:boardGames:state']({boards={roulette}});step()
 waitUntil(function()return countProps()==3 end,'roulette table, wheel and ball native props')
 assert(C.isActive() and view.extra.kind=='roulette' and findProp('roulette_table') and findProp('roulette_wheel') and findProp('roulette_ball'))
@@ -68,65 +68,7 @@ roulette.game=assert(R.act(roulette.game,'white','nextRound',{}))
 local retained=E.pieceTargets(roulette)
 assert(math.abs(retained['roulette-wheel'].piece.yaw+spin.wheelTo)<1e-8,'wheel angle survives the next betting round')
 pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
--- Domino hands come from the redacted server view, never from another hand.
-local dominoState=assert(R.new('dominoes','duel',37));local ownSeat=dominoState.seatTurn
-local players={white=9,black=9};players[ownSeat]=7
-local domino={id=102,kind='dominoes',owned=true,position={x=0,y=0,z=0},rotation=0,
- players=players,actor=7,ready=true,mode='duel',revision=1,serverNow=now+9000,game=R.view(dominoState,ownSeat)}
-events['lightrp:boardGames:state']({boards={domino}});step()
-waitUntil(function()return countProps()==8 end,'domino board and own seven tiles')
-assert(findProp('dominos_board') and #view.extra.hand==7)
-local hand=domino.game.hand;local targets=E.pieceTargets(domino);local first=hand[1]
-assert(targets['domino-'..first.id].piece.inHand)
-local count=0;for _ in pairs(targets)do count=count+1 end;assert(count==7,'opponent hand tiles must not be rendered')
-local pointer=pageHandlers['lightrp:boardGames:pointer']
--- Select one visible hand tile, then choose the right chain end.
-local hx=targets['domino-'..first.id].position.x
-local hy=targets['domino-'..first.id].position.y
-local cursorX,cursorY=hx+.5,hy+.5
-before=#requests
-pointer({x=cursorX,y=cursorY,pressed=true});pointer({x=cursorX,y=cursorY,released=true});step()
-assert(#requests==before and E.view(domino).selectedTile==first.id)
-pointer({x=.7,y=.5,pressed=true});pointer({x=.7,y=.5,released=true});step()
-assert(last().operation=='play' and last().data.tileId==first.id and last().data['end']=='right')
-local played=assert(R.act(dominoState,ownSeat,'play',{tileId=first.id,['end']='right'}))
-local visible=R.view(played,ownSeat)
-local oldPiece=targets['domino-'..first.id]
-domino.game=visible;domino.revision=2;local newTargets=E.pieceTargets(domino)
-assert(newTargets['domino-'..first.id] and not newTargets['domino-'..first.id].piece.inHand)
-assert(oldPiece.piece.model==newTargets['domino-'..first.id].piece.model,'playing a tile retains its native model identity')
-domino.actor=9;before=#requests
-pageHandlers['lightrp:tabletop:action']({operation='draw',data={}});assert(#requests==before,'wrong actor cannot play for the team')
-pageHandlers['lightrp:boardGames:leave']({})
--- Cards use authored leaning templates, not undocumented prop rotations.
-local towerState=assert(R.new('cardtower','duel',5))
-towerState=assert(R.act(towerState,'white','place',{x=0,y=0,level=0,yaw=0,orientation='frame',nowMs=now+10000}))
-local tower={id=103,kind='cardtower',owned=true,position={x=0,y=0,z=0},rotation=0,
- players={white=9,black=7},actor=9,ready=true,mode='duel',revision=1,serverNow=now+10000,game=towerState}
-events['lightrp:boardGames:state']({boards={tower}});step()
-waitUntil(function()return countProps()==3 end,'native card table and A-frame')
-assert(findProp('cardtower_board') and findProp('playing_card_lean_left') and findProp('playing_card_lean_right'))
-pageHandlers['lightrp:tabletop:action']({operation='configure',data={level=1,yaw=90,orientation='flat'}})
-before=#requests
-pointer({x=.65,y=.6,pressed=true});pointer({x=.65,y=.6,released=true});step()
-assert(#requests==before+1 and last().operation=='place' and last().data.level==1 and last().data.yaw==90 and last().data.orientation=='flat','cooperative black player must place cards even when actor points at white')
--- Unsupported crossing frames collapse from the server's saved motion state.
-local collapseTime=now+11000
-tower.game=assert(R.act(towerState,'black','place',{x=0,y=0,level=0,yaw=0,orientation='frame',nowMs=collapseTime}))
-assert(tower.game.status=='collapsed')
-tower.serverNow=collapseTime;tower.revision=2;tower.actor=0;E.observe(tower)
-local upright=E.pieceTargets(tower);clock=clock+350;local falling=E.pieceTargets(tower)
-local any=false
-for id,p in pairs(falling)do
- if p.piece.model:find('_fall_',1,true) then any=true;assert(p.piece.model~=upright[id].piece.model)end
- assert(p.position.z>=.001)
-end
-assert(any,'collapse must choose a pre-authored falling angle')
-clock=clock+1000;local fallen=E.pieceTargets(tower)
-for _,p in pairs(fallen)do assert(p.piece.model:find('_fall_5',1,true))end
-pageHandlers['lightrp:tabletop:action']({operation='place',data={x=0,y=0}})
-assert(#requests==before+1,'collapsed board or AI actor must reject more placement input')
 handlers.onClientResourceStop('test');for i=1,20 do step()end
 assert(next(nativeProps)==nil and next(batches)==nil and cinematic==false)
-print('extra tabletop client: native props, roulette clock/outcome, redacted domino hand/actions, card placement/collapse, cleanup: OK; peak '..peakInstructions)
+print('extra tabletop client: native props, roulette clock/outcome, cleanup: OK; peak '..peakInstructions)
 ''')

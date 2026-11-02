@@ -18,7 +18,7 @@ for i=1,5 do
  inventories[i]={id='inv'..i,persistent=true,slots=10,kind='player',items={[1]={name='roulette_board',count=1},[2]={name='cash',count=1000}}}
  positions[i]={x=0,y=0,z=0,bucket=0};life[i]={phase='alive'}
 end
-LightRpBoardGames={chess={item='chess_board'},checkers={item='checkers_board'},connect4={item='connect4_board'},roulette={item='roulette_board'},dominoes={item='domino_board'},cardtower={item='card_tower'}}
+LightRpBoardGames={chess={item='chess_board'},checkers={item='checkers_board'},connect4={item='connect4_board'},roulette={item='roulette_board'}}
 LightRP={inventory={},db={ready=true}}
 local I,Db=LightRP.inventory,LightRP.db
 function I.player(id) return inventories[id] end
@@ -247,43 +247,6 @@ lua.execute(SOURCES[-2].read_text())
 lua.execute("LightRP.tabletopExtra.claim(1);assert(cash(1)==1420 and unpaid('inv1')==0)")
 print('roulette durable restart / crash exactly-once payout: passed')
 
-scenario('domino controller preserves private hands, seats, revisions and legal solo AI',r''' 
-local id=place('dominoes',1);action(1,id,'join');action(2,id,'join')
-local a,b,spectator=board(id,1),board(id,2),board(id,5)
-assert(a.ready and #a.game.hand==7 and #b.game.hand==7 and #spectator.game.hand==0)
-assert(not a.game.drawPile and a.game.drawCount==14)
-for _,tile in ipairs(a.game.hands.black) do assert(tile.hidden and not tile.id and not tile.a and not tile.b) end
-for _,tile in ipairs(spectator.game.hands.white) do assert(tile.hidden and not tile.id) end
-local actor=a.actor;assert(actor==a.players[a.game.seatTurn])
-local actorState=board(id,actor);local tile=actorState.game.hand[1];local revision=actorState.revision
-local other=actor==1 and 2 or 1
-game(other,id,'play',{tileId=tile.id,['end']='right'});assert(board(id).revision==revision)
-game(actor,id,'play',{tileId='forged-hand-id',['end']='right'});assert(board(id).revision==revision)
-game(actor,id,'play',{tileId=tile.id,['end']='right',seat='forged'});assert(board(id).revision==revision+1)
-action(actor,id,'game',{revision=revision,operation='play',data={tileId=tile.id,['end']='right'}});assert(board(id).revision==revision+1)
-assert(#board(id,5).game.objects==1 and #board(id,5).game.hand==0)
-action(1,id,'reset');action(1,id,'mode',{mode='teams'});action(2,id,'join');action(3,id,'join')
-assert(not board(id).ready);action(4,id,'join');assert(board(id).ready and board(id).players.white2==3 and board(id).players.black2==4)
-action(1,id,'reset');action(1,id,'mode',{mode='solo'});drainAI()
-assert(board(id).actor==1 and board(id).game.seatTurn=='white')
-local before=board(id).revision;local moves=LightRpTabletopExtraRules.legalMoves(board(id).game,'white')
-if #moves>0 then game(1,id,'play',moves[1]) else game(1,id,'draw',{}) end
-drainAI();assert(board(id).revision>before)
-assert(board(id).game.status~='playing' or board(id).actor==1)
-''')
-
-scenario('card towers accept cooperative moves and use server collapse time',r''' 
-local id=place('cardtower',1);action(1,id,'join');action(2,id,'join');assert(board(id).ready)
-game(1,id,'place',{x=-.032,y=0,level=0,orientation='frame'})
-game(2,id,'place',{x=.032,y=0,level=0,orientation='frame'})
-game(2,id,'place',{x=0,y=0,level=1,orientation='flat'})
-assert(board(id).game.status=='playing' and #board(id).game.objects==5)
-game(1,id,'place',{x=.3,y=.2,level=2,orientation='flat',nowMs=0})
-assert(board(id).game.status=='collapsed' and board(id).game.collapse.startedAt>1790000000000)
-action(2,id,'reset');assert(board(id).game.status=='collapsed')
-action(1,id,'reset');assert(board(id).game.status=='playing' and #board(id).game.objects==0)
-''')
-
 scenario('placement has no old per-owner-three or global-sixty-four cap',r''' 
 local ids={}
 for i=1,70 do local id=place('roulette',1,i*2,0);assert(not ids[id]);ids[id]=true end
@@ -316,4 +279,4 @@ action(1,id,'pickup');assert(not board(id) and unpaid('inv1')==0 and unpaid('new
 LightRP.tabletopExtra.claim(1);LightRP.tabletopExtra.claim(2);assert(cash(1)==990 and cash(2)==695)
 ''')
 
-print('Extra tabletop server: all money, persistence, privacy, AI, support and uncapped-placement scenarios passed')
+print('Extra tabletop server: all money, persistence and uncapped-placement scenarios passed')

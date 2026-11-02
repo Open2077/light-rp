@@ -23,11 +23,11 @@ local function active(player)
 end
 local function extra(kind) return LightRP.tabletopExtra and LightRP.tabletopExtra.supports(kind) end
 local function newGame(kind,mode)
-    if extra(kind) then return LightRpTabletopExtraRules.new(kind,mode or "duel",math.random(1,2147483646)) end
+    if extra(kind) then return LightRpTabletopExtraRules.new(kind,mode or "duel") end
     return LightRPBoardRules.new(kind)
 end
 local function ready(b)
-    if b.kind=="roulette" or b.kind=="cardtower" then
+    if b.kind=="roulette" then
         for _,id in pairs(b.players) do if active(id) and near(id,b,4) then return true end end
         return false
     end
@@ -53,9 +53,7 @@ local function push(player)
                 local inv=Inv.player(player)
                 local game=b.game
                 if extra(b.kind) then
-                    local seat
-                    for key,id in pairs(b.players) do if id==player then seat=key end end
-                    game=LightRpTabletopExtraRules.view(b.game,seat)
+                    game=LightRpTabletopExtraRules.view(b.game)
                     if b.kind=="roulette" then
                         game.yourStake=0
                         for _,bet in ipairs(b.game._money or {}) do if inv and bet.inventory==inv.id then game.yourStake=game.yourStake+bet.amount end end
@@ -84,7 +82,7 @@ local function updatedGame(b,game)
     n.game=game;n.revision=b.revision+1;n.moveSequence=(b.moveSequence or 0)+1
     local capture=#(game.captured or {})>#(b.game.captured or {})
     n.lastSound=game.status=="won" and "game-win" or b.kind=="connect4" and "connect4-drop" or b.kind..(capture and "-capture" or "-move")
-    if extra(b.kind) then n.lastSound=game.status=="collapsed" and "checkers-capture" or "checkers-move" end
+    if extra(b.kind) then n.lastSound="checkers-move" end
     return n
 end
 local function commitGame(b,game,queries,changes)
@@ -95,7 +93,7 @@ local function commitGame(b,game,queries,changes)
     end)
 end
 local function queueAI(b)
-    if (b.kind=="roulette" or b.kind=="cardtower") then return end
+    if b.kind=="roulette" then return end
     if b.aiPending or b.busy or b.mode~="solo" or actor(b)~=0 then return end
     local token,revision,original={},b.revision,b.game
     local cancelled={}
@@ -116,8 +114,7 @@ local function queueAI(b)
         -- available between slices; only the short durable commit owns busy.
         local locked=false
         local called,ok,why=pcall(function()
-            local rules=extra(b.kind) and LightRpTabletopExtraRules or LightRPBoardRules
-            local game,move=rules.aiMove(original,yieldSearch)
+            local game,move=LightRPBoardRules.aiMove(original,yieldSearch)
             if not game then return false,move end
             yieldSearch()
             b.busy=true;locked=true
@@ -225,7 +222,6 @@ local function handle(player,p,inv)
         elseif p.action=="game" and extra(b.kind) then
             if not ready(b) then return false,"The table is not ready." end
             if p.revision~=b.revision then return false,"The table has changed. Try again." end
-            if b.kind=="dominoes" and actor(b)~=player then return false,"It is not your turn." end
             return LightRP.tabletopExtra.act(player,b,p.operation,p.data or {},function(game,queries,changes) return commitGame(b,game,queries,changes) end)
         elseif p.action=="move" then
             if actor(b)~=player then return false,"It is not your turn or a player is missing." end
