@@ -99,6 +99,20 @@ end
 -- and rebuilt every marker, blip and 3D-map pin (86 rebuilds in 17 min, 2026-11-02,
 -- in the session that ended in an engine crash amid NPC churn).
 local LATENT_AT, LATENT_RATE = 40 * 1024, 512 * 1024
+-- The client also refuses a plain event of more than 1024 JSON values
+-- (kMaximumEventValues, scripting/src/ResourceHost.cpp) and says nothing to the server:
+-- 44 points sat just under it until a `rev` per point tipped it over (2026-11-02, every
+-- list "dropped malformed network event payload", no shop on the map). A latent event
+-- takes 262 144. Counted generously (every key and every value), with margin.
+local LATENT_VALUES = 900
+local function countValues(value, depth)
+    if type(value) ~= "table" then return 1 end
+    if (depth or 0) > 12 then return 1 end
+    local n = 1
+    for key, item in pairs(value) do n = n + 1 + countValues(item, (depth or 0) + 1); if type(key) == "table" then n = n + 1 end end
+    return n
+end
+LightRP.countInteractionValues = countValues
 local streams, reported, lastSent = {}, 0, {}
 local function push(playerId, list, force)
     local size, encoded = 0, nil
@@ -109,14 +123,15 @@ local function push(playerId, list, force)
     if encoded ~= nil and not force and lastSent[playerId] == encoded then return end
     -- Remembered only once handed to the transport: a refused list is tried again.
     lastSent[playerId] = nil
-    if size > LATENT_AT and type(TriggerLatentClientEvent) == "function" then
+    local values = countValues(list)
+    if (size > LATENT_AT or values > LATENT_VALUES) and type(TriggerLatentClientEvent) == "function" then
         if streams[playerId] and Open77.net and type(Open77.net.cancelLatent) == "function" then pcall(Open77.net.cancelLatent, streams[playerId]) end
         local id, why = TriggerLatentClientEvent(E.net.interactions, playerId, LATENT_RATE, list)
         streams[playerId] = id or nil
         if not id then LightRP.log("interactions: list for player %s not sent (%s, %d points, %d bytes)", tostring(playerId), tostring(why), #list, size)
         else
             lastSent[playerId] = encoded
-            if size > reported then reported = size; LightRP.log("interactions: %d points, %d bytes: sent as a latent event", #list, size) end
+            if size > reported then reported = size; LightRP.log("interactions: %d points, %d bytes, %d values: sent as a latent event", #list, size, values) end
         end
         return
     end

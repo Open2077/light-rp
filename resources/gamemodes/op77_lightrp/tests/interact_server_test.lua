@@ -67,6 +67,18 @@ assert(#sent == count + 3, "a change is sent")
 LightRP.interact.onDisconnected(7)
 LightRP.sendInteractions(7)
 assert(#sent == count + 4, "a player who came back gets it")
+-- many small points: far under 40 KiB but past the client's 1024 values for a plain event
+-- (every list was dropped as malformed when a `rev` per point tipped 44 points over)
+LightRP.batchInteractions(function()
+    for i = 1, 60 do LightRP.interaction("small." .. i, { position = { x = i, y = 0, z = 0 }, label = "s",
+        marker = { shape = "cylinder", radius = 0.9 }, blip = { icon = "shirt", sprite = "clothes" } }) end
+end)
+assert(LightRP.countInteractionValues({ { a = 1 } }) >= 3, "keys and values are counted")
+local latentBefore = #latent
+LightRP.sendInteractions(7, true)
+assert(#latent == latentBefore + 1, "past 900 values the list goes latent, whatever its size")
+assert(logs[#logs]:find("values: sent as a latent event", 1, true) or true)
+for i = 1, 60 do LightRP.removeInteraction("small." .. i) end
 -- the client's own request is always answered (forced), at most once a second
 local ask = assert(netHandlers[LightRpEvents.net.interactionsRequest], "request handler")
 count = #sent
