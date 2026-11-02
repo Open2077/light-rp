@@ -67,12 +67,12 @@ end
 
 -- Inside the perimeter, or within zoneMargin of it (the height never matters: a boss on
 -- a roof is fought from the street too).
-local function inZone(def, p)
+local function inZone(def, p, margin)
     local z = def.perimeter
     local flat = { shape = z.shape, center = z.center, radius = z.radius, length = z.length, width = z.width,
         heading = z.heading, points = z.points, fullHeight = true }
     if D.inside(flat, p) then return true end
-    local margin = C.zoneMargin or 0
+    margin = margin or C.zoneMargin or 0
     if z.shape == "circle" then
         return math.sqrt((p.x - z.center.x) ^ 2 + (p.y - z.center.y) ^ 2) <= z.radius + margin
     end
@@ -176,7 +176,9 @@ end
 LightRP.stateProvider("worldBoss", function(id)
     local ev = event
     if not ev then return false end
-    if not ev.inZone[id] and not ev.contrib[id] and not (ev.results and ev.results[id]) then return false end
+    -- only in the zone, and the end only for a few seconds
+    if not ev.inZone[id] then return false end
+    if ev.hudUntil and now() >= ev.hudUntil then return false end
     return view(ev, id)
 end)
 local function pushHud(ev, force)
@@ -196,17 +198,21 @@ end
 -- Blip and announcements
 
 local function blip(ev, on)
-    pcall(function()
+    local ok, err = pcall(function()
         if on then
             local z = ev.def.perimeter.center
-            ev.blipId = exports.op77_map3d:addBlip(-1, { id = "worldboss", position = { x = z.x, y = z.y, z = z.z },
+            local why
+            ev.blipId, why = exports.op77_map3d:addBlip(-1, { id = "worldboss", position = { x = z.x, y = z.y, z = z.z },
                 icon = "skull", color = C.blip.color, label = fill(C.blip.label, { title = ev.def.title }),
                 description = ev.bossLabel .. " · " .. ev.location, pulse = C.blip.pulse, edge = C.blip.edge, routable = true,
-                category = "event" })
+                category = "event", priority = 2, scale = 1.4 })
+            if not ev.blipId then log("world boss: map blip refused: %s", tostring(why)) end
         elseif ev.blipId then
             exports.op77_map3d:removeBlip(ev.blipId)
+            ev.blipId = nil
         end
     end)
+    if not ok then log("world boss: map blip failed: %s", tostring(err)) end
 end
 
 -- ---------------------------------------------------------------------------
@@ -255,8 +261,9 @@ local function finish(ev, success, why)
     if ev.phase == "done" or ev.phase == "cleanup" then return end
     ev.phase = success and "cleanup" or "done"
     ev.success = success == true
-    -- an escape keeps its result on the zone's HUD a few seconds (no enemies left to clean up)
-    ev.cleanupAt = now() + (success and C.cleanupSeconds or C.escapeSeconds or 8) * 1000
+    -- the result stays on the zone's HUD a few seconds; a win's bodies go later
+    ev.hudUntil = now() + (C.resultSeconds or 10) * 1000
+    ev.cleanupAt = success and now() + (C.cleanupSeconds or 45) * 1000 or ev.hudUntil
     local w = ev.def.worldBoss
     ev.results = {}
     -- the pool, shared by score among those at or above the minimum share
@@ -326,6 +333,23 @@ local function close(ev)
     nextAt = now() + math.random(s.minMinutes, math.max(s.minMinutes, s.maxMinutes)) * 60000
 end
 
+-- Enemies stay in the zone: one past it (perimeter + margin + leash) runs back to its
+-- post, and the engine does not send it after a target for a few seconds.
+local function leash(ev, t)
+    local def, limit = ev.def, (C.zoneMargin or 40) + (C.leashMetres or 15)
+    for npcId, e in pairs(ev.run.enemies or {}) do
+        if not e.deadAt and (e.leashAt or 0) <= t then
+            local ok, npc = pcall(Open77.npcs.get, npcId)
+            local p = ok and type(npc) == "table" and npc.position
+            if p and not WB.inZone(def, p, limit) then
+                local s = e.spawn
+                e.leashAt, e.taskAt = t + 6000, t + 6000
+                pcall(Open77.npcs.tasks.guard, npcId, s.position, s.radius or 12, { speed = "run" })
+            end
+        end
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- The clock
 
@@ -338,6 +362,10 @@ local function tick(ev)
     end
     if ev.phase == "cleanup" then
         if W then W.enemiesTick(ev.inst) end
+        if not ev.hudClosed and t >= ev.hudUntil then
+            ev.hudClosed = true
+            for id in pairs(ev.watchers) do LightRP.state(id, "worldBoss") end
+        end
         if t >= ev.cleanupAt then close(ev) end
         return
     end
@@ -362,6 +390,7 @@ local function tick(ev)
     for id in pairs(ev.contrib) do ev.watchers[id] = true end
     ev.inst.members, ev.fighters = members, fighters
     if W then W.enemiesTick(ev.inst) end
+    leash(ev, t)
     -- the boss
     local health, maxHealth, standing = bossHealth(ev)
     ev.bossFraction = maxHealth > 0 and health / maxHealth or (ev.bossSeen and 0 or 1)

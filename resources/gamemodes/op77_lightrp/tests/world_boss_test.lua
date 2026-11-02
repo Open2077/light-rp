@@ -203,6 +203,24 @@ assert(providers.worldBoss(2).inZone, "the height does not matter")
 assert(providers.worldBoss(3).inZone, "within the margin past the perimeter")
 assert(providers.worldBoss(4) == false, "far away: nothing")
 
+-- ── the zone only: a fighter who steps out loses the HUD ──
+positions[2] = { x = 700, y = 500, z = 10 }
+seconds(2)
+assert(providers.worldBoss(2) == false, "out of the zone: no HUD")
+positions[2] = { x = 530, y = 520, z = 30 }
+seconds(2)
+assert(providers.worldBoss(2).inZone, "back in the zone: the HUD again")
+
+-- ── the leash: an enemy far past the zone runs back to its post ──
+local runaway = guards[2]
+local before = #npcCalls
+npcs[runaway].position = { x = 700, y = 500, z = 10 }
+seconds(2)
+local leashed
+for i = before + 1, #npcCalls do if npcCalls[i][1] == "guard" and npcCalls[i][2] == runaway then leashed = true end end
+assert(leashed, "a runaway enemy is sent back")
+npcs[runaway].position = { x = 510, y = 500, z = 10 }
+
 -- ── credit: server-validated damage and kills ──
 npcs[bossId].health = 5000 - 3000
 fire("onNpcDamaged", tostring(bossId), "player:1", "3000", "2000", "player_hit")
@@ -240,6 +258,9 @@ local told
 for _, n in ipairs(notices) do if n.id == 3 and n.title == "WORLD BOSS DOWN" then told = n.body end end
 assert(told and told:find("no reward"), "the latecomer is told why")
 assert(providers.worldBoss(1).result.pay == paid[1], "the result on the HUD")
+seconds(C.resultSeconds + 1)
+assert(providers.worldBoss(1) == false, "the HUD goes after a few seconds, before the bodies")
+assert(WB.current() ~= nil, "the enemies' cleanup still runs")
 seconds(C.cleanupSeconds + 3)
 assert(WB.current() == nil, "closed after the cleanup")
 local left = 0

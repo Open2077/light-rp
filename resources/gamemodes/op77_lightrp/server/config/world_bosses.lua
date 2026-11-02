@@ -28,6 +28,10 @@ LightRpWorldBosses = {
     reputation = 150,
     -- The guards still standing when the boss falls leave after this.
     cleanupSeconds = 45,
+    -- How long the end (BOSS DOWN / GOT AWAY, your pay) stays on the zone's HUD.
+    resultSeconds = 10,
+    -- Enemies past the zone (perimeter + zoneMargin + this) are sent back to their post.
+    leashMetres = 15,
     -- The boss's spawn: if no boss stands after this, the event is called off.
     spawnTimeoutSeconds = 45,
     -- Reinforcements (the mission's non-start spawn points) at these fractions of the
