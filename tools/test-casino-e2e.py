@@ -83,6 +83,13 @@ def to_lua(rt, value, floats):
         return float(value)
     return value
 
+def json_depth(value):
+    if isinstance(value, dict):
+        return 1 + max((json_depth(v) for v in value.values()), default=0)
+    if isinstance(value, list):
+        return 1 + max((json_depth(v) for v in value), default=0)
+    return 0
+
 def roundtrip(rt, value, floats=FLOATS, limit=None):
     text = json.dumps(to_py(value), separators=(',', ':'))
     if limit and len(text) > limit:
@@ -231,6 +238,7 @@ class Sim:
         self.queue = []             # (deliverAt, side, name, payload_json)
         self.views = []             # (wall, view dict) as the page receives them
         self.sizes = {'state': 0, 'request': 0, 'view': 0}
+        self.dropped = []   # events the 176 client would reject as malformed
         self.client_requests = []
         self.dropped = []
         # Server
@@ -271,6 +279,12 @@ class Sim:
         g.availableModels = c.table_from(models)
         g.heavyModels = c.table_from({m: True for m in models_heavy})
         c.execute(CLIENT_HOST)
+        # Open77.json on the client, like the game (deep games arrive as text).
+        def cdecode(text):
+            return to_lua(c, json.loads(text), FLOATS)
+        def cencode(t):
+            return json.dumps(to_py(t), separators=(',', ':'))
+        c.globals().Open77.json = c.table_from({'decode': cdecode, 'encode': cencode})
         for name in CLIENT_SOURCES:
             c.execute((GAME/name).read_text(), name=name)
         c.execute('LightRpBoardGamesClient.bind(page);LightRpBoardGamesClient.start()')
@@ -297,6 +311,11 @@ class Sim:
         text = json.dumps(to_py(data), separators=(',', ':'))
         if len(text) > 48*1024:
             raise AssertionError('Network event payload exceeds 48 KiB.')
+        # The 176 client drops ("malformed network event payload") any event
+        # nested deeper than 7 tables (measured live with /lightrp.netprobe).
+        if json_depth(json.loads(text)) > 7:
+            self.dropped.append((name, json_depth(json.loads(text))))
+            return True
         self.sizes['state'] = max(self.sizes['state'], len(text))
         self.queue.append((self.wall + LATENCY, 'client', name, text))
         return True

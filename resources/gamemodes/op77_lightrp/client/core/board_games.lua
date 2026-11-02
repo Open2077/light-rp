@@ -605,8 +605,6 @@ local function ensureBoard(board)
     -- tables never add up to one resume beyond the 176 client budget.
     local targets=guarded("render targets "..tostring(board.kind),pieceTargets,board)
     if not targets then return end
-    Wait(0);beats.render=GetGameTimer()
-    if not aliveBoard(board) or renderCaches[id]~=cache then return end
     for key,piece in pairs(cache.pieces) do
         local target=targets[key]
         if not target or piece.name~=modelName(board,target.piece) then
@@ -956,6 +954,12 @@ applyState=function(payload)
     if type(payload)~="table" or type(payload.boards)~="table" then return end
     local nextBoards={}
     for _,board in ipairs(payload.boards) do
+        -- Games deeper than the 176 event codec allows arrive as JSON text.
+        if type(board)=="table" and board.game==nil and type(board.gameJson)=="string" then
+            local game,why=Open77.json.decode(board.gameJson)
+            if type(game)=="table" then board.game=game;board.gameJson=nil
+            else trace("state_decode_failed",board.id,"%s",tostring(why)) end
+        end
         if type(board)=="table" and board.id and board.position and board.game then
             nextBoards[board.id]=board
             local adapter=extra(board);if adapter then adapter.observe(board) end

@@ -62,7 +62,7 @@ end
 -- 15 KB), while small ones arrive. Send numbered parts of at most ~3.5 KB; the
 -- client applies the list only once every part of the same sequence is in.
 local STATE_PART_BYTES=3500
-local stateSeq,encodedLogged={},{}
+local stateSeq={}
 local function sendState(player,list,bucket)
     local seq=(stateSeq[player] or 0)+1;stateSeq[player]=seq
     local parts,current,size,sizes,kinds={}, {},0,{},{}
@@ -76,15 +76,6 @@ local function sendState(player,list,bucket)
         end
         current[#current+1]=entry;size=size+bytes
         currentKinds[#currentKinds+1]=entry.kind..((entry.game and entry.game.phase) and ("/"..tostring(entry.game.phase)) or "")
-        -- Temporary: the client never receives the part holding a blackjack
-        -- table in play; log that entry exactly as the server encodes it.
-        if entry.kind=="blackjack" and entry.game and entry.game.phase~="betting" then
-            local key=tostring(entry.id)..":"..tostring(entry.revision)
-            if not encodedLogged[key] then
-                encodedLogged[key]=true
-                LightRP.log("board_games encoded %s bytes=%d %s",key,type(encoded)=="string" and #encoded or -1,tostring(encoded):sub(1,1900))
-            end
-        end
     end
     parts[#parts+1]=current;sizes[#sizes+1]=size;kinds[#kinds+1]=table.concat(currentKinds,"+")
     local ok,why=true,nil
@@ -103,6 +94,23 @@ local function sendState(player,list,bucket)
             tostring(bucket),tostring(ok),tostring(why),table.concat(layout," | "))
     end
 end
+-- The 176 client drops ("malformed network event payload") any event nested
+-- deeper than 7 tables. A state part is payload > boards > board > game, so a
+-- game may hold 3 more table levels (chess: board > row > piece). Deeper games
+-- (blackjack: hands > seat > cards > card) travel as JSON text instead.
+local function tooDeep(t,remaining)
+    for _,v in pairs(t) do
+        if type(v)=="table" and (remaining<=0 or tooDeep(v,remaining-1)) then return true end
+    end
+    return false
+end
+local function wireGame(entry)
+    if type(entry.game)=="table" and tooDeep(entry.game,3) then
+        local text=json.encode(entry.game)
+        if type(text)=="string" then entry.gameJson=text;entry.game=nil end
+    end
+    return entry
+end
 local function push(player)
     local bucket=bucketOf(player)
     if bucket==nil then pushPending[player]=true;return end
@@ -114,7 +122,7 @@ local function push(player)
                 local inv=Inv.player(player)
                 local game=b.game
                 if extra(b.kind) then game=LightRP.tabletopExtra.view(b,inv) end
-                list[#list+1]={id=b.id,kind=b.kind,position=b.position,rotation=b.rotation,
+                list[#list+1]=wireGame{id=b.id,kind=b.kind,position=b.position,rotation=b.rotation,
                     owner=b.owner,owned=inv and inv.id==b.ownerInventory or false,
                     players=b.players,revision=b.revision,game=game,mode=b.mode or "duel",serverNow=extra(b.kind) and LightRP.tabletopExtra.now() or nil,
                     ready=ready(b),actor=actor(b),moveSequence=b.moveSequence or 0,lastSound=b.lastSound}

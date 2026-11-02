@@ -131,7 +131,12 @@ local targets,first=0,0
 -- A cold table is built over consecutive ticks (bounded rebuild per call).
 local cold=measure(function() for _ in pairs(E.pieceTargets(probe)) do first=first+1 end end)
 local second=measure(function() E.pieceTargets(probe) end)
-      measure(function() for _ in pairs(E.pieceTargets(probe)) do targets=targets+1 end end)
+-- The number of calls a cold build needs depends on pairs() order: call until
+-- the count stops growing (each call stays bounded, measured below).
+for _=1,10 do
+ local n=0;for _ in pairs(E.pieceTargets(probe)) do n=n+1 end
+ if n==targets then break end;targets=n
+end
 local warm=measure(function() E.pieceTargets(probe) end)
 assert(first>0 and first<targets and targets==4*7+7+4*3+4*3,'worst case target count '..first..'/'..targets)
 assert(cold<3500 and second<3500 and warm<2500,'pieceTargets cost cold '..cold..'/'..second..' warm '..warm)
