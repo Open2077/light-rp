@@ -182,6 +182,10 @@ export interface MissionObjective {
   wave?: number; waves?: number; nextWaveInMs?: number;
   checkpoints?: Array<{ label: string; reached: boolean; required: boolean }>;
   outOfBoundsMs?: number; respawnInMs?: number; spectating?: boolean;
+  /** The kit choice (like the raid's ready check): the list while it can be changed (briefing, down),
+   *  this operator's pick, and during the briefing whether they said ready. */
+  loadouts?: Array<{ id: string; label: string; blurb: string }>; loadout?: string; canChoose?: boolean;
+  ready?: boolean; readyCount?: number; squadSize?: number;
 }
 /** The raid (server/modules/mission_chimera.lua view()), plus one-shot fields. */
 export interface RaidState {
@@ -421,6 +425,8 @@ export interface IdentityFields { firstName: string; lastName: string; birthDate
 export type UiAction =
   | { type: "raid.ready" }
   | { type: "raid.loadout"; id: string }
+  | { type: "mission.loadout"; id: string }
+  | { type: "mission.ready" }
   | { type: "mission.tag" | "mission.tagGroup"; session: string; difficulty: string }
   | { type: "mission.untag" | "mission.launch" | "mission.close"; session: string }
   | { type: "party.invite" | "party.kick" | "party.promote"; target: number }

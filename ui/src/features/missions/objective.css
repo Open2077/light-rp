@@ -37,3 +37,8 @@
 .mission-respawn span { font: 12px var(--font-mono); letter-spacing: .06em; }
 .mission-respawn.is-out { border-top-color: #e3303a; }
 .mission-respawn.is-out strong { color: #e3303a; }
+
+/* The kit choice of an authored mission (MissionObjectiveHud KitPicker): the raid's ready-check look;
+   while down it sits above the DOWN banner. */
+.mission-kits h2 { margin-top: 6px; }
+.mission-kits.is-down { top: auto; bottom: calc(22% + 56px); } /* above the DOWN banner */

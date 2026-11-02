@@ -92,6 +92,17 @@ export function missionMock(params: URLSearchParams, fire: Fire) {
 function objectiveFixture(kind: string | null) {
   if (!kind) return undefined;
   if (kind === "waves") return { kind: "waves", phase: "intermission", enemiesLeft: 0, kills: 14, lives: 2, wave: 2, waves: 5, nextWaveInMs: 12000 };
+  // &objective=briefing|down: the kit choice (like the raid's ready check), in the briefing and while down
+  const kits = [
+    { id: "assault", label: "ASSAULT", blurb: "Militech Ajax rifle and a Lexington sidearm. Reliable at every range." },
+    { id: "breacher", label: "BREACHER", blurb: "Carnage shotgun and an Unity. Get close, hit its weak spots hard." },
+    { id: "marksman", label: "MARKSMAN", blurb: "Grad precision rifle and a Nue. Pick the parts off from cover." },
+    { id: "gunner", label: "GUNNER", blurb: "Defender light machine gun and a Lexington. Suppress the reinforcements." },
+    { id: "tech", label: "TECH", blurb: "Achilles tech rifle and a Copperhead. Charged shots through its plating." }];
+  if (kind === "briefing") return { kind: "eliminate", phase: "staging", enemiesLeft: 0, kills: 0, lives: 3, startsInMs: 24000,
+    loadouts: kits, loadout: "assault", canChoose: true, ready: false, readyCount: 1, squadSize: 4 };
+  if (kind === "down") return { kind: "eliminate", phase: "fight", enemiesLeft: 6, kills: 5, lives: 2, respawnInMs: 8000,
+    loadouts: kits, loadout: "breacher", canChoose: true };
   return { kind: "eliminate", phase: "fight", enemiesLeft: 6, kills: 5, lives: 3, outOfBoundsMs: kind === "oob" ? 8000 : undefined,
     checkpoints: [{ label: "Loading bay", reached: true, required: true }, { label: "Office stairs", reached: false, required: true }, { label: "Roof", reached: false, required: false }] };
 }

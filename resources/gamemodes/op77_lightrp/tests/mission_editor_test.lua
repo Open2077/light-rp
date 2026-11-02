@@ -225,7 +225,18 @@ local inst = Missions.instanceOf(1)
 assert(inst and inst.test and buckets[1] == inst.bucket and positions[1].x == 100, "the author is in the instance, at the start")
 local view = providers.missionQueue(1)
 assert(view.objective and view.objective.phase == "staging", "staging first")
+-- the briefing: the kits like the raid's ready check, the default one preselected
+local o = view.objective
+assert(o.loadouts and #o.loadouts == 5 and o.loadout == "assault" and o.canChoose and o.ready == false and o.squadSize == 1, "briefing: kits listed, assault preselected")
+actions["mission.loadout"](1, { id = "breacher" })
+assert(providers.missionQueue(1).objective.loadout == "breacher", "a kit picked in the briefing")
+actions["mission.loadout"](1, { id = "nope" })
+assert(providers.missionQueue(1).objective.loadout == "breacher", "an unknown kit is ignored")
 seconds(7)
+assert(providers.missionQueue(1).objective.phase == "staging", "the fight waits for the squad to be ready")
+actions["mission.ready"](1)
+assert(providers.missionQueue(1).objective.ready == true, "ready")
+seconds(1)
 local alive = {}
 for npcId, n in pairs(npcs) do if n.def.bucket == inst.bucket then alive[#alive + 1] = npcId end end
 assert(#alive == 3, "2 Bay enemies x1.5 (hard) = 3 at start, got " .. #alive)
@@ -264,7 +275,11 @@ assert(buckets[1] == 0, "back in the city")
 -- ── perimeter, respawns and the wipe ────────────────────────────────────────
 assert(Missions.launchNow(id, "standard", { 1 }))
 inst = Missions.instanceOf(1)
-seconds(7)
+-- nobody says ready: the fight starts after the 30 s briefing anyway, with the preselected kit
+seconds(29)
+assert(providers.missionQueue(1).objective.phase == "staging", "still briefing")
+seconds(2)
+assert(providers.missionQueue(1).objective.phase ~= "staging" and inst.run.ready[1] == true, "the briefing timed out: the fight is on")
 -- an admin teleport passes through a non-death phase: no life spent, no wipe
 life[1] = "teleporting"; LightRP.eachModule("onLifeState", 1, "teleporting")
 seconds(1)
@@ -281,6 +296,11 @@ positions[1] = { x = 160, y = 200, z = 10 }
 seconds(7)
 assert(#killed == 1 and killed[1] == 1 and noticed("OPERATOR DOWN"), "killed after the 5 s delay, one team respawn spent")
 assert(providers.missionQueue(1).objective.respawnInMs > 0 and providers.missionQueue(1).objective.lives == 0, "respawn countdown")
+-- down: another kit may be picked for the next life
+local downView = providers.missionQueue(1).objective
+assert(downView.canChoose and downView.loadouts and downView.ready == nil, "the kit choice while down")
+actions["mission.loadout"](1, { id = "marksman" })
+assert(providers.missionQueue(1).objective.loadout == "marksman", "next life's kit picked")
 seconds(5)
 assert(life[1] == "alive" and positions[1].x == 100 and buckets[1] == inst.bucket, "respawned at the start, in the instance")
 positions[1] = { x = 160, y = 200, z = 10 }
@@ -304,6 +324,7 @@ assert(sw.ok and Missions.point(sw.data.mission.id).type == "Survival", "surviva
 positions[1] = { x = 100, y = 200, z = 10 }; life[1] = "alive"
 assert(request(1, "test", { id = sw.data.mission.id, difficulty = "standard" }).ok)
 inst = Missions.instanceOf(1)
+actions["mission.ready"](1)
 seconds(7)
 assert(providers.missionQueue(1).objective.phase == "intermission", "first wave pending")
 seconds(4)
@@ -337,6 +358,7 @@ assert(sb.ok, "behaviours published: " .. tostring(sb.error))
 positions[1] = { x = 100, y = 200, z = 10 }; life[1] = "alive"
 assert(request(1, "test", { id = sb.data.mission.id, difficulty = "standard" }).ok)
 inst = Missions.instanceOf(1)
+actions["mission.ready"](1)
 seconds(8)
 local byBehaviour = {}
 for npcId, n in pairs(npcs) do
