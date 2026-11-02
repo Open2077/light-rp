@@ -194,6 +194,8 @@ export interface ActivitiesState {
   /** Free for an activity, else the reason in one sentence. */
   eligible: boolean; reason?: string;
   reputation: { today: number; dailyCap: number; maxPerResult: number };
+  /** Staff bot mode (/lightrp.bots): bots fill the missing places, nothing is recorded. */
+  bots?: boolean;
   /** Players around (only while the panel is open), for squad invites. */
   nearby: ActivityNearby[];
   contracts: ActivityContract[];

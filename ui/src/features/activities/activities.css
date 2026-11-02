@@ -15,6 +15,7 @@
 
 .activities__bar { display: flex; justify-content: space-between; align-items: center; height: 36px; padding: 0 var(--sp-6); background: var(--accent); color: var(--text-on-accent); flex: none; }
 .activities__bar-title { display: flex; align-items: center; gap: var(--sp-5); font: var(--fw-semibold) 14px var(--font-mono); letter-spacing: var(--ls-label); }
+.activities__bar-tag { padding: 2px var(--sp-4); background: var(--text-on-accent); color: var(--accent); font: var(--fw-semibold) var(--fs-tag) var(--font-mono); letter-spacing: .08em; }
 .activities__bar-route { display: flex; align-items: center; gap: var(--sp-6); font: var(--fw-semibold) var(--fs-tag) var(--font-mono); letter-spacing: .08em; }
 .activities__bar-route button { display: grid; place-items: center; background: none; border: 0; padding: var(--sp-1); }
 

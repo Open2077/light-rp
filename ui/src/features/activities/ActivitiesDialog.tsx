@@ -97,7 +97,8 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
       if (handled) { e.preventDefault(); e.stopPropagation(); }
     }}>
     <header className="activities__bar">
-      <span className="activities__bar-title"><Icon name="swords" size={15} />{(state?.hub.name ?? "The Crossing").toUpperCase()}</span>
+      <span className="activities__bar-title"><Icon name="swords" size={15} />{(state?.hub.name ?? "The Crossing").toUpperCase()}
+        {state?.bots && <span className="activities__bar-tag" title="Staff bot mode: bots fill the missing places, results are not recorded">BOTS ON · TEST</span>}</span>
       <span className="activities__bar-route">ARENA · RACES · CHASES · EVENTS<button aria-label="Close" onClick={close}><Icon name="x" size={15} /></button></span>
     </header>
     <StatusStrip state={state} received={received} onLeave={leave} waiting={waiting} />
@@ -118,7 +119,7 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
 
     <footer className="activities__foot">
       <span className={cx("activities__feedback", feedback?.error && "is-error")} role="status">
-        {waiting ? <><Icon name="loader" size={13} />Asking…</> : feedback?.text ?? (state ? `Reputation today ${state.reputation.today}/${state.reputation.dailyCap} · activities never pay cash or items` : "")}
+        {waiting ? <><Icon name="loader" size={13} />Asking…</> : feedback?.text ?? (state ? (state.bots ? "Bot mode: bots fill the missing places · results are not recorded" : `Reputation today ${state.reputation.today}/${state.reputation.dailyCap} · activities never pay cash or items`) : "")}
       </span>
       <span className="activities__keys">
         {tab === "activities" && <span><Keycap size="sm">↑↓</Keycap>CHOOSE</span>}
