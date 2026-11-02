@@ -503,6 +503,7 @@ local function equip(inst, id)
     end)
 end
 Engine.equip = equip
+Engine.weapons = weapons
 
 -- The briefing (staging), like the raid's ready check: each operator picks a kit (page
 -- action mission.loadout, keys 1-5) and says ready (mission.ready, Enter); the kit is
@@ -628,6 +629,12 @@ end
 local function script(def)
     return {
         view = view,
+        -- the weapon wheel lists the kit and draws it back (Missions.kitOf / drawKit)
+        kitOf = function(inst, id)
+            local run = inst.run
+            return run and run.kit and (kitById(run.choice and run.choice[id]) or run.kit) or nil
+        end,
+        reissueKit = function(inst, id) equip(inst, id) end,
         onStart = function(inst)
             local d = Missions.difficulty(inst)
             local run = { def = D.clone(def), instance = inst.id, difficulty = d, phase = "staging", startAt = now() + START_DELAY_MS,

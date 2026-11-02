@@ -581,6 +581,15 @@ end
 -- The mission script
 
 Missions.register(POINT, {
+    -- the weapon wheel lists the kit and draws it back (Missions.kitOf / drawKit)
+    kitOf = function(inst, id)
+        local raid = raids[inst.id]
+        return raid and (kits[raid.loadouts[id]] or C.loadouts[1]) or nil
+    end,
+    reissueKit = function(inst, id)
+        local raid = raids[inst.id]
+        if raid and raid.reissue then raid.reissue(id) end
+    end,
     onStart = function(inst)
         local s = scaling(inst)
         local raid = { phase = "ready", ready = {}, down = {}, out = {}, respawns = {}, adds = {}, badAdds = {}, loops = {},

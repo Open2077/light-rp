@@ -457,6 +457,41 @@ function Missions.handlesLoadout(id)
     local inst = instanceOf[id] and instances[instanceOf[id]]
     return inst ~= nil and inst.loadout == true
 end
+-- The kit a mission handed this operator ({ id, primary, secondary, names }), for the
+-- weapon wheel: during a mission it lists the kit, not the pockets (scripts: kitOf).
+function Missions.kitOf(id)
+    local inst = instanceOf[id] and instances[instanceOf[id]]
+    local script = inst and inst.loadout and scripts[inst.point]
+    if not script or type(script.kitOf) ~= "function" then return nil end
+    local ok, kit = pcall(script.kitOf, inst, id)
+    return ok and type(kit) == "table" and kit or nil
+end
+-- The wheel picked a kit weapon (slot 1 primary, 2 secondary): drawn when the native
+-- slot holds it, else the kit is handed out again (it never reached the hands, or the
+-- player swapped it away). Holstering to the fists left no way back before (2026-11-02).
+function Missions.drawKit(id, slot)
+    local inst = instanceOf[id] and instances[instanceOf[id]]
+    local script = inst and scripts[inst.point]
+    local kit = Missions.kitOf(id)
+    if not kit or (slot ~= 1 and slot ~= 2) then return false, "No mission kit." end
+    local record = slot == 2 and kit.secondary or kit.primary
+    local weapons = LightRP.missionEngine and LightRP.missionEngine.weapons
+    CreateThread(function()
+        local snapshot = weapons and weapons(id, "requestSnapshot")
+        local held = false
+        for _, row in ipairs(type(snapshot) == "table" and (snapshot.slots or snapshot) or {}) do
+            if type(row) == "table" and tonumber(row.slot) == slot and row.record == record then held = true end
+        end
+        if held then
+            local ok, why = weapons(id, "setActive", slot)
+            if not ok then LightRP.log("missions: %s could not draw kit slot %d (%s)", name(id), slot, tostring(why)) end
+        elseif type(script.reissueKit) == "function" then
+            LightRP.log("missions: kit slot %d of %s missing, handing the kit out again", slot, name(id))
+            pcall(script.reissueKit, inst, id)
+        end
+    end)
+    return true
+end
 local function restoreArms(id)
     CreateThread(function()
         Wait(3000)

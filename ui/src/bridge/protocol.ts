@@ -296,6 +296,8 @@ export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "amm
 export interface ArsenalWeapon {
   slot: number; instanceId: string; name: string; label: string; class?: string; ammo?: string; ammoLabel?: string;
   rounds?: number; image?: string; dual?: boolean; hand?: "right" | "left";
+  /** A mission kit weapon (instanceId "kit:1" / "kit:2"), during a mission. */
+  kit?: boolean;
 }
 export interface ArmamentWeapon {
   instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;
