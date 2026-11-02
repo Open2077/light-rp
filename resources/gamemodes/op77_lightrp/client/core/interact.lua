@@ -112,18 +112,12 @@ local function clear()
     if Interact.near then Interact.near = nil; sendPrompt(nil) end
 end
 
--- Everything the client draws from an entry, as one comparable string: a point whose
--- entry did not change keeps its marker, blips and pin when a new list arrives.
-local function signature(value, depth)
-    if type(value) ~= "table" then return type(value):sub(1, 1) .. tostring(value) end
-    depth = depth or 0
-    if depth > 6 then return "{...}" end
-    local keys = {}
-    for key in pairs(value) do keys[#keys + 1] = key end
-    table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
-    local parts = {}
-    for i, key in ipairs(keys) do parts[i] = tostring(key) .. "=" .. signature(value[key], depth + 1) end
-    return "{" .. table.concat(parts, ",") .. "}"
+-- What identifies an entry's content: the revision the server gives every registration
+-- (server/core/interact.lua). Hashing each entry here instead overran the client's 2 ms
+-- script budget and killed the build part way (2026-11-02: no shops on the map). An
+-- entry without one is never kept.
+local function revisionOf(entry)
+    return type(entry) == "table" and entry.id ~= nil and entry.rev ~= nil and (tostring(entry.id) .. "#" .. tostring(entry.rev)) or nil
 end
 
 -- The shared prompt anchor follows the nearest point; the page draws the words.
@@ -276,7 +270,7 @@ local function addPoint(entry)
             local complete = (type(entry.marker) ~= "table" or point.marker ~= nil)
                 and (type(entry.blip) ~= "table" or point.blip ~= nil)
                 and (type(entry.marker) == "table" or entry.ring == false or not anchorsAvailable() or point.ring ~= nil)
-            point.signature = (entry.id ~= nil and complete) and signature(entry) or nil
+            point.signature = complete and revisionOf(entry) or nil
             Interact.points[#Interact.points + 1] = point
         end
 end
@@ -292,8 +286,13 @@ end
 -- and the server re-sent one every 2-4 s while driving (the nearest housing entrances):
 -- 86 full rebuilds of 44 points in 17 min on 2026-11-02, amid the NPC churn of a
 -- session that ended in an engine crash.
-local SLICE = 6
+--
+-- Every engine call (removing a stale point, creating a new one) goes through the same
+-- slices: 4 per resume, the first slice at once. Points waiting for removal live in
+-- Interact.retiring, so a newer list arriving mid-way never loses their handles.
+local SLICE = 4
 local generation = 0
+Interact.retiring = {}
 local function build(list)
     generation = generation + 1
     local mine = generation
@@ -305,11 +304,12 @@ local function build(list)
     local kept, keptIds, removed = {}, {}, 0
     for _, point in ipairs(Interact.points) do
         local entry = point.id ~= nil and wanted[point.id] or nil
-        if entry ~= nil and not keptIds[point.id] and point.signature ~= nil and point.signature == signature(entry) then
+        if entry ~= nil and not keptIds[point.id] and point.signature ~= nil and point.signature == revisionOf(entry) then
             kept[#kept + 1] = point
             keptIds[point.id] = true
         else
-            removePoint(point)
+            Interact.retiring[#Interact.retiring + 1] = point
+            if Interact.near == point then Interact.near = nil; sendPrompt(nil) end
             removed = removed + 1
         end
     end
@@ -331,13 +331,22 @@ local function build(list)
     end
     local index = 0
     local function slice()
-        local stop = math.min(#pending, index + SLICE)
-        while index < stop do index = index + 1; addPoint(pending[index]) end
+        local budget = SLICE
+        while budget > 0 and #Interact.retiring > 0 do
+            removePoint(table.remove(Interact.retiring))
+            budget = budget - 1
+        end
+        while budget > 0 and index < #pending do
+            index = index + 1
+            addPoint(pending[index])
+            budget = budget - 1
+        end
     end
+    local function done() return #Interact.retiring == 0 and index >= #pending end
     slice()
-    if index >= #pending then report(); return end
+    if done() then report(); return end
     CreateThread(function()
-        while index < #pending do
+        while not done() do
             Wait(0)
             if mine ~= generation then return end
             slice()
