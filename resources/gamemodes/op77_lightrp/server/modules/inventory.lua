@@ -381,6 +381,10 @@ local function place(inv, name, count, metadata, preferredSlot)
     return count - remaining
 end
 
+-- Stacks `count` of an item into an inventory or a detached draft (top up, then
+-- free slots); returns how many fit. Check Inv.canHold first for all-or-nothing.
+Inv.place = place
+
 function Inv.canHold(inv, name, count, metadata)
     local t = template(name)
     if t == nil then return false, "unknown_item" end
@@ -886,14 +890,29 @@ function Inv.trade(playerId, mode, lines, wallet, total, shopName)
             end
         end
     end
+    -- A bought firearm gets its server serial here, registered in the same
+    -- transaction as the delivery (armament_store); the shop never sends one.
+    local armed, minted
+    for _, line in ipairs(lines) do if LightRpArmament and LightRpArmament.weapons[line.name] then armed = true end end
+    if armed then
+        if not (LightRP.armament and LightRP.armament.prepare) then return false, "transaction_unavailable" end
+        local prepared, reason, queries, committed = LightRP.armament.prepare({ { inv, draft } })
+        if not prepared then LightRP.log("shop firearm refused: %s", tostring(reason)); return false, "firearm_refused" end
+        draft.extraWrites, minted = queries or {}, committed
+    end
     local note = {}
     for _, line in ipairs(lines) do note[#note + 1] = line.count .. "x " .. line.name end
     local write = { query = [[INSERT INTO lightrp_inventories (id, kind, label, slots, max_weight, items) VALUES (?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE items = VALUES(items), slots = VALUES(slots), max_weight = VALUES(max_weight), label = VALUES(label)]],
         values = { inv.id, inv.kind, inv.label or "", inv.slots, inv.maxWeight, json.encode(draft.items) } }
+    if draft.extraWrites and #draft.extraWrites > 0 then
+        write = { write }
+        for _, query in ipairs(draft.extraWrites) do write[#write + 1] = query end
+    end
     inv.busy = true
     local called, ok, reason = pcall(LightRP.money.exchange, playerId, wallet, mode == "buy" and -total or total, write,
-        function() inv.items = draft.items; inv.revision = (inv.revision or 0) + 1 end, "shop_" .. mode, table.concat(note, ", "):sub(1, 160), shopName, draft)
+        function() inv.items = draft.items; inv.revision = (inv.revision or 0) + 1; if minted then minted() end end,
+        "shop_" .. mode, table.concat(note, ", "):sub(1, 160), shopName, draft)
     releaseBusy(inv)
     if not called then LightRP.log("shop settlement error: %s", tostring(ok)); return false, "database_error" end
     if not ok then return false, reason end

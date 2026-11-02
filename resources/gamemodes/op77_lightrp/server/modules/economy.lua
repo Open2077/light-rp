@@ -392,6 +392,11 @@ function Money.exchange(playerId, wallet, delta, inventoryWrite, commitItems, ki
             end
             if Inv.cashOf(inventoryDraft) ~= after then return false, "invalid_amount" end
             inventoryWrite = Inv.writeDraft(inv, inventoryDraft)
+            if inventoryDraft.extraWrites and #inventoryDraft.extraWrites > 0 then
+                -- a bought firearm's serial rows travel with the delivery (Inv.trade)
+                inventoryWrite = { inventoryWrite }
+                for _, query in ipairs(inventoryDraft.extraWrites) do inventoryWrite[#inventoryWrite + 1] = query end
+            end
         else
             local failure
             cash, failure = Inv.prepareCash(playerId, n)

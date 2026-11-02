@@ -47,6 +47,7 @@ local REASONS = {
     database_unavailable = "The shop cannot reach the database. Trading is unavailable.",
     database_error = "The checkout could not be saved. Check your balance before retrying.",
     transaction_unavailable = "Secure checkout is unavailable. Contact the server owner.",
+    firearm_refused = "The firearm could not be registered to you. Nothing was charged.",
 }
 local function explain(reason) return REASONS[reason] or ("Checkout refused: " .. tostring(reason)) end
 

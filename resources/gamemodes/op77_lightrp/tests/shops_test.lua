@@ -56,7 +56,9 @@ Money.onCharacterLoaded(1, LightRP.characters.get(1))
 dofile("server/config/shops.lua")
 -- Another NPC references the SAME template. One live change must update both.
 local second = {}; for k, v in pairs(LightRpShops.locations[1]) do second[k] = v end
-second.id = "second_food"; LightRpShops.locations[2] = second
+second.id = "second_food"
+-- the street market and its twin only: the gun store has its own test (gunshop_test.lua)
+LightRpShops.locations = { LightRpShops.locations[1], second }
 local start = #threads + 1
 dofile("server/modules/shops.lua")
 threads[start]()

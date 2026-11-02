@@ -7,6 +7,8 @@ lua.execute('''
 dofile("server/modules/hotbar.lua")
 local H=LightRP.hotbar
 assert(next(inv.viewers)==nil)
+-- the armament run leaves unpacked rounds (inventory items) in the first row; this test owns slots 4 and 6
+if Inv.count(inv.id,"ammo_pistol")>0 then assert(Inv.removeItem(inv.id,"ammo_pistol",Inv.count(inv.id,"ammo_pistol"))) end
 assert(Inv.addItem(inv.id,"water",3,nil,4))
 assert(Inv.addItem(inv.id,"repairkit",1,nil,6))
 local state=H.snapshot(1)

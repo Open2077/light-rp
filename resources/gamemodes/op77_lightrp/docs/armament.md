@@ -1,10 +1,52 @@
 # Armes d'inventaire et munitions — prototype RP
 
-Cette version ajoute deux objets sérialisés, `weapon_lexington` et `weapon_nue`,
-et une boîte `ammo_pistol_box` de **30 balles**. Aucune arme ni munition n'est
-donnée automatiquement à la connexion. Le staff peut les accorder avec le
-mécanisme de grant d'inventaire existant ; un grant natif `/weapon.give` ne
-crée pas une arme possédée dans l'inventaire RP.
+## Objets
+
+`shared/armament.lua` décrit 22 armes sérialisées (`LightRpArmament.weapons`), chacune avec son record natif, sa classe et son type de munition.
+
+| Type (`ammo`) | Objet (1 = 1 balle) | Pool natif | Classes | Boîte |
+|---|---|---|---|---|
+| `pistol` | `ammo_pistol` « Handgun rounds » | `Ammo.HandgunAmmo` | pistolets, revolvers, SMG | `ammo_pistol_box` ×30 |
+| `rifle` | `ammo_rifle` « Rifle rounds » | `Ammo.RifleAmmo` | fusils d'assaut, LMG, fusils de précision | `ammo_rifle_box` ×30 |
+| `shotgun` | `ammo_shotgun` « Shotgun shells » | `Ammo.ShotgunAmmo` | fusils à pompe | `ammo_shotgun_box` ×12 |
+| `sniper` | `ammo_sniper` « Sniper rounds » | `Ammo.SniperRifleAmmo` | fusils de sniper | `ammo_sniper_box` ×10 |
+
+**D'où viennent les pools natifs.** Ce sont des mesures notées dans la config de `open77_cordon` :
+- les SMG tirent la munition de poing ;
+- un fusil de précision (Achilles) tire la munition de fusil, pas celle de sniper.
+
+Un type RP correspond à un pool natif : deux armes du même type partagent toujours leurs balles.
+
+**Mains.** Seuls les pistolets et revolvers (`dual`) vont en main gauche, avec une autre arme de poing à droite. Les autres armes tiennent la main droite seules : équiper un fusil avec un pistolet en main gauche est refusé.
+
+Les clés `pistol` et `ammo_pistol` gardent leur nom d'origine : des personnages les possèdent déjà.
+
+Aucune arme ni munition n'est donnée automatiquement à la connexion.
+
+Pour les obtenir :
+- le Gun Store (voir [shops](shops.md)) ;
+- le grant d'inventaire du staff.
+
+Un grant natif `/weapon.give` ne crée pas une arme possédée dans l'inventaire RP.
+
+## Munitions = objets d'inventaire
+
+`LightRpArmament.ammo` déclare les types de munition, et chaque arme indique le sien (`ammo = "pistol"`).
+
+**Équiper ou synchroniser.** Le serveur projette dans le pool natif exactement les balles de ce type présentes dans les poches.
+- Le maximum projeté est de 600 balles ; le reste attend dans les poches et recharge le pool quand il baisse.
+- Le serveur mémorise cette base : `rt.baseline`.
+
+**Observation toutes les 2 s.**
+- **Total natif plus bas que la base :** ce sont des tirs. Les balles correspondantes sont retirées de l'inventaire par une transaction.
+- **Total natif plus haut :** ramassage natif ou triche. Ce n'est jamais crédité : le tir est bloqué et les dégâts refusés jusqu'à une synchronisation, qui remet le pool au compte des poches.
+- **Les poches ont changé autrement** (achat, don, dépôt, déballage) : le serveur reprojette sans attendre de déséquiper.
+
+**Deux mains.** Deux armes équipées doivent utiliser le même type de munition.
+
+**Ancien stock caché.** L'ancien stock caché (`lightrp_armament.definition.ammo`, de l'époque où ouvrir une boîte créditait un compteur) est converti une fois en `ammo_pistol` dans les poches.
+- La conversion se fait à la synchronisation, dans la même transaction que l'état.
+- Ce qui ne rentre pas reste inscrit et passe à la synchronisation suivante.
 
 ## Utilisation
 
@@ -22,11 +64,10 @@ ne sont pas prises en charge par ce prototype. Ranger visuellement conserve
 l'équipement ; déséquiper retire sa référence et permet de transférer l'objet.
 Déséquiper la main droite retire aussi la référence gauche.
 
-Ouvrir une boîte consomme un objet et crédite 30 balles dans une même transaction.
-Le stock affiché est le **total du personnage**, chargeurs et réserve compris,
-avec un plafond de 600 balles. Il n'est pas multiplié par le nombre d'armes.
-Le personnage conserve ce stock lorsqu'une arme est déséquipée ou transférée ;
-le transfert du pistolet ne donne pas un deuxième stock au destinataire.
+Déballer une boîte retire la boîte et ajoute 30 `ammo_pistol` dans une même transaction ; si les poches sont pleines, la boîte reste.
+- Le stock affiché correspond aux balles de ce type dans les poches, chargeurs compris. Il n'est pas multiplié par le nombre d'armes.
+- Les balles se donnent, se vendent et se déposent comme tout objet.
+- Transférer une arme ne transfère aucune balle.
 
 Les armes équipées ou en cours de synchronisation ne peuvent pas être vendues,
 données, supprimées ou transférées. Les piles au sol et coffres temporaires
