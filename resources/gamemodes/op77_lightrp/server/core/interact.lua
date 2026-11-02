@@ -153,6 +153,17 @@ end
 LightRP.nearInteraction = within
 
 local lastPress = {}
+-- The client's own request (client/core/interact.lua): always answered, forced, at most
+-- once a second per player.
+local lastAsked = {}
+RegisterNetEvent(E.net.interactionsRequest, function()
+    local playerId = tonumber(source)
+    if playerId == nil or playerId <= 0 then return end
+    local now = LightRP.nowMs()
+    if lastAsked[playerId] and now - lastAsked[playerId] < 1000 then return end
+    lastAsked[playerId] = now
+    LightRP.sendInteractions(playerId, true)
+end)
 RegisterNetEvent(E.net.interact, function(id)
     local playerId = source
     local definition = type(id) == "string" and interactions[id] or nil
@@ -176,4 +187,4 @@ function Interact.onGameplayReady(playerId) LightRP.sendInteractions(playerId, t
 -- job points follow the job
 function Interact.onJobChanged(playerId) LightRP.sendInteractions(playerId) end
 function Interact.onCharacterActivated(playerId) LightRP.sendInteractions(playerId, true) end
-function Interact.onDisconnected(playerId) lastPress[playerId] = nil; streams[playerId] = nil; lastSent[playerId] = nil end
+function Interact.onDisconnected(playerId) lastPress[playerId] = nil; lastAsked[playerId] = nil; streams[playerId] = nil; lastSent[playerId] = nil end

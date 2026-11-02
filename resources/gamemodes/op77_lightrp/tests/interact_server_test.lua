@@ -20,9 +20,10 @@ TriggerLatentClientEvent = function(name, id, rate, list)
 end
 Open77 = { players = { position = function() return { x = 0, y = 0, z = 0 } end }, net = { cancelLatent = function(id) cancelled[#cancelled + 1] = id; return true end } }
 GetPlayers = function() return { "7" } end
-RegisterNetEvent = function() end
+local netHandlers, clock = {}, 0
+RegisterNetEvent = function(name, fn) netHandlers[name] = fn end
 AddEventHandler = function() end
-LightRP = { log = function(f, ...) logs[#logs + 1] = string.format(f, ...) end, nowMs = function() return 0 end,
+LightRP = { log = function(f, ...) logs[#logs + 1] = string.format(f, ...) end, nowMs = function() return clock end,
     module = function(name, value) LightRP[name] = value; return value end, eachModule = function() end }
 dofile("server/core/interact.lua")
 
@@ -66,4 +67,11 @@ assert(#sent == count + 3, "a change is sent")
 LightRP.interact.onDisconnected(7)
 LightRP.sendInteractions(7)
 assert(#sent == count + 4, "a player who came back gets it")
-print("PASS: interaction list (plain event, latent past 40 KiB with the whole list, newest stream wins, disconnect cleanup, refusals logged, unchanged list not re-sent, forced and refused re-sent)")
+-- the client's own request is always answered (forced), at most once a second
+local ask = assert(netHandlers[LightRpEvents.net.interactionsRequest], "request handler")
+count = #sent
+_G.source = 7; clock = 10000
+ask(); assert(#sent == count + 1, "an unchanged list is still sent when the client asks for it")
+ask(); assert(#sent == count + 1, "at most once a second")
+clock = 11500; ask(); assert(#sent == count + 2, "asked again later: sent again")
+print("PASS: interaction list (client request answered and rate-limited, latent past 40 KiB with the whole list, newest stream wins, disconnect cleanup, refusals logged, unchanged list not re-sent, forced and refused re-sent)")

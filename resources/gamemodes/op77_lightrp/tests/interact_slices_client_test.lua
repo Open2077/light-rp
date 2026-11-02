@@ -6,14 +6,15 @@ dofile("shared/events.lua")
 local handlers, threads, logs, iconCalls, nativeBlips, markers = {}, {}, {}, 0, 0, 0
 RegisterNetEvent = function(name, fn) handlers[name] = fn end
 AddEventHandler = function() end
-TriggerServerEvent = function() end
+local asked = 0
+TriggerServerEvent = function(name) if name == LightRpEvents.net.interactionsRequest then asked = asked + 1 end end
 RegisterKeyMapping = function() return true, "E" end
 GetCurrentResourceName = function() return "op77_lightrp" end
 GetResourceState = function() return "stopped" end
 CreateThread = function(fn) threads[#threads + 1] = coroutine.create(fn) end
 Wait = function() coroutine.yield() end
 Open77 = {
-    character = { state = function() return { position = { x = 0, y = 0, z = 0 } } end },
+    character = { state = function() return { position = { x = 0, y = 0, z = 0 }, attached = attachedNow == true } end },
     markers = { create = function() markers = markers + 1; return markers end, remove = function() return true end, update = function() return true end },
     anchors = { create = function() return 1 end, remove = function() return true end, update = function() return true end },
     blips = { create = function() nativeBlips = nativeBlips + 1; return nativeBlips end, remove = function() return true end },
@@ -21,8 +22,21 @@ Open77 = {
 LightRpUi = { page = {}, log = function(f, ...) logs[#logs + 1] = string.format(f, ...) end, send = function() end }
 exports = setmetatable({}, { __call = function() end })
 exports.open77_icons = { create = function() iconCalls = iconCalls + 1; return nil, "blip_visual_budget_exceeded" end, remove = function() return true end }
+local firstThread = #threads + 1
 dofile("client/core/interact.lua")
+-- the request loop: nothing before the world, then one ask, again after 5 s, none once a list came
+local clock = 0
+GetGameTimer = function() return clock end
+local lastLoaded = #threads
+local function step() for i = firstThread, lastLoaded do if coroutine.status(threads[i]) ~= "dead" then assert(coroutine.resume(threads[i])) end end end
+step(); step(); assert(asked == 0, "not in the world: no request")
+attachedNow = true; clock = 1000
+step(); assert(asked == 1, "in the world: ask for the list")
+clock = 3000; step(); assert(asked == 1, "not again within 5 s")
+clock = 7000; step(); assert(asked == 2, "again after 5 s while nothing came")
 local build = handlers[LightRpEvents.net.interactions]
+build({}) -- a list arrived: no more requests
+clock = 20000; step(); assert(asked == 2, "a list came: no more requests")
 local function list(n, prefix)
     local out = {}
     for i = 1, n do out[i] = { id = prefix .. i, rev = 1, position = { x = i, y = 0, z = 0 }, label = prefix .. i,

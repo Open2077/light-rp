@@ -356,9 +356,31 @@ local function build(list)
 end
 Interact.build = build
 
+local received = false
 RegisterNetEvent(E.net.interactions, function(list)
     if type(list) ~= "table" then return end
+    received = true
     build(list)
+end)
+
+-- The client asks for the list itself once its character is in the world, and again
+-- every 5 s until one arrives. A list the server pushed before this resource was
+-- running is lost, and since the server does not re-send an unchanged list, the map
+-- stayed without a single shop (2026-11-02, when the shell's gameplay-ready event
+-- never came). A new world entry (respawn, character switch) asks again.
+CreateThread(function()
+    local attached, askedAt = false, -1000000
+    while true do
+        Wait(1000)
+        local ok, state = pcall(Open77.character.state)
+        local now = ok and type(state) == "table" and state.attached == true
+        if now and not attached then received = false; askedAt = -1000000 end
+        attached = now
+        if attached and not received and GetGameTimer() - askedAt >= 5000 then
+            askedAt = GetGameTimer()
+            TriggerServerEvent(E.net.interactionsRequest)
+        end
+    end
 end)
 
 local function localPosition()
