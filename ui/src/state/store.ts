@@ -1,4 +1,5 @@
 import { normalizeMission, normalizeParty, normalizeQueue } from "@/features/missions/model";
+import { normalizeActivities } from "@/features/activities/model";
 import { create } from "zustand";
 import type { ArmamentPending, ArmamentState, GrenadeState, HotbarState, DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 import type { ExtraSafezoneRules } from "@/features/safezones/model";
@@ -131,6 +132,7 @@ export const useStore = create<Store>((set) => ({
   applyState: (patch) => set((s) => ({ state: { ...s.state, ...patch,
     ...("party" in patch ? { party: normalizeParty(patch.party) } : {}),
     ...("missionQueue" in patch ? { missionQueue: normalizeQueue(patch.missionQueue) } : {}),
+    ...("activities" in patch ? { activities: normalizeActivities(patch.activities) } : {}),
     ...(patch.character ? { character: { ...patch.character,
       origins: Array.isArray(patch.character.origins) ? patch.character.origins : [],
       slots: Array.isArray(patch.character.slots) ? patch.character.slots : [],

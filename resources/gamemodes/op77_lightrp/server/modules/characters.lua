@@ -294,6 +294,8 @@ function Characters.samplePosition(playerId)
     if c == nil then return end
     local position = Open77.players.position(playerId)
     if LightRP.housing then position = LightRP.housing.savedPosition(playerId, position) end
+    -- never a mission's or an activity's instance: the point it returns the player to
+    if LightRP.activities then position = LightRP.activities.savedPosition(playerId, position) end
     if position then c.lastKnown = { x = position.x, y = position.y, z = position.z } end
 end
 

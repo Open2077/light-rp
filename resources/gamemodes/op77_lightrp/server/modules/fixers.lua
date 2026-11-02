@@ -154,6 +154,7 @@ local function free(id, ignoreGig)
     if not LightRP.characters.isRegistered(id) then return false, "no active character" end
     if not ignoreGig and gigOf[id] then return false, "already on a gig" end
     if Missions.instanceOf(id) then return false, "on a mission" end
+    if LightRP.activities and LightRP.activities.owns(id) then return false, "in an activity" end
     local life = Open77.players.getLifeState(id)
     if life and life.phase ~= "alive" then return false, "down" end
     if bucketOf(id) ~= 0 then return false, "not in the city" end

@@ -26,6 +26,7 @@ import { FuelDialog, FuelApproach } from "@/features/fuel/FuelDialog";
 import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
 import { MissionDialog } from "@/features/missions/MissionDialog";
+import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
 import { FixerGigHud } from "@/features/missions/FixerGigHud";
 import { MissionSquadHud } from "@/features/missions/MissionSquadHud";
@@ -104,6 +105,7 @@ export function App() {
       <ErrorBoundary name="housing"><HousingDialog /></ErrorBoundary>
       <ErrorBoundary name="dealership"><DealershipDialog /></ErrorBoundary>
       <ErrorBoundary name="mission"><MissionDialog /></ErrorBoundary>
+      <ErrorBoundary name="activities"><ActivitiesDialog /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>

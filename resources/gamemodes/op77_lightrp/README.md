@@ -496,6 +496,113 @@ de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on 
   `/fixers.dispatch on|off|now`.
 - Les gigs vivent en mémoire : un redémarrage les annule (leurs boutons répondent « Expired »).
 
+## Activités et The Crossing (`server/modules/activities.lua`, `activities_hub.lua`)
+
+Arène, courses, poursuites et événements sont des **ressources fournisseuses** séparées
+(`op77_arena`, `op77_race`, `op77_chase`, `op77_fireworks`…) qui gèrent leurs propres instances.
+Light RP en est le **noyau** : il possède le joueur pendant l'activité, capture son point de
+retour, met ses armes RP de côté, gèle la faim et la soif, refuse objets RP, véhicules RP,
+logement et ordres de travail selon les `caps` de l'activité, n'applique ni inconscience ni
+hôpital, ne sauvegarde jamais la position de l'instance et ramène le joueur à la fin. Les
+résultats deviennent statistiques, classements et réputation — **jamais d'argent ni d'objet**.
+
+### Le contrat (exports serveur de `op77_lightrp`)
+
+Tous synchrones : ils ne cèdent jamais la main et n'écrivent pas la base (un export qui attend
+échoue chez l'appelant avec `export_yielded`). Un fournisseur n'agit que sur ses propres
+activités (`GetInvokingResource`).
+
+| Export | Rôle |
+|---|---|
+| `activityRegister(def)` → `true` \| `false, raison` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` préfixé par le fournisseur (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (tout à `false` par défaut). Réenregistrer remplace. Facultatif : `modes = { { id, label } }` et `modeKey` (choix proposés par le panneau, rendus dans `options[modeKey]` ; un choix inconnu est refusé avant d'atteindre le fournisseur ; sans `modes`, `joinChoices` de la config peut en fournir — voiture ou à pied pour `chase.1v1`). |
+| `activityCheck(id, activityId)` → `true` \| `false, raison` | Éligibilité seule, dans cet ordre : personnage actif, vivant et pas à terre, ni en mission ni dans une autre activité, pas dans le premier jour, pas dans un logement, pas en véhicule, pas blessé depuis 60 s, et dans la ville partagée (bucket 0). La raison est une phrase anglaise montrée au joueur. |
+| `activityEnter(id, activityId)` | Revérifie, enregistre la possession, capture `{ x, y, z, heading, bucket }`, range les armes RP si `caps.rpWeapons` est faux. Le fournisseur déplace ensuite le joueur dans son bucket. |
+| `activityLeave(id, activityId, opts)` | Libère. `opts.returnPlayer` (vrai par défaut) : retour au point capturé, bucket compris, en descendant du véhicule ; un joueur mort y réapparaît (jamais laissé mort), puis soin complet et armes RP rendues, sur le thread de Light RP. |
+| `activityOwner(id)` | L'id de l'activité, `"missions"` pendant une mission, sinon `nil`. |
+| `activityPlayer(id)` | `{ name, identifier, characterKey, gang = { id, label, grade, gradeLabel, tag, color } \| nil, job = { id, label, grade, gradeLabel, tag } }` — `nil` sans personnage actif ; `gang` vaut `nil` sans affiliation, `job.id` vaut `unemployed` sans emploi. Le gang et le métier sont lus dans `server/modules/jobs.lua` (mêmes vues que les state bags `gang` / `job`). `job.onDuty` reste absent : Light RP n'a pas de prise de service. |
+
+Événements serveur, `TriggerEvent` / `AddEventHandler` uniquement (jamais `RegisterNetEvent` :
+un client ne peut pas les lever) :
+
+- fournisseur → noyau `op77_lightrp:activity:result (id, activityId, result)` avec
+  `result = { placement, score, won, stats = { kills, deaths, timeMs, courseId, courseRevision… }, reputation }`.
+  Un résultat par entrée toutes les 15 s, et un seul jusqu'à 10 min après la sortie.
+- fournisseur → noyau `op77_lightrp:activity:status (activityId, { phase, players, queued, joinable, detail })`,
+  à chaque changement (les envois rapprochés sont regroupés avant d'atteindre les joueurs).
+- noyau → fournisseur `op77_lightrp:activity:join (id, activityId, options)` : le joueur l'a demandé
+  depuis le panneau (`activityCheck` déjà passé). `options` contient le choix du panneau
+  (`options.mode`, `options.course`…), `options.from` et `options.squad = { id, leader, members }`.
+- noyau → fournisseur `op77_lightrp:activity:leaveRequest (id, activityId)` : le joueur veut
+  partir (panneau, F1, `/leave`) — y compris s'il n'est qu'en file. Sans `activityLeave` du
+  fournisseur sous 15 s, le noyau libère et ramène le joueur lui-même (`dropped`, raison `timeout`).
+- noyau → fournisseur `op77_lightrp:activity:dropped (id, activityId, raison)` : `disconnect`,
+  `character`, `provider_stopped`, `timeout` ou `core_stopped`. La possession est déjà libérée.
+- noyau → tous `op77_lightrp:activity:ready ()` : Light RP vient de démarrer, les fournisseurs se
+  réenregistrent (en plus de leur propre écoute de `onResourceStart`).
+- `op77_lightrp:announce (text, { title, durationMs })` — ou une table `{ body, title, durationMs }`,
+  la forme d'`op77_fireworks` : annonce diffusée par le même chemin que `/lightrp.announce`
+  (chat + notice). Texte nettoyé, 2 à 200 caractères, titre 40, durée 3 à 30 s, une par seconde.
+
+Quand un fournisseur s'arrête, ses activités sont oubliées et ses joueurs ramenés ; lors d'un
+rechargement, ce que la nouvelle VM a déjà réenregistré est conservé.
+
+Buckets : arène `4100000–4199999`, course `4200000–4299999`, poursuite `4300000–4399999`
+(ville 0, hall 620000, pratique 700000+id, cabines 710000+id, logements 1000000+id, missions
+3000000+n). Le carburant ignore les véhicules de ces buckets ; clés et fourrière ne concernent
+que les véhicules du système RP (personnels, location, `/car`), jamais ceux qu'une activité crée.
+
+### À l'intérieur de Light RP
+
+`LightRP.activities.owns(id)`, `owner(id)`, `allows(id, cap)` et `savedPosition(id, repli)`
+sont les crochets d'une ligne posés dans `server/main.lua` (pas de réapparition RP),
+`medical.lua` (pas d'inconscience), `armament.lua` (armes RP rangées, la porte de dégâts laisse
+passer les armes de l'activité), `needs.lua` (faim et soif gelées), `characters.lua` (position
+sauvegardée = point de retour), `inventory.lua` (utiliser, donner, jeter — donc consommables,
+grenades et barre rapide), `grenades.lua`, `cyberware.lua` (lames Mantis), `rental.lua`,
+`garages.lua`, `vehicles.lua` (`/car`), `keys.lua`, `fuel.lua`, `housing.lua`, `job_runs.lua`,
+`job_work.lua` et `fixers.lua`. Les **missions** sont un fournisseur interne : un opérateur en
+mission est refusé par `activityCheck`, et une déconnexion en mission sauvegarde le point du
+tableau, plus les coordonnées de l'arène.
+
+### Statistiques, classements, réputation
+
+Tables `lightrp_activity_stats` (par compte + personnage + activité, et par parcours
+`courseId@révision` pour les courses : parties, victoires, kills, morts, meilleur score, meilleur
+temps, meilleure place, réputation) et `lightrp_activity_rep_daily` (réputation accordée par
+compte et par jour UTC). La réputation est bornée à `reputation.maxPerResult` (50) par résultat
+et `reputation.dailyCap` (250) par compte et par jour ; avec `grantTo = "missions"` elle
+s'ajoute aussi à la réputation de rue des missions. Classements : top 5 par activité, au
+meilleur temps pour les courses, aux victoires sinon. Sans base, tout vit le temps de la session.
+
+### Ce que voit le joueur
+
+- **The Crossing**, l'esplanade de Westbrook où arrivent les nouveaux : deux terminaux (marqueur
+  jaune, **E**) — *The Crossing* ouvre le panneau Activités, *Contracts* liste les tableaux de
+  mission de la ville avec un itinéraire GPS vers chacun (les tableaux eux-mêmes ne changent
+  pas). Une épingle « Activities » sur la carte (`op77_map3d`, catégorie Missions).
+- **Panneau Activités** (`ui/src/features/activities/`) : la liste (état, joueurs, file), le
+  détail (choix du mode quand il y en a, Rejoindre / Partir / Annuler, la raison d'un refus),
+  votre bilan et le classement ; onglets *Contracts* et *Squad* (invitations, membres, joueurs à
+  15 m). Bandeau d'état en tête : dans une activité, en attente, en mission, ou pourquoi pas.
+- **F1 → Activities** (ouvre le panneau, et *Leave …* / *Cancel …* direct) et **F1 → Squad**
+  (accepter ou refuser une invitation, membres, passer le commandement, exclure, quitter).
+- **Neural-Link → Gigs & Arena** (`client/core/activities.lua`) : ouvre le même panneau partout.
+- À la fin du premier jour (terminé ou passé) : une notice qui pointe vers The Crossing, et un
+  itinéraire si le joueur en est loin. Les répliques voix de Mara ne changent pas.
+- Commandes : `/leave` (quitter l'activité ou sa file), `/activity [list · join <id> [mode] · leave]`.
+  Staff : `/lightrp.activities` (activités, propriétaires, files, opérateurs en mission) et
+  `/lightrp.survey [libellé]` (position et cap, au format de la config).
+
+### Mise en place de The Crossing (en jeu)
+
+Les positions des terminaux sont des décalages plausibles depuis le point d'arrivée
+(`server/config/activities.lua`, `hub.terminals`, marqués `-- survey in game`). Sur place :
+`/lightrp.survey board`, coller la ligne en `position = { ... }` du terminal, idem pour
+`contracts`, puis `ensure op77_lightrp`. La zone de sécurité ne peut pas venir de la config
+(ce sont des enregistrements audités en base) : **/admin → Safe zones**, nouvelle zone centrée
+sur l'esplanade (`-756.6, 777.3`), rayon d'environ 30 m, *blockShoot*, *blockMelee* et
+*blockGrenades* cochés, puis publier.
+
 ## Housing
 
 Appartements et maisons instanciés, achat/location, clés persistantes, coffre par

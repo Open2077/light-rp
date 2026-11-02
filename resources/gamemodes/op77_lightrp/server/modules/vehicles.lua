@@ -52,6 +52,7 @@ end
 -- Shared by /car, /lightrp.car and the menu. Returns ok, text.
 function Vehicles.request(playerId, key, allowStaffOnly)
     if not Config.enabled then return false, "Vehicles are disabled." end
+    if LightRP.activities and not LightRP.activities.allows(playerId, "vehicles") then return false, "No vehicle during an activity." end
     local entry = byKey[string.lower(tostring(key or ""))]
     if entry == nil then return false, "Unknown model." end
     if entry.staffOnly and not allowStaffOnly then return false, "This model is restricted: ask the staff." end

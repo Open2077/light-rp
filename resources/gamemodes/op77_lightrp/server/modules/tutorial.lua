@@ -129,6 +129,8 @@ local function change(player, s, step, status)
     s.step, s.status, s.revision, s.busy, s.dialogue = step, status, s.revision+1, false, nil
     syncPractice(player,s)
     push(player)
+    -- finished or skipped: the other modules may point the newcomer somewhere (activities_hub.lua)
+    if status=="done" and LightRP.eachModule then LightRP.eachModule("onTutorialDone", player) end
     -- an implant already in place (a restart, a ripperdoc) passes its step at once
     if status=="active" and C.steps[step].kind=="neuralink" and implantReady(player) and following[step] then
         return change(player, s, following[step], "active")
@@ -228,6 +230,8 @@ function Tutorial.restart(player, character)
 end
 
 function Tutorial.arrivalPending(player) local s=active(player); return s and s.step=="intro" end
+-- The guide is running for this character (not paused, not done).
+function Tutorial.isActive(player) return active(player) ~= nil end
 
 -- Where this character wakes up when it joins. The hall while its guide is in
 -- a hall step; the city's arrival if it was saved inside the hall with no hall
