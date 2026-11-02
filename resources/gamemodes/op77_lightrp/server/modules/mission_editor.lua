@@ -130,29 +130,6 @@ local function test(player, p)
     return { launched = true }
 end
 
-local function dispatch(player, p)
-    if not Editor.allowed(player) then return nil, "Mission editor permission denied." end
-    local op = p.operation
-    if op == "list" then
-        local fixers = {}
-        for i, c in ipairs(type(LightRpFixers) == "table" and LightRpFixers.contacts or {}) do fixers[i] = { id = c.id, name = c.name } end
-        return { missions = Editor.list(), ready = Editor.ready and Db.ready, fixers = fixers }
-    end
-    if op == "save" or op == "delete" then
-        local a = actor(player)
-        local key = type(p.mutation) == "string" and #p.mutation >= 8 and #p.mutation <= 96 and p.mutation or nil
-        if not a or not key then return nil, "Invalid publication request." end
-        done[a] = done[a] or {}
-        if done[a][key] then return done[a][key] end
-        local result, err
-        if op == "save" then result, err = publish(player, p) else result, err = remove(player, p) end
-        if result then done[a][key] = result end
-        return result, err
-    end
-    if op == "test" then return test(player, p) end
-    return nil, "Unknown mission editor operation."
-end
-
 -- A plain net event stops at 1024 JSON values (kMaximumEventValues) and a refused one
 -- says nothing to anybody: the list (whole definitions) went past it with a third
 -- mission, and publishing "never answered" (2026-11-02). Past 900 values, latent
@@ -175,6 +152,41 @@ local function reply(player, response)
     end
     local ok, why = TriggerClientEvent(NET, player, response)
     if ok == false then LightRP.log("mission editor: reply refused (%s, %d values)", tostring(why), count) end
+end
+
+local function dispatch(player, p)
+    if not Editor.allowed(player) then return nil, "Mission editor permission denied." end
+    local op = p.operation
+    if op == "list" then
+        local fixers = {}
+        for i, c in ipairs(type(LightRpFixers) == "table" and LightRpFixers.contacts or {}) do fixers[i] = { id = c.id, name = c.name } end
+        -- the answer only says how many; every mission follows in its own event (a whole
+        -- list in one reply passed the 1024-value cap with the third mission, 2026-11-02)
+        local list = Editor.list()
+        local stream = p.request
+        CreateThread(function()
+            for i, def in ipairs(list) do
+                Wait(30)
+                reply(player, { kind = "mission", stream = stream, index = i, total = #list, mission = def })
+            end
+            Wait(30)
+            reply(player, { kind = "listed", stream = stream, total = #list })
+        end)
+        return { ready = Editor.ready and Db.ready, fixers = fixers, total = #list, streamed = true }
+    end
+    if op == "save" or op == "delete" then
+        local a = actor(player)
+        local key = type(p.mutation) == "string" and #p.mutation >= 8 and #p.mutation <= 96 and p.mutation or nil
+        if not a or not key then return nil, "Invalid publication request." end
+        done[a] = done[a] or {}
+        if done[a][key] then return done[a][key] end
+        local result, err
+        if op == "save" then result, err = publish(player, p) else result, err = remove(player, p) end
+        if result then done[a][key] = result end
+        return result, err
+    end
+    if op == "test" then return test(player, p) end
+    return nil, "Unknown mission editor operation."
 end
 
 RegisterNetEvent(NET, function(p)

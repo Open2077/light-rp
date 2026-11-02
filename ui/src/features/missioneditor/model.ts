@@ -48,10 +48,14 @@ export interface Mission {
   respawn: { seconds: number; lives: number }; spawns: Spawn[]; checkpoints: Checkpoint[]; waves: Wave[]; difficulties: Difficulty[];
 }
 export interface Capture { position: Point; heading: number }
-export interface Listing { missions?: Mission[]; ready?: boolean; fixers?: FixerContact[] }
-export interface Wire { kind: "open" | "response" | "invalidate" | "editor" | "captureKey" | "hover" | "build"; request?: string; ok?: boolean; data?: unknown; error?: string; mode?: string;
-  /** A large answer in JSON text parts (1-based part of parts). */
-  part?: number; parts?: number; text?: string }
+/** `list`: how many missions follow, each in its own `mission` event, then `listed`. */
+export interface Listing { missions?: Mission[]; ready?: boolean; fixers?: FixerContact[]; total?: number; streamed?: boolean }
+export interface Wire { kind: "open" | "response" | "invalidate" | "editor" | "captureKey" | "hover" | "build" | "mission" | "listed" | "parts";
+  request?: string; ok?: boolean; data?: unknown; error?: string; mode?: string;
+  /** `mission` / `listed`: the list streamed one mission per event. */
+  stream?: string; index?: number; total?: number; mission?: Mission;
+  /** `parts`: a large event as JSON text (1-based part of parts). */
+  id?: string; part?: number; parts?: number; text?: string }
 
 export const TYPES: MissionType[] = ["eliminate", "waves"];
 export const TYPE_LABEL: Record<MissionType, string> = { eliminate: "Elimination", waves: "Survival (waves)" };
