@@ -457,6 +457,29 @@ Tables `lightrp_characters` (identité Master, compte, prénom/nom, dernière po
 temps de jeu) et `lightrp_reports`. Sans base configurée le framework démarre et le dit dans le
 journal ; tout vit alors le temps de la session.
 
+## Gigs de fixers (`server/modules/fixers.lua`, `server/config/fixers.lua`)
+
+Des fixers fictifs (côté serveur : Mama Okoro, Silas "Ledger" Varga, Nix Delacroix) envoient au
+hasard, par SMS Neural-Link, un « gig » tiré du catalogue : les missions de l'éditeur marquées
+**Fixer gig** (`/lightrp.missions` › mission › Fixer gig : interrupteur, fixer, brief). Une mission
+de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on la reçoit.
+
+- **Offre** : carte du job (paie par opérateur, durée), boutons *Take the job* / *Pass* (3 min).
+- **Brief** une fois acceptée : l'objectif (le brief du fixer, sinon la description), le point de
+  rendez-vous (= position du tableau dans l'éditeur) avec *Pin the meet point* (waypoint sur la
+  carte), *Share the job* (un contact ou un numéro reçoit l'offre et peut *Join the crew*),
+  *Go now* (le chef lance avec les présents, au moins le minimum de la difficulté) et *Bail*.
+- **Rendez-vous** : quand tout l'équipage est au point (20 m), compte à rebours de 10 s puis la
+  mission démarre comme une mission normale (kit, instance). Sans tout le monde après 20 min :
+  lancement avec les présents s'ils suffisent, sinon le job tombe.
+- **Fin** : chaque opérateur est payé (`gig` à la banque) + réputation, le fixer envoie un message.
+- Puce HUD « GIG » (état `fixerGig`) : présents au point, horloge du rendez-vous, compte à rebours.
+- Envoi automatique : un passage par minute, chance 8 % par joueur éligible (implant, en ville,
+  libre, 2 min après l'arrivée), 20 min entre deux offres, 6 gigs ouverts au maximum.
+- Staff : `/fixers.offer <id> [missionId] [difficulté]`, `/fixers.list`, `/fixers.cancel <gig>`,
+  `/fixers.dispatch on|off|now`.
+- Les gigs vivent en mémoire : un redémarrage les annule (leurs boutons répondent « Expired »).
+
 ## Housing
 
 Appartements et maisons instanciés, achat/location, clés persistantes, coffre par

@@ -235,14 +235,15 @@ local function reason(code, id, self, d, point)
     if self then return r[1]:format(what) end
     return r[2]:format(name(id), what)
 end
-local function eligible(id, point, d, radius, test)
+local function eligible(id, point, d, radius, test, gig)
     if not LightRP.characters.isRegistered(id) then return false, "character" end
     if instanceOf[id] then return false, "mission" end
     local life = Open77.players.getLifeState(id)
     if life and life.phase ~= "alive" then return false, "down" end
     -- an editor test run starts wherever its author stands, at any difficulty
     if test then return bucketOf(id) == 0, "away" end
-    if not Missions.unlocked(id, point, d) then return false, "tier" end
+    -- a fixer gig is handed out: no unlock ladder, only the meeting point
+    if not gig and not Missions.unlocked(id, point, d) then return false, "tier" end
     if not near(id, point, radius) then return false, "away" end
     return true
 end
@@ -397,7 +398,16 @@ local function finish(inst, success, why)
     for slot, id in ipairs(inst.members) do
         instanceOf[id] = nil
         setMapJam(id, false)
-        if success and inst.test then
+        if success and inst.gig then
+            local pay = inst.gig.payout or d.payout
+            if LightRP.money and pay > 0 then LightRP.money.addBank(id, pay, "gig", "Gig: " .. point.title .. " (" .. (inst.gig.fixerName or "fixer") .. ")") end
+            Missions.addReputation(id, C.reputationGain[d.id] or 0)
+            LightRP.notice(id, { kind = "success", title = "GIG COMPLETE", durationMs = 10000,
+                body = string.format("%s · %s. %s wired by %s, +%d reputation.", point.title, d.label,
+                    LightRP.money and LightRP.money.format(pay) or tostring(pay), inst.gig.fixerName or "your fixer", C.reputationGain[d.id] or 0) })
+        elseif inst.gig then
+            LightRP.notice(id, { kind = "error", title = "GIG FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the job went sideways.") })
+        elseif success and inst.test then
             LightRP.notice(id, { kind = "success", title = "TEST RUN COMPLETE", durationMs = 10000,
                 body = point.title .. " · " .. d.label .. ". Editor test runs pay nothing and unlock nothing." })
         elseif success then
@@ -423,6 +433,10 @@ local function finish(inst, success, why)
         pushQueue(id)
     end
     LightRP.log("missions: %s %s (%s) %s%s", inst.id, point.title, d.label, success and "complete" or "failed", why and (": " .. why) or "")
+    if inst.gig and type(inst.gig.onEnd) == "function" then
+        local ok, err = pcall(inst.gig.onEnd, inst, success, why)
+        if not ok then LightRP.log("missions: gig end hook failed: %s", tostring(err)) end
+    end
     if point.retired then
         local busy = false
         for _, other in pairs(instances) do busy = busy or other.point == point.id end
@@ -447,8 +461,8 @@ local function restoreArms(id)
     CreateThread(function()
         Wait(3000)
         if instanceOf[id] or not LightRP.armament or type(LightRP.armament.synchronize) ~= "function" then return end
-        local ok, err = pcall(LightRP.armament.synchronize, id)
-        if not ok then LightRP.log("missions: weapons of %s not restored (%s)", name(id), tostring(err)) end
+        local ok, done, why = pcall(LightRP.armament.synchronize, id)
+        if not ok or done == false then LightRP.log("missions: weapons of %s not restored (%s)", name(id), tostring(ok and why or done)) end
     end)
 end
 Missions.restoreArms = restoreArms
@@ -489,7 +503,7 @@ local function launch(lobby)
     -- last check: everyone still there
     for i = #lobby.members, 1, -1 do
         local m = lobby.members[i]
-        local ok = eligible(m.id, point, d, C.leash, lobby.test)
+        local ok = eligible(m.id, point, d, C.leash, lobby.test, lobby.gig ~= nil)
         if not ok then
             table.remove(lobby.members, i)
             queueOf[m.id] = nil
@@ -507,7 +521,7 @@ local function launch(lobby)
     lobbies[lobby.id] = nil
     instanceSeq = instanceSeq + 1
     local inst = { id = "mission:" .. instanceSeq, point = point.id, difficulty = d.id, bucket = C.bucketBase + instanceSeq,
-        members = {}, startedAt = now(), endsAt = now() + d.minutes * 60000, state = "running", test = lobby.test == true }
+        members = {}, startedAt = now(), endsAt = now() + d.minutes * 60000, state = "running", test = lobby.test == true, gig = lobby.gig }
     instances[inst.id] = inst
     for slot, m in ipairs(lobby.members) do
         queueOf[m.id] = nil
@@ -614,6 +628,7 @@ function pushQueue(id) LightRP.state(id, "missionQueue") end
 function Missions.open(id, pointId)
     local point = points[pointId]
     if not point then return false, "Unknown mission point." end
+    if point.fixer then return false, "This job is not on any board: the fixers hand it out." end
     if not LightRP.characters.isRegistered(id) then return false, "Finish your character first." end
     if instanceOf[id] then return false, "You are on a mission." end
     sessionSeq = sessionSeq + 1
@@ -813,6 +828,8 @@ end)
 -- script state; its board, lobbies and interaction follow the new one.
 local function registerInteraction(point)
     if not C.enabled then return end
+    -- a fixer gig has no board: the fixers hand it out (server/modules/fixers.lua)
+    if point.fixer then LightRP.removeInteraction("mission." .. point.id); return end
     LightRP.interaction("mission." .. point.id, { position = point.position, radius = 2.0, bucket = 0,
         label = point.title, prompt = "Open the mission board", key = "E", marker = C.marker, ring = false,
         blip = { sprite = "objective", title = point.title, description = point.type .. " · " .. point.location } })
@@ -878,6 +895,42 @@ function Missions.launchNow(pointId, difficultyId, members)
     for _, id in ipairs(members) do if instanceOf[id] then return true end end
     return false, "Nobody could be launched."
 end
+
+-- Launch a fixer gig for its crew (server/modules/fixers.lua checked them at the
+-- meeting point). `gig` rides on the instance: { id, payout, fixerName, onEnd(inst, success, why) }.
+function Missions.launchGig(pointId, difficultyId, members, gig)
+    local point = points[pointId]
+    local d = point and diffOf(point, difficultyId)
+    if not d or point.retired then return false, "This job is no longer available." end
+    for _, id in ipairs(members) do
+        if instanceOf[id] then return false, name(id) .. " is already on a mission." end
+        if queueOf[id] then untag(id) end
+    end
+    lobbySeq = lobbySeq + 1
+    local lobby = { id = "lobby:" .. lobbySeq, point = point.id, difficulty = d.id, members = {}, state = "countdown", forced = true, gig = gig }
+    for _, id in ipairs(members) do lobby.members[#lobby.members + 1] = { id = id } end
+    lobbies[lobby.id] = lobby
+    local min = d.min
+    d.min = 1
+    local ok, err = pcall(launch, lobby)
+    d.min = min
+    lobbies[lobby.id] = nil
+    if not ok then return false, tostring(err) end
+    local launched = {}
+    for _, id in ipairs(members) do if instanceOf[id] then launched[#launched + 1] = id end end
+    if #launched == 0 then return false, "Nobody could be launched." end
+    return true, launched, instances[instanceOf[launched[1]]]
+end
+-- The gig catalogue: the published points tagged for the fixers.
+function Missions.fixerPoints()
+    local list = {}
+    for _, id in ipairs(order) do
+        local p = points[id]
+        if p and p.fixer and not p.retired then list[#list + 1] = p end
+    end
+    return list
+end
+function Missions.near(id, point, radius) return near(id, point, radius) end
 
 for _, point in ipairs(C.points) do
     assert(type(point.id) == "string" and not points[point.id] and #point.difficulties > 0 and #point.start > 0, "Invalid mission point config")

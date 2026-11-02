@@ -6,6 +6,8 @@
 
 const LIST_KEYS = new Set([
   "contacts", "threads", "recents", "apps", "members", "participants", "messages", "numbers",
+  // rich messages (MessageMeta)
+  "actions",
   // Screamsheet
   "posts", "parents", "replies", "profiles", "pings", "tags", "districts", "hot",
 ]);

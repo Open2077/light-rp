@@ -39,13 +39,16 @@ export interface Difficulty {
   id: "standard" | "hard" | "critical"; label: string; blurb: string; payout: number; minutes: number; min: number; max: number;
   enemyHealth: number; enemyDamage: number; enemyCount: number;
 }
+/** A fixer gig (server/modules/fixers.lua): no board, the fixers text it to players. */
+export interface Fixer { enabled: boolean; contact: string; brief: string }
+export interface FixerContact { id: string; name: string }
 export interface Mission {
-  id: string; revision: number; title: string; description: string; location: string; type: MissionType; enabled: boolean;
+  id: string; revision: number; title: string; description: string; location: string; type: MissionType; enabled: boolean; fixer: Fixer;
   point: Point; starts: Start[]; perimeter: Perimeter; outOfBounds: { graceSeconds: number };
   respawn: { seconds: number; lives: number }; spawns: Spawn[]; checkpoints: Checkpoint[]; waves: Wave[]; difficulties: Difficulty[];
 }
 export interface Capture { position: Point; heading: number }
-export interface Listing { missions?: Mission[]; ready?: boolean }
+export interface Listing { missions?: Mission[]; ready?: boolean; fixers?: FixerContact[] }
 export interface Wire { kind: "open" | "response" | "invalidate" | "editor" | "captureKey" | "hover" | "build"; request?: string; ok?: boolean; data?: unknown; error?: string; mode?: string }
 
 export const TYPES: MissionType[] = ["eliminate", "waves"];
@@ -81,6 +84,7 @@ export function fresh(c: Capture): Mission {
   const p = c.position;
   return {
     id: "", revision: 0, title: "New mission", description: "", location: "", type: "eliminate", enabled: true,
+    fixer: { enabled: false, contact: "any", brief: "" },
     point: { ...p }, starts: [{ ...p, heading: c.heading }],
     perimeter: { shape: "circle", center: { ...p }, radius: 40, length: 60, width: 40, heading: 0, points: [], minZ: p.z - 10, maxZ: p.z + 30, fullHeight: false },
     outOfBounds: { graceSeconds: 10 }, respawn: { seconds: 10, lives: 3 },
@@ -94,6 +98,7 @@ export function normalizeMission(m: Mission): Mission {
   const byId = new Map(list<Difficulty>(m.difficulties).map(d => [d.id, d]));
   return {
     ...m, description: m.description ?? "", location: m.location ?? "",
+    fixer: { enabled: m.fixer?.enabled === true, contact: m.fixer?.contact || "any", brief: m.fixer?.brief ?? "" },
     starts: list(m.starts), spawns: list<Spawn>(m.spawns).map(s => ({ ...s, behavior: s.behavior ?? "assault", radius: s.radius ?? 12,
       alertRange: s.alertRange ?? 25, spread: s.spread ?? 2, route: list<Point>(s.route) })),
     checkpoints: list<Checkpoint>(m.checkpoints).map(c => ({ ...c, spawns: list<string>(c.spawns) })),
@@ -128,6 +133,7 @@ export function problems(m: Mission): string[] {
   const out: string[] = [];
   const z = m.perimeter;
   if (!m.title.trim() || m.title.trim().length > 60) out.push("Title: 1–60 characters.");
+  if (m.fixer.brief.trim().length > 240) out.push("Fixer brief: 240 characters at most.");
   if (z.shape === "poly" && z.points.length < 3) out.push("Perimeter: place at least 3 polygon vertices.");
   if (z.shape === "circle" && (z.radius < 0.5 || z.radius > 250)) out.push("Perimeter: radius 0.5–250 m.");
   if (z.shape === "box" && [z.length, z.width].some(v => v < 0.5 || v > 500)) out.push("Perimeter: box sides 0.5–500 m.");

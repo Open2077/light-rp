@@ -70,6 +70,9 @@ local SCHEMA = {
 
     -- The implant (lines.lua): a line without one sees only the installation screen.
     [[ALTER TABLE nl_lines ADD COLUMN IF NOT EXISTS installed_at BIGINT NULL]],
+    -- Rich messages from other resources (server/messages.lua Messages.deliver): a JSON
+    -- object with a card, action buttons, a location and the resolved state.
+    [[ALTER TABLE nl_messages ADD COLUMN IF NOT EXISTS meta MEDIUMTEXT NULL]],
     -- Screamsheet (server/social.lua): one profile per line.
     [[CREATE TABLE IF NOT EXISTS nl_social_profiles (
         line_id BIGINT NOT NULL PRIMARY KEY,

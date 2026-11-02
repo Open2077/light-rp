@@ -22,6 +22,13 @@ const TEXT: Record<string, string> = {
   not_installed: "No Neural-Link implant detected.",
   ripperdoc_required: "Visit a ripperdoc to have a Neural-Link installed.",
   timeout: "The link timed out. Try again.",
+  no_action: "That offer is no longer open.",
+  already_answered: "Already answered.",
+  unknown_message: "That message is gone.",
+  map_unavailable: "The map did not take the pin.",
+  unknown_recipient: "No neural line answers to that number.",
+  gig_closed: "That job is closed.",
+  gig_full: "The crew is full.",
   unknown: "Something went wrong on the link.",
 };
 

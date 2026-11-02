@@ -251,6 +251,29 @@ assert(raced and raced.ok,"a select during an observe pass is not refused: "..to
 -- selecting the holstered weapon draws it again
 reply=request({operation="select",instanceId=rightItem.metadata.instanceId,baseRevision=W.view(1).revision,mutation="test:wheel:draw"});assert(reply and reply.ok);tick(1800)
 assert(W.view(1).holstered==false and W.view(1).right.instanceId==rightItem.metadata.instanceId)
+-- A mission kit takes the native slots, then the mission ends: the RP weapon comes back
+-- and the kit leaves (the stale pre-mission projection once blocked the return).
+local aside=false
+LightRP.missions={handlesLoadout=function() return aside end}
+assert(nativeRows[1] and nativeRows[1].record==LightRpArmament.weapons[rightItem.name].record,"the RP weapon is projected")
+aside=true
+assert(W.synchronize(1,true));tick(200)
+nativeRows={[1]={record="Items.Preset_Ajax_Default",capacity=30,magazine=30}};nativeReserve=300
+aside=false
+assert(W.synchronize(1));tick(1800)
+assert(W.view(1).ready and nativeRows[1] and nativeRows[1].record==LightRpArmament.weapons[rightItem.name].record,"after the mission: the kit is gone, the RP weapon is back")
+-- the same with an RP state that no longer matches the pockets: the kit still leaves
+local savedRight=W.states[inv.id].right
+aside=true
+assert(W.synchronize(1,true));tick(200)
+nativeRows={[1]={record="Items.Preset_Ajax_Default",capacity=30,magazine=30}};nativeReserve=300
+W.states[inv.id].right="gone-serial-0001"
+aside=false
+assert(W.synchronize(1));tick(1800)
+assert(not W.view(1).ready and next(nativeRows)==nil,"an invalid loadout clears the native slots")
+W.states[inv.id].right=savedRight
+assert(W.synchronize(1));tick(1800);assert(W.view(1).ready)
+LightRP.missions=nil
 local dup=Inv.draft(inv);dup.items[20]={name=rightItem.name,count=1,metadata={instanceId=rightItem.metadata.instanceId}}
 assert(not Inv.commitDrafts({{inv,dup}}),"duplicate serial refused")
 print("PASS: serialized grants, draft isolation, SQL rollback, atomic boxes/replay, async equip, equipped-transfer and ephemeral-storage guards, spent-ammo sync, shared dual pool, rounds as inventory items (shots, purchases, drops, increases, empty), legacy stock migration, weapon families (handgun pairs only, rifle pool apart), weapon wheel (arsenal, select, unarmed, holstered on return), timeout quarantine and stale completions")

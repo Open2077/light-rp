@@ -144,6 +144,12 @@ export interface UiState {
   online: Array<{ id: number; name: string }>;
   party?: PartyState;
   missionQueue?: MissionQueueState;
+  /** A fixer gig taken and not yet running (server/modules/fixers.lua); false: none. */
+  fixerGig?: FixerGigState | false;
+}
+export interface FixerGigState {
+  id: number; title: string; location: string; fixer: string; state: "accepted" | "countdown";
+  crew: number; min: number; max: number; owner: boolean; here: number; meetInMs?: number; launchInMs?: number;
 }
 
 /* ── Missions (server/modules/missions.lua) and squads (server/modules/parties.lua) ── */

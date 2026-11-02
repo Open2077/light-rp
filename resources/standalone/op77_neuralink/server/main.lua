@@ -119,6 +119,7 @@ local OPS = {
     ["threads.direct"] = Messages.direct,
     ["threads.read"] = Messages.read,
     ["messages.send"] = Messages.send,
+    ["messages.action"] = Messages.action,
     ["groups.create"] = Messages.createGroup,
     ["groups.rename"] = Messages.rename,
     ["groups.add"] = Messages.addToGroup,
@@ -239,6 +240,11 @@ RegisterCommand("neuralink.test", function(source, args)
         local name = table.concat(args, " ", 3)
         local line, err = Lines.ensureTestLine(args[2], #name > 0 and name or ("Test " .. args[2]))
         say(line and ("test line " .. line.number .. " (" .. line.name .. ")") or ("failed: " .. tostring(err)))
+    -- a button of a rich message, pressed as that player (same path and checks as a click):
+    --   neuralink.test action <playerId> <messageId> <action> [number]
+    elseif verb == "action" and tonumber(args[2]) and tonumber(args[3]) and args[4] then
+        local result, err = Messages.action(tonumber(args[2]), { messageId = tonumber(args[3]), action = args[4], value = args[5] })
+        say(result and ("action " .. args[4] .. " pressed on message " .. args[3]) or ("refused: " .. tostring(err)))
     elseif verb == "msg" and args[2] and args[3] and args[4] then
         local from, to = Lines.lineByNumber(args[2]), Lines.lineByNumber(args[3])
         if not from or not to then return say("unknown number") end
@@ -284,11 +290,13 @@ RegisterCommand("neuralink.test", function(source, args)
         local result, err = Lines.setInstalled(tonumber(args[2]), args[3] == "on")
         say(result and ("implant " .. args[3] .. " for player " .. args[2]) or ("failed: " .. tostring(err)))
     elseif (verb == "open" or verb == "close") and tonumber(args[2]) then
-        -- /neuralink.test open <playerId> [app] [screen] [postId|handle|tag] | close <playerId>:
+        -- /neuralink.test open <playerId> [app] [screen] [postId|handle|tag] | close <playerId>
+        -- (open <playerId> messages <threadId>: that conversation):
         -- drive one client's interface (screenshots of a test client without pressing its keys)
         -- ("open <playerId> install" starts the implant installation directly)
         local link = verb == "open" and { app = args[3] ~= "install" and args[3] or nil, install = args[3] == "install" or nil,
-            screen = args[4], postId = tonumber(args[5]), handle = args[5], tag = args[5] } or false
+            screen = args[4], postId = tonumber(args[5]), handle = args[5], tag = args[5],
+            threadId = args[3] == "messages" and tonumber(args[4]) or nil } or false
         TriggerClientEvent("op77_neuralink:test", tonumber(args[2]), link)
         say(verb .. " sent to player " .. args[2])
     elseif verb == "scream" and args[2] and args[3] then
@@ -343,6 +351,60 @@ end)
 -- The connected player holding a number, or nil.
 exports("getPlayerByNumber", function(number)
     return type(number) == "string" and Lines.playerOfNumber(number) or nil
+end)
+
+-- ---------------------------------------------------------------------------
+-- Calls from other server resources that touch the database. An export cannot yield
+-- (the database does), so they go through a host-wide event and answer on the event
+-- the caller names, from a thread:
+--   TriggerEvent("op77_neuralink:rpc", requestId, op, args, replyEvent)
+--   -> TriggerEvent(replyEvent, requestId, ok, result1, result2)   (ok false: result1 = reason)
+-- ops: npcLine { key, number, name } -> number
+--      sendMessage { from, to = playerId | number, body, meta } -> messageId, threadId
+--      updateMessage { id, patch } -> true
+local RPC = {}
+function RPC.npcLine(a)
+    local line, err = Lines.ensureNpcLine(a.key, a.number, a.name)
+    if not line then return nil, err end
+    return line.number
+end
+function RPC.sendMessage(a)
+    local body = a.body
+    if type(body) ~= "string" or #body < 1 then return nil, "invalid_body" end
+    if not Lines.validNumber(a.from) then return nil, "invalid_number" end
+    local from, err = Lines.lineByNumber(a.from)
+    if not from then return nil, err or "unknown_number" end
+    local toLine
+    if type(a.to) == "number" then
+        local s = Lines.session(a.to)
+        toLine = s and s.line
+    elseif Lines.validNumber(a.to) then
+        toLine, err = Lines.lineByNumber(a.to)
+    end
+    if not toLine then return nil, err or "unknown_recipient" end
+    if #body > 1000 then body = body:sub(1, 997) .. "..." end
+    return Messages.deliver(from, toLine, body, type(a.meta) == "table" and a.meta or nil)
+end
+function RPC.updateMessage(a)
+    if type(tonumber(a.id)) ~= "number" or type(a.patch) ~= "table" then return nil, "invalid_request" end
+    return Messages.updateMeta(tonumber(a.id), a.patch)
+end
+AddEventHandler("op77_neuralink:rpc", function(requestId, op, args, replyEvent)
+    -- server resources only (a client's net event never reaches a plain handler, and
+    -- a player source is refused anyway)
+    local from = tonumber(source)
+    if from and from > 0 then return end
+    if type(replyEvent) ~= "string" or not replyEvent:match("^[%w_:%-]+$") then return end
+    local fn = RPC[op]
+    if not fn then TriggerEvent(replyEvent, requestId, false, "unknown_op") return end
+    CreateThread(function()
+        local ok, a, b = pcall(fn, type(args) == "table" and args or {})
+        if not ok then
+            Neural.log("rpc %s failed: %s", tostring(op), tostring(a))
+            TriggerEvent(replyEvent, requestId, false, "server_error")
+        elseif a == nil then TriggerEvent(replyEvent, requestId, false, b or "failed")
+        else TriggerEvent(replyEvent, requestId, true, a, b) end
+    end)
 end)
 
 -- A system toast on one player's interface (jobs, banks, dispatch...).

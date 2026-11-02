@@ -117,6 +117,24 @@ local function onRequest(payload, requestId)
         TriggerEvent(entry.def.event, entry.def.id)
         return
     end
+    -- the location of a rich message (a fixer's meeting point): a waypoint on the map,
+    -- through op77_map3d when it runs (it mirrors the game's waypoint), else the game's
+    if op == "map.pin" then
+        local x, y, z = tonumber(args.x), tonumber(args.y), tonumber(args.z)
+        if not x or not y or not z or math.abs(x) > 100000 or math.abs(y) > 100000 or math.abs(z) > 100000 then
+            page:reply(requestId, "invalid_request", false)
+            return
+        end
+        local pos = { x = x, y = y, z = z }
+        local ok = pcall(function() return exports.op77_map3d:setWaypoint(pos) end)
+        if not ok and Open77.blips and type(Open77.blips.setWaypoint) == "function" then
+            local set, done = pcall(Open77.blips.setWaypoint, pos)
+            ok = set and done ~= false
+        end
+        TriggerEvent("op77_neuralink:waypoint", pos, type(args.label) == "string" and args.label or nil)
+        if ok then page:reply(requestId, {}, true) else page:reply(requestId, "map_unavailable", false) end
+        return
+    end
     local id = nextRequest
     nextRequest = nextRequest + 1
     pending[id] = { page = requestId, at = Open77.time.monotonic() }
