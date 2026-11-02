@@ -184,6 +184,8 @@ RegisterNetEvent(NET,function(p)
  local at=Open77.time.monotonic();if lastRequest[player]and at-lastRequest[player]<.15 then TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=false,error="Please wait before the next grenade request."});return end;lastRequest[player]=at
  if p.operation~="sync"and p.operation~="unequip"then return end
  if type(p.mutation)~="string"or #p.mutation<8 or #p.mutation>96 or not p.mutation:match("^[%w:_%-]+$")then return end
+ -- an activity's own kit owns the native slots (server/modules/activities.lua): no RP projection over it
+ if p.operation=="sync"and LightRP.activities and LightRP.activities.current(player)and not LightRP.activities.allows(player,"rpWeapons")then TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=false,error="Your grenades stay put away during this activity."});return end
  local ok,why=G.start(player,p.operation,nil,p.mutation,p.request)
  if not ok then TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=false,error=why})end
 end)

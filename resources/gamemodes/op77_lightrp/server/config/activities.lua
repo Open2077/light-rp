@@ -34,6 +34,13 @@ LightRpActivities = {
     -- Activities never pay cash or items.
     reputation = { maxPerResult = 50, dailyCap = 250, grantTo = "missions" },
 
+    -- Choices the Activities panel offers when joining an activity whose provider
+    -- declares none (`modes` in activityRegister). The pick is handed to the
+    -- provider as options[key]; "Any" sends nothing (the provider's default).
+    joinChoices = {
+        ["chase.1v1"] = { key = "mode", modes = { { id = "vehicle", label = "By car" }, { id = "foot", label = "On foot" } } },
+    },
+
     -- Leaderboards: top N per activity. Races rank by best time, every other
     -- kind by wins (then best score).
     leaderboard = { size = 5, refreshMs = 60000, byTime = { race = true } },

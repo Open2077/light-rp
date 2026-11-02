@@ -111,6 +111,7 @@ end
 
 -- The same announcement for other server resources (op77_fireworks...):
 --   TriggerEvent("op77_lightrp:announce", text, { title = "Opening night", durationMs = 10000 })
+--   TriggerEvent("op77_lightrp:announce", { body = text, title = ..., durationMs = ... })  -- op77_fireworks' shape
 -- A host-wide server event: never a network event, a client cannot raise it.
 local lastResourceAnnounce = -math.huge
 local function announceText(value, min, max)
@@ -125,6 +126,7 @@ local function announceText(value, min, max)
     return value
 end
 AddEventHandler("op77_lightrp:announce", function(text, opts)
+    if type(text) == "table" then opts, text = text, text.body end
     text = announceText(text, 2, 200)
     if not text then return end
     local now = LightRP.nowMs()

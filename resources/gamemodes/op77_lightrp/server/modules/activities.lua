@@ -48,7 +48,7 @@ local KINDS = { pvp = true, race = true, chase = true, event = true }
 local CAPS = { "rpWeapons", "rpItems", "needs", "vehicles" }
 local PHASES = { idle = true, lobby = true, running = true }
 local RESULT_INTERVAL_MS = 15000 -- a provider posting results in a loop is refused in between
-local PENDING_MS = 30 * 60000    -- a join request nobody turned into an entry
+local PENDING_MS = 15 * 60000    -- a join request nobody turned into an entry (op77_chase's queue lasts 900 s)
 
 local registry = {}   -- activityId -> activity (validated definition + status)
 local order = {}      -- activity ids, registration order
@@ -130,6 +130,27 @@ local function identity(id)
     local c = LightRP.characters and LightRP.characters.get(id)
     if not c or c.status ~= "active" or not c.identifier or not c.key then return nil end
     return { name = LightRP.characters.displayName(id), identifier = c.identifier, characterKey = c.key }, c
+end
+-- activityPlayer: the identity plus the character's gang and job, read from the
+-- jobs module (the same view as the `gang` / `job` state bags). gang is nil
+-- without an affiliation; job.onDuty stays nil: Light RP has no duty toggle.
+function A.player(id)
+    local who = identity(id)
+    if not who then return nil end
+    local J = LightRP.jobs
+    if J and type(J.gang) == "function" then
+        local ok, g = pcall(J.gang, id)
+        if ok and type(g) == "table" and g.name and g.name ~= "none" then
+            who.gang = { id = g.name, label = g.label, grade = g.grade, gradeLabel = g.gradeLabel, tag = g.tag, color = g.color }
+        end
+    end
+    if J and type(J.get) == "function" then
+        local ok, j = pcall(J.get, id)
+        if ok and type(j) == "table" and j.name then
+            who.job = { id = j.name, label = j.label, grade = j.grade, gradeLabel = j.gradeLabel, tag = j.tag }
+        end
+    end
+    return who
 end
 local function emit(name, ...)
     local ok, err = pcall(TriggerEvent, name, ...)
@@ -312,11 +333,14 @@ local function validate(def)
     -- optional (an addition to the contract): the choices offered by the panel
     -- when joining, handed back as options[modeKey] (default options.mode), e.g.
     -- modes = { { id = "car", label = "By car" } } or modeKey = "course" with one
-    -- mode per course
+    -- mode per course. A provider that declares none may get them from
+    -- server/config/activities.lua `joinChoices` (op77_chase's car / foot).
+    local preset = type(def.modes) ~= "table" and (C.joinChoices or {})[id] or nil
+    local source = type(def.modes) == "table" and def.modes or type(preset) == "table" and preset.modes or nil
     local modes
-    if type(def.modes) == "table" then
+    if type(source) == "table" then
         modes = {}
-        for _, m in ipairs(def.modes) do
+        for _, m in ipairs(source) do
             if #modes >= 8 then break end
             if type(m) == "table" and type(m.id) == "string" and #m.id <= 48 and m.id:match("^[%w_%-%.]+$") then
                 modes[#modes + 1] = { id = m.id, label = clean(m.label, 32) or m.id }
@@ -324,13 +348,11 @@ local function validate(def)
         end
         if #modes == 0 then modes = nil end
     end
-    local modeKey = "mode"
-    if def.modeKey ~= nil then
-        if type(def.modeKey) ~= "string" or #def.modeKey > 24 or not def.modeKey:match("^%a[%w_]*$")
-            or def.modeKey == "from" or def.modeKey == "squad" then
-            return nil, "modeKey must be a short identifier (not from or squad)."
-        end
-        modeKey = def.modeKey
+    local modeKey = def.modeKey
+    if modeKey == nil and type(preset) == "table" then modeKey = preset.key end
+    if modeKey == nil then modeKey = "mode"
+    elseif type(modeKey) ~= "string" or #modeKey > 24 or not modeKey:match("^%a[%w_]*$") or modeKey == "from" or modeKey == "squad" then
+        return nil, "modeKey must be a short identifier (not from or squad)."
     end
     return { id = id, resource = resource, label = label, kind = def.kind, description = clean(def.description, 280) or "",
         minPlayers = minPlayers, maxPlayers = maxPlayers, caps = caps, modes = modes, modeKey = modeKey }
@@ -386,7 +408,10 @@ function A.enter(playerId, activityId)
     e = { token = tokenSeq, activity = a.id, resource = a.resource, generation = a.generation, caps = a.caps,
         returnPoint = point, identity = who, character = c, enteredAt = now() }
     owned[id] = e
+    -- queued elsewhere (a provider's own command entered them): that queue lets go
+    local q = pending[id]
     pending[id], leaving[id] = nil, nil
+    if q and q.activity ~= a.id then emit(EV.leaveRequest, id, q.activity) end
     -- never saved inside: the character keeps the return point from now on
     c.lastKnown = { x = point.x, y = point.y, z = point.z }
     if LightRP.missions and type(LightRP.missions.untag) == "function" then
@@ -969,7 +994,7 @@ end)
 exports("activityPlayer", function(playerId)
     local id = pid(playerId)
     if not id then return nil end
-    local ok, who = pcall(identity, id)
+    local ok, who = pcall(A.player, id)
     return ok and who or nil
 end)
 
