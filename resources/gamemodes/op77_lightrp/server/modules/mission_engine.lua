@@ -97,7 +97,8 @@ local function create(inst, entry)
     local def = { position = p, yaw = s.heading, bucket = inst.bucket,
         aiMode = Open77.npcs.ai.native, damagePolicy = Open77.npcs.damage.mortal,
         streamingRadius = 200, persistent = false, despawnWhenUnobserved = false,
-        difficulty = { healthMultiplier = run.difficulty.enemyHealth, damageMultiplier = run.difficulty.enemyDamage },
+        -- a spawn point may be tougher than its difficulty (a world boss: s.healthMultiplier)
+        difficulty = { healthMultiplier = run.difficulty.enemyHealth * (s.healthMultiplier or 1), damageMultiplier = run.difficulty.enemyDamage },
         loadout = { combat = { group = COMBAT_GROUP, acquirePlayers = true, authoritativePlayerHits = true } },
         behavior = { hitPricing = "platform", aiEnabled = true, combatEnabled = true } }
     if enemy.record then def.record = enemy.record else def.template = enemy.template end
@@ -114,7 +115,8 @@ local function create(inst, entry)
         pcall(Open77.npcs.setCombatEnabled, npcId, false)
         pcall(Open77.npcs.setPerceptionEnabled, npcId, false)
     end
-    return true
+    if run.onCreated then pcall(run.onCreated, npcId, s) end
+    return npcId
 end
 
 local alert, behave
@@ -230,6 +232,9 @@ local function clearEnemies(run)
     for npcId in pairs(run.enemies) do pcall(Open77.npcs.remove, npcId) end
     run.enemies, run.queue, run.alive = {}, {}, 0
 end
+-- The same enemies in the open world (server/modules/world_bosses.lua): an "instance"
+-- of bucket 0 whose members are whoever stands in the zone.
+Engine.world = { enqueue = enqueue, enemiesTick = enemiesTick, clearEnemies = clearEnemies, create = create }
 
 -- ---------------------------------------------------------------------------
 -- Checkpoints, waves, victory
@@ -730,11 +735,17 @@ local published = {}   -- id -> definition
 function Engine.publish(def)
     published[def.id] = def
     Missions.register(def.id, script(def))
-    if def.enabled then Missions.addPoint(D.point(def)) else Missions.removePoint(def.id) end
+    local boss = def.worldBoss and def.worldBoss.enabled
+    -- a world boss has no board: it goes to the world boss catalogue instead
+    if def.enabled and not boss then Missions.addPoint(D.point(def)) else Missions.removePoint(def.id) end
+    if LightRP.worldBosses then
+        if def.enabled and boss then LightRP.worldBosses.publish(def) else LightRP.worldBosses.withdraw(def.id) end
+    end
 end
 function Engine.withdraw(id)
     published[id] = nil
     Missions.removePoint(id)
+    if LightRP.worldBosses then LightRP.worldBosses.withdraw(id) end
     -- the script stays registered: a run in progress keeps its own state and ends normally
 end
 function Engine.published(id) return published[id] end

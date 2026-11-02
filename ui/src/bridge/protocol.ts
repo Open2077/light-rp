@@ -146,6 +146,14 @@ export interface UiState {
   missionQueue?: MissionQueueState;
   /** A fixer gig taken and not yet running (server/modules/fixers.lua); false: none. */
   fixerGig?: FixerGigState | false;
+  /** A world boss whose zone you are in, or that you fought (server/modules/world_bosses.lua). */
+  worldBoss?: WorldBossState | false;
+}
+export interface WorldBossState {
+  id: string; title: string; location: string; boss: string; phase: "fight" | "cleanup" | "done";
+  bossHealth: number; enemiesLeft: number; fighters: number; endsInMs?: number;
+  share: number; minShare: number; eligible: boolean; damage: number; kills: number; reward: number; inZone: boolean;
+  result?: { success: boolean; share: number; pay: number; eligible: boolean; damage: number; kills: number } | null;
 }
 export interface FixerGigState {
   id: number; title: string; location: string; fixer: string; state: "accepted" | "countdown";

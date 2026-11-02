@@ -68,6 +68,8 @@ server_script "server/modules/mission_engine.lua"  -- runtime of the authored mi
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
 server_script "server/config/fixers.lua"
 server_script "server/modules/fixers.lua"          -- fixer gigs: offers by Neural-Link text, crews, meet point
+server_script "server/config/world_bosses.lua"
+server_script "server/modules/world_bosses.lua"    -- world bosses: open-world events from editor missions, shares by contribution
 server_script "server/config/job_runs.lua"
 server_script "server/config/delivery.lua"
 server_script "server/modules/job_runs.lua"
