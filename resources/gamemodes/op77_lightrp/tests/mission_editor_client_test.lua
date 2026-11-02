@@ -12,7 +12,7 @@ GetCurrentResourceName = function() return "op77_lightrp" end
 AddEventHandler = function(name, fn) events[name] = fn end
 RegisterNetEvent = function(name, fn) net[name] = fn end
 local toServer = {}
-TriggerServerEvent = function(name, payload) toServer[#toServer + 1] = { name = name, payload = payload } end
+TriggerServerEvent = function(name, payload, ...) toServer[#toServer + 1] = { name = name, payload = payload, rest = { ... } } end
 CreateThread = function(fn) threads[#threads + 1] = coroutine.create(fn) end
 Wait = function() coroutine.yield() end
 RegisterKeyMapping = function(id, _, _, fn) keys[id] = fn; return true end
@@ -138,7 +138,7 @@ assert(Editor.mode == "menu" and blocked.Attack == false and drawn["lightrp:miss
 pageHandlers[PAGE]({ operation = "close" })
 assert(not Editor.active and drawn["lightrp:missions:draft"] == nil, "closed, preview cleared")
 
--- the run: checkpoints as markers, perimeter walls, cleared at the end
+-- the run: checkpoints as markers, no perimeter drawn, NPC hits relayed, cleared at the end
 local hello = false
 for _, m in ipairs(toServer) do hello = hello or (m.name == "op77_lightrp:missionrun" and m.payload.kind == "hello") end
 step(1)
@@ -150,8 +150,16 @@ net["op77_lightrp:missionrun"]({ kind = "state", instance = "mission:1", perimet
 local count = 0; for _ in pairs(markers) do count = count + 1 end
 assert(count == 1, "one marker: the unreached checkpoint")
 step(20)
-assert(drawn["lightrp:missions:perimeter"] and drawn["lightrp:missions:perimeter"].lines[1].color == "#ff3b3bb0", "red perimeter walls")
+assert(drawn["lightrp:missions:perimeter"] == nil, "the perimeter is not drawn for the players")
+-- a hit of an NPC this client owns goes to the server during the run
+local before = #toServer
+assert(events["open77:npcPlayerHit"], "npcPlayerHit relay")
+events["open77:npcPlayerHit"]("7", "4294967300", "3", "12.5", "1")
+local relayed = toServer[#toServer]
+assert(#toServer == before + 1 and relayed.name == "op77_lightrp:missionrun:npcHit" and relayed.payload == "7" and relayed.rest[1] == "4294967300"
+    and relayed.rest[2] == "3" and relayed.rest[3] == "12.5", "relayed with victim, npc, epoch, amount")
 net["op77_lightrp:missionrun"]({ kind = "end", instance = "mission:1" })
+before = #toServer; events["open77:npcPlayerHit"]("7", "1", "1", "5", "2"); assert(#toServer == before, "no relay outside a mission")
 count = 0; for _ in pairs(markers) do count = count + 1 end
 assert(count == 0 and drawn["lightrp:missions:perimeter"] == nil, "cleared at the end")
-print("PASS: mission editor client (open, feet/aim capture, relay, preview + focus, build mode: hover, ghost, click/select/delete/tool/rotate, facing, weapons blocked, close) and mission run (markers, perimeter, cleanup)")
+print("PASS: mission editor client (open, feet/aim capture, relay, preview + focus, build mode: hover, ghost, click/select/delete/tool/rotate, facing, weapons blocked, close) and mission run (markers, no perimeter drawn, NPC hit relay, cleanup)")

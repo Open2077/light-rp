@@ -173,6 +173,15 @@ function M.validate(raw)
     d.outOfBounds = { graceSeconds = ob.graceSeconds == nil and 10 or ob.graceSeconds }
     if not G.integer(d.outOfBounds.graceSeconds, 3, 60) then return nil, "Out-of-zone delay must be 3–60 seconds." end
 
+    -- The kit handed out to the operators (server/modules/mission_engine.lua): a kit id of
+    -- LightRpRaid.loadouts, or "none" for their own weapons. Absent: the first kit.
+    if raw.loadout ~= nil then
+        if type(raw.loadout) ~= "string" or #raw.loadout > 32 or not raw.loadout:match("^[%w_%-]+$") then
+            return nil, "Invalid loadout."
+        end
+        d.loadout = raw.loadout
+    end
+
     local rs = type(raw.respawn) == "table" and raw.respawn or {}
     d.respawn = { seconds = rs.seconds == nil and 10 or rs.seconds, lives = rs.lives == nil and 3 or rs.lives }
     if not G.integer(d.respawn.seconds, 3, 60) then return nil, "Respawn delay must be 3–60 seconds." end

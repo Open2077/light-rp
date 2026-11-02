@@ -1,6 +1,7 @@
--- An authored mission on this client (server/modules/mission_engine.lua runs it):
--- the perimeter's walls and the checkpoints. The objective, the waves and the
--- out-of-zone countdown are drawn by the page from the missionQueue state.
+-- An authored mission on this client (server/modules/mission_engine.lua runs it): the
+-- checkpoints, and the relay of the NPC hits this client owns. The perimeter is not drawn
+-- (only the editor shows it); the objective, the waves and the out-of-zone countdown are
+-- drawn by the page from the missionQueue state.
 local NET = "op77_lightrp:missionrun"
 local Run = { state = nil, markers = {} }
 LightRpMissionRun = Run
@@ -41,24 +42,13 @@ RegisterNetEvent(NET, function(payload)
     end
 end)
 
--- The perimeter: thin red walls with a faint fill. Built once per mission state (one
--- resume must stay short), re-sent every half second with a TTL that covers the gap.
-CreateThread(function()
-    TriggerServerEvent(NET, { kind = "hello" })
-    local built, batch = nil, nil
-    while true do
-        Wait(500)
-        local state = Run.state
-        if not state then built, batch = nil, nil
-        elseif state ~= built and state.perimeter and LightRpMissionEditor and LightRpMissionEditor.walls then
-            built = state
-            -- the editor's light wall builder, yielding between segments (one resume must stay short)
-            batch = { lines = {}, triangles = {}, ttl = 1.2, maxDistance = 400 }
-            LightRpMissionEditor.walls(batch, state.perimeter, "#ff3b3bb0", false, function() Wait(0) end)
-            Wait(0)
-        end
-        if batch and Run.state and Open77.debugDraw then pcall(Open77.debugDraw.set, drawKey, batch) end
-    end
+CreateThread(function() TriggerServerEvent(NET, { kind = "hello" }) end)
+
+-- A mission NPC whose simulation this client owns hit a player: the server checks it and
+-- applies it to the canonical health (the NPCs opt into authoritativePlayerHits, so the
+-- engine itself no longer drains the native health).
+AddEventHandler("open77:npcPlayerHit", function(victim, npc, epoch, amount)
+    if Run.state then TriggerServerEvent(NET .. ":npcHit", victim, npc, epoch, amount) end
 end)
 
 AddEventHandler("onClientResourceStop", function(name)

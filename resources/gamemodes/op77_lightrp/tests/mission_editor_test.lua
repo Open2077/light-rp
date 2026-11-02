@@ -6,6 +6,7 @@
 -- points, victory), the perimeter (warning, death after the delay), team
 -- respawns, the wipe, and Survival (waves in order, intermission, victory).
 local clock = 0
+local damaged = {}
 local threads = {}
 local function run(ms)
     clock = clock + (ms or 500)
@@ -52,7 +53,8 @@ _G.Open77 = {
     acl = { isAllowed = function(id, perm) return id == 1 and perm == "command.lightrp.missions" end },
     npcs = { ai = { native = 2 }, damage = { mortal = 0 },
         create = function(def) npcSeq = npcSeq + 1; npcs[npcSeq] = { def = def, health = 100, position = def.position }; return npcSeq end,
-        get = function(id) local n = npcs[id]; return n and { health = n.health, alive = n.health > 0, position = n.position } end,
+        get = function(id) local n = npcs[id]; return n and { health = n.health, alive = n.health > 0, position = n.position,
+            bucket = n.def.bucket, authorityPlayerId = n.owner or 1, authorityEpoch = n.epoch or 4 } end,
         remove = function(id) npcs[id] = nil; return true end,
         setCombatEnabled = function(id, on) npcCalls[#npcCalls + 1] = { "combat", id, on }; return true end,
         setPerceptionEnabled = function(id, on) npcCalls[#npcCalls + 1] = { "perception", id, on }; return true end,
@@ -63,7 +65,7 @@ _G.Open77 = {
     players = {
         position = function(id) local p = positions[id]; return p and { x = p.x, y = p.y, z = p.z } end,
         get = function(id) return { position = positions[id], health = 100, maxHealth = 100, armor = 0, lifePhase = life[id] or "alive" } end,
-        getLifeState = function(id) return { phase = life[id] or "alive" } end,
+        getLifeState = function(id) return { phase = life[id] or "alive", bucket = buckets[id] or 0 } end,
         teleport = function(id, spot, opts)
             return { await = function() buckets[id] = opts.bucket; positions[id] = { x = spot.x, y = spot.y, z = spot.z }; return true end }
         end,
@@ -73,6 +75,7 @@ _G.Open77 = {
             CreateThread(function() Wait(); LightRP.eachModule("onLifeState", id, "dead") end)
             return true end,
         setHealth = function() return true end,
+        damage = function(id, amount, opts) damaged[#damaged + 1] = { id = id, amount = amount, attacker = opts and opts.attacker }; return true end,
         respawn = function(id, opts)
             if life[id] == "alive" then return false, "invalid_state" end
             -- like the platform: respawnpending now, the new life a second later
@@ -227,6 +230,19 @@ local alive = {}
 for npcId, n in pairs(npcs) do if n.def.bucket == inst.bucket then alive[#alive + 1] = npcId end end
 assert(#alive == 3, "2 Bay enemies x1.5 (hard) = 3 at start, got " .. #alive)
 assert(npcs[alive[1]].def.difficulty.healthMultiplier == 1.5, "hard multipliers applied")
+-- the mission's kit: the armament stands aside for the run; its NPCs hit through the server
+assert(inst.loadout == true and inst.run.kit and inst.run.kit.id == "assault" and Missions.handlesLoadout(1), "the default kit is handed out")
+assert(npcs[alive[1]].def.loadout.combat.authoritativePlayerHits == true, "mission NPCs opt into server-owned player hits")
+local hit = netHandlers["op77_lightrp:missionrun:npcHit"]
+_G.source = 1
+hit("1", tostring(alive[1]), "4", "12.5")
+assert(#damaged == 1 and damaged[1].id == 1 and damaged[1].amount == 12.5 and damaged[1].attacker == alive[1], "an owned NPC's hit lands on the canonical health")
+hit("1", tostring(alive[1]), "3", "12.5"); assert(#damaged == 1, "a retired lease epoch is refused")
+hit("1", "999", "4", "12.5"); assert(#damaged == 1, "an NPC of no mission is refused")
+_G.source = 2; hit("1", tostring(alive[1]), "4", "12.5"); assert(#damaged == 1, "only the owner of the NPC reports its hits")
+_G.source = 1; hit("1", tostring(alive[1]), "4", "500"); assert(#damaged == 2 and damaged[2].amount == 40, "one hit is capped")
+assert(LightRP.missionEngine.kitFor({ loadout = "none" }) == nil and LightRP.missionEngine.kitFor({ loadout = "breacher" }).id == "breacher", "kit choice")
+assert(D.validate((function() local m = base(); m.loadout = "bad id!"; return m end)()) == nil, "an invalid loadout is refused")
 seconds(1)
 assert(attacks > 0, "enemies sent at the operator")
 for _, npcId in ipairs(alive) do npcs[npcId].health = 0 end
