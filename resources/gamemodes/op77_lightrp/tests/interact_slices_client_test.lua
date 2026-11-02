@@ -1,0 +1,56 @@
+-- client/core/interact.lua: a long interaction list is built in slices (one script
+-- resume must stay short: the client kills a handler that overruns its budget), a full
+-- custom-icon budget stops further custom tries, and a newer list stops an older build.
+dofile("shared/config.lua")
+dofile("shared/events.lua")
+local handlers, threads, logs, iconCalls, nativeBlips, markers = {}, {}, {}, 0, 0, 0
+RegisterNetEvent = function(name, fn) handlers[name] = fn end
+AddEventHandler = function() end
+TriggerServerEvent = function() end
+RegisterKeyMapping = function() return true, "E" end
+GetCurrentResourceName = function() return "op77_lightrp" end
+GetResourceState = function() return "stopped" end
+CreateThread = function(fn) threads[#threads + 1] = coroutine.create(fn) end
+Wait = function() coroutine.yield() end
+Open77 = {
+    character = { state = function() return { position = { x = 0, y = 0, z = 0 } } end },
+    markers = { create = function() markers = markers + 1; return markers end, remove = function() return true end, update = function() return true end },
+    anchors = { create = function() return 1 end, remove = function() return true end, update = function() return true end },
+    blips = { create = function() nativeBlips = nativeBlips + 1; return nativeBlips end, remove = function() return true end },
+}
+LightRpUi = { page = {}, log = function(f, ...) logs[#logs + 1] = string.format(f, ...) end, send = function() end }
+exports = setmetatable({}, { __call = function() end })
+exports.open77_icons = { create = function() iconCalls = iconCalls + 1; return nil, "blip_visual_budget_exceeded" end, remove = function() return true end }
+dofile("client/core/interact.lua")
+local build = handlers[LightRpEvents.net.interactions]
+local function list(n, prefix)
+    local out = {}
+    for i = 1, n do out[i] = { id = prefix .. i, position = { x = i, y = 0, z = 0 }, label = prefix .. i,
+        marker = { shape = "cylinder" }, blip = { icon = "shirt", sprite = "clothes", title = "Wardrobe" } } end
+    return out
+end
+local function run(co) while coroutine.status(co) ~= "dead" do assert(coroutine.resume(co)) end end
+
+-- 30 points: 6 at once, the rest after yields
+local before = #threads
+build(list(30, "w"))
+assert(#LightRpInteract.points == 6, "the first slice at once, got " .. #LightRpInteract.points)
+assert(#threads == before + 1, "the rest goes to a thread")
+local co = threads[#threads]
+assert(coroutine.resume(co)); assert(#LightRpInteract.points == 6, "nothing more before the first yield returns")
+assert(coroutine.resume(co)); assert(#LightRpInteract.points == 12, "one slice per resume")
+run(co)
+assert(#LightRpInteract.points == 30 and logs[#logs]:find("30 interaction point", 1, true), "every point, shops after the wardrobes included")
+-- the full visual budget answered once: no further custom tries, native sprites instead
+assert(iconCalls == 1 and nativeBlips == 30, "one refused custom try, then native: " .. iconCalls .. "/" .. nativeBlips)
+
+-- a newer list stops an older build still running
+build(list(20, "a"))
+local old = threads[#threads]
+assert(coroutine.resume(old))            -- first slice of a: yields
+build(list(3, "b"))                       -- small: at once, no thread
+assert(#LightRpInteract.points == 3, "the new list replaces the old")
+run(old)
+assert(#LightRpInteract.points == 3, "the old build stopped without adding its points")
+for _, p in ipairs(LightRpInteract.points) do assert(p.id:sub(1, 1) == "b") end
+print("PASS: interaction build in slices (first slice at once, one slice per resume, every point built, visual budget stops custom tries, newer list wins)")

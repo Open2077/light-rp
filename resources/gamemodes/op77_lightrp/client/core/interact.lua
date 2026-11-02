@@ -131,6 +131,11 @@ local function ensurePromptAnchor()
     if id then Interact.promptAnchor = id else log("prompt anchor refused: %s", tostring(err)) end
 end
 
+-- The custom-icon blips share a client visual budget; once it answers
+-- blip_visual_budget_exceeded every further try is a wasted cross-resource call, and
+-- with dozens of points those calls overran the script budget (2026-11-02). Straight
+-- to the native sprite until the next list.
+local visualFull = false
 local function createBlip(point)
     if type(point.blip) == "table" then mapAdd(point) end
     if not blipsAvailable() or type(point.blip) ~= "table" then return nil end
@@ -144,11 +149,13 @@ local function createBlip(point)
         active = true, visibleThroughWalls = false,
         routable = point.blip.routable == true,
     }
-    if exports ~= nil then
+    if exports ~= nil and not visualFull then
         local called, custom, reason = iconCall("create", definition)
         if called and custom then customBlips[custom] = true; return custom end
-        log("custom blip %s refused for %s: %s; using native fallback",
-            tostring(definition.icon), tostring(point.id), tostring(called and reason or custom))
+        if called and reason == "blip_visual_budget_exceeded" then visualFull = true end
+        log("custom blip %s refused for %s: %s; using native fallback%s",
+            tostring(definition.icon), tostring(point.id), tostring(called and reason or custom),
+            visualFull and " (and for the points after it)" or "")
     end
     local sprites = {}
     if point.blip.sprite then sprites[#sprites + 1] = point.blip.sprite end
@@ -228,10 +235,8 @@ exports("InteractSetLocal", function(id, entry, event, data)
     return true
 end)
 
-local function build(list)
-    clear()
-    ensurePromptAnchor()
-    for _, entry in ipairs(list) do
+-- One point: its marker (or ground ring), its blips and its prompt entry.
+local function addPoint(entry)
         if type(entry) == "table" and type(entry.position) == "table" then
             local ring = type(entry.ring) == "table" and entry.ring or {}
             local point = {
@@ -251,9 +256,38 @@ local function build(list)
             point.blip = createBlip(point) -- nil when the point asks for none
             Interact.points[#Interact.points + 1] = point
         end
-    end
-    log("%d interaction point(s)", #Interact.points)
 end
+
+-- One script resume must stay short: the client kills a handler that overruns its
+-- budget, and on 2026-11-02 the 30-odd points (marker + custom blip + 3D map blip each)
+-- died part way, so every shop after the wardrobes was never built. The first points
+-- go at once, the rest in slices with a yield between them; a newer list stops an
+-- older build still running.
+local SLICE = 6
+local generation = 0
+local function build(list)
+    generation = generation + 1
+    local mine = generation
+    clear()
+    ensurePromptAnchor()
+    visualFull = false
+    local index = 0
+    local function slice()
+        local stop = math.min(#list, index + SLICE)
+        while index < stop do index = index + 1; addPoint(list[index]) end
+    end
+    slice()
+    if index >= #list then log("%d interaction point(s)", #Interact.points); return end
+    CreateThread(function()
+        while index < #list do
+            Wait(0)
+            if mine ~= generation then return end
+            slice()
+        end
+        log("%d interaction point(s)", #Interact.points)
+    end)
+end
+Interact.build = build
 
 RegisterNetEvent(E.net.interactions, function(list)
     if type(list) ~= "table" then return end
