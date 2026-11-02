@@ -28,7 +28,11 @@ function Db.run(query,v)
     if query:find("INSERT INTO lightrp_owned_vehicles",1,true) then
         owned[v[1]]={id=v[1],identifier=v[2],character_key=v[3],model=v[4],record=v[5],garage_id=v[6],properties=v[7],grant_key=v[8]}
     end
-    if query:find("UPDATE lightrp_owned_vehicles",1,true)then owned[v[3]].properties=v[2];owned[v[3]].garage_id=v[1]end
+    if query:find("UPDATE lightrp_owned_vehicles",1,true)then
+        local row=owned[v[#v]]
+        if query:find("SET properties = ?",1,true)then row.properties=v[1]else row.garage_id,row.properties=v[1],v[2]end
+        if query:find("state = ?",1,true)then row.state=v[3]end
+    end
     return true,1
 end
 function Db.transaction(q)

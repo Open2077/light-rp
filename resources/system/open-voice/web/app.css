@@ -1,74 +1,138 @@
-/* OPEN//77 voice HUD in the RP design system's language (HUD / MicIndicator).
-   Tokens come from tokens.css. The Lua payload is unchanged; the page only maps
-   its states and reach presets onto the system's voice colours. */
+/* OPEN//77 voice HUD as a hologram, the vehicle speedometer's sibling (op77_speedometer):
+   the same projection (tilted toward the centre of the screen, its right edge nearest),
+   white-hot lit parts with a bloom, ghost parts for the unlit ones, scanlines. Tokens
+   come from tokens.css; the reach presets keep the system's voice colours. The Lua
+   payload is unchanged. Never put filter, mask or clip-path on .mic, .mic__rig or
+   .mic__plane: they would flatten the tilt (.mic__plate, inside the plane, carries them). */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; pointer-events: none; user-select: none; font-family: var(--font-core); color: var(--text-body); }
 [hidden] { display: none !important; }
 
 .mic {
+  --accent-rgb: 255, 204, 0; --core: #fff7da; --core-rgb: 255, 247, 218; --warn-rgb: 255, 59, 59;
+  --ghost: rgba(var(--accent-rgb), .1);
   position: fixed; right: var(--hud-safe-x); bottom: var(--hud-safe-y);
   display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2);
   --state-color: var(--voice-idle); --mode-color: var(--voice-live);
   opacity: 0; transform: translateY(6px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 .mic.visible { opacity: 1; transform: none; }
-.mic.state-idle     { --state-color: var(--voice-idle); }
+.mic.state-idle     { --state-color: rgba(var(--accent-rgb), .72); }
 .mic.state-detected { --state-color: var(--accent); }
-.mic.state-talking  { --state-color: var(--voice-live); }
+.mic.state-talking  { --state-color: var(--core); }
 .mic.state-muted    { --state-color: var(--voice-muted); }
 .mic.state-offline  { --state-color: var(--voice-off); }
 
-.mic__plate {
-  display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); width: fit-content;
-  background: var(--surface-hud); backdrop-filter: var(--blur-hud); clip-path: var(--clip-notch);
-  box-shadow: var(--shadow-hud); transition: box-shadow var(--dur-fast) var(--ease-snap);
+/* ── the projection ── */
+.mic__rig { perspective: 700px; perspective-origin: 70% 40%; }
+.mic__plane { position: relative; transform: rotateX(8deg) rotateY(-16deg); transform-origin: 100% 60%; }
+.mic__haze {
+  position: absolute; inset: -16px -20px -14px -26px; pointer-events: none;
+  background: radial-gradient(ellipse 52% 56% at 50% 50%, rgba(4, 4, 6, .66), rgba(4, 4, 6, .48) 50%, rgba(4, 4, 6, .16) 78%, rgba(4, 4, 6, 0) 100%);
 }
-.mic.state-talking .mic__plate { box-shadow: var(--glow-accent); }
+.mic__plate {
+  --bloom: drop-shadow(0 0 1.5px rgba(var(--accent-rgb), .85)) drop-shadow(0 0 7px rgba(var(--accent-rgb), .38));
+  position: relative; display: flex; align-items: center; gap: 14px; padding: 8px 6px 8px 10px; height: 66px;
+  filter: var(--bloom);
+  -webkit-mask-image: repeating-linear-gradient(180deg, #000 0 2px, rgba(0, 0, 0, .6) 2px 3px);
+  mask-image: repeating-linear-gradient(180deg, #000 0 2px, rgba(0, 0, 0, .6) 2px 3px);
+  /* the bloom spills past the box: leave it unmasked rather than cut it square */
+  -webkit-mask-clip: no-clip; mask-clip: no-clip;
+}
+.mic.state-talking .mic__plate { --bloom: drop-shadow(0 0 2px rgba(var(--accent-rgb), .95)) drop-shadow(0 0 11px rgba(var(--accent-rgb), .5)); }
+.mic.state-muted .mic__plate { --bloom: drop-shadow(0 0 1.5px rgba(var(--warn-rgb), .7)) drop-shadow(0 0 7px rgba(var(--warn-rgb), .3)); }
+.mic.state-offline .mic__plate { filter: none; opacity: .7; }
+.mic__corner { position: absolute; width: 12px; height: 12px; border: 0 solid rgba(var(--accent-rgb), .6); transition: border-color var(--dur-fast) linear; }
+.mic__corner--tl { left: -6px; top: -2px; border-left-width: 2px; border-top-width: 2px; }
+.mic__corner--br { right: -4px; bottom: -2px; border-right-width: 2px; border-bottom-width: 2px; }
+.mic.state-talking .mic__corner { border-color: var(--core); }
+.mic.state-muted .mic__corner { border-color: rgba(var(--warn-rgb), .7); }
 
-.mic__row { display: flex; align-items: center; gap: var(--sp-4); }
+/* ── the reach in seven segments ── */
+.mic__dist { display: flex; align-items: flex-end; gap: 3px; flex: none; }
+.mic__digits { display: block; overflow: visible; }
+.mic__digits polygon { fill: var(--ghost); transition: fill 90ms linear; }
+.mic__digits polygon.on { fill: var(--mode-color); }
+.mic.state-talking .mic__digits polygon.on { fill: var(--core); }
+.mic__digits circle { fill: var(--ghost); }
+.mic__digits circle.on { fill: var(--mode-color); }
+.mic__dist-unit { font: 400 15px/16px var(--font-mono); color: var(--mode-color); padding-bottom: 1px; }
+.mic.mode-changing .mic__dist { animation: mic-retune 340ms steps(6, end); }
+@keyframes mic-retune { 0% { opacity: .15; transform: translateY(3px); } 35% { opacity: 1; } 50% { opacity: .4; } 100% { opacity: 1; transform: none; } }
+
+.mic__body { display: flex; flex-direction: column; gap: 6px; }
+.mic__row { display: flex; align-items: center; gap: 10px; height: 22px; }
 .mic__row--ranges { justify-content: flex-end; }
 
-.mic__glyph { display: flex; width: 16px; height: 16px; color: var(--state-color); transition: color var(--dur-fast) linear; }
-.mic__glyph svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mic__glyph { display: flex; width: 18px; height: 18px; color: var(--state-color); transition: color var(--dur-fast) linear; }
+.mic__glyph svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: square; stroke-linejoin: miter; }
 .mic.state-talking .mic__glyph { animation: o77-flicker 1.6s infinite; }
 
-.mic__state { min-width: 74px; font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--state-color); transition: color var(--dur-fast) linear; }
+.mic__state { min-width: 82px; font: 700 15px/18px var(--font-core); letter-spacing: .12em; color: var(--state-color); transition: color var(--dur-fast) linear; }
 
-/* 14 bars rising from 5 to 16 px; lit in the reach colour, the last three in the peak colour. */
-.mic__meter { display: flex; gap: 2px; align-items: flex-end; height: 16px; }
-.mic__meter i { display: block; width: 3px; background: var(--o77-ink-600); transition: background var(--dur-instant) linear; }
+/* 14 slanted cells (the speedometer's RPM strip), lit in the reach colour, white-hot
+   at the tip, the last three in the peak colour. app.js sets heights: overridden. */
+.mic__meter { display: flex; gap: 2px; align-items: stretch; height: 12px; transform: skewX(-28deg); }
+.mic__meter i { display: block; width: 6px; height: 12px !important; background: var(--ghost); transition: background 60ms linear; }
 .mic__meter i.lit { background: var(--mode-color); }
-.mic__meter i.lit.peak { background: var(--voice-peak); }
-.mic.state-muted .mic__meter i, .mic.state-offline .mic__meter i { background: var(--o77-ink-700); }
+.mic.state-talking .mic__meter i.lit { background: var(--core); }
+.mic.state-talking .mic__meter i.lit:not(:has(+ i.lit)) { background: #fff; }
+.mic__meter i.lit.peak, .mic.state-talking .mic__meter i.lit.peak { background: var(--voice-peak); }
+.mic.state-muted .mic__meter i, .mic.state-offline .mic__meter i { background: rgba(var(--warn-rgb), .12); }
+.mic.state-offline .mic__meter i { background: rgba(255, 255, 255, .06); }
 
-/* Reach presets as tags; the active one is filled with its colour. */
-.mic__ranges { display: flex; align-items: center; gap: var(--sp-2); }
+/* ── reach presets: ghost labels, the active one lit, a selector sliding under it ── */
+.mic__selector { position: relative; display: flex; }
+.mic__ranges { display: flex; align-items: center; gap: 4px; }
 .mic__range {
-  font: var(--type-hud-readout); letter-spacing: .12em; padding: 3px 8px; clip-path: var(--clip-tag);
-  background: var(--o77-ink-700); color: var(--text-dim); transition: var(--t-hover); white-space: nowrap;
+  position: relative; font: 700 12px/16px var(--font-mono); letter-spacing: .12em; padding: 2px 6px 3px;
+  color: rgba(var(--core-rgb), .26); white-space: nowrap; transition: color 200ms linear, background 200ms linear;
 }
-.mic__range--on { color: var(--text-on-accent); background: var(--range-color, var(--mode-color)); }
-.mic__range-m { opacity: .6; margin-left: 5px; }
-.mic__reach { display: flex; align-items: baseline; gap: 5px; font: var(--type-hud-readout); letter-spacing: var(--ls-label); color: var(--text-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mic__range--on { color: var(--range-color, var(--mode-color)); background: color-mix(in srgb, var(--range-color, var(--mode-color)) 14%, transparent); }
+.mic.state-talking .mic__range--on { color: var(--core); }
+.mic__range-m { opacity: .7; margin-left: 5px; }
+.mic__sel {
+  position: absolute; left: 0; bottom: -3px; height: 3px; width: var(--sel-w, 0px); transform: translateX(var(--sel-x, 0px));
+  background: var(--sel-color, var(--mode-color)); opacity: 0;
+  transition: transform 320ms cubic-bezier(.2, .9, .25, 1.15), width 320ms cubic-bezier(.2, .9, .25, 1.15), background 200ms linear, opacity 200ms linear;
+}
+.mic__sel.on { opacity: 1; }
+.mic.mode-changing .mic__sel { animation: mic-sel-flash 340ms steps(4, end); }
+@keyframes mic-sel-flash { 0%, 50% { background: #fff; height: 5px; } }
+
+.mic__reach { display: flex; align-items: baseline; gap: 5px; font: 700 12px/16px var(--font-mono); letter-spacing: .12em; color: rgba(var(--core-rgb), .8); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .mic__reach b { color: var(--mode-color); font-weight: inherit; }
-.mic__sep { color: var(--text-disabled); }
+.mic__sep { color: rgba(var(--core-rgb), .3); }
 .mic.mode-changing .mic__reach b { animation: range-flash 320ms var(--ease-out); }
 @keyframes range-flash { 0% { opacity: .2; transform: translateY(2px); } 100% { opacity: 1; transform: none; } }
 
-/* Keycap (design system core). */
+/* the cycle key: an outlined keycap */
 .mic__key {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 16px; padding: 1px 5px;
-  font: var(--type-hud-readout); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--text-body); background: var(--o77-ink-700); box-shadow: inset 0 0 0 1px var(--line-soft); clip-path: var(--clip-keycap);
+  display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 18px; padding: 0 5px;
+  font: 400 12px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase;
+  color: rgba(var(--accent-rgb), .9); box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), .55);
 }
 
-/* Players heard right now, only while someone is audible. */
-.mic__talkers { display: inline-flex; align-items: center; gap: 5px; margin-left: var(--sp-2); color: var(--o77-green); font: var(--type-hud-readout); }
-.mic__talkers i { width: 6px; height: 6px; border-radius: 50%; background: var(--o77-green); box-shadow: 0 0 6px var(--o77-green); animation: rx-pulse 1.1s ease-in-out infinite; }
-@keyframes rx-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+/* players heard right now, only while someone is audible */
+.mic__talkers { display: inline-flex; align-items: center; gap: 5px; color: var(--o77-green); font: 700 13px/16px var(--font-mono); }
+.mic__talkers i { width: 7px; height: 7px; transform: rotate(45deg); background: var(--o77-green); animation: rx-pulse 1.1s ease-in-out infinite; }
+@keyframes rx-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 
-/* Transient server rejection, above the plate. */
-.mic__error { max-width: 340px; text-align: right; font: var(--type-hud-readout); letter-spacing: .04em; color: var(--o77-red); text-shadow: 0 1px 2px rgba(0, 0, 0, .9); opacity: 0; transition: opacity var(--dur-fast) linear; }
-.mic__error.active { opacity: 1; }
+/* a faint band sweeping down the plate while transmitting */
+.mic__sweep { position: absolute; left: -10px; right: -6px; top: -6px; height: 22px; opacity: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(var(--core-rgb), 0), rgba(var(--core-rgb), .09) 50%, rgba(var(--core-rgb), 0)); }
+.mic.state-talking .mic__sweep { animation: mic-sweep 2.4s linear infinite; }
+@keyframes mic-sweep { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 80% { transform: translateY(70px); opacity: 1; } 81%, 100% { opacity: 0; transform: translateY(70px); } }
+
+/* transient server rejection, above the plate */
+.mic__error { max-width: 340px; text-align: right; font: 700 12px/15px var(--font-mono); letter-spacing: .06em; color: var(--o77-red);
+  text-shadow: 0 0 6px rgba(var(--warn-rgb), .55), 0 1px 2px rgba(0, 0, 0, .9); opacity: 0; transition: opacity var(--dur-fast) linear; }
+.mic__error.active { opacity: 1; animation: o77-flicker 1.4s 2; }
+
+/* narrow screens (4:3, 5:4): smaller, so it stays right of op77_map3d's holo GPS
+   (780 px wide at the bottom centre) */
+.mic { transform-origin: 100% 100%; }
+@media (max-aspect-ratio: 13/9) { .mic { scale: .78; } }
+@media (max-aspect-ratio: 13/10) { .mic { scale: .64; } }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

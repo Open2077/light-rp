@@ -12,21 +12,78 @@ local function current(rt)
     return rt and W.runtime[rt.player]==rt and Inv.player(rt.player) and Inv.player(rt.player).id==rt.inventory
 end
 W.current=current
+-- Rounds of one ammunition type in an inventory (or a draft): the only stock.
+local function rounds(inv,kind)
+    local spec=C.ammo[kind];local n=0
+    if not spec then return 0 end
+    for _,item in pairs(inv and inv.items or {}) do if item.name==spec.item then n=n+item.count end end
+    return n
+end
+W.rounds=rounds
+local function takeRounds(draft,kind,count)
+    local name=C.ammo[kind].item;local removing=count
+    for slot=draft.slots,1,-1 do
+        local item=draft.items[slot]
+        if removing>0 and item and item.name==name then
+            local n=math.min(removing,item.count);item.count=item.count-n;removing=removing-n
+            if item.count==0 then draft.items[slot]=nil end
+        end
+    end
+    return count-removing
+end
 local function handState(rt,s,hand)
     local id=s and s[hand];local inv=Inv.player(rt.player)
     local item=id and inv and W.find(inv,id)
     if not item then return nil end
     local spec=C.weapons[item.name];local observed=rt.observed and rt.observed[hand]
     return {instanceId=id,name=item.name,label=spec.label,record=spec.record,nativeSlot=hand=="right" and 1 or 4,
+        ammo=spec.ammo,class=spec.class,dual=spec.dual==true,
         magazine=observed and observed.magazine,capacity=observed and observed.capacity}
+end
+-- Every serialized weapon in the pockets, for the weapon wheel: handguns first,
+-- then by class and name, with the rounds of its ammunition type in the pockets.
+local CLASS_ORDER = { pistol = 1, revolver = 2, smg = 3, shotgun = 4, rifle = 5, lmg = 6, precision = 7, sniper = 8 }
+local function arsenal(inv, s)
+    local list = {}
+    for slot, item in pairs(inv and inv.items or {}) do
+        local spec = C.weapons[item.name]
+        local id = spec and type(item.metadata) == "table" and item.metadata.instanceId
+        if id then
+            local template = LightRpItems[item.name] or {}
+            list[#list + 1] = { slot = slot, instanceId = id, name = item.name, label = spec.label, class = spec.class,
+                ammo = spec.ammo, ammoLabel = C.ammo[spec.ammo] and C.ammo[spec.ammo].label, rounds = rounds(inv, spec.ammo),
+                image = template.image, dual = spec.dual == true,
+                hand = s and (s.right == id and "right" or s.left == id and "left") or nil }
+        end
+    end
+    table.sort(list, function(a, b)
+        local ca, cb = CLASS_ORDER[a.class] or 9, CLASS_ORDER[b.class] or 9
+        if ca ~= cb then return ca < cb end
+        if a.label ~= b.label then return a.label < b.label end
+        return a.instanceId < b.instanceId
+    end)
+    while #list > 15 do table.remove(list) end
+    return list
+end
+W.arsenal = arsenal
+-- A mission that hands out its own loadout (an authored mission's kit, the raid) or drawn
+-- Mantis Blades own the native slots: the armament stands aside, and its client must not
+-- gate the attack on an RP weapon state it is not maintaining. After a death in a mission
+-- the state stayed "not ready" (synchronize returns early while standing aside) and the
+-- kit could not fire (2026-11-02).
+function W.standsAside(player)
+    return (LightRP.missions and LightRP.missions.handlesLoadout and LightRP.missions.handlesLoadout(player))
+        or (LightRP.cyberware and LightRP.cyberware.handlesLoadout and LightRP.cyberware.handlesLoadout(player))
+        or false
 end
 function W.view(player)
     local rt=W.runtime[player];local inv=Inv.player(player)
-    if not rt or not inv or not current(rt) then return {ready=false,busy=false,revision=0,ammo={pistol={remaining=0,label="Pistol rounds · total"}},error="Your character inventory is not ready."} end
+    if not rt or not inv or not current(rt) then return {ready=false,busy=false,revision=0,ammo={pistol={remaining=0,label="Pistol rounds"}},error="Your character inventory is not ready."} end
     local s=W.states[inv.id]
+    local stock={};for kind,spec in pairs(C.ammo) do stock[kind]={remaining=rounds(inv,kind),label=spec.label,item=spec.item} end
     return {inventoryId=inv.id,generation=rt.epoch,ready=Db.ready and rt.ready==true,busy=rt.busy==true and not rt.observing,revision=s and s.revision or 0,
         right=handState(rt,s,"right"),left=handState(rt,s,"left"),
-        ammo={pistol={remaining=s and s.ammo or 0,label="Pistol rounds · total"}},error=rt.error}
+        ammo=stock,error=rt.error,holstered=rt.holstered==true,arsenal=arsenal(inv,s),standAside=W.standsAside(player)==true}
 end
 function W.push(player)
     local rt=W.runtime[player]
@@ -85,7 +142,10 @@ local function desired(rt)
     if not inv or not s then return nil,"Your weapon inventory is unavailable." end
     local right=s.right and W.find(inv,s.right);local left=s.left and W.find(inv,s.left)
     if (s.right and not right) or (s.left and not left) then return nil,"An equipped firearm is missing from its inventory. Unequip it before synchronizing." end
-    return {right=right and C.weapons[right.name],left=left and C.weapons[left.name],state=s}
+    local spec=right and C.weapons[right.name];local other=left and C.weapons[left.name]
+    if spec and not C.ammo[spec.ammo] then return nil,"This firearm has no known ammunition type." end
+    if other and other.ammo~=spec.ammo then return nil,"These two weapons do not use the same ammunition." end
+    return {right=spec,left=other,state=s,ammo=spec and spec.ammo}
 end
 local function saveState(rt,nextState,operation,mutation,changes)
     local writes={W.stateWrite(rt.inventory,nextState)}
@@ -93,15 +153,33 @@ local function saveState(rt,nextState,operation,mutation,changes)
     local ok,why=Inv.commitDrafts(changes or {},writes,function() W.states[rt.inventory]=nextState end)
     return ok,why
 end
-local function lowerBudget(rt,total)
+-- `rt.baseline` is what the native pool holds if nothing was fired: {kind, rounds}
+-- (rounds projected) and `held` (rounds of that type in the pockets at that time).
+-- A lower native total is spent ammunition: it leaves the inventory, in a transaction.
+-- A higher one was never granted: firing stops until a synchronization resets it.
+local function consume(rt,total,resetting)
     if not current(rt) then return false,"Character changed." end
-    return Inv.transaction(rt.player,function(inv)
+    local base=rt.baseline
+    if not base then return true end
+    if total>base.rounds then
+        -- a synchronization replaces the pool with the pockets: nothing was spent
+        if resetting then return true end
+        return false,"Native ammunition exceeds the rounds in your inventory. Synchronize to reset it."
+    end
+    local spent=base.rounds-total
+    if spent==0 then return true end
+    local removed=0
+    local ok,why=Inv.transaction(rt.player,function(inv)
         if not current(rt) or inv.id~=rt.inventory then return false,"Character changed." end
-        local s=W.states[inv.id]
-        if total>=s.ammo then return true end
-        local nextState=W.clone(s);nextState.ammo=total;nextState.revision=s.revision+1
-        return saveState(rt,nextState,"observe")
+        local draft=Inv.draft(inv)
+        removed=takeRounds(draft,base.kind,math.min(spent,rounds(inv,base.kind)))
+        if removed==0 then return true end
+        return Inv.commitDrafts({{inv,draft}},{})
     end)
+    if not ok then return false,why or "Spent rounds could not be removed from your inventory." end
+    base.rounds=total;base.held=math.max(0,base.held-removed)
+    LightRP.log("armament: player %d fired %d %s round(s), %d left in the inventory",rt.player,spent,base.kind,rounds(Inv.player(rt.player),base.kind))
+    return true
 end
 local function settleExisting(rt,rows)
     if not rt.projectedRecords then return true end
@@ -112,7 +190,7 @@ local function settleExisting(rt,rows)
         if empty(row) or row.record~=record or not a then return false,"The previous native projection could not be reconciled. No ammunition was refunded." end
         total=math.min(total or a.total,a.total)
     end
-    if total then return lowerBudget(rt,total) end
+    if total then return consume(rt,total,true) end
     return true
 end
 local function readback(rt,rows)
@@ -131,8 +209,7 @@ local function readback(rt,rows)
         end
     end
     if total then
-        local ok,err=lowerBudget(rt,total);if not ok then return false,err or "Ammunition storage refused the observation." end
-        if total>W.states[rt.inventory].ammo then return false,"Native ammunition exceeds the authorized stock. Synchronize to reset it." end
+        local ok,err=consume(rt,total);if not ok then return false,err or "Spent rounds could not be recorded." end
     end
     rt.observed=observed
     rt.allowedHashes=allowedHashes
@@ -145,15 +222,24 @@ local function readback(rt,rows)
     return true
 end
 local function project(rt)
-    local d,why=desired(rt);if not d then return false,why end
+    local d,why=desired(rt)
+    if not d then
+        -- no valid loadout: no native weapon may stay in hand (a mission kit left over, a
+        -- stale projection). The kit once stayed after a mission because of this return.
+        local cleared=native(rt,"clear","clear")
+        if cleared then rt.observed={};rt.allowedHashes={};rt.projectedRecords=nil;rt.baseline=nil end
+        return false,why
+    end
     local snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
     local rows=rowsOf(snapshot)
     local settled,settleError=settleExisting(rt,rows)
     if not settled then return false,settleError end
+    local migrated,migrateError=W.migrateLegacy(rt);if not migrated then return false,migrateError end
     -- From here until verified completion all native writes are pending
-    -- projection, not gameplay. A retry may restore only this settled budget.
-    rt.projectedRecords=nil
+    -- projection, not gameplay. A retry may restore only the rounds in the pockets.
+    rt.projectedRecords=nil;rt.baseline=nil
     if not d.right then
+        rt.baseline=nil
         local cleared,reason=native(rt,"clear","clear");if not cleared then return false,reason end
         for _,row in ipairs(cleared.slots or {}) do if row.accepted==false then return false,"Native weapon removal was only partially completed." end end
         rt.observed={};rt.allowedHashes={};return true
@@ -183,8 +269,9 @@ local function project(rt)
     local r,l=ammo(prepared[1]),d.left and ammo(prepared[4]) or nil
     if not r or (d.left and not l) then return false,"Native pistol capacity could not be read. No ammunition was created." end
     if l and (prepared[1].ammo.tweakDbId~=prepared[4].ammo.tweakDbId or prepared[1].ammo.record~=prepared[4].ammo.record) then return false,"These pistols do not share compatible native ammunition." end
-    local balance=W.states[rt.inventory].ammo
-    if l and balance<2*(r.capacity+l.capacity) then return false,"Dual wield needs at least "..(2*(r.capacity+l.capacity)).." total rounds on this build. Open more boxes or unequip the left pistol." end
+    local held=rounds(Inv.player(rt.player),d.ammo)
+    local balance=math.min(held,C.maxAmmo)
+    if l and balance<2*(r.capacity+l.capacity) then return false,"Dual wield needs at least "..(2*(r.capacity+l.capacity)).." "..C.ammo[d.ammo].label:lower().." in your pockets on this build. Unpack more boxes or unequip the left pistol." end
     local magR=math.min(r.capacity,balance)
     local magL=l and math.min(l.capacity,balance-magR) or 0
     -- Reset both magazine projections first. Each following operation expresses
@@ -196,12 +283,57 @@ local function project(rt)
     if not changed then return false,reason end
     if l then changed,reason=native(rt,"setAmmo","setAmmo",4,{magazine=magL,reserve=balance-magR-magL});if not changed then return false,reason end end
     local active,activeError=native(rt,"setActive","setActive",1);if not active then return false,activeError end
+    rt.baseline={kind=d.ammo,rounds=balance,held=held}
     snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
     local verified,verificationError=readback(rt,rowsOf(snapshot))
     if verified then rt.projectedRecords={[1]=d.right.record};if d.left then rt.projectedRecords[4]=d.left.record end end
+    -- a character coming into the world (connect, respawn) gets its loadout back in
+    -- the holster, never in its hands; so does a pocket refresh of holstered hands
+    if verified and rt.holstered then
+        local holstered,why=native(rt,"holster","holster")
+        if not holstered then LightRP.log("armament: holster after projection refused for %d: %s",rt.player,tostring(why)) end
+    end
     return verified,verificationError
 end
+-- Characters from before rounds were items kept a hidden pistol stock (s.ammo).
+-- It moves into the pockets as loose rounds, in one transaction with the state; what
+-- does not fit stays recorded and moves at the next synchronization.
+function W.migrateLegacy(rt)
+    local s=W.states[rt.inventory]
+    if not s or not s.ammo or s.ammo<=0 then return true end
+    local moved=0
+    local ok,why=Inv.transaction(rt.player,function(inv)
+        if not current(rt) or inv.id~=rt.inventory then return false,"Character changed." end
+        local state=W.states[inv.id];local draft=Inv.draft(inv);local loose=C.ammo.pistol.item
+        local n=state.ammo
+        while n>0 and not Inv.canHold(draft,loose,n) do n=math.floor(n/2) end
+        if n==0 then return true end
+        Inv.place(draft,loose,n);moved=n
+        local nextState=W.clone(state);nextState.ammo=state.ammo-n;nextState.revision=state.revision+1
+        return saveState(rt,nextState,"migrate",nil,{{inv,draft}})
+    end)
+    if not ok then return false,why or "The previous ammunition stock could not be moved into your inventory." end
+    if moved>0 then
+        LightRP.log("armament: player %d legacy stock -> %d pistol round item(s), %d left to move",rt.player,moved,W.states[rt.inventory].ammo)
+        LightRP.notice(rt.player,{kind="info",title="Ammunition",body=string.format("%d pistol rounds from your previous stock are now in your pockets.",moved)})
+    end
+    return true
+end
+-- A mission that hands out its own loadout (the raid) owns the native slots
+-- while it runs: no RP projection over it, no RP gate on its damage.
+local function missionLoadout(player)
+    -- drawn Mantis Blades own the arm slot the same way (server/modules/cyberware.lua)
+    return W.standsAside(player)
+end
 function W.synchronize(player,onlyObserve)
+    if missionLoadout(player) then
+        -- the mission's kit owns the native slots now: the projection made before it is
+        -- not ours to reconcile. Kept, it made the return refuse ("could not be
+        -- reconciled") and the kit stayed in hand after the mission (2026-11-02).
+        local rt=W.runtime[player]
+        if rt then rt.projectedRecords=nil;rt.baseline=nil end
+        return true
+    end
     local rt=W.runtime[player]
     if not current(rt) then return false,"Your character is not ready." end
     if rt.busy then return false,"Weapon synchronization is already in progress." end
@@ -213,7 +345,17 @@ function W.synchronize(player,onlyObserve)
         local ok,result,why=pcall(function()
             if onlyObserve then
                 local snap,error=native(rt,"requestSnapshot","snapshot");if not snap then return false,error end
-                return readback(rt,rowsOf(snap))
+                local observed,why=readback(rt,rowsOf(snap))
+                if not observed then return false,why end
+                -- rounds bought, given, dropped or unpacked since the projection, or a
+                -- partial projection running low while more rounds wait in the pockets
+                local base=rt.baseline
+                local held=base and rounds(Inv.player(player),base.kind)
+                if base and (held~=base.held or (held>base.rounds and base.rounds<C.maxAmmo/2)) then
+                    rt.observing=false
+                    return project(rt)
+                end
+                return true
             end
             return project(rt)
         end)
@@ -251,11 +393,35 @@ local function apply(player,p,inv,reserved)
         local item=inv.items[tonumber(p.slot)]
         if not item or not C.weapons[item.name] or not item.metadata or item.metadata.instanceId~=p.instanceId then return false,"That firearm slot or serial changed." end
         if p.hand=="left" and not nextState.right then return false,"Equip a right-hand pistol first." end
+        -- dual wield is a handgun thing: rifles, shotguns and SMGs hold the right hand alone
+        local spec=C.weapons[item.name]
+        if p.hand=="left" and not spec.dual then return false,"Only a pistol or a revolver goes in the left hand." end
+        local partner=nextState[p.hand=="right" and "left" or "right"];local partnerItem=partner and W.find(inv,partner)
+        if partnerItem and partner~=p.instanceId and not (spec.dual and C.weapons[partnerItem.name].dual) then
+            return false,p.hand=="right" and "This weapon needs both hands. Unequip the left-hand pistol first." or "Your right-hand weapon needs both hands."
+        end
         if nextState[p.hand=="right" and "left" or "right"]==p.instanceId then return false,"One firearm cannot occupy both hands." end
         local other=nextState[p.hand=="right" and "left" or "right"]
         local otherItem=other and W.find(inv,other)
         if otherItem and C.weapons[otherItem.name].record==C.weapons[item.name].record then return false,"Two identical pistol models are not supported by this tested projection yet." end
         nextState[p.hand]=p.instanceId
+        rt.holstered=false
+    elseif p.operation=="select" then
+        if missionLoadout(player) then return false,"Your mission loadout is in your hands." end
+        if p.unarmed==true then
+            nextState.right,nextState.left=nil,nil
+        else
+            local item=type(p.instanceId)=="string" and W.find(inv,p.instanceId)
+            if not item then return false,"That weapon is no longer in your pockets." end
+            local spec=C.weapons[item.name]
+            if nextState.left==p.instanceId then nextState.left=nil end
+            -- a handgun keeps its left-hand partner; anything else holds the right hand alone
+            local partner=nextState.left and W.find(inv,nextState.left)
+            local partnerSpec=partner and C.weapons[partner.name]
+            if not (spec.dual and partnerSpec and partnerSpec.dual and partnerSpec.record~=spec.record) then nextState.left=nil end
+            nextState.right=p.instanceId
+            rt.holstered=false
+        end
     elseif p.operation=="unequip" then
         if p.hand~="right" and p.hand~="left" then return false,"Choose a hand." end
         if p.instanceId and nextState[p.hand]~=p.instanceId then return false,"The equipped firearm changed." end
@@ -265,10 +431,13 @@ local function apply(player,p,inv,reserved)
         local slot=tonumber(p.slot);local item=slot and inv.items[slot]
         local box=item and C.boxes[item.name]
         if not box or item.count<1 then return false,"That ammunition box is no longer available." end
-        if nextState.ammo+box.rounds>C.maxAmmo then return false,"This character's ammunition stock is full. The box was kept." end
+        local loose=C.ammo[box.ammo].item
         local draft=Inv.draft(inv);draft.items[slot].count=draft.items[slot].count-1
         if draft.items[slot].count==0 then draft.items[slot]=nil end
-        changes={{inv,draft}};nextState.ammo=nextState.ammo+box.rounds
+        local fits,why=Inv.canHold(draft,loose,box.rounds)
+        if not fits then return false,why=="too_heavy" and "Your pockets are too heavy for these rounds. The box was kept." or "No room in your pockets for these rounds. The box was kept." end
+        Inv.place(draft,loose,box.rounds)
+        changes={{inv,draft}}
     else return false,"Unknown armament mutation." end
     nextState.revision=s.revision+1
     local saved,why=saveState(rt,nextState,p.operation,mutation,changes)
@@ -281,6 +450,19 @@ end
 -- between shot and poll could restore already-spent rounds.
 local function beginMutation(player,p,callback)
     local rt=W.runtime[player]
+    -- the 2 s observe pass only reads: a request landing during it (a wheel pick) runs
+    -- right after it instead of being refused as "in progress"
+    if current(rt) and rt.busy and rt.observing then
+        CreateThread(function()
+            local deadline=now()+2
+            while current(rt) and rt.busy and rt.observing and now()<deadline do Wait(25) end
+            local ok,why=beginMutation(player,p,callback)
+            if not ok then
+                if callback then callback(false,why) else LightRP.notice(player,{kind="error",title="Equipment",body=why}) end
+            end
+        end)
+        return true
+    end
     if not current(rt) or rt.busy then return false,"Weapon synchronization is in progress or the character is unavailable." end
     if rt.quarantine then return false,"A timed-out native request is quarantined until completion or reconnect." end
     if not alive(player) then return false,"Your character must be alive." end
@@ -326,7 +508,7 @@ local function attach(player)
     local prior=W.runtime[player]
     if prior and current(prior) then return end
     epochs[player]=(epochs[player] or 0)+1
-    local rt={player=player,inventory=inv.id,epoch=epochs[player],ready=false,busy=false,observed={}}
+    local rt={player=player,inventory=inv.id,epoch=epochs[player],ready=false,busy=false,observed={},holstered=true}
     W.runtime[player]=rt
     local s,why=W.load(inv)
     if not s then rt.error=why;W.push(player);return end
@@ -342,7 +524,7 @@ local function retire(player,reason)
     for key,job in pairs(W.pending) do if job.runtime.player==player then W.pending[key]=nil end end
 end
 LightRP.module("armament",{
-    onDatabaseReady=function() W.loaded=true;LightRP.log("armament ready: serialized firearms, 30-round boxes and native projection queue enabled");for _,id in ipairs(GetPlayers()) do attach(tonumber(id)) end end,
+    onDatabaseReady=function() W.loaded=true;LightRP.log("armament ready: serialized firearms, rounds as inventory items per ammunition type, native projection queue enabled");for _,id in ipairs(GetPlayers()) do attach(tonumber(id)) end end,
     onCharacterLoaded=function(player) retire(player,"Character changed.");attach(player) end,
     onCharacterActivated=function(player) retire(player,"Character changed.");attach(player) end,
     onGameplayReady=function(player) attach(player);local rt=W.runtime[player];if rt and not rt.busy and alive(player) then W.synchronize(player) end end,
@@ -354,6 +536,39 @@ LightRP.module("armament",{
     end,
     onUiReady=function(player) attach(player);W.push(player) end,
 })
+-- Puts away whatever is in the hands without changing the loadout: drawn Mantis Blades
+-- (sheathed), a pocket firearm, the bare fists. B and the wheel's top slot. With the
+-- projection not ready (fists out before any weapon state, a quarantine) the native
+-- holster still runs: lowering the fists never needs the armament.
+function W.holster(player)
+    local cyber = LightRP.cyberware
+    if cyber and type(cyber.sheatheBlades) == "function" and cyber.sheatheBlades(player) then return true end
+    attach(player)
+    local rt=W.runtime[player]
+    if not current(rt) or rt.quarantine then
+        local ok, done, why = pcall(Open77.weapons.holster, player)
+        if not ok then return false, tostring(done) end
+        if done == false then return false, tostring(why) end
+        return true
+    end
+    if rt.busy then return false,"Your equipment is busy. Try again in a moment." end
+    rt.busy=true;W.push(player)
+    CreateThread(function()
+        local result,why=native(rt,"holster","holster")
+        if current(rt) then rt.busy=false;rt.error=result and nil or why;if result then rt.holstered=true end;W.push(player) end
+    end)
+    return true
+end
+local lastHolster={}
+RegisterNetEvent("op77_lightrp:armament:holster",function()
+    local player=tonumber(source)
+    if not player or player<=0 then return end
+    local at=now()
+    if lastHolster[player] and at-lastHolster[player]<.25 then return end
+    lastHolster[player]=at
+    W.holster(player)
+end)
+
 RegisterNetEvent(NET,function(p)
     local player=tonumber(source)
     if not player or player<=0 or type(p)~="table" or type(p.request)~="string" or #p.request>96 or #p.request==0 then return end
@@ -369,15 +584,8 @@ RegisterNetEvent(NET,function(p)
         W.push(player)
     elseif operation=="sync" then ok,error=W.synchronize(player)
     elseif operation=="holster" then
-        if not current(rt) or rt.busy or rt.quarantine then ok,error=false,"Your weapon projection is not ready."
-        else
-            rt.busy=true;W.push(player)
-            CreateThread(function()
-                local result,why=native(rt,"holster","holster")
-                if current(rt) then rt.busy=false;rt.error=result and nil or why;W.push(player) end
-            end)
-        end
-    elseif operation=="equip" or operation=="unequip" or operation=="ammo" then
+        ok,error=W.holster(player)
+    elseif operation=="equip" or operation=="unequip" or operation=="ammo" or operation=="select" then
         ok,error=beginMutation(player,p,function(accepted,why)
             if not current(rt) then return end
             TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=accepted,error=why,data={state=W.view(player)}})
@@ -425,6 +633,7 @@ local function damageGate(event)
     if type(event)~="table" or event.source=="vehicle" then return nil end
     local player=tonumber(event.attacker)
     if not player or player<=0 then return nil end
+    if missionLoadout(player) then return nil end
     local rt=W.runtime[player]
     local hash=tostring(event.weaponTdbId or ""):lower()
     local managed=hashes[hash]
@@ -432,7 +641,7 @@ local function damageGate(event)
     if not rt then return false end
     local s=W.states[rt.inventory]
     if not s or not s.right then return false end
-    if (rt.busy and not rt.observing) or not rt.ready or s.ammo<=0 then return false end
+    if (rt.busy and not rt.observing) or not rt.ready or not rt.baseline or rt.baseline.rounds<=0 then return false end
     if not rt.allowedHashes or not rt.allowedHashes[hash] then return false end
     return nil
 end

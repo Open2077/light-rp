@@ -63,13 +63,25 @@ end
 
 speech("w", Config.whisperRange, function(n) return n .. " whispers" end, colors.whisper, "/w <message>  (4 m)")
 speech("s", Config.shoutRange, function(n) return n .. " shouts" end, colors.shout, "/s <message>  (45 m)")
-speech("me", Config.meRange, function(n) return "* " .. n end, colors.me, "/me <action>")
+-- /me: the action also shows over the character (op77_actionbubble)
+LightRP.command("me", { usage = "/me <action>" }, function(source, args)
+    local text = join(args)
+    if text == "" then return false end
+    if needsCharacter(source) then return nil end
+    Chat.sayNear(source, Config.meRange, "* " .. displayName(source), text, colors.me)
+    if LightRP.bubbles then LightRP.bubbles.act(source, text, { range = Config.meRange, duration = 6 }) end
+end)
 
 LightRP.command("do", { usage = "/do <description>" }, function(source, args)
     local text = join(args)
     if text == "" then return false end
     if needsCharacter(source) then return nil end
     Chat.sayNear(source, Config.meRange, "* Scene", text .. " (( " .. displayName(source) .. " ))", colors["do"])
+    if LightRP.bubbles then
+        local here = Open77.players.position(source)
+        LightRP.bubbles.act(source, text, { kind = "state", range = Config.meRange, duration = 8,
+            position = here and { x = here.x, y = here.y, z = here.z + 1.2 } })
+    end
 end)
 
 LightRP.command("try", { usage = "/try <action>" }, function(source, args)
@@ -120,6 +132,7 @@ local HELP = {
     "/me <action> · /do <scene> · /try <attempt> · /roll [max] · /pm <id> <message>",
     "/money · /bank · /pay <id> <amount> · /transfer <XXX-XXX> <amount> [note]",
     "/who · /rules · /report <message> · F1 opens your player menu.",
+    "/camchange [classic|shoulder|centered|left|right|reset] third-person camera · /cinematic [on|off] hides the HUD.",
 }
 
 LightRP.command("help", {}, function(source)

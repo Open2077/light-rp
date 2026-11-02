@@ -3,76 +3,123 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Open//77 Wardrobe</title>
+  <title>Open//77 Fitting room</title>
   <!-- Open//77 RP design system: tokens and self-hosted fonts are copies of the
        gamemode's (each WebUI origin can only load its own files). Every id and
-       state class below is driven by app.js; the markup is the design's. -->
+       state class below is driven by app.js. Layout: the catalogue on the left,
+       the character in the middle (drag to turn, wheel to zoom, camera framing
+       per category), the look and the outfits on the right. -->
   <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<main id="room" hidden>
-  <section class="wardrobe drawer" role="dialog" aria-modal="true" aria-labelledby="title">
-    <header class="head">
-      <div class="head-copy">
-        <p class="eyebrow o77-tag">FITTING ROOM</p>
-        <h1 id="title">Wardrobe</h1>
+<main id="room" class="room" hidden>
+  <!-- Catalogue -->
+  <section class="panel shop" role="dialog" aria-modal="true" aria-labelledby="title">
+    <header class="shop__head">
+      <div>
+        <p class="eyebrow"><i></i>LIGHT RP <b>/</b> FITTING ROOM</p>
+        <h1 id="title">Try it on<span>.</span></h1>
       </div>
-      <button id="close" class="icon" aria-label="Cancel changes and close"><kbd class="key">ESC</kbd></button>
+      <div class="head-meta"><span id="family" class="readout"></span><span id="saved-state" class="badge">SAVED</span></div>
     </header>
-    <div class="identity head-meta"><span id="family" class="readout"></span><span id="saved-state" class="badge">SAVED</span></div>
-
-    <nav class="tabs" aria-label="Clothing mode">
-      <button id="equipment-tab" class="selected" aria-pressed="true">Equipment</button>
-      <button id="outfits-tab" aria-pressed="false">Outfits <span>07</span></button>
-    </nav>
-
-    <div id="outfit-tools" hidden>
-      <div id="outfits" class="outfits" aria-label="Saved outfits"></div>
-      <div class="name-row"><input id="outfit-name" maxlength="48" aria-label="Outfit name" autocomplete="off"><button id="rename">Rename</button></div>
-      <div class="outfit-actions"><button id="wear">Wear outfit</button><button id="capture">Copy worn</button><button id="delete" class="danger">Reset outfit</button></div>
+    <div class="shop__body">
+      <nav id="slots" class="rail" aria-label="Clothing category"></nav>
+      <div class="browse">
+        <div class="browse__bar">
+          <div class="browse__title"><h2 id="slot-title">Headwear</h2><span id="count" class="readout"></span></div>
+          <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="search" type="search" placeholder="Search this category" aria-label="Search clothing" autocomplete="off"></label>
+          <div class="chips" role="group" aria-label="Show">
+            <button id="filter-all" class="chip selected" aria-pressed="true">All</button>
+            <button id="filter" class="chip" aria-pressed="false" aria-label="Show favorites only"><span aria-hidden="true">★</span> Favorites</button>
+          </div>
+        </div>
+        <div class="current" id="current">
+          <span id="selected-art" class="thumb empty" aria-hidden="true"></span>
+          <div class="current__copy"><small id="slot-label" class="readout">WEARING</small><strong id="selected-name">Nothing</strong></div>
+          <div class="slot-actions"><button id="inherit" class="ghost" hidden>Show worn</button><button id="remove" class="ghost">Remove</button></div>
+        </div>
+        <div id="catalogue" class="grid" role="list" aria-label="Available clothing"></div>
+      </div>
     </div>
-
-    <div id="overlay-banner" class="notice" hidden><span id="overlay-text"></span><button id="disable-overlay">Show equipment</button></div>
-
-    <nav id="slots" class="slots" aria-label="Clothing slot"></nav>
-
-    <div class="search-row">
-      <label class="search"><span aria-hidden="true">›</span><input id="search" type="search" placeholder="Search clothing" aria-label="Search clothing" autocomplete="off"></label>
-      <button id="filter" aria-pressed="false" aria-label="Show favorites only">ALL CLOTHING</button>
-    </div>
-
-    <div class="selection">
-      <span id="selected-art" class="selected-art empty" aria-hidden="true"></span>
-      <div><span class="eyebrow readout" id="slot-label">HEADWEAR</span><p id="selected-name">No item equipped</p></div>
-      <div class="slot-actions"><button id="inherit" hidden>Use equipment</button><button id="remove">Remove</button></div>
-    </div>
-    <p class="help" id="semantics">Equipment is what your character wears underneath an outfit.</p>
-
-    <div id="catalogue" class="catalogue" role="list" aria-label="Available clothing"></div>
-    <div class="pagination"><button id="previous" aria-label="Previous page">←</button><span id="count" class="readout"></span><button id="next" aria-label="Next page">→</button></div>
-
-    <div id="status" class="status" role="status" aria-live="polite">Select clothing to try it on. Save when your look is ready.</div>
-    <footer><button id="cancel" class="btn">Cancel</button><button id="save" class="btn primary" disabled>Save changes</button></footer>
   </section>
 
-  <aside class="preview">
-    <div class="preview-caption"><p class="eyebrow o77-tag">PREVIEW</p><h2>Try it on.</h2><p>Nothing is saved until you say so.</p></div>
-    <div class="preview-bottom">
-      <div id="camera-controls" class="camera-controls"><button id="front">Front</button><button id="rotate-left" aria-label="Rotate camera left">↶</button><button id="rotate-right" aria-label="Rotate camera right">↷</button><button id="back">Back</button></div>
-      <div class="shortcuts"><button id="appearance">Edit appearance</button><button id="barber">Barber</button></div>
-      <p>The world stays live around you.</p>
+  <!-- Stage: the character, with the camera controls -->
+  <div id="stage" class="stage" aria-label="Character preview">
+    <div class="stage__top"><span id="zone-label" class="readout">FULL LOOK</span><span class="stage__hint">Drag to turn · Wheel to zoom</span></div>
+    <div class="stage__dock">
+      <div id="zones" class="zones" role="group" aria-label="Camera framing">
+        <button data-zone="full" class="selected">Full</button><button data-zone="head">Head</button><button data-zone="torso">Torso</button><button data-zone="legs">Legs</button><button data-zone="feet">Feet</button>
+      </div>
+      <div id="camera-controls" class="turn" role="group" aria-label="Turn the character">
+        <button id="rotate-left" aria-label="Turn left"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+        <button id="front">Front</button><button id="back">Back</button>
+        <button id="rotate-right" aria-label="Turn right"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+      </div>
     </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <!-- The look and the outfits -->
+  <aside class="panel look" aria-label="Your look">
+    <div class="look__mode" role="tablist" aria-label="Edit">
+      <button id="equipment-tab" role="tab" class="selected" aria-selected="true">Clothes</button>
+      <button id="outfits-tab" role="tab" aria-selected="false">Outfits <span>07</span></button>
+    </div>
+    <div id="overlay-banner" class="notice" hidden><span id="overlay-text"></span><button id="disable-overlay" class="ghost">Show clothes</button></div>
+
+    <section id="look-panel" class="look__panel">
+      <p class="eyebrow"><i></i><span id="look-title">WHAT YOU WEAR</span></p>
+      <ol id="look-list" class="look__list"></ol>
+    </section>
+
+    <section id="outfit-tools" class="look__panel" hidden>
+      <p class="eyebrow"><i></i>SAVED OUTFITS</p>
+      <div id="outfits" class="outfits" aria-label="Saved outfits"></div>
+      <div class="outfit-edit">
+        <div class="name-row"><input id="outfit-name" maxlength="48" aria-label="Outfit name" autocomplete="off"><button id="rename" class="ghost">Rename</button></div>
+        <div class="outfit-actions"><button id="wear" class="ghost strong">Wear outfit</button><button id="capture" class="ghost">Copy what I wear</button><button id="delete" class="ghost danger">Reset</button></div>
+        <p class="help" id="semantics">Pick clothing on the left to edit this outfit.</p>
+      </div>
+    </section>
+
+    <footer class="look__foot">
+      <div id="status" class="status" role="status" aria-live="polite">Select clothing to try it on.</div>
+      <div class="actions"><button id="cancel" class="btn">Discard</button><button id="save" class="btn primary" disabled><span>Save look</span></button></div>
+      <div class="shortcuts"><button id="appearance" class="link">Appearance</button><button id="barber" class="link">Barber</button><button id="close" class="link" aria-label="Close the fitting room">Close <kbd>ESC</kbd></button></div>
+    </footer>
   </aside>
+
+  <!-- After a save: take the look away as inventory items (when the host offers it) -->
+  <div id="takeaway" class="sheet" hidden>
+    <section role="dialog" aria-modal="true" aria-labelledby="takeaway-title">
+      <p class="eyebrow"><i></i>LOOK SAVED</p>
+      <h2 id="takeaway-title">Take it with you?</h2>
+      <p class="sheet__lead">Keep these clothes in your bag to change into them anywhere.</p>
+      <div class="options" role="radiogroup" aria-label="How to take your look">
+        <button id="take-pieces" class="option selected" role="radio" aria-checked="true">
+          <span class="option__art" id="take-pieces-art"></span>
+          <strong>Separate pieces</strong><small id="take-pieces-text">One item per garment. Mix and match.</small>
+        </button>
+        <button id="take-outfit" class="option" role="radio" aria-checked="false">
+          <span class="option__art" id="take-outfit-art"></span>
+          <strong>Complete outfit</strong><small>One item that swaps your whole look.</small>
+        </button>
+      </div>
+      <label class="sheet__name" id="take-name-row" hidden><span class="readout">OUTFIT NAME</span><input id="take-name" maxlength="40" autocomplete="off"></label>
+      <div class="sheet__actions"><button id="take-skip" class="btn">Just wear it</button><button id="take-confirm" class="btn primary">Add to my bag</button></div>
+    </section>
+  </div>
 
   <div id="confirm" class="confirm" hidden>
     <section role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
       <h2 id="confirm-title">DISCARD CHANGES?</h2><p id="confirm-text"></p>
-      <div><button id="confirm-no">Keep editing</button><button id="confirm-yes" class="primary">Discard</button></div>
+      <div><button id="confirm-no" class="btn">Keep editing</button><button id="confirm-yes" class="btn primary">Discard</button></div>
     </section>
   </div>
 </main>
-<script src="model.js"></script><script src="app.js"></script>
+<script src="model.js"></script><script src="icons/manifest.js"></script><script src="app.js"></script>
 </body>
 </html>

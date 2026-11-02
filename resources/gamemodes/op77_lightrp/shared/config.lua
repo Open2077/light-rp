@@ -26,9 +26,11 @@ LightRpConfig = {
         menu = { id = "lightrp.playermenu", name = "Light RP: player menu", key = "F1" },
         interact = { id = "lightrp.interact", name = "Light RP: interact", key = "E" },
         lock = { id = "lightrp.vehiclelock", name = "Light RP: lock / unlock vehicle", key = "L" },
-        walk = { id = "lightrp.walkmode", name = "Light RP: walk mode (cycle)", key = "A" },
+        walk = { id = "lightrp.walkmode", name = "Light RP: walk mode (cycle)", key = "F4" },
         inventory = { id = "lightrp.inventory", name = "Light RP: inventory", key = "I" },
         hotbar = { id = "lightrp.hotbar", name = "Light RP: show quick slots (hold)", key = "TAB" },
+        weaponWheel = { id = "lightrp.weaponwheel", name = "Light RP: weapon wheel (hold)", key = "TAB" },
+        raidReady = { id = "lightrp.raid.ready", name = "Light RP: raid ready check", key = "Y" },
     },
 
     -- Inventories (shared/items.lua holds the item templates). Weights in kg.
@@ -105,11 +107,64 @@ LightRpConfig = {
             maxDistance = 30.0, groundOffset = 0.05,
         },
         blip = { icon = "shirt", sprite = "clothes", title = "Wardrobe", description = "Change your outfit and manage your saved looks." },
+        -- A fitting room is private: from these shared buckets (the city is 0) the player
+        -- changes in bucket privateBucketBase + their id, and comes back on closing.
+        privateBucketBase = 710000,
+        sharedBuckets = { 620000 }, -- the first day's arrival hall (LightRpTutorialConfig.lobby.bucket)
         spots = {
+            -- The arrival hall's boutique, back corner (lobby map, shop interior; tutorial step "dress").
+            { id = "lobby_fitting", name = "Fitting room // Arrival Hall", position = { x = 6780.0, y = 2427.0, z = 400.03 },
+              bucket = 620000, noBlip = true },
             { id = "citycenter", name = "Wardrobe // City Center",  position = { x = -629.602417, y = -391.612671, z = 8.186066 } },
             { id = "north",      name = "Wardrobe // Northside",    position = { x = -787.005127, y = 765.159668, z = 22.459297 } },
             { id = "hospital",   name = "Wardrobe // Hospital",     position = { x = -1419.849854, y = 1264.845093, z = 23.070534 } },
             { id = "lab",        name = "Wardrobe // Lab district", position = { x = 1617.371826, y = -783.505493, z = 49.979195 } },
+            -- The game's clothing stores (cyberpunk2077-map.com, category CLOTHING), placed
+            -- roughly: map pixels -> world through a fit on the five gun stores (2-18 m),
+            -- z from the 3D map's street network. To be moved onto each shop's counter in game.
+            { id = "clothing_176", name = "Clothing Store // City Center", position = { x = -1896.40, y = 39.24, z = 14.53 } }, -- site marker 176, z from the nearest road (none within 30 m)
+            { id = "clothing_179", name = "Clothing Store // Heywood 1", position = { x = -1583.147827, y = -274.218903, z = -4.055000 } }, -- site marker 179, moved onto the shop in game
+            { id = "clothing_185", name = "Clothing Store // Heywood 2", position = { x = -2427.479492, y = -669.060669, z = 7.306526 } }, -- site marker 185, moved onto the shop in game
+            { id = "clothing_202", name = "Clothing Store // Pacifica", position = { x = -2467.025879, y = -2534.797607, z = 17.349373 } }, -- site marker 202, moved onto the shop in game
+            { id = "clothing_206", name = "Clothing Store // Badlands", position = { x = 1209.411865, y = -568.905518, z = 32.995987 } }, -- site marker 206, moved onto the shop in game
+            { id = "clothing_193", name = "Clothing Store // Santo Domingo 1", position = { x = -1015.802185, y = -1559.615234, z = 25.700897 } }, -- site marker 193, moved onto the shop in game
+            { id = "clothing_210", name = "Clothing Store // Santo Domingo 2", position = { x = 252.429825, y = -1473.184082, z = 9.500000 } }, -- site marker 210, moved onto the shop in game
+            { id = "clothing_134", name = "Clothing Store // Watson 1", position = { x = -1892.363403, y = 2493.874023, z = 18.647926 } }, -- site marker 134, moved onto the shop in game
+            { id = "clothing_171", name = "Clothing Store // Watson 2", position = { x = -1120.799194, y = 1754.370972, z = 33.791740 } }, -- site marker 171, moved onto the shop in game
+            { id = "clothing_794", name = "Clothing Store // Watson 3", position = { x = -1527.275513, y = 1691.166260, z = 18.701965 } }, -- site marker 794, moved onto the shop in game
+            { id = "clothing_148", name = "Clothing Store // Westbrook 1", position = { x = -645.631348, y = 1185.507202, z = 28.607452 } }, -- site marker 148, moved onto the shop in game
+            { id = "clothing_159", name = "Clothing Store // Westbrook 2", position = { x = -219.67, y = -42.74, z = 7.00 } }, -- site marker 159, z from the nearest road (none within 30 m)
+        },
+    },
+
+    -- Places shown on the maps only (no marker, no prompt): the game's bars and clubs,
+    -- with the native sprite on the game map and a drawn pin on the 3D map
+    -- (client/core/map_places.lua). Positions from cyberpunk2077-map.com (BAR markers,
+    -- fitted on the gun stores, z from the 3D map's streets); a bar takes a venue's name
+    -- when the site's named place is within 60 m.
+    mapPlaces = {
+        enabled = true,
+        kinds = {
+            bar = { sprite = "bar", title = "Bar", mapIcon = "bar", category = "nightlife", color = "#FF3FB4", description = "Drinks, music and the night crowd." },
+            club = { sprite = "bar", title = "Club", mapIcon = "club", category = "nightlife", color = "#FF3FB4", description = "A club: dancefloor, VIP rooms, private shows." },
+        },
+        places = {
+            { id = "bar_188", kind = "bar", name = "El Coyote Cojo", district = "Heywood", position = { x = -1251.26, y = -968.78, z = 11.89 } }, -- site BAR 188, named after "El Coyote Cojo" 44 m away
+            { id = "bar_963", kind = "bar", name = "Afterlife", district = "Watson", position = { x = -1455.58, y = 1030.10, z = 22.56 } }, -- site BAR 963, named after "Afterlife" 38 m away
+            { id = "bar_167", kind = "bar", name = "Ho-Oh", district = "Watson", position = { x = -1037.37, y = 1347.92, z = 5.17 } }, -- site BAR 167, named after "Ho-Oh" 31 m away
+            { id = "bar_163", kind = "bar", name = "Riot", district = "Watson", position = { x = -1648.58, y = 1017.30, z = 23.40 } }, -- site BAR 163, named after "Riot" 23 m away
+            { id = "club_1015", kind = "club", name = "Clouds", district = "Westbrook", position = { x = -655.16, y = 800.01, z = 34.56 } }, -- site LANDMARK 1015
+            { id = "bar_208", kind = "bar", name = "Bar // Badlands", district = "Badlands", position = { x = 1605.84, y = -801.34, z = 49.64 } }, -- site BAR 208
+            { id = "bar_967", kind = "bar", name = "Bar // City Center 1", district = "City Center", position = { x = -1950.18, y = -11.69, z = 8.65 } }, -- site BAR 967
+            { id = "bar_966", kind = "bar", name = "Bar // City Center 2", district = "City Center", position = { x = -1615.74, y = 373.57, z = 8.14 } }, -- site BAR 966
+            { id = "bar_181", kind = "bar", name = "Bar // City Center 3", district = "City Center", position = { x = -1495.60, y = -370.88, z = 19.80 } }, -- site BAR 181
+            { id = "bar_803", kind = "bar", name = "Bar // Heywood 1", district = "Heywood", position = { x = -1538.38, y = -1080.26, z = 32.35 } }, -- site BAR 803
+            { id = "bar_965", kind = "bar", name = "Bar // Heywood 2", district = "Heywood", position = { x = -792.09, y = -119.44, z = 7.61 } }, -- site BAR 965
+            { id = "bar_189", kind = "bar", name = "Bar // Santo Domingo", district = "Santo Domingo", position = { x = -724.22, y = -968.04, z = 7.80 } }, -- site BAR 189
+            { id = "bar_136", kind = "bar", name = "Bar // Watson 1", district = "Watson", position = { x = -1727.87, y = 2203.50, z = 18.00 } }, -- site BAR 136
+            { id = "bar_170", kind = "bar", name = "Bar // Watson 2", district = "Watson", position = { x = -1178.05, y = 1572.26, z = 22.14 } }, -- site BAR 170
+            { id = "bar_160", kind = "bar", name = "Bar // Westbrook 1", district = "Westbrook", position = { x = -248.22, y = -75.67, z = 1.31 } }, -- site BAR 160
+            { id = "bar_964", kind = "bar", name = "Bar // Westbrook 2", district = "Westbrook", position = { x = -93.47, y = 203.55, z = 14.44 } }, -- site BAR 964
         },
     },
 
@@ -122,7 +177,7 @@ LightRpConfig = {
             {
                 id = "citycenter", name = "Job Center // City Center",
                 position = { x = -645.578979, y = -412.519470, z = 8.196312 }, heading = 56.899963,
-                jobs = { "sanitation", "scrapper", "ac_cleaner" },
+                jobs = { "sanitation", "scrapper", "delivery" },
             },
         },
         centerPrompt = "Job center",
@@ -207,6 +262,10 @@ LightRpConfig = {
 
     spawn = {
         arrival = { name = "city", label = "City Center West", position = { x = -667.14, y = -382.61, z = 9.16 }, heading = 90.0 },
+        -- Where the first day's guide leaves the newcomer in Night City (and where a
+        -- character saved inside the arrival hall wakes up). The starter studio is
+        -- still given; its door is on the map. Unset: the guide takes them into it.
+        afterTutorial = { name = "after_tutorial", label = "Night City", position = { x = -1084.080322, y = -1531.998657, z = 25.779922 }, heading = -40.989071 },
         hospital = { name = "hospital", label = "Hospital", position = { x = -1355.739746, y = 1737.886597, z = 18.200012 }, heading = 0.0 },
         health = 1.0,          -- fraction of the maximum, as the life primitives expect
         graceMs = 4000,

@@ -1,6 +1,8 @@
 -- Exercise the real server point registration, without NPCs, DB or a game.
 dofile("shared/config.lua")
+dofile("shared/events.lua")
 local noop = function() end
+RegisterNetEvent, AddEventHandler = noop, noop
 local threads, points = {}, {}
 Open77 = {}
 LightRP = {
@@ -29,12 +31,18 @@ for _, category in ipairs({
 }) do
     for _, spot in ipairs(category.config.spots) do
         local point = assert(points[category.prefix .. spot.id])
+        if spot.noBlip then
+            -- the arrival hall's fitting room: only in the hall's bucket, not on the city map
+            assert(point.blip == nil and point.bucket == spot.bucket and point.label == spot.name, "a hall point stays off the map")
+            goto continue
+        end
         assert(point.label == spot.name, "interaction keeps its branch name")
         assert(point.blip.title == category.title, "map title is shared by every branch")
         assert(point.blip.sprite == category.config.blip.sprite, "category icon is preserved")
         assert(point.blip.icon == category.config.blip.icon and point.blip.icon ~= nil, "custom SVG survives server serialization")
         assert(point.blip.description:find(spot.name, 1, true), "description identifies the branch")
         assert(point.position == spot.position, "map grouping cannot move the interaction")
+        ::continue::
     end
 end
 print("PASS: Wardrobe and Rent-a-Ride map categories, branch descriptions and unchanged interactions")

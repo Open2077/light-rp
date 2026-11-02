@@ -1,6 +1,6 @@
 # open77_wardrobe_ui
 
-This resource is the in-game wardrobe: a fitting room where players preview and save worn clothing, star favorite items, and build up to seven named outfits that other players see once saved.
+This resource is the in-game wardrobe: a fitting room where players try clothing on under a camera that frames the part being changed, save their look, star favorite items, build up to seven named outfits that other players see once saved, and (when the host gamemode offers it) take the saved look away as inventory items.
 
 - **Docs:** none yet
 - **Starts:** on its own
@@ -20,7 +20,9 @@ and action buttons; it requires no external fonts, icons or services.
 
 Every catalogue card shows the game's own inventory icon of the garment,
 rendered on the player's body family: `web/icons/<m|f>/<short-hash>.webp`,
-indexed by `web/icons/manifest.json` (1790 of the 1991 clothing records; the
+indexed by `web/icons/manifest.json` and its script twin `web/icons/manifest.js`
+(`window.WardrobeIcons`; the game's browser refuses `fetch()` on its resource
+scheme, so the page loads the script) (1790 of the 1991 clothing records; the
 rest are abstract base records such as `Items.Boots` that a player never
 sees, and get a placeholder). The icons are cut out of the vanilla item
 atlases (`base/gameplay/gui/common/icons/items/item_icons<N>.inkatlas`) with
@@ -40,9 +42,43 @@ legacy icons can be migrated with `-Apply -BackupDirectory <new backup folder>`;
 the migration backs up and verifies every image, without recompression. Keep
 backups outside `web/` so they are not included by `web/**`.
 
+## Layout and camera
+
+Three columns around the character. Left, the catalogue: a category rail
+(headwear to full body), search, **All / Favorites**, the piece worn in that
+category, and a grid of the garments' real icons that loads more as it
+scrolls. Middle, the stage: the character itself, with framing chips
+**Full / Head / Torso / Legs / Feet** and **Front / Back** plus turn buttons.
+Right, the look: **Clothes** (one row per slot, `NEW` on what this visit
+changed) or **Outfits** (seven cards with a collage of their pieces), then the
+status line, **Discard / Save look · N**, and the Appearance / Barber / Close
+shortcuts. Cards stagger in, lift on hover, sweep while a piece is put on; the
+save button counts the changes.
+
+`client/camera.lua` drives a scripted camera (`camera.script` permission):
+picking a category, or a framing chip, moves it smoothly to that shot (head
+close-up, torso, legs, feet, full body). Drag on the stage to turn around the
+character, use the wheel to zoom (0.6 to 1.55). Without the permission or the
+native API the page falls back to the perspective-arbiter orbit described below.
+
+## Taking the look away
+
+A host gamemode can switch on take-away per player (`open77_appearance` export
+`setTakeAway(player, true)` before opening the room). After a save, a sheet then
+offers **Separate pieces** (one item per garment this visit added) or **Complete
+outfit** (one named item holding the whole look), or **Just wear it**. The page
+only names the pieces and lends their labels and icons; `open77_appearance`
+checks them against what the character really wears, once per save, and raises
+the server event `open77:presentation:takeAway(player, { mode, name, family,
+pieces })`. The host answers with `takeAwayResult(player, ok, text)`, shown on
+the sheet's status line; a refusal (full bag) can be retried. Light RP turns
+them into `clothing` / `outfit` items (`op77_lightrp/server/modules/clothing.lua`)
+that put a piece on or off, or change into the outfit, through the export
+`applyLook(player, equipment, token)`.
+
 ## Player workflow
 
-Choose **Equipment** to change worn clothing, or **Outfits** to edit one of
+Choose **Clothes** to change worn clothing, or **Outfits** to edit one of
 seven visual overlays. Choose a clothing category and search its compatible
 catalogue. Selecting an item previews it on your character. Star items to find
 them under Favorites. Up to 256 favorites are remembered on this device for
@@ -51,16 +87,16 @@ storage, not the PID-scoped browser cache; a storage failure is shown instead
 of claiming the star was saved. Native file locking protects simultaneous game
 processes; compare-and-set retries also preserve edits to the same identity.
 
-**Save changes** commits all edits together. **Cancel** restores the latest
-confirmed look; the cancel button confirms when a draft exists. Escape always
+**Save look** commits all edits together. **Discard** restores the latest
+confirmed look; the button confirms when a draft exists. Escape always
 releases focus and discards an unsaved preview, including when the native pause
 handler owns the key. Closing while a save is pending cannot retract a save
 already accepted by the server.
 
-Outfits can be named, equipped, copied from worn clothing, or reset. **Hide
-slot** hides that part of an active outfit; **Use equipment** removes the outfit
-override so the worn item shows through. **Show equipment** turns the visual
-overlay off. Editing a selected outfit previews it immediately. Underwear is
+Outfits can be named, worn, copied from worn clothing (**Copy what I wear**), or
+reset. **Hide** hides that part of an active outfit; **Show worn** removes the
+outfit override so the worn item shows through. **Show clothes** turns the
+visual overlay off. Editing a selected outfit previews it immediately. Underwear is
 preserved and is not exposed as a player removal control.
 
 Selecting or removing equipment turns off the outfit overlay in the draft.
@@ -182,9 +218,10 @@ server separation, catalogue allowlisting, bounded lists and batched validation.
 Run it with Lua 5.4 or later from the repository root.
 
 `tests/browser.cjs` exercises the real HTML/CSS/JavaScript in headless Chromium
-with a mocked game bridge and the audited clothing catalogue. It covers searching,
-preview, named outfit creation, hide, save payload, timeout, discard confirmation,
-and usable save controls at 720p/1080p. Install Playwright in a developer tools
+with a mocked game bridge and the audited clothing catalogue (`tests/fixture.cjs`).
+It covers searching, preview, camera framing per category, named outfit creation,
+hide, save payload, the take-away sheet, timeout, discard confirmation, and usable
+save controls at 720p/1080p. Install Playwright in a developer tools
 location; `PLAYWRIGHT_MODULE` can select its module and `OP77_TEST_BROWSER` can
 select an installed Chromium/Edge executable. Run from the repository root.
 This verifies page behavior, not native rendering or network synchronization;

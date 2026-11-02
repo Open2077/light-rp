@@ -193,7 +193,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Constitutional_Arms_Unity",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/e/ec/Unity_Default.png/revision/latest/scale-to-width-down/256?cb=20240523112006&format=original",
       "sourceImageName": "Unity Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "8b651b6eba094692ddd30cbfff483b6867e428d16eb0b8b26553301f5b4384f1",
       "bytes": 28244
     },
@@ -753,7 +753,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Darra_Polytechnic_DR-5_Nova",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/0/02/Nova_Default.png/revision/latest/scale-to-width-down/256?cb=20231030162742&format=original",
       "sourceImageName": "Nova Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "a8a31b552dc9ac7487a2d494c3a6cb838a9d18ca554ae600a1e034e3c64aedb3",
       "bytes": 32572
     },
@@ -817,7 +817,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Malorian_Overture",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/8/8d/Overture_Default.png/revision/latest/scale-to-width-down/256?cb=20231030165325&format=original",
       "sourceImageName": "Overture Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "c0db5380eda9f4cf6e3ad4973a50bbf24d2dda39fa00f3d3c54cb3d76d30764b",
       "bytes": 29251
     },
@@ -961,7 +961,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Arasaka_TKI-20_Shingen",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/e/ec/Shingen_Default.png/revision/latest/scale-to-width-down/256?cb=20231030214750&format=original",
       "sourceImageName": "Shingen Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "a462d1fbb7e205c736d81297d808ade6821124559f9d500e35b710902617bc3b",
       "bytes": 27077
     },
@@ -1025,7 +1025,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Darra_Polytechnic_DS1_Pulsar",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/3/38/Pulsar_Default.png/revision/latest/scale-to-width-down/256?cb=20231030184814&format=original",
       "sourceImageName": "Pulsar Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "11492c7c5bf9145eca65bf543bfa2a4fbf9a24d2d2ef5cdf03eaae88c38c40a3",
       "bytes": 27148
     },
@@ -1121,7 +1121,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Militech_M221_Saratoga",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/f/f5/Saratoga_Default.png/revision/latest/scale-to-width-down/256?cb=20231030205237&format=original",
       "sourceImageName": "Saratoga Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "4a6524da7e3633fb304da3fce12163da33dcba0a7515d35d7d1980ced33d696d",
       "bytes": 27453
     },
@@ -1281,7 +1281,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Budget_Arms_Carnage",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/b/ba/Carnage_Default.png/revision/latest/scale-to-width-down/256?cb=20231031114857&format=original",
       "sourceImageName": "Carnage Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "a401a2d4d877020afe72928f0dbb10a52c9f7851e889bb8cf453775f2e295a4c",
       "bytes": 21169
     },
@@ -1297,7 +1297,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Constitutional_Arms_M2038_Tactician",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/c/c9/Tactician_Default.png/revision/latest/scale-to-width-down/256?cb=20231031135235&format=original",
       "sourceImageName": "Tactician Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "e68433504867a119d11595e207f95634d18645981dd4b343b005a667ba6427da",
       "bytes": 15201
     },
@@ -1345,7 +1345,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Kang_Tao_L-69_Zhuo",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/e/eb/Zhuo_Default.png/revision/latest/scale-to-width-down/256?cb=20231031134310&format=original",
       "sourceImageName": "Zhuo Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "0017e8f112d3cd56e06d3966557b707a4b2370387644ee878d496e389e8d2d65",
       "bytes": 24728
     },
@@ -1361,7 +1361,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Militech_Crusher_(2077)",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/e/e0/Crusher_Default.png/revision/latest/scale-to-width-down/256?cb=20231031120038&format=original",
       "sourceImageName": "Crusher Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "d1cdc199b0a48bc9cb68aeee97713d7512e9db926169bfc684f50c548461562e",
       "bytes": 29712
     },
@@ -1537,7 +1537,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Arasaka_HJSH-18_Masamune",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/f/f0/Masamune_Default.png/revision/latest/scale-to-width-down/256?cb=20231031165616&format=original",
       "sourceImageName": "Masamune Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "e45a4e70bf82a37b9835da7762e2c12e2f461c8bf6f8cd27f86308bc18dff1da",
       "bytes": 24013
     },
@@ -1681,7 +1681,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Militech_M251s_Ajax",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/f/f3/Ajax_Default.png/revision/latest/scale-to-width-down/256?cb=20231019232340&format=original",
       "sourceImageName": "Ajax Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "902c8ef4e18aa021f5bf584cf4b45d700fa04e8df21e4a1e16b0c1ac4c230bce",
       "bytes": 21410
     },
@@ -1713,7 +1713,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Nokota_D5_Copperhead",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/0/06/Copperhead_Default.png/revision/latest/scale-to-width-down/256?cb=20231031144730&format=original",
       "sourceImageName": "Copperhead Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "6b33f34f9b27b690e69b51d9e94a37fe7a1fe0b9b3cf6232e2a877c1e65f9c59",
       "bytes": 17506
     },
@@ -1729,7 +1729,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Nokota_D5_Sidewinder",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/0/0e/Sidewinder_Default.png/revision/latest/scale-to-width-down/256?cb=20231031152538&format=original",
       "sourceImageName": "Sidewinder Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "12cd50f076e03f0a45c0cbb64a3d4dadf03b2a8af46798dd2ae7cf5335106b31",
       "bytes": 23678
     },
@@ -1793,7 +1793,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Tsunami_Kyubi",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/6/6e/Kyubi_Default.png/revision/latest/scale-to-width-down/256?cb=20231031170917&format=original",
       "sourceImageName": "Kyubi Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "ea0605c947541f378f264e395c45e53fcac599302259308862e95a36ee4a2e92",
       "bytes": 21465
     },
@@ -1825,7 +1825,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Constitutional_Arms_M2067_Defender",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/f/f9/Defender_Default.png/revision/latest/scale-to-width-down/256?cb=20231031181614&format=original",
       "sourceImageName": "Defender Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "d19249bdb860a2a63ee7f8807c3e2142a3722af34aa22f09d1f1cd36682a5d3d",
       "bytes": 23857
     },
@@ -1953,7 +1953,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Militech_M-179_Achilles",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/f/f3/Achilles_Default.png/revision/latest/scale-to-width-down/256?cb=20231031193315&format=original",
       "sourceImageName": "Achilles Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "19ab731f7709b4cb641a38d7bba813f0b6105f74dde27e4f3e079941e494c05d",
       "bytes": 19043
     },
@@ -1969,7 +1969,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Rostovi%C4%87_Kolac",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/1/13/Kolac_Default.png/revision/latest/scale-to-width-down/256?cb=20231031140841&format=original",
       "sourceImageName": "Kolac Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "366930fabcadc6ad946957bc4323928f4b2bd4f5f57a46f235b1bc249fb542a2",
       "bytes": 20504
     },
@@ -2113,7 +2113,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Techtronika_SPT32_Grad",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/b/b2/Grad_Default.png/revision/latest/scale-to-width-down/256?cb=20231031213928&format=original",
       "sourceImageName": "Grad Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "0dac49a97064efc7ca7bd71a7add3b2466e7b4a52a4b4e6446c268c6856cedf9",
       "bytes": 15346
     },
@@ -2145,7 +2145,7 @@
       "sourcePage": "https://cyberpunk.fandom.com/wiki/Tsunami_Nekomata",
       "sourceImage": "https://static.wikia.nocookie.net/cyberpunk/images/8/8c/Nekomata_Default.png/revision/latest/scale-to-width-down/256?cb=20231031211502&format=original",
       "sourceImageName": "Nekomata Default.png",
-      "integrationStatus": "catalogued_not_enabled",
+      "integrationStatus": "implemented",
       "sha256": "77316d08169fc00047120904c31983f7542f37747b5b69cec5e66156145d377f",
       "bytes": 19095
     },

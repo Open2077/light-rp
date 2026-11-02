@@ -44,7 +44,7 @@ export interface ThreadCache {
   loadingMore: boolean;
   /** Bumped on every server page so views can tell a prepend from an append. */
   rev: number;
-  lastOp: "load" | "prepend" | "append";
+  lastOp: "load" | "prepend" | "append" | "update";
 }
 
 /** A paged list of screams: a feed ("pulse", "crew", "hot", "#tag") or a profile's ("@handle"). */
@@ -126,6 +126,7 @@ interface Store {
   threadLoading(threadId: number, more: boolean): void;
   threadLoaded(p: ThreadPayload): void;
   messageArrived(p: MessagePayload): void;
+  messageUpdated(message: Message): void;
   setUnread(threadId: number, unread: number): void;
   addPending(p: PendingMessage): void;
   pendingSent(tempId: number, serverId: number): void;
@@ -419,6 +420,14 @@ export const useStore = create<Store>()((set, get) => ({
         pending: st.pending.filter((x) => x.serverId !== message.id),
         seenToday: countToday(st.seenToday, [message], st.dayStart),
       };
+    });
+  },
+
+  messageUpdated(message) {
+    set((st) => {
+      const cache = st.threadCache[message.threadId];
+      if (!cache || !cache.messages.some((m) => m.id === message.id)) return {};
+      return { threadCache: { ...st.threadCache, [message.threadId]: { ...cache, messages: cache.messages.map((m) => (m.id === message.id ? message : m)), rev: cache.rev + 1, lastOp: "update" } } };
     });
   },
 

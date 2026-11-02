@@ -30,7 +30,7 @@ local function insideHall(p)
         and p.z >= L.min.z and p.z <= L.max.z
 end
 local function cityArrival()
-    local a = LightRpConfig.spawn.arrival
+    local a = LightRpConfig.spawn.afterTutorial or LightRpConfig.spawn.arrival
     return { name = a.name, position = a.position, heading = a.heading, bucket = 0 }
 end
 local function hallArrival(player,step)
@@ -130,6 +130,11 @@ local function change(player, s, step, status)
     push(player)
     -- an implant already in place (a restart, a ripperdoc) passes its step at once
     if status=="active" and C.steps[step].kind=="neuralink" and implantReady(player) and following[step] then
+        return change(player, s, following[step], "active")
+    end
+    -- dressed already (a second first day, clothes from the creator): nothing to change
+    if status=="active" and C.steps[step].kind=="dress" and following[step]
+        and LightRP.wardrobe and LightRP.wardrobe.isDressed(player) then
         return change(player, s, following[step], "active")
     end
     return true
@@ -272,6 +277,9 @@ local function objectiveOf(player, s, def)
     elseif def.kind == "shop" then
         local spot = byId(LightRpShops and LightRpShops.locations, L.shop)
         return spot and { position = spot.position, label = def.prompt, kind = "interact", interaction = "shop." .. L.shop, radius = 2.5 }
+    elseif def.kind == "dress" then
+        local spot = byId(LightRpConfig.wardrobes and LightRpConfig.wardrobes.spots, def.wardrobe)
+        return spot and { position = spot.position, label = def.prompt, kind = "interact", interaction = "wardrobe." .. spot.id, radius = 2.0 }
     elseif def.kind == "practice" then
         local point, id = site(def.stage)
         return point and { position = point.position, label = point.label, kind = "interact", interaction = id, radius = 2.5 }
@@ -342,14 +350,19 @@ local function pause(player, s)
 end
 
 -- The end of the hall: the checkpoint first, then the door. The newcomer is
--- given a starter studio and wakes up in it (server/modules/housing_starter.lua);
--- without one, the door opens on the city's arrival. A refused placement leaves
--- the city step with the player still in the hall; /tutorial retries it.
+-- given a starter studio (server/modules/housing_starter.lua). With a city point
+-- after the guide (spawn.afterTutorial) they arrive there and find the studio's
+-- door on the map; without one they wake up inside it; with no studio either,
+-- the door opens on the city's arrival. A refused placement leaves the city step
+-- with the player still in the hall; /tutorial retries it.
 local function depart(player, s)
     local ok, why = change(player, s, "outro", "active")
     if not ok then return false, why end
     local starter = LightRP.housing and LightRP.housing.starter
-    if starter then
+    if starter and LightRpConfig.spawn.afterTutorial then
+        local home, reason = starter.grant(player)
+        if not home then LightRP.log("tutorial: no starter studio for %d (%s)", player, tostring(reason)) end
+    elseif starter then
         local home, reason = starter.moveIn(player)
         if home then return true end
         LightRP.log("tutorial: no starter studio for %d (%s), going to the city", player, tostring(reason))
@@ -416,6 +429,10 @@ RegisterNetEvent(LightRpEvents.net.tutorial,function(payload)
 end)
 
 function Tutorial.onInventoryOpened(player) advance(player,"inventory",following.inventory) end
+-- A look saved in a fitting room (wardrobe.lua relays open77_appearance): dressed or not.
+function Tutorial.onDressed(player, dressed)
+    if dressed then advance(player,"dress",following.dress) end
+end
 -- op77_neuralink installed the implant (neuralink_bridge.lua relays it).
 function Tutorial.onNeuralinkInstalled(player)
     local s = active(player)

@@ -36,6 +36,7 @@ local function release()
     opened, opening = false, false
     TriggerEvent("open77:wardrobe:visibility", false)
     generation = generation + 1
+    WardrobeCamera.stop()
     if type(Open77.camera.clearOrbit) == "function" then Open77.camera.clearOrbit() end
     if savedPerspective then Open77.perspective.set(savedPerspective); savedPerspective = nil end
     -- Restoration is performed by the owners from their newest committed
@@ -109,7 +110,8 @@ RegisterNetEvent("open77:presentation:uiState", function(value)
     if ok then wardrobeHeld = true end
     if not ok or token ~= generation or not playable() then release(); return end
     baseline = value
-    value.orbitAvailable = type(Open77.camera.orbit) == "function"
+    value.orbitAvailable = type(Open77.camera.orbit) == "function" or WardrobeCamera.available()
+    value.framingAvailable = WardrobeCamera.available()
     local perspective = Open77.perspective.state()
     savedPerspective = perspective and perspective.requested or Open77.perspective.get()
     Open77.perspective.set("tps")
@@ -119,6 +121,18 @@ RegisterNetEvent("open77:presentation:uiState", function(value)
     local focused = page:setFocus(true, true)
     if not focused then release();return end
     TriggerEvent("open77:wardrobe:visibility", true)
+    -- The fitting-room camera frames what is being edited; without it the
+    -- third-person orbit still turns around the character.
+    CreateThread(function()
+        Wait(0)
+        if token ~= generation or not opened or not value.framingAvailable then return end
+        local ok, why = WardrobeCamera.start(orbit)
+        if token ~= generation or not opened then WardrobeCamera.stop(); return end
+        if not ok then
+            print("[open77_wardrobe_ui] fitting-room camera unavailable: " .. tostring(why))
+            send("wardrobe:framing", { available = false })
+        end
+    end)
     -- Each resume has a separate instruction budget as well as the 1024-value
     -- event limit. Yield between compact batches; a full catalogue is roughly
     -- two thousand records and must never monopolize one resource callback.
@@ -154,6 +168,7 @@ RegisterNetEvent("open77:presentation:uiState", function(value)
         end
         if token == generation and opened and page then
             send("wardrobe:catalogue",{items=chunk,complete=true})
+            print("[open77_wardrobe_ui] catalogue sent: " .. tostring(offset + #chunk) .. " record(s) in the last page")
         end
     end)
 end)
@@ -181,6 +196,9 @@ RegisterNetEvent("open77:presentation:commitResult", function(id, ok, reason, va
         -- the server record handlers retain current committed restoration.
         applyPreview(value)
     else send("wardrobe:saveFailed", {reason=reason or "save_failed"}) end
+end)
+RegisterNetEvent("open77:presentation:takeAwayResult", function(ok, text)
+    if opened then send("wardrobe:takeAwayResult", {ok=ok == true, text=type(text)=="string" and text or nil}) end
 end)
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
@@ -233,11 +251,40 @@ AddEventHandler("onClientResourceStart", function(name)
     page:on("wardrobe:orbit", function(value)
         if not opened or type(value) ~= "table" or type(value.degrees) ~= "number" then return end
         orbit=math.max(-180,math.min(180,value.degrees));orbitPending=true;lastActivity=now()
+        if WardrobeCamera.active() then WardrobeCamera.orbit(orbit);orbitPending=false;return end
         if type(Open77.camera.orbit)=="function" then
             local ok, reason=Open77.camera.orbit(orbit)
             orbitPending=not ok
             if not ok then status("Camera: " .. tostring(reason),"info") end
         end
+    end)
+    page:on("wardrobe:pageError", function(value)
+        if type(value) == "table" then print("[open77_wardrobe_ui] page error: " .. tostring(value.message) .. " (line " .. tostring(value.line) .. ")") end
+    end)
+    page:on("wardrobe:focus", function(value)
+        if not opened or type(value) ~= "table" or type(value.zone) ~= "string" then return end
+        lastActivity=now()
+        WardrobeCamera.focus(value.zone)
+    end)
+    page:on("wardrobe:zoom", function(value)
+        if not opened or type(value) ~= "table" or type(value.delta) ~= "number" then return end
+        WardrobeCamera.zoom(math.max(-3,math.min(3,value.delta)))
+    end)
+    -- Take the saved look away as inventory items. The server checks every
+    -- piece against what the character really wears; the host gamemode grants.
+    page:on("wardrobe:takeAway", function(value)
+        if not opened or waiting or type(value) ~= "table" then return end
+        if value.mode ~= "pieces" and value.mode ~= "outfit" then return end
+        local pieces={}
+        for _, piece in ipairs(type(value.pieces)=="table" and value.pieces or {}) do
+            if #pieces>=9 then break end
+            if type(piece)=="table" and type(piece.slot)=="string" and type(piece.record)=="string" then
+                pieces[#pieces+1]={slot=piece.slot,record=piece.record,label=type(piece.label)=="string" and piece.label:sub(1,64) or nil,
+                    icon=type(piece.icon)=="string" and piece.icon:sub(1,64) or nil}
+            end
+        end
+        lastActivity=now()
+        TriggerServerEvent("open77:presentation:takeAway",{mode=value.mode,name=type(value.name)=="string" and value.name:sub(1,40) or nil,pieces=pieces})
     end)
     page:on("wardrobe:appearance", function(value)
         if not opened or waiting then return end
@@ -276,7 +323,7 @@ AddEventHandler("onClientResourceStart", function(name)
                     waiting=nil
                     send("wardrobe:saveFailed",{reason="save_timeout"})
                     -- Keep the draft; retry is revision-checked by authority.
-                elseif type(Open77.camera.orbit)=="function" then
+                elseif not WardrobeCamera.active() and type(Open77.camera.orbit)=="function" then
                     -- Idempotent while owned. A temporary engine-camera takeover
                     -- can reset the native rig after the initial request succeeds.
                     local ok=Open77.camera.orbit(orbit)

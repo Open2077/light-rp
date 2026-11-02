@@ -19,6 +19,7 @@ import { ProfileEdit } from "@/apps/social/ProfileEdit";
 import { PingsView } from "@/apps/social/PingsView";
 import { NetHeat } from "@/apps/social/NetHeat";
 import { CallScreen } from "@/call/CallScreen";
+import { Holo3D } from "@/components/Holo3D";
 import { IncomingCall } from "@/call/IncomingCall";
 
 function viewKey(v: View): string {
@@ -80,7 +81,9 @@ export function WindowHost() {
   if (call && callView) {
     return (
       <div className="tilt tilt--call" key={`call-${call.id}-${call.phase === "incoming" ? "in" : "on"}`}>
-        <div className="win-enter nl-hit">{call.phase === "incoming" ? <IncomingCall call={call} /> : <CallScreen call={call} />}</div>
+        <Holo3D cut={22} depth={7} tone="ok" className="nl3d--fill">
+          <div className="win-enter nl-hit">{call.phase === "incoming" ? <IncomingCall call={call} /> : <CallScreen call={call} />}</div>
+        </Holo3D>
       </div>
     );
   }
@@ -89,9 +92,11 @@ export function WindowHost() {
   if (!top) return null;
   return (
     <div className="tilt tilt--window">
-      <div className={`win-enter win-enter--${dir} nl-hit`} key={viewKey(top)}>
-        {render(top, stack.length > 1)}
-      </div>
+      <Holo3D cut={22} depth={8} className="nl3d--fill">
+        <div className={`win-enter win-enter--${dir} nl-hit`} key={viewKey(top)}>
+          {render(top, stack.length > 1)}
+        </div>
+      </Holo3D>
     </div>
   );
 }

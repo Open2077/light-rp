@@ -12,6 +12,7 @@ AddEventHandler("onClientResourceStart", function(name)
     if LightRpBoardGamesClient then LightRpBoardGamesClient.start() end
     LightRpBranding.apply()
     if LightRpSafezones then LightRpSafezones.start() end
+    if LightRpMissionEditor then LightRpMissionEditor.start() end
 
     local key = Config.keys.menu
     local ok, effective = RegisterKeyMapping(key.id, key.name, key.key, function()

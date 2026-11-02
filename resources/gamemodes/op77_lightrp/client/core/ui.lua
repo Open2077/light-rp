@@ -65,6 +65,17 @@ local function log(format, ...)
 end
 Ui.log = log
 
+-- A loading screen covers the world (the game's own, the shell's, or op77_loadscreen's):
+-- world keys (the weapon wheel, the quick slots) must not act behind it.
+function Ui.loadingScreen()
+    if Open77.screen and type(Open77.screen.isLoading) == "function" then
+        local ok, loading = pcall(Open77.screen.isLoading)
+        if ok and loading == true then return true end
+    end
+    local ok, active = pcall(function() return exports.op77_loadscreen:isActive() end)
+    return ok and active == true
+end
+
 -- Send to the page; buffered until it announces itself.
 function Ui.send(name, payload)
     if Ui.page == nil then return false end
@@ -83,6 +94,7 @@ local MENU_KEYS = { "escape", "enter", "backspace", "up", "down", "left", "right
 function Ui.setMenuOpen(open)
     if Ui.page == nil then return end
     if open and LightRpSafezones and LightRpSafezones.active then return end
+    if open and LightRpMissionEditor and LightRpMissionEditor.active then return end
     if open and LightRpMedical and LightRpMedical.isActive() then return end
     if open and (Ui.dialogs.tutorial or Ui.dialogs.support or Ui.dialogs.housing or Ui.dialogs.customization) then return end
     if open and LightRpAnimations then LightRpAnimations.close() end
@@ -203,12 +215,14 @@ function Ui.create()
     end
     Ui.page = page
     if LightRpSafezones then LightRpSafezones.bind(page) end
+    if LightRpMissionEditor then LightRpMissionEditor.bind(page) end
     if LightRpCreator then LightRpCreator.bind(page) end
     if LightRpTutorial then LightRpTutorial.bind(page) end
     if LightRpSupport then LightRpSupport.bind(page) end
     if LightRpArmamentClient then LightRpArmamentClient.bind(page) end
     if LightRpGrenadesClient then LightRpGrenadesClient.bind(page) end
     if LightRpHotbar then LightRpHotbar.bind(page) end
+    if LightRpWeaponWheel then LightRpWeaponWheel.bind(page) end
     if LightRpMedical then LightRpMedical.bind(page) end
     syncVoiceHud() -- hidden until the authoritative character state is ready
     if LightRpActions then LightRpActions.bind(page) end
@@ -308,6 +322,7 @@ RegisterNetEvent(E.net.notice, function(payload) Ui.send(E.page.notice, payload)
 RegisterNetEvent(E.net.result, function(payload) Ui.send(E.page.result, payload) end)
 RegisterNetEvent(E.net.shop, function(payload) Ui.send(E.page.shop, payload) end)
 RegisterNetEvent(E.net.garage, function(payload) Ui.send(E.page.garage, payload) end)
+RegisterNetEvent(E.net.mission, function(payload) Ui.send(E.page.mission, payload) end)
 RegisterNetEvent(E.net.dealership, function(payload) Ui.send(E.page.dealership, payload) end)
 
 for _, event in ipairs({ "open77:appearance:confirmed", "open77:appearance:cancelled" }) do

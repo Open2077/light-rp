@@ -5,6 +5,7 @@ export const PAGE_EVENTS = {
   customization: "lightrp:ui:customization",
   armament: "lightrp:ui:armament",
   safezones: "lightrp:ui:safezones",
+  missionEditor: "lightrp:ui:missioneditor",
   support: "lightrp:ui:support",
   animationsAction: "lightrp:ui:animations:action",
   animationsState: "lightrp:ui:animations:state",
@@ -20,6 +21,7 @@ export const PAGE_EVENTS = {
   dialogClose: "lightrp:ui:dialog:close", // Lua -> page: { kind } close that dialog
   creator: "lightrp:ui:creator",
   tutorial: "lightrp:ui:tutorial",
+  jobRun: "lightrp:ui:jobrun", // Lua -> page: JobRunLive
   freecam: "lightrp:ui:freecam", // page -> Lua: { operation: "toggle" }; Lua -> page: FreecamState
   characterEditor: "lightrp:ui:character:editor", // Lua -> page: native editor handoff { active, error? }
   state: "lightrp:ui:state",
@@ -32,6 +34,8 @@ export const PAGE_EVENTS = {
   interact: "lightrp:ui:interact",
   inventory: "lightrp:ui:inventory",
   shop: "lightrp:ui:shop",
+  mission: "lightrp:ui:mission", // Lua -> page: MissionUpdate (live board)
+  raid: "lightrp:ui:raid", // Lua -> page: RaidState (server/modules/mission_chimera.lua)
   actionStart: "lightrp:ui:activity:start",
   actionStarted: "lightrp:ui:activity:started",
   actionFinish: "lightrp:ui:activity:finish",
@@ -112,7 +116,18 @@ export interface ServerInfo { name: string; playersOnline: number; maxPlayers: n
 
 /** Everything the server knows about this player that the UI shows. Sent whole on
  *  connect, then as partial patches (every top-level key optional). */
+/** What the character wears, slot by slot (server/modules/clothing.lua): a record or false. */
+export type WornSlot = "Head" | "Face" | "InnerChest" | "OuterChest" | "Legs" | "Feet" | "Outfit";
+/** piece: worn alone; outfit: the worn outfit's own; over: a piece over the outfit; hidden: an outfit piece hidden. */
+export type WornSource = "piece" | "outfit" | "over" | "hidden";
+export interface WornState {
+  ready: boolean; family?: "m" | "f"; slots: Partial<Record<WornSlot, string | false>>; changing?: boolean;
+  sources?: Partial<Record<WornSlot, WornSource>>; hidden?: Partial<Record<WornSlot, string>>;
+  /** The outfit worn as a layer under the clothes (the Outfit slot). */
+  outfit?: { label: string; image?: string };
+}
 export interface UiState {
+  worn?: WornState;
   tutorial?: TutorialState;
   server: ServerInfo;
   character: CharacterState;
@@ -127,7 +142,72 @@ export interface UiState {
   staff: StaffState;
   locations: Array<{ name: string; label: string }>;
   online: Array<{ id: number; name: string }>;
+  party?: PartyState;
+  missionQueue?: MissionQueueState;
+  /** A fixer gig taken and not yet running (server/modules/fixers.lua); false: none. */
+  fixerGig?: FixerGigState | false;
 }
+export interface FixerGigState {
+  id: number; title: string; location: string; fixer: string; state: "accepted" | "countdown";
+  crew: number; min: number; max: number; owner: boolean; here: number; meetInMs?: number; launchInMs?: number;
+}
+
+/* ── Missions (server/modules/missions.lua) and squads (server/modules/parties.lua) ── */
+export interface MissionDifficulty {
+  id: string; label: string; blurb: string; payout: number; minutes: number;
+  min: number; max: number; tier: number; locked: boolean; tagged: number;
+  requires?: string; cleared?: number; // the difficulty to complete first at this point; how often this one was completed
+}
+export interface MissionLobbyMember { id: number; name: string; citizen: string; tier: number; host: boolean; squad?: string }
+export interface MissionBoard {
+  id?: string; difficulty: string; members: MissionLobbyMember[]; min: number; max: number;
+  state: "open" | "countdown"; countdownMs?: number; host?: string;
+}
+export interface MissionNearby { id: number; name: string; citizen: string; tier: number; inSquad: boolean; mine: boolean; invited: boolean }
+export interface MissionDialogPayload {
+  kind: "mission"; session: string;
+  point: { id: string; title: string; type: string; location: string; description: string };
+  me: { id: number; name: string; citizen: string; tier: number; reputation: number; nextTier?: number };
+  difficulties: MissionDifficulty[]; boards: Record<string, MissionBoard>;
+  tagged?: { lobby: string; difficulty: string; host: boolean }; taggedElsewhere?: string;
+  nearby: MissionNearby[];
+}
+export interface MissionUpdate { session: string; state?: MissionDialogPayload; closed?: boolean }
+export interface PartyMember { id: number; name: string; leader: boolean; tier: number }
+export interface PartyState {
+  id?: string; leader?: number; members?: PartyMember[]; pending?: Array<{ id: number; name: string }>;
+  invites: Array<{ party: string; from: number; fromName: string; expiresInMs: number }>; maxSize: number;
+}
+export type MissionQueueState = false
+  | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean }
+  | { running: true; instance: string; title: string; difficulty: string; difficultyId: string; endsInMs: number; members: number; squad: MissionSquadMember[]; objective?: MissionObjective };
+/** An authored mission's progress for this operator (server/modules/mission_engine.lua view()). Countdowns are from the push. */
+export interface MissionObjective {
+  kind: "eliminate" | "waves"; phase: "staging" | "fight" | "intermission" | "wave" | "done";
+  enemiesLeft: number; kills: number; lives: number; startsInMs?: number;
+  wave?: number; waves?: number; nextWaveInMs?: number;
+  checkpoints?: Array<{ label: string; reached: boolean; required: boolean }>;
+  outOfBoundsMs?: number; respawnInMs?: number; spectating?: boolean;
+  /** The kit choice (like the raid's ready check): the list while it can be changed (briefing, down),
+   *  this operator's pick, and during the briefing whether they said ready. */
+  loadouts?: Array<{ id: string; label: string; blurb: string }>; loadout?: string; canChoose?: boolean;
+  ready?: boolean; readyCount?: number; squadSize?: number;
+}
+/** The raid (server/modules/mission_chimera.lua view()), plus one-shot fields. */
+export interface RaidState {
+  instance?: string; phase: "ready" | "launch" | "placing" | "intro" | "fight" | "victory" | "wipe" | "ended";
+  title?: string; difficulty?: string; difficultyId?: string; result?: "victory" | "failed";
+  operators?: Array<{ id: number; name: string; ready: boolean; down: boolean; loaded?: boolean }>;
+  loaded?: boolean; arena?: { x: number; y: number; z: number }; bossId?: string;
+  readyEndsInMs?: number; launchInMs?: number; readyKey?: string;
+  boss?: { healthPercent: number; phase: string; label: string; enraged: boolean; repairing?: boolean; repairInMs?: number; target?: number; targetName?: string };
+  adds?: number; lives?: number; respawnInMs?: number; out?: boolean; fightSeconds?: number; enrageInMs?: number;
+  announce?: { title: string; body: string; tone: "info" | "warning" | "danger" | "success"; at: number };
+  intro?: { boss: { x: number; y: number; z: number }; durationMs: number; difficulty: string; operators: number };
+  loadouts?: Array<{ id: string; label: string; blurb: string }>; loadout?: string;
+}
+/** One operator in the squad frame of a running mission. `state`: alive, down (waiting for a revive), dead, recovering. */
+export interface MissionSquadMember { id: number; name: string; citizen: string; host: boolean; health: number; maxHealth: number; armor: number; state: "alive" | "down" | "dead" | "recovering" }
 export type UiStatePatch = Partial<UiState>;
 
 /** The free camera, as client/core/freecam.lua publishes it. `keys` are the effective bindings. */
@@ -211,18 +291,24 @@ export interface InventorySnapshot {
 export interface InventoryDialogPayload { kind: "inventory"; left: InventorySnapshot; right: InventorySnapshot; toggleKey?: string }
 export interface GrenadeState { ready: boolean; busy: boolean; revision: number; selected?: string; label?: string; count: number; error?: string }
 export type ArmamentHand = "right" | "left";
-export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "ammo" | "sync";
+export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "ammo" | "sync" | "select";
+/** A serialized weapon in the pockets, as the weapon wheel lists it. */
+export interface ArsenalWeapon {
+  slot: number; instanceId: string; name: string; label: string; class?: string; ammo?: string; ammoLabel?: string;
+  rounds?: number; image?: string; dual?: boolean; hand?: "right" | "left";
+}
 export interface ArmamentWeapon {
   instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;
-  magazine?: number; capacity?: number;
+  magazine?: number; capacity?: number; ammo?: string; class?: string; dual?: boolean;
 }
 export interface ArmamentState {
   ready: boolean; busy: boolean; revision: number;
   right?: ArmamentWeapon; left?: ArmamentWeapon;
-  ammo: { pistol: { remaining: number; label: string } };
+  holstered?: boolean; arsenal?: ArsenalWeapon[];
+  ammo: { pistol: { remaining: number; label: string; item?: string } } & Record<string, { remaining: number; label: string; item?: string } | undefined>;
   error?: string;
 }
-export interface ArmamentArgs { slot?: number; instanceId?: string; hand?: ArmamentHand; baseRevision?: number }
+export interface ArmamentArgs { slot?: number; instanceId?: string; hand?: ArmamentHand; baseRevision?: number; unarmed?: boolean }
 export interface ArmamentPending {
   operation: Exclude<ArmamentOperation, "state">; args: ArmamentArgs; mutation: string;
   uncertain: boolean;
@@ -245,27 +331,50 @@ export interface ShopUpdate {
 export interface JobOffer {
   name: string; label: string; tag: string; grades: number; entryGrade: { label: string; salary: number };
   recruitment?: { image?: string; icon?: string; environment?: string; headline?: string; description?: string; steps?: string[] };
-  route?: { label: string; reward: number; stops: number; estimate: string; description: string };
-  work?: { raw:string; product:string; collectCount:number; collectWeight:number; inputCount:number; outputCount:number; price:number };
+  // variable: a route drawn per order (the courier): `reward` is the minimum, the pay follows the distance.
+  route?: JobRoutePreview;
+  work?: JobWorkPreview;
 }
+/** A job's work orders (server/modules/job_runs.lua Runs.preview). `remote`: the
+ *  player menu can collect one anywhere; otherwise only at a job center desk. */
+export interface JobRoutePreview {
+  label: string; reward: number; stops: number; estimate: string; description: string; variable?: boolean; orders?: { min: number; max: number };
+  remote?: boolean; lifetimeMinutes?: number;
+}
+/** A job's free item work (server/modules/job_work.lua Work.preview). */
+export interface JobWorkPreview {
+  raw:string; product:string; rawItem?:string; productItem?:string; collectCount:number; collectWeight:number; inputCount:number; outputCount:number; price:number;
+}
+/** A page of the job guide (shared/jobs.lua `guide`). */
+export interface JobGuidePage { title: string; body: string; demo?: string; tips?: string[] }
 export interface JobWorkState {
   active:boolean; job?:string; kind?:"collect"|"process"|"sell"; label?:string; icon?:string;
   busy?:boolean; cycles?:number; weight?:number; maxWeight?:number;
   raw?:string; product?:string; rawCount?:number; productCount?:number; earned?:number;
 }
+export type JobStopKind = "work" | "lift" | "return" | "pickup" | "dropoff";
+export interface JobRunStop { kind: JobStopKind; label: string; place: string; order?: number; state: "done" | "now" | "todo" }
 export interface JobRunState {
-  active: boolean; id?: string; job?: string; label?: string; reward?: number;
+  active: boolean; id?: string; job?: string; jobLabel?: string; label?: string; reward?: number;
   index?: number; total?: number; busy?: boolean; working?: boolean; icon?: string; hint?: string;
-  objective?: { label: string; kind: "work" | "lift" | "return"; position: { x: number; y: number; z: number }; radius: number };
+  orders?: number; carried?: number; distanceKm?: number; // courier runs
+  /** Every stop of the route with its state; the run's time left when the snapshot was sent. */
+  stops?: JobRunStop[]; expiresInMs?: number;
+  objective?: { label: string; place?: string; kind: JobStopKind; position: { x: number; y: number; z: number }; radius: number };
 }
+/** Live readout of the tracker (client/core/job_runs.lua): metres to the stop, the player menu key. */
+export interface JobRunLive { distance: number | false; menuKey: string; /** the GPS waypoint really routes to the stop */ gps?: boolean }
 export interface JobCenterDialogPayload { kind: "jobcenter"; spot: { id: string; name: string }; jobs: JobOffer[]; paycheckMinutes: number }
 export interface PersonalVehicle {
-  id: string; key: string; label: string; category: string; status: "stored" | "out";
+  id: string; key: string; label: string; category: string; status: "stored" | "out" | "impound";
   garageId: string; garageName: string; health: number; canRetrieve: boolean; canStore: boolean; hint?: string;
+  /** Out (or lost): may be sent to the impound. At the impound: may be recovered here. */
+  canImpound?: boolean; canRecover?: boolean; impound?: { reason: string; fee: number };
 }
 export interface GarageDialogPayload {
   kind: "garage"; session: string; nextRequest: number;
   spot: { id: string; name: string }; vehicles: PersonalVehicle[]; maxOutside: number;
+  impound?: { name: string; fees: { requested: number; lost: number; restart: number } };
 }
 export interface GarageUpdate {
   session: string; request?: number; ok?: boolean; text?: string; closed?: boolean; state?: GarageDialogPayload;
@@ -274,6 +383,8 @@ export interface DealershipOffer extends RentalStockItem { description?: string 
 export interface DealershipDialogPayload {
   kind: "dealership"; session: string; nextRequest: number;
   dealer: { id: string; name: string; subtitle?: string }; garage: { id: string; name: string };
+  /** Bought here, the vehicle is driven out to this bay (else it waits at `garage`). */
+  delivery?: { name: string };
   stock: DealershipOffer[]; money: { currency: string; cash: number; bank: number };
 }
 export interface DealershipUpdate {
@@ -295,7 +406,7 @@ export interface FuelDialogPayload {
   money: { currency: string; cash: number; bank: number };
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
-export type DialogPayload = RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean };
+export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean };
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -305,7 +416,11 @@ export interface ActiveRental {
 }
 export interface RentalState { active?: ActiveRental }
 
-export interface JobState { name: string; label: string; tag: string; grade: number; gradeLabel: string; salary: number; paycheckMinutes?: number }
+export interface JobState {
+  name: string; label: string; tag: string; grade: number; gradeLabel: string; salary: number; paycheckMinutes?: number;
+  // How the job works, for the job guide and F1 → My job (server/modules/jobs.lua).
+  guide?: JobGuidePage[]; run?: JobRoutePreview; work?: JobWorkPreview; art?: { image?: string; icon?: string };
+}
 export interface GangState { name: string; label: string; tag: string; color?: string; grade: number; gradeLabel: string }
 
 export interface IdentityFields { firstName: string; lastName: string; birthDate?: string; origin?: string; story?: string }
@@ -314,10 +429,20 @@ export interface IdentityFields { firstName: string; lastName: string; birthDate
  *  handled by the client Lua itself because they open another package's native
  *  screen: character.appearance.open and character.wardrobe.open. */
 export type UiAction =
+  | { type: "raid.ready" }
+  | { type: "raid.loadout"; id: string }
+  | { type: "mission.loadout"; id: string }
+  | { type: "mission.ready" }
+  | { type: "mission.tag" | "mission.tagGroup"; session: string; difficulty: string }
+  | { type: "mission.untag" | "mission.launch" | "mission.close"; session: string }
+  | { type: "party.invite" | "party.kick" | "party.promote"; target: number }
+  | { type: "party.accept" | "party.decline"; party?: string }
+  | { type: "party.leave" }
   | { type: "customization.open"; vehicle: string; garage: string }
   | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
   | { type: "dealership.close"; session: string }
-  | { type: "garage.retrieve" | "garage.store"; session: string; request: number; vehicle: string }
+  | { type: "garage.retrieve" | "garage.store" | "garage.impound"; session: string; request: number; vehicle: string }
+  | { type: "garage.recover"; session: string; request: number; vehicle: string; pay?: "cash" | "bank" }
   | { type: "garage.close"; session: string }
   | { type: "shop.checkout"; session: string; request: number; revision: number; mode: "buy" | "sell"; pay: "cash" | "bank"; lines: Array<{ name: string; count: number }> }
   | { type: "shop.close"; session: string }
@@ -340,13 +465,18 @@ export type UiAction =
   | { type: "fuel.refresh"; spot: string }
   | { type: "inventory.open"; target?: string }
   | { type: "inventory.close" }
+  | { type: "clothing.refresh" }
+  | { type: "clothing.takeOff"; slot: WornSlot; label?: string; icon?: string }
+  | { type: "clothing.show"; slot: WornSlot }
+  | { type: "clothing.makeOutfit"; name?: string }
   | { type: "inventory.move"; from: { inventory: string; slot: number }; to: { inventory: string; slot: number }; count: number }
   | { type: "inventory.use"; slot: number }
   | { type: "inventory.drop"; slot: number; count: number }
   | { type: "inventory.give"; slot: number; count: number }
   | { type: "jobs.apply"; spot: string; job: string }
   | { type: "jobs.quit" }
-  | { type: "jobs.start" }
+  | { type: "jobs.start"; from?: "menu" }
+  | { type: "jobs.gps" }
   | { type: "jobs.locate"; job:string; stage:"collect"|"process"|"sell" }
   | { type: "jobs.cancel" }
   | { type: "staff.tp"; target: "me" | number; location: string }

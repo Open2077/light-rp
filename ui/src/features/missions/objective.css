@@ -1,0 +1,44 @@
+/* Authored mission HUD: objective tracker (left), out-of-zone warning (centre), respawn chip. */
+.mission-objective { position: absolute; left: 28px; top: 120px; width: 290px; padding: 10px 14px 9px; background: #0d0d10e0; border-left: 2px solid #ffcc00;
+  box-shadow: 0 10px 30px #0008; color: #f2f0ea; font: 13px/1.4 var(--font-core); pointer-events: none; }
+.mission-objective.is-waves { border-left-color: #d65bff; }
+.mission-objective header { display: flex; align-items: center; gap: 6px; font: 10px var(--font-mono); letter-spacing: .22em; color: rgba(242, 240, 234, .55); }
+.mission-objective strong { display: block; margin-top: 6px; font: 400 20px/1.1 var(--font-display); letter-spacing: .03em; color: #ffcc00; }
+.mission-objective.is-waves strong { color: #e7a6ff; }
+.mission-objective p { margin: 4px 0 0; font: 12px var(--font-mono); letter-spacing: .04em; color: #f2f0ea; }
+.mission-objective__waves { display: flex; gap: 3px; margin-top: 8px; }
+.mission-objective__waves i { flex: 1; height: 4px; background: rgba(242, 240, 234, .14); }
+.mission-objective__waves i.is-done { background: #8be04e; }
+.mission-objective__waves i.is-live { background: #d65bff; animation: objective-pulse 1s ease-in-out infinite; }
+.mission-objective ul { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.mission-objective li { display: flex; align-items: center; gap: 6px; font: 12px var(--font-core); color: #f2f0ea; }
+.mission-objective li svg { color: #22d8e2; flex: none; }
+.mission-objective li.is-reached { color: rgba(242, 240, 234, .45); text-decoration: line-through; }
+.mission-objective li.is-reached svg { color: #8be04e; }
+.mission-objective li em { margin-left: auto; font: 9px var(--font-mono); letter-spacing: .12em; font-style: normal; color: rgba(242, 240, 234, .4); }
+.mission-objective footer { display: flex; justify-content: space-between; margin-top: 9px; padding-top: 6px; border-top: 1px solid rgba(242, 240, 234, .1);
+  font: 10px var(--font-mono); letter-spacing: .14em; color: rgba(242, 240, 234, .55); }
+@keyframes objective-pulse { 50% { opacity: .35; } }
+
+.mission-oob { position: absolute; inset: 0; pointer-events: none; z-index: 40; }
+.mission-oob__vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(227, 48, 58, .42) 100%);
+  animation: oob-pulse 1s ease-in-out infinite; }
+.mission-oob__panel { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 14px 34px 12px; background: #120709e8; border: 1px solid #e3303a; box-shadow: 0 0 40px rgba(227, 48, 58, .35); color: #ffd7d9; text-align: center; }
+.mission-oob__panel svg { color: #ff4d55; }
+.mission-oob__panel strong { font: 400 22px/1.1 var(--font-display); letter-spacing: .06em; color: #ff4d55; }
+.mission-oob__panel span { font: 12px var(--font-mono); letter-spacing: .08em; }
+.mission-oob__panel b { margin-top: 4px; font: 400 54px/1 var(--font-display); color: #fff; text-shadow: 0 0 18px #e3303a; }
+@keyframes oob-pulse { 50% { opacity: .55; } }
+
+.mission-respawn { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); display: flex; gap: 12px; align-items: baseline; padding: 8px 20px;
+  background: #0d0d10e8; border-top: 2px solid #ffcc00; pointer-events: none; color: #f2f0ea; }
+.mission-respawn strong { font: 400 18px var(--font-display); letter-spacing: .08em; color: #ffcc00; }
+.mission-respawn span { font: 12px var(--font-mono); letter-spacing: .06em; }
+.mission-respawn.is-out { border-top-color: #e3303a; }
+.mission-respawn.is-out strong { color: #e3303a; }
+
+/* The kit choice of an authored mission (MissionObjectiveHud KitPicker): the raid's ready-check look;
+   while down it sits above the DOWN banner. */
+.mission-kits h2 { margin-top: 6px; }
+.mission-kits.is-down { top: auto; bottom: calc(22% + 56px); } /* above the DOWN banner */

@@ -44,12 +44,15 @@ AddEventHandler("onAnimationPlaybackFailed",function(_,id,reason)
     if token then TriggerServerEvent(E.net.workFinish,{token=token,status="cancelled"}) end
 end)
 RegisterNetEvent(E.net.workGps,function(p)
+    if type(p)=="table" and p.clear then LightRpInteract.setLocal("work.gps",nil); return end
     if type(p)~="table" or type(p.position)~="table" or type(p.id)~="string" then return end
-    local blip=LightRpInteract.setLocal("work.gps",{position=p.position,radius=p.radius,prompt=p.label,
-        blip={icon=p.icon,sprite="objective",title=p.label,routable=true,description="Press E to work. Escape stops the loop."}},function()
+    LightRpInteract.setLocal("work.gps",{position=p.position,radius=p.radius,prompt=p.label,
+        blip={icon=p.icon,sprite="objective",title=p.label,routable=false,description="Press E to work. Escape stops the loop."}},function()
         if not LightRpUi.promptActive and not LightRpUi.menuOpen and not LightRpActions.isActive() then TriggerServerEvent(E.net.interact,p.id) end
     end)
-    if blip then LightRpInteract.trackBlip(blip) end
+    -- the route is the native waypoint: it does not depend on the pin's icon budget
+    local ok,why=Open77.blips.setWaypoint({x=p.position.x,y=p.position.y,z=p.position.z})
+    if not ok then LightRpUi.log("work GPS refused: %s",tostring(why)) end
 end)
 AddEventHandler("onClientResourceStop",function(name)
     if name~=GetCurrentResourceName() then return end

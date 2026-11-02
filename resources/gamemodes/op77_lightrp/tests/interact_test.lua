@@ -89,7 +89,11 @@ Wait = function() coroutine.yield() end
 local lastPress
 TriggerServerEvent = function(event, id) lastPress = { event, id } end
 RegisterKeyMapping = function() return true, "E" end
+local exported = {}
+exports = function(name, fn) exported[name] = fn end
 dofile("client/core/interact.lua")
+assert(type(exported.InteractSetLocal) == "function", "InteractSetLocal export")
+exports = nil -- the custom-icon cases below install their own exports table
 local build = handlers[LightRpEvents.net.interactions]
 build(serverList)
 local point = LightRpInteract.points[1]
@@ -113,7 +117,17 @@ assert(coroutine.resume(proximity))
 assert(markerCreates == createsBeforeTick, "persistent markers must not be recreated each tick")
 local oldMarker, oldBlip = point.marker, point.blip
 build(serverList)
-assert(markers[oldMarker] == nil and blips[oldBlip] == nil, "rebuild removes old handles")
+assert(markers[oldMarker] ~= nil and blips[oldBlip] ~= nil and LightRpInteract.points[1] == point,
+    "an identical list keeps the point and its handles (no teardown every few seconds while driving)")
+local changed = {}
+for i, entry in ipairs(serverList) do
+    local copy = {}
+    for key, value in pairs(entry) do copy[key] = value end
+    changed[i] = copy
+end
+changed[1].label = tostring(changed[1].label) .. " (moved)"; changed[1].rev = (tonumber(changed[1].rev) or 0) + 1000
+build(changed)
+assert(markers[oldMarker] == nil and blips[oldBlip] == nil, "a changed entry is rebuilt: its old handles are removed")
 build({})
 assert(next(markers) == nil and next(blips) == nil)
 
@@ -171,11 +185,24 @@ assert(buildBlip({}).sprite == "objective" and #attempts == 1, "missing sprites 
 assert(buildBlip({ sprite = 99 }).sprite == 99 and #attempts == 1, "numeric sprite IDs remain supported")
 assert(buildBlip({ sprite = "objective" }).sprite == "objective" and #attempts == 1)
 accepted.objective = nil
+build({}) -- an identical entry would now keep its working blip: start from no point
 assert(buildBlip({ sprite = "objective" }) == nil and #attempts == 1, "do not retry the same failed fallback")
 assert(buildBlip({ sprite = "unsupported_sprite" }) == nil and #attempts == 2)
 build({})
 assert(next(markers) == nil and next(blips) == nil, "blip rebuilds must clean up previous handles")
-print("PASS: rental 3D marker, interaction/range, cleanup, legacy points and food/neutral blip resolution")
+-- a job point: listed to and pressed by its job's players only
+local myJob = "unemployed"
+LightRP.jobs = { get = function() return { name = myJob } end }
+LightRP.interaction("work.sanitation.bins", { position = desk.position, radius = 2, jobs = { "sanitation" }, prompt = "Work" })
+local function listed(id) for _, e in ipairs(serverList) do if e.id == id then return true end end end
+assert(not listed("work.sanitation.bins"), "no job, no point")
+now = now + 1000; pressed = nil; authoritativePosition = desk.position; serverPress("work.sanitation.bins")
+assert(pressed == nil, "a hidden point cannot be pressed")
+myJob = "sanitation"; LightRP.sendInteractions(1); assert(listed("work.sanitation.bins"), "hired: the point shows")
+now = now + 1000; serverPress("work.sanitation.bins"); assert(pressed == "work.sanitation.bins")
+myJob = "unemployed"; LightRP.sendInteractions(1); assert(not listed("work.sanitation.bins"))
+LightRP.removeInteraction("work.sanitation.bins"); LightRP.jobs = nil
+print("PASS: rental 3D marker, interaction/range, cleanup, legacy points and food/neutral blip resolution, job-only points")
 
 -- Service-owned custom blips must never be tracked/removed using LightRP's
 -- native owner. Exercise public rebuilds and private objectives together.
@@ -219,3 +246,48 @@ assert(blips[LightRpInteract.points[1].blip], "stopped provider cannot break int
 build({})
 assert(next(custom)==nil and next(blips)==nil)
 print("PASS: custom icon options, grouped position, service GPS/cleanup ownership, private objectives, old-client/provider fallback")
+
+-- The 3D city map (op77_map3d) mirrors every point that has a blip, when it runs.
+local mapBlips, mapState = {}, "running"
+GetResourceState = function(name) assert(name == "op77_map3d"); return mapState end
+GetCurrentResourceName = function() return "op77_lightrp" end
+function exports.open77_icons:create() return nil, "svg_client_required" end
+exports.op77_map3d = {}
+function exports.op77_map3d:addBlip(def) mapBlips["op77_lightrp:" .. def.id] = def; return "op77_lightrp:" .. def.id end
+function exports.op77_map3d:removeBlip(id) assert(mapBlips[id], "removes only what it added"); mapBlips[id] = nil; return true end
+dofile("client/core/map_icons.lua")
+build({
+    { id = "shop.gunstore_2", position = desk.position, ring = false, blip = { icon = "crosshair", sprite = "guns", color = "#FFCC00",
+        title = "Rapid Fire", map = "smg", mapCategory = "weapons", mapColor = "#FF7A1A" } },
+    { id = "home.unit1", position = desk.position, ring = false, blip = { icon = "house", color = "#FFCC00B3", title = "Home" } },
+    { id = "mission.raid", position = desk.position, ring = false, blip = { sprite = "objective", title = "Raid" } },
+    { id = "shop.247", position = desk.position, ring = false, blip = { icon = "shopping-basket", title = "24/7" } },
+    { id = "talk", position = desk.position, ring = false },
+})
+local home, mission, shop = mapBlips["op77_lightrp:home.unit1"], mapBlips["op77_lightrp:mission.raid"], mapBlips["op77_lightrp:shop.247"]
+assert(home and home.icon == "home" and home.category == "housing" and home.color == "#FFCC00" and home.label == "Home")
+assert(mission and mission.icon == "mission" and mission.category == "mission")
+assert(shop and shop.icon == "store" and shop.category == "service")
+-- a gun store draws its weapon family, in its own category and colour (the map only)
+local guns = mapBlips["op77_lightrp:shop.gunstore_2"]
+assert(guns and guns.icon == LightRpMapIcons.smg and guns.icon:sub(1, 4) == "<svg" and #guns.icon < 16384, "drawn SMG icon")
+assert(guns.category == "weapons" and guns.color == "#FF7A1A" and guns.label == "Rapid Fire")
+for _, name in ipairs({ "pistol", "smg", "shotgun", "rifle", "sniper" }) do
+    local svg = LightRpMapIcons[name]
+    assert(svg and svg:find('viewBox="0 0 24 24"', 1, true) and svg:find("currentColor", 1, true), name .. " icon")
+end
+assert(mapBlips["op77_lightrp:talk"] == nil, "a point without a blip stays off the map")
+mapBlips = {}
+serverEvents["op77_map3d:ready"]()
+assert(mapBlips["op77_lightrp:home.unit1"] and mapBlips["op77_lightrp:shop.247"], "a (re)started map gets every point again")
+LightRpInteract.setLocal("job.current", { position = desk.position, prompt = "Drop the parcel", blip = { icon = "package", title = "Work order" } })
+assert(mapBlips["op77_lightrp:job.current"].category == "job" and mapBlips["op77_lightrp:job.current"].pulse)
+LightRpInteract.setLocal("job.current", nil)
+assert(mapBlips["op77_lightrp:job.current"] == nil, "a finished objective leaves the map")
+build({})
+assert(next(mapBlips) == nil, "a new list replaces the old points on the map")
+mapState = "stopped"
+build({ { id = "shop.247", position = desk.position, ring = false, blip = { icon = "shopping-basket" } } })
+assert(#LightRpInteract.points == 1, "no map running: interactions still work")
+build({})
+print("PASS: op77_map3d mirror (icons, drawn gun-store icons, categories, colour, re-sync on ready, private objectives, cleanup, map stopped)")

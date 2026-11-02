@@ -1,6 +1,6 @@
 /* Status: the identity card. Name, copyable number, Night City time and
-   weather, today's activity, contacts online. */
-import { useMemo, useState, type ReactNode } from "react";
+   weather, the neural sync meters, today's activity, contacts online. */
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Activity, Copy, Fingerprint, MessageSquare, Phone, PhoneMissed, Signal, Users } from "lucide-react";
 import { EMPTY, useStore } from "@/store/store";
 import { Window } from "@/components/Window";
@@ -8,6 +8,7 @@ import { Avatar, Btn, SectionTitle } from "@/components/ui";
 import { WeatherIcon } from "@/components/Weather";
 import { copyText, pad2, startOfDay } from "@/lib/format";
 import { unreadTotal } from "@/shell/menu";
+import { useSync } from "@/shell/InfoCard";
 import { play } from "@/fx/sound";
 
 export function StatusApp({ canBack }: { canBack: boolean }) {
@@ -68,6 +69,9 @@ export function StatusApp({ canBack }: { canBack: boolean }) {
           </div>
         </div>
 
+        <SectionTitle>Neural sync</SectionTitle>
+        <NeuralSync linked={!!line} online={online} total={contacts.length} />
+
         <SectionTitle>Today</SectionTitle>
         <div className="stats">
           <Stat icon={<MessageSquare size={20} />} value={today.messages} label="Messages" />
@@ -97,6 +101,38 @@ function Stat({ icon, value, label, alert }: { icon: ReactNode; value: number; l
       <span className="stat__icon">{icon}</span>
       <span className="stat__val mono">{value}</span>
       <span className="stat__label label">{label}</span>
+    </div>
+  );
+}
+
+/** Link meters: the cortex link follows the card's sync, the bandwidth the
+ * contacts online; latency and ICE drift on their own. Cosmetic, alive. */
+function NeuralSync({ linked, online, total }: { linked: boolean; online: number; total: number }) {
+  const sync = useSync();
+  const [drift, setDrift] = useState([0, 0, 0]);
+  useEffect(() => {
+    const t = window.setInterval(() => setDrift((d) => d.map((v) => Math.max(-6, Math.min(6, v + (Math.random() - 0.5) * 3)))), 1600);
+    return () => window.clearInterval(t);
+  }, []);
+  const k = linked ? 1 : 0.12;
+  const meters: [string, number][] = [
+    ["Cortex link", sync],
+    ["Bandwidth", 64 + (total ? (online / total) * 26 : 8) + drift[0]!],
+    ["Synaptic latency", 88 + drift[1]! * 0.8],
+    ["Firewall (ICE)", 74 + drift[2]!],
+  ];
+  return (
+    <div className="nsync">
+      {meters.map(([label, v], i) => {
+        const val = Math.max(0, Math.min(99, Math.round(v * k)));
+        return (
+          <div key={label} className="nsync__row" style={{ ["--i" as string]: i }}>
+            <span className="nsync__label label">{label}</span>
+            <span className="nsync__track"><span className="nsync__fill" style={{ transform: `scaleX(${val / 100})` }} /><span className="nsync__ticks" aria-hidden /></span>
+            <span className="nsync__val mono"><i aria-hidden />{val}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -13,6 +13,24 @@ yaw). It sells 15 foods/drinks using the existing inventory illustrations and
 uses the native `food` blip (`ServicePointFoodVariant`). Invalid/missing icons
 fall back to a neutral `objective` blip, never a vehicle icon.
 
+Five gun stores, one weapon family each, with the ammunition their guns fire.
+- Every vendor is `Character.std_rcr_gunsmith_01`, with the native `guns` blip (`ServicePointGunsVariant`).
+- Prices are in €$, and every firearm is buy only.
+
+| Location | Template · name | Position, yaw | Weapons (€$) | Ammunition (buy / sell) |
+|---|---|---|---|---|
+| `gunstore_1` | `gun_store` · Night City Arms | (-907.38, -708.11, 8.24), -32.43 | Lexington 1,200 · Unity 1,400 · Nue 1,800 · Overture 2,500 · DR5 Nova 2,800 | handgun ×30 75 / 20 |
+| `gunstore_2` | `smg_store` · Rapid Fire | (-1450.03, 1318.02, 119.06), 176.76 | DS1 Pulsar 2,600 · M221 Saratoga 3,000 · TKI-20 Shingen 4,200 | handgun ×30 75 / 20 |
+| `gunstore_3` | `shotgun_store` · Twelve Gauge | (-455.55, 1454.15, 37.38), -133.10 | Crusher 2,800 · M2038 Tactician 3,400 · Carnage 3,900 · L-69 Zhuo 4,600 | shells ×12 90 / 22 |
+| `gunstore_4` | `rifle_store` · Frontline Surplus | (-1773.53, 225.23, 43.73), -126.17 | D5 Copperhead 4,200 · M251s Ajax 4,800 · Kyubi 5,200 · HJSH-18 Masamune 5,600 · D5 Sidewinder 6,400 · M2067 Defender 8,500 | rifle ×30 110 / 27 |
+| `gunstore_5` | `marksman_store` · Long Shot | (1675.64, -776.98, 49.83), -8.28 | Kolac 5,200 · M-179e Achilles 6,800 · SPT32 Grad 8,500 · Nekomata 10,500 | rifle ×30 110 / 27, sniper ×10 150 / 37 |
+
+How a firearm purchase works:
+- Each firearm gets its server serial at checkout. The serial is registered in the same SQL transaction as the payment and the delivery, through `armament.prepare`, called by `Inv.trade`.
+- A failed commit charges nothing, delivers nothing and registers no serial.
+- Shops never buy firearms back: they only take plain items.
+- Boxes are unpacked into loose rounds (see [armament](armament.md)).
+
 ## Templates and locations
 
 All configuration is **server-only**, in `server/config/shops.lua`.

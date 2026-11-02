@@ -47,6 +47,7 @@ local REASONS = {
     database_unavailable = "The shop cannot reach the database. Trading is unavailable.",
     database_error = "The checkout could not be saved. Check your balance before retrying.",
     transaction_unavailable = "Secure checkout is unavailable. Contact the server owner.",
+    firearm_refused = "The firearm could not be registered to you. Nothing was charged.",
 }
 local function explain(reason) return REASONS[reason] or ("Checkout refused: " .. tostring(reason)) end
 
@@ -228,7 +229,8 @@ CreateThread(function()
                 LightRP.interaction("shop." .. spot.id, { position = spot.position, radius = Config.range, bucket = spot.bucket or 0,
                     label = spot.name, prompt = "Browse shop", key = "E", promptHeight = 1.1, ring = false,
                     blip = spot.blip and { icon = spot.blip.icon, color = spot.blip.color, size = spot.blip.size,
-                        sprite = spot.blip.sprite, title = spot.name, description = spot.blip.description } })
+                        sprite = spot.blip.sprite, title = spot.name, description = spot.blip.description,
+                        map = spot.blip.map, mapCategory = spot.blip.mapCategory, mapColor = spot.blip.mapColor } })
                 LightRP.log("shop %s: NPC %s linked to template %s", spot.id, npcId, spot.template)
             else LightRP.log("shop %s CLOSED: vendor spawn failed (%s)", spot.id, tostring(reason or npcId)) end
         else LightRP.log("shop %s CLOSED: duplicate location or unknown template %s", spot.id, spot.template) end

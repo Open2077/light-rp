@@ -48,18 +48,27 @@ LightRP={db=Db,module=function(name,t) LightRP[name]=t;return t end,
     interaction=function(id,p) points[id]=p end,
     dialog=function(_,kind,p) assert(kind=="dealership");dialog=p end}
 for _,v in ipairs(LightRpConfig.vehicles.catalog) do LightRP.vehicles.byKey[v.key]=v end
-Open77={players={getLifeState=function() return {phase=alive and "alive" or "dead"} end},vehicles={
-    getProperties=noop,setProperties=noop,getPlayerSeat=function() return seat end}}
+-- The world for the delivery bay: vehicles really created, keys handed over.
+local world, nextVehicle, keysGiven = {}, 100, {}
+Open77={players={getLifeState=function() return {phase=alive and "alive" or "dead"} end,
+        position=function() return {x=0,y=0,z=0,bucket=0} end},vehicles={
+    getProperties=noop,setProperties=function() return true end,getPlayerSeat=function() return seat end,setEngine=noop,
+    all=function() local list={};for id,v in pairs(world) do list[#list+1]={id=id,position=v.position} end;return list end,
+    create=function(def) nextVehicle=nextVehicle+1;world[nextVehicle]=def;return nextVehicle end,
+    get=function(id) return world[id] end,remove=function(id) world[id]=nil;return true end}}
 CreateThread=function(fn) threads[#threads+1]=fn end;Wait=function() coroutine.yield() end
 GetPlayers=function() return {1} end;GetPlayerName=function() return "Test" end
 AddEventHandler=noop;TriggerClientEvent=function(_,_,p) messages[#messages+1]=p end
 dofile("server/modules/inventory.lua");dofile("server/modules/economy.lua");dofile("server/modules/garages.lua");dofile("server/modules/dealerships.lua")
+LightRP.keys={lock=function() return true end,give=function(vehicleId,playerId) keysGiven[vehicleId]=playerId;return true end}
+LightRP.inventory.attachPersonalTrunk=function() return true end
+local function gps() for i=#messages,1,-1 do if messages[i].position and messages[i].title then return messages[i] end end end
 local M,G,D=LightRP.money,LightRP.garage,LightRP.dealership
 LightRP.inventory.onCharacterLoaded(1,owner);M.onCharacterLoaded(1,owner);G.onDatabaseReady()
-assert(points["garage.citycenter"] and points["dealership.citycenter"])
-assert(points["garage.citycenter"].blip.icon=="warehouse" and points["dealership.citycenter"].blip.icon=="car-front")
+assert(points["garage.citycenter"] and points["dealership.ncmotors"] and not points["dealership.citycenter"], "the test dealership is gone")
+assert(points["garage.citycenter"].blip.icon=="warehouse" and points["dealership.ncmotors"].blip.icon=="car-front")
 assert(next(owned)==nil,"no starter vehicle")
-local function open() assert(D.open(1,"citycenter"));return dialog end
+local function open() assert(D.open(1,"ncmotors"));return dialog end
 local function buy(extra)
     local p={session=dialog.session,request=dialog.nextRequest,key="maimai",pay="cash"}
     for k,v in pairs(extra or {}) do p[k]=v end
@@ -67,15 +76,24 @@ local function buy(extra)
     local message=messages[#messages];if message and message.state then dialog=message.state end
     return ok,id,p
 end
-open();assert(#dialog.stock==15 and dialog.garage.id=="citycenter")
+open();assert(#dialog.stock==15 and dialog.garage.id=="citycenter" and dialog.delivery.name:find("Delivery bay"))
 local ok,id,p=buy({price=1,total=-999,playerId=2})
 assert(ok and owned[id] and owned[id].identifier==owner.identifier and M.get(1).cash==11000 and committed==1)
+-- Night City Motors drives it out to the delivery bay at once, keys handed over, GPS to it.
+local bay=LightRpDealerships.locations[1].delivery
+local route=gps()
+assert(route and not route.garage and route.position==bay.position and route.vehicle and world[route.vehicle], "driven out to the bay, GPS on it")
+assert(world[route.vehicle].position==bay.position and world[route.vehicle].yaw==bay.heading and keysGiven[route.vehicle]==1)
+assert(messages[#messages].text:find("Delivery bay") and messages[#messages].ok)
 assert(D.buy(1,p) and committed==1,"duplicate request must not charge twice")
 assert(not buy({request=999}) and committed==1,"sequence validation")
 assert(not buy({key="made-up"}) and committed==1,"model whitelist")
 assert(not buy({pay="credit"}) and committed==1,"payment whitelist")
 assert(not buy({key="thrax"}) and M.get(1).cash==11000,"insufficient funds")
 ok,id=buy({key="thrax",pay="bank"});assert(ok and M.get(1).bank==58000 and owned[id].model=="thrax")
+-- A personal vehicle is already out: this one waits at the garage, and the GPS points there.
+route=gps();assert(route.garage and route.position==LightRP.garage.location("citycenter").position, "stored and routed to the garage")
+assert(messages[#messages].ok and messages[#messages].text:find("could not be driven out"))
 local previous=LightRpDealerships.locations[1].stock[1].price
 LightRpDealerships.locations[1].stock[1].price=previous+1
 assert(not buy(),"changed quote refused")
@@ -83,7 +101,7 @@ LightRpDealerships.locations[1].stock[1].price=previous
 near=false;assert(not buy());near=true
 alive=false;assert(not buy());alive=true
 seat={vehicleId=20};assert(not buy());seat=nil
-owner.status="draft";assert(not D.open(1,"citycenter"));owner.status="active"
+owner.status="draft";assert(not D.open(1,"ncmotors"));owner.status="active"
 open();tick=tick+LightRpDealerships.sessionMs+1;assert(not buy(),"expired quote");open()
 failDb=true;assert(not buy() and M.get(1).cash==11000 and committed==2,"failed DB never debits");failDb=false
 yieldDb=true
@@ -111,4 +129,4 @@ open();D.onCharacterLoaded(1);assert(messages[#messages].closed,"character swap 
 local oldLimit=LightRpGarages.maxOwned;LightRpGarages.maxOwned=5
 open();assert(not buy({pay="bank"}) and committed==5,"ownership cap");LightRpGarages.maxOwned=oldLimit
 G.onDatabaseReady();assert(next(owned) and committed==5,"reload never purchases again")
-print("PASS: dealership + real economy/garage; server pricing, atomic payment, replay, concurrency, errors, disconnect, lifecycle and no starter cars")
+print("PASS: dealership + real economy/garage; delivery bay (keys, GPS) and garage fallback; server pricing, atomic payment, replay, concurrency, errors, disconnect, lifecycle and no starter cars")

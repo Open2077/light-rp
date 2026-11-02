@@ -1,5 +1,6 @@
 /* Toasts (top right) + the mock control strip. */
-.toasts { position: absolute; right: 40px; top: 34px; width: 430px; display: flex; flex-direction: column; gap: 12px; z-index: 45; perspective: 1200px; }
+/* below the minimap (op77_map3d draws it top right, about 330 px tall at 1080p) */
+.toasts { position: absolute; right: 40px; top: 372px; width: 430px; display: flex; flex-direction: column; gap: 12px; z-index: 45; perspective: 1200px; }
 .toast {
   position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px 16px 14px; border-radius: 10px; overflow: hidden;
   color: var(--ink);

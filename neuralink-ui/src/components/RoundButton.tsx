@@ -44,6 +44,7 @@ export function RoundButton({
           <circle cx="50" cy="50" r="47" />
         </svg>
       </span>
+      <span className="rb__rim" aria-hidden><i /><i /><i /><i /></span>
       <span className="rb__disc">
         <span className="rb__icon">{icon}</span>
       </span>

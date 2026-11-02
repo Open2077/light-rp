@@ -66,6 +66,7 @@ local function exempt(player,l)
  if not validCharacter(player)then return true end
  if l.cause=="script"and not C.downedScriptWeapons[l.weapon]then return true end
  if LightRP.tutorial and LightRP.tutorial.deathPoint and LightRP.tutorial.deathPoint(player)then return true end
+ if LightRP.missions and LightRP.missions.handlesDeath and LightRP.missions.handlesDeath(player)then return true end
  return false
 end
 local function attach(player)

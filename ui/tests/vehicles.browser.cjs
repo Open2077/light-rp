@@ -71,8 +71,35 @@ const garage = {kind:'garage',session:'test-garage',nextRequest:1,maxOutside:1,
       await page.screenshot({path:path.join(output,`garage-${width}.png`),animations:'disabled'});
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     }
+    // Impound: tow a vehicle that is out (stolen, lost), then pay the fee and collect it.
+    await page.setViewportSize({width:1920,height:1080});
+    await fire('state',{money:{currency:'€$',cash:500,bank:{number:'NC-1',balance:100},history:[]}});
+    const outAgain={...garage,nextRequest:3,impound:{name:'City Impound',fees:{requested:150,lost:150,restart:0}},
+      vehicles:garage.vehicles.map((v,i)=>i?{...v,canRetrieve:false}:{...v,status:'out',canRetrieve:false,canStore:false,canImpound:true})};
+    await fire('garage',{session:garage.session,state:outAgain});
+    await page.getByRole('button',{name:/Send it to the impound/}).click();
+    await page.getByText(/for €\$\s?150/).first().waitFor();
+    await page.getByRole('button',{name:'Tow it to the impound',exact:true}).click();
+    assert.deepEqual((await actions()).at(-1),{type:'garage.impound',session:garage.session,request:3,vehicle:'owned-0'});
+    const towed={...outAgain,nextRequest:4,vehicles:outAgain.vehicles.map((v,i)=>i?v:{...v,status:'impound',canImpound:false,canRecover:true,impound:{reason:'Sent by its owner',fee:150}})};
+    await fire('garage',{session:garage.session,request:3,ok:true,text:'Towed to the impound.',state:towed});
+    await page.getByRole('button',{name:'Impound',exact:true}).click();
+    assert.equal(await page.locator('.garage-card').count(),1);
+    assert.match(await page.locator('.garage-card .garage__status').innerText(),/IMPOUNDED/);
+    const recover=page.getByRole('button',{name:/^Pay .*150.* and collect$/});
+    assert(await recover.isDisabled(),'not enough in the bank');
+    await page.setViewportSize({width:1280,height:680});await page.waitForTimeout(200);
+    const shown=await recover.boundingBox(), aside=await page.locator('.garage__detail').boundingBox();
+    assert(shown && shown.y>=aside.y && shown.y+shown.height<=aside.y+aside.height+1,'the pay button shows without scrolling on a short window');
+    await page.screenshot({path:path.join(output,'garage-impound-short.png'),animations:'disabled'});
+    await page.setViewportSize({width:1920,height:1080});
+    await page.getByRole('radio',{name:/Cash/}).click();
+    await recover.click();
+    assert.deepEqual((await actions()).at(-1),{type:'garage.recover',session:garage.session,request:4,vehicle:'owned-0',pay:'cash'});
+    await page.screenshot({path:path.join(output,'garage-impound.png'),animations:'disabled'});
+    await fire('garage',{session:garage.session,request:4,ok:true,text:'Impound fee paid. Your vehicle is outside.',state:{...outAgain,nextRequest:5}});
     await fire('garage',{session:garage.session,closed:true});assert.equal(await page.locator('.garage').count(),0);
     assert.deepEqual(errors,[]);
-    console.log('PASS: dealer + garage browser flow, photos, 3 viewports, confirmation, insufficient funds, single-flight, acknowledgements and lifecycle.');
+    console.log('PASS: dealer + garage browser flow, impound (tow, filter, fee, payment), photos, 3 viewports, confirmation, insufficient funds, single-flight, acknowledgements and lifecycle.');
   } finally { await browser.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

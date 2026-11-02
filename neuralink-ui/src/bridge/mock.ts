@@ -171,6 +171,22 @@ export function installMockBridge(): void {
     threads.push(t);
   }
 
+  // 5: a fixer's gig offer (op77_lightrp fixers): a rich message with buttons.
+  {
+    const id = 5;
+    const fixer = "555-0147";
+    const t: MockThread = { id, kind: "direct", title: "Mama Okoro", members: [member(ME.number), { number: fixer, name: "Mama Okoro", isMe: false, owner: false, online: false }], messages: [], unread: 1 };
+    const offer = mk(id, fixer, "Yuki, it's Mama Okoro. Got work with your name on it: Sector 04 Blackout, out in Little China. €$8,000 if it's clean. You in?", now - 3 * min);
+    offer.sender = { number: fixer, name: "Mama Okoro", npc: true };
+    offer.meta = {
+      source: "op77_lightrp", ref: "gig:1",
+      card: { tag: "GIG · ELIMINATION", title: "Sector 04 Blackout", subtitle: "Little China · Standard · 1-4 operators", lines: ["Pay: €$8,000 each", "Time limit: 15 min", "Answer within 3 min"] },
+      actions: [{ id: "accept", label: "Take the job", style: "primary" }, { id: "decline", label: "Pass", style: "danger" }],
+    };
+    t.messages.push(offer);
+    threads.push(t);
+  }
+
   const summary = (t: MockThread): ThreadSummary => {
     const last = t.messages[t.messages.length - 1];
     const meMember = t.members.find((m) => m.isMe);
@@ -584,6 +600,41 @@ export function installMockBridge(): void {
       return { threadId: t.id };
     },
     "threads.read": (a) => { const t = thread(a.threadId); t.unread = 0; return {}; },
+    // A rich message's button: the fixer answers like the server would (resolved +
+    // the brief with the meeting point, then Share / Bail on it).
+    "messages.action": (a) => {
+      const t = threads.find((x) => x.messages.some((m) => m.id === a.messageId)) ?? fail("unknown_message");
+      const m = t.messages.find((x) => x.id === a.messageId)!;
+      if (!m.meta || m.meta.resolved) fail("already_answered");
+      const fixer = m.sender.number;
+      const reply = (body: string, meta?: Message["meta"]) => {
+        const r = mk(t.id, fixer, body, Date.now());
+        r.sender = { number: fixer, name: m.sender.name, npc: true };
+        if (meta) r.meta = meta;
+        window.setTimeout(() => pushMessage(t, r), 500);
+      };
+      if (a.action === "accept") {
+        m.meta = { ...m.meta, resolved: { action: "accept", label: "Job taken", tone: "ok" } };
+        fire("nl:messageUpdate", { message: m }, 60);
+        reply("Good. Head to Little China, I'm pinning the spot. Clear the zone. Leave nobody standing. Don't keep me waiting.", {
+          source: "op77_lightrp", ref: "gig:1",
+          card: { tag: "GIG · MEET POINT", title: "Sector 04 Blackout", subtitle: "Crew 1/4 · meet within 20 min", lines: ["Objective: clear the zone, leave nobody standing.", "Everyone who took the job must be at the point."] },
+          location: { x: -637.6, y: -386.2, z: 8.19, label: "the meet point" },
+          actions: [{ id: "share", label: "Share the job", input: "contact" }, { id: "go", label: "Go now", style: "primary" }, { id: "bail", label: "Bail", style: "danger" }],
+        });
+      } else if (a.action === "decline") {
+        m.meta = { ...m.meta, resolved: { action: "decline", label: "Passed", tone: "dim" } };
+        fire("nl:messageUpdate", { message: m }, 60);
+        reply("Your loss, choom. Next one goes to someone hungrier.");
+      } else if (a.action === "share") {
+        validNumber(a.value);
+      } else if (a.action === "bail") {
+        m.meta = { ...m.meta, resolved: { action: "bail", label: "You bailed", tone: "danger" } };
+        fire("nl:messageUpdate", { message: m }, 60);
+      }
+      return {};
+    },
+    "map.pin": () => ({}),
     "messages.send": (a) => {
       const t = thread(a.threadId);
       const body = String(a.body ?? "");

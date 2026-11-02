@@ -65,13 +65,28 @@ local function titleFor(viewerPlayerId, thread, members)
     return "Conversation"
 end
 
+-- The meta of a rich message (cards, buttons, location), decoded once per row.
+local function metaOf(row)
+    if row.metaTable ~= nil then return row.metaTable or nil end
+    local text = row.meta
+    row.metaTable = false
+    if type(text) == "string" and #text > 1 then
+        local ok, decoded = pcall(json.decode, text)
+        if ok and type(decoded) == "table" then row.metaTable = decoded end
+    end
+    return row.metaTable or nil
+end
+Messages.metaOf = metaOf
+
 local function messageView(viewerPlayerId, row, lines)
     local s = Lines.session(viewerPlayerId)
     local sender = row.sender_line and lines[row.sender_line]
     return {
         id = row.id, threadId = row.thread_id, kind = row.kind, body = row.body, at = row.at,
-        sender = sender and { number = sender.number, name = Lines.nameFor(viewerPlayerId, sender.number) } or { number = "", name = "" },
+        sender = sender and { number = sender.number, name = Lines.nameFor(viewerPlayerId, sender.number), npc = Lines.isNpcLine(sender.id) and true or nil }
+            or { number = "", name = "" },
         mine = s ~= nil and row.sender_line == s.line.id,
+        meta = metaOf(row),
     }
 end
 
@@ -115,7 +130,7 @@ function Messages.summaries(playerId)
         if not seen[m.line_id] then seen[m.line_id] = true; lineIds[#lineIds + 1] = m.line_id end
     end
     local lasts = {}
-    local lastRows = Store.query("SELECT id, thread_id, sender_line, kind, body, at FROM nl_messages WHERE id IN (SELECT MAX(id) FROM nl_messages WHERE thread_id IN (" .. ph .. ") GROUP BY thread_id)", ids) or {}
+    local lastRows = Store.query("SELECT id, thread_id, sender_line, kind, body, at, meta FROM nl_messages WHERE id IN (SELECT MAX(id) FROM nl_messages WHERE thread_id IN (" .. ph .. ") GROUP BY thread_id)", ids) or {}
     for _, r in ipairs(lastRows) do
         lasts[r.thread_id] = r
         if r.sender_line and not seen[r.sender_line] then seen[r.sender_line] = true; lineIds[#lineIds + 1] = r.sender_line end
@@ -138,7 +153,7 @@ local function summaryFor(playerId, thread)
     local s = Lines.session(playerId)
     if not s then return nil end
     local ids = activeMembers(thread)
-    local last = Store.single("SELECT id, thread_id, sender_line, kind, body, at FROM nl_messages WHERE thread_id = ? ORDER BY id DESC LIMIT 1", { thread.id }) or nil
+    local last = Store.single("SELECT id, thread_id, sender_line, kind, body, at, meta FROM nl_messages WHERE thread_id = ? ORDER BY id DESC LIMIT 1", { thread.id }) or nil
     if last and last.sender_line then ids[#ids + 1] = last.sender_line end
     local me = thread.members[s.line.id]
     local unread = Store.single([[SELECT COUNT(*) AS n FROM nl_messages WHERE thread_id = ? AND id > ?
@@ -163,10 +178,10 @@ end
 local function sendPage(playerId, thread, beforeId)
     local rows
     if beforeId then
-        rows = Store.query("SELECT id, thread_id, sender_line, kind, body, at FROM nl_messages WHERE thread_id = ? AND id < ? ORDER BY id DESC LIMIT ?",
+        rows = Store.query("SELECT id, thread_id, sender_line, kind, body, at, meta FROM nl_messages WHERE thread_id = ? AND id < ? ORDER BY id DESC LIMIT ?",
             { thread.id, beforeId, C.limits.messagesPage + 1 })
     else
-        rows = Store.query("SELECT id, thread_id, sender_line, kind, body, at FROM nl_messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?",
+        rows = Store.query("SELECT id, thread_id, sender_line, kind, body, at, meta FROM nl_messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?",
             { thread.id, C.limits.messagesPage + 1 })
     end
     if not rows then return nil, "database_unavailable" end
@@ -222,15 +237,22 @@ end
 -- Writing
 
 -- Stores a message and pushes it (with the fresh summary) to every online member.
-local function post(thread, senderLineId, kind, body)
+local function post(thread, senderLineId, kind, body, meta)
     local at = Neural.nowMs()
+    local metaText = type(meta) == "table" and json.encode(meta) or nil
     -- The id comes from the INSERT itself: re-reading "the newest" could pick a
     -- message another member posted in the same instant.
-    local id, err = Store.insert("INSERT INTO nl_messages (thread_id, sender_line, kind, body, at) VALUES (?, ?, ?, ?, ?)",
-        { thread.id, senderLineId, kind, body, at })
+    local id, err
+    if metaText then
+        id, err = Store.insert("INSERT INTO nl_messages (thread_id, sender_line, kind, body, at, meta) VALUES (?, ?, ?, ?, ?, ?)",
+            { thread.id, senderLineId, kind, body, at, metaText })
+    else
+        id, err = Store.insert("INSERT INTO nl_messages (thread_id, sender_line, kind, body, at) VALUES (?, ?, ?, ?, ?)",
+            { thread.id, senderLineId, kind, body, at })
+    end
     if not id then return nil, err end
     Store.update("UPDATE nl_threads SET updated_at = ? WHERE id = ?", { at, thread.id })
-    local row = { id = id, thread_id = thread.id, sender_line = senderLineId, kind = kind, body = body, at = at }
+    local row = { id = id, thread_id = thread.id, sender_line = senderLineId, kind = kind, body = body, at = at, meta = metaText }
     thread.updated_at = at
     if senderLineId and thread.members[senderLineId] then
         -- the sender has read their own message
@@ -306,6 +328,13 @@ function Messages.send(playerId, args)
     if not Neural.allow(playerId, "message") then return nil, "rate_limited" end
     local id, err = post(thread, s.line.id, "text", body)
     if not id then return nil, err end
+    -- a text to a non-player line (a fixer): its owner resource may answer
+    if thread.kind == "direct" then
+        for lineId, m in pairs(thread.members) do
+            local npc = lineId ~= s.line.id and m.active and Lines.isNpcLine(lineId)
+            if npc then TriggerEvent("op77_neuralink:npcMessage", playerId, { npc = npc, threadId = thread.id, body = body, number = s.line.number }) end
+        end
+    end
     return { id = id }
 end
 
@@ -435,6 +464,95 @@ function Messages.inject(fromLine, toLine, body)
         if not thread.members[id] or not thread.members[id].active then addMember(thread, id, "member") end
     end
     return post(thread, fromLine.id, "text", body)
+end
+
+-- ---------------------------------------------------------------------------
+-- Rich messages from other server resources (exports sendMessage / updateMessage)
+
+local function directThread(fromLine, toLine)
+    local key = directKey(fromLine.id, toLine.id)
+    local row = Store.single("SELECT id FROM nl_threads WHERE direct_key = ?", { key })
+    if row == nil then return nil, "database_unavailable" end
+    local threadId = row and row.id
+    if not threadId then
+        local now = Neural.nowMs()
+        local err
+        threadId, err = Store.insert("INSERT INTO nl_threads (kind, title, direct_key, created_at, updated_at) VALUES ('direct', NULL, ?, ?, ?)", { key, now, now })
+        if not threadId then
+            if err ~= "conflict" then return nil, err end
+            local again = Store.single("SELECT id FROM nl_threads WHERE direct_key = ?", { key })
+            if not again then return nil, "database_unavailable" end
+            threadId = again.id
+        end
+    end
+    local thread = loadThread(threadId)
+    if not thread then return nil, "database_unavailable" end
+    for _, id in ipairs({ fromLine.id, toLine.id }) do
+        if not thread.members[id] or not thread.members[id].active then addMember(thread, id, "member") end
+    end
+    return thread
+end
+
+-- A text from `fromLine` (a fixer's NPC line, a bank...) to `toLine`, with an optional
+-- meta: { source, ref, card = { title, subtitle, tag }, actions = { { id, label, style,
+-- input = "contact" } }, location = { x, y, z, label }, resolved = { action, label } }.
+function Messages.deliver(fromLine, toLine, body, meta)
+    local thread, err = directThread(fromLine, toLine)
+    if not thread then return nil, err end
+    local id, postErr = post(thread, fromLine.id, "text", body, meta)
+    if not id then return nil, postErr end
+    return id, thread.id
+end
+
+-- Merges `patch` into a message's meta (a key set to false is removed) and pushes the
+-- message again to the online members (buttons answered, a job closed).
+function Messages.updateMeta(messageId, patch)
+    local row = Store.single("SELECT id, thread_id, sender_line, kind, body, at, meta FROM nl_messages WHERE id = ?", { messageId })
+    if not row then return nil, row == false and "unknown_message" or "database_unavailable" end
+    local meta = metaOf(row) or {}
+    for k, v in pairs(patch or {}) do if v == false then meta[k] = nil else meta[k] = v end end
+    local text = json.encode(meta)
+    local ok, err = Store.update("UPDATE nl_messages SET meta = ? WHERE id = ?", { text, row.id })
+    if not ok then return nil, err end
+    row.meta, row.metaTable = text, nil
+    local thread = loadThread(row.thread_id)
+    if not thread then return true end
+    local ids = activeMembers(thread)
+    if row.sender_line then ids[#ids + 1] = row.sender_line end
+    local lines = Lines.linesByIds(ids)
+    for _, lineId in ipairs(activeMembers(thread)) do
+        local pid = Lines.playerOfLine(lineId)
+        if pid then Neural.push(pid, "nl:messageUpdate", { message = messageView(pid, row, lines) }) end
+    end
+    return true
+end
+
+-- A button of a rich message, pressed by a member of its thread. The resource that
+-- sent it hears it (op77_neuralink:messageAction) and answers with updateMessage.
+function Messages.action(playerId, args)
+    local id = tonumber(args.messageId)
+    if not id or type(args.action) ~= "string" or #args.action > 32 then return nil, "invalid_request" end
+    local row = Store.single("SELECT id, thread_id, sender_line, kind, body, at, meta FROM nl_messages WHERE id = ?", { id })
+    if row == nil then return nil, "database_unavailable" end
+    if not row then return nil, "unknown_message" end
+    local thread, s = requireMember(playerId, row.thread_id)
+    if not thread then return nil, s end
+    local meta = metaOf(row)
+    if not meta or type(meta.actions) ~= "table" then return nil, "no_action" end
+    if meta.resolved then return nil, "already_answered" end
+    local action
+    for _, a in ipairs(meta.actions) do if type(a) == "table" and a.id == args.action then action = a end end
+    if not action then return nil, "no_action" end
+    local value
+    if action.input == "contact" then
+        if not Lines.validNumber(args.value) then return nil, "invalid_number" end
+        if args.value == s.line.number then return nil, "self" end
+        value = args.value
+    end
+    if not Neural.allow(playerId, "message") then return nil, "rate_limited" end
+    TriggerEvent("op77_neuralink:messageAction", playerId, { messageId = row.id, threadId = row.thread_id, action = action.id,
+        value = value, source = meta.source, ref = meta.ref, number = s.line.number })
+    return {}
 end
 
 -- Active members' line ids of a group thread the player belongs to (group calls).

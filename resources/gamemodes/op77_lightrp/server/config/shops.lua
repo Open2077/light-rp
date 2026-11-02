@@ -39,6 +39,74 @@ LightRpShops = {
                 { name = "electrolyte", buy = 16, sell = 4 },
             },
         },
+        -- Gun stores, one weapon family each (shared/armament.lua). On the 3D map each
+        -- store shows its family's drawn icon (blip.map, client/core/map_icons.lua) in
+        -- the "Gun stores" category (op77_map3d config). Serialized firearms:
+        -- each purchase mints a server serial (armament); they are never bought back,
+        -- a shop takes only plain items. Each store sells the ammunition its guns fire.
+        gun_store = {
+            label = "Night City Arms",
+            subtitle = "Pistols and revolvers. Handgun ammunition. Cash or bank.",
+            payments = { "cash", "bank" },
+            items = {
+                { name = "weapon_lexington", buy = 1200 },
+                { name = "weapon_unity", buy = 1400 },
+                { name = "weapon_nue", buy = 1800 },
+                { name = "weapon_overture", buy = 2500 },
+                { name = "weapon_dr_5_nova", buy = 2800 },
+                { name = "ammo_pistol_box", buy = 75, sell = 20 },
+            },
+        },
+        smg_store = {
+            label = "Rapid Fire",
+            subtitle = "Submachine guns. They fire handgun ammunition.",
+            payments = { "cash", "bank" },
+            items = {
+                { name = "weapon_ds1_pulsar", buy = 2600 },
+                { name = "weapon_m221_saratoga", buy = 3000 },
+                { name = "weapon_tki_20_shingen", buy = 4200 },
+                { name = "ammo_pistol_box", buy = 75, sell = 20 },
+            },
+        },
+        shotgun_store = {
+            label = "Twelve Gauge",
+            subtitle = "Shotguns and shells. Close quarters only.",
+            payments = { "cash", "bank" },
+            items = {
+                { name = "weapon_crusher", buy = 2800 },
+                { name = "weapon_m2038_tactician", buy = 3400 },
+                { name = "weapon_carnage", buy = 3900 },
+                { name = "weapon_l_69_zhuo", buy = 4600 },
+                { name = "ammo_shotgun_box", buy = 90, sell = 22 },
+            },
+        },
+        rifle_store = {
+            label = "Frontline Surplus",
+            subtitle = "Assault rifles and a light machine gun. Rifle ammunition.",
+            payments = { "cash", "bank" },
+            items = {
+                { name = "weapon_d5_copperhead", buy = 4200 },
+                { name = "weapon_m251s_ajax", buy = 4800 },
+                { name = "weapon_kyubi", buy = 5200 },
+                { name = "weapon_hjsh_18_masamune", buy = 5600 },
+                { name = "weapon_d5_sidewinder", buy = 6400 },
+                { name = "weapon_m2067_defender", buy = 8500 },
+                { name = "ammo_rifle_box", buy = 110, sell = 27 },
+            },
+        },
+        marksman_store = {
+            label = "Long Shot",
+            subtitle = "Precision and sniper rifles. Precision rifles fire rifle rounds.",
+            payments = { "cash", "bank" },
+            items = {
+                { name = "weapon_kolac", buy = 5200 },
+                { name = "weapon_m_179e_achilles", buy = 6800 },
+                { name = "weapon_spt32_grad", buy = 8500 },
+                { name = "weapon_nekomata", buy = 10500 },
+                { name = "ammo_rifle_box", buy = 110, sell = 27 },
+                { name = "ammo_sniper_box", buy = 150, sell = 37 },
+            },
+        },
     },
     locations = {
         {
@@ -48,6 +116,51 @@ LightRpShops = {
             yaw = -125.597023, bucket = 0,
             npc = { record = "Character.mws_thenerves_driver_01" },
             blip = { icon = "shopping-basket", sprite = "food", description = "Food, drinks and everyday essentials. Buy and sell here." },
+        },
+        {
+            id = "gunstore_1", template = "gun_store", name = "Gun Store",
+            position = { x = -907.380127, y = -708.114380, z = 8.237724 },
+            orientation = { x = 0.0, y = 0.0, z = -0.279220, w = 0.960227 },
+            yaw = -32.427353, bucket = 0,
+            npc = { record = "Character.std_rcr_gunsmith_01" },
+            blip = { icon = "crosshair", sprite = "guns", description = "Pistols and revolvers, handgun ammunition.",
+                map = "pistol", mapCategory = "weapons", mapColor = "#FF7A1A" },
+        },
+        {
+            id = "gunstore_2", template = "smg_store", name = "Rapid Fire",
+            position = { x = -1450.029297, y = 1318.018677, z = 119.064896 },
+            orientation = { x = 0.0, y = 0.0, z = 0.999599, w = 0.028313 },
+            yaw = 176.755157, bucket = 0,
+            npc = { record = "Character.std_rcr_gunsmith_01" },
+            blip = { icon = "crosshair", sprite = "guns", description = "Submachine guns, handgun ammunition.",
+                map = "smg", mapCategory = "weapons", mapColor = "#FF7A1A" },
+        },
+        {
+            id = "gunstore_3", template = "shotgun_store", name = "Twelve Gauge",
+            position = { x = -455.554413, y = 1454.145996, z = 37.379311 },
+            orientation = { x = 0.0, y = 0.0, z = -0.917391, w = 0.397988 },
+            yaw = -133.095093, bucket = 0,
+            npc = { record = "Character.std_rcr_gunsmith_01" },
+            blip = { icon = "crosshair", sprite = "guns", description = "Shotguns and shells.",
+                map = "shotgun", mapCategory = "weapons", mapColor = "#FF7A1A" },
+        },
+        {
+            id = "gunstore_4", template = "rifle_store", name = "Frontline Surplus",
+            position = { x = -1773.528687, y = 225.227432, z = 43.727768 },
+            orientation = { x = 0.0, y = 0.0, z = -0.891697, w = 0.452633 },
+            yaw = -126.174515, bucket = 0,
+            npc = { record = "Character.std_rcr_gunsmith_01" },
+            blip = { icon = "crosshair", sprite = "guns", description = "Assault rifles, a light machine gun, rifle ammunition.",
+                map = "rifle", mapCategory = "weapons", mapColor = "#FF7A1A" },
+        },
+        {
+            id = "gunstore_5", template = "marksman_store", name = "Long Shot",
+            position = { x = 1675.635498, y = -776.981140, z = 49.825127 },
+            orientation = { x = 0.0, y = 0.0, z = 0.072213, w = -0.997389 },
+            yaw = -8.282229, bucket = 0,
+            npc = { record = "Character.std_rcr_gunsmith_01" },
+            blip = { icon = "crosshair", sprite = "guns", description = "Precision and sniper rifles, their ammunition.",
+                map = "sniper", mapCategory = "weapons", mapColor = "#FF7A1A" },
         },
         -- The shop of the arrival hall (first day guide, shared/tutorial.lua), in
         -- the hall's routing bucket: the newcomer's first real checkout.

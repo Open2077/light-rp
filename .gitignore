@@ -46,18 +46,49 @@
 !resources/assets/maps/ncpd_watson/**
 !resources/assets/maps/ncwe_local/
 !resources/assets/maps/ncwe_local/**
-# LightRP's own standalone resources: the Neural-Link phone and the icon catalogue.
+!resources/assets/maps/cardealer/
+!resources/assets/maps/cardealer/**
+# LightRP's own standalone resources: the Neural-Link phone, the icon catalogue
+# and the roleplay action bubbles.
 !resources/standalone/
 !resources/standalone/op77_neuralink/
 !resources/standalone/op77_neuralink/**
 !resources/standalone/open77_icons/
 !resources/standalone/open77_icons/**
+!resources/standalone/op77_actionbubble/
+!resources/standalone/op77_actionbubble/**
+# LightRP edition of open77_scenes (ripperdoc chairs on the LightRP E prompt).
+!resources/standalone/op77_scenes/
+!resources/standalone/op77_scenes/**
+# The ripperdoc clinic interface (page built from ripperdoc-ui, media generated from the game).
+!resources/standalone/op77_ripperdoc/
+!resources/standalone/op77_ripperdoc/**
+# The LightRP loading screen (join + zone changes).
+!resources/standalone/op77_loadscreen/
+!resources/standalone/op77_loadscreen/**
+# The holographic speedometer (replaces the vehicle cluster while it runs).
+!resources/standalone/op77_speedometer/
+!resources/standalone/op77_speedometer/**
+# The holographic weapon HUD (replaces the weapon readout while it runs).
+!resources/standalone/op77_weaponhud/
+!resources/standalone/op77_weaponhud/**
+# The 3D city map, minimap and GPS (game map export in web/data, page source in ui/).
+!resources/standalone/op77_map3d/
+!resources/standalone/op77_map3d/**
+resources/standalone/op77_map3d/ui/node_modules/
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**
 neuralink-ui/node_modules/
 neuralink-ui/dist/
 neuralink-ui/screens/
+# Source of the ripperdoc page (npm run build writes into op77_ripperdoc/web; scripts/build-assets.py
+# regenerates public/media from the game, its output ships in op77_ripperdoc/web/media).
+!ripperdoc-ui/
+!ripperdoc-ui/**
+ripperdoc-ui/node_modules/
+ripperdoc-ui/.work/
+ripperdoc-ui/public/media/
 # Platform packages we restyled with the design system (re-apply after a server update).
 !resources/system/
 !resources/system/open77_contextmenu/
@@ -124,9 +155,12 @@ server.env
 *.log
 logs/
 data/
+# ...except the 3D map's data: generated from the game files (tools/export_web.py), not operator state
+!resources/standalone/op77_map3d/web/data/
 
 # Local architecture and UI reference notes (never publish).
 /README*.local.md
+ripperdoc-ui/scripts/__pycache__/
 # Blackjack table: native props and its build/test tools.
 !resources/assets/models/open77_casino_blackjack/
 !resources/assets/models/open77_casino_blackjack/**

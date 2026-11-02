@@ -9,6 +9,8 @@ local presence = { kind = "presence", ready = false }
 local drawKey = "lightrp:safezones:draft"
 local drawWarning, started = false, false
 local function send(value) Ui.send(PAGE, value) end
+-- The zone the server says the player stands in (nil outside), for the safe-zone tile.
+function Editor.presenceZone() return presence.ready and presence.zone or nil end
 local heldActions,controlWarnings={},{}
 local function blockAction(action,blocked)
     if (heldActions[action]==true)==blocked then return end

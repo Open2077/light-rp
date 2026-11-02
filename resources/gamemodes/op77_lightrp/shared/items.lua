@@ -178,17 +178,37 @@ LightRpItems = {
         label = "Sorted Recyclables", description = "A sorted bundle recovered from waste. The recycling buyer pays for it.",
         weight = 2.0, stack = 20, icon = "package-open", category = "material",
     },
+    delivery_order = {
+        label = "Delivery Order", description = "A sealed bag for a customer. Keep it until the drop-off: it is not yours to eat or sell.",
+        weight = 1.0, stack = 5, icon = "package", category = "misc",
+    },
+    -- Clothes taken away from a fitting room (server/modules/clothing.lua). Each
+    -- unit carries its garment in metadata { label, record, slot, family, image };
+    -- using one puts it on, or takes it off when it is already worn. Never consumed.
+    clothing = {
+        label = "Clothing", description = "A garment. Use it to put it on: whatever it replaces goes back in your bag.",
+        weight = 0.4, stack = 1, icon = "shirt", category = "clothing",
+    },
+    -- A complete look { label = its name, pieces = { slot = record }, family, image }:
+    -- using it changes into the whole outfit at once.
+    outfit = {
+        label = "Outfit", description = "A complete look, folded. Use it to change into it: the clothes it replaces go back in your bag.",
+        weight = 1.2, stack = 1, icon = "shirt", category = "clothing",
+    },
     salvaged_parts = {
         label = "Salvaged Parts", description = "Reusable parts recovered from scrap. Sell them at the salvage depot.",
         weight = 2.0, stack = 20, icon = "wrench", category = "material",
     },
 }
 
--- Existing names stay stable: saved inventories need no migration. Only these
--- illustrated consumables have a bitmap; utility items retain their icon fallback.
+-- Existing names stay stable: saved inventories need no migration. Each template
+-- has a local inventory illustration; the UI retains its icon fallback on error.
 for _, name in ipairs({
     "water", "soda", "burrito", "synthmeat", "apple", "candy", "noodles", "dumplings", "pizza",
     "onigiri", "proteinbar", "coffee", "energydrink", "electrolyte", "juice", "bandage", "medkit", "firstaid",
+    "cigarettes", "lighter", "phone", "idcard", "watch", "wrench", "repairkit", "battery", "scrap",
+    "documents", "keycard", "jerrycan", "jerrycan_empty", "practice_crate", "practice_parts", "trashbag",
+    "recyclables", "delivery_order", "salvaged_parts",
 }) do
     LightRpItems[name].image = "img/items/" .. name .. ".png"
 end

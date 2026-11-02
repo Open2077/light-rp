@@ -207,4 +207,26 @@ RegisterNetEvent("open77:session:gameplayReady", function()
     LightRP.eachModule("onGameplayReady", playerId)
 end)
 
+-- ---------------------------------------------------------------------------
+-- NPCs (desk clerks, rental and job center staff) belong to the Lua VM that
+-- made them. The host removes a resource's NPCs when it stops, but NOT on a hot
+-- reload (`refresh`): the old VM's NPCs stay in the world and the new VM spawns
+-- its own on top of them. So a VM clears every NPC this resource owns when it
+-- starts (orphans of the previous generation) and when it stops.
+local function clearOwnedNpcs(why)
+    if type(Open77.npcs) ~= "table" or type(Open77.npcs.all) ~= "function" then return end
+    local ok, list = pcall(Open77.npcs.all)
+    if not ok or type(list) ~= "table" then return end
+    local removed = 0
+    for _, npc in ipairs(list) do
+        local id = type(npc) == "table" and (npc.id or npc.npcId) or npc
+        if id and pcall(Open77.npcs.remove, id) then removed = removed + 1 end
+    end
+    if removed > 0 then LightRP.log("removed %d NPC(s) left by the previous generation (%s)", removed, why) end
+end
+clearOwnedNpcs("start")
+AddEventHandler("onResourceStop", function(name)
+    if name == GetCurrentResourceName() then clearOwnedNpcs("stop") end
+end)
+
 LightRP.Config = Config

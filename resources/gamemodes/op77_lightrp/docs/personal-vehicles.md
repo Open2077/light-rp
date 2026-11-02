@@ -1,15 +1,27 @@
-# Personal vehicles, public garages and City Motors
+# Personal vehicles, public garages and Night City Motors
 
 No vehicle is granted on registration or character creation. Characters acquire
 vehicles through the dealership or a trusted staff/server grant.
 
 ## Player flow
 
-Visit **Vehicle Dealership / City Motors** in City Center, next to Rent-a-Ride.
-Press **E** at the yellow point to browse 15 models with photos, search, categories
-and price sorting. Choose cash or bank, review the price and confirm. A successful
-purchase is delivered to **City Center // Public Garage**, not spawned under the
-player. The receipt names the collection point. Insufficient funds disable payment.
+Visit **Night City Motors**, the showroom of the map resource `cardealer`
+(about -288, -1878). Press **E** at the sales clerk at the reception to browse 15
+models with photos, search, categories and price sorting. Choose cash or bank, review
+the price and confirm. Insufficient funds disable payment.
+
+**Where the vehicle is.** A dealership with a `delivery` bay drives the vehicle out
+there at once (`LightRP.garage.deliver`): locked, engine off, keys handed over. A
+private blip and GPS route lead the buyer to it (`client/core/vehicle_gps.lua`,
+event `vehicleGps`), removed on arrival or after 30 minutes; the receipt and a notice
+say where it is. When the bay is taken or the buyer already has a personal vehicle
+out, the vehicle waits at the dealership's `garage` (City Center // Public Garage)
+and the GPS points to the garage instead. A dealership without a bay files the
+vehicle at its garage, as before.
+
+The four podiums of the showroom hold demonstration cars (`displays` in
+`server/config/dealerships.lua`, `server/modules/showroom.lua`): locked for everyone,
+frozen, indestructible, put back within 15 s if they disappear.
 
 At **Public Garage**, press **E** (or `/garage` while standing at its point).
 Select an owned vehicle and retrieve it into a free bay. It arrives locked with
@@ -24,7 +36,8 @@ character on an account. Shared runtime keys are not persisted across restarts.
 ## Configuration
 
 - `server/config/dealerships.lua`: catalogue, integer prices in eddies, location,
-  delivery garage, enabled flag. These are starting economy prices, not game facts.
+  garage, optional `clerk` (an NPC at the point) and `delivery` bay, demonstration
+  cars (`displays`), enabled flag. These are starting economy prices, not game facts.
 - `server/config/garages.lua`: locations, pickup bays/headings, radii, limits,
   save interval and enabled flag. Add garages with unique, stable IDs.
 - `shared/config.lua` → `vehicles.catalog`: model keys and native records.
@@ -40,11 +53,36 @@ reconnect. The manifest uses `reload_policy "reconnect"`. UI source is in
 `ui/src/features/dealership` and `ui/src/features/garage`; `npm run build` in `ui/`
 updates the distributed `web/` assets. No client DLL build is needed.
 
+## The impound
+
+A personal vehicle is always in one place, saved in `lightrp_owned_vehicles.state`:
+`stored` (at its garage), `out` (in the world) or `impound`.
+
+- **Left outside at a restart.** A vehicle still `out` when the server starts goes to
+  the impound (reason `restart`). After a resource restart its old entity, found by
+  the `lightrpOwned` key of its state bag, is removed first: never two copies.
+- **Gone from the world** (destroyed, deleted by staff or a cleanup, lost to a bug)
+  while out: towed (reason `lost`), from the removal event or the periodic worker.
+- **Sent by its owner** from any garage (reason `requested`): "Stolen, lost or stuck?
+  Send it to the impound". The vehicle is removed from the world wherever it is, even
+  far away or occupied; its condition, fuel and trunk are saved first.
+- **Towed by staff** (reason `staff`): `/lightrp.impound` next to it (closest personal
+  vehicle within 8 m), or `/lightrp.impound <vehicle network id>`.
+- **Recovered** at any public garage, tab Impound: the owner pays the fee of its
+  reason (cash or bank, one SQL transaction with the release), the vehicle is
+  released into that garage and driven out to a free bay when one is open.
+- The owner is told on joining (once per impound) and when it is towed while
+  connected.
+
+Fees, in whole eddies, by reason: `server/config/garages.lua` → `impound.fees`
+(defaults: restart 0, lost 150, requested 150, staff 250).
+
 ## Staff and server API
 
 ```text
 /lightrp.givevehicle <playerId|me> <modelKey> [garageId]
 /lightrp.givevehicle me hella citycenter
+/lightrp.impound [vehicle network id]
 ```
 
 Requires `command.lightrp.givevehicle` (covered by the existing staff
@@ -90,13 +128,16 @@ Requires configured MySQL and the server vehicle-properties API. The table
 fails; an unavailable database is never interpreted as an empty garage.
 
 - Ownership INSERT, wallet debit and ledger receipt are one SQL transaction.
-- Network vehicle IDs are **never** persisted. On reboot cars are available in
-  storage; they do not respawn into the world automatically.
+- Network vehicle IDs are **never** persisted. On reboot a stored car stays in
+  storage and a car left outside goes to the impound; nothing respawns into the
+  world automatically.
 - Canonical properties are captured during updates and flushed every 15 seconds,
   and before explicit parking. Health/damage are preserved, not repaired for free.
-- Admin/system removal returns the car to its last garage, retaining ownership
-  and the most recently captured properties. Missed removal events are checked
-  by the periodic worker.
+- Admin/system removal sends the car to the impound, retaining ownership and the
+  most recently captured properties. Missed removal events are checked by the
+  periodic worker.
+- The `state`, `impound_reason` and `impound_fee` columns are added to an older
+  table at startup (information_schema check, then ALTER TABLE).
 - A personal trunk is stored as `personal:<ownershipUuid>` in
   `lightrp_inventories`, rather than under its temporary network ID. The existing
   inventory write-through and access rules apply; parking locks and saves it first.
@@ -109,7 +150,7 @@ fails; an unavailable database is never interpreted as an empty garage.
 This implementation assumes **one authoritative LightRP server per ownership
 database**. Do not share the same tables between concurrently running worlds:
 active-vehicle exclusion is in-process. It does not add vehicle trading, selling,
-impound fees, insurance, repairs, dealership stock limits or 3D preview/test drives.
+insurance, repairs, dealership stock limits or 3D preview/test drives.
 
 ## Abuse/failure handling
 

@@ -39,6 +39,10 @@ au staff. `/adminfull` conserve la console technique officielle.
 
 [Parcours, permissions, stockage, limites et tests](docs/admin-support.md).
 
+**Éditeur de missions** (`/lightrp.missions`, ACL `command.lightrp.missions`) : créer en jeu des missions Élimination ou Survie (vagues),
+avec périmètre (avertissement puis mort hors zone), points de spawn ennemis, checkpoints déclencheurs, vagues, difficultés et test immédiat.
+Voir [docs/mission-editor.md](docs/mission-editor.md).
+
 ## Création de personnage et scène d'arrivée
 
 ### Placement de la scène
@@ -98,24 +102,34 @@ Le parcours apprend les vraies mécaniques, dans cet ordre. Les nouveaux chapitr
 voix et Alt sont détaillés dans le [guide d'intégration](docs/first-day-interactions-voice.md).
 
 1. Marcher jusqu'à Mara et lui parler : la vie en ville et les règles RP.
-2. Configurer la voix : périphériques, push-to-talk clavier/souris ou activation,
+2. Installer le **Neural-Link** (F2, séquence Kiroshi d'`op77_neuralink`) : obligatoire,
+   l'étape attend l'implant et range le téléphone à la fin.
+3. Configurer la voix : périphériques, push-to-talk clavier/souris ou activation,
    puis test local. « Déjà configuré » et « Passer » restent disponibles.
-3. Ouvrir le menu joueur et consulter **Identity** (identité, compte bancaire).
-4. Ouvrir l'inventaire.
-5. Aller à la boutique du hall et **acheter** une boisson : un vrai panier, un
+4. **S'habiller** : le nouveau venu arrive en sous-vêtements. La cabine d'essayage au
+   fond de la boutique du hall (`wardrobes.spots.lobby_fitting`) ouvre la garde-robe ;
+   l'étape attend une tenue enregistrée avec un haut et un bas
+   (`open77:presentation:committed`, `Wardrobe.dressed`), et passe d'elle-même si le
+   personnage est déjà habillé. Comme toute garde-robe d'un lieu partagé (ville ou
+   hall), la cabine est **privée** : le joueur se change dans son propre bucket
+   (`wardrobes.privateBucketBase` + son id, même heure et même météo) et revient à la
+   fermeture ; dans un logement, déjà privé, rien ne bouge.
+5. Ouvrir le menu joueur et consulter **Identity** (identité, compte bancaire).
+6. Ouvrir l'inventaire.
+7. Aller à la boutique du hall et **acheter** une boisson : un vrai panier, un
    vrai paiement (`onShopCheckout`, émis par `server/modules/shops.lua`).
-6. Boire : l'étape attend la fin réelle de l'action, validée côté serveur.
-7. Parler au banquier (compte, espèces, virements, `/pay`) puis au mécano.
-8. Pratiquer **Alt + clic gauche** : inspecter une caisse, déverrouiller sa voiture
+8. Boire : l'étape attend la fin réelle de l'action, validée côté serveur.
+9. Parler au banquier (compte, espèces, virements, `/pay`) puis au mécano.
+10. Pratiquer **Alt + clic gauche** : inspecter une caisse, déverrouiller sa voiture
    d'entraînement, ouvrir puis fermer le coffre avec le vrai menu contextuel.
-9. Parler au pompiste (carburant, jerrican).
-10. Activité d'entraînement à la foire aux métiers : **collecter** une caisse,
+11. Parler au pompiste (carburant, jerrican).
+12. Activité d'entraînement à la foire aux métiers : **collecter** une caisse,
    la **transformer** à l'établi, **vendre** les pièces à Juno. C'est le module
    des activités libres (`job_work`) avec un métier `tutorial` : vrais objets,
    vrai paiement en banque, un seul lot par appui. Chaque site ne s'ouvre que
    pour l'étape du guide qui le demande (`Tutorial.allowsWork`) : ce n'est pas
    un revenu. Aucun métier n'est choisi dans le hall.
-11. Retourner voir Mara : elle ouvre la porte, le personnage arrive à City
+13. Retourner voir Mara : elle ouvre la porte, le personnage arrive à City
    Center West, dans le bucket de la ville, et Mara conclut par message.
 
 **F1 → First day guide** permet de mettre en pause, reprendre ou revisiter le
@@ -198,7 +212,7 @@ Les démonstrations n'attribuent aucune récompense ; les futurs jobs doivent va
 
 ## Job Center et activités libres
 
-Trois métiers publics : **Sanitation**, **Scrapper**, **AC Cleaner**. Le bureau utilise trois
+Trois métiers publics : **Sanitation**, **Scrapper**, **Courier** (livreur, qui a remplacé AC Cleaner). Le bureau utilise trois
 panneaux inclinés illustrés qui s'agrandissent au survol ou au clavier.
 **Sanitation/Scrapper** : récolte → transformation → vente, sans prise de service
 ni métier obligatoire. E démarre la boucle au point ; Échap l'arrête. Les objets
@@ -207,8 +221,20 @@ les GPS des trois étapes et une embauche facultative. `/work sanitation|scrappe
 [collect|process|sell]`, `/work stop`.
 
 Les points, recettes, durées et prix des activités libres sont dans
-`server/config/job_work.lua`. Seul **AC Cleaner** conserve ses ordres de travail,
-ses points temporaires dans `server/config/job_runs.lua` et `/job start|status|gps|cancel`.
+`server/config/job_work.lua`. Le **Courier** fonctionne par ordres de travail
+(`/job start|status|gps|cancel`, ou « Start a run » au bureau) : à chaque prise de
+course, le serveur tire 2 à 3 commandes, un point de récupération par commande puis
+un point de livraison par commande ; chaque commande passe réellement dans le sac
+(`delivery_order`, 1 kg) et la paie, versée en banque à la dernière livraison, suit la
+longueur du trajet. Points (de test pour l'instant), nombre de commandes, durées et
+barème : `server/config/delivery.lua`. AC Cleaner n'est plus proposé au bureau ; ses
+détenteurs gardent leur route (`server/config/job_runs.lua`).
+
+Après une embauche, à la fermeture du bureau, un **guide du métier** s'ouvre : une
+fenêtre guidée, page par page, avec des visuels animés (pages `guide` de
+`shared/jobs.lua`). Il se rouvre depuis **F1 → My job**, qui permet aussi de lancer une
+course n'importe où (Courier), de remettre le GPS sur l'étape suivante, d'abandonner la
+course, ou de poser le GPS des trois étapes des activités libres.
 [Configuration, sécurité, fonctionnement et tests](docs/jobs.md) · [Prompts des artworks](docs/job-art-prompts.md).
 
 ## Location de véhicules
@@ -409,17 +435,50 @@ Staff (`command.lightrp.<nom>` dans `acl.jsonc`) : `/lightrp.tp <id|me> <lieu|x 
 
 ### Véhicules personnels et concessionnaire
 
-**City Motors** propose un catalogue de véhicules à acheter (cash ou banque),
-accessible avec **E** à son point en ville. Le **Public Garage** permet de sortir
+**Night City Motors** (la map `cardealer`) propose un catalogue de véhicules à
+acheter (cash ou banque) : **E** auprès du vendeur, à l'accueil du showroom. Le
+véhicule acheté sort aussitôt sur la baie de livraison, verrouillé, clés en main, et
+une balise avec route GPS y mène ; si la baie est prise ou qu'un autre véhicule
+personnel est déjà dehors, il attend au garage et la GPS mène au garage. Quatre
+voitures d'exposition (verrouillées, figées) occupent les podiums. Le **Public Garage** permet de sortir
 et ranger les voitures personnelles ; elles restent récupérables après reboot ou
 suppression admin. **Aucune voiture de départ n'est attribuée.**
-Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`.
+**Fourrière** : un véhicule resté dehors lors d'un redémarrage, ou disparu du monde
+(détruit, supprimé, bug), part en fourrière ; depuis n'importe quel garage, le
+propriétaire peut y envoyer le sien (volé, perdu, bloqué), ce qui le retire du monde
+où qu'il soit. On le récupère dans n'importe quel garage public (onglet Impound),
+contre des frais selon le motif (`impound.fees` dans `server/config/garages.lua` :
+gratuit après un redémarrage). Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`,
+`/lightrp.impound` à côté du véhicule (ou avec son id réseau).
 SQL est obligatoire pour ces fonctionnalités ; elles se ferment en cas d'erreur
 de stockage. Voir [configuration, API et garanties](docs/personal-vehicles.md).
 
 Tables `lightrp_characters` (identité Master, compte, prénom/nom, dernière position, faim, soif,
 temps de jeu) et `lightrp_reports`. Sans base configurée le framework démarre et le dit dans le
 journal ; tout vit alors le temps de la session.
+
+## Gigs de fixers (`server/modules/fixers.lua`, `server/config/fixers.lua`)
+
+Des fixers fictifs (côté serveur : Mama Okoro, Silas "Ledger" Varga, Nix Delacroix) envoient au
+hasard, par SMS Neural-Link, un « gig » tiré du catalogue : les missions de l'éditeur marquées
+**Fixer gig** (`/lightrp.missions` › mission › Fixer gig : interrupteur, fixer, brief). Une mission
+de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on la reçoit.
+
+- **Offre** : carte du job (paie par opérateur, durée), boutons *Take the job* / *Pass* (3 min).
+- **Brief** une fois acceptée : l'objectif (le brief du fixer, sinon la description), le point de
+  rendez-vous (= position du tableau dans l'éditeur) avec *Pin the meet point* (waypoint sur la
+  carte), *Share the job* (un contact ou un numéro reçoit l'offre et peut *Join the crew*),
+  *Go now* (le chef lance avec les présents, au moins le minimum de la difficulté) et *Bail*.
+- **Rendez-vous** : quand tout l'équipage est au point (20 m), compte à rebours de 10 s puis la
+  mission démarre comme une mission normale (kit, instance). Sans tout le monde après 20 min :
+  lancement avec les présents s'ils suffisent, sinon le job tombe.
+- **Fin** : chaque opérateur est payé (`gig` à la banque) + réputation, le fixer envoie un message.
+- Puce HUD « GIG » (état `fixerGig`) : présents au point, horloge du rendez-vous, compte à rebours.
+- Envoi automatique : un passage par minute, chance 8 % par joueur éligible (implant, en ville,
+  libre, 2 min après l'arrivée), 20 min entre deux offres, 6 gigs ouverts au maximum.
+- Staff : `/fixers.offer <id> [missionId] [difficulté]`, `/fixers.list`, `/fixers.cancel <gig>`,
+  `/fixers.dispatch on|off|now`.
+- Les gigs vivent en mémoire : un redémarrage les annule (leurs boutons répondent « Expired »).
 
 ## Housing
 

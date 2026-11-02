@@ -12,10 +12,10 @@ export function jobFixture(): JobCenterDialogPayload {
       description: "Collect scrap, process reusable parts and sell them at the depot. No work order: transport heavy loads in your trunk.",
       steps: ["Collect scrap until your bag is full", "Process it into salvaged parts", "Sell parts at the depot"],
     } },
-    { name: "ac_cleaner", label: "AC Cleaner", tag: "ROOFTOP MAINTENANCE", grades: 3, entryGrade: { label: "Maintenance trainee", salary: 50 }, route: { label: "Rooftop maintenance", reward: 260, stops: 3, estimate: "5–8 min", description: "Service rooftop cooling units and return your report." }, recruitment: {
-      image: "img/jobs/ac-cleaner.webp", icon: "fan", environment: "Up on the rooftops", headline: "Keep Night City cool. Above the noise.",
-      description: "Head up to the rooftops and service air-conditioning units. Clear the dust, clean the cooling equipment and move on to the next building.",
-      steps: ["Reach the rooftop", "Clean the AC equipment", "Move to the next building"],
+    { name: "delivery", label: "Courier", tag: "FOOD & PARCEL DELIVERY", grades: 3, entryGrade: { label: "Runner", salary: 45 }, route: { label: "Delivery run", reward: 80, stops: 6, variable: true, orders: { min: 2, max: 3 }, estimate: "Random route · paid by distance", description: "Collect each order at its pickup point, then deliver them one by one." }, recruitment: {
+      image: "img/jobs/delivery.webp", icon: "package", environment: "All over the city", headline: "Hot food, cold streets. Deliver before it cools.",
+      description: "Collect orders at restaurants and depots, then deliver them to apartments and megabuildings. Every route is different; the longer it is, the more it pays. A vehicle helps.",
+      steps: ["Collect the orders at their pickup points", "Deliver each one to its address", "Get paid by the distance covered"],
     } },
   ] };
 }

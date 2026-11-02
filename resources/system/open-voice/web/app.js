@@ -26,6 +26,65 @@
   const error = document.getElementById("error");
   const micOn = document.getElementById("micOn");
   const micOff = document.getElementById("micOff");
+  const dist7 = document.getElementById("dist7");
+  const rangeSel = document.getElementById("rangeSel");
+
+  // The reach in seven-segment digits, the vehicle speedometer's (op77_speedometer),
+  // smaller: segments a-g, a decimal point for "2.5". Digit 24 x 44, advance 30.
+  const SEG = { 0: "abcdef", 1: "bc", 2: "abged", 3: "abgcd", 4: "fgbc", 5: "afgcd", 6: "afgedc", 7: "abc", 8: "abcdefg", 9: "abcdfg", "-": "g" };
+  const DW = 24, DH = 44, T = 5, GAP = 1.2, ADV = 30;
+  const hSeg = (cy, x0, x1) => [[x0, cy], [x0 + T / 2, cy - T / 2], [x1 - T / 2, cy - T / 2], [x1, cy], [x1 - T / 2, cy + T / 2], [x0 + T / 2, cy + T / 2]];
+  const vSeg = (cx, y0, y1) => [[cx, y0], [cx + T / 2, y0 + T / 2], [cx + T / 2, y1 - T / 2], [cx, y1], [cx - T / 2, y1 - T / 2], [cx - T / 2, y0 + T / 2]];
+  const SEGMENTS = {
+    a: hSeg(T / 2, T / 2 + GAP, DW - T / 2 - GAP), g: hSeg(DH / 2, T / 2 + GAP, DW - T / 2 - GAP), d: hSeg(DH - T / 2, T / 2 + GAP, DW - T / 2 - GAP),
+    f: vSeg(T / 2, T / 2 + GAP, DH / 2 - GAP), b: vSeg(DW - T / 2, T / 2 + GAP, DH / 2 - GAP),
+    e: vSeg(T / 2, DH / 2 + GAP, DH - T / 2 - GAP), c: vSeg(DW - T / 2, DH / 2 + GAP, DH - T / 2 - GAP),
+  };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  let distKey = null;
+  function renderDistance(text) {
+    if (!dist7 || text === distKey) return;
+    distKey = text;
+    const cells = [];
+    for (const ch of String(text)) {
+      if (ch === "." && cells.length) cells[cells.length - 1].dot = true;
+      else if (SEG[ch] !== undefined) cells.push({ ch, dot: false });
+    }
+    while (cells.length < 2) cells.unshift({ ch: " ", dot: false });
+    const width = cells.length * ADV - (ADV - DW) + 6;
+    dist7.setAttribute("viewBox", `0 0 ${width} ${DH}`);
+    dist7.setAttribute("width", String(width));
+    dist7.replaceChildren();
+    cells.forEach((cell, i) => {
+      const g = document.createElementNS(SVG_NS, "g");
+      g.setAttribute("transform", `translate(${i * ADV} 0) matrix(1 0 -0.09 1 ${(DH * 0.09).toFixed(2)} 0)`);
+      const on = SEG[cell.ch] || "";
+      for (const [k, pts] of Object.entries(SEGMENTS)) {
+        const p = document.createElementNS(SVG_NS, "polygon");
+        p.setAttribute("points", pts.map((q) => q.map((v) => v.toFixed(2)).join(",")).join(" "));
+        if (on.includes(k)) p.setAttribute("class", "on");
+        g.append(p);
+      }
+      const dot = document.createElementNS(SVG_NS, "circle");
+      dot.setAttribute("cx", String(DW + 3)); dot.setAttribute("cy", String(DH - T / 2)); dot.setAttribute("r", String(T / 2 + 0.4));
+      if (cell.dot) dot.setAttribute("class", "on");
+      if (cell.dot) g.append(dot);
+      dist7.append(g);
+    });
+  }
+
+  // The selector under the active reach preset slides to it (the plate is laid out flat,
+  // so offsets are the untilted ones).
+  function placeSelector() {
+    if (!rangeSel) return;
+    const on = ranges.hidden ? null : ranges.querySelector(".mic__range--on");
+    toggle(rangeSel, "on", !!on);
+    if (!on) return;
+    rangeSel.style.setProperty("--sel-x", `${on.offsetLeft}px`);
+    rangeSel.style.setProperty("--sel-w", `${on.offsetWidth}px`);
+    const color = on.style.getPropertyValue("--range-color");
+    if (color) rangeSel.style.setProperty("--sel-color", color);
+  }
 
   const meterBars = Array.from({ length: BARS }, (_, i) => {
     const bar = document.createElement("i");
@@ -139,6 +198,8 @@
 
     renderMeter(inputLevel, state);
     renderRanges(value.modes, activeMode);
+    placeSelector();
+    renderDistance(formatDistance(value.distance));
     animateModeChange(activeMode);
 
     const errorText = bounded(value.error, 80);

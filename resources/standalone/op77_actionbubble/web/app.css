@@ -1,0 +1,174 @@
+/* Action bubbles: a pin on the anchor, a leader line, and a hologram card in
+   3D (a slab of stacked glass layers turned toward the centre of the screen).
+   app.js places each bubble every frame by writing transforms only; the
+   animations here are the bubble's life: in (pin, line, unfold, glitch), the
+   duration bar, out (fold, retract). Never put clip-path or filter on an
+   element that carries the 3D transform: they flatten it. */
+@font-face { font-family: "Chakra Petch"; font-weight: 500; font-display: block; src: url("fonts/chakra-petch-500-latin.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 500; font-display: block; src: url("fonts/chakra-petch-500-latin-ext.woff2") format("woff2"); unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Chakra Petch"; font-weight: 600; font-display: block; src: url("fonts/chakra-petch-600-latin.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 600; font-display: block; src: url("fonts/chakra-petch-600-latin-ext.woff2") format("woff2"); unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-display: block; src: url("fonts/chakra-petch-700-latin.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-display: block; src: url("fonts/chakra-petch-700-latin-ext.woff2") format("woff2"); unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Share Tech Mono"; font-weight: 400; font-display: block; src: url("fonts/share-tech-mono-400-latin.woff2") format("woff2"); }
+
+:root {
+  --ink: #f2f0ea;
+  --dim: rgba(242, 240, 234, 0.55);
+  --glass: rgba(9, 9, 12, 0.84);
+  --font-core: "Chakra Petch", "Rajdhani", sans-serif;
+  --font-mono: "Share Tech Mono", "IBM Plex Mono", monospace;
+}
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+#bubbles { position: fixed; inset: 0; pointer-events: none; }
+
+/* ── one bubble: its origin is the anchor point ── */
+.ab {
+  --accent: #ffcc00;
+  --s: 1;
+  position: absolute; left: 0; top: 0; width: 0; height: 0;
+  opacity: 0; transition: opacity 140ms linear;
+  will-change: transform, opacity;
+}
+.ab.is-shown { opacity: var(--fade, 1); }
+
+/* the pin: a diamond with a ring that pulses */
+.ab__pin { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: scale(var(--s)); }
+.ab__pin i {
+  position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; box-sizing: border-box;
+  background: var(--accent); transform: rotate(45deg) scale(0);
+  box-shadow: 0 0 10px var(--accent), 0 0 2px #000;
+}
+.ab__pin b {
+  position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; box-sizing: border-box;
+  border: 1px solid var(--accent); border-radius: 50%; opacity: 0;
+}
+
+/* the leader line, drawn from the pin to the card */
+.ab__lead { position: absolute; left: 0; top: 0; overflow: visible; width: 1px; height: 1px; }
+.ab__lead polyline {
+  fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter;
+  stroke-dasharray: var(--len, 200); stroke-dashoffset: var(--len, 200);
+  filter: drop-shadow(0 0 3px var(--accent));
+}
+.ab__lead circle { fill: var(--accent); opacity: 0; }
+
+/* the rig sits where the card attaches; it holds the perspective */
+.ab__rig { position: absolute; left: 0; top: 0; perspective: 900px; perspective-origin: 50% 50%; }
+.ab__card {
+  position: absolute; left: 0; top: 0; width: max-content; /* the rig has no width: size to the text */
+  transform-style: preserve-3d;
+  transform-origin: 0 50%;
+  opacity: 0;
+}
+.ab.is-left .ab__card { transform-origin: 100% 50%; }
+.ab__body { position: relative; transform-style: preserve-3d; transform: var(--pose, none); transform-origin: inherit; }
+
+/* glass thickness: three layers behind the face */
+.ab__slab {
+  position: absolute; inset: 0; box-sizing: border-box;
+  border: 1px solid var(--accent); background: rgba(0, 0, 0, 0.55);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+}
+.ab__slab:nth-child(1) { transform: translateZ(-9px); opacity: 0.18; }
+.ab__slab:nth-child(2) { transform: translateZ(-6px); opacity: 0.3; }
+.ab__slab:nth-child(3) { transform: translateZ(-3px); opacity: 0.5; }
+
+.ab__face {
+  position: relative; box-sizing: border-box; min-width: 0; max-width: 340px;
+  padding: 6px 13px 8px 10px;
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--accent) 14%, transparent) 0%, transparent 38%),
+    var(--glass);
+  border: 1px solid var(--accent);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  color: var(--ink); white-space: nowrap; overflow: hidden;
+}
+/* scanlines and a sheen that sweeps once on the way in */
+.ab__face::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
+}
+.ab__face::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--accent) 35%, transparent), transparent);
+  transform: skewX(-18deg); opacity: 0;
+}
+.ab__icon { display: inline-block; width: 13px; height: 13px; margin-right: 7px; vertical-align: -1px; color: var(--accent); }
+.ab__icon:empty { display: none; }
+.ab__icon svg { width: 100%; height: 100%; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ab__text {
+  margin: 0; font: 600 15px/1.25 var(--font-core); letter-spacing: 0.01em;
+  text-shadow: 0 0 14px rgba(0, 0, 0, 0.8);
+  white-space: normal; overflow-wrap: anywhere; max-width: 316px;
+}
+.ab__text .ab__t { display: inline-block; transform: skewX(-7deg); }
+.ab__text em { font-style: normal; color: var(--accent); text-shadow: 0 0 10px var(--accent); }
+.ab__text em:first-of-type { margin-right: 3px; }
+.ab__text em:last-of-type { margin-left: 3px; }
+.ab__text .is-scramble { color: var(--accent); opacity: 0.85; }
+.ab:not(.has-asterisks) .ab__text em { display: none; }
+.ab__timer { position: absolute; left: 10px; right: 13px; bottom: 3px; height: 1px; background: rgba(242, 240, 234, 0.1); }
+.ab__timer i { position: absolute; inset: 0; background: var(--accent); transform-origin: 0 50%; box-shadow: 0 0 6px var(--accent); }
+.ab.is-infinite .ab__timer { display: none; }
+
+/* corner brackets, in front of the face */
+.ab__corner { position: absolute; width: 6px; height: 6px; border-color: var(--accent); border-style: solid; transform: translateZ(4px); opacity: 0; }
+.ab__corner--tl { left: -4px; top: -4px; border-width: 1px 0 0 1px; }
+.ab__corner--br { right: -4px; bottom: -4px; border-width: 0 1px 1px 0; }
+
+/* ── in ── */
+.ab.is-in .ab__pin i { animation: ab-pin 260ms cubic-bezier(.2, 1.6, .4, 1) both; }
+.ab.is-in .ab__pin b { animation: ab-ring 1600ms 180ms ease-out infinite; }
+.ab.is-in .ab__lead polyline { animation: ab-draw 240ms 140ms cubic-bezier(.6, 0, .3, 1) forwards; }
+.ab.is-in .ab__lead circle { animation: ab-fade-in 120ms 360ms both; }
+.ab.is-in .ab__card { animation: ab-unfold 520ms 330ms cubic-bezier(.18, 1.25, .3, 1) both; }
+.ab.is-left.is-in .ab__card { animation-name: ab-unfold-left; }
+.ab.is-in .ab__face::after { animation: ab-sheen 700ms 620ms ease-out both; }
+.ab.is-in .ab__face { animation: ab-glitch 260ms 640ms steps(2, end) both; }
+.ab.is-in .ab__corner { animation: ab-fade-in 160ms 760ms both; }
+.ab.is-in .ab__timer i { animation: ab-timer var(--dur, 5s) var(--delay, 0.75s) linear both; }
+
+/* ── out ── */
+.ab.is-out .ab__card { animation: ab-fold 320ms cubic-bezier(.6, 0, .8, .4) forwards; }
+.ab.is-left.is-out .ab__card { animation-name: ab-fold-left; }
+.ab.is-out .ab__lead polyline { animation: ab-retract 220ms 220ms ease-in forwards; }
+.ab.is-out .ab__lead circle { opacity: 0; transition: opacity 120ms; }
+.ab.is-out .ab__pin i { animation: ab-pin-out 180ms 420ms ease-in forwards; }
+.ab.is-out .ab__pin b { animation: none; opacity: 0; }
+
+@keyframes ab-pin { from { transform: rotate(45deg) scale(0); } to { transform: rotate(45deg) scale(1); } }
+@keyframes ab-pin-out { from { transform: rotate(45deg) scale(1); } to { transform: rotate(45deg) scale(0); } }
+@keyframes ab-ring { 0% { transform: scale(0.4); opacity: 0.9; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes ab-draw { from { stroke-dashoffset: var(--len, 200); } to { stroke-dashoffset: 0; } }
+@keyframes ab-retract { from { stroke-dashoffset: 0; } to { stroke-dashoffset: var(--len, 200); } }
+@keyframes ab-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ab-unfold {
+  0% { opacity: 0; transform: rotateY(-88deg) scaleX(0.2); }
+  35% { opacity: 1; }
+  100% { opacity: 1; transform: rotateY(0) scaleX(1); }
+}
+@keyframes ab-unfold-left {
+  0% { opacity: 0; transform: rotateY(88deg) scaleX(0.2); }
+  35% { opacity: 1; }
+  100% { opacity: 1; transform: rotateY(0) scaleX(1); }
+}
+@keyframes ab-fold {
+  from { opacity: 1; transform: rotateY(0) scaleX(1); }
+  to { opacity: 0; transform: rotateY(84deg) scaleX(0.15); }
+}
+@keyframes ab-fold-left {
+  from { opacity: 1; transform: rotateY(0) scaleX(1); }
+  to { opacity: 0; transform: rotateY(-84deg) scaleX(0.15); }
+}
+@keyframes ab-sheen { from { left: -40%; opacity: 1; } to { left: 120%; opacity: 0; } }
+@keyframes ab-glitch {
+  0% { transform: translateX(-3px); box-shadow: 3px 0 0 rgba(46, 230, 224, 0.7), -3px 0 0 rgba(255, 51, 64, 0.7); }
+  50% { transform: translateX(2px); box-shadow: -2px 0 0 rgba(46, 230, 224, 0.7), 2px 0 0 rgba(255, 51, 64, 0.7); }
+  100% { transform: none; box-shadow: none; }
+}
+@keyframes ab-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ab.is-in .ab__card, .ab.is-out .ab__card { animation-duration: 1ms; }
+}

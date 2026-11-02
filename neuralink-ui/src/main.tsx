@@ -10,6 +10,7 @@ import "@/styles/call.css";
 import "@/styles/toasts.css";
 import "@/styles/implant.css";
 import "@/styles/cyberpunk.css";
+import "@/styles/neural3d.css";
 import { App } from "./App";
 import { ErrorBoundary } from "./shell/ErrorBoundary";
 

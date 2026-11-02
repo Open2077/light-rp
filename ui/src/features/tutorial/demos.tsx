@@ -16,7 +16,7 @@ export type DemoKeys = Record<string, string | undefined>;
 const still = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /** The stage of a looping sequence: stage i lasts durations[i] ms. */
-function useStage(durations: number[]): number {
+export function useStage(durations: number[]): number {
   const frozen = still();
   const [stage, setStage] = useState(frozen ? durations.length - 1 : 0);
   const length = durations.length, wait = durations[stage] ?? 1000;
@@ -29,7 +29,7 @@ function useStage(durations: number[]): number {
   return stage;
 }
 /** A value moved by `step` every `ms`, wrapping from `to` back to `from`. */
-function useTicker(from: number, to: number, step: number, ms: number): number {
+export function useTicker(from: number, to: number, step: number, ms: number): number {
   const frozen = still();
   const [value, setValue] = useState(frozen ? to : from);
   useEffect(() => {
@@ -43,11 +43,11 @@ function useTicker(from: number, to: number, step: number, ms: number): number {
   return value;
 }
 
-function Cap({ children, on, wide }: { children?: string; on?: boolean; wide?: boolean }) {
+export function Cap({ children, on, wide }: { children?: string; on?: boolean; wide?: boolean }) {
   const text = (children ?? "?").toUpperCase();
   return <kbd className={`demo-cap${on ? " is-on" : ""}${wide || text.length > 2 ? " demo-cap--wide" : ""}`}>{text}</kbd>;
 }
-function Item({ name, icon, count }: { name?: string; icon: string; count?: number }) {
+export function Item({ name, icon, count }: { name?: string; icon: string; count?: number }) {
   const [failed, setFailed] = useState(false);
   return <span className="demo-item">
     {name && !failed ? <img src={`img/items/${name}.png`} alt="" onError={() => setFailed(true)} /> : <Icon name={icon} size={22} />}
