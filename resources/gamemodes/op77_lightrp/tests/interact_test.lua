@@ -125,7 +125,7 @@ for i, entry in ipairs(serverList) do
     for key, value in pairs(entry) do copy[key] = value end
     changed[i] = copy
 end
-changed[1].label = tostring(changed[1].label) .. " (moved)"
+changed[1].label = tostring(changed[1].label) .. " (moved)"; changed[1].rev = (tonumber(changed[1].rev) or 0) + 1000
 build(changed)
 assert(markers[oldMarker] == nil and blips[oldBlip] == nil, "a changed entry is rebuilt: its old handles are removed")
 build({})

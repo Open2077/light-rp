@@ -24,9 +24,15 @@ function LightRP.batchInteractions(fn)
     return table.unpack(result, 2, result.n)
 end
 
+-- Every registration gets a new revision: the client keeps a point whose revision it
+-- already drew and rebuilds only the others (a cheap comparison; hashing every entry on
+-- the client overran its 2 ms script budget, 2026-11-02).
+local revision = 0
 function LightRP.interaction(id, definition)
     assert(type(id) == "string" and type(definition) == "table" and type(definition.position) == "table", "LightRP.interaction(id, { position = ... })")
     if interactions[id] == nil then order[#order + 1] = id end
+    revision = revision + 1
+    definition.rev = revision
     definition.id = id
     definition.radius = tonumber(definition.radius) or 2.5
     definition.key = definition.key or "E"
@@ -73,7 +79,7 @@ local function clientList(playerId)
     for _, id in ipairs(order) do
         local d = interactions[id]
         if d and (d.bucket == nil or d.bucket == bucket) and (not d.streamGroup or selected[id]) and allowed(playerId, d) then
-            list[#list + 1] = { id = id, position = d.position, radius = d.radius, label = d.label, prompt = d.prompt, key = d.key,
+            list[#list + 1] = { id = id, rev = d.rev, position = d.position, radius = d.radius, label = d.label, prompt = d.prompt, key = d.key,
                 promptHeight = d.promptHeight, marker = d.marker, ring = d.ring, blip = d.blip }
         end
     end

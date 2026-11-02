@@ -25,20 +25,20 @@ dofile("client/core/interact.lua")
 local build = handlers[LightRpEvents.net.interactions]
 local function list(n, prefix)
     local out = {}
-    for i = 1, n do out[i] = { id = prefix .. i, position = { x = i, y = 0, z = 0 }, label = prefix .. i,
+    for i = 1, n do out[i] = { id = prefix .. i, rev = 1, position = { x = i, y = 0, z = 0 }, label = prefix .. i,
         marker = { shape = "cylinder" }, blip = { icon = "shirt", sprite = "clothes", title = "Wardrobe" } } end
     return out
 end
 local function run(co) while coroutine.status(co) ~= "dead" do assert(coroutine.resume(co)) end end
 
--- 30 points: 6 at once, the rest after yields
+-- 30 points: 4 at once, the rest after yields
 local before = #threads
 build(list(30, "w"))
-assert(#LightRpInteract.points == 6, "the first slice at once, got " .. #LightRpInteract.points)
+assert(#LightRpInteract.points == 4, "the first slice at once, got " .. #LightRpInteract.points)
 assert(#threads == before + 1, "the rest goes to a thread")
 local co = threads[#threads]
-assert(coroutine.resume(co)); assert(#LightRpInteract.points == 6, "nothing more before the first yield returns")
-assert(coroutine.resume(co)); assert(#LightRpInteract.points == 12, "one slice per resume")
+assert(coroutine.resume(co)); assert(#LightRpInteract.points == 4, "nothing more before the first yield returns")
+assert(coroutine.resume(co)); assert(#LightRpInteract.points == 8, "one slice per resume")
 run(co)
 assert(#LightRpInteract.points == 30 and logs[#logs]:find("30 interaction point", 1, true), "every point, shops after the wardrobes included")
 -- the full visual budget answered once: no further custom tries, native sprites instead
@@ -48,8 +48,10 @@ assert(iconCalls == 1 and nativeBlips == 30, "one refused custom try, then nativ
 build(list(20, "a"))
 local old = threads[#threads]
 assert(coroutine.resume(old))            -- first slice of a: yields
-build(list(3, "b"))                       -- small: at once, no thread
-assert(#LightRpInteract.points == 3, "the new list replaces the old")
+local beforeB = #threads
+build(list(3, "b"))                       -- the old points retire in slices too
+for i = beforeB + 1, #threads do run(threads[i]) end -- only this build's own work
+assert(#LightRpInteract.points == 3 and #LightRpInteract.retiring == 0, "the new list replaces the old, old handles all removed")
 run(old)
 assert(#LightRpInteract.points == 3, "the old build stopped without adding its points")
 for _, p in ipairs(LightRpInteract.points) do assert(p.id:sub(1, 1) == "b") end
@@ -65,8 +67,8 @@ build(same)
 assert(markers == markersBefore and nativeBlips == blipsBefore, "an unchanged list creates nothing")
 for i, p in ipairs(LightRpInteract.points) do assert(p == before3[i], "the same points are kept") end
 assert(#logs == logsBefore, "an unchanged list is not even logged")
--- one changed entry: only that point is rebuilt
-same[2].label = "changed"
+-- one changed entry (the server gives it a new revision): only that point is rebuilt
+same[2].label = "changed"; same[2].rev = 2
 build(same)
 assert(#LightRpInteract.points == 3 and markers == markersBefore + 1, "only the changed point is rebuilt")
 local stayed = 0
@@ -74,7 +76,7 @@ for _, p in ipairs(LightRpInteract.points) do if p == before3[1] or p == before3
 assert(stayed == 2, "the unchanged points stay")
 assert(logs[#logs]:find("(2 kept, 1 added, 1 removed)", 1, true), logs[#logs])
 -- a removed entry goes, a new one comes, the rest stays
-build({ same[1], same[3], { id = "c1", position = { x = 9, y = 0, z = 0 }, marker = { shape = "cylinder" } } })
+build({ same[1], same[3], { id = "c1", rev = 1, position = { x = 9, y = 0, z = 0 }, marker = { shape = "cylinder" } } })
 assert(#LightRpInteract.points == 3 and markers == markersBefore + 2, "one removed, one added")
 local ids = {}
 for _, p in ipairs(LightRpInteract.points) do ids[p.id] = true end
