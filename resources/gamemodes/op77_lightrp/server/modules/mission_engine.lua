@@ -554,15 +554,10 @@ local function isMember(inst, id)
     for _, m in ipairs(inst.members) do if m == id then return true end end
     return false
 end
-function Engine.npcHit(reporter, victimId, npcId, epoch, amount)
-    local victim, damage, reportedEpoch = tonumber(victimId), tonumber(amount), tonumber(epoch)
-    if not victim or not damage or damage ~= damage or damage <= 0 or not reportedEpoch then return false, "invalid" end
-    local inst = Missions.instanceOf(victim)
-    local run = inst and inst.run
-    if not run or run.phase == "done" or not isMember(inst, reporter) then return false, "no_run" end
-    local key
-    for id in pairs(run.enemies) do if tostring(id) == tostring(npcId) then key = id end end
-    if key == nil then return false, "not_this_mission" end
+-- One reported hit of `key` (an NPC the caller already tied to `inst`) on `victim`.
+-- Also used by the raid's reinforcements (server/modules/mission_chimera.lua).
+function Engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage)
+    if not isMember(inst, reporter) or not isMember(inst, victim) then return false, "not_in_mission" end
     local ok, npc = pcall(Open77.npcs.get, key)
     if not ok or type(npc) ~= "table" or (tonumber(npc.health) or 0) <= 0 then return false, "npc_gone" end
     -- only the client that owns the NPC's simulation reports its hits, for its current lease
@@ -579,6 +574,17 @@ function Engine.npcHit(reporter, victimId, npcId, epoch, amount)
     local applied, why = Open77.players.damage(victim, damage, { attacker = key, cause = "firearm" })
     if applied == false then LightRP.log("mission %s: hit on %s refused (%s)", inst.id, name(victim), tostring(why)) end
     return applied ~= false, why
+end
+function Engine.npcHit(reporter, victimId, npcId, epoch, amount)
+    local victim, damage, reportedEpoch = tonumber(victimId), tonumber(amount), tonumber(epoch)
+    if not victim or not damage or damage ~= damage or damage <= 0 or not reportedEpoch then return false, "invalid" end
+    local inst = Missions.instanceOf(victim)
+    local run = inst and inst.run
+    if not run or run.phase == "done" then return false, "no_run" end
+    local key
+    for id in pairs(run.enemies) do if tostring(id) == tostring(npcId) then key = id end end
+    if key == nil then return false, "not_this_mission" end
+    return Engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage)
 end
 RegisterNetEvent(NET .. ":npcHit", function(victimId, npcId, epoch, amount)
     local reporter = tonumber(source)

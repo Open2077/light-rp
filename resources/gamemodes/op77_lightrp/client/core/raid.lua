@@ -425,6 +425,15 @@ local ok, effective = pcall(RegisterKeyMapping, KEY.id, KEY.name, KEY.key, funct
 end)
 if not ok then log("ready key refused: %s", tostring(effective)) end
 
+-- A reinforcement this client owns hit an operator: the server checks it and applies it
+-- to the canonical health (the boss's hits go through open77_chimera's own relay).
+AddEventHandler("open77:npcPlayerHit", function(victim, npc, epoch, amount)
+    local s = Raid.state
+    if s and s.phase == "fight" and tostring(npc) ~= tostring(s.bossId) then
+        TriggerServerEvent("op77_lightrp:raid:npcHit", victim, npc, epoch, amount)
+    end
+end)
+
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
     TriggerServerEvent(E.net.raidHello)
