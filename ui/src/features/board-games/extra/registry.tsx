@@ -9,6 +9,14 @@ import { FortuneControls } from "./FortuneControls";
    client, LightRP.tabletopExtra.register on the server). `game` is the
    server's public view of that table. */
 export type ExtraState = { [key: string]: unknown };
+/** A list from Lua: an empty Lua table arrives as `{}`, not `[]`, and a sparse
+    one as an object with numeric keys. Always use this before .map/.filter. */
+export function asList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, T>;
+  return Object.keys(record).sort((a, b) => Number(a) - Number(b)).map(key => record[key] as T);
+}
 export interface ExtraControlsProps { game: ExtraState; ready?: boolean; isActor?: boolean }
 export interface ExtraGame {
   name: string;

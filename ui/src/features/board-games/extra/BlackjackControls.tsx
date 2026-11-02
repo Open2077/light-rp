@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button, Panel } from "@/design/components";
 import { emit } from "@/bridge/open77";
 import { useStore } from "@/state/store";
-import type { ExtraControlsProps } from "./registry";
+import { asList, type ExtraControlsProps } from "./registry";
 
 /* Blackjack panel. Everything here is a view of the server's public table
    state (the client adds clientNow, mySeat and legal); the page only sends
@@ -30,7 +30,7 @@ function cardText(card: Card, now: number): string {
   return rank + (SUITS[card.c.charAt(1)] ?? "");
 }
 function shown(cards: Card[] | undefined, now: number) {
-  return (cards ?? []).filter(card => (card.t ?? 0) <= now);
+  return asList<Card>(cards).filter(card => (card.t ?? 0) <= now);
 }
 function totalText(total: number | undefined, soft: boolean | undefined) {
   return total === undefined ? "–" : soft && total < 21 ? `soft ${total}` : String(total);
@@ -60,7 +60,7 @@ export function BlackjackControls({ game: state, ready }: ExtraControlsProps) {
       {dealerVisible.length > 0 && <> · {revealing && dealerCards.length > dealerVisible.length ? "…" : totalText(game.dealer?.total, game.dealer?.soft)}</>}</p>
     {hand && <p className="board-games__status">
       Your hand: {shown(hand.cards, now).map(card => cardText(card, now)).join(" ") || "–"}
-      {(hand.cards?.length ?? 0) > 0 && !dealing && <> · {totalText(hand.total, hand.soft)}</>}
+      {asList<Card>(hand.cards).length > 0 && !dealing && <> · {totalText(hand.total, hand.soft)}</>}
       {" "}· stake €$ {(hand.stake ?? hand.bet ?? 0).toLocaleString("en-US")}{hand.doubled ? " (doubled)" : ""}
     </p>}
     {game.phase === "betting" && <>

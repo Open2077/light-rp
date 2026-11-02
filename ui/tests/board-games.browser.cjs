@@ -65,6 +65,15 @@ const dist = path.resolve(process.env.BOARD_GAMES_WEB_DIR || path.resolve(__dirn
     await show({active:true,kind:'roulette',ready:true,status:'playing',extra:{phase:'spinning'}});
     await page.getByText('Wheel spinning… bets are closed.',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Place bet',exact:true}).count(),0);
+    // Fresh casino tables as Lua sends them: empty lists arrive as {} objects.
+    await show({active:true,kind:'blackjack',ready:true,status:'playing',extra:{"shoe": {"cut": false, "left": 312, "total": 312}, "round": 1, "dealer": {"cards": {}, "total": 0}, "mode": "duel", "ply": 0, "hands": {}, "kind": "blackjack", "captured": {}, "status": "playing", "phase": "betting", "shuffledAt": 1793648509672, "objects": {}, "clientNow": 1793648600000, "mySeat": "white", "legal": {}}});
+    await page.getByRole('heading',{name:'Blackjack'}).waitFor();
+    await page.getByRole('button',{name:'Place bet',exact:true}).waitFor();
+    await show({active:true,kind:'slots',ready:true,status:'playing',extra:{kind:'slots',round:1,phase:'idle',result:{symbols:{}},stops:{}}});
+    await page.getByRole('heading',{name:'Slot Machine'}).waitFor();
+    await show({active:true,kind:'fortune',ready:true,status:'playing',extra:{kind:'fortune',round:1,phase:'betting',recent:{},bets:{},totals:{},mine:{}}});
+    await page.getByRole('heading',{name:'Fortune Wheel'}).waitFor();
+    assert.deepEqual(errors, [], 'casino panels must render fresh tables');
     await show({ active: false });
     await page.locator('.board-games').waitFor({ state: 'detached' });
     assert.equal(await page.locator('.board-games').count(), 0);

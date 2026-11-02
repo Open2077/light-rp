@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Panel } from "@/design/components";
 import { emit } from "@/bridge/open77";
 import { useStore } from "@/state/store";
-import type { ExtraControlsProps } from "./registry";
+import { asList, type ExtraControlsProps } from "./registry";
 
 interface SlotsState {
   kind?: string; round?: number; seat?: string; spinning?: boolean; yours?: boolean;
@@ -29,7 +29,7 @@ export function SlotsControls({ game: state, ready }: ExtraControlsProps) {
     {game.spinning ? <p className="board-games__status" role="status">Reels spinning…</p>
       : result ? <>
         <p className="board-games__status" role="status">{result.gross > 0 ? `${result.label} · ${money(result.gross)}` : "No win"}</p>
-        {result.symbols && <p className="board-games__meta">{result.symbols.map(s => NAMES[s] ?? s).join(" · ")} · bet {money(result.bet)}</p>}
+        {asList<string>(result.symbols).length > 0 && <p className="board-games__meta">{asList<string>(result.symbols).map(s => NAMES[s] ?? s).join(" · ")} · bet {money(result.bet)}</p>}
       </> : <p className="board-games__status">Ready</p>}
     {seated ? <>
       <label className="board-games__field">Bet (whole RP dollars, {min}–{max.toLocaleString("en-US")})
