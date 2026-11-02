@@ -253,7 +253,8 @@ mockCreateFailure=true;events['lightrp:boardGames:place']({kind='chess'})
 assert(not C.isActive() and not focus and lastNotice:find('invalid_model',1,true))
 mockCreateFailure=false
 mockLoading=true;events['lightrp:boardGames:place']({kind='connect4'})
-clock=clock+3100;step();assert(not C.isActive() and next(nativeProps)==nil)
+clock=clock+3100;step();assert(C.isActive(),'a slow model keeps loading within the grace period')
+clock=clock+12000;step();assert(not C.isActive() and next(nativeProps)==nil)
 mockLoading=false
 -- Placement uses the precise WebUI pointer; held pointer works with physical mouse up.
 events['lightrp:boardGames:place']({kind='chess'});assert(C.isActive() and focus)

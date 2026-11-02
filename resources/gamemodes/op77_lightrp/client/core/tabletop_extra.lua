@@ -94,11 +94,17 @@ function Extra.view(board)
     if adapter.view then return adapter.view(board) end
     return {extra=board.game}
 end
+local function trace(reason,board,format,...)
+    local client=LightRpBoardGamesClient
+    if client and client.trace then client.trace(reason,board and board.id,format,...) end
+end
 local function command(board,operation,data)
     local adapter=board and games[board.kind]
-    if not adapter or not seat(board) or not (adapter.operations or {})[operation] then return false end
-    if adapter.turnOnly and board.actor~=nil and tonumber(board.actor)~=me() then return false end
+    local why=not adapter and "unknown table" or not seat(board) and "not seated" or not (adapter.operations or {})[operation] and "unknown operation"
+        or adapter.turnOnly and board.actor~=nil and tonumber(board.actor)~=me() and "not your turn" or nil
+    if why then trace("action_refused",board,"kind=%s op=%s: %s",tostring(board and board.kind),tostring(operation),why);return false end
     if type(data)~="table" then data={} end
+    trace("action",board,"kind=%s op=%s rev=%s phase=%s",board.kind,operation,tostring(board.revision),tostring(board.game and board.game.phase))
     return TriggerServerEvent(NET,{action="game",boardId=board.id,revision=board.revision,operation=operation,data=data})==true
 end
 Extra.command=command
@@ -112,7 +118,10 @@ end
 function Extra.bind(page)
     page:on("lightrp:tabletop:action",function(payload)
         local board=activeId and boards[activeId]
-        if not board or type(payload)~="table" then return end
+        if not board or type(payload)~="table" then
+            trace("action_refused",board,"page action %s without an active table (active=%s)",tostring(type(payload)=="table" and payload.operation),tostring(activeId))
+            return
+        end
         command(board,payload.operation,payload.data)
     end)
 end

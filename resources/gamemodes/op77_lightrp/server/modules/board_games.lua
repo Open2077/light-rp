@@ -123,6 +123,10 @@ local function updatedGame(b,game)
 end
 local function commitGame(b,game,queries,changes)
     local n=updatedGame(b,game)
+    if extra(b.kind) then
+        LightRP.log("board_games commit board=%s kind=%s rev=%d->%d phase=%s->%s round=%s->%s queries=%d",b.id,b.kind,b.revision,n.revision,
+            tostring(b.game.phase),tostring(game.phase),tostring(b.game.round),tostring(game.round),#(queries or {}))
+    end
     local sql={write(n)};for _,query in ipairs(queries or {}) do sql[#sql+1]=query end
     return Inv.commitDrafts(changes or {}, sql, function()
         b.game=game;b.revision=n.revision;b.moveSequence=n.moveSequence;b.lastSound=n.lastSound
@@ -279,6 +283,7 @@ for kind,spec in pairs(LightRpBoardGames) do
         local inv=active(player)
         if not loaded or not inv then notice(player,"Board storage is unavailable.");return false end
         pending[player]={kind=gameKind,inventory=inv.id,at=LightRP.nowMs()}
+        LightRP.log("board_games use player=%d item=%s kind=%s: placement ticket issued",player,spec.item,gameKind)
         TriggerClientEvent(PLACE,player,{kind=gameKind})
         return "keep"
     end)
@@ -288,27 +293,41 @@ RegisterNetEvent(REQUEST,function(p)
     if not player or player<=0 or type(p)~="table" then return end
     local now=LightRP.nowMs()
     if p.action=="diagnostic" then
-        if (p.event~="stop" and p.event~="render") or type(p.reason)~="string" or #p.reason>64 then return end
-        -- One diagnostic per reason per second, so a render summary cannot hide the state trace.
+        if (p.event~="stop" and p.event~="render" and p.event~="trace") or type(p.reason)~="string" or #p.reason>64 then return end
         lastDiagnostic[player]=lastDiagnostic[player] or {}
-        if lastDiagnostic[player][p.reason] and now-lastDiagnostic[player][p.reason]<1000 then return end
-        lastDiagnostic[player][p.reason]=now
+        local budget=lastDiagnostic[player]
+        if p.event=="trace" then
+            -- Client traces: up to 40 per 10 s per player, every reason.
+            if not budget.window or now-budget.window>10000 then budget.window=now;budget.count=0 end
+            budget.count=budget.count+1
+            if budget.count>40 then return end
+        else
+            -- One diagnostic per reason per second, so a render summary cannot hide the state trace.
+            if budget[p.reason] and now-budget[p.reason]<1000 then return end
+            budget[p.reason]=now
+        end
         local function clean(value,limit) return tostring(value or ""):sub(1,limit):gsub("[%c]"," ") end
         LightRP.log("board_games client %s player=%d board=%s reason=%s details=%s",p.event,player,clean(p.boardId,96),clean(p.reason,64),clean(p.details,180))
         return -- Diagnostics must not consume the gameplay action rate budget.
     end
-    if playerBusy[player] then return end
-    if last[player] and now-last[player]<150 then return end
+    local function dropped(why)
+        if p.action~="sync" then LightRP.log("board_games dropped %s player=%d board=%s op=%s: %s",tostring(p.action),player,tostring(p.boardId),tostring(p.operation),why) end
+    end
+    if playerBusy[player] then dropped("previous request still running");return end
+    if last[player] and now-last[player]<150 then dropped("rate limit 150 ms");return end
     last[player]=now
     if p.action=="sync" then push(player);return end
     local inv=active(player)
-    if not loaded or not inv or inv.busy then return end
+    if not loaded then dropped("board storage not loaded");return end
+    if not inv then dropped("inventory not persistent or character not alive");return end
+    if inv.busy then dropped("inventory busy");return end
     if p.action=="place" and placementBusy then notice(player,"Another placement is in progress. Try again.");return end
     if p.action=="place" then placementBusy=true end
     playerBusy[player]=true;inv.busy=true
     local called,ok,why=pcall(handle,player,p,inv)
-    if p.action=="join" or p.action=="leave" then
-        LightRP.log("board_games %s player=%d board=%s ok=%s reason=%s",p.action,player,tostring(p.boardId),tostring(called and ok),tostring(called and why or ok))
+    if p.action=="join" or p.action=="leave" or p.action=="place" or p.action=="game" then
+        LightRP.log("board_games %s player=%d board=%s kind=%s op=%s ok=%s reason=%s",p.action,player,tostring(p.boardId),tostring(p.kind),
+            tostring(p.operation),tostring(called and ok),tostring(called and why or ok))
     end
     if p.action=="place" then placementBusy=false end
     if Inv.releaseBusy then Inv.releaseBusy(inv) else inv.busy=nil end
@@ -352,10 +371,12 @@ CreateThread(function()
         for _,b in pairs(boards) do
             local h=X and X.games[b.kind]
             if h and h.due and not b.busy and h.due(b,X.now()) then
+                LightRP.log("board_games due board=%s kind=%s phase=%s rev=%d",b.id,b.kind,tostring(b.game.phase),b.revision)
                 b.busy=true
                 local called,ok,why=pcall(function()
                     local game,queries=h.settle(b,X.now())
                     if game then return commitGame(b,game,queries) end
+                    LightRP.log("board_games settle board=%s kind=%s returned no game: %s",b.id,b.kind,tostring(queries))
                 end)
                 b.busy=nil
                 if called and ok then broadcast() end

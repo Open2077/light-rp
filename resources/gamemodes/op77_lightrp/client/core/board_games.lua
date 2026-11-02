@@ -14,7 +14,10 @@ local applyCamera
 local pendingPlacement
 local tags = {}
 local clearGhost
-local failedBoards={}
+-- A board whose props do not render is hidden, then retried: heavy packs
+-- (the blackjack table is 60 props from a 3 MB archive) can stream slowly.
+local failedBoards,notifiedBoards={},{}
+local LOAD_GRACE_MS,RETRY_MS=15000,20000
 local ASSET_HELP="Close the game and rejoin through the launcher to install the board-game assets."
 local sounds, soundSequences = {}, {}
 local SOUND_NAMES={['chess-move']=true,['chess-capture']=true,['checkers-move']=true,
@@ -23,6 +26,12 @@ local function request(action, payload)
     payload = payload or {}; payload.action = action
     return TriggerServerEvent(NET, payload)
 end
+-- Client traces land in the server log (the client log never reaches it).
+local function trace(reason,boardId,format,...)
+    local ok,details=pcall(string.format,format or "",...)
+    request("diagnostic",{event="trace",reason=reason,boardId=boardId,details=(ok and details or tostring(format)):sub(1,180)})
+end
+Client.trace=trace
 local function notice(text)
     Ui.send(LightRpEvents.page.notice, { kind = "info", title = "Board Games", body = text })
 end
@@ -238,6 +247,7 @@ local function startView(board)
     local hidden,reason=Open77.hud.setCinematic(true,.01)
     if not hidden then notice("The game HUD could not be hidden: "..tostring(reason));stop(true,"hud_unavailable",reason);return end
     active.cinematic=true
+    trace("view_open",board.id,"kind=%s rev=%s view=%s",board.kind,tostring(board.revision),view)
     sendView(true)
 end
 local function cursor()
@@ -470,7 +480,8 @@ local function unavailable(reason)
 end
 local function failBoard(id,reason)
     if not failedBoards[id] then
-        failedBoards[id]=true;unavailable(reason)
+        failedBoards[id]=GetGameTimer()
+        if not notifiedBoards[id] then notifiedBoards[id]=true;unavailable(reason) end
         request("diagnostic",{event="render",reason="board_failed",boardId=id,details=tostring(reason or ""):sub(1,180)})
     end
     clearGeometry(id)
@@ -499,7 +510,7 @@ local function transformProp(record,position,yaw)
     end
     -- Raw entity templates load asynchronously. Retain the original handle while
     -- they stream in; changing model or transform must never substitute a cube.
-    if GetGameTimer()-record.created<3000 then return true end
+    if GetGameTimer()-record.created<LOAD_GRACE_MS then return true end
     if record.ghost then unavailable(why);stop(false,"preview_transform_failed",why) else failBoard(record.boardId,why) end
     return false
 end
@@ -530,7 +541,7 @@ local function validateProps(yieldFn)
             local fallback=backend:find("marker",1,true) or backend:find("fallback",1,true)
                 or backend:find("placeholder",1,true) or backend:find("cube",1,true)
             if row and row.rendered==true and not row.failed and not fallback then record.ready=true end
-            if (row and (row.failed==true or fallback)) or (GetGameTimer()-record.created>3000 and not record.ready) then
+            if (row and (row.failed==true or fallback)) or (GetGameTimer()-record.created>LOAD_GRACE_MS and not record.ready) then
                 failures[#failures+1]={record=record,why=row and (row.error or row.backend) or "model did not load"}
             end
         end
@@ -550,12 +561,17 @@ local function aliveBoard(board)
 end
 local function ensureBoard(board)
     local id=tostring(board.id)
-    if failedBoards[id] then return end
+    local failedAt=failedBoards[id]
+    if failedAt then
+        if GetGameTimer()-failedAt<RETRY_MS then return end
+        failedBoards[id]=nil
+    end
     local cache=renderCaches[id]
     if cache and cache.kind~=board.kind then clearGeometry(id);cache=nil end
     if not cache then
         local prop,why=createProp(board,nil,board.position,false)
-        if not prop then failBoard(id,why);return end
+        if not prop then trace("render_create_failed",id,"kind=%s base %s",board.kind,tostring(why));failBoard(id,why);return end
+        trace("render_start",id,"kind=%s model=%s",board.kind,tostring(prop.name))
         cache={kind=board.kind,board=prop,pieces={},initialized=false}
         renderCaches[id]=cache
         Wait(0) -- one native create per resume, including a full initial board
@@ -577,11 +593,15 @@ local function ensureBoard(board)
         local p=world(board,target.position.x,target.position.y,target.position.z)
         if board.kind=="connect4" and cache.initialized then p.z=board.position.z+1.05*SCALE end
         local prop,why=createProp(board,target.piece,p,false)
-        if not prop then failBoard(id,why);return end
+        if not prop then trace("render_create_failed",id,"kind=%s piece=%s %s",board.kind,tostring(key),tostring(why));failBoard(id,why);return end
         cache.pieces[key]=prop
         Wait(0)
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end end
+    if not cache.initialized then
+        local count=0;for _ in pairs(cache.pieces) do count=count+1 end
+        trace("render_done",id,"kind=%s pieces=%d",board.kind,count)
+    end
     cache.initialized=true
 end
 local function pickupBoard(context)
@@ -732,9 +752,14 @@ local function confirmPlacement()
     if not draft then return end
     validateProps()
     if draft and ghostProp and ghostProp.ready then
+        trace("place_confirm",nil,"kind=%s pos=%.1f,%.1f,%.1f",draft.kind,draft.position.x,draft.position.y,draft.position.z)
         request("place",{kind=draft.kind,position=draft.position,rotation=draft.rotation})
         draft=nil;clearGhost();pointerEvents={};pointerDown=false;releaseInput();sendView(true)
-    elseif draft then notice("The board model is still loading. Wait a moment before placing it.") end
+    elseif draft then
+        trace("place_not_ready",nil,"kind=%s ghost=%s age=%sms",draft.kind,tostring(ghostProp~=nil),
+            tostring(ghostProp and GetGameTimer()-ghostProp.created))
+        notice("The board model is still loading. Wait a moment before placing it.")
+    end
 end
 local function placementUnavailable(allowInventory)
     if not Ui.page or not Ui.characterReady or Ui.creationActive or Ui.actionFocus or Ui.supportMode then return true end
@@ -746,6 +771,7 @@ end
 local function placeDraft(kind)
     local state=Open77.character.state()
     if not state or not state.position or not state.alive or not state.attached then
+        trace("place_refused",nil,"kind=%s character unavailable",kind)
         notice("You cannot place a board while your character is unavailable.");return
     end
     local hit=Open77.camera.screenRaycast(.5,.5,3,{static=true,dynamic=true})
@@ -755,13 +781,20 @@ local function placeDraft(kind)
     local initialZ=math.max(pos.z+.015,state.position.z+.35)
     draft={kind=kind,position={x=pos.x,y=pos.y,z=initialZ},rotation=0,axis="xy",height=0}
     local prop,why=createProp(draft,nil,draft.position,true)
-    if not prop then draft=nil;unavailable(why);return end
+    if not prop then trace("place_ghost_failed",nil,"kind=%s %s",kind,tostring(why));draft=nil;unavailable(why);return end
+    trace("place_ghost",nil,"kind=%s model=%s",kind,tostring(prop.name))
     ghostProp=prop
     takeInput();sendView(true)
 end
 local function beginPlacement(p)
-    if type(p)~="table" or (p.kind~="chess" and p.kind~="checkers" and p.kind~="connect4" and not extra(p)) then return end
+    if type(p)~="table" or (p.kind~="chess" and p.kind~="checkers" and p.kind~="connect4" and not extra(p)) then
+        trace("place_unknown",nil,"kind=%s",tostring(type(p)=="table" and p.kind));return
+    end
+    trace("place_begin",nil,"kind=%s inventory=%s prompt=%s active=%s",p.kind,tostring(Ui.dialogs.inventory),tostring(Ui.promptActive),tostring(Client.isActive()))
     if placementUnavailable(true) or (Ui.promptActive and not Ui.dialogs.inventory and not Client.isActive()) then
+        local open={};for name,isOpen in pairs(Ui.dialogs or {}) do if isOpen then open[#open+1]=name end end
+        trace("place_refused",nil,"ready=%s creation=%s action=%s support=%s prompt=%s dialogs=%s",tostring(Ui.characterReady),tostring(Ui.creationActive),
+            tostring(Ui.actionFocus),tostring(Ui.supportMode),tostring(Ui.promptActive),table.concat(open,","))
         notice("Close the current dialog before placing your board.");return
     end
     if Client.isActive() then stop(true,"switch_to_placement") end
@@ -778,9 +811,12 @@ end
 local function finishPlacementHandoff()
     local pending=pendingPlacement;if not pending then return end
     if placementUnavailable(true) then
+        trace("place_cancelled",nil,"kind=%s another dialog opened",pending.kind)
         pendingPlacement=nil;notice("Board placement cancelled because another dialog opened.");return
     end
     if GetGameTimer()>pending.deadline then
+        trace("place_cancelled",nil,"kind=%s inventory did not close inventory=%s prompt=%s menu=%s",pending.kind,
+            tostring(Ui.dialogs.inventory),tostring(Ui.promptActive),tostring(Ui.menuOpen))
         pendingPlacement=nil;notice("The inventory did not close. Close it and use your board again.");return
     end
     if Ui.dialogs.inventory or Ui.promptActive or Ui.menuOpen then return end
@@ -867,6 +903,9 @@ applyState=function(payload)
     end end
     Client.boards=nextBoards
     if active and nextBoards[active.id] and active.revision~=nextBoards[active.id].revision then
+        local b=nextBoards[active.id]
+        trace("state",b.id,"kind=%s rev=%s->%s phase=%s ready=%s actor=%s serverNow=%s",b.kind,tostring(active.revision),tostring(b.revision),
+            tostring(b.game and b.game.phase),tostring(b.ready),tostring(b.actor),tostring(b.serverNow))
         active.selected=nil;active.drag=nil;active.clickDestination=nil;active.pendingMove=nil;active.dropPressed=nil;active.revision=nextBoards[active.id].revision
     end
     if active and not nextBoards[active.id] then stop(false,"board_removed")
