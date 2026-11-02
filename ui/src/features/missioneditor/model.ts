@@ -49,7 +49,9 @@ export interface Mission {
 }
 export interface Capture { position: Point; heading: number }
 export interface Listing { missions?: Mission[]; ready?: boolean; fixers?: FixerContact[] }
-export interface Wire { kind: "open" | "response" | "invalidate" | "editor" | "captureKey" | "hover" | "build"; request?: string; ok?: boolean; data?: unknown; error?: string; mode?: string }
+export interface Wire { kind: "open" | "response" | "invalidate" | "editor" | "captureKey" | "hover" | "build"; request?: string; ok?: boolean; data?: unknown; error?: string; mode?: string;
+  /** A large answer in JSON text parts (1-based part of parts). */
+  part?: number; parts?: number; text?: string }
 
 export const TYPES: MissionType[] = ["eliminate", "waves"];
 export const TYPE_LABEL: Record<MissionType, string> = { eliminate: "Elimination", waves: "Survival (waves)" };

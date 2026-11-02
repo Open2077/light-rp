@@ -9,10 +9,19 @@ let queue = Promise.resolve();
 export function request<T>(operation: string, payload: Record<string, unknown> = {}): Promise<T> {
   const task = queue.then(() => new Promise<T>((resolve, reject) => {
     const request = mutationKey();
+    // a large answer comes as JSON text in parts (client/core/mission_editor.lua sendParts)
+    const parts: string[] = [];
     const stop = on<Wire>(PAGE_EVENTS.missionEditor, reply => {
       if (reply.kind !== "response" || reply.request !== request) return;
+      let data: unknown = reply.data;
+      if (typeof reply.parts === "number" && reply.parts > 0 && typeof reply.part === "number") {
+        parts[reply.part - 1] = reply.text ?? "";
+        if (parts.filter(p => p !== undefined).length < reply.parts) return;
+        try { data = JSON.parse(parts.join("")); }
+        catch { clearTimeout(timer); stop(); reject(new Error("The answer arrived damaged. Your draft is kept; retry.")); return; }
+      }
       clearTimeout(timer); stop();
-      if (reply.ok) resolve(reply.data as T);
+      if (reply.ok) resolve(data as T);
       else reject(new Error(reply.error || "The request was refused."));
     });
     const timer = window.setTimeout(() => { stop(); reject(new MissionRequestTimeout("The server has not answered. Your draft is kept; retry to check the saved result.")); }, 12000);

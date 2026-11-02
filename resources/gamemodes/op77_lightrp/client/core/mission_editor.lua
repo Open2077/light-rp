@@ -87,8 +87,46 @@ local function cleanup(notify)
     if notify then send({ kind = "invalidate", error = notify }) end
 end
 
+-- page:send refuses a payload of more than 1024 values (and a string over 64 KiB): the
+-- mission list (whole definitions) passed it with a third mission and the editor waited
+-- forever (2026-11-02). A big response reaches the page as JSON text in parts of at most
+-- 48 KiB, cut on UTF-8 boundaries; the page joins and parses them (api.ts).
+local PAGE_VALUES, PART_BYTES = 900, 48 * 1024
+local function countValues(value, depth)
+    if type(value) ~= "table" then return 1 end
+    if (depth or 0) > 16 then return 1 end
+    local n = 1
+    for _, item in pairs(value) do n = n + 1 + countValues(item, (depth or 0) + 1) end
+    return n
+end
+Editor.countValues = countValues
+local function sendParts(value)
+    local ok, text = pcall(json.encode, value.data)
+    if not ok or type(text) ~= "string" then
+        report("parts:encode", "a large response could not be encoded (%s)", tostring(text))
+        return send({ kind = "response", request = value.request, ok = false, error = "The answer was too large to show. Your draft is kept." })
+    end
+    local parts, at = {}, 1
+    while at <= #text do
+        local stop = math.min(#text, at + PART_BYTES - 1)
+        -- never split a UTF-8 sequence: step back off continuation bytes
+        while stop < #text and stop > at do
+            local b = text:byte(stop + 1)
+            if b < 0x80 or b >= 0xC0 then break end
+            stop = stop - 1
+        end
+        parts[#parts + 1] = text:sub(at, stop)
+        at = stop + 1
+    end
+    for i, part in ipairs(parts) do
+        send({ kind = "response", request = value.request, ok = value.ok, error = value.error, part = i, parts = #parts, text = part })
+    end
+end
+Editor.sendParts = sendParts
+
 RegisterNetEvent(NET, function(value)
     if type(value) ~= "table" then return end
+    if value.kind == "response" and value.data ~= nil and countValues(value) > PAGE_VALUES then return sendParts(value) end
     if value.kind == "open" then
         if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or (LightRpSafezones and LightRpSafezones.active) then
             return send({ kind = "invalidate", error = "Finish your current activity before editing missions." })
