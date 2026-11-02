@@ -119,6 +119,21 @@ LightRpConfig = {
             { id = "north",      name = "Wardrobe // Northside",    position = { x = -787.005127, y = 765.159668, z = 22.459297 } },
             { id = "hospital",   name = "Wardrobe // Hospital",     position = { x = -1419.849854, y = 1264.845093, z = 23.070534 } },
             { id = "lab",        name = "Wardrobe // Lab district", position = { x = 1617.371826, y = -783.505493, z = 49.979195 } },
+            -- The game's clothing stores (cyberpunk2077-map.com, category CLOTHING), placed
+            -- roughly: map pixels -> world through a fit on the five gun stores (2-18 m),
+            -- z from the 3D map's street network. To be moved onto each shop's counter in game.
+            { id = "clothing_176", name = "Clothing Store // City Center", position = { x = -1896.40, y = 39.24, z = 14.53 } }, -- site marker 176, z from the nearest road (none within 30 m)
+            { id = "clothing_179", name = "Clothing Store // Heywood 1", position = { x = -1559.26, y = -297.02, z = 15.40 } }, -- site marker 179
+            { id = "clothing_185", name = "Clothing Store // Heywood 2", position = { x = -2444.19, y = -652.83, z = 12.67 } }, -- site marker 185, z from the nearest road (none within 30 m)
+            { id = "clothing_202", name = "Clothing Store // Pacifica", position = { x = -2484.87, y = -2504.32, z = 16.78 } }, -- site marker 202
+            { id = "clothing_206", name = "Clothing Store // Badlands", position = { x = 1221.67, y = -585.90, z = 32.52 } }, -- site marker 206
+            { id = "clothing_193", name = "Clothing Store // Santo Domingo 1", position = { x = -1015.14, y = -1533.33, z = 23.05 } }, -- site marker 193
+            { id = "clothing_210", name = "Clothing Store // Santo Domingo 2", position = { x = 262.39, y = -1462.87, z = 8.95 } }, -- site marker 210, z from the nearest road (none within 30 m)
+            { id = "clothing_134", name = "Clothing Store // Watson 1", position = { x = -1893.79, y = 2482.99, z = 18.00 } }, -- site marker 134, z from the nearest road (none within 30 m)
+            { id = "clothing_171", name = "Clothing Store // Watson 2", position = { x = -1120.81, y = 1747.83, z = 22.78 } }, -- site marker 171
+            { id = "clothing_794", name = "Clothing Store // Watson 3", position = { x = -1510.24, y = 1725.60, z = 18.00 } }, -- site marker 794
+            { id = "clothing_148", name = "Clothing Store // Westbrook 1", position = { x = -651.24, y = 1200.61, z = 32.54 } }, -- site marker 148
+            { id = "clothing_159", name = "Clothing Store // Westbrook 2", position = { x = -219.67, y = -42.74, z = 7.00 } }, -- site marker 159, z from the nearest road (none within 30 m)
         },
     },
 
