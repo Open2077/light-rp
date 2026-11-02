@@ -53,14 +53,16 @@ local function pushQueues(now)
         local q = L.queues[def.key]
         if def.mode ~= "trial" and q then
             local window = L.windowRemainingMs(def.key, now)
+            local bots = L.botMode()
             for _, playerId in ipairs(q.members) do
                 seen[playerId] = true
-                local digest = ("%s|%d|%s"):format(def.key, #q.members, tostring(q.windowEndsAt))
+                local digest = ("%s|%d|%s|%s"):format(def.key, #q.members, tostring(q.windowEndsAt), tostring(bots))
                 if queueShown[playerId] ~= digest then
                     queueShown[playerId] = digest
                     TriggerClientEvent("op77_race:queue", playerId, {
                         activity = def.id, label = def.label, mode = def.mode, queued = #q.members,
-                        minPlayers = def.minPlayers, maxPlayers = def.maxPlayers, windowMs = window,
+                        minPlayers = L.minimum(def), maxPlayers = def.maxPlayers, windowMs = window,
+                        bots = bots or nil,
                     })
                 end
             end
@@ -107,7 +109,7 @@ local function statusFor(def, now)
     elseif L.windowRemainingMs(def.key, now) ~= nil then
         detail = "Grid forming"
     elseif queued > 0 then
-        detail = ("%d of %d waiting"):format(queued, def.minPlayers)
+        detail = ("%d of %d waiting"):format(queued, L.minimum(def))
     elseif running > 0 then
         detail = "Race in progress"
     else
@@ -177,6 +179,13 @@ AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activit
     if A.owner(id) == activityId then A.leave(id, activityId, { returnPlayer = true }) end
 end)
 
+-- Staff bot mode (/lightrp.bots on|off in op77_lightrp). Read again after every
+-- successful registration (activityBots()), since this may fire while we are down.
+-- Off: no new race is filled with bots; one already running finishes with its bots.
+AddEventHandler("op77_lightrp:activity:bots", function(enabled)
+    if A.setBots(enabled == true, "event") then changed() end
+end)
+
 AddEventHandler("op77_lightrp:activity:dropped", function(playerId, activityId, reason)
     local id = playerIdOf(playerId)
     if id == nil or not A.mine(activityId) then return end
@@ -225,6 +234,8 @@ AddEventHandler("onResourceStop", function(name)
         -- stood before entering. The queues go too (admission needs the core).
         log("core stopped: closing every race")
         A.registered = false
+        -- The core starts again with bot mode off; registration reads it back.
+        A.setBots(false, "core_stopped")
         A.forgetStatus()
         E.stopAll({ fallback = true, reason = "core_stopped" })
         L.clear()
@@ -358,7 +369,8 @@ end, false)
 
 RegisterCommand("race.status", function(source, _, raw)
     local now = E.nowMs()
-    local lines = { ("core %s: %s"):format(Config.core, A.registered and "registered" or "not registered") }
+    local lines = { ("core %s: %s, bot mode %s"):format(Config.core, A.registered and "registered" or "not registered",
+        A.bots and "ON" or "off") }
     for _, def in ipairs(Config.activities) do
         local s = statusFor(def, now)
         lines[#lines + 1] = ("%s: %s, %d racing, %d queued (%s)"):format(def.id, s.phase, s.players, s.queued, s.detail)

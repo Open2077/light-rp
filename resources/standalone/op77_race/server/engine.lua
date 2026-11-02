@@ -52,6 +52,20 @@ end
 local function connected(playerId) return Open77.players.name(playerId) ~= nil end
 local function playerName(playerId) return Open77.players.name(playerId) or ("Player " .. tostring(playerId)) end
 
+-- Staff bot mode lives in server/bots.lua (RaceBots, loaded after this file). Until it
+-- is loaded, and in a build without it, an instance simply has no bots.
+local NO_BOTS = {
+    fill = function() return 0 end, tick = noop, countdown = noop, go = noop, resolve = noop, cleanup = noop,
+    stop = noop, shutdown = noop, readyForCountdown = function() return true end,
+    racing = function() return false end, starters = function() return 0 end, count = function() return 0 end,
+    rows = function() return {} end, entrant = function() return nil end,
+}
+local function bots() return RaceBots or NO_BOTS end
+
+-- Everyone on the line: the players plus the bots.
+local function fieldSize(inst) return #inst.members + bots().count(inst) end
+E.fieldSize = fieldSize
+
 -- ---------------------------------------------------------------- buckets --
 
 local function allocateBucket()
@@ -87,6 +101,7 @@ local function vehicleFlags(held)
     if held then return base | holdMask() end
     return base
 end
+E.vehicleFlags = vehicleFlags
 
 -- One authority for the grid hold: the replicated frozen flag, which also rejects the
 -- driver's own motion reports.
@@ -234,6 +249,7 @@ local function rows(inst)
             }
         end
     end
+    for _, row in ipairs(bots().rows(inst, now)) do list[#list + 1] = row end
     return S.rankRows(list)
 end
 E.rows = rows
@@ -277,7 +293,8 @@ function E.payload(playerId, shared)
         remainingMs = remaining, elapsedMs = elapsed,
         bestLapMs = racer.bestLapMs, lastLapMs = racer.lastLapMs,
         place = racer.finishPlace, timeMs = racer.timeMs,
-        racers = #inst.members,
+        racers = fieldSize(inst),
+        bots = bots().count(inst) > 0 and bots().count(inst) or nil,
         canRestart = inst.mode == "trial" and inst.phase ~= "loading" and not inst.restarting,
         canRespawn = S.onFoot(course) and inst.phase == "active" and racer.state == "racing",
         outcome = racer.outcome,
@@ -302,7 +319,7 @@ function E.payload(playerId, shared)
         local following = course.checkpoints[racer.nextCheckpoint + 1] or (course.laps > (racer.lap or 1) and course.checkpoints[1]) or nil
         if following and not payload.next.finish then payload.after = { position = following.position } end
     end
-    if #inst.members > 1 then
+    if fieldSize(inst) > 1 then
         payload.rows = shared and shared.rowsJson or json.encode(rows(inst))
     end
     return payload
@@ -317,7 +334,7 @@ E.push = push
 -- One ranking per instance push, shared by every member.
 local function pushInstance(inst)
     local shared = nil
-    if #inst.members > 1 then shared = { rowsJson = json.encode(rows(inst)) } end
+    if fieldSize(inst) > 1 then shared = { rowsJson = json.encode(rows(inst)) } end
     for _, playerId in ipairs(inst.members) do
         if racers[playerId] and racers[playerId].instanceId == inst.id then push(playerId, shared) end
     end
@@ -328,7 +345,7 @@ E.pushInstance = pushInstance
 
 local function reputationFor(inst, racer, starters)
     local rewards = Config.rewards
-    if racer.state ~= "finished" then return 0 end
+    if racer.state ~= "finished" or inst.hadBots then return 0 end
     if inst.mode == "trial" then
         local rep = rewards.trialFinish or 0
         if racer.outcome and racer.outcome.personalBest then rep = rep + (rewards.personalBest or 0) end
@@ -340,10 +357,11 @@ local function reputationFor(inst, racer, starters)
     return rep
 end
 
+-- Everyone who reached GO, bots included.
 local function startersOf(inst)
     local count = 0
     for _, racer in pairs(inst.racers) do if racer.started then count = count + 1 end end
-    return count
+    return count + bots().starters(inst)
 end
 
 -- One result per racer who reached GO (a trial reports finished runs only). A finisher's
@@ -361,7 +379,11 @@ local function sendResult(inst, playerId, racer)
         placement = finished and racer.finishPlace or nil,
         score = score,
         won = finished and racer.finishPlace == 1 and (inst.mode == "trial" or starters >= 2),
+        -- A race against bots is a staff test: the core records nothing for it, even when
+        -- bot mode was switched off while it ran.
+        test = inst.hadBots == true or nil,
         stats = {
+            bots = inst.hadBots and bots().starters(inst) or nil,
             mode = inst.mode,
             courseId = inst.course.id,
             courseRevision = inst.course.revision,
@@ -421,8 +443,11 @@ local function remaining(inst)
     return count
 end
 
+-- The last player gone (results over, left, dropped, disconnected): the bots and their
+-- cars go with the instance, before its bucket is handed out again.
 local function retire(inst)
     if instances[inst.id] ~= inst or remaining(inst) > 0 then return end
+    bots().cleanup(inst, "instance_closed")
     instances[inst.id] = nil
     bucketsInUse[inst.bucket] = nil
     log(("instance %s closed (bucket %d)"):format(inst.id, inst.bucket))
@@ -432,12 +457,32 @@ E.retire = retire
 
 local resolve -- forward
 
+-- Every player is done (finished, out or gone). Bots are not counted here.
 local function allResolved(inst)
     for _, racer in pairs(inst.racers) do
         if racer.state == "racing" or racer.state == "countdown" or racer.state == "loading" then return false end
     end
     return true
 end
+E.allResolved = allResolved
+
+-- A finished player still in the instance, watching the others.
+local function playerWatching(inst)
+    for _, playerId in ipairs(inst.members) do
+        local racer = inst.racers[playerId]
+        if racer.state == "finished" and racers[playerId] == racer and not racer.releasing then return true end
+    end
+    return false
+end
+
+-- Nothing left to wait for: every player is done, and no bot is still racing in front
+-- of a finished player (bots never keep a race open for nobody). Without bots this is
+-- allResolved.
+local function settled(inst)
+    if not allResolved(inst) then return false end
+    return not (bots().racing(inst) and playerWatching(inst))
+end
+E.settled = settled
 
 -- Takes a racer out of the instance: car out, protections off, then back to Light RP.
 --   viaCore  : activityLeave(returnPlayer) - the normal way out
@@ -545,7 +590,7 @@ end
 -- restart: a trial run again on the same line, without a loading cover.
 local function setupRacer(inst, playerId, racer, index, restart)
     racer.slotIndex = index
-    racer.slot = S.gridSlot(inst.course, index, #inst.members, Engine.startGrid, Engine.footStartSpacing)
+    racer.slot = S.gridSlot(inst.course, index, #inst.members + (inst.plannedBots or 0), Engine.startGrid, Engine.footStartSpacing)
     resetProgress(racer)
     racer.state = "loading"
     protect(playerId, racer)
@@ -579,7 +624,9 @@ end
 
 -- Admits the players (activityEnter, in grid order) and builds their grid. Players the
 -- core refuses are told why and skipped. Returns the instance, or nil and a reason.
-function E.start(def, course, playerIds)
+-- opts.fillTo (staff bot mode): bots take the slots behind the players up to that many
+-- racers in total.
+function E.start(def, course, playerIds, opts)
     if type(course) ~= "table" then return nil, "course_unavailable" end
     local inst, reason = newInstance(def, course)
     if inst == nil then return nil, reason end
@@ -610,11 +657,15 @@ function E.start(def, course, playerIds)
     end
     instances[inst.id] = inst
     startLoading(inst, nowMs(), perMode(Engine.loadSeconds, inst.mode, 5))
-    log(("instance %s: %s, %d racer(s), bucket %d"):format(inst.id, course.id, #inst.members, inst.bucket))
+    local fillTo = type(opts) == "table" and math.tointeger(tonumber(opts.fillTo)) or nil
+    inst.plannedBots = (fillTo and inst.mode ~= "trial") and math.max(0, fillTo - #inst.members) or 0
+    log(("instance %s: %s, %d racer(s)%s, bucket %d"):format(inst.id, course.id, #inst.members,
+        inst.plannedBots > 0 and (" + %d bot(s)"):format(inst.plannedBots) or "", inst.bucket))
     for index, playerId in ipairs(inst.members) do
         local racer = inst.racers[playerId]
         if racers[playerId] == racer then setupRacer(inst, playerId, racer, index) end
     end
+    if inst.plannedBots > 0 and instances[inst.id] == inst then bots().fill(inst, inst.plannedBots) end
     pushInstance(inst)
     E.hooks.changed()
     return inst
@@ -698,6 +749,7 @@ local function startCountdown(inst, now)
             E.hooks.uncover(playerId)
         end
     end
+    bots().countdown(inst, now)
     log(("instance %s countdown"):format(inst.id))
     pushInstance(inst)
 end
@@ -733,6 +785,7 @@ local function go(inst, now)
             end
         end
     end
+    bots().go(inst, now)
     log(("instance %s GO"):format(inst.id))
     pushInstance(inst)
 end
@@ -750,21 +803,20 @@ local function firework(inst, checkpoint, now)
     if not called or not played then log("checkpoint firework unavailable: " .. tostring(called and reason or played)) end
 end
 
-local function finish(inst, playerId, racer, now)
-    racer.state = "finished"
-    racer.finishedAt = now
-    racer.timeMs = now - inst.startedAt
-    inst.finishOrder[#inst.finishOrder + 1] = playerId
-    racer.finishPlace = #inst.finishOrder
-    if inst.mode == "trial" and racer.key then
-        racer.outcome = RaceRecords.submit(inst.course.id, inst.course.revision, racer.key, racer.name,
-            racer.timeMs, inst.course.vehicle)
-    end
-    sendResult(inst, playerId, racer)
-    E.hooks.pulse(playerId, { kind = "finish", place = racer.finishPlace, timeMs = racer.timeMs, outcome = racer.outcome,
-        instance = inst.id, run = inst.run })
-    log(("player %d finished %s P%d in %dms"):format(playerId, inst.id, racer.finishPlace, racer.timeMs))
-    if allResolved(inst) then
+-- Takes a finish place (players and bots share one finish order).
+local function placeFinisher(inst, id, entrant, now)
+    entrant.state = "finished"
+    entrant.finishedAt = now
+    entrant.timeMs = now - inst.startedAt
+    inst.finishOrder[#inst.finishOrder + 1] = id
+    entrant.finishPlace = #inst.finishOrder
+end
+E.placeFinisher = placeFinisher
+
+-- After any finish: the race resolves when nothing is left to wait for; the first
+-- finisher (player or bot) opens the finish window for the others.
+local function afterFinish(inst, now)
+    if settled(inst) then
         resolve(inst, "finished")
     elseif #inst.finishOrder == 1 then
         inst.finishEndsAt = now + seconds(Engine.finishGraceSeconds, 30)
@@ -777,31 +829,57 @@ local function finish(inst, playerId, racer, now)
         end
     end
 end
+E.afterFinish = afterFinish
 
-local function accept(inst, playerId, racer, now)
-    if now - (racer.lastCheckpointAt or 0) < Engine.checkpointDebounceMs then return end
-    local index = racer.nextCheckpoint
+local function finish(inst, playerId, racer, now)
+    placeFinisher(inst, playerId, racer, now)
+    -- Best times are time-trial runs only, and never a race that had bots in it.
+    if inst.mode == "trial" and racer.key and not inst.hadBots then
+        racer.outcome = RaceRecords.submit(inst.course.id, inst.course.revision, racer.key, racer.name,
+            racer.timeMs, inst.course.vehicle)
+    end
+    sendResult(inst, playerId, racer)
+    E.hooks.pulse(playerId, { kind = "finish", place = racer.finishPlace, timeMs = racer.timeMs, outcome = racer.outcome,
+        instance = inst.id, run = inst.run })
+    log(("player %d finished %s P%d in %dms"):format(playerId, inst.id, racer.finishPlace, racer.timeMs))
+    afterFinish(inst, now)
+end
+
+-- The bookkeeping of one validated checkpoint, the same for a player and a bot. Returns
+-- "checkpoint", "lap" or "finish" and the checkpoint index; nil when debounced.
+local function advance(inst, entrant, now)
+    if now - (entrant.lastCheckpointAt or 0) < Engine.checkpointDebounceMs then return nil end
+    local index = entrant.nextCheckpoint
     local count = #inst.course.checkpoints
     local checkpoint = inst.course.checkpoints[index]
-    if checkpoint == nil then return end
-    racer.lastCheckpointAt, racer.lastCheckpointIndex = now, index
-    racer.completed = (racer.completed or 0) + 1
+    if checkpoint == nil then return nil end
+    entrant.lastCheckpointAt, entrant.lastCheckpointIndex = now, index
+    entrant.completed = (entrant.completed or 0) + 1
     firework(inst, checkpoint, now)
     if index == count then
-        local lapTime = now - (racer.lapStartedAt or inst.startedAt)
-        racer.lastLapMs = lapTime
-        racer.lapTimes[#racer.lapTimes + 1] = lapTime
-        if racer.bestLapMs == nil or lapTime < racer.bestLapMs then racer.bestLapMs = lapTime end
-        if racer.lap >= inst.course.laps then
-            finish(inst, playerId, racer, now)
-        else
-            racer.lap, racer.nextCheckpoint, racer.lapStartedAt = racer.lap + 1, 1, now
-            E.hooks.pulse(playerId, { kind = "lap", lap = racer.lap, laps = inst.course.laps, lastLapMs = racer.lastLapMs })
-        end
+        local lapTime = now - (entrant.lapStartedAt or inst.startedAt)
+        entrant.lastLapMs = lapTime
+        entrant.lapTimes[#entrant.lapTimes + 1] = lapTime
+        if entrant.bestLapMs == nil or lapTime < entrant.bestLapMs then entrant.bestLapMs = lapTime end
+        if entrant.lap >= inst.course.laps then return "finish", index end
+        entrant.lap, entrant.nextCheckpoint, entrant.lapStartedAt = entrant.lap + 1, 1, now
+        return "lap", index
+    end
+    entrant.nextCheckpoint = index + 1
+    return "checkpoint", index
+end
+E.advance = advance
+
+local function accept(inst, playerId, racer, now)
+    local kind, index = advance(inst, racer, now)
+    if kind == nil then return end
+    if kind == "finish" then
+        finish(inst, playerId, racer, now)
+    elseif kind == "lap" then
+        E.hooks.pulse(playerId, { kind = "lap", lap = racer.lap, laps = inst.course.laps, lastLapMs = racer.lastLapMs })
     else
-        racer.nextCheckpoint = index + 1
-        E.hooks.pulse(playerId, { kind = "checkpoint", completed = index, total = count, lap = racer.lap, laps = inst.course.laps,
-            splitMs = now - inst.startedAt })
+        E.hooks.pulse(playerId, { kind = "checkpoint", completed = index, total = #inst.course.checkpoints, lap = racer.lap,
+            laps = inst.course.laps, splitMs = now - inst.startedAt })
     end
     if instances[inst.id] == inst then pushInstance(inst) end
 end
@@ -834,12 +912,14 @@ resolve = function(inst, reason)
             racer.state, racer.dnfReason = "dnf", reason or "timeout"
         end
     end
+    bots().resolve(inst, reason or "timeout", now)
     inst.phase = "results"
     inst.resolvedAt = now
     inst.resultsEndsAt = now + seconds(perMode(Engine.resultsSeconds, inst.mode, 12), 12)
     local winnerId = inst.finishOrder[1]
-    inst.result = { reason = reason or "finished", winnerName = winnerId and inst.racers[winnerId].name or nil,
-        finishers = #inst.finishOrder, racers = startersOf(inst) }
+    local winner = winnerId and (inst.racers[winnerId] or bots().entrant(inst, winnerId)) or nil
+    inst.result = { reason = reason or "finished", winnerName = winner and winner.name or nil,
+        finishers = #inst.finishOrder, racers = startersOf(inst), bots = inst.hadBots and bots().starters(inst) or nil }
     for _, playerId in ipairs(inst.members) do sendResult(inst, playerId, inst.racers[playerId]) end
     log(("instance %s resolved: %s"):format(inst.id, tostring(reason)))
     pushInstance(inst)
@@ -871,6 +951,7 @@ function E.tick(now)
         end
         if inst.phase == "loading" and not inst.restarting then
             guardHolds(inst, now)
+            bots().tick(inst, now)
             local readyCount, waiting, changed = pollReady(inst, now)
             if readyCount ~= nil then
                 if readyCount == 0 and waiting == 0 then
@@ -879,7 +960,8 @@ function E.tick(now)
                         resolve(inst, "grid_failed")
                     end
                 elseif waiting == 0 and now >= inst.loadEndsAt then
-                    startCountdown(inst, now)
+                    -- bots still being seated get a short grace, then are dropped
+                    if bots().readyForCountdown(inst, now) then startCountdown(inst, now) end
                 elseif now >= inst.readyEndsAt then
                     for _, playerId in ipairs(inst.members) do
                         local racer = inst.racers[playerId]
@@ -895,6 +977,7 @@ function E.tick(now)
             end
         elseif inst.phase == "countdown" then
             guardHolds(inst, now)
+            bots().tick(inst, now)
             if now >= inst.countdownEndsAt then go(inst, now) end
         elseif inst.phase == "active" then
             for _, playerId in ipairs(inst.members) do
@@ -902,11 +985,12 @@ function E.tick(now)
                 if racers[playerId] == racer then evaluate(inst, playerId, racer, now) end
                 if inst.phase ~= "active" then break end
             end
+            if inst.phase == "active" then bots().tick(inst, now) end
             if inst.phase == "active" then
-                if allResolved(inst) then resolve(inst, "no_active_racers")
+                if settled(inst) then resolve(inst, "no_active_racers")
                 elseif inst.finishEndsAt and now >= inst.finishEndsAt then resolve(inst, "finish_window_expired")
                 elseif now >= inst.endsAt then resolve(inst, "timeout")
-                elseif #inst.members > 1 and now - inst.lastRankingAt >= (Engine.rankingPushMs or 1000) then
+                elseif fieldSize(inst) > 1 and now - inst.lastRankingAt >= (Engine.rankingPushMs or 1000) then
                     inst.lastRankingAt = now
                     pushInstance(inst)
                 end
@@ -936,7 +1020,7 @@ function E.leave(playerId, reason)
         if racer.started and inst.mode ~= "trial" then sendResult(inst, playerId, racer) end
     end
     release(inst, playerId, racer, { viaCore = true, reason = reason or "left" })
-    if inst.phase == "active" and allResolved(inst) then resolve(inst, "finished") end
+    if inst.phase == "active" and settled(inst) then resolve(inst, "finished") end
     E.hooks.changed()
     return true
 end
@@ -951,7 +1035,7 @@ function E.dropped(playerId, reason)
     if racer.state ~= "finished" then racer.state, racer.dnfReason = racer.started and "dnf" or "left", reason or "dropped" end
     if racer.releasing then return true end
     release(inst, playerId, racer, { reason = "dropped" })
-    if inst.phase == "active" and allResolved(inst) then resolve(inst, "finished") end
+    if inst.phase == "active" and settled(inst) then resolve(inst, "finished") end
     return true
 end
 
@@ -965,7 +1049,7 @@ function E.disconnect(playerId)
     if racer.state ~= "finished" then racer.state, racer.dnfReason = racer.started and "dnf" or "left", "disconnect" end
     racers[playerId] = nil
     if inst then
-        if inst.phase == "active" and allResolved(inst) then resolve(inst, "finished") end
+        if inst.phase == "active" and settled(inst) then resolve(inst, "finished") end
         retire(inst)
     end
     E.hooks.changed()
@@ -1046,7 +1130,7 @@ function E.onLifeState(playerId)
     if not S.onFoot(inst.course) then
         disqualify(inst, playerId, racer, "died", "You were wrecked. Race over.")
         release(inst, playerId, racer, { viaCore = true, reason = "died" })
-        if allResolved(inst) then resolve(inst, "finished") end
+        if settled(inst) then resolve(inst, "finished") end
         return
     end
     racer.recovering = true
@@ -1073,6 +1157,7 @@ end
 function E.stopAll(opts)
     for _, inst in pairs(instances) do
         inst.phase = "closing"
+        bots().cleanup(inst, opts and opts.reason or "stop_all")
         for _, playerId in ipairs(inst.members) do
             local racer = inst.racers[playerId]
             if racers[playerId] == racer and not racer.releasing then release(inst, playerId, racer, opts) end
@@ -1083,6 +1168,7 @@ end
 -- Resource stop: no thread survives, so only what can be undone at once is undone. The
 -- core returns the players (the contract: a stopping provider's players are released).
 function E.shutdown()
+    bots().shutdown()
     for playerId, racer in pairs(racers) do
         if racer.vehicleId then removeVehicle(racer, "resource_stop") end
         if connected(playerId) then unprotect(playerId, racer) end

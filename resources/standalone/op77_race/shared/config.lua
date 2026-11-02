@@ -103,6 +103,62 @@ RaceConfig = {
     -- Best times of the time trial (data/records.json), per course revision.
     records = { keep = 20, show = 5 },
 
+    -- Staff bot mode (op77_lightrp `/lightrp.bots on|off`, off at every start): a street
+    -- or rooftop race opens its grid with ONE player and NPC bots fill the empty places.
+    -- A race with bots records nothing: no best time, and its results go to the core
+    -- flagged `test` (no stats, no reputation). The time trial is solo and never gets bots.
+    bots = {
+        -- Racers on the line in total (players + bots), capped by the course's capacity.
+        fillTo = { grid = 4, foot = 4 },
+        -- Join window once one player is queued in bot mode; nil keeps the activity's own.
+        joinSeconds = { grid = nil, foot = nil },
+        -- Shown in the ranking and the result card in front of the bot's callsign.
+        namePrefix = "[BOT] ",
+        callsigns = { "Ash", "Bolt", "Cinder", "Dagger", "Ember", "Flint", "Grit", "Husk",
+            "Iron", "Jolt", "Kite", "Lash", "Mote", "Nail", "Onyx", "Pike" },
+        -- Crowd civilians that neither flee nor panic (Light RP's rental desk pool), tried in
+        -- order until the platform accepts one. Invulnerable, no combat, no perception.
+        driverRecords = {
+            "Character.mws_thenerves_driver_02", "Character.mws_thenerves_driver_01",
+            "Character.ma_std_rcr_slacker_02", "Character.mws_thenerves_crowd_01",
+        },
+        runnerRecords = {
+            "Character.ma_std_rcr_slacker_01", "Character.ma_std_rcr_slacker_02",
+            "Character.mws_thenerves_driver_01", "Character.mws_thenerves_crowd_01",
+        },
+        npcStreamingRadius = 300.0,
+        -- The countdown waits this long past the loading window for bots still being set
+        -- up; the ones still not ready are dropped from the grid.
+        readyWaitSeconds = 8,
+        -- No checkpoint for this long: the bot is given its route again; after maxRetasks
+        -- re-tasks without progress it is out (DNF). The clock pauses while the platform
+        -- has nobody near enough to simulate it (the leader far ahead of every player).
+        stuckSeconds = 20,
+        maxRetasks = 2,
+        -- Same checkpoint rules as the players; a bonus here widens the bots' cylinders.
+        checkpointRadiusBonus = 0.0,
+        car = {
+            -- Open77.vehicles.ai: normal | cautious | aggressive (clears traffic on its path).
+            behavior = "aggressive",
+            speed = 30.0,              -- m/s ceiling, 0.5..55 (30 = 108 km/h)
+            arrivalRadius = 8.0,       -- m, 1..20: a route point counts as reached inside this
+            routePoints = 24,          -- checkpoints handed per followRoute (the native takes 64)
+            routeRefill = 3,           -- a new stretch is handed when this few points remain
+            attachRetryMs = 1000,
+            -- Bots cars look different from the players' loaners.
+            primaryColor = { r = 200, g = 200, b = 205 },
+            secondaryColor = { r = 200, g = 20, b = 40 },
+            -- After the line: roll on this far at this speed, then stop, clear of the finish.
+            runOutMetres = 60.0,
+            cooldownSpeed = 8.0,
+        },
+        foot = {
+            speed = "sprint",          -- walk | run | sprint (Open77.npcs.tasks.moveTo)
+            acceptanceRadius = 1.0,
+            runOutMetres = 6.0,
+        },
+    },
+
     editor = {
         sessionMinutes = 30,
         worldBucket = 0,

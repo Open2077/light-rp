@@ -8,7 +8,8 @@
 -- missing, export_yielded...): every call is wrapped and turned into false, reason.
 local Config = RaceConfig
 
-RaceActivity = { registered = false }
+-- bots: the core's staff bot mode (activityBots() / op77_lightrp:activity:bots).
+RaceActivity = { registered = false, bots = false }
 local A = RaceActivity
 
 local byId, byKey = {}, {}
@@ -82,8 +83,27 @@ function A.register()
     end
     if all and not A.registered then log("activities registered with " .. Config.core) end
     A.registered = all
-    if all then lastStatus = {} end
+    if all then
+        lastStatus = {}
+        -- The bots event may have fired while we were down or before the core knew us.
+        A.readBots()
+    end
     return all
+end
+
+-- Staff bot mode. Off unless the core says on; a core without the export means off.
+-- Returns true when the value changed.
+function A.setBots(enabled, why)
+    enabled = enabled == true
+    if A.bots == enabled then return false end
+    A.bots = enabled
+    log(("bot mode %s (%s)"):format(enabled and "ON" or "off", tostring(why or "?")))
+    return true
+end
+
+function A.readBots()
+    local value = call("activityBots")
+    return A.setBots(value == true, "activityBots")
 end
 
 local function sentence(reason, fallback)

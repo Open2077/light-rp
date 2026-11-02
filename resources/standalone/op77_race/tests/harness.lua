@@ -410,7 +410,7 @@ end
 H.SERVER = {
     "shared/config.lua", "shared/race.lua",
     "server/builtin_courses.lua", "server/courses.lua", "server/records.lua", "server/activity.lua",
-    "server/engine.lua", "server/lobby.lua", "server/editor.lua", "server/main.lua",
+    "server/engine.lua", "server/bots.lua", "server/lobby.lua", "server/editor.lua", "server/main.lua",
 }
 
 -- ---------------------------------------------------------------- asserts --

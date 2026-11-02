@@ -46,6 +46,29 @@ function L.size(key)
     return q and #q.members or 0
 end
 
+-- Staff bot mode (RaceActivity.bots): one player is enough to open the grid, and the
+-- launch fills it with bots. Read live, so switching it off starts no new bot race.
+function L.botMode() return A.bots == true end
+
+function L.minimum(def)
+    if def.mode ~= "trial" and L.botMode() then return 1 end
+    return def.minPlayers
+end
+
+local function joinSeconds(def)
+    local configured = L.botMode() and type(Config.bots) == "table" and type(Config.bots.joinSeconds) == "table"
+        and tonumber(Config.bots.joinSeconds[def.mode]) or nil
+    return configured or def.joinSeconds or 30
+end
+
+-- Racers in total (players + bots) for a launch in bot mode, within the course's capacity.
+local function botFill(def, capacity)
+    if not L.botMode() or def.mode == "trial" or type(Config.bots) ~= "table" then return nil end
+    local target = type(Config.bots.fillTo) == "table" and tonumber(Config.bots.fillTo[def.mode]) or nil
+    if target == nil then return nil end
+    return math.max(0, math.min(capacity, math.floor(target)))
+end
+
 function L.windowRemainingMs(key, now)
     local q = queues[key]
     if q == nil or q.windowEndsAt == nil then return nil end
@@ -103,9 +126,12 @@ function L.join(playerId, def, options)
     local q = queue(def.key)
     q.members[#q.members + 1] = playerId
     local waiting = #q.members
-    if waiting < def.minPlayers then
+    local minimum = L.minimum(def)
+    if waiting < minimum then
         L.hooks.notice(playerId, "info", def.label,
-            ("You are in the queue. Waiting for %d more."):format(def.minPlayers - waiting))
+            ("You are in the queue. Waiting for %d more."):format(minimum - waiting))
+    elseif L.botMode() then
+        L.hooks.notice(playerId, "info", def.label, "Bot mode: bots fill the grid. Nothing is recorded.")
     else
         L.hooks.notice(playerId, "info", def.label, "You are in the queue. The race starts soon.")
     end
@@ -117,7 +143,7 @@ end
 -- as many eligible players as the course takes; the rest wait for the next heat.
 -- force (staff /race.force): start even below the minimum.
 function L.launch(def, now, force)
-    local minimum = force and 1 or def.minPlayers
+    local minimum = force and 1 or L.minimum(def)
     local q = queue(def.key)
     q.windowEndsAt = nil
     local course = RaceCourses.pick(def.mode, q.lastCourse)
@@ -153,7 +179,9 @@ function L.launch(def, now, force)
     end
     q.members = rest
     q.lastCourse = course.id
-    local inst, reason = E.start(def, course, chosen)
+    q.botWindow = nil
+    local fillTo = botFill(def, capacity)
+    local inst, reason = E.start(def, course, chosen, fillTo and { fillTo = fillTo } or nil)
     if inst == nil then
         log(("%s launch failed: %s"):format(def.id, tostring(reason)))
         for _, playerId in ipairs(chosen) do L.hooks.notice(playerId, "error", def.label, sentence(reason)) end
@@ -172,12 +200,15 @@ function L.tick(now)
                 if not connected(playerId) or E.busy(playerId) then table.remove(q.members, index) end
             end
             local count = #q.members
-            if count >= def.minPlayers then
+            if count >= L.minimum(def) then
                 if q.windowEndsAt == nil then
-                    q.windowEndsAt = now + math.floor((def.joinSeconds or 30) * 1000)
+                    local window = joinSeconds(def)
+                    q.windowEndsAt = now + math.floor(window * 1000)
+                    -- opened by bot mode alone: closing it later says why
+                    q.botWindow = count < def.minPlayers or nil
                     for _, playerId in ipairs(q.members) do
                         L.hooks.notice(playerId, "info", def.label,
-                            ("Grid forming: the race starts in %d seconds."):format(def.joinSeconds or 30))
+                            ("Grid forming: the race starts in %d seconds."):format(math.floor(window)))
                     end
                     L.hooks.changed()
                 end
@@ -187,8 +218,11 @@ function L.tick(now)
                 if now >= q.windowEndsAt then L.launch(def, now) end
             elseif q.windowEndsAt ~= nil then
                 q.windowEndsAt = nil
+                local text = (q.botWindow and not L.botMode()) and "Bot mode is off. Waiting for more racers."
+                    or "A racer left. Waiting for more."
+                q.botWindow = nil
                 for _, playerId in ipairs(q.members) do
-                    L.hooks.notice(playerId, "info", def.label, "A racer left. Waiting for more.")
+                    L.hooks.notice(playerId, "info", def.label, text)
                 end
                 L.hooks.changed()
             end
