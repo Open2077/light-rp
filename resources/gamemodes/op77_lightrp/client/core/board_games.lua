@@ -590,7 +590,7 @@ end)
 -- Temporary render diagnostics: the client log never reaches the server, so a
 -- board that stays invisible is reported only when the summary changes.
 local lastRenderReport,lastRenderSummary=-10000,nil
-local function renderReport(nearCount)
+local function renderReport(nearCount,state)
     local now=GetGameTimer()
     if now-lastRenderReport<5000 then return end
     local known,caches,pieces,failed=0,0,0,0
@@ -607,8 +607,10 @@ local function renderReport(nearCount)
             backend=tostring(row.backend or backend)
         end
     else err="list:"..tostring(why) end
-    local summary=string.format("known=%d near=%d caches=%d pieces=%d failedBoards=%d props=%d rendered=%d failed=%d backend=%s err=%s",
-        known,nearCount,caches,pieces,failed,total,rendered,broken,backend,err)
+    local pos=state and state.position
+    local summary=string.format("known=%d near=%d caches=%d pieces=%d failedBoards=%d props=%d rendered=%d failed=%d backend=%s err=%s pos=%s",
+        known,nearCount,caches,pieces,failed,total,rendered,broken,backend,err,
+        pos and string.format("%.0f,%.0f,%.0f",pos.x or 0,pos.y or 0,pos.z or 0) or "nil")
     if summary==lastRenderSummary then return end
     lastRenderReport=now;lastRenderSummary=summary
     request("diagnostic",{event="render",reason="render_summary",details=summary:sub(1,180)})
@@ -802,7 +804,19 @@ RegisterNetEvent("lightrp:boardGames:state",function(payload)
     local ok,why=pcall(applyState,payload)
     if not ok then request("diagnostic",{event="render",reason="state_error",details=tostring(why):sub(1,180)}) end
 end)
+local lastStateTrace
 applyState=function(payload)
+    local listed,keyed,firstKey=0,0,nil
+    if type(payload)=="table" and type(payload.boards)=="table" then
+        for _ in ipairs(payload.boards) do listed=listed+1 end
+        for k in pairs(payload.boards) do keyed=keyed+1;firstKey=firstKey or k end
+    end
+    local trace=("payload=%s boards=%s ipairs=%d pairs=%d firstKey=%s(%s)"):format(type(payload),type(payload)=="table" and type(payload.boards) or "-",
+        listed,keyed,tostring(firstKey),type(firstKey))
+    if trace~=lastStateTrace then
+        lastStateTrace=trace
+        request("diagnostic",{event="render",reason="state_received",details=trace})
+    end
     if type(payload)~="table" or type(payload.boards)~="table" then return end
     local nextBoards={}
     for _,board in ipairs(payload.boards) do
@@ -946,13 +960,17 @@ function Client.start()
                     renderCandidates[i]=near[i];allowed[tostring(near[i].board.id)]=true
                 end
                 renderAllowed=allowed
-                if #near>0 then renderReport(#near) end
+                renderReport(#near,state)
                 for id in pairs(renderCaches) do if not allowed[id] then clearGeometry(id) end end
                 renderPreview()
                 if Client.isActive() then sendView(false) end
             end)
             if not ok then
                 Ui.log("board games client: %s",tostring(why))
+                if why~=Client.lastLoopError then
+                    Client.lastLoopError=why
+                    request("diagnostic",{event="render",reason="loop_error",details=tostring(why):sub(1,180)})
+                end
                 if Client.isActive() then stop(true,"client_error",tostring(why)) end
             end
         end

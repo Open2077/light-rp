@@ -50,9 +50,13 @@ end
 local stateLogged,stateFailures={},{}
 local function sendState(player,list)
     local ok,why=TriggerClientEvent(STATE,player,{boards=list})
-    if not stateLogged[player] then
-        stateLogged[player]=true
-        LightRP.log("board_games state push player=%d boards=%d ok=%s reason=%s",player,#list,tostring(ok),tostring(why))
+    local here=Open77.players.position(player)
+    local trace=("%d|%s|%s"):format(#list,tostring(ok),tostring(here and here.bucket))
+    if stateLogged[player]~=trace then
+        stateLogged[player]=trace
+        LightRP.log("board_games state push player=%d boards=%d of %d ok=%s reason=%s position=%s bucket=%s",player,#list,
+            (function() local n=0;for _ in pairs(boards) do n=n+1 end;return n end)(),tostring(ok),tostring(why),
+            here and ("%.1f,%.1f,%.1f"):format(here.x or 0,here.y or 0,here.z or 0) or "nil",tostring(here and here.bucket))
     end
     if ok~=false then return end
     for _,entry in ipairs(list) do entry.gameJson=json.encode(entry.game);entry.game=nil end

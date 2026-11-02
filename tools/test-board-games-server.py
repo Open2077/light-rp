@@ -28,7 +28,7 @@ function LightRP.db.schema() end
 function LightRP.db.read() if readFailure then return false,{} end return true,dbrows end
 function LightRP.notice(id,p) notices[id]=p.body end
 logs={}
-function LightRP.log(format,...) logs[#logs+1]=string.format(format,...) end
+function LightRP.log(format,...) if not format:find("board_games state push",1,true) then logs[#logs+1]=string.format(format,...) end end
 function LightRP.nowMs() return clock end
 function LightRP.module(name,m) modules[name]=m end
 Open77={players={},time={unix=function() return 424242 end}}
