@@ -2,7 +2,7 @@
 
 A big-six money wheel: a 1.3 m vertical wheel on a stand (0.85 m in game) with
 a leather flapper at the top and a betting table in front. Item
-`fortune_wheel` (shop: 1,200 buy / 300 sell); kind `fortune`. Players seated
+`fortune_wheel` (staff: `/lightrp.giveitem me fortune_wheel 1`); kind `fortune`. Players seated
 at the table bet whole RP dollars on a multiplier; any seated player may spin.
 
 ## Rules

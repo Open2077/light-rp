@@ -214,7 +214,7 @@ def main():
     depot = json.loads(depot_literal.group(1))
     assert depot == manifest['namespace'] + chr(92), 'client depot path and archive namespace differ'
     assert all(model['entity'] == depot + model['name'] + '.ent' for model in models)
-    assert 'model=DEPOT..name..".ent"' in client, 'client must instantiate cooked entity hosts'
+    assert 'DEPOT..name..".ent"' in client and 'kind="prop"' in client, 'client must instantiate cooked entity hosts (bare names resolve to DEPOT; casino adapters pass full .ent paths)'
     for filename in ('server.jsonc', 'server.local.jsonc'):
         assert 'open77_board_games' in (ROOT/filename).read_text(), f'{filename}: asset resource not selected'
     assert {item['depot'] for item in manifest['files']} == set(all_paths)

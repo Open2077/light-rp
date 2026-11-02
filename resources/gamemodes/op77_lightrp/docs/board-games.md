@@ -1,14 +1,10 @@
 # Board games
 
-Three inventory items are sold at the market:
-
-| Item ID | Display name | Buy / sell |
-| --- | --- | --- |
-| `chess_board` | Chess Board | 250 / 60 |
-| `checkers_board` | Checkers Board | 150 / 35 |
-| `connect4_board` | Connect Four Board | 200 / 50 |
-
-Staff can grant them with `/lightrp.giveitem me <item> 1`.
+Three inventory items: `chess_board` (Chess Board), `checkers_board` (Checkers
+Board) and `connect4_board` (Connect Four Board). No shop sells them yet (a games
+shop needs an NPC placed in game); staff grant them with
+`/lightrp.giveitem me <item> 1`. The casino tables (`roulette_table`,
+`slot_machine`, `blackjack_table`, `fortune_wheel`) are granted the same way.
 All item labels, controls, status messages and errors are in English.
 
 Use an item to place its board. The inventory closes before placement takes the

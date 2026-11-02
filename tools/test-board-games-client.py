@@ -481,10 +481,14 @@ print('board games client inventory handoff, lifecycle, modes, teams, Connect Fo
 interact = LuaRuntime(unpack_returned_tuples=True)
 interact.execute(r'''
 LightRpEvents={net={interactions='interactions'},page={interact='interact'}}
-LightRpConfig={};Open77={};threads={};playing=true;interactions=0
+LightRpConfig={};threads={};playing=true;interactions=0
+Open77={character={state=function()return{position={x=0,y=0,z=0},attached=true,alive=true}end},vehicles={getPlayerSeat=function()return nil end}}
+function GetGameTimer()return 0 end
 LightRpBoardGamesClient={isActive=function()return playing end}
 LightRpUi={send=function(name,p)lastPrompt=p end,log=function()end}
 function RegisterNetEvent()end
+function AddEventHandler()end
+function exports()end
 function CreateThread(fn)threads[#threads+1]=coroutine.create(fn)end
 function Wait()coroutine.yield()end
 function TriggerServerEvent()interactions=interactions+1 end
@@ -494,8 +498,11 @@ interact.execute(r'''
 local I=LightRpInteract
 I.near={position={x=0,y=0,z=0},callback=function()interactions=interactions+1 end}
 assert(I.press()==false and interactions==0)
-local ok,why=coroutine.resume(threads[1]);assert(ok,why)
-ok,why=coroutine.resume(threads[1]);assert(ok,why)
+-- The prompt loop is the last thread interact.lua starts (main added an
+-- attachment watcher before it).
+local prompt=threads[#threads]
+local ok,why=coroutine.resume(prompt);assert(ok,why)
+ok,why=coroutine.resume(prompt);assert(ok,why)
 assert(I.near==nil and next(lastPrompt)==nil,'board mode must clear the ordinary E prompt')
 playing=false;I.near={callback=function()interactions=interactions+1 end}
 assert(I.press()==true and interactions==1,'ordinary interactions return after leaving')

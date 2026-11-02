@@ -1,10 +1,6 @@
 # Slot machine
 
-| Item ID | Display name | Buy / sell |
-| --- | --- | --- |
-| `slot_machine` | Slot Machine | 1,200 / 300 |
-
-Staff can grant it with `/lightrp.giveitem me slot_machine 1`. Use the item to
+Item `slot_machine` (Slot Machine). No shop sells it yet; staff can grant it with `/lightrp.giveitem me slot_machine 1`. Use the item to
 place the cabinet (same placement controls as the board games), press E near it
 to sit down. The first player seated (White) plays; anyone else who joins watches.
 Pick the machine up from the target menu; pickup and New game are refused while
