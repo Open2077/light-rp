@@ -216,7 +216,9 @@ local function handle(player,p,inv)
     if p.action=="join" then
         if seated(player) then return false,"You are already in a game." end
         if b.mode=="solo" and inv.id~=b.ownerInventory then return false,"Solo mode is reserved for the board owner." end
-        local slots=b.mode=="teams" and {"white","black","white2","black2"} or b.mode=="solo" and {"white"} or {"white","black"}
+        -- A casino table handler may declare seats=4 (blackjack) without the teams mode.
+        local four=extra(b.kind) and LightRP.tabletopExtra.games[b.kind].seats==4
+        local slots=(b.mode=="teams" or four) and {"white","black","white2","black2"} or b.mode=="solo" and {"white"} or {"white","black"}
         local available
         for _,slot in ipairs(slots) do if not b.players[slot] then available=slot;break end end
         if not available then return false,"All seats are already taken." end

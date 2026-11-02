@@ -1,0 +1,2776 @@
+{
+ "version": "1.0.0",
+ "namespace": "open77\\assets\\op77_lightrp\\casino_blackjack",
+ "models": [
+  {
+   "name": "blackjack_table",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\blackjack_table.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\blackjack_table.ent",
+   "triangles": 2100,
+   "materials": [
+    "TEX:felt",
+    "#241915FF",
+    "#5A3822FF",
+    "#B79048FF",
+    "#1B1D22FF",
+    "#16C2D4FF",
+    "#1C2029FF",
+    "#EDEAE1FF",
+    "TEX:cards",
+    "#D9901EFF",
+    "#5E2D8CFF",
+    "#1A1A1EFF",
+    "#1E7B3CFF",
+    "#B71F2BFF",
+    "#E9E6DEFF"
+   ],
+   "bounds": {
+    "min": [
+     -1.12,
+     -1.12,
+     0.0
+    ],
+    "max": [
+     1.12,
+     0.26,
+     1.4400000000000004
+    ]
+   }
+  },
+  {
+   "name": "bj_card_as",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_as.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_as.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_2s",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2s.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2s.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_3s",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3s.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3s.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_4s",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4s.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4s.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_5s",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5s.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5s.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_6s",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6s.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6s.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_7s",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7s.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7s.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_8s",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8s.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8s.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_9s",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9s.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9s.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_ts",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ts.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ts.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_js",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_js.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_js.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_qs",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qs.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qs.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_ks",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ks.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ks.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_ah",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ah.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ah.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_2h",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2h.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2h.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_3h",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3h.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3h.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_4h",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4h.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4h.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_5h",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5h.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5h.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_6h",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6h.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6h.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_7h",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7h.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7h.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_8h",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8h.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8h.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_9h",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9h.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9h.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_th",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_th.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_th.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_jh",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jh.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jh.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_qh",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qh.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qh.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_kh",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kh.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kh.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_ad",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ad.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ad.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_2d",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2d.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2d.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_3d",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3d.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3d.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_4d",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4d.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4d.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_5d",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5d.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5d.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_6d",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6d.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6d.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_7d",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7d.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7d.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_8d",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8d.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8d.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_9d",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9d.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9d.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_td",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_td.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_td.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_jd",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jd.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jd.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_qd",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qd.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qd.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_kd",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kd.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kd.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_ac",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ac.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ac.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_2c",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2c.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2c.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_3c",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3c.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3c.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_4c",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4c.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4c.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_5c",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5c.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5c.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_6c",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6c.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6c.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_7c",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7c.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7c.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_8c",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8c.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8c.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_9c",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9c.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9c.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_tc",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_tc.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_tc.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_jc",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jc.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jc.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_qc",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qc.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qc.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_kc",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kc.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kc.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_back",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_back.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_back.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.05,
+     -0.065,
+     0
+    ],
+    "max": [
+     0.05,
+     0.065,
+     0.0016
+    ]
+   }
+  },
+  {
+   "name": "bj_card_turn",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_turn.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_turn.ent",
+   "triangles": 12,
+   "materials": [
+    "TEX:cards",
+    "#EDEAE1FF"
+   ],
+   "bounds": {
+    "min": [
+     -0.018604515359540896,
+     -0.065,
+     0.0
+    ],
+    "max": [
+     0.017101007166283443,
+     0.065,
+     0.09451649430791191
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1_1",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_1.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_1.ent",
+   "triangles": 96,
+   "materials": [
+    "#2C5DAAFF",
+    "#E9E6DEFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0052
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1_2",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_2.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_2.ent",
+   "triangles": 144,
+   "materials": [
+    "#2C5DAAFF",
+    "#E9E6DEFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0104
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1_3",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_3.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_3.ent",
+   "triangles": 192,
+   "materials": [
+    "#2C5DAAFF",
+    "#E9E6DEFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0156
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1_4",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_4.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_4.ent",
+   "triangles": 240,
+   "materials": [
+    "#2C5DAAFF",
+    "#E9E6DEFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0208
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_5_1",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_1.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_1.ent",
+   "triangles": 96,
+   "materials": [
+    "#F2EFE8FF",
+    "#B71F2BFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0052
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_5_2",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_2.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_2.ent",
+   "triangles": 144,
+   "materials": [
+    "#F2EFE8FF",
+    "#B71F2BFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0104
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_5_3",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_3.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_3.ent",
+   "triangles": 192,
+   "materials": [
+    "#F2EFE8FF",
+    "#B71F2BFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0156
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_5_4",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_4.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_4.ent",
+   "triangles": 240,
+   "materials": [
+    "#F2EFE8FF",
+    "#B71F2BFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0208
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_25_1",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_1.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_1.ent",
+   "triangles": 96,
+   "materials": [
+    "#F2EFE8FF",
+    "#1E7B3CFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0052
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_25_2",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_2.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_2.ent",
+   "triangles": 144,
+   "materials": [
+    "#F2EFE8FF",
+    "#1E7B3CFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0104
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_25_3",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_3.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_3.ent",
+   "triangles": 192,
+   "materials": [
+    "#F2EFE8FF",
+    "#1E7B3CFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0156
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_100_1",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_1.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_1.ent",
+   "triangles": 96,
+   "materials": [
+    "#F2EFE8FF",
+    "#1A1A1EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0052
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_100_2",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_2.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_2.ent",
+   "triangles": 144,
+   "materials": [
+    "#F2EFE8FF",
+    "#1A1A1EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0104
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_100_3",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_3.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_3.ent",
+   "triangles": 192,
+   "materials": [
+    "#F2EFE8FF",
+    "#1A1A1EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0156
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_100_4",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_4.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_4.ent",
+   "triangles": 240,
+   "materials": [
+    "#F2EFE8FF",
+    "#1A1A1EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0208
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_500_1",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_500_1.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_500_1.ent",
+   "triangles": 96,
+   "materials": [
+    "#F2EFE8FF",
+    "#5E2D8CFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0052
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_1",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_1.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_1.ent",
+   "triangles": 96,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0052
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_2",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_2.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_2.ent",
+   "triangles": 144,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0104
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_3",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_3.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_3.ent",
+   "triangles": 192,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0156
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_4",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_4.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_4.ent",
+   "triangles": 240,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0208
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_5",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_5.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_5.ent",
+   "triangles": 288,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.026
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_6",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_6.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_6.ent",
+   "triangles": 336,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0312
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_7",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_7.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_7.ent",
+   "triangles": 384,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0364
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_8",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_8.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_8.ent",
+   "triangles": 432,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.0416
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_9",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_9.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_9.ent",
+   "triangles": 480,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.046799999999999994
+    ]
+   }
+  },
+  {
+   "name": "bj_chips_1000_10",
+   "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_10.mesh",
+   "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_10.ent",
+   "triangles": 528,
+   "materials": [
+    "#1A1A1EFF",
+    "#D9901EFF",
+    "TEX:chips"
+   ],
+   "bounds": {
+    "min": [
+     -0.03,
+     -0.03,
+     0.0
+    ],
+    "max": [
+     0.03,
+     0.03,
+     0.052
+    ]
+   }
+  }
+ ],
+ "textures": [
+  {
+   "name": "wood_ivory",
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_ivory.xbm",
+   "width": 256,
+   "height": 256,
+   "mips": 9,
+   "bytes": 349524,
+   "sourceSha256": "113769ac15bf98d2135189304df196c9015068dbc8a2f9f322078bb6dd7e4519"
+  },
+  {
+   "name": "wood_ebony",
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_ebony.xbm",
+   "width": 256,
+   "height": 256,
+   "mips": 9,
+   "bytes": 349524,
+   "sourceSha256": "39039c8bb2603891415cc1c7bd42a2c14a88dd162e405e137e080a32988ba27d"
+  },
+  {
+   "name": "wood_natural",
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_natural.xbm",
+   "width": 256,
+   "height": 256,
+   "mips": 9,
+   "bytes": 349524,
+   "sourceSha256": "93dcbe4295b97ae37ca30578505b7728efb4f164a3b3d440474fdd3fd1485c8c"
+  },
+  {
+   "name": "wood_grain",
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_grain.xbm",
+   "width": 256,
+   "height": 256,
+   "mips": 9,
+   "bytes": 349524,
+   "sourceSha256": "1ccb4c7ec32c2eff69fd2c274195641ad4f11fa32f41c7887f5e467744586e69"
+  },
+  {
+   "name": "bj_felt",
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_felt.xbm",
+   "width": 2048,
+   "height": 1024,
+   "mips": 12,
+   "bytes": 11184812,
+   "sourceSha256": "cafc2590604ef4ec3c6b3de7efd6e670ead5ac536eaa5ddf8aacbacb9c73ae71"
+  },
+  {
+   "name": "bj_cards",
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_cards.xbm",
+   "width": 2048,
+   "height": 1024,
+   "mips": 12,
+   "bytes": 11184812,
+   "sourceSha256": "e14174945fbba396da0a332d8d20a68f99111f44e03e6b3a9ba86a99ccba5a2a"
+  },
+  {
+   "name": "bj_chips",
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_chips.xbm",
+   "width": 512,
+   "height": 512,
+   "mips": 10,
+   "bytes": 1398100,
+   "sourceSha256": "4cbaae0064a342aff9fc43a4bebfd39418b29c9547194874a3abccf5e403a7c8"
+  }
+ ],
+ "files": [
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2c.ent",
+   "sha256": "9e14b8d64633784e6c54513800c8adac9a1bbb16e3cba5aced8360445950b4e9",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2c.mesh",
+   "sha256": "6d9f0537cafd14630e06ba868ae166cffaf7c796d48d066c41b0848cd38a135a",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2d.ent",
+   "sha256": "9b24a94bc4a62111db612181614dead34dc52d69064bcc69789c34a599ec3094",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2d.mesh",
+   "sha256": "232f24de9e1ed84fe8f06b8e99a2d3f2de72dd2a366aff70152f4d7a857371a2",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2h.ent",
+   "sha256": "499b416863ca3b24b28e5becb7a39d42986fb08f935e248b76ab1b8c02ea1093",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2h.mesh",
+   "sha256": "14a0e5a86b2779d3f8f39fc2e07e6d633056077de1c9340a3c7eb6917d8e0971",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2s.ent",
+   "sha256": "22054287515f4e0dd98692438ca7d2f5f646921b0e0e88b307ee78bdc0718d79",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_2s.mesh",
+   "sha256": "3021d9a16aecadafc4c4b9926aad2314680a136d3a7c20fd69e418556df73c6f",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3c.ent",
+   "sha256": "bd8d89c7517c9f6d6f34ebcc168b3c3cf9b32604f19aa255796781a27da4c4cc",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3c.mesh",
+   "sha256": "2f5731a1e47a25a9392dc3c0e9992edccf601f288d4923c0b7b50a6320755d6e",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3d.ent",
+   "sha256": "81f8ae06a8c7224edeb8588b5923ef34fec6a1d2931c796ce8c9fba94fe6856f",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3d.mesh",
+   "sha256": "5bfa69d04713338412a9c786822b292aa2fe28609566f3054c6b4f50692b51c0",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3h.ent",
+   "sha256": "0e1932742d75d3e3c1a8c6e237ab49a484435730a0b20687fbf7a282d91c8b19",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3h.mesh",
+   "sha256": "e23ac29de96ee9edb20802bd24be335c5857661346243ea4a00baa3848dc1277",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3s.ent",
+   "sha256": "89ae09d3e947d555d3b61adb4cf5c24161909a3afe061370d1fff210a756e3e4",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_3s.mesh",
+   "sha256": "632a917d5f8dc8299f085a37159c6598a937b5e57374b10a4fedc00c2de567ce",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4c.ent",
+   "sha256": "8243ade8241b3eba8ea16163d46113a1f213411d02c7eb46dc6ff7c6841234a4",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4c.mesh",
+   "sha256": "e83f6c02dac53c4b7155d25c43589fe6a53a0a3537c5afcb49a7a97dc7559bdb",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4d.ent",
+   "sha256": "3453972df5fd3a85b14f9ca5f8d14032c5dc04381974487a4f996e13d6c172c8",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4d.mesh",
+   "sha256": "55e2f26a51331301d25862f6727b3b4178b885f6b535a14088095a3bf460c91d",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4h.ent",
+   "sha256": "db097112a0396733e8a4b6964d0da51e289d93d9b5b0d1e22f4025ce4732001d",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4h.mesh",
+   "sha256": "3d6defa28023a4a6a9b73b74c6ba7a07cbf3231df0fb871327296416c9c91412",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4s.ent",
+   "sha256": "c3ec68275676a93baf7510bc740f74573388c6117b9c31d1b54ec89851584c89",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_4s.mesh",
+   "sha256": "12a2623b9f5764b42ac40b339c8d3ffcbbd95468fb901a4735ac71513ac81034",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5c.ent",
+   "sha256": "044245edd96c8cd943b1bc74b9994cbb99717eace51c32735d52a7e288e0759e",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5c.mesh",
+   "sha256": "51a728f56d401d8875543f2b2c8289f5406abd604fcfa122ea9f484e020eb0ad",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5d.ent",
+   "sha256": "5c729e213d20d78c53a60b3ad136ac0e11c59942fbe891892c3d6eb114779067",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5d.mesh",
+   "sha256": "32837aded13a2243201f2343e35f79e1712beb4a966eac36c95c3ffb014bb607",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5h.ent",
+   "sha256": "5280070ec61bd3d27d1cb4c197375f703b018a70b2c8b81adfdc0167e94e9e4b",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5h.mesh",
+   "sha256": "d8de121f40ae516d5ba6750faafb01e369d9c3fed6fadee1bff877d00b94eab6",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5s.ent",
+   "sha256": "6c9a25ac7dad24dea5defdc4ef71796d1e18e0dc5c2027dfcbe23ea3ae4b32fa",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_5s.mesh",
+   "sha256": "232d7a2c941bb1c012b2a3dc52bbad26e64509ad5678347374024cde8bae8e95",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6c.ent",
+   "sha256": "73efb1d5adf61c6667ed06abbc200fe6b4c33c99e6fd172dd8a16db0834c3ecc",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6c.mesh",
+   "sha256": "6944a31b4a4f0d52348f38d54c9efafd8f9c3fb2be88e291ab05bc014e19ebe2",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6d.ent",
+   "sha256": "026c2c4f6693fbd1f8336939ae02af469de14a170bc780cf3375b417447cb8c2",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6d.mesh",
+   "sha256": "e56ac8b373673302d1782e4583fe9767c6769385a40e2a4247f6f8351bc986b5",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6h.ent",
+   "sha256": "d2cfa51df79930ce98d1c14a0cbdbc7104cabdda49b3aacb573e9ef017c88ecb",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6h.mesh",
+   "sha256": "16e2225e19b8e171eb8e4cea795f6971a5a100d844788473f8a5d83e6892f1e9",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6s.ent",
+   "sha256": "d93a6a259a4918cb1359b06f364541e99f6d89561cefea1cd16ced105c4d6a66",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_6s.mesh",
+   "sha256": "8f07cacefb0d61eb816c636bbbcd7b1ee2d25768ccf5a152923459d40eaf4f3a",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7c.ent",
+   "sha256": "d2f5b872962163c0e97ad53a14c0f2c8a0ddc649e7226a8468d84c3679b03be4",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7c.mesh",
+   "sha256": "85893d0671fc0d0db6d5b0fc73a2dd791a8dfee26f762f697ab3f34eea15ab59",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7d.ent",
+   "sha256": "7334b95080afdffdecacdbc264b0eef799bcfb1f480cb20441eb404f828c47e9",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7d.mesh",
+   "sha256": "cd6e367974ffa77ddc300e80ec4ff57a07a987286ad8056651fc1e207a7705c2",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7h.ent",
+   "sha256": "0d27e19bdb4c8583d01567792c13e9db30548fee66ca483d87ca546be9fcce4c",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7h.mesh",
+   "sha256": "1df445204cc0f9cff5506187c24a0a300b971caf4068d2efc64ae96e114067bd",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7s.ent",
+   "sha256": "609bdf4b9af74678fe85b6eca758abf2d0c9d14cd45215b1bf5d14009379e3d3",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_7s.mesh",
+   "sha256": "fade6e312d32b62bd380dcac4fe39168cfe6e1dfca6a282adb06eb7c3d56013a",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8c.ent",
+   "sha256": "028d68a7c4a9f98b387c85104c8264748302df9044a04d7c1535d9fcd79c2cda",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8c.mesh",
+   "sha256": "6f7f2dcc568f3cc992920bae9b9ec0e039aa1767e444c4119f89e0eae6e371aa",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8d.ent",
+   "sha256": "b54ede08be9c61600a32a595be23bc761b99808888e61062aef5786d8381080b",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8d.mesh",
+   "sha256": "89917217635556522a3ef553795246b8adc8317a31cb8979264382e9c9bc45bf",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8h.ent",
+   "sha256": "0714c28ac796088a14ab86bc9a800926f80aad075993e13b94d8f66ef9899d0b",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8h.mesh",
+   "sha256": "92a7094b9617a5609c67238c70f6025e7bdc73368eeb286cb648d97f50b63366",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8s.ent",
+   "sha256": "3ba711bf83fbb42ac6cafe38a8ce684112f12e09d04c7630e0f7a67968323abd",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_8s.mesh",
+   "sha256": "922c3071dd2f9b031d9569ec6e5dce3447b2ff104a5e05bfb047042aba6d1af0",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9c.ent",
+   "sha256": "4ef148450235f0d4be6086103a0280858ac5f5ffdc7a616a84f6ee7f57d92205",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9c.mesh",
+   "sha256": "24d2e30f9bd4fcfe5e6a92db0cf484b66b395514b9908b2b1f86b7336de6d846",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9d.ent",
+   "sha256": "d10c2a5ffd5c746fd6a39dbb1e5b7ebd81f84d02fcecb1d8fcd886b3d6a83256",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9d.mesh",
+   "sha256": "319076fda89c53748523ee20bfc257c6d2bedf79f3884f4fc1b7cf72ee07423b",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9h.ent",
+   "sha256": "4969a0ed8c092acde5427378a773985fc418ca13da8da6a0347702ae3cf35c92",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9h.mesh",
+   "sha256": "dae687526cdf247aba727a4cbda5726abd4bd29b356817bbfe2c81720fc1f65b",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9s.ent",
+   "sha256": "4ca4b0b7b5733817c037a9cb01047449d7d40f620753d6c50629dd857955cf79",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_9s.mesh",
+   "sha256": "d7e216762b1c867ab79f6a2ffab9154ca19e35d27fc5463ed3925be2ee7f5723",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ac.ent",
+   "sha256": "786746878bf37aa22bacdd7ef9e12e9a456f032e2c03a43085337b6355b99bcc",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ac.mesh",
+   "sha256": "b22191f63a4ef94c7c0d4a37ef050066b3be69da691993a331576dc69ab010c9",
+   "bytes": 5697
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ad.ent",
+   "sha256": "7f21fe58cf01286377d88de93149ed266378b52f47ea60b7d54942acbc4296c4",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ad.mesh",
+   "sha256": "717f35d2639aa60ae7c835416fd1794b7b8823f946d2c1ddc5f507ceaa5e0d99",
+   "bytes": 5697
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ah.ent",
+   "sha256": "522e6b7f54558f020ec248b18d581cb9c26bbd2a8f32bc711dc15a3d50502016",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ah.mesh",
+   "sha256": "9269cc490e1d9936eef55e050162bed489d96161d231459aba1a9802742b14c9",
+   "bytes": 5697
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_as.ent",
+   "sha256": "d4e4815329b978f10acc27f1a24a37a8a34ea8f91277c14e0d05b8f909b74aba",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_as.mesh",
+   "sha256": "416d9c32762967a153eb4e6f645e3e916bf1d44f0517b9dd455e53aa41a1545a",
+   "bytes": 5697
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_back.ent",
+   "sha256": "f72824a8ecfd42ddacb9f6b07de8ba7b78b8ffe93046393a6f0e5f80fd30e162",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_back.mesh",
+   "sha256": "9d3bc482443dee8126d6d4824181286887213efb29d822f6a99871f62af724c1",
+   "bytes": 5687
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jc.ent",
+   "sha256": "65aeac656362d8486a432d03fb3bc6d50679da61473953ba72d13d5c0d78ab09",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jc.mesh",
+   "sha256": "945cc12f835f18c97150d1ee8c8a6c2039a1e7e19543ab465978d738e7083706",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jd.ent",
+   "sha256": "34965faeb0e068953fa42f81ee690d654df1db761604a27156f45f7b6b284188",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jd.mesh",
+   "sha256": "eb9927dad21a3d69cc050a63881ba5de86064bd96efc56cf2f711ab85971f0d0",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jh.ent",
+   "sha256": "23c739ac5b591842cd8975c6c21e76729774b2516fbc857a9f7d1e3e84cf1343",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_jh.mesh",
+   "sha256": "e24e9727db51b121710b4ac0f819f3fefa2e20fcb165d4654edaa895c7b27208",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_js.ent",
+   "sha256": "506ca6ced4c3380607a89a28560d6d727fb6449718e172a073166b33bf728866",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_js.mesh",
+   "sha256": "4d042465a75b9a8d174f7728cf322549fac00bd4a46c7d955a258bc60824bc92",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kc.ent",
+   "sha256": "3c554a6b996832df2587eca1a05770f11de2dd116f63dba87b888e6fb8d153dd",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kc.mesh",
+   "sha256": "bb15f84be2037f16dad0f119519f583efed1099a482ce1d716c44a1288ee8dae",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kd.ent",
+   "sha256": "f6b9e34a155bfcb7278209a6ac7528e17a1b9bf5f9692334eeac9bc19a9fbb0f",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kd.mesh",
+   "sha256": "60b8b59095392a495dda520d8873396e46c029058be555d29027ada574e9e2a8",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kh.ent",
+   "sha256": "5e9fabc6ee87fbf9f9c82255b2c40a9802840f1c55099c6224bb200f00654805",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_kh.mesh",
+   "sha256": "7bb815e13e9e8117c3f2d153ba15734a6b9963666e9ca51b4728c399e97be636",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ks.ent",
+   "sha256": "ac84ac8107b04f47e9579f63cae99d931f3357b57a2753ec23010f28d7e08217",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ks.mesh",
+   "sha256": "94aa84da8a385dab03e71bcaea98cf190ebe3f4e737a26cd31ae9b6e494d40d0",
+   "bytes": 5699
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qc.ent",
+   "sha256": "87fca5e103f4cd506c754d0178ccc5757c48e604fe9b4aa567e071156b7312b2",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qc.mesh",
+   "sha256": "0d235c2dfae79f511b307cb2f10bfb77047c8e601a4f4bad3e55b2416adb3587",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qd.ent",
+   "sha256": "80657f5b53c90c056fd0eb1e8c78852219f7d4f20fd9c65ab179ba781399d295",
+   "bytes": 13692
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qd.mesh",
+   "sha256": "50027edfd294aadf4cee042d1910b06a2aa3ceb9cf03419db8b9e589117d5753",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qh.ent",
+   "sha256": "949210a38a3521f63bc71a2d375ca351c3550e623954cd54e0159f3874bc7b66",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qh.mesh",
+   "sha256": "5ee5c81ffa014fd1c62f76fcfb21cfabd99a0f19f0f3b7b9b69fe83d37182f77",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qs.ent",
+   "sha256": "612d238f286e4d8f9de5379de1f44ca04b98069def8f34615c8638ab41400d2d",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_qs.mesh",
+   "sha256": "daad9259716d58ca11b1535f6f7501be3409ba5a6ec67acb5dd122f1ebca01da",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_tc.ent",
+   "sha256": "e56bfff1e6da29aaf2f8556955e0a2f91799f6698f71451e93d69bf40fe6f7fe",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_tc.mesh",
+   "sha256": "172fa9e704d18aee332635a02368c35535c30f248c86dd6071d231b34d749ce6",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_td.ent",
+   "sha256": "e0ff431c8d8577dc2bda64251b9160734626eafc018bf5ce26151fefaf5b00dc",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_td.mesh",
+   "sha256": "3ef5a0dc28ce9556e9030ebaba97fe99eab9b246aaf90f3525b338dc836ed6ae",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_th.ent",
+   "sha256": "a150f18ac53cd00b00079979fce43b56f07627a02ae85b1bbb051c591ae13ea9",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_th.mesh",
+   "sha256": "c948cd88b2d83def45477c7e4a67bf4c0bf985efafa5d6202c121def48f6efca",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ts.ent",
+   "sha256": "c2e5fa4e2af14017cf86aac3722d64bb126508f614faed86d8350b6c441f1813",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_ts.mesh",
+   "sha256": "70b7b7c5dd0558bfd65598883f670a16e2df58115feb780ebf06a4e2ced4886c",
+   "bytes": 5700
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_turn.ent",
+   "sha256": "ab317b54a54969e639e620b7377ef0ef18598e0be81c1ede624734aa0258a3e4",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_card_turn.mesh",
+   "sha256": "bdede23615d6988c2bbfc94df42ac5d24c83e7b64340b3c55daf124b0cd4f658",
+   "bytes": 5785
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_1.ent",
+   "sha256": "96bd77117091a890c4795bc23585b9b1abaf40ac84a0a8a7041b672779a70435",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_1.mesh",
+   "sha256": "5597ee62da1dd7751049d3f76fdeeef913d44ea4e1985a18731f84a8848bcf1a",
+   "bytes": 7611
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_10.ent",
+   "sha256": "a28033039cd718900af1435765f17c3abee68b8ff067fa18775abb962a6de9f7",
+   "bytes": 13696
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_10.mesh",
+   "sha256": "cd7f2edd3d03df6fe630caecedc8ef69d1a4fae86c53970e70eaa352c9a22971",
+   "bytes": 12126
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_2.ent",
+   "sha256": "ca06dfee77b0758ae335f8e27602b9ed04eb2ab7acda560fd20e37c338010e0e",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_2.mesh",
+   "sha256": "16698a313e0ffd4aef2f47766fffa9f46a08edf05c44472a634c004a867dd099",
+   "bytes": 8354
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_3.ent",
+   "sha256": "076e09e38747c95d46200862952ccc76ab11d2f7ef50b795aeb86b99db3202ae",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_3.mesh",
+   "sha256": "90905394cd31a83f05491a1c6523efdcf14cc9f2d1deb59a6239089b1c071bfb",
+   "bytes": 9041
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_4.ent",
+   "sha256": "2e548a57c0c41b9b00caf6137a30a03e2a9ba97bbb8af41563edb8e966e1a5e7",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_4.mesh",
+   "sha256": "ef236e511600039001e99019bfa5b28a4c703697ce887306fb9bd53817bf6d79",
+   "bytes": 9626
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_5.ent",
+   "sha256": "8e32e8c64b6a26fdbbf470c23ebe686a96601b521869fd223a6c675e4548cc08",
+   "bytes": 13695
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_5.mesh",
+   "sha256": "d3e10df74cd7f38bdfdfe4067f0e90f691f7140455b8ca65207094f18cc044f3",
+   "bytes": 10428
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_6.ent",
+   "sha256": "745d7f4c5ac2cc3cda70b8c2012fa2ccf8d26dffc54bc7c2071cdff8ac67bb93",
+   "bytes": 13693
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_6.mesh",
+   "sha256": "2b5308531d5bb820489512b8b416bb3506540eb0c8a2addfdeffba7be245e018",
+   "bytes": 10509
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_7.ent",
+   "sha256": "8d462ce44b089a20e45f82f42f8a9b3cc6caca3266cb9e148f33f3260fb4222c",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_7.mesh",
+   "sha256": "f8c1ef965fc5388322d74b376341935000a788477bb4a74b4ff115e2302ac5d7",
+   "bytes": 10933
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_8.ent",
+   "sha256": "fad6aba0ab9fc65747fef7d663d2a6a64cac7c3c1f2e309d4b59dca9bcda9619",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_8.mesh",
+   "sha256": "17e34ed603feb4c1f61db723aab1199baee43dd3af064e5b7aa90a67fffea643",
+   "bytes": 11357
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_9.ent",
+   "sha256": "97c0d93c8d01d3e60d3d491893faa71ebc15908106351bdfc786ff982c92c484",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1000_9.mesh",
+   "sha256": "da7e582c453abc304309a6ad525d496bfc8792214fc01c669e4b08ed9d66355f",
+   "bytes": 11744
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_1.ent",
+   "sha256": "36750b84b332f18df0b871a78d81cbc6381278472f9cb42a1154147d643a3b53",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_1.mesh",
+   "sha256": "6da5e055b1bde50989bab4a88bd99cb30607affd9a764b798d7e31b4a6bd5475",
+   "bytes": 7623
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_2.ent",
+   "sha256": "6760639bb4ae8e12706bf47566c0a263827c82b1e0b485cacfa11c41e51815f4",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_2.mesh",
+   "sha256": "13518c9cfa09de8e57edf5f56c84e309f20937c424b3153ee9bfaa9480dda29f",
+   "bytes": 8374
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_3.ent",
+   "sha256": "bab614bd7a5b939194714ed9ab42f02ee9b56ee7108e7e0c51412d65f0f79a89",
+   "bytes": 13694
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_3.mesh",
+   "sha256": "e2138624bbb6f6227b5bca51ac5eb58493e8adf12ab14e463e270730c81e9d81",
+   "bytes": 9049
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_4.ent",
+   "sha256": "2886bad23ebcd205e1beba57dec36114afd25c77bc7e16627be64f2b39021cf5",
+   "bytes": 13696
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_100_4.mesh",
+   "sha256": "e508b763dbdf5dec7bdda26edb9a8c252e8649d61e018c92d16e4b7a95d4f1b3",
+   "bytes": 9652
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_1.ent",
+   "sha256": "7a098dd7916695e6cc503bf4c0f9d4352656577d4cbc96ebf00233139849cfb8",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_1.mesh",
+   "sha256": "2fa94d4f9b47a82dac4782b3af05f4cc6ba2f2e9b4d21ead72b18d7695cb7a2f",
+   "bytes": 7628
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_2.ent",
+   "sha256": "47eac8839f887d51c552598e50c51cef7b21cbb96347ac7eaa39966cf3de9a9a",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_2.mesh",
+   "sha256": "46f6f3108617d069a47c6d156952f38663f0406d2ea4ac14eda04969c696a8bc",
+   "bytes": 8380
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_3.ent",
+   "sha256": "2f7288a666ab8d2e9461671b05e9ac15ee193afdd3892d18b39f2a0830084eb3",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_3.mesh",
+   "sha256": "24b416007eafcb6572ac1cd42b1ad14f1395f6ab29057f450914e4b9f056bacb",
+   "bytes": 9052
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_4.ent",
+   "sha256": "24587d2025cb6bf333cfebdafe9954494c961e00c5d6cf629372123ef6a11f22",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_1_4.mesh",
+   "sha256": "0ba516d936105d960c53dec4bebe128171111d9f8540d093dbddcd164b58b73d",
+   "bytes": 9642
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_1.ent",
+   "sha256": "49c241c06c8f1e97a687ba5d54845291632f4ddb092141afed025f4bc30ed007",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_1.mesh",
+   "sha256": "3f325429157c410485f73747b6830e5f6bc2629653a2adbeb7d7262d5775f5b2",
+   "bytes": 7617
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_2.ent",
+   "sha256": "5dde3e5e2093da5615fb2a65e534d5332f02a40482ca53d357a30b975cc21f09",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_2.mesh",
+   "sha256": "891678cfa6511a1c29ea8ab0e1d90711cc704259b73fc365f9d020738172f9ed",
+   "bytes": 8365
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_3.ent",
+   "sha256": "17123f6015f999a9e4739b377c1a9c4756f377b8d5285d0a838f82c23fcadb0e",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_25_3.mesh",
+   "sha256": "a98304fba75ea8a5cea9ac72b6773a239d85a63a90b1c6459a4900523c18cf49",
+   "bytes": 9050
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_500_1.ent",
+   "sha256": "71ddc6eb53844f57b9664a1b72791c8295d5d761cd40183f080329e735612f85",
+   "bytes": 13696
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_500_1.mesh",
+   "sha256": "4a73e0ed8faebc80ae7747e1f5f6e395d39b640321f3519758fe6f480d181972",
+   "bytes": 7622
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_1.ent",
+   "sha256": "93defe199390a6f5483378169a213a24260a15ef27a46b59fad3b9b729913f9b",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_1.mesh",
+   "sha256": "60240a457fa852a648b38de04bf403d077788c00fbc24af90d0d84ef1747d0ad",
+   "bytes": 7620
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_2.ent",
+   "sha256": "dbca3b440dab67e2b5d0df52f57fcc4bc2613d4b57b4bf8c2dbe6a927c34a3a2",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_2.mesh",
+   "sha256": "5554492921d5a2a8436bd3cefb86c12ce21f2bc436a6301f3fddd97fd8a91c64",
+   "bytes": 8369
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_3.ent",
+   "sha256": "56f428ef02ad3e5f209782cae92e0e0161881ec9f64cd3a8920b351eafa7b422",
+   "bytes": 13689
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_3.mesh",
+   "sha256": "fd61369f0a437304fb733f70969b58c476332bb9e9773a838f3999ae987835a0",
+   "bytes": 9051
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_4.ent",
+   "sha256": "48deb37d424818e07b7603ff85a1c82f6ee78e0865045a637267b82d22143974",
+   "bytes": 13691
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\bj_chips_5_4.mesh",
+   "sha256": "fcb5a0c22b4eb9c37d344a07dbe1635dd1588678e100943aac441a2ff1a19c70",
+   "bytes": 9636
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\blackjack_table.ent",
+   "sha256": "d767d243cc2d628c4d6e8417a72efa51f40c5ff986103f4b2de023aa6cbeb510",
+   "bytes": 13690
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\blackjack_table.mesh",
+   "sha256": "3462632659cf46104ecb856aa516c065725fa8eb1d433e9f9152d4febb407245",
+   "bytes": 39263
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_cards.xbm",
+   "sha256": "5d64ede13d667e94e1d2fa1afdf06200d8dd9766797d808c746608ef68812d0d",
+   "bytes": 211478
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_chips.xbm",
+   "sha256": "84167104803e3a66ee55c43c4bf222b337ce84829074b64589e9ebd98d2d44e1",
+   "bytes": 35549
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\bj_felt.xbm",
+   "sha256": "f49b6a76d9918f646425d305b23d61171609048269dcc3797730c91292c7bf74",
+   "bytes": 2032542
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_ebony.xbm",
+   "sha256": "fffcf81e013947c48875dc4a9a4ce06b32d2e6f1d26f82141a8ef63350e3d57f",
+   "bytes": 29729
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_grain.xbm",
+   "sha256": "50966a50d5b1a87ace2a4b065539aecfae70b899f8257c2d6e1bca9497b2e3f3",
+   "bytes": 68193
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_ivory.xbm",
+   "sha256": "28b05cad42a40382f59e510bbf3f7bf5c2edbbcc569a34e2157cd31931fc8e10",
+   "bytes": 45367
+  },
+  {
+   "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\textures\\wood_natural.xbm",
+   "sha256": "8421192eaef661d7daeb24d79124c8b2713ef6e2df85517c1f974d34cab354f4",
+   "bytes": 89246
+  }
+ ],
+ "layout": {
+  "feltZ": 1.35,
+  "feltRadius": 1.0,
+  "railRadius": 1.12,
+  "seatAngles": {
+   "white": 54,
+   "black": 18,
+   "white2": -18,
+   "black2": -54
+  },
+  "seatRadius": 0.8,
+  "cardRadius": 0.55,
+  "card": {
+   "width": 0.1,
+   "height": 0.13,
+   "thickness": 0.0016
+  },
+  "chip": {
+   "radius": 0.03,
+   "thickness": 0.0052
+  },
+  "chipStacks": {
+   "1": 4,
+   "5": 4,
+   "25": 3,
+   "100": 4,
+   "500": 1,
+   "1000": 10
+  }
+ },
+ "archiveSha256": "ed5660f0b73135a2d68b695576a867ca30792aaaa985057d6a7ad1f80f5b80cf",
+ "zipSha256": "72927a56e17228ec3124761b6aac83c03415cb0ff8dab9d52589dd354668d46e",
+ "buildWork": "/home/dop42/.cache/casino-blackjack-build/build",
+ "materialDependencies": [
+  "engine\\materials\\metal_base.remt",
+  "engine\\textures\\editor\\white.xbm"
+ ]
+}
