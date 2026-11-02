@@ -500,6 +500,39 @@ LightRP.module("armament",{
     end,
     onUiReady=function(player) attach(player);W.push(player) end,
 })
+-- Puts away whatever is in the hands without changing the loadout: drawn Mantis Blades
+-- (sheathed), a pocket firearm, the bare fists. B and the wheel's top slot. With the
+-- projection not ready (fists out before any weapon state, a quarantine) the native
+-- holster still runs: lowering the fists never needs the armament.
+function W.holster(player)
+    local cyber = LightRP.cyberware
+    if cyber and type(cyber.sheatheBlades) == "function" and cyber.sheatheBlades(player) then return true end
+    attach(player)
+    local rt=W.runtime[player]
+    if not current(rt) or rt.quarantine then
+        local ok, done, why = pcall(Open77.weapons.holster, player)
+        if not ok then return false, tostring(done) end
+        if done == false then return false, tostring(why) end
+        return true
+    end
+    if rt.busy then return false,"Your equipment is busy. Try again in a moment." end
+    rt.busy=true;W.push(player)
+    CreateThread(function()
+        local result,why=native(rt,"holster","holster")
+        if current(rt) then rt.busy=false;rt.error=result and nil or why;if result then rt.holstered=true end;W.push(player) end
+    end)
+    return true
+end
+local lastHolster={}
+RegisterNetEvent("op77_lightrp:armament:holster",function()
+    local player=tonumber(source)
+    if not player or player<=0 then return end
+    local at=now()
+    if lastHolster[player] and at-lastHolster[player]<.25 then return end
+    lastHolster[player]=at
+    W.holster(player)
+end)
+
 RegisterNetEvent(NET,function(p)
     local player=tonumber(source)
     if not player or player<=0 or type(p)~="table" or type(p.request)~="string" or #p.request>96 or #p.request==0 then return end
@@ -515,14 +548,7 @@ RegisterNetEvent(NET,function(p)
         W.push(player)
     elseif operation=="sync" then ok,error=W.synchronize(player)
     elseif operation=="holster" then
-        if not current(rt) or rt.busy or rt.quarantine then ok,error=false,"Your weapon projection is not ready."
-        else
-            rt.busy=true;W.push(player)
-            CreateThread(function()
-                local result,why=native(rt,"holster","holster")
-                if current(rt) then rt.busy=false;rt.error=result and nil or why;if result then rt.holstered=true end;W.push(player) end
-            end)
-        end
+        ok,error=W.holster(player)
     elseif operation=="equip" or operation=="unequip" or operation=="ammo" or operation=="select" then
         ok,error=beginMutation(player,p,function(accepted,why)
             if not current(rt) then return end

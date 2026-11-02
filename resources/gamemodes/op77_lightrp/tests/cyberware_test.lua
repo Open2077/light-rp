@@ -226,6 +226,24 @@ assert(P.weaponCalls[#P.weaponCalls] == "assign:Items.MantisBlades:1", "blades a
 netHandlers["op77_lightrp:cyberware:blades"]()
 pump()
 assert(not Cyber.handlesLoadout(7) and synced >= 1, "sheathed: RP weapons projected again")
+-- B is also the holster key: with a gun or the fists in hand it puts them away (through
+-- the armament) and does not draw the blades; with empty hands it draws them again.
+local holsters = 0
+local armamentHolster = LightRP.armament.holster
+LightRP.armament.holster = function(pid) holsters = holsters + 1; return true end
+Open77.weapons.get = function() return { drawn = true } end
+netHandlers["op77_lightrp:cyberware:blades"]()
+pump()
+assert(holsters == 1 and not Cyber.handlesLoadout(7), "B with something in hand holsters it, the blades stay sheathed")
+Open77.weapons.get = function() return { drawn = false } end
+local noticesBefore = #notices
+netHandlers["op77_lightrp:cyberware:blades"]()
+pump()
+assert(holsters == 1 and Cyber.handlesLoadout(7), "empty hands: B draws the blades")
+assert(Cyber.sheatheBlades(7) == true and Cyber.sheatheBlades(7) == false, "the armament's holster sheathes drawn blades once")
+pump()
+assert(#notices == noticesBefore, "no notice on a plain B")
+LightRP.armament.holster = armamentHolster; Open77.weapons.get = nil
 
 -- Removal: a fee
 r = op("remove", "reinforced_tendons_mk2"); assert(r.ok, r.message)

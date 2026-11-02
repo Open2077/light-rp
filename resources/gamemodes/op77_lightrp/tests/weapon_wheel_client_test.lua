@@ -10,6 +10,8 @@ clock = 0
 CreateThread = function(fn) threads[#threads + 1] = coroutine.create(fn) end
 Wait = function() coroutine.yield() end
 AddEventHandler = function() end
+local serverEvents = {}
+TriggerServerEvent = function(name) serverEvents[#serverEvents + 1] = name; return true end
 GetCurrentResourceName = function() return "op77_lightrp" end
 RegisterKeyMapping = function(def) mappings[def.id] = def; return true, def.key end
 local page = {
@@ -27,20 +29,22 @@ Open77 = {
 dofile("client/core/weapon_wheel.lua")
 local W = LightRpWeaponWheel
 W.bind(page)
-local map = assert(mappings["lightrp.weaponwheel"], "the CTRL mapping")
-assert(map.key == "CTRL" and map.hold == true and map.consume == true, "a consumed hold key")
+local map = assert(mappings["lightrp.weaponwheel"], "the TAB mapping")
+assert(map.key == "TAB" and map.hold == true and map.consume == true, "a consumed hold key on TAB")
 local function last() return sent[#sent] end
 
 -- press: the mouse only (the keyboard stays with the game), the page opens, fresh state, a sound
 map.onPressed()
 assert(W.open and focus[#focus].keyboard == false and focus[#focus].cursor == true, "mouse-only focus")
-assert(last().name == "lightrp:ui:weaponwheel" and last().payload.kind == "open" and last().payload.key == "CTRL")
+assert(last().name == "lightrp:ui:weaponwheel" and last().payload.kind == "open" and last().payload.key == "TAB")
 assert(refreshed == 1 and sounds[#sounds] == "ui_radial_menu_open", "the game's radial menu sound")
 map.onPressed(); assert(#focus == 1, "a second press does not reopen")
 -- the page's feedback: the game's own UI events
 handlers["lightrp:ui:weaponwheel"]({ kind = "hover" }); assert(sounds[#sounds] == "ui_menu_hover")
 handlers["lightrp:ui:weaponwheel"]({ kind = "chosen" }); assert(sounds[#sounds] == "ui_menu_item_weapon_equip")
 handlers["lightrp:ui:weaponwheel"]({ kind = "chosen", unarmed = true }); assert(sounds[#sounds] == "ui_menu_item_weapon_unequip")
+-- the holster slot: the server puts away whatever is in the hands (gun, fists, blades)
+handlers["lightrp:ui:weaponwheel"]({ kind = "holster" }); assert(serverEvents[#serverEvents] == "op77_lightrp:armament:holster", "holster goes to the server")
 -- release: the page commits, the focus goes back
 map.onReleased()
 assert(not W.open and last().payload.kind == "commit" and focus[#focus].keyboard == false and focus[#focus].cursor == false)
@@ -61,8 +65,11 @@ LightRpUi.menuOpen = true; map.onPressed(); assert(not W.open and #sent == count
 LightRpUi.dialogs.inventory = true; map.onPressed(); assert(not W.open, "a dialog owns the input"); LightRpUi.dialogs.inventory = nil
 character.vehicle = { mounted = true }; map.onPressed(); assert(not W.open, "not in a vehicle"); character.vehicle = nil
 character.alive = false; map.onPressed(); assert(not W.open, "not while down"); character.alive = true
+-- no equipment state (no weapon, nothing bought yet): the wheel still opens, to put the fists down
 local state = LightRpArmamentClient.state; LightRpArmamentClient.state = function() return nil end
-map.onPressed(); assert(not W.open, "no equipment state yet"); LightRpArmamentClient.state = state
+map.onPressed(); assert(W.open, "opens with no equipment state"); W.close(false, "test"); LightRpArmamentClient.state = state
+local armament = LightRpArmamentClient; LightRpArmamentClient = nil
+map.onPressed(); assert(W.open, "opens before the armament bridge exists"); W.close(false, "test"); LightRpArmamentClient = armament
 
 -- the safety loop: interrupted -> cancel; a release the mapping missed -> commit
 map.onPressed(); assert(W.open)
@@ -70,4 +77,4 @@ LightRpUi.menuOpen = true; coroutine.resume(threads[1]); coroutine.resume(thread
 assert(not W.open and last().payload.kind == "cancel" and last().payload.reason == "interrupted"); LightRpUi.menuOpen = nil
 map.onPressed(); clock = 1000; keyDown = false; coroutine.resume(threads[1])
 assert(not W.open and last().payload.kind == "commit" and last().payload.reason == "released", "missed release still commits")
-print("PASS: weapon wheel client (CTRL hold mapping, mouse-only focus, open/commit/cancel, click close, input owners, vehicle/death refusals, game UI sounds, safety loop)")
+print("PASS: weapon wheel client (TAB hold mapping, opens without weapons, holster to the server, mouse-only focus, open/commit/cancel, click close, input owners, vehicle/death refusals, game UI sounds, safety loop)")

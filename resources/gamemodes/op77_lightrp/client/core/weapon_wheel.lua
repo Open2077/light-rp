@@ -1,11 +1,12 @@
--- The weapon wheel (hold CTRL): every weapon in the pockets on a GTA-style radial,
--- plus "unarmed". The page draws it and picks with the mouse; releasing the key
+-- The weapon wheel (hold TAB): every weapon in the pockets on a GTA-style radial,
+-- plus "holster" (whatever is in the hands goes away: a gun, the fists, the blades).
+-- It opens with empty pockets too: putting the fists down needs no weapon. The page draws it and picks with the mouse; releasing the key
 -- commits the choice (server operation `select`). While it is open the mouse goes to
 -- the page, so the camera holds still, and the keyboard stays with the game, so the
 -- player keeps moving and the key release still reaches this mapping.
 local PAGE = "lightrp:ui:weaponwheel"
 local Ui = LightRpUi
-local Wheel = { open = false, key = "CTRL" }
+local Wheel = { open = false, key = "TAB" }
 LightRpWeaponWheel = Wheel
 local openedAt = 0
 
@@ -40,7 +41,8 @@ local function allowed()
     if LightRpMedical and LightRpMedical.isActive() then return false end
     local c = Open77.character.state()
     if not (c and c.alive and c.attached) or (c.vehicle and c.vehicle.mounted) then return false end
-    return LightRpArmamentClient ~= nil and LightRpArmamentClient.state() ~= nil
+    -- No armament state is no reason to refuse: the holster slot works without one.
+    return true
 end
 Wheel.allowed = allowed
 
@@ -61,7 +63,7 @@ local function openWheel()
     Wheel.open, openedAt = true, GetGameTimer()
     Ui.send(PAGE, { kind = "open", key = Wheel.key })
     -- the pockets may have changed since the last push (a purchase, a gift)
-    if LightRpArmamentClient.refresh then LightRpArmamentClient.refresh() end
+    if LightRpArmamentClient and LightRpArmamentClient.refresh then LightRpArmamentClient.refresh() end
     sound("open")
 end
 Wheel.openWheel = openWheel
@@ -71,6 +73,7 @@ function Wheel.bind(page)
         if type(p) ~= "table" then return end
         if p.kind == "hover" then sound("hover")
         elseif p.kind == "chosen" then sound(p.unarmed == true and "unarmed" or "equip")
+        elseif p.kind == "holster" then TriggerServerEvent("op77_lightrp:armament:holster")
         elseif p.kind == "close" then close(p.commit == true, "page") end
     end)
     local key = LightRpConfig.keys.weaponWheel
