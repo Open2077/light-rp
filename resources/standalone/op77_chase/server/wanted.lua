@@ -291,7 +291,9 @@ function M.reputation(match, m, placement)
     if match.void or (match.played or 0) == 0 then return 0 end
     if m.leaving or m.forfeit then return rep.leaver or 0 end
     if (match.peakPlayers or 0) < (rep.minPlayers or 3) then return 0 end
-    local key = ("%d|%s"):format(dayOf(), characterId(m))
+    local day = dayOf()
+    if M.dailyDay ~= day then M.daily, M.dailyDay = {}, day end -- yesterday's counts go
+    local key = ("%d|%s"):format(day, characterId(m))
     local count = (M.daily[key] or 0) + 1
     M.daily[key] = count
     if count > (rep.perDay or 6) then return 0 end
