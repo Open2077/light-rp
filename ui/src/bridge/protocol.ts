@@ -146,11 +146,58 @@ export interface UiState {
   missionQueue?: MissionQueueState;
   /** A fixer gig taken and not yet running (server/modules/fixers.lua); false: none. */
   fixerGig?: FixerGigState | false;
+
+  /** Arena, races, chases, events and The Crossing (server/modules/activities.lua A.view). */
+  activities?: ActivitiesState;
 }
 export interface FixerGigState {
   id: number; title: string; location: string; fixer: string; state: "accepted" | "countdown";
   crew: number; min: number; max: number; owner: boolean; here: number; meetInMs?: number; launchInMs?: number;
 }
+
+/* ── Activities (server/modules/activities.lua, activities_hub.lua) ── */
+export type ActivityKind = "pvp" | "race" | "chase" | "event";
+export type ActivityPhase = "idle" | "lobby" | "running";
+/** A character's totals in an activity (or on its shown course board). */
+export interface ActivityStats {
+  played: number; wins: number; kills: number; deaths: number; reputation: number;
+  bestScore?: number; bestTimeMs?: number; bestPlacement?: number;
+}
+export interface ActivityTopRow { rank: number; name: string; wins: number; played: number; bestTimeMs?: number; bestScore?: number }
+export interface ActivityEntry {
+  id: string; label: string; kind: ActivityKind; description: string; minPlayers: number; maxPlayers: number;
+  /** The provider's latest status (op77_lightrp:activity:status). */
+  phase: ActivityPhase; players: number; queued: number; joinable: boolean; detail: string;
+  /** Races rank by best time, everything else by wins. */
+  byTime: boolean;
+  /** Join choices (options[modeKey]); empty: the provider decides. */
+  modes: Array<{ id: string; label: string }>; modeKey: string;
+  top: ActivityTopRow[];
+  /** The course board the leaderboard shows (a race with courses). */
+  board?: { id: string; course: string; revision: number };
+  mine?: ActivityStats; mineBoard?: ActivityStats;
+}
+/** A mission board of the city, for the Contracts terminal (GPS only). */
+export interface ActivityContract { id: string; title: string; type: string; location: string; description: string; distance?: number }
+export interface ActivityNearby { id: number; name: string; distance: number; inSquad: boolean; mine: boolean; invited: boolean }
+export interface ActivitiesState {
+  enabled: boolean;
+  hub: { name: string; position?: { x: number; y: number; z: number } };
+  list: ActivityEntry[];
+  /** The activity that owns the player (sinceMs at the push), or false. */
+  current: false | { id: string; label: string; sinceMs: number; leaving: boolean; returning: boolean };
+  /** A join asked and not entered yet (the provider's queue or lobby), or false. */
+  queued: false | { id: string; label: string; sinceMs: number };
+  /** On a mission: activities wait (/mission leave). */
+  mission: boolean;
+  /** Free for an activity, else the reason in one sentence. */
+  eligible: boolean; reason?: string;
+  reputation: { today: number; dailyCap: number; maxPerResult: number };
+  /** Players around (only while the panel is open), for squad invites. */
+  nearby: ActivityNearby[];
+  contracts: ActivityContract[];
+}
+export type ActivitiesTab = "activities" | "contracts" | "squad";
 
 /* ── Missions (server/modules/missions.lua) and squads (server/modules/parties.lua) ── */
 export interface MissionDifficulty {
@@ -406,7 +453,7 @@ export interface FuelDialogPayload {
   money: { currency: string; cash: number; bank: number };
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
-export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean };
+export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab };
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -438,6 +485,9 @@ export type UiAction =
   | { type: "party.invite" | "party.kick" | "party.promote"; target: number }
   | { type: "party.accept" | "party.decline"; party?: string }
   | { type: "party.leave" }
+  | { type: "activities.control"; operation: "open" | "refresh" | "close" | "leave"; tab?: ActivitiesTab }
+  | { type: "activities.control"; operation: "join"; id: string; from?: string; options?: Record<string, string> }
+  | { type: "activities.control"; operation: "gps"; id: string }
   | { type: "customization.open"; vehicle: string; garage: string }
   | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
   | { type: "dealership.close"; session: string }

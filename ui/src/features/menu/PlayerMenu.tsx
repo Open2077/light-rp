@@ -5,7 +5,7 @@ import { matchesToggleKey } from "@/features/inventory/model";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { RageMenu, type RageMenuItem } from "@/design/components";
 import { formatMoney, ledger, transactionLabel } from "@/bridge/money";
-import type { CharacterState, GangState, JobRunState, JobState, MoneyState } from "@/bridge/protocol";
+import type { ActivitiesState, CharacterState, GangState, JobRunState, JobState, MoneyState, PartyState } from "@/bridge/protocol";
 import "./menu.css";
 
 /* The player menu (F1): a RageUI-style list menu, keyboard only, top-left. The
@@ -92,6 +92,56 @@ function jobNodes(job: JobState, run: JobRunState | undefined, money: MoneyState
   };
 }
 
+/* F1 → Activities opens the Activities panel (server/modules/activities.lua); a
+   running activity or a waiting request can be left from here at once. F1 → Squad
+   manages the squad (server/modules/parties.lua): invites, members, leave. Inviting
+   needs the players around, listed by the panel's squad page. */
+function activityItems(act: ActivitiesState | undefined): RageMenuItem[] {
+  const items: RageMenuItem[] = [{ id: "activities", type: "item", text: "Activities", icon: "swords",
+    meta: act?.current ? "IN PLAY" : act?.queued ? "WAITING" : act ? `${act.list.length} OPEN` : undefined,
+    description: "Arena, races, chases and events: status, join, your record and the leaderboards. The Crossing's terminals and the Neural-Link app Gigs & Arena open the same panel." }];
+  if (act?.current && !act.current.returning) items.push({ id: "activity-leave", type: "item", text: `Leave ${act.current.label}`, icon: "log-out", danger: true,
+    disabled: act.current.leaving, description: "Ends your participation. You come back where you were before it started, healed, with your own weapons." });
+  else if (act?.queued) items.push({ id: "activity-leave", type: "item", text: `Cancel ${act.queued.label}`, icon: "x",
+    description: "Withdraws your request: you leave its queue or lobby." });
+  return items;
+}
+
+function squadNodes(party: PartyState | undefined, me: number): Record<string, MenuNode> {
+  const leader = !!party?.id && party.leader === me;
+  const items: RageMenuItem[] = [];
+  if (party?.invites?.length) {
+    items.push({ label: "INVITES" });
+    for (const inv of party.invites) items.push(
+      { id: `squad-accept:${inv.party}`, type: "item", text: `Join ${inv.fromName}'s squad`, icon: "user-plus", meta: `${Math.max(0, Math.ceil(inv.expiresInMs / 1000))} S`,
+        description: "Accept the invite: you tag missions together and activities learn who is in your squad." },
+      { id: `squad-decline:${inv.party}`, type: "item", text: `Decline ${inv.fromName}`, icon: "x" });
+  }
+  const nodes: Record<string, MenuNode> = {};
+  items.push({ label: party?.members ? `MEMBERS ${party.members.length}/${party.maxSize}` : "MEMBERS" });
+  if (party?.members) {
+    for (const m of party.members) {
+      const manage = leader && m.id !== me;
+      items.push({ id: `squad-member:${m.id}`, type: manage ? "submenu" : "item", target: manage ? `member:${m.id}` : undefined, text: m.name,
+        icon: m.leader ? "crown" : "user", meta: m.id === me ? "YOU" : m.leader ? "LEADER" : undefined,
+        description: manage ? "Hand the lead over or remove this member." : m.leader ? "The squad leader invites and tags the squad in." : undefined });
+      if (manage) nodes[`member:${m.id}`] = { title: m.name.toUpperCase(), subtitle: "SQUAD MEMBER", tag: "MEMBER", items: [
+        { id: `squad-promote:${m.id}`, type: "item", text: "Hand the lead over", icon: "crown", description: `${m.name} becomes the squad leader.` },
+        { id: `squad-kick:${m.id}`, type: "item", text: "Remove from the squad", icon: "user-minus", danger: true },
+        { id: "squad-back", type: "item", text: "Back", icon: "arrow-left" },
+      ] };
+    }
+    for (const p of party.pending ?? []) items.push({ id: `squad-pending:${p.id}`, type: "item", text: p.name, icon: "loader", meta: "INVITED", disabled: true });
+  } else {
+    items.push({ id: "squad-none", type: "item", text: "No squad yet", icon: "users", disabled: true, description: "Invite the players around you: the squad forms when one accepts." });
+  }
+  items.push({ separator: true },
+    { id: "squad-invite", type: "item", text: "Invite players nearby", icon: "user-plus", disabled: !!party?.id && !leader,
+      description: !!party?.id && !leader ? "Only the squad leader invites." : "Opens the squad page of the Activities panel: the players within 15 m of you, one click to invite." });
+  if (party?.members) items.push({ id: "squad-leave", type: "item", text: "Leave the squad", icon: "log-out", danger: true });
+  return { squad: { title: "SQUAD", subtitle: party?.members ? `${party.members.length}/${party.maxSize} MEMBERS` : "NO SQUAD", tag: "SQUAD", items }, ...nodes };
+}
+
 function buildTree(character: CharacterState, money: MoneyState, job: JobState, gang: GangState, run: JobRunState | undefined, freecamKey?: string): Record<string, MenuNode> {
   const name = `${character.firstName ?? ""} ${character.lastName ?? ""}`.trim() || character.accountName || "";
   const id = String(character.playerId).padStart(3, "0");
@@ -174,6 +224,8 @@ export function PlayerMenu() {
   const openJobGuide = useStore((s) => s.openJobGuide);
   const tutorial = useStore((s) => s.state.tutorial);
   const staff = useStore((s) => s.state.staff);
+  const activities = useStore((s) => s.state.activities);
+  const party = useStore((s) => s.state.party);
   const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
   const [stack, setStack] = useState<Array<{ key: string; index: number }>>([{ key: "root", index: ROOT_INDEX }]);
   const [toggleKey, setToggleKey] = useState("F1");
@@ -214,8 +266,14 @@ export function PlayerMenu() {
     if (tutorial?.active && guide >= 0) nodes.root!.items.splice(guide + 1, 0, {id:"tutorial-skip",type:"item",text:"Skip the tutorial",icon:"log-out",
       description:"Leave the first day now: your Neural-Link is installed and you get your Kabuki starter studio, its door a short walk away. You can come back to the guide later."});
     if (staff.isStaff && nodes.root) nodes.root.items.splice(nodes.root.items.length - 2, 0, {id:"admin",type:"item",text:"Staff desk",icon:"shield",description:"LightRP administration and support cases."});
+    // Activities and the squad, under the homes
+    const homes = nodes.root?.items.findIndex((i) => "id" in i && i.id === "housing") ?? -1;
+    if (homes >= 0) nodes.root!.items.splice(homes + 1, 0, ...activityItems(activities), { id: "squad", type: "submenu", target: "squad", text: "Squad", icon: "users",
+      meta: party?.invites?.length ? `${party.invites.length} INVITE${party.invites.length > 1 ? "S" : ""}` : party?.members ? `${party.members.length}/${party.maxSize}` : "SOLO",
+      description: "Your squad: accept invites, see the members, invite the players around you, leave." });
+    Object.assign(nodes, squadNodes(party, character.playerId));
     return nodes;
-  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active]);
+  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, party]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;
@@ -241,6 +299,18 @@ export function PlayerMenu() {
     if (item.id === "job-quit-confirm") { sendAction({ type: "jobs.quit" }); setStack((s) => s.slice(0, -1)); return; }
     if (item.id === "work-collect" || item.id === "work-process" || item.id === "work-sell") {
       requestClose(); sendAction({ type: "jobs.locate", job: job.name, stage: item.id.slice(5) as "collect" | "process" | "sell" }); return;
+    }
+    if (item.id === "activities" || item.id === "squad-invite") {
+      requestClose(); sendAction({ type: "activities.control", operation: "open", tab: item.id === "squad-invite" ? "squad" : "activities" }); return;
+    }
+    if (item.id === "activity-leave") { sendAction({ type: "activities.control", operation: "leave" }); requestClose(); return; }
+    if (item.id === "squad-leave") { sendAction({ type: "party.leave" }); setStack((s) => s.slice(0, -1)); return; }
+    if (item.id === "squad-back") { setStack((s) => s.slice(0, -1)); return; }
+    const [verb, arg] = (item.id ?? "").split(":");
+    if (verb === "squad-accept" && arg) { sendAction({ type: "party.accept", party: arg }); return; }
+    if (verb === "squad-decline" && arg) { sendAction({ type: "party.decline", party: arg }); return; }
+    if ((verb === "squad-promote" || verb === "squad-kick") && arg) {
+      sendAction({ type: verb === "squad-promote" ? "party.promote" : "party.kick", target: Number(arg) }); setStack((s) => s.slice(0, -1)); return;
     }
     if (item.id === "close") requestClose();
   };

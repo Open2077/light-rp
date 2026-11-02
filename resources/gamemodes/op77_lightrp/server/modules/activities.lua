@@ -1116,7 +1116,10 @@ LightRP.action("activities.control", function(id, payload)
     if op == "open" or op == "refresh" then
         A.watch(id)
         touch(id)
-        if op == "open" then LightRP.dialog(id, "activities", { tab = payload.tab == "contracts" and "contracts" or "activities" }) end
+        if op == "open" then
+            local tab = (payload.tab == "contracts" or payload.tab == "squad") and payload.tab or "activities"
+            LightRP.dialog(id, "activities", { tab = tab })
+        end
         return
     end
     if op == "close" then watchers[id] = nil; return end
