@@ -62,6 +62,10 @@ function Extra.model(board,piece)
     return games[board.kind].boardModel(board)
 end
 -- One moving prop: `model` is a full depot path; x,y,z are board-local metres.
+-- metadata.snap=true moves it straight to the target each frame (no smoothing):
+-- use it for server-clock timelines and for pose variants swapped by parking
+-- the inactive ones out of sight (the prop API turns props about Z only, so a
+-- lever, a flipped card or a vertical wheel is a set of authored pose meshes).
 function Extra.put(result,id,kind,model,x,y,z,yaw,metadata)
     local piece={id=id,kind=kind,side="neutral",model=model,yaw=yaw or 0}
     if metadata then for key,value in pairs(metadata) do piece[key]=value end end

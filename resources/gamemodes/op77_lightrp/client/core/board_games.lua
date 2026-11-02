@@ -650,7 +650,8 @@ local function startRenderer()
                             local from=piece.position
                             local yaw=propYaw(board,target.piece)
                             if distance(p,from)>.00002 or piece.yaw~=yaw then
-                                local gain=direct and 1 or amount
+                                -- `snap` targets (pose swaps, server-clock timelines) jump without smoothing.
+                                local gain=(direct or target.piece.snap) and 1 or amount
                                 local nextPosition={x=from.x+(p.x-from.x)*gain,y=from.y+(p.y-from.y)*gain,z=from.z+(p.z-from.z)*gain}
                                 if not transformProp(piece,nextPosition,yaw) then break end
                             end
