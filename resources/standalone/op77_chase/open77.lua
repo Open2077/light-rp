@@ -5,6 +5,12 @@
 --                 rounds with swapped roles, Elo ladder (/chase). Port of Pursuit's rules.
 --   chase.wanted  Most Wanted - one runner against 2-7 cops in waves, rising heat,
 --                 roadblocks, a late extraction point; everyone runs once (/wanted).
+--   chase.pve     NCPD Escape - one player or a crew, every human a runner, against NCPD
+--                 bots scaled to the runners (/escape). Public, no switch.
+--
+-- Staff bot mode (Light RP's /lightrp.bots): one queued player starts a 1v1 or a Most
+-- Wanted and bots (Open77 NPCs at the wheel of the match cars, or on foot) play the
+-- missing roles; nothing is rated or recorded (server/bots.lua).
 --
 -- Light RP hands players over with activityEnter and takes them back with
 -- activityLeave. The overlay is Light RP's own activity HUD (client exports
@@ -31,6 +37,7 @@ server_script "server/elo.lua"
 server_script "server/queue.lua"
 server_script "server/core.lua"
 server_script "server/world.lua"
+server_script "server/bots.lua"
 server_script "server/match.lua"
 server_script "server/ranked.lua"
 server_script "server/wanted_rules.lua"
@@ -49,6 +56,7 @@ permissions {
     "players.life.respawn",  -- a player who went down is respawned on his next mark
     "players.life.freeze",   -- held on their marks during the countdown (cops until dispatch)
     "players.teleport",      -- placement on the marks, inside the match bucket
-    "world.vehicles",        -- match cars and Most Wanted roadblocks, created in the match bucket and removed after
+    "world.vehicles",        -- match cars and Most Wanted roadblocks, created in the match bucket and removed after; bot drivers (vehicles.ai)
+    "world.npcs",            -- bots: NCPD cops and runners (npcs.create / tasks / presence / remove), in the match bucket
     "database.access",       -- op77_chase_ratings / op77_chase_matches (1v1 Elo)
 }

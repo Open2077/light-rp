@@ -23,6 +23,8 @@ local function register()
         description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers, caps = a.caps })
     if ok then
         log("registered %s with Light RP", a.id)
+        -- Staff bot mode is Light RP's: its current value after every registration.
+        if ChaseBots then ChaseBots.refresh() end
         publishStatus(true)
     else
         log("Light RP refused %s: %s", a.id, tostring(why))
@@ -84,12 +86,16 @@ local function dequeue(id, text)
     return true
 end
 
--- Queue a player. `checked`: Light RP already ran activityCheck (the hub join).
-local function enqueue(id, mode, checked)
+-- Queue a player. `checked`: Light RP already ran activityCheck (the hub join). `squad`:
+-- his Light RP crew (options.squad), paired with him first.
+local function enqueue(id, mode, checked, squad)
     if Chase.matchOf(id) then return false, "You are already in a chase." end
     -- One chase queue at a time (server/wanted_main.lua owns the Most Wanted side).
     if ChaseWantedMain and ChaseWantedMain.claims(id) then
         return false, "You are already queued for Most Wanted. /wanted leave first."
+    end
+    if ChasePveMain and ChasePveMain.claims(id) then
+        return false, "You are already in NCPD Escape. /escape leave first."
     end
     mode = Q.normalizeMode(mode)
     local position, total = Q.position(id)
@@ -98,13 +104,39 @@ local function enqueue(id, mode, checked)
         local ok, why = ChaseCore.check(id)
         if not ok then return false, why end
     end
-    position, total = Q.add(id, mode, W.now())
+    position, total = Q.add(id, mode, W.now(), squad)
     pushQueue()
     publishStatus()
     local text = ("Queued for NCPD Chase (%s) - %d/%d. Keep playing, you will be pulled in when an opponent is found. /chase leave to cancel.")
         :format(modeLabel(mode), position, total)
+    if ChaseBots and ChaseBots.enabled then text = text .. " Bot mode: a bot takes the other side if nobody else is waiting." end
     W.notify(id, "info", text, 7000)
     return true, text
+end
+
+-- Staff bot mode: the first ready player who has waited soloWaitSeconds (and whose crew
+-- is not on its way) gets a bot. Human pairs always come first (tryPair).
+local function tryBotMatch(now)
+    if not (ChaseBots and ChaseBots.enabled) then return false end
+    local wait = ((C.bots or {}).soloWaitSeconds or 2) * 1000
+    local holdMs = (C.queue.squadHoldSeconds or 10) * 1000
+    for _, entry in ipairs(Q.entries) do
+        if now - entry.since >= wait and not Q.held(entry, now, holdMs) and W.connected(entry.id) and ChaseCore.check(entry.id) then
+            Q.remove(entry.id)
+            local match, failedId, why = Chase.admitBot(entry.id, entry.mode or C.defaultMode, now)
+            if match then
+                W.queueHud(entry.id, { queued = false })
+            elseif failedId == nil then
+                Q.requeueFront(entry.id, entry.mode, now, entry.squad)
+            else
+                W.queueHud(entry.id, { queued = false })
+                W.notify(entry.id, "warning", ("The chase could not start: %s"):format(tostring(why)), 6000)
+            end
+            pushQueue()
+            return true
+        end
+    end
+    return false
 end
 
 local function tryPair(now)
@@ -115,7 +147,8 @@ local function tryPair(now)
     local pair, notReady, dropped = Q.pair(now, function(id)
         if not W.connected(id) then return false, "disconnected" end
         return ChaseCore.check(id)
-    end, { dropAfterMs = (C.queue.notReadyDropSeconds or 120) * 1000, defaultMode = C.defaultMode })
+    end, { dropAfterMs = (C.queue.notReadyDropSeconds or 120) * 1000, defaultMode = C.defaultMode,
+        squadHoldMs = (C.queue.squadHoldSeconds or 10) * 1000 })
     for _, entry in ipairs(notReady) do
         if now - (noticeAt[entry.id] or -math.huge) >= (C.queue.notReadyNoticeSeconds or 30) * 1000 then
             noticeAt[entry.id] = now
@@ -133,17 +166,18 @@ local function tryPair(now)
             W.queueHud(pair.b, { queued = false })
         elseif failedId == nil then
             -- No free instance: both stay at the head of the queue.
-            Q.requeueFront(pair.b, pair.modes[pair.b], now)
-            Q.requeueFront(pair.a, pair.modes[pair.a], now)
+            Q.requeueFront(pair.b, pair.modes[pair.b], now, pair.squads and pair.squads[pair.b])
+            Q.requeueFront(pair.a, pair.modes[pair.a], now, pair.squads and pair.squads[pair.a])
         else
             W.queueHud(failedId, { queued = false })
             W.notify(failedId, "warning", ("The chase could not start: %s"):format(tostring(why)), 6000)
             local other = failedId == pair.a and pair.b or pair.a
-            Q.requeueFront(other, pair.modes[other], now)
+            Q.requeueFront(other, pair.modes[other], now, pair.squads and pair.squads[other])
         end
         pushQueue()
     end
-    if pair or #notReady > 0 or #dropped > 0 then publishStatus() end
+    local bot = (pair == nil) and tryBotMatch(now) or false
+    if pair or bot or #notReady > 0 or #dropped > 0 then publishStatus() end
 end
 
 -- ---------------------------------------------------------------- Light RP events
@@ -154,7 +188,8 @@ AddEventHandler("op77_lightrp:activity:join", function(playerId, activityId, opt
     local id = validId(playerId)
     if id == nil or activityId ~= C.activity.id then return end
     local mode = type(options) == "table" and options.mode or nil
-    local ok, text = enqueue(id, mode, true)
+    local squad = type(options) == "table" and options.squad or nil
+    local ok, text = enqueue(id, mode, true, squad)
     if not ok then W.notify(id, "warning", text, 5000) end
 end)
 
@@ -261,7 +296,8 @@ RegisterCommand("chase.status", function(source, _, raw)
     for _, match in pairs(Chase.matches) do
         local who = {}
         for _, m in ipairs(match.members) do
-            who[#who + 1] = ("%d=%s%s"):format(m.id, tostring(match.roles[m.id]), m.gone and "(gone)" or (m.released and "(home)" or ""))
+            who[#who + 1] = ("%d=%s%s%s"):format(m.id, tostring(match.roles[m.id]), m.bot and "(bot)" or "",
+                m.gone and "(gone)" or (m.released and "(home)" or ""))
         end
         lines[#lines + 1] = ("  match %d %s %s round %d/%d bucket %d score %s"):format(match.id, match.mode, match.state, match.round,
             Chase.roundCount(match), match.bucket, table.concat(who, " "))
@@ -281,6 +317,13 @@ RegisterCommand("chase.force", function(source, args, raw)
     pushQueue(); publishStatus()
     W.reply(validId(source) or 0, raw, match ~= nil, match and ("match %d started"):format(match.id)
         or ("refused (%s): %s"):format(tostring(failed), tostring(why)))
+end, true)
+
+-- Staff (ACL command.chase.bots): bot mode (switched by Light RP's /lightrp.bots) and every
+-- live bot of this resource (1v1, Most Wanted, NCPD Escape).
+RegisterCommand("chase.bots", function(source, _, raw)
+    if not ChaseBots then W.reply(validId(source) or 0, raw, false, "bots are not loaded") return end
+    W.reply(validId(source) or 0, raw, true, table.concat(ChaseBots.describe(), "\n"))
 end, true)
 
 RegisterCommand("chase.stop", function(source, args, raw)

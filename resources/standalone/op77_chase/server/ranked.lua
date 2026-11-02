@@ -166,7 +166,7 @@ end
 -- `perOpponentPerDay` matches against the same character in a day pay anything.
 function K.reputation(match, m, day)
     local rep = ChaseConfig.reputation
-    if match.void or not K.played(match) then return 0 end
+    if match.void or not K.played(match) or match.hasBots then return 0 end
     if match.leaver == m.id then return rep.leaver or 0 end
     local other
     for _, o in ipairs(match.members) do if o.id ~= m.id then other = o end end
@@ -198,6 +198,19 @@ end
 
 function K.onFinished(match)
     if match.void then return end
+    if match.hasBots then
+        -- Against a bot (staff bot mode): no rating, nothing saved, nothing earned. The player's
+        -- result is marked test, so Light RP never records it even if bot mode was turned off
+        -- meanwhile.
+        for _, m in ipairs(match.members) do
+            if not m.gone and not m.bot then
+                local result = K.buildResult(match, m, nil, 0)
+                result.reputation, result.test = 0, true
+                ChaseCore.result(m.id, result)
+            end
+        end
+        return
+    end
     CreateThread(function()
         local t = ChaseElo.settings(ChaseConfig.ranked)
         local elo = {}
