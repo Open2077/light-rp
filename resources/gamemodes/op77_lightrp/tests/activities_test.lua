@@ -278,6 +278,21 @@ assert(handlers["op77_lightrp:activity:result"] and not A.result(P, "arena.ffa",
 invoking = "op77_race"
 assert(not A.result(P, "arena.ffa", { won = true }), "another resource cannot post for this activity")
 invoking = "op77_arena"
+-- bot mode: staff switch, told to every provider, and nothing recorded while it is on
+local okBots, botsText = commands["lightrp.bots"](0, { "on" })
+assert(okBots and botsText:find("Bot mode ON") and exported.activityBots() == true)
+assert(events[#events].name == "op77_lightrp:activity:bots" and events[#events].args[1] == true, "providers are told")
+assert(providers.activities(P).bots == true, "the panel knows")
+advance(16000)
+local grantsBefore = #repGranted
+assert(A.result(P, "arena.ffa", { placement = 1, won = true, score = 99, reputation = 10, stats = { kills = 50 } }))
+run()
+assert(#repGranted == grantsBefore, "no reputation in bot mode")
+for _, a in ipairs(providers.activities(P).list) do
+    if a.id == "arena.ffa" then assert(a.mine.played == 1 and a.mine.kills == 9, "no stats in bot mode") end
+end
+assert(commands["lightrp.bots"](0, { "off" }) and exported.activityBots() == false and events[#events].args[1] == false)
+assert(not commands["lightrp.bots"](0, { "maybe" }), "usage")
 -- the daily cap holds across the account's characters
 local cap = LightRpActivities.reputation.dailyCap
 local granted = max
@@ -359,4 +374,4 @@ local okCmd, text = commands.leave(P, {})
 assert(not okCmd and text:find("not in an activity"))
 okCmd, text = commands["lightrp.activities"](0, {})
 assert(okCmd and text:find("race.trial") and text:find("missions"))
-print("PASS: activity registry, eligibility order, ownership and return, caps, leave/dropped/timeout, provider stop and reload, clamped and capped results, stats and leaderboards, missions provider")
+print("PASS: activity registry, eligibility order, ownership and return, caps, leave/dropped/timeout, provider stop and reload, clamped and capped results, stats and leaderboards, missions provider, bot mode")

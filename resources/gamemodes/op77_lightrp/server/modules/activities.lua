@@ -23,6 +23,12 @@
 --   core -> provider  op77_lightrp:activity:leaveRequest (playerId, activityId)
 --   core -> provider  op77_lightrp:activity:dropped (playerId, activityId, reason)
 --   core -> provider  op77_lightrp:activity:ready   ()  Light RP (re)started: register again
+--   core -> provider  op77_lightrp:activity:bots    (enabled)  staff bot mode toggled
+--
+-- Bot mode (/lightrp.bots on|off, staff, never persisted): providers let ONE player start
+-- what normally needs several and fill the missing players with bots (activityBots() is
+-- the current value: read it after every successful activityRegister). While it is on
+-- the core records no result: no stats, no leaderboard, no reputation.
 --
 -- Inside Light RP (one-line hooks in the other modules):
 --   LightRP.activities.owns(id)               a provider (missions included) owns the player
@@ -40,6 +46,7 @@ local EV = {
     leaveRequest = "op77_lightrp:activity:leaveRequest",
     dropped = "op77_lightrp:activity:dropped",
     ready = "op77_lightrp:activity:ready",
+    bots = "op77_lightrp:activity:bots",
 }
 A.events = EV
 
@@ -936,6 +943,12 @@ function A.result(playerId, activityId, result)
     e.lastResultAt = t
     if e.leftAt then e.resultAfterLeave = true end
     local r = A.normalizeResult(result)
+    if A.botsEnabled or result.test == true then
+        -- staff testing with bots: nothing earned, nothing ranked
+        LightRP.log("activities: test result %s for %d not recorded (placement %s, won %s)", e.activity, id,
+            tostring(r.placement), tostring(r.won))
+        return true
+    end
     CreateThread(function() record(id, e, r) end)
     return true
 end
@@ -981,6 +994,7 @@ local function exported(name, fn)
     end)
 end
 exported("activityRegister", A.register)
+exported("activityBots", function() return A.botsEnabled == true end)
 exported("activityCheck", function(playerId, activityId)
     local id = pid(playerId)
     if not id then return false, "Invalid player." end
@@ -1104,6 +1118,7 @@ function A.view(id)
         mission = internalOwner(id) == "missions",
         eligible = ok == true, reason = why,
         reputation = { today = today, dailyCap = C.reputation.dailyCap, maxPerResult = C.reputation.maxPerResult },
+        bots = A.botsEnabled == true,
         nearby = (watchers[id] or 0) > now() and nearby(id) or {},
     }
     for _, extend in ipairs(A.extensions) do
@@ -1167,6 +1182,28 @@ LightRP.command("activity", { usage = "/activity [list · join <id> · leave]" }
     if q then return true, "Queued for " .. labelOf(q.activity) .. ". /leave to drop out." end
     local ok, why = check(source)
     return true, ok and "Free for an activity: The Crossing, or the Neural-Link app Gigs & Arena." or why
+end)
+
+-- Staff bot mode: one player can start every activity, the providers fill the rest with
+-- bots, and no result is recorded. Off at every start; never leave it on with players.
+A.botsEnabled = false
+function A.setBots(on, by)
+    on = on == true
+    if A.botsEnabled == on then return false end
+    A.botsEnabled = on
+    LightRP.log("activities: bot mode %s (%s)", on and "ON" or "off", tostring(by or "console"))
+    emit(EV.bots, on)
+    dirty()
+    return true
+end
+
+LightRP.command("lightrp.bots", { restricted = true, usage = "/lightrp.bots [on|off]" }, function(source, args)
+    local value = tostring(args and args[1] or ""):lower()
+    if value == "on" or value == "off" then A.setBots(value == "on", source) end
+    if value ~= "" and value ~= "on" and value ~= "off" then return false, "usage: /lightrp.bots [on|off]" end
+    return true, A.botsEnabled
+        and "Bot mode ON: every activity starts with you alone and bots fill the other places. Results are not recorded. /lightrp.bots off when done."
+        or "Bot mode off: activities need their real players again."
 end)
 
 LightRP.command("lightrp.activities", { restricted = true, usage = "/lightrp.activities" }, function()
