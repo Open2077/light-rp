@@ -53,4 +53,30 @@ assert(#LightRpInteract.points == 3, "the new list replaces the old")
 run(old)
 assert(#LightRpInteract.points == 3, "the old build stopped without adding its points")
 for _, p in ipairs(LightRpInteract.points) do assert(p.id:sub(1, 1) == "b") end
-print("PASS: interaction build in slices (first slice at once, one slice per resume, every point built, visual budget stops custom tries, newer list wins)")
+
+-- an identical list (new tables, same content) touches nothing: the server re-sent one
+-- every few seconds while driving and every marker, blip and pin was rebuilt each time
+local same = list(3, "b")
+local markersBefore, blipsBefore = markers, nativeBlips
+local before3 = {}
+for i, p in ipairs(LightRpInteract.points) do before3[i] = p end
+local logsBefore = #logs
+build(same)
+assert(markers == markersBefore and nativeBlips == blipsBefore, "an unchanged list creates nothing")
+for i, p in ipairs(LightRpInteract.points) do assert(p == before3[i], "the same points are kept") end
+assert(#logs == logsBefore, "an unchanged list is not even logged")
+-- one changed entry: only that point is rebuilt
+same[2].label = "changed"
+build(same)
+assert(#LightRpInteract.points == 3 and markers == markersBefore + 1, "only the changed point is rebuilt")
+local stayed = 0
+for _, p in ipairs(LightRpInteract.points) do if p == before3[1] or p == before3[3] then stayed = stayed + 1 end end
+assert(stayed == 2, "the unchanged points stay")
+assert(logs[#logs]:find("(2 kept, 1 added, 1 removed)", 1, true), logs[#logs])
+-- a removed entry goes, a new one comes, the rest stays
+build({ same[1], same[3], { id = "c1", position = { x = 9, y = 0, z = 0 }, marker = { shape = "cylinder" } } })
+assert(#LightRpInteract.points == 3 and markers == markersBefore + 2, "one removed, one added")
+local ids = {}
+for _, p in ipairs(LightRpInteract.points) do ids[p.id] = true end
+assert(ids.b1 and ids.b3 and ids.c1 and not ids.b2)
+print("PASS: interaction build in slices (first slice at once, one slice per resume, every point built, visual budget stops custom tries, newer list wins, unchanged points kept, only changes rebuilt)")

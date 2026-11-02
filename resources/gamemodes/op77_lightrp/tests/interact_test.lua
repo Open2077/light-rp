@@ -117,7 +117,17 @@ assert(coroutine.resume(proximity))
 assert(markerCreates == createsBeforeTick, "persistent markers must not be recreated each tick")
 local oldMarker, oldBlip = point.marker, point.blip
 build(serverList)
-assert(markers[oldMarker] == nil and blips[oldBlip] == nil, "rebuild removes old handles")
+assert(markers[oldMarker] ~= nil and blips[oldBlip] ~= nil and LightRpInteract.points[1] == point,
+    "an identical list keeps the point and its handles (no teardown every few seconds while driving)")
+local changed = {}
+for i, entry in ipairs(serverList) do
+    local copy = {}
+    for key, value in pairs(entry) do copy[key] = value end
+    changed[i] = copy
+end
+changed[1].label = tostring(changed[1].label) .. " (moved)"
+build(changed)
+assert(markers[oldMarker] == nil and blips[oldBlip] == nil, "a changed entry is rebuilt: its old handles are removed")
 build({})
 assert(next(markers) == nil and next(blips) == nil)
 
@@ -175,6 +185,7 @@ assert(buildBlip({}).sprite == "objective" and #attempts == 1, "missing sprites 
 assert(buildBlip({ sprite = 99 }).sprite == 99 and #attempts == 1, "numeric sprite IDs remain supported")
 assert(buildBlip({ sprite = "objective" }).sprite == "objective" and #attempts == 1)
 accepted.objective = nil
+build({}) -- an identical entry would now keep its working blip: start from no point
 assert(buildBlip({ sprite = "objective" }) == nil and #attempts == 1, "do not retry the same failed fallback")
 assert(buildBlip({ sprite = "unsupported_sprite" }) == nil and #attempts == 2)
 build({})

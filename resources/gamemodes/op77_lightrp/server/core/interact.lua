@@ -86,29 +86,44 @@ end
 -- past LATENT_AT goes as a latent event instead (40 KiB frames, reassembled by the
 -- client host and delivered under the same name). A newer list replaces a stream to
 -- the same player that is still sending.
+--
+-- A list identical to the last one this player got is not sent again unless `force`:
+-- the housing loop re-sends whenever the player has moved 100 m (the 32 nearest
+-- entrances), and while driving that was every 2-4 s; each time the client tore down
+-- and rebuilt every marker, blip and 3D-map pin (86 rebuilds in 17 min, 2026-11-02,
+-- in the session that ended in an engine crash amid NPC churn).
 local LATENT_AT, LATENT_RATE = 40 * 1024, 512 * 1024
-local streams, reported = {}, 0
-local function push(playerId, list)
-    local size = 0
+local streams, reported, lastSent = {}, 0, {}
+local function push(playerId, list, force)
+    local size, encoded = 0, nil
     if type(json) == "table" and type(json.encode) == "function" then
-        local ok, encoded = pcall(json.encode, list)
-        if ok and type(encoded) == "string" then size = #encoded end
+        local ok, text = pcall(json.encode, list)
+        if ok and type(text) == "string" then size, encoded = #text, text end
     end
+    if encoded ~= nil and not force and lastSent[playerId] == encoded then return end
+    -- Remembered only once handed to the transport: a refused list is tried again.
+    lastSent[playerId] = nil
     if size > LATENT_AT and type(TriggerLatentClientEvent) == "function" then
         if streams[playerId] and Open77.net and type(Open77.net.cancelLatent) == "function" then pcall(Open77.net.cancelLatent, streams[playerId]) end
         local id, why = TriggerLatentClientEvent(E.net.interactions, playerId, LATENT_RATE, list)
         streams[playerId] = id or nil
         if not id then LightRP.log("interactions: list for player %s not sent (%s, %d points, %d bytes)", tostring(playerId), tostring(why), #list, size)
-        elseif size > reported then reported = size; LightRP.log("interactions: %d points, %d bytes: sent as a latent event", #list, size) end
+        else
+            lastSent[playerId] = encoded
+            if size > reported then reported = size; LightRP.log("interactions: %d points, %d bytes: sent as a latent event", #list, size) end
+        end
         return
     end
     local ok, why = TriggerClientEvent(E.net.interactions, playerId, list)
-    if ok == false then LightRP.log("interactions: list for player %s refused (%s, %d points, %d bytes)", tostring(playerId), tostring(why), #list, size) end
+    if ok == false then LightRP.log("interactions: list for player %s refused (%s, %d points, %d bytes)", tostring(playerId), tostring(why), #list, size)
+    else lastSent[playerId] = encoded end
 end
 LightRP.pushInteractions = push
 
-function LightRP.sendInteractions(playerId)
-    push(playerId, clientList(playerId))
+-- `force`: send even an unchanged list (the client may have lost its own: a new
+-- connection, a character activated).
+function LightRP.sendInteractions(playerId, force)
+    push(playerId, clientList(playerId), force)
 end
 
 function LightRP.broadcastInteractions()
@@ -151,8 +166,8 @@ AddEventHandler("onPlayerBucketChange", function(playerId)
 end)
 
 local Interact = LightRP.module("interact", {})
-function Interact.onGameplayReady(playerId) LightRP.sendInteractions(playerId) end
+function Interact.onGameplayReady(playerId) LightRP.sendInteractions(playerId, true) end
 -- job points follow the job
 function Interact.onJobChanged(playerId) LightRP.sendInteractions(playerId) end
-function Interact.onCharacterActivated(playerId) LightRP.sendInteractions(playerId) end
-function Interact.onDisconnected(playerId) lastPress[playerId] = nil; streams[playerId] = nil end
+function Interact.onCharacterActivated(playerId) LightRP.sendInteractions(playerId, true) end
+function Interact.onDisconnected(playerId) lastPress[playerId] = nil; streams[playerId] = nil; lastSent[playerId] = nil end

@@ -4,10 +4,11 @@ dofile("shared/events.lua")
 local sent, latent, cancelled, logs = {}, {}, {}, {}
 local refuseNormal, nextStream = false, 0
 json = { encode = function(v)
-    -- a real-sized encoding: the labels carry the bulk
-    local n = 0
-    for _, p in ipairs(v) do n = n + 200 + #(p.label or "") end
-    return string.rep("x", n)
+    -- a real-sized encoding: the labels carry the bulk; the ids and labels make it
+    -- content-sensitive like the real one (an unchanged list is not sent again)
+    local n, ids = 0, {}
+    for _, p in ipairs(v) do n = n + 200 + #(p.label or ""); ids[#ids + 1] = tostring(p.id) .. "|" .. tostring(p.label) end
+    return string.rep("x", n) .. table.concat(ids, ",")
 end }
 TriggerClientEvent = function(name, id, list)
     if refuseNormal then return false, "payload_too_large" end
@@ -47,6 +48,22 @@ assert(#cancelled == 1, "no cancel for a stream of a player who left")
 LightRP.removeInteraction("shop.gunstore_1")
 for i = 1, 30 do LightRP.removeInteraction("wardrobe." .. i) end
 refuseNormal = true
-LightRP.sendInteractions(7)
+LightRP.sendInteractions(7, true)
 assert(logs[#logs]:find("refused (payload_too_large", 1, true), "a refusal is logged")
-print("PASS: interaction list (plain event, latent past 40 KiB with the whole list, newest stream wins, disconnect cleanup, refusals logged)")
+
+-- an unchanged list is not sent again (the housing loop asks every 100 m while driving);
+-- a refused one is, and a forced one (gameplay ready, character activated) always is
+refuseNormal = false
+local count = #sent
+LightRP.sendInteractions(7)
+assert(#sent == count + 1, "the list the client never got is sent")
+LightRP.sendInteractions(7); LightRP.sendInteractions(7)
+assert(#sent == count + 1, "an unchanged list is not sent again")
+LightRP.interact.onGameplayReady(7)
+assert(#sent == count + 2, "gameplay ready forces it")
+LightRP.interaction("shop.b", { position = { x = 4, y = 4, z = 0 }, label = "Shop B" })
+assert(#sent == count + 3, "a change is sent")
+LightRP.interact.onDisconnected(7)
+LightRP.sendInteractions(7)
+assert(#sent == count + 4, "a player who came back gets it")
+print("PASS: interaction list (plain event, latent past 40 KiB with the whole list, newest stream wins, disconnect cleanup, refusals logged, unchanged list not re-sent, forced and refused re-sent)")
