@@ -941,9 +941,6 @@ local function assemble(payload)
     assembling=nil
     return {boards=all}
 end
-RegisterNetEvent("lightrp:boardGames:probe",function(payload)
-    trace("probe_received",nil,"%s",tostring(type(payload)=="table" and payload.id))
-end)
 RegisterNetEvent("lightrp:boardGames:state",function(part)
     local payload=assemble(part)
     if payload==nil then return end
