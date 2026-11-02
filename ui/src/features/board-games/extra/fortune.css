@@ -1,0 +1,18 @@
+/* Fortune Wheel panel. Spot colours match the wheel artwork. */
+.fortune__spots{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:10px 0}
+.fortune__spot{--spot:var(--accent);display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:7px 9px;border:1px solid var(--line-neutral);border-left:3px solid var(--spot);background:var(--surface-input);color:var(--text-hi);font:var(--type-body);font-size:12px;text-align:left;cursor:pointer}
+.fortune__spot:hover{background:var(--surface-hover)}
+.fortune__spot.is-selected{border-color:var(--spot);background:var(--surface-active)}
+.fortune__spot strong{font:var(--type-label);font-size:13px;color:var(--spot)}
+.fortune__spot small{color:var(--text-dim);font-size:11px}
+.fortune__spot em{font-style:normal;color:var(--text-accent);font-size:11px}
+.fortune__spot:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.fortune__recent{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.fortune__tag{--spot:var(--accent);display:inline-block;padding:2px 6px;border:1px solid var(--spot);color:var(--spot);font:var(--type-label);font-size:11px}
+[data-spot="1"]{--spot:var(--o77-yellow-400)}
+[data-spot="2"]{--spot:var(--o77-cyan)}
+[data-spot="5"]{--spot:var(--o77-magenta)}
+[data-spot="10"]{--spot:var(--o77-green)}
+[data-spot="20"]{--spot:#9b5cff}
+[data-spot="eye"]{--spot:var(--o77-cyan)}
+[data-spot="star"]{--spot:var(--o77-magenta)}
