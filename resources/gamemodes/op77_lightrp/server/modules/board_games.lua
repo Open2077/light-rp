@@ -45,6 +45,24 @@ local function actor(b)
     if not b.game.seatTurn and b.mode=="teams" and math.floor((b.game.ply or 0)/2)%2==1 then slot=slot.."2" end
     return b.players[slot]
 end
+-- Build 176 can refuse a state envelope that build 156 accepted. Log why once,
+-- then resend each game as the JSON text already used for persistence.
+local stateLogged,stateFailures={},{}
+local function sendState(player,list)
+    local ok,why=TriggerClientEvent(STATE,player,{boards=list})
+    if not stateLogged[player] then
+        stateLogged[player]=true
+        LightRP.log("board_games state push player=%d boards=%d ok=%s reason=%s",player,#list,tostring(ok),tostring(why))
+    end
+    if ok~=false then return end
+    for _,entry in ipairs(list) do entry.gameJson=json.encode(entry.game);entry.game=nil end
+    local again,reason=TriggerClientEvent(STATE,player,{boards=list})
+    local key=tostring(why).."|"..tostring(again).."|"..tostring(reason)
+    if not stateFailures[key] then
+        stateFailures[key]=true
+        LightRP.log("board_games state push refused (%s); encoded retry ok=%s reason=%s",tostring(why),tostring(again),tostring(reason))
+    end
+end
 local function push(player)
     local p=Open77.players.position(player); local list={}
     if p then
@@ -66,7 +84,7 @@ local function push(player)
             end
         end
     end
-    TriggerClientEvent(STATE,player,{boards=list})
+    sendState(player,list)
 end
 local function broadcast() for _,id in ipairs(GetPlayers()) do push(tonumber(id)) end end
 local function write(b)
@@ -287,7 +305,7 @@ LightRP.module("board_games",{
         loaded=true;broadcast()
     end,
     onUiReady=push,
-    onDisconnected=function(player) last[player]=nil;lastDiagnostic[player]=nil;release(player) end,
+    onDisconnected=function(player) last[player]=nil;lastDiagnostic[player]=nil;stateLogged[player]=nil;release(player) end,
     onCharacterLoaded=release,
     onLifeState=function(player) if not active(player) then release(player) end end,
 })

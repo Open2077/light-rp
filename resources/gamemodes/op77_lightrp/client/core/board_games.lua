@@ -806,6 +806,9 @@ applyState=function(payload)
     if type(payload)~="table" or type(payload.boards)~="table" then return end
     local nextBoards={}
     for _,board in ipairs(payload.boards) do
+        if type(board)=="table" and board.game==nil and type(board.gameJson)=="string" then
+            board.game=Open77.json.decode(board.gameJson);board.gameJson=nil
+        end
         if type(board)=="table" and board.id and board.position and board.game then
             nextBoards[board.id]=board
             local adapter=extra(board);if adapter then adapter.observe(board) end
