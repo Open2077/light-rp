@@ -1188,6 +1188,8 @@ function Ranked.recordRound(instance, opts)
     if instance == nil then return false, "no_instance" end
     -- The new melee ruleset must not change an existing gun-FFA rating.
     if instance.ruleset == "blade" then return false, "unranked_ruleset" end
+    -- op77_arena: Light RP's PvE Combat Zone never touches a rating.
+    if instance.ruleset == "pve" then return false, "unranked_ruleset" end
     if not enabled() then return false, "disabled" end
 
     -- ================================================================

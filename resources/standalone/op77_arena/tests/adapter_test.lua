@@ -244,7 +244,7 @@ do
     assert(FreeroamPvp and type(FreeroamPvp.entryFailure) == "function")
     assert(#env.threads == 1, "one tick loop, not started at load")
     assert(env.commands["arena.night"].restricted == true, "Arena Night is staff only")
-    for _, name in ipairs({ "arena", "arena.ffa", "arena.blade", "arena.queue", "arena.leave", "arena.weapon", "arena.kit", "duel" }) do
+    for _, name in ipairs({ "arena", "arena.ffa", "arena.blade", "arena.pve", "arena.queue", "arena.leave", "arena.weapon", "arena.kit", "duel" }) do
         assert(env.commands[name] and env.commands[name].restricted == false, name)
     end
     -- Bucket range and hosted switches.
@@ -263,7 +263,7 @@ end
 do
     fire("onResourceStart", "op77_arena")
     local registered = callsOf("activityRegister")
-    assert(#registered == 4)
+    assert(#registered == 5)
     local seen = {}
     for _, c in ipairs(registered) do
         local def = c.args[1]
@@ -271,13 +271,14 @@ do
         assert(def.resource == "op77_arena" and def.kind == "pvp")
         assert(def.caps.rpWeapons == false and def.caps.rpItems == false and def.caps.needs == false and def.caps.vehicles == false)
     end
-    assert(seen["arena.ffa"] and seen["arena.blade"] and seen["arena.duel"] and seen["arena.teams"])
+    assert(seen["arena.ffa"] and seen["arena.blade"] and seen["arena.duel"] and seen["arena.teams"] and seen["arena.pve"])
+    assert(seen["arena.pve"].minPlayers == 1, "PvE is open to one player")
     assert(seen["arena.teams"].modes[1].id == "2v2" and seen["arena.duel"].minPlayers == 2)
-    assert(#eventsOf("op77_lightrp:activity:status") == 4, "statuses forced after registering")
+    assert(#eventsOf("op77_lightrp:activity:status") == 5, "statuses forced after registering")
     -- Light RP restarting: register again.
     env.calls = {}
     fire("op77_lightrp:activity:ready")
-    assert(#callsOf("activityRegister") == 4)
+    assert(#callsOf("activityRegister") == 5)
     say("PASS registration")
 end
 

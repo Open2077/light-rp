@@ -923,6 +923,42 @@ local function botFillAllowed(format, queue, now)
     return true, "auto"
 end
 
+-- op77_arena: an optional host plan for WHO plays and ON WHICH SIDE (Light RP
+-- keeps a crew together). `Arena.planRoster(format, queue, capacity, spec)`
+-- returns nil for the stock rule below, or `{ roster = { ids }, sides = { id ->
+-- 1|2 } }` built from queued ids only, at most half the capacity per side; an
+-- empty roster means "do not form now". A plan that breaks those rules is
+-- ignored (stock rule), so a host bug can never overfill a side.
+local function hostPlan(format, queue, capacity, spec)
+    if type(Arena.planRoster) ~= "function" then return nil end
+    local ok, plan = pcall(Arena.planRoster, format, queue, capacity, spec)
+    if not ok then
+        sayOnce("plan:" .. format, ("arena %s roster plan raised: %s"):format(format, tostring(plan)))
+        return nil
+    end
+    if type(plan) ~= "table" or type(plan.roster) ~= "table" or type(plan.sides) ~= "table" then return nil end
+    local queued, seen, perSide = {}, {}, { 0, 0 }
+    for _, entry in ipairs(queue) do queued[entry.playerId] = entry end
+    local teamSize = math.floor(capacity / 2)
+    local entries = {}
+    for _, id in ipairs(plan.roster) do
+        local side = plan.sides[id]
+        if queued[id] == nil or seen[id] or (side ~= 1 and side ~= 2) then
+            sayOnce("planbad:" .. format, ("arena %s roster plan ignored: bad entry %s"):format(format, tostring(id)))
+            return nil
+        end
+        seen[id] = true
+        perSide[side] = perSide[side] + 1
+        if perSide[side] > teamSize then
+            sayOnce("planbad:" .. format, ("arena %s roster plan ignored: side %d over %d"):format(format, side, teamSize))
+            return nil
+        end
+        entries[#entries + 1] = queued[id]
+    end
+    plan.entries = entries
+    return plan
+end
+
 function Arena.tryForm(format)
     local spec = Config.formats[format]
     local queue = queueFor(format)
@@ -954,12 +990,14 @@ function Arena.tryForm(format)
     -- line below reduces to the original. A short one forms only when the fill
     -- is allowed, and NEVER with zero humans: an arena of six bots playing
     -- itself in an empty bucket is a VRAM bill, not a match.
-    local humansWanted = math.min(#queue, capacity)
+    local plan = hostPlan(format, queue, capacity, spec)
+    if plan ~= nil and #plan.roster == 0 then return nil end
+    local humansWanted = plan ~= nil and #plan.roster or math.min(#queue, capacity)
     local botsWanted = capacity - humansWanted
     local fillWhy = nil
     if botsWanted > 0 then
         local allowed
-        allowed, fillWhy = botFillAllowed(format, queue, DM.nowMs())
+        allowed, fillWhy = botFillAllowed(format, plan ~= nil and plan.entries or queue, DM.nowMs())
         if not allowed then return nil end
         local module = botsModule()
         if module == nil or type(module.addToArena) ~= "function" then
@@ -979,7 +1017,9 @@ function Arena.tryForm(format)
     end
 
     local roster = {}
-    for index = 1, humansWanted do roster[index] = queue[index].playerId end
+    for index = 1, humansWanted do
+        roster[index] = plan ~= nil and plan.roster[index] or queue[index].playerId
+    end
 
     local instance, reason = DM.instances.openArena(format, roster)
     if instance == nil then
@@ -1005,14 +1045,25 @@ function Arena.tryForm(format)
     local sides = {}
     local rosterBySide = { {}, {} }
     local botSlots = { 0, 0 }
-    for index = 1, capacity do
-        local side = ((index - 1) % 2) + 1
-        local playerId = roster[index]
-        if playerId ~= nil then
+    if plan ~= nil then
+        -- The host's sides; bots complete each side to half the capacity.
+        for _, playerId in ipairs(roster) do
+            local side = plan.sides[playerId]
             sides[playerId] = side
             rosterBySide[side][#rosterBySide[side] + 1] = playerId
-        else
-            botSlots[side] = botSlots[side] + 1
+        end
+        local teamSize = math.floor(capacity / 2)
+        for side = 1, 2 do botSlots[side] = math.max(0, teamSize - #rosterBySide[side]) end
+    else
+        for index = 1, capacity do
+            local side = ((index - 1) % 2) + 1
+            local playerId = roster[index]
+            if playerId ~= nil then
+                sides[playerId] = side
+                rosterBySide[side][#rosterBySide[side] + 1] = playerId
+            else
+                botSlots[side] = botSlots[side] + 1
+            end
         end
     end
 

@@ -2784,6 +2784,22 @@ function DeathmatchBots.reap(instanceId, reason)
     return DeathmatchBots.clear(instanceId, reason or "instance_reaped")
 end
 
+--- op77_arena: forget the paced spawns still parked for one instance (all when
+--- `instanceId` is nil). `clear` removes the bodies standing now; a free-for-all
+--- instance lingers after its last player, so without this a parked spawn would
+--- still arrive in it after the bots were cleared. Returns how many were dropped.
+function DeathmatchBots.dropPending(instanceId)
+    local key = instanceId ~= nil and tostring(instanceId) or nil
+    local dropped = 0
+    for index = #pendingSpawns, 1, -1 do
+        if key == nil or tostring(pendingSpawns[index].instanceId) == key then
+            table.remove(pendingSpawns, index)
+            dropped = dropped + 1
+        end
+    end
+    return dropped
+end
+
 --- Register the instance kernel. See THE HOST CONTRACT above.
 --- Override the default host. Pass nil to fall back to the kernel binding.
 --- The default host already speaks to `Deathmatch.instances`, so nothing has to
@@ -3283,7 +3299,10 @@ local function seekDestination(bot, origin)
     -- RULE 1. Bots first, and on their own if there are any.
     local candidates = {}
     for _, other in ipairs(botsIn(bot.instanceId)) do
-        if other.participantId ~= bot.participantId and other.state == "alive" then
+        -- op77_arena: never walk towards a bot of one's own side (arena team
+        -- mates, the bot side of a PvE round): the ledger refuses that fight.
+        if other.participantId ~= bot.participantId and other.state == "alive"
+            and not sameArenaSide(bot.participantId, other.participantId) then
             local position = botPosition(other)
             if position ~= nil and position.bucket == origin.bucket then
                 local separation = distance3(origin, position)
