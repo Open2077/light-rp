@@ -599,13 +599,19 @@ function A.requestJoin(id, activityId, from, extra)
     local ok, why = check(id, activityId)
     if not ok then return false, why end
     if a.status.joinable == false then return false, a.label .. " is not taking players right now." end
+    local options = extraOptions(extra)
+    local chosen = options[a.modeKey]
+    if a.modes and chosen ~= nil then
+        local known, ids = false, {}
+        for _, m in ipairs(a.modes) do ids[#ids + 1] = m.id; if m.id == chosen then known = true end end
+        if not known then return false, "Choose " .. a.modeKey .. ": " .. table.concat(ids, ", ") .. "." end
+    end
     if q then emit(EV.leaveRequest, id, q.activity) end
     local squad
     local P = LightRP.parties
     local party = P and type(P.of) == "function" and P.of(id)
     if party then squad = { id = party.id, leader = party.leader, members = copy(party.members) } end
     pending[id] = { activity = a.id, at = now() }
-    local options = extraOptions(extra)
     options.from, options.squad = clean(from, 24) or "panel", squad
     if not emit(EV.join, id, a.id, options) then
         pending[id] = nil
