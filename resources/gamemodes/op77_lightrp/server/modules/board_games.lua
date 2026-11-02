@@ -62,7 +62,7 @@ end
 -- 15 KB), while small ones arrive. Send numbered parts of at most ~3.5 KB; the
 -- client applies the list only once every part of the same sequence is in.
 local STATE_PART_BYTES=3500
-local stateSeq={}
+local stateSeq,encodedLogged={},{}
 local function sendState(player,list,bucket)
     local seq=(stateSeq[player] or 0)+1;stateSeq[player]=seq
     local parts,current,size,sizes,kinds={}, {},0,{},{}
@@ -76,6 +76,15 @@ local function sendState(player,list,bucket)
         end
         current[#current+1]=entry;size=size+bytes
         currentKinds[#currentKinds+1]=entry.kind..((entry.game and entry.game.phase) and ("/"..tostring(entry.game.phase)) or "")
+        -- Temporary: the client never receives the part holding a blackjack
+        -- table in play; log that entry exactly as the server encodes it.
+        if entry.kind=="blackjack" and entry.game and entry.game.phase~="betting" then
+            local key=tostring(entry.id)..":"..tostring(entry.revision)
+            if not encodedLogged[key] then
+                encodedLogged[key]=true
+                LightRP.log("board_games encoded %s bytes=%d %s",key,type(encoded)=="string" and #encoded or -1,tostring(encoded):sub(1,1900))
+            end
+        end
     end
     parts[#parts+1]=current;sizes[#sizes+1]=size;kinds[#kinds+1]=table.concat(currentKinds,"+")
     local ok,why=true,nil

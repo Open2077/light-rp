@@ -18,6 +18,9 @@ local clearGhost
 -- (the blackjack table is 60 props from a 3 MB archive) can stream slowly.
 local failedBoards,notifiedBoards={},{}
 local leftBoards={}
+-- Renderer thread heartbeats (see watchThreads): ensureBoard beats per created
+-- prop, because a pass over many tables legitimately takes several seconds.
+local beats,generations,threadErrors={},{},{}
 local LOAD_GRACE_MS,RETRY_MS=15000,20000
 -- Tables render up to RENDER_RADIUS metres away, nearest first, while their
 -- props fit PROP_BUDGET (the client quota is 256 props per resource; the rest
@@ -583,12 +586,12 @@ local function ensureBoard(board)
         trace("render_start",id,"kind=%s model=%s",board.kind,tostring(prop.name))
         cache={kind=board.kind,board=prop,pieces={},initialized=false}
         renderCaches[id]=cache
-        Wait(0) -- one native create per resume, including a full initial board
+        Wait(0);beats.render=GetGameTimer() -- one native create per resume, including a full initial board
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end
     if distance(cache.board.position,board.position)>.00001 or cache.board.yaw~=(board.rotation or 0) then
         if not transformProp(cache.board,board.position,board.rotation or 0) then return end
-        Wait(0)
+        Wait(0);beats.render=GetGameTimer()
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end
     local targets=pieceTargets(board)
@@ -604,7 +607,7 @@ local function ensureBoard(board)
         local prop,why=createProp(board,target.piece,p,false)
         if not prop then trace("render_create_failed",id,"kind=%s piece=%s %s",board.kind,tostring(key),tostring(why));failBoard(id,why);return end
         cache.pieces[key]=prop
-        Wait(0)
+        Wait(0);beats.render=GetGameTimer()
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end end
     if not cache.initialized then
@@ -657,7 +660,6 @@ end)
 -- (generation tokens retire the old one) and reports it. Work that does not
 -- yield runs under pcall so an error names its line instead of killing the
 -- thread.
-local beats,generations,threadErrors={},{},{}
 local function guarded(name,fn,...)
     local ok,result=pcall(fn,...)
     if ok then return result end
@@ -742,7 +744,7 @@ local function watchThreads()
     if not rendererRunning then return end
     local now=GetGameTimer()
     for name in pairs(THREADS) do
-        if now-(beats[name] or now)>5000 then
+        if now-(beats[name] or now)>15000 then
             trace("thread_stalled",nil,"%s silent for %d ms, restarting",name,now-beats[name])
             spawnThread(name)
         end
