@@ -192,9 +192,6 @@ do
     end
     local text = table.concat(joined)
     assert(text == LightRpMissionEditor.encodeJson(event), "the parts join back into the whole event")
-    -- written for tools: python checks it with a strict JSON parser
-    local out = io.open("tests/_editor_parts.json", "wb")
-    if out then out:write(text); out:close() end
     -- a small response is relayed as is
     net["op77_lightrp:missioneditor"]({ kind = "response", request = "small-1", ok = true, data = { ready = true, missions = {} } })
     assert(sentToPage[#sentToPage].payload.data and sentToPage[#sentToPage].payload.parts == nil, "small: as is")
