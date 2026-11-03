@@ -98,22 +98,34 @@ end
 
 -- The E point stands in front of the screen, toward the people reading it.
 function HoF.pointOf(pos, heading)
-    local d = tonumber(cfg("board.interact.distance", 1.8)) or 1.8
+    local d = tonumber(cfg("board.interact.distance", 0.6)) or 0.6
     local h = math.rad(heading)
     return { x = pos.x - math.sin(h) * d, y = pos.y + math.cos(h) * d, z = pos.z }
 end
 
--- The floating icon and map pin of the E point (config `board.blip`; false: none).
+-- The floating icon and map pin of the E point (config `board.blip`; false: none),
+-- floating just above the prop in use: its row's height x scale, plus `lift`.
+local rowOf
+local function iconPosition(b)
+    local pos = board.position
+    if type(pos) ~= "table" then return nil end
+    local row = board.model and rowOf(board.model)
+    local tall = row and tonumber(row.height) and tonumber(row.height) * (tonumber(board.scale) or 1)
+        or tonumber(b.height) or 2.0
+    return { x = pos.x, y = pos.y, z = pos.z + tall + (tonumber(b.lift) or 0.4) }
+end
+HoF.iconPosition = function() local b = cfg("board.blip"); return type(b) == "table" and iconPosition(b) or nil end
+
 local function blipOf()
     local b = cfg("board.blip")
     if type(b) ~= "table" then return nil end
     return { icon = b.icon or "trophy", sprite = b.sprite, title = b.title or C.title or "Hall of Fame",
-        description = b.description, mapCategory = b.mapCategory, mapColor = b.mapColor }
+        description = b.description, mapCategory = b.mapCategory, mapColor = b.mapColor, position = iconPosition(b) }
 end
 
 local function registerPoint()
     local I = cfg("board.interact", {})
-    LightRP.interaction(POINT, { position = HoF.pointOf(board.position, board.heading), radius = tonumber(I.radius) or 1.6,
+    LightRP.interaction(POINT, { position = HoF.pointOf(board.position, board.heading), radius = tonumber(I.radius) or 2.2,
         bucket = cfg("board.bucket", 0), label = I.label or "Hall of Fame", prompt = I.prompt or "Open the Hall of Fame",
         key = "E", marker = I.marker, ring = false, blip = blipOf() })
 end
@@ -139,7 +151,7 @@ local function candidates()
 end
 HoF.candidates = candidates
 
-local function rowOf(model)
+function rowOf(model)
     for i, row in ipairs(candidates()) do if row.model == model then return row, i end end
     return nil
 end
@@ -284,6 +296,7 @@ local function swapModel(c, saved)
     if old and old ~= board.prop then pcall(Open77.props.remove, old) end
     sweepOrphans(board.position, old)
     sendBoard(-1)
+    registerPoint() -- the icon floats over the new prop's height
     return true
 end
 HoF.swapModel = swapModel

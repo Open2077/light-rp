@@ -277,14 +277,20 @@ assert(point.marker == nil and point.ring == false, "no floor marker nor ground 
 assert(point.blip and point.blip.icon == "trophy" and point.blip.title == "Hall of Fame" and point.blip.mapCategory == "service"
     and point.blip.mapColor == "#FFCC00" and type(point.blip.description) == "string" and point.blip.description ~= "",
     "a floating trophy icon with the distance, and a map pin")
+do -- the icon floats over the prop (arcade 1.87 m + 0.4), the E point right in front of it
+    local ip, bp = point.blip.position, HoF.board.position
+    assert(ip and ip.x == bp.x and ip.y == bp.y and math.abs(ip.z - (bp.z + 1.87 + 0.4)) < 1e-6, "the trophy just above the arcade")
+    local dx, dy = point.position.x - bp.x, point.position.y - bp.y
+    assert(math.abs(math.sqrt(dx * dx + dy * dy) - 0.6) < 1e-6 and point.radius == 2.2, "E 0.6 m in front, prompt within 2.2 m")
+end
 assert(math.abs(HoF.board.position.x - (-763.777)) < 0.01 and math.abs(HoF.board.position.y - 777.723) < 0.01,
     string.format("forward 6 / right -4 of the hub: %.3f %.3f", HoF.board.position.x, HoF.board.position.y))
 assert(math.abs(HoF.board.heading - 266.3) < 0.1, "the screen faces the arrival point: " .. HoF.board.heading)
 local terminal = { x = -760.553, y = 780.294 }
 local apart = math.sqrt((HoF.board.position.x - terminal.x) ^ 2 + (HoF.board.position.y - terminal.y) ^ 2)
 assert(apart > 3 and apart < 5, "a few metres from the activities terminal: " .. apart)
--- the E point stands 1.8 m in front of the screen, toward the hub
-assert(math.abs(point.position.x - (-761.98)) < 0.05 and math.abs(point.position.y - 777.61) < 0.05,
+-- the E point stands 0.6 m in front of the screen, toward the hub
+assert(math.abs(point.position.x - (-763.18)) < 0.05 and math.abs(point.position.y - 777.68) < 0.05,
     string.format("E point %.2f %.2f", point.position.x, point.position.y))
 local created = props[HoF.board.prop]
 assert(created and created.model == C.board.model and created.model == C.board.models[1].model, "the default: the first candidate")
@@ -555,7 +561,7 @@ assert(#transforms == moved + 1 and t.id == HoF.board.prop and t.def.yaw == 90, 
 assert(math.abs(t.def.position.x - 10.8) < 1e-6 and math.abs(t.def.position.y - 20) < 1e-6 and t.def.position.z == 5,
     "0.8 m behind the staff, who faces -X at heading 90")
 point = interactions["halloffame.board"]
-assert(math.abs(point.position.x - 9.0) < 1e-6 and math.abs(point.position.y - 20) < 1e-6, "the E point follows, in front of the screen")
+assert(math.abs(point.position.x - 10.2) < 1e-6 and math.abs(point.position.y - 20) < 1e-6, "the E point follows, 0.6 m in front of the screen")
 assert(line == "position = { x = 10.800, y = 20.000, z = 5.000 }, heading = 90.0, -- server/config/halloffame.lua `board`, bucket 0", line)
 assert(clientEvents[#clientEvents].name == LightRpEvents.net.hallOfFameBoard and clientEvents[#clientEvents].id == -1)
 ok, line = cmd(1, {})
@@ -843,7 +849,10 @@ assert(clientEvents[#clientEvents].name == LightRpEvents.net.hallOfFameBoard and
 assert(kvpStore[KEY] == rows[2].model .. "||0.0" and HoF.board.saved == true, "saved: the model, the row's scale, no extra turn")
 assert(line:find("Kept over restarts", 1, true) and line:find("model = \"" .. rows[2].model .. "\"", 1, true), line)
 local pointAfter = interactions["halloffame.board"]
-assert(pointAfter == pointBefore and pointAfter.blip and pointAfter.marker == nil, "the E point and its icon stay in front of the board")
+assert(pointAfter.position.x == pointBefore.position.x and pointAfter.position.y == pointBefore.position.y
+    and pointAfter.blip and pointAfter.marker == nil, "the E point stays in front of the board")
+assert(math.abs(pointAfter.blip.position.z - (HoF.board.position.z + (rows[2].height or 2.0) * rows[2].scale + 0.4)) < 1e-6,
+    "the icon moves to the new prop's height")
 
 -- swap by alias with a scale and a turn; a row without a collider asks for none
 local painting

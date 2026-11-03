@@ -36,45 +36,47 @@ LightRpHallOfFame = {
         -- adds to it. Sizes and fronts are measured from the 2.31 meshes (WolvenKit
         -- serialize, per-submesh vertex bounds, 2026-11-03); none is validated in game.
         -- `collision = false`: the mesh host has no collider (prop-hosts.json), so ALT +
-        -- click cannot hit it; E still opens the panel.
+        -- click cannot hit it; E still opens the panel. `height`: the mesh's height in
+        -- metres at scale 1 (the trophy icon floats just above it).
         models = {
             -- The game's arcade cabinet (its screen sets are Roach Race, Quadra, Panzer):
             -- a "high scores" machine. 0.65 x 0.82 x 1.87 m; front +Y (control panel and
             -- glass on the +Y side); collider.
-            { model = "electronics.arcade", scale = 1.0, yaw = 0, label = "Arcade cabinet" },
+            { model = "electronics.arcade", scale = 1.0, yaw = 0, height = 1.87, label = "Arcade cabinet" },
             -- Kitsch jukebox, lit: 1.67 x 1.12 x 2.53 m; front +Y (glass and lights); collider.
-            { model = "electronics.jukebox", scale = 1.0, yaw = 0, label = "Jukebox" },
+            { model = "electronics.jukebox", scale = 1.0, yaw = 0, height = 2.53, label = "Jukebox" },
             -- A flat screen in a heavy frame: 1.38 x 0.97 m at scale 1 (2.76 x 1.95 m here),
             -- 3 cm thick and symmetric, so the picture side is NOT measured (rotate 180 if
             -- it shows its back); collider.
-            { model = "electronics.tv.neokitsch.16x9", scale = 2.0, yaw = 0, label = "Framed screen" },
+            { model = "electronics.tv.neokitsch.16x9", scale = 2.0, yaw = 0, height = 0.97, label = "Framed screen" },
             -- The stand-up television with its housing (today's picture with a body and a
             -- back): 1.26 x 0.85 m at scale 1 (3.2 x 2.1 m here); front +Y; collider.
-            { model = "electronics.tv.16x9", scale = 2.5, yaw = 0, label = "TV with housing" },
+            { model = "electronics.tv.16x9", scale = 2.5, yaw = 0, height = 0.85, label = "TV with housing" },
             -- The big wall display: 1.92 x 1.01 m face at scale 1 (2.9 x 1.5 m here);
             -- front +Y; NO collider.
-            { model = "electronics.tv.large", scale = 1.5, yaw = 0, collision = false, label = "Big wall display" },
+            { model = "electronics.tv.large", scale = 1.5, yaw = 0, height = 1.01, collision = false, label = "Big wall display" },
             -- A big lit vending machine with a screen: 1.79 x 1.16 x 2.32 m; front +Y; collider.
-            { model = "electronics.vending_machine", scale = 1.0, yaw = 0, label = "Vending machine" },
+            { model = "electronics.vending_machine", scale = 1.0, yaw = 0, height = 2.32, label = "Vending machine" },
             -- A monument rather than a board: Arasaka's lobby sculpture, lit base,
             -- 0.57 x 0.57 x 1.54 m at scale 1 (2.3 m tall here); round; collider.
-            { model = "decor.sculpture.arasaka", scale = 1.5, yaw = 0, label = "Sculpture" },
+            { model = "decor.sculpture.arasaka", scale = 1.5, yaw = 0, height = 1.54, label = "Sculpture" },
             -- A framed painting standing on the ground: 1.2 x 1.67 m, 5 cm thick (1.6 x
             -- 2.2 m here); its back is flat at X 0, so the picture faces -X; NO collider.
-            { model = "decor.painting", scale = 1.3, yaw = -90, collision = false, label = "Painting" },
+            { model = "decor.painting", scale = 1.3, yaw = -90, height = 1.67, collision = false, label = "Painting" },
             -- Until 2026-11-03: the bare 16:9 TV panel, a black slab (nothing plays on it).
             { model = "electronics.tv.screen.16x9", scale = 2.5, yaw = 0, label = "Bare screen (before)" },
         },
         streamingRadius = 150,
-        -- The E point: this far in front of the board, toward the people looking at it.
-        -- No floor marker (the owner, 2026-11-03): the blip's floating icon finds it and
-        -- the E prompt shows within `radius`. A `marker = { shape = "cylinder", ... }`
-        -- here would draw one again.
-        interact = { distance = 1.8, radius = 1.6, label = "Hall of Fame", prompt = "Open the Hall of Fame" },
-        -- Its icon: floating over the E point with the distance (open77_icons), and a pin
-        -- on the map. `blip = false`: none.
+        -- The E point: just in front of the board, its prompt within `radius` all around
+        -- it (owner, 2026-11-03: the icon and E where the prop is, not 1.8 m away on the
+        -- floor). No floor marker; a `marker = { shape = "cylinder", ... }` here would
+        -- draw one again.
+        interact = { distance = 0.6, radius = 2.2, label = "Hall of Fame", prompt = "Open the Hall of Fame" },
+        -- Its icon: floating `lift` metres above the prop (its row's `height` x scale, or
+        -- `height` here for a model without one), with the distance (open77_icons), and a
+        -- pin on the map. `blip = false`: none.
         blip = { icon = "trophy", title = "Hall of Fame", description = "The best players of the city. Walk up and press E.",
-            mapCategory = "service", mapColor = "#FFCC00" },
+            mapCategory = "service", mapColor = "#FFCC00", height = 2.0, lift = 0.4 },
         -- An ALT + click opens the panel up to this far from the board (the client's
         -- context menu reaches 8 m), plus a little slack for the server's position feed.
         clickRange = 10.0,
