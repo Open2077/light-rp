@@ -215,6 +215,25 @@ do
     local W = ChaseWorld
     local sent = {}
     Open77.notifications = { send = function(id, n) sent[#sent + 1] = { id = id, n = n } end }
+    -- Light RP up: the notice is Light RP's (exports notice), never the platform's on top.
+    env.calls, env.answers.notice = {}, true
+    W.notify(3, "success", "Escaped.", 4000, "NCPD Escape")
+    local nc = env.calls[#env.calls]
+    assert(nc.resource == "op77_lightrp" and nc.name == "notice" and nc.args[1] == 3, "Light RP's notice export")
+    assert(nc.args[2].kind == "success" and nc.args[2].title == "NCPD Escape" and nc.args[2].body == "Escaped." and nc.args[2].durationMs == 4000)
+    W.notify(3, "info", "defaults")
+    nc = env.calls[#env.calls]
+    assert(nc.args[2].title == "NCPD Chase" and nc.args[2].durationMs == 5000 and #sent == 0, "the default title, no fallback")
+    -- Light RP refuses it, or is down (the export raises): open77_notifications instead.
+    env.answers.notice = pack(false, "empty_notice")
+    W.notify(3, "info", "refused")
+    assert(#sent == 1 and sent[1].n.message == "refused")
+    env.answers.notice, env.raise = nil, "resource op77_lightrp is not running"
+    W.notify(3, "info", "core down")
+    assert(#sent == 2 and sent[2].n.message == "core down")
+    env.raise, sent = nil, {}
+    W.notify(-1003, "info", "a bot"); W.notify(0, "info", "console")
+    assert(#sent == 0, "never a notice for a bot or the console")
     W.notify(3, "warning", "GO.", 3000)
     assert(sent[1].id == 3 and sent[1].n.type == "warning" and sent[1].n.title == "NCPD Chase" and sent[1].n.durationMs == 3000)
     env.client = {}

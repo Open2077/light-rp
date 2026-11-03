@@ -143,13 +143,19 @@ local function enqueue(id, mode, checked, squad)
     publishStatus()
     local text = ("Queued for Most Wanted (%s) - %d/%d, %d needed. Keep playing: you are pulled in when it starts. /wanted leave to cancel.")
         :format(modeLabel(mode), position, total, MW.minPlayers())
+    -- The queued line itself is no notice: Light RP answers the panel's join and its queue
+    -- panel shows the lobby (/wanted replies with the text). Staff bot mode is not on the
+    -- panel: that sentence alone is told.
+    local bots
     if botMode() then
+        bots = "Bot mode: bots fill the match, it starts in a few seconds."
         text = ("Queued for Most Wanted (%s) - bot mode: bots fill the match, it starts in a few seconds. /wanted leave to cancel.")
             :format(modeLabel(mode))
     elseif ChaseBots and ChaseBots.refusal(WC.activity.label) then
-        text = text .. " " .. ChaseBots.refusal(WC.activity.label)
+        bots = ChaseBots.refusal(WC.activity.label)
+        text = text .. " " .. bots
     end
-    notify(id, "info", text, 7000)
+    if bots then notify(id, "info", bots, 7000) end
     return true, text
 end
 
@@ -288,8 +294,10 @@ end)
 AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activityId)
     local id = validId(playerId)
     if id == nil or activityId ~= AID then return end
-    if dequeue(id, "You left the Most Wanted queue.") then return end
-    if MW.leaveRequest(id, W.now()) then notify(id, "info", "You left Most Wanted. The match goes on without you.", 5000) end
+    -- Light RP's answer to the leave ("You left the queue for Most Wanted.", "Leaving Most
+    -- Wanted.") already says it: no notice of ours on top.
+    if dequeue(id) then return end
+    MW.leaveRequest(id, W.now())
     publishStatus()
 end)
 

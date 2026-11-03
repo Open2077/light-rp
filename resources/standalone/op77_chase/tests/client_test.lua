@@ -287,6 +287,8 @@ do
     local env = { net = {}, handlers = {}, server = {}, hud = {}, notes = {}, map = {}, state = {}, threads = 0 }
     env.state.op77_lightrp, env.state.op77_map3d, env.state.open77_notifications = "running", "running", "running"
     local hudOk, waypoint = true, { x = 9, y = 9, z = 0 }
+    local noticeOk = nil -- nil: no Notice export (an older Light RP); true/false: what it answers
+    env.notices = {}
     local function rec(list, ...) list[#list + 1] = table.pack(...) end
     _G.GetResourceState = function(name) return env.state[name] or "missing" end
     _G.GetCurrentResourceName = function() return "op77_chase" end
@@ -297,11 +299,15 @@ do
     _G.Wait = function() end
     _G.exports = setmetatable({}, { __index = function(_, name)
         if name == "op77_lightrp" then
-            return {
+            local core = {
                 ActivityHudShow = function(_, hud) rec(env.hud, "show", hud); if hudOk then return true end return false, "ui_unavailable" end,
                 ActivityHudPush = function(_, kind, payload) rec(env.hud, "push", kind, payload); return hudOk end,
                 ActivityHudClear = function() rec(env.hud, "clear"); return true end,
             }
+            if noticeOk ~= nil then
+                core.Notice = function(_, def) rec(env.notices, def); if noticeOk then return true end return false, "ui_unavailable" end
+            end
+            return core
         elseif name == "op77_map3d" then
             return {
                 setPlayerDotsHidden = function(_, hidden, ids) rec(env.map, "dots", hidden, ids); return true end,
@@ -384,6 +390,22 @@ do
     env.net["op77_chase:feed"]({ text = "GO.", tone = "danger", title = "NCPD Chase" })
     local note = env.notes[#env.notes][1]
     assert(note.type == "warning" and note.title == "NCPD Chase" and note.message == "GO.")
+    assert(#env.notices == 0, "no Notice export: the platform toast")
+    -- A Light RP with the Notice export: the line lands in Light RP's notice, never both.
+    noticeOk = true
+    local notes = #env.notes
+    env.net["op77_chase:feed"]({ text = "Round over.", tone = "success", title = "Most Wanted" })
+    local lr = env.notices[#env.notices][1]
+    assert(lr.kind == "success" and lr.title == "Most Wanted" and lr.body == "Round over." and lr.durationMs == 6000)
+    assert(#env.notes == notes, "Light RP showed it: no open77_notifications toast on top")
+    env.net["op77_chase:feed"]({ text = "Spotted.", tone = "accent" })
+    lr = env.notices[#env.notices][1]
+    assert(lr.kind == "info" and lr.title == "NCPD Chase", "accent maps to info, the default title")
+    -- Light RP's page is not up: Notice says no, the platform toast takes it.
+    noticeOk = false
+    env.net["op77_chase:feed"]({ text = "Lost him.", tone = "danger", title = "NCPD Chase" })
+    assert(#env.notes == notes + 1 and env.notes[#env.notes][1].message == "Lost him." and env.notes[#env.notes][1].type == "warning")
+    noticeOk = nil
     -- Light RP stopped altogether: the calls are skipped, nothing throws.
     env.state.op77_lightrp = nil
     hudOk = true

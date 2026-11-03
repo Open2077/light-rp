@@ -167,7 +167,8 @@ local function enqueue(id, mode, checked, squad, difficulty)
     publishStatus()
     local text = ("NCPD Escape (%s, %s): starting in a moment%s. /escape leave to cancel."):format(modeLabel(mode or PC.defaultMode),
         difficultyLabel(difficulty or PC.defaultDifficulty), entry.squad and " - with your crew" or "")
-    notify(id, "info", text, 6000)
+    -- No notice: Light RP answers the panel's join and its queue panel shows the crew
+    -- getting ready (/escape replies with this text).
     return true, text
 end
 
@@ -378,8 +379,9 @@ end)
 AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activityId)
     local id = validId(playerId)
     if id == nil or activityId ~= AID then return end
-    if dequeue(id, "You left NCPD Escape.") then return end
-    if P.leaveRequest(id, W.now()) then notify(id, "info", "You left NCPD Escape.", 5000) end
+    -- Light RP's answer to the leave already says it: no notice of ours on top.
+    if dequeue(id) then return end
+    P.leaveRequest(id, W.now())
     publishStatus()
 end)
 
