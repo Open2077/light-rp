@@ -692,6 +692,7 @@ function A.requestLeave(id)
         local label = labelOf(e.activity)
         if leaving[id] and leaving[id].token == e.token then return true, "Leaving " .. label .. "..." end
         leaving[id] = { token = e.token, at = now() }
+        LightRP.log("activities: %d asked to leave %s", id, e.activity)
         emit(EV.leaveRequest, id, e.activity)
         if owned[id] == e then
             -- the provider did not hand the player back: the core does, and says so

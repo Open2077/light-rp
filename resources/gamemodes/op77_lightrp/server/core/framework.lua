@@ -178,14 +178,28 @@ function LightRP.action(actionType, handler)
     actions[actionType] = handler
 end
 
-local actionLastMs = {} -- playerId -> stamp; the page is throttled to 4 actions/s
+-- playerId -> { [type] = stamp }: 4 actions/s per action TYPE. One shared stamp
+-- per player made one click eat the next: the F1 menu sends its item, then the
+-- client sends menu.close as it closes, and a periodic refresh could land just
+-- before a click; the dropped one was never answered (2026-11-03, "Leave" in F1
+-- did nothing inside an activity).
+local actionLastMs = {}
+local throttledLogMs = {}
 RegisterNetEvent(E.net.action, function(payload)
     local playerId = source
     if type(payload) ~= "table" or type(payload.type) ~= "string" then return end
-    local last = actionLastMs[playerId]
+    local stamps = actionLastMs[playerId]
+    if stamps == nil then stamps = {}; actionLastMs[playerId] = stamps end
+    local last = stamps[payload.type]
     local now = LightRP.nowMs()
-    if last and now - last < 250 then return end
-    actionLastMs[playerId] = now
+    if last and now - last < 250 then
+        if now - (throttledLogMs[playerId] or -60000) >= 60000 then
+            throttledLogMs[playerId] = now
+            LightRP.log("action %s by %s throttled (another one %d ms before)", payload.type, tostring(playerId), now - last)
+        end
+        return
+    end
+    stamps[payload.type] = now
     local handler = actions[payload.type]
     if handler == nil then
         LightRP.result(playerId, false, "Unknown action: " .. payload.type, payload.type)
@@ -243,7 +257,7 @@ end)
 AddEventHandler("onPlayerDisconnected", function(playerIdStr, reason)
     local playerId = tonumber(playerIdStr)
     if playerId == nil then return end
-    actionLastMs[playerId] = nil
+    actionLastMs[playerId], throttledLogMs[playerId] = nil, nil
     LightRP.eachModule("onDisconnected", playerId, reason)
 end)
 
