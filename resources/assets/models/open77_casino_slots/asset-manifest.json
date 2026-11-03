@@ -1,35 +1,39 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "style": "Night City black chrome cabinet: cyan neon fins, curved topper, emissive screens and reels",
   "namespace": "open77\\assets\\op77_lightrp\\casino_slots",
   "models": [
     {
       "name": "slot_cabinet",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_cabinet.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_cabinet.ent",
-      "triangles": 808,
+      "triangles": 2644,
       "materials": [
-        "#2A2D36FF",
-        "#E0218AFF",
-        "#1A1C24FF",
-        "#0B0B0EFF",
-        "#C8CDD6FF",
-        "#FF2A3AFF",
-        "#D11A2AFF",
-        "#F2A516FF",
-        "#FEFEFBFF",
-        "#050506FF",
-        "#FEFEFCFF",
-        "#19D3E6FF"
+        "black_chrome",
+        "neon_cyan",
+        "satin",
+        "lining",
+        "TEX:marquee",
+        "neon_magenta",
+        "chrome",
+        "payline",
+        "TEX:paytable",
+        "button_spin",
+        "button_bet",
+        "button_max",
+        "TEX:belly",
+        "void",
+        "tray_glow"
       ],
       "bounds": {
         "min": [
-          -0.49,
-          -0.51,
+          -0.505,
+          -0.629064434701786,
           0.0
         ],
         "max": [
-          0.57,
-          0.4,
+          0.58,
+          0.365,
           2.58
         ]
       }
@@ -40,7 +44,7 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_1.ent",
       "triangles": 30,
       "materials": [
-        "#FEFEFDFF"
+        "TEX:symbols"
       ],
       "bounds": {
         "min": [
@@ -61,7 +65,7 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_2.ent",
       "triangles": 30,
       "materials": [
-        "#FEFEFDFF"
+        "TEX:symbols"
       ],
       "bounds": {
         "min": [
@@ -82,7 +86,7 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_3.ent",
       "triangles": 30,
       "materials": [
-        "#FEFEFDFF"
+        "TEX:symbols"
       ],
       "bounds": {
         "min": [
@@ -101,10 +105,10 @@
       "name": "slot_lever_0",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_0.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_0.ent",
-      "triangles": 720,
+      "triangles": 1232,
       "materials": [
-        "#C8CDD6FF",
-        "#D11A2AFF"
+        "chrome",
+        "knob"
       ],
       "bounds": {
         "min": [
@@ -123,10 +127,10 @@
       "name": "slot_lever_1",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_1.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_1.ent",
-      "triangles": 720,
+      "triangles": 1232,
       "materials": [
-        "#C8CDD6FF",
-        "#D11A2AFF"
+        "chrome",
+        "knob"
       ],
       "bounds": {
         "min": [
@@ -145,10 +149,10 @@
       "name": "slot_lever_2",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_2.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_2.ent",
-      "triangles": 720,
+      "triangles": 1232,
       "materials": [
-        "#C8CDD6FF",
-        "#D11A2AFF"
+        "chrome",
+        "knob"
       ],
       "bounds": {
         "min": [
@@ -167,10 +171,10 @@
       "name": "slot_lever_3",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_3.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_3.ent",
-      "triangles": 720,
+      "triangles": 1232,
       "materials": [
-        "#C8CDD6FF",
-        "#D11A2AFF"
+        "chrome",
+        "knob"
       ],
       "bounds": {
         "min": [
@@ -189,10 +193,10 @@
       "name": "slot_lever_4",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_4.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_4.ent",
-      "triangles": 720,
+      "triangles": 1232,
       "materials": [
-        "#C8CDD6FF",
-        "#D11A2AFF"
+        "chrome",
+        "knob"
       ],
       "bounds": {
         "min": [
@@ -211,10 +215,10 @@
       "name": "slot_lever_5",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_5.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_5.ent",
-      "triangles": 720,
+      "triangles": 1232,
       "materials": [
-        "#C8CDD6FF",
-        "#D11A2AFF"
+        "chrome",
+        "knob"
       ],
       "bounds": {
         "min": [
@@ -233,19 +237,19 @@
       "name": "slot_lamp_off",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lamp_off.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lamp_off.ent",
-      "triangles": 576,
+      "triangles": 192,
       "materials": [
-        "#4A1416FF"
+        "lamp_off"
       ],
       "bounds": {
         "min": [
-          -0.09,
-          -0.09,
+          -0.085,
+          -0.085,
           2.58
         ],
         "max": [
-          0.09,
-          0.09,
+          0.085,
+          0.085,
           2.69
         ]
       }
@@ -254,19 +258,19 @@
       "name": "slot_lamp_on",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lamp_on.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lamp_on.ent",
-      "triangles": 576,
+      "triangles": 192,
       "materials": [
-        "#FFE89AFF"
+        "lamp_on"
       ],
       "bounds": {
         "min": [
-          -0.09,
-          -0.09,
+          -0.085,
+          -0.085,
           2.58
         ],
         "max": [
-          0.09,
-          0.09,
+          0.085,
+          0.085,
           2.69
         ]
       }
@@ -275,9 +279,9 @@
       "name": "slot_coin",
       "mesh": "open77\\assets\\op77_lightrp\\casino_slots\\slot_coin.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_coin.ent",
-      "triangles": 192,
+      "triangles": 384,
       "materials": [
-        "#E6B84AFF"
+        "gold"
       ],
       "bounds": {
         "min": [
@@ -302,14 +306,14 @@
       "boxes": [
         {
           "size": [
-            0.98,
+            1.01,
             0.8,
-            2.52
+            2.56
           ],
           "center": [
             0.0,
-            0.0,
-            1.26
+            -0.04000000000000001,
+            1.28
           ]
         }
       ]
@@ -324,17 +328,17 @@
       "height": 1024,
       "mips": 11,
       "bytes": 5592404,
-      "sourceSha256": "3f3ad3772fe18aaa8197b5049de71e5e718f1ad7dae5de025150d5777f950d38"
+      "sourceSha256": "cdad1ab6380e06bf524e80ff4283f0435b675f8e0df431f0074d8529ac34066f"
     },
     {
       "name": "slot_marquee",
       "flipV": true,
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_marquee.xbm",
       "width": 1024,
-      "height": 512,
+      "height": 1024,
       "mips": 11,
-      "bytes": 2796204,
-      "sourceSha256": "2e68ba646c0680b8bf214fee9a4d492dff578a1e8329d846106c8e4ca05ef704"
+      "bytes": 5592404,
+      "sourceSha256": "e4fc9be579d2e834a6d21126fabe5d12152e5220b4e3f60860b2eda9175fe5b4"
     },
     {
       "name": "slot_belly",
@@ -344,7 +348,17 @@
       "height": 256,
       "mips": 11,
       "bytes": 1398108,
-      "sourceSha256": "91b82089a7bed1c81e2459ad001a917b5828ed593876ed7824e9b52d94beeb9a"
+      "sourceSha256": "43928e6babe1beb7f633d8cecaf74e7d61a89ba8b707f0ffbdce5e01ddb7308c"
+    },
+    {
+      "name": "slot_paytable",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_paytable.xbm",
+      "width": 2048,
+      "height": 512,
+      "mips": 12,
+      "bytes": 5592412,
+      "sourceSha256": "f4e5227a07d27cf5afc9d5201580c99a37c2acec7436c546096219e88a147431"
     }
   ],
   "files": [
@@ -355,13 +369,13 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_cabinet.mesh",
-      "sha256": "ac51aa4dcb0464c94659169e044a99d3c012a4a9780ab224e44b6e68c8ad681a",
-      "bytes": 22767
+      "sha256": "81f220c6e0d53d3ab6e86bf6a6dee6bf42f91804a845338601b424140366239d",
+      "bytes": 49007
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_cabinet_collider.ent",
-      "sha256": "a1c5a8160aa1ba9dba964df565b280303ad47fbf6ea06bc1c7308cfe705e3107",
-      "bytes": 14088
+      "sha256": "2326f25a533fd3e1eafe098dc660816a6d8d0be593d691fc190935261a30cad6",
+      "bytes": 14093
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_coin.ent",
@@ -370,8 +384,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_coin.mesh",
-      "sha256": "b16f1289fa714ff776fc08e31b9fe1d945f8ef0d7f7b800821b49dc0f445133d",
-      "bytes": 8179
+      "sha256": "d80156cd7828a0e1d4e5c0ceade3cc796b672542fd832eae358871e548a46eeb",
+      "bytes": 11970
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lamp_off.ent",
@@ -380,8 +394,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lamp_off.mesh",
-      "sha256": "5a8d0f265d8f319b217b3550a2c663fd9dc2c01b8ded5370018ae8356eae06ba",
-      "bytes": 15245
+      "sha256": "fed02c1f52791018240dba149391655ae5ec152760537e10132a4b5c6384fc28",
+      "bytes": 8478
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lamp_on.ent",
@@ -390,8 +404,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lamp_on.mesh",
-      "sha256": "1d0ea1d84a9e043c9727d0c0570aab82fc856d132b783b376d437d9982b50740",
-      "bytes": 15243
+      "sha256": "ba8d5fbf3b67ada71d97cd222f246c9f322d05412dbf59933e1b399d74f8e892",
+      "bytes": 8618
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_0.ent",
@@ -400,8 +414,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_0.mesh",
-      "sha256": "80d50284f2602899494899f3541288083d9a4b2c914e477fffb74a297d1483e8",
-      "bytes": 17167
+      "sha256": "9aca8a7e81c8ecef12c7cbe5e8293c1d22acc8e37f3b79bcf21ad4f9916d4927",
+      "bytes": 25634
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_1.ent",
@@ -410,8 +424,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_1.mesh",
-      "sha256": "93b32dd7ca21f5c45ed677e791a2e877e5d7397f7adf374aa2e5766ca0f85576",
-      "bytes": 17218
+      "sha256": "90eede7bfa30a319730c3ce49fd5ff6389960201c91ba0af36ba62fb89b0a956",
+      "bytes": 27637
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_2.ent",
@@ -420,8 +434,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_2.mesh",
-      "sha256": "5f26855b07f12f1c3a8316043740fe7e71a18b952dd24cf632b11b9a4e2f785c",
-      "bytes": 17682
+      "sha256": "a8541ab1fc64360e4fe4932acbb42558625187c608e8dcc71e68600d5f0aa3b1",
+      "bytes": 27953
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_3.ent",
@@ -430,8 +444,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_3.mesh",
-      "sha256": "e039f9fd91cfa947244c55a31d4183645f2c0bfee8398d50ebd1b7756d4aaa1d",
-      "bytes": 17484
+      "sha256": "682524d4d893129eb1911361ce577ce20087df8cfd0b160b437faaffa4b12011",
+      "bytes": 27812
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_4.ent",
@@ -440,8 +454,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_4.mesh",
-      "sha256": "8c6f7f9fd7ad5f6a3554cdca66fce02630e0fdcf427fa4120fc4b471d0f59401",
-      "bytes": 17488
+      "sha256": "243e36cdff95cd07750f0c552d19148c21948611cc166b130e6ffda8d5578697",
+      "bytes": 27510
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_5.ent",
@@ -450,8 +464,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_lever_5.mesh",
-      "sha256": "0c4747b8f0d2bf4e97ba397b4886e84db271978e927768f62680cc5e3e4af56b",
-      "bytes": 17413
+      "sha256": "04e0c889dbb05a2b65a72b2c5520ee06bb9d69e4ec76a3d599b4aad1215713c4",
+      "bytes": 27580
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_1.ent",
@@ -460,8 +474,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_1.mesh",
-      "sha256": "172aeffc1f99afefd0abe279daf24811cfcb713ab7135328042e6cffcd895b08",
-      "bytes": 5078
+      "sha256": "06d9d81f05e34aefe1ebaec1e490175348761b30c7b43ad4330ede4e1ca7cabf",
+      "bytes": 5207
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_2.ent",
@@ -470,8 +484,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_2.mesh",
-      "sha256": "f8db8228d07a62bbb62a32d1ee3e678f0a87def70584db4b2afa402518278495",
-      "bytes": 5144
+      "sha256": "cff184f6242b6ee40b987e52a7fc73eaca384e5cec9e70bf2658f24e83a67287",
+      "bytes": 5273
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_3.ent",
@@ -480,23 +494,28 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_strip_3.mesh",
-      "sha256": "6b84a4271e287af7846467dc042ed88d4837d9f5d84cf4754aa4eac7c2793f42",
-      "bytes": 5085
+      "sha256": "56dc94b361b04883276745e7797286d3c5ca329d971d77e09260a4911ada308b",
+      "bytes": 5214
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_belly.xbm",
-      "sha256": "2b7d1e9a1631d28e70c7ed95f51991f4a4ae7c685e075f48532040f42ddcbc16",
-      "bytes": 43366
+      "sha256": "553e8ad8a8a43f578b11fc209f19858b5ba5466842c4c4de879a6118d27557b0",
+      "bytes": 151817
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_marquee.xbm",
-      "sha256": "a06e79c2aa55293a5dc253a44f2812aa55e0ad395c04d53fbd1f424aec120a23",
-      "bytes": 74528
+      "sha256": "cd794ca2cd042420e474022194efa718ad3fe09cedd4b4012a6af848d4ecd4f1",
+      "bytes": 574870
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_paytable.xbm",
+      "sha256": "84dcfeeb96ef54c4d6e9168e5e5d110679da3fe59e96502a41930aebfcc0e055",
+      "bytes": 393652
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\textures\\slot_symbols.xbm",
-      "sha256": "2682d8c3cf5045bd9e4f3ca1ce2a7ee4be73658855c64de510f1329c0e49a769",
-      "bytes": 43876
+      "sha256": "08df260b0233d167ff702fa5712177b09e30131e9522a7232b48f9155506eb25",
+      "bytes": 305862
     }
   ],
   "symbols": [
@@ -597,9 +616,9 @@
       0.4
     ]
   },
-  "archiveSha256": "fda34509a9b8220108fd6ffedae61e505da7bdb06fe8652d10b7b8ba71c3b4d3",
-  "zipSha256": "997e0387479242d318ee5f8158c4ce084bec6452c6e5fe0f823f4d10dd793af0",
-  "buildWork": "/home/dop42/.cache/tables-col/build-slots",
+  "archiveSha256": "0fb3c25a68d8083f59558b52024ebc118de8bf38a51ef45e18716b16da316a8e",
+  "zipSha256": "6aa557af7c82c5488e31c647d370256c687a1e168c37feb97707fe8b65c6fcf3",
+  "buildWork": "/home/dop42/.cache/tables-art-cards/build-slots",
   "materialDependencies": [
     "engine\\materials\\metal_base.remt",
     "engine\\textures\\editor\\white.xbm"

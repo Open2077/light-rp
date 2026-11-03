@@ -124,3 +124,13 @@ routing bucket, on the floor under the table origin.
 Tests: `tools/test-casino-blackjack.py`, `tools/test-casino-blackjack-server.py`,
 `tools/test-casino-blackjack-client.py`. Assets:
 `tools/build-casino-blackjack-props.py` (resource `open77_casino_blackjack`).
+Look: a dark composite top whose betting circles and printed rules glow, a
+padded leather armrest on a chrome lip with a magenta light line, a black
+chrome pedestal on a lit floor ring; ivory cards with large HUD indices and
+original court figures, a black and magenta circuit back; layered machined
+chips with a colour ring per denomination. The dealer's side (+Y past the
+apron at y=0.26) is left clear for the croupier; the shoe (+X), chip rack and
+discard tray (-X) sit on the dealer's edge. Preview renders:
+`sources/preview_blackjack_*.png` (`--preview`). The pack also cooks
+`blackjack_table_collider.ent` (three boxes inside the rail arc and the apron,
+`tools/COLLISION.md`).
