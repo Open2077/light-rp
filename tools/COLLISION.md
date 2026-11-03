@@ -58,8 +58,9 @@ anything a player must reach. Keep where the player stands to play outside the
 boxes. The character capsule is about 0.3 m in radius, so a small overhang never
 matters.
 
-Proven pack: `slot_cabinet` = `Box.between((-.49,-.40,0),(.49,.40,2.52))`, which
-cooks to 0.637 x 0.52 x 1.638 m in game.
+Proven pack: `slot_cabinet` = `Box.between((-.50,-.42,0),(.50,.42,2.85))`, which
+cooks to 0.65 x 0.546 x 1.853 m in game (the remodelled cabinet's core and side
+panels; the lever, deck, payout bowl and crown lip stay open).
 
 ## Adding a pack (recipe for the build scripts)
 

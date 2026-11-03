@@ -55,7 +55,7 @@ assert(C.isActive())
 local Slots=LightRpCasinoSlotsClient
 assert(Slots.bet()==10 and not Slots.setBet(0) and not Slots.setBet(1001) and not Slots.setBet(2.5) and Slots.setBet(25) and Slots.bet()==25)
 local freeBefore=#requests
-forcedRay={origin={x=.55*K,y=-2,z=1.6*K},direction={x=0,y=1,z=0}};step()
+forcedRay={origin={x=L.leverPivot[1]*K,y=-2,z=(L.leverPivot[3]+L.leverLength/2)*K},direction={x=0,y=1,z=0}};step()
 assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'the aimed lever is outlined')
 keys.mouse1=true;step();keys.mouse1=false;step()
 assert(#requests==freeBefore+1 and last().action=='game' and last().operation=='pull' and last().data.bet==25 and last().revision==1,'a crosshair click on the lever pulls')

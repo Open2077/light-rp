@@ -13,10 +13,10 @@ local Extra=LightRpTabletopExtraClient
 local S=LightRpCasinoSlots
 local DEPOT="open77\\assets\\op77_lightrp\\casino_slots\\"
 local L={
- paylineZ=1.33,pitch=.085,stripY=-.33,reelX={-.22,0,.22},reelWidth=.20,
- leverAngles={0,17,34,51,68,85},leverPivot={.55,0,1.35},leverLength=.45,
- leverPark={-.14,.16,0},lampPark={0,.15,-.32},
- chuteY=-.37,chuteZ=.73,trayY=-.44,trayZ=.574,coinPark={0,.2,.4},
+ paylineZ=1.66,pitch=.085,stripY=-.365,reelX={-.22,0,.22},reelWidth=.20,
+ leverAngles={0,17,34,51,68,85},leverPivot={.56,-.04,1.64},leverLength=.50,
+ leverPark={-.30,.34,0},lampPark={0,.40,-.45},
+ chuteY=-.425,chuteZ=1.06,trayY=-.47,trayZ=.94,coinPark={0,.2,.4},
 }
 LightRpCasinoSlotsLayout=L
 local N=S.STOPS

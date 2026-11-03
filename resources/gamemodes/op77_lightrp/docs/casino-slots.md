@@ -61,13 +61,23 @@ checked against them.
   about 2,000 instructions per resume.
 - UI: `ui/src/features/board-games/extra/SlotsControls.tsx`.
 - Assets: `resources/assets/models/open77_casino_slots`, built by
-  `tools/build-casino-slots-props.py` (see its README). Look: a Night City
-  black chrome cabinet between two fins with cyan neon edges, a curved topper
-  screen, a lit paytable screen above the reels, a slanted console with
-  glowing buttons, a chrome lever with a glowing knob and a lit coin tray.
-  Neon, screens and reel strips use the material's emissive channel. Preview
-  renders: `sources/preview_slots_*.png` (`--preview`). The pack also cooks
-  `slot_cabinet_collider.ent` (player collision, `tools/COLLISION.md`).
+  `tools/build-casino-slots-props.py` (see its README). Look: a premium Night
+  City stepper cabinet at true proportions (0.66 m wide, 2.05 m to the lamp in
+  game), in the casino set's materials: satin black lacquer side panels with
+  black-chrome edges and brushed inserts, a gunmetal kick plate, a lower door
+  with a belly glass, a chrome payout bowl, a carbon button deck with keycaps
+  and a domed spin button, a ticket printer and a card reader, a smoked-glass
+  reel door behind a black-chrome bezel, a paytable display between speaker
+  grilles, a concave attract screen under an overhanging crown and a candle
+  lamp; a chrome lever with a weighted knob on a bolted hub. Light is limited
+  to thin accent lines, the spin ring, the card slot, the payline, the screens
+  and the backlit reels. The verify step checks the geometry for coplanar
+  overlaps between materials (the old cabinet's flickering plinth line) and for
+  holes (`tools/mesh_checks.py`). Preview renders: `sources/preview_slots_*.png`
+  (`--preview`). The pack also cooks `slot_cabinet_collider.ent` (player
+  collision, `tools/COLLISION.md`). The remodel moved the reel window, lever,
+  lamp, chute and tray (the layout table in `client/core/casino_slots.lua`
+  follows the cooked `layout`; the README lists the old and new values).
 
 Tests: `python3 tools/test-casino-slots.py`, `tools/test-casino-slots-server.py`,
 `tools/test-casino-slots-client.py`.

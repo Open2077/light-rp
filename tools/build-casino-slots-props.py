@@ -1,762 +1,1147 @@
 #!/usr/bin/env python3
 """Cook the original slot machine: cabinet, three reel strips, lever poses, lamp, coin.
 
-Uses the existing native board-prop cooker as a read-only schema/tool library
-and tools/casino_art.py for the HUD typeface, neon bloom and preview renders.
-Only this resource and --work receive outputs. Requires Pillow and numpy
-(original symbol, topper, belly and paytable artwork), lupa (reads the reel
-strips and pays from the shared rules), .NET and WolvenKit from the lab.
+Uses the existing native board-prop cooker as a read-only schema/tool library,
+tools/wheel_tables_art.py (the roulette / Fortune Wheel kit: stroke typeface,
+brushed gunmetal, carbon twill, composite, metal_base materials, profile
+sweeps) and tools/wheel_tables_preview.py for the critique renders, so the
+machine shares the casino set's material language. Only this resource and
+--work receive outputs. Requires Pillow, numpy, lupa (reels and pays come from
+the shared rules), .NET and WolvenKit from the lab.
 
-Art direction: a high-end Night City cabinet. Black chrome body between two
-sculpted fins whose front edges are cyan neon, a concave curved topper screen
-under a hood with a magenta light line, a chrome reel bezel with payline
-chevrons, a lit paytable screen, a slanted console with glowing buttons, a
-chrome lever with a glowing knob and a lit coin tray. Neon, screens and the
-reel strips use metal_base's Emissive channel (EMISSIVE below).
+Art direction: a premium Night City stepper cabinet at true proportions
+(0.65 m wide, 1.98 m to the top of the candle lamp in game). Satin black
+lacquer side panels with rolled black-chrome edges and raised carbon inserts,
+a brushed gunmetal plinth over a recessed toe light, a lacquer lower door with
+an inset belly glass, a chrome payout bowl under a chute canopy, a slanted
+carbon button deck with a padded armrest, distinct keycaps and a domed spin
+button, a ticket printer and a player-card reader, a smoked-glass reel door
+behind a black-chrome bezel (payline printed on the glass), a framed paytable
+display between perforated speaker grilles, a concave attract screen under an
+overhanging crown, and a candle lamp. Light is restrained: one thin cyan line
+per side panel, the toe light, a magenta downlight under the crown, the spin
+ring, the card slot, the payline, the screens and the backlit reels.
 
 Props turn about Z only, so every moving part is a separate prop: the reels are
 flat symbol strips that slide vertically behind the bezel window, the lever is
 six authored pose meshes and the lamp a lit/unlit pair. Inactive poses park
-inside the closed cabinet, away from the reel bay that the window shows.
+inside the closed cabinet core, away from the reel bay that the window shows.
 """
-import argparse,base64,copy,hashlib,importlib.util,json,math,os,struct,subprocess,sys,zipfile
+import argparse, base64, hashlib, importlib.util, json, math, os, struct, subprocess, sys, zipfile
 from pathlib import Path
-from PIL import Image,ImageDraw,ImageFilter
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter
 from lupa import LuaRuntime
-ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'tools'))
-import casino_art as art
-RESOURCE=ROOT/'resources/assets/models/open77_casino_slots'
-DEPOT='open77\\assets\\op77_lightrp\\casino_slots'
-LAB=ROOT.parent/'dop-tests'
-spec=importlib.util.spec_from_file_location('native_boards',ROOT/'tools/build-board-game-props.py');base=importlib.util.module_from_spec(spec);spec.loader.exec_module(base)
-base.RESOURCE=RESOURCE;base.DEPOT=DEPOT
-g=base.load_generator()
-# Player collision (tools/COLLISION.md): <base>_collider.ent, boxes in cabinet-local metres before the 0.65 scale.
-spec=importlib.util.spec_from_file_location('collision_props',ROOT/'tools/collision_props.py');col=importlib.util.module_from_spec(spec);spec.loader.exec_module(col)
-COLLIDERS={'slot_cabinet':[col.Box.between((-.505,-.44,0),(.505,.36,2.56))]}  # plinth+body+fins; lever (+X), deck lip, tray and topper hood stay open
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tools'))
+import wheel_tables_art as A
+import mesh_checks
+RESOURCE = ROOT / 'resources/assets/models/open77_casino_slots'
+DEPOT = 'open77\\assets\\op77_lightrp\\casino_slots'
+LAB = ROOT.parent / 'dop-tests'
+spec = importlib.util.spec_from_file_location('native_boards', ROOT / 'tools/build-board-game-props.py'); base = importlib.util.module_from_spec(spec); spec.loader.exec_module(base)
+base.RESOURCE = RESOURCE; base.DEPOT = DEPOT
+spec = importlib.util.spec_from_file_location('collision_props', ROOT / 'tools/collision_props.py'); col = importlib.util.module_from_spec(spec); spec.loader.exec_module(col)
 
-# Materials: key -> (sRGB colour or texture name, roughness, metalness, emissive EV).
-# EV None = not emissive. Textured screens emit their own artwork (dark
-# backgrounds barely glow, neon ink does). Tune the EVs here after a live look.
-EMISSIVE=True
-MATERIALS={
- 'black_chrome':('#121319',.16,.9,None),   # body shell, hood, fins
- 'graphite':('#23262F',.42,.55,None),      # recessed panels, plinth top
- 'chrome':('#D9DEE6',.08,1.0,None),        # bezel, lever, rails
- 'satin':('#8C929C',.3,1.0,None),          # brushed trims
- 'lining':('#060608',.95,0,None),          # reel bay interior
- 'void':('#030304',.9,0,None),             # coin chute mouth
- 'neon_cyan':('#22E6FF',.3,0,4.0),
- 'neon_magenta':('#FF2E9E',.3,0,4.0),
- 'payline':('#FF3B5C',.3,0,4.5),
- 'button_spin':('#38F0FF',.25,0,3.0),
- 'button_bet':('#FFB547',.25,0,2.0),
- 'button_max':('#FF2E9E',.25,0,2.5),
- 'tray_glow':('#B8862E',.25,.6,.6),       # lit coin tray floor
- 'knob':('#FF2E7A',.12,0,3.0),
- 'lamp_off':('#2A1420',.12,.2,None),
- 'lamp_on':('#FF5FB8',.08,0,6.0),
- 'gold':('#F2C14E',.22,1.0,None),
- 'TEX:symbols':('slot_symbols',.3,0,1.2),
- 'TEX:marquee':('slot_marquee',.12,0,1.6),
- 'TEX:belly':('slot_belly',.12,0,1.2),
- 'TEX:paytable':('slot_paytable',.12,0,1.4),
+# ------------------------------------------------------------------ layout
+# Unscaled cabinet-local metres (the client renders everything at 0.65). The
+# front faces -Y, the lever is on the player's right (+X), the origin is the
+# floor centre. Mirrored by client/core/casino_slots.lua (L) and checked by
+# tools/test-casino-slots-client.py.
+STOPS = 12; ENTRIES = STOPS + 3
+LAYOUT = {'paylineZ': 1.66, 'pitch': .085, 'stripY': -.365, 'reelX': [-.22, 0, .22], 'reelWidth': .20,
+          'leverAngles': [0, 17, 34, 51, 68, 85], 'leverPivot': [.56, -.04, 1.64], 'leverLength': .50,
+          'leverPark': [-.30, .34, 0], 'lampPark': [0, .40, -.45],
+          'chuteY': -.425, 'chuteZ': 1.06, 'trayY': -.47, 'trayZ': .94, 'coinPark': [0, .2, .4]}
+P = LAYOUT['pitch']; PZ = LAYOUT['paylineZ']; SY = LAYOUT['stripY']
+X_OUT, X_IN = .50, .44            # side panel outer face, cabinet core half width
+FRONT, BACK = -.40, .42           # core front skin, back
+BASE_Z, CORE_TOP = .035, 2.85     # toe recess height, core top (the crown sits on it)
+WINDOW_X = (-.31, .31); WINDOW_Z = (PZ - 1.3 * P, PZ + 1.3 * P)   # 2.6 visible rows
+HOLE_X = (-.325, .325); HOLE_Z = (WINDOW_Z[0] - .015, WINDOW_Z[1] + .015)
+BODY_BOX = ((-X_IN, X_IN), (FRONT, BACK), (BASE_Z, CORE_TOP))     # closed core the parked poses hide in
+BAY = ((-.34, .34), (FRONT, -.30), (PZ - 1.17, PZ + 1.17))         # dark reel bay behind the window
+# Concave attract screen: rows at fixed heights on an arc of radius TOP_R whose
+# centre is in front of the skin at TOP_Z0; `f` offsets towards the player.
+TOP_R, TOP_Z0 = 1.25, 2.33
+SCREEN_Z = (2.37, 2.80); SCREEN_X = .36
+LAMP_AT = (0, -.36, 2.962)
+DECK_SLOPE = math.atan2(1.348 - 1.302, -.395 - -.62)
+SCALE = .65
+# Player collision (tools/COLLISION.md): <base>_collider.ent, boxes in cabinet-local
+# metres before the 0.65 scale. Core + side panels; the lever (+X), deck, tray and crown lip stay open.
+COLLIDERS = {'slot_cabinet': [col.Box.between((-X_OUT, FRONT - .02, 0), (X_OUT, BACK, CORE_TOP))]}
+
+# ------------------------------------------------------------------ materials
+S = A.Spec
+CYAN, MAGENTA, GOLD, AMBER, RED = (48, 226, 255), (255, 46, 170), (226, 178, 92), (255, 172, 64), (255, 58, 72)
+WHITE = (255, 255, 255)
+MATERIALS = {
+    'lacquer': S(None, (17, 18, 23), .3, 0.),             # satin black lacquer: side panels, door, core
+    'black_chrome': S(None, (26, 28, 33), .12, 1.),
+    'chrome': S(None, (205, 209, 216), .06, 1.),
+    'gunmetal': S('brushed', WHITE, .34, .9),
+    'carbon': S('carbon', WHITE, .28, .35),
+    'composite': S('composite', WHITE, .62, 0.),
+    'cushion': S('composite', (150, 148, 158), .5, 0.),    # padded armrest
+    'smoked_glass': S(None, (9, 11, 14), .03, .25),
+    'grille': S('slot_grille', WHITE, .45, .7),
+    'lining': S(None, (5, 5, 7), .95, 0.),
+    'void': S(None, (3, 3, 4), .9, 0.),
+    'gold': S(None, GOLD, .2, 1.),
+    'keycap': S(None, (30, 32, 38), .38, 0.),
+    'spin': S(None, (12, 40, 50), .06, .2),
+    'knob': S(None, (96, 10, 34), .14, .55),
+    'neon_cyan': S(None, CYAN, .3, 0., (CYAN, 'soft')),
+    'neon_magenta': S(None, MAGENTA, .3, 0., (MAGENTA, 'soft')),
+    'amber': S(None, AMBER, .3, 0., (AMBER, 'soft')),
+    'payline': S(None, RED, .3, 0., (RED, 'lines')),
+    'lamp_off': S(None, (44, 16, 28), .1, .2),
+    'lamp_on': S(None, (255, 95, 184), .08, 0., ((255, 95, 184), 'lamp')),
+    'coin': S(None, (242, 193, 78), .22, 1.),
+    'TEX:symbols': S('slot_symbols', WHITE, .6, 0., (WHITE, -.4), 'slot_symbols'),
+    'TEX:marquee': S('slot_marquee', WHITE, .08, 0., (WHITE, 1.6), 'slot_marquee'),
+    'TEX:paytable': S('slot_paytable', WHITE, .08, 0., (WHITE, 1.0), 'slot_paytable'),
+    'TEX:belly': S('slot_belly', WHITE, .1, 0., (WHITE, 'soft'), 'slot_belly'),
+    'TEX:deck': S('slot_deck', WHITE, .35, 0., (WHITE, .8), 'slot_deck'),
 }
-TEXTURED={k:v[0] for k,v in MATERIALS.items() if k.startswith('TEX:')}
-
-# Layout in unscaled board-local metres (the client renders everything at 0.65).
-# The front faces -Y; the lever is on the player's right (+X). Mirrored by
-# client/core/casino_slots.lua (L) and checked by tools/test-casino-slots-client.py.
-STOPS=12;ENTRIES=STOPS+3
-LAYOUT={'paylineZ':1.33,'pitch':.085,'stripY':-.33,'reelX':[-.22,0,.22],'reelWidth':.20,
- 'leverAngles':[0,17,34,51,68,85],'leverPivot':[.55,0,1.35],'leverLength':.45,
- 'leverPark':[-.14,.16,0],'lampPark':[0,.15,-.32],
- 'chuteY':-.37,'chuteZ':.73,'trayY':-.44,'trayZ':.574,'coinPark':[0,.2,.4]}
-BODY_BOX=((-.46,.46),(-.36,.36),(.12,2.52))  # closed interior the parked poses hide in
-BAY=((-.34,.34),(-.36,-.24),(.15,2.51))     # dark reel bay behind the window
-P=LAYOUT['pitch'];PZ=LAYOUT['paylineZ']
-WINDOW_X=(-.31,.31);WINDOW_Z=(PZ-1.3*P,PZ+1.3*P) # 2.6 visible rows
-HOLE_X=(-.325,.325)
-# Curved topper: a concave arc bending towards the player, from the body front
-# at TOPPER_Z0 up to TOPPER_Z1 (radius TOPPER_R, centre in front and below).
-TOPPER_Z0,TOPPER_Z1,TOPPER_R=1.78,2.48,1.4
-TOPPER_A=math.asin((TOPPER_Z1-TOPPER_Z0)/TOPPER_R)
-def topper_point(a):return (-.36-TOPPER_R*(1-math.cos(a)),TOPPER_Z0+TOPPER_R*math.sin(a))
-TOPPER_FRONT=topper_point(TOPPER_A)[0]
-PAYTABLE=(-.42,.42,1.535,1.745)               # screen x0,x1,z0,z1 on the body front
-DECK=(1.00,1.10,-.53)                          # console z0, z1 at the body, front y
-DECK_SLOPE=math.atan2(DECK[1]-1.035,-.36-DECK[2])
+TEXTURE_NAMES = ['brushed', 'carbon', 'composite', 'slot_grille', 'slot_symbols', 'slot_marquee', 'slot_paytable', 'slot_belly', 'slot_deck']
+TEXTURED = {k for k in MATERIALS if k.startswith('TEX:')}   # artwork UVs, kept inside [0,1]
 
 
 def reels():
- lua=LuaRuntime(unpack_returned_tuples=True)
- lua.execute('LightRpBoardGames={};LightRpItems={}')
- lua.execute((ROOT/'resources/gamemodes/op77_lightrp/shared/casino_slots.lua').read_text())
- S=lua.globals().LightRpCasinoSlots
- assert S.STOPS==STOPS
- symbols=[S.SYMBOLS[i+1] for i in range(len(S.SYMBOLS))]
- strips=[[S.REELS[r+1][i+1] for i in range(STOPS)] for r in range(3)]
- return symbols,strips
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    lua.execute('LightRpBoardGames={};LightRpItems={}')
+    lua.execute((ROOT / 'resources/gamemodes/op77_lightrp/shared/casino_slots.lua').read_text())
+    S_ = lua.globals().LightRpCasinoSlots
+    assert S_.STOPS == STOPS
+    symbols = [S_.SYMBOLS[i + 1] for i in range(len(S_.SYMBOLS))]
+    strips = [[S_.REELS[r + 1][i + 1] for i in range(STOPS)] for r in range(3)]
+    return symbols, strips
+
 
 def pays():
- lua=LuaRuntime(unpack_returned_tuples=True)
- lua.execute('LightRpBoardGames={};LightRpItems={}')
- lua.execute((ROOT/'resources/gamemodes/op77_lightrp/shared/casino_slots.lua').read_text())
- S=lua.globals().LightRpCasinoSlots
- three={k:S.THREE[k] for k in S.THREE.keys()}
- return {'three':three,'twoCherries':S.TWO_CHERRIES,'mixedFruit':S.MIXED_FRUIT,'oneCherry':S.ONE_CHERRY,'min':S.MIN_BET,'max':S.MAX_BET}
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    lua.execute('LightRpBoardGames={};LightRpItems={}')
+    lua.execute((ROOT / 'resources/gamemodes/op77_lightrp/shared/casino_slots.lua').read_text())
+    S_ = lua.globals().LightRpCasinoSlots
+    three = {k: S_.THREE[k] for k in S_.THREE.keys()}
+    return {'three': three, 'twoCherries': S_.TWO_CHERRIES, 'mixedFruit': S_.MIXED_FRUIT, 'oneCherry': S_.ONE_CHERRY, 'min': S_.MIN_BET, 'max': S_.MAX_BET}
 
 
-# Geometry helpers ------------------------------------------------------------
-def tri(out,a,b,c,color,uv=None):
- f={'a':list(a),'b':list(b),'c':list(c),'color':color}
- if uv is not None:f['uv']=[list(x) for x in uv]
- out.append(f)
-
-def quad(out,points,c,uv=None):
- for ids in ((0,1,2),(0,2,3)):
-  tri(out,*(points[i] for i in ids),c,None if uv is None else [uv[i] for i in ids])
-
-def vcross(a,b):return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]
-def oriented(out,p,c,outward,uv=None):
- """Quad whose winding is flipped if needed so its normal points along `outward`."""
- n=vcross([p[1][i]-p[0][i] for i in range(3)],[p[2][i]-p[0][i] for i in range(3)])
- if sum(n[i]*outward[i] for i in range(3))<0:p=p[::-1];uv=uv[::-1] if uv else None
- quad(out,p,c,uv)
-
-def tri_facing(out,a,b,c,color,outward):
- n=vcross([b[i]-a[i] for i in range(3)],[c[i]-a[i] for i in range(3)])
- if sum(n[i]*outward[i] for i in range(3))<0:b,c=c,b
- tri(out,a,b,c,color)
-
-def front(out,x0,x1,z0,z1,y,c,uv=None):
- """A rectangle in the XZ plane facing -Y (towards the player)."""
- quad(out,[(x0,y,z0),(x1,y,z0),(x1,y,z1),(x0,y,z1)],c,uv)
-
-def box(out,x0,x1,y0,y1,z0,z1,c):g.box(out,(x0+x1)/2,(y0+y1)/2,(z0+z1)/2,x1-x0,y1-y0,z1-z0,c)
-
-def inward_box(out,b,c,skip=()):
- """Inside faces of a box (a cavity seen from within); `skip` drops open sides."""
- (x0,x1),(y0,y1),(z0,z1)=b;tmp=[];g.box(tmp,(x0+x1)/2,(y0+y1)/2,(z0+z1)/2,x1-x0,y1-y0,z1-z0,c)
- for f in tmp:
-  pts=[f['a'],f['b'],f['c']];cx=sum(p[0] for p in pts)/3;cy=sum(p[1] for p in pts)/3;cz=sum(p[2] for p in pts)/3
-  side=('-y' if abs(cy-y0)<1e-9 else '+y' if abs(cy-y1)<1e-9 else '-x' if abs(cx-x0)<1e-9 else '+x' if abs(cx-x1)<1e-9 else '-z' if abs(cz-z0)<1e-9 else '+z')
-  if side in skip:continue
-  out.append({'a':f['a'],'b':f['c'],'c':f['b'],'color':c})
-
-def transform(faces,fn):
- for f in faces:
-  for k in ('a','b','c'):f[k]=list(fn(*f[k]))
- return faces
-
-def lathe(out,profile,c,sides=32,at=(0,0,0)):
- tmp=[];g.lathe(tmp,profile,c,sides);out.extend(transform(tmp,lambda x,y,z:(x+at[0],y+at[1],z+at[2])));return out
-
-def cylinder_x(out,x0,x1,y,z,r,c,sides=32):
- """A closed cylinder along +X (lathe along Z, then turned)."""
- tmp=[];g.lathe(tmp,[(0,0),(r,0),(r,x1-x0),(0,x1-x0)],c,sides)
- out.extend(transform(tmp,lambda px,py,pz:(x0+pz,y+py,z-px)))
-
-def lathe_x(out,profile,c,x0,y,z,sides=40):
- """A lathe whose axis runs along +X from x0; profile is (radius, distance along X)."""
- tmp=[];g.lathe(tmp,profile,c,sides)
- out.extend(transform(tmp,lambda px,py,pz:(x0+pz,y+py,z-px)))
-
-def rot_x(faces,angle,pivot=(0,0)):
- """Rotate about the X axis through (y,z)=pivot; +angle turns +Z towards -Y."""
- ca,sa=math.cos(angle),math.sin(angle);py,pz=pivot
- return transform(faces,lambda x,y,z:(x,py+(y-py)*ca-(z-pz)*sa,pz+(y-py)*sa+(z-pz)*ca))
-
-def extrude_yz(out,poly,x0,x1,side,edge):
- """Extrude a (y,z) polygon between x0 and x1. `edge(outward,p,q)` picks each rim face's material."""
- area=sum(poly[i][0]*poly[(i+1)%len(poly)][1]-poly[(i+1)%len(poly)][0]*poly[i][1] for i in range(len(poly)))
- if area<0:poly=poly[::-1]
- for a,b,c in base.triangulate(poly):
-  for x,n in ((x0,-1),(x1,1)):
-   pts=[(x,*poly[a]),(x,*poly[b]),(x,*poly[c])]
-   nn=vcross([pts[1][i]-pts[0][i] for i in range(3)],[pts[2][i]-pts[0][i] for i in range(3)])
-   if nn[0]*n<0:pts=pts[::-1]
-   tri(out,*pts,side)
- for i in range(len(poly)):
-  (y0,z0),(y1,z1)=poly[i],poly[(i+1)%len(poly)]
-  outward=[0,z1-z0,-(y1-y0)]  # right-hand normal of a CCW polygon
-  c=edge(outward,poly[i],poly[(i+1)%len(poly)])
-  if c is None:continue
-  inlay=None
-  if isinstance(c,tuple):c,inlay=c
-  oriented(out,[(x0,y0,z0),(x1,y0,z0),(x1,y1,z1),(x0,y1,z1)],c,outward)
-  if inlay:  # a light strip down the middle of this rim face, standing just proud of it
-   colour,width=inlay;n=math.hypot(outward[1],outward[2]);oy,oz=outward[1]/n*.0015,outward[2]/n*.0015;xm=(x0+x1)/2
-   oriented(out,[(xm-width/2,y0+oy,z0+oz),(xm+width/2,y0+oy,z0+oz),(xm+width/2,y1+oy,z1+oz),(xm-width/2,y1+oy,z1+oz)],colour,outward)
+# ------------------------------------------------------------------ geometry kit
+# Parts are built in a local frame then placed with a proper rotation (the
+# winding, i.e. the engine's front face, survives). Frames:
+#   FRONT_R: local (x, up, out)  -> world (x, -out, up)   panels on the front skin
+#   SIDE_R:  local (y, z, x)     -> world (x, y, z)       profiles extruded across X
+#   XAXIS_R: lathe axis local +Z -> world +X              hubs, axles
+FRONT_R = ((1, 0, 0), (0, 0, -1), (0, 1, 0))
+SIDE_R = ((0, 0, 1), (1, 0, 0), (0, 1, 0))
+XAXIS_R = ((0, 0, 1), (0, 1, 0), (-1, 0, 0))
 
 
-# Models ------------------------------------------------------------------------
-def topper_arc(n=18):return [topper_point(TOPPER_A*i/n) for i in range(n+1)]
+def rot_x(angle):
+    c, s = math.cos(angle), math.sin(angle)
+    return ((1, 0, 0), (0, c, -s), (0, s, c))
 
-def fin_profile():
- """Side fin outline (y,z): flush plinth, a proud front edge following the topper, hood."""
- arc=[(y-.05,z) for y,z in topper_arc()]
- return [(.34,.10),(-.41,.10),(-.41,TOPPER_Z0)]+arc[1:]+[(TOPPER_FRONT-.07,2.56),(.34,2.56)]
+
+def place(faces, R=((1, 0, 0), (0, 1, 0), (0, 0, 1)), t=(0, 0, 0)):
+    return A.transform(faces, lambda p: [R[i][0] * p[0] + R[i][1] * p[1] + R[i][2] * p[2] + t[i] for i in range(3)])
+
+
+def on_front(out, faces, y=FRONT):
+    out += place(faces, FRONT_R, (0, y, 0))
+
+
+def ccw(poly):
+    area = sum(poly[i][0] * poly[(i + 1) % len(poly)][1] - poly[(i + 1) % len(poly)][0] * poly[i][1] for i in range(len(poly)))
+    return list(poly) if area > 0 else list(poly)[::-1]
+
+
+def rounded(points, radii, seg=5, support=.002):
+    """Closed polygon with each corner rounded by its radius (0 keeps it sharp).
+    Support points just outside every arc keep the neighbouring flat faces flat
+    under the cooker's normal smoothing."""
+    out = []; n = len(points)
+    for i in range(n):
+        p = points[i]; r = radii[i] if isinstance(radii, (list, tuple)) else radii
+        if r <= 0:
+            out.append(p); continue
+        a, b = points[i - 1], points[(i + 1) % n]
+        da = (a[0] - p[0], a[1] - p[1]); db = (b[0] - p[0], b[1] - p[1])
+        la, lb = math.hypot(*da), math.hypot(*db); da = (da[0] / la, da[1] / la); db = (db[0] / lb, db[1] / lb)
+        theta = math.acos(max(-1, min(1, da[0] * db[0] + da[1] * db[1])))
+        t = r / math.tan(theta / 2)
+        t = min(t, la * .45, lb * .45); r = t * math.tan(theta / 2)
+        bis = (da[0] + db[0], da[1] + db[1]); lbis = math.hypot(*bis); bis = (bis[0] / lbis, bis[1] / lbis)
+        c = (p[0] + bis[0] * r / math.sin(theta / 2), p[1] + bis[1] * r / math.sin(theta / 2))
+        t1 = (p[0] + da[0] * t, p[1] + da[1] * t); t2 = (p[0] + db[0] * t, p[1] + db[1] * t)
+        a1, a2 = math.atan2(t1[1] - c[1], t1[0] - c[0]), math.atan2(t2[1] - c[1], t2[0] - c[0])
+        d = a2 - a1
+        while d > math.pi: d -= math.tau
+        while d < -math.pi: d += math.tau
+        if la * .45 > t + support: out.append((t1[0] + da[0] * support, t1[1] + da[1] * support))
+        for k in range(seg + 1):
+            ang = a1 + d * k / seg; out.append((c[0] + r * math.cos(ang), c[1] + r * math.sin(ang)))
+        if lb * .45 > t + support: out.append((t2[0] + db[0] * support, t2[1] + db[1] * support))
+    return out
+
+
+def rrect(x0, y0, x1, y1, r, seg=5):
+    return rounded([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], r, seg)
+
+
+def convex(poly):
+    s = [(poly[(i + 1) % len(poly)][0] - poly[i][0]) * (poly[(i + 2) % len(poly)][1] - poly[i][1]) -
+         (poly[(i + 1) % len(poly)][1] - poly[i][1]) * (poly[(i + 2) % len(poly)][0] - poly[i][0]) for i in range(len(poly))]
+    return all(v >= -1e-12 for v in s)
+
+
+def triangulate(poly):
+    """Ear clipping for a CCW polygon; collinear (support) vertices are dropped
+    once they are no longer needed instead of failing."""
+    ids = list(range(len(poly))); result = []
+    def side(a, b, c): return (poly[b][0] - poly[a][0]) * (poly[c][1] - poly[a][1]) - (poly[b][1] - poly[a][1]) * (poly[c][0] - poly[a][0])
+    def inside(p, a, b, c):
+        return all(((poly[v][0] - poly[u][0]) * (poly[p][1] - poly[u][1]) - (poly[v][1] - poly[u][1]) * (poly[p][0] - poly[u][0])) >= -1e-14 for u, v in ((a, b), (b, c), (c, a)))
+    while len(ids) > 3:
+        for i, b in enumerate(ids):
+            a, c = ids[i - 1], ids[(i + 1) % len(ids)]
+            if side(a, b, c) <= 1e-14: continue
+            if any(inside(q, a, b, c) for q in ids if q not in (a, b, c) and poly[q] not in (poly[a], poly[b], poly[c])): continue
+            result.append((a, b, c)); ids.pop(i); break
+        else:
+            flat = [i for i, b in enumerate(ids) if abs(side(ids[i - 1], b, ids[(i + 1) % len(ids)])) <= 1e-12]
+            if not flat: raise ValueError('cannot triangulate polygon')
+            ids.pop(flat[0])
+    if abs(side(*ids)) > 1e-14: result.append(tuple(ids))
+    return result
+
+
+def cap(out, poly, z, color, up, uvfun=None):
+    """Fill a CCW polygon at height z (fan when convex, ear clipping otherwise)."""
+    facing = (0, 0, 1 if up else -1)
+    if convex(poly):
+        c = (sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly))
+        tris = [((c[0], c[1]), poly[k], poly[(k + 1) % len(poly)]) for k in range(len(poly))]
+    else:
+        tris = [(poly[a], poly[b], poly[c]) for a, b, c in triangulate(poly)]
+    for t in tris:
+        pts = [[p[0], p[1], z] for p in t]
+        A.tri(out, *pts, color, [uvfun(q) for q in pts] if uvfun else None, facing)
+
+
+def prism(out, poly, w0, w1, color, r=0., side=None, edge=None, top=None, bottom=None, steps=3,
+          caps=(True, True), uvfun=None, edge_colors=None):
+    """Extrude a CCW polygon (local x,y) along local z from w0 to w1. Both cap
+    rims get a quarter-round fillet of radius r (with flat support rings so the
+    caps and walls stay flat). top/bottom = cap materials, side = wall, edge =
+    fillets; edge_colors(k) may override the wall of polygon edge k."""
+    poly = ccw(poly); side = side or color; edge = edge or side; top = top or color; bottom = bottom or color
+    s = .0015
+    assert w1 - w0 > 2 * (r + s) + 1e-6 if r > 0 else w1 > w0, ('prism thinner than its fillets', w0, w1, r)
+    if r > 0:
+        arc_top = [(-r + r * math.sin(math.pi / 2 * i / steps), w1 - r + r * math.cos(math.pi / 2 * i / steps)) for i in range(steps + 1)]
+        arc_bot = [(-r + r * math.cos(math.pi / 2 * i / steps), w0 + r - r * math.sin(math.pi / 2 * i / steps)) for i in range(steps + 1)]
+        profile = [(-r - s, w1)] + arc_top + [(0, w1 - r - s), (0, w0 + r + s)] + arc_bot + [(-r - s, w0)]
+        kinds = ['top'] + ['edge'] * steps + ['side', 'side', 'side'] + ['edge'] * steps + ['bottom']
+    else:
+        profile = [(0, w1), (0, w0)]; kinds = ['side']
+    pick = {'top': top, 'bottom': bottom, 'edge': edge, 'side': side}
+    def colors(k, j):
+        if kinds[j] == 'side' and edge_colors: return edge_colors(k) or side
+        return pick[kinds[j]]
+    A.sweep(out, poly, A.outline_normals(poly), profile, color, colors=colors, uvfun=uvfun)
+    ins = [(p[0] - n[0] * (r + s), p[1] - n[1] * (r + s)) for p, n in zip(poly, A.outline_normals(poly))] if r > 0 else poly
+    if caps[1]: cap(out, ins, w1, top, True, uvfun)
+    if caps[0]: cap(out, ins, w0, bottom, False, uvfun)
+    return out
+
+
+def ring(out, path, profile, colors, uvfun=None):
+    """Sweep a profile around a CCW outline (frames, bezels, rims). profile: [(o,z)]
+    with the solid on the right of the walking direction; colors(j) per segment."""
+    path = ccw(path)
+    A.sweep(out, path, A.outline_normals(path), profile, None, colors=lambda k, j: colors(j), uvfun=uvfun)
+
+
+def framed(out, x0, z0, x1, z1, r, profile, colors, face=None, face_depth=None, uvfun=None):
+    """A frame on the front skin around an opening (x0..x1, z0..z1) with a face
+    (display, grille, slot back) recessed at face_depth. Front-skin local units."""
+    part = []
+    ring(part, rrect(x0, z0, x1, z1, r), profile, colors)
+    if face:
+        cap(part, ccw(rrect(x0, z0, x1, z1, r)), face_depth, face, True, uvfun)
+    on_front(out, part)
+
+
+def lathe_x(out, profile, color, at, sides=40, colors=None):
+    part = []; A.lathe(part, profile, color, sides, colors=colors); out += place(part, XAXIS_R, at)
+
+
+def lathe_at(out, profile, color, at, sides=40, colors=None, uvfun=None):
+    part = []; A.lathe(part, profile, color, sides, colors=colors, uvfun=uvfun); out += A.translate(part, at)
+
+
+def sphere_profile(rz, rx, cz, n=12):
+    return [(rx * math.sin(math.pi * k / n), cz + rz * math.cos(math.pi * k / n)) for k in range(n + 1)]
+
+
+def arc_yz(z, f=0.):
+    """Point of the concave topper at height z, offset f towards the player."""
+    a = math.asin((z - TOP_Z0) / (TOP_R - f))
+    return FRONT - TOP_R + (TOP_R - f) * math.cos(a)
+
+
+# ------------------------------------------------------------------ cabinet
+def side_panel(out, sign):
+    """Satin lacquer side panel with rolled black-chrome edges, its front edge
+    following the topper arc, a raised carbon insert and a thin cyan light line."""
+    zs = [TOP_Z0 + (CORE_TOP - TOP_Z0) * k / 12 for k in range(13)]
+    front_arc = [(arc_yz(z, .02), z) for z in zs]
+    pts = [(BACK, BASE_Z + .005), (BACK, CORE_TOP)] + front_arc[::-1] + [(-.42, .30), (-.432, BASE_Z + .005)]
+    radii = [.0, .05] + [0] * len(front_arc) + [0, .02]
+    prof = rounded(pts, radii)
+    part = []
+    prism(part, prof, X_IN, X_OUT, 'lacquer', r=.012, side='black_chrome', edge='black_chrome',
+          top='lacquer' if sign > 0 else 'lacquer', bottom='lacquer')
+    # Raised carbon insert on the outer face.
+    insert = []
+    prism(insert, rrect(-.33, .26, .34, 2.62, .04), X_OUT - .006, X_OUT + .005, 'gunmetal', r=.003, side='black_chrome', edge='black_chrome', caps=(False, True))
+    part += insert
+    # Cyan light line standing proud of the front edge, deck to topper.
+    A.box(part, (-.4205, 1.84, (X_IN + X_OUT) / 2), (.009, .92, .006), 'neon_cyan')
+    part = place(part, SIDE_R)
+    if sign < 0:   # mirror across X, then restore the winding
+        part = [{**f, 'a': [-f['a'][0], *f['a'][1:]], 'b': [-f['c'][0], *f['c'][1:]], 'c': [-f['b'][0], *f['b'][1:]]} for f in part]
+    out += part
+
+
+def core(out):
+    """Closed core box (the parked poses hide in it) with only the reel hole in front."""
+    (x0, x1), (y0, y1), (z0, z1) = BODY_BOX
+    q = lambda pts, n, c='lacquer': A.quad(out, pts, c, n)
+    q([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], (0, 1, 0))
+    q([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], (0, 0, 1))
+    q([[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], (0, 0, -1))
+    hx0, hx1 = HOLE_X; hz0, hz1 = HOLE_Z
+    for a, b, c, d in ((x0, x1, z0, hz0), (x0, x1, hz1, z1), (x0, hx0, hz0, hz1), (hx1, x1, hz0, hz1)):
+        q([[a, y0, c], [b, y0, c], [b, y0, d], [a, y0, d]], (0, -1, 0))
+    # Reel bay: a dark cavity behind the hole.
+    (bx0, bx1), (by0, by1), (bz0, bz1) = BAY
+    tmp = []; A.box(tmp, ((bx0 + bx1) / 2, (by0 + by1) / 2, (bz0 + bz1) / 2), (bx1 - bx0, by1 - by0, bz1 - bz0), 'lining')
+    for f in tmp:
+        cy = (f['a'][1] + f['b'][1] + f['c'][1]) / 3
+        if abs(cy - by0) < 1e-9: continue           # open towards the window
+        out.append({'a': f['a'], 'b': f['c'], 'c': f['b'], 'color': 'lining'})
+
+
+def plinth(out):
+    # Dark toe recess, then the brushed kick plate.
+    A.box(out, (0, (-.38 + .40) / 2, (BASE_Z + .01) / 2), (2 * .47, .78, BASE_Z + .01), 'lining', bottom=False)
+    kick = []
+    prism(kick, rrect(-X_IN - .004, BASE_Z - .004, X_IN + .004, .20, .01), -.004, .03, 'gunmetal', r=.006, edge='black_chrome', side='gunmetal', caps=(False, True))
+    on_front(out, kick)
+
+
+def lower_door(out):
+    door = []
+    prism(door, rrect(-.425, .225, .425, .875, .012), -.004, .03, 'lacquer', r=.008, edge='black_chrome', caps=(False, True))
+    # Belly glass in a chamfered gunmetal frame.
+    ring(door, rrect(-.30, .40, .30, .79, .012),
+         [(0, .036), (0, .044), (.004, .049), (.022, .049), (.026, .044), (.026, .026)],
+         lambda j: 'chrome' if j == 1 else 'gunmetal')
+    cap(door, ccw(rrect(-.30, .40, .30, .79, .012)), .036, 'TEX:belly', True,
+        lambda p: [(p[0] + .30) / .60, (.79 - p[1]) / .39])
+    # Door lock.
+    lock = []
+    A.lathe(lock, [(0, .046), (.009, .046), (.012, .043), (.013, .036), (.013, .026)], 'chrome', 24)
+    door += A.translate(lock, (.36, .835, 0))
+    on_front(out, door)
+
+
+def tray_and_chute(out):
+    # Payout bowl: chrome rim around a brushed floor, standing on the skin.
+    plan = rounded([(-.21, -.545), (.21, -.545), (.21, -.395), (-.21, -.395)], [.05, .05, 0, 0])
+    prof = [(-.012, .935), (-.012, .958), (-.009, .964), (-.003, .964), (0, .958), (0, .905), (-.005, .899), (-.02, .899)]
+    ring(out, plan, prof, lambda j: 'chrome' if j < 5 else 'black_chrome')
+    inner = [(p[0] - n[0] * .012, p[1] - n[1] * .012) for p, n in zip(ccw(plan), A.outline_normals(ccw(plan)))]
+    cap(out, inner, .935, 'gunmetal', True)
+    lower = [(p[0] - n[0] * .02, p[1] - n[1] * .02) for p, n in zip(ccw(plan), A.outline_normals(ccw(plan)))]
+    cap(out, lower, .899, 'black_chrome', False)
+    # Chute canopy: a chrome hood with two cheeks over a dark mouth.
+    hood = []
+    prism(hood, rrect(-.135, 1.10, .135, 1.13, .008), -.004, .07, 'chrome', r=.006)
+    for x0, x1 in ((-.135, -.118), (.118, .135)):
+        prism(hood, [(x0, 1.02), (x1, 1.02), (x1, 1.104), (x0, 1.104)], -.004, .066, 'chrome', r=.003)
+    A.quad(hood, [[-.118, 1.02, .006], [.118, 1.02, .006], [.118, 1.10, .006], [-.118, 1.10, .006]], 'void', (0, 0, 1))
+    on_front(out, hood)
+
+
+def deck_profile():
+    return rounded([(-.395, 1.17), (-.615, 1.17), (-.652, 1.24), (-.62, 1.302), (-.395, 1.348)], [0, .03, .035, .03, 0], seg=6)
+
+
+def deck_point(t):
+    return (-.62 + (-.395 - -.62) * t, 1.302 + (1.348 - 1.302) * t)
+
+
+def deck(out):
+    prof = deck_profile()
+    pts = ccw(prof)
+    def edge_color(k):
+        (y0, z0), (y1, z1) = pts[k], pts[(k + 1) % len(pts)]
+        ym, zm = (y0 + y1) / 2, (z0 + z1) / 2
+        if zm < 1.175: return 'black_chrome'
+        if ym < -.598: return 'cushion'
+        if ym > -.3951 and ym < -.394: return 'lacquer'
+        return 'carbon'
+    part = []
+    prism(part, pts, -.476, .476, 'lacquer', r=.02, side='carbon', edge='black_chrome', edge_colors=edge_color)
+    out += place(part, SIDE_R)
+    # Keycaps and the spin button on the slanted top.
+    def on_deck(parts, x, t, lift=0.):
+        y, z = deck_point(t)
+        out.extend(place(parts, rot_x(DECK_SLOPE), (x, y, z + lift)))
+    for x, cell in ((-.355, 0), (-.215, 1), (-.095, 2), (.045, 3)):
+        w, h = .105, .052
+        u0, u1, v0, v1 = cell * .25 + .01, cell * .25 + .24, .02, .23
+        key = []
+        prism(key, rrect(-w / 2 - .007, -h / 2 - .007, w / 2 + .007, h / 2 + .007, .009), -.004, .004, 'black_chrome', r=.002, caps=(False, True))
+        uv = lambda p, w=w, h=h, u0=u0, u1=u1, v0=v0, v1=v1: [u0 + (p[0] + w / 2) / w * (u1 - u0), v1 - (p[1] + h / 2) / h * (v1 - v0)]
+        prism(key, rrect(-w / 2, -h / 2, w / 2, h / 2, .007), .002, .017, 'keycap', r=.003, top='TEX:deck', caps=(False, True), uvfun=uv)
+        on_deck(key, x, .5)
+    spin = []
+    A.lathe(spin, [(.050, .002), (.050, .010), (.056, .0125), (.064, .011), (.068, .006), (.068, -.004)], 'chrome', 48)
+    A.lathe(spin, [(.044, .0055), (.050, .0055)], 'neon_cyan', 48)
+    cu, cv, cr = .875, .75, .115
+    A.lathe(spin, [(0, .027), (.026, .027)], 'TEX:deck', 48, uvfun=lambda p: [cu + p[0] / .026 * cr, cv - p[1] / .026 * cr * 2])
+    A.lathe(spin, [(.026, .027), (.033, .0255), (.039, .022), (.042, .016), (.042, .002)], 'spin', 48)
+    on_deck(spin, .30, .5)
+
+
+def band(out):
+    """Ticket printer (left) and player-card reader with its display (right)."""
+    part = []
+    prism(part, rrect(-.43, 1.358, .43, 1.47, .01), -.004, .02, 'gunmetal', r=.005, edge='black_chrome', caps=(False, True))
+    slot_prof = [(0, .026), (0, .036), (.004, .040), (.014, .040), (.018, .036), (.018, .017)]
+    ring(part, rrect(-.33, 1.40, -.17, 1.418, .004), slot_prof, lambda j: 'black_chrome' if j != 1 else 'chrome')
+    cap(part, ccw(rrect(-.33, 1.40, -.17, 1.418, .004)), .026, 'void', True)
+    # Card reader: amber-lit slot and a smoked display.
+    ring(part, rrect(.18, 1.382, .32, 1.392, .003), slot_prof, lambda j: 'black_chrome' if j != 1 else 'chrome')
+    cap(part, ccw(rrect(.18, 1.382, .32, 1.392, .003)), .026, 'amber', True)
+    ring(part, rrect(.17, 1.415, .33, 1.452, .004), [(0, .026), (0, .032), (.004, .035), (.010, .035), (.012, .032), (.012, .017)],
+         lambda j: 'black_chrome')
+    cap(part, ccw(rrect(.17, 1.415, .33, 1.452, .004)), .026, 'TEX:deck', True,
+        lambda p: [.01 + (p[0] - .17) / .16 * .48, .49 - (p[1] - 1.415) / .037 * .22])
+    on_front(out, part)
+
+
+def reel_door(out):
+    wx0, wx1 = WINDOW_X; wz0, wz1 = WINDOW_Z
+    part = []
+    # Smoked glass door around the bezel (its opening hides under the bezel).
+    outer = rrect(-.43, 1.482, .43, 1.842, .014); hole = rrect(wx0 - .036, wz0 - .036, wx1 + .036, wz1 + .036, .026)
+    prism_ring(part, outer, hole, -.004, .014, 'smoked_glass', 'black_chrome')
+    # Black-chrome bezel: chrome lip, inner wall running back into the bay.
+    prof = [(0, -.02), (0, .030), (.004, .038), (.010, .042), (.050, .042), (.058, .038), (.062, .030), (.062, .010)]
+    ring(part, rrect(wx0, wz0, wx1, wz1, .016), prof, lambda j: 'lining' if j == 0 else 'chrome' if j == 1 else 'black_chrome')
+    # Gold pinstripe on the bezel face.
+    ring(part, rrect(wx0 - .036, wz0 - .036, wx1 + .036, wz1 + .036, .03), [(-.0015, .040), (-.0015, .0465), (.0015, .0465), (.0015, .040)],
+         lambda j: 'gold')
+    # Payline chevrons on the bezel face, payline printed on the glass.
+    for s in (-1, 1):
+        x = s * (wx1 + .021)
+        A.tri(part, [x + s * .009, PZ - .010, .0455], [x - s * .009, PZ, .0455], [x + s * .009, PZ + .010, .0455], 'payline', facing=(0, 0, 1))
+    A.box(part, (0, PZ, .0285), (wx1 - wx0 + .002, .005, .003), 'payline', bottom=False)
+    on_front(out, part)
+    # Reel mullions behind the glass, covering the gaps between the strips.
+    for x in (-.11, .11):
+        A.box(out, (x, -.382, PZ), (.022, .02, wz1 - wz0 + .04), 'black_chrome', top=False, bottom=False)
+
+
+def prism_ring(out, outer, hole, d0, d1, face, rim):
+    """A slab with an opening: front face between two outlines with matching
+    corner structure, chamfered outer rim, inner wall."""
+    outer, hole = ccw(outer), ccw(hole)
+    assert len(outer) == len(hole)
+    face_outline = [(p[0] - n[0] * .003, p[1] - n[1] * .003) for p, n in zip(outer, A.outline_normals(outer))]
+    for k in range(len(outer)):
+        a, b = face_outline[k], face_outline[(k + 1) % len(outer)]; c, d = hole[(k + 1) % len(hole)], hole[k]
+        A.quad(out, [[a[0], a[1], d1], [b[0], b[1], d1], [c[0], c[1], d1], [d[0], d[1], d1]], face, (0, 0, 1))
+    A.sweep(out, outer, A.outline_normals(outer), [(-.003, d1), (0, d1 - .003), (0, d0)], rim)
+    A.sweep(out, hole, A.outline_normals(hole), [(0, d0), (0, d1)], rim)
+
+
+def paytable_and_grilles(out):
+    part = []
+    x0, x1, z0, z1 = -.30, .30, 1.925, 2.255
+    prof = [(0, .008), (0, .028), (.005, .034), (.022, .034), (.028, .028), (.028, -.004)]
+    ring(part, rrect(x0, z0, x1, z1, .01), prof, lambda j: 'chrome' if j == 1 else 'gunmetal')
+    cap(part, ccw(rrect(x0, z0, x1, z1, .01)), .008, 'TEX:paytable', True, lambda p: [(p[0] - x0) / (x1 - x0), (z1 - p[1]) / (z1 - z0)])
+    for s in (-1, 1):
+        g0, g1 = sorted((s * .356, s * .424))
+        ring(part, rrect(g0, z0, g1, z1, .008), [(0, .005), (0, .016), (.004, .019), (.008, .016), (.008, -.004)], lambda j: 'black_chrome')
+        cap(part, ccw(rrect(g0, z0, g1, z1, .008)), .005, 'grille', True)
+    # Gold hairline between the reel door and the paytable.
+    A.box(part, (0, 1.871, .006), (.86, .004, .006), 'gold', bottom=False)
+    on_front(out, part)
+
+
+def topper(out):
+    """Concave attract screen recessed 12 mm in a black-chrome surround, from the skin to the crown."""
+    zs = sorted(set([TOP_Z0 + (CORE_TOP - TOP_Z0) * k / 20 for k in range(21)] + list(SCREEN_Z)))
+    F = .012
+    def pt(x, z, f): return [x, arc_yz(z, f), z]
+    zs0, zs1 = SCREEN_Z
+    for z0, z1 in zip(zs, zs[1:]):
+        inside = zs0 - 1e-9 <= z0 and z1 <= zs1 + 1e-9
+        bands = [(-X_IN - .003, -SCREEN_X, F, 'black_chrome'), (SCREEN_X, X_IN + .003, F, 'black_chrome')]
+        bands.append((-SCREEN_X, SCREEN_X, 0 if inside else F, 'TEX:marquee' if inside else 'black_chrome'))
+        for xa, xb, f, c in bands:
+            pts = [pt(xa, z0, f), pt(xb, z0, f), pt(xb, z1, f), pt(xa, z1, f)]
+            ny = -1; nz = (pts[2][1] - pts[1][1]) / (z1 - z0)
+            uv = None
+            if c == 'TEX:marquee':
+                u = lambda x: (x + SCREEN_X) / (2 * SCREEN_X); v = lambda z: (zs1 - z) / (zs1 - zs0)
+                uv = [[u(xa), v(z0)], [u(xb), v(z0)], [u(xb), v(z1)], [u(xa), v(z1)]]
+            A.quad(out, pts, c, (0, ny, nz), uv)
+        if inside:   # step walls at the screen sides
+            for x, nx in ((-SCREEN_X, 1), (SCREEN_X, -1)):
+                A.quad(out, [pt(x, z0, 0), pt(x, z0, F), pt(x, z1, F), pt(x, z1, 0)], 'black_chrome', (nx, 0, 0))
+    for z, nz in ((zs0, 1), (zs1, -1)):   # step walls at the screen top and bottom
+        A.quad(out, [pt(-SCREEN_X, z, 0), pt(SCREEN_X, z, 0), pt(SCREEN_X, z, F), pt(-SCREEN_X, z, F)], 'black_chrome', (0, 0, nz))
+    A.quad(out, [pt(-X_IN - .003, TOP_Z0, 0), pt(X_IN + .003, TOP_Z0, 0), pt(X_IN + .003, TOP_Z0, F), pt(-X_IN - .003, TOP_Z0, F)], 'black_chrome', (0, 0, -1))
+
+
+def crown(out):
+    """Overhanging crown with a magenta downlight under its lip; candle lamp on top."""
+    prof = rounded([(-.548, CORE_TOP - .005), (.43, CORE_TOP - .005), (.43, 2.945), (-.50, 2.975), (-.556, 2.925)], [.022, 0, .03, .07, .03], seg=6)
+    part = []
+    pts = ccw(prof)
+    def edge_color(k):
+        (y0, z0), (y1, z1) = pts[k], pts[(k + 1) % len(pts)]
+        return 'gunmetal' if (y0 + y1) / 2 < -.535 and (z0 + z1) / 2 > CORE_TOP + .01 else None
+    prism(part, pts, -.51, .51, 'black_chrome', r=.015, side='black_chrome', edge='black_chrome', top='lacquer', bottom='lacquer', edge_colors=edge_color)
+    out += place(part, SIDE_R)
+    A.box(out, (0, -.534, CORE_TOP - .005), (.80, .010, .010), 'neon_magenta')
+
+
+def lever_hub(out):
+    px, py, pz = LAYOUT['leverPivot']
+    x0 = X_OUT + .004
+    lathe_x(out, [(0, .016), (.084, .016), (.093, .012), (.098, .005), (.098, -.002)], 'gunmetal', (x0, py, pz), 48)
+    lathe_x(out, [(0, .036), (.038, .036), (.044, .031), (.046, .022), (.046, .012)], 'black_chrome', (x0, py, pz), 40)
+    for k in range(6):
+        a = math.radians(30 + 60 * k)
+        lathe_x(out, [(0, .023), (.005, .022), (.0075, .019), (.0075, .012)], 'chrome', (x0, py + .07 * math.cos(a), pz + .07 * math.sin(a)), 16)
+    # Pull travel arc: a thin gold quadrant in front of the hub.
+    lathe_x(out, [(.0865, .014), (.0865, .0185), (.0905, .0185), (.0905, .014)], 'gold', (x0, py, pz), 48)
+
 
 def cabinet():
- out=[];(bx0,bx1),(by0,by1),(bz0,bz1)=BODY_BOX
- # Plinth: black chrome with a floor-glow line around the front and sides.
- box(out,-.50,.50,-.43,.35,0,bz0,'black_chrome')
- box(out,-.505,.505,-.435,.355,.022,.036,'neon_cyan')
- box(out,-.49,.49,-.42,.34,bz0-.012,bz0,'satin')
- # Closed shell: sides follow the topper profile; the front has only the window hole.
- arc=topper_arc()
- shell=[(by1,bz0),(by0,bz0),(by0,TOPPER_Z0)]+arc[1:]+[(arc[-1][0],bz1),(by1,bz1)]
- # The lower front rim is left out: it is rebuilt below around the window hole.
- extrude_yz(out,shell,bx0,bx1,'black_chrome',lambda n,p,q:None if p[0]==q[0]==by0 and max(p[1],q[1])<=TOPPER_Z0 else 'black_chrome')
- hx0,hx1=HOLE_X;wz0,wz1=WINDOW_Z
- y=by0-.0015
- front(out,bx0,bx1,bz0,wz0,y,'black_chrome');front(out,bx0,bx1,wz1,TOPPER_Z0,y,'black_chrome')
- front(out,bx0,hx0,wz0,wz1,y,'black_chrome');front(out,hx1,bx1,wz0,wz1,y,'black_chrome')
- inward_box(out,BAY,'lining',skip=('-y',))
- # Baffles just inside the window keep oblique views off the strip ends.
- box(out,BAY[0][0],BAY[0][1],-.36,-.336,wz1,wz1+.006,'lining');box(out,BAY[0][0],BAY[0][1],-.36,-.336,wz0-.006,wz0,'lining')
- # Topper screen on the arc: black chrome margins, emissive artwork in between.
- for (y0,z0),(y1,z1),i in zip(arc,arc[1:],range(len(arc))):
-  n=len(arc)-1;v0,v1=1-i/n,1-(i+1)/n;yy0,yy1=y0-.002,y1-.002
-  outward=[0,-(z1-z0),(y1-y0)]
-  if outward[1]>0:outward=[-v for v in outward]
-  for xa,xb,c in ((bx0,-.41,'black_chrome'),(.41,bx1,'black_chrome')):oriented(out,[(xa,yy0,z0),(xb,yy0,z0),(xb,yy1,z1),(xa,yy1,z1)],c,outward)
-  oriented(out,[(-.41,yy0,z0),(.41,yy0,z0),(.41,yy1,z1),(-.41,yy1,z1)],'TEX:marquee',outward,[[0,v0],[1,v0],[1,v1],[0,v1]])
- # Hood over the topper with a magenta light line under its lip.
- hood=[(TOPPER_FRONT-.08,2.50),(by1+.005,2.50),(by1+.005,2.56),(TOPPER_FRONT-.07,2.56)]
- extrude_yz(out,hood,-.505,.505,'black_chrome',lambda n,p,q:'black_chrome')
- box(out,-.50,.50,TOPPER_FRONT-.0815,TOPPER_FRONT-.0795,2.502,2.514,'neon_magenta')
- lathe(out,[(0,0),(.12,0),(.125,.008),(.11,.02),(0,.02)],'chrome',40,(0,0,2.56))
- # Sculpted side fins; their front edges are cyan neon strips.
- fin=fin_profile()
- for x0,x1 in ((-.50,-.46),(.46,.50)):
-  extrude_yz(out,fin,x0,x1,'black_chrome',lambda n,p,q:('black_chrome',('neon_cyan',.012)) if n[1]<-.6*math.hypot(n[1],n[2]) else 'black_chrome')
-  sx=x0 if x0<0 else x1;s=-1 if x0<0 else 1
-  box(out,min(sx,sx+s*.004),max(sx,sx+s*.004),-.30,.28,.44,.452,'neon_magenta')    # side light line
-  box(out,min(sx,sx+s*.003),max(sx,sx+s*.003),-.30,.28,.47,.474,'satin')
-  for yy in (-.26,.24):box(out,min(sx,sx+s*.004),max(sx,sx+s*.004),yy-.006,yy+.006,.50,2.30,'satin')   # side rails
-  box(out,min(sx,sx+s*.004),max(sx,sx+s*.004),-.26,.24,2.30,2.312,'satin')
- # Reel bezel: chrome frame with a black inner bevel, neon outline, payline chevrons.
- wx0,wx1=WINDOW_X;F=.055
- box(out,wx0-F,wx0,-.40,-.355,wz0-F,wz1+F,'chrome');box(out,wx1,wx1+F,-.40,-.355,wz0-F,wz1+F,'chrome')
- box(out,wx0,wx1,-.40,-.355,wz0-F,wz0,'chrome');box(out,wx0,wx1,-.40,-.355,wz1,wz1+F,'chrome')
- e=.014  # inner bevel: from the frame front down to the window edge
- outer=[(wx0-e,wz0-e),(wx1+e,wz0-e),(wx1+e,wz1+e),(wx0-e,wz1+e)];inner=[(wx0,wz0),(wx1,wz0),(wx1,wz1),(wx0,wz1)]
- for i in range(4):
-  j=(i+1)%4;mx=(inner[i][0]+inner[j][0])/2;mz=(inner[i][1]+inner[j][1])/2
-  n=[-mx if inner[i][0]==inner[j][0] else 0,-.3,PZ-mz if inner[i][1]==inner[j][1] else 0]
-  oriented(out,[(outer[i][0],-.4005,outer[i][1]),(outer[j][0],-.4005,outer[j][1]),(inner[j][0],-.38,inner[j][1]),(inner[i][0],-.38,inner[i][1])],'black_chrome',n)
- for x0,x1,z0,z1 in ((wx0-F-.006,wx0-F,wz0-F-.006,wz1+F+.006),(wx1+F,wx1+F+.006,wz0-F-.006,wz1+F+.006),(wx0-F,wx1+F,wz0-F-.006,wz0-F),(wx0-F,wx1+F,wz1+F,wz1+F+.006)):
-  box(out,x0,x1,-.398,-.36,z0,z1,'neon_cyan')
- for x in (-.11,.11):box(out,x-.012,x+.012,-.372,-.338,wz0-.01,wz1+.01,'black_chrome')   # reel mullions
- for side in (-1,1):   # payline chevrons pointing at the centre line
-  xo=(wx1+F/2)*side;t=.018
-  tri_facing(out,(xo+side*t,-.4012,PZ+t),(xo-side*t*.9,-.4012,PZ),(xo+side*t,-.4012,PZ-t),'payline',[0,-1,0])
- # Paytable screen in a chrome frame.
- x0,x1,z0,z1=PAYTABLE
- box(out,x0-.018,x1+.018,-.375,-.36,z0-.018,z1+.012,'chrome')
- front(out,x0,x1,z0,z1,-.3765,'TEX:paytable',[[0,1],[1,1],[1,0],[0,0]])
- # Console: slanted black chrome deck, neon underline, glowing buttons.
- dz0,dz1,dy=DECK
- extrude_yz(out,[(-.36,dz0),(dy,dz0),(dy,1.035),(-.36,dz1)],-.44,.44,'black_chrome',lambda n,p,q:'satin' if n[1]<-.9*math.hypot(n[1],n[2]) else 'black_chrome')
- box(out,-.44,.44,dy-.004,dy,dz0-.008,dz0,'neon_cyan')
- def on_deck(parts,x,t):
-  """Place deck-local parts (flat on z=0) at x and fraction t up the slope."""
-  y=dy+(-.36-dy)*t;z=1.035+(dz1-1.035)*t
-  rot_x(parts,-DECK_SLOPE)
-  out.extend(transform(parts,lambda px,py,pz:(px+x,py+y,pz+z)))
- spin=[];lathe(spin,[(0,0),(.05,0),(.05,.006),(0,.006)],'chrome',40);lathe(spin,[(0,.006),(.04,.006),(.04,.016),(.034,.022),(0,.024)],'button_spin',40)
- on_deck(spin,.30,.5)
- for x,c in ((-.32,'button_bet'),(-.22,'button_bet'),(-.12,'button_bet'),(.06,'button_max')):
-  b=[];box(b,-.04,.04,-.025,.025,0,.004,'chrome');box(b,-.034,.034,-.02,.02,.004,.013,c);on_deck(b,x,.5)
- # Belly artwork in a chrome frame.
- box(out,-.43,.43,-.375,-.36,.785,.99,'chrome');front(out,-.41,.41,.80,.975,-.3765,'TEX:belly',[[0,1],[1,1],[1,0],[0,0]])
- # Coin chute with a chrome hood, and the lit tray.
- box(out,-.16,.16,-.38,-.36,.665,.785,'chrome');front(out,-.13,.13,.68,.77,-.3805,'void')
- box(out,-.16,.16,-.43,-.36,.772,.785,'chrome')
- box(out,-.31,.31,-.52,-.36,.545,.57,'tray_glow')
- box(out,-.32,.32,-.535,-.515,.54,.64,'chrome');box(out,-.32,.32,-.538,-.535,.55,.556,'neon_cyan')
- for x in (-.315,.315):box(out,x-.007,x+.007,-.535,-.36,.54,.62,'chrome')
- # Lower door: fluted black chrome with a satin frame.
- box(out,-.42,.42,-.372,-.36,.15,.165,'satin');box(out,-.42,.42,-.372,-.36,.50,.515,'satin')
- n=16;w=.8/n
- for i in range(n):
-  xa=-.4+i*w;xm=xa+w/2;xb=xa+w
-  oriented(out,[(xa,-.366,.165),(xm,-.375,.165),(xm,-.375,.50),(xa,-.366,.50)],'black_chrome',[-.4,-1,0])
-  oriented(out,[(xm,-.375,.165),(xb,-.366,.165),(xb,-.366,.50),(xm,-.375,.50)],'black_chrome',[.4,-1,0])
- # Lever hub through the right fin, with a chrome side plate.
- px,py,pz=LAYOUT['leverPivot']
- lathe_x(out,[(0,0),(.115,0),(.115,.012),(.105,.02),(0,.02)],'black_chrome',.50,py,pz)
- lathe_x(out,[(.088,.0195),(.098,.0195),(.098,.0215),(.088,.0215),(.088,.0195)],'neon_magenta',.50,py,pz)
- lathe_x(out,[(0,0),(.05,0),(.05,.06),(.044,.075),(.028,.08),(0,.08)],'chrome',.50,py,pz)
- return out
+    out = []
+    core(out); side_panel(out, 1); side_panel(out, -1); plinth(out); lower_door(out); tray_and_chute(out)
+    deck(out); band(out); reel_door(out); paytable_and_grilles(out); topper(out); crown(out); lever_hub(out)
+    return out
 
-def symbol_strip(strip,symbols):
- out=[];w=LAYOUT['reelWidth'];entries=[strip[-1]]+strip+strip[:2];assert len(entries)==ENTRIES
- for i,name in enumerate(entries):
-  k=symbols.index(name);col,row=k%2,k//2;u0,u1=col*.5+.002,col*.5+.498;v0,v1=row*.25+.002,row*.25+.248
-  z=-i*P
-  front(out,-w/2,w/2,z-P/2,z+P/2,0,'TEX:symbols',[[u0,v1],[u1,v1],[u1,v0],[u0,v0]])
- return out
+
+def symbol_strip(strip, symbols):
+    out = []; w = LAYOUT['reelWidth']; entries = [strip[-1]] + strip + strip[:2]; assert len(entries) == ENTRIES
+    for i, name in enumerate(entries):
+        k = symbols.index(name); col_, row = k % 2, k // 2; u0, u1 = col_ * .5 + .002, col_ * .5 + .498; v0, v1 = row * .25 + .002, row * .25 + .248
+        z = -i * P
+        A.quad(out, [[-w / 2, 0, z - P / 2], [w / 2, 0, z - P / 2], [w / 2, 0, z + P / 2], [-w / 2, 0, z + P / 2]], 'TEX:symbols', (0, -1, 0),
+               [[u0, v1], [u1, v1], [u1, v0], [u0, v0]])
+    return out
+
 
 def lever(angle):
- arm=[];L=LAYOUT['leverLength']
- g.lathe(arm,[(0,-.01),(.03,-.01),(.03,.04),(.021,.06),(.019,.14),(.026,.15),(.026,.17),(.019,.18),(.016,L-.07),(.024,L-.06),(.031,L-.05),(.031,L-.04),(0,L-.04)],'chrome',32)
- base.sphere(g,arm,(0,0,L),.045,'knob')
- a=math.radians(angle);px,py,pz=LAYOUT['leverPivot']
- # Pull towards the player: the top swings from +Z to -Y about the X axis.
- return transform(arm,lambda x,y,z:(px+x,py+y*math.cos(a)-z*math.sin(a),pz+y*math.sin(a)+z*math.cos(a)))
+    """Chrome lever on its axle sleeve: a turned tapering rod, a gold ferrule and
+    a weighted garnet knob, turned `angle` degrees towards the player."""
+    L = LAYOUT['leverLength']; arm = []
+    sleeve = []
+    A.lathe(sleeve, [(0, .046), (.024, .046), (.030, .043), (.033, .037), (.033, .006), (.030, 0)], 'chrome', 40)
+    arm += place(sleeve, XAXIS_R, (-.021, 0, 0))
+    A.lathe(arm, [(0, L - .03), (.0155, L - .03), (.0155, L - .075), (.0185, L - .085), (.0185, L - .10), (.0160, L - .11),
+                  (.0195, .12), (.0235, .10), (.0235, .075), (.0275, .065), (.0275, .03), (.024, .022)], 'chrome', 32)
+    A.lathe(arm, sphere_profile(.06, .055, L + .008, 14), 'knob', 40)
+    A.lathe(arm, [(.0185, L - .083), (.022, L - .086), (.022, L - .099), (.0185, L - .102)], 'gold', 32)
+    a = math.radians(angle); px, py, pz = LAYOUT['leverPivot']
+    return place(arm, rot_x(a), (px, py, pz))
+
 
 def lamp(color):
- """Faceted beacon crystal on the hood."""
- out=[];g.lathe(out,[(0,0),(.075,0),(.085,.03),(.07,.075),(.035,.1),(0,.11)],color,8)
- return transform(out,lambda x,y,z:(x,y,z+2.58))
+    """Candle lamp: chrome base, barrel lens, black band, chrome cap."""
+    out = []
+    A.lathe(out, [(.043, .045), (.050, .040), (.056, .030), (.058, .014), (.058, -.006)], 'chrome', 40)
+    A.lathe(out, [(.046, .150), (.043, .148), (.046, .12), (.047, .095), (.046, .07), (.043, .047), (.043, .045)], color, 40)
+    A.lathe(out, [(.042, .168), (.046, .165), (.046, .150)], 'black_chrome', 40)
+    A.lathe(out, [(0, .186), (.02, .184), (.034, .178), (.042, .168)], 'chrome', 40)
+    return A.translate(out, LAMP_AT)
+
 
 def coin():
- out=[];g.lathe(out,[(0,-.004),(.025,-.004),(.027,-.0025),(.027,.0025),(.025,.004),(.02,.004),(.019,.0028),(0,.0028)],'gold',32);return out
-
-def models(symbols,strips):
- m={'slot_cabinet':cabinet()}
- for r in range(3):m[f'slot_strip_{r+1}']=symbol_strip(strips[r],symbols)
- for i,a in enumerate(LAYOUT['leverAngles']):m[f'slot_lever_{i}']=lever(a)
- m['slot_lamp_off']=lamp('lamp_off');m['slot_lamp_on']=lamp('lamp_on');m['slot_coin']=coin()
- return m
+    out = []
+    A.lathe(out, [(0, .0028), (.019, .0028), (.020, .004), (.025, .004), (.027, .0025), (.027, -.0025), (.025, -.004), (0, -.004)], 'coin', 32)
+    return out
 
 
-# Artwork --------------------------------------------------------------------
-CYAN,MAGENTA,GOLD,RED,VIOLET=(34,230,255),(255,46,158),(255,190,80),(255,52,72),(150,70,255)
-INK=(6,8,16)
+def models(symbols, strips):
+    m = {'slot_cabinet': cabinet()}
+    for r in range(3): m[f'slot_strip_{r + 1}'] = symbol_strip(strips[r], symbols)
+    for i, a in enumerate(LAYOUT['leverAngles']): m[f'slot_lever_{i}'] = lever(a)
+    m['slot_lamp_off'] = lamp('lamp_off'); m['slot_lamp_on'] = lamp('lamp_on'); m['slot_coin'] = coin()
+    return m
 
-def radial(size,inner,outer,center=(.38,.32),power=1.0):
- """RGBA radial gradient disc colours (for glossy spheres)."""
- import numpy as np
- w,h=size;yy,xx=np.mgrid[0:h,0:w];cx,cy=center[0]*w,center[1]*h
- t=np.clip(np.hypot(xx-cx,yy-cy)/(max(w,h)*.85),0,1)**power
- a=np.array(inner,float);b=np.array(outer,float)
- arr=(a[None,None,:]*(1-t[...,None])+b[None,None,:]*t[...,None]).astype('uint8')
- return Image.fromarray(np.concatenate([arr,np.full((h,w,1),255,'uint8')],2),'RGBA')
+# ------------------------------------------------------------------ artwork
+# Reel symbols are printed enamel on a warm pearl band (a real stepper's reel
+# strip): solid shapes with a dark keyline, a soft gradient, a gloss highlight
+# and a faint drop shadow. Screens are dark, set in the wheel kit's stroke face.
+PEARL = (232, 228, 219)
+INK = (24, 22, 30)
 
-def fill(image,mask,src,at=(0,0)):
- """Paint `src` (RGBA image or colour) through L `mask` at `at`."""
- if not isinstance(src,Image.Image):src=Image.new('RGBA',mask.size,tuple(src)+(255,))
- layer=src.copy();layer.putalpha(mask);image.alpha_composite(layer,at)
 
-def poly_mask(size,points,ss=4):
- return art.shape_mask(size,lambda d,s:d.polygon([(x*s,y*s) for x,y in points],fill=255),ss)
+def grad(size, top, bottom, horizontal=False):
+    w, h = size
+    t = np.linspace(0, 1, w if horizontal else h)
+    rows = np.array(top, float)[None] * (1 - t[:, None]) + np.array(bottom, float)[None] * t[:, None]
+    arr = np.repeat(rows[None], h, 0) if horizontal else np.repeat(rows[:, None], w, 1)
+    return Image.fromarray(np.concatenate([arr, np.full(arr.shape[:2] + (1,), 255.)], 2).astype(np.uint8), 'RGBA')
 
-def neon_layer(size,draw,color,width):
- """A transparent layer with `draw(d)` stroked in `color`."""
- im=Image.new('RGBA',size,(0,0,0,0));draw(ImageDraw.Draw(im,'RGBA'),color,width);return im
 
-def draw_symbol(cell,name):
- """Original neon symbols on a dark cell (any size; designed on 600x256)."""
- W,H=cell.size;k=H/256;cx,cy=W/2,H/2
- def P(x,y):return (cx+x*k,cy+y*k)
- def glow_mask(mask,color,radius=10,strength=1.4,at=(0,0)):
-  layer=Image.new('RGBA',cell.size,(0,0,0,0));fill(layer,mask,color,at)
-  halo=layer.filter(ImageFilter.GaussianBlur(radius*k));a=halo.getchannel('A').point(lambda v:min(255,int(v*strength)));halo.putalpha(a);cell.alpha_composite(halo)
- if name=='seven':
-  pts=[P(-62,-86),P(70,-86),P(70,-62),P(-6,92),P(-44,92),P(24,-54),P(-62,-54)]
-  m=poly_mask(cell.size,pts);glow_mask(m,RED,14,1.6)
-  fill(cell,m,art.gradient(cell.size,(255,96,120),(200,0,70)))
-  inner=poly_mask(cell.size,[P(-52,-78),P(60,-78),P(60,-64),P(-2,82),P(-30,82),P(30,-62),P(-52,-62)])
-  edge=Image.new('L',cell.size,0);edge.paste(m);edge=Image.fromarray(__import__('numpy').clip(__import__('numpy').asarray(m,int)-__import__('numpy').asarray(inner,int),0,255).astype('uint8'))
-  fill(cell,edge,GOLD)
-  fill(cell,poly_mask(cell.size,[P(-56,-82),P(64,-82),P(62,-76),P(-54,-76)]),(255,236,200))
- elif name=='diamond':
-  top=-70;mid=-30;bot=88;wd=92
-  facets=[([P(-wd,mid),P(-52,top),P(-14,mid)],(150,240,255)),([P(-52,top),P(0,top),P(-14,mid)],(210,250,255)),([P(0,top),P(52,top),P(14,mid)],(120,220,250)),
-   ([P(52,top),P(wd,mid),P(14,mid)],(70,190,240)),([P(-14,mid),P(0,top),P(14,mid)],(255,255,255)),
-   ([P(-wd,mid),P(-14,mid),P(0,bot)],(40,170,230)),([P(-14,mid),P(14,mid),P(0,bot)],(110,215,250)),([P(14,mid),P(wd,mid),P(0,bot)],(20,120,200))]
-  whole=poly_mask(cell.size,[P(-wd,mid),P(-52,top),P(52,top),P(wd,mid),P(0,bot)]);glow_mask(whole,CYAN,14,1.5)
-  for pts,c in facets:fill(cell,poly_mask(cell.size,pts),c)
-  d=ImageDraw.Draw(cell,'RGBA')
-  for a,b in ((P(-wd,mid),P(wd,mid)),(P(-52,top),P(-14,mid)),(P(52,top),P(14,mid)),(P(-14,mid),P(0,bot)),(P(14,mid),P(0,bot))):d.line((a,b),fill=(230,252,255,180),width=max(1,int(2*k)))
- elif name=='chip':
-  r=84;m=art.shape_mask(cell.size,lambda d,s:d.ellipse((s*(cx-r*k),s*(cy-r*k),s*(cx+r*k),s*(cy+r*k)),fill=255));glow_mask(m,MAGENTA,12,1.3)
-  fill(cell,m,(200,20,110))
-  for i in range(8):
-   a=math.radians(i*45+22.5)
-   pts=[P(r*math.cos(a+da)*f,r*math.sin(a+da)*f) for da,f in ((-.17,1),(.17,1),(.17,.72),(-.17,.72))]
-   fill(cell,poly_mask(cell.size,pts),(250,240,250))
-  ring=art.shape_mask(cell.size,lambda d,s:d.ellipse((s*(cx-58*k),s*(cy-58*k),s*(cx+58*k),s*(cy+58*k)),fill=255))
-  fill(cell,ring,(20,8,24));fill(cell,art.shape_mask(cell.size,lambda d,s:d.ellipse((s*(cx-58*k),s*(cy-58*k),s*(cx+58*k),s*(cy+58*k)),outline=255,width=int(5*k*s))),CYAN)
-  art.hud_text(cell,'77',cx,cy,int(54*k),CYAN+(255,),weight=.2,glow_color=CYAN,glow_radius=5*k)
- elif name=='bar':
-  plate=art.shape_mask(cell.size,lambda d,s:d.rounded_rectangle((s*(cx-118*k),s*(cy-50*k),s*(cx+118*k),s*(cy+50*k)),radius=int(14*k*s),fill=255))
-  glow_mask(plate,CYAN,12,1.0);fill(cell,plate,art.gradient(cell.size,(70,76,92),(14,16,22)))
-  fill(cell,art.shape_mask(cell.size,lambda d,s:d.rounded_rectangle((s*(cx-118*k),s*(cy-50*k),s*(cx+118*k),s*(cy+50*k)),radius=int(14*k*s),outline=255,width=int(5*k*s))),CYAN)
-  art.hud_text(cell,'BAR',cx+2*k,cy,int(62*k),(240,252,255,255),tracking=1.4,weight=.2,glow_color=CYAN,glow_radius=6*k)
- elif name=='bell':
-  outline=[P(-80,62),P(-64,44),P(-54,-20),P(-30,-62),P(0,-74),P(30,-62),P(54,-20),P(64,44),P(80,62)]
-  m=poly_mask(cell.size,outline);glow_mask(m,GOLD,12,1.3)
-  fill(cell,m,art.gradient(cell.size,(255,224,140),(196,120,20),horizontal=True))
-  fill(cell,poly_mask(cell.size,[P(-30,-58),P(-8,-68),P(-30,40),P(-50,40)]),(255,244,200))
-  fill(cell,poly_mask(cell.size,[P(-84,60),P(84,60),P(84,74),P(-84,74)]),(170,100,10))
-  fill(cell,art.shape_mask(cell.size,lambda d,s:d.ellipse((s*(cx-16*k),s*(cy+66*k),s*(cx+16*k),s*(cy+96*k)),fill=255)),(230,160,40))
-  fill(cell,art.shape_mask(cell.size,lambda d,s:d.ellipse((s*(cx-10*k),s*(cy-90*k),s*(cx+10*k),s*(cy-70*k)),fill=255)),(230,160,40))
- elif name=='grape':
-  hexes=[]
-  for row,(n,y) in enumerate(((4,-46),(3,-6),(2,34),(1,72))):
-   for i in range(n):hexes.append((-(n-1)*22+i*44,y))
-  allm=Image.new('L',cell.size,0)
-  for x,y in hexes:
-   pts=[P(x+21*math.cos(math.radians(60*j+30)),y+21*math.sin(math.radians(60*j+30))) for j in range(6)];hm=poly_mask(cell.size,pts)
-   allm=Image.fromarray(__import__('numpy').maximum(__import__('numpy').asarray(allm),__import__('numpy').asarray(hm)))
-  glow_mask(allm,VIOLET,12,1.4)
-  for x,y in hexes:
-   pts=[P(x+20*math.cos(math.radians(60*j+30)),y+20*math.sin(math.radians(60*j+30))) for j in range(6)]
-   fill(cell,poly_mask(cell.size,pts),radial((W,H),(214,150,255),(90,20,170),center=((cx+(x-8)*k)/W,(cy+(y-8)*k)/H),power=.6))
-   fill(cell,poly_mask(cell.size,[P(x-11,y-12),P(x-3,y-15),P(x-8,y-6)]),(240,220,255))
-  fill(cell,poly_mask(cell.size,[P(4,-70),P(64,-98),P(40,-64)]),(40,220,160))
-  ImageDraw.Draw(cell,'RGBA').line((P(0,-64),P(10,-86)),fill=(40,220,160,255),width=int(6*k))
- elif name=='lemon':
-  pts=[P(-96,0),P(-74,-30),P(-36,-54),P(18,-58),P(62,-40),P(88,-12),P(100,0),P(88,14),P(60,42),P(16,58),P(-36,54),P(-74,30)]
-  m=poly_mask(cell.size,pts);glow_mask(m,(255,230,40),12,1.3)
-  fill(cell,m,art.gradient(cell.size,(255,246,120),(230,170,0)))
-  fill(cell,poly_mask(cell.size,[P(-96,0),P(-74,-30),P(-36,-54),P(-20,-20),P(-50,4)]),(255,252,190))
-  fill(cell,poly_mask(cell.size,[P(16,58),P(60,42),P(88,14),P(40,10)]),(214,150,0))
- elif name=='cherry':
-  d=ImageDraw.Draw(cell,'RGBA');green=(40,230,150,255)
-  stem=Image.new('RGBA',cell.size,(0,0,0,0));sd=ImageDraw.Draw(stem,'RGBA')
-  sd.line((P(-48,26),P(-6,-56),P(30,-82)),fill=green,width=int(8*k),joint='curve');sd.line((P(50,30),P(16,-52),P(30,-82)),fill=green,width=int(8*k),joint='curve')
-  art.glow(cell,stem,6*k,1.2)
-  fill(cell,poly_mask(cell.size,[P(30,-82),P(84,-96),P(66,-70)]),(40,230,150))
-  for x,y in ((-48,40),(50,44)):
-   r=44;m=art.shape_mask(cell.size,lambda d,s,x=x,y=y:d.ellipse((s*(cx+(x-r)*k),s*(cy+(y-r)*k),s*(cx+(x+r)*k),s*(cy+(y+r)*k)),fill=255))
-   glow_mask(m,RED,12,1.2);fill(cell,m,radial((W,H),(255,140,150),(170,0,30),center=((cx+(x-14)*k)/W,(cy+(y-16)*k)/H),power=.7))
-   fill(cell,art.shape_mask(cell.size,lambda d,s,x=x,y=y:d.ellipse((s*(cx+(x-24)*k),s*(cy+(y-28)*k),s*(cx+(x-8)*k),s*(cy+(y-14)*k)),fill=255)),(255,230,235))
- else:raise ValueError(name)
+def radial(size, inner, outer, center, radius):
+    w, h = size; yy, xx = np.mgrid[0:h, 0:w]
+    t = np.clip(np.hypot(xx - center[0], yy - center[1]) / radius, 0, 1)[..., None]
+    arr = np.array(inner, float) * (1 - t) + np.array(outer, float) * t
+    return Image.fromarray(np.concatenate([arr, np.full((h, w, 1), 255.)], 2).astype(np.uint8), 'RGBA')
 
-def symbol_cell(name,size=(512,256),background=True):
- """One reel entry; drawn on a 2.35:1 canvas (the entry's real shape) then fitted to the cell."""
- W,H=600,256
- if background:
-  cell=art.gradient((W,H),(18,20,34),(6,7,14));d=ImageDraw.Draw(cell,'RGBA')
-  for y in range(0,H,4):d.line((0,y,W,y),fill=(255,255,255,6))
-  d.line((0,1,W,1),fill=(40,48,70,255),width=3);d.line((0,H-2,W,H-2),fill=(40,48,70,255),width=3)
- else:cell=Image.new('RGBA',(W,H),(0,0,0,0))
- draw_symbol(cell,name)
- return cell.resize(size,Image.Resampling.LANCZOS)
 
-def city(size,seed,base_y,height,color,lit=((255,190,80),(34,230,255),(255,46,158)),density=.16):
- """Original skyline silhouette with lit windows, as an RGBA layer."""
- import random
- W,H=size;rng=random.Random(seed);im=Image.new('RGBA',size,(0,0,0,0));d=ImageDraw.Draw(im,'RGBA');x=-10
- while x<W:
-  w=rng.randint(int(W*.025),int(W*.07));h=rng.randint(int(height*.3),height)
-  d.rectangle((x,base_y-h,x+w,base_y),fill=color+(255,))
-  if rng.random()<.35:d.rectangle((x+w//2-2,base_y-h-rng.randint(10,40),x+w//2+2,base_y-h),fill=color+(255,))
-  for wy in range(base_y-h+8,base_y-6,11):
-   for wx in range(x+4,x+w-4,9):
-    if rng.random()<density:c=rng.choice(lit);d.rectangle((wx,wy,wx+3,wy+4),fill=c+(170,))
-  x+=w+rng.randint(2,10)
- return im
+def mask_of(size, draw, ss=4):
+    m = Image.new('L', (size[0] * ss, size[1] * ss), 0); draw(ImageDraw.Draw(m), ss)
+    return m.resize(size, Image.Resampling.LANCZOS)
+
+
+def poly_mask(size, pts): return mask_of(size, lambda d, s: d.polygon([(x * s, y * s) for x, y in pts], fill=255))
+def ellipse_mask(size, box): return mask_of(size, lambda d, s: d.ellipse([v * s for v in box], fill=255))
+
+
+def paint(im, mask, src):
+    if not isinstance(src, Image.Image): src = Image.new('RGBA', im.size, tuple(src[:3]) + (255,))
+    layer = src.copy(); layer.putalpha(mask); im.alpha_composite(layer)
+
+
+def grow(mask, px):
+    if px <= 0: return mask
+    return mask.filter(ImageFilter.GaussianBlur(px * .55)).point(lambda v: 0 if v < 8 else min(255, int((v - 8) * 6)))
+
+
+def m_union(*ms):
+    a = np.zeros(np.asarray(ms[0]).shape, np.uint8)
+    for m in ms: a = np.maximum(a, np.asarray(m))
+    return Image.fromarray(a)
+
+
+def m_sub(a, b): return Image.fromarray(np.clip(np.asarray(a, int) - np.asarray(b, int), 0, 255).astype(np.uint8))
+
+
+def enamel(im, mask, fill, k, line=5, shadow=True, gloss=None):
+    """Keyline, fill and an optional gloss mask, with a soft drop shadow."""
+    if shadow:
+        sh = grow(mask, line * k).filter(ImageFilter.GaussianBlur(5 * k)).point(lambda v: int(v * .35))
+        sh = sh.transform(sh.size, Image.Transform.AFFINE, (1, 0, -3 * k, 0, 1, -5 * k))
+        paint(im, sh, (40, 30, 40))
+    paint(im, grow(mask, line * k), INK)
+    paint(im, mask, fill)
+    if gloss is not None: paint(im, gloss, (255, 255, 255, 200))
+
+
+def draw_symbol(cell, name, line=5):
+    """Original symbols (any size; designed on a 600x256 canvas)."""
+    W, H = cell.size; k = H / 256; cx, cy = W / 2, H / 2
+    def P(x, y): return (cx + x * k, cy + y * k)
+    def E(x, y, rx, ry): return (cx + (x - rx) * k, cy + (y - ry) * k, cx + (x + rx) * k, cy + (y + ry) * k)
+    sz = cell.size
+    if name == 'seven':
+        outer = [P(-60, -84), P(66, -84), P(66, -62), P(-2, 90), P(-42, 90), P(22, -54), P(-60, -54)]
+        m = poly_mask(sz, outer)
+        enamel(cell, m, grad(sz, (236, 40, 58), (138, 6, 28)), k, line)
+        inner = poly_mask(sz, [P(-50, -76), P(57, -76), P(57, -64), P(2, 80), P(-30, 80), P(28, -62), P(-50, -62)])
+        paint(cell, m_sub(m, grow(inner, 1)), (232, 186, 96))           # gold inline
+        paint(cell, poly_mask(sz, [P(-52, -79), P(58, -79), P(56, -74), P(-50, -74)]), (255, 236, 214))
+    elif name == 'diamond':
+        top, mid, bot, wd = -66, -26, 86, 92
+        whole = poly_mask(sz, [P(-wd, mid), P(-52, top), P(52, top), P(wd, mid), P(0, bot)])
+        enamel(cell, whole, (60, 170, 220), k, line)
+        for pts, c in (([P(-wd, mid), P(-52, top), P(-16, mid)], (150, 226, 250)), ([P(-52, top), P(0, top), P(-16, mid)], (214, 246, 255)),
+                       ([P(0, top), P(52, top), P(16, mid)], (120, 206, 244)), ([P(52, top), P(wd, mid), P(16, mid)], (60, 160, 220)),
+                       ([P(-16, mid), P(0, top), P(16, mid)], (246, 252, 255)), ([P(-wd, mid), P(-16, mid), P(0, bot)], (40, 140, 206)),
+                       ([P(-16, mid), P(16, mid), P(0, bot)], (90, 186, 236)), ([P(16, mid), P(wd, mid), P(0, bot)], (18, 96, 170))):
+            paint(cell, poly_mask(sz, pts), c)
+        d = ImageDraw.Draw(cell, 'RGBA')
+        for a, b in ((P(-wd, mid), P(wd, mid)), (P(-52, top), P(-16, mid)), (P(52, top), P(16, mid)), (P(-16, mid), P(0, bot)), (P(16, mid), P(0, bot))):
+            d.line((a, b), fill=(16, 40, 70, 160), width=max(1, int(2 * k)))
+    elif name == 'chip':
+        r = 82; m = ellipse_mask(sz, E(0, 0, r, r))
+        enamel(cell, m, grad(sz, (176, 20, 108), (112, 8, 70)), k, line)
+        for i in range(8):
+            a = math.radians(i * 45 + 22.5)
+            pts = [P(r * math.cos(a + da) * f, r * math.sin(a + da) * f) for da, f in ((-.16, .99), (.16, .99), (.16, .74), (-.16, .74))]
+            paint(cell, poly_mask(sz, pts), (246, 238, 244))
+        paint(cell, ellipse_mask(sz, E(0, 0, 56, 56)), INK)
+        paint(cell, ellipse_mask(sz, E(0, 0, 52, 52)), grad(sz, (40, 36, 52), (16, 14, 22)))
+        A.draw_text(cell, '77', P(0, 0), int(46 * k), (236, 200, 120), stroke=.15, tracking=1.0)
+    elif name == 'bar':
+        m = mask_of(sz, lambda d, s: d.rounded_rectangle([v * s for v in E(0, 0, 116, 46)], radius=int(12 * k * s), fill=255))
+        enamel(cell, m, grad(sz, (44, 44, 54), (14, 14, 18)), k, line)
+        inner = mask_of(sz, lambda d, s: d.rounded_rectangle([v * s for v in E(0, 0, 106, 36)], radius=int(8 * k * s), outline=255, width=max(1, int(3 * k * s))))
+        paint(cell, inner, (226, 178, 92))
+        A.draw_text(cell, 'BAR', P(2, 0), int(50 * k), (246, 240, 228), stroke=.17, tracking=1.3)
+    elif name == 'bell':
+        outline = [P(-80, 58), P(-64, 42), P(-56, -16), P(-34, -58), P(0, -72), P(34, -58), P(56, -16), P(64, 42), P(80, 58)]
+        clap = ellipse_mask(sz, E(0, 74, 16, 16)); knob = ellipse_mask(sz, E(0, -78, 10, 10))
+        m = m_union(poly_mask(sz, outline), poly_mask(sz, [P(-86, 56), P(86, 56), P(86, 70), P(-86, 70)]), clap, knob)
+        enamel(cell, m, grad(sz, (250, 214, 120), (178, 110, 18), horizontal=True), k, line)
+        paint(cell, poly_mask(sz, [P(-86, 56), P(86, 56), P(86, 70), P(-86, 70)]), (160, 96, 14))
+        paint(cell, poly_mask(sz, [P(-34, -54), P(-12, -64), P(-30, 36), P(-48, 36)]), (255, 240, 196))
+    elif name == 'grape':
+        hexes = []
+        for n, y in ((4, -44), (3, -6), (2, 32), (1, 70)):
+            for i in range(n): hexes.append((-(n - 1) * 22 + i * 44, y))
+        circles = [ellipse_mask(sz, E(x, y, 21, 21)) for x, y in hexes]
+        leaf = poly_mask(sz, [P(6, -68), P(70, -96), P(42, -60)])
+        stem = mask_of(sz, lambda d, s: d.line([v * s for v in (*P(0, -62), *P(10, -88))], fill=255, width=int(7 * k * s)))
+        enamel(cell, m_union(*circles, leaf, stem), (90, 30, 150), k, line)
+        for (x, y), cm in zip(hexes, circles):
+            paint(cell, cm, radial(sz, (200, 140, 250), (84, 24, 150), P(x - 7, y - 8), 26 * k))
+            paint(cell, ellipse_mask(sz, E(x - 7, y - 8, 5, 4)), (246, 230, 255))
+        paint(cell, leaf, grad(sz, (90, 200, 120), (30, 120, 70))); paint(cell, stem, (40, 120, 70))
+    elif name == 'lemon':
+        pts = [P(-98, 0), P(-76, -30), P(-38, -52), P(16, -56), P(60, -40), P(86, -12), P(100, 0), P(86, 14), P(58, 40), P(16, 56), P(-38, 52), P(-76, 30)]
+        m = poly_mask(sz, pts)
+        enamel(cell, m, grad(sz, (255, 236, 96), (220, 160, 0)), k, line)
+        paint(cell, poly_mask(sz, [P(-80, -6), P(-60, -30), P(-30, -44), P(-30, -30), P(-58, -12)]), (255, 250, 200))
+    elif name == 'cherry':
+        stems = mask_of(sz, lambda d, s: (d.line([v * s for v in (*P(-48, 24), *P(-8, -56), *P(30, -82))], fill=255, width=int(7 * k * s), joint='curve'),
+                                         d.line([v * s for v in (*P(50, 28), *P(18, -52), *P(30, -82))], fill=255, width=int(7 * k * s), joint='curve')))
+        leaf = poly_mask(sz, [P(30, -82), P(86, -98), P(66, -68)])
+        balls = [ellipse_mask(sz, E(x, y, 42, 42)) for x, y in ((-48, 42), (50, 46))]
+        enamel(cell, m_union(stems, leaf, *balls), (180, 0, 30), k, line)
+        paint(cell, stems, (50, 130, 70)); paint(cell, leaf, grad(sz, (90, 200, 120), (30, 120, 70)))
+        for (x, y), bm in zip(((-48, 42), (50, 46)), balls):
+            paint(cell, bm, radial(sz, (255, 110, 120), (150, 0, 24), P(x - 14, y - 16), 50 * k))
+            paint(cell, ellipse_mask(sz, E(x - 16, y - 18, 8, 6)), (255, 228, 232))
+    else:
+        raise ValueError(name)
+
+
+def symbol_cell(name, size=(512, 256), background=True):
+    """One reel entry, drawn on its true 2.35:1 shape then fitted to the atlas cell."""
+    W, H = 600, 256
+    if background:
+        cell = Image.new('RGBA', (W, H), PEARL + (255,))
+    else:
+        cell = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    draw_symbol(cell, name)
+    return cell.resize(size, Image.Resampling.LANCZOS)
+
+
+def hairframe(d, box, color, width=2, inset=0):
+    x0, y0, x1, y1 = box
+    d.rectangle((x0 + inset, y0 + inset, x1 - inset, y1 - inset), outline=color, width=width)
+
+
+def screen_bg(size, top=(12, 14, 24), bottom=(3, 4, 8), seed=3):
+    im = grad(size, top, bottom)
+    rng = np.random.default_rng(seed)
+    a = np.asarray(im).astype(float); a[..., :3] *= 1 + rng.normal(0, .015, a.shape[:2] + (1,))
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
+
+
+def mini_cell(name, w, dim=.66):
+    """A small pearl reel window with one symbol (paytable, attract screen),
+    dimmed so the lit screen does not wash it out."""
+    h = int(w / 2.35); cell = symbol_cell(name, (w, h))
+    a = np.asarray(cell).astype(float); a[..., :3] *= dim; cell = Image.fromarray(a.astype(np.uint8), 'RGBA')
+    m = mask_of((w, h), lambda d, s: d.rounded_rectangle((0, 0, w * s - 1, h * s - 1), radius=int(h * .14 * s), fill=255))
+    out = Image.new('RGBA', (w, h), (0, 0, 0, 0)); paint(out, m, cell); return out
+
 
 def marquee():
- """Curved topper: 0.82 x 0.72 m screen (drawn at that ratio, fitted to 1024 square)."""
- import numpy as np
- W,H=1170,1024;im=art.gradient((W,H),(30,8,58),(8,4,22));d=ImageDraw.Draw(im,'RGBA')
- hy=720
- # Rising sun: slatted disc, gold to magenta, sitting on the horizon.
- R=230;sun=art.gradient((2*R,2*R),(255,214,110),(255,40,150));sm=np.asarray(art.shape_mask((2*R,2*R),lambda dd,s:dd.ellipse((0,0,2*R*s,2*R*s),fill=255))).copy()
- for k2,y in enumerate(range(int(R*1.0),2*R,22)):sm[y:y+4+k2*2,:]=0
- sm[hy-(hy-R)+0:,:]=sm[hy-(hy-R)+0:,:]
- layer=Image.new('RGBA',(W,H),(0,0,0,0));fill(layer,Image.fromarray(sm),sun,(W//2-R,hy-R+20))
- layer=layer.crop((0,0,W,hy));full=Image.new('RGBA',(W,H),(0,0,0,0));full.alpha_composite(layer);art.glow(im,full,24,.9)
- im.alpha_composite(city((W,H),78,hy,170,(22,10,44),density=.10))
- im.alpha_composite(city((W,H),77,hy,110,(8,4,18),density=.14))
- # Perspective floor grid.
- d=ImageDraw.Draw(im,'RGBA');d.rectangle((0,hy,W,H),fill=(10,4,22,255))
- for i in range(-16,17):d.line((W/2+i*24,hy,W/2+i*200,H),fill=(255,46,158,120),width=3)
- for j in range(1,12):y=hy+(H-hy)*(j/11)**1.8;d.line((0,y,W,y),fill=(255,46,158,int(60+80*j/11)),width=2)
- hz=Image.new('RGBA',(W,H),(0,0,0,0));ImageDraw.Draw(hz,'RGBA').rectangle((0,hy-2,W,hy+2),fill=(255,120,200,255));art.glow(im,hz,8,1.2)
- # Title block.
- art.hud_text(im,'LUCKY',W/2,168,160,(236,252,255,255),tracking=1.6,weight=.17,slant=.12,glow_color=CYAN,glow_radius=18,glow_strength=1.8)
- art.hud_text(im,'CIRCUIT',W/2,352,132,(255,232,244,255),tracking=1.8,weight=.17,slant=.12,glow_color=MAGENTA,glow_radius=18,glow_strength=1.8)
- d=ImageDraw.Draw(im,'RGBA');d.line((W/2-440,262,W/2+440,262),fill=CYAN+(255,),width=4)
- for x in (W/2-440,W/2+440):d.polygon([(x-12,262),(x,250),(x+12,262),(x,274)],fill=CYAN+(255,))
- art.hud_text(im,'THREE SEVENS PAY x200',W/2,440,40,GOLD+(255,),tracking=1.6,weight=.18,glow_color=GOLD,glow_radius=8)
- # Frame.
- d.rectangle((10,10,W-11,H-11),outline=(255,46,158,255),width=8);d.rectangle((28,28,W-29,H-29),outline=(34,230,255,160),width=3)
- for x,y in ((28,28),(W-29,28),(28,H-29),(W-29,H-29)):d.rectangle((x-10,y-10,x+10,y+10),fill=(34,230,255,255))
- return im.resize((1024,1024),Image.Resampling.LANCZOS)
+    """Attract screen on the concave topper: 0.72 x ~0.44 m (drawn at that ratio, fitted to 1024x1024)."""
+    W, H = 1640, 1000
+    im = screen_bg((W, H), (16, 14, 32), (4, 4, 10))
+    d = ImageDraw.Draw(im, 'RGBA')
+    # A dial of fine ticks: the reel's rim seen face-on, cyan to magenta.
+    cx, cy, R = W / 2, 470, 420
+    layer = Image.new('RGBA', (W, H), (0, 0, 0, 0)); ld = ImageDraw.Draw(layer, 'RGBA')
+    for i in range(180):
+        a = math.radians(i * 2); t = (math.cos(a - math.radians(60)) + 1) / 2
+        c = tuple(int(CYAN[j] * t + MAGENTA[j] * (1 - t)) for j in range(3))
+        r0 = R - (26 if i % 15 == 0 else 12)
+        ld.line((cx + r0 * math.cos(a), cy + r0 * math.sin(a), cx + R * math.cos(a), cy + R * math.sin(a)), fill=c + (150 if i % 15 else 230,), width=3 if i % 15 else 5)
+    ld.ellipse((cx - R - 10, cy - R - 10, cx + R + 10, cy + R + 10), outline=(226, 178, 92, 120), width=2)
+    soft = layer.filter(ImageFilter.GaussianBlur(6)); im.alpha_composite(soft); im.alpha_composite(layer)
+    # Skyline in thin linework at the bottom, fading up.
+    rng = np.random.default_rng(77); x = 0; base_y = H - 80
+    while x < W:
+        w = int(rng.integers(40, 110)); h = int(rng.integers(40, 190))
+        d.rectangle((x, base_y - h, x + w, base_y), outline=(80, 70, 140, 90), width=2)
+        for wy in range(base_y - h + 14, base_y - 8, 18):
+            for wx in range(x + 10, x + w - 10, 16):
+                if rng.random() < .12: d.rectangle((wx, wy, wx + 5, wy + 6), fill=(255, 190, 110, 110))
+        x += w + int(rng.integers(6, 20))
+    d.line((0, base_y, W, base_y), fill=(226, 178, 92, 140), width=2)
+    # Title.
+    A.draw_text(im, 'LUCKY', (W / 2, 290), 150, (238, 246, 255), stroke=.10, tracking=1.9, glow=(CYAN, 12, .55))
+    A.draw_text(im, 'CIRCUIT', (W / 2, 480), 150, (255, 236, 246), stroke=.10, tracking=1.9, glow=(MAGENTA, 12, .55))
+    for y in (378, 392): d.line((W / 2 - 330, y, W / 2 + 330, y), fill=(226, 178, 92, 220 if y == 378 else 90), width=2)
+    # Three sevens in pearl windows, gold rule, the top pay.
+    cw = 210
+    for i in range(3):
+        c = mini_cell('seven', cw); im.alpha_composite(c, (int(W / 2 - 1.5 * cw - 20 + i * (cw + 20)), 610))
+    top = pays()['three']['seven']
+    A.draw_text(im, f'THREE SEVENS PAY {top} FOR 1', (W / 2, 745), 34, (226, 178, 92), stroke=.13, tracking=1.6)
+    A.draw_text(im, 'PULL THE LEVER', (W / 2, 820), 26, (150, 220, 240), stroke=.13, tracking=2.0)
+    hairframe(d, (0, 0, W - 1, H - 1), (226, 178, 92, 170), 3, 18)
+    hairframe(d, (0, 0, W - 1, H - 1), (226, 178, 92, 70), 1, 30)
+    return im.resize((1024, 1024), Image.Resampling.LANCZOS)
+
+
+def paytable(symbols, table):
+    """Paytable display, 0.60 x 0.33 m (drawn at that ratio, fitted to 1024x512)."""
+    W, H = 1820, 1000
+    im = screen_bg((W, H), (10, 12, 22), (3, 4, 8)); d = ImageDraw.Draw(im, 'RGBA')
+    A.draw_text(im, 'THREE ON THE CENTER LINE', (W / 2, 70), 40, (226, 178, 92), stroke=.13, tracking=1.8)
+    d.line((120, 118, W - 120, 118), fill=(226, 178, 92, 120), width=2)
+    order = sorted(table['three'], key=lambda k: (-table['three'][k], symbols.index(k)))
+    colw, rowh = (W - 80) / 4, 300
+    for i, name in enumerate(order):
+        c, r = i % 4, i // 4; x0 = 40 + c * colw; y0 = 150 + r * rowh
+        cw = 250
+        im.alpha_composite(mini_cell(name, cw), (int(x0 + colw / 2 - cw / 2), int(y0 + 18)))
+        A.draw_text(im, 'x' + str(table['three'][name]), (x0 + colw / 2, y0 + 190), 76, (236, 228, 214), stroke=.12, tracking=1.3)
+        if c: d.line((x0, y0 + 20, x0, y0 + 230), fill=(48, 226, 255, 50), width=2)
+    d.line((120, 760, W - 120, 760), fill=(48, 226, 255, 90), width=2)
+    rules = [('CHERRY CHERRY ANY', table['twoCherries']), ('ANY THREE FRUIT', table['mixedFruit']), ('CHERRY ON REEL 1', table['oneCherry'])]
+    for i, (label, pay) in enumerate(rules):
+        x = W * (i + .5) / 3
+        A.draw_text(im, label, (x, 815), 32, (210, 220, 236), stroke=.13, tracking=1.4)
+        A.draw_text(im, 'x' + str(pay), (x, 875), 44, (255, 120, 190), stroke=.13, tracking=1.3)
+        if i: d.line((W * i / 3, 790, W * i / 3, 900), fill=(48, 226, 255, 60), width=2)
+    A.draw_text(im, f'BET {table["min"]} - {table["max"]}', (W / 2, 950), 26, (150, 160, 180), stroke=.13, tracking=2.0)
+    hairframe(d, (0, 0, W - 1, H - 1), (226, 178, 92, 120), 2, 12)
+    return im.resize((1024, 512), Image.Resampling.LANCZOS)
+
 
 def belly():
- """Lower belly glass, 0.82 x 0.175 m (fitted to 1024x256)."""
- W,H=1200,256;im=art.gradient((W,H),(10,10,22),(22,6,34));d=ImageDraw.Draw(im,'RGBA')
- # Circuit traces.
- import random
- rng=random.Random(4)
- for _ in range(40):
-  x=rng.randint(0,W);y=rng.choice([30,60,196,226]);L=rng.randint(40,160);c=rng.choice([CYAN,MAGENTA])
-  d.line((x,y,x+L,y,x+L+20,y+(20 if y<128 else -20)),fill=c+(90,),width=2);d.ellipse((x-4,y-4,x+4,y+4),outline=c+(150,),width=2)
- art.hud_text(im,'CIRCUIT SERIES · 77',W/2,104,58,(240,252,255,255),tracking=1.8,weight=.15,glow_color=CYAN,glow_radius=8)
- art.hud_text(im,'HIGH LIMIT  ·  1 TO 1,000 PER PULL',W/2,178,30,GOLD+(255,),tracking=1.6,weight=.17)
- d.rectangle((4,4,W-5,H-5),outline=MAGENTA+(255,),width=5)
- return im.resize((1024,256),Image.Resampling.LANCZOS)
+    """Belly glass, 0.60 x 0.39 m (fitted to 1024x512): the series emblem."""
+    W, H = 1540, 1000
+    im = screen_bg((W, H), (14, 12, 22), (4, 4, 8), 5); d = ImageDraw.Draw(im, 'RGBA')
+    cx, cy = W / 2, 420
+    for r, a in ((250, 200), (232, 90)):
+        pts = [(cx + r * math.cos(math.radians(60 * i + 30)), cy + r * math.sin(math.radians(60 * i + 30))) for i in range(6)]
+        d.line(pts + pts[:1], fill=(226, 178, 92, a), width=4 if a > 100 else 2)
+    A.draw_text(im, '77', (cx, cy), 220, (238, 230, 214), stroke=.09, tracking=1.2, glow=(MAGENTA, 16, .8))
+    A.draw_text(im, 'CIRCUIT SERIES', (cx, 760), 64, (226, 236, 250), stroke=.11, tracking=2.2)
+    A.draw_text(im, 'HIGH LIMIT', (cx, 860), 34, (226, 178, 92), stroke=.13, tracking=2.4)
+    for y in (700, 905):
+        d.line((cx - 360, y, cx + 360, y), fill=(48, 226, 255, 90), width=2)
+    hairframe(d, (0, 0, W - 1, H - 1), (226, 178, 92, 110), 2, 14)
+    return im.resize((1024, 512), Image.Resampling.LANCZOS)
 
-def paytable(symbols,table):
- """Paytable screen, 0.84 x 0.21 m (2048x512): three of a kind, then the fruit rules."""
- W,H=2048,512;im=art.gradient((W,H),(10,14,30),(3,4,10));d=ImageDraw.Draw(im,'RGBA')
- d.rectangle((6,6,W-7,H-7),outline=CYAN+(255,),width=6)
- art.hud_text(im,'THREE OF A KIND ON THE CENTER LINE PAYS',W/2,42,34,CYAN+(255,),tracking=1.8,weight=.17)
- order=sorted(table['three'],key=lambda k:(-table['three'][k],symbols.index(k)))
- cw=W/4
- for i,name in enumerate(order):
-  col,row=i%4,i//4;x0=col*cw;y0=78+row*156
-  icon=symbol_cell(name,(300,140),background=False);im.alpha_composite(icon,(int(x0+10),int(y0+4)))
-  if col:d.line((x0,y0+24,x0,y0+124),fill=(34,230,255,60),width=2)
-  art.hud_text(im,'x'+str(table['three'][name]),x0+cw-34,y0+74,72,(255,236,200,255),anchor='rm',tracking=1.2,weight=.19,glow_color=GOLD,glow_radius=8)
- d.line((40,398,W-40,398),fill=(34,230,255,120),width=2)
- rules=[('CHERRY CHERRY ANY','x'+str(table['twoCherries'])),('ANY 3 FRUIT','x'+str(table['mixedFruit'])),('CHERRY ON REEL 1','x'+str(table['oneCherry']))]
- for i,(label,pay) in enumerate(rules):
-  x=W*(i+.5)/3;lw=art.text_size(label,36,1.3,.17)[0];pw=art.text_size(pay,50,1.2,.19)[0];x0=x-(lw+28+pw)/2
-  art.hud_text(im,label,x0,455,36,(220,232,250,255),anchor='lm',tracking=1.3,weight=.17)
-  art.hud_text(im,pay,x0+lw+28,455,50,MAGENTA+(255,),anchor='lm',tracking=1.2,weight=.19,glow_color=MAGENTA,glow_radius=6)
-  if i:d.line((W*i/3,420,W*i/3,490),fill=(34,230,255,90),width=2)
- return im
+
+def deck_art():
+    """Keycap legends (row 0), card reader display (row 1 left), spin disc (bottom right)."""
+    W, H = 1024, 512
+    im = Image.new('RGBA', (W, H), (30, 32, 38, 255)); d = ImageDraw.Draw(im, 'RGBA')
+    for i, (label, color) in enumerate((('CASH OUT', (236, 200, 120)), ('BET -', (224, 230, 240)), ('BET +', (224, 230, 240)), ('MAX BET', (255, 140, 200)))):
+        x0 = i * 256
+        d.rounded_rectangle((x0 + 14, 12, x0 + 242, 116), radius=10, outline=(70, 74, 84, 255), width=2)
+        A.draw_text(im, label, (x0 + 128, 64), 34 if len(label) > 5 else 40, color, stroke=.14, tracking=1.3)
+    # Player-card display: amber text on smoked glass.
+    d.rectangle((0, 128, 512, 256), fill=(8, 9, 12, 255))
+    A.draw_text(im, 'INSERT PLAYER CARD', (256, 176), 30, (255, 172, 64), stroke=.14, tracking=1.3, glow=((255, 172, 64), 4, .6))
+    A.draw_text(im, 'CIRCUIT CLUB', (256, 222), 20, (150, 120, 70), stroke=.14, tracking=1.6)
+    # Spin disc.
+    c = (896, 384)
+    d.ellipse((c[0] - 118, c[1] - 118, c[0] + 118, c[1] + 118), fill=(12, 40, 50, 255))
+    d.ellipse((c[0] - 106, c[1] - 106, c[0] + 106, c[1] + 106), outline=(48, 226, 255, 200), width=3)
+    A.draw_text(im, 'SPIN', c, 52, (220, 250, 255), stroke=.15, tracking=1.4, glow=(CYAN, 6, .9))
+    return im
+
+
+def grille():
+    """Perforated speaker grille (seamless): staggered round holes in dark gunmetal."""
+    n, s = 256, 4
+    im = Image.new('L', (n * s, n * s), 0); d = ImageDraw.Draw(im)
+    pitch = n * s / 16; r = pitch * .3
+    for j in range(17):
+        for i in range(17):
+            x = i * pitch + (pitch / 2 if j % 2 else 0); y = j * pitch * .866 * (16 / 13.856)
+            for ox in (-n * s, 0, n * s):
+                for oy in (-n * s, 0, n * s):
+                    d.ellipse((x + ox - r, y + oy - r, x + ox + r, y + oy + r), fill=255)
+    holes = np.asarray(im.resize((n, n), Image.Resampling.LANCZOS)).astype(float)[..., None] / 255
+    metal = np.asarray(A.brushed_metal(n, (70, 74, 82), 11).convert('RGB')).astype(float)
+    arr = metal * (1 - holes) + np.array([4, 4, 6]) * holes
+    return Image.fromarray(arr.astype(np.uint8)).convert('RGBA')
+
 
 def artwork(symbols):
- result={}
- atlas=Image.new('RGBA',(1024,1024),INK+(255,))
- for k,name in enumerate(symbols):
-  col,row=k%2,k//2;atlas.alpha_composite(symbol_cell(name),(col*512,row*256))
- result['slot_symbols']=atlas
- result['slot_marquee']=marquee()
- result['slot_belly']=belly()
- result['slot_paytable']=paytable(symbols,pays())
- return result
+    atlas = Image.new('RGBA', (1024, 1024), PEARL + (255,))
+    for k, name in enumerate(symbols):
+        c, r = k % 2, k // 2; atlas.alpha_composite(symbol_cell(name), (c * 512, r * 256))
+    return {'brushed': A.brushed_metal(256, (82, 86, 95)), 'carbon': A.carbon_weave(512, 64), 'composite': A.composite(512),
+            'slot_grille': grille(), 'slot_symbols': atlas, 'slot_marquee': marquee(), 'slot_paytable': paytable(symbols, pays()),
+            'slot_belly': belly(), 'slot_deck': deck_art()}
 
 # The engine samples rows bottom-up relative to our UVs (seen in game: text
 # upside down), so the cooked bytes are flipped vertically; sources/ keeps the
 # drawing upright. Set FLIP_V=False to cook the image as drawn.
-FLIP_V=True
-def cooked(image):return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if FLIP_V else image
+FLIP_V = True
+def cooked(image): return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if FLIP_V else image
 
-def encode_texture(directory,name,image,template):
- image=Image.alpha_composite(Image.new('RGBA',image.size,(0,0,0,255)),image.convert('RGBA'));source=RESOURCE/'sources'/(name+'.png');image.save(source)
- width,height=image.size;data=bytearray();mips=[];level=cooked(image)
- while True:
-  block=level.tobytes();w,h=level.size;mips.append({'$type':'rendRenderTextureBlobMipMapInfo','layout':{'$type':'rendRenderTextureBlobMemoryLayout','rowPitch':w*4,'slicePitch':len(block)},'placement':{'$type':'rendRenderTextureBlobPlacement','offset':len(data),'size':len(block)}});data.extend(block)
-  if (w,h)==(1,1):break
-  level=level.resize((max(1,w//2),max(1,h//2)),Image.Resampling.BOX)
- obj=copy.deepcopy(template);r=obj['Data']['RootChunk'];r['width']=width;r['height']=height
- blob=r['renderTextureResource']['renderResourceBlobPC']['Data'];header=blob['header'];header['mipMapInfo']=mips;header['sizeInfo']['width']=width;header['sizeInfo']['height']=height
- header['textureInfo'].update(mipCount=len(mips),sliceSize=len(data),textureDataSize=len(data));blob['textureData']['Bytes']=base64.b64encode(data).decode()
- (directory/(name+'.xbm.json')).write_text(json.dumps(obj,separators=(',',':')))
- return {'name':name,'flipV':FLIP_V,'depot':DEPOT+'\\textures\\'+name+'.xbm','width':width,'height':height,'mips':len(mips),'bytes':len(data),'sourceSha256':hashlib.sha256(source.read_bytes()).hexdigest()}
 
-ORIGINAL_MATERIAL=base.material
-def linear(v):
- v=v/255;return v/12.92 if v<=.04045 else ((v+.055)/1.055)**2.4
-def material(key):
- """metal_base instance: BaseColor (texture or white x colour), roughness,
- metalness and, for emissive keys, Emissive/EmissiveEV/EmissiveColor (the same
- parameters the lab's emissive vehicle lenses use on metal_base)."""
- value,rough,metal,ev=MATERIALS[key];result=ORIGINAL_MATERIAL(base.WHITE)
- if key in TEXTURED:
-  texture=base.ref(DEPOT+'\\textures\\'+value+'.xbm');rgb=[1,1,1];tint=(255,255,255)
- else:
-  texture=base.ref('engine\\textures\\editor\\white.xbm');tint=tuple(int(value[i:i+2],16) for i in (1,3,5));rgb=[linear(v) for v in tint]
- result['values'][0]['BaseColor']=texture;result['values'][1]['BaseColorScale'].update(X=rgb[0],Y=rgb[1],Z=rgb[2])
- result['values'][2]['RoughnessScale']=rough;result['values'][3]['MetalnessScale']=metal
- if EMISSIVE and ev is not None:
-  result['values']+= [{'$type':'rRef:ITexture','Emissive':copy.deepcopy(texture)},{'$type':'Float','EmissiveEV':ev},
-   {'$type':'Color','EmissiveColor':{'$type':'Color','Red':tint[0],'Green':tint[1],'Blue':tint[2],'Alpha':255}}]
- return result
-base.material=material
+def material(key): return A.cook_material(MATERIALS[key], DEPOT)
+base.material = material
 
-def glb(path,faces):
- colors=base.glb(path,faces)
- # Write the explicit atlas/panel UVs over the shared cooker's planar ones.
- raw=bytearray(path.read_bytes());json_length=struct.unpack_from('<I',raw,12)[0];doc=json.loads(raw[20:20+json_length]);binary=28+json_length;groups={}
- for face in faces:groups.setdefault(face['color'],[]).append(face)
- for mi,group in enumerate(groups.values()):
-  accessor=doc['accessors'][doc['meshes'][mi]['primitives'][0]['attributes']['TEXCOORD_0']];view=doc['bufferViews'][accessor['bufferView']];start=binary+view.get('byteOffset',0)+accessor.get('byteOffset',0)
-  for i,face in enumerate(group):
-   if 'uv' in face:
-    for j,uv in enumerate(face['uv']):struct.pack_into('<ff',raw,start+(i*3+j)*8,*uv)
- path.write_bytes(raw);return colors
 
-def preview_resolver(images):
- def resolve(key):
-  value,rough,metal,ev=MATERIALS[key];m={'rough':rough,'metal':metal,'emit':0 if ev is None else .1*2**(ev-1)}
-  if key in TEXTURED:m['texture']=images[value]
-  else:m['color']=tuple(int(value[i:i+2],16) for i in (1,3,5))
-  return m
- return resolve
+def glb(path, faces):
+    colors = base.glb(path, faces); A.patch_uvs(path, faces); return colors
 
-def previews(geometry,images,strips,symbols):
- """Design renders written to sources/preview_*.png (not shipped in the archive)."""
- def scene(lit=True,lever=0,stops=(7,5,7),coins=3):
-  v=art.Preview(preview_resolver(images));v.add(geometry['slot_cabinet'])
-  for r in range(3):v.add(geometry[f'slot_strip_{r+1}'],(LAYOUT['reelX'][r],LAYOUT['stripY'],PZ+(stops[r]+1)*P))
-  v.add(geometry[f'slot_lever_{lever}'])
-  v.add(geometry['slot_lamp_on' if lit else 'slot_lamp_off'])
-  for i in range(coins):v.add(geometry['slot_coin'],((-.06,.03,-.01,.07)[i],LAYOUT['trayY'],LAYOUT['trayZ']),(0,47,113,160)[i])
-  return v
- out={}
- out['preview_slots_hero']=scene().render((1.75,-3.1,2.0),(.02,0,1.3),fov=46,size=(1000,1300))
- out['preview_slots_player']=scene(lit=False,coins=0).render((0,-1.25,1.36),(0,0,1.3),fov=52,size=(1200,900))
- out['preview_slots_reels']=scene(lit=False,coins=0).render((.05,-1.05,1.45),(0,-.36,1.45),fov=34,size=(1200,900))
- out['preview_slots_lever']=scene(lever=3).render((1.7,-1.55,1.7),(.2,0,1.25),fov=52,size=(1200,900))
- for name,im in out.items():im.save(RESOURCE/'sources'/(name+'.png'),optimize=True)
- return out
 
+# ------------------------------------------------------------------ previews
+def scene_items(geometry, lit=True, lever=0, stops=(7, 5, 7), coins=3):
+    import wheel_tables_preview as pv
+    items = [pv.place(geometry['slot_cabinet'])]
+    for r in range(3): items.append(pv.place(geometry[f'slot_strip_{r + 1}'], (LAYOUT['reelX'][r], SY, PZ + (stops[r] + 1) * P)))
+    items.append(pv.place(geometry[f'slot_lever_{lever}']))
+    items.append(pv.place(geometry['slot_lamp_on' if lit else 'slot_lamp_off']))
+    for i in range(coins): items.append(pv.place(geometry['slot_coin'], ((-.06, .03, -.01, .07)[i], LAYOUT['trayY'], LAYOUT['trayZ']), (0, 47, 113, 160)[i]))
+    return items
+
+
+def previews(geometry, images):
+    """Design renders written to sources/preview_*.png (not shipped in the archive)."""
+    import wheel_tables_preview as pv
+    mats = {k: A.preview_material(s, images) for k, s in MATERIALS.items()}
+    src = RESOURCE / 'sources'; shots = []
+    shots.append(pv.render(scene_items(geometry), mats, src / 'preview_slots_hero.png', eye=(2.4, -3.6, 2.1), target=(0, 0, 1.5), fov=44, size=(1000, 1300), floor_z=0))
+    shots.append(pv.render(scene_items(geometry, lit=False, coins=0), mats, src / 'preview_slots_player.png', eye=(0, -1.6, 2.05), target=(0, 0, 1.72), fov=52, size=(1200, 900), floor_z=0))
+    shots.append(pv.render(scene_items(geometry, lit=False, coins=0), mats, src / 'preview_slots_reels.png', eye=(.12, -1.45, 1.8), target=(0, -.4, 1.6), fov=34, size=(1200, 900)))
+    shots.append(pv.render(scene_items(geometry, lever=3), mats, src / 'preview_slots_lever.png', eye=(1.9, -1.7, 2.1), target=(.3, -.1, 1.65), fov=46, size=(1200, 900), floor_z=0))
+    shots.append(pv.render(scene_items(geometry), mats, src / 'preview_slots_base.png', eye=(.95, -1.6, .62), target=(0, -.42, .42), fov=48, size=(1200, 900), floor_z=0))
+    return shots
+
+
+# ------------------------------------------------------------------ checks
 def bounds(faces):
- return [min(f[k][j] for f in faces for k in ('a','b','c')) for j in range(3)],[max(f[k][j] for f in faces for k in ('a','b','c')) for j in range(3)]
-
-def check_layout(geometry,symbols,strips):
- """Geometry invariants the client timeline relies on."""
- (bx0,bx1),(by0,by1),(bz0,bz1)=BODY_BOX;(cx0,cx1),(cy0,cy1),(cz0,cz1)=BAY
- def inside(lo,hi,dx=0,dy=0,dz=0,margin=.002):
-  return bx0+margin<=lo[0]+dx and hi[0]+dx<=bx1-margin and by0+margin<=lo[1]+dy and hi[1]+dy<=by1-margin and bz0+margin<=lo[2]+dz and hi[2]+dz<=bz1-margin
- def clear_of_bay(lo,hi,dx=0,dy=0,dz=0):
-  return hi[0]+dx<cx0 or lo[0]+dx>cx1 or hi[1]+dy<cy0 or lo[1]+dy>cy1 or hi[2]+dz<cz0 or lo[2]+dz>cz1
- park=LAYOUT['leverPark']
- for i in range(len(LAYOUT['leverAngles'])):
-  lo,hi=bounds(geometry[f'slot_lever_{i}'])
-  assert inside(lo,hi,*park) and clear_of_bay(lo,hi,*park),('parked lever pose is visible',i,lo,hi)
-  assert lo[0]>bx1,('active lever intersects the cabinet',i)
- for name in ('slot_lamp_on','slot_lamp_off'):
-  lo,hi=bounds(geometry[name]);assert lo[2]>=bz1+.03 and inside(lo,hi,*LAYOUT['lampPark']) and clear_of_bay(lo,hi,*LAYOUT['lampPark']),name
- lo,hi=bounds(geometry['slot_coin']);cp=LAYOUT['coinPark']
- for x in (-.06,.03,-.01,.07):assert inside([x+lo[0],cp[1]+lo[1],cp[2]+lo[2]],[x+hi[0],cp[1]+hi[1],cp[2]+hi[2]]) and clear_of_bay([x+lo[0],cp[1]+lo[1],cp[2]+lo[2]],[x+hi[0],cp[1]+hi[1],cp[2]+hi[2]])
- # Strips: for every payline position j in [1,STOPS+1) (incl. overshoot wrap)
- # the strip covers the window and stays inside the dark bay.
- w=LAYOUT['reelWidth']
- for r,x in enumerate(LAYOUT['reelX']):
-  lo,hi=bounds(geometry[f'slot_strip_{r+1}'])
-  assert abs(lo[0]+w/2)<1e-9 and abs(hi[0]-w/2)<1e-9 and lo[1]==hi[1]==0
-  assert cx0<x-w/2 and x+w/2<cx1 and cy0<LAYOUT['stripY']<cy1
-  for step in range(STOPS*20+1):
-   j=1+step/20;zt=PZ+j*P+hi[2];zb=PZ+j*P+lo[2]
-   assert cz0<zb and zt<cz1,('strip leaves the bay',r,j)
-   assert zb<WINDOW_Z[0]-.005 and zt>WINDOW_Z[1]+.005,('strip does not cover the window',r,j)
-  # The strip wraps seamlessly: entries j and j+STOPS show the same symbols.
-  entries=[strips[r][-1]]+strips[r]+strips[r][:2]
-  for j in range(3):assert entries[j]==entries[j+STOPS]
- # Window: strips' outer edges and divider gaps are behind the bezel.
- assert WINDOW_X[0]>LAYOUT['reelX'][0]-w/2 and WINDOW_X[1]<LAYOUT['reelX'][2]+w/2
- assert HOLE_X[0]>=cx0 and HOLE_X[1]<=cx1 and cz0<WINDOW_Z[0] and WINDOW_Z[1]<cz1
+    return [min(f[k][j] for f in faces for k in ('a', 'b', 'c')) for j in range(3)], [max(f[k][j] for f in faces for k in ('a', 'b', 'c')) for j in range(3)]
 
 
-def verify(work,manifest):
- """Independent cooked-file, namespace, package-index and authored-pose checks."""
- spec=importlib.util.spec_from_file_location('archive_checks',ROOT/'tools/test-board-game-props.py');checks=importlib.util.module_from_spec(spec);spec.loader.exec_module(checks)
- archive=work/'archive';verified=work/'verified';packed=(work/'packed/archive.archive').read_bytes()
- entries=checks.archive_entries(packed);files=manifest['files']
- assert len(manifest['models'])==13 and len(manifest['textures'])==len(TEXTURED)==4
- assert len(entries)==len(files)==2*13+4+len(COLLIDERS)
- assert [row['for'] for row in manifest['colliders']]==list(COLLIDERS)
- for row in manifest['colliders']:
-  assert row['name']==col.collider_name(row['for']) and row['for'] in COLLIDERS and row['scaleBaked']==col.SCALE
-  col.check_collider_entity(next(verified.rglob(row['name']+'.ent.json')),COLLIDERS[row['for']])
- assert set(entries)=={checks.fnv(row['depot']) for row in files}
- allowed={row['depot'] for row in files}|set(manifest['materialDependencies'])
- for row in files:
-  data=(archive/row['depot'].replace('\\','/')).read_bytes()
-  assert data[:4]==b'CR2W' and len(data)==row['bytes'] and hashlib.sha256(data).hexdigest()==row['sha256']
- for model in manifest['models']:
-  name=model['name']
-  for ext,kind in (('mesh','CMesh'),('ent','entEntityTemplate')):
-   candidates=list(verified.rglob(f'{name}.{ext}.json'));assert len(candidates)==1,(name,ext)
-   r=json.loads(candidates[0].read_text())['Data']['RootChunk'];assert r['$type']==kind
-   for path in checks.depot_paths(r):assert not path or path in allowed,(name,path)
-   if ext=='ent':
-    assert r['entity']['Data']['$type']=='entEntity' and len(r['components'])==1
-    assert r['components'][0]['mesh']['DepotPath']['$value']==model['mesh']
-   else:
-    assert r['objectType']=='ROT_Static' and not r['boneNames'] and not r['parameters']
-    blob=r['renderResourceBlob']['Data'];chunks=blob['header']['renderChunkInfos'];assert sum(c['numIndices'] for c in chunks)//3==model['triangles']
-    pixels=base64.b64decode(blob['renderBuffer']['Bytes'])
-    for chunk_index,chunk in enumerate(chunks):
-     vertices=chunk['chunkVertices'];layout=vertices['vertexLayout'];elements=layout['elements']['Elements']
-     for color in (e for e in elements if e['usage']=='PS_Color'):
-      stream=color['streamIndex'];offset=vertices['byteOffsets']['Elements'][stream];stride=layout['slotStrides']['Elements'][stream]
-      assert all(pixels[offset+j*stride:offset+j*stride+4]==b'\xff'*4 for j in range(chunk['numVertices']))
-     uv=next(e for e in elements if e['usage']=='PS_TexCoord' and e['usageIndex']==0);stream=uv['streamIndex'];offset=vertices['byteOffsets']['Elements'][stream];stride=layout['slotStrides']['Elements'][stream]
-     values=[struct.unpack_from('<ee',pixels,offset+j*stride) for j in range(chunk['numVertices'])]
-     assert all(math.isfinite(v) for pair in values for v in pair) and len(set(values))>1
-     if model['materials'][chunk_index] in TEXTURED:
-      assert all(-.001<=v<=1.001 for pair in values for v in pair),(name,'atlas UV out of bounds')
-    mats=r['localMaterialBuffer']['materials'];names={e['name']['$value'] for e in r['materialEntries']}
-    for key,mat in zip(model['materials'],mats):   # emissive keys keep a non-black Emissive tint through the round trip
-     values={k:v for e in mat['values'] for k,v in e.items() if k!='$type'}
-     if EMISSIVE and MATERIALS[key][3] is not None:
-      assert abs(values['EmissiveEV']-MATERIALS[key][3])<1e-5 and values['Emissive']['DepotPath']['$value']==values['BaseColor']['DepotPath']['$value'],(name,key)
-      assert max(values['EmissiveColor'][c] for c in ('Red','Green','Blue'))>0,(name,key)
-     else:assert 'Emissive' not in values,(name,key)
-    assert all(0<=e['index']<len(mats) for e in r['materialEntries'])
-    assert all(c['$value'] in names for a in r['appearances'] for c in a['Data']['chunkMaterials'])
-    lo,hi=r['boundingBox']['Min'],r['boundingBox']['Max']
-    for i,axis in enumerate(('X','Y','Z')):
-     assert math.isfinite(lo[axis]) and math.isfinite(hi[axis]) and lo[axis]<=hi[axis]
-     assert abs(lo[axis]-model['bounds']['min'][i])<1e-5 and abs(hi[axis]-model['bounds']['max'][i])<1e-5
- for texture in manifest['textures']:
-  r=json.loads(next(verified.rglob(texture['name']+'.xbm.json')).read_text())['Data']['RootChunk']
-  assert r['$type']=='CBitmapTexture' and r['width']==texture['width'] and r['height']==texture['height']
-  blob=r['renderTextureResource']['renderResourceBlobPC']['Data'];data=base64.b64decode(blob['textureData']['Bytes'])
-  assert len(blob['header']['mipMapInfo'])==texture['mips']
-  source=RESOURCE/'sources'/(texture['name']+'.png');image=Image.open(source).convert('RGBA')
-  assert hashlib.sha256(source.read_bytes()).hexdigest()==texture['sourceSha256']
-  assert data[:image.width*image.height*4]==(cooked(image) if texture.get('flipV') else image).tobytes() and all(v==255 for v in data[3::4])
- symbols,strips=reels();assert manifest['symbols']==symbols and manifest['reels']==strips and manifest['layout']==LAYOUT
- check_layout(models(symbols,strips),symbols,strips)
- with zipfile.ZipFile(RESOURCE/'dist/open77_casino_slots.zip') as z:
-  assert z.testzip() is None and z.namelist()==['archive/pc/mod/0_open77_casino_slots.archive']
-  assert z.read(z.namelist()[0])==packed
- print('VERIFIED: 13 native props (cabinet, 3 strips, 6 lever poses, 2 lamps, coin), 4 opaque mipmapped textures, 30 exact RDAR entries + '+str(len(COLLIDERS))+' collider entity, emissive neon/screens, geometry/bindings/package hashes, parked poses hidden, strips always cover the window inside the bay',flush=True)
+def check_layout(geometry, symbols, strips):
+    """Geometry invariants the client timeline relies on."""
+    (bx0, bx1), (by0, by1), (bz0, bz1) = BODY_BOX; (cx0, cx1), (cy0, cy1), (cz0, cz1) = BAY
+    def inside(lo, hi, dx=0, dy=0, dz=0, margin=.002):
+        return bx0 + margin <= lo[0] + dx and hi[0] + dx <= bx1 - margin and by0 + margin <= lo[1] + dy and hi[1] + dy <= by1 - margin and bz0 + margin <= lo[2] + dz and hi[2] + dz <= bz1 - margin
+    def clear_of_bay(lo, hi, dx=0, dy=0, dz=0):
+        return hi[0] + dx < cx0 or lo[0] + dx > cx1 or hi[1] + dy < cy0 or lo[1] + dy > cy1 or hi[2] + dz < cz0 or lo[2] + dz > cz1
+    park = LAYOUT['leverPark']
+    for i in range(len(LAYOUT['leverAngles'])):
+        lo, hi = bounds(geometry[f'slot_lever_{i}'])
+        assert inside(lo, hi, *park) and clear_of_bay(lo, hi, *park), ('parked lever pose is visible', i, lo, hi)
+        assert lo[0] > X_OUT, ('active lever intersects the cabinet', i)
+    for name in ('slot_lamp_on', 'slot_lamp_off'):
+        lo, hi = bounds(geometry[name]); assert lo[2] >= bz1 + .03 and inside(lo, hi, *LAYOUT['lampPark']) and clear_of_bay(lo, hi, *LAYOUT['lampPark']), name
+    lo, hi = bounds(geometry['slot_coin']); cp = LAYOUT['coinPark']
+    for x in (-.06, .03, -.01, .07):
+        assert inside([x + lo[0], cp[1] + lo[1], cp[2] + lo[2]], [x + hi[0], cp[1] + hi[1], cp[2] + hi[2]]) and clear_of_bay([x + lo[0], cp[1] + lo[1], cp[2] + lo[2]], [x + hi[0], cp[1] + hi[1], cp[2] + hi[2]])
+    # Coins rest on the tray floor and fall from inside the chute canopy.
+    floor = [f for f in geometry['slot_cabinet'] if f['color'] == 'gunmetal' and all(abs(f[k][2] - .935) < 1e-9 for k in 'abc')]
+    assert floor and abs(LAYOUT['trayZ'] + lo[2] - .936) < 1e-9, 'coins rest 1 mm above the tray floor'
+    assert all(abs(x) + hi[0] < .198 for x in (-.06, .03, -.01, .07)) and -.533 < LAYOUT['trayY'] + lo[1] and LAYOUT['trayY'] + hi[1] < -.40
+    assert 1.02 < LAYOUT['chuteZ'] < 1.10 and -.47 < LAYOUT['chuteY'] < -.406
+    # Strips: for every payline position j in [1,STOPS+1) (incl. overshoot wrap)
+    # the strip covers the window and stays inside the dark bay.
+    w = LAYOUT['reelWidth']
+    for r, x in enumerate(LAYOUT['reelX']):
+        lo, hi = bounds(geometry[f'slot_strip_{r + 1}'])
+        assert abs(lo[0] + w / 2) < 1e-9 and abs(hi[0] - w / 2) < 1e-9 and lo[1] == hi[1] == 0
+        assert cx0 < x - w / 2 and x + w / 2 < cx1 and cy0 < SY < cy1
+        for step in range(STOPS * 20 + 1):
+            j = 1 + step / 20; zt = PZ + j * P + hi[2]; zb = PZ + j * P + lo[2]
+            assert cz0 < zb and zt < cz1, ('strip leaves the bay', r, j)
+            assert zb < WINDOW_Z[0] - .005 and zt > WINDOW_Z[1] + .005, ('strip does not cover the window', r, j)
+        entries = [strips[r][-1]] + strips[r] + strips[r][:2]
+        for j in range(3): assert entries[j] == entries[j + STOPS]
+    # Window: strips' outer edges and divider gaps are behind the bezel; the bay
+    # sits inside the closed core, the hole inside the bay.
+    assert WINDOW_X[0] > LAYOUT['reelX'][0] - w / 2 and WINDOW_X[1] < LAYOUT['reelX'][2] + w / 2
+    assert HOLE_X[0] >= cx0 and HOLE_X[1] <= cx1 and cz0 < HOLE_Z[0] and HOLE_Z[1] < cz1
+    assert bx0 < cx0 and cx1 < bx1 and by0 == cy0 and cy1 < by1 and bz0 < cz0 and cz1 < bz1
+    # Nothing of the cabinet reaches the strips' plane or the bay behind it (only the lining).
+    for f in geometry['slot_cabinet']:
+        if f['color'] in ('lining',): continue
+        c = [sum(f[k][i] for k in 'abc') / 3 for i in range(3)]
+        if cx0 + .001 < c[0] < cx1 - .001 and SY - .004 < c[1] < cy1 - .001 and cz0 + .001 < c[2] < cz1 - .001:
+            raise AssertionError(('cabinet face inside the reel bay', f['color'], c))
+
+
+# Where the machine is seen from (unscaled cabinet-local metres): the player in
+# front (standing and seated), the client cameras, both sides, low and high.
+VIEWPOINTS = [(0, -1.6, 2.05), (0, -1.1, 1.55), (.15, -2.9, 2.2), (1.9, -1.7, 2.1), (-1.9, -1.7, 2.1), (.8, -1.8, .7),
+              (-.9, -1.2, 2.9), (2.2, .4, 1.4), (0, 2.2, 1.8)]
+SAME_FACING_GAP = .003   # different materials facing the same way stay >= 3 mm apart where they overlap
+
+
+def check_geometry(geometry):
+    """No z-fighting and no holes: no two material groups overlap in one plane
+    (within 1 mm, either facing: touching faces are left out; within 3 mm when
+    both face the same way), and from every viewpoint the first surface on each
+    ray faces the viewer."""
+    for name, faces in geometry.items():
+        pairs = mesh_checks.coplanar_overlaps(faces, tol=.001, same_material=lambda key: key.startswith('TEX:'))
+        assert not pairs, (name, len(pairs), mesh_checks.describe(faces, pairs))
+    # The cabinet with its parts at rest (lever, lamp, strips on the payline, coins in the tray).
+    rest = list(geometry['slot_cabinet']) + geometry['slot_lever_0'] + geometry['slot_lamp_on']
+    for r in range(3): rest += A.translate(geometry[f'slot_strip_{r + 1}'], (LAYOUT['reelX'][r], SY, PZ + P))
+    for x in (-.06, .03, -.01, .07): rest += A.translate(geometry['slot_coin'], (x, LAYOUT['trayY'], LAYOUT['trayZ']))
+    pairs = mesh_checks.coplanar_overlaps(rest, tol=SAME_FACING_GAP, angle=2)
+    tri = np.array([[f['a'], f['b'], f['c']] for f in rest]); n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    same = [p for p in pairs if float(np.dot(n[p[0]], n[p[1]])) > 0]
+    assert not same, ('surfaces of two materials within 3 mm, facing the same way', len(same), mesh_checks.describe(rest, same))
+    cabinet = [f for f in geometry['slot_cabinet']]
+    bad = mesh_checks.see_through(cabinet, VIEWPOINTS)
+    assert not bad, ('back faces seen from the viewpoints', sorted({c for _, _, c in bad}), len(bad), bad[:6])
+    print(f'GEOMETRY: {len(geometry)} models without coplanar overlaps between materials (1 mm, 3 mm same-facing at rest); cabinet closed from {len(VIEWPOINTS)} viewpoints', flush=True)
+
+
+def verify(work, manifest):
+    """Independent cooked-file, namespace, package-index and authored-pose checks."""
+    spec = importlib.util.spec_from_file_location('archive_checks', ROOT / 'tools/test-board-game-props.py'); checks = importlib.util.module_from_spec(spec); spec.loader.exec_module(checks)
+    archive = work / 'archive'; verified = work / 'verified'; packed = (work / 'packed/archive.archive').read_bytes()
+    entries = checks.archive_entries(packed); files = manifest['files']; n_tex = len(TEXTURE_NAMES)
+    assert len(manifest['models']) == 13 and len(manifest['textures']) == n_tex
+    assert len(entries) == len(files) == 2 * 13 + n_tex + len(COLLIDERS)
+    assert [row['for'] for row in manifest['colliders']] == list(COLLIDERS)
+    for row in manifest['colliders']:
+        assert row['name'] == col.collider_name(row['for']) and row['for'] in COLLIDERS and row['scaleBaked'] == col.SCALE
+        col.check_collider_entity(next(verified.rglob(row['name'] + '.ent.json')), COLLIDERS[row['for']])
+    assert set(entries) == {checks.fnv(row['depot']) for row in files}
+    allowed = {row['depot'] for row in files} | set(manifest['materialDependencies'])
+    for row in files:
+        data = (archive / row['depot'].replace('\\', '/')).read_bytes()
+        assert data[:4] == b'CR2W' and len(data) == row['bytes'] and hashlib.sha256(data).hexdigest() == row['sha256']
+    emissive = {k for k, s in MATERIALS.items() if s.emit}
+    for model in manifest['models']:
+        name = model['name']
+        for ext, kind in (('mesh', 'CMesh'), ('ent', 'entEntityTemplate')):
+            candidates = list(verified.rglob(f'{name}.{ext}.json')); assert len(candidates) == 1, (name, ext)
+            r = json.loads(candidates[0].read_text())['Data']['RootChunk']; assert r['$type'] == kind
+            for path in checks.depot_paths(r): assert not path or path in allowed, (name, path)
+            if ext == 'ent':
+                assert r['entity']['Data']['$type'] == 'entEntity' and len(r['components']) == 1
+                assert r['components'][0]['mesh']['DepotPath']['$value'] == model['mesh']
+                continue
+            assert r['objectType'] == 'ROT_Static' and not r['boneNames'] and not r['parameters']
+            blob = r['renderResourceBlob']['Data']; chunks = blob['header']['renderChunkInfos']; assert sum(c['numIndices'] for c in chunks) // 3 == model['triangles']
+            pixels = base64.b64decode(blob['renderBuffer']['Bytes'])
+            for chunk_index, chunk in enumerate(chunks):
+                vertices = chunk['chunkVertices']; layout = vertices['vertexLayout']; elements = layout['elements']['Elements']
+                for color in (e for e in elements if e['usage'] == 'PS_Color'):
+                    stream = color['streamIndex']; offset = vertices['byteOffsets']['Elements'][stream]; stride = layout['slotStrides']['Elements'][stream]
+                    assert all(pixels[offset + j * stride:offset + j * stride + 4] == b'\xff' * 4 for j in range(chunk['numVertices']))
+                uv = next(e for e in elements if e['usage'] == 'PS_TexCoord' and e['usageIndex'] == 0); stream = uv['streamIndex']; offset = vertices['byteOffsets']['Elements'][stream]; stride = layout['slotStrides']['Elements'][stream]
+                values = [struct.unpack_from('<ee', pixels, offset + j * stride) for j in range(chunk['numVertices'])]
+                assert all(math.isfinite(v) for pair in values for v in pair) and len(set(values)) > 1
+                if model['materials'][chunk_index] in TEXTURED:
+                    assert all(-.001 <= v <= 1.001 for pair in values for v in pair), (name, 'artwork UV out of bounds')
+            mats = r['localMaterialBuffer']['materials']; names = {e['name']['$value'] for e in r['materialEntries']}
+            assert all(0 <= e['index'] < len(mats) for e in r['materialEntries'])
+            assert all(c['$value'] in names for a in r['appearances'] for c in a['Data']['chunkMaterials'])
+            for key, mat in zip(model['materials'], mats):
+                params = {k: v for e in mat['values'] for k, v in e.items() if k != '$type'}
+                assert ('EmissiveEV' in params) == (key in emissive), (name, key)
+                if key in emissive:
+                    assert abs(params['EmissiveEV'] - MATERIALS[key].ev()) < 1e-5 and max(params['EmissiveColor'][c] for c in ('Red', 'Green', 'Blue')) > 0, (name, key)
+            lo, hi = r['boundingBox']['Min'], r['boundingBox']['Max']
+            for i, axis in enumerate(('X', 'Y', 'Z')):
+                assert math.isfinite(lo[axis]) and math.isfinite(hi[axis]) and lo[axis] <= hi[axis]
+                assert abs(lo[axis] - model['bounds']['min'][i]) < 1e-5 and abs(hi[axis] - model['bounds']['max'][i]) < 1e-5
+    for texture in manifest['textures']:
+        r = json.loads(next(verified.rglob(texture['name'] + '.xbm.json')).read_text())['Data']['RootChunk']
+        assert r['$type'] == 'CBitmapTexture' and r['width'] == texture['width'] and r['height'] == texture['height']
+        blob = r['renderTextureResource']['renderResourceBlobPC']['Data']; data = base64.b64decode(blob['textureData']['Bytes'])
+        assert len(blob['header']['mipMapInfo']) == texture['mips']
+        source = RESOURCE / 'sources' / (texture['name'] + '.png'); image = Image.open(source).convert('RGBA')
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == texture['sourceSha256']
+        assert data[:image.width * image.height * 4] == (cooked(image) if texture.get('flipV') else image).tobytes() and all(v == 255 for v in data[3::4])
+    symbols, strips = reels(); assert manifest['symbols'] == symbols and manifest['reels'] == strips and manifest['layout'] == LAYOUT
+    geometry = models(symbols, strips)
+    check_layout(geometry, symbols, strips); check_geometry(geometry)
+    by_name = {m['name']: m for m in manifest['models']}
+    cb = by_name['slot_cabinet']['bounds']; lamp_top = by_name['slot_lamp_on']['bounds']['max'][2]
+    assert abs(cb['min'][2]) < 1e-9, 'origin on the floor'
+    assert .62 <= (cb['max'][0] - cb['min'][0]) * SCALE <= .70 and 1.9 <= lamp_top * SCALE <= 2.1, ('true-scale proportions', cb, lamp_top)
+    box = COLLIDERS['slot_cabinet'][0]
+    assert box.center[0] + box.size[0] / 2 <= X_OUT + 1e-9 < LAYOUT['leverPivot'][0] - .03, 'the lever side stays open'
+    with zipfile.ZipFile(RESOURCE / 'dist/open77_casino_slots.zip') as z:
+        assert z.testzip() is None and z.namelist() == ['archive/pc/mod/0_open77_casino_slots.archive']
+        assert z.read(z.namelist()[0]) == packed
+    print(f'VERIFIED: 13 native props (cabinet, 3 strips, 6 lever poses, 2 lamps, coin), {n_tex} opaque mipmapped textures, {len(files)} exact RDAR entries incl. {len(COLLIDERS)} collider entity, emission, geometry/bindings/package hashes, parked poses hidden, strips always cover the window inside the bay, no coplanar overlaps, no holes', flush=True)
 
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--lab',type=Path,default=LAB);p.add_argument('--work',type=Path,default=Path('/tmp/casino-slots-props/build'));p.add_argument('--verify-only',action='store_true');p.add_argument('--preview',action='store_true',help='write sources/*.png and the preview renders, then stop');a=p.parse_args();work=a.work
- if a.verify_only:
-  verify(work,json.loads((RESOURCE/'asset-manifest.json').read_text()));return
- symbols,strips=reels();geometry=models(symbols,strips);check_layout(geometry,symbols,strips)
- if a.preview:
-  (RESOURCE/'sources').mkdir(parents=True,exist_ok=True);images=artwork(symbols)
-  for name,image in images.items():Image.alpha_composite(Image.new('RGBA',image.size,(0,0,0,255)),image.convert('RGBA')).save(RESOURCE/'sources'/(name+'.png'))
-  previews(geometry,images,strips,symbols);print('PREVIEWS written to',RESOURCE/'sources',flush=True);return
- tools=a.lab/'tools';env=os.environ.copy();env['DOTNET_ROOT']=str(tools/'dotnet');env['DOTNET_CLI_HOME']=str(work/'dotnet-home')
- def cli(*args,imports=0):
-  result=subprocess.run([str(tools/'dotnet/dotnet'),str(tools/'wolvenkit/WolvenKit.CLI.dll'),*map(str,args)],env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-  if '[ 0: Error' in result.stdout or (result.returncode and not(imports and result.stdout.count('Rebuilt with buffers:')==imports)):print(result.stdout);raise RuntimeError('WolvenKit failed '+str(args))
-  print('\n'.join(line for line in result.stdout.splitlines() if 'Success' in line),flush=True)
- schemas=work/'json';raw=work/'raw';tex=work/'texture-json';host=work/'host-schema';template_dir=work/'texture-template'
- for folder in (schemas,raw,tex,host,template_dir,RESOURCE/'sources'):folder.mkdir(parents=True,exist_ok=True)
- donor=json.loads((a.lab/'donor/oni-json/v_sportbike13_methodd_oni__ext01_body_01.mesh.json').read_text())
- cli('convert','serialize','/home/dop42/opx_pool_assets/assets/hosts/open77/assets/opx_infinity/pool/ball_01.ent','-o',host);template=json.loads((host/'ball_01.ent.json').read_text())
- # The shared cooker's wood textures only serve as an XBM schema template here.
- base.RESOURCE=work/'texture-template-resource';base.wood_textures(template_dir);base.RESOURCE=RESOURCE
- texture_template=json.loads((template_dir/'wood_ivory.xbm.json').read_text())
- textures=[encode_texture(tex,name,image,texture_template) for name,image in artwork(symbols).items()]
- records=[]
- for i,(name,faces) in enumerate(geometry.items()):
-  for f in faces:
-   p1,p2,p3=(f[k] for k in ('a','b','c'));normal=base.cross([p2[j]-p1[j] for j in range(3)],[p3[j]-p1[j] for j in range(3)])
-   assert sum(x*x for x in normal)>1e-22,(name,f)
-  colors=glb(raw/(name+'.mesh.glb'),faces)
-  (schemas/(name+'.mesh.json')).write_text(json.dumps(base.mesh_json(donor,colors,faces)))
-  (schemas/(name+'.ent.json')).write_text(json.dumps(base.entity_json(template,name,i)))
-  lo,hi=bounds(faces)
-  records.append({'name':name,'mesh':DEPOT+'\\'+name+'.mesh','entity':DEPOT+'\\'+name+'.ent','triangles':len(faces),'materials':colors,'bounds':{'min':lo,'max':hi}})
- colliders=[]
- for i,(name,boxes) in enumerate(COLLIDERS.items()):
-  (schemas/(col.collider_name(name)+'.ent.json')).write_text(json.dumps(col.collider_entity_json(template,boxes,i)))
-  colliders.append({'name':col.collider_name(name),'for':name,'entity':DEPOT+'\\'+col.collider_name(name)+'.ent','scaleBaked':col.SCALE,'boxes':[{'size':list(b.size),'center':list(b.center)} for b in boxes]})
- archive=work/'archive';target=archive/DEPOT.replace('\\','/');(target/'textures').mkdir(parents=True,exist_ok=True)
- cli('convert','deserialize',schemas,'-o',target);cli('convert','deserialize',tex,'-o',target/'textures');cli('import',*[raw/(name+'.mesh.glb') for name in geometry],'-o',target,'--keep',imports=len(geometry))
- verified=work/'verified';verified.mkdir(exist_ok=True);cli('convert','serialize',archive,'-o',verified);packed=work/'packed';packed.mkdir(exist_ok=True);cli('pack',archive,'-o',packed)
- cooked=packed/'archive.archive';assert cooked.read_bytes()[:4]==b'RDAR';output=RESOURCE/'dist/open77_casino_slots.zip';output.parent.mkdir(parents=True,exist_ok=True)
- with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
-  info=zipfile.ZipInfo('archive/pc/mod/0_open77_casino_slots.archive',(2026,1,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,cooked.read_bytes())
- files=[{'depot':str(p.relative_to(archive)).replace('/','\\'),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in sorted(archive.rglob('*')) if p.is_file()]
- manifest={'version':'2.0.0','style':'Night City black chrome cabinet: cyan neon fins, curved topper, emissive screens and reels','namespace':DEPOT,'models':records,'colliders':colliders,'textures':textures,'files':files,'symbols':symbols,'reels':strips,'layout':LAYOUT,
-  'archiveSha256':hashlib.sha256(cooked.read_bytes()).hexdigest(),'zipSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'buildWork':str(work),'materialDependencies':['engine\\materials\\metal_base.remt','engine\\textures\\editor\\white.xbm']}
- (RESOURCE/'asset-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('COOKED',len(records),'models,',len(textures),'textures,',len(files),'native files, ZIP',output.stat().st_size,'bytes',flush=True)
- verify(work,manifest)
-if __name__=='__main__':main()
+    p = argparse.ArgumentParser(description=__doc__); p.add_argument('--lab', type=Path, default=LAB); p.add_argument('--work', type=Path, default=Path('/tmp/casino-slots-props/build'))
+    p.add_argument('--verify-only', action='store_true'); p.add_argument('--preview', '--preview-only', dest='preview', action='store_true', help='render sources/preview_*.png and stop (texture sources are only rewritten by a cook)')
+    p.add_argument('--check-geometry', action='store_true', help='only run the layout, z-fighting and hole checks on the authored geometry'); a = p.parse_args(); work = a.work
+    if a.verify_only:
+        verify(work, json.loads((RESOURCE / 'asset-manifest.json').read_text())); return
+    symbols, strips = reels(); geometry = models(symbols, strips); check_layout(geometry, symbols, strips)
+    if a.check_geometry:
+        check_geometry(geometry); return
+    images = artwork(symbols); (RESOURCE / 'sources').mkdir(parents=True, exist_ok=True)
+    if a.preview:
+        previews(geometry, images); print('PREVIEWS written to', RESOURCE / 'sources', flush=True); return
+    tools = a.lab / 'tools'; env = os.environ.copy(); env['DOTNET_ROOT'] = str(tools / 'dotnet'); env['DOTNET_CLI_HOME'] = str(work / 'dotnet-home')
+    def cli(*args, imports=0):
+        result = subprocess.run([str(tools / 'dotnet/dotnet'), str(tools / 'wolvenkit/WolvenKit.CLI.dll'), *map(str, args)], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if '[ 0: Error' in result.stdout or (result.returncode and not (imports and result.stdout.count('Rebuilt with buffers:') == imports)): print(result.stdout); raise RuntimeError('WolvenKit failed ' + str(args))
+        print('\n'.join(line for line in result.stdout.splitlines() if 'Success' in line)[-1500:], flush=True)
+    schemas = work / 'json'; raw = work / 'raw'; tex = work / 'texture-json'; host = work / 'host-schema'
+    for folder in (schemas, raw, tex, host, work / 'dotnet-home'): folder.mkdir(parents=True, exist_ok=True)
+    for stale in (RESOURCE / 'sources').glob('*.png'):
+        if not stale.name.startswith('preview_') and stale.stem not in TEXTURE_NAMES: stale.unlink()
+    donor = json.loads((a.lab / 'donor/oni-json/v_sportbike13_methodd_oni__ext01_body_01.mesh.json').read_text())
+    cli('convert', 'serialize', '/home/dop42/opx_pool_assets/assets/hosts/open77/assets/opx_infinity/pool/ball_01.ent', '-o', host); template = json.loads((host / 'ball_01.ent.json').read_text())
+    textures = [A.encode_texture(tex, RESOURCE / 'sources', DEPOT, name, images[name], cooked) for name in TEXTURE_NAMES]
+    previews(geometry, images)
+    records = []
+    for i, (name, faces) in enumerate(geometry.items()):
+        colors = glb(raw / (name + '.mesh.glb'), faces)
+        (schemas / (name + '.mesh.json')).write_text(json.dumps(base.mesh_json(donor, colors, faces)))
+        (schemas / (name + '.ent.json')).write_text(json.dumps(base.entity_json(template, name, i)))
+        lo, hi = bounds(faces)
+        records.append({'name': name, 'mesh': DEPOT + '\\' + name + '.mesh', 'entity': DEPOT + '\\' + name + '.ent', 'triangles': len(faces), 'materials': colors, 'bounds': {'min': lo, 'max': hi}})
+    colliders = []
+    for i, (name, boxes) in enumerate(COLLIDERS.items()):
+        (schemas / (col.collider_name(name) + '.ent.json')).write_text(json.dumps(col.collider_entity_json(template, boxes, i)))
+        colliders.append({'name': col.collider_name(name), 'for': name, 'entity': DEPOT + '\\' + col.collider_name(name) + '.ent', 'scaleBaked': col.SCALE, 'boxes': [{'size': list(b.size), 'center': list(b.center)} for b in boxes]})
+    archive = work / 'archive'; target = archive / DEPOT.replace('\\', '/'); (target / 'textures').mkdir(parents=True, exist_ok=True)
+    cli('convert', 'deserialize', schemas, '-o', target); cli('convert', 'deserialize', tex, '-o', target / 'textures'); cli('import', *[raw / (name + '.mesh.glb') for name in geometry], '-o', target, '--keep', imports=len(geometry))
+    verified = work / 'verified'; verified.mkdir(exist_ok=True); cli('convert', 'serialize', archive, '-o', verified); packed = work / 'packed'; packed.mkdir(exist_ok=True); cli('pack', archive, '-o', packed)
+    archive_file = packed / 'archive.archive'; assert archive_file.read_bytes()[:4] == b'RDAR'; output = RESOURCE / 'dist/open77_casino_slots.zip'; output.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        info = zipfile.ZipInfo('archive/pc/mod/0_open77_casino_slots.archive', (2026, 1, 1, 0, 0, 0)); info.compress_type = zipfile.ZIP_DEFLATED; info.external_attr = 0o100644 << 16; z.writestr(info, archive_file.read_bytes())
+    files = [{'depot': str(q.relative_to(archive)).replace('/', '\\'), 'sha256': hashlib.sha256(q.read_bytes()).hexdigest(), 'bytes': q.stat().st_size} for q in sorted(archive.rglob('*')) if q.is_file()]
+    manifest = {'version': '3.0.0', 'style': 'Night City premium stepper cabinet: satin lacquer, black chrome, brushed gunmetal, carbon, smoked glass, restrained cyan/magenta light lines',
+                'namespace': DEPOT, 'models': records, 'colliders': colliders, 'textures': textures, 'files': files, 'symbols': symbols, 'reels': strips, 'layout': LAYOUT,
+                'emission': {k: {'rgb': s.emit[0], 'ev': s.ev()} for k, s in MATERIALS.items() if s.emit},
+                'archiveSha256': hashlib.sha256(archive_file.read_bytes()).hexdigest(), 'zipSha256': hashlib.sha256(output.read_bytes()).hexdigest(), 'buildWork': str(work),
+                'materialDependencies': A.depot_dependencies(MATERIALS.values())}
+    (RESOURCE / 'asset-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n'); print('COOKED', len(records), 'models,', len(textures), 'textures,', len(files), 'native files, ZIP', output.stat().st_size, 'bytes', flush=True)
+    verify(work, manifest)
+
+
+if __name__ == '__main__': main()
