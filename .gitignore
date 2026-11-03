@@ -48,6 +48,8 @@
 !resources/assets/maps/ncwe_local/**
 !resources/assets/maps/cardealer/
 !resources/assets/maps/cardealer/**
+!resources/assets/maps/casino/
+!resources/assets/maps/casino/**
 # LightRP's own standalone resources: the Neural-Link phone, the icon catalogue
 # and the roleplay action bubbles.
 !resources/standalone/
