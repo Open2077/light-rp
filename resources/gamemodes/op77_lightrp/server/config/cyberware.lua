@@ -228,7 +228,7 @@ LightRpCyberwareConfig = {
           kind = "second_heart", rarity = "legendary", tier = 5, price = 55000, capacity = 6,
           maker = "Biotechnica", icon = "cw_circulatory_secondheart",
           secondHeart = { cooldownMs = 3600000, delayMs = 5000, health = 0.4, graceMs = 4000 },
-          effect = "Downed in the city, you get back up by yourself after 5 s. Once an hour. Off in Dogtown and in ranked activities.",
+          effect = "Downed in the city, you get back up by yourself after 5 s. Once an hour. Off in Dogtown, missions and ranked or PvP activities.",
           lore = "A spare pump on standby. It only wakes up when the first one quits.", stats = { { "Self-revive", "5 s" }, { "Health", "40%" }, { "Cooldown", "1 h" } } },
         -- Rank V+: reputation tier V (Legend) ---------------------------------------------
         { id = "neofiber_mk3", name = "Neofiber Actuators Mk.3", section = "nervous", family = "dash",
