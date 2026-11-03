@@ -14,6 +14,7 @@ LightRP = {
     characters = { get = function(id) return chars[id] end },
     state = function() end,
     stateProvider = function() end,
+    command = function(name, _, fn) LightRP["cmd:" .. name] = fn end,
     notice = function(id, n) notices[#notices + 1] = { id = id, title = n.title, kind = n.kind } end,
     log = function(fmt, ...) logs[#logs + 1] = string.format(fmt, ...) end,
 }
@@ -39,7 +40,7 @@ Wait = function() waits = waits + 1; if waits > 1 then error("stop") end end
 
 dofile("server/modules/needs.lua")
 local Needs = LightRP.needs
-assert(#threads == 2 and type(Needs.starveTick) == "function", "a needs thread and a starve thread")
+assert(#threads == 3 and type(Needs.starveTick) == "function" and type(Needs.wellFedTick) == "function", "a needs thread, a starve thread and a well-fed thread")
 local function starve() Needs.starveTick() end
 local function close(a, b) return math.abs(a - b) < 1e-6 end
 
@@ -118,9 +119,42 @@ local refused = 0
 for _, line in ipairs(logs) do if line:find("starvation damage refused", 1, true) then refused = refused + 1 end end
 assert(refused == 1, "refusal logged once")
 
+-- well fed: above the threshold in food AND drink, +healthPerMinute, point by point
+LightRpConfig.needs.wellFed = { threshold = 80, healthPerMinute = 5 }
+local healed, hp = {}, { [1] = 150, [2] = 400, [3] = 100 }
+Open77.players.get = function(id) return { health = hp[id], maxHealth = id == 2 and 400 or 200 } end
+Open77.players.heal = function(id, n) healed[#healed + 1] = { id = id, n = n }; hp[id] = hp[id] + n; return true end
+for id = 1, 3 do life[id] = "alive" end
+chars[1].food, chars[1].drink = 95, 90   -- fed and hurt
+chars[2].food, chars[2].drink = 95, 95   -- fed, full health
+chars[3].food, chars[3].drink = 95, 60   -- not enough to drink
+damageAnswer = true
+starve()
+for _ = 1, 12 do Needs.wellFedTick(5000) end   -- one minute
+local got = {}
+for _, h in ipairs(healed) do got[h.id] = (got[h.id] or 0) + h.n end
+assert(got[1] == 5, "+5 health in a minute: " .. tostring(got[1]))
+for _, h in ipairs(healed) do assert(h.n == math.floor(h.n), "whole points only") end
+assert(not got[2], "full health: nothing to heal")
+assert(not got[3], "below the threshold in drink: no regen")
+assert(Needs.wellFed(1) and Needs.wellFed(2) and not Needs.wellFed(3))
+local view = Needs.get(1)
+assert(view.wellFed == true and view.regenPerMinute == 5 and view.starving == false, "the HUD state")
+chars[1].drink = 70
+Needs.wellFedTick(5000)
+assert(not Needs.wellFed(1) and Needs.get(1).regenPerMinute == 0, "below the threshold: off")
+life[2] = "dead"
+Needs.wellFedTick(5000)
+assert(not Needs.wellFed(2), "dead: off")
+-- the starving state reaches the HUD with its drain
+chars[3].food, chars[3].drink = 0, 0
+starve()
+local s3 = Needs.get(3)
+assert(s3.starving == "both" and s3.drainPerMinute == 12, "starving on the HUD with the drain")
+
 -- dropped: state forgotten
 _G.source = 2
 handlers.playerDropped()
 assert(Needs.starving(2) == nil, "dropped: forgotten")
 
-print("PASS: needs starving (percent of max health per kind, no weapon string, regen off/on with and without cyberware, one notice, dead/respawn floor, paused while eating, activity freeze, refusal logged once, drop)")
+print("PASS: needs starving (percent of max health per kind, no weapon string, regen off/on with and without cyberware, one notice, dead/respawn floor, paused while eating, activity freeze, refusal logged once, well fed +5/min point by point, HUD state, drop)")

@@ -324,7 +324,13 @@ LightRpConfig = {
             noRegen = true,             -- health regen off while starving
             -- after a death (hospital respawn) both needs come back to at least this,
             -- or the character would respawn starving and die again
-            respawnFloor = 25,
+            respawnFloor = 50,
+        },
+        -- Well fed: above `threshold` food AND drink, health comes back by itself
+        -- (healthPerMinute points, on top of the body's own regeneration).
+        wellFed = {
+            threshold = 80,
+            healthPerMinute = 5,
         },
     },
 

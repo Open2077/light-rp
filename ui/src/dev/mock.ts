@@ -73,7 +73,14 @@ export function installMockBridge(): void {
   const state: UiState = {
     server: { name: "Open//77 Official Roleplay", playersOnline: 12, maxPlayers: 64, version: "2.31.13+op77.82" },
     character,
-    needs: { food: 64, drink: 38 },
+    needs: (() => {
+      // ?starve=both|food|drink: starving banner; ?starve=fed: well fed regen
+      const st = new URLSearchParams(location.search).get("starve");
+      if (st === "fed") return { food: 92, drink: 88, wellFed: true, regenPerMinute: 5 };
+      if (st === "both" || st === "food" || st === "drink")
+        return { food: st === "drink" ? 46 : 0, drink: st === "food" ? 52 : 0, starving: st, drainPerMinute: st === "both" ? 12 : 6 };
+      return { food: 64, drink: 38 };
+    })(),
     money: registered ? {
       currency: "€$", cash: 340, bank: { number: "K7F-2QD", balance: 2860 },
       history: [
