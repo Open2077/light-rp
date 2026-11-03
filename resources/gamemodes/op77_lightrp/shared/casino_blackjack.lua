@@ -2,7 +2,7 @@
 -- money here: the server passes shuffle seeds and the clock, and turns the
 -- settled hands into durable claims. Private state lives in "_" keys (the
 -- shoe, the dealer's hole card, stake owners) and never reaches a client.
-LightRpBoardGames.blackjack={item="blackjack_table",label="Blackjack Table",title="Blackjack",size=1}
+LightRpBoardGames.blackjack={item="blackjack_table",label="Blackjack Table",title="Blackjack",size=1,floor=0}
 LightRpItems.blackjack_table={label="Blackjack Table",description="Use to place the table. E: play; target menu: pick up your table.",weight=8,stack=1,icon="package",category="misc"}
 
 LightRpBlackjack={}

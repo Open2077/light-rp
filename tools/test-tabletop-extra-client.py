@@ -9,13 +9,15 @@ namespace = {'__file__': str(ROOT/'tools/test-board-games-client.py')}
 exec(source.split("for name in ['shared/board_game_models.lua'")[0], namespace)
 lua = namespace['lua']
 assets=json.loads((ROOT/'resources/assets/models/open77_tabletop_extra/asset-manifest.json').read_text())
-lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models']})
+lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models'] + assets.get('colliders', [])})
 lua.execute(r'''
 function Open77.props.create(options)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
  assert(options.model:find('open77\\assets\\op77_lightrp\\tabletop_extra\\',1,true)==1)
- assert(options.model:sub(-4)=='.ent' and options.kind=='prop' and options.scale==.65)
- assert(options.collision==false and options.physics=='none')
+ assert(options.model:sub(-4)=='.ent' and options.kind=='prop')
+ -- The table base gets a solid, mesh-less collider at scale 1; everything else stays non-solid.
+ if options.model:find('_collider.ent',1,true) then assert(options.scale==1 and options.collision==true and options.physics=='static')
+ else assert(options.scale==.65 and options.collision==false and options.physics=='none') end
  nextNativeId=nextNativeId+1;local id=tostring(nextNativeId)
  local name=options.model:match('([^\\]+)%.ent$')
  assert(availableModels[name],'native asset missing from the cooked package: '..tostring(name))
@@ -27,7 +29,7 @@ function findProp(name)
  for id,p in pairs(nativeProps)do if p.name==name then return p,id end end
 end
 function countProps()
- local count=0;for _ in pairs(nativeProps)do count=count+1 end;return count
+ local count=0;for _,p in pairs(nativeProps)do if not p.name:find('_collider$') then count=count+1 end end;return count
 end
 ''')
 for name in ['shared/tabletop_extra_rules.lua', 'client/core/tabletop_extra.lua', 'client/core/board_games.lua']:
@@ -62,9 +64,26 @@ E.observe(roulette)
 local a,spinHold=E.pieceTargets(roulette);assert(spinHold==nil,'a spinning wheel is recomputed every frame')
 clock=clock+4000;local b=E.pieceTargets(roulette)
 assert(a['roulette-wheel'].piece.yaw~=b['roulette-wheel'].piece.yaw)
-assert(math.abs(math.sqrt(b['roulette-ball'].position.x^2+b['roulette-ball'].position.y^2)-.27)<1e-9)
-clock=clock+4001;local settled,settledHold=E.pieceTargets(roulette);assert(settledHold==math.huge,'a landed ball holds')
+-- Mid-spin the ball still rides the ball track (the cooked bowl's TRACK_R/Z).
+assert(math.abs(math.sqrt(b['roulette-ball'].position.x^2+b['roulette-ball'].position.y^2)-.388)<1e-9 and math.abs(b['roulette-ball'].position.z-.074)<1e-9)
 local spin=roulette.game.spin
+local function radius(t) return math.sqrt(t['roulette-ball'].position.x^2+t['roulette-ball'].position.y^2) end
+local function ballAngle(t) return math.deg(math.atan(t['roulette-ball'].position.x,t['roulette-ball'].position.y)) end
+-- The drop: the radius only shrinks, and the ball stays above the bowl's surfaces.
+local lastR=1
+for ms=4100,6100,100 do
+ clock=clock+100;local t=E.pieceTargets(roulette);local r,z=radius(t),t['roulette-ball'].position.z
+ assert(r<=lastR+1e-9 and r>=.27-1e-9,'ball radius '..r);lastR=r
+ -- Bowl apron (.330,.033)-(.372,.051), track to (.400,.063), number ring Z=.030 (ball radius .015).
+ local surface=r>=.372 and .051+(r-.372)/.028*.012 or r>=.33 and .033+(r-.33)/.042*.018 or r>=.292 and .030 or nil
+ if surface then assert(z>=surface+.015*.92-1e-9,('ball sinks into the bowl at r=%.3f z=%.3f'):format(r,z)) end
+end
+-- Landed (t>.76): the ball sits in its pocket and turns with the rotor.
+clock=clock+300;local landed=E.pieceTargets(roulette)
+assert(math.abs(radius(landed)-.27)<1e-9)
+local pocketAngle=(spin.ballTo-spin.wheelTo)%360
+assert(math.abs(((ballAngle(landed)+landed['roulette-wheel'].piece.yaw-pocketAngle)+180)%360-180)<1e-6,'ball rides its pocket')
+clock=clock+1601;local settled,settledHold=E.pieceTargets(roulette);assert(settledHold==math.huge,'a landed ball holds')
 assert(math.abs(settled['roulette-wheel'].piece.yaw+spin.wheelTo)<1e-8)
 assert(math.abs(settled['roulette-ball'].position.x-.27*math.sin(math.rad(spin.ballTo)))<1e-8)
 -- Different local arrival times produce the same state at the same server time.

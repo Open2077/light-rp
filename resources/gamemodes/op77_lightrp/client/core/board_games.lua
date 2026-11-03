@@ -37,7 +37,7 @@ local LOAD_GRACE_MS,RETRY_MS=15000,20000
 -- props fit PROP_BUDGET (the client quota is 256 props per resource; the rest
 -- is headroom for the placement ghost and new pieces).
 local RENDER_RADIUS,PROP_BUDGET=40,220
-local PROP_ESTIMATE={chess=34,checkers=42,connect4=44,roulette=3,slots=17,blackjack=61,fortune=45}
+local PROP_ESTIMATE={chess=34,checkers=42,connect4=44,roulette=4,slots=17,blackjack=61,fortune=46}
 local ASSET_HELP="Close the game and rejoin through the launcher to install the board-game assets."
 local sounds, soundSequences = {}, {}
 local SOUND_NAMES={['chess-move']=true,['chess-capture']=true,['checkers-move']=true,
@@ -525,7 +525,7 @@ local DEPOT="open77\\assets\\op77_lightrp\\board_games\\"
 -- 0.65 scale baked in), created as its own prop at scale 1 once the table is
 -- placed. The placement ghost and the pieces never get one. Add a base name
 -- here only after its pack build ships the collider entity.
-local TABLE_COLLIDERS={slot_cabinet=true,blackjack_table=true,chess_board=true,checkers_board=true,connect4_board=true}
+local TABLE_COLLIDERS={slot_cabinet=true,blackjack_table=true,roulette_table=true,fortune_stand=true,chess_board=true,checkers_board=true,connect4_board=true}
 local function removeProp(record)
     if record and record.handle then
         ownedProps[tostring(record.handle)]=nil
@@ -1028,6 +1028,10 @@ local function placeDraft(kind)
     -- Start within reach even when the camera ray hits geometry below the map.
     -- The height axis remains free so players can lower the preview afterwards.
     local initialZ=math.max(pos.z+.015,state.position.z+.35)
+    -- Floor-standing tables declare how high their origin sits above the floor
+    -- (unscaled metres, `floor` in their shared spec): start the preview there.
+    local spec=LightRpBoardGames and LightRpBoardGames[kind]
+    if spec and type(spec.floor)=="number" then initialZ=pos.z+spec.floor*SCALE end
     draft={kind=kind,position={x=pos.x,y=pos.y,z=initialZ},rotation=0,axis="xy",height=0}
     local prop,why=createProp(draft,nil,draft.position,true)
     if not prop then trace("place_ghost_failed",nil,"kind=%s %s",kind,tostring(why));draft=nil;unavailable(why);return end

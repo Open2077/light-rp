@@ -166,27 +166,70 @@ function Extra.bind(page)
 end
 
 -- Roulette -------------------------------------------------------------------
+-- Board-local unscaled metres; these match tools/build-tabletop-extra-props.py
+-- (the wheel datum Z=0 is the board position, the table stands to the floor).
 local ROULETTE="open77\\assets\\op77_lightrp\\tabletop_extra\\"
+local POCKET_R,POCKET_Z=.27,.025       -- settled ball centre (unchanged)
+-- The ball's path (radius, centre height) from the ball track over the
+-- deflector apron and the number ring down into a pocket.
+local PATH_R={.388,.372,.330,.322,.296,.283,.27}
+local PATH_Z={.074,.068,.050,.047,.047,.042,.025}
+local DROP_T,LAND_T=.52,.76            -- spin fractions: leaves the track, lands in its pocket
+local function smooth(x) x=clamp(x,0,1);return x*x*(3-2*x) end
+-- Ball centre at fraction s (0..1) of the drop path.
+local function dropPoint(s)
+    local f=smooth(s)*(#PATH_R-1);local i=math.min(#PATH_R-1,math.floor(f)+1);local k=f-(i-1)
+    return PATH_R[i]+(PATH_R[i+1]-PATH_R[i])*k,PATH_Z[i]+(PATH_Z[i+1]-PATH_Z[i])*k
+end
 Extra.register("roulette",{
     operations={bet=true,spin=true,nextRound=true},
     boardModel=function() return Extra.asset(ROULETTE,"roulette_table") end,
     pieceTargets=function(board,result)
         local spin=board.game.spin
-        local wheel,ball,t=tonumber(board.game.lastWheelAngle) or 0,tonumber(board.game.lastBallAngle) or 0,0
+        local wheel,ball=tonumber(board.game.lastWheelAngle) or 0,tonumber(board.game.lastBallAngle) or 0
+        local r,z,t=POCKET_R,POCKET_Z,1
         if type(spin)=="table" then
             local now=Extra.serverTime(board)
             local started=tonumber(spin.startedAt or spin.t0) or now
             t=clamp((now-started)/(tonumber(spin.duration) or 8000),0,1)
-            local ease=1-(1-t)^4
-            wheel=(tonumber(spin.wheelFrom) or 0)+((tonumber(spin.wheelTo) or 0)-(tonumber(spin.wheelFrom) or 0))*ease
-            local ballEase=1-(1-t)^5
-            ball=(tonumber(spin.ballFrom) or 0)+((tonumber(spin.ballTo) or 0)-(tonumber(spin.ballFrom) or 0))*ballEase
+            local wheelFrom,wheelTo=tonumber(spin.wheelFrom) or 0,tonumber(spin.wheelTo) or 0
+            local ballFrom,ballTo=tonumber(spin.ballFrom) or 0,tonumber(spin.ballTo) or 0
+            local function wheelAt(u) return wheelFrom+(wheelTo-wheelFrom)*(1-(1-u)^2) end
+            wheel=wheelAt(t)
+            -- Once in its pocket the ball rides the rotor; before that it runs
+            -- the other way round the track and slows to meet that pocket.
+            local pocket=ballTo-wheelTo
+            if t>=LAND_T then
+                ball=wheel+pocket
+                local s=(t-LAND_T)/(1-LAND_T)
+                z=POCKET_Z+.005*math.abs(math.sin(s*math.pi*4))*math.max(0,1-s*3)
+            else
+                local u=t/LAND_T
+                ball=ballFrom+(wheelAt(LAND_T)+pocket-ballFrom)*(1-(1-u)^3)
+                if t<DROP_T then r,z=PATH_R[1],PATH_Z[1]
+                else
+                    local s=(t-DROP_T)/(LAND_T-DROP_T)
+                    r,z=dropPoint(s)
+                    z=z+.012*math.abs(math.sin(s*math.pi*3))*(1-s)
+                end
+            end
         end
         if type(spin)=="table" and t<1 then Extra.animatingUntil(board,(tonumber(spin.startedAt or spin.t0) or 0)+(tonumber(spin.duration) or 8000))
         else Extra.stillUntil(board,math.huge) end
         local a=math.rad(ball)
         Extra.put(result,"roulette-wheel","roulette_wheel",Extra.asset(ROULETTE,"roulette_wheel"),0,0,0,-wheel)
-        Extra.put(result,"roulette-ball","roulette_ball",Extra.asset(ROULETTE,"roulette_ball"),.27*math.sin(a),.27*math.cos(a),.025+.006*math.sin(t*math.pi)^2,0)
+        Extra.put(result,"roulette-ball","roulette_ball",Extra.asset(ROULETTE,"roulette_ball"),r*math.sin(a),r*math.cos(a),z,0)
+    end,
+    -- The table runs along +X from the wheel; players stand on the -Y side.
+    camera=function(board,view)
+        local world=Extra.world
+        if view=="top" then
+            return {position=world(board,.78,-.01,2.05),rotation={pitch=-89.5,yaw=board.rotation or 0,roll=0},fov=52}
+        elseif view=="white" then -- the betting layout, from the players' side
+            return {position=world(board,1.0,-1.55,1.05),lookAt=world(board,.85,0,0),fov=50}
+        elseif view=="black" then -- close on the wheel to follow the ball
+            return {position=world(board,-.10,-.80,.70),lookAt=world(board,0,.02,.03),fov=44}
+        end
     end,
     view=function(board)
         return {extra=board.game,text="Choose a bet and amount. The server settles the roulette result."}

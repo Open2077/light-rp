@@ -196,14 +196,14 @@ for i=1,20 do step() end
 assert(#colliderCreates==1 and not findProp('slot_cabinet_collider') and findProp('slot_cabinet'),'one attempt, table kept')
 failCollider=false
 events['lightrp:boardGames:state']({boards={}});for i=1,10 do step() end
--- Tables whose pack has no collider asset create none.
+-- Every table kind now ships a collider: a chess board creates exactly its own.
 local chess={id=301,kind='chess',owned=true,position={x=0,y=0,z=0},rotation=0,players={},ready=true,revision=1,
  game=LightRPBoardRules.new('chess')}
 colliderCreates={}
 events['lightrp:boardGames:state']({boards={chess}})
 waitUntil(function() return findProp('chess_board') end,'chess board')
 for i=1,40 do step() end
-assert(#colliderCreates==0,'no collider without a cooked asset')
+assert(#colliderCreates==1 and colliderCreates[1].model:find('chess_board_collider.ent',1,true),'the chess board gets its own collider')
 handlers.onClientResourceStop('test');for i=1,20 do step() end
 assert(next(nativeProps)==nil)
 print('client: ghost and pieces non-solid, placed table collider (static, collision, scale 1) follows, picks up, cleans up, tolerates a missing asset: OK; peak '..peakInstructions..' (budget '..BOARD_BUDGET..')')
