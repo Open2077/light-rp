@@ -839,6 +839,17 @@ local function capRep(value)
     return math.max(0, math.min(math.floor(value + 0.5), L.reputation.maxPerResult))
 end
 
+-- The scoreboard a result carries for Light RP's end-of-match recap (lightrp_recap.lua);
+-- nil when that file is not loaded or fails: the result itself never depends on it.
+local function recapOf(kind, ...)
+    local R = ArenaRecap
+    if R == nil or type(R[kind]) ~= "function" then return nil end
+    local ok, recap = pcall(R[kind], ...)
+    if ok then return recap end
+    log("recap " .. kind .. " failed: " .. tostring(recap))
+    return nil
+end
+
 local function ffaRep(key, rank)
     local rep = L.reputation[key]
     if rank == 1 then return rep.first elseif rank == 2 then return rep.second
@@ -859,6 +870,7 @@ function H.reportRound(instance, reason, winnerId)
     local practice = H.botMode or H.hadBots(instance)
     local t = now()
     local sent = 0
+    local recap = recapOf("ffa", instance, winnerId)
     for _, row in ipairs(DM.scoring.rows(instance)) do
         local entry = row.id > 0 and not row.bot and H.entered[row.id] or nil
         if entry and entry.instanceId == instance.id and instance.members[row.id] then
@@ -876,6 +888,7 @@ function H.reportRound(instance, reason, winnerId)
                     bestStreak = row.bestStreak, durationMs = inRound, round = round.number },
                 reputation = capRep(reputation),
                 test = practice or nil,
+                recap = recap,
             })
             sent = sent + 1
         end
@@ -904,6 +917,7 @@ function H.reportPve(instance, reason)
     local bots = H.botCount(instance)
     local t = now()
     local sent = 0
+    local recap = recapOf("pve", instance, playerKills, botKills, won)
     for _, row in ipairs(DM.scoring.rows(instance)) do
         local entry = row.id > 0 and not row.bot and H.entered[row.id] or nil
         if entry and entry.instanceId == instance.id and instance.members[row.id] then
@@ -918,6 +932,7 @@ function H.reportPve(instance, reason)
                     bestStreak = row.bestStreak, durationMs = inRound, round = round.number,
                     teamKills = playerKills, botKills = botKills, players = humans, bots = bots },
                 reputation = capRep(reputation),
+                recap = recap,
             })
             sent = sent + 1
         end
@@ -952,6 +967,7 @@ function H.sample(instance)
     for _, row in ipairs(DM.scoring.rows(instance)) do
         if row.id > 0 then snap.rows[row.id] = { kills = row.kills or 0, deaths = row.deaths or 0 } end
     end
+    recapOf("sample", instance) -- every participant's match sums, bots too (lightrp_recap.lua)
 end
 
 local function totalsOf(instance, entry, id)
@@ -991,6 +1007,7 @@ function H.reportMatch(instance)
     local rewardDuel = true
     if duel and normal and #humans == 2 then rewardDuel = H.duelRewardAllowed(humans[1], humans[2]) end
     local sent = 0
+    local recap = recapOf("match", instance)
     for _, id in ipairs(humans) do
         local entry = H.entered[id]
         local side = sideOf(match, id)
@@ -1009,6 +1026,7 @@ function H.reportMatch(instance)
                     durationMs = now() - entry.atMs },
                 reputation = capRep(reputation),
                 test = practice or nil,
+                recap = recap,
             })
             sent = sent + 1
         end
@@ -1035,6 +1053,7 @@ function H.noteQuit(playerId)
                 durationMs = now() - math.max(entry.atMs, round.startedAtMs or entry.atMs) },
             reputation = 0,
             test = (not pve and (H.botMode or H.hadBots(instance))) or nil,
+            recap = recapOf("ffa", instance),
         })
         return true
     end
@@ -1051,6 +1070,7 @@ function H.noteQuit(playerId)
             durationMs = now() - entry.atMs },
         reputation = 0,
         test = (H.botMode or H.hadBots(instance)) or nil,
+        recap = recapOf("match", instance),
     })
     return true
 end
