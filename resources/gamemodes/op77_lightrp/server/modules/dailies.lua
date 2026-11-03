@@ -522,9 +522,18 @@ K.roadside = { refuel = function(ctx, info)
     if e and e.account ~= ctx.account and now() - e.at <= ctx.def.minutes * 60000 then finish(ctx) end
 end }
 
+-- NCPD Escape (op77_chase) against the game's own NCPD: those cops live in each runner's
+-- game and the server never sees them lost, so an escape is the extraction or the clock.
+-- A run whose game refused the police (policeBlocked) or the bot police never counts.
+local function realNcpd(s) return s.police == "ncpd" and not s.policeBlocked end
+D.realNcpd = realNcpd
+
+-- stats.stars = the most stars the runner had (they only climb): 3+ at the extraction
+-- is the Standard ceiling held to the end, or any Hard / Critical extraction.
 K.lose_them = { activity = function(ctx, entry, _, raw, verdict)
     local s = type(raw) == "table" and type(raw.stats) == "table" and raw.stats or {}
-    if entry.activity == "chase.pve" and verdict.eligible and s.outcome == "escaped" and s.how == "shake" then finish(ctx) end
+    if entry.activity == "chase.pve" and verdict.eligible and realNcpd(s) and s.outcome == "escaped" and s.how == "extraction"
+        and (tonumber(s.stars) or 0) >= (ctx.def.minStars or 3) then finish(ctx) end
 end }
 
 K.run_it_back = { activity = function(ctx, entry, _, raw)
@@ -924,13 +933,22 @@ function D.onActivityResult(id, entry, r, raw, verdict)
         local list = crewResult(crewArena, id, { id = id, account = account }, defs.back_to_back.windowSeconds * 1000)
         if list and #list >= 2 then for _, x in ipairs(list) do with(x.id, "back_to_back", finish) end end
     end
+    -- crews = "together" (op77_chase): the crew shares one instance, each member's result
+    -- comes when HIS round ends, and stats.runners is how many of them started. The last
+    -- one decides; a crewmate who dropped sends no result, so nobody is paid.
     if entry.activity == "chase.pve" and s.crew and defs.nobody_left_behind then
-        local escaped = s.outcome == "escaped" and verdict.eligible
-        local list = crewResult(crewChase, id, { id = id, account = account, escaped = escaped }, defs.nobody_left_behind.windowSeconds * 1000)
-        if list and #list >= 2 then
+        local def = defs.nobody_left_behind
+        local mine = { id = id, account = account, escaped = s.outcome == "escaped" and verdict.eligible and realNcpd(s),
+            entered = tonumber(entry.enteredAt) }
+        local list = crewResult(crewChase, id, mine, def.windowSeconds * 1000)
+        local run = {} -- the same run: entered together (activities.lua enteredAt)
+        for _, x in ipairs(list or {}) do
+            if not x.entered or not mine.entered or math.abs(x.entered - mine.entered) <= def.sameRunSeconds * 1000 then run[#run + 1] = x end
+        end
+        if #run >= math.max(2, math.floor(tonumber(s.runners) or 0)) then
             local all = true
-            for _, x in ipairs(list) do all = all and x.escaped end
-            if all then for _, x in ipairs(list) do with(x.id, "nobody_left_behind", finish) end end
+            for _, x in ipairs(run) do all = all and x.escaped end
+            if all then for _, x in ipairs(run) do with(x.id, "nobody_left_behind", finish) end end
         end
     end
 end

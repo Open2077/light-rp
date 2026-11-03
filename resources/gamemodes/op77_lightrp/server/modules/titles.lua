@@ -361,8 +361,10 @@ function T.onActivityResult(id, entry, r, raw, verdict)
     elseif entry.activity == "chase.wanted" then
         bump(key, id, "wanted_extractions", tonumber(s.extractions) or 0)
         bump(key, id, "wanted_arrests", tonumber(s.arrests) or 0)
-    elseif entry.activity == "chase.pve" and s.outcome == "escaped" and s.how == "shake" then
-        bump(key, id, "pve_shakes", 1)
+    elseif entry.activity == "chase.pve" and s.police == "ncpd" and not s.policeBlocked and s.outcome == "escaped"
+        and s.how == "extraction" and (tonumber(s.stars) or 0) >= ((defs.ghost or {}).minStars or 3) then
+        -- the game's own NCPD only (dailies.lua realNcpd): the extraction with the heat up
+        bump(key, id, "pve_hot_extractions", 1)
     end
 end
 -- dogtown.lua onKill: a credited kill (another account, not a crewmate, past the

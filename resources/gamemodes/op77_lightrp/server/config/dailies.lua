@@ -71,8 +71,9 @@ LightRpDailies = {
           brief = "The Chimera's core overclocks if you dawdle. I do not pay overtime. Put it down before it heats up.",
           goal = "Kill the Chimera, any difficulty, before its core overclocks.", target = 1 },
         { id = "lose_them", slot = "action", fixer = "nix", title = "Lose Them, Don't Wait",
-          brief = "anyone can hide til the timer runs out. boring. i want u to SHAKE them. actually lose the cops",
-          goal = "Escape NCPD Escape by shaking the police off (not on the clock, not by extraction).", target = 1 },
+          brief = "anyone can sit out the clock. boring. i want u at the extraction with the whole NCPD on ur tail. three stars minimum or it didnt happen",
+          goal = "In NCPD Escape, reach the extraction (not the clock) with 3 or more stars on you.", target = 1,
+          minStars = 3 },
         { id = "run_it_back", slot = "action", fixer = "ledger", title = "Run It Back",
           brief = "Set a time on any time trial. Then beat it. The first run is the invoice, the second is the payment. And don't sandbag the first one. I'll know.",
           goal = "Finish a time trial twice today, the second run at least 1 s faster than the first.", target = 1,
@@ -137,7 +138,8 @@ LightRpDailies = {
           range = 6.0, seconds = 10 },
         { id = "nobody_left_behind", slot = "crew", fixer = "nix", title = "Nobody Left Behind",
           brief = "NCPD Escape as a crew. EVERYONE gets out or nobody gets paid. go",
-          goal = "Escape an NCPD Escape match as a crew, every crewmate in it escaping.", target = 1, windowSeconds = 120 },
+          goal = "Escape an NCPD Escape match as a crew, every crewmate in it escaping.", target = 1,
+          windowSeconds = 240, sameRunSeconds = 30 },
 
         -- ── Weekly ──────────────────────────────────────────────────────────
         { id = "two_vs_machine", slot = "weekly", fixer = "ledger", title = "Two Against the Machine",

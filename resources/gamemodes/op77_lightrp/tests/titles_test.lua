@@ -202,10 +202,24 @@ assert(earned(1, "street_racer"))
 result(1, "chase.wanted", { extractions = 6, arrests = 4 })
 result(1, "chase.wanted", { extractions = 4, arrests = 5 })
 assert(earned(1, "getaway_driver") and not earned(1, "long_arm") and entry(1, "long_arm").value == 9)
-for _ = 1, 9 do result(1, "chase.pve", { outcome = "escaped", how = "shake" }) end
-result(1, "chase.pve", { outcome = "escaped", how = "timer" })
-assert(not earned(1, "ghost"))
-result(1, "chase.pve", { outcome = "escaped", how = "shake" })
+-- NCPD Escape against the game's own NCPD (op77_chase pve.lua resultFor)
+local function escape(how, stars, more)
+    local s = { outcome = (how == "clock" or how == "extraction") and "escaped" or "busted", how = how, seconds = 120,
+        police = "ncpd", difficulty = "standard", stars = stars, runners = 1 }
+    for k, v in pairs(more or {}) do s[k] = v end
+    return s
+end
+for _ = 1, 9 do result(1, "chase.pve", escape("extraction", 3)) end
+result(1, "chase.pve", escape("clock", 3))
+result(1, "chase.pve", escape("extraction", 2))
+result(1, "chase.pve", escape("arrest", 4, { difficulty = "hard" }))
+result(1, "chase.pve", escape("extraction", 4, { policeBlocked = true }))
+result(1, "chase.pve", escape("extraction", 4, { police = "bots" }))
+result(1, "chase.pve", { outcome = "escaped", how = "shake", stars = 3 })
+result(1, "chase.pve", escape("extraction", 3), { verdict = { kind = "too_short" } })
+result(1, "chase.pve", escape("extraction", 3), { ranked = false })
+assert(not earned(1, "ghost") and entry(1, "ghost").value == 9, "only paid extractions at 3+ stars against the real NCPD")
+result(1, "chase.pve", escape("extraction", 5, { difficulty = "critical" }))
 assert(earned(1, "ghost"))
 
 -- ── contracts award through LightRP.titles.award; grant-only titles refuse it ──
@@ -301,7 +315,7 @@ assert(not commands["lightrp.titles"](0, { "grant", "1", "nope" }))
 -- ── the database: earned titles, counters and the choice come back ──
 LightRP.db.ready = true
 join(3, "acc3", "c1", "Vi")
-for _ = 1, 9 do result(3, "chase.pve", { outcome = "escaped", how = "shake" }) end
+for _ = 1, 9 do result(3, "chase.pve", escape("extraction", 3)) end
 T.award(3, "lucky_seven"); select(3, "lucky_seven")
 T.onDisconnected(3); online[3] = nil
 assert(T.forKey("acc3#c1") == "Lucky Seven", "offline: the Hall of Fame still reads the title")
@@ -310,7 +324,7 @@ LightRP.eachModule("onDatabaseReady")
 assert(T.forKey("acc3#c1") == "Lucky Seven", "loaded at database ready")
 join(3, "acc3", "c1", "Vi")
 assert(earned(3, "lucky_seven") and entry(3, "ghost").value == 9 and T.shown(3).label == "Lucky Seven")
-result(3, "chase.pve", { outcome = "escaped", how = "shake" })
+result(3, "chase.pve", escape("extraction", 4, { difficulty = "hard" }))
 assert(earned(3, "ghost"), "the counter resumed")
 -- a stored choice of a title no longer owned is ignored
 db.choice["acc4#c1"] = { identifier = "acc4", character_key = "c1", title_id = "legend" }

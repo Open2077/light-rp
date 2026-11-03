@@ -201,15 +201,31 @@ pourquoi c'est amusant · récompense.
   change de kit, on rush le cœur, et on sacrifie sa sécurité.
 
 **Lose Them, Don't Wait** (Nix)
-> "anyone can hide til the timer runs out. boring. i want u to SHAKE them. actually lose the
-> cops"
+> "anyone can sit out the clock. boring. i want u at the extraction with the whole NCPD on ur
+> tail. three stars minimum or it didnt happen"
 
-- *Objectif* : s'échapper d'**NCPD Escape** (`chase.pve`) en semant la police (`how == "shake"`),
-  pas au chrono ni par extraction.
-- *Crochet* : nouvel appel `onActivityResult` (verdict d'`activity_pay`), statistiques `outcome`
-  et `how`.
-- *Pourquoi* : la stratégie habituelle (tenir jusqu'à la fin) ne paie plus. Il faut jouer les
-  ruelles, les tunnels et la casse.
+- *Objectif* : dans **NCPD Escape** (`chase.pve`), atteindre l'**extraction** (`how ==
+  "extraction"`, pas `clock`) avec **au moins 3 étoiles** sur le dos (`stats.stars >= 3`,
+  `minStars` dans la config).
+- *Crochet* : nouvel appel `onActivityResult` (verdict d'`activity_pay`), statistiques `outcome`,
+  `how`, `stars`, `police` et `policeBlocked` d'`op77_chase/server/pve.lua` (`P.resultFor`).
+- *Ce que ça donne selon la difficulté* : `stars` est le maximum atteint, et la chaleur ne fait
+  que monter. En Standard, 3 étoiles est le plafond, atteint 75 s après l'avance (81 s après le
+  GO en voiture) : il faut tenir jusqu'à la chaleur maximale puis rejoindre l'extraction avant la
+  fin des 150 s. En Hard (3 étoiles 30 s après l'avance) et en Critical (25 s après), l'extraction
+  n'apparaît qu'ensuite (55 s et 70 s après le GO), donc toute extraction compte. Le contrat reste faisable au palier I,
+  et ne demande pas de débloquer Hard.
+- *Ne compte jamais* : une partie avec `police ~= "ncpd"` (les bots) ou `policeBlocked` (le jeu
+  du coureur a refusé la police, mode `warn`). En mode `void`, réglage par défaut, une telle
+  partie est annulée et n'envoie aucun résultat.
+- *Pourquoi* : la stratégie habituelle (tenir jusqu'à la fin) ne paie plus, et foncer vers
+  l'extraction dès qu'elle apparaît non plus en Standard. Il faut traîner la police à pleine
+  chaleur, puis sortir au bon moment.
+- *Historique* : la première version demandait de **semer** la police (`how == "shake"`). Depuis
+  que NCPD Escape utilise la vraie NCPD du jeu (`police = "ncpd"`, sync-main b40fbcb), les flics
+  vivent dans le jeu de chaque coureur et le serveur ne voit jamais qu'ils ont perdu sa trace :
+  `shake` n'arrive plus. Les seules issues sont `extraction`, `clock`, `arrest`, `takedown` et
+  `left`.
 
 **Run It Back** (Ledger)
 > "Set a time on any time trial. Then beat it. The first run is the invoice, the second is the
@@ -390,8 +406,17 @@ seule fois.
 > "NCPD Escape as a crew. EVERYONE gets out or nobody gets paid. go"
 
 - *Objectif* : une partie d'NCPD Escape en crew (`crew = true`) où **tous** les membres du crew
-  présents s'échappent.
-- *Crochet* : `onActivityResult` sur `chase.pve`.
+  présents s'échappent (extraction ou chrono).
+- *Crochet* : `onActivityResult` sur `chase.pve`. Avec `crews = "together"` (réglage
+  d'`op77_chase`), le crew partage une instance ; chaque membre reçoit son résultat à la fin de
+  **sa** manche, et `stats.runners` donne le nombre de coureurs au départ. C'est le dernier
+  résultat qui décide : il faut `runners` résultats (au moins 2), tous `escaped` et payables. Les
+  résultats sont regroupés par crew, sur 240 s (la plus longue manche dure 180 s), et par partie
+  grâce à `enteredAt` d'`activities.lua` (les membres entrent ensemble, à 30 s près).
+- *Ne compte pas* : un membre parti ou déconnecté (pas de résultat, donc personne n'est payé),
+  une escapade sans vraie police (`police ~= "ncpd"` ou `policeBlocked`, comme *Lose Them*).
+  Avec `crews = "solo"`, chaque instance annonce `runners = 1` : le contrat se rabat alors sur
+  « au moins deux membres entrés ensemble, tous échappés ».
 - *Pourquoi* : le plus rapide doit revenir chercher les autres, et c'est le genre de partie dont
   on parle après.
 
@@ -548,7 +573,7 @@ Un seul par semaine, commun à tout le serveur, remis à zéro le lundi à 00:00
 | **Street Racer** | 10 courses en grille gagnées avec au moins 3 vrais pilotes | `onActivityResult` | Rare |
 | **Getaway Driver** | 10 extractions en Most Wanted | `onActivityResult` | Rare |
 | **Long Arm of the Law** | 10 arrestations en Most Wanted | `onActivityResult` | Rare |
-| **Ghost** | Semer l'NCPD 10 fois (NCPD Escape, `shake`) | `onActivityResult` | Epic |
+| **Ghost** | 10 extractions avec au moins 3 étoiles en NCPD Escape, contre la vraie NCPD (`police == "ncpd"`, jamais `policeBlocked`), compteur `pve_hot_extractions` | `onActivityResult` | Epic |
 | **Seven Days Straight** | 7 jours UTC d'affilée avec au moins un contrat réclamé | contrats | Rare |
 | **Clockwork** | 30 jours d'affilée | contrats | Epic |
 | **Okoro's Favourite** | 30 contrats réclamés | contrats | Rare |
@@ -604,6 +629,11 @@ Notes :
   attendra que la branche `lightrp/activity-lobby`, qui réécrit ce panneau, soit fusionnée.
 - **Crochet `onActivityResult`** : il est placé dans `activity_pay.lua`, juste après le calcul du
   verdict, et non dans `activities.lua`, que la branche `lightrp/activity-lobby` modifie.
+- **NCPD Escape contre la vraie NCPD** : *Lose Them, Don't Wait* et **Ghost** demandaient de semer
+  la police, ce que le serveur ne peut plus voir. Ils demandent désormais l'extraction avec au
+  moins 3 étoiles (§2.2). Le seuil de 4 étoiles, ou « Hard et plus », a été écarté pour le
+  contrat du jour : il l'aurait réservé au palier II (`minTier` de Hard). 3 étoiles revient au
+  même en Hard et en Critical (toute extraction compte) et reste jouable en Standard.
 
 ## 8. Questions au propriétaire
 

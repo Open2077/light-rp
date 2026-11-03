@@ -355,19 +355,35 @@ D.onMissionFinished({ members = { 1 }, report = { enraged = false } }, chimera, 
 assert(isDone(1, "before_overclock"))
 
 local function result(id, activity, stats, verdict, extra)
-    local entry = { activity = activity, ranked = extra and extra.ranked }
+    local entry = { activity = activity, ranked = extra and extra.ranked, enteredAt = extra and extra.enteredAt }
     local raw = { stats = stats, won = extra and extra.won, unranked = extra and extra.unranked }
     D.onActivityResult(id, entry, { won = extra and extra.won }, raw, verdict or { amount = 100 })
 end
+-- an NCPD Escape result as op77_chase sends it (pve.lua resultFor), police = "ncpd"
+local function escape(how, stars, more)
+    local s = { mode = "vehicle", outcome = (how == "clock" or how == "extraction") and "escaped" or (how == "left" and "left" or "busted"),
+        how = how, seconds = 120, shakes = 0, runners = 1, police = "ncpd", difficulty = "standard", stars = stars }
+    for k, v in pairs(more or {}) do s[k] = v end
+    return s
+end
 reset(); dayWith("action", "lose_them")
-result(1, "chase.pve", { outcome = "escaped", how = "timer" })
-result(1, "chase.pve", { outcome = "escaped", how = "shake" }, { kind = "too_short" })
-result(1, "chase.pve", { outcome = "escaped", how = "shake" }, nil, { ranked = false })
-result(1, "chase.pve", { outcome = "escaped", how = "shake" }, nil, { unranked = true })
-result(1, "race.pve", { outcome = "escaped", how = "shake" })
-assert(not isDone(1, "lose_them"), "only a paid, ranked shake")
-result(1, "chase.pve", { outcome = "escaped", how = "shake" })
+result(1, "chase.pve", escape("clock", 3))
+result(1, "chase.pve", escape("extraction", 2))
+result(1, "chase.pve", escape("arrest", 3))
+result(1, "chase.pve", escape("extraction", 3), { kind = "too_short" })
+result(1, "chase.pve", escape("extraction", 3), nil, { ranked = false })
+result(1, "chase.pve", escape("extraction", 3), nil, { unranked = true })
+result(1, "chase.pve", escape("extraction", 4, { policeBlocked = true }))
+result(1, "chase.pve", escape("extraction", 4, { police = "bots" }))
+result(1, "chase.pve", escape("extraction", 3, { police = false }))
+result(1, "chase.pve", { outcome = "escaped", how = "shake", stars = 3 })
+result(1, "race.pve", escape("extraction", 3))
+assert(not isDone(1, "lose_them"), "only a paid, ranked extraction at 3 stars against the real NCPD")
+result(1, "chase.pve", escape("extraction", 4, { difficulty = "hard" }))
 assert(isDone(1, "lose_them"))
+reset(); dayWith("action", "lose_them")
+result(1, "chase.pve", escape("extraction", 3))
+assert(isDone(1, "lose_them"), "the Standard ceiling held to the extraction")
 
 reset(); dayWith("action", "run_it_back")
 result(1, "race.trial", { finished = true, timeMs = 60000, courseId = "c1" })
@@ -564,11 +580,44 @@ online[3] = nil; crews[3] = nil
 
 reset(); dayWith("crew", "nobody_left_behind")
 crewUp(1, 2)
-result(1, "chase.pve", { crew = true, outcome = "escaped" }); result(2, "chase.pve", { crew = true, outcome = "busted" })
+local function crewRun(id, how, runners, entered, more)
+    local m = { crew = true, runners = runners }
+    for k, v in pairs(more or {}) do m[k] = v end
+    result(id, "chase.pve", escape(how, 3, m), nil, { enteredAt = entered })
+end
+crewRun(1, "extraction", 2, clock); crewRun(2, "arrest", 2, clock)
 assert(not isDone(1, "nobody_left_behind"), "everyone gets out")
-tick(1000)
-result(1, "chase.pve", { crew = true, outcome = "escaped" }); result(2, "chase.pve", { crew = true, outcome = "escaped" })
-assert(isDone(1, "nobody_left_behind") and isDone(2, "nobody_left_behind"))
+tick(200000)
+local run2 = clock
+crewRun(1, "extraction", 2, run2); tick(110000); crewRun(2, "clock", 2, run2) -- 110 s apart: the extraction, then the clock
+assert(isDone(1, "nobody_left_behind") and isDone(2, "nobody_left_behind"), "an extraction and the clock, one run")
+-- three of them in the run: the first two out is not everyone
+reset(); dayWith("crew", "nobody_left_behind")
+join(3, "acc3", "Vi", { at = { x = 3, y = 0, z = 0, bucket = 0 } }); crewUp(1, 2, 3)
+crewRun(1, "extraction", 3, clock); crewRun(2, "extraction", 3, clock)
+assert(not isDone(1, "nobody_left_behind"), "the third runner is still out")
+crewRun(3, "takedown", 3, clock)
+assert(not isDone(1, "nobody_left_behind") and not isDone(3, "nobody_left_behind"), "the third one went down")
+-- a crewmate who dropped sends nothing: never paid
+reset(); dayWith("crew", "nobody_left_behind")
+crewUp(1, 2, 3)
+tick(1000); crewRun(1, "extraction", 3, clock); crewRun(2, "clock", 3, clock)
+tick(250000)
+assert(not isDone(1, "nobody_left_behind"), "the one who dropped never came out")
+-- an escape from the last run does not complete this one
+local run3 = clock
+crewRun(1, "extraction", 2, run3 - 200000); crewRun(2, "extraction", 2, run3)
+assert(not isDone(1, "nobody_left_behind"), "two different runs")
+-- a game that refused its police does not count, nor the bot police
+crewRun(2, "extraction", 2, run3, { policeBlocked = true })
+crewRun(1, "extraction", 2, run3)
+assert(not isDone(1, "nobody_left_behind"), "a runner nobody chased")
+crewRun(2, "extraction", 2, run3, { police = "bots" })
+assert(not isDone(1, "nobody_left_behind"), "the bot police")
+crewRun(2, "clock", 2, run3)
+assert(isDone(1, "nobody_left_behind") and isDone(2, "nobody_left_behind") and not isDone(3, "nobody_left_behind"),
+    "the two in the run, not the crewmate who stayed home")
+online[3] = nil; crews[3] = nil
 
 -- ── Weekly ──
 reset(); dayWith("weekly", "two_vs_machine")
