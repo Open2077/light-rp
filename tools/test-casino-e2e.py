@@ -276,8 +276,8 @@ class Sim:
                 models[m['name']] = True
         for pack in ('open77_tabletop_extra', 'open77_board_games'):
             manifest = json.loads((ROOT/f'resources/assets/models/{pack}/asset-manifest.json').read_text())
-            for m in manifest.get('models', []):
-                models[m['name']] = True
+            for m in manifest.get('models', []) + manifest.get('colliders', []):
+                models[m['name'] if isinstance(m, dict) else m] = True
         g.availableModels = c.table_from(models)
         g.heavyModels = c.table_from({m: True for m in models_heavy})
         c.execute(CLIENT_HOST)

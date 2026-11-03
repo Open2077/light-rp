@@ -116,12 +116,15 @@ function Open77.props.create(options)
  if mockCreateFailure then return nil,'invalid_model' end
  assert(options.model:find('open77\\assets\\op77_lightrp\\board_games\\',1,true)==1)
  assert(options.model:sub(-4)=='.ent' and options.kind=='prop')
- assert(options.collision==false and options.physics=='none' and options.scale==.65)
+ -- Table bases get a solid, mesh-less collider at scale 1; everything else stays non-solid.
+ if options.model:find('_collider.ent',1,true) then assert(options.collision==true and options.physics=='static' and options.scale==1)
+ else assert(options.collision==false and options.physics=='none' and options.scale==.65) end
  nextNativeId=nextNativeId+1;local id=tostring(nextNativeId)
  local name=options.model:match('([^\\]+)%.ent$')
  local row={id=id,name=name,model=options.model,position={x=options.position.x,y=options.position.y,z=options.position.z},
   yaw=options.yaw,rendered=not mockLoading,failed=false,backend='raw_entity'}
  if name:match('_board$')then row.group=id
+ elseif name:match('_collider$')then row.collider=true -- solid volume, not one of the board's pieces
  else
   local best=math.huge
   local kind=name:match('^([^_]+)_')
