@@ -58,7 +58,7 @@
 .activity-detail__head { display: flex; align-items: center; gap: var(--sp-5); }
 .activity-detail__head h1 { margin: 0; font: var(--type-display); font-size: var(--fs-head); color: var(--text-hi); letter-spacing: .01em; }
 .activity-detail__brief { margin: var(--sp-4) 0 0; max-width: 620px; color: var(--text-dim); font-size: var(--fs-body); line-height: var(--lh-body); }
-.activity-detail__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-6); margin: var(--sp-7) 0 0; max-width: 620px; }
+.activity-detail__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-6); margin: var(--sp-7) 0 0; max-width: 620px; }
 .activity-detail__stats dt { display: flex; align-items: center; gap: var(--sp-2); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); }
 .activity-detail__stats dd { margin: var(--sp-1) 0 0; font: var(--fw-semibold) var(--fs-body) var(--font-mono); color: var(--text-hi); }
 .activity-detail__modes { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-7); }
@@ -67,8 +67,12 @@
   clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
 .activity-mode:hover { color: var(--text-hi) !important; }
 .activity-mode.is-on { background: var(--accent-quiet-strong); color: var(--accent) !important; box-shadow: inset 0 0 0 1px var(--line-accent); }
+/* a PvE difficulty above the street cred tier: still selectable (it says why), never joinable */
+.activity-mode.is-locked { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--text-disabled) !important; box-shadow: inset 0 0 0 1px var(--line-neutral); }
+.activity-mode.is-locked.is-on { background: var(--surface-raised); color: var(--text-dim) !important; box-shadow: inset 0 0 0 1px var(--line-soft); }
 .activity-detail__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-6); }
 .activity-detail__why { display: flex; align-items: center; gap: var(--sp-3); color: var(--o77-red); font-size: var(--fs-label); }
+.activity-detail__why.is-info { color: var(--text-dim); }
 .activity-detail__step { margin: var(--sp-8) 0 var(--sp-4); font: var(--fs-tag) var(--font-mono); letter-spacing: var(--ls-tag); color: var(--text-dim); font-weight: var(--fw-regular); }
 .activity-detail__mine { margin: 0; color: var(--text-body); font-size: var(--fs-label); }
 .activity-top { list-style: none; margin: 0; padding: 0; max-width: 520px; display: flex; flex-direction: column; gap: var(--sp-1); }

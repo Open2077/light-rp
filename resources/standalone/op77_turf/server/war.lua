@@ -1,4 +1,5 @@
--- op77_turf lifecycle: the queue, the lobby, staff-scheduled wars and the war itself.
+-- op77_turf lifecycle: the queue, the lobby, staff-scheduled wars, the war itself, and
+-- the Gang Sweeps (the public PvE variant).
 --
 --   queue -> lobby (countdown) -> placing -> countdown -> running -> resolved -> closed
 --
@@ -7,25 +8,48 @@
 -- and the real rules (TurfRules). The only asynchronous steps are placements and kit
 -- hand-outs, which report back through Turf.onPlaced.
 --
--- One war at a time. The rules step (capture, score, bounds, scope) runs once a second,
--- so its cost is (fighters x zones) per second, never per frame.
-Turf = { queue = {}, lobby = nil, schedule = nil, war = nil, nextWarId = nil, bucketCursor = nil,
-    testing = false, siteCursor = 0, lastQueuePush = 0 }
+-- One turf war at a time (Turf.war, activity turf.war). Gang Sweeps (Turf.sweeps,
+-- activity turf.pve) run beside it, each in its own bucket, up to pve.maxSweeps: a crew
+-- (or a solo player) against an NPC gang. Bots (server/bots.lua) fill a war launched
+-- while staff bot mode is on (war.botWar) and are every sweep's gang.
+--
+-- The rules step (capture, score, bounds, scope) runs once a second per war, so its
+-- cost is (fighters x zones) per second, never per frame.
+Turf = { queue = {}, lobby = nil, schedule = nil, war = nil, sweeps = {}, sweepQueue = {}, nextWarId = nil,
+    bucketCursor = nil, testing = false, bots = false, siteCursor = 0, sweepCursor = 0, lastQueuePush = 0 }
 local R = TurfRules
 
 local function cfg() return TurfConfig end
 local function W() return TurfWorld end
 local function C() return TurfCore end
+local function B() return TurfBots end
 local function log(fmt, ...) print(("[op77_turf] " .. fmt):format(...)) end
 
 -- ---------------------------------------------------------------- helpers
 
+-- Staff bot mode (op77_lightrp /lightrp.bots), and the platform can make bots.
+function Turf.botMode() return Turf.bots == true and B().available() end
+
+-- Bot mode from the core (the event, or activityBots() after a registration). Off: no
+-- new bot war; a running one keeps its bots until it ends.
+function Turf.setBots(on, by)
+    on = on == true
+    if Turf.bots == on then return false end
+    Turf.bots = on
+    log("staff bot mode %s (%s)%s", on and "ON" or "off", tostring(by),
+        on and not B().available() and ": no NPC API on this build, wars keep their normal rules" or "")
+    Turf.lastQueuePush = 0
+    return true
+end
+
 function Turf.minPlayers()
+    if Turf.botMode() then return 1 end
     if Turf.testing then return math.max(2, cfg().testing.minPlayers or 2) end
     return math.max(2, cfg().activity.minPlayers or 6)
 end
 
 function Turf.minAccounts()
+    if Turf.botMode() then return 1 end
     if Turf.testing then return cfg().testing.minAccounts or 2 end
     return cfg().rewards.minAccounts or 4
 end
@@ -65,10 +89,38 @@ local function eachPresent(war, fn)
     end
 end
 
+-- Humans present per side (bots: TurfBots.count).
 function Turf.counts(war)
     local n = { 0, 0 }
     eachPresent(war, function(m) n[m.side] = n[m.side] + 1 end)
     return n
+end
+
+local function isSweep(war) return war.kind == "pve" end
+local function hasBots(war) return war.botWar == true or war.kind == "pve" end
+
+-- Every live war: the turf war, then the sweeps.
+function Turf.wars()
+    local list = {}
+    if Turf.war then list[1] = Turf.war end
+    for _, w in ipairs(Turf.sweeps) do list[#list + 1] = w end
+    return list
+end
+
+function Turf.warById(id)
+    if id == nil then return nil end
+    if Turf.war and Turf.war.id == id then return Turf.war end
+    for _, w in ipairs(Turf.sweeps) do if w.id == id then return w end end
+    return nil
+end
+
+-- A member not yet released or dropped (present or leaving), and his war.
+local function entryOf(id)
+    for _, war in ipairs(Turf.wars()) do
+        local m = war.members[id]
+        if m and not m.gone and not m.released then return m, war end
+    end
+    return nil
 end
 
 -- ---------------------------------------------------------------- identity
@@ -82,6 +134,13 @@ function Turf.identity(id)
     local gi = R.gangInfo(gang, view, cfg().gangs)
     return { name = info.name or W().name(id), identifier = info.identifier, characterKey = info.characterKey,
         gang = gang, gangLabel = gi and gi.label or nil, gangColor = gi and gi.color or nil }
+end
+
+-- The Light RP squad of a join (options.squad = { id, leader, members }), as a key.
+local function squadOf(opts)
+    local squad = type(opts) == "table" and opts.squad or nil
+    if type(squad) ~= "table" or squad.id == nil then return nil end
+    return tostring(squad.id), squad
 end
 
 -- ---------------------------------------------------------------- queue
@@ -102,10 +161,27 @@ function Turf.dequeue(id)
 end
 
 function Turf.memberOf(id)
-    local war = Turf.war
-    local m = war and war.members[id]
-    if present(m) then return m, war end
+    for _, war in ipairs(Turf.wars()) do
+        local m = war.members[id]
+        if present(m) then return m, war end
+    end
     return nil
+end
+
+-- A Gang Sweep line-up entry: group, entry, group index, entry index.
+function Turf.sweepEntry(id)
+    for gi, g in ipairs(Turf.sweepQueue) do
+        for i, e in ipairs(g.entries) do if e.id == id then return g, e, gi, i end end
+    end
+    return nil
+end
+
+function Turf.unsweep(id)
+    local g, _, gi, i = Turf.sweepEntry(id)
+    if not g then return false end
+    table.remove(g.entries, i)
+    if #g.entries == 0 then table.remove(Turf.sweepQueue, gi) end
+    return true
 end
 
 -- Queue a player. `checked`: Light RP already ran activityCheck (the hub join).
@@ -113,6 +189,7 @@ function Turf.enqueue(id, opts, now, checked)
     if Turf.memberOf(id) then return false, "You are already in the turf war." end
     local position, total = Turf.position(id)
     if position then return true, ("You are already queued for Turf War (%d/%d)."):format(position, total) end
+    if Turf.sweepEntry(id) then return false, "You are lined up for a Gang Sweep: /turf leave first." end
     if not checked then
         local ok, why = C().check(id)
         if not ok then return false, why end
@@ -123,7 +200,7 @@ function Turf.enqueue(id, opts, now, checked)
     local who = Turf.identity(id)
     local entry = { id = id, at = now, site = vote and vote.id or nil, name = who.name, identifier = who.identifier,
         characterKey = who.characterKey, gang = who.gang, gangLabel = who.gangLabel, gangColor = who.gangColor,
-        kit = Turf.kit(opts.kit) and opts.kit or nil }
+        kit = Turf.kit(opts.kit) and opts.kit or nil, squad = squadOf(opts) }
     Turf.queue[#Turf.queue + 1] = entry
     position, total = #Turf.queue, #Turf.queue
     local side = who.gang and ("for the " .. who.gangLabel) or "as a mercenary"
@@ -160,7 +237,8 @@ local function maintainQueue(now)
 end
 
 -- The lobby's site: a scheduled one, else the most voted enabled site, else the rotation.
-function Turf.pickSite(entries)
+function Turf.pickSite(entries, cursorKey)
+    cursorKey = cursorKey or "siteCursor"
     local enabled = Turf.enabledSites()
     if #enabled == 0 then return cfg().sites[1] end
     local votes, best, bestN = {}, nil, 0
@@ -172,8 +250,8 @@ function Turf.pickSite(entries)
         if n > bestN then best, bestN = site, n end
     end
     if best then return best end
-    Turf.siteCursor = Turf.siteCursor % #enabled + 1
-    return enabled[Turf.siteCursor]
+    Turf[cursorKey] = (Turf[cursorKey] or 0) % #enabled + 1
+    return enabled[Turf[cursorKey]]
 end
 
 -- ---------------------------------------------------------------- presentation
@@ -181,11 +259,14 @@ end
 -- What every fighter's HUD shares (built once per push).
 function Turf.sharedView(war, now)
     local phase = war.state == "resolved" and "ended" or war.state
-    local view = { warId = war.id, phase = phase, site = { id = war.site.id, label = war.site.label, district = war.site.district },
-        target = cfg().match.targetScore, sides = {}, zones = {}, reason = war.reason, winner = war.winner, void = war.void or nil }
+    local view = { warId = war.id, phase = phase, mode = war.kind,
+        site = { id = war.site.id, label = war.site.label, district = war.site.district },
+        target = war.target, sides = {}, zones = {}, reason = war.reason, winner = war.winner, void = war.void or nil }
     for s = 1, 2 do
         local side = war.sides[s]
-        view.sides[s] = { label = side.label, color = side.color, score = side.score, gang = side.gang, count = 0 }
+        local bots = war.bots and B().count(war, s) or nil
+        view.sides[s] = { label = side.label, color = side.color, score = side.score, gang = side.gang, count = bots or 0,
+            bots = bots }
     end
     eachPresent(war, function(m) view.sides[m.side].count = view.sides[m.side].count + 1 end)
     for i, zone in ipairs(war.zones) do
@@ -201,7 +282,7 @@ function Turf.sharedView(war, now)
     elseif war.state == "resolved" then
         view.remainingMs = math.max(0, (war.releaseAt or now) - now)
         view.counted = war.counted or nil
-        view.influence = war.influenceTop
+        view.influence = war.influenceTop and #war.influenceTop > 0 and war.influenceTop or nil
     end
     return view
 end
@@ -223,6 +304,7 @@ function Turf.pushHud(war, now)
     war.lastHud = now
 end
 
+-- Fighters, then bots (negative ids, "[BOT] " names), by score.
 function Turf.boardRows(war)
     local rows = {}
     for _, id in ipairs(war.order) do
@@ -231,6 +313,9 @@ function Turf.boardRows(war)
             rows[#rows + 1] = { id = m.id, name = m.name, side = m.side, merc = m.merc or nil, kills = m.kills,
                 deaths = m.deaths, captures = m.captures, score = R.personalScore(m, cfg().scoring) }
         end
+    end
+    if war.bots then
+        for _, row in ipairs(B().rows(war, cfg().scoring)) do rows[#rows + 1] = row end
     end
     table.sort(rows, function(a, b)
         if a.score ~= b.score then return a.score > b.score end
@@ -251,7 +336,7 @@ function Turf.sitePayload(war, m)
         zones[i] = { id = def.id, label = def.label, x = def.x, y = def.y, z = def.z, radius = def.radius }
     end
     return { warId = war.id, site = { id = war.site.id, label = war.site.label, district = war.site.district },
-        bounds = war.site.bounds, zones = zones, side = m.side,
+        bounds = war.site.bounds, zones = zones, side = m.side, mode = war.kind,
         sides = { { label = war.sides[1].label, color = war.sides[1].color }, { label = war.sides[2].label, color = war.sides[2].color } } }
 end
 
@@ -275,6 +360,7 @@ Turf.push = push
 local function feedAll(war, text, tone)
     eachPresent(war, function(m) push(m, "feed", { text = text, tone = tone or "info" }) end)
 end
+Turf.feedAll = feedAll
 
 -- Queued players see where they stand (and the lobby countdown): sent when it changed
 -- only (the client counts the lobby down on its own).
@@ -303,7 +389,9 @@ function Turf.markHudless(id)
     if m then m.hudless = true end
     local _, _, e = Turf.position(id)
     if e then e.hudless = true end
-    return m ~= nil or e ~= nil
+    local _, se = Turf.sweepEntry(id)
+    if se then se.hudless = true end
+    return m ~= nil or e ~= nil or se ~= nil
 end
 
 -- The leading vote without moving the rotation cursor.
@@ -329,6 +417,7 @@ function Turf.status(now)
         else
             detail = ("%s · %s vs %s · starting"):format(war.site.label, sideLabel(war, 1), sideLabel(war, 2))
         end
+        if war.botWar then detail = detail .. " · bots" end
         return { phase = "running", players = n[1] + n[2], queued = queued, joinable = true, detail = detail }
     end
     if Turf.lobby then
@@ -346,8 +435,36 @@ function Turf.status(now)
             detail = ("Scheduled: %s in ~%d min"):format(site and site.label or "a district",
                 math.max(1, math.ceil((Turf.schedule.at - now) / 60000))) }
     end
+    if Turf.botMode() then
+        return { phase = "idle", players = 0, queued = 0, joinable = true,
+            detail = "Staff bot mode: one fighter starts a war, bots fill the sides. Nothing counts." }
+    end
     return { phase = "idle", players = 0, queued = 0, joinable = true,
         detail = "Gang war for a district. Queue and keep playing." }
+end
+
+-- The Gang Sweep's hub line.
+function Turf.pveStatus(now)
+    local P = cfg().pve
+    local running, humans, waiting = 0, 0, 0
+    for _, war in ipairs(Turf.sweeps) do
+        if war.state ~= "closed" then
+            running = running + 1
+            local n = Turf.counts(war)
+            humans = humans + n[1] + n[2]
+        end
+    end
+    for _, g in ipairs(Turf.sweepQueue) do waiting = waiting + #g.entries end
+    if running > 0 then
+        return { phase = "running", players = humans, queued = waiting, joinable = true,
+            detail = ("%d sweep%s on (%d max)%s"):format(running, running > 1 and "s" or "", P.maxSweeps or 2,
+                waiting > 0 and (" · %d waiting"):format(waiting) or "") }
+    end
+    if waiting > 0 then
+        return { phase = "lobby", players = 0, queued = waiting, joinable = true, detail = "A crew is gathering" }
+    end
+    return { phase = "idle", players = 0, queued = 0, joinable = true,
+        detail = "Take a district from an NPC gang. Solo or with your crew." }
 end
 
 -- ---------------------------------------------------------------- schedule
@@ -427,21 +544,28 @@ local function tickLobby(now)
     if now >= lobby.endsAt then Turf.launch(now) end
 end
 
+-- A fresh bucket of our range, never one a live war is using.
 local function allocateBucket()
     local b = cfg().buckets
-    local span = b.to - b.from + 1
+    local inUse = {}
+    for _, w in ipairs(Turf.wars()) do inUse[w.bucket] = true end
     local cursor = Turf.bucketCursor or (b.from - 1)
-    cursor = cursor + 1
-    if cursor > b.to then cursor = b.from end
+    for _ = 1, b.to - b.from + 1 do
+        cursor = cursor + 1
+        if cursor > b.to then cursor = b.from end
+        if not inUse[cursor] then break end
+    end
     Turf.bucketCursor = cursor
-    return cursor, span
+    return cursor
 end
 
 -- The lobby is over: whoever can go goes, sides are formed, Light RP takes them.
+-- In staff bot mode one fighter is enough: the sides are filled with bots.
 function Turf.launch(now)
     local lobby = Turf.lobby
     Turf.lobby = nil
     local site = lobby and lobby.site and Turf.site(lobby.site) or Turf.pickSite(Turf.queue)
+    local botWar = Turf.botMode()
     local ready = {}
     for _, e in ipairs(Turf.queue) do
         if W().connected(e.id) then
@@ -480,15 +604,28 @@ function Turf.launch(now)
         return callOff(("not enough fighters ready (%d/%d)."):format(#ready, Turf.minPlayers()))
     end
     local m = cfg().match
-    local opts = { maxPlayers = cfg().activity.maxPlayers, maxImbalance = m.maxImbalance, allowTurncoats = m.allowTurncoats }
+    local maxPlayers = cfg().activity.maxPlayers
+    -- Bot mode: nobody is benched for balance, bots even the sides.
+    local opts = { maxPlayers = maxPlayers, maxImbalance = botWar and maxPlayers or m.maxImbalance,
+        allowTurncoats = m.allowTurncoats }
     local form = R.formSides(ready, opts)
-    if #form.sides[1] == 0 or #form.sides[2] == 0 then
-        -- One crew alone: it splits (a training war, mercenaries on the other side).
-        opts.allowTurncoats = true
-        form = R.formSides(ready, opts)
-    end
-    if #form.sides[1] == 0 or #form.sides[2] == 0 then
-        return callOff("a war needs two sides.")
+    if not botWar then
+        if #form.sides[1] == 0 or #form.sides[2] == 0 then
+            -- One crew alone: it splits (a training war, mercenaries on the other side).
+            -- A Light RP squad never splits: it stays whole, and the war waits.
+            opts.allowTurncoats = true
+            form = R.formSides(ready, opts)
+        end
+        if #form.sides[1] == 0 or #form.sides[2] == 0 then
+            return callOff("a war needs two sides.")
+        end
+    else
+        -- A side nobody of a gang holds gets a rival gang (its bots wear its colours).
+        for s = 1, 2 do
+            if form.gangs[s] == nil and #form.sides[s] == 0 then
+                form.gangs[s] = R.rivalGang(cfg().bots.gangOrder, form.gangs[s == 1 and 2 or 1], cfg().gangs)
+            end
+        end
     end
     -- Light RP takes them (activityEnter). A refusal costs that fighter his place only.
     local byId = {}
@@ -506,7 +643,10 @@ function Turf.launch(now)
             end
         end
     end
-    if #entered[1] == 0 or #entered[2] == 0 or #entered[1] + #entered[2] < 2 then
+    local filled
+    if botWar then filled = #entered[1] + #entered[2] >= 1
+    else filled = #entered[1] > 0 and #entered[2] > 0 and #entered[1] + #entered[2] >= 2 end
+    if not filled then
         for s = 1, 2 do for _, id in ipairs(entered[s]) do C().leave(id, { returnPlayer = true }) end end
         return callOff("a side could not be filled.")
     end
@@ -514,7 +654,7 @@ function Turf.launch(now)
     for _, id in ipairs(form.bench) do
         if byId[id] then W().notify(id, "info", "Your crew is over-represented: you stay first in line and go in as reinforcements.", 7000) end
     end
-    return Turf.start(site, form, entered, byId, now)
+    return Turf.start(site, form, entered, byId, now, { botWar = botWar })
 end
 
 -- ---------------------------------------------------------------- war start
@@ -534,7 +674,7 @@ local function newMember(war, id, side, merc, entry, now)
     local m = { id = id, side = side, merc = merc == true, slot = war.sides[side].slots,
         name = entry and entry.name or W().name(id), identifier = entry and entry.identifier,
         characterKey = entry and entry.characterKey, gang = entry and entry.gang, gangLabel = entry and entry.gangLabel,
-        kit = entry and entry.kit or defaultKit().id, hudless = entry and entry.hudless or nil,
+        kit = entry and entry.kit or defaultKit().id, hudless = entry and entry.hudless or nil, squad = entry and entry.squad,
         kills = 0, deaths = 0, captures = 0, holdSeconds = 0, playedMs = 0, joinedAt = now, kitToken = 0 }
     -- A gang's own colours only: a merc who belongs to a gang is still a mercenary here.
     if war.sides[side].gang and m.gang == war.sides[side].gang then m.merc = false end
@@ -542,6 +682,10 @@ local function newMember(war, id, side, merc, entry, now)
     war.order[#war.order + 1] = id
     W().setTeam(id, cfg().teamIds[side])
     return m
+end
+
+local function coverOf(war)
+    return { title = isSweep(war) and "GANG SWEEP" or "TURF WAR", subtitle = war.site.label, zone = war.site.district or "Night City" }
 end
 
 local function placeMember(war, m, now, cover)
@@ -555,36 +699,51 @@ local function placeMember(war, m, now, cover)
     end, cover)
 end
 
-function Turf.start(site, form, entered, byId, now)
+-- A war (or a sweep) is created and its fighters placed.
+--   opts = { kind = "pvp"|"pve", activity, botWar, squadKey, target, timeLimitSeconds,
+--            rewards, holder = side holding every zone at the start }
+function Turf.start(site, form, entered, byId, now, opts)
+    opts = opts or {}
     local bucket = allocateBucket()
     if Turf.nextWarId == nil then Turf.nextWarId = now + 1 end
+    local kind = opts.kind or "pvp"
     local war = { id = Turf.nextWarId, site = site, bucket = bucket, state = "placing", members = {}, order = {},
         sides = {}, zones = R.newZones(site), createdAt = now, token = 1, carry = { 0, 0 }, playedMs = 0,
-        placeDeadline = now + (cfg().match.placeTimeoutSeconds or 40) * 1000, boardDirty = true, lastHud = 0, lastBoard = 0 }
+        placeDeadline = now + (cfg().match.placeTimeoutSeconds or 40) * 1000, boardDirty = true, lastHud = 0, lastBoard = 0,
+        kind = kind, activity = opts.activity or cfg().activity.id, botWar = opts.botWar == true or nil,
+        squadKey = opts.squadKey, target = opts.target or cfg().match.targetScore,
+        timeLimitMs = (opts.timeLimitSeconds or cfg().match.timeLimitSeconds or 660) * 1000,
+        rewards = opts.rewards or cfg().rewards }
     Turf.nextWarId = Turf.nextWarId + 1
     for s = 1, 2 do
         local info = sideInfo(form, s)
         war.sides[s] = { gang = info.gang, label = info.label, color = info.color, score = 0, slots = 0 }
     end
-    Turf.war = war
+    if opts.holder then
+        for _, zone in ipairs(war.zones) do zone.owner = opts.holder end
+    end
+    war.zoneRate = opts.zoneRate
+    if kind == "pve" then Turf.sweeps[#Turf.sweeps + 1] = war else Turf.war = war end
     W().setupBucket(bucket)
-    local cover = { title = "TURF WAR", subtitle = site.label, zone = site.district or "Night City" }
+    local cover = coverOf(war)
     for s = 1, 2 do
         for _, id in ipairs(entered[s]) do
             local m = newMember(war, id, s, form.merc[id], byId[id], now)
             placeMember(war, m, now, cover)
         end
     end
+    if hasBots(war) then B().plan(war, now) end
     local n = Turf.counts(war)
-    log("war %d created at %s bucket %d: %s (%d) vs %s (%d)", war.id, site.id, bucket, war.sides[1].label, n[1],
-        war.sides[2].label, n[2])
+    log("%s %d created at %s bucket %d: %s (%d%s) vs %s (%d%s)", kind == "pve" and "sweep" or "war", war.id, site.id, bucket,
+        war.sides[1].label, n[1], war.bots and ("+" .. B().count(war, 1) .. " bots") or "",
+        war.sides[2].label, n[2], war.bots and ("+" .. B().count(war, 2) .. " bots") or "")
     Turf.pushHud(war, now)
     return war
 end
 
 function Turf.onPlaced(warId, id, token, ok, why)
-    local war = Turf.war
-    if war == nil or war.id ~= warId or war.token ~= token then return end
+    local war = Turf.warById(warId)
+    if war == nil or war.token ~= token then return end
     local m = war.members[id]
     if not present(m) then return end
     m.placed, m.placeError = ok == true, why
@@ -594,6 +753,11 @@ function Turf.onPlaced(warId, id, token, ok, why)
         local now = W().now()
         m.aliveSince = now
         m.protectedUntil = now + (cfg().life.protectionSeconds or 3) * 1000
+        Turf.equip(war, m)
+        war.boardDirty = true
+    elseif war.state == "countdown" then
+        -- (a crew member who caught up with his sweep's countdown) armed for the start
+        m.aliveSince = W().now()
         Turf.equip(war, m)
         war.boardDirty = true
     end
@@ -606,8 +770,8 @@ function Turf.equip(war, m)
     local token, warId = m.kitToken, war.id
     local kit = Turf.kit(m.kit) or defaultKit()
     W().equip(m.id, kit, function()
-        local w = Turf.war
-        return w ~= nil and w.id == warId and w.state ~= "resolved" and present(m) and m.kitToken == token and not m.down
+        local w = Turf.warById(warId)
+        return w ~= nil and w.state ~= "resolved" and w.state ~= "closed" and present(m) and m.kitToken == token and not m.down
     end)
 end
 
@@ -618,6 +782,7 @@ function Turf.chooseKit(id, kitId, now)
     local m, war = Turf.memberOf(id)
     if not m then
         local _, _, e = Turf.position(id)
+        if not e then _, e = Turf.sweepEntry(id) end
         if not e then return false, "You are not queued or in a turf war." end
         e.kit = kit.id
         return true, ("Kit %s ready for the war."):format(kit.label)
@@ -638,6 +803,7 @@ function Turf.nextKit(id, now)
     local current
     if m then current = m.kit else
         local _, _, e = Turf.position(id)
+        if not e then _, e = Turf.sweepEntry(id) end
         current = e and e.kit
     end
     current = current or defaultKit().id
@@ -652,16 +818,26 @@ end
 
 -- Light RP's damage arbiter chain, our verdict. Fighters hurt each other only in a
 -- running war, across sides, in this bucket's scope; fresh spawns are protected
--- (until they shoot). nil = not our business.
+-- (until they shoot). A bot's hit (when the platform runs Open77.players.damage through
+-- the arbiters) follows the same rules. nil = not our business.
 function Turf.damage(event, now)
-    local war = Turf.war
-    if war == nil or type(event) ~= "table" then return nil end
+    if type(event) ~= "table" then return nil end
     local v, a = tonumber(event.victim), tonumber(event.attacker)
-    local vm = v and war.members[v] or nil
-    local am = a and a > 0 and war.members[a] or nil
-    if vm and not present(vm) then vm = nil end
-    if am and not present(am) then am = nil end
+    local vm, vwar
+    if v then vm, vwar = Turf.memberOf(v) end
+    local bot, bwar = B().ofNpc(event.attacker)
+    if bot then
+        if vm == nil or vwar ~= bwar then return false end -- a bot never hurts anyone outside its war
+        if bwar.state ~= "running" or bot.side == vm.side then return false end
+        if (vm.protectedUntil or 0) > now then return false end
+        return true
+    end
+    if B().ofNpc(event.victim) then return nil end -- a bot's own pricing (TurfBots.onPlayerHit)
+    local am, awar
+    if a and a > 0 then am, awar = Turf.memberOf(a) end
     if vm == nil and am == nil then return nil end
+    if vm and am and vwar ~= awar then return false end
+    local war = vwar or awar
     if war.state ~= "running" then return false end
     if vm and am then
         if vm ~= am and vm.side == am.side then return false end
@@ -677,12 +853,11 @@ function Turf.damage(event, now)
     return false -- a fighter shooting someone outside the war
 end
 
--- A fighter went down (death event, or seen down by the step).
-function Turf.onDeath(victimId, killerId, now)
-    local war = Turf.war
-    if war == nil then return false end
-    local m = war.members[victimId]
-    if not present(m) or m.down then return false end
+-- A fighter went down (death event, or seen down by the step). With no killer of his
+-- war named, the bot that hit him last (within the credit window) gets the kill.
+function Turf.onDeath(victimId, killerId, now, rawKiller)
+    local m, war = Turf.memberOf(victimId)
+    if not m or m.down then return false end
     m.down, m.downAt = true, now
     m.respawning, m.respawnTries = nil, 0
     m.deathPos = m.lastPos or W().position(victimId)
@@ -700,7 +875,51 @@ function Turf.onDeath(victimId, killerId, now)
         war.sides[k.side].score = war.sides[k.side].score + (cfg().scoring.killPoints or 0)
         feedAll(war, ("%s eliminated %s"):format(k.name, m.name), "danger")
     else
-        feedAll(war, ("%s is down"):format(m.name), "info")
+        local bot
+        if war.bots then
+            bot = B().lastHitOn(war, victimId, now)
+            if not bot and rawKiller ~= nil then
+                local b, bw = B().ofNpc(rawKiller)
+                if bw == war then bot = b end
+            end
+        end
+        if bot and bot.side ~= m.side then
+            B().lastHit[victimId] = nil
+            bot.kills = bot.kills + 1
+            war.sides[bot.side].score = war.sides[bot.side].score + (cfg().scoring.killPoints or 0)
+            feedAll(war, ("%s eliminated %s"):format(bot.name, m.name), "danger")
+        else
+            feedAll(war, ("%s is down"):format(m.name), "info")
+        end
+    end
+    war.boardDirty = true
+    return true
+end
+
+-- A bot went down. killer = { kind = "player"|"bot", id } | nil.
+function Turf.botDied(war, bot, killer, now)
+    local running = war.state == "running"
+    if not B().markDown(war, bot, now, running) then return false end
+    if not running then return true end
+    local name, side
+    if killer and killer.kind == "player" then
+        local k = war.members[killer.id]
+        if present(k) and k.side ~= bot.side then
+            k.kills = k.kills + 1
+            name, side = k.name, k.side
+        end
+    elseif killer and killer.kind == "bot" then
+        local kb = B().get(war, killer.id)
+        if kb and kb.side ~= bot.side then
+            kb.kills = kb.kills + 1
+            name, side = kb.name, kb.side
+        end
+    end
+    if name then
+        war.sides[side].score = war.sides[side].score + (cfg().scoring.killPoints or 0)
+        feedAll(war, ("%s eliminated %s"):format(name, bot.name), "danger")
+    else
+        feedAll(war, ("%s is down"):format(bot.name), "info")
     end
     war.boardDirty = true
     return true
@@ -784,6 +1003,9 @@ function Turf.onCapture(war, zone, ev, now)
             names[#names + 1] = m.name
         end
     end)
+    if war.bots then
+        for _, name in ipairs(B().creditCapture(war, zone.index, s)) do names[#names + 1] = name end
+    end
     local label = ("%s · %s"):format(zone.def.id, zone.def.label)
     feedAll(war, ("%s captured %s"):format(sideLabel(war, s), label), "success")
     eachPresent(war, function(m)
@@ -831,6 +1053,8 @@ function Turf.step(war, now)
             end
         end
     end)
+    if war.bots then B().step(war, now, counts, dt) end
+    if war.state ~= "running" then return end -- (a bot's death cannot end it, but stay safe)
     for i, zone in ipairs(war.zones) do
         local ev = R.stepZone(zone, counts[i], dt, cap)
         if ev and ev.kind == "captured" then Turf.onCapture(war, zone, ev, now) end
@@ -842,8 +1066,12 @@ function Turf.step(war, now)
             m.holdSeconds = (m.holdSeconds or 0) + dt
         end
     end)
+    if war.bots then
+        B().hold(war, dt)
+        B().retask(war, now)
+    end
     war.playedMs = (war.playedMs or 0) + dt * 1000
-    local winner = R.stepScore(war, dt, cfg().scoring, cfg().match.targetScore)
+    local winner = R.stepScore(war, dt, cfg().scoring, war.target)
     if winner ~= nil then return Turf.finish(war, winner, "target", now) end
     if now >= war.endsAt then return Turf.finish(war, R.timeWinner(war), "time", now) end
     Turf.syncScope(war, now)
@@ -851,17 +1079,29 @@ end
 
 -- ---------------------------------------------------------------- late joiners
 
+-- The side a squadmate already fights on in this war, or nil.
+local function crewSide(war, squad)
+    if squad == nil then return nil end
+    for _, id in ipairs(war.order) do
+        local o = war.members[id]
+        if present(o) and o.squad == squad then return o.side end
+    end
+    return nil
+end
+
 local function admitLate(war, now)
     local m = cfg().match
     if not m.joinInProgress or war.state ~= "running" then return end
     if war.endsAt - now < (m.joinCutoffSeconds or 180) * 1000 then return end
+    local maxPlayers = cfg().activity.maxPlayers
     local admitted = 0
     local i = 1
     while i <= #Turf.queue and admitted < 2 do
         local e = Turf.queue[i]
         local counts = Turf.counts(war)
         local side, merc = R.placeLate(counts, { war.sides[1].gang, war.sides[2].gang }, e.gang,
-            { maxPlayers = cfg().activity.maxPlayers, maxImbalance = m.maxImbalance, allowTurncoats = m.allowTurncoats })
+            { maxPlayers = maxPlayers, maxImbalance = war.botWar and maxPlayers or m.maxImbalance,
+                allowTurncoats = m.allowTurncoats, crewSide = crewSide(war, e.squad) })
         local moved = false
         if side and W().connected(e.id) then
             local ok = C().check(e.id)
@@ -873,13 +1113,16 @@ local function admitLate(war, now)
                 if member then
                     -- Back in the same war (left earlier): a fresh entry, his tallies kept.
                     member.left, member.leaving, member.released, member.gone, member.resultSent = nil, nil, nil, nil, nil
-                    member.side, member.merc = side, merc
+                    member.side, member.merc, member.squad = side, merc, e.squad
                     member.down = false
                     W().setTeam(e.id, cfg().teamIds[side])
                 else
                     member = newMember(war, e.id, side, merc, e, now)
                 end
-                placeMember(war, member, now, { title = "TURF WAR", subtitle = war.site.label, zone = war.site.district })
+                placeMember(war, member, now, coverOf(war))
+                -- Bot mode keeps the numbers: a bot of that side makes room.
+                if war.botWar then B().retire(war, side, now) end
+                if war.bots then B().welcome(war, member) end
                 feedAll(war, ("%s joins %s%s"):format(member.name, sideLabel(war, side), member.merc and " (mercenary)" or ""), "info")
                 war.boardDirty = true
             end
@@ -892,17 +1135,27 @@ end
 
 local function resultFor(war, m, winner, counted)
     local won = winner ~= 0 and winner == m.side
-    return {
+    local result = {
         placement = (winner == 0 or won) and 1 or 2,
         score = R.personalScore(m, cfg().scoring),
         won = won,
         stats = { captures = m.captures, holdSeconds = math.floor(m.holdSeconds or 0), kills = m.kills, deaths = m.deaths,
             gang = m.gang, mercenary = m.merc or false, side = sideLabel(war, m.side), site = war.site.id,
-            forfeit = m.left or nil },
-        reputation = R.reputation(m, war, winner, cfg().rewards, counted),
+            forfeit = m.left or nil, mode = war.kind ~= "pvp" and war.kind or nil,
+            bots = war.bots and B().count(war) > 0 and B().count(war) or nil },
+        reputation = R.reputation(m, war, winner, war.rewards or cfg().rewards, counted),
     }
+    -- Staff bot mode: the core records nothing (and is told so).
+    if war.botWar then result.test = true end
+    return result
 end
 Turf.resultFor = resultFor
+
+local function notCounted(war)
+    if war.botWar then return "not counted (bot war)" end
+    if isSweep(war) then return "not counted (too short)" end
+    return "not counted (too short or too few crews)"
+end
 
 function Turf.finish(war, winner, reason, now)
     if war.state == "resolved" or war.state == "closed" then return end
@@ -913,26 +1166,34 @@ function Turf.finish(war, winner, reason, now)
         if m.frozen then m.frozen = nil; W().freeze(m.id, false) end
     end)
     if war.scope then W().removeScope(war.scope); war.scope = nil end
-    local counted = R.counted(war, cfg().rewards, Turf.minAccounts())
+    local counted
+    if war.botWar then counted = false
+    elseif isSweep(war) then counted = R.pveCounted(war, war.rewards)
+    else counted = R.counted(war, cfg().rewards, Turf.minAccounts()) end
     war.counted = counted
-    -- Influence of the week (memory now, database on a thread).
-    local deltas = counted and R.influence(war, winner, cfg().influence) or {}
+    -- Weekly influence: a real turf war only (never a bot war, never a sweep). Memory
+    -- now, database on a thread.
+    local influence = war.kind == "pvp" and not war.botWar
+    local deltas = (counted and influence) and R.influence(war, winner, cfg().influence) or {}
     local fighters = 0
     for _ in pairs(war.members) do fighters = fighters + 1 end
-    if not war.void then
+    if influence and not war.void then
         TurfInfluence.record(deltas, { site = war.site.id, gangA = war.sides[1].gang, gangB = war.sides[2].gang,
             scoreA = war.sides[1].score, scoreB = war.sides[2].score, winner = winner, fighters = fighters,
             durationS = math.floor((war.playedMs or 0) / 1000), counted = counted }, W().unix())
     end
     local top = {}
-    for i, row in ipairs(TurfInfluence.list()) do
-        if i > (cfg().influence.topSize or 6) then break end
-        top[i] = { gang = row.gang, label = row.label, color = row.color, points = row.points, wins = row.wins,
-            delta = deltas[row.gang] and deltas[row.gang].points or nil }
+    if influence then
+        for i, row in ipairs(TurfInfluence.list()) do
+            if i > (cfg().influence.topSize or 6) then break end
+            top[i] = { gang = row.gang, label = row.label, color = row.color, points = row.points, wins = row.wins,
+                delta = deltas[row.gang] and deltas[row.gang].points or nil }
+        end
     end
     war.influenceTop = top
-    log("war %d resolved (%s): %s %d - %d %s winner=%s counted=%s void=%s", war.id, tostring(reason), sideLabel(war, 1),
-        war.sides[1].score, war.sides[2].score, sideLabel(war, 2), tostring(winner), tostring(counted), tostring(war.void))
+    log("%s %d resolved (%s): %s %d - %d %s winner=%s counted=%s void=%s", isSweep(war) and "sweep" or "war", war.id,
+        tostring(reason), sideLabel(war, 1), war.sides[1].score, war.sides[2].score, sideLabel(war, 2), tostring(winner),
+        tostring(counted), tostring(war.void))
     local score = ("%s %d - %d %s"):format(sideLabel(war, 1), war.sides[1].score, war.sides[2].score, sideLabel(war, 2))
     Turf.pushHud(war, now)
     Turf.pushBoard(war, now)
@@ -940,12 +1201,12 @@ function Turf.finish(war, winner, reason, now)
         local lines = {}
         local title, tone
         if war.void then
-            title, tone = "WAR CALLED OFF", "info"
+            title, tone = isSweep(war) and "SWEEP CALLED OFF" or "WAR CALLED OFF", "info"
             lines[#lines + 1] = { label = "Result", value = war.voidReason or "Nothing counts." }
         else
             local result = resultFor(war, m, winner, counted)
             if not m.resultSent then
-                C().result(m.id, result)
+                C().result(m.id, result, war.activity)
                 m.resultSent = true
             end
             title = winner == 0 and "DRAW" or (result.won and "VICTORY" or "DEFEAT")
@@ -954,7 +1215,7 @@ function Turf.finish(war, winner, reason, now)
             lines[#lines + 1] = { label = "Captures", value = tostring(m.captures) }
             lines[#lines + 1] = { label = "Time on the zones", value = R.clock((m.holdSeconds or 0) * 1000) }
             lines[#lines + 1] = { label = "Reputation", value = result.reputation > 0 and ("+" .. result.reputation)
-                or (counted and "-" or "not counted (too short or too few crews)") }
+                or (counted and "-" or notCounted(war)) }
             local mine = m.gang and deltas[m.gang] and war.sides[m.side].gang == m.gang and not m.merc
             if mine then
                 local points, rank = TurfInfluence.of(m.gang)
@@ -971,11 +1232,14 @@ function Turf.finish(war, winner, reason, now)
             end
         end
         push(m, "result", { title = title, placement = (winner == 0 or winner == m.side) and 1 or 2, subtitle = score,
-            lines = lines, tone = tone, durationMs = (cfg().match.scoreboardSeconds or 10) * 1000, influence = top })
+            lines = lines, tone = tone, durationMs = (cfg().match.scoreboardSeconds or 10) * 1000,
+            influence = #top > 0 and top or nil })
     end)
+    -- The bots go with the war (the end board above keeps their rows).
+    if war.bots then B().removeAll(war, "war_over") end
 end
 
--- Staff stop, failed placements, core gone: nothing counts, everyone goes home.
+-- Staff stop, failed placements, core gone, last human gone: nothing counts.
 function Turf.abort(war, now, reason)
     if war.state == "resolved" or war.state == "closed" then return false end
     war.void, war.voidReason = true, reason
@@ -984,9 +1248,14 @@ function Turf.abort(war, now, reason)
 end
 
 -- A side with nobody left: the other wins by forfeit (running), or the war is void.
+-- A war with bots goes on while one human is in it, and is void when none is left.
 local function checkSides(war, now)
     if war.state == "resolved" or war.state == "closed" then return end
     local n = Turf.counts(war)
+    if hasBots(war) then
+        if n[1] + n[2] == 0 then return Turf.abort(war, now, "Every fighter left. Nothing counts.") end
+        return
+    end
     if n[1] > 0 and n[2] > 0 then return end
     if war.state == "running" and (n[1] > 0 or n[2] > 0) then
         return Turf.finish(war, n[1] > 0 and 1 or 2, "forfeit", now)
@@ -1018,39 +1287,46 @@ local function releaseMember(war, m, now)
     W().setTeam(m.id, 0)
     W().clearKit(m.id)
     W().clear(m.id)
-    C().leave(m.id, { returnPlayer = true })
+    C().leave(m.id, { returnPlayer = true }, war.activity)
     return true
 end
 Turf.releaseMember = releaseMember
 
 -- The fighter asked to quit (hub, /turf leave): a forfeit for him (result now, no
--- reputation), home at once; his side plays on.
-function Turf.leaveRequest(id, now)
-    if Turf.dequeue(id) then
+-- reputation), home at once; his side plays on. `activity`: only that activity's
+-- queue / war (nil: any). Returns done, "queue"|"war", activityId.
+function Turf.leaveRequest(id, now, activity)
+    local pvp, pve = cfg().activity.id, cfg().pve.activity.id
+    if (activity == nil or activity == pvp) and Turf.dequeue(id) then
         W().clear(id)
-        return true, "queue"
+        return true, "queue", pvp
     end
-    local war = Turf.war
-    local m = war and war.members[id]
-    if not present(m) then return false end
+    if (activity == nil or activity == pve) and Turf.unsweep(id) then
+        W().clear(id)
+        return true, "queue", pve
+    end
+    local m, war = Turf.memberOf(id)
+    if not m or (activity ~= nil and war.activity ~= activity) then return false end
     m.leaving, m.left = true, war.state ~= "resolved" or nil
     if war.state == "running" and not m.resultSent then
-        C().result(id, resultFor(war, m, -1, false))
+        C().result(id, resultFor(war, m, -1, false), war.activity)
         m.resultSent = true
     end
-    if war.state ~= "resolved" then feedAll(war, ("%s left the war"):format(m.name), "info") end
+    if war.state ~= "resolved" then feedAll(war, ("%s left the %s"):format(m.name, isSweep(war) and "sweep" or "war"), "info") end
     war.boardDirty = true
     releaseMember(war, m, now)
     checkSides(war, now)
-    return true, "war"
+    return true, "war", war.activity
 end
 
 -- Light RP already released him (disconnect, character switch...): clean up, never leave.
-function Turf.dropped(id, now, reason)
-    local queued = Turf.dequeue(id)
-    local war = Turf.war
-    local m = war and war.members[id]
-    if not m or m.gone or m.released then return queued end
+function Turf.dropped(id, now, reason, activity)
+    local pvp, pve = cfg().activity.id, cfg().pve.activity.id
+    local queued = false
+    if activity == nil or activity == pvp then queued = Turf.dequeue(id) or queued end
+    if activity == nil or activity == pve then queued = Turf.unsweep(id) or queued end
+    local m, war = entryOf(id)
+    if not m or (activity ~= nil and war.activity ~= activity) then return queued end
     m.gone = true
     W().setTeam(id, 0)
     if m.frozen then m.frozen = nil; W().freeze(id, false) end
@@ -1062,10 +1338,9 @@ function Turf.dropped(id, now, reason)
 end
 
 -- Light RP stopped: it has already returned every player it owned (contract), so
--- nobody is handed back; the war is void and the queue forgotten.
+-- nobody is handed back; every war and sweep is void and the queues forgotten.
 function Turf.coreStopped(now)
-    local war = Turf.war
-    if war then
+    for _, war in ipairs(Turf.wars()) do
         for _, id in ipairs(war.order) do
             local m = war.members[id]
             if m and not m.gone and not m.released then
@@ -1076,36 +1351,42 @@ function Turf.coreStopped(now)
             if m then m.gone = true end
         end
         if war.scope then W().removeScope(war.scope); war.scope = nil end
+        if war.bots then B().removeAll(war, "core_stopped") end
         war.void, war.voidReason = true, "Light RP restarted. Nothing counts."
         war.state = "closed"
-        Turf.war = nil
         log("war %d voided: op77_lightrp stopped", war.id)
     end
+    Turf.war, Turf.sweeps = nil, {}
     for _, e in ipairs(Turf.queue) do W().clear(e.id) end
-    Turf.queue, Turf.lobby = {}, nil
+    for _, g in ipairs(Turf.sweepQueue) do for _, e in ipairs(g.entries) do W().clear(e.id) end end
+    Turf.queue, Turf.lobby, Turf.sweepQueue = {}, nil, {}
 end
 
--- This resource stops: Light RP returns the players itself; drop our holds and teams.
+-- This resource stops: Light RP returns the players itself; drop our holds, teams, bots.
 function Turf.shutdown()
-    local war = Turf.war
-    if not war then return end
-    for _, id in ipairs(war.order) do
-        local m = war.members[id]
-        if present(m) then
-            W().setTeam(id, 0)
-            if m.frozen then W().freeze(id, false) end
-            W().clear(id)
+    local wars = Turf.wars()
+    for _, war in ipairs(wars) do
+        for _, id in ipairs(war.order) do
+            local m = war.members[id]
+            if present(m) then
+                W().setTeam(id, 0)
+                if m.frozen then W().freeze(id, false) end
+                W().clear(id)
+            end
         end
+        if war.scope then W().removeScope(war.scope) end
     end
-    if war.scope then W().removeScope(war.scope) end
+    B().shutdown(wars)
 end
 
 -- ---------------------------------------------------------------- tick
 
 local function close(war)
     if war.scope then W().removeScope(war.scope); war.scope = nil end
+    if war.bots then B().removeAll(war, "closed") end
     war.state = "closed"
     if Turf.war == war then Turf.war = nil end
+    for i = #Turf.sweeps, 1, -1 do if Turf.sweeps[i] == war then table.remove(Turf.sweeps, i) end end
     log("war %d closed", war.id)
 end
 
@@ -1118,9 +1399,16 @@ local function beginCountdown(war, now)
             m.aliveSince = now
             if not m.down then Turf.equip(war, m) end
             local kit = Turf.kit(m.kit) or defaultKit()
-            W().notify(m.id, "info", ("%s vs %s at %s. You fight for %s%s. Kit: %s (K to change). Hold the zones!")
-                :format(sideLabel(war, 1), sideLabel(war, 2), war.site.label, sideLabel(war, m.side),
-                    m.merc and " as a mercenary" or "", kit.label), 8000)
+            local text
+            if isSweep(war) then
+                text = ("Gang Sweep at %s: %s hold every zone. Take them back! Kit: %s (K to change).")
+                    :format(war.site.label, sideLabel(war, 2), kit.label)
+            else
+                text = ("%s vs %s at %s. You fight for %s%s. Kit: %s (K to change). Hold the zones!")
+                    :format(sideLabel(war, 1), sideLabel(war, 2), war.site.label, sideLabel(war, m.side),
+                        m.merc and " as a mercenary" or "", kit.label)
+            end
+            W().notify(m.id, "info", text, 8000)
         end
     end)
     Turf.pushHud(war, now)
@@ -1129,14 +1417,15 @@ end
 local function beginRunning(war, now)
     war.state = "running"
     war.startedAt = now
-    war.endsAt = now + (cfg().match.timeLimitSeconds or 660) * 1000
+    war.endsAt = now + (war.timeLimitMs or (cfg().match.timeLimitSeconds or 660) * 1000)
     war.lastStep = now
     eachPresent(war, function(m)
         if m.frozen then m.frozen = nil; W().freeze(m.id, false) end
         m.protectedUntil = nil
-        push(m, "banner", { title = "FIGHT", text = ("Take the zones. First to %d."):format(cfg().match.targetScore), tone = "success",
+        push(m, "banner", { title = "FIGHT", text = ("Take the zones. First to %d."):format(war.target), tone = "success",
             durationMs = 3000 })
     end)
+    if war.bots then B().retask(war, now) end
     Turf.syncScope(war, now + 1000, true)
     Turf.pushHud(war, now)
     log("war %d running", war.id)
@@ -1149,6 +1438,7 @@ function Turf.tickWar(war, now)
         local m = war.members[id]
         if m and m.leaving and not m.released and not m.gone then releaseMember(war, m, now) end
     end
+    if war.bots then B().tick(war, now) end
     if state == "placing" then
         local done = true
         eachPresent(war, function(m)
@@ -1175,7 +1465,7 @@ function Turf.tickWar(war, now)
         tickRespawns(war, now)
         if now - (war.lastStep or 0) >= cfg().stepMs then
             Turf.step(war, now)
-            if war.state == "running" then admitLate(war, now) end
+            if war.state == "running" and not isSweep(war) then admitLate(war, now) end
         end
         if war.state == "running" then
             if now - (war.lastHud or 0) >= cfg().hudMs then Turf.pushHud(war, now) end
@@ -1196,18 +1486,247 @@ function Turf.tickWar(war, now)
     end
 end
 
+-- ---------------------------------------------------------------- Gang Sweep (PvE)
+--
+-- A join (turf.pve) lines the player up with his crew: the core sends one join per
+-- squad member, each with the same options.squad. The group starts once every online
+-- member is in (or after pve.gatherSeconds), when a sweep slot is free. A crew member
+-- joining while his crew's sweep runs goes straight into it.
+
+local function sweepOf(key)
+    for _, war in ipairs(Turf.sweeps) do
+        if war.squadKey == key and war.state ~= "resolved" and war.state ~= "closed" then return war end
+    end
+    return nil
+end
+
+-- A crew member into his crew's running sweep: true | false, sentence.
+function Turf.sweepLate(war, e, now)
+    local P = cfg().pve
+    if war.state == "resolved" or war.state == "closed" then return false, "Your crew's sweep is ending." end
+    if war.state == "running" and war.endsAt - now < (P.joinCutoffSeconds or 120) * 1000 then
+        return false, "Your crew's sweep is almost over."
+    end
+    local n = Turf.counts(war)
+    if n[1] + n[2] >= (P.activity.maxPlayers or 8) then return false, "Your crew's sweep is full." end
+    local ok, why = C().check(e.id, war.activity)
+    if not ok then return false, why end
+    ok, why = C().enter(e.id, war.activity)
+    if not ok then return false, why end
+    local member = war.members[e.id]
+    if member then
+        member.left, member.leaving, member.released, member.gone, member.resultSent = nil, nil, nil, nil, nil
+        member.side, member.down = 1, false
+        W().setTeam(e.id, cfg().teamIds[1])
+    else
+        member = newMember(war, e.id, 1, true, e, now)
+    end
+    placeMember(war, member, now, coverOf(war))
+    B().welcome(war, member)
+    local added = B().scale(war, now)
+    feedAll(war, ("%s joins the sweep%s"):format(member.name, added > 0 and (" · %d more gangers"):format(added) or ""), "info")
+    war.boardDirty = true
+    W().notify(e.id, "info", ("Joining your crew's Gang Sweep at %s."):format(war.site.label), 5000)
+    return true, "Joining your crew's Gang Sweep."
+end
+
+-- A turf.pve join. `checked`: Light RP already ran activityCheck (the hub join).
+function Turf.sweepJoin(id, opts, now, checked)
+    local P = cfg().pve
+    if not P.enabled or not B().available() then return false, "Gang Sweep is closed right now." end
+    if Turf.memberOf(id) then return false, "You are already in a fight." end
+    if Turf.sweepEntry(id) then return true, "You are already lined up for a Gang Sweep." end
+    if Turf.position(id) then return false, "You are queued for Turf War: /turf leave first." end
+    if not checked then
+        local ok, why = C().check(id, P.activity.id)
+        if not ok then return false, why end
+    end
+    opts = type(opts) == "table" and opts or {}
+    local squad, view = squadOf(opts)
+    local key = squad and ("squad:" .. squad) or ("solo:" .. tostring(id))
+    local vote = type(opts.site) == "string" and Turf.site(opts.site) or nil
+    if vote and vote.enabled == false then vote = nil end
+    local who = Turf.identity(id)
+    local entry = { id = id, at = now, site = vote and vote.id or nil, name = who.name, identifier = who.identifier,
+        characterKey = who.characterKey, gang = who.gang, gangLabel = who.gangLabel, gangColor = who.gangColor,
+        kit = Turf.kit(opts.kit) and opts.kit or nil, squad = squad }
+    local running = sweepOf(key)
+    if running then return Turf.sweepLate(running, entry, now) end
+    local group
+    for _, g in ipairs(Turf.sweepQueue) do if g.key == key then group = g break end end
+    if not group then
+        local expected = {}
+        if view and type(view.members) == "table" then
+            for _, mid in ipairs(view.members) do
+                local n = tonumber(mid)
+                if n then expected[#expected + 1] = math.tointeger(n) or n end
+            end
+        end
+        local gather = (squad and P.gatherSeconds or P.soloGatherSeconds) or 0
+        group = { key = key, squad = squad, expected = expected, entries = {}, at = now, readyAt = now + gather * 1000 }
+        Turf.sweepQueue[#Turf.sweepQueue + 1] = group
+    end
+    group.entries[#group.entries + 1] = entry
+    local text
+    if squad then
+        text = ("Gang Sweep: your crew is gathering (%d/%d). It starts as soon as everyone is in.")
+            :format(#group.entries, math.max(#group.entries, #group.expected))
+    else
+        text = "Gang Sweep: you go in alone. The NPC gang is waiting."
+    end
+    if #Turf.sweeps >= (P.maxSweeps or 2) then
+        text = text .. (" Every sweep slot is taken (%d): you go in when one frees up."):format(P.maxSweeps or 2)
+    end
+    W().notify(id, "info", text .. " /turf leave to cancel.", 7000)
+    Turf.lastQueuePush = 0
+    return true, text
+end
+
+-- A crew's sweep starts (every ready member enters; the not ready stay lined up and
+-- join late once they can).
+function Turf.launchSweep(g, now)
+    local P = cfg().pve
+    local pveId = P.activity.id
+    local ready, waiting = {}, {}
+    for _, e in ipairs(g.entries) do
+        local ok, why = false, "Your crew's sweep is full."
+        if W().connected(e.id) and #ready < (P.activity.maxPlayers or 8) then ok, why = C().check(e.id, pveId) end
+        if ok then
+            ready[#ready + 1] = e
+            e.notReadySince = nil
+        elseif W().connected(e.id) then
+            e.notReadySince = e.notReadySince or now
+            waiting[#waiting + 1] = e
+            W().notify(e.id, "warning", ("Your Gang Sweep is starting, but you can't go: %s"):format(tostring(why)), 6000)
+        end
+    end
+    local site = Turf.pickSite(ready, "sweepCursor")
+    local entered, byId, people = {}, {}, {}
+    for _, e in ipairs(ready) do
+        local ok, why = C().enter(e.id, pveId)
+        if ok then
+            entered[#entered + 1] = e.id
+            byId[e.id] = e
+            people[#people + 1] = e
+        else
+            W().clear(e.id)
+            W().notify(e.id, "warning", ("You could not join the Gang Sweep: %s"):format(tostring(why)), 6000)
+        end
+    end
+    if #waiting > 0 then
+        g.entries, g.readyAt = waiting, now + 5000
+        table.insert(Turf.sweepQueue, g)
+    end
+    if #entered == 0 then return nil end
+    local humans = R.topGangs(people)
+    local holder = (P.holders or {})[site.id]
+    if holder == nil or holder == humans or cfg().gangs[holder] == nil then
+        holder = R.rivalGang(cfg().bots.gangOrder, humans, cfg().gangs)
+    end
+    local merc = {}
+    for _, id in ipairs(entered) do
+        if not (humans ~= nil and byId[id].gang == humans) then merc[id] = true end
+    end
+    local rewards = R.scaledRewards(cfg().rewards, P.reputationScale or 0.6, P.rewards)
+    return Turf.start(site, { gangs = { humans, holder }, merc = merc }, { entered, {} }, byId, now,
+        { kind = "pve", activity = pveId, squadKey = g.key, target = P.targetScore, timeLimitSeconds = P.timeLimitSeconds,
+            rewards = rewards, holder = 2, zoneRate = { 1, P.holderZoneRate or 1 } })
+end
+
+local function tickSweeps(now)
+    local P = cfg().pve
+    local timeout = (cfg().queue.timeoutSeconds or 1800) * 1000
+    local dropAfter = (cfg().queue.notReadyDropSeconds or 120) * 1000
+    local i = 1
+    while i <= #Turf.sweepQueue do
+        local g = Turf.sweepQueue[i]
+        for j = #g.entries, 1, -1 do
+            local e = g.entries[j]
+            local stale = (e.notReadySince and now - e.notReadySince >= dropAfter) or now - e.at > timeout
+            if not W().connected(e.id) then
+                table.remove(g.entries, j)
+            elseif stale then
+                table.remove(g.entries, j)
+                W().clear(e.id)
+                W().notify(e.id, "info", "You left the Gang Sweep line-up (not ready or too long).", 5000)
+            end
+        end
+        local running = #g.entries > 0 and sweepOf(g.key) or nil
+        if #g.entries == 0 then
+            table.remove(Turf.sweepQueue, i)
+        elseif running then
+            -- His crew is in there: each member tries to follow (5 s apart).
+            for j = #g.entries, 1, -1 do
+                local e = g.entries[j]
+                if now >= (e.retryAt or 0) then
+                    local ok, why = Turf.sweepLate(running, e, now)
+                    if ok then
+                        table.remove(g.entries, j)
+                        e.notReadySince = nil
+                    else
+                        e.retryAt = now + 5000
+                        e.notReadySince = e.notReadySince or now
+                        if why ~= e.lastWhy then
+                            e.lastWhy = why
+                            W().notify(e.id, "warning", ("You can't join your crew's sweep yet: %s"):format(tostring(why)), 5000)
+                        end
+                    end
+                end
+            end
+            if #g.entries == 0 then table.remove(Turf.sweepQueue, i) else i = i + 1 end
+        else
+            local complete = #g.expected > 0
+            for _, mid in ipairs(g.expected) do
+                if W().connected(mid) then
+                    local inside = false
+                    for _, e in ipairs(g.entries) do if e.id == mid then inside = true break end end
+                    if not inside then complete = false break end
+                end
+            end
+            if (complete or now >= g.readyAt) and #Turf.sweeps < (P.maxSweeps or 2) then
+                table.remove(Turf.sweepQueue, i)
+                Turf.launchSweep(g, now)
+                -- (a group put back by launchSweep is at the end of the list)
+            else
+                i = i + 1
+            end
+        end
+    end
+end
+
+-- Lined-up players see their crew gathering (and the wait for a slot), on change only.
+function Turf.pushSweepQueue(now, force)
+    local P = cfg().pve
+    local full = #Turf.sweeps >= (P.maxSweeps or 2) or nil
+    for gi, g in ipairs(Turf.sweepQueue) do
+        local min = math.max(#g.entries, #g.expected)
+        for _, e in ipairs(g.entries) do
+            local view = { queued = true, mode = "pve", position = gi, total = #g.entries, min = min,
+                lobbyMs = math.max(0, g.readyAt - now), site = e.site and Turf.site(e.site) and Turf.site(e.site).label or nil,
+                gang = e.gangLabel, kit = e.kit or defaultKit().id, waiting = full }
+            local key = ("%d|%d|%d|%s|%s|%s"):format(gi, #g.entries, min, tostring(g.readyAt), view.kit, tostring(full))
+            if force or key ~= e.pushedKey then
+                e.pushedKey = key
+                W().state(e.id, nil, view)
+            end
+        end
+    end
+end
+
 function Turf.tick(now)
     tickSchedule(now)
-    local war = Turf.war
-    if war then
+    for _, war in ipairs(Turf.wars()) do
         local ok, err = pcall(Turf.tickWar, war, now)
         if not ok then log("war %d tick error: %s", war.id, tostring(err)) end
     end
     if Turf.war == nil then
         tickLobby(now)
     end
+    local ok, err = pcall(tickSweeps, now)
+    if not ok then log("sweep line-up error: %s", tostring(err)) end
     if now - (Turf.lastQueuePush or 0) >= 2000 then
         maintainQueue(now)
         Turf.pushQueue(now)
+        Turf.pushSweepQueue(now)
     end
 end

@@ -17,8 +17,20 @@
 -- 4,000-60,000. An entry implant is ~3 h of work, a high-end one ~10 h, a legendary one 25 h or
 -- more. No limit: anything can be fitted; a family is one native slot (arms, legs, dash,
 -- overdrive...), so another model of it replaces the one installed.
+--
+-- `tier` is the implant's rank, 1-6 (6 shows as V+). Street cred (the reputation tiers of
+-- server/config/missions.lua, earned in PvE only) opens the ranks: `gating.byRank` maps a rank
+-- to the reputation tier it needs, an item's own `repTier` overrides it. The server refuses
+-- the install below it (removal always works, an implant already fitted stays active, the
+-- staff command `lightrp.cyberware give` ignores it). docs/pve-progression.md.
 LightRpCyberwareConfig = {
     enabled = true,
+    gating = { enabled = true, byRank = { [1] = 1, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5 } },
+    -- Implants inside a PvP activity (ranked arena, races, chases, turf PvP): true keeps them
+    -- (today's behaviour); false suspends the session grants (dash, overdrive, slam) and the
+    -- passive stats while the player is in a non-PvE activity. Durable legs / arms stay.
+    -- An owner decision (docs/pve-progression.md, section 8).
+    activeInPvp = true,
     removalFee = 250,          -- eddies to take an implant out (nothing is refunded)
     payFrom = "bank",          -- clinics charge the bank account
     seatedOnly = true,         -- operations only while lying on a ripperdoc chair
@@ -123,6 +135,38 @@ LightRpCyberwareConfig = {
           kind = "passive", rarity = "rare", tier = 3, price = 8500,
           maker = "Militech", icon = "cw_circulatory_bloodpump", passive = { staminaRegen = 8 },
           effect = "Stamina comes back faster (+8 / s).", lore = "A pressure cannon for your veins.", stats = { { "Stamina regen", "+8 / s" } } },
+        -- Rank V: reputation tier IV (Edgerunner) -----------------------------------------
+        { id = "iron_lungs_mk2", name = "Iron Lungs Mk.2", section = "circulatory", family = "lungs",
+          kind = "passive", rarity = "legendary", tier = 5, price = 34000,
+          maker = "Zetatech", icon = "cw_circulatory_ironlungs", passive = { staminaMax = 80 },
+          effect = "+80 max stamina.", lore = "Sealed alveoli rated for vacuum work. Night City air is easy.", stats = { { "Max stamina", "+80" } } },
+        { id = "adrenaline_booster_mk2", name = "Adrenaline Booster Mk.2", section = "circulatory", family = "pump",
+          kind = "passive", rarity = "legendary", tier = 5, price = 36000,
+          maker = "Militech", icon = "cw_circulatory_staminaregenbooster", passive = { staminaRegen = 15 },
+          effect = "Stamina comes back much faster (+15 / s).", lore = "Combat-grade pump. Your pulse is now a setting.", stats = { { "Stamina regen", "+15 / s" } } },
+        { id = "bioplastic_blood_vessels", name = "Bioplastic Blood Vessels", section = "circulatory", family = "biomonitor",
+          kind = "passive", rarity = "legendary", tier = 5, price = 42000,
+          maker = "Biotechnica", icon = "cw_circulatory_enhancedbloodvessels", passive = { healthRegen = 3 },
+          effect = "Your health regenerates (+3 / s).", lore = "Self-sealing veins. Wounds close before the bleeding starts.", stats = { { "Health regen", "+3 / s" } } },
+        -- Rank V+: reputation tier V (Legend) ---------------------------------------------
+        { id = "neofiber_mk3", name = "Neofiber Actuators Mk.3", section = "nervous", family = "dash",
+          kind = "dash", preset = "apex", rarity = "legendary", tier = 6, price = 85000,
+          maker = "Biotechnica", icon = "cw_nervoussystem_improvedreaction",
+          effect = "Dash and air dash: three charges, almost free, back in a second.",
+          lore = "Prototype fibres. The paperwork says they do not exist.", stats = { { "Charges", "3" }, { "Stamina", "5" }, { "Recharge", "1 s" } } },
+        { id = "aegis_dermal_plating", name = "Aegis Dermal Plating", section = "integumentary", family = "armor",
+          kind = "passive", rarity = "legendary", tier = 6, price = 90000,
+          maker = "Arasaka", icon = "cw_integumentary_metalcoveredskin", passive = { armor = 100 },
+          effect = "+100 armor.", lore = "Corporate bodyguard plating. Bullets leave a bill, not a hole.", stats = { { "Armor", "+100" } } },
+        { id = "rara_avis", name = "Rara Avis", section = "skeleton", family = "bones",
+          kind = "passive", rarity = "legendary", tier = 6, price = 95000,
+          maker = "Kang Tao", icon = "cw_skeleton_nanotechplates", passive = { healthMax = 100 },
+          effect = "+100 max health.", lore = "Nanotech lattice bones. One in a thousand bodies takes the graft.", stats = { { "Max health", "+100" } } },
+        { id = "zetatech_apogee", name = "Zetatech Apogee", section = "operating_system", family = "overdrive",
+          kind = "overdrive", preset = "apex", rarity = "legendary", tier = 6, price = 120000,
+          maker = "Zetatech", icon = "cw_system_sandevistanc4",
+          effect = "Apex overdrive: 11 s of heavy reflex boost, two charges, back in 22 s (press X).",
+          lore = "The last Sandevistan before the military kept the rest.", stats = { { "Duration", "11 s" }, { "Charges", "2" }, { "Cooldown", "22 s" }, { "Stamina", "30" } } },
     },
 
     -- Platform definitions (immutable once registered: bump `version` when a grade changes).
@@ -139,10 +183,12 @@ LightRpCyberwareConfig = {
     dashPresets = {
         basic = { staminaCost = 20, cooldownMs = 700, maxCharges = 1, chargeRegenMs = 2500 },
         advanced = { staminaCost = 10, cooldownMs = 450, maxCharges = 3, chargeRegenMs = 1500 },
+        apex = { staminaCost = 5, cooldownMs = 300, maxCharges = 3, chargeRegenMs = 1000 }, -- rank V+
     },
     overdrivePresets = {
         street = { tier = "reflex", durationMs = 10000, cooldownMs = 13000, maxCharges = 1, chargeRegenMs = 23000, staminaCost = 25 },
         combat = { tier = "reflex_heavy", durationMs = 8000, cooldownMs = 25000, maxCharges = 2, chargeRegenMs = 45000, staminaCost = 40 },
+        apex = { tier = "reflex_heavy", durationMs = 11000, cooldownMs = 22000, maxCharges = 2, chargeRegenMs = 40000, staminaCost = 30 }, -- rank V+
     },
     slam = { damage = 35, knockbackMeters = 1.5, staminaCost = 20, cooldownMs = 5000, radius = 4 },
 }

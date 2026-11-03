@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CATALOGUE, DEMO, SECTION, SECTIONS, type Body, type Cyberware, type OpenPayload } from "./data";
+import { CATALOGUE, DEMO, SECTION, SECTIONS, demoLocks, roman, type Body, type Cyberware, type OpenPayload, type Reputation } from "./data";
 import { emit, inGame, onClose, onOpen, onResult, onState, ready } from "./bridge";
 import { loadManifest, type Manifest } from "./media";
 import { play, preload } from "./sfx";
@@ -19,13 +19,19 @@ export interface Session {
   removalFee: number;
   installed: Record<string, string[]>;
   patient: NonNullable<OpenPayload["patient"]>;
+  reputation?: Reputation;               // street cred (absent: no gate shown)
   stock: Cyberware[];                    // the clinic's catalogue
   items: Record<string, Cyberware>;      // the same, by id
 }
 
 const fromPayload = (p: OpenPayload): Session => {
-  const stock = p.catalogue && p.catalogue.length > 0 ? p.catalogue : CATALOGUE;
+  const live = p.live === true;
+  const reputation = p.reputation ?? (live ? undefined : DEMO.reputation);
+  const given = p.catalogue && p.catalogue.length > 0 ? p.catalogue : CATALOGUE;
+  // live: the server says what is locked; the preview derives it from the rank
+  const stock = live || !reputation ? given : demoLocks(given, reputation);
   return {
+    reputation,
     live: p.live === true,
     body: p.body === "female" ? "female" : "male",
     clinic: p.clinic ?? DEMO.clinic,
@@ -51,10 +57,16 @@ export const familyMate = (s: Session, item: Cyberware): Cyberware | undefined =
   return undefined;
 };
 
+/** "III (Operator)": the street cred tier an implant needs. */
+export const repLabel = (item: Cyberware): string =>
+  `${roman(item.repTier ?? 0)}${item.repName ? ` (${item.repName})` : ""}`;
+
 /** Why the clinic would refuse this installation, or null. Same rules as the server: no limit,
-    eurodollars only (a model of the same family simply replaces the installed one). */
+    the street cred tier of the rank, eurodollars only (a model of the same family simply
+    replaces the installed one). */
 export function refusal(s: Session, item: Cyberware): string | null {
   if (Object.values(s.installed).flat().includes(item.id)) return "Already installed.";
+  if (item.locked) return `Street cred too low: needs reputation tier ${repLabel(item)}. PvE missions, raids, gigs and PvE activities earn it.`;
   if (item.price > s.wallet) return "Not enough eurodollars in your bank account.";
   return null;
 }

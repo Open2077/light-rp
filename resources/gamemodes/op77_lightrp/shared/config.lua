@@ -31,6 +31,10 @@ LightRpConfig = {
         hotbar = { id = "lightrp.hotbar", name = "Light RP: show quick slots (hold)", key = "TAB" },
         weaponWheel = { id = "lightrp.weaponwheel", name = "Light RP: weapon wheel (hold)", key = "TAB" },
         raidReady = { id = "lightrp.raid.ready", name = "Light RP: raid ready check", key = "Y" },
+        -- Answer the newest crew invite while the HUD prompt shows it (the raid's
+        -- ready check keeps Y while it runs).
+        crewAccept = { id = "lightrp.crew.accept", name = "Light RP: accept crew invite", key = "Y" },
+        crewDecline = { id = "lightrp.crew.decline", name = "Light RP: decline crew invite", key = "N" },
     },
 
     -- Inventories (shared/items.lua holds the item templates). Weights in kg.

@@ -10,7 +10,9 @@ import "./wizard.css";
 export function CharacterWizard() {
   const character = useStore(s => s.state.character);
   const connected = useStore(s => s.connected);
-  if (!connected || character.status === "active") return null;
+  // playerId 0 = the empty default, not a character the server sent: another key
+  // can reach the page first, and that must not open the creator over a real one.
+  if (!connected || !character.playerId || character.status === "active") return null;
   return <WizardBody key={`${character.playerId}:${character.key}`} character={character} />;
 }
 

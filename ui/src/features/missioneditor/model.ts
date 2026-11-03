@@ -42,14 +42,23 @@ export interface Difficulty {
 /** A fixer gig (server/modules/fixers.lua): no board, the fixers text it to players. */
 export interface Fixer { enabled: boolean; contact: string; brief: string }
 export interface FixerContact { id: string; name: string }
+/** A world boss (server/modules/world_bosses.lua): no board, appears at random in the city. */
+export interface WorldBoss { enabled: boolean; boss: string; health: number; reward: number; minShare: number; minutes: number }
+export const WORLD_BOSS: WorldBoss = { enabled: false, boss: "", health: 25, reward: 30000, minShare: 5, minutes: 20 };
 export interface Mission {
-  id: string; revision: number; title: string; description: string; location: string; type: MissionType; enabled: boolean; fixer: Fixer;
+  id: string; revision: number; title: string; description: string; location: string; type: MissionType; enabled: boolean; fixer: Fixer; worldBoss: WorldBoss;
   point: Point; starts: Start[]; perimeter: Perimeter; outOfBounds: { graceSeconds: number };
   respawn: { seconds: number; lives: number }; spawns: Spawn[]; checkpoints: Checkpoint[]; waves: Wave[]; difficulties: Difficulty[];
 }
 export interface Capture { position: Point; heading: number }
-export interface Listing { missions?: Mission[]; ready?: boolean; fixers?: FixerContact[] }
-export interface Wire { kind: "open" | "response" | "invalidate" | "editor" | "captureKey" | "hover" | "build"; request?: string; ok?: boolean; data?: unknown; error?: string; mode?: string }
+/** `list`: how many missions follow, each in its own `mission` event, then `listed`. */
+export interface Listing { missions?: Mission[]; ready?: boolean; fixers?: FixerContact[]; total?: number; streamed?: boolean }
+export interface Wire { kind: "open" | "response" | "invalidate" | "editor" | "captureKey" | "hover" | "build" | "mission" | "listed" | "parts";
+  request?: string; ok?: boolean; data?: unknown; error?: string; mode?: string;
+  /** `mission` / `listed`: the list streamed one mission per event. */
+  stream?: string; index?: number; total?: number; mission?: Mission;
+  /** `parts`: a large event as JSON text (1-based part of parts). */
+  id?: string; part?: number; parts?: number; text?: string }
 
 export const TYPES: MissionType[] = ["eliminate", "waves"];
 export const TYPE_LABEL: Record<MissionType, string> = { eliminate: "Elimination", waves: "Survival (waves)" };
@@ -84,7 +93,7 @@ export function fresh(c: Capture): Mission {
   const p = c.position;
   return {
     id: "", revision: 0, title: "New mission", description: "", location: "", type: "eliminate", enabled: true,
-    fixer: { enabled: false, contact: "any", brief: "" },
+    fixer: { enabled: false, contact: "any", brief: "" }, worldBoss: { ...WORLD_BOSS },
     point: { ...p }, starts: [{ ...p, heading: c.heading }],
     perimeter: { shape: "circle", center: { ...p }, radius: 40, length: 60, width: 40, heading: 0, points: [], minZ: p.z - 10, maxZ: p.z + 30, fullHeight: false },
     outOfBounds: { graceSeconds: 10 }, respawn: { seconds: 10, lives: 3 },
@@ -99,6 +108,7 @@ export function normalizeMission(m: Mission): Mission {
   return {
     ...m, description: m.description ?? "", location: m.location ?? "",
     fixer: { enabled: m.fixer?.enabled === true, contact: m.fixer?.contact || "any", brief: m.fixer?.brief ?? "" },
+    worldBoss: { ...WORLD_BOSS, ...(m.worldBoss ?? {}), enabled: m.worldBoss?.enabled === true, boss: m.worldBoss?.boss ?? "" },
     starts: list(m.starts), spawns: list<Spawn>(m.spawns).map(s => ({ ...s, behavior: s.behavior ?? "assault", radius: s.radius ?? 12,
       alertRange: s.alertRange ?? 25, spread: s.spread ?? 2, route: list<Point>(s.route) })),
     checkpoints: list<Checkpoint>(m.checkpoints).map(c => ({ ...c, spawns: list<string>(c.spawns) })),
@@ -134,6 +144,12 @@ export function problems(m: Mission): string[] {
   const z = m.perimeter;
   if (!m.title.trim() || m.title.trim().length > 60) out.push("Title: 1–60 characters.");
   if (m.fixer.brief.trim().length > 240) out.push("Fixer brief: 240 characters at most.");
+  if (m.worldBoss.enabled) {
+    const boss = m.spawns.find(s => s.id === m.worldBoss.boss);
+    if (!boss) out.push("World boss: choose the boss spawn point.");
+    else if (boss.trigger !== "start") out.push("World boss: the boss spawn point must spawn at the start.");
+    if (m.fixer.enabled) out.push("A mission is either a fixer gig or a world boss.");
+  }
   if (z.shape === "poly" && z.points.length < 3) out.push("Perimeter: place at least 3 polygon vertices.");
   if (z.shape === "circle" && (z.radius < 0.5 || z.radius > 250)) out.push("Perimeter: radius 0.5–250 m.");
   if (z.shape === "box" && [z.length, z.width].some(v => v < 0.5 || v > 500)) out.push("Perimeter: box sides 0.5–500 m.");
@@ -150,7 +166,7 @@ export function problems(m: Mission): string[] {
   }
   m.spawns.forEach(s => {
     if (m.type === "eliminate" && s.trigger === "wave") out.push(`${s.label}: waves only exist in Survival missions.`);
-    else if (s.trigger !== "start" && !used.has(s.id)) out.push(`${s.label} ${s.trigger === "wave" ? "is in no wave" : "is woken by no checkpoint"}.`);
+    else if (s.trigger !== "start" && !used.has(s.id) && !m.worldBoss.enabled) out.push(`${s.label} ${s.trigger === "wave" ? "is in no wave" : "is woken by no checkpoint"}.`);
     if (s.behavior === "patrol" && !s.route.length) out.push(`${s.label}: a patrol needs at least one patrol point (Patrol route tool).`);
   });
   if (m.type === "eliminate" && !m.spawns.length) out.push("Place at least one enemy spawn point.");

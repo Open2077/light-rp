@@ -27,9 +27,12 @@ import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
 import { MissionDialog } from "@/features/missions/MissionDialog";
 import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
+import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
+import { GuideDialog } from "@/features/guide/GuideDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
 import { FixerGigHud } from "@/features/missions/FixerGigHud";
-import { MissionSquadHud } from "@/features/missions/MissionSquadHud";
+import { WorldBossHud } from "@/features/missions/WorldBossHud";
+import { AnnounceHalo } from "@/features/announce/AnnounceHalo";
 import { RaidHud } from "@/features/missions/RaidHud";
 import { ActivityHud } from "@/features/activityhud/ActivityHud";
 import { DogtownHud } from "@/features/dogtown/DogtownHud";
@@ -90,7 +93,8 @@ export function App() {
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
       <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
       <ErrorBoundary name="fixer-gig"><FixerGigHud /></ErrorBoundary>
-      <ErrorBoundary name="mission-squad"><MissionSquadHud /></ErrorBoundary>
+      <ErrorBoundary name="world-boss"><WorldBossHud /></ErrorBoundary>
+      <ErrorBoundary name="announce"><AnnounceHalo /></ErrorBoundary>
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>
@@ -110,6 +114,8 @@ export function App() {
       <ErrorBoundary name="dealership"><DealershipDialog /></ErrorBoundary>
       <ErrorBoundary name="mission"><MissionDialog /></ErrorBoundary>
       <ErrorBoundary name="activities"><ActivitiesDialog /></ErrorBoundary>
+      <ErrorBoundary name="halloffame"><HallOfFameDialog /></ErrorBoundary>
+      <ErrorBoundary name="guide"><GuideDialog /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>

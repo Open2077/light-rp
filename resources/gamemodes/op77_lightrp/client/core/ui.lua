@@ -314,6 +314,8 @@ RegisterNetEvent(E.net.state, function(patch)
         syncVoiceHud()
         if not Ui.characterReady and LightRpActions then LightRpActions.interrupt("interrupted") end
     end
+    -- the crew (client/core/crew.lua) keeps it for ALT + click and adds the invite keys
+    if type(patch) == "table" and patch.party ~= nil and LightRpCrew then LightRpCrew.sync(patch.party) end
     Ui.send(E.page.state, patch)
 end)
 RegisterNetEvent(E.net.notice, function(payload) Ui.send(E.page.notice, payload) end)

@@ -162,4 +162,39 @@ net["op77_lightrp:missionrun"]({ kind = "end", instance = "mission:1" })
 before = #toServer; events["open77:npcPlayerHit"]("7", "1", "1", "5", "2"); assert(#toServer == before, "no relay outside a mission")
 count = 0; for _ in pairs(markers) do count = count + 1 end
 assert(count == 0 and drawn["lightrp:missions:perimeter"] == nil, "cleared at the end")
-print("PASS: mission editor client (open, feet/aim capture, relay, preview + focus, build mode: hover, ghost, click/select/delete/tool/rotate, facing, weapons blocked, close) and mission run (markers, no perimeter drawn, NPC hit relay, cleanup)")
+-- a response past 900 values reaches the page as JSON text parts (page:send and the
+-- sandbox's json.encode both stop at 1024 values: the encoder is plain Lua)
+do
+    local missions = {}
+    for i = 1, 150 do
+        local spawns = {}
+        for j = 1, 6 do spawns[j] = { id = "s" .. j, label = "Spawn é \"" .. j .. "\"\n", position = { x = j + 0.25, y = -j, z = 1e-3 }, count = 3, route = {} } end
+        missions[i] = { id = "m" .. i, title = "Mission " .. i .. " — Kabuki", enabled = i % 2 == 0, spawns = spawns }
+    end
+    -- the platform encoder refuses it: no json here, on purpose
+    local savedJson = json
+    json = { encode = function() return nil end }
+    local data = { ready = true, missions = missions, fixers = { { id = "okoro", name = "Mama Okoro" } }, empty = {} }
+    local before = #sentToPage
+    local event = { kind = "response", request = "big-1", ok = true, data = data }
+    net["op77_lightrp:missioneditor"](event)
+    json = savedJson
+    local parts, joined, total = {}, {}, nil
+    for i = before + 1, #sentToPage do
+        local p = sentToPage[i].payload
+        if p.kind == "parts" then parts[#parts + 1] = p; total = p.parts; joined[p.part] = p.text end
+    end
+    assert(#parts >= 2 and total == #parts, "split in parts: " .. #parts .. " " .. tostring(sentToPage[#sentToPage].payload.error))
+    for _, p in ipairs(parts) do
+        assert(#p.text <= 48 * 1024 and p.data == nil and p.id == parts[1].id, "small parts of one event, no table payload")
+        local first = p.text:byte(1)
+        assert(first < 0x80 or first >= 0xC0, "a part never starts inside a UTF-8 sequence")
+    end
+    local text = table.concat(joined)
+    assert(text == LightRpMissionEditor.encodeJson(event), "the parts join back into the whole event")
+    -- a small response is relayed as is
+    net["op77_lightrp:missioneditor"]({ kind = "response", request = "small-1", ok = true, data = { ready = true, missions = {} } })
+    assert(sentToPage[#sentToPage].payload.data and sentToPage[#sentToPage].payload.parts == nil, "small: as is")
+end
+
+print("PASS: mission editor client (large responses in JSON parts, open, feet/aim capture, relay, preview + focus, build mode: hover, ghost, click/select/delete/tool/rotate, facing, weapons blocked, close) and mission run (markers, no perimeter drawn, NPC hit relay, cleanup)")

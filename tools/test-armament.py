@@ -254,12 +254,23 @@ assert(W.view(1).holstered==false and W.view(1).right.instanceId==rightItem.meta
 -- A mission kit takes the native slots, then the mission ends: the RP weapon comes back
 -- and the kit leaves (the stale pre-mission projection once blocked the return).
 local aside=false
-LightRP.missions={handlesLoadout=function() return aside end}
+local drawn={}
+LightRP.missions={handlesLoadout=function() return aside end,
+    kitOf=function() return aside and {id="assault",primary="Items.Preset_Ajax_Default",secondary="Items.Preset_Lexington_Default",names={"Militech Ajax","Militech Lexington"}} or nil end,
+    drawKit=function(player,slot) drawn[#drawn+1]={player,slot};return true end}
 assert(nativeRows[1] and nativeRows[1].record==LightRpArmament.weapons[rightItem.name].record,"the RP weapon is projected")
 aside=true
 assert(W.synchronize(1,true));tick(200)
+-- the wheel lists the kit during the mission, and a pick draws it back
+local wheel=W.view(1).arsenal
+assert(#wheel==2 and wheel[1].instanceId=="kit:1" and wheel[2].label=="Militech Lexington" and wheel[1].kit,"the kit in the wheel")
+reply=request({operation="select",instanceId="kit:2",baseRevision=W.view(1).revision,mutation="test:kit:draw"})
+assert(reply and reply.ok and drawn[#drawn][1]==1 and drawn[#drawn][2]==2,"kit slot 2 drawn back")
+reply=request({operation="select",instanceId=rightItem.metadata.instanceId,baseRevision=W.view(1).revision,mutation="test:kit:rp"})
+assert(reply and not reply.ok,"an RP weapon stays refused during the mission")
 nativeRows={[1]={record="Items.Preset_Ajax_Default",capacity=30,magazine=30}};nativeReserve=300
 aside=false
+assert(#W.view(1).arsenal>=1 and not W.view(1).arsenal[1].kit,"the pockets again after it")
 assert(W.synchronize(1));tick(1800)
 assert(W.view(1).ready and nativeRows[1] and nativeRows[1].record==LightRpArmament.weapons[rightItem.name].record,"after the mission: the kit is gone, the RP weapon is back")
 -- the same with an RP state that no longer matches the pockets: the kit still leaves

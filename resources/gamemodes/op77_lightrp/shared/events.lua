@@ -32,6 +32,7 @@ LightRpEvents = {
         dealership = "lightrp:ui:dealership",
         raid = "lightrp:ui:raid",             -- Lua -> page: raid state (ready check, boss, announcements, intro)
         mission = "lightrp:ui:mission",       -- Lua -> page: { session, state? , closed? } live mission board
+        guide = "lightrp:ui:guide",           -- Lua -> page: guide search index / topics, with the player's key names (client/core/guide.lua)
         activityHud = "lightrp:ui:activityhud", -- Lua -> page: { op = "show", hud } | { op = "push", kind, item } | { op = "clear" } (client/core/activity_hud.lua)
         actionStart = "lightrp:ui:activity:start",
         actionStarted = "lightrp:ui:activity:started",
@@ -76,6 +77,9 @@ LightRpEvents = {
         jobGps = "op77_lightrp:job:gps",
         vehicleGps = "op77_lightrp:vehicle:gps", -- server -> client: route to a vehicle just bought (or the garage holding it)
         activitiesGps = "op77_lightrp:activities:gps", -- server -> client: route to a contract board or The Crossing (activities_hub.lua)
+        hallOfFameBoard = "op77_lightrp:halloffame:board", -- server -> client: which prop is the Hall of Fame board (halloffame.lua)
+        hallOfFameHello = "op77_lightrp:halloffame:hello", -- client -> server: send me the board
+        guide = "op77_lightrp:guide",         -- server -> client: the guide NPC's id, search index and topics (server/modules/guide.lua)
         consume = "op77_lightrp:consume:state", -- server-owned preparation / playback / finish
         consumeReady = "op77_lightrp:consume:ready",
         consumeFinish = "op77_lightrp:consume:finish",

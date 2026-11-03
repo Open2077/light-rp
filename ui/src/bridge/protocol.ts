@@ -38,6 +38,7 @@ export const PAGE_EVENTS = {
   mission: "lightrp:ui:mission", // Lua -> page: MissionUpdate (live board)
   raid: "lightrp:ui:raid", // Lua -> page: RaidState (server/modules/mission_chimera.lua)
   activityHud: "lightrp:ui:activityhud", // Lua -> page: ActivityHudMessage (client/core/activity_hud.lua)
+  guide: "lightrp:ui:guide", // Lua -> page: GuideMessage (client/core/guide.lua, server/modules/guide.lua)
   actionStart: "lightrp:ui:activity:start",
   actionStarted: "lightrp:ui:activity:started",
   actionFinish: "lightrp:ui:activity:finish",
@@ -153,6 +154,14 @@ export interface UiState {
   activities?: ActivitiesState;
   /** The Dogtown PvP zone (server/modules/dogtown.lua; features/dogtown). */
   dogtown?: DogtownState;
+  /** A world boss whose zone you are in, or that you fought (server/modules/world_bosses.lua). */
+  worldBoss?: WorldBossState | false;
+}
+export interface WorldBossState {
+  id: string; title: string; location: string; boss: string; phase: "fight" | "cleanup" | "done";
+  bossHealth: number; enemiesLeft: number; fighters: number; endsInMs?: number;
+  share: number; minShare: number; eligible: boolean; damage: number; kills: number; reward: number; inZone: boolean;
+  result?: { success: boolean; share: number; pay: number; eligible: boolean; damage: number; kills: number } | null;
 }
 export interface FixerGigState {
   id: number; title: string; location: string; fixer: string; state: "accepted" | "countdown";
@@ -168,6 +177,8 @@ export interface ActivityStats {
   bestScore?: number; bestTimeMs?: number; bestPlacement?: number;
 }
 export interface ActivityTopRow { rank: number; name: string; wins: number; played: number; bestTimeMs?: number; bestScore?: number }
+/** A PvE difficulty (docs/pve-progression.md): locked above the player's reputation tier. */
+export interface ActivityDifficulty { id: string; label: string; minTier: number; tierName?: string; locked: boolean; reputation: number }
 export interface ActivityEntry {
   id: string; label: string; kind: ActivityKind; description: string; minPlayers: number; maxPlayers: number;
   /** The provider's latest status (op77_lightrp:activity:status). */
@@ -176,6 +187,8 @@ export interface ActivityEntry {
   byTime: boolean;
   /** Join choices (options[modeKey]); empty: the provider decides. */
   modes: Array<{ id: string; label: string }>; modeKey: string;
+  /** Players against bots: earns reputation; its difficulties go as options.difficulty. */
+  pve?: boolean; difficulties?: ActivityDifficulty[];
   top: ActivityTopRow[];
   /** The course board the leaderboard shows (a race with courses). */
   board?: { id: string; course: string; revision: number };
@@ -189,27 +202,53 @@ export interface ActivitiesState {
   hub: { name: string; position?: { x: number; y: number; z: number } };
   list: ActivityEntry[];
   /** The activity that owns the player (sinceMs at the push), or false. */
-  current: false | { id: string; label: string; sinceMs: number; leaving: boolean; returning: boolean };
+  current: false | { id: string; label: string; sinceMs: number; leaving: boolean; returning: boolean; difficulty?: string };
   /** A join asked and not entered yet (the provider's queue or lobby), or false. */
-  queued: false | { id: string; label: string; sinceMs: number };
+  queued: false | { id: string; label: string; sinceMs: number; difficulty?: string };
   /** On a mission: activities wait (/mission leave). */
   mission: boolean;
   /** Free for an activity, else the reason in one sentence. */
   eligible: boolean; reason?: string;
-  reputation: { today: number; dailyCap: number; maxPerResult: number };
+  /** PvE reputation granted today (account, UTC day) and the player's street cred tier. */
+  reputation: { today: number; dailyCap: number; maxPerResult: number; pvpGrants?: boolean;
+    tier?: number; tierName?: string; points?: number; next?: number; nextName?: string };
   /** Staff bot mode (/lightrp.bots): bots fill the missing places, nothing is recorded. */
   bots?: boolean;
-  /** Players around (only while the panel is open), for squad invites. */
+  /** Players around (only while the panel is open), for crew invites. */
   nearby: ActivityNearby[];
   contracts: ActivityContract[];
+  /** In a crew led by someone else: the leader's name (only the leader starts activities). */
+  crewLeader?: string;
 }
-export type ActivitiesTab = "activities" | "contracts" | "squad";
+export type ActivitiesTab = "activities" | "contracts" | "crew";
 
-/* ── Missions (server/modules/missions.lua) and squads (server/modules/parties.lua) ── */
+/** The Hall of Fame at The Crossing (server/modules/halloffame.lua): one tab per
+ *  dialog payload, from the server cache. Names are character names only. */
+export type HallOfFameTab = "overview" | "pvp" | "races" | "pve" | "missions" | "wealth";
+export type HallOfFameUnit = "wins" | "kills" | "time" | "eddies" | "rep" | "count" | "clears" | "points";
+export interface HallOfFameRow { rank: number; name: string; value: number; detail?: string; you?: boolean }
+export interface HallOfFameBoard {
+  key: string; title: string; subtitle?: string; unit: HallOfFameUnit; ascending?: boolean; total: number;
+  rows: HallOfFameRow[]; mine?: { rank: number; value: number; detail?: string };
+}
+export interface HallOfFameDialogPayload {
+  kind: "halloffame"; title: string; hub: string; tab: HallOfFameTab; tabs: HallOfFameTab[]; boards: HallOfFameBoard[];
+  database: boolean; updatedAgoS?: number; refreshInS?: number; wealthBankOnly?: boolean;
+}
+
+/* ── Missions (server/modules/missions.lua) and crews (server/modules/parties.lua) ── */
 export interface MissionDifficulty {
   id: string; label: string; blurb: string; payout: number; minutes: number;
   min: number; max: number; tier: number; locked: boolean; tagged: number;
   requires?: string; cleared?: number; // the difficulty to complete first at this point; how often this one was completed
+  /** Lobbies open to matchmaking with room for this player's crew (shown to a closed crew). */
+  openLobbies?: number;
+  /** `tier` is the reputation tier it needs; tierLocked: the player is below it. */
+  tierName?: string; tierLocked?: boolean;
+  /** Reputation of a success: in full (`reputation`), and what this player earns (`earns`). Below
+   *  what they have unlocked a crew member still plays it with their leader, for the reward of the
+   *  highest difficulty they have unlocked (`earnsAs`, its label; absent when it is this one). */
+  reputation?: number; earns?: number; earnsAs?: string;
 }
 export interface MissionLobbyMember { id: number; name: string; citizen: string; tier: number; host: boolean; squad?: string }
 export interface MissionBoard {
@@ -220,19 +259,38 @@ export interface MissionNearby { id: number; name: string; citizen: string; tier
 export interface MissionDialogPayload {
   kind: "mission"; session: string;
   point: { id: string; title: string; type: string; location: string; description: string };
-  me: { id: number; name: string; citizen: string; tier: number; reputation: number; nextTier?: number };
+  me: { id: number; name: string; citizen: string; tier: number; reputation: number; nextTier?: number; tierName?: string };
   difficulties: MissionDifficulty[]; boards: Record<string, MissionBoard>;
   tagged?: { lobby: string; difficulty: string; host: boolean }; taggedElsewhere?: string;
   nearby: MissionNearby[];
+  /** How this player enters: alone (a crew of one) or with their crew; only its leader tags in. */
+  entry?: MissionEntry;
+}
+export interface MissionEntry {
+  crew?: string; size: number; leader?: string; leads: boolean;
+  /** Open to matchmaking: strangers fill the empty places (the crew's flag, or the solo player's). */
+  matchmaking: boolean;
+  /** The lobby this player is tagged in takes strangers. */
+  open: boolean;
 }
 export interface MissionUpdate { session: string; state?: MissionDialogPayload; closed?: boolean }
-export interface PartyMember { id: number; name: string; leader: boolean; tier: number }
+/** One member on the crew frame. `busy`: what keeps them (mission, lobby = tagged on a board, activity),
+ *  `far`: out of reach of the viewer (another instance, or past the configured distance). */
+export interface PartyMember {
+  id: number; name: string; leader: boolean; tier: number; you?: boolean;
+  state?: "alive" | "down" | "dead"; busy?: "mission" | "lobby" | "activity"; busyLabel?: string; far?: boolean;
+}
+export interface CrewInvite { party: string; from: number; fromName: string; expiresInMs: number }
+/** The crew (server/modules/parties.lua "party" state). Without `id` the player is alone. `keys`: the
+ *  effective invite keys, added by client/core/crew.lua. */
 export interface PartyState {
-  id?: string; leader?: number; members?: PartyMember[]; pending?: Array<{ id: number; name: string }>;
-  invites: Array<{ party: string; from: number; fromName: string; expiresInMs: number }>; maxSize: number;
+  you?: number; id?: string; leader?: number; members?: PartyMember[];
+  pending?: Array<{ id: number; name: string; expiresInMs?: number }>;
+  invites: CrewInvite[]; maxSize: number; inviteSeconds?: number; matchmaking?: boolean;
+  keys?: { accept?: string; decline?: string };
 }
 export type MissionQueueState = false
-  | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean }
+  | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean; open?: boolean }
   | { running: true; instance: string; title: string; difficulty: string; difficultyId: string; endsInMs: number; members: number; squad: MissionSquadMember[]; objective?: MissionObjective };
 /** An authored mission's progress for this operator (server/modules/mission_engine.lua view()). Countdowns are from the push. */
 export interface MissionObjective {
@@ -259,7 +317,7 @@ export interface RaidState {
   intro?: { boss: { x: number; y: number; z: number }; durationMs: number; difficulty: string; operators: number };
   loadouts?: Array<{ id: string; label: string; blurb: string }>; loadout?: string;
 }
-/** One operator in the squad frame of a running mission. `state`: alive, down (waiting for a revive), dead, recovering. */
+/** One operator on the crew frame of a running mission. `state`: alive, down (waiting for a revive), dead, recovering. */
 export interface MissionSquadMember { id: number; name: string; citizen: string; host: boolean; health: number; maxHealth: number; armor: number; state: "alive" | "down" | "dead" | "recovering" }
 export type UiStatePatch = Partial<UiState>;
 
@@ -349,6 +407,8 @@ export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "amm
 export interface ArsenalWeapon {
   slot: number; instanceId: string; name: string; label: string; class?: string; ammo?: string; ammoLabel?: string;
   rounds?: number; image?: string; dual?: boolean; hand?: "right" | "left";
+  /** A mission kit weapon (instanceId "kit:1" / "kit:2"), during a mission. */
+  kit?: boolean;
 }
 export interface ArmamentWeapon {
   instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;
@@ -459,7 +519,15 @@ export interface FuelDialogPayload {
   money: { currency: string; cash: number; bank: number };
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
-export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab };
+export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload;
+
+/** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
+ *  the search index and the topics follow as GuideMessage (features/guide/model.ts). */
+export interface GuideTopicSummary { id: string; title: string; icon?: string; blurb?: string; count: number }
+export interface GuideDialogPayload {
+  kind: "guide"; revision: string; npc: { name: string; title?: string; tag?: string };
+  greeting: string[]; topics: GuideTopicSummary[]; keys?: Record<string, string>;
+}
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -488,12 +556,19 @@ export type UiAction =
   | { type: "mission.ready" }
   | { type: "mission.tag" | "mission.tagGroup"; session: string; difficulty: string }
   | { type: "mission.untag" | "mission.launch" | "mission.close"; session: string }
+  | { type: "mission.matchmaking"; session: string; on: boolean }
   | { type: "party.invite" | "party.kick" | "party.promote"; target: number }
   | { type: "party.accept" | "party.decline"; party?: string }
   | { type: "party.leave" }
+  | { type: "party.matchmaking"; on: boolean }
   | { type: "activities.control"; operation: "open" | "refresh" | "close" | "leave"; tab?: ActivitiesTab }
   | { type: "activities.control"; operation: "join"; id: string; from?: string; options?: Record<string, string> }
   | { type: "activities.control"; operation: "gps"; id: string }
+  | { type: "halloffame.open" | "halloffame.tab" | "halloffame.refresh"; tab?: HallOfFameTab; from?: string }
+  | { type: "halloffame.close" }
+  | { type: "guide.open"; from?: string }
+  | { type: "guide.topic"; id: string }
+  | { type: "guide.gps"; target: string }
   | { type: "customization.open"; vehicle: string; garage: string }
   | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
   | { type: "dealership.close"; session: string }

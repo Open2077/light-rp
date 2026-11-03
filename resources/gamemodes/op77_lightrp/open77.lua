@@ -68,6 +68,10 @@ server_script "server/modules/mission_engine.lua"  -- runtime of the authored mi
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
 server_script "server/config/fixers.lua"
 server_script "server/modules/fixers.lua"          -- fixer gigs: offers by Neural-Link text, crews, meet point
+server_script "server/config/world_bosses.lua"
+server_script "server/modules/world_bosses.lua"    -- world bosses: open-world events from editor missions, shares by contribution
+server_script "server/config/announce.lua"
+server_script "server/modules/announce.lua"        -- staff voice announcements (/lightrp.broadcast): server-wide or within a radius
 server_script "server/config/job_runs.lua"
 server_script "server/config/delivery.lua"
 server_script "server/modules/job_runs.lua"
@@ -114,6 +118,10 @@ server_script "server/modules/ripperdoc.lua"
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
+server_script "server/config/halloffame.lua"
+server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards
+server_script "server/config/guide.lua"
+server_script "server/modules/guide.lua"           -- Johnny at The Crossing: the FAQ dialogue (content in server/config/guide.lua)
 server_script "server/config/dogtown.lua"
 server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
 server_script "server/main.lua"
@@ -137,6 +145,7 @@ client_script "client/core/map_places.lua"
 client_script "client/core/homes.lua"
 client_script "client/core/vehicle_gps.lua"
 client_script "client/core/activities.lua"     -- Neural-Link app "Gigs & Arena", contract GPS
+client_script "client/core/halloffame.lua"     -- ALT + click on the Hall of Fame board
 client_script "client/core/cyberware.lua"
 client_script "client/core/wardrobe.lua"
 client_script "client/core/keys.lua"
@@ -144,6 +153,7 @@ client_script "client/core/movement.lua"
 client_script "client/core/camera.lua"
 client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
+client_script "client/core/announce.lua"       -- the announcement halo's voice level (server/modules/announce.lua)
 client_script "client/core/inventory.lua"
 client_script "client/core/armament.lua"
 client_script "client/core/grenades.lua"
@@ -161,7 +171,9 @@ client_script "client/core/raid.lua"
 client_script "client/core/mission_editor.lua"
 client_script "client/core/mission_run.lua"
 client_script "client/core/vehicle_context.lua"
+client_script "client/core/crew.lua"            -- crews: ALT + click on players, invite keys (server/modules/parties.lua)
 client_script "client/core/vehicle_customization.lua"
+client_script "client/core/guide.lua"           -- the guide NPC: page relay with the player's keys, ALT + click on him
 client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
 client_script "client/main.lua"
 
@@ -214,6 +226,7 @@ permissions {
     "acl.read",
     "players.disconnect",
     "players.access",
+    "voice.manage",        -- staff announcements: one admin voice channel per speaker
     -- client
     "voice.client",        -- guided setup through the trusted preference owner
     "network.client",      -- local player ID + authenticated account for animation state/preferences

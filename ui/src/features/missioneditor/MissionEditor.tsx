@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { emit, on } from "@/bridge/open77";
+import { emit } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { RageMenu, isPickable, type RageMenuItem } from "@/design/components";
-import { MissionRequestTimeout, mutationKey, request } from "./api";
+import { MissionRequestTimeout, mutationKey, onEditor, request } from "./api";
 import {
   BEHAVIOR_HELP, BEHAVIOR_LABEL, BEHAVIORS, BRUSH, clone, DIFFICULTIES, ENEMIES, enemyLabel, fresh, LIMITS, newId, normalizeMission, problems,
   SHAPE_LABEL, SHAPES, TOOL_LABEL, TRIGGER_LABEL, TRIGGERS, TYPE_LABEL, TYPES,
-  type Behavior, type Brush, type Capture, type Checkpoint, type Listing, type Mission, type Point, type Ref, type Spawn, type Tool, type Wave, type Wire,
+  type Behavior, type Brush, type Capture, type Checkpoint, type Listing, type Mission, type Point, type Ref, type Spawn, type Tool, type Wave,
 } from "./model";
 import { applyBuild, type BuildAction, type BuildState } from "./build";
 import { BuildHud } from "./BuildHud";
@@ -16,7 +16,7 @@ import "@/features/safezones/safezones.css";
 import "./missioneditor.css";
 
 type Kind = "list" | "mission" | "general" | "perimeter" | "vertices" | "vertex" | "starts" | "start" | "spawns" | "spawn"
-  | "checkpoints" | "checkpoint" | "waves" | "wave" | "rules" | "fixer" | "difficulties" | "difficulty" | "test" | "issues" | "discard" | "delete"
+  | "checkpoints" | "checkpoint" | "waves" | "wave" | "rules" | "fixer" | "worldboss" | "difficulties" | "difficulty" | "test" | "issues" | "discard" | "delete"
   | "brush" | "route";
 type Page = { kind: Kind; selected?: string; index?: number; key?: string };
 type Entry = RageMenuItem & { run?: () => void; change?: (patch: Partial<RageMenuItem>) => void };
@@ -32,6 +32,8 @@ const coords = (p: Point) => `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixe
 export function MissionEditor() {
   const [opened, setOpened] = useState(false), [missions, setMissions] = useState<Mission[]>([]), [ready, setReady] = useState(false);
   const [fixers, setFixers] = useState<{ id: string; name: string }[]>([]);
+  // the list fills mission by mission (`mission` events after `list`)
+  const [loading, setLoading] = useState<{ received: number; total: number } | null>(null);
   const [draft, setDraft] = useState<Mission>(), [original, setOriginal] = useState("");
   const [stack, setStack] = useState<Page[]>([{ kind: "list" }]), [world, setWorld] = useState(false);
   const [editing, setEditing] = useState<TextEdit>(), [stepIndex, setStepIndex] = useState(1);
@@ -54,9 +56,13 @@ export function MissionEditor() {
   const refresh = useCallback(async () => {
     const data = await request<Listing>("list");
     if (!live.current) return;
-    setMissions(Array.isArray(data.missions) ? data.missions.map(normalizeMission) : []);
     setReady(data.ready === true);
     setFixers(Array.isArray(data.fixers) ? data.fixers : []);
+    if (data.streamed) {
+      // each mission arrives in its own event: the menu stays usable meanwhile
+      setMissions([]);
+      setLoading(data.total ? { received: 0, total: data.total } : null);
+    } else setMissions(Array.isArray(data.missions) ? data.missions.map(normalizeMission) : []);
   }, []);
   const run = useCallback(async (task: () => Promise<void>) => {
     if (working.current) return;
@@ -117,7 +123,15 @@ export function MissionEditor() {
 
   useEffect(() => {
     live.current = true;
-    const off = on<Wire>(PAGE_EVENTS.missionEditor, event => {
+    const off = onEditor(event => {
+      if (event.kind === "mission" && event.mission) {
+        const m = normalizeMission(event.mission);
+        setMissions(previous => [...previous.filter(x => x.id !== m.id), m]
+          .sort((a, b) => a.title === b.title ? a.id.localeCompare(b.id) : a.title.localeCompare(b.title)));
+        setLoading(previous => previous ? { ...previous, received: Math.min(previous.total, previous.received + 1) } : previous);
+        return;
+      }
+      if (event.kind === "listed") { setLoading(null); return; }
       if (event.kind === "open") {
         useStore.getState().closeDialog(); useStore.getState().closeMenu();
         setOpened(true); setWorld(false); setError(""); void run(refresh);
@@ -211,7 +225,9 @@ export function MissionEditor() {
     if (!live.current) return;
     const saved = normalizeMission(result.mission); setDraft(saved); setOriginal(JSON.stringify(saved));
     mutation.current = undefined; setUnconfirmed(undefined);
-    setFeedback(saved.enabled ? "Mission published. Its board is live in the city." : "Mission saved (disabled: no board in the city).");
+    setFeedback(!saved.enabled ? "Mission saved (disabled: no board in the city)."
+      : saved.fixer?.enabled ? "Gig published. No board: the fixers hand it out."
+      : saved.worldBoss?.enabled ? "World boss published. No board: it appears at random in the city." : "Mission published. Its board is live in the city.");
     await refresh();
   });
   const remove = () => run(async () => {
@@ -276,9 +292,10 @@ export function MissionEditor() {
   if (top.kind === "list") {
     entries = [item("create", "Create a mission", () => { void edit(); }, { icon: "plus", disabled: busy || !ready, description: ready ? "Start a private draft where you stand: board, start and perimeter around you. Nothing changes until publication." : "Mission storage is unavailable." }),
       { separator: true },
-      ...missions.map(m => item(`mission:${m.id}`, m.title, () => { void edit(m); }, { icon: m.type === "waves" ? "shield" : "swords", meta: !m.enabled ? "DISABLED" : m.fixer.enabled ? `GIG · ${TYPE_LABEL[m.type].toUpperCase()}` : TYPE_LABEL[m.type].toUpperCase(), disabled: busy,
+      ...missions.map(m => item(`mission:${m.id}`, m.title, () => { void edit(m); }, { icon: m.type === "waves" ? "shield" : "swords", meta: !m.enabled ? "DISABLED" : m.fixer.enabled ? `GIG · ${TYPE_LABEL[m.type].toUpperCase()}` : m.worldBoss.enabled ? `BOSS · ${TYPE_LABEL[m.type].toUpperCase()}` : TYPE_LABEL[m.type].toUpperCase(), disabled: busy,
         description: `${TYPE_LABEL[m.type]} · ${m.spawns.length} spawn point(s) · ${m.checkpoints.length} checkpoint(s)${m.type === "waves" ? ` · ${m.waves.length} wave(s)` : ""} · revision ${m.revision}` })),
-      ...(!missions.length ? [item("empty", ready ? "No authored mission yet" : "Storage unavailable", undefined, { disabled: true })] : []), { separator: true },
+      ...(loading ? [item("loading", `Loading missions ${loading.received}/${loading.total}`, undefined, { disabled: true, icon: "activity" })] : []),
+      ...(!missions.length && !loading ? [item("empty", ready ? "No authored mission yet" : busy ? "Waiting..." : "Storage unavailable", undefined, { disabled: true })] : []), { separator: true },
       item("refresh", "Refresh", () => { void run(refresh); }, { icon: "activity", disabled: busy }), item("close", "Close editor", close, { icon: "x", disabled: busy })];
   } else if (draft) {
     subtitle = draft.title;
@@ -299,6 +316,8 @@ export function MissionEditor() {
           submenu("checkpoints", "Checkpoints", { kind: "checkpoints" }, { meta: `${m.checkpoints.length} / ${LIMITS.checkpoints}`, description: "Points the squad must reach. Entering one wakes its spawn points." }),
           ...(m.type === "waves" ? [submenu("waves", "Waves", { kind: "waves" }, { meta: `${m.waves.length} / ${LIMITS.waves}`, description: "The waves in order. Each starts its delay after the previous one is cleared." })] : []),
           submenu("rules", "Rules", { kind: "rules" }, { meta: `${m.outOfBounds.graceSeconds}s · ${m.respawn.lives} lives`, description: "Out-of-zone delay, team respawns." }),
+          submenu("worldboss", "World boss", { kind: "worldboss" }, { meta: m.worldBoss.enabled ? "BOSS" : "OFF", description: m.worldBoss.enabled
+            ? "A world boss: no board, it appears at random in the city and anybody fights it; the reward is shared by contribution." : "Turn this mission into an open-world boss event." }),
           submenu("fixer", "Fixer gig", { kind: "fixer" }, { meta: m.fixer.enabled ? "GIG" : "BOARD", description: m.fixer.enabled
             ? "A fixer gig: no board in the city. The fixers text it to players at random; they share it with their crew." : "A board mission (players tag in). Turn it into a fixer gig here." }),
           submenu("difficulties", "Difficulties and rewards", { kind: "difficulties" }, { description: "Payout, time limit, squad size and enemy strength per difficulty." }),
@@ -478,7 +497,7 @@ export function MissionEditor() {
         const contactIds = ["any", ...fixers.map(f => f.id)];
         const contactName = (id: string) => id === "any" ? "Any fixer (random)" : fixers.find(f => f.id === id)?.name ?? id;
         entries = [
-          toggle("fixerEnabled", "Fixer gig", m.fixer.enabled, enabled => update(d => ({ fixer: { ...d.fixer, enabled } })),
+          toggle("fixerEnabled", "Fixer gig", m.fixer.enabled, enabled => update(d => ({ fixer: { ...d.fixer, enabled }, worldBoss: enabled ? { ...d.worldBoss, enabled: false } : d.worldBoss })),
             "On: no board in the city, nobody tags in. The fixers text this job to players at random (Neural-Link), with the meet point = the board position. Off: a board mission."),
           choice("fixerContact", "Fixer", contactIds, contactName, contactIds.includes(m.fixer.contact) ? m.fixer.contact : "any",
             contact => update(d => ({ fixer: { ...d.fixer, contact } })), "Who sends the job. Any: a random fixer each time."),
@@ -488,12 +507,32 @@ export function MissionEditor() {
         ];
         break;
       }
+      case "worldboss": {
+        const spawnIds = m.spawns.filter(s => s.trigger === "start").map(s => s.id);
+        const spawnLabel = (id: string) => m.spawns.find(s => s.id === id)?.label ?? "Choose...";
+        const w = m.worldBoss;
+        const set = (patch: Partial<typeof w>) => update(d => ({ worldBoss: { ...d.worldBoss, ...patch } }));
+        entries = [
+          toggle("wbEnabled", "World boss", w.enabled, enabled => update(d => ({ worldBoss: { ...d.worldBoss, enabled, boss: d.worldBoss.boss || spawnIds[0] || "" },
+            fixer: enabled ? { ...d.fixer, enabled: false } : d.fixer })),
+            "On: no board, nobody tags in. It appears at random in the city (bucket 0) and anybody in the zone fights it. The perimeter is the event zone (no out-of-zone death)."),
+          ...(spawnIds.length ? [choice("wbBoss", "Boss", spawnIds, spawnLabel, spawnIds.includes(w.boss) ? w.boss : spawnIds[0]!, boss => set({ boss }),
+            "The start spawn point whose enemies are the boss (its name is the boss's). The other start spawns guard it; non-start spawns come as reinforcements at 66 % and 33 %.")]
+            : [item("wbNoSpawn", "Boss", undefined, { disabled: true, meta: "NO START SPAWN", description: "Place a spawn point that spawns at the start: it will be the boss." })]),
+          numberEntry("wbHealth", "Boss health", w.health, health => set({ health }), 1, 200, "x", 1, true),
+          numberEntry("wbReward", "Reward pool", w.reward, reward => set({ reward }), 0, 1000000, "€$", 1000, true),
+          numberEntry("wbMinShare", "Minimum share", w.minShare, minShare => set({ minShare }), 0, 50, "%", 1, true),
+          numberEntry("wbMinutes", "Time limit", w.minutes, minutes => set({ minutes }), 5, 120, "min", 1, true),
+          item("wbHelp", "How a world boss plays", undefined, { disabled: true, description: "Announced to the whole city with a blip. Entering the zone shows the boss bar, the objective and your share. Every point of damage on the boss and its guards counts, plus each kill; at the end the pool is shared by score among those at or above the minimum share. A latecomer's last shot or an idle player gets nothing. Time out: the boss leaves, nobody is paid." }),
+        ];
+        break;
+      }
       case "rules":
         entries = [
           numberEntry("grace", "Out-of-zone delay", m.outOfBounds.graceSeconds, graceSeconds => update({ outOfBounds: { graceSeconds } }), 3, 60, "s", 1, true),
           numberEntry("lives", "Team respawns", m.respawn.lives, lives => update(d => ({ respawn: { ...d.respawn, lives } })), 0, 50, "", 1, true),
           numberEntry("respawn", "Respawn delay", m.respawn.seconds, seconds => update(d => ({ respawn: { ...d.respawn, seconds } })), 3, 60, "s", 1, true),
-          item("rulesHelp", "How it plays", undefined, { disabled: true, description: "Out of the perimeter an operator sees a countdown, then dies. A death spends one team respawn (back at a start); with none left the operator is out. Nobody standing: squad wiped, mission failed." }),
+          item("rulesHelp", "How it plays", undefined, { disabled: true, description: "Out of the perimeter an operator sees a countdown, then dies. A death spends one team respawn (back at a start); with none left the operator is out. Nobody standing: crew wiped, mission failed." }),
         ];
         break;
       case "difficulties":

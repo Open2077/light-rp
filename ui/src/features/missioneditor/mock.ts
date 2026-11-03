@@ -30,7 +30,13 @@ export function missionEditorMock(fire: (name: string, value: unknown) => void, 
         return;
       }
       if (!allowed) { respond(false, undefined, "Mission editor permission denied."); return; }
-      if (p.operation === "list") respond(true, { ready: true, missions: clone(missions), fixers: [{ id: "okoro", name: "Mama Okoro" }, { id: "ledger", name: "Silas \"Ledger\" Varga" }, { id: "nix", name: "Nix Delacroix" }] });
+      if (p.operation === "list") {
+        // like the server: how many, then one `mission` event each, then `listed`
+        const list = clone(missions);
+        respond(true, { ready: true, total: list.length, streamed: true, fixers: [{ id: "okoro", name: "Mama Okoro" }, { id: "ledger", name: "Silas \"Ledger\" Varga" }, { id: "nix", name: "Nix Delacroix" }] });
+        list.forEach((mission, i) => setTimeout(() => fire(PAGE_EVENTS.missionEditor, { kind: "mission", stream: p.request, index: i + 1, total: list.length, mission }), 400 * (i + 1)));
+        setTimeout(() => fire(PAGE_EVENTS.missionEditor, { kind: "listed", stream: p.request, total: list.length }), 400 * (list.length + 1));
+      }
       else if (p.operation === "save" && p.mission) {
         if (p.mutation && replies.has(p.mutation)) { respond(true, replies.get(p.mutation)); return; }
         const old = missions.find(m => m.id === p.mission!.id);
