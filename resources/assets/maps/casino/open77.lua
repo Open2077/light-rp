@@ -3,7 +3,7 @@
 -- launcher installs it before Cyberpunk starts. Changing it needs a dedicated-server
 -- restart, then a fresh game launch.
 resource "casino"
-version "1.0.0"
+version "1.1.0"
 auto_start true
 
 dependency "archivexl >=1.28.0"
