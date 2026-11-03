@@ -75,6 +75,22 @@ scripted movement or targeting on top).
 - **Team Arena.** A queued player is matched at once (`bots.teamWaitMs`, 0 by default).
   Bots fill each side's missing slots. A solo player in 3v3 gets 2 bot teammates
   against 3 bots.
+- **Sides.** A bot never aims at its own side, human or bot. The engine is told who
+  the teammates are:
+  - one combat group per side (`Open77.npcs.setGroup`, `op77_arena.i<instance>.s<side>`):
+    bots of one side are allies, the other side's bots stay enemies;
+  - a friendly row towards each person of the bot's side
+    (`Open77.npcs.setAttitude(npc, "friendly", { towards = player })`). The other
+    side's people get no row and stay targets.
+
+  The side is the arena's (`Arena.sideOf`, the answer the damage gates use). It is
+  checked every `bots.combat.sideSyncMs` (1 s) and at once for a new body, so it holds
+  after a respawn, across the halftime swap, and when a person changes side or leaves.
+  Team Arena, duels against a bot and PvE are covered; PvE bots share one side and no
+  longer shoot each other. Free-for-all bots (Combat Zone, Blade Night, Arena Night)
+  state nothing. The server still refuses teammate damage (`friendly_bot`,
+  `incoming_friendly_bot`, `crossfire_same_side`). `/dm.bot list` shows
+  `team=<group>+<friendly rows>`.
 - **Duels.** `/duel bot` starts a best of three against one bot. In bot mode, the
   random duel queue also falls back to a bot after `bots.duelWaitMs` (0 by default).
 - **Marker.** Every bot name carries `[BOT] ` (`bots.prefix`) in the scoreboard, the
@@ -235,4 +251,5 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File tests/run-lua.ps1 -LuaDll <lua54.d
 | `upstream_test.lua` | The engine's own tests from base, with this edition's geometry |
 | `bots_test.lua` | Bot-mode switch (event and `activityBots`), solo FFA with bots, team fill, duel vs bot, no DB write with bots, cleanup, PvE, crews |
 | `bots_engine_test.lua` | The real `Arena.tryForm` with crews and bot fill, the bad-plan fallback, duel vs bot, the PvE damage gate |
+| `bot_sides_test.lua` | The real `bots.lua`: a combat group per side and friendly rows to same-side people (after the loadout), scripted targets and seek skipping teammates, rebuilt bodies, the halftime swap, a side change, a leaver, match end, free-for-all untouched, missing natives |
 | `pvp_test.lua` | PvP scopes against a simulated platform: none for one person, created at two, rebuilt on join and leave, kept through a death, duel and Team Arena (teams set and cleared), PvE without a scope, the 8-slot budget, refusals, the 32 cap, removal on close and stop, the damage scale, no `setFriendlyFire` anywhere |

@@ -259,6 +259,11 @@ local Defaults = {
         -- closes to MELEE is a bot with no gun drawn.
         forceWeapon = true,
 
+        -- How often a living bot re-checks what the engine was told about its
+        -- side (group + friendly rows, see "Sides"). A new body or a new life
+        -- is told at once, whatever this says.
+        sideSyncMs = 1000,
+
         -- Bot -> player, the engine's own number.
         incoming = {
             -- Use the engine's computed damage. False takes `fallbackDamage`
@@ -2881,6 +2886,113 @@ local function reconcile()
 end
 
 -- ---------------------------------------------------------------------------
+-- Sides, told to the ENGINE. A team-mate is not a target.
+--
+-- The ledger has always refused team-mate damage (`sameArenaSide`, below), but
+-- refusing the hit is not the same as not taking the shot. The engine's
+-- hostility sweep (`client/src/network/NpcReplication.cpp`) gives a native body
+-- that states nothing the legacy verdict: hostile to every eligible player of
+-- its bucket, and hostile to every other native body that does not share its
+-- `combat.group`. This file stated nothing, so in a 3v3 with bots every bot was
+-- the enemy of its own team: the human's own bots aimed at him
+-- (`incoming_friendly_bot`) and at each other (`crossfire_same_side`) for the
+-- whole round, every shot thrown away at the ledger (production, 2026-11-03).
+--
+-- Both halves of the fix are natives the platform already has:
+--   * `Open77.npcs.setGroup`: one group per side of an instance. Two bodies
+--     sharing a non-empty group are allies; different groups stay hostile, so
+--     the other side is still the enemy and nothing else changes.
+--   * `Open77.npcs.setAttitude(id, "friendly", { towards = playerId })`: a
+--     player has no group, so each same-side human gets a row. A player of the
+--     other side gets no row and keeps the legacy hostile verdict.
+--
+-- The side is the ARENA's answer (`arenaSide`, the one the ledger asks too), so
+-- the engine and the ledger cannot disagree about who is a team-mate. A bot with
+-- no side (the free-for-all) states nothing and behaves exactly as it always
+-- did. PvE puts every bot on one side, so PvE bots stop shooting each other as
+-- well; that fire was already refused at the ledger.
+--
+-- A group is a loadout field and does not survive a wholesale `setLoadout`, and
+-- a rebuilt body is a new npc id: the state is keyed on the body AND the life,
+-- and a new one starts from nothing.
+-- ---------------------------------------------------------------------------
+local sideNativesMissing = false
+
+local function arenaSideOf(participantId)
+    return hostCall("arenaSide", participantId)
+end
+
+--- `op77_arena.i<instance>.s<side>`, cut to the native's alphabet and length.
+local function sideGroup(instanceId, side)
+    local name = ("op77_arena.i%s.s%s"):format(tostring(instanceId), tostring(side))
+    return (name:gsub("[^%w_%.%-]", "_")):sub(1, 64)
+end
+
+--- Bring one living bot's engine attitude in line with its side. A native is
+--- called only for a difference, and the check itself runs at most once per
+--- `combat.sideSyncMs` (one `arenaSide` per human of the instance). The tick
+--- calls it before the native fork, so it holds under either combat mode.
+local function syncSides(bot, at)
+    if sideNativesMissing or bot.npcId == nil or bot.state ~= "alive" then return false end
+    local body = tostring(bot.npcKey) .. "#" .. tostring(bot.lifeId)
+    local sync = bot.sideSync
+    if sync == nil or sync.body ~= body then
+        sync = { body = body, group = nil, friends = {}, checkedAtMs = at }
+        bot.sideSync = sync
+    elseif at - sync.checkedAtMs < (tonumber(combatSetting("sideSyncMs")) or 1000) then
+        return false
+    end
+    sync.checkedAtMs = at
+
+    local side = arenaSideOf(bot.participantId)
+    local group = side ~= nil and sideGroup(bot.instanceId, side) or nil
+    if group ~= sync.group then
+        local ok, reason = safe(Open77.npcs.setGroup, bot.npcId, group)
+        if ok == true then
+            sync.group = group
+        elseif reason == "no_function" then
+            sideNativesMissing = true
+            log("Open77.npcs.setGroup is missing on this platform build: bots keep the"
+                .. " engine's all-hostile default and only the ledger refuses team-mate fire")
+            return false
+        else
+            logThrottled(("sides:group:%d"):format(bot.participantId),
+                ("bot %d setGroup %s refused: %s"):format(
+                    bot.participantId, tostring(group), tostring(reason)))
+        end
+    end
+
+    local wanted = {}
+    if side ~= nil then
+        for _, playerId in ipairs(humansIn(bot.instanceId)) do
+            if arenaSideOf(playerId) == side then wanted[playerId] = true end
+        end
+    end
+    for playerId in pairs(wanted) do
+        if not sync.friends[playerId] then
+            local ok, reason = safe(Open77.npcs.setAttitude, bot.npcId, "friendly",
+                { towards = playerId })
+            if ok == true then
+                sync.friends[playerId] = true
+            else
+                logThrottled(("sides:friend:%d:%d"):format(bot.participantId, playerId),
+                    ("bot %d friendly row for player %d refused: %s"):format(
+                        bot.participantId, playerId, tostring(reason)))
+            end
+        end
+    end
+    for playerId in pairs(sync.friends) do
+        if not wanted[playerId] then
+            -- Dropped whatever the answer: a player who left may no longer be a
+            -- valid target at all, and the row is moot then.
+            safe(Open77.npcs.setAttitude, bot.npcId, nil, { towards = playerId })
+            sync.friends[playerId] = nil
+        end
+    end
+    return true
+end
+
+-- ---------------------------------------------------------------------------
 -- Targeting
 -- ---------------------------------------------------------------------------
 local function targetPosition(target)
@@ -2901,9 +3013,12 @@ end
 local function selectTarget(bot, origin, profile)
     local best, bestDistance = nil, math.huge
     local acquire = profile.acquireRangeM or 50.0
+    -- Team-mates are never candidates, human or bot (see "Sides" above). Nil
+    -- outside a match: the free-for-all keeps every candidate it always had.
+    local side = arenaSideOf(bot.participantId)
 
     for _, playerId in ipairs(humansIn(bot.instanceId)) do
-        if playerAlive(playerId) then
+        if playerAlive(playerId) and (side == nil or arenaSideOf(playerId) ~= side) then
             local position = playerPosition(playerId)
             if position ~= nil
                 and (position.bucket == nil or position.bucket == bot.bucket) then
@@ -2917,9 +3032,13 @@ local function selectTarget(bot, origin, profile)
         end
     end
 
-    if setting("fightEachOther") == true then
+    -- A bot with a side fights the other side's bots whatever `fightEachOther`
+    -- says: in a match they ARE the opponents, and a bot team-mate of a lone
+    -- human would otherwise have nobody to engage.
+    if setting("fightEachOther") == true or side ~= nil then
         for _, other in ipairs(botsIn(bot.instanceId)) do
-            if other.participantId ~= bot.participantId and other.state == "alive" then
+            if other.participantId ~= bot.participantId and other.state == "alive"
+                and (side == nil or arenaSideOf(other.participantId) ~= side) then
                 local position = botPosition(other)
                 if position ~= nil and position.bucket == bot.bucket then
                     local separation = distance3(origin, position)
@@ -3030,13 +3149,14 @@ end
 ---
 --- WHY IT IS NEEDED AT ALL. The engine's hostility sweep
 --- (`client/src/api/Hostility.hpp`) makes every `aiMode = native` body of a
---- bucket hostile to every other one and to the local player, ALL PAIRS, with
---- no notion of a team -- it has none to read, because the NPC replica carries
---- no side. So in a 3v3 the engine will happily have two team-mates shoot each
---- other, and the only place that can be refused without a client change is
---- HERE, at the server ledger, which is the thing that actually subtracts
---- health (see "TWO HEALTH LEDGERS" at the top of this file). The engine still
---- draws the shot; it just never lands.
+--- bucket hostile to every other one and to the local player, ALL PAIRS, unless
+--- the body states a group or an attitude. `syncSides` ("Sides", above) now
+--- states both, so team-mates are allies to the engine too; this gate stays the
+--- AUTHORITY, at the server ledger, which is the thing that actually subtracts
+--- health (see "TWO HEALTH LEDGERS" at the top of this file). It covers the
+--- moments the engine has not caught up yet: a body before its first sync, a
+--- client sweep still on its previous verdict, a platform build without the
+--- attitude natives.
 local function sameArenaSide(first, second)
     local a = hostCall("arenaSide", first)
     local b = hostCall("arenaSide", second)
@@ -3320,7 +3440,9 @@ local function seekDestination(bot, origin)
     local preferBots = seekSetting("preferBots") ~= false
     if seekSetting("seekPlayers") ~= false and (not preferBots or #candidates == 0) then
         for _, playerId in ipairs(humansIn(bot.instanceId)) do
-            if playerAlive(playerId) then
+            -- Same rule for humans: a bot never walks towards a team-mate.
+            if playerAlive(playerId)
+                and not sameArenaSide(bot.participantId, playerId) then
                 local position = playerPosition(playerId)
                 if position ~= nil and position.bucket == origin.bucket then
                     local separation = distance3(origin, position)
@@ -3513,6 +3635,10 @@ local function tickBot(bot, at, movementDue)
         return
     end
     bot.bucket = origin.bucket or bot.bucket
+
+    -- Before the fork: the engine must know who this body's team-mates are
+    -- under either combat mode (see "Sides").
+    syncSides(bot, at)
 
     -- THE FORK. Under native combat everything below this line is a command
     -- that would cancel one the behaviour tree issued, so none of it runs.
@@ -4411,12 +4537,19 @@ RegisterCommand("dm.bot", function(source_, args, raw)
                 -- `held=true` through a live round is elimination working --
                 -- but stuck at `held=true` through a BUY window is
                 -- `arenaRoundStart` not having run, which no other line shows.
-                rows[#rows + 1] = ("%d %s [%s] i=%s hp=%.0f/%.0f %s tmpl=%s out=%d life=%d seek=%s side=%s held=%s"):format(
+                -- `team` is what the ENGINE was told (group + friendly rows,
+                -- see "Sides"): `-` on a bot with a side is a body whose
+                -- team-mates are still its enemies to the engine.
+                local sync = bot.sideSync
+                local friends = 0
+                for _ in pairs(sync ~= nil and sync.friends or {}) do friends = friends + 1 end
+                rows[#rows + 1] = ("%d %s [%s] i=%s hp=%.0f/%.0f %s tmpl=%s out=%d life=%d seek=%s side=%s held=%s team=%s+%d"):format(
                     bot.participantId, bot.name, bot.profileKey, tostring(bot.instanceId),
                     bot.health or 0, bot.maxHealth or 0, bot.state,
                     tostring(bot.template), bot.outsideSamples or 0,
                     bot.lifeId or 1, tostring(bot.seekReason or "-"),
-                    tostring(bot.side or "-"), tostring(bot.respawnHeld == true))
+                    tostring(bot.side or "-"), tostring(bot.respawnHeld == true),
+                    tostring(sync ~= nil and sync.group or "-"), friends)
             else
                 rows[#rows + 1] = ("%d %s [%s] i=%s hp=%.0f/%.0f %s yaw=%s dot=%s"):format(
                     bot.participantId, bot.name, bot.profileKey, tostring(bot.instanceId),
