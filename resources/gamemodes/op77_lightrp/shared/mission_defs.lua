@@ -39,12 +39,41 @@ M.MAX_ROUTE = 8
 
 -- Enemies an author can place. `record` (TweakDB character) or `template`
 -- (Open77 alias): both proven hostile in LightRP (the raid's adds).
+-- 6th Street, the Wraiths (nomad raiders) and the Voodoo Boys are vanilla gang records picked
+-- with the criteria of Open77's proven templates (docs/generated/npc-records-2.31.csv: category
+-- gang, risk candidate, Ganger_Aggressive, armed, no quest). The cyberpsychos (`psycho = true`)
+-- are the game's own Psycho Squad records: each one listed was spawned and checked in game (a
+-- clothed body, hostile, killable); they make world bosses. Every mission enemy shares one
+-- combat group (mission_engine.lua): mixed factions fight the players, not each other.
 M.ENEMIES = {
-    { id = "militech", label = "Militech trooper", record = "Character.max_border_guards" },
-    { id = "militech_shotgun", label = "Militech breacher", record = "Character.max_border_guards_shotgun" },
-    { id = "valentinos", label = "Valentinos gunner", template = "gang_valentinos_ranged_01" },
-    { id = "tygerclaws", label = "Tyger Claws gunner", template = "gang_tygerclaws_ranged_01" },
-    { id = "maelstrom", label = "Maelstrom ganger", template = "hostile_female_ranged_lab" },
+    { id = "militech", label = "Militech trooper", record = "Character.max_border_guards", group = "Corporations" },
+    { id = "militech_shotgun", label = "Militech breacher", record = "Character.max_border_guards_shotgun", group = "Corporations" },
+    { id = "valentinos", label = "Valentinos gunner", template = "gang_valentinos_ranged_01", group = "Gangs" },
+    { id = "tygerclaws", label = "Tyger Claws gunner", template = "gang_tygerclaws_ranged_01", group = "Gangs" },
+    { id = "maelstrom", label = "Maelstrom ganger", template = "hostile_female_ranged_lab", group = "Gangs" },
+    { id = "sixthstreet", label = "6th Street gunner", record = "Character.rcr_sixth_street_grunt_short_range_w_medium", group = "6th Street" },
+    { id = "sixthstreet_shotgun", label = "6th Street breacher", record = "Character.rcr_sixth_street_grunt_short_range_m_hard", group = "6th Street" },
+    { id = "sixthstreet_sniper", label = "6th Street sniper", record = "Character.rcr_sixth_street_sniper_long_range_m_medium", group = "6th Street" },
+    { id = "wraiths", label = "Wraiths raider (nomads)", record = "Character.wraiths_grunt1_ranged1_nova_ma", group = "Nomads" },
+    { id = "wraiths_gunner", label = "Wraiths gunner (nomads)", record = "Character.wraiths_grunt2_ranged2_copperhead_ma", group = "Nomads" },
+    { id = "voodooboys", label = "Voodoo Boys gunner", record = "Character.voodooboys_grunt1_ranged2_saratoga_ma", group = "Voodoo Boys" },
+    { id = "voodooboys_sidewinder", label = "Voodoo Boys enforcer", record = "Character.voodooboys_grunt1_ranged2_sidewinder_wa", group = "Voodoo Boys" },
+    { id = "psycho_pacifica", label = "Cyberpsycho: Pacifica, Coastview", record = "Character.ma_pac_cvi_15_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_pacifica_2", label = "Cyberpsycho: Pacifica, Coastview II", record = "Character.ma_pac_cvi_08_psycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_downtown", label = "Cyberpsycho: City Center, Downtown", record = "Character.ma_cct_dtn_07_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_downtown_2", label = "Cyberpsycho: City Center, Downtown II", record = "Character.ma_cct_dtn_03_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_arroyo", label = "Cyberpsycho: Santo Domingo, Arroyo", record = "Character.ma_std_arr_06_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_rancho", label = "Cyberpsycho: Rancho Coronado", record = "Character.rcr_05_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_wellsprings", label = "Cyberpsycho: Heywood, Wellsprings", record = "Character.ma_hey_spr_04_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_wellsprings_2", label = "Cyberpsycho: Heywood, Wellsprings II", record = "Character.ma_hey_spr_06_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_kabuki", label = "Cyberpsycho: Watson, Kabuki", record = "Character.ma_wat_kab_08_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_kabuki_2", label = "Cyberpsycho: Watson, Kabuki II", record = "Character.ma_wat_kab_02_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_littlechina", label = "Cyberpsycho: Watson, Little China", record = "Character.ma_wat_lch_06_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_northside", label = "Cyberpsycho: Watson, Northside", record = "Character.ma_wat_nid_03_shard_psycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_northside_mantis", label = "Cyberpsycho: Northside (mantis blades)", record = "Character.ma_wat_nid_15_psycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_mox", label = "Cyberpsycho: Northside (Mox, mantis blades)", record = "Character.sts_wat_nid_01_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_badlands", label = "Cyberpsycho: Badlands", record = "Character.ma_bls_ina_se1_08_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_badlands_2", label = "Cyberpsycho: Badlands II", record = "Character.ma_bls_ina_se1_22_psycho", group = "Cyberpsychos", psycho = true },
 }
 M.ENEMY = {}
 for _, e in ipairs(M.ENEMIES) do M.ENEMY[e.id] = e end

@@ -517,7 +517,7 @@ export function MissionEditor() {
             fixer: enabled ? { ...d.fixer, enabled: false } : d.fixer })),
             "On: no board, nobody tags in. It appears at random in the city (bucket 0) and anybody in the zone fights it. The perimeter is the event zone (no out-of-zone death)."),
           ...(spawnIds.length ? [choice("wbBoss", "Boss", spawnIds, spawnLabel, spawnIds.includes(w.boss) ? w.boss : spawnIds[0]!, boss => set({ boss }),
-            "The start spawn point whose enemies are the boss (its name is the boss's). The other start spawns guard it; non-start spawns come as reinforcements at 66 % and 33 %.")]
+            "The start spawn point whose enemies are the boss (its name is the boss's). Give it a Cyberpsycho enemy for a classic sighting. The other start spawns guard it; non-start spawns come as reinforcements at 66 % and 33 %.")]
             : [item("wbNoSpawn", "Boss", undefined, { disabled: true, meta: "NO START SPAWN", description: "Place a spawn point that spawns at the start: it will be the boss." })]),
           numberEntry("wbHealth", "Boss health", w.health, health => set({ health }), 1, 200, "x", 1, true),
           numberEntry("wbReward", "Reward pool", w.reward, reward => set({ reward }), 0, 1000000, "€$", 1000, true),
