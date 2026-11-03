@@ -155,11 +155,12 @@ LightRpActivities = {
         -- terminal would open the same panel on that tab). `npc = true`: the `host`
         -- below stands there facing `heading`, in place of the floor marker.
         -- Surveyed by the owner in game, 2026-11-03: where he stood, facing where he
-        -- looked (his client's yaw -93.5, i.e. 266.5).
+        -- looked (his client's yaw -93.5, i.e. 266.5). Moved by him the same night:
+        -- yaw -119.036 (quaternion z 0.8618, w -0.5073), i.e. 240.96.
         terminals = {
             { id = "board", kind = "activities", label = "Adam Smasher",
                 prompt = "Open activities & contracts", offset = { forward = 5.0, right = 0.0 },
-                position = { x = -792.575, y = 792.814, z = 22.449 }, heading = 266.5, npc = true },
+                position = { x = -783.885, y = 787.366, z = 22.580 }, heading = 240.96, npc = true },
         },
         -- Who stands at a terminal with `npc = true` (the owner's call, 2026-11-03: "something
         -- badass"). Records tried in order (Open77.npcs.create): the boss record, the
