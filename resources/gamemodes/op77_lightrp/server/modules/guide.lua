@@ -1077,14 +1077,12 @@ function Guide.spawn()
     announceNpc()
 end
 
+-- A staff move respawns him there: npcs.setTransform answered true on the server but his
+-- body (AI off) stayed where it was on the clients while the E point moved (owner,
+-- 2026-11-03), so a fresh spawn at the new place is the reliable move.
 function Guide.moveTo(at)
     Guide.override = at
-    local moved = false
-    if Guide.npcId and type(Open77.npcs) == "table" and type(Open77.npcs.setTransform) == "function" then
-        local ok, done = pcall(Open77.npcs.setTransform, Guide.npcId, { position = at.position, yaw = at.heading })
-        moved = ok and done ~= false
-    end
-    if moved then registerPoint(at); announceNpc() else Guide.spawn() end
+    Guide.spawn()
 end
 
 CreateThread(function()

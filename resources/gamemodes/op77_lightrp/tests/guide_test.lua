@@ -551,10 +551,17 @@ local okConsole, why = cmd.fn(0, { "move" })
 assert(okConsole == false and why == "In game only.")
 players[1] = { x = -750.5, y = 790.25, z = 22.5, heading = 135.0 }
 transforms = {}
+local npcBeforeMove, createdBeforeMove = Guide.npcId, #created
 local okMove, line = cmd.fn(1, { "move" })
 assert(okMove and line:find("position = { x = -750.500, y = 790.250, z = 22.500 }, heading = 135.0,", 1, true), line)
 assert(kvp["guide.npc.placement"] == "-750.500,790.250,22.500,135.0", "kept across restarts")
-assert(transforms[1] and transforms[1].id == Guide.npcId and transforms[1].def.position.x == -750.5 and transforms[1].def.yaw == 135.0, "moved in place")
+do -- respawned there (a transform left his AI-off body in place on the clients)
+    local fresh = created[#created]
+    assert(#created == createdBeforeMove + 1 and fresh.position.x == -750.5 and Guide.npcId ~= npcBeforeMove, "a fresh spawn at the staff's place")
+    local gone = false
+    for _, id in ipairs(removed) do if id == npcBeforeMove then gone = true end end
+    assert(gone and #transforms == 0, "the old body removed, no transform")
+end
 assert(interactions[Guide.INTERACTION].position.x == -750.5, "the E point follows him")
 local okCross = cmd.fn(1, { "move", "crossing" })
 assert(okCross and near(Guide.placement().heading, math.deg(math.atan(-(hub.center.x + 750.5), hub.center.y - 790.25))), "move crossing faces the arrival point")
