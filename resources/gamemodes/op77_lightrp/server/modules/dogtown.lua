@@ -1568,8 +1568,10 @@ end)
 -- ---------------------------------------------------------------------------
 -- Lifecycle
 
+-- Eddies looted: cash bags picked up (bonus included) and, in transfer mode, the cash
+-- taken and the bonus paid beside it. A bounty reward is not loot.
 function D.onMoneyChanged(player, wallet, delta, _, kind)
-    if wallet == "cash" and kind == "dogtown_loot" and (tonumber(delta) or 0) > 0 then D.record(player, { looted = delta }) end
+    if wallet == "cash" and (kind == "dogtown_loot" or kind == "dogtown_bonus") and (tonumber(delta) or 0) > 0 then D.record(player, { looted = delta }) end
 end
 
 function D.onLifeState(player, phase)
