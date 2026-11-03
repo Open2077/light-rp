@@ -19,6 +19,7 @@ import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
 import { activityHudMock } from "@/features/activityhud/mock";
+import { guideMock } from "@/features/guide/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -31,6 +32,7 @@ export function installMockBridge(): void {
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
   const safezones = safezonesMock(fire, params);
   const activityHud = activityHudMock(fire, params);
+  const guide = guideMock(fire, params); // ?dialog=guide: the guide NPC's FAQ
   const missionEditor = missionEditorMock(fire, params);
   const armament = armamentMock(fire, params);
 
@@ -165,6 +167,7 @@ export function installMockBridge(): void {
           if (params.get("dialog") === "garage") fire(PAGE_EVENTS.dialog, garage);
           if (params.get("dialog") === "dealership") fire(PAGE_EVENTS.dialog, dealership);
           mission.boot();
+          guide.boot();
           if (params.get("dialog") === "activities") {
             fire(PAGE_EVENTS.state, { activities: activitiesFixture(params) });
             fire(PAGE_EVENTS.dialog, { kind: "activities", tab: params.get("tab") ?? "activities" });
@@ -232,6 +235,7 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.action) {
         const action = payload as UiAction;
         if (mission.handle(action)) return;
+        if (guide.handle(action)) return;
         setTimeout(() => {
           switch (action.type) {
             case "dealership.buy": {
