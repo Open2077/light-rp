@@ -79,7 +79,16 @@ event). While it is on:
   (`Open77.npcs.presence`, else `get`), captures, kills and deaths on the scoreboard, a respawn
   after the war's 6 s delay. A respawn is a rebuild: the corpse goes after 1.2 s, a fresh body
   is created at the deadline. Bodies are created one at a time (400 ms apart), never in the
-  first 5 s after the resource starts, and only in the war's bucket.
+  first 5 s after the resource starts, and only in the war's bucket. A body the platform refuses
+  for any reason but its record (`npc_limit`, ...) is asked again, 2 s then up to every 10 s,
+  with the record that worked: the bot stays in the war, it is never dropped.
+- **A bot that cannot get there is not left standing.** The server listens to
+  `onNpcTaskState`: a move the client refuses (`path_blocked`: the destination is off the NPC
+  navmesh) or a move that runs 15 s without the body going 1.5 m (out of a fight) aims
+  elsewhere: the zone's edge, a quarter turn further each time, then the nearest enemy
+  fighter. After 3 refused moves the bot is rebuilt at its side's spawn, on the next spawn
+  point (`bots.tasks.stuckMs` / `stuckMetres` / `rebuildAfterFails`). A body that vanishes
+  without any event is replaced. The log says `cannot reach zone` / `stuck` for each one.
 - **Damage both ways** (a managed NPC's engine damage is never applied by the platform): the
   client forwards the engine's `open77:npcHit` / `open77:npcAttackedMe` / `open77:npcCrossfire`
   reports, and the server checks them (war running, opposite sides, both up, 150 m, spawn
@@ -188,13 +197,22 @@ holder's colour, Light RP yellow `#FFCC00` when contested. So are the op77_map3d
 | `/turf.testing on\|off`: 2 players start a war, 2 accounts make it count | `command.turf.testing` |
 | `/turf.survey [label]`: your position and heading in config syntax | `command.turf.survey` |
 | `/turf.status`: queue, lobby, war, zones, fighters, bots, bot mode, sweeps and their line-up, influence | `command.turf.status` |
+| `/turf.zone [site]`: each site's zones in config syntax and their spacing. `set <site> <zone>`: your feet become that zone's centre, for every later war and sweep there (kept in this resource's KVP `turf.zone.<site>.<zone>`), with the line to paste into `shared/config.lua` and a warning when it crowds another zone; refused while a war or sweep runs at the site. `reset <site> <zone\|all>`: back to the config | `command.turf.zone` |
 
-No new staff command: bot mode is Light RP's `/lightrp.bots`. The player command `/turf` gains
-`sweep [site]` (no ACL).
+Bot mode is Light RP's `/lightrp.bots`. The player command `/turf` gains `sweep [site]` (no ACL).
 
 Sites: `kabuki` (Kabuki Market) and `badlands` (Badlands Compound) are offered in the hub.
 `afterlife` is staff only (interiors never walked in a war). **Every position is marked
-`-- survey in game`.** Walk them with `/turf.survey` before opening the activity.
+`-- survey in game`.** Walk them with `/turf.survey` before opening the activity, and move a
+zone with `/turf.zone set`.
+
+**Zone spacing**: two zone centres of an enabled site stand at least `zoneSpacing` (60 m)
+apart, each zone inside the bounds; a site may state a lower floor of its own, never under
+45 m (`tests/zones_test.lua`). Re-laid 2026-11-03: Kabuki's three zones were a line 34 m and
+25 m apart, and A's centre was off the NPC navmesh; they are now 77 / 66 / 66 m apart. The
+Badlands compound is ~95 m long, so its floor is 45 m (54 / 49 / 95 m). A zone centre must be
+ground an NPC can walk to: a centre inside stalls or behind a fence makes every bot move to it
+end `path_blocked`.
 
 ## Weekly gang influence
 
@@ -225,7 +243,7 @@ Without a database, the table lives in memory for the run, and `/turf influence`
   Dependencies are `open77_notifications` and `open77_weapons`. There is no hard dependency on
   `op77_lightrp`: if the core stops, the war is voided, and the resource registers again on
   `op77_lightrp:activity:ready` or on the core's start.
-- **ACL**: the six `command.turf.*` entries above, for staff. Nothing new for bot mode or Gang Sweep.
+- **ACL**: the seven `command.turf.*` entries above, for staff. Nothing new for bot mode or Gang Sweep.
 - **Activities**: `turf.pve` (Gang Sweep) is a second activity id of this resource; list it
   wherever the hub or a configuration names activities. Its results arrive on `turf.pve`.
 - **Permissions** added: `world.npcs` (the bots) and `players.stats.apply`
@@ -246,7 +264,8 @@ The bots use `Open77.npcs.create` (`record` for `Character.*` records, `template
 `loadout.combat = { group, acquirePlayers }`, `behavior.hitPricing`), `remove`, `presence`
 (else `get`), `all`, `applyDamage`, `applyCrossfireDamage` (when present), `setAttitude`,
 `setRelationship`, `tasks.guard` / `moveTo` / `clear` on `channels.movement`, the platform
-events `onNpcDied` / `onNpcDamaged` / `onNpcRemoved`, the client events `open77:npcHit` /
+events `onNpcDied` / `onNpcDamaged` / `onNpcRemoved` / `onNpcTaskState`, `Open77.kvp` (zone
+resurveys), the client events `open77:npcHit` /
 `npcAttackedMe` / `npcCrossfire`, and `Open77.players.damage`. Each one is looked up and called
 under `pcall`, logged once when missing, and degrades: no `setAttitude` means no bot teammates,
 a refused combat loadout means bodies without a group, no `presence` falls back to `get`.
@@ -262,6 +281,8 @@ pwsh -NoProfile -File tests/run-lua.ps1 -LuaDll C:\Games\cyberm\light-rp\lua54.d
 
 The other test files are `adapter_test.lua`, `war_test.lua` (the full flows, against a fake
 Light RP through the real `server/main.lua`), `influence_test.lua`, `hud_test.lua`,
-`bots_test.lua` (staff bot mode), `pve_test.lua` (Gang Sweep and crews) and `lobby_test.lua`
-(join options v2: difficulties, allies, core matches, refusals, unranked). The last three share
-`tests/bot_host.lua`, a fake Light RP, world and `Open77.npcs`.
+`bots_test.lua` (staff bot mode), `pve_test.lua` (Gang Sweep and crews), `lobby_test.lua`
+(join options v2: difficulties, allies, core matches, refusals, unranked), `sweep_stall_test.lua`
+(the 2026-11-03 stall: the gang keeps coming back, unreachable zones, stuck and vanished bodies,
+refused respawns) and `zones_test.lua` (zone spacing and `/turf.zone`). The last five share
+`tests/bot_host.lua`, a fake Light RP, world, `Open77.npcs` and `Open77.kvp`.

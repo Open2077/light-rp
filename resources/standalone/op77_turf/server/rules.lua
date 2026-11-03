@@ -455,6 +455,44 @@ function R.inBounds(bounds, p)
     return dx * dx + dy * dy <= bounds.radius * bounds.radius
 end
 
+-- ---------------------------------------------------------------- zone layout
+
+local function flat(a, b)
+    local dx, dy = a.x - b.x, a.y - b.y
+    return math.sqrt(dx * dx + dy * dy)
+end
+R.flatDistance = flat
+
+-- The site's spacing floor: its own `zoneSpacing`, else the default (config zoneSpacing).
+function R.spacingFloor(site, default)
+    return tonumber(site.zoneSpacing) or tonumber(default) or 0
+end
+
+-- Is a site's zone layout sound: every two centres at least `floor` metres apart
+-- (horizontal), every zone (centre + radius) inside the bounds? ok, problems (texts),
+-- the closest pair { a, b, metres }.
+function R.checkZones(site, floor)
+    local problems, closest = {}, nil
+    local zones = site.zones or {}
+    for i = 1, #zones do
+        for j = i + 1, #zones do
+            local d = flat(zones[i], zones[j])
+            if closest == nil or d < closest.metres then closest = { a = zones[i].id, b = zones[j].id, metres = d } end
+            if d < floor then
+                problems[#problems + 1] = ("zones %s and %s are %.1f m apart (under %.0f m)"):format(zones[i].id, zones[j].id, d, floor)
+            end
+        end
+    end
+    local b = site.bounds
+    for _, z in ipairs(zones) do
+        if b and flat(z, b.center) + (z.radius or 0) > b.radius then
+            problems[#problems + 1] = ("zone %s is not inside the bounds (%.1f m from the centre, radius %.0f m)")
+                :format(z.id, flat(z, b.center), b.radius)
+        end
+    end
+    return #problems == 0, problems, closest
+end
+
 -- ---------------------------------------------------------------- rewards
 
 -- Did the war count (long enough, enough distinct accounts on both sides)?

@@ -54,6 +54,9 @@ end
 -- Exports may not be called while this VM is still preparing: register from a thread,
 -- and again whenever Light RP (re)starts (it forgets its providers when it stops).
 CreateThread(function()
+    -- Zone centres resurveyed by staff (/turf.zone set, KVP) before any war.
+    local zonesOk, zonesErr = pcall(Turf.loadZoneOverrides)
+    if not zonesOk then log("zone overrides not loaded: %s", tostring(zonesErr)) end
     -- Bodies a previous run of this resource left behind (hot reload) go first.
     pcall(TurfBots.sweep)
     for _ = 1, 30 do
@@ -205,6 +208,13 @@ end)
 AddEventHandler("onNpcRemoved", function(npcId, reason)
     local ok, err = pcall(TurfBots.onNpcRemoved, npcId, reason, W.now())
     if not ok then log("onNpcRemoved: %s", tostring(err)) end
+end)
+
+-- A bot's task finished or failed (path_blocked: its destination is off the navmesh):
+-- the bot aims elsewhere instead of re-sending the same move (TurfBots.moveFailed).
+AddEventHandler("onNpcTaskState", function(npcId, taskId, status, reason)
+    local ok, err = pcall(TurfBots.onTaskState, npcId, taskId, status, reason, W.now())
+    if not ok then log("onNpcTaskState: %s", tostring(err)) end
 end)
 
 -- ---------------------------------------------------------------- client events
@@ -394,7 +404,7 @@ RegisterCommand("turf", function(source, args, raw)
     end
 end, false)
 
--- Staff (ACL command.turf.schedule / .start / .stop / .testing / .survey / .status).
+-- Staff (ACL command.turf.schedule / .start / .stop / .testing / .survey / .zone / .status).
 -- Staff bot mode is op77_lightrp's own /lightrp.bots: no command of ours.
 
 -- /turf.schedule <site|auto> <minutes> | cancel
@@ -491,6 +501,152 @@ RegisterCommand("turf.survey", function(source, args, raw)
         tonumber(heading) or 0, label ~= "" and label or "survey", tostring(p.bucket))
     log("survey by %d: %s", caller, line)
     W.reply(caller, raw, true, line)
+end, true)
+
+-- ---------------------------------------------------------------- zone resurvey (staff)
+-- /turf.zone [site]                   the zones, where they come from, their spacing
+-- /turf.zone set <site> <zone>        your feet become that zone's centre
+-- /turf.zone reset <site> <zone|all>  back to the config
+-- A resurveyed centre is kept in this resource's KVP (turf.zone.<site>.<zone>) and used by
+-- every later war and sweep at the site (refused while one runs there), until it is
+-- pasted into shared/config.lua (the line is printed) and reset.
+local R = TurfRules
+local ZONE_KVP = "turf.zone.%s.%s"
+local ZONE_USAGE = "usage: turf.zone [site] | set <site> <zone> | reset <site> <zone|all>"
+local zoneConfig = {} -- "site.zone" -> the config's centre, while a resurvey replaces it
+
+local function kvpCall(op, ...)
+    local found, store = pcall(function() return Open77.kvp end) -- a constant table raises on an unknown key
+    local fn = found and type(store) == "table" and store[op] or nil
+    if type(fn) ~= "function" then return nil, "kvp_unavailable" end
+    local ok, a, b = pcall(fn, ...)
+    if not ok then return nil, tostring(a) end
+    return a, b
+end
+
+local function zoneDef(site, zoneId)
+    for _, def in ipairs(site.zones) do if def.id == zoneId then return def end end
+    return nil
+end
+
+local function replaceZone(site, def, p)
+    local key = site.id .. "." .. def.id
+    zoneConfig[key] = zoneConfig[key] or { x = def.x, y = def.y, z = def.z }
+    def.x, def.y, def.z = p.x, p.y, p.z
+end
+
+local function parseCentre(text)
+    if type(text) ~= "string" then return nil end
+    local x, y, z = text:match("^%s*(%-?[%d%.]+)%s*,%s*(%-?[%d%.]+)%s*,%s*(%-?[%d%.]+)%s*$")
+    x, y, z = tonumber(x), tonumber(y), tonumber(z)
+    if not (x and y and z) then return nil end
+    return { x = x, y = y, z = z }
+end
+
+-- Saved resurveys, once at start (before the first war).
+function Turf.loadZoneOverrides()
+    local n = 0
+    for _, site in ipairs(C.sites) do
+        for _, def in ipairs(site.zones) do
+            local saved = parseCentre((kvpCall("get", ZONE_KVP:format(site.id, def.id))))
+            if saved then
+                replaceZone(site, def, saved)
+                n = n + 1
+                log("zone %s %s: resurveyed centre (kvp) %.3f, %.3f, %.3f; paste it into shared/config.lua", site.id, def.id,
+                    saved.x, saved.y, saved.z)
+            end
+        end
+    end
+    return n
+end
+
+local function zoneLine(def)
+    return ('{ id = "%s", label = "%s", x = %.3f, y = %.3f, z = %.3f, radius = %.1f%s },'):format(def.id, tostring(def.label),
+        def.x, def.y, def.z, def.radius or 6, def.spawnable == false and ", spawnable = false" or "")
+end
+
+local function spacingOf(site)
+    local floor = R.spacingFloor(site, C.zoneSpacing)
+    local ok, problems = R.checkZones(site, floor)
+    local parts = {}
+    for i = 1, #site.zones do
+        for j = i + 1, #site.zones do
+            parts[#parts + 1] = ("%s-%s %.1f m"):format(site.zones[i].id, site.zones[j].id, R.flatDistance(site.zones[i], site.zones[j]))
+        end
+    end
+    local text = table.concat(parts, ", ") .. (" (floor %.0f m)"):format(floor)
+    if not ok then text = text .. ". WARNING: " .. table.concat(problems, "; ") end
+    return text, ok
+end
+
+local function warAt(siteId)
+    if Turf.war and Turf.war.site.id == siteId then return Turf.war end
+    for _, war in ipairs(Turf.sweeps) do if war.site.id == siteId then return war end end
+    return nil
+end
+
+RegisterCommand("turf.zone", function(source, args, raw)
+    local caller = validId(source) or 0
+    args = args or {}
+    local op = tostring(args[1] or ""):lower()
+    if op == "" or op == "list" or Turf.site(op) then
+        local only = Turf.site(op) and op or (args[2] and tostring(args[2]):lower()) or nil
+        local lines = {}
+        for _, site in ipairs(C.sites) do
+            if only == nil or site.id == only then
+                lines[#lines + 1] = ("%s%s: %s"):format(site.id, site.enabled == false and " (staff only)" or "", (spacingOf(site)))
+                for _, def in ipairs(site.zones) do
+                    lines[#lines + 1] = "  " .. zoneLine(def) .. (zoneConfig[site.id .. "." .. def.id] and "  -- resurveyed (kvp)" or "")
+                end
+            end
+        end
+        W.reply(caller, raw, #lines > 0, #lines > 0 and table.concat(lines, "\n") or ZONE_USAGE)
+        return
+    end
+    if op ~= "set" and op ~= "reset" then W.reply(caller, raw, false, ZONE_USAGE) return end
+    local site = args[2] and Turf.site(tostring(args[2]):lower()) or nil
+    if not site then W.reply(caller, raw, false, "Unknown site. Sites: " .. Turf.siteList() .. ". " .. ZONE_USAGE) return end
+    local war = warAt(site.id)
+    if war then
+        W.reply(caller, raw, false, ("%s %d is on at %s: wait for its end (or /turf.stop%s)."):format(
+            war.kind == "pve" and "Sweep" or "War", war.id, site.label, war.kind == "pve" and " all" or ""))
+        return
+    end
+    local zid = args[3] and tostring(args[3]):upper() or nil
+    if op == "reset" then
+        local done = {}
+        for _, def in ipairs(site.zones) do
+            if zid == "ALL" or def.id == zid then
+                local key = site.id .. "." .. def.id
+                kvpCall("delete", ZONE_KVP:format(site.id, def.id))
+                local was = zoneConfig[key]
+                if was then def.x, def.y, def.z = was.x, was.y, was.z end
+                zoneConfig[key] = nil
+                done[#done + 1] = def.id
+            end
+        end
+        if #done == 0 then W.reply(caller, raw, false, ZONE_USAGE) return end
+        log("zone %s %s back to the config (by %d)", site.id, table.concat(done, ","), caller)
+        W.reply(caller, raw, true, ("%s %s back to the config. Spacing: %s"):format(site.id, table.concat(done, ","), (spacingOf(site))))
+        return
+    end
+    local def = zid and zoneDef(site, zid) or nil
+    if not def then W.reply(caller, raw, false, "Unknown zone. " .. ZONE_USAGE) return end
+    if caller == 0 then W.reply(caller, raw, false, "In game only.") return end
+    local p = W.pose(caller)
+    if p == nil then W.reply(caller, raw, false, "No position yet: move a step and try again.") return end
+    if not R.inBounds(site.bounds, p) then
+        W.reply(caller, raw, false, ("You stand outside %s (%.0f m from its centre, bounds %.0f m)."):format(site.label,
+            R.flatDistance(p, site.bounds.center), site.bounds.radius))
+        return
+    end
+    replaceZone(site, def, p)
+    local saved, why = kvpCall("set", ZONE_KVP:format(site.id, def.id), ("%.3f,%.3f,%.3f"):format(p.x, p.y, p.z))
+    local spacing = spacingOf(site)
+    local line = zoneLine(def)
+    log("zone %s %s resurveyed by %d: %s Spacing: %s", site.id, def.id, caller, line, spacing)
+    W.reply(caller, raw, true, ("%s  -- paste into the %s site of shared/config.lua (%s). Spacing: %s"):format(line, site.id,
+        saved and "kept until /turf.zone reset" or ("not saved: " .. tostring(why) .. ", this run only"), spacing))
 end, true)
 
 local function describeWar(lines, war)

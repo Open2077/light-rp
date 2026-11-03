@@ -201,7 +201,25 @@ TurfConfig = {
             moveTimeoutMs = 30000,
             speed = "run",
             pushShare = 0.5,        -- share of a side's bots that push to the enemy's zones
+            -- A move that gets nowhere: the client's navigation refused it (onNpcTaskState
+            -- failure, e.g. path_blocked on a point off the navmesh), or the body has not
+            -- moved stuckMetres in stuckMs while no hit named it. The next order aims at the
+            -- zone's near edge, then at the nearest enemy; after rebuildAfterFails such moves
+            -- in a row (and at least rebuildGapMs into the body's life) the body is rebuilt
+            -- at its side's spawn, the next spawn point each time. 2026-11-03: three
+            -- respawned gangers stood two minutes on path_blocked moves to Kabuki A, the
+            -- same move re-sent every moveTimeoutMs, and the sweep had nobody to fight.
+            stuckMs = 15000,
+            stuckMetres = 1.5,
+            rebuildAfterFails = 3,
+            rebuildGapMs = 15000,
         },
+        -- A body the platform refuses for a reason that is not its record (an NPC limit,
+        -- the world not ready): the bot stays in the war and asks again after
+        -- spawnRetryMs x attempts, at most spawnRetryMaxMs apart. Only a record no
+        -- client or server will build leaves a bot out, and never one that had a body.
+        spawnRetryMs = 2000,
+        spawnRetryMaxMs = 10000,
         -- Hit pricing (client reports, clamped, rate-bounded per victim and per pair).
         damage = { maxPerHit = 34, fallback = 18, perSecond = 90, pairIntervalMs = 90, maxDistance = 150 },
         creditWindowMs = 10000,    -- a death within this of a bot's hit is that bot's kill
@@ -266,6 +284,10 @@ TurfConfig = {
     -- The sites: a district each, 3 capture zones, two side spawns, round bounds.
     -- `spawnable = false` keeps a zone out of the respawn choice (tight interiors).
     -- `enabled = false`: staff only (/turf.schedule <id> / /turf.start <id>), never voted.
+    -- Every two zone centres of an enabled site stand at least `zoneSpacing` metres apart
+    -- (a site may state its own floor), each zone inside the bounds: tests/zones_test.lua
+    -- holds the config to it and /turf.zone warns a resurvey that breaks it.
+    zoneSpacing = 60,
     sites = {
         {
             id = "kabuki", label = "Kabuki Market", district = "Watson",
@@ -285,9 +307,18 @@ TurfConfig = {
                     { x = -1192.751, y = 2072.839, z = 7.816, heading = 162.5 }, -- survey in game
                   } },
             },
+            -- Re-laid 2026-11-03 (owner: "the three Kabuki zones are too close"): they were
+            -- one line 34 m / 25 m apart, and A's centre (-1223.905, 1989.450, inside the
+            -- stalls) was off the NPC navmesh: every bot move to it ended path_blocked.
+            -- Now a triangle 77 / 66 / 66 m apart, A on the south side, B in the east, C on
+            -- the north side. A is where the sweep's allied bots stood and from where the
+            -- client's navigation reached the market crossing (client log 2026-11-03
+            -- 05:53:25, "path cleared verdict=reachable"); B is walked FFA mark 01 and C
+            -- walked mark 06 (op77_arena shared/kabuki.lua), C the ground a holder ran from
+            -- to the middle in the same sweep. Resurvey with /turf.zone set kabuki <zone>.
             zones = {
-                { id = "A", label = "The Stalls", x = -1223.905, y = 1989.450, z = 7.984, radius = 6.0 },  -- survey in game
-                { id = "B", label = "Market Crossing", x = -1218.649, y = 2022.934, z = 7.816, radius = 6.0 }, -- survey in game
+                { id = "A", label = "The Stalls", x = -1228.750, y = 1983.250, z = 7.970, radius = 6.0 },  -- survey in game
+                { id = "B", label = "East Market", x = -1160.499, y = 2019.064, z = 7.763, radius = 6.0 }, -- survey in game
                 { id = "C", label = "Lantern Row", x = -1220.135, y = 2048.270, z = 7.817, radius = 6.0 },  -- survey in game
             },
         },
@@ -311,10 +342,17 @@ TurfConfig = {
                     { x = 3030.921, y = -2426.717, z = 118.462, heading = 100.0 }, -- survey in game
                   } },
             },
+            -- Re-laid 2026-11-03 with Kabuki: the zones were 34 m / 27 m apart. Each is
+            -- still one of the 17 walked marks (op77_arena shared/lightrp.lua), now the
+            -- farthest spread the compound allows between the two yards: the north end of
+            -- the north deck, the east end of the upper deck, the south yard (A-B 54 m,
+            -- B-C 49 m, A-C 95 m). The compound is ~95 m long between its walked ends, so
+            -- 60 m on every side would put a zone on a spawn: this site's floor is 45 m.
+            zoneSpacing = 45,
             zones = {
-                { id = "A", label = "North Deck", x = 2990.337, y = -2366.788, z = 122.422, radius = 6.0 }, -- survey in game
-                { id = "B", label = "Upper Deck", x = 2994.936, y = -2400.323, z = 124.439, radius = 6.0 }, -- survey in game
-                { id = "C", label = "South Yard", x = 3007.401, y = -2423.931, z = 118.324, radius = 7.0 }, -- survey in game
+                { id = "A", label = "North Deck", x = 2987.300, y = -2351.031, z = 122.426, radius = 6.0 }, -- survey in game
+                { id = "B", label = "Upper Deck", x = 3007.488, y = -2401.259, z = 124.374, radius = 6.0 }, -- survey in game
+                { id = "C", label = "South Yard", x = 2987.544, y = -2446.255, z = 118.706, radius = 7.0 }, -- survey in game
             },
         },
         {

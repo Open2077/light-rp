@@ -14,7 +14,13 @@
 -- `corpseLingerMs` and a fresh body is created at the deadline (setTransform cannot move a
 -- body and a revive leaves a corpse), never in the same tick. Bodies are created one at a
 -- time, `spawnSpacingMs` apart, never in the first `spawnSettleMs` of this VM, never while
--- the resource stops.
+-- the resource stops. A refused body (NPC limit, world not ready) is asked again, paced;
+-- only a record nobody builds leaves a bot out, never one that had a body.
+--
+-- A move that gets nowhere is never re-sent as is: the client's navigation answers
+-- path_blocked for a point off the navmesh (onNpcTaskState), and a native command can run
+-- without moving the body (the stuck watchdog). The next order aims at the zone's edge,
+-- then at the nearest enemy; a body still stuck is rebuilt at its side's spawn.
 --
 -- Hits: a managed NPC's engine damage is never applied by the platform. Clients report
 -- (client/main.lua forwards the engine's open77:npcHit / npcAttackedMe / npcCrossfire)
@@ -322,7 +328,8 @@ end
 local function spawnPoint(war, bot)
     local p
     if bot.respawning then
-        p = R.respawnPoint(war, war.site, bot.side, bot.slot, bot.deathPos, cfg().life)
+        -- A body rebuilt because it was stuck starts from the next spawn point (spawnShift).
+        p = R.respawnPoint(war, war.site, bot.side, bot.slot + (bot.spawnShift or 0), bot.deathPos, cfg().life)
     elseif bot.atZone and war.zones[bot.home] then
         local def = war.zones[bot.home].def
         p = { x = def.x, y = def.y, z = def.z, heading = 0 }
@@ -413,16 +420,38 @@ function B.welcome(war, m)
     end
 end
 
+-- A refusal that names the record or template (the next record may do); anything else
+-- (an NPC limit, the world not ready, a raise) says nothing about the record.
+local function recordRefusal(why)
+    local s = tostring(why or ""):lower()
+    return s:find("record", 1, true) ~= nil or s:find("template", 1, true) ~= nil
+end
+B.recordRefusal = recordRefusal
+
 local function spawn(war, bot, now)
     B.lastSpawnAt = now
     local point = spawnPoint(war, bot)
     local npcId, why
     while true do
         npcId, why = createBody(war, bot, point)
-        if npcId ~= nil or bot.recordIndex >= #bot.records or why == "unavailable" then break end
+        if npcId ~= nil or bot.recordIndex >= #bot.records or why == "unavailable" or not recordRefusal(why) then break end
         bot.recordIndex = bot.recordIndex + 1
     end
     if npcId == nil then
+        -- A bot whose record built a body before, or a refusal that is not about the
+        -- record, stays in the war and asks again: a ganger that silently drops out of a
+        -- Gang Sweep is a sweep with nobody left to fight.
+        if why ~= "unavailable" and (bot.goodRecord ~= nil or not recordRefusal(why)) then
+            if recordRefusal(why) then bot.recordIndex = bot.goodRecord end
+            bot.spawnTries = (bot.spawnTries or 0) + 1
+            local wait = math.min(bc().spawnRetryMaxMs or 10000, (bc().spawnRetryMs or 2000) * bot.spawnTries)
+            bot.nextBodyAt = now + wait
+            if bot.spawnTries == 1 or bot.spawnTries % 10 == 0 then
+                log("bots: war %d %s: body refused (%s), asking again in %.0f s (attempt %d)", war.id, bot.name,
+                    tostring(why), wait / 1000, bot.spawnTries)
+            end
+            return false
+        end
         bot.state, bot.failed = "gone", true
         log("bots: war %d %s has no body (%s): left out", war.id, bot.name, tostring(why))
         war.boardDirty = true
@@ -431,10 +460,11 @@ local function spawn(war, bot, now)
     bot.npcId, bot.npcKey = npcId, keyOf(npcId)
     B.byNpc[bot.npcKey] = bot
     bot.state = "alive"
+    bot.goodRecord, bot.spawnTries = bot.recordIndex, nil
     bot.bornAt, bot.health = now, bot.maxHealth or bc().health or 100
     bot.lastPos = { x = point.x, y = point.y, z = point.z, bucket = war.bucket }
     bot.task, bot.lastCombatAt, bot.lastAttacker, bot.outSince, bot.outMoved, bot.noAuthSince = {}, nil, nil, nil, nil, nil
-    bot.respawning = nil
+    bot.respawning, bot.moveFails = nil, 0
     B.hostility(war, bot)
     war.boardDirty = true
     if war.state == "running" then B.order(war, bot, now) end
@@ -512,11 +542,12 @@ end
 
 local function movementChannel() return constant("channels", "movement", nil) end
 
+-- Both answer the platform's task id (or nil): its onNpcTaskState names it.
 local function issueMove(bot, def)
     local t = bc().tasks
     B.call("tasks.clear", bot.npcId, movementChannel(), "retask")
-    B.call("tasks.moveTo", bot.npcId, { x = def.x, y = def.y, z = def.z },
-        { speed = t.speed or "run", acceptanceRadius = 2.0, timeoutMs = t.moveTimeoutMs or 30000 })
+    return (B.call("tasks.moveTo", bot.npcId, { x = def.x, y = def.y, z = def.z },
+        { speed = t.speed or "run", acceptanceRadius = 2.0, timeoutMs = t.moveTimeoutMs or 30000 }))
 end
 
 local function issueGuard(bot, def)
@@ -524,7 +555,62 @@ local function issueGuard(bot, def)
     local leash = bot.ai and bot.ai.guardRadius or t.guardRadius or 3
     local radius = math.max(2, math.min(100, (def.radius or 6) + leash))
     B.call("tasks.clear", bot.npcId, movementChannel(), "retask")
-    B.call("tasks.guard", bot.npcId, { x = def.x, y = def.y, z = def.z }, radius, { speed = t.speed or "run" })
+    return (B.call("tasks.guard", bot.npcId, { x = def.x, y = def.y, z = def.z }, radius, { speed = t.speed or "run" }))
+end
+
+-- The task record of an order: what it was, when, from where (the stuck watchdog), and
+-- the platform's id (task state events).
+local function taskRecord(bot, zi, kind, now, taskId, dest)
+    local p = bot.lastPos
+    return { zone = zi, kind = kind, at = now, id = taskId ~= nil and tostring(taskId) or nil,
+        from = p and { x = p.x, y = p.y } or nil, dest = dest }
+end
+
+-- The nearest enemy of a bot inside the site: a fighter of the other side (alive, placed)
+-- or a living bot of the other side, by last known position. nil when none.
+function B.nearestEnemy(war, bot)
+    local p = bot.lastPos
+    if not p then return nil end
+    local best, bestD
+    local function consider(q)
+        if type(q) ~= "table" or type(q.x) ~= "number" or type(q.y) ~= "number" then return end
+        if q.bucket ~= nil and q.bucket ~= war.bucket then return end
+        if not R.inBounds(war.site.bounds, q) then return end
+        local d = (q.x - p.x) ^ 2 + (q.y - p.y) ^ 2
+        if bestD == nil or d < bestD then best, bestD = q, d end
+    end
+    for _, id in ipairs(war.order or {}) do
+        local m = war.members[id]
+        if Turf.present(m) and m.side ~= bot.side and m.placed and not m.down then consider(m.lastPos) end
+    end
+    for _, b in ipairs(war.bots or {}) do
+        if b.side ~= bot.side and b.state == "alive" then consider(b.lastPos) end
+    end
+    return best and { x = best.x, y = best.y, z = best.z or p.z } or nil
+end
+
+-- Where a move to a zone aims after `fails` moves that got nowhere in a row: the zone's
+-- centre; then its edge on the bot's side (a centre off the navmesh, inside a stall);
+-- then the nearest enemy (the fight is reachable when a zone point is not); without one,
+-- the edge a quarter turn further each time.
+function B.destination(war, bot, def, fails)
+    fails = fails or 0
+    if fails <= 0 then return { x = def.x, y = def.y, z = def.z } end
+    if fails >= 2 then
+        local enemy = B.nearestEnemy(war, bot)
+        if enemy then return enemy end
+    end
+    local ux, uy = 0.0, -1.0
+    local p = bot.lastPos
+    if p then
+        local dx, dy = p.x - def.x, p.y - def.y
+        local len = math.sqrt(dx * dx + dy * dy)
+        if len > 0.01 then ux, uy = dx / len, dy / len end
+    end
+    local turn = math.rad(90 * (fails - 1))
+    local c, s = math.cos(turn), math.sin(turn)
+    local r = (def.radius or 6) * 0.7
+    return { x = def.x + (ux * c - uy * s) * r, y = def.y + (ux * s + uy * c) * r, z = def.z }
 end
 
 -- The zone a bot should be at. Guards: their home zone. Pushers: the nearest zone their
@@ -550,9 +636,10 @@ function B.objective(war, bot)
     return bot.home
 end
 
--- Gives a bot its objective when it changed (the zone picture moved, it arrived, or a
--- move ran out). Far from the zone: moveTo first; there: a guard leash. Gated: one new
--- destination per retaskMs, never while a hit named it in the last combatQuietMs.
+-- Gives a bot its objective when it changed (the zone picture moved, it arrived, a move
+-- ran out or got nowhere). Far from the zone: moveTo first (B.destination: nearer, then
+-- at the enemy, after failed moves); there: a guard leash. Gated: one new destination per
+-- retaskMs, never while a hit named it in the last combatQuietMs.
 function B.order(war, bot, now)
     if bot.state ~= "alive" or bot.npcId == nil then return false end
     local t = bc().tasks
@@ -565,14 +652,64 @@ function B.order(war, bot, now)
     local far = p ~= nil and ((def.x - p.x) ^ 2 + (def.y - p.y) ^ 2) > reach * reach
     local kind = far and "move" or "guard"
     local task = bot.task or {}
-    local expired = task.kind == "move" and now - (task.at or 0) >= (t.moveTimeoutMs or 30000)
-    if task.zone == zi and task.kind == kind and not expired then return false end
+    local stale = task.failed or (task.kind == "move" and now - (task.at or 0) >= (t.moveTimeoutMs or 30000))
+    if task.zone == zi and task.kind == kind and not stale then return false end
     local ai = bot.ai or {}
     if task.at and now - task.at < (ai.retaskMs or t.retaskMs or 6000) then return false end
     if bot.lastCombatAt and now - bot.lastCombatAt < (ai.combatQuietMs or t.combatQuietMs or 5000) then return false end
-    if kind == "move" then issueMove(bot, def) else issueGuard(bot, def) end
-    bot.task = { zone = zi, kind = kind, at = now }
+    if kind == "move" then
+        -- A new objective is a fresh attempt; the same one keeps its failed moves.
+        if task.zone ~= zi then bot.moveFails = 0 end
+        local dest = B.destination(war, bot, def, bot.moveFails or 0)
+        bot.task = taskRecord(bot, zi, kind, now, issueMove(bot, dest), dest)
+    else
+        bot.moveFails = 0
+        bot.task = taskRecord(bot, zi, kind, now, issueGuard(bot, def))
+    end
     return true
+end
+
+-- A move got nowhere (the platform's task failed, or the stuck watchdog): the next order
+-- comes at once (after retaskMs) and aims elsewhere (B.destination); after
+-- rebuildAfterFails in a row, at least rebuildGapMs into the body's life, the body is
+-- rebuilt at its side's spawn, the next point each time. A timeout or a lost authority
+-- says nothing about the path: re-sent as it was.
+function B.moveFailed(war, bot, now, why)
+    local task = bot.task
+    if bot.state ~= "alive" or not task or task.kind ~= "move" or task.failed then return false end
+    task.failed = true
+    local reason = tostring(why or "failed")
+    if reason:find("time", 1, true) or reason:find("authority", 1, true) then return true end
+    local t = bc().tasks
+    bot.moveFails = (bot.moveFails or 0) + 1
+    local zone = war.zones[task.zone]
+    local zid = zone and zone.def.id or "?"
+    if bot.moveFails == 1 then
+        log("bots: war %d %s cannot reach zone %s (%s): aiming elsewhere", war.id, bot.name, zid, reason)
+    end
+    if bot.moveFails >= (t.rebuildAfterFails or 3) and now - (bot.bornAt or now) >= (t.rebuildGapMs or 15000) then
+        bot.spawnShift = (bot.spawnShift or 0) + 1
+        rebuild(war, bot, now, ("stuck: %d moves to zone %s got nowhere (%s)"):format(bot.moveFails, zid, reason), false)
+    end
+    return true
+end
+
+-- onNpcTaskState: the platform's word on a task (status "failure" + reason, e.g.
+-- path_blocked; "success"). Only the bot's current task counts; our own clears cancel
+-- the others.
+function B.onTaskState(npcId, taskId, status, reason, now)
+    local bot, war = B.ofNpc(npcId)
+    if not bot then return false end
+    local task = bot.task
+    if not task or task.id == nil or task.id ~= tostring(taskId) then return false end
+    status = tostring(status or ""):lower()
+    if status == "failure" or status == "failed" then
+        return B.moveFailed(war, bot, now, reason)
+    elseif status == "success" or status == "succeeded" then
+        if task.kind == "move" then bot.moveFails = 0 end
+        return true
+    end
+    return false
 end
 
 function B.retask(war, now)
@@ -617,9 +754,24 @@ local function bounds(war, bot, p, now)
         -- A soft move back towards its objective (inside the site), whatever the gates.
         bot.outMoved = true
         local zi = B.objective(war, bot)
-        issueMove(bot, war.zones[zi].def)
-        bot.task = { zone = zi, kind = "move", at = now }
+        local def = war.zones[zi].def
+        bot.task = taskRecord(bot, zi, "move", now, issueMove(bot, def), { x = def.x, y = def.y, z = def.z })
     end
+end
+
+-- The stuck watchdog: a move that has not taken the body stuckMetres from where it was
+-- given in stuckMs, while no hit named the bot (the engine's combat AI owns a fighting
+-- body), failed: no task state comes for a native command that runs without moving.
+local function watchStuck(war, bot, p, now)
+    local task = bot.task
+    if not task or task.kind ~= "move" or task.failed or not task.from or not task.at then return end
+    local t = bc().tasks
+    if now - task.at < (t.stuckMs or 15000) then return end
+    local ai = bot.ai or {}
+    if bot.lastCombatAt and now - bot.lastCombatAt < (ai.combatQuietMs or t.combatQuietMs or 5000) then return end
+    local dx, dy = p.x - task.from.x, p.y - task.from.y
+    local m = t.stuckMetres or 1.5
+    if dx * dx + dy * dy < m * m then B.moveFailed(war, bot, now, "no_progress") end
 end
 
 -- 1 Hz, running: positions into the zone counts (counts[i][side]), a health backstop
@@ -663,6 +815,7 @@ function B.step(war, now, counts, dt)
                         bot.noAuthSince = nil
                     end
                 end
+                if bot.state == "alive" then watchStuck(war, bot, r, now) end
                 if bot.state == "alive" then bounds(war, bot, r, now) end
             end
         end

@@ -196,7 +196,7 @@ local function main()
     local def = core.registered["turf.war"]
     assert(def and def.kind == "pvp" and def.modeKey == "site" and #def.modes == 2 and core.registerCount == 1)
     assert(lastStatus().phase == "idle" and lastStatus().joinable == true)
-    for _, name in ipairs({ "turf.schedule", "turf.start", "turf.stop", "turf.testing", "turf.survey", "turf.status" }) do
+    for _, name in ipairs({ "turf.schedule", "turf.start", "turf.stop", "turf.testing", "turf.survey", "turf.status", "turf.zone" }) do
         assert(host.commands[name] and host.commands[name].restricted == true, name .. " is staff (ACL command." .. name .. ")")
     end
     assert(host.commands.turf.restricted == false)
