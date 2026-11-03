@@ -203,11 +203,11 @@ local store -- the kvp helper (Exclusions, below)
 local function loadChoice()
     applyChoice(choiceFor(defaultModel()))
     local text = store("get", KVP_MODEL)
-    local saved = decodeChoice(text)
-    if saved then
-        applyChoice(saved, true)
+    local choice = decodeChoice(text)
+    if choice then
+        applyChoice(choice, true)
         LightRP.log("hall of fame: board model %s x%.2f rotate %.1f from the staff's choice (kvp %s; /lightrp.halloffame model reset for the config's)",
-            saved.model, saved.scale, saved.rotate, KVP_MODEL)
+            choice.model, choice.scale, choice.rotate, KVP_MODEL)
     elseif type(text) == "string" and text ~= "" then
         LightRP.log("hall of fame: ignoring an unreadable board model in kvp %s: %q", KVP_MODEL, text:sub(1, 120))
     end
@@ -1284,11 +1284,11 @@ local function modelVerb(source, args)
         board.saved = false
         return false, "Hall of Fame: " .. model .. " not made (" .. tostring(why) .. "): used for this session's next try, not saved."
     end
-    local saved, saveWhy = store("set", KVP_MODEL, encodeChoice(choice))
-    if saved ~= true then board.saved = false end
+    local stored, storeWhy = store("set", KVP_MODEL, encodeChoice(choice))
+    if stored ~= true then board.saved = false end
     LightRP.log("hall of fame: board model %s by %s: %s", tostring(board.model), who, configLine())
     return true, "Hall of Fame: " .. modelLine() .. ", prop " .. tostring(board.prop)
-        .. (saved == true and ". Kept over restarts (model reset: the config's)." or (". This session only (not saved: " .. tostring(saveWhy) .. ")."))
+        .. (stored == true and ". Kept over restarts (model reset: the config's)." or (". This session only (not saved: " .. tostring(storeWhy) .. ")."))
         .. " Config: " .. configLine()
 end
 
