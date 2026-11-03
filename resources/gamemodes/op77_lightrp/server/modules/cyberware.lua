@@ -362,9 +362,17 @@ local function applyRegen(playerId, bonus)
     for _, rate in pairs(st.boosts) do extra = extra + rate end
     local S = Open77.stats
     pcall(S.setRegenRate, playerId, "health", base.healthRegen + bonus.healthRegen + extra)
-    pcall(S.setRegenEnabled, playerId, "health", base.healthRegenEnabled or bonus.healthRegen + extra > 0)
+    -- starving (needs.lua): no health regen until the character eats or drinks
+    local N = LightRP.needs
+    local starve = type(LightRpConfig) == "table" and type(LightRpConfig.needs) == "table" and LightRpConfig.needs.starve or {}
+    local starving = starve.noRegen ~= false and type(N) == "table" and type(N.starving) == "function"
+        and N.starving(playerId) ~= nil
+    pcall(S.setRegenEnabled, playerId, "health", (not starving) and (base.healthRegenEnabled or bonus.healthRegen + extra > 0))
     return true
 end
+--- Re-applies health regen (needs.lua calls it when starving starts or ends); false when this
+--- player has no cyberware state yet (the caller then sets the flag itself).
+function Cyber.refreshRegen(playerId) return applyRegen(playerId) end
 
 local function applyPassives(playerId)
     local st = state[playerId]

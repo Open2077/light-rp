@@ -311,7 +311,18 @@ LightRpConfig = {
         foodPerTick = 0.6,   -- ~2h45 from 100 to 0
         drinkPerTick = 0.9,  -- ~1h50 from 100 to 0
         warnAt = 20,
-        starveDamagePerTick = 3, -- health lost per tick at 0
+        -- At 0 food or 0 drink the character starves: a share of max health lost every
+        -- tickMs until eating/drinking or death, health regen off meanwhile. From full
+        -- health: ~17 min to die with one need at 0, ~8 min with both.
+        starve = {
+            tickMs = 5000,
+            percentPerMinute = 6,       -- food OR drink at 0
+            bothPercentPerMinute = 12,  -- food AND drink at 0
+            noRegen = true,             -- health regen off while starving
+            -- after a death (hospital respawn) both needs come back to at least this,
+            -- or the character would respawn starving and die again
+            respawnFloor = 25,
+        },
     },
 
     voice = {

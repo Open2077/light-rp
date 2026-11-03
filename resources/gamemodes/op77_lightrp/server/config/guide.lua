@@ -880,7 +880,7 @@ LightRpGuide = {
             questions = {
                 { id = "health.needs", q = "How do hunger and thirst work?",
                   a = { "Both drop over time: food by {cfg:config.needs.foodPerTick} and drink by {cfg:config.needs.drinkPerTick} a minute (out of 100). Under {cfg:config.needs.warnAt} you get a warning.",
-                        "At zero you lose {cfg:config.needs.starveDamagePerTick} health a minute and can black out. They don't drop during missions and activities." },
+                        "At zero you starve: you lose {cfg:config.needs.starve.percentPerMinute}% of your health a minute ({cfg:config.needs.starve.bothPercentPerMinute}% when both are empty), your health stops regenerating, and it ends in the hospital if you don't eat or drink. They don't drop during missions and activities." },
                   follow = { "health.eat", "health.food_where" },
                   tags = "hunger thirst food drink needs starve" },
                 { id = "health.eat", q = "How do I eat or drink?",
