@@ -241,14 +241,20 @@ function Fixers.offer(playerId, pointId, difficultyId)
         for _, x in ipairs(point.difficulties) do if x.id == difficultyId then d = x end end
         if not d then return false, "unknown difficulty" end
     else
-        local total = 0
-        for _, x in ipairs(point.difficulties) do total = total + ((C.difficultyWeights or {})[x.id] or 1) end
-        local roll = math.random() * total
+        -- only what the owner's reputation tier opens (docs/pve-progression.md)
+        local offered = {}
         for _, x in ipairs(point.difficulties) do
+            if type(Missions.tierAllows) ~= "function" or Missions.tierAllows(playerId, x) then offered[#offered + 1] = x end
+        end
+        if #offered == 0 then offered = { point.difficulties[1] } end
+        local total = 0
+        for _, x in ipairs(offered) do total = total + ((C.difficultyWeights or {})[x.id] or 1) end
+        local roll = math.random() * total
+        for _, x in ipairs(offered) do
             roll = roll - ((C.difficultyWeights or {})[x.id] or 1)
             if not d and roll <= 0 then d = x end
         end
-        d = d or point.difficulties[1]
+        d = d or offered[1]
     end
     local contact = point.fixerContact and contactById[point.fixerContact] or pick(C.contacts)
     gigSeq = gigSeq + 1

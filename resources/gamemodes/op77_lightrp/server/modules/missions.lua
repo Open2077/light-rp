@@ -89,9 +89,10 @@ local function saveRep(id)
 end
 function Missions.reputation(id) return (reputation[id] or {}).rep or 0 end
 
--- Unlocks: a difficulty opens once the character completed the one before it at
--- the same mission point (the first is always open). Reputation is still earned
--- and shown, it no longer gates anything.
+-- Unlocks: a difficulty opens once the character has the reputation tier it needs
+-- (C.reputation.difficultyTiers, `requireTier`) and completed the one before it at
+-- the same mission point (`requireClear`; the first is always open).
+-- docs/pve-progression.md.
 Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_mission_clears (
     identifier VARCHAR(128) NOT NULL, character_key VARCHAR(64) NOT NULL,
     point_id VARCHAR(64) NOT NULL, difficulty VARCHAR(32) NOT NULL, completed INT NOT NULL DEFAULT 0,
@@ -127,19 +128,69 @@ local function previousOf(point, d)
         if other.id == d.id then return point.difficulties[i - 1] end
     end
 end
-function Missions.unlocked(id, point, d)
-    local before = previousOf(point, d)
-    return not before or Missions.cleared(id, point.id, before.id) > 0
-end
 function Missions.tier(id)
     local rep, tier = Missions.reputation(id), 1
     for i, threshold in ipairs(C.reputation.tiers) do if rep >= threshold then tier = i end end
     return tier
 end
+
+-- ---------------------------------------------------------------------------
+-- Reputation tiers: what opens the harder difficulties (here, activities.lua) and
+-- the higher cyberware ranks (cyberware.lua).
+
+local ROMAN = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII" }
+function Missions.tierName(tier) return (C.reputation.names or {})[tier] or ("Tier " .. tostring(tier)) end
+-- "II (Merc)"
+function Missions.tierLabel(tier) return (ROMAN[tier] or tostring(tier)) .. " (" .. Missions.tierName(tier) .. ")" end
+-- What the pages show: the tier, its name, the points and the next threshold.
+function Missions.tierInfo(id)
+    local tier = Missions.tier(id)
+    local tiers = C.reputation.tiers
+    return { tier = tier, name = Missions.tierName(tier), points = Missions.reputation(id), max = #tiers,
+        next = tiers[tier + 1], nextName = tiers[tier + 1] and Missions.tierName(tier + 1) or nil }
+end
+-- The tier a difficulty needs: its own `minTier`, else the config's tier for its
+-- id, else its `tier` field (the built-in points), else 1.
+function Missions.requiredTier(d)
+    if type(d) ~= "table" then return 1 end
+    local need = tonumber(d.minTier) or (C.reputation.difficultyTiers or {})[d.id] or tonumber(d.tier)
+    need = need and math.floor(need) or 1
+    return need >= 1 and need or 1
+end
+function Missions.tierAllows(id, d)
+    return C.reputation.requireTier == false or Missions.tier(id) >= Missions.requiredTier(d)
+end
+local function ladderOpen(id, point, d)
+    if C.reputation.requireClear == false then return true end
+    local before = previousOf(point, d)
+    return not before or Missions.cleared(id, point.id, before.id) > 0
+end
+function Missions.unlocked(id, point, d)
+    return Missions.tierAllows(id, d) and ladderOpen(id, point, d)
+end
+-- The reputation a finished difficulty pays this character: its gain, or the gain
+-- of the highest difficulty their tier allows (a gig crew member carried above it).
+function Missions.reputationFor(id, d)
+    local gain = C.reputationGain[d.id] or 0
+    if Missions.tierAllows(id, d) then return gain end
+    local tier, best = Missions.tier(id), 0
+    for diffId, amount in pairs(C.reputationGain) do
+        local need = (C.reputation.difficultyTiers or {})[diffId] or 1
+        if need <= tier and amount <= gain and amount > best then best = amount end
+    end
+    return best
+end
 function Missions.addReputation(id, amount)
     reputation[id] = reputation[id] or { rep = 0, completed = 0 }
+    local before = Missions.tier(id)
     reputation[id].rep = math.max(0, reputation[id].rep + math.floor(tonumber(amount) or 0))
     saveRep(id)
+    local after = Missions.tier(id)
+    if after > before then
+        local opens = (C.reputation.opens or {})[after]
+        LightRP.notice(id, { kind = "success", title = "STREET CRED", durationMs = 10000,
+            body = string.format("Reputation tier %s reached.%s", Missions.tierLabel(after), opens and (" " .. opens) or "") })
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -226,12 +277,14 @@ local REASONS = {
     mission = { "You are already on a mission.", "%s is already on a mission." },
     down = { "You are down.", "%s is down." },
     tier = { "Complete %s first.", "%s must complete %s first." },
+    rep = { "You need reputation tier %s: PvE missions, raids, gigs and PvE activities earn it.", "%s needs reputation tier %s." },
     away = { "You are not at the mission point.", "%s is not at the mission point." },
 }
 local function reason(code, id, self, d, point)
     local r = REASONS[code]
     local before = point and d and previousOf(point, d)
     local what = before and (before.label .. " " .. point.title) or ""
+    if code == "rep" then what = Missions.tierLabel(Missions.requiredTier(d)) end
     if self then return r[1]:format(what) end
     return r[2]:format(name(id), what)
 end
@@ -242,8 +295,11 @@ local function eligible(id, point, d, radius, test, gig)
     if life and life.phase ~= "alive" then return false, "down" end
     -- an editor test run starts wherever its author stands, at any difficulty
     if test then return bucketOf(id) == 0, "away" end
-    -- a fixer gig is handed out: no unlock ladder, only the meeting point
-    if not gig and not Missions.unlocked(id, point, d) then return false, "tier" end
+    -- a fixer gig is handed out: no unlock ladder, only the meeting point (the fixer
+    -- offers its owner difficulties of their tier; a crew member's reputation follows
+    -- their own tier, Missions.reputationFor)
+    if not gig and not Missions.tierAllows(id, d) then return false, "rep" end
+    if not gig and not ladderOpen(id, point, d) then return false, "tier" end
     if not near(id, point, radius) then return false, "away" end
     return true
 end
@@ -401,10 +457,11 @@ local function finish(inst, success, why)
         if success and inst.gig then
             local pay = inst.gig.payout or d.payout
             if LightRP.money and pay > 0 then LightRP.money.addBank(id, pay, "gig", "Gig: " .. point.title .. " (" .. (inst.gig.fixerName or "fixer") .. ")") end
-            Missions.addReputation(id, C.reputationGain[d.id] or 0)
+            local rep = Missions.reputationFor(id, d)
+            Missions.addReputation(id, rep)
             LightRP.notice(id, { kind = "success", title = "GIG COMPLETE", durationMs = 10000,
                 body = string.format("%s · %s. %s wired by %s, +%d reputation.", point.title, d.label,
-                    LightRP.money and LightRP.money.format(pay) or tostring(pay), inst.gig.fixerName or "your fixer", C.reputationGain[d.id] or 0) })
+                    LightRP.money and LightRP.money.format(pay) or tostring(pay), inst.gig.fixerName or "your fixer", rep) })
         elseif inst.gig then
             LightRP.notice(id, { kind = "error", title = "GIG FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the job went sideways.") })
         elseif success and inst.test then
@@ -414,17 +471,22 @@ local function finish(inst, success, why)
             if LightRP.money then LightRP.money.addBank(id, d.payout, "mission", "Mission: " .. point.title .. " (" .. d.label .. ")") end
             reputation[id] = reputation[id] or { rep = 0, completed = 0 }
             reputation[id].completed = reputation[id].completed + 1
-            Missions.addReputation(id, C.reputationGain[d.id] or 0)
+            local rep = Missions.reputationFor(id, d)
+            Missions.addReputation(id, rep)
             local opens = Missions.cleared(id, point.id, d.id) == 0 and point.difficulties[(function()
                 for i, other in ipairs(point.difficulties) do if other.id == d.id then return i + 1 end end
             end)() or 0]
             Missions.addClear(id, point.id, d.id)
-            if opens then
+            if opens and Missions.tierAllows(id, opens) then
                 LightRP.notice(id, { kind = "success", title = "UNLOCKED", durationMs = 10000,
                     body = string.format("%s · %s is now open to you.", point.title, opens.label) })
+            elseif opens then
+                LightRP.notice(id, { kind = "info", title = "CLEARED", durationMs = 10000,
+                    body = string.format("%s · %s opens at reputation tier %s.", point.title, opens.label,
+                        Missions.tierLabel(Missions.requiredTier(opens))) })
             end
             LightRP.notice(id, { kind = "success", title = "MISSION COMPLETE", durationMs = 10000,
-                body = string.format("%s · %s. %s paid to your account, +%d reputation.", point.title, d.label, LightRP.money and LightRP.money.format(d.payout) or tostring(d.payout), C.reputationGain[d.id] or 0) })
+                body = string.format("%s · %s. %s paid to your account, +%d reputation.", point.title, d.label, LightRP.money and LightRP.money.format(d.payout) or tostring(d.payout), rep) })
         else
             LightRP.notice(id, { kind = "error", title = "MISSION FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the operation was lost.") })
         end
@@ -588,16 +650,19 @@ local function snapshot(id, pointId)
     local difficulties, boards = {}, {}
     for _, d in ipairs(point.difficulties) do
         local lobby = boardFor(id, point, d)
+        local need = Missions.requiredTier(d)
+        local before = C.reputation.requireClear ~= false and previousOf(point, d) or nil
         difficulties[#difficulties + 1] = { id = d.id, label = d.label, blurb = d.blurb, payout = d.payout, minutes = d.minutes,
-            min = d.min, max = d.max, tier = d.tier, locked = not Missions.unlocked(id, point, d), tagged = lobby and #lobby.members or 0,
-            requires = previousOf(point, d) and previousOf(point, d).label or nil, cleared = Missions.cleared(id, point.id, d.id) }
+            min = d.min, max = d.max, tier = need, tierName = Missions.tierName(need), tierLocked = not Missions.tierAllows(id, d),
+            locked = not Missions.unlocked(id, point, d), tagged = lobby and #lobby.members or 0,
+            requires = before and before.label or nil, cleared = Missions.cleared(id, point.id, d.id) }
         boards[d.id] = lobbyView(lobby, point, d)
     end
     local mine = queueOf[id] and lobbies[queueOf[id]]
     return {
         kind = "mission", session = viewers[id] and viewers[id].session,
         point = { id = point.id, title = point.title, type = point.type, location = point.location, description = point.description },
-        me = { id = id, name = name(id), citizen = citizen(id), tier = tier, reputation = Missions.reputation(id),
+        me = { id = id, name = name(id), citizen = citizen(id), tier = tier, tierName = Missions.tierName(tier), reputation = Missions.reputation(id),
             nextTier = C.reputation.tiers[tier + 1] },
         difficulties = difficulties, boards = boards,
         tagged = mine and mine.point == point.id and { lobby = mine.id, difficulty = mine.difficulty, host = mine.members[1].id == id } or nil,
@@ -811,9 +876,15 @@ LightRP.command("missions.unlock", { restricted = true, usage = "/missions.unloc
     if v then pushPoint(v.point) end
     return true, string.format("%s: %s %s completed %d time(s).", name(id), point.title, d.label, Missions.cleared(id, point.id, d.id))
 end)
-LightRP.command("missions.rep", { restricted = true, usage = "/missions.rep <playerId> <points>" }, function(_, args)
+-- Staff: /missions.rep <playerId> shows the street reputation; with <points> sets it.
+LightRP.command("missions.rep", { restricted = true, usage = "/missions.rep <playerId> [points]" }, function(_, args)
     local id, amount = staffTarget(args), tonumber(args[2])
-    if not id or not amount or not LightRP.characters.isRegistered(id) then return false, "usage: /missions.rep <playerId> <points>" end
+    if not id or not LightRP.characters.isRegistered(id) or (args[2] ~= nil and not amount) then return false, "usage: /missions.rep <playerId> [points]" end
+    if not amount then
+        local info = Missions.tierInfo(id)
+        return true, string.format("%s: %d reputation, tier %s%s.", name(id), info.points, Missions.tierLabel(info.tier),
+            info.next and string.format(", next at %d", info.next) or "")
+    end
     Missions.addReputation(id, amount - Missions.reputation(id))
     local v = viewers[id]
     if v then pushPoint(v.point) end

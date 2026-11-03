@@ -211,6 +211,13 @@ assert(paid[1] == 8000 and paid[2] == 8000, "each operator paid")
 assert(lastTo(1).body:find("sent") or lastTo(1).body:find("LEGEND") or lastTo(1).body:find("clean"), "the fixer's last text")
 assert(brief.meta.resolved.label == "Paid" and Fixers.gigOf[1] == nil and Fixers.gigOf[2] == nil, "the gig is closed")
 
+-- ── a fixer offers only difficulties of the owner's reputation tier ──
+for _ = 1, 12 do
+    ok, gig = Fixers.offer(4, "gig_burn")
+    assert(ok and gig.difficulty == "standard", "tier I: standard gigs only, got " .. tostring(gig and gig.difficulty))
+    Fixers.close(gig, "test", "cancelled")
+end
+
 -- ── expiry ──
 ok, gig = Fixers.offer(4, "gig_burn")
 assert(ok)
