@@ -259,7 +259,10 @@ chars[P] = c1
 advance(3100)
 
 -- ---------------------------------------------------------------------------
--- Results: clamped, capped per account and day, stats and leaderboard
+-- Results: clamped, capped per account and day, stats and leaderboard. A PvP
+-- result grants no reputation (tests/activities_pve_test.lua); `pvpGrants`, the old
+-- rule, is switched on here to exercise the clamp and the daily cap.
+LightRpActivities.reputation.pvpGrants = true
 LightRP.missions.addReputation = function(id, amount) repGranted[#repGranted + 1] = { id = id, amount = amount } end
 assert(exported.activityEnter(P, "arena.ffa"))
 handlers["op77_lightrp:activity:result"](P, "arena.ffa", { placement = 1, won = true, score = 31, reputation = 1e9,
@@ -311,6 +314,7 @@ local grants = #repGranted
 assert(A.result(Q, "arena.ffa", { placement = 1, won = true, reputation = 10 }))
 run()
 assert(#repGranted == grants and notices[#notices].def.body:find("cap reached"), "the cap is per account, every character")
+LightRpActivities.reputation.pvpGrants = false
 -- a result after the leave is taken once
 assert(exported.activityLeave(Q, "arena.ffa", { returnPlayer = false }))
 advance(16000)

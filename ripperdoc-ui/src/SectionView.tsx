@@ -3,7 +3,7 @@ import { SECTION, SECTIONS, RARITY_LABEL, eddies, roman, type Body, type Cyberwa
 import { iconImage, sectionVideo, uiImage } from "./media";
 import { useParallax } from "./Stage";
 import { play } from "./sfx";
-import { familyMate, refusal, type Session } from "./App";
+import { familyMate, refusal, repLabel, type Session } from "./App";
 
 /* The close-up of one section (A/D cycle): the game's paperdoll zoom on the right, tilted in
    depth with the pointer; installed slots and the clinic's stock on the left; the hovered or
@@ -95,9 +95,10 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
             const owned = installed.includes(item.id);
             const why = owned ? null : refusal(session, item);
             const poor = !owned && item.price > session.wallet;
+            const locked = !owned && item.locked === true;
             return (
               <button key={item.id} style={{ ["--i" as string]: i }}
-                className={`rd-card r-${item.rarity} ${selected === item.id ? "selected" : ""} ${owned ? "owned" : ""} ${why ? "blocked" : ""}`}
+                className={`rd-card r-${item.rarity} ${selected === item.id ? "selected" : ""} ${owned ? "owned" : ""} ${why ? "blocked" : ""} ${locked ? "locked" : ""}`}
                 onPointerEnter={() => { setHoverItem(item.id); play("hover"); }} onPointerLeave={() => setHoverItem(null)}
                 onClick={() => { setSelected(item.id); play("press"); }}>
                 <span className="stripe" />
@@ -107,7 +108,7 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
                   <span className="tier">{roman(item.tier)}</span>
                   {owned ? <span className="ok">INSTALLED</span> : <span className={`price ${poor ? "poor" : ""}`}>€$ {eddies(item.price)}</span>}
                 </span>
-                {why && <span className="req">REQ</span>}
+                {locked ? <span className="req lock">REP {roman(item.repTier ?? 0)}</span> : why && <span className="req">REQ</span>}
               </button>
             );
           })}
@@ -159,6 +160,10 @@ function DetailCard({ item, session, owned, busy, error, onAct }: CardProps) {
       <p className="lore">{item.lore}</p>
       {!owned && (
         <ul className="rd-needs">
+          {item.repTier !== undefined && item.repTier > 1 && (
+            <li className={item.locked ? "bad" : "ok"}><span>Street cred</span>
+              <b>REP {repLabel(item).toUpperCase()} <i>/ {session.reputation ? roman(session.reputation.tier) : "—"}</i></b></li>
+          )}
           <li className={item.price <= session.wallet ? "ok" : "bad"}><span>Price</span><b>€$ {eddies(item.price)} <i>/ €$ {eddies(session.wallet)}</i></b></li>
         </ul>
       )}
@@ -166,7 +171,7 @@ function DetailCard({ item, session, owned, busy, error, onAct }: CardProps) {
       {owned && <div className="rd-detail-foot"><span>INSTALLED</span><span>REMOVAL €$ {eddies(session.removalFee)}</span></div>}
       {(error ?? why) && <div className="rd-detail-error">{error ?? why}</div>}
       <HoldButton disabled={busy || (!owned && why !== null)} danger={owned}
-        label={owned ? "HOLD TO REMOVE" : why ? "UNAVAILABLE" : mate ? "HOLD TO REPLACE" : "HOLD TO INSTALL"}
+        label={owned ? "HOLD TO REMOVE" : item.locked ? `LOCKED · REP ${roman(item.repTier ?? 0)}` : why ? "UNAVAILABLE" : mate ? "HOLD TO REPLACE" : "HOLD TO INSTALL"}
         onDone={() => onAct(owned ? "remove" : "install")} />
     </div>
   );

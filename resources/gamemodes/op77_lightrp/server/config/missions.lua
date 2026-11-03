@@ -8,9 +8,32 @@
 -- real points come from the server team.
 LightRpMissions = {
     enabled = true,
-    -- Reputation: points earned by finishing missions, and the tier each
-    -- threshold opens (tier 1 from the start).
-    reputation = { tiers = { 0, 500, 1500 } },
+    -- Reputation ("street cred", per character): points earned by PvE only --
+    -- missions, the raid, fixer gigs and PvE activities (server/config/activities.lua
+    -- `pve`); PvP never grants any. Each threshold opens a tier (tier 1 from the
+    -- start), and a tier opens the harder difficulties (`difficultyTiers`) and the
+    -- higher cyberware ranks (server/config/cyberware.lua `gating`).
+    -- docs/pve-progression.md.
+    reputation = {
+        tiers = { 0, 500, 1500, 4000, 10000 },
+        names = { "Street", "Merc", "Operator", "Edgerunner", "Legend" },
+        -- told to the player when the tier is reached
+        opens = {
+            [2] = "Hard difficulties and rank III cyberware are open to you.",
+            [3] = "Critical difficulties and rank IV cyberware are open to you.",
+            [4] = "Rank V cyberware is open to you.",
+            [5] = "Rank V+ cyberware is open to you.",
+        },
+        -- The tier a difficulty needs, by difficulty id (a difficulty's own `minTier`
+        -- wins). Editor missions carry no tier of their own and follow this too.
+        difficultyTiers = { standard = 1, hard = 2, critical = 3 },
+        requireTier = true,  -- a difficulty needs its tier...
+        requireClear = true, -- ...and the one before it completed at the same point
+        -- A crew member the leader brings into a difficulty their own tier (or clears)
+        -- do not open is never refused: they play it at full difficulty and earn the
+        -- reputation of the highest difficulty they have unlocked. The leader, and a
+        -- solo player, are gated as above.
+    },
     -- Tagging happens at the point; a crew member must be this close to it
     -- for the leader to tag them along. Wandering past `leash` untags you.
     tagRadius = 6.0,
@@ -23,7 +46,9 @@ LightRpMissions = {
     tagCooldownMs = 1500,
     -- One routing bucket per running mission: base + instance number.
     bucketBase = 3000000,
-    -- What a finished mission pays out in reputation, per difficulty.
+    -- What a finished mission (raid and fixer gig included) pays out in
+    -- reputation, per difficulty. A gig crew member below a difficulty's tier gets
+    -- the gain of the highest difficulty their tier allows.
     reputationGain = { standard = 100, hard = 220, critical = 450 },
     -- Crews (server/modules/parties.lua): size, invite lifetime, the radius of the
     -- "players around you" lists, the invite range, the distance past which a

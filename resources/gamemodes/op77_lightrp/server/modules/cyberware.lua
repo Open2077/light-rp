@@ -14,6 +14,11 @@
 --   LightRP.cyberware.view(playerId)       -> the clinic payload (catalogue, installed, bank balance)
 --   LightRP.cyberware.operate(playerId, op, itemId, done) -- op "install" | "remove"; done(ok, message)
 --   LightRP.cyberware.handlesLoadout(playerId) -> true while the Mantis Blades are drawn
+--
+-- Street cred (docs/pve-progression.md): an implant's rank needs a reputation tier
+-- (C.gating, tiers from server/modules/missions.lua); the install is refused below it, the
+-- clinic shows it locked. With C.activeInPvp = false, the session grants and passive stats
+-- stand down while the player is in a non-PvE activity (hook onActivityChanged).
 local C = LightRpCyberwareConfig
 local Db = LightRP.db
 local Cyber = LightRP.module("cyberware", {})
@@ -39,6 +44,31 @@ local function now() return math.floor(Open77.time.monotonic() * 1000) end
 
 local function notice(playerId, kind, title, body)
     LightRP.notice(playerId, { kind = kind, title = title, body = body, source = "RIPPERDOC" })
+end
+
+-- ---------------------------------------------------------------------------
+-- Street cred: the reputation tier a rank needs
+
+local GATE = type(C.gating) == "table" and C.gating or { enabled = false }
+function Cyber.requiredTier(item)
+    if GATE.enabled == false or type(item) ~= "table" then return 1 end
+    local need = tonumber(item.repTier) or (GATE.byRank or {})[item.tier] or 1
+    need = math.floor(need)
+    return need >= 1 and need or 1
+end
+local function missions(fn, ...)
+    local M = LightRP.missions
+    if not M or type(M[fn]) ~= "function" then return nil end
+    local ok, value = pcall(M[fn], ...)
+    if ok then return value end
+    return nil
+end
+-- nil when there is no reputation to read: the gate stays open
+local function tierOf(playerId) return tonumber(missions("tier", playerId)) end
+local function tierLabel(tier) return missions("tierLabel", tier) or tostring(tier) end
+local function lockedFor(playerId, item)
+    local tier = tierOf(playerId)
+    return tier ~= nil and tier < Cyber.requiredTier(item)
 end
 
 -- ---------------------------------------------------------------------------
@@ -116,18 +146,27 @@ end
 function Cyber.view(playerId)
     local st = state[playerId]
     local catalogue, installed = {}, {}
+    local tier = tierOf(playerId)
     for _, item in ipairs(items) do
         local stats = {}
         for i, pair in ipairs(item.stats or {}) do stats[i] = { label = pair[1], value = pair[2] } end
+        local need = Cyber.requiredTier(item)
         catalogue[#catalogue + 1] = { id = item.id, name = item.name, section = item.section, icon = item.icon,
-            rarity = item.rarity, tier = item.tier, price = item.price, family = item.family, maker = item.maker, effect = item.effect, lore = item.lore, stats = stats }
+            rarity = item.rarity, tier = item.tier, price = item.price, family = item.family, maker = item.maker, effect = item.effect, lore = item.lore, stats = stats,
+            -- street cred: the reputation tier this rank needs; locked below it (an implant
+            -- already fitted never shows locked)
+            repTier = need, repName = missions("tierName", need),
+            locked = tier ~= nil and tier < need and not (st and st.installed[item.id]) or false }
     end
     for _, item in ipairs(installedList(st)) do
         installed[item.section] = installed[item.section] or {}
         table.insert(installed[item.section], item.id)
     end
+    local info = missions("tierInfo", playerId)
     return { live = true, catalogue = catalogue, installed = installed, wallet = bankOf(playerId),
-        removalFee = C.removalFee, busy = st ~= nil and st.busy ~= nil }
+        removalFee = C.removalFee, busy = st ~= nil and st.busy ~= nil,
+        reputation = type(info) == "table" and { tier = info.tier, name = info.name, points = info.points,
+            next = info.next, nextName = info.nextName } or nil }
 end
 
 -- ---------------------------------------------------------------------------
@@ -168,7 +207,8 @@ local function applyPassives(playerId)
     local base = baseline(playerId)
     if not st or not base then return false end
     local bonus = { healthMax = 0, healthRegen = 0, staminaMax = 0, staminaRegen = 0, armor = 0, noFallDamage = false }
-    for _, item in ipairs(installedList(st)) do
+    -- suspended (a PvP activity with activeInPvp = false): the body's own values
+    for _, item in ipairs(st.suspended and {} or installedList(st)) do
         local p = item.passive
         if p then
             for k, v in pairs(p) do
@@ -210,6 +250,12 @@ local function grantFamily(playerId, kind, item)
     return false, tostring(why or (result and result.error))
 end
 
+-- What a family should grant now: nothing while suspended.
+local function wanted(st, kind)
+    if st.suspended then return nil end
+    return familyOf(st, kind)
+end
+
 -- The body may not be there yet (loading, respawn): retried every 2 s for a minute.
 local function applyGrants(playerId)
     local st = state[playerId]
@@ -221,7 +267,7 @@ local function applyGrants(playerId)
             if state[playerId] ~= st then return end
             local why
             for kind in pairs(pending) do
-                local ok, reason = grantFamily(playerId, kind, familyOf(st, kind))
+                local ok, reason = grantFamily(playerId, kind, wanted(st, kind))
                 if ok then pending[kind] = nil else why = reason end
             end
             if next(pending) == nil then break end
@@ -496,6 +542,11 @@ function Cyber.operate(playerId, op, itemId, done)
 
     if op ~= "install" then return refuse(done, "Unknown operation.") end
     if st.installed[item.id] then return refuse(done, "Already installed.") end
+    -- street cred, before any money moves
+    if lockedFor(playerId, item) then
+        return refuse(done, string.format("Street cred too low: %s needs reputation tier %s. PvE missions, raids, gigs and PvE activities earn it.",
+            item.name, tierLabel(Cyber.requiredTier(item))))
+    end
     -- No limit: anything can be fitted. A family is one native slot (the arm slot, the legs, the
     -- dash, the overdrive...): another model of it simply replaces the one installed.
     local replaced = familyOf(st, item.family)
@@ -562,13 +613,31 @@ end
 
 function Cyber.onDisconnected(playerId) state[playerId] = nil end
 
+-- An activity starts or ends (server/modules/activities.lua). With activeInPvp = false, a
+-- non-PvE activity suspends the session grants and the passive stats; its end restores them.
+-- Durable legs / arms stay (platform implants; the arm weapons follow the activity's caps).
+function Cyber.onActivityChanged(playerId, activityId, info)
+    local st = state[playerId]
+    if not st then return end
+    local suspend = C.activeInPvp == false and activityId ~= nil and not (type(info) == "table" and info.pve == true)
+    if (st.suspended == true) == suspend then return end
+    st.suspended = suspend or nil
+    log("implants of %d %s (%s)", playerId, suspend and "suspended" or "restored", tostring(activityId or (type(info) == "table" and info.left)))
+    applyPassives(playerId)
+    if suspend then
+        for _, kind in ipairs({ "dash", "overdrive", "slam" }) do pcall(grantFamily, playerId, kind, nil) end
+    else
+        applyGrants(playerId)
+    end
+end
+
 -- Body, bucket and session changes invalidate session grants on the platform side: every 10 s
 -- whatever an implant should grant and is missing is granted again.
 CreateThread(function()
     while true do
         Wait(10000)
         for playerId, st in pairs(state) do
-            if not st.granting and alive(playerId) then
+            if not st.granting and not st.suspended and alive(playerId) then
                 for _, kind in ipairs({ "dash", "overdrive", "slam" }) do
                     local item = familyOf(st, kind)
                     local api = kind == "dash" and Open77.dash or kind == "overdrive" and Open77.reflex or Open77.abilities

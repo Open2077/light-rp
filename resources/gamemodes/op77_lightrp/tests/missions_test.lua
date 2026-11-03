@@ -121,10 +121,16 @@ clock = clock + 2000
 r = act(4, "mission.tag", { difficulty = "standard" })
 assert(r.ok, r.text)
 assert(view(4).count == 1 and view(4).state == "open" and view(4).host)
--- the critical board refuses who has not completed hard here
+-- the critical board refuses who lacks its reputation tier (III)...
+clock = clock + 2000
+r = act(3, "mission.tag", { difficulty = "critical" })
+assert(not r.ok and r.text:find("reputation tier III (Operator)", 1, true), r.text)
+-- ...and, with the tier, who has not completed hard here
+Missions.addReputation(3, 1500)
 clock = clock + 2000
 r = act(3, "mission.tag", { difficulty = "critical" })
 assert(not r.ok and r.text:find("Complete HARD", 1, true), r.text)
+Missions.addReputation(3, -1500)
 -- the crew (1 lead, 2), matchmaking off: its own lobby, nobody joins, it launches at the minimum
 assert(open(1).difficulties[1].openLobbies == 1, "the board says somebody is looking for operators")
 clock = clock + 2000
@@ -218,14 +224,26 @@ assert(paid[4] == 12000 and paid[1] == 12000 and not paid[2], "payout to the fin
 assert(healed[4] and healed[1] and healed[2], "everyone leaving the mission is healed, the one who abandoned too")
 assert(Missions.reputation(4) == LightRpMissions.reputationGain.standard)
 
--- ── completing a difficulty opens the next one at this point; reputation opens nothing ──
-assert(not open(4).difficulties[2].locked and open(4).difficulties[3].locked, "a standard completed opens hard, not critical")
+-- ── a difficulty needs its reputation tier AND the one before it completed here ──
+local hard = open(4).difficulties[2]
+assert(hard.locked and hard.tierLocked and hard.tier == 2 and hard.tierName == "Merc", "a standard completed is not enough: hard needs tier II")
+local tierNotices = #notices
+assert(commands["missions.rep"](0, { "4", "500" }))
+assert(notices[#notices].title == "STREET CRED" and #notices > tierNotices, "reaching a tier is told")
+assert(not open(4).difficulties[2].locked and open(4).difficulties[3].locked, "tier II + standard completed opens hard, not critical")
 assert(Missions.cleared(4, P.id, "standard") == 1 and Missions.cleared(2, P.id, "standard") == 0)
 assert(open(2).difficulties[2].locked, "the one who abandoned did not complete it")
 assert(commands["missions.rep"](0, { "3", "5000" }))
-assert(open(3).difficulties[2].locked, "reputation alone opens nothing")
+assert(open(3).difficulties[2].locked and not open(3).difficulties[2].tierLocked, "reputation alone opens nothing: the ladder holds")
 assert(commands["missions.unlock"](0, { "3", P.id, "standard" }) and commands["missions.unlock"](0, { "3", P.id, "hard" }))
 assert(not open(3).difficulties[3].locked, "staff unlock")
+local okRep, repText = commands["missions.rep"](0, { "3" })
+assert(okRep and repText:find("5000 reputation, tier IV (Edgerunner), next at 10000", 1, true), repText)
+-- five tiers; a gig crew member carried above their tier earns their tier's gain
+assert(Missions.tier(3) == 4 and Missions.tierInfo(3).next == 10000 and Missions.tierInfo(3).nextName == "Legend")
+assert(Missions.requiredTier({ id = "critical", tier = 0 }) == 3, "editor difficulties (tier 0) follow their id")
+assert(Missions.reputationFor(3, { id = "critical" }) == LightRpMissions.reputationGain.critical)
+assert(Missions.reputationFor(2, { id = "critical" }) == LightRpMissions.reputationGain.standard, "tier I carried: standard gain")
 
 -- ── time runs out ──
 clock = clock + 2000

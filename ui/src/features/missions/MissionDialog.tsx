@@ -79,7 +79,7 @@ function MissionBody({ initial, onClose }: { initial: MissionDialogPayload; onCl
   };
 
   const withNames = (party?.members ?? []).filter(m => m.id !== data.me.id).map(m => initials(m.name).toUpperCase());
-  const identity = `${initials(data.me.name).toUpperCase()} · #${data.me.citizen} · REP ${data.me.reputation}${withNames.length ? ` · WITH ${withNames.join(", ")}` : ""}`;
+  const identity = `${initials(data.me.name).toUpperCase()} · #${data.me.citizen} · REP ${data.me.reputation}${data.me.tierName ? ` · ${ROMAN[data.me.tier] ?? data.me.tier} ${data.me.tierName.toUpperCase()}` : ""}${withNames.length ? ` · WITH ${withNames.join(", ")}` : ""}`;
 
   return <div className="mission o77-interactive" role="dialog" aria-modal="true" aria-labelledby="mission-title" ref={root} tabIndex={-1}
     onKeyDown={e => {
@@ -156,8 +156,14 @@ function Meter({ value, max, tone }: { value: number; max: number; tone: string 
     {Array.from({ length: max }, (_, i) => <i key={i} className={i < value ? "is-on" : ""} />)}</div>;
 }
 
+const ROMAN = ["", "I", "II", "III", "IV", "V"];
+
 function DifficultyRow({ d, selected, mine, money, onSelect, onOpen }: { d: MissionDifficulty; selected: boolean; mine: boolean; money(n: number): string; onSelect(): void; onOpen(): void }) {
   const tone = TONE[d.id] ?? "standard";
+  // what opens it: the street cred tier (docs/pve-progression.md), then the clear ladder
+  const rep = d.tier > 1 ? `REP ${ROMAN[d.tier] ?? d.tier}` : "";
+  const unlock = [rep, d.requires ? `CLEAR ${d.requires}` : ""].filter(Boolean).join(" + ") || "OPEN";
+  const lock = d.tierLocked ? `REP TIER ${ROMAN[d.tier] ?? d.tier}${d.tierName ? ` · ${d.tierName.toUpperCase()}` : ""}` : `COMPLETE ${d.requires} FIRST`;
   return <button role="option" aria-selected={selected} aria-disabled={d.locked}
     className={`mission-row is-${tone}${selected ? " is-selected" : ""}${d.locked ? " is-locked" : ""}`} onClick={onSelect} onDoubleClick={onOpen}>
     <div className="mission-row__name"><span className="mission-chip">{d.label}</span><strong>{d.label}</strong><p>{d.blurb}</p></div>
@@ -165,10 +171,10 @@ function DifficultyRow({ d, selected, mine, money, onSelect, onOpen }: { d: Miss
       <div><dt>PAYOUT</dt><dd>{money(d.payout)}</dd></div>
       <div><dt>TIME</dt><dd>~{d.minutes} MIN</dd></div>
       <div><dt>OPERATORS</dt><dd>{d.min}-{d.max}</dd></div>
-      <div><dt>UNLOCK</dt><dd>{d.requires ? `CLEAR ${d.requires}` : "OPEN"}</dd></div>
+      <div><dt>UNLOCK</dt><dd>{unlock}</dd></div>
     </dl>
     <div className="mission-row__tagged">
-      {d.locked ? <span className="mission-row__lock"><Icon name="lock" size={14} />COMPLETE {d.requires} FIRST</span>
+      {d.locked ? <span className="mission-row__lock"><Icon name="lock" size={14} />{lock}</span>
         : <span><b>{d.tagged}</b>/ {d.max} TAGGED{mine && <em>YOU</em>}</span>}
       <Meter value={d.locked ? 0 : d.tagged} max={d.max} tone={tone} />
     </div>
