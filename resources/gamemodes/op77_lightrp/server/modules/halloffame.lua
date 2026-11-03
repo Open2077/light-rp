@@ -98,7 +98,7 @@ end
 
 -- The E point stands in front of the screen, toward the people reading it.
 function HoF.pointOf(pos, heading)
-    local d = tonumber(cfg("board.interact.distance", 0.6)) or 0.6
+    local d = tonumber(cfg("board.interact.distance", 0)) or 0
     local h = math.rad(heading)
     return { x = pos.x - math.sin(h) * d, y = pos.y + math.cos(h) * d, z = pos.z }
 end

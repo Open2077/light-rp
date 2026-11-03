@@ -69,11 +69,11 @@ LightRpHallOfFame = {
             { model = "electronics.tv.screen.16x9", scale = 2.5, yaw = 0, label = "Bare screen (before)" },
         },
         streamingRadius = 150,
-        -- The E point: just in front of the board, its prompt within `radius` all around
-        -- it (owner, 2026-11-03: the icon and E where the prop is, not 1.8 m away on the
-        -- floor). No floor marker; a `marker = { shape = "cylinder", ... }` here would
-        -- draw one again.
-        interact = { distance = 0.6, radius = 2.2, label = "Hall of Fame", prompt = "Open the Hall of Fame" },
+        -- The E point: `distance` metres in front of the board (0: its centre, the owner's
+        -- call 2026-11-03, so the E prompt sits on the object), the prompt within `radius`
+        -- all around it (the sculpture at scale 3 is ~1.7 m wide). No floor marker; a
+        -- `marker = { shape = "cylinder", ... }` here would draw one again.
+        interact = { distance = 0, radius = 2.6, label = "Hall of Fame", prompt = "Open the Hall of Fame" },
         -- Its icon: floating `lift` metres above the prop (its row's `height` x scale, or
         -- `height` here for a model without one), with the distance (open77_icons), and a
         -- pin on the map. `blip = false`: none.

@@ -288,8 +288,7 @@ assert(point.blip and point.blip.icon == "trophy" and point.blip.title == "Hall 
 do -- the icon floats over the prop (arcade 1.87 m + 0.4), the E point right in front of it
     local ip, bp = point.blip.position, HoF.board.position
     assert(ip and ip.x == bp.x and ip.y == bp.y and math.abs(ip.z - (bp.z + 1.87 + 0.4)) < 1e-6, "the trophy just above the arcade")
-    local dx, dy = point.position.x - bp.x, point.position.y - bp.y
-    assert(math.abs(math.sqrt(dx * dx + dy * dy) - 0.6) < 1e-6 and point.radius == 2.2, "E 0.6 m in front, prompt within 2.2 m")
+    assert(point.position.x == bp.x and point.position.y == bp.y and point.radius == 2.6, "E at the object's centre, prompt within 2.6 m")
 end
 assert(math.abs(HoF.board.position.x - (-763.777)) < 0.01 and math.abs(HoF.board.position.y - 777.723) < 0.01,
     string.format("forward 6 / right -4 of the hub: %.3f %.3f", HoF.board.position.x, HoF.board.position.y))
@@ -297,8 +296,8 @@ assert(math.abs(HoF.board.heading - 266.3) < 0.1, "the screen faces the arrival 
 local terminal = { x = -760.553, y = 780.294 }
 local apart = math.sqrt((HoF.board.position.x - terminal.x) ^ 2 + (HoF.board.position.y - terminal.y) ^ 2)
 assert(apart > 3 and apart < 5, "a few metres from the activities terminal: " .. apart)
--- the E point stands 0.6 m in front of the screen, toward the hub
-assert(math.abs(point.position.x - (-763.18)) < 0.05 and math.abs(point.position.y - 777.68) < 0.05,
+-- the E point stands at the board's centre (interact.distance 0)
+assert(math.abs(point.position.x - (-763.777)) < 0.05 and math.abs(point.position.y - 777.723) < 0.05,
     string.format("E point %.2f %.2f", point.position.x, point.position.y))
 local created = props[HoF.board.prop]
 assert(created and created.model == C.board.model and created.model == C.board.models[1].model, "the default: the first candidate")
@@ -569,7 +568,7 @@ assert(#transforms == moved + 1 and t.id == HoF.board.prop and t.def.yaw == 90, 
 assert(math.abs(t.def.position.x - 10.8) < 1e-6 and math.abs(t.def.position.y - 20) < 1e-6 and t.def.position.z == 5,
     "0.8 m behind the staff, who faces -X at heading 90")
 point = interactions["halloffame.board"]
-assert(math.abs(point.position.x - 10.2) < 1e-6 and math.abs(point.position.y - 20) < 1e-6, "the E point follows, 0.6 m in front of the screen")
+assert(math.abs(point.position.x - 10.8) < 1e-6 and math.abs(point.position.y - 20) < 1e-6, "the E point follows, at the board's centre")
 assert(line == "position = { x = 10.800, y = 20.000, z = 5.000 }, heading = 90.0, -- server/config/halloffame.lua `board`, bucket 0", line)
 assert(clientEvents[#clientEvents].name == LightRpEvents.net.hallOfFameBoard and clientEvents[#clientEvents].id == -1)
 ok, line = cmd(1, {})
