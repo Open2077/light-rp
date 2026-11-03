@@ -50,7 +50,15 @@ _G.LightRP = {
     db = {
         ready = false, schema = function() end, single = function() end,
         run = function(sql, p)
-            if sql:find("INSERT INTO lightrp_titles ", 1, true) then db.titles[p[1] .. "#" .. p[2] .. "|" .. p[3]] = { identifier = p[1], character_key = p[2], title_id = p[3], suffix = p[4], expires_at = p[5] }
+            -- like the runtime: as many values as placeholders (a nil ends the list)
+            local _, marks = sql:gsub("%?", "")
+            assert(marks == #(p or {}), string.format("parameter_count_mismatch: %d placeholders, %d values: %s", marks, #(p or {}), sql:sub(1, 60)))
+            if sql:find("INSERT INTO lightrp_titles ", 1, true) then
+                local suffix, expires = p[4], p[5]
+                if suffix == "" and sql:find("NULLIF(?, '')", 1, true) then suffix = nil end
+                if expires == 0 and sql:find("NULLIF(?, 0)", 1, true) then expires = nil end
+                db.titles[p[1] .. "#" .. p[2] .. "|" .. p[3]] = { identifier = p[1], character_key = p[2], title_id = p[3],
+                    suffix = suffix, expires_at = expires }
             elseif sql:find("DELETE FROM lightrp_titles ", 1, true) then db.titles[p[1] .. "#" .. p[2] .. "|" .. p[3]] = nil
             elseif sql:find("INSERT INTO lightrp_title_choice", 1, true) then db.choice[p[1] .. "#" .. p[2]] = { identifier = p[1], character_key = p[2], title_id = p[3] }
             elseif sql:find("DELETE FROM lightrp_title_choice", 1, true) then db.choice[p[1] .. "#" .. p[2]] = nil
@@ -324,6 +332,10 @@ assert(T.forKey("acc3#c1") == "Lucky Seven", "offline: the Hall of Fame still re
 dofile("server/modules/titles.lua"); T = LightRP.titles
 LightRP.eachModule("onDatabaseReady")
 assert(T.forKey("acc3#c1") == "Lucky Seven", "loaded at database ready")
+do -- no suffix, no expiry: stored as NULL, not "" / 0 (0 would read back as already expired)
+    local row = db.titles["acc3#c1|lucky_seven"]
+    assert(row and row.suffix == nil and row.expires_at == nil, "a plain title is stored with NULL suffix and expiry")
+end
 join(3, "acc3", "c1", "Vi")
 assert(earned(3, "lucky_seven") and entry(3, "ghost").value == 9 and T.shown(3).label == "Lucky Seven")
 result(3, "chase.pve", escape("extraction", 4, { difficulty = "hard" }))
