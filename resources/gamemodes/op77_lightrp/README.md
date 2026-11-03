@@ -409,6 +409,9 @@ fonctionnalités ; `server/config/economy.lua` porte les règles transversales :
   12 000 €$ PvP et 6 000 €$ PvE par jour UTC (table `lightrp_activity_pay_daily`).
   Chaque paie passe par la banque (`activity_pvp` / `activity_pve`) avec une notice
   « +€$ N — raison ».
+- **Voitures** (`server/config/dealerships.lua`) : premières 4 000 – 6 500 €$, correctes
+  12 000 – 16 000 (≈ 3 h de jeu mêlé), haut de gamme 80 000 – 100 000 (≈ 20 – 25 h).
+  Le rythme complet par profil (régulier, grinder, PvP, PvE) est au §7 du barème.
 - Fourrière (`server/config/garages.lua`), carburant (4 €$/L, `shared/config.lua`) et
   nourriture (`server/config/shops.lua`) sont relevés. Aucun solde existant n'est modifié.
 
