@@ -432,6 +432,26 @@ function PC.result(board)
     return table.concat(parts," ")
 end
 
+-- Clickable now: the cue ball when it is your shot (aim anywhere, the cue
+-- turns about it), the legal area while the cue ball is in hand (behind the
+-- head string after a scratch on the break).
+local function markKey(board)
+    if PC.canShoot(board) then return "shoot" end
+    if PC.placing(board) then return "hand:"..tostring(board.game.inHand) end
+end
+local function marks(board,line)
+    local c=cacheFor(board)
+    if PC.canShoot(board) then
+        local cx,cy=cueBallRest(board,c)
+        if cx then circle(board,line,cx,cy,P.R*1.8) end
+        return
+    end
+    local x1=board.game.inHand=="kitchen" and P.HEAD_X or P.X
+    local z=P.BED*K+.004
+    local function at(x,y) return Extra.world(board,x*K,y*K,z) end
+    local a,b,d,e=at(-P.X,-P.Y),at(x1,-P.Y),at(x1,P.Y),at(-P.X,P.Y)
+    line(a,b);line(b,d);line(d,e);line(e,a)
+end
 Extra.register("pool",{
     operations={shoot=true,place=true,rerack=true},
     turnOnly=true,
@@ -439,6 +459,8 @@ Extra.register("pool",{
     pieceTargets=pieceTargets,
     pointer=pointer,
     aim=aimAt,
+    markKey=markKey,
+    marks=marks,
     -- Board-local unscaled metres: the cloth is at P.BED/0.65, the table
     -- runs along X (head at -X, the rack at +X), the bar never covers it.
     views={{key="top",label="Overhead"},{key="head",label="Head end"},{key="side",label="Side rail"},{key="orbit",label="Orbit"}},

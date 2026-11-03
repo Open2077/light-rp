@@ -44,8 +44,12 @@ const CASES = [
       view: 'orbit', orbit: true, camera: true },
     camera: 'Camera: Orbit' },
 ];
+// The free view: the free camera's mappings, as Lua sends them.
+const FREE_KEYS = { forward: 'forward', back: 'back', left: 'strafe_left', right: 'strafe_right', up: 'SPACE', down: 'C', boost: 'SHIFT', slow: 'CTRL' };
+const FREE_VIEW = { ...CASES.find(c => c.view.kind === 'roulette').view, views: [...CASINO_VIEWS, { key: 'free', label: 'Free' }], view: 'free', free: { keys: FREE_KEYS } };
 // The busiest bars, for the layout checks.
 const BUSY = [
+  FREE_VIEW,
   CASES.find(c => c.view.kind === 'blackjack').view,
   { ...CASES.find(c => c.view.kind === 'roulette').view, target: 'Split 17/20 · pays 17:1 · corner bets closed soon', leaving: 2500, detail: 'Your stake €$ 12,300 · 9 bets on the layout this round', hint: 'Click a number or a box on the layout to choose the target' },
   { ...CASES.find(c => c.view.kind === 'pool').view, leaving: 1200 },
@@ -171,13 +175,42 @@ const BUSY = [
         assert.equal(await page.locator('.table-bar__orbit').count(), 0);
       }
 
-      // Leave: the button and Backspace.
+      // Leave: the button (it shows ESC) and Escape; Backspace is not a leave key any more.
       await clear();
-      await bar.getByRole('button', { name: /Leave/ }).click();
+      const leave = bar.getByRole('button', { name: /Leave/ });
+      assert.match(await leave.innerText(), /ESC/, `${kind}: the Leave button shows Escape`);
+      await leave.click();
       await page.keyboard.press('Backspace');
-      assert.equal((await sent('lightrp:boardGames:leave')).length, 2, `${kind}: leave by button and Backspace`);
+      await page.keyboard.press('Escape');
+      assert.deepEqual(await sent('lightrp:boardGames:leave'), [{}, { key: 'escape' }], `${kind}: leave by button and Escape only`);
       assert.deepEqual(errors, [], `${kind}: page errors`);
     }
+
+    // The free view: the keys the player really has, the wheel sets the speed,
+    // a click still reaches the table.
+    await show(FREE_VIEW);
+    const freeKeys = page.getByLabel('Free camera keys');
+    await freeKeys.waitFor();
+    const freeText = await freeKeys.innerText();
+    for (const expected of [/Right-drag: look/, /move/, /SPACE/, /C/, /SHIFT/, /up \/ down/, /fast/, /Wheel: speed/, /Click: play/]) assert.match(freeText, expected);
+    const cross = (await freeKeys.locator('span').nth(1).locator('kbd').allInnerTexts()).join('');
+    assert.ok(/^(W|Z|W\/Z)(A|Q|A\/Q)SD$/.test(cross), `layout aliases shown as real keys: ${cross}`);
+    await clear();
+    const vp = page.viewportSize();
+    await page.mouse.move(vp.width * .5, vp.height * .4);
+    await page.mouse.wheel(0, -120);
+    await page.waitForFunction(() => testBridge.sent.some(e => e.name === 'lightrp:boardGames:camera' && e.payload.zoom === -1));
+    await page.mouse.down(); await page.mouse.up();
+    assert((await sent('lightrp:boardGames:pointer')).some(p => p.pressed), 'a click in the free view still picks');
+    await show({ ...FREE_VIEW, free: { keys: { ...FREE_KEYS, forward: 'UP', up: 'E' } } });
+    assert.match(await freeKeys.innerText(), /UP/, 'rebound keys are shown as bound');
+
+    // Placing a table: no bar, but Escape cancels it (and only then).
+    await show({ active: false, placing: true });
+    await page.locator('.table-layer').waitFor({ state: 'detached' });
+    await clear();
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await sent('lightrp:boardGames:leave'), [{ key: 'escape' }], 'Escape cancels a placement');
 
     // The countdown runs locally between two views.
     await show(CASES.find(c => c.view.kind === 'roulette').view);
@@ -249,9 +282,9 @@ const BUSY = [
     assert.equal(await gameplayHidden(), false, 'gameplay HUD restored after leaving');
     assert.equal(await page.evaluate(() => document.documentElement.hasAttribute('data-table-bar')), false);
     await clear();
-    await page.mouse.click(300, 300); await page.keyboard.press('Backspace');
+    await page.mouse.click(300, 300); await page.keyboard.press('Backspace'); await page.keyboard.press('Escape');
     assert.deepEqual(await page.evaluate(() => testBridge.sent.filter(e => e.name.startsWith('lightrp:boardGames:'))), [], 'nothing sent once standing');
     assert.deepEqual(errors, []);
-    console.log(`board games browser: ${CASES.length} table kinds (actions, chip, camera, pointer, wheel, leave), empty Lua lists, countdown, warning, notices, layout at 1280x720 and 1920x1080 passed`);
+    console.log(`board games browser: ${CASES.length} table kinds (actions, chip, camera, pointer, wheel, leave), empty Lua lists, countdown, warning, notices, layout at 1280x720 and 1920x1080 passed; free view keys, Escape leave and placement cancel passed`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

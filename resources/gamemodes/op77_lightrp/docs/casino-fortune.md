@@ -50,7 +50,8 @@ per staked spot; at the stop, losing stacks are swept and the payout rises
 next to the winning spot. 38-44 props per table; the measured client peak is
 4,700 instructions per resume. Sitting opens the game view (board-games.md)
 on the whole wheel above the betting felt (views *Wheel*, *Betting felt*,
-*Pointer*). Click a spot on the felt (1x, 2x, 5x, 10x, 20x, Neon Eye 40x,
+*Pointer*, *Free*; Escape leaves). Except while the wheel spins, the seven
+spots are marked faintly as clickable. Click a spot on the felt (1x, 2x, 5x, 10x, 20x, Neon Eye 40x,
 Starburst 40x) to select it: it is outlined in cyan and the bar shows
 *20x · pays 20 to 1*; set the chip with − / + and press *Bet €$ 10 on 20x*
 (within 5,000 per round and your cash), then *Spin* (also after a result: it

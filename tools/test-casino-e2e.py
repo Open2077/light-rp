@@ -563,7 +563,8 @@ def connect4():
     sim.wait_for(lambda: sim.named(board_id, 'connect4_board'), 'board prop')
     sim.interact(board_id)
     sim.wait_for(lambda: sim.client.eval('LightRpBoardGamesClient.isActive()'), 'seated camera')
-    check(any('Backspace' in str(n) for n in sim.notices()), f'seating explains the controls {sim.notices()}')
+    check(any('Escape leaves' in str(n) for n in sim.notices()), f'seating explains the controls {sim.notices()}')
+    check(sim.client.eval("keyboard and keepInput and consumedKeys[1] == 'escape'"), 'seated: the page holds the keyboard (gameplay kept) and consumes Escape')
     # The game view: the scripted camera on the grid, the cursor on the page, the bar.
     check(sim.client.eval('camera ~= nil and frozen and focus and cinematic'), 'game view: camera, frozen, cursor, HUD hidden')
     v = sim.view()
@@ -962,8 +963,13 @@ def slots():
     sim.advance(300)
     sim.press_bar('pull')
     sim.wait_for(lambda: len([r for r in sim.client_requests if r.get('operation') == 'pull']) == 2, 'bar pull', 1000)
+    # Escape on the page (consumed, no pause menu): the page emits leave, the server frees the seat.
+    sim.client.execute("pageHandlers['lightrp:boardGames:leave']({key='escape'})")
+    sim.advance(600)
+    check(sim.client.eval('not LightRpBoardGamesClient.isActive() and not keyboard and #consumedKeys == 0 and camera == nil'), 'Escape left the machine and released the keyboard')
+    check(sim.board(board_id).players['white'] is None, 'the server freed the seat after Escape')
     no_render_failures(sim, 'slots')
-    print(f'slots e2e: sit, reels view, bar bet, lever click pull, spinning bar, outcome notice, bar pull: OK (peak {sim.client.eval("peakInstructions")})')
+    print(f'slots e2e: sit, reels view, bar bet, lever click pull, spinning bar, outcome notice, bar pull, Escape leave: OK (peak {sim.client.eval("peakInstructions")})')
     return sim
 
 

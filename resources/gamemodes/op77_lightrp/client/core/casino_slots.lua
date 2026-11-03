@@ -68,6 +68,9 @@ local function coinCount(spin)
  local m=gross/bet
  return m>=50 and 4 or m>=10 and 3 or m>=2 and 2 or 1
 end
+local function me()
+ local state=Open77.network.status();return state and tonumber(state.playerId)
+end
 -- The bet a lever click (or the bar's Pull) pulls with, chosen on the bar (client/core/table_bar.lua).
 local selectedBet=10
 LightRpCasinoSlotsClient={
@@ -157,6 +160,18 @@ Extra.register("slots",{
   if view=="wide" then return {position=w(board,.15,-2.9,2.2),lookAt=w(board,.06,0,1.4),fov=52} end
   if view=="lever" then return {position=w(board,1.7,-1.55,1.85),lookAt=w(board,.3,0,1.45),fov=52} end
   return {position=w(board,.1,-1.45,1.75),lookAt=w(board,.1,0,1.5),fov=52}
+ end,
+ -- The lever, while this player may pull (at the lever, the reels at rest).
+ markKey=function(board)
+  local spin=type(board.game.spin)=="table" and board.game.spin
+  if tonumber(board.actor)~=me() or spin and Extra.serverTime(board)<(tonumber(spin.endsAt) or 0) then return nil end
+  return "pull"
+ end,
+ marks=function(board,line)
+  local p,w=L.leverPivot,Extra.world
+  local x0,x1,z0,z1,fy=p[1]-.045,p[1]+.045,p[3]-.025,p[3]+L.leverLength+.035,p[2]-.07
+  local a,b,c,d=w(board,x0,fy,z0),w(board,x1,fy,z0),w(board,x1,fy,z1),w(board,x0,fy,z1)
+  line(a,b);line(b,c);line(c,d);line(d,a)
  end,
  pointer=function(board,event)
   -- The lever is an action, not a betting spot: a click on it pulls with the bar's bet.

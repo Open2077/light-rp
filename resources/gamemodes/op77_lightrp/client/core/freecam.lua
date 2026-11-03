@@ -35,8 +35,6 @@ local REFUSALS = {
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 local function length(x, y, z) return math.sqrt(x * x + y * y + z * z) end
--- Frame-rate independent approach: `rate` is how fast the gap closes, per second.
-local function ease(rate, dt) return 1 - math.exp(-rate * dt) end
 
 local function keys()
     local result = {}
@@ -48,6 +46,8 @@ function Freecam.key()
     return key and (I.keyFor(key.id) or key.key) or nil
 end
 function Freecam.isActive() return session ~= nil end
+-- The effective keys (rebindable mappings), also flying the tables' free view.
+Freecam.keys = keys
 
 local function publish()
     local s = session
@@ -216,48 +216,11 @@ local function update(s)
 
     s.keys = keys()
     local function down(name) return s.keys[name] ~= nil and I.isDown(s.keys[name]) == true end
-    local limits, smooth = settings.fov or {}, settings.smoothing or {}
-    -- Look: a narrow lens turns slower, so a zoomed shot stays steerable.
-    local sensitivity = (settings.sensitivity or 0.12) * clamp(s.fov / 60, 0.3, 1.4)
-    s.yaw = s.yaw - clamp(dx, -600, 600) * sensitivity
-    s.pitch = clamp(s.pitch - clamp(dy, -600, 600) * sensitivity, -85, 85)
-    if dw ~= 0 then
-        if down("slow") then s.fov = clamp(s.fov - dw * 3, limits.min or 20, limits.max or 100)
-        else s.speed = clamp(s.speed * 1.15 ^ clamp(dw, -8, 8), settings.minSpeed or 0.5, settings.maxSpeed or 15) end
-    end
-    local look = ease(smooth.look or 18, dt)
-    s.lookYaw = s.lookYaw + (s.yaw - s.lookYaw) * look
-    s.lookPitch = s.lookPitch + (s.pitch - s.lookPitch) * look
-    s.lookFov = s.lookFov + (s.fov - s.lookFov) * ease(smooth.zoom or 8, dt)
-
-    -- Move along the drawn direction; speed builds up and dies down.
-    local yaw, pitch = math.rad(s.lookYaw), math.rad(s.lookPitch)
-    local fx, fy, fz = -math.sin(yaw) * math.cos(pitch), math.cos(yaw) * math.cos(pitch), math.sin(pitch)
-    local forward = (down("forward") and 1 or 0) - (down("back") and 1 or 0)
-    local side = (down("right") and 1 or 0) - (down("left") and 1 or 0)
-    local up = (down("up") and 1 or 0) - (down("down") and 1 or 0)
-    local wx, wy, wz = fx * forward + math.cos(yaw) * side, fy * forward + math.sin(yaw) * side, fz * forward + up
-    local pace = s.speed * (down("boost") and (settings.boost or 3) or (down("slow") and (settings.precision or 0.25) or 1))
-        / math.max(1, length(wx, wy, wz))
-    local v, glide = s.velocity, ease(smooth.move or 9, dt)
-    v.x, v.y, v.z = v.x + (wx * pace - v.x) * glide, v.y + (wy * pace - v.y) * glide, v.z + (wz * pace - v.z) * glide
-    local nx, ny, nz = s.position.x + v.x * dt, s.position.y + v.y * dt, s.position.z + v.z * dt
-
-    -- The leash: a sphere around the chest, and a floor just under the feet.
-    local floor = p.z - (settings.below or 0.5)
-    if nz < floor then nz = floor; if v.z < 0 then v.z = 0 end end
-    local ox, oy, oz = nx - p.x, ny - p.y, nz - (p.z + 1)
-    local distance = length(ox, oy, oz)
-    if distance > s.radius then
-        local scale = s.radius / distance
-        nx, ny, nz = p.x + ox * scale, p.y + oy * scale, p.z + 1 + oz * scale
-        -- Slide along the limit instead of bouncing: drop the outward speed.
-        local out = (v.x * ox + v.y * oy + v.z * oz) / distance
-        if out > 0 then v.x, v.y, v.z = v.x - ox / distance * out, v.y - oy / distance * out, v.z - oz / distance * out end
-        distance = s.radius
-    end
+    -- The flight itself is shared with the tables' free view (client/core/freecam_motion.lua);
+    -- the leash: a sphere around the chest, and a floor just under the feet.
+    local distance = LightRpFreecamMotion.fly(s, { dx = dx, dy = dy, dw = dw, down = down }, dt, settings,
+        { x = p.x, y = p.y, z = p.z + 1, radius = s.radius, floor = p.z - (settings.below or 0.5) })
     s.distance = distance
-    s.position = { x = nx, y = ny, z = nz }
     local ok, why = C.setTransform(s.camera, { position = s.position, rotation = { yaw = s.lookYaw % 360, pitch = s.lookPitch }, fov = s.lookFov })
     if not ok then stop(why, true); notice(why) end
 end

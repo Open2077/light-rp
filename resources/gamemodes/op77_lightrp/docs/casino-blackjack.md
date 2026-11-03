@@ -83,7 +83,8 @@ slides out from the rack at the reveal. Worst case 59 moving props per table.
 ## Playing (game view and bar)
 
 Sitting opens the game view (board-games.md) from behind your seat (views
-*Your seat*, *Overhead*, *Dealer*, *Orbit*). Betting: click your betting circle
+*Your seat*, *Overhead*, *Dealer*, *Orbit*, *Free*; Escape leaves). While bets
+are open your betting circle is marked faintly as clickable. Betting: click your betting circle
 (it is outlined in cyan; the only betting target, so the bar's *Bet* works
 without it), set the chip with − / + (5 to 5,000) and press *Bet €$ 50* (*Add
 €$ 50* once a bet is down; disabled past 5,000 per hand or your cash), and

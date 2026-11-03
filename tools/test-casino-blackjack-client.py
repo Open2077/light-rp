@@ -58,8 +58,10 @@ waitUntil(function() return findProp('blackjack_table') and countNamed('^bj_chip
 assert(C.isActive() and E.seat(bj)=='white' and bj.game.hands.white.bet==125)
 assert(findProp('bj_chips_100_1') and findProp('bj_chips_25_1') and findProp('bj_chips_25_1'),'125 = 100 + 25 stacks')
 -- The game view opens behind the local player's seat (white: 54 degrees).
-assert(focus and camera and frozen and view.view=='seat' and #view.views==4 and cameraSpec.lookAt)
+assert(focus and camera and frozen and view.view=='seat' and #view.views==5 and view.views[5].key=='free' and cameraSpec.lookAt)
 assert(math.abs(cameraSpec.position.x-1.65*math.sin(math.rad(54))*.65)<1e-6 and cameraSpec.position.y<0,'the seat camera stands behind white')
+-- Bets open: my betting circle is marked (a faint ring of 12 lines).
+waitUntil(function() return marks()==12 end,'my betting circle marked')
 -- Bar operations (tools/test-table-menu.py) reach the server; a click never wagers.
 local before=#requests
 assert(E.command(bj,'bet',{amount=25}))
@@ -102,6 +104,7 @@ local settled=t0+5*B.DEAL_GAP+B.SLIDE+B.FLIP
 -- The cards have settled but the dealer still pauses: no decision yet.
 bj.serverNow=settled;bj.revision=3;events['lightrp:boardGames:state']({boards={bj}})
 waitUntil(function() local t=E.serverTime(bj);return t>=settled and t<s.actAt end,'pause after the deal')
+assert(marks()==0,'no betting circle once the cards are dealt')
 local legal=B.legal(bj.game,'white',E.serverTime(bj))
 assert(not legal.stand and not legal.hit,'no decision during the pause after the deal')
 local deadline=s.actAt
@@ -219,7 +222,7 @@ waitUntil(function() return countProps()==1+targets end,'every worst-case prop')
 for i=1,120 do step() end
 waitUntil(function() return countProps()==1 end,'worst-case felt swept')
 print('worst-case props per table: '..(1+targets)..' (table + '..targets..' moving)')
-edge('BACKSPACE');assert(not C.isActive())
+escape();assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
 assert(next(nativeProps)==nil and next(batches)==nil)
 B.shuffle=real

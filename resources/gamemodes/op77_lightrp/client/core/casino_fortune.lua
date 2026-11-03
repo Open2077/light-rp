@@ -139,12 +139,20 @@ local function aim(board,sx,sy,line)
     if sel and SPOT_X[sel.key] then box(SPOT_X[sel.key],"#38f2ffff") end
     if spot and not (sel and sel.key==spot) then box(px) end
 end
+-- Bets are open (not while the wheel spins): every spot is clickable.
+local function markKey(board) return board.game.phase~="spinning" and "bet" or nil end
+local function marks(board,line)
+    local z=FELT_Z+.003
+    for _,px in pairs(SPOT_X) do Extra.box(board,line,px-.085,SPOT_Y-.095,px+.085,SPOT_Y+.095,z) end
+end
 Extra.register("fortune",{
     operations={bet=true,spin=true},
     boardModel=function() return asset("fortune_stand") end,
     pieceTargets=pieceTargets,
     pointer=pointer,
     aim=aim,
+    markKey=markKey,
+    marks=marks,
     views={{key="wheel",label="Wheel"},{key="felt",label="Betting felt"},{key="pointer",label="Pointer"}},
     camera=function(board,view)
         local world=Extra.world

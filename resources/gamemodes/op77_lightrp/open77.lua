@@ -172,6 +172,7 @@ server_script "server/main.lua"
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
 client_script "client/core/control_claims.lua"
+client_script "client/core/freecam_motion.lua" -- the flight step of the free camera and of the tables' free view
 client_script "client/core/tabletop_extra.lua"
 client_script "client/core/casino_slots.lua"
 client_script "client/core/casino_blackjack.lua"

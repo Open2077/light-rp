@@ -12,7 +12,8 @@ Use an item to place its board. The inventory closes first, then placement
 runs without a cursor: the preview stands where the crosshair hits the
 world within 3.5 m (a floor-standing table on the floor, a board on the
 surface), the Left/Right arrow keys turn it, Page Up/Down adjust its height,
-and E confirms. Backspace or Escape cancels. A notice lists the keys. Placement
+and E confirms. Escape cancels (without opening the pause menu, see *Escape*
+below). A notice lists the keys. Placement
 must be within 4 metres. There is no per-character or server-wide placement
 count limit; nearby props stream as needed.
 
@@ -23,14 +24,16 @@ count limit; nearby props stream as needed.
 - activates a **scripted camera** framing the table (per game, see below),
   freezes the character, hides the game HUD (cinematic, letterbox 1 %) and the
   page's gameplay HUD and voice plate, and gives the page the **mouse cursor**
-  (keyboard stays with the game). The ALT target menu is disabled while the
-  page holds the cursor;
+  and the keyboard **with gameplay input kept** (voice, chat and the other
+  game keys keep working; the body's rotation is held so the mouse only moves
+  the cursor). The ALT target menu is disabled while the page holds the cursor;
 - lets the cursor **pick on the table** through `Open77.camera.screenRay`:
   chess and checkers squares and pieces (tall pieces by their bodies, so a side
   view picks the piece, not the square behind it), Connect Four columns,
   roulette layout cells, fortune spots, your blackjack betting circle, the slot
-  lever, the pool cloth. The hovered target is outlined on the table in amber,
-  the selection in cyan (`Open77.debugDraw`);
+  lever, the pool cloth. On the table (`Open77.debugDraw`), **what you can
+  click right now is outlined faintly** (white, thin), the hovered target in
+  amber and the selection in cyan (see *Clickable marks*);
 - shows a compact **bar centred at the bottom of the screen**
   (`ui/src/features/board-games/TableBar.tsx`, model built per game by
   `client/core/table_bar.lua`): the game's title, a short status (whose turn,
@@ -48,17 +51,65 @@ Connect Four: click a column (the drop is sent on release over the same
 column). The server receives a move only on release; a press or release over
 the bar is never a table click. Promotion is always to a queen.
 
-Camera views (the camera button cycles them; the first is the default):
-chess and checkers *Overhead*, *White side*, *Black side*, *Orbit*; Connect
-Four *Front*, *Low front*, *Orbit*. In an orbit view the right button turns
-the camera and the wheel zooms. If another script holds the camera when you
-sit, you keep the cursor and the bar over the game camera (a notice says so);
-if another script takes the camera over while you play (a cutscene), the
-table view closes.
+**Clickable marks.** While it is your turn (or the phase lets you act), every
+target you can click is outlined faintly, refreshed only when it changes:
 
-Backspace, the bar's *Leave* or walking away (see below) leaves the seat and
-restores the camera, the character, the cursor and the HUD. Escape stays with
-the game's pause menu. Nearby interaction prompts stay hidden while seated.
+| Table | Marked |
+|---|---|
+| Chess, checkers | your pieces that have a legal move (checkers: only the men that must capture); after selecting one, its legal destinations (small squares) |
+| Connect Four | the columns that are not full |
+| Roulette | the whole betting layout as its grid (31 lines) while bets are open |
+| Fortune wheel | the seven felt spots, except while the wheel spins |
+| Blackjack | your betting circle during the betting phase |
+| Slot machine | the lever, when you are at it and the reels are at rest |
+| Pool | the cue ball on your shot; the legal area with the ball in hand (behind the head string after a scratch on the break) |
+
+Nothing is marked on the opponent's turn, while a wheel, the reels or the
+balls run, or once a game ended. Legal moves come from the shared rules
+(`LightRPBoardRules.legalMoves`, the server's own validation) in a dedicated
+client thread that yields every 24 board reads (176 budget: at most ~3.7k
+instructions per resume measured over random chess and checkers games), so
+on a busy chess position the pieces' marks appear one to a few seconds after
+the move; the geometry is built in slices of 12 lines and a still table only
+re-sends the same batch (2.5 s ttl, every second). Casino tables declare
+their marks through their adapter (`markKey` / `marks`, see the header of
+`client/core/tabletop_extra.lua`). Two debugDraw tags at most per player
+(`boardGames:preview`, `boardGames:marks`), at most ~170 lines (a queen
+selected mid-game).
+
+Camera views (the camera button cycles them; the first is the default):
+chess and checkers *Overhead*, *White side*, *Black side*, *Orbit*, *Free*;
+Connect Four *Front*, *Low front*, *Orbit*, *Free*; every casino table ends
+its own list with *Free* too. In an orbit view the right button turns the
+camera and the wheel zooms. If another script holds the camera when you sit,
+you keep the cursor and the bar over the game camera (a notice says so); if
+another script takes the camera over while you play (a cutscene), the table
+view closes.
+
+**Free view.** The camera starts where the previous view stood and flies with
+the free camera's own flight (`client/core/freecam_motion.lua`, shared with
+`client/core/freecam.lua`) and its rebindable keys (Pause > Settings > Key
+bindings, *Free camera: …*): forward/back/left/right (WASD, ZQSD on AZERTY),
+up/down (Space / C), fast (Shift), precise (Ctrl). The cursor stays: **hold
+the right button and drag to look**, the wheel sets the speed (Ctrl + wheel:
+the lens), and a left click still picks on the table. The lens stays within
+5 m of the table's focus and never goes below 25 cm above your feet (nor
+below the table's focus when that is lower); the bar shows the keys. Its
+speed is 1.2 m/s by default (0.3–4). The keys are inert while chat or another
+page types. Another view, or leaving, puts the scripted views back.
+
+**Escape** leaves the seat, as do the bar's *Leave* and walking away (see
+below); everything is restored (camera, character, cursor, keyboard, HUD).
+Backspace no longer leaves. The game turns Escape into its pause menu
+(`open77:pauseKey`); while you are seated or placing, the page takes the
+keyboard with gameplay input kept (`page:setFocus(true, cursor, true)`,
+`webui.keep_input`) and consumes Escape (`page:setConsumedKeys{"escape"}`,
+the pattern of the F1 menu and of the action prompts): the page receives the
+key and leaves, the pause menu does not open. If chat (or another page) takes
+the keyboard, the view takes it back once it is released. On a client
+without consumed keys the page keeps the cursor only; Escape then reaches
+`open77:pauseKey`, which still leaves the table, and the pause menu opens as
+well. Nearby interaction prompts stay hidden while seated.
 
 **The ALT menu manages tables.** Hold ALT and click a table (its base, its
 collider, a piece, or the surface right under it) for a menu titled with the
@@ -222,12 +273,20 @@ npm --prefix ui run build && PLAYWRIGHT_MODULE=<playwright> BROWSER_CHANNEL=chro
 `resources/gamemodes/op77_lightrp/tests/context_rows_test.lua` covers the
 dynamic rows of open77_contextmenu and `ui/tests/context-submenus.browser.cjs`
 its page (title and row tokens); `ui/tests/board-games.browser.cjs` covers the
-bar for every game (buttons, chip, camera, Leave, pointer forwarding, the
-hidden HUD, its size at 1280×720 and 1920×1080). Still to check in game with
-actual clients: the camera framings, cursor picking through the real
-`screenRay` of each view, the ALT ray on the table props (it hits the cooked
-colliders; the menu falls back to the nearest table under a surface hit),
-audio and native rendering.
+bar for every game (buttons, chip, camera, Leave and Escape, the free view's
+keys and wheel, Escape while placing, pointer forwarding, the hidden HUD, its
+size at 1280×720 and 1920×1080). `tools/test-board-games-client.py` covers the
+marks (chess opening, a forced checkers capture, Connect Four), the free view
+(keys, look, speed, the 5 m and floor bounds, click-through, a still view
+costing no transform), Escape (consumed, the pause-key fallback, focus taken
+back after chat) and prints the peak per thread; each casino harness checks
+its marks per phase. Still to check in game with actual clients: the camera
+framings, cursor picking through the real `screenRay` of each view (the free
+view included), that a consumed Escape reaches the page and keeps the pause
+menu shut on build 176, that the frozen body does not crouch on the free
+view's C key, the ALT ray on the table props (it hits the cooked colliders;
+the menu falls back to the nearest table under a surface hit), the marks'
+look, audio and native rendering.
 
 ## Roulette
 
@@ -245,4 +304,6 @@ Admin item command:
 /lightrp.giveitem me roulette_table 1
 ```
 
-Validation: `tools/test-tabletop-extra.py`, `tools/test-tabletop-extra-client.py` (layout picking, matched against the cooked layout), `tools/test-tabletop-extra-server.py`, `tools/build-tabletop-extra-props.py --verify-only`, `tools/test-table-menu.py` (the bar) and `tools/test-casino-e2e.py roulette`. Server tests cover atomic cash debits, failed storage, exactly-once payouts after restarts, offline refunds and recycled player IDs.
+While bets are open the whole layout is marked faintly as its grid (see *Clickable marks*); views *Overhead*, *Layout*, *Wheel*, *Orbit*, *Free*.
+
+Validation: `tools/test-tabletop-extra.py`, `tools/test-tabletop-extra-client.py` (layout picking and marks, matched against the cooked layout), `tools/test-tabletop-extra-server.py`, `tools/build-tabletop-extra-props.py --verify-only`, `tools/test-table-menu.py` (the bar) and `tools/test-casino-e2e.py roulette`. Server tests cover atomic cash debits, failed storage, exactly-once payouts after restarts, offline refunds and recycled player IDs.

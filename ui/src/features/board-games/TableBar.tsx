@@ -4,6 +4,7 @@ import { emit, on } from "@/bridge/open77";
 import { formatMoney } from "@/bridge/money";
 import { Button, Keycap, cx } from "@/design/components";
 import { useStore } from "@/state/store";
+import { keyLabel, useKeyLayout } from "@/features/freecam/keyLabels";
 import { asList } from "./asList";
 import "./table-bar.css";
 
@@ -12,7 +13,10 @@ import "./table-bar.css";
    page draws a transparent layer that forwards the pointer to Lua (picking on
    the 3D table) and a compact bar at the bottom with the contextual controls.
    Lua owns every rule: the bar only shows what the view lists and sends back
-   which control was used. */
+   which control was used.
+   Escape leaves the table (or cancels a placement): Lua has the page hold the
+   keyboard with gameplay input kept and Escape consumed, so the key arrives
+   here and the game's pause menu does not open. */
 
 export interface TableAction { key: string; label: string; enabled: boolean; primary?: boolean }
 export interface TableCameraView { key: string; label: string }
@@ -33,8 +37,12 @@ export interface TableView {
   views?: TableCameraView[] | Record<string, TableCameraView>;
   view?: string;
   orbit?: boolean;
+  /** The free view: the player's own keys (the free camera's mappings). */
+  free?: { keys?: Record<string, string> };
   camera?: boolean;
   leaving?: number;
+  /** Placing a table: no bar, but Escape cancels. */
+  placing?: boolean;
 }
 
 type Edge = "pressed" | "released" | "rightPressed" | "rightReleased";
@@ -69,6 +77,7 @@ export function TableBar() {
   const [receivedAt, setReceivedAt] = useState(0);
   const [now, setNow] = useState(() => performance.now());
   const lastMove = useRef(0);
+  const layout = useKeyLayout();
 
   useEffect(() => {
     const off = on<TableView>("lightrp:boardGames:view", next => {
@@ -92,18 +101,19 @@ export function TableBar() {
     return () => window.clearInterval(id);
   }, [counting, receivedAt]);
 
-  // Escape belongs to the game's pause menu; Backspace (outside a text field)
-  // leaves the table when the page has the keyboard.
+  // Escape (outside a text field) leaves the table, or cancels a placement.
+  const listening = active || !!view.placing;
   useEffect(() => {
-    if (!active) return;
+    if (!listening) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Backspace" || event.repeat || isTyping(event.target)) return;
+      if (event.key !== "Escape" || event.repeat || isTyping(event.target)) return;
       event.preventDefault();
-      emit("lightrp:boardGames:leave", {});
+      event.stopPropagation();
+      emit("lightrp:boardGames:leave", { key: "escape" });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active]);
+  }, [listening]);
 
   // Notices stay where they are but above the pointer layer.
   useEffect(() => {
@@ -121,6 +131,8 @@ export function TableBar() {
   const secondsLeft = counting ? Math.max(0, Math.ceil(((view.countdownMs ?? 0) - (now - receivedAt)) / 1000)) : undefined;
   const leaving = typeof view.leaving === "number";
   const subline = [view.detail, view.hint].filter(Boolean).join(" · ");
+  const free = view.free && typeof view.free === "object" ? view.free : undefined;
+  const key = (name: string) => keyLabel(free?.keys?.[name], layout);
 
   const pointer = (event: ReactPointerEvent, edge?: Edge) => {
     const t = performance.now();
@@ -157,14 +169,22 @@ export function TableBar() {
     }}
     onPointerCancel={event => { pointer(event, "released"); pointer(event, "rightReleased"); }}
     onWheel={event => {
-      if (!view.orbit || event.deltaY === 0) return;
+      if (!(view.orbit || free) || event.deltaY === 0) return;
       emit("lightrp:boardGames:camera", { zoom: Math.sign(event.deltaY) });
     }}>
     <section className={cx("table-bar", leaving && "table-bar--leaving")} aria-label="Table controls"
       onPointerDown={block} onPointerUp={block} onPointerMove={block} onWheel={event => event.stopPropagation()}>
-      {(leaving || view.orbit) && <div className="table-bar__notes">
+      {(leaving || view.orbit || free) && <div className="table-bar__notes">
         {leaving && <p className="table-bar__warning" role="alert">Too far from the table — step back or you leave your seat.</p>}
         {view.orbit && !leaving && <p className="table-bar__orbit">Right-drag: orbit · Wheel: zoom</p>}
+        {free && !leaving && <p className="table-bar__orbit table-bar__free" aria-label="Free camera keys">
+          <span>Right-drag: look</span>
+          <span><Keycap size="sm">{key("forward")}</Keycap><Keycap size="sm">{key("left")}</Keycap><Keycap size="sm">{key("back")}</Keycap><Keycap size="sm">{key("right")}</Keycap> move</span>
+          <span><Keycap size="sm">{key("up")}</Keycap><Keycap size="sm">{key("down")}</Keycap> up / down</span>
+          <span><Keycap size="sm">{key("boost")}</Keycap> fast</span>
+          <span>Wheel: speed</span>
+          <span>Click: play</span>
+        </p>}
       </div>}
       <div className="table-bar__row">
         <div className="table-bar__info">
@@ -197,7 +217,7 @@ export function TableBar() {
             <span className="table-bar__stack"><small>Camera</small><b>{cameraLabel}</b></span>
           </Button>}
           <Button size="sm" variant="ghost" onClick={() => emit("lightrp:boardGames:leave", {})}>
-            Leave <Keycap size="sm">BACKSPACE</Keycap>
+            Leave <Keycap size="sm">ESC</Keycap>
           </Button>
         </div>
       </div>

@@ -8,6 +8,8 @@
 --   orbit={x=,y=,z=,radius=,height=},                     -- optional focus of an "orbit" view (local metres)
 --   pointer=function(board,event) end,                    -- optional; the page cursor on the table
 --   aim=function(board,x,y,line) end,                     -- optional; outline the hovered target and the selection
+--   markKey=function(board) return key end,               -- optional; what can be clicked now (nil: nothing)
+--   marks=function(board,line) end,                       -- outline faintly what markKey announced
 --   operations={name=true,...},                           -- requests Extra.command forwards to the server
 --   turnOnly=true,                                        -- optional; only the actor may act
 -- })
@@ -127,6 +129,20 @@ end
 function Extra.aim(board,x,y,line)
     local adapter=games[board.kind]
     if adapter and adapter.aim then adapter.aim(board,x,y,line) end
+end
+-- Clickable targets (client/core/board_games.lua, THREADS.marks): markKey
+-- runs every frame for the seated table and answers a short string while
+-- something can be clicked (a few comparisons, nothing more); marks runs only
+-- when that string changes and outlines the targets with line(a,b) (the
+-- marks thread yields inside line). Only a seated player gets marks.
+function Extra.markKey(board)
+    local adapter=games[board.kind]
+    if not adapter or not adapter.markKey or not seat(board) then return nil end
+    return adapter.markKey(board)
+end
+function Extra.marks(board,line)
+    local adapter=games[board.kind]
+    if adapter and adapter.marks then adapter.marks(board,line) end
 end
 -- Camera views: the adapter's, else overhead / players' side / orbit.
 local DEFAULT_VIEWS={{key="top",label="Overhead"},{key="side",label="Players' side"},{key="orbit",label="Orbit"}}
@@ -290,6 +306,26 @@ Extra.register("roulette",{
         local x,y=Extra.onPlane(board,event.x,event.y,LAYOUT.z)
         local bet,label,x0,y0,x1,y1=rouletteCell(x,y)
         if bet then Extra.select(board,bet,label,{x0,y0,x1,y1}) end
+    end,
+    -- Bets are open: the whole layout is clickable, drawn as its grid
+    -- (31 lines: the 36 numbers and the zero, the dozens, the even chances).
+    markKey=function(board)
+        local phase=board.game.phase
+        return phase~="spinning" and phase~="result" and "bet" or nil
+    end,
+    marks=function(board,line)
+        local L=LAYOUT
+        local z=L.z+.002
+        local gx0,top,cell=L.gx0,L.top,L.cell
+        local right,zero=gx0+12*cell,gx0-L.zeroW
+        local dz=top-3*cell;local ev=dz-L.band;local bottom=ev-L.band
+        local function seg(x0,y0,x1,y1) line(world(board,x0,y0,z),world(board,x1,y1,z)) end
+        seg(zero,top,right,top);seg(gx0,top-cell,right,top-cell);seg(gx0,top-2*cell,right,top-2*cell)
+        seg(zero,dz,right,dz);seg(gx0,ev,right,ev);seg(gx0,bottom,right,bottom)
+        seg(zero,dz,zero,top)
+        for i=0,12 do seg(gx0+i*cell,dz,gx0+i*cell,top) end
+        for i=0,3 do seg(gx0+i*4*cell,ev,gx0+i*4*cell,dz) end
+        for i=0,6 do seg(gx0+i*2*cell,bottom,gx0+i*2*cell,ev) end
     end,
     aim=function(board,sx,sy,line)
         local z=LAYOUT.z+.004

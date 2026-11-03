@@ -50,7 +50,9 @@ local machine={id=201,kind='slots',owned=true,position={x=0,y=0,z=0},rotation=0,
 events['lightrp:boardGames:state']({boards={machine}});step()
 waitUntil(function() return countProps()==17 end,'cabinet, its collider, 3 strips, 6 lever poses, 2 lamps, 4 coins')
 assert(C.isActive())
-assert(focus and camera and frozen and view.view=='front' and #view.views==3 and cameraSpec.lookAt,'the game view opens on the reels')
+assert(focus and camera and frozen and view.view=='front' and #view.views==4 and view.views[4].key=='free' and cameraSpec.lookAt,'the game view opens on the reels')
+-- At the lever, reels at rest: the lever is marked.
+waitUntil(function() return marks()==4 end,'the lever is marked')
 -- The cursor on the lever outlines it and a click pulls with the bet chosen
 -- on the bar (LightRpCasinoSlotsClient.setBet, tools/test-table-menu.py).
 local Slots=LightRpCasinoSlotsClient
@@ -87,6 +89,7 @@ local function advance(ms) while clock-start<ms do step() end end
 -- Lever: fully pulled pose in place around 250 ms, others parked.
 advance(260)
 assert(at('slot_lever_5',0,0,0) and at('slot_lever_0',park[1],park[2],park[3]),'lever pulled')
+assert(marks()==0,'no lever mark while the reels spin')
 advance(700);assert(at('slot_lever_0',0,0,0) and at('slot_lever_5',park[1],park[2],park[3]),'lever sprang back')
 -- Reels spin (strip positions change every few steps and stay in the wrap range).
 local seen={}
@@ -129,6 +132,7 @@ end
 machine.game=assert(S.act(machine.game,'white','settle',{nowMs=now+3000}));machine.revision=3;machine.serverNow=now+60000
 events['lightrp:boardGames:state']({boards={machine}});step();step()
 for r=1,3 do assert(near(z('slot_strip_'..r),L.paylineZ+(stops[r]+1)*L.pitch)) end
+waitUntil(function() return marks()==4 end,'the lever is marked again once the reels rest')
 -- A still machine costs nothing per frame: no target computation, no transform.
 for i=1,10 do step() end
 local calls,original=0,E.pieceTargets
@@ -145,7 +149,7 @@ for from=0,S.STOPS-1 do for to=0,S.STOPS-1 do
   assert(L.reelIndex(spin,r,S.TIMING.stops[r])==to+1)
  end
 end end
-edge('BACKSPACE');assert(not C.isActive())
+escape();assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
 assert(next(nativeProps)==nil and next(batches)==nil)
 print('slot machine client: 16 native props + collider, lever poses, server-clock reels on the server stops, lamp and coins, cleanup: OK; peak '..peakInstructions..' (budget '..BOARD_BUDGET..')')

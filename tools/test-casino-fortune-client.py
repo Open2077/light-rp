@@ -62,7 +62,9 @@ local eye=findProp('fortune_eye');assert(near(eye.position.x,0,1e-4) and near(ey
 assert(findProp('fortune_chips_2') and findProp('fortune_chips_1'),'stacks for 40 and 3')
 assert(near(findProp('fortune_chips_2').position.x,.2*S,1e-4),'20x stack on its spot')
 -- The game view opens on the whole wheel above the felt.
-assert(focus and camera and frozen and view.view=='wheel' and #view.views==3 and cameraSpec.lookAt)
+assert(focus and camera and frozen and view.view=='wheel' and #view.views==4 and view.views[4].key=='free' and cameraSpec.lookAt)
+-- Bets open: the seven spots are marked faintly on the felt.
+waitUntil(function() return marks()==28 end,'fortune spots marked')
 -- Bets: a click on a felt spot selects it, the bar (tools/test-table-menu.py)
 -- bets its chip on the selection.
 local Fortune=LightRpCasinoFortuneClient
@@ -84,6 +86,7 @@ local spun=assert(F.spin(g,{outcome=13,laps=2,nowMs=now+1000,roundKey='k'}))
 wheel.game=F.view(spun,'a');wheel.revision=2;wheel.serverNow=now+1000
 local origin=clock
 events['lightrp:boardGames:state']({boards={wheel}});step()
+for i=1,4 do step() end;assert(marks()==0,'no marks while the wheel spins')
 local spin=wheel.game.spin
 local function serverAt(ms) clock=origin+ms;return E.pieceTargets(wheel) end
 local function active(t,prefix)
@@ -141,7 +144,7 @@ for i=1,40 do step() end
 clock=origin+full.spin.spinMs;for i=1,6 do step() end
 assert(countProps()==1+35+7+1,'all seven stacks plus the payout: '..countProps())
 for i=1,20 do step() end
-edge('BACKSPACE');assert(not C.isActive())
+escape();assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step()end
 assert(next(nativeProps)==nil and next(batches)==nil)
 print('fortune client: 38-44 native props per table, server-clock poses, flapper kicks, exact landing, chips, cleanup: OK; peak '..peakInstructions..' of '..BOARD_BUDGET)

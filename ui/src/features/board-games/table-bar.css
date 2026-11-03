@@ -64,3 +64,7 @@ html[data-table-bar] .notices { z-index: 145; }
 @media (prefers-reduced-motion: reduce) { .table-bar { animation: none; } }
 @media (max-width: 1100px) { .table-bar { bottom: var(--sp-6); } }
 @media (max-width: 1000px) { .table-bar__row { flex-wrap: wrap; } .table-bar__info { width: auto; max-width: 320px; } }
+/* The free view's keys: one quiet line of keycaps and words. */
+.table-bar__free { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--sp-2) var(--sp-4); }
+.table-bar__free > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.table-bar__free > span + span::before { content: "·"; margin-right: var(--sp-2); color: var(--text-dim); }

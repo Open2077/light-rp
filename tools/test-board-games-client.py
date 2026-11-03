@@ -18,7 +18,21 @@ frozen=false; camera=nil; stoppedCamera=false; views={}
 LightRpEvents={page={notice='notice',ready='ready',dialogClose='dialogClose'},net={state='state'}}
 LightRpItems={}
 LightRpUi={characterReady=true,ready=true,dialogs={},page={}}
-function LightRpUi.page:setFocus(k,c) assert(k==false,'the game view never takes the keyboard');focus=c;return true end
+-- Seated or placing, the page takes the keyboard WITH gameplay input kept and
+-- consumes Escape (the pause menu stays shut); refuseConsume simulates a client
+-- without consumed keys (cursor only, Escape reaches open77:pauseKey).
+keyboard=false;keepInput=false;consumedKeys={}
+function LightRpUi.page:setFocus(k,c,keep)
+ assert(k==false or keep==true,'the table never takes gameplay input away from the game')
+ if k then assert(#consumedKeys==1 and consumedKeys[1]=='escape','Escape is consumed before the keyboard is taken') end
+ keyboard=k;focus=c;keepInput=keep==true;return true
+end
+function LightRpUi.page:setConsumedKeys(list)
+ if refuseConsume and #list>0 then return false,'webui_key_capture_unavailable' end
+ consumedKeys=list;return true
+end
+-- Another page typing (captured) owns the focus.
+function LightRpUi.page:hasFocus() return not captured and (keyboard or focus)==true end
 notices={}
 function LightRpUi.send(name,p)
  if name=='lightrp:boardGames:view' then view=p;views[#views+1]=p
@@ -30,7 +44,7 @@ logs,diagnostics={},{}
 function LightRpUi.log(...)
  local text=string.format(...)
  logs[#logs+1]=text
- if not text:find('board games stop:',1,true) then error(text) end
+ if not text:find('board games stop:',1,true) and not text:find('Escape cannot be consumed',1,true) then error(text) end
 end
 function LightRpUi.setMenuOpen(v) LightRpUi.menuOpen=v end
 function RegisterNetEvent(n,f) events[n]=f end
@@ -54,7 +68,8 @@ exportCallbacks={}
 exports=setmetatable({},{__call=function(_,name,fn)exportCallbacks[name]=fn end})
 function GetInvokingResource()return invokingResource end
 local char={alive=true,attached=true,position={x=0,y=0,z=.5}}
-Open77={network={status=function()return {playerId=7}end},character={},input={},camera={},debugDraw={},audio={},props={},hud={},exports={}}
+Open77={network={status=function()return {playerId=7}end},character={},input={},camera={},debugDraw={},audio={},props={},hud={},exports={},
+ players={freezeRotation=function(v) assert(type(v)=='boolean');rotationFrozen=v;return true end}}
 -- The game view only disables (then re-enables) the target menu and closes it.
 contextTargetingEnabled=true;contextCloseCalls=0
 function Open77.exports.call(resource,name,value)
@@ -166,6 +181,7 @@ function Open77.audio.play3D(asset,position,options)
 end
 function Open77.audio.destroy(id)assert(soundHandles[id]);soundHandles[id]=nil;return true end
 peakInstructions=0
+threadPeaks={}
 transformsInStep={}
 BOARD_BUDGET=tonumber(os.getenv('BOARD_BUDGET')) or 8000
 function step()
@@ -184,6 +200,7 @@ function step()
   local ok,why=coroutine.resume(co)
   debug.sethook(co)
   peakInstructions=math.max(peakInstructions,count)
+  threadPeaks[co]=math.max(threadPeaks[co] or 0,count)
   assert(nativeCreatesInResume<=1,'native spawns must be staggered across resumes')
   assert(ok,why)
  end end end
@@ -196,6 +213,9 @@ function nativeCount(id)
  return propsForBoard(id==2 and 2 or 0,id==4 and 'connect4' or 'chess')
 end
 function edge(key) keys[key]=true;step();keys[key]=false;step()end
+-- Escape on the page (consumed: the pause menu does not open): TableBar.tsx emits leave.
+function escape() assert(keyboard and consumedKeys[1]=='escape','Escape reaches the page only while it holds the keyboard')
+ pageHandlers['lightrp:boardGames:leave']({key='escape'});step() end
 -- The page cursor: overhead, cursor (x,y) is board-local (x-.5, y-.5) on board 1.
 cursorX,cursorY=.5,.5
 function pointer(p) pageHandlers['lightrp:boardGames:pointer'](p) end
@@ -210,12 +230,14 @@ function click()
 end
 function play(fc,fr,tc,tr,n) aimAt(fc,fr,n);click();aimAt(tc,tr,n);click() end
 function outlines() local b=batches['boardGames:preview'];return b and #b.lines or 0 end
+-- The faint marks of what can be clicked now (THREADS.marks).
+function marks() local b=batches['boardGames:marks'];return b and #b.lines or 0 end
 function last() return requests[#requests] end
 function bar(key) for _,a in ipairs(view.actions or {}) do if a.key==key then return a end end end
 function press(key) pageHandlers['lightrp:boardGames:action']({key=key}) end
 page={on=function(self,n,f)pageHandlers[n]=f end}
 ''')
-for name in ['shared/board_game_models.lua', 'shared/board_games_rules.lua', 'shared/board_games.lua', 'client/core/tabletop_extra.lua',
+for name in ['shared/board_game_models.lua', 'shared/board_games_rules.lua', 'shared/board_games.lua', 'client/core/freecam_motion.lua', 'client/core/tabletop_extra.lua',
              'client/core/board_games.lua', 'client/core/table_menu.lua', 'client/core/table_bar.lua']:
     lua.execute((ROOT/'resources/gamemodes/op77_lightrp'/name).read_text(), name=name)
 lua.execute(r'''
@@ -233,14 +255,18 @@ step();assert(not C.isActive())
 -- dialogState(false) alone is not sufficient while the focus cleanup is pending.
 LightRpUi.dialogs.inventory=false;step();assert(not C.isActive())
 LightRpUi.promptActive=false;focus=false;step();assert(C.isActive() and not focus,'placement is free mode: no cursor')
-assert(lastNotice:find('E: place',1,true),'placement keys are told in a notice')
-edge('BACKSPACE');assert(not C.isActive() and not focus)
+assert(keyboard and keepInput and consumedKeys[1]=='escape','placement holds the keyboard with gameplay kept, Escape consumed')
+assert(view.placing==true and not view.active,'the page listens for Escape while placing')
+assert(lastNotice:find('E: place',1,true) and lastNotice:find('Escape: cancel',1,true),'placement keys are told in a notice')
+edge('BACKSPACE');assert(C.isActive(),'Backspace no longer cancels')
+escape();assert(not C.isActive() and not focus and not keyboard and #consumedKeys==0,'Escape cancels and gives the keyboard back')
+assert(not view.placing)
 -- The inverse callback order also waits for dialogState(false).
 LightRpUi.dialogs.inventory=true;LightRpUi.promptActive=true;focus=true
 events['lightrp:boardGames:place']({kind='checkers'})
 LightRpUi.promptActive=false;focus=false;step();assert(not C.isActive())
 LightRpUi.dialogs.inventory=false;step();assert(C.isActive())
-edge('BACKSPACE')
+escape()
 -- Failed handoff times out without stealing the inventory's focus.
 LightRpUi.dialogs.inventory=true;LightRpUi.promptActive=true;focus=true
 events['lightrp:boardGames:place']({kind='chess'});clock=clock+2600;step()
@@ -253,7 +279,7 @@ assert(not C.isActive() and focus and lastNotice:find('Close the current dialog'
 LightRpUi.dialogs.support=false;LightRpUi.supportMode=nil;focus=false
 -- A first-use Connect Four ghost builds the real lazy grid within one task budget.
 events['lightrp:boardGames:place']({kind='connect4'});step();assert(C.isActive())
-edge('BACKSPACE')
+escape()
 -- A real native preview must load before placement can be confirmed.
 mockLoading=true;events['lightrp:boardGames:place']({kind='chess'})
 assert(C.isActive() and boardProp(0,'chess'))
@@ -281,6 +307,7 @@ local ghost=nativeProps[boardProp(.13,'chess')];assert(ghost and math.abs(ghost.
 keys.RIGHT=true;step();step();keys.RIGHT=false
 keys.PAGEUP=true;step();keys.PAGEUP=false
 captured=true;edge('E');assert(C.isActive(),'typing never places');captured=false
+assert(keyboard and C.isActive(),'our own keyboard focus is not typing')
 edge('E');assert(last().action=='place' and last().kind=='chess')
 assert(math.abs(last().position.x-.13)<.001 and math.abs(last().position.y+.2)<.001 and last().position.z>.415 and last().rotation>0)
 assert(not C.isActive() and not focus)
@@ -293,14 +320,23 @@ board.players={white=7,black=9};events['lightrp:boardGames:state']({boards={boar
 -- E to sit = the game view: a scripted overhead camera, the character frozen,
 -- the HUD hidden, the cursor on the page, the target menu disabled.
 assert(C.isActive() and C.seated()==board and camera and frozen and focus and cinematic and voiceHudBlocked)
+assert(keyboard and keepInput and consumedKeys[1]=='escape','seated: keyboard with gameplay kept, Escape consumed (no pause menu)')
+assert(rotationFrozen==true,'the mouse that moves the cursor never turns the seated body')
 step();assert(contextTargetingEnabled==false and contextCloseCalls==1,'the target menu is disabled and closed')
 assert(cameraSpec.rotation and cameraSpec.rotation.pitch<-85,'boards open overhead')
 assert(view.active and view.kind=='chess' and view.title=='Chess' and view.view=='top' and view.camera)
-assert(#view.views==4 and view.views[1].key=='top' and view.views[4].key=='orbit')
+assert(#view.views==5 and view.views[1].key=='top' and view.views[4].key=='orbit' and view.views[5].key=='free' and view.views[5].label=='Free')
 assert(view.status=='Your turn' and view.tone=='turn' and view.detail=='You play White · 1v1' and view.hint:find('Click a piece',1,true))
 assert(bar('mode') and bar('mode').label=='Mode: 1v1' and not bar('reset'),'the owner sets the mode before the first move')
-assert(lastNotice:find('You play White',1,true) and lastNotice:find('Backspace',1,true),'seating explains the controls')
+assert(lastNotice:find('You play White',1,true) and lastNotice:find('Escape leaves',1,true),'seating explains the controls')
 waitUntil(function()return nativeCount(1)==33 end,'complete initial chess mesh')
+-- Clickable now: White's opening, 8 pawns and 2 knights (legal moves from
+-- the shared rules, computed off the render resume), one faint square each.
+waitUntil(function() return marks()==40 end,'the movable pieces are marked')
+local markBatch=batches['boardGames:marks']
+assert(markBatch.lines[1].color=='#d8ecff5c' and markBatch.ttl>=1 and markBatch.thickness<2,'marks are faint and thin')
+local refreshed=0;for i=1,30 do step();if batches['boardGames:marks']~=markBatch then refreshed=refreshed+1;markBatch=batches['boardGames:marks'] end end
+assert(refreshed==0,'a still table re-sends the very same batch (no rebuild)')
 -- The menu finds the table from any of its props.
 assert(C.boardOfProp(boardProp(0))==board and C.isRendered(board) and C.boardOfProp('nope')==nil)
 -- The cursor picks; the hovered square is outlined on the board itself.
@@ -311,6 +347,9 @@ for i=1,4 do local l=preview.lines[i];assert(math.abs(l.a.x-.0625*.65)<=.0625*.6
 local freeCount=#requests
 click();assert(#requests==freeCount,'a click selects')
 aimAt(5,5);step();assert(outlines()==8,'selection and hover outlined')
+assert(batches['boardGames:preview'].lines[1].color=='#38f2ffff' and batches['boardGames:preview'].lines[5].color=='#ffcc00ff','selected cyan, hovered amber')
+-- The selected pawn's destinations (e3, e4) join the marks.
+waitUntil(function() return marks()==48 end,'destinations of the selected piece')
 click();assert(#requests==freeCount+1 and last().action=='move' and last().fromRow==7 and last().fromCol==5 and last().toRow==5 and last().toCol==5 and last().revision==1)
 -- Press on d2, move the cursor to d4, release: a drag, the held piece follows the cursor.
 aimAt(4,7);pointer({x=cursorX,y=cursorY,pressed=true});step();aimAt(4,5);step();step()
@@ -344,7 +383,40 @@ assert(cameraSpec.position.x~=oldX and cameraSpec.position.z~=oldZ and #requests
 local function span() local p,t=cameraSpec.position,cameraSpec.lookAt;return math.sqrt((p.x-t.x)^2+(p.y-t.y)^2) end
 local wide=span();cam({zoom=-1});assert(span()<wide,'the wheel zooms in')
 cam({view='nope'});assert(view.view=='orbit','unknown views are ignored')
-cam({cycle=true});assert(view.view=='top' and cameraSpec.rotation)
+-- Free view: it starts where orbit stood; the free camera's keys fly it, the
+-- right-drag turns the look, the wheel sets the speed; the lens stays within
+-- 5 m of the table and above the floor; a click still picks on the table.
+local function at() local p=cameraSpec.position;return {x=p.x,y=p.y,z=p.z} end
+local orbitPos=at()
+cam({cycle=true});assert(view.view=='free' and view.free and view.free.keys.forward=='W' and view.free.keys.up=='SPACE')
+assert(cameraCreates==1 and cameraSpec.rotation and not cameraSpec.lookAt,'the same camera, now steered by angles')
+assert(math.abs(cameraSpec.position.x-orbitPos.x)<1e-6 and math.abs(cameraSpec.position.z-orbitPos.z)<1e-6,'no jump into the free view')
+local function travelled(a,b) return math.sqrt((a.x-b.x)^2+(a.y-b.y)^2+(a.z-b.z)^2) end
+local p0=at();keys.W=true;for i=1,10 do step() end;keys.W=false;for i=1,20 do step() end
+assert(travelled(p0,at())>.2,'W flies the camera forward')
+local still=at();local transforms=0
+local setT=Open77.camera.setTransform
+Open77.camera.setTransform=function(...) transforms=transforms+1;return setT(...) end
+for i=1,10 do step() end
+assert(travelled(still,at())<1e-4 and transforms==0,'a still free view costs no camera transform '..transforms..' '..travelled(still,at()))
+Open77.camera.setTransform=setT
+local yaw0=cameraSpec.rotation.yaw
+pointer({x=.5,y=.5,rightPressed=true});step();pointer({x=.6,y=.5});step();pointer({x=.6,y=.5,rightReleased=true});for i=1,15 do step() end
+assert(math.abs(cameraSpec.rotation.yaw-yaw0)>5 and #requests==count,'right-drag turns the look, no table click')
+cam({zoom=-1});cam({zoom=-1});step()
+-- Bounds: full speed in every direction never leaves 5 m around the table's
+-- focus, and never sinks under the floor.
+keys.SHIFT=true;keys.W=true;for i=1,120 do step() end;keys.W=false
+assert(travelled(at(),{x=0,y=0,z=0})<=5+1e-6,'the lens stays within 5 m of the table')
+keys.C=true;for i=1,120 do step() end;keys.C=false;keys.SHIFT=false
+assert(cameraSpec.position.z>=-1e-6,'the lens stays above the floor')
+-- Typing elsewhere (chat): the keys are inert.
+local typed=at();captured=true;keys.W=true;for i=1,10 do step() end;keys.W=false;captured=false
+assert(travelled(typed,at())<1e-3,'free view keys are inert while another page types')
+-- Clicks still pick through the free camera: e2 then e4.
+local before=#requests;play(5,7,5,5);assert(#requests==before+1 and last().action=='move' and last().fromRow==7 and last().toRow==5,'click-through in the free view')
+count=#requests
+cam({cycle=true});assert(view.view=='top' and cameraSpec.rotation and not view.free)
 -- A later snapshot animates the same piece rather than moving instantly.
 local pawnHandle
 local function pawnY()
@@ -401,8 +473,11 @@ assert(not nativeProps[pawnHandle],'promotion replaces the pawn handle')
 -- After the first move the owner's button is New game.
 assert(bar('reset') and bar('reset').label=='New game' and not bar('mode'))
 press('reset');assert(last().action=='reset' and last().boardId==1)
--- Backspace leaves and restores everything.
-edge('BACKSPACE');assert(last().action=='leave' and not C.isActive())
+-- Backspace is not a leave key any more; Escape (consumed by the page) leaves and restores everything.
+local seatedRequests=#requests;edge('BACKSPACE');assert(C.isActive() and #requests==seatedRequests,'Backspace stays on the table')
+escape();assert(last().action=='leave' and not C.isActive() and diagnostics[#diagnostics].reason=='key_escape')
+assert(not keyboard and #consumedKeys==0 and marks()==0,'the keyboard, Escape and the marks are released')
+assert(rotationFrozen==false,'the body turns again')
 assert(not camera and stoppedCamera and not frozen and not focus and cinematic==false and voiceHudBlocked==false and view.active==false)
 step();assert(contextTargetingEnabled==true,'the target menu is back')
 -- Membership removal snapshot prevents reopening.
@@ -439,7 +514,7 @@ assert(not camera and cameraCreates==creates and focus and frozen and view.activ
 assert(notices[#notices-1]:find('camera is unavailable',1,true),notices[#notices-1])
 waitUntil(function()return nativeCount(3)==33 end,'solo board')
 play(5,7,5,5);assert(last().action=='move' and last().boardId==3,'solo human can play without a black seat')
-edge('BACKSPACE');foreignHeld=false;assert(not frozen and not focus)
+escape();foreignHeld=false;assert(not frozen and not focus)
 -- Another script taking the camera over (string or numeric ids alike) ends the view.
 cameraReturnId=77
 clock=clock+3100;events['lightrp:boardGames:state']({boards={solo}});step();assert(C.isActive() and camera==77)
@@ -471,12 +546,14 @@ solo.revision=2;events['lightrp:boardGames:state']({boards={solo}});step()
 local count=#requests;play(5,7,5,5);assert(#requests==count,'a teammate waits for the actor')
 solo.actor=7;solo.revision=3;events['lightrp:boardGames:state']({boards={solo}});step()
 play(5,7,5,5);assert(last().action=='move')
-edge('BACKSPACE')
+escape()
 -- Connect Four uses the vertical board plane, including rotated placements.
 local four={id=4,owned=true,position={x=0,y=0,z=0},rotation=90,players={white=7},revision=1,
  kind='connect4',moveSequence=0,lastSound='connect4-drop',mode='solo',ready=true,actor=7,game=LightRPBoardRules.new('connect4')}
 clock=clock+3100;events['lightrp:boardGames:state']({boards={four}});step()
-assert(C.isActive() and view.view=='front' and cameraSpec.lookAt and #view.views==3,'Connect Four opens on the front of the grid')
+assert(C.isActive() and view.view=='front' and cameraSpec.lookAt and #view.views==4,'Connect Four opens on the front of the grid')
+-- Connect Four: the seven open columns are marked on the grid's face.
+waitUntil(function() return marks()==28 end,'open columns marked')
 assert(view.hint=='Click a column to drop a disc' and view.detail=='You play Red · Solo vs AI')
 -- Point at a column of the upright (rotated) grid and click.
 forcedRay={origin={x=-2,y=0,z=.4*.65},direction={x=1,y=0,z=0}}
@@ -488,6 +565,7 @@ count=#requests
 -- An AI turn accepts no extra human clicks.
 four.actor=0;events['lightrp:boardGames:state']({boards={four}});step()
 click();assert(#requests==count)
+waitUntil(function() return marks()==0 end,'no marks on the AI turn')
 forcedRay=nil
 -- A newly replicated disc starts above the grid and descends over subsequent frames.
 assert(#played==0,'initial sync and lobby updates should be silent')
@@ -526,6 +604,19 @@ waitUntil(function()return not C.isActive() and nativeCount(4)==0 end,'placehold
 assert(lastNotice:find('rejoin through the launcher',1,true))
 events['lightrp:boardGames:state']({boards={four}})
 assert(not C.isActive() and last().action=='leave','failed board projections must not reopen a seat')
+-- Checkers: a capture is mandatory, so only the man that can take is marked
+-- (the shared rules, not a geometric guess); selecting it marks its landing square.
+clock=clock+3100
+local cg=LightRPBoardRules.new('checkers')
+for r=1,10 do for c=1,10 do cg.board[r][c]=false end end
+cg.board[7][2]={id=1,side='white',kind='man'};cg.board[6][5]={id=2,side='white',kind='man'}
+cg.board[5][6]={id=3,side='black',kind='man'};cg.board[1][2]={id=4,side='black',kind='man'}
+local draughts={id=7,owned=false,position={x=0,y=0,z=0},rotation=0,players={white=7,black=9},revision=1,kind='checkers',game=cg}
+events['lightrp:boardGames:state']({boards={draughts}});step();assert(C.isActive())
+waitUntil(function() return marks()==4 end,'only the capturing man is marked')
+aimAt(5,6,10);click()
+waitUntil(function() return marks()==8 end,'its landing square joins the marks')
+escape();assert(not C.isActive() and marks()==0)
 -- Walking away: a step past 3.5 m only warns and coming back keeps the seat;
 -- staying out 1.5 s, or passing the server's 5 m, leaves with a notice.
 clock=clock+3100;Open77.character.state().position.x=0
@@ -545,11 +636,25 @@ assert(C.leave('menu_leave') and last().action=='leave' and not C.isActive(),'th
 clock=clock+3100;walk.revision=3;events['lightrp:boardGames:state']({boards={walk}});step();assert(C.isActive())
 Open77.character.state().position.x=5.5;step();assert(not C.isActive() and last().action=='leave','past 5 m leaves at once')
 Open77.character.state().position.x=0
+-- Chat took the keyboard and released it: the game view takes it back, so Escape stays ours.
+clock=clock+3100;walk.revision=4;events['lightrp:boardGames:state']({boards={walk}});step();assert(C.isActive() and keyboard)
+keyboard=false;focus=false;for i=1,12 do step() end
+assert(keyboard and focus and consumedKeys[1]=='escape','focus reclaimed after another page let go')
+escape();assert(not C.isActive())
+-- A client without consumed keys: cursor only, Escape reaches the pause key,
+-- which still leaves (the pause menu opens as well there).
+refuseConsume=true;clock=clock+3100;walk.revision=5;events['lightrp:boardGames:state']({boards={walk}});step()
+assert(C.isActive() and focus and not keyboard and logs[#logs]:find('Escape cannot be consumed',1,true))
+handlers['open77:pauseKey']();assert(not C.isActive() and last().action=='leave' and diagnostics[#diagnostics].reason=='key_escape_pause')
+refuseConsume=false
 -- Resource cleanup removes every surface and interaction.
 handlers.onClientResourceStop('test');assert(next(batches)==nil and next(LightRpInteract.points)==nil and next(soundHandles)==nil and next(nativeProps)==nil)
 for i=1,20 do step()end
 assert(next(batches)==nil and next(nativeProps)==nil,'cancelled renderer jobs must not resurrect native props')
-print('board games client: inventory handoff, crosshair placement, game view (camera, freeze, cursor, HUD, target menu), cursor picking and drag, bar buttons, camera views and orbit, camera refusal and takeover, teams, Connect Four drop, spatial audio, native props, streaming and budgets, failures and cleanup: OK; peak Lua instructions per resume: '..peakInstructions)
+local names={'table menu','render','animate','validate','marks','main loop'}
+local parts={};for i,co in ipairs(threads) do if i<=6 then parts[#parts+1]=names[i]..' '..(threadPeaks[co] or 0) end end
+print('peak per thread: '..table.concat(parts,', '))
+print('board games client: inventory handoff, crosshair placement, Escape (consumed, pause-key fallback, focus reclaim), game view (camera, freeze, cursor, HUD, target menu), clickable marks (chess, checkers capture, Connect Four), free view (keys, look, speed, 5 m and floor bounds, click-through), cursor picking and drag, bar buttons, camera views and orbit, camera refusal and takeover, teams, Connect Four drop, spatial audio, native props, streaming and budgets, failures and cleanup: OK; peak Lua instructions per resume: '..peakInstructions)
 ''')
 
 # Run the real interaction guard independently: the ordinary E prompt must not

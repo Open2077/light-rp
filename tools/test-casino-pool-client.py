@@ -55,6 +55,8 @@ local pool={id=301,kind='pool',owned=true,position={x=0,y=0,z=0},rotation=0,play
 events['lightrp:boardGames:state']({boards={pool}});step()
 waitUntil(function() return countProps()==1+16+1+1 and findProp('pool_table_collider') end,'table, 16 balls, cue, rack and collider')
 assert(C.isActive() and E.seat(pool)=='white' and focus and camera and view.view=='top' and cameraSpec.rotation,'the pool view opens overhead')
+-- My shot: the cue ball is marked (a faint ring of 10 lines).
+waitUntil(function() return marks()==10 end,'the cue ball is marked')
 -- The rack: every ball where the rules put it, on the cloth.
 local rack=P.decodePositions(g.pos)
 local T=E.pieceTargets(pool)
@@ -97,6 +99,7 @@ assert(#requests==before+1 and not PC.charging(pool),'a release on the bar cance
 local n=assert(P.shoot(g,'white',{yaw=sent.yaw,power=1,nowMs=now}))
 pool.game=n;pool.revision=3;pool.serverNow=now;pool.actor=nil
 events['lightrp:boardGames:state']({boards={pool}});step()
+waitUntil(function() return marks()==0 end,'no marks while the balls roll')
 local at=n.shot.at
 local function expected(i,ts)
  local s=n.shot.segs[i];local recs=P.records(s)
@@ -165,6 +168,9 @@ local hand=P.copy(n);hand.inHand='table';hand.turn='white';hand.status='playing'
 local balls=P.decodePositions(hand.pos);balls[1]=false;hand.pos=P.encodePositions(balls)
 hand.shot.at=now-100000
 pool.game=hand;pool.actor=7;pool.revision=5;pool.serverNow=now;events['lightrp:boardGames:state']({boards={pool}});step()
+-- Ball in hand: the legal area is marked (the whole cloth after a foul).
+waitUntil(function() return marks()==4 end,'the ball-in-hand area is marked')
+for _,l in ipairs(batches['boardGames:marks'].lines) do assert(math.abs(l.a.x)<=P.X+1e-9 and math.abs(l.a.y)<=P.Y+1e-9) end
 -- A free spot: the head of the table away from every ball.
 local fx,fy=-1.0,-.45
 for i=2,16 do local b=balls[i];if b then assert((b[1]-fx)^2+(b[2]-fy)^2>(2*P.R)^2,'test spot is free') end end

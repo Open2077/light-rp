@@ -51,7 +51,10 @@ assert(E.command(roulette,'bet',{bet='red',amount=25}))
 assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.amount==25 and last().revision==1)
 assert(not E.command(roulette,'teleport',{}) and #requests==before+1,'unknown operations never reach the server')
 -- The game view opens overhead on the wheel and the layout.
-assert(focus and camera and frozen and cameraSpec.rotation and view.view=='top' and #view.views==4 and view.views[2].key=='layout')
+assert(focus and camera and frozen and cameraSpec.rotation and view.view=='top' and #view.views==5 and view.views[5].key=='free' and view.views[2].key=='layout')
+-- Bets open: the whole layout is marked as its grid, 31 faint lines, built once.
+waitUntil(function() return marks()==31 end,'roulette layout marked')
+for _,l in ipairs(batches['boardGames:marks'].lines) do assert(l.color=='#d8ecff5c' and math.abs(l.a.z-(E.rouletteLayout.z+.002)*.65)<1e-9) end
 -- Cursor picking on the printed layout (straight down on a cell): a click
 -- selects the bet, outlined on the table; it never wagers by itself.
 local L=E.rouletteLayout
@@ -118,7 +121,11 @@ roulette.game=assert(R.act(roulette.game,'white','settle',{nowMs=now+8001}))
 roulette.game=assert(R.act(roulette.game,'white','nextRound',{}))
 local retained=E.pieceTargets(roulette)
 assert(math.abs(retained['roulette-wheel'].piece.yaw+spin.wheelTo)<1e-8,'wheel angle survives the next betting round')
-edge('BACKSPACE');assert(not C.isActive() and not focus and not camera and E.selection(roulette)==nil,'leaving clears the selection')
+-- The wheel spinning closes the bets: no marks.
+local spinning={};for k,v in pairs(roulette.game) do spinning[k]=v end;spinning.phase='spinning'
+roulette.game=spinning;roulette.revision=9;events['lightrp:boardGames:state']({boards={roulette}})
+waitUntil(function() return marks()==0 end,'no marks while the wheel spins')
+escape();assert(not C.isActive() and not focus and not camera and E.selection(roulette)==nil,'leaving clears the selection')
 handlers.onClientResourceStop('test');for i=1,20 do step()end
 assert(next(nativeProps)==nil and next(batches)==nil)
 print('extra tabletop client: native props, game view, roulette layout picking, roulette clock/outcome, cleanup: OK; peak '..peakInstructions)

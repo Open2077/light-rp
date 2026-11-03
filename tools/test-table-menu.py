@@ -136,6 +136,10 @@ chess.owned=false;chess.mode='solo';chess.players={};show(chess);assert(keys(men
 -- so the menu cannot open there; it is a fallback); play is on the bar.
 chess.owned=true;chess.mode='duel';chess.players={white=7,black=9};chess.ready=true;chess.actor=7;chess.revision=2;show(chess);seatedAt(chess)
 assert(focus and view.active and view.kind=='chess')
+-- Escape leaves (the page holds the keyboard and consumes it); the seating notice says so.
+local told=false;for _,n in ipairs(notices) do if n:find('Escape leaves',1,true) and not n:find('Backspace',1,true) then told=true end end
+assert(told and keyboard and consumedKeys[1]=='escape','the seating notice names Escape, the page consumes it')
+assert(view.views[#view.views].key=='free','the camera cycle ends with the free view')
 rows=menu(chess);assert(keys(rows)=='status,leave,mode.solo,mode.teams,pickup' and rows.status.label=='Your turn',keys(rows))
 local b=bar(chess)
 assert(b.model.status=='Your turn' and b.model.tone=='turn' and b.model.detail=='You play White · 1v1' and akeys(b)=='mode' and b.mode.label=='Mode: 1v1')
@@ -185,7 +189,7 @@ roulette.game=assert(R.act(roulette.game,'white','settle',{nowMs=roulette.game.s
 assert(lastNotice=='17 Black. No win.',lastNotice)
 b=bar(roulette);assert(akeys(b)=='next' and b.model.status=='17 Black' and b.model.detail=='No win' and b.next.label=='Next round')
 act('next');assert(last().operation=='nextRound')
-edge('BACKSPACE');assert(E.selection(roulette)==nil)
+escape();assert(E.selection(roulette)==nil)
 
 -- Slot machine: the bet, Pull with its amount; watchers only watch.
 local slots=fresh('slots',S.new('duel'),{players={white=7,black=9},ready=true,actor=7})
@@ -207,7 +211,7 @@ local before=#notices
 for i=1,30 do step() end;assert(#notices==before,'the outcome is not spoiled before the reels stop')
 waitUntil(function() return lastNotice=='Three Sevens · €$ 2,000.' end,'the win notice when the reels stop')
 b=bar(slots);assert(b.model.status=='Won €$ 2,000' and b.model.tone=='result' and b.pull.enabled)
-edge('BACKSPACE')
+escape()
 
 -- Blackjack: the chip within the hand limits, Bet / Add, Deal now, Hit/Stand/Double with the totals.
 local bj=fresh('blackjack',B.view(B.new('duel',7,now)),{players={white=7},ready=true})
@@ -237,7 +241,7 @@ bj.game=done;bj.revision=6;show(bj)
 assert(bar(bj).model.status=='Dealer plays','the result waits for the reveal')
 waitUntil(function() return lastNotice=='Win · €$ 100 returned.' end,'result notice')
 b=bar(bj);assert(b.model.status=='Win' and b.model.detail=='€$ 100 returned' and akeys(b)=='')
-edge('BACKSPACE')
+escape()
 
 -- Fortune wheel: chip, a spot picked on the felt, Bet, Spin; a result notice with the winnings.
 local g=F.new()
@@ -258,7 +262,7 @@ local settled=assert(F.settle(spun,spun.spin.endsAt))
 wheel.game=F.view(settled,'me');wheel.revision=4;show(wheel)
 assert(lastNotice=='20x wins. You won €$ 1,050.',lastNotice)
 b=bar(wheel);assert(b.model.status=='20x wins' and b.model.detail=='You won €$ 1,050' and akeys(b)=='bet,spin',akeys(b))
-edge('BACKSPACE')
+escape()
 
 -- Pool: Sit and the owner's mode from the menu; on the bar the mode before
 -- the break, New game after it, Re-rack in practice, a rematch once won; each
@@ -297,7 +301,7 @@ won.last={n=foul.ply,by='black',potted=P.ballChar(9),won='white',reason='eight_e
 pool.game=won;pool.actor=nil;pool.revision=6;show(pool)
 b=bar(pool);assert(akeys(b)=='rerack' and b.model.status=='You win' and b.rerack.label=='Rematch',akeys(b))
 act('rerack');assert(last().action=='game' and last().operation=='rerack')
-edge('BACKSPACE')
+escape()
 -- Practice: the owner alone; Re-rack after the first shot.
 local solo=fresh('pool',P.new('solo',4),{owned=true,mode='solo',players={white=7},ready=true,actor=7})
 show(solo);rendered(solo);seatedAt(solo)
@@ -309,7 +313,7 @@ act('rerack');assert(last().operation=='rerack')
 -- The page payload stays small (a busy bar is a few hundred bytes).
 local function size(t) local n=0;for k,v in pairs(t) do n=n+#tostring(k)+(type(v)=='table' and size(v) or #tostring(v)) end;return n end
 assert(size(view)<1500,'bar payload '..size(view))
-edge('BACKSPACE')
+escape()
 assert(peak<5000,'a menu costs '..peak..' instructions')
 assert(barPeak<3000,'a bar costs '..barPeak..' instructions')
 print('table menu and bar: management rows (status, sit, mode, new game, leave, pick up), bar per game and state (chess, roulette, slots, blackjack, fortune, pool) and their requests, chip limits, cash limits, notices: OK; peak '..peak..' instructions per menu, '..barPeak..' per bar')

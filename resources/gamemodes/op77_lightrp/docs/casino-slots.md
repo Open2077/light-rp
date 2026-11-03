@@ -9,7 +9,8 @@ for the owner; see board-games.md); pickup is refused while the reels spin.
 ## Playing
 
 Sitting opens the game view (board-games.md) on the reels (views *Reels*,
-*Cabinet*, *Lever*). Seated in the first seat, set the bet on the bar with − /
+*Cabinet*, *Lever*, *Free*; Escape leaves). The lever is marked faintly as
+clickable when you are at it and the reels are at rest. Seated in the first seat, set the bet on the bar with − /
 + (1, 5, 10, 25, 50, 100, 250, 500, 1,000; the server accepts 1 to 1,000) and
 press *Pull €$ 10*, or point the cursor at the lever on the right of the
 cabinet (it is outlined) and click, which pulls with the same bet. The lever is

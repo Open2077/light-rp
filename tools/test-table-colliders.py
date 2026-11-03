@@ -158,7 +158,7 @@ C.bind(page);C.start();step();step()
 -- The placement ghost is the visual entity only: never solid.
 events['lightrp:boardGames:place']({kind='slots'});step();step()
 assert(C.isActive() and findProp('slot_cabinet') and #colliderCreates==0,'the placement ghost has no collider')
-edge('BACKSPACE');assert(not C.isActive() and next(nativeProps)==nil)
+escape();assert(not C.isActive() and next(nativeProps)==nil)
 -- A placed machine: base + one collider at the base transform, at scale 1.
 local now=1700000000000
 local machine={id=201,kind='slots',owned=true,position={x=1,y=2,z=3},rotation=90,

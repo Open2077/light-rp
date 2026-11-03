@@ -10,8 +10,10 @@ practice for the table's owner. No money is involved.
 
 Use the item to place it (crosshair placement, it stands on the floor:
 `floor=0`), E or the ALT menu's *Sit* to take a seat; that opens the game view
-(board-games.md) overhead (views *Overhead*, *Head end*, *Side rail*, *Orbit*).
-Backspace or the bar's *Leave* leaves.
+(board-games.md) overhead (views *Overhead*, *Head end*, *Side rail*, *Orbit*,
+*Free*). Escape or the bar's *Leave* leaves. On your shot the cue ball is
+marked faintly as clickable; with the ball in hand, the legal area (the whole
+cloth, or behind the head string after a scratch on the break).
 
 ## Playing
 

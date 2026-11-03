@@ -22,12 +22,14 @@ local function fork(s)
  local captured=s.captured or {};n.captured=table.move(captured,1,#captured,1,{})
  return n
 end
-local function cooperate(yieldFn)
+-- every: ticks between two yields (320 on the server; the 176 client's
+-- ~10k instructions per resume needs far fewer, see client/core/board_games.lua).
+local function cooperate(yieldFn,every)
  if not yieldFn then return nil end
- local ticks=0
+ local ticks,limit=0,every or 320
  return function()
   ticks=ticks+1
-  if ticks>=320 then ticks=0;yieldFn() end
+  if ticks>=limit then ticks=0;yieldFn() end
  end
 end
 local function snapshot(s,work)
@@ -275,9 +277,9 @@ local function successors(s,limit)
  end
  return out
 end
-function R.legalMoves(s,yieldFn)
+function R.legalMoves(s,yieldFn,every)
  if type(s)~='table' or s.status~='playing' then return {} end
- local analysis=yieldFn and snapshot(s,cooperate(yieldFn)) or s
+ local analysis=yieldFn and snapshot(s,cooperate(yieldFn,every)) or s
  local moves={} for _,candidate in ipairs(successors(analysis)) do moves[#moves+1]=candidate.move end return moves
 end
 local values={pawn=100,knight=320,bishop=330,rook=500,queen=900,king=20000,man=100,disc=10}

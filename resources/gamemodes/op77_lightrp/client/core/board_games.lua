@@ -1,18 +1,29 @@
 -- Replicated server snapshots, local smooth presentation. No client move is authoritative.
 -- E (or the ALT menu's Sit) seats the player and opens the GAME VIEW: a
 -- scripted camera framing the table (per-game views, cycled from the bar;
--- orbit with right-drag and the wheel where it makes sense), the character
--- frozen, the gameplay HUD hidden and the mouse cursor shown. The cursor
--- picks on the table through Open77.camera.screenRay: squares and pieces,
--- Connect Four columns, roulette cells, fortune spots, the blackjack circle,
--- the slot lever, the pool cloth; the hovered and the selected target are
--- outlined on the table (debugDraw). A compact bar at the bottom of the page
+-- orbit with right-drag and the wheel where it makes sense; "Free": fly the
+-- camera around the table, see "Free view" below), the character frozen, the
+-- gameplay HUD hidden and the mouse cursor shown. The cursor picks on the
+-- table through Open77.camera.screenRay: squares and pieces, Connect Four
+-- columns, roulette cells, fortune spots, the blackjack circle, the slot
+-- lever, the pool cloth. On the table (debugDraw): what can be clicked right
+-- now is marked faintly (THREADS.marks), the hovered target amber, the
+-- selection cyan. A compact bar at the bottom of the page
 -- (ui/src/features/board-games/TableBar.tsx) holds the status, the chip and
 -- the contextual buttons, built per game by client/core/table_bar.lua.
--- Leaving (bar button, Backspace, walking away) restores everything. The ALT
--- target menu (client/core/table_menu.lua) only manages tables (Sit, Pick up,
--- the owner's mode and New game): in the game view the page owns the cursor.
--- Placement stays a crosshair flow (no cursor, no camera).
+-- Leaving (Escape, the bar's Leave, walking away) restores everything. The
+-- ALT target menu (client/core/table_menu.lua) only manages tables (Sit,
+-- Pick up, the owner's mode and New game): in the game view the page owns
+-- the cursor. Placement stays a crosshair flow (no cursor, no camera);
+-- Escape cancels it.
+--
+-- Escape: the plugin turns Escape into the pause menu (open77:pauseKey). While
+-- seated or placing, the page takes the keyboard with gameplay input kept
+-- (page:setFocus(true,cursor,true), webui.keep_input) and consumes Escape
+-- (page:setConsumedKeys{"escape"}): the page receives the key (TableBar.tsx
+-- leaves) and the pause menu does not open. A client without consumed keys
+-- keeps the page cursor-only; Escape then reaches open77:pauseKey, which
+-- still leaves the table, and the pause menu opens as well.
 local Ui = LightRpUi
 local NET = "lightrp:boardGames:request"
 local VIEW, POINTER = "lightrp:boardGames:view", "lightrp:boardGames:pointer"
@@ -21,6 +32,10 @@ LightRpBoardGamesClient = Client
 local active, draft, pointer, previous, started, lastView = nil, nil, nil, {}, false, -100000
 local pointerDown = false
 local pointerEvents={}
+-- "keyboard": the page holds the keyboard (keep-input) and consumes Escape;
+-- "cursor": cursor only (Escape reaches the pause menu); nil: no focus taken.
+local focusMode,focusCheckAt,escapeWarned=nil,0,false
+local ESCAPE_KEYS={"escape"}
 local SCALE=.65
 -- Leaving by distance: beyond LEAVE_RADIUS for LEAVE_GRACE_MS (a step back
 -- does not kick), or at once beyond LEAVE_HARD_RADIUS, the server's own seat
@@ -139,7 +154,8 @@ local function sendView(force)
     if not force and now-lastView<VIEW_MS then return end
     lastView=now
     local board=active and Client.boards[active.id]
-    if not board then Ui.send(VIEW,{active=false});return end
+    -- Placing: no bar, but the page listens for Escape (it cancels).
+    if not board then Ui.send(VIEW,{active=false,placing=draft~=nil or nil});return end
     local Bar=LightRpTableBar
     local payload=Bar and guarded("table bar "..tostring(board.kind),Bar.model,board) or {}
     payload.active=true;payload.kind=board.kind;payload.boardId=board.id
@@ -147,17 +163,43 @@ local function sendView(force)
     payload.view=active.cameraView;payload.views=active.views
     payload.orbit=active.cameraView=="orbit" or nil
     payload.camera=active.camera~=nil
+    -- The free view's keys, as the player bound them (the free camera's mappings).
+    if active.cameraView=="free" and active.free then payload.free={keys=Client.freeKeys()} end
     payload.leaving=active.farSince and math.max(0,LEAVE_GRACE_MS-(now-active.farSince)) or nil
     Ui.send(VIEW,payload)
 end
 -- The game view owns the cursor: the page shows it over the scripted camera.
 -- The voice plate and the gameplay HUD step aside (the page hides its own HUD
--- while the bar is active).
-local function wantsCursor() return active~=nil end
+-- while the bar is active). Seated or placing, the page also takes the
+-- keyboard with gameplay input kept, to receive Escape without the pause
+-- menu (see the header); placement keeps no cursor.
 local function applyFocus()
-    local cursor=wantsCursor()
+    local cursor=active~=nil
     TriggerEvent("open-voice:setHudBlocked","op77_lightrp:boardGames",cursor)
-    if Ui.page then Ui.page:setFocus(false,cursor) end
+    local page=Ui.page
+    if not page then focusMode=nil;return end
+    if not cursor and not draft then return end
+    local consumed=type(page.setConsumedKeys)=="function" and page:setConsumedKeys(ESCAPE_KEYS)==true
+    if consumed and page:setFocus(true,cursor,true)==true then focusMode="keyboard";return end
+    if consumed then page:setConsumedKeys({}) end
+    if cursor then page:setFocus(false,true);focusMode="cursor" else focusMode=nil end
+    if not escapeWarned then
+        escapeWarned=true
+        Ui.log("board games: Escape cannot be consumed on this client (it also opens the pause menu)")
+    end
+end
+local function releaseFocus(seated)
+    local page=Ui.page
+    if page then
+        if focusMode=="keyboard" and type(page.setConsumedKeys)=="function" then page:setConsumedKeys({}) end
+        if seated or focusMode then page:setFocus(false,false) end
+    end
+    focusMode=nil
+end
+-- Whether the keyboard is ours (then nobody else is typing).
+local function ownKeyboard()
+    local page=Ui.page
+    return focusMode=="keyboard" and page~=nil and type(page.hasFocus)=="function" and page:hasFocus()==true
 end
 -- The page holding the cursor makes the target menu inert anyway (the cursor
 -- is "captured"); disabling it closes a menu left open and keeps its focus
@@ -212,8 +254,9 @@ local function exitView(old)
     if old.cinematic then Open77.hud.setCinematic(false) end
     if old.camera then Open77.camera.destroy(old.camera) end
     if old.frozen then Open77.character.setFrozen(false) end
+    if old.rotationFrozen then Open77.players.freezeRotation(false) end
     TriggerEvent("open-voice:setHudBlocked","op77_lightrp:boardGames",false)
-    if Ui.page then Ui.page:setFocus(false,false) end
+    releaseFocus(true)
     disableContext(false)
 end
 local lastDiagnostic=-10000
@@ -233,14 +276,15 @@ local function stop(notify,reason,details)
     if clearGhost then clearGhost() end
     pointerDown=false;pointerEvents={}
     if tags.draft then for _,tag in ipairs(tags.draft) do Open77.debugDraw.clear(tag) end;tags.draft=nil end
-    if old then exitView(old) end
+    if Client.clearMarks then Client.clearMarks() end
+    if old then exitView(old) else releaseFocus(false) end
     if old and notify then request("leave",{boardId=old.id}) end
     -- A snapshot sent before the server processed the leave still seats us:
     -- do not reopen this table until the server agrees or 3 s pass.
     if old then leftBoards[tostring(old.id)]=GetGameTimer()+3000 end
     if LightRpTabletopExtraClient then LightRpTabletopExtraClient.setActive(nil) end
     releaseInput()
-    if old then sendView(true) end
+    sendView(true)
 end
 function Client.isActive() return active~=nil or draft~=nil end
 -- The table the local player is seated at (nil while placing or standing).
@@ -254,10 +298,18 @@ function Client.isActor(board) return isActor(board) end
 -- orbit in client/core/tabletop_extra.lua). The first view is the default.
 local BOARD_VIEWS={{key="top",label="Overhead"},{key="white",label="White side"},{key="black",label="Black side"},{key="orbit",label="Orbit"}}
 local CONNECT4_VIEWS={{key="front",label="Front"},{key="low",label="Low front"},{key="orbit",label="Orbit"}}
+-- Every table ends its cycle with the free view.
+local FREE_VIEW={key="free",label="Free"}
+local withFree={}
 local function viewsOf(board)
     local adapter=extra(board)
-    if adapter then return adapter.views(board) end
-    return board.kind=="connect4" and CONNECT4_VIEWS or BOARD_VIEWS
+    local base=adapter and adapter.views(board) or board.kind=="connect4" and CONNECT4_VIEWS or BOARD_VIEWS
+    local list=withFree[base]
+    if not list then
+        list={};for i,entry in ipairs(base) do list[i]=entry end
+        list[#list+1]=FREE_VIEW;withFree[base]=list
+    end
+    return list
 end
 -- Orbit focus and default distance, board-local unscaled metres.
 local function orbitOf(board)
@@ -266,6 +318,10 @@ local function orbitOf(board)
     return {x=0,y=0,z=board.kind=="connect4" and .47 or 0,radius=1.8,height=1.2}
 end
 local function cameraPose(board,view)
+    if view=="free" and active and active.free then
+        local f=active.free
+        return {position=f.position,rotation={pitch=f.lookPitch,yaw=f.lookYaw%360,roll=0},fov=f.lookFov}
+    end
     if view=="orbit" then
         local o=orbitOf(board)
         local angle=math.rad(active and active.orbitAngle or -90)
@@ -294,6 +350,83 @@ applyCamera=function()
     if ok and pose.lookAt then ok=Open77.camera.lookAt(active.camera,pose.lookAt) end
     return ok==true
 end
+-- Free view ---------------------------------------------------------------------
+-- The camera flies around the table with the free camera's own flight
+-- (client/core/freecam_motion.lua) and its rebindable keys (move, up/down,
+-- fast, precise); the mouse keeps the cursor, so a click still picks on the
+-- table and the look turns while the right button is held (as orbit does).
+-- The wheel changes the speed (with the precise key: the lens). The lens stays
+-- within FREE_RADIUS metres of the table's focus and above the floor.
+local FREE_RADIUS,FREE_FLOOR=5,.25
+local LOOK_X,LOOK_Y=1500,850       -- mouse counts per full screen of right-drag
+local FREE_DEFAULT_KEYS={forward="W",back="S",left="A",right="D",up="SPACE",down="C",boost="SHIFT",slow="CTRL"}
+local FREE_KEY_NAMES={"forward","back","left","right","up","down","boost","slow"}
+local freeSettings,freeKeys,freeKeysAt
+-- The free camera's settings, slower and closer for a table.
+local function freeConfig()
+    if freeSettings then return freeSettings end
+    local base=LightRpConfig and LightRpConfig.freecam or {}
+    local fov=base.fov or {}
+    freeSettings={sensitivity=base.sensitivity or .12,smoothing=base.smoothing,boost=base.boost or 3,precision=base.precision or .25,
+        fov={min=math.max(25,fov.min or 20),max=math.min(90,fov.max or 100)},speed=1.2,minSpeed=.3,maxSpeed=4}
+    return freeSettings
+end
+function Client.freeKeys()
+    local now=GetGameTimer()
+    if freeKeys and now-freeKeysAt<1000 then return freeKeys end
+    local mapped=LightRpFreecam and type(LightRpFreecam.keys)=="function" and LightRpFreecam.keys() or nil
+    local config=LightRpConfig and LightRpConfig.freecam and LightRpConfig.freecam.keys or {}
+    local keys={}
+    for _,name in ipairs(FREE_KEY_NAMES) do
+        keys[name]=mapped and mapped[name] or config[name] and config[name].key or FREE_DEFAULT_KEYS[name]
+    end
+    freeKeys,freeKeysAt=keys,now
+    return keys
+end
+-- Starts where the previous view stood, looking the same way.
+local function beginFree(board,pose)
+    local Motion=LightRpFreecamMotion
+    if not Motion then return nil end
+    local yaw,pitch
+    if pose.lookAt then
+        yaw,pitch=Motion.angles(pose.lookAt.x-pose.position.x,pose.lookAt.y-pose.position.y,pose.lookAt.z-pose.position.z)
+    else
+        yaw,pitch=pose.rotation and pose.rotation.yaw or 0,Motion.clamp(pose.rotation and pose.rotation.pitch or 0,-85,85)
+    end
+    local o=orbitOf(board)
+    local focus=world(board,o.x,o.y,o.z)
+    local state=Open77.character.state()
+    local feet=state and state.position and state.position.z or board.position.z-.6
+    local fov=pose.fov or 52
+    return {position={x=pose.position.x,y=pose.position.y,z=pose.position.z},velocity={x=0,y=0,z=0},
+        yaw=yaw,pitch=pitch,lookYaw=yaw,lookPitch=pitch,fov=fov,lookFov=fov,speed=freeConfig().speed,dx=0,dy=0,dw=0,
+        bound={x=focus.x,y=focus.y,z=focus.z,radius=FREE_RADIUS,floor=math.min(feet+FREE_FLOOR,focus.z)}}
+end
+-- One frame of the free view (input resume): keys are physical reads, inert
+-- while another page types; the look comes from the right-drag of the cursor.
+local function flyFree(dtMs)
+    local f=active and active.free
+    local Motion=LightRpFreecamMotion
+    if not f or not Motion or not active.camera or active.cameraView~="free" then return end
+    local keys=Client.freeKeys()
+    local typing=Open77.input.isCaptured()==true and not ownKeyboard()
+    local function down(name)
+        local key=keys[name]
+        return not typing and key~=nil and Open77.input.isDown(key)==true
+    end
+    local input={dx=f.dx,dy=f.dy,dw=f.dw,down=down}
+    f.dx,f.dy,f.dw=0,0,0
+    Motion.fly(f,input,math.min(.05,math.max(.001,dtMs/1000)),freeConfig(),f.bound)
+    local v=f.velocity -- the glide ends instead of creeping forever
+    if math.abs(v.x)+math.abs(v.y)+math.abs(v.z)<.003 then v.x,v.y,v.z=0,0,0 end
+    -- A still view costs no camera transform.
+    local p,last=f.position,f.sent
+    if last and math.abs(p.x-last.x)+math.abs(p.y-last.y)+math.abs(p.z-last.z)<.0002 and math.abs(f.lookYaw-last.yaw)<.005
+        and math.abs(f.lookPitch-last.pitch)<.005 and math.abs(f.lookFov-last.fov)<.005 then return end
+    f.sent={x=p.x,y=p.y,z=p.z,yaw=f.lookYaw,pitch=f.lookPitch,fov=f.lookFov}
+    Open77.camera.setTransform(active.camera,{position=p,rotation={pitch=f.lookPitch,yaw=f.lookYaw%360,roll=0},fov=f.lookFov})
+end
+Client.flyFree=flyFree
 -- The scripted camera, the frozen character and the hidden HUD. A refused
 -- camera (another script holds one) keeps the cursor and the bar over the
 -- game camera: picking works through whatever camera renders.
@@ -313,7 +446,12 @@ local function setView(board,view)
     local valid=false
     for _,entry in ipairs(active.views) do if entry.key==view then valid=true end end
     if not valid then return false end
-    active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;active.orbitDrag=nil;pointerDown=false
+    active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;active.orbitDrag=nil;active.freeLook=nil;pointerDown=false
+    if view=="free" and active.cameraView~="free" then
+        local free=beginFree(board,cameraPose(board,active.cameraView))
+        if not free then return false end
+        active.free=free
+    end
     local ok,why=enterCamera(board,view)
     if not ok and why then trace("camera_refused",board.id,"view=%s %s",view,tostring(why)) end
     sendView(true)
@@ -343,6 +481,10 @@ local function startView(board)
     local frozen,frozenWhy=Open77.character.setFrozen(true)
     active.frozen=frozen==true
     if not active.frozen then trace("freeze_refused",board.id,"%s",tostring(frozenWhy)) end
+    -- The page keeps gameplay input (Escape, voice, chat keys): the mouse that
+    -- moves the cursor must not turn the seated body as well.
+    local players=Open77.players
+    if players and type(players.freezeRotation)=="function" then active.rotationFrozen=players.freezeRotation(true)==true end
     active.cinematic=Open77.hud.setCinematic(true,.01)==true
     applyFocus()
     disableContext(true)
@@ -440,9 +582,17 @@ local function pointerAction(board,event)
     local adapter=extra(board)
     if event.blocked then
         if adapter then adapter.pointer(board,{x=pointer and pointer.x or .5,y=pointer and pointer.y or .5,cancelled=true,released=true}) end
-        active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;active.orbitDrag=nil;pointerDown=false;return
+        active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;active.orbitDrag=nil;active.freeLook=nil;pointerDown=false;return
     end
     pointer={x=event.x,y=event.y}
+    -- Free view: the right button turns the look (the keys move, see flyFree).
+    if event.rightPressed and active.cameraView=="free" and active.free then active.freeLook={x=event.x,y=event.y} end
+    if event.rightReleased then active.freeLook=nil end
+    if active.freeLook and active.free then
+        local old,f=active.freeLook,active.free
+        f.dx=f.dx+(event.x-old.x)*LOOK_X;f.dy=f.dy+(event.y-old.y)*LOOK_Y
+        active.freeLook={x=event.x,y=event.y}
+    end
     -- Orbit: the right button turns the view (the wheel zooms, see bind).
     if event.rightPressed and active.cameraView=="orbit" then active.orbitDrag={x=event.x,y=event.y} end
     if event.rightReleased then active.orbitDrag=nil end
@@ -840,6 +990,117 @@ local function stepProps(board,cache,keys,from,to,amount,seated)
         if stepProp(board,cache,key,amount,seated) then moving[key]=nil end
     end
 end
+-- Clickable targets ("marks") ------------------------------------------------------
+-- Everything the seated player can click right now is outlined faintly on the
+-- table: chess/checkers pieces with a legal move and, once one is selected,
+-- its destinations; Connect Four's open columns; the casino adapters' own
+-- (adapter.markKey/marks: the roulette layout, the fortune spots, the
+-- blackjack circle, the slot lever, the pool cue ball or ball-in-hand area).
+-- Nothing is marked when it is not the player's turn or the phase forbids it.
+-- The hovered target (amber) and the selection (cyan) stay in the preview.
+-- A dedicated thread (THREADS.marks) does the work only when the marks' key
+-- changes: legal moves through the shared rules (yielding every
+-- LEGAL_EVERY board reads: at most ~3.7k instructions per resume over random
+-- chess and checkers games; a busy chess position takes 100-280 frames, so
+-- the pieces' marks follow a move by one to a few seconds), geometry in
+-- slices of MARK_SLICE lines; a still table only re-sends the same batch
+-- before its ttl runs out.
+local MARK_TAG,MARK_COLOR="boardGames:marks","#d8ecff5c"
+local SELECT_COLOR="#38f2ffff"
+local MARK_TTL,MARK_REFRESH_MS,MARK_SLICE,LEGAL_EVERY=2.5,1000,12,24
+local legal={}          -- {boardId,revision,ready,from={[row*16+col]={[row*16+col]=true}}}
+local markEpoch=0
+function Client.clearMarks()
+    markEpoch=markEpoch+1
+    if tags.marks then Open77.debugDraw.clear(MARK_TAG);tags.marks=nil end
+end
+local function picksPieces(board) return board.kind=="chess" or board.kind=="checkers" end
+-- What is markable now, as a string (nil: nothing). Cheap: runs every frame.
+local function markKey(board)
+    local adapter=extra(board)
+    if adapter then
+        local key=adapter.markKey(board)
+        return key and ("x%s:%s:%s"):format(tostring(board.id),tostring(board.revision),key) or nil
+    end
+    if not canMove(board) then return nil end
+    if board.kind=="connect4" then return ("c%s:%s"):format(tostring(board.id),tostring(board.revision)) end
+    if not picksPieces(board) or legal.boardId~=board.id or legal.revision~=board.revision or not legal.ready then return nil end
+    local sel=active and active.selected
+    return ("b%s:%s:%s"):format(tostring(board.id),tostring(board.revision),sel and (sel.row*16+sel.col) or "-")
+end
+-- The snapshot as the rules expect it (numeric rows, numeric `taken` keys
+-- after JSON), without the repetition history: a move list needs none.
+local function analysisState(game,pause)
+    local rows,cols=tonumber(game.rows or game.size) or 8,tonumber(game.cols or game.size) or 8
+    local s={kind=game.kind,size=game.size,rows=rows,cols=cols,turn=game.turn,status=game.status,
+        ply=game.ply,halfmove=game.halfmove,captured={},board={}}
+    if type(game.enPassant)=="table" then s.enPassant={row=tonumber(game.enPassant.row),col=tonumber(game.enPassant.col)} end
+    if type(game.chain)=="table" then
+        local taken={}
+        for id,value in pairs(game.chain.taken or {}) do taken[tonumber(id) or id]=value end
+        s.chain={row=tonumber(game.chain.row),col=tonumber(game.chain.col),remaining=tonumber(game.chain.remaining),taken=taken}
+    end
+    local source=game.board or {}
+    for r=1,rows do
+        local line=source[r] or source[tostring(r)] or {}
+        local row={}
+        for c=1,cols do
+            local p=line[c];if p==nil then p=line[tostring(c)] end
+            row[c]=type(p)=="table" and p or false
+        end
+        s.board[r]=row
+        if r%3==0 then pause() end
+    end
+    return s
+end
+-- Legal moves of this snapshot, from the marks thread (it yields inside).
+local function computeLegal(board,pause)
+    local mine={boardId=board.id,revision=board.revision,ready=false}
+    legal=mine
+    local Rules=LightRPBoardRules
+    if not Rules or type(Rules.legalMoves)~="function" then return end
+    local moves=Rules.legalMoves(analysisState(board.game,pause),pause,LEGAL_EVERY)
+    if legal~=mine then return end
+    local from={}
+    for index,m in ipairs(moves) do
+        local key=m.fromRow*16+m.fromCol
+        local list=from[key];if not list then list={};from[key]=list end
+        list[m.toRow*16+m.toCol]=true
+        if index%40==0 then pause() end
+    end
+    mine.from=from;mine.ready=true
+end
+-- The marks of one key; `line` yields every MARK_SLICE lines.
+local function buildMarks(board,line)
+    local adapter=extra(board)
+    if adapter then adapter.marks(board,line);return end
+    if board.kind=="connect4" then
+        for col=1,7 do
+            local top=board.game.board[1]
+            if top and not top[col] then
+                local x=(col-4)*.14
+                local a,b=world(board,x-.06,-.035,.04),world(board,x+.06,-.035,.04)
+                local c,d=world(board,x+.06,-.035,.88),world(board,x-.06,-.035,.88)
+                line(a,b);line(b,c);line(c,d);line(d,a)
+            end
+        end
+        return
+    end
+    local n=board.kind=="checkers" and 10 or 8
+    local half=.5/n
+    local function square(key,r,color)
+        local row,col=math.floor(key/16),key%16
+        local p=positionOf(board,row,col)
+        local a,b=world(board,p.x-r,p.y-r,.008),world(board,p.x+r,p.y-r,.008)
+        local c,d=world(board,p.x+r,p.y+r,.008),world(board,p.x-r,p.y+r,.008)
+        line(a,b,color);line(b,c,color);line(c,d,color);line(d,a,color)
+    end
+    local from=legal.from or {}
+    for key in pairs(from) do square(key,half*.82) end
+    local sel=active and active.selected
+    local targets=sel and from[sel.row*16+sel.col]
+    if targets then for key in pairs(targets) do square(key,half*.38) end end
+end
 local THREADS={}
 function THREADS.render(generation)
     while rendererRunning and generations.render==generation do
@@ -929,6 +1190,48 @@ function THREADS.validate(generation)
         if rendererRunning then validateProps(function() Wait(0) end) end
     end
 end
+function THREADS.marks(generation)
+    local sentKey,geometry,sentAt,epoch=nil,nil,-100000,markEpoch
+    local function beat() Wait(0);beats.marks=GetGameTimer() end
+    while rendererRunning and generations.marks==generation do
+        beat()
+        if epoch~=markEpoch then epoch,sentKey,geometry=markEpoch,nil,nil end
+        local board=active and Client.boards[active.id]
+        if board and not extra(board) and picksPieces(board) and canMove(board)
+            and (legal.boardId~=board.id or legal.revision~=board.revision) then
+            computeLegal(board,beat)
+            board=active and Client.boards[active.id]
+        end
+        local key=board and markKey(board) or nil
+        local now=GetGameTimer()
+        if key~=sentKey then
+            if key then
+                local built={lines={},triangles={},ttl=MARK_TTL,maxDistance=18,thickness=1.5}
+                local lines=built.lines
+                local function line(a,b,color)
+                    if #lines>=512 then return end
+                    lines[#lines+1]={a=a,b=b,color=color or MARK_COLOR}
+                    if #lines%MARK_SLICE==0 then beat() end
+                end
+                buildMarks(board,line)
+                -- Still current after the slices (a click or a snapshot may have changed it)?
+                local current=active and Client.boards[active.id]
+                if epoch==markEpoch and current and markKey(current)==key then
+                    geometry=#lines>0 and built or nil
+                    if geometry and Open77.debugDraw.set(MARK_TAG,geometry) then tags.marks={MARK_TAG}
+                    elseif tags.marks then Open77.debugDraw.clear(MARK_TAG);tags.marks=nil end
+                    sentKey,sentAt=key,GetGameTimer()
+                end
+            else
+                if tags.marks then Open77.debugDraw.clear(MARK_TAG);tags.marks=nil end
+                sentKey,geometry=nil,nil
+            end
+        elseif geometry and now-sentAt>=MARK_REFRESH_MS then
+            sentAt=now
+            if Open77.debugDraw.set(MARK_TAG,geometry) then tags.marks={MARK_TAG} end
+        end
+    end
+end
 local function spawnThread(name)
     generations[name]=(generations[name] or 0)+1;beats[name]=GetGameTimer()
     local generation=generations[name]
@@ -946,7 +1249,7 @@ local function watchThreads()
 end
 local function startRenderer()
     rendererRunning=true
-    spawnThread("render");spawnThread("animate");spawnThread("validate")
+    spawnThread("render");spawnThread("animate");spawnThread("validate");spawnThread("marks")
 end
 -- The held piece follows the cursor from the main loop's
 -- render resume, right after the input that moved it; the animation thread
@@ -986,14 +1289,16 @@ local function renderPreview()
         line(board.position,world(board,0,0,.5),"#5599ffff")
     else
         local row,col=square(board)
-        for _,cell in ipairs({active.selected or {},{row=row,col=col}}) do if cell.row and cell.col then
+        local sel=active.selected
+        for index,cell in ipairs({sel or {},{row=row,col=col}}) do if cell.row and cell.col and (index==1 or not sel or sel.row~=row or sel.col~=col) then
             local p=positionOf(board,cell.row,cell.col)
             local r=board.kind=="connect4" and .067 or .5/(board.kind=="checkers" and 10 or 8)
+            local color=index==1 and SELECT_COLOR or nil -- the selection cyan, the hovered cell amber
             local corners={{-r,-r},{r,-r},{r,r},{-r,r}}
             for i,c in ipairs(corners) do local q=corners[i%4+1]
                 if board.kind=="connect4" then
-                    line(world(board,p.x+c[1],-.03,p.z+c[2]),world(board,p.x+q[1],-.03,p.z+q[2]))
-                else line(world(board,p.x+c[1],p.y+c[2],.009),world(board,p.x+q[1],p.y+q[2],.009)) end
+                    line(world(board,p.x+c[1],-.03,p.z+c[2]),world(board,p.x+q[1],-.03,p.z+q[2]),color)
+                else line(world(board,p.x+c[1],p.y+c[2],.009),world(board,p.x+q[1],p.y+q[2],.009),color) end
             end
         end end
     end
@@ -1007,7 +1312,7 @@ local function confirmPlacement()
     if draft and ghostProp and ghostProp.ready then
         trace("place_confirm",nil,"kind=%s pos=%.1f,%.1f,%.1f",draft.kind,draft.position.x,draft.position.y,draft.position.z)
         request("place",{kind=draft.kind,position=draft.position,rotation=draft.rotation})
-        draft=nil;clearGhost();pointerDown=false;releaseInput()
+        draft=nil;clearGhost();pointerDown=false;releaseInput();releaseFocus(false);sendView(true)
     elseif draft then
         trace("place_not_ready",nil,"kind=%s ghost=%s age=%sms",draft.kind,tostring(ghostProp~=nil),
             tostring(ghostProp and GetGameTimer()-ghostProp.created))
@@ -1052,7 +1357,9 @@ local function placeDraft(kind)
     trace("place_ghost",nil,"kind=%s model=%s",kind,tostring(prop.name))
     ghostProp=prop
     takeInput()
-    notice("Aim where it goes. Left/Right arrows: turn · PgUp/PgDn: height · E: place · Backspace: cancel.",
+    applyFocus() -- the keyboard with gameplay kept: Escape cancels without the pause menu
+    sendView(true)
+    notice("Aim where it goes. Left/Right arrows: turn · PgUp/PgDn: height · E: place · Escape: cancel.",
         titleOf(kind))
 end
 local function beginPlacement(p)
@@ -1122,6 +1429,9 @@ function Client.bind(page)
         end
         if type(p.zoom)=="number" and p.zoom==p.zoom and active.cameraView=="orbit" then
             active.orbitZoom=math.max(.55,math.min(1.7,active.orbitZoom+(p.zoom>0 and .08 or -.08)));applyCamera()
+        elseif type(p.zoom)=="number" and p.zoom==p.zoom and p.zoom~=0 and active.cameraView=="free" and active.free then
+            -- Wheel up: faster (or, with the precise key, a narrower lens).
+            active.free.dw=active.free.dw+(p.zoom>0 and -1 or 1)
         end
     end)
     -- A bar button: the bar model is rebuilt from the current state and only a
@@ -1140,7 +1450,12 @@ function Client.bind(page)
         if Bar then guarded("table bar chip",Bar.setChip,board,p.amount) end
         sendView(true)
     end)
-    page:on("lightrp:boardGames:leave",function() if active then stop(true,"ui_leave") end end)
+    -- The bar's Leave, or Escape on the page (seated: leave; placing: cancel).
+    page:on("lightrp:boardGames:leave",function(p)
+        local escape=type(p)=="table" and p.key=="escape"
+        if active then stop(true,escape and "key_escape" or "ui_leave")
+        elseif draft and escape then stop(true,"key_escape") end
+    end)
 end
 RegisterNetEvent("lightrp:boardGames:place",beginPlacement)
 local applyState
@@ -1259,10 +1574,19 @@ function Client.start()
                 -- Placement leaves the keyboard to the game: while chat or another
                 -- page types, or the pause menu is open, its keys stay inert. The
                 -- game view owns the cursor itself (input reads as captured).
-                local typing=(draft~=nil and Open77.input.isCaptured()==true)
-                    or (Client.isActive() and Open77.session~=nil and type(Open77.session.isMenuOpen)=="function" and Open77.session.isMenuOpen()==true)
-                for _,k in ipairs({"E","BACKSPACE","ESC","LEFT","RIGHT","PAGEUP","PAGEDOWN"}) do
+                -- Our own page holding the keyboard is not someone typing.
+                local menu=Client.isActive() and Open77.session~=nil and type(Open77.session.isMenuOpen)=="function" and Open77.session.isMenuOpen()==true
+                local typing=(draft~=nil and Open77.input.isCaptured()==true and not ownKeyboard()) or menu
+                for _,k in ipairs({"E","LEFT","RIGHT","PAGEUP","PAGEDOWN"}) do
                     keys[k]=not typing and Open77.input.isDown(k)==true
+                end
+                -- Chat (or another page) took the keyboard and gave it back to
+                -- the game: take it again so Escape stays ours.
+                if focusMode and Client.isActive() and now>=focusCheckAt then
+                    focusCheckAt=now+500
+                    local page=Ui.page
+                    if page and type(page.hasFocus)=="function" and page:hasFocus()~=true and not menu
+                        and Open77.input.isCaptured()~=true then applyFocus() end
                 end
                 local events=pointerEvents;pointerEvents={}
                 local function pressed(k) return keys[k] and not previous[k] end
@@ -1283,8 +1607,6 @@ function Client.start()
                     elseif active then active.missingStateSince=nil end
                     if why then stop(true,why) end
                 end
-                if Client.isActive() and pressed("BACKSPACE") then stop(true,"key_backspace")
-                elseif draft and pressed("ESC") then stop(true,"key_escape") end
                 if draft then
                     local change=((keys.PAGEUP and 1 or 0)-(keys.PAGEDOWN and 1 or 0))*dt*.0003
                     draft.height=draft.height+change
@@ -1310,6 +1632,7 @@ function Client.start()
                     else
                         if active.farSince then active.viewDirty=true end -- the bar counts down
                         for _,event in ipairs(events) do if active then pointerAction(board,event) end end
+                        if active then flyFree(dt) end
                     end
                 end
                 previous=keys
@@ -1360,6 +1683,11 @@ function Client.start()
         end
     end)
 end
+-- Escape that reached the pause key (a client without consumed keys, see the
+-- header): leave all the same; the pause menu opens as well.
+AddEventHandler("open77:pauseKey",function()
+    if active or draft then stop(true,"key_escape_pause") end
+end)
 AddEventHandler("onClientResourceStop",function(name)
     if name~=GetCurrentResourceName() then return end
     rendererRunning=false;renderAllowed={};renderCandidates={}

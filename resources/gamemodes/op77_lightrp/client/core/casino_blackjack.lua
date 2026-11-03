@@ -265,6 +265,9 @@ Extra.register("blackjack",{
     pointer=function(board,event)
         if event.pressed and onCircle(board,event.x,event.y) then Extra.select(board,"circle","Your circle") end
     end,
+    -- While bets are open, the local seat's circle is the clickable target.
+    markKey=function(board) return board.game.phase=="betting" and mySeat(board) and "bet" or nil end,
+    marks=function(board,line) local s=mySeat(board);if s then ring(board,line,s,CIRCLE_R*.9) end end,
     aim=function(board,sx,sy,line)
         local s=mySeat(board);if not s then return end
         local sel=Extra.selection(board)

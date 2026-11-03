@@ -349,7 +349,7 @@ function M.seated(board)
         how=("You play %s. %s"):format(sideName(board,Client.member(board)),board.kind=="connect4"
             and "Click a column to drop a disc." or "Click a piece, then its square (or drag it).")
     end
-    notify(board,how.." Camera views and Leave are on the bar; Backspace leaves.")
+    notify(board,how.." Camera views and Leave are on the bar; Escape leaves.")
 end
 CreateThread(function()
     while true do
