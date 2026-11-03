@@ -309,7 +309,7 @@ local function escapeScoreboard(p, teams)
                 rows[#rows + 1] = { name = fit(row.name, 32), values = { row.released and "Rolling" or "Held", "" },
                     team = teams and 2 or nil }
             else
-                local status = STATUS[row.outcome] or (row.left and "Left" or "Out")
+                local status = STATUS[row.outcome] or (row.left and "Left" or "Running")
                 rows[#rows + 1] = { name = fit(row.name, 32), self = row.self == true or nil,
                     values = { status, num(row.seconds) and V.clock(row.seconds * 1000) or "-" }, team = teams and 1 or nil }
             end
@@ -360,7 +360,7 @@ local function ncpdScoreboard(p)
     local rows = {}
     for _, row in ipairs(p.scoreboard) do
         if type(row) == "table" and row.name and not row.cop then
-            local status = STATUS[row.outcome] or (row.left and "Left" or "Out")
+            local status = STATUS[row.outcome] or (row.left and "Left" or "Running")
             local heat = num(row.stars) and row.stars > 0 and ("%d★"):format(row.stars) or "-"
             rows[#rows + 1] = { name = fit(row.name, 32), self = row.self == true or nil,
                 values = { status, heat, num(row.seconds) and V.clock(row.seconds * 1000) or "-" } }

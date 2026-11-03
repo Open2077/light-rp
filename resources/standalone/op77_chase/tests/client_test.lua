@@ -175,6 +175,81 @@ do
     print("PASS view Most Wanted")
 end
 
+-- ---------------------------------------------------------------- NCPD Escape (police = "ncpd")
+do
+    local base = { activity = "chase.pve", matchId = 21, mode = "vehicle", role = "runner", police = "ncpd", runners = 1,
+        difficulty = "hard", difficultyLabel = "Hard", ceiling = 4 }
+    local function with(t) local p = {} for k, v in pairs(base) do p[k] = v end for k, v in pairs(t) do p[k] = v end return p end
+
+    assert(V.stars(0, 0) == "-" and V.stars(2, 4) == "★★☆☆" and V.stars(5, 5) == "★★★★★" and V.stars(9, 2) == "★★★★★", "stars")
+    assert(#V.stars(5, 5) <= 24, "a stat value fits")
+    local h = checkHud(V.hud(with({ state = "placing" })))
+    assert(h.title == "NCPD Escape" and h.subtitle == "Solo - Hard" and h.objective == "Moving to the escape area" and h.teams == nil)
+    h = checkHud(V.hud(with({ state = "countdown", remainingMs = 9000, headStartMs = 6000 })))
+    assert(h.countdown == 9000 and h.objective:find("6s head start") and h.objective:find("up to 4 stars"), "countdown: head start, ceiling")
+    -- The head start: no star yet, the next one counted down, no meter.
+    h = checkHud(V.hud(with({ state = "active", remainingMs = 160000, stars = 0, headStartMs = 4200, nextStarMs = 4200, bustMeter = 0,
+        extractionInMs = 50000 })))
+    assert(findStat(h, "Wanted") == "☆☆☆☆" and findStat(h, "Next star") == "5s" and h.timer.label == "Time" and h.timer.remainingMs == 160000)
+    assert(h.progress == nil and h.objective == "Head start - the NCPD is on you in 5s", "no meter in the head start")
+    -- Two stars, armed, the extraction up, a close call: four stats, the meter at 0.
+    h = checkHud(V.hud(with({ state = "active", remainingMs = 90000, stars = 2, nextStarMs = 30000, bustArmed = true, bustMeter = 0,
+        extractionDistance = 640, extraction = { x = 1, y = 2, z = 3 }, closeCalls = 1 })))
+    assert(#h.stats == 4 and findStat(h, "Wanted") == "★★☆☆" and findStat(h, "Next star") == "30s" and findStat(h, "Extraction") == "640 m"
+        and findStat(h, "Close calls") == "1")
+    assert(findProgress(h, "bust").value == 0 and findProgress(h, "bust").tone == "danger", "the bust meter is on screen once armed")
+    assert(h.objective == "Extraction 640 m away - get there to escape")
+    -- Max heat, stopped: the meter fills, the HUD says why.
+    h = checkHud(V.hud(with({ state = "active", remainingMs = 60000, stars = 4, bustArmed = true, bustMeter = 0.5, bustWhy = "stopped",
+        extractionInMs = 2000 })))
+    assert(findStat(h, "Heat") == "MAX" and findStat(h, "Next star") == nil and findProgress(h, "bust").label == "Being cuffed"
+        and findProgress(h, "bust").value == 0.5 and h.objective == "You stopped - MOVE or you are cuffed!")
+    h = checkHud(V.hud(with({ state = "active", remainingMs = 60000, stars = 3, bustArmed = true, bustMeter = 0.2, bustWhy = "out_of_car" })))
+    assert(h.objective == "Out of the car - get back in one or you are cuffed!")
+    h = checkHud(V.hud(with({ state = "active", remainingMs = 60000, stars = 1, bustArmed = true, bustMeter = 1.7, policeBlocked = true })))
+    assert(findProgress(h, "bust").value == 1 and h.objective == "Your game refused the NCPD - no police this run. Keep moving.")
+    h = checkHud(V.hud(with({ state = "active", remainingMs = 60000, stars = 1, boarding = { metres = 4 } })))
+    assert(h.objective:find("4 m"), "his car first")
+    -- A crew: runners only on the board, with their stars.
+    h = checkHud(V.hud(with({ state = "active", runners = 2, remainingMs = 60000, stars = 2, scoreboard = {
+        { id = 1, name = "V", runner = true, self = true, stars = 2 },
+        { id = 2, name = "Judy", runner = true, outcome = "busted", seconds = 75, stars = 2 },
+        { id = -1, name = "[BOT] Reyes", cop = true } } })))
+    assert(h.subtitle == "Crew of 2 - Hard" and h.scoreboard.columns[2] == "Heat" and #h.scoreboard.rows == 2)
+    assert(h.scoreboard.rows[1].values[1] == "Running" and h.scoreboard.rows[1].values[2] == "2★" and h.scoreboard.rows[2].values[1] == "Busted"
+        and h.scoreboard.rows[2].values[3] == "1:15")
+    -- Resolved.
+    h = checkHud(V.hud(with({ state = "resolved", remainingMs = 7000, outcome = "escaped", how = "extraction", won = true, seconds = 98,
+        stars = 4, reputation = 36 })))
+    assert(h.phase == "ended" and h.objective == "Escaped - You made the extraction." and findStat(h, "Heat") == "★★★★"
+        and findStat(h, "Reputation") == "+36" and findStat(h, "Time") == "1:38")
+    h = checkHud(V.hud(with({ state = "resolved", void = true, reason = "Your game refused the NCPD. Called off, nothing counts." })))
+    assert(h.objective:find("refused"))
+
+    -- Transitions: GO, a star banner per rise, the result with the heat.
+    local b = V.beats(with({ state = "placing" }), with({ state = "countdown", remainingMs = 10000 }))
+    assert(kinds(b) == "banner:NCPD Escape")
+    b = V.beats(with({ state = "countdown" }), with({ state = "active", stars = 0 }))
+    assert(kinds(b) == "banner:GO" and b[1].payload.text == "Keep moving!")
+    b = V.beats(with({ state = "active", stars = 0 }), with({ state = "active", stars = 2 }))
+    assert(kinds(b) == "banner:★★" and b[1].payload.text == "The NCPD is on you" and b[1].payload.tone == "danger")
+    b = V.beats(with({ state = "active", stars = 2 }), with({ state = "active", stars = 3 }))
+    assert(b[1].payload.text == "The NCPD steps it up")
+    assert(#V.beats(with({ state = "active", stars = 3 }), with({ state = "active", stars = 3 })) == 0, "nothing while the heat holds")
+    b = V.beats(with({ state = "active", stars = 3 }), with({ state = "resolved", outcome = "busted", how = "arrest", won = false, seconds = 70,
+        stars = 3, reputation = 12 }))
+    assert(kinds(b) == "result:Busted" and b[1].payload.placement == nil and b[1].payload.lines[2].label == "Heat"
+        and b[1].payload.lines[2].value == "★★★" and b[1].payload.lines[3].value == "+12")
+    b = V.beats(with({ state = "active" }), with({ state = "resolved", outcome = "escaped", how = "clock", won = true, seconds = 180, stars = 5,
+        reputation = 60 }))
+    assert(kinds(b) == "result:Escaped" and b[1].payload.placement == 1 and b[1].payload.subtitle == "You outlasted the NCPD.")
+    -- The bot cops (police = "bots") keep their own view.
+    h = checkHud(V.hud({ activity = "chase.pve", matchId = 22, state = "active", role = "runner", police = "bots", runners = 1, cops = 3,
+        remainingMs = 60000, heat = 1, heatCount = 3, copsNearby = 0 }))
+    assert(h.subtitle == "Solo - 3 NCPD units" and findStat(h, "Cops near") == "0")
+    print("PASS view NCPD Escape")
+end
+
 -- ---------------------------------------------------------------- queues, feed split, key
 do
     assert(V.queue(nil) == nil and V.queue({ queued = false }) == nil)
@@ -187,6 +262,10 @@ do
     assert(h.subtitle == "Match on - round 2/4")
     h = checkHud(V.queue({ activity = "chase.1v1", queued = true, position = 1, total = 1, mode = "vehicle" }))
     assert(h.title == "NCPD Chase" and h.subtitle == "Queued 1/1 - by car")
+    h = checkHud(V.queue({ activity = "chase.pve", queued = true, mode = "foot", difficulty = "critical", difficultyLabel = "Critical" }))
+    assert(h.title == "NCPD Escape" and h.subtitle == "Getting ready - on foot - Critical" and h.objective:find("/escape leave"))
+    h = checkHud(V.queue({ activity = "chase.pve", queued = true, mode = "vehicle", crew = 3, crewQueued = 2, difficultyLabel = "Hard" }))
+    assert(findStat(h, "Crew") == "2/3" and h.subtitle:find("Hard$"))
 
     local long = "Round 1/3 - YOU ARE THE RUNNER. 10s head start. Survive 2:45 or reach the extraction when it shows up. Your car is beside you: driver door on its LEFT."
     local lines = V.split(long, 96)
@@ -319,7 +398,43 @@ do
     env.net["op77_chase:hud"](runner)
     fire("onClientResourceStop", "op77_chase")
     assert(waypoint.x == 3)
+
+    -- NCPD Escape: the police probe. While a run is on with stars, every 4th payload sends
+    -- what Open77.prevention.state() says; nothing without stars, nothing for the bot cops.
+    local probes, refuse = 0, false
+    _G.Open77 = { prevention = { state = function()
+        probes = probes + 1
+        if refuse then error("permission_denied:world.prevention") end
+        return { requestedLevel = 0, populationSuppressed = true, levelAcknowledged = false, scriptAttached = true }
+    end } }
+    env.server = {}
+    local function escapeHud(t)
+        local p = { activity = "chase.pve", matchId = 30, state = "active", role = "runner", police = "ncpd", runners = 1, remainingMs = 60000,
+            difficultyLabel = "Standard", ceiling = 3 }
+        for k, v in pairs(t) do p[k] = v end
+        env.net["op77_chase:hud"](p)
+    end
+    escapeHud({ stars = 0, wanted = 0, headStartMs = 3000 })
+    assert(count(env.server, "op77_chase:police") == 0 and probes == 0, "no star: nothing to check")
+    assert(last(env.hud, "show")[2].title == "NCPD Escape", "drawn")
+    for _ = 1, 5 do escapeHud({ stars = 1, wanted = 1 }) end
+    assert(count(env.server, "op77_chase:police") == 2 and probes == 2, "the 1st and the 5th payload")
+    local sent = last(env.server, "op77_chase:police")[2]
+    assert(sent.expected == 1 and sent.requested == 0 and sent.suppressed == true and sent.acknowledged == false and sent.attached == true)
+    local n = 0
+    for _ in pairs(sent) do n = n + 1 end
+    assert(n == 5, "a handful of values")
+    escapeHud({ police = "bots", stars = nil, wanted = nil, heat = 1, heatCount = 3 })
+    escapeHud({ state = "resolved", outcome = "busted", how = "arrest", stars = 1, wanted = 1 })
+    assert(count(env.server, "op77_chase:police") == 2, "not for the bots, not once resolved")
+    refuse = true
+    for _ = 1, 5 do escapeHud({ stars = 2, wanted = 2 }) end
+    assert(count(env.server, "op77_chase:police") == 2 and probes == 4, "a throwing state(): pcall'd, nothing sent")
+    _G.Open77 = nil
+    escapeHud({ stars = 2, wanted = 2 })
+    assert(S.match and S.match.stars == 2, "no Open77.prevention: nothing breaks")
     print("PASS client main")
 end
 
-print("PASS: op77_chase client (1v1 + Most Wanted -> activity HUD within its limits, transitions, queues, feed split, HUD fallback, map3d dots/blips/GPS)")
+print("PASS: op77_chase client (1v1 + Most Wanted + NCPD Escape -> activity HUD within its limits, stars + bust meter, transitions, "
+    .. "queues + difficulty, feed split, HUD fallback, map3d dots/blips/GPS, NCPD police probe)")
