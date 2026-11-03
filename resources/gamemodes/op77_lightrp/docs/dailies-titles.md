@@ -247,8 +247,8 @@ seuil (le calcul est au §8) · **solo** ou **multi** · crochet.
 
 **Full Truck** — Sanitation, Scrapper (Okoro) — **solo**
 - *Objectif* : vendre **au moins 11** marchandises en une vente.
-- *Change le jeu* : on stocke dans le coffre et on revient pour un deuxième chargement avant de
-  vendre.
+- *Change le jeu* : on ne vend plus à chaque sac plein : on transforme, on repart pour un
+  deuxième ramassage, et on vend tout d'un coup (le coffre aide à porter, il n'est pas exigé).
 - *Crochet* : `onJobWorkCompleted` (`job_work.lua:182`), `info.count`.
 
 **The Full Round** — Sanitation, Scrapper (Okoro) — **solo**
@@ -540,13 +540,31 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
   les virements entre joueurs (un complice aurait fait la même chose).
 - **Full Truck** : *bug* — 20 marchandises, c'est exactement un sac plein de produits finis
   (40 kg ÷ 2 kg) : la moindre autre chose dans le sac rendait le contrat impossible. Le seuil
-  passe à 11, plus qu'un chargement de matière première (10), ce qui prouve l'usage du coffre.
+  passe à 11, plus qu'un sac de ramassage (10), ce qui prouve un deuxième ramassage avant la
+  vente. Le texte ne promet plus le coffre : la transformation divise le poids par deux, donc le
+  sac seul suffit à deux ramassages (relevé par le test de flux des métiers).
 - **Two Against the Machine** (et le titre **Two-Man Army**) : *bug* — un raid à trois dont un
   opérateur partait avant la mort de la Chimera finissait avec deux membres et comptait. Les
   opérateurs sont désormais comptés au début du combat (`report.operators`). Le contrat est en
   plus **Hard seulement** : Critical demande au moins 4 joueurs.
 - **Back to Back** : *bug* — deux victoires de coéquipiers dans deux matchs différents à moins de
   120 s comptaient ; il faut maintenant le même match (entrées à 30 s près).
+- **Bugs trouvés par les tests de flux** (modules producteurs réels), tous corrigés :
+  - *Lucky Number* : le remboursement d'un virement échoué (montant 0, type `refund`) validait
+    le contrat sans paiement → `refund` ignoré, et un mouvement nul ne compte jamais ;
+  - *Nobody Eats Alone*, *Bar Crawl*, *Housewarming*, *Nightcap*, *Water Break* : manger et boire
+    se lisaient sur les statistiques de l'objet, donc un soda comptait comme repas et une pomme
+    comme verre → on lit ce que fait le joueur (`consumeAction` : bouteille ou canette = boire,
+    repas ou en-cas = manger) ;
+  - *Housewarming* : sortir et rentrer en moins de 5 s gardait le cadeau → le cadeau est lié à
+    la visite (nouvelle session de logement à chaque entrée) ;
+  - *Pit Crew* : la distance du client n'était vérifiée qu'à la fin du plein → elle l'est sur
+    toute la durée du remplissage ;
+  - *Two Against the Machine* : la règle du partenaire n'était pas appliquée (même binôme deux
+    fois dans la semaine, ou deux personnages d'un même compte) → l'autre opérateur est le
+    partenaire ;
+  - *Fragile* : seul le siège avant gauche comptait comme conducteur → même règle que *Two
+    Wheels* (le conducteur rendu par le moteur).
 - **Street Performer**, **Running on Fumes**, **Album Cover**, **Bar Crawl**, **Convoy**,
   **Fragile**, les weeklies : seuils recalculés au §8 ; *Fragile* garde 5 %, valeur à confirmer
   par une mesure en jeu (§10).
@@ -563,7 +581,7 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
 | Réserve | 15 % du réservoir (`onFuelLow`) | `shared/config.lua`, `fuel.lua:287` |
 | Réservoirs | défaut 60 L, Street 55, Utility 90, Sport 65, Bikes 30 | `fuel.tanks` |
 | Carburant | 4 €$/L, 1,2 L/s à la pompe | `fuel.pricePerLitre`, débit |
-| Jerrycan | 20 L, 16 kg plein | `shared/config.lua` |
+| Jerrycan | 20 L, 16 kg plein, 25 €$ de consigne | `shared/config.lua` |
 | Station | une seule, 12 pompes autour de (−594, −711) | `fuel.stations` |
 | Location | réservoir de départ entre 35 et 75 %, 30 min | `shared/config.lua` `rentals` |
 | Voix | 4 m (chuchoter), 15 m (normal), 40 m (crier) | `shared/config.lua` `voice` |
@@ -612,8 +630,9 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
 - **Support Act** : une assistance demande 30 % de la vie d'un bot puis le coup final d'un autre ;
   seul, les alliés bots du terminal (places libres, toujours classé) le rendent faisable.
 - **Full Truck** : un sac (40 kg) porte 10 sacs poubelle (4 kg) ou 40 ferrailles (1 kg) → **10**
-  marchandises. 11 en une vente prouve un second chargement passé par le coffre (80 kg). Le
-  maximum d'une vente est 20 (40 kg ÷ 2 kg de produits finis), d'où l'ancien seuil impossible.
+  marchandises. 11 en une vente prouve un second ramassage avant la vente : après transformation
+  les 10 produits ne pèsent plus que 20 kg, il reste 20 kg pour repartir (ou le coffre, 80 kg).
+  Le maximum d'une vente est 20 (40 kg ÷ 2 kg de produits finis), d'où l'ancien seuil impossible.
 - **The Full Round** : 3 étapes = site A, site B, vente ; une vente avant les deux sites remet à
   zéro.
 - **Water Break** : la route AC Cleaner a 3 unités (`lift`, 3 × `work`, `return`) : la fenêtre va
@@ -621,10 +640,11 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
 - **Fare Paid** : 1,2 km × 1,1 L/km = 1,32 L × 4 €$ = 5,28 €$ → **6 €$** couvre le carburant. 3 min
   pour payer à la descente.
 - **Roadside** : à 15 %, une Street a 8,25 L, soit 7,5 km avant la panne : l'appel arrive avant la
-  panne, et l'appel vit 30 min. Un jerrycan (20 L, 80 €$ à la pompe, 16 kg dans un sac de 40 kg)
-  remonte une Street de 15 à 51 %.
-- **Pit Crew** : dû = ⌈litres × 4 €$⌉, par exemple 30 L → 120 €$ ; 15 m = voix normale, le client
-  reste à côté de la pompe.
+  panne, et l'appel vit 30 min. Un jerrycan (20 L, 80 €$ de carburant plus 25 €$ de consigne,
+  16 kg dans un sac de 40 kg) remonte une Street de 15 à 51 %.
+- **Pit Crew** : dû = ⌈litres × 4 €$⌉, par exemple 30 L → 120 €$ ; 15 m = voix normale. Le client
+  reste à portée **pendant tout le plein** : chaque échantillon de la durée du remplissage
+  (litres ÷ 1,2 L/s, au moins 5 s) doit l'avoir à moins de 15 m, et la fin aussi.
 - **Convoy** : 2,4 km à 40 m (la voix criée) ; un échantillon raté pardonné.
 - **Back to Back** : résultats à 120 s, même match à 30 s près (entrées dans l'activité).
 - **Bar Crawl** : le plus court tour de 3 bars dans 3 quartiers fait 1 173 m ; une heure laisse le
@@ -635,7 +655,7 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
   (4 minimum) exclu.
 - **All the Way** : au meilleur des trois, la manche décisive est la troisième à 1-1.
 - **Walk of Shame** : 1 km de la seule station, puis 2 km à pied aller-retour avec 16 kg ; le
-  jerrycan coûte 80 €$. Vider une Street pleine demande 50 km de route (ou 92 min de ralenti),
+  jerrycan coûte 80 €$ de carburant et 25 €$ de consigne. Vider une Street pleine demande 50 km de route (ou 92 min de ralenti),
   d'où un weekly qu'on prépare dans la semaine.
 
 ---

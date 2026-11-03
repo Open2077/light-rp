@@ -64,15 +64,16 @@ dans `dailies-titles.md` ; cette page ne dit que **quoi taper, quoi faire, quoi 
 - Mise en place : `give` aux deux joueurs, `eat_together`.
 - Faire : à moins de 15 m, manger chacun un plat à moins de 8 s d'écart.
 - Voir : DAILY COMPLETE pour les deux.
-- Échec attendu : 20 m d'écart ; 10 s d'écart ; le lendemain dans la même semaine avec le même
-  partenaire (notice DAILIES).
+- Échec attendu : 20 m d'écart ; 10 s d'écart ; deux sodas (boire n'est pas manger) ; le
+  lendemain dans la même semaine avec le même partenaire (notice DAILIES).
 
 ### Housewarming — 2 clients
 - Mise en place : `give <hôte> housewarming` ; l'hôte a la clé d'un logement, l'invité y entre.
 - Faire : l'hôte donne une boisson à l'invité (inventaire → Give) dans le logement ; l'invité la
   boit sur place.
 - Voir : DAILY COMPLETE chez l'hôte.
-- Échec attendu : l'invité sort avant de boire ; un hôte sans clé ; le don fait dehors.
+- Échec attendu : l'invité sort avant de boire, même s'il rentre aussitôt ; un hôte sans clé ;
+  le don fait dehors ; une pomme à la place d'une boisson.
 
 ### Ride Along — 2 clients
 - Mise en place : `give` aux deux, `ride_along`.
@@ -130,8 +131,8 @@ dans `dailies-titles.md` ; cette page ne dit que **quoi taper, quoi faire, quoi 
 
 ### Full Truck — 1 client (Sanitation ou Scrapper)
 - Mise en place : embauche au Job Center, `give <id> full_truck`.
-- Faire : un premier chargement transformé posé dans le coffre, un second dans le sac, puis
-  vendre au moins 11 marchandises d'un coup.
+- Faire : ramasser, transformer, repartir pour un second ramassage (le sac a la place ; le
+  coffre aussi), transformer, puis vendre au moins 11 marchandises d'un coup.
 - Voir : DAILY COMPLETE à la vente.
 - Échec attendu : une vente de 10 (un seul chargement).
 
@@ -190,7 +191,8 @@ dans `dailies-titles.md` ; cette page ne dit que **quoi taper, quoi faire, quoi 
 - Faire : le mécano remplit cette voiture pendant que le client reste à moins de 15 m, puis le
   client le paie au moins ⌈litres × 4 €$⌉.
 - Voir : DAILY COMPLETE au paiement.
-- Échec attendu : payé moins que le carburant ; la voiture du mécano lui-même.
+- Échec attendu : payé moins que le carburant ; la voiture du mécano lui-même ; le client
+  s'éloigne à plus de 15 m pendant le plein puis revient pour la fin.
 
 ## 5. Crew (tous à 2 clients, en crew)
 

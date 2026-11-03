@@ -114,7 +114,8 @@ _G.LightRpDelivery = {}
 _G.LightRpJobRuns = { routes = { ac_cleaner = { steps = { { kind = "lift" }, { kind = "work" }, { kind = "work" }, { kind = "work" }, { kind = "return" } } } } }
 _G.LightRpActivities = { hub = { center = { x = 0, y = 0, z = 0 } } }
 _G.LightRpEconomy = { hospital = { graceMinutes = 120 } }
-_G.LightRpItems = { burrito = { use = { food = 35 } }, beer = { use = { drink = 20 } }, water = { use = { drink = 30 } } }
+_G.LightRpItems = { burrito = { use = { food = 35 } }, beer = { use = { drink = 20 } }, water = { use = { drink = 30 } },
+    soda = { use = { drink = 20, food = 5 }, consumeAction = "can" }, apple = { use = { food = 12, drink = 5 }, consumeAction = "snack" } }
 _G.LightRpConfig = {
     fuel = { pricePerLitre = 4, stations = { { id = "pump01", position = { x = -600, y = -700, z = 0 } } } },
     mapPlaces = { places = {
@@ -177,6 +178,10 @@ local function idOf(def) return def and def.id or "-" end
 assert(D.hash("a") == 0xe40c292c, "FNV-1a")
 assert(D.day() == D0 and D.week() == W0, "day and week from server time")
 assert(D.weekOf(D0 - 1) == W0 - 1 and D.weekOf(D0 + 6) == W0 and D.weekOf(D0 + 7) == W0 + 1, "weeks start on Monday")
+
+-- eating or drinking is what the player does (consumeAction), the stats only without one
+assert(D.consumeKind("soda") == "drink" and D.consumeKind("apple") == "meal", "a soda is a drink, an apple is food")
+assert(D.consumeKind("beer") == "drink" and D.consumeKind("burrito") == "meal" and D.consumeKind("nope") == nil)
 
 -- ── the rotation ──
 for _, slot in ipairs({ "street", "action", "crew" }) do

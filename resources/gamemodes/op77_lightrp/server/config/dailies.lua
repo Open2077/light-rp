@@ -54,7 +54,7 @@ LightRpDailies = {
         { id = "lucky_number", slot = "street", fixer = "ledger", title = "Ledger's Lucky Number",
           brief = "My accountant believes in luck. I believe in clean numbers. Land your bank balance on 777 with a real payment: a purchase, a fill-up, a wage. Shuffling your own money between pocket and bank is not a transaction, it is a nervous habit. Naturally, my payment will ruin it.",
           goal = "Make your bank balance end in 777 through a payment (deposits, withdrawals and transfers don't count).", target = 1,
-          ignoreKinds = { "deposit", "withdraw", "transfer_out", "transfer_in" } },
+          ignoreKinds = { "deposit", "withdraw", "transfer_out", "transfer_in", "refund" } },
         { id = "eat_together", slot = "street", social = true, fixer = "okoro", title = "Nobody Eats Alone",
           brief = "You eat noodles over the sink like a gonk. Find somebody, sit down, and eat AT THE SAME TIME. Count to three if you have to. Mama's orders.",
           goal = "Finish a meal within 15 m of another citizen who finishes theirs within 8 s of you.", target = 1,
@@ -102,8 +102,8 @@ LightRpDailies = {
 
         -- ── Shift ───────────────────────────────────────────────────────────
         { id = "full_truck", slot = "shift", jobs = { "sanitation", "scrapper" }, fixer = "okoro", title = "Full Truck",
-          brief = "One bagful at a time is how you get a bad back, choom. Stack the trunk, go back for more, and sell it all in one go.",
-          goal = "Sell at least 11 goods in a single sale: more than one bag can carry.", target = 1, count = 11 },
+          brief = "One bagful at a time is how you get a bad back, choom. Process it, go back for a second load, and sell it all in one go.",
+          goal = "Sell at least 11 goods in one sale (one bagful of pickups makes 10).", target = 1, count = 11 },
         { id = "full_round", slot = "shift", jobs = { "sanitation", "scrapper" }, fixer = "okoro", title = "The Full Round",
           brief = "A real round: both pickups, then the buyer. Not the same corner twice because it's closer. The city doesn't clean itself one block at a time.",
           goal = "Collect at both collection sites, then sell, with no sale in between.", target = 3,

@@ -706,13 +706,27 @@ local function itemUse(name)
     local t = type(LightRpItems) == "table" and LightRpItems[name]
     return t and t.use or nil
 end
+-- Eating or drinking, from what the player does (shared/consumables.lua consumeAction:
+-- a bottle or a can is a drink, a meal or a snack is food), not from the stats: a soda
+-- feeds a little and an apple waters a little. No action: the bigger of the two stats.
+local DRINKS, MEALS = { bottle = true, can = true }, { meal = true, snack = true }
+local function consumeKind(name)
+    local t = type(LightRpItems) == "table" and LightRpItems[name]
+    local use = t and t.use
+    if not use then return nil end
+    if t.consumeAction then return (DRINKS[t.consumeAction] and "drink") or (MEALS[t.consumeAction] and "meal") or nil end
+    local food, drink = tonumber(use.food) or 0, tonumber(use.drink) or 0
+    if drink > food then return "drink" elseif food > 0 then return "meal" end
+    return nil
+end
+D.consumeKind = consumeKind
 
 local function statsOf(raw) return type(raw) == "table" and type(raw.stats) == "table" and raw.stats or {} end
 local function won(r, raw) return (type(r) == "table" and r.won == true) or (type(raw) == "table" and raw.won == true) end
 
 -- economy.lua onMoneyChanged: the kinds that only move the player's own money do not count.
-K.lucky_number = { money = function(ctx, wallet, _, balance, kind)
-    if wallet ~= "bank" then return end
+K.lucky_number = { money = function(ctx, wallet, delta, balance, kind)
+    if wallet ~= "bank" or (tonumber(delta) or 0) == 0 then return end
     for _, k in ipairs(ctx.def.ignoreKinds or {}) do if k == kind then return end end
     local n = math.floor(tonumber(balance) or -1)
     if n >= 0 and n % 1000 == 777 then finish(ctx) end
@@ -732,15 +746,31 @@ K.roadside = { refuel = function(ctx, info)
 end }
 
 -- The car's last driver (the sampler) stands within range while the mechanic fills it
--- at the pump, then pays at least litres x the pump price.
+-- at the pump, then pays at least litres x the pump price. "While": every sample of the
+-- fill (refueling.lua's duration: litres / litresPerSecond, at least minimumFillMs) had
+-- them within range, and so does the end of it.
 local lastDriver = {} -- vehicle -> { id, account, at }
+local function fillMs(litres)
+    local F = type(LightRpConfig) == "table" and LightRpConfig.fuel or {}
+    return math.max(tonumber(F.minimumFillMs) or 5000, math.ceil(litres / (tonumber(F.litresPerSecond) or 1.2) * 1000))
+end
 K.pit_crew = {
+    sample = function(ctx, t)
+        local p, apart = t.pos[ctx.id], ctx.scratch.apart or {}
+        ctx.scratch.apart = apart
+        for other, q in pairs(t.pos) do
+            local theirs = other ~= ctx.id and accountOf(other)
+            if theirs and (not p or (q.bucket or 0) ~= (p.bucket or 0) or dist(p, q) > ctx.def.range) then apart[theirs] = now() end
+        end
+    end,
     refuel = function(ctx, info)
         if info.kind ~= "vehicle" or (tonumber(info.litres) or 0) <= 0 then return end
         local d = lastDriver[tostring(info.vehicle)]
         if not d or d.account == ctx.account or accountOf(d.id) ~= d.account then return end
         local me, them = positionOf(ctx.id), positionOf(d.id)
         if not me or not them or (me.bucket or 0) ~= (them.bucket or 0) or dist(me, them) > ctx.def.range then return end
+        local away = ctx.scratch.apart and ctx.scratch.apart[d.account]
+        if away and away > now() - fillMs(info.litres) then return end
         ctx.scratch.owed = ctx.scratch.owed or {}
         ctx.scratch.owed[d.id] = { at = now(), account = d.account, amount = math.ceil(info.litres * fuelPrice()) }
         push(ctx.id)
@@ -805,9 +835,9 @@ K.nightcap = {
     activity = function(ctx, _, r, raw, verdict)
         if verdict.eligible and won(r, raw) then ctx.scratch.wonAt = now(); push(ctx.id) end
     end,
-    consume = function(ctx, use, p, bar)
+    consume = function(ctx, _, _, bar, kind)
         local at = ctx.scratch.wonAt
-        if (tonumber(use.drink) or 0) > 0 and at and now() - at <= ctx.def.minutes * 60000 and bar then finish(ctx) end
+        if kind == "drink" and at and now() - at <= ctx.def.minutes * 60000 and bar then finish(ctx) end
     end,
 }
 
@@ -833,8 +863,14 @@ K.one_man_army = { mission = function(ctx, inst, point, _, success)
     if success and not inst.test and chimera(point) and tonumber(report(inst).operators) == 1 and #(inst.members or {}) == 1 then finish(ctx) end
 end }
 K.two_vs_machine = { mission = function(ctx, inst, point, d, success)
-    if success and not inst.test and chimera(point) and d and d.id == "hard" and tonumber(report(inst).operators) == 2
-        and #(inst.members or {}) == 2 then finish(ctx) end
+    if not (success and not inst.test and chimera(point) and d and d.id == "hard" and tonumber(report(inst).operators) == 2
+        and #(inst.members or {}) == 2) then return end
+    local other
+    for _, member in ipairs(inst.members) do
+        local theirs = accountOf(member)
+        if theirs and theirs ~= ctx.account then other = theirs end
+    end
+    if other then finish(ctx, { other }) end
 end }
 
 -- medical.lua onPatientStabilized: the patient is a downed player.
@@ -931,9 +967,9 @@ K.water_break = {
         local first, last = workIndexes(run)
         if run.index == first then s.open = true elseif run.index == last then s.open = false end
     end,
-    consume = function(ctx, use)
+    consume = function(ctx, _, _, _, kind)
         local s = ctx.scratch
-        if s.run and s.open and (tonumber(use.drink) or 0) > 0 then s.drank = true; push(ctx.id) end
+        if s.run and s.open and kind == "drink" then s.drank = true; push(ctx.id) end
     end,
     runDone = function(ctx, run)
         local s = ctx.scratch
@@ -956,7 +992,7 @@ K.fragile = {
         local s = ctx.scratch
         if not s.run then return end
         local seat = t.seatOf(ctx.id)
-        if not seat or seat.seat ~= "seat_front_left" then return end
+        if not seat or not drives(ctx.id, seat) then return end
         local h = healthOf(seat.vehicleId)
         if not h then return end
         if not s.vehicle then s.vehicle, s.start, s.min = seat.vehicleId, h, h
@@ -1197,8 +1233,8 @@ function D.onItemUsed(id, name)
     if not use or not account then return end
     local p = positionOf(id)
     if not p then return end
-    local t = now()
-    if (tonumber(use.food) or 0) > 0 and defs.eat_together then
+    local t, kind = now(), consumeKind(name)
+    if kind == "meal" and defs.eat_together then
         local def = defs.eat_together
         prune(meals, def.windowSeconds * 1000)
         for _, m in ipairs(meals) do
@@ -1210,7 +1246,7 @@ function D.onItemUsed(id, name)
         meals[#meals + 1] = { id = id, account = account, at = t, p = p }
     end
     local bar = nearestBar(p, defs.bar_crawl and defs.bar_crawl.range)
-    if (tonumber(use.drink) or 0) > 0 and defs.bar_crawl and bar then
+    if kind == "drink" and defs.bar_crawl and bar then
         prune(drinks, defs.bar_crawl.togetherSeconds * 1000)
         local mates = {}
         for _, mate in ipairs(crewmates(id)) do mates[mate] = true end
@@ -1222,33 +1258,33 @@ function D.onItemUsed(id, name)
         end
         drinks[#drinks + 1] = { id = id, account = account, at = t, p = p, bar = bar.id }
     end
-    -- the guest drinks the host's gift in the host's home
-    if (tonumber(use.drink) or 0) > 0 and gifts[id] then
+    -- the guest drinks the host's gift in the host's home, in the same visit (housing.lua
+    -- makes a new session on every entry: out and back in drops the gift)
+    if kind == "drink" and gifts[id] then
         local home = homeOf(id)
         for i = #gifts[id], 1, -1 do
             local g = gifts[id][i]
-            if g.item == name and home and home.property == g.property and accountOf(g.host) == g.hostAccount then
+            if g.item == name and home and home == g.session and home.property == g.property and accountOf(g.host) == g.hostAccount then
                 table.remove(gifts[id], i)
                 with(g.host, "housewarming", function(ctx) finish(ctx, { account }) end)
             end
         end
         if #gifts[id] == 0 then gifts[id] = nil end
     end
-    emit(id, "consume", use, p, defs.nightcap and nearestBar(p, defs.nightcap.range))
+    emit(id, "consume", use, p, defs.nightcap and nearestBar(p, defs.nightcap.range), kind)
 end
 
 -- inventory.lua Inv.give: a drink handed over by a key holder to a guest in the same home.
 function D.onItemGiven(from, to, name)
     if not D.enabled or type(to) ~= "number" then return end
-    local use = itemUse(name)
-    if not use or (tonumber(use.drink) or 0) <= 0 then return end
+    if consumeKind(name) ~= "drink" then return end
     local mine, theirs = homeOf(from), homeOf(to)
     if not mine or not theirs or mine.property ~= theirs.property or not holdsKey(from, mine) then return end
     with(from, "housewarming", function(ctx)
         local guest = accountOf(to)
         if not guest or not freshPartner(ctx, guest) then return end
         gifts[to] = gifts[to] or {}
-        table.insert(gifts[to], { host = from, hostAccount = ctx.account, item = name, property = mine.property })
+        table.insert(gifts[to], { host = from, hostAccount = ctx.account, item = name, property = mine.property, session = theirs })
         push(from)
     end)
 end
