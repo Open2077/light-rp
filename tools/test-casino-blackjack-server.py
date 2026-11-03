@@ -228,32 +228,20 @@ restart()
 B=LightRpBlackjack
 assert(#bodies()==0);dealerTick()
 local list=bodies();assert(#list==1 and math.abs(list[1].position.y-(20+.72*.65))<1e-9,'reloaded table gets its dealer back')
--- Mid-round reload: the cards already on the felt get no gesture.
-dealerTick(wall+500);assert(anims()==0 and bodies()[1].ai==false,'no gesture for old cards')
+dealerTick(wall+500);assert(anims()==0 and bodies()[1].ai==false,'still after a reload mid-round')
 """)
 
-scenario('dealer NPC: a subtle gesture while the cards leave the shoe, AI back off after',r"""
+scenario('dealer NPC: still for a whole round, AI never switched on, no clip',r"""
 positions[1]={x=0,y=0,z=0,bucket=0}
 stack({'TS','9D','6D','KH','7C','QH','3H'})
 local id=place('blackjack',1);seated(id);dealerTick()
 local npc=bodies()[1];assert(npc.ai==false and anims()==0)
-game(1,id,'bet',{amount=10});game(2,id,'bet',{amount=10});dealerTick();assert(anims()==0 and npc.ai==false,'a bet is no card')
-game(1,id,'deal',{});local g=dealerGame(id)
-dealerTick(g.dealtAt);assert(npc.ai==true and npc.anim and npc.anim.clip==B.DEALER.gesture and npc.anim.loop,'gesture with the first card')
-assert(npc.anim.timeoutMs==g.animEnd-g.dealtAt,'the clip ends with the deal '..tostring(npc.anim.timeoutMs))
-dealerTick(g.animEnd-1);assert(npc.ai==true)
-dealerTick(g.animEnd);assert(npc.ai==false and npc.anim==nil and table.concat(npcLog,',',#npcLog-2)=='clear,ai:false,transform','tasks cleared, AI off, back on its mark after the deal')
-local count=#npcLog;dealerTick(g.actAt);assert(#npcLog==count,'quiet during the turn')
--- Stands: the hole card turns and the dealer draws; another gesture over that window.
+local count=#npcLog
+game(1,id,'bet',{amount=10});game(2,id,'bet',{amount=10});game(1,id,'deal',{});local g=dealerGame(id)
+dealerTick(g.dealtAt);dealerTick(g.animEnd);dealerTick(g.actAt)
 wall=g.actAt;game(1,id,'stand',{});game(2,id,'stand',{});g=dealerGame(id)
-assert(g.phase=='result' and g.revealAt)
-dealerTick(g.revealAt-1);assert(npc.ai==false,'still during the reveal pause')
-dealerTick(g.revealAt);assert(npc.ai==true and npc.anim.timeoutMs==g.animEnd-g.revealAt)
-dealerTick(g.animEnd);assert(npc.ai==false)
--- Gesture off: nothing toggles.
-B.DEALER.gesture=nil;count=#npcLog
-wall=g.nextAt;step(2000);game(1,id,'bet',{amount=10});game(1,id,'deal',{});g=dealerGame(id)
-dealerTick(g.dealtAt+100);assert(#npcLog==count and npc.ai==false)
+dealerTick(g.revealAt);dealerTick(g.animEnd)
+assert(#npcLog==count and npc.ai==false and anims()==0 and npc.anim==nil,'no gesture, no AI toggle: '..table.concat(npcLog,',',count+1))
 """)
 
 lua=scenario('public view stays small at the worst case (four 7-card hands, 8-card dealer)',r'''
