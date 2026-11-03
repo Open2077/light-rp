@@ -4,6 +4,7 @@ import type { MissionSquadMember, PartyMember, PartyState } from "@/bridge/proto
 import { useStore } from "@/state/store";
 import { Icon, cx } from "@/design/components";
 import "./crew.css";
+import "@/features/dailies/rarity.css";
 
 /* The crew on the HUD (server/modules/parties.lua "party" state), bottom-left above
    the weapon and the vitals: one frame, always there while you are in a crew.
@@ -79,6 +80,7 @@ function MemberRow({ m, you }: { m: PartyMember; you: boolean }) {
   return <div className={cx("crew-row", `is-${state}`, you && "is-me", m.far && !you && "is-far")} title={m.busyLabel}>
     <span className="crew-row__mark">{m.leader ? <Icon name="crown" size={11} /> : <i className="crew-row__dot" />}</span>
     <strong>{m.name.toUpperCase()}</strong>
+    {m.title && <span className={cx("crew-row__title title-rarity", m.titleRarity && `is-${m.titleRarity}`)} title={m.title}>{m.title.toUpperCase()}</span>}
     {you && <em>YOU</em>}
     {state !== "alive" ? <span className="crew-row__chip is-alert">{state === "down" ? "DOWN" : "DEAD"}</span>
       : busy ? <span className="crew-row__chip"><Icon name={busy.icon} size={10} />{busy.label}</span>

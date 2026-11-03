@@ -166,6 +166,7 @@ function Runs.snapshot(id)
         working = run.work ~= nil, icon = run.route.icon,
         orders = run.route.orders, carried = run.carried, distanceKm = run.route.distanceKm,
         stops = stops(run), expiresInMs = math.max(0, run.expires - LightRP.nowMs()),
+        duo = run.duo and { partner = run.duo.partnerName, half = run.duo.half } or nil, -- Big Contract (job_crew.lua)
         objective = { label = step.label, place = step.place or step.label, kind = step.kind, position = step.position, radius = C.range },
         hint = step.kind == "lift" and "Use the marked service access. No climbing required."
             or step.kind == "return" and "Return to dispatch to receive your bank payment."

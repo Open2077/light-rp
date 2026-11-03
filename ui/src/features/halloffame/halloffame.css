@@ -65,6 +65,9 @@
 .hof-podium__step.is-1 .hof-podium__name { font-size: var(--fs-body); }
 .hof-podium__value { font: var(--fw-semibold) var(--fs-label) var(--font-mono); color: var(--text-body); white-space: nowrap; }
 .hof-podium__step.is-1 .hof-podium__value { color: var(--accent); }
+/* the character's shown title (titles.lua) */
+.hof-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: .08em; color: var(--o77-steel); text-transform: uppercase; }
+.hof-podium__title { max-width: 100%; margin-top: calc(var(--sp-1) * -1); }
 .hof-podium__detail { max-width: 100%; font: var(--fs-micro) var(--font-mono); letter-spacing: .06em; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ranks 4 to 10 */

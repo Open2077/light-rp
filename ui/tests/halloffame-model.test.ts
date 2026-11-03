@@ -5,7 +5,8 @@ import { formatValue, mineLine, normalizeHallOfFame, podium, rankLabel, tied, up
 test("Lua's empty tables become arrays; junk rows and boards are dropped", () => {
   const p = normalizeHallOfFame({ kind: "halloffame", title: "HALL OF FAME", hub: "The Crossing", tab: "pvp", tabs: {}, database: false,
     boards: [{ key: "pvp.wins", title: "MOST WINS", unit: "wins", total: 2, rows: {} }, { title: "no key" },
-      { key: "pvp.kills", title: "MOST KILLS", unit: "nonsense", total: 1, rows: [{ rank: 1, name: "Kei Mori", value: 9 }, { rank: 2, value: 3 }] }] })!;
+      { key: "pvp.kills", title: "MOST KILLS", unit: "nonsense", total: 1, rows: [{ rank: 1, name: "Kei Mori", value: 9, title: "Most Wanted" }, { rank: 2, value: 3 }] }] })!;
+  assert.equal(p.boards[1]!.rows[0]!.title, "Most Wanted", "the shown title (titles.lua) is kept");
   assert.equal(p.tab, "pvp");
   assert.deepEqual(p.tabs, ["overview", "pvp", "races", "pve", "missions"], "no tab list: every tab but wealth");
   assert.equal(p.boards.length, 2);

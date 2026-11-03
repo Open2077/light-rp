@@ -30,6 +30,7 @@ import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
 import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
 import { RecapDialog } from "@/features/recap/RecapDialog";
 import { GuideDialog } from "@/features/guide/GuideDialog";
+import { DailiesDialog } from "@/features/dailies/DailiesDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
 import { FixerGigHud } from "@/features/missions/FixerGigHud";
 import { WorldBossHud } from "@/features/missions/WorldBossHud";
@@ -75,6 +76,7 @@ export function App() {
       on<ResultPayload>(PAGE_EVENTS.result, (r) => {
         if (!r) return;
         setResult(r.ok, r.text, r.action);
+        if (r.ok && r.action === "dailies.claim") return; // dailies.lua already sent the "+€$ N" money notice
         pushNotice({ kind: r.ok ? "success" : "error", title: r.ok ? undefined : "DENIED", body: r.text, source: "LIGHT RP", durationMs: 6000 });
       }),
       on<DialogPayload>(PAGE_EVENTS.dialog, (d) => { if (d?.kind) openDialog(d); }),
@@ -118,6 +120,7 @@ export function App() {
       <ErrorBoundary name="halloffame"><HallOfFameDialog /></ErrorBoundary>
       <ErrorBoundary name="recap"><RecapDialog /></ErrorBoundary>
       <ErrorBoundary name="guide"><GuideDialog /></ErrorBoundary>
+      <ErrorBoundary name="dailies"><DailiesDialog /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>

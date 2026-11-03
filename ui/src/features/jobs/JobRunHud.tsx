@@ -98,6 +98,7 @@ export function JobRunHud() {
       {left != null && <span className={`wo-timer ${left < 180000 ? "is-low" : ""}`}><Icon name="timer" size={12} />{clock(left)}</span>}
     </header>
     <div className="wo-hazard" aria-hidden />
+    {run.duo && <div className="wo-duo"><Icon name="users" size={12} />BIG CONTRACT{run.duo.half ? ` · HALF ${run.duo.half}` : ""}{run.duo.partner ? <b>WITH {run.duo.partner.toUpperCase()}</b> : null}</div>}
 
     <section className="wo-next" key={`${run.id}:${index}`} aria-live="polite">
       <div className="wo-next__tag">

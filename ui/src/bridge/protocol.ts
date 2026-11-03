@@ -158,7 +158,44 @@ export interface UiState {
   worldBoss?: WorldBossState | false;
   /** The last end-of-match recap kept for F1 > Last match (server/modules/recap.lua); false: none. */
   recap?: RecapState | false;
+  /** Daily Contracts (server/modules/dailies.lua D.view; features/dailies). */
+  dailies?: DailiesState;
+  /** Earned titles and the one shown (server/modules/titles.lua T.view; features/dailies). */
+  titles?: TitlesState;
 }
+
+/* ── Daily Contracts and titles (server/modules/dailies.lua, titles.lua; docs/dailies-titles.md) ── */
+export type DailySlot = "street" | "action" | "shift" | "crew" | "weekly";
+/** One contract card. `value`/`target` in `unit` (m, s, or a count when absent). */
+export interface DailyCard {
+  slot: DailySlot; id: string; title: string; fixer: string; fixerName: string; brief: string; goal: string;
+  value: number; target: number; unit?: "m" | "s"; done: boolean; claimed: boolean; reward: number;
+  /** Today's free swap can replace it. */
+  swappable?: boolean;
+  /** A crew contract while the player has no crewmate. */
+  needsCrew?: boolean;
+}
+/** `ready` false: no character loaded yet. Countdowns are from the push. `older`: finished
+ *  and unpaid from yesterday (or last week on Monday), still claimable. */
+export interface DailiesState {
+  enabled: boolean; ready?: boolean; day?: number; resetInMs?: number; weekResetInMs?: number;
+  streak: number; swapsLeft: number; budget: { used: number; max: number };
+  list: DailyCard[]; older: Array<{ id: string; title: string; reward: number }>;
+}
+export type TitleRarity = "common" | "rare" | "epic" | "legendary" | "live";
+/** A title as the player sees it: `live` = a Hall of Fame rank-1 title, held only while rank 1;
+ *  `value`/`count` = progress; `expiresInMs` (from the push) for a title that expires. */
+export interface TitleEntry {
+  id: string; label: string; rarity: TitleRarity; group: string; how: string;
+  earned?: boolean; live?: boolean; value?: number; count?: number; expiresInMs?: number;
+}
+/** `chosen`: the player's pick; `shown`: what others read now (a live title not held hides it). */
+export interface TitlesState {
+  enabled: boolean; shown?: string; chosen?: string;
+  groups: Array<{ id: string; label: string }>; list: TitleEntry[];
+}
+export type DailiesTab = "today" | "titles";
+export interface DailiesDialogPayload { kind: "dailies"; tab: DailiesTab }
 export interface WorldBossState {
   id: string; title: string; location: string; boss: string; phase: "fight" | "cleanup" | "done";
   bossHealth: number; enemiesLeft: number; fighters: number; endsInMs?: number;
@@ -274,7 +311,8 @@ export type ActivitiesTab = "activities" | "contracts" | "crew";
  *  dialog payload, from the server cache. Names are character names only. */
 export type HallOfFameTab = "overview" | "pvp" | "races" | "pve" | "missions" | "wealth";
 export type HallOfFameUnit = "wins" | "kills" | "time" | "eddies" | "rep" | "count" | "clears" | "points";
-export interface HallOfFameRow { rank: number; name: string; value: number; detail?: string; you?: boolean }
+/** `title`: the character's shown title (titles.lua), when it has one. */
+export interface HallOfFameRow { rank: number; name: string; value: number; detail?: string; you?: boolean; title?: string }
 export interface HallOfFameBoard {
   key: string; title: string; subtitle?: string; unit: HallOfFameUnit; ascending?: boolean; total: number;
   rows: HallOfFameRow[]; mine?: { rank: number; value: number; detail?: string };
@@ -349,6 +387,8 @@ export interface MissionUpdate { session: string; state?: MissionDialogPayload; 
 export interface PartyMember {
   id: number; name: string; leader: boolean; tier: number; you?: boolean;
   state?: "alive" | "down" | "dead"; busy?: "mission" | "lobby" | "activity"; busyLabel?: string; far?: boolean;
+  /** The member's shown title and its rarity (titles.lua), when they show one. */
+  title?: string; titleRarity?: TitleRarity;
 }
 export interface CrewInvite { party: string; from: number; fromName: string; expiresInMs: number }
 /** The crew (server/modules/parties.lua "party" state). Without `id` the player is alone. `keys`: the
@@ -523,6 +563,8 @@ export interface JobOffer {
 export interface JobRoutePreview {
   label: string; reward: number; stops: number; estimate: string; description: string; variable?: boolean; orders?: { min: number; max: number };
   remote?: boolean; lifetimeMinutes?: number;
+  /** The Big Contract is offered: two couriers of one crew split one big order list (job_runs.lua Runs.startDuo). */
+  duo?: boolean;
 }
 /** A job's free item work (server/modules/job_work.lua Work.preview). */
 export interface JobWorkPreview {
@@ -543,6 +585,8 @@ export interface JobRunState {
   orders?: number; carried?: number; distanceKm?: number; // courier runs
   /** Every stop of the route with its state; the run's time left when the snapshot was sent. */
   stops?: JobRunStop[]; expiresInMs?: number;
+  /** A half of a Big Contract: the partner's name and which half (A or B). */
+  duo?: { partner?: string; half?: string };
   objective?: { label: string; place?: string; kind: JobStopKind; position: { x: number; y: number; z: number }; radius: number };
 }
 /** Live readout of the tracker (client/core/job_runs.lua): metres to the stop, the player menu key. */
@@ -592,7 +636,7 @@ export interface FuelDialogPayload {
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
 export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload
-  | RecapDialogPayload;
+  | RecapDialogPayload | DailiesDialogPayload;
 
 /** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
  *  the search index and the topics follow as GuideMessage (features/guide/model.ts). */
@@ -644,6 +688,10 @@ export type UiAction =
   | { type: "halloffame.open" | "halloffame.tab" | "halloffame.refresh"; tab?: HallOfFameTab; from?: string }
   | { type: "halloffame.close" }
   | { type: "recap.open" | "recap.close" }
+  | { type: "dailies.open"; tab?: DailiesTab }
+  | { type: "dailies.claim"; id: string }
+  | { type: "dailies.swap"; slot: DailySlot }
+  | { type: "titles.select"; id: string }
   | { type: "guide.open"; from?: string }
   | { type: "guide.topic"; id: string }
   | { type: "guide.gps"; target: string }
@@ -684,7 +732,7 @@ export type UiAction =
   | { type: "inventory.give"; slot: number; count: number }
   | { type: "jobs.apply"; spot: string; job: string }
   | { type: "jobs.quit" }
-  | { type: "jobs.start"; from?: "menu" }
+  | { type: "jobs.start"; from?: "menu"; duo?: boolean }
   | { type: "jobs.gps" }
   | { type: "jobs.locate"; job:string; stage:"collect"|"process"|"sell" }
   | { type: "jobs.cancel" }

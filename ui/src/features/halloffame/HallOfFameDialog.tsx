@@ -157,7 +157,7 @@ function BoardCard({ board, compact }: { board: HallOfFameBoard; compact: boolea
     {rest.length > 0 && <ol className="hof-list" start={4}>
       {rest.map((r, i) => <li key={`${r.rank}-${r.name}`} className={cx(r.you && "is-you")}>
         <span className="hof-list__rank">{rankLabel(r.rank)}{tied(board.rows, i + 3) && <i>=</i>}</span>
-        <span className="hof-list__name">{r.name}{r.you && <Badge tone="accent">YOU</Badge>}</span>
+        <span className="hof-list__name">{r.name}{r.title && <small className="hof-title">{r.title}</small>}{r.you && <Badge tone="accent">YOU</Badge>}</span>
         {r.detail && <span className="hof-list__detail">{r.detail}</span>}
         <span className="hof-list__value">{formatValue(r.value, board.unit)}</span>
       </li>)}
@@ -173,6 +173,7 @@ function Podium({ rows, board }: { rows: HallOfFameRow[]; board: HallOfFameBoard
       return <li key={`${row.rank}-${row.name}`} className={cx("hof-podium__step", `is-${place}`, row.you && "is-you")}>
         <span className="hof-podium__rank">{place === 1 && <Icon name="crown" size={14} />}{rankLabel(row.rank)}{tied(rows, index) && <i>=</i>}</span>
         <strong className="hof-podium__name" title={row.name}>{row.name}</strong>
+        {row.title && <small className="hof-title hof-podium__title">{row.title}</small>}
         <span className="hof-podium__value">{formatValue(row.value, board.unit)}</span>
         {row.detail && <small className="hof-podium__detail">{row.detail}</small>}
         {row.you && <Badge tone="accent">YOU</Badge>}

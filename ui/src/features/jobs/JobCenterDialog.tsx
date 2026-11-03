@@ -169,6 +169,10 @@ function JobCenterBody({ payload, onClose }: { payload: JobCenterDialogPayload; 
         {current&&<button className="jobcenter__text" disabled={!!sent} onClick={()=>issue({type:"jobs.locate",job:offer.name,stage:"sell"})}>Buyer GPS <Icon name="banknote" size={14}/></button>}
         {!current&&<button className="jobcenter__text" disabled={!!sent} onClick={()=>{setFeedback(null);setConfirm("apply");}}>Choose as my job <Icon name="briefcase" size={14}/></button>}
       </div></div>}
+      {current && offer?.route?.duo && !run?.active && <div className="jobcenter__footnote jobcenter__duo">
+        <span><Icon name="users" size={13} />BIG CONTRACT · WITH A COURIER FROM YOUR CREW STANDING BY YOU · ONE BIG ORDER LIST SPLIT IN TWO, A BONUS FOR BOTH WHEN BOTH HALVES LAND</span>
+        <button className="jobcenter__text" disabled={!!sent} onClick={() => { setFeedback(null); issue({ type: "jobs.start", duo: true }); }}>Big Contract · 2 couriers <Icon name="users" size={14} /></button>
+      </div>}
       <div className="jobcenter__footnote"><span><kbd>←</kbd><kbd>→</kbd> Explore jobs <span>·</span> Hover or focus to discover</span>
         {run?.active ? <button className="jobcenter__text" disabled={!!sent || run.busy} onClick={() => setConfirm("cancel")}>Cancel current run · No payment <Icon name="x" size={13} /></button>
           : <span>{offer?.work?"Collect → Process → Sell · Keep your items between sessions":offer?.route?.variable?"Random route · GPS included · Paid by distance":"Work order · GPS included · Paid on completion"}</span>}</div>

@@ -1,5 +1,6 @@
 import { normalizeMission, normalizeParty, normalizeQueue } from "@/features/missions/model";
 import { normalizeActivities } from "@/features/activities/model";
+import { normalizeDailies, normalizeDailiesDialog, normalizeTitles } from "@/features/dailies/model";
 import { create } from "zustand";
 import type { ArmamentPending, ArmamentState, GrenadeState, HotbarState, DialogPayload, HudState, InventorySnapshot, NoticeKindWire, UiState, UiStatePatch } from "@/bridge/protocol";
 import type { ExtraSafezoneRules } from "@/features/safezones/model";
@@ -107,6 +108,7 @@ function normalizeDialog(payload: DialogPayload): DialogPayload {
   if (payload.kind === "inventory") return { ...payload, left: normalizeInventory(payload.left), right: normalizeInventory(payload.right) };
   if (payload.kind === "rental") return { ...payload, spot: { ...payload.spot, stock: Array.isArray(payload.spot.stock) ? payload.spot.stock : [] } };
   if (payload.kind === "jobcenter") return { ...payload, jobs: Array.isArray(payload.jobs) ? payload.jobs : [] };
+  if (payload.kind === "dailies") return normalizeDailiesDialog(payload);
   if (payload.kind === "shop") return { ...payload, items: Array.isArray(payload.items) ? payload.items : [], payments: Array.isArray(payload.payments) ? payload.payments : [], inventory: normalizeInventory(payload.inventory) };
   return payload;
 }
@@ -133,6 +135,8 @@ export const useStore = create<Store>((set) => ({
     ...("party" in patch ? { party: normalizeParty(patch.party) } : {}),
     ...("missionQueue" in patch ? { missionQueue: normalizeQueue(patch.missionQueue) } : {}),
     ...("activities" in patch ? { activities: normalizeActivities(patch.activities) } : {}),
+    ...("dailies" in patch ? { dailies: normalizeDailies(patch.dailies) } : {}),
+    ...("titles" in patch ? { titles: normalizeTitles(patch.titles) } : {}),
     ...(patch.character ? { character: { ...patch.character,
       origins: Array.isArray(patch.character.origins) ? patch.character.origins : [],
       slots: Array.isArray(patch.character.slots) ? patch.character.slots : [],

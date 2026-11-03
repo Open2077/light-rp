@@ -225,6 +225,7 @@ local total = s1.orders + s2.orders
 assert(total >= BC.orders.min and total <= BC.orders.max and math.abs(s1.orders - s2.orders) <= 1, "5 or 6 orders split in two")
 assert(s1.total == 2 * s1.orders and s2.total == 2 * s2.orders, "each half: its pickups, then its drop-offs")
 assert(s1.id ~= s2.id, "two work orders")
+assert(s1.duo and s2.duo and s1.duo.half == "A" and s2.duo.half == "B" and s1.duo.partner ~= nil, "the work order card names the half and the partner")
 assert(#started == 2 and started[1].run.duo.partner == 2 and started[2].run.duo.partner == 1 and started[1].run.duo.id == started[2].run.duo.id, "one contract, two halves")
 assert(not R.start(2), "the partner already has a run")
 ok = R.startDuo(1); assert(not ok, "one at a time")
