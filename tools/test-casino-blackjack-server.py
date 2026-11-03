@@ -32,6 +32,25 @@ function private(t,path)
 end
 function totalUnpaid() local n=0;for _,row in pairs(dbClaims) do if row.paid==0 then n=n+row.amount end end;return n end
 function claimRows() local n=0;for _ in pairs(dbClaims) do n=n+1 end;return n end
+-- Open77.npcs mock (server natives checked with the devkit, build 156): integer
+-- policies, AI pause, transform, the full-body animation task.
+npcBodies={};npcLog={};npcNext=0;refuseRecords={}
+Open77.npcs={ai={tasks=0,frozen=1,native=2},damage={mortal=0,immortal=1,invulnerable=2},tasks={}}
+function Open77.npcs.create(def)
+ assert(type(def.record)=='string' and type(def.damagePolicy)=='number' and type(def.aiMode)=='number')
+ if refuseRecords[def.record] then return nil,'npc_record_invalid' end
+ npcNext=npcNext+1;npcBodies[npcNext]={def=def,ai=true,position=def.position,yaw=def.yaw,bucket=def.bucket};return npcNext
+end
+function Open77.npcs.remove(id) if not npcBodies[id] then return false,'npc_not_found' end;npcBodies[id]=nil;return true end
+function Open77.npcs.setAIEnabled(id,on) assert(type(on)=='boolean');npcBodies[id].ai=on;npcLog[#npcLog+1]='ai:'..tostring(on);return true end
+function Open77.npcs.tasks.clear(id) npcBodies[id].anim=nil;npcLog[#npcLog+1]='clear';return true end
+function Open77.npcs.setTransform(id,t) npcBodies[id].position=t.position;npcBodies[id].yaw=t.yaw;npcLog[#npcLog+1]='transform';return true end
+function Open77.npcs.tasks.playAnimation(id,clip,o) npcLog[#npcLog+1]='anim:'..clip;npcBodies[id].anim={clip=clip,timeoutMs=o.timeoutMs,loop=o.loop};return #npcLog end
+function GetCurrentResourceName() return 'op77_lightrp' end
+function dealerTick(at) if at then wall=at end;LightRpBlackjack.dealerTick(LightRP.tabletopExtra.now()) end
+function dealerGame(id) for _,b in pairs(LightRpBlackjack.dealers) do if b.board.id==id then return b.board.game end end end
+function anims() local n=0;for _,l in ipairs(npcLog) do if l:find('^anim:') then n=n+1 end end;return n end
+function bodies() local list={} for id,b in pairs(npcBodies) do b.id=id;list[#list+1]=b end;return list end
 function untilPhase(id,phase) for i=1,40 do if view(id).phase==phase then return end;wall=wall+1000;step(2000) end error('phase '..phase..' never reached') end
 '''
 def environment():
@@ -42,6 +61,14 @@ def environment():
         lua.execute(path.read_text())
     lua.execute(EXTRA)
     lua.execute('modules.board_games.onDatabaseReady()')
+    # A server restart: fresh module state (and threads), boards reloaded from
+    # the persisted rows, NPCs gone with the previous process.
+    def restart():
+        lua.execute('tasks={};npcBodies={};npcLog={}')
+        for path in SOURCES:
+            lua.execute(path.read_text())
+        lua.execute('modules.board_games.onDatabaseReady()')
+    lua.globals().restart=restart
     return lua
 def scenario(name,script):
     lua=environment();lua.execute(script);print(name+': passed');return lua
@@ -153,6 +180,80 @@ wall=g.turnEndsAt;step(2000);g=view(id,5);assert(g.phase=='result')
 assert(unpaid('inv1')==20 and unpaid('inv2')==0)
 ''')
 
+scenario('dealer NPC: placed behind the shoe facing the players, fallback record, pickup removes it',r"""
+local D=B.DEALER
+-- Table at (10,20,0), rotation 0: the dealer stands at +Y, 0.72 unscaled * 0.65.
+positions[1]={x=10,y=20,z=0,bucket=0}
+local id=place('blackjack',1,10,20);assert(#bodies()==0,'NPCs spawn from the dealer tick, not inside the commit')
+dealerTick()
+local list=bodies();assert(#list==1,'one dealer per table')
+local npc=list[1]
+assert(npc.def.record==D.candidates[1].record and npc.def.damagePolicy==2 and npc.def.aiMode==0 and npc.ai==false,'invulnerable, AI off')
+assert(npc.def.behavior.combatEnabled==false and npc.def.behavior.perceptionEnabled==false and npc.def.behavior.voiceEnabled==false)
+assert(npc.def.persistent==false and npc.def.despawnWhenUnobserved==false and npc.bucket==0)
+assert(math.abs(npc.position.x-10)<1e-9 and math.abs(npc.position.y-(20+.72*.65))<1e-9 and npc.position.z==0,'behind the felt, on the floor')
+assert(npc.yaw==180,'faces the players at -Y')
+dealerTick();assert(#bodies()==1,'no duplicate on the next tick')
+-- The table's rotation turns the stand point and the facing with it.
+local at,yaw=LightRpBlackjack.dealerStand({position={x=0,y=0,z=0},rotation=90})
+assert(math.abs(at.x+.72*.65)<1e-9 and math.abs(at.y)<1e-9 and yaw==270,'rotation 90: dealer at -X facing +X')
+-- Pickup removes the NPC.
+action(1,id,'pickup');assert(not board(id) and #bodies()==0,'picked up: dealer gone')
+assert(next(LightRpBlackjack.dealers)==nil)
+-- A refused record falls back to the next candidate; a table in another bucket keeps it.
+refuseRecords[D.candidates[1].record]=true
+positions[2]={x=30,y=0,z=0,bucket=4}
+local other=place('blackjack',2,30,0);dealerTick()
+list=bodies();assert(#list==1 and list[1].def.record==D.candidates[2].record and list[1].bucket==4,'fallback record, table bucket')
+-- No platform NPCs at all: the table still works, retried a bounded number of times.
+action(2,other,'pickup');assert(#bodies()==0)
+local api=Open77.npcs;Open77.npcs=nil
+local third=place('blackjack',2,40,0)
+for i=1,20 do dealerTick(wall+10000) end
+local tries=0;for _,line in ipairs(logs) do if line:find('no NPC (attempt',1,true) then tries=tries+1 end end
+assert(tries==6,'bounded retries '..tries)
+Open77.npcs=api
+""")
+
+scenario('dealer NPC: the restart restores it, the resource stop removes it',r"""
+positions[1]={x=10,y=20,z=0,bucket=0}
+local id=place('blackjack',1,10,20);dealerTick();assert(#bodies()==1)
+seated(id);game(1,id,'bet',{amount=10});game(1,id,'deal',{})
+-- The resource stops: the dealer goes with it (the platform also clears owned NPCs).
+handlers.onResourceStop('another_resource');assert(#bodies()==1)
+handlers.onResourceStop('op77_lightrp');assert(#bodies()==0)
+restart()
+B=LightRpBlackjack
+assert(#bodies()==0);dealerTick()
+local list=bodies();assert(#list==1 and math.abs(list[1].position.y-(20+.72*.65))<1e-9,'reloaded table gets its dealer back')
+-- Mid-round reload: the cards already on the felt get no gesture.
+dealerTick(wall+500);assert(anims()==0 and bodies()[1].ai==false,'no gesture for old cards')
+""")
+
+scenario('dealer NPC: a subtle gesture while the cards leave the shoe, AI back off after',r"""
+positions[1]={x=0,y=0,z=0,bucket=0}
+stack({'TS','9D','6D','KH','7C','QH','3H'})
+local id=place('blackjack',1);seated(id);dealerTick()
+local npc=bodies()[1];assert(npc.ai==false and anims()==0)
+game(1,id,'bet',{amount=10});game(2,id,'bet',{amount=10});dealerTick();assert(anims()==0 and npc.ai==false,'a bet is no card')
+game(1,id,'deal',{});local g=dealerGame(id)
+dealerTick(g.dealtAt);assert(npc.ai==true and npc.anim and npc.anim.clip==B.DEALER.gesture and npc.anim.loop,'gesture with the first card')
+assert(npc.anim.timeoutMs==g.animEnd-g.dealtAt,'the clip ends with the deal '..tostring(npc.anim.timeoutMs))
+dealerTick(g.animEnd-1);assert(npc.ai==true)
+dealerTick(g.animEnd);assert(npc.ai==false and npc.anim==nil and table.concat(npcLog,',',#npcLog-2)=='clear,ai:false,transform','tasks cleared, AI off, back on its mark after the deal')
+local count=#npcLog;dealerTick(g.actAt);assert(#npcLog==count,'quiet during the turn')
+-- Stands: the hole card turns and the dealer draws; another gesture over that window.
+wall=g.actAt;game(1,id,'stand',{});game(2,id,'stand',{});g=dealerGame(id)
+assert(g.phase=='result' and g.revealAt)
+dealerTick(g.revealAt-1);assert(npc.ai==false,'still during the reveal pause')
+dealerTick(g.revealAt);assert(npc.ai==true and npc.anim.timeoutMs==g.animEnd-g.revealAt)
+dealerTick(g.animEnd);assert(npc.ai==false)
+-- Gesture off: nothing toggles.
+B.DEALER.gesture=nil;count=#npcLog
+wall=g.nextAt;step(2000);game(1,id,'bet',{amount=10});game(1,id,'deal',{});g=dealerGame(id)
+dealerTick(g.dealtAt+100);assert(#npcLog==count and npc.ai==false)
+""")
+
 lua=scenario('public view stays small at the worst case (four 7-card hands, 8-card dealer)',r'''
 local twos={'2S','2H','2D','2C'};local threes={'3S','3H','3D','3C'}
 local list={}
@@ -173,3 +274,9 @@ game=len(json.dumps(pyvalue(entry['game']),separators=(',',':')))
 assert size<3000,size
 print(f'public view size: board entry {size} bytes, game {game} bytes (limit ~3 KB)')
 print('Blackjack server: all money, turn, privacy, timer and size scenarios passed')
+# The dealer's stand point uses the casino tables' model scale: keep it equal to the client's.
+import re
+client_scale=re.search(r'^local SCALE=([\d.]+)',(GAME/'client/core/tabletop_extra.lua').read_text(),re.M).group(1)
+server_scale=re.search(r'^local SCALE=([\d.]+)',(GAME/'server/modules/casino_blackjack.lua').read_text(),re.M).group(1)
+assert client_scale==server_scale,(client_scale,server_scale)
+print(f'dealer NPC scale matches the client tables ({server_scale})')

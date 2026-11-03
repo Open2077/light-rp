@@ -13,9 +13,12 @@ local SHOE={x=.70,y=.03,z=FZ+.04,yaw=0}       -- hidden inside the shoe body
 local EXIT={x=.70,y=-.15,z=FZ+.02}            -- the shoe mouth, where a dealt card appears
 local DISCARD={x=-.70,y=.03,z=FZ+.03}
 local RACK={x=0,y=.065,z=FZ+.04}
-local SWEEP_MS=600
-local SWEEP_STAGGER=200     -- per seat; the dealer's own cards go first
-local PULL_MS=400
+-- Pacing comes from the shared rules (B.SLIDE, B.FLIP, B.CHIPS, B.CHIP_STAGGER,
+-- B.SWEEP); these are the purely visual parts, all inside the server windows.
+local SWEEP_MS=700
+local SWEEP_STAGGER=250     -- per seat; the dealer's own cards go first (4 seats: done in 1.7 s < B.SWEEP)
+local PULL_MS=450
+local BUST_PAUSE=500        -- a busted hand's chips leave once its last card has settled
 local function asset(name) return DEPOT..name..".ent" end
 local BACK,TURN=asset("bj_card_back"),asset("bj_card_turn")
 local FACES={}
@@ -140,8 +143,8 @@ end
 local function handChips(r,hand,s,now,sweep,resultAt)
     local stake=tonumber(hand.stake or hand.bet) or 0
     -- Lost chips go to the dealer's rack: at once on a bust, else at the reveal.
-    local lost=hand.total and hand.total>21 and lastCardEnd(hand)+300
-        or (resultAt and hand.result=="lose" and resultAt+s.index*250)
+    local lost=hand.total and hand.total>21 and lastCardEnd(hand)+BUST_PAUSE
+        or (resultAt and hand.result=="lose" and resultAt+s.index*B.CHIP_STAGGER)
     local pay=resultAt and (hand.payout or 0)-stake or 0
     if lost then soon(lost);soon(lost+B.CHIPS) end
     if sweep then soon(sweep);soon(sweep+SWEEP_MS) end
@@ -155,7 +158,7 @@ local function handChips(r,hand,s,now,sweep,resultAt)
         end
     end
     if pay>0 then
-        local at=resultAt+s.index*250
+        local at=resultAt+s.index*B.CHIP_STAGGER
         if sweep and now>=sweep then
             if now<sweep+SWEEP_MS then stack(r,s.win,pay,s,s.hx,s.hy,FZ+.03,s.hx,s.hy,FZ+.03,nil,0,now,true) end
         elseif now>=at then

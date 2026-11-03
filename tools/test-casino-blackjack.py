@@ -54,18 +54,20 @@ assert(s.dealer.cards[2].h and not s.dealer.cards[2].c and s._hole=='AC','hole c
 assert(B.view(s).dealer.cards[2].c==nil and B.view(s)._hole==nil and B.view(s)._shoe==nil and B.view(s).hands.white._inv==nil)
 -- Card timestamps: the opening deal is staggered on the server clock.
 local t0=s.dealtAt;assert(s.hands.white.cards[1].t==t0 and s.hands.black.cards[1].t==t0+B.DEAL_GAP and s.dealer.cards[1].t==t0+2*B.DEAL_GAP)
-assert(s.hands.white.cards[2].t==t0+3*B.DEAL_GAP and s.dealer.cards[2].t==t0+5*B.DEAL_GAP and s.actAt==t0+5*B.DEAL_GAP+B.SLIDE+B.FLIP)
+assert(s.hands.white.cards[2].t==t0+3*B.DEAL_GAP and s.dealer.cards[2].t==t0+5*B.DEAL_GAP)
+-- A visible pause once the last card has settled, then the turn (and its timer).
+assert(s.animEnd==t0+5*B.DEAL_GAP+B.SLIDE+B.FLIP and s.actAt==s.animEnd+B.DEAL_PAUSE and s.turnEndsAt==s.actAt+B.TURN)
 assert(no(s,'black','stand',{inventory='i2',nowMs=s.actAt-1}):find('Wait'))
 assert(no(s,'white','stand',{inventory='i1',nowMs=s.actAt}):find('not your turn'))
 assert(no(s,'black','stand',{inventory='i9',nowMs=s.actAt}):find('another player'))
 local legal=B.legal(s,'black',s.actAt);assert(legal.hit and legal.stand and legal.double)
 s=ok(s,'black','stand',{inventory='i2',nowMs=s.actAt})
 assert(s.phase=='result' and s.dealer.total==17 and s.dealer.soft and #s.dealer.cards==2,'dealer stands on soft 17')
-assert(s.dealer.cards[2].c=='AC' and s.dealer.cards[2].f>=s.actAt)
+assert(s.dealer.cards[2].c=='AC' and s.dealer.cards[2].f==s.actAt+B.REVEAL_PAUSE and s.revealAt==s.dealer.cards[2].f,'the dealer pauses before the reveal')
 assert(s.hands.white.result=='blackjack' and s.hands.white.payout==25+37)
 assert(s.hands.black.result=='win' and s.hands.black.payout==20)
 local r=B.returns(s);assert(r.i1==62 and r.i2==20 and next(B.stakes(s))==nil)
-assert(s.resultAt>=s.dealer.cards[2].f+B.FLIP and s.nextAt==s.resultAt+B.RESULT)
+assert(s.resultAt==s.dealer.cards[2].f+B.FLIP+B.SETTLE_PAUSE and s.nextAt==s.resultAt+B.RESULT)
 -- Next round keeps the shoe and clears the felt.
 assert(not B.due(s,s.nextAt-1));local left=s.shoe.left
 s=assert(B.settle(s,s.nextAt,5));assert(s.phase=='betting' and s.round==2 and next(s.hands)==nil and #s.dealer.cards==0 and s.shoe.left==left)
@@ -89,7 +91,8 @@ stacked({'TS','9D','6D','KH','6C','TC','2S','8S','5H'})
 s=B.new('duel',1,now);s=ok(s,'white','bet',{amount=10,inventory='i1'});s=ok(s,'black','bet',{amount=10,inventory='i2'})
 s=ok(s,'white','deal',{inventory='i1',seed=1});s=ok(s,'white','stand',{inventory='i1',nowMs=s.actAt})
 s=ok(s,'black','hit',{inventory='i2',nowMs=s.actAt});s=ok(s,'black','hit',{inventory='i2',nowMs=s.actAt})
-assert(s.dealer.total==21 and #s.dealer.cards==3 and s.dealer.cards[3].t>s.dealer.cards[2].f,'dealer draws after the reveal')
+assert(s.dealer.total==21 and #s.dealer.cards==3 and s.dealer.cards[3].t==s.dealer.cards[2].f+B.FLIP+B.DRAW_PAUSE,'dealer draws after the reveal')
+assert(s.resultAt==s.dealer.cards[3].t+B.SLIDE+B.FLIP+B.SETTLE_PAUSE)
 assert(s.hands.white.result=='lose' and s.hands.white.payout==0 and s.hands.black.result=='bust' and s.hands.black.payout==0)
 -- Every live hand busts: the dealer only turns the hole card.
 stacked({'TS','6D','TH','6C','9S'})
@@ -140,6 +143,26 @@ s=B.new('duel',1,now);s=ok(s,'white','bet',{amount=50,inventory='i1'});s=ok(s,'b
 local st=B.stakes(s);assert(st.i1==50 and st.i2==30)
 s=ok(s,'white','deal',{inventory='i1',seed=1});s=ok(s,'white','double',{inventory='i1',nowMs=s.actAt})
 st=B.stakes(s);assert(st.i1==100 and st.i2==30)
+
+-- Pacing reads like a real table: the windows the owner asked for.
+assert(B.BET_WINDOW==15000 and B.TURN==25000)
+assert(B.DEAL_GAP>=700 and B.DEAL_GAP<=900 and B.DEAL_GAP>=B.SLIDE,'0.7-0.9 s between dealt cards, one card in flight at a time')
+assert(B.DEAL_PAUSE>=800 and B.REVEAL_PAUSE>=800)
+assert(B.DRAW_GAP>=1000 and B.DRAW_GAP>B.SLIDE+B.FLIP,'dealer cards about a second apart, each one settles first')
+local shown=B.RESULT-B.SWEEP;assert(shown>=4000 and shown<=5000,'result on the felt 4-5 s before the sweep')
+assert(4*B.CHIP_STAGGER+B.CHIPS<=shown,'every chip has moved before the sweep')
+-- A dealer drawing three cards: hole flip, then one card every DRAW_GAP.
+stacked({'TS','2D','KH','3C','2S','2H','2C','KD'}) -- white T,K=20 ; dealer 2 up, 3 hole, draws 2,2,2,K -> 21
+s=B.new('duel',1,now);s=ok(s,'white','bet',{amount=10,inventory='i1'});s=ok(s,'white','deal',{inventory='i1',seed=1})
+s=ok(s,'white','stand',{inventory='i1',nowMs=s.actAt+2000})
+assert(s.phase=='result' and #s.dealer.cards==6 and s.dealer.total==21)
+assert(s.revealAt==s.actAt+2000+B.REVEAL_PAUSE,'the reveal waits for the last decision')
+for k=4,#s.dealer.cards do assert(s.dealer.cards[k].t==s.dealer.cards[k-1].t+B.DRAW_GAP,'one dealer card every DRAW_GAP') end
+assert(s.animEnd==s.dealer.cards[#s.dealer.cards].t+B.SLIDE+B.FLIP and s.resultAt==s.animEnd+B.SETTLE_PAUSE)
+-- The dealer's natural: still a pause after the deal before the hole card turns.
+stacked({'9S','AD','7H','KC'})
+s=B.new('duel',1,now);s=ok(s,'white','bet',{amount=10,inventory='i1'});s=ok(s,'white','deal',{inventory='i1',seed=1})
+assert(s.phase=='result' and s.result.blackjack and s.revealAt==s.dealtAt+3*B.DEAL_GAP+B.SLIDE+B.FLIP+B.REVEAL_PAUSE)
 
 -- The cut card: past it the next round reshuffles a full shoe.
 B.shuffle=real

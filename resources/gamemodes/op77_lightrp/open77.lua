@@ -281,7 +281,7 @@ permissions {
     "network.client",      -- local player ID + authenticated account for animation state/preferences
     "input.actions",
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
-    "world.npcs",           -- rental desks are NPCs
+    "world.npcs",           -- rental desks, blackjack croupiers (create, setAIEnabled, setTransform, tasks.playAnimation/clear) are NPCs
     "world.markers",        -- native 3D markers at rental desks and the raid's strike telegraphs
     "world.debug",          -- staff-only draft boundary preview, authored missions' perimeter walls, board-game axis/square lines
     "world.query",          -- mission editor aimRay; board placement and pointer projection
