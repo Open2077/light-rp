@@ -190,6 +190,12 @@ above) fill the grid up to `pve.fillTo` racers in total (6, within the course's 
 
 - Load list: `op77_race` after `op77_lightrp` (and `op77_map3d`, `op77_loadscreen`,
   both optional). Hard dependency: `open77_notifications` only.
+- Notices: shown in Light RP's own notice (`exports.op77_lightrp:notice(playerId, { kind,
+  title, body, durationMs })`); `open77_notifications` is the fallback when Light RP cannot
+  show it (stopped, an older core, its page not up). Light RP answers a join from its panel
+  and shows the grid filling or a crew gathering in its queue panel, so there is no "you are
+  in the queue" or "waiting for your crew" notice on top; `/race.join` still replies in chat,
+  and the staff bot-mode sentence, the grid countdown, refusals and in-race messages stay.
 - Permissions: `world.vehicles` (loaner cars, `vehicles.ai`) and `world.npcs` (bots).
 - Activities: `race.trial`, `race.grid`, `race.foot`, `race.pve`. A server that loads
   the resource gets the race vs AI too.

@@ -455,7 +455,7 @@ local function joinPve(def, playerId, options)
     if crewComplete(crew) then
         launchCrew(crew)
     else
-        L.hooks.notice(playerId, "info", def.label, "Waiting for your crew.")
+        -- No "waiting for your crew" notice: Light RP's queue panel shows the crew gathering.
         L.hooks.changed()
     end
     return true
@@ -653,15 +653,11 @@ function L.join(playerId, def, options)
     local squad = squadOf(options, playerId)
     squads[playerId] = squad
     if squad and q.crews[squad.id] == nil then q.crews[squad.id] = E.nowMs() end
-    local waiting = #q.members
-    local minimum = L.minimum(def)
-    if waiting < minimum then
-        L.hooks.notice(playerId, "info", def.label,
-            ("You are in the queue. Waiting for %d more."):format(minimum - waiting))
-    elseif botsHere(def) then
+    -- No "you are in the queue" notice: Light RP answers the panel's join and its queue
+    -- panel shows the grid filling (/race.join replies in chat). Staff bot mode is not on
+    -- the panel: that sentence alone is told, once the grid would go.
+    if #q.members >= L.minimum(def) and botsHere(def) then
         L.hooks.notice(playerId, "info", def.label, "Bot mode: bots fill the grid. Nothing is recorded.")
-    else
-        L.hooks.notice(playerId, "info", def.label, "You are in the queue. The race starts soon.")
     end
     L.hooks.changed()
     return true

@@ -142,7 +142,7 @@ H.test("no NPC natives: bot mode changes nothing, and the log says so once", fun
     H.fireNet("op77_race:join", 2, { activity = "foot" })
     H.advance(1000)
     H.eq(L.windowRemainingMs("foot"), nil, "two runners needed again")
-    H.ok(H.noticeFor(2, "Waiting for 1 more"))
+    H.eq(H.noticeFor(2, "in the queue"), nil, "the queue panel shows it: no queued notice")
     local lobby = H.lastClient("op77_race:queue", 2).args[1]
     H.eq(lobby.minPlayers, 2); H.eq(lobby.bots, nil)
     H.advance(500)

@@ -27,7 +27,8 @@ H.test("street race: one queued player waits, the second opens the join window",
     H.eq(L.size("grid"), 1)
     H.advance(1000)
     H.eq(L.windowRemainingMs("grid"), nil, "no window below the minimum")
-    H.ok(H.noticeFor(1, "Waiting for 1 more"))
+    -- no "you are in the queue" notice: Light RP answers the join, its queue panel shows the grid
+    H.eq(H.noticeFor(1, "in the queue"), nil)
     H.eq(H.core.owner[1], nil, "queued players are not owned yet")
     local lobby = H.lastClient("op77_race:queue", 1).args[1]
     H.eq(lobby.activity, "race.grid"); H.eq(lobby.queued, 1); H.eq(lobby.minPlayers, 2); H.eq(lobby.windowMs, nil)
@@ -212,6 +213,28 @@ H.test("leaving a queue, and status back to idle", function()
         if event.args[1] == "race.foot" then last = event.args[2] end
     end
     H.eq(last.phase, "idle"); H.eq(last.queued, 0)
+end)
+
+H.test("notices go to Light RP's own notice; open77_notifications only when it cannot show them", function()
+    local sent = {}
+    H.coreExports.notice = function(_, playerId, def) sent[#sent + 1] = { id = playerId, def = def }; return true end
+    local before = #H.notices
+    H.fireNet("op77_race:leave", 3) -- in no race, no queue: told so
+    H.eq(#sent, 1); H.eq(sent[1].id, 3)
+    H.eq(sent[1].def.kind, "info"); H.eq(sent[1].def.title, "Race")
+    H.eq(sent[1].def.body, "You are not in a race or a queue."); H.eq(sent[1].def.durationMs, 4000)
+    H.eq(#H.notices, before, "Light RP showed it: no platform toast on top")
+    -- Light RP's page is not up (or the core refuses it): the platform toast takes it.
+    H.coreExports.notice = function() return false, "ui_unavailable" end
+    H.advance(1500)
+    H.fireNet("op77_race:leave", 3)
+    H.ok(H.noticeFor(3, "not in a race"), "fallback")
+    -- A core older than the export (it raises): the same fallback.
+    H.coreExports.notice = nil
+    local fallbacks = #H.notices
+    H.advance(1500)
+    H.fireNet("op77_race:leave", 3)
+    H.eq(#H.notices, fallbacks + 1)
 end)
 
 H.done("heat_flow_test")
