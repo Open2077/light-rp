@@ -418,6 +418,7 @@ function P.resultFor(match, m)
             policeBlocked = m.policeBlocked or nil,
             crew = m.squad ~= nil or nil, forfeit = m.outcome == "left" or nil },
         reputation = m.reputation,
+        recap = ChaseRecap and ChaseRecap.safe("pve", match) or nil, -- Light RP's end-of-match recap (recap.lua)
     }
 end
 
@@ -474,6 +475,7 @@ local function resolveRunner(match, m, outcome, now, detail)
     m.outcome = (m.how == "shake" or m.how == "clock" or m.how == "extraction") and "escaped"
         or (m.how == "left" and "left" or "busted")
     m.resolvedAtMs = now
+    m.bustDetail = m.how == "arrest" and detail or nil -- "stopped" / "out_of_car" (NCPD), for the recap
     m.seconds = match.startedAtMs and math.max(0, math.floor((now - match.startedAtMs) / 1000)) or 0
     m.releaseAtMs = m.how == "left" and now or (now + math.floor((cfg().match.scoreboardSeconds or 8) * 1000))
     m.boarding = nil

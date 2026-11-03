@@ -131,6 +131,7 @@ local function load()
     dofile("server/wanted_rules.lua")
     dofile("server/wanted_lobby.lua")
     dofile("server/wanted.lua")
+    dofile("server/recap.lua")
     dofile("server/main.lua")
     dofile("server/wanted_main.lua")
     -- main.lua: registration + tick; wanted_main.lua: registration + tick.
@@ -362,6 +363,10 @@ do
         if r.placement == 1 then first = id; assert(r.won == true and r.reputation == 40) end
     end
     assert(first == 2, "the survivor with the arrest leads")
+    -- the board for Light RP's end-of-match recap: the table, the same for all three
+    local board = byId[1].recap
+    assert(board and board.matchId == byId[2].recap.matchId and #board.rows == 3 and board.rows[1].id == 2 and board.rows[1].placement == 1)
+    assert(board.rows[1].busts == 1 and board.lines[1].value == "3")
     assert(byId[1].placement == 3 and byId[1].reputation == 25 and byId[3].placement == 2 and byId[3].reputation == 30)
     assert(env.hud[2].state == "resolved" and env.hud[2].placement == 1 and env.hud[2].total == 3)
     assert(noted(2, "#1 of 3"))

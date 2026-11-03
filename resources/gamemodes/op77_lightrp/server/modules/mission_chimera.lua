@@ -757,7 +757,10 @@ RegisterNetEvent("op77_lightrp:raid:hit", function(npcId)
     budget.tokens = budget.tokens - pct
     local _, health = scaling(inst)
     if state.phase == "armored" then pct = pct * B.armored end
-    raid.bodyDamage = (raid.bodyDamage or 0) + (tonumber(state.maxHealth) or 100) * pct / 100 / health
+    local dealt = (tonumber(state.maxHealth) or 100) * pct / 100 / health
+    raid.bodyDamage = (raid.bodyDamage or 0) + dealt
+    -- each operator's share of the Chimera for the end-of-raid recap (recap.lua)
+    if LightRP.recap then pcall(LightRP.recap.credit, id, "bossDamage", dealt) end
 end)
 
 -- A late arrival (reconnect into the page, a resource restart) asks for the state.

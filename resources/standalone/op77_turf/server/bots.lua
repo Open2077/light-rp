@@ -157,9 +157,29 @@ function B.recordsFor(gang)
     return list
 end
 
+-- The objective profile of a Gang Sweep's gang at its difficulty (pve.ai[standard|veteran]).
+local function aiProfile(war)
+    local diff = war.difficulty
+    local profiles = cfg().pve.ai or {}
+    return diff and profiles[diff.ai] or nil
+end
+
+-- The gang of a Gang Sweep carries its difficulty (health, damage, objective profile);
+-- allied bots and every turf-war bot never do.
+local function gangOpts(war, opts)
+    local diff = war.difficulty
+    if diff then
+        opts.health, opts.damage, opts.ai = diff.health, diff.damage, aiProfile(war)
+    end
+    return opts
+end
+
 -- A bot on a side, without a body yet (B.tick creates bodies, paced).
 --   opts.acquire: it may acquire players on its own (a side with no humans).
 --   opts.atZone: its first body stands in its home zone (a Gang Sweep's holders).
+--   opts.role: "push"|"guard" instead of the share rule (a sweep's allies push).
+--   opts.health / opts.damage: multipliers of bots.health and of its hits' cost.
+--   opts.ai: objective profile { pushShare, retaskMs, combatQuietMs, guardRadius }.
 function B.add(war, side, now, opts)
     local bots = ensure(war)
     opts = opts or {}
@@ -168,12 +188,16 @@ function B.add(war, side, now, opts)
     local k = 1
     for _, b in ipairs(bots) do if b.side == side then k = k + 1 end end
     local share = war.kind == "pve" and (cfg().pve.pushShare or 0.34) or (bc().tasks.pushShare or 0.5)
+    if opts.ai and opts.ai.pushShare then share = opts.ai.pushShare end
     local every = share > 0 and math.max(1, math.floor(1 / share + 0.5)) or math.huge
     local callsign = nextName(war)
+    local health = bc().health or 100
+    if opts.health and opts.health ~= 1 then health = math.max(1, math.floor(health * opts.health + 0.5)) end
     local bot = { id = id, warId = war.id, side = side, slot = k, callsign = callsign,
-        name = (bc().prefix or "[BOT] ") .. callsign, role = (k % every == 0) and "push" or "guard",
+        name = (bc().prefix or "[BOT] ") .. callsign, role = opts.role or ((k % every == 0) and "push" or "guard"),
         home = ((k - 1) % #war.zones) + 1, records = B.recordsFor(war.sides[side].gang), recordIndex = 1,
         acquire = opts.acquire == true, atZone = opts.atZone == true, state = "pending", nextBodyAt = now,
+        maxHealth = health, damageScale = opts.damage and opts.damage ~= 1 and opts.damage or nil, ai = opts.ai,
         kills = 0, deaths = 0, captures = 0, holdSeconds = 0, playedMs = 0, task = {} }
     bots[#bots + 1] = bot
     war.boardDirty = true
@@ -181,34 +205,67 @@ function B.add(war, side, now, opts)
 end
 
 -- The bots a war starts with: staff bot mode fills the sides (R.botFill); a Gang Sweep's
--- NPC gang scales with its humans (R.pveBots). Returns { side1, side2 }.
+-- NPC gang scales with its humans and its difficulty (R.sweepGang), plus its allied
+-- bots (war.alliesWanted, options.fill.allies); a core match brings its own numbers
+-- (war.matchBots). Bots on a side with humans need setAttitude (a teammate must be told
+-- not to shoot): without it, none. Returns { side1, side2 }.
 function B.plan(war, now)
     ensure(war)
     local n = Turf.counts(war)
     local want
     if war.kind == "pve" then
-        want = { 0, R.pveBots(n[1] + n[2], cfg().pve) }
+        want = { B.alliesSupported() and (war.alliesWanted or 0) or 0, R.sweepGang(n[1] + n[2], cfg().pve, war.difficulty) }
+        if (war.alliesWanted or 0) > 0 and want[1] == 0 then
+            once("noallies", "bots: allied bots need Open77.npcs.setAttitude: the crew fights alone")
+        end
+    elseif war.matchBots then
+        want = { war.matchBots[1] or 0, war.matchBots[2] or 0 }
+        for s = 1, 2 do
+            if n[s] > 0 and want[s] > 0 and not B.alliesSupported() then
+                once("nomatchallies", "bots: teammate bots need Open77.npcs.setAttitude: side %d plays without them", s)
+                want[s] = 0
+            end
+        end
     else
         want = R.botFill(n, { perSide = bc().perSide, allies = bc().allies == true and B.alliesSupported(),
             maxPerSide = bc().maxPerSide, maxBots = bc().maxBots })
     end
     for s = 1, 2 do
-        for _ = 1, want[s] do B.add(war, s, now, { acquire = n[s] == 0, atZone = war.kind == "pve" and s == 2 }) end
+        for _ = 1, want[s] do
+            if war.kind == "pve" and s == 1 then
+                B.add(war, 1, now, { role = "push" })
+            elseif war.kind == "pve" then
+                B.add(war, 2, now, gangOpts(war, { acquire = true, atZone = true }))
+            else
+                B.add(war, s, now, { acquire = n[s] == 0 })
+            end
+        end
     end
-    log("bots: war %d (%s) planned %d + %d bot(s), %s vs %s", war.id, tostring(war.kind), want[1], want[2],
-        tostring(war.sides[1].gang), tostring(war.sides[2].gang))
+    log("bots: war %d (%s) planned %d + %d bot(s), %s vs %s%s", war.id, tostring(war.kind), want[1], want[2],
+        tostring(war.sides[1].gang), tostring(war.sides[2].gang),
+        war.difficulty and (" at %s (x%.2f gang, x%.2f health, x%.2f damage, %s)"):format(war.difficulty.id,
+            war.difficulty.enemies, war.difficulty.health, war.difficulty.damage, war.difficulty.ai) or "")
     return want
 end
 
--- A Gang Sweep grew (a crew member came in late): more gangers.
+-- A Gang Sweep grew (a crew member came in late): more gangers (at its difficulty), and
+-- an allied bot gives its seat back when the crew and its allies outgrow the sweep's
+-- seats or body budget. Returns the gangers added.
 function B.scale(war, now)
     if war.kind ~= "pve" then return 0 end
+    local P = cfg().pve
     local n = Turf.counts(war)
-    local want = R.pveBots(n[1] + n[2], cfg().pve)
+    local humans = n[1] + n[2]
+    local want = R.sweepGang(humans, P, war.difficulty)
     local added = 0
     while B.count(war, 2) < want do
-        B.add(war, 2, now, { acquire = true })
+        B.add(war, 2, now, gangOpts(war, { acquire = true }))
         added = added + 1
+    end
+    local seats = (P.activity.maxPlayers or 8) - humans
+    local budget = (P.maxBodies or 14) - B.count(war, 2)
+    while B.count(war, 1) > 0 and B.count(war, 1) > math.min(seats, budget) do
+        if not B.retire(war, 1, now) then break end
     end
     return added
 end
@@ -282,7 +339,7 @@ end
 local function createBody(war, bot, point)
     local name = bot.records[bot.recordIndex]
     if name == nil then return nil, "no_record" end
-    local health = bc().health or 100
+    local health = bot.maxHealth or bc().health or 100
     local def = {
         position = { x = point.x, y = point.y, z = point.z }, yaw = point.heading or 0, bucket = war.bucket,
         -- Integers (a string raises in CreateNpc): native combat, mortal.
@@ -374,7 +431,7 @@ local function spawn(war, bot, now)
     bot.npcId, bot.npcKey = npcId, keyOf(npcId)
     B.byNpc[bot.npcKey] = bot
     bot.state = "alive"
-    bot.bornAt, bot.health = now, bc().health or 100
+    bot.bornAt, bot.health = now, bot.maxHealth or bc().health or 100
     bot.lastPos = { x = point.x, y = point.y, z = point.z, bucket = war.bucket }
     bot.task, bot.lastCombatAt, bot.lastAttacker, bot.outSince, bot.outMoved, bot.noAuthSince = {}, nil, nil, nil, nil, nil
     bot.respawning = nil
@@ -464,7 +521,8 @@ end
 
 local function issueGuard(bot, def)
     local t = bc().tasks
-    local radius = math.max(2, math.min(100, (def.radius or 6) + (t.guardRadius or 3)))
+    local leash = bot.ai and bot.ai.guardRadius or t.guardRadius or 3
+    local radius = math.max(2, math.min(100, (def.radius or 6) + leash))
     B.call("tasks.clear", bot.npcId, movementChannel(), "retask")
     B.call("tasks.guard", bot.npcId, { x = def.x, y = def.y, z = def.z }, radius, { speed = t.speed or "run" })
 end
@@ -509,8 +567,9 @@ function B.order(war, bot, now)
     local task = bot.task or {}
     local expired = task.kind == "move" and now - (task.at or 0) >= (t.moveTimeoutMs or 30000)
     if task.zone == zi and task.kind == kind and not expired then return false end
-    if task.at and now - task.at < (t.retaskMs or 6000) then return false end
-    if bot.lastCombatAt and now - bot.lastCombatAt < (t.combatQuietMs or 5000) then return false end
+    local ai = bot.ai or {}
+    if task.at and now - task.at < (ai.retaskMs or t.retaskMs or 6000) then return false end
+    if bot.lastCombatAt and now - bot.lastCombatAt < (ai.combatQuietMs or t.combatQuietMs or 5000) then return false end
     if kind == "move" then issueMove(bot, def) else issueGuard(bot, def) end
     bot.task = { zone = zi, kind = kind, at = now }
     return true
@@ -720,9 +779,12 @@ function B.onBotHit(playerId, npcId, damage, now)
     if (m.protectedUntil or 0) > now then return false, "protected" end
     local d = bc().damage
     if not near(W().position(playerId), bot.lastPos, d.maxDistance or 150) then return false, "too_far" end
+    -- A Gang Sweep's difficulty: the ganger's hit (and the victim's per-second ceiling) costs more.
+    local scale = bot.damageScale or 1
     local amount = amountOf(damage)
+    if scale ~= 1 then amount = amount * scale end
     local w = "w" .. tostring(war.id) .. ":"
-    if not bounded(w .. "p" .. playerId, w .. "b" .. bot.id .. ">" .. playerId, amount, d.perSecond or 90,
+    if not bounded(w .. "p" .. playerId, w .. "b" .. bot.id .. ">" .. playerId, amount, (d.perSecond or 90) * scale,
         d.pairIntervalMs or 90, now) then
         return false, "rate"
     end
@@ -836,8 +898,9 @@ end
 function B.describe(war)
     local lines = {}
     for _, b in ipairs(war.bots or {}) do
-        lines[#lines + 1] = ("    %d %s side=%d %s %s %d/%d/%d record=%s npc=%s"):format(b.id, b.name, b.side, b.role, b.state,
-            b.kills, b.deaths, b.captures, tostring(b.records[b.recordIndex]), tostring(b.npcKey))
+        lines[#lines + 1] = ("    %d %s side=%d %s %s %d/%d/%d record=%s npc=%s hp=%s%s"):format(b.id, b.name, b.side, b.role,
+            b.state, b.kills, b.deaths, b.captures, tostring(b.records[b.recordIndex]), tostring(b.npcKey),
+            tostring(b.maxHealth), b.damageScale and (" dmg x%.2f"):format(b.damageScale) or "")
     end
     return lines
 end

@@ -360,6 +360,7 @@ local function resultFor(match, m, placement)
         reputation = M.reputation(match, m, placement),
         -- With bots (staff bot mode) Light RP never records it, even if bot mode went off meanwhile.
         test = match.hasBots or nil,
+        recap = ChaseRecap and ChaseRecap.safe("wanted", match) or nil, -- Light RP's end-of-match recap (recap.lua)
     }
 end
 

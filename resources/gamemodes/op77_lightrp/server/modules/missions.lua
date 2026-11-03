@@ -531,6 +531,7 @@ local function sendHome(id, point, slot)
             SetPlayerRoutingBucket(id, 0)
             LightRP.log("missions: %s could not be respawned at the point (%s)", name(id), tostring(why))
         end
+        if LightRP.recap then pcall(LightRP.recap.home, id) end -- the end-of-mission recap may open
         CreateThread(function() healOnReturn(id) end)
         return
     end
@@ -543,6 +544,7 @@ local function sendHome(id, point, slot)
             SetPlayerRoutingBucket(id, 0)
             LightRP.log("missions: %s could not be brought back (%s)", name(id), tostring(why))
         end
+        if LightRP.recap then pcall(LightRP.recap.home, id) end -- the end-of-mission recap may open
         healOnReturn(id)
     end)
 end
@@ -561,6 +563,8 @@ local function finish(inst, success, why)
         local ok, err = pcall(script.onEnd, inst, success, why)
         if not ok then LightRP.log("missions: %s onEnd failed: %s", inst.point, tostring(err)) end
     end
+    -- the end-of-mission recap (recap.lua): the crew, the run, the raid's hits
+    if LightRP.recap then pcall(LightRP.recap.missionEnded, inst, success, why, point, d) end
     -- What each finisher earns (crew pot, cooldown, daily cap): server/modules/mission_pay.lua.
     local payouts = {}
     if success and not inst.test then
@@ -571,11 +575,12 @@ local function finish(inst, success, why)
         instanceOf[id] = nil
         setMapJam(id, false)
         local pay = payouts[id] or { amount = 0, detail = "" }
+        local gained = 0
         if success and inst.gig then
             -- a gig counts the tier only (no clear ladder); the money is mission_pay's
             local basis = Missions.rewardBasis(id, d, point, false)
             local rep = basis and (C.reputationGain[basis.id] or 0) or 0
-            Missions.addReputation(id, rep)
+            Missions.addReputation(id, rep); gained = rep
             LightRP.notice(id, { kind = "success", title = "GIG COMPLETE", durationMs = 10000,
                 body = string.format("%s · %s. %s wired by %s%s, +%d reputation%s.", point.title, d.label,
                     LightRP.money and LightRP.money.format(pay.amount) or tostring(pay.amount), inst.gig.fixerName or "your fixer", pay.detail, rep,
@@ -591,7 +596,7 @@ local function finish(inst, success, why)
             -- a crew member carried above what they have unlocked: the reward of their best
             local basis = Missions.rewardBasis(id, d, point, true)
             local rep = basis and (C.reputationGain[basis.id] or 0) or 0
-            Missions.addReputation(id, rep)
+            Missions.addReputation(id, rep); gained = rep
             local opens = Missions.cleared(id, point.id, d.id) == 0 and point.difficulties[(function()
                 for i, other in ipairs(point.difficulties) do if other.id == d.id then return i + 1 end end
             end)() or 0]
@@ -609,6 +614,10 @@ local function finish(inst, success, why)
                     basis ~= d and (" (" .. (basis and sentenceLabel(basis) or "no") .. " reward)") or "") })
         else
             LightRP.notice(id, { kind = "error", title = "MISSION FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the operation was lost.") })
+        end
+        if LightRP.recap then
+            pcall(LightRP.recap.reward, id, "mission|" .. tostring(inst.id), { eddies = pay.amount, eddiesNote = pay.detail,
+                eddiesReason = pay.state ~= "full" and pay.state or nil, reputation = gained })
         end
         sendHome(id, point, slot)
         if inst.loadout then Missions.restoreArms(id) end

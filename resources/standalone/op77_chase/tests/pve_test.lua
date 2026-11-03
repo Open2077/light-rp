@@ -235,6 +235,14 @@ H.runUntil(function() return result(1) ~= nil end, 6, "busted")
 local r = result(1)
 assert(r.won == false and r.stats.outcome == "busted" and r.stats.how == "arrest" and r.stats.police == "ncpd", "busted for stopping")
 assert(r.difficulty == "standard" and r.stats.stars == 3 and r.reputation == 6, "Standard busted: 6 rep, 3 stars")
+-- Light RP's end-of-match recap: the runner, no cop; the stars reached, the result, the time.
+local function line(recap, label) for _, l in ipairs(recap.lines) do if l.label == label then return l.value end end end
+assert(r.recap and r.recap.detail == "NCPD Escape" and #r.recap.rows == 1 and r.recap.rows[1].id == 1 and r.recap.rows[1].outcome == "busted",
+    "the runner on the recap")
+assert(r.recap.rows[1].placement == 2 and r.recap.rows[1].timeMs == r.stats.seconds * 1000)
+assert(line(r.recap, "Police") == "NCPD - Standard" and line(r.recap, "Stars reached") == "3 of 3" and line(r.recap, "Result") == "Busted - stopped"
+    and line(r.recap, "Time") == ("%d:%02d"):format(r.stats.seconds // 60, r.stats.seconds % 60) and #r.recap.lines <= 8, "recap lines")
+for _, l in ipairs(r.recap.lines) do assert(#l.label <= 32 and #l.value <= 64, "recap line limits") end
 assert(cleared(1) and ledger() == 0, "stars 0, ceiling 5, out of the ledger, at once")
 assert(H.noted(1, "You stopped: the NCPD cuffed you"), "told why")
 assert(env.frozen[1] == true, "cuffed until he goes home")
@@ -254,6 +262,8 @@ env.pos[2] = ChasePve.member(match, 2).run.extraction.position
 H.runUntil(function() return result(2) ~= nil end, 3, "extracted")
 r = result(2)
 assert(r.won and r.stats.how == "extraction" and r.reputation == 36 and r.difficulty == "hard", "Hard escape: 36 rep")
+assert(line(r.recap, "Result") == "Escaped - extraction" and line(r.recap, "Stars reached") == "3 of 4" and r.recap.rows[1].escapes == 1
+    and r.recap.rows[1].placement == 1, "recap: escaped at the extraction")
 assert(cleared(2), "cleared")
 closed(match)
 
@@ -423,6 +433,14 @@ assert(H.wanted(2).level == 2 and H.wanted(3).level == 2, "each runner his own w
 env.alive[3] = false
 H.runUntil(function() return result(3) ~= nil end, 2, "runner 3 down")
 assert(cleared(3) and H.wanted(2).level == 2 and match.state == "active", "only his level comes down, the other runs on")
+do
+    local recap = result(3).recap
+    local values = {}
+    for _, l in ipairs(recap.lines) do values[#values + 1] = l.value end
+    local all = table.concat(values, "|")
+    assert(#recap.rows == 2 and line(recap, "Police") == "NCPD - Hard" and line(recap, "Stars reached") == "2 of 4", "crew recap")
+    assert(all:find("Busted %- down %- 2★ %- 0:%d%d") and all:find("Still running %- 2★"), "a line per runner: " .. all)
+end
 H.fire("op77_lightrp:activity:leaveRequest", 2, AID)
 closed(match)
 assert(cleared(2))
@@ -549,6 +567,8 @@ H.moveCar(H.botCar(copsOf(match)[1]), H.offset(rp, 4, 0))
 H.runUntil(function() return result(1) ~= nil end, 30, "busted on the bot car's position")
 r = result(1)
 assert(r.stats.how == "arrest" and r.stats.police == "bots" and r.reputation == ChaseConfig.pve.reputation.busted, "busted by the bots")
+assert(r.recap and #r.recap.rows == 1 and r.recap.rows[1].id == 1 and r.recap.rows[1].outcome == "busted", "the runner on the recap, no cop car")
+assert(r.recap.lines[1].label == "NCPD units" and r.recap.lines[1].value == "3" and r.recap.rows[1].timeMs == r.stats.seconds * 1000)
 assert(#env.wantedLog == 0, "no wanted level with the bots")
 closed(match)
 assert(H.left(1, AID))

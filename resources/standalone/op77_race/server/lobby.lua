@@ -12,6 +12,16 @@
 --     and a launch waits for crew members still on their way (crews.gatherSeconds).
 --   Staff bot mode (RaceActivity.bots): one player opens a queued heat and the launch
 --     fills its grid with bots.
+--   Matches (options.match from Light RP's lobby, street and rooftop races): exactly the
+--     listed players, in a heat of their own (never the public queue, never joined by
+--     anyone else), started once all are in or matches.gatherSeconds after the first,
+--     with options.fill AI racers on the grid (the staff bot mode's filling, capped to the
+--     course and matches.fillTo). A friendly or AI-filled match is unranked; a ranked one
+--     (humans only) is raced and recorded like a heat of our queue.
+--   options.ranked == false (any activity): the run writes no best time and its result
+--     says `unranked`.
+--   Race vs AI difficulty (options.difficulty + options.scaling): how many AI drivers and
+--     how they drive (Config.pve). One per race: a crew's first join sets it.
 local Config = RaceConfig
 local A = RaceActivity
 local E = RaceEngine
@@ -24,8 +34,15 @@ L.queues = queues
 local lastCourse = { trial = {}, pve = {} } -- mode -> playerId -> course chosen last (a later join without one reuses it)
 local squads = {}   -- playerId -> { id, leader, expected = { playerId... } } while queued for a heat with a crew
 L.squads = squads
-local crews = {}    -- squad id -> { id, def, members, expected, leader, options, at } gathering for a race vs AI
+local crews = {}    -- squad id -> { id, def, members, expected, leader, options, difficulty, at } gathering for a race vs AI
 L.crews = crews
+local matches = {}  -- activity key .. "|" .. match id -> { key, id, def, expected, members, fill, friendly, ranked, at } gathering
+L.matches = matches
+local launched = {} -- the same key -> when it started: a late join for it is refused, not a lone heat
+local LAUNCHED_KEEP_MS = 60000
+local lastMatchCourse = {} -- activity key -> course a match ran last (matches rotate apart from the public heat)
+local unranked = {} -- playerId -> true: their join came with options.ranked == false
+L.unranked = unranked
 
 local noop = function() end
 L.hooks = {
@@ -42,6 +59,30 @@ end
 local function gatherMs()
     local crewsConfig = type(Config.crews) == "table" and Config.crews or {}
     return math.floor((tonumber(crewsConfig.gatherSeconds) or 5) * 1000)
+end
+local function matchGatherMs()
+    local seconds = type(Config.matches) == "table" and tonumber(Config.matches.gatherSeconds) or nil
+    if seconds == nil then return gatherMs() end
+    return math.floor(math.max(0, seconds) * 1000)
+end
+-- A count from outside (options.fill): a whole number in 0..64.
+local function count(value)
+    local n = tonumber(value)
+    if n == nil or n ~= n or n <= 0 then return 0 end
+    return math.floor(math.min(n, 64))
+end
+-- { [playerId] = true } for the ones whose entry is unranked (E.start opts.unranked).
+local function unrankedOf(playerIds)
+    local set = {}
+    for _, playerId in ipairs(playerIds) do
+        if unranked[playerId] then set[playerId] = true end
+    end
+    return set
+end
+-- A player we held in a queue or a match without starting them: Light RP still lists
+-- them as queued, so it is told (activityLeave on a queued-only player, never an owned one).
+local function releaseQueued(def, playerId)
+    if A.owner(playerId) == nil then A.call("activityLeave", playerId, def.id, { returnPlayer = false }) end
 end
 
 local function queue(key)
@@ -141,6 +182,18 @@ function L.queuedIn(playerId)
         local index = contains(crew.members, playerId)
         if index then return crew.def.key, index end
     end
+    for _, m in pairs(matches) do
+        local index = contains(m.members, playerId)
+        if index then return m.def.key, index end
+    end
+    return nil
+end
+
+-- The match this player is gathering in, or nil.
+function L.matchIn(playerId)
+    for _, m in pairs(matches) do
+        if contains(m.members, playerId) then return m end
+    end
     return nil
 end
 
@@ -149,6 +202,9 @@ function L.size(key)
     local n = q and #q.members or 0
     for _, crew in pairs(crews) do
         if crew.def.key == key then n = n + #crew.members end
+    end
+    for _, m in pairs(matches) do
+        if m.def.key == key then n = n + #m.members end
     end
     return n
 end
@@ -209,7 +265,19 @@ function L.leave(playerId)
             found = true
         end
     end
+    for key, m in pairs(matches) do
+        local index = contains(m.members, playerId)
+        if index then
+            table.remove(m.members, index)
+            -- no longer waited for either
+            local expected = contains(m.expected, playerId)
+            if expected then table.remove(m.expected, expected) end
+            if #m.members == 0 then matches[key] = nil end
+            found = true
+        end
+    end
     squads[playerId] = nil
+    unranked[playerId] = nil
     if found then L.hooks.changed() end
     return found
 end
@@ -238,9 +306,60 @@ end
 
 local function aiAvailable() return RaceBots ~= nil and RaceBots.capable(false) end
 
+local function bounded(value, low, high, fallback)
+    local n = tonumber(value)
+    if n == nil or n ~= n then return fallback end
+    return math.max(low, math.min(high, n))
+end
+
+-- The difficulty a race vs AI join carries (Light RP: options.difficulty + options.scaling
+-- = { enemies, health, damage, ai }), or nil (no pick: the race plays as configured).
+local function difficultyOf(options)
+    if type(options) ~= "table" then return nil end
+    local scaling = type(options.scaling) == "table" and options.scaling or nil
+    local id = type(options.difficulty) == "string" and options.difficulty:sub(1, 24) or nil
+    if scaling == nil and id == nil then return nil end
+    return { id = id, scaling = scaling or {} }
+end
+L.difficultyOf = difficultyOf
+
+-- How the AI drivers play a difficulty (Config.pve): `damage` sets their pace (top speed
+-- ceiling), `ai` their driving profile; `health` has nothing to scale in a race (the AI
+-- drivers are invulnerable and nobody fights). nil without a difficulty.
+local function botTuning(difficulty)
+    if difficulty == nil then return nil end
+    local pve = type(Config.pve) == "table" and Config.pve or {}
+    local scaling = difficulty.scaling
+    local profiles = type(pve.profiles) == "table" and pve.profiles or {}
+    local profile = profiles[tostring(scaling.ai or "standard")] or profiles.standard or {}
+    local car = type(Config.bots) == "table" and type(Config.bots.car) == "table" and Config.bots.car or {}
+    local damage = bounded(scaling.damage, 0.25, 4, 1)
+    local pace = math.max(0.25, 1 + (damage - 1) * bounded(pve.pacePerDamage, 0, 4, 0.8))
+    local speed = math.min(bounded(pve.maxSpeed, 0.5, 55, 50), bounded(car.speed, 0.5, 55, 30) * pace)
+    return {
+        speed = math.floor(speed * 10 + 0.5) / 10,
+        behavior = profile.behavior, arrivalRadius = profile.arrivalRadius,
+        checkpointRadiusBonus = profile.checkpointRadiusBonus,
+    }
+end
+L.botTuning = botTuning
+
+-- Racers in total for a race vs AI: pve.fillTo, the AI share scaled by the difficulty's
+-- `enemies` (rounded), within the course's grid.
+local function pveFillTo(capacity, players, difficulty)
+    local pve = type(Config.pve) == "table" and Config.pve or {}
+    local fillTo = math.min(capacity, math.floor(tonumber(pve.fillTo) or capacity))
+    if difficulty == nil then return fillTo end
+    local ai = math.max(0, fillTo - players)
+    ai = math.floor(ai * bounded(difficulty.scaling.enemies, 0, 4, 1) + 0.5)
+    return math.min(capacity, players + ai)
+end
+L.pveFillTo = pveFillTo
+
 -- Starts a race vs AI for these players (one, or a crew). The grid takes as many as the
--- course has slots; AI drivers fill it up to pve.fillTo. Returns true, or false and a sentence.
-local function startPve(def, playerIds, options, chooser)
+-- course has slots; AI drivers fill it up to pve.fillTo (scaled by the difficulty).
+-- Returns true, or false and a sentence.
+local function startPve(def, playerIds, options, chooser, difficulty)
     local course, why = courseFor(def, chooser or playerIds[1], options)
     if course == nil then return false, why end
     -- alone and no AI: that would be a time trial without its board
@@ -255,9 +374,10 @@ local function startPve(def, playerIds, options, chooser)
         end
     end
     for _, playerId in ipairs(take) do lastCourse.pve[playerId] = course.id end
-    local pve = type(Config.pve) == "table" and Config.pve or {}
-    local fillTo = math.min(capacity, math.floor(tonumber(pve.fillTo) or capacity))
-    local inst, reason = E.start(def, course, take, { fillTo = fillTo })
+    local inst, reason = E.start(def, course, take, {
+        fillTo = pveFillTo(capacity, #take, difficulty), unranked = unrankedOf(take),
+        difficulty = difficulty and difficulty.id or nil, botTuning = botTuning(difficulty),
+    })
     if inst == nil then return false, sentence(reason) end
     return true
 end
@@ -278,7 +398,7 @@ local function launchCrew(crew)
     if #members == 0 then return false, "nobody_left" end
     -- the leader's choice of course when the leader came; else the first to join
     local chooser = (crew.leader and contains(members, crew.leader)) and crew.leader or members[1]
-    local ok, why = startPve(crew.def, members, crew.options, chooser)
+    local ok, why = startPve(crew.def, members, crew.options, chooser, crew.difficulty)
     if not ok then
         for _, playerId in ipairs(members) do L.hooks.notice(playerId, "error", crew.def.label, why) end
     end
@@ -288,7 +408,7 @@ end
 
 local function joinPve(def, playerId, options)
     local squad = squadOf(options, playerId)
-    if squad == nil then return startPve(def, { playerId }, options) end
+    if squad == nil then return startPve(def, { playerId }, options, nil, difficultyOf(options)) end
     local crew = crews[squad.id]
     if crew == nil then
         crew = { id = squad.id, def = def, members = {}, expected = squad.expected, leader = squad.leader, at = E.nowMs() }
@@ -296,12 +416,170 @@ local function joinPve(def, playerId, options)
     end
     if not contains(crew.members, playerId) then crew.members[#crew.members + 1] = playerId end
     if crew.options == nil or squad.leader == playerId then crew.options = options end
+    -- one difficulty per race: the first one a crew join carries, never mixed
+    if crew.difficulty == nil then crew.difficulty = difficultyOf(options) end
     if crewComplete(crew) then
         launchCrew(crew)
     else
         L.hooks.notice(playerId, "info", def.label, "Waiting for your crew.")
         L.hooks.changed()
     end
+    return true
+end
+
+-- ---------------------------------------------------------------- matches --
+
+-- The match Light RP formed for this join (options.match = { id, friendly, ranked,
+-- players... }), or nil. Only street and rooftop races play matches; elsewhere the key
+-- is ignored. Ranked only when Light RP says so (options.ranked / match.ranked true) and
+-- nothing says otherwise: a friendly or AI-filled match is unranked, and so is a match
+-- from a core that does not say.
+local function matchOf(options, playerId)
+    local m = type(options) == "table" and options.match or nil
+    if type(m) ~= "table" or m.id == nil then return nil end
+    local id = tostring(m.id):sub(1, 64)
+    if id == "" then return nil end
+    local expected = {}
+    for _, member in ipairs(type(m.players) == "table" and m.players or {}) do
+        local raw = type(member) == "table" and (member.id or member.playerId) or member
+        local memberId = math.tointeger(tonumber(raw))
+        if memberId and memberId > 0 and not contains(expected, memberId) then expected[#expected + 1] = memberId end
+        if #expected >= 64 then break end
+    end
+    if not contains(expected, playerId) then expected[#expected + 1] = playerId end
+    local friendly = m.friendly == true
+    local ranked = (options.ranked == true or m.ranked == true) and options.ranked ~= false and m.ranked ~= false
+        and not friendly
+    return { id = id, friendly = friendly, ranked = ranked, expected = expected }
+end
+L.matchOf = matchOf
+
+-- AI racers a match join asks for: options.fill (a race has no sides, every bot is an
+-- opponent: enemies + allies), else a team shape's per-team bots. The same on every
+-- join of the match: the largest is kept, never added up per player.
+local function fillOf(options)
+    local fill = type(options) == "table" and options.fill or nil
+    local n = 0
+    if type(fill) == "table" then n = count(fill.enemies) + count(fill.allies) end
+    local m = type(options) == "table" and type(options.match) == "table" and options.match or nil
+    if n == 0 and m and type(m.bots) == "table" then
+        for _, perTeam in ipairs(m.bots) do n = n + count(perTeam) end
+    end
+    return math.min(n, 64)
+end
+L.fillOf = fillOf
+
+-- Every listed player is here, or will not come (gone, racing elsewhere).
+local function matchComplete(m)
+    for _, playerId in ipairs(m.expected) do
+        if not contains(m.members, playerId) and connected(playerId) and not E.busy(playerId) then return false end
+    end
+    return true
+end
+
+-- AI racers a match gets: what it asked for, within the course and matches.fillTo, and
+-- none on a server that cannot put bots of that kind on the course. A ranked match is
+-- humans only: never any.
+local function matchBots(m, def, capacity, players)
+    if m.fill <= 0 then return 0 end
+    if m.ranked then
+        log(("%s match %s is ranked: its fill (%d) is ignored"):format(def.id, m.id, m.fill))
+        return 0
+    end
+    local caps = type(Config.matches) == "table" and type(Config.matches.fillTo) == "table" and Config.matches.fillTo or {}
+    local total = math.min(capacity, math.floor(tonumber(caps[def.mode]) or capacity))
+    local room = math.max(0, total - players)
+    if room == 0 then return 0 end
+    if RaceBots == nil or not RaceBots.capable(def.mode == "foot") then return 0, "no_ai" end
+    return math.min(m.fill, room)
+end
+
+-- Starts the match's own heat with whoever made it.
+local function launchMatch(m)
+    if matches[m.key] == m then matches[m.key] = nil end
+    launched[m.key] = E.nowMs()
+    local def = m.def
+    local members = {}
+    for _, playerId in ipairs(m.members) do
+        if connected(playerId) and not E.busy(playerId) then members[#members + 1] = playerId end
+    end
+    if #members == 0 then
+        L.hooks.changed()
+        return false, "nobody_left"
+    end
+    local course = RaceCourses.pick(def.mode, lastMatchCourse[def.key])
+    if course == nil then
+        for _, playerId in ipairs(members) do
+            L.hooks.notice(playerId, "error", def.label, REASONS.course_unavailable)
+            releaseQueued(def, playerId)
+        end
+        L.hooks.changed()
+        return false, "course_unavailable"
+    end
+    local capacity = RaceCourses.capacity(course, def.maxPlayers)
+    local take = {}
+    for _, playerId in ipairs(members) do
+        if #take < capacity then
+            take[#take + 1] = playerId
+        else
+            L.hooks.notice(playerId, "error", def.label, "Your match is bigger than this course's grid: you were left out.")
+            releaseQueued(def, playerId)
+        end
+    end
+    local bots, why = matchBots(m, def, capacity, #take)
+    if why == "no_ai" then
+        for _, playerId in ipairs(take) do
+            L.hooks.notice(playerId, "info", def.label, "No AI racer is available on this server: the match races without them.")
+        end
+    end
+    lastMatchCourse[def.key] = course.id
+    -- unranked: every racer of it; ranked: raced and recorded like a heat of our queue
+    local set = {}
+    if not m.ranked then
+        for _, playerId in ipairs(take) do set[playerId] = true end
+    end
+    local inst, reason = E.start(def, course, take, {
+        fillTo = bots > 0 and (#take + bots) or nil, match = m.id, friendly = m.friendly, unranked = set,
+    })
+    if inst == nil then
+        log(("%s match %s launch failed: %s"):format(def.id, m.id, tostring(reason)))
+        for _, playerId in ipairs(take) do
+            L.hooks.notice(playerId, "error", def.label, sentence(reason))
+            releaseQueued(def, playerId)
+        end
+    elseif m.ranked then
+        for _, playerId in ipairs(inst.members) do L.hooks.notice(playerId, "info", def.label, "Ranked match: the race is on.") end
+    elseif RaceBots == nil or RaceBots.count(inst) == 0 then
+        -- with AI racers, their notice already says unranked
+        local text = m.friendly and "Friendly match: unranked, nothing is recorded."
+            or "Unranked match: nothing is recorded."
+        for _, playerId in ipairs(inst.members) do L.hooks.notice(playerId, "info", def.label, text) end
+    end
+    L.hooks.changed()
+    return inst ~= nil, reason
+end
+L.launchMatch = launchMatch
+
+local function joinMatch(def, playerId, options, info)
+    local key = def.key .. "|" .. info.id
+    if launched[key] then
+        releaseQueued(def, playerId)
+        return false, "Your match has already started without you."
+    end
+    local m = matches[key]
+    if m == nil then
+        m = { key = key, id = info.id, def = def, expected = info.expected, members = {}, fill = 0,
+            friendly = info.friendly, ranked = info.ranked, at = E.nowMs() }
+        matches[key] = m
+    elseif not contains(m.expected, playerId) then
+        -- every join of a match lists the same players: the first one's list holds (a
+        -- member who left it is not waited for again)
+        m.expected[#m.expected + 1] = playerId
+    end
+    if not contains(m.members, playerId) then m.members[#m.members + 1] = playerId end
+    m.fill = math.max(m.fill, fillOf(options))
+    -- the others' joins arrive in the same tick: no notice while gathering
+    if matchComplete(m) then launchMatch(m) else L.hooks.changed() end
     return true
 end
 
@@ -314,13 +592,23 @@ function L.join(playerId, def, options)
     if def == nil then return false, "Unknown race." end
     if E.busy(playerId) then return false, "You are already in a race." end
     local current = L.queuedIn(playerId)
-    if current == def.key then return true end
+    local gathering = L.matchIn(playerId)
+    -- a match Light RP formed: its own heat, out of any queue of ours
+    local match = def.queued and matchOf(options, playerId) or nil
+    if match then
+        if gathering and gathering.def == def and gathering.id == match.id then return true end
+        if current ~= nil then L.leave(playerId) end
+        if #RaceCourses.ids(def.mode) == 0 then return false, REASONS.course_unavailable end
+        return joinMatch(def, playerId, options, match)
+    end
+    if current == def.key and gathering == nil then return true end
     if current ~= nil then L.leave(playerId) end
+    unranked[playerId] = (type(options) == "table" and options.ranked == false) or nil
     if def.mode == "trial" then
         local course, why = courseFor(def, playerId, options)
         if course == nil then return false, why end
         lastCourse.trial[playerId] = course.id
-        local inst, reason = E.start(def, course, { playerId })
+        local inst, reason = E.start(def, course, { playerId }, { unranked = unrankedOf({ playerId }) })
         if inst == nil then return false, sentence(reason) end
         return true
     end
@@ -406,7 +694,7 @@ function L.launch(def, now, force)
     q.lastCourse = course.id
     q.botWindow = nil
     local fillTo = botFill(def, capacity)
-    local inst, reason = E.start(def, course, chosen, fillTo and { fillTo = fillTo } or nil)
+    local inst, reason = E.start(def, course, chosen, { fillTo = fillTo, unranked = unrankedOf(chosen) })
     if inst == nil then
         log(("%s launch failed: %s"):format(def.id, tostring(reason)))
         for _, playerId in ipairs(chosen) do L.hooks.notice(playerId, "error", def.label, sentence(reason)) end
@@ -472,10 +760,27 @@ function L.tick(now)
             launchCrew(crew)
         end
     end
+    -- matches: go once every listed player is in, or with whoever made it after the wait
+    for key, m in pairs(matches) do
+        for index = #m.members, 1, -1 do
+            local playerId = m.members[index]
+            if not connected(playerId) or E.busy(playerId) then table.remove(m.members, index) end
+        end
+        if #m.members == 0 then
+            matches[key] = nil
+            L.hooks.changed()
+        elseif matchComplete(m) or now - m.at >= matchGatherMs() then
+            launchMatch(m)
+        end
+    end
+    for key, at in pairs(launched) do
+        if now - at >= LAUNCHED_KEEP_MS then launched[key] = nil end
+    end
 end
 
 function L.forget(playerId)
     L.leave(playerId)
+    unranked[playerId] = nil
     for _, remembered in pairs(lastCourse) do remembered[playerId] = nil end
 end
 
@@ -483,4 +788,7 @@ function L.clear()
     for key in pairs(queues) do queues[key] = nil end
     for squadId in pairs(crews) do crews[squadId] = nil end
     for playerId in pairs(squads) do squads[playerId] = nil end
+    for key in pairs(matches) do matches[key] = nil end
+    for key in pairs(launched) do launched[key] = nil end
+    for playerId in pairs(unranked) do unranked[playerId] = nil end
 end

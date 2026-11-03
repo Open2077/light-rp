@@ -47,6 +47,7 @@ server_script "server/wanted.lua"
 server_script "server/escape_rules.lua"
 server_script "server/police.lua"
 server_script "server/pve.lua"
+server_script "server/recap.lua" -- the board each result carries for Light RP's end-of-match recap
 server_script "server/main.lua"
 server_script "server/wanted_main.lua"
 server_script "server/pve_main.lua"

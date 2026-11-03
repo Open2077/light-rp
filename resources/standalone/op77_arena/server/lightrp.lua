@@ -23,7 +23,12 @@
 --              recorded (results go out as `test`, no career, round or rating row)
 --   crews      options.squad: one crew, one instance, one side (`Arena.planRoster`)
 --   PvE        arena.pve: the players, one side, against engine bots; recorded with
---              lower reputation and a minimum round length, never rated
+--              lower reputation and a minimum round length, never rated. The pick
+--              (options.difficulty / options.scaling) scales the enemy bots; allied
+--              bots (options.fill.allies) fight on the players' side
+--   lobby      join options v2: options.ranked (false: no rating, career, round row,
+--              reputation; results say `unranked`), options.match (a match Light RP
+--              formed: an instance of its own, its sides, its bots, never strangers)
 
 local Config = DeathmatchConfig
 local DM = Deathmatch
@@ -59,6 +64,10 @@ H.botRounds = setmetatable({}, { __mode = "k" }) -- FFA round / arena match -> t
 H.squads = {}        -- playerId -> { id, leader, members, atMs } (options.squad of their last join)
 H.teamQueuedAt = {}  -- playerId -> ms they entered a team queue
 H.teamUpgraded = {}  -- playerId -> true: their team queue entry accepts bots
+H.lobby = {}         -- playerId -> { unranked, friendly, matchId, fill, level } (options of their last join)
+H.matches = {}       -- match id -> a match Light RP formed (options.match), gathering or formed
+H.pveJoining = nil   -- the PvE difficulty of the join running now (an instance opening reads it)
+H.forming = nil      -- the Light RP match being formed through the engine queue (H.planRoster)
 
 local engine = {
     place = DM.place,
@@ -215,6 +224,7 @@ end
 -- Never for an entered player: activityLeave would release them.
 function H.clearPending(playerId, activityId)
     if H.entered[playerId] ~= nil then return end
+    H.lobby[playerId] = nil
     Core.leave(playerId, activityId, { returnPlayer = false })
 end
 
@@ -256,7 +266,9 @@ function H.track(playerId, activityId, instance)
     H.entered[playerId] = entry
     H.released[playerId] = nil
     H.recent[playerId] = nil
-    TriggerClientEvent("op77_arena:entered", playerId, { activity = activityId, label = labelOf(activityId) })
+    local lobby = H.lobby[playerId]
+    TriggerClientEvent("op77_arena:entered", playerId, { activity = activityId, label = labelOf(activityId),
+        unranked = (lobby ~= nil and lobby.unranked) or nil, friendly = (lobby ~= nil and lobby.friendly) or nil })
     log(("%d entered %s (instance %s)"):format(playerId, activityId, tostring(entry.instanceId)))
     return entry
 end
@@ -281,7 +293,9 @@ DM.place = function(playerId, instance, reason, graceMs, mark)
     local entry = H.entered[id]
     if entry == nil then
         local activityId = activityOfInstance(instance)
-        local ok, why = Core.enter(id, activityId)
+        -- PvE: the difficulty this instance really plays (one per instance).
+        local level = instance.ruleset == "pve" and instance.pveLevel or nil
+        local ok, why = Core.enter(id, activityId, level ~= nil and { difficulty = level.id } or nil)
         if not ok then
             H.tell(id, "warning", labelOf(activityId), why)
             H.clearPending(id, activityId)
@@ -375,6 +389,7 @@ function H.forget(playerId)
     H.entered[playerId] = nil
     H.returning[playerId] = nil
     H.released[playerId] = nil
+    H.lobby[playerId] = nil
 end
 
 -- A downed player is stood up where they lie before Light RP takes them home.
@@ -444,6 +459,7 @@ DM.sendToLobby = H.returnHome
 -- away again; nothing here moves a bot or picks its target.
 
 local PVE_PLAYERS, PVE_BOTS = 1, 2 -- the two sides of a PvE round
+local ALLY = "ally"                -- bots.lua tag of a PvE bot on the players' side
 
 local warned = {}
 local function warnOnce(key, text)
@@ -503,15 +519,48 @@ local function ffaKey(instance)
     return "ffa"
 end
 
+-- A bot's record in server/bots.lua (nil when gone or unavailable).
+function H.botRecord(participantId)
+    local module = DeathmatchBots
+    if type(module) ~= "table" or type(module.get) ~= "function" then return nil end
+    local ok, bot = pcall(module.get, participantId)
+    return ok and type(bot) == "table" and bot or nil
+end
+
+-- A PvE bot fighting on the players' side (options.fill.allies).
+function H.isAlly(participantId)
+    local id = tonumber(participantId)
+    if id == nil or id >= 0 then return false end
+    local bot = H.botRecord(math.floor(id))
+    return bot ~= nil and bot.tag == ALLY
+end
+
+function H.allyCount(instance)
+    if instance == nil or type(instance.actors) ~= "table" then return 0 end
+    local count = 0
+    for id in pairs(instance.actors) do
+        if type(id) == "number" and id < 0 and H.isAlly(id) then count = count + 1 end
+    end
+    return count
+end
+
 -- Paced spawns still on their way: bots.lua parks what its spacing refuses and
--- spends one per tick, so a fill is not complete when `add` returns.
-local function inFlight(instance)
+-- spends one per tick, so a fill is not complete when `add` returns. `role` ALLY
+-- or "enemy" splits a PvE fill (allies are always asked for first).
+local function inFlight(instance, role)
     local fill = instance ~= nil and H.botFill[instance] or nil
     if fill == nil then return 0 end
     if now() - fill.atMs >= L.bots.inFlightMs then H.botFill[instance] = nil return 0 end
     local left = fill.queued - math.max(0, H.botCount(instance) - fill.base)
     if left <= 0 then H.botFill[instance] = nil return 0 end
-    return left
+    if role == nil then return left end
+    local allies = 0
+    if (fill.allyQueued or 0) > 0 then
+        allies = math.max(0, fill.allyQueued - math.max(0, H.allyCount(instance) - (fill.allyBase or 0)))
+    end
+    allies = math.min(allies, left)
+    if role == ALLY then return allies end
+    return left - allies
 end
 H.inFlight = inFlight
 
@@ -537,16 +586,84 @@ function H.hadBots(instance)
     return false
 end
 
--- How many bots an FFA instance should hold now: PvE scales with the players;
--- bot mode completes Combat Zone / Blade Night to `L.bots.fillTarget` bodies.
+-- The PvE difficulty (options.difficulty + options.scaling from Light RP): one id
+-- and the enemy multipliers. The AI name maps onto the engine's profiles
+-- (DeathmatchConfig.bots.profiles: relaxed | standard | veteran).
+local function factor(value, low, high)
+    local number = tonumber(value)
+    if number == nil or number ~= number then return 1.0 end
+    return math.max(low, math.min(high, number))
+end
+
+function H.pveLevel(options)
+    options = type(options) == "table" and options or {}
+    local id = type(options.difficulty) == "string" and options.difficulty ~= "" and options.difficulty:sub(1, 24) or "standard"
+    local scaling = type(options.scaling) == "table" and options.scaling or {}
+    local profile = L.pve.profile
+    local profiles = type(Config.bots) == "table" and Config.bots.profiles or nil
+    if type(scaling.ai) == "string" and type(profiles) == "table" and profiles[scaling.ai] ~= nil then
+        profile = scaling.ai
+    end
+    return {
+        id = id,
+        enemies = factor(scaling.enemies, 0.5, 3.0),
+        health = factor(scaling.health, 0.5, 4.0),
+        damage = factor(scaling.damage, 0.5, 3.0),
+        profile = profile,
+    }
+end
+
+function H.pveLevelOf(instance)
+    return (instance ~= nil and instance.pveLevel) or H.pveJoining or H.pveLevel(nil)
+end
+
+-- Allied bots asked for by the people in a PvE instance: the largest ask (a crew's
+-- joins all carry the same), never one per player.
+function H.alliesAsked(instance)
+    local asked = 0
+    for _, id in ipairs(DM.instances.humans(instance)) do
+        local lobby = H.lobby[id]
+        local fill = lobby ~= nil and lobby.fill or nil
+        if fill ~= nil and (fill.allies or 0) > asked then asked = fill.allies end
+    end
+    return asked
+end
+
+-- PvE: allied bots (the free player seats, as asked) and enemy bots. The enemies
+-- scale on the players' side, people AND allies (a crew of 4 with 2 allies faces
+-- what 6 people would), times the difficulty, capped by `enemiesMax` and by the
+-- instance's bodies.
+function H.pveTargets(instance)
+    if instance == nil or instance.closed then return 0, 0 end
+    local humans = #DM.instances.humans(instance)
+    if humans == 0 then return 0, 0 end
+    local P = L.pve
+    local allies = math.max(0, math.min(H.alliesAsked(instance), (tonumber(P.maxPlayers) or 0) - humans))
+    local players = humans + allies
+    local base = math.min(P.botsMax, P.botsFirst + P.botsPerPlayer * (players - 1))
+    local enemies = math.floor(base * H.pveLevelOf(instance).enemies + 0.5)
+    if tonumber(P.enemiesMax) then enemies = math.min(enemies, math.max(P.botsMax, P.enemiesMax)) end
+    local capacity = tonumber(instance.capacity) or 0
+    if capacity > 0 then
+        allies = math.min(allies, math.max(0, capacity - humans))
+        enemies = math.min(enemies, math.max(0, capacity - humans - allies))
+    end
+    return allies, math.max(0, enemies)
+end
+
+-- How many bots an FFA instance should hold now: PvE scales with the players
+-- (allies + enemies); a match instance holds the bots its players asked for; bot
+-- mode completes Combat Zone / Blade Night to `L.bots.fillTarget` bodies.
 function H.botTarget(instance)
     if instance == nil or instance.closed or instance.format ~= "ffa" then return 0 end
     local humans = #DM.instances.humans(instance)
     if humans == 0 then return 0 end
     local target
     if isPve(instance) then
-        local P = L.pve
-        target = math.min(P.botsMax, P.botsFirst + P.botsPerPlayer * (humans - 1))
+        local allies, enemies = H.pveTargets(instance)
+        return allies + enemies
+    elseif instance.lobby ~= nil then
+        target = tonumber(instance.lobby.enemies) or 0
     elseif botsFor(ffaKey(instance)) then
         target = L.bots.fillTarget - humans
     else
@@ -568,25 +685,71 @@ function H.clearBots(instance, reason)
     return removed
 end
 
+-- One `DeathmatchBots.add` (the only way bots are asked for). Returns added, queued.
+local function askBots(instance, missing, profile, options)
+    local added, why, queued = botsCall("add", instance.id, missing, profile, options)
+    if added == nil then return 0, 0 end
+    added, queued = tonumber(added) or 0, tonumber(queued) or 0
+    if added + queued < missing then
+        log(("instance %s: %d of %d bot(s) requested (%s)"):format(tostring(instance.id), added + queued, missing, tostring(why)))
+    end
+    return added, queued
+end
+
+-- PvE: allies first (plain, never scaled), then the enemies at the difficulty.
+local function fillPve(instance)
+    local allies, enemies = H.pveTargets(instance)
+    local pending, pendingAllies = inFlight(instance), inFlight(instance, ALLY)
+    local haveAllies = H.allyCount(instance)
+    local haveEnemies = H.botCount(instance) - haveAllies
+    local missingAllies = math.max(0, allies - haveAllies - pendingAllies)
+    local missingEnemies = math.max(0, enemies - haveEnemies - (pending - pendingAllies))
+    if missingAllies + missingEnemies <= 0 then return 0 end
+    local aAdded, aQueued, eAdded, eQueued = 0, 0, 0, 0
+    if missingAllies > 0 then
+        aAdded, aQueued = askBots(instance, missingAllies, L.pve.allyProfile, { tag = ALLY, team = PVE_PLAYERS })
+    end
+    if missingEnemies > 0 then
+        local level = H.pveLevelOf(instance)
+        eAdded, eQueued = askBots(instance, missingEnemies, level.profile,
+            { team = PVE_BOTS, healthScale = level.health, damageScale = level.damage })
+    end
+    local asked = aAdded + aQueued + eAdded + eQueued
+    if asked > 0 then
+        H.botFill[instance] = { base = H.botCount(instance), queued = aQueued + eQueued + pending, atMs = now(),
+            allyBase = H.allyCount(instance), allyQueued = aQueued + pendingAllies }
+        markBots(instance)
+    end
+    return asked
+end
+
 -- Tops an FFA instance up to its target. Returns the bots asked for.
 function H.fillBots(instance)
+    if isPve(instance) then return fillPve(instance) end
     local target = H.botTarget(instance)
     if target <= 0 then return 0 end
     local pending = inFlight(instance)
     local missing = target - H.botCount(instance) - pending
     if missing <= 0 then return 0 end
-    local profile = isPve(instance) and L.pve.profile or L.bots.profile
-    local added, why, queued = botsCall("add", instance.id, missing, profile)
-    if added == nil then return 0 end
-    added, queued = tonumber(added) or 0, tonumber(queued) or 0
+    local added, queued = askBots(instance, missing, L.bots.profile, nil)
     if added + queued > 0 then
         H.botFill[instance] = { base = H.botCount(instance), queued = queued + pending, atMs = now() }
         markBots(instance)
     end
-    if added + queued < missing then
-        log(("instance %s: %d of %d bot(s) requested (%s)"):format(tostring(instance.id), added + queued, missing, tostring(why)))
-    end
     return added + queued
+end
+
+-- More bots than the instance should hold (in total, or per PvE side)?
+function H.botSurplus(instance)
+    local bots = H.botCount(instance) + inFlight(instance)
+    if bots <= 0 then return false end
+    if bots > H.botTarget(instance) then return true end
+    if isPve(instance) then
+        local allies, enemies = H.pveTargets(instance)
+        local haveAllies = H.allyCount(instance) + inFlight(instance, ALLY)
+        return haveAllies > allies or bots - haveAllies > enemies
+    end
+    return false
 end
 
 -- The last player is gone: the bots go too, even while bot mode is on.
@@ -604,7 +767,8 @@ function H.setBotMode(on, why)
     H.botMode = on
     log(("bot mode %s (%s)"):format(on and "ON" or "off", tostring(why)))
     for _, instance in pairs(DM.instances.registry) do
-        if not instance.closed and instance.format == "ffa" and not isPve(instance) then
+        -- A match instance keeps the bots its players asked for, whatever the switch.
+        if not instance.closed and instance.format == "ffa" and not isPve(instance) and instance.lobby == nil then
             if on then
                 H.fillBots(instance)
             else
@@ -624,7 +788,8 @@ end
 if type(engine.setTeam) == "function" then
     DM.setTeam = function(playerId, team, instance)
         if isPve(instance) and (tonumber(team) or 0) == 0 then
-            team = (tonumber(playerId) or 0) > 0 and PVE_PLAYERS or PVE_BOTS
+            local id = tonumber(playerId) or 0
+            team = (id > 0 or H.isAlly(id)) and PVE_PLAYERS or PVE_BOTS
         end
         return engine.setTeam(playerId, team, instance)
     end
@@ -634,23 +799,26 @@ if type(engine.sideOf) == "function" then
     DM.arena.sideOf = function(participantId)
         local id = tonumber(participantId)
         if id ~= nil then
-            local instance
+            local instance, ally
             if id > 0 then
                 instance = DM.instances.of(id)
-            elseif type(DeathmatchBots) == "table" and type(DeathmatchBots.get) == "function" then
-                local ok, bot = pcall(DeathmatchBots.get, math.floor(id))
-                local instanceId = ok and type(bot) == "table" and tonumber(bot.instanceId) or nil
+            else
+                local bot = H.botRecord(math.floor(id))
+                local instanceId = bot ~= nil and tonumber(bot.instanceId) or nil
                 instance = instanceId and DM.instances.registry[instanceId] or nil
+                ally = bot ~= nil and bot.tag == ALLY
             end
+            -- PvE: the people and their allied bots one side, the gang bots the other.
             if isPve(instance) and not instance.closed then
-                return id > 0 and PVE_PLAYERS or PVE_BOTS
+                return (id > 0 or ally) and PVE_PLAYERS or PVE_BOTS
             end
         end
         return engine.sideOf(participantId)
     end
 end
 
--- No rating, round or career row for PvE, for a round with bots, or while bot mode is on.
+-- No rating, round or career row for PvE, for a round with bots, while bot mode is
+-- on, or for an unranked entry (options.ranked == false: a friendly, a bot match).
 if type(DM.ranked) == "table" and type(DM.ranked.recordRound) == "function" then
     engine.recordRound = DM.ranked.recordRound
     DM.ranked.recordRound = function(instance, opts)
@@ -658,6 +826,7 @@ if type(DM.ranked) == "table" and type(DM.ranked.recordRound) == "function" then
             if isPve(instance) then return false, "unranked_ruleset" end
             if H.hadBots(instance) then return false, "bots" end
             if H.botMode then return false, "bot_mode" end
+            if H.unrankedInstance(instance) then return false, "unranked" end
         end
         return engine.recordRound(instance, opts)
     end
@@ -763,6 +932,19 @@ end
 -- cannot fill the match, the biggest groups go first). Outside bot mode only a full
 -- roster forms; in bot mode the engine completes each side.
 function H.planRoster(format, queue, capacity)
+    -- A match Light RP formed (H.formArenaMatch): exactly its players, on its sides,
+    -- with its bots, once every one of them is queued; nobody else meanwhile.
+    local forming = H.forming
+    if forming ~= nil and forming.format == format then
+        local queued = {}
+        for _, entry in ipairs(queue) do queued[entry.playerId] = true end
+        local roster = {}
+        for _, id in ipairs(forming.roster) do
+            if not queued[id] then return { roster = {}, sides = {} } end
+            roster[#roster + 1] = id
+        end
+        return { roster = roster, sides = forming.sides, bots = { forming.bots[1], forming.bots[2] } }
+    end
     if format ~= "2v2" and format ~= "3v3" then return nil end
     local teamSize = math.floor(capacity / 2)
     local t = now()
@@ -828,6 +1010,24 @@ end
 -- ---------------------------------------------------------------------------
 -- Results and reputation
 
+-- options.ranked == false (a friendly, a bot match, staff bot mode): nothing of the
+-- arena's own ranked data, no reputation, and results say `unranked`. A match
+-- instance carries its own flag (fixed when it formed); elsewhere the player's.
+function H.unrankedFor(playerId, instance)
+    if instance ~= nil and instance.lobby ~= nil and instance.lobby.unranked == true then return true end
+    local lobby = H.lobby[playerId]
+    return lobby ~= nil and lobby.unranked == true
+end
+
+function H.unrankedInstance(instance)
+    if instance == nil then return false end
+    if instance.lobby ~= nil then return instance.lobby.unranked == true end
+    for _, id in ipairs(DM.instances.humans(instance)) do
+        if H.unrankedFor(id, nil) then return true end
+    end
+    return false
+end
+
 local function rowOf(rows, id)
     for _, row in ipairs(rows or {}) do
         if row.id == id then return row end
@@ -837,6 +1037,17 @@ end
 
 local function capRep(value)
     return math.max(0, math.min(math.floor(value + 0.5), L.reputation.maxPerResult))
+end
+
+-- The scoreboard a result carries for Light RP's end-of-match recap (lightrp_recap.lua);
+-- nil when that file is not loaded or fails: the result itself never depends on it.
+local function recapOf(kind, ...)
+    local R = ArenaRecap
+    if R == nil or type(R[kind]) ~= "function" then return nil end
+    local ok, recap = pcall(R[kind], ...)
+    if ok then return recap end
+    log("recap " .. kind .. " failed: " .. tostring(recap))
+    return nil
 end
 
 local function ffaRep(key, rank)
@@ -859,12 +1070,15 @@ function H.reportRound(instance, reason, winnerId)
     local practice = H.botMode or H.hadBots(instance)
     local t = now()
     local sent = 0
+    local recap = recapOf("ffa", instance, winnerId)
     for _, row in ipairs(DM.scoring.rows(instance)) do
         local entry = row.id > 0 and not row.bot and H.entered[row.id] or nil
         if entry and entry.instanceId == instance.id and instance.members[row.id] then
             local inRound = t - math.max(entry.atMs, round.startedAtMs or entry.atMs)
+            local unranked = H.unrankedFor(row.id, instance)
             local reputation = 0
-            if not practice and reason ~= "arena_night" and humans >= rules.minHumans and inRound >= rules.minRoundMs then
+            if not practice and not unranked and reason ~= "arena_night" and humans >= rules.minHumans
+                and inRound >= rules.minRoundMs then
                 reputation = ffaRep(key, row.rank)
                 if night then reputation = reputation * L.reputation.nightMultiplier end
             end
@@ -876,6 +1090,8 @@ function H.reportRound(instance, reason, winnerId)
                     bestStreak = row.bestStreak, durationMs = inRound, round = round.number },
                 reputation = capRep(reputation),
                 test = practice or nil,
+                unranked = unranked or nil,
+                recap = recap,
             })
             sent = sent + 1
         end
@@ -883,13 +1099,16 @@ function H.reportRound(instance, reason, winnerId)
     return sent
 end
 
--- PvE: one result per player per round. The players won when they killed more
--- bots than the bots killed players; reputation only after `minRoundMs` in the round.
+-- PvE: one result per player per round. The players won when their side (people
+-- and allied bots) killed more than the gang bots did; reputation only after
+-- `minRoundMs` in the round. Allied bots keep it a normal PvE result.
 function H.pveTally(instance)
     local players, bots = 0, 0
     for _, row in ipairs(DM.scoring.rows(instance) or {}) do
         local kills = tonumber(row.kills) or 0
-        if row.bot or (tonumber(row.id) or 0) < 0 then bots = bots + kills else players = players + kills end
+        local id = tonumber(row.id) or 0
+        local enemy = (row.bot or id < 0) and not (tonumber(row.team) == PVE_PLAYERS or H.isAlly(id))
+        if enemy then bots = bots + kills else players = players + kills end
     end
     return players, bots
 end
@@ -901,23 +1120,29 @@ function H.reportPve(instance, reason)
     local playerKills, botKills = H.pveTally(instance)
     local won = playerKills > botKills
     local humans = #DM.instances.humans(instance)
-    local bots = H.botCount(instance)
+    local allies = H.allyCount(instance)
+    local bots = math.max(0, H.botCount(instance) - allies)
     local t = now()
     local sent = 0
+    local recap = recapOf("pve", instance, playerKills, botKills, won)
     for _, row in ipairs(DM.scoring.rows(instance)) do
         local entry = row.id > 0 and not row.bot and H.entered[row.id] or nil
         if entry and entry.instanceId == instance.id and instance.members[row.id] then
             local inRound = t - math.max(entry.atMs, round.startedAtMs or entry.atMs)
+            local unranked = H.unrankedFor(row.id, instance)
             local reputation = 0
-            if inRound >= rules.minRoundMs then reputation = won and rules.win or rules.loss end
+            if inRound >= rules.minRoundMs and not unranked then reputation = won and rules.win or rules.loss end
             Core.result(row.id, entry.activity, {
                 placement = won and 1 or 2,
                 score = row.score,
                 won = won,
                 stats = { kills = row.kills, deaths = row.deaths, assists = row.assists,
                     bestStreak = row.bestStreak, durationMs = inRound, round = round.number,
-                    teamKills = playerKills, botKills = botKills, players = humans, bots = bots },
+                    teamKills = playerKills, botKills = botKills, players = humans, bots = bots,
+                    allies = allies > 0 and allies or nil },
                 reputation = capRep(reputation),
+                unranked = unranked or nil,
+                recap = recap,
             })
             sent = sent + 1
         end
@@ -952,6 +1177,7 @@ function H.sample(instance)
     for _, row in ipairs(DM.scoring.rows(instance)) do
         if row.id > 0 then snap.rows[row.id] = { kills = row.kills or 0, deaths = row.deaths or 0 } end
     end
+    recapOf("sample", instance) -- every participant's match sums, bots too (lightrp_recap.lua)
 end
 
 local function totalsOf(instance, entry, id)
@@ -985,12 +1211,15 @@ function H.reportMatch(instance)
     local duel = instance.format == "1v1"
     local rules = duel and L.reputation.duel or L.reputation.teams
     local practice = H.botMode or H.hadBots(instance)
-    local normal = result.reason == "best_of" and not practice
+    -- Unranked (a friendly): no reputation, and no duel repeat-reward bookkeeping.
+    local unranked = H.unrankedInstance(instance)
+    local normal = result.reason == "best_of" and not practice and not unranked
     local winner = tonumber(result.winnerSide) or 0
     local humans = DM.instances.humans(instance)
     local rewardDuel = true
     if duel and normal and #humans == 2 then rewardDuel = H.duelRewardAllowed(humans[1], humans[2]) end
     local sent = 0
+    local recap = recapOf("match", instance)
     for _, id in ipairs(humans) do
         local entry = H.entered[id]
         local side = sideOf(match, id)
@@ -1009,6 +1238,8 @@ function H.reportMatch(instance)
                     durationMs = now() - entry.atMs },
                 reputation = capRep(reputation),
                 test = practice or nil,
+                unranked = (unranked or H.unrankedFor(id, instance)) or nil,
+                recap = recap,
             })
             sent = sent + 1
         end
@@ -1035,6 +1266,8 @@ function H.noteQuit(playerId)
                 durationMs = now() - math.max(entry.atMs, round.startedAtMs or entry.atMs) },
             reputation = 0,
             test = (not pve and (H.botMode or H.hadBots(instance))) or nil,
+            unranked = H.unrankedFor(playerId, instance) or nil,
+            recap = recapOf("ffa", instance),
         })
         return true
     end
@@ -1051,6 +1284,8 @@ function H.noteQuit(playerId)
             durationMs = now() - entry.atMs },
         reputation = 0,
         test = (H.botMode or H.hadBots(instance)) or nil,
+        unranked = (H.unrankedInstance(instance) or H.unrankedFor(playerId, instance)) or nil,
+        recap = recapOf("match", instance),
     })
     return true
 end
@@ -1080,14 +1315,23 @@ function H.ffaRoom(playerId, ruleset)
     return true
 end
 
-DM.round.join = function(playerId, ruleset)
+local function difficultyLabel(id)
+    id = tostring(id or "standard")
+    return id:sub(1, 1):upper() .. id:sub(2)
+end
+H.difficultyLabel = difficultyLabel
+
+-- `chosen`: a private match instance (H.joinPrivateFfa), the player goes there or nowhere.
+DM.round.join = function(playerId, ruleset, chosen)
     local id = pid(playerId)
     if id == nil then return nil, "bad_player_id" end
     ruleset = RULESET_KEY[ruleset] and ruleset or "standard"
     local activityId = ACT[RULESET_KEY[ruleset]].id
     local current = DM.instances.of(id)
     if current ~= nil then
-        if activityOfInstance(current) == activityId then return current, "already_assigned" end
+        if activityOfInstance(current) == activityId and (chosen == nil or current == chosen) then
+            return current, "already_assigned"
+        end
         H.refuse(id, activityId, "Leave your current match first: /arena.leave")
         return nil, "busy"
     end
@@ -1101,13 +1345,42 @@ DM.round.join = function(playerId, ruleset)
         H.refuse(id, activityId, why)
         return nil, "refused"
     end
-    local room, roomWhy = H.ffaRoom(id, ruleset)
-    if not room then
-        H.refuse(id, activityId, roomWhy)
+    if chosen == nil then
+        local room, roomWhy = H.ffaRoom(id, ruleset)
+        if not room then
+            H.refuse(id, activityId, roomWhy)
+            return nil, "full"
+        end
+    elseif chosen.closed or ((tonumber(chosen.capacity) or 0) > 0 and (chosen.memberCount or 0) >= chosen.capacity) then
+        H.refuse(id, activityId, "That match is full.")
         return nil, "full"
     end
+    -- PvE: one difficulty per instance. An empty instance takes the joiner's; a
+    -- running one only takes players who picked the same.
+    local level = nil
+    if ruleset == "pve" then
+        local lobby = H.lobby[id]
+        level = lobby ~= nil and lobby.level or H.pveLevel(nil)
+        local existing = H.ffaInstance("pve")
+        if existing ~= nil then
+            local running = existing.pveLevel
+            if #DM.instances.humans(existing) > 0 and running ~= nil and running.id ~= level.id then
+                H.refuse(id, activityId, ("%s is running on %s right now. Join on %s, or wait for it to empty."):format(
+                    ACT.pve.label, difficultyLabel(running.id), difficultyLabel(running.id)))
+                return nil, "difficulty"
+            end
+            if #DM.instances.humans(existing) == 0 then existing.pveLevel = level end
+        end
+    end
     H.dropInvites(id)
-    local instance, reason = engine.join(id, ruleset)
+    H.pveJoining = level
+    local okJoin, instance, reason = pcall(engine.join, id, ruleset, chosen)
+    H.pveJoining = nil
+    if not okJoin then
+        log(("join of %d raised: %s"):format(id, tostring(instance)))
+        instance, reason = nil, "raised"
+    end
+    if instance ~= nil and level ~= nil and instance.pveLevel == nil then instance.pveLevel = level end
     if instance == nil then
         H.clearPending(id, activityId)
     elseif H.entered[id] == nil and not H.evicting[id] then
@@ -1188,8 +1461,7 @@ end
 if type(engine.begin) == "function" then
     DM.round.begin = function(instance, reason)
         if instance ~= nil and not instance.closed and instance.format == "ffa" then
-            local bots = H.botCount(instance) + inFlight(instance)
-            if bots > 0 and bots > H.botTarget(instance) then H.clearBots(instance, "round_reset") end
+            if H.botSurplus(instance) then H.clearBots(instance, "round_reset") end
         end
         local round = engine.begin(instance, reason)
         if round ~= nil and instance ~= nil and not instance.closed then H.fillBots(instance) end
@@ -1215,10 +1487,15 @@ function H.clearNight(instance)
     instance.nightBase = nil
 end
 
-DM.instances.open = function(format, ruleset)
-    local instance, reason = engine.open(format, ruleset)
-    if instance ~= nil and H.night ~= nil and format == "ffa" and (ruleset or "standard") == "standard" then
+-- `private` (a Light RP match id): a free-for-all of the match's own, never Arena Night.
+DM.instances.open = function(format, ruleset, private, ...)
+    local instance, reason = engine.open(format, ruleset, private, ...)
+    if instance ~= nil and private == nil and H.night ~= nil and format == "ffa"
+        and (ruleset or "standard") == "standard" then
         H.applyNight(instance)
+    end
+    if instance ~= nil and ruleset == "pve" and instance.pveLevel == nil then
+        instance.pveLevel = H.pveJoining or H.pveLevel(nil)
     end
     return instance, reason
 end
@@ -1226,9 +1503,11 @@ end
 -- ---------------------------------------------------------------------------
 -- Activities as the player starts them (core panel and commands)
 
+-- The public free-for-all of a ruleset (never a private match instance).
 function H.ffaInstance(ruleset)
     for _, instance in pairs(DM.instances.registry) do
-        if not instance.closed and instance.format == "ffa" and (instance.ruleset or "standard") == ruleset then
+        if not instance.closed and instance.format == "ffa" and (instance.ruleset or "standard") == ruleset
+            and instance.private == nil and instance.lobby == nil then
             return instance
         end
     end
@@ -1474,6 +1753,352 @@ function H.leaveAll(playerId)
 end
 
 -- ---------------------------------------------------------------------------
+-- Light RP lobby (join options v2): options.ranked, options.fill, options.match
+--
+-- A match Light RP formed (options.match: a friendly crew match, a bot match, a
+-- ranked duel / Team Arena match from its queue) gets an instance of its own:
+--   duel, teams   the engine's arena queue, steered by H.planRoster (H.forming):
+--                 exactly `match.players`, on `match.teams`, with `match.bots`;
+--                 formed once every player arrived (one tick) or after
+--                 `L.lobby.gatherMs` with who came, a missing seat taken by a bot
+--   ffa, blade    a private free-for-all (instances.lua `private`), never the
+--                 public one, with `fill.enemies` bots; late players of the match
+--                 still get in, strangers never
+-- Any bot makes a PvP match unranked; a ranked match (humans only) is played and
+-- recorded exactly like one from the arena's own queues.
+
+local TEAM_SIZES = { ["2v2"] = 2, ["3v3"] = 3 }
+
+local function seats(value)
+    return math.max(0, math.min(16, math.floor(tonumber(value) or 0)))
+end
+
+function H.optionsUnranked(options)
+    if type(options) ~= "table" then return false end
+    if options.ranked == false then return true end
+    local match = type(options.match) == "table" and options.match or nil
+    return match ~= nil and (match.ranked == false or match.friendly == true)
+end
+
+-- The options of a player's join, kept while their entry lasts (forgotten with it).
+function H.noteLobby(playerId, key, options)
+    if H.entered[playerId] ~= nil or DM.instances.of(playerId) ~= nil then return H.lobby[playerId] end
+    local match = type(options.match) == "table" and options.match or nil
+    local fill = type(options.fill) == "table" and options.fill or nil
+    local record = {
+        unranked = H.optionsUnranked(options),
+        friendly = match ~= nil and match.friendly == true,
+        matchId = match ~= nil and match.id ~= nil and tostring(match.id) or nil,
+        fill = fill ~= nil and { allies = seats(fill.allies), enemies = seats(fill.enemies) } or nil,
+        level = key == "pve" and H.pveLevel(options) or nil,
+        atMs = now(),
+    }
+    H.lobby[playerId] = record
+    return record
+end
+
+-- The match a join is for: options.match, or (Combat Zone / Blade Night) a bot
+-- practice asked as options.fill.enemies without one -- the player's own, with
+-- their crew. nil: a normal join.
+function H.matchSpec(playerId, key, options)
+    if key == "pve" then return nil end
+    if type(options.match) == "table" and options.match.id ~= nil then return options.match end
+    local fill = type(options.fill) == "table" and options.fill or nil
+    if (key == "ffa" or key == "blade") and fill ~= nil and seats(fill.enemies) > 0 then
+        local squad = H.squads[playerId]
+        return { id = "fill:" .. key .. ":" .. (squad ~= nil and squad.id or tostring(playerId)),
+            players = squad ~= nil and squad.members or { playerId }, friendly = false }
+    end
+    return nil
+end
+
+local function idList(value, seen, out)
+    out = out or {}
+    if type(value) ~= "table" then return out end
+    for _, raw in ipairs(value) do
+        local member = pid(raw)
+        if member ~= nil and member > 0 and not seen[member] and #out < 16 then
+            seen[member] = true
+            out[#out + 1] = member
+        end
+    end
+    return out
+end
+
+function H.newMatch(matchId, key, spec, options, playerId)
+    local record = {
+        id = matchId, key = key, atMs = now(), state = "gathering", arrived = {}, listed = {},
+        friendly = spec.friendly == true,
+        unranked = H.optionsUnranked(options) or spec.ranked == false or spec.friendly == true,
+        ffa = key == "ffa" or key == "blade",
+        format = (type(spec.format) == "string" and spec.format) or (type(options.mode) == "string" and options.mode) or nil,
+    }
+    local seen = {}
+    record.players = idList(spec.players, seen)
+    if #record.players == 0 then idList({ playerId }, seen, record.players) end
+    local fill = type(options.fill) == "table" and options.fill or {}
+    if record.ffa then
+        local enemies = seats(fill.enemies)
+        if enemies == 0 and type(spec.bots) == "table" then
+            for _, n in ipairs(spec.bots) do enemies = enemies + seats(n) end
+        end
+        if enemies == 0 then enemies = seats(spec.enemies) end
+        record.enemies = enemies
+    else
+        local teams, onTeam = { {}, {} }, {}
+        if type(spec.teams) == "table" then
+            for side = 1, 2 do idList(spec.teams[side], onTeam, teams[side]) end
+        end
+        for _, member in ipairs(record.players) do
+            if not onTeam[member] then
+                onTeam[member] = true
+                local side = #teams[1] <= #teams[2] and 1 or 2
+                if member == playerId and (tonumber(spec.side) == 1 or tonumber(spec.side) == 2) then side = tonumber(spec.side) end
+                teams[side][#teams[side] + 1] = member
+            end
+        end
+        for side = 1, 2 do idList(teams[side], seen, record.players) end
+        record.teams = teams
+        local bots = { 0, 0 }
+        if type(spec.bots) == "table" then
+            bots = { seats(spec.bots[1]), seats(spec.bots[2]) }
+        else
+            local mine = tonumber(spec.side) == 2 and 2 or 1
+            bots[mine], bots[mine == 1 and 2 or 1] = seats(fill.allies), seats(fill.enemies)
+        end
+        record.bots = bots
+    end
+    for _, member in ipairs(record.players) do record.listed[member] = true end
+    return record
+end
+
+local function lobbyOf(record)
+    return { matchId = record.id, unranked = record.unranked, friendly = record.friendly, enemies = record.enemies }
+end
+
+local function tellUnranked(playerId, record)
+    if not record.unranked then return end
+    H.tell(playerId, "info", record.friendly and "FRIENDLY MATCH" or "UNRANKED MATCH",
+        "Not ranked: no rank points, reputation or pay.")
+end
+
+-- Out of the arena's own queues for a match (the core asked first, this is the
+-- safety net): never through H.withdrawDuel, which would cancel the match's entry.
+function H.clearForMatch(playerId)
+    if DM.instances.of(playerId) ~= nil or H.entered[playerId] ~= nil or H.returning[playerId] then
+        return "Leave your current match first: /arena.leave"
+    end
+    for index = #H.duelQueue, 1, -1 do
+        if H.duelQueue[index].playerId == playerId then table.remove(H.duelQueue, index) end
+    end
+    H.dropInvites(playerId)
+    if DM.arena.queuePosition(playerId) ~= nil then
+        H.quietQueue = true
+        pcall(engine.leave, playerId, "queue")
+        H.quietQueue = false
+    end
+    H.lastQueued[playerId], H.teamUpgraded[playerId], H.teamQueuedAt[playerId] = nil, nil, nil
+    return nil
+end
+
+-- Combat Zone / Blade Night match: its private instance, opened by the first player.
+function H.joinPrivateFfa(record, playerId)
+    local ruleset = record.key == "blade" and "blade" or "standard"
+    local activityId = ACT[record.key].id
+    local instance = record.instance
+    if instance ~= nil and not instance.closed and DM.instances.of(playerId) == instance then return true end
+    local busyWhy = H.clearForMatch(playerId)
+    if busyWhy then H.refuse(playerId, activityId, busyWhy) return false end
+    if instance == nil or instance.closed then
+        local capacity = math.max(1, math.floor(tonumber(Config.instances.ffaCapacity) or 16))
+        record.enemies = math.min(record.enemies or 0, math.max(0, capacity - #record.players))
+        local why
+        instance, why = DM.instances.open("ffa", ruleset, record.id)
+        if instance == nil then
+            log(("match %s: no private instance (%s)"):format(record.id, tostring(why)))
+            H.refuse(playerId, activityId, "No private arena is free right now. Try again in a moment.")
+            return false
+        end
+        if (record.enemies or 0) > 0 then record.unranked = true end
+        instance.lobby = lobbyOf(record)
+        record.instance, record.state, record.formedAtMs = instance, "formed", now()
+        log(("match %s: private %s instance %s, %d bot(s)"):format(record.id, ruleset, tostring(instance.id), record.enemies or 0))
+    end
+    local lobby = H.lobby[playerId]
+    if lobby ~= nil then lobby.unranked, lobby.friendly = record.unranked or lobby.unranked, record.friendly end
+    record.arrived[playerId] = now()
+    local joined = DM.round.join(playerId, ruleset, instance)
+    DM.broadcastState()
+    if joined ~= nil then tellUnranked(playerId, record) end
+    return joined ~= nil
+end
+
+-- Duel / Team Arena: the format a match plays and its side size. Team Arena plays
+-- the mode asked when the people fit it, else the format their sides need.
+function H.matchFormat(record, bodies, people)
+    if record.key == "duel" then return "1v1", 1 end
+    local wanted = TEAM_SIZES[record.format]
+    if wanted ~= nil and wanted >= people then return record.format, wanted end
+    if math.max(bodies[1], bodies[2], people) >= 3 then return "3v3", 3 end
+    return "2v2", 2
+end
+
+local function abandon(record, ids, text)
+    record.state = "failed"
+    record.formedAtMs = now()
+    local activityId = ACT[record.key].id
+    for _, id in ipairs(ids) do
+        if DM.instances.of(id) == nil then
+            if DM.arena.queuePosition(id) ~= nil then
+                H.quietQueue = true
+                pcall(engine.leave, id, "queue")
+                H.quietQueue = false
+            end
+            H.tell(id, "warning", ACT[record.key].label, text)
+            H.clearPending(id, activityId)
+        end
+    end
+    DM.broadcastState()
+    return false
+end
+
+-- Duel / Team Arena: who came, on their sides, through the engine's arena queue.
+function H.formArenaMatch(record)
+    if record.state ~= "gathering" then return false end
+    record.state = "forming"
+    local present, missing = { {}, {} }, { 0, 0 }
+    local arrivedIds = {}
+    for side = 1, 2 do
+        for _, id in ipairs(record.teams[side]) do
+            if record.arrived[id] then arrivedIds[#arrivedIds + 1] = id end
+            if record.arrived[id] and connected(id) and DM.instances.of(id) == nil
+                and H.entered[id] == nil and not H.returning[id] then
+                present[side][#present[side] + 1] = id
+            else
+                missing[side] = missing[side] + 1
+            end
+        end
+    end
+    if #present[1] + #present[2] == 0 then return abandon(record, arrivedIds, "The match could not start.") end
+    -- A missing player's seat goes to a bot; a side with nobody gets one.
+    local bots = { record.bots[1] + missing[1], record.bots[2] + missing[2] }
+    for side = 1, 2 do
+        if #present[side] + bots[side] == 0 then bots[side] = 1 end
+    end
+    local format, teamSize = H.matchFormat(record, { #present[1] + bots[1], #present[2] + bots[2] },
+        math.max(#present[1], #present[2]))
+    for side = 1, 2 do
+        if #present[side] > teamSize then
+            return abandon(record, arrivedIds, ("That match does not fit %s %s."):format(ACT[record.key].label, format))
+        end
+        bots[side] = math.min(bots[side], teamSize - #present[side])
+    end
+    local roster, sides = {}, {}
+    for side = 1, 2 do
+        for _, id in ipairs(present[side]) do
+            roster[#roster + 1] = id
+            sides[id] = side
+        end
+    end
+    local withBots = bots[1] + bots[2] > 0
+    if withBots then record.unranked = true end -- a PvP match with bots never counts
+    for _, id in ipairs(roster) do
+        local lobby = H.lobby[id] or {}
+        lobby.unranked, lobby.friendly, lobby.matchId = record.unranked, record.friendly, record.id
+        H.lobby[id] = lobby
+    end
+    H.forming = { format = format, roster = roster, sides = sides, bots = bots }
+    H.quietQueue = true
+    local okAll, err = pcall(function()
+        for _, id in ipairs(roster) do engine.enqueue(id, format, withBots) end
+    end)
+    H.quietQueue = false
+    H.forming = nil
+    if not okAll then log(("match %s: forming raised: %s"):format(record.id, tostring(err))) end
+    local instance = DM.instances.of(roster[1])
+    local formed = instance ~= nil and instance.format == format
+    for _, id in ipairs(roster) do
+        if DM.instances.of(id) ~= instance then formed = false end
+    end
+    if not formed then return abandon(record, arrivedIds, "The match could not start. Try again in a moment.") end
+    instance.lobby = lobbyOf(record)
+    if withBots then markBots(instance) end
+    record.instance, record.state, record.formedAtMs = instance, "formed", now()
+    log(("match %s: %s instance %s, %d player(s), bots %d/%d, %s"):format(record.id, format, tostring(instance.id),
+        #roster, bots[1], bots[2], record.unranked and (record.friendly and "friendly" or "unranked") or "ranked"))
+    for _, id in ipairs(roster) do tellUnranked(id, record) end
+    for _, id in ipairs(arrivedIds) do
+        if sides[id] == nil then H.clearPending(id, ACT[record.key].id) end
+    end
+    DM.broadcastState()
+    return true
+end
+
+-- A match join (options.match, or a bot practice): returns true when it is under way.
+function H.joinMatch(playerId, key, spec, options)
+    local activityId = ACT[key].id
+    local matchId = tostring(spec.id or "")
+    if matchId == "" then H.refuse(playerId, activityId, "That match is not valid.") return false end
+    local record = H.matches[matchId]
+    if record ~= nil and (record.key ~= key
+        or (record.ffa and record.state == "formed" and (record.instance == nil or record.instance.closed))) then
+        record = nil -- an old match under the same id
+    end
+    if record == nil then
+        record = H.newMatch(matchId, key, spec, options, playerId)
+        H.matches[matchId] = record
+    end
+    if not record.listed[playerId] then H.refuse(playerId, activityId, "You are not part of that match.") return false end
+    if record.ffa then return H.joinPrivateFfa(record, playerId) end
+    if record.state == "formed" then H.refuse(playerId, activityId, "That match has already started.") return false end
+    if record.state ~= "gathering" then H.refuse(playerId, activityId, "That match could not start.") return false end
+    local busyWhy = H.clearForMatch(playerId)
+    if busyWhy then H.refuse(playerId, activityId, busyWhy) return false end
+    local ok, why = H.admit(playerId, activityId)
+    if not ok then H.refuse(playerId, activityId, why) return false end
+    record.arrived[playerId] = now()
+    for _, member in ipairs(record.players) do
+        if not record.arrived[member] and connected(member) then
+            H.tell(playerId, "info", ACT[key].label, "Waiting for the other players of the match.")
+            DM.broadcastState()
+            return true
+        end
+    end
+    return H.formArenaMatch(record)
+end
+
+-- A player still gathering for a match leaves (leave request, drop, disconnect).
+function H.matchLeave(playerId, activityId)
+    local left = false
+    for _, record in pairs(H.matches) do
+        if record.state == "gathering" and record.arrived[playerId] then
+            record.arrived[playerId] = nil
+            left = true
+            if activityId ~= false then H.clearPending(playerId, activityId or ACT[record.key].id) end
+        end
+    end
+    return left
+end
+
+function H.tickMatches(t)
+    for matchId, record in pairs(H.matches) do
+        if record.state == "gathering" then
+            for id in pairs(record.arrived) do
+                if not connected(id) then record.arrived[id] = nil end
+            end
+            if t - record.atMs >= L.lobby.gatherMs then
+                if next(record.arrived) == nil then H.matches[matchId] = nil
+                else H.formArenaMatch(record) end
+            end
+        elseif record.ffa and record.instance ~= nil and not record.instance.closed then
+            -- kept while its private instance runs: late players of the match get in
+        elseif t - (record.formedAtMs or record.atMs) >= L.lobby.keepMs then
+            H.matches[matchId] = nil
+        end
+    end
+end
+
+-- ---------------------------------------------------------------------------
 -- Statuses for the Activities panel
 
 local PRACTICE = " \u{b7} bot practice, not recorded"
@@ -1486,9 +2111,13 @@ local function statusOf(key)
         if ruleset == "pve" then capacity = L.pve.maxPlayers end
         local detail
         if ruleset == "pve" then
-            local bots = instance and H.botCount(instance) or 0
-            detail = players > 0 and ("%d player%s vs %d bot%s"):format(players, players == 1 and "" or "s",
-                bots, bots == 1 and "" or "s") or "Open: you and your crew against gang bots"
+            local allies = instance and H.allyCount(instance) or 0
+            local bots = instance and math.max(0, H.botCount(instance) - allies) or 0
+            detail = players > 0 and ("%d player%s%s vs %d bot%s"):format(players, players == 1 and "" or "s",
+                allies > 0 and (" + %d ally"):format(allies) or "", bots, bots == 1 and "" or "s")
+                or "Open: you and your crew against gang bots"
+            local level = instance and players > 0 and instance.pveLevel or nil
+            if level ~= nil and level.id ~= "standard" then detail = detail .. " \u{b7} " .. difficultyLabel(level.id) end
         elseif ruleset == "standard" and H.night then detail = "Arena Night"
         elseif players > 0 then detail = ("%d fighting"):format(players)
         else detail = "Open" end
@@ -1580,6 +2209,7 @@ end
 function H.tick(t)
     t = t or now()
     if H.night ~= nil and t >= H.night.untilMs then H.nightStop("expired") end
+    H.tickMatches(t)
 
     for _, instance in pairs(DM.instances.registry) do
         if not instance.closed and instance.match ~= nil then
@@ -1667,6 +2297,8 @@ function H.register()
             description = def.description, minPlayers = def.minPlayers, maxPlayers = def.maxPlayers,
             caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
             modes = def.modes,
+            -- Light RP lobby: bots from the panel (PvP: unranked; PvE: allies), PvE difficulties.
+            botFill = def.botFill, pve = def.pve, difficulties = def.difficulties,
         })
         if ok then registered = registered + 1
         else log(("%s not registered: %s"):format(def.id, tostring(why))) end
@@ -1691,6 +2323,12 @@ AddEventHandler("op77_lightrp:activity:join", function(playerId, activityId, opt
     if id == nil or key == nil or H.stopped then return end
     options = type(options) == "table" and options or {}
     H.noteSquad(id, options.squad)
+    H.noteLobby(id, key, options)
+    local spec = H.matchSpec(id, key, options)
+    if spec ~= nil then
+        H.joinMatch(id, key, spec, options)
+        return
+    end
     if key == "ffa" then H.joinFfa(id, "standard")
     elseif key == "blade" then H.joinFfa(id, "blade")
     elseif key == "pve" then H.joinFfa(id, "pve")
@@ -1711,6 +2349,7 @@ AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activit
     local id = pid(playerId)
     local key = keyOf(activityId)
     if id == nil or key == nil then return end
+    H.matchLeave(id, activityId)
     if key == "duel" then
         H.withdrawDuel(id, true)
     end
@@ -1734,6 +2373,7 @@ AddEventHandler("op77_lightrp:activity:dropped", function(playerId, activityId, 
     local id = pid(playerId)
     local key = keyOf(activityId)
     if id == nil or key == nil then return end
+    H.matchLeave(id, false)
     local entry = H.entered[id]
     if entry == nil or entry.activity ~= activityId then return end
     H.released[id] = true
@@ -1761,6 +2401,7 @@ AddEventHandler("onPlayerDisconnected", function(playerIdStr)
     local id = pid(playerIdStr)
     if id == nil then return end
     H.noteQuit(id)
+    H.matchLeave(id, false)
     H.withdrawDuel(id, true)
     H.forget(id)
     H.throttle[id], H.checks[id], H.names[id], H.identities[id] = nil, nil, nil, nil
@@ -1862,6 +2503,12 @@ local function playerOnly(source, raw)
     return true
 end
 
+-- A command is one person's plain request: no crew, no lobby options ride on it.
+local function plainJoin(source)
+    H.squads[source] = nil
+    if H.entered[source] == nil and DM.instances.of(source) == nil then H.lobby[source] = nil end
+end
+
 RegisterCommand("arena", function(source, args, raw)
     reply(source, raw, true, statusLine())
     if source and source > 0 then reply(source, raw, true, HELP) end
@@ -1870,25 +2517,25 @@ end, false)
 -- A command is one person's request: no crew rides on it (the panel passes the crew).
 RegisterCommand("arena.ffa", function(source, args, raw)
     if not playerOnly(source, raw) then return end
-    H.squads[source] = nil
+    plainJoin(source)
     reply(source, raw, H.joinFfa(source, "standard"), "Combat Zone requested.")
 end, false)
 
 RegisterCommand("arena.blade", function(source, args, raw)
     if not playerOnly(source, raw) then return end
-    H.squads[source] = nil
+    plainJoin(source)
     reply(source, raw, H.joinFfa(source, "blade"), "Blade Night requested.")
 end, false)
 
 RegisterCommand("arena.pve", function(source, args, raw)
     if not playerOnly(source, raw) then return end
-    H.squads[source] = nil
+    plainJoin(source)
     reply(source, raw, H.joinFfa(source, "pve"), "PvE Combat Zone requested.")
 end, false)
 
 RegisterCommand("arena.queue", function(source, args, raw)
     if not playerOnly(source, raw) then return end
-    H.squads[source] = nil
+    plainJoin(source)
     local format = args[1] and tostring(args[1]):lower() or L.teams.defaultFormat
     if format ~= "2v2" and format ~= "3v3" then return reply(source, raw, false, "Usage: /arena.queue 2v2|3v3") end
     reply(source, raw, H.queueTeams(source, format), ("Team Arena %s requested."):format(format))
@@ -1922,11 +2569,13 @@ RegisterCommand("duel", function(source, args, raw)
         H.withdrawDuel(source, true)
         ok, text = true, "Duel requests cancelled."
     elseif verb == "random" then
+        plainJoin(source)
         ok = H.queueDuel(source)
         text = ok and "Looking for an opponent." or "Could not queue."
     elseif verb == "bot" then
         ok, text = H.duelBot(source)
     else
+        plainJoin(source)
         ok, text = H.challenge(source, pid(verb))
     end
     reply(source, raw, ok, text)

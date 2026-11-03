@@ -47,7 +47,8 @@ end
 local function register()
     local a = PC.activity
     local ok, why = ChaseCore.register({ id = a.id, resource = GetCurrentResourceName(), label = a.label, kind = a.kind,
-        description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers, caps = a.caps, modes = a.modes,
+        description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers,
+        caps = ChaseCore.caps(a.caps, a.id), botFill = ChaseCore.botFill(a.id), modes = a.modes,
         pve = a.pve, difficulties = a.difficulties })
     if ok then
         log("registered %s with Light RP", a.id)

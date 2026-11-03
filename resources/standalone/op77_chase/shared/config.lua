@@ -40,8 +40,9 @@ ChaseConfig = {
         minPlayers = 2,
         maxPlayers = 2,
         -- Nothing from the roleplay side stays usable inside a chase. `botFill`: whether
-        -- staff bot mode may fill this activity's missing players with bots; registered as
-        -- ChaseConfig.bots.fill[id] (main.lua), so the hub can hide its "fill with bots".
+        -- staff bot mode may fill this activity's missing players with bots; registered
+        -- from ChaseConfig.bots.fill[id] as botFill (top level: Light RP's lobby offers bots
+        -- only where it is true) and caps.botFill (core.lua ChaseCore.caps / botFill).
         caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false, botFill = false },
     },
 
@@ -415,7 +416,7 @@ end
 ChaseConfig.bots = {
     -- Bot fill per activity while staff bot mode is on. false = real players only: bot mode
     -- then starts nothing there and the player is told why. Also registered with Light RP
-    -- as caps.botFill (the hub hides its "fill with bots" toggle when false).
+    -- as botFill and caps.botFill (its lobby offers bots only where botFill is true).
     fill = { ["chase.1v1"] = false, ["chase.wanted"] = false },
     namePrefix = "[BOT] ",
     names = { "Kowalski", "Reyes", "Okafor", "Lindqvist", "Tanaka", "Moreau", "Delgado", "Novak",

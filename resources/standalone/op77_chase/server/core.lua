@@ -34,6 +34,18 @@ function C.call(name, ...)
     return table.unpack(packed, 2, packed.n)
 end
 
+-- The bot-fill declaration sent with activityRegister: Light RP's lobby offers bots only
+-- where the provider registers botFill = true (top level). From config.bots.fill: false =
+-- real players only (chase.1v1, chase.wanted by default; chase.pve has no player slot for
+-- a bot). caps.botFill carries the same value for the hub's toggle.
+function C.botFill(aid) return ((ChaseConfig.bots or {}).fill or {})[aid] == true end
+function C.caps(caps, aid)
+    local out = {}
+    for k, v in pairs(caps or {}) do out[k] = v end
+    out.botFill = C.botFill(aid)
+    return out
+end
+
 function C.register(def)
     local ok, why = C.call("activityRegister", def)
     if ok ~= true then return false, why or "refused" end

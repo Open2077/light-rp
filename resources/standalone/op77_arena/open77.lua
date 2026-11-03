@@ -39,6 +39,7 @@ server_script "server/ranked.lua"
 server_script "server/main.lua"
 server_script "server/core.lua"
 server_script "server/lightrp.lua"
+server_script "server/lightrp_recap.lua" -- the scoreboard each result carries for Light RP's end-of-match recap
 server_script "server/pvp.lua"      -- PvP scopes per arena instance (global PvP stays off)
 
 client_script "client/bounds.lua"

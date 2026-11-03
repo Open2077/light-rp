@@ -60,7 +60,7 @@ assert(ChaseBots.enabled == true, "the event still works")
 -- Light RP, start nothing with bots and tell the player why; NCPD Escape fills nothing either.
 env = H.load({ botsEnabled = true })
 for _, aid in ipairs({ "chase.1v1", "chase.wanted", "chase.pve" }) do
-    assert(env.registered[aid].caps.botFill == false, aid .. " registers caps.botFill = false")
+    assert(env.registered[aid].botFill == false and env.registered[aid].caps.botFill == false, aid .. " registers botFill = false")
 end
 assert(ChaseBots.enabled == true and not ChaseBots.fills("chase.1v1") and not ChaseBots.fills("chase.wanted"), "on, but no fill")
 H.run(6)
@@ -80,6 +80,8 @@ assert(H.count(ChaseBots.bots) == 0, "not one bot created")
 -- ---------------------------------------------------------------- 1v1 by car, the player runs first
 
 env = H.load({ botsEnabled = true, botFill = FILL })
+assert(env.registered["chase.1v1"].botFill == true and env.registered["chase.wanted"].caps.botFill == true
+    and env.registered["chase.pve"].botFill == false, "config.bots.fill = true: declared to Light RP")
 Chase.botFirstRole[1] = "cop" -- his last bot match started as cop: this one as runner
 H.fire("op77_lightrp:activity:join", 1, "chase.1v1", { mode = "vehicle" })
 H.runUntil(function() return Chase.matchOf(1) ~= nil end, 6, "a bot match")

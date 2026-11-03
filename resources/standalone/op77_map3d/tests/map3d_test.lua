@@ -1,6 +1,6 @@
--- op77_map3d: blip validation, the client (page, blips, owners, waypoint mirror, open)
+-- op77_map3d: blip and area validation, the client (page, blips, areas, owners, waypoint mirror, open)
 -- and the server (targets, late joiners, cleanup). Run: pwsh -File tests/run-lua.ps1
-dofile("shared/config.lua"); dofile("shared/blip.lua"); dofile("shared/jam.lua"); dofile("shared/influence.lua")
+dofile("shared/config.lua"); dofile("shared/blip.lua"); dofile("shared/jam.lua"); dofile("shared/area.lua"); dofile("shared/influence.lua")
 -- influence zones: touching cells are one zone, graded by players, densest first; a
 -- crowd only (5 by default, never fewer than 3 whatever the setting)
 do
@@ -365,6 +365,100 @@ pageHandlers["map3d:hello"]({})
 assert(lastPage("map3d:influence").zones[1].id == "z1" and lastPage("map3d:influenceVisible").visible == false, "replayed to a reloaded page")
 exported.setInfluenceVisible(true)
 assert(exported.getInfluence().enabled)
+-- areas: validation, ids per resource, replace, the cap, update/remove by their owner only,
+-- a reloaded page gets them back (oldest first), a stopping resource takes its own along
+do
+  local A, was = Map3DArea, invoking
+  local sq = { { x = 0, y = 0 }, { 100, 0 }, { x = 100, y = 100 }, { 0, 100 } }
+  assert(not A.normalize({ points = { { 0, 0 }, { 1, 1 } } }), "fewer than 3 points")
+  assert(not A.normalize({ points = { { 0, 0 }, { 1, 1 }, { 2, 2 } } }), "a line encloses nothing")
+  assert(not A.normalize({ points = { { 0, 0 }, { 0 / 0, 1 }, { 2, 0 } } }), "NaN")
+  assert(not A.normalize({ points = { { 0, 0 }, { math.huge, 1 }, { 2, 0 } } }), "infinite")
+  assert(not A.normalize({ points = { { 0, 0 }, { "x", 1 }, { 2, 0 } } }), "not a number")
+  assert(not A.normalize({ points = { { 0, 0 }, { 1e6, 1 }, { 2, 0 } } }), "far outside Night City")
+  local many = {}
+  for k = 1, A.MAX_POINTS + 1 do local t = k / (A.MAX_POINTS + 1) * 2 * math.pi; many[k] = { math.cos(t) * 100, math.sin(t) * 100 } end
+  assert(select(2, A.normalize({ points = many })):find("at most 160"), "the point cap")
+  many[#many] = nil
+  local big = assert(A.normalize({ points = many }), "160 points are fine")
+  assert(select(2, A.normalize({ points = sq, fill = "red" })):find("fill"), "a colour is #rrggbb")
+  assert(not A.normalize({ points = sq, stroke = "#12345" }) and not A.normalize({ points = sq, pattern = "dots" }))
+  assert(not A.normalize({ points = sq, labelPosition = { x = 1 } }) and not A.normalize({ points = sq, label = 5 }))
+  local a = assert(A.normalize({ points = sq, fill = "#f00", fillOpacity = 3, strokeWidth = 99, label = string.rep("z", 99) }))
+  assert(a.fill == "#FF0000" and a.stroke == "#FF0000" and a.fillOpacity == 1 and a.strokeWidth == 8 and #a.label == 64)
+  assert(a.pattern == "hatch" and a.map and a.minimap and not a.pulse, "hatched, on both maps, still by default")
+  local d = assert(A.normalize({ points = sq }))
+  assert(d.fill == "#FF2E3C" and d.stroke == "#FF2E3C" and d.fillOpacity == 0.22 and d.strokeWidth == 2, "defaults: the danger red")
+  assert(A.contains(d, 50, 50) and not A.contains(d, 150, 50))
+  local p = A.patch(a, { fill = "#00FF00" })
+  assert(p.fill == "#00FF00" and p.stroke == "#00FF00", "a new fill carries a matching stroke along")
+  assert(A.patch(assert(A.normalize({ points = sq, stroke = "#FFFFFF" })), { fill = "#00FF00" }).stroke == "#FFFFFF", "an own stroke stays")
+  assert(A.patch(a, { label = false }).label == nil and not A.patch(a, { pattern = "x" }))
+  local pg = A.page("x", assert(A.normalize({ points = sq, labelPosition = { 5, 6 } })))
+  assert(#pg.pts == 8 and pg.pts[3] == 100 and pg.pts[4] == 0 and pg.lx == 5 and pg.ly == 6 and pg.lz == nil, "the page gets a flat outline")
+  -- what the host counts (every table, key and value): the largest definition fits an export
+  -- argument and its page event, both limited to 1024 values
+  local function values(v) if type(v) ~= "table" then return 1 end; local n = 1; for _, x in pairs(v) do n = n + 1 + values(x) end; return n end
+  local def = { id = "dogtown", points = many, fill = "#FF2E3C", fillOpacity = 0.22, stroke = "#FF2E3C", strokeWidth = 2.5, pattern = "hatch",
+    label = "DOGTOWN - DANGER ZONE", labelPosition = { x = 1, y = 2, z = 3 }, map = true, minimap = true, pulse = false }
+  assert(values(def) <= 1024, "a 160-point definition is an export argument (" .. values(def) .. " values)")
+  big.label, big.labelPosition = def.label, { x = 1, y = 2, z = 3 }
+  assert(values(A.page("op77_lightrp:lightrp.dogtown", big)) < 760, "and its page event leaves room to spare")
+
+  invoking = "turf"
+  pageSent = {}
+  local id1 = assert(exported.addArea({ id = "zone", points = sq, label = "TURF" }))
+  assert(id1 == "turf:zone", "an id is the resource's")
+  local ev = lastPage("map3d:area")
+  assert(ev.id == id1 and #ev.pts == 8 and ev.label == "TURF" and ev.pattern == "hatch")
+  local roles = {}
+  for _, s in ipairs(pageSent) do if s.name == "map3d:area" then roles[s.role] = true end end
+  assert(roles.mini and roles.full and not roles.holo, "the map and the minimap draw it, the holo GPS does not")
+  local none, why = exported.addArea({ points = { { 0, 0 } } })
+  assert(none == nil and why:find("3 points"), "a refused definition says why")
+  assert(not exported.addArea({ id = string.rep("i", 65), points = sq }))
+  assert(exported.addArea({ id = "zone", points = sq, label = "TURF 2" }) == id1 and exported.getArea("zone").label == "TURF 2", "the same id replaces it")
+  local anon = assert(exported.addArea({ points = sq }))
+  assert(anon:find("^turf#area"))
+  -- update: by the owner, with or without the namespace; a refused patch changes nothing
+  assert(exported.updateArea("zone", { fill = "#3FE0D0" }) and lastPage("map3d:area").fill == "#3FE0D0" and lastPage("map3d:area").stroke == "#3FE0D0")
+  assert(exported.updateArea(id1, { pulse = true }) and exported.getArea(id1).pulse)
+  local ok, err = exported.updateArea("zone", { fill = "nope" })
+  assert(not ok and err:find("fill") and exported.getArea(id1).fill == "#3FE0D0")
+  assert(select(2, exported.updateArea("nothing", { label = "x" })) == "unknown area")
+  local copy = exported.getArea(id1)
+  copy.points[1].x = 999
+  assert(exported.getArea(id1).points[1].x == 0 and copy.owner == nil, "getArea hands out a copy")
+  invoking = "intruder"
+  assert(not exported.updateArea(id1, { label = "x" }) and not exported.removeArea(id1), "another resource cannot touch it")
+  assert(exported.getArea("zone") == nil, "a bare id is the caller's own")
+  -- 16 a resource (the map draws 16 at a time); replacing one is not a new one
+  invoking = "turf"
+  for k = 3, A.MAX_PER_OWNER do assert(exported.addArea({ id = "a" .. k, points = sq })) end
+  local over, msg = exported.addArea({ id = "one-more", points = sq })
+  assert(over == nil and msg:find("16"), "16 areas a resource")
+  assert(exported.addArea({ id = "zone", points = sq }) == id1)
+  invoking = "other"
+  assert(exported.addArea({ id = "zone", points = sq }) == "other:zone", "the cap is per resource")
+  invoking = "turf"
+  assert(exported.removeArea("a3") and lastPage("map3d:areas").remove[1] == "turf:a3")
+  assert(not exported.removeArea("a3"), "already gone")
+  -- a page that reloads forgets what it had, then gets every area, oldest first
+  pageSent = {}
+  pageHandlers["map3d:hello"]({})
+  local cleared, order = false, {}
+  for _, s in ipairs(pageSent) do
+    if s.role == "full" and s.name == "map3d:areas" and s.payload.clear then cleared = true end
+    if s.role == "full" and s.name == "map3d:area" then assert(cleared, "cleared before the replay"); order[#order + 1] = s.payload.id end
+  end
+  assert(#order == 16 and order[1] == id1 and order[#order] == "other:zone", "replayed in drawing order (" .. #order .. ")")
+  -- a stopping resource takes its areas along, not the others'
+  handlers.onClientResourceStop("turf")
+  assert(#lastPage("map3d:areas").remove == 15 and exported.getArea(id1) == nil and exported.getArea("other:zone"))
+  invoking = "other"
+  assert(exported.clearAreas() == 1 and exported.getArea("other:zone") == nil)
+  invoking = was
+end
 -- server blips
 netHandlers["op77_map3d:blips"]({ set = { { id = "srv:x:1", x = 9, y = 9, label = "Garage" } } })
 assert(lastPage("map3d:blips").upsert[1].id == "srv:x:1")

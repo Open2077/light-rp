@@ -54,6 +54,11 @@ assert(select(2, S.hospitalBill(77)) == "no_character", "no character, no bill")
 tutorialActive[2] = true; assert(select(2, S.hospitalBill(2)) == "first_day", "the first day is free"); tutorialActive[2] = nil
 activityOwned[2] = true; assert(select(2, S.hospitalBill(2)) == "activity", "activities never bill"); activityOwned[2] = nil
 missionDeath[2] = true; assert(select(2, S.hospitalBill(2)) == "mission", "missions never bill"); missionDeath[2] = nil
+-- A death in a Dogtown fight already cost pocket cash: no bill (dogtown.lua, waiveHospitalBill).
+LightRP.dogtown = { waivesHospital = function(id) return id == 2 end }
+assert(select(2, S.hospitalBill(2)) == "dogtown", "a Dogtown death never bills")
+assert(S.fittingFee(2) == E.fitting.fee, "the Dogtown waiver is the hospital's only")
+LightRP.dogtown = nil
 char(3, 30); wallets[3] = { bank = 5000, cash = 0 }
 assert(select(2, S.hospitalBill(3)) == "grace", "a newcomer is treated on the city")
 clock = clock + (E.hospital.graceMinutes - 30 + 1) * 60000
@@ -191,4 +196,4 @@ assert(wallets[31].bank == 1000 - 2 * E.fitting.fee, "a home wardrobe is free")
 assert(W.open(31, false)); netHandlers["open77:presentation:committed"](31, {})
 assert(wallets[31].bank == 1000 - 2 * E.fitting.fee, "a wardrobe opened in place (creation wizard, staff) is free")
 
-print("PASS: sinks collect bank then cash and never below zero; exemptions (first day, activity, mission, newcomer, no wallet, disabled); hospital bill after Give up, once, page bill, refused transfer free; fitting fee once per city visit with a saved look, hall/home/in-place free, prompt price")
+print("PASS: sinks collect bank then cash and never below zero; exemptions (first day, activity, mission, Dogtown death, newcomer, no wallet, disabled); hospital bill after Give up, once, page bill, refused transfer free; fitting fee once per city visit with a saved look, hall/home/in-place free, prompt price")

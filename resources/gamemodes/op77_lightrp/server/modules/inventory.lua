@@ -261,14 +261,19 @@ end
 -- ---------------------------------------------------------------------------
 -- Drops: a pile on the ground with a pick-up point
 
-local function newDrop(position)
+-- `opts` (Inv.dropCash): label, prompt, marker; `sealed` piles take nothing in and
+-- are never merged; `ledger` names the cash they give away (see commitDrafts).
+local function newDrop(position, opts)
+    opts = opts or {}
     dropSequence = dropSequence + 1
     local id = "drop:" .. dropSequence
-    local inv = register({ id = id, kind = "drop", label = "Dropped items", slots = Config.drop.slots, maxWeight = Config.drop.weight,
-        position = { x = position.x, y = position.y, z = position.z }, bucket = position.bucket or 0, createdAt = LightRP.nowMs() })
+    local label = opts.label or "Dropped items"
+    local inv = register({ id = id, kind = "drop", label = label, slots = Config.drop.slots, maxWeight = Config.drop.weight,
+        position = { x = position.x, y = position.y, z = position.z }, bucket = position.bucket or 0, createdAt = LightRP.nowMs(),
+        sealed = opts.sealed == true or nil, ledger = opts.ledger, reserve = type(opts.reserve) == "table" and opts.reserve or nil })
     LightRP.interaction(id, {
-        position = inv.position, radius = Config.drop.radius or 2.0, label = "Dropped items", prompt = "Pick up", key = "E", promptHeight = 0.6,
-        marker = Config.drop.marker, ring = false, bucket = inv.bucket,
+        position = inv.position, radius = Config.drop.radius or 2.0, label = label, prompt = opts.prompt or "Pick up", key = "E", promptHeight = 0.6,
+        marker = opts.marker or Config.drop.marker, ring = false, bucket = inv.bucket,
     })
     return inv
 end
@@ -285,7 +290,7 @@ end
 local function nearestDrop(position, radius)
     local best, bestDistance
     for _, inv in pairs(registry) do
-        if inv.kind == "drop" and (inv.bucket or 0) == (position.bucket or 0) then
+        if inv.kind == "drop" and not inv.sealed and (inv.bucket or 0) == (position.bucket or 0) then
             local dx, dy, dz = position.x - inv.position.x, position.y - inv.position.y, position.z - inv.position.z
             local d = math.sqrt(dx * dx + dy * dy + dz * dz)
             if d <= radius and (bestDistance == nil or d < bestDistance) then best, bestDistance = inv, d end
@@ -330,6 +335,12 @@ canAccess = function(playerId, inv)
         local p = Open77.players.position(playerId)
         if not p or (p.bucket or 0) ~= (inv.bucket or 0) then return false, "too_far" end
         if distanceTo(playerId, inv.position) > (Config.drop.radius or 2.0) + 1.5 then return false, "too_far" end
+        -- A reserved pile (a Dogtown cash bag: the killer's crew first) until its time is up.
+        local r = inv.reserve
+        if r and (tonumber(r.untilMs) or 0) > LightRP.nowMs() and type(r.allows) == "function" then
+            local called, allowed = pcall(r.allows, playerId)
+            if not called or not allowed then return false, "reserved" end
+        end
         return true
     end
     if inv.kind == "stash" then
@@ -472,11 +483,17 @@ local function commitDrafts(changes, extraQueries, afterCommit)
         if committed then receipts[#receipts + 1] = committed end
     end
     for _, query in ipairs(extraQueries or {}) do writes[#writes + 1] = query end
+    -- A pile that names its cash (a Dogtown cash bag) labels the ledger line of whoever
+    -- takes cash out of it; a draft's own `ledger` labels its owner's line.
+    local tag
+    for _, change in ipairs(changes) do
+        if change[1].ledger and Inv.cashOf(change[2]) < Inv.cashOf(change[1]) then tag = change[1].ledger end
+    end
     for _, change in ipairs(changes) do
         local inv, draft = change[1], change[2]
         if inv.persistent then writes[#writes + 1] = Inv.writeDraft(inv, draft) end
         if LightRP.money and LightRP.money.inventoryReceipt then
-            local query, commit, reason = LightRP.money.inventoryReceipt(inv, Inv.cashOf(draft))
+            local query, commit, reason = LightRP.money.inventoryReceipt(inv, Inv.cashOf(draft), draft.ledger or tag)
             if reason then return false, reason end
             if query then writes[#writes + 1] = query; receipts[#receipts + 1] = commit end
         end
@@ -510,7 +527,9 @@ function Inv.prepareCash(playerId, delta)
     return { inventory = inv, draft = draft, write = Inv.writeDraft(inv, draft) }
 end
 
-function Inv.transferCash(playerId, targetId, amount)
+-- `labels` (optional): { from = ledger label, to = ledger label } (economy.lua,
+-- Money.inventoryReceipt) instead of the plain "Physical cash moved" lines.
+function Inv.transferCash(playerId, targetId, amount, labels)
     local from, to = Inv.player(playerId), Inv.player(targetId)
     if not from or not to then return false, "no_inventory" end
     if from == to or not math.tointeger(amount) or amount <= 0 then return false, "invalid_amount" end
@@ -520,10 +539,46 @@ function Inv.transferCash(playerId, targetId, amount)
     if not ok then return false, reason end
     ok, reason = Inv.adjustCash(b, amount)
     if not ok then return false, reason end
+    if type(labels) == "table" then a.ledger, b.ledger = labels.from, labels.to end
     from.busy, to.busy = true, true
     local called, saved, failure = pcall(commitDrafts, { { from, a }, { to, b } })
     releaseBusy(from); releaseBusy(to)
     return called and saved == true, called and failure or "database_error"
+end
+
+-- Part of a player's pocket cash dropped as a sealed pile at `position` (Dogtown: the
+-- cash a killed player loses). The pile takes nothing in, is never merged with a
+-- nearby one, and expires like any drop. opts: label, prompt, marker, ledger (the
+-- label of the lines of whoever picks it up), ownerLedger (the player's own line),
+-- mint (eddies the SERVER adds to the pile on top of `amount`, paid by nobody: the
+-- Dogtown killer's bonus; the caller logs and caps it, the picker's ledger line
+-- carries it), reserve ({ untilMs, allows(playerId) }: nobody else may open or take
+-- from the pile before untilMs). Returns true, pile or false, reason.
+function Inv.dropCash(playerId, amount, position, opts)
+    opts = opts or {}
+    local inv = Inv.player(playerId)
+    if not inv then return false, "no_inventory" end
+    if not math.tointeger(amount) or amount <= 0 then return false, "invalid_amount" end
+    local mint = opts.mint or 0
+    if not math.tointeger(mint) or mint < 0 then return false, "invalid_amount" end
+    if type(position) ~= "table" or not tonumber(position.x) or not tonumber(position.y) or not tonumber(position.z) then return false, "position_unknown" end
+    if inv.busy then return false, "busy" end
+    local a = Inv.draft(inv)
+    local ok, reason = Inv.adjustCash(a, -amount)
+    if not ok then return false, reason end
+    local pile = newDrop(position, { label = opts.label, prompt = opts.prompt, marker = opts.marker, sealed = true, ledger = opts.ledger, reserve = opts.reserve })
+    local b = Inv.draft(pile)
+    ok, reason = Inv.adjustCash(b, amount + mint)
+    if not ok then Inv.removeDrop(pile); return false, reason end
+    a.ledger = opts.ownerLedger
+    inv.busy, pile.busy = true, true
+    local called, saved, failure = pcall(commitDrafts, { { inv, a }, { pile, b } })
+    releaseBusy(inv); releaseBusy(pile)
+    if not called or not saved then
+        Inv.removeDrop(pile)
+        return false, called and failure or "database_error"
+    end
+    return true, pile
 end
 
 function Inv.addItem(invId, name, count, metadata, slot)
@@ -632,6 +687,7 @@ function Inv.move(playerId, fromId, fromSlot, toId, toSlot, count)
     ok, reason = canAccess(playerId, to)
     if not ok then return false, reason end
     if from ~= to and to.accessGuard and not to.accessGuard(playerId, true) then return false, "forbidden" end
+    if from ~= to and to.sealed then return false, "sealed" end
     fromSlot, toSlot = math.floor(tonumber(fromSlot) or 0), math.floor(tonumber(toSlot) or 0)
     if fromSlot < 1 or fromSlot > from.slots or toSlot < 1 or toSlot > to.slots then return false, "invalid_slot" end
     if from == to and fromSlot == toSlot then return true end
@@ -648,6 +704,7 @@ function Inv.move(playerId, fromId, fromSlot, toId, toSlot, count)
     if target ~= nil and (target.name ~= source.name or not metaEqual(target.metadata, source.metadata)) then
         -- Taking from an archived housing chest may not swap an item back in.
         if fromLive ~= toLive and fromLive.accessGuard and not fromLive.accessGuard(playerId, true) then return false, "forbidden" end
+        if fromLive ~= toLive and fromLive.sealed then return false, "sealed" end
         -- Swap, whole stacks only.
         if count ~= source.count then return false, "swap_needs_whole_stack" end
         if from ~= to then
@@ -1187,7 +1244,10 @@ function Inv.onInteract(playerId, id)
         Inv.open(playerId, stash.id)
         return
     end
-    if registry[id] and registry[id].kind == "drop" then Inv.open(playerId, id) end
+    if registry[id] and registry[id].kind == "drop" then
+        local ok, reason = Inv.open(playerId, id)
+        if not ok and reason == "reserved" then LightRP.result(playerId, false, Inv.explain(reason), "inventory.open") end
+    end
 end
 
 -- Piles that nobody touched for a while go away.
@@ -1216,6 +1276,8 @@ local REASONS = {
     trunk_unavailable = "The trunk could not be opened.",
     busy = "Your inventory is busy. Wait for the current operation to finish.",
     activity = "Your RP items stay put away during this activity.",
+    sealed = "Nothing can be put in there.",
+    reserved = "Reserved for the killer's crew for a few more seconds.",
 }
 local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
 Inv.explain = explain

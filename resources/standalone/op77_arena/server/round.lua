@@ -851,7 +851,10 @@ end
 ---
 --- There is no queue here and there is no countdown. The only refusal this can
 --- ever produce is a capacity one.
-function Round.join(playerId, ruleset)
+---
+--- op77_arena: `chosen` is a private match instance the caller opened
+--- (`Instances.open(format, ruleset, matchId)`); nil for the shared one.
+function Round.join(playerId, ruleset, chosen)
     playerId = DM.playerId(playerId)
     if playerId == nil then return nil, "bad_player_id" end
 
@@ -862,7 +865,7 @@ function Round.join(playerId, ruleset)
         return nil, "not_ready"
     end
 
-    local instance, reason = DM.instances.assignFFA(playerId, ruleset)
+    local instance, reason = DM.instances.assignFFA(playerId, ruleset, chosen)
     if instance == nil then
         refuse(playerId, reason or "instances_full")
         DM.notice(playerId, "warning", "instancesFull")

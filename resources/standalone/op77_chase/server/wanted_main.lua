@@ -30,7 +30,8 @@ end
 local function register()
     local a = WC.activity
     local ok, why = ChaseCore.register({ id = a.id, resource = GetCurrentResourceName(), label = a.label, kind = a.kind,
-        description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers, caps = a.caps })
+        description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers,
+        caps = ChaseCore.caps(a.caps, a.id), botFill = ChaseCore.botFill(a.id) })
     if ok then
         log("registered %s with Light RP", a.id)
         if ChaseBots then ChaseBots.refresh() end

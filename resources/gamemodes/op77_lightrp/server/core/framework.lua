@@ -258,6 +258,10 @@ AddEventHandler("onPlayerDisconnected", function(playerIdStr, reason)
     local playerId = tonumber(playerIdStr)
     if playerId == nil then return end
     actionLastMs[playerId], throttledLogMs[playerId] = nil, nil
+    -- Before any module unloads the player (inventory, wallet, character): a module that
+    -- must still act on them (Dogtown's combat-log bag) does it here. A hook may await
+    -- (this handler is a scheduler coroutine); onDisconnected runs once it is done.
+    LightRP.eachModule("onDisconnecting", playerId, reason)
     LightRP.eachModule("onDisconnected", playerId, reason)
 end)
 

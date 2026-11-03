@@ -45,11 +45,28 @@ function C.definition(kind)
         if site.enabled ~= false then modes[#modes + 1] = { id = site.id, label = site.label } end
     end
     local caps = a.caps or {}
-    return { id = a.id, resource = GetCurrentResourceName(), label = a.label, kind = a.kind,
+    local def = { id = a.id, resource = GetCurrentResourceName(), label = a.label, kind = a.kind,
         description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers,
         caps = { rpWeapons = caps.rpWeapons == true, rpItems = caps.rpItems == true,
             needs = caps.needs == true, vehicles = caps.vehicles == true },
         modes = #modes > 1 and modes or nil, modeKey = #modes > 1 and "site" or nil }
+    -- Bot fill (the panel's bots toggle / bot-fill offer) only when bots really work on
+    -- this build: the war's bot-filled and friendly matches need NPC create/remove; the
+    -- sweep's allies fight beside players, so they also need per-player attitudes.
+    local bots = TurfBots
+    local canBots = type(bots) == "table" and bots.available() == true
+    if kind == "pve" then
+        -- Players against an NPC gang: the core offers these difficulties (within the
+        -- player's reputation tier) and sends options.difficulty + options.scaling.
+        def.pve = true
+        local list = {}
+        for _, d in ipairs(cfg().pve.difficulties or {}) do list[#list + 1] = d end
+        def.difficulties = #list > 0 and list or nil
+        def.botFill = (canBots and bots.alliesSupported() == true) or nil
+    else
+        def.botFill = canBots or nil
+    end
+    return def
 end
 
 function C.register(def)

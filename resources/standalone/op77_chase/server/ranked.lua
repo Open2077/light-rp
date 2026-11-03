@@ -191,6 +191,7 @@ function K.buildResult(match, m, elo, day)
         won = won,
         stats = s,
         reputation = K.reputation(match, m, day),
+        recap = ChaseRecap and ChaseRecap.safe("ranked", match) or nil, -- Light RP's end-of-match recap (recap.lua)
     }
 end
 
