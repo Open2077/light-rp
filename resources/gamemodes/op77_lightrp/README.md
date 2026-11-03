@@ -603,6 +603,113 @@ Les positions des terminaux sont des décalages plausibles depuis le point d'arr
 sur l'esplanade (`-756.6, 777.3`), rayon d'environ 30 m, *blockShoot*, *blockMelee* et
 *blockGrenades* cochés, puis publier.
 
+## Dogtown, zone PvP ouverte (`server/modules/dogtown.lua`, `server/config/dogtown.lua`, `client/core/dogtown.lua`, page `features/dogtown/`)
+
+Dans la ville partagée (bucket 0), Dogtown est une zone de danger : passé les murs, n'importe
+qui peut tuer n'importe qui, équipiers compris, et le tueur prend une part de l'argent liquide
+de sa victime — jamais la banque. **Ailleurs, rien ne change** : le tir ami global reste coupé
+(défaut de la plateforme), les zones de sécurité restent sûres (y compris celles posées dans
+Dogtown), missions et activités gardent leurs buckets et leurs règles. Toute la configuration,
+commentée, est dans `server/config/dogtown.lua`.
+
+### Comment le PvP est accordé
+
+- Le tir ami global n'est jamais activé. Toutes les 500 ms (`sweepMs`), chaque joueur est placé
+  dedans ou dehors (polygone plan, toute hauteur : toits et stade compris) et les joueurs
+  **qualifiés** reçoivent une portée de combat (`Open77.combat.createScope`) dans le bucket 0.
+  Qualifié = personnage actif, bucket 0, ni activité ni mission, vivant ou en récupération, zone
+  allumée, **et** dans le polygone ou marqué au combat. Une position de plus de 2,5 s
+  (`positionMaxAgeMs`) garde la dernière réponse.
+- **Marque de combat** : un coup entre deux joueurs de la zone marque les deux pendant 20 s
+  (`combatTagMs`), renouvelée à chaque coup. Un joueur marqué qui sort reste attaquable jusqu'à
+  la fin de la marque.
+- L'arbitre de dégâts (`Open77.combat.onDamage`) ne fait que **refuser** : il ferme l'écart entre
+  deux balayages quand l'un des deux ne qualifie plus. Zones de sécurité, porte d'armement,
+  activités refusent comme avant (le premier refus gagne).
+- Limites de la plateforme : 32 joueurs par portée, 8 portées par ressource (`maxScopes`), 64 sur
+  tout le serveur, partagées avec les autres ressources. Au-delà de 32 joueurs qualifiés, le
+  groupe est découpé par position (d'ouest en est) et deux joueurs de groupes différents ne
+  peuvent pas se blesser.
+- Prérequis : la permission de manifeste `combat.scope.control` (déclarée dans `open77.lua`) et
+  **la base de données** — sans elle, les zones de sécurité sont indisponibles et leur arbitre
+  refuse tout PvP, et l'argent ne bouge pas (`database_unavailable`).
+
+### Kill, argent, anti-farm
+
+- La mort suit le **parcours médical normal** (inconscience persistante, trauma kit, puis
+  transfert à l'hôpital, hors de Dogtown). Ce module n'ajoute aucune facture.
+- Un kill compte quand les deux joueurs partagent une portée, ou que le tueur a touché la victime
+  dans les 20 dernières secondes ; victime dans le bucket 0, aucun des deux en activité.
+- **Butin** : `loot.share` (10 %) de l'argent porté, au plus `loot.max` (€$ 500), rien sous
+  `loot.minCash` (€$ 100). Avec `loot.mode = "bag"`, un **sac scellé** (on ne peut rien y
+  déposer) tombe là où la victime est tombée et n'importe qui le ramasse (**E**) ; c'est un tas
+  au sol de l'inventaire, donc en mémoire seulement : perdu au redémarrage et après
+  `LightRpConfig.inventory.drop.ttlMinutes` (10 min). Avec `"transfer"`, l'argent passe
+  directement dans la poche du tueur ; un sac impossible à poser retombe sur le transfert.
+- **Anti-farm** : ni argent ni kill entre deux personnages d'un même compte (`lootSameAccount`),
+  entre membres d'une même escouade `LightRP.parties` (`lootCrewmates`), ni pour le même tueur
+  sur la même victime pendant 10 min (`pairCooldownMs`, par personnage et dans ce sens : la
+  revanche reste possible). La mort de la victime est toujours comptée. Chaque refus est
+  expliqué aux deux joueurs par une notice.
+- **Tout passe par `LightRP.money`** : écriture `dogtown_loss` chez la victime (sac posé ou
+  transfert) et `dogtown_loot` chez celui qui ramasse ou reçoit, avec la contrepartie nommée.
+  Ramasser son propre sac reste une écriture `inventory`. Fichiers partagés touchés :
+  `inventory.lua` (tas scellés, `Inv.dropCash`, étiquettes de `transferCash`) et `economy.lua`
+  (étiquette d'écriture appliquée dans sa direction).
+
+### Statistiques
+
+Table `lightrp_dogtown_stats` (compte + personnage + semaine, la semaine 0 portant le cumul) :
+kills, morts, eddies ramassés (écritures `dogtown_loot` positives). Semaines UTC, du lundi
+00:00. Classement : les 5 meilleurs tueurs de la semaine (`stats.leaderboardSize`), relus toutes
+les 60 s. **Aucune réputation.** Sans base, tout vit en mémoire le temps de la session.
+
+### Ce que voit le joueur
+
+- **À l'entrée** : un bandeau rouge « DOGTOWN — NO LAW · ANYONE CAN KILL YOU », « You carry €$ X
+  in cash » et ce qu'un tueur en prendrait ; une ligne de chat au plus toutes les 2 min
+  (`entryChatMs`).
+- **Tuile en haut à gauche** tant qu'il est dedans ou marqué : compte à rebours de la marque,
+  argent en jeu.
+- **F1 → Dogtown** : les règles, son bilan (semaine et total), les meilleurs tueurs de la semaine.
+- **Carte** : le sprite de la porte de Dogtown sur la carte du jeu (panneau de danger en repli)
+  et une tête de mort rouge sur `op77_map3d`, au centre de la zone. Le polygone n'est pas
+  dessiné : `op77_map3d` ne connaît que des épingles et des cercles (brouillage). Il lui
+  faudrait une API de zone, par exemple `addArea({ id, points, fill, stroke, label, map, minimap })`
+  en coordonnées monde, avec `updateArea` et `removeArea`.
+
+### Staff : `/lightrp.dogtown`
+
+ACL `command.lightrp.dogtown` (couverte par `command.lightrp.*`).
+
+| Sous-commande | Effet |
+|---|---|
+| `status` | État, joueurs dedans, marqués, portées, source du polygone, règles du butin. |
+| `on` · `off` | Allume ou coupe la zone jusqu'au prochain redémarrage (`enabled` fixe le défaut). `off` retire toutes les portées. |
+| `survey add` · `undo` · `clear` | Ajoute un point à sa position (avec le district que voit le moteur), retire le dernier, vide le brouillon. |
+| `survey list` | Écrit le brouillon au format de `polygon` dans le journal serveur. |
+| `survey apply` · `reset` | Le brouillon devient la zone pour la session ; retour au polygone de la config. |
+| `survey test` | Dedans ou dehors ici, et district du moteur. |
+| `survey passage` | Ligne `{ x, y, z, heading }` pour une extrémité de passage. |
+
+Chaque client signale aussi les frontières de district que franchit le moteur ; un désaccord
+avec le polygone est journalisé (`logDistrictMismatch`). C'est une aide au relevé, jamais une
+source d'autorisation : le serveur ne connaît pas les districts.
+
+### Mise en place (en jeu)
+
+Le polygone livré (30 points) est dérivé des volumes du district `ep1_dogtown` des données de
+`op77_map3d` : il épouse l'extérieur des murs, donc un peu large, et chaque point est marqué
+`-- survey in game`. Longer les murs avec `/lightrp.dogtown survey add` à chaque angle,
+`survey apply` pour essayer, `survey list`, coller les lignes dans `polygon`, puis
+`ensure op77_lightrp`.
+
+**Phantom Liberty.** Dogtown appartient à l'extension, que le lanceur exige. Sur une sauvegarde
+où l'extension n'a jamais commencé, les portes du district peuvent rester fermées ; Open77 coupe
+le téléport de frontière, mais l'accès réel est à vérifier en jeu. Si les portes restent closes,
+`passages` ajoute des points **E** (dehors → dedans et retour, sortie refusée en étant marqué),
+relevés avec `survey passage`.
+
 ## Housing
 
 Appartements et maisons instanciés, achat/location, clés persistantes, coffre par
