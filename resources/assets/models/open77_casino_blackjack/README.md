@@ -22,7 +22,7 @@ Materials are `engine\materials\metal_base.remt` instances; the top print and
 the neon lines also set `Emissive`/`EmissiveEV`/`EmissiveColor` (the print is
 its own emissive map, so the dark composite barely glows). EVs live in
 `MATERIALS` in the build script (`EMISSIVE=False` cooks without emission).
-Design renders (not shipped): `sources/preview_blackjack_{hero,player,dealer,side,cards,chips}.png`.
+Design renders (not shipped): `sources/preview_blackjack_{hero,player,dealer,side,rail,cards,chips}.png`.
 
 ## Models
 
@@ -66,7 +66,13 @@ It imports the existing board-prop cooker as a read-only library, generates the
 geometry and artwork, deserializes schemas, imports GLB buffers, round-trips
 every cooked file, packs the archive and ends with its own `verify` (counts,
 RDAR index, hashes, material paths, emissive channels, atlas UV bounds,
-card/chip/table bounds, the collider entity and the clear dealer side).
+card/chip/table bounds, the collider entity and the clear dealer side) and two
+geometry checks from `tools/mesh_checks.py` on the authored faces: no two
+material groups overlap in one plane within 1 mm, either facing (such pairs
+z-fight in game, so faces that touch another part, like a base on the top, are
+left out), and from every seat and camera the first surface on each ray faces
+the viewer (the engine culls back faces: an inverted face is a see-through
+slit). `--check-geometry` runs only those two checks, without WolvenKit.
 `--verify-only` re-runs the checks on an existing work directory; `--art-only`
 only rewrites `sources/*.png`; `--preview` also writes the preview renders.
 Changing a preload requires a restart and a fresh game launch. Binary validation

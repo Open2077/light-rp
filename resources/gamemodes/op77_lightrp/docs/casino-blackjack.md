@@ -72,7 +72,11 @@ Worst-case public game state (four 7-card hands, 8-card dealer) is ~2 KB.
 Every moving thing is a native prop animated from server timestamps
 (`Extra.serverTime`): cards wait inside the shoe, slide out (0.6 s, staggered
 0.8 s on the opening deal), flip through an authored half-turned pose, and
-sweep into the discard tray seat by seat 2 s before the next round. Chip stacks (up to
+sweep into the discard tray seat by seat 2 s before the next round. Overlapping
+cards never share a height (two surfaces at one depth flicker in game): each card
+of a hand lies a card thickness plus 0.8 mm above the previous one, a card in
+flight stays above the cards it lands on, and every swept card has its own layer
+in the tray (dealer first, then seat by seat). Chip stacks (up to
 three denomination columns per stack) slide in from the player's edge on a
 bet, to the dealer's rack on a loss (at once on a bust), and a winnings stack
 slides out from the rack at the reveal. Worst case 59 moving props per table.

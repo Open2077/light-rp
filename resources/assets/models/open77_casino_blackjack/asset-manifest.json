@@ -7,7 +7,7 @@
    "name": "blackjack_table",
    "mesh": "open77\\assets\\op77_lightrp\\casino_blackjack\\blackjack_table.mesh",
    "entity": "open77\\assets\\op77_lightrp\\casino_blackjack\\blackjack_table.ent",
-   "triangles": 17260,
+   "triangles": 17034,
    "materials": [
     "TEX:felt",
     "chrome",
@@ -2716,8 +2716,8 @@
   },
   {
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\blackjack_table.mesh",
-   "sha256": "eab92b117c741fda474b59c37899199d1f66d6f5fa0878c6dd1e1620f4ba257e",
-   "bytes": 144805
+   "sha256": "9d87b9b49cef3041b176461e47ed40ac6059648af8f4338580b2dbf4d205205c",
+   "bytes": 145496
   },
   {
    "depot": "open77\\assets\\op77_lightrp\\casino_blackjack\\blackjack_table_collider.ent",
@@ -2770,9 +2770,9 @@
    "1000": 10
   }
  },
- "archiveSha256": "6107213f521cdfa738e20e78fee07eef1a3d07a749ce23544780ac70b29df285",
- "zipSha256": "15f268b3760971ddb187a1b7fc92ab0eeecb986b5871952f2f77fd57307393d2",
- "buildWork": "/home/dop42/.cache/tables-art-cards/build-blackjack",
+ "archiveSha256": "fd34933d8fdfb15cfffe233729aa548d02276ba3aba0f43870ba5d69b0109022",
+ "zipSha256": "2d678ebec74d6357df2ff37cead0c49056ab98d9daa4fb8186772117f5a74ce0",
+ "buildWork": "/home/dop42/.cache/tables-bjfix/build",
  "materialDependencies": [
   "engine\\materials\\metal_base.remt",
   "engine\\textures\\editor\\white.xbm"

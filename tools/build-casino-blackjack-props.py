@@ -28,6 +28,7 @@ from lupa import LuaRuntime
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 import casino_art as art
+import mesh_checks
 RESOURCE=ROOT/'resources/assets/models/open77_casino_blackjack'
 DEPOT='open77\\assets\\op77_lightrp\\casino_blackjack'
 LAB=ROOT.parent/'dop-tests'
@@ -42,6 +43,7 @@ FZ=1.35;FELT_R=1.00;RAIL_R=1.12;DEALER_EDGE=.14;APRON=.26
 SEAT_ANGLES=[54,18,-18,-54]
 SEAT_R=.80;CARD_R=.55
 CARD_W,CARD_H,CARD_T=.100,.130,.0016
+CARD_STEP=CARD_T+.0008   # client: each overlapping card a thickness + 0.8 mm above the previous one
 CHIP_R,CHIP_T=.030,.0052
 RANKS='A23456789TJQK';SUITS='SHDC'
 # Denomination, most chips in one stack prop, body colour, edge-insert colour, ring colour.
@@ -90,13 +92,26 @@ def oriented(out,p,color,outward,uv=None):
  n=cross([p[1][i]-p[0][i] for i in range(3)],[p[2][i]-p[0][i] for i in range(3)])
  if sum(n[i]*outward[i] for i in range(3))<0:p=p[::-1];uv=uv[::-1] if uv else None
  quad(out,p,color,uv)
-def box(out,x0,x1,y0,y1,z0,z1,color):g.box(out,(x0+x1)/2,(y0+y1)/2,(z0+z1)/2,x1-x0,y1-y0,z1-z0,color)
+def box(out,x0,x1,y0,y1,z0,z1,color,skip=()):
+ """Axis-aligned box, outward faces. `skip` leaves out faces that touch another
+ surface ('-z' = the base sitting on the top, '+y' = a face against a wall...):
+ a hidden face coincident with a visible one z-fights in game."""
+ sides={'-x':([(x0,y0,z0),(x0,y1,z0),(x0,y1,z1),(x0,y0,z1)],[-1,0,0]),'+x':([(x1,y0,z0),(x1,y1,z0),(x1,y1,z1),(x1,y0,z1)],[1,0,0]),
+        '-y':([(x0,y0,z0),(x1,y0,z0),(x1,y0,z1),(x0,y0,z1)],[0,-1,0]),'+y':([(x0,y1,z0),(x1,y1,z0),(x1,y1,z1),(x0,y1,z1)],[0,1,0]),
+        '-z':([(x0,y0,z0),(x1,y0,z0),(x1,y1,z0),(x0,y1,z0)],[0,0,-1]),'+z':([(x0,y0,z1),(x1,y0,z1),(x1,y1,z1),(x0,y1,z1)],[0,0,1])}
+ assert set(skip)<=set(sides),skip
+ for key,(pts,n) in sides.items():
+  if key not in skip:oriented(out,[list(v) for v in pts],color,n)
+def drop_plane(faces,z):
+ """Leave out the flat faces lying in the plane Z=z (a cap resting on, or under, another part)."""
+ return [f for f in faces if max(abs(f[k][2]-z) for k in ('a','b','c'))>1e-9]
 def transform(faces,fn):
  for f in faces:
   for k in ('a','b','c'):f[k]=list(fn(*f[k]))
  return faces
-def extrude_yz(out,poly,x0,x1,side,edge=None):
- """Extrude a (y,z) polygon between x0 and x1; `edge(outward)` picks each rim face's material."""
+def extrude_yz(out,poly,x0,x1,side,edge=None,floor=None):
+ """Extrude a (y,z) polygon between x0 and x1; `edge(outward)` picks each rim face's material.
+ A rim face lying at Z=`floor` (the base on the top) is left out."""
  area=sum(poly[i][0]*poly[(i+1)%len(poly)][1]-poly[(i+1)%len(poly)][0]*poly[i][1] for i in range(len(poly)))
  if area<0:poly=poly[::-1]
  for a,b,c in base.triangulate(poly):
@@ -107,6 +122,7 @@ def extrude_yz(out,poly,x0,x1,side,edge=None):
    tri(out,*pts,side)
  for i in range(len(poly)):
   (y0,z0),(y1,z1)=poly[i],poly[(i+1)%len(poly)];outward=[0,z1-z0,-(y1-y0)]
+  if floor is not None and abs(z0-floor)<1e-12 and abs(z1-floor)<1e-12:continue
   oriented(out,[(x0,y0,z0),(x1,y0,z0),(x1,y1,z1),(x0,y1,z1)],edge(outward) if edge else side,outward)
 
 # --- Card atlas: 13 ranks x 4 suits, back at row 4 -------------------------
@@ -176,19 +192,24 @@ def fan(out,outline,z,color,center,down=False,uvf=None):
   n=cross([pts[1][i]-pts[0][i] for i in range(3)],[pts[2][i]-pts[0][i] for i in range(3)])
   if (n[2]<0)!=down:pts=pts[::-1];uv=uv[::-1] if uv else None
   tri(out,*pts,color,uv)
-def sweep(out,path,profile,color,center):
- """Sweep a (radial offset, z) profile along a path of (x,y,outward-x,outward-y)."""
+def sweep(out,path,profile,color):
+ """Sweep a (radial offset, z) profile along a path of (x,y,outward-x,outward-y).
+ The profile runs with the solid on its right (up the inner wall, over the top,
+ down the outside), so a face's outward normal is the profile direction turned
+ left, (-dz, dr) in (radial, z). (The former per-material centre point turned
+ the chrome lip's wall and bevel away from the players: culled, they left a
+ see-through slit under a sliver of chrome that shimmered in game.)"""
  for (x0,y0,nx0,ny0),(x1,y1,nx1,ny1) in zip(path,path[1:]):
+  nx,ny=(nx0+nx1)/2,(ny0+ny1)/2
   for (r0,z0),(r1,z1) in zip(profile,profile[1:]):
    p=[[x0+nx0*r0,y0+ny0*r0,z0],[x1+nx1*r0,y1+ny1*r0,z0],[x1+nx1*r1,y1+ny1*r1,z1],[x0+nx0*r1,y0+ny0*r1,z1]]
-   mid=[sum(v[i] for v in p)/4 for i in range(3)]
-   cx=(x0+x1)/2+(nx0+nx1)/2*center[0];cy=(y0+y1)/2+(ny0+ny1)/2*center[0]
-   oriented(out,p,color,[mid[0]-cx,mid[1]-cy,mid[2]-center[1]])
-# Rail cross-section (radial offset from the top's edge, z), by material.
-RAIL=[('chrome',[(0,FZ-.004),(0,FZ+.010),(.006,FZ+.016),(.016,FZ+.018)],(-.02,FZ)),
-      ('leather',[(.016,FZ+.018),(.026,FZ+.036),(.045,FZ+.050),(.07,FZ+.056),(.095,FZ+.049),(.112,FZ+.032),(.12,FZ+.010),(.12,FZ-.012)],(.065,FZ+.01)),
-      ('neon_magenta',[(.12,FZ-.012),(.12,FZ-.024)],(.06,FZ-.018)),
-      ('black_chrome',[(.12,FZ-.024),(.12,FZ-.07),(.11,FZ-.09),(.10,FZ-.20)],(.0,FZ-.12))]
+   oriented(out,p,color,[-(z1-z0)*nx,-(z1-z0)*ny,r1-r0])
+# Rail cross-section (radial offset from the top's edge, z), by material, one
+# continuous profile from below the top's edge to the belly.
+RAIL=[('chrome',[(0,FZ-.004),(0,FZ+.010),(.006,FZ+.016),(.016,FZ+.018)]),
+      ('leather',[(.016,FZ+.018),(.026,FZ+.036),(.045,FZ+.050),(.07,FZ+.056),(.095,FZ+.049),(.112,FZ+.032),(.12,FZ+.010),(.12,FZ-.012)]),
+      ('neon_magenta',[(.12,FZ-.012),(.12,FZ-.024)]),
+      ('black_chrome',[(.12,FZ-.024),(.12,FZ-.07),(.11,FZ-.09),(.10,FZ-.20)])]
 BELLY_Z=FZ-.20
 def table():
  out=[]
@@ -196,53 +217,73 @@ def table():
  fan(out,outline,FZ,'TEX:felt',(0,-.35),uvf=felt_uv)
  # Rail: chrome lip, padded leather armrest, neon line, black chrome skirt; up the straight sides too.
  path=[(x,y,x/FELT_R,y/FELT_R) for x,y in arc(FELT_R)]
- for color,profile,center in RAIL:
-  sweep(out,path,profile,color,center)
-  for side in (-1,1):sweep(out,[(side*FELT_R,0,side,0),(side*FELT_R,APRON,side,0)],profile,color,center)
+ for color,profile in RAIL:
+  sweep(out,path,profile,color)
+  for side in (-1,1):sweep(out,[(side*FELT_R,0,side,0),(side*FELT_R,APRON,side,0)],profile,color)
  # Rail ends at the apron: closing caps.
  for side in (-1,1):
-  for color,profile,center in RAIL:
+  for color,profile in RAIL:
    for (r0,z0),(r1,z1) in zip(profile,profile[1:]):
     x0,x1=side*(FELT_R+r0),side*(FELT_R+r1)
     if abs((x0-side*FELT_R)*(z1-FZ+.12)-(x1-side*FELT_R)*(z0-FZ+.12))<1e-9:continue   # collinear with the apex
     tri(out,[x0,APRON,z0],[x1,APRON,z1],[side*FELT_R,APRON,FZ-.12],color)
     f=out[-1];n=cross([f['b'][i]-f['a'][i] for i in range(3)],[f['c'][i]-f['a'][i] for i in range(3)])
     if n[1]<0:f['b'],f['c']=f['c'],f['b']
- # Dealer apron: black chrome block with a chrome top edge and a cyan line facing the croupier.
- box(out,-FELT_R,FELT_R,DEALER_EDGE,APRON,FZ-.12,FZ+.012,'black_chrome')
- box(out,-FELT_R,FELT_R,DEALER_EDGE,APRON-.004,FZ+.012,FZ+.018,'chrome')
- box(out,-FELT_R,FELT_R,APRON-.004,APRON,FZ-.05,FZ-.038,'neon_cyan')
- box(out,-FELT_R,FELT_R,DEALER_EDGE,DEALER_EDGE+.003,FZ,FZ+.012,'chrome')
- # Underside closures.
- bottom=arc(FELT_R+.10)+[(FELT_R+.10,APRON),(-FELT_R-.10,APRON)]
+ # Dealer apron: black chrome block under a chrome top, a chrome edge band
+ # standing proud of its face towards the players and a cyan line facing the
+ # croupier, set 4 mm proud of the block's back. Faces that touch another part
+ # are left out (each touching pair would z-fight); the block's ends sit
+ # inside the side rails.
+ box(out,-FELT_R,FELT_R,DEALER_EDGE,APRON-.004,FZ-.12,FZ+.012,'black_chrome',skip=('-x','+x','+z'))
+ box(out,-FELT_R,FELT_R,DEALER_EDGE,APRON-.004,FZ+.012,FZ+.018,'chrome',skip=('-z',))
+ box(out,-FELT_R,FELT_R,APRON-.004,APRON,FZ-.05,FZ-.038,'neon_cyan',skip=('-y',))
+ box(out,-FELT_R,FELT_R,DEALER_EDGE-.003,DEALER_EDGE,FZ,FZ+.012,'chrome',skip=('-x','+x','+y','-z'))
+ # Underside closures (flush with the apron's back, its top and bottom touching the apron and the belly).
+ bottom=arc(FELT_R+.10)+[(FELT_R+.10,APRON-.004),(-FELT_R-.10,APRON-.004)]
  fan(out,bottom,BELLY_Z,'graphite',(0,-.35),down=True)
- box(out,-FELT_R-.09,FELT_R+.09,APRON-.01,APRON,BELLY_Z,FZ-.12,'black_chrome')
+ box(out,-FELT_R-.09,FELT_R+.09,APRON-.014,APRON-.004,BELLY_Z,FZ-.12,'black_chrome',skip=('-z','+z'))
  # Pedestal: a faceted black chrome column on a plinth with a lit floor ring.
+ # The column's end caps (on the plinth, under the belly) and each plinth
+ # layer's base (on the layer below) are hidden contact faces: left out.
  col_=[];g.lathe(col_,[(0,.16),(.16,.16),(.12,.20),(.09,.26),(.11,BELLY_Z-.06),(.15,BELLY_Z-.03),(.15,BELLY_Z),(0,BELLY_Z)],'black_chrome',8)
- out.extend(transform(col_,lambda x,y,z:(x*1.9,y-.33,z)))
+ out.extend(transform(drop_plane(drop_plane(col_,.16),BELLY_Z),lambda x,y,z:(x*1.9,y-.33,z)))
  for r,z0,z1,c in ((.50,0,.05,'black_chrome'),(.512,.012,.022,'neon_cyan'),(.46,.05,.14,'graphite'),(.30,.14,.16,'chrome')):
-  plinth=[];g.lathe(plinth,[(0,z0),(r,z0),(r,z1),(0,z1)],c,48);out.extend(transform(plinth,lambda x,y,z:(x*1.25,y*.62-.33,z)))
+  plinth=[];g.lathe(plinth,[(0,z0),(r,z0),(r,z1),(0,z1)],c,48)
+  if z0 in (.05,.14):plinth=drop_plane(plinth,z0)
+  out.extend(transform(plinth,lambda x,y,z:(x*1.25,y*.62-.33,z)))
  # Card shoe on the dealer's left (+X): smoked wedge, chrome rails, cyan light, top card at the mouth.
  shoe=[(.16,FZ),(-.10,FZ),(-.145,FZ+.004),(-.10,FZ+.03),(-.10,FZ+.055),(.16,FZ+.092)]
- extrude_yz(out,shoe,.60,.80,'smoke',lambda n:'smoke')
+ extrude_yz(out,shoe,.60,.80,'smoke',lambda n:'smoke',floor=FZ)
  for x0,x1 in ((.596,.604),(.796,.804)):
   extrude_yz(out,[(.165,FZ+.002),(-.105,FZ+.002),(-.105,FZ+.06),(.165,FZ+.098)],x0,x1,'chrome',lambda n:'chrome')
  box(out,.61,.79,.155,.163,FZ+.05,FZ+.085,'neon_cyan')
  box(out,.648,.752,-.104,-.06,FZ+.03,FZ+.055,'card_edge')
  u0,v0,u1,v1=cell_uv(*BACK_CELL)
- oriented(out,[[.65,-.142,FZ+.0062],[.75,-.142,FZ+.0062],[.75,-.104,FZ+.0302],[.65,-.104,FZ+.0302]],'TEX:cards',[0,-.5,1],[[u0,v1],[u1,v1],[u1,v1-(v1-v0)*.35],[u0,v1-(v1-v0)*.35]])
+ # The top card at the mouth: parallel to the shoe's lower front slope, 1.5 mm off it.
+ (ya,za),(yb,zb)=shoe[2],shoe[3];L=math.hypot(yb-ya,zb-za);dy,dz=(yb-ya)/L,(zb-za)/L;ny,nz=dz,-dy
+ if nz<0:ny,nz=-ny,-nz
+ lo,hi=[(ya+dy*t+ny*.0015,za+dz*t+nz*.0015) for t in (.004,L-.004)]
+ oriented(out,[[.65,*lo],[.75,*lo],[.75,*hi],[.65,*hi]],'TEX:cards',[0,ny,nz],[[u0,v1],[u1,v1],[u1,v1-(v1-v0)*.35],[u0,v1-(v1-v0)*.35]])
  # Discard tray on the dealer's right (-X): smoked well, chrome rim, magenta inner line, spent cards.
- box(out,-.79,-.61,-.08,.14,FZ,FZ+.006,'smoke')
- for x0,x1,y0,y1 in ((-.79,-.78,-.08,.14),(-.62,-.61,-.08,.14),(-.79,-.61,.13,.14),(-.79,-.61,-.08,-.07)):
-  box(out,x0,x1,y0,y1,FZ,FZ+.045,'smoke');box(out,x0,x1,y0,y1,FZ+.045,FZ+.05,'chrome')
- box(out,-.78,-.62,-.07,-.067,FZ+.035,FZ+.04,'neon_magenta')
- box(out,-.75,-.65,-.035,.095,FZ+.006,FZ+.022,'card_edge')
- oriented(out,[[-.75,-.035,FZ+.0222],[-.65,-.035,FZ+.0222],[-.65,.095,FZ+.0222],[-.75,.095,FZ+.0222]],'TEX:cards',[0,0,1],[[u0,v1],[u1,v1],[u1,v0],[u0,v0]])
+ # Walls stand on the base and butt against each other (no overlapping volumes);
+ # the faces they touch with are left out.
+ # The tray's back touches the apron's face at y=DEALER_EDGE: those faces are left out too.
+ box(out,-.79,-.61,-.08,DEALER_EDGE,FZ,FZ+.006,'smoke',skip=('-z','+y'))
+ for x0,x1,y0,y1 in ((-.79,-.78,-.08,DEALER_EDGE),(-.62,-.61,-.08,DEALER_EDGE),(-.78,-.62,DEALER_EDGE-.01,DEALER_EDGE),(-.78,-.62,-.08,-.07)):
+  ends=('-x','+x') if x1-x0>.05 else ()
+  if abs(y1-DEALER_EDGE)<1e-12:   # below the apron's chrome top (FZ+.018) the back face is against the apron
+   box(out,x0,x1,y0,y1,FZ+.006,FZ+.018,'smoke',skip=('-z','+z','+y')+ends);box(out,x0,x1,y0,y1,FZ+.018,FZ+.045,'smoke',skip=('-z','+z')+ends)
+  else:box(out,x0,x1,y0,y1,FZ+.006,FZ+.045,'smoke',skip=('-z','+z')+ends)
+  box(out,x0,x1,y0,y1,FZ+.045,FZ+.05,'chrome',skip=('-z',)+ends)
+ box(out,-.78,-.62,-.07,-.067,FZ+.035,FZ+.04,'neon_magenta',skip=('-y','-x','+x'))
+ # The spent pile: card-edge sides, its top is the printed back itself.
+ box(out,-.75,-.65,-.035,.095,FZ+.006,FZ+.022,'card_edge',skip=('-z','+z'))
+ oriented(out,[[-.75,-.035,FZ+.022],[-.65,-.035,FZ+.022],[-.65,.095,FZ+.022],[-.75,.095,FZ+.022]],'TEX:cards',[0,0,1],[[u0,v1],[u1,v1],[u1,v0],[u0,v0]])
  # Chip rack in front of the dealer: black chrome tray, chrome dividers, layered chip rolls.
- box(out,-.34,.34,-.005,.135,FZ,FZ+.014,'black_chrome')
- box(out,-.34,.34,-.008,-.005,FZ+.004,FZ+.01,'neon_cyan')
+ box(out,-.34,.34,-.005,.135,FZ,FZ+.014,'black_chrome',skip=('-z',))
+ box(out,-.34,.34,-.008,-.005,FZ+.004,FZ+.01,'neon_cyan',skip=('+y',))
  for k in range(7):
-  x=-.33+k*.11;box(out,x-.005,x+.005,-.005,.135,FZ+.014,FZ+.04,'chrome')
+  x=-.33+k*.11;box(out,x-.005,x+.005,-.005,.135,FZ+.014,FZ+.04,'chrome',skip=('-z',))
  for k in range(6):
   index=len(DENOMS)-1-k;roll=chips(index,22,16,False,.026,.0052)
   x=-.275+k*.11
@@ -498,11 +539,11 @@ def previews(geometry,images):
   for angle,cards in hands.items():
    a=math.radians(angle);ux,uy,tx,ty=math.sin(a),-math.cos(a),math.cos(a),math.sin(a)
    for k,code in enumerate(cards):
-    r=.55-k*.012;v.add(geometry['bj_card_'+code.lower()],(r*ux+k*.032*tx,r*uy+k*.032*ty,FZ+.001+k*.0018),angle)
+    r=.55-k*.012;v.add(geometry['bj_card_'+code.lower()],(r*ux+k*.032*tx,r*uy+k*.032*ty,FZ+.001+k*CARD_STEP),angle)
    stacks={54:[('100',1),('25',1)],18:[('5',3)],-18:[('1000',2)],-54:[('500',1),('100',2)]}[angle]
    offs={1:[(0,0)],2:[(-.033,0),(.033,0)],3:[(-.033,.02),(.033,.02),(0,-.035)]}[len(stacks)]
-   for (d,n),(o1,o2) in zip(stacks,offs):v.add(geometry[f'bj_chips_{d}_{n}'],(.80*ux+o1*tx+o2*ux,.80*uy+o1*ty+o2*uy,FZ),angle)
-  v.add(geometry['bj_card_kh'],(-.07,-.24,FZ+.001));v.add(geometry['bj_card_back'],(.005,-.24,FZ+.001))
+   for (d,n),(o1,o2) in zip(stacks,offs):v.add(geometry[f'bj_chips_{d}_{n}'],(.80*ux+o1*tx+o2*ux,.80*uy+o1*ty+o2*uy,FZ+.0005),angle)
+  v.add(geometry['bj_card_kh'],(-.07,-.24,FZ+.001));v.add(geometry['bj_card_back'],(.005,-.24,FZ+.001+CARD_STEP))
   return v
  out={}
  t=table_scene()
@@ -510,6 +551,8 @@ def previews(geometry,images):
  a=math.radians(18);out['preview_blackjack_player']=t.render((1.65*math.sin(a),-1.65*math.cos(a),FZ+.85),(0,-.28,FZ),fov=50,size=(1400,900))
  out['preview_blackjack_dealer']=t.render((0,.95,FZ+.8),(0,-.55,FZ),fov=55,size=(1400,900))
  out['preview_blackjack_side']=t.render((-2.4,-2.2,FZ+.2),(0,-.2,.8),fov=42,size=(1400,900))
+ # Close-up of the rail's chrome lip and the dealer's edge band, from a seated eye.
+ out['preview_blackjack_rail']=t.render((.75,-1.25,FZ+.32),(-.85,-.15,FZ),fov=34,size=(1400,900))
  cards=art.Preview(preview_resolver(images))
  codes=['AS','2H','3C','4D','5S','6H','7C','8D','9S','TH','JC','QD','KS','JH','QS','KD','AH','AD','AC','TC','7S','9H','8C','5D']
  for i,code in enumerate(codes):cards.add(geometry['bj_card_'+code.lower()],((i%8-3.5)*.115,(1.5-i//8)*.145,0))
@@ -521,6 +564,23 @@ def previews(geometry,images):
  out['preview_blackjack_chips']=ch.render((.05,-.55,.42),(0,-.02,0),fov=46,size=(1400,1000))
  for name,im in out.items():im.save(RESOURCE/'sources'/(name+'.png'),optimize=True)
  return out
+
+# Where the table is seen from (unscaled table-local metres): seated eyes at each
+# base, the client's seat / dealer / overview / top cameras.
+VIEWPOINTS=[p for a in SEAT_ANGLES for p in ((1.3*math.sin(math.radians(a)),-1.3*math.cos(math.radians(a)),FZ+.45),
+            (1.65*math.sin(math.radians(a)),-1.65*math.cos(math.radians(a)),FZ+.85))]+[(0,.95,FZ+.8),(1.55,-1.35,FZ+1.15),(0,-.42,FZ+2.4),(-2.4,-2.2,FZ+.2)]
+def check_geometry(geometry):
+ """No z-fighting and no holes, on the authored faces: no two material groups
+ overlap in one plane (within 1 mm, either facing: touching faces are left
+ out), and from every viewpoint the first surface on each ray faces the viewer."""
+ for name,faces in geometry.items():
+  pairs=mesh_checks.coplanar_overlaps(faces,tol=.001,same_material=lambda key:key.startswith('TEX:'))
+  assert not pairs,(name,len(pairs),mesh_checks.describe(faces,pairs))
+ # The chip rolls are closed lathes: aimed at and occluding through the rest only (keeps the check fast).
+ table=[f for f in geometry['blackjack_table'] if not f['color'].startswith('chip:')]
+ bad=mesh_checks.see_through(table,VIEWPOINTS)
+ assert not bad,('back faces seen from the viewpoints',sorted({c for _,_,c in bad}),len(bad))
+ print(f'GEOMETRY: {len(geometry)} models without coplanar overlaps between materials; table closed from {len(VIEWPOINTS)} viewpoints',flush=True)
 
 EXPECTED_MODELS=1+52+2+sum(d[1] for d in DENOMS)
 EXPECTED_TEXTURES=len(TEX)
@@ -596,13 +656,16 @@ def verify(work,manifest):
  for denom,most,*_ in DENOMS:
   for n in range(1,most+1):assert abs(by_name[f'bj_chips_{denom}_{n}']['bounds']['max'][2]-n*CHIP_T)<1e-6
  t=by_name['blackjack_table']['bounds'];assert abs(t['min'][2])<1e-9 and FZ<t['max'][2]<FZ+.1 and abs(t['max'][0]-RAIL_R)<1e-6 and t['max'][1]<=APRON+1e-9
+ check_geometry(models())
  with zipfile.ZipFile(RESOURCE/'dist/open77_casino_blackjack.zip') as z:
   assert z.testzip() is None and z.namelist()==['archive/pc/mod/0_open77_casino_blackjack.archive']
   assert z.read(z.namelist()[0])==packed
  print(f'VERIFIED: {EXPECTED_MODELS} native props + {len(COLLIDERS)} collider entity, {EXPECTED_TEXTURES} opaque mipmapped textures, {len(files)} exact RDAR entries, emissive top print/neon, geometry/atlas UVs/poses/package hashes',flush=True)
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--lab',type=Path,default=LAB);p.add_argument('--work',type=Path,default=Path('/tmp/casino-blackjack-props/build'));p.add_argument('--verify-only',action='store_true');p.add_argument('--art-only',action='store_true',help='write sources/*.png and stop');p.add_argument('--preview',action='store_true',help='write sources/*.png and the preview renders, then stop');a=p.parse_args();work=a.work
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--lab',type=Path,default=LAB);p.add_argument('--work',type=Path,default=Path('/tmp/casino-blackjack-props/build'));p.add_argument('--verify-only',action='store_true');p.add_argument('--art-only',action='store_true',help='write sources/*.png and stop');p.add_argument('--preview',action='store_true',help='write sources/*.png and the preview renders, then stop');p.add_argument('--check-geometry',action='store_true',help='only run the z-fighting / hole checks on the authored geometry');a=p.parse_args();work=a.work
+ if a.check_geometry:
+  check_geometry(models());return
  if a.verify_only:
   verify(work,json.loads((RESOURCE/'asset-manifest.json').read_text()));return
  if a.art_only or a.preview:
