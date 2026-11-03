@@ -34,8 +34,13 @@ LightRpWorldBosses = {
     -- With many fighters the minimum share drops to this fraction of an equal share
     -- (30 fighters: 0.25 * 100 / 30 = 0.8 %), never above the mission's minimum.
     fairShareFraction = 0.25,
-    -- Enemies past the zone (perimeter + zoneMargin + this) are sent back to their post.
-    leashMetres = 15,
+    -- The leash. An enemy this far past the PERIMETER (the zoneMargin does not count)
+    -- stops fighting (combat and perception off: it neither shoots nor chases) and runs
+    -- back to its post; it fights again once back inside the perimeter. One still out after
+    -- `leashTeleportSeconds` (stuck, or dragged by the physics) is put back on its post.
+    -- Nobody can pull the event across the city, and running away works.
+    leashMetres = 20,
+    leashTeleportSeconds = 30,
     -- The boss's spawn: if no boss stands after this, the event is called off.
     spawnTimeoutSeconds = 45,
     -- Reinforcements (the mission's non-start spawn points) at these fractions of the

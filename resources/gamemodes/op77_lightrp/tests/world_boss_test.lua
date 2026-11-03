@@ -57,6 +57,7 @@ _G.Open77 = {
         remove = function(id) npcs[id] = nil; return true end,
         setCombatEnabled = function(id, on) npcCalls[#npcCalls + 1] = { "combat", id, on }; return true end,
         setPerceptionEnabled = function(id, on) npcCalls[#npcCalls + 1] = { "perception", id, on }; return true end,
+        setTransform = function(id, d) npcCalls[#npcCalls + 1] = { "transform", id, d.position }; if npcs[id] then npcs[id].position = d.position end; return true end,
         tasks = { attack = function(id) attacks = attacks + 1; npcCalls[#npcCalls + 1] = { "attack", id }; return true end,
             guard = function(id, p, r) npcCalls[#npcCalls + 1] = { "guard", id, r }; return true end,
             patrol = function(id, route) npcCalls[#npcCalls + 1] = { "patrol", id, #route }; return true end,
@@ -219,6 +220,32 @@ seconds(2)
 local leashed
 for i = before + 1, #npcCalls do if npcCalls[i][1] == "guard" and npcCalls[i][2] == runaway then leashed = true end end
 assert(leashed, "a runaway enemy is sent back")
+local function lastCall(kind, id, from)
+    for i = #npcCalls, from + 1, -1 do if npcCalls[i][1] == kind and npcCalls[i][2] == id then return npcCalls[i] end end
+end
+assert(lastCall("combat", runaway, before)[3] == false and lastCall("perception", runaway, before)[3] == false,
+    "leashed: it stops fighting and chasing on the way back")
+assert(WB.current().run.enemies[runaway].leashed)
+-- just past the perimeter (40 m) but within the leash (20 m): it keeps fighting
+local guardOne = guards[1]
+local b1 = #npcCalls
+npcs[guardOne].position = { x = 555, y = 500, z = 10 }
+seconds(2)
+assert(not lastCall("combat", guardOne, b1), "within the leash: no change")
+-- back inside the perimeter: it fights again
+local b2 = #npcCalls
+npcs[runaway].position = { x = 510, y = 500, z = 10 }
+seconds(2)
+assert(lastCall("combat", runaway, b2)[3] == true and not WB.current().run.enemies[runaway].leashed, "home: it fights again")
+-- dragged away and stuck: put back on its post after leashTeleportSeconds
+npcs[runaway].position = { x = 900, y = 500, z = 10 }
+seconds(2)
+local b3 = #npcCalls
+seconds(C.leashTeleportSeconds + 1)
+assert(lastCall("transform", runaway, b3), "stuck outside: put back on its post")
+seconds(2)
+assert(not WB.current().run.enemies[runaway].leashed, "back home after the teleport")
+npcs[guardOne].position = { x = 510, y = 500, z = 10 }
 npcs[runaway].position = { x = 510, y = 500, z = 10 }
 
 -- ── the enemies' hits on the fighters: they opt into authoritativePlayerHits, so a hit
