@@ -14,7 +14,8 @@
 --               pve = true|false,                                 -- optional: players vs bots
 --               difficulties = { "standard", "hard", "critical" } } -- optional, PvE only
 --   activityCheck(playerId, activityId, opts)-> true | false, reason   (eligibility only;
---                                               opts.difficulty: the reputation tier too)
+--                                               opts.difficulty: the reputation tier too,
+--                                               the crew leader's for a crew member)
 --   activityEnter(playerId, activityId, opts)-> true | false, reason   (opts.difficulty, else
 --                                               the one picked in the panel)
 --   activityLeave(playerId, activityId, opts)-> true | false, reason   (opts.returnPlayer, default true)
@@ -28,7 +29,10 @@
 -- the provider. A PvE result earns the difficulty's reward x the activity's weight:
 -- the full reward for `won = true` without `reputation`, else min(reputation, it).
 -- Its difficulty is the entry's (else result.difficulty), lowered to the highest
--- one the player's tier allows.
+-- one the player's tier allows. A crew member is never refused for the difficulty
+-- their leader picked (owner decision 2026-11-03): below its tier they play it in
+-- full and their result counts at the highest difficulty their tier opens; only the
+-- leader's own tier gates the pick (and a solo player's).
 -- Events, TriggerEvent / AddEventHandler only (never network events):
 --   provider -> core  op77_lightrp:activity:result  (playerId, activityId, result)
 --   provider -> core  op77_lightrp:activity:status  (activityId, status)
@@ -238,6 +242,29 @@ local function difficultyAllowed(id, a, diffId)
     return true
 end
 function A.difficultyAllowed(id, activityId, diffId) return difficultyAllowed(pid(id) or id, registry[activityId], diffId) end
+-- The player's crew (server/modules/parties.lua), guarded: tests stub parties.
+local function crewOf(id)
+    local P = LightRP.parties
+    return P and type(P.of) == "function" and P.of(id) or nil
+end
+-- The leader of the crew this player is a member of (not its leader), else nil.
+local function crewLeaderOf(id)
+    local party = crewOf(id)
+    if party and #(party.members or {}) > 1 and party.leader ~= id then return party.leader end
+    return nil
+end
+-- May this player play this difficulty? A crew member is never refused for their own
+-- tier: the leader picks, so the leader's tier counts, and a member below it plays at
+-- full difficulty for the reward of their own tier (effectiveDifficulty). The leader
+-- and a solo player are gated (difficultyAllowed). true[, nil, carried] | false, reason
+local function difficultyFor(id, a, diffId)
+    local allowed, why = difficultyAllowed(id, a, diffId)
+    if allowed then return true end
+    local leader = crewLeaderOf(id)
+    if leader and offers(offered(a), diffId) and difficultyAllowed(leader, a, diffId) then return true, nil, true end
+    return false, why
+end
+A.difficultyFor = function(id, activityId, diffId) return difficultyFor(pid(id) or id, registry[activityId], diffId) end
 -- The difficulty a result counts at: the wanted one (the lowest offered when it is
 -- not offered), lowered to the highest offered one the player's tier allows.
 local function effectiveDifficulty(id, list, wanted)
@@ -247,6 +274,13 @@ local function effectiveDifficulty(id, list, wanted)
         if (DIFF_INDEX[d] or math.huge) <= cap and minTierOf(d) <= tier then best = d end
     end
     return best
+end
+local function diffLabel(diffId) return DIFFS[diffId] and DIFFS[diffId].label or tostring(diffId) end
+-- What a crew member carried above their tier is told, once: they play it, for less.
+local function carriedLine(id, a, diffId)
+    local basis = effectiveDifficulty(id, offered(a), diffId)
+    if not basis then return string.format("%s is above your street cred: you play it, it earns you no reputation.", diffLabel(diffId)) end
+    return string.format("%s is above your street cred: you play it, you earn the %s reward.", diffLabel(diffId), diffLabel(basis))
 end
 local function rewardOf(diffId, weight)
     local d = DIFFS[diffId]
@@ -522,16 +556,18 @@ local function here(id)
 end
 
 -- The difficulty a PvE entry plays: the provider's (opts.difficulty), else the
--- one queued from the panel, else the first offered; refused above the tier.
+-- one queued from the panel (the leader's, for a crew member), else the first
+-- offered; refused above the tier, except for a crew member (difficultyFor), who
+-- comes back `carried`.
 local function entryDifficulty(id, a, opts)
     if not a.pve then return nil end
     local q = pending[id]
     local wanted = a.difficulties and type(opts) == "table" and type(opts.difficulty) == "string" and opts.difficulty or nil
     if wanted == nil and q and q.activity == a.id then wanted = q.difficulty end
     if wanted == nil then wanted = offered(a)[1] end
-    local allowed, why = difficultyAllowed(id, a, wanted)
+    local allowed, why, carried = difficultyFor(id, a, wanted)
     if not allowed then return nil, why end
-    return wanted
+    return wanted, nil, carried
 end
 
 function A.enter(playerId, activityId, opts)
@@ -544,7 +580,7 @@ function A.enter(playerId, activityId, opts)
     if e and e.activity == activityId then return true end
     local ok, why = check(id, activityId)
     if not ok then return false, why end
-    local difficulty, refused = entryDifficulty(id, a, opts)
+    local difficulty, refused, carried = entryDifficulty(id, a, opts)
     if refused then return false, refused end
     local point = here(id)
     if not point then return false, "Your position is not available yet." end
@@ -552,12 +588,16 @@ function A.enter(playerId, activityId, opts)
     tokenSeq = tokenSeq + 1
     e = { token = tokenSeq, activity = a.id, resource = a.resource, generation = a.generation, caps = a.caps,
         returnPoint = point, identity = who, character = c, enteredAt = now(),
-        pve = a.pve, difficulty = difficulty, difficulties = a.pve and offered(a) or nil, weight = a.weight }
+        pve = a.pve, difficulty = difficulty, difficulties = a.pve and offered(a) or nil, weight = a.weight, carried = carried }
     owned[id] = e
     -- queued elsewhere (a provider's own command entered them): that queue lets go
     local q = pending[id]
     pending[id], leaving[id] = nil, nil
     if q and q.activity ~= a.id then emit(EV.leaveRequest, id, q.activity) end
+    -- a crew member below the leader's difficulty, not told yet by the crew queue
+    if carried and not (q and q.activity == a.id and q.told == difficulty) then
+        LightRP.notice(id, { kind = "info", title = "STREET CRED", durationMs = 9000, body = carriedLine(id, a, difficulty) })
+    end
     -- never saved inside: the character keeps the return point from now on
     c.lastKnown = { x = point.x, y = point.y, z = point.z }
     if LightRP.missions and type(LightRP.missions.untag) == "function" then
@@ -740,11 +780,6 @@ local function extraOptions(value)
     return out
 end
 
--- The player's crew (server/modules/parties.lua), guarded: tests stub parties.
-local function crewOf(id)
-    local P = LightRP.parties
-    return P and type(P.of) == "function" and P.of(id) or nil
-end
 local function squadOf(party)
     return party and { id = party.id, leader = party.leader, members = copy(party.members) } or nil
 end
@@ -752,9 +787,11 @@ local function lowerFirst(text) return (tostring(text):gsub("^%u", string.lower)
 
 -- The rest of the crew follows its leader into the queue: each member is
 -- checked like a join of their own and gets the leader's options (the same
--- `squad`); a member who cannot go is told why and stays out.
-local function queueCrew(leader, a, options, party)
-    local followed, out = 0, {}
+-- `squad`, the same difficulty); a member who cannot go is told why and stays out.
+-- A member below the leader's PvE difficulty is never refused: they are told, once,
+-- that they play it for the reward of their own tier (`reduced` for the leader).
+local function queueCrew(leader, a, options, party, difficulty)
+    local followed, out, reduced = 0, {}, {}
     local leaderName = LightRP.characters.displayName(leader)
     for _, member in ipairs(party.members) do
         if member ~= leader then
@@ -771,12 +808,19 @@ local function queueCrew(leader, a, options, party)
                     for key, value in pairs(options) do theirs[key] = value end
                     theirs.target = nil -- a challenge stays the leader's
                     theirs.squad = squadOf(party)
-                    pending[member] = { activity = a.id, at = now(), crew = party.id }
+                    local below = difficulty ~= nil and not difficultyAllowed(member, a, difficulty)
+                    pending[member] = { activity = a.id, at = now(), crew = party.id, difficulty = difficulty,
+                        told = below and difficulty or nil }
                     if emit(EV.join, member, a.id, theirs) then
                         followed = followed + 1
                         touch(member)
-                        LightRP.notice(member, { kind = "contract", title = "CREW", durationMs = 6000,
-                            body = leaderName .. " queued the crew for " .. a.label .. ". /leave drops you out." })
+                        local body = leaderName .. " queued the crew for " .. a.label .. ". /leave drops you out."
+                        if below then
+                            body = body .. " " .. carriedLine(member, a, difficulty)
+                            local basis = effectiveDifficulty(member, offered(a), difficulty)
+                            reduced[#reduced + 1] = string.format("%s (%s)", LightRP.characters.displayName(member), basis and diffLabel(basis) or "none")
+                        end
+                        LightRP.notice(member, { kind = "contract", title = "CREW", durationMs = below and 9000 or 6000, body = body })
                     else
                         pending[member] = nil
                     end
@@ -788,7 +832,7 @@ local function queueCrew(leader, a, options, party)
             end
         end
     end
-    return followed, out
+    return followed, out, reduced
 end
 
 function A.requestJoin(id, activityId, from, extra)
@@ -828,11 +872,12 @@ function A.requestJoin(id, activityId, from, extra)
         return false, a.label .. " did not answer. Try again in a moment."
     end
     touch(id)
-    local followed, out = 0, {}
-    if crew then followed, out = queueCrew(id, a, options, crew) end
+    local followed, out, reduced = 0, {}, {}
+    if crew then followed, out, reduced = queueCrew(id, a, options, crew, difficulty) end
     local text = (owned[id] and "Joining " or "Request sent to ") .. a.label
     if followed > 0 then text = text .. string.format(" with %d crew member%s", followed, followed == 1 and "" or "s") end
     text = text .. "."
+    if #reduced > 0 then text = text .. string.format(" Below %s, reduced reward: %s.", diffLabel(difficulty), table.concat(reduced, ", ")) end
     if #out > 0 then text = text .. " " .. table.concat(out, ". ") .. "." end
     return true, text
 end
@@ -1136,7 +1181,11 @@ local function record(id, e, r)
         if here then
             loadMine(id)
             local parts = { labelOf(e.activity) }
-            if r.difficulty and DIFFS[r.difficulty] then parts[#parts + 1] = DIFFS[r.difficulty].label end
+            local shown = r.played and DIFFS[r.played] and r.played or r.difficulty
+            if shown and DIFFS[shown] then
+                parts[#parts + 1] = DIFFS[shown].label
+                    .. (r.difficulty and r.difficulty ~= shown and DIFFS[r.difficulty] and (" (" .. DIFFS[r.difficulty].label .. " reward)") or "")
+            end
             if r.placement then parts[#parts + 1] = r.won and "won" or ("#" .. r.placement) elseif r.won then parts[#parts + 1] = "won" end
             local body = table.concat(parts, " · ")
             if granted > 0 then body = body .. string.format(" · +%d reputation", granted)
@@ -1168,7 +1217,9 @@ function A.result(playerId, activityId, result)
     e.lastResultAt = t
     if e.leftAt then e.resultAfterLeave = true end
     local r = A.normalizeResult(result)
-    -- PvE only, at the difficulty the player's tier allows (docs/pve-progression.md)
+    -- PvE only, at the difficulty the player's tier allows (docs/pve-progression.md);
+    -- the notice names the difficulty played and, below it, the one that paid
+    r.played = e.pve and (e.difficulty or r.difficulty) or nil
     r.reputation, r.difficulty = reputationAsk(id, e, r)
     if A.botsEnabled or result.test == true then
         -- staff testing with bots: nothing earned, nothing ranked
@@ -1228,10 +1279,12 @@ exported("activityCheck", function(playerId, activityId, opts)
     if activityId ~= nil and (type(activityId) ~= "string" or not registry[activityId]) then return false, "That activity is not available." end
     local ok, why = check(id, activityId)
     if not ok then return false, why end
-    -- opts.difficulty: may this player play it (a PvE activity's tier gate)?
+    -- opts.difficulty: may this player play it (a PvE activity's tier gate; a crew
+    -- member below it is let in when their leader may pick it, for a lower reward)
     local a = activityId and registry[activityId]
     if a and a.pve and type(opts) == "table" and opts.difficulty ~= nil then
-        return difficultyAllowed(id, a, opts.difficulty)
+        local allowed, refused = difficultyFor(id, a, opts.difficulty)
+        if not allowed then return false, refused end
     end
     return true
 end)

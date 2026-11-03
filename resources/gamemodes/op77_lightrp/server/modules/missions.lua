@@ -175,18 +175,60 @@ end
 function Missions.unlocked(id, point, d)
     return Missions.tierAllows(id, d) and ladderOpen(id, point, d)
 end
--- The reputation a finished difficulty pays this character: its gain, or the gain
--- of the highest difficulty their tier allows (a gig crew member carried above it).
-function Missions.reputationFor(id, d)
-    local gain = C.reputationGain[d.id] or 0
-    if Missions.tierAllows(id, d) then return gain end
-    local tier, best = Missions.tier(id), 0
+-- The difficulty a finished run pays this character at: `d` itself when they have it
+-- unlocked, else the highest one below it at `point` they have unlocked. A crew
+-- member the leader brings above their street cred (or past the clear ladder) is
+-- never refused: they play `d` in full and earn that one's reputation (owner
+-- decision 2026-11-03, docs/pve-progression.md). `ladder`: the clear ladder counts
+-- too (missions, the raid); a gig counts the tier only. Without a point, the ids of
+-- `reputationGain` stand in for the difficulties. nil: nothing unlocked pays.
+function Missions.rewardBasis(id, d, point, ladder)
+    if type(d) ~= "table" then return nil end
+    ladder = ladder == true and type(point) == "table"
+    local function open(x) return Missions.tierAllows(id, x) and (not ladder or ladderOpen(id, point, x)) end
+    if open(d) then return d end
+    local best
+    if type(point) == "table" then
+        for _, x in ipairs(point.difficulties) do
+            if x.id == d.id then break end
+            if open(x) then best = x end
+        end
+        return best
+    end
+    local gain, bestGain = C.reputationGain[d.id] or 0, -1
     for diffId, amount in pairs(C.reputationGain) do
-        local need = (C.reputation.difficultyTiers or {})[diffId] or 1
-        if need <= tier and amount <= gain and amount > best then best = amount end
+        if Missions.tierAllows(id, { id = diffId }) and amount <= gain and amount > bestGain then best, bestGain = { id = diffId }, amount end
     end
     return best
 end
+-- The reputation a finished difficulty pays this character (Missions.rewardBasis).
+function Missions.reputationFor(id, d, point, ladder)
+    local basis = Missions.rewardBasis(id, d, point, ladder)
+    return basis and (C.reputationGain[basis.id] or 0) or 0
+end
+-- "CRITICAL" -> "Critical": a difficulty's label inside a sentence.
+local function sentenceLabel(d)
+    local label = tostring(type(d) == "table" and (d.label or d.id) or d or "")
+    return label:sub(1, 1):upper() .. label:sub(2):lower()
+end
+-- Tells a crew member brought into a difficulty they have not unlocked what they
+-- earn there, once, as they enter. true, basis (nil: no reward) when they are below
+-- it; false when `d` is theirs (nothing said).
+function Missions.tellCarried(id, point, d, ladder)
+    local basis = Missions.rewardBasis(id, d, point, ladder)
+    if basis == d then return false end
+    local earns = basis and string.format("you earn the %s reward (+%d reputation)", sentenceLabel(basis), C.reputationGain[basis.id] or 0)
+        or "it earns you no reputation"
+    local body
+    if not Missions.tierAllows(id, d) then
+        body = string.format("%s is above your street cred: you play it, %s.", sentenceLabel(d), earns)
+    else
+        body = string.format("You have not cleared %s here yet: you play %s, %s.", sentenceLabel(previousOf(point, d)), sentenceLabel(d), earns)
+    end
+    LightRP.notice(id, { kind = "info", title = "STREET CRED", durationMs = 9000, body = body })
+    return true, basis
+end
+Missions.sentenceLabel = sentenceLabel
 function Missions.addReputation(id, amount)
     reputation[id] = reputation[id] or { rep = 0, completed = 0 }
     local before = Missions.tier(id)
@@ -330,7 +372,11 @@ local function reason(code, id, self, d, point)
     if self then return r[1]:format(what) end
     return r[2]:format(name(id), what)
 end
-local function eligible(id, point, d, radius, test, gig)
+-- `carried`: a crew member their leader tags in. The difficulty is the leader's
+-- pick: a member below its tier (or its clear ladder) is never refused, plays it in
+-- full and earns the reward of the highest difficulty they have unlocked
+-- (Missions.rewardBasis). The leader, and a player alone, are gated.
+local function eligible(id, point, d, radius, test, gig, carried)
     if not LightRP.characters.isRegistered(id) then return false, "character" end
     if instanceOf[id] then return false, "mission" end
     local life = Open77.players.getLifeState(id)
@@ -340,8 +386,8 @@ local function eligible(id, point, d, radius, test, gig)
     -- a fixer gig is handed out: no unlock ladder, only the meeting point (the fixer
     -- offers its owner difficulties of their tier; a crew member's reputation follows
     -- their own tier, Missions.reputationFor)
-    if not gig and not Missions.tierAllows(id, d) then return false, "rep" end
-    if not gig and not ladderOpen(id, point, d) then return false, "tier" end
+    if not gig and not carried and not Missions.tierAllows(id, d) then return false, "rep" end
+    if not gig and not carried and not ladderOpen(id, point, d) then return false, "tier" end
     if not near(id, point, radius) then return false, "away" end
     return true
 end
@@ -365,7 +411,7 @@ local function tag(id, pointId, diffId)
     end
     if #list > d.max then return false, string.format("Your crew is %d: %s takes %d operators at most.", #list, d.label, d.max) end
     for _, member in ipairs(list) do
-        local ok, code = eligible(member, point, d, member == id and C.tagRadius or C.groupRadius)
+        local ok, code = eligible(member, point, d, member == id and C.tagRadius or C.groupRadius, nil, nil, member ~= id)
         if not ok then return false, reason(code, member, member == id, d, point) end
     end
     local open = matchmakingOf(id)
@@ -385,24 +431,29 @@ local function tag(id, pointId, diffId)
             open = open, owner = crew and crew.id or ("solo:" .. id) }
         lobbies[lobby.id] = lobby
     end
+    local reduced = {}
     for _, member in ipairs(list) do
-        lobby.members[#lobby.members + 1] = { id = member, squad = crew and crew.id or nil }
+        lobby.members[#lobby.members + 1] = { id = member, squad = crew and crew.id or nil, carried = member ~= id or nil }
         queueOf[member] = lobby.id
         if member ~= id then
             LightRP.notice(member, { kind = "contract", title = "TAGGED IN", body = name(id) .. " tagged the crew in: " .. point.title .. " · " .. d.label .. "." })
+            -- below the leader's pick: in all the same, for their own reward (told once)
+            local below, basis = Missions.tellCarried(member, point, d, true)
+            if below then reduced[#reduced + 1] = string.format("%s (%s)", name(member), basis and sentenceLabel(basis) or "none") end
         end
     end
     evaluate(lobby)
     for _, m in ipairs(lobby.members) do pushQueue(m.id) end
     pushPoint(point.id)
+    local note = #reduced > 0 and (" Below " .. sentenceLabel(d) .. ", reduced reward: " .. table.concat(reduced, ", ") .. ".") or ""
     if lobby.state == "countdown" then
-        return true, string.format("Tagged in. %s launches in %d seconds.", point.title, math.ceil((lobby.launchAt - now()) / 1000))
+        return true, string.format("Tagged in. %s launches in %d seconds.", point.title, math.ceil((lobby.launchAt - now()) / 1000)) .. note
     end
     local missing = d.max - #lobby.members
     if not lobby.open then
-        return true, string.format("Tagged in. %d/%d operators: %s needs %d.", #lobby.members, d.max, d.label, d.min)
+        return true, string.format("Tagged in. %d/%d operators: %s needs %d.", #lobby.members, d.max, d.label, d.min) .. note
     end
-    return true, string.format("Tagged in. %d/%d operators, matchmaking looks for %d more.", #lobby.members, d.max, missing)
+    return true, string.format("Tagged in. %d/%d operators, matchmaking looks for %d more.", #lobby.members, d.max, missing) .. note
 end
 
 local function hostLaunch(id)
@@ -516,11 +567,14 @@ local function finish(inst, success, why)
         if success and inst.gig then
             local pay = inst.gig.payout or d.payout
             if LightRP.money and pay > 0 then LightRP.money.addBank(id, pay, "gig", "Gig: " .. point.title .. " (" .. (inst.gig.fixerName or "fixer") .. ")") end
-            local rep = Missions.reputationFor(id, d)
+            -- a gig counts the tier only (no clear ladder)
+            local basis = Missions.rewardBasis(id, d, point, false)
+            local rep = basis and (C.reputationGain[basis.id] or 0) or 0
             Missions.addReputation(id, rep)
             LightRP.notice(id, { kind = "success", title = "GIG COMPLETE", durationMs = 10000,
-                body = string.format("%s · %s. %s wired by %s, +%d reputation.", point.title, d.label,
-                    LightRP.money and LightRP.money.format(pay) or tostring(pay), inst.gig.fixerName or "your fixer", rep) })
+                body = string.format("%s · %s. %s wired by %s, +%d reputation%s.", point.title, d.label,
+                    LightRP.money and LightRP.money.format(pay) or tostring(pay), inst.gig.fixerName or "your fixer", rep,
+                    basis ~= d and (" (" .. (basis and sentenceLabel(basis) or "no") .. " reward)") or "") })
         elseif inst.gig then
             LightRP.notice(id, { kind = "error", title = "GIG FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the job went sideways.") })
         elseif success and inst.test then
@@ -530,7 +584,9 @@ local function finish(inst, success, why)
             if LightRP.money then LightRP.money.addBank(id, d.payout, "mission", "Mission: " .. point.title .. " (" .. d.label .. ")") end
             reputation[id] = reputation[id] or { rep = 0, completed = 0 }
             reputation[id].completed = reputation[id].completed + 1
-            local rep = Missions.reputationFor(id, d)
+            -- a crew member carried above what they have unlocked: the reward of their best
+            local basis = Missions.rewardBasis(id, d, point, true)
+            local rep = basis and (C.reputationGain[basis.id] or 0) or 0
             Missions.addReputation(id, rep)
             local opens = Missions.cleared(id, point.id, d.id) == 0 and point.difficulties[(function()
                 for i, other in ipairs(point.difficulties) do if other.id == d.id then return i + 1 end end
@@ -545,7 +601,8 @@ local function finish(inst, success, why)
                         Missions.tierLabel(Missions.requiredTier(opens))) })
             end
             LightRP.notice(id, { kind = "success", title = "MISSION COMPLETE", durationMs = 10000,
-                body = string.format("%s · %s. %s paid to your account, +%d reputation.", point.title, d.label, LightRP.money and LightRP.money.format(d.payout) or tostring(d.payout), rep) })
+                body = string.format("%s · %s. %s paid to your account, +%d reputation%s.", point.title, d.label, LightRP.money and LightRP.money.format(d.payout) or tostring(d.payout), rep,
+                    basis ~= d and (" (" .. (basis and sentenceLabel(basis) or "no") .. " reward)") or "") })
         else
             LightRP.notice(id, { kind = "error", title = "MISSION FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the operation was lost.") })
         end
@@ -624,7 +681,7 @@ local function launch(lobby)
     -- last check: everyone still there
     for i = #lobby.members, 1, -1 do
         local m = lobby.members[i]
-        local ok = eligible(m.id, point, d, C.leash, lobby.test, lobby.gig ~= nil)
+        local ok = eligible(m.id, point, d, C.leash, lobby.test, lobby.gig ~= nil, m.carried)
         if not ok then
             table.remove(lobby.members, i)
             queueOf[m.id] = nil
@@ -711,11 +768,16 @@ local function snapshot(id, pointId)
         local lobby = boardFor(id, point, d)
         local need = Missions.requiredTier(d)
         local before = C.reputation.requireClear ~= false and previousOf(point, d) or nil
+        -- what this player earns there: in full when it is unlocked, else (a crew member
+        -- the leader brings) the reward of the highest difficulty they have unlocked
+        local basis = Missions.rewardBasis(id, d, point, true)
         difficulties[#difficulties + 1] = { id = d.id, label = d.label, blurb = d.blurb, payout = d.payout, minutes = d.minutes,
             min = d.min, max = d.max, tier = need, tierName = Missions.tierName(need), tierLocked = not Missions.tierAllows(id, d),
             locked = not Missions.unlocked(id, point, d), tagged = lobby and #lobby.members or 0,
             requires = before and before.label or nil, cleared = Missions.cleared(id, point.id, d.id),
-            openLobbies = openLobbies(id, point, d) }
+            openLobbies = openLobbies(id, point, d),
+            reputation = C.reputationGain[d.id] or 0, earns = basis and (C.reputationGain[basis.id] or 0) or 0,
+            earnsAs = basis and basis ~= d and basis.label or nil }
         boards[d.id] = lobbyView(lobby, point, d)
     end
     local mine = queueOf[id] and lobbies[queueOf[id]]

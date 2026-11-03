@@ -346,6 +346,8 @@ local function join(gig, id, inviteKey)
     if inv then inv.open = false; resolve(inv.messageId, "Joined", "ok") end
     brief(gig, id, true)
     crewNotice(gig, "CREW", string.format("%s joined the crew (%d/%d).", name(id), #gig.crew, d and d.max or #gig.crew))
+    -- above their street cred: in all the same, for the reward of their own tier (told once)
+    if d and type(Missions.tellCarried) == "function" then Missions.tellCarried(id, pointOf(gig), d, false) end
     if gig.state == "countdown" then gig.state, gig.launchAt = "accepted", nil end
     pushGig(gig)
     return true
