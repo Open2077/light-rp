@@ -95,6 +95,8 @@ local CAPS = { "rpWeapons", "rpItems", "needs", "vehicles" }
 local PHASES = { idle = true, lobby = true, running = true }
 local RESULT_INTERVAL_MS = 15000 -- a provider posting results in a loop is refused in between
 local PENDING_MS = 15 * 60000    -- a join request nobody turned into an entry (op77_chase's queue lasts 900 s)
+local MATCH_PENDING_MS = 2 * 60000 -- a core match's join: the provider gathers in seconds
+local MATCH_KEEP_MS = 60 * 60000   -- a formed match stays listed (A.matches) this long
 
 local registry = {}   -- activityId -> activity (validated definition + status)
 local order = {}      -- activity ids, registration order
@@ -636,9 +638,11 @@ function A.enter(playerId, activityId, opts)
         ranked = A.botsEnabled ~= true and not (asked and asked.ranked == false),
         match = asked and asked.match or nil, friendly = asked and asked.friendly or nil, fill = asked and asked.fill or nil }
     owned[id] = e
-    -- queued elsewhere (a provider's own command entered them): that queue lets go
+    -- queued elsewhere (a provider's own command entered them): that queue lets go;
+    -- a ranked search the core held ends (for the crew too when it was its leader's)
+    if q and q.held then A.dropFromTicket(id, LightRP.characters.displayName(id) .. " joined " .. a.label .. ": the search ended.")
+    elseif q and q.activity ~= a.id then emit(EV.leaveRequest, id, q.activity) end
     pending[id], leaving[id] = nil, nil
-    if q and q.activity ~= a.id then emit(EV.leaveRequest, id, q.activity) end
     -- a crew member below the leader's difficulty, not told yet by the crew queue
     if carried and not (q and q.activity == a.id and q.told == difficulty) then
         LightRP.notice(id, { kind = "info", title = "STREET CRED", durationMs = 9000, body = carriedLine(id, a, difficulty) })
@@ -763,7 +767,7 @@ function A.leave(playerId, activityId, opts)
         if q and q.activity == activityId then
             local a = registry[activityId]
             if a and foreign(a.resource) then return false, "That activity belongs to another resource." end
-            pending[id] = nil
+            if q.held then A.dropFromTicket(id) else pending[id] = nil end
             touch(id)
             return true
         end
@@ -795,6 +799,8 @@ local function forget(resource, since, reason)
         elseif a then kept[#kept + 1] = aid end
     end
     order = kept
+    -- the core's ranked searches for what went (their players' joins went above)
+    for tid, tk in pairs(A.tickets or {}) do if not registry[tk.activity] then A.tickets[tid] = nil end end
     dirty()
 end
 
@@ -983,13 +989,21 @@ local function mmCfg() return type(lobbyCfg().matchmaking) == "table" and lobbyC
 
 -- A held search ends for one player (`p` left, went elsewhere, could not play): its
 -- leader ending it ends it for the whole crew.
-local function dropFromTicket(p, why)
+-- The other searchers of an activity see their count change.
+local function touchSearchers(activityId)
+    for _, tk in pairs(tickets) do
+        if tk.activity == activityId then for _, p in ipairs(tk.members) do touch(p) end end
+    end
+end
+
+local function dropFromTicket(p, why, ticket)
     local q = pending[p]
-    local tk = q and q.held and tickets[q.held]
-    pending[p] = nil
+    local tk = ticket or (q and q.held and tickets[q.held])
+    if q and (q.held == nil or (tk and q.held == tk.id)) then pending[p] = nil end
     if not tk then return end
     removeFrom(tk.members, p)
     touch(p)
+    touchSearchers(tk.activity)
     if p == tk.lead or #tk.members == 0 then
         tickets[tk.id] = nil
         for _, other in ipairs(tk.members) do
@@ -1244,6 +1258,8 @@ function A.matchmake()
     for aid, list in pairs(by) do
         local a = registry[aid]
         local guard = 0
+        -- not taking players right now: the searches wait
+        if a.status.joinable == false then list = {} end
         repeat
             table.sort(list, function(x, y) if x.at ~= y.at then return x.at < y.at end return x.id < y.id end)
             local changed = formOne(a, list, t)
@@ -1277,6 +1293,7 @@ local function queueTicket(id, a, options, from, crew, chosen)
     local tk = { id = ticketSeq, activity = a.id, mode = chosen, lead = id, members = members, at = now(),
         options = options, from = clean(from, 24) or "panel" }
     tickets[tk.id] = tk
+    touchSearchers(a.id)
     for _, p in ipairs(members) do
         pending[p] = { activity = a.id, at = tk.at, ranked = true, held = tk.id, mode = chosen, lead = id,
             crew = crew and crew.id or nil, options = p == id and options or nil }
@@ -1362,14 +1379,21 @@ function A.fillSearch(id)
     if q.lead ~= nil and q.lead ~= id then return false, "Your crew leader decides on bots." end
     if a.status.joinable == false then return false, a.label .. " is not taking players right now." end
     local players = { id }
-    local party = crewOf(id)
-    for _, member in ipairs(party and party.leader == id and party.members or {}) do
-        local theirs = pending[member]
-        if member ~= id and theirs and theirs.activity == a.id and not theirs.match and theirs.lead == id then players[#players + 1] = member end
+    local tk = q.held and tickets[q.held]
+    if tk then
+        for _, member in ipairs(tk.members) do if member ~= id then players[#players + 1] = member end end
+    else
+        local party = crewOf(id)
+        for _, member in ipairs(party and party.leader == id and party.members or {}) do
+            local theirs = pending[member]
+            if member ~= id and theirs and theirs.activity == a.id and not theirs.match and theirs.lead == id then players[#players + 1] = member end
+        end
     end
-    withdraw(players)
     local teams, bots, enemies, mode = botPlan(a, lobbyOf(a), q.mode, players)
-    if not startMatch(a, players, { teams = teams, bots = bots, enemies = enemies, mode = mode, options = q.options, from = "panel", lead = id }) then
+    if not modeTakesBots(a, mode) then return false, a.label .. " " .. tostring(mode) .. " cannot be filled with bots." end
+    local options = tk and tk.options or q.options
+    withdraw(players)
+    if not startMatch(a, players, { teams = teams, bots = bots, enemies = enemies, mode = mode, options = options, from = "panel", lead = id }) then
         return false, a.label .. " did not answer. Try again in a moment."
     end
     for i = 2, #players do
@@ -1424,44 +1448,49 @@ local function balance(a, l, mode, members)
     return teams, bench, nil, mode
 end
 
+-- Bots in a friendly: the activity (and the mode) must take them, and the leader
+-- turned them on.
+local function friendlyCanBots(a, f) return offersBots(a) and modeTakesBots(a, f.mode) end
+local function friendlyHasBots(a, f) return f.bots == true and friendlyCanBots(a, f) end
+
 -- The bots of a friendly: per team (team shapes) or AI opponents (free-for-all).
 local function friendlyBots(a, l, f)
     local shape, n = shapeOf(l)
-    if not f.teams then return nil, f.bots and math.max(0, bodiesOf(a, l) - #f.players) or 0 end
+    local on = friendlyHasBots(a, f)
+    if not f.teams then return nil, on and math.max(0, bodiesOf(a, l) - #f.players) or 0 end
     local size = teamSizeOf(l, f.mode)
     if shape == "split" then
         size = math.ceil(bodiesOf(a, l) / n)
         for _, team in ipairs(f.teams) do size = math.max(size, #team) end
     end
     local bots = {}
-    for i, team in ipairs(f.teams) do bots[i] = f.bots and math.max(0, (size or #team) - #team) or 0 end
+    for i, team in ipairs(f.teams) do bots[i] = on and math.max(0, (size or #team) - #team) or 0 end
     return bots, nil
 end
 
 -- Why a friendly cannot start yet (nil: it can).
 local function friendlyIssue(a, l, f)
     local shape = shapeOf(l)
+    local orBots = friendlyCanBots(a, f) and ", or turn bots on" or ""
+    local least = math.max(2, a.minPlayers)
+    local on = friendlyHasBots(a, f)
     if not f.teams then
         if #f.players == 0 then return "Nobody plays: move a player in." end
-        if #f.players < a.minPlayers and not f.bots then
-            return string.format("%s needs %d players: turn bots on for the empty places.", a.label, a.minPlayers)
-        end
-        if #f.players < 2 and not f.bots then return "A friendly needs two players, or bots." end
+        if not on and #f.players < least then return string.format("%s needs %d players%s.", a.label, least, orBots) end
         return nil
     end
     local humans = #flatten(f.teams)
     if humans == 0 then return "Nobody plays: move a player onto a team." end
-    if not f.bots then
-        if humans < 2 then return "A friendly needs two players, or bots for the rest." end
+    if not on then
         local size = shape == "teams" and teamSizeOf(l, f.mode) or nil
         for i, team in ipairs(f.teams) do
             if size and #team < size then
-                return string.format("Team %s has %d of %d players: move one or turn bots on.", letter(i), #team, size)
+                return string.format("Team %s has %d of %d players: move one%s.", letter(i), #team, size, orBots)
             elseif #team == 0 then
-                return string.format("Team %s is empty: move a player or turn bots on.", letter(i))
+                return string.format("Team %s is empty: move a player%s.", letter(i), orBots)
             end
         end
-        if humans < a.minPlayers then return string.format("%s needs %d players: turn bots on for the empty places.", a.label, a.minPlayers) end
+        if humans < least then return string.format("%s needs %d players%s.", a.label, least, orBots) end
     end
     return nil
 end
@@ -1580,6 +1609,8 @@ end
 function A.friendlyBots(id, on)
     local f, why = ownFriendly(id)
     if not f then return false, why end
+    local a = registry[f.activity]
+    if on == true and not friendlyCanBots(a, f) then return false, a.label .. " cannot be played with bots." end
     f.bots = on == true
     touchCrew(id)
     return true, f.bots and "Bots take the empty places." or "No bots: every place needs a player."
@@ -1650,7 +1681,8 @@ local function friendlyView(id)
         return out
     end
     local bots, enemies = friendlyBots(a, l, f)
-    local v = { id = a.id, label = a.label, mode = f.mode, bots = f.bots, shape = shape, size = teamSizeOf(l, f.mode) or 0,
+    local v = { id = a.id, label = a.label, mode = f.mode, bots = friendlyHasBots(a, f), canBots = friendlyCanBots(a, f),
+        shape = shape, size = teamSizeOf(l, f.mode) or 0,
         leader = displayName(party.leader), mine = party.leader == id, bench = people(f.bench), issue = friendlyIssue(a, l, f) }
     if f.teams then
         v.teams, v.teamBots = {}, bots
@@ -1659,6 +1691,58 @@ local function friendlyView(id)
         v.players, v.enemies = people(f.players), enemies
     end
     return v
+end
+
+-- What the panel offers for an activity (nil: nothing beyond a plain join). Kept
+-- small: the `activities` key must stay well under the client's 1024 values.
+local function lobbyEntry(a)
+    local allies, bots, friendly = offersAllies(a), offersBots(a), offersFriendly(a)
+    local queue = not a.pve and lobbyOf(a).queue == true
+    if not (allies or bots or friendly or queue) then return nil end
+    return { allies = allies or nil, seats = allies and math.floor(tonumber(lobbyOf(a).seats) or a.maxPlayers) or nil,
+        bots = bots or nil, friendly = friendly or nil, queue = queue or nil,
+        brackets = queue and lobbyOf(a).brackets ~= false or nil }
+end
+
+-- A join waiting: the provider's queue, a ranked search the core holds (its count,
+-- near your rank / all ranks), a core match on its way; the bot fill offer's timer.
+local function queuedView(id, q)
+    local a = registry[q.activity]
+    local since = now() - q.at
+    local v = { id = q.activity, label = labelOf(q.activity), sinceMs = since, difficulty = q.difficulty,
+        ranked = q.ranked ~= false and A.botsEnabled ~= true, mode = q.mode, lead = q.lead == nil or q.lead == id,
+        match = q.match ~= nil or nil, friendly = q.friendly or nil,
+        allies = a and a.pve and q.fill and q.fill.allies or nil }
+    if a and not q.match then
+        if q.held then v.search = searchView(id, q, a) end
+        if v.ranked and offersBots(a) and modeTakesBots(a, q.mode) then v.fillInMs = math.max(0, fillAfterMs() - since) end
+    end
+    return v
+end
+
+-- Every second: the ranked queue forms what it can, a leader whose search waited
+-- `fillAfterMs` hears of the bot fill once, a widened search refreshes its panels.
+function A.lobbyTick()
+    if next(tickets) ~= nil then A.matchmake() end
+    local t, after = now(), fillAfterMs()
+    for id, q in pairs(pending) do
+        local a = registry[q.activity]
+        if a and not q.match and not q.offered and (q.lead == nil or q.lead == id) and q.ranked ~= false
+            and A.botsEnabled ~= true and offersBots(a) and modeTakesBots(a, q.mode) and t - q.at >= after then
+            q.offered = true
+            touch(id)
+            LightRP.notice(id, { kind = "info", title = "MATCHMAKING", durationMs = 9000,
+                body = "No match for " .. a.label .. " yet. Fill the empty places with bots (unranked) from the Activities panel, or keep waiting." })
+        end
+    end
+    for _, tk in pairs(tickets) do
+        local a = registry[tk.activity]
+        if a then
+            local spread = spreadFor(a, t - tk.at)
+            if tk.spread ~= nil and tk.spread ~= spread then for _, p in ipairs(tk.members) do touch(p) end end
+            tk.spread = spread
+        end
+    end
 end
 
 -- The rest of the crew follows its leader into the queue: each member is
@@ -1674,19 +1758,20 @@ local function queueCrew(leader, a, options, party, difficulty)
             local e, q = owned[member], pending[member]
             if e and e.activity == a.id then
                 followed = followed + 1
-            elseif q and q.activity == a.id then
+            elseif q and q.activity == a.id and not q.held and not q.match then
                 followed = followed + 1
             else
                 local ok, why = check(member, a.id)
                 if ok then
-                    if q then emit(EV.leaveRequest, member, q.activity) end
+                    if q then withdraw({ member }) end
                     local theirs = {}
                     for key, value in pairs(options) do theirs[key] = value end
                     theirs.target = nil -- a challenge stays the leader's
                     theirs.squad = squadOf(party)
                     local below = difficulty ~= nil and not difficultyAllowed(member, a, difficulty)
                     pending[member] = { activity = a.id, at = now(), crew = party.id, difficulty = difficulty,
-                        told = below and difficulty or nil }
+                        told = below and difficulty or nil, ranked = options.ranked, fill = options.fill,
+                        mode = options[a.modeKey], lead = leader }
                     if emit(EV.join, member, a.id, theirs) then
                         followed = followed + 1
                         touch(member)
@@ -1711,6 +1796,25 @@ local function queueCrew(leader, a, options, party, difficulty)
     return followed, out, reduced
 end
 
+-- The crew members who would follow the leader into `a` (already in it, queued for
+-- it, or eligible): the humans a PvE fill counts.
+local function followers(leader, a, crew)
+    local n = 0
+    for _, member in ipairs(crew and crew.members or {}) do
+        if member ~= leader then
+            local e, q = owned[member], pending[member]
+            if (e and e.activity == a.id) or (q and q.activity == a.id) or check(member, a.id) then n = n + 1 end
+        end
+    end
+    return n
+end
+
+local function yes(value) return value == true or value == 1 or value == "1" or value == "true" or value == "on" end
+
+-- A join from the panel. options.bots: PvP "Play with bots" (a bot match the core
+-- forms, unranked), PvE "Fill empty slots with bots" (allied bots, still ranked).
+-- A PvP join without bots on a `queue = true` activity is a ranked search held by the
+-- core; any other goes to the provider as before.
 function A.requestJoin(id, activityId, from, extra)
     local a = type(activityId) == "string" and registry[activityId] or nil
     if not a then return false, "That activity is not available." end
@@ -1724,6 +1828,8 @@ function A.requestJoin(id, activityId, from, extra)
     if not ok then return false, why end
     if a.status.joinable == false then return false, a.label .. " is not taking players right now." end
     local options = extraOptions(extra)
+    local wantsBots = yes(options.bots)
+    options.bots = nil
     local chosen = options[a.modeKey]
     if a.modes and chosen ~= nil then
         local known, ids = false, {}
@@ -1740,9 +1846,37 @@ function A.requestJoin(id, activityId, from, extra)
         if not allowed then return false, refused end
         if a.difficulties then options.difficulty, options.scaling = difficulty, scalingOf(difficulty) end
     end
-    if q then emit(EV.leaveRequest, id, q.activity) end
-    pending[id] = { activity = a.id, at = now(), difficulty = difficulty }
+    local l = lobbyOf(a)
+    if not a.pve then
+        -- a crew bigger than one side of a fixed shape never plays it together (a
+        -- friendly splits it instead)
+        local size = crew and #crew.members or 1
+        if shapeOf(l) == "teams" and size > 1 then
+            local mode, side = sideSize(a, l, chosen, size)
+            if side and size > side then return false, tooBig(a, mode, size, side) end
+        end
+        if wantsBots then
+            if not offersBots(a) then return false, a.label .. " cannot be played with bots." end
+            local mode = chosen
+            if shapeOf(l) == "teams" then mode = sideSize(a, l, chosen, size) end
+            if not modeTakesBots(a, mode) then return false, a.label .. " " .. tostring(mode) .. " cannot be played with bots." end
+            return botMatch(id, a, l, options, from, crew, chosen)
+        end
+        -- staff bot mode: the provider fills a lone player at once, as before
+        if l.queue == true and A.botsEnabled ~= true then return queueTicket(id, a, options, from, crew, chosen) end
+    elseif wantsBots then
+        if not offersAllies(a) then return false, a.label .. " has no allied bots." end
+        local seats = math.floor(tonumber(l.seats) or a.maxPlayers)
+        options.fill = { allies = math.max(0, seats - 1 - followers(id, a, crew)), enemies = 0 }
+    end
+    options.ranked = A.botsEnabled ~= true
+    if q then withdraw({ id }) end
+    if friendlies[id] then friendlies[id] = nil; touchCrew(id) end
+    local kept = {}
+    for k, v in pairs(options) do kept[k] = v end
     options.from, options.squad = clean(from, 24) or "panel", squadOf(party)
+    pending[id] = { activity = a.id, at = now(), difficulty = difficulty, ranked = options.ranked, fill = options.fill,
+        mode = chosen, lead = crew and id or nil, crew = crew and crew.id or nil, options = kept }
     if not emit(EV.join, id, a.id, options) then
         pending[id] = nil
         return false, a.label .. " did not answer. Try again in a moment."
@@ -1753,6 +1887,9 @@ function A.requestJoin(id, activityId, from, extra)
     local text = (owned[id] and "Joining " or "Request sent to ") .. a.label
     if followed > 0 then text = text .. string.format(" with %d crew member%s", followed, followed == 1 and "" or "s") end
     text = text .. "."
+    if options.fill and options.fill.allies > 0 then
+        text = text .. string.format(" %d allied bot%s fill the empty slots.", options.fill.allies, options.fill.allies == 1 and "" or "s")
+    end
     if #reduced > 0 then text = text .. string.format(" Below %s, reduced reward: %s.", diffLabel(difficulty), table.concat(reduced, ", ")) end
     if #out > 0 then text = text .. " " .. table.concat(out, ". ") .. "." end
     return true, text
@@ -1779,6 +1916,11 @@ function A.requestLeave(id)
         return true, "Leaving " .. label .. "."
     end
     local q = pending[id]
+    if q and q.held then
+        -- a ranked search the core holds: the provider never heard of it
+        dropFromTicket(id)
+        return true, "You left the search for " .. labelOf(q.activity) .. "."
+    end
     if q then
         pending[id] = nil
         emit(EV.leaveRequest, id, q.activity)
@@ -2078,6 +2220,43 @@ local function record(id, e, r)
     if registry[e.activity] then touch(id) end
 end
 
+-- RANKED: the one place that says whether play counts (stats, leaderboards, Hall of
+-- Fame, reputation, pay). A table is an entry or a match (its `ranked`), anything
+-- else a player id: their entry, else their pending join. nil: nothing to say.
+function A.isRanked(x)
+    if A.botsEnabled == true then
+        if type(x) == "table" then return x.ranked ~= nil and false or nil end
+        local id = pid(x)
+        return id and (owned[id] or pending[id]) and false or nil
+    end
+    if type(x) == "table" then
+        if x.ranked == nil then return nil end
+        return x.ranked == true
+    end
+    local id = pid(x)
+    if not id then return nil end
+    if owned[id] then return owned[id].ranked == true end
+    if pending[id] then return pending[id].ranked ~= false end
+    return nil
+end
+
+-- Why a result does not count (nil: it counts): the entry's flag (a friendly, a bot
+-- match or fill, staff bot mode when it entered), staff bot mode now, a test result,
+-- the provider's own `unranked`, and a PvP result played with bots (stats.bots or
+-- stats.vsAi). PvE keeps its allied bots: activity_pay.lua reads it the same way.
+local function unrankedWhy(e, result)
+    if A.botsEnabled then return "bot mode" end
+    if e.ranked == false then return e.friendly and "friendly" or "unranked" end
+    if result.test == true then return "test" end
+    if result.unranked == true then return "unranked" end
+    if not e.pve then
+        local s = type(result.stats) == "table" and result.stats or nil
+        if s and (s.bots == true or (tonumber(s.bots) or 0) > 0 or s.vsAi == true) then return "bots" end
+    end
+    return nil
+end
+A.unrankedWhy = unrankedWhy
+
 function A.result(playerId, activityId, result)
     local id = pid(playerId)
     if not id or type(activityId) ~= "string" or type(result) ~= "table" then return false, "invalid" end
@@ -2097,12 +2276,16 @@ function A.result(playerId, activityId, result)
     -- the notice names the difficulty played and, below it, the one that paid
     r.played = e.pve and (e.difficulty or r.difficulty) or nil
     r.reputation, r.difficulty = reputationAsk(id, e, r)
-    if A.botsEnabled or result.test == true then
-        -- staff testing with bots: nothing earned, nothing ranked
-        LightRP.log("activities: test result %s for %d not recorded (placement %s, won %s)", e.activity, id,
+    local why = unrankedWhy(e, result)
+    if why then
+        -- unranked (a friendly, a bot match or fill, staff testing): nothing earned,
+        -- nothing recorded -- no stats row (so no Hall of Fame), no reputation, no pay
+        result.unranked, result.ranked, r.unranked = true, false, true
+        LightRP.log("activities: %s result %s for %d not recorded (placement %s, won %s)", why, e.activity, id,
             tostring(r.placement), tostring(r.won))
         return true
     end
+    result.ranked = true
     if LightRP.activityPay then pcall(LightRP.activityPay.onResult, id, e, r, result) end -- eddies: activity_pay.lua
     CreateThread(function() record(id, e, r) end)
     return true
@@ -2150,6 +2333,12 @@ local function exported(name, fn)
 end
 exported("activityRegister", A.register)
 exported("activityBots", function() return A.botsEnabled == true end)
+-- true | false | nil (no entry, no join): the entry's ranked flag (A.isRanked)
+exports("activityRanked", function(playerId)
+    local ok, ranked = pcall(A.isRanked, playerId)
+    if ok then return ranked end
+    return nil
+end)
 exported("activityCheck", function(playerId, activityId, opts)
     local id = pid(playerId)
     if not id then return false, "Invalid player." end
@@ -2193,8 +2382,9 @@ function A.onDisconnected(id)
     -- the saved position is already the return point (characters.samplePosition)
     if e then release(id, e, false, "disconnect") end
     local q = pending[id]
-    pending[id] = nil
-    if q then emit(EV.leaveRequest, id, q.activity) end
+    if q and q.held then dropFromTicket(id, LightRP.characters.displayName(id) .. " disconnected: the search ended.")
+    elseif q then pending[id] = nil; emit(EV.leaveRequest, id, q.activity) end
+    pending[id], friendlies[id] = nil, nil
     returning[id], leaving[id], damagedAt[id], watchers[id], mine[id] = nil, nil, nil, nil, nil
 end
 -- Another character (or the selector): the activity lets go, Light RP places the new one.
@@ -2204,8 +2394,24 @@ local function characterChanged(id, c)
     local back = returning[id]
     if back and back.character ~= c then returning[id] = nil end
     local q = pending[id]
-    if q then pending[id] = nil; emit(EV.leaveRequest, id, q.activity) end
+    if q and q.held then dropFromTicket(id, LightRP.characters.displayName(id) .. " changed character: the search ended.")
+    elseif q then pending[id] = nil; emit(EV.leaveRequest, id, q.activity) end
+    friendlies[id] = nil
     mine[id] = nil
+end
+-- Crews change: a member who left a crew's ranked search leaves it (its leader: the
+-- whole search ends); friendly set-ups follow the crew on the next push.
+function A.onCrewLeft(id)
+    local q = pending[id]
+    if q and q.held then
+        local tk = tickets[q.held]
+        if tk and #tk.members > 1 then dropFromTicket(id, LightRP.characters.displayName(id) .. " left the crew: the search ended.") end
+    end
+end
+function A.onPartyChanged(_, ids)
+    if next(friendlies) == nil then return end
+    for leader in pairs(friendlies) do syncFriendly(leader) end
+    for _, p in ipairs(ids or {}) do touch(p) end
 end
 function A.onCharacterLoaded(id, c)
     characterChanged(id, c)
@@ -2292,6 +2498,7 @@ function A.view(id)
                 board = top and boardView(top.board) or nil,
                 mine = view and view.stats[aid] or nil,
                 mineBoard = view and top and top.board ~= "" and view.boards[aid .. "|" .. top.board] or nil,
+                lobby = lobbyEntry(a),
             }
         end
     end
@@ -2303,7 +2510,9 @@ function A.view(id)
         list = list,
         current = e and { id = e.activity, label = labelOf(e.activity), sinceMs = now() - e.enteredAt,
             leaving = leaving[id] ~= nil, returning = returning[id] == e, difficulty = e.difficulty } or false,
-        queued = q and { id = q.activity, label = labelOf(q.activity), sinceMs = now() - q.at, difficulty = q.difficulty } or false,
+        queued = q and queuedView(id, q) or false,
+        friendly = friendlyView(id),
+        lobby = { fillAfterMs = fillAfterMs() },
         mission = internalOwner(id) == "missions",
         eligible = ok == true, reason = why,
         reputation = reputationView(id, today),
@@ -2345,6 +2554,27 @@ LightRP.action("activities.control", function(id, payload)
     elseif type(op) == "string" and type(A.operations[op]) == "function" then ok, text = A.operations[op](id, payload)
     else ok, text = false, "Unknown activities operation." end
     LightRP.result(id, ok, text, "activities.control")
+    A.watch(id)
+    touch(id)
+end)
+
+-- The lobby's own action type (the framework throttles per type: a friendly set-up's
+-- clicks never eat the panel's refresh): the bot fill, the friendly set-up.
+LightRP.action("activities.lobby", function(id, payload)
+    local op = payload.operation
+    local ok, text
+    if op == "fill" then ok, text = A.fillSearch(id)
+    elseif op == "friendly" then
+        local bots
+        if payload.bots == true or payload.bots == false then bots = payload.bots end
+        ok, text = A.friendlyOpen(id, payload.id, type(payload.mode) == "string" and clean(payload.mode, 24) or nil, bots)
+    elseif op == "move" then ok, text = A.friendlyMove(id, payload.target)
+    elseif op == "balance" then ok, text = A.friendlyBalance(id)
+    elseif op == "bots" then ok, text = A.friendlyBots(id, payload.on == true)
+    elseif op == "cancel" then ok, text = A.friendlyCancel(id)
+    elseif op == "start" then ok, text = A.friendlyStart(id)
+    else ok, text = false, "Unknown lobby operation." end
+    if text ~= nil or not ok then LightRP.result(id, ok, text, "activities.lobby") end
     A.watch(id)
     touch(id)
 end)
@@ -2433,14 +2663,34 @@ CreateThread(function()
             for aid, e in pairs(entries) do if t - (e.leftAt or t) > C.resultGraceMs then entries[aid] = nil end end
             if next(entries) == nil then recent[id] = nil end
         end
-        for id, q in pairs(pending) do
-            if t - q.at > PENDING_MS then pending[id] = nil; emit(EV.leaveRequest, id, q.activity); touch(id) end
+        for _, tk in pairs(tickets) do
+            if t - tk.at > PENDING_MS and tickets[tk.id] == tk then
+                local text = "No ranked match for " .. labelOf(tk.activity) .. " was found in time: the search ended."
+                LightRP.notice(tk.lead, { kind = "info", title = "MATCHMAKING", durationMs = 7000, body = text })
+                dropFromTicket(tk.lead, text, tk)
+            end
         end
+        for id, q in pairs(pending) do
+            -- a core match's join the provider never turned into an entry goes sooner
+            if not q.held and t - q.at > (q.match and MATCH_PENDING_MS or PENDING_MS) then
+                pending[id] = nil; emit(EV.leaveRequest, id, q.activity); touch(id)
+            end
+        end
+        for mid, m in pairs(matches) do if t - m.at > MATCH_KEEP_MS then matches[mid] = nil end end
         sinceTops = sinceTops + 5000
         if sinceTops >= (C.leaderboard.refreshMs or 60000) then
             sinceTops = 0
             for _, aid in ipairs(order) do refreshTop(aid) end
         end
+    end
+end)
+
+-- The lobby: the ranked queue, the bot fill offers (every second).
+CreateThread(function()
+    while true do
+        Wait(1000)
+        local ok, err = pcall(A.lobbyTick)
+        if not ok then LightRP.log("activities: lobby tick failed: %s", tostring(err)) end
     end
 end)
 
