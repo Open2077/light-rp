@@ -1,5 +1,6 @@
 /* The contract between this page and the client Lua (client/core/ui.lua), and the
    shapes the server pushes through it. Mirror of shared/events.lua: change both. */
+import type { DogtownState } from "@/features/dogtown/model";
 
 export const PAGE_EVENTS = {
   customization: "lightrp:ui:customization",
@@ -151,6 +152,8 @@ export interface UiState {
 
   /** Arena, races, chases, events and The Crossing (server/modules/activities.lua A.view). */
   activities?: ActivitiesState;
+  /** The Dogtown PvP zone (server/modules/dogtown.lua; features/dogtown). */
+  dogtown?: DogtownState;
   /** A world boss whose zone you are in, or that you fought (server/modules/world_bosses.lua). */
   worldBoss?: WorldBossState | false;
 }

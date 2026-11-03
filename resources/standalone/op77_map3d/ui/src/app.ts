@@ -11,6 +11,7 @@ import { iconSvg, maneuverSvg } from "./icons";
 import { formatDistance, toScene, type GamePos } from "./coords";
 import { HoloGps } from "./holo";
 import { InfluenceLayer, type InfluenceZone } from "./influence";
+import { AreaLayer, areaUniforms } from "./areas";
 import { inGame } from "./bridge";
 
 interface PlayerState { x: number; y: number; z: number; yaw: number; camYaw: number; speed: number; vehicle: boolean; valid: boolean }
@@ -59,6 +60,10 @@ export class MapApp {
   private influenceAllowed = true;
   private influenceAt = 0;
   private zoneEls = new Map<string, HTMLElement>();
+  // areas (polygons of any resource): kept from the first message, drawn by the world's
+  // shaders once the city is loaded
+  private areaU = areaUniforms();
+  private areas = new AreaLayer(this.areaU);
   // what the player switched on or off (HUD parts, layers, legend categories), kept
   private prefs: Prefs = loadPrefs();
   private canvasKey = "";
@@ -119,6 +124,12 @@ export class MapApp {
     on("map3d:blips", (p) => this.setBlips(p));
     on("map3d:blip", (b) => this.upsertBlip(b));
     on("map3d:blipRemove", (p) => { this.blips.delete(String(p?.id)); this.syncBlips(); });
+    on("map3d:area", (p) => { if (this.areas.upsert(p)) this.dirty = true; });
+    on("map3d:areas", (p) => {
+      if (p?.clear) this.areas.clear();
+      if (Array.isArray(p?.remove)) this.areas.remove(p.remove);
+      this.dirty = true;
+    });
     on("map3d:waypoint", (p) => this.setWaypoint(p && typeof p.x === "number" ? p : null, false));
     on("map3d:route", (p) => this.setWaypoint(p && typeof p.x === "number" ? p : null, false));
     on("map3d:minimap", (p) => { this.minimapVisible = p?.visible !== false; this.applyMode(); });
@@ -212,6 +223,11 @@ export class MapApp {
     const ui = this.ui;
     ui.full = this.el("div", "m3-full", r);
     this.mapLayer = new MarkerLayer(ui.full, "map");
+    // area labels sit under the blips (the markers' layer comes after them)
+    ui.areas = document.createElement("div");
+    ui.areas.className = "m3-areas";
+    ui.full.insertBefore(ui.areas, this.mapLayer.root);
+    this.areas.labelRoot = ui.areas;
     ui.districts = this.el("div", "m3-districts", ui.full);
     ui.zones = this.el("div", "m3-zones", ui.full);
     // the jam overlay sits over the map and its blips, under the panels
@@ -416,7 +432,13 @@ export class MapApp {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.autoClear = false;
-    this.world = new World(this.data, this.cfg.theme);
+    this.world = new World(this.data, this.cfg.theme, this.areaU);
+    // a label without a height sits on the ground (or the road) under it
+    this.areas.heightAt = (x, y) => {
+      const ray = new THREE.Raycaster(new THREE.Vector3(x, 5000, -y), new THREE.Vector3(0, -1, 0));
+      const hit = ray.intersectObjects(this.world.pickables, false)[0];
+      return hit ? hit.point.y : null;
+    };
     this.scene.add(this.world.root, this.routeView.group);
     this.influence = new InfluenceLayer(this.world.uniforms);
     this.influence.setLook(this.cfg.influence);
@@ -895,11 +917,11 @@ export class MapApp {
     if (mode === "full") {
       // every frame while the camera moves; otherwise only for changes and the route's animation
       const moving = this.controls.update(dt);
-      const animate = (!!this.route || !!(this.influence?.active && this.influenceVisible(false))) && t - this.lastFull >= 1 / Math.max(1, this.cfg.map.idleFps);
+      const animate = (!!this.route || !!(this.influence?.active && this.influenceVisible(false)) || this.areas.pulsing("map")) && t - this.lastFull >= 1 / Math.max(1, this.cfg.map.idleFps);
       if (moving || this.dirty || animate) { this.lastFull = t; this.renderFull(t, rect.w, rect.h); }
     } else if (mode === "mini") {
       const due = t - this.lastMini >= 1 / Math.max(1, this.cfg.minimap.fps) - 0.002;
-      if (due && (this.dirty || !!this.route || this.view.settling)) { this.lastMini = t; this.renderMini(t, rect.w, rect.h); }
+      if (due && (this.dirty || !!this.route || this.view.settling || this.areas.pulsing("minimap"))) { this.lastMini = t; this.renderMini(t, rect.w, rect.h); }
     }
   };
 
@@ -914,6 +936,9 @@ export class MapApp {
     this.world.uniforms.uLod.value = 0.0022;
     this.world.uniforms.uCut.value = 0;
     this.routeView.scaleMarkers(dist, t);
+    // hatching `areas.hatch` pixels apart: metres per pixel at the camera's target
+    const mpp = (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.mapCam.fov / 2))) / Math.max(1, H);
+    this.areas.prepare("map", t, this.cfg.areas.hatch * mpp, 1, this.mapCam);
     const r = this.renderer;
     r.setScissorTest(false);
     r.setViewport(0, 0, W, H);
@@ -921,6 +946,7 @@ export class MapApp {
     r.clear();
     r.render(this.scene, this.mapCam);
     this.mapLayer.project(this.mapCam, { x: 0, y: 0, w: W, h: H }, { distance: dist });
+    this.areas.placeLabels(this.mapCam, W, H, this.cfg.areas.labels);
     this.placeZoneLabels(W, H);
     // district names and the compass
     const showDistricts = dist > 1400;
@@ -986,6 +1012,8 @@ export class MapApp {
     this.world.uniforms.uFocus.value.copy(toScene({ x: v.x, y: v.y, z: v.z })).y += 1.5;
     this.world.uniforms.uCut.value = Math.max(0, m.xray);
     this.routeView.scaleMarkers(dist * 0.6, t);
+    // the minimap shows 2 x radius metres across its height
+    this.areas.prepare("minimap", t, this.cfg.areas.minimapHatch * (2 * radius) / Math.max(1, h), THREE.MathUtils.clamp(this.cfg.areas.minimapStrength, 0, 1), this.miniCam);
     const r = this.renderer;
     r.setScissorTest(false);
     r.setViewport(0, 0, w, h);
@@ -1004,7 +1032,10 @@ export class MapApp {
     this.ui.miniNorth.style.transform = `translate(${(w / 2 + ndx * k).toFixed(1)}px, ${(h / 2 + ndy * k).toFixed(1)}px) rotate(${Math.atan2(ndx, -ndy).toFixed(3)}rad)`;
     const wpd = this.waypoint ? Math.hypot(this.waypoint.x - p.x, this.waypoint.y - p.y) : null;
     const left = this.route ? this.navLeft : wpd !== null ? formatDistance(wpd, this.cfg.gps.units) : "";
-    const info = `<b>${this.districtAt(p.x, p.y)}</b>${left ? `<span>${iconSvg("waypoint", 13)}${left}</span>` : ""}`;
+    // inside a labelled area (a danger zone), its name in its colour replaces the district's
+    const area = this.cfg.areas.minimapLabel ? this.areas.at(p.x, p.y, "minimap") : null;
+    const place = area ? `<b class="m3-mini__area" style="--ac:${escapeHtml(area.stroke)}">${escapeHtml(area.label ?? "")}</b>` : `<b>${this.districtAt(p.x, p.y)}</b>`;
+    const info = `${place}${left ? `<span>${iconSvg("waypoint", 13)}${left}</span>` : ""}`;
     if (info !== this.ui.miniInfo.dataset.html) { this.ui.miniInfo.dataset.html = info; this.ui.miniInfo.innerHTML = info; }
     this.dirty = false;
   }

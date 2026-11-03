@@ -22,7 +22,7 @@ dofile("shared/medical.lua")
 dofile("shared/jobs.lua")
 dofile("shared/vehicle_customization.lua")
 for _, file in ipairs({ "missions", "fixers", "job_runs", "delivery", "job_work", "garages", "vehicle_customization",
-    "dealerships", "shops", "support", "housing", "cyberware", "activities", "economy", "halloffame", "guide" }) do
+    "dealerships", "shops", "support", "housing", "cyberware", "activities", "economy", "halloffame", "dogtown", "guide" }) do
     dofile("server/config/" .. file .. ".lua")
 end
 
@@ -280,6 +280,9 @@ assert(Guide.resolve("{v:impoundRange}") == "free to €$ 500")
 assert(Guide.resolve("{money:economy.hospital.bill} {pct:economy.missions.repeatShare} {money:economy.activities.pve.perMinute.critical}") == "€$ 300 25% €$ 60")
 assert(Guide.resolve("{v:missionCapScope}") == "per account (all your characters together)")
 assert(Guide.resolve("{v:activityRep}") == "30 on Standard, 60 on Hard or 100 on Critical", Guide.resolve("{v:activityRep}"))
+assert(Guide.resolve("{money:dogtown.stake.minCash}") == "€$ 1,000" and Guide.resolve("{sec:dogtown.stake.graceMs}") == "10")
+assert(Guide.resolve("{pct:dogtown.loot.bonus}") == "25%" and Guide.resolve("{money:dogtown.loot.bonusDailyCap}") == "€$ 3,000")
+assert(Guide.resolve("{sec:dogtown.loot.reserveMs}") == "15" and Guide.resolve("{min:dogtown.loot.pairCooldownMs}") == "10")
 local unknown, missing = Guide.resolve("{cfg:config.nope} {key:nope} {v:nope}")
 assert(#missing == 3 and unknown == "— — —", "an unknown placeholder is reported")
 assert(select(1, Guide.resolve("{key:inventory}")) == "{key:inventory}", "a key is left for the page to show the player's binding")
@@ -463,7 +466,11 @@ players[1].x, players[1].y = hub.center.x, hub.center.y
 -- ---------------------------------------------------------------------------
 -- Gating: features not merged stay hidden; a provider's questions follow it.
 local function visible(id) return Guide.build().byId[id] ~= nil end
-assert(visible("weapons.pvp") and not visible("weapons.dogtown"), "Dogtown PvP is not described as live")
+assert(visible("weapons.dogtown") and not visible("weapons.pvp") and visible("activities.pvp_dogtown") and not visible("activities.pvp"),
+    "Dogtown on in its config: its answers replace the city-wide ones")
+for _, id in ipairs({ "dogtown.what", "dogtown.stake", "dogtown.death", "dogtown.bonus", "dogtown.crews", "dogtown.bounty", "dogtown.fair", "dogtown.logout", "dogtown.hospital" }) do
+    assert(visible(id), id .. " is shown")
+end
 assert(not visible("missions.sector04") and not visible("missions.chimera"), "no board without its mission")
 -- merged: activity pay, reputation tiers (missions, PvE activities, cyberware ranks)
 assert(visible("activities.pay_rebalance") and visible("missions.tiers_gate") and visible("cyberware.tiers"), "the merged economy and tiers")
@@ -499,11 +506,25 @@ assert(not answer("activities.halloffame"):find("**Wealth**", 1, true), "no weal
 LightRpHallOfFame.showWealth, LightRpHallOfFame.enabled = true, false
 assert(not visible("activities.halloffame"), "closed in its config")
 LightRpHallOfFame.enabled, LightRP.hallOfFame = true, nil
+-- The Dogtown answers quote the live rules.
+local stakeLine = Guide.build().byId["dogtown.stake"].a[1]
+assert(stakeLine:find("€$ 1,000 in cash on you", 1, true), stakeLine)
+local deathLine = Guide.build().byId["dogtown.death"].a[1]
+assert(deathLine:find("**10%**", 1, true) and deathLine:find("at least €$ 100 and at most €$ 750", 1, true), deathLine)
+local bountyLines = Guide.build().byId["dogtown.bounty"].a
+assert(bountyLines[1]:find("^5 kills in a row") and bountyLines[2]:find("€$ 250 per kill of your streak, up to €$ 1,500", 1, true), bountyLines[2])
+LightRpDogtown.stake.minCash = 2500
+assert(Guide.resolve("{money:dogtown.stake.minCash}") == "€$ 2,500", "the answers read the config, never a copy of it")
+LightRpDogtown.stake.minCash = 1000
+-- A rule switched off in the config takes its answer with it; the zone off, the city-wide answers.
+LightRpDogtown.waiveHospitalBill, LightRpDogtown.combatLog = false, false
+assert(not visible("dogtown.hospital") and not visible("dogtown.logout") and visible("dogtown.death"))
+LightRpDogtown.waiveHospitalBill, LightRpDogtown.combatLog = true, true
 local revision = Guide.build().revision
-G.features.dogtown = true
-assert(not visible("weapons.pvp") and visible("weapons.dogtown"), "the Dogtown answer replaces the city-wide one")
+LightRpDogtown.enabled = false
+assert(visible("weapons.pvp") and visible("activities.pvp") and not visible("weapons.dogtown") and not visible("dogtown.what"), "the zone off: the city-wide answers")
 assert(Guide.build().revision ~= revision, "a new revision: the page drops its cache")
-G.features.dogtown = false
+LightRpDogtown.enabled = true
 resourceStates.open77_chimera = "running"
 assert(visible("missions.chimera"), "Chimera with its resource running")
 resourceStates.open77_chimera = "missing"

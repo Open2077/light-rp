@@ -128,6 +128,8 @@ server_script "server/config/halloffame.lua"
 server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards
 server_script "server/config/guide.lua"
 server_script "server/modules/guide.lua"           -- Johnny at The Crossing: the FAQ dialogue (content in server/config/guide.lua)
+server_script "server/config/dogtown.lua"
+server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
 server_script "server/main.lua"
 
 -- Client: core first, then modules.
@@ -178,6 +180,7 @@ client_script "client/core/vehicle_context.lua"
 client_script "client/core/crew.lua"            -- crews: ALT + click on players, invite keys (server/modules/parties.lua)
 client_script "client/core/vehicle_customization.lua"
 client_script "client/core/guide.lua"           -- the guide NPC: page relay with the player's keys, ALT + click on him
+client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -207,6 +210,7 @@ permissions {
     "world.effects",        -- the raid's strikes: replicated explosions in the arena bucket
     "world.explosions",     -- ... that hurt the operators standing in them
     "combat.config",        -- pre-hit, server-authoritative safezone policy
+    "combat.scope.control", -- Dogtown: PvP grants for the players inside (global friendly fire stays off)
     "players.stats.read",
     "players.stats.apply",         -- cyberware passives: health/stamina maxima and regeneration
     "players.life.falldamage",     -- cyberware: Fortified Ankles

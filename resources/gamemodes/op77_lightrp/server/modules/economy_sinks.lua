@@ -31,6 +31,9 @@ local function exempt(playerId, graceMinutes, death)
     if LightRP.tutorial and LightRP.tutorial.isActive and LightRP.tutorial.isActive(playerId) then return "first_day" end
     if LightRP.activities and LightRP.activities.owns and LightRP.activities.owns(playerId) then return "activity" end
     if death and LightRP.missions and LightRP.missions.handlesDeath and LightRP.missions.handlesDeath(playerId) then return "mission" end
+    -- A death in a Dogtown fight already cost pocket cash; the bank stays out of it
+    -- (LightRpDogtown.waiveHospitalBill, server/modules/dogtown.lua).
+    if death and LightRP.dogtown and LightRP.dogtown.waivesHospital and LightRP.dogtown.waivesHospital(playerId) then return "dogtown" end
     local played = playMinutes(playerId)
     if played and played < (tonumber(graceMinutes) or 0) then return "grace" end
     if not (LightRP.money and LightRP.money.get(playerId)) then return "no_wallet" end

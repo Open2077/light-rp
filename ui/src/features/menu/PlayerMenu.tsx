@@ -6,6 +6,7 @@ import { PAGE_EVENTS } from "@/bridge/protocol";
 import { RageMenu, type RageMenuItem } from "@/design/components";
 import { formatMoney, ledger, transactionLabel } from "@/bridge/money";
 import type { ActivitiesState, CharacterState, GangState, JobRunState, JobState, MoneyState, PartyState } from "@/bridge/protocol";
+import { dogtownMenu } from "@/features/dogtown/model";
 import "./menu.css";
 
 /* The player menu (F1): a RageUI-style list menu, keyboard only, top-left. The
@@ -234,6 +235,7 @@ export function PlayerMenu() {
   const staff = useStore((s) => s.state.staff);
   const activities = useStore((s) => s.state.activities);
   const party = useStore((s) => s.state.party);
+  const dogtown = useStore((s) => s.state.dogtown);
   const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
   const [stack, setStack] = useState<Array<{ key: string; index: number }>>([{ key: "root", index: ROOT_INDEX }]);
   const [toggleKey, setToggleKey] = useState("F1");
@@ -280,8 +282,11 @@ export function PlayerMenu() {
       meta: party?.invites?.length ? `${party.invites.length} INVITE${party.invites.length > 1 ? "S" : ""}` : party?.members ? `${party.members.length}/${party.maxSize}` : "SOLO",
       description: "Your crew: accept invites, see the members, invite the players around you, mission matchmaking, leave." });
     Object.assign(nodes, squadNodes(party, character.playerId));
+    // Dogtown (the PvP zone), under the squad.
+    const dt = dogtownMenu(dogtown, (n) => formatMoney(n, money.currency)), squad = nodes.root?.items.findIndex((i) => "id" in i && i.id === "squad") ?? -1;
+    if (dt && squad >= 0) { nodes.root!.items.splice(squad + 1, 0, dt.item); Object.assign(nodes, dt.nodes); }
     return nodes;
-  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, party]);
+  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, party, dogtown]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;
