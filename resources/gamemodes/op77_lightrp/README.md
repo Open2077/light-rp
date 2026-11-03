@@ -667,6 +667,28 @@ Les positions des terminaux sont des décalages plausibles depuis le point d'arr
 sur l'esplanade (`-756.6, 777.3`), rayon d'environ 30 m, *blockShoot*, *blockMelee* et
 *blockGrenades* cochés, puis publier.
 
+### Hall of Fame (`server/modules/halloffame.lua`, page `features/halloffame/`)
+
+Un vrai panneau (prop serveur `electronics.tv.screen.16x9`, collision active) à environ 4 m à
+gauche du terminal *The Crossing*, écran tourné vers le point d'arrivée, plus un point **E**
+devant lui. **ALT + clic** sur le panneau (`open77_contextmenu`) ou **E** ouvrent le dialogue
+`halloffame` de la page Light RP : onglets *Overview* (podiums), *PvP*, *Races*, *PvE*,
+*Missions*, *Wealth* ; podium du top 3, rangs 4 à 10, la ligne du joueur surlignée ou « YOU #N »
+sous chaque tableau. Noms de personnages uniquement, jamais d'identifiant de compte.
+
+- Sources : `lightrp_activity_stats` (victoires et kills PvP / PvE, meilleurs temps sur le
+  parcours courant de chaque course), `lightrp_mission_rep` et `lightrp_mission_clears`
+  (contrats, braquages et raid Chimera classés par difficulté), `lightrp_wallets` + l'objet
+  `cash` de l'inventaire (fortune, coupée par `showWealth = false`). Sans base : les résultats de
+  la session (`LightRP.activities.memoryRows`), et la page le dit.
+- Cache serveur : reconstruit toutes les 5 min ; le bouton REFRESH au plus une fois par 30 s et
+  par joueur (10 s minimum pour tout le serveur). Ouvrir le panneau ne lit que le cache.
+- Extension : `LightRP.hallOfFame.registerBoard(key, { tab, title, unit, provider })` (exemple en
+  tête du module).
+- Staff : `/lightrp.halloffame place` (se placer devant l'emplacement, face à là où l'écran doit
+  regarder : le panneau se pose 0,8 m derrière, le point E suit, la ligne de config est
+  affichée), `where`, `refresh`. Coller la ligne dans `server/config/halloffame.lua` (`board`).
+
 ## Housing
 
 Appartements et maisons instanciés, achat/location, clés persistantes, coffre par

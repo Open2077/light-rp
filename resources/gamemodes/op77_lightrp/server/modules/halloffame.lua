@@ -249,10 +249,11 @@ local function cashIn(items)
 end
 HoF.cashIn = cashIn
 
+local readFailures = 0 -- a failed read (a table not created yet) makes the next refresh come sooner
 local function read(sql, params)
     if not Db.ready then return false end
     local ok, rows = Db.read(sql, params)
-    if not ok or type(rows) ~= "table" then return false end
+    if not ok or type(rows) ~= "table" then readFailures = readFailures + 1; return false end
     return true, rows
 end
 
@@ -566,6 +567,7 @@ function HoF.refresh(reason)
         return cache
     end
     refreshing = true
+    local failuresBefore = readFailures
     local ok, err = pcall(function()
         local ctx = gather()
         local built = {}
@@ -582,6 +584,8 @@ function HoF.refresh(reason)
             end
         end
         cache = { at = now(), boards = built, database = ctx.db, wealthCash = ctx.wealthCash }
+        -- a table that did not answer (not created yet at start): try again soon
+        if readFailures > failuresBefore then cache.retryAt = now() + (tonumber(cfg("cache.retryMs", 30000)) or 30000) end
     end)
     refreshing = false
     lastRefreshAt = now()
@@ -591,7 +595,8 @@ end
 function HoF.cache() return cache end
 
 local function stale()
-    return cache.at == nil or now() - cache.at >= (tonumber(cfg("cache.refreshMs", 300000)) or 300000)
+    if cache.at == nil or (cache.retryAt and now() >= cache.retryAt) then return true end
+    return now() - cache.at >= (tonumber(cfg("cache.refreshMs", 300000)) or 300000)
 end
 local function floorPassed()
     return lastRefreshAt == nil or now() - lastRefreshAt >= (tonumber(cfg("cache.floorMs", 10000)) or 10000)
@@ -728,7 +733,16 @@ function HoF.onInteract(playerId, pointId)
 end
 function HoF.onGameplayReady(playerId) if C.enabled ~= false then sendBoard(playerId) end end
 function HoF.onDisconnected(playerId) playerAsked[playerId], helloAt[playerId] = nil, nil end
-function HoF.onDatabaseReady() if C.enabled ~= false then CreateThread(function() HoF.refresh("database") end) end end
+-- The boards built before the database answered are the session's: mark them stale,
+-- and let the other modules create their tables before the next rebuild.
+function HoF.onDatabaseReady()
+    if C.enabled == false then return end
+    cache.retryAt = now()
+    CreateThread(function()
+        Wait(tonumber(cfg("cache.databaseDelayMs", 5000)) or 5000)
+        if stale() then lastRefreshAt = nil; HoF.refresh("database") end
+    end)
+end
 
 -- A client (re)started its scripts: tell it which prop the board is.
 RegisterNetEvent(E.net.hallOfFameHello, function()
@@ -804,7 +818,8 @@ if C.enabled ~= false then
         Wait(tonumber(cfg("cache.firstRefreshMs", 15000)) or 15000)
         while true do
             if stale() and floorPassed() then HoF.refresh("timer") end
-            Wait(tonumber(cfg("cache.refreshMs", 300000)) or 300000)
+            -- checked every 30 s (a cheap test): a failed read is retried that soon
+            Wait(math.min(tonumber(cfg("cache.refreshMs", 300000)) or 300000, tonumber(cfg("cache.retryMs", 30000)) or 30000))
         end
     end)
 end

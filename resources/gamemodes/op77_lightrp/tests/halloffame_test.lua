@@ -90,7 +90,7 @@ for i = 1, 12 do
     wallets[#wallets + 1] = { id, "default", 100000 + i, nil }
 end
 
-local failWalletJoin = false
+local failWalletJoin, failRep = false, false
 local function rowsFor(sql)
     if sql:find("FROM lightrp_characters", 1, true) then
         local out = {}
@@ -110,6 +110,7 @@ local function rowsFor(sql)
         end
         return out
     elseif sql:find("FROM lightrp_mission_rep", 1, true) then
+        if failRep then return nil end
         local out = {}
         for _, r in ipairs(reps) do out[#out + 1] = { identifier = r[1], character_key = r[2], rep = r.rep, completed = r.completed } end
         return out
@@ -426,6 +427,20 @@ clock = clock + C.cache.refreshMs
 pump()
 assert(#queries == mark + 6, "and rebuilds a stale one")
 
+-- a table that did not answer (not created yet at start): read again 30 s later, not 5 min
+failRep = true
+clock = clock + 11000
+HoF.refresh("test")
+assert(HoF.cache().retryAt and #HoF.cache().boards["pve.rep"].rows == 0, "the missing table leaves its boards empty for now")
+failRep = false
+mark = #queries
+clock = clock + 20000
+HoF.open(1, "pve")
+assert(#queries == mark, "not before the retry delay")
+clock = clock + 11000
+HoF.open(1, "pve")
+assert(#queries == mark + 6 and #HoF.cache().boards["pve.rep"].rows > 0 and not HoF.cache().retryAt, "read again after 30 s")
+
 -- ---------------------------------------------------------------------------
 -- The payload: under the plain-event limit on every tab, no identifier
 
@@ -546,7 +561,15 @@ assert(#HoF.cache().boards["dogtown.kills"].rows == 0, "an offline character nam
 local noDb = table.concat(serialize(HoF.payload(1, "pvp")), "\n") .. table.concat(serialize(HoF.payload(1, "overview")), "\n")
 assert(not noDb:find("license:", 1, true), "no identifier without a database either")
 
+-- the database comes up: the session boards are rebuilt from it a moment later
+db.ready = true
+mark = #queries
+HoF.onDatabaseReady()
+assert(#queries == mark, "not at once: the other modules create their tables first")
+pump()
+assert(#queries == mark + 6 and HoF.payload(1, "pvp").database == true, "then from the database")
+
 print(string.format("PASS: board beside the terminal (%.3f, %.3f, heading %.1f), E point, prop + orphan sweep, competition ranks and ties,"
     .. " race times on the current course, PvE/missions/clears by difficulty, wealth switch + bank-only fallback, cache 5 min +"
-    .. " 30 s/player + 10 s floor, payload max %d values (%s) ~%d bytes, extension trim, staff place/where/refresh, no identifiers, no-DB mode",
+    .. " 30 s/player + 10 s floor, payload max %d values (%s) ~%d bytes, extension trim, staff place/where/refresh, no identifiers, no-DB mode, retry + database-ready rebuild",
     initial.x, initial.y, initial.heading, maxValues, tostring(maxTab), maxBytes))

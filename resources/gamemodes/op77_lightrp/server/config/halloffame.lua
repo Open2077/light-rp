@@ -45,8 +45,11 @@ LightRpHallOfFame = {
 
     -- The boards are computed on the server and cached: every refreshMs, and on a
     -- player's REFRESH at most once per playerRefreshMs (never faster than floorMs for
-    -- the whole server). Opening the panel never queries the database.
-    cache = { refreshMs = 5 * 60000, playerRefreshMs = 30000, floorMs = 10000, firstRefreshMs = 15000 },
+    -- the whole server). Opening the panel never queries the database, unless the
+    -- boards are older than refreshMs. A table that did not answer (not created yet
+    -- at start) is read again after retryMs.
+    cache = { refreshMs = 5 * 60000, playerRefreshMs = 30000, floorMs = 10000, firstRefreshMs = 15000,
+        retryMs = 30000, databaseDelayMs = 5000 },
     size = 10,          -- rows per board
     overviewSize = 3,   -- rows per board on the OVERVIEW tab (the podiums)
     overviewMax = 12,   -- boards on the OVERVIEW tab
