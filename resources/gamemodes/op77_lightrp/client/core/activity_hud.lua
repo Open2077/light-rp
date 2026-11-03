@@ -7,6 +7,8 @@
 --   ActivityHudShow(hud)           -> true | false, reason   replaces the whole state
 --   ActivityHudPush(kind, payload) -> true | false, reason   "feed" | "banner" | "result"
 --   ActivityHudClear()             -> true | false, reason
+--   Notice(notice)                 -> true | false, reason   a notice in Light RP's stack
+--                                                            (shared/notice.lua)
 --
 -- One HUD at a time, owned by the resource that showed it; a newer Show replaces it,
 -- whoever sends it. The caller is another resource: everything is validated and
@@ -313,9 +315,27 @@ end
 function H.isActive() return H.current ~= nil and H.current.hud ~= nil end
 function H.owner() return H.current and H.current.owner or nil end
 
+-- A notice from a provider's client (the same as the server export `notice`): Light RP's
+-- notice stack, in its design, never a UI of the provider's. shared/notice.lua cleans it.
+local noticeRates = {} -- caller -> { windowAt, calls }
+function H.notice(notice)
+    local owner = caller()
+    local payload, why = LightRpNotice.clean(notice)
+    if not payload then return false, why end
+    local entry = noticeRates[owner] or {}
+    noticeRates[owner] = entry
+    if limited(entry) then return false, "rate_limited" end
+    payload.source = payload.source or "LIGHT RP"
+    if not LightRpUi or LightRpUi.page == nil then return false, "ui_unavailable" end
+    local sent, failure = LightRpUi.send(E.notice, payload)
+    if sent == false then return false, failure or "ui_unavailable" end
+    return true
+end
+
 exports("ActivityHudShow", H.show)
 exports("ActivityHudPush", H.push)
 exports("ActivityHudClear", H.clear)
+exports("Notice", H.notice)
 
 -- ---------------------------------------------------------------------------
 -- Lifetime: the owner's stop or restart, a character change

@@ -23,6 +23,9 @@
 --   activityLeave(playerId, activityId, opts)-> true | false, reason   (opts.returnPlayer, default true)
 --   activityOwner(playerId)                  -> activityId ("missions" in a mission) | nil
 --   activityPlayer(playerId)                 -> { name, identifier, characterKey } | nil
+--   notice(playerId, notice)                 -> true | false, reason   a player-facing message in
+--                                               Light RP's own notice, never a UI of the provider's
+--                                               (shared/notice.lua: { kind, title, body, durationMs })
 -- PvE and reputation (docs/pve-progression.md): only an activity with `pve = true`
 -- (or listed in server/config/activities.lua `pve.activities`) grants reputation;
 -- every other result records stats at 0 reputation, whatever it asks. A PvE
@@ -2424,6 +2427,18 @@ exports("activityPlayer", function(playerId)
     local ok, who = pcall(A.player, id)
     return ok and who or nil
 end)
+
+-- A provider's message to one player (never -1), in Light RP's notice: the same page,
+-- the same design as the core's own. Cleaned and capped by shared/notice.lua.
+function A.notice(playerId, notice)
+    local id = pid(playerId)
+    if not id then return false, "Invalid player." end
+    local payload, why = LightRpNotice.clean(notice)
+    if not payload then return false, why end
+    LightRP.notice(id, payload)
+    return true
+end
+exported("notice", A.notice)
 
 -- ---------------------------------------------------------------------------
 -- Player lifecycle
