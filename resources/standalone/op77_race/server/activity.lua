@@ -53,8 +53,28 @@ local function courseChoices(def)
     return #modes > 0 and modes or nil
 end
 
+-- The race vs AI is Light RP PvE: it declares the difficulties its AI drivers play
+-- (Config.pve), so the panel offers them and the join carries options.difficulty +
+-- options.scaling. The course stays the join choice (modeKey "course").
+local function difficulties(def)
+    if def.mode ~= "pve" or type(Config.pve) ~= "table" or type(Config.pve.difficulties) ~= "table" then return nil end
+    return #Config.pve.difficulties > 0 and Config.pve.difficulties or nil
+end
+
+-- Street and rooftop races offer Light RP's bot fill (AI racers, unranked) only when
+-- this server's natives let that kind of AI racer drive (RaceBots.capable). The race vs
+-- AI has its AI built in; the time trial is solo.
+local function botFill(def)
+    if def.queued ~= true or type(RaceBots) ~= "table" then return nil end
+    return RaceBots.capable(def.mode == "foot") == true or nil
+end
+
 function A.registration(def)
+    local pveDifficulties = difficulties(def)
     return {
+        pve = pveDifficulties and true or nil,
+        difficulties = pveDifficulties,
+        botFill = botFill(def),
         id = def.id,
         resource = GetCurrentResourceName(),
         label = def.label,

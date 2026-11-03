@@ -300,6 +300,11 @@ function E.payload(playerId, shared)
         outcome = racer.outcome,
         result = inst.result,
         dnfReason = racer.dnfReason,
+        -- nothing of this run is ranked (Light RP's options.ranked = false, or a match)
+        unranked = racer.unranked or nil,
+        friendly = inst.friendly or nil,
+        match = inst.match ~= nil or nil,
+        difficulty = inst.difficulty,
     }
     if inst.mode == "trial" and racer.key then
         local best = RaceRecords.best(course.id, course.revision, racer.key)
@@ -347,8 +352,9 @@ E.pushInstance = pushInstance
 
 -- ---------------------------------------------------------------- results --
 
--- A street race filled with bots by the staff switch (a race vs AI is not a test).
-local function testRace(inst) return inst.hadBots == true and inst.mode ~= "pve" end
+-- A street race filled with bots by the staff switch (a race vs AI is not a test, nor
+-- a match Light RP filled with AI racers: that one is unranked).
+local function testRace(inst) return inst.hadBots == true and inst.mode ~= "pve" and inst.match == nil end
 E.testRace = testRace
 
 -- Race vs AI: less than against players, and nothing on a course or a run too short to
@@ -365,7 +371,7 @@ end
 
 local function reputationFor(inst, racer, starters)
     local rewards = Config.rewards
-    if racer.state ~= "finished" or testRace(inst) then return 0 end
+    if racer.state ~= "finished" or testRace(inst) or racer.unranked then return 0 end
     if inst.mode == "pve" then return pveReputation(inst, racer, starters) end
     if inst.mode == "trial" then
         local rep = rewards.trialFinish or 0
@@ -403,6 +409,8 @@ local function sendResult(inst, playerId, racer)
         -- A race the staff switch filled with bots is a test: the core records nothing for
         -- it, even when bot mode was switched off while it ran. A race vs AI is recorded.
         test = testRace(inst) or nil,
+        -- Light RP ranks nothing of it (options.ranked = false, or a match): said again here.
+        unranked = racer.unranked or nil,
         stats = {
             bots = inst.hadBots and bots().starters(inst) or nil,
             vsAi = inst.mode == "pve" or nil,
@@ -646,12 +654,23 @@ end
 
 -- Admits the players (activityEnter, in grid order) and builds their grid. Players the
 -- core refuses are told why and skipped. Returns the instance, or nil and a reason.
--- opts.fillTo (staff bot mode): bots take the slots behind the players up to that many
--- racers in total.
+-- opts.fillTo (staff bot mode, a match's AI racers, the race vs AI): bots take the slots
+-- behind the players up to that many racers in total.
+-- opts.unranked: { [playerId] = true } entries Light RP does not rank (options.ranked = false,
+--   every racer of an unranked match).
+-- opts.match / opts.friendly: a match formed by Light RP (its own heat; ranked or not is
+--   opts.unranked's business).
+-- opts.difficulty / opts.botTuning: the race vs AI's PvE difficulty and how its AI drives.
 function E.start(def, course, playerIds, opts)
     if type(course) ~= "table" then return nil, "course_unavailable" end
     local inst, reason = newInstance(def, course)
     if inst == nil then return nil, reason end
+    opts = type(opts) == "table" and opts or {}
+    local unranked = type(opts.unranked) == "table" and opts.unranked or {}
+    inst.match = opts.match ~= nil and tostring(opts.match) or nil
+    inst.friendly = (inst.match ~= nil and opts.friendly == true) or nil
+    inst.difficulty = type(opts.difficulty) == "string" and opts.difficulty or nil
+    inst.botTuning = type(opts.botTuning) == "table" and opts.botTuning or nil
     for _, playerId in ipairs(playerIds) do
         if racers[playerId] == nil then
             local before = Open77.players.position(playerId)
@@ -664,6 +683,7 @@ function E.start(def, course, playerIds, opts)
                     fallback = before and { x = before.x, y = before.y, z = before.z, heading = before.heading or 0,
                         bucket = before.bucket or 0 } or nil,
                     state = "loading",
+                    unranked = unranked[playerId] == true or nil,
                 }
                 inst.members[#inst.members + 1] = playerId
                 inst.racers[playerId] = racer
@@ -679,10 +699,12 @@ function E.start(def, course, playerIds, opts)
     end
     instances[inst.id] = inst
     startLoading(inst, nowMs(), perMode(Engine.loadSeconds, inst.mode, 5))
-    local fillTo = type(opts) == "table" and math.tointeger(tonumber(opts.fillTo)) or nil
+    local fillTo = math.tointeger(tonumber(opts.fillTo))
     inst.plannedBots = (fillTo and inst.mode ~= "trial") and math.max(0, fillTo - #inst.members) or 0
-    log(("instance %s: %s, %d racer(s)%s, bucket %d"):format(inst.id, course.id, #inst.members,
-        inst.plannedBots > 0 and (" + %d bot(s)"):format(inst.plannedBots) or "", inst.bucket))
+    log(("instance %s: %s, %d racer(s)%s, bucket %d%s%s"):format(inst.id, course.id, #inst.members,
+        inst.plannedBots > 0 and (" + %d bot(s)"):format(inst.plannedBots) or "", inst.bucket,
+        inst.match and (", match %s%s"):format(inst.match, inst.friendly and " (friendly)" or "") or "",
+        inst.difficulty and (", " .. inst.difficulty) or ""))
     for index, playerId in ipairs(inst.members) do
         local racer = inst.racers[playerId]
         if racers[playerId] == racer then setupRacer(inst, playerId, racer, index) end
@@ -857,7 +879,10 @@ local function finish(inst, playerId, racer, now)
     placeFinisher(inst, playerId, racer, now)
     -- The time trial's board takes time-trial runs only, never a race that had bots in
     -- it. A race vs AI keeps its own best per course (a separate board), personal only.
-    if inst.mode == "trial" and racer.key and not inst.hadBots then
+    -- An unranked run (Light RP's options.ranked = false) writes no best time at all.
+    if racer.unranked then
+        racer.outcome = nil
+    elseif inst.mode == "trial" and racer.key and not inst.hadBots then
         racer.outcome = RaceRecords.submit(inst.course.id, inst.course.revision, racer.key, racer.name,
             racer.timeMs, inst.course.vehicle)
     elseif inst.mode == "pve" and racer.key then

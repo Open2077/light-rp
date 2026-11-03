@@ -132,13 +132,24 @@ B.capable = capable
 
 -- ---------------------------------------------------------------- settings --
 
-local function carSpeed() return clamp(sub("car", "speed", 30.0), 0.5, 55.0, 30.0) end
-local function carBehavior()
-    local value = tostring(sub("car", "behavior", "aggressive"))
+-- inst.botTuning (the race vs AI's difficulty, RaceLobby) overrides the car settings for
+-- that instance's bots: { speed, behavior, arrivalRadius, checkpointRadiusBonus }.
+local function tuned(inst, name)
+    local tuning = inst and inst.botTuning
+    if type(tuning) == "table" then return tuning[name] end
+    return nil
+end
+local function carSpeed(inst) return clamp(tuned(inst, "speed") or sub("car", "speed", 30.0), 0.5, 55.0, 30.0) end
+local function carBehavior(inst)
+    local value = tostring(tuned(inst, "behavior") or sub("car", "behavior", "aggressive"))
     if value ~= "normal" and value ~= "cautious" and value ~= "aggressive" then return "aggressive" end
     return value
 end
-local function arrivalRadius() return clamp(sub("car", "arrivalRadius", 8.0), 1.0, 20.0, 8.0) end
+local function arrivalRadius(inst) return clamp(tuned(inst, "arrivalRadius") or sub("car", "arrivalRadius", 8.0), 1.0, 20.0, 8.0) end
+local function radiusBonus(inst)
+    return clamp(tuned(inst, "checkpointRadiusBonus") or setting("checkpointRadiusBonus", 0.0), 0.0, 10.0, 0.0)
+end
+B.carSpeed, B.carBehavior, B.arrivalRadius, B.radiusBonus = carSpeed, carBehavior, arrivalRadius, radiusBonus
 local function stuckMs() return math.floor(clamp(setting("stuckSeconds", 20), 2, 600, 20) * 1000) end
 local function maxRetasks() return math.floor(clamp(setting("maxRetasks", 2), 0, 20, 2)) end
 local function routeTimeoutMs() return math.floor(clamp((Engine.durationSeconds or 1200) * 1000, 1000, 3600000, 1200000)) end
@@ -288,8 +299,8 @@ local function attach(inst, bot, now)
     local state, reason = native("vehicles.ai.attachDriver", bot.vehicleId, bot.npcId and { npcId = bot.npcId } or nil)
     if state ~= nil then
         bot.attached = true
-        try("vehicles.ai.setBehavior", bot.vehicleId, carBehavior())
-        try("vehicles.ai.setSpeed", bot.vehicleId, carSpeed())
+        try("vehicles.ai.setBehavior", bot.vehicleId, carBehavior(inst))
+        try("vehicles.ai.setSpeed", bot.vehicleId, carSpeed(inst))
         return true
     end
     log(("bot %s: attachDriver refused (attempt %d): %s"):format(bot.id, bot.attachAttempts, tostring(reason)))
@@ -317,8 +328,8 @@ local function drive(inst, bot, now)
             route[#route + 1] = runOut(inst, tonumber(sub("car", "runOutMetres", 60.0)) or 60.0)
         end
         state, reason = native("vehicles.ai.followRoute", bot.vehicleId, {
-            points = route, loop = false, speed = carSpeed(), behavior = carBehavior(),
-            arrivalRadius = arrivalRadius(), timeoutMilliseconds = routeTimeoutMs(),
+            points = route, loop = false, speed = carSpeed(inst), behavior = carBehavior(inst),
+            arrivalRadius = arrivalRadius(inst), timeoutMilliseconds = routeTimeoutMs(),
         })
         if state ~= nil then
             bot.routeUntil, bot.routeRefill, bot.routeHasFinish = (bot.completed or 0) + covered,
@@ -327,8 +338,8 @@ local function drive(inst, bot, now)
     end
     if state == nil and has("vehicles.ai.driveTo") then
         state, reason = native("vehicles.ai.driveTo", bot.vehicleId, {
-            position = points[1], speed = carSpeed(), behavior = carBehavior(),
-            arrivalRadius = arrivalRadius(), timeoutMilliseconds = routeTimeoutMs(),
+            position = points[1], speed = carSpeed(inst), behavior = carBehavior(inst),
+            arrivalRadius = arrivalRadius(inst), timeoutMilliseconds = routeTimeoutMs(),
         })
         if state ~= nil then
             bot.routeUntil, bot.routeRefill, bot.routeHasFinish = (bot.completed or 0) + 1, 0, covered == 1 and finish
@@ -454,9 +465,17 @@ function B.fill(inst, count)
     local joined = #inst.bots
     if joined > 0 then
         inst.hadBots = true
-        local text = inst.mode == "pve"
-            and ("%d AI driver%s on the grid."):format(joined, joined == 1 and "" or "s")
-            or ("Bot mode: %d bot%s on the grid. Nothing is recorded."):format(joined, joined == 1 and "" or "s")
+        local plural = joined == 1 and "" or "s"
+        local text
+        if inst.mode == "pve" then
+            text = ("%d AI driver%s on the grid."):format(joined, plural)
+            if inst.difficulty then text = ("%s: %s"):format(inst.difficulty:sub(1, 1):upper() .. inst.difficulty:sub(2), text) end
+        elseif inst.match then
+            -- a match Light RP filled with AI racers (options.fill): unranked
+            text = ("Unranked: %d AI %s%s on the grid."):format(joined, foot and "runner" or "driver", plural)
+        else
+            text = ("Bot mode: %d bot%s on the grid. Nothing is recorded."):format(joined, plural)
+        end
         for _, playerId in ipairs(inst.members) do E.hooks.notice(playerId, "info", inst.label, text) end
     end
     log(("%s: %d of %d bot(s) on the grid"):format(inst.id, joined, count))
@@ -578,7 +597,7 @@ local function evaluate(inst, bot, now)
     local p = position(bot)
     if p ~= nil and checkpoint ~= nil and (p.bucket == nil or p.bucket == inst.bucket) then
         local radius = (checkpoint.radius or inst.course.checkpointRadius or Engine.checkpointRadius)
-            + (tonumber(setting("checkpointRadiusBonus", 0.0)) or 0.0)
+            + radiusBonus(inst)
         local crossed = S.crossed(bot.lastPosition, p, checkpoint.position, radius, Engine.checkpointZTolerance,
             Engine.maxSegmentMetres)
         bot.lastPosition = { x = p.x, y = p.y, z = p.z, bucket = p.bucket }

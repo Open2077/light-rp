@@ -223,9 +223,9 @@ C.enabled = true
 enter(1, "arena.ffa")
 assert(pay(1, { placement = 1, won = true }, ffa(9, 10)) == 875)
 
--- ── the core's hook: after the bot-mode / test drop, before the record ──
+-- ── the core's hook: after the unranked drop (bot mode, test, friendly, PvP bots), before the record ──
 local f = assert(io.open("server/modules/activities.lua", "rb")); local src = f:read("*a"); f:close()
-local drop = src:find("if A.botsEnabled or result.test == true then", 1, true)
+local drop = src:find("local why = unrankedWhy(e, result)", 1, true)
 local hook = src:find("pcall(LightRP.activityPay.onResult, id, e, r, result)", 1, true)
 local rec = src:find("CreateThread(function() record(id, e, r) end)", 1, true)
 assert(drop and hook and rec and drop < hook and hook < rec, "one line where a result is accepted")

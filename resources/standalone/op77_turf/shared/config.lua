@@ -64,6 +64,11 @@ TurfConfig = {
         maxImbalance = 1,
         -- true: a gang's surplus may sign on with the other side as mercenaries.
         allowTurncoats = false,
+        -- A match formed by Light RP (options.match: friendly crew split, bot fill): its
+        -- players' joins arrive together; it starts when all are in, or after this long
+        -- with whoever made it. It takes the war slot (one war at a time) and never
+        -- counts: no reputation, no influence.
+        gatherSeconds = 15,
     },
 
     -- Capture: standing inside a zone (radius, and within `height` metres of its z).
@@ -225,8 +230,25 @@ TurfConfig = {
         soloGatherSeconds = 1,
         baseBots = 3,              -- 1 human: 3 gangers; +2 per extra human
         botsPerHuman = 2,
-        maxBots = 10,
+        maxBots = 10,              -- the NPC gang never exceeds this, whatever the difficulty
         pushShare = 0.34,          -- the holders mostly guard their zones
+        -- Bodies one sweep may hold: the gang plus the allied bots of options.fill.allies
+        -- (fighting with the crew). Allies also never take more than the free seats
+        -- (activity.maxPlayers minus the crew) and come after the gang in this budget.
+        maxBodies = 14,
+        -- The difficulties Light RP may hand over (options.difficulty + options.scaling,
+        -- op77_lightrp config pve.difficulties). The scaling applies to the NPC gang only:
+        --   enemies  x the gang's size (rounded, capped to maxBots)
+        --   health   x the gangers' health (bots.health)
+        --   damage   x what a ganger's hit costs a fighter (and its per-second ceiling)
+        --   ai       the objective profile below (the engine's own combat AI cannot be
+        --            tuned by a native on this build: what we set is how hard they push)
+        difficulties = { "standard", "hard", "critical" },
+        ai = {
+            standard = { pushShare = 0.34, retaskMs = 6000, combatQuietMs = 5000, guardRadius = 3.0 },
+            -- more of them push to retake zones, new orders sooner, a wider guard leash
+            veteran = { pushShare = 0.5, retaskMs = 4000, combatQuietMs = 3000, guardRadius = 6.0 },
+        },
         timeLimitSeconds = 480,
         targetScore = 600,
         -- The holders start with every zone: their zone points run at this rate (3 zones

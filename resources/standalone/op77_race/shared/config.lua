@@ -128,6 +128,36 @@ RaceConfig = {
         rewards = { finish = 6, placement = { 12, 6, 3 } }, -- about 60% of a street race
         minimumMetres = 1500,      -- course length (all laps) below which no reputation is proposed
         minimumSeconds = 60,       -- finish time below which no reputation is proposed
+        -- Light RP's PvE difficulty (standard / hard / critical, picked in the Activities
+        -- panel, handed as options.scaling = { enemies, health, damage, ai }) played by the
+        -- AI drivers. One difficulty per race (a crew's first join sets it).
+        --   enemies: AI drivers = (fillTo - players) x enemies, rounded, within the grid
+        --   damage : AI pace. Top speed ceiling = bots.car.speed x (1 + (damage - 1) x pacePerDamage),
+        --            at most maxSpeed (standard 30, hard 36, critical 44.4 m/s)
+        --   ai     : driving profile below (cornering line and checkpoint margin)
+        --   health : nothing to scale in a race (the AI drivers are invulnerable, no combat)
+        difficulties = { "standard", "hard", "critical" },
+        pacePerDamage = 0.8,
+        maxSpeed = 50.0,
+        profiles = {
+            -- arrivalRadius: a route point counts as reached this far out, so the car turns
+            -- in earlier on a smoother line; checkpointRadiusBonus widens the AI's checkpoint
+            -- cylinders (fewer missed checkpoints, fewer re-tasks).
+            standard = { behavior = "aggressive", arrivalRadius = 8.0, checkpointRadiusBonus = 0.0 },
+            veteran = { behavior = "aggressive", arrivalRadius = 12.0, checkpointRadiusBonus = 1.5 },
+        },
+    },
+
+    -- Matches formed by Light RP's lobby (options.match on a street or rooftop race join):
+    -- a friendly crew match, or a match the panel fills with AI racers. A match races in a
+    -- heat of its own (never the public queue, never joined by anyone else), starts once
+    -- every listed player is in (they arrive together) or gatherSeconds after the first,
+    -- and is always unranked (no record, results flagged `unranked`).
+    matches = {
+        gatherSeconds = 5,
+        -- Racers in total (players + AI racers asked by options.fill) a match puts on the
+        -- line, within the course's capacity: the budget the race vs AI already runs (6).
+        fillTo = { grid = 6, foot = 6 },
     },
 
     -- Staff bot mode (op77_lightrp `/lightrp.bots on|off`, off at every start): a street

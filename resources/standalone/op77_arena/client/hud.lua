@@ -10,7 +10,7 @@
 local L = LightRpArena
 local CORE = L.core
 
-ArenaHud = { state = nil, shown = false, resultKey = nil }
+ArenaHud = { state = nil, shown = false, resultKey = nil, tag = nil }
 local S = ArenaHud
 
 local function running(name)
@@ -86,6 +86,22 @@ local function isPve(s)
     return type(s.instance) == "table" and s.instance.ruleset == "pve"
 end
 
+-- PvE: a gang bot. An allied bot (Light RP "fill empty slots") is on the players'
+-- side, team 1, like the players.
+local function pveEnemy(row)
+    return isBot(row) and tonumber(row.team) ~= 1
+end
+S.pveEnemy = pveEnemy
+
+-- Unranked / friendly (op77_arena:entered), shown when no BOTS hint already says it.
+local function rankHint(hints)
+    if S.tag == nil then return end
+    for _, hint in ipairs(hints) do
+        if hint.key == "BOTS" then return end
+    end
+    hints[#hints + 1] = { key = "RANK", label = S.tag }
+end
+
 local function decode(payload)
     if type(payload) == "table" and type(payload.stateFragments) == "table" then
         payload = table.concat(payload.stateFragments)
@@ -152,12 +168,12 @@ local function shieldProgress(s)
     return #progress > 0 and progress or nil
 end
 
--- PvE: the players are one side, the bots the other; kills per side.
+-- PvE: the players (and their allied bots) are one side, the gang bots the other.
 local function pveTeams(s)
     local players, bots = 0, 0
     for _, row in ipairs(s.rows or {}) do
         local kills = tonumber(row.kills) or 0
-        if isBot(row) then bots = bots + kills else players = players + kills end
+        if pveEnemy(row) then bots = bots + kills else players = players + kills end
     end
     return {
         { name = "Players", color = "#FFCC00", score = players, self = true },
@@ -181,6 +197,7 @@ local function ffaHud(s)
     }
     -- Bots in a PvP round: practice, and the player is told so.
     if not pve and hasBots(s) then hints[#hints + 1] = { key = "BOTS", label = "Practice: not recorded" } end
+    rankHint(hints)
     local activity = L.activities.ffa.id
     if blade then activity = L.activities.blade.id elseif pve then activity = L.activities.pve.id end
     return {
@@ -200,7 +217,7 @@ local function ffaHud(s)
         teams = pve and pveTeams(s) or nil,
         scoreboard = scoreboard(s, { "K", "D", "Score" }, function(row)
             return { row.kills or 0, row.deaths or 0, row.score or 0 }
-        end, pve and function(row) return isBot(row) and 2 or 1 end or nil),
+        end, pve and function(row) return pveEnemy(row) and 2 or 1 end or nil),
         hints = hints,
     }
 end
@@ -228,6 +245,7 @@ local function arenaHud(s)
         { key = "CHAT", label = "/arena.kit" },
     }
     if hasBots(s) then hints[#hints + 1] = { key = "BOTS", label = "Practice: not recorded" } end
+    rankHint(hints)
 
     local objective
     if raw == "buy" then objective = "Pick a kit: /arena.kit"
@@ -397,11 +415,13 @@ end)
 
 RegisterNetEvent("op77_arena:entered", function(payload)
     S.resultKey = nil
+    payload = type(payload) == "table" and payload or {}
+    S.tag = (payload.friendly == true and "Friendly: unranked") or (payload.unranked == true and "Unranked") or nil
 end)
 
 RegisterNetEvent("op77_arena:returned", function()
     clear()
-    S.state = nil
+    S.state, S.tag = nil, nil
 end)
 
 AddEventHandler("onClientResourceStop", function(name)

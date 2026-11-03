@@ -127,6 +127,10 @@ function H.war(shared, personal, board, opts)
     local hud = { activity = pve and "turf.pve" or "turf.war", title = pve and "GANG SWEEP" or "TURF WAR",
         subtitle = site.district and (tostring(site.label) .. " · " .. tostring(site.district)) or tostring(site.label),
         phase = hudPhase, objective = objective(shared, personal, opts.target or shared.target) }
+    -- FRIENDLY / UNRANKED / PRIVATE (a core match), HARD / CRITICAL (a Gang Sweep)
+    if type(shared.tag) == "string" and #shared.tag > 0 and #shared.tag <= 16 then
+        hud.title = hud.title .. " · " .. shared.tag
+    end
     if phase == "countdown" then
         hud.timer = { remainingMs = shared.countdownMs or 0, label = "FIGHT IN" }
         hud.countdown = math.max(0, math.ceil((shared.countdownMs or 0) / 1000))
