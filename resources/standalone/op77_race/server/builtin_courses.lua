@@ -72,14 +72,17 @@ RaceBuiltinCourses = {
         type = "circuit", laps = 1, checkpointRadius = 10, vehicle = "mizutani_shion",
         revision = 3,
         start = { position = { x = -1482.446, y = 69.128, z = 8.293 }, heading = 119.957 },
+        -- Slots 1, 3, 5 and 7 were surveyed 11-32 degrees off the road (119.957, 103.619, 114.373,
+        -- 122.61): the bots in 3 and 5 never left the grid (the server's no_route after 20 s
+        -- without a metre, 2026-11-03). They now face the road like the even slots.
         grid = {
-            { position = { x = -1482.446, y = 69.131, z = 8.293 }, heading = 119.957 },
+            { position = { x = -1482.446, y = 69.131, z = 8.293 }, heading = 130.0 },
             { position = { x = -1488.736, y = 62.308, z = 8.288 }, heading = 127.94 },
-            { position = { x = -1498.524, y = 62.708, z = 8.299 }, heading = 103.619 },
+            { position = { x = -1498.524, y = 62.708, z = 8.299 }, heading = 134.0 },
             { position = { x = -1504.008, y = 54.491, z = 8.296 }, heading = 132.866 },
-            { position = { x = -1514.551, y = 51.859, z = 8.293 }, heading = 114.373 },
+            { position = { x = -1514.551, y = 51.859, z = 8.293 }, heading = 140.0 },
             { position = { x = -1518.843, y = 43.182, z = 8.291 }, heading = 140.543 },
-            { position = { x = -1530.89, y = 38.487, z = 8.298 }, heading = 122.61 },
+            { position = { x = -1530.89, y = 38.487, z = 8.298 }, heading = 144.0 },
             { position = { x = -1535.856, y = 27.823, z = 8.291 }, heading = 144.515 },
         },
         checkpoints = {

@@ -16,6 +16,21 @@ H.test("built-in courses load and validate", function()
     H.eq(#roof.grid, 0)
 end)
 
+-- A bot whose slot is surveyed askew never leaves the grid (Shion Sprint slots 3 and 5,
+-- 25-32 degrees off, 2026-11-03): every built-in slot faces the first checkpoint.
+H.test("built-in grid slots face the first checkpoint", function()
+    C.load()
+    for _, id in ipairs({ "street-circuit", "shion-sprint" }) do
+        local course = C.get(id)
+        local cp = course.checkpoints[1].position
+        for i, slot in ipairs(course.grid) do
+            local towards = math.deg(math.atan(-(cp.x - slot.position.x), cp.y - slot.position.y)) % 360
+            local off = math.abs((slot.heading - towards + 180) % 360 - 180)
+            H.ok(off <= 20, ("%s slot %d is %.0f degrees off checkpoint 1"):format(id, i, off))
+        end
+    end
+end)
+
 H.test("eligibility per activity", function()
     H.eq(#C.ids("trial"), 3, "the trial runs every course")
     H.eq(#C.ids("grid"), 2, "street races: vehicle courses")
