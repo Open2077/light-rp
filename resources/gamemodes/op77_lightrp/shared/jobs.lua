@@ -12,6 +12,9 @@
 -- work-collect, work-trunk, work-process, work-sell, paycheck, run-desk,
 -- rooftop-lift, rooftop-clean, run-report, run-cancel. `tips` are short lines
 -- under the text.
+-- Paychecks are a small bonus on top of the work itself (≈ 6 % of an active
+-- worker's income); service jobs without a work loop sit higher. See
+-- docs/economy-balance.md.
 LightRpJobs = {
     unemployed = {
         label = "Unemployed", tag = "CIVILIAN",
@@ -46,10 +49,10 @@ LightRpJobs = {
               tips = { "Find this guide again: F1 → My job → Job guide." } },
         },
         grades = {
-            [0] = { label = "Trainee", salary = 40 },
-            [1] = { label = "Collector", salary = 60 },
-            [2] = { label = "Driver", salary = 80 },
-            [3] = { label = "Supervisor", salary = 110 },
+            [0] = { label = "Trainee", salary = 100 },
+            [1] = { label = "Collector", salary = 150 },
+            [2] = { label = "Driver", salary = 200 },
+            [3] = { label = "Supervisor", salary = 275 },
         },
     },
     scrapper = {
@@ -81,9 +84,9 @@ LightRpJobs = {
               tips = { "Find this guide again: F1 → My job → Job guide." } },
         },
         grades = {
-            [0] = { label = "Salvage hand", salary = 45 },
-            [1] = { label = "Scrapper", salary = 65 },
-            [2] = { label = "Salvage specialist", salary = 90 },
+            [0] = { label = "Salvage hand", salary = 110 },
+            [1] = { label = "Scrapper", salary = 160 },
+            [2] = { label = "Salvage specialist", salary = 225 },
         },
     },
     -- No longer offered by the job centers (the courier replaced it); kept for the
@@ -111,9 +114,9 @@ LightRpJobs = {
               tips = { "F1 → My job shows your run and can abandon it." } },
         },
         grades = {
-            [0] = { label = "Maintenance trainee", salary = 50 },
-            [1] = { label = "AC technician", salary = 75 },
-            [2] = { label = "Senior technician", salary = 100 },
+            [0] = { label = "Maintenance trainee", salary = 110 },
+            [1] = { label = "AC technician", salary = 160 },
+            [2] = { label = "Senior technician", salary = 225 },
         },
     },
     -- Courier: random food / parcel runs from restaurants to megabuildings, paid by
@@ -150,42 +153,42 @@ LightRpJobs = {
               tips = { "Find this guide again: F1 → My job → Job guide." } },
         },
         grades = {
-            [0] = { label = "Runner", salary = 45 },
-            [1] = { label = "Courier", salary = 65 },
-            [2] = { label = "Dispatcher", salary = 95 },
+            [0] = { label = "Runner", salary = 110 },
+            [1] = { label = "Courier", salary = 160 },
+            [2] = { label = "Dispatcher", salary = 240 },
         },
     },
     mechanic = {
         label = "Rust & Chrome Garage", tag = "MECHANIC",
         grades = {
-            [0] = { label = "Apprentice", salary = 50 },
-            [1] = { label = "Mechanic", salary = 75 },
-            [2] = { label = "Chief mechanic", salary = 105 },
-            [3] = { label = "Owner", salary = 140 },
+            [0] = { label = "Apprentice", salary = 200 },
+            [1] = { label = "Mechanic", salary = 275 },
+            [2] = { label = "Chief mechanic", salary = 350 },
+            [3] = { label = "Owner", salary = 450 },
         },
     },
     taxi = {
         label = "Delamain Partner", tag = "TAXI",
         grades = {
-            [0] = { label = "Driver", salary = 50 },
-            [1] = { label = "Senior driver", salary = 70 },
+            [0] = { label = "Driver", salary = 200 },
+            [1] = { label = "Senior driver", salary = 275 },
         },
     },
     trauma = {
         label = "Street Medic", tag = "MEDIC",
         grades = {
-            [0] = { label = "Volunteer", salary = 55 },
-            [1] = { label = "Medic", salary = 85 },
-            [2] = { label = "Chief medic", salary = 120 },
+            [0] = { label = "Volunteer", salary = 225 },
+            [1] = { label = "Medic", salary = 325 },
+            [2] = { label = "Chief medic", salary = 425 },
         },
     },
     ncpd = {
         label = "NCPD", tag = "NCPD",
         grades = {
-            [0] = { label = "Cadet", salary = 60 },
-            [1] = { label = "Officer", salary = 90 },
-            [2] = { label = "Sergeant", salary = 120 },
-            [3] = { label = "Lieutenant", salary = 150 },
+            [0] = { label = "Cadet", salary = 250 },
+            [1] = { label = "Officer", salary = 325 },
+            [2] = { label = "Sergeant", salary = 400 },
+            [3] = { label = "Lieutenant", salary = 500 },
         },
     },
 }

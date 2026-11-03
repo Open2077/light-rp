@@ -49,7 +49,7 @@ AddEventHandler = noop
 dofile("server/modules/inventory.lua"); dofile("server/modules/economy.lua"); dofile("server/modules/jobs.lua")
 LightRP.inventory.onCharacterLoaded(1, char)
 LightRP.money.onCharacterLoaded(1, char)
-dofile("server/config/job_runs.lua"); dofile("server/config/delivery.lua"); dofile("server/modules/job_runs.lua")
+dofile("server/config/economy.lua"); dofile("server/config/job_runs.lua"); dofile("server/config/delivery.lua"); dofile("server/modules/job_runs.lua")
 local R, C, Money = LightRP.jobRuns, LightRpJobRuns, LightRP.money
 -- The two item activities must never issue old mission rewards.
 assert(C.routes.sanitation == nil and C.routes.scrapper == nil)
@@ -213,6 +213,14 @@ assert(LightRP.jobs.setJob(1, "scrapper", 0)); assert(not R.snapshot(1).active a
 -- The desk offers the courier instead of AC Cleaner.
 local offered = LightRpConfig.jobs.centers[1].jobs
 assert(offered[3] == "delivery" and #offered == 3, "the courier replaced AC Cleaner at the desk")
+-- Each grade adds LightRpEconomy.jobs.gradeBonus to the order's pay (grade 2: +20 %).
+char.job = "ac_cleaner"; char.jobGrade = 2; desk()
+local gradedBefore = Money.get(1).bank
+assert(R.start(1)); while R.snapshot(1).active do finish() end
+local graded = math.floor(C.routes.ac_cleaner.reward * (1 + 2 * LightRpEconomy.jobs.gradeBonus) + 0.5)
+assert(graded > C.routes.ac_cleaner.reward and Money.get(1).bank == gradedBefore + graded, "a higher grade earns more per order")
+assert(R.preview("ac_cleaner").reward == C.routes.ac_cleaner.reward, "the shared preview shows the base pay")
+char.jobGrade = 0
 
 -- The page's job state carries the job guide and how the job is worked (F1 → My job).
 char.job = "delivery"; char.jobGrade = 0

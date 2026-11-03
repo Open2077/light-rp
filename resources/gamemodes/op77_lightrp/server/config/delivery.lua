@@ -14,7 +14,8 @@ LightRpDelivery = {
     lifetimeMs = 45 * 60000,         -- an unfinished run expires after this
     -- Pay = base + perStop × stops + perKm × route length (straight lines from the
     -- office through every stop, in km), rounded, within [min, max].
-    pay = { base = 40, perStop = 20, perKm = 90, min = 80, max = 900 },
+    -- ≈ 1,070 €$ for an average 7.5 km run, ≈ 3,400–4,100 €$/h (docs/economy-balance.md).
+    pay = { base = 60, perStop = 30, perKm = 120, min = 150, max = 1400 },
 
     pickups = {
         { id = "charter_hill_depot",  name = "Charter Hill depot",  position = { x = -103.268875, y = 215.001312, z = 14.742729 } },

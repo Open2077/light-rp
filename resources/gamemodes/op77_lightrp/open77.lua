@@ -59,6 +59,7 @@ server_script "server/modules/armament.lua"
 server_script "server/modules/grenades.lua"
 server_script "server/modules/hotbar.lua"
 server_script "server/modules/economy.lua"
+server_script "server/config/economy.lua"         -- economy rules (docs/economy-balance.md)
 server_script "server/modules/jobs.lua"
 server_script "server/config/missions.lua"
 server_script "server/modules/parties.lua"

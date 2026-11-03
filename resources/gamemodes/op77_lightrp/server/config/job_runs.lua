@@ -21,7 +21,7 @@ LightRpJobRuns = {
     },
     routes = {
         ac_cleaner = {
-            label = "Rooftop maintenance", reward = 260, estimate = "5–8 min", icon = "fan",
+            label = "Rooftop maintenance", reward = 400, estimate = "5–8 min", icon = "fan",
             description = "Use the marked service access, clean the rooftop cooling units, then return your maintenance report.",
             steps = {}, -- Temporary test deck below; replace with the real HVAC locations.
         },
