@@ -71,8 +71,8 @@ LightRpTitles = {
         { id = "long_arm", label = "Long Arm of the Law", rarity = "rare", group = "pvp", requires = "chase.wanted",
           how = "Make 10 arrests in paid Most Wanted matches.", counter = "wanted_arrests", count = 10 },
         { id = "ghost", label = "Ghost", rarity = "epic", group = "pvp", requires = "chase.pve",
-          how = "Reach the extraction with 3 or more stars on you, 10 times, in NCPD Escape.", counter = "pve_hot_extractions", count = 10,
-          minStars = 3 },
+          how = "Reach the extraction with 4 or more stars on you, 10 times, in NCPD Escape.", counter = "pve_hot_extractions", count = 10,
+          minStars = 4 },
 
         { id = "streak_7", label = "Seven Days Straight", rarity = "rare", group = "contracts",
           how = "Claim a daily 7 UTC days in a row.", feat = "streak_7" },

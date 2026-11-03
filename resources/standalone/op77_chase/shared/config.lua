@@ -483,8 +483,9 @@ ChaseConfig.bots = {
 -- ════════════════════════════════════════════════════════════════ NCPD Escape (PvE)
 -- Public, no switch: one player, or a crew (Light RP squad), against the game's own NCPD.
 -- Every human is a runner (his own car, or on foot) in an instance with vanilla traffic and
--- a crowd. At GO the server gives him a wanted level (Open77.players.setWanted) that climbs
--- with the clock up to the difficulty's ceiling, and his own game sends its police. Those
+-- a crowd. During the countdown (dispatchLeadSeconds before GO) the server gives him a wanted
+-- level (Open77.players.setWanted) that climbs with the clock from GO up to the difficulty's
+-- ceiling, and his own game sends its police. Those
 -- police (and that traffic) are LOCAL to each player's game, not replicated: in a crew,
 -- every runner is chased by his own NCPD. The outcome is the server's, because the engine's
 -- "lost them" cannot be read:
@@ -552,19 +553,26 @@ ChaseConfig.pve = {
         doorClearMetres = 2.8,
         hudPushMs = 500,
     },
-    -- From GO to the first star: time to get in the car and go.
-    headStartSeconds = { vehicle = 6, foot = 8 },
+    -- From GO to the first star. 0 since 2026-11-03 (the owner): the NCPD is called during the
+    -- countdown instead (dispatchLeadSeconds), and bust.graceSeconds gives him the time to get
+    -- going that the head start used to give.
+    headStartSeconds = { vehicle = 0, foot = 0 },
+    -- The first heat step's level is sent this long before GO: the game takes ~10 s to roll its
+    -- first units (the owner, 2026-11-03: "they take like 10 sec to start to come"), so they
+    -- reach him around GO instead of ~10 s after it. He is still frozen then; the run's clock
+    -- and the bust start at GO. 0 = the wanted level at GO + headStartSeconds, as before.
+    dispatchLeadSeconds = 8,
     -- The difficulties (Light RP's ids). heat: the stars `at` seconds after the head start;
     -- the last step is the ceiling (setMaxWanted). roundSeconds: the clock from GO (survive
     -- it = escaped). bustFillSeconds: how long stopped before the cuffs. extractionAtSeconds:
     -- the extraction point appears this long after GO.
     difficulties = {
         standard = { label = "Standard", roundSeconds = 150, bustFillSeconds = 5.0, extractionAtSeconds = 40,
-            heat = { { at = 0, stars = 1 }, { at = 30, stars = 2 }, { at = 75, stars = 3 } } },
+            heat = { { at = 0, stars = 3 }, { at = 45, stars = 4 }, { at = 100, stars = 5 } } },
         hard = { label = "Hard", roundSeconds = 165, bustFillSeconds = 4.0, extractionAtSeconds = 55,
-            heat = { { at = 0, stars = 2 }, { at = 30, stars = 3 }, { at = 75, stars = 4 } } },
+            heat = { { at = 0, stars = 3 }, { at = 30, stars = 4 }, { at = 70, stars = 5 } } },
         critical = { label = "Critical", roundSeconds = 180, bustFillSeconds = 3.0, extractionAtSeconds = 70,
-            heat = { { at = 0, stars = 2 }, { at = 25, stars = 3 }, { at = 55, stars = 4 }, { at = 95, stars = 5 } } },
+            heat = { { at = 0, stars = 4 }, { at = 35, stars = 5 } } },
     },
     -- The wanted level is sent again every reassertSeconds while a runner is out: the engine
     -- drops its heat by itself when its police lose him, the server never learns it, and the
@@ -582,6 +590,9 @@ ChaseConfig.pve = {
     bust = {
         vehicle = { stopKph = 10.0, outOfCarMaxKph = 35.0 },
         foot = { stopKph = 5.0 },
+        -- After GO the meter waits this long whatever the stars: he was frozen in the countdown
+        -- and needs to get in (by car) and get going.
+        graceSeconds = { vehicle = 6, foot = 4 },
         drainSeconds = 2.5,
         boardingGraceSeconds = 15,
         closeCall = 0.6,

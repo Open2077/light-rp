@@ -301,6 +301,8 @@ local function hudPayload(match, id, now, extra)
         if match.police == "ncpd" then
             p.headStartMs = math.floor(((cfg().headStartSeconds or {})[match.mode] or 0) * 1000)
             p.ceiling = E.ceiling(match.diff.heat)
+            if (cfg().dispatchLeadSeconds or 0) > 0 then p.firstStars = E.starsAt(match.diff.heat, 0, 0) end
+            p.wanted = m and Pol.stars(m.id) or nil
         else
             p.headStartMs = math.floor((match.rules.headStartSeconds or 0) * 1000)
         end
@@ -640,7 +642,11 @@ local function beginCountdown(match, now)
     match.countdownEndsAtMs = now + math.floor((cfg().match.countdownSeconds or 10) * 1000)
     for _, m in ipairs(liveRunners(match)) do
         local text
-        if match.police == "ncpd" then
+        if match.police == "ncpd" and (cfg().dispatchLeadSeconds or 0) > 0 then
+            text = ("You are on the run (%s): the NCPD is already rolling, %d stars at GO, up to %d. Keep moving: stop and "
+                .. "you are cuffed. Reach the extraction or survive the clock."):format(match.diff.label or match.difficulty,
+                E.starsAt(match.diff.heat, 0, 0), E.ceiling(match.diff.heat))
+        elseif match.police == "ncpd" then
             local headStart = (cfg().headStartSeconds or {})[match.mode] or 0
             text = ("You are on the run (%s): %ds head start, then the NCPD is on you, up to %d stars. Keep moving: stop and you are "
                 .. "cuffed. Reach the extraction or survive the clock."):format(match.diff.label or match.difficulty, headStart,
@@ -825,6 +831,24 @@ local HEAT_LINES = {
 }
 
 local function stars(n) return string.rep("★", math.max(0, math.min(5, n or 0))) end
+
+-- The NCPD is called dispatchLeadSeconds before GO with the first heat step's level (and the
+-- ceiling): the game takes ~10 s to roll its first units, so they reach him around GO. Once
+-- per match; the run's clock and the bust still start at GO, and every way out of the
+-- match clears the level (finish / standDown).
+local function dispatchEarly(match, now)
+    if match.dispatched or match.police ~= "ncpd" then return end
+    local lead = math.floor((cfg().dispatchLeadSeconds or 0) * 1000)
+    if lead <= 0 or now < (match.countdownEndsAtMs or now) - lead then return end
+    match.dispatched = true
+    local first = E.starsAt(match.diff.heat, 0, 0)
+    if first <= 0 then return end
+    local ceiling = E.ceiling(match.diff.heat)
+    for _, m in ipairs(liveRunners(match)) do Pol.raise(m.id, first, ceiling, match.bucket, now) end
+    notifyRunners(match, "warning", ("%s Dispatch has your description: units rolling."):format(stars(first)), 3500)
+    log("match %d: the NCPD called %d ms before GO (%d stars, ceiling %d)", match.id, (match.countdownEndsAtMs or now) - now,
+        first, ceiling)
+end
 
 local function ncpdExtraction(match, m, pos, now)
     local run = m.run
@@ -1036,6 +1060,7 @@ function P.tickMatch(match, now)
         if done then beginCountdown(match, now) end
     elseif state == "countdown" then
         refreshBoarding(match, now)
+        dispatchEarly(match, now)
         if now >= match.countdownEndsAtMs then beginActive(match, now)
         elseif now - (match.lastHudMs or 0) >= (cfg().match.hudPushMs or 500) then pushAll(match, now) end
     elseif state == "active" then

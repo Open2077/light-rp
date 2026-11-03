@@ -398,6 +398,12 @@ local function ncpdEscape(p)
     elseif state == "countdown" then
         hud.timer, hud.countdown = timer(left, "Start"), left
         hud.objective = boardingText(p.boarding, false)
+        if hud.objective == nil and num(p.firstStars) and (num(p.headStartMs) or 0) <= 0 then
+            hud.objective = ((num(p.wanted) or 0) > 0 and "Dispatch has you - %d stars at GO, up to %d. Stop and you are cuffed."
+                or "The NCPD is called before GO - %d stars, up to %d. Stop and you are cuffed.")
+                :format(math.floor(p.firstStars), math.floor(num(p.ceiling) or 5))
+        end
+        hud.objective = hud.objective
             or ("%s head start, then the NCPD - up to %d stars. Stop and you are cuffed."):format(secs(p.headStartMs),
                 math.floor(num(p.ceiling) or 3))
     elseif state == "resolved" then

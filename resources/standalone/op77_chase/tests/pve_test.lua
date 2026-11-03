@@ -4,11 +4,12 @@
 --
 -- police = "ncpd" (the default):
 --   * registration: PvE with its difficulties, caps.botFill = false;
---   * the rules alone: the heat ramp by difficulty (3 / 4 / 5 stars), next star, the bust
---     meter (stopped, out of the car, boarding grace, drain, close call, blackout), down,
+--   * the rules alone: the heat ramp by difficulty (3 -> 5, 3 -> 5 faster, 4 -> 5), next star,
+--     the bust meter (grace after GO, stopped, out of the car, boarding grace, drain, close
+--     call, blackout), down,
 --     extraction, clock;
 --   * solo by car, Standard: the difficulty reaches activityEnter, the instance gets its
---     traffic, no wanted level in the head start, then ceiling first and the ramp to 3, the
+--     traffic, the NCPD called 8 s before GO (ceiling first, 3 stars), the ramp to 5, the
 --     level re-sent, HUD + view with the bust meter; BUSTED when he stops; stars 0 / ceiling
 --     5 at once; reputation x the difficulty; home; population back to empty;
 --   * Hard: ESCAPED at the extraction (36 rep); Critical: ESCAPED by the clock at 5 stars
@@ -93,14 +94,18 @@ assert(ChasePve.policeMode() == "ncpd", "the game's own NCPD by default")
 do
     local E = ChaseEscapeRules
     local D = ChaseConfig.pve.difficulties
-    assert(E.ceiling(D.standard.heat) == 3 and E.ceiling(D.hard.heat) == 4 and E.ceiling(D.critical.heat) == 5, "3 / 4 / 5 stars")
-    local head = 6000
-    assert(E.starsAt(D.standard.heat, head, 5999) == 0, "nothing in the head start")
-    assert(E.starsAt(D.standard.heat, head, 6000) == 1 and E.starsAt(D.standard.heat, head, 36000) == 2
-        and E.starsAt(D.standard.heat, head, 81000) == 3 and E.starsAt(D.standard.heat, head, 400000) == 3, "Standard ramps to 3")
-    assert(E.starsAt(D.hard.heat, head, 6000) == 2 and E.starsAt(D.hard.heat, head, 81000) == 4, "Hard starts at 2, ramps to 4")
-    assert(E.starsAt(D.critical.heat, head, 100999) == 4 and E.starsAt(D.critical.heat, head, 101000) == 5, "Critical: MaxTac at +95 s")
-    assert(E.nextStarMs(D.standard.heat, head, 10000) == 26000 and E.nextStarMs(D.standard.heat, head, 90000) == nil, "next star")
+    assert(E.ceiling(D.standard.heat) == 5 and E.ceiling(D.hard.heat) == 5 and E.ceiling(D.critical.heat) == 5, "every difficulty tops at 5")
+    assert(ChaseConfig.pve.headStartSeconds.vehicle == 0 and ChaseConfig.pve.dispatchLeadSeconds == 8, "no head start: called before GO")
+    local head = 0
+    assert(E.starsAt(D.standard.heat, head, 0) == 3 and E.starsAt(D.standard.heat, head, 44999) == 3
+        and E.starsAt(D.standard.heat, head, 45000) == 4 and E.starsAt(D.standard.heat, head, 100000) == 5
+        and E.starsAt(D.standard.heat, head, 400000) == 5, "Standard: 3 at GO, 4 at +45 s, 5 at +100 s")
+    assert(E.starsAt(D.hard.heat, head, 0) == 3 and E.starsAt(D.hard.heat, head, 30000) == 4 and E.starsAt(D.hard.heat, head, 69999) == 4
+        and E.starsAt(D.hard.heat, head, 70000) == 5, "Hard: 3, 4 at +30 s, 5 at +70 s")
+    assert(E.starsAt(D.critical.heat, head, 0) == 4 and E.starsAt(D.critical.heat, head, 34999) == 4
+        and E.starsAt(D.critical.heat, head, 35000) == 5, "Critical: 4 at GO, MaxTac at +35 s")
+    assert(E.starsAt(D.standard.heat, 6000, 5999) == 0 and E.starsAt(D.standard.heat, 6000, 6000) == 3, "a head start (if set) holds the stars")
+    assert(E.nextStarMs(D.standard.heat, head, 10000) == 35000 and E.nextStarMs(D.standard.heat, head, 100000) == nil, "next star")
     assert(E.difficulty("nonsense") == "standard" and E.difficulty("hard") == "hard", "unknown difficulty = the default")
 
     -- The meter, by car: armed by the first star and the car, fills when stopped, drains.
@@ -111,10 +116,12 @@ do
         for k, v in pairs(extra or {}) do s[k] = v end
         return E.step(run, t, s)
     end
-    for t = 0, 5800, 200 do assert(at(t, p) == nil) end
-    assert(run.stars == 0 and run.bustMeter == 0, "no star, no meter in the head start, even stopped")
-    local outcome, events = at(6000, p)
-    assert(run.stars == 1 and events[1].kind == "heat" and events[1].stars == 1, "first star")
+    local outcome, events = at(0, p)
+    assert(outcome == nil and run.stars == 3 and events[1].kind == "heat" and events[1].stars == 3, "3 stars at GO")
+    for t = 200, 5800, 200 do assert(at(t, p) == nil) end
+    assert(run.bustMeter == 0 and not run.armed, "no meter in the 6 s grace after GO, even stopped")
+    outcome = at(6000, p)
+    assert(outcome == nil and run.armed and run.bustMeter > 0, "armed when the grace ends")
     for t = 6200, 10600, 200 do outcome = at(t, p) end
     assert(outcome == nil and run.bustMeter > 0.9 and run.why == "stopped", "filling while stopped")
     outcome = at(10800, p)
@@ -148,18 +155,20 @@ do
     -- Never boarded: armed only after the boarding grace.
     run = E.newRun("vehicle", "standard", 0)
     for t = 0, 14800, 200 do at(t, p, { inCar = false, boarded = false }) end
-    assert(run.stars == 1 and run.bustMeter == 0 and not run.armed, "grace: not armed yet")
+    assert(run.stars == 3 and run.bustMeter == 0 and not run.armed, "grace: not armed yet")
     at(15200, p, { inCar = false, boarded = false })
     assert(run.armed and run.bustMeter > 0, "armed after boardingGraceSeconds")
 
     -- On foot: walking pace counts as stopped, a run does not.
     run = E.newRun("foot", "hard", 0)
-    for t = 0, 8000, 200 do E.step(run, t, { pos = p, down = false }) end
-    assert(run.stars == 2 and run.armed, "Hard on foot: 2 stars after the 8 s head start")
+    for t = 0, 3800, 200 do E.step(run, t, { pos = p, down = false }) end
+    assert(run.stars == 3 and not run.armed, "Hard on foot: 3 stars at GO, the 4 s grace")
+    E.step(run, 4000, { pos = p, down = false })
+    assert(run.armed, "armed after the grace")
     x = 0
-    for t = 8200, 9600, 200 do x = x + 0.2; E.step(run, t, { pos = { x = x, y = 0, z = 0 }, down = false }) end
+    for t = 4200, 5600, 200 do x = x + 0.2; E.step(run, t, { pos = { x = x, y = 0, z = 0 }, down = false }) end
     assert(run.why == "stopped", "3.6 km/h on foot is stopped")
-    for t = 9800, 12000, 200 do x = x + 1.2; E.step(run, t, { pos = { x = x, y = 0, z = 0 }, down = false }) end
+    for t = 5800, 8000, 200 do x = x + 1.2; E.step(run, t, { pos = { x = x, y = 0, z = 0 }, down = false }) end
     assert(run.why == nil and run.bustMeter < 0.5, "a run drains it")
 
     -- Blackout: frozen, then emptied; down; extraction; the clock.
@@ -197,33 +206,53 @@ assert(match.police == "ncpd" and match.difficulty == "standard" and match.copCo
 assert(H.count(ChaseBots.bots) == 0 and H.count(env.npcs) == 0, "not one bot")
 local pop = env.population[match.bucket]
 assert(pop and pop.crowd == 0.5 and pop.traffic == 1.0 and pop.police == true, "the instance gets crowd, traffic and police")
-H.runUntil(function() return match.state == "active" end, 30, "GO")
+H.runUntil(function() return match.state == "countdown" end, 30, "the countdown")
+H.run(0.5)
+assert(#wantedOps(1) == 0 and H.wanted(1).level == 0, "nobody called before the dispatch lead")
+assert(env.hud[1].firstStars == 3 and env.hud[1].ceiling == 5 and env.hud[1].headStartMs == 0, "countdown HUD: 3 stars at GO, up to 5")
+H.runUntil(function() return H.wanted(1).level == 3 end, 10, "the NCPD called in the countdown")
+local lead = match.countdownEndsAtMs - env.clock
+assert(match.state == "countdown" and lead <= 8000 and lead >= 7500, "8 s before GO: " .. lead)
+local ops = wantedOps(1)
+assert(#ops == 2 and ops[1].op == "max" and ops[1].level == 5 and ops[2].op == "set" and ops[2].level == 3, "ceiling first, then 3 stars")
+assert(H.wanted(1).maxLevel == 5, "the server holds 3 of 5")
+assert(env.kvp["escape.wanted.1"] == "license:p1", "in the ledger, with his identifier")
+assert(H.noted(1, "units rolling"), "told the NCPD is on its way")
+H.run(0.6)
+assert(env.hud[1].wanted == 3, "the countdown HUD knows he is called")
+dofile("client/view.lua")
+do -- the car line comes first while he is out of it; then the dispatch line
+    local h = {}
+    for k, v in pairs(env.hud[1]) do h[k] = v end
+    h.boarding = nil
+    local o = ChaseView.hud(h).objective
+    assert(o:find("Dispatch has you %- 3 stars at GO, up to 5"), "the countdown says so: " .. tostring(o))
+end
+H.runUntil(function() return match.state == "active" end, 9, "GO")
 assert(H.count(env.cars) == 1, "his own car only")
 local carId = match.cars[1].id
 env.seats[1] = carId
 env.pos[1] = circling(ChasePve.member(match, 1).point.position, 40)
-H.run(5)
-assert(#wantedOps(1) == 0 and H.wanted(1).level == 0, "no wanted level during the head start")
-assert(env.hud[1].headStartMs and env.hud[1].stars == 0, "the HUD counts the head start down")
-H.run(1.5)
-local ops = wantedOps(1)
-assert(#ops >= 2 and ops[1].op == "max" and ops[1].level == 3 and ops[2].op == "set" and ops[2].level == 1, "ceiling first, then 1 star")
-assert(H.wanted(1).level == 1 and H.wanted(1).maxLevel == 3, "the server holds 1 of 3")
-assert(env.kvp["escape.wanted.1"] == "license:p1", "in the ledger, with his identifier")
-H.runUntil(function() return H.wanted(1).level == 2 end, 31, "2 stars at +30 s")
-H.runUntil(function() return H.wanted(1).level == 3 end, 46, "3 stars at +75 s")
+H.run(1)
+assert(env.hud[1].stars == 3 and env.hud[1].wanted == 3 and not env.hud[1].headStartMs and not env.hud[1].bustArmed,
+    "3 stars at GO, no head start, the bust in its grace")
+assert(H.noted(1, "Heat 3"), "the heat line at GO")
+H.run(6)
+assert(env.hud[1].bustArmed, "armed after the grace")
+H.runUntil(function() return H.wanted(1).level == 4 end, 39, "4 stars at +45 s")
+H.runUntil(function() return H.wanted(1).level == 5 end, 56, "5 stars at +100 s")
+assert(H.noted(1, "MaxTac"), "MaxTac, told")
 assert(ChasePve.member(match, 1).boarded, "he sat in his car")
 local sets = #wantedOps(1, "set")
 H.run(16)
-assert(#wantedOps(1, "set") > sets and H.wanted(1).level == 3, "the level is sent again (the engine may have dropped it)")
+assert(#wantedOps(1, "set") > sets and H.wanted(1).level == 5, "the level is sent again (the engine may have dropped it)")
 local hud = env.hud[1]
-assert(hud.police == "ncpd" and hud.stars == 3 and hud.ceiling == 3 and hud.wanted == 3 and hud.difficultyLabel == "Standard", "HUD: the heat")
+assert(hud.police == "ncpd" and hud.stars == 5 and hud.ceiling == 5 and hud.wanted == 5 and hud.difficultyLabel == "Standard", "HUD: the heat")
 assert(hud.bustArmed and hud.bustMeter == 0 and hud.remainingMs > 0 and hud.extraction, "HUD: the bust meter, the clock, the extraction")
 assert(H.noted(1, "Extraction point located"), "the extraction showed up")
-dofile("client/view.lua")
 local view = ChaseView.hud(hud)
 local function stat(h, label) for _, s in ipairs(h.stats or {}) do if s.label == label then return s.value end end end
-assert(view.title == "NCPD Escape" and view.subtitle == "Solo - Standard" and stat(view, "Wanted") == "★★★" and stat(view, "Heat") == "MAX",
+assert(view.title == "NCPD Escape" and view.subtitle == "Solo - Standard" and stat(view, "Wanted") == "★★★★★" and stat(view, "Heat") == "MAX",
     "the client draws the stars")
 assert(view.progress and view.progress[1].id == "bust" and view.progress[1].value == 0, "the bust meter is on screen")
 assert(view.scoreboard.columns[2] == "Heat" and #view.scoreboard.rows == 1, "runners only")
@@ -235,13 +264,13 @@ assert(ChaseView.hud(env.hud[1]).objective:find("MOVE"), "the HUD tells him to m
 H.runUntil(function() return result(1) ~= nil end, 6, "busted")
 local r = result(1)
 assert(r.won == false and r.stats.outcome == "busted" and r.stats.how == "arrest" and r.stats.police == "ncpd", "busted for stopping")
-assert(r.difficulty == "standard" and r.stats.stars == 3 and r.reputation == 6, "Standard busted: 6 rep, 3 stars")
+assert(r.difficulty == "standard" and r.stats.stars == 5 and r.reputation == 6, "Standard busted: 6 rep, 5 stars")
 -- Light RP's end-of-match recap: the runner, no cop; the stars reached, the result, the time.
 local function line(recap, label) for _, l in ipairs(recap.lines) do if l.label == label then return l.value end end end
 assert(r.recap and r.recap.detail == "NCPD Escape" and #r.recap.rows == 1 and r.recap.rows[1].id == 1 and r.recap.rows[1].outcome == "busted",
     "the runner on the recap")
 assert(r.recap.rows[1].placement == 2 and r.recap.rows[1].timeMs == r.stats.seconds * 1000)
-assert(line(r.recap, "Police") == "NCPD - Standard" and line(r.recap, "Stars reached") == "3 of 3" and line(r.recap, "Result") == "Busted - stopped"
+assert(line(r.recap, "Police") == "NCPD - Standard" and line(r.recap, "Stars reached") == "5 of 5" and line(r.recap, "Result") == "Busted - stopped"
     and line(r.recap, "Time") == ("%d:%02d"):format(r.stats.seconds // 60, r.stats.seconds % 60) and #r.recap.lines <= 8, "recap lines")
 for _, l in ipairs(r.recap.lines) do assert(#l.label <= 32 and #l.value <= 64, "recap line limits") end
 assert(cleared(1) and ledger() == 0, "stars 0, ceiling 5, out of the ledger, at once")
@@ -256,14 +285,14 @@ noCars()
 
 match = start(2, "vehicle", "hard")
 H.run(7)
-assert(H.wanted(2).level == 2 and H.wanted(2).maxLevel == 4, "Hard: 2 stars at once, ceiling 4")
+assert(H.wanted(2).level == 3 and H.wanted(2).maxLevel == 5, "Hard: 3 stars at once, ceiling 5")
 H.runUntil(function() return ChasePve.member(match, 2).run.extraction ~= nil end, 60, "the extraction at +55 s")
 H.runUntil(function() return env.clock - match.startedAtMs >= 61000 end, 10, "past minSeconds")
 env.pos[2] = ChasePve.member(match, 2).run.extraction.position
 H.runUntil(function() return result(2) ~= nil end, 3, "extracted")
 r = result(2)
 assert(r.won and r.stats.how == "extraction" and r.reputation == 36 and r.difficulty == "hard", "Hard escape: 36 rep")
-assert(line(r.recap, "Result") == "Escaped - extraction" and line(r.recap, "Stars reached") == "3 of 4" and r.recap.rows[1].escapes == 1
+assert(line(r.recap, "Result") == "Escaped - extraction" and line(r.recap, "Stars reached") == "4 of 5" and r.recap.rows[1].escapes == 1
     and r.recap.rows[1].placement == 1, "recap: escaped at the extraction")
 assert(cleared(2), "cleared")
 closed(match)
@@ -271,9 +300,10 @@ closed(match)
 -- ---------------------------------------------------------------- Critical: the clock, MaxTac
 
 match = start(3, "vehicle", "critical")
-H.runUntil(function() return H.wanted(3).level == 5 end, 110, "MaxTac")
+assert(H.wanted(3).level == 4, "Critical: 4 stars at GO")
+H.runUntil(function() return H.wanted(3).level == 5 end, 36, "MaxTac at +35 s")
 assert(H.wanted(3).maxLevel == 5 and H.noted(3, "MaxTac"), "5 stars, told")
-H.runUntil(function() return result(3) ~= nil end, 90, "the clock")
+H.runUntil(function() return result(3) ~= nil end, 150, "the clock")
 r = result(3)
 assert(r.won and r.stats.how == "clock" and r.stats.seconds >= 179 and r.stats.stars == 5 and r.reputation == 60, "Critical clock: 60 rep")
 assert(cleared(3), "cleared")
@@ -326,7 +356,7 @@ closed(match)
 -- A drop while still connected (character switch): cleared, no result, no leave.
 match = start(8, "vehicle", "standard")
 H.run(8)
-assert(H.wanted(8).level == 1)
+assert(H.wanted(8).level == 3)
 env.owner[8] = nil
 H.fire("op77_lightrp:activity:dropped", 8, AID, "character_changed")
 assert(cleared(8) and result(8) == nil, "dropped: cleared, no result")
@@ -337,7 +367,7 @@ assert(not H.left(8, AID), "never activityLeave'd")
 match = start(9, "vehicle", "standard")
 H.run(8)
 H.fire("onPlayerBucketChange", "9", tostring(match.bucket), "0")
-assert(H.wanted(9).level == 1, "the instance itself: kept")
+assert(H.wanted(9).level == 3, "the instance itself: kept")
 H.fire("onPlayerBucketChange", "9", "0", tostring(match.bucket))
 assert(cleared(9) and not ChasePolice.isRaised(9), "out of the instance: cleared")
 H.fire("op77_lightrp:activity:leaveRequest", 9, AID)
@@ -356,10 +386,10 @@ H.run(3)
 -- next start clears him. A gone player's entry and a reused id's entry are dropped.
 match = start(11, "vehicle", "standard")
 H.run(8)
-assert(H.wanted(11).level == 1)
+assert(H.wanted(11).level == 3)
 env.wantedRefuse[11] = "resource_stopping"
 H.fire("onResourceStop", "op77_chase")
-assert(H.wanted(11).level == 1 and env.kvp["escape.wanted.11"], "refused while stopping: still raised, still in the ledger")
+assert(H.wanted(11).level == 3 and env.kvp["escape.wanted.11"], "refused while stopping: still raised, still in the ledger")
 noCars()
 local kvp, wanted = env.kvp, env.wanted
 kvp["escape.wanted.12"] = "license:p12"         -- a player who left meanwhile
@@ -382,7 +412,7 @@ ChaseConfig.pve.onPoliceBlocked = "warn"
 match = start(1, "vehicle", "standard")
 H.run(7)
 _G.source = 1
-env.net["op77_chase:police"]({ expected = 1, requested = 0, suppressed = true, acknowledged = false, attached = true })
+env.net["op77_chase:police"]({ expected = 3, requested = 0, suppressed = true, acknowledged = false, attached = true })
 H.run(3)
 assert(not ChasePve.member(match, 1).policeBlocked, "not after one report")
 H.run(4)
@@ -391,7 +421,7 @@ assert(H.noted(1, "Your game refused the NCPD") and match.state == "active", "wa
 assert(ChaseView.hud(env.hud[1]).objective, "drawn")
 H.command("chase.pve.status", 0, {})
 local text = env.replies[#env.replies].text
-assert(text:find("wanted: 1=1/3 server 1/3 game 0 suppressed") and text:find("BLOCKED"), "staff status: ours, the server's, the game's")
+assert(text:find("wanted: 1=3/5 server 3/5 game 0 suppressed") and text:find("BLOCKED"), "staff status: ours, the server's, the game's")
 H.fire("op77_lightrp:activity:leaveRequest", 1, AID)
 closed(match)
 
@@ -400,14 +430,14 @@ H.run(2)
 match = start(1, "vehicle", "standard")
 H.run(7)
 _G.source = 1
-env.net["op77_chase:police"]({ expected = 1, requested = 1, suppressed = false, acknowledged = true })
+env.net["op77_chase:police"]({ expected = 3, requested = 3, suppressed = false, acknowledged = true })
 H.run(8)
 assert(match.state == "active", "a game that holds the level: nothing to say")
-env.net["op77_chase:police"]({ expected = 1, requested = 1, suppressed = true, acknowledged = true })
+env.net["op77_chase:police"]({ expected = 3, requested = 3, suppressed = true, acknowledged = true })
 H.run(8)
 assert(match.state == "active" and not ChasePve.member(match, 1).policeBlocked,
     "ambient suppression on but the level held (police admitted): not a refusal")
-env.net["op77_chase:police"]({ expected = 1, requested = 0, suppressed = true })
+env.net["op77_chase:police"]({ expected = 3, requested = 0, suppressed = true })
 H.runUntil(function() return match.state == "resolved" end, 8, "void")
 assert(match.void and result(1) == nil and cleared(1), "void: called off, nothing counts, cleared")
 closed(match)
@@ -442,17 +472,17 @@ env.seats[2], env.seats[3] = match.cars[2].id, match.cars[3].id
 env.pos[2] = circling(ChasePve.member(match, 2).point.position, 40)
 env.pos[3] = circling(ChasePve.member(match, 3).point.position, 40, 80)
 H.run(8)
-assert(H.wanted(2).level == 2 and H.wanted(3).level == 2, "each runner his own wanted level")
+assert(H.wanted(2).level == 3 and H.wanted(3).level == 3, "each runner his own wanted level")
 env.alive[3] = false
 H.runUntil(function() return result(3) ~= nil end, 2, "runner 3 down")
-assert(cleared(3) and H.wanted(2).level == 2 and match.state == "active", "only his level comes down, the other runs on")
+assert(cleared(3) and H.wanted(2).level == 3 and match.state == "active", "only his level comes down, the other runs on")
 do
     local recap = result(3).recap
     local values = {}
     for _, l in ipairs(recap.lines) do values[#values + 1] = l.value end
     local all = table.concat(values, "|")
-    assert(#recap.rows == 2 and line(recap, "Police") == "NCPD - Hard" and line(recap, "Stars reached") == "2 of 4", "crew recap")
-    assert(all:find("Busted %- down %- 2★ %- 0:%d%d") and all:find("Still running %- 2★"), "a line per runner: " .. all)
+    assert(#recap.rows == 2 and line(recap, "Police") == "NCPD - Hard" and line(recap, "Stars reached") == "3 of 5", "crew recap")
+    assert(all:find("Busted %- down %- 3★ %- 0:%d%d") and all:find("Still running %- 3★"), "a line per runner: " .. all)
 end
 H.fire("op77_lightrp:activity:leaveRequest", 2, AID)
 closed(match)
@@ -609,7 +639,7 @@ H.fire("onResourceStop", "op77_chase")
 assert(H.count(env.cars) == 0 and H.count(env.npcs) == 0, "resource stop: cars and bodies removed")
 assert(#env.db == 0)
 
-print("PASS: op77_chase NCPD Escape (ncpd: PvE registration + botFill=false; heat ramp 3/4/5, bust meter stopped / out of car / grace / "
+print("PASS: op77_chase NCPD Escape (ncpd: PvE registration + botFill=false; heat ramp 3-5 / 4-5 with the NCPD called 8 s before GO, bust meter grace / stopped / out of car / grace / "
     .. "drain / close call / blackout, down, extraction, clock; Standard busted with ceiling-first ramp, re-sent level, HUD + view, "
     .. "6 rep; Hard extraction 36; Critical clock + MaxTac 60; cleared on bust/escape/leave/drop/bucket change/Light RP stop/"
     .. "resource stop + next-start sweep; police probe warn/void; population refused; crews together/solo; tier gate; /escape "

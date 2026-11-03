@@ -81,6 +81,7 @@ function E.newRun(mode, difficulty, now)
         startedAtMs = now,
         endsAtMs = now + math.floor((d.roundSeconds or 150) * 1000),
         headStartMs = math.floor(((cfg().headStartSeconds or {})[mode] or 0) * 1000),
+        graceMs = math.floor((((cfg().bust or {}).graceSeconds or {})[mode] or 0) * 1000),
         extractionAtMs = now + math.floor((d.extractionAtSeconds or 40) * 1000),
         ceiling = E.ceiling(d.heat),
         stars = 0, maxStars = 0,
@@ -107,12 +108,13 @@ local function pacePush(run, pos, now)
     return run.speedKph
 end
 
--- Is the bust armed: from the first star, and by car once he has sat in his car (or
--- boardingGraceSeconds after GO).
+-- Is the bust armed: from the first star once bust.graceSeconds have passed since GO, and by
+-- car once he has sat in his car (or boardingGraceSeconds after GO).
 function E.armed(run, now, boarded)
     if run.stars <= 0 then return false end
-    if run.mode ~= "vehicle" then return true end
     if boarded then run.boarded = true end
+    if now - run.startedAtMs < (run.graceMs or 0) then return false end
+    if run.mode ~= "vehicle" then return true end
     if run.boarded then return true end
     return now - run.startedAtMs >= math.floor((cfg().bust.boardingGraceSeconds or 15) * 1000)
 end

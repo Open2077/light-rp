@@ -211,16 +211,16 @@ local function escape(how, stars, more)
     for k, v in pairs(more or {}) do s[k] = v end
     return s
 end
-for _ = 1, 9 do result(1, "chase.pve", escape("extraction", 3)) end
+for _ = 1, 9 do result(1, "chase.pve", escape("extraction", 4)) end
 result(1, "chase.pve", escape("clock", 3))
-result(1, "chase.pve", escape("extraction", 2))
+result(1, "chase.pve", escape("extraction", 3)) -- every run starts at 3
 result(1, "chase.pve", escape("arrest", 4, { difficulty = "hard" }))
 result(1, "chase.pve", escape("extraction", 4, { policeBlocked = true }))
 result(1, "chase.pve", escape("extraction", 4, { police = "bots" }))
 result(1, "chase.pve", { outcome = "escaped", how = "shake", stars = 3 })
 result(1, "chase.pve", escape("extraction", 3), { verdict = { kind = "too_short" } })
 result(1, "chase.pve", escape("extraction", 3), { ranked = false })
-assert(not earned(1, "ghost") and entry(1, "ghost").value == 9, "only paid extractions at 3+ stars against the real NCPD")
+assert(not earned(1, "ghost") and entry(1, "ghost").value == 9, "only paid extractions at 4+ stars against the real NCPD")
 result(1, "chase.pve", escape("extraction", 5, { difficulty = "critical" }))
 assert(earned(1, "ghost"))
 
@@ -317,7 +317,7 @@ assert(not commands["lightrp.titles"](0, { "grant", "1", "nope" }))
 -- ── the database: earned titles, counters and the choice come back ──
 LightRP.db.ready = true
 join(3, "acc3", "c1", "Vi")
-for _ = 1, 9 do result(3, "chase.pve", escape("extraction", 3)) end
+for _ = 1, 9 do result(3, "chase.pve", escape("extraction", 4)) end
 T.award(3, "lucky_seven"); select(3, "lucky_seven")
 T.onDisconnected(3); online[3] = nil
 assert(T.forKey("acc3#c1") == "Lucky Seven", "offline: the Hall of Fame still reads the title")
