@@ -306,6 +306,64 @@ function Ui.create()
     return true
 end
 
+-- page:send refuses more than 1024 values (the WebUI node limit) and says nothing. The
+-- server already splits a large state per key and sends a key over 900 values as a
+-- latent event (framework.lua), but that key then hit the page's limit here: the
+-- activities board never arrived ("Waiting for the activities board", Testing
+-- 2026-11-03). So a patch over the limit goes one key per message, `character` first, and
+-- a key still over it travels as JSON text in parts the page reassembles (App.tsx).
+local STATE_PAGE_VALUES, STATE_PART_BYTES = 900, 48 * 1024
+local function countValues(value, depth, limit, n)
+    n = (n or 0) + 1
+    if type(value) ~= "table" or depth > 16 then return n end
+    for _, item in pairs(value) do
+        n = countValues(item, depth + 1, limit, n + 1)
+        if n > limit then return n end
+    end
+    return n
+end
+local statePartSeq, stateWarned = 0, {}
+local function sendStateText(key, value)
+    local encode = LightRpMissionEditor and LightRpMissionEditor.encodeJson
+    local ok, text = false, nil
+    if encode then ok, text = pcall(encode, value) end
+    if not ok or type(text) ~= "string" then
+        if not stateWarned[key] then stateWarned[key] = true; print("[lightrp] state key " .. tostring(key) .. " too large for the page and not encodable: " .. tostring(text)) end
+        return
+    end
+    statePartSeq = statePartSeq + 1
+    local id, parts, at = "state:" .. statePartSeq, {}, 1
+    while at <= #text do
+        local stop = math.min(#text, at + STATE_PART_BYTES - 1)
+        -- never split a UTF-8 sequence: step back off continuation bytes
+        while stop < #text and stop > at do
+            local b = text:byte(stop + 1)
+            if b < 0x80 or b >= 0xC0 then break end
+            stop = stop - 1
+        end
+        parts[#parts + 1] = text:sub(at, stop)
+        at = stop + 1
+    end
+    for i, part in ipairs(parts) do
+        Ui.send(E.page.state, { __stateParts = { key = key, id = id, part = i, parts = #parts, text = part } })
+    end
+end
+function Ui.sendState(patch)
+    if type(patch) ~= "table" or countValues(patch, 0, STATE_PAGE_VALUES) <= STATE_PAGE_VALUES then
+        return Ui.send(E.page.state, patch)
+    end
+    local order = {}
+    for key in pairs(patch) do if key ~= "character" then order[#order + 1] = key end end
+    table.sort(order)
+    if patch.character ~= nil then table.insert(order, 1, "character") end
+    for _, key in ipairs(order) do
+        local part = { [key] = patch[key] }
+        if countValues(part, 0, STATE_PAGE_VALUES) <= STATE_PAGE_VALUES then Ui.send(E.page.state, part)
+        else sendStateText(key, patch[key]) end
+    end
+    return true
+end
+
 -- Server -> client relays
 RegisterNetEvent(E.net.state, function(patch)
     if type(patch) == "table" and type(patch.character) == "table" then
@@ -320,7 +378,7 @@ RegisterNetEvent(E.net.state, function(patch)
     if type(patch) == "table" and patch.party ~= nil and LightRpCrew then LightRpCrew.sync(patch.party) end
     -- the queue panel (client/core/queue.lua) keeps it for its key and adds the key's name
     if type(patch) == "table" and patch.queue ~= nil and LightRpQueue then LightRpQueue.sync(patch) end
-    Ui.send(E.page.state, patch)
+    Ui.sendState(patch)
 end)
 RegisterNetEvent(E.net.notice, function(payload) Ui.send(E.page.notice, payload) end)
 RegisterNetEvent(E.net.result, function(payload) Ui.send(E.page.result, payload) end)
