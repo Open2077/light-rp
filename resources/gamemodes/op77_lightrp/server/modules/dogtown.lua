@@ -1185,6 +1185,8 @@ function D.onKill(victim, killer, context)
     D.record(victim, { deaths = 1 })
     D.markBounty(killer)
     D.push(killer, true)
+    -- titles.lua: credited kills only; bountyStreak > 0 = this kill ended a bounty
+    if LightRP.eachModule then LightRP.eachModule("onDogtownKill", killer, victim, { streak = streak, bountyStreak = bountyWorth > 0 and wantedStreak or 0 }) end
 
     -- a bounty on the victim: the reward, in pocket cash, inside the daily cap
     local bountyPaid = 0

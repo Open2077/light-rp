@@ -8,7 +8,9 @@
    `?interact=1` shows the proximity prompt, `?dialog=inventory` opens the inventory (with a trunk on the right),
    `?dialog=halloffame` opens the Hall of Fame (features/halloffame/mock.ts),
    `?dialog=recap&recap=ffa|team|race|chase|turf|mission|boss|test|unranked|draw|big` opens an
-   end-of-match recap (features/recap/mock.ts). */
+   end-of-match recap (features/recap/mock.ts),
+   `?dialog=dailies&tab=titles&dailies=mixed|fresh|budget|allpaid|off|loading&titles=shown|hidden|none&crew=1`
+   opens Daily Contracts (features/dailies/mock.ts). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
@@ -25,6 +27,7 @@ import { activityHudMock } from "@/features/activityhud/mock";
 import { hallOfFameMock } from "@/features/halloffame/mock";
 import { recapMock } from "@/features/recap/mock";
 import { guideMock } from "@/features/guide/mock";
+import { dailiesMock } from "@/features/dailies/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -42,6 +45,7 @@ export function installMockBridge(): void {
   const armament = armamentMock(fire, params);
   const hallOfFame = hallOfFameMock(fire, params);
   const recap = recapMock(fire, params);
+  const dailies = dailiesMock(fire, params);
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -148,6 +152,7 @@ export function installMockBridge(): void {
               ? { name: "delivery", label: "Courier", tag: "COURIER", grade: 0, gradeLabel: "Rider", salary: 0, paycheckMinutes: 30 }
               : state.job;
             state.jobRun = mockRun(runKind === "courier");
+            if (params.get("duo") === "1") state.jobRun.duo = { partner: "Kei Mori", half: "A" };
           }
           // what the character wears, for the inventory's Worn column
           state.worn = { ready: true, family: "f", slots: { Head: "Items.Balaclava_02_basic_04", Face: false, InnerChest: "Items.TShirt_01_basic_01",
@@ -203,6 +208,7 @@ export function installMockBridge(): void {
           hallOfFame.boot();
           recap.boot();
           guide.boot();
+          dailies.boot();
           if (params.get("dialog") === "activities") activities.boot();
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
@@ -254,7 +260,8 @@ export function installMockBridge(): void {
             left: { id: "player:catalogue", kind: "player", label: "RP consumables · preview", slots: 30, maxWeight: 40,
               weight: itemCatalogue.reduce((sum, item) => sum + item.weight * item.count, 0), items: itemCatalogue },
             right: { id: "ground", kind: "ground", label: "Ground", slots: 1, maxWeight: 0, weight: 0, items: [] } });
-          if (params.get("dialog") === "jobcenter") fire(PAGE_EVENTS.dialog, jobFixture());
+          // &duo=1: the courier offers the Big Contract (job_runs.lua), and a courier run is one half of it
+          if (params.get("dialog") === "jobcenter") { const f = jobFixture(); if (params.get("duo") === "1") for (const j of f.jobs) if (j.route?.variable) j.route.duo = true; fire(PAGE_EVENTS.dialog, f); }
           if (params.get("dialog") === "fuel") fire(PAGE_EVENTS.dialog, fuelFixture());
           if (params.get("dialog") === "rental") fire(PAGE_EVENTS.dialog, { kind: "rental", spot: { id: "citycenter", name: "Rent-a-Ride // City Center", durationMinutes: 30, stock: [
             { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
@@ -271,6 +278,7 @@ export function installMockBridge(): void {
         if (hallOfFame.handle(action)) return;
         if (recap.handle(action)) return;
         if (guide.handle(action)) return;
+        if (dailies.handle(action)) return;
         setTimeout(() => {
           switch (action.type) {
             case "dealership.buy": {
@@ -435,6 +443,7 @@ export function installMockBridge(): void {
                 : { active: true, id: "mock-work-order", job: offer.name, label: offer.route.label, reward: offer.route.reward,
                     index: 1, total: 4, icon: offer.recruitment?.icon, hint: "Follow the yellow marker. Press E at the work point.",
                     objective: { label: "Collect the first load", kind: "work", position: { x: 0, y: 0, z: 0 }, radius: 2.6 } };
+              if (action.duo) state.jobRun.duo = { partner: "Kei Mori", half: "A" };
               fire(PAGE_EVENTS.state, { jobRun: state.jobRun });
               result(true, "Work order assigned.", action.type); break;
             }

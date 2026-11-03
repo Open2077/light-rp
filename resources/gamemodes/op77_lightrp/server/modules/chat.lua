@@ -47,7 +47,8 @@ AddEventHandler("chatMessage", function(player, _, text)
     if playerId == nil then return end
     CancelEvent()
     if type(text) ~= "string" or text == "" or needsCharacter(playerId) then return end
-    Chat.sayNear(playerId, Config.icRange, displayName(playerId), text, colors.ic)
+    local author = LightRP.titles and LightRP.titles.chatName(playerId, displayName(playerId)) or displayName(playerId) -- "Name · Title" (titles.lua)
+    Chat.sayNear(playerId, Config.icRange, author, text, colors.ic)
 end)
 
 local join = LightRP.joinArgs

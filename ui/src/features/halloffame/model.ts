@@ -27,7 +27,7 @@ function normalizeRow(raw: unknown): HallOfFameRow | undefined {
   const r = raw as Record<string, unknown>;
   const name = text(r.name);
   if (!name) return undefined;
-  return { rank: Math.max(1, Math.floor(num(r.rank, 1))), name, value: num(r.value), detail: text(r.detail), you: r.you === true || undefined };
+  return { rank: Math.max(1, Math.floor(num(r.rank, 1))), name, value: num(r.value), detail: text(r.detail), you: r.you === true || undefined, title: text(r.title) };
 }
 
 function normalizeBoard(raw: unknown): HallOfFameBoard | undefined {

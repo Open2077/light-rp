@@ -135,6 +135,11 @@ server_script "server/modules/guide_dialogue.lua"  -- talking to Johnny: choices
 server_script "server/config/dogtown.lua"
 server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
 server_script "server/modules/recap.lua"           -- the end-of-match recap: activities, missions, world bosses (F1 > Last match)
+server_script "server/config/titles.lua"
+server_script "server/modules/titles.lua"          -- prestige titles: closed catalogue, earned per character, one shown by the name
+server_script "server/config/dailies.lua"
+server_script "server/modules/dailies.lua"         -- daily / weekly contracts told by the fixers (docs/dailies-titles.md)
+server_script "server/modules/job_crew.lua"        -- jobs worked together: +15 % crew bonus, Big Contract premium
 server_script "server/main.lua"
 
 -- Client: core first, then modules.

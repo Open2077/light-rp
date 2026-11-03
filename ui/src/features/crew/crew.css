@@ -12,6 +12,7 @@
 .crew-row { display: flex; align-items: center; gap: 6px; height: 21px; padding: 0 8px 0 6px; background: rgba(13, 13, 16, .82);
   border-left: 2px solid rgba(255, 204, 0, .45); clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%); }
 .crew-row strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 11px; letter-spacing: .08em; color: var(--text-hi); }
+.crew-row__title { flex: 0 1 auto; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; font-weight: 600; letter-spacing: .1em; } /* titles.lua */
 .crew-row em, .crew-op em { font-style: normal; font-size: 9px; padding: 0 4px; background: var(--accent); color: var(--text-on-accent); letter-spacing: .1em; }
 .crew-row__mark { display: flex; align-items: center; justify-content: center; width: 12px; flex: none; color: var(--accent); }
 .crew-row__dot { width: 5px; height: 5px; background: rgba(242, 240, 234, .45); }

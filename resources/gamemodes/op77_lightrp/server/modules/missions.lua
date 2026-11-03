@@ -624,6 +624,7 @@ local function finish(inst, success, why)
         pushQueue(id)
     end
     LightRP.log("missions: %s %s (%s) %s%s", inst.id, point.title, d.label, success and "complete" or "failed", why and (": " .. why) or "")
+    LightRP.eachModule("onMissionFinished", inst, point, d, success, why, payouts) -- contracts, titles
     if inst.gig and type(inst.gig.onEnd) == "function" then
         local ok, err = pcall(inst.gig.onEnd, inst, success, why)
         if not ok then LightRP.log("missions: gig end hook failed: %s", tostring(err)) end

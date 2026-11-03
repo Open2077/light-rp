@@ -125,9 +125,12 @@ local function farFrom(viewer, id)
     return (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 + (a.z - b.z) ^ 2 > FAR * FAR
 end
 
+local function titleOf(id) return LightRP.titles and LightRP.titles.shown(id) or nil end -- titles.lua
 local function memberView(p, viewer, id)
     local busy, label = busyOf(id)
+    local title = titleOf(id)
     return { id = id, name = name(id), leader = id == p.leader, you = id == viewer,
+        title = title and title.label or nil, titleRarity = title and title.rarity or nil,
         tier = LightRP.missions and type(LightRP.missions.tier) == "function" and LightRP.missions.tier(id) or 1,
         state = lifeOf(id), busy = busy, busyLabel = label, far = farFrom(viewer, id) }
 end
@@ -155,7 +158,8 @@ local function signature(p)
     local parts = {}
     for _, id in ipairs(p.members) do
         local busy, label = busyOf(id)
-        parts[#parts + 1] = tostring(id) .. ":" .. lifeOf(id) .. ":" .. tostring(busy) .. ":" .. tostring(label)
+        local title = titleOf(id)
+        parts[#parts + 1] = tostring(id) .. ":" .. lifeOf(id) .. ":" .. tostring(busy) .. ":" .. tostring(label) .. ":" .. tostring(title and title.label)
     end
     for _, viewer in ipairs(p.members) do
         local row = {}

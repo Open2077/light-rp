@@ -1,0 +1,12 @@
+/* Title rarities: the colours of server/config/titles.lua `rarities` (legendary and
+   live are the design system's accent and magenta). Shared by the Daily Contracts
+   panel and the crew frame. */
+:root {
+  --title-common: #C9D1DC; --title-rare: #3FA9FF; --title-epic: #B36BFF;
+  --title-legendary: var(--o77-yellow-400); --title-live: var(--o77-magenta);
+}
+.title-rarity { color: var(--title-common); --title-colour: var(--title-common); }
+.title-rarity.is-rare { color: var(--title-rare); --title-colour: var(--title-rare); }
+.title-rarity.is-epic { color: var(--title-epic); --title-colour: var(--title-epic); }
+.title-rarity.is-legendary { color: var(--title-legendary); --title-colour: var(--title-legendary); }
+.title-rarity.is-live { color: var(--title-live); --title-colour: var(--title-live); }

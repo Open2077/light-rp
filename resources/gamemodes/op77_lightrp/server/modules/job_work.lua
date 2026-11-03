@@ -179,16 +179,16 @@ function Work.complete(id,payload)
     if s.point.kind=="sell" then
         s.earned=b.total
         finishSession(id,s,string.format("Sold %d × %s. %s deposited in your bank.",b.count,LightRpItems[s.point.definition.product].label,LightRP.money.format(b.total)),"money")
-        LightRP.eachModule("onJobWorkCompleted",id,s.point.job,s.point.kind)
+        LightRP.eachModule("onJobWorkCompleted",id,s.point.job,s.point.kind,{count=b.count,total=b.total,point=s.point.id})
     elseif s.point.definition.once then
         -- A practice site: one batch is the lesson, the loop does not repeat.
         local job,kind=s.point.job,s.point.kind
         finishSession(id,s,kind=="process" and "Processed. The finished goods are in your inventory." or "Collected. The load is in your inventory.")
-        LightRP.eachModule("onJobWorkCompleted",id,job,kind)
+        LightRP.eachModule("onJobWorkCompleted",id,job,kind,{point=s.point.id,practice=true})
     else
         -- A tutorial callback may acquire a camera/UI. Cancellation during a
         -- commit is remembered and prevents issuing another batch.
-        LightRP.eachModule("onJobWorkCompleted",id,s.point.job,s.point.kind)
+        LightRP.eachModule("onJobWorkCompleted",id,s.point.job,s.point.kind,{point=s.point.id})
         if sessions[id]==s then nextCycle(id,s) end
     end
     return true
