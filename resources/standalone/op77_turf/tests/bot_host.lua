@@ -261,8 +261,8 @@ function T.advance(ms)
         Turf.tick(clock)
         if clock - lastStatusAt >= 1000 then
             lastStatusAt = clock
-            TurfCore.status(Turf.status(clock))
-            if core.registered["turf.pve"] then TurfCore.status(Turf.pveStatus(clock), false, "turf.pve") end
+            TurfCore.status(Turf.status(clock), false, nil, clock)
+            if core.registered["turf.pve"] then TurfCore.status(Turf.pveStatus(clock), false, "turf.pve", clock) end
         end
     end
 end

@@ -20,8 +20,8 @@ local pveRegistered = false
 
 local function publishStatus(force)
     local now = W.now()
-    TurfCore.status(Turf.status(now), force)
-    if pveRegistered then TurfCore.status(Turf.pveStatus(now), force, PVE) end
+    TurfCore.status(Turf.status(now), force, nil, now)
+    if pveRegistered then TurfCore.status(Turf.pveStatus(now), force, PVE, now) end
 end
 
 local pveNotice = false

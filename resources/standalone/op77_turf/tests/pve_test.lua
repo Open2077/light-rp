@@ -148,7 +148,14 @@ local function main()
     local late = squad(88, 21, { 21, 22, 23 })
     fire("op77_lightrp:activity:join", nil, 21, "turf.pve", late)
     fire("op77_lightrp:activity:join", nil, 22, "turf.pve", late)
-    advance(P.gatherSeconds * 1000 + 500)
+    advance(1000)
+    -- Light RP's queue panel: two of three, going at readyAt (published once, not every second)
+    local sq = T.statusOf("turf.pve").queue
+    assert(sq.v == 1 and #sq.lobbies == 1 and #sq.lobbies[1].players == 2 and sq.lobbies[1].need == 3
+        and sq.lobbies[1].startsInMs and sq.lobbies[1].mode == nil, "the crew's line-up reaches the panel")
+    local group = Turf.sweepEntry(21)
+    assert(Turf.sweepQueueView(T.now()).lobbies[1].startsInMs == group.readyAt - T.now(), "it starts at readyAt")
+    advance(P.gatherSeconds * 1000 - 500)
     local lateWar = sweepOf(21)
     assert(lateWar and #Turf.sweeps == 2 and B.count(lateWar, 2) == R.pveBots(2, P), "gathered long enough: in with two")
     flush(); advance(250); advance(CFG.match.countdownSeconds * 1000)
@@ -167,6 +174,9 @@ local function main()
     assert(T.states[31].personal.waiting == true)
     assert(H.lobby(T.states[31].personal, {}).objective:find("slot"))
     assert(T.statusOf("turf.pve").queued == 1)
+    local wq = T.statusOf("turf.pve").queue.lobbies[1]
+    assert(wq.players[1] == 31 and wq.need == 1 and wq.mode == "Waiting for a free sweep" and wq.startsInMs == nil,
+        "every slot taken: no countdown, it waits for a free sweep")
 
     -- the crew's sweep runs long enough; the member who did nothing earns nothing
     advance(P.rewards.minWarSeconds * 1000)
