@@ -1,9 +1,13 @@
--- Missions, the matchmaking half (The Division style). A mission point in the
--- city opens its board: pick a difficulty, then tag in alone or with your squad.
--- Every difficulty keeps lobbies; a tag joins the fullest lobby with room for
--- you (or your whole squad), so strangers fill a squad's empty seats. A full
--- lobby starts a countdown, and so does the host with the minimum on board;
--- then the operators are moved into the mission's own routing bucket.
+-- Missions, the entry half (The Division style). A mission point in the city
+-- opens its board: pick a difficulty, then tag in. Entry is by crew
+-- (server/modules/parties.lua): the crew leader tags the whole crew in, a member
+-- cannot tag in alone, a player alone is a crew of one. A crew gets its own
+-- lobby and nobody else joins it; it launches (countdown) as soon as it has the
+-- difficulty's minimum. A crew leader who turns "open to matchmaking" on lets
+-- strangers fill the empty places the old way: the tag joins the fullest open
+-- lobby with room, a full lobby starts the countdown, and so does the host with
+-- the minimum on board. Then the operators move into the mission's own routing
+-- bucket.
 --
 -- What happens inside belongs to the mission scripts:
 --   LightRP.missions.register("sector04_blackout", {
@@ -31,7 +35,10 @@ end
 local Db = LightRP.db
 
 local points, order = {}, {}
-local lobbies = {}       -- id -> { id, point, difficulty, members = { { id, squad } }, state = "open"|"countdown", launchAt, forced }
+-- A lobby is one crew's entry (`owner` = the crew id, or "solo:<playerId>"), private
+-- unless the crew opened itself to matchmaking (`open`): only open lobbies take
+-- other players, and only players who are open to matchmaking themselves.
+local lobbies = {}       -- id -> { id, point, difficulty, members = { { id, squad } }, state = "open"|"countdown", launchAt, forced, open, owner }
 local queueOf = {}       -- playerId -> lobby id
 local instances = {}     -- id -> { id, point, difficulty, bucket, members = { ids }, startedAt, endsAt, state }
 local instanceOf = {}    -- playerId -> instance id
@@ -147,6 +154,23 @@ end
 
 local function diffOf(point, id) for _, d in ipairs(point.difficulties) do if d.id == id then return d end end end
 
+-- Crews (server/modules/parties.lua). A player alone, or in a crew of one still
+-- waiting for answers, enters solo. Guarded: tests may stub parties with `of` only.
+local function partyOf(id)
+    local P = LightRP.parties
+    return P and type(P.of) == "function" and P.of(id) or nil
+end
+local function crewOf(id)
+    local crew = partyOf(id)
+    if crew and #crew.members > 1 then return crew end
+    return nil
+end
+local function matchmakingOf(id)
+    local P = LightRP.parties
+    return P ~= nil and type(P.matchmaking) == "function" and P.matchmaking(id) == true
+end
+local function entryKey(id) local crew = crewOf(id); return crew and crew.id or ("solo:" .. id) end
+
 local function lobbyView(lobby, point, d)
     local members = {}
     for i, m in ipairs(lobby and lobby.members or {}) do
@@ -160,11 +184,12 @@ local function lobbyView(lobby, point, d)
     }
 end
 
--- The lobby a tag of `size` operators joins: the fullest open one with room.
+-- The lobby a matchmaking tag of `size` operators joins: the fullest lobby open
+-- to matchmaking with room.
 local function pickLobby(point, d, size)
     local best
     for _, lobby in pairs(lobbies) do
-        if lobby.point == point.id and lobby.difficulty == d.id and lobby.state == "open"
+        if lobby.open and lobby.point == point.id and lobby.difficulty == d.id and lobby.state == "open"
             and #lobby.members + size <= d.max and (not best or #lobby.members > #best.members) then
             best = lobby
         end
@@ -172,14 +197,27 @@ local function pickLobby(point, d, size)
     return best
 end
 
--- What a player sees on a difficulty's board: their own lobby, else the one they would join.
+-- What a player sees on a difficulty's board: their own lobby, else (open to
+-- matchmaking) the one their crew would join.
 local function boardFor(id, point, d)
     local mine = queueOf[id] and lobbies[queueOf[id]]
     if mine and mine.point == point.id and mine.difficulty == d.id then return mine end
-    local size = 1
-    local squad = LightRP.parties.of(id)
-    if squad and squad.leader == id then size = #squad.members end
-    return pickLobby(point, d, size) or pickLobby(point, d, 1)
+    if not matchmakingOf(id) then return nil end
+    local crew = crewOf(id)
+    return pickLobby(point, d, crew and #crew.members or 1)
+end
+-- How many lobbies open to matchmaking have room for this player's crew: the
+-- board tells a closed crew that somebody is looking for operators.
+local function openLobbies(id, point, d)
+    local crew = crewOf(id)
+    local size, count = crew and #crew.members or 1, 0
+    for _, lobby in pairs(lobbies) do
+        if lobby.open and lobby.point == point.id and lobby.difficulty == d.id and lobby.state == "open"
+            and lobby.id ~= queueOf[id] and #lobby.members + size <= d.max then
+            count = count + 1
+        end
+    end
+    return count
 end
 
 local pushPoint, pushQueue
@@ -187,21 +225,25 @@ local pushPoint, pushQueue
 local function startCountdown(lobby, seconds, forced)
     lobby.state, lobby.launchAt, lobby.forced = "countdown", now() + seconds * 1000, forced == true
     for _, m in ipairs(lobby.members) do
-        LightRP.notice(m.id, { kind = "contract", title = "SQUAD READY", durationMs = seconds * 1000,
+        LightRP.notice(m.id, { kind = "contract", title = "CREW READY", durationMs = seconds * 1000,
             body = string.format("%s launches in %d seconds. Stay near the mission point.", points[lobby.point].title, seconds) })
         pushQueue(m.id)
     end
 end
 
-local function evaluate(lobby)
+-- A private lobby launches as soon as its crew is enough (nobody else comes); a
+-- lobby open to matchmaking waits to be full, or for its host to launch early.
+local function evaluate(lobby, why)
     local d = diffOf(points[lobby.point], lobby.difficulty)
     local n = #lobby.members
     if n == 0 then lobbies[lobby.id] = nil; return end
-    if lobby.state == "open" and n >= d.max then startCountdown(lobby, C.countdown, false)
-    elseif lobby.state == "countdown" and n < (lobby.forced and d.min or d.max) then
+    if lobby.state == "open" and n >= (lobby.open and d.max or d.min) then startCountdown(lobby, C.countdown, false)
+    elseif lobby.state == "countdown" and n < ((lobby.forced or not lobby.open) and d.min or d.max) then
         lobby.state, lobby.launchAt, lobby.forced = "open", nil, false
+        local body = why or (lobby.open and "An operator left the board. Waiting for matchmaking to fill the crew again."
+            or string.format("An operator left the board: %s needs %d. Tag the crew in again when it is ready.", d.label, d.min))
         for _, m in ipairs(lobby.members) do
-            LightRP.notice(m.id, { kind = "warning", title = "LAUNCH CANCELLED", body = "An operator left the board. Waiting for the squad to fill again." })
+            LightRP.notice(m.id, { kind = "warning", title = "LAUNCH CANCELLED", body = body })
         end
     end
 end
@@ -220,7 +262,7 @@ end
 Missions.untag = untag
 
 -- Can this player go on this board? The reason reads for them ("you") or for
--- their squad leader (their name).
+-- their crew leader (their name).
 local REASONS = {
     character = { "You have no active character.", "%s has no active character." },
     mission = { "You are already on a mission.", "%s is already on a mission." },
@@ -248,46 +290,63 @@ local function eligible(id, point, d, radius, test, gig)
     return true
 end
 
-local function tag(id, pointId, diffId, group)
+-- Entry by crew: the leader tags the whole crew in (members within
+-- `groupRadius`), a member alone cannot; a player alone is a crew of one. The
+-- crew gets its own lobby unless it is open to matchmaking, which joins the
+-- fullest open lobby with room (the old public board).
+local function tag(id, pointId, diffId)
     local point = points[pointId]
     local d = point and diffOf(point, diffId)
     if not d then return false, "This board is closed." end
     if lastTag[id] and now() - lastTag[id] < C.tagCooldownMs then return false, "One moment." end
     lastTag[id] = now()
-    local squad = LightRP.parties.of(id)
+    local crew = crewOf(id)
     local list = { id }
-    if group then
-        if not squad then return false, "You are not in a squad. Invite players first, or tag in alone." end
-        if squad.leader ~= id then return false, "Only the squad leader tags the squad in." end
+    if crew then
+        if crew.leader ~= id then return false, "Your crew leader tags the crew in. Leave the crew to go solo." end
         list = {}
-        for _, member in ipairs(squad.members) do list[#list + 1] = member end
+        for _, member in ipairs(crew.members) do list[#list + 1] = member end
     end
-    if #list > d.max then return false, string.format("Your squad is %d: %s takes %d operators at most.", #list, d.label, d.max) end
+    if #list > d.max then return false, string.format("Your crew is %d: %s takes %d operators at most.", #list, d.label, d.max) end
     for _, member in ipairs(list) do
         local ok, code = eligible(member, point, d, member == id and C.tagRadius or C.groupRadius)
         if not ok then return false, reason(code, member, member == id, d, point) end
     end
+    local open = matchmakingOf(id)
+    if not open and #list < d.min then
+        if crew then
+            return false, string.format("%s needs %d operators: your crew is %d. Invite more, or open the crew to matchmaking.", d.label, d.min, #list)
+        end
+        return false, string.format("%s needs %d operators. Form a crew (ALT on a player > Invite to crew), or turn matchmaking on.", d.label, d.min)
+    end
     for _, member in ipairs(list) do
         if queueOf[member] then untag(member) end
     end
-    local lobby = pickLobby(point, d, #list)
+    local lobby = open and pickLobby(point, d, #list) or nil
     if not lobby then
         lobbySeq = lobbySeq + 1
-        lobby = { id = "lobby:" .. lobbySeq, point = point.id, difficulty = d.id, members = {}, state = "open" }
+        lobby = { id = "lobby:" .. lobbySeq, point = point.id, difficulty = d.id, members = {}, state = "open",
+            open = open, owner = crew and crew.id or ("solo:" .. id) }
         lobbies[lobby.id] = lobby
     end
     for _, member in ipairs(list) do
-        lobby.members[#lobby.members + 1] = { id = member, squad = group and squad.id or nil }
+        lobby.members[#lobby.members + 1] = { id = member, squad = crew and crew.id or nil }
         queueOf[member] = lobby.id
         if member ~= id then
-            LightRP.notice(member, { kind = "contract", title = "TAGGED IN", body = name(id) .. " tagged the squad in: " .. point.title .. " · " .. d.label .. "." })
+            LightRP.notice(member, { kind = "contract", title = "TAGGED IN", body = name(id) .. " tagged the crew in: " .. point.title .. " · " .. d.label .. "." })
         end
     end
     evaluate(lobby)
     for _, m in ipairs(lobby.members) do pushQueue(m.id) end
     pushPoint(point.id)
+    if lobby.state == "countdown" then
+        return true, string.format("Tagged in. %s launches in %d seconds.", point.title, math.ceil((lobby.launchAt - now()) / 1000))
+    end
     local missing = d.max - #lobby.members
-    return true, missing > 0 and string.format("Tagged in. %d/%d operators, waiting for %d more.", #lobby.members, d.max, missing) or "Tagged in. The squad is full."
+    if not lobby.open then
+        return true, string.format("Tagged in. %d/%d operators: %s needs %d.", #lobby.members, d.max, d.label, d.min)
+    end
+    return true, string.format("Tagged in. %d/%d operators, matchmaking looks for %d more.", #lobby.members, d.max, missing)
 end
 
 local function hostLaunch(id)
@@ -565,13 +624,13 @@ end
 local function nearbyPlayers(id)
     local list, me = {}, positionOf(id)
     if not me then return list end
-    local squad = LightRP.parties.of(id)
+    local squad = partyOf(id)
     for _, other in ipairs(GetPlayers()) do
         other = tonumber(other)
         if other and other ~= id and LightRP.characters.isRegistered(other) and bucketOf(other) == bucketOf(id) then
             local p = positionOf(other)
             if p and distance(p, me) <= C.party.nearby then
-                local theirs = LightRP.parties.of(other)
+                local theirs = partyOf(other)
                 list[#list + 1] = { id = other, name = name(other), citizen = citizen(other), tier = Missions.tier(other),
                     inSquad = theirs ~= nil, mine = squad ~= nil and theirs == squad,
                     invited = squad ~= nil and squad.invites[other] ~= nil and squad.invites[other] > now() }
@@ -590,10 +649,12 @@ local function snapshot(id, pointId)
         local lobby = boardFor(id, point, d)
         difficulties[#difficulties + 1] = { id = d.id, label = d.label, blurb = d.blurb, payout = d.payout, minutes = d.minutes,
             min = d.min, max = d.max, tier = d.tier, locked = not Missions.unlocked(id, point, d), tagged = lobby and #lobby.members or 0,
-            requires = previousOf(point, d) and previousOf(point, d).label or nil, cleared = Missions.cleared(id, point.id, d.id) }
+            requires = previousOf(point, d) and previousOf(point, d).label or nil, cleared = Missions.cleared(id, point.id, d.id),
+            openLobbies = openLobbies(id, point, d) }
         boards[d.id] = lobbyView(lobby, point, d)
     end
     local mine = queueOf[id] and lobbies[queueOf[id]]
+    local crew = crewOf(id)
     return {
         kind = "mission", session = viewers[id] and viewers[id].session,
         point = { id = point.id, title = point.title, type = point.type, location = point.location, description = point.description },
@@ -603,6 +664,10 @@ local function snapshot(id, pointId)
         tagged = mine and mine.point == point.id and { lobby = mine.id, difficulty = mine.difficulty, host = mine.members[1].id == id } or nil,
         taggedElsewhere = mine and mine.point ~= point.id and points[mine.point].title or nil,
         nearby = nearbyPlayers(id),
+        -- how this player enters: alone, or with their crew (only its leader tags in)
+        entry = { crew = crew and crew.id or nil, size = crew and #crew.members or 1, leader = crew and name(crew.leader) or nil,
+            leads = crew == nil or crew.leader == id, matchmaking = matchmakingOf(id),
+            open = mine ~= nil and mine.open == true },
         keys = { tagRadius = C.tagRadius },
     }
 end
@@ -621,7 +686,7 @@ LightRP.stateProvider("missionQueue", function(id)
     local point, d = points[lobby.point], diffOf(points[lobby.point], lobby.difficulty)
     return { running = false, title = point.title, difficulty = d.label, difficultyId = d.id, count = #lobby.members, min = d.min, max = d.max,
         state = lobby.state, countdownMs = lobby.state == "countdown" and math.max(0, lobby.launchAt - now()) or nil,
-        host = lobby.members[1] and lobby.members[1].id == id }
+        host = lobby.members[1] and lobby.members[1].id == id, open = lobby.open == true }
 end)
 function pushQueue(id) LightRP.state(id, "missionQueue") end
 
@@ -650,11 +715,18 @@ end
 
 LightRP.action("mission.tag", function(id, payload)
     local v = session(id, payload); if not v then return end
-    reply(id, "mission.tag", tag(id, v.point, payload.difficulty, false))
+    reply(id, "mission.tag", tag(id, v.point, payload.difficulty))
 end)
+-- the old "tag the squad in": a crew always enters together now
 LightRP.action("mission.tagGroup", function(id, payload)
     local v = session(id, payload); if not v then return end
-    reply(id, "mission.tagGroup", tag(id, v.point, payload.difficulty, true))
+    reply(id, "mission.tagGroup", tag(id, v.point, payload.difficulty))
+end)
+LightRP.action("mission.matchmaking", function(id, payload)
+    local v = session(id, payload); if not v then return end
+    local P = LightRP.parties
+    if not P or type(P.setMatchmaking) ~= "function" then return reply(id, "mission.matchmaking", false, "Matchmaking is not available.") end
+    reply(id, "mission.matchmaking", P.setMatchmaking(id, payload.on == true))
 end)
 LightRP.action("mission.untag", function(id, payload)
     local v = session(id, payload); if not v then return end
@@ -669,13 +741,51 @@ end)
 LightRP.action("mission.close", function(id, payload)
     if session(id, payload) then viewers[id] = nil end
 end)
--- the squad panel of the board refreshes after a squad action
+-- the crew panel of the board refreshes after a crew action
 function Missions.onPartyChanged(_, ids)
     local seen = {}
     for _, id in ipairs(ids or {}) do
         local v = viewers[id]
         if v and not seen[v.point] then seen[v.point] = true; pushPoint(v.point) end
     end
+end
+-- Leaving (or being removed from) a crew takes the player off its entry.
+function Missions.onCrewLeft(id, crewId)
+    local lobby = queueOf[id] and lobbies[queueOf[id]]
+    if not lobby then return end
+    for _, m in ipairs(lobby.members) do
+        if m.id == id and m.squad == crewId then
+            untag(id, "You left the crew: you are no longer tagged with it.")
+            return
+        end
+    end
+end
+-- A player who joins a crew enters with it: their own tag drops.
+function Missions.onCrewJoined(id)
+    if queueOf[id] then untag(id, "You joined a crew: your crew leader tags the crew in.") end
+end
+-- The leader opened or closed the crew to matchmaking while it is tagged in.
+function Missions.onCrewMatchmaking(id, on)
+    local lobby = queueOf[id] and lobbies[queueOf[id]]
+    if not lobby then return end
+    if lobby.owner == entryKey(id) then
+        lobby.open = on
+        evaluate(lobby, on and "Matchmaking on: waiting for players to fill the crew." or nil)
+        for _, m in ipairs(lobby.members) do pushQueue(m.id) end
+        pushPoint(lobby.point)
+    elseif not on then
+        -- the crew sits in somebody else's open lobby: it comes off that board
+        local P = LightRP.parties
+        local members = P and type(P.members) == "function" and P.members(id) or { id }
+        for _, member in ipairs(members) do
+            if queueOf[member] == lobby.id then untag(member, "Matchmaking off: your crew left the shared board. Tag the crew in again.") end
+        end
+    end
+end
+-- The point a player is tagged on (the crew frame shows it).
+function Missions.taggedOn(id)
+    local lobby = queueOf[id] and lobbies[queueOf[id]]
+    return lobby and points[lobby.point] and points[lobby.point].title or nil
 end
 
 -- ---------------------------------------------------------------------------

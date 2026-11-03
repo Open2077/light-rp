@@ -93,9 +93,10 @@ function jobNodes(job: JobState, run: JobRunState | undefined, money: MoneyState
 }
 
 /* F1 → Activities opens the Activities panel (server/modules/activities.lua); a
-   running activity or a waiting request can be left from here at once. F1 → Squad
-   manages the squad (server/modules/parties.lua): invites, members, leave. Inviting
-   needs the players around, listed by the panel's squad page. */
+   running activity or a waiting request can be left from here at once. F1 → Crew
+   manages the crew (server/modules/parties.lua): invites, members, matchmaking,
+   leave. Inviting needs the players around: ALT + click one, or the panel's crew
+   page lists them. */
 function activityItems(act: ActivitiesState | undefined): RageMenuItem[] {
   const items: RageMenuItem[] = [{ id: "activities", type: "item", text: "Activities", icon: "swords",
     meta: act?.current ? "IN PLAY" : act?.queued ? "WAITING" : act ? `${act.list.length} OPEN` : undefined,
@@ -109,12 +110,13 @@ function activityItems(act: ActivitiesState | undefined): RageMenuItem[] {
 
 function squadNodes(party: PartyState | undefined, me: number): Record<string, MenuNode> {
   const leader = !!party?.id && party.leader === me;
+  const inCrew = !!party?.id && (party.members?.length ?? 0) > 1;
   const items: RageMenuItem[] = [];
   if (party?.invites?.length) {
     items.push({ label: "INVITES" });
     for (const inv of party.invites) items.push(
-      { id: `squad-accept:${inv.party}`, type: "item", text: `Join ${inv.fromName}'s squad`, icon: "user-plus", meta: `${Math.max(0, Math.ceil(inv.expiresInMs / 1000))} S`,
-        description: "Accept the invite: you tag missions together and activities learn who is in your squad." },
+      { id: `squad-accept:${inv.party}`, type: "item", text: `Join ${inv.fromName}'s crew`, icon: "user-plus", meta: `${Math.max(0, Math.ceil(inv.expiresInMs / 1000))} S`,
+        description: "Accept the invite: your crew enters missions, the raid and activities together, behind its leader." },
       { id: `squad-decline:${inv.party}`, type: "item", text: `Decline ${inv.fromName}`, icon: "x" });
   }
   const nodes: Record<string, MenuNode> = {};
@@ -123,23 +125,29 @@ function squadNodes(party: PartyState | undefined, me: number): Record<string, M
     for (const m of party.members) {
       const manage = leader && m.id !== me;
       items.push({ id: `squad-member:${m.id}`, type: manage ? "submenu" : "item", target: manage ? `member:${m.id}` : undefined, text: m.name,
-        icon: m.leader ? "crown" : "user", meta: m.id === me ? "YOU" : m.leader ? "LEADER" : undefined,
-        description: manage ? "Hand the lead over or remove this member." : m.leader ? "The squad leader invites and tags the squad in." : undefined });
-      if (manage) nodes[`member:${m.id}`] = { title: m.name.toUpperCase(), subtitle: "SQUAD MEMBER", tag: "MEMBER", items: [
-        { id: `squad-promote:${m.id}`, type: "item", text: "Hand the lead over", icon: "crown", description: `${m.name} becomes the squad leader.` },
-        { id: `squad-kick:${m.id}`, type: "item", text: "Remove from the squad", icon: "user-minus", danger: true },
+        icon: m.leader ? "crown" : "user", meta: m.id === me ? "YOU" : m.state === "down" || m.state === "dead" ? m.state.toUpperCase() : m.leader ? "LEADER" : m.busy ? (m.busy === "lobby" ? "BOARD" : m.busy.toUpperCase()) : m.far ? "FAR" : undefined,
+        description: manage ? "Make them crew leader or kick them from the crew." : m.leader ? "The crew leader invites, tags missions in and starts activities." : undefined });
+      if (manage) nodes[`member:${m.id}`] = { title: m.name.toUpperCase(), subtitle: "CREW MEMBER", tag: "MEMBER", items: [
+        { id: `squad-promote:${m.id}`, type: "item", text: "Make crew leader", icon: "crown", description: `${m.name} becomes the crew leader.` },
+        { id: `squad-kick:${m.id}`, type: "item", text: "Kick from crew", icon: "user-minus", danger: true },
         { id: "squad-back", type: "item", text: "Back", icon: "arrow-left" },
       ] };
     }
     for (const p of party.pending ?? []) items.push({ id: `squad-pending:${p.id}`, type: "item", text: p.name, icon: "loader", meta: "INVITED", disabled: true });
   } else {
-    items.push({ id: "squad-none", type: "item", text: "No squad yet", icon: "users", disabled: true, description: "Invite the players around you: the squad forms when one accepts." });
+    items.push({ id: "squad-none", type: "item", text: "No crew: you play solo", icon: "users", disabled: true, description: "ALT + click a player > Invite to crew: the crew forms when they accept." });
   }
+  const canToggle = !party?.id || leader;
   items.push({ separator: true },
     { id: "squad-invite", type: "item", text: "Invite players nearby", icon: "user-plus", disabled: !!party?.id && !leader,
-      description: !!party?.id && !leader ? "Only the squad leader invites." : "Opens the squad page of the Activities panel: the players within 15 m of you, one click to invite." });
-  if (party?.members) items.push({ id: "squad-leave", type: "item", text: "Leave the squad", icon: "log-out", danger: true });
-  return { squad: { title: "SQUAD", subtitle: party?.members ? `${party.members.length}/${party.maxSize} MEMBERS` : "NO SQUAD", tag: "SQUAD", items }, ...nodes };
+      description: !!party?.id && !leader ? "Only the crew leader invites." : "ALT + click a player, or open the crew page of the Activities panel: the players within 15 m of you, one click to invite." },
+    { id: "squad-matchmaking", type: "item", text: party?.matchmaking ? "Mission matchmaking: open" : inCrew ? "Mission matchmaking: crew only" : "Mission matchmaking: off", icon: party?.matchmaking ? "globe" : "lock",
+      meta: party?.matchmaking ? "ON" : "OFF", disabled: !canToggle,
+      description: !canToggle ? "The crew leader decides." : inCrew
+        ? party?.matchmaking ? "Solo players fill your empty places on mission boards. Select to keep missions to your crew." : "Only your crew enters your missions. Select to let solo players fill the empty places."
+        : party?.matchmaking ? "You join open mission boards, and players fill yours. Select to enter missions alone." : "You only enter missions alone. Select to join open boards and let players fill yours." });
+  if (party?.members) items.push({ id: "squad-leave", type: "item", text: inCrew ? "Leave crew" : "Withdraw my invites", icon: "log-out", danger: true });
+  return { squad: { title: "CREW", subtitle: inCrew ? `${party!.members!.length}/${party!.maxSize} MEMBERS` : "SOLO", tag: "CREW", items }, ...nodes };
 }
 
 function buildTree(character: CharacterState, money: MoneyState, job: JobState, gang: GangState, run: JobRunState | undefined, freecamKey?: string): Record<string, MenuNode> {
@@ -266,11 +274,11 @@ export function PlayerMenu() {
     if (tutorial?.active && guide >= 0) nodes.root!.items.splice(guide + 1, 0, {id:"tutorial-skip",type:"item",text:"Skip the tutorial",icon:"log-out",
       description:"Leave the first day now: your Neural-Link is installed and you get your Kabuki starter studio, its door a short walk away. You can come back to the guide later."});
     if (staff.isStaff && nodes.root) nodes.root.items.splice(nodes.root.items.length - 2, 0, {id:"admin",type:"item",text:"Staff desk",icon:"shield",description:"LightRP administration and support cases."});
-    // Activities and the squad, under the homes
+    // Activities and the crew, under the homes
     const homes = nodes.root?.items.findIndex((i) => "id" in i && i.id === "housing") ?? -1;
-    if (homes >= 0) nodes.root!.items.splice(homes + 1, 0, ...activityItems(activities), { id: "squad", type: "submenu", target: "squad", text: "Squad", icon: "users",
+    if (homes >= 0) nodes.root!.items.splice(homes + 1, 0, ...activityItems(activities), { id: "squad", type: "submenu", target: "squad", text: "Crew", icon: "users",
       meta: party?.invites?.length ? `${party.invites.length} INVITE${party.invites.length > 1 ? "S" : ""}` : party?.members ? `${party.members.length}/${party.maxSize}` : "SOLO",
-      description: "Your squad: accept invites, see the members, invite the players around you, leave." });
+      description: "Your crew: accept invites, see the members, invite the players around you, mission matchmaking, leave." });
     Object.assign(nodes, squadNodes(party, character.playerId));
     return nodes;
   }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, party]);
@@ -301,10 +309,11 @@ export function PlayerMenu() {
       requestClose(); sendAction({ type: "jobs.locate", job: job.name, stage: item.id.slice(5) as "collect" | "process" | "sell" }); return;
     }
     if (item.id === "activities" || item.id === "squad-invite") {
-      requestClose(); sendAction({ type: "activities.control", operation: "open", tab: item.id === "squad-invite" ? "squad" : "activities" }); return;
+      requestClose(); sendAction({ type: "activities.control", operation: "open", tab: item.id === "squad-invite" ? "crew" : "activities" }); return;
     }
     if (item.id === "activity-leave") { sendAction({ type: "activities.control", operation: "leave" }); requestClose(); return; }
     if (item.id === "squad-leave") { sendAction({ type: "party.leave" }); setStack((s) => s.slice(0, -1)); return; }
+    if (item.id === "squad-matchmaking") { sendAction({ type: "party.matchmaking", on: !party?.matchmaking }); return; }
     if (item.id === "squad-back") { setStack((s) => s.slice(0, -1)); return; }
     const [verb, arg] = (item.id ?? "").split(":");
     if (verb === "squad-accept" && arg) { sendAction({ type: "party.accept", party: arg }); return; }

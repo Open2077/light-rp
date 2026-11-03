@@ -493,7 +493,7 @@ export function MissionEditor() {
           numberEntry("grace", "Out-of-zone delay", m.outOfBounds.graceSeconds, graceSeconds => update({ outOfBounds: { graceSeconds } }), 3, 60, "s", 1, true),
           numberEntry("lives", "Team respawns", m.respawn.lives, lives => update(d => ({ respawn: { ...d.respawn, lives } })), 0, 50, "", 1, true),
           numberEntry("respawn", "Respawn delay", m.respawn.seconds, seconds => update(d => ({ respawn: { ...d.respawn, seconds } })), 3, 60, "s", 1, true),
-          item("rulesHelp", "How it plays", undefined, { disabled: true, description: "Out of the perimeter an operator sees a countdown, then dies. A death spends one team respawn (back at a start); with none left the operator is out. Nobody standing: squad wiped, mission failed." }),
+          item("rulesHelp", "How it plays", undefined, { disabled: true, description: "Out of the perimeter an operator sees a countdown, then dies. A death spends one team respawn (back at a start); with none left the operator is out. Nobody standing: crew wiped, mission failed." }),
         ];
         break;
       case "difficulties":

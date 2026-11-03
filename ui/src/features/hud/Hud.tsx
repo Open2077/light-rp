@@ -8,9 +8,11 @@ import { PlayerVitals } from "./PlayerVitals";
 import { WeaponStatus } from "./WeaponStatus";
 import { GrenadeStatus } from "../inventory/Grenades";
 import { SafezoneStatus } from "./SafezoneStatus";
+import { CrewHud } from "../crew/CrewFrame";
 import "./hud.css";
 
-/* Gameplay overlay, inside the HUD safe area: bottom-left vitals, bottom-right
+/* Gameplay overlay, inside the HUD safe area: bottom-left the crew (and its invite
+   prompt) above the weapon and the vitals, bottom-right
    vehicle cluster (above the voice plate) with the rental countdown while a car
    is out. No status rail: identity and money live in the F1 menu. */
 function countdown(ms: number): string {
@@ -39,6 +41,7 @@ export function Hud() {
       <WalkFlash />
       <Hotbar />
       <div className="hud__bottom-left">
+        <CrewHud />
         <SafezoneStatus />
         <WeaponStatus />
         <GrenadeStatus />

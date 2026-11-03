@@ -154,7 +154,7 @@ end
 local function any(id, key)
     for i = #sent, 1, -1 do local p = sent[i].payload; if sent[i].name == "op77_lightrp:raid" and sent[i].target == id and type(p) == "table" and p[key] then return p[key] end end
 end
--- ── standard, two operators ──
+-- ── standard, two operators: a crew, its leader tags it in ──
 local session = {}
 LightRP.dialog = function(id, kind, payload) payload.kind = kind; session[id] = payload.session end
 for i, id in ipairs({ 1, 2 }) do
@@ -162,9 +162,10 @@ for i, id in ipairs({ 1, 2 }) do
     positions[id] = { x = point.position.x + i * 0.5, y = point.position.y, z = point.position.z }; buckets[id] = 0
     Missions.onCharacterLoaded(id)
     assert(Missions.open(id, "chimera_raid"))
-    clock = clock + 2000
-    actions["mission.tag"](id, { session = session[id], difficulty = "standard" })
 end
+assert(LightRP.parties.invite(1, 2) and LightRP.parties.accept(2), "a crew of two")
+clock = clock + 2000
+actions["mission.tag"](1, { session = session[1], difficulty = "standard" })
 assert(commands["missions.launch"](0, { "1" }))
 local inst = Missions.instanceOf(1)
 assert(inst and #inst.members == 2 and buckets[1] == inst.bucket, "launched into the arena")
@@ -390,6 +391,8 @@ chars[3] = "Op3"; positions[3] = { x = point.position.x, y = point.position.y, z
 Missions.onCharacterLoaded(3)
 commands["missions.unlock"](0, { "3", "chimera_raid", "standard" }); commands["missions.unlock"](0, { "3", "chimera_raid", "hard" })
 assert(Missions.open(3, "chimera_raid")); clock = clock + 2000
+-- alone below the minimum: only matchmaking lets the tag in
+assert(LightRP.parties.setMatchmaking(3, true))
 actions["mission.tag"](3, { session = session[3], difficulty = "critical" })
 assert(commands["missions.launch"](0, { "3" }))
 local inst2 = Missions.instanceOf(3)

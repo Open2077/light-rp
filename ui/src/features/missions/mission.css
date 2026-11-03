@@ -109,6 +109,7 @@
 .mission__key--primary { background: #ffcc00; color: #0b0b0d !important; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); }
 .mission__key--primary:hover { background: #ffd83d; }
 .mission__key--group { background: rgba(255, 204, 0, .14); color: #ffcc00 !important; border: 1px solid rgba(255, 204, 0, .4); }
+.mission__key--group.is-on { background: rgba(63, 224, 208, .14); color: #3fe0d0 !important; border-color: rgba(63, 224, 208, .45); }
 .mission__key--launch { background: rgba(139, 224, 78, .14); color: var(--m-std) !important; border: 1px solid rgba(139, 224, 78, .45); }
 .mission__key--leave { background: rgba(227, 48, 58, .14); color: #ff6b73 !important; border: 1px solid rgba(227, 48, 58, .45); }
 .mission__key:disabled { opacity: .35; }
@@ -152,34 +153,6 @@
 .mission-queue.is-countdown .mission-queue__count { color: #ffcc00; animation: mission-pulse 1s ease-in-out infinite; }
 .mission-queue.is-running .mission-queue__tag { background: var(--m-crit, #e3303a); color: #fff; }
 
-/* the squad frame of a running mission (MissionSquadHud.tsx), right side under the minimap */
-.mission-squad-hud { position: absolute; right: 28px; top: 330px; z-index: 30; width: 232px; display: flex; flex-direction: column; gap: 4px; pointer-events: none;
-  font: 12px var(--font-mono); color: #f2f0ea; }
-.mission-squad-hud header { display: flex; align-items: center; gap: 6px; padding: 0 2px 4px; font-size: 11px; letter-spacing: .2em; color: #ffcc00; }
-.mission-squad-hud header span { margin-left: auto; color: rgba(242, 240, 234, .45); letter-spacing: .12em; }
-.mission-op { position: relative; padding: 6px 9px 7px; background: #0d0d10d9; border-left: 2px solid rgba(255, 204, 0, .55);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%); }
-.mission-op.is-me { border-left-color: #ffcc00; background: linear-gradient(90deg, rgba(255, 204, 0, .12), #0d0d10d9 60%); }
-.mission-op__line { display: flex; align-items: center; gap: 6px; height: 16px; }
-.mission-op__index { display: flex; align-items: center; gap: 3px; font-size: 10px; color: rgba(242, 240, 234, .45); }
-.mission-op__index svg { color: #ffcc00; }
-.mission-op strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 12px; letter-spacing: .08em; }
-.mission-op em { font-style: normal; font-size: 9px; padding: 0 4px; background: #ffcc00; color: #0b0b0d; letter-spacing: .1em; }
-.mission-op__hp { font-size: 12px; color: rgba(242, 240, 234, .8); }
-.mission-op__state { font-size: 10px; letter-spacing: .16em; padding: 0 5px; }
-.mission-op__bar { position: relative; margin-top: 5px; background: rgba(242, 240, 234, .1); overflow: hidden; }
-.mission-op__bar i { position: absolute; inset: 0 auto 0 0; transition: width .35s ease-out; }
-.mission-op__bar.is-health { height: 5px; }
-.mission-op__bar.is-health i { background: linear-gradient(90deg, #ffcc00, #fff1a8); box-shadow: 0 0 6px rgba(255, 204, 0, .45); }
-.mission-op__bar.is-armor { height: 3px; margin-top: 3px; }
-.mission-op__bar.is-armor i { background: #2ee6e0; box-shadow: 0 0 5px rgba(46, 230, 224, .4); }
-.mission-op.is-low .mission-op__bar.is-health i { background: #ff6b3d; }
-.mission-op.is-down { border-left-color: #e3303a; background: linear-gradient(90deg, rgba(227, 48, 58, .2), #0d0d10d9 70%); }
-.mission-op.is-down .mission-op__state { background: #e3303a; color: #fff; animation: mission-pulse .9s ease-in-out infinite; }
-.mission-op.is-dead { opacity: .55; border-left-color: rgba(242, 240, 234, .3); }
-.mission-op.is-dead strong { text-decoration: line-through; }
-.mission-op.is-dead .mission-op__state { background: rgba(242, 240, 234, .2); }
-.mission-op.is-recovering .mission-op__state { background: rgba(46, 230, 224, .2); color: #2ee6e0; }
 /* fixer gig chip (FixerGigHud): crew taken = half lit, at the meet point = lit */
 .mission__meter i.is-half { background: rgba(139, 224, 78, .35); }
 .mission-queue.is-gig .mission-queue__tag { background: #ff3fb8; color: #0b0b0d; }

@@ -29,7 +29,7 @@ export function MissionQueueHud() {
     <span className="mission-queue__tag">TAGGED</span>
     <span className="mission-queue__title">{q.title.toUpperCase()}</span>
     <span className="mission-queue__dim">{q.difficulty}</span>
-    <span className="mission-queue__count">{countdown != null ? `LAUNCHING IN ${String(countdown).padStart(2, "0")}` : `${q.count}/${q.max}${need > 0 ? ` · NEED ${need} MORE` : q.count < q.max ? " · FILLING" : ""}`}</span>
+    <span className="mission-queue__count">{countdown != null ? `LAUNCHING IN ${String(countdown).padStart(2, "0")}` : `${q.count}/${q.max}${need > 0 ? ` · NEED ${need} MORE` : q.count < q.max ? (q.open ? " · FILLING" : " · CREW ONLY") : ""}`}</span>
     <div className={`mission__meter is-${tone}`} style={{ "--cells": q.max } as CSSProperties}>
       {Array.from({ length: q.max }, (_, i) => <i key={i} className={i < q.count ? "is-on" : ""} />)}</div>
   </div>;
