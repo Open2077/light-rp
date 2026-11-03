@@ -169,15 +169,20 @@ function GuideBody({ index, onClose }: { index: GuideDialogPayload; onClose(): v
 
   return <div className="guide o77-interactive" role="dialog" aria-modal="true" aria-labelledby="guide-name" ref={root} tabIndex={-1}
     onContextMenu={(e) => { e.preventDefault(); back(); }}
+    // a click keeps the keyboard on the dialog (or the search box), so Enter opens the
+    // highlighted row instead of clicking the last button again
+    onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== "INPUT") e.preventDefault(); }}
     onMouseUp={(e) => { if (e.button === 3) { e.preventDefault(); back(); } }}
     onKeyDown={(e) => {
-      const inInput = (e.target as HTMLElement).tagName === "INPUT";
+      const target = e.target as HTMLElement;
+      const inInput = target.tagName === "INPUT";
       let handled = true;
       if (e.key === "Escape") { if (!e.repeat) { if (inInput && query) setQuery(""); else onClose(); } }
       else if (e.key === "ArrowDown") setCursor((c) => (entries.length ? (c + 1) % entries.length : 0));
       else if (e.key === "ArrowUp") setCursor((c) => (entries.length ? (c - 1 + entries.length) % entries.length : 0));
+      else if (e.key === "Enter" && target.tagName === "BUTTON") handled = false; // a button reached with Tab
       else if (e.key === "Enter") { if (!e.repeat) entries[cursor]?.open(); }
-      else if (!inInput && (e.key === "Backspace" || e.key === "ArrowLeft")) { if (!e.repeat) back(); }
+      else if ((!inInput && (e.key === "Backspace" || e.key === "ArrowLeft")) || (inInput && e.key === "Backspace" && query === "")) { if (!e.repeat) back(); }
       else if (!inInput && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.trim() !== "") { searchBox.current?.focus(); handled = false; }
       else handled = false;
       if (handled) { e.preventDefault(); e.stopPropagation(); }
