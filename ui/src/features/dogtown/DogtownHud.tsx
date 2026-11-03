@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Crosshair, Flame, Skull, Timer, Wallet } from "lucide-react";
+import { Crosshair, Flame, ShieldCheck, Skull, Timer, Wallet } from "lucide-react";
 import { useStore } from "@/state/store";
 import { formatMoney } from "@/bridge/money";
-import { cashAtRisk, normalizeDogtown, percent, stakeMissing } from "./model";
+import { cashAtRisk, clock, normalizeDogtown, percent, stakeMissing } from "./model";
 import "./dogtown.css";
 
 const BANNER_MS = 6500;
@@ -39,7 +39,7 @@ export function DogtownHud() {
   const receivedAt = useRef(Date.now());
   useEffect(() => { receivedAt.current = Date.now(); }, [raw]);
   const [, tick] = useState(0);
-  const counting = !!d?.tagged || !!d?.stake.short;
+  const counting = !!d?.tagged || !!d?.stake.short || !!d?.protected;
   useEffect(() => {
     if (!counting) return;
     const timer = setInterval(() => tick((n) => n + 1), 250);
@@ -59,6 +59,9 @@ export function DogtownHud() {
   const short = inside && d.stake.short;
   const missing = stakeMissing(cash, d.rules) || d.stake.missing;
   const escortLeft = short ? Math.max(0, d.stake.evictInMs - elapsed) : 0;
+  // Entry protection: out of the PvP grant until it runs out (the server ends it).
+  const safeLeft = d.protected ? Math.max(0, d.protectedInMs - elapsed) : 0;
+  const safe = safeLeft > 0 && !short;
 
   return (
     <div className="dogtown" aria-hidden="true">
@@ -68,7 +71,9 @@ export function DogtownHud() {
           <strong className="dogtown-banner__title">{d.label.toUpperCase()}</strong>
           {short
             ? <span className="dogtown-banner__law">NO STAKE <b>·</b> YOU CAN'T FIGHT HERE</span>
-            : <span className="dogtown-banner__law">NO LAW <b>·</b> ANYONE CAN KILL YOU</span>}
+            : safe
+              ? <span className="dogtown-banner__law dogtown-banner__law--safe">ENTRY PROTECTION <b>·</b> {clock(safeLeft / 1000)} TO GET CLEAR</span>
+              : <span className="dogtown-banner__law">NO LAW <b>·</b> ANYONE CAN KILL YOU</span>}
           <span className="dogtown-banner__cash">You carry <em>{fmt(cash)}</em> in cash</span>
           {short ? (
             <span className="dogtown-banner__stake">
@@ -81,16 +86,19 @@ export function DogtownHud() {
           )}
         </div>
       )}
-      <div className={`dogtown-tile${tagged ? " dogtown-tile--tagged" : ""}${inside ? "" : " dogtown-tile--outside"}${short ? " dogtown-tile--short" : ""}${d.bounty ? " dogtown-tile--bounty" : ""}`}>
+      <div className={`dogtown-tile${tagged ? " dogtown-tile--tagged" : ""}${inside ? "" : " dogtown-tile--outside"}${short ? " dogtown-tile--short" : ""}${safe ? " dogtown-tile--safe" : ""}${d.bounty ? " dogtown-tile--bounty" : ""}`}>
         {short
           ? <Wallet className="dogtown-tile__glyph" size={20} strokeWidth={2} aria-hidden="true" />
-          : <Skull className="dogtown-tile__glyph" size={20} strokeWidth={2} aria-hidden="true" />}
+          : safe
+            ? <ShieldCheck className="dogtown-tile__glyph" size={20} strokeWidth={2} aria-hidden="true" />
+            : <Skull className="dogtown-tile__glyph" size={20} strokeWidth={2} aria-hidden="true" />}
         <div className="dogtown-tile__body">
           <span className="dogtown-tile__label">
-            {short ? <>NO STAKE <b>·</b> NO PVP FOR YOU</> : inside ? <>PVP ZONE <b>·</b> NO LAW</> : <>LEFT {d.label.toUpperCase()} <b>·</b> STILL ATTACKABLE</>}
+            {short ? <>NO STAKE <b>·</b> NO PVP FOR YOU</> : safe ? <>PVP ZONE <b>·</b> YOU ARE PROTECTED</> : inside ? <>PVP ZONE <b>·</b> NO LAW</> : <>LEFT {d.label.toUpperCase()} <b>·</b> STILL ATTACKABLE</>}
           </span>
           <strong>{short ? `${fmt(missing)} missing` : inside ? d.label : "Combat tag"}</strong>
           <div className="dogtown-tile__rows">
+            {safe && <span className="dogtown-tile__safe"><ShieldCheck size={11} strokeWidth={2} aria-hidden="true" />SAFE FOR {clock(safeLeft / 1000)}</span>}
             {short && <span className="dogtown-tile__escort"><Timer size={11} strokeWidth={2} aria-hidden="true" />ESCORTED OUT IN {Math.ceil(escortLeft / 1000)} S</span>}
             {tagged && <span className="dogtown-tile__tag"><Timer size={11} strokeWidth={2} aria-hidden="true" />IN COMBAT {Math.ceil(tagLeft / 1000)} S</span>}
             {d.bounty && <span className="dogtown-tile__bounty"><Crosshair size={11} strokeWidth={2} aria-hidden="true" />BOUNTY · ON EVERYONE'S MAP</span>}

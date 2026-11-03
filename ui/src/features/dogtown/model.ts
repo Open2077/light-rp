@@ -23,6 +23,8 @@ export interface DogtownRules {
   /** Anti-gank: a crew this big in the zone takes `gankFactor` of the loss; a bigger victim crew adds `underdogBonus`. */
   gankCrew: number; gankFactor: number; underdogBonus: number;
   bountyStreak: number; bountyPerKill: number; bountyMax: number;
+  /** Entry protection: this long out of the PvP grant after walking in (0 = off). */
+  protectionSeconds: number;
 }
 export interface DogtownStake {
   required: number; cash: number; missing: number;
@@ -37,6 +39,8 @@ export interface DogtownState {
   tagged: boolean; tagEndsInMs: number;
   /** PvP actually granted (a combat scope holds the player). */
   armed: boolean;
+  /** Entry protection running: nobody can hurt this player, nor they anyone (protectedInMs at the push). */
+  protected: boolean; protectedInMs: number;
   stake: DogtownStake;
   /** Credited kills in a row; a bounty (pin on everyone's map) from rules.bountyStreak. */
   streak: number; bounty: boolean; bountyReward: number;
@@ -62,6 +66,7 @@ export function normalizeDogtown(raw: Partial<DogtownState> | undefined): Dogtow
   return {
     enabled: raw.enabled === true, label: typeof raw.label === "string" ? raw.label : "Dogtown",
     inside: raw.inside === true, tagged: raw.tagged === true, tagEndsInMs: num(raw.tagEndsInMs), armed: raw.armed === true,
+    protected: raw.protected === true, protectedInMs: num(raw.protectedInMs),
     stake: { required: num(s.required, num(r.stake)), cash: num(s.cash), missing: num(s.missing), short: s.short === true, evictInMs: num(s.evictInMs) },
     streak: num(raw.streak), bounty: raw.bounty === true, bountyReward: num(raw.bountyReward), bounties: num(raw.bounties), bonusToday: num(raw.bonusToday),
     rules: { mode: r.mode === "transfer" ? "transfer" : "bag", share: num(r.share), min: num(r.min), max: num(r.max),
@@ -69,7 +74,8 @@ export function normalizeDogtown(raw: Partial<DogtownState> | undefined): Dogtow
       tagSeconds: num(r.tagSeconds, 20), pairCooldownMinutes: num(r.pairCooldownMinutes),
       stake: num(r.stake), graceSeconds: num(r.graceSeconds),
       gankCrew: num(r.gankCrew), gankFactor: num(r.gankFactor, 1), underdogBonus: num(r.underdogBonus),
-      bountyStreak: num(r.bountyStreak), bountyPerKill: num(r.bountyPerKill), bountyMax: num(r.bountyMax) },
+      bountyStreak: num(r.bountyStreak), bountyPerKill: num(r.bountyPerKill), bountyMax: num(r.bountyMax),
+      protectionSeconds: num(r.protectionSeconds) },
     mine: { week: stats(raw.mine?.week), total: stats(raw.mine?.total) },
     top: Array.isArray(raw.top) ? raw.top.map((row, i) => ({ rank: num(row?.rank, i + 1), name: String(row?.name ?? "?"),
       kills: num(row?.kills), deaths: num(row?.deaths), looted: num(row?.looted) })) : [],
@@ -107,6 +113,12 @@ export function stakeRule(rules: DogtownRules, fmt: Fmt): string {
   return `You need ${fmt(rules.stake)} in cash on you to fight in Dogtown; the bank doesn't count. Under it you can't shoot or be shot there, and after ${rules.graceSeconds} s inside you are taken to the nearest exit.`;
 }
 
+/** 120 -> "2:00". */
+export function clock(seconds: number): string {
+  const s = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 function record(s: DogtownStats): string { return `K ${s.kills} · D ${s.deaths}`; }
 function plural(n: number, word: string): string { return `${n} ${word}${n === 1 ? "" : "s"}`; }
 
@@ -126,6 +138,9 @@ export function dogtownMenu(raw: Partial<DogtownState> | undefined, fmt: Fmt): {
       description: d.enabled
         ? `Inside Dogtown anyone carrying the stake can shoot anyone else carrying it; crewmates never hurt each other. A hit given or taken tags you for ${r.tagSeconds} s: stepping out does not end the fight until it runs out. Safe zones, missions and activities keep their own rules.`
         : "Staff closed the zone for now: Dogtown follows the city's rules (no PvP)." },
+    ...(r.protectionSeconds > 0 ? [{ id: "dogtown-protection", type: "item" as const, text: "Entry protection", icon: "shield",
+      meta: d.protected ? "ON YOU" : clock(r.protectionSeconds),
+      description: `Walking in gives you ${clock(r.protectionSeconds)} of safety: nobody can hurt you and you can't hurt anyone, so nobody camps the gates. It counts down even if you step back out, and comes back on a later entry after a minute away or a death, never during a fight.` }] : []),
     { id: "dogtown-stake", type: "item", text: "The stake", icon: "wallet", meta: `${fmt(r.stake)} CASH`, danger: d.stake.short, description: stakeRule(r, fmt) },
     { id: "dogtown-cash", type: "item", text: "Cash on a death", icon: "banknote", meta: `${percent(r.share)} · ${fmt(r.min)}–${fmt(r.max)}`, description: lootRule(r, fmt) },
     { id: "dogtown-bonus", type: "item", text: "Kill bonus", icon: "coins", meta: `+${percent(r.bonus)}`,

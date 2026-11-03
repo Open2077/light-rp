@@ -16,6 +16,13 @@
 -- crewmates (the next sweep would fix it; the arbiter closes the gap). It never
 -- allows anything: safe zones, downed attackers, activities keep refusing as before.
 --
+-- Entering (or connecting inside) starts `entryProtection.ms` of safety: the player is
+-- left out of the grant until it runs out (nobody camps the gates). It re-arms after
+-- `entryProtection.rearmMs` out of the zone or a death, never while tagged.
+--
+-- The doors of `openDoors` (areas and ids) are claimed through open77_doors and held
+-- open, unlocked and unsealed in the city bucket.
+--
 -- A player inside without the stake is warned (amount missing), and after
 -- `stake.graceMs` still inside and short, sent to the nearest exit outside.
 --
@@ -71,6 +78,10 @@ local probes, probeSeq = {}, 0
 local surveys = {}    -- staff playerId -> { points = { { x, y, district } } }
 local lastError, lastMismatch, lastTeamError = -math.huge, {}, -math.huge
 local bountyRefreshAt = 0
+local protectedUntil = {}  -- playerId -> ms: entry protection ends
+local protectionSpent = {} -- playerId -> true: had one, re-arms after rearmMs out or a death
+local outsideSince = {}    -- playerId -> ms: out of the zone (outside, untagged) since
+local diedSince = {}       -- playerId -> true: died since the last protection
 
 local function now() return LightRP.nowMs() end
 local function pid(value) local n = tonumber(value); if n and n > 0 then return math.tointeger(n) or n end end
@@ -80,6 +91,7 @@ local function L() return Config.loot or {} end
 local function S() return Config.stake or {} end
 local function G() return Config.antiGank or {} end
 local function B() return Config.bounty or {} end
+local function P() return Config.entryProtection or {} end
 local function int(v, d) local n = tonumber(v); if not n or n ~= n then return d end; return math.floor(n) end
 local function unix()
     if Open77.time and type(Open77.time.unix) == "function" then return math.floor(Open77.time.unix()) end
@@ -492,7 +504,7 @@ end
 
 local function presenceKey(player)
     return table.concat({ tostring(enabled), tostring(D.inside(player)), tostring(D.tagged(player)), tostring(roster[player] ~= nil),
-        tostring(short[player] ~= nil), tostring(streaks[player] or 0), tostring(bounties[player] ~= nil) }, ":")
+        tostring(short[player] ~= nil), tostring(streaks[player] or 0), tostring(bounties[player] ~= nil), tostring(D.protected(player)) }, ":")
 end
 
 function D.push(player, force)
@@ -535,7 +547,8 @@ function D.rules()
         tagSeconds = math.floor((Config.combatTagMs or 20000) / 1000), pairCooldownMinutes = math.floor((loot.pairCooldownMs or 0) / 60000),
         stake = s.minCash or 0, graceSeconds = math.floor((s.graceMs or 0) / 1000),
         gankCrew = g.crewSize or 0, gankFactor = g.lossFactor or 1, underdogBonus = g.underdogBonus or 0,
-        bountyStreak = b.streak or 0, bountyPerKill = b.perKill or 0, bountyMax = b.max or 0 }
+        bountyStreak = b.streak or 0, bountyPerKill = b.perKill or 0, bountyMax = b.max or 0,
+        protectionSeconds = math.floor(int(P().ms, 0) / 1000) }
 end
 
 LightRP.stateProvider("dogtown", function(player)
@@ -551,6 +564,7 @@ LightRP.stateProvider("dogtown", function(player)
         enabled = enabled, label = Config.label or "Dogtown",
         inside = D.inside(player), tagged = enabled and tag > 0, tagEndsInMs = enabled and tag or 0,
         armed = roster[player] ~= nil,
+        protected = D.protected(player), protectedInMs = D.protectedMs(player),
         stake = { required = required, cash = cash, missing = math.max(0, required - cash), short = sh ~= nil,
             evictInMs = sh and math.max(0, sh.evictAt - now()) or 0 },
         streak = streaks[player] or 0, bounty = bounties[player] ~= nil, bountyReward = D.bountyReward(player), bounties = count,
@@ -733,6 +747,49 @@ end
 function D.short(player) return short[player] end
 
 -- ---------------------------------------------------------------------------
+-- Entry protection
+
+function D.protectedMs(player)
+    local untilMs = protectedUntil[player]
+    if not untilMs or not enabled then return 0 end
+    return math.max(0, untilMs - now())
+end
+function D.protected(player) return D.protectedMs(player) > 0 end
+
+local function span(ms)
+    local s = math.floor(ms / 1000)
+    if s % 60 == 0 and s >= 60 then return string.format("%d minute%s", s // 60, s == 60 and "" or "s") end
+    return string.format("%d seconds", s)
+end
+
+-- Starts the protection when this entry earns one: switched on, not tagged, not already
+-- running, and either the first one, or after a death, or after rearmMs out of the zone.
+function D.protect(player, t)
+    local ms = int(P().ms, 0)
+    if ms <= 0 or D.tagged(player) or D.protected(player) then return false end
+    local away = outsideSince[player] and t - outsideSince[player] or 0
+    if protectionSpent[player] and not diedSince[player] and away < int(P().rearmMs, 60000) then return false end
+    protectedUntil[player], protectionSpent[player], diedSince[player] = t + ms, true, nil
+    dirty = true
+    LightRP.notice(player, { kind = "success", title = "DOGTOWN · ENTRY PROTECTION", durationMs = 8000,
+        body = "For " .. span(ms) .. " nobody can hurt you and you cannot hurt anyone. Get clear of the gate before it runs out." })
+    return true
+end
+
+-- Ends a protection that ran out (once), with a warning while still in the zone.
+local function protectionOver(player, t)
+    local untilMs = protectedUntil[player]
+    if not untilMs or untilMs > t then return end
+    protectedUntil[player] = nil
+    dirty = true
+    if D.inside(player) then
+        LightRP.notice(player, { kind = "warning", title = "DOGTOWN · PROTECTION OVER", durationMs = 7000,
+            body = "You are fair game now: anyone can kill you, and you can fight back." })
+    end
+    D.push(player, true)
+end
+
+-- ---------------------------------------------------------------------------
 -- Sweep: presence, tags, stake, streaks, grants, teams, page
 
 function D.sweep(force)
@@ -747,10 +804,12 @@ function D.sweep(force)
             -- A streak lives in the zone: leaving (outside and no longer tagged) ends it.
             if (streaks[player] or bounties[player]) and not D.inZone(player) then D.endStreak(player, "left") end
             D.checkStake(player, t)
-            if D.qualifies(player) and capable(player) and not held[player] then list[#list + 1] = player end
             local inside = D.inside(player)
-            if inside and not entered[player] then D.entered(player) end
+            if inside and not entered[player] then D.protect(player, t); D.entered(player) end
             entered[player] = inside
+            if D.inZone(player) then outsideSince[player] = nil else outsideSince[player] = outsideSince[player] or t end
+            protectionOver(player, t)
+            if D.qualifies(player) and capable(player) and not held[player] and not D.protected(player) then list[#list + 1] = player end
         end
     end
     local rebuild = force or dirty or t >= rebuildAt
@@ -777,6 +836,7 @@ function D.entered(player)
     local cash = cashOf(player)
     local line = string.format("DOGTOWN: no law past the walls, anyone can kill you. The stake is %s in cash.", money(int(S().minCash, 0)))
     if cash then line = line .. " You carry " .. money(cash) .. "." end
+    if D.protected(player) then line = line .. string.format(" Entry protection: %d s.", math.ceil(D.protectedMs(player) / 1000)) end
     if LightRP.chat and LightRP.chat.system then pcall(LightRP.chat.system, player, line) end
 end
 
@@ -791,6 +851,7 @@ function D.arbitrate(event)
     if not roster[victim] or not roster[attacker] then return nil end
     if not enabled then return false end
     if crewmates(victim, attacker) then return false end
+    if D.protected(victim) or D.protected(attacker) then return false end
     D.locate(victim); D.locate(attacker)
     if not D.qualifies(victim) or not D.qualifies(attacker) then return false end
     return nil
@@ -1568,6 +1629,104 @@ LightRP.command("lightrp.dogtown", { restricted = true, usage = "/lightrp.dogtow
 end)
 
 -- ---------------------------------------------------------------------------
+-- Doors held open (open77_doors server exports): claimed, then kept open, unlocked,
+-- unsealed and never auto-closing. A stopped resource gives its doors back on its own
+-- (open77_doors drops a stopped owner's claims).
+
+local function O() return Config.openDoors or {} end
+local doorsLogged = {}  -- door id -> true: claim logged once
+local doorsRefused = {} -- door id -> ms of the last logged refusal
+local doorsErrorAt = -math.huge
+local HELD = { open = true, locked = false, sealed = false, automatic = false, autoClose = false }
+
+local function doorsCall(method, ...)
+    if exports == nil then return false, "no_exports" end
+    local args = table.pack(...)
+    return pcall(function() return exports.open77_doors[method](exports.open77_doors, table.unpack(args, 1, args.n)) end)
+end
+
+-- Whether the config wants this door held open: listed by id, or inside an area.
+function D.wantsDoor(door)
+    if type(door) ~= "table" or door.lift == true or type(door.id) ~= "string" then return false end
+    if (door.bucket or 0) ~= (Config.bucket or 0) then return false end
+    local cfg = O()
+    local id = door.id:upper()
+    for _, want in ipairs(cfg.ids or {}) do
+        if type(want) == "string" and want:upper() == id then return true end
+    end
+    local p = door.position
+    if type(p) ~= "table" or type(p.x) ~= "number" or type(p.y) ~= "number" then return false end
+    for _, a in ipairs(cfg.areas or {}) do
+        local r = tonumber(a.radius) or 0
+        if r > 0 and (p.x - a.x) ^ 2 + (p.y - a.y) ^ 2 <= r * r then return true end
+    end
+    return false
+end
+
+local function refused(id, what, reason)
+    local t = now()
+    if t - (doorsRefused[id] or -math.huge) < 60000 then return end
+    doorsRefused[id] = t
+    LightRP.log("dogtown: door %s not held open (%s: %s)", tostring(id), what, tostring(reason))
+end
+
+local function holdDoor(door)
+    local settled = door.owner == RESOURCE
+    for field, value in pairs(HELD) do
+        if door[field] ~= value then settled = false end
+    end
+    if settled then return true end
+    if door.owner ~= RESOURCE then
+        local called, claimed, reason = doorsCall("register", { id = door.id, bucket = door.bucket or 0, position = door.position })
+        if not called or type(claimed) ~= "table" then refused(door.id, "claim", called and reason or claimed); return false end
+        door = claimed
+    end
+    local called, done, reason = doorsCall("configure", door.id, door.bucket or 0, HELD)
+    if not called or done ~= true then refused(door.id, "open", called and reason or done); return false end
+    if not doorsLogged[door.id] then
+        doorsLogged[door.id] = true
+        local p = door.position or {}
+        LightRP.log("dogtown: door %s held open at (%.1f, %.1f, %.1f)", door.id, tonumber(p.x) or 0, tonumber(p.y) or 0, tonumber(p.z) or 0)
+    end
+    return true
+end
+
+-- One pass over the doors open77_doors knows in the city bucket. Returns how many
+-- wanted doors are held, and how many it looked at.
+function D.holdDoors()
+    local cfg = O()
+    if #(cfg.areas or {}) == 0 and #(cfg.ids or {}) == 0 then return 0, 0 end
+    local bucket = Config.bucket or 0
+    local offset, pages, held, seen = 0, 0, 0, 0
+    repeat
+        local called, page = doorsCall("list", bucket, offset, 16)
+        if not called or type(page) ~= "table" then
+            local t = now()
+            if t - doorsErrorAt > 60000 then doorsErrorAt = t; LightRP.log("dogtown: open77_doors unavailable, doors not held open: %s", tostring(page)) end
+            return held, seen
+        end
+        for _, door in ipairs(page.doors or {}) do
+            seen = seen + 1
+            if D.wantsDoor(door) and holdDoor(door) then held = held + 1 end
+        end
+        offset, pages = page.nextOffset, pages + 1
+    until type(offset) ~= "number" or pages >= 256
+    return held, seen
+end
+
+CreateThread(function()
+    Wait(2000)
+    while true do
+        local called, err = pcall(D.holdDoors)
+        if not called then
+            local t = now()
+            if t - doorsErrorAt > 60000 then doorsErrorAt = t; LightRP.log("dogtown: holding doors failed: %s", tostring(err)) end
+        end
+        Wait(math.max(500, int(O().checkMs, 3000)))
+    end
+end)
+
+-- ---------------------------------------------------------------------------
 -- Lifecycle
 
 -- Eddies looted: cash bags picked up (bonus included) and, in transfer mode, the cash
@@ -1582,6 +1741,7 @@ function D.onLifeState(player, phase)
         local m = deathMark[player]
         if m and not m.clearAt then m.clearAt = now() + 15000 end
     elseif phase ~= nil then
+        diedSince[player], protectedUntil[player] = true, nil
         -- any death ends a run, in a fight or not (a fall, an NPC)
         if streaks[player] or bounties[player] then D.endStreak(player, "death") end
     end
@@ -1600,6 +1760,7 @@ local function forget(player)
     pushed[player], tagPushedAt[player], entered[player], held[player] = nil, nil, nil, nil
     stats[player], surveys[player], lastMismatch[player], roster[player] = nil, nil, nil, nil
     short[player], teams[player], deathMark[player], lastDeathAt[player] = nil, nil, nil, nil
+    protectedUntil[player], protectionSpent[player], outsideSince[player], diedSince[player] = nil, nil, nil, nil
     for _, list in pairs(hits) do list[player] = nil end
     dirty = true
 end

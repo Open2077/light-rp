@@ -9,6 +9,9 @@ local function clone(v) if type(v) ~= "table" then return v end local t = {}; fo
 dofile("shared/config.lua"); dofile("shared/items.lua"); dofile("shared/events.lua")
 dofile("server/config/dogtown.lua")
 local C = LightRpDogtown
+-- Sections 1-15 test the zone without the entry protection; section 16 turns it back on.
+local PROTECTION = C.entryProtection
+C.entryProtection = { ms = 0 }
 local encoded, serial = {}, 0
 json = { encode = function(v) serial = serial + 1; local k = "j" .. serial; encoded[k] = clone(v); return k end,
     decode = function(k) if k == "{}" then return {} end assert(encoded[k], "invalid JSON"); return clone(encoded[k]) end }
@@ -736,7 +739,133 @@ assert(values(def) < 1024, "and so does the area definition (" .. values(def) ..
 assert(D.setPolygon(C.polygon, "config"))
 
 -- ---------------------------------------------------------------------------
--- 16. Stopping the resource takes everything with it: scopes, teams, pins, bags.
+-- 16. Entry protection: two minutes out of the PvP grant after walking in.
+C.entryProtection = PROTECTION
+assert(C.entryProtection.ms == 120000 and C.entryProtection.rearmMs == 60000, "two minutes, re-armed after a minute away")
+online = { 1, 7 }
+for _, id in ipairs({ 1, 7 }) do D.onDisconnected(id); life[id] = "alive"; at(id, CITY) end
+disband({ 1, 4 })
+assert(D.staked(1) and D.staked(7), "both carry the stake")
+D.sweep()
+-- 1 walks in first: protected, out of the grant; then the camper at the gate.
+at(1, INSIDE); D.sweep()
+assert(D.protected(1) and not D.roster()[1] and noticeTitled(1, "DOGTOWN · ENTRY PROTECTION"), "entering protects")
+assert(chatLines[#chatLines].text:find("Entry protection: 120 s.", 1, true), "the entry line names it")
+clock = clock + 120001; D.sweep()
+assert(not D.protected(1) and noticeTitled(1, "DOGTOWN · PROTECTION OVER"), "it runs out, with a warning")
+-- 7 walks in past the camper.
+at(7, MARKET); D.sweep()
+local start7 = clock
+assert(D.protected(7) and not D.roster()[7], "the newcomer is protected")
+local page7 = providers.dogtown(7)
+assert(page7.protected and page7.protectedInMs == 120000 and page7.rules.protectionSeconds == 120 and page7.inside and not page7.armed)
+assert(not hit(1, 7) and not hit(7, 1), "nobody can hurt them, nor they anyone")
+-- the arbiter refuses too, should both still hold a scope from an earlier sweep
+assert(D.arbitrate({ victim = 7, attacker = 1 }) == nil or D.arbitrate({ victim = 7, attacker = 1 }) == false)
+-- Stepping back out and in does not reset the timer.
+clock = clock + 5000; at(7, CITY); D.sweep(); clock = clock + 5000; at(7, MARKET); D.sweep()
+assert(D.protected(7) and D.protectedMs(7) == 120000 - 10000, "same countdown after a step out")
+clock = start7 + 120001; D.sweep()
+assert(not D.protected(7) and D.roster()[7] and D.roster()[1] and hit(1, 7), "after two minutes: fair game")
+assert(D.tagged(7))
+-- Tagged: no new protection on a re-entry.
+at(7, CITY); D.sweep(); clock = clock + 2000; at(7, MARKET); D.sweep()
+assert(not D.protected(7), "never while combat-tagged")
+-- Back out (tag over), 30 s away: not re-armed yet.
+clock = clock + C.combatTagMs + 1; at(7, CITY); D.sweep()
+clock = clock + 30000; D.sweep(); at(7, MARKET); D.sweep()
+assert(not D.protected(7), "30 s away is not enough")
+-- A minute away: re-armed.
+at(7, CITY); D.sweep(); clock = clock + 61000; D.sweep(); at(7, MARKET); D.sweep()
+assert(D.protected(7) and not D.roster()[7], "re-armed after a minute out")
+clock = clock + 120001; D.sweep(); assert(not D.protected(7))
+-- A death (any) re-arms it at once.
+life[7] = "dead"; D.onLifeState(7, "dead"); revive(7); at(7, CITY); D.sweep(); at(7, MARKET); D.sweep()
+assert(D.protected(7), "after a death the next entry is protected")
+-- A death while protected ends it (the hospital is outside anyway).
+life[7] = "dead"; D.onLifeState(7, "dead"); assert(not D.protected(7)); revive(7)
+-- Switched off: nothing on entry.
+C.entryProtection = { ms = 0 }
+at(7, CITY); D.sweep(); D.onLifeState(7, "dead"); revive(7); at(7, MARKET); D.sweep()
+assert(not D.protected(7) and D.roster()[7], "ms = 0: no protection")
+C.entryProtection = PROTECTION
+-- Zone off: no protection reported.
+at(7, CITY); D.sweep(); D.onLifeState(7, "dead"); revive(7); at(7, MARKET); D.sweep(); assert(D.protected(7))
+D.setEnabled(false, "test"); assert(not D.protected(7) and not providers.dogtown(7).protected); D.setEnabled(true, "test")
+clock = clock + 120001; D.sweep()
+online = { 1, 2, 6 }
+C.entryProtection = { ms = 0 } -- the stop section below fights at once
+
+-- ---------------------------------------------------------------------------
+-- 17. Doors held open (open77_doors): areas and ids, claimed, never auto-closing.
+local doorReg, configures, registers = {}, 0, 0
+local function door(id, x, y, extra)
+    local d = { id = id, bucket = 0, position = { x = x, y = y, z = 30 }, open = false, locked = true, sealed = true,
+        automatic = false, autoClose = true, lift = false }
+    for k, v in pairs(extra or {}) do d[k] = v end
+    doorReg[#doorReg + 1] = d
+    return d
+end
+local area = C.openDoors.areas[1]
+local A = door("0xAAAA000000000001", area.x + 5, area.y - 8)                          -- in the area
+local B = door(C.openDoors.ids[1], -1430, -2760)                                      -- listed by id, far away
+local Cd = door("0xAAAA000000000003", area.x + area.radius + 5, area.y)              -- just outside the area
+local Lf = door("0xAAAA000000000004", area.x, area.y, { lift = true })                -- a lift door: never
+local E = door("0xAAAA000000000005", area.x - 3, area.y + 3, { owner = "open77_elevators" }) -- another resource's
+for i = 1, 20 do door(string.format("0xBBBB%012X", i), 500 + i, 500) end             -- filler: two more pages
+exports.open77_doors = {
+    list = function(_, bucket, offset, limit)
+        assert(bucket == 0 and limit == 16)
+        local out = {}
+        for i = offset + 1, math.min(#doorReg, offset + limit) do out[#out + 1] = clone(doorReg[i]) end
+        return { doors = out, total = #doorReg, nextOffset = offset + #out < #doorReg and offset + #out or nil }
+    end,
+    register = function(_, desc)
+        registers = registers + 1
+        for _, d in ipairs(doorReg) do
+            if d.id == desc.id then
+                if d.owner and d.owner ~= "op77_lightrp" then return nil, "owned_by_other_resource" end
+                d.owner = "op77_lightrp"; return clone(d)
+            end
+        end
+        return nil, "invalid_descriptor"
+    end,
+    configure = function(_, id, bucket, patch)
+        configures = configures + 1
+        for _, d in ipairs(doorReg) do
+            if d.id == id then
+                if d.owner ~= "op77_lightrp" then return false, "not_owner" end
+                for k, v in pairs(patch) do d[k] = v end
+                if d.locked or d.sealed then d.open = false end
+                return true
+            end
+        end
+        return false, "unknown"
+    end,
+}
+assert(#C.openDoors.ids == 6 and area.id == "nw_checkpoint", "the checkpoint opened by hand on Testing")
+local held, seen = D.holdDoors()
+assert(seen == #doorReg and held == 2, "every page read, two doors held (" .. held .. "/" .. seen .. ")")
+for _, d in ipairs({ A, B }) do
+    assert(d.owner == "op77_lightrp" and d.open and not d.locked and not d.sealed and not d.automatic and d.autoClose == false, d.id .. " held open")
+end
+assert(not Cd.owner and not Cd.open, "outside the area: untouched")
+assert(not Lf.owner and not Lf.open, "a lift door: untouched")
+assert(E.owner == "open77_elevators" and not E.open and logged("door 0xAAAA000000000005 not held open (claim: owned_by_other_resource)"))
+assert(logged("door 0xAAAA000000000001 held open at"), "each claim is logged with its position")
+-- Settled: the next pass changes nothing.
+local before = configures; D.holdDoors(); assert(configures == before, "nothing to change on a settled door")
+-- An admin (or a quest) closes one: the next pass opens it again.
+A.open, A.autoClose = false, true; D.holdDoors()
+assert(A.open and A.autoClose == false, "closed by hand: opened again")
+-- Ids match whatever their case; open77_doors gone: logged, no error.
+assert(D.wantsDoor({ id = C.openDoors.ids[2]:lower(), bucket = 0, position = { x = 0, y = 0, z = 0 } }))
+assert(not D.wantsDoor({ id = C.openDoors.ids[2], bucket = 7, position = { x = 0, y = 0, z = 0 } }), "only the city bucket")
+exports.open77_doors = nil
+assert(D.holdDoors() == 0 and logged("open77_doors unavailable"))
+
+-- ---------------------------------------------------------------------------
+-- 18. Stopping the resource takes everything with it: scopes, teams, pins, bags.
 online = { 1, 2, 4 }; at(1, INSIDE); at(2, MARKET); at(4, OWNER); revive(2)
 crew("crew:3", { 1, 4 }); D.sweep()
 C.bounty.streak = 1
@@ -748,4 +877,4 @@ assert(next(hostScopes) == nil and hostTeams[1] == 0 and hostTeams[4] == 0, "sco
 assert(next(blips) == nil and not I.get(left.id), "bounty pins and cash bags removed")
 C.bounty.streak = 5
 
-print("PASS: Dogtown polygon + exits; PvP scopes inside/outside/tagged/stale/activity buckets/dead/foreign scope/switch; groups of 32; crew teams; stake warning/top-up/escort/retry/solo car; loss min/max/carried; bonus bag + reserve + sealed; strict pair cooldown/revenge/own bag; hospital waiver; revive under stake; same account/crewmate/outside; transfer + bonus line; daily cap (db read, new day); anti-gank halving + underdog; bounty pin/follow/claim/left/death/disconnect/cap; combat log; stats + best streak + migration; leaderboard; page rules; Hall of Fame boards; survey + exits + map outline; cleanup on stop")
+print("PASS: Dogtown polygon + exits; PvP scopes inside/outside/tagged/stale/activity buckets/dead/foreign scope/switch; groups of 32; crew teams; stake warning/top-up/escort/retry/solo car; loss min/max/carried; bonus bag + reserve + sealed; strict pair cooldown/revenge/own bag; hospital waiver; revive under stake; same account/crewmate/outside; transfer + bonus line; daily cap (db read, new day); anti-gank halving + underdog; bounty pin/follow/claim/left/death/disconnect/cap; combat log; stats + best streak + migration; leaderboard; page rules; Hall of Fame boards; survey + exits + map outline; entry protection (2 min, step-out, tag, re-arm, death, off); doors held open (areas, ids, lifts, foreign owner, re-open); cleanup on stop")
