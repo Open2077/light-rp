@@ -96,7 +96,8 @@ local function name(match, id)
 end
 
 function M.minPlayers()
-    if ChaseBots and ChaseBots.enabled then return 1 end -- staff bot mode: bots fill the rest
+    -- Staff bot mode, where config.bots.fill allows it (off by default: real players only).
+    if ChaseBots and ChaseBots.fills(cfg().activity.id) then return 1 end
     return M.testMode and math.max(2, cfg().testMinPlayers or 2) or math.max(2, cfg().minPlayers or 3)
 end
 
@@ -690,7 +691,7 @@ end
 function M.dropInSeats(match)
     if match.state == "resolved" or match.state == "closed" or match.state == "new" then return 0 end
     -- A bot match takes players only while bot mode is on (nothing is recorded in it).
-    if match.hasBots and not (ChaseBots and ChaseBots.enabled) then return 0 end
+    if match.hasBots and not (ChaseBots and ChaseBots.fills(cfg().activity.id)) then return 0 end
     local seats = (cfg().maxPlayers or 8) - presentCount(match) - #match.pending
     local turns = (cfg().maxRounds or 8) - #match.order - #match.pending
     return math.max(0, math.min(seats, turns))

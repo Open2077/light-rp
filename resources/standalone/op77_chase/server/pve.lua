@@ -1,30 +1,38 @@
--- op77_chase NCPD Escape (chase.pve): one player, or a crew, against NCPD bots. Public:
--- no staff switch, results recorded by Light RP as for any activity.
+-- op77_chase NCPD Escape (chase.pve): one player, or a crew, against the NCPD. Public: no
+-- staff switch, results recorded by Light RP as for any activity.
 --
 --   placing -> countdown -> active -> resolved -> closed
 --
 -- Every human is a runner: his own car in line behind the start checkpoint of one of the
--- Most Wanted courses, or on foot on it. The NCPD sends ChaseBots cops at the wheel of
--- the course's grid cars (front of the grid first), base + perRunner per runner (capped),
--- released in Most Wanted's waves once the head start is over. Each runner plays his own
--- Most Wanted round (WantedRules: the unit arrest, the heat, the shake, the extraction)
--- against every cop of the match:
---   * ESCAPED: a shake (no cop within escapeDistance for escapeGraceSeconds, after the cops
---     closed in at least once) once reputation.minSeconds have passed - an earlier shake
---     re-arms (they are still looking) - or the clock, or the extraction point;
---   * BUSTED: the arrest meter, or down.
--- His result goes to Light RP the moment his round ends (reputation from
--- config.pve.reputation: nothing for a round under minSeconds, only perDay paid rounds per
--- character and day), he goes home after the scoreboard, and the cops who hunted him take
--- the runners still out. The match ends with its last runner; the bots and every car go
--- with it. Bot cops fallen far behind are dispatched again on the road their runner took
--- (ChaseBots.wantsRedispatch / trailPick). No rating, no database.
+-- Most Wanted courses, or on foot on it, in an instance of his own (a crew shares one).
+--
+-- police = "ncpd" (the default): the game's own NCPD. The instance has a crowd, vanilla
+-- traffic and police (config.pve.population). At GO each runner gets his own run
+-- (ChaseEscapeRules): after the head start the server gives him a wanted level that climbs
+-- with the clock up to the difficulty's ceiling (ChasePolice.raise), and his own game sends
+-- its police (local to his game: in a crew, each runner is chased by his own NCPD).
+--   * BUSTED: the bust meter (he stopped, or left every car by car), or down;
+--   * ESCAPED: the extraction point (it appears extractionAtSeconds after GO) or the clock.
+-- His wanted level comes back to 0 (ceiling 5) the moment his run ends, and on every other
+-- way out (leave, drop, Light RP stopping, a bucket change, the match closing, a restart).
+--
+-- police = "bots": the Open77 bot cops (ChaseBots) at the wheel of the course's grid cars,
+-- base + perRunner per runner, released in Most Wanted's waves after the head start; each
+-- runner plays his own Most Wanted round (WantedRules: arrest, heat, shake, extraction).
+-- Kept behind the switch: on the 2026-11 client the bots' driving orders never reach the car.
+--
+-- His result goes to Light RP the moment his run ends (reputation from config.pve.reputation
+-- times the difficulty's factor: nothing for a round under minSeconds, only perDay paid
+-- rounds per character and day), he goes home after the scoreboard. The match ends with its
+-- last runner; every car (and bot) goes with it. No rating, no database.
 --
 -- Driven by ChasePve.tick(now) (server/pve_main.lua), deadlines not timers; the only
 -- asynchronous step is a placement. tests/pve_test.lua runs it against fakes.
 ChasePve = { matches = {}, playerMatch = {}, bucketOwner = {}, nextId = nil, daily = {}, dailyDay = nil }
 local P = ChasePve
 local R = WantedRules
+local E = ChaseEscapeRules
+local Pol = ChasePolice
 local HOLD = { kind = "hold" }
 
 local function cfg() return ChaseConfig.pve end
@@ -33,20 +41,26 @@ local function W() return ChaseWorld end
 local function aid() return cfg().activity.id end
 local function log(fmt, ...) print(("[op77_chase] escape " .. fmt):format(...)) end
 local function notify(id, kind, text, ms) W().notify(id, kind, text, ms, "NCPD Escape") end
+local function bcfg() return cfg().bots or {} end
 
--- The rules of a mode: Most Wanted's column, the overrides of config.pve.rules, the
--- NCPD Escape clock and head start.
+-- "ncpd" | "bots"
+function P.policeMode()
+    return cfg().police == "bots" and "bots" or "ncpd"
+end
+
+-- The rules of a bot escape: Most Wanted's column, the overrides of config.pve.bots.rules,
+-- the bot escape's clock and head start.
 function P.rulesFor(mode)
     local t = R.rulesFor(mode)
-    for k, v in pairs((cfg().rules or {})[t.mode] or {}) do t[k] = v end
-    t.durationSeconds = cfg().match.roundSeconds or t.durationSeconds
-    t.headStartSeconds = (cfg().headStartSeconds or {})[t.mode] or t.headStartSeconds
+    for k, v in pairs((bcfg().rules or {})[t.mode] or {}) do t[k] = v end
+    t.durationSeconds = bcfg().roundSeconds or t.durationSeconds
+    t.headStartSeconds = (bcfg().headStartSeconds or {})[t.mode] or t.headStartSeconds
     return t
 end
 
 -- Bot cops for n runners.
 function P.copCount(n)
-    local c = cfg().cops or {}
+    local c = bcfg().cops or {}
     return math.max(1, math.min(c.max or 8, (c.base or 1) + (c.perRunner or 2) * math.max(1, n)))
 end
 
@@ -156,6 +170,16 @@ local function random(match)
     return match.seed / 2147483648
 end
 
+-- His wanted level back to 0 (ceiling 5). Only a player this resource raised: the ledger
+-- (ChasePolice) knows.
+local function standDown(m, why)
+    if m and not m.bot and Pol.isRaised(m.id) then Pol.clear(m.id, why) end
+end
+
+local function standDownAll(match, why)
+    for _, m in ipairs(match.members) do standDown(m, why) end
+end
+
 -- ---------------------------------------------------------------- cars
 
 local function removeCar(match, id)
@@ -182,7 +206,8 @@ local function createCar(match, m)
     end
 end
 
--- "Your car is N m away" until the runner sits in it.
+-- "Your car is N m away" until the runner sits in it; whether he sits in a car at all
+-- (m.inCar, the NCPD escape's bust); whether he ever sat in his own (m.boarded).
 local function refreshBoarding(match, now)
     if match.mode ~= "vehicle" then return end
     if now - (match.lastSeatCheckMs or 0) < (ChaseConfig.vehicles.seatCheckMs or 1000) then return end
@@ -190,9 +215,12 @@ local function refreshBoarding(match, now)
     for _, m in ipairs(match.members) do
         local car = match.cars[m.id]
         m.boarding = nil
-        if not m.bot and live(m) and car and car.id then
+        if not m.bot and live(m) then
             local seat = W().seat(m.id)
-            if seat == nil or tostring(seat) ~= tostring(car.id) then
+            m.inCar = seat ~= nil
+            if car and car.id and seat ~= nil and tostring(seat) == tostring(car.id) then m.boarded = true end
+            if car and car.id and (seat == nil or tostring(seat) ~= tostring(car.id))
+                and not (match.police == "ncpd" and m.boarded) then
                 local p, c = W().position(m.id), W().carPosition(car.id)
                 if p and c then
                     local dx, dy = p.x - c.x, p.y - c.y
@@ -211,7 +239,8 @@ local function scoreboard(match, selfId)
     local rows = {}
     for _, m in ipairs(runners(match)) do
         rows[#rows + 1] = { id = m.id, name = m.name, runner = true, self = m.id == selfId or nil, outcome = m.outcome,
-            seconds = m.seconds, left = (m.leaving or m.gone) and m.outcome == nil or nil }
+            seconds = m.seconds, left = (m.leaving or m.gone) and m.outcome == nil or nil,
+            stars = m.run and m.run.stars or nil }
     end
     for _, m in ipairs(match.members) do
         if m.role == "cop" and not m.released and #rows < 16 then
@@ -232,21 +261,58 @@ local function firstRelease(match)
     return first
 end
 
+local function extractionFields(p, x, id)
+    p.extraction = x.position
+    p.extractionRadius = x.radius
+    local rp = W().position(id)
+    if rp then p.extractionDistance = math.floor(R.planar(rp, x.position) + 0.5) end
+end
+
+-- The NCPD run's fields (police = "ncpd").
+local function ncpdFields(p, match, m, now)
+    local run = m.run
+    p.remainingMs = math.max(0, run.endsAtMs - now)
+    p.stars, p.ceiling = run.stars, run.ceiling
+    p.wanted = Pol.stars(m.id)
+    local sinceGo = now - run.startedAtMs
+    if run.stars <= 0 then p.headStartMs = math.max(0, run.headStartMs - sinceGo) end
+    p.nextStarMs = E.nextStarMs(run.diff.heat, run.headStartMs, sinceGo)
+    p.bustMeter = run.bustMeter or 0.0
+    p.bustWhy = run.bustFilling and run.why or nil
+    p.bustArmed = run.armed or nil
+    p.closeCalls = run.closeCalls > 0 and run.closeCalls or nil
+    if run.extraction then
+        extractionFields(p, run.extraction, m.id)
+    elseif not m.extractionMissed then
+        p.extractionInMs = math.max(0, run.extractionAtMs - now)
+    end
+    p.policeBlocked = m.policeBlocked or nil
+end
+
 local function hudPayload(match, id, now, extra)
     local m = member(match, id)
-    local heat = match.rules.heat
     local p = {
         activity = aid(), matchId = match.id, state = match.state, mode = match.mode, role = "runner",
+        police = match.police, difficulty = match.difficulty, difficultyLabel = match.diff and match.diff.label or nil,
         cops = #cops(match), runners = #runners(match), scoreboard = scoreboard(match, id),
     }
     if match.state == "countdown" then
         p.remainingMs = math.max(0, (match.countdownEndsAtMs or now) - now)
-        p.headStartMs = math.floor((match.rules.headStartSeconds or 0) * 1000)
+        if match.police == "ncpd" then
+            p.headStartMs = math.floor(((cfg().headStartSeconds or {})[match.mode] or 0) * 1000)
+            p.ceiling = E.ceiling(match.diff.heat)
+        else
+            p.headStartMs = math.floor((match.rules.headStartSeconds or 0) * 1000)
+        end
     elseif match.state == "active" and m and m.outcome then
         p.state, p.outcome, p.how, p.won = "resolved", m.outcome, m.how, m.outcome == "escaped"
         p.seconds, p.reputation = m.seconds, m.reputation
+        p.stars = m.run and m.run.maxStars or nil
         p.remainingMs = math.max(0, (m.releaseAtMs or now) - now)
+    elseif match.state == "active" and m and m.run then
+        ncpdFields(p, match, m, now)
     elseif match.state == "active" and m and m.round then
+        local heat = match.rules.heat
         local round = m.round
         p.remainingMs = math.max(0, round.endsAtMs - now)
         p.overtime = round.overtime or nil
@@ -267,20 +333,18 @@ local function hudPayload(match, id, now, extra)
         local opensAt = match.startedAtMs + math.floor((cfg().reputation.minSeconds or 0) * 1000)
         if now < opensAt then p.escapeOpensMs = opensAt - now end
         p.stalledMs = ChaseRules.stallRemaining(round, "runner", now)
-        if round.extraction then
-            p.extraction = round.extraction.position
-            p.extractionRadius = round.extraction.radius
-            local rp = W().position(id)
-            if rp then p.extractionDistance = math.floor(R.planar(rp, round.extraction.position) + 0.5) end
-        end
+        if round.extraction then extractionFields(p, round.extraction, id) end
     elseif match.state == "resolved" then
         p.remainingMs = math.max(0, ((m and m.releaseAtMs) or match.releaseAtMs or now) - now)
         p.void = match.void or nil
         p.reason = match.void and match.voidReason or nil
-        if m then p.outcome, p.how, p.won, p.seconds, p.reputation = m.outcome, m.how, m.outcome == "escaped", m.seconds, m.reputation end
+        if m then
+            p.outcome, p.how, p.won, p.seconds, p.reputation = m.outcome, m.how, m.outcome == "escaped", m.seconds, m.reputation
+            p.stars = m.run and m.run.maxStars or nil
+        end
     end
     if m and m.boarding and (match.state == "countdown" or match.state == "active") then p.boarding = m.boarding end
-    -- Every human is a runner and the cops are bots: no dot to hide (hideDots lists players only).
+    -- Every human is a runner: no dot to hide (hideDots lists players only).
     if extra then
         local more = type(extra) == "function" and extra(id) or extra
         for k, v in pairs(more or {}) do p[k] = v end
@@ -322,7 +386,8 @@ local function characterId(m)
 end
 
 -- Reputation for one runner's round: nothing for a leaver or a round under minSeconds,
--- and only the first perDay paid rounds of a character in a day pay.
+-- and only the first perDay paid rounds of a character in a day pay. The difficulty's
+-- factor on top (Light RP caps it at the difficulty's own reward anyway).
 function P.reputation(match, m, day)
     local rep = cfg().reputation
     if match.void or m.outcome == "left" then return rep.leaver or 0 end
@@ -333,18 +398,24 @@ function P.reputation(match, m, day)
     local count = (P.daily[key] or 0) + 1
     P.daily[key] = count
     if count > (rep.perDay or 8) then return 0 end
-    return m.outcome == "escaped" and (rep.escaped or 0) or (rep.busted or 0)
+    local base = m.outcome == "escaped" and (rep.escaped or 0) or (rep.busted or 0)
+    local factor = tonumber((rep.difficulty or {})[match.difficulty or ""]) or 1.0
+    return math.floor(base * factor + 0.5)
 end
 
 function P.resultFor(match, m)
     local escaped = m.outcome == "escaped"
     m.reputation = P.reputation(match, m)
+    local shakes = m.run and m.run.closeCalls or (m.round and m.round.shakes) or 0
     return {
         placement = escaped and 1 or 2,
         score = escaped and 1 or 0,
         won = escaped,
+        difficulty = match.difficulty,
         stats = { mode = match.mode, outcome = m.outcome, how = m.how, seconds = m.seconds or 0,
-            shakes = m.round and m.round.shakes or 0, cops = match.copCount, runners = #runners(match),
+            shakes = shakes, cops = match.copCount, runners = #runners(match), police = match.police,
+            difficulty = match.difficulty, stars = m.run and m.run.maxStars or nil,
+            policeBlocked = m.policeBlocked or nil,
             crew = m.squad ~= nil or nil, forfeit = m.outcome == "left" or nil },
         reputation = m.reputation,
     }
@@ -364,6 +435,11 @@ P.LINES = LINES
 
 local HOW = { runner_shook = "shake", time_expired = "clock", runner_extracted = "extraction",
     runner_busted = "arrest", runner_down = "takedown", runner_left = "left" }
+
+local BUSTED_BY = {
+    stopped = "You stopped: the NCPD cuffed you.",
+    out_of_car = "You left your ride: the NCPD cuffed you.",
+}
 
 local finish
 
@@ -391,7 +467,7 @@ local function retarget(match)
 end
 P.retarget = retarget
 
--- One runner's round is over: his result now, the scoreboard, then home.
+-- One runner's round is over: his stars down, his result now, the scoreboard, then home.
 local function resolveRunner(match, m, outcome, now, detail)
     if m.outcome ~= nil then return end
     m.how = HOW[outcome] or "arrest"
@@ -401,13 +477,15 @@ local function resolveRunner(match, m, outcome, now, detail)
     m.seconds = match.startedAtMs and math.max(0, math.floor((now - match.startedAtMs) / 1000)) or 0
     m.releaseAtMs = m.how == "left" and now or (now + math.floor((cfg().match.scoreboardSeconds or 8) * 1000))
     m.boarding = nil
+    standDown(m, m.outcome)
     if m.outcome == "busted" then freeze(m, true) end -- cuffed until he goes home
     if not m.gone and not match.void then ChaseCore.result(m.id, P.resultFor(match, m), aid()) end
     log("match %d: runner %d %s (%s) after %ds, +%d rep, %s", match.id, m.id, m.outcome, m.how, m.seconds, m.reputation or 0,
         tostring(detail))
     local line = LINES[m.how] or LINES.arrest
+    local text = (m.how == "arrest" and BUSTED_BY[tostring(detail)]) or line.text
     if m.how ~= "left" then
-        notify(m.id, m.outcome == "escaped" and "success" or "info", ("%s %s"):format(line.text,
+        notify(m.id, m.outcome == "escaped" and "success" or "info", ("%s %s"):format(text,
             (m.reputation or 0) > 0 and "" or ((m.seconds or 0) < (cfg().reputation.minSeconds or 60)
                 and ("(Under %ds: no reputation.)"):format(cfg().reputation.minSeconds or 60) or "")), 6000)
     end
@@ -422,6 +500,7 @@ P.resolveRunner = resolveRunner
 finish = function(match, now, why)
     if match.state == "resolved" or match.state == "closed" then return end
     freezeAll(match, false)
+    standDownAll(match, "match over")
     local last = now
     for _, m in ipairs(runners(match)) do
         if m.outcome == "busted" and present(m) then freeze(m, true) end
@@ -456,6 +535,7 @@ local function allocateBucket()
     end
     return nil
 end
+P.freeBucket = allocateBucket
 
 local function place(match, now)
     match.state = "placing"
@@ -475,20 +555,24 @@ local function place(match, now)
     pushAll(match, now, { state = "placing" })
 end
 
--- Light RP takes the players (activityEnter), then the match starts. ids are one group
--- (a player alone, or a crew), at most maxRunners. opts = { squads = { [id] = squad } }.
+-- Light RP takes the players (activityEnter, with the difficulty), then the match starts.
+-- ids are one group (a player alone, or a crew), at most maxRunners.
+-- opts = { squads = { [id] = squad }, difficulty }.
 -- Returns match | nil, reason, refused = { { id, why } }.
 function P.admit(ids, mode, now, opts)
-    if ChaseBots == nil then return nil, "no_bots", {} end
+    opts = opts or {}
+    if P.policeMode() == "bots" and ChaseBots == nil then return nil, "no_bots", {} end
     local bucket = allocateBucket()
     if bucket == nil then return nil, "busy", {} end
+    local difficulty = E.difficulty(opts.difficulty)
     local entered, refused = {}, {}
     for _, id in ipairs(ids) do
         if #entered >= (cfg().maxRunners or 4) then break end
-        local ok, why = ChaseCore.enter(id, aid())
+        local ok, why = ChaseCore.enter(id, aid(), { difficulty = difficulty })
         if ok then entered[#entered + 1] = id else refused[#refused + 1] = { id = id, why = why } end
     end
     if #entered == 0 then return nil, "refused", refused end
+    opts.difficulty = difficulty
     return P.start(entered, mode, now, bucket, opts), nil, refused
 end
 
@@ -502,8 +586,12 @@ function P.start(ids, mode, now, bucket, opts)
     mode = mode == "foot" and "foot" or "vehicle"
     local routes = wcfg().routes
     local route = routes[(id % #routes) + 1]
-    local match = { id = id, bucket = bucket, mode = mode, rules = P.rulesFor(mode), route = route, members = {}, cars = {},
-        copReleased = {}, releaseAt = {}, target = {}, state = "new", createdAtMs = now, token = 0, seed = id % 2147483647 }
+    local police = P.policeMode()
+    local difficulty, diff = E.difficulty(opts.difficulty)
+    local match = { id = id, bucket = bucket, mode = mode, police = police, difficulty = difficulty, diff = diff,
+        rules = police == "bots" and P.rulesFor(mode) or nil, route = route, members = {}, cars = {},
+        copReleased = {}, releaseAt = {}, target = {}, state = "new", createdAtMs = now, token = 0, seed = id % 2147483647,
+        copCount = 0 }
     for i, pid in ipairs(ids) do
         local info = ChaseCore.player(pid) or {}
         local s = opts.squads and opts.squads[pid]
@@ -512,19 +600,31 @@ function P.start(ids, mode, now, bucket, opts)
             point = P.runnerPoint(route, mode, i, #ids) }
         P.playerMatch[pid] = id
     end
-    match.copCount = math.min(P.copCount(#ids), #route.cops)
-    for j = 1, match.copCount do
-        -- Each cop's car is simulated by the client of the runner it starts on.
-        local admission = ids[((j - 1) % #ids) + 1]
-        local botId = ChaseBots.create({ role = "cop", mode = "vehicle", bucket = bucket, admission = admission, owner = aid() })
-        match.members[#match.members + 1] = { id = botId, name = W().name(botId), role = "cop", bot = true,
-            point = route.cops[#route.cops - j + 1] }
-        match.target[botId] = admission
+    if police == "bots" then
+        match.copCount = math.min(P.copCount(#ids), #route.cops)
+        for j = 1, match.copCount do
+            -- Each cop's car is simulated by the client of the runner it starts on.
+            local admission = ids[((j - 1) % #ids) + 1]
+            local botId = ChaseBots.create({ role = "cop", mode = "vehicle", bucket = bucket, admission = admission, owner = aid() })
+            match.members[#match.members + 1] = { id = botId, name = W().name(botId), role = "cop", bot = true,
+                point = route.cops[#route.cops - j + 1] }
+            match.target[botId] = admission
+        end
     end
     P.matches[id] = match
     P.bucketOwner[bucket] = id
     W().setupBucket(bucket)
-    log("match %d created: %d runner(s), %d cop(s), %s, %s, bucket %d", id, #ids, match.copCount, mode, route.name or "?", bucket)
+    if police == "ncpd" then
+        local pop = cfg().population or {}
+        local ok, why = W().populate(bucket, pop)
+        if ok then
+            match.populated = true
+        else
+            log("match %d: population of bucket %d refused: %s (no traffic, no ambient police)", id, bucket, tostring(why))
+        end
+    end
+    log("match %d created: %d runner(s), %s, %s, %s, %s, bucket %d", id, #ids,
+        police == "bots" and (match.copCount .. " bot cop(s)") or "the NCPD", difficulty, mode, route.name or "?", bucket)
     place(match, now)
     return match
 end
@@ -536,10 +636,18 @@ local function beginCountdown(match, now)
     freezeAll(match, true)
     match.state = "countdown"
     match.countdownEndsAtMs = now + math.floor((cfg().match.countdownSeconds or 10) * 1000)
-    local headStart = match.rules.headStartSeconds or 0
     for _, m in ipairs(liveRunners(match)) do
-        local text = ("You are on the run: %ds head start, then %d NCPD unit%s roll out. Lose them, outlast the clock or reach the extraction.")
-            :format(headStart, match.copCount, match.copCount > 1 and "s" or "")
+        local text
+        if match.police == "ncpd" then
+            local headStart = (cfg().headStartSeconds or {})[match.mode] or 0
+            text = ("You are on the run (%s): %ds head start, then the NCPD is on you, up to %d stars. Keep moving: stop and you are "
+                .. "cuffed. Reach the extraction or survive the clock."):format(match.diff.label or match.difficulty, headStart,
+                E.ceiling(match.diff.heat))
+        else
+            local headStart = match.rules.headStartSeconds or 0
+            text = ("You are on the run: %ds head start, then %d NCPD unit%s roll out. Lose them, outlast the clock or reach the extraction.")
+                :format(headStart, match.copCount, match.copCount > 1 and "s" or "")
+        end
         if match.mode == "vehicle" then text = text .. " Your car is beside you: driver door on its LEFT." end
         notify(m.id, "info", text, 8000)
     end
@@ -550,6 +658,13 @@ local function beginActive(match, now)
     freezeAll(match, false)
     match.state = "active"
     match.startedAtMs = now
+    if match.police == "ncpd" then
+        for _, m in ipairs(liveRunners(match)) do m.run = E.newRun(match.mode, match.difficulty, now) end
+        notifyRunners(match, "warning", "GO. Move.", 3000)
+        pushAll(match, now)
+        log("match %d active (%s, %s, NCPD, bucket %d)", match.id, match.mode, match.difficulty, match.bucket)
+        return
+    end
     for _, m in ipairs(liveRunners(match)) do
         m.round = R.newRound(match.rules, now)
         -- The first shake only counts once the cops have closed in on him.
@@ -574,11 +689,12 @@ function P.leaveRequest(id, now)
     if match == nil then return false end
     local m = member(match, id)
     if m == nil or m.gone or m.released or m.leaving then return false end
-    if match.state == "active" and m.outcome == nil and m.round then
+    if match.state == "active" and m.outcome == nil and (m.round or m.run) then
         resolveRunner(match, m, "runner_left", now, "left")
     elseif m.outcome == nil then
         m.outcome, m.how = "left", "left"
     end
+    standDown(m, "left")
     m.leaving = true
     m.releaseAtMs = now
     freeze(m, false)
@@ -590,14 +706,19 @@ function P.leaveRequest(id, now)
 end
 
 -- Light RP already released him (disconnect, character switch...): no result, no leave.
+-- He may still be connected (a character switch): his stars come down now.
 function P.dropped(id, now, reason)
     local match = P.matches[P.playerMatch[id] or -1]
     P.playerMatch[id] = nil
-    if match == nil then return false end
+    if match == nil then
+        if Pol.isRaised(id) then Pol.clear(id, "dropped") end
+        return false
+    end
     local m = member(match, id)
     if m == nil then return false end
     m.gone = true
     if m.outcome == nil then m.outcome, m.how = "left", "left" end
+    if Pol.isRaised(id) then Pol.clear(id, "dropped (" .. tostring(reason) .. ")") end
     log("match %d: runner %d dropped (%s)", match.id, id, tostring(reason))
     retarget(match)
     if match.state ~= "resolved" and match.state ~= "closed" and #liveRunners(match) == 0 then
@@ -607,10 +728,11 @@ function P.dropped(id, now, reason)
     return true
 end
 
--- Light RP stopped: it returned every player itself; void, and the cars and bots go.
+-- Light RP stopped: it returned every player itself; void, stars down, the cars and bots go.
 function P.coreStopped(now)
     for _, match in pairs(P.matches) do
         freezeAll(match, false)
+        standDownAll(match, "Light RP stopped")
         for _, m in ipairs(match.members) do
             if not m.bot then
                 if present(m) then W().hud(m.id, { state = "idle", activity = aid() }) end
@@ -626,14 +748,23 @@ end
 
 function P.matchOf(id) return P.matches[P.playerMatch[id] or -1] end
 
+-- What his game did with the wanted level (op77_chase:police from his client).
+function P.policeReport(id, report, now)
+    local match = P.matchOf(id)
+    if match == nil or match.police ~= "ncpd" then return false end
+    return Pol.report(id, report, now)
+end
+
 -- ---------------------------------------------------------------- release
 
 local function close(match)
+    standDownAll(match, "match closed")
     removeCars(match)
     for _, m in ipairs(match.members) do
         if m.bot and ChaseBots then ChaseBots.remove(m.id) end
     end
     W().sweepBucket(match.bucket)
+    if match.populated then W().depopulate(match.bucket) end
     P.bucketOwner[match.bucket] = nil
     for _, m in ipairs(match.members) do
         if P.playerMatch[m.id] == match.id then P.playerMatch[m.id] = nil end
@@ -643,8 +774,8 @@ local function close(match)
     log("match %d closed", match.id)
 end
 
--- One member home: out of the car, alive, then activityLeave (Light RP takes him back).
--- A runner goes when his own scoreboard is over, the bots when the match is.
+-- One member home: stars down, out of the car, alive, then activityLeave (Light RP takes
+-- him back). A runner goes when his own scoreboard is over, the bots when the match is.
 local function releaseMember(match, m, now)
     if m.gone or m.released then return end
     if m.bot then
@@ -656,6 +787,7 @@ local function releaseMember(match, m, now)
         return
     end
     if m.outcome == nil and not m.leaving and match.state ~= "resolved" then return end
+    standDown(m, "going home")
     if now < (m.releaseAtMs or match.releaseAtMs or now) then return end
     m.exitStartedMs = m.exitStartedMs or now
     if m.placing and now - m.exitStartedMs < 35000 then return end
@@ -680,7 +812,84 @@ local function releaseMember(match, m, now)
     ChaseCore.leave(m.id, { returnPlayer = true }, aid())
 end
 
--- ---------------------------------------------------------------- active
+-- ---------------------------------------------------------------- active, police = "ncpd"
+
+local HEAT_LINES = {
+    [1] = "NCPD on you. Keep moving: stop and you are cuffed.",
+    [2] = "Heat 2: more units on the way.",
+    [3] = "Heat 3: they are bringing the heavy units.",
+    [4] = "Heat 4: armoured response.",
+    [5] = "Heat 5: MaxTac is coming.",
+}
+
+local function stars(n) return string.rep("★", math.max(0, math.min(5, n or 0))) end
+
+local function ncpdExtraction(match, m, pos, now)
+    local run = m.run
+    if run.extraction or m.extractionMissed or pos == nil or now < run.extractionAtMs then return end
+    local x = cfg().extraction or wcfg().extraction
+    local point = R.pickExtraction(wcfg().extractionPoints, pos, (x.band or {})[match.mode] or { 400, 1200 },
+        function() return random(match) end)
+    if point == nil then m.extractionMissed = true return end
+    run.extraction = { position = { x = point.position.x, y = point.position.y, z = point.position.z },
+        radius = (x.radius or {})[match.mode] or 15, zTolerance = x.zTolerance or 8 }
+    notify(m.id, "success", ("Extraction point located %.0f m away - reach it to get out."):format(R.planar(pos, point.position)), 6000)
+end
+
+-- His game keeps refusing the wanted level: say it once (and in the log), or call it off.
+local function policeCheck(match, m, now)
+    if m.policeBlocked then return false end
+    local blocked, rec = Pol.blocked(m.id, now)
+    if not blocked then return false end
+    m.policeBlocked = true
+    log("match %d: runner %d's game refuses the wanted level (suppressed=%s, holds %s of %s): no NCPD can come",
+        match.id, m.id, tostring(rec.suppressed), tostring(rec.requested), tostring(rec.expected))
+    if cfg().onPoliceBlocked == "void" then
+        P.abort(match, now, "Your game refused the NCPD (no police can come). Called off, nothing counts.")
+        return true
+    end
+    notify(m.id, "warning", "Your game refused the NCPD: no police will come this run (the server log has the reason).", 8000)
+    return false
+end
+
+local function tickActiveNcpd(match, now)
+    refreshBoarding(match, now)
+    for _, m in ipairs(liveRunners(match)) do
+        local run = m.run
+        local rp = W().position(m.id)
+        if rp and rp.bucket ~= nil and rp.bucket ~= match.bucket then rp = nil end
+        -- inCar: true / false by car (never `x and m.inCar or nil`, which turns false into nil).
+        local inCar = nil
+        if match.mode == "vehicle" then inCar = m.inCar end
+        local outcome, events = E.step(run, now, { pos = rp, down = W().alive(m.id) == false,
+            inCar = inCar, boarded = m.boarded })
+        for _, e in ipairs(events or {}) do
+            if e.kind == "heat" then
+                Pol.raise(m.id, e.stars, run.ceiling, match.bucket, now)
+                notify(m.id, "warning", ("%s %s"):format(stars(e.stars), HEAT_LINES[e.stars] or ""), 3500)
+            elseif e.kind == "bust_started" then
+                if now - (m.bustNoticeMs or -math.huge) >= 6000 then
+                    m.bustNoticeMs = now
+                    notify(m.id, "warning", e.why == "out_of_car" and "Out of the car: get back in one, or they cuff you."
+                        or "You stopped: move, or they cuff you.", 2500)
+                end
+            elseif e.kind == "close_call" then
+                notify(m.id, "success", "Close call. Keep moving.", 2500)
+            end
+        end
+        if outcome then
+            resolveRunner(match, m, outcome.outcome, now, outcome.detail)
+            if match.state ~= "active" then return end
+        else
+            Pol.reassert(m.id, now)
+            ncpdExtraction(match, m, rp, now)
+            if policeCheck(match, m, now) then return end
+        end
+    end
+    if now - (match.lastHudMs or 0) >= (cfg().match.hudPushMs or 500) then pushAll(match, now) end
+end
+
+-- ---------------------------------------------------------------- active, police = "bots"
 
 local function levelAllows(round, heat, field)
     for i = 1, round.heat or 1 do
@@ -735,7 +944,7 @@ local function redispatch(match, now, positions)
     end
 end
 
-local function tickActive(match, now)
+local function tickActiveBots(match, now)
     refreshBoarding(match, now)
     local released = false
     for copId, at in pairs(match.releaseAt) do
@@ -801,7 +1010,7 @@ end
 function P.tickMatch(match, now)
     for _, m in ipairs(match.members) do releaseMember(match, m, now) end
     local state = match.state
-    if state ~= "resolved" and state ~= "closed" then
+    if state ~= "resolved" and state ~= "closed" and match.police == "bots" then
         local broken = brokenBot(match)
         if broken then
             log("match %d: bot %d broken (%s)", match.id, broken.id, tostring(select(2, ChaseBots.broken(broken.id))))
@@ -828,7 +1037,7 @@ function P.tickMatch(match, now)
         if now >= match.countdownEndsAtMs then beginActive(match, now)
         elseif now - (match.lastHudMs or 0) >= (cfg().match.hudPushMs or 500) then pushAll(match, now) end
     elseif state == "active" then
-        tickActive(match, now)
+        if match.police == "ncpd" then tickActiveNcpd(match, now) else tickActiveBots(match, now) end
     elseif state == "resolved" then
         local pending = false
         for _, m in ipairs(match.members) do
@@ -853,13 +1062,22 @@ function P.tick(now)
 end
 
 -- The resource is stopping: Light RP returns the players itself; the cars and bots go now.
+-- The stars cannot come down here (the runtime refuses every prevention call while a
+-- resource stops): ChasePolice's ledger keeps them, and the next start clears them.
 function P.shutdown()
+    local raised = 0
+    for _ in pairs(Pol.raised) do raised = raised + 1 end
+    if raised > 0 then
+        Pol.clearAll("resource stopping")
+        log("%d runner(s) were wanted when the resource stopped: the next start clears what the runtime refused now", raised)
+    end
     for _, match in pairs(P.matches) do
         freezeAll(match, false)
         removeCars(match)
         for _, m in ipairs(match.members) do
             if m.bot and ChaseBots then ChaseBots.remove(m.id) end
         end
+        if match.populated then W().depopulate(match.bucket) end
     end
 end
 
@@ -876,6 +1094,8 @@ function P.status(queued)
     local parts = {}
     if (queued or 0) > 0 then parts[#parts + 1] = ("%d getting ready"):format(queued) end
     if running > 0 then parts[#parts + 1] = ("%d escape%s on"):format(running, running > 1 and "s" or "") end
+    local idle = P.policeMode() == "bots" and "You (and your crew) against NCPD bots. Solo or crew."
+        or "You (and your crew) against the NCPD. Solo or crew, by car or on foot."
     return { phase = phase, players = players, queued = queued or 0, joinable = allocateBucket() ~= nil,
-        detail = #parts > 0 and table.concat(parts, " · ") or "You (and your crew) against NCPD bots. Solo or crew." }
+        detail = #parts > 0 and table.concat(parts, " · ") or idle }
 end

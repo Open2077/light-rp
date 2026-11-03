@@ -335,7 +335,89 @@ local function escapeObjective(p)
     return "Lose them. Survive the clock."
 end
 
+-- The wanted level in 5 slots: ★ held, ☆ still to come up to the ceiling (15 bytes at most).
+function V.stars(stars, ceiling)
+    stars = math.max(0, math.min(5, math.floor(num(stars) or 0)))
+    ceiling = math.max(stars, math.min(5, math.floor(num(ceiling) or stars)))
+    if ceiling == 0 then return "-" end
+    return string.rep("★", stars) .. string.rep("☆", ceiling - stars)
+end
+
+-- police = "ncpd": the game's own NCPD, the server's wanted level and bust meter.
+local function ncpdObjective(p)
+    if p.boarding then return boardingText(p.boarding, true) end
+    if p.bustWhy == "out_of_car" then return "Out of the car - get back in one or you are cuffed!" end
+    if p.bustWhy == "stopped" then return "You stopped - MOVE or you are cuffed!" end
+    if num(p.headStartMs) then return "Head start - the NCPD is on you in " .. secs(p.headStartMs) end
+    if num(p.extractionDistance) then return ("Extraction %s away - get there to escape"):format(metres(p.extractionDistance)) end
+    if p.policeBlocked then return "Your game refused the NCPD - no police this run. Keep moving." end
+    if num(p.extractionInMs) then return "Keep moving - an extraction point shows up in " .. secs(p.extractionInMs) end
+    return "Keep moving. Survive the clock."
+end
+
+local function ncpdScoreboard(p)
+    if type(p.scoreboard) ~= "table" then return nil end
+    local rows = {}
+    for _, row in ipairs(p.scoreboard) do
+        if type(row) == "table" and row.name and not row.cop then
+            local status = STATUS[row.outcome] or (row.left and "Left" or "Out")
+            local heat = num(row.stars) and row.stars > 0 and ("%d★"):format(row.stars) or "-"
+            rows[#rows + 1] = { name = fit(row.name, 32), self = row.self == true or nil,
+                values = { status, heat, num(row.seconds) and V.clock(row.seconds * 1000) or "-" } }
+            if #rows >= 16 then break end
+        end
+    end
+    if #rows == 0 then return nil end
+    return { columns = { "Status", "Heat", "Time" }, rows = rows }
+end
+
+local function ncpdEscape(p)
+    local state = p.state
+    local crew = (num(p.runners) or 1) > 1
+    local hud = {
+        activity = PVE, title = "NCPD Escape", phase = PHASE[state] or "running",
+        subtitle = fit(("%s - %s"):format(crew and ("Crew of " .. p.runners) or "Solo", tostring(p.difficultyLabel or "Standard")), 80),
+    }
+    local left = num(p.remainingMs)
+    if state == "active" then
+        local stats = { { label = "Wanted", value = V.stars(p.stars, p.ceiling) } }
+        if num(p.nextStarMs) then stats[#stats + 1] = { label = "Next star", value = secs(p.nextStarMs) }
+        elseif (num(p.stars) or 0) > 0 then stats[#stats + 1] = { label = "Heat", value = "MAX" } end
+        if num(p.extractionDistance) then stats[#stats + 1] = { label = "Extraction", value = metres(p.extractionDistance) } end
+        if num(p.closeCalls) then stats[#stats + 1] = { label = "Close calls", value = tostring(math.floor(p.closeCalls)) } end
+        while #stats > 4 do table.remove(stats) end
+        hud.stats = stats
+        hud.timer = timer(left, "Time")
+        local bust = math.max(0, math.min(1, num(p.bustMeter) or 0))
+        if p.bustArmed or bust > 0 then
+            hud.progress = { { id = "bust", label = p.bustWhy and "Being cuffed" or "Busted", value = bust, tone = "danger" } }
+        end
+        hud.objective = ncpdObjective(p)
+    elseif state == "placing" then
+        hud.objective = "Moving to the escape area"
+    elseif state == "countdown" then
+        hud.timer, hud.countdown = timer(left, "Start"), left
+        hud.objective = boardingText(p.boarding, false)
+            or ("%s head start, then the NCPD - up to %d stars. Stop and you are cuffed."):format(secs(p.headStartMs),
+                math.floor(num(p.ceiling) or 3))
+    elseif state == "resolved" then
+        hud.timer = timer(left, "Back in")
+        if p.void then
+            hud.objective = tostring(p.reason or "Called off. Nothing counts.")
+        else
+            local text, title = escapeLine(p)
+            hud.objective = fit(("%s - %s"):format(title, text), 120)
+            hud.stats = { { label = "Time", value = num(p.seconds) and V.clock(p.seconds * 1000) or "-" },
+                { label = "Heat", value = V.stars(p.stars, p.stars) },
+                { label = "Reputation", value = ("+%d"):format(num(p.reputation) or 0) } }
+        end
+    end
+    hud.scoreboard = ncpdScoreboard(p)
+    return hud
+end
+
 local function escape(p)
+    if p.police == "ncpd" then return ncpdEscape(p) end
     local state = p.state
     local crew = (num(p.runners) or 1) > 1
     local copCount = num(p.cops) or 0
@@ -394,7 +476,8 @@ function V.queue(q)
     if type(q) ~= "table" or q.queued ~= true or q.busy then return nil end
     local position, total = num(q.position), num(q.total)
     if isPve(q) then
-        local hud = { activity = PVE, title = "NCPD Escape", phase = "lobby", subtitle = "Getting ready - " .. modeLabel(q.mode, false) }
+        local hud = { activity = PVE, title = "NCPD Escape", phase = "lobby", subtitle = fit("Getting ready - " .. modeLabel(q.mode, false)
+            .. (type(q.difficultyLabel) == "string" and (" - " .. q.difficultyLabel) or ""), 80) }
         if num(q.crew) then
             hud.stats = { { label = "Crew", value = ("%d/%d"):format(num(q.crewQueued) or 1, q.crew) } }
             hud.objective = "Waiting for your crew. /escape leave to cancel."
@@ -444,11 +527,16 @@ function V.beats(prev, p)
     end
     if isPve(p) then
         local sameMatch = inMatch(prev) and prev.matchId == p.matchId
+        local ncpd = p.police == "ncpd"
         if p.state == "countdown" and was ~= "countdown" then banner("NCPD Escape", "You are on the run", "accent", 3500)
-        elseif p.state == "active" and was == "countdown" then banner("GO", "Lose them!", "accent", 1500) end
+        elseif p.state == "active" and was == "countdown" then banner("GO", ncpd and "Keep moving!" or "Lose them!", "accent", 1500) end
         if p.state == "active" and was == "active" then
             if prev.released == false and p.released == true then banner("NCPD", "They are rolling out", "danger", 2000) end
             if (num(p.heat) or 1) > (num(prev.heat) or 1) then banner(("Heat %d"):format(p.heat), nil, "danger", 2500) end
+            local before, now = num(prev.stars) or 0, num(p.stars) or 0
+            if ncpd and now > before then
+                banner(V.stars(now, now), before == 0 and "The NCPD is on you" or "The NCPD steps it up", "danger", 2500)
+            end
         end
         if p.state == "resolved" and not (sameMatch and prev.state == "resolved") then
             local result = { durationMs = 10000 }
@@ -458,8 +546,9 @@ function V.beats(prev, p)
                 local text, title = escapeLine(p)
                 result.title, result.subtitle = title, text
                 result.placement = p.won and 1 or nil
-                result.lines = { { label = "Time", value = num(p.seconds) and V.clock(p.seconds * 1000) or "-" },
-                    { label = "Reputation", value = ("+%d"):format(num(p.reputation) or 0) } }
+                result.lines = { { label = "Time", value = num(p.seconds) and V.clock(p.seconds * 1000) or "-" } }
+                if ncpd and num(p.stars) then result.lines[#result.lines + 1] = { label = "Heat", value = V.stars(p.stars, p.stars) } end
+                result.lines[#result.lines + 1] = { label = "Reputation", value = ("+%d"):format(num(p.reputation) or 0) }
             end
             out[#out + 1] = { kind = "result", payload = result }
         end

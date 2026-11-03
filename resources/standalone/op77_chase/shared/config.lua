@@ -39,8 +39,10 @@ ChaseConfig = {
             .. "The cop fills the arrest meter by pinning the runner; the runner wins by holding a 100 m gap.",
         minPlayers = 2,
         maxPlayers = 2,
-        -- Nothing from the roleplay side stays usable inside a chase.
-        caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
+        -- Nothing from the roleplay side stays usable inside a chase. `botFill`: whether
+        -- staff bot mode may fill this activity's missing players with bots; registered as
+        -- ChaseConfig.bots.fill[id] (main.lua), so the hub can hide its "fill with bots".
+        caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false, botFill = false },
     },
 
     -- "vehicle" or "foot": the mode a pair gets when nobody asked for one.
@@ -229,7 +231,7 @@ ChaseConfig.wanted = {
             .. "survive the clock or reach the extraction. Everyone runs once; most points wins.",
         minPlayers = 3,
         maxPlayers = 8,
-        caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
+        caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false, botFill = false },
     },
     -- Total players (runner included). The test minimum is used only while a staff member
     -- turned test mode on (chase.wanted.test on): a 2-player match pays no reputation.
@@ -399,12 +401,22 @@ end
 
 -- ════════════════════════════════════════════════════════════════ Bots
 -- Bot mode (staff, Light RP's /lightrp.bots on|off, never on at start): one queued
--- player is enough for a 1v1 or a Most Wanted, bots play the missing roles. The same
--- bots are the NCPD of NCPD Escape (chase.pve, public, no switch). A bot is an Open77
--- NPC: at the wheel of its match car (vehicles.ai: chase / followRoute / joinTraffic),
--- or on foot (npcs.tasks: moveTo / flee). Its position for the rules is the server's
--- own read of its car (vehicles.get) or body (npcs.presence), exactly like a player's.
+-- player is enough for a 1v1 or a Most Wanted, bots play the missing roles - only where
+-- `fill` allows it. The same bots can be the NCPD of NCPD Escape (ChaseConfig.pve.police
+-- = "bots"). A bot is an Open77 NPC: at the wheel of its match car (vehicles.ai: chase /
+-- followRoute / joinTraffic), or on foot (npcs.tasks: moveTo / flee). Its position for
+-- the rules is the server's own read of its car (vehicles.get) or body (npcs.presence).
+--
+-- Why everything is off: on the client build of 2026-11 a bot's driving order never
+-- reaches its car. The NPC is seated (`Vehicle AI driver seat start ... status=ok`) but
+-- every chase / follow / driveTo / followRoute demand is dropped by the client as
+-- `vehicle.ai malformed_request fields=16` - see README.md, "Bot drivers". Turn a fill on
+-- again only once a fixed client has been seen driving a bot after a player.
 ChaseConfig.bots = {
+    -- Bot fill per activity while staff bot mode is on. false = real players only: bot mode
+    -- then starts nothing there and the player is told why. Also registered with Light RP
+    -- as caps.botFill (the hub hides its "fill with bots" toggle when false).
+    fill = { ["chase.1v1"] = false, ["chase.wanted"] = false },
     namePrefix = "[BOT] ",
     names = { "Kowalski", "Reyes", "Okafor", "Lindqvist", "Tanaka", "Moreau", "Delgado", "Novak",
         "Haddad", "Brennan", "Ortiz", "Sato", "Ivanova", "Mbeki", "Castillo", "Weber" },
@@ -468,27 +480,54 @@ ChaseConfig.bots = {
 }
 
 -- ════════════════════════════════════════════════════════════════ NCPD Escape (PvE)
--- Public, no switch: one player, or a crew (Light RP squad), against NCPD bots. Every
--- human is a runner (his own car, or on foot), the NCPD sends cops by the number of
--- runners. A runner escapes by shaking every cop (after they closed in once), by
--- outlasting the clock or by reaching the extraction; the cops win by the arrest.
--- Results go to Light RP as usual, with less reputation than the PvP chases and nothing
--- for a round shorter than minSeconds. No rating, no database.
+-- Public, no switch: one player, or a crew (Light RP squad), against the game's own NCPD.
+-- Every human is a runner (his own car, or on foot) in an instance with vanilla traffic and
+-- a crowd. At GO the server gives him a wanted level (Open77.players.setWanted) that climbs
+-- with the clock up to the difficulty's ceiling, and his own game sends its police. Those
+-- police (and that traffic) are LOCAL to each player's game, not replicated: in a crew,
+-- every runner is chased by his own NCPD. The outcome is the server's, because the engine's
+-- "lost them" cannot be read:
+--   * BUSTED: he stops (slower than bust.stopKph until the bust meter fills), leaves his car
+--     (by car), or goes down;
+--   * ESCAPED: he reaches the extraction point or survives the clock.
+-- On every exit (end, leave, disconnect, return home, resource restart) his stars go back to
+-- 0 and his ceiling to 5. Results go to Light RP as usual (PvE: reputation by difficulty,
+-- eddies by Light RP's activity_pay). No rating, no database.
 ChaseConfig.pve = {
     activity = {
         id = "chase.pve",
         label = "NCPD Escape",
         kind = "chase",
-        description = "You (and your crew) against the NCPD's bots: lose every cop, outlast the clock "
-            .. "or reach the extraction. Solo or with a crew, by car or on foot.",
+        description = "The NCPD is after you, for real: the heat climbs with the clock. Stop and you are busted; "
+            .. "reach the extraction or survive the clock. Solo or with a crew, by car or on foot.",
         minPlayers = 1,
         maxPlayers = 4,
-        caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
+        -- botFill: no player slot for a bot to take (the police are the game's).
+        caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false, botFill = false },
         modes = { { id = "vehicle", label = "By car" }, { id = "foot", label = "On foot" } },
+        -- PvE with difficulties: Light RP offers them, gates them by reputation tier and hands
+        -- options.difficulty to the join (difficulties below).
+        pve = true,
+        difficulties = { "standard", "hard", "critical" },
     },
+    -- Who chases the runners: "ncpd" = the game's own police, through the wanted level;
+    -- "bots" = the Open77 bot cops at the wheel of NCPD cars (server/bots.lua, config `bots`
+    -- below). Bots stay off: on the 2026-11 client their driving orders never reach the car
+    -- (README "Bot drivers").
+    police = "ncpd",
+    -- A crew in NCPD Escape: "together" = one instance, every member chased by his own NCPD
+    -- (each game runs its own police and its own traffic); "solo" = every member gets his
+    -- own instance, all started at the same time.
+    crews = "together",
+    -- The client reports what its game did with the wanted level (op77_chase:police, read
+    -- from Open77.prevention.state()). When the game refused it (population_suppressed: no
+    -- police can come), "warn" keeps the run going and says so on the HUD and in the log;
+    -- "void" calls the run off (nothing counts).
+    onPoliceBlocked = "warn",
     maxRunners = 4,
     buckets = { from = 4300200, to = 4300299 },
     defaultMode = "vehicle",
+    defaultDifficulty = "standard",
     queue = {
         gatherSeconds = 2,          -- a join starts this long after it arrived (a crew's joins arrive together)
         squadWaitSeconds = 10,      -- a crew member waits this long for the others' joins
@@ -496,12 +535,14 @@ ChaseConfig.pve = {
         notReadyDropSeconds = 120,
         notReadyNoticeSeconds = 30,
     },
-    -- Bot cops: base + perRunner x runners, capped.
-    cops = { base = 1, perRunner = 2, max = 8 },
+    -- The instance's ambient population (Open77.world.setPopulation when the match is created,
+    -- back to empty when it closes). police = "ncpd" only; the bot escape stays empty.
+    -- crowd is a real fraction; traffic and police are switches on 2.31 (any traffic > 0 =
+    -- vanilla traffic). Every client spawns its own crowd, traffic and police.
+    population = { crowd = 0.5, traffic = 1.0, police = true },
     match = {
         countdownSeconds = 10,
         placeTimeoutSeconds = 40,
-        roundSeconds = 165,
         scoreboardSeconds = 8,
         runnerSpacingMetres = 9.0,  -- runners line up behind the start checkpoint, one car each
         spawnLiftMetres = 0.35,
@@ -509,18 +550,60 @@ ChaseConfig.pve = {
         doorClearMetres = 2.8,
         hudPushMs = 500,
     },
-    headStartSeconds = { vehicle = 10, foot = 15 },
-    -- Most Wanted's columns, with these changes. A PvE shake is the escape, so it takes
-    -- longer than Most Wanted's points-only shake.
-    rules = {
-        vehicle = { escapeGraceSeconds = 15.0 },
-        foot = { escapeGraceSeconds = 15.0 },
+    -- From GO to the first star: time to get in the car and go.
+    headStartSeconds = { vehicle = 6, foot = 8 },
+    -- The difficulties (Light RP's ids). heat: the stars `at` seconds after the head start;
+    -- the last step is the ceiling (setMaxWanted). roundSeconds: the clock from GO (survive
+    -- it = escaped). bustFillSeconds: how long stopped before the cuffs. extractionAtSeconds:
+    -- the extraction point appears this long after GO.
+    difficulties = {
+        standard = { label = "Standard", roundSeconds = 150, bustFillSeconds = 5.0, extractionAtSeconds = 40,
+            heat = { { at = 0, stars = 1 }, { at = 30, stars = 2 }, { at = 75, stars = 3 } } },
+        hard = { label = "Hard", roundSeconds = 165, bustFillSeconds = 4.0, extractionAtSeconds = 55,
+            heat = { { at = 0, stars = 2 }, { at = 30, stars = 3 }, { at = 75, stars = 4 } } },
+        critical = { label = "Critical", roundSeconds = 180, bustFillSeconds = 3.0, extractionAtSeconds = 70,
+            heat = { { at = 0, stars = 2 }, { at = 25, stars = 3 }, { at = 55, stars = 4 }, { at = 95, stars = 5 } } },
     },
-    -- Light RP clamps and caps it (per account and day) as for every activity; ~60 % of the
-    -- 1v1's win / loss. Nothing for a leaver, nothing for a round under minSeconds, and only
-    -- the first perDay paid rounds of a character in a day pay. minSeconds is also when a
-    -- shake starts to count as the escape (an earlier one only re-arms the hunt), so no
-    -- escape is ever shorter than it: the clock (roundSeconds) and the extraction (heat 4,
-    -- 95 s) come later anyway.
-    reputation = { escaped = 18, busted = 6, leaver = 0, minSeconds = 60, perDay = 8 },
+    -- The wanted level is sent again every reassertSeconds while a runner is out: the engine
+    -- drops its heat by itself when its police lose him, the server never learns it, and the
+    -- escape is the extraction or the clock, never the engine's "lost them". The client
+    -- checks its game every probeSeconds; a raise still refused after blockedAfterSeconds is
+    -- "police blocked" (onPoliceBlocked).
+    wanted = { reassertSeconds = 15, probeSeconds = 2, blockedAfterSeconds = 6 },
+    -- The bust meter. It fills while the runner is stopped (slower than stopKph, speed
+    -- windowed over 1 s of position samples) or, by car, out of every car (unless he moves
+    -- faster than outOfCarMaxKph: then he sits in a car the server cannot see), over the
+    -- difficulty's bustFillSeconds; it drains over drainSeconds once he moves again. It arms
+    -- with the first star, and by car once he has sat in his car (or boardingGraceSeconds
+    -- after GO). A meter past closeCall that drains back to 0 is a close call (stats.shakes).
+    -- An unreadable position freezes the meter; staleResetMs of blackout empties it.
+    bust = {
+        vehicle = { stopKph = 10.0, outOfCarMaxKph = 35.0 },
+        foot = { stopKph = 5.0 },
+        drainSeconds = 2.5,
+        boardingGraceSeconds = 15,
+        closeCall = 0.6,
+        staleResetMs = 3000,
+    },
+    -- Drawn among Most Wanted's extraction points, band[1]-band[2] m from the runner.
+    extraction = { band = { vehicle = { 450, 1300 }, foot = { 200, 500 } }, radius = { vehicle = 15.0, foot = 7.0 }, zTolerance = 8.0 },
+    -- Light RP clamps and caps it (per account and day) as for every PvE activity: the
+    -- Standard figures (~60 % of the 1v1's win / loss) times the difficulty's factor, the
+    -- same ratios as Light RP's own PvE rewards (30 / 60 / 100). Nothing for a leaver,
+    -- nothing for a round under minSeconds, and only the first perDay paid rounds of a
+    -- character in a day pay.
+    reputation = { escaped = 18, busted = 6, leaver = 0, minSeconds = 60, perDay = 8,
+        difficulty = { standard = 1.0, hard = 2.0, critical = 10 / 3 } },
+    -- police = "bots" only: the bot cops (base + perRunner x runners, capped), Most Wanted's
+    -- rules with these changes (a PvE shake is the escape, so it takes longer), the clock
+    -- and the head start of the bot escape.
+    bots = {
+        cops = { base = 1, perRunner = 2, max = 8 },
+        roundSeconds = 165,
+        headStartSeconds = { vehicle = 10, foot = 15 },
+        rules = {
+            vehicle = { escapeGraceSeconds = 15.0 },
+            foot = { escapeGraceSeconds = 15.0 },
+        },
+    },
 }
