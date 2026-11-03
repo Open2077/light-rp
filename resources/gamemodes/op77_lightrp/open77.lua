@@ -136,6 +136,10 @@ server_script "server/config/guide_dialogue.lua"
 server_script "server/modules/guide_dialogue.lua"  -- talking to Johnny: choices over the FAQ, GPS and panels (content in server/config/guide_dialogue.lua)
 server_script "server/config/dogtown.lua"
 server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
+server_script "server/config/events_board.lua"
+server_script "server/modules/events_board_fonts.lua" -- the board page's fonts (design system, base64)
+server_script "server/modules/events_board_page.lua"  -- the board page: HTML, CSS, JS
+server_script "server/modules/events_board.lua"    -- The Crossing: the events board TV, its page and data over http.serve (/lightrp.board)
 server_script "server/modules/recap.lua"           -- the end-of-match recap: activities, missions, world bosses (F1 > Last match)
 server_script "server/config/titles.lua"
 server_script "server/modules/titles.lua"          -- prestige titles: closed catalogue, earned per character, one shown by the name
@@ -164,6 +168,7 @@ client_script "client/core/homes.lua"
 client_script "client/core/vehicle_gps.lua"
 client_script "client/core/activities.lua"     -- Neural-Link app "Gigs & Arena", contract GPS
 client_script "client/core/halloffame.lua"     -- ALT + click on the Hall of Fame board
+client_script "client/core/events_board.lua"   -- the events board's page on the TV's screen at The Crossing
 client_script "client/core/recap.lua"          -- the end-of-match recap, opened once back in the city
 client_script "client/core/cyberware.lua"
 client_script "client/core/wardrobe.lua"
@@ -247,6 +252,7 @@ permissions {
     "players.disconnect",
     "players.access",
     "voice.manage",        -- staff announcements: one admin voice channel per speaker
+    "http.serve",          -- the events board's page and data (server/modules/events_board.lua; server config httpHandlers)
     -- client
     "voice.client",        -- guided setup through the trusted preference owner
     "network.client",      -- local player ID + authenticated account for animation state/preferences
