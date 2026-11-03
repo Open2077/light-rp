@@ -51,6 +51,7 @@ LightRpEvents = {
         notice = "op77_lightrp:notice",       -- server -> client: notice payload
         result = "op77_lightrp:result",       -- server -> client: action result
         dialog = "op77_lightrp:dialog",       -- server -> client: open a page dialog
+        recap = "op77_lightrp:recap",         -- server -> client: the end-of-match recap (server/modules/recap.lua), latent when large
         interactions = "op77_lightrp:interactions", -- server -> client: the proximity points to draw
         interact = "op77_lightrp:interact",   -- client -> server: E pressed at a point (id)
         interactionsRequest = "op77_lightrp:interactions:request", -- client -> server: send me the list (once in the world)

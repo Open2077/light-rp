@@ -223,6 +223,29 @@ C.enabled = true
 enter(1, "arena.ffa")
 assert(pay(1, { placement = 1, won = true }, ffa(9, 10)) == 875)
 
+-- ── what each result paid, or why not, for the end-of-match recap (recap.lua) ──
+local reported = {}
+LightRP.recap = { reward = function(id, where, fields) reported[#reported + 1] = { id = id, where = where, f = fields } end }
+nextDay(); clear()
+for pid = 1, 4 do enter(pid, "arena.ffa") end
+assert(pay(1, { placement = 1, won = true }, ffa(9, 10)) == 875)
+assert(#reported == 1 and reported[1].id == 1 and reported[1].where == "arena.ffa")
+assert(reported[1].f.eddies == 875 and reported[1].f.eddiesReason == "pvp" and reported[1].f.eddiesNote == "#1 of 4 · 10 min")
+assert(pay(2, { placement = 2 }, ffa(5, 10, { quit = true })) == nil)
+assert(#reported == 2 and reported[2].f.eddies == 0 and reported[2].f.eddiesReason == "left")
+local unranked = ffa(9, 10); unranked.unranked = true
+assert(pay(3, { placement = 1, won = true }, unranked) == nil)
+assert(reported[3].f.eddies == 0 and reported[3].f.eddiesReason == "unranked")
+chars[4].key = "second"
+assert(pay(4, { placement = 3 }, ffa(2, 10)) == nil)
+assert(reported[4].f.eddies == 0 and reported[4].f.eddiesReason == "character", "settled for nobody")
+chars[4].key = "default"
+C.enabled = false
+assert(pay(1, { placement = 1, won = true }, ffa(9, 10)) == nil)
+assert(reported[5].f.eddies == 0 and reported[5].f.eddiesReason == "off")
+C.enabled = true
+LightRP.recap = nil
+
 -- ── the core's hook: after the unranked drop (bot mode, test, friendly, PvP bots), before the record ──
 local f = assert(io.open("server/modules/activities.lua", "rb")); local src = f:read("*a"); f:close()
 local drop = src:find("local why = unrankedWhy(e, result)", 1, true)
@@ -232,4 +255,4 @@ assert(drop and hook and rec and drop < hook and hook < rec, "one line where a r
 local m = assert(io.open("open77.lua", "rb")); local manifest = m:read("*a"); m:close()
 assert(manifest:find("server/modules/activities.lua", 1, true) < manifest:find("server/modules/activity_pay.lua", 1, true))
 
-print("activity_pay_test: amounts (placement, result bonus, minutes caps), real-player scaling, crews, unranked / bots / leavers / AFK / too short, forfeit, repeat cap, trial, PvE by difficulty, daily caps and SQL, character switch, hook placement passed")
+print("activity_pay_test: amounts (placement, result bonus, minutes caps), real-player scaling, crews, unranked / bots / leavers / AFK / too short, forfeit, repeat cap, trial, PvE by difficulty, daily caps and SQL, character switch, recap reports, hook placement passed")

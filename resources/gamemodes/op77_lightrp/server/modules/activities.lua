@@ -38,6 +38,7 @@
 -- Events, TriggerEvent / AddEventHandler only (never network events):
 --   provider -> core  op77_lightrp:activity:result  (playerId, activityId, result)
 --   provider -> core  op77_lightrp:activity:status  (activityId, status)
+--   provider -> core  op77_lightrp:activity:recap   (activityId, recap)  a match's final scoreboard (recap.lua)
 --   core -> provider  op77_lightrp:activity:join    (playerId, activityId, options)
 --   core -> provider  op77_lightrp:activity:leaveRequest (playerId, activityId)
 --   core -> provider  op77_lightrp:activity:dropped (playerId, activityId, reason)
@@ -2232,6 +2233,7 @@ local function record(id, e, r)
         end
         LightRP.log("activities: result %s for %s: placement %s, won %s, +%d rep (asked %d)", e.activity, who.name,
             tostring(r.placement), tostring(r.won), granted, r.reputation)
+        if LightRP.recap then pcall(LightRP.recap.reward, id, e.activity, { reputation = granted, reputationAsked = r.reputation }) end
     end)
     unlock(who.identifier)
     if not ok then LightRP.log("activities: result of %s not recorded: %s", tostring(who.identifier), tostring(err)) end
@@ -2301,10 +2303,12 @@ function A.result(playerId, activityId, result)
     r.played = e.pve and (e.difficulty or r.difficulty) or nil
     r.reputation, r.difficulty = reputationAsk(id, e, r)
     local why = unrankedWhy(e, result)
+    if why then result.unranked, result.ranked, r.unranked = true, false, true end
+    -- the end-of-match recap (recap.lua) hears every accepted result, test ones as TEST
+    if LightRP.recap then pcall(LightRP.recap.activityResult, id, e, result, r, A.botsEnabled or result.test == true) end
     if why then
         -- unranked (a friendly, a bot match or fill, staff testing): nothing earned,
         -- nothing recorded -- no stats row (so no Hall of Fame), no reputation, no pay
-        result.unranked, result.ranked, r.unranked = true, false, true
         LightRP.log("activities: %s result %s for %d not recorded (placement %s, won %s)", why, e.activity, id,
             tostring(r.placement), tostring(r.won))
         return true

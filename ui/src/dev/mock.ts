@@ -6,7 +6,9 @@
    at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing,
    `?dialog=rental` opens a rental desk, `?rental=1` starts with a car out,
    `?interact=1` shows the proximity prompt, `?dialog=inventory` opens the inventory (with a trunk on the right),
-   `?dialog=halloffame` opens the Hall of Fame (features/halloffame/mock.ts). */
+   `?dialog=halloffame` opens the Hall of Fame (features/halloffame/mock.ts),
+   `?dialog=recap&recap=ffa|team|race|chase|turf|mission|boss|test|unranked|draw|big` opens an
+   end-of-match recap (features/recap/mock.ts). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
@@ -21,6 +23,7 @@ import { missionEditorMock } from "@/features/missioneditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
 import { activityHudMock } from "@/features/activityhud/mock";
 import { hallOfFameMock } from "@/features/halloffame/mock";
+import { recapMock } from "@/features/recap/mock";
 import { guideMock } from "@/features/guide/mock";
 
 const ORIGINS = [
@@ -38,6 +41,7 @@ export function installMockBridge(): void {
   const missionEditor = missionEditorMock(fire, params);
   const armament = armamentMock(fire, params);
   const hallOfFame = hallOfFameMock(fire, params);
+  const recap = recapMock(fire, params);
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -197,6 +201,7 @@ export function installMockBridge(): void {
           if (params.get("dialog") === "dealership") fire(PAGE_EVENTS.dialog, dealership);
           mission.boot();
           hallOfFame.boot();
+          recap.boot();
           guide.boot();
           if (params.get("dialog") === "activities") activities.boot();
           if (params.get("dialog") === "mission") mission.open();
@@ -264,6 +269,7 @@ export function installMockBridge(): void {
         if (mission.handle(action)) return;
         if (params.get("dialog") === "activities" && activities.handle(action)) return;
         if (hallOfFame.handle(action)) return;
+        if (recap.handle(action)) return;
         if (guide.handle(action)) return;
         setTimeout(() => {
           switch (action.type) {

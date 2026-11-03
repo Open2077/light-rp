@@ -28,6 +28,7 @@ import { Freecam } from "@/features/freecam/Freecam";
 import { MissionDialog } from "@/features/missions/MissionDialog";
 import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
 import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
+import { RecapDialog } from "@/features/recap/RecapDialog";
 import { GuideDialog } from "@/features/guide/GuideDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
 import { FixerGigHud } from "@/features/missions/FixerGigHud";
@@ -115,6 +116,7 @@ export function App() {
       <ErrorBoundary name="mission"><MissionDialog /></ErrorBoundary>
       <ErrorBoundary name="activities"><ActivitiesDialog /></ErrorBoundary>
       <ErrorBoundary name="halloffame"><HallOfFameDialog /></ErrorBoundary>
+      <ErrorBoundary name="recap"><RecapDialog /></ErrorBoundary>
       <ErrorBoundary name="guide"><GuideDialog /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>

@@ -391,6 +391,40 @@ local function startersOf(inst)
     return count + bots().starters(inst)
 end
 
+-- The board for Light RP's end-of-match recap (op77_lightrp server/modules/recap.lua):
+-- every racer, bots included and marked (negative ids), with its place, time, best lap
+-- and checkpoints, or how it ended (dnf, left). A finisher's result carries the board as
+-- it stands at the line; resolve sends the final one (A.recap).
+local OUTCOME = { dnf = "dnf", left = "left" }
+local MODES = { trial = "Time trial", pve = "Race vs AI" }
+function E.recapOf(inst)
+    local now = nowMs()
+    local list = {}
+    for _, row in ipairs(rows(inst)) do
+        if #list >= 40 then break end
+        local id = row.id
+        if row.bot then id = -(tonumber(tostring(row.id):match("(%d+)$")) or (#list + 1)) end
+        list[#list + 1] = { id = id, name = row.name, bot = row.bot or nil,
+            placement = row.state == "finished" and row.finishPlace or nil, outcome = OUTCOME[row.state],
+            timeMs = row.state == "finished" and row.timeMs or nil, bestLapMs = row.bestLapMs,
+            checkpoints = row.progress, inMatchMs = row.timeMs or (inst.startedAt and math.max(0, (inst.resolvedAt or now) - inst.startedAt)) }
+    end
+    local lines = { { label = "Course", value = tostring(inst.course.name or inst.course.id or "?") } }
+    if (inst.course.laps or 1) > 1 then lines[#lines + 1] = { label = "Laps", value = tostring(inst.course.laps) } end
+    if MODES[inst.mode] then lines[#lines + 1] = { label = "Mode", value = MODES[inst.mode] } end
+    if inst.result and inst.result.winnerName then lines[#lines + 1] = { label = "Winner", value = tostring(inst.result.winnerName) } end
+    return { matchId = "race:" .. tostring(inst.id) .. "@" .. tostring(inst.startedAt or 0),
+        durationMs = inst.startedAt and math.max(0, (inst.resolvedAt or now) - inst.startedAt) or nil,
+        detail = tostring(inst.course.name or ""), rows = list, lines = lines,
+        columns = { "placement", "timeMs", "bestLapMs", "checkpoints" } }
+end
+local function recapOf(inst)
+    local ok, recap = pcall(E.recapOf, inst)
+    if ok then return recap end
+    log("recap failed: " .. tostring(recap))
+    return nil
+end
+
 -- One result per racer who reached GO (a trial reports finished runs only). A finisher's
 -- result leaves at the line (the starters are fixed at GO); the others' at resolve. A
 -- racer the core already released (dropped) is not reported.
@@ -429,6 +463,7 @@ local function sendResult(inst, playerId, racer)
             dnfReason = (not finished) and racer.dnfReason or nil,
         },
         reputation = reputationFor(inst, racer, starters),
+        recap = recapOf(inst),
     })
 end
 
@@ -974,6 +1009,8 @@ resolve = function(inst, reason)
     inst.result = { reason = reason or "finished", winnerName = winner and winner.name or nil,
         finishers = #inst.finishOrder, racers = startersOf(inst), bots = inst.hadBots and bots().starters(inst) or nil }
     for _, playerId in ipairs(inst.members) do sendResult(inst, playerId, inst.racers[playerId]) end
+    -- the final board for the recap: the finishers' results left at the line
+    if inst.startedAt then A.recap(inst.activityId, recapOf(inst)) end
     log(("instance %s resolved: %s"):format(inst.id, tostring(reason)))
     pushInstance(inst)
     E.hooks.changed()

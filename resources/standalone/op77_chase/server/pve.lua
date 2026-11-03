@@ -347,6 +347,7 @@ function P.resultFor(match, m)
             shakes = m.round and m.round.shakes or 0, cops = match.copCount, runners = #runners(match),
             crew = m.squad ~= nil or nil, forfeit = m.outcome == "left" or nil },
         reputation = m.reputation,
+        recap = ChaseRecap and ChaseRecap.safe("pve", match) or nil, -- Light RP's end-of-match recap (recap.lua)
     }
 end
 

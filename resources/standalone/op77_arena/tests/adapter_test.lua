@@ -223,6 +223,7 @@ local engineStrip = DM.loadout.strip
 
 dofile("server/core.lua")
 dofile("server/lightrp.lua")
+dofile("server/lightrp_recap.lua")
 loading = false
 local H = ArenaHost
 
@@ -542,6 +543,10 @@ do
     assert(byId[3].won == false and byId[3].reputation == 20 and byId[5].reputation == 15)
     assert(byId[4].stats.timeMs == nil, "no race time for a fight")
     assert(byId[4].cash == nil and byId[4].items == nil)
+    -- every result carries the round's whole board for Light RP's end-of-match recap
+    local board = byId[4].recap
+    assert(board and board.matchId == "arena:" .. ffa.id .. ":4@" .. ffa.round.startedAtMs and #board.rows == 3 and board.durationMs == 120000)
+    assert(byId[3].recap.matchId == board.matchId and byId[5].recap.rows[1].placement == 1, "one board for the round")
 
     -- Too short or too few: stats only.
     env.events = {}
@@ -570,6 +575,7 @@ do
     DM.leave(5, "auto")
     results = eventsOf("op77_lightrp:activity:result")
     assert(#results == 1 and results[1].args[1] == 5 and results[1].args[3].reputation == 0 and results[1].args[3].stats.quit == true)
+    assert(results[1].args[3].recap and #results[1].args[3].recap.rows == 3, "a leaver's recap: the round so far")
 
     -- Duel: best of three, winner 20 / loser 5, reported once, kills over all rounds.
     env.events = {}
@@ -596,6 +602,12 @@ do
     assert(byId[6].won == true and byId[6].placement == 1 and byId[6].reputation == 20 and byId[6].stats.kills == 2)
     assert(byId[7].won == false and byId[7].placement == 2 and byId[7].reputation == 5 and byId[7].stats.deaths == 2)
     assert(byId[6].stats.roundsWon == 2 and byId[7].stats.roundsLost == 2)
+    local duelBoard = byId[6].recap
+    assert(duelBoard and duelBoard.winnerSide == 1 and duelBoard.lines[1].value == "2 - 0" and duelBoard.matchId == byId[7].recap.matchId)
+    for _, row in ipairs(duelBoard.rows) do
+        if row.id == 6 then assert(row.kills == 2 and row.side == 1, "the match, not the last round") end
+        if row.id == 7 then assert(row.deaths == 2 and row.side == 2) end
+    end
 
     -- Same pair, same day: reputation for the first three only.
     local rewarded = 0

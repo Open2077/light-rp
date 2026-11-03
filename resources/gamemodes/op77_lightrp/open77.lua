@@ -130,6 +130,7 @@ server_script "server/config/guide.lua"
 server_script "server/modules/guide.lua"           -- Johnny at The Crossing: the FAQ dialogue (content in server/config/guide.lua)
 server_script "server/config/dogtown.lua"
 server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
+server_script "server/modules/recap.lua"           -- the end-of-match recap: activities, missions, world bosses (F1 > Last match)
 server_script "server/main.lua"
 
 -- Client: core first, then modules.
@@ -152,6 +153,7 @@ client_script "client/core/homes.lua"
 client_script "client/core/vehicle_gps.lua"
 client_script "client/core/activities.lua"     -- Neural-Link app "Gigs & Arena", contract GPS
 client_script "client/core/halloffame.lua"     -- ALT + click on the Hall of Fame board
+client_script "client/core/recap.lua"          -- the end-of-match recap, opened once back in the city
 client_script "client/core/cyberware.lua"
 client_script "client/core/wardrobe.lua"
 client_script "client/core/keys.lua"

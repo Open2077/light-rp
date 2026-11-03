@@ -159,6 +159,14 @@ H.test("the player finishes behind it: a test result, no reputation, bots counte
     H.eq(result.test, true, "flagged as a test")
     H.eq(result.reputation, 0); H.eq(result.placement, 2); H.eq(result.won, false)
     H.eq(result.stats.bots, 3); H.eq(result.stats.racers, 4)
+    -- the board for Light RP's end-of-match recap, as it stands at the line
+    local board = result.recap
+    H.ok(board and board.matchId == "race:" .. inst.id .. "@" .. inst.startedAt, "one id for the race")
+    H.eq(#board.rows, 4, "the player and the three bots")
+    H.eq(board.rows[1].bot, true); H.ok(board.rows[1].id < 0, "a bot's id is negative"); H.eq(board.rows[1].placement, 1)
+    H.eq(board.rows[2].id, 1); H.eq(board.rows[2].placement, 2); H.ok(board.rows[2].timeMs > 0)
+    H.eq(board.rows[2].bot, nil)
+    H.eq(board.lines[1].label, "Course")
     H.eq(inst.phase, "active", "a bot still racing in front of the finished player")
     H.eq(H.files["records.json"], nil, "no best time written")
 end)
@@ -169,6 +177,16 @@ H.test("results end: every bot, car and driver is gone with the instance", funct
     while inst.phase == "active" and guard < 400 do H.advance(250); guard = guard + 1 end
     H.eq(inst.phase, "results", "the window closes the race")
     H.eq(bots[3].state, "dnf")
+    -- the final board, sent once at resolve, with the bots that did not finish
+    local finals = H.eventsNamed("op77_lightrp:activity:recap")
+    H.eq(#finals, 1, "one final board")
+    local final = finals[1].args[2]
+    H.eq(finals[1].args[1], "race.grid")
+    H.eq(final.matchId, "race:" .. inst.id .. "@" .. inst.startedAt)
+    local dnf = 0
+    for _, row in ipairs(final.rows) do if row.outcome == "dnf" then dnf = dnf + 1; H.eq(row.bot, true) end end
+    H.ok(dnf >= 1, "a bot out of time is a DNF")
+    H.ok(final.durationMs > 0)
     H.advance(Config.engine.resultsSeconds.grid * 1000 + 3000)
     H.eq(racer(1), nil)
     H.eq(H.count(E.instances), 0)

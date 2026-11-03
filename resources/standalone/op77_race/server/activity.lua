@@ -183,6 +183,13 @@ function A.result(playerId, activityId, result)
     return ok ~= false
 end
 
+-- A race's final board for Light RP's end-of-match recap (op77_lightrp recap.lua).
+function A.recap(activityId, recap)
+    if not A.mine(activityId) or type(recap) ~= "table" then return false end
+    TriggerEvent("op77_lightrp:activity:recap", activityId, recap)
+    return true
+end
+
 local function digest(status)
     return table.concat({ tostring(status.phase), tostring(status.players), tostring(status.queued),
         tostring(status.joinable), tostring(status.detail) }, "|")
