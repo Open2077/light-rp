@@ -12,9 +12,9 @@ const day = () => normalizeDailies({
   list: [
     { slot: "weekly", id: "good_samaritan", title: "Good Samaritan", fixer: "okoro", fixerName: "Mama Okoro", brief: "…", goal: "Stabilize 3.", value: 1, target: 3, done: false, claimed: false, reward: 3000 },
     { slot: "crew", id: "album_cover", title: "Album Cover", fixer: "nix", fixerName: "Nix Delacroix", brief: "…", goal: "Pose.", value: 0, target: 1, done: false, claimed: false, reward: 300, needsCrew: true },
-    { slot: "street", id: "ride_along", title: "Ride Along", fixer: "okoro", fixerName: "Mama Okoro", brief: "…", goal: "Ride 1.5 km.", value: 640, target: 1500, unit: "m", done: false, claimed: false, reward: 250, swappable: true },
-    { slot: "action", id: "billable_hours", title: "Billable Hours", fixer: "ledger", fixerName: "Silas \"Ledger\" Varga", brief: "…", goal: "Half the clock.", value: 1, target: 1, done: true, claimed: false, reward: 400 },
-    { slot: "shift", id: "full_truck", title: "Full Truck", fixer: "okoro", fixerName: "Mama Okoro", brief: "…", goal: "Sell 20.", value: 1, target: 1, done: true, claimed: true, reward: 250 },
+    { slot: "street", id: "ride_along", title: "Ride Along", fixer: "okoro", fixerName: "Mama Okoro", brief: "…", goal: "Ride 1.5 km.", value: 640, target: 1500, unit: "m", done: false, claimed: false, reward: 250, swappable: true, social: true },
+    { slot: "action", id: "support_act", title: "Support Act", fixer: "okoro", fixerName: "Mama Okoro", brief: "…", goal: "More assists than kills.", value: 1, target: 1, done: true, claimed: false, reward: 400 },
+    { slot: "shift", id: "full_truck", title: "Full Truck", fixer: "okoro", fixerName: "Mama Okoro", brief: "…", goal: "Sell 11.", value: 1, target: 1, done: true, claimed: true, reward: 250 },
     { slot: "nonsense", id: "x", title: "X" }, { id: "no-title", slot: "street" }, "junk",
   ],
   older: [{ id: "street_performer", title: "Street Performer", reward: 250 }, { title: "no id" }],
@@ -40,11 +40,11 @@ test("progress reads in the contract's unit; a one-shot contract says NOT YET un
   assert.equal(formatAmount(3000, "m"), "3 km");
   assert.equal(formatAmount(65, "s"), "1:05");
   assert.equal(formatAmount(2.7), "2");
-  const [ride, billable] = day().list;
+  const [ride, support] = day().list;
   assert.equal(progressLabel(ride!), "640 m / 1.5 km");
-  assert.equal(progressLabel(billable!), "DONE");
-  assert.equal(progressLabel({ ...billable!, done: false, value: 0 }), "NOT YET");
-  assert.equal(progressLabel({ ...billable!, done: false, value: 1, target: 2 }), "1 / 2");
+  assert.equal(progressLabel(support!), "DONE");
+  assert.equal(progressLabel({ ...support!, done: false, value: 0 }), "NOT YET");
+  assert.equal(progressLabel({ ...support!, done: false, value: 1, target: 2 }), "1 / 2");
   assert.equal(progressRatio(ride!), 640 / 1500);
   assert.equal(progressRatio({ ...ride!, value: 9999 }), 1);
 });
@@ -63,11 +63,24 @@ test("card states: claim, paid, budget spent (the weekly is outside it), needs a
   assert.equal(overBudget(action!, { used: 99999, max: 0 }), false, "max 0 = no cap");
 });
 
+test("a crew daily with no crewmate online is a placeholder until one shows up; social is read", () => {
+  const d = normalizeDailies({ enabled: true, ready: true, streak: 0, swapsLeft: 1, budget: { used: 0, max: 1200 }, older: {},
+    list: [{ slot: "crew", id: "convoy", title: "Convoy", fixer: "nix", fixerName: "Nix", brief: "…", goal: "…", value: 0, target: 2400, unit: "m",
+      done: false, claimed: false, reward: 300, needsCrew: true, crewLocked: true, social: true }] })!;
+  const [crew] = d.list;
+  assert.equal(crew!.crewLocked, true); assert.equal(crew!.social, true);
+  assert.equal(cardState(crew!, d.budget), "locked");
+  assert.equal(cardState({ ...crew!, crewLocked: undefined }, d.budget), "crew", "started: the card shows, still waiting for a crewmate");
+  assert.equal(cardState({ ...crew!, done: true }, d.budget), "claimable", "a finished one is never hidden");
+  const [ride, support] = day().list;
+  assert.equal(ride!.social, true); assert.equal(support!.social, undefined); assert.equal(support!.crewLocked, undefined);
+});
+
 test("the F1 line counts what waits, else what is paid", () => {
   const d = day();
-  assert.equal(toClaim(d), 2); // Billable Hours + yesterday's Street Performer
+  assert.equal(toClaim(d), 2); // Support Act + yesterday's Street Performer
   assert.equal(menuMeta(d), "2 TO CLAIM");
-  const quiet = { ...d, older: [], list: d.list.map((c) => (c.id === "billable_hours" ? { ...c, claimed: true } : c)) };
+  const quiet = { ...d, older: [], list: d.list.map((c) => (c.id === "support_act" ? { ...c, claimed: true } : c)) };
   assert.equal(menuMeta(quiet), "2/4 PAID");
   assert.equal(menuMeta(normalizeDailies({ enabled: false })), "PAUSED");
   assert.equal(menuMeta(normalizeDailies({ enabled: true, ready: false })), undefined);

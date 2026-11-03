@@ -294,9 +294,9 @@ export function PlayerMenu() {
     const crew = nodes.root?.items.findIndex((i) => "id" in i && i.id === "squad") ?? -1;
     if (last && crew >= 0) nodes.root!.items.splice(crew + 1, 0, { id: "recap", type: "item", text: "Last match", icon: "list-checks",
       meta: last.test ? "TEST" : last.result, description: `The recap of your last ${last.mode ?? "match"}: the scoreboard, your numbers, the MVP and what it paid.` });
-    // Daily Contracts under the homes, the title in the identity card (features/dailies)
+    // Dailies under the homes, the title in the identity card (features/dailies)
     const home = nodes.root?.items.findIndex((i) => "id" in i && i.id === "housing") ?? -1;
-    if (dailies && home >= 0) nodes.root!.items.splice(home + 1, 0, { id: "dailies", type: "item", text: "Daily Contracts", icon: "list-checks", meta: menuMeta(dailies),
+    if (dailies && home >= 0) nodes.root!.items.splice(home + 1, 0, { id: "dailies", type: "item", text: "Dailies", icon: "list-checks", meta: menuMeta(dailies),
       description: "Four small jobs a day from Mama Okoro, Ledger and Nix, and a big one every week, paid into your bank. Your titles are in there too." });
     const lastName = nodes.identity?.items.findIndex((i) => "id" in i && i.id === "last") ?? -1;
     const badge = shownTitle(titles);

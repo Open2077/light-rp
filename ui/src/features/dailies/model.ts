@@ -2,7 +2,7 @@ import type {
   DailiesDialogPayload, DailiesState, DailyCard, DailySlot, TitleEntry, TitleRarity, TitlesState,
 } from "@/bridge/protocol";
 
-/* Daily Contracts and titles (server/modules/dailies.lua D.view, titles.lua T.view),
+/* Dailies and titles (server/modules/dailies.lua D.view, titles.lua T.view),
    read once per push. Lua sends an empty list as `{}` and leaves nil fields out:
    every list becomes an array here, every number a finite number. No runtime import
    from "@/": the model tests run under node --test (tests/dailies-model.test.ts). */
@@ -35,6 +35,7 @@ function normalizeCard(raw: unknown): DailyCard | undefined {
     brief: text(c.brief) ?? "", goal: text(c.goal) ?? "", value: Math.max(0, num(c.value)), target: Math.max(1, num(c.target, 1)),
     unit: c.unit === "m" || c.unit === "s" ? c.unit : undefined, done: c.done === true, claimed: c.claimed === true,
     reward: Math.max(0, Math.floor(num(c.reward))), swappable: c.swappable === true || undefined, needsCrew: c.needsCrew === true || undefined,
+    crewLocked: c.crewLocked === true || undefined, social: c.social === true || undefined,
   };
 }
 
@@ -81,10 +82,12 @@ export function overBudget(card: DailyCard, budget: DailiesState["budget"]): boo
   return card.slot !== "weekly" && budget.max > 0 && budget.used + card.reward > budget.max;
 }
 
-export type CardState = "claimed" | "claimable" | "budget" | "crew" | "progress";
+/** locked: a crew daily with no crewmate online, not started: shown as a placeholder. */
+export type CardState = "claimed" | "claimable" | "budget" | "locked" | "crew" | "progress";
 export function cardState(card: DailyCard, budget: DailiesState["budget"]): CardState {
   if (card.claimed) return "claimed";
   if (card.done) return overBudget(card, budget) ? "budget" : "claimable";
+  if (card.crewLocked) return "locked";
   if (card.needsCrew) return "crew";
   return "progress";
 }
@@ -95,7 +98,7 @@ export function toClaim(d: DailiesState | undefined): number {
   return d.list.filter((c) => cardState(c, d.budget) === "claimable").length + d.older.length;
 }
 
-/** F1 > Daily Contracts: what waits, else how far today's list is. */
+/** F1 > Dailies and the terminal's Dailies tab: what waits, else how far today's list is. */
 export function menuMeta(d: DailiesState | undefined): string | undefined {
   if (!d) return undefined;
   if (!d.enabled) return "PAUSED";

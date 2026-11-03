@@ -11,13 +11,13 @@ import {
 import "./rarity.css";
 import "./dailies.css";
 
-/* Daily Contracts (server/modules/dailies.lua) and titles (titles.lua): F1 > Daily
-   Contracts, or F1 > Identity > Title. Today: four contracts of the day, written by
-   the fixer who orders them, and the contract of the week, each with what the
-   server checks, the progress, the pay and one claim. Titles: what others read
-   after your name, every title and how to earn it. The page only shows and asks:
-   the server checks every contract and pays every claim. Esc, a right-click or
-   the close button closes it; ← → change tab. */
+/* Dailies (server/modules/dailies.lua) and titles (titles.lua): F1 > Dailies, or
+   F1 > Identity > Title; the activities terminal shows the same Today page in its
+   Dailies tab (DailiesToday below). Today: four dailies, written by the fixer who
+   orders them, and the weekly, each with what the server checks, the progress, the
+   pay and one claim. Titles: what others read after your name, every title and how
+   to earn it. The page only shows and asks: the server checks every daily and pays
+   every claim. Esc, a right-click or the close button closes it; ← → change tab. */
 
 const SWAP_ARM_MS = 3500;   // the swap asks twice: the progress of the replaced contract is lost
 const ANSWER_MS = 9000;     // no answer by then: say so and unlock
@@ -104,7 +104,7 @@ function DailiesBody({ initialTab, onClose }: { initialTab: DailiesTab; onClose(
 
   return <div className="dailies o77-interactive" role="dialog" aria-modal="true" aria-labelledby="dailies-title" ref={root} tabIndex={-1}>
     <header className="dailies__bar">
-      <span className="dailies__bar-title" id="dailies-title"><Icon name="list-checks" size={15} />DAILY CONTRACTS</span>
+      <span className="dailies__bar-title" id="dailies-title"><Icon name="list-checks" size={15} />DAILIES</span>
       <span className="dailies__bar-route">MAMA OKORO · LEDGER · NIX<button aria-label="Close" onClick={onClose}><Icon name="x" size={15} /></button></span>
     </header>
     <div className="dailies__tabs"><Tabs items={tabs} value={tab} onChange={setTab} /></div>
@@ -129,6 +129,22 @@ function DailiesBody({ initialTab, onClose }: { initialTab: DailiesTab; onClose(
 
 type Request = ReturnType<typeof useRequest>;
 
+/** The activities terminal's Dailies tab: the Today page and its claims, on the same
+ *  `dailies` state as F1 > Dailies (a claim in one shows in the other on the next push). */
+export function DailiesToday() {
+  const dailies = useStore((s) => s.state.dailies);
+  const currency = useStore((s) => s.state.money.currency);
+  const request = useRequest();
+  useEffect(() => { sendAction({ type: "dailies.refresh" }); }, []);
+  const fmt = (n: number) => formatMoney(n, currency);
+  return <div className="dailies-embed">
+    <TodayPage d={dailies} fmt={fmt} request={request} />
+    <p className={cx("dailies__feedback dailies-embed__feedback", request.feedback?.error && "is-error")} role={request.feedback?.error ? "alert" : "status"}>
+      {request.pending ? "WAITING FOR THE SERVER…" : request.feedback ? request.feedback.text : "PAID INTO YOUR BANK · THE SAME LIST AS F1 › DAILIES"}
+    </p>
+  </div>;
+}
+
 /* ── Today ── */
 
 function TodayPage({ d, fmt, request }: { d?: DailiesState; fmt(n: number): string; request: Request }) {
@@ -141,9 +157,9 @@ function TodayPage({ d, fmt, request }: { d?: DailiesState; fmt(n: number): stri
     return () => window.clearTimeout(t);
   }, [armed]);
 
-  if (!d) return <p className="dailies__empty"><Icon name="loader" size={14} />Reading today's contracts…</p>;
-  if (!d.enabled) return <p className="dailies__empty"><Icon name="lock" size={14} />Contracts are paused right now. Progress you made is kept.</p>;
-  if (!d.ready) return <p className="dailies__empty"><Icon name="loader" size={14} />Load your character to see today's contracts.</p>;
+  if (!d) return <p className="dailies__empty"><Icon name="loader" size={14} />Reading today's dailies…</p>;
+  if (!d.enabled) return <p className="dailies__empty"><Icon name="lock" size={14} />Dailies are paused right now. Progress you made is kept.</p>;
+  if (!d.ready) return <p className="dailies__empty"><Icon name="loader" size={14} />Load your character to see today's dailies.</p>;
 
   const daily = d.list.filter((c) => c.slot !== "weekly");
   const weekly = d.list.find((c) => c.slot === "weekly");
@@ -158,7 +174,7 @@ function TodayPage({ d, fmt, request }: { d?: DailiesState; fmt(n: number): stri
     <section className="dailies__strip" aria-label="Today">
       <div className="dailies-stat">
         <Icon name="clock" size={15} />
-        <span><small>NEW CONTRACTS IN</small><b>{reset === undefined ? "—" : reset > 0 ? countdown(reset) : "ANY SECOND"}</b></span>
+        <span><small>NEW DAILIES IN</small><b>{reset === undefined ? "—" : reset > 0 ? countdown(reset) : "ANY SECOND"}</b></span>
       </div>
       <div className={cx("dailies-stat", d.streak > 0 && "is-lit")}>
         <Icon name="flame" size={15} />
@@ -176,16 +192,16 @@ function TodayPage({ d, fmt, request }: { d?: DailiesState; fmt(n: number): stri
     </section>
 
     <div className="dailies__main">
-      <section className="dailies__grid" aria-label="Today's contracts">
+      <section className="dailies__grid" aria-label="Today's dailies">
         {daily.map((c) => <ContractCard key={c.id} card={c} d={d} fmt={fmt} request={request}
           armed={armed === c.slot} onClaim={() => claimCard(c)} onSwap={() => swap(c)} />)}
-        {daily.length === 0 && <p className="dailies__empty">No contract today: none of their sources is running on this server.</p>}
+        {daily.length === 0 && <p className="dailies__empty">No daily today: none of their sources is running on this server.</p>}
       </section>
 
       <aside className="dailies__rail">
         {weekly ? <ContractCard card={weekly} d={d} fmt={fmt} request={request} weekly onClaim={() => claimCard(weekly)}
           ends={weekReset === undefined ? undefined : countdown(weekReset)} />
-          : <p className="dailies__note">No weekly contract this week.</p>}
+          : <p className="dailies__note">No weekly this week.</p>}
         {d.older.length > 0 && <section className="dailies-older" aria-label="Unpaid">
           <header><Icon name="triangle-alert" size={13} />FINISHED, NOT PAID YET</header>
           <ul>{d.older.map((o) => <li key={o.id}>
@@ -197,8 +213,8 @@ function TodayPage({ d, fmt, request }: { d?: DailiesState; fmt(n: number): stri
           <small>Finished on an earlier day: claim them before they expire.</small>
         </section>}
         <p className="dailies__note">
-          Street, Action and Crew are the same for the whole city; Shift follows your job. Resets at 00:00 UTC, the weekly on Monday.
-          Missed a day? The streak starts again.
+          Street, Action and Crew are the city's dailies when enough people are on; on a quiet server you get one you can do alone.
+          Shift follows your job. Resets at 00:00 UTC, the weekly on Monday. Missed a day? The streak starts again.
         </p>
       </aside>
     </div>
@@ -212,9 +228,19 @@ function ContractCard({ card, d, fmt, request, weekly, armed, ends, onClaim, onS
   const meta = SLOT_META[card.slot];
   const state = cardState(card, d.budget);
   const busy = request.pending?.key === card.id || request.pending?.key === card.slot;
+  if (state === "locked") return <article className="contract is-locked" aria-label={`${meta.label}: waiting for a crewmate`}>
+    <header className="contract__head">
+      <span className="contract__slot"><Icon name={meta.icon} size={12} />{meta.label}</span>
+      <span className="contract__reward">{fmt(card.reward)}</span>
+    </header>
+    <h3 className="contract__title">Crew daily</h3>
+    <p className="contract__locked"><Icon name="users" size={16} />
+      <span>Shows up when a crewmate is online. Make or join a crew: F1 › Crew, or ALT + click a player.</span></p>
+  </article>;
   return <article className={cx("contract", `is-${state}`, weekly && "is-weekly")} aria-label={`${meta.label}: ${card.title}`}>
     <header className="contract__head">
       <span className="contract__slot"><Icon name={meta.icon} size={12} />{meta.label}</span>
+      {card.social && card.slot !== "crew" && <Badge tone="outline" title="Done with other players: handed out when enough people are on the server.">WITH OTHERS</Badge>}
       {ends && <small className="contract__ends">ENDS IN {ends}</small>}
       <span className="contract__reward">{fmt(card.reward)}</span>
     </header>
@@ -233,7 +259,7 @@ function ContractCard({ card, d, fmt, request, weekly, armed, ends, onClaim, onS
     <footer className="contract__foot">
       {state === "claimable" && <Button size="sm" icon={busy ? "loader" : "coins"} disabled={!!request.pending} onClick={onClaim}>
         {busy ? "PAYING…" : `CLAIM ${fmt(card.reward)}`}</Button>}
-      {state === "budget" && <span className="contract__note is-warn"><Icon name="lock" size={12} />Today's contract budget is spent. Resets at 00:00 UTC.</span>}
+      {state === "budget" && <span className="contract__note is-warn"><Icon name="lock" size={12} />Today's dailies budget is spent. Resets at 00:00 UTC.</span>}
       {state === "crew" && <span className="contract__note"><Icon name="users" size={12} />Needs a crewmate: F1 › Crew.</span>}
       {state === "progress" && card.slot === "weekly" && <span className="contract__note">Outside the daily budget.</span>}
       {card.swappable && onSwap && state !== "claimed" && <button className={cx("contract__swap", armed && "is-armed")} disabled={!!request.pending} onClick={onSwap}>

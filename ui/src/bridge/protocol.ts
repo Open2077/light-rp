@@ -158,13 +158,13 @@ export interface UiState {
   worldBoss?: WorldBossState | false;
   /** The last end-of-match recap kept for F1 > Last match (server/modules/recap.lua); false: none. */
   recap?: RecapState | false;
-  /** Daily Contracts (server/modules/dailies.lua D.view; features/dailies). */
+  /** Dailies (server/modules/dailies.lua D.view; features/dailies). */
   dailies?: DailiesState;
   /** Earned titles and the one shown (server/modules/titles.lua T.view; features/dailies). */
   titles?: TitlesState;
 }
 
-/* ── Daily Contracts and titles (server/modules/dailies.lua, titles.lua; docs/dailies-titles.md) ── */
+/* ── Dailies and titles (server/modules/dailies.lua, titles.lua; docs/dailies-titles.md) ── */
 export type DailySlot = "street" | "action" | "shift" | "crew" | "weekly";
 /** One contract card. `value`/`target` in `unit` (m, s, or a count when absent). */
 export interface DailyCard {
@@ -174,6 +174,10 @@ export interface DailyCard {
   swappable?: boolean;
   /** A crew contract while the player has no crewmate. */
   needsCrew?: boolean;
+  /** No crewmate online and not started: the card is a placeholder until one shows up. */
+  crewLocked?: boolean;
+  /** Done with other players (handed out only when the server has enough of them). */
+  social?: boolean;
 }
 /** `ready` false: no character loaded yet. Countdowns are from the push. `older`: finished
  *  and unpaid from yesterday (or last week on Monday), still claimable. */
@@ -305,7 +309,7 @@ export interface ActivitiesState {
   /** In a crew led by someone else: the leader's name (only the leader starts activities). */
   crewLeader?: string;
 }
-export type ActivitiesTab = "activities" | "contracts" | "crew";
+export type ActivitiesTab = "activities" | "contracts" | "dailies" | "crew";
 
 /** The Hall of Fame at The Crossing (server/modules/halloffame.lua): one tab per
  *  dialog payload, from the server cache. Names are character names only. */
@@ -691,6 +695,7 @@ export type UiAction =
   | { type: "dailies.open"; tab?: DailiesTab }
   | { type: "dailies.claim"; id: string }
   | { type: "dailies.swap"; slot: DailySlot }
+  | { type: "dailies.refresh" }
   | { type: "titles.select"; id: string }
   | { type: "guide.open"; from?: string }
   | { type: "guide.topic"; id: string }
