@@ -457,11 +457,24 @@ local function toggleFreeCursor(board)
     present(board);applyFocus()
     sendView(true)
 end
+-- Choosing Free is remembered on this machine (Open77.kvp): every table
+-- opens in Free until a scripted view is chosen again.
+local VIEW_PREFERENCE="boardGames:view"
+local function rememberFree(free)
+    if type(Open77.kvp)~="table" then return end
+    if free then pcall(Open77.kvp.set,VIEW_PREFERENCE,"free") else pcall(Open77.kvp.delete,VIEW_PREFERENCE) end
+end
+local function prefersFree()
+    if type(Open77.kvp)~="table" or type(Open77.kvp.get)~="function" then return false end
+    local ok,value=pcall(Open77.kvp.get,VIEW_PREFERENCE)
+    return ok and value=="free"
+end
 local function setView(board,view)
     local valid=false
     for _,entry in ipairs(active.views) do if entry.key==view then valid=true end end
     if not valid then return false end
     active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;active.orbitDrag=nil;pointerDown=false
+    rememberFree(view=="free")
     if view=="free" then
         if active.cameraView~="free" then enterFree(board) end
         sendView(true)
@@ -486,10 +499,13 @@ local function startView(board)
         return
     end
     local views=viewsOf(board)
+    local free=false
+    if prefersFree() then for _,entry in ipairs(views) do if entry.key=="free" then free=true end end end
     active={id=board.id,revision=board.revision,views=views,cameraView=views[1].key,orbitAngle=-90,orbitZoom=1,orbitLift=1}
     takeInput()
     if LightRpTabletopExtraClient then LightRpTabletopExtraClient.setActive(extra(board) and board or nil) end
-    local ok,why=enterCamera(board,active.cameraView)
+    local ok,why=true,nil
+    if free then enterFree(board) else ok,why=enterCamera(board,active.cameraView) end
     if not ok then
         trace("camera_refused",board.id,"view=%s %s",active.cameraView,tostring(why))
         notice("The table camera is unavailable: play from your own view.",titleOf(board.kind))
@@ -1686,8 +1702,12 @@ function Client.start()
                 -- The table keys stay inert while chat or another page types,
                 -- or the pause menu is open. Our own page holding the keyboard
                 -- (or the cursor) is not someone typing.
-                local menu=Client.isActive() and Open77.session~=nil and type(Open77.session.isMenuOpen)=="function" and Open77.session.isMenuOpen()==true
-                local typing=(Client.isActive() and Open77.input.isCaptured()==true and not ownKeyboard()) or menu
+                -- Live on 176, our own page holding the keyboard also reports a
+                -- "menu" open, which made every placement key inert: neither
+                -- counts as typing while the keyboard is ours.
+                local own=ownKeyboard()
+                local menu=Client.isActive() and not own and Open77.session~=nil and type(Open77.session.isMenuOpen)=="function" and Open77.session.isMenuOpen()==true
+                local typing=(Client.isActive() and Open77.input.isCaptured()==true and not own) or menu
                 if Client.isActive() then
                     for _,k in ipairs({"E",FREE_CURSOR_KEY,"LEFT","RIGHT","PAGEUP","PAGEDOWN","mouse1"}) do
                         keys[k]=not typing and Open77.input.isDown(k)==true
@@ -1742,10 +1762,11 @@ function Client.start()
                     if draft and now>=draft.traceAt then
                         draft.traceAt=now+PLACE_WAIT_TRACE_MS
                         local page=Ui.page
-                        trace("place_wait",nil,"kind=%s ready=%s focus=%s hasFocus=%s captured=%s typing=%s pointer=%s page=%s keys=%s",
+                        trace("place_wait",nil,"kind=%s ready=%s focus=%s hasFocus=%s captured=%s typing=%s menuOpen=%s pointer=%s page=%s keys=%s",
                             draft.kind,tostring(ghostProp and ghostProp.ready),tostring(focusMode),
                             tostring(page and type(page.hasFocus)=="function" and page:hasFocus()),tostring(Open77.input.isCaptured()),
-                            tostring(typing),tostring(draft.seenPointer==true),tostring(draft.seenPage==true),tostring(draft.seenKeys==true))
+                            tostring(typing),tostring(Open77.session~=nil and type(Open77.session.isMenuOpen)=="function" and Open77.session.isMenuOpen()),
+                            tostring(draft.seenPointer==true),tostring(draft.seenPage==true),tostring(draft.seenKeys==true))
                     end
                 elseif active then
                     local board=Client.boards[active.id]

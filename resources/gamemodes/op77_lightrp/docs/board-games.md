@@ -118,6 +118,11 @@ look is held meanwhile, the cursor also picks on the table) and gives it back
 (*H back to the crosshair*); H is free on foot (E interacts, T chats, F/G/X/Y/B
 are actions). Escape still leaves, and walking away still leaves (3.5 m for
 1.5 s, or 5 m). The left button is inert while chat or another page types.
+Choosing Free is remembered on this machine (`Open77.kvp` key
+`boardGames:view`): every table then opens in Free, until a scripted view is
+chosen again. On 176 `Open77.session.isMenuOpen()` also answers true while
+our own page holds the keyboard (seated, placing, Free), so the table keys and
+the left button only treat it as a menu when the page does not hold the focus.
 Another view puts the scripted camera, the freeze, the cursor and the hidden
 HUD back. (The previous flying "free camera" around the table is gone;
 `client/core/freecam_motion.lua` remains for `client/core/freecam.lua`.)

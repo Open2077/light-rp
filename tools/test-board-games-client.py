@@ -86,6 +86,10 @@ function Open77.character.state() return char end
 function Open77.character.setFrozen(v) frozen=v;return true end
 function Open77.input.isDown(k) if deafKeys then return false end;return keys[k]==true end
 function Open77.input.isCaptured() return captured==true or focus end
+-- As live on 176: any page holding the keyboard, ours included, is a "menu".
+Open77.session={isMenuOpen=function() return captured==true or keyboard==true or focus==true end}
+kvpStore={}
+Open77.kvp={get=function(k) return kvpStore[k] end,set=function(k,v) kvpStore[k]=v;return true end,delete=function(k) kvpStore[k]=nil;return true end}
 function Open77.input.cursor() error('picking uses the page pointer, never the OS cursor') end
 function Open77.camera.cameras()
  if registryNil then return nil end
@@ -474,6 +478,7 @@ cam({cycle=true});assert(view.view=='free' and view.free and view.free.cursor==f
 assert(not camera and stoppedCamera and not frozen and not cinematic and voiceHudBlocked==false and rotationFrozen==false,'Free gives the character, the look and the HUD back')
 assert(keyboard and keepInput and not focus and consumedKeys[1]=='escape','Free: the keyboard for Escape, no cursor')
 assert(traced('view_free'),'entering Free traces the focus it got')
+assert(kvpStore['boardGames:view']=='free','choosing Free is remembered')
 -- The crosshair aims (the screen-centre ray), the left button plays: e2 then e4.
 local function aimSquare(col,row) forcedRay={origin={x=((col-.5)/8-.5)*.65,y=((row-.5)/8-.5)*.65,z=2},direction={x=0,y=0,z=-1}} end
 aimSquare(5,7);step();step()
@@ -503,6 +508,7 @@ assert(not focus and keyboard and rotationFrozen==false and view.free.cursor==fa
 count=#requests
 cam({cycle=true});assert(view.view=='top' and camera and cameraCreates==2 and frozen and focus and cinematic and voiceHudBlocked and rotationFrozen==true and not view.free)
 assert(cameraOptions.thirdPersonBody==true,'the recreated camera renders the player body')
+assert(kvpStore['boardGames:view']==nil,'a scripted view forgets Free')
 -- A later snapshot animates the same piece rather than moving instantly.
 local pawnHandle
 local function pawnY()
@@ -566,6 +572,12 @@ assert(not keyboard and #consumedKeys==0 and marks()==0,'the keyboard, Escape an
 assert(rotationFrozen==false,'the body turns again')
 assert(not camera and stoppedCamera and not frozen and not focus and cinematic==false and voiceHudBlocked==false and view.active==false)
 step();assert(contextTargetingEnabled==true,'the target menu is back')
+-- Free chosen once opens every table in Free (remembered on this machine).
+kvpStore['boardGames:view']='free';clock=clock+5000
+board.revision=board.revision+1;events['lightrp:boardGames:state']({boards={board}});step()
+assert(C.isActive() and view.view=='free' and not camera and not frozen and keyboard and not focus,'the remembered Free view opens the table')
+assert(not traced('camera_refused'),'Free needs no table camera')
+escape();assert(not C.isActive());kvpStore={};clock=clock+5000
 -- Membership removal snapshot prevents reopening.
 board.players={};events['lightrp:boardGames:state']({boards={board}})
 -- Switching nearest full boards must release old tags BEFORE allocating replacements.
