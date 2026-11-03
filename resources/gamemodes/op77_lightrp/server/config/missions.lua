@@ -47,8 +47,9 @@ LightRpMissions = {
     -- One routing bucket per running mission: base + instance number.
     bucketBase = 3000000,
     -- What a finished mission (raid and fixer gig included) pays out in
-    -- reputation, per difficulty. A gig crew member below a difficulty's tier gets
-    -- the gain of the highest difficulty their tier allows.
+    -- reputation, per difficulty. A crew member below the difficulty (its tier, or
+    -- on a board its clear ladder) gets the gain of the highest difficulty they
+    -- have unlocked.
     reputationGain = { standard = 100, hard = 220, critical = 450 },
     -- Crews (server/modules/parties.lua): size, invite lifetime, the radius of the
     -- "players around you" lists, the invite range, the distance past which a

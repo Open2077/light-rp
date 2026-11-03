@@ -12,9 +12,11 @@ de pointe correspond à la difficulté la plus dure. Le PvP (modes PvP de l'arè
 poursuite NCPD 1v1 / Most Wanted, Turf War PvP) ne donne **ni réputation ni puissance** :
 victoires, statistiques, classements, rangs.
 
-**Rien n'est fusionné avant que le propriétaire ait validé les chiffres ci-dessous.** Tous sont
-dans la configuration (`server/config/missions.lua`, `server/config/activities.lua`,
-`server/config/cyberware.lua`) et se règlent sans toucher au code.
+**Validé par le propriétaire le 2026-11-03 et fusionné dans `lightrp/pve-merge`** (avec les
+crews de `lightrp/activities`), avec un changement : les équipiers sous le palier ne sont plus
+jamais refusés (§8, décision 5). Tous les chiffres sont dans la configuration
+(`server/config/missions.lua`, `server/config/activities.lua`, `server/config/cyberware.lua`) et
+se règlent sans toucher au code.
 
 ## 1. Les paliers de réputation (« Street Cred »)
 
@@ -76,7 +78,11 @@ précédente a été réussie au même point (l'échelle actuelle « Standard av
 on apprend la mission avant de la durcir). Les deux conditions se règlent séparément
 (`reputation.requireTier`, `reputation.requireClear`). Le palier requis vient de l'id de la
 difficulté (`standard` → I, `hard` → II, `critical` → III) : les missions de l'éditeur, qui n'ont
-pas de palier, suivent la même règle. Chaque membre d'une escouade doit avoir le palier.
+pas de palier, suivent la même règle. Ces deux conditions bornent le choix du **chef** du crew
+(et d'un joueur solo) ; un **membre** du crew sous la difficulté choisie n'est jamais refusé : il
+est inscrit et lancé avec le crew, joue la difficulté pleine, touche la paie entière, et gagne la
+réputation de la plus haute difficulté que lui a ouverte (palier **et** clears ;
+`Missions.rewardBasis`). Il le lit une fois, en notice « STREET CRED », à l'inscription.
 
 **Gigs de fixers.** Le fixer ne propose au propriétaire du gig que des difficultés de son palier.
 Un équipier invité par partage peut être d'un palier inférieur (le propriétaire se porte garant),
@@ -84,9 +90,10 @@ mais il ne gagne que la réputation de la difficulté la plus haute que son pali
 Street porté dans un gig Critical gagne 100, pas 450. Cela empêche le « boost » sans interdire de
 jouer entre amis.
 
-**Activités PvE.** Le noyau refuse de rejoindre une difficulté au-dessus du palier du joueur. Un
-équipier entré par le fournisseur sans être passé par le panneau est vérifié au moment du
-résultat : sa réputation est calculée sur la difficulté la plus haute de son palier.
+**Activités PvE.** Le noyau refuse à un joueur solo ou à un chef de crew une difficulté au-dessus
+de son palier. Un membre de crew reçoit la difficulté du chef, même au-dessus de son palier :
+il la joue en entier et son résultat compte à la difficulté la plus haute de son palier (dit une
+fois en notice). Le mode bots du staff n'enregistre toujours aucun résultat, PvE compris.
 
 ## 3. Le cyberware après le changement
 
@@ -202,13 +209,15 @@ personnages), par jour UTC.
 - Le panneau propose la difficulté (cadenas et palier requis sur celles qui sont fermées) ; le
   noyau refuse la demande au-dessus du palier et transmet `options.difficulty` et
   `options.scaling`.
-- `activityCheck(id, activityId, { difficulty })` : vérifie aussi le palier (pour les équipiers
-  qu'un fournisseur fait entrer avec un chef de groupe).
-- `activityEnter(id, activityId, { difficulty })` : refuse au-dessus du palier et retient la
-  difficulté sur l'entrée ; sans ce troisième argument, l'entrée reprend celle de la demande du
-  panneau, sinon la première proposée. Un équipier sous le palier de la difficulté du chef est
-  **refusé**, pas abaissé : au fournisseur de le laisser dehors ou de l'inscrire à une instance de
-  son palier (question 5 du §8).
+- `activityCheck(id, activityId, { difficulty })` : vérifie aussi le palier — celui du joueur, ou
+  pour un membre de crew celui de son chef : un membre sous la difficulté passe dès que son chef
+  peut la choisir.
+- `activityEnter(id, activityId, { difficulty })` : refuse au-dessus du palier d'un joueur solo ou
+  d'un chef, et retient la difficulté sur l'entrée ; sans ce troisième argument, l'entrée reprend
+  celle de la demande du panneau (celle du chef pour un membre mis en file avec lui), sinon la
+  première proposée. Un membre de crew sous le palier de la difficulté du chef **entre** à cette
+  difficulté (le fournisseur l'inscrit dans l'instance du chef, rien à changer) ; seule sa
+  réputation est abaissée (`e.carried`, notice « STREET CRED » une fois).
 - Crochet de module `onActivityChanged(id, activityId, { pve, kind, difficulty })` à l'entrée,
   `onActivityChanged(id, nil, { left, reason })` à la libération (utilisé par le cyberware).
 - Commande joueur : `/activity join <id> <difficulté>` (par ex. `arena.pve hard`).
@@ -229,7 +238,7 @@ personnages), par jour UTC.
 Tous : lire `options.squad` comme aujourd'hui, et appeler `activityCheck(membre, id, { difficulty })`
 avant de faire entrer un équipier qui n'est pas passé par le panneau.
 
-## 7. Implémentation (branche `lightrp/pve-progression`)
+## 7. Implémentation (branche `lightrp/pve-progression`, fusionnée dans `lightrp/pve-merge`)
 
 - `server/config/missions.lua` : cinq seuils, noms des paliers, palier par difficulté,
   `requireTier` / `requireClear`.
@@ -247,8 +256,21 @@ avant de faire entrer un équipier qui n'est pas passé par le panneau.
   reconstruire au moment de fusionner (`npm run build` dans `ripperdoc-ui`).
 - Panneau Activités et tableau de mission (`ui/`) : choix de difficulté verrouillé, palier requis,
   palier du joueur.
+- Après la décision du 2026-11-03 (`lightrp/pve-merge`) : `Missions.rewardBasis` /
+  `Missions.reputationFor(id, d, point, ladder)` (la récompense de la plus haute difficulté
+  ouverte), `Missions.tellCarried` (la notice), le drapeau `carried` des membres d'un tableau
+  (pas de porte à l'inscription ni au lancement) ; `difficultyFor` dans `activities.lua` (la porte
+  du chef pour un membre), la difficulté du chef sur la file des membres ; la notice de fin nomme
+  la difficulté jouée et celle qui a payé ; le tableau de mission expose `reputation`, `earns`,
+  `earnsAs` par difficulté (un membre peut ouvrir le tableau d'une difficulté qui lui est fermée).
 
-## 8. À décider par le propriétaire
+## 8. Décisions du propriétaire (2026-11-03)
+
+En bref : paliers, noms, prix du haut de gamme, poids PvE et 500/jour validés tels que proposés ;
+l'échelle « réussir la précédente » est gardée ; le cyberware reste actif en PvP classé ; les
+implants déjà posés au-dessus du palier restent posés et actifs ; **un équipier sous le palier
+n'est jamais refusé** (il joue, pour la récompense de ce qu'il a ouvert) ; titres cosmétiques PvP
+voulus plus tard, pas construits maintenant. Les questions telles qu'elles étaient posées :
 
 1. **Cyberware en PvP classé.** Aujourd'hui les implants restent actifs dans toutes les activités
    (sauf les lames Mantis, refusées quand l'activité range les armes RP). Faut-il les couper en PvP
@@ -256,15 +278,26 @@ avant de faire entrer un équipier qui n'est pas passé par le panneau.
    (comportement actuel)**. À `false`, entrer dans une activité non PvE suspend Dash, Overdrive,
    Ground Slam et les bonus passifs, rendus à la sortie. Limite : les jambes et bras durables
    (double saut, Gorilla Arms) restent actifs, la plateforme les tient en enregistrement durable.
-2. **Seuils** `0 / 500 / 1 500 / 4 000 / 10 000` et noms des paliers.
+   → **Décidé : actifs** (`activeInPvp = true`, le défaut).
+2. **Seuils** `0 / 500 / 1 500 / 4 000 / 10 000` et noms des paliers. → **Validés.**
 3. **Prix du haut de gamme** (85–120 k) à caler sur les gains de missions de l'agent économie.
+   → **Validés tels que proposés.**
 4. **Échelle des missions** : garder « réussir la difficulté précédente » en plus du palier ?
+   → **Gardée.**
 5. **Équipiers sous le palier** : refusés aux tableaux de mission (chaque membre doit avoir le
    palier), acceptés dans un gig partagé avec la réputation de leur palier. Convient-il ?
+   → **Changé : jamais refusés.** Quand le chef choisit une difficulté (tableau de mission, raid
+   Chimera, gig, activité PvE par `activityCheck` / `activityEnter` avec `{ difficulty }` ou par
+   la file du crew), un membre dont le palier (ou le clear précédent) ne l'ouvre pas entre quand
+   même et la joue pleine ; seule sa réputation tombe à celle de la plus haute difficulté qu'il a
+   ouverte (la règle des gigs, partout). La porte du chef reste (il ne choisit que ce qu'il a
+   ouvert) ; un joueur solo reste soumis à la porte. Le membre le lit une fois : « Critical is
+   above your street cred: you play it, you earn the Standard reward. »
 6. **Implants déjà posés** au-dessus du palier : conservés (proposé) ou déposés et remboursés ?
-7. **Titres cosmétiques PvP** : oui / non.
+   → **Conservés et actifs.**
+7. **Titres cosmétiques PvP** : oui / non. → **Voulus plus tard, pas construits maintenant.**
 8. **Réputation des activités PvE** : 30 / 60 / 100 par résultat, poids par activité, 500 par
-   jour.
+   jour. → **Validés.**
 
 ## 9. Vérifier en jeu
 
@@ -288,3 +321,9 @@ avant de faire entrer un équipier qui n'est pas passé par le panneau.
 6. Le bundle de la clinique doit d'abord être reconstruit (`npm run build` dans `ripperdoc-ui`,
    qui écrit `resources/standalone/op77_ripperdoc/web`) pour voir les verrous ; sans cela le
    serveur refuse quand même la pose, la page affiche seulement l'erreur.
+7. Crew sous le palier : un chef à 5 000 avec Standard et Hard réussis (`/missions.unlock`), un
+   membre à 0 dans son crew, `/missions.size sector04_blackout critical 2 8`. Le tableau du
+   membre montre Critical verrouillé « WITH THE CREW +100 REP » ; le chef inscrit Critical, la
+   réponse dit « reduced reward: <membre> (Standard) », le membre lit la notice STREET CRED ;
+   `/missions.complete <chef>` : paie Critical aux deux, +450 au chef, « +100 reputation
+   (Standard reward) » au membre. Le même membre seul est refusé à Critical.

@@ -40,7 +40,9 @@ LightRpActivities = {
     -- `pve = true` in activityRegister and lists the difficulties it really plays
     -- (`difficulties = { "standard", "hard", "critical" }`); without the flag, an id
     -- listed in `activities` here counts as PvE (`pve = false` wins over the list).
-    -- The core refuses a difficulty above the player's reputation tier and hands the
+    -- The core refuses a difficulty above the reputation tier of a solo player or a
+    -- crew leader (a crew member below the leader's pick plays it, and their result
+    -- counts at the highest difficulty their tier opens) and hands the
     -- provider options.difficulty and options.scaling (the provider translates it
     -- into bots, health, damage and AI). Reputation per result: the difficulty's
     -- `reputation` x the activity's `weight` (a long run weighs more), the full
