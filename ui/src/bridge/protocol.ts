@@ -150,6 +150,14 @@ export interface UiState {
 
   /** Arena, races, chases, events and The Crossing (server/modules/activities.lua A.view). */
   activities?: ActivitiesState;
+  /** A world boss whose zone you are in, or that you fought (server/modules/world_bosses.lua). */
+  worldBoss?: WorldBossState | false;
+}
+export interface WorldBossState {
+  id: string; title: string; location: string; boss: string; phase: "fight" | "cleanup" | "done";
+  bossHealth: number; enemiesLeft: number; fighters: number; endsInMs?: number;
+  share: number; minShare: number; eligible: boolean; damage: number; kills: number; reward: number; inZone: boolean;
+  result?: { success: boolean; share: number; pay: number; eligible: boolean; damage: number; kills: number } | null;
 }
 export interface FixerGigState {
   id: number; title: string; location: string; fixer: string; state: "accepted" | "countdown";
@@ -369,6 +377,8 @@ export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "amm
 export interface ArsenalWeapon {
   slot: number; instanceId: string; name: string; label: string; class?: string; ammo?: string; ammoLabel?: string;
   rounds?: number; image?: string; dual?: boolean; hand?: "right" | "left";
+  /** A mission kit weapon (instanceId "kit:1" / "kit:2"), during a mission. */
+  kit?: boolean;
 }
 export interface ArmamentWeapon {
   instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;

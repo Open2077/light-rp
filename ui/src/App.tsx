@@ -29,6 +29,8 @@ import { MissionDialog } from "@/features/missions/MissionDialog";
 import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
 import { FixerGigHud } from "@/features/missions/FixerGigHud";
+import { WorldBossHud } from "@/features/missions/WorldBossHud";
+import { AnnounceHalo } from "@/features/announce/AnnounceHalo";
 import { RaidHud } from "@/features/missions/RaidHud";
 import { ActivityHud } from "@/features/activityhud/ActivityHud";
 import { Medical } from "@/features/medical/Medical";
@@ -88,6 +90,8 @@ export function App() {
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
       <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
       <ErrorBoundary name="fixer-gig"><FixerGigHud /></ErrorBoundary>
+      <ErrorBoundary name="world-boss"><WorldBossHud /></ErrorBoundary>
+      <ErrorBoundary name="announce"><AnnounceHalo /></ErrorBoundary>
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>

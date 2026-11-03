@@ -42,6 +42,7 @@ _G.SetPlayerRoutingBucket = function(id, b) buckets[id] = b return true end
 _G.GetPlayerIdentifier = function(id) return "license:" .. id end
 _G.GetPlayerName = function(id) return "P" .. id end
 _G.TriggerClientEvent = function(name, target, payload) sent[#sent + 1] = { name = name, target = target, payload = payload } end
+_G.TriggerLatentClientEvent = function(name, target, _, payload) sent[#sent + 1] = { name = name, target = target, payload = payload, latent = true }; return #sent end
 _G.RegisterNetEvent = function(name, fn) netHandlers[name] = fn end
 _G.AddEventHandler = function() end
 
@@ -151,6 +152,25 @@ local function request(player, operation, payload)
     return reply
 end
 
+-- `list` answers how many, then streams one `mission` event each, then `listed`
+local function listAll(player)
+    local r = request(player, "list")
+    if not r.ok then return r end
+    local from, got, total = #sent, {}, nil
+    for _ = 1, 2000 do
+        run(50)
+        for i = from + 1, #sent do
+            local e = sent[i].payload
+            if e.stream == r.request and e.kind == "mission" then got[#got + 1] = e.mission; assert(not sent[i].latent, "one mission per event, small")
+            elseif e.stream == r.request and e.kind == "listed" then total = e.total end
+        end
+        from = #sent
+        if total then break end
+    end
+    assert(total and total == #got and r.data.total == total and r.data.streamed and r.data.missions == nil, "streamed list")
+    return { ok = true, data = { missions = got, ready = r.data.ready, fixers = r.data.fixers } }
+end
+
 -- ── the format ──────────────────────────────────────────────────────────────
 local O = { x = 100, y = 200, z = 10 }
 local function base(kind)
@@ -216,7 +236,7 @@ assert(r2.ok and r2.data.mission.revision == 2 and Missions.point(id).title == "
 -- a reload from storage gives the same mission back
 LightRP.missionEditor.records = {}
 assert(LightRP.missionEditor.load() and LightRP.missionEditor.records[id].revision == 2, "reloaded from storage")
-assert(#request(1, "list").data.missions == 1, "listed")
+assert(#listAll(1).data.missions == 1, "listed")
 
 -- ── Elimination: test run ───────────────────────────────────────────────────
 local launched = request(1, "test", { id = id, difficulty = "hard" })
@@ -392,5 +412,15 @@ assert(not Missions.instanceOf(1) and noticed("ZONE CLEARED"), "behaviour missio
 -- ── withdrawal ──────────────────────────────────────────────────────────────
 local del = request(1, "delete", { id = id, baseRevision = 2, mutation = "mutation-0006" })
 assert(del.ok and not Missions.point(id), "deleted: the board is gone")
-assert(#request(1, "list").data.missions == 2, "two missions left")
-print("PASS: mission editor (format, storage, protocol, test runs, elimination + checkpoints, perimeter kill, respawns, wipe, survival waves, behaviours, withdrawal)")
+assert(#listAll(1).data.missions == 2, "two missions left")
+-- a long list never travels in one event: every mission in its own (the third mission
+-- once pushed the whole list past the 1024-value cap)
+for i = 1, 12 do
+    local r = request(1, "save", { mission = base(), mutation = "bulk-mission-" .. i })
+    assert(r.ok, tostring(r.error))
+end
+local listed = listAll(1)
+assert(#listed.data.missions >= 12, "all of them, one by one")
+for _, m in ipairs(listed.data.missions) do assert(LightRP.missionEditor.countValues(m) < 900) end
+
+print("PASS: mission editor (streamed list, format, storage, protocol, test runs, elimination + checkpoints, perimeter kill, respawns, wipe, survival waves, behaviours, withdrawal)")

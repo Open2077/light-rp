@@ -48,7 +48,7 @@ _G.Open77 = { players = {
 _G.LightRpEvents = { net = { mission = "op77_lightrp:mission" } }
 
 -- op77_neuralink: lines by number, rich messages kept with their meta
-local lines, messages, msgSeq = {}, {}, 0
+local lines, messages, msgSeq, toasts = {}, {}, 0, {}
 local function numberOfPlayer(id) return string.format("555-%04d", id) end
 local neuralink = {
     npcLine = function(_, key, number, name) lines[number] = { npc = key, name = name }; return number end,
@@ -65,6 +65,7 @@ local neuralink = {
         messages[msgSeq] = { id = msgSeq, from = from, to = to, body = body, meta = meta }
         return msgSeq, 100 + to
     end,
+    notify = function(_, id, title, body) toasts[#toasts + 1] = { id = id, title = title, body = body }; return true end,
     updateMessage = function(_, id, patch) local m = messages[id]; if not m then return false end; m.meta = m.meta or {}; for k, v in pairs(patch) do m.meta[k] = v end; return true end,
 }
 _G.exports = setmetatable({}, { __index = function(_, res) if res == "op77_neuralink" then return neuralink end end })
@@ -190,9 +191,15 @@ for _, a in ipairs(brief2.meta.actions) do ids2[a.id] = true end
 assert(not ids2.go and ids2.bail and ids2.share, "only the owner says go")
 press(2, brief2, "go")
 assert(not lastResult(2).ok)
+-- "Go now" far from the point says why, in the phone and in the conversation
+local m0 = msgSeq
+press(1, brief, "go")
+assert(not lastResult(1).ok and lastResult(1).text:find("m away"), "the distance is given: " .. tostring(lastResult(1).text))
+assert(toasts[#toasts].id == 1 and toasts[#toasts].body:find("m away"), "a toast in the phone")
+assert(msgSeq == m0 + 1 and messages[msgSeq].to == 1 and messages[msgSeq].body:find("m away"), "the fixer writes why")
 
 -- ── the meeting: one there, then both -> countdown -> launch ──
-positions[1] = { x = at.x + 3, y = at.y, z = at.z }
+positions[1] = { x = at.x + 3, y = at.y, z = at.z + 8 } -- a floor above the point still counts
 tick(1000)
 assert(providers.fixerGig(1).here == 1 and providers.fixerGig(1).state == "accepted", "waiting for the whole crew")
 positions[2] = { x = at.x - 4, y = at.y, z = at.z }

@@ -31,8 +31,10 @@ LightRpFixers = {
     offerSeconds = 180,
     -- How long the crew has to reach the meeting point once the owner accepted.
     meetMinutes = 20,
-    -- The meeting point: everyone within this radius counts as there.
+    -- The meeting point: everyone within this radius (horizontal) and this height
+    -- difference counts as there.
     meetRadius = 20.0,
+    meetHeight = 15.0,
     -- Countdown once the whole crew is at the point (or the owner says go).
     launchSeconds = 10,
     -- Shares one gig can send (pending + accepted), and per minute.

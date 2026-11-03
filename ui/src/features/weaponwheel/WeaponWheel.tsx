@@ -19,7 +19,7 @@ const DEAD = 26, CLAMP = 120;         // virtual stick: dead zone and reach, px
 const POP = 14;                       // how far the aimed slot leaves the ring
 const CLASS: Record<string, string> = {
   pistol: "PISTOL", revolver: "REVOLVER", smg: "SUBMACHINE GUN", shotgun: "SHOTGUN", rifle: "ASSAULT RIFLE",
-  lmg: "LIGHT MACHINE GUN", precision: "PRECISION RIFLE", sniper: "SNIPER RIFLE",
+  lmg: "LIGHT MACHINE GUN", precision: "PRECISION RIFLE", sniper: "SNIPER RIFLE", kit: "MISSION KIT",
 };
 
 type Slot = { key: string; kind: "unarmed" | "weapon" | "empty"; weapon?: ArsenalWeapon };
@@ -47,6 +47,7 @@ function Fist({ size = 64 }: { size?: number }) {
 }
 
 function state(weapon: ArsenalWeapon, armament?: ArmamentState): { text: string; tone: string } {
+  if (weapon.kit) return { text: "MISSION KIT", tone: "accent" };
   if (weapon.hand === "right" || weapon.hand === "left")
     return armament?.holstered ? { text: "HOLSTERED", tone: "steel" } : { text: weapon.hand === "left" ? "LEFT HAND" : "IN HAND", tone: "accent" };
   return { text: "IN POCKETS", tone: "dim" };
@@ -174,7 +175,8 @@ export function WeaponWheel() {
   const n = slots.length, step = 360 / n, rMid = (R_IN + R_OUT) / 2 + 6;
   const hovered = slots[Math.min(index, n - 1)] ?? slots[0]!;
   const w = hovered.weapon, st = w ? state(w, armament) : null;
-  const empty = w && (w.rounds ?? 0) <= 0;
+  // a mission kit weapon carries no pocket count: never "no ammo"
+  const empty = w && typeof w.rounds === "number" && w.rounds <= 0;
   return <>
     {toastView}
     <div className={`ww is-${phase}`} data-testid="weapon-wheel">
@@ -213,7 +215,8 @@ export function WeaponWheel() {
             style={{ left: HALF + x, top: HALF + y, "--i": i } as CSSProperties}>
             {s.kind === "weapon" && s.weapon && <>
               <span className="ww__art">{s.weapon.image ? <img src={s.weapon.image} alt="" draggable={false} /> : null}</span>
-              <span className={`ww__rounds${(s.weapon.rounds ?? 0) <= 0 ? " is-empty" : ""}`}>{pad(s.weapon.rounds)}</span>
+              {s.weapon.kit ? <span className="ww__rounds">KIT</span>
+                : <span className={`ww__rounds${(s.weapon.rounds ?? 0) <= 0 ? " is-empty" : ""}`}>{pad(s.weapon.rounds)}</span>}
               {s.weapon.hand && <i className={`ww__held${armament?.holstered ? " is-holstered" : ""}`} />}
             </>}
             {s.kind === "unarmed" && <><Fist size={46} /><span className="ww__item-label">HOLSTER</span></>}
@@ -225,9 +228,9 @@ export function WeaponWheel() {
             {hovered.kind === "weapon" && w && <>
               <span className="ww__tag">{CLASS[w.class ?? ""] ?? "WEAPON"}</span>
               <b className="ww__name">{w.label}</b>
-              <div className="ww__ammo"><strong className={empty ? "is-empty" : ""}>{pad(w.rounds)}</strong><small>{(w.ammoLabel ?? "rounds").toUpperCase()}</small></div>
+              {!w.kit && <div className="ww__ammo"><strong className={empty ? "is-empty" : ""}>{pad(w.rounds)}</strong><small>{(w.ammoLabel ?? "rounds").toUpperCase()}</small></div>}
               <span className={`ww__chip ww__chip--${empty ? "danger" : st!.tone}`}>{empty ? "NO AMMO" : st!.text}</span>
-              <span className="ww__serial">SN {w.instanceId.slice(0, 8).toUpperCase()}</span>
+              <span className="ww__serial">{w.kit ? "Issued for the mission" : `SN ${w.instanceId.slice(0, 8).toUpperCase()}`}</span>
             </>}
             {hovered.kind === "unarmed" && <>
               <span className="ww__tag">HOLSTER</span>
