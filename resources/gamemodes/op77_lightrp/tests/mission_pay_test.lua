@@ -84,6 +84,50 @@ for _, P in ipairs({ { 3500, 25 }, { 5000, 30 }, { 9000, 45 }, { 3000, 20 }, { 4
     assert(Pay.cap(P[1], { minutes = P[2] }) == P[1], "the shipped missions sit under the ceiling")
 end
 
+-- ── authored missions and gigs (prod audit 2026-11-04): a band, and the content's size ──
+-- The prod contracts as the editor saved them (15 / 15 / 20 min, 1 / 1 / 2 operators):
+-- the band holds whatever the payout and the time limit, the per-minute guard stays.
+local A = C.authored
+assert(A.maxShare.standard == 2600 and A.maxShare.hard == 3300 and A.maxShare.critical == 5000)
+local function authoredD(id, minutes, enemies) return { id = id, minutes = minutes, min = 1, enemies = enemies } end
+assert(Pay.cap(8000, authoredD("standard", 15, 18)) == 2600, "WAREHOUSE standard: 8,000 saved, 2,600 paid (not 250 x 15)")
+assert(Pay.cap(30000, authoredD("hard", 15, 36)) == 3300, "VAMOS hard: 30,000 saved, 3,300 paid")
+assert(Pay.cap(80000, authoredD("critical", 20, 48)) == 5000, "TERMINAL B critical: 80,000 saved, 5,000 paid")
+assert(Pay.cap(80000, authoredD("critical", 120, 48)) == 5000, "a 120-min clock no longer lifts the ceiling to 30,000")
+assert(Pay.cap(2400, authoredD("hard", 5, 30)) == 1250, "a short clock: the guard (250 x 5) still applies")
+assert(Pay.cap(2000, authoredD("standard", 15, 30)) == 2000, "under the band: as saved")
+-- a small contract pays its size: enemies / fullPayEnemies of its difficulty
+assert(Pay.contentScale(authoredD("standard", 15, 3)) == 0.25 and Pay.cap(2400, authoredD("standard", 15, 3)) == 600, "3 enemies: a quarter")
+assert(Pay.cap(3000, authoredD("hard", 15, 9)) == 1500, "hard: 9 of 18")
+assert(Pay.cap(4400, authoredD("critical", 20, 6)) == 1100, "critical: 6 of 24")
+assert(Pay.contentScale(authoredD("standard", 15, 40)) == 1, "a big contract: never more than the full payout")
+assert(Pay.contentScale(authoredD("standard", 15, 0)) == 0 and Pay.cap(2400, authoredD("standard", 15, 0)) == 0, "no enemy, no pay")
+-- Chimera and Sector 04 (no `enemies` on their difficulties) are not authored
+assert(Pay.contentScale(standard) == 1 and Pay.cap(6000, { id = "critical", minutes = 30 }) == 6000, "the shipped missions keep their payouts")
+-- a real editor point carries `enemies` per difficulty (shared/mission_defs.lua M.point)
+dofile("shared/safezones.lua")
+dofile("shared/mission_defs.lua")
+local D = LightRpMissionDefs
+local O = { x = 100, y = 200, z = 10 }
+local function spawn(id, count, trigger) return { id = id, position = { x = 110, y = 200, z = 10 }, enemy = "militech", count = count, trigger = trigger } end
+local function def(t)
+    local raw = { title = "Contract", description = "", location = "Kabuki", type = t.type or "eliminate", enabled = true,
+        point = { x = 140, y = 200, z = 10 }, perimeter = { shape = "circle", center = O, radius = 30, minZ = 0, maxZ = 40 },
+        outOfBounds = { graceSeconds = 5 }, respawn = { seconds = 4, lives = 1 }, starts = { { x = 100, y = 200, z = 10, heading = 90 } },
+        spawns = t.spawns, checkpoints = t.checkpoints or {}, waves = t.waves or {}, difficulties = t.difficulties or {} }
+    local v = assert(D.validate(raw)); v.id = "c"; return v
+end
+local tiny = D.point(def({ spawns = { spawn("a", 3, "start") } }))
+assert(tiny.difficulties[1].enemies == 3 and tiny.difficulties[2].enemies == 5 and tiny.difficulties[3].enemies == 6, "3 x 1 / 1.5 / 2, rounded")
+assert(Pay.cap(tiny.difficulties[1].payout, tiny.difficulties[1]) == 600, "a 3-enemy placeholder at the editor default pays 600, not 2,400")
+local survival = D.point(def({ type = "waves", spawns = { spawn("w1", 2, "wave"), spawn("w2", 2, "wave") },
+    waves = { { spawns = { "w1", "w2" } }, { spawns = { "w1", "w2" } }, { spawns = { "w1", "w2" } } } }))
+assert(survival.difficulties[1].enemies == 12, "a wave spawn point counts in every wave it is in")
+local gated = D.point(def({ spawns = { spawn("s", 2, "start"), spawn("r", 4, "checkpoint"), spawn("o", 6, "checkpoint") },
+    checkpoints = { { id = "c1", position = { x = 105, y = 200, z = 10 }, radius = 3, spawns = { "r" } },
+        { id = "c2", position = { x = 106, y = 200, z = 10 }, radius = 3, required = false, spawns = { "o" } } } }))
+assert(gated.difficulties[1].enemies == 6, "start + required checkpoints; an optional checkpoint does not count")
+
 -- ── settle: a duo on a solo job, then a repeat inside the cooldown ──
 char(1, "acc-1"); char(2, "acc-2")
 local out = Pay.settle({ id = "m1", members = { 1, 2 } }, point("chimera"), standard)
@@ -131,6 +175,16 @@ assert(out[5].state == "cooldown" and gig.paid[5] == 600, "a gig repeated inside
 gig = { payout = 40000, fixerName = "Nix" }
 out = Pay.settle({ id = "g3", members = { 6 }, gig = gig }, point("legacy"), { id = "critical", label = "Critical", payout = 40000, minutes = 20, min = 1 })
 assert(out[6].amount == C.maxSharePerMinute * 20, "an old authored gig is capped at the ceiling")
+-- an authored gig: fixers.lua quotes Pay.cap at the offer (band + size); settling it
+-- applies the ceilings again but never the size twice
+char(7, "acc-7")
+local smallGig = authoredD("standard", 15, 3)
+gig = { payout = Pay.cap(2400, smallGig), fixerName = "Nix" }
+out = Pay.settle({ id = "g4", members = { 7 }, gig = gig }, point("small"), smallGig)
+assert(gig.payout == 600 and out[7].amount == 600, "a 3-enemy gig: 600 quoted, 600 paid")
+gig = { payout = 9000, fixerName = "Nix" }
+out = Pay.settle({ id = "g5", members = { 7 }, gig = gig }, point("big"), authoredD("hard", 30, 40))
+assert(out[7].amount == 3300, "a gig quoted before the band is still held to it")
 
 -- ── what never pays ──
 local before = #credits

@@ -376,14 +376,18 @@ function M.validate(raw)
     return d
 end
 
--- The mission point the board system (server/modules/missions.lua) runs.
+-- The mission point the board system (server/modules/missions.lua) runs. Each
+-- difficulty carries `enemies` (M.enemies): the pay rule of authored missions
+-- (server/modules/mission_pay.lua) reads it.
 function M.point(def)
     local starts = {}
     for i, s in ipairs(def.starts) do starts[i] = { x = s.x, y = s.y, z = s.z, heading = s.heading } end
+    local difficulties = clone(def.difficulties)
+    for _, d in ipairs(difficulties) do d.enemies = M.enemies(def, d) end
     return { id = def.id, title = def.title, type = M.TYPE_LABELS[def.type], location = def.location ~= "" and def.location or "Night City",
         description = def.description ~= "" and def.description or (def.type == "waves" and "Hold the zone until the last wave falls."
             or "Clear the zone. Leave nobody standing."),
-        position = def.point, start = starts, difficulties = clone(def.difficulties), custom = true,
+        position = def.point, start = starts, difficulties = difficulties, custom = true,
         fixer = def.fixer and def.fixer.enabled == true or nil,
         worldBoss = def.worldBoss and def.worldBoss.enabled == true or nil,
         fixerContact = def.fixer and def.fixer.contact or nil, fixerBrief = def.fixer and def.fixer.brief or nil }
@@ -392,4 +396,25 @@ end
 -- How many enemies a spawn point puts out at a difficulty.
 function M.count(spawn, difficulty)
     return math.max(1, math.min(M.MAX_COUNT * 5, math.floor(spawn.count * (difficulty and difficulty.enemyCount or 1) + 0.5)))
+end
+
+-- How many enemies a difficulty makes the squad beat at the least, as the engine
+-- queues them (server/modules/mission_engine.lua): the start spawn points once, the
+-- spawn points of every REQUIRED checkpoint, and each wave's spawn points (a spawn
+-- point in three waves counts three times). Optional checkpoints do not count:
+-- nobody has to reach them.
+function M.enemies(def, difficulty)
+    local byId, n = {}, 0
+    local function add(id) local s = byId[id]; if s then n = n + M.count(s, difficulty) end end
+    for _, s in ipairs(def.spawns or {}) do
+        byId[s.id] = s
+        if s.trigger == "start" then n = n + M.count(s, difficulty) end
+    end
+    for _, c in ipairs(def.checkpoints or {}) do
+        if c.required ~= false then for _, id in ipairs(c.spawns or {}) do add(id) end end
+    end
+    if def.type == "waves" then
+        for _, w in ipairs(def.waves or {}) do for _, id in ipairs(w.spawns or {}) do add(id) end end
+    end
+    return n
 end

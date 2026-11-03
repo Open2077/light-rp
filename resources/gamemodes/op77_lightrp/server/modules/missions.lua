@@ -201,10 +201,20 @@ function Missions.rewardBasis(id, d, point, ladder)
     end
     return best
 end
+-- The reputation of the reward `basisId` earned on the difficulty `d` played: an
+-- authored difficulty pays it in proportion to its size, like its eddies
+-- (mission_pay.lua contentScale; 1 for Chimera, Sector 04 and big contracts).
+local function gain(basisId, d)
+    local rep = C.reputationGain[basisId] or 0
+    local Pay = LightRP.missionPay
+    if rep > 0 and Pay and type(Pay.contentScale) == "function" then rep = math.floor(rep * Pay.contentScale(d) + 0.5) end
+    return rep
+end
+Missions.reputationGainOf = gain
 -- The reputation a finished difficulty pays this character (Missions.rewardBasis).
 function Missions.reputationFor(id, d, point, ladder)
     local basis = Missions.rewardBasis(id, d, point, ladder)
-    return basis and (C.reputationGain[basis.id] or 0) or 0
+    return basis and gain(basis.id, d) or 0
 end
 -- "CRITICAL" -> "Critical": a difficulty's label inside a sentence.
 local function sentenceLabel(d)
@@ -217,7 +227,7 @@ end
 function Missions.tellCarried(id, point, d, ladder)
     local basis = Missions.rewardBasis(id, d, point, ladder)
     if basis == d then return false end
-    local earns = basis and string.format("you earn the %s reward (+%d reputation)", sentenceLabel(basis), C.reputationGain[basis.id] or 0)
+    local earns = basis and string.format("you earn the %s reward (+%d reputation)", sentenceLabel(basis), gain(basis.id, d))
         or "it earns you no reputation"
     local body
     if not Missions.tierAllows(id, d) then
@@ -579,7 +589,7 @@ local function finish(inst, success, why)
         if success and inst.gig then
             -- a gig counts the tier only (no clear ladder); the money is mission_pay's
             local basis = Missions.rewardBasis(id, d, point, false)
-            local rep = basis and (C.reputationGain[basis.id] or 0) or 0
+            local rep = basis and gain(basis.id, d) or 0
             Missions.addReputation(id, rep); gained = rep
             LightRP.notice(id, { kind = "success", title = "GIG COMPLETE", durationMs = 10000,
                 body = string.format("%s · %s. %s wired by %s%s, +%d reputation%s.", point.title, d.label,
@@ -595,7 +605,7 @@ local function finish(inst, success, why)
             reputation[id].completed = reputation[id].completed + 1
             -- a crew member carried above what they have unlocked: the reward of their best
             local basis = Missions.rewardBasis(id, d, point, true)
-            local rep = basis and (C.reputationGain[basis.id] or 0) or 0
+            local rep = basis and gain(basis.id, d) or 0
             Missions.addReputation(id, rep); gained = rep
             local opens = Missions.cleared(id, point.id, d.id) == 0 and point.difficulties[(function()
                 for i, other in ipairs(point.difficulties) do if other.id == d.id then return i + 1 end end
@@ -821,12 +831,15 @@ local function snapshot(id, pointId)
         -- what this player earns there: in full when it is unlocked, else (a crew member
         -- the leader brings) the reward of the highest difficulty they have unlocked
         local basis = Missions.rewardBasis(id, d, point, true)
-        difficulties[#difficulties + 1] = { id = d.id, label = d.label, blurb = d.blurb, payout = d.payout, minutes = d.minutes,
+        -- the payout after the ceilings (mission_pay.lua): an authored mission saved with an
+        -- old or oversized figure shows what it really pays
+        local payout = LightRP.missionPay and LightRP.missionPay.cap(d.payout, d) or d.payout
+        difficulties[#difficulties + 1] = { id = d.id, label = d.label, blurb = d.blurb, payout = payout, minutes = d.minutes,
             min = d.min, max = d.max, tier = need, tierName = Missions.tierName(need), tierLocked = not Missions.tierAllows(id, d),
             locked = not Missions.unlocked(id, point, d), tagged = lobby and #lobby.members or 0,
             requires = before and before.label or nil, cleared = Missions.cleared(id, point.id, d.id),
             openLobbies = openLobbies(id, point, d),
-            reputation = C.reputationGain[d.id] or 0, earns = basis and (C.reputationGain[basis.id] or 0) or 0,
+            reputation = gain(d.id, d), earns = basis and gain(basis.id, d) or 0,
             earnsAs = basis and basis ~= d and basis.label or nil }
         boards[d.id] = lobbyView(lobby, point, d)
     end

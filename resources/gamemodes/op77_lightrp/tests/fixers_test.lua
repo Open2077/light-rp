@@ -109,7 +109,8 @@ local D = LightRpMissionDefs
 local base = { title = "Burn Notice", type = "eliminate", enabled = true, point = { x = 100, y = 200, z = 10 },
     perimeter = { shape = "circle", center = { x = 100, y = 200, z = 10 }, radius = 40, minZ = 0, maxZ = 40 },
     starts = { { x = 100, y = 200, z = 10, heading = 0 } },
-    spawns = { { id = "a", position = { x = 110, y = 200, z = 10 }, enemy = "militech", count = 2, trigger = "start" } } }
+    -- 12 enemies: a full-size contract (a smaller one pays its size, mission_pay_test.lua)
+    spawns = { { id = "a", position = { x = 110, y = 200, z = 10 }, enemy = "militech", count = 12, trigger = "start" } } }
 local def = assert(D.validate(base))
 assert(def.fixer.enabled == false and def.fixer.contact == "any", "a mission is a board mission by default")
 assert(D.point(def).fixer == false or D.point(def).fixer == nil)
@@ -158,7 +159,16 @@ local ok, gig = Fixers.offer(1, "gig_burn", "standard")
 assert(ok, tostring(gig))
 local offer = lastTo(1)
 assert(offer.from == "555-0619" and lines["555-0619"].name:find("Nix"), "the mission's fixer (Nix) texts from its own line")
-assert(offer.meta.card.lines[1]:find("up to $" .. fp.difficulties[1].payout, 1, true), "the card quotes the most one operator can earn")
+-- what the card quotes is mission_pay's cap (economy.lua missions.authored, docs/economy-balance.md
+-- §15): a full-size contract under the band quotes its payout as saved
+local quoted = LightRP.missionPay.cap(fp.difficulties[1].payout, fp.difficulties[1])
+assert(fp.difficulties[1].enemies == 12 and quoted == fp.difficulties[1].payout, "a 12-enemy gig at the editor default: " .. quoted)
+-- the reputation follows the same size: a 3-enemy contract earns a quarter of it
+local G = LightRpMissions.reputationGain
+assert(Missions.reputationGainOf("standard", fp.difficulties[1]) == G.standard, "a full-size contract: the full reputation")
+assert(Missions.reputationGainOf("standard", { id = "standard", enemies = 3 }) == math.floor(G.standard / 4 + 0.5), "3 of 12 enemies: a quarter")
+assert(Missions.reputationGainOf("critical", { id = "critical", minutes = 30 }) == G.critical, "Chimera and Sector 04 (no enemies field): untouched")
+assert(offer.meta.card.lines[1]:find("up to $" .. quoted, 1, true), "the card quotes the most one operator can earn")
 assert(offer.body:find("Burn Notice") and offer.meta.card and offer.meta.actions[1].id == "accept" and offer.meta.actions[2].id == "decline")
 assert(not select(1, Fixers.offer(1)), "one gig at a time")
 press(1, offer, "accept")
@@ -214,12 +224,12 @@ assert(providers.fixerGig(1).state == "accepted", "someone walked off: on hold")
 positions[2] = { x = at.x - 4, y = at.y, z = at.z }
 for _ = 1, LightRpFixers.launchSeconds + 3 do tick(1000) end
 local inst = Missions.instanceOf(1)
-assert(inst and Missions.instanceOf(2) == inst and inst.gig and inst.gig.payout == fp.difficulties[1].payout and buckets[1] == inst.bucket, "the gig runs as a mission")
+assert(inst and Missions.instanceOf(2) == inst and inst.gig and inst.gig.payout == quoted and buckets[1] == inst.bucket, "the gig runs as a mission")
 assert(providers.fixerGig(1) == false, "the mission chip takes over")
 Missions.complete(inst.id)
 -- a crew of two on a gig whose minimum is one: the pot is shared (mission_pay.lua)
-local share = LightRP.missionPay.share(fp.difficulties[1].payout, 2, 1)
-assert(share < fp.difficulties[1].payout and paid[1] == share and paid[2] == share, "each operator paid their share")
+local share = LightRP.missionPay.share(quoted, 2, 1)
+assert(share < quoted and paid[1] == share and paid[2] == share, "each operator paid their share")
 assert(not lastTo(1).body:find("up to", 1, true), "after the job the fixer quotes what was paid, not a maximum")
 assert(lastTo(1).body:find("sent") or lastTo(1).body:find("LEGEND") or lastTo(1).body:find("clean"), "the fixer's last text")
 assert(brief.meta.resolved.label == "Paid" and Fixers.gigOf[1] == nil and Fixers.gigOf[2] == nil, "the gig is closed")

@@ -4,14 +4,19 @@
 --
 --   payout  a difficulty's `payout` (a gig's own) is each operator's share at the
 --           difficulty's minimum crew, capped at maxSharePerMinute x its minutes
---   pot     past the minimum the pot grows as crew^crewExponent and is split:
+--   authored  an editor mission or gig (its difficulties carry `enemies`, see
+--           shared/mission_defs.lua M.point) is also capped at authored.maxShare of
+--           its difficulty, then scaled by enemies / authored.fullPayEnemies (at most
+--           1); its reputation takes the same scale (Pay.contentScale)
+--   pot    past the minimum the pot grows as crew^crewExponent and is split:
 --           share = payout * (crew / min) ^ (crewExponent - 1), never above payout
 --   repeat  a character paid in full at a mission point waits cooldownMinutes
 --           before that point pays them in full again; an account (or character,
 --           capScope) gets dailyFullPayouts full payouts per UTC day. Meanwhile a
 --           completion pays repeatShare of the share. Reputation is untouched.
 --
---   LightRP.missionPay.cap(payout, d)              -> payout after the ceiling
+--   LightRP.missionPay.cap(payout, d)              -> payout after the ceilings (what the board shows)
+--   LightRP.missionPay.contentScale(d)             -> 0..1: an authored difficulty's size (1 otherwise)
 --   LightRP.missionPay.share(payout, crew, min)    -> per-head share (pure)
 --   LightRP.missionPay.status(id, pointId)         -> "full" | "cooldown" | "capped", info
 --   LightRP.missionPay.quote(id, pointId, share)   -> amount, state, info (records nothing)
@@ -58,11 +63,29 @@ local function scopeKey(who) return C.capScope == "character" and characterKey(w
 -- ---------------------------------------------------------------------------
 -- Pure rules
 
-function Pay.cap(payout, d)
+local function authored(d) return type(d) == "table" and type(d.enemies) == "number" and type(C.authored) == "table" end
+
+function Pay.contentScale(d)
+    if not authored(d) then return 1 end
+    local full = number(type(C.authored.fullPayEnemies) == "table" and C.authored.fullPayEnemies[d.id], 0)
+    if full <= 0 then return 1 end
+    return math.max(0, math.min(1, d.enemies / full))
+end
+
+-- The ceilings alone (per minute, authored maxShare): applying it twice changes nothing.
+local function ceiling(payout, d)
     payout = math.max(0, math.floor(number(payout, 0)))
     local perMinute, minutes = number(C.maxSharePerMinute, 0), number(d and d.minutes, 0)
     if perMinute > 0 and minutes > 0 then payout = math.min(payout, math.floor(perMinute * minutes)) end
+    if authored(d) then
+        local most = number(type(C.authored.maxShare) == "table" and C.authored.maxShare[d.id], 0)
+        if most > 0 then payout = math.min(payout, math.floor(most)) end
+    end
     return payout
+end
+
+function Pay.cap(payout, d)
+    return round(ceiling(payout, d) * Pay.contentScale(d))
 end
 
 function Pay.share(payout, crew, min)
@@ -160,7 +183,9 @@ Pay.detail = detail
 -- Settlement and the launch notice
 
 local function parts(inst, point, d)
-    local base = Pay.cap(inst.gig and (inst.gig.payout or d.payout) or d.payout, d)
+    -- a gig's payout was quoted with Pay.cap at the offer (fixers.lua): only the
+    -- ceilings again, never the content scale twice
+    local base = inst.gig and inst.gig.payout and ceiling(inst.gig.payout, d) or Pay.cap(d.payout, d)
     local crew = #inst.members
     return base, crew, Pay.share(base, crew, d.min)
 end
@@ -209,6 +234,8 @@ function Pay.announce(inst, point, d)
     end)
 end
 
-LightRP.log("missionPay ready: crew exponent %.2f, %d min cooldown per point, %d full payouts a day per %s, %d%% beyond, ceiling %s/min",
+local authoredMax = type(C.authored) == "table" and type(C.authored.maxShare) == "table" and C.authored.maxShare or {}
+LightRP.log("missionPay ready: crew exponent %.2f, %d min cooldown per point, %d full payouts a day per %s, %d%% beyond, ceiling %s/min, authored %s/%s/%s",
     number(C.crewExponent, 1), math.floor(number(C.cooldownMinutes, 0)), math.floor(number(C.dailyFullPayouts, 0)),
-    C.capScope == "character" and "character" or "account", round(number(C.repeatShare, 0) * 100), tostring(C.maxSharePerMinute or "none"))
+    C.capScope == "character" and "character" or "account", round(number(C.repeatShare, 0) * 100), tostring(C.maxSharePerMinute or "none"),
+    tostring(authoredMax.standard or "-"), tostring(authoredMax.hard or "-"), tostring(authoredMax.critical or "-"))

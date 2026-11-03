@@ -23,6 +23,31 @@ LightRpEconomy = {
         -- Ceiling of the per-head payout, in eddies per minute of the difficulty's
         -- time limit: guards against authored missions saved with old payouts.
         maxSharePerMinute = 250,
+        -- Missions and gigs of the mission editor only (Chimera and Sector 04 keep their
+        -- own payouts), on top of the per-minute ceiling (prod audit 2026-11-04,
+        -- docs/economy-balance.md §15):
+        --   maxShare        the per-head payout at the minimum crew never exceeds this,
+        --                   whatever the payout and time limit saved in the editor:
+        --                   1.8 x J at the editor's default clock (critical: 250 x 20)
+        --   fullPayEnemies  a difficulty with fewer enemies to beat (start spawn points,
+        --                   required checkpoints, every wave) pays enemies / this of it,
+        --                   and the same fraction of its reputation: a 3-enemy contract
+        --                   is not a full contract. {} turns it off.
+        authored = {
+            maxShare = { standard = 2600, hard = 3300, critical = 5000 },
+            fullPayEnemies = { standard = 12, hard = 18, critical = 24 },
+        },
+    },
+
+    -- World bosses (server/modules/world_bosses.lua). The editor's reward is the most the
+    -- pool can be; the pool that pays is perFighter x fighters ^ crewExponent (the
+    -- fighters paid), and nobody gets more than maxSharePerMinute x the event's time
+    -- limit. 3 fighters: 6,473 (≈ 2,160 each); 10: 15,036; 30: the editor's 30,000.
+    -- false (or no table) pays the editor's reward split by score, the old rule.
+    worldBosses = {
+        perFighter = 3000,
+        crewExponent = 0.7,
+        maxSharePerMinute = 250,
     },
 
     -- Free work (job_work.lua) and work orders (job_runs.lua): each grade of the

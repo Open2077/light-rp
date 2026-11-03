@@ -6,11 +6,15 @@
 --   /lightrp.missions.repay          preview: every change, nothing written
 --   /lightrp.missions.repay apply    write them (revision-checked) and republish
 --
--- Rule, per difficulty: a payout above the ceiling (maxSharePerMinute x its minutes)
--- is on the old scale. It is scaled by new default / old default of its difficulty
--- (standard 8,000 -> 2,400, hard 15,000 -> 3,000, critical 30,000 -> 4,400), rounded
--- to 50, and kept under the ceiling. A payout already under the ceiling is left as
--- the staff set it. Running it twice changes nothing the second time.
+-- Rule, per difficulty. The ceiling is the lower of maxSharePerMinute x its minutes
+-- (the guard) and authored.maxShare of its difficulty (prod audit 2026-11-04). A
+-- payout above the GUARD is on the old scale: it is scaled by new default / old
+-- default of its difficulty (standard 8,000 -> 2,400, hard 15,000 -> 3,000, critical
+-- 30,000 -> 4,400), rounded to 50, never below the new default, and kept under the
+-- ceiling. A payout under the guard but above authored.maxShare is brought down to
+-- it. A payout already under the ceiling is left as the staff set it. Running it
+-- twice changes nothing the second time. (The pay rule caps at the same ceiling
+-- whatever is stored; this only makes the editor show it.)
 -- ACL: command.lightrp.missions.repay (staff roles hold command.lightrp.*).
 local D, Db = LightRpMissionDefs, LightRP.db
 local E = (LightRpEconomy and LightRpEconomy.missions) or {}
@@ -24,19 +28,27 @@ local function defaults()
     for _, d in ipairs(D.DIFFICULTIES) do out[d.id] = d.payout end
     return out
 end
-local function ceiling(minutes)
+local function guard(minutes)
     local perMinute = tonumber(E.maxSharePerMinute) or 0
     if perMinute <= 0 then return math.huge end
     return math.floor(perMinute * (tonumber(minutes) or 0))
 end
+local function ceiling(d)
+    local most = type(E.authored) == "table" and type(E.authored.maxShare) == "table" and tonumber(E.authored.maxShare[d.id]) or 0
+    return most > 0 and math.min(guard(d.minutes), math.floor(most)) or guard(d.minutes)
+end
 
 -- The new payout of one stored difficulty, or nil when it stays as it is.
 function Repay.payout(d)
-    local payout, cap = tonumber(d and d.payout), ceiling(d and d.minutes)
+    local payout = tonumber(d and d.payout)
     local old, new = Repay.OLD_DEFAULTS[d and d.id], defaults()[d and d.id]
-    if not payout or not old or not new or payout <= cap then return nil end
+    if not payout or not old or not new then return nil end
+    local cap = ceiling(d)
+    if payout <= cap then return nil end
+    local top = math.max(0, cap - cap % 50)
+    if payout <= guard(d.minutes) then return top end
     local scaled = math.floor(payout * new / old / 50 + 0.5) * 50
-    return math.max(0, math.min(scaled, cap - cap % 50))
+    return math.min(top, math.max(new, scaled))
 end
 
 -- { { id, title, revision, changes = { { difficulty, from, to } } } } for live missions.
