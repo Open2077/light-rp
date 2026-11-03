@@ -70,6 +70,7 @@ server_script "server/modules/missions.lua"
 server_script "server/modules/mission_chimera.lua"
 server_script "server/modules/mission_engine.lua"  -- runtime of the authored missions
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
+server_script "server/modules/mission_repay.lua"   -- /lightrp.missions.repay: stored missions to the new payout scale
 server_script "server/config/fixers.lua"
 server_script "server/modules/fixers.lua"          -- fixer gigs: offers by Neural-Link text, crews, meet point
 server_script "server/config/job_runs.lua"

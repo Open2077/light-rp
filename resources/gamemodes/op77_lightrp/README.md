@@ -41,7 +41,8 @@ au staff. `/adminfull` conserve la console technique officielle.
 
 **Éditeur de missions** (`/lightrp.missions`, ACL `command.lightrp.missions`) : créer en jeu des missions Élimination ou Survie (vagues),
 avec périmètre (avertissement puis mort hors zone), points de spawn ennemis, checkpoints déclencheurs, vagues, difficultés et test immédiat.
-Voir [docs/mission-editor.md](docs/mission-editor.md).
+Les missions enregistrées avant l'équilibrage passent au nouveau barème avec `/lightrp.missions.repay` (aperçu) puis
+`/lightrp.missions.repay apply` (staff). Voir [docs/mission-editor.md](docs/mission-editor.md).
 
 ## Création de personnage et scène d'arrivée
 
