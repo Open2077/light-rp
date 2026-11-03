@@ -72,7 +72,16 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
   const list = state?.list ?? [];
   const activity = list.find((a) => a.id === selected) ?? list[0];
   const close = () => { sendAction({ type: ACTION, operation: "close" }); onClose(); };
-  const ask = (action: Parameters<typeof sendAction>[0]) => { sent.current = Date.now(); setWaiting(true); setFeedback(undefined); sendAction(action); };
+  // Entering an activity takes the player somewhere else: the panel closes on the
+  // way in (owner, 2026-11-03: it was still open on arrival). Opening it while
+  // already inside one keeps it open.
+  const currentId = state?.current ? state.current.id : undefined;
+  const lastCurrent = useRef(currentId);
+  useEffect(() => {
+    if (currentId && currentId !== lastCurrent.current) close();
+    lastCurrent.current = currentId;
+  }, [currentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ask =(action: Parameters<typeof sendAction>[0]) => { sent.current = Date.now(); setWaiting(true); setFeedback(undefined); sendAction(action); };
   const join = (a: ActivityEntry) => {
     const mode = modes[a.id];
     const level = a.pve ? pickedDifficulty(a, levels[a.id]) : undefined;
