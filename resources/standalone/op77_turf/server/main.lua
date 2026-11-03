@@ -142,10 +142,9 @@ end)
 AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activityId)
     local id = validId(playerId)
     if id == nil or not ours(activityId) then return end
-    local done, where = Turf.leaveRequest(id, W.now(), activityId)
-    if done and where == "queue" then
-        W.notify(id, "info", activityId == PVE and "You left the Gang Sweep line-up." or "You left the turf war queue.", 5000)
-    end
+    -- Light RP's answer to the leave (its notice, its /leave reply) already says it: no
+    -- second notice of ours on top.
+    Turf.leaveRequest(id, W.now(), activityId)
     publishStatus()
 end)
 

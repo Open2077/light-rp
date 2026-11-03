@@ -215,11 +215,35 @@ do
     assert(env.client[3].name == "op77_turf:clear")
     W.notify(3, "info", "hello")
     local n = natives("notify")
-    assert(n[#n].args[2].title == "Turf War" and n[#n].args[2].message == "hello")
+    assert(n[#n].args[2].title == "Turf War" and n[#n].args[2].message == "hello", "no Light RP answer: the platform's notification")
+
+    -- Light RP up: its own notice (export `notice`), never the platform's notification on top
+    local platform = #natives("notify")
+    env.calls, env.answers.notice = {}, true
+    W.notify(3, "warning", "You left the war zone.", 4000)
+    local call = env.calls[#env.calls]
+    assert(call.resource == "op77_lightrp" and call.name == "notice" and call.args[1] == 3)
+    assert(call.args[2].kind == "warning" and call.args[2].title == "Turf War" and call.args[2].body == "You left the war zone."
+        and call.args[2].durationMs == 4000, "kind, title, text and duration kept")
+    W.notify(3, "success", "Victory", 8000, "Gang Sweep")
+    assert(env.calls[#env.calls].args[2].title == "Gang Sweep" and #natives("notify") == platform, "Light RP's notice only")
+    -- Light RP stopped (the call raises) or an older core refusing: the platform's notification
+    env.answers.notice, env.raise = nil, "export notice not found"
+    W.notify(3, "info", "fallback")
+    env.raise = nil
+    env.answers.notice = pack(false, "empty_notice")
+    W.notify(3, "warning", "refused")
+    n = natives("notify")
+    assert(#n == platform + 2 and n[platform + 1].args[2].message == "fallback" and n[platform + 2].args[2].type == "warning")
+    -- never everyone (-1), never a non-player
+    local calls = #env.calls
+    W.notify(-1, "info", "everyone?"); W.notify(0, "info", "nobody"); W.notify("3", "info", "text id")
+    assert(#env.calls == calls and #natives("notify") == platform + 2, "dropped before any call")
+    env.answers.notice = nil
     W.reply(3, "/turf", true, "done")
     assert(env.client[#env.client].name == "open77:command:result" and env.client[#env.client].args[3] == "done")
     local p, heading = W.pose(3)
     assert(p.x == 1 and heading == 123.4)
 end
 
-print("PASS adapter_test: TurfCore contract calls (register/check/enter/leave/owner/player, result/status/announce), TurfWorld wrappers (place, respawn, teams, scope, kits, presentation)")
+print("PASS adapter_test: TurfCore contract calls (register/check/enter/leave/owner/player, result/status/announce), TurfWorld wrappers (place, respawn, teams, scope, kits, presentation, notices through Light RP with the platform fallback)")

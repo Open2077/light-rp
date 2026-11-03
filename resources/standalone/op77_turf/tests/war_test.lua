@@ -211,10 +211,11 @@ local function main()
     local wq = lastStatus().queue
     assert(wq and wq.v == 1 and #wq.lobbies == 1 and wq.lobbies[1].players[1] == 9 and wq.lobbies[1].need == Turf.minPlayers()
         and wq.lobbies[1].max == CFG.activity.maxPlayers and wq.lobbies[1].startsInMs == nil, "the queue panel: 1 / 6, no countdown yet")
+    assert(not noted(9, "."), "no queued notice: Light RP answered the join, its queue panel shows the line")
     local leavesBefore = #core.leaves
     fire("op77_lightrp:activity:leaveRequest", nil, 9, "turf.war")
     assert(#Turf.queue == 0 and #core.leaves == leavesBefore, "a queued player is dropped, never activityLeave'd")
-    assert(noted(9, "left the turf war queue") and (cleared[9] or 0) >= 1)
+    assert(not noted(9, ".") and (cleared[9] or 0) >= 1, "Light RP's answer to the leave says it: no second notice")
     assert(lastStatus().phase == "idle")
 
     -- ============================================================ the full war

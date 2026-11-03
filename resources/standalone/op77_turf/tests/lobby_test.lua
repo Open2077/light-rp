@@ -235,7 +235,10 @@ local function main()
         "a split inside one gang: side 2 plays colourless")
     T.addPlayer(509, "maelstrom")
     join(509, "turf.war", { ranked = true })
-    assert(Turf.position(509) and war.members[509] == nil and T.noted(509, "private match"), "a stranger queues, never joins")
+    assert(Turf.position(509) and war.members[509] == nil, "a stranger queues, never joins")
+    local behind = T.statusOf("turf.war").queue.lobbies[1]
+    assert(behind and behind.players[1] == 509 and behind.mode == "After the private match" and not T.noted(509, "private match"),
+        "Light RP's queue panel says why he waits: no notice of ours")
     toRunning(war)
     assert(T.noted(501, "^FRIENDLY MATCH"))
     assert(Turf.sharedView(war, T.now()).tag == "FRIENDLY" and hudOf(war, 501).title == "TURF WAR · FRIENDLY")

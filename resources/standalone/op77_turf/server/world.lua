@@ -257,10 +257,16 @@ function W.site(id, payload) TriggerClientEvent("op77_turf:site", id, payload) e
 function W.push(id, kind, payload) TriggerClientEvent("op77_turf:push", id, kind, payload) end
 function W.clear(id) TriggerClientEvent("op77_turf:clear", id) end
 
+-- A message to one player. With Light RP up it is Light RP's own notice (export `notice`:
+-- its page, its design; never a UI of ours); without it, or with a core older than the
+-- export, the platform's notifications as before.
 function W.notify(id, kind, message, durationMs, title)
+    if type(id) ~= "number" or id <= 0 then return end
+    local def = { kind = kind or "info", title = title or "Turf War", body = message, durationMs = durationMs or 5000 }
+    if type(TurfCore) == "table" and TurfCore.call("notice", id, def) == true then return end
     if type(Open77.notifications) ~= "table" or type(Open77.notifications.send) ~= "function" then return end
-    pcall(Open77.notifications.send, id, { type = kind or "info", title = title or "Turf War", message = message,
-        durationMs = durationMs or 5000 })
+    pcall(Open77.notifications.send, id, { type = def.kind, title = def.title, message = message,
+        durationMs = def.durationMs })
 end
 
 -- The answer to a chat command (same channel as Light RP's own command replies).

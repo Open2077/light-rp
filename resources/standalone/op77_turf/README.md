@@ -173,7 +173,15 @@ Feed, banners and the result card go through `ActivityHudPush`. A full HUD is re
 when its content changes (otherwise every 5 s to resync the clock).
 
 If the export is missing (older core), the client reports `op77_turf:hudless` and the server
-sends banners and the result as notifications instead.
+sends banners and the result as notices instead.
+
+Every message to a player (`TurfWorld.notify`) is **Light RP's own notice**, through its server
+export `notice(playerId, { kind, title, body, durationMs })`: same page, same design as the core's.
+Only without Light RP (or with a core older than that export) does it fall back to
+`open77_notifications`. What Light RP already says is not repeated: no "queued" notice on a join
+(the core answers the panel's join, its queue panel shows the line, `/turf join` and
+`/turf sweep` reply in chat), none when a match's group gathers (MATCH FOUND + the panel), none
+on a `leaveRequest` (the core's answer to the leave).
 
 The zone markers are this resource's own: a ring and a diamond beacon per zone, in the
 holder's colour, Light RP yellow `#FFCC00` when contested. So are the op77_map3d blips.
