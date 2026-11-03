@@ -178,7 +178,8 @@ client_script "client/core/casino_blackjack.lua"
 client_script "client/core/casino_fortune.lua"
 client_script "client/core/casino_pool.lua"
 client_script "client/core/board_games.lua"
-client_script "client/core/table_menu.lua" -- the ALT menu of every table (after board_games and the casino adapters)
+client_script "client/core/table_menu.lua" -- the ALT menu of every table: management rows and notices (after board_games and the casino adapters)
+client_script "client/core/table_bar.lua" -- the game view's bottom bar, per game (after table_menu)
 client_script "client/core/safezones.lua"
 client_script "client/core/vanilla_safe_areas.lua" -- the game's own safe areas stay off
 client_script "client/core/safezone_tile.lua" -- the green tile by the voice plate (web/safezone/)
@@ -286,7 +287,7 @@ permissions {
     "voice.client",        -- guided setup through the trusted preference owner
     "network.client",      -- local player ID + authenticated account for animation state/preferences
     "input.actions",
-    "session.menus",        -- Open77.session.isMenuOpen: seated free mode (and the free camera) ignore input under a menu
+    "session.menus",        -- Open77.session.isMenuOpen: table keys (and the free camera) ignore input under a menu
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks, blackjack croupiers (create, setAIEnabled, setTransform, tasks.playAnimation/clear) are NPCs
     "world.markers",        -- native 3D markers at rental desks and the raid's strike telegraphs

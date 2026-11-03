@@ -1,36 +1,29 @@
 -- The ALT target menu of every placed table (chess, checkers, Connect Four and
--- the casino tables). There is no table panel or HUD: aiming at a table and
--- clicking it with ALT held lists only what this player can do right now,
--- computed from the snapshot the client already has (seated or not, phase,
--- turn, owner, legal moves, cash). Moves on the boards stay on the crosshair
--- and the left button (client/core/board_games.lua); state changes arrive as
--- notices from observe().
+-- the casino tables): table MANAGEMENT only. Standing at a table it lists the
+-- status, Sit, and for the owner the game mode (before the first move), New
+-- game and Pick up. Playing happens in the game view (client/core/board_games.lua:
+-- scripted camera, cursor picking on the table, the bottom bar of
+-- client/core/table_bar.lua); there the page owns the cursor, which keeps the
+-- target menu closed (the platform's cursor reads as captured), so the seated
+-- rows below (Leave) are only a fallback. State changes arrive as notices
+-- from observe(); the bar and the notices share the helpers exported here.
 --
 -- One open77_contextmenu registration with dynamic rows (>= 1.3.0): the menu
 -- calls tableMenuRows(ctx) for the clicked target and tableMenuSelect(ctx)
 -- with ctx.action.key. Both build the same rows from the same state, so a row
--- that is no longer valid (the turn passed, the bets closed) cannot run.
--- Every request is the one the server already validates: lightrp:boardGames:
--- request actions (join, mode, reset, pickup) and the tabletop `game`
--- operations sent by LightRpTabletopExtraClient.command.
---
--- Each kind registers a builder: M.register(kind,function(board,m,ctx) end),
--- where m.row(key,label,run,options) adds a row (options: icon, submenu,
--- description). The client budget is ~10k instructions per resume and this
--- runs on every ALT click on a table: builders stay a few dozen rows, no
--- searches beyond the table's own lists.
+-- that is no longer valid cannot run. Every request is one the server already
+-- validates (lightrp:boardGames:request join, mode, reset, pickup).
+-- The client budget is ~10k instructions per resume and this runs on every
+-- ALT click on a table: a few rows, no searches.
 local Ui=LightRpUi
 local Client=LightRpBoardGamesClient
 local Extra=LightRpTabletopExtraClient
 local M={}
 LightRpTableMenu=M
-local builders={}
 local REACH=3          -- metres from the player to the clicked point (menu distance)
 local TABLE_REACH=4    -- metres from the player to the table (the server's own check)
 local PICKUP_REACH=2
-local PRESETS={10,50,100,500,1000}
 local cash -- the last RP cash the server reported (nil: unknown, nothing filtered)
-function M.register(kind,builder) builders[kind]=builder end
 function M.cash() return cash end
 local function title(board) return (LightRpBoardGames[board.kind] or {}).title or "Table" end
 local function money(n)
@@ -43,10 +36,14 @@ local function notify(board,text) Client.notice(text,title(board)) end
 local function me()
     local state=Open77.network.status();return state and tonumber(state.playerId)
 end
-local function affordable(amount) return cash==nil or amount<=cash end
 local function distance(a,b) return math.sqrt((a.x-b.x)^2+(a.y-b.y)^2+(a.z-b.z)^2) end
 
 -- Rows ------------------------------------------------------------------------
+local MODES={{"solo","Solo vs AI"},{"duel","1v1"},{"teams","2v2"}}
+local MODE_LABEL={solo="Solo vs AI",duel="1v1",teams="2v2"}
+local POOL_MODES={{"solo","Solo practice"},{"duel","1v1"}}
+local POOL_LABEL={solo="Solo practice",duel="1v1"}
+local status -- defined with the board helpers below
 local function rowsFor(board,ctx)
     local list,runs={},{}
     local m={}
@@ -56,14 +53,28 @@ local function rowsFor(board,ctx)
             submenu=options and options.submenu,description=options and options.description}
         list[#list+1]=row;runs[key]=run
     end
-    local seat=Client.member(board)
-    local seated=seat~=nil and Client.seated()==board
-    local builder=builders[board.kind]
-    if seated and builder then builder(board,m,ctx) end
+    local seated=Client.member(board)~=nil and Client.seated()==board
+    local text=status(board)
+    if text then m.row("status",text,function() notify(board,text..".") end,{icon="info"}) end
     if not seated and not Client.isActive() and M.freeSeat(board) then
         m.row("sit","Sit",function() return Client.request("join",{boardId=board.id})==true end,{icon="person"})
     end
     if seated then m.row("leave","Leave table",function() return Client.leave("menu_leave") end,{icon="person"}) end
+    -- The owner configures the table from here too (the bar has the same
+    -- buttons once seated): mode before the first move, else New game.
+    if board.owned and (board.kind=="pool" or LightRpBoardGames[board.kind] and not Extra.supports(board.kind)) then
+        local g=board.game
+        local pool=board.kind=="pool"
+        if (g.ply or 0)==0 and not g.chain then
+            local current=board.mode or "duel"
+            local folder={id="mode",label="Mode: "..((pool and POOL_LABEL or MODE_LABEL)[current] or current),icon="tool"}
+            for _,mode in ipairs(pool and POOL_MODES or MODES) do if mode[1]~=current then
+                m.row("mode."..mode[1],mode[2],function() return Client.request("mode",{boardId=board.id,mode=mode[1]})==true end,{submenu=folder,icon="tool"})
+            end end
+        elseif not (pool and LightRpPoolClient.busy(board)) then
+            m.row("reset","New game",function() return Client.request("reset",{boardId=board.id})==true end,{icon="tool"})
+        end
+    end
     local character=Open77.character.state()
     if board.owned and character and character.position and distance(character.position,board.position)<=PICKUP_REACH then
         m.row("pickup","Pick up board",function() return Client.request("pickup",{boardId=board.id})==true end,{icon="tool"})
@@ -138,27 +149,12 @@ RegisterNetEvent(LightRpEvents.net.state,function(patch)
     if type(patch)=="table" and type(patch.money)=="table" and type(patch.money.cash)=="number" then cash=patch.money.cash end
 end)
 
--- Shared pieces ---------------------------------------------------------------
--- A folder of amount presets: within [min,max] (after `already` on the table)
--- and the cash; `current` is left out (the folder label shows it).
-local function presets(m,prefix,folder,min,max,current,already,run)
-    for _,amount in ipairs(PRESETS) do
-        local total=(already or 0)+amount
-        if amount~=current and total>=min and total<=max and affordable(amount) then
-            m.row(prefix..amount,money(amount),function() return run(amount) end,{submenu=folder})
-        end
-    end
-end
-local function command(board,operation,data) return Extra.command(board,operation,data)==true end
-local chips={roulette=10}
-
--- Chess, checkers, Connect Four -------------------------------------------------
-local MODES={{"solo","Solo vs AI"},{"duel","1v1"},{"teams","2v2"}}
-local MODE_LABEL={solo="Solo vs AI",duel="1v1",teams="2v2"}
+-- Shared with the bar (client/core/table_bar.lua) ---------------------------------
 local function sideName(board,side)
     if board.kind=="connect4" then return side=="white" and "Red" or "Yellow" end
     return side=="white" and "White" or "Black"
 end
+M.sideName=sideName
 local function boardStatus(board)
     local g=board.game
     if g.status=="draw" then return "Draw" end
@@ -169,43 +165,12 @@ local function boardStatus(board)
     return sideName(board,g.turn).." to move"
 end
 M.boardStatus=boardStatus
-local function hint(board)
-    if board.kind=="connect4" then return "Aim at a column and click to drop a disc." end
-    return "Aim at a piece and click it, then click its destination (or hold and drag)."
-end
-local function boardGame(board,m)
-    local g=board.game
-    m.row("status",boardStatus(board),function()
-        local count=0;for _ in pairs(board.players or {}) do count=count+1 end
-        local slots=board.mode=="teams" and 4 or board.mode=="solo" and 1 or 2
-        notify(board,("%s · %s · %d/%d players · you play %s. %s"):format(boardStatus(board),MODE_LABEL[board.mode or "duel"],
-            count,slots,sideName(board,Client.member(board)),hint(board)))
-    end,{icon="info"})
-    if not board.owned then return end
-    if (g.ply or 0)==0 and not g.chain then
-        local current=board.mode or "duel"
-        local folder={id="mode",label="Mode: "..MODE_LABEL[current],icon="tool"}
-        for _,mode in ipairs(MODES) do if mode[1]~=current then
-            m.row("mode."..mode[1],mode[2],function() return Client.request("mode",{boardId=board.id,mode=mode[1]})==true end,{submenu=folder,icon="tool"})
-        end end
-    else
-        m.row("reset","New game",function() return Client.request("reset",{boardId=board.id})==true end,{icon="tool"})
-    end
-end
-for _,kind in ipairs({"chess","checkers","connect4"}) do M.register(kind,boardGame) end
-
--- Roulette --------------------------------------------------------------------
-local ROULETTE_BETS={
-    {"red","Red","Pays 1 to 1"},{"black","Black","Pays 1 to 1"},{"even","Even","Pays 1 to 1"},{"odd","Odd","Pays 1 to 1"},
-    {"low","1-18","Pays 1 to 1"},{"high","19-36","Pays 1 to 1"},{"dozen1","1-12","Pays 2 to 1"},{"dozen2","13-24","Pays 2 to 1"},
-    {"dozen3","25-36","Pays 2 to 1"},{"number:0","Zero","Pays 35 to 1"},
-}
-local ROULETTE_LABEL={}
-for _,bet in ipairs(ROULETTE_BETS) do ROULETTE_LABEL[bet[1]]=bet[2] end
+local ROULETTE_LABEL={red="Red",black="Black",even="Even",odd="Odd",low="1-18",high="19-36",dozen1="1st 12",dozen2="2nd 12",dozen3="3rd 12"}
 local function rouletteBetLabel(bet)
     if type(bet)=="number" then return bet==0 and "Zero" or tostring(bet) end
     return ROULETTE_LABEL[bet] or tostring(bet)
 end
+M.rouletteBetLabel=rouletteBetLabel
 local function myRouletteStake(board,seat)
     local total=0
     for _,bet in ipairs(board.game.bets or {}) do if bet.seat==seat then total=total+(tonumber(bet.amount) or 0) end end
@@ -214,66 +179,8 @@ end
 local function resultText(result)
     return ("%d %s"):format(tonumber(result.outcome) or 0,result.color=="green" and "Green" or result.color=="red" and "Red" or "Black")
 end
-M.register("roulette",function(board,m)
-    local g,seat=board.game,Client.member(board) and Extra.seat(board)
-    local chip=chips.roulette
-    if g.phase=="betting" then
-        local stake=tonumber(g.yourStake) or myRouletteStake(board,seat)
-        m.row("status",stake>0 and "Your bets: "..money(stake) or "Place your bets",function()
-            local parts={}
-            for _,bet in ipairs(g.bets or {}) do if bet.seat==seat then parts[#parts+1]=money(bet.amount).." on "..rouletteBetLabel(bet.bet) end end
-            notify(board,#parts>0 and table.concat(parts,", ") or "No bets yet. Pick a chip, then a bet.")
-        end,{icon="info"})
-        local chipFolder={id="chip",label="Chip: "..money(chip),icon="tool"}
-        presets(m,"chip.",chipFolder,1,1000000,chip,0,function(amount) chips.roulette=amount;notify(board,"Chip: "..money(amount));return true end)
-        if affordable(chip) then
-            local betFolder={id="bet",label="Bet "..money(chip),icon="interact"}
-            for _,bet in ipairs(ROULETTE_BETS) do
-                m.row("bet."..bet[1],bet[2],function() return command(board,"bet",{bet=bet[1],amount=chip}) end,{submenu=betFolder,description=bet[3]})
-            end
-        end
-        m.row("spin","Spin",function() return command(board,"spin") end)
-    elseif g.phase=="spinning" then
-        m.row("status","Wheel spinning",function() notify(board,"The wheel is spinning: bets are closed.") end,{icon="info"})
-    elseif g.phase=="result" then
-        local result=type(g.result)=="table" and g.result
-        m.row("status",result and "Result: "..resultText(result) or "Result",function()
-            if result then notify(board,resultText(result)..".") end
-        end,{icon="info"})
-        m.row("next","Next round",function() return command(board,"nextRound") end)
-    end
-end)
-
--- Slot machine ------------------------------------------------------------------
-local function slotsSpinning(board)
-    local spin=type(board.game.spin)=="table" and board.game.spin
-    return spin and Extra.serverTime(board)<(tonumber(spin.endsAt) or 0)
-end
-M.register("slots",function(board,m)
-    local Slots=LightRpCasinoSlotsClient
-    local S=LightRpCasinoSlots
-    local bet=Slots.bet()
-    local spinning=slotsSpinning(board)
-    -- The last finished pull: the current spin once its reels stopped.
-    local last=type(board.game.spin)=="table" and not spinning and board.game.spin
-        or type(board.game.last)=="table" and board.game.last
-    local status=spinning and "Reels spinning" or last and (tonumber(last.gross) or 0)>0 and "Last: "..money(last.gross)
-        or last and "Last: no win" or "Ready"
-    m.row("status",status,function()
-        notify(board,("Bet %s. Three of a kind pays up to x%d; Cherry, Cherry x%d; any 3 fruit x%d. Middle row only.")
-            :format(money(bet),S.THREE.seven,S.TWO_CHERRIES,S.MIXED_FRUIT))
-    end,{icon="info"})
-    if tonumber(board.actor)~=me() then return end -- watchers: only the first seat pulls
-    presets(m,"bet.",{id="bet",label="Bet: "..money(bet),icon="tool"},S.MIN_BET,S.MAX_BET,bet,0,function(amount)
-        Slots.setBet(amount);notify(board,"Bet: "..money(amount)..". Click the lever or use Pull.");return true
-    end)
-    if not spinning and affordable(bet) then
-        m.row("pull","Pull ("..money(bet)..")",function() return command(board,"pull",{bet=bet}) end)
-    end
-end)
-
--- Blackjack -----------------------------------------------------------------------
--- Totals the player can see at server time `now` (a card counts once face up).
+M.resultText=resultText
+-- Blackjack totals the player can see at server time `now` (a card counts once face up).
 local function shownTotal(cards,now)
     local B=LightRpBlackjack
     local shown={}
@@ -287,104 +194,29 @@ local function shownTotal(cards,now)
 end
 M.shownTotal=shownTotal
 local RESULTS={blackjack="Blackjack",win="Win",push="Push",lose="Dealer wins",bust="Bust"}
-M.register("blackjack",function(board,m)
-    local B=LightRpBlackjack
+M.RESULTS=RESULTS
+-- One short line for the menu's status row: what is happening at the table.
+status=function(board)
     local g=board.game
-    local seat=Extra.seat(board)
-    local hand=seat and type(g.hands)=="table" and g.hands[seat] or nil
-    local now=Extra.serverTime(board)
-    if g.phase=="betting" then
-        local placed=hand and tonumber(hand.bet) or 0
-        m.row("status",placed>0 and "Your bet: "..money(placed) or "Place a bet",function()
-            local closes=tonumber(g.closesAt)
-            notify(board,(placed>0 and "Your bet: "..money(placed)..". " or "")..(closes and ("Dealing in %d s."):format(math.max(0,math.ceil((closes-now)/1000)))
-                or ("Bets %d to %s. Blackjack pays 3 to 2."):format(B.MIN_BET,money(B.MAX_BET))))
-        end,{icon="info"})
-        local folder={id="bet",label=placed>0 and "Add to bet" or "Bet",icon="interact"}
-        presets(m,"bet.",folder,B.MIN_BET,B.MAX_BET,nil,placed,function(amount) return command(board,"bet",{amount=amount}) end)
-        if hand then m.row("deal","Deal now",function() return command(board,"deal") end) end
-    elseif g.phase=="playing" then
-        local mine=hand and shownTotal(hand.cards,now)
-        local dealer=shownTotal(g.dealer and g.dealer.cards,now)
-        m.row("status",(mine and "Hand "..mine or "Dealing")..(dealer and " · Dealer "..dealer or ""),function()
-            notify(board,g.seatTurn==seat and "Your turn." or "Another seat is playing.")
-        end,{icon="info"})
-        local legal=B.legal(g,seat,now)
-        if legal.hit then m.row("hit","Hit ("..(mine or "?")..")",function() return command(board,"hit") end) end
-        if legal.stand then m.row("stand","Stand ("..(mine or "?")..")",function() return command(board,"stand") end) end
-        if legal.double and affordable(tonumber(hand.bet) or 0) then
-            m.row("double","Double ("..money(hand.bet)..")",function() return command(board,"double") end)
-        end
-    elseif g.phase=="result" then
-        local revealed=now>=(tonumber(g.resultAt) or 0)
-        local text=not revealed and "Dealer plays" or hand and hand.result and RESULTS[hand.result] or "Next hand shortly"
-        if revealed and hand and (tonumber(hand.payout) or 0)>0 then text=text.." · "..money(hand.payout) end
-        m.row("status",text,function() notify(board,text..".") end,{icon="info"})
+    if board.kind=="chess" or board.kind=="checkers" or board.kind=="connect4" then
+        if Client.member(board) then return boardStatus(board) end
+        if g.status=="won" then return sideName(board,g.winner).." won" end
+        if g.status=="draw" then return "Draw" end
+        return ((g.ply or 0)>0 and sideName(board,g.turn).." to move" or "New game").." · "..(MODE_LABEL[board.mode or "duel"] or "")
+    elseif board.kind=="pool" then return LightRpPoolClient.status(board)
+    elseif board.kind=="roulette" or board.kind=="fortune" then
+        return g.phase=="spinning" and "Wheel spinning" or g.phase=="result" and "Showing the result" or "Bets open"
+    elseif board.kind=="blackjack" then
+        return g.phase=="betting" and "Bets open" or g.phase=="playing" and "Hand in play" or "Settling the hand"
+    elseif board.kind=="slots" then
+        local spin=type(g.spin)=="table" and g.spin
+        return spin and Extra.serverTime(board)<(tonumber(spin.endsAt) or 0) and "Reels spinning" or "Ready"
     end
-end)
-
--- Fortune wheel ------------------------------------------------------------------
-M.register("fortune",function(board,m)
-    local F=LightRpCasinoFortune
-    local Fortune=LightRpCasinoFortuneClient
-    local g=board.game
-    local chip=Fortune.chip()
-    local stake=tonumber(g.yourStake) or 0
-    if g.phase=="spinning" then
-        m.row("status","Wheel spinning",function() notify(board,"The wheel is spinning: bets are closed.") end,{icon="info"})
-        return
-    end
-    local result=g.phase=="result" and type(g.result)=="table" and g.result
-    local status=result and ("Result: %s"):format(F.LABEL[result.spot] or tostring(result.spot))..((tonumber(g.yourWin) or 0)>0 and " · "..money(g.yourWin) or "")
-        or stake>0 and "Your bets: "..money(stake) or "Place your bets"
-    m.row("status",status,function()
-        local parts={}
-        for _,spot in ipairs(F.SPOTS) do
-            local amount=type(g.yourBets)=="table" and tonumber(g.yourBets[spot])
-            if amount and amount>0 then parts[#parts+1]=money(amount).." on "..F.LABEL[spot] end
-        end
-        notify(board,#parts>0 and table.concat(parts,", ") or "Pick a chip, then a multiplier (or click a spot on the felt).")
-    end,{icon="info"})
-    presets(m,"chip.",{id="chip",label="Chip: "..money(chip),icon="tool"},F.MIN_BET,F.MAX_BET,chip,0,function(amount)
-        Fortune.setChip(amount);notify(board,"Chip: "..money(amount)..". Click a spot on the felt or use Bet.");return true
-    end)
-    if affordable(chip) and stake+chip<=F.MAX_ROUND then
-        local folder={id="bet",label="Bet "..money(chip),icon="interact"}
-        for _,spot in ipairs(F.SPOTS) do
-            m.row("bet."..spot,F.LABEL[spot],function() return command(board,"bet",{spot=spot,amount=chip}) end,
-                {submenu=folder,description=("Pays %d to 1"):format(F.MULTIPLIER[spot])})
-        end
-    end
-    m.row("spin","Spin",function() return command(board,"spin") end)
-end)
-
--- Pool --------------------------------------------------------------------------
--- Shots are played on the cloth (crosshair + left button, casino_pool.lua);
--- the menu holds the status, the rack and the owner's mode / new game.
-M.register("pool",function(board,m)
-    local Pool=LightRpPoolClient
-    local g=board.game
-    m.row("status",Pool.status(board),function() notify(board,Pool.describe(board)) end,{icon="info"})
-    local busy=Pool.busy(board)
-    if g.mode=="solo" and (g.ply or 0)>0 and not busy then
-        m.row("rerack","Re-rack",function() return command(board,"rerack") end,{icon="tool"})
-    elseif g.mode~="solo" and g.status=="won" and not busy then
-        m.row("rerack","Rematch (re-rack)",function() return command(board,"rerack") end,{icon="tool"})
-    end
-    if not board.owned then return end
-    if (g.ply or 0)==0 then
-        local solo=board.mode=="solo"
-        local folder={id="mode",label="Mode: "..(solo and "Solo practice" or "1v1"),icon="tool"}
-        local mode,label=solo and "duel" or "solo",solo and "1v1" or "Solo practice"
-        m.row("mode."..mode,label,function() return Client.request("mode",{boardId=board.id,mode=mode})==true end,{submenu=folder,icon="tool"})
-    elseif not busy then
-        m.row("reset","New game",function() return Client.request("reset",{boardId=board.id})==true end,{icon="tool"})
-    end
-end)
+end
 
 -- Notices -----------------------------------------------------------------------
--- What the panel used to show, said once when it changes: whose turn, the
--- result, the payout. Timed reveals (reels, the dealer's hand) wait for the
+-- Said once when it changes, beside the bar: whose turn, the result, the
+-- payout. Timed reveals (reels, the dealer's hand) wait for the
 -- server time at which every client shows them.
 local seen={}
 local later={}
@@ -447,7 +279,7 @@ function observers.blackjack(board,old)
             local now=Extra.serverTime(b)
             local hand=b.game.hands and b.game.hands[seat]
             if b.game.phase~="playing" or b.game.seatTurn~=seat or not hand then return end
-            notify(b,("Your turn: %s vs dealer %s. Hold ALT on the table: Hit, Stand or Double.")
+            notify(b,("Your turn: %s vs dealer %s. Hit, Stand or Double on the bar.")
                 :format(shownTotal(hand.cards,now) or "?",shownTotal(b.game.dealer and b.game.dealer.cards,now) or "?"))
         end)
     end
@@ -501,18 +333,23 @@ function M.observe(boards)
     seen=nextSeen
 end
 -- Called once when the local player takes a seat: how to play this table.
+local HOW={
+    slots="Set your bet on the bar, then click the lever (or Pull).",
+    fortune="Click a spot on the felt, then Bet on the bar. Spin when everyone is in.",
+    roulette="Click a number or a box on the layout, then Bet on the bar.",
+    blackjack="Set your chip, then Bet on the bar. Hit, Stand or Double on your turn.",
+    pool="Aim with the cursor on the cloth, hold the left button to charge, release to shoot.",
+}
 function M.seated(board)
     -- Start observing from this snapshot: the next change is the first notice.
     local observer=observers[board.kind]
     if observer then seen[board.id]=observer(board,nil) end
-    local how
-    if board.kind=="chess" or board.kind=="checkers" or board.kind=="connect4" then
-        how=("You play %s. %s"):format(sideName(board,Client.member(board)),hint(board))
-    elseif board.kind=="slots" then how="Click the lever to pull."
-    elseif board.kind=="fortune" then how="Click a spot on the felt to bet your chip."
-    elseif board.kind=="pool" then how="Aim at the cloth with the crosshair, hold the left button to charge, release to shoot."
-    else how="Bets and moves are in the ALT menu." end
-    notify(board,how.." Hold ALT and click the table for options. Backspace: leave.")
+    local how=HOW[board.kind]
+    if not how then
+        how=("You play %s. %s"):format(sideName(board,Client.member(board)),board.kind=="connect4"
+            and "Click a column to drop a disc." or "Click a piece, then its square (or drag it).")
+    end
+    notify(board,how.." Camera views and Leave are on the bar; Backspace leaves.")
 end
 CreateThread(function()
     while true do

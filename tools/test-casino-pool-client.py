@@ -5,8 +5,8 @@ Reuses the mock host of tools/test-board-games-client.py (per-resume instruction
 hook at BOARD_BUDGET, one native spawn per resume). Proves: every prop exists in
 the cooked package; the balls follow the server's segments analytically at the
 projected server time (a late client agrees); the cue turns about the cue ball
-with the crosshair, draws back while the button is held and the release sends
-the shot (ALT cancels it); ball in hand follows the crosshair and a click
+with the cursor, draws back while the button is held and the release sends
+the shot (a release on the bar cancels it); ball in hand follows the cursor and a click
 places it; pocketed balls drop then line up in the ball return; the worst
 frame stays inside the budget.
 """
@@ -36,15 +36,15 @@ function Open77.props.create(options)
 end
 function countProps() local n=0;for _,p in pairs(nativeProps) do if not p.name:find('_collider$') then n=n+1 end end;return n end
 function findProp(name) for id,p in pairs(nativeProps) do if p.name==name then return p,id end end end
--- The crosshair straight down on a point of the cloth (world = table metres here).
-function aimCloth(x,y) forcedRay={origin={x=x,y=y,z=3},direction={x=0,y=0,z=-1}} end
+-- The cursor straight down on a point of the cloth (world = table metres here).
+function aimCloth(x,y) forcedRay={origin={x=x,y=y,z=3},direction={x=0,y=0,z=-1}};pointer({x=.5,y=.5}) end
 ''')
 for name in ['shared/casino_pool.lua', 'client/core/tabletop_extra.lua', 'client/core/casino_pool.lua', 'client/core/board_games.lua']:
     lua.execute((ROOT/'resources/gamemodes/op77_lightrp'/name).read_text(), name=name)
 lua.execute(r'''
 local P,E,C,PC=LightRpPool,LightRpTabletopExtraClient,LightRpBoardGamesClient,LightRpPoolClient
 C.bind(page);C.start();step();step()
-assert(E.supports('pool') and E.aimable({kind='pool'}))
+assert(E.supports('pool') and E.views({kind='pool'})[1].key=='top')
 local K=1/.65
 local BALL_Z=(P.BED+P.R)*K
 local function near(a,b,tol) return math.abs(a-b)<(tol or 1e-6) end
@@ -54,7 +54,7 @@ local pool={id=301,kind='pool',owned=true,position={x=0,y=0,z=0},rotation=0,play
  mode='duel',revision=1,serverNow=now,game=g}
 events['lightrp:boardGames:state']({boards={pool}});step()
 waitUntil(function() return countProps()==1+16+1+1 and findProp('pool_table_collider') end,'table, 16 balls, cue, rack and collider')
-assert(C.isActive() and E.seat(pool)=='white')
+assert(C.isActive() and E.seat(pool)=='white' and focus and camera and view.view=='top' and cameraSpec.rotation,'the pool view opens overhead')
 -- The rack: every ball where the rules put it, on the cloth.
 local rack=P.decodePositions(g.pos)
 local T=E.pieceTargets(pool)
@@ -64,7 +64,7 @@ for i=1,16 do
 end
 assert(T.rack and near(T.rack.position.x,P.FOOT_X*K),'the rack frames the balls before the break')
 
--- Aiming: the cue turns about the cue ball towards the crosshair.
+-- Aiming: the cue turns about the cue ball towards the cursor.
 local cx,cy=rack[1][1],rack[1][2]
 aimCloth(.5,.2);for i=1,4 do step() end
 local yaw=math.deg(math.atan(.2-cy,.5-cx))
@@ -78,20 +78,20 @@ local guide=batches['boardGames:preview'];assert(guide and #guide.lines>=11,'a g
 local first=guide.lines[1];assert(near(first.a.x,cx,1e-6) and near(first.a.y,cy,1e-6),'the guide starts at the cue ball')
 -- Charging draws the cue back; the release sends the shot with the aim and the power.
 local before=#requests
-keys.mouse1=true;step()
+pointer({x=.5,y=.5,pressed=true});step()
 for i=1,10 do step() end
 local pulled=findProp('pool_cue');local back=math.sqrt((pulled.position.x-cx)^2+(pulled.position.y-cy)^2)
 assert(back>P.R+.012+.05,'the cue draws back while charging: '..back)
-keys.mouse1=false;step()
+pointer({x=.5,y=.5,released=true});step()
 assert(#requests==before+1 and last().action=='game' and last().operation=='shoot' and last().revision==1)
 local sent=last().data
 assert(near(sent.yaw,math.floor(yaw*100+.5)/100,1e-9) and sent.power>.2 and sent.power<=1,'yaw '..sent.yaw..' power '..sent.power)
 -- No second shot while that one is on its way.
-keys.mouse1=true;step();keys.mouse1=false;step();assert(#requests==before+1,'one request per revision')
--- ALT during a charge cancels it (a release while ALT borrows the button).
+click();assert(#requests==before+1,'one request per revision')
+-- A release over the bar cancels the charge.
 pool.revision=2;events['lightrp:boardGames:state']({boards={pool}});step()
-keys.mouse1=true;step();step();keys.ALT=true;step();keys.mouse1=false;step();keys.ALT=false;step()
-assert(#requests==before+1,'ALT cancelled the charge: no shot')
+pointer({x=.5,y=.5,pressed=true});step();step();pointer({blocked=true});step();step()
+assert(#requests==before+1 and not PC.charging(pool),'a release on the bar cancelled the charge: no shot')
 
 -- The shot: balls follow the segments at the projected server time.
 local n=assert(P.shoot(g,'white',{yaw=sent.yaw,power=1,nowMs=now}))
@@ -156,11 +156,11 @@ print('shot: '..P.records(table.concat({n.shot.segs[1]}))..' cue ball segments, 
 n.shot.at=now-100000;pool.game=n;pool.actor=9;pool.revision=4;pool.serverNow=now;events['lightrp:boardGames:state']({boards={pool}});step()
 if n.turn~='white' or n.inHand then
  before=#requests;local hints=#notices
- keys.mouse1=true;step();keys.mouse1=false;step()
+ click()
  assert(#requests==before and lastNotice=="It is your opponent's shot.",'no request out of turn: '..tostring(lastNotice))
 end
 
--- Ball in hand: the cue ball follows the crosshair on a free spot; a click places it.
+-- Ball in hand: the cue ball follows the cursor on a free spot; a click places it.
 local hand=P.copy(n);hand.inHand='table';hand.turn='white';hand.status='playing'
 local balls=P.decodePositions(hand.pos);balls[1]=false;hand.pos=P.encodePositions(balls)
 hand.shot.at=now-100000
@@ -170,7 +170,7 @@ local fx,fy=-1.0,-.45
 for i=2,16 do local b=balls[i];if b then assert((b[1]-fx)^2+(b[2]-fy)^2>(2*P.R)^2,'test spot is free') end end
 aimCloth(fx,fy);for i=1,3 do step() end
 T=E.pieceTargets(pool)
-assert(near(T.ball0.position.x,fx*K,1e-9) and near(T.ball0.position.y,fy*K,1e-9),'the cue ball follows the crosshair')
+assert(near(T.ball0.position.x,fx*K,1e-9) and near(T.ball0.position.y,fy*K,1e-9),'the cue ball follows the cursor')
 assert(near(T.cue.position.z,P.PARK.z*K) and near(T.cue.position.x,P.PARK.cueX*K),'no cue while placing: parked in the spine')
 before=#requests;click()
 assert(#requests==before+1 and last().operation=='place' and last().data.x==math.floor(fx*P.UNIT+.5) and last().data.y==math.floor(fy*P.UNIT+.5))
@@ -195,5 +195,5 @@ C.leave('test');assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
 assert(next(nativeProps)==nil)
 assert(peakInstructions<5000,'peak '..peakInstructions)
-print('pool client: cooked props, analytic shot playback, late join, drops and ball return, aim/charge/shoot, ALT cancel, ball in hand: OK; peak '..peakInstructions..' (budget '..BOARD_BUDGET..')')
+print('pool client: cooked props, analytic shot playback, late join, drops and ball return, game view, cursor aim/charge/shoot, bar cancel, ball in hand: OK; peak '..peakInstructions..' (budget '..BOARD_BUDGET..')')
 ''')

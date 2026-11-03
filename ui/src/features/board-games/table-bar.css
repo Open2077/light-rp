@@ -1,0 +1,66 @@
+/* Seated at a table. A transparent full-screen layer takes the pointer for the
+   picking on the 3D table (above the hidden gameplay HUD, z 40-65), and a compact
+   bar sits at the bottom centre so the table in the middle stays clear. Every
+   value is a design token. */
+.table-layer { position: fixed; inset: 0; z-index: 140; cursor: default; color: var(--text-hi); font: var(--type-body); touch-action: none; }
+
+/* Notices keep their place (centre-left) but stay readable and clickable above the layer. */
+html[data-table-bar] .notices { z-index: 145; }
+
+.table-bar {
+  position: absolute; left: 50%; bottom: var(--sp-7); transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  width: max-content; max-width: min(960px, calc(100vw - 2 * var(--sp-6)));
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--surface-hud-solid); border-top: var(--stroke-bold) solid var(--accent);
+  box-shadow: var(--shadow-hud); clip-path: var(--clip-chamfer-sm);
+  animation: table-bar-in var(--dur-base) var(--ease-snap) both;
+}
+.table-bar--leaving { border-top-color: var(--line-danger); }
+.table-bar p { margin: 0; }
+
+/* One row. The text column is 320 px when there is room and gives way down to
+   its first line (title, status, countdown) when the controls need it: the
+   status is never cut, the quieter second line is. Narrow screens wrap. */
+.table-bar__row { display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: var(--sp-3) var(--sp-4); }
+
+.table-bar__info { display: flex; flex-direction: column; gap: var(--sp-1); flex: 0 1 auto; width: 320px; }
+.table-bar__head { display: flex; align-items: baseline; gap: var(--sp-4); white-space: nowrap; }
+.table-bar__title { font: var(--type-label); font-size: var(--fs-micro); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-dim); }
+.table-bar__status { font: var(--type-label); font-size: var(--fs-body); color: var(--text-hi); }
+.table-bar__status--turn { color: var(--accent); }
+.table-bar__status--result { color: var(--accent); text-shadow: var(--glow-text); }
+.table-bar__status--warn { color: var(--text-danger); }
+.table-bar__countdown { font: var(--type-hud-readout); color: var(--accent); }
+.table-bar__sub { width: 100%; contain: inline-size; font-size: var(--fs-micro); line-height: var(--lh-snug); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.table-bar__target {
+  flex: 0 1 auto; min-width: 72px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: var(--sp-1) var(--sp-4); font: var(--type-hud-readout); letter-spacing: .04em; color: var(--accent);
+  background: var(--accent-quiet); box-shadow: inset 0 0 0 1px var(--line-soft); clip-path: var(--clip-tag);
+}
+
+.table-bar__chip { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.table-bar .table-bar__chip .o77-btn { min-width: 24px; padding-left: var(--sp-3); padding-right: var(--sp-3); font-size: var(--fs-label); }
+/* A value under its small caption: the chip, the current camera view. */
+.table-bar__stack { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; line-height: var(--lh-tight); }
+.table-bar__stack small { font: var(--type-hud-readout); font-size: 9px; letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-dim); }
+.table-bar__stack b { font: var(--type-hud-readout); font-size: var(--fs-label); color: var(--text-hi); }
+.table-bar__chip-value { min-width: 64px; }
+.table-bar .table-bar__camera { padding-top: 2px; padding-bottom: 2px; }
+.table-bar__camera .table-bar__stack { align-items: flex-start; }
+.table-bar__camera .table-bar__stack b { font: var(--type-label); font-size: var(--fs-tag); text-transform: uppercase; letter-spacing: .04em; }
+
+.table-bar__actions, .table-bar__end { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.table-bar .o77-btn { letter-spacing: .04em; padding-left: 10px; padding-right: 10px; }
+.table-bar .o77-btn:focus-visible { outline: var(--stroke-hair) solid var(--line-accent); outline-offset: -1px; }
+.table-bar__end .o77-btn { color: var(--text-body); }
+
+.table-bar__notes { display: flex; justify-content: center; }
+.table-bar__warning { color: var(--text-danger); font: var(--type-label); font-size: var(--fs-tag); text-align: center; }
+.table-bar__orbit { color: var(--text-dim); font: var(--type-hud-readout); font-size: var(--fs-micro); letter-spacing: .04em; }
+
+@keyframes table-bar-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .table-bar { animation: none; } }
+@media (max-width: 1100px) { .table-bar { bottom: var(--sp-6); } }
+@media (max-width: 1000px) { .table-bar__row { flex-wrap: wrap; } .table-bar__info { width: auto; max-width: 320px; } }

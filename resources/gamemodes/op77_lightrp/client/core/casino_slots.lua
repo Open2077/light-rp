@@ -68,7 +68,7 @@ local function coinCount(spin)
  local m=gross/bet
  return m>=50 and 4 or m>=10 and 3 or m>=2 and 2 or 1
 end
--- The bet a lever click pulls with, chosen in the ALT menu (client/core/table_menu.lua).
+-- The bet a lever click (or the bar's Pull) pulls with, chosen on the bar (client/core/table_bar.lua).
 local selectedBet=10
 LightRpCasinoSlotsClient={
  bet=function() return selectedBet end,
@@ -82,6 +82,7 @@ local function pullLever(board)
 end
 -- Closest distance between the pointer ray and the lever arm (board-local metres).
 local function onLever(board,event)
+ if event.x==nil or event.y==nil then return false end
  local ray=Open77.camera.screenRay(event.x,event.y,15)
  if type(ray)~="table" or type(ray.origin)~="table" or type(ray.direction)~="table" then return false end
  local p=L.leverPivot
@@ -148,11 +149,20 @@ Extra.register("slots",{
    put(result,"slot-coin-"..i,"slot_coin",MODELS.coin,x,y,z,COIN_YAW[i],SNAP)
   end
  end,
- pointer=function(board,event)
-  if event.pressed and onLever(board,event) then pullLever(board) end
-  return true -- only the lever; a stray click never wagers
+ -- Toolbar views: the player's seat at the reels (default), a raised front
+ -- view of the whole machine, a three-quarter view of the lever.
+ views={{key="front",label="Reels"},{key="wide",label="Cabinet"},{key="lever",label="Lever"}},
+ camera=function(board,view)
+  local w=Extra.world
+  if view=="wide" then return {position=w(board,.15,-2.9,2.2),lookAt=w(board,.06,0,1.4),fov=52} end
+  if view=="lever" then return {position=w(board,1.7,-1.55,1.85),lookAt=w(board,.3,0,1.45),fov=52} end
+  return {position=w(board,.1,-1.45,1.75),lookAt=w(board,.1,0,1.5),fov=52}
  end,
- -- Outline the lever while the crosshair is on it.
+ pointer=function(board,event)
+  -- The lever is an action, not a betting spot: a click on it pulls with the bar's bet.
+  if event.pressed and onLever(board,event) then pullLever(board) end
+ end,
+ -- Outline the lever while the cursor is on it.
  aim=function(board,x,y,line)
   if not onLever(board,{x=x,y=y}) then return end
   local p,w=L.leverPivot,Extra.world

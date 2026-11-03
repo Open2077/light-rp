@@ -61,22 +61,24 @@ assert(at('fortune_blur_0',PARK) and at('fortune_blur_1',PARK) and at('fortune_f
 local eye=findProp('fortune_eye');assert(near(eye.position.x,0,1e-4) and near(eye.position.z,(WZ+.42)*S,1e-4),'eye medallion on top of the rest pose')
 assert(findProp('fortune_chips_2') and findProp('fortune_chips_1'),'stacks for 40 and 3')
 assert(near(findProp('fortune_chips_2').position.x,.2*S,1e-4),'20x stack on its spot')
--- Bets: the ALT menu (tools/test-table-menu.py) or a crosshair click on a
--- felt spot, which bets the chip chosen in the menu on that spot.
+-- The game view opens on the whole wheel above the felt.
+assert(focus and camera and frozen and view.view=='wheel' and #view.views==3 and cameraSpec.lookAt)
+-- Bets: a click on a felt spot selects it, the bar (tools/test-table-menu.py)
+-- bets its chip on the selection.
 local Fortune=LightRpCasinoFortuneClient
 assert(Fortune.chip()==10 and not Fortune.setChip(0) and not Fortune.setChip(1001) and Fortune.setChip(25) and Fortune.chip()==25)
 local before=#requests
 assert(E.command(wheel,'bet',{spot='5',amount=25}) and #requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.spot=='5')
 assert(not E.command(wheel,'steal',{}) and #requests==before+1)
--- The crosshair outlines the aimed spot; a click bets the chip there.
-forcedRay={origin={x=.2*S,y=-.68*S,z=3},direction={x=0,y=0,z=-1}};step()
-assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'aimed spot outlined')
-keys.mouse1=true;step();keys.mouse1=false;for i=1,4 do step() end
-assert(#requests==before+2 and last().operation=='bet' and last().data.spot=='20' and last().data.amount==25,'a crosshair click bets on the 20x spot')
-assert(lastNotice:find('20x',1,true),'the bet is confirmed in a notice')
-forcedRay={origin={x=.2*S,y=0,z=3},direction={x=0,y=0,z=-1}};step()
-keys.mouse1=true;step();keys.mouse1=false;step();forcedRay=nil
-assert(#requests==before+2,'a click off the spots never wagers')
+-- The cursor outlines the hovered spot; a click selects it (outlined too) and wagers nothing.
+forcedRay={origin={x=.2*S,y=-.68*S,z=3},direction={x=0,y=0,z=-1}};pointer({x=.6,y=.7});step()
+assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'hovered spot outlined')
+pointer({x=.6,y=.7,pressed=true});step();pointer({x=.6,y=.7,released=true});for i=1,4 do step() end
+assert(#requests==before+1 and E.selection(wheel).key=='20' and E.selection(wheel).label==F.LABEL['20'],'a click selects the 20x spot')
+forcedRay={origin={x=.2*S,y=0,z=3},direction={x=0,y=0,z=-1}};pointer({x=.6,y=.2});step()
+assert(#batches['boardGames:preview'].lines==4,'the selection stays outlined')
+pointer({x=.6,y=.2,pressed=true});step();pointer({x=.6,y=.2,released=true});step();forcedRay=nil
+assert(#requests==before+1 and E.selection(wheel).key=='20','a click off the spots changes nothing')
 -- The server spins: segment 13 (20x), two laps, from rest 0.
 local spun=assert(F.spin(g,{outcome=13,laps=2,nowMs=now+1000,roundKey='k'}))
 wheel.game=F.view(spun,'a');wheel.revision=2;wheel.serverNow=now+1000

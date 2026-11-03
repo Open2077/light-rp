@@ -57,13 +57,23 @@ events['lightrp:boardGames:state']({boards={bj}});step()
 waitUntil(function() return findProp('blackjack_table') and countNamed('^bj_chips_')==4 end,'table and both bet stacks')
 assert(C.isActive() and E.seat(bj)=='white' and bj.game.hands.white.bet==125)
 assert(findProp('bj_chips_100_1') and findProp('bj_chips_25_1') and findProp('bj_chips_25_1'),'125 = 100 + 25 stacks')
--- Menu operations (tools/test-table-menu.py) reach the server; a click never wagers.
+-- The game view opens behind the local player's seat (white: 54 degrees).
+assert(focus and camera and frozen and view.view=='seat' and #view.views==4 and cameraSpec.lookAt)
+assert(math.abs(cameraSpec.position.x-1.65*math.sin(math.rad(54))*.65)<1e-6 and cameraSpec.position.y<0,'the seat camera stands behind white')
+-- Bar operations (tools/test-table-menu.py) reach the server; a click never wagers.
 local before=#requests
 assert(E.command(bj,'bet',{amount=25}))
 assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.amount==25)
 assert(not E.command(bj,'splitAll',{}) and #requests==before+1,'unknown operation forwarded')
-keys.mouse1=true;step();keys.mouse1=false;step()
-assert(#requests==before+1 and not focus and lastNotice:find('Hold ALT',1,true),'a click points at the ALT menu')
+-- A click on the player's betting circle selects it (outlined); elsewhere, nothing.
+local a=math.rad(54)
+local function at(x,y) forcedRay={origin={x=x*.65,y=y*.65,z=3},direction={x=0,y=0,z=-1}};pointer({x=.5,y=.6});step() end
+at(.80*math.sin(-a),-.80*math.cos(a));pointer({x=.5,y=.6,pressed=true});step();pointer({x=.5,y=.6,released=true});step()
+assert(E.selection(bj)==nil and #requests==before+1,'another seat\'s circle is not mine')
+at(.80*math.sin(a),-.80*math.cos(a));step();assert(#batches['boardGames:preview'].lines==12,'the hovered circle is outlined')
+pointer({x=.5,y=.6,pressed=true});step();pointer({x=.5,y=.6,released=true});step()
+assert(E.selection(bj) and E.selection(bj).key=='circle' and #requests==before+1,'a click selects my circle and wagers nothing')
+forcedRay=nil
 
 -- The deal: server timestamps drive every card; staggered from the shoe.
 now=now+1000 -- a new snapshot stamp: the client re-anchors its server clock

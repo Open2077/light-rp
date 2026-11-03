@@ -80,21 +80,21 @@ in the tray (dealer first, then seat by seat). Chip stacks (up to
 three denomination columns per stack) slide in from the player's edge on a
 bet, to the dealer's rack on a loss (at once on a bust), and a winnings stack
 slides out from the rack at the reveal. Worst case 59 moving props per table.
-There are no camera views and no panel: the player stays in free mode at the
-table.
+## Playing (game view and bar)
 
-## Playing (ALT menu)
-
-Seated, hold ALT and click the table. Betting: the status (*Place a bet* or
-*Your bet: €$ 50*; selecting it gives the countdown), *Bet ›* (*Add to bet ›*
-once a bet is down) with 10, 50, 100, 500 and 1,000, offered only when the hand
-stays within 5-5,000 and your cash, and *Deal now* once you have a bet. On your
-turn, after the dealer's pause: *Hit (16)*, *Stand (16)* and *Double (€$ 50)*
-(first two cards, enough cash), with the total of the cards you can see; the
-status row reads *Hand 16 · Dealer 9*. Notices: "Your turn: 16 vs dealer 9."
-when the dealer hands over, and the result ("Win · €$ 100 returned.", "Dealer
-wins.", "Push.") when the dealer has finished. A click on the felt only reminds
-you of the ALT menu.
+Sitting opens the game view (board-games.md) from behind your seat (views
+*Your seat*, *Overhead*, *Dealer*, *Orbit*). Betting: click your betting circle
+(it is outlined in cyan; the only betting target, so the bar's *Bet* works
+without it), set the chip with − / + (5 to 5,000) and press *Bet €$ 50* (*Add
+€$ 50* once a bet is down; disabled past 5,000 per hand or your cash), and
+*Deal now* once you have a bet. The bar status reads *Place a bet* or *Your bet
+€$ 50* with the countdown to the deal. On your turn, after the dealer's pause,
+*Hit*, *Stand* and *Double €$ 50* (first two cards, enough cash) are enabled
+and the status reads *Hand 16 · Dealer 9*, the totals of the cards you can
+see; the result (*Win*, *€$ 100 returned*, *Dealer wins*...) shows when the
+dealer has finished. Notices: "Your turn: 16 vs dealer 9. Hit, Stand or Double
+on the bar." and the result ("Win · €$ 100 returned.", "Dealer wins.",
+"Push.").
 
 ## The dealer
 

@@ -107,8 +107,7 @@ local function pieceTargets(board,result)
         end
     end
 end
--- A crosshair click on a betting spot of the felt bets the chip chosen in the
--- ALT menu (client/core/table_menu.lua) on that spot; the menu also bets.
+-- The chip a bar bet places (client/core/table_bar.lua).
 local chip=10
 LightRpCasinoFortuneClient={
     chip=function() return chip end,
@@ -117,38 +116,28 @@ LightRpCasinoFortuneClient={
         return false
     end,
 }
--- The betting spot under a screen point (the crosshair), or nil.
+-- The betting spot under a screen point (the cursor), or nil.
 local function spotAt(board,sx,sy)
-    local ray=Open77.camera.screenRay(sx,sy,15)
-    if not ray or not ray.origin or not ray.direction or math.abs(ray.direction.z)<.001 then return end
-    local planeZ=board.position.z+FELT_Z*Extra.SCALE
-    local t=(planeZ-ray.origin.z)/ray.direction.z
-    if t<=0 then return end
-    local a=math.rad(board.rotation or 0)
-    local dx,dy=ray.origin.x+ray.direction.x*t-board.position.x,ray.origin.y+ray.direction.y*t-board.position.y
-    local x,y=(dx*math.cos(a)+dy*math.sin(a))/Extra.SCALE,(-dx*math.sin(a)+dy*math.cos(a))/Extra.SCALE
-    if math.abs(y-SPOT_Y)>.11 then return end
+    local x,y=Extra.onPlane(board,sx,sy,FELT_Z)
+    if not x or math.abs(y-SPOT_Y)>.11 then return end
     for spot,px in pairs(SPOT_X) do
         if math.abs(x-px)<.095 then return spot,px end
     end
 end
+-- A click on a felt spot selects it; the bar bets the chip on the selection.
 local function pointer(board,event)
-    if not event.pressed or (board.game and board.game.phase=="spinning") then return true end
+    if not event.pressed then return end
     local spot=spotAt(board,event.x,event.y)
-    if spot and Extra.command(board,"bet",{spot=spot,amount=chip}) and LightRpBoardGamesClient then
-        LightRpBoardGamesClient.notice(("Bet €$ %d on %s."):format(chip,F.LABEL[spot] or spot),"Fortune Wheel")
-    end
-    return true
+    if spot then Extra.select(board,spot,F.LABEL[spot] or spot) end
 end
--- Outline the aimed spot on the felt.
+-- Outline the hovered spot and the selected one on the felt.
 local function aim(board,sx,sy,line)
     local spot,px=spotAt(board,sx,sy)
-    local w,z=Extra.world,FELT_Z+.006
-    local function box(x)
-        local a,b,c,d=w(board,x-.09,SPOT_Y-.1,z),w(board,x+.09,SPOT_Y-.1,z),w(board,x+.09,SPOT_Y+.1,z),w(board,x-.09,SPOT_Y+.1,z)
-        line(a,b);line(b,c);line(c,d);line(d,a)
-    end
-    if spot then box(px) end
+    local sel=Extra.selection(board)
+    local z=FELT_Z+.006
+    local function box(x,color) Extra.box(board,line,x-.09,SPOT_Y-.1,x+.09,SPOT_Y+.1,z,color) end
+    if sel and SPOT_X[sel.key] then box(SPOT_X[sel.key],"#38f2ffff") end
+    if spot and not (sel and sel.key==spot) then box(px) end
 end
 Extra.register("fortune",{
     operations={bet=true,spin=true},
@@ -156,4 +145,15 @@ Extra.register("fortune",{
     pieceTargets=pieceTargets,
     pointer=pointer,
     aim=aim,
+    views={{key="wheel",label="Wheel"},{key="felt",label="Betting felt"},{key="pointer",label="Pointer"}},
+    camera=function(board,view)
+        local world=Extra.world
+        if view=="felt" then -- the betting felt, from the player's side
+            return {position=world(board,0,-1.75,2.45),lookAt=world(board,0,-.66,1.25),fov=50}
+        elseif view=="pointer" then -- close on the flapper and the top segments
+            return {position=world(board,0,-1.35,2.75),lookAt=world(board,0,WY,2.55),fov=48}
+        end
+        -- The whole wheel above the betting felt (kept above the bar).
+        return {position=world(board,0,-3.4,2.0),lookAt=world(board,0,-.3,1.8),fov=56}
+    end,
 })
