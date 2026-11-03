@@ -619,6 +619,26 @@ local function viewerKey(playerId)
     if c and c.status == "active" and c.identifier and c.key then return ownerKey(c.identifier, c.key) end
 end
 
+-- The end-of-match recap (recap.lua): the player's rank on each board of the cache
+-- (wealth aside), { [boardKey] = { rank, value, title } }, before and after a match.
+function HoF.standing(playerId)
+    local me = viewerKey(playerId)
+    if not me then return nil end
+    local out = {}
+    for key, entry in pairs(cache.boards or {}) do
+        local at = entry.def.tab ~= "wealth" and entry.byKey and entry.byKey[me]
+        local r = at and entry.rows[at]
+        if r then out[key] = { rank = r.rank, value = r.value, title = entry.meta.title or entry.def.title } end
+    end
+    return out
+end
+-- A cache older than `sinceMs` is rebuilt once, never faster than the floor (caller in a thread).
+function HoF.refreshSince(sinceMs)
+    if cache.at ~= nil and cache.at >= (tonumber(sinceMs) or 0) then return cache end
+    if not floorPassed() then return cache end
+    return HoF.refresh("recap")
+end
+
 local function boardView(entry, size, me)
     local def, rows = entry.def, entry.rows
     local view = { key = def.key, title = entry.meta.title or def.title, subtitle = entry.meta.subtitle or def.subtitle,
