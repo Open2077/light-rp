@@ -173,6 +173,8 @@ export interface ActivityStats {
   bestScore?: number; bestTimeMs?: number; bestPlacement?: number;
 }
 export interface ActivityTopRow { rank: number; name: string; wins: number; played: number; bestTimeMs?: number; bestScore?: number }
+/** A PvE difficulty (docs/pve-progression.md): locked above the player's reputation tier. */
+export interface ActivityDifficulty { id: string; label: string; minTier: number; tierName?: string; locked: boolean; reputation: number }
 export interface ActivityEntry {
   id: string; label: string; kind: ActivityKind; description: string; minPlayers: number; maxPlayers: number;
   /** The provider's latest status (op77_lightrp:activity:status). */
@@ -181,6 +183,8 @@ export interface ActivityEntry {
   byTime: boolean;
   /** Join choices (options[modeKey]); empty: the provider decides. */
   modes: Array<{ id: string; label: string }>; modeKey: string;
+  /** Players against bots: earns reputation; its difficulties go as options.difficulty. */
+  pve?: boolean; difficulties?: ActivityDifficulty[];
   top: ActivityTopRow[];
   /** The course board the leaderboard shows (a race with courses). */
   board?: { id: string; course: string; revision: number };
@@ -194,14 +198,16 @@ export interface ActivitiesState {
   hub: { name: string; position?: { x: number; y: number; z: number } };
   list: ActivityEntry[];
   /** The activity that owns the player (sinceMs at the push), or false. */
-  current: false | { id: string; label: string; sinceMs: number; leaving: boolean; returning: boolean };
+  current: false | { id: string; label: string; sinceMs: number; leaving: boolean; returning: boolean; difficulty?: string };
   /** A join asked and not entered yet (the provider's queue or lobby), or false. */
-  queued: false | { id: string; label: string; sinceMs: number };
+  queued: false | { id: string; label: string; sinceMs: number; difficulty?: string };
   /** On a mission: activities wait (/mission leave). */
   mission: boolean;
   /** Free for an activity, else the reason in one sentence. */
   eligible: boolean; reason?: string;
-  reputation: { today: number; dailyCap: number; maxPerResult: number };
+  /** PvE reputation granted today (account, UTC day) and the player's street cred tier. */
+  reputation: { today: number; dailyCap: number; maxPerResult: number; pvpGrants?: boolean;
+    tier?: number; tierName?: string; points?: number; next?: number; nextName?: string };
   /** Staff bot mode (/lightrp.bots): bots fill the missing places, nothing is recorded. */
   bots?: boolean;
   /** Players around (only while the panel is open), for crew invites. */
@@ -219,6 +225,12 @@ export interface MissionDifficulty {
   requires?: string; cleared?: number; // the difficulty to complete first at this point; how often this one was completed
   /** Lobbies open to matchmaking with room for this player's crew (shown to a closed crew). */
   openLobbies?: number;
+  /** `tier` is the reputation tier it needs; tierLocked: the player is below it. */
+  tierName?: string; tierLocked?: boolean;
+  /** Reputation of a success: in full (`reputation`), and what this player earns (`earns`). Below
+   *  what they have unlocked a crew member still plays it with their leader, for the reward of the
+   *  highest difficulty they have unlocked (`earnsAs`, its label; absent when it is this one). */
+  reputation?: number; earns?: number; earnsAs?: string;
 }
 export interface MissionLobbyMember { id: number; name: string; citizen: string; tier: number; host: boolean; squad?: string }
 export interface MissionBoard {
@@ -229,7 +241,7 @@ export interface MissionNearby { id: number; name: string; citizen: string; tier
 export interface MissionDialogPayload {
   kind: "mission"; session: string;
   point: { id: string; title: string; type: string; location: string; description: string };
-  me: { id: number; name: string; citizen: string; tier: number; reputation: number; nextTier?: number };
+  me: { id: number; name: string; citizen: string; tier: number; reputation: number; nextTier?: number; tierName?: string };
   difficulties: MissionDifficulty[]; boards: Record<string, MissionBoard>;
   tagged?: { lobby: string; difficulty: string; host: boolean }; taggedElsewhere?: string;
   nearby: MissionNearby[];

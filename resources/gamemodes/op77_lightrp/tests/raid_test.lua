@@ -386,9 +386,10 @@ provider.create = function(options)
     return create(options)
 end
 paid = {}
-commands["missions.rep"](0, { "3", "5000" })
 chars[3] = "Op3"; positions[3] = { x = point.position.x, y = point.position.y, z = point.position.z }; buckets[3] = 0
 Missions.onCharacterLoaded(3)
+-- critical needs reputation tier III (docs/pve-progression.md): set once the character is loaded
+assert(commands["missions.rep"](0, { "3", "5000" }))
 commands["missions.unlock"](0, { "3", "chimera_raid", "standard" }); commands["missions.unlock"](0, { "3", "chimera_raid", "hard" })
 assert(Missions.open(3, "chimera_raid")); clock = clock + 2000
 -- alone below the minimum: only matchmaking lets the tag in

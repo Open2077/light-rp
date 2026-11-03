@@ -245,14 +245,20 @@ function Fixers.offer(playerId, pointId, difficultyId)
         for _, x in ipairs(point.difficulties) do if x.id == difficultyId then d = x end end
         if not d then return false, "unknown difficulty" end
     else
-        local total = 0
-        for _, x in ipairs(point.difficulties) do total = total + ((C.difficultyWeights or {})[x.id] or 1) end
-        local roll = math.random() * total
+        -- only what the owner's reputation tier opens (docs/pve-progression.md)
+        local offered = {}
         for _, x in ipairs(point.difficulties) do
+            if type(Missions.tierAllows) ~= "function" or Missions.tierAllows(playerId, x) then offered[#offered + 1] = x end
+        end
+        if #offered == 0 then offered = { point.difficulties[1] } end
+        local total = 0
+        for _, x in ipairs(offered) do total = total + ((C.difficultyWeights or {})[x.id] or 1) end
+        local roll = math.random() * total
+        for _, x in ipairs(offered) do
             roll = roll - ((C.difficultyWeights or {})[x.id] or 1)
             if not d and roll <= 0 then d = x end
         end
-        d = d or point.difficulties[1]
+        d = d or offered[1]
     end
     local contact = point.fixerContact and contactById[point.fixerContact] or pick(C.contacts)
     gigSeq = gigSeq + 1
@@ -361,6 +367,8 @@ local function join(gig, id, inviteKey)
     if inv then inv.open = false; resolve(inv.messageId, "Joined", "ok") end
     brief(gig, id, true)
     crewNotice(gig, "CREW", string.format("%s joined the crew (%d/%d).", name(id), #gig.crew, d and d.max or #gig.crew))
+    -- above their street cred: in all the same, for the reward of their own tier (told once)
+    if d and type(Missions.tellCarried) == "function" then Missions.tellCarried(id, pointOf(gig), d, false) end
     if gig.state == "countdown" then gig.state, gig.launchAt = "accepted", nil end
     pushGig(gig)
     return true

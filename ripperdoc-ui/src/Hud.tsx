@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { eddies, type SectionDef } from "./data";
+import { eddies, roman, type SectionDef } from "./data";
 import type { Phase, Session } from "./App";
 
 /* Clinic header, wallet, cyberware capacity (segmented, game-like) and a live vitals strip. */
@@ -33,6 +33,13 @@ export function TopBar({ session, used, phase, section }: { session: Session; us
         {section && <><span>FOCUS</span><b className="accent">{section.label.toUpperCase()}</b></>}
       </div>
       <div className="rd-meters">
+        {session.reputation && (
+          <div className="rd-parts rd-rep" title={session.reputation.next !== undefined
+            ? `${session.reputation.points ?? 0} / ${session.reputation.next} to ${session.reputation.nextName ?? "the next tier"}` : undefined}>
+            <span>STREET CRED</span><b>{roman(session.reputation.tier)}</b>
+            {session.reputation.name && <em>{session.reputation.name.toUpperCase()}</em>}
+          </div>
+        )}
         <div className="rd-parts"><span>IMPLANTS</span><b>{used}</b></div>
         <div className="rd-wallet"><span>BANK</span><b>€$ {eddies(shownWallet)}</b></div>
       </div>

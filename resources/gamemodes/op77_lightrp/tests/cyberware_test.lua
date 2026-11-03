@@ -1,6 +1,7 @@
 -- The cyberware module (server/modules/cyberware.lua) against a fake platform and framework:
 -- refusals (money, not seated), payment and refund, no limit (any model, family replacement), durable legs/arms transactions, session grants, passives, Mantis Blades,
--- removal and the staff command.
+-- removal and the staff command; street cred gating (locked view, refusal before payment, apex
+-- implants) and the ranked PvP switch (activeInPvp).
 local clock, threads = 0, {}
 _G.CreateThread = function(fn) threads[#threads + 1] = coroutine.create(fn) end
 _G.Wait = function(ms) clock = clock + (ms or 0); coroutine.yield() end
@@ -270,5 +271,81 @@ assert(Cyber.installed(7).sandevistan_mk1 and P.grants.reflex[7] == "lightrp.ove
 commands["lightrp.cyberware"](0, { "7", "take", "sandevistan_mk1" })
 pump()
 assert(not Cyber.installed(7).sandevistan_mk1 and P.grants.reflex[7] == nil, "staff take")
+
+-- Street cred (docs/pve-progression.md): a rank needs a reputation tier. Above, without the
+-- missions module, the gate stayed open; from here the character has a tier.
+local NAMES, ROMAN = { "Street", "Merc", "Operator", "Edgerunner", "Legend" }, { "I", "II", "III", "IV", "V" }
+local repTier = 1
+LightRP.missions = {
+    tier = function() return repTier end,
+    tierName = function(t) return NAMES[t] end,
+    tierLabel = function(t) return ROMAN[t] .. " (" .. NAMES[t] .. ")" end,
+    tierInfo = function() return { tier = repTier, name = NAMES[repTier], points = 0, next = 500, nextName = "Merc" } end,
+}
+assert(Cyber.requiredTier({ tier = 2 }) == 1 and Cyber.requiredTier({ tier = 3 }) == 2 and Cyber.requiredTier({ tier = 5 }) == 4
+    and Cyber.requiredTier({ tier = 6 }) == 5 and Cyber.requiredTier({ tier = 2, repTier = 4 }) == 4, "rank -> tier, repTier overrides")
+view = Cyber.view(7)
+local function card(id) for _, c in ipairs(view.catalogue) do if c.id == id then return c end end end
+assert(card("iron_lungs").repTier == 1 and card("iron_lungs").locked == false, "rank II: open to everyone")
+assert(card("biomonitor").repTier == 2 and card("biomonitor").repName == "Merc", "rank III: Merc")
+assert(card("subdermal_armor_mk2").locked == false, "an implant already fitted never shows locked")
+assert(card("sandevistan_mk1").locked and card("rara_avis").locked and card("rara_avis").repTier == 5)
+assert(view.reputation.tier == 1 and view.reputation.name == "Street" and view.reputation.next == 500)
+-- the server refuses below the tier, before any money moves
+before = bank[7]
+r = op("install", "rara_avis")
+assert(not r.ok and r.message:find("Street cred too low") and r.message:find("V %(Legend%)"), r.message)
+assert(bank[7] == before and not Cyber.installed(7).rara_avis, "nothing taken")
+r = op("install", "iron_lungs_mk2")
+assert(not r.ok and r.message:find("IV %(Edgerunner%)"), r.message)
+-- removal always works, even of an implant above the tier
+r = op("remove", "mantis_blades"); assert(r.ok, r.message)
+assert(bank[7] == before - LightRpCyberwareConfig.removalFee, "only the removal fee")
+-- tier V: the apex implants
+repTier = 5
+bank[7] = 1000000
+r = op("install", "rara_avis"); assert(r.ok, r.message)
+assert(bank[7] == 1000000 - 95000, "rank V+ price")
+assert(P.stats.healthMax == 200, "Rara Avis +100 max health: " .. tostring(P.stats.healthMax))
+r = op("install", "aegis_dermal_plating"); assert(r.ok, r.message)
+assert(P.armor[7] == 100, "Aegis replaces the armor Mk.2")
+r = op("install", "bioplastic_blood_vessels"); assert(r.ok, r.message)
+assert(P.stats.healthRegen == 3 and not Cyber.installed(7).biomonitor, "replaces the Biomonitor")
+r = op("install", "neofiber_mk3"); assert(r.ok, r.message)
+assert(P.grants.dash[7] == "lightrp.dash.apex", "apex dash")
+r = op("install", "zetatech_apogee"); assert(r.ok, r.message)
+assert(P.grants.reflex[7] == "lightrp.overdrive.apex", "apex overdrive")
+-- the new presets stay inside the platform's bounds (Open77.dash / Open77.reflex define)
+local dash, od = P.defs["lightrp.dash.apex"].config, P.defs["lightrp.overdrive.apex"].config
+assert(dash.staminaCost >= 0 and dash.staminaCost <= 300 and dash.cooldownMs >= 300 and dash.maxCharges >= 1 and dash.maxCharges <= 3)
+assert(od.tier == "reflex_heavy" and od.durationMs >= 500 and od.durationMs <= 15000 and od.durationMs <= od.cooldownMs
+    and od.cooldownMs >= 1000 and od.cooldownMs <= 600000 and od.maxCharges >= 1 and od.maxCharges <= 3)
+-- an implant fitted above the tier stays active; staff give ignores the tier
+repTier = 1
+commands["lightrp.cyberware"](0, { "7", "give", "sandevistan_mk3" })
+pump()
+assert(Cyber.installed(7).sandevistan_mk3 and P.grants.reflex[7] == "lightrp.overdrive.combat", "staff give ignores the tier")
+assert(P.stats.healthMax == 200 and P.grants.dash[7] == "lightrp.dash.apex", "nothing is taken from anyone")
+
+-- Ranked PvP: activeInPvp (an owner decision) -- true keeps the implants, false suspends the
+-- session grants and the passives in a non-PvE activity and restores them after.
+Cyber.onActivityChanged(7, "arena.ffa", { pve = false, kind = "pvp" })
+pump()
+assert(P.grants.dash[7] == "lightrp.dash.apex" and P.stats.healthMax == 200, "default: implants stay on in PvP")
+Cyber.onActivityChanged(7, nil, { left = "arena.ffa" })
+LightRpCyberwareConfig.activeInPvp = false
+Cyber.onActivityChanged(7, "arena.pve", { pve = true, kind = "pvp" })
+pump()
+assert(P.grants.dash[7] == "lightrp.dash.apex" and P.armor[7] == 100, "PvE keeps them")
+Cyber.onActivityChanged(7, nil, { left = "arena.pve" })
+Cyber.onActivityChanged(7, "arena.ffa", { pve = false, kind = "pvp" })
+pump()
+assert(P.grants.dash[7] == nil and P.grants.reflex[7] == nil and P.grants.abilities[7] == nil, "grants suspended in PvP")
+assert(P.stats.healthMax == 100 and P.armor[7] == 0 and P.stats.healthRegen == 0 and P.fall[7] == true, "the body's own values")
+Cyber.onActivityChanged(7, nil, { left = "arena.ffa" })
+pump()
+assert(P.grants.dash[7] == "lightrp.dash.apex" and P.grants.reflex[7] == "lightrp.overdrive.combat", "grants back after")
+assert(P.stats.healthMax == 200 and P.armor[7] == 100 and P.fall[7] == false, "passives back after")
+LightRpCyberwareConfig.activeInPvp = true
 
 print("cyberware_test: ok")
