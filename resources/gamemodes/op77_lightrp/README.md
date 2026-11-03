@@ -244,7 +244,10 @@ un point de livraison par commande ; chaque commande passe réellement dans le s
 (`delivery_order`, 1 kg) et la paie, versée en banque à la dernière livraison, suit la
 longueur du trajet. Points (de test pour l'instant), nombre de commandes, durées et
 barème : `server/config/delivery.lua`. AC Cleaner n'est plus proposé au bureau ; ses
-détenteurs gardent leur route (`server/config/job_runs.lua`).
+détenteurs gardent leur route (`server/config/job_runs.lua`). Revenu visé : 3 000 à
+5 000 €$/h au grade 0 ; chaque grade du métier ajoute 10 % à la vente et aux courses
+(`server/config/economy.lua` → `jobs.gradeBonus`), la paie de grade (toutes les 30 min,
+`shared/jobs.lua`) reste un petit bonus. Barème complet : [docs/economy-balance.md](docs/economy-balance.md).
 
 Après une embauche, à la fermeture du bureau, un **guide du métier** s'ouvre : une
 fenêtre guidée, page par page, avec des visuels animés (pages `guide` de
@@ -366,6 +369,29 @@ API pour les autres modules (jobs, boutiques, loyers) : `LightRP.money.addCash/r
 
 Page : état `money` (`cash`, `bank { number, balance }`, `history`), actions `money.deposit|withdraw|transfer|pay` (prêtes pour la future page ATM). Commandes : `/money`, `/bank`, `/pay <id> <montant>`, `/transfer <compte> <montant> [note]`, `/deposit`, `/withdraw` (tant que `economy.counterCommands`), staff `/lightrp.givemoney`, `/lightrp.takemoney`, `/lightrp.account`.
 
+### Équilibrage et dépenses récurrentes (`server/config/economy.lua`)
+
+La courbe visée, ses mesures et le tableau avant/après de chaque prix sont dans
+[docs/economy-balance.md](docs/economy-balance.md). Les prix restent avec leurs
+fonctionnalités ; `server/config/economy.lua` porte les règles transversales :
+
+- **Missions et gigs** (`server/modules/mission_pay.lua`) : la paie d'une difficulté est
+  la part de **chaque** opérateur à l'équipage minimum. Au-delà, la cagnotte croît comme
+  équipage^0,7 et se partage. Une paie pleine au même point de mission n'est reversée
+  qu'après 60 min au même personnage, et un compte touche 6 paies pleines par jour UTC ;
+  au-delà, 25 %. Plafond de 250 €$ par minute de durée. Les opérateurs voient la paie
+  attendue au lancement et la raison d'une réduction à la fin. Tables
+  `lightrp_mission_payout_cooldowns` et `lightrp_mission_payout_daily`.
+- **Hôpital** : 300 €$ après *Give up and go to hospital*, banque puis liquide, sans jamais
+  passer sous zéro (le reste est effacé). Gratuit sur un sauvetage au kit, en mission, en
+  activité, pendant le premier jour et les 120 premières minutes de jeu du personnage.
+- **Cabine d'essayage** : 50 €$ par visite d'une cabine de la ville qui enregistre une
+  tenue ; logement, hall d'arrivée, wizard et nouveaux venus gratuits, offert si le joueur
+  ne peut pas payer.
+- Fourrière (`server/config/garages.lua`), carburant (4 €$/L, `shared/config.lua`) et
+  nourriture (`server/config/shops.lua`) sont relevés. Les activités (arène, courses,
+  poursuites, turf) ne paient aucun eddie. Aucun solde existant n'est modifié.
+
 ## Menu joueur (F1)
 
 Menu liste façon RageUI (design system : Menus / RageMenu, porté en `ui/src/design/components/RageMenu.tsx` avec des classes `o77-rage*`) : une colonne, une ligne surlignée, flèches pour bouger, Entrée pour descendre, Retour arrière / Échap pour remonter, F1 pour fermer. `features/menu/PlayerMenu.tsx` construit l'arbre depuis l'état serveur à chaque rendu et garde une pile `{ key, index }`. Premier sous-menu : **Identity** (ID citoyen, prénom, nom, naissance, origine, compte bancaire, temps de jeu, statut). Le client Lua prend le clavier seul (`setFocus(true, false)`) ; le menu ne s'ouvre qu'avec un personnage actif et hors briefing. Il n'y a plus de menu « terminal », ni de commandes de spawn ou de dépôt pour les joueurs : véhicules par `/lightrp.car` et `/lightrp.dv` (staff), argent par l'ATM à venir.
@@ -464,7 +490,8 @@ suppression admin. **Aucune voiture de départ n'est attribuée.**
 propriétaire peut y envoyer le sien (volé, perdu, bloqué), ce qui le retire du monde
 où qu'il soit. On le récupère dans n'importe quel garage public (onglet Impound),
 contre des frais selon le motif (`impound.fees` dans `server/config/garages.lua` :
-gratuit après un redémarrage). Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`,
+gratuit après un redémarrage, 400 €$ pour un véhicule détruit ou perdu, 250 €$ sur
+demande du propriétaire, 500 €$ après un enlèvement par le staff). Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`,
 `/lightrp.impound` à côté du véhicule (ou avec son id réseau).
 SQL est obligatoire pour ces fonctionnalités ; elles se ferment en cas d'erreur
 de stockage. Voir [configuration, API et garanties](docs/personal-vehicles.md).
@@ -480,7 +507,7 @@ hasard, par SMS Neural-Link, un « gig » tiré du catalogue : les missions de l
 **Fixer gig** (`/lightrp.missions` › mission › Fixer gig : interrupteur, fixer, brief). Une mission
 de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on la reçoit.
 
-- **Offre** : carte du job (paie par opérateur, durée), boutons *Take the job* / *Pass* (3 min).
+- **Offre** : carte du job (paie maximale par opérateur, durée), boutons *Take the job* / *Pass* (3 min).
 - **Brief** une fois acceptée : l'objectif (le brief du fixer, sinon la description), le point de
   rendez-vous (= position du tableau dans l'éditeur) avec *Pin the meet point* (waypoint sur la
   carte), *Share the job* (un contact ou un numéro reçoit l'offre et peut *Join the crew*),
@@ -488,7 +515,9 @@ de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on 
 - **Rendez-vous** : quand tout l'équipage est au point (20 m), compte à rebours de 10 s puis la
   mission démarre comme une mission normale (kit, instance). Sans tout le monde après 20 min :
   lancement avec les présents s'ils suffisent, sinon le job tombe.
-- **Fin** : chaque opérateur est payé (`gig` à la banque) + réputation, le fixer envoie un message.
+- **Fin** : chaque opérateur est payé (`gig` à la banque) selon les règles des missions
+  (cagnotte partagée, recharge de 60 min, plafond journalier, voir « Équilibrage ») +
+  réputation ; le fixer envoie un message avec la somme réellement versée.
 - Puce HUD « GIG » (état `fixerGig`) : présents au point, horloge du rendez-vous, compte à rebours.
 - Envoi automatique : un passage par minute, chance 8 % par joueur éligible (implant, en ville,
   libre, 2 min après l'arrivée), 20 min entre deux offres, 6 gigs ouverts au maximum.
