@@ -1942,8 +1942,12 @@ end
 --- Extracted from `createBot` because respawn now needs exactly this and
 --- nothing else. See `respawnBot` for why a corpse cannot be reused.
 --- Returns `npcId` or `nil, reason`.
-local function spawnBotBody(template, mark, bucket)
+local function spawnBotBody(template, mark, bucket, maxHealth)
     local position = mark.position or mark
+    -- op77_arena: a bot scaled by its caller (`options.healthScale`, the PvE
+    -- difficulty) is born and reborn with its own maximum, full.
+    local health = tonumber(maxHealth) or tonumber(setting("health")) or Defaults.health
+    maxHealth = tonumber(maxHealth) or tonumber(setting("maxHealth")) or Defaults.maxHealth
     local lift = spawnLiftMetres()
     -- `create` rejects an unknown template or an out-of-range field with
     -- `nil, reason` rather than raising, so both returns are checked -- but it
@@ -1969,8 +1973,8 @@ local function spawnBotBody(template, mark, bucket)
         -- weapon table, range, cadence). "resource" is also the platform default;
         -- it is stated so no platform pricing can ever count a shot twice.
         behavior = { hitPricing = "resource" },
-        health = tonumber(setting("health")) or Defaults.health,
-        maxHealth = tonumber(setting("maxHealth")) or Defaults.maxHealth,
+        health = health,
+        maxHealth = maxHealth,
         streamingRadius = tonumber(setting("streamingRadius")) or Defaults.streamingRadius,
         streamingHysteresis = tonumber(setting("streamingHysteresis"))
             or Defaults.streamingHysteresis,
@@ -2033,10 +2037,28 @@ end
 --- the spawn cluster that side plays from. Both are stored on the record, and
 --- `side ~= nil` is also what makes the bot ELIMINATION-scoped -- see
 --- `respawnHeld` below.
+---
+--- op77_arena (free-for-all bots too, through `add`'s `options`):
+---   `healthScale`  multiplies the configured health of every life (PvE difficulty)
+---   `damageScale`  multiplies what this bot deals, per hit and per-second ceiling
+---   `tag`          a short label the host reads back on the record (`"ally"`: a
+---                  PvE bot fighting on the players' side)
+---   `team`         the scoreboard team of a bot that holds no side
+local function scaleOption(value, low, high)
+    local number = tonumber(value)
+    if number == nil or number ~= number then return 1.0 end
+    return math.max(low, math.min(high, number))
+end
+
 local function createBot(instanceId, view, profileKey, options)
     options = type(options) == "table" and options or nil
     local side = options ~= nil and tonumber(options.side) or nil
     local marks = options ~= nil and options.marks or nil
+    local healthScale = scaleOption(options ~= nil and options.healthScale or nil, 0.25, 10.0)
+    local damageScale = scaleOption(options ~= nil and options.damageScale or nil, 0.1, 5.0)
+    local tag = options ~= nil and type(options.tag) == "string" and options.tag:sub(1, 16) or nil
+    local team = options ~= nil and tonumber(options.team) or nil
+    local maxHealth = (tonumber(setting("maxHealth")) or Defaults.maxHealth) * healthScale
     if type(marks) ~= "table" or #marks == 0 then marks = spawnMarks(view) end
     if marks == nil then return nil, "no_spawn_marks" end
     local refusal = bodySpawnRefusal()
@@ -2051,7 +2073,7 @@ local function createBot(instanceId, view, profileKey, options)
     local bucket = tonumber(view.bucket) or 0
 
     local template = templateFor(math.abs(participantId))
-    local npcId, reason = spawnBotBody(template, mark, bucket)
+    local npcId, reason = spawnBotBody(template, mark, bucket, maxHealth)
     if npcId == nil then
         nextParticipant = nextParticipant + 1  -- give the id back
         return nil, tostring(reason)
@@ -2078,8 +2100,12 @@ local function createBot(instanceId, view, profileKey, options)
         profileKey = resolvedKey,
         template = template,
         state = "alive",
-        health = tonumber(setting("health")) or Defaults.health,
-        maxHealth = tonumber(setting("maxHealth")) or Defaults.maxHealth,
+        health = maxHealth,
+        maxHealth = maxHealth,
+        -- op77_arena: see `createBot`'s options.
+        damageScale = damageScale,
+        tag = tag,
+        team = team,
         target = nil,
         targetSeenAtMs = 0,
         acquiredAtMs = 0,
@@ -2143,12 +2169,13 @@ local function createBot(instanceId, view, profileKey, options)
         -- The SCOREBOARD learns the side here rather than waiting for
         -- `assignTeam`: a bot created mid-formation would otherwise show as
         -- team 0 -- the free-for-all value -- until the next round start.
-        team = side,
+        team = side or team,
     })
 
-    log(("bot %d created npc=%s template=%s profile=%s instance=%s bucket=%d side=%s at %.2f,%.2f,%.2f"):format(
+    log(("bot %d created npc=%s template=%s profile=%s instance=%s bucket=%d side=%s tag=%s health=%.0f damage=x%.2f at %.2f,%.2f,%.2f"):format(
         participantId, bot.npcKey, template, resolvedKey, tostring(canonicalInstanceId),
-        bucket, tostring(side or "-"), position.x, position.y, position.z + lift))
+        bucket, tostring(side or "-"), tostring(tag or "-"), maxHealth, damageScale,
+        position.x, position.y, position.z + lift))
     return bot
 end
 
@@ -2364,7 +2391,7 @@ local function respawnBot(bot)
 
     respawnsRun = respawnsRun + 1
 
-    local npcId, reason = spawnBotBody(bot.template, mark, bucket)
+    local npcId, reason = spawnBotBody(bot.template, mark, bucket, bot.maxHealth)
     if npcId == nil then
         -- Keep the record and try again shortly. Dropping it here would take a
         -- participant off the scoreboard for a transient spawn failure, and a
@@ -2510,8 +2537,18 @@ end
 -- Public lifecycle API
 -- ---------------------------------------------------------------------------
 
---- Add `count` bots to an instance. Returns added, reason.
-function DeathmatchBots.add(instanceId, count, profileKey)
+--- Add `count` bots to an instance. Returns added, reason, queued.
+---
+--- op77_arena: `options` (optional) = `{ healthScale, damageScale, tag, team }`,
+--- see `createBot`; kept with every parked spawn so a paced bot arrives the same.
+local function addOptions(options)
+    if type(options) ~= "table" then return nil end
+    return { healthScale = options.healthScale, damageScale = options.damageScale,
+        tag = options.tag, team = options.team }
+end
+
+function DeathmatchBots.add(instanceId, count, profileKey, options)
+    local extra = addOptions(options)
     if setting("enabled") ~= true then return 0, "bots_disabled" end
     local view = instanceView(instanceId)
     if view == nil then return 0, "unknown_instance" end
@@ -2533,7 +2570,7 @@ function DeathmatchBots.add(instanceId, count, profileKey)
 
     local added, firstReason, queued = 0, nil, 0
     for index = 1, wanted do
-        local bot, reason = createBot(instanceId, view, profileKey)
+        local bot, reason = createBot(instanceId, view, profileKey, extra)
         if bot == nil then
             firstReason = firstReason or reason
             -- A rate gate is not a refusal. Park the rest and let the tick
@@ -2541,7 +2578,7 @@ function DeathmatchBots.add(instanceId, count, profileKey)
             if reason == "spacing" or reason == "settling" then
                 for _ = index, wanted do
                     pendingSpawns[#pendingSpawns + 1] =
-                        { instanceId = instanceId, profileKey = profileKey }
+                        { instanceId = instanceId, profileKey = profileKey, extra = extra }
                     queued = queued + 1
                 end
             end
@@ -2805,6 +2842,20 @@ function DeathmatchBots.dropPending(instanceId)
     return dropped
 end
 
+--- op77_arena: paced spawns still parked for one instance, optionally only those
+--- carrying `tag` (`false` counts the untagged ones).
+function DeathmatchBots.pendingCount(instanceId, tag)
+    local key = tostring(instanceId)
+    local count = 0
+    for _, entry in ipairs(pendingSpawns) do
+        if tostring(entry.instanceId) == key then
+            local entryTag = type(entry.extra) == "table" and entry.extra.tag or nil
+            if tag == nil or (tag == false and entryTag == nil) or entryTag == tag then count = count + 1 end
+        end
+    end
+    return count
+end
+
 --- Register the instance kernel. See THE HOST CONTRACT above.
 --- Override the default host. Pass nil to fall back to the kernel binding.
 --- The default host already speaks to `Deathmatch.instances`, so nothing has to
@@ -2840,6 +2891,7 @@ function DeathmatchBots.snapshot(instanceId)
             state = bot.state,
             health = bot.health,
             maxHealth = bot.maxHealth,
+            tag = bot.tag,
         }
     end
     return rows
@@ -3172,6 +3224,7 @@ local function fireOnce(bot, profile, target, separation)
     local headshot = math.random() < (tonumber(profile.headshotChance) or 0.0)
     local amount = (tonumber(profile.damage) or 10.0)
         * (headshot and (tonumber(profile.headshotMultiplier) or 2.0) or 1.0)
+        * (tonumber(bot.damageScale) or 1.0)
 
     if target.kind == "player" then
         local ok, reason = Open77.players.damage(target.id, amount, {
@@ -4189,12 +4242,16 @@ RegisterNetEvent("deathmatch:npcHurtMe", function(payload)
         amount = tonumber(combatSetting("fallbackDamage", "incoming")) or 18.0
     end
     amount = math.min(amount, tonumber(combatSetting("maxPerHit", "incoming")) or 34.0)
+    -- op77_arena: a bot's own damage scale (the PvE difficulty) applies after the
+    -- clamp, and to the ceiling below, so a harder bot really hits harder.
+    local damageScale = tonumber(bot.damageScale) or 1.0
+    amount = amount * damageScale
     if amount <= 0.0 then return end
 
     -- A per-player, per-second ceiling on top of the per-hit clamp. This one is
     -- not redundant: the per-hit clamp bounds ONE bullet, and six bots firing
     -- at one player is a rate nothing upstream of here bounds.
-    local ceiling = tonumber(combatSetting("maxDamagePerSecond", "incoming")) or 90.0
+    local ceiling = (tonumber(combatSetting("maxDamagePerSecond", "incoming")) or 90.0) * damageScale
     if at - (window.startedAtMs or 0) >= 1000 then
         window.startedAtMs = at
         window.amount = 0.0
@@ -4344,6 +4401,8 @@ RegisterNetEvent("deathmatch:npcCrossfire", function(payload)
         amount = tonumber(combatSetting("fallbackDamage", "incoming")) or 18.0
     end
     amount = math.min(amount, tonumber(combatSetting("maxPerHit", "incoming")) or 34.0)
+    local damageScale = tonumber(attacker.damageScale) or 1.0 -- op77_arena, as above
+    amount = amount * damageScale
     if amount <= 0.0 then
         return logDecision(playerId, "crossfire_amount_zero", tostring(amount))
     end
@@ -4351,7 +4410,7 @@ RegisterNetEvent("deathmatch:npcCrossfire", function(payload)
     -- Per-victim ceiling, and here it is doing real work rather than guarding an
     -- exploit: a bot caught in a three-way crossfire would otherwise evaporate
     -- in a tick, which reads as a bug even when it is arithmetic.
-    local ceiling = tonumber(combatSetting("maxDamagePerSecond", "incoming")) or 90.0
+    local ceiling = (tonumber(combatSetting("maxDamagePerSecond", "incoming")) or 90.0) * damageScale
     if at - (window.startedAtMs or 0) >= 1000 then
         window.startedAtMs = at
         window.amount = 0.0
@@ -4697,9 +4756,10 @@ local function startOnce()
                     local entry = table.remove(pendingSpawns, 1)
                     local view = instanceView(entry.instanceId)
                     if view ~= nil then
+                        local spawnOptions = { side = entry.side, marks = entry.marks }
+                        for key, value in pairs(entry.extra or {}) do spawnOptions[key] = value end
                         local bot, reason = createBot(
-                            entry.instanceId, view, entry.profileKey,
-                            { side = entry.side, marks = entry.marks })
+                            entry.instanceId, view, entry.profileKey, spawnOptions)
                         if bot == nil and (reason == "spacing" or reason == "settling") then
                             table.insert(pendingSpawns, 1, entry)
                         elseif bot == nil then

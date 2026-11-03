@@ -345,7 +345,9 @@ local playerIndex = {}
 local actorIndex = {}
 
 local nextInstanceId = 1
-local openCount = { ffa = 0, blade = 0, pve = 0, arena = 0 }
+-- op77_arena: `private` counts the free-for-all instances opened for one Light RP
+-- match (`Instances.open(format, ruleset, private)`), never joined by strangers.
+local openCount = { ffa = 0, blade = 0, pve = 0, arena = 0, private = 0 }
 
 -- op77_arena: free-for-all rulesets with a bucket of their own -- Blade Night and
 -- the Light RP PvE Combat Zone (`Config.pve`). Each opens one instance at most.
@@ -377,6 +379,9 @@ end
 
 local function ceilingFor(kind)
     if kind == "blade" or kind == "pve" then return 1 end
+    if kind == "private" then
+        return math.max(0, math.floor(tonumber(Config.instances.privateCeiling) or 0))
+    end
     if kind == "arena" then
         return math.max(1, math.floor(DM.finite(DM.tune.arenaCeiling)
             or Config.instances.arenaCeiling))
@@ -406,6 +411,11 @@ end
 local function rangeFor(kind)
     if kind == "blade" then return Config.blade.bucket, Config.blade.bucket end
     if kind == "pve" then return Config.pve.bucket, Config.pve.bucket end
+    if kind == "private" then
+        local first, last = tonumber(Config.buckets.privateFirst), tonumber(Config.buckets.privateLast)
+        if first == nil or last == nil then return 1, 0 end -- an empty range: none opens
+        return first, last
+    end
     if kind == "arena" then
         return Config.buckets.arenaFirst, Config.buckets.arenaLast
     end
@@ -448,6 +458,8 @@ function Instances.kindOfBucket(bucket)
     if bucket == nil then return nil end
     if Config.blade and bucket == Config.blade.bucket then return "blade" end
     if Config.pve and bucket == Config.pve.bucket then return "pve" end
+    local privateFirst, privateLast = tonumber(Config.buckets.privateFirst), tonumber(Config.buckets.privateLast)
+    if privateFirst and privateLast and bucket >= privateFirst and bucket <= privateLast then return "private" end
     if bucket >= Config.buckets.ffaFirst and bucket <= Config.buckets.ffaLast then
         return "ffa"
     end
@@ -466,7 +478,12 @@ end
 -- `format` is a key of `Config.formats`; `kind` is which bucket range it draws
 -- from. FFA formats draw from the FFA range, everything queued from the arena
 -- range, so a full arena ladder can never starve the drop-in mode of buckets.
-function Instances.open(format, ruleset)
+--
+-- op77_arena: `private` (a match id) opens a free-for-all of that ruleset in a
+-- bucket of the private range instead of the ruleset's own one. It is never chosen
+-- by `fullestWithRoom`, so only `assignFFA(playerId, ruleset, instance)` puts
+-- anyone in it: the players of one Light RP match, and nobody else.
+function Instances.open(format, ruleset, private)
     ruleset = ruleset or "standard"
     local own = ownBucketRuleset(ruleset)
     if ruleset ~= "standard" and (own == nil or format ~= "ffa") then
@@ -474,7 +491,9 @@ function Instances.open(format, ruleset)
     end
     local spec = Config.formats[format]
     if spec == nil then return nil, "unknown_format" end
+    if private ~= nil and (format ~= "ffa" or ruleset == "pve") then return nil, "not_private" end
     local kind = own ~= nil and ruleset or ((format == "ffa") and "ffa" or "arena")
+    if private ~= nil then kind = "private" end
 
     if openCount[kind] >= ceilingFor(kind) then
         return nil, "instances_full"
@@ -520,6 +539,7 @@ function Instances.open(format, ruleset)
         weaponIds = {},      -- attacker verification, per player, per round
         round = nil,         -- round.lua / arena.lua own this
         closed = false,
+        private = private ~= nil and tostring(private) or nil,
 
         -- Several rounds run at once now, which is precisely the case where
         -- `promote()` is wrong: it is per-RESOURCE, so promoting at instance
@@ -743,6 +763,7 @@ function Instances.fullestWithRoom(format, ruleset)
     for _, instance in pairs(registry) do
         if not instance.closed and instance.format == format
             and (instance.ruleset or "standard") == ruleset
+            and instance.private == nil
             and (capacity == 0 or instance.memberCount < capacity) then
             if instance.memberCount > bestCount
                 or (instance.memberCount == bestCount and best ~= nil and instance.id < best.id) then
@@ -759,11 +780,28 @@ end
 -- CAPACITY condition, not a matchmaking one -- decision 2 says free-for-all
 -- never queues, and the only refusal it ever produces is "every instance is
 -- full". Tell the player exactly that; do not invent a queue to soften it.
-function Instances.assignFFA(playerId, ruleset)
+--
+-- op77_arena: `chosen` is an instance picked by the caller (a private match
+-- instance): the player goes there or nowhere.
+function Instances.assignFFA(playerId, ruleset, chosen)
     ruleset = ruleset or "standard"
     if ruleset ~= "standard" and ownBucketRuleset(ruleset) == nil then return nil, "unknown_ruleset" end
     playerId = DM.playerId(playerId)
     if playerId == nil then return nil, "bad_player_id" end
+    if chosen ~= nil then
+        if chosen.closed or chosen.format ~= "ffa" or (chosen.ruleset or "standard") ~= ruleset then
+            return nil, "instance_unavailable"
+        end
+        local current = playerIndex[playerId]
+        if current == chosen then return chosen, "already_assigned" end
+        if current ~= nil and not current.closed then return nil, "already_assigned_other_ruleset" end
+        if chosen.capacity > 0 and chosen.memberCount >= chosen.capacity then
+            rejections.instances_full = rejections.instances_full + 1
+            return nil, "instances_full"
+        end
+        Instances.attach(chosen, playerId)
+        return chosen
+    end
 
     -- Already inside one? Then this is a re-entry (a hot reload, a rejoin, a
     -- second station press) and the answer is the instance they are in.
@@ -929,6 +967,7 @@ function Instances.reap(now)
                     -- so the default is off and this is now only about leaving a
                     -- bucket's population and lockdown state settled.
                     local last = warm and instance.format == "ffa"
+                        and instance.private == nil
                         and openCount.ffa <= 1
                     if not last then
                         doomed = doomed or {}

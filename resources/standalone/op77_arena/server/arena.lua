@@ -928,7 +928,9 @@ end
 -- returns nil for the stock rule below, or `{ roster = { ids }, sides = { id ->
 -- 1|2 } }` built from queued ids only, at most half the capacity per side; an
 -- empty roster means "do not form now". A plan that breaks those rules is
--- ignored (stock rule), so a host bug can never overfill a side.
+-- ignored (stock rule), so a host bug can never overfill a side. An optional
+-- `bots = { n1, n2 }` caps the bots completing each side (a match Light RP formed:
+-- its sides may stay short); without it every side is completed to half the capacity.
 local function hostPlan(format, queue, capacity, spec)
     if type(Arena.planRoster) ~= "function" then return nil end
     local ok, plan = pcall(Arena.planRoster, format, queue, capacity, spec)
@@ -994,6 +996,18 @@ function Arena.tryForm(format)
     if plan ~= nil and #plan.roster == 0 then return nil end
     local humansWanted = plan ~= nil and #plan.roster or math.min(#queue, capacity)
     local botsWanted = capacity - humansWanted
+    -- op77_arena: the host plan's own bot count per side, never above the free seats.
+    local planBots = plan ~= nil and type(plan.bots) == "table" and plan.bots or nil
+    local function planSlots(side, humansOnSide)
+        local free = math.max(0, math.floor(capacity / 2) - humansOnSide)
+        if planBots == nil then return free end
+        return math.min(free, math.max(0, math.floor(tonumber(planBots[side]) or 0)))
+    end
+    if planBots ~= nil then
+        local count = { 0, 0 }
+        for _, id in ipairs(plan.roster) do count[plan.sides[id]] = count[plan.sides[id]] + 1 end
+        botsWanted = planSlots(1, count[1]) + planSlots(2, count[2])
+    end
     local fillWhy = nil
     if botsWanted > 0 then
         local allowed
@@ -1052,8 +1066,7 @@ function Arena.tryForm(format)
             sides[playerId] = side
             rosterBySide[side][#rosterBySide[side] + 1] = playerId
         end
-        local teamSize = math.floor(capacity / 2)
-        for side = 1, 2 do botSlots[side] = math.max(0, teamSize - #rosterBySide[side]) end
+        for side = 1, 2 do botSlots[side] = planSlots(side, #rosterBySide[side]) end
     else
         for index = 1, capacity do
             local side = ((index - 1) % 2) + 1
