@@ -39,6 +39,7 @@ server_script "server/ranked.lua"
 server_script "server/main.lua"
 server_script "server/core.lua"
 server_script "server/lightrp.lua"
+server_script "server/pvp.lua"      -- PvP scopes per arena instance (global PvP stays off)
 
 client_script "client/bounds.lua"
 client_script "client/hud.lua"
@@ -55,6 +56,7 @@ permissions {
     "players.stats.apply",  -- engine: bot hits on players (PvE, staff bot mode, /dm.bot)
     "players.reflex.read",  -- engine: Overdrive readout in the Blade Night state (read only)
     "combat.config",        -- the instance damage gate (onDamage) and team assignment (Team Arena, the PvE players' side)
+    "combat.scope.control", -- Open77.combat.createScope/removeScope: PvP between the people of one arena instance only (global PvP stays off)
     "world.npcs",           -- engine bots: the PvE Combat Zone, staff bot mode, staff /dm.bot
     "database.access",      -- op77_arena_career / _rounds / _rating
     "player.travel",        -- client: the arena wall (small clamp corrections)

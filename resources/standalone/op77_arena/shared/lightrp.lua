@@ -97,6 +97,23 @@ LightRpArena = {
 
     allowBots = false,             -- outside bot mode, never fill a Light RP match with bots
 
+    -- Player-versus-player (server/pvp.lua). Global PvP stays OFF on Light RP: each PvP
+    -- instance (Combat Zone, Blade Night, Team Arena, duels) gets a combat scope over the
+    -- people fighting in it. PvE needs none (its bots are NPCs).
+    pvp = {
+        scopesPerResource = 8,     -- platform limit per resource (never above 8): PvP instances beyond it do not open
+        maxScopePlayers = 32,      -- platform limit per scope (never above 32): a PvP instance holds no more
+        refreshMs = 15000,         -- a scope is rebuilt this often anyway, to heal a removal nobody saw
+        retryMs = 2000,            -- a refused scope is retried this often
+        tellAfterMs = 10000,       -- a refusal lasting this long is told to the instance's players
+        -- Time to kill, person on person, inside PvP instances only (never host-global:
+        -- that would change Dogtown and turf too). 1.0 = the platform's damage. Light RP
+        -- fighters keep their armor and implants in the arena, unlike Freeroam's, so the
+        -- engine's Freeroam numbers (damage 0.55, headshot 2.0) are not applied.
+        damageMultiplier = 1.0,
+        headshotMultiplier = 1.0,
+    },
+
     -- Staff bot mode (/lightrp.bots on|off, op77_lightrp): one player starts what
     -- normally needs several and the engine's own bots (server/bots.lua: Cyberpunk's
     -- native combat AI, three mutually hostile gangs) fill the missing places. Nothing
@@ -158,6 +175,12 @@ Config.bots.fillWithBots = false
 Config.bots.fillTarget = LightRpArena.bots.fillTarget
 Config.bots.namePrefix = LightRpArena.bots.prefix
 Config.loadout.promptOnFirstRound = false -- no picker page: /arena.weapon instead
+
+-- Host-global combat policy is not the arena's on Light RP. Global PvP stays off (the
+-- platform default) and must: a city-wide friendly fire would let anyone shoot anyone in
+-- the street. PvP is opened per instance by a combat scope (server/pvp.lua), and the
+-- engine's host-global multipliers below are Freeroam's: nothing applies them here.
+Config.combat.friendlyFire = false
 
 -- Career, rounds and Elo in Light RP's database, under our own prefix.
 Config.career.tablePrefix = "op77_arena_"
@@ -290,5 +313,6 @@ say("gunsEqualizer", "LOADOUT", "Same weapon for everyone this round.")
 say("careerWelcome", "ARENA RECORD", "%d kills, %d deaths (%.2f K/D) over %d rounds.")
 say("protectionOn", "SPAWN SHIELD", "%d s of protection.")
 say("protectionBroken", "SHIELD DOWN", "You fired. Protection dropped.")
+say("pvpUnavailable", "NO PVP", "Player damage is unavailable here right now. /arena.leave to go back.")
 Config.strings.hud.killLimit = "FIRST TO %d"
 Config.strings.error.notInInstance = "You are not in the arena."
