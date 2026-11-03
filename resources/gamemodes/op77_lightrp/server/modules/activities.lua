@@ -42,6 +42,26 @@
 --   core -> provider  op77_lightrp:activity:ready   ()  Light RP (re)started: register again
 --   core -> provider  op77_lightrp:activity:bots    (enabled)  staff bot mode toggled
 --
+-- Lobby (server/config/activities.lua `lobby`): the join's options also carry
+--   options.ranked  always: true = the result counts (stats, leaderboards, Hall of Fame,
+--                   reputation, pay); false = a friendly crew match, any bot fill in PvP,
+--                   staff bot mode. PvE stays ranked with allied bots. A provider writes
+--                   none of its own ranked data (rating, ELO, records) when false.
+--   options.fill    nil | { allies, enemies }: bots the provider adds, a target for the
+--                   group's instance (the same on every member's join, applied once).
+--   options.match   nil | { id, friendly, format, players, teams, side, bots }: a match
+--                   formed by the core (a friendly, a bot match chosen up front, a bot
+--                   fill accepted after the ranked wait). Every player of it gets a join
+--                   with the same id in one tick; the provider puts exactly `players` in
+--                   one instance of their own, on `teams[side]`, with `bots[side]` bots.
+--   A ranked search (a PvP join without bots) goes to the provider's own queue as
+--   before; after `lobby.fillAfterMs` its leader is offered a bot fill (unranked).
+--   A.isRanked(entry | match | playerId), export activityRanked(playerId): the flag.
+--   A.result decides once per result: unranked (the entry's flag, staff bot mode,
+--   result.test / result.unranked, a PvP result with stats.bots or stats.vsAi) sets
+--   result.unranked = true and records nothing -- no stats (so no Hall of Fame row),
+--   no reputation, no pay (activity_pay.lua refuses result.unranked too).
+--
 -- Bot mode (/lightrp.bots on|off, staff, never persisted): providers let ONE player start
 -- what normally needs several and fill the missing players with bots (activityBots() is
 -- the current value: read it after every successful activityRegister). While it is on
@@ -92,8 +112,12 @@ local starting = {}   -- resource -> generation when its incoming VM started
 local generation, tokenSeq = 0, 0
 -- Without a database: the session's rows.
 local memStats, memDaily = {}, {}
+local matches = {}    -- matchId -> { id, activity, friendly, ranked = false, players, teams, bots, enemies, format, at }
+local friendlies = {} -- leaderId -> { activity, mode, teams, bench, players, bots, at }: a friendly being set up
+local matchSeq = 0
 
 A.registry, A.owned = registry, owned
+A.matches, A.friendlies = matches, friendlies
 -- Copies of the session rows (no database) for the Hall of Fame, read only
 -- (server/modules/halloffame.lua). key = identifier|characterKey|activityId|board.
 function A.memoryRows()
@@ -498,7 +522,8 @@ local function validate(def)
         for _, m in ipairs(source) do
             if #modes >= 8 then break end
             if type(m) == "table" and type(m.id) == "string" and #m.id <= 48 and m.id:match("^[%w_%-%.]+$") then
-                modes[#modes + 1] = { id = m.id, label = clean(m.label, 32) or m.id }
+                -- botFill = false: this mode cannot be filled with bots (the activity's botFill aside)
+                modes[#modes + 1] = { id = m.id, label = clean(m.label, 32) or m.id, botFill = m.botFill == false and false or nil }
             end
         end
         if #modes == 0 then modes = nil end
@@ -528,9 +553,13 @@ local function validate(def)
         return nil, "modeKey cannot be difficulty or scaling on a PvE activity with difficulties."
     end
     local weight = pve and (type(listed) == "table" and num(listed.weight, 0, 5) or 1) or nil
+    -- optional (the lobby): the provider fills with bots when asked (options.fill /
+    -- options.match.bots): allied bots for PvE, opponents (and team mates) for PvP.
+    -- Without it the panel offers no bots for the activity, whatever the config says.
+    if def.botFill ~= nil and type(def.botFill) ~= "boolean" then return nil, "botFill must be true or false." end
     return { id = id, resource = resource, label = label, kind = def.kind, description = clean(def.description, 280) or "",
         minPlayers = minPlayers, maxPlayers = maxPlayers, caps = caps, modes = modes, modeKey = modeKey,
-        pve = pve, difficulties = difficulties, weight = weight }
+        pve = pve, difficulties = difficulties, weight = weight, botFill = def.botFill == true }
 end
 
 local refreshTop -- defined with the stats below
@@ -597,12 +626,17 @@ function A.enter(playerId, activityId, opts)
     if not point then return false, "Your position is not available yet." end
     local who, c = identity(id)
     tokenSeq = tokenSeq + 1
+    -- ranked unless the panel's join said otherwise (a friendly, a bot match) or staff
+    -- bot mode is on; a provider's own entry (/duel, its commands) is ranked
+    local q = pending[id]
+    local asked = q and q.activity == a.id and q or nil
     e = { token = tokenSeq, activity = a.id, resource = a.resource, generation = a.generation, caps = a.caps,
         returnPoint = point, identity = who, character = c, enteredAt = now(),
-        pve = a.pve, difficulty = difficulty, difficulties = a.pve and offered(a) or nil, weight = a.weight, carried = carried }
+        pve = a.pve, difficulty = difficulty, difficulties = a.pve and offered(a) or nil, weight = a.weight, carried = carried,
+        ranked = A.botsEnabled ~= true and not (asked and asked.ranked == false),
+        match = asked and asked.match or nil, friendly = asked and asked.friendly or nil, fill = asked and asked.fill or nil }
     owned[id] = e
     -- queued elsewhere (a provider's own command entered them): that queue lets go
-    local q = pending[id]
     pending[id], leaving[id] = nil, nil
     if q and q.activity ~= a.id then emit(EV.leaveRequest, id, q.activity) end
     -- a crew member below the leader's difficulty, not told yet by the crew queue
@@ -620,10 +654,11 @@ function A.enter(playerId, activityId, opts)
         pcall(LightRP.armament.push, id)
     end
     touch(id)
-    LightRP.log("activities: %s (%d) entered %s%s, return point %.1f %.1f %.1f bucket %d",
-        who.name, id, a.id, difficulty and (" (" .. difficulty .. ")") or "", point.x, point.y, point.z, point.bucket)
+    LightRP.log("activities: %s (%d) entered %s%s%s, return point %.1f %.1f %.1f bucket %d",
+        who.name, id, a.id, difficulty and (" (" .. difficulty .. ")") or "", e.ranked and "" or (e.friendly and " friendly" or " unranked"),
+        point.x, point.y, point.z, point.bucket)
     -- modules that depend on the kind of play (cyberware in PvP) hear about it
-    LightRP.eachModule("onActivityChanged", id, a.id, { pve = a.pve, kind = a.kind, difficulty = difficulty })
+    LightRP.eachModule("onActivityChanged", id, a.id, { pve = a.pve, kind = a.kind, difficulty = difficulty, ranked = e.ranked })
     return true
 end
 
@@ -795,6 +830,827 @@ local function squadOf(party)
     return party and { id = party.id, leader = party.leader, members = copy(party.members) } or nil
 end
 local function lowerFirst(text) return (tostring(text):gsub("^%u", string.lower)) end
+local function displayName(id) return LightRP.characters.displayName(id) end
+local function letter(i) return string.char(64 + i) end
+local function flatten(teams) local out = {}; for _, team in ipairs(teams) do for _, p in ipairs(team) do out[#out + 1] = p end end; return out end
+local function removeFrom(list, p) for i, v in ipairs(list) do if v == p then table.remove(list, i) return i end end end
+
+-- ---------------------------------------------------------------------------
+-- Lobby: bots chosen in the panel, the ranked search's fill offer, the matches the
+-- core forms (a bot match, a friendly) and the friendly set-up. Config: `lobby`.
+
+local function lobbyCfg() return type(C.lobby) == "table" and C.lobby or {} end
+local function lobbyOf(a)
+    local list = lobbyCfg().activities
+    local l = a and type(list) == "table" and list[a.id] or nil
+    return type(l) == "table" and l or {}
+end
+A.lobbyOf = function(activityId) return lobbyOf(registry[activityId]) end
+-- Bots need both: the config's lobby entry and the provider's own botFill declaration.
+local function offersAllies(a) return a ~= nil and a.pve == true and a.botFill == true and lobbyOf(a).allies == true end
+local function offersBots(a) return a ~= nil and not a.pve and a.botFill == true and lobbyOf(a).bots == true end
+-- A mode may opt out (modes[i].botFill = false).
+local function modeTakesBots(a, mode)
+    if mode == nil then return true end
+    for _, m in ipairs(a.modes or {}) do if m.id == mode then return m.botFill ~= false end end
+    return true
+end
+local function offersFriendly(a) return a ~= nil and not a.pve and lobbyOf(a).friendly == true and a.maxPlayers >= 2 end
+local function fillAfterMs() return math.max(0, math.floor(tonumber(lobbyCfg().fillAfterMs) or 120000)) end
+-- "teams": sides of a fixed size (one size per mode allowed); "split": two halves of
+-- any size (turf war); "ffa": everyone for themselves (races, Combat Zone, Most Wanted).
+local function shapeOf(l)
+    local n = tonumber(l.teams)
+    if n and n >= 2 then return l.teamSize ~= nil and "teams" or "split", math.floor(n) end
+    return "ffa", 1
+end
+local function teamSizeOf(l, mode)
+    if type(l.teamSize) == "table" then return mode ~= nil and tonumber(l.teamSize[mode]) or nil end
+    return tonumber(l.teamSize)
+end
+-- A per-mode shape's modes, smallest side first: { { mode, size } }.
+local function sizedModes(a, l)
+    local out = {}
+    if type(l.teamSize) ~= "table" then return out end
+    local seen = {}
+    for _, m in ipairs(a.modes or {}) do
+        local size = tonumber(l.teamSize[m.id])
+        if size then out[#out + 1] = { mode = m.id, size = size }; seen[m.id] = true end
+    end
+    for mode, size in pairs(l.teamSize) do
+        if not seen[mode] and tonumber(size) then out[#out + 1] = { mode = mode, size = tonumber(size) } end
+    end
+    table.sort(out, function(x, y) if x.size ~= y.size then return x.size < y.size end return tostring(x.mode) < tostring(y.mode) end)
+    return out
+end
+-- One side of a fixed shape for a group of `count`: the chosen mode, else the
+-- smallest that holds them (else the largest). mode, size (nil: not a fixed shape)
+local function sideSize(a, l, mode, count)
+    local size = teamSizeOf(l, mode)
+    if size then return mode, size end
+    if type(l.teamSize) ~= "table" then return mode, nil end
+    local all = sizedModes(a, l)
+    for _, m in ipairs(all) do if count <= m.size then return m.mode, m.size end end
+    local last = all[#all]
+    return last and last.mode or mode, last and last.size or nil
+end
+local function bodiesOf(a, l)
+    local target = math.floor(tonumber(l.fillTo) or a.maxPlayers)
+    return math.max(a.minPlayers, math.min(a.maxPlayers, target))
+end
+local function tooBig(a, mode, count, size)
+    return string.format("Your crew is %d: %s%s takes %d per side. Start a friendly match to play it inside the crew.",
+        count, a.label, mode and (" " .. mode) or "", size)
+end
+-- A group alone against bots: on side 1 of a team shape (bots complete it and make
+-- the other sides), or with AI opponents up to `fillTo` bodies. teams, bots, enemies, mode
+local function botPlan(a, l, mode, players)
+    local shape, n = shapeOf(l)
+    if shape == "ffa" then return nil, nil, math.max(0, bodiesOf(a, l) - #players), mode end
+    local size
+    if shape == "teams" then mode, size = sideSize(a, l, mode, #players)
+    else size = math.max(math.ceil(bodiesOf(a, l) / n), #players) end
+    size = size or #players
+    local teams, bots = { copy(players) }, { math.max(0, size - #players) }
+    for i = 2, n do teams[i], bots[i] = {}, size end
+    return teams, bots, nil, mode
+end
+
+-- A match the core forms: every player gets a join with the same options.match, in
+-- this tick, and is pending for it. Ranked only from the ranked queue (humans only);
+-- a friendly or a bot match never is. true, match | false
+local function startMatch(a, players, plan)
+    matchSeq = matchSeq + 1
+    local ranked = plan.ranked == true and plan.friendly ~= true and A.botsEnabled ~= true
+    local m = { id = "match:" .. matchSeq, activity = a.id, friendly = plan.friendly == true, ranked = ranked,
+        players = copy(players), teams = plan.teams, bots = plan.bots, enemies = plan.enemies, format = plan.mode,
+        lead = plan.lead, at = now() }
+    matches[m.id] = m
+    local sides, total = {}, 0
+    for i, team in ipairs(m.teams or {}) do for _, p in ipairs(team) do sides[p] = i end end
+    for _, n in ipairs(m.bots or {}) do total = total + n end
+    local sent = 0
+    for _, p in ipairs(players) do
+        local o = {}
+        for k, v in pairs(plan.optionsOf and plan.optionsOf[p] or plan.options or {}) do o[k] = v end
+        if plan.mode ~= nil and a.modes then o[a.modeKey] = plan.mode end
+        local party = crewOf(p)
+        o.from, o.squad, o.ranked = plan.from or "panel", squadOf(party), ranked
+        local teams
+        if m.teams then teams = {}; for i, team in ipairs(m.teams) do teams[i] = copy(team) end end
+        local side = sides[p]
+        o.match = { id = m.id, ranked = ranked, friendly = m.friendly, format = m.format, players = copy(players), teams = teams,
+            side = side, bots = m.bots and copy(m.bots) or nil }
+        if m.teams and total > 0 then
+            local allies = side and m.bots[side] or 0
+            o.fill = { allies = allies, enemies = total - allies }
+        elseif (m.enemies or 0) > 0 then
+            o.fill = { allies = 0, enemies = m.enemies }
+        end
+        pending[p] = { activity = a.id, at = now(), ranked = ranked, match = m.id, friendly = m.friendly or nil, fill = o.fill,
+            mode = plan.mode, lead = plan.leads and plan.leads[p] or plan.lead, crew = party and party.id or nil }
+        if emit(EV.join, p, a.id, o) then sent = sent + 1 else pending[p] = nil end
+        touch(p)
+    end
+    LightRP.log("activities: %s %s for %d player(s)%s (%s)", ranked and "ranked match" or (m.friendly and "friendly" or "bot match"),
+        a.id, #players, m.format and (" " .. m.format) or "", m.id)
+    if sent == 0 then matches[m.id] = nil; return false end
+    return true, m
+end
+A.startMatch = startMatch
+
+-- ---------------------------------------------------------------------------
+-- The ranked queue (`queue = true`): the core holds the search (a ticket: a solo
+-- player, or a crew whole) and forms the match itself -- by team size, and by the
+-- cyberware bracket widening with the oldest searcher's wait -- then dispatches it
+-- like any core match, ranked. The provider hears nothing until then.
+
+local tickets = {}    -- ticketId -> { id, activity, mode, lead, members, at, options, from }
+local ticketSeq = 0
+local ffaReady = {}   -- activityId -> ms since enough searchers fit (free-for-all gather)
+A.tickets = tickets
+
+local function mmCfg() return type(lobbyCfg().matchmaking) == "table" and lobbyCfg().matchmaking or {} end
+
+-- A held search ends for one player (`p` left, went elsewhere, could not play): its
+-- leader ending it ends it for the whole crew.
+local function dropFromTicket(p, why)
+    local q = pending[p]
+    local tk = q and q.held and tickets[q.held]
+    pending[p] = nil
+    if not tk then return end
+    removeFrom(tk.members, p)
+    touch(p)
+    if p == tk.lead or #tk.members == 0 then
+        tickets[tk.id] = nil
+        for _, other in ipairs(tk.members) do
+            if pending[other] and pending[other].held == tk.id then
+                pending[other] = nil
+                touch(other)
+                LightRP.notice(other, { kind = "info", title = "MATCHMAKING", durationMs = 6000,
+                    body = why or ("Your crew leader left the search for " .. labelOf(tk.activity) .. ".") })
+            end
+        end
+    elseif tk.lead then
+        touch(tk.lead)
+        LightRP.notice(tk.lead, { kind = "info", title = "MATCHMAKING", durationMs = 6000,
+            body = displayName(p) .. " left the search. Your crew keeps searching." })
+    end
+end
+A.dropFromTicket = dropFromTicket
+
+-- Whatever these players were queued for lets go (a new match replaces it).
+local function withdraw(players)
+    for _, p in ipairs(players) do
+        local q = pending[p]
+        if q and q.held then dropFromTicket(p)
+        elseif q then pending[p] = nil; emit(EV.leaveRequest, p, q.activity) end
+    end
+end
+
+-- The bracket of a player: the highest cyberware rank their reputation tier opens
+-- (server/config/cyberware.lua gating.byRank), grouped by `matchmaking.brackets`.
+local function bracketOf(p)
+    local tier = tierOf(p)
+    local cw = type(LightRpCyberwareConfig) == "table" and LightRpCyberwareConfig.gating or nil
+    local rank = tier
+    if type(cw) == "table" and cw.enabled ~= false and type(cw.byRank) == "table" then
+        rank = 0
+        for r, need in pairs(cw.byRank) do
+            if tonumber(r) and tonumber(need) and tonumber(need) <= tier and tonumber(r) > rank then rank = math.floor(tonumber(r)) end
+        end
+        if rank == 0 then rank = 1 end
+    end
+    local groups = mmCfg().brackets
+    return math.floor(tonumber(type(groups) == "table" and groups[rank] or nil) or rank)
+end
+A.bracketOf = bracketOf
+local function ticketBracket(tk)
+    local best = 1
+    for _, p in ipairs(tk.members) do best = math.max(best, bracketOf(p)) end
+    return best
+end
+-- How far apart the brackets of a match anchored by a search this old may be
+-- (math.huge: everyone), and when the next widening comes (nil: none left).
+local function spreadFor(a, waitedMs)
+    if lobbyOf(a).brackets == false then return math.huge, nil end
+    local spread, nextAt = 1, nil
+    local steps = mmCfg().widen
+    if type(steps) ~= "table" or #steps == 0 then return math.huge, nil end
+    for _, step in ipairs(steps) do
+        local after = tonumber(step.afterMs) or 0
+        if waitedMs >= after then
+            spread = step.spread == "all" and math.huge or (tonumber(step.spread) or spread)
+        elseif nextAt == nil or after < nextAt then
+            nextAt = after
+        end
+    end
+    return spread, nextAt and (nextAt - waitedMs) or nil
+end
+A.spreadFor = function(activityId, waitedMs) return spreadFor(registry[activityId], waitedMs) end
+
+-- Tickets onto `n` sides of exactly `size`, the anchor (cands[1]) always in, crews
+-- whole, the oldest first. sides { { tickets } } | nil
+local function packTeams(cands, n, size)
+    local sides, counts, total, need, steps = {}, {}, 0, n * size, 0
+    for i = 1, n do sides[i], counts[i] = {}, 0 end
+    local function dfs(k)
+        steps = steps + 1
+        if total == need then return true end
+        if k > #cands or steps > 4000 then return false end
+        local tk, size_k = cands[k], #cands[k].members
+        for i = 1, n do
+            if counts[i] + size_k <= size then
+                local wasEmpty = counts[i] == 0
+                counts[i], total = counts[i] + size_k, total + size_k
+                sides[i][#sides[i] + 1] = tk
+                if dfs(k + 1) then return true end
+                table.remove(sides[i])
+                counts[i], total = counts[i] - size_k, total - size_k
+                if wasEmpty then break end -- empty sides are alike: one try is enough
+            end
+        end
+        if k == 1 then return false end
+        return dfs(k + 1)
+    end
+    if dfs(1) then return sides end
+    return nil
+end
+
+-- The modes a match anchored by `anchor` may play: its own, else every sized mode
+-- (per-mode team sizes), else "any" (false) and each mode another searcher chose.
+local function modeChoices(a, l, anchor, cands)
+    if anchor.mode ~= nil then return { anchor.mode } end
+    local out, seen = {}, {}
+    if type(l.teamSize) == "table" then
+        for _, m in ipairs(sizedModes(a, l)) do out[#out + 1] = m.mode end
+        return out
+    end
+    out[1] = false
+    for _, tk in ipairs(cands) do
+        if tk.mode ~= nil and not seen[tk.mode] then seen[tk.mode] = true; out[#out + 1] = tk.mode end
+    end
+    return out
+end
+
+-- One match for this anchor among these candidates (anchor first). plan | nil
+local function planFor(a, l, anchor, cands, t)
+    local shape, n = shapeOf(l)
+    for _, mode in ipairs(modeChoices(a, l, anchor, cands)) do
+        local pool = {}
+        for _, tk in ipairs(cands) do
+            if tk.mode == nil or (mode ~= false and tk.mode == mode) then pool[#pool + 1] = tk end
+        end
+        if pool[1] == anchor then
+            local resolved = mode ~= false and mode or nil
+            if shape == "teams" then
+                local size = teamSizeOf(l, resolved)
+                if size then
+                    local fit = {}
+                    for _, tk in ipairs(pool) do if #tk.members <= size then fit[#fit + 1] = tk end end
+                    local sides = fit[1] == anchor and packTeams(fit, n, size) or nil
+                    if sides then return { mode = resolved, sides = sides } end
+                end
+            else
+                -- free-for-all / split: the oldest first, crews whole, up to the maximum
+                local chosen, count = {}, 0
+                for _, tk in ipairs(pool) do
+                    if count + #tk.members <= a.maxPlayers then chosen[#chosen + 1] = tk; count = count + #tk.members end
+                end
+                if chosen[1] == anchor and count >= math.max(2, a.minPlayers) then
+                    return { mode = resolved, tickets = chosen, count = count }
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Every member still free? Those who are not drop out of the search (the leader:
+-- the whole ticket), told why. true when all can play.
+local function confirm(list)
+    local fine = true
+    for _, tk in ipairs(list) do
+        for i = #tk.members, 1, -1 do
+            local p = tk.members[i]
+            local ok, why = check(p, tk.activity)
+            if not ok then
+                fine = false
+                LightRP.notice(p, { kind = "warning", title = "MATCHMAKING", durationMs = 7000,
+                    body = "A match was found for " .. labelOf(tk.activity) .. ", but you left the search: " .. lowerFirst(why) })
+                dropFromTicket(p, displayName(p) .. " could not play (" .. lowerFirst(why) .. "): the search ended.")
+            end
+        end
+    end
+    return fine
+end
+
+local function dispatch(a, plan)
+    local list = plan.tickets or flatten(plan.sides)
+    if not confirm(list) then return true end -- tickets changed: plan again
+    local players, optionsOf, leads, teams = {}, {}, {}, nil
+    local function take(tk)
+        tickets[tk.id] = nil
+        for _, p in ipairs(tk.members) do
+            players[#players + 1] = p
+            optionsOf[p], leads[p] = tk.options, tk.lead
+            pending[p] = nil
+        end
+    end
+    if plan.sides then
+        teams = {}
+        for i, side in ipairs(plan.sides) do
+            teams[i] = {}
+            for _, tk in ipairs(side) do
+                take(tk)
+                for _, p in ipairs(tk.members) do teams[i][#teams[i] + 1] = p end
+            end
+        end
+    else
+        for _, tk in ipairs(list) do take(tk) end
+    end
+    ffaReady[a.id] = nil
+    startMatch(a, players, { ranked = true, teams = teams, mode = plan.mode, optionsOf = optionsOf, leads = leads, from = "queue" })
+    for _, p in ipairs(players) do
+        LightRP.notice(p, { kind = "success", title = "MATCH FOUND", durationMs = 6000,
+            body = "Ranked " .. a.label .. (plan.mode and (" " .. plan.mode) or "") .. ": joining now." })
+    end
+    return true
+end
+
+-- Forms what can be formed for one activity. true when something changed.
+local function formOne(a, list, t)
+    local l = lobbyOf(a)
+    local shape = shapeOf(l)
+    local lowest, highest = math.huge, -math.huge
+    local brackets = {}
+    for _, tk in ipairs(list) do
+        brackets[tk] = ticketBracket(tk)
+        lowest, highest = math.min(lowest, brackets[tk]), math.max(highest, brackets[tk])
+    end
+    local fits = false
+    for _, anchor in ipairs(list) do
+        local spread = spreadFor(a, t - anchor.at)
+        local b = brackets[anchor]
+        -- windows [lo, lo + spread] holding the anchor's bracket: one bracket or two
+        -- adjacent ones at first, every bracket at the end
+        local from = spread == math.huge and lowest or math.max(lowest, b - spread)
+        for lo = from, b do
+            local hi = spread == math.huge and highest or lo + spread
+            local cands = { anchor }
+            for _, tk in ipairs(list) do
+                if tk ~= anchor and brackets[tk] >= lo and brackets[tk] <= hi then cands[#cands + 1] = tk end
+            end
+            local plan = planFor(a, l, anchor, cands, t)
+            if plan then
+                if plan.tickets and plan.count < a.maxPlayers then
+                    -- a free-for-all waits a moment for more, unless full
+                    fits = true
+                    ffaReady[a.id] = ffaReady[a.id] or t
+                    if t - ffaReady[a.id] >= (tonumber(mmCfg().gatherMs) or 15000) then return dispatch(a, plan) end
+                else
+                    return dispatch(a, plan)
+                end
+            end
+            if spread == math.huge then break end
+        end
+    end
+    if shape ~= "teams" and not fits then ffaReady[a.id] = nil end
+    return false
+end
+
+-- Runs every second (and right after a new search): every queue activity's tickets,
+-- oldest first.
+function A.matchmake()
+    local t = now()
+    local by = {}
+    for _, tk in pairs(tickets) do
+        local a = registry[tk.activity]
+        if a then
+            by[tk.activity] = by[tk.activity] or {}
+            local list = by[tk.activity]
+            list[#list + 1] = tk
+        end
+    end
+    for aid, list in pairs(by) do
+        local a = registry[aid]
+        local guard = 0
+        repeat
+            table.sort(list, function(x, y) if x.at ~= y.at then return x.at < y.at end return x.id < y.id end)
+            local changed = formOne(a, list, t)
+            if changed then
+                local kept = {}
+                for _, tk in ipairs(list) do if tickets[tk.id] == tk and #tk.members > 0 then kept[#kept + 1] = tk end end
+                list = kept
+            end
+            guard = guard + 1
+        until not changed or #list == 0 or guard > 32
+    end
+end
+
+-- A new ranked search: the player and their eligible crew members, held here.
+local function queueTicket(id, a, options, from, crew, chosen)
+    local members, out = { id }, {}
+    for _, member in ipairs(crew and crew.members or {}) do
+        if member ~= id then
+            local ok, why = check(member, a.id)
+            if ok then members[#members + 1] = member
+            else
+                out[#out + 1] = displayName(member) .. " stays out: " .. lowerFirst(why)
+                LightRP.notice(member, { kind = "warning", title = "CREW", durationMs = 7000,
+                    body = displayName(id) .. " queued the crew for ranked " .. a.label .. ". You stay out: " .. lowerFirst(why) })
+            end
+        end
+    end
+    withdraw(members)
+    friendlies[id] = nil
+    ticketSeq = ticketSeq + 1
+    local tk = { id = ticketSeq, activity = a.id, mode = chosen, lead = id, members = members, at = now(),
+        options = options, from = clean(from, 24) or "panel" }
+    tickets[tk.id] = tk
+    for _, p in ipairs(members) do
+        pending[p] = { activity = a.id, at = tk.at, ranked = true, held = tk.id, mode = chosen, lead = id,
+            crew = crew and crew.id or nil, options = p == id and options or nil }
+        touch(p)
+        if p ~= id then
+            LightRP.notice(p, { kind = "contract", title = "CREW", durationMs = 6000,
+                body = displayName(id) .. " queued the crew for ranked " .. a.label .. ". /leave drops you out." })
+        end
+    end
+    local text = "Searching for a ranked " .. a.label .. (chosen and (" " .. chosen) or "") .. " match"
+    if #members > 1 then text = text .. string.format(" with %d crew member%s", #members - 1, #members == 2 and "" or "s") end
+    text = text .. "."
+    if #out > 0 then text = text .. " " .. table.concat(out, ". ") .. "." end
+    A.matchmake()
+    return true, text
+end
+
+-- What a held search shows: searchers that fit with it now, the players a match
+-- needs, near your rank or all ranks, and the next widening.
+local function searchView(id, q, a)
+    local tk = tickets[q.held]
+    if not tk then return {} end
+    local l = lobbyOf(a)
+    local shape, n = shapeOf(l)
+    local t = now()
+    local spread, widenIn = spreadFor(a, t - tk.at)
+    local b = ticketBracket(tk)
+    local found = 0
+    for _, other in pairs(tickets) do
+        if other.activity == tk.activity and (other.mode == nil or tk.mode == nil or other.mode == tk.mode)
+            and (spread == math.huge or math.abs(ticketBracket(other) - b) <= spread) then
+            found = found + #other.members
+        end
+    end
+    local needed = math.max(2, a.minPlayers)
+    if shape == "teams" then
+        local _, size = sideSize(a, l, tk.mode, #tk.members)
+        if size then needed = size * n end
+    end
+    return { found = math.min(found, math.max(needed, found)), needed = needed,
+        scope = spread == math.huge and "all" or "near", widenInMs = widenIn, bracket = lobbyOf(a).brackets ~= false and b or nil }
+end
+
+-- "Play with bots" chosen in the panel (PvP): the player and their eligible crew
+-- members, alone against bots, unranked.
+local function botMatch(id, a, l, options, from, crew, chosen)
+    local players, out = { id }, {}
+    for _, member in ipairs(crew and crew.members or {}) do
+        if member ~= id then
+            local ok, why = check(member, a.id)
+            if ok then players[#players + 1] = member
+            else
+                out[#out + 1] = displayName(member) .. " stays out: " .. lowerFirst(why)
+                LightRP.notice(member, { kind = "warning", title = "CREW", durationMs = 7000,
+                    body = displayName(id) .. " started " .. a.label .. " with bots. You stay out: " .. lowerFirst(why) })
+            end
+        end
+    end
+    withdraw(players)
+    friendlies[id] = nil
+    local teams, bots, enemies, mode = botPlan(a, l, chosen, players)
+    if not startMatch(a, players, { teams = teams, bots = bots, enemies = enemies, mode = mode, options = options, from = from, lead = id }) then
+        return false, a.label .. " did not answer. Try again in a moment."
+    end
+    for i = 2, #players do
+        LightRP.notice(players[i], { kind = "contract", title = "CREW", durationMs = 6000,
+            body = displayName(id) .. " started " .. a.label .. " with bots: unranked, nothing is recorded." })
+    end
+    local text = "Starting " .. a.label .. " with bots · unranked."
+    if #players > 1 then text = text .. string.format(" %d crew member%s with you.", #players - 1, #players == 2 and "" or "s") end
+    if #out > 0 then text = text .. " " .. table.concat(out, ". ") .. "." end
+    return true, text
+end
+
+-- The fill offer of a ranked search, accepted by its leader: the group leaves the
+-- provider's queue and plays at once against bots, unranked.
+function A.fillSearch(id)
+    local q = pending[id]
+    if not q then return false, "You are not searching for a match." end
+    if q.match then return false, "Your match is already on its way." end
+    local a = registry[q.activity]
+    if not offersBots(a) then return false, (a and a.label or "This activity") .. " cannot be filled with bots." end
+    if q.lead ~= nil and q.lead ~= id then return false, "Your crew leader decides on bots." end
+    if a.status.joinable == false then return false, a.label .. " is not taking players right now." end
+    local players = { id }
+    local party = crewOf(id)
+    for _, member in ipairs(party and party.leader == id and party.members or {}) do
+        local theirs = pending[member]
+        if member ~= id and theirs and theirs.activity == a.id and not theirs.match and theirs.lead == id then players[#players + 1] = member end
+    end
+    withdraw(players)
+    local teams, bots, enemies, mode = botPlan(a, lobbyOf(a), q.mode, players)
+    if not startMatch(a, players, { teams = teams, bots = bots, enemies = enemies, mode = mode, options = q.options, from = "panel", lead = id }) then
+        return false, a.label .. " did not answer. Try again in a moment."
+    end
+    for i = 2, #players do
+        LightRP.notice(players[i], { kind = "contract", title = "CREW", durationMs = 6000,
+            body = displayName(id) .. " filled the match with bots: unranked, nothing is recorded." })
+    end
+    return true, "Bots fill the empty places: " .. a.label .. " starts, unranked."
+end
+
+-- ---------------------------------------------------------------------------
+-- Friendly crew matches: the leader splits the crew (auto-balanced by street cred,
+-- then moved by hand), optionally with bots in the empty places; always unranked.
+
+-- teams (nil for a free-for-all), bench, players (free-for-all), mode
+local function balance(a, l, mode, members)
+    local shape, n = shapeOf(l)
+    local sorted = copy(members)
+    local tiers = {}
+    for _, p in ipairs(sorted) do tiers[p] = tierOf(p) end
+    table.sort(sorted, function(x, y) if tiers[x] ~= tiers[y] then return tiers[x] > tiers[y] end return x < y end)
+    if shape == "ffa" then
+        local players, bench = {}, {}
+        for _, p in ipairs(sorted) do if #players < a.maxPlayers then players[#players + 1] = p else bench[#bench + 1] = p end end
+        return nil, bench, players, mode
+    end
+    local size
+    if shape == "teams" then
+        size = teamSizeOf(l, mode)
+        if not size and type(l.teamSize) == "table" then
+            -- the largest mode the crew fills, else the smallest
+            local all = sizedModes(a, l)
+            if all[1] then mode, size = all[1].mode, all[1].size end
+            for _, m in ipairs(all) do if m.size * n <= #members then mode, size = m.mode, m.size end end
+        end
+        size = size or 1
+    else
+        size = math.max(1, math.ceil(#members / n))
+    end
+    local teams, bench = {}, {}
+    for i = 1, n do teams[i] = {} end
+    -- snake order: the strongest on alternate sides (A B B A A B ...)
+    for k, p in ipairs(sorted) do
+        local round, pos = (k - 1) // n, (k - 1) % n
+        local want = round % 2 == 0 and pos + 1 or n - pos
+        local placed = false
+        for step = 0, n - 1 do
+            local i = (want - 1 + step) % n + 1
+            if #teams[i] < size then teams[i][#teams[i] + 1] = p; placed = true; break end
+        end
+        if not placed then bench[#bench + 1] = p end
+    end
+    return teams, bench, nil, mode
+end
+
+-- The bots of a friendly: per team (team shapes) or AI opponents (free-for-all).
+local function friendlyBots(a, l, f)
+    local shape, n = shapeOf(l)
+    if not f.teams then return nil, f.bots and math.max(0, bodiesOf(a, l) - #f.players) or 0 end
+    local size = teamSizeOf(l, f.mode)
+    if shape == "split" then
+        size = math.ceil(bodiesOf(a, l) / n)
+        for _, team in ipairs(f.teams) do size = math.max(size, #team) end
+    end
+    local bots = {}
+    for i, team in ipairs(f.teams) do bots[i] = f.bots and math.max(0, (size or #team) - #team) or 0 end
+    return bots, nil
+end
+
+-- Why a friendly cannot start yet (nil: it can).
+local function friendlyIssue(a, l, f)
+    local shape = shapeOf(l)
+    if not f.teams then
+        if #f.players == 0 then return "Nobody plays: move a player in." end
+        if #f.players < a.minPlayers and not f.bots then
+            return string.format("%s needs %d players: turn bots on for the empty places.", a.label, a.minPlayers)
+        end
+        if #f.players < 2 and not f.bots then return "A friendly needs two players, or bots." end
+        return nil
+    end
+    local humans = #flatten(f.teams)
+    if humans == 0 then return "Nobody plays: move a player onto a team." end
+    if not f.bots then
+        if humans < 2 then return "A friendly needs two players, or bots for the rest." end
+        local size = shape == "teams" and teamSizeOf(l, f.mode) or nil
+        for i, team in ipairs(f.teams) do
+            if size and #team < size then
+                return string.format("Team %s has %d of %d players: move one or turn bots on.", letter(i), #team, size)
+            elseif #team == 0 then
+                return string.format("Team %s is empty: move a player or turn bots on.", letter(i))
+            end
+        end
+        if humans < a.minPlayers then return string.format("%s needs %d players: turn bots on for the empty places.", a.label, a.minPlayers) end
+    end
+    return nil
+end
+
+-- The set-up follows the crew: a member who left is dropped, a new one waits on the
+-- bench; a leader who lost the lead (or a crew of one) loses the set-up.
+local function syncFriendly(leader)
+    local f = friendlies[leader]
+    if not f then return nil end
+    local a = registry[f.activity]
+    local party = crewOf(leader)
+    if not a or not party or party.leader ~= leader or #(party.members or {}) < 2 then friendlies[leader] = nil; return nil end
+    local member, placed = {}, {}
+    for _, p in ipairs(party.members) do member[p] = true end
+    local function keep(list)
+        local out = {}
+        for _, p in ipairs(list or {}) do if member[p] and not placed[p] then placed[p] = true; out[#out + 1] = p end end
+        return out
+    end
+    if f.teams then for i, team in ipairs(f.teams) do f.teams[i] = keep(team) end else f.players = keep(f.players) end
+    f.bench = keep(f.bench)
+    for _, p in ipairs(party.members) do
+        if not placed[p] then
+            if not f.teams and #f.players < a.maxPlayers then f.players[#f.players + 1] = p else f.bench[#f.bench + 1] = p end
+        end
+    end
+    return f
+end
+A.syncFriendly = syncFriendly
+
+local function touchCrew(leader)
+    local party = crewOf(leader)
+    for _, p in ipairs(party and party.members or { leader }) do touch(p) end
+end
+
+function A.friendlyOpen(id, activityId, mode, bots)
+    local a = type(activityId) == "string" and registry[activityId] or nil
+    if not a then return false, "That activity is not available." end
+    if not offersFriendly(a) then return false, a.label .. " has no friendly match." end
+    local party = crewOf(id)
+    if not party or #(party.members or {}) < 2 then return false, "A friendly needs a crew: invite players in the Crew tab first." end
+    if party.leader ~= id then return false, "Your crew leader sets up friendly matches." end
+    if mode ~= nil then
+        local known = false
+        for _, m in ipairs(a.modes or {}) do if m.id == mode then known = true end end
+        if not known then mode = nil end
+    end
+    local ok, why = check(id, activityId)
+    if not ok then return false, why end
+    local l = lobbyOf(a)
+    local old = friendlies[id]
+    local teams, bench, players, chosen = balance(a, l, mode, party.members)
+    friendlies[id] = { activity = a.id, mode = chosen, teams = teams, bench = bench, players = players,
+        bots = bots == true or (bots == nil and old ~= nil and old.activity == a.id and old.bots == true), at = now() }
+    touchCrew(id)
+    return true, "Friendly " .. a.label .. (chosen and (" " .. chosen) or "") .. ": set the teams, then start. Unranked."
+end
+
+local function ownFriendly(id)
+    local f = syncFriendly(id)
+    if f then return f end
+    local party = crewOf(id)
+    if party and party.leader ~= id and friendlies[party.leader] then return nil, "Your crew leader sets up the friendly." end
+    return nil, "No friendly match is being set up."
+end
+
+-- team 1 -> team 2 -> ... -> bench -> team 1. A full team (fixed size) swaps: its
+-- last player takes the moved player's place. Free-for-all: in <-> bench.
+function A.friendlyMove(id, target)
+    local f, why = ownFriendly(id)
+    if not f then return false, why end
+    target = pid(target)
+    local a, l = registry[f.activity], lobbyOf(registry[f.activity])
+    if not f.teams then
+        local at = target and removeFrom(f.players, target)
+        if at then f.bench[#f.bench + 1] = target
+        elseif target and removeFrom(f.bench, target) then
+            if #f.players >= a.maxPlayers then f.bench[#f.bench + 1] = table.remove(f.players) end
+            f.players[#f.players + 1] = target
+        else return false, "That player is not in the set-up." end
+        touchCrew(id)
+        return true
+    end
+    local from, index
+    for i, team in ipairs(f.teams) do for k, p in ipairs(team) do if p == target then from, index = i, k end end end
+    if not from then
+        for k, p in ipairs(f.bench) do if p == target then from, index = 0, k end end
+    end
+    if not from then return false, "That player is not in the set-up." end
+    local n = #f.teams
+    local to = from == 0 and 1 or (from < n and from + 1 or 0)
+    local size = shapeOf(l) == "teams" and teamSizeOf(l, f.mode) or nil
+    local source = from == 0 and f.bench or f.teams[from]
+    table.remove(source, index)
+    if to == 0 then
+        f.bench[#f.bench + 1] = target
+    else
+        local dest = f.teams[to]
+        if size and #dest >= size then table.insert(source, index, table.remove(dest)) end
+        dest[#dest + 1] = target
+    end
+    touchCrew(id)
+    return true
+end
+
+function A.friendlyBalance(id)
+    local f, why = ownFriendly(id)
+    if not f then return false, why end
+    local a = registry[f.activity]
+    local teams, bench, players = balance(a, lobbyOf(a), f.mode, crewOf(id).members)
+    f.teams, f.bench, f.players = teams, bench, players
+    touchCrew(id)
+    return true, "Teams balanced by street cred."
+end
+
+function A.friendlyBots(id, on)
+    local f, why = ownFriendly(id)
+    if not f then return false, why end
+    f.bots = on == true
+    touchCrew(id)
+    return true, f.bots and "Bots take the empty places." or "No bots: every place needs a player."
+end
+
+function A.friendlyCancel(id)
+    local f = friendlies[id]
+    if not f then return false, "No friendly match is being set up." end
+    friendlies[id] = nil
+    touchCrew(id)
+    return true, "Friendly cancelled."
+end
+
+function A.friendlyStart(id)
+    local f, why = ownFriendly(id)
+    if not f then return false, why end
+    local a = registry[f.activity]
+    local l = lobbyOf(a)
+    local issue = friendlyIssue(a, l, f)
+    if issue then return false, issue end
+    if a.status.joinable == false then return false, a.label .. " is not taking players right now." end
+    local players = f.teams and flatten(f.teams) or copy(f.players)
+    for _, p in ipairs(players) do
+        local ok, reason = check(p, a.id)
+        if not ok then
+            return false, (p == id and "You cannot play: " or (displayName(p) .. " cannot play: ")) .. lowerFirst(reason)
+                .. (p == id and "" or " Bench them or wait.")
+        end
+    end
+    withdraw(players)
+    local bots, enemies = friendlyBots(a, l, f)
+    local teams
+    if f.teams then teams = {}; for i, team in ipairs(f.teams) do teams[i] = copy(team) end end
+    if not startMatch(a, players, { friendly = true, teams = teams, bots = bots, enemies = enemies, mode = f.mode,
+            options = {}, from = "friendly", lead = id }) then
+        return false, a.label .. " did not answer. Try again in a moment."
+    end
+    friendlies[id] = nil
+    for _, p in ipairs(players) do
+        if p ~= id then
+            local side
+            for i, team in ipairs(teams or {}) do for _, q in ipairs(team) do if q == p then side = i end end end
+            LightRP.notice(p, { kind = "contract", title = "FRIENDLY MATCH", durationMs = 6000,
+                body = string.format("%s started a friendly %s%s. Unranked: nothing is recorded.", displayName(id), a.label,
+                    side and (": you are on team " .. letter(side)) or "") })
+        end
+    end
+    for _, p in ipairs(f.bench) do
+        LightRP.notice(p, { kind = "info", title = "FRIENDLY MATCH", durationMs = 6000,
+            body = displayName(id) .. " started a friendly " .. a.label .. ". You sit this one out." })
+    end
+    touchCrew(id)
+    return true, "Friendly " .. a.label .. " starting · unranked."
+end
+
+-- The set-up as the crew's panels show it (leader: editable; members: read only).
+local function friendlyView(id)
+    local party = crewOf(id)
+    if not party or #(party.members or {}) < 2 then return false end
+    local f = syncFriendly(party.leader)
+    if not f then return false end
+    local a = registry[f.activity]
+    local l = lobbyOf(a)
+    local shape = shapeOf(l)
+    local function people(list)
+        local out = {}
+        for _, p in ipairs(list or {}) do out[#out + 1] = { id = p, name = displayName(p), tier = tierOf(p) } end
+        return out
+    end
+    local bots, enemies = friendlyBots(a, l, f)
+    local v = { id = a.id, label = a.label, mode = f.mode, bots = f.bots, shape = shape, size = teamSizeOf(l, f.mode) or 0,
+        leader = displayName(party.leader), mine = party.leader == id, bench = people(f.bench), issue = friendlyIssue(a, l, f) }
+    if f.teams then
+        v.teams, v.teamBots = {}, bots
+        for i, team in ipairs(f.teams) do v.teams[i] = people(team) end
+    else
+        v.players, v.enemies = people(f.players), enemies
+    end
+    return v
+end
 
 -- The rest of the crew follows its leader into the queue: each member is
 -- checked like a join of their own and gets the leader's options (the same

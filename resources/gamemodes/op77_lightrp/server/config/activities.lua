@@ -65,6 +65,67 @@ LightRpActivities = {
         },
     },
 
+    -- The lobby (server/modules/activities.lua, "Lobby"): bots chosen in the panel,
+    -- the ranked search and friendly crew matches. RANKED = the result counts (stats,
+    -- leaderboards, Hall of Fame, reputation, pay): a PvP join with humans only, and
+    -- every PvE join (allied bots included). UNRANKED = a friendly crew match, any bot
+    -- fill in PvP, staff bot mode: the core records nothing and pays nothing.
+    lobby = {
+        -- A ranked search (a PvP join without bots) offers its leader "fill the rest
+        -- with bots (unranked)" after this long; they may also keep waiting.
+        fillAfterMs = 120000,
+        -- The core's ranked queue (activities with `queue = true` below): searchers (a
+        -- crew stays whole, on one side) are matched by team size and, since cyberware
+        -- stays active in ranked PvP, by the cyberware rank their street cred unlocks
+        -- (server/config/cyberware.lua gating.byRank; a crew counts its highest member).
+        matchmaking = {
+            -- unlocked cyberware rank -> bracket (ranks 1-2 open at tier I, 6 at tier V)
+            brackets = { [1] = 1, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5 },
+            -- How far apart the brackets of one match may be, by the wait of its oldest
+            -- searcher: one bracket or two adjacent ones first, then wider, then
+            -- everyone (spread "all") -- well before the bot fill offer.
+            widen = {
+                { afterMs = 0, spread = 1 },
+                { afterMs = 60000, spread = 2 },
+                { afterMs = 80000, spread = 3 },
+                { afterMs = 100000, spread = "all" },
+            },
+            -- A free-for-all (races, Most Wanted): once enough searchers fit, wait this
+            -- long for more before starting (a full lobby starts at once).
+            gatherMs = 15000,
+        },
+        -- Per activity (an unlisted one joins as before: ranked, no bots, no friendly):
+        --   allies = true   PvE: "Fill empty slots with bots", allied bots up to
+        --                   `seats` (default: the activity's maxPlayers) beside the crew.
+        --   bots = true     PvP: "Play with bots" up front, and the fill offer of a
+        --                   ranked search: a match the core forms, always unranked.
+        --                   Both also need the provider's own `botFill = true` in
+        --                   activityRegister (a mode may opt out): no declaration, no bots.
+        --   friendly = true PvP: a crew leader starts a friendly inside the crew.
+        --   teams, teamSize the match shape: two sides of teamSize (or one size per
+        --                   mode); `teams` without teamSize splits in two halves (turf
+        --                   war); neither: a free-for-all.
+        --   fillTo          a free-for-all (or split) bot match: bodies to reach.
+        --   queue = true    PvP: the ranked search is the core's queue (matchmaking
+        --                   above); without it the provider's own queue takes it.
+        --   brackets = false  that queue ignores the cyberware brackets (races).
+        activities = {
+            ["arena.ffa"] = { bots = true, friendly = true, fillTo = 6 },   -- drop-in: ranked = no bots
+            ["arena.blade"] = { bots = true, friendly = true, fillTo = 6 }, -- drop-in
+            ["arena.duel"] = { bots = true, friendly = true, queue = true, teams = 2, teamSize = 1 },
+            ["arena.teams"] = { bots = true, friendly = true, queue = true, teams = 2, teamSize = { ["2v2"] = 2, ["3v3"] = 3 } },
+            ["arena.pve"] = { allies = true },
+            ["race.grid"] = { bots = true, friendly = true, queue = true, brackets = false, fillTo = 6 },
+            ["race.foot"] = { bots = true, friendly = true, queue = true, brackets = false, fillTo = 6 },
+            -- op77_chase is not listed: its modes are real players only or the game's own
+            -- NCPD (owner, 2026-11-03), and it plays no core match yet. List a chase
+            -- mode here once the provider takes options.match / declares botFill.
+            -- ranked turf war stays the provider's own queue (a gang war, one at a time)
+            ["turf.war"] = { bots = true, friendly = true, teams = 2, fillTo = 6 },
+            ["turf.pve"] = { allies = true },
+        },
+    },
+
     -- Choices the Activities panel offers when joining an activity whose provider
     -- declares none (`modes` in activityRegister). The pick is handed to the
     -- provider as options[key]; "Any" sends nothing (the provider's default).
