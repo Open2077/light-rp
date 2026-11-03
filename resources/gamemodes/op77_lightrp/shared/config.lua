@@ -35,6 +35,9 @@ LightRpConfig = {
         -- ready check keeps Y while it runs).
         crewAccept = { id = "lightrp.crew.accept", name = "Light RP: accept crew invite", key = "Y" },
         crewDecline = { id = "lightrp.crew.decline", name = "Light RP: decline crew invite", key = "N" },
+        -- Leave whatever queue the queue panel shows (activities, mission boards). U: free
+        -- in Light RP, its providers and the base game outside menus, same key on AZERTY.
+        queueLeave = { id = "lightrp.queue.leave", name = "Light RP: leave queue", key = "U" },
     },
 
     -- Inventories (shared/items.lua holds the item templates). Weights in kg.
