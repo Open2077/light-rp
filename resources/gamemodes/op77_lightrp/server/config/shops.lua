@@ -31,6 +31,10 @@ LightRpShops = {
                 { name = "juice", buy = 18, sell = 3 },
                 { name = "energydrink", buy = 26, sell = 4 },
                 { name = "electrolyte", buy = 24, sell = 4 },
+                -- Revives an unconscious ally (shared/medical.lua: never yourself). Priced
+                -- under the 300 hospital bill so a friend with a kit beats "Give up";
+                -- not bought back.
+                { name = "trauma_kit", buy = 250 },
             },
         },
         -- Gun stores, one weapon family each (shared/armament.lua). On the 3D map each

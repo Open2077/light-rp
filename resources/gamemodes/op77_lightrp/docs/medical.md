@@ -20,8 +20,11 @@ patient at a time. The reserved kit cannot be transferred away during treatment.
 A confirmed rescue revives at the same place with **35% health** and **5 seconds
 of damage grace**, consuming one kit. The existing MaxDoc and first-aid items
 retain their living-patient healing behavior; they do not become self-revival
-items. Kits are not granted automatically. Existing staff inventory commands
-can grant one for testing:
+items. Kits are not granted automatically: the **Corner Market** (template
+`street_food`, City Center and the arrival hall) sells them for **€$ 250**, under
+the €$ 300 hospital bill, and does not buy them back. A kit always revives
+**someone else**: an unconscious player cannot use their own. Existing staff
+inventory commands can grant one for testing:
 
 ```text
 /lightrp.giveitem me trauma_kit 1
