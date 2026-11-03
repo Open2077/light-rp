@@ -48,6 +48,23 @@ import { BoardGames } from "@/features/board-games/BoardGames";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
+/* State keys too large for one page message (more than 1024 values) come as JSON text in
+   numbered parts (client/core/ui.lua, Ui.sendState); a newer id for the same key drops
+   the older, unfinished one. */
+interface StatePart { key: string; id: string; part: number; parts: number; text: string }
+const statePending = new Map<string, { id: string; parts: string[]; got: number }>();
+function joinStatePart(p: StatePart): UiStatePatch | null {
+  if (!p || typeof p.key !== "string" || typeof p.id !== "string" || typeof p.text !== "string") return null;
+  if (!(p.parts >= 1 && p.parts <= 512 && p.part >= 1 && p.part <= p.parts)) return null;
+  let entry = statePending.get(p.key);
+  if (!entry || entry.id !== p.id) { entry = { id: p.id, parts: new Array(p.parts), got: 0 }; statePending.set(p.key, entry); }
+  if (entry.parts[p.part - 1] === undefined) { entry.parts[p.part - 1] = p.text; entry.got += 1; }
+  if (entry.got < p.parts) return null;
+  statePending.delete(p.key);
+  try { return { [p.key]: JSON.parse(entry.parts.join("")) } as UiStatePatch; }
+  catch (e) { console.warn("[state] parts of", p.key, "did not parse:", e); return null; }
+}
+
 export function App() {
   const customizationActive = useStore(s => s.customizationActive);
   const boardGamesActive = useStore(s => s.boardGamesActive);
@@ -63,7 +80,15 @@ export function App() {
 
   useEffect(() => {
     const offs = [
-      on<UiStatePatch>(PAGE_EVENTS.state, (patch) => { applyState(patch ?? {}); setConnected(true); }),
+      on<UiStatePatch & { __stateParts?: StatePart }>(PAGE_EVENTS.state, (patch) => {
+        // a key too large for one page message arrives as JSON text in parts (client/core/ui.lua)
+        if (patch && patch.__stateParts) {
+          const whole = joinStatePart(patch.__stateParts);
+          if (whole) { applyState(whole); setConnected(true); }
+          return;
+        }
+        applyState(patch ?? {}); setConnected(true);
+      }),
       on<HudState>(PAGE_EVENTS.hud, (hud) => { if (hud) setHud(hud); }),
       // The player menu waits for an active character: during creation or the
       // briefing the key hands the focus straight back.
