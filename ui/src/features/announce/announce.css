@@ -1,12 +1,13 @@
-/* Announcement halo (AnnounceHalo.tsx): top centre, over the HUD, never takes input. */
+/* Announcement signal (AnnounceHalo.tsx): top centre, over the HUD, never takes input. */
 .announce { position: absolute; inset: 0 0 auto 0; height: 0; z-index: 60; pointer-events: none; }
 .announce__canvas { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: min(980px, 72vw); height: 460px; display: block; }
+  width: min(900px, 66vw); height: 300px; display: block; image-rendering: pixelated; }
 .announce__canvas[data-renderer="css"] { display: none; }
+/* without WebGL: one pixel-stepped cyan trace that stretches with the voice */
 .announce__fallback { position: absolute; top: 0; left: 50%; transform: translateX(-50%); opacity: 0;
-  border-radius: 0 0 50% 50% / 0 0 100% 100%;
-  background: radial-gradient(ellipse at 50% 15%, #fff7d1 0%, #ffcc00 38%, #8f6d00 78%, transparent 100%);
-  box-shadow: 0 0 60px 18px rgba(255, 204, 0, .35); filter: blur(.4px); }
+  width: min(760px, 56vw); height: 4px;
+  background: repeating-linear-gradient(90deg, #5af5ff 0 12px, transparent 12px 16px);
+  box-shadow: 0 0 12px 2px rgba(90, 245, 255, .45); }
 .announce__canvas[data-renderer="webgl"] ~ .announce__fallback { display: none; }
 .announce__label { position: absolute; top: 0; left: 50%; transform: translate(-50%, 0); opacity: 0;
   display: flex; align-items: baseline; gap: 10px; white-space: nowrap;

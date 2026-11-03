@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { on } from "@/bridge/open77";
-import { FRAGMENT, VERTEX } from "./haloShader";
+import { FRAGMENT, VERTEX } from "./signalShader";
 import "./announce.css";
 
 /* Staff voice announcements (server/modules/announce.lua, client/core/announce.lua):
-   while someone is on air for us, a drop of molten gold hangs from the top of the
-   screen and swells with their live voice level. The speaker sees their own. */
+   while someone is on air for us, a pixelated cyber signal hangs at the top of the screen
+   (signalShader.ts: an oscilloscope trace, a LED equalizer, radar rings) and follows their
+   live voice level. The speaker sees their own. */
 export const ANNOUNCE_PAGE = "lightrp:ui:announce";
 
 interface Cast { speaker: number; name: string; mode: "server" | "radius"; radius?: number | null; self: boolean; audience: number }
@@ -71,7 +72,7 @@ export function AnnounceHalo() {
       const loc = gl.getAttribLocation(prog, "aPos");
       gl.enableVertexAttribArray(loc);
       gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      for (const n of ["uRes", "uTime", "uLevel", "uEnergy", "uTalk", "uPresence"]) u[n] = gl.getUniformLocation(prog, n);
+      for (const n of ["uRes", "uTime", "uLevel", "uEnergy", "uTalk", "uPresence", "uCell"]) u[n] = gl.getUniformLocation(prog, n);
       gl.clearColor(0, 0, 0, 0);
     }
     canvas.dataset.renderer = gl && prog ? "webgl" : "css";
@@ -90,7 +91,7 @@ export function AnnounceHalo() {
       const fresh = l && now - l.at < 400;
       const targetLevel = fresh && l!.talking ? l!.level : 0;
       const targetTalk = fresh && l!.talking ? 1 : 0;
-      // fast attack, softer release: liquid, never twitchy
+      // fast attack, softer release: it breathes, never twitches
       level += (targetLevel - level) * (1 - Math.exp(-dt * (targetLevel > level ? 8 : 3.5)));
       energy += (level - energy) * (1 - Math.exp(-dt * (level > energy ? 2.5 : 1.0)));
       talk += (targetTalk - talk) * (1 - Math.exp(-dt * (targetTalk > talk ? 5 : 2)));
@@ -107,18 +108,19 @@ export function AnnounceHalo() {
         gl.uniform1f(u.uEnergy!, energy);
         gl.uniform1f(u.uTalk!, talk);
         gl.uniform1f(u.uPresence!, presence);
+        gl.uniform1f(u.uCell!, Math.max(3, Math.round(ch / 75))); // ~4 px cells at 300 px
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       } else if (fallbackRef.current) {
         const f = fallbackRef.current;
         f.style.opacity = String(presence);
-        f.style.height = `${(0.085 + 0.13 * level + 0.03 * energy) * presence * h}px`;
-        f.style.width = `${(0.34 + 0.06 * level) * presence * h}px`;
+        f.style.top = `${Math.round(0.42 * h)}px`;
+        f.style.transform = `translateX(-50%) scaleY(${1 + 6 * level})`;
       }
-      // the label rides just under the drop
+      // the label sits under the signal and slides in with it
       if (labelRef.current) {
-        const drop = (0.085 + 0.13 * level + 0.03 * energy) * presence * h;
-        labelRef.current.style.transform = `translate(-50%, ${Math.round(drop + 14)}px)`;
+        const y = (0.62 + 0.12 * presence) * h;
+        labelRef.current.style.transform = `translate(-50%, ${Math.round(y)}px)`;
         labelRef.current.style.opacity = String(Math.max(0, presence * 1.15 - 0.15));
       }
       if (!pick && presence < 0.002) {
