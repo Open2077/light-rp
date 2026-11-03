@@ -261,6 +261,8 @@ do
     assert(env.qhud[1].queued == false and env.qhud[3].queued == false)
     assert(match.runnerId == 1 and match.roles[2] == "cop" and match.roles[3] == "cop", "the first in the queue runs first")
     assert(#env.placements == 3 and env.placements[1].bucket == 4300100 and env.placements[1].cover ~= nil)
+    local rc, rp1 = match.route.runnerCar.position, env.placements[1].point.position
+    assert(math.abs(rp1.x - rc.x) < 5 and math.abs(rp1.y - rc.y) < 5, "by car the runner starts at the front of the cops' grid")
     assert(countCars() == 3 and countCars(function(c) return c.bucket == 4300100 end) == 3)
     assert(countCars(function(c) return c.spec.sirenOn end) == 2, "two NCPD cars")
     assert(countCars(function(c) return c.spec.record == "Vehicle.v_sport2_quadra_type66_avenger_player" end) == 1)
@@ -272,19 +274,16 @@ do
     assert(noted(1, "YOU ARE THE RUNNER") and noted(2, "NCPD"))
     assert(lastStatus().phase == "running" and lastStatus().players == 3)
 
-    -- GO: the runner goes, the cops wait for dispatch (wave 1 after the head start).
+    -- GO: by car the runner and the whole NCPD leave together (no head start).
     at(1, 0, 0); at(2, 500, 0); at(3, 600, 0)
     runUntil(function() return match.state == "active" end, 12, "GO")
     local go = match.chase.startedAtMs
-    assert(env.frozen[1] == false and env.frozen[2] == true and env.frozen[3] == true)
-    assert(match.releaseAt[2] == go + 10000 and match.releaseAt[3] == go + 30000)
+    assert(match.releaseAt[2] == go and match.releaseAt[3] == go, "every cop released at GO")
+    assert(not noted(2, "Hold - dispatch") and not noted(3, "Hold - dispatch"))
     run(0.6)
-    assert(env.hud[2].released == false and env.hud[2].heldMs > 8000 and env.hud[2].targetDistance == nil)
-
-    -- Wave 1: cop 2 released, the first dispatch sighting goes out.
-    runUntil(function() return env.clock >= go + 10400 end, 12)
-    assert(env.frozen[2] == false and env.frozen[3] == true and match.copReleased[2] and not match.copReleased[3])
-    assert(noted(2, "you're up") and noted(3, "Dispatch: suspect sighted"))
+    assert(env.frozen[1] == false and env.frozen[2] == false and env.frozen[3] == false)
+    assert(match.copReleased[2] and match.copReleased[3] and env.hud[2].released == true)
+    assert(noted(2, "you're up") and noted(3, "you're up"))
     assert(env.hud[2].sighting and env.hud[2].sighting.radius == 160 and env.hud[2].targetDistance == 500)
     assert(env.hud[1].copsNearby == 0 and env.hud[1].nearestCop == 500 and env.hud[1].heat == 1)
 
@@ -292,9 +291,9 @@ do
     runUntil(function() return match.chase.shakes == 1 end, 15, "shake")
     assert(noted(1, "You shook them") and noted(2, "Suspect lost"))
 
-    -- Heat 2 at 30 s: the second wave.
-    runUntil(function() return match.copReleased[3] end, 12, "wave 2")
-    assert(env.frozen[3] == false and env.hud[1].heat == 2 and noted(1, "HEAT 2"))
+    -- Heat 2 at 30 s (nobody left to release: the whole NCPD left at GO).
+    runUntil(function() return env.hud[1].heat == 2 end, 25, "heat 2")
+    assert(noted(1, "HEAT 2"))
 
     -- Both close in on a stopped runner: arrest by the nearest, an assist for the other.
     at(2, 8, 0); at(3, -9, 3)

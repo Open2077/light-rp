@@ -41,7 +41,7 @@ end
 -- ── merged rules, heat, waves ──
 do
     local t = R.rulesFor("vehicle")
-    assert(t.mode == "vehicle" and t.bustDistance == 15.0 and t.headStartSeconds == 10 and t.durationSeconds == 165 and t.tickMs == 200)
+    assert(t.mode == "vehicle" and t.bustDistance == 15.0 and t.headStartSeconds == 0 and t.durationSeconds == 165 and t.tickMs == 200)
     local f = R.rulesFor("foot")
     assert(f.mode == "foot" and f.bustDistance == 8.0 and f.headStartSeconds == 15 and #f.heat == 5)
     assert(R.rulesFor("nonsense").mode == "vehicle")
@@ -51,11 +51,19 @@ do
     assert(R.heatAt(heat, 0) == 1 and R.heatAt(heat, 29999) == 1 and R.heatAt(heat, 30000) == 2 and R.heatAt(heat, 999999) == 5)
     assert(near(R.heatProgress(heat, 15000), 0.5) and R.heatProgress(heat, 200000) == 1.0)
 
-    local plan = R.wavePlan({ 11, 12, 13, 14 }, heat, 10000)
+    -- The shipped heat: by car (no head start) the whole NCPD leaves at GO; on foot,
+    -- everyone when the head start ends.
+    local plan = R.wavePlan({ 11, 12, 13, 14 }, heat, t.headStartSeconds * 1000)
+    assert(plan[11] == 0 and plan[12] == 0 and plan[13] == 0 and plan[14] == 0, "by car the NCPD leaves with the runner")
+    plan = R.wavePlan({ 11, 12 }, heat, f.headStartSeconds * 1000)
+    assert(plan[11] == 15000 and plan[12] == 15000, "on foot: everyone after the head start")
+    -- A heat table with staggered shares still releases in waves.
+    local waves = { { atSeconds = 0, release = 0.5 }, { atSeconds = 30, release = 1.0 } }
+    plan = R.wavePlan({ 11, 12, 13, 14 }, waves, 10000)
     assert(plan[11] == 10000 and plan[12] == 10000 and plan[13] == 30000 and plan[14] == 30000, "half after the head start, the rest at heat 2")
-    plan = R.wavePlan({ 11 }, heat, 10000)
+    plan = R.wavePlan({ 11 }, waves, 10000)
     assert(plan[11] == 10000, "a lone cop goes with the first wave")
-    plan = R.wavePlan({ 1, 2, 3, 4, 5, 6, 7 }, heat, 15000)
+    plan = R.wavePlan({ 1, 2, 3, 4, 5, 6, 7 }, waves, 15000)
     local first, second = 0, 0
     for _, at in pairs(plan) do if at == 15000 then first = first + 1 elseif at == 30000 then second = second + 1 end end
     assert(first == 4 and second == 3, "7 cops: 4 then 3")
@@ -181,7 +189,7 @@ do
     -- Heat levels fire once each, with their line.
     round = R.newRound(t, 0)
     _, _, events = run(round, t, 0, 130000, function() return { runnerPos = P(0, 0), cops = {} } end)
-    assert(count(events, "heat") == 4 and events[1].level == 2 and events[1].text == "Backup is rolling out." and round.heat == 5)
+    assert(count(events, "heat") == 4 and events[1].level == 2 and events[1].text == "Dispatch is closing in." and round.heat == 5)
     print("PASS takedown, extraction, shakes, blackouts, heat")
 end
 

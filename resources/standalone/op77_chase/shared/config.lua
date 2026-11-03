@@ -268,16 +268,19 @@ ChaseConfig.wanted = {
         hudPushMs = 500,
     },
 
-    -- The runner's head start: the first wave of cops is held until it ends.
-    headStartSeconds = { vehicle = 10, foot = 15 },
+    -- The runner's head start: the first wave of cops is held until it ends. By car there
+    -- is none (owner, 2026-11-04: the runner was out of sight before the cops moved): his
+    -- car stands at the front of the NCPD's grid (the route's `runnerCar`, ~27 m ahead of
+    -- the first cop car) and every cop leaves with him at GO. On foot he keeps a lead.
+    headStartSeconds = { vehicle = 0, foot = 15 },
 
     -- Heat, by seconds since GO. `release` = share of the cops released when the level
     -- starts (wave 1 waits for the head start). `scan` = seconds between dispatch
     -- sightings of the runner for the cops, `scanRadius` = how vague they are.
     -- `bustScale` widens the arrest radius, `fillScale` speeds the arrest meter.
     heat = {
-        { atSeconds = 0,   release = 0.5, scan = 30, scanRadius = 160, bustScale = 1.00, fillScale = 1.00 },
-        { atSeconds = 30,  release = 1.0, scan = 22, scanRadius = 120, bustScale = 1.00, fillScale = 1.10, text = "Backup is rolling out." },
+        { atSeconds = 0,   release = 1.0, scan = 30, scanRadius = 160, bustScale = 1.00, fillScale = 1.00 },
+        { atSeconds = 30,  scan = 22, scanRadius = 120, bustScale = 1.00, fillScale = 1.10, text = "Dispatch is closing in." },
         { atSeconds = 60,  scan = 16, scanRadius = 90,  bustScale = 1.10, fillScale = 1.20, roadblocks = true, text = "Roadblocks authorized." },
         { atSeconds = 95,  scan = 12, scanRadius = 70,  bustScale = 1.20, fillScale = 1.35, extraction = true, text = "Extraction point located." },
         { atSeconds = 125, scan = 8,  scanRadius = 50,  bustScale = 1.30, fillScale = 1.50, text = "Maximum heat." },
@@ -370,12 +373,16 @@ ChaseConfig.wanted = {
             runner = cp(618.703, -1245.616, 29.038, 267.119),
             cops = STREET_CIRCUIT_GRID,
             course = STREET_CIRCUIT, runnerIndex = 8,   -- the runner's start is checkpoint 8
+            -- By car: checkpoint 1, at the front of the grid (~27 m ahead of slot 8).
+            runnerCar = STREET_CIRCUIT[1],
         },
         {
             name = "shion_sprint",
             runner = cp(-1563.726, -164.91, 8.286, 199.355),
             cops = SHION_SPRINT_GRID,
             course = SHION_SPRINT, runnerIndex = 4,     -- the runner's start is checkpoint 4
+            -- By car: checkpoint 1, at the front of the grid (~27 m ahead of slot 8).
+            runnerCar = SHION_SPRINT[1],
         },
     },
 

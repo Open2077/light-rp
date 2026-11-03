@@ -605,7 +605,7 @@ assert(H.count(env.cars) == 4, "his own car and the three cop cars")
 local rp = env.pos[1]
 for i, c in ipairs(copsOf(match)) do H.moveCar(H.botCar(c), H.offset(rp, i * 6, 200)) end
 H.run(11)
-assert(H.count(match.copReleased) == 2, "wave 1 after the head start")
+assert(H.count(match.copReleased) == 3, "Most Wanted's waves: by car the whole NCPD leaves at GO")
 H.runUntil(function() return #H.aiCalls("vehicles.ai.chase", function(a) return a[2].targetId == 1 end) >= 2 end, 5, "they chase him")
 H.runUntil(function() return env.clock - match.startedAtMs >= 65000 end, 60, "past minSeconds")
 H.moveCar(H.botCar(copsOf(match)[1]), H.offset(rp, 4, 0))
