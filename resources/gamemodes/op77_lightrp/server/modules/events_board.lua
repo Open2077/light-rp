@@ -15,7 +15,7 @@
 --   the TV     a prop this resource owns (config tv), respawned when it disappears.
 --              The clients near it paint the page on its screen
 --              (client/core/events_board.lua, Open77.media.bind).
---   the staff  /lightrp.board [where|place|aim|reset|respawn|refresh]: place (where
+--   the staff  /lightrp.board [where|place|aim|reset|respawn|refresh|hide|show]: place (where
 --              they stand) and aim [scale] (on the wall or sign under their crosshair)
 --              keep the spot in kvp and print the line to paste into the config.
 --
@@ -33,6 +33,8 @@ local EB = LightRP.module("eventsBoard", {})
 local SELF = type(GetCurrentResourceName) == "function" and GetCurrentResourceName() or "op77_lightrp"
 local KVP_PLACEMENT = "events_board.tv.placement" -- "x,y,z,heading[,scale]": the staff's spot, until copied into the config
 EB.KVP_PLACEMENT = KVP_PLACEMENT
+local KVP_HIDDEN = "events_board.tv.hidden" -- "1" hidden, "0" shown: the staff's choice, over tv.enabled
+EB.KVP_HIDDEN = KVP_HIDDEN
 local SEP = " \u{B7} "
 local JSON_TYPE = "application/json; charset=utf-8"
 local PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:; "
@@ -42,7 +44,11 @@ local function now() return LightRP.nowMs() end
 local function log(...) LightRP.log(...) end
 local function cfg(path, default)
     local v = C
-    for part in path:gmatch("[^.]+") do v = type(v) == "table" and v[part] or nil end
+    -- not `v[part] or nil`: that turned a configured false into the default
+    for part in path:gmatch("[^.]+") do
+        if type(v) ~= "table" then return default end
+        v = v[part]
+    end
     if v == nil then return default end
     return v
 end
@@ -615,9 +621,19 @@ RegisterNetEvent(E.net.eventsBoardHello, function()
 end)
 function EB.onDisconnected(playerId) helloAt[playerId] = nil end
 
+-- No TV: the staff hid it (/lightrp.board hide, kept in kvp), else the config's
+-- tv.enabled is false. The page and its data are still served.
+function EB.hidden()
+    local saved = kvp("get", KVP_HIDDEN)
+    if saved == "1" then return true end
+    if saved == "0" then return false end
+    return cfg("tv.enabled", true) == false
+end
+
 -- One spawn attempt (the start thread retries). -> true | false, reason
 local propsWarned = false
 function EB.spawn()
+    if EB.hidden() then return false, "hidden" end
     local ok, why = EB.placeProp()
     if ok then
         log("events board: TV %s at %.1f, %.1f facing %.0f (prop %s, %s)", tostring(cfg("tv.screen", "tv.16x9")),
@@ -632,7 +648,7 @@ end
 
 -- The respawn check (Johnny's pattern): a TV gone is made again.
 function EB.watch()
-    if not props() or not tv.position then return false end
+    if not props() or not tv.position or EB.hidden() then return false end
     if tv.prop and EB.standing() then return false end
     tv.prop = nil
     local ok, why = EB.placeProp()
@@ -644,7 +660,7 @@ function EB.watch()
 end
 
 -- ---------------------------------------------------------------------------
--- Staff: /lightrp.board [where | place | aim [scale] | reset | respawn | refresh]
+-- Staff: /lightrp.board [where | place | aim [scale] | reset | respawn | refresh | hide | show]
 
 local function placementLine(pos, heading, scale)
     return string.format("position = { x = %.3f, y = %.3f, z = %.3f }, heading = %.1f, %s-- server/config/events_board.lua tv, bucket %d",
@@ -659,6 +675,7 @@ end
 
 local function moveTo(pos, heading, source, scale)
     tv.position, tv.heading, tv.source, tv.scale = pos, heading % 360, source, scale
+    if EB.hidden() then return false, "hidden (/lightrp.board show)" end -- the spot is kept for show
     local ok, why = EB.placeProp()
     EB.sendTv(-1)
     return ok, why
@@ -742,7 +759,7 @@ RegisterNetEvent(E.net.eventsBoardAimed, function(reply)
         .. (saved == true and "Kept until /lightrp.board reset." or ("This session only (" .. tostring(why) .. ").")))
 end)
 
-LightRP.command("lightrp.board", { restricted = true, usage = "/lightrp.board [where | place | aim [scale] | reset | respawn | refresh]" }, function(source, args)
+LightRP.command("lightrp.board", { restricted = true, usage = "/lightrp.board [where | place | aim [scale] | reset | respawn | refresh | hide | show]" }, function(source, args)
     local verb = tostring(args and args[1] or "where"):lower()
     if verb == "where" then
         if not tv.position then return false, "The events board is not placed yet." end
@@ -751,6 +768,19 @@ LightRP.command("lightrp.board", { restricted = true, usage = "/lightrp.board [w
     elseif verb == "refresh" then
         EB.build("staff")
         return true, "Events board: data rebuilt."
+    elseif verb == "hide" then
+        local saved, why = kvp("set", KVP_HIDDEN, "1")
+        EB.removeProp()
+        EB.sendTv(-1)
+        LightRP.log("events board: TV hidden by %s", tostring(source))
+        return true, "Events board: TV removed" .. (saved == true and " (kept until /lightrp.board show)." or (" for this session only (" .. tostring(why) .. ")."))
+    elseif verb == "show" then
+        local saved, why = kvp("set", KVP_HIDDEN, "0")
+        if not tv.position then return false, "The events board is not placed yet." end
+        local ok, propWhy = moveTo(tv.position, tv.heading, tv.source, tv.scale)
+        LightRP.log("events board: TV shown by %s", tostring(source))
+        if not ok then return false, "Events board: the TV was not made (" .. tostring(propWhy) .. ")." end
+        return true, "Events board: TV back, prop " .. tostring(tv.prop) .. (saved == true and "." or (" (not saved: " .. tostring(why) .. ")."))
     elseif verb == "respawn" then
         if not tv.position then return false, "The events board is not placed yet." end
         EB.removeProp()
@@ -811,7 +841,7 @@ CreateThread(function()
     local retries = math.max(1, int(cfg("tv.spawnRetries", 30)))
     for attempt = 1, retries do
         local ok, why = EB.spawn()
-        if ok or why == "props_unavailable" then break end
+        if ok or why == "props_unavailable" or why == "hidden" then break end
         if attempt == 1 then log("events board: TV not made yet (%s): retrying", tostring(why)) end
         if attempt == retries then log("events board: TV gave up after %d tries (%s)", retries, tostring(why)) break end
         Wait(math.max(1000, int(cfg("tv.spawnRetryMs", 10000))))
