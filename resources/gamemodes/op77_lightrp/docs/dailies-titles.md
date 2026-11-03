@@ -127,6 +127,15 @@ Le serveur garde, par compte et par contrat, la semaine de chaque partenaire
 - **Seules les sources déjà filtrées comptent** : pour une activité, le verdict d'`activity_pay`
   (résultats classés ou PvE, ni bots en PvP, ni match amical, ni test du staff) ; pour une
   mission, une mission réussie hors test ; pour un world boss, une part `eligible`.
+- **« Payé » veut dire « qui ouvre droit à la paie »** : un résultat que `activity_pay` chiffre
+  (assez long, avec progrès, pas de bots, pas de répétition). Le plafond de paie du jour, ou la
+  paie d'activité coupée sur le serveur, ne fait pas rater un contrat : le crochet passe avant
+  ces deux contrôles (`activity_pay.lua:318`), et les dailies ont leur propre budget. Seule
+  exception : une **extraction NCPD** plus courte que le plancher de 60 s compte (§8).
+- **Une victoire, c'est battre quelque chose** : en PvE, ou en PvP avec au moins un autre joueur.
+  Un contre-la-montre fini seul est « gagné » pour `op77_race`, pas pour les dailies.
+- **« Le même match », c'est la même instance** (bucket de routage) **et** des entrées à 30 s
+  près : deux matchs lancés côte à côte restent deux matchs.
 - **Le serveur mesure lui-même** positions, sièges, animations et santé des véhicules toutes les
   5 s ; le client n'envoie jamais de progression. Un déplacement de plus de 70 m/s (`maxSpeed`, une téléportation) ne compte
   pas comme distance.
@@ -171,7 +180,8 @@ seuil (le calcul est au §8) · **solo** ou **multi** · crochet.
 - *Crochet* : `onRefuelled` (`refueling.lua:275`), `kind = "vehicle"`, `before / capacity`.
 
 **Nightcap** (Okoro) — **solo**
-- *Objectif* : dans les **10 minutes** après une victoire payée en activité, boire un verre dans
+- *Objectif* : dans les **10 minutes** après une victoire payée en activité (contre des bots,
+  la police ou un autre joueur : un contre-la-montre seul ne compte pas), boire un verre dans
   un **bar** (à 25 m d'un bar de la carte).
 - *Change le jeu* : la victoire ne se termine plus dans l'écran de file d'attente ; on sort du
   terminal et on traverse la rue pour trinquer. Relie les activités, l'inventaire et la carte.
@@ -229,7 +239,8 @@ seuil (le calcul est au §8) · **solo** ou **multi** · crochet.
 - *Objectif* : en NCPD Escape, choisir **On foot** et s'en sortir (extraction ou horloge), contre
   la vraie NCPD.
 - *Change le jeu* : ruelles, escaliers, grillages au lieu de la voiture.
-- *Crochet* : `onActivityResult`, `stats.mode == "foot"`, `escaped`, `eligible`.
+- *Crochet* : `onActivityResult`, `stats.mode == "foot"`, `escaped` (une extraction rapide
+  sous le plancher de paie compte, §8).
 
 **Five Without a Dirt Nap** (Nix)
 - *Objectif* : une série de **5 kills sans mourir** dans un match d'arène PvE payé.
@@ -313,7 +324,7 @@ seuil (le calcul est au §8) · **solo** ou **multi** · crochet.
 
 **Back to Back** (Ledger)
 - *Objectif* : gagner un match d'arène PvE payé avec un coéquipier, au moins un kill chacun
-  (résultats à **120 s** l'un de l'autre, même match à **30 s** près).
+  (résultats à **120 s** l'un de l'autre, **même instance**, entrées à **30 s** près).
 - *Change le jeu* : on couvre son coéquipier au lieu de voler ses kills.
 
 **Bar Crawl** (Okoro)
@@ -327,7 +338,7 @@ seuil (le calcul est au §8) · **solo** ou **multi** · crochet.
 
 **Nobody Left Behind** (Nix)
 - *Objectif* : s'échapper d'un NCPD Escape en crew, **chaque** coéquipier de la partie s'en
-  sortant (résultats à 240 s, même partie à 30 s près).
+  sortant (résultats à 240 s, même instance, entrées à 30 s près).
 - *Change le jeu* : on attend et on couvre le plus lent.
 
 ---
@@ -564,7 +575,19 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
     fois dans la semaine, ou deux personnages d'un même compte) → l'autre opérateur est le
     partenaire ;
   - *Fragile* : seul le siège avant gauche comptait comme conducteur → même règle que *Two
-    Wheels* (le conducteur rendu par le moteur).
+    Wheels* (le conducteur rendu par le moteur) ;
+  - *Back to Back*, *Nobody Left Behind* : « le même match » ne se jugeait qu'à l'heure d'entrée ;
+    deux coéquipiers gagnant chacun **son** match d'arène, lancés dans la même seconde,
+    validaient → il faut aussi la même instance (bucket de routage au moment du résultat,
+    comme le roster d'`activity_pay`) ;
+  - *Nightcap* : finir un contre-la-montre seul (`won = true` pour tout essai fini,
+    `op77_race engine.lua` `sendResult`, payé en PvP à un joueur) ouvrait la fenêtre → il faut
+    une victoire PvE, ou PvP avec au moins deux joueurs ;
+  - *Lose Them*, *Leg Day*, *Nobody Left Behind* : en Standard l'extraction s'ouvre à 40 s et
+    se trouve à 450 m au plus près en voiture, donc une vraie extraction tombe souvent avant le
+    plancher de paie de 60 s (`too_short`) et ne comptait pas — un coéquipier rapide faisait
+    même rater tout le crew → une extraction NCPD réelle compte même sous ce plancher (non
+    payée par l'activité, payée par le contrat).
 - **Street Performer**, **Running on Fumes**, **Album Cover**, **Bar Crawl**, **Convoy**,
   **Fragile**, les weeklies : seuils recalculés au §8 ; *Fragile* garde 5 %, valeur à confirmer
   par une mesure en jeu (§10).
@@ -623,6 +646,12 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
   (81 s après le GO en voiture), avant la fin des 150 s : il faut tenir la pleine chaleur puis
   rejoindre l'extraction. En Hard (3 étoiles à 30 s) et Critical (25 s), l'extraction n'apparaît
   qu'après (55 et 70 s), donc toute extraction compte. Jouable au palier I.
+- **Extraction rapide** : l'extraction s'ouvre à 40 s (Standard), 55 s (Hard), 70 s (Critical),
+  tirée entre 450 et 1 300 m en voiture (200 à 500 m à pied). À 30 m/s, 450 m prennent 15 s :
+  arrivée à **55 s**, sous le plancher de 60 s d'`activity_pay` (`too_short`). Une extraction
+  réelle compte donc pour *Lose Them*, *Leg Day* et *Nobody Left Behind* même non payée par
+  l'activité ; l'horloge (150 s et plus) passe toujours le plancher. L'extraction ne peut pas
+  être plus précoce que son ouverture, fixée côté serveur par `op77_chase`.
 - **Leg Day** : l'avance à pied (8 s) compense la voiture (6 s) ; le mode est choisi par le
   joueur au lancement.
 - **Five Without a Dirt Nap** : seul, l'arène PvE aligne 3 bots ; une série de 5 oblige à survivre
@@ -646,7 +675,8 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
   reste à portée **pendant tout le plein** : chaque échantillon de la durée du remplissage
   (litres ÷ 1,2 L/s, au moins 5 s) doit l'avoir à moins de 15 m, et la fin aussi.
 - **Convoy** : 2,4 km à 40 m (la voix criée) ; un échantillon raté pardonné.
-- **Back to Back** : résultats à 120 s, même match à 30 s près (entrées dans l'activité).
+- **Back to Back** : résultats à 120 s, même instance et entrées à 30 s près (chaque match
+  d'arène PvE a son bucket de routage).
 - **Bar Crawl** : le plus court tour de 3 bars dans 3 quartiers fait 1 173 m ; une heure laisse le
   trajet et trois verres ; les deux boivent dans le même bar (25 m).
 - **Album Cover** : 10 s = 3 échantillons consécutifs ; 6 m = tout le monde dans le cadre.
@@ -682,6 +712,11 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
 4. **King of Dogtown** : suffixe « W45 » ou une date ?
 5. **Fragile** : 5 % de santé perdue sur une course reste à confirmer en jeu (relever la perte
    d'une course propre, §2 de la recette).
+6. **Plafond de paie** : un résultat qui ouvre droit à la paie compte même quand le plafond PvE
+   ou PvP du jour est atteint (payé 0) ou que la paie d'activité est coupée. C'est voulu (les
+   dailies ont leur budget) ; préférez-vous l'inverse ?
+7. **On Call** : un coéquipier soigné compte (une fois par semaine, règle du partenaire), alors
+   que *Good Samaritan* exclut le crew. L'exclure aussi ?
 
 ## 11. Crochets et preuves
 

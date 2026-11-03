@@ -79,7 +79,7 @@ LightRpDailies = {
           range = 15.0 },
         { id = "nightcap", slot = "street", fixer = "okoro", title = "Nightcap",
           brief = "You won something? Good. Now come drink to it like a person, not alone in a queue screen. Any bar, before the adrenaline wears off. Ten minutes.",
-          goal = "Within 10 minutes of winning a paid activity, have a drink at a bar.", target = 1,
+          goal = "Win a paid activity (a time trial alone does not count), then have a drink at a bar within 10 minutes.", target = 1,
           minutes = 10, range = 25.0 },
 
         -- ── Action ──────────────────────────────────────────────────────────

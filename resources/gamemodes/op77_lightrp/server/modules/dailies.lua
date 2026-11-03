@@ -802,19 +802,28 @@ K.walk_of_shame = {
 -- A run whose game refused the police (policeBlocked) or the bot police never counts.
 local function realNcpd(s) return s.police == "ncpd" and not s.policeBlocked end
 D.realNcpd = realNcpd
+-- An escape that counts. The extraction opens 40 s after GO on Standard (op77_chase
+-- shared/config.lua extractionAtSeconds) and lies 450 m away at the nearest by car, so a
+-- real extraction can land before activity pay's 60 s floor: unpaid (too_short), it still
+-- counts here. The clock always runs past the floor.
+local function escaped(s, verdict)
+    if not realNcpd(s) or s.outcome ~= "escaped" then return false end
+    return verdict.eligible or (verdict.kind == "too_short" and s.how == "extraction")
+end
+D.escaped = escaped
 
 -- stats.stars = the most stars the runner had (they only climb): 3+ at the extraction
 -- is the Standard ceiling held to the end, or any Hard / Critical extraction.
 K.lose_them = { activity = function(ctx, entry, _, raw, verdict)
     local s = statsOf(raw)
-    if entry.activity == "chase.pve" and verdict.eligible and realNcpd(s) and s.outcome == "escaped" and s.how == "extraction"
+    if entry.activity == "chase.pve" and escaped(s, verdict) and s.how == "extraction"
         and (tonumber(s.stars) or 0) >= (ctx.def.minStars or 3) then finish(ctx) end
 end }
 
 -- stats.mode is the match's mode, "vehicle" or "foot" (op77_chase pve.lua resultFor).
 K.leg_day = { activity = function(ctx, entry, _, raw, verdict)
     local s = statsOf(raw)
-    if entry.activity == "chase.pve" and verdict.eligible and realNcpd(s) and s.outcome == "escaped" and s.mode == "foot" then finish(ctx) end
+    if entry.activity == "chase.pve" and escaped(s, verdict) and s.mode == "foot" then finish(ctx) end
 end }
 
 K.five_streak = { activity = function(ctx, entry, _, raw, verdict)
@@ -831,9 +840,17 @@ K.support_act = { activity = function(ctx, entry, r, raw, verdict)
 end }
 
 -- Any paid win (activity_pay.lua), then a drink at a bar (onItemUsed) before the clock runs out.
+-- A win against something: PvE, or PvP with another player in it. A solo time trial
+-- "wins" by finishing (op77_race engine.lua sendResult), and that is not a win.
+local function beatSomebody(r, raw, verdict)
+    if not won(r, raw) then return false end
+    if verdict.kind == "pve" then return true end
+    local detail = type(verdict.detail) == "table" and verdict.detail or {}
+    return (tonumber(detail.players) or 0) >= 2
+end
 K.nightcap = {
     activity = function(ctx, _, r, raw, verdict)
-        if verdict.eligible and won(r, raw) then ctx.scratch.wonAt = now(); push(ctx.id) end
+        if verdict.eligible and beatSomebody(r, raw, verdict) then ctx.scratch.wonAt = now(); push(ctx.id) end
     end,
     consume = function(ctx, _, _, bar, kind)
         local at = ctx.scratch.wonAt
@@ -1325,8 +1342,20 @@ function D.onFuelEmpty(vehicleId, driver)
     if type(driver) == "number" then emit(driver, "dry", tostring(vehicleId), positionOf(driver)) end
 end
 
--- activity_pay.lua: verdict = { amount, kind, detail }; amount ~= nil = paid-eligible.
+-- activity_pay.lua: verdict = { amount, kind, detail }; amount ~= nil = paid-eligible
+-- (the result qualifies for pay; the day's pay cap does not void a contract). Without an
+-- amount, kind is why (too_short, left, bots, repeat...).
 local crewArena, crewChase = {}, {} -- crew id -> recent results
+-- The instance a result came from: providers report before they release the player
+-- (activities.lua), so the routing bucket is still the match's (as activity_pay's roster).
+local function bucketOf(id)
+    if type(GetPlayerRoutingBucket) == "function" then
+        local ok, b = pcall(GetPlayerRoutingBucket, id)
+        if ok and tonumber(b) then return tonumber(b) end
+    end
+    local p = positionOf(id)
+    return p and tonumber(p.bucket) or 0
+end
 local function crewResult(store, id, record, windowMs)
     local p = crewOf(id)
     if not p then return nil end
@@ -1349,11 +1378,14 @@ function D.onActivityResult(id, entry, r, raw, verdict)
     emit(id, "activity", entry, r or {}, raw, verdict)
     local s, account = type(raw.stats) == "table" and raw.stats or {}, accountOf(id)
     if not account then return end
-    -- the crew's results of the SAME match (entered together, activities.lua enteredAt)
+    -- the crew's results of the SAME match: the same instance (routing bucket), entered
+    -- together (activities.lua enteredAt). Two matches started side by side are two runs.
     local function sameRun(list, mine, seconds)
         local run = {}
         for _, x in ipairs(list or {}) do
-            if not x.entered or not mine.entered or math.abs(x.entered - mine.entered) <= seconds * 1000 then run[#run + 1] = x end
+            if x.bucket == mine.bucket and (not x.entered or not mine.entered or math.abs(x.entered - mine.entered) <= seconds * 1000) then
+                run[#run + 1] = x
+            end
         end
         return run
     end
@@ -1364,7 +1396,7 @@ function D.onActivityResult(id, entry, r, raw, verdict)
     end
     if entry.activity == "arena.pve" and won(r, raw) and verdict.eligible and (tonumber(s.kills) or 0) >= 1 and defs.back_to_back then
         local def = defs.back_to_back
-        local mine = { id = id, account = account, entered = tonumber(entry.enteredAt) }
+        local mine = { id = id, account = account, entered = tonumber(entry.enteredAt), bucket = bucketOf(id) }
         local run = sameRun(crewResult(crewArena, id, mine, def.windowSeconds * 1000), mine, def.sameRunSeconds)
         if #run >= 2 then
             for _, x in ipairs(run) do with(x.id, "back_to_back", function(ctx) finish(ctx, others(run, x.account)) end) end
@@ -1375,8 +1407,8 @@ function D.onActivityResult(id, entry, r, raw, verdict)
     -- one decides; a crewmate who dropped sends no result, so nobody is paid.
     if entry.activity == "chase.pve" and s.crew and defs.nobody_left_behind then
         local def = defs.nobody_left_behind
-        local mine = { id = id, account = account, escaped = s.outcome == "escaped" and verdict.eligible and realNcpd(s),
-            entered = tonumber(entry.enteredAt) }
+        local mine = { id = id, account = account, escaped = escaped(s, verdict),
+            entered = tonumber(entry.enteredAt), bucket = bucketOf(id) }
         local run = sameRun(crewResult(crewChase, id, mine, def.windowSeconds * 1000), mine, def.sameRunSeconds)
         if #run >= math.max(2, math.floor(tonumber(s.runners) or 0)) then
             local all = true

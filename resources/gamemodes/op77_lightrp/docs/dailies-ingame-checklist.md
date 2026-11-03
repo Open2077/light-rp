@@ -58,7 +58,8 @@ dans `dailies-titles.md` ; cette page ne dit que **quoi taper, quoi faire, quoi 
 - Faire : gagner une activité payée (arène PvE, par exemple), sortir, rejoindre un bar (Ho-Oh à
   636 m de The Crossing) et boire une boisson de l'inventaire dans les 10 minutes.
 - Voir : DAILY COMPLETE à la gorgée.
-- Échec attendu : boire hors d'un bar, ou après 10 minutes.
+- Échec attendu : boire hors d'un bar, ou après 10 minutes ; boire après un contre-la-montre
+  fini seul (Time Trial).
 
 ### Nobody Eats Alone — 2 clients
 - Mise en place : `give` aux deux joueurs, `eat_together`.
@@ -107,12 +108,14 @@ dans `dailies-titles.md` ; cette page ne dit que **quoi taper, quoi faire, quoi 
 - Faire : NCPD Escape, tenir jusqu'à 3 étoiles puis rejoindre l'extraction.
 - Voir : DAILY COMPLETE au résultat.
 - Échec attendu : s'en sortir à l'horloge ; extraction à 2 étoiles.
+- À noter : une extraction rapide (avant 60 s de partie) n'est pas payée par l'activité
+  (ACTIVITY PAY muet, récap `too_short`) mais **valide** le contrat.
 
 ### Leg Day — 1 client
 - Mise en place : `give <id> leg_day`.
 - Faire : NCPD Escape, choisir **On foot**, s'en sortir.
 - Voir : DAILY COMPLETE au résultat.
-- Échec attendu : le mode voiture ; une arrestation.
+- Échec attendu : le mode voiture ; une arrestation ; quitter la partie.
 
 ### Five Without a Dirt Nap — 1 client
 - Mise en place : `give <id> five_streak`.
@@ -207,7 +210,8 @@ dans `dailies-titles.md` ; cette page ne dit que **quoi taper, quoi faire, quoi 
 - Mise en place : `give` aux deux, `back_to_back`.
 - Faire : entrer ensemble dans l'arène PvE, gagner, au moins un kill chacun.
 - Voir : DAILY COMPLETE pour les deux.
-- Échec attendu : deux matchs séparés.
+- Échec attendu : deux matchs séparés, même lancés dans la même seconde par chacun de son
+  côté (deux instances).
 
 ### Bar Crawl
 - Mise en place : `give` aux deux, `bar_crawl`.
@@ -225,7 +229,8 @@ dans `dailies-titles.md` ; cette page ne dit que **quoi taper, quoi faire, quoi 
 - Mise en place : `give` aux deux, `nobody_left_behind`.
 - Faire : NCPD Escape en crew, chacun s'en sort.
 - Voir : DAILY COMPLETE pour les deux au dernier résultat.
-- Échec attendu : un seul s'en sort.
+- Échec attendu : un seul s'en sort ; un coéquipier qui se déconnecte.
+- À noter : un coéquipier qui rejoint l'extraction avant 60 s ne fait pas rater le crew.
 
 ## 6. Weekly
 
