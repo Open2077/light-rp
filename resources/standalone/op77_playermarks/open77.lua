@@ -1,6 +1,7 @@
--- op77_playermarks: a small yellow dot above every other player's head, so a
--- player tells people from the city's NPCs at a glance; while that player talks
--- on voice, radio waves pulse out of the dot with their voice level.
+-- op77_playermarks: a nameplate above every other player's head in the Light RP
+-- design (chamfered HUD chip, yellow accent, Chakra Petch), so a player tells people
+-- from the city's NPCs at a glance; while that player talks on voice, its voice
+-- bars light up and move with their level.
 --
 -- Client: the players around (Open77.players.nearby), one Open77.anchors anchor
 --         on each body (projected every frame by the plugin, pushed to the page),

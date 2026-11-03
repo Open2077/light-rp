@@ -1,7 +1,7 @@
 -- Speaking indicator: a small yellow dot over a player's head while their voice
 -- is heard, pulsing. Drawn natively by the plugin (Open77.anchors, render =
 -- "dot", pinned to the body), fed by the voice host's talkingChanged event.
--- No nameplates on this server: this dot is the only thing above a head.
+-- Off while op77_playermarks runs: its nameplates carry the voice bars.
 local Talkers = { dots = {} } -- playerId -> { anchor, entity, phase }
 LightRpTalkers = Talkers
 
@@ -27,8 +27,14 @@ local function presentation(on)
     return { accent = on and ACCENT_ON or ACCENT_DIM, scale = on and SCALE_ON or SCALE_DIM }
 end
 
+-- op77_playermarks draws a nameplate over every player, with its own voice bars: no
+-- second marker over the same head then.
+local function platesRunning()
+    return type(GetResourceState) == "function" and GetResourceState("op77_playermarks") == "running"
+end
+
 local function show(playerId)
-    if Talkers.dots[playerId] or not anchorsAvailable() then return end
+    if Talkers.dots[playerId] or not anchorsAvailable() or platesRunning() then return end
     local entity = entityOf(playerId)
     if entity == nil then return end -- body not streamed here: nothing to draw
     local id, err = Open77.anchors.create({
