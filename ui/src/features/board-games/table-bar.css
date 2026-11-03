@@ -68,3 +68,11 @@ html[data-table-bar] .notices { z-index: 145; }
 .table-bar__free { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--sp-2) var(--sp-4); }
 .table-bar__free > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .table-bar__free > span + span::before { content: "·"; margin-right: var(--sp-2); color: var(--text-dim); }
+/* Free with the crosshair: the bar is shown, nothing takes the pointer, and a
+   small dot marks the screen centre the crosshair aims through. */
+.table-layer--overlay { pointer-events: none; }
+.table-crosshair {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+  border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 var(--stroke-hair) var(--surface-hud-solid), var(--glow-text);
+}
+.table-bar .o77-btn .table-bar__keycap { margin-left: var(--sp-2); }

@@ -9,11 +9,26 @@ shop needs an NPC placed in game); staff grant them with
 All item labels, controls, status messages and errors are in English.
 
 Use an item to place its board. The inventory closes first, then placement
-runs without a cursor: the preview stands where the crosshair hits the
-world within 3.5 m (a floor-standing table on the floor, a board on the
-surface), the Left/Right arrow keys turn it, Page Up/Down adjust its height,
-and E confirms. Escape cancels (without opening the pause menu, see *Escape*
-below). A notice lists the keys. Placement
+shows the **mouse cursor** and the bottom bar in its placement mode (*Place:
+Chess*, the status, the turn and height, the keys): the preview starts where
+the crosshair hits the world; **press or drag on the ground** (or a surface)
+to move it there — it follows the cursor ray while the left button is held,
+within 3.5 m of the character (beyond, it stays and the bar says *Too far*).
+A floor-standing table stands on the floor (its spec's `floor` offset), a
+board on the surface. The Left/Right arrow keys (or *Left*/*Right* on the
+bar, 15° a click) turn it, Page Up/Down (or *Up*/*Down*, 5 cm a click)
+adjust its height, and **E** or *Place* confirms once the model has loaded
+(the button waits for it; the 15 s load grace still applies). **Escape** or
+*Cancel* cancels (without opening the pause menu, see *Escape* below). The
+mouse that moves the cursor does not turn the view (the look is held while
+placing; walking still works). The page holds the keyboard with gameplay
+kept and forwards the table keys (`lightrp:boardGames:key`), and the client
+also reads them from the game: a press counts once whichever arrives. Every
+way out of a placement is traced into the server log (`place_confirm`,
+`place_end reason=…`, `place_not_ready why=…`, `place_cancelled`,
+`place_ghost_failed`), with `place_input` (the first pointer, page key and
+game key seen) and a `place_wait` heartbeat every 10 s while it waits, so a
+placement never ends in silence. Placement
 must be within 4 metres. There is no per-character or server-wide placement
 count limit; nearby props stream as needed.
 
@@ -77,6 +92,11 @@ their marks through their adapter (`markKey` / `marks`, see the header of
 (`boardGames:preview`, `boardGames:marks`), at most ~170 lines (a queen
 selected mid-game).
 
+The table cameras are created with `thirdPersonBody=true` (the game renders
+the player's full body, so your character's head shows in the shot, as in
+the other scripted cameras of this resource); a client that refuses the
+option still gets the camera without it (traced `camera_option_refused`).
+
 Camera views (the camera button cycles them; the first is the default):
 chess and checkers *Overhead*, *White side*, *Black side*, *Orbit*, *Free*;
 Connect Four *Front*, *Low front*, *Orbit*, *Free*; every casino table ends
@@ -86,17 +106,26 @@ you keep the cursor and the bar over the game camera (a notice says so); if
 another script takes the camera over while you play (a cutscene), the table
 view closes.
 
-**Free view.** The camera starts where the previous view stood and flies with
-the free camera's own flight (`client/core/freecam_motion.lua`, shared with
-`client/core/freecam.lua`) and its rebindable keys (Pause > Settings > Key
-bindings, *Free camera: …*): forward/back/left/right (WASD, ZQSD on AZERTY),
-up/down (Space / C), fast (Shift), precise (Ctrl). The cursor stays: **hold
-the right button and drag to look**, the wheel sets the speed (Ctrl + wheel:
-the lens), and a left click still picks on the table. The lens stays within
-5 m of the table's focus and never goes below 25 cm above your feet (nor
-below the table's focus when that is lower); the bar shows the keys. Its
-speed is 1.2 m/s by default (0.3–4). The keys are inert while chat or another
-page types. Another view, or leaving, puts the scripted views back.
+**Free view: play from your character.** No scripted camera: the character
+is not frozen (walk and look around normally), the game HUD and the page's
+HUD stay, there is no page cursor. The **crosshair** (screen centre, a small
+dot on the page) aims at the table and the **left mouse button** plays: the
+hovered square, column, cell or spot is outlined as in the other views and
+the clickable marks stay; click a piece then its destination, or hold on a
+piece, turn the aim and release (a drag). The bar stays at the bottom as an
+overlay (no buttons, no pointer). **H** takes the cursor for the bar (the
+look is held meanwhile, the cursor also picks on the table) and gives it back
+(*H back to the crosshair*); H is free on foot (E interacts, T chats, F/G/X/Y/B
+are actions). Escape still leaves, and walking away still leaves (3.5 m for
+1.5 s, or 5 m). The left button is inert while chat or another page types.
+Choosing Free is remembered on this machine (`Open77.kvp` key
+`boardGames:view`): every table then opens in Free, until a scripted view is
+chosen again. On 176 `Open77.session.isMenuOpen()` also answers true while
+our own page holds the keyboard (seated, placing, Free), so the table keys and
+the left button only treat it as a menu when the page does not hold the focus.
+Another view puts the scripted camera, the freeze, the cursor and the hidden
+HUD back. (The previous flying "free camera" around the table is gone;
+`client/core/freecam_motion.lua` remains for `client/core/freecam.lua`.)
 
 **Escape** leaves the seat, as do the bar's *Leave* and walking away (see
 below); everything is restored (camera, character, cursor, keyboard, HUD).
@@ -120,6 +149,16 @@ game's name (`client/core/table_menu.lua`): a status row (*White to move ·
 and *Pick up board* within 2 m. The owner can configure a table without
 sitting. Seated players use the bar (the menu cannot open while the page holds
 the cursor); its *Leave table* row remains only as a fallback.
+The registration also covers **NPC targets**: the blackjack croupier stands
+behind its table, inside the ALT ray of a click on the far half of the felt,
+the shoe or the chip rack, and before this the registration's types left NPCs
+out, so such a click listed nothing ("ALT does not work on blackjack"). The
+server publishes the dealer's NPC id with the table (`npc` in the snapshot,
+`tabletop_extra` handler hook `npc`), and the menu resolves that NPC (or, until
+the id arrives, an NPC hit next to a dealer table) to its table; any other
+NPC is never a table. Every ALT click near a table traces what it hit into
+the server log (`menu_target kind= prop= npc= networked= record= via=prop|dealer|surface|<why not> board=<kind>:<id>|none`,
+at most one per 1.5 s).
 
 **Notices** complement the bar: how to play when you sit, your turn, the
 result, each confirmed bet and payout, refusals from the server ("It is not
@@ -197,10 +236,29 @@ instructions to build and a bar about 800 (`tools/test-table-menu.py`); the bar
 is sent to the page at most every 200 ms while seated (a few hundred bytes).
 
 Page protocol (`lightrp:boardGames:*`): Lua sends `view` (active, kind,
-title, status, tone, detail, hint, countdownMs, chip, target, actions, views,
-view, orbit, camera, leaving); the page sends `pointer` (normalized cursor and
-button edges, or `blocked` over the bar), `camera` (`cycle`, `view`, `zoom`),
-`action`, `chip`, `leave`.
+title, status, tone, detail, hint, countdownMs, chip, target, actions with an
+optional `keycap` and `title`, views, view, orbit, camera, leaving, `free`
+{cursor, key} in the Free view, `mode="placement"` and `placing` while
+placing); the page sends `pointer` (normalized cursor and button edges, or
+`blocked` over the bar), `camera` (`cycle`, `view`, `zoom`), `action` (the
+placement buttons are `place.left/right/up/down/confirm`), `chip`, `leave`
+(Leave, Cancel or Escape) and `key` ({key=E|H|LEFT|RIGHT|PAGEUP|PAGEDOWN,
+down, repeat}: held keys expire after 1.2 s without a repeat, so a lost keyup
+never sticks).
+
+**Inventory locks.** The request handler locks the player's inventory only
+for what moves an item or money: placing and picking up a table, a casino
+table's reset or mode (refund claims). Moves, joins and leaves, a board
+game's reset or mode, sync and the casino operations never wait for it; a
+stake locks the inventory in its own commit (`commitGame`), and a stake that
+finds it locked (a payout, a shop or a transfer being saved) is answered
+"Your inventory is saving another payment. Try again in a moment." and
+logged. A locked request is always answered and logged, never dropped in
+silence. The casino payout loop (`X.claim`, every second for every player)
+locks an inventory only when a claim is due: it knows per inventory whether
+anything is owed (claims mark it as they are written; one lock-free read
+settles an unknown state, e.g. after a character load) and pays as before,
+exactly once.
 
 Chess supports castling, en passant, checkmate/stalemate, repetition, insufficient
 material and promotion. The mouse interface promotes to a queen automatically;
@@ -225,15 +283,15 @@ and recovery commit the board and inventory item in one SQL transaction. Without
 a ready database, placement is disabled. Delayed AI jobs carry a revision/token
 and are cancelled when the game is reset or removed.
 
-Engine build 156 lacks native gizmos, so placement uses a custom axis manipulator.
+Engine build 156 lacks native gizmos, so placement moves the preview with the cursor ray.
 Boards and every piece are genuine native props backed by cooked `.mesh` assets
 and `.ent` visual hosts. The `open77_board_games` asset resource preloads their
 archive before the game boots. Each client projects the authoritative snapshots
 into its own local props, including the placement preview. Stable prop handles
 move with native transforms; captures retain their handles and promotions replace
 only the affected piece. Creation is staggered so it does not block input.
-`debugDraw` is used only for the placement axes, the aim cross and the
-selection outlines. Props are non-solid
+`debugDraw` is used only for the placement axes, the marks and the
+hover and selection outlines. Props are non-solid
 decorations; game movement and captures remain server-authoritative.
 All models use a uniform 0.65 visual and interaction scale. The art is an
 original Night City set (`tools/board-game-art.py`, version 2.0.0 of the pack):
@@ -273,19 +331,27 @@ npm --prefix ui run build && PLAYWRIGHT_MODULE=<playwright> BROWSER_CHANNEL=chro
 `resources/gamemodes/op77_lightrp/tests/context_rows_test.lua` covers the
 dynamic rows of open77_contextmenu and `ui/tests/context-submenus.browser.cjs`
 its page (title and row tokens); `ui/tests/board-games.browser.cjs` covers the
-bar for every game (buttons, chip, camera, Leave and Escape, the free view's
-keys and wheel, Escape while placing, pointer forwarding, the hidden HUD, its
-size at 1280×720 and 1920×1080). `tools/test-board-games-client.py` covers the
-marks (chess opening, a forced checkers capture, Connect Four), the free view
-(keys, look, speed, the 5 m and floor bounds, click-through, a still view
-costing no transform), Escape (consumed, the pause-key fallback, focus taken
-back after chat) and prints the peak per thread; each casino harness checks
-its marks per phase. Still to check in game with actual clients: the camera
-framings, cursor picking through the real `screenRay` of each view (the free
-view included), that a consumed Escape reaches the page and keeps the pause
-menu shut on build 176, that the frozen body does not crouch on the free
-view's C key, the ALT ray on the table props (it hits the cooked colliders;
-the menu falls back to the nearest table under a surface hit), the marks'
+bar for every game (buttons, chip, camera, Leave and Escape, pointer
+forwarding, the hidden HUD, its size at 1280×720 and 1920×1080), the Free
+overlay (crosshair dot, no pointer, HUD kept, the H key) and its cursor
+variant, and the placement bar (buttons with keycaps, drag, key forwarding,
+Cancel and Escape). `tools/test-board-games-client.py` covers cursor
+placement (the bar, a press and a drag on the ground, reach, page and game
+keys counted once, E from the page alone, the buttons, the model-load wait,
+a trace on every exit and the heartbeat), the marks (chess opening, a forced
+checkers capture, Connect Four), the Free view (no camera, freeze or cursor;
+crosshair hover, click and drag; the typing guard; H; back to a scripted
+view), `thirdPersonBody` (and its refusal), Escape (consumed, the pause-key
+fallback, focus taken back after chat) and prints the peak per thread;
+`tools/test-table-menu.py` the ALT target per game (base, collider, piece,
+surface, the blackjack dealer NPC, a passer-by NPC, the trace);
+`tools/test-tabletop-extra-server.py` a move, a join and a bet during a claim
+transaction and claims paid once without polling. Still to check in game
+with actual clients: the camera framings, cursor picking through the real
+`screenRay` of each view, the crosshair in Free, that a consumed Escape
+reaches the page and keeps the pause menu shut on build 176, that the
+forwarded keys arrive while the page holds the keyboard, the dealer's real
+`npcId` in the ALT target (the `menu_target` trace shows it), the marks'
 look, audio and native rendering.
 
 ## Roulette

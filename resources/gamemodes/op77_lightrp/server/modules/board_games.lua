@@ -133,7 +133,8 @@ local function push(player)
                 list[#list+1]=wireGame{id=b.id,kind=b.kind,position=b.position,rotation=b.rotation,
                     owner=b.owner,owned=inv and inv.id==b.ownerInventory or false,
                     players=b.players,revision=b.revision,game=game,mode=b.mode or "duel",serverNow=extra(b.kind) and LightRP.tabletopExtra.now() or nil,
-                    ready=ready(b),actor=actor(b),moveSequence=b.moveSequence or 0,lastSound=b.lastSound}
+                    ready=ready(b),actor=actor(b),moveSequence=b.moveSequence or 0,lastSound=b.lastSound,
+                    npc=extra(b.kind) and LightRP.tabletopExtra.npc(b) or nil}
             end
         end
     end
@@ -163,9 +164,25 @@ local function commitGame(b,game,queries,changes)
             tostring(b.game.phase),tostring(game.phase),tostring(b.game.round),tostring(game.round),#(queries or {}))
     end
     local sql={write(n)};for _,query in ipairs(queries or {}) do sql[#sql+1]=query end
-    return Inv.commitDrafts(changes or {}, sql, function()
+    -- A stake changes an inventory: lock it for the (yielding) transaction,
+    -- as Inv.transaction does. The request handler no longer locks the
+    -- inventory of every table request (moves never touch it).
+    local locked={}
+    for _,change in ipairs(changes or {}) do
+        local inv=change[1]
+        if inv.busy and not locked[inv] then
+            for held in pairs(locked) do if Inv.releaseBusy then Inv.releaseBusy(held) else held.busy=nil end end
+            LightRP.log("board_games commit board=%s refused: inventory %s busy",b.id,tostring(inv.id))
+            return false,LightRP.tabletopExtra and LightRP.tabletopExtra.BUSY or "Your inventory is busy. Try again in a moment."
+        end
+        inv.busy=true;locked[inv]=true
+    end
+    local called,ok,why=pcall(Inv.commitDrafts,changes or {}, sql, function()
         b.game=game;b.revision=n.revision;b.moveSequence=n.moveSequence;b.lastSound=n.lastSound
     end)
+    for held in pairs(locked) do if Inv.releaseBusy then Inv.releaseBusy(held) else held.busy=nil end end
+    if not called then error(ok,0) end
+    return ok,why
 end
 local function queueAI(b)
     if extra(b.kind) then return end
@@ -373,17 +390,28 @@ RegisterNetEvent(REQUEST,function(p)
     local inv=active(player)
     if not loaded then dropped("board storage not loaded");return end
     if not inv then dropped("inventory not persistent or character not alive");return end
-    if inv.busy then dropped("inventory busy");return end
+    -- Only what moves an item or money locks the inventory here: placing and
+    -- picking up a table (the item), a casino table's reset or mode (refund
+    -- claims). Moves, joins, a board game's reset or mode and the casino
+    -- operations never wait for it (a stake locks it in its own commit). A
+    -- locked inventory is answered, never dropped in silence.
+    local b=type(p.boardId)=="string" and boards[p.boardId]
+    local lock=p.action=="place" or p.action=="pickup" or ((p.action=="mode" or p.action=="reset") and b and extra(b.kind))
+    if lock and inv.busy then
+        dropped("inventory busy (answered)")
+        notice(player,"Your inventory is busy saving another change. Try again in a moment.")
+        return
+    end
     if p.action=="place" and placementBusy then notice(player,"Another placement is in progress. Try again.");return end
     if p.action=="place" then placementBusy=true end
-    playerBusy[player]=true;inv.busy=true
+    playerBusy[player]=true;if lock then inv.busy=true end
     local called,ok,why=pcall(handle,player,p,inv)
     if p.action=="join" or p.action=="leave" or p.action=="place" or p.action=="game" then
         LightRP.log("board_games %s player=%d board=%s kind=%s op=%s ok=%s reason=%s",p.action,player,tostring(p.boardId),tostring(p.kind),
             tostring(p.operation),tostring(called and ok),tostring(called and why or ok))
     end
     if p.action=="place" then placementBusy=false end
-    if Inv.releaseBusy then Inv.releaseBusy(inv) else inv.busy=nil end
+    if lock then if Inv.releaseBusy then Inv.releaseBusy(inv) else inv.busy=nil end end
     playerBusy[player]=nil
     if not called or not ok then notice(player,called and (why or "Action denied.") or "Storage unavailable.") end
     broadcast()
@@ -401,6 +429,8 @@ LightRP.boardGames=BG
 local function title(kind) return (LightRpBoardGames[kind] or {}).title or tostring(kind) end
 BG.title=title
 function BG.loaded() return loaded end
+-- Every client's snapshot now (e.g. a dealer NPC id that just appeared).
+function BG.broadcast() broadcast() end
 function BG.get(id) return type(id)=="string" and boards[id] or nil end
 function BG.all() local out={};for _,b in pairs(boards) do out[#out+1]=b end;return out end
 function BG.pendingReturns() local n=0;for _ in pairs(returns) do n=n+1 end;return n end

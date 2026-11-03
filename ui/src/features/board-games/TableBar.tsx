@@ -4,7 +4,6 @@ import { emit, on } from "@/bridge/open77";
 import { formatMoney } from "@/bridge/money";
 import { Button, Keycap, cx } from "@/design/components";
 import { useStore } from "@/state/store";
-import { keyLabel, useKeyLayout } from "@/features/freecam/keyLabels";
 import { asList } from "./asList";
 import "./table-bar.css";
 
@@ -16,9 +15,17 @@ import "./table-bar.css";
    which control was used.
    Escape leaves the table (or cancels a placement): Lua has the page hold the
    keyboard with gameplay input kept and Escape consumed, so the key arrives
-   here and the game's pause menu does not open. */
+   here and the game's pause menu does not open. The table keys (E, H, the
+   arrows, PgUp/PgDn) are forwarded to Lua too, which also reads them from
+   the game: holding the keyboard must never make them dead.
+   Free ("free" in the view): the player plays from the character with the
+   crosshair; the bar is an overlay (no pointer layer, the gameplay HUD stays)
+   until the cursor key (`free.key`) hands the page the cursor.
+   Placement ("mode: placement"): the same bar with the placement controls;
+   the pointer layer forwards presses and drags (Lua moves the preview where
+   the cursor ray meets the ground). */
 
-export interface TableAction { key: string; label: string; enabled: boolean; primary?: boolean }
+export interface TableAction { key: string; label: string; enabled: boolean; primary?: boolean; keycap?: string; title?: string }
 export interface TableCameraView { key: string; label: string }
 export interface TableChip { value: number; min: number; max: number; presets: number[]; label: string }
 export interface TableView {
@@ -37,13 +44,20 @@ export interface TableView {
   views?: TableCameraView[] | Record<string, TableCameraView>;
   view?: string;
   orbit?: boolean;
-  /** The free view: the player's own keys (the free camera's mappings). */
-  free?: { keys?: Record<string, string> };
+  /** Free: playing from the character. `cursor`: the page has the cursor; `key`: the key that toggles it. */
+  free?: { cursor?: boolean; key?: string };
+  /** "placement": placing a table (the preview follows the cursor on the ground). */
+  mode?: "placement";
   camera?: boolean;
   leaving?: number;
-  /** Placing a table: no bar, but Escape cancels. */
+  /** Placing a table (with mode "placement"): Escape cancels. */
   placing?: boolean;
 }
+
+/** The table keys Lua uses, by KeyboardEvent.code (layout independent). */
+const TABLE_KEYS: Record<string, string> = {
+  KeyE: "E", KeyH: "H", ArrowLeft: "LEFT", ArrowRight: "RIGHT", PageUp: "PAGEUP", PageDown: "PAGEDOWN",
+};
 
 type Edge = "pressed" | "released" | "rightPressed" | "rightReleased";
 const MOVE_INTERVAL_MS = 16;
@@ -77,7 +91,6 @@ export function TableBar() {
   const [receivedAt, setReceivedAt] = useState(0);
   const [now, setNow] = useState(() => performance.now());
   const lastMove = useRef(0);
-  const layout = useKeyLayout();
 
   useEffect(() => {
     const off = on<TableView>("lightrp:boardGames:view", next => {
@@ -86,7 +99,8 @@ export function TableBar() {
       const t = performance.now();
       setReceivedAt(t);
       setNow(t);
-      useStore.getState().setBoardGamesActive(!!v.active);
+      // Free keeps the gameplay HUD: the player is on the character.
+      useStore.getState().setBoardGamesActive(!!v.active && !v.free);
     });
     return () => { off(); useStore.getState().setBoardGamesActive(false); };
   }, []);
@@ -102,17 +116,38 @@ export function TableBar() {
   }, [counting, receivedAt]);
 
   // Escape (outside a text field) leaves the table, or cancels a placement.
+  // The table keys go to Lua as they are pressed and released.
   const listening = active || !!view.placing;
   useEffect(() => {
     if (!listening) return;
+    const held = new Set<string>();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.repeat || isTyping(event.target)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      emit("lightrp:boardGames:leave", { key: "escape" });
+      if (isTyping(event.target)) return;
+      const down = event.type === "keydown";
+      if (event.key === "Escape") {
+        if (!down || event.repeat) return;
+        event.preventDefault();
+        event.stopPropagation();
+        emit("lightrp:boardGames:leave", { key: "escape" });
+        return;
+      }
+      const key = TABLE_KEYS[event.code];
+      if (!key || event.ctrlKey || event.altKey || event.metaKey) return;
+      if (key !== "E" && key !== "H") event.preventDefault(); // no page scroll on arrows / PgUp
+      if (down) held.add(key); else held.delete(key);
+      emit("lightrp:boardGames:key", { key, down, ...(down && event.repeat ? { repeat: true } : {}) });
     };
+    // A key held while the page loses the keyboard never sticks.
+    const release = () => { held.forEach(key => emit("lightrp:boardGames:key", { key, down: false })); held.clear(); };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    window.addEventListener("blur", release);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      window.removeEventListener("blur", release);
+      release();
+    };
   }, [listening]);
 
   // Notices stay where they are but above the pointer layer.
@@ -132,7 +167,10 @@ export function TableBar() {
   const leaving = typeof view.leaving === "number";
   const subline = [view.detail, view.hint].filter(Boolean).join(" · ");
   const free = view.free && typeof view.free === "object" ? view.free : undefined;
-  const key = (name: string) => keyLabel(free?.keys?.[name], layout);
+  const freeKey = (free?.key || "H").toUpperCase();
+  // Free with the crosshair: the bar is a picture, the game keeps the mouse.
+  const overlay = !!free && !free.cursor;
+  const placement = view.mode === "placement";
 
   const pointer = (event: ReactPointerEvent, edge?: Edge) => {
     const t = performance.now();
@@ -155,7 +193,35 @@ export function TableBar() {
     emit("lightrp:boardGames:pointer", { blocked: true });
   };
 
-  return <div className="table-layer o77-interactive" data-kind={view.kind}
+  if (overlay) {
+    return <div className="table-layer table-layer--overlay" data-kind={view.kind} data-view="free">
+      <span className="table-crosshair" aria-hidden="true" />
+      <section className={cx("table-bar", leaving && "table-bar--leaving")} aria-label="Table controls">
+        <div className="table-bar__notes">
+          {leaving ? <p className="table-bar__warning" role="alert">Too far from the table — step back or you leave your seat.</p>
+            : <p className="table-bar__orbit table-bar__free" aria-label="Free view keys">
+              <span>Crosshair: aim</span><span>Click: play</span>
+              <span><Keycap size="sm">{freeKey}</Keycap> cursor for the bar</span>
+              <span><Keycap size="sm">ESC</Keycap> leave</span>
+            </p>}
+        </div>
+        <div className="table-bar__row">
+          <div className="table-bar__info">
+            <p className="table-bar__head">
+              <span className="table-bar__title">{view.title || "Table"}</span>
+              {view.status && <span className={cx("table-bar__status", view.tone && `table-bar__status--${view.tone}`)} role="status">{view.status}</span>}
+              {secondsLeft !== undefined && <span className="table-bar__countdown" aria-label="Time left">{secondsLeft} s</span>}
+            </p>
+            {subline && <p className="table-bar__sub" title={subline}>{subline}</p>}
+          </div>
+          {view.target && <span className="table-bar__target" title={view.target}>{view.target}</span>}
+          {chip && <span className="table-bar__stack table-bar__chip-value"><small>{chip.label || "Chip"}</small><b>{formatMoney(chip.value)}</b></span>}
+        </div>
+      </section>
+    </div>;
+  }
+
+  return <div className="table-layer o77-interactive" data-kind={view.kind} data-view={free ? "free" : placement ? "placement" : undefined}
     onContextMenu={event => event.preventDefault()}
     onPointerMove={event => pointer(event)}
     onPointerDown={event => {
@@ -169,21 +235,23 @@ export function TableBar() {
     }}
     onPointerCancel={event => { pointer(event, "released"); pointer(event, "rightReleased"); }}
     onWheel={event => {
-      if (!(view.orbit || free) || event.deltaY === 0) return;
+      if (!view.orbit || event.deltaY === 0) return;
       emit("lightrp:boardGames:camera", { zoom: Math.sign(event.deltaY) });
     }}>
     <section className={cx("table-bar", leaving && "table-bar--leaving")} aria-label="Table controls"
       onPointerDown={block} onPointerUp={block} onPointerMove={block} onWheel={event => event.stopPropagation()}>
-      {(leaving || view.orbit || free) && <div className="table-bar__notes">
+      {(leaving || view.orbit || free || placement) && <div className="table-bar__notes">
         {leaving && <p className="table-bar__warning" role="alert">Too far from the table — step back or you leave your seat.</p>}
         {view.orbit && !leaving && <p className="table-bar__orbit">Right-drag: orbit · Wheel: zoom</p>}
-        {free && !leaving && <p className="table-bar__orbit table-bar__free" aria-label="Free camera keys">
-          <span>Right-drag: look</span>
-          <span><Keycap size="sm">{key("forward")}</Keycap><Keycap size="sm">{key("left")}</Keycap><Keycap size="sm">{key("back")}</Keycap><Keycap size="sm">{key("right")}</Keycap> move</span>
-          <span><Keycap size="sm">{key("up")}</Keycap><Keycap size="sm">{key("down")}</Keycap> up / down</span>
-          <span><Keycap size="sm">{key("boost")}</Keycap> fast</span>
-          <span>Wheel: speed</span>
+        {free && !leaving && <p className="table-bar__orbit table-bar__free" aria-label="Free view keys">
           <span>Click: play</span>
+          <span><Keycap size="sm">{freeKey}</Keycap> back to the crosshair</span>
+        </p>}
+        {placement && <p className="table-bar__orbit table-bar__free" aria-label="Placement keys">
+          <span>Drag: move</span>
+          <span><Keycap size="sm">←</Keycap><Keycap size="sm">→</Keycap> turn</span>
+          <span><Keycap size="sm">PgUp</Keycap><Keycap size="sm">PgDn</Keycap> height</span>
+          <span><Keycap size="sm">E</Keycap> place</span>
         </p>}
       </div>}
       <div className="table-bar__row">
@@ -208,7 +276,10 @@ export function TableBar() {
         </div>}
         {actions.length > 0 && <div className="table-bar__actions">
           {actions.map(action => <Button key={action.key} size="sm" variant={action.primary ? "primary" : "secondary"}
-            disabled={!action.enabled} onClick={() => emit("lightrp:boardGames:action", { key: action.key })}>{action.label}</Button>)}
+            aria-label={action.title} title={action.title}
+            disabled={!action.enabled} onClick={() => emit("lightrp:boardGames:action", { key: action.key })}>
+            {action.label}{action.keycap && <Keycap size="sm" className="table-bar__keycap">{action.keycap}</Keycap>}
+          </Button>)}
         </div>}
         <div className="table-bar__end">
           {views.length > 1 && <Button size="sm" variant="ghost" className="table-bar__camera" icon="video"
@@ -217,7 +288,7 @@ export function TableBar() {
             <span className="table-bar__stack"><small>Camera</small><b>{cameraLabel}</b></span>
           </Button>}
           <Button size="sm" variant="ghost" onClick={() => emit("lightrp:boardGames:leave", {})}>
-            Leave <Keycap size="sm">ESC</Keycap>
+            {placement ? "Cancel" : "Leave"} <Keycap size="sm">ESC</Keycap>
           </Button>
         </div>
       </div>
