@@ -52,11 +52,13 @@ end
 -- (server/core/framework.lua) clears every NPC this resource owns when it
 -- starts and stops, so a restart or a hot reload never leaves a double.
 -- Like the other service NPCs: invulnerable, no combat, perception or voice,
--- native AI off, so the body stands still and never walks into a player.
+-- native AI off for good, so the body stands still and never walks into a
+-- player. (A dealing gesture, played by switching the AI on during each deal,
+-- looked wrong in game and was removed.)
 local SCALE=.65   -- the casino tables' model scale (Extra.SCALE in client/core/tabletop_extra.lua)
 local TICK=250
 local RETRY_MS,MAX_ATTEMPTS=10000,6
-local dealers={}  -- boardId -> {board, npc, record, attempts, retryAt, seen, from, to, active, animUntil}
+local dealers={}  -- boardId -> {board, npc, record, attempts, retryAt}
 B.dealers=dealers  -- server only; read by the tests
 local function npcApi()
  local N=Open77 and Open77.npcs
@@ -71,23 +73,6 @@ function B.dealerStand(b)
  local p=b.position
  local yaw=((tonumber(b.rotation) or 0)+180)%360
  return {x=p.x+(x*c-y*s)*SCALE,y=p.y+(x*s+y*c)*SCALE,z=p.z},yaw
-end
--- The earliest and latest card moments after `after` (a slide start, or the
--- hole card's flip): what the dealer's hands are doing on the server clock.
-local function cardMarks(g,after)
- local first,last
- local function see(t)
-  t=tonumber(t)
-  if t and t>after then first=first and math.min(first,t) or t;last=last and math.max(last,t) or t end
- end
- local function scan(cards)
-  if type(cards)~="table" then return end
-  for _,card in ipairs(cards) do if type(card)=="table" then see(card.t);see(card.f) end end
- end
- if type(g)~="table" then return end
- scan(type(g.dealer)=="table" and g.dealer.cards)
- if type(g.hands)=="table" then for _,hand in pairs(g.hands) do if type(hand)=="table" then scan(hand.cards) end end end
- return first,last
 end
 local function spawnDealer(d)
  local N=npcApi()
@@ -106,8 +91,6 @@ local function spawnDealer(d)
    local stillOk,stillErr=pcall(N.setAIEnabled,id,false)
    if not stillOk or stillErr==false then LightRP.log("blackjack dealer board=%s: setAIEnabled refused: %s",b.id,tostring(stillErr)) end
    d.npc,d.record=id,candidate.record
-   -- Cards already on the felt (a table reloaded mid-round) get no gesture.
-   local _,last=cardMarks(b.game,-math.huge);d.seen=last or 0
    LightRP.log("blackjack dealer board=%s: NPC %s spawned as %s at %.2f, %.2f, %.2f yaw %.1f bucket %d (AI off)",
     b.id,tostring(id),candidate.record,at.x,at.y,at.z,yaw,b.bucket or 0)
    return true
@@ -123,44 +106,6 @@ local function removeDealer(d)
   LightRP.log("blackjack dealer board=%s: NPC %s removed ok=%s %s",d.board.id,tostring(d.npc),tostring(ok and why~=false),ok and "" or tostring(why))
  end
  d.npc=nil
-end
--- The dealing gesture. A server NPC runs Open77 tasks only while its AI is on
--- (Open77.npcs.setAIEnabled pauses both), so the clip is queued first, the AI
--- is switched on for the length of the deal, then off again and the body put
--- back on its mark. Perception, combat and voice stay off throughout.
-local function gesture(d,now)
- local N=npcApi();local clip=B.DEALER.gesture
- if not d.npc or not N or type(clip)~="string" or type(N.tasks)~="table" or type(N.tasks.playAnimation)~="function" then return end
- local first,last=cardMarks(d.board.game,d.seen or 0)
- if last then
-  d.seen=last
-  d.from=d.active and d.from or math.min(d.from or first,first)
-  d.to=math.max(d.to or 0,last+B.SLIDE+B.FLIP)
- end
- if not d.to then return end
- if now>=d.to then
-  if d.active then
-   d.active=false
-   -- Clear first: a task left in the queue would only be paused by the AI
-   -- switch and resume at the next deal with its old remaining time.
-   if type(N.tasks.clear)=="function" then pcall(N.tasks.clear,d.npc) end
-   pcall(N.setAIEnabled,d.npc,false)
-   if type(N.setTransform)=="function" then local at,yaw=B.dealerStand(d.board);pcall(N.setTransform,d.npc,{position=at,yaw=yaw}) end
-  end
-  d.from,d.to,d.animUntil=nil,nil,nil
-  return
- end
- if now<d.from then return end
- if not d.animUntil or d.to>d.animUntil+TICK then
-  local ok,task,why=pcall(N.tasks.playAnimation,d.npc,clip,{loop=true,timeoutMs=math.floor(d.to-now)})
-  if not ok or not task then LightRP.log("blackjack dealer board=%s: gesture refused: %s",d.board.id,tostring(ok and why or task)) end
-  d.animUntil=d.to
- end
- if not d.active then
-  d.active=true
-  local ok,why=pcall(N.setAIEnabled,d.npc,true)
-  if not ok or why==false then LightRP.log("blackjack dealer board=%s: gesture setAIEnabled refused: %s",d.board.id,tostring(why)) end
- end
 end
 local function placed(b)
  local d=dealers[b.id]
@@ -185,7 +130,6 @@ function B.dealerTick(now)
     LightRP.log("blackjack dealer board=%s: no NPC (attempt %d/%d): %s",d.board.id,d.attempts,MAX_ATTEMPTS,tostring(why))
    end
   end
-  if d.npc then gesture(d,now) end
  end
 end
 CreateThread(function()
