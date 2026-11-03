@@ -23,6 +23,9 @@
 --           return { { identifier = "...", characterKey = "default", value = 12, sort = { 12, -3 }, detail = "3 deaths" } }
 --       end })
 -- Rows rank by `sort` (default { value }), highest first (`ascending = true`: lowest).
+--
+-- Staff and test characters are on no board (config `exclude`): one filter in
+-- HoF.refresh, after every provider, before the ranking (see "Exclusions").
 local C = LightRpHallOfFame
 local Db = LightRP.db
 local E = LightRpEvents
@@ -218,6 +221,163 @@ local function normalizeRows(ctx, rows)
 end
 
 -- ---------------------------------------------------------------------------
+-- Exclusions: staff and test characters are on no board (C.exclude)
+--
+-- A row's owner is "<account>#<characterKey>"; the account is the Open77 account id
+-- (GetPlayerIdentifier), the same `userId` an acl.jsonc principal names. Staff are
+-- Light RP's own test (LightRP.staff.isStaff, the page's Staff tab), which the ACL
+-- answers for players online only: a resource cannot read acl.jsonc. So every staff
+-- account seen online is remembered in the resource's kvp store (data/, kept over
+-- restarts, as the guide's placement) and stays excluded offline; one seen online
+-- without the rights any more is forgotten. The test list of the staff command
+-- lives in the same store, beside the config's lists.
+
+local KVP_STAFF, KVP_TEST = "halloffame.staff.", "halloffame.exclude."
+local saved = { staff = {}, tests = {}, loaded = false } -- account -> label; subject -> label
+HoF.saved = saved
+local lastNames = {} -- the last rebuild's character names, to label the staff's listing
+
+local function store(fn, ...)
+    local K = type(Open77) == "table" and Open77.kvp or nil
+    if type(K) ~= "table" or type(K[fn]) ~= "function" then return false, "kvp_unavailable" end
+    local ok, result, why = pcall(K[fn], ...)
+    if not ok then return false, tostring(result) end
+    return result, why
+end
+
+-- Read once (again later if the store did not answer); memory wins over a late read.
+local function loadSaved()
+    if saved.loaded then return end
+    local done = true
+    for prefix, into in pairs({ [KVP_STAFF] = saved.staff, [KVP_TEST] = saved.tests }) do
+        local list = store("find", prefix, 4096)
+        if type(list) == "table" then
+            for _, e in ipairs(list) do
+                local subject = type(e) == "table" and type(e.key) == "string" and e.key:sub(#prefix + 1) or ""
+                if subject ~= "" and into[subject] == nil then into[subject] = type(e.value) == "string" and e.value or "" end
+            end
+        else done = false end
+    end
+    saved.loaded = done
+end
+
+local function accountOf(key) return type(key) == "string" and key:match("^(.*)#[^#]*$") or nil end
+HoF.accountOf = accountOf
+local function listed(list, value)
+    for _, v in ipairs(type(list) == "table" and list or {}) do if tostring(v) == value then return true end end
+    return false
+end
+
+-- Why `key` (a character "<account>#<characterKey>", or an account) is off the boards:
+-- the list that holds it, or nil.
+function HoF.excludedBy(key)
+    if type(key) ~= "string" or key == "" then return nil end
+    loadSaved()
+    local X = cfg("exclude", {})
+    local account = accountOf(key) or key
+    if X.tests ~= false then
+        if saved.tests[key] then return "test list" end
+        if saved.tests[account] then return "test list (account)" end
+        if listed(X.characters, key) or listed(X.accounts, key) or listed(X.characters, account) or listed(X.accounts, account) then
+            return "test (server/config/halloffame.lua)"
+        end
+    end
+    if X.staff ~= false then
+        if listed(X.staffAccounts, account) then return "staff (exclude.staffAccounts)" end
+        if saved.staff[account] then return "staff" end
+    end
+    return nil
+end
+
+-- The filter of one rebuild: sets built once, then key -> "staff" | "test" | nil.
+local function exclusions()
+    loadSaved()
+    local X = cfg("exclude", {})
+    local tests, staff = {}, {}
+    local function add(set, list) for _, v in ipairs(type(list) == "table" and list or {}) do set[tostring(v)] = true end end
+    if X.tests ~= false then
+        add(tests, X.characters); add(tests, X.accounts)
+        for subject in pairs(saved.tests) do tests[subject] = true end
+    end
+    if X.staff ~= false then
+        add(staff, X.staffAccounts)
+        for account in pairs(saved.staff) do staff[account] = true end
+    end
+    return function(key)
+        if type(key) ~= "string" then return nil end
+        local account = accountOf(key) or key
+        if tests[key] or tests[account] then return "test" end
+        if staff[account] then return "staff" end
+        return nil
+    end
+end
+HoF.exclusions = exclusions
+
+local function dropExcluded(rows, excluded, dropped)
+    local out = {}
+    for _, r in ipairs(rows) do
+        if excluded(r.key) then dropped[r.key] = true else out[#out + 1] = r end
+    end
+    return out
+end
+
+local function accountOfPlayer(playerId, c)
+    if c == nil and LightRP.characters then c = LightRP.characters.get(playerId) end
+    local id = type(c) == "table" and c.identifier or nil
+    if id == nil and type(GetPlayerIdentifier) == "function" then id = GetPlayerIdentifier(playerId) end
+    if id == nil or id == "" then return nil end
+    return tostring(id)
+end
+-- For the staff's listing only (never in a player's payload).
+local function labelOf(playerId, c)
+    if c == nil and LightRP.characters then c = LightRP.characters.get(playerId) end
+    local name = type(c) == "table" and fullName(c.firstName, c.lastName) or nil
+    if not name and type(GetPlayerName) == "function" then name = cleanName(GetPlayerName(playerId)) end
+    return name or ""
+end
+
+-- The ACL's answer for a player online: true, false, or nil when it cannot answer
+-- (no ACL, acl.read refused, the player gone): a staff is never forgotten on a nil.
+local function staffVerdict(playerId)
+    local S, acl = LightRP.staff, type(Open77) == "table" and Open77.acl or nil
+    if type(S) ~= "table" or type(S.isStaff) ~= "function" or type(acl) ~= "table" or type(acl.isAllowed) ~= "function" then return nil end
+    local ok, yes = pcall(S.isStaff, playerId)
+    if not ok then return nil end
+    if yes == true then return true end
+    if type(GetPlayerName) == "function" and GetPlayerName(playerId) == nil then return nil end
+    local perms = type(LightRpConfig) == "table" and LightRpConfig.staffPermissions
+    local probe = type(perms) == "table" and perms[1] or "command.admin"
+    local answered, allowed, why = pcall(acl.isAllowed, playerId, probe)
+    if not answered or (allowed ~= true and why ~= nil) then return nil end
+    return false
+end
+
+-- The next open or timer tick rebuilds (the 10 s floor still holds).
+local function markStale() cache.retryAt = now() end
+
+-- Remembers (or forgets) a player's account as staff. Called for each player online
+-- at every rebuild, at character load, at gameplay ready and on opening the panel.
+-- Remembered whatever exclude.staff says, so switching it back on needs no visit.
+function HoF.observeStaff(playerId, c)
+    local account = accountOfPlayer(playerId, c)
+    if not account then return nil end
+    local verdict = staffVerdict(playerId)
+    if verdict == nil then return nil end
+    loadSaved()
+    if verdict and saved.staff[account] == nil then
+        saved.staff[account] = labelOf(playerId, c)
+        local ok, why = store("set", KVP_STAFF .. account, saved.staff[account])
+        if ok ~= true then LightRP.log("hall of fame: staff account not saved (%s): off the boards for this session only", tostring(why)) end
+        if cfg("exclude.staff", true) ~= false then markStale() end
+    elseif not verdict and saved.staff[account] ~= nil then
+        saved.staff[account] = nil
+        store("delete", KVP_STAFF .. account)
+        if cfg("exclude.staff", true) ~= false then markStale() end
+    end
+    return verdict
+end
+
+-- ---------------------------------------------------------------------------
 -- Sources, read once per refresh (in a thread: the database answers by yielding)
 
 local function inList(list) local set = {}; for _, v in ipairs(list or {}) do set[v] = true end; return set end
@@ -283,6 +443,7 @@ local function gather()
     for _, raw in ipairs(GetPlayers()) do
         local id = tonumber(raw)
         local c = id and LightRP.characters and LightRP.characters.get(id)
+        if id then HoF.observeStaff(id, c or nil) end -- staff online now: off the boards built below
         if c and c.status == "active" and c.identifier and c.key then
             local key = ownerKey(c.identifier, c.key)
             ctx.online[key] = id
@@ -571,19 +732,23 @@ function HoF.refresh(reason)
     local ok, err = pcall(function()
         local ctx = gather()
         local built = {}
+        -- the one exclusion pass, after every provider (built-in or registered)
+        local excluded, dropped, droppedCount = exclusions(), {}, 0
         for _, key in ipairs(order) do
             local def = boards[key]
             if def and (def.tab ~= "wealth" or C.showWealth) then
                 local done, rows, meta = pcall(def.provider, ctx)
                 if done and type(rows) == "table" then
-                    local ranked, byKey = HoF.rank(normalizeRows(ctx, rows), def.ascending == true)
+                    local ranked, byKey = HoF.rank(dropExcluded(normalizeRows(ctx, rows), excluded, dropped), def.ascending == true)
                     built[key] = { def = def, rows = ranked, byKey = byKey, meta = type(meta) == "table" and meta or {} }
                 else
                     LightRP.log("hall of fame: board %s failed: %s", key, tostring(rows))
                 end
             end
         end
-        cache = { at = now(), boards = built, database = ctx.db, wealthCash = ctx.wealthCash }
+        for _ in pairs(dropped) do droppedCount = droppedCount + 1 end
+        lastNames = ctx.names
+        cache = { at = now(), boards = built, database = ctx.db, wealthCash = ctx.wealthCash, excluded = droppedCount }
         -- a table that did not answer (not created yet at start): try again soon
         if readFailures > failuresBefore then cache.retryAt = now() + (tonumber(cfg("cache.retryMs", 30000)) or 30000) end
     end)
@@ -657,6 +822,8 @@ end
 function HoF.payload(playerId, tab)
     if not TAB_SET[tab] or (tab == "wealth" and not C.showWealth) then tab = "overview" end
     local me = viewerKey(playerId)
+    -- an excluded viewer has no rank: no "YOU #N", no highlighted row (even before the rebuild)
+    if me and exclusions()(me) then me = nil end
     local list = {}
     if tab == "overview" then
         local size, max = tonumber(C.overviewSize) or 3, tonumber(C.overviewMax) or 12
@@ -685,6 +852,7 @@ local function send(playerId, tab) LightRP.dialog(playerId, "halloffame", HoF.pa
 -- Opens (or switches the tab of) the panel: the cache, rebuilt first only when stale.
 function HoF.open(playerId, tab)
     CreateThread(function()
+        HoF.observeStaff(playerId) -- a staff seen for the first time: the boards are rebuilt without them
         if stale() and floorPassed() then HoF.refresh("open") end
         send(playerId, tab)
     end)
@@ -731,7 +899,11 @@ LightRP.action("halloffame.close", function() end) -- the page closes locally; n
 function HoF.onInteract(playerId, pointId)
     if pointId == POINT and C.enabled ~= false then HoF.open(playerId, "overview") end
 end
-function HoF.onGameplayReady(playerId) if C.enabled ~= false then sendBoard(playerId) end end
+function HoF.onGameplayReady(playerId)
+    HoF.observeStaff(playerId)
+    if C.enabled ~= false then sendBoard(playerId) end
+end
+function HoF.onCharacterLoaded(playerId, c) HoF.observeStaff(playerId, c) end
 function HoF.onDisconnected(playerId) playerAsked[playerId], helloAt[playerId] = nil, nil end
 -- The boards built before the database answered are the session's: mark them stale,
 -- and let the other modules create their tables before the next rebuild.
@@ -755,7 +927,7 @@ RegisterNetEvent(E.net.hallOfFameHello, function()
 end)
 
 -- ---------------------------------------------------------------------------
--- Staff: /lightrp.halloffame place | where | refresh
+-- Staff: /lightrp.halloffame place | where | refresh | exclude | include | excluded
 
 local function placementLine(pos, heading)
     return string.format("position = { x = %.3f, y = %.3f, z = %.3f }, heading = %.1f, -- server/config/halloffame.lua `board`, bucket %d",
@@ -763,8 +935,120 @@ local function placementLine(pos, heading)
 end
 HoF.placementLine = placementLine
 
-LightRP.command("lightrp.halloffame", { restricted = true, usage = "/lightrp.halloffame [place|where|refresh]" }, function(source, args)
+-- exclude | include | excluded: the test list (kvp), applied at the rebuild they trigger.
+local SUBJECT_USAGE = "usage: /lightrp.halloffame exclude|include <playerId [account] | account#characterKey | account>"
+
+local function rebuild(reason)
+    if C.enabled ~= false then CreateThread(function() lastRefreshAt = nil; HoF.refresh(reason) end) end
+end
+local function describe(subject, label)
+    local who = (type(label) == "string" and label ~= "") and (label .. " (" .. subject .. ")") or subject
+    return accountOf(subject) and who or (who .. " [every character]")
+end
+local function actorOf(source)
+    if not source or source <= 0 then return "the console" end
+    return LightRP.characters and LightRP.characters.displayName(source) or ("player " .. tostring(source))
+end
+local function clip(text, max)
+    if #text <= max then return text end
+    local cut = max - 3
+    while cut > 0 do local b = text:byte(cut + 1); if not b or b < 0x80 or b >= 0xC0 then break end; cut = cut - 1 end
+    return text:sub(1, cut) .. "..."
+end
+
+-- "12" a player online (their character; "12 account": their account),
+-- "<account>#<characterKey>" a character, "<account>" every character of an account.
+-- -> subject, label | nil, reason
+local function parseSubject(args)
+    local raw = tostring(args[2] or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if raw == "" then return nil, SUBJECT_USAGE end
+    local wholeAccount = tostring(args[3] or ""):lower() == "account"
+    if raw:match("^%d+$") then
+        local id = tonumber(raw)
+        local c = LightRP.characters and LightRP.characters.get(id) or nil
+        local account = (c or type(GetPlayerName) ~= "function" or GetPlayerName(id) ~= nil) and accountOfPlayer(id, c) or nil
+        if not account then return nil, "No player " .. raw .. " online: give account#characterKey or an account id (/lightrp.halloffame excluded lists them)." end
+        local label = labelOf(id, c)
+        if wholeAccount or type(c) ~= "table" or c.key == nil then return account, label end
+        return ownerKey(account, c.key), label
+    end
+    if #raw > 200 or raw:find("[%c%s]") then return nil, "Invalid id: " .. SUBJECT_USAGE end
+    local account = raw:match("^([^#]+)#[^#]+$")
+    if account then
+        if wholeAccount then return account, "" end
+        return raw, lastNames[raw] or ""
+    end
+    if raw:find("#", 1, true) then return nil, "Invalid character id (account#characterKey): " .. SUBJECT_USAGE end
+    return raw, ""
+end
+HoF.parseSubject = parseSubject
+
+local function excludeVerb(source, args)
+    local subject, label = parseSubject(args)
+    if not subject then return false, label end
+    loadSaved()
+    local who = describe(subject, label)
+    if saved.tests[subject] ~= nil then return true, "Hall of Fame: " .. who .. " is already on the test list." end
+    saved.tests[subject] = label
+    local ok, why = store("set", KVP_TEST .. subject, label)
+    LightRP.log("hall of fame: %s excluded by %s", subject, actorOf(source))
+    rebuild("exclude")
+    local note = cfg("exclude.tests", true) == false and " (exclude.tests is off in server/config/halloffame.lua: listed, not applied)" or ""
+    return true, "Hall of Fame: " .. who .. " excluded" .. (ok == true and "" or (" for this session only (not saved: " .. tostring(why) .. ")"))
+        .. note .. "; rebuilding the boards."
+end
+
+local function includeVerb(source, args)
+    local subject, label = parseSubject(args)
+    if not subject then return false, label end
+    loadSaved()
+    local who, done = describe(subject, label ~= "" and label or saved.tests[subject] or saved.staff[subject]), {}
+    if saved.tests[subject] ~= nil then
+        saved.tests[subject] = nil
+        store("delete", KVP_TEST .. subject)
+        done[#done + 1] = "off the test list"
+    end
+    if not accountOf(subject) and saved.staff[subject] ~= nil then
+        saved.staff[subject] = nil
+        store("delete", KVP_STAFF .. subject)
+        done[#done + 1] = "forgotten as staff (remembered again if seen online with staff rights)"
+    end
+    local still = HoF.excludedBy(subject)
+    if #done == 0 then
+        if still then return false, "Hall of Fame: " .. who .. " stays excluded: " .. still .. "." end
+        return false, "Hall of Fame: " .. who .. " is not excluded."
+    end
+    LightRP.log("hall of fame: %s included by %s", subject, actorOf(source))
+    rebuild("include")
+    return true, "Hall of Fame: " .. who .. " " .. table.concat(done, ", ")
+        .. (still and ("; still excluded: " .. still) or "; back on the boards") .. ". Rebuilding the boards."
+end
+
+local function excludedVerb()
+    loadSaved()
+    local X = cfg("exclude", {})
+    local function listOf(map)
+        local list = {}
+        for subject, label in pairs(map) do list[#list + 1] = describe(subject, label ~= "" and label or lastNames[subject]) end
+        table.sort(list)
+        return list
+    end
+    local function count(list) return type(list) == "table" and #list or 0 end
+    local staffList, testList = listOf(saved.staff), listOf(saved.tests)
+    local text = string.format("Hall of Fame exclusions. Staff (%s): %d seen online%s, %d in config. Tests (%s): %d by command%s, %d in config.%s",
+        X.staff ~= false and "on" or "OFF", #staffList, #staffList > 0 and (" [" .. table.concat(staffList, "; ") .. "]") or "",
+        count(X.staffAccounts), X.tests ~= false and "on" or "OFF", #testList,
+        #testList > 0 and (" [" .. table.concat(testList, "; ") .. "]") or "", count(X.characters) + count(X.accounts),
+        cache.excluded and string.format(" Last rebuild: %d character(s) left off the boards.", cache.excluded) or "")
+    return true, clip(text, 900)
+end
+
+LightRP.command("lightrp.halloffame", { restricted = true, usage = "/lightrp.halloffame [place|where|refresh|exclude|include|excluded]" }, function(source, args)
     local verb = tostring(args and args[1] or "where"):lower()
+    -- the lists can be prepared while the Hall of Fame is off
+    if verb == "exclude" then return excludeVerb(source, args) end
+    if verb == "include" then return includeVerb(source, args) end
+    if verb == "excluded" then return excludedVerb() end
     if C.enabled == false then return false, "The Hall of Fame is disabled (server/config/halloffame.lua)." end
     if verb == "refresh" then
         CreateThread(function() lastRefreshAt = nil; HoF.refresh("staff") end)
