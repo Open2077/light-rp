@@ -156,6 +156,23 @@ export function installMockBridge(): void {
     if (params.get("wheelopen") === "1") setTimeout(show, 600);
   }
           fire(PAGE_EVENTS.state, state);
+          // ?announce=listen|self[&radius=150]: a speaker on air, a speech-like voice level
+          const an = params.get("announce");
+          if (an) {
+            const self = an === "self";
+            const radius = params.get("radius");
+            fire("lightrp:ui:announce", { kind: "cast", speaker: 7, name: "Yuki", mode: radius ? "radius" : "server",
+              radius: radius ? Number(radius) : null, self, audience: 42 });
+            const t0 = performance.now();
+            window.setInterval(() => {
+              const t = (performance.now() - t0) / 1000;
+              // words: bursts of syllables, short pauses between phrases
+              const phrase = (Math.sin(t * 0.55) + Math.sin(t * 0.21 + 1.3)) > -0.6;
+              const syll = Math.max(0, Math.sin(t * 11.0) * 0.5 + Math.sin(t * 7.3 + 0.7) * 0.35 + 0.35);
+              const level = params.get("level") ? Number(params.get("level")) : (phrase ? Math.min(1, 0.25 + syll * 0.7) : 0);
+              fire("lightrp:ui:announce", { kind: "level", speaker: 7, level, talking: level > 0.02 });
+            }, 50);
+          }
           const wb = params.get("worldboss");
           if (wb) fire(PAGE_EVENTS.state, { worldBoss: {
             id: "worldboss:1", title: "Burn Notice", location: "Kabuki", boss: "Militech Juggernaut", phase: wb === "fight" ? "fight" : "cleanup",
