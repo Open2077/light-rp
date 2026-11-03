@@ -234,6 +234,7 @@ export function PlayerMenu() {
   const staff = useStore((s) => s.state.staff);
   const activities = useStore((s) => s.state.activities);
   const party = useStore((s) => s.state.party);
+  const recap = useStore((s) => s.state.recap);
   const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
   const [stack, setStack] = useState<Array<{ key: string; index: number }>>([{ key: "root", index: ROOT_INDEX }]);
   const [toggleKey, setToggleKey] = useState("F1");
@@ -280,8 +281,13 @@ export function PlayerMenu() {
       meta: party?.invites?.length ? `${party.invites.length} INVITE${party.invites.length > 1 ? "S" : ""}` : party?.members ? `${party.members.length}/${party.maxSize}` : "SOLO",
       description: "Your crew: accept invites, see the members, invite the players around you, mission matchmaking, leave." });
     Object.assign(nodes, squadNodes(party, character.playerId));
+    // The last end-of-match recap (server/modules/recap.lua), under the crew
+    const last = recap ? recap.last : undefined;
+    const crew = nodes.root?.items.findIndex((i) => "id" in i && i.id === "squad") ?? -1;
+    if (last && crew >= 0) nodes.root!.items.splice(crew + 1, 0, { id: "recap", type: "item", text: "Last match", icon: "list-checks",
+      meta: last.test ? "TEST" : last.result, description: `The recap of your last ${last.mode ?? "match"}: the scoreboard, your numbers, the MVP and what it paid.` });
     return nodes;
-  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, party]);
+  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, party, recap]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;
@@ -311,6 +317,7 @@ export function PlayerMenu() {
     if (item.id === "activities" || item.id === "squad-invite") {
       requestClose(); sendAction({ type: "activities.control", operation: "open", tab: item.id === "squad-invite" ? "crew" : "activities" }); return;
     }
+    if (item.id === "recap") { sendAction({ type: "recap.open" }); requestClose(); return; }
     if (item.id === "activity-leave") { sendAction({ type: "activities.control", operation: "leave" }); requestClose(); return; }
     if (item.id === "squad-leave") { sendAction({ type: "party.leave" }); setStack((s) => s.slice(0, -1)); return; }
     if (item.id === "squad-matchmaking") { sendAction({ type: "party.matchmaking", on: !party?.matchmaking }); return; }

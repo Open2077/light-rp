@@ -153,6 +153,8 @@ export interface UiState {
   activities?: ActivitiesState;
   /** A world boss whose zone you are in, or that you fought (server/modules/world_bosses.lua). */
   worldBoss?: WorldBossState | false;
+  /** The last end-of-match recap kept for F1 > Last match (server/modules/recap.lua); false: none. */
+  recap?: RecapState | false;
 }
 export interface WorldBossState {
   id: string; title: string; location: string; boss: string; phase: "fight" | "cleanup" | "done";
@@ -232,6 +234,28 @@ export interface HallOfFameDialogPayload {
   kind: "halloffame"; title: string; hub: string; tab: HallOfFameTab; tabs: HallOfFameTab[]; boards: HallOfFameBoard[];
   database: boolean; updatedAgoS?: number; refreshInS?: number; wealthBankOnly?: boolean;
 }
+
+/** The end-of-match recap (server/modules/recap.lua): one activity match, mission or
+ *  world boss as one player saw it. Zero values are left out of the rows. Bots carry
+ *  negative ids. `dps` = damage dealt ÷ seconds in the match. */
+export type RecapColumn = "placement" | "kills" | "deaths" | "assists" | "damage" | "damageTaken" | "dps" | "headshots" | "bossShare"
+  | "share" | "captures" | "holdS" | "roundsWon" | "busts" | "escapes" | "points" | "timeMs" | "bestLapMs" | "checkpoints" | "score";
+export type RecapRow = { id: number; name: string; bot?: boolean; side?: number; left?: boolean; outcome?: string } & Partial<Record<RecapColumn, number>>;
+export interface RecapSide { id: number; label: string; score?: number }
+export interface RecapRewards {
+  test?: boolean; eddies?: number; eddiesReason?: string; eddiesNote?: string; reputation?: number; reputationCapped?: boolean;
+  tier?: { tier: number; name?: string; points?: number; next?: number; nextName?: string; up?: boolean };
+  hof?: Array<{ board: string; before?: number; rank: number }>;
+}
+export interface RecapDialogPayload {
+  kind: "recap"; id: string; source: "activity" | "mission" | "worldboss"; mode: string; modeKind?: string; detail?: string; durationMs?: number;
+  result: { label: string; tone: "win" | "loss" | "neutral"; placement?: number; of?: number };
+  test?: boolean; unranked?: boolean; you: number; columns: RecapColumn[]; sides: RecapSide[]; winnerSide?: number;
+  rows: RecapRow[]; total: number; lines: Array<{ label: string; value: string }>; mvp?: { id: number; by?: string };
+  rewards: RecapRewards; reopened?: boolean;
+}
+/** F1 > Last match: the latest recap the server keeps for this player. */
+export interface RecapState { last?: { id: string; mode?: string; result?: string; test?: boolean } }
 
 /* ── Missions (server/modules/missions.lua) and crews (server/modules/parties.lua) ── */
 export interface MissionDifficulty {
@@ -518,7 +542,8 @@ export interface FuelDialogPayload {
   money: { currency: string; cash: number; bank: number };
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
-export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload;
+export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload
+  | RecapDialogPayload;
 
 /** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
  *  the search index and the topics follow as GuideMessage (features/guide/model.ts). */
@@ -565,6 +590,7 @@ export type UiAction =
   | { type: "activities.control"; operation: "gps"; id: string }
   | { type: "halloffame.open" | "halloffame.tab" | "halloffame.refresh"; tab?: HallOfFameTab; from?: string }
   | { type: "halloffame.close" }
+  | { type: "recap.open" | "recap.close" }
   | { type: "guide.open"; from?: string }
   | { type: "guide.topic"; id: string }
   | { type: "guide.gps"; target: string }
