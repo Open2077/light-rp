@@ -106,6 +106,13 @@ local function maxHealth(playerId)
     return 100
 end
 
+local function consuming(playerId)
+    local K = LightRP.consumables
+    if type(K) ~= "table" or type(K.isActive) ~= "function" then return false end
+    local ok, yes = pcall(K.isActive, playerId)
+    return ok and yes == true
+end
+
 local function starveTick()
     if not Config.enabled then return end
     local cfg = S()
@@ -126,7 +133,9 @@ local function starveTick()
         local free = not LightRP.activities or LightRP.activities.allows(playerId, "needs")
         local kind = (c and phase == "alive" and free) and starveKind(c) or nil
         setStarving(playerId, kind)
-        if kind then
+        -- Eating or drinking: no damage meanwhile. Any damage cancels the use (consumables.lua,
+        -- both sides), so a starving player could never eat their way out (owner, 2026-11-03).
+        if kind and not consuming(playerId) then
             local pct = kind == "both" and (tonumber(cfg.bothPercentPerMinute) or 12) or (tonumber(cfg.percentPerMinute) or 6)
             local amount = maxHealth(playerId) * pct / 100 * tickMs / 60000
             if amount > 0 then
