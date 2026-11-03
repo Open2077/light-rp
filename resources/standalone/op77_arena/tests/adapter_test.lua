@@ -545,7 +545,7 @@ do
     assert(byId[4].cash == nil and byId[4].items == nil)
     -- every result carries the round's whole board for Light RP's end-of-match recap
     local board = byId[4].recap
-    assert(board and board.matchId == "arena:" .. ffa.id .. ":4" and #board.rows == 3 and board.durationMs == 120000)
+    assert(board and board.matchId == "arena:" .. ffa.id .. ":4@" .. ffa.round.startedAtMs and #board.rows == 3 and board.durationMs == 120000)
     assert(byId[3].recap.matchId == board.matchId and byId[5].recap.rows[1].placement == 1, "one board for the round")
 
     -- Too short or too few: stats only.

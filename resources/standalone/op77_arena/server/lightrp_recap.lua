@@ -26,6 +26,11 @@ local FIELDS = { "kills", "deaths", "assists", "damage", "damageTaken", "headsho
 local SIDES = { "Team A", "Team B" }
 
 local function now() return DM.nowMs() end
+-- Instance ids start again at 1 when the resource restarts: the start time keeps a
+-- match id from meeting an older one still in Light RP's memory.
+local function roundId(instance, round)
+    return "arena:" .. tostring(round.id or (instance.id .. ":" .. tostring(round.number))) .. "@" .. tostring(round.startedAtMs or 0)
+end
 local function int(value) value = tonumber(value); if value == nil or value ~= value then return 0 end return math.floor(value + 0.5) end
 
 local function boardRows(instance)
@@ -65,7 +70,7 @@ function AR.ffa(instance, winnerId)
         for _, row in ipairs(rows) do if row.id == winnerId then lines[#lines + 1] = { label = "Winner", value = tostring(row.name or "?") } end end
     end
     if H.night ~= nil and instance.ruleset ~= "blade" then lines[#lines + 1] = { label = "Event", value = "Arena Night" } end
-    return { matchId = "arena:" .. tostring(round.id or (instance.id .. ":" .. tostring(round.number))),
+    return { matchId = roundId(instance, round),
         durationMs = math.max(0, t - from), detail = "Round " .. tostring(round.number or 1), rows = rows, lines = lines,
         columns = { "placement", "kills", "deaths", "assists", "damage", "damageTaken", "dps", "headshots", "score" } }
 end
@@ -82,7 +87,7 @@ function AR.pve(instance, playerKills, botKills, won)
         local bot = row.bot == true or (tonumber(row.id) or 0) < 0
         rows[#rows + 1] = participant(row, { side = bot and 2 or 1, inMatchMs = inMatchMs(instance, row, from, t) })
     end
-    return { matchId = "arena:" .. tostring(round.id or (instance.id .. ":" .. tostring(round.number))),
+    return { matchId = roundId(instance, round),
         durationMs = math.max(0, t - from), detail = "Round " .. tostring(round.number or 1),
         sides = { { id = 1, label = "Operators", score = int(playerKills) }, { id = 2, label = "Bots", score = int(botKills) } },
         winnerSide = won and 1 or 2, rows = rows,
@@ -95,7 +100,7 @@ local function accOf(match)
     local acc = AR.acc[match]
     if acc == nil then
         matchSeq = matchSeq + 1
-        acc = { id = matchSeq, roundId = nil, round = nil, rows = {}, totals = {}, names = {}, rounds = {} }
+        acc = { id = matchSeq, at = now(), roundId = nil, round = nil, rows = {}, totals = {}, names = {}, rounds = {} }
         AR.acc[match] = acc
     end
     return acc
@@ -179,7 +184,7 @@ function AR.match(instance)
             if entry and entry.instanceId == instance.id then started = math.min(started or math.huge, tonumber(entry.atMs) or t) end
         end
     end
-    return { matchId = string.format("arena:%s:m%d", tostring(instance.id), acc.id),
+    return { matchId = string.format("arena:%s:m%d@%d", tostring(instance.id), acc.id, math.floor(acc.at)),
         durationMs = math.max(0, t - (started or t)), detail = tostring(instance.format or "") .. (result.reason == "best_of" and "" or (" · " .. tostring(result.reason or "playing"))),
         sides = { { id = 1, label = SIDES[1], score = int(wins[1]) }, { id = 2, label = SIDES[2], score = int(wins[2]) } },
         winnerSide = tonumber(result.winnerSide) or nil, rows = rows, lines = lines,

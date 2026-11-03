@@ -53,7 +53,7 @@ ffa.round = { id = "7:3", number = 3, startedAtMs = T - 90000, state = "standing
 H.entered[3] = { instanceId = 7, atMs = T - 300000 }
 H.entered[4] = { instanceId = 7, atMs = T - 30000 } -- dropped in late
 local recap = AR.ffa(ffa, 3)
-assert(recap.matchId == "arena:7:3" and recap.durationMs == 90000 and recap.detail == "Round 3")
+assert(recap.matchId == "arena:7:3@" .. (T - 90000) and recap.durationMs == 90000 and recap.detail == "Round 3")
 assert(#recap.rows == 3)
 local bot = rowOf(recap.rows, -2)
 assert(bot.bot == true and bot.name == "[BOT] Rex" and bot.damage == 25 and bot.damageTaken == 40 and bot.inMatchMs == 90000)
@@ -98,7 +98,7 @@ teams.round.state, teams.round.winnerSide = "resolved", 1
 teams.match.state = "resolved"
 teams.match.result = { reason = "best_of", winnerSide = 1, wins = { 2, 1 }, rounds = 3 }
 local m = AR.match(teams)
-assert(m.matchId:match("^arena:9:m%d+$") and m.winnerSide == 1 and m.sides[1].score == 2 and m.sides[2].score == 1)
+assert(m.matchId:match("^arena:9:m%d+@%d+$") and m.winnerSide == 1 and m.sides[1].score == 2 and m.sides[2].score == 1)
 assert(m.durationMs == 121000 and m.detail == "2v2")
 local p5, p6, b4 = rowOf(m.rows, 5), rowOf(m.rows, 6), rowOf(m.rows, -4)
 assert(p5.side == 1 and p6.side == 2 and b4.side == 1 and b4.bot == true)
