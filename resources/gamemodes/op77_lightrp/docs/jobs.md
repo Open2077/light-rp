@@ -41,7 +41,14 @@ collection alone. Each grade of the matching job adds
 `LightRpEconomy.jobs.gradeBonus` (10 %, `server/config/economy.lua`) to the sale
 price: a grade 2 Scrapper sells a bundle for €$48. The practice sites of the first
 day keep their own price. Grade paychecks (`shared/jobs.lua`, every 30 min) come on
-top; the target income and its rationale are in `docs/economy-balance.md`.
+top, for active players only (`server/modules/work_activity.lua`,
+`LightRpEconomy.paychecks`): in the last 30 minutes a job task (an item-work batch, a
+work order accepted or paid), a patient stabilized with a kit, a bank transfer of at
+least €$ 50 received from another player, or 75 m covered in the city (server position
+samples every 20 s; teleports and the way back from an activity do not count). An idle
+player gets nothing and is told once why. Light RP has no clock-in: holding a salaried
+job is being on duty. The target income and its rationale are in
+`docs/economy-balance.md`.
 Choosing Sanitation/Scrapper as a character's job remains optional at the office.
 
 Commands:

@@ -31,6 +31,21 @@ LightRpEconomy = {
         gradeBonus = 0.10,
     },
 
+    -- Paychecks (jobs.lua, every LightRpConfig.jobs.paycheckMinutes) go to players
+    -- who did something real in the last `windowMinutes` (work_activity.lua): a job
+    -- task, a stabilized patient, a bank transfer of at least `servedMinimum` from
+    -- another player, or getting `moveMetres` around the city (server position
+    -- samples every `sampleSeconds`; a jump past `teleportMetres` is not a walk).
+    -- Idle players get nothing and are told once why. false pays everyone (old rule).
+    paychecks = {
+        requireActivity = true,
+        windowMinutes = 30,
+        moveMetres = 75,
+        teleportMetres = 2000,
+        sampleSeconds = 20,
+        servedMinimum = 50,
+    },
+
     -- Waking up at the hospital after "Give up and go to hospital" (medical.lua).
     -- Never on a revive, never inside a mission or an activity, never during the
     -- first day guide nor the character's first `graceMinutes` of play. Taken from

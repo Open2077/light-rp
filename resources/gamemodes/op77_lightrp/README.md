@@ -247,7 +247,13 @@ barème : `server/config/delivery.lua`. AC Cleaner n'est plus proposé au bureau
 détenteurs gardent leur route (`server/config/job_runs.lua`). Revenu visé : 3 000 à
 5 000 €$/h au grade 0 ; chaque grade du métier ajoute 10 % à la vente et aux courses
 (`server/config/economy.lua` → `jobs.gradeBonus`), la paie de grade (toutes les 30 min,
-`shared/jobs.lua`) reste un petit bonus. Barème complet : [docs/economy-balance.md](docs/economy-balance.md).
+`shared/jobs.lua`) reste un petit bonus. **La paie ne va qu'aux joueurs actifs**
+(`server/modules/work_activity.lua`, `economy.lua` → `paychecks`) : dans les 30 dernières
+minutes, une tâche du métier (lot de job_work, ordre de travail accepté ou payé), un
+patient stabilisé au kit, un virement reçu d'au moins 50 €$, ou 75 m parcourus en ville
+(positions relevées par le serveur toutes les 20 s, téléportations et retours d'activité
+exclus). Un joueur inactif ne touche rien et en est averti une fois. Barème complet :
+[docs/economy-balance.md](docs/economy-balance.md).
 
 Après une embauche, à la fermeture du bureau, un **guide du métier** s'ouvre : une
 fenêtre guidée, page par page, avec des visuels animés (pages `guide` de

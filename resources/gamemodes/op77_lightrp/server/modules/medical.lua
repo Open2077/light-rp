@@ -225,6 +225,7 @@ local function confirmAttempt(a)
  if a.actor and M.treatments[a.actor]==a then releaseTreatment(a)end
  M.push(a.patient);notify(a.patient,"You have been stabilized. Rest and seek further medical care.","success")
  if a.actor and inventory(a.actor)and inventory(a.actor).id==a.actorInventory then notify(a.actor,"Patient stabilized. One trauma kit was used.","success")end
+ if a.actor and LightRP.eachModule then pcall(LightRP.eachModule,"onPatientStabilized",a.actor,a.patient)end -- work activity (paychecks)
  return true
 end
 local function dispatchPositionValid(a)
