@@ -56,6 +56,25 @@ local function syncWeaponHud()
     end
 end
 
+-- The holographic weapon HUD's top edge (page px from the bottom of the screen) while a
+-- weapon is out, 0 otherwise: the page keeps that much of the bottom-left stack free so
+-- the crew frame and the safe-zone chip sit above the hologram, not across it. Its
+-- layout (bottom, offsetY, scale) is read from op77_weaponhud every few seconds.
+local HOLOGRAM_HEIGHT, HOLOGRAM_HEAD = 210, 14 -- the display's box at scale 1; corner marks and glow above it
+local hologramLayout, hologramReadAt = nil, -math.huge
+local function hologramTop()
+    local t = GetGameTimer and GetGameTimer() or 0
+    if t - hologramReadAt > 3000 then
+        hologramReadAt = t
+        local ok, cfg = pcall(function() return exports.op77_weaponhud:getConfig() end)
+        hologramLayout = ok and type(cfg) == "table" and type(cfg.layout) == "table" and cfg.layout or hologramLayout
+    end
+    local l = hologramLayout or {}
+    local bottom = (tonumber(l.bottom) or 142) - (tonumber(l.offsetY) or 0)
+    local scale = tonumber(l.scale) or 0.6
+    return math.floor(bottom + math.max(0, weaponHudSent.inset) + HOLOGRAM_HEIGHT * scale + HOLOGRAM_HEAD + 0.5)
+end
+
 local function number(value, fallback)
     local parsed = tonumber(value)
     if parsed == nil or parsed ~= parsed then return fallback end
@@ -204,8 +223,9 @@ function Hud.start()
             sampleVoice()
             sampleClock()
             if Hud.externalWeaponHud then
-                view.weapon = { active = false }
                 syncWeaponHud()
+                local own = LightRpWeaponHud and LightRpWeaponHud.sample() or nil
+                view.weapon = { active = false, externalTop = (type(own) == "table" and own.active) and hologramTop() or 0 }
             elseif LightRpWeaponHud then
                 view.weapon = LightRpWeaponHud.sample()
                 weaponHudSent.inset, weaponHudSent.labels = -1, nil

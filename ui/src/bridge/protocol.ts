@@ -501,7 +501,8 @@ export interface HudState {
   vehicle: { active: boolean; label?: string; speedKph?: number; gear?: string; health?: number; fuel?: FuelGauge };
   voice: { state: "off" | "idle" | "talking" | "muted"; level: number; range: "whisper" | "normal" | "shout" };
   clock: string; // HH:MM in-game
-  weapon?: { active: boolean; reserve?: number; hands?: Array<{
+  /** externalTop: op77_weaponhud's hologram is up and reaches this high (px from the screen bottom); 0 = not shown. */
+  weapon?: { active: boolean; externalTop?: number; reserve?: number; hands?: Array<{
     hand: "right" | "left"; label: string; magazine?: number; capacity?: number; reloading: boolean;
   }> };
   street?: string;

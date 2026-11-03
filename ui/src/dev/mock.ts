@@ -115,7 +115,8 @@ export function installMockBridge(): void {
         : params.get("fuel") === "low" ? { litres: 6.4, capacity: 55, fraction: 0.116, low: true, empty: false }
         : { litres: 31.7, capacity: 55, fraction: 0.576, low: false, empty: false } } : { active: false },
     voice: { state: "idle", level: 0, range: "normal" }, clock: "22:41", street: "KANDA ST",
-    weapon: params.has("weaponhud") ? {
+    // ?weaponhud=external: op77_weaponhud's hologram is up and reaches 282 px (LightRP's readout stands down)
+    weapon: params.get("weaponhud") === "external" ? { active: false, externalTop: 282 } : params.has("weaponhud") ? {
       active: params.get("weaponhud") !== "holstered", reserve: params.get("weaponhud") === "unknown" ? undefined : 59,
       hands: [
         { hand: "right", label: "Militech Lexington", magazine: params.get("weaponhud") === "unknown" ? undefined : params.get("weaponhud") === "empty" ? 0 : 21, capacity: 21, reloading: params.get("weaponhud") === "reload" },
