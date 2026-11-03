@@ -130,6 +130,8 @@ server_script "server/config/halloffame.lua"
 server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards
 server_script "server/config/guide.lua"
 server_script "server/modules/guide.lua"           -- Johnny at The Crossing: the FAQ dialogue (content in server/config/guide.lua)
+server_script "server/config/guide_dialogue.lua"
+server_script "server/modules/guide_dialogue.lua"  -- talking to Johnny: choices over the FAQ, GPS and panels (content in server/config/guide_dialogue.lua)
 server_script "server/config/dogtown.lua"
 server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
 server_script "server/modules/recap.lua"           -- the end-of-match recap: activities, missions, world bosses (F1 > Last match)

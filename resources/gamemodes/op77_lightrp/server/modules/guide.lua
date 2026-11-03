@@ -1,8 +1,9 @@
 -- The guide NPC of The Crossing: Johnny Silverhand, who has an answer to
 -- everything (server/config/guide.lua). E at his feet ("Talk to Johnny") or ALT +
--- click on him opens the guide dialog of the page (ui/src/features/guide/): his
--- opening line, the topics, a question tree with follow-ups, a search box and
--- action buttons (a GPS route, the Activities panel...).
+-- click on him opens the guide dialog of the page (ui/src/features/guide/): a
+-- conversation first (server/modules/guide_dialogue.lua), and one choice away this
+-- FAQ: the topics, a question tree with follow-ups, a search box and action
+-- buttons (a GPS route, the Activities panel...).
 --
 -- The content is server-side Lua, edited by an operator without rebuilding the
 -- page. Its placeholders are resolved here at runtime from the live config, so an
@@ -1121,9 +1122,14 @@ function Guide.open(playerId, from)
     if not ok then LightRP.result(playerId, false, why, "guide.open"); return false end
     sessions[playerId] = LightRP.nowMs() + Guide.SESSION_MS
     local index = Guide.indexPayload()
+    -- the dialogue (server/modules/guide_dialogue.lua): its opening rides with the index
+    local talk = LightRP.guideDialogue
+    if talk and talk.enabled() then index.talk = talk.opening() end
     LightRP.dialog(playerId, "guide", index)
-    -- the bindings (client/core/guide.lua turns them into the player's own keys), then the search index
+    -- the bindings (client/core/guide.lua turns them into the player's own keys), the
+    -- dialogue's next nodes, then the search index
     send(playerId, { revision = index.revision, keys = Guide.keys() })
+    if index.talk then talk.prefetch(playerId, index.talk.root) end
     for _, message in ipairs(Guide.searchMessages()) do send(playerId, message) end
     return true
 end
@@ -1134,6 +1140,7 @@ local function inSession(playerId)
     sessions[playerId] = LightRP.nowMs() + Guide.SESSION_MS
     return true
 end
+Guide.inSession = inSession
 
 function Guide.onInteract(playerId, id)
     if id == Guide.INTERACTION then Guide.open(playerId, "interact") end
