@@ -518,6 +518,9 @@ ChaseConfig.pve = {
     },
     -- Light RP clamps and caps it (per account and day) as for every activity; ~60 % of the
     -- 1v1's win / loss. Nothing for a leaver, nothing for a round under minSeconds, and only
-    -- the first perDay paid rounds of a character in a day pay.
+    -- the first perDay paid rounds of a character in a day pay. minSeconds is also when a
+    -- shake starts to count as the escape (an earlier one only re-arms the hunt), so no
+    -- escape is ever shorter than it: the clock (roundSeconds) and the extraction (heat 4,
+    -- 95 s) come later anyway.
     reputation = { escaped = 18, busted = 6, leaver = 0, minSeconds = 60, perDay = 8 },
 }
