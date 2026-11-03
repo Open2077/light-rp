@@ -403,6 +403,10 @@ _G.source = 1
 env.net["op77_chase:police"]({ expected = 1, requested = 1, suppressed = false, acknowledged = true })
 H.run(8)
 assert(match.state == "active", "a game that holds the level: nothing to say")
+env.net["op77_chase:police"]({ expected = 1, requested = 1, suppressed = true, acknowledged = true })
+H.run(8)
+assert(match.state == "active" and not ChasePve.member(match, 1).policeBlocked,
+    "ambient suppression on but the level held (police admitted): not a refusal")
 env.net["op77_chase:police"]({ expected = 1, requested = 0, suppressed = true })
 H.runUntil(function() return match.state == "resolved" end, 8, "void")
 assert(match.void and result(1) == nil and cleared(1), "void: called off, nothing counts, cleared")

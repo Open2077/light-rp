@@ -168,14 +168,18 @@ end
 
 -- What the client's game did with the level (op77_chase:police): { expected, requested,
 -- suppressed, acknowledged, attached }. "Refused" = the server raised him, his client
--- knows it (expected > 0), and the game holds less (population suppression, a refused
--- raise). Refused continuously for wanted.blockedAfterSeconds = blocked.
+-- knows it (expected > 0), and the game holds less (a refused raise). Refused continuously
+-- for wanted.blockedAfterSeconds = blocked. `suppressed` alone is not a refusal: ambient
+-- suppression stays on in Light RP while the population policy admits police, and a client
+-- since base 7c02f58b takes the level then (it holds requested = expected); an older client
+-- refuses the raise under suppression, which shows as requested < expected anyway. Measured
+-- 2026-11-03: "holds 1 of 1" with suppressed=true and the dispatch voice playing, voided.
 function Pol.report(id, report, now)
     local r = Pol.raised[id]
     if r == nil or type(report) ~= "table" then return false end
     local expected = tonumber(report.expected) or 0
     local requested = tonumber(report.requested) or 0
-    local bad = expected > 0 and (report.suppressed == true or requested < expected)
+    local bad = expected > 0 and requested < expected
     local rec = Pol.reports[id] or {}
     Pol.reports[id] = rec
     rec.atMs, rec.suppressed, rec.requested, rec.expected = now, report.suppressed == true, requested, expected
