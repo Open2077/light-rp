@@ -94,6 +94,17 @@ local generation, tokenSeq = 0, 0
 local memStats, memDaily = {}, {}
 
 A.registry, A.owned = registry, owned
+-- Copies of the session rows (no database) for the Hall of Fame, read only
+-- (server/modules/halloffame.lua). key = identifier|characterKey|activityId|board.
+function A.memoryRows()
+    local list = {}
+    for key, row in pairs(memStats) do
+        local copy = { key = key }
+        for k, v in pairs(row) do copy[k] = v end
+        list[#list + 1] = copy
+    end
+    return list
+end
 
 -- ---------------------------------------------------------------------------
 -- Small helpers
