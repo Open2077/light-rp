@@ -58,6 +58,11 @@ LightRpMissions = {
     -- Ground marker of a mission point.
     marker = { shape = "cylinder", radius = 1.2, height = 0.7,
         color = { r = 255, g = 204, b = 0, a = 160 }, maxDistance = 60, groundOffset = 0.05 },
+    -- `payout` (per difficulty, below) is each operator's share at the difficulty's
+    -- `min` crew. A bigger crew grows the pot sub-linearly and splits it, a repeat
+    -- within the cooldown or past the daily cap pays a quarter, and the share never
+    -- exceeds maxSharePerMinute × minutes: server/config/economy.lua,
+    -- server/modules/mission_pay.lua, docs/economy-balance.md.
     points = {
         {
             id = "sector04_blackout",
@@ -75,11 +80,11 @@ LightRpMissions = {
             },
             difficulties = {
                 { id = "standard", label = "STANDARD", blurb = "Reduced security. Grid stays half-lit.",
-                  payout = 12000, minutes = 25, min = 2, max = 4, tier = 1 },
+                  payout = 3500, minutes = 25, min = 2, max = 4, tier = 1 },
                 { id = "hard", label = "HARD", blurb = "Full security roster. Shorter dark window.",
-                  payout = 22500, minutes = 30, min = 4, max = 6, tier = 2 },
+                  payout = 5000, minutes = 30, min = 4, max = 6, tier = 2 },
                 { id = "critical", label = "CRITICAL", blurb = "Corporate response team on standby. No respawns.",
-                  payout = 40000, minutes = 45, min = 6, max = 8, tier = 3 },
+                  payout = 9000, minutes = 45, min = 6, max = 8, tier = 3 },
             },
         },
         -- RAID: the Chimera (open77_chimera, Open2077/open77-base#105) in the Dogtown
@@ -107,11 +112,11 @@ LightRpMissions = {
             },
             difficulties = {
                 { id = "standard", label = "STANDARD", blurb = "Chimera on reduced output. Militech sends a handful of grunts.",
-                  payout = 18000, minutes = 20, min = 1, max = 4, tier = 1 },
+                  payout = 3000, minutes = 20, min = 1, max = 4, tier = 1 },
                 { id = "hard", label = "HARD", blurb = "Full combat output, heavier reinforcements, slower respawns.",
-                  payout = 34000, minutes = 25, min = 2, max = 6, tier = 2 },
+                  payout = 4500, minutes = 25, min = 2, max = 6, tier = 2 },
                 { id = "critical", label = "CRITICAL", blurb = "Overclocked core and a Militech response team. No respawns.",
-                  payout = 60000, minutes = 30, min = 4, max = 8, tier = 3 },
+                  payout = 6000, minutes = 30, min = 4, max = 8, tier = 3 },
             },
         },
     },

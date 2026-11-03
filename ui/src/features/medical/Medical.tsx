@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { ShieldPlus, ArrowRight } from "lucide-react";
 import { emit, on } from "@/bridge/open77";
+import { formatMoney } from "@/bridge/money";
 import "./medical.css";
 const PAGE="lightrp:ui:medical";
 interface MedicalState {
   downed:boolean;persisted?:boolean;phase?:string;remainingMs?:number;canGiveUp?:boolean;
-  receiving?:boolean;error?:string;treatment?:{phase:string;patient?:string;remainingMs:number;durationMs:number};
+  receiving?:boolean;error?:string;bill?:number;treatment?:{phase:string;patient?:string;remainingMs:number;durationMs:number};
 }
 export function Medical() {
   const [state,setState]=useState<MedicalState>({downed:false});
@@ -38,7 +39,7 @@ export function Medical() {
       {state.error&&<p className="medical-down__error" role="alert">{state.error}</p>}
       <div className="medical-down__actions">
         {state.persisted&&state.canGiveUp&&(confirm?<>
-          <span className="medical-down__question">Leave the scene and wake up at the hospital?</span>
+          <span className="medical-down__question">Leave the scene and wake up at the hospital?{state.bill===undefined?"":state.bill>0?` The clinic bills ${formatMoney(state.bill)}.`:" The city covers this visit."}</span>
           <div className="medical-down__buttons"><button onClick={()=>{setConfirm(false);emit(PAGE,{operation:"giveup"})}}>Confirm hospital transfer<ArrowRight size={16}/></button><button className="is-secondary" onClick={()=>setConfirm(false)}>Keep waiting</button></div>
         </>:<button onClick={()=>setConfirm(true)}>Give up and go to hospital<ArrowRight size={16}/></button>)}
       </div>

@@ -41,7 +41,8 @@ au staff. `/adminfull` conserve la console technique officielle.
 
 **Éditeur de missions** (`/lightrp.missions`, ACL `command.lightrp.missions`) : créer en jeu des missions Élimination ou Survie (vagues),
 avec périmètre (avertissement puis mort hors zone), points de spawn ennemis, checkpoints déclencheurs, vagues, difficultés et test immédiat.
-Voir [docs/mission-editor.md](docs/mission-editor.md).
+Les missions enregistrées avant l'équilibrage passent au nouveau barème avec `/lightrp.missions.repay` (aperçu) puis
+`/lightrp.missions.repay apply` (staff). Voir [docs/mission-editor.md](docs/mission-editor.md).
 
 ## Création de personnage et scène d'arrivée
 
@@ -244,7 +245,16 @@ un point de livraison par commande ; chaque commande passe réellement dans le s
 (`delivery_order`, 1 kg) et la paie, versée en banque à la dernière livraison, suit la
 longueur du trajet. Points (de test pour l'instant), nombre de commandes, durées et
 barème : `server/config/delivery.lua`. AC Cleaner n'est plus proposé au bureau ; ses
-détenteurs gardent leur route (`server/config/job_runs.lua`).
+détenteurs gardent leur route (`server/config/job_runs.lua`). Revenu visé : 3 000 à
+5 000 €$/h au grade 0 ; chaque grade du métier ajoute 10 % à la vente et aux courses
+(`server/config/economy.lua` → `jobs.gradeBonus`), la paie de grade (toutes les 30 min,
+`shared/jobs.lua`) reste un petit bonus. **La paie ne va qu'aux joueurs actifs**
+(`server/modules/work_activity.lua`, `economy.lua` → `paychecks`) : dans les 30 dernières
+minutes, une tâche du métier (lot de job_work, ordre de travail accepté ou payé), un
+patient stabilisé au kit, un virement reçu d'au moins 50 €$, ou 75 m parcourus en ville
+(positions relevées par le serveur toutes les 20 s, téléportations et retours d'activité
+exclus). Un joueur inactif ne touche rien et en est averti une fois. Barème complet :
+[docs/economy-balance.md](docs/economy-balance.md).
 
 Après une embauche, à la fermeture du bureau, un **guide du métier** s'ouvre : une
 fenêtre guidée, page par page, avec des visuels animés (pages `guide` de
@@ -366,6 +376,45 @@ API pour les autres modules (jobs, boutiques, loyers) : `LightRP.money.addCash/r
 
 Page : état `money` (`cash`, `bank { number, balance }`, `history`), actions `money.deposit|withdraw|transfer|pay` (prêtes pour la future page ATM). Commandes : `/money`, `/bank`, `/pay <id> <montant>`, `/transfer <compte> <montant> [note]`, `/deposit`, `/withdraw` (tant que `economy.counterCommands`), staff `/lightrp.givemoney`, `/lightrp.takemoney`, `/lightrp.account`.
 
+### Équilibrage et dépenses récurrentes (`server/config/economy.lua`)
+
+La courbe visée, ses mesures et le tableau avant/après de chaque prix sont dans
+[docs/economy-balance.md](docs/economy-balance.md). Les prix restent avec leurs
+fonctionnalités ; `server/config/economy.lua` porte les règles transversales :
+
+- **Missions et gigs** (`server/modules/mission_pay.lua`) : la paie d'une difficulté est
+  la part de **chaque** opérateur à l'équipage minimum. Au-delà, la cagnotte croît comme
+  équipage^0,7 et se partage. Une paie pleine au même point de mission n'est reversée
+  qu'après 60 min au même personnage, et un compte touche 6 paies pleines par jour UTC ;
+  au-delà, 25 %. Plafond de 250 €$ par minute de durée. Les opérateurs voient la paie
+  attendue au lancement et la raison d'une réduction à la fin. Tables
+  `lightrp_mission_payout_cooldowns` et `lightrp_mission_payout_daily`.
+- **Hôpital** : 300 €$ après *Give up and go to hospital*, banque puis liquide, sans jamais
+  passer sous zéro (le reste est effacé). Gratuit sur un sauvetage au kit, en mission, en
+  activité, pendant le premier jour et les 120 premières minutes de jeu du personnage.
+- **Cabine d'essayage** : 50 €$ par visite d'une cabine de la ville qui enregistre une
+  tenue ; logement, hall d'arrivée, wizard et nouveaux venus gratuits, offert si le joueur
+  ne peut pas payer.
+- **Activités** (`server/modules/activity_pay.lua`, `economy.lua` → `activities`) : un
+  résultat PvP classé paie 70 €$ par minute jouée × (0,75 + 0,5 × résultat), le résultat
+  allant de 1 (victoire, première place) à 0 (dernière place, défaite), multiplié par la
+  part du lobby plein réellement présente (joueurs vus par le serveur dans la même
+  activité et le même bucket, par compte ; jamais un chiffre du fournisseur). Un joueur
+  moyen gagne à peu près le taux d'un métier, un bon joueur un cinquième de plus. Le PvE
+  paie 40 / 50 / 60 €$ la minute selon la difficulté, moitié sur une défaite. Rien pour un
+  résultat non classé (bots, `result.unranked`, mode bots staff, `test`), un départ ou un
+  forfait, un AFK (aucune statistique de progression), un match plus court que le minimum
+  du mode, ni un match dont tous les joueurs réels sont du même crew. Les mêmes comptes
+  ne sont payés ensemble que 3 à 5 fois par heure, et un compte touche au plus
+  12 000 €$ PvP et 6 000 €$ PvE par jour UTC (table `lightrp_activity_pay_daily`).
+  Chaque paie passe par la banque (`activity_pvp` / `activity_pve`) avec une notice
+  « +€$ N — raison ».
+- **Voitures** (`server/config/dealerships.lua`) : premières 4 000 – 6 500 €$, correctes
+  12 000 – 16 000 (≈ 3 h de jeu mêlé), haut de gamme 80 000 – 100 000 (≈ 20 – 25 h).
+  Le rythme complet par profil (régulier, grinder, PvP, PvE) est au §7 du barème.
+- Fourrière (`server/config/garages.lua`), carburant (4 €$/L, `shared/config.lua`) et
+  nourriture (`server/config/shops.lua`) sont relevés. Aucun solde existant n'est modifié.
+
 ## Menu joueur (F1)
 
 Menu liste façon RageUI (design system : Menus / RageMenu, porté en `ui/src/design/components/RageMenu.tsx` avec des classes `o77-rage*`) : une colonne, une ligne surlignée, flèches pour bouger, Entrée pour descendre, Retour arrière / Échap pour remonter, F1 pour fermer. `features/menu/PlayerMenu.tsx` construit l'arbre depuis l'état serveur à chaque rendu et garde une pile `{ key, index }`. Premier sous-menu : **Identity** (ID citoyen, prénom, nom, naissance, origine, compte bancaire, temps de jeu, statut). Le client Lua prend le clavier seul (`setFocus(true, false)`) ; le menu ne s'ouvre qu'avec un personnage actif et hors briefing. Il n'y a plus de menu « terminal », ni de commandes de spawn ou de dépôt pour les joueurs : véhicules par `/lightrp.car` et `/lightrp.dv` (staff), argent par l'ATM à venir.
@@ -464,7 +513,11 @@ suppression admin. **Aucune voiture de départ n'est attribuée.**
 propriétaire peut y envoyer le sien (volé, perdu, bloqué), ce qui le retire du monde
 où qu'il soit. On le récupère dans n'importe quel garage public (onglet Impound),
 contre des frais selon le motif (`impound.fees` dans `server/config/garages.lua` :
-gratuit après un redémarrage). Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`,
+gratuit après un redémarrage pour un véhicule intact, 400 €$ pour une épave (détruit,
+explosé ou à 0 de santé, quel qu'en soit l'auteur ; l'assurance la répare), 150 €$ pour
+un véhicule disparu sans trace d'épave (supprimé, nettoyé, bug), 250 €$ sur demande du
+propriétaire, 500 €$ après un enlèvement par le staff). Une épave ne se range pas au
+garage. Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`,
 `/lightrp.impound` à côté du véhicule (ou avec son id réseau).
 SQL est obligatoire pour ces fonctionnalités ; elles se ferment en cas d'erreur
 de stockage. Voir [configuration, API et garanties](docs/personal-vehicles.md).
@@ -553,7 +606,7 @@ hasard, par SMS Neural-Link, un « gig » tiré du catalogue : les missions de l
 **Fixer gig** (`/lightrp.missions` › mission › Fixer gig : interrupteur, fixer, brief). Une mission
 de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on la reçoit.
 
-- **Offre** : carte du job (paie par opérateur, durée), boutons *Take the job* / *Pass* (3 min).
+- **Offre** : carte du job (paie maximale par opérateur, durée), boutons *Take the job* / *Pass* (3 min).
 - **Brief** une fois acceptée : l'objectif (le brief du fixer, sinon la description), le point de
   rendez-vous (= position du tableau dans l'éditeur) avec *Pin the meet point* (waypoint sur la
   carte), *Share the job* (un contact ou un numéro reçoit l'offre et peut *Join the crew*),
@@ -563,7 +616,9 @@ de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on 
   lancement avec les présents s'ils suffisent, sinon le job tombe.
 - **Crew** : quand le chef d'un crew accepte, ses membres libres (avec implant) rejoignent le
   gig ; les offres automatiques ne vont pas aux membres d'un crew qu'ils ne mènent pas.
-- **Fin** : chaque opérateur est payé (`gig` à la banque) + réputation, le fixer envoie un message.
+- **Fin** : chaque opérateur est payé (`gig` à la banque) selon les règles des missions
+  (cagnotte partagée, recharge de 60 min, plafond journalier, voir « Équilibrage ») +
+  réputation ; le fixer envoie un message avec la somme réellement versée.
   La réputation suit le palier de chacun : un équipier invité sous le palier de la difficulté
   reçoit celle de la plus haute difficulté que son palier ouvre (`docs/pve-progression.md`) ; il
   le lit une fois en notice « STREET CRED » en rejoignant le gig.
@@ -584,7 +639,8 @@ Light RP en est le **noyau** : il possède le joueur pendant l'activité, captur
 retour, met ses armes RP de côté, gèle la faim et la soif, refuse objets RP, véhicules RP,
 logement et ordres de travail selon les `caps` de l'activité, n'applique ni inconscience ni
 hôpital, ne sauvegarde jamais la position de l'instance et ramène le joueur à la fin. Les
-résultats deviennent statistiques et classements — **jamais d'argent ni d'objet** ; seules les
+résultats deviennent statistiques et classements, **jamais d'objet** ; les résultats classés
+paient des eddies (`server/modules/activity_pay.lua`, voir « Équilibrage ») et seules les
 activités **PvE** rapportent en plus de la réputation (voir « Progression PvE » plus bas).
 
 ### Le contrat (exports serveur de `op77_lightrp`)
@@ -609,6 +665,11 @@ un client ne peut pas les lever) :
   `result = { placement, score, won, stats = { kills, deaths, timeMs, courseId, courseRevision… }, reputation, difficulty }`.
   Un résultat par entrée toutes les 15 s, et un seul jusqu'à 10 min après la sortie. `reputation`
   ne compte que pour une activité PvE (voir plus bas) ; ailleurs il est ignoré.
+  `result.test = true` (et le mode bots staff) : rien d'enregistré ni de payé ;
+  `result.unranked = true` : enregistré, jamais payé. Les eddies d'un résultat accepté sont
+  calculés par `server/modules/activity_pay.lua` (voir *Équilibrage*), à partir de
+  `stats.durationMs` / `timeMs` / `seconds`, `quit`, `forfeit`, `bots`, `dnfReason`, de la
+  difficulté de l'entrée et des statistiques de progression du mode.
 - fournisseur → noyau `op77_lightrp:activity:status (activityId, { phase, players, queued, joinable, detail })`,
   à chaque changement (les envois rapprochés sont regroupés avant d'atteindre les joueurs).
 - noyau → fournisseur `op77_lightrp:activity:join (id, activityId, options)` : le joueur l'a demandé

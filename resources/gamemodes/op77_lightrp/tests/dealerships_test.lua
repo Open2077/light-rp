@@ -90,7 +90,9 @@ assert(not buy({request=999}) and committed==1,"sequence validation")
 assert(not buy({key="made-up"}) and committed==1,"model whitelist")
 assert(not buy({pay="credit"}) and committed==1,"payment whitelist")
 assert(not buy({key="thrax"}) and M.get(1).cash==11000,"insufficient funds")
-ok,id=buy({key="thrax",pay="bank"});assert(ok and M.get(1).bank==58000 and owned[id].model=="thrax")
+local function price(key) for _,s in ipairs(LightRpDealerships.locations[1].stock) do if s.key==key then return s.price end end end
+local afterThrax=100000-price("thrax")
+ok,id=buy({key="thrax",pay="bank"});assert(ok and M.get(1).bank==afterThrax and owned[id].model=="thrax")
 -- A personal vehicle is already out: this one waits at the garage, and the GPS points there.
 route=gps();assert(route.garage and route.position==LightRP.garage.location("citycenter").position, "stored and routed to the garage")
 assert(messages[#messages].ok and messages[#messages].text:find("could not be driven out"))
@@ -123,7 +125,7 @@ open();yieldDb=true
 co=coroutine.create(function() assert(buy({pay="bank"})) end)
 assert(coroutine.resume(co));D.onDisconnected(1);M.onDisconnected(1)
 assert(coroutine.resume(co));yieldDb=false
-M.onCharacterLoaded(1,owner);assert(committed==5 and M.get(1).bank==50000,"settled payment survives disconnect")
+M.onCharacterLoaded(1,owner);assert(committed==5 and M.get(1).bank==afterThrax-2*price("maimai"),"settled payment survives disconnect")
 open();D.onLifeState(1,"dead");assert(messages[#messages].closed,"death releases UI focus through close event")
 open();D.onCharacterLoaded(1);assert(messages[#messages].closed,"character swap closes old view")
 local oldLimit=LightRpGarages.maxOwned;LightRpGarages.maxOwned=5

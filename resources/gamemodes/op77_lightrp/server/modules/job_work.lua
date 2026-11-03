@@ -45,6 +45,13 @@ local function push(id) LightRP.state(id,"jobWork") end
 local function employed(id,job,definition)
     return definition.tutorial or LightRP.jobs.get(id).name==job
 end
+-- Each grade of the job adds LightRpEconomy.jobs.gradeBonus to the sale price
+-- (server/config/economy.lua); practice sites pay their own price.
+local function gradeBonus(id,definition)
+    local per=LightRpEconomy and LightRpEconomy.jobs and tonumber(LightRpEconomy.jobs.gradeBonus) or 0
+    if definition.tutorial or per<=0 then return 0 end
+    return math.max(0,tonumber(LightRP.jobs.get(id).grade) or 0)*per
+end
 local function hireText(job)
     local def=LightRpJobs and LightRpJobs[job]
     return "This is "..(def and def.label or job).." work. Get hired at a Job Center first (briefcase on the map)."
@@ -99,7 +106,7 @@ local function batch(s)
     if s.point.kind=="sell" then
         local count=Inv.plainCount(inv,d.product)
         if count<1 then return nil,"no_stock" end
-        return {count=count,total=count*d.price,duration=d.sellMs}
+        return {count=count,total=count*math.floor(d.price*(1+(s.bonus or 0))+0.5),duration=d.sellMs}
     end
     local inputs=s.point.kind=="process" and {{name=d.raw,count=d.input}} or {}
     local outputs={{name=s.point.kind=="process" and d.product or d.raw,count=s.point.kind=="process" and d.produced or d.collected}}
@@ -131,7 +138,7 @@ function Work.begin(id,pointId)
     if not employed(id,p.job,p.definition) then return false,hireText(p.job) end
     if not valid(id,p) then return false,"Stand on foot at the work point with an active, living character." end
     if LightRP.jobRuns and LightRP.jobRuns.snapshot(id).active then return false,"Finish or cancel your current work order first (F1 → My job)." end
-    local s={point=p,character=LightRP.characters.get(id),inventory=Inv.player(id),cycles=0,earned=0}
+    local s={point=p,character=LightRP.characters.get(id),inventory=Inv.player(id),cycles=0,earned=0,bonus=gradeBonus(id,p.definition)}
     local b,why=batch(s)
     if not b then return false,explain(why) end
     local current=Open77.animations.current(id)

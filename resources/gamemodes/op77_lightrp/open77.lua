@@ -59,6 +59,10 @@ server_script "server/modules/armament.lua"
 server_script "server/modules/grenades.lua"
 server_script "server/modules/hotbar.lua"
 server_script "server/modules/economy.lua"
+server_script "server/config/economy.lua"         -- economy rules (docs/economy-balance.md)
+server_script "server/modules/mission_pay.lua"    -- what a mission / gig pays: crew pot, cooldown, daily cap
+server_script "server/modules/economy_sinks.lua"  -- hospital bill, fitting-room fee
+server_script "server/modules/work_activity.lua"  -- paychecks only for active players (moved, worked, served)
 server_script "server/modules/jobs.lua"
 server_script "server/config/missions.lua"
 server_script "server/modules/parties.lua"
@@ -66,6 +70,7 @@ server_script "server/modules/missions.lua"
 server_script "server/modules/mission_chimera.lua"
 server_script "server/modules/mission_engine.lua"  -- runtime of the authored missions
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
+server_script "server/modules/mission_repay.lua"   -- /lightrp.missions.repay: stored missions to the new payout scale
 server_script "server/config/fixers.lua"
 server_script "server/modules/fixers.lua"          -- fixer gigs: offers by Neural-Link text, crews, meet point
 server_script "server/config/world_bosses.lua"
@@ -117,6 +122,7 @@ server_script "server/modules/cyberware.lua"
 server_script "server/modules/ripperdoc.lua"
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
+server_script "server/modules/activity_pay.lua"    -- eddies for activity results (PvP ranked, PvE), caps and anti-farm
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
 server_script "server/config/halloffame.lua"
 server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards

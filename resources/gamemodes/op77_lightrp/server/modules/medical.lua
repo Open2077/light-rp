@@ -43,7 +43,8 @@ function M.view(player)
   remainingMs=r and math.max(0,math.ceil((r.since+C.giveUpDelayMs/1000-unix())*1000))or C.giveUpDelayMs,
   canGiveUp=releasable and not s.patientTreatment and unix()>=r.since+C.giveUpDelayMs/1000 or false,
   treatment=a and{token=a.token,phase=a.phase,remainingMs=math.max(0,(a.startedAt or now())+C.treatmentMs-now()),durationMs=C.treatmentMs,patient=a.patientName}or nil,
-  receiving=s and s.patientTreatment and true or false,error=s and s.error}
+  receiving=s and s.patientTreatment and true or false,error=s and s.error,
+  bill=s and LightRP.sinks and LightRP.sinks.hospitalBill(player)or 0}
 end
 function M.push(player)if id(player)then TriggerClientEvent(NET,player,{kind="state",state=M.view(player)})end end
 local function stopPlayback(a)if a.playbackId and id(a.actor)then pcall(Open77.animations.stop,a.actor,a.playbackId);a.playbackId=nil end end
@@ -224,6 +225,7 @@ local function confirmAttempt(a)
  if a.actor and M.treatments[a.actor]==a then releaseTreatment(a)end
  M.push(a.patient);notify(a.patient,"You have been stabilized. Rest and seek further medical care.","success")
  if a.actor and inventory(a.actor)and inventory(a.actor).id==a.actorInventory then notify(a.actor,"Patient stabilized. One trauma kit was used.","success")end
+ if a.actor and LightRP.eachModule then pcall(LightRP.eachModule,"onPatientStabilized",a.actor,a.patient)end -- work activity (paychecks)
  return true
 end
 local function dispatchPositionValid(a)
@@ -325,6 +327,8 @@ local function hospital(player)
   return false,"Hospital transfer was refused: "..tostring(why)
  end
  if r.attempt then M.attempts[r.attempt]=nil end
+ -- The clinic's bill (server/modules/economy_sinks.lua): never on a revive, never below zero.
+ if LightRP.sinks then CreateThread(function()LightRP.sinks.chargeHospital(player)end)end
  M.push(player);return true
 end
 RegisterNetEvent(NET,function(p)

@@ -100,6 +100,7 @@ end
 local IMPOUND = C.impound or {}
 local REASONS = {
     restart = "Left outside at a server restart",
+    destroyed = "Wrecked, insurance excess",
     lost = "Found missing from the streets",
     requested = "Sent by its owner",
     staff = "Towed by the city",
@@ -125,9 +126,45 @@ local function tellImpounded(row, playerId)
         body = string.format("%s is at the impound (%s). Recover it at any public garage%s.", label(row),
             string.lower(REASONS[row.impound_reason] or "towed"), fee > 0 and (" for " .. money(fee)) or ", free of charge") })
 end
+-- A wreck: what the code can really tell (docs/economy-balance.md, fourrière). The live
+-- canonical record (destroyed / exploded flags, health 0), the damage event seen while
+-- it was out (row.wrecked), or the last captured properties. A removal with none of
+-- those (deleted, cleaned up, lost to a bug) is "lost", the smaller fee.
+local function bit(value, mask) return mask > 0 and (math.floor(value / mask) % 2) == 1 end
+local function wrecked(row)
+    local v = row.vehicleId and Open77.vehicles.get(row.vehicleId)
+    if type(v) == "table" then
+        local flags = Open77.vehicles.flags or { destroyed = 4, exploded = 8 }
+        local bits = math.floor(tonumber(v.flags) or 0)
+        if v.destroyed or v.exploded or bit(bits, flags.destroyed or 4) or bit(bits, flags.exploded or 8) then return true end
+        if tonumber(v.health) and tonumber(v.health) <= 0 then return true end
+    end
+    if row.wrecked then return true end
+    local p = row.props
+    if type(p) ~= "table" then return false end
+    if type(p.damage) == "table" and (p.damage.destroyed == true or p.damage.exploded == true) then return true end
+    return tonumber(p.health) ~= nil and tonumber(p.health) <= 0
+end
+Garage.wrecked = wrecked
+-- The insurance puts a written-off car back on its wheels: the stored properties keep
+-- their shape (appearance, paint) with the damage zeroed.
+local function insuranceRepair(props)
+    if type(props) ~= "table" then return end
+    props.health = 1
+    if props.drivable ~= nil then props.drivable = true end
+    local d = props.damage
+    if type(d) ~= "table" then return end
+    if type(d.body) == "table" then local body = {}; for i = 1, #d.body do body[i] = 0 end; d.body = body end
+    for _, key in ipairs({ "glass", "lights", "tires", "detachedParts" }) do
+        if type(d[key]) == "number" then d[key] = 0 elseif type(d[key]) == "table" then d[key] = {} end
+    end
+    d.destroyed, d.exploded = false, false
+end
+Garage.insuranceRepair = insuranceRepair
 local function impound(row, reason)
+    if reason == "destroyed" then insuranceRepair(row.props) end
     row.state, row.impound_reason, row.impound_fee = "impound", reason, feeFor(reason)
-    row.dirty, row.notified = true, nil
+    row.dirty, row.notified, row.wrecked = true, nil, nil
 end
 -- Owned vehicles carry their ownership id in the vehicle's state bag, so a
 -- resource restart can find and remove those left in the world.
@@ -187,7 +224,7 @@ function Garage.onDatabaseReady()
     local towed = 0
     for _, row in pairs(rows) do
         if row.state == "out" and not row.invalid then
-            impound(row, "restart"); towed = towed + 1
+            impound(row, wrecked(row) and "destroyed" or "restart"); towed = towed + 1
             persist(row)
         end
     end
@@ -285,6 +322,7 @@ local function canStore(playerId, row, place)
         return false, "Bring your vehicle into the garage area first."
     end
     if (v.speed or 0) > C.stationarySpeed then return false, "Stop the vehicle before parking it." end
+    if wrecked(row) then return false, "This vehicle is a wreck: send it to the impound, the insurance repairs it." end
     if #(v.occupants or {}) > 0 then return false, "Everyone must leave the vehicle before it can be stored." end
     if identity(playerId) ~= owner(row) then return false, "This is not your character's vehicle." end
     return true
@@ -578,6 +616,8 @@ end
 local function tow(row, reason)
     if row.state == "impound" then return false, "This vehicle is already at the impound." end
     if row.state ~= "out" and not row.vehicleId then return false, "This vehicle is in storage: collect it instead." end
+    -- The owner sending a wreck pays the insurance excess; a staff tow keeps its own fee.
+    if reason == "requested" and wrecked(row) then reason = "destroyed" end
     local vehicleId = row.vehicleId
     local present = vehicleId and Open77.vehicles.get(vehicleId)
     local release
@@ -674,6 +714,7 @@ snapshot = function(playerId, session)
                 garageName = parked and parked.name or row.garage_id, health = v and v.health or row.props and row.props.health or 1,
                 canRetrieve = status == "stored" and not row.invalid and row.garage_id == session.place.id,
                 canStore = canPark, canImpound = status == "out" and not row.invalid,
+                wrecked = status == "out" and wrecked(row) or nil,
                 canRecover = status == "impound" and not row.invalid,
                 impound = status == "impound" and { reason = REASONS[row.impound_reason] or "Towed", fee = row.impound_fee or 0 } or nil,
                 hint = row.invalid and "Storage record needs a staff check." or hint }
@@ -682,7 +723,7 @@ snapshot = function(playerId, session)
     table.sort(list, function(a,b) return a.label == b.label and a.id < b.id or a.label < b.label end)
     return { kind = "garage", session = session.id, nextRequest = session.nextRequest,
         spot = { id = session.place.id, name = session.place.name }, vehicles = list, maxOutside = C.maxOutside,
-        impound = { name = IMPOUND.name or "Impound", fees = { requested = feeFor("requested"), lost = feeFor("lost"), restart = feeFor("restart") } } }
+        impound = { name = IMPOUND.name or "Impound", fees = { requested = feeFor("requested"), destroyed = feeFor("destroyed"), lost = feeFor("lost"), restart = feeFor("restart") } } }
 end
 send = function(playerId, session, extra)
     if sessions[playerId] ~= session or identity(playerId) ~= session.owner then return end
@@ -767,8 +808,9 @@ function Garage.onGameplayReady(id)
     end
 end
 local function vanished(row, why)
+    local reason = wrecked(row) and "destroyed" or "lost"
     forgetLive(row)
-    impound(row, "lost")
+    impound(row, reason)
     LightRP.log("garage: %s towed to the impound after it left the world (%s)", row.id, tostring(why))
     tellImpounded(row)
 end
@@ -776,6 +818,11 @@ end
 AddEventHandler("onVehicleUpdated", function(id)
     local row = live[tonumber(id)]
     if row then capture(row) end
+end)
+-- Remember a wreck at once: the entity may be cleaned up before the next autosave.
+AddEventHandler("onVehicleDamageChanged", function(id)
+    local row = live[tonumber(id)]
+    if row and not row.wrecked and wrecked(row) then row.wrecked = true end
 end)
 AddEventHandler("onVehicleRemoved", function(id, reason)
     local row = live[tonumber(id)]

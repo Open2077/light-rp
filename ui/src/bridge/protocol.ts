@@ -480,11 +480,13 @@ export interface PersonalVehicle {
   garageId: string; garageName: string; health: number; canRetrieve: boolean; canStore: boolean; hint?: string;
   /** Out (or lost): may be sent to the impound. At the impound: may be recovered here. */
   canImpound?: boolean; canRecover?: boolean; impound?: { reason: string; fee: number };
+  /** Out and wrecked (destroyed / exploded / health 0): the tow charges the insurance excess. */
+  wrecked?: boolean;
 }
 export interface GarageDialogPayload {
   kind: "garage"; session: string; nextRequest: number;
   spot: { id: string; name: string }; vehicles: PersonalVehicle[]; maxOutside: number;
-  impound?: { name: string; fees: { requested: number; lost: number; restart: number } };
+  impound?: { name: string; fees: { requested: number; destroyed?: number; lost: number; restart: number } };
 }
 export interface GarageUpdate {
   session: string; request?: number; ok?: boolean; text?: string; closed?: boolean; state?: GarageDialogPayload;

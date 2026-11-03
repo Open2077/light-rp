@@ -14,22 +14,27 @@ LightRpShops = {
             payments = { "cash", "bank" },
             -- buy = player pays; sell = player receives. Omit either price to
             -- disable that direction. Supplies are unlimited, not fake stock.
+            -- Eating and drinking cost ≈ 50 €$ an hour (docs/economy-balance.md).
             items = {
-                { name = "water", buy = 8, sell = 2 },
-                { name = "burrito", buy = 18, sell = 5 },
-                { name = "noodles", buy = 24, sell = 6 },
-                { name = "dumplings", buy = 20, sell = 5 },
-                { name = "pizza", buy = 16, sell = 4 },
-                { name = "synthmeat", buy = 15, sell = 4 },
-                { name = "onigiri", buy = 12, sell = 3 },
-                { name = "apple", buy = 10, sell = 3 },
-                { name = "candy", buy = 6, sell = 1 },
-                { name = "proteinbar", buy = 14, sell = 3 },
-                { name = "soda", buy = 10, sell = 2 },
-                { name = "coffee", buy = 12, sell = 3 },
-                { name = "juice", buy = 12, sell = 3 },
-                { name = "energydrink", buy = 18, sell = 4 },
-                { name = "electrolyte", buy = 16, sell = 4 },
+                { name = "water", buy = 12, sell = 2 },
+                { name = "burrito", buy = 26, sell = 5 },
+                { name = "noodles", buy = 36, sell = 6 },
+                { name = "dumplings", buy = 30, sell = 5 },
+                { name = "pizza", buy = 24, sell = 4 },
+                { name = "synthmeat", buy = 22, sell = 4 },
+                { name = "onigiri", buy = 18, sell = 3 },
+                { name = "apple", buy = 15, sell = 3 },
+                { name = "candy", buy = 9, sell = 1 },
+                { name = "proteinbar", buy = 20, sell = 3 },
+                { name = "soda", buy = 15, sell = 2 },
+                { name = "coffee", buy = 18, sell = 3 },
+                { name = "juice", buy = 18, sell = 3 },
+                { name = "energydrink", buy = 26, sell = 4 },
+                { name = "electrolyte", buy = 24, sell = 4 },
+                -- Revives an unconscious ally (shared/medical.lua: never yourself). Priced
+                -- under the 300 hospital bill so a friend with a kit beats "Give up";
+                -- not bought back.
+                { name = "trauma_kit", buy = 250 },
             },
         },
         -- Gun stores, one weapon family each (shared/armament.lua). On the 3D map each

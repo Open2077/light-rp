@@ -110,18 +110,23 @@ end
 CreateThread(function()
     if not Config or not Config.enabled then return end
     Wait(500)
+    -- The fitting fee of a city room, shown before the player walks in.
+    local fee = LightRP.sinks and LightRP.sinks.fittingPrice() or 0
+    local price = fee > 0 and LightRP.money and LightRP.money.format(fee) or nil
     for _, entry in ipairs(Config.spots or {}) do
         local spot = {}
         for k, v in pairs(entry) do spot[k] = v end
         spots[interactionId(spot)] = spot
+        local paid = price and (spot.bucket or 0) == 0
         LightRP.interaction(interactionId(spot), {
             position = spot.position, radius = Config.interactRadius or 2.0, bucket = spot.bucket,
-            label = spot.name, prompt = Config.prompt or "Change outfit", key = Config.key or "E", promptHeight = spot.promptHeight or 1.1,
+            label = spot.name, prompt = (Config.prompt or "Change outfit") .. (paid and (" · " .. price) or ""), key = Config.key or "E", promptHeight = spot.promptHeight or 1.1,
             marker = spot.marker or Config.marker, ring = false,
             -- One map category; the interaction and description keep the branch name.
             blip = Config.blip and not spot.noBlip and { icon = Config.blip.icon, color = Config.blip.color, size = Config.blip.size,
                 sprite = Config.blip.sprite, title = Config.blip.title or "Wardrobe",
-                description = (spot.name or "Wardrobe") .. "\n" .. (Config.blip.description or "") } or nil,
+                description = (spot.name or "Wardrobe") .. "\n" .. (Config.blip.description or "")
+                    .. (paid and ("\nSaving a new look costs " .. price .. ".") or "") } or nil,
         })
     end
     LightRP.log("wardrobe: %d point(s) placed", #(Config.spots or {}))
@@ -162,6 +167,13 @@ end)
 AddEventHandler("open77:presentation:committed", function(player, shown)
     player = tonumber(player)
     if player and LightRP.tutorial and LightRP.tutorial.onDressed then LightRP.tutorial.onDressed(player, Wardrobe.dressed(shown)) end
+    -- A public fitting room in the city charges once per visit that saves a look
+    -- (server/modules/economy_sinks.lua); homes, the wizard and the hall are free.
+    local room = player and rooms[player]
+    if room and room.opened and room.from == 0 and not room.charged and LightRP.sinks then
+        room.charged = true
+        CreateThread(function() LightRP.sinks.chargeFitting(player) end)
+    end
 end)
 
 function Wardrobe.onDisconnected(player) Wardrobe.leaveRoom(player, true) end
