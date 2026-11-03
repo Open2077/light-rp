@@ -55,6 +55,7 @@ local R = LightRP.module("recap", {})
 local CONFIG = {
     stableMs = 2000,         -- back and settled this long before the screen opens
     rewardWaitMs = 6000,     -- at most this long for the paying modules' reports
+    homeWaitMs = 40000,      -- a mission's operators: at most this long for missions.lua's "back home"
     deliverTimeoutMs = 180000, -- never back in time: kept for F1 only
     worldBossDelayMs = 4000,
     matchTtlMs = 20 * 60000,
@@ -75,6 +76,7 @@ local DECIMALS = { share = 10, bossShare = 10 }
 local OUTCOMES = { escaped = true, busted = true, caught = true, dnf = true, left = true, finished = true, out = true,
     down = true, cop = true, runner = true, won = true, lost = true }
 local DEATH_PHASES = { dead = true, dying = true, respawnpending = true, revivepending = true }
+local LEFT = { left = true, dropped = true, disconnect = true, quit = true } -- a race's dnfReason of a leaver (activity_pay.lua)
 
 local sessions = {} -- key -> { [playerId] = counters }
 local current = {}  -- playerId -> session key
@@ -401,7 +403,9 @@ function R.activityResult(playerId, e, raw, r, test)
     local own = sanitizeRow(stats, 0) or {}
     own.id, own.name, own.bot = id, (m.rows[id] and m.rows[id].name) or (e.identity and e.identity.name) or displayName(id), nil
     own.placement = own.placement or r.placement
-    if stats.quit == true or stats.forfeit == true then own.left = true end
+    own.score = own.score or (finite(r.score) and r.score >= 0 and math.floor(r.score + 0.5)) or nil
+    local quit = stats.quit == true or stats.forfeit == true or LEFT[stats.dnfReason] == true
+    if quit then own.left = true end
     if own.holdS == nil and finite(stats.holdSeconds) then own.holdS = math.floor(clamp(stats.holdSeconds, 0, 86400) + 0.5) end
     if own.inMatchMs == nil then own.inMatchMs = clamp(stats.durationMs, 0, 86400000) or clamp(stats.timeMs, 0, 86400000) end
     if own.inMatchMs then own.inMatchMs = math.floor(own.inMatchMs) end
@@ -416,7 +420,7 @@ function R.activityResult(playerId, e, raw, r, test)
     if not m.durationMs and own.inMatchMs then m.durationMs = own.inMatchMs end
     resetCounters(c)
     local info = { resultAt = now(), placement = r.placement, won = r.won == true, score = r.score,
-        quit = stats.quit == true or stats.forfeit == true, outcome = row.outcome, finished = stats.finished,
+        quit = quit, outcome = row.outcome, finished = stats.finished,
         test = test == true, unranked = raw.unranked == true or raw.ranked == false, difficulty = r.played or e.difficulty,
         rewards = {}, expect = {} }
     if not info.test then
@@ -529,7 +533,7 @@ function R.missionEnded(inst, success, why, point, d)
         local row = mergeRow(m, { id = id, name = displayName(id) })
         local c = list[id]
         fillFromCounters(row, c)
-        if c and c.bossDamage > 0 then row.bossDamage = math.floor(c.bossDamage + 0.5) end
+        if c and c.bossDamage > 0 then row.bossDamage = c.bossDamage end -- priced hits, fractions of the bar
         if c then row.inMatchMs = math.max(0, now() - math.min(c.startedAt, tonumber(inst.startedAt) or c.startedAt)) end
     end
     sessionRows(m, key, members)
@@ -555,13 +559,26 @@ function R.missionEnded(inst, success, why, point, d)
     if not success and m.why then lines[#lines + 1] = { label = "Outcome", value = m.why } end
     m.lines = sanitizeLines(lines)
     for _, id in ipairs(members) do
+        -- missions.lua pays and grants right after this call: the tier and ranks before it
+        snapshot(id)
+        -- away until missions.lua brought them back (R.home), the rewards in the same pass
         m.players[id] = { resultAt = now(), won = success == true, outcome = success and "complete" or "failed",
-            test = inst.test == true, rewards = {}, expect = {}, difficulty = d.id }
+            test = inst.test == true, rewards = {}, expect = {}, difficulty = d.id, away = true }
         pend(id, key)
     end
     sessions[key] = nil
     for _, id in ipairs(members) do if current[id] == key then current[id] = nil end end
     return key
+end
+
+-- missions.lua: the operator stands back in the city (teleport done, or respawned there).
+function R.home(playerId)
+    local id = pid(playerId)
+    local p = id and pending[id]
+    local m = p and matches[p.key]
+    local info = m and m.players[id]
+    if info then info.away = nil end
+    return info ~= nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -720,8 +737,8 @@ local function resultOf(m, info, row, rows)
     if outcome == "dnf" then return { label = "DNF", tone = "loss" } end
     if outcome == "escaped" then return { label = "ESCAPED", tone = "win" } end
     if outcome == "busted" or outcome == "caught" then return { label = "BUSTED", tone = "loss" } end
-    local players = 0
-    for _, r2 in ipairs(rows) do if r2.placement then players = players + 1 end end
+    local players = 0 -- every placed row, the ones cut from the board too
+    for _, rid in ipairs(m.order) do if m.rows[rid].placement then players = players + 1 end end
     if m.sides and #m.sides >= 2 then
         if info.won then return { label = "WIN", tone = "win" } end
         if m.winnerSide == 0 or info.placement == 1 then return { label = "DRAW", tone = "neutral" } end
@@ -887,7 +904,7 @@ function R.tick(t)
             pending[id] = nil
             local ok, payload = pcall(R.payload, m, id, {})
             if ok then last[id] = payload; LightRP.state(id, "recap") end
-        elseif ready(id) and t >= (p.notBefore or 0) then
+        elseif ready(id) and t >= (p.notBefore or 0) and not (info.away and t - p.at < CONFIG.homeWaitMs) then
             p.readySince = p.readySince or t
             if t - p.readySince >= CONFIG.stableMs and (settled(info) or t - p.at >= CONFIG.rewardWaitMs) then
                 CreateThread(function() R.deliver(id) end)
@@ -920,7 +937,8 @@ LightRP.stateProvider("recap", function(id)
 end)
 
 function R.open(id)
-    local p = last[id]
+    id = pid(id)
+    local p = id and last[id]
     if not p then return false, "No match yet: finish an activity, a mission or a world boss first." end
     local copy = {}
     for k, v in pairs(p) do copy[k] = v end
