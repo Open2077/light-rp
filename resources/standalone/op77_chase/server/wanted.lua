@@ -8,9 +8,9 @@
 -- the activity contract through ChaseCore (activity id chase.wanted), the rules through
 -- WantedRules, so tests/wanted_test.lua runs the whole flow against fakes.
 --
--- A round: the runner stands by his car ~300 m down the road, the cops by theirs on a
--- start grid. Countdown (everyone held), GO: the runner goes, the first wave of cops is
--- released after the head start, the rest when the heat says so. Dispatch sightings,
+-- A round: by car the runner stands by his car at the front of the cops' start grid and
+-- the whole NCPD leaves with him at GO (on foot he starts ~300 m down the road with a
+-- head start, and the cops are released when it ends). Dispatch sightings,
 -- heat levels, roadblocks and a late extraction point make the round; it ends on an
 -- arrest, a takedown, the clock or the extraction. Then the next runner, until everyone
 -- has run once (drop-ins join at the next round and get their turn at the end).
@@ -492,11 +492,14 @@ beginRound = function(match, now)
         m.placed, m.placeError, m.boarding, m.downSinceMs, m.respawning = nil, nil, nil, nil, nil
         if m.id == runnerId then
             match.roles[m.id] = "runner"
-            m.point = match.route.runner
+            -- By car he starts at the front of the cops' grid and they leave together.
+            m.point = (match.mode ~= "foot" and match.route.runnerCar) or match.route.runner
         else
             slot = slot + 1
             match.roles[m.id] = "cop"
-            m.point = match.route.cops[math.min(slot, #match.route.cops)]
+            -- From the front of the grid (slot 8 is the front): by car the first cop is
+            -- the closest to the runner, ~27 m behind him, however few cops there are.
+            m.point = match.route.cops[math.max(1, #match.route.cops - slot + 1)]
         end
         if m.bot then
             ChaseBots.assign(m.id, match.roles[m.id], (match.roles[m.id] == "runner" and match.mode == "foot") and "foot" or "vehicle")
@@ -536,13 +539,16 @@ local function beginCountdown(match, now)
     for _, m in ipairs(presentList(match)) do
         local text
         if match.roles[m.id] == "runner" then
-            text = ("Round %d/%d - YOU ARE THE RUNNER. %ds head start. Survive %s or reach the extraction when it shows up.")
-                :format(match.round, roundCount(match), headStart, ("%d:%02d"):format(match.rules.durationSeconds // 60,
+            local lead = headStart > 0 and ("%ds head start."):format(headStart)
+                or "The NCPD is right behind you and leaves with you."
+            text = ("Round %d/%d - YOU ARE THE RUNNER. %s Survive %s or reach the extraction when it shows up.")
+                :format(match.round, roundCount(match), lead, ("%d:%02d"):format(match.rules.durationSeconds // 60,
                     match.rules.durationSeconds % 60))
             if match.mode == "vehicle" then text = text .. " Your car is beside you: driver door on its LEFT." end
         else
-            text = ("Round %d/%d - NCPD. The runner is %s. Wait for dispatch, then box him in: several cops cuff faster.")
-                :format(match.round, roundCount(match), runnerName)
+            text = ("Round %d/%d - NCPD. The runner is %s. %s, then box him in: several cops cuff faster.")
+                :format(match.round, roundCount(match), runnerName,
+                    headStart > 0 and "Wait for dispatch" or "He is in front of the grid: go at GO")
             text = text .. " Your car is beside you: driver door on its LEFT."
         end
         notify(m.id, "info", text, 8000)
@@ -568,7 +574,8 @@ local function beginActive(match, now)
     if runner then freeze(runner, false) end
     notify(match.runnerId, "warning", "GO. Lose them.", 3000)
     for id, at in pairs(plan) do
-        notify(id, "warning", ("Hold - dispatch releases you in %ds."):format(math.ceil(at / 1000)), 3000)
+        -- Released at GO (no head start): the release itself says "you're up".
+        if at > 0 then notify(id, "warning", ("Hold - dispatch releases you in %ds."):format(math.ceil(at / 1000)), 3000) end
     end
     pushAll(match, now)
     log("match %d round %d active (%s, bucket %d)", match.id, match.round, match.mode, match.bucket)

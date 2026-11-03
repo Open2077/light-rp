@@ -67,10 +67,13 @@ result is sent.
    (`op77_lightrp:announce`, at most every 5 min); a full lobby (8) starts at once. A queued
    player Light RP refuses for the moment (another activity) is not counted, told every 30 s,
    dropped after 2 min. One chase queue at a time: queued for one, refused by the other.
-2. **A round.** Bucket 4300100–4300199. The runner stands by his car (or on his mark, on foot)
-   at the route's start, the cops by their NCPD cars on a start grid 250-330 m away (two routes,
-   alternating). 10 s countdown, everyone held. GO: the runner goes; the cops are released by
-   **waves** — half after the head start (10 s by car, 15 s on foot), the rest at heat 2.
+2. **A round.** Bucket 4300100–4300199. The cops stand by their NCPD cars on a start grid (two
+   routes, alternating). By car the runner's car stands at the front of that grid (the course's
+   checkpoint 1, ~27 m ahead of the first cop car: `routes[*].runnerCar`); on foot he stands on
+   his mark 250-330 m down the road. 10 s countdown, everyone held. GO: by car the runner and
+   every cop leave together (no head start, heat 1 releases the whole NCPD — owner, 2026-11-04:
+   the runner used to be out of sight before the cops moved); on foot the cops are released
+   when his 15 s head start ends.
 3. **Heat** (5 levels, at 0/30/60/95/125 s): dispatch sightings get tighter and more frequent
    (a fuzzed circle on the cops' map, 30 s/160 m down to 8 s/50 m; 4 s/25 m while a cop has eyes
    on him), the arrest radius widens and fills faster; **roadblocks** from heat 3 (car mode:
