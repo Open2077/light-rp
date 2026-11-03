@@ -43,19 +43,15 @@ local roulette={id=101,kind='roulette',owned=true,position={x=0,y=0,z=0},rotatio
  players={white=7,black=9},actor=7,ready=true,mode='duel',revision=1,serverNow=now,game=assert(R.new('roulette','duel'))}
 events['lightrp:boardGames:state']({boards={roulette}});step()
 waitUntil(function()return countProps()==3 end,'roulette table, wheel and ball native props')
-assert(C.isActive() and view.extra.kind=='roulette' and findProp('roulette_table') and findProp('roulette_wheel') and findProp('roulette_ball'))
+assert(C.isActive() and findProp('roulette_table') and findProp('roulette_wheel') and findProp('roulette_ball'))
 local before=#requests
-pageHandlers['lightrp:tabletop:action']({operation='bet',data={bet='red',amount=25}})
-assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.amount==25)
--- A mouse click cannot silently wager any RP money.
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,pressed=true})
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true});step()
-assert(#requests==before+1)
--- Free mode: a panel-only table opens its betting panel on a click, never wagers.
-assert(view.free and not view.panel and not focus)
+-- Bets come from the ALT menu (tools/test-table-menu.py) through Extra.command.
+assert(E.command(roulette,'bet',{bet='red',amount=25}))
+assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.amount==25 and last().revision==1)
+assert(not E.command(roulette,'teleport',{}) and #requests==before+1,'unknown operations never reach the server')
+-- A crosshair click cannot silently wager any RP money: it points at the ALT menu.
 keys.mouse1=true;step();keys.mouse1=false;step()
-assert(view.panel and focus and #requests==before+1,'a click opens the betting panel')
-pageHandlers['lightrp:boardGames:panel']({open=false});assert(not view.panel and not focus)
+assert(#requests==before+1 and not focus and lastNotice:find('Hold ALT',1,true),'a click explains the ALT menu')
 -- A still wheel holds its targets until the next snapshot; a spin animates.
 local _,hold=E.pieceTargets(roulette);assert(hold==math.huge,'a still roulette needs no per-frame targets')
 roulette.game=assert(R.act(roulette.game,'white','spin',{outcome=17,seedAngle=41,nowMs=now}))
@@ -94,8 +90,8 @@ roulette.game=assert(R.act(roulette.game,'white','settle',{nowMs=now+8001}))
 roulette.game=assert(R.act(roulette.game,'white','nextRound',{}))
 local retained=E.pieceTargets(roulette)
 assert(math.abs(retained['roulette-wheel'].piece.yaw+spin.wheelTo)<1e-8,'wheel angle survives the next betting round')
-pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
+edge('BACKSPACE');assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step()end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic~=true)
+assert(next(nativeProps)==nil and next(batches)==nil)
 print('extra tabletop client: native props, roulette clock/outcome, cleanup: OK; peak '..peakInstructions)
 ''')

@@ -49,23 +49,20 @@ local machine={id=201,kind='slots',owned=true,position={x=0,y=0,z=0},rotation=0,
  players={white=7,black=9},actor=7,ready=true,mode='duel',revision=1,serverNow=now,game=S.new('duel')}
 events['lightrp:boardGames:state']({boards={machine}});step()
 waitUntil(function() return countProps()==17 end,'cabinet, its collider, 3 strips, 6 lever poses, 2 lamps, 4 coins')
-assert(C.isActive() and view.extra.kind=='slots' and view.extra.seat=='white' and view.extra.paytable.three.seven==200)
--- Free mode: the crosshair aims at the lever (outlined) and a click pulls.
-assert(view.free and not view.panel and not camera)
-pageHandlers['lightrp:slots:bet']({amount=25})
+assert(C.isActive())
+-- The crosshair aims at the lever (outlined) and a click pulls with the bet
+-- chosen in the ALT menu (LightRpCasinoSlotsClient.setBet, tools/test-table-menu.py).
+local Slots=LightRpCasinoSlotsClient
+assert(Slots.bet()==10 and not Slots.setBet(0) and not Slots.setBet(1001) and not Slots.setBet(2.5) and Slots.setBet(25) and Slots.bet()==25)
 local freeBefore=#requests
 forcedRay={origin={x=.55*K,y=-2,z=1.6*K},direction={x=0,y=1,z=0}};step()
 assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'the aimed lever is outlined')
 keys.mouse1=true;step();keys.mouse1=false;step()
-assert(#requests==freeBefore+1 and last().operation=='pull' and last().data.bet==25,'a crosshair click on the lever pulls')
+assert(#requests==freeBefore+1 and last().action=='game' and last().operation=='pull' and last().data.bet==25 and last().revision==1,'a crosshair click on the lever pulls')
 forcedRay={origin={x=0,y=-2,z=1.4*K},direction={x=0,y=1,z=0}};step()
 assert(batches['boardGames:preview']==nil,'no outline off the lever')
 keys.mouse1=true;step();keys.mouse1=false;step();assert(#requests==freeBefore+1,'a click beside the lever never wagers')
-assert(not view.panel,'an aimable table does not open its panel on a click')
 forcedRay=nil
--- The optional scripted view from the panel toolbar.
-pageHandlers['lightrp:boardGames:camera']({view='top'})
-assert(camera and view.panel and cameraSpec.lookAt and cameraSpec.position.y<cameraSpec.lookAt.y,'front camera faces the machine')
 local function z(name) return findProp(name).position.z/K end
 local function at(name,x,y,zz) local p=findProp(name).position;return near(p.x/K,x) and near(p.y/K,y) and near(p.z/K,zz) end
 local park=L.leverPark
@@ -73,19 +70,9 @@ assert(at('slot_lever_0',0,0,0))
 for i=1,5 do assert(at('slot_lever_'..i,park[1],park[2],park[3]),'inactive lever poses are parked') end
 assert(at('slot_lamp_off',0,0,0) and at('slot_lamp_on',L.lampPark[1],L.lampPark[2],L.lampPark[3]))
 for r=1,3 do assert(at('slot_strip_'..r,L.reelX[r],L.stripY,L.paylineZ+L.pitch)) end
--- A click only wagers on the lever, with the bet chosen in the panel.
-pageHandlers['lightrp:slots:bet']({amount=25})
 local before=#requests
-forcedRay={origin={x=0,y=-2,z=1.4*K},direction={x=0,y=1,z=0}}
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,pressed=true});pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true});step()
-assert(#requests==before,'a click beside the lever must not pull')
-forcedRay={origin={x=.55*K,y=-2,z=1.6*K},direction={x=0,y=1,z=0}}
-pageHandlers['lightrp:boardGames:pointer']({x=.6,y=.5,pressed=true});pageHandlers['lightrp:boardGames:pointer']({x=.6,y=.5,released=true});step()
-assert(#requests==before+1 and last().action=='game' and last().operation=='pull' and last().data.bet==25 and last().revision==1)
-forcedRay=nil
-pageHandlers['lightrp:tabletop:action']({operation='pull',data={bet=10}})
-assert(#requests==before+2 and last().data.bet==10)
-pageHandlers['lightrp:tabletop:action']({operation='settle',data={}});assert(#requests==before+2,'unknown operations stay local')
+assert(E.command(machine,'pull',{bet=10}) and #requests==before+1 and last().data.bet==10)
+assert(not E.command(machine,'settle',{}) and #requests==before+1,'unknown operations stay local')
 -- The server pulls: three sevens, timestamped on the server clock.
 local function stopOf(r,name) for i,s in ipairs(S.REELS[r]) do if s==name then return i-1 end end end
 local stops={stopOf(1,'seven'),stopOf(2,'seven'),stopOf(3,'seven')}
@@ -94,7 +81,6 @@ machine.revision=2;machine.serverNow=now+1 -- each snapshot carries a newer serv
 events['lightrp:boardGames:state']({boards={machine}})
 local start=clock
 local function advance(ms) while clock-start<ms do step() end end
-assert(view.extra.spinning==true and view.extra.result==nil,'the panel must not spoil the outcome')
 -- Lever: fully pulled pose in place around 250 ms, others parked.
 advance(260)
 assert(at('slot_lever_5',0,0,0) and at('slot_lever_0',park[1],park[2],park[3]),'lever pulled')
@@ -113,7 +99,6 @@ assert(not near(reel3,L.paylineZ+(stops[3]+1)*L.pitch),'reel 3 must still spin a
 advance(2450);assert(near(z('slot_strip_2'),L.paylineZ+(stops[2]+1)*L.pitch),'reel 2 landed')
 advance(3050)
 for r=1,3 do assert(near(z('slot_strip_'..r),L.paylineZ+(stops[r]+1)*L.pitch),'reel '..r..' on the server stop') end
-assert(view.extra.spinning==false and view.extra.result.multiplier==200 and view.extra.result.gross==2000)
 -- Win feedback: lamp lit (blinking), then four coins (x200) fall into the tray.
 advance(3100);assert(at('slot_lamp_on',0,0,0),'win lamp lit')
 advance(3220) -- coin 1 falls from 150 ms after the win, coin 2 from 290 ms: check between
@@ -157,8 +142,8 @@ for from=0,S.STOPS-1 do for to=0,S.STOPS-1 do
   assert(L.reelIndex(spin,r,S.TIMING.stops[r])==to+1)
  end
 end end
-pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
+edge('BACKSPACE');assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic~=true)
+assert(next(nativeProps)==nil and next(batches)==nil)
 print('slot machine client: 16 native props + collider, lever poses, server-clock reels on the server stops, lamp and coins, cleanup: OK; peak '..peakInstructions..' (budget '..BOARD_BUDGET..')')
 ''')

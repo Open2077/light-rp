@@ -7,47 +7,70 @@ shop needs an NPC placed in game); staff grant them with
 `slot_machine`, `blackjack_table`, `fortune_wheel`) are granted the same way.
 All item labels, controls, status messages and errors are in English.
 
-Use an item to place its board. The inventory closes before placement takes the
-cursor. Hold the mouse to move it, use X/Y/Z to constrain
-an axis, Q/D to rotate, Page Up/Down to adjust height, and E to confirm.
-Backspace or Escape cancels. Placement must be within 4 metres. There is no
-per-character or server-wide placement count limit; nearby props stream as needed.
+Use an item to place its board. The inventory closes first, then placement
+runs in free mode (no cursor): the preview stands where the crosshair hits the
+world within 3.5 m (a floor-standing table on the floor, a board on the
+surface), the Left/Right arrow keys turn it, Page Up/Down adjust its height,
+and E confirms. Backspace or Escape cancels. A notice lists the keys. Placement
+must be within 4 metres. There is no per-character or server-wide placement
+count limit; nearby props stream as needed.
 
-Press E near a board to join. The owner can choose Solo vs AI, 1v1 or 2v2 before
-the first move. Teams share a colour; full turns alternate White 1, Black 1,
-White 2, Black 2. All four players must be present in 2v2. A checkers capture
-sequence remains with the same player until finished. Solo reserves White for
-the owner and Black for the AI. Connect Four uses Red and Yellow for these sides.
-The owner can select New game to reset the game and reopen the lobby.
+**There is no table panel and no table HUD.** Everything happens in the world
+(free mode) and in the ALT target menu:
 
-Seated players play in **free mode**: no scripted camera, the character is not
-frozen, mouse-look, movement and the HUD stay. The crosshair (screen centre)
-aims at the table and the left mouse button acts; the aimed square, column or
-table element and the current selection are outlined on the table itself.
-Chess and checkers: click a piece, then its destination, or hold the button on
-a piece and release it over another square. Connect Four: aim at a column and
-click. The server receives a move only on release.
+- **Crosshair + left click** plays on the board itself. The character is not
+  frozen, mouse-look, movement and the game HUD stay. The aimed square, column
+  or table element and the selection are outlined on the table, and a small
+  cross marks where the screen centre meets a chess or checkers board.
+  Chess and checkers: click a piece, then its destination, or hold the button
+  on a piece and release it over another square. Connect Four: aim at a column
+  and click. The server receives a move only on release. While ALT is held (or
+  the target menu is open) and while chat or another page types, clicks and
+  table keys stay inert.
+- **Hold ALT and click the table** (its base, its collider, a piece, or the
+  surface right under it) for a menu titled with the game's name that lists
+  only what makes sense for you right now (`client/core/table_menu.lua`):
+  *Sit* when a seat is free for you, *Leave table* when seated, *Pick up board*
+  for the owner within 2 m. Seated on a board game: a status row (*Your turn*,
+  *Black to move*, *You win*... selecting it explains the mode, the players and
+  the controls), and for the owner *Mode: 1v1 ›* (Solo vs AI, 1v1, 2v2) before
+  the first move, then *New game*. The casino rows are in each casino document.
+- **E** near a table also sits down (the interaction prompt). It stays because
+  it is how every other Light RP object is used and needs no aiming; the ALT
+  menu offers the same *Sit* so the table's menu is complete.
+- **Notices** say what the panel used to show: how to play when you sit, your
+  turn, the result, each confirmed bet and payout, refusals from the server
+  ("It is not your turn", "Not enough cash for this bet"...). Timed reveals
+  (reels, the dealer's hand) are announced when every client shows them.
 
-**H** opens the panel and gives the page the cursor: game setup, New game,
-casino bets and actions (Hit, Stand, amounts), and the camera toolbar. The
-toolbar's scripted views (Overhead, both sides, Orbit with right-drag rotation
-and scroll zoom) are the former default and stay available: picking one freezes
-the character, hides the HUD and keeps the cursor; **Free**, H or Escape returns
-to free mode. While chat or another page types, the table keys stay inert.
-Backspace (or the panel's Leave table button) leaves the seat. Nearby
-interaction prompts stay hidden while seated.
+Backspace or the menu's *Leave table* leaves the seat. Nearby interaction
+prompts stay hidden while seated.
 
-Casino tables work the same way: aim at the slot machine's lever and click to
-pull (with the bet chosen in the panel), aim at a Fortune Wheel felt spot and
-click to pick it; at roulette and blackjack, which bet from the panel only, a
-click on the table opens the panel.
+The owner chooses Solo vs AI, 1v1 or 2v2 before the first move. Teams share a
+colour; full turns alternate White 1, Black 1, White 2, Black 2. All four
+players must be present in 2v2. A checkers capture sequence remains with the
+same player until finished. Solo reserves White for the owner and Black for the
+AI. Connect Four uses Red and Yellow for these sides. The owner's *New game*
+resets the game and reopens the lobby.
 
-Walking away leaves the table: beyond 3.5 m the HUD warns, and after 1.5 s out
+Walking away leaves the table: beyond 3.5 m a notice warns, and after 1.5 s out
 of range (or at once beyond 5 m) the client leaves with a notice. The server
 releases any seat beyond 5 m on its 2 s check and tells the player why; moves
-are refused beyond 4 m. The target menu's Pick up board action returns a board
-to its owner's inventory, even after reconnecting, and closes all seated
-players' views.
+are refused beyond 4 m. *Pick up board* returns a board to its owner's
+inventory, even after reconnecting, and unseats everyone at it.
+
+The menu is one `open77_contextmenu` registration with **dynamic rows**
+(`rows="tableMenuRows"`, open77_contextmenu 1.3.0): at each ALT click the menu
+asks LightRP for this table's rows, built from the snapshot the client already
+holds (seat, phase, turn, owner, legal moves, last known cash), and on
+selection asks again and runs the row only if it is still offered. A static
+registration per action would not fit: the menu allows 32 actions per resource
+and Light RP already uses 23 for vehicles, crew, cyberware, the guide and the
+Hall of Fame. Every row sends a request the server already validates
+(`lightrp:boardGames:request` join/leave/mode/reset/pickup, and the tabletop
+`game` operations through `LightRpTabletopExtraClient.command`); nothing about
+the rules or the money changed. A menu costs about 1,400 VM instructions to
+build (`tools/test-table-menu.py`).
 
 Chess supports castling, en passant, checkmate/stalemate, repetition, insufficient
 material and promotion. The mouse interface promotes to a queen automatically;
@@ -79,7 +102,8 @@ archive before the game boots. Each client projects the authoritative snapshots
 into its own local props, including the placement preview. Stable prop handles
 move with native transforms; captures retain their handles and promotions replace
 only the affected piece. Creation is staggered so it does not block input.
-`debugDraw` is used only for axis and square-selection lines. Props are non-solid
+`debugDraw` is used only for the placement axes, the aim cross and the
+selection outlines. Props are non-solid
 decorations; game movement and captures remain server-authoritative.
 All models use a uniform 0.65 visual and interaction scale. The art is an
 original Night City set (`tools/board-game-art.py`, version 2.0.0 of the pack):
@@ -111,14 +135,16 @@ python3 resources/assets/models/open77_board_games/sources/preview.py
 python3 tools/test-board-games.py
 python3 tools/test-board-games-server.py
 python3 tools/test-board-games-client.py
-npm --prefix ui run build
-node ui/tests/board-games.browser.cjs
+python3 tools/test-table-menu.py
+python3 tools/test-casino-e2e.py
 ```
 
-The browser test accepts `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH` and optional
-`BOARD_GAMES_WEB_DIR`. Crosshair picking from the player's own camera (first
-and third person), the scripted views, audio and native rendering still need an
-in-game check with actual clients.
+`resources/gamemodes/op77_lightrp/tests/context_rows_test.lua` covers the
+dynamic rows of open77_contextmenu and `ui/tests/context-submenus.browser.cjs`
+its page (title and row tokens). Crosshair picking from the player's own camera
+(first and third person), whether the ALT ray reports the table props (it hits
+the cooked colliders; the menu falls back to the nearest table under a surface
+hit), audio and native rendering still need an in-game check with actual clients.
 
 ## Roulette
 
@@ -126,9 +152,9 @@ Additional native props are delivered by `open77_tabletop_extra` (3 props with o
 
 - `roulette_table`: European single-zero wheel and a separately animated ball. Place whole-dollar RP cash bets, then spin. The server chooses the outcome, closes betting during the eight-second spin and stores winnings atomically. Straight numbers return 36 times the stake, dozens 3 times and even-chance bets 2 times; returns include the original stake. Zero loses outside bets. Pending winnings and refunds belong to the character inventory and survive disconnections and restarts. Resetting or retrieving a table refunds unspun stakes; both are blocked during a spin.
 
-The roulette is a full casino table in the Night City high-roller style: a black-chrome bowl with a smoked-glass ball track and chrome deflectors, a rotor with frets, an etched number ring, a brushed cone and a chrome turret, a dark composite layout printed with 0-36, the dozens and the even chances under thin cyan lines, a chip rack, a rail and a sculpted pedestal. The board position is still the wheel centre: the table runs 2.1 m along +X (1.37 m in game) and stands 1.23 m below the wheel datum (0.80 m in game), so place it on the floor and raise the preview with PgUp until the plinth touches the ground. The ball (3 cm, 2 cm in game, faintly luminous) rides the ball track for the first half of the spin, drops over the deflectors and the number ring, then lands in its pocket and turns with the rotor. Cameras: overhead = whole table, white side = layout from the players' side, black side = wheel close-up. A collider entity `roulette_table_collider` follows `tools/COLLISION.md`. Preview renders: `resources/assets/models/open77_tabletop_extra/sources/preview_roulette*.png`.
+The roulette is a full casino table in the Night City high-roller style: a black-chrome bowl with a smoked-glass ball track and chrome deflectors, a rotor with frets, an etched number ring, a brushed cone and a chrome turret, a dark composite layout printed with 0-36, the dozens and the even chances under thin cyan lines, a chip rack, a rail and a sculpted pedestal. The board position is still the wheel centre: the table runs 2.1 m along +X (1.37 m in game) and stands 1.23 m below the wheel datum (0.80 m in game), so aim at the floor while placing: the preview stands its plinth on the aimed surface (PgUp/PgDn adjust). The ball (3 cm, 2 cm in game, faintly luminous) rides the ball track for the first half of the spin, drops over the deflectors and the number ring, then lands in its pocket and turns with the rotor. A collider entity `roulette_table_collider` follows `tools/COLLISION.md`. Preview renders: `resources/assets/models/open77_tabletop_extra/sources/preview_roulette*.png`.
 
-The table shares placement, free mode and the optional camera views, distance leave and owner-only retrieval through the target menu with the board games. There is no numerical placement limit. Ordinary distance and overlap checks still apply.
+The table shares placement, free mode, distance leave and owner-only retrieval through the ALT menu with the board games. Seated, hold ALT on the table: *Chip: €$ 10 ›* (10, 50, 100, 500, 1,000, within your cash) picks the amount, *Bet €$ 10 ›* lists Red, Black, Even, Odd, 1-18, 19-36, 1-12, 13-24, 25-36 and Zero, and *Spin* spins; while the wheel turns only the status and *Leave table* remain; then the status shows the result (*Result: 17 Black*) with *Next round*. Each accepted bet and the result with your winnings arrive as notices. Straight numbers 1-36 are not in the menu (the menu shows at most 24 rows and one folder level); the server still accepts them. There is no numerical placement limit. Ordinary distance and overlap checks still apply.
 
 Admin item command:
 
@@ -136,4 +162,4 @@ Admin item command:
 /lightrp.giveitem me roulette_table 1
 ```
 
-Validation: `tools/test-tabletop-extra.py`, `tools/test-tabletop-extra-client.py`, `tools/test-tabletop-extra-server.py`, `tools/build-tabletop-extra-props.py --verify-only`, and `ui/tests/board-games.browser.cjs`. Server tests cover atomic cash debits, failed storage, exactly-once payouts after restarts, offline refunds and recycled player IDs.
+Validation: `tools/test-tabletop-extra.py`, `tools/test-tabletop-extra-client.py`, `tools/test-tabletop-extra-server.py`, `tools/build-tabletop-extra-props.py --verify-only`, and `tools/test-table-menu.py`. Server tests cover atomic cash debits, failed storage, exactly-once payouts after restarts, offline refunds and recycled player IDs.

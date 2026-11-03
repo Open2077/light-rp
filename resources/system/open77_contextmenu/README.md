@@ -4,7 +4,7 @@ This resource gives players an ALT + click context menu on players, vehicles, NP
 Generic client-side ALT + click targeting framework. **No actions are installed
 by default.** Your consumer resource supplies actions through named client exports.
 No Freeroam dependency, hardcoded commands, admin privileges or server authority.
-This README describes version 1.1.0.
+This README describes version 1.3.0.
 
 - **Docs:** [Generic context menu — open77_contextmenu](https://open2077.net/docs/context-menu), [Screen picking and cursor utilities](https://open2077.net/docs/screen-picking)
 - **Starts:** on its own
@@ -58,6 +58,26 @@ AddEventHandler("onClientResourceStart", function(name)
     if not token then print(tostring(reason)) end
 end)
 ```
+
+Dynamic rows (1.3.0): give a definition `rows="exportName"` and the menu calls
+that export with the clicked context (after `canInteract`, if any) and shows the
+rows it answers instead of the definition's label:
+
+```lua
+exports("tableRows", function(ctx)
+    return { title = "Roulette", rows = {
+        { key = "spin", label = "Spin", icon = "interact" },
+        { key = "bet.red", label = "Red", submenu = { id = "bet", label = "Bet 50" } },
+    } }
+end)
+-- onSelect receives ctx.action.key ("spin", "bet.red"); the row is offered
+-- again for the current target state before onSelect runs.
+```
+
+Rows: `key` (name), `label` (≤ 80), optional `description`, `icon`, `danger`,
+`submenu` (same shape as a definition's). At most `maxActions` rows in total,
+keys unique; `title` (≤ 40) replaces the target header. One registration then
+covers a target whose actions follow live state, within the per-owner limit.
 
 Consumer permission: `local.events` for this lifecycle handler, plus permissions
 needed by your own actions. Registrations/disable claims are removed on stop.

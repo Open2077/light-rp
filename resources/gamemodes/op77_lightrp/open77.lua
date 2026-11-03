@@ -22,7 +22,7 @@ dependencies {
     "open77_notifications >=1.0.0",
     "open77_vehicles >=0.1.0",
     "open77_voice >=0.1.0",
-    "open77_contextmenu >=1.2.0",
+    "open77_contextmenu >=1.3.0",
     "open77_animations >=1.0.0",
     "open77_icons >=1.0.0",
     "open77_weapons >=0.2.0",
@@ -173,6 +173,7 @@ client_script "client/core/casino_slots.lua"
 client_script "client/core/casino_blackjack.lua"
 client_script "client/core/casino_fortune.lua"
 client_script "client/core/board_games.lua"
+client_script "client/core/table_menu.lua" -- the ALT menu of every table (after board_games and the casino adapters)
 client_script "client/core/safezones.lua"
 client_script "client/core/vanilla_safe_areas.lua" -- the game's own safe areas stay off
 client_script "client/core/safezone_tile.lua" -- the green tile by the voice plate (web/safezone/)

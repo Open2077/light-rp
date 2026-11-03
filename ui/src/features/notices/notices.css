@@ -4,5 +4,4 @@
 .notices { position: absolute; left: var(--hud-safe-x); top: 50%; transform: translateY(-50%); align-items: flex-start; max-width: 380px; }
 /* During a board game the left edge holds the game panel: right edge, above the
    game layer (z-index 140). */
-.notices--right { left: auto; right: var(--hud-safe-x); align-items: flex-end; z-index: 150; }
 .o77-notice { position: relative; }

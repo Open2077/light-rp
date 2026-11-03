@@ -3,13 +3,14 @@
 -- Casino tables plug in with Extra.register(kind,{
 --   boardModel=function(board) return depotPath end,     -- the placed base prop
 --   pieceTargets=function(board,result) end,              -- Extra.put(...) each moving prop
---   camera=function(board,view) return pose end,          -- optional; default table views
---   view=function(board) return {extra=...,text=...} end, -- optional; default board.game
---   pointer=function(board,event) return handled end,     -- optional; default: panel only
+--   pointer=function(board,event) return handled end,     -- optional; a crosshair click on the table
 --   aim=function(board,x,y,line) end,                     -- optional; outline what x,y points at
---   operations={name=true,...},                           -- page actions forwarded to the server
+--   operations={name=true,...},                           -- requests Extra.command forwards to the server
 --   turnOnly=true,                                        -- optional; only the actor may act
 -- })
+-- There is no panel: what a player can do at the table (bets, Spin, Hit...)
+-- is listed in the ALT target menu, built per kind in client/core/table_menu.lua
+-- (LightRpTableMenu.register), which sends Extra.command requests.
 -- The renderer moves only props whose target changed, every frame, and calls
 -- pieceTargets again only when a new snapshot arrives or the targets expire.
 -- pieceTargets says how long its result holds, in server time:
@@ -19,8 +20,8 @@
 -- is recomputed every frame, the safe default for a time-driven table.
 -- pieceTargets runs inside the 176 client's ~10k instruction budget per
 -- resume: keep it to a few dozen props, no searches.
--- event.x/y are the cursor in panel mode and the screen centre (crosshair)
--- in free mode; Open77.camera.screenRay(event.x,event.y) works for both.
+-- event.x/y are the screen centre (the crosshair); Open77.camera.screenRay(event.x,event.y)
+-- gives the aiming ray.
 local Extra={}
 LightRpTabletopExtraClient=Extra
 local SCALE=.65
@@ -28,7 +29,6 @@ Extra.SCALE=SCALE
 local NET="lightrp:boardGames:request"
 local games={}
 local boards,clocks={},{}
-local activeId
 local function clamp(v,a,b) return math.max(a,math.min(b,v)) end
 Extra.clamp=clamp
 local function me()
@@ -53,10 +53,6 @@ function Extra.observe(board)
     local stamp=tonumber(board.serverNow)
     local clock=clocks[board.id]
     if stamp and (not clock or stamp~=clock.stamp) then clocks[board.id]={stamp=stamp,received=GetGameTimer()} end
-end
-function Extra.setActive(id)
-    if type(id)=="table" then Extra.observe(id);id=id.id end
-    activeId=id
 end
 -- The server clock projected forward from the last snapshot, so every client
 -- animates a timed event (spin, pull, deal) to the same pose at the same time.
@@ -104,8 +100,8 @@ function Extra.pieceTargets(board)
     if holdUntil==math.huge then return result,math.huge end
     return result,GetGameTimer()+(holdUntil-holdNow)
 end
--- Whether a click at this table means something on the table itself (free
--- mode aims with the crosshair); panel-only tables open their panel instead.
+-- Whether a crosshair click at this table means something on the table itself;
+-- the others are played from the ALT menu only.
 function Extra.aimable(board)
     local adapter=games[board.kind]
     return adapter~=nil and adapter.pointer~=nil
@@ -115,23 +111,6 @@ end
 function Extra.aim(board,x,y,line)
     local adapter=games[board.kind]
     if adapter and adapter.aim then adapter.aim(board,x,y,line) end
-end
-function Extra.camera(board,view)
-    local adapter=games[board.kind]
-    if adapter.camera then local pose=adapter.camera(board,view);if pose then return pose end end
-    local side=view=="black" and -1 or 1
-    if view=="white" or view=="black" then
-        return {position=world(board,0,side*1.65,.85),lookAt=world(board,0,0,0),fov=52}
-    end
-    if view=="top" then
-        return {position=world(board,0,-.015,1.85),rotation={pitch=-89.5,yaw=board.rotation or 0,roll=0},fov=52}
-    end
-end
-function Extra.view(board)
-    Extra.observe(board)
-    local adapter=games[board.kind]
-    if adapter.view then return adapter.view(board) end
-    return {extra=board.game}
 end
 local function trace(reason,board,format,...)
     local client=LightRpBoardGamesClient
@@ -150,19 +129,8 @@ Extra.command=command
 function Extra.pointer(board,event)
     local adapter=games[board.kind]
     if not adapter then return false end
-    if event.rightPressed or event.rightReleased then return false end
     if adapter.pointer then return adapter.pointer(board,event) end
-    return true -- money is wagered explicitly in the panel
-end
-function Extra.bind(page)
-    page:on("lightrp:tabletop:action",function(payload)
-        local board=activeId and boards[activeId]
-        if not board or type(payload)~="table" then
-            trace("action_refused",board,"page action %s without an active table (active=%s)",tostring(type(payload)=="table" and payload.operation),tostring(activeId))
-            return
-        end
-        command(board,payload.operation,payload.data)
-    end)
+    return true -- money is wagered explicitly from the ALT menu
 end
 
 -- Roulette -------------------------------------------------------------------
@@ -219,19 +187,5 @@ Extra.register("roulette",{
         local a=math.rad(ball)
         Extra.put(result,"roulette-wheel","roulette_wheel",Extra.asset(ROULETTE,"roulette_wheel"),0,0,0,-wheel)
         Extra.put(result,"roulette-ball","roulette_ball",Extra.asset(ROULETTE,"roulette_ball"),r*math.sin(a),r*math.cos(a),z,0)
-    end,
-    -- The table runs along +X from the wheel; players stand on the -Y side.
-    camera=function(board,view)
-        local world=Extra.world
-        if view=="top" then
-            return {position=world(board,.78,-.01,2.05),rotation={pitch=-89.5,yaw=board.rotation or 0,roll=0},fov=52}
-        elseif view=="white" then -- the betting layout, from the players' side
-            return {position=world(board,1.0,-1.55,1.05),lookAt=world(board,.85,0,0),fov=50}
-        elseif view=="black" then -- close on the wheel to follow the ball
-            return {position=world(board,-.10,-.80,.70),lookAt=world(board,0,.02,.03),fov=44}
-        end
-    end,
-    view=function(board)
-        return {extra=board.game,text="Choose a bet and amount. The server settles the roulette result."}
     end,
 })

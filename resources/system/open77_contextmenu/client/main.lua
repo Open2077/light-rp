@@ -23,7 +23,7 @@ exports("setEnabled",function(token,value) local r=owner();return registry.setEn
 exports("list",function() local r=owner();return registry.list(r) end)
 exports("isOpen",function() return active end)
 exports("isReady",function() return ready and page~=nil end)
-exports("getVersion",function() return "1.2.0" end)
+exports("getVersion",function() return "1.3.0" end)
 exports("getActivationKey",function() return Open77.input.keyFor("contextmenu.activate") or ContextMenuConfig.key end)
 exports("getContext",function() return selection end)
 exports("getTarget",function() return selection and selection.target end)
@@ -151,31 +151,53 @@ local function pick(payload)
     send("context:loading",{epoch=request,x=cursor.x,y=cursor.y})
     local context,reason=contextAt(cursor.x,cursor.y)
     if not context then busy=false;send("context:empty",{epoch=request,message=reason});return end
-    local rows={}
+    local rows,title={},nil
     local budget=now()+config.lookupBudgetMs
+    -- Navigation is presentation-only. Namespace folders by the real
+    -- provider so another resource cannot merge into its submenu.
+    local function folder(action,menu)
+        return menu and {id=action.owner.."/"..menu.id,label=menu.label,icon=menu.icon or "interact"} or nil
+    end
     for _,action in ipairs(registry.candidates(context)) do
         if not validRequest(request) then return end
         if now()>=budget then break end
         local allowed=not action.canInteract or call(action,action.canInteract,context,request,budget)==true
         if not validRequest(request) then return end
+        local listed
+        if allowed and action.rows and registry.get(action.token)==action then
+            -- Dynamic rows: one provider call answers this target's actions.
+            local answer=call(action,action.rows,context,request,budget)
+            if not validRequest(request) then return end
+            listed=ContextMenuRegistry.dynamicRows(answer,config.maxActions-#rows)
+            allowed=listed~=nil
+        end
         if allowed and registry.get(action.token)==action and registry.matches(action,context) then
-            -- Navigation is presentation-only. Namespace folders by the real
-            -- provider so another resource cannot merge into its submenu.
-            local submenu=action.submenu and {id=action.owner.."/"..action.submenu.id,
-                label=action.submenu.label,icon=action.submenu.icon or "interact"} or nil
-            rows[#rows+1]={token=action.token,label=action.label,description=action.description,
-                group=action.group,icon=action.icon,danger=action.danger,submenu=submenu}
-            visibleActions[action.token]=true
+            if listed then
+                title=title or listed.title
+                for _,row in ipairs(listed.rows) do
+                    local token=action.token.."#"..row.key
+                    rows[#rows+1]={token=token,label=row.label,description=row.description,
+                        group=action.group,icon=row.icon or action.icon,danger=row.danger,submenu=folder(action,row.submenu)}
+                    visibleActions[token]={token=action.token,key=row.key}
+                end
+            else
+                rows[#rows+1]={token=action.token,label=action.label,description=action.description,
+                    group=action.group,icon=action.icon,danger=action.danger,submenu=folder(action,action.submenu)}
+                visibleActions[action.token]=true
+            end
             if #rows>=config.maxActions then break end
         end
     end
     if not validRequest(request) then return end
     selection,busy=context,false
-    send("context:menu",{epoch=request,x=cursor.x,y=cursor.y,target=context.target, distance=context.playerDistance,actions=rows})
+    send("context:menu",{epoch=request,x=cursor.x,y=cursor.y,target=context.target, distance=context.playerDistance,actions=rows,title=title})
 end
 local function selectAction(payload)
     if not active or busy or type(payload)~="table" or payload.epoch~=epoch or not visibleActions[payload.token] then return end
-    local action=registry.get(payload.token)
+    -- A dynamic row's token is "<action token>#<row key>".
+    local visible=visibleActions[payload.token]
+    local key=type(visible)=="table" and visible.key or nil
+    local action=registry.get(type(visible)=="table" and visible.token or payload.token)
     if not action or not selection then close("action_unavailable");return end
     local request=epoch
     busy=true;send("context:busy",{epoch=request,token=payload.token})
@@ -183,13 +205,21 @@ local function selectAction(payload)
     if not sameTarget(selection,current) or not registry.matches(action,current) then close("target_changed");return end
     local allowed=not action.canInteract or call(action,action.canInteract,current,request)==true
     if not validRequest(request) then return end
+    if allowed and key then
+        -- The row must still be offered for the current state of the target.
+        local answer=call(action,action.rows,current,request)
+        if not validRequest(request) then return end
+        local listed=ContextMenuRegistry.dynamicRows(answer,config.maxActions)
+        allowed=false
+        for _,row in ipairs(listed and listed.rows or {}) do if row.key==key then allowed=true end end
+    end
     -- Revalidate after a yielding predicate, not just before it.
     local fresh=contextAt(selection.screen.x,selection.screen.y)
     if not allowed or registry.get(action.token)~=action or not sameTarget(current,fresh) or not registry.matches(action,fresh) then
         busy=false;send("context:error",{epoch=request,message="This action is no longer available."});return
     end
     -- Resolve the callback from the registered owner, never from WebUI payload.
-    fresh.action={id=action.id,owner=action.owner,token=action.token,data=action.data}
+    fresh.action={id=action.id,owner=action.owner,token=action.token,data=action.data,key=key}
     local promise,reason=Open77.exports.call(action.owner,action.onSelect,fresh)
     if not promise then busy=false;send("context:error",{epoch=request,message=tostring(reason)});return end
     -- Release input before the provider opens another UI or starts an interaction.

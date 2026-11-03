@@ -135,7 +135,6 @@ end
 -- shows or hides it through the same close/action channel, so a dialog and the
 -- menu share one focus owner.
 function Ui.setPromptFocus(active)
-    if not active and LightRpBoardGamesClient and LightRpBoardGamesClient.isActive() then return end
     if not active and LightRpVehicleCustomizationClient and LightRpVehicleCustomizationClient.isActive() then return end
     if Ui.supportMode then return end -- the compact menu owns its input policy
     if not active and (Ui.dialogs.support or Ui.dialogs.housing) then return end

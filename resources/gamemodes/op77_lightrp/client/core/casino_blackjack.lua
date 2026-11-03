@@ -216,36 +216,8 @@ local function pieceTargets(board,result)
     end
     Extra.stillUntil(board,holdMin)
 end
-local function seatCamera(board)
-    local seat=SEATS[Extra.seat(board) or "black"]
-    return seat
-end
 Extra.register("blackjack",{
     operations={bet=true,deal=true,hit=true,stand=true,double=true},
     boardModel=function() return asset("blackjack_table") end,
     pieceTargets=pieceTargets,
-    camera=function(board,view)
-        local w=Extra.world
-        if view=="top" then
-            return {position=w(board,0,-.42,FZ+2.4),rotation={pitch=-89.5,yaw=board.rotation or 0,roll=0},fov=52}
-        elseif view=="white" then
-            local s=seatCamera(board)
-            return {position=w(board,1.65*s.ux,1.65*s.uy,FZ+.85),lookAt=w(board,0,-.28,FZ),fov=50}
-        elseif view=="black" then
-            return {position=w(board,0,.95,FZ+.8),lookAt=w(board,0,-.55,FZ),fov=55}
-        end
-        return {position=w(board,1.55,-1.35,FZ+1.15),lookAt=w(board,0,-.3,FZ),fov=50}
-    end,
-    view=function(board)
-        local g=board.game
-        local seat=Extra.seat(board)
-        local now=Extra.serverTime(board)
-        g.clientNow=now;g.mySeat=seat
-        g.legal=B.legal(g,seat,now)
-        local hand=seat and g.hands and g.hands[seat]
-        local text="Bet from the panel, then Hit, Stand or Double on your turn."
-        if g.phase=="playing" and g.seatTurn==seat and hand then text="Your turn: Hit, Stand or Double."
-        elseif g.phase=="result" then text="The dealer settles the table. Winnings arrive as cash." end
-        return {extra=g,text=text}
-    end,
 })

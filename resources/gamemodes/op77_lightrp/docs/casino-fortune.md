@@ -48,9 +48,14 @@ discs above ~22 segments/s, two orbiting 40x medallions, four flapper poses
 kicked at each peg crossing (timed exactly from the easing), and one chip stack
 per staked spot; at the stop, losing stacks are swept and the payout rises
 next to the winning spot. 38-44 props per table; the measured client peak is
-4,700 instructions per resume. Clicking a felt spot selects it in the panel
-(it never wagers). Camera views: default = wheel and table, white = felt,
-black = flapper close-up.
+4,700 instructions per resume. There is no panel. Seated, hold ALT on the
+wheel: *Chip: €$ 10 ›* (10, 50, 100, 500, 1,000 within your cash) picks the
+amount, *Bet €$ 10 ›* lists 1x, 2x, 5x, 10x, 20x, Neon Eye 40x and Starburst
+40x (with what each pays), and *Spin* spins (also after a result: it starts the
+next round); while the wheel turns only the status and *Leave table* remain.
+Aiming at a felt spot outlines it and a click bets the chosen chip there
+(confirmed by a notice). The status row shows your bets or the last result,
+and the result notice says what you won.
 
 Look: original art from `tools/build-casino-fortune-props.py` (shared kit
 `tools/wheel_tables_art.py`: an original stroke typeface drawn with Pillow,

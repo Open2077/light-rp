@@ -12,19 +12,21 @@ tools/test-board-games-client.py. Between them:
   empty Lua table becomes {}, a table with holes or extra keys an object with
   string keys, and numbers come back as floats (E2E_FLOATS=0 keeps integers);
   events arrive in order after E2E_LATENCY ms;
-* the page's view payload (lightrp:boardGames:view) and page actions are JSON
-  round-tripped the same way;
+* there is no table page: every action goes through the ALT target menu
+  (client/core/table_menu.lua), whose rows answer and click context are JSON
+  round-tripped across the export boundary and validated by the real
+  open77_contextmenu registry (ContextMenuRegistry.dynamicRows);
 * one simulated wall clock drives both sides; the client's GetGameTimer has an
   unrelated origin (E2E_OFFSET), so only board.serverNow links the two;
 * server threads honour Wait(ms) (2 s board loop, 1 s claim loop); client
   threads honour Wait(ms) at E2E_FPS frames, every resume (threads, net event
-  handlers, page handlers) metered at BOARD_BUDGET instructions;
+  handlers, menu callbacks) metered at BOARD_BUDGET instructions;
 * native props load asynchronously: a model's first spawn renders after
   E2E_LOAD_FIRST ms (the 3 MB table packs after E2E_LOAD_TABLE ms), later
   spawns after E2E_LOAD_AGAIN ms; setTransform moves position+yaw only.
 
 Scenarios assert what the player SEES: native props (model and board-local
-position), and what the page receives (view.extra).
+position), the ALT menu rows and the notices.
 """
 from pathlib import Path
 import json, math, os, sys
@@ -135,8 +137,9 @@ client_source = (ROOT/'tools/test-board-games-client.py').read_text()
 CLIENT_SOURCES = ['shared/board_games.lua', 'shared/tabletop_extra.lua', 'shared/tabletop_extra_rules.lua',
                   'shared/casino_slots.lua', 'shared/casino_blackjack.lua', 'shared/casino_fortune.lua',
                   'client/core/tabletop_extra.lua', 'client/core/casino_slots.lua', 'client/core/casino_blackjack.lua',
-                  'client/core/casino_fortune.lua', 'client/core/board_games.lua']
+                  'client/core/casino_fortune.lua', 'client/core/board_games.lua', 'client/core/table_menu.lua']
 CLIENT_HOST = r'''
+LightRpEvents.net={state='state'}
 LightRpBoardGames={};LightRpItems={}
 Open77.network.status=function() return {playerId=1} end
 gameTimer=0
@@ -145,8 +148,8 @@ clock=nil
 logs={}
 function LightRpUi.log(...) local line=string.format(...);logs[#logs+1]=line;if E2E_VERBOSE then print('[client] '..line) end end
 function LightRpUi.send(name,p)
- if name=='lightrp:boardGames:view' then pageView(p)
- elseif name=='notice' then lastNotice=p.body;notices[#notices+1]=p.body;if E2E_VERBOSE then print('[notice] '..tostring(p.body)) end
+ assert(not name:find('boardGames',1,true),'no table page payload: '..name)
+ if name=='notice' then lastNotice=p.body;notices[#notices+1]=p.body;if E2E_VERBOSE then print('[notice] '..tostring(p.body)) end
  elseif name=='dialogClose' then closeRequest=p end
 end
 notices={}
@@ -185,7 +188,14 @@ end
 -- Net event and page handlers run in their own metered resume.
 function callMetered(fn,arg) metered(coroutine.create(fn),arg) end
 function netEvent(name,payload) local fn=assert(events[name],'no client handler '..name);callMetered(fn,payload) end
-function pageEvent(name,payload) local fn=assert(pageHandlers[name],'no page handler '..name);callMetered(fn,payload) end
+-- The ALT menu calls the table menu's exports from open77_contextmenu.
+function menuCall(name,ctx)
+ local fn=assert(exportCallbacks[name],'no export '..name)
+ invokingResource='open77_contextmenu'
+ metered(coroutine.create(function() menuResult=fn(ctx) end))
+ invokingResource=nil
+ return menuResult
+end
 -- Native props: asynchronous loading, transform history, the 256-per-owner quota.
 nativeProps,modelReadyAt,nextNativeId={},{},0
 DEPOTS={'open77\\assets\\op77_lightrp\\casino_blackjack\\','open77\\assets\\op77_lightrp\\casino_slots\\',
@@ -238,8 +248,7 @@ class Sim:
         self.wall = 1790000000000
         self.client_skew = 7_777    # the client booted at a different moment
         self.queue = []             # (deliverAt, side, name, payload_json)
-        self.views = []             # (wall, view dict) as the page receives them
-        self.sizes = {'state': 0, 'request': 0, 'view': 0}
+        self.sizes = {'state': 0, 'request': 0, 'menu': 0}
         self.dropped = []   # events the 176 client would reject as malformed
         self.client_requests = []
         self.dropped = []
@@ -265,7 +274,6 @@ class Sim:
         c = self.client = cns['lua']
         g = c.globals()
         g.bridgeToServer = self._to_server
-        g.pageView = self._page_view
         g.E2E_VERBOSE = VERBOSE
         g.LOAD_FIRST, g.LOAD_TABLE, g.LOAD_AGAIN = LOAD_FIRST, LOAD_TABLE, LOAD_AGAIN
         g.LOST_TRANSFORMS = os.getenv('E2E_LOST_TRANSFORMS') == '1'
@@ -289,6 +297,7 @@ class Sim:
         c.globals().Open77.json = c.table_from({'decode': cdecode, 'encode': cencode})
         for name in CLIENT_SOURCES:
             c.execute((GAME/name).read_text(), name=name)
+        c.execute((ROOT/'resources/system/open77_contextmenu/client/registry.lua').read_text(), name='registry.lua')
         c.execute('LightRpBoardGamesClient.bind(page);LightRpBoardGamesClient.start()')
         if at:
             self.server.execute(f"positions[1].x,positions[1].y,positions[1].z={at[0]},{at[1]},{at[2]}")
@@ -328,11 +337,6 @@ class Sim:
         self.client_requests.append(json.loads(text))
         self.queue.append((self.wall + LATENCY, 'server', name, text))
         return True
-
-    def _page_view(self, payload):
-        text = json.dumps(to_py(payload), separators=(',', ':'))
-        self.sizes['view'] = max(self.sizes['view'], len(text))
-        self.views.append((self.wall, json.loads(text)))
 
     def _deliver(self):
         due = [q for q in self.queue if q[0] <= self.wall]
@@ -378,11 +382,40 @@ class Sim:
         keys[key] = False
         self.advance(self.frame_ms*2)
 
-    def page(self, name, payload, think=400):
-        # A human click: not within the server's 150 ms per-player request spacing.
+    BASES = {'connect4': 'connect4_board', 'blackjack': 'blackjack_table', 'slots': 'slot_cabinet',
+             'fortune': 'fortune_stand', 'roulette': 'roulette_table', 'chess': 'chess_board'}
+
+    def _menu_context(self, board_id, key=None):
+        b = self.board(board_id)
+        base = [p for p in self.props(board_id) if p['name'] == self.BASES[b.kind] and abs(p['x']) < .01 and abs(p['y']) < .01]
+        assert base, f'no base prop for {board_id}'
+        ctx = {'target': {'kind': 'prop', 'networked': False, 'propId': base[0]['id']}, 'hasSurface': True, 'playerDistance': 1.2,
+               'position': {'x': b.position.x, 'y': b.position.y, 'z': b.position.z}}
+        if key:
+            ctx['action'] = {'id': 'tables.menu', 'owner': 'op77_lightrp', 'token': '1', 'key': key}
+        return roundtrip(self.client, ctx)[0]
+
+    def menu(self, board_id):
+        """The ALT menu on the table, as open77_contextmenu receives and validates it."""
+        answer = self.client.globals().menuCall('tableMenuRows', self._menu_context(board_id))
+        text = json.dumps(to_py(answer), separators=(',', ':'))
+        check(json_depth(json.loads(text)) <= 7, 'menu answer deeper than the codec allows')
+        self.sizes['menu'] = max(self.sizes['menu'], len(text))
+        listed = self.client.globals().ContextMenuRegistry.dynamicRows(to_lua(self.client, json.loads(text), FLOATS), 24)
+        check(listed is not None, f'rows refused by open77_contextmenu: {text}')
+        rows = {}
+        for _, row in listed.rows.items():
+            rows[row.key] = {'label': row.label, 'folder': row.submenu.label if row.submenu else None}
+        return rows
+
+    def select(self, board_id, key, think=400):
+        """Hold ALT, click the table, pick the row (a human: not within the 150 ms request spacing)."""
         self.advance(think)
-        lua_payload, _ = roundtrip(self.client, payload)
-        self.client.globals().pageEvent(name, lua_payload)
+        rows = self.menu(board_id)
+        check(key in rows, f'menu row {key} offered: {sorted(rows)}')
+        ok = self.client.globals().menuCall('tableMenuSelect', self._menu_context(board_id, key))
+        check(ok, f'menu row {key} ran')
+        return rows[key]
 
     def interact(self, board_id):
         self.advance(400)
@@ -415,8 +448,12 @@ class Sim:
     def named(self, board_id, prefix):
         return [p for p in self.props(board_id) if p['name'].startswith(prefix)]
 
-    def view(self):
-        return self.views[-1][1] if self.views else None
+    def game(self, board_id):
+        """The client's copy of the table state (what the menu is computed from)."""
+        return self.board(board_id).game
+
+    def server_time(self, board_id):
+        return self.client.eval(f'LightRpTabletopExtraClient.serverTime(LightRpBoardGamesClient.boards["{board_id}"])')
 
     def server_boards(self):
         rows = {}
@@ -473,14 +510,15 @@ def connect4():
     sim.wait_for(lambda: sim.named(board_id, 'connect4_board'), 'board prop')
     sim.interact(board_id)
     sim.wait_for(lambda: sim.client.eval('LightRpBoardGamesClient.isActive()'), 'seated camera')
-    sim.page('lightrp:boardGames:mode', {'mode': 'solo'})
+    check(any('ALT' in str(n) for n in sim.notices()), f'seating explains the controls {sim.notices()}')
+    rows = sim.menu(board_id)
+    check(rows['mode.solo']['folder'] == 'Mode: 1v1' and 'leave' in rows and 'pickup' in rows, f'owner menu {rows}')
+    sim.select(board_id, 'mode.solo')
     sim.advance(1500)
     b = sim.board(board_id)
     check(b is not None and b.mode == 'solo', f'solo mode: board mode {b and b.mode}, notices {sim.notices()}, diagnostics {sim.diagnostics()}')
-    # Free mode: no scripted camera, the character is not frozen, the HUD stays.
-    v = sim.view()
-    check(v['free'] and not v['panel'] and v['cameraView'] == 'free', f'free mode by default {v}')
-    check(sim.client.eval('camera==nil and not frozen and not focus and cinematic~=true'), 'no camera, freeze, cursor or cinematic')
+    # Free mode only: no camera, no freeze, no cursor, no HUD change (the mocks raise).
+    check(sim.client.eval('not focus'), 'no cursor')
     # Aim the crosshair at column 4 of the upright grid and click.
     sim.client.execute(f'''local b=LightRpBoardGamesClient.boards["{board_id}"];local a=math.rad(b.rotation or 0)
 local nx,ny=-math.sin(a),math.cos(a)
@@ -505,7 +543,7 @@ forcedRay={{origin={{x=b.position.x-nx*2,y=b.position.y-ny*2,z=b.position.z+.4*.
             sim.server.execute(f'positions[1].x,positions[1].y,positions[1].z={b.position.x+dx},{b.position.y},{b.position.z}')
     walk(3.8)
     sim.advance(800)
-    check(sim.client.eval('LightRpBoardGamesClient.isActive()') and sim.view()['leaving'], 'a step past 3.5 m only warns')
+    check(sim.client.eval('LightRpBoardGamesClient.isActive()') and any('Too far' in str(n) for n in sim.notices()), 'a step past 3.5 m only warns')
     sim.advance(1500)
     check(sim.client.eval('not LightRpBoardGamesClient.isActive()'), 'the client left the table')
     check(any('walked away' in str(n) for n in sim.notices()), f'leave notice {sim.notices()}')
@@ -521,7 +559,7 @@ forcedRay={{origin={{x=b.position.x-nx*2,y=b.position.y-ny*2,z=b.position.z+.4*.
     check('walked away' in str(sim.server.globals()['notices'][1]), 'server notice for a released seat')
     walk(.5)
     no_render_failures(sim, 'connect4')
-    print(f'connect4 e2e: place, join, free mode, solo, crosshair drop, AI reply, discs visible and settled, walk-away leave and 5 m server release: OK ({len(discs)} discs)')
+    print(f'connect4 e2e: place, join, ALT menu solo mode, crosshair drop, AI reply, discs visible and settled, walk-away leave and 5 m server release: OK ({len(discs)} discs)')
     return sim
 
 # =========================================================================================
@@ -539,30 +577,33 @@ def blackjack():
     # Join through the E interaction point.
     sim.interact(board_id)
     sim.wait_for(lambda: sim.client.eval('LightRpBoardGamesClient.isActive()'), 'seated camera')
-    v = sim.view()
-    check(v['kind'] == 'blackjack' and v['extra']['mySeat'] == 'white' and v['extra']['phase'] == 'betting', f'betting view {v.get("extra")}')
-    # Seated in free mode; a click at this panel-only table opens the betting panel.
-    check(v['free'] and not v['panel'], f'free mode by default {v.get("free")} {v.get("panel")}')
+    check(sim.game(board_id).phase == 'betting' and sim.client.eval(f'LightRpTabletopExtraClient.seat(LightRpBoardGamesClient.boards["{board_id}"])') == 'white', 'seated at a betting table')
+    # A click on the felt wagers nothing: it points at the ALT menu.
+    requests = len(sim.client_requests)
     sim.press('mouse1')
-    check(sim.view()['panel'] and sim.client.eval('focus'), 'a click opens the betting panel with a cursor')
-    # Bet through the page action path.
-    sim.page('lightrp:tabletop:action', {'operation': 'bet', 'data': {'amount': 25}})
-    sim.wait_for(lambda: (sim.view()['extra'].get('hands') or {}).get('white'), 'bet in the view')
-    v = sim.view()['extra']
-    check(v['hands']['white']['bet'] == 25 and v['closesAt'], f'bet view {v}')
-    closes = int(v['closesAt'])
+    check(len(sim.client_requests) == requests and not sim.client.eval('focus') and 'Hold ALT' in str(sim.notices()[-1]), 'a click points at the ALT menu')
+    rows = sim.menu(board_id)
+    check(rows['status']['label'] == 'Place a bet' and rows['bet.50']['folder'] == 'Bet' and 'deal' not in rows and 'hit' not in rows, f'betting menu {rows}')
+    # Bet from the menu.
+    sim.select(board_id, 'bet.50')
+    sim.wait_for(lambda: sim.game(board_id).hands['white'], 'bet on the client')
+    g = sim.game(board_id)
+    check(g.hands['white'].bet == 50 and g.closesAt, 'bet state')
+    closes = int(g.closesAt)
     cash = sim.server.eval('cash(1)')
-    check(cash == 975, f'stake debited, cash {cash}')
+    check(cash == 950, f'stake debited, cash {cash}')
+    rows = sim.menu(board_id)
+    check(rows['status']['label'] == 'Your bet: €$ 50' and rows['bet.10']['folder'] == 'Add to bet' and 'deal' in rows, f'menu after the bet {rows}')
     sim.wait_for(lambda: len(sim.named(board_id, 'bj_chips_')) == 1, 'bet chips on the felt', 3000)
     sim.advance(800)    # the stack slides from the rail to the circle in 400 ms
-    chips = sim.named(board_id, 'bj_chips_25_1')
+    chips = sim.named(board_id, 'bj_chips_25_2')
     a = math.radians(54)
     check(chips and near(chips[0], .80*math.sin(a), -.80*math.cos(a), 1.35, .02), f'chips in the betting circle {chips}')
-    # The countdown: the page counts down from the projected server clock.
+    # The countdown: the client projects the server clock.
     window = sim.server.globals().LightRpBlackjack.BET_WINDOW/1000
     check(window == 15, f'15 s betting window, got {window}')
     sim.advance(5000)
-    left = (closes - sim.view()['extra']['clientNow'])/1000
+    left = (closes - sim.server_time(board_id))/1000
     check(window-6.5 < left < window-5, f'countdown follows the server clock ({left:.2f} s left)')
     check(not sim.named(board_id, 'bj_card_'), 'no cards before the deal')
     sim.advance_to_server(closes)
@@ -572,11 +613,11 @@ def blackjack():
     dealt = game['dealtAt']
     hand = game['hands']['white']['cards']; dealer = game['dealer']['cards']
     check([c['c'] for c in hand] == ['TS', '6H'] and dealer[0]['c'] == '9D' and game['_hole'] == '7C', f'dealt {hand} {dealer}')
-    # What reaches the client and the page.
-    sim.wait_for(lambda: sim.view()['extra']['phase'] == 'playing', 'playing view', 1000)
-    v = sim.view()['extra']
-    check(len(v['hands']['white']['cards']) == 2 and len(v['dealer']['cards']) == 2, f'view cards {v}')
-    check('c' not in v['dealer']['cards'][1], 'hole card hidden in the view')
+    # What reaches the client.
+    sim.wait_for(lambda: sim.game(board_id).phase == 'playing', 'playing state', 1000)
+    g = sim.game(board_id)
+    check(len(g.hands['white'].cards) == 2 and len(g.dealer.cards) == 2, 'client cards')
+    check(g.dealer.cards[2].c is None, 'hole card hidden on the client')
     seat = [( (.55-(k)*.012)*math.sin(a) + k*.032*math.cos(a), (.55-(k)*.012)*-math.cos(a) + k*.032*math.sin(a)) for k in range(7)]
     dealer_slot = [(-.07+k*.075, -.24) for k in range(7)]
     # Card timeline: white c1 at dealt, dealer c1 at +450, white c2 at +900, hole at +1350.
@@ -601,25 +642,28 @@ def blackjack():
     snapshot('settled')
     # The dealer pauses after the deal: the cards rest, nobody may act yet.
     check(int(game['actAt']) - (int(dealer[1]['t']) + slide + flip) == B.DEAL_PAUSE, f'pause after the deal {game["actAt"]}')
-    check(sim.server_now() < int(game['actAt']) and not sim.view()['extra']['legal']['hit'], 'no decision during the pause')
+    check(sim.server_now() < int(game['actAt']) and 'hit' not in sim.menu(board_id), 'no decision during the pause')
     sim.advance_to_server(int(game['actAt']) + 400)   # the client's clock trails the server by the network delay
     for code, slot, t in timeline:
         name = 'bj_card_' + (code.lower() if code else 'back')
         found = [p for p in sim.named(board_id, name) if near(p, slot[0], slot[1], 1.35, .015)]
         check(found, f'{name} rests on its spot {slot}: props {sim.named(board_id, "bj_card")}')
     check(not sim.named(board_id, 'bj_card_7c'), 'hole card is never a face prop before the reveal')
-    v = sim.view()['extra']
-    check(v['legal']['hit'] and v['legal']['stand'], f'player may act {v["legal"]}')
+    rows = sim.menu(board_id)
+    check(rows['hit']['label'] == 'Hit (16)' and rows['stand']['label'] == 'Stand (16)' and rows['double']['label'] == 'Double (€$ 50)'
+          and rows['status']['label'] == 'Hand 16 · Dealer 9', f'player may act {rows}')
+    check(any('Your turn: 16 vs dealer 9' in str(n) for n in sim.notices()), f'turn notice {sim.notices()[-3:]}')
     no_render_failures(sim, 'deal')
     # Hit: the 4D slides to the third spot.
-    sim.page('lightrp:tabletop:action', {'operation': 'hit', 'data': {}})
+    sim.select(board_id, 'hit')
     sim.wait_for(lambda: len(sim.server_boards()[board_id]['game']['hands']['white']['cards']) == 3, 'hit on the server', 1000)
     t3 = sim.server_boards()[board_id]['game']['hands']['white']['cards'][2]['t']
     sim.advance_to_server(int(t3) + slide + flip + 300)
     check([p for p in sim.named(board_id, 'bj_card_4d') if near(p, seat[2][0], seat[2][1], None, .015)], f'hit card on the third spot {sim.named(board_id, "bj_card")}')
-    check(sim.view()['extra']['hands']['white']['total'] == 20, 'view total 20')
+    rows = sim.menu(board_id)
+    check(rows['stand']['label'] == 'Stand (20)' and 'double' not in rows, f'menu total 20 {rows}')
     # Stand: the dealer reveals 7C and draws 5S to 21.
-    sim.page('lightrp:tabletop:action', {'operation': 'stand', 'data': {}})
+    sim.select(board_id, 'stand')
     sim.wait_for(lambda: sim.server_boards()[board_id]['game']['phase'] == 'result', 'dealer play', 1000)
     game = sim.server_boards()[board_id]['game']
     check(game['dealer']['total'] == 21 and game['hands']['white']['result'] == 'lose', f'result {game["dealer"]} {game["hands"]["white"]}')
@@ -635,11 +679,11 @@ def blackjack():
     check(not sim.named(board_id, 'bj_card_5s'), 'the draw waits for its time')
     sim.advance_to_server(int(third) + slide + flip + 300)
     check([p for p in sim.named(board_id, 'bj_card_5s') if near(p, dealer_slot[2][0], dealer_slot[2][1], None, .015)], f'dealer draw on its spot {sim.named(board_id, "bj_card")}')
-    v = sim.view()['extra']
-    check(v['phase'] == 'result', 'result view')
+    check(sim.game(board_id).phase == 'result', 'result state')
     # Lost chips slide into the rack and disappear.
     sim.advance_to_server(int(game['resultAt']) + B.CHIP_STAGGER + B.CHIPS + 300)
     check(not sim.named(board_id, 'bj_chips_'), f'lost stack collected {sim.named(board_id, "bj_chips_")}')
+    check('Dealer wins.' in sim.notices() and sim.menu(board_id)['status']['label'] == 'Dealer wins', f'result notice {sim.notices()[-3:]}')
     # The result stays on the felt 4-5 s, then the sweep, then the next round.
     sweep = int(game['nextAt']) - B.SWEEP
     check(4000 <= sweep - int(game['resultAt']) <= 5000, f'result shown {sweep - int(game["resultAt"])} ms before the sweep')
@@ -648,17 +692,17 @@ def blackjack():
     sim.advance_to_server(int(game['nextAt']) + 100)
     sim.wait_for(lambda: sim.server_boards()[board_id]['game']['round'] == 2, 'next round', 2500)
     sim.wait_for(lambda: not sim.named(board_id, 'bj_card_'), 'felt cleared', 2000)
-    sim.wait_for(lambda: sim.view()['extra']['phase'] == 'betting' and sim.view()['extra']['round'] == 2, 'betting view round 2', 2500)
+    sim.wait_for(lambda: sim.game(board_id).phase == 'betting' and sim.game(board_id).round == 2, 'betting state round 2', 2500)
     no_render_failures(sim, 'round 1')
     # Second round on the same shoe (KH, QH | JH, TH): a winning hand, paid out.
-    sim.page('lightrp:tabletop:action', {'operation': 'bet', 'data': {'amount': 25}})
-    sim.wait_for(lambda: (sim.view()['extra'].get('hands') or {}).get('white'), 'round 2 bet')
-    sim.page('lightrp:tabletop:action', {'operation': 'deal', 'data': {}})
+    sim.select(board_id, 'bet.50')
+    sim.wait_for(lambda: sim.game(board_id).hands['white'], 'round 2 bet')
+    sim.select(board_id, 'deal')
     sim.wait_for(lambda: sim.server_boards()[board_id]['game']['phase'] == 'playing', 'deal now', 1000)
     game = sim.server_boards()[board_id]['game']
     sim.advance_to_server(int(game['actAt']) + 300)
     check(len(sim.named(board_id, 'bj_card_')) == 4, f'round 2 shows four cards {sim.named(board_id, "bj_card")}')
-    sim.page('lightrp:tabletop:action', {'operation': 'stand', 'data': {}})
+    sim.select(board_id, 'stand')
     sim.wait_for(lambda: sim.server_boards()[board_id]['game']['phase'] == 'result', 'round 2 result', 1000)
     game = sim.server_boards()[board_id]['game']
     sim.advance_to_server(int(game['resultAt']) + B.CHIP_STAGGER + B.CHIPS + 300)
@@ -666,9 +710,9 @@ def blackjack():
         check(sim.named(board_id, 'bj_chips_'), 'winnings stack beside the bet')
     sim.advance(1500)
     no_render_failures(sim, 'round 2')
-    print(f'blackjack e2e: place, join, bet, countdown deal, slide/flip timeline, hit, stand, reveal, draw, '
+    print(f'blackjack e2e: place, join, ALT menu bet, countdown deal, slide/flip timeline, hit, stand, reveal, draw, '
           f'chips, sweep, next round: OK (cash {sim.server.eval("cash(1)")}, peak {sim.client.eval("peakInstructions")} '
-          f'instructions/resume, largest state part {sim.sizes["state"]} B, view {sim.sizes["view"]} B)')
+          f'instructions/resume, largest state part {sim.sizes["state"]} B, menu answer {sim.sizes["menu"]} B)')
     return sim
 
 
@@ -695,15 +739,15 @@ def blackjack_live():
     sim.advance(3000)
     sim.interact(board_id)
     sim.wait_for(lambda: sim.client.eval('LightRpBoardGamesClient.isActive()'), 'seated camera')
-    sim.page('lightrp:tabletop:action', {'operation': 'bet', 'data': {'amount': 25}})
-    sim.wait_for(lambda: (sim.view()['extra'].get('hands') or {}).get('white'), 'bet in the view')
-    closes = int(sim.view()['extra']['closesAt'])
+    sim.select(board_id, 'bet.50')
+    sim.wait_for(lambda: sim.game(board_id).hands['white'], 'bet on the client')
+    closes = int(sim.game(board_id).closesAt)
     sim.advance_to_server(closes)
     sim.wait_for(lambda: sim.server_boards()[board_id]['game']['phase'] == 'playing', 'server deal', 2500)
     game = sim.server_boards()[board_id]['game']
     sim.advance_to_server(int(game['actAt']) + 400)
     cards = sim.named(board_id, 'bj_card_')
-    check(len(cards) == 4, f'live table: four cards after the deal, client shows {cards}; view {sim.view()["extra"].get("phase")}')
+    check(len(cards) == 4, f'live table: four cards after the deal, client shows {cards}; state {sim.game(board_id).phase}')
     no_render_failures(sim, 'live table')
     print(f'blackjack live row: reloaded round {game["round"]} deals four visible cards: OK')
     return sim
@@ -712,16 +756,5 @@ def blackjack_live():
 if __name__ == '__main__':
     # Scenarios written so far; slots and fortune still need theirs.
     only = sys.argv[1:] or [n for n in ('connect4', 'blackjack', 'slots', 'fortune') if n in globals()]
-    dump = {}
     for name in only:
-        sim = globals()[name]()
-        if sim is not None:
-            seen, views = set(), []
-            for _, v in sim.views:
-                key = json.dumps(v, sort_keys=True)
-                if key not in seen:
-                    seen.add(key);views.append(v)
-            dump[name] = views
-    # The page's inputs, for ui/tests/board-games.browser.cjs (CASINO_E2E_VIEWS).
-    if os.getenv('E2E_VIEWS_OUT'):
-        Path(os.environ['E2E_VIEWS_OUT']).write_text(json.dumps(dump))
+        globals()[name]()

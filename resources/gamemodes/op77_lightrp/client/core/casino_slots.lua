@@ -68,7 +68,15 @@ local function coinCount(spin)
  local m=gross/bet
  return m>=50 and 4 or m>=10 and 3 or m>=2 and 2 or 1
 end
+-- The bet a lever click pulls with, chosen in the ALT menu (client/core/table_menu.lua).
 local selectedBet=10
+LightRpCasinoSlotsClient={
+ bet=function() return selectedBet end,
+ setBet=function(amount)
+  if type(amount)=="number" and amount==floor(amount) and amount>=S.MIN_BET and amount<=S.MAX_BET then selectedBet=amount;return true end
+  return false
+ end,
+}
 local function pullLever(board)
  return Extra.command(board,"pull",{bet=selectedBet})
 end
@@ -140,37 +148,11 @@ Extra.register("slots",{
    put(result,"slot-coin-"..i,"slot_coin",MODELS.coin,x,y,z,COIN_YAW[i],SNAP)
   end
  end,
- -- Toolbar labels are the shared ones: "Overhead" = raised front view of the
- -- whole machine, "White side" = the player's seat at the reels, "Black side" =
- -- three-quarter view of the lever. Orbit keeps the shared orbit camera.
- camera=function(board,view)
-  local w=Extra.world
-  if view=="top" then return {position=w(board,.15,-2.9,2.2),lookAt=w(board,.06,0,1.4),fov=52} end
-  if view=="white" then return {position=w(board,0,-1.25,1.36),lookAt=w(board,0,0,1.3),fov=52} end
-  if view=="black" then return {position=w(board,1.7,-1.55,1.7),lookAt=w(board,.2,0,1.25),fov=52} end
- end,
- view=function(board)
-  local game=board.game
-  local extra={}
-  for k,v in pairs(game) do extra[k]=v end
-  extra.seat=Extra.seat(board)
-  local spin=type(game.spin)=="table" and game.spin or nil
-  local stopped=not spin or Extra.serverTime(board)>=(tonumber(spin.endsAt) or 0)
-  extra.spinning=not stopped
-  extra.spin=nil
-  if not stopped then extra.stops=nil;extra.last=nil end -- never spoil the outcome in the panel
-  if spin and stopped then
-   local multiplier,label,symbols=S.evaluate(spin.stops)
-   extra.result={bet=spin.bet,gross=spin.gross,multiplier=multiplier,label=label,symbols=symbols,round=spin.round}
-  end
-  extra.paytable={three=S.THREE,twoCherries=S.TWO_CHERRIES,mixedFruit=S.MIXED_FRUIT,oneCherry=S.ONE_CHERRY,minBet=S.MIN_BET,maxBet=S.MAX_BET}
-  return {extra=extra,text="Set your bet, then pull the lever (click it) or press Pull. Backspace: leave."}
- end,
  pointer=function(board,event)
-  if event.pressed and not event.blocked and onLever(board,event) then pullLever(board) end
-  return true -- the panel or the lever; a stray click never wagers
+  if event.pressed and onLever(board,event) then pullLever(board) end
+  return true -- only the lever; a stray click never wagers
  end,
- -- Outline the lever while the crosshair (or the cursor) is on it.
+ -- Outline the lever while the crosshair is on it.
  aim=function(board,x,y,line)
   if not onLever(board,{x=x,y=y}) then return end
   local p,w=L.leverPivot,Extra.world
@@ -179,12 +161,3 @@ Extra.register("slots",{
   line(a,b);line(b,c);line(c,d);line(d,a)
  end,
 })
--- The page reports the chosen bet so a click on the lever can pull with it.
-local bind=Extra.bind
-function Extra.bind(page)
- bind(page)
- page:on("lightrp:slots:bet",function(payload)
-  local amount=type(payload)=="table" and tonumber(payload.amount)
-  if amount and amount==floor(amount) and amount>=S.MIN_BET and amount<=S.MAX_BET then selectedBet=amount end
- end)
-end

@@ -173,14 +173,10 @@ assert(o.position.x==1 and o.position.y==2 and o.position.z==3 and o.yaw==90)
 for i=1,400 do step() end
 assert(findProp('slot_cabinet') and countName('slot_cabinet_collider')==1 and #colliderCreates==1,'an unrendered collider is not a failure')
 for _,d in ipairs(diagnostics) do assert(d.event~='render','no render failure: '..tostring(d.reason)) end
--- ALT-click on the collider picks the machine up like a click on the cabinet.
+-- ALT-click on the collider finds the machine like a click on the cabinet
+-- (the table menu, tools/test-table-menu.py, resolves its target this way).
 local _,baseId=findProp('slot_cabinet');local _,colliderId=findProp('slot_cabinet_collider')
-invokingResource='open77_contextmenu';Open77.character.state().position={x=1,y=2,z=3.5}
-assert(exportCallbacks.boardGamesCanPickup({target={kind='prop',propId=baseId,networked=false}})==true)
-assert(exportCallbacks.boardGamesCanPickup({target={kind='prop',propId=colliderId,networked=false}})==true)
-machine.owned=false;events['lightrp:boardGames:state']({boards={machine}});step()
-assert(exportCallbacks.boardGamesCanPickup({target={kind='prop',propId=colliderId,networked=false}})==false,'only the owner')
-machine.owned=true;invokingResource=nil
+assert(C.boardOfProp(baseId)==machine and C.boardOfProp(colliderId)==machine,'base and collider name their table')
 -- A moved table moves its collider.
 machine.position={x=4,y=2,z=3};machine.rotation=180;machine.revision=2
 events['lightrp:boardGames:state']({boards={machine}})

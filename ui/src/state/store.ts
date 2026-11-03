@@ -48,8 +48,6 @@ export const EMPTY_HUD: HudState = {
 };
 
 interface Store {
-  boardGamesActive: boolean;
-  setBoardGamesActive(value: boolean): void;
   customizationActive: boolean;
   setCustomizationActive(value: boolean): void;
   activityActive: boolean;
@@ -117,8 +115,6 @@ function normalizeDialog(payload: DialogPayload): DialogPayload {
 }
 
 export const useStore = create<Store>((set) => ({
-  boardGamesActive: false,
-  setBoardGamesActive: (value) => set({ boardGamesActive: value }),
   customizationActive: false,
   setCustomizationActive: (value) => set({ customizationActive: value }),
   activityActive: false,

@@ -107,10 +107,17 @@ local function pieceTargets(board,result)
         end
     end
 end
--- Clicking a betting spot on the felt only selects it in the panel; money is
--- wagered explicitly with the Place bet button.
-local picked,pickSerial=nil,0
--- The betting spot under a screen point (cursor or crosshair), or nil.
+-- A crosshair click on a betting spot of the felt bets the chip chosen in the
+-- ALT menu (client/core/table_menu.lua) on that spot; the menu also bets.
+local chip=10
+LightRpCasinoFortuneClient={
+    chip=function() return chip end,
+    setChip=function(amount)
+        if F.integer(amount,F.MIN_BET,F.MAX_BET) then chip=amount;return true end
+        return false
+    end,
+}
+-- The betting spot under a screen point (the crosshair), or nil.
 local function spotAt(board,sx,sy)
     local ray=Open77.camera.screenRay(sx,sy,15)
     if not ray or not ray.origin or not ray.direction or math.abs(ray.direction.z)<.001 then return end
@@ -126,12 +133,14 @@ local function spotAt(board,sx,sy)
     end
 end
 local function pointer(board,event)
-    if not event.pressed or event.blocked then return true end
+    if not event.pressed or (board.game and board.game.phase=="spinning") then return true end
     local spot=spotAt(board,event.x,event.y)
-    if spot then picked=spot;pickSerial=pickSerial+1 end
+    if spot and Extra.command(board,"bet",{spot=spot,amount=chip}) and LightRpBoardGamesClient then
+        LightRpBoardGamesClient.notice(("Bet €$ %d on %s."):format(chip,F.LABEL[spot] or spot),"Fortune Wheel")
+    end
     return true
 end
--- Outline the aimed spot on the felt, and keep the picked one outlined.
+-- Outline the aimed spot on the felt.
 local function aim(board,sx,sy,line)
     local spot,px=spotAt(board,sx,sy)
     local w,z=Extra.world,FELT_Z+.006
@@ -140,7 +149,6 @@ local function aim(board,sx,sy,line)
         line(a,b);line(b,c);line(c,d);line(d,a)
     end
     if spot then box(px) end
-    if picked and picked~=spot and SPOT_X[picked] then box(SPOT_X[picked]) end
 end
 Extra.register("fortune",{
     operations={bet=true,spin=true},
@@ -148,20 +156,4 @@ Extra.register("fortune",{
     pieceTargets=pieceTargets,
     pointer=pointer,
     aim=aim,
-    camera=function(board,view)
-        local world=Extra.world
-        if view=="white" then -- the betting felt, from the player's side
-            return {position=world(board,0,-1.75,2.45),lookAt=world(board,0,-.66,1.25),fov=50}
-        elseif view=="black" then -- close on the flapper and the top segments
-            return {position=world(board,0,-1.35,2.75),lookAt=world(board,0,WY,2.55),fov=48}
-        end
-        -- Default (top/orbit): the whole wheel above the betting table.
-        return {position=world(board,0,-2.9,2.2),lookAt=world(board,0,-.1,1.9),fov=52}
-    end,
-    view=function(board)
-        local extra={}
-        for key,value in pairs(board.game) do extra[key]=value end
-        extra.picked=picked;extra.pickSerial=pickSerial
-        return {extra=extra,text="Pick a multiplier on the felt or in the panel, place your cash, then spin. The server decides every result."}
-    end,
 })

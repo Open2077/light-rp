@@ -55,20 +55,15 @@ local bj={id=201,kind='blackjack',owned=true,position={x=0,y=0,z=0},rotation=0,
  players={white=7,black=9},actor=nil,ready=true,mode='duel',revision=1,serverNow=now,game=B.view(s)}
 events['lightrp:boardGames:state']({boards={bj}});step()
 waitUntil(function() return findProp('blackjack_table') and countNamed('^bj_chips_')==4 end,'table and both bet stacks')
-assert(C.isActive() and view.extra.kind=='blackjack' and view.extra.mySeat=='white' and view.extra.hands.white.bet==125)
+assert(C.isActive() and E.seat(bj)=='white' and bj.game.hands.white.bet==125)
 assert(findProp('bj_chips_100_1') and findProp('bj_chips_25_1') and findProp('bj_chips_25_1'),'125 = 100 + 25 stacks')
--- Page operations reach the server; a mouse click never wagers.
+-- Menu operations (tools/test-table-menu.py) reach the server; a click never wagers.
 local before=#requests
-pageHandlers['lightrp:tabletop:action']({operation='bet',data={amount=25}})
+assert(E.command(bj,'bet',{amount=25}))
 assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.amount==25)
-pageHandlers['lightrp:tabletop:action']({operation='splitAll',data={}});assert(#requests==before+1,'unknown operation forwarded')
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,pressed=true});pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true});step()
-assert(#requests==before+1)
--- Free mode: a click at this panel-only table opens the panel (cursor), never wagers.
-assert(view.free and not view.panel and not focus)
+assert(not E.command(bj,'splitAll',{}) and #requests==before+1,'unknown operation forwarded')
 keys.mouse1=true;step();keys.mouse1=false;step()
-assert(view.panel and focus and #requests==before+1)
-edge('H');assert(not view.panel and not focus)
+assert(#requests==before+1 and not focus and lastNotice:find('Hold ALT',1,true),'a click points at the ALT menu')
 
 -- The deal: server timestamps drive every card; staggered from the shoe.
 now=now+1000 -- a new snapshot stamp: the client re-anchors its server clock
@@ -96,14 +91,16 @@ waitUntil(function() clock=math.max(clock,0);return countNamed('^bj_card_')==6 e
 local settled=t0+5*B.DEAL_GAP+B.SLIDE+B.FLIP
 -- The cards have settled but the dealer still pauses: no decision yet.
 bj.serverNow=settled;bj.revision=3;events['lightrp:boardGames:state']({boards={bj}})
-waitUntil(function() return view.extra.clientNow and view.extra.clientNow>=settled and view.extra.clientNow<s.actAt end,'pause after the deal')
-assert(not view.extra.legal.stand and not view.extra.legal.hit,'no decision during the pause after the deal')
+waitUntil(function() local t=E.serverTime(bj);return t>=settled and t<s.actAt end,'pause after the deal')
+local legal=B.legal(bj.game,'white',E.serverTime(bj))
+assert(not legal.stand and not legal.hit,'no decision during the pause after the deal')
 local deadline=s.actAt
 bj.serverNow=deadline;bj.revision=31;events['lightrp:boardGames:state']({boards={bj}})
 waitUntil(function() return findProp('bj_card_kh') and findProp('bj_card_6d') and findProp('bj_card_7c') end,'face-up native cards')
 assert(not findProp('bj_card_qh') and findProp('bj_card_back'),'the hole card stays a generic back')
-assert(view.extra.dealer.cards[2].c==nil and view.extra.legal.stand and view.extra.legal.hit and view.extra.legal.double)
-before=#requests;pageHandlers['lightrp:tabletop:action']({operation='stand',data={}});assert(last().operation=='stand' and #requests==before+1)
+legal=B.legal(bj.game,'white',E.serverTime(bj))
+assert(bj.game.dealer.cards[2].c==nil and legal.stand and legal.hit and legal.double)
+before=#requests;assert(E.command(bj,'stand',{}) and last().operation=='stand' and #requests==before+1)
 
 -- Stand, black stands: the dealer reveals the hole card and draws on the server clock.
 s=act(s,'white','stand',{inventory='me',nowMs=deadline});s=act(s,'black','stand',{inventory='other',nowMs=deadline})
@@ -159,9 +156,9 @@ waitUntil(function() return countProps()==1+targets end,'every worst-case prop')
 for i=1,120 do step() end
 waitUntil(function() return countProps()==1 end,'worst-case felt swept')
 print('worst-case props per table: '..(1+targets)..' (table + '..targets..' moving)')
-pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
+edge('BACKSPACE');assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic~=true)
+assert(next(nativeProps)==nil and next(batches)==nil)
 B.shuffle=real
 print('blackjack client: native props, server-clock deal, flip poses, hidden hole card, chips, cleanup: OK; peak '..peakInstructions)
 ''')

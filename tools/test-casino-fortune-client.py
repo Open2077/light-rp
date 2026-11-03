@@ -52,7 +52,7 @@ local wheel={id=201,kind='fortune',owned=true,position={x=0,y=0,z=0},rotation=0,
 events['lightrp:boardGames:state']({boards={wheel}});step()
 local expected=1+27+2+2+4+2
 waitUntil(function()return countProps()==expected end,'stand, 27 rotor poses, 2 blur, 2 medallions, 4 flappers, 2 chip stacks')
-assert(C.isActive() and view.extra.kind=='fortune' and findProp('fortune_stand'))
+assert(C.isActive() and findProp('fortune_stand'))
 local function near(a,b,tol) return math.abs(a-b)<(tol or 1e-6) end
 local function at(name,y) local p=assert(findProp(name),name);return near(p.position.y,y*S,1e-4) end
 -- At rest: pose 0 in the drum, all other poses parked behind it.
@@ -61,23 +61,22 @@ assert(at('fortune_blur_0',PARK) and at('fortune_blur_1',PARK) and at('fortune_f
 local eye=findProp('fortune_eye');assert(near(eye.position.x,0,1e-4) and near(eye.position.z,(WZ+.42)*S,1e-4),'eye medallion on top of the rest pose')
 assert(findProp('fortune_chips_2') and findProp('fortune_chips_1'),'stacks for 40 and 3')
 assert(near(findProp('fortune_chips_2').position.x,.2*S,1e-4),'20x stack on its spot')
--- Placing a bet is an explicit panel action; a felt click only selects a spot.
+-- Bets: the ALT menu (tools/test-table-menu.py) or a crosshair click on a
+-- felt spot, which bets the chip chosen in the menu on that spot.
+local Fortune=LightRpCasinoFortuneClient
+assert(Fortune.chip()==10 and not Fortune.setChip(0) and not Fortune.setChip(1001) and Fortune.setChip(25) and Fortune.chip()==25)
 local before=#requests
-pageHandlers['lightrp:tabletop:action']({operation='bet',data={spot='5',amount=25}})
-assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.spot=='5')
-pageHandlers['lightrp:tabletop:action']({operation='steal',data={}});assert(#requests==before+1)
-forcedRay={origin={x=-.2*S,y=-.68*S,z=3},direction={x=0,y=0,z=-1}}
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,pressed=true})
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true})
-for i=1,4 do step() end;forcedRay=nil
-assert(#requests==before+1,'a click never wagers money')
-assert(view.extra.picked=='5' and view.extra.pickSerial==1,'felt click picks the 5x spot')
--- Free mode: the crosshair outlines the aimed spot (and the picked one) and a click picks it.
-assert(view.free and not view.panel)
+assert(E.command(wheel,'bet',{spot='5',amount=25}) and #requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.spot=='5')
+assert(not E.command(wheel,'steal',{}) and #requests==before+1)
+-- The crosshair outlines the aimed spot; a click bets the chip there.
 forcedRay={origin={x=.2*S,y=-.68*S,z=3},direction={x=0,y=0,z=-1}};step()
-assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==8,'aimed and picked spots outlined')
-keys.mouse1=true;step();keys.mouse1=false;for i=1,4 do step() end;forcedRay=nil
-assert(#requests==before+1 and view.extra.picked=='20' and view.extra.pickSerial==2 and not view.panel,'a crosshair click picks the 20x spot')
+assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'aimed spot outlined')
+keys.mouse1=true;step();keys.mouse1=false;for i=1,4 do step() end
+assert(#requests==before+2 and last().operation=='bet' and last().data.spot=='20' and last().data.amount==25,'a crosshair click bets on the 20x spot')
+assert(lastNotice:find('20x',1,true),'the bet is confirmed in a notice')
+forcedRay={origin={x=.2*S,y=0,z=3},direction={x=0,y=0,z=-1}};step()
+keys.mouse1=true;step();keys.mouse1=false;step();forcedRay=nil
+assert(#requests==before+2,'a click off the spots never wagers')
 -- The server spins: segment 13 (20x), two laps, from rest 0.
 local spun=assert(F.spin(g,{outcome=13,laps=2,nowMs=now+1000,roundKey='k'}))
 wheel.game=F.view(spun,'a');wheel.revision=2;wheel.serverNow=now+1000
@@ -140,8 +139,8 @@ for i=1,40 do step() end
 clock=origin+full.spin.spinMs;for i=1,6 do step() end
 assert(countProps()==1+35+7+1,'all seven stacks plus the payout: '..countProps())
 for i=1,20 do step() end
-pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
+edge('BACKSPACE');assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step()end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic~=true)
+assert(next(nativeProps)==nil and next(batches)==nil)
 print('fortune client: 38-44 native props per table, server-clock poses, flapper kicks, exact landing, chips, cleanup: OK; peak '..peakInstructions..' of '..BOARD_BUDGET)
 ''')

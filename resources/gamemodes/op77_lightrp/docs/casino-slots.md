@@ -3,13 +3,18 @@
 Item `slot_machine` (Slot Machine). No shop sells it yet; staff can grant it with `/lightrp.giveitem me slot_machine 1`. Use the item to
 place the cabinet (same placement controls as the board games), press E near it
 to sit down. The first player seated (White) plays; anyone else who joins watches.
-Pick the machine up from the target menu; pickup and New game are refused while
-the reels spin.
+Hold ALT and click the machine for its menu (*Sit*, *Pick up board* for the
+owner, *Leave table*; see board-games.md); pickup is refused while the reels
+spin.
 
 ## Playing
 
-Choose a bet of 1 to 1,000 whole RP dollars in the panel, then click the lever
-on the right of the cabinet or press **Pull**. The pull debits the stake from
+There is no panel. Seated in the first seat, hold ALT on the machine: *Bet:
+€$ 10 ›* picks the bet (10, 50, 100, 500 or 1,000, within your cash; the
+server accepts 1 to 1,000) and *Pull (€$ 10)* pulls; or aim at the lever on the
+right of the cabinet (it is outlined) and click, which pulls with the same bet.
+The status row shows *Ready*, *Reels spinning* or the last result, and selecting
+it recalls the paytable. Watchers only get the status and *Leave table*. The pull debits the stake from
 cash, the server picks the three reel stops (`math.random`), stores the payout
 claim and the new state in one SQL transaction. Every client then plays the same
 server-clock timeline: the lever goes down and springs back (0.6 s), the reels
@@ -17,8 +22,8 @@ spin and stop one by one at 1.8 s, 2.4 s and 3.0 s with a small overshoot, the
 top lamp blinks and up to four coins drop into the tray on a win. Winnings are
 paid into cash when the last reel stops (`lightrp_roulette_claims`, the shared
 casino claim table, `available_at` = stop time); a disconnected or restarted
-player is paid on the next claim pass. The panel shows the result only once the
-reels have stopped.
+player is paid on the next claim pass. The result notice ("Three Sevens · €$ 2,000.",
+"No win.") comes only when the last reel stops, never before.
 
 ## Reels and paytable
 

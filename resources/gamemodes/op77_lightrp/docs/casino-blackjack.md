@@ -76,8 +76,21 @@ sweep into the discard tray seat by seat 2 s before the next round. Chip stacks 
 three denomination columns per stack) slide in from the player's edge on a
 bet, to the dealer's rack on a loss (at once on a bust), and a winnings stack
 slides out from the rack at the reveal. Worst case 59 moving props per table.
-Cameras: overhead (`top`), the player's seat (`white`), the dealer side
-(`black`) and a fixed three-quarter view (`orbit`).
+There are no camera views and no panel: the player stays in free mode at the
+table.
+
+## Playing (ALT menu)
+
+Seated, hold ALT and click the table. Betting: the status (*Place a bet* or
+*Your bet: €$ 50*; selecting it gives the countdown), *Bet ›* (*Add to bet ›*
+once a bet is down) with 10, 50, 100, 500 and 1,000, offered only when the hand
+stays within 5-5,000 and your cash, and *Deal now* once you have a bet. On your
+turn, after the dealer's pause: *Hit (16)*, *Stand (16)* and *Double (€$ 50)*
+(first two cards, enough cash), with the total of the cards you can see; the
+status row reads *Hand 16 · Dealer 9*. Notices: "Your turn: 16 vs dealer 9."
+when the dealer hands over, and the result ("Win · €$ 100 returned.", "Dealer
+wins.", "Push.") when the dealer has finished. A click on the felt only reminds
+you of the ALT menu.
 
 ## The dealer
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Exercise client lifecycle and pointer protocol using mocked documented natives."""
+"""Exercise the board client (free mode only: crosshair + left click, no panel,
+no HUD, no scripted camera) using mocked documented natives."""
 from pathlib import Path
 from lupa.lua54 import LuaRuntime
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,14 +10,15 @@ events, handlers, pageHandlers, requests, batches, threads, keys = {}, {}, {}, {
 played,soundHandles={},{}
 nativeProps,nextNativeId={},0
 createdProps,removedProps,movedProps=0,0,0
-clock=0; frozen=false; camera=nil; stoppedCamera=false; focus=false
+clock=0; focus=false; placeAt={x=0,y=0,z=0}
 LightRpEvents={page={notice='notice',ready='ready',dialogClose='dialogClose'}}
 LightRpUi={characterReady=true,ready=true,dialogs={},page={}}
 function LightRpUi.page:setFocus(k,c) focus=c;return true end
+notices={}
 function LightRpUi.send(name,p)
- if name=="lightrp:boardGames:view" then view=p
- elseif name=='dialogClose' then closeRequest=p
- elseif name=='notice' then lastNotice=p.body end
+ assert(not name:find('boardGames',1,true),'no table page payload: '..name)
+ if name=='dialogClose' then closeRequest=p
+ elseif name=='notice' then lastNotice=p.body;notices[#notices+1]=p.body end
 end
 logs,diagnostics={},{}
 function LightRpUi.log(...)
@@ -31,10 +33,7 @@ function TriggerServerEvent(n,p)
  if p.action=='diagnostic' then diagnostics[#diagnostics+1]=p else requests[#requests+1]=p end
  return true
 end
-function TriggerEvent(name,owner,value)
- assert(name=='open-voice:setHudBlocked' and owner=='op77_lightrp:boardGames')
- voiceHudBlocked=value
-end
+function TriggerEvent(name) error('unexpected local event '..tostring(name)) end
 function CreateThread(f) threads[#threads+1]=coroutine.create(f) end
 function Wait() coroutine.yield() end
 function GetGameTimer() return clock end
@@ -47,61 +46,25 @@ exports=setmetatable({},{__call=function(_,name,fn)exportCallbacks[name]=fn end}
 function GetInvokingResource()return invokingResource end
 local char={alive=true,attached=true,position={x=0,y=0,z=.5}}
 Open77={network={status=function()return {playerId=7}end},character={},input={},camera={},debugDraw={},audio={},props={},hud={},exports={}}
-contextTargetingEnabled=true;contextCloseCalls=0
-function Open77.exports.call(resource,name,definition)
- assert(resource=='open77_contextmenu')
- local result
- if name=='registerProps' then
-  assert(definition.id=='boardGames.pickup' and definition.networked==false and definition.distance==2)
-  targetDefinition=definition;result='board-pickup-token'
- elseif name=='setTargetingEnabled' then contextTargetingEnabled=definition;result=true
- elseif name=='close' then contextCloseCalls=contextCloseCalls+1;result=true
- else error('unexpected context export '..tostring(name))end
- return {await=function()
-  if delayContext and name=='setTargetingEnabled' then coroutine.yield()end
-  return result
- end}
-end
+-- The board client never talks to the context menu itself: the table menu
+-- (client/core/table_menu.lua, tools/test-table-menu.py) owns that.
+function Open77.exports.call(resource,name) error('unexpected export '..tostring(resource)..'.'..tostring(name)) end
 function Open77.character.state() return char end
-function Open77.character.setFrozen(v) frozen=v;return true end
+function Open77.character.setFrozen() error('free mode never freezes the character') end
 function Open77.input.isDown(k) return keys[k]==true end
 function Open77.input.isCaptured() return captured==true or focus end
-function Open77.input.cursor()return {x=.5,y=.5,inBounds=true}end
-function Open77.camera.cameras()
- if registryNil then return nil end
- if registryOverride then return registryOverride end
- return {held=camera~=nil,activeCamera=camera}
-end
-function Open77.camera.create(spec)
- if spec.lookAt then assert(spec.position.y~=spec.lookAt.y or spec.position.x~=spec.lookAt.x)
- else assert(spec.rotation.pitch < -85)end
- cameraSpec=spec;return cameraReturnId or 'camera'
-end
-function Open77.camera.activate(id)camera=id;return true end
-function Open77.camera.setTransform(id,p)
- assert(id==camera);cameraSpec.position=p.position;cameraSpec.rotation=p.rotation
- if p.rotation then cameraSpec.lookAt=nil end
- return true
-end
-function Open77.camera.lookAt(id,p)assert(id==camera);cameraSpec.lookAt=p;return true end
-ordinaryHudClaim=true
-function Open77.hud.setCinematic(value,height)
- if value then assert(height==.01)end
- cinematic=value;return true
-end
-function Open77.camera.destroy(id) assert(id=='camera' or id==cameraReturnId);camera=nil;stoppedCamera=true;return true end
+function Open77.input.cursor() error('free mode never reads the cursor') end
+function Open77.camera.create() error('free mode never creates a camera') end
+function Open77.hud.setCinematic() error('free mode never hides the HUD') end
 function Open77.camera.screenRay(x,y)
+ assert(x==.5 and y==.5,'the crosshair (screen centre) is the only pointer')
  if forcedRay then return forcedRay end
- if cameraSpec and cameraSpec.lookAt and camera then
-  local p,t=cameraSpec.position,cameraSpec.lookAt
-  local length=math.sqrt((t.x-p.x)^2+(t.y-p.y)^2)
-  local nx,ny=(t.x-p.x)/length,(t.y-p.y)/length
-  local offset=(x-.5)*.98*.65
-  return {origin={x=t.x-nx*2+ny*offset,y=t.y-ny*2-nx*offset,z=t.z-.47*.65+((1-y)*.84+.04)*.65},direction={x=nx,y=ny,z=0}}
- end
- return {origin={x=(x-.5)*.65,y=(y-.5)*.65,z=2},direction={x=0,y=0,z=-1}}
+ return {origin={x=0,y=0,z=2},direction={x=0,y=0,z=-1}}
 end
-function Open77.camera.screenRaycast()return {hit=true,position={x=0,y=0,z=0}}end
+function Open77.camera.screenRaycast(x,y)
+ assert(x==.5 and y==.5)
+ return {hit=true,position={x=placeAt.x,y=placeAt.y,z=placeAt.z}}
+end
 function Open77.debugDraw.set(tag,geo)
  assert(#geo.triangles==0,'board and pieces must be native props, never debug triangles')
  assert(#geo.lines<=512)
@@ -203,6 +166,9 @@ function aimAt(col,row,n)
  forcedRay={origin={x=((col-.5)/n-.5)*.65,y=((row-.5)/n-.5)*.65,z=2},direction={x=0,y=0,z=-1}}
 end
 function click() keys.mouse1=true;step();keys.mouse1=false;step() end
+-- Crosshair move: aim at the piece and click, aim at the destination and click.
+function play(fc,fr,tc,tr,n) aimAt(fc,fr,n);click();aimAt(tc,tr,n);click() end
+function outlines() local b=batches['boardGames:preview'];return b and #b.lines or 0 end
 function last() return requests[#requests] end
 page={on=function(self,n,f)pageHandlers[n]=f end}
 ''')
@@ -211,14 +177,8 @@ for name in ['shared/board_game_models.lua', 'shared/board_games_rules.lua', 'cl
 lua.execute(r'''
 LightRpBoardGameModels={board=function()error('debug models must not be used')end,piece=function()error('debug models must not be used')end}
 local C=LightRpBoardGamesClient
-C.bind(page);C.start();assert(#requests==0);step();assert(last().action=='sync')
--- A delayed target-disable export cannot win after a rapid game exit.
-delayContext=true
-events['lightrp:boardGames:place']({kind='chess'});step();step()
-assert(contextTargetingEnabled==false)
-pageHandlers['lightrp:boardGames:leave']({});step();step();step()
-delayContext=false
-assert(not C.isActive() and contextTargetingEnabled==true and not focus,'late target claims must restore the final state')
+C.bind(page);assert(pageHandlers.ready and not pageHandlers['lightrp:boardGames:pointer'],'only the ready sync is bound')
+C.start();assert(#requests==0);step();assert(last().action=='sync')
 -- Item use must hand off inventory focus before opening placement.
 LightRpUi.dialogs.inventory=true;LightRpUi.promptActive=true;focus=true
 LightRpUi.menuOpen=true
@@ -228,13 +188,14 @@ assert(not C.isActive() and focus,'inventory keeps focus until its real cleanup'
 step();assert(not C.isActive())
 -- dialogState(false) alone is not sufficient while the focus cleanup is pending.
 LightRpUi.dialogs.inventory=false;step();assert(not C.isActive())
-LightRpUi.promptActive=false;focus=false;step();assert(C.isActive() and focus)
+LightRpUi.promptActive=false;focus=false;step();assert(C.isActive() and not focus,'placement is free mode: no cursor')
+assert(lastNotice:find('E: place',1,true),'placement keys are told in a notice')
 edge('BACKSPACE');assert(not C.isActive() and not focus)
 -- The inverse callback order also waits for dialogState(false).
 LightRpUi.dialogs.inventory=true;LightRpUi.promptActive=true;focus=true
 events['lightrp:boardGames:place']({kind='checkers'})
 LightRpUi.promptActive=false;focus=false;step();assert(not C.isActive())
-LightRpUi.dialogs.inventory=false;step();assert(C.isActive() and focus)
+LightRpUi.dialogs.inventory=false;step();assert(C.isActive())
 edge('BACKSPACE')
 -- Failed handoff times out without stealing the inventory's focus.
 LightRpUi.dialogs.inventory=true;LightRpUi.promptActive=true;focus=true
@@ -254,8 +215,8 @@ mockLoading=true;events['lightrp:boardGames:place']({kind='chess'})
 assert(C.isActive() and boardProp(0,'chess'))
 local pendingCount=#requests;edge('E')
 assert(C.isActive() and #requests==pendingCount and lastNotice:find('still loading',1,true))
-mockLoading=false;pageHandlers['lightrp:boardGames:confirm']({});assert(last().action=='place' and not C.isActive())
-local confirmed=#requests;pageHandlers['lightrp:boardGames:confirm']({});assert(#requests==confirmed,'confirm cannot place twice')
+mockLoading=false;edge('E');assert(last().action=='place' and not C.isActive())
+local confirmed=#requests;edge('E');assert(#requests==confirmed,'E cannot place twice')
 -- A missing asset or a renderer placeholder never becomes a successful board.
 events['lightrp:boardGames:place']({kind='checkers'})
 nativeProps[boardProp(0,'checkers')].backend='marker_fallback'
@@ -268,29 +229,38 @@ mockLoading=true;events['lightrp:boardGames:place']({kind='connect4'})
 clock=clock+3100;step();assert(C.isActive(),'a slow model keeps loading within the grace period')
 clock=clock+12000;step();assert(not C.isActive() and next(nativeProps)==nil)
 mockLoading=false
--- Placement uses the precise WebUI pointer; held pointer works with physical mouse up.
-events['lightrp:boardGames:place']({kind='chess'});assert(C.isActive() and focus)
-pageHandlers['lightrp:boardGames:pointer']({x=.7,y=.6,pressed=true});step()
+-- Free-mode placement: the preview follows the crosshair hit, the arrows turn
+-- it, PgUp raises it, E places it there.
+events['lightrp:boardGames:place']({kind='chess'});assert(C.isActive() and not focus)
+placeAt={x=.13,y=-.2,z=.4};step()
+local ghost=nativeProps[boardProp(.13,'chess')];assert(ghost and math.abs(ghost.position.z-.415)<1e-6,'the ghost stands on the aimed surface')
+keys.RIGHT=true;step();step();keys.RIGHT=false
+keys.PAGEUP=true;step();keys.PAGEUP=false
+captured=true;edge('E');assert(C.isActive(),'typing never places');captured=false
 edge('E');assert(last().action=='place' and last().kind=='chess')
-assert(math.abs(last().position.x-.2*.65)<.001);assert(not C.isActive() and not focus)
--- Existing board creates proximity interaction; only server membership opens camera.
+assert(math.abs(last().position.x-.13)<.001 and math.abs(last().position.y+.2)<.001 and last().position.z>.415 and last().rotation>0)
+assert(not C.isActive() and not focus)
+placeAt={x=0,y=0,z=0}
+-- Existing board creates proximity interaction; only server membership seats.
 local board={id=1,owned=true,position={x=0,y=0,z=0},rotation=0,players={},revision=1,kind='chess',game=LightRPBoardRules.new('chess')}
 events['lightrp:boardGames:state']({boards={board}});step()
 assert(not C.isActive());LightRpInteract.points['boardGames.1'].callback();assert(last().action=='join')
 board.players={white=7,black=9};events['lightrp:boardGames:state']({boards={board}});step()
--- Free mode by default: no scripted camera, nothing frozen, the HUD and the
--- mouse stay with the game.
-assert(C.isActive() and not camera and not frozen and not focus and not cinematic and not voiceHudBlocked)
-assert(view.free and not view.panel and view.cameraView=='free' and view.panelKey=='H' and view.cameraViews[1]=='free')
+-- Free mode only: no scripted camera, nothing frozen, the HUD and the mouse
+-- stay with the game (the mocks raise otherwise).
+assert(C.isActive() and not focus and C.seated()==board)
 waitUntil(function()return nativeCount(1)==33 end,'complete initial chess mesh (free mode)')
--- The crosshair aims; the aimed square is outlined on the board itself.
+-- The menu finds the table from any of its props.
+assert(C.boardOfProp(boardProp(0))==board and C.isRendered(board) and C.boardOfProp('nope')==nil)
+-- The crosshair aims; the aimed square is outlined on the board itself, with a
+-- small cross where the screen centre meets the board.
 aimAt(5,7);step();step()
-local preview=batches['boardGames:preview'];assert(preview and #preview.lines==4,'aimed square outline')
-for _,l in ipairs(preview.lines) do assert(math.abs(l.a.x-.0625*.65)<=.0625*.65+1e-9 and math.abs(l.a.y-.3125*.65)<=.0625*.65+1e-9,'outline on e2') end
+local preview=batches['boardGames:preview'];assert(preview and #preview.lines==6,'aimed square outline and aim cross')
+for i=1,4 do local l=preview.lines[i];assert(math.abs(l.a.x-.0625*.65)<=.0625*.65+1e-9 and math.abs(l.a.y-.3125*.65)<=.0625*.65+1e-9,'outline on e2') end
 -- Click e2, then click e4: one move request.
 local freeCount=#requests
-click();assert(view.selected and view.selected.row==7 and view.selected.col==5 and #requests==freeCount,'a click selects')
-aimAt(5,5);step();assert(#batches['boardGames:preview'].lines==8,'selection and aim outlined')
+click();assert(#requests==freeCount,'a click selects')
+aimAt(5,5);step();assert(outlines()==10,'selection and aim outlined')
 click();assert(#requests==freeCount+1 and last().action=='move' and last().fromRow==7 and last().fromCol==5 and last().toRow==5 and last().toCol==5)
 -- Hold on d2, move the aim to d4, release: a drag, the held piece follows the aim.
 aimAt(4,7);keys.mouse1=true;step();aimAt(4,5);step();step()
@@ -301,21 +271,18 @@ keys.mouse1=false;step()
 assert(#requests==freeCount+2 and last().fromRow==7 and last().fromCol==4 and last().toRow==5 and last().toCol==4)
 -- Chat (or another page) typing: table keys are inert.
 captured=true;edge('BACKSPACE');aimAt(5,7);click();assert(C.isActive() and #requests==freeCount+2,'typing never leaves or plays');captured=false
--- H opens the panel with a cursor (no camera); the crosshair no longer acts.
-edge('H');assert(view.panel and focus and not camera and voiceHudBlocked and not frozen)
-click();assert(#requests==freeCount+2,'the left button belongs to the panel')
-edge('H');assert(not view.panel and not focus and not voiceHudBlocked)
-pageHandlers['lightrp:boardGames:panel']({open=true});assert(view.panel and focus)
-edge('ESC');assert(not view.panel and not focus and C.isActive(),'Escape closes the panel, not the table')
+-- Holding ALT (the target menu) or an open menu borrows the left button.
+keys.ALT=true;play(5,7,5,5);keys.ALT=false;step();assert(#requests==freeCount+2,'ALT clicks are menu clicks')
+handlers['open77:contextmenu:opened']();play(5,7,5,5);handlers['open77:contextmenu:closed']()
+assert(#requests==freeCount+2,'an open target menu owns the clicks')
+-- A side-view click on a queen's head selects its actual square, and does
+-- not accidentally submit a move to the square behind it on mouse-up.
+local headRequests=#requests
+forcedRay={origin={x=-.0625*.65,y=.4375*.65+.9,z=.065+.35},direction={x=0,y=-.9,z=-.35}}
+keys.mouse1=true;step();keys.mouse1=false;step();assert(#requests==headRequests,'clicking a head must not move the piece')
+-- The head was picked: a click on d6 (a legal-looking target in front) is the selected queen's move.
+aimAt(4,6);click();assert(#requests==headRequests+1 and last().fromRow==8 and last().fromCol==4,'tall-piece picking must use the native piece bounds')
 forcedRay=nil
--- The optional scripted views (the former default) open from the panel toolbar.
-pageHandlers['lightrp:boardGames:camera']({view='top'})
-assert(C.isActive() and camera and frozen and focus and cinematic and voiceHudBlocked and view.panel and not view.free and view.cameraView=='top')
--- Press at e2, release at e4: one authoritative move request with snapshot revision.
-local pointer=pageHandlers['lightrp:boardGames:pointer']
-pointer({x=4.5/8,y=6.5/8,pressed=true});step()
-pointer({x=4.5/8,y=4.5/8,released=true});step()
-assert(last().action=='move' and last().fromRow==7 and last().fromCol==5 and last().toRow==5 and last().revision==1)
 -- A later snapshot animates the same piece rather than moving instantly.
 local pawnHandle
 local function pawnY()
@@ -326,23 +293,10 @@ local function pawnY()
   end
  end
 end
--- Left press and an in-flight camera snapshot must retain the playing session.
-local leftCount=#requests
-registryNil=true;pointer({x=4.5/8,y=6.5/8,pressed=true});step()
-assert(C.isActive() and camera and #requests==leftCount)
-pointer({blocked=true});step();registryNil=false
-assert(C.isActive() and cinematic and voiceHudBlocked)
 local before=pawnY();assert(before)
 local oldCreates,oldRemoves=createdProps,removedProps
-local heldRequestCount=#requests
-pointer({x=4.5/8,y=6.5/8,pressed=true});step()
-pointer({x=4.5/8,y=4.5/8});step();step()
-assert(math.abs(nativeProps[pawnHandle].position.y-.0625*.65)<.001,'held piece must follow the cursor immediately')
-assert(#requests==heldRequestCount,'dragging alone must not send a move')
-pointer({x=4.5/8,y=4.5/8,released=true});step();assert(#requests==heldRequestCount+1)
 board.game=assert(LightRPBoardRules.move(board.game,7,5,5,5));board.revision=2
 events['lightrp:boardGames:state']({boards={board}});step()
-
 waitUntil(function()return pawnY() and pawnY()<before end,'pawn animation')
 local after=pawnY();assert(after and after<before and after>.04,'piece interpolation expected')
 assert(nativeProps[pawnHandle] and createdProps==oldCreates and removedProps==oldRemoves,'normal moves must retain native prop handles')
@@ -382,22 +336,10 @@ waitUntil(function()
  for _,p in pairs(nativeProps)do if p.name=='chess_white_queen' and p.position.y<.2 then return true end end
 end,'promoted native prop')
 assert(not nativeProps[pawnHandle],'promotion replaces the pawn handle')
-edge('BACKSPACE');assert(last().action=='leave' and not camera and not frozen and not focus and stoppedCamera and cinematic==false and ordinaryHudClaim and voiceHudBlocked==false)
--- Membership removal snapshot prevents reopening; nearby owner can retrieve via Alt.
+edge('BACKSPACE');assert(last().action=='leave' and not C.isActive() and not focus)
+-- Membership removal snapshot prevents reopening; ALT alone does nothing.
 board.players={};events['lightrp:boardGames:state']({boards={board}})
-local altCount=#requests;edge('ALT');assert(#requests==altCount,'ALT alone must never pick up a board')
-assert(targetDefinition and targetDefinition.canInteract=='boardGamesCanPickup' and targetDefinition.onSelect=='boardGamesPickup')
-local pickupContext={target={kind='prop',propId=boardProp(0),networked=false}}
-invokingResource='forged';assert(exportCallbacks.boardGamesCanPickup(pickupContext)==false)
-invokingResource='open77_contextmenu'
-assert(exportCallbacks.boardGamesCanPickup(pickupContext)==true)
-local pieceContext={target={kind='prop',propId=pawnHandle,networked=false}}
-assert(exportCallbacks.boardGamesCanPickup(pieceContext)==false,'targeting a piece cannot retrieve its board')
-board.owned=false;assert(exportCallbacks.boardGamesCanPickup(pickupContext)==false);board.owned=true
-Open77.character.state().position.x=3;assert(exportCallbacks.boardGamesCanPickup(pickupContext)==false)
-Open77.character.state().position.x=0
-assert(exportCallbacks.boardGamesPickup(pickupContext)==true and last().action=='pickup' and last().boardId==1)
-invokingResource=nil
+local altCount=#requests;edge('ALT');assert(#requests==altCount,'ALT alone must never act')
 -- Switching nearest full boards must release old tags BEFORE allocating replacements.
 local second={id=2,owned=false,position={x=2,y=0,z=0},rotation=0,players={},revision=1,kind='chess',game=LightRPBoardRules.new('chess')}
 events['lightrp:boardGames:state']({boards={board,second}});step()
@@ -418,94 +360,40 @@ for i=1,40 do step() end
 local idleMoves=movedProps
 for i=1,20 do step() end
 assert(movedProps==idleMoves,'seven still tables cost no transform at all')
--- Lobby mode protocol is owner-only and locks once the game has started.
+-- Solo: the human plays without a black seat.
 Open77.character.state().position.x=0
-cameraReturnId=77
 local solo={id=3,owned=true,position={x=0,y=0,z=0},rotation=0,players={white=7},revision=1,
  kind='chess',mode='solo',ready=true,actor=7,game=LightRPBoardRules.new('chess')}
-events['lightrp:boardGames:state']({boards={solo}});step()
-assert(view.mode=='solo' and view.owned and view.ready and view.isActor and view.playerCount==1)
-assert(view.cameraView=='free' and #view.cameraViews==5 and not camera)
-pageHandlers['lightrp:boardGames:camera']({view='top'});assert(view.cameraView=='top' and camera==77)
-clock=clock+1300;registryOverride={held=true,activeCamera='77'};step()
-assert(C.isActive(),'numeric and string camera IDs represent the same camera')
-registryOverride={held=false};for i=1,20 do step()end
-assert(C.isActive(),'unknown camera IDs must not close the game')
-registryOverride={held=true,activeCamera='other-owner'};step();for i=1,6 do step()end
-assert(C.isActive(),'a transient foreign camera must respect the ownership grace')
-for i=1,12 do step()end
-assert(not C.isActive() and diagnostics[#diagnostics].reason=='camera_switched')
--- A stale snapshot right after a leave must not reopen the view; a later one may.
-registryOverride=nil;events['lightrp:boardGames:state']({boards={solo}});step();assert(not C.isActive(),'stale seat after a leave')
+clock=clock+3100;events['lightrp:boardGames:state']({boards={solo}});step()
+assert(C.isActive() and C.isActor(solo) and C.isReady(solo) and C.member(solo)=='white')
+waitUntil(function()return nativeCount(3)==33 end,'solo board')
+play(5,7,5,5);assert(last().action=='move' and last().boardId==3,'solo human can play without a black seat')
+-- A stale snapshot right after a leave must not reopen the seat; a later one may.
+edge('BACKSPACE');events['lightrp:boardGames:state']({boards={solo}});step();assert(not C.isActive(),'stale seat after a leave')
 clock=clock+3100;events['lightrp:boardGames:state']({boards={solo}});step();assert(C.isActive())
-for _,name in ipairs({'white','black','orbit','top'})do
- pageHandlers['lightrp:boardGames:camera']({view=name});assert(view.cameraView==name)
-end
--- A side-view click on a queen's head selects its actual square, and does
--- not accidentally submit a move to the square behind it on mouse-up.
-pageHandlers['lightrp:boardGames:camera']({view='white'})
-local headRequests=#requests
-forcedRay={origin={x=-.0625*.65,y=.4375*.65+.9,z=.065+.35},direction={x=0,y=-.9,z=-.35}}
-pointer({x=.5,y=.5,pressed=true});step()
-assert(view.selected and view.selected.row==8 and view.selected.col==4,'tall-piece picking must use the native piece bounds')
-pointer({x=.5,y=.5,released=true});step();assert(#requests==headRequests,'clicking a head must not move the piece')
-forcedRay=nil
-pageHandlers['lightrp:boardGames:camera']({view='top'})
-local buttonCount=#requests
-pointer({blocked=true});keys.mouse1=true;step();keys.mouse1=false;step();assert(#requests==buttonCount,'UI clicks cannot move pieces')
--- Orbit owns only right-drag; left-drag remains a game action.
-pageHandlers['lightrp:boardGames:camera']({view='orbit'})
-local oldCameraX=cameraSpec.position.x
-pointer({x=.5,y=.5,rightPressed=true});step();pointer({x=.6,y=.5});step();pointer({x=.6,y=.5,rightReleased=true});step()
-assert(cameraSpec.position.x~=oldCameraX and #requests==buttonCount)
-pageHandlers['lightrp:boardGames:camera']({view='top'})
--- Click/click and fast press/release queues both preserve the source square.
-pointer({x=4.5/8,y=6.5/8,pressed=true});pointer({x=4.5/8,y=6.5/8,released=true});step();assert(#requests==buttonCount)
-pointer({x=4.5/8,y=4.5/8,pressed=true});step();assert(#requests==buttonCount)
-pointer({x=4.5/8,y=4.5/8,released=true});step();assert(#requests==buttonCount+1)
-pointer({x=4.5/8,y=6.5/8,pressed=true});pointer({x=4.5/8,y=4.5/8,released=true});step()
-assert(last().fromRow==7 and last().fromCol==5 and last().toRow==5 and last().toCol==5)
-
-pageHandlers['lightrp:boardGames:mode']({mode='teams'});assert(last().action=='mode' and last().mode=='teams')
-pointer({x=4.5/8,y=6.5/8,pressed=true});step();pointer({x=4.5/8,y=4.5/8,released=true});step()
-assert(last().action=='move','solo human can play without a black seat')
-solo.game.ply=1
-local count=#requests;pageHandlers['lightrp:boardGames:mode']({mode='duel'});assert(#requests==count)
-pageHandlers['lightrp:boardGames:reset']({});assert(last().action=='reset' and last().boardId==3)
-solo.owned=false;count=#requests;pageHandlers['lightrp:boardGames:reset']({});assert(#requests==count)
-solo.owned=true;solo.game.ply=0;solo.game.chain={row=4,col=3}
-count=#requests;pageHandlers['lightrp:boardGames:mode']({mode='duel'});assert(#requests==count)
-solo.game.chain=nil
 -- Teammates share a colour, but only the server-designated actor may move.
-solo.mode='teams';solo.game.ply=0;solo.players={white=8,black=9,white2=7,black2=10};solo.actor=8
+solo.mode='teams';solo.players={white=8,black=9,white2=7,black2=10};solo.actor=8
 solo.revision=2;events['lightrp:boardGames:state']({boards={solo}});step()
-assert(view.side=='white' and view.playerCount==4 and not view.isActor)
-count=#requests;pointer({x=4.5/8,y=6.5/8,pressed=true});step();pointer({x=4.5/8,y=4.5/8,released=true});step();assert(#requests==count)
-solo.actor=7;events['lightrp:boardGames:state']({boards={solo}});step()
-pointer({x=4.5/8,y=6.5/8,pressed=true});step();pointer({x=4.5/8,y=4.5/8,released=true});step();assert(last().action=='move')
+local count=#requests;play(5,7,5,5);assert(#requests==count,'a teammate waits for the actor')
+solo.actor=7;solo.revision=3;events['lightrp:boardGames:state']({boards={solo}});step()
+play(5,7,5,5);assert(last().action=='move')
 edge('BACKSPACE')
 -- Connect Four uses the vertical board plane, including rotated placements.
 local four={id=4,owned=true,position={x=0,y=0,z=0},rotation=90,players={white=7},revision=1,
  kind='connect4',moveSequence=0,lastSound='connect4-drop',mode='solo',ready=true,actor=7,game=LightRPBoardRules.new('connect4')}
-events['lightrp:boardGames:state']({boards={four}});step()
-assert(C.isActive() and not camera and view.free and view.kind=='connect4')
+clock=clock+3100;events['lightrp:boardGames:state']({boards={four}});step()
+assert(C.isActive())
 -- Free mode: aim at a column of the upright (rotated) grid and click.
 forcedRay={origin={x=-2,y=0,z=.4*.65},direction={x=1,y=0,z=0}}
 local freeDrop=#requests
 keys.mouse1=true;step();assert(#requests==freeDrop,'the drop waits for the release')
-assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'aimed cell outlined on the grid')
+assert(outlines()==4,'aimed cell outlined on the grid')
 keys.mouse1=false;step();assert(#requests==freeDrop+1 and last().action=='move' and last().toCol==4)
-forcedRay=nil
-pageHandlers['lightrp:boardGames:camera']({view='white'})
-assert(camera and cameraSpec.lookAt and view.panel)
-local beforeDrop=#requests
-pointer({x=3.5/7,y=.5,pressed=true});step();assert(#requests==beforeDrop,'disc drop waits for mouse release')
-pointer({x=3.5/7,y=.5,released=true});step()
-assert(last().action=='move' and last().boardId==4 and last().toCol==4)
 count=#requests
 -- An AI turn accepts no extra human clicks.
 four.actor=0;events['lightrp:boardGames:state']({boards={four}});step()
-pointer({x=2.5/7,y=.5,pressed=true});step();pointer({x=2.5/7,y=.5,released=true});step();assert(#requests==count)
+click();assert(#requests==count)
+forcedRay=nil
 -- A newly replicated disc starts above the grid and descends over subsequent frames.
 assert(#played==0,'initial sync and lobby updates should be silent')
 four.game=assert(LightRPBoardRules.move(four.game,0,0,3,4));four.revision=2;four.moveSequence=1
@@ -539,18 +427,18 @@ assert(next(soundHandles)~=nil)
 local failedHandle
 for id,p in pairs(nativeProps)do if p.name=='connect4_white_disc' then failedHandle=id;break end end
 assert(failedHandle);nativeProps[failedHandle].backend='placeholder_cube'
-waitUntil(function()return not C.isActive() and not camera and not frozen and nativeCount(4)==0 end,'placeholder projection rejected')
+waitUntil(function()return not C.isActive() and nativeCount(4)==0 end,'placeholder projection rejected')
 assert(lastNotice:find('rejoin through the launcher',1,true))
 events['lightrp:boardGames:state']({boards={four}})
-assert(not C.isActive() and last().action=='leave','failed board projections must not reopen a camera')
+assert(not C.isActive() and last().action=='leave','failed board projections must not reopen a seat')
 -- Walking away: a step past 3.5 m only warns and coming back keeps the seat;
 -- staying out 1.5 s, or passing the server's 5 m, leaves with a notice.
 clock=clock+3100;Open77.character.state().position.x=0
 local walk={id=6,owned=false,position={x=0,y=0,z=0},rotation=0,players={white=7,black=9},revision=1,kind='chess',game=LightRPBoardRules.new('chess')}
 events['lightrp:boardGames:state']({boards={walk}});step()
-assert(C.isActive() and view.free and not view.leaving)
-Open77.character.state().position.x=3.8;step();assert(C.isActive() and view.leaving and view.leaving>0,'the HUD warns')
-Open77.character.state().position.x=1;step();assert(C.isActive() and not view.leaving,'a step back does not kick')
+assert(C.isActive())
+Open77.character.state().position.x=3.8;step();assert(C.isActive() and lastNotice:find('Too far',1,true),'a notice warns')
+Open77.character.state().position.x=1;step();assert(C.isActive(),'a step back does not kick')
 Open77.character.state().position.x=3.8
 local walkStart=clock
 for i=1,40 do step();if not C.isActive() then break end end
@@ -558,14 +446,15 @@ assert(not C.isActive() and clock-walkStart>=1500 and last().action=='leave' and
 assert(lastNotice:find('walked away',1,true))
 clock=clock+3100;Open77.character.state().position.x=0;walk.revision=2
 events['lightrp:boardGames:state']({boards={walk}});step();assert(C.isActive())
+assert(C.leave('menu_leave') and last().action=='leave' and not C.isActive(),'the menu leaves through the same stop')
+clock=clock+3100;walk.revision=3;events['lightrp:boardGames:state']({boards={walk}});step();assert(C.isActive())
 Open77.character.state().position.x=5.5;step();assert(not C.isActive() and last().action=='leave','past 5 m leaves at once')
 Open77.character.state().position.x=0
--- Resource cleanup removes every surface and interaction, releasing input/camera.
+-- Resource cleanup removes every surface and interaction.
 handlers.onClientResourceStop('test');assert(next(batches)==nil and next(LightRpInteract.points)==nil and next(soundHandles)==nil and next(nativeProps)==nil)
 for i=1,20 do step()end
 assert(next(batches)==nil and next(nativeProps)==nil,'cancelled renderer jobs must not resurrect native props')
-assert(voiceHudBlocked==false,'resource stop restores the voice HUD claim')
-print('board games client inventory handoff, lifecycle, modes, teams, Connect Four drop, spatial audio, native props, streaming and budgets, failures and cleanup: OK; peak Lua instructions per tick: '..peakInstructions)
+print('board games client (free mode only) inventory handoff, crosshair placement, moves, ALT click isolation, teams, Connect Four drop, spatial audio, native props, streaming and budgets, failures and cleanup: OK; peak Lua instructions per tick: '..peakInstructions)
 ''')
 
 # Run the real interaction guard independently: the ordinary E prompt must not
