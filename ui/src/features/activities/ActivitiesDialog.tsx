@@ -3,7 +3,7 @@ import { emit, on, sendAction } from "@/bridge/open77";
 import { PAGE_EVENTS, type ActivitiesState, type ActivitiesTab, type ActivityEntry, type PartyState } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { Badge, Button, Icon, Keycap, Tabs, cx } from "@/design/components";
-import { KIND_ICON, KIND_LABEL, formatClock, formatTime, mineLine, statusLine } from "./model";
+import { KIND_ICON, KIND_LABEL, formatClock, formatTime, mineLine, pickedDifficulty, repLine, roman, statusLine } from "./model";
 import "./activities.css";
 
 /* The Activities panel (server/modules/activities.lua, activities_hub.lua): opened
@@ -39,6 +39,7 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
   const [tab, setTab] = useState<ActivitiesTab>(initialTab);
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [modes, setModes] = useState<Record<string, string>>({});
+  const [levels, setLevels] = useState<Record<string, string>>({}); // PvE difficulty per activity
   const [waiting, setWaiting] = useState(false);
   const [feedback, setFeedback] = useState<{ text: string; error: boolean }>();
   const sent = useRef(0);
@@ -72,7 +73,9 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
   const ask = (action: Parameters<typeof sendAction>[0]) => { sent.current = Date.now(); setWaiting(true); setFeedback(undefined); sendAction(action); };
   const join = (a: ActivityEntry) => {
     const mode = modes[a.id];
-    ask({ type: ACTION, operation: "join", id: a.id, from: "panel", options: mode ? { [a.modeKey || "mode"]: mode } : undefined });
+    const level = a.pve ? pickedDifficulty(a, levels[a.id]) : undefined;
+    const options = { ...(mode ? { [a.modeKey || "mode"]: mode } : {}), ...(level ? { difficulty: level.id } : {}) };
+    ask({ type: ACTION, operation: "join", id: a.id, from: "panel", options: Object.keys(options).length > 0 ? options : undefined });
   };
   const leave = () => ask({ type: ACTION, operation: "leave" });
   const move = (step: number) => {
@@ -111,15 +114,16 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
           {list.map((a) => <ActivityRow key={a.id} a={a} selected={a.id === activity?.id} state={state}
             onSelect={() => setSelected(a.id)} />)}
         </div>
-        {activity ? <ActivityDetail a={activity} state={state} mode={modes[activity.id]} waiting={waiting}
-          onMode={(m) => setModes((s) => ({ ...s, [activity.id]: m }))} onJoin={() => join(activity)} onLeave={leave} /> : <div />}
+        {activity ? <ActivityDetail a={activity} state={state} mode={modes[activity.id]} level={levels[activity.id]} waiting={waiting}
+          onMode={(m) => setModes((s) => ({ ...s, [activity.id]: m }))} onLevel={(d) => setLevels((s) => ({ ...s, [activity.id]: d }))}
+          onJoin={() => join(activity)} onLeave={leave} /> : <div />}
       </div>
       : tab === "contracts" ? <Contracts state={state} />
       : <Squad state={state} party={party} me={me} />}
 
     <footer className="activities__foot">
       <span className={cx("activities__feedback", feedback?.error && "is-error")} role="status">
-        {waiting ? <><Icon name="loader" size={13} />Asking…</> : feedback?.text ?? (state ? (state.bots ? "Bot mode: bots fill the missing places · results are not recorded" : `Reputation today ${state.reputation.today}/${state.reputation.dailyCap} · activities never pay cash or items`) : "")}
+        {waiting ? <><Icon name="loader" size={13} />Asking…</> : feedback?.text ?? (state ? (state.bots ? "Bot mode: bots fill the missing places · results are not recorded" : repLine(state)) : "")}
       </span>
       <span className="activities__keys">
         {tab === "activities" && <span><Keycap size="sm">↑↓</Keycap>CHOOSE</span>}
@@ -170,19 +174,24 @@ function ActivityRow({ a, selected, state, onSelect }: { a: ActivityEntry; selec
   </button>;
 }
 
-function ActivityDetail({ a, state, mode, waiting, onMode, onJoin, onLeave }: {
-  a: ActivityEntry; state: ActivitiesState; mode?: string; waiting: boolean; onMode(mode: string): void; onJoin(): void; onLeave(): void;
+function ActivityDetail({ a, state, mode, level, waiting, onMode, onLevel, onJoin, onLeave }: {
+  a: ActivityEntry; state: ActivitiesState; mode?: string; level?: string; waiting: boolean;
+  onMode(mode: string): void; onLevel(difficulty: string): void; onJoin(): void; onLeave(): void;
 }) {
   const inside = !!state.current && state.current.id === a.id;
   const queuedHere = !!state.queued && state.queued.id === a.id;
   const busyElsewhere = !!state.current && !inside;
   const blocked = !state.eligible && !inside && !queuedHere;
-  const why = busyElsewhere ? `You are in ${state.current && state.current.label}.` : !a.joinable ? `${a.label} is not taking players right now.` : blocked ? state.reason : undefined;
+  // PvE: the difficulty picked (the first open one by default), locked above the street cred tier
+  const picked = a.pve ? pickedDifficulty(a, level) : undefined;
+  const tooHard = picked?.locked ? `${picked.label} needs reputation tier ${roman(picked.minTier)}${picked.tierName ? ` (${picked.tierName})` : ""}.` : undefined;
+  const why = busyElsewhere ? `You are in ${state.current && state.current.label}.` : !a.joinable ? `${a.label} is not taking players right now.` : blocked ? state.reason : tooHard;
   const board = a.board;
   const record = board ? a.mineBoard : a.mine;
   return <section className="activity-detail" aria-labelledby="activities-title">
     <div className="activity-detail__head">
       <Badge tone="accent">{KIND_LABEL[a.kind] ?? "EVENT"}</Badge>
+      {a.pve && <Badge tone="success">PVE</Badge>}
       <h1 id="activities-title">{a.label}</h1>
     </div>
     {a.description && <p className="activity-detail__brief">{a.description}</p>}
@@ -190,7 +199,14 @@ function ActivityDetail({ a, state, mode, waiting, onMode, onJoin, onLeave }: {
       <div><dt><Icon name="users" size={12} />PLAYERS</dt><dd>{a.minPlayers === a.maxPlayers ? a.maxPlayers : `${a.minPlayers}-${a.maxPlayers}`}</dd></div>
       <div><dt><Icon name="activity" size={12} />NOW</dt><dd>{a.players} IN · {a.queued} WAITING</dd></div>
       <div><dt><Icon name="crown" size={12} />RANKED BY</dt><dd>{a.byTime ? "BEST TIME" : "WINS"}</dd></div>
+      <div><dt><Icon name="badge-check" size={12} />EARNS</dt><dd>{a.pve ? (picked ? `UP TO ${picked.reputation} REP` : "REPUTATION") : "WINS · RANKING"}</dd></div>
     </dl>
+    {a.pve && (a.difficulties?.length ?? 0) > 0 && !inside && !queuedHere && <div className="activity-detail__modes" role="radiogroup" aria-label="Difficulty">
+      {a.difficulties!.map((d) => <button key={d.id} role="radio" aria-checked={picked?.id === d.id} aria-disabled={d.locked}
+        title={d.locked ? `Reputation tier ${roman(d.minTier)}${d.tierName ? ` (${d.tierName})` : ""}: PvE missions, raids, gigs and PvE activities earn it.` : `Up to ${d.reputation} reputation`}
+        className={cx("activity-mode", picked?.id === d.id && "is-on", d.locked && "is-locked")} onClick={() => onLevel(d.id)}>
+        {d.locked && <Icon name="lock" size={11} />}{d.label.toUpperCase()}{d.locked ? ` · REP ${roman(d.minTier)}` : ""}</button>)}
+    </div>}
     {a.modes.length > 0 && !inside && !queuedHere && <div className="activity-detail__modes" role="radiogroup" aria-label="Mode">
       <button role="radio" aria-checked={!mode} className={cx("activity-mode", !mode && "is-on")} onClick={() => onMode("")}>ANY</button>
       {a.modes.map((m) => <button key={m.id} role="radio" aria-checked={mode === m.id} className={cx("activity-mode", mode === m.id && "is-on")}
