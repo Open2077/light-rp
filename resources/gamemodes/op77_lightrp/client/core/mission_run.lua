@@ -44,11 +44,13 @@ end)
 
 CreateThread(function() TriggerServerEvent(NET, { kind = "hello" }) end)
 
--- A mission NPC whose simulation this client owns hit a player: the server checks it and
--- applies it to the canonical health (the NPCs opt into authoritativePlayerHits, so the
--- engine itself no longer drains the native health).
+-- A mission or world boss NPC whose simulation this client owns hit a player: the server
+-- checks it and applies it to the canonical health (the NPCs opt into
+-- authoritativePlayerHits, so the engine itself no longer drains the native health). Sent
+-- outside a mission run too: a world boss fights in the city, and only NPCs that opted in
+-- raise this event; the server ties each hit to its mission or world boss.
 AddEventHandler("open77:npcPlayerHit", function(victim, npc, epoch, amount)
-    if Run.state then TriggerServerEvent(NET .. ":npcHit", victim, npc, epoch, amount) end
+    TriggerServerEvent(NET .. ":npcHit", victim, npc, epoch, amount)
 end)
 
 AddEventHandler("onClientResourceStop", function(name)
