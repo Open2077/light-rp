@@ -15,8 +15,17 @@
 --
 -- The rules step (capture, score, bounds, scope) runs once a second per war, so its
 -- cost is (fighters x zones) per second, never per frame.
+--
+-- Light RP's lobby (join options v2): options.ranked (false = nothing of ours counts:
+-- no influence, no reputation, results flagged unranked), options.fill.allies on a
+-- turf.pve join (allied bots with the crew), options.difficulty + options.scaling on a
+-- turf.pve join (the NPC gang's size, health, damage, objective profile), and
+-- options.match on a turf.war join: a war of its own for exactly match.players
+-- (Turf.matchGather -> Turf.war with war.match), in the one war slot, refused while
+-- the slot is busy.
 Turf = { queue = {}, lobby = nil, schedule = nil, war = nil, sweeps = {}, sweepQueue = {}, nextWarId = nil,
-    bucketCursor = nil, testing = false, bots = false, siteCursor = 0, sweepCursor = 0, lastQueuePush = 0 }
+    bucketCursor = nil, testing = false, bots = false, siteCursor = 0, sweepCursor = 0, lastQueuePush = 0,
+    matchGather = nil, refusedMatches = {} }
 local R = TurfRules
 
 local function cfg() return TurfConfig end
@@ -97,7 +106,31 @@ function Turf.counts(war)
 end
 
 local function isSweep(war) return war.kind == "pve" end
-local function hasBots(war) return war.botWar == true or war.kind == "pve" end
+local function hasBots(war)
+    return war.botWar == true or war.kind == "pve" or (war.matchBots ~= nil and war.matchBots[1] + war.matchBots[2] > 0)
+end
+
+-- A tag for the HUD title, the loading cover and the notices: a core match (FRIENDLY /
+-- UNRANKED), an unranked entry, a Gang Sweep above standard (HARD / CRITICAL). A staff
+-- bot war keeps its own wording (nothing new).
+local function tagOf(war)
+    if war.botWar then return nil end
+    if war.match and war.match.friendly then return "FRIENDLY" end
+    if war.unranked then return "UNRANKED" end
+    if war.match then return "PRIVATE" end
+    if war.difficulty and war.difficulty.id ~= "standard" then return war.difficulty.id:upper() end
+    return nil
+end
+Turf.tagOf = tagOf
+
+-- options.ranked: false = unranked; true or absent (an older core) = ranked.
+local function rankedOf(opts)
+    if type(opts) ~= "table" then return true end
+    if opts.ranked == false then return false end
+    if type(opts.match) == "table" and opts.match.ranked == false then return false end
+    return true
+end
+Turf.rankedOf = rankedOf
 
 -- Every live war: the turf war, then the sweeps.
 function Turf.wars()
@@ -190,6 +223,7 @@ function Turf.enqueue(id, opts, now, checked)
     local position, total = Turf.position(id)
     if position then return true, ("You are already queued for Turf War (%d/%d)."):format(position, total) end
     if Turf.sweepEntry(id) then return false, "You are lined up for a Gang Sweep: /turf leave first." end
+    if Turf.matchEntry(id) then return false, "Your match is starting: /turf leave first." end
     if not checked then
         local ok, why = C().check(id)
         if not ok then return false, why end
@@ -200,13 +234,16 @@ function Turf.enqueue(id, opts, now, checked)
     local who = Turf.identity(id)
     local entry = { id = id, at = now, site = vote and vote.id or nil, name = who.name, identifier = who.identifier,
         characterKey = who.characterKey, gang = who.gang, gangLabel = who.gangLabel, gangColor = who.gangColor,
-        kit = Turf.kit(opts.kit) and opts.kit or nil, squad = squadOf(opts) }
+        kit = Turf.kit(opts.kit) and opts.kit or nil, squad = squadOf(opts), ranked = rankedOf(opts) }
     Turf.queue[#Turf.queue + 1] = entry
     position, total = #Turf.queue, #Turf.queue
     local side = who.gang and ("for the " .. who.gangLabel) or "as a mercenary"
     local text
     local war = Turf.war
-    if war and war.state ~= "resolved" then
+    if (war and war.match and war.state ~= "closed") or Turf.matchGather then
+        text = ("Queued for Turf War %s (%d in line). A private match holds the war zone: the next turf war opens when it ends. /turf leave to cancel.")
+            :format(side, position)
+    elseif war and war.state ~= "resolved" then
         text = ("Queued for Turf War %s (%d in line). A war is on at %s: you go in as soon as a side has room. /turf leave to cancel.")
             :format(side, position, war.site.label)
     else
@@ -261,7 +298,9 @@ function Turf.sharedView(war, now)
     local phase = war.state == "resolved" and "ended" or war.state
     local view = { warId = war.id, phase = phase, mode = war.kind,
         site = { id = war.site.id, label = war.site.label, district = war.site.district },
-        target = war.target, sides = {}, zones = {}, reason = war.reason, winner = war.winner, void = war.void or nil }
+        target = war.target, sides = {}, zones = {}, reason = war.reason, winner = war.winner, void = war.void or nil,
+        tag = tagOf(war), unranked = (war.unranked and not war.botWar) or nil,
+        difficulty = war.difficulty and war.difficulty.id or nil }
     for s = 1, 2 do
         local side = war.sides[s]
         local bots = war.bots and B().count(war, s) or nil
@@ -418,7 +457,12 @@ function Turf.status(now)
             detail = ("%s · %s vs %s · starting"):format(war.site.label, sideLabel(war, 1), sideLabel(war, 2))
         end
         if war.botWar then detail = detail .. " · bots" end
+        if war.match then detail = (war.match.friendly and "Friendly match · " or "Private match · ") .. detail end
         return { phase = "running", players = n[1] + n[2], queued = queued, joinable = true, detail = detail }
+    end
+    if Turf.matchGather then
+        return { phase = "running", players = #Turf.matchGather.entries, queued = queued, joinable = true,
+            detail = "A private match is starting" }
     end
     if Turf.lobby then
         local site = Turf.lobby.site and Turf.site(Turf.lobby.site)
@@ -654,7 +698,13 @@ function Turf.launch(now)
     for _, id in ipairs(form.bench) do
         if byId[id] then W().notify(id, "info", "Your crew is over-represented: you stay first in line and go in as reinforcements.", 7000) end
     end
-    return Turf.start(site, form, entered, byId, now, { botWar = botWar })
+    -- An entry Light RP marked unranked (options.ranked = false) makes the war count for
+    -- nobody: no influence, no reputation (staff bot mode wars are unranked already).
+    local unranked = false
+    for s = 1, 2 do
+        for _, id in ipairs(entered[s]) do if byId[id] and byId[id].ranked == false then unranked = true end end
+    end
+    return Turf.start(site, form, entered, byId, now, { botWar = botWar, unranked = unranked })
 end
 
 -- ---------------------------------------------------------------- war start
@@ -685,7 +735,10 @@ local function newMember(war, id, side, merc, entry, now)
 end
 
 local function coverOf(war)
-    return { title = isSweep(war) and "GANG SWEEP" or "TURF WAR", subtitle = war.site.label, zone = war.site.district or "Night City" }
+    local title = isSweep(war) and "GANG SWEEP" or "TURF WAR"
+    local tag = tagOf(war)
+    if tag then title = title .. " · " .. tag end
+    return { title = title, subtitle = war.site.label, zone = war.site.district or "Night City" }
 end
 
 local function placeMember(war, m, now, cover)
@@ -701,7 +754,9 @@ end
 
 -- A war (or a sweep) is created and its fighters placed.
 --   opts = { kind = "pvp"|"pve", activity, botWar, squadKey, target, timeLimitSeconds,
---            rewards, holder = side holding every zone at the start }
+--            rewards, holder = side holding every zone at the start,
+--            unranked (nothing counts), match = { id, friendly, players } (a core match),
+--            matchBots = { b1, b2 }, difficulty (R.difficulty, sweeps), allies (sweeps) }
 function Turf.start(site, form, entered, byId, now, opts)
     opts = opts or {}
     local bucket = allocateBucket()
@@ -713,7 +768,8 @@ function Turf.start(site, form, entered, byId, now, opts)
         kind = kind, activity = opts.activity or cfg().activity.id, botWar = opts.botWar == true or nil,
         squadKey = opts.squadKey, target = opts.target or cfg().match.targetScore,
         timeLimitMs = (opts.timeLimitSeconds or cfg().match.timeLimitSeconds or 660) * 1000,
-        rewards = opts.rewards or cfg().rewards }
+        rewards = opts.rewards or cfg().rewards, unranked = opts.unranked == true or nil, match = opts.match,
+        matchBots = opts.matchBots, difficulty = opts.difficulty, alliesWanted = opts.allies }
     Turf.nextWarId = Turf.nextWarId + 1
     for s = 1, 2 do
         local info = sideInfo(form, s)
@@ -1092,6 +1148,7 @@ end
 local function admitLate(war, now)
     local m = cfg().match
     if not m.joinInProgress or war.state ~= "running" then return end
+    if war.match then return end -- a core match: never joined by strangers
     if war.endsAt - now < (m.joinCutoffSeconds or 180) * 1000 then return end
     local maxPlayers = cfg().activity.maxPlayers
     local admitted = 0
@@ -1146,13 +1203,16 @@ local function resultFor(war, m, winner, counted)
         reputation = R.reputation(m, war, winner, war.rewards or cfg().rewards, counted),
     }
     -- Staff bot mode: the core records nothing (and is told so).
-    if war.botWar then result.test = true end
+    if war.botWar then result.test = true
+    elseif war.unranked then result.unranked = true end
     return result
 end
 Turf.resultFor = resultFor
 
 local function notCounted(war)
     if war.botWar then return "not counted (bot war)" end
+    if war.match and war.match.friendly then return "not counted (friendly match)" end
+    if war.unranked then return "not counted (unranked)" end
     if isSweep(war) then return "not counted (too short)" end
     return "not counted (too short or too few crews)"
 end
@@ -1167,13 +1227,13 @@ function Turf.finish(war, winner, reason, now)
     end)
     if war.scope then W().removeScope(war.scope); war.scope = nil end
     local counted
-    if war.botWar then counted = false
+    if war.botWar or war.unranked then counted = false
     elseif isSweep(war) then counted = R.pveCounted(war, war.rewards)
     else counted = R.counted(war, cfg().rewards, Turf.minAccounts()) end
     war.counted = counted
-    -- Weekly influence: a real turf war only (never a bot war, never a sweep). Memory
-    -- now, database on a thread.
-    local influence = war.kind == "pvp" and not war.botWar
+    -- Weekly influence: a real turf war only (never a bot war, never a sweep, never an
+    -- unranked war or match: not even its history row). Memory now, database on a thread.
+    local influence = war.kind == "pvp" and not war.botWar and not war.unranked
     local deltas = (counted and influence) and R.influence(war, winner, cfg().influence) or {}
     local fighters = 0
     for _ in pairs(war.members) do fighters = fighters + 1 end
@@ -1297,7 +1357,7 @@ Turf.releaseMember = releaseMember
 -- queue / war (nil: any). Returns done, "queue"|"war", activityId.
 function Turf.leaveRequest(id, now, activity)
     local pvp, pve = cfg().activity.id, cfg().pve.activity.id
-    if (activity == nil or activity == pvp) and Turf.dequeue(id) then
+    if (activity == nil or activity == pvp) and (Turf.dequeue(id) or Turf.unmatch(id)) then
         W().clear(id)
         return true, "queue", pvp
     end
@@ -1323,7 +1383,7 @@ end
 function Turf.dropped(id, now, reason, activity)
     local pvp, pve = cfg().activity.id, cfg().pve.activity.id
     local queued = false
-    if activity == nil or activity == pvp then queued = Turf.dequeue(id) or queued end
+    if activity == nil or activity == pvp then queued = Turf.dequeue(id) or Turf.unmatch(id) or queued end
     if activity == nil or activity == pve then queued = Turf.unsweep(id) or queued end
     local m, war = entryOf(id)
     if not m or (activity ~= nil and war.activity ~= activity) then return queued end
@@ -1359,7 +1419,8 @@ function Turf.coreStopped(now)
     Turf.war, Turf.sweeps = nil, {}
     for _, e in ipairs(Turf.queue) do W().clear(e.id) end
     for _, g in ipairs(Turf.sweepQueue) do for _, e in ipairs(g.entries) do W().clear(e.id) end end
-    Turf.queue, Turf.lobby, Turf.sweepQueue = {}, nil, {}
+    if Turf.matchGather then for _, e in ipairs(Turf.matchGather.entries) do W().clear(e.id) end end
+    Turf.queue, Turf.lobby, Turf.sweepQueue, Turf.matchGather, Turf.refusedMatches = {}, nil, {}, nil, {}
 end
 
 -- This resource stops: Light RP returns the players itself; drop our holds, teams, bots.
@@ -1393,6 +1454,12 @@ end
 local function beginCountdown(war, now)
     war.state = "countdown"
     war.countdownEndsAt = now + (cfg().match.countdownSeconds or 10) * 1000
+    local tag = tagOf(war)
+    local prefix = ""
+    if war.match and war.match.friendly then prefix = "FRIENDLY MATCH (unranked): "
+    elseif tag == "UNRANKED" then prefix = "UNRANKED: "
+    elseif war.match then prefix = "PRIVATE MATCH: "
+    elseif isSweep(war) and tag then prefix = tag .. ": " end
     eachPresent(war, function(m)
         if m.placed then
             m.frozen = W().freeze(m.id, true) or nil
@@ -1408,7 +1475,7 @@ local function beginCountdown(war, now)
                     :format(sideLabel(war, 1), sideLabel(war, 2), war.site.label, sideLabel(war, m.side),
                         m.merc and " as a mercenary" or "", kit.label)
             end
-            W().notify(m.id, "info", text, 8000)
+            W().notify(m.id, "info", prefix .. text, 8000)
         end
     end)
     Turf.pushHud(war, now)
@@ -1484,6 +1551,297 @@ function Turf.tickWar(war, now)
             if not pending then close(war) end
         end
     end
+end
+
+-- ---------------------------------------------------------------- core matches (options.match)
+--
+-- Light RP forms a match (a friendly crew split, a bot-filled war) and sends one join
+-- per player, back to back, with the same match.id. The match takes the one war slot:
+-- refused (every player told why) while a public war is queued, in its lobby or on, a
+-- staff war is scheduled, or another match holds it; the public queue is never touched.
+-- It starts when all of match.players are in (or after match.gatherSeconds with whoever
+-- made it), match.teams -> the war's two sides, match.bots per side (staff bot mode's
+-- bot code), and nobody else ever joins it. Unranked (friendly, bots, options.ranked =
+-- false): no influence, no reputation, results flagged unranked.
+
+local function matchKey(match)
+    local id = type(match) == "table" and match.id or nil
+    if id == nil then return nil end
+    id = tostring(id)
+    if #id == 0 or #id > 64 then return nil end
+    return id
+end
+
+local function playerId(v)
+    v = tonumber(v)
+    if v == nil or v <= 0 or v % 1 ~= 0 then return nil end
+    return math.tointeger(v)
+end
+
+local function idList(list, max)
+    local out, seen = {}, {}
+    if type(list) ~= "table" then return out end
+    for _, v in ipairs(list) do
+        local id = playerId(v)
+        if id and not seen[id] and #out < (max or 64) then seen[id] = true; out[#out + 1] = id end
+    end
+    return out
+end
+
+-- A gathering match's entry: gather, entry, index.
+function Turf.matchEntry(id)
+    local g = Turf.matchGather
+    if not g then return nil end
+    for i, e in ipairs(g.entries) do if e.id == id then return g, e, i end end
+    return nil
+end
+
+-- A match player left (or dropped) before the start: his seat may go to a bot.
+function Turf.unmatch(id)
+    local g, _, i = Turf.matchEntry(id)
+    if not g then return false end
+    table.remove(g.entries, i)
+    g.gone[id] = true
+    if #g.entries == 0 then Turf.matchGather = nil end
+    return true
+end
+
+-- Why the war slot cannot take a core match now (a sentence), or nil. Players of the
+-- match itself sitting in the public queue do not count (Light RP pulls them out).
+function Turf.slotBusy(players)
+    local mine = {}
+    for _, id in ipairs(players or {}) do mine[id] = true end
+    local war = Turf.war
+    if war then
+        if war.match then return "another private turf war is being fought" end
+        return ("a public turf war is on at %s"):format(war.site.label)
+    end
+    if Turf.matchGather then return "another private turf war is starting" end
+    if Turf.schedule then return "staff scheduled a turf war" end
+    if Turf.lobby then return "a public turf war is about to start" end
+    for _, e in ipairs(Turf.queue) do
+        if not mine[e.id] then return "fighters are queued for the public turf war" end
+    end
+    return nil
+end
+
+local function gatherComplete(g)
+    for _, id in ipairs(g.players) do
+        if not g.gone[id] and W().connected(id) then
+            local inside = false
+            for _, e in ipairs(g.entries) do if e.id == id then inside = true break end end
+            if not inside then return false end
+        end
+    end
+    return true
+end
+
+-- Everyone of a match that cannot start: told why, out of Light RP's pending queue.
+local function callOffMatch(entries, text, entered)
+    for _, e in ipairs(entries) do
+        W().clear(e.id)
+        W().notify(e.id, "warning", text, 7000)
+        if entered and entered[e.id] then C().leave(e.id, { returnPlayer = true }) else C().unqueue(e.id) end
+    end
+    log("match called off: %s", text)
+    return nil
+end
+
+-- The match starts: its sides, its bots, Light RP takes its players.
+function Turf.launchMatch(g, now)
+    if Turf.matchGather == g then Turf.matchGather = nil end
+    if Turf.war or Turf.lobby then
+        return callOffMatch(g.entries, "Your turf war match could not start: a public turf war took the war zone first.")
+    end
+    local ready, byId = {}, {}
+    for _, e in ipairs(g.entries) do
+        if W().connected(e.id) then
+            local ok, why = C().check(e.id)
+            if ok then
+                ready[#ready + 1] = e
+                byId[e.id] = e
+            else
+                W().clear(e.id)
+                W().notify(e.id, "warning", ("Your turf war match is starting, but you can't go: %s"):format(tostring(why)), 6000)
+                C().unqueue(e.id)
+            end
+        end
+    end
+    if #ready == 0 then log("match %s: nobody ready", g.key) return nil end
+    -- Sides: match.teams (else each player's match.side, else side 1).
+    local teamOf, seats = {}, { 0, 0 }
+    for s = 1, 2 do
+        for _, id in ipairs(g.teams[s] or {}) do teamOf[id] = s; seats[s] = seats[s] + 1 end
+    end
+    local bySide = { {}, {} }
+    for _, e in ipairs(ready) do
+        local s = teamOf[e.id] or ((e.side == 1 or e.side == 2) and e.side) or 1
+        e.matchSide = s
+        bySide[s][#bySide[s] + 1] = e
+    end
+    if g.teams[1] == nil and g.teams[2] == nil then seats = { #bySide[1], #bySide[2] } end
+    -- Bots per side: match.bots, else options.fill as a total; a missing player's seat
+    -- is completed by a bot when the match has bots (or his side would be empty).
+    local humans = { #bySide[1], #bySide[2] }
+    local want
+    if type(g.bots) == "table" then want = { R.count(g.bots[1], 24), R.count(g.bots[2], 24) }
+    elseif type(g.fill) == "table" then want = R.spreadFill(humans, R.count(g.fill.allies, 24) + R.count(g.fill.enemies, 24))
+    else want = { 0, 0 } end
+    local usesBots = want[1] + want[2] > 0
+    local completed = { 0, 0 }
+    for s = 1, 2 do
+        local missing = math.max(0, seats[s] - humans[s])
+        if missing > 0 and (usesBots or (humans[s] == 0 and want[s] == 0)) then
+            want[s], completed[s] = want[s] + missing, missing
+        end
+    end
+    local botsOk = B().available()
+    if not botsOk then want = { 0, 0 } end
+    local bc = cfg().bots
+    want = R.capBots(humans, want, bc.maxPerSide, bc.maxBots)
+    -- Gangs: each side's own most represented gang; a split inside one gang leaves side
+    -- 2 colourless; a side of bots only wears a rival gang's colours.
+    local gangs = { (R.topGangs(bySide[1])), (R.topGangs(bySide[2])) }
+    if gangs[2] ~= nil and gangs[2] == gangs[1] then gangs[2] = nil end
+    for s = 1, 2 do
+        if humans[s] == 0 and gangs[s] == nil then gangs[s] = R.rivalGang(bc.gangOrder, gangs[s == 1 and 2 or 1], cfg().gangs) end
+    end
+    local merc = {}
+    for s = 1, 2 do
+        for _, e in ipairs(bySide[s]) do
+            if not (gangs[s] ~= nil and e.gang == gangs[s]) then merc[e.id] = true end
+        end
+    end
+    local site = g.site and Turf.site(g.site) or nil
+    if site == nil or site.enabled == false then site = Turf.pickSite(ready) end
+    -- Light RP takes them; a refusal costs that player his seat (a bot's, with bots).
+    local entered, inside = { {}, {} }, {}
+    for s = 1, 2 do
+        for _, e in ipairs(bySide[s]) do
+            local ok, why = C().enter(e.id)
+            if ok then
+                entered[s][#entered[s] + 1] = e.id
+                inside[e.id] = true
+            else
+                W().clear(e.id)
+                W().notify(e.id, "warning", ("You could not join your turf war match: %s"):format(tostring(why)), 6000)
+            end
+        end
+        local lost = humans[s] - #entered[s]
+        if lost > 0 and usesBots and botsOk then want[s] = want[s] + lost; completed[s] = completed[s] + lost end
+    end
+    want = R.capBots({ #entered[1], #entered[2] }, want, bc.maxPerSide, bc.maxBots)
+    -- Bots on a side with humans need teammate attitudes (B.plan drops them otherwise).
+    local function strength(s)
+        local bots = want[s]
+        if #entered[s] > 0 and not B().alliesSupported() then bots = 0 end
+        return #entered[s] + bots
+    end
+    if #entered[1] + #entered[2] == 0 or strength(1) == 0 or strength(2) == 0 then
+        return callOffMatch(ready, "Your turf war match could not start: a side is empty.", inside)
+    end
+    local unranked = g.unranked or g.friendly or want[1] + want[2] > 0
+    log("match %s: %d vs %d humans, %d + %d bots, friendly=%s unranked=%s at %s", g.key, #entered[1], #entered[2],
+        want[1], want[2], tostring(g.friendly), tostring(unranked), site.id)
+    return Turf.start(site, { gangs = gangs, merc = merc }, entered, byId, now,
+        { match = { id = g.key, friendly = g.friendly, players = g.players, teamOf = teamOf, completed = completed },
+            matchBots = want, unranked = unranked })
+end
+
+-- A player of a running match comes in late (after the gather timeout): his team's
+-- side; a bot that completed his seat makes room.
+local function matchLate(war, e, now)
+    if war.state == "resolved" or war.state == "closed" then return false, "Your turf war match is over." end
+    local listed = false
+    for _, id in ipairs(war.match.players or {}) do if id == e.id then listed = true break end end
+    if not listed then return false, "You are not part of this match." end
+    local ok, why = C().enter(e.id)
+    if not ok then return false, why end
+    local member = war.members[e.id]
+    local side = war.match.teamOf[e.id] or (member and member.side) or ((e.side == 1 or e.side == 2) and e.side) or 1
+    if member then
+        member.left, member.leaving, member.released, member.gone, member.resultSent = nil, nil, nil, nil, nil
+        member.side, member.down = side, false
+        W().setTeam(e.id, cfg().teamIds[side])
+    else
+        member = newMember(war, e.id, side, not (war.sides[side].gang ~= nil and e.gang == war.sides[side].gang), e, now)
+    end
+    placeMember(war, member, now, coverOf(war))
+    local completed = war.match.completed or { 0, 0 }
+    if war.bots and (completed[side] or 0) > 0 and B().retire(war, side, now) then completed[side] = completed[side] - 1 end
+    if war.bots then B().welcome(war, member) end
+    feedAll(war, ("%s joins %s"):format(member.name, sideLabel(war, side)), "info")
+    war.boardDirty = true
+    return true, "Joining your turf war match."
+end
+
+-- A turf.war join carrying options.match. `opts` was checked by Light RP already.
+-- true, sentence | false, sentence (the caller tells the player and clears his entry).
+function Turf.matchJoin(id, opts, now)
+    local match = opts.match
+    local key = matchKey(match)
+    if key == nil then return false, "Your turf war match could not be read. Try again from the Activities panel." end
+    local war = Turf.war
+    local who = Turf.identity(id)
+    local entry = { id = id, at = now, name = who.name, identifier = who.identifier, characterKey = who.characterKey,
+        gang = who.gang, gangLabel = who.gangLabel, gangColor = who.gangColor, kit = Turf.kit(opts.kit) and opts.kit or nil,
+        squad = squadOf(opts), ranked = rankedOf(opts), side = playerId(match.side) }
+    if war and war.match and war.match.id == key then
+        if Turf.memberOf(id) then return true, "You are already in your turf war match." end
+        return matchLate(war, entry, now)
+    end
+    if Turf.memberOf(id) then return false, "You are already in a fight." end
+    -- (Light RP pulls a match player out of his other queues first: never left behind)
+    if Turf.dequeue(id) or Turf.unsweep(id) then W().clear(id) end
+    local g = Turf.matchGather
+    if g == nil or g.key ~= key then
+        local refused = Turf.refusedMatches[key]
+        if refused then return false, refused.text end
+        local players = idList(match.players, cfg().activity.maxPlayers or 24)
+        local busy = Turf.slotBusy(players)
+        if busy then
+            local text = ("Turf War is busy: %s. Your match was not started; try again when the war zone is free."):format(busy)
+            Turf.refusedMatches[key] = { text = text, at = now }
+            log("match %s refused: %s", key, busy)
+            return false, text
+        end
+        local teams = {}
+        if type(match.teams) == "table" then
+            for s = 1, 2 do if type(match.teams[s]) == "table" then teams[s] = idList(match.teams[s], 24) end end
+        end
+        g = { key = key, friendly = match.friendly == true, players = players, teams = teams,
+            bots = type(match.bots) == "table" and match.bots or nil, fill = type(opts.fill) == "table" and opts.fill or nil,
+            site = type(opts.site) == "string" and opts.site or nil, entries = {}, gone = {}, at = now,
+            deadline = now + (cfg().match.gatherSeconds or 15) * 1000 }
+        Turf.matchGather = g
+        log("match %s gathering: %d player(s)%s", key, #players, g.friendly and " (friendly)" or "")
+    end
+    local found = false
+    for _, id2 in ipairs(g.players) do if id2 == id then found = true break end end
+    if not found then g.players[#g.players + 1] = id end
+    g.gone[id] = nil
+    if not Turf.matchEntry(id) then g.entries[#g.entries + 1] = entry end
+    if not entry.ranked then g.unranked = true end
+    Turf.lastQueuePush = 0
+    if gatherComplete(g) then
+        local started = Turf.launchMatch(g, now)
+        return true, started and "Your turf war match is starting." or "Your turf war match could not start."
+    end
+    W().notify(id, "info", ("Turf War match: waiting for your group (%d/%d)."):format(#g.entries, #g.players), 5000)
+    return true, "Waiting for your group."
+end
+
+local function tickMatch(now)
+    for key, r in pairs(Turf.refusedMatches) do
+        if now - r.at > 60000 then Turf.refusedMatches[key] = nil end
+    end
+    local g = Turf.matchGather
+    if not g then return end
+    for i = #g.entries, 1, -1 do
+        if not W().connected(g.entries[i].id) then g.gone[g.entries[i].id] = true; table.remove(g.entries, i) end
+    end
+    if #g.entries == 0 then Turf.matchGather = nil return end
+    if gatherComplete(g) or now >= g.deadline then Turf.launchMatch(g, now) end
 end
 
 -- ---------------------------------------------------------------- Gang Sweep (PvE)
@@ -1563,9 +1921,15 @@ function Turf.sweepJoin(id, opts, now, checked)
             end
         end
         local gather = (squad and P.gatherSeconds or P.soloGatherSeconds) or 0
-        group = { key = key, squad = squad, expected = expected, entries = {}, at = now, readyAt = now + gather * 1000 }
+        -- One difficulty per sweep: the first join's (a crew's joins carry the same one).
+        group = { key = key, squad = squad, expected = expected, entries = {}, at = now, readyAt = now + gather * 1000,
+            difficulty = R.difficulty(opts.difficulty, opts.scaling), allies = 0 }
         Turf.sweepQueue[#Turf.sweepQueue + 1] = group
     end
+    -- options.fill.allies is the group's target: the largest asked, applied once.
+    local fill = type(opts.fill) == "table" and opts.fill or nil
+    if fill then group.allies = math.max(group.allies or 0, R.count(fill.allies, 64)) end
+    if not rankedOf(opts) then group.unranked = true end
     group.entries[#group.entries + 1] = entry
     local text
     if squad then
@@ -1628,9 +1992,14 @@ function Turf.launchSweep(g, now)
         if not (humans ~= nil and byId[id].gang == humans) then merc[id] = true end
     end
     local rewards = R.scaledRewards(cfg().rewards, P.reputationScale or 0.6, P.rewards)
+    local difficulty = g.difficulty or R.difficulty()
+    -- Allied bots: the group's target, capped to the free seats and to the body budget
+    -- left after the gang (R.sweepAllies); a crew member coming in late takes a seat back.
+    local allies = R.sweepAllies(g.allies or 0, #entered, R.sweepGang(#entered, P, difficulty), P)
     return Turf.start(site, { gangs = { humans, holder }, merc = merc }, { entered, {} }, byId, now,
         { kind = "pve", activity = pveId, squadKey = g.key, target = P.targetScore, timeLimitSeconds = P.timeLimitSeconds,
-            rewards = rewards, holder = 2, zoneRate = { 1, P.holderZoneRate or 1 } })
+            rewards = rewards, holder = 2, zoneRate = { 1, P.holderZoneRate or 1 }, difficulty = difficulty,
+            allies = allies > 0 and allies or nil, unranked = g.unranked == true })
 end
 
 local function tickSweeps(now)
@@ -1719,7 +2088,10 @@ function Turf.tick(now)
         local ok, err = pcall(Turf.tickWar, war, now)
         if not ok then log("war %d tick error: %s", war.id, tostring(err)) end
     end
-    if Turf.war == nil then
+    local fine, why = pcall(tickMatch, now)
+    if not fine then log("match gather error: %s", tostring(why)) end
+    -- (a gathering core match holds the war slot too)
+    if Turf.war == nil and Turf.matchGather == nil then
         tickLobby(now)
     end
     local ok, err = pcall(tickSweeps, now)

@@ -125,6 +125,13 @@ AddEventHandler("op77_lightrp:activity:join", function(playerId, activityId, opt
             W.notify(id, "warning", text, 5000, "Gang Sweep")
             TurfCore.unqueue(id, PVE)
         end
+    elseif type(options) == "table" and type(options.match) == "table" then
+        -- A match formed by Light RP (friendly crew split, bot fill): a war of its own.
+        local ok, text = Turf.matchJoin(id, options, W.now())
+        if not ok then
+            W.notify(id, "warning", text, 7000, "Turf War")
+            TurfCore.unqueue(id, PVP)
+        end
     else
         local ok, text = Turf.enqueue(id, options, W.now(), true)
         if not ok then W.notify(id, "warning", text, 5000) end
@@ -153,8 +160,8 @@ end)
 AddEventHandler("op77_lightrp:characterChanged", function(playerId)
     local id = validId(playerId)
     if id == nil then return end
-    local a, b = Turf.dequeue(id), Turf.unsweep(id)
-    if a or b then W.clear(id); publishStatus() end
+    local a, b, c = Turf.dequeue(id), Turf.unsweep(id), Turf.unmatch(id)
+    if a or b or c then W.clear(id); publishStatus() end
 end)
 
 AddEventHandler("playerDropped", function()
@@ -326,6 +333,10 @@ local function describe(id, now)
         return ("Lined up for a Gang Sweep (%d in your group, %d sweep(s) running). /turf leave to cancel.")
             :format(#g.entries, #Turf.sweeps)
     end
+    local mg = Turf.matchEntry(id)
+    if mg then
+        return ("Your turf war match is gathering (%d/%d). /turf leave to cancel."):format(#mg.entries, #mg.players)
+    end
     local s = Turf.status(now)
     local text = "Turf War: " .. tostring(s.detail) .. ". /turf join to queue."
     if pveRegistered then text = text .. " Gang Sweep (PvE): /turf sweep." end
@@ -486,7 +497,9 @@ local function describeWar(lines, war)
     lines[#lines + 1] = ("  %s %d %s at %s bucket %d: %s %d - %d %s scope=%s%s%s"):format(war.kind == "pve" and "sweep" or "war",
         war.id, war.state, war.site.id, war.bucket, war.sides[1].label, war.sides[1].score, war.sides[2].score, war.sides[2].label,
         tostring(war.scope), war.scopeError and (" (" .. tostring(war.scopeError) .. ")") or "",
-        war.botWar and " BOT WAR (not counted)" or "")
+        war.botWar and " BOT WAR (not counted)" or (war.match and (" MATCH %s%s"):format(tostring(war.match.id),
+            war.unranked and " (unranked)" or "")) or (war.unranked and " UNRANKED" or "")
+            .. (war.difficulty and (" difficulty=%s"):format(war.difficulty.id) or ""))
     for _, zone in ipairs(war.zones) do
         lines[#lines + 1] = ("    zone %s owner=%s capturing=%s %.0f%%%s"):format(zone.def.id, tostring(zone.owner),
             tostring(zone.capturing), zone.progress * 100, zone.contested and " CONTESTED" or "")

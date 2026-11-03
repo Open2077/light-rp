@@ -212,6 +212,75 @@ function R.pveBots(humans, pve)
     return math.max(0, math.min(pve.maxBots or n, n))
 end
 
+-- ---------------------------------------------------------------- lobby options (v2)
+
+local function count(v, max)
+    v = tonumber(v)
+    if v == nil or v ~= v or v <= 0 then return 0 end
+    return math.min(max or 64, math.floor(v))
+end
+R.count = count
+
+local function clampNum(v, lo, hi, default)
+    v = tonumber(v)
+    if v == nil or v ~= v then return default end
+    return math.max(lo, math.min(hi, v))
+end
+
+-- A PvE difficulty from Light RP (options.difficulty + options.scaling), normalised:
+-- { id, enemies, health, damage, ai = "standard"|"veteran" }. Missing or junk values
+-- read as standard (x1); multipliers are clamped to sane bounds.
+function R.difficulty(id, scaling)
+    local s = type(scaling) == "table" and scaling or {}
+    local ai = s.ai == "veteran" and "veteran" or "standard"
+    return { id = type(id) == "string" and #id <= 24 and id or "standard",
+        enemies = clampNum(s.enemies, 0.5, 3, 1), health = clampNum(s.health, 0.25, 4, 1),
+        damage = clampNum(s.damage, 0.25, 3, 1), ai = ai }
+end
+
+-- The NPC gang of a Gang Sweep at a difficulty: the standard size (R.pveBots, uncapped)
+-- x enemies, rounded, at least 1, never above pve.maxBots (the gang's NPC budget).
+function R.sweepGang(humans, pve, diff)
+    local raw = (pve.baseBots or 3) + (pve.botsPerHuman or 2) * math.max(0, (humans or 1) - 1)
+    local n = math.floor(raw * ((diff and diff.enemies) or 1) + 0.5)
+    return math.max(1, math.min(pve.maxBots or n, n))
+end
+
+-- Allied bots of a sweep (options.fill.allies): the largest asked, capped to the free
+-- seats (activity.maxPlayers - humans) and to what the body budget leaves after the gang.
+function R.sweepAllies(asked, humans, gang, pve)
+    local seats = (pve.activity and pve.activity.maxPlayers or 8) - (humans or 0)
+    local budget = (pve.maxBodies or 14) - (gang or 0)
+    return math.max(0, math.min(count(asked), seats, budget))
+end
+
+-- Bots of a core match per side, capped per side and in total (bots on a side with
+-- humans are trimmed first, as in staff bot mode). humans = { n1, n2 }, want = { b1, b2 }.
+function R.capBots(humans, want, maxPerSide, maxBots)
+    local out = { count(want[1]), count(want[2]) }
+    for s = 1, 2 do if maxPerSide then out[s] = math.min(out[s], maxPerSide) end end
+    while maxBots and out[1] + out[2] > maxBots do
+        local s
+        if (humans[1] or 0) > 0 and out[1] > 0 then s = 1
+        elseif (humans[2] or 0) > 0 and out[2] > 0 then s = 2
+        else s = out[1] >= out[2] and 1 or 2 end
+        out[s] = out[s] - 1
+    end
+    return out
+end
+
+-- options.fill on a side-based war ({ allies, enemies }): a total, placed where the
+-- sides need it (the smaller side first, side 2 when level). Returns { b1, b2 }.
+function R.spreadFill(humans, total)
+    local out = { 0, 0 }
+    local n = { humans[1] or 0, humans[2] or 0 }
+    for _ = 1, count(total) do
+        local s = (n[1] + out[1] < n[2] + out[2]) and 1 or 2
+        out[s] = out[s] + 1
+    end
+    return out
+end
+
 -- A rival gang for a side nobody of a gang holds: the first of `order` that is not `taken`.
 function R.rivalGang(order, taken, gangs)
     for _, key in ipairs(order or {}) do
