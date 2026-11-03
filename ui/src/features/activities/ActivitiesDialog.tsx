@@ -188,9 +188,13 @@ function ActivityDetail({ a, state, party, mode, level, waiting, onMode, onLevel
   // PvE: the difficulty picked (the first open one by default), locked above the street cred tier
   const picked = a.pve ? pickedDifficulty(a, level) : undefined;
   const tooHard = picked?.locked ? `${picked.label} needs reputation tier ${roman(picked.minTier)}${picked.tierName ? ` (${picked.tierName})` : ""}.` : undefined;
+  // a crew member is never refused the leader's PvE difficulty: above their street cred
+  // they still play it, for the reward of their own tier (the server's rule)
   const why = busyElsewhere ? `You are in ${state.current && state.current.label}.`
-    : state.crewLeader && !inside && !queuedHere ? `${state.crewLeader} leads your crew and starts activities. Leave the crew to go solo.`
+    : state.crewLeader && !inside && !queuedHere ? `${state.crewLeader} leads your crew and starts activities.${a.pve ? " Above your street cred you still play their pick, for your own tier's reward." : ""} Leave the crew to go solo.`
     : !a.joinable ? `${a.label} is not taking players right now.` : blocked ? state.reason : tooHard;
+  const crewNote = `Your ${crewSize - 1} crew member${crewSize > 2 ? "s are" : " is"} queued with you.`
+    + (picked && picked.minTier > 1 ? ` Anyone below ${picked.label}'s street cred still plays it, for their own tier's reward.` : "");
   const board = a.board;
   const record = board ? a.mineBoard : a.mine;
   return <section className="activity-detail" aria-labelledby="activities-title">
@@ -222,7 +226,7 @@ function ActivityDetail({ a, state, party, mode, level, waiting, onMode, onLevel
         : queuedHere ? <Button variant="secondary" icon="x" disabled={waiting} onClick={onLeave}>CANCEL MY REQUEST</Button>
         : <Button icon="chevron-right" disabled={waiting || !!why} onClick={onJoin}>{state.queued ? "SWITCH TO THIS ONE" : crewSize > 1 && !state.crewLeader ? "JOIN WITH THE CREW" : "JOIN"}</Button>}
       {why ? <span className="activity-detail__why"><Icon name="triangle-alert" size={13} />{why}</span>
-        : crewSize > 1 && !inside && !queuedHere && <span className="activity-detail__why is-info"><Icon name="users" size={13} />Your {crewSize - 1} crew member{crewSize > 2 ? "s are" : " is"} queued with you.</span>}
+        : crewSize > 1 && !inside && !queuedHere && <span className="activity-detail__why is-info"><Icon name="users" size={13} />{crewNote}</span>}
     </div>
 
     <h2 className="activity-detail__step">YOUR RECORD{board ? ` · ${board.course.toUpperCase()}` : ""}</h2>

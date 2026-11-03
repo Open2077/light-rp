@@ -219,6 +219,10 @@ export interface MissionDifficulty {
   openLobbies?: number;
   /** `tier` is the reputation tier it needs; tierLocked: the player is below it. */
   tierName?: string; tierLocked?: boolean;
+  /** Reputation of a success: in full (`reputation`), and what this player earns (`earns`). Below
+   *  what they have unlocked a crew member still plays it with their leader, for the reward of the
+   *  highest difficulty they have unlocked (`earnsAs`, its label; absent when it is this one). */
+  reputation?: number; earns?: number; earnsAs?: string;
 }
 export interface MissionLobbyMember { id: number; name: string; citizen: string; tier: number; host: boolean; squad?: string }
 export interface MissionBoard {

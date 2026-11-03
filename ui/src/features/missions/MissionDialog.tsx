@@ -71,7 +71,10 @@ function MissionBody({ initial, onClose }: { initial: MissionDialogPayload; onCl
   const tag = () => { if (mine) sendAction({ type: "mission.untag", session }); else if (!diff.locked && entry.leads) sendAction({ type: "mission.tag", session, difficulty: diff.id }); };
   const matchmaking = () => { if (entry.leads) sendAction({ type: "mission.matchmaking", session, on: !entry.matchmaking }); };
   const launch = () => { if (hostCanLaunch) sendAction({ type: "mission.launch", session }); };
-  const openBoard = () => { if (!diff.locked) setView("board"); };
+  // a crew member may look at any board: their leader picks, and below what they have
+  // unlocked they still play it, for their own reward (the server's rule)
+  const viewable = (d: MissionDifficulty) => !d.locked || !entry.leads;
+  const openBoard = () => { if (viewable(diff)) setView("board"); };
   const move = (step: number) => {
     const list = data.difficulties;
     const at = list.findIndex(d => d.id === selected);
@@ -110,7 +113,7 @@ function MissionBody({ initial, onClose }: { initial: MissionDialogPayload; onCl
       <h2 className="mission__step">01 · CHOOSE DIFFICULTY</h2>
       <div className="mission__rows" role="listbox" aria-label="Difficulty">
         {data.difficulties.map(d => <DifficultyRow key={d.id} d={d} selected={d.id === selected} mine={data.tagged?.difficulty === d.id} money={money}
-          onSelect={() => setSelected(d.id)} onOpen={() => { setSelected(d.id); if (!d.locked) setView("board"); }} />)}
+          member={!entry.leads} onSelect={() => setSelected(d.id)} onOpen={() => { setSelected(d.id); if (viewable(d)) setView("board"); }} />)}
       </div>
     </section> : <BoardView data={data} diff={diff} board={board} mine={!!mine} countdown={countdown} money={money} entry={entry} />}
 
@@ -123,7 +126,7 @@ function MissionBody({ initial, onClose }: { initial: MissionDialogPayload; onCl
         </button>
         {view === "difficulty" ? <>
           <button className="mission__key mission__key--ghost" onClick={close}>CLOSE<kbd>ESC</kbd></button>
-          <button className="mission__key mission__key--primary" disabled={diff.locked} onClick={openBoard}><Icon name="chevron-right" size={15} />OPEN BOARD<kbd>⏎</kbd></button>
+          <button className="mission__key mission__key--primary" disabled={!viewable(diff)} onClick={openBoard}><Icon name="chevron-right" size={15} />OPEN BOARD<kbd>⏎</kbd></button>
         </> : <>
           <button className="mission__key mission__key--ghost" onClick={() => setView("difficulty")}><Icon name="undo-2" size={14} />DIFFICULTY<kbd>BKSP</kbd></button>
           {hostCanLaunch && <button className="mission__key mission__key--launch" onClick={launch}><Icon name="swords" size={14} />LAUNCH NOW<kbd>R</kbd></button>}
@@ -158,12 +161,14 @@ function Meter({ value, max, tone }: { value: number; max: number; tone: string 
 
 const ROMAN = ["", "I", "II", "III", "IV", "V"];
 
-function DifficultyRow({ d, selected, mine, money, onSelect, onOpen }: { d: MissionDifficulty; selected: boolean; mine: boolean; money(n: number): string; onSelect(): void; onOpen(): void }) {
+function DifficultyRow({ d, selected, mine, member, money, onSelect, onOpen }: { d: MissionDifficulty; selected: boolean; mine: boolean; member: boolean; money(n: number): string; onSelect(): void; onOpen(): void }) {
   const tone = TONE[d.id] ?? "standard";
   // what opens it: the street cred tier (docs/pve-progression.md), then the clear ladder
   const rep = d.tier > 1 ? `REP ${ROMAN[d.tier] ?? d.tier}` : "";
   const unlock = [rep, d.requires ? `CLEAR ${d.requires}` : ""].filter(Boolean).join(" + ") || "OPEN";
-  const lock = d.tierLocked ? `REP TIER ${ROMAN[d.tier] ?? d.tier}${d.tierName ? ` · ${d.tierName.toUpperCase()}` : ""}` : `COMPLETE ${d.requires} FIRST`;
+  // a crew member is never refused the leader's pick: locked for them alone, it still pays their own reward
+  const lock = (d.tierLocked ? `REP TIER ${ROMAN[d.tier] ?? d.tier}${d.tierName ? ` · ${d.tierName.toUpperCase()}` : ""}` : `COMPLETE ${d.requires} FIRST`)
+    + (member && d.earns != null ? ` · WITH THE CREW +${d.earns} REP` : "");
   return <button role="option" aria-selected={selected} aria-disabled={d.locked}
     className={`mission-row is-${tone}${selected ? " is-selected" : ""}${d.locked ? " is-locked" : ""}`} onClick={onSelect} onDoubleClick={onOpen}>
     <div className="mission-row__name"><span className="mission-chip">{d.label}</span><strong>{d.label}</strong><p>{d.blurb}</p></div>
@@ -216,7 +221,7 @@ function BoardView({ data, diff, board, mine, countdown, money, entry }: { data:
         </div>;
       })}
     </div>
-    {!mine && !diff.locked && <p className="mission__hint">{entryHint(entry, diff)}</p>}
+    {!mine && (!diff.locked || !entry.leads) && <p className="mission__hint">{entryHint(entry, diff)}</p>}
     {mine && countdown == null && <p className="mission__hint">You are tagged. Stay near the mission point: walking away untags you.
       {entry.open ? " Matchmaking fills the empty places." : board.members.length < board.min ? ` This board takes your crew only: ${diff.label} needs ${board.min}. Grow the crew, or turn matchmaking on (M).` : ""}
       {entry.open && board.members[0]?.id === data.me.id && board.members.length >= board.min ? " As host you can launch now with the operators on board." : ""}</p>}
@@ -225,7 +230,14 @@ function BoardView({ data, diff, board, mine, countdown, money, entry }: { data:
 
 /* What happens when this player tags in, in one or two sentences. */
 function entryHint(entry: MissionEntry, diff: MissionDifficulty): string {
-  if (!entry.leads) return `${entry.leader ?? "Your crew leader"} tags the crew in: you enter together. Leave the crew (Q) to go solo.`;
+  if (!entry.leads) {
+    const lead = `${entry.leader ?? "Your crew leader"} tags the crew in: you enter together. Leave the crew (Q) to go solo.`;
+    if (!diff.locked) return lead;
+    // below what this member has unlocked: they still play it in full, for their own reward
+    const why = diff.tierLocked ? "is above your street cred" : `is not open to you yet (complete ${diff.requires} first)`;
+    const earns = diff.earnsAs ? `the ${diff.earnsAs} reward (+${diff.earns ?? 0} REP)` : diff.earns ? `+${diff.earns} REP` : "no reputation";
+    return `${lead} ${diff.label} ${why}: with the crew you still play it, and earn ${earns}.`;
+  }
   const who = entry.size > 1 ? `Your crew of ${entry.size}` : "You";
   if (entry.matchmaking) return `Matchmaking on: ${entry.size > 1 ? "your crew joins" : "you join"} the fullest open board with room, and solo players fill the empty places.`;
   const open = diff.openLobbies ? `${diff.openLobbies} open board${diff.openLobbies > 1 ? "s" : ""} here ${diff.openLobbies > 1 ? "are" : "is"} looking for operators` : "";
