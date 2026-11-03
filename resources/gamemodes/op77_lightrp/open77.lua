@@ -174,6 +174,7 @@ client_script "client/core/casino_blackjack.lua"
 client_script "client/core/casino_fortune.lua"
 client_script "client/core/board_games.lua"
 client_script "client/core/safezones.lua"
+client_script "client/core/vanilla_safe_areas.lua" -- the game's own safe areas stay off
 client_script "client/core/safezone_tile.lua" -- the green tile by the voice plate (web/safezone/)
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
