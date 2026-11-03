@@ -206,7 +206,12 @@ personnages), par jour UTC.
   qu'un fournisseur fait entrer avec un chef de groupe).
 - `activityEnter(id, activityId, { difficulty })` : refuse au-dessus du palier et retient la
   difficulté sur l'entrée ; sans ce troisième argument, l'entrée reprend celle de la demande du
-  panneau.
+  panneau, sinon la première proposée. Un équipier sous le palier de la difficulté du chef est
+  **refusé**, pas abaissé : au fournisseur de le laisser dehors ou de l'inscrire à une instance de
+  son palier (question 5 du §8).
+- Crochet de module `onActivityChanged(id, activityId, { pve, kind, difficulty })` à l'entrée,
+  `onActivityChanged(id, nil, { left, reason })` à la libération (utilisé par le cyberware).
+- Commande joueur : `/activity join <id> <difficulté>` (par ex. `arena.pve hard`).
 - Résultat : `result.difficulty` facultatif (utilisé seulement si l'entrée n'en a pas). La
   réputation suit le §4.
 - Rien ne change pour un fournisseur PvP : ses résultats sont enregistrés comme avant, à 0 de
@@ -269,10 +274,17 @@ avant de faire entrer un équipier qui n'est pas passé par le panneau.
 2. S'asseoir sur une chaise de ripperdoc à 0 réputation : les rangs III et plus sont marqués « REP
    II » à « REP V », l'installation est refusée côté serveur ; à 10 000 tout s'ouvre.
 3. Panneau Activités : `Combat Zone · PvE` propose Standard / Hard / Critical, les difficultés au-
-   dessus du palier sont fermées ; une demande forcée (`/activity join arena.pve`) en Hard à 0
-   réputation est refusée.
+   dessus du palier sont fermées ; une demande forcée (`/activity join arena.pve hard`) à 0
+   réputation est refusée (« Hard needs reputation tier II (Merc) »). Tant que `op77_arena` ne lit
+   pas `options.difficulty`, la manche se joue à sa difficulté actuelle ; il envoie encore
+   `reputation` 18 (victoire) ou 3 (défaite), que le noyau borne au plafond de la difficulté : la
+   notice de fin dit « Standard · won · +18 reputation » aujourd'hui, « +30 » quand le fournisseur
+   cessera d'envoyer un montant pour une victoire.
 4. Une manche `arena.ffa` : la notice de fin n'affiche plus de réputation, le classement compte la
    victoire.
 5. `LightRpCyberwareConfig.activeInPvp = false`, `ensure op77_lightrp`, entrer en `arena.duel` avec
    un Sandevistan : `/lightrp.cyberware <id> status` montre `overdrive=none` pendant le duel, la
    concession revient au retour.
+6. Le bundle de la clinique doit d'abord être reconstruit (`npm run build` dans `ripperdoc-ui`,
+   qui écrit `resources/standalone/op77_ripperdoc/web`) pour voir les verrous ; sans cela le
+   serveur refuse quand même la pose, la page affiche seulement l'erreur.

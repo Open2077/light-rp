@@ -489,6 +489,10 @@ de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on 
   mission démarre comme une mission normale (kit, instance). Sans tout le monde après 20 min :
   lancement avec les présents s'ils suffisent, sinon le job tombe.
 - **Fin** : chaque opérateur est payé (`gig` à la banque) + réputation, le fixer envoie un message.
+  La réputation suit le palier de chacun : un équipier invité sous le palier de la difficulté
+  reçoit celle de la plus haute difficulté que son palier ouvre (`docs/pve-progression.md`).
+- Les offres ne tirent que des difficultés ouvertes au palier de réputation du joueur
+  (Standard au palier I, Hard au II, Critical au III).
 - Puce HUD « GIG » (état `fixerGig`) : présents au point, horloge du rendez-vous, compte à rebours.
 - Envoi automatique : un passage par minute, chance 8 % par joueur éligible (implant, en ville,
   libre, 2 min après l'arrivée), 20 min entre deux offres, 6 gigs ouverts au maximum.
@@ -504,7 +508,8 @@ Light RP en est le **noyau** : il possède le joueur pendant l'activité, captur
 retour, met ses armes RP de côté, gèle la faim et la soif, refuse objets RP, véhicules RP,
 logement et ordres de travail selon les `caps` de l'activité, n'applique ni inconscience ni
 hôpital, ne sauvegarde jamais la position de l'instance et ramène le joueur à la fin. Les
-résultats deviennent statistiques, classements et réputation — **jamais d'argent ni d'objet**.
+résultats deviennent statistiques et classements — **jamais d'argent ni d'objet** ; seules les
+activités **PvE** rapportent en plus de la réputation (voir « Progression PvE » plus bas).
 
 ### Le contrat (exports serveur de `op77_lightrp`)
 
@@ -514,9 +519,9 @@ activités (`GetInvokingResource`).
 
 | Export | Rôle |
 |---|---|
-| `activityRegister(def)` → `true` \| `false, raison` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` préfixé par le fournisseur (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (tout à `false` par défaut). Réenregistrer remplace. Facultatif : `modes = { { id, label } }` et `modeKey` (choix proposés par le panneau, rendus dans `options[modeKey]` ; un choix inconnu est refusé avant d'atteindre le fournisseur ; sans `modes`, `joinChoices` de la config peut en fournir — voiture ou à pied pour `chase.1v1`). |
-| `activityCheck(id, activityId)` → `true` \| `false, raison` | Éligibilité seule, dans cet ordre : personnage actif, vivant et pas à terre, ni en mission ni dans une autre activité, pas dans le premier jour, pas dans un logement, pas en véhicule, pas blessé depuis 60 s, et dans la ville partagée (bucket 0). La raison est une phrase anglaise montrée au joueur. |
-| `activityEnter(id, activityId)` | Revérifie, enregistre la possession, capture `{ x, y, z, heading, bucket }`, range les armes RP si `caps.rpWeapons` est faux. Le fournisseur déplace ensuite le joueur dans son bucket. |
+| `activityRegister(def)` → `true` \| `false, raison` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` préfixé par le fournisseur (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (tout à `false` par défaut). Réenregistrer remplace. Facultatif : `modes = { { id, label } }` et `modeKey` (choix proposés par le panneau, rendus dans `options[modeKey]` ; un choix inconnu est refusé avant d'atteindre le fournisseur ; sans `modes`, `joinChoices` de la config peut en fournir — voiture ou à pied pour `chase.1v1`). Facultatif aussi : `pve = true` (joueurs contre bots, seule source de réputation ; sans le drapeau, la liste `pve.activities` de la config peut marquer l'id, `pve = false` l'emporte) et `difficulties = { "standard", "hard", "critical" }` (celles que le fournisseur joue vraiment ; sans elles, Standard seule). |
+| `activityCheck(id, activityId, opts)` → `true` \| `false, raison` | Éligibilité seule, dans cet ordre : personnage actif, vivant et pas à terre, ni en mission ni dans une autre activité, pas dans le premier jour, pas dans un logement, pas en véhicule, pas blessé depuis 60 s, et dans la ville partagée (bucket 0). Avec `opts.difficulty` sur une activité PvE : aussi le palier de réputation qu'elle demande. La raison est une phrase anglaise montrée au joueur. |
+| `activityEnter(id, activityId, opts)` | Revérifie, enregistre la possession, capture `{ x, y, z, heading, bucket }`, range les armes RP si `caps.rpWeapons` est faux. Le fournisseur déplace ensuite le joueur dans son bucket. PvE : la difficulté jouée est `opts.difficulty`, sinon celle choisie au panneau, sinon la première proposée ; refusée au-dessus du palier du joueur (un équipier sous le palier du chef est refusé, pas tiré vers le haut). |
 | `activityLeave(id, activityId, opts)` | Libère. `opts.returnPlayer` (vrai par défaut) : retour au point capturé, bucket compris, en descendant du véhicule ; un joueur mort y réapparaît (jamais laissé mort), puis soin complet et armes RP rendues, sur le thread de Light RP. |
 | `activityOwner(id)` | L'id de l'activité, `"missions"` pendant une mission, sinon `nil`. |
 | `activityPlayer(id)` | `{ name, identifier, characterKey, gang = { id, label, grade, gradeLabel, tag, color } \| nil, job = { id, label, grade, gradeLabel, tag } }` — `nil` sans personnage actif ; `gang` vaut `nil` sans affiliation, `job.id` vaut `unemployed` sans emploi. Le gang et le métier sont lus dans `server/modules/jobs.lua` (mêmes vues que les state bags `gang` / `job`). `job.onDuty` reste absent : Light RP n'a pas de prise de service. |
@@ -525,13 +530,16 @@ activités (`GetInvokingResource`).
 un client ne peut pas les lever) :
 
 - fournisseur → noyau `op77_lightrp:activity:result (id, activityId, result)` avec
-  `result = { placement, score, won, stats = { kills, deaths, timeMs, courseId, courseRevision… }, reputation }`.
-  Un résultat par entrée toutes les 15 s, et un seul jusqu'à 10 min après la sortie.
+  `result = { placement, score, won, stats = { kills, deaths, timeMs, courseId, courseRevision… }, reputation, difficulty }`.
+  Un résultat par entrée toutes les 15 s, et un seul jusqu'à 10 min après la sortie. `reputation`
+  ne compte que pour une activité PvE (voir plus bas) ; ailleurs il est ignoré.
 - fournisseur → noyau `op77_lightrp:activity:status (activityId, { phase, players, queued, joinable, detail })`,
   à chaque changement (les envois rapprochés sont regroupés avant d'atteindre les joueurs).
 - noyau → fournisseur `op77_lightrp:activity:join (id, activityId, options)` : le joueur l'a demandé
   depuis le panneau (`activityCheck` déjà passé). `options` contient le choix du panneau
   (`options.mode`, `options.course`…), `options.from` et `options.squad = { id, leader, members }`.
+  Pour une activité PvE à difficultés : `options.difficulty` (déjà vérifiée contre le palier) et
+  `options.scaling = { enemies, health, damage, ai }`, que le fournisseur traduit en bots.
 - noyau → fournisseur `op77_lightrp:activity:leaveRequest (id, activityId)` : le joueur veut
   partir (panneau, F1, `/leave`) — y compris s'il n'est qu'en file. Sans `activityLeave` du
   fournisseur sous 15 s, le noyau libère et ramène le joueur lui-même (`dropped`, raison `timeout`).
@@ -569,10 +577,19 @@ tableau, plus les coordonnées de l'arène.
 Tables `lightrp_activity_stats` (par compte + personnage + activité, et par parcours
 `courseId@révision` pour les courses : parties, victoires, kills, morts, meilleur score, meilleur
 temps, meilleure place, réputation) et `lightrp_activity_rep_daily` (réputation accordée par
-compte et par jour UTC). La réputation est bornée à `reputation.maxPerResult` (50) par résultat
-et `reputation.dailyCap` (250) par compte et par jour ; avec `grantTo = "missions"` elle
-s'ajoute aussi à la réputation de rue des missions. Classements : top 5 par activité, au
-meilleur temps pour les courses, aux victoires sinon. Sans base, tout vit le temps de la session.
+compte et par jour UTC).
+
+**Seules les activités PvE donnent de la réputation.** PvP, courses, poursuites et événements
+enregistrent parties, victoires et classements à 0 réputation, quoi que demande le résultat. Un
+résultat PvE vaut la réputation de sa difficulté (`pve.difficulties` : Standard 30, Hard 60,
+Critical 100) × le poids de l'activité (`pve.activities` : `arena.pve` 1,0, `race.pve` 0,5,
+`turf.pve` 1,2, `chase.pve` 0,6) : en entier pour une victoire qui ne précise rien, sinon
+`min(reputation, ce plafond)`. La difficulté comptée est celle de l'entrée, abaissée à la plus
+haute que le palier du joueur ouvre. Le tout reste sous `reputation.dailyCap` (500) par compte
+et par jour ; avec `grantTo = "missions"` elle s'ajoute à la réputation de rue des missions.
+`reputation.pvpGrants = true` rétablit l'ancienne règle (tous les genres, bornés à
+`maxPerResult` = 50). Classements : top 5 par activité, au meilleur temps pour les courses, aux
+victoires sinon. Sans base, tout vit le temps de la session.
 
 ### Ce que voit le joueur
 
@@ -581,7 +598,8 @@ meilleur temps pour les courses, aux victoires sinon. Sans base, tout vit le tem
   mission de la ville avec un itinéraire GPS vers chacun (les tableaux eux-mêmes ne changent
   pas). Une épingle « Activities » sur la carte (`op77_map3d`, catégorie Missions).
 - **Panneau Activités** (`ui/src/features/activities/`) : la liste (état, joueurs, file), le
-  détail (choix du mode quand il y en a, Rejoindre / Partir / Annuler, la raison d'un refus),
+  détail (choix du mode quand il y en a, badge PVE et choix de la difficulté — les verrouillées
+  disent quel palier les ouvre —, Rejoindre / Partir / Annuler, la raison d'un refus),
   votre bilan et le classement ; onglets *Contracts* et *Squad* (invitations, membres, joueurs à
   15 m). Bandeau d'état en tête : dans une activité, en attente, en mission, ou pourquoi pas.
 - **F1 → Activities** (ouvre le panneau, et *Leave …* / *Cancel …* direct) et **F1 → Squad**
@@ -589,7 +607,8 @@ meilleur temps pour les courses, aux victoires sinon. Sans base, tout vit le tem
 - **Neural-Link → Gigs & Arena** (`client/core/activities.lua`) : ouvre le même panneau partout.
 - À la fin du premier jour (terminé ou passé) : une notice qui pointe vers The Crossing, et un
   itinéraire si le joueur en est loin. Les répliques voix de Mara ne changent pas.
-- Commandes : `/leave` (quitter l'activité ou sa file), `/activity [list · join <id> [mode] · leave]`.
+- Pied du panneau : palier de réputation (« Street cred ») et réputation PvE du jour.
+- Commandes : `/leave` (quitter l'activité ou sa file), `/activity [list · join <id> [mode|difficulté] · leave]`.
   Staff : `/lightrp.activities` (activités, propriétaires, files, opérateurs en mission) et
   `/lightrp.survey [libellé]` (position et cap, au format de la config).
 
@@ -602,6 +621,34 @@ Les positions des terminaux sont des décalages plausibles depuis le point d'arr
 (ce sont des enregistrements audités en base) : **/admin → Safe zones**, nouvelle zone centrée
 sur l'esplanade (`-756.6, 777.3`), rayon d'environ 30 m, *blockShoot*, *blockMelee* et
 *blockGrenades* cochés, puis publier.
+
+## Progression PvE : paliers de réputation, difficultés, cyberware
+
+Proposition complète, chiffres et questions ouvertes : `docs/pve-progression.md`. En bref :
+
+- **Cinq paliers** de réputation de rue (`server/config/missions.lua`, `reputation`) : I Street
+  (0), II Merc (500), III Operator (1 500), IV Edgerunner (4 000), V Legend (10 000). Missions,
+  raid Chimera et gigs rapportent 100 / 220 / 450 par difficulté ; les activités PvE 30 / 60 / 100
+  × poids, 500 par jour ; le PvP rien. Une notice « STREET CRED » annonce chaque palier ;
+  `/missions.rep <id>` affiche points, palier et prochain seuil.
+- **Difficultés** : Hard demande le palier II, Critical le III (`difficultyTiers`), en plus de
+  l'échelle « terminer la difficulté précédente » au même point (`requireClear`). Le contrôle
+  vaut pour chaque membre d'un tableau de mission, pour les offres de fixers et pour les
+  activités PvE (`activityCheck` / `activityEnter` / panneau).
+- **Cyberware** (`server/config/cyberware.lua`, `gating`) : rangs I–II ouverts à tous, III au
+  palier II, IV au III, V au IV, V+ au V (le champ `repTier` d'un implant l'emporte). Le serveur
+  refuse la pose avant tout paiement ; la dépose reste possible, un implant déjà posé reste actif
+  et `lightrp.cyberware <id> give` ignore le palier. La clinique montre les implants verrouillés
+  (badge `REP III`, ligne « Street cred », bouton `LOCKED`) ; le bundle `op77_ripperdoc/web` doit
+  être reconstruit depuis `ripperdoc-ui` pour l'afficher.
+- **Haut de gamme** : rang V — Iron Lungs Mk.2 (+80 endurance max), Adrenaline Booster Mk.2
+  (+15 endurance/s), Bioplastic Blood Vessels (+3 vie/s) ; rang V+ — Neofiber Actuators Mk.3
+  (dash `apex`), Aegis Dermal Plating (+100 armure), Rara Avis (+100 vie max), Zetatech Apogee
+  (overdrive `apex`, 11 s).
+- **PvP classé** : `activeInPvp` (vrai par défaut, décision du propriétaire). À `false`, les
+  dons de session (dash, overdrive, slam) et les stats passives sont suspendus dans une activité
+  non PvE et rendus à la sortie (crochet de module `onActivityChanged`) ; jambes et bras durables
+  restent.
 
 ## Housing
 
