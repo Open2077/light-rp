@@ -10,6 +10,8 @@
 --   activityRegister(def)                    -> true | false, reason
 --       def = { id = "arena.ffa", resource, label, kind = "pvp"|"race"|"chase"|"event",
 --               description, minPlayers, maxPlayers,
+--               botFill = true|false,                             -- optional: honours options.fill
+--               modes = { { id, label, botFill = false } },       -- optional: per-mode opt-out
 --               caps = { rpWeapons, rpItems, needs, vehicles },   -- every cap false by default
 --               pve = true|false,                                 -- optional: players vs bots
 --               difficulties = { "standard", "hard", "critical" } } -- optional, PvE only
@@ -49,13 +51,21 @@
 --                   none of its own ranked data (rating, ELO, records) when false.
 --   options.fill    nil | { allies, enemies }: bots the provider adds, a target for the
 --                   group's instance (the same on every member's join, applied once).
---   options.match   nil | { id, friendly, format, players, teams, side, bots }: a match
---                   formed by the core (a friendly, a bot match chosen up front, a bot
---                   fill accepted after the ranked wait). Every player of it gets a join
---                   with the same id in one tick; the provider puts exactly `players` in
---                   one instance of their own, on `teams[side]`, with `bots[side]` bots.
---   A ranked search (a PvP join without bots) goes to the provider's own queue as
---   before; after `lobby.fillAfterMs` its leader is offered a bot fill (unranked).
+--   options.match   nil | { id, ranked, friendly, format, players, teams, side, bots }:
+--                   a match formed by the core (a ranked match from the core queue, a
+--                   friendly, a bot match chosen up front, a bot fill accepted after the
+--                   ranked wait). Every player of it gets a join with the same id in one
+--                   tick; the provider puts exactly `players` in one instance of their
+--                   own, on `teams[side]`, with `bots[side]` bots.
+--   Bots are offered only where the provider registered `botFill = true` (a mode opts
+--   out with `botFill = false`) and the lobby config lists the activity.
+--   A ranked search (a PvP join without bots) of a `queue = true` activity is a ticket
+--   in the core queue: crews stay whole on one side, players are matched by cyberware
+--   bracket (same or adjacent first, wider as the oldest searcher waits, see
+--   `lobby.matchmaking`). Any other PvP activity keeps the provider's own queue. After
+--   `lobby.fillAfterMs` the leader is offered a bot fill (unranked) or keeps waiting.
+--   A friendly crew match (action activities.lobby: friendly / move / balance / bots /
+--   start / cancel) is set up by the crew leader in the panel and is always unranked.
 --   A.isRanked(entry | match | playerId), export activityRanked(playerId): the flag.
 --   A.result decides once per result: unranked (the entry's flag, staff bot mode,
 --   result.test / result.unranked, a PvP result with stats.bots or stats.vsAi) sets

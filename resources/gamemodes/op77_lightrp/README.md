@@ -651,7 +651,7 @@ activités (`GetInvokingResource`).
 
 | Export | Rôle |
 |---|---|
-| `activityRegister(def)` → `true` \| `false, raison` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` préfixé par le fournisseur (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (tout à `false` par défaut). Réenregistrer remplace. Facultatif : `modes = { { id, label } }` et `modeKey` (choix proposés par le panneau, rendus dans `options[modeKey]` ; un choix inconnu est refusé avant d'atteindre le fournisseur ; sans `modes`, `joinChoices` de la config peut en fournir — voiture ou à pied pour `chase.1v1`). Facultatif aussi : `pve = true` (joueurs contre bots, seule source de réputation ; sans le drapeau, la liste `pve.activities` de la config peut marquer l'id, `pve = false` l'emporte) et `difficulties = { "standard", "hard", "critical" }` (celles que le fournisseur joue vraiment ; sans elles, Standard seule). |
+| `activityRegister(def)` → `true` \| `false, raison` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` préfixé par le fournisseur (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (tout à `false` par défaut). Réenregistrer remplace. Facultatif : `modes = { { id, label } }` et `modeKey` (choix proposés par le panneau, rendus dans `options[modeKey]` ; un choix inconnu est refusé avant d'atteindre le fournisseur ; sans `modes`, `joinChoices` de la config peut en fournir — voiture ou à pied pour `chase.1v1`). Facultatif aussi : `pve = true` (joueurs contre bots, seule source de réputation ; sans le drapeau, la liste `pve.activities` de la config peut marquer l'id, `pve = false` l'emporte) et `difficulties = { "standard", "hard", "critical" }` (celles que le fournisseur joue vraiment ; sans elles, Standard seule). `botFill = true` : le fournisseur sait compléter avec des bots (`options.fill`, `options.match.bots`) — sans lui, le panneau ne propose jamais de bots ; un mode s'en exclut par `modes = { { id, label, botFill = false } }`. |
 | `activityCheck(id, activityId, opts)` → `true` \| `false, raison` | Éligibilité seule, dans cet ordre : personnage actif, vivant et pas à terre, ni en mission ni dans une autre activité, pas dans le premier jour, pas dans un logement, pas en véhicule, pas blessé depuis 60 s, et dans la ville partagée (bucket 0). Avec `opts.difficulty` sur une activité PvE : aussi le palier de réputation qu'elle demande — pour un membre de crew, celui de son chef (un membre sous la difficulté passe, pour la récompense de son palier). La raison est une phrase anglaise montrée au joueur. |
 | `activityEnter(id, activityId, opts)` | Revérifie, enregistre la possession, capture `{ x, y, z, heading, bucket }`, range les armes RP si `caps.rpWeapons` est faux. Le fournisseur déplace ensuite le joueur dans son bucket. PvE : la difficulté jouée est `opts.difficulty`, sinon celle choisie au panneau (celle du chef pour un membre mis en file avec lui), sinon la première proposée ; refusée au-dessus du palier d'un joueur solo ou d'un chef. Un membre de crew sous le palier n'est **jamais refusé** si son chef peut choisir cette difficulté : il la joue en entier, son résultat compte à la plus haute difficulté que son palier ouvre, et il le lit une fois en notice. |
 | `activityLeave(id, activityId, opts)` | Libère. `opts.returnPlayer` (vrai par défaut) : retour au point capturé, bucket compris, en descendant du véhicule ; un joueur mort y réapparaît (jamais laissé mort), puis soin complet et armes RP rendues, sur le thread de Light RP. |
@@ -665,8 +665,11 @@ un client ne peut pas les lever) :
   `result = { placement, score, won, stats = { kills, deaths, timeMs, courseId, courseRevision… }, reputation, difficulty }`.
   Un résultat par entrée toutes les 15 s, et un seul jusqu'à 10 min après la sortie. `reputation`
   ne compte que pour une activité PvE (voir plus bas) ; ailleurs il est ignoré.
-  `result.test = true` (et le mode bots staff) : rien d'enregistré ni de payé ;
-  `result.unranked = true` : enregistré, jamais payé. Les eddies d'un résultat accepté sont
+  Un résultat **non classé** n'enregistre rien — ni statistique (donc aucune ligne au Hall of
+  Fame), ni classement, ni réputation, ni paie : mode bots staff, entrée non classée (match
+  amical, PvP complété par des bots), `result.test = true`, `result.unranked = true` du
+  fournisseur, ou résultat PvP portant `stats.bots` / `stats.vsAi`. Le noyau le marque alors
+  `result.unranked = true` et `result.ranked = false` (voir *Lobby* plus bas). Les eddies d'un résultat accepté sont
   calculés par `server/modules/activity_pay.lua` (voir *Équilibrage*), à partir de
   `stats.durationMs` / `timeMs` / `seconds`, `quit`, `forfeit`, `bots`, `dnfReason`, de la
   difficulté de l'entrée et des statistiques de progression du mode.
@@ -678,6 +681,8 @@ un client ne peut pas les lever) :
   (le même pour chaque membre mis en file par le chef ; voir *Crews*).
   Pour une activité PvE à difficultés : `options.difficulty` (celle du chef, déjà vérifiée contre son
   palier) et `options.scaling = { enemies, health, damage, ai }`, que le fournisseur traduit en bots.
+  Toujours `options.ranked` ; selon le cas `options.fill = { allies, enemies }` et
+  `options.match = { id, ranked, friendly, format, players, teams, side, bots }` (voir *Lobby*).
 - noyau → fournisseur `op77_lightrp:activity:leaveRequest (id, activityId)` : le joueur veut
   partir (panneau, F1, `/leave`) — y compris s'il n'est qu'en file. Sans `activityLeave` du
   fournisseur sous 15 s, le noyau libère et ramène le joueur lui-même (`dropped`, raison `timeout`).
@@ -751,6 +756,49 @@ victoires sinon. Sans base, tout vit le temps de la session.
 - Commandes : `/leave` (quitter l'activité ou sa file), `/activity [list · join <id> [mode|difficulté] · leave]`.
   Staff : `/lightrp.activities` (activités, propriétaires, files, opérateurs en mission) et
   `/lightrp.survey [libellé]` (position et cap, au format de la config).
+
+### Lobby : bots, file classée, match amical (`server/config/activities.lua` → `lobby`)
+
+Les bots sont un **choix du panneau**, plus une commande. Une activité n'en propose que si elle
+figure dans `lobby.activities` **et** que son fournisseur a déclaré `botFill = true` (un mode peut
+s'en exclure) ; une activité absente de la liste se rejoint comme avant (classée, sans bots ni
+match amical). Les poursuites (`op77_chase`) n'y sont pas : joueurs réels ou NCPD du jeu seulement.
+
+- **PvE, « Fill empty slots with bots »** (`allies = true`) : des bots alliés complètent le crew
+  jusqu'à `seats` places (par défaut `maxPlayers`) — 6 places et un crew de 4 donnent 2 alliés.
+  Le fournisseur les reçoit dans `options.fill.allies` ; ils ne prennent aucun multiplicateur de
+  difficulté. **Toujours classé** : réputation, paie et Hall of Fame comme d'habitude.
+- **PvP, « Play with bots »** (`bots = true`) : le noyau forme tout de suite un match avec des bots
+  (`options.match`, `bots` par camp). **Non classé.**
+- **File classée** (`queue = true` : `arena.duel`, `arena.teams`, `race.grid`, `race.foot`) : une
+  demande PvP sans bots devient un ticket dans la file du noyau. Un crew reste entier, du même
+  côté, et compte pour la taille d'équipe (`teams`, `teamSize`, une taille par mode possible) ; un
+  crew trop grand est refusé. Appariement par **tranche de cyberware** : le rang que débloque le
+  street cred (`cyberware.lua` → `gating.byRank`, le plus haut membre pour un crew), ramené à une
+  tranche par `matchmaking.brackets`. D'abord la même tranche ou la voisine, puis l'écart s'élargit
+  selon l'attente du plus ancien (`matchmaking.widen` : 2 tranches à 60 s, 3 à 80 s, tout le monde à
+  100 s) ; les courses ignorent les tranches (`brackets = false`) et attendent `gatherMs` (15 s)
+  d'autres joueurs une fois le minimum atteint. Le panneau montre le chrono, trouvés / requis,
+  *Near your rank* ou *All ranks*, et *Cancel*. Après `fillAfterMs` (2 min), le chef se voit
+  proposer *Fill with bots* (match non classé) ou *Keep waiting*. `turf.war` garde la file de son
+  fournisseur (une guerre à la fois) ; la proposition de bots y vaut aussi.
+- **Match amical** (`friendly = true`) : le chef de crew ouvre *Friendly match* ; le noyau répartit
+  le crew par street cred (*Auto-balance*), le chef déplace les joueurs (flèches ou clic, un camp
+  plein échange), met des bots dans les places vides si le mode le permet, puis *Start*. Les membres
+  voient la répartition sans la modifier. Toujours **non classé**.
+
+**Ce qui compte.** Le noyau seul décide : `options.ranked` sur chaque `join`,
+`A.isRanked(entrée | match | joueur)` et l'export `activityRanked(id)`. Un résultat non classé
+(match amical, PvP avec bots, mode bots staff, `test`, `unranked` du fournisseur, `stats.bots` /
+`stats.vsAi` en PvP — jamais un PvE avec alliés) est marqué `result.unranked = true`,
+`result.ranked = false` dans `A.result` et s'arrête là : aucune statistique (donc aucune ligne du
+Hall of Fame, dont les lignes d'activité viennent de `lightrp_activity_stats`), aucun classement, aucune réputation, et
+`activity_pay.lua` n'est pas appelé (il refuse aussi `result.unranked` de lui-même). Un résultat
+classé porte `result.ranked = true`.
+
+Le panneau envoie l'action `activities.lobby` (`fill`, `friendly`, `move`, `balance`, `bots`,
+`cancel`, `start`). Un ticket expire après 15 min, un match formé qui n'a pas démarré après 2 min.
+`/lightrp.bots on|off` (staff) reste disponible pour tester seul : rien n'est enregistré.
 
 ### Mise en place de The Crossing (en jeu)
 
