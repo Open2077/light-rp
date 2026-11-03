@@ -125,7 +125,7 @@ LightRpGuide = {
             questions = {
                 { id = "start.where", q = "Where am I?",
                   a = { "**{v:hub}**, an esplanade in Westbrook. Newcomers land here when their first day ends.",
-                        "- The terminal next to the arrival point opens the **Activities** panel: press {key:interact} at it.",
+                        "- **Adam Smasher**, by the parking, opens the **Activities** panel: press {key:interact} next to him.",
                         "- Your free starter studio is in **{v:starterDoor}**, about 115 m from here: its door is on your map.",
                         "- The Job Center, the car rental and the garage are in City Center." },
                   say = "Westbrook. Fancy neighbourhood. Don't let it fool you.",
@@ -137,7 +137,7 @@ LightRpGuide = {
                         "1. Find your free studio in {v:starterDoor} (marked on your map).",
                         "1. Get a job at the **{v:jobCenter}**: press {key:interact} at the clerk.",
                         "1. Keep an eye on hunger and thirst: your bag starts with {v:startingItems}.",
-                        "1. When you want action, come back here: arena, races and chases start from the Activities terminal." },
+                        "1. When you want action, come back here: arena, races and chases start from Adam Smasher." },
                   say = "First rule of Night City: have a plan. Second rule: have eddies.",
                   actions = { { type = "gps", target = "jobcenter", label = "Mark the Job Center" }, { type = "gps", target = "starter", label = "Mark my studio" } },
                   follow = { "jobs.find", "money.earn", "health.needs" },
@@ -503,7 +503,7 @@ LightRpGuide = {
             say = "Wanna blow off some steam? Right here, choom.",
             questions = {
                 { id = "activities.what", q = "What are activities?",
-                  a = { "Short matches started from {v:hub}: arena fights, races, chases, turf wars. Join them from the terminal here ({key:interact}), F1 → **Activities**, or the Neural-Link app **Gigs & Arena**.",
+                  a = { "Short matches started from {v:hub}: arena fights, races, chases, turf wars. Join them from Adam Smasher here ({key:interact} next to him), F1 → **Activities**, or the Neural-Link app **Gigs & Arena**.",
                         "Running right now: {v:activities}." },
                   actions = { { type = "activities" }, { type = "gps", target = "crossing", label = "Mark The Crossing" } },
                   follow = { "activities.join", "activities.pay_rebalance", "activities.rewards", "activities.leave" },

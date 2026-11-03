@@ -89,7 +89,7 @@ LightRpGuideDialogue = {
         where = {
             say = {
                 "**{v:hub}**, Westbrook. Fancy neighbourhood. Don't let it fool you.",
-                "Newcomers land here when their first day ends. The terminal by the arrival point runs the activities. The Job Center, the rentals and the garage are over in City Center.",
+                "Newcomers land here when their first day ends. Smasher runs the activities, over by the parking. Yeah. Him. The Job Center, the rentals and the garage are over in City Center.",
             },
             choices = {
                 { "Show me the activities.", open = "activities" },
@@ -172,7 +172,7 @@ LightRpGuideDialogue = {
         -- Where's the action?
         action = {
             say = {
-                "Wanna blow off some steam? Right here, choom. The terminal at {v:hub} runs arena fights, races, chases and turf wars.",
+                "Wanna blow off some steam? Right here, choom. Smasher runs arena fights, races, chases and turf wars at {v:hub}. Don't ask me how that chromed bastard got the job.",
                 { requires = "activity:*", "On right now: {v:activities}." },
                 { requires = "dogtown", "Bigger money? Mission boards, all over the city. And if you're feeling lucky, Dogtown." },
                 { requires = "not:dogtown", "Bigger money? Mission boards, all over the city." },
