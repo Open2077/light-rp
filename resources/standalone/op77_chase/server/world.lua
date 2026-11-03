@@ -269,8 +269,10 @@ function W.hud(id, payload) if human(id) then TriggerClientEvent("op77_chase:hud
 function W.queueHud(id, payload) if human(id) then TriggerClientEvent("op77_chase:queue", id, payload) end end
 
 -- Players whose client shows Light RP's activity HUD (it says so with op77_chase:hudFeed):
--- their chase messages go to the HUD's feed instead of a notification. Everyone else
--- (an older Light RP without the HUD, a queued player in the city) gets notifications.
+-- their chase messages go to the HUD's feed. Everyone else (a queued player in the city,
+-- an older Light RP without the HUD) gets Light RP's own notice (export `notice`: its
+-- page, its design, never a UI of ours); only without Light RP, or with a core older
+-- than that export, the platform's notifications.
 W.hudFeed = {}
 
 local TONES = { info = "info", success = "success", warning = "danger", error = "danger" }
@@ -281,9 +283,11 @@ function W.notify(id, kind, message, durationMs, title)
         TriggerClientEvent("op77_chase:feed", id, { text = message, tone = TONES[kind or "info"] or "info", title = title })
         return
     end
+    local def = { kind = kind or "info", title = title or "NCPD Chase", body = message, durationMs = durationMs or 5000 }
+    if type(ChaseCore) == "table" and ChaseCore.call("notice", id, def) == true then return end
     if type(Open77.notifications) ~= "table" or type(Open77.notifications.send) ~= "function" then return end
-    pcall(Open77.notifications.send, id, { type = kind or "info", title = title or "NCPD Chase", message = message,
-        durationMs = durationMs or 5000 })
+    pcall(Open77.notifications.send, id, { type = def.kind, title = def.title, message = message,
+        durationMs = def.durationMs })
 end
 
 -- A server-wide line from Light RP (op77_lightrp:announce, host-wide event).

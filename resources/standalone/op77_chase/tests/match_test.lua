@@ -492,10 +492,11 @@ do
     chase(5, { "leave" }, "/chase leave")
     assert(ChaseQueue.position(5) == nil and env.qhud[5].queued == false)
 
-    -- Hub leaveRequest for a queued (not owned) player: dequeue.
+    -- Hub leaveRequest for a queued (not owned) player: dequeue, and no notice of ours on
+    -- top of Light RP's "You left the queue" (nor a "queued" one on the join).
     join(6)
     env.handlers["op77_lightrp:activity:leaveRequest"](6, "chase.1v1")
-    assert(ChaseQueue.size() == 0)
+    assert(ChaseQueue.size() == 0 and not noted(6, "You left") and not noted(6, "Queued"))
     -- Another activity's events are ignored.
     env.handlers["op77_lightrp:activity:join"](6, "arena.ffa", {})
     assert(ChaseQueue.size() == 0)

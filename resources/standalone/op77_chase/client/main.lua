@@ -9,7 +9,9 @@
 -- The HUD is exports.op77_lightrp:ActivityHudShow / ActivityHudPush / ActivityHudClear
 -- (Light RP's page, in Light RP's design). Every call is pcall'd: without it (an older
 -- Light RP, the page not up) nothing is drawn here and the server keeps sending
--- notifications - this client tells it which with op77_chase:hudFeed.
+-- notifications - this client tells it which with op77_chase:hudFeed. A feed line with no
+-- HUD to land in becomes a notice through exports.op77_lightrp:Notice, and only without
+-- Light RP an open77_notifications toast.
 --
 -- The map (op77_map3d, optional): the runner's dot is hidden from the cops
 -- (setPlayerDotsHidden), the extraction point and the last dispatch sighting are blips,
@@ -41,8 +43,12 @@ S.call = call
 
 local KIND = { info = "info", success = "success", danger = "warning", accent = "info" }
 
+-- A notification in Light RP's own notice (exports.op77_lightrp:Notice); the platform's
+-- open77_notifications only when Light RP cannot show it (stopped, older, page not up).
 local function notify(tone, title, text, ms)
-    call(NOTIFY, "show", { type = KIND[tone or "info"] or "info", title = title or "NCPD Chase", message = text, durationMs = ms or 5000 })
+    local kind, head, duration = KIND[tone or "info"] or "info", title or "NCPD Chase", ms or 5000
+    if call(HUD, "Notice", { kind = kind, title = head, body = text, durationMs = duration }) == true then return end
+    call(NOTIFY, "show", { type = kind, title = head, message = text, durationMs = duration })
 end
 
 -- The server routes this player's messages to the feed while the HUD is up.

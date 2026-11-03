@@ -188,6 +188,34 @@ do
     say("PASS fallback without the HUD exports")
 end
 
+-- ── a core with the Notice export: the notice goes through it, never twice ──
+do
+    local sent, answer = {}, { true }
+    core.Notice = function(self, notice) sent[#sent + 1] = notice; return table.unpack(answer) end
+    env.net["op77_arena:returned"]()
+    env.events = {}
+    S.notify("success", "ROUND WON", "You won the round.", 4000)
+    assert(#sent == 1 and sent[1].kind == "success" and sent[1].title == "ROUND WON" and sent[1].body == "You won the round."
+        and sent[1].source == "COMBAT ZONE" and sent[1].durationMs == 4000)
+    assert(#notices() == 0, "shown by the export: no event on top")
+    S.notify("danger", nil, "x")
+    assert(sent[2].kind == "info" and sent[2].title == "COMBAT ZONE", "a kind outside the page's set becomes info")
+    -- The core's own rate limit or an empty notice: dropped, not re-sent by the event.
+    answer = { false, "rate_limited" }
+    S.notify("info", "A", "b")
+    answer = { false, "empty_notice" }
+    S.notify("info", "A", "")
+    assert(#notices() == 0)
+    -- The page is not up: the core's event takes it.
+    answer = { false, "ui_unavailable" }
+    S.notify("warning", "A", "b")
+    local n = notices()
+    assert(#n == 1 and n[1].kind == "warning" and n[1].body == "b")
+    core.Notice = nil
+    env.events = {}
+    say("PASS Notice export")
+end
+
 -- ── a rate-limited update keeps the HUD ours to clear ──
 do
     env.net["deathmatch:state"](ffaState({ instanceId = 12 }))

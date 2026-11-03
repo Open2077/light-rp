@@ -657,6 +657,7 @@ activités (`GetInvokingResource`).
 | `activityLeave(id, activityId, opts)` | Libère. `opts.returnPlayer` (vrai par défaut) : retour au point capturé, bucket compris, en descendant du véhicule ; un joueur mort y réapparaît (jamais laissé mort), puis soin complet et armes RP rendues, sur le thread de Light RP. |
 | `activityOwner(id)` | L'id de l'activité, `"missions"` pendant une mission, sinon `nil`. |
 | `activityPlayer(id)` | `{ name, identifier, characterKey, gang = { id, label, grade, gradeLabel, tag, color } \| nil, job = { id, label, grade, gradeLabel, tag } }` — `nil` sans personnage actif ; `gang` vaut `nil` sans affiliation, `job.id` vaut `unemployed` sans emploi. Le gang et le métier sont lus dans `server/modules/jobs.lua` (mêmes vues que les state bags `gang` / `job`). `job.onDuty` reste absent : Light RP n'a pas de prise de service. |
+| `notice(id, notice)` → `true` \| `false, raison` | Un message au joueur dans la notice de Light RP (sa page, son design) : **un fournisseur n'affiche jamais d'interface à lui** (règle du 2026-11-02), il passe par là et ne retombe sur `open77_notifications` que sans Light RP. `notice = { kind, title, body, durationMs, source }` nettoyé par `shared/notice.lua` : `kind` ∈ `info`, `success`, `warning`, `error` (`danger` lu `warning`, autre → `info`), titre 48 car., texte 280 (requis ; `text` ou `message` acceptés), durée 2 à 20 s (6 s par défaut). Un seul joueur, jamais `-1`. Raisons : `Invalid player.`, `invalid_notice`, `empty_notice`. Ce que le noyau dit déjà (réponse d'inscription « Request sent to … », sortie de file, MATCH FOUND, panneau de file) n'est pas répété par le fournisseur. |
 
 Événements serveur, `TriggerEvent` / `AddEventHandler` uniquement (jamais `RegisterNetEvent` :
 un client ne peut pas les lever) :
@@ -1111,7 +1112,11 @@ exports.op77_lightrp:ActivityHudPush("banner", { title = "FINAL LAP", text = "..
 exports.op77_lightrp:ActivityHudPush("result", { title = "Street Race", placement = 2, subtitle = "Watson Loop",
     lines = { { label = "Time", value = "3:02.48" } }, durationMs = 9000 })
 exports.op77_lightrp:ActivityHudClear()
+exports.op77_lightrp:Notice({ kind = "warning", title = "NCPD Chase", body = "Crash! Engine stalled." })
 ```
+
+`Notice` est la notice côté client, mêmes règles que l'export serveur `notice` (`shared/notice.lua`,
+même limite de débit que le HUD) : c'est le repli d'un fournisseur quand son HUD n'est pas affiché.
 
 Chaque appel rend `true` ou `false, raison` (`invalid_hud`, `invalid_kind`, `invalid_payload`,
 `not_owner`, `rate_limited`, `ui_unavailable`). Tout est validé et borné côté Lua ; un champ

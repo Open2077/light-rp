@@ -2,6 +2,7 @@
 -- main test leaves out: activityPlayer's gang and job, the panel's join choices
 -- (joinChoices preset, modeKey, an unknown mode refused), a provider's own entry
 -- withdrawing a request queued elsewhere, junk input on every export and event,
+-- the notice export (shared/notice.lua: a provider's message in Light RP's notice),
 -- the op77_lightrp:announce event (server/modules/staff.lua) in both shapes, and
 -- hunger / thirst frozen while owned (server/modules/needs.lua). No game, no DB.
 dofile("shared/config.lua")
@@ -273,6 +274,35 @@ handlers["op77_lightrp:activity:result"](P, "arena.ffa", setmetatable({}, { __in
 assert(#logs > before and logs[#logs]:find("result"), "a hostile table is logged, not thrown")
 
 -- ---------------------------------------------------------------------------
+-- notice (shared/notice.lua): a provider's message in Light RP's own notice, cleaned
+dofile("shared/notice.lua")
+notices = {}
+invoking = "op77_turf"
+assert(exported.notice(P, { kind = "info", title = "Turf War", body = "Turf War starts in 45 s.", durationMs = 6000 }) == true)
+local n = notices[#notices]
+assert(n.id == P and n.def.kind == "info" and n.def.title == "Turf War" and n.def.body == "Turf War starts in 45 s."
+    and n.def.durationMs == 6000, "kind, title, body and duration kept")
+assert(exported.notice(P, { kind = "danger", message = "  GO.\nLose them.  ", durationMs = 999999 }) == true)
+n = notices[#notices].def
+assert(n.kind == "warning" and n.body == "GO. Lose them." and n.durationMs == 20000 and n.title == nil,
+    "danger reads as warning, message accepted, control characters spaced, 20 s at most")
+assert(exported.notice(P, { kind = "<script>", text = string.rep("é", 200), title = string.rep("T", 90), durationMs = 0 / 0 }) == true)
+n = notices[#notices].def
+assert(n.kind == "info" and #n.body <= 280 and #n.body % 2 == 0 and #n.title == 48 and n.durationMs == 6000,
+    "unknown kind -> info, body 280 bytes on a character boundary, title 48, NaN -> 6 s")
+assert(exported.notice(P, { body = "short", durationMs = 10 }) and notices[#notices].def.durationMs == 2000, "2 s at least")
+local count = #notices
+local ok, why = exported.notice(-1, { body = "everyone?" })
+assert(ok == false and why == "Invalid player.", "never -1 (everyone)")
+assert(exported.notice(0, { body = "x" }) == false and exported.notice("abc", { body = "x" }) == false and exported.notice(1.5, { body = "x" }) == false)
+ok, why = exported.notice(P, { title = "Only a title" })
+assert(ok == false and why == "empty_notice", "a notice without text is refused")
+assert(exported.notice(P, "text") == false and exported.notice(P, nil) == false, "a non-table is refused")
+assert(exported.notice(P, setmetatable({}, { __index = function() error("hostile table") end })) == false, "a hostile table never throws")
+assert(#notices == count, "nothing sent for a refused notice")
+invoking = nil
+
+-- ---------------------------------------------------------------------------
 -- op77_lightrp:announce (staff.lua): the text and table shapes, cleaned, clamped, rate-limited
 local broadcasts, staffNotices = {}, {}
 LightRP.chat = { broadcast = function(title, text, color) broadcasts[#broadcasts + 1] = { title = title, text = text, color = color } end }
@@ -346,4 +376,4 @@ advance(3100)
 tick()
 assert(chars[Q].drink == 80 - LightRpConfig.needs.drinkPerTick, "the clock runs again once released")
 
-print("PASS: activityPlayer gang/job, join choices and modeKey, queue withdrawal on entry, junk input, announce event (both shapes), needs frozen while owned")
+print("PASS: activityPlayer gang/job, join choices and modeKey, queue withdrawal on entry, junk input, the notice export (cleaned, capped, never everyone), announce event (both shapes), needs frozen while owned")

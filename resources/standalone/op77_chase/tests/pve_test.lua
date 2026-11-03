@@ -187,6 +187,7 @@ end
 H.run(2)
 H.fire("op77_lightrp:activity:join", 1, AID, { mode = "vehicle", difficulty = "standard" })
 assert(env.qhud[1] and env.qhud[1].queued and env.qhud[1].difficultyLabel == "Standard", "getting ready (Standard)")
+assert(not H.noted(1, "starting in a moment"), "no queued notice: Light RP answers the join, its queue panel shows it")
 H.runUntil(function() return ChasePve.matchOf(1) ~= nil end, 4, "the escape starts")
 local match = ChasePve.matchOf(1)
 local enter
@@ -492,7 +493,9 @@ H.command("escape", 7, { "leave" })
 H.fire("op77_lightrp:activity:join", 8, AID, { mode = "vehicle" })
 H.fire("op77_lightrp:activity:join", 8, "chase.1v1", { mode = "vehicle" })
 assert(H.noted(8, "NCPD Escape") and not ChaseQueue.has(8), "the 1v1 refuses a player in NCPD Escape")
-H.command("escape", 8, { "leave" })
+-- Leaving from the hub while getting ready: out, and Light RP's answer is the only one.
+H.fire("op77_lightrp:activity:leaveRequest", 8, AID)
+assert(ChasePveMain.queue.entries[1] == nil and not H.noted(8, "You left"), "no leave notice of ours")
 H.run(2)
 
 -- Staff stop: void.

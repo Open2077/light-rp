@@ -26,6 +26,7 @@ dependencies {
 
 -- Downloaded by clients: never put credentials in shared/.
 shared_script "shared/events.lua"
+shared_script "shared/notice.lua"         -- another resource's notice in the page (exports notice / Notice)
 shared_script "shared/safezones.lua"
 shared_script "shared/mission_defs.lua"   -- authored missions: format + validation (editor, engine, page)
 shared_script "shared/config.lua"

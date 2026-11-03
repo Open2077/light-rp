@@ -250,7 +250,9 @@ function Turf.enqueue(id, opts, now, checked)
         text = ("Queued for Turf War %s - %d/%d fighters. Keep playing, you will be pulled in when the war starts. /turf leave to cancel.")
             :format(side, total, Turf.minPlayers())
     end
-    W().notify(id, "info", text, 7000)
+    -- No notice: a join from Light RP's panel is answered by the core ("Request sent to
+    -- Turf War.") and the queue panel shows the line (count, "Next opening in the war",
+    -- "After the private match", the countdown); /turf join replies with this text.
     Turf.lastQueuePush = 0
     return true, text
 end
@@ -1935,7 +1937,8 @@ function Turf.matchJoin(id, opts, now)
         local started = Turf.launchMatch(g, now)
         return true, started and "Your turf war match is starting." or "Your turf war match could not start."
     end
-    W().notify(id, "info", ("Turf War match: waiting for your group (%d/%d)."):format(#g.entries, #g.players), 5000)
+    -- No notice: Light RP announced the match (MATCH FOUND / the friendly set-up) and the
+    -- queue panel shows the group gathering (joining, N / M).
     return true, "Waiting for your group."
 end
 
@@ -2049,7 +2052,9 @@ function Turf.sweepJoin(id, opts, now, checked)
     if #Turf.sweeps >= (P.maxSweeps or 2) then
         text = text .. (" Every sweep slot is taken (%d): you go in when one frees up."):format(P.maxSweeps or 2)
     end
-    W().notify(id, "info", text .. " /turf leave to cancel.", 7000)
+    -- No notice: Light RP answers the panel's join and its queue panel shows the line-up
+    -- (the crew N / M, the countdown, "Waiting for a free sweep"); /turf sweep replies
+    -- with this text.
     Turf.lastQueuePush = 0
     return true, text
 end

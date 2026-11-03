@@ -219,7 +219,8 @@ do
     join(1, { mode = "car" })
     join(2)
     assert(env.qhud[1].queued == true and env.qhud[1].activity == "chase.wanted" and env.qhud[1].min == 3 and env.qhud[1].mode == "vehicle")
-    assert(noted(1, "Queued for Most Wanted") and calls("activityEnter") == 0)
+    -- No "queued" notice of ours: Light RP answers the join and its queue panel shows the lobby.
+    assert(not noted(1, "Queued for Most Wanted") and calls("activityEnter") == 0)
     join(1)
     assert(ChaseWantedLobby.size() == 2, "a second join does not queue twice")
 
@@ -230,7 +231,7 @@ do
     join(5)
     assert(ChaseQueue.size() == 1 and not ChaseWantedLobby.has(5) and noted(5, "NCPD Chase queue"))
     fire("op77_lightrp:activity:leaveRequest", 5, "chase.1v1")
-    assert(ChaseQueue.size() == 0)
+    assert(ChaseQueue.size() == 0 and not noted(5, "You left"), "Light RP's leave answer is the only one")
 
     run(2.0)
     assert(only() == nil and ChaseWantedLobby.countdownEndsAtMs == nil and lastStatus().phase == "lobby" and lastStatus().queued == 2)
@@ -451,7 +452,8 @@ do
     local r = results(1)
     assert(#r == 1 and r[1].args[3].placement == 3 and r[1].args[3].reputation == 0 and r[1].args[3].won == false
         and r[1].args[3].stats.forfeit == true)
-    assert(noted(1, "goes on without you") and match.state == "active")
+    -- Light RP says "Leaving Most Wanted." and sends the result: no notice of ours on top.
+    assert(not noted(1, "goes on without you") and not noted(1, "You left") and match.state == "active")
     run(1.0)
     assert(leftIds()[1] and leftIds()[1].opts.returnPlayer == true and env.forced[#env.forced] == 1 and env.hud[1].state == "idle")
 

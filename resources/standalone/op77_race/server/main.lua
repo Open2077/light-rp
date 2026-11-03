@@ -19,11 +19,16 @@ end
 
 -- ---------------------------------------------------------------- output --
 
+-- A notice in Light RP's own UI (core export `notice`: its page, its design). The
+-- platform's open77_notifications only when Light RP cannot show it (stopped, a core
+-- older than that export).
 local function notice(playerId, kind, title, text)
     if playerIdOf(playerId) == nil or Open77.players.name(playerId) == nil then return end
+    local def = { kind = kind or "info", title = title or "Race", body = text or "", durationMs = 4000 }
+    if A.call("notice", playerId, def) == true then return end
     if Open77.notifications and Open77.notifications.send then
         Open77.notifications.send(playerId, {
-            type = kind or "info", title = title or "Race", message = text or "", durationMs = 4000,
+            type = def.kind, title = def.title, message = def.body, durationMs = def.durationMs,
         })
     end
 end

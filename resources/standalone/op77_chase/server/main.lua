@@ -114,12 +114,19 @@ local function enqueue(id, mode, checked, squad)
     publishStatus()
     local text = ("Queued for NCPD Chase (%s) - %d/%d. Keep playing, you will be pulled in when an opponent is found. /chase leave to cancel.")
         :format(modeLabel(mode), position, total)
+    -- The queued line itself is no notice: Light RP answers the panel's join and its queue
+    -- panel shows the line (/chase replies with the text). Staff bot mode is not on the
+    -- panel: that sentence alone is told.
+    local bots
     if ChaseBots and ChaseBots.fills(C.activity.id) then
-        text = text .. " Bot mode: a bot takes the other side if nobody else is waiting."
+        bots = "Bot mode: a bot takes the other side if nobody else is waiting."
     elseif ChaseBots and ChaseBots.refusal(C.activity.label) then
-        text = text .. " " .. ChaseBots.refusal(C.activity.label)
+        bots = ChaseBots.refusal(C.activity.label)
     end
-    W.notify(id, "info", text, 7000)
+    if bots then
+        text = text .. " " .. bots
+        W.notify(id, "info", bots, 7000)
+    end
     return true, text
 end
 
@@ -206,7 +213,8 @@ end)
 AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activityId)
     local id = validId(playerId)
     if id == nil or activityId ~= C.activity.id then return end
-    if dequeue(id, "You left the chase queue.") then return end
+    -- Light RP's answer to the leave already says it: no notice of ours on top.
+    if dequeue(id) then return end
     Chase.leaveRequest(id, W.now())
     publishStatus()
 end)

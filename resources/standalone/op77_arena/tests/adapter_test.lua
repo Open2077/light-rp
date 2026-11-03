@@ -431,9 +431,20 @@ end
 do
     reset()
     T = T + 10000
+    -- The real engine's enqueue tells the player "QUEUED" (server/arena.lua): from the
+    -- panel that card stays quiet (Light RP answers the join, its queue panel shows it).
+    local realEnqueue = H.engine.enqueue
+    H.engine.enqueue = function(id, format, bots)
+        DM.notice(id, "success", "queued", 1, "Team Arena 3v3")
+        return realEnqueue(id, format, bots)
+    end
+    local enginesBefore = #fake.notices
     fire("op77_lightrp:activity:join", 4, "arena.teams", { mode = "3v3", from = "panel" })
+    H.engine.enqueue = realEnqueue
     local q = fake.enqueues[#fake.enqueues]
     assert(q.id == 4 and q.format == "3v3" and q.bots == false)
+    assert(#clientEvents("op77_lightrp:notice", 4) == 0 and #fake.notices == enginesBefore and H.quietQueue == false,
+        "no queued card of ours on top of Light RP's answer")
     -- A bots request is never honoured.
     T = T + 10000
     DM.arena.enqueue(5, "2v2", true)
@@ -442,9 +453,13 @@ do
     local count = #fake.enqueues
     assert(DM.arena.enqueue(6, "1v1") == nil and #fake.enqueues == count)
 
-    -- leaveRequest for a queued player: out of the engine queue.
+    -- leaveRequest for a queued player: out of the engine queue, and Light RP's "You left
+    -- the queue" is the only answer (the engine's queueLeft card stays quiet).
+    local toldBefore = #clientEvents("op77_lightrp:notice", 4)
     fire("op77_lightrp:activity:leaveRequest", 4, "arena.teams")
     assert(fake.leaves[#fake.leaves].id == 4 and fake.leaves[#fake.leaves].scope == "queue")
+    assert(#clientEvents("op77_lightrp:notice", 4) == toldBefore and H.quietQueue == false, "no queueLeft card")
+    for _, n in ipairs(fake.notices) do assert(not (n.id == 4 and n.key == "queueLeft"), "no queueLeft card") end
 
     -- leaveRequest in a match: DM.leave, then the way home.
     local instance = DM.instances.registry[1]
@@ -505,7 +520,9 @@ do
 
     -- Random queue: the first waits, the second pairs.
     T = T + 10000
+    local toldFive = #clientEvents("op77_lightrp:notice", 5)
     assert(H.queueDuel(5) == true and H.duelQueued(5))
+    assert(#clientEvents("op77_lightrp:notice", 5) == toldFive, "no 'looking for an opponent' notice: the queue panel shows it")
     assert(DM.wantsState(5) == true)
     local dq = H.statusOf("duel").queue
     assert(dq.v == 1 and #dq.lobbies == 1 and dq.lobbies[1].players[1] == 5 and dq.lobbies[1].need == 2

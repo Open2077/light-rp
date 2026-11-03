@@ -154,5 +154,33 @@ LightRpUi.page = nil
 local ok, why = Show({ title = "No page" })
 assert(not ok and why == "ui_unavailable")
 LightRpUi.page = {}
-assert(count(exportsList) == 3)
-print("PASS: activity HUD (clamping of every field, defaults, pushes, ownership, transient items, rate limit, owner stop/restart, character change, no page)")
+
+-- Notice (shared/notice.lua): a provider's client notice in Light RP's notice stack
+dofile("shared/notice.lua")
+local Notice = exportsList.Notice
+assert(Notice, "the Notice export is registered")
+as("op77_chase", 2)
+time = time + 2000
+assert(Notice({ kind = "danger", title = "NCPD Chase", text = "Crash!\nEngine stalled", durationMs = 3000 }) == true)
+msg = last()
+assert(msg.name == E.page.notice and msg.value.kind == "warning" and msg.value.title == "NCPD Chase"
+    and msg.value.body == "Crash! Engine stalled" and msg.value.durationMs == 3000 and msg.value.source == "LIGHT RP",
+    "same cleaning as the server export, Light RP's source line")
+assert(Notice({ kind = "success", body = "x", source = "NCPD", durationMs = 1 }) and last().value.source == "NCPD"
+    and last().value.durationMs == 2000, "a source of its own kept, 2 s at least")
+local before = #sent
+ok, why = Notice({ title = "No text" })
+assert(not ok and why == "empty_notice" and #sent == before, "refused, nothing sent")
+assert(Notice("text") == false and Notice(nil) == false)
+LightRpUi.page = nil
+ok, why = Notice({ body = "No page" })
+assert(not ok and why == "ui_unavailable")
+LightRpUi.page = {}
+time = time + 2000
+for _ = 1, 40 do
+    local fine, reason = Notice({ body = "spam" })
+    if not fine then refused = reason end
+end
+assert(refused == "rate_limited", "notices share the per-resource rate limit")
+assert(count(exportsList) == 4)
+print("PASS: activity HUD (clamping of every field, defaults, pushes, ownership, transient items, rate limit, owner stop/restart, character change, no page), Notice export")

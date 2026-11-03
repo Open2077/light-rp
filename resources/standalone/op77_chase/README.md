@@ -22,6 +22,15 @@ All three draw in **Light RP's own activity HUD** (`exports.op77_lightrp:Activit
 Clear`, Light RP's design): this resource ships no page. Every call is pcall'd; without the
 HUD the server keeps sending notifications (the client tells it which with `op77_chase:hudFeed`).
 
+Those notifications are Light RP's own notice too: the server sends them through
+`exports.op77_lightrp:notice(playerId, { kind, title, body, durationMs })` and the client (a
+feed line with no HUD to land in) through `exports.op77_lightrp:Notice`. `open77_notifications`
+is only the fallback when Light RP cannot show it (stopped, an older build, its page not up).
+Light RP already answers a join or a leave from the hub and shows the queue in its queue panel,
+so this resource adds no "queued for…", "you left…" or "you left Most Wanted, the match goes
+on" notice on top; the `/chase`, `/wanted` and `/escape` commands still reply in chat, and the
+staff bot-mode sentence (not on the panel) is still sent.
+
 ## How a 1v1 chase runs
 
 1. A player queues from the hub (Light RP raises `op77_lightrp:activity:join`, with an optional
