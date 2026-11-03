@@ -156,6 +156,7 @@ AddEventHandler("onNpcDied", function(npcId, source)
     local id = playerOf(source)
     if not id then return end
     local c = entry(ev, id)
+    if ev.bossNpcs[key] then ev.lastHit = id end -- titles.lua: Boss Killer
     c.kills = c.kills + 1
     local max = maxHealthOf(ev, key, npcId)
     local earned = math.min(1, (c.on[key] or 0) / math.max(1, (C.killAssist or 0.1) * max))
@@ -342,6 +343,7 @@ local function finish(ev, success, why)
         (function() local n = 0 for _ in pairs(ev.contrib) do n = n + 1 end return n end)(), paid)
     blip(ev, false)
     pushHud(ev, true)
+    LightRP.eachModule("onWorldEventEnded", ev, success) -- contracts, titles
     if not success then
         local W = engine()
         if W then W.clearEnemies(ev.run) end

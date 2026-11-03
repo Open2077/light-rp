@@ -303,8 +303,11 @@ function Pay.settle(id, entry, r, amount, kind, detail)
 end
 
 function Pay.onResult(id, entry, r, raw)
-    if not C.enabled or type(entry) ~= "table" then return end
+    if type(entry) ~= "table" then return end
     local amount, kind, detail = Pay.quote(id, entry, r, raw)
+    -- contracts and titles (dailies.lua, titles.lua): amount ~= nil = a paid-eligible result
+    if LightRP.eachModule then LightRP.eachModule("onActivityResult", id, entry, r, raw, { amount = amount, kind = kind, detail = detail }) end
+    if not C.enabled then return end
     since[entry] = now()
     if not amount then
         if kind == "repeat" then

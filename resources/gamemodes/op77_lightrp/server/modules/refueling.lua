@@ -269,6 +269,12 @@ RegisterNetEvent(E.fuelFinish,function(data)
         return true
     end)
     if not called then LightRP.log("fuel settlement failed: %s",tostring(ok)) end
+    if called and ok==true and a.vehicle then
+        -- contracts (dailies.lua): kind "vehicle" = pump, "pour" = jerrycan into a car
+        local info=F.info(a.vehicle)
+        LightRP.eachModule("onRefuelled",player,{kind=a.kind,vehicle=a.vehicle,litres=a.litres,
+            before=info and math.max(0,info.litres-a.litres) or a.before or 0,capacity=info and info.capacity or 0})
+    end
     clear(player,a,called and ok==true,called and ok and string.format("%.1f L · %s%s",a.litres,LightRP.money.format(a.price),
         a.kind=="pour" and (a.remaining>0 and " · Fuel remains in your can." or " · Empty can kept.") or "") or (reason or "Could not complete this fill."))
 end)

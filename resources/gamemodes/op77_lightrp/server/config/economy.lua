@@ -29,6 +29,19 @@ LightRpEconomy = {
     -- matching job adds this fraction to a sale or a run's pay (grade 2 = +20 %).
     jobs = {
         gradeBonus = 0.10,
+        -- Jobs worked together (server/modules/job_crew.lua, docs/dailies-titles.md §5):
+        -- two crewmates on different accounts in the same job each get `rate` of a
+        -- sale or a paid run on a separate ledger line (`crew_bonus`), when the other
+        -- worked too in the last `recentMinutes`: within `range` metres at a fixed
+        -- work site (Sanitation, Scrapper); anywhere on a route (Courier, AC Cleaner).
+        -- At most `dailyCap` per account and UTC day. rate = 0 turns it off.
+        crewBonus = { rate = 0.15, range = 60.0, recentMinutes = 5, dailyCap = 2000 },
+        -- The Courier's Big Contract (job_runs.lua): 5–6 orders in two halves, one per
+        -- courier (crewmates, different accounts, within `range` m at the desk). Each
+        -- half pays as a run; when both land, each courier gets `bonus` of their half,
+        -- `togetherBonus` if the two last drops are within `togetherSeconds`.
+        bigContract = { enabled = true, orders = { min = 5, max = 6 }, range = 30.0,
+            bonus = 0.20, togetherBonus = 0.35, togetherSeconds = 120 },
     },
 
     -- Paychecks (jobs.lua, every LightRpConfig.jobs.paycheckMinutes) go to players

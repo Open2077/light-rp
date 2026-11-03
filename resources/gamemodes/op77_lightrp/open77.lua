@@ -128,6 +128,11 @@ server_script "server/config/halloffame.lua"
 server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards
 server_script "server/config/guide.lua"
 server_script "server/modules/guide.lua"           -- Johnny at The Crossing: the FAQ dialogue (content in server/config/guide.lua)
+server_script "server/config/titles.lua"
+server_script "server/modules/titles.lua"          -- prestige titles: closed catalogue, earned per character, one shown by the name
+server_script "server/config/dailies.lua"
+server_script "server/modules/dailies.lua"         -- daily / weekly contracts told by the fixers (docs/dailies-titles.md)
+server_script "server/modules/job_crew.lua"        -- jobs worked together: +15 % crew bonus, Big Contract premium
 server_script "server/main.lua"
 
 -- Client: core first, then modules.

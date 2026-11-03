@@ -658,11 +658,13 @@ Missions.register(POINT, {
             -- before the fight a death costs nothing
             raid.respawns[id] = now() + 3000
         elseif s.respawnSeconds and raid.lives > 0 then
+            raid.downs = (raid.downs or 0) + 1
             if s.lives < 99 then raid.lives = raid.lives - 1 end
             raid.respawns[id] = now() + s.respawnSeconds * 1000
             announce(inst, raid, "OPERATOR DOWN", string.format("%s is down. Back in %d s%s.", name(id), s.respawnSeconds,
                 s.lives < 99 and string.format(" (%d respawn%s left)", raid.lives, raid.lives == 1 and "" or "s") or ""), "warning")
         else
+            raid.downs = (raid.downs or 0) + 1
             raid.out[id] = true
             announce(inst, raid, "OPERATOR LOST", name(id) .. " is out of the fight.", "danger")
         end
@@ -679,6 +681,7 @@ Missions.register(POINT, {
         local raid = raids[inst.id]
         raids[inst.id] = nil
         if not raid then return end
+        inst.report = { enraged = raid.enraged == true, downs = raid.downs or 0 } -- contracts, titles (dailies.lua, titles.lua)
         clearAdds(raid)
         clearLoops(raid)
         if raid.bossId then boss("remove", raid.bossId) end

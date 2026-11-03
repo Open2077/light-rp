@@ -515,6 +515,7 @@ function Money.transfer(playerId, number, amount, note)
         return false, reason
     end
     changed(playerId, w, "bank", -(n + fee), "transfer_out")
+    if target.playerId then LightRP.eachModule("onMoneySent", playerId, target.playerId, n, "transfer") end
     if target.playerId then
         LightRP.notice(target.playerId, { kind = "money", title = "Transfer received", durationMs = 10000,
             body = string.format("%s from %s%s", Money.format(n), from, note and (" — " .. note) or "") })
@@ -544,6 +545,7 @@ function Money.pay(playerId, targetId, amount)
     local ok, failure = Inv.transferCash(playerId, targetId, n)
     if not ok then return false, failure end
     LightRP.notice(targetId, { kind = "money", title = "Cash received", body = string.format("%s from %s", Money.format(n), w.ownerName), durationMs = 8000 })
+    LightRP.eachModule("onMoneySent", playerId, targetId, n, "cash")
     return true, tw
 end
 

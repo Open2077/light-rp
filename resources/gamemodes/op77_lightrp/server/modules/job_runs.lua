@@ -74,7 +74,44 @@ function Generators.delivery(base, origin)
     return { generated = true, label = base.label, icon = base.icon, reward = pay, orders = n,
         distanceKm = math.floor(km * 10 + 0.5) / 10, steps = steps, item = D.item, lifetimeMs = D.lifetimeMs }
 end
+-- The Big Contract (economy.lua jobs.bigContract): one draw of n orders split
+-- in two halves with different addresses, one per courier, each paid like a run.
+function Generators.duo(base, origin, orders)
+    local D = LightRpDelivery
+    if not D or #(D.pickups or {}) == 0 or #(D.dropoffs or {}) == 0 then return nil end
+    local lo = math.max(2, math.floor(tonumber(orders and orders.min) or 5))
+    local n = math.random(lo, math.max(lo, math.floor(tonumber(orders and orders.max) or lo)))
+    local picks, drops = draw(D.pickups, n), draw(D.dropoffs, n)
+    local halves = {}
+    for h = 1, 2 do
+        local steps, k = {}, 0
+        for i = h, n, 2 do
+            k = k + 1
+            steps[#steps + 1] = { kind = "pickup", order = k, place = picks[i].name, label = "Pick up · " .. picks[i].name,
+                position = copyPoint(picks[i].position), durationMs = D.pickupMs }
+        end
+        k = 0
+        for i = h, n, 2 do
+            k = k + 1
+            steps[#steps + 1] = { kind = "dropoff", order = k, place = drops[i].name, label = "Deliver · " .. drops[i].name,
+                position = copyPoint(drops[i].position), durationMs = D.dropoffMs }
+        end
+        local length, last = 0, origin
+        for _, step in ipairs(steps) do length = length + distance(last, step.position); last = step.position end
+        local km = length / 1000
+        local pay = math.floor(D.pay.base + D.pay.perStop * #steps + D.pay.perKm * km + 0.5)
+        pay = math.max(D.pay.min, math.min(D.pay.max, pay))
+        halves[h] = { generated = true, label = "Big Contract", icon = base.icon, reward = pay, orders = k,
+            distanceKm = math.floor(km * 10 + 0.5) / 10, steps = steps, item = D.item, lifetimeMs = D.lifetimeMs }
+    end
+    return halves
+end
 Runs.generators = Generators
+local function bigContract()
+    local J = LightRpEconomy and LightRpEconomy.jobs
+    local cfg = J and J.bigContract
+    return type(cfg) == "table" and cfg.enabled ~= false and cfg or nil
+end
 
 -- The orders a run hands out (pickups) live in the bag of the character who
 -- took the run: removed again when it ends without being delivered.
@@ -98,7 +135,7 @@ function Runs.preview(job)
     local route = C.routes[job]
     if route and route.generator == "delivery" and LightRpDelivery then
         local D = LightRpDelivery
-        return { label = route.label, reward = D.pay.min, variable = true, stops = D.orders.max * 2,
+        return { label = route.label, reward = D.pay.min, variable = true, stops = D.orders.max * 2, duo = bigContract() ~= nil or nil,
             orders = { min = D.orders.min, max = D.orders.max }, estimate = route.estimate, description = route.description,
             remote = route.remoteDispatch == true, lifetimeMinutes = math.floor((D.lifetimeMs or C.lifetimeMs) / 60000) }
     end
@@ -153,9 +190,91 @@ function Runs.cancel(id, reason)
     notify(id, reason or "Work order cancelled. No payment was issued. Service exits remain available.", "warning")
     return true, "Work order cancelled."
 end
+-- Each grade adds LightRpEconomy.jobs.gradeBonus to the pay (server/config/economy.lua).
+local function graded(route, id)
+    local per = LightRpEconomy and LightRpEconomy.jobs and tonumber(LightRpEconomy.jobs.gradeBonus) or 0
+    local grade = math.max(0, tonumber(LightRP.jobs.get(id).grade) or 0)
+    if per <= 0 or grade <= 0 then return route end
+    local copy = {}
+    for k, v in pairs(route) do copy[k] = v end
+    copy.reward = math.floor(route.reward * (1 + per * grade) + 0.5)
+    return copy
+end
+local function atDeskNear(id)
+    for _, desk in ipairs(LightRpConfig.jobs.centers) do if near(id, desk.position) then return true end end
+    return false
+end
+-- Why a player cannot take a work order now, or nil.
+local function refusal(id)
+    if LightRP.activities and LightRP.activities.owns(id) then return "Not during an activity or a mission." end
+    if LightRP.jobWork and LightRP.jobWork.isActive(id) then return "Stop your current item work first (Escape)." end
+    if Runs.isBusy(id) then return "Please wait for the current operation to finish." end
+    if runs[id] then return "Finish or cancel your current work order first." end
+    if not eligible(id) then return "Load an active character and return to the public world first." end
+end
+-- The Big Contract: the asking courier and a crewmate (another account, a courier
+-- too, free, close by) each get one half; economy.lua jobs.bigContract.
+function Runs.startDuo(id)
+    local cfg = bigContract()
+    if not cfg then return false, "The Big Contract is not offered right now." end
+    local why = refusal(id)
+    if why then return false, why end
+    if LightRP.jobs.get(id).name ~= "delivery" then return false, "The Big Contract is for couriers." end
+    if not Db.ready then return false, "The database is unavailable. Work orders cannot be paid right now." end
+    if not atDeskNear(id) then return false, "The Big Contract is handed out at a Job Center desk (briefcase on the map)." end
+    if (cooldown[id] or 0) > LightRP.nowMs() then return false, "Dispatch is preparing your next route. Try again in a moment." end
+    local mine = LightRP.characters.get(id)
+    local here = Open77.players.position(id)
+    local crew = LightRP.parties and LightRP.parties.of(id)
+    local partner
+    for _, other in ipairs(crew and crew.members or {}) do
+        local c = other ~= id and LightRP.characters.get(other)
+        local there = c and Open77.players.position(other)
+        if c and c.identifier ~= mine.identifier and not refusal(other) and LightRP.jobs.get(other).name == "delivery"
+            and there and here and distance(here, there) <= (tonumber(cfg.range) or 30) and (cooldown[other] or 0) <= LightRP.nowMs() then
+            partner = other
+            break
+        end
+    end
+    if not partner then
+        return false, string.format("The Big Contract needs a crewmate who is also a Courier, free, on another account and within %d m.", math.floor(tonumber(cfg.range) or 30))
+    end
+    local owners = { identity(id), identity(partner) }
+    local ticket = {}
+    starting[id], starting[partner] = ticket, ticket
+    local rowA, rowB = Db.single("SELECT UUID() AS id"), Db.single("SELECT UUID() AS id")
+    local cancelled = starting[id] ~= ticket or starting[partner] ~= ticket
+    starting[id], starting[partner] = nil, nil
+    if cancelled then return false, "The request was cancelled." end
+    if not rowA or not rowB or type(rowA.id) ~= "string" or type(rowB.id) ~= "string" then return false, "The database could not issue a work order. Please retry." end
+    for i, pid in ipairs({ id, partner }) do
+        if identity(pid) ~= owners[i] or refusal(pid) or LightRP.jobs.get(pid).name ~= "delivery" then
+            return false, "A courier changed or left. Ask for the Big Contract again."
+        end
+    end
+    local halves = Generators.duo(C.routes.delivery, here, cfg.orders)
+    if not halves then return false, "Dispatch has no route to offer right now. Please retry later." end
+    local pair = { id, partner }
+    for i, pid in ipairs(pair) do
+        local route = graded(halves[i], pid)
+        dropStale(pid, route.item)
+        local c = LightRP.characters.get(pid)
+        runs[pid] = { id = i == 1 and rowA.id or rowB.id, owner = owners[i], identifier = c.identifier, key = c.key, job = "delivery",
+            route = route, index = 1, serial = 0, expires = LightRP.nowMs() + (route.lifetimeMs or C.lifetimeMs),
+            inv = LightRP.inventory.playerId(pid), carried = 0,
+            duo = { id = rowA.id, partner = pair[3 - i], half = i == 1 and "A" or "B", partnerName = LightRP.characters.displayName(pair[3 - i]) } }
+        push(pid)
+        notify(pid, string.format("Big Contract with %s: your half is %d orders, %.1f km, %s on delivery. Land your last drop within %d s of theirs for the best bonus.",
+            runs[pid].duo.partnerName, route.orders, route.distanceKm, LightRP.money.format(route.reward), math.floor(tonumber(cfg.togetherSeconds) or 120)))
+        LightRP.eachModule("onJobRunStarted", pid, runs[pid])
+    end
+    return true, "Big Contract accepted. Follow your GPS; your partner has the other half."
+end
+
 -- remote: asked from the player menu rather than at a job center desk; only a
 -- route with `remoteDispatch` accepts it.
-function Runs.start(id, remote)
+function Runs.start(id, remote, duo)
+    if duo then return Runs.startDuo(id) end
     if LightRP.activities and LightRP.activities.owns(id) then return false, "Not during an activity or a mission." end
     if LightRP.jobWork and LightRP.jobWork.isActive(id) then return false, "Stop your current item work first (Escape)." end
     if Runs.isBusy(id) then return false, "Please wait for the current operation to finish." end
@@ -184,15 +303,7 @@ function Runs.start(id, remote)
         if not route then return false, "Dispatch has no route to offer right now. Please retry later." end
         dropStale(id, route.item)
     end
-    -- Each grade adds LightRpEconomy.jobs.gradeBonus to the pay (server/config/economy.lua).
-    local per = LightRpEconomy and LightRpEconomy.jobs and tonumber(LightRpEconomy.jobs.gradeBonus) or 0
-    local grade = math.max(0, tonumber(LightRP.jobs.get(id).grade) or 0)
-    if per > 0 and grade > 0 then
-        local graded = {}
-        for k, v in pairs(route) do graded[k] = v end
-        graded.reward = math.floor(route.reward * (1 + per * grade) + 0.5)
-        route = graded
-    end
+    route = graded(route, id)
     runs[id] = { id = row.id, owner = owner, identifier = char.identifier, key = char.key, job = job,
         route = route, index = 1, serial = 0, expires = LightRP.nowMs() + (route.lifetimeMs or C.lifetimeMs),
         inv = LightRP.inventory.playerId(id), carried = 0 }
@@ -276,6 +387,7 @@ function Runs.finish(id, payload)
         end
         run.carried = run.carried + (step.kind == "pickup" and 1 or -1)
     end
+    LightRP.eachModule("onJobRunStep", id, run, step) -- crew bonus (job_crew.lua)
     -- Every step but the last moves on; the last one pays (AC's report, the courier's last drop-off).
     if run.index < #run.route.steps then advance(id, run); return true end
     run.busy = true; push(id)
@@ -289,6 +401,7 @@ function Runs.finish(id, payload)
         runs[id] = nil; cooldown[id] = LightRP.nowMs() + C.cooldownMs; push(id)
         notify(id, LightRP.money.format(run.route.reward) .. " deposited in your bank. Route complete.", "money")
         LightRP.log("job run paid: %s %s amount=%d", run.id, run.job, run.route.reward)
+        LightRP.eachModule("onJobRunCompleted", id, run) -- contracts, crew bonus, Big Contract premium
         return true
     end
     push(id)
@@ -299,7 +412,8 @@ end
 RegisterNetEvent(E.net.jobBegin, function(payload) Runs.begin(source, payload) end)
 RegisterNetEvent(E.net.jobFinish, function(payload) Runs.finish(source, payload) end)
 LightRP.action("jobs.start", function(id, payload)
-    local ok, message = Runs.start(id, type(payload) == "table" and payload.from == "menu"); LightRP.result(id, ok, message, "jobs.start")
+    local ok, message = Runs.start(id, type(payload) == "table" and payload.from == "menu", type(payload) == "table" and payload.duo == true)
+    LightRP.result(id, ok, message, "jobs.start")
 end)
 LightRP.action("jobs.gps", function(id)
     local run = runs[id]
@@ -309,8 +423,9 @@ end)
 LightRP.action("jobs.cancel", function(id)
     local ok, message = Runs.cancel(id); LightRP.result(id, ok, message, "jobs.cancel")
 end)
-LightRP.command("job", { usage = "/job <start|status|cancel|gps>" }, function(id, args)
+LightRP.command("job", { usage = "/job <start|duo|status|cancel|gps>" }, function(id, args)
     if args[1] == "start" then return Runs.start(id) end
+    if args[1] == "duo" then return Runs.startDuo(id) end
     if args[1] == "cancel" then return Runs.cancel(id) end
     local run = runs[id]
     if not run then return false, "No active work order. Collect one at the employment office. Sanitation and scrap are free item activities: /work sanitation or /work scrapper." end

@@ -626,7 +626,8 @@ local function boardView(entry, size, me)
     if def.ascending then view.ascending = true end
     for i = 1, math.min(size, #rows) do
         local r = rows[i]
-        view.rows[i] = { rank = r.rank, name = r.name, value = r.value, detail = r.detail, you = (me ~= nil and r.key == me) or nil }
+        view.rows[i] = { rank = r.rank, name = r.name, value = r.value, detail = r.detail, you = (me ~= nil and r.key == me) or nil,
+            title = LightRP.titles and LightRP.titles.forKey(r.key) or nil } -- titles.lua
     end
     local at = me and entry.byKey[me]
     if at then local r = rows[at]; view.mine = { rank = r.rank, value = r.value, detail = r.detail } end
