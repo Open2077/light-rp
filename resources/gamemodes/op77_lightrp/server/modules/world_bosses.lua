@@ -340,6 +340,7 @@ local function finish(ev, success, why)
     end
     log("world boss: %s %s (%s); %d contributor(s), %d paid", ev.def.title, success and "down" or "escaped", tostring(why or ""),
         (function() local n = 0 for _ in pairs(ev.contrib) do n = n + 1 end return n end)(), paid)
+    LightRP.eachModule("onWorldBossFinished", { id = ev.def.id, title = ev.def.title, boss = ev.bossLabel, success = ev.success, results = ev.results }) -- iconic drops (cyberware_iconics.lua)
     blip(ev, false)
     pushHud(ev, true)
     if not success then

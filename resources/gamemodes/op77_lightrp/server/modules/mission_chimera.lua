@@ -676,6 +676,7 @@ Missions.register(POINT, {
         if raid.lockOn and raid.lockOn.player == id then boss("setTarget", raid.bossId, nil); raid.lockOn = nil end
     end,
     onEnd = function(inst, success)
+        LightRP.eachModule("onRaidFinished", { instance = inst.id, point = POINT, difficulty = inst.difficulty, success = success == true, test = inst.test == true, members = { table.unpack(inst.members) } }) -- iconic drops (cyberware_iconics.lua)
         local raid = raids[inst.id]
         raids[inst.id] = nil
         if not raid then return end
