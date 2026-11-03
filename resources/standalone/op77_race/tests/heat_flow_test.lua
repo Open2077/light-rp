@@ -43,6 +43,22 @@ H.test("street race: one queued player waits, the second opens the join window",
     local status = H.eventsNamed("op77_lightrp:activity:status")
     local last = status[#status]
     H.ok(last.args[1] == "race.grid" and last.args[2].phase == "lobby" and last.args[2].queued == 3, "lobby status")
+    -- Light RP's queue panel: the heat, its minimum, the grid's seats, the join window.
+    local q = last.args[2].queue
+    H.eq(q.v, 1); H.eq(#q.lobbies, 1); H.eq(#q.lobbies[1].players, 3)
+    H.eq(q.lobbies[1].need, 2); H.eq(q.lobbies[1].max, 8)
+    H.ok(q.lobbies[1].startsInMs > 25000, "the join window is the countdown")
+    -- the window running down sends nothing
+    local before = #status
+    H.advance(3000)
+    for i = before + 1, #H.eventsNamed("op77_lightrp:activity:status") do
+        H.ok(H.eventsNamed("op77_lightrp:activity:status")[i].args[1] ~= "race.grid", "no status for a countdown")
+    end
+end)
+
+H.test("the queue shape: nobody waiting is an empty list", function()
+    H.eq(#L.queueOf(RaceActivity.byKey.foot).lobbies, 0)
+    H.eq(L.queueOf(RaceActivity.byKey.foot).v, 1)
 end)
 
 H.test("launch: everyone re-checked; the ineligible one is told and left out", function()

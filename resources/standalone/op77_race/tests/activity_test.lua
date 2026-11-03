@@ -81,6 +81,17 @@ H.test("status is sent on change only", function()
     H.eq(sent[#sent].args[1], "race.trial")
 end)
 
+H.test("the queue shape is in the digest: a countdown running down is no change", function()
+    local status = { phase = "lobby", players = 0, queued = 1, joinable = true, detail = "Grid forming",
+        queue = { v = 1, lobbies = { { players = { 4 }, need = 2, max = 8, startsInMs = 20000 } } } }
+    H.ok(A.status("race.grid", status, false, 100000))
+    status.queue.lobbies[1].startsInMs = 15000
+    H.ok(not A.status("race.grid", status, false, 105000), "the same deadline")
+    status.queue.lobbies[1].players = { 4, 5 }
+    H.ok(A.status("race.grid", status, false, 105000), "a racer joined")
+    H.eq(A.queueDigest(nil), "-")
+end)
+
 H.test("results go through the host bus, only for our activities", function()
     H.ok(A.result(3, "race.trial", { placement = 1, score = 1, won = true, stats = { timeMs = 1 }, reputation = 5 }))
     H.ok(not A.result(3, "arena.duel", {}))

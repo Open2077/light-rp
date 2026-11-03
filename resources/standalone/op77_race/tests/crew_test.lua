@@ -132,7 +132,12 @@ end)
 
 H.test("race vs AI: a member who never comes is left behind after gatherSeconds", function()
     join(3, "race.pve", { course = "shion-sprint", squad = { id = "Q", leader = 3, members = { 3, 4 } } })
-    H.advance(gatherMs - 500)
+    H.advance(1000)
+    -- Light RP's queue panel: one of two, starting when the gather wait is over.
+    local q = L.queueOf(pve)
+    H.eq(#q.lobbies, 1); H.eq(q.lobbies[1].players[1], 3); H.eq(q.lobbies[1].need, 2)
+    H.eq(q.lobbies[1].startsInMs, gatherMs - 1000)
+    H.advance(gatherMs - 1500)
     H.eq(instance(3), nil)
     H.advance(1000)
     local inst = instance(3)

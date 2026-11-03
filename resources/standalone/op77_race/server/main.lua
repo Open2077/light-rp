@@ -118,13 +118,14 @@ local function statusFor(def, now)
     else
         detail = ("%d courses"):format(courses)
     end
-    return { phase = phase, players = players, queued = queued, joinable = courses > 0, detail = detail }
+    return { phase = phase, players = players, queued = queued, joinable = courses > 0, detail = detail,
+        queue = def.mode ~= "trial" and L.queueOf(def, now) or nil }
 end
 
 local function pushStatus(force)
     if not A.registered then return end
     local now = E.nowMs()
-    for _, def in ipairs(Config.activities) do A.status(def.id, statusFor(def, now), force) end
+    for _, def in ipairs(Config.activities) do A.status(def.id, statusFor(def, now), force, now) end
 end
 
 -- ---------------------------------------------------------------- joining --
