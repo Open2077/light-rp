@@ -281,7 +281,7 @@ local function planePoint(board)
     if t<=0 or t>15 then return end
     return {x=ray.origin.x+ray.direction.x*t,y=ray.origin.y+ray.direction.y*t,z=board.position.z}
 end
-local PIECE_HEIGHTS={pawn=.079,rook=.089,knight=.104,bishop=.108,queen=.111,king=.124}
+local PIECE_HEIGHTS={pawn=.086,rook=.097,knight=.114,bishop=.124,queen=.139,king=.152}
 local function square(board,ignorePiece)
     if board.kind=="connect4" then
         local p=cursor();if not p then return end

@@ -5,8 +5,16 @@ Requires WolvenKit 9.1 CLI, .NET and an inspected JSON mesh schema. Inputs are
 read-only; all intermediate work is isolated beneath --work. No donor geometry
 or gameplay code is shipped. Engine material references match the inspected
 OPX custom-vehicle pipeline.
+
+The chess/checkers/Connect Four art (geometry, materials, textures) lives in
+tools/board-game-art.py; cooking it needs NumPy and Pillow. This file is also
+the shared cooker library of the casino/roulette build scripts: its public
+functions (load_generator, sphere, glb, material, mesh_json, entity_json,
+wood_textures, ref, cross, ...) keep their behaviour for them. Additions:
+faces may carry explicit 'uv' (honoured by glb), `cy:` material keys resolve
+through the art table, and encode_texture cooks any Pillow image.
 """
-import argparse,base64,copy,hashlib,importlib.util,json,math,os,random,struct,subprocess,zipfile,zlib
+import argparse,base64,copy,hashlib,importlib.util,json,math,os,random,shutil,struct,subprocess,zipfile,zlib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 RESOURCE=ROOT/'resources/assets/models/open77_board_games'
@@ -15,6 +23,22 @@ DEPOT='open77\\assets\\op77_lightrp\\board_games'
 WHITE,BLACK,NATURAL='#FAF8F2FF','#10100FFF','#8C592FFF'
 BOARD_LIGHT,BOARD_DARK,WOOD_FRAME='#D5B68BFF','#4A2C1AFF','#5A3822FF'
 BLUE,RED,YELLOW='#2159BFFF','#C92C2CFF','#EDC525FF'
+WHITE_TEXTURE='engine\\textures\\editor\\white.xbm'
+# The engine samples rows bottom-up relative to our UVs (seen in game: text
+# upside down), so cooked bytes are flipped vertically; sources/ keeps the
+# drawing upright. Set FLIP_V=False to cook the image as drawn.
+FLIP_V=True
+_ART=None
+
+def load_art():
+ """tools/board-game-art.py, loaded once (geometry needs only the stdlib)."""
+ global _ART
+ if _ART is None:
+  s=importlib.util.spec_from_file_location('board_game_art',ROOT/'tools/board-game-art.py');_ART=importlib.util.module_from_spec(s);s.loader.exec_module(_ART)
+ return _ART
+
+def load_collision():
+ s=importlib.util.spec_from_file_location('collision_props',ROOT/'tools/collision_props.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
 
 def load_generator():
  s=importlib.util.spec_from_file_location('tabletop',ROOT/'tools/generate-board-game-models.py');g=importlib.util.module_from_spec(s);s.loader.exec_module(g)
@@ -106,7 +130,8 @@ def wooden_piece(g,kind,side,game):
   g.box(out,0,0,.106,.009,.009,.036,c);g.box(out,0,0,.112,.031,.009,.009,c)
  return out
 
-def model_geometry():
+def wooden_geometry():
+ """The previous carved-wood set (kept for reference and reuse)."""
  g=load_generator();models={'chess_board':g.board(8),'checkers_board':g.board(10)}
  # Real perforated frame with front/back skins and cylindrical aperture walls.
  out=[];blue=g.CONNECT_BLUE;n=24
@@ -131,6 +156,17 @@ def model_geometry():
     faces=wooden_piece(g,kind,side,game)
     models[game+'_'+side+'_'+kind]=faces
  return models
+
+def model_geometry():
+ """Every model of the open77_board_games pack (Night City art), checked."""
+ art=load_art();models=art.models();art.check(models);return models
+
+# Board bases get a mesh-less collider entity beside them (tools/COLLISION.md).
+# Boxes are board-local metres before the 0.65 client scale.
+def collider_boxes(col):
+ return {'chess_board':[col.Box.between((-.56,-.56,-.036),(.56,.56,.0115))],
+  'checkers_board':[col.Box.between((-.56,-.56,-.036),(.56,.56,.0115))],
+  'connect4_board':[col.Box.between((-.54,-.04,0),(.54,.04,.976)),col.Box.between((-.558,-.15,0),(-.466,.15,.016)),col.Box.between((.466,-.15,0),(.558,.15,.016))]}
 
 def normalize(v):
  n=math.sqrt(sum(x*x for x in v));return [x/n for x in v]
@@ -171,6 +207,29 @@ def wood_textures(directory):
   (directory/(name+'.xbm.json')).write_text(json.dumps(obj,separators=(',',':')))
   records.append({'name':name,'depot':DEPOT+'\\textures\\'+name+'.xbm','width':size,'height':size,'mips':len(mips),'bytes':len(data),'sourceSha256':hashlib.sha256(png).hexdigest()})
  return records
+def encode_texture(directory,name,image,sources=None):
+ """Cook a Pillow image to <directory>/<name>.xbm.json (gamma RGBA, TCM_None,
+ full mip chain, FLIP_V) and save the upright source PNG in `sources`."""
+ from PIL import Image
+ image=image.convert('RGBA');sources=Path(sources or RESOURCE/'sources');sources.mkdir(parents=True,exist_ok=True)
+ source=sources/(name+'.png');image.save(source)
+ width,height=image.size;data=bytearray();mips=[];level=image.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if FLIP_V else image
+ while True:
+  block=level.tobytes();w,h=level.size
+  mips.append({'$type':'rendRenderTextureBlobMipMapInfo','layout':{'$type':'rendRenderTextureBlobMemoryLayout','rowPitch':w*4,'slicePitch':len(block)},'placement':{'$type':'rendRenderTextureBlobPlacement','offset':len(data),'size':len(block)}});data.extend(block)
+  if (w,h)==(1,1):break
+  level=level.resize((max(1,w//2),max(1,h//2)),Image.Resampling.BOX)
+ header={'$type':'rendRenderTextureBlobHeader','flags':1,'histogramData':[],'mipMapInfo':mips,'sizeInfo':{'$type':'rendRenderTextureBlobSizeInfo','width':width,'height':height,'depth':1},'textureInfo':{'$type':'rendRenderTextureBlobTextureInfo','dataAlignment':8,'mipCount':len(mips),'sliceCount':1,'sliceSize':len(data),'textureDataSize':len(data),'type':'TEXTYPE_2D'},'version':2}
+ setup={'$type':'STextureGroupSetup','compression':'TCM_None','group':'TEXG_Generic_Color','hasMipchain':1,'isGamma':1,'isStreamable':0,'allowTextureDowngrade':0,'rawFormat':'TRF_TrueColor'}
+ root={'$type':'CBitmapTexture','cookingPlatform':'PLATFORM_PC','width':width,'height':height,'depth':1,'setup':setup,'histBiasAddCoef':{'$type':'Vector3','X':0,'Y':0,'Z':0},'histBiasMulCoef':{'$type':'Vector3','X':1,'Y':1,'Z':1},'renderResourceBlob':None,'renderTextureResource':{'$type':'rendRenderTextureResource','renderResourceBlobPC':{'HandleId':'0','Data':{'$type':'rendRenderTextureBlobPC','header':header,'textureData':{'BufferId':'0','Flags':131072,'Bytes':base64.b64encode(data).decode()}}}}}
+ obj={'Header':{'WolvenKitVersion':'9.1.0','WKitJsonVersion':'0.0.9','GameVersion':2310,'DataType':'CR2W'},'Data':{'Version':195,'BuildVersion':0,'RootChunk':root}}
+ (Path(directory)/(name+'.xbm.json')).write_text(json.dumps(obj,separators=(',',':')))
+ return {'name':name,'flipV':FLIP_V,'depot':DEPOT+'\\textures\\'+name+'.xbm','width':width,'height':height,'mips':len(mips),'bytes':len(data),'sourceSha256':hashlib.sha256(source.read_bytes()).hexdigest()}
+
+def art_textures(directory):
+ """Cook every texture of the Night City art (sources saved upright)."""
+ return [encode_texture(directory,name,image) for name,image in sorted(load_art().textures().items())]
+
 def glb(path,faces):
  groups={}
  for face in faces:groups.setdefault(face['color'],[]).append(face)
@@ -190,13 +249,15 @@ def glb(path,faces):
    n=normalize(cross([pts[1][i]-pts[0][i] for i in range(3)],[pts[2][i]-pts[0][i] for i in range(3)]))
    prepared.append((pts,n))
    for p in pts:neighbors.setdefault(tuple(round(v,7) for v in p),[]).append(n)
-  for pts,n in prepared:
-   for p in pts:
+  for face_index,(pts,n) in enumerate(prepared):
+   explicit=triangles[face_index].get('uv')
+   for corner,p in enumerate(pts):
     adjacent=[v for v in neighbors[tuple(round(x,7) for x in p)] if sum(v[i]*n[i] for i in range(3))>.75]
     smooth=normalize([sum(v[i] for v in adjacent) for i in range(3)])
     tangent=normalize(cross(smooth,[0,1,0] if abs(smooth[1])<.9 else [1,0,0]))
     points.append(p);normals.append(smooth);tangents.append(tangent+[1])
-    if abs(n[1])>.75:uv.append([p[0]*4,p[2]*4])
+    if explicit:uv.append([float(explicit[corner][0]),float(explicit[corner][1])])
+    elif abs(n[1])>.75:uv.append([p[0]*4,p[2]*4])
     elif abs(n[0])>abs(n[2]):uv.append([-p[2]*4,p[1]*4])
     else:uv.append([p[0]*4,p[1]*4])
   attrs={'POSITION':add(points,'VEC3',3),'NORMAL':add(normals,'VEC3',3),'TANGENT':add(tangents,'VEC4',4),'TEXCOORD_0':add(uv,'VEC2',2),'COLOR_0':add([[1]*4]*len(points),'VEC4',4),'COLOR_1':add([[1]*4]*len(points),'VEC4',4)}
@@ -206,7 +267,18 @@ def glb(path,faces):
  return list(groups)
 def cn(value):return {'$type':'CName','$storage':'string','$value':value}
 def ref(value):return {'DepotPath':{'$type':'ResourcePath','$storage':'string','$value':value},'Flags':'Default'}
+def art_material(key):
+ """A `cy:` art material: pack texture or engine white, linear colour scale."""
+ texture,colour,rough,metal=load_art().MATERIALS[key]
+ def linear(value):
+  value=value/255
+  return value/12.92 if value<=.04045 else ((value+.055)/1.055)**2.4
+ c=[linear(int(colour[i:i+2],16)) for i in (1,3,5)]
+ def v(name,typ,value):return {'$type':typ,name:value}
+ path=DEPOT+'\\textures\\'+texture+'.xbm' if texture else WHITE_TEXTURE
+ return {'$type':'CMaterialInstance','baseMaterial':ref('engine\\materials\\metal_base.remt'),'values':[v('BaseColor','rRef:ITexture',ref(path)),v('BaseColorScale','Vector4',{'$type':'Vector4','X':c[0],'Y':c[1],'Z':c[2],'W':1}),v('RoughnessScale','Float',rough),v('MetalnessScale','Float',metal)],'enableMask':0,'resourceVersion':4,'cookingPlatform':'PLATFORM_PC'}
 def material(color):
+ if isinstance(color,str) and color.startswith('cy:'):return art_material(color)
  if color==WHITE:texture='wood_ivory';c=[1,1,1]
  elif color==BLACK:texture='wood_ebony';c=[1,1,1]
  else:
@@ -258,9 +330,16 @@ def main():
  host=Path('/home/dop42/opx_pool_assets/assets/hosts/open77/assets/opx_infinity/pool/ball_01.ent')
  cli('convert','serialize',host,'-o',hostdir)
  template=json.loads((hostdir/'ball_01.ent.json').read_text())
+ # Stale cooked files from an earlier build would be packed too: start clean.
+ for stale in ('raw','json','texture-json','archive','verified','packed'):shutil.rmtree(work/stale,ignore_errors=True)
  models=model_geometry();raw=work/'raw';schemas=work/'json';schemas.mkdir(parents=True,exist_ok=True)
  texture_schemas=work/'texture-json';texture_schemas.mkdir(parents=True,exist_ok=True)
- textures=wood_textures(texture_schemas)
+ for old in list((RESOURCE/'sources').glob('cy_*.png')):old.unlink()
+ textures=art_textures(texture_schemas)
+ col=load_collision();colliders=[]
+ for i,(name,boxes) in enumerate(collider_boxes(col).items()):
+  (schemas/(col.collider_name(name)+'.ent.json')).write_text(json.dumps(col.collider_entity_json(template,boxes,i)))
+  colliders.append({'name':col.collider_name(name),'for':name,'entity':DEPOT+'\\'+col.collider_name(name)+'.ent','scaleBaked':col.SCALE,'boxes':[{'size':list(b.size),'center':list(b.center)} for b in boxes]})
  records=[]
  for index,(name,faces) in enumerate(models.items()):
   colors=glb(raw/(name+'.mesh.glb'),faces)
@@ -279,7 +358,11 @@ def main():
  with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
   info=zipfile.ZipInfo('archive/pc/mod/0_open77_board_games.archive',(2026,1,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,source.read_bytes())
  files=[{'depot':str(p.relative_to(archive)).replace('/','\\'),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in sorted(archive.rglob('*')) if p.is_file()]
- manifest={'version':'1.1.0','style':'original matte carved wood; white/black chess and checkers; blue/red/yellow stained-wood Connect Four','namespace':DEPOT,'models':records,'textures':textures,'files':files,'archiveSha256':hashlib.sha256(source.read_bytes()).hexdigest(),'zipSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'buildWork':str(work),'sourceMeshSchemaSha256':hashlib.sha256((lab/'donor/oni-json/v_sportbike13_methodd_oni__ext01_body_01.mesh.json').read_bytes()).hexdigest(),'materialDependencies':['engine\\materials\\metal_base.remt']}
+ art=load_art()
+ manifest={'version':'2.0.0','style':'original Night City art: lacquered gunmetal and carbon boards with chrome bevels and neon inlays; pearl/chrome vs onyx/gunmetal chess and checkers with cyan/magenta accents; gunmetal Connect Four frame with red and yellow machined discs','namespace':DEPOT,'models':records,'textures':textures,'colliders':colliders,'pieceHeights':art.PIECE_HEIGHTS,'checkerHeights':art.CHECKER_HEIGHTS,'materials':{k:{'texture':v[0],'color':v[1],'roughness':v[2],'metalness':v[3]} for k,v in art.MATERIALS.items()},'files':files,'archiveSha256':hashlib.sha256(source.read_bytes()).hexdigest(),'zipSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'buildWork':str(work),'sourceMeshSchemaSha256':hashlib.sha256((lab/'donor/oni-json/v_sportbike13_methodd_oni__ext01_body_01.mesh.json').read_bytes()).hexdigest(),'materialDependencies':['engine\\materials\\metal_base.remt',WHITE_TEXTURE]}
  (RESOURCE/'asset-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
- print('COOKED',len(models),'native meshes/entities,',output.stat().st_size,'ZIP bytes',flush=True)
+ print('COOKED',len(models),'native meshes/entities,',len(colliders),'colliders,',len(textures),'textures,',output.stat().st_size,'ZIP bytes',flush=True)
+ # Verify the package, the index and the WolvenKit round trip of this build.
+ s=importlib.util.spec_from_file_location('board_game_prop_checks',ROOT/'tools/test-board-game-props.py');checks=importlib.util.module_from_spec(s);s.loader.exec_module(checks)
+ checks.verify(work)
 if __name__=='__main__':main()

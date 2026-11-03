@@ -56,9 +56,18 @@ move with native transforms; captures retain their handles and promotions replac
 only the affected piece. Creation is staggered so it does not block input.
 `debugDraw` is used only for axis and square-selection lines. Props are non-solid
 decorations; game movement and captures remain server-authoritative.
-All models use a uniform 0.65 visual and interaction scale. Original wood-grain
-textures give the pieces a matte wooden finish: ivory-white and ebony-black for
-chess/checkers, with stained blue, red and yellow wood for Connect Four.
+All models use a uniform 0.65 visual and interaction scale. The art is an
+original Night City set (`tools/board-game-art.py`, version 2.0.0 of the pack):
+carbon and brushed-gunmetal boards with chrome bevels, raised lacquer tiles on
+an etched neon grid and a neon channel (cyan for chess, amber for checkers);
+White pieces are pearl and chrome with cyan accents, Black pieces onyx and
+gunmetal with magenta accents; checker kings carry a raised neon crown;
+Connect Four is a gunmetal frame with red and yellow machined discs. There is
+no emissive shader: the glow is bright paint, texture bands and bevel
+highlights. The crosshair picking heights (`PIECE_HEIGHTS` in
+`client/core/board_games.lua`) follow the cooked piece heights; the pack test
+fails if they drift. Each board base also ships a mesh-less collider entity
+(`<base>_collider.ent`, see `tools/COLLISION.md`).
 
 When the asset archive changes, fully close the game and reconnect through the
 launcher to install and mount it. Reconnecting from within a running game cannot
@@ -71,8 +80,9 @@ Validation:
 ```sh
 python3 tools/generate-board-game-models.py
 python3 tools/generate-board-game-sounds.py
-python3 tools/build-board-game-props.py
-python3 tools/test-board-game-props.py --build /tmp/board-game-props/build
+python3 tools/build-board-game-props.py --lab <dop-tests lab> --work ~/.cache/board-game-props
+python3 tools/test-board-game-props.py --build ~/.cache/board-game-props
+python3 resources/assets/models/open77_board_games/sources/preview.py
 python3 tools/test-board-games.py
 python3 tools/test-board-games-server.py
 python3 tools/test-board-games-client.py
