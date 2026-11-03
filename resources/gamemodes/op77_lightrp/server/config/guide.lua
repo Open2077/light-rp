@@ -179,7 +179,7 @@ LightRpGuide = {
             say = "Keys first. Can't play a guitar without knowing where the frets are.",
             questions = {
                 { id = "controls.keys", q = "What are the main keys?",
-                  a = { "- {key:menu}: player menu (F1)",
+                  a = { "- {key:menu}: the player menu (the \"F1 menu\" of these answers)",
                         "- {key:neuralink}: Neural-Link, your implant's phone and apps",
                         "- {key:interact}: interact with the point in front of you (shops, desks, doors...)",
                         "- Hold {key:context} + click: context menu on a player, a vehicle, an NPC",
