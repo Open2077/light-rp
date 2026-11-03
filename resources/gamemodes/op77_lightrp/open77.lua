@@ -114,6 +114,8 @@ server_script "server/modules/ripperdoc.lua"
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
+server_script "server/config/dogtown.lua"
+server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
 server_script "server/main.lua"
 
 -- Client: core first, then modules.
@@ -189,6 +191,7 @@ permissions {
     "world.effects",        -- the raid's strikes: replicated explosions in the arena bucket
     "world.explosions",     -- ... that hurt the operators standing in them
     "combat.config",        -- pre-hit, server-authoritative safezone policy
+    "combat.scope.control", -- Dogtown: PvP grants for the players inside (global friendly fire stays off)
     "players.stats.read",
     "players.stats.apply",         -- cyberware passives: health/stamina maxima and regeneration
     "players.life.falldamage",     -- cyberware: Fortified Ankles
