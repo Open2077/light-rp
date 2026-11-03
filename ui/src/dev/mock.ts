@@ -10,7 +10,7 @@
    `?dialog=recap&recap=ffa|team|race|chase|turf|mission|boss|test|unranked|draw|big` opens an
    end-of-match recap (features/recap/mock.ts),
    `?dialog=dailies&tab=titles&dailies=mixed|fresh|budget|allpaid|off|loading&titles=shown|hidden|none&crew=1`
-   opens Daily Contracts (features/dailies/mock.ts). */
+   opens Dailies (features/dailies/mock.ts). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";

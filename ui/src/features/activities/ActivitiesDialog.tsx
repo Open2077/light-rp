@@ -3,14 +3,17 @@ import { emit, on, sendAction } from "@/bridge/open77";
 import { PAGE_EVENTS, type ActivitiesState, type ActivitiesTab, type ActivityEntry, type ActivityFriendly, type ActivityFriendlyPlayer, type PartyState, type UiAction } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { Badge, Button, Icon, Keycap, Tabs, Toggle, cx } from "@/design/components";
+import { DailiesToday } from "@/features/dailies/DailiesDialog";
+import { toClaim } from "@/features/dailies/model";
 import { KIND_ICON, KIND_LABEL, alliesFor, botsAllowed, fillDue, formatClock, formatTime, friendlyColumns, joinLabel, joinOptions, mineLine, moveTarget,
   pickedDifficulty, queuedTitle, rankedLine, repLine, roman, searchCount, searchScope, statusLine } from "./model";
 import "./activities.css";
 
 /* The Activities panel (server/modules/activities.lua, activities_hub.lua): opened
    by The Crossing's terminal, F1 > Activities and the Neural-Link app Gigs & Arena.
-   Three tabs: the activities (status, join / leave, your record, the leaderboard),
-   the contract boards of the city (a GPS route to each) and the crew. In a crew only
+   Four tabs: the activities (status, join / leave, your record, the leaderboard),
+   the contract boards of the city (a GPS route to each), the dailies (the same Today
+   page and claims as F1 > Dailies, features/dailies) and the crew. In a crew only
    the leader joins, and the crew is queued with them. Everything comes from the
    `activities` and `party` state; nothing is assumed.
    The lobby (activities.lobby): bots chosen here (PvP "Play with bots", unranked;
@@ -35,7 +38,7 @@ export function ActivitiesDialog() {
   }, [visible, close]);
   if (dialog?.kind !== "activities") return null;
   const asked = dialog.tab as string | undefined;
-  const tab: ActivitiesTab = asked === "contracts" ? "contracts" : asked === "crew" || asked === "squad" ? "crew" : "activities";
+  const tab: ActivitiesTab = asked === "contracts" ? "contracts" : asked === "dailies" ? "dailies" : asked === "crew" || asked === "squad" ? "crew" : "activities";
   return <ActivitiesBody key={tab} initialTab={tab} onClose={close} />;
 }
 
@@ -43,6 +46,7 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
   const root = useRef<HTMLDivElement>(null);
   const state = useStore((s) => s.state.activities);
   const party = useStore((s) => s.state.party);
+  const dailies = useStore((s) => s.state.dailies);
   const me = useStore((s) => s.state.character.playerId);
   const result = useStore((s) => s.lastResult);
   const [tab, setTab] = useState<ActivitiesTab>(initialTab);
@@ -110,8 +114,9 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
   const tabs = useMemo(() => [
     { value: "activities" as const, label: "ACTIVITIES", icon: "swords", count: list.length || undefined },
     { value: "contracts" as const, label: "CONTRACTS", icon: "terminal", count: state?.contracts.length || undefined },
+    ...(dailies ? [{ value: "dailies" as const, label: "DAILIES", icon: "list-checks", count: toClaim(dailies) || undefined }] : []),
     { value: "crew" as const, label: "CREW", icon: "users", count: party?.invites?.length ? `${party.invites.length} NEW` : party?.members ? `${party.members.length}/${party.maxSize}` : undefined },
-  ], [list.length, state?.contracts.length, party]);
+  ], [list.length, state?.contracts.length, party, dailies]);
 
   return <div className="activities o77-interactive" role="dialog" aria-modal="true" aria-labelledby="activities-title" ref={root} tabIndex={-1}
     onKeyDown={(e) => {
@@ -148,6 +153,7 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
           onFriendly={() => lobby({ type: LOBBY, operation: "friendly", id: activity.id, mode: modes[activity.id] || undefined, bots: !!bots[activity.id] })} /> : <div />}
       </div>
       : tab === "contracts" ? <Contracts state={state} />
+      : tab === "dailies" ? <DailiesToday />
       : <Crew state={state} party={party} me={me} />}
 
     <footer className="activities__foot">

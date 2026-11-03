@@ -97,6 +97,7 @@ les activités paient, les matchs de The Crossing paient à la minute.
 - « Cash or bank? » → `cash`
 - « How do I pay someone? » — FAQ money.pay
 - « What does stuff cost? » — FAQ money.spend
+- « What are these Dailies? » — FAQ money.dailies (où les ouvrir : F1 → Dailies et l'onglet Dailies du panneau Activities, chez Adam Smasher ; remise à zéro 00:00 UTC, weekly le lundi ; ce qu'ils paient)
 
 `job` : aller au Job Center, E au guichet, les jobs proposés ; tout le monde commence en
 bas.

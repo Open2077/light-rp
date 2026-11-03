@@ -22,7 +22,7 @@ dofile("shared/medical.lua")
 dofile("shared/jobs.lua")
 dofile("shared/vehicle_customization.lua")
 for _, file in ipairs({ "missions", "fixers", "job_runs", "delivery", "job_work", "garages", "vehicle_customization",
-    "dealerships", "shops", "support", "housing", "cyberware", "activities", "economy", "halloffame", "dogtown", "guide" }) do
+    "dealerships", "shops", "support", "housing", "cyberware", "activities", "economy", "halloffame", "dogtown", "dailies", "guide" }) do
     dofile("server/config/" .. file .. ".lua")
 end
 

@@ -1,5 +1,5 @@
 /* Title rarities: the colours of server/config/titles.lua `rarities` (legendary and
-   live are the design system's accent and magenta). Shared by the Daily Contracts
+   live are the design system's accent and magenta). Shared by the Dailies
    panel and the crew frame. */
 :root {
   --title-common: #C9D1DC; --title-rare: #3FA9FF; --title-epic: #B36BFF;

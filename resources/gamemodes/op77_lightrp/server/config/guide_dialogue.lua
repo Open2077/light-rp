@@ -128,6 +128,7 @@ LightRpGuideDialogue = {
                 { "Cash or bank?", to = "cash" },
                 { "How do I pay someone?", faq = "money.pay" },
                 { "What does stuff cost?", faq = "money.spend" },
+                { "What are these Dailies?", faq = "money.dailies" },
             },
         },
         job = {

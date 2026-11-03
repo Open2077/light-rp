@@ -325,7 +325,8 @@ function T.onMissionFinished(inst, point, d, success)
         local hard = d.id == "hard" or d.id == "critical"
         for _, id in ipairs(inst.members or {}) do
             if hard and report.enraged == false then T.award(id, "overclock_denied") end
-            if hard and #(inst.members or {}) == 2 then T.award(id, "two_man_army") end
+            -- two from the first shot to the last: a third who left mid-fight does not make a duo
+            if hard and #(inst.members or {}) == 2 and tonumber(report.operators) == 2 then T.award(id, "two_man_army") end
             if d.id == "critical" and (tonumber(report.downs) or 0) == 0 then T.award(id, "flawless") end
         end
     end

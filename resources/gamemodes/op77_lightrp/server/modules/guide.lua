@@ -63,7 +63,7 @@ Guide.roots = {
     customization = "LightRpVehicleCustomization", pricing = "LightRpCustomizationPricing",
     housing = "LightRpHousing", cyberware = "LightRpCyberwareConfig", medical = "LightRpMedicalConfig",
     support = "LightRpSupportConfig", armament = "LightRpArmament", dogtown = "LightRpDogtown",
-    economy = "LightRpEconomy", halloffame = "LightRpHallOfFame",
+    economy = "LightRpEconomy", halloffame = "LightRpHallOfFame", dailies = "LightRpDailies",
 }
 
 local function lookup(path)
