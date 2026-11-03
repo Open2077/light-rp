@@ -196,6 +196,16 @@
     // Seats are chosen with ALT + click on the furniture (open77_contextmenu), no E card;
     // no /sit or /stand player command (Light RP has no out-of-character commands).
     "open77_seating_ui": "menu",
-    "open77_seating_commands": "0"
+    "open77_seating_commands": "0",
+    // The crowd. At the default density (8) and caps (200 walkers + 256 seated per player) the spawn
+    // square kept every client at its 480 live-entity cap: the players' own animation devices queued
+    // past their 8 s timeout ("Animation unavailable: playback_timeout", 2026-11-04). Density as on
+    // the owner's local server, at most 200 pedestrians around a player, and none within 40 m of
+    // the spawn (open77_pedestrians exclusion zones: "x,y,z,radius;...").
+    "open77_pedestrians_crowd_density": "2.5",
+    "open77_pedestrians_crowd_max_near_player": "120",
+    "open77_pedestrians_max_near_player": "80",
+    "open77_pedestrians_crowd_max_cluster": "300",
+    "open77_pedestrians_exclusions": "-779.648,781.561,22.580,40"
   }
 }
