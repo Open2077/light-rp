@@ -586,7 +586,14 @@ function Engine.npcHit(reporter, victimId, npcId, epoch, amount)
     if not victim or not damage or damage ~= damage or damage <= 0 or not reportedEpoch then return false, "invalid" end
     local inst = Missions.instanceOf(victim)
     local run = inst and inst.run
-    if not run or run.phase == "done" then return false, "no_run" end
+    if not run or run.phase == "done" then
+        -- a world boss's enemies fight in the city, outside any mission instance
+        local W = LightRP.worldBosses
+        local world, key = nil, nil
+        if W and W.instanceOfNpc then world, key = W.instanceOfNpc(npcId) end
+        if world then return Engine.applyNpcHit(world, reporter, victim, key, reportedEpoch, damage) end
+        return false, "no_run"
+    end
     local key
     for id in pairs(run.enemies) do if tostring(id) == tostring(npcId) then key = id end end
     if key == nil then return false, "not_this_mission" end

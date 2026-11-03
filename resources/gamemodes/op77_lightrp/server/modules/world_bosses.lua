@@ -30,6 +30,18 @@ local function log(...) LightRP.log(...) end
 local function name(id) return LightRP.characters.displayName(id) end
 local function money(n) return LightRP.money and LightRP.money.format(n) or ("€$" .. tostring(n)) end
 local function fill(text, vars) return (text:gsub("{(%w+)}", function(k) return vars[k] ~= nil and tostring(vars[k]) or "" end)) end
+-- The running event's instance (fighters in the zone as members, city bucket) and the
+-- enemy's id when `npcId` is one of its enemies: mission_engine.lua's NPC hit relay applies
+-- those hits to the fighters (the enemies opt into authoritativePlayerHits, so the engine
+-- itself never drains a player's health).
+function WB.instanceOfNpc(npcId)
+    local ev = event
+    if not ev or ev.phase ~= "fight" or not ev.inst then return nil end
+    local key = ev.npcs[tostring(npcId)]
+    if key == nil then return nil end
+    return ev.inst, key
+end
+
 local function bucketOf(id) return type(GetPlayerRoutingBucket) == "function" and GetPlayerRoutingBucket(id) or 0 end
 local function positionOf(id)
     local p = Open77.players.position(id)

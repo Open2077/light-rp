@@ -221,6 +221,19 @@ for i = before + 1, #npcCalls do if npcCalls[i][1] == "guard" and npcCalls[i][2]
 assert(leashed, "a runaway enemy is sent back")
 npcs[runaway].position = { x = 510, y = 500, z = 10 }
 
+-- ── the enemies' hits on the fighters: they opt into authoritativePlayerHits, so a hit
+--    only lands through the relay (client/core/mission_run.lua -> Engine.npcHit), which
+--    must find the world boss though the fighters run no mission ──
+local hitsBefore = #damaged
+local landed, hitWhy = Engine.npcHit(1, 2, tostring(guards[1]), 4, 12)
+assert(landed, "a guard's hit on a fighter lands: " .. tostring(hitWhy))
+assert(#damaged == hitsBefore + 1 and damaged[#damaged].id == 2 and damaged[#damaged].amount == 12 and damaged[#damaged].attacker == guards[1])
+assert(Engine.npcHit(1, 1, tostring(bossId), 4, 500) and damaged[#damaged].amount == 40, "the boss too, capped per hit")
+assert(select(2, Engine.npcHit(1, 4, tostring(guards[1]), 4, 10)) == "not_in_mission", "far from the zone: not a fighter")
+assert(select(2, Engine.npcHit(2, 1, tostring(guards[1]), 4, 10)) == "not_owner", "only the NPC's owner reports")
+assert(select(2, Engine.npcHit(1, 2, "424242", 4, 10)) == "no_run", "not an enemy of the event")
+assert(#damaged == hitsBefore + 2)
+
 -- ── credit: server-validated damage and kills ──
 npcs[bossId].health = 5000 - 3000
 fire("onNpcDamaged", tostring(bossId), "player:1", "3000", "2000", "player_hit")
