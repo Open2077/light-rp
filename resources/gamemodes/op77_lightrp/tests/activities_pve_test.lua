@@ -242,6 +242,75 @@ assert(commands["lightrp.bots"](0, { "off" }))
 assert(exported.activityLeave(P, "arena.pve", { returnPlayer = false }))
 advance(3100)
 
+-- ---------------------------------------------------------------------------
+-- Crews (owner decision 2026-11-03): a member below the leader's difficulty is never
+-- refused; they play it in full and earn the reward of the highest difficulty their
+-- tier opens. The leader, and a player alone, are gated.
+local L, MEM = 2, 3
+character(L); positions[L] = { x = -756.0, y = 777.0, z = 22.4 }
+character(MEM); positions[MEM] = { x = -757.0, y = 778.0, z = 22.4 }
+local crew = { id = "crew:1", leader = L, members = { L, MEM }, invites = {} }
+local crews = { [L] = crew, [MEM] = crew }
+LightRP.parties = { of = function(id) return crews[id] end }
+rep[L], rep[MEM] = 0, 0
+-- the leader's own gate still applies
+ok, why = A.requestJoin(L, "arena.pve", "panel", { difficulty = "critical" })
+assert(not ok and why:find("Critical needs reputation tier III"), "leader gate: " .. tostring(why))
+ok, why = exported.activityCheck(MEM, "arena.pve", { difficulty = "critical" })
+assert(not ok and why:find("Critical needs reputation tier III"), "nor can a member go where their leader cannot")
+ok, why = A.requestJoin(MEM, "arena.pve", "panel", { difficulty = "standard" })
+assert(not ok and why:find("crew leader"), "the leader starts activities")
+-- the Operator leader picks Critical: the Street member is queued with the crew, told once
+rep[L] = 1500
+local before = #notices
+ok, why = A.requestJoin(L, "arena.pve", "panel", { difficulty = "critical" })
+assert(ok and why:find("with 1 crew member", 1, true) and why:find("reduced reward: Runner3 (Standard)", 1, true), why)
+local memberJoin = lastEvent("op77_lightrp:activity:join")
+assert(memberJoin.args[1] == MEM and memberJoin.args[3].difficulty == "critical" and memberJoin.args[3].scaling.health == 2.25,
+    "the member plays the leader's difficulty, at its full scaling")
+local toMember
+for i = before + 1, #notices do if notices[i].id == MEM then toMember = notices[i] end end
+assert(toMember and toMember.def.body:find("Critical is above your street cred: you play it, you earn the Standard reward.", 1, true),
+    toMember and toMember.def.body)
+assert(providers.activities(MEM).queued.difficulty == "critical", "the member's queue shows Critical")
+-- the provider checks and enters them at Critical
+assert(exported.activityCheck(MEM, "arena.pve", { difficulty = "critical" }), "activityCheck lets a carried member in")
+local afterQueue = #notices
+assert(exported.activityEnter(L, "arena.pve"))
+assert(exported.activityEnter(MEM, "arena.pve", { difficulty = "critical" }))
+assert(A.current(MEM).difficulty == "critical" and A.current(MEM).carried and not A.current(L).carried)
+for i = afterQueue + 1, #notices do assert(notices[i].def.title ~= "STREET CRED", "told once: the queue said it already") end
+-- the results: both played Critical, the member earns the Standard reward
+assert(result(L, "arena.pve", { won = true }) == 100, "the leader: Critical")
+assert(result(MEM, "arena.pve", { won = true }) == 30, "the member: the reward of their tier")
+assert(notices[#notices].def.body:find("Critical (Standard reward)", 1, true) and notices[#notices].def.body:find("+30 reputation", 1, true),
+    notices[#notices].def.body)
+assert(result(MEM, "arena.pve", { won = false, reputation = 80 }) == 30, "a partial amount is capped at their reward too")
+-- bot mode still records nothing, carried or not
+assert(commands["lightrp.bots"](0, { "on" }))
+assert(result(MEM, "arena.pve", { won = true }) == 0 and result(L, "arena.pve", { won = true }) == 0, "bot mode: no PvE result recorded")
+assert(commands["lightrp.bots"](0, { "off" }))
+assert(exported.activityLeave(L, "arena.pve", { returnPlayer = false }) and exported.activityLeave(MEM, "arena.pve", { returnPlayer = false }))
+advance(3100)
+-- a provider entering a member itself (no panel queue): let in, told at the entry
+before = #notices
+assert(exported.activityEnter(MEM, "arena.pve", { difficulty = "hard" }))
+assert(A.current(MEM).difficulty == "hard" and A.current(MEM).carried)
+assert(notices[#notices].id == MEM and notices[#notices].def.title == "STREET CRED"
+    and notices[#notices].def.body:find("Hard is above your street cred", 1, true), "told once, at the entry")
+assert(result(MEM, "arena.pve", { won = true }) == 30)
+assert(exported.activityLeave(MEM, "arena.pve", { returnPlayer = false }))
+advance(3100)
+-- alone again, the same player is gated
+crews = {}
+ok, why = exported.activityCheck(MEM, "arena.pve", { difficulty = "critical" })
+assert(not ok and why:find("Critical needs reputation tier III"), "solo gate: activityCheck")
+ok, why = exported.activityEnter(MEM, "arena.pve", { difficulty = "hard" })
+assert(not ok and why:find("Hard needs reputation tier II"), "solo gate: activityEnter")
+ok, why = A.requestJoin(MEM, "arena.pve", "panel", { difficulty = "hard" })
+assert(not ok and why:find("Hard needs reputation tier II"), "solo gate: the panel")
+LightRP.parties = nil
+
 -- the command: /activity join <id> <difficulty>
 rep[P] = 0
 ok, why = commands.activity(P, { "join", "arena.pve", "hard" })
@@ -250,4 +319,4 @@ rep[P] = 500
 assert(commands.activity(P, { "join", "arena.pve", "hard" }))
 assert(lastEvent("op77_lightrp:activity:join").args[3].difficulty == "hard"
     and lastEvent("op77_lightrp:activity:join").args[3].scaling.health == 1.5)
-print("PASS: PvE flag and difficulties, tier-gated join/check/enter, PvE reputation by difficulty x weight and tier, PvP without reputation, legacy switch, daily cap, bot mode, onActivityChanged")
+print("PASS: PvE flag and difficulties, tier-gated join/check/enter, PvE reputation by difficulty x weight and tier, PvP without reputation, legacy switch, daily cap, bot mode, crew members below the leader's difficulty play it for their own reward (leader and solo gated), onActivityChanged")
