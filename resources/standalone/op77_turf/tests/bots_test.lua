@@ -212,6 +212,12 @@ local function main()
     local r = T.resultOf(1, resultsFrom)
     assert(r and r.activity == "turf.war" and r.result.test == true, "a bot war's result is flagged test")
     assert(r.result.stats.bots == 5 and r.result.won == true)
+    local bots = 0
+    for _, row in ipairs(r.result.recap.rows) do if row.bot then bots = bots + 1; assert(row.id < 0) end end
+    assert(bots >= 5, "the bots on the recap board: " .. bots)
+    local countedLine
+    for _, line in ipairs(r.result.recap.lines) do if line.label == "Counted" then countedLine = line.value end end
+    assert(countedLine == "not counted (bot war)")
     assert(T.influenceRecords == inf0, "no influence write for a war with bots")
     local card = T.pushed(1, "result", "VICTORY", pushFrom)
     local line

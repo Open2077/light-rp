@@ -1133,6 +1133,53 @@ end
 
 -- ---------------------------------------------------------------- the end
 
+local function notCounted(war)
+    if war.botWar then return "not counted (bot war)" end
+    if isSweep(war) then return "not counted (too short)" end
+    return "not counted (too short or too few crews)"
+end
+
+-- The board each result carries for Light RP's end-of-match recap (op77_lightrp
+-- server/modules/recap.lua): every fighter (leavers marked), the bots (negative ids,
+-- the ones a joining player retired too when they did anything), each side's score.
+-- Damage is not measured here (the zones and kills are the war's numbers).
+function Turf.recapOf(war)
+    local scoring = cfg().scoring
+    local rows = {}
+    local function add(p, bot, left)
+        rows[#rows + 1] = { id = p.id, name = p.name, side = p.side, bot = bot or nil, left = left or nil,
+            kills = p.kills or 0, deaths = p.deaths or 0, captures = p.captures or 0,
+            holdS = math.floor(p.holdSeconds or 0), score = R.personalScore(p, scoring),
+            inMatchMs = math.floor(p.playedMs or 0) }
+    end
+    for _, id in ipairs(war.order or {}) do
+        local m = war.members[id]
+        if m then add(m, false, m.left == true or m.gone == true) end
+    end
+    for _, b in ipairs(type(war.bots) == "table" and war.bots or {}) do
+        local did = (b.kills or 0) + (b.deaths or 0) + (b.captures or 0) > 0
+        if not b.failed and (not b.retired or did) then add(b, true, b.retired == true) end
+    end
+    local resolved = war.state == "resolved" or war.state == "closed"
+    local lines = { { label = "Site", value = tostring(war.site.label or war.site.id) } }
+    if war.site.district then lines[#lines + 1] = { label = "District", value = tostring(war.site.district) } end
+    if resolved and war.counted == false then lines[#lines + 1] = { label = "Counted", value = notCounted(war) } end
+    return { matchId = ("turf:%s:%s@%d"):format(tostring(war.kind or "pvp"), tostring(war.id), math.floor(tonumber(war.createdAt) or 0)),
+        detail = isSweep(war) and "Gang Sweep" or "Turf War", durationMs = math.floor(war.playedMs or 0),
+        sides = { { id = 1, label = sideLabel(war, 1), score = war.sides[1].score or 0 },
+            { id = 2, label = sideLabel(war, 2), score = war.sides[2].score or 0 } },
+        winnerSide = resolved and tonumber(war.winner) or nil, rows = rows, lines = lines,
+        columns = { "kills", "deaths", "captures", "holdS", "score" } }
+end
+
+-- Never lets a recap failure touch a result.
+local function recapOf(war)
+    local ok, recap = pcall(Turf.recapOf, war)
+    if ok then return recap end
+    log("war %s: recap failed: %s", tostring(war.id), tostring(recap))
+    return nil
+end
+
 local function resultFor(war, m, winner, counted)
     local won = winner ~= 0 and winner == m.side
     local result = {
@@ -1144,18 +1191,13 @@ local function resultFor(war, m, winner, counted)
             forfeit = m.left or nil, mode = war.kind ~= "pvp" and war.kind or nil,
             bots = war.bots and B().count(war) > 0 and B().count(war) or nil },
         reputation = R.reputation(m, war, winner, war.rewards or cfg().rewards, counted),
+        recap = recapOf(war), -- Light RP's end-of-match recap (recap.lua)
     }
     -- Staff bot mode: the core records nothing (and is told so).
     if war.botWar then result.test = true end
     return result
 end
 Turf.resultFor = resultFor
-
-local function notCounted(war)
-    if war.botWar then return "not counted (bot war)" end
-    if isSweep(war) then return "not counted (too short)" end
-    return "not counted (too short or too few crews)"
-end
 
 function Turf.finish(war, winner, reason, now)
     if war.state == "resolved" or war.state == "closed" then return end
