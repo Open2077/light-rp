@@ -44,11 +44,13 @@ import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
 import { MissionObjectiveHud } from "@/features/missions/MissionObjectiveHud";
 import { WeaponWheel } from "@/features/weaponwheel/WeaponWheel";
+import { BoardGames } from "@/features/board-games/BoardGames";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
 export function App() {
   const customizationActive = useStore(s => s.customizationActive);
+  const boardGamesActive = useStore(s => s.boardGamesActive);
   const applyState = useStore((s) => s.applyState);
   const setHud = useStore((s) => s.setHud);
   const openMenu = useStore((s) => s.openMenu);
@@ -89,7 +91,7 @@ export function App() {
 
   return (
     <>
-      <div className="gameplay-interface" hidden={customizationActive}>
+      <div className="gameplay-interface" hidden={customizationActive || boardGamesActive}>
       <ErrorBoundary name="safezones"><Safezones /></ErrorBoundary>
       <ErrorBoundary name="mission-editor"><MissionEditor /></ErrorBoundary>
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
@@ -107,7 +109,6 @@ export function App() {
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
       <ErrorBoundary name="weapon-wheel"><WeaponWheel /></ErrorBoundary>
       <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>
-      <ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary>
       <ErrorBoundary name="wizard"><CharacterWizard /></ErrorBoundary>
       <ErrorBoundary name="welcome"><WelcomeModal /></ErrorBoundary>
       <ErrorBoundary name="tutorial"><Tutorial /></ErrorBoundary>
@@ -132,7 +133,9 @@ export function App() {
       <ErrorBoundary name="medical"><Medical /></ErrorBoundary>
       <ErrorBoundary name="animations"><AnimationMenu /></ErrorBoundary>
       </div>
+      <div hidden={customizationActive}><ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary></div>
       <ErrorBoundary name="customization"><VehicleCustomization /></ErrorBoundary>
+      <ErrorBoundary name="board-games"><BoardGames /></ErrorBoundary>
     </>
   );
 }

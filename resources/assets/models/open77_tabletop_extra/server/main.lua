@@ -1,0 +1,1 @@
+-- Native prop ownership and game authority belong to op77_lightrp.

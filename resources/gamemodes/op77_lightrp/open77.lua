@@ -13,6 +13,11 @@ auto_start true
 reload_policy "reconnect"
 
 dependencies {
+    "open77_board_games >=1.1.0",
+    "open77_tabletop_extra >=1.0.0",
+    "open77_casino_slots >=1.0.0",
+    "open77_casino_blackjack >=1.0.0",
+    "open77_casino_fortune >=1.0.0",
     "open77_chat >=0.5.0",
     "open77_notifications >=1.0.0",
     "open77_vehicles >=0.1.0",
@@ -32,6 +37,13 @@ shared_script "shared/mission_defs.lua"   -- authored missions: format + validat
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
+shared_script "shared/board_games.lua"
+shared_script "shared/board_games_rules.lua"
+shared_script "shared/tabletop_extra.lua"
+shared_script "shared/tabletop_extra_rules.lua"
+shared_script "shared/casino_slots.lua"
+shared_script "shared/casino_blackjack.lua"
+shared_script "shared/casino_fortune.lua"
 shared_script "shared/medical.lua"
 shared_script "shared/armament.lua"
 shared_script "shared/grenades.lua"
@@ -55,6 +67,11 @@ server_script "server/modules/creator.lua"
 server_script "server/modules/creator_placement.lua"
 server_script "server/modules/needs.lua"
 server_script "server/modules/inventory.lua"
+server_script "server/modules/tabletop_extra.lua"
+server_script "server/modules/casino_slots.lua"
+server_script "server/modules/casino_blackjack.lua"
+server_script "server/modules/casino_fortune.lua"
+server_script "server/modules/board_games.lua"
 server_script "server/modules/armament_store.lua"
 server_script "server/modules/armament.lua"
 server_script "server/modules/grenades.lua"
@@ -151,6 +168,11 @@ server_script "server/main.lua"
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
 client_script "client/core/control_claims.lua"
+client_script "client/core/tabletop_extra.lua"
+client_script "client/core/casino_slots.lua"
+client_script "client/core/casino_blackjack.lua"
+client_script "client/core/casino_fortune.lua"
+client_script "client/core/board_games.lua"
 client_script "client/core/safezones.lua"
 client_script "client/core/safezone_tile.lua" -- the green tile by the voice plate (web/safezone/)
 client_script "client/core/support.lua"
@@ -210,7 +232,7 @@ web_files { "web/**" }
 
 -- Pause menu branding: the server logo beside the OPEN//77 mark (client/core/branding.lua sets the accent).
 pause_menu_logo "assets/logo.png"
-files { "assets/logo.png", "assets/audio/cloudy-day.mp3", "assets/audio/raid_*.wav", "assets/audio/raid_ost.mp3" }
+files { "assets/logo.png", "assets/audio/cloudy-day.mp3", "assets/audio/raid_*.wav", "assets/audio/raid_ost.mp3", "assets/audio/board-games/*.wav" }
 
 permissions {
     -- both sides
@@ -260,8 +282,8 @@ permissions {
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks are NPCs
     "world.markers",        -- native 3D markers at rental desks and the raid's strike telegraphs
-    "world.debug",          -- staff-only draft boundary preview, authored missions' perimeter walls
-    "world.query",          -- mission editor: place an element where the crosshair points (camera.aimRay)
+    "world.debug",          -- staff-only draft boundary preview, authored missions' perimeter walls, board-game axis/square lines
+    "world.query",          -- mission editor aimRay; board placement and pointer projection
     "ui.vanilla.map",       -- map blips on the interaction points
     "vehicles.read",        -- closest vehicle / seat for the L key
     "players.controls",     -- walk modes (Open77.movement.setWalkMode)

@@ -13,6 +13,7 @@ local lastPress = 0
 -- Native input opens the inventory. Once it captures the keyboard, the WebUI
 -- handles the same binding on key-up (except while typing in a text field).
 function Inventory.open()
+    if LightRpBoardGamesClient and LightRpBoardGamesClient.isActive() then return end
     if LightRpMedical and LightRpMedical.isActive() then return end
     if LightRpUi.dialogs and LightRpUi.dialogs.support then return end
     if LightRpRefueling and LightRpRefueling.isActive() then return end

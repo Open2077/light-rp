@@ -23,6 +23,13 @@
 !resources/assets/loaders/archivexl/
 !resources/assets/loaders/archivexl/**
 !resources/assets/maps/
+!resources/assets/models/
+!resources/assets/models/open77_board_games/
+!resources/assets/models/open77_board_games/**
+!resources/assets/models/open77_tabletop_extra/
+!resources/assets/models/open77_tabletop_extra/**
+!resources/assets/models/open77_casino_fortune/
+!resources/assets/models/open77_casino_fortune/**
 !resources/assets/maps/lobby/
 !resources/assets/maps/lobby/**
 !resources/assets/maps/open77_lobby_cubes/
@@ -111,6 +118,19 @@ ripperdoc-ui/public/media/
 !resources/system/open77_admin/server/
 !resources/system/open77_admin/server/main.lua
 !tools/
+!tools/test-board-games.py
+!tools/test-board-games-server.py
+!tools/test-board-games-client.py
+!tools/test-board-games-startup.py
+!tools/generate-board-game-models.py
+!tools/build-board-game-props.py
+!tools/build-tabletop-extra-props.py
+!tools/test-tabletop-extra.py
+!tools/test-tabletop-extra-client.py
+!tools/test-tabletop-extra-server.py
+!tools/test-tabletop-extra-props.py
+!tools/test-board-game-props.py
+!tools/generate-board-game-sounds.py
 !tools/test-support.py
 !tools/test-housing.py
 !tools/test-housing-ui.py
@@ -158,3 +178,11 @@ data/
 # Local architecture and UI reference notes (never publish).
 /README*.local.md
 ripperdoc-ui/scripts/__pycache__/
+# Blackjack table: native props and its build/test tools.
+!resources/assets/models/open77_casino_blackjack/
+!resources/assets/models/open77_casino_blackjack/**
+!tools/build-casino-blackjack-props.py
+!tools/test-casino-blackjack.py
+!tools/test-casino-blackjack-server.py
+!tools/test-casino-blackjack-client.py
+!tools/test-casino-e2e.py
