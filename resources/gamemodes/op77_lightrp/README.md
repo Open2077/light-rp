@@ -672,11 +672,20 @@ les 60 s. **Aucune réputation.** Sans base, tout vit en mémoire le temps de la
 - **Tuile en haut à gauche** tant qu'il est dedans ou marqué : compte à rebours de la marque,
   argent en jeu.
 - **F1 → Dogtown** : les règles, son bilan (semaine et total), les meilleurs tueurs de la semaine.
-- **Carte** : le sprite de la porte de Dogtown sur la carte du jeu (panneau de danger en repli)
-  et une tête de mort rouge sur `op77_map3d`, au centre de la zone. Le polygone n'est pas
-  dessiné : `op77_map3d` ne connaît que des épingles et des cercles (brouillage). Il lui
-  faudrait une API de zone, par exemple `addArea({ id, points, fill, stroke, label, map, minimap })`
-  en coordonnées monde, avec `updateArea` et `removeArea`.
+- **Carte 3D (`op77_map3d`, touche M) et minicarte** : la zone elle-même, le polygone du serveur
+  posé sur le sol, les routes et les bâtiments : remplissage rouge translucide hachuré en
+  diagonale, bordure rouge pleine, étiquette « DOGTOWN · DANGER ZONE » lisible à l'échelle de la
+  ville ; sur la minicarte, la ligne sous la carte affiche ce nom tant qu'on est dedans. La tête
+  de mort rouge reste au centre. Réglages dans `area` de `server/config/dogtown.lua` (couleurs,
+  opacité, motif `hatch` ou `solid`, épaisseur de bordure, position de l'étiquette, minicarte,
+  pulsation ; `area = false` n'affiche que l'épingle). La zone suit `/lightrp.dogtown on|off`
+  (retirée à l'arrêt) et `survey apply|reset` (redessinée chez tout le monde) ; le serveur envoie
+  au plus 150 points (un relevé plus long perd d'abord ses sommets les moins marquants).
+- **Carte du jeu** : le sprite de la porte de Dogtown (panneau de danger en repli), rien de plus.
+  La plateforme n'y pose que des épingles (`Open77.blips` : sprite, titre, distance de
+  visibilité) et `Open77.map` ne donne ni projection monde-écran ni distance de zoom : aucun
+  polygone, cercle ou calque n'est possible sur la carte native (vérifié dans
+  `wiki/data/api.json`).
 
 ### Staff : `/lightrp.dogtown`
 
@@ -688,7 +697,7 @@ ACL `command.lightrp.dogtown` (couverte par `command.lightrp.*`).
 | `on` · `off` | Allume ou coupe la zone jusqu'au prochain redémarrage (`enabled` fixe le défaut). `off` retire toutes les portées. |
 | `survey add` · `undo` · `clear` | Ajoute un point à sa position (avec le district que voit le moteur), retire le dernier, vide le brouillon. |
 | `survey list` | Écrit le brouillon au format de `polygon` dans le journal serveur. |
-| `survey apply` · `reset` | Le brouillon devient la zone pour la session ; retour au polygone de la config. |
+| `survey apply` · `reset` | Le brouillon devient la zone pour la session ; retour au polygone de la config. La zone dessinée sur la carte 3D suit. |
 | `survey test` | Dedans ou dehors ici, et district du moteur. |
 | `survey passage` | Ligne `{ x, y, z, heading }` pour une extrémité de passage. |
 

@@ -72,10 +72,42 @@ local function validPolygon(points)
     return list, box
 end
 
+-- The outline op77_map3d draws (client/core/dogtown.lua -> exports.op77_map3d:addArea):
+-- flat { x1, y1, x2, y2, ... } rounded to 0.1 m and at most OUTLINE_POINTS points (the map
+-- takes 160 and an export argument holds 1024 values). A longer surveyed polygon loses its
+-- least significant vertices first: the smallest triangle with its neighbours.
+local OUTLINE_POINTS = 150
+local outline = nil
+
+local function simplify(list, max)
+    local pts = {}
+    for i, p in ipairs(list) do pts[i] = p end
+    while #pts > max do
+        local n, best, least = #pts, 1, math.huge
+        for i = 1, n do
+            local a, b, c = pts[(i - 2) % n + 1], pts[i], pts[i % n + 1]
+            local w = math.abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y))
+            if w < least then best, least = i, w end
+        end
+        table.remove(pts, best)
+    end
+    return pts
+end
+
+local function flatOutline(list)
+    local out = {}
+    for _, p in ipairs(simplify(list, OUTLINE_POINTS)) do
+        out[#out + 1] = math.floor(p.x * 10 + 0.5) / 10
+        out[#out + 1] = math.floor(p.y * 10 + 0.5) / 10
+    end
+    return out
+end
+
 function D.setPolygon(points, source)
     local list, box = validPolygon(points)
     if not list then return false, box end
     polygon, bbox, polygonSource = list, box, source or "config"
+    outline = flatOutline(list)
     dirty = true
     return true
 end
@@ -97,6 +129,7 @@ function D.contains(point)
 end
 
 function D.polygon() return polygon, polygonSource end
+function D.outline() return outline end
 
 local ok, why = D.setPolygon(Config.polygon, "config")
 if not ok then LightRP.log("dogtown: invalid polygon in server/config/dogtown.lua (%s); the zone is off", tostring(why)); enabled = false end
@@ -679,10 +712,22 @@ end
 -- ---------------------------------------------------------------------------
 -- Client: map pins, district probes (survey)
 
+-- How op77_map3d draws the zone (Config.area); its label point only while it is inside.
+local function areaConfig()
+    local a = Config.area
+    if type(a) ~= "table" or not outline then return nil end
+    local lp = a.labelPosition
+    return { label = a.label, labelPosition = type(lp) == "table" and D.contains(lp) and { x = lp.x, y = lp.y } or nil,
+        fill = a.fill, fillOpacity = a.fillOpacity, stroke = a.stroke, strokeWidth = a.strokeWidth, pattern = a.pattern,
+        map = a.map ~= false, minimap = a.minimap ~= false, pulse = a.pulse == true }
+end
+
 local function clientConfig()
     local b = Config.blip or {}
+    local area = areaConfig()
     return { kind = "config", enabled = enabled, label = Config.label or "Dogtown", blip = b.position and {
-        position = b.position, title = b.title, description = b.description, sprite = b.sprite, fallbackSprite = b.fallbackSprite, color = b.color } or nil }
+        position = b.position, title = b.title, description = b.description, sprite = b.sprite, fallbackSprite = b.fallbackSprite, color = b.color } or nil,
+        area = area, outline = area and outline or nil }
 end
 
 function D.sendConfig(player) TriggerClientEvent(NET, player or -1, clientConfig()) end
@@ -805,10 +850,12 @@ local function surveyCommand(source, args, raw)
         local applied, reason = D.setPolygon(draft.points, "survey by " .. name(source))
         if not applied then return false, reason end
         LightRP.log("dogtown: polygon replaced for this session by %s (%d points)", name(source), #draft.points)
+        D.sendConfig() -- the area on everyone's map follows
         return true, "Your " .. #draft.points .. " points are the zone until the next restart. Paste them in the config to keep them (/lightrp.dogtown survey list)."
     elseif action == "reset" then
         local applied, reason = D.setPolygon(Config.polygon, "config")
         if not applied then return false, reason end
+        D.sendConfig()
         return true, "Back to the configured polygon."
     end
     return false, "usage: /lightrp.dogtown survey add|undo|clear|list|apply|reset|test|passage"

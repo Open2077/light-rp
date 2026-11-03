@@ -66,6 +66,21 @@ LightRpDogtown = {
         sprite = "Zzz13_DogtownGateVariant", fallbackSprite = "HazardWarningVariant",
         color = "#FF2E3C",
     },
+    -- The zone itself on op77_map3d's city map (M) and minimap: the polygon above as a
+    -- translucent red area with diagonal danger hatching, a border and a label (follows
+    -- /lightrp.dogtown survey apply|reset and on|off). The game's own map only gets the
+    -- gate sprite of `blip`: the platform draws no polygon there. false = no area.
+    area = {
+        label = "DOGTOWN · DANGER ZONE",
+        -- Clear of the map's DOGTOWN and PACIFICA names; ignored when it falls outside the
+        -- polygon (a surveyed one): the label then goes near the middle of the zone.
+        labelPosition = { x = -1420.0, y = -2560.0 },
+        fill = "#FF2E3C", fillOpacity = 0.22,
+        stroke = "#FF2E3C", strokeWidth = 2.5, -- pixels
+        pattern = "hatch",                     -- "hatch" or "solid"
+        minimap = true,
+        pulse = false,
+    },
 
     -- Presence: how often everyone is placed in or out (ms), and how old a position may
     -- be before it stops counting (an unknown position keeps the last answer).

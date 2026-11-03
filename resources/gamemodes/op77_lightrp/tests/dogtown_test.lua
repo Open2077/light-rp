@@ -392,16 +392,48 @@ at(1, { x = 0, y = 100, z = 0 }); commands["lightrp.dogtown"](1, { "survey", "ad
 assert(replies[#replies].text:find("Point #3", 1, true))
 local listed = select(2, commands["lightrp.dogtown"](1, { "survey", "list" }, ""))
 assert(listed:find("3 point", 1, true) and logs[#logs]:find("{ x = 100.0, y = 0.0 }, -- surveyed (Dogtown)", 1, true))
+local function lastConfig() for i = #sent, 1, -1 do if sent[i].payload and sent[i].payload.kind == "config" then return sent[i] end end end
 assert(commands["lightrp.dogtown"](1, { "survey", "apply" }, "") == true)
 assert(D.contains({ x = 10, y = 10 }) and not D.contains(INSIDE) and select(2, D.polygon()):find("survey", 1, true))
+local applied = lastConfig()
+assert(applied.player == -1 and #applied.payload.outline == 6 and applied.payload.outline[3] == 100, "the surveyed outline reaches every map at once")
+assert(applied.payload.area.label == C.area.label and applied.payload.area.labelPosition == nil, "a label point outside the surveyed zone is dropped")
 assert(commands["lightrp.dogtown"](1, { "survey", "reset" }, "") == true and D.contains(INSIDE))
+local back = lastConfig().payload
+assert(#back.outline == #C.polygon * 2 and back.outline[1] == C.polygon[1].x and back.area.labelPosition.x == C.area.labelPosition.x, "reset: the configured outline again")
 assert(select(2, commands["lightrp.dogtown"](0, { "survey", "add" }, "")):find("player in game", 1, true), "the console cannot survey")
 -- The engine's district against the polygon: logged, never granted from.
 at(1, CITY); source = 1
 netHandlers["op77_lightrp:dogtown:report"]({ kind = "district", district = "Dogtown" })
 assert(logs[#logs]:find("engine says Dogtown, polygon says outside", 1, true))
--- The map pin config reaches the client.
+-- The map pin config reaches the client, with the zone's outline and look for op77_map3d.
 source = 1; netHandlers["op77_lightrp:dogtown:report"]({ kind = "hello" })
-assert(sent[#sent].payload.kind == "config" and sent[#sent].payload.blip.position.x == C.blip.position.x)
+local cfg = sent[#sent].payload
+assert(cfg.kind == "config" and cfg.blip.position.x == C.blip.position.x)
+assert(cfg.area.fill == "#FF2E3C" and cfg.area.pattern == "hatch" and cfg.area.minimap == true and cfg.area.label == "DOGTOWN · DANGER ZONE")
+assert(D.contains(C.area.labelPosition), "the configured label point is inside the zone")
+-- What the host counts (every table, key and value, 1024 at most) for this event, and for
+-- the area definition the client hands op77_map3d (6 values a point).
+local function values(v) if type(v) ~= "table" then return 1 end; local n = 1; for _, x in pairs(v) do n = n + 1 + values(x) end; return n end
+assert(values(cfg) < 1024, "the config event fits (" .. values(cfg) .. " values)")
+-- A surveyed polygon of up to 512 points reaches the map as at most 150, its shape kept.
+local ring = {}
+for k = 1, 512 do local t = (k - 1) / 512 * 2 * math.pi; ring[k] = { x = -1750 + math.cos(t) * 500 + (k % 2) * 0.01, y = -2500 + math.sin(t) * 400 } end
+ring[129] = { x = -1750, y = -2500 + 400 * 1.6 } -- a sharp spike: kept
+assert(D.setPolygon(ring, "test"))
+local o = D.outline()
+assert(#o == 300, "decimated to 150 points (" .. #o / 2 .. ")")
+local spike = false
+for i = 1, #o, 2 do if o[i] == -1750 and o[i + 1] == -1860 then spike = true end end
+assert(spike, "the most significant vertex survives")
+for i = 1, #o do assert(o[i] * 10 == math.floor(o[i] * 10 + 0.5), "rounded to 0.1 m") end
+D.sendConfig(1)
+assert(values(sent[#sent].payload) < 1024, "the largest config event fits (" .. values(sent[#sent].payload) .. " values)")
+local points = {}
+for i = 1, #o, 2 do points[#points + 1] = { x = o[i], y = o[i + 1] } end
+local def = { id = "lightrp.dogtown", points = points, fill = "#FF2E3C", fillOpacity = 0.22, stroke = "#FF2E3C", strokeWidth = 2.5, pattern = "hatch",
+    label = C.area.label, labelPosition = { x = 1, y = 2 }, map = true, minimap = true, pulse = false }
+assert(values(def) < 1024, "and so does the area definition (" .. values(def) .. " values)")
+assert(D.setPolygon(C.polygon, "config"))
 
-print("PASS: Dogtown polygon (concave, hospital outside); PvP scopes inside/outside/tagged/stale/activity buckets/dead/foreign scope/switch; groups of 32; loot share/cap/threshold/pair cooldown/revenge/same account/crewmate/own bag; sealed bag; transfer; ledger kinds; stats db+memory+weeks; leaderboard; survey")
+print("PASS: Dogtown polygon (concave, hospital outside); PvP scopes inside/outside/tagged/stale/activity buckets/dead/foreign scope/switch; groups of 32; loot share/cap/threshold/pair cooldown/revenge/same account/crewmate/own bag; sealed bag; transfer; ledger kinds; stats db+memory+weeks; leaderboard; survey + map outline")
