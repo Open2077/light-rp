@@ -358,6 +358,30 @@ M.register("fortune",function(board,m)
     m.row("spin","Spin",function() return command(board,"spin") end)
 end)
 
+-- Pool --------------------------------------------------------------------------
+-- Shots are played on the cloth (crosshair + left button, casino_pool.lua);
+-- the menu holds the status, the rack and the owner's mode / new game.
+M.register("pool",function(board,m)
+    local Pool=LightRpPoolClient
+    local g=board.game
+    m.row("status",Pool.status(board),function() notify(board,Pool.describe(board)) end,{icon="info"})
+    local busy=Pool.busy(board)
+    if g.mode=="solo" and (g.ply or 0)>0 and not busy then
+        m.row("rerack","Re-rack",function() return command(board,"rerack") end,{icon="tool"})
+    elseif g.mode~="solo" and g.status=="won" and not busy then
+        m.row("rerack","Rematch (re-rack)",function() return command(board,"rerack") end,{icon="tool"})
+    end
+    if not board.owned then return end
+    if (g.ply or 0)==0 then
+        local solo=board.mode=="solo"
+        local folder={id="mode",label="Mode: "..(solo and "Solo practice" or "1v1"),icon="tool"}
+        local mode,label=solo and "duel" or "solo",solo and "1v1" or "Solo practice"
+        m.row("mode."..mode,label,function() return Client.request("mode",{boardId=board.id,mode=mode})==true end,{submenu=folder,icon="tool"})
+    elseif not busy then
+        m.row("reset","New game",function() return Client.request("reset",{boardId=board.id})==true end,{icon="tool"})
+    end
+end)
+
 -- Notices -----------------------------------------------------------------------
 -- What the panel used to show, said once when it changes: whose turn, the
 -- result, the payout. Timed reveals (reels, the dealer's hand) wait for the
@@ -448,6 +472,23 @@ function observers.fortune(board,old)
     end
     return {phase=g.phase}
 end
+-- Pool: each shot's outcome (fouls, groups, turn, win) once the balls stop.
+function observers.pool(board,old)
+    local g=board.game
+    local shot=type(g.shot)=="table" and g.shot or nil
+    local key=shot and tostring(shot.n)..":"..tostring(shot.at) or nil
+    if old and key and key~=old.shot then
+        schedule(board,LightRpPool.endsAt(g),function(b)
+            local s=type(b.game.shot)=="table" and b.game.shot
+            if not s or tostring(s.n)..":"..tostring(s.at)~=key then return end
+            local text=LightRpPoolClient.result(b);if text then notify(b,text) end
+        end)
+    end
+    if old and g.rack~=old.rack then
+        notify(board,g.mode=="solo" and "New rack." or (g.turn==Extra.seat(board) and "New rack: your break." or "New rack: your opponent breaks."))
+    end
+    return {shot=key or (old and old.shot),rack=g.rack}
+end
 for _,kind in ipairs({"chess","checkers","connect4"}) do observers[kind]=observers.board end
 -- Called by board_games.lua with every applied snapshot.
 function M.observe(boards)
@@ -469,6 +510,7 @@ function M.seated(board)
         how=("You play %s. %s"):format(sideName(board,Client.member(board)),hint(board))
     elseif board.kind=="slots" then how="Click the lever to pull."
     elseif board.kind=="fortune" then how="Click a spot on the felt to bet your chip."
+    elseif board.kind=="pool" then how="Aim at the cloth with the crosshair, hold the left button to charge, release to shoot."
     else how="Bets and moves are in the ALT menu." end
     notify(board,how.." Hold ALT and click the table for options. Backspace: leave.")
 end

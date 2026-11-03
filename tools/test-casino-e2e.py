@@ -105,8 +105,8 @@ exec(server_source.split('SOURCES=')[0], ns)
 SERVER_HARNESS = ns['HARNESS']
 SERVER_SOURCES = ['shared/board_games.lua', 'shared/board_games_rules.lua', 'shared/tabletop_extra.lua',
                   'shared/tabletop_extra_rules.lua', 'shared/casino_slots.lua', 'shared/casino_blackjack.lua',
-                  'shared/casino_fortune.lua', 'server/modules/tabletop_extra.lua', 'server/modules/casino_slots.lua',
-                  'server/modules/casino_blackjack.lua', 'server/modules/casino_fortune.lua', 'server/modules/board_games.lua']
+                  'shared/casino_fortune.lua', 'shared/casino_pool.lua', 'server/modules/tabletop_extra.lua', 'server/modules/casino_slots.lua',
+                  'server/modules/casino_blackjack.lua', 'server/modules/casino_fortune.lua', 'server/modules/casino_pool.lua', 'server/modules/board_games.lua']
 SERVER_HOST = r'''
 -- One player in the world; the harness keeps inventories 1..5.
 function GetPlayers() return {'1'} end
@@ -135,9 +135,9 @@ LightRpBoardGames=nil
 # --- client state ------------------------------------------------------------------------
 client_source = (ROOT/'tools/test-board-games-client.py').read_text()
 CLIENT_SOURCES = ['shared/board_games.lua', 'shared/tabletop_extra.lua', 'shared/tabletop_extra_rules.lua',
-                  'shared/casino_slots.lua', 'shared/casino_blackjack.lua', 'shared/casino_fortune.lua',
+                  'shared/casino_slots.lua', 'shared/casino_blackjack.lua', 'shared/casino_fortune.lua', 'shared/casino_pool.lua',
                   'client/core/tabletop_extra.lua', 'client/core/casino_slots.lua', 'client/core/casino_blackjack.lua',
-                  'client/core/casino_fortune.lua', 'client/core/board_games.lua', 'client/core/table_menu.lua']
+                  'client/core/casino_fortune.lua', 'client/core/casino_pool.lua', 'client/core/board_games.lua', 'client/core/table_menu.lua']
 CLIENT_HOST = r'''
 LightRpEvents.net={state='state'}
 LightRpBoardGames={};LightRpItems={}
@@ -198,7 +198,7 @@ function menuCall(name,ctx)
 end
 -- Native props: asynchronous loading, transform history, the 256-per-owner quota.
 nativeProps,modelReadyAt,nextNativeId={},{},0
-DEPOTS={'open77\\assets\\op77_lightrp\\casino_blackjack\\','open77\\assets\\op77_lightrp\\casino_slots\\',
+DEPOTS={'open77\\assets\\op77_lightrp\\casino_blackjack\\','open77\\assets\\op77_lightrp\\casino_slots\\','open77\\assets\\op77_lightrp\\casino_pool\\',
  'open77\\assets\\op77_lightrp\\casino_fortune\\','open77\\assets\\op77_lightrp\\tabletop_extra\\','open77\\assets\\op77_lightrp\\board_games\\'}
 function Open77.props.create(o)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
@@ -244,7 +244,7 @@ placeAt={x=0,y=0,z=0}
 
 class Sim:
     """Both runtimes on one wall clock, with the network between them."""
-    def __init__(self, models_heavy=('blackjack_table', 'fortune_stand', 'slot_cabinet'), rows=(), at=None):
+    def __init__(self, models_heavy=('blackjack_table', 'fortune_stand', 'slot_cabinet', 'pool_table'), rows=(), at=None):
         self.wall = 1790000000000
         self.client_skew = 7_777    # the client booted at a different moment
         self.queue = []             # (deliverAt, side, name, payload_json)
@@ -278,7 +278,7 @@ class Sim:
         g.LOAD_FIRST, g.LOAD_TABLE, g.LOAD_AGAIN = LOAD_FIRST, LOAD_TABLE, LOAD_AGAIN
         g.LOST_TRANSFORMS = os.getenv('E2E_LOST_TRANSFORMS') == '1'
         models = {}
-        for pack in ('blackjack', 'slots', 'fortune'):
+        for pack in ('blackjack', 'slots', 'fortune', 'pool'):
             manifest = json.loads((ROOT/f'resources/assets/models/open77_casino_{pack}/asset-manifest.json').read_text())
             for m in manifest['models'] + manifest.get('colliders', []):
                 models[m['name']] = True
@@ -383,7 +383,7 @@ class Sim:
         self.advance(self.frame_ms*2)
 
     BASES = {'connect4': 'connect4_board', 'blackjack': 'blackjack_table', 'slots': 'slot_cabinet',
-             'fortune': 'fortune_stand', 'roulette': 'roulette_table', 'chess': 'chess_board'}
+             'fortune': 'fortune_stand', 'roulette': 'roulette_table', 'chess': 'chess_board', 'pool': 'pool_table'}
 
     def _menu_context(self, board_id, key=None):
         b = self.board(board_id)
@@ -753,8 +753,76 @@ def blackjack_live():
     return sim
 
 
+# =========================================================================================
+def pool():
+    """Pool through real JSON: place, sit, solo practice from the ALT menu, then the
+    break: crosshair aim on the apex, hold to charge, release; the server simulates
+    the shot and every ball plays it back from the segments on the client."""
+    sim = Sim()
+    sim.advance(500)
+    board_id = place(sim, 'pool', 'pool_table')
+    check(board_id, 'E placed the pool table')
+    sim.wait_for(lambda: sim.named(board_id, 'pool_table'), 'table prop')
+    sim.interact(board_id)
+    sim.wait_for(lambda: sim.client.eval('LightRpBoardGamesClient.isActive()'), 'seated')
+    check(any('charge' in str(n) for n in sim.notices()), f'seating explains the shot {sim.notices()}')
+    rows = sim.menu(board_id)
+    check(rows['status']['label'] == 'Waiting for an opponent' and rows['mode.solo']['folder'] == 'Mode: 1v1', f'owner menu before the break {rows}')
+    sim.select(board_id, 'mode.solo')
+    sim.wait_for(lambda: sim.board(board_id).mode == 'solo' and sim.board(board_id).ready, 'solo practice', 3000)
+    sim.wait_for(lambda: len(sim.named(board_id, 'pool_ball_')) == 16 and sim.named(board_id, 'pool_cue'), 'balls and cue', 30000)
+    sim.advance(LOAD_AGAIN + 500)
+    b = sim.board(board_id)
+    P = sim.client.globals().LightRpPool
+    rack = P.decodePositions(b.game.pos)
+    # The crosshair straight down on the apex ball: aim along +X.
+    apex = rack[2]
+    sim.client.execute(f'forcedRay={{origin={{x={b.position.x+apex[1]},y={b.position.y+apex[2]},z={b.position.z+3}}},direction={{x=0,y=0,z=-1}}}}')
+    sim.advance(200)
+    cue = sim.named(board_id, 'pool_cue')[0]
+    check(abs((cue['yaw'] % 360)) < .01 or abs(cue['yaw'] % 360 - 360) < .01, f'the cue points at the apex {cue}')
+    keys = sim.client.globals()['keys']
+    keys['mouse1'] = True
+    sim.advance(1500)
+    pulled = sim.named(board_id, 'pool_cue')[0]
+    check(pulled['x'] < cue['x'] - .15/SCALE*.5, f'the cue draws back while charging {cue} -> {pulled}')
+    keys['mouse1'] = False
+    sim.advance(100)
+    shots = [r for r in sim.client_requests if r.get('operation') == 'shoot']
+    check(len(shots) == 1 and abs(shots[0]['data']['yaw']) < .01 and shots[0]['data']['power'] > .85, f'one shot at the apex {shots}')
+    sim.wait_for(lambda: sim.server_boards()[board_id]['game']['ply'] == 1, 'server shot', 2000)
+    game = sim.server_boards()[board_id]['game']
+    at, end = int(game['shot']['at']), int(game['shot']['at']) + int(game['shot']['dur'])
+    check(not sim.dropped, f'events dropped by the 176 codec {sim.dropped}')
+    sim.advance_to_server(at + 250)
+    moving = sim.named(board_id, 'pool_ball_0')[0]
+    check(moving['x']*SCALE > apex[1] - .5 or moving['x']*SCALE > rack[1][1] + .3, f'the cue ball runs at the rack {moving}')
+    sim.advance_to_server(end + 800)
+    rest = P.decodePositions(sim.game(board_id).pos)
+    off = []
+    for i in range(1, 17):
+        prop = sim.named(board_id, f'pool_ball_{i-1}')
+        if rest[i] and prop:
+            p = [q for q in prop if q['name'] == f'pool_ball_{i-1}'][0]
+            if abs(p['x']*SCALE - rest[i][1]) > 1e-4 or abs(p['y']*SCALE - rest[i][2]) > 1e-4:
+                off.append((i-1, p['x']*SCALE, rest[i][1]))
+    check(not off, f'balls at the server rest positions {off}')
+    moved = sum(1 for i in range(2, 17) if not rest[i] or abs(rest[i][1]-rack[i][1]) + abs(rest[i][2]-rack[i][2]) > .08)
+    check(moved >= 8, f'the break spread the rack ({moved} balls moved)')
+    potted = len(game['potted'])
+    sim.wait_for(lambda: any(('Potted' in str(n) or 'No ball potted' in str(n)) for n in sim.notices()), 'the shot outcome notice', 2000)
+    rows = sim.menu(board_id)
+    check('rerack' in rows and rows['status']['label'].startswith('Practice'), f'practice menu after the break {rows}')
+    no_render_failures(sim, 'pool')
+    check(sim.client.eval('peakInstructions') < 5000, f'client peak {sim.client.eval("peakInstructions")}')
+    print(f'pool e2e: place, sit, solo practice, crosshair aim, charge, release, server simulation, segment playback, '
+          f'rest positions, notice: OK ({moved} balls spread, {potted} potted, shot {end-at} ms, peak {sim.client.eval("peakInstructions")} '
+          f'instructions/resume, largest state part {sim.sizes["state"]} B)')
+    return sim
+
+
 if __name__ == '__main__':
     # Scenarios written so far; slots and fortune still need theirs.
-    only = sys.argv[1:] or [n for n in ('connect4', 'blackjack', 'slots', 'fortune') if n in globals()]
+    only = sys.argv[1:] or [n for n in ('connect4', 'blackjack', 'slots', 'fortune', 'pool') if n in globals()]
     for name in only:
         globals()[name]()

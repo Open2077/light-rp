@@ -18,6 +18,7 @@ dependencies {
     "open77_casino_slots >=1.0.0",
     "open77_casino_blackjack >=1.0.0",
     "open77_casino_fortune >=1.0.0",
+    "open77_casino_pool >=1.0.0",
     "open77_chat >=0.5.0",
     "open77_notifications >=1.0.0",
     "open77_vehicles >=0.1.0",
@@ -44,6 +45,7 @@ shared_script "shared/tabletop_extra_rules.lua"
 shared_script "shared/casino_slots.lua"
 shared_script "shared/casino_blackjack.lua"
 shared_script "shared/casino_fortune.lua"
+shared_script "shared/casino_pool.lua"
 shared_script "shared/medical.lua"
 shared_script "shared/armament.lua"
 shared_script "shared/grenades.lua"
@@ -71,6 +73,7 @@ server_script "server/modules/tabletop_extra.lua"
 server_script "server/modules/casino_slots.lua"
 server_script "server/modules/casino_blackjack.lua"
 server_script "server/modules/casino_fortune.lua"
+server_script "server/modules/casino_pool.lua"
 server_script "server/modules/board_games.lua"
 server_script "server/modules/armament_store.lua"
 server_script "server/modules/armament.lua"
@@ -172,6 +175,7 @@ client_script "client/core/tabletop_extra.lua"
 client_script "client/core/casino_slots.lua"
 client_script "client/core/casino_blackjack.lua"
 client_script "client/core/casino_fortune.lua"
+client_script "client/core/casino_pool.lua"
 client_script "client/core/board_games.lua"
 client_script "client/core/table_menu.lua" -- the ALT menu of every table (after board_games and the casino adapters)
 client_script "client/core/safezones.lua"

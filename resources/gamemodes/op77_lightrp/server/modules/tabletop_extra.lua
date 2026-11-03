@@ -9,6 +9,7 @@
 --     due=function(b,now) return bool end,                -- optional timed settlement...
 --     settle=function(b,now) return game,queries end,     -- ...run by the board loop
 --     openPlay=true,                                      -- anyone seated nearby may act
+--     modes={duel=true,solo=true},                        -- optional; the board modes the owner may pick
 --     placed=function(b) end,                             -- optional: the table exists (placed, or loaded at start)
 --     removed=function(b) end,                            -- optional: the table was picked up
 --   })

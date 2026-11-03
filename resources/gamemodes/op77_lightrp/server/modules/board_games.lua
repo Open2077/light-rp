@@ -265,6 +265,9 @@ local function handle(player,p,inv)
             if p.action=="mode" and b.kind=="checkers" and b.game.chain then return false,"Finish the current game before changing the mode." end
             local mode=p.action=="reset" and (b.mode or "duel") or p.mode
             if mode~="duel" and mode~="teams" and mode~="solo" then return false,"Invalid game mode." end
+            -- A casino table may restrict its modes (pool: solo practice and 1v1).
+            local modes=extra(b.kind) and LightRP.tabletopExtra.games[b.kind].modes
+            if modes and not modes[mode] then return false,"This table has no such mode." end
             local n={};for k,v in pairs(b) do n[k]=v end
             local refunds,reason={}
             if extra(b.kind) then refunds,reason=LightRP.tabletopExtra.refunds(b) end

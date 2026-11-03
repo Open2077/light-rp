@@ -4,7 +4,8 @@ Three inventory items: `chess_board` (Chess Board), `checkers_board` (Checkers
 Board) and `connect4_board` (Connect Four Board). No shop sells them yet (a games
 shop needs an NPC placed in game); staff grant them with
 `/lightrp.giveitem me <item> 1`. The casino tables (`roulette_table`,
-`slot_machine`, `blackjack_table`, `fortune_wheel`) are granted the same way.
+`slot_machine`, `blackjack_table`, `fortune_wheel`) and the pool table
+(`pool_table`, see `casino-pool.md`) are granted the same way.
 All item labels, controls, status messages and errors are in English.
 
 Use an item to place its board. The inventory closes first, then placement

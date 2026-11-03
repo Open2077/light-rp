@@ -32,9 +32,9 @@ function Open77.exports.call(resource,name,definition)
 end
 ''')
 for name in ['shared/board_games.lua', 'shared/board_games_rules.lua', 'shared/tabletop_extra.lua', 'shared/tabletop_extra_rules.lua',
-             'shared/casino_slots.lua', 'shared/casino_blackjack.lua', 'shared/casino_fortune.lua',
+             'shared/casino_slots.lua', 'shared/casino_blackjack.lua', 'shared/casino_fortune.lua', 'shared/casino_pool.lua',
              'client/core/tabletop_extra.lua', 'client/core/casino_slots.lua', 'client/core/casino_blackjack.lua',
-             'client/core/casino_fortune.lua', 'client/core/board_games.lua', 'client/core/table_menu.lua']:
+             'client/core/casino_fortune.lua', 'client/core/casino_pool.lua', 'client/core/board_games.lua', 'client/core/table_menu.lua']:
     lua.execute((RES/name).read_text(), name=name)
 lua.execute((ROOT/'resources/system/open77_contextmenu/client/registry.lua').read_text(), name='registry.lua')
 lua.execute(r'''
@@ -56,7 +56,7 @@ local function measured(fn,...)
  local a,b=fn(...)
  debug.sethook();peak=math.max(peak,n);return a,b
 end
-local MODELS={chess='chess_board',roulette='roulette_table',slots='slot_cabinet',blackjack='blackjack_table',fortune='fortune_stand'}
+local MODELS={chess='chess_board',roulette='roulette_table',slots='slot_cabinet',blackjack='blackjack_table',fortune='fortune_stand',pool='pool_table'}
 local function base(board)
  for id,p in pairs(nativeProps) do
   if p.name==MODELS[board.kind] and math.abs(p.position.x-board.position.x)<1e-6 then return id end
@@ -245,6 +245,53 @@ wheel.game=F.view(settled,'me');wheel.revision=4;show(wheel)
 assert(lastNotice=='20x wins. You won €$ 1,050.',lastNotice)
 rows=menu(wheel);assert(rows.status.label=='Result: 20x · €$ 1,050' and rows.spin and rows['bet.20'],keys(rows))
 edge('BACKSPACE')
+
+-- Pool: Sit, the owner's mode before the break, New game after it, Re-rack in
+-- practice, a rematch once won; each shot's outcome as a notice when the balls stop.
+local P,PC=LightRpPool,LightRpPoolClient
+local pool=fresh('pool',P.new('duel',3),{owned=true})
+show(pool);rendered(pool)
+rows=menu(pool);assert(rows.title=='Pool' and keys(rows)=='sit,pickup',keys(rows))
+pool.players={white=7,black=9};pool.ready=true;pool.actor=7;pool.revision=2;show(pool);seatedAt(pool)
+assert(lastNotice:find('hold the left button to charge',1,true),'seating explains the shot: '..tostring(lastNotice))
+rows=menu(pool)
+assert(keys(rows)=='status,mode.solo,leave,pickup' and rows.status.label=='Your shot · break' and rows['mode.solo'].label=='Solo practice' and rows['mode.solo'].submenu.label=='Mode: 1v1',keys(rows))
+assert(pick(pool,'mode.solo') and last().action=='mode' and last().mode=='solo' and last().boardId==pool.id)
+assert(pick(pool,'status') and lastNotice:find('open',1,true) and lastNotice:find('charge',1,true),lastNotice)
+-- The break, in flight: only the status (balls rolling) and Leave; then New game for the owner.
+local start=E.serverTime(pool)
+local n=assert(P.shoot(pool.game,'white',{yaw=0,power=1,nowMs=start}))
+pool.game=n;pool.revision=3;pool.serverNow=start;pool.actor=n.turn=='white' and 7 or 9;show(pool)
+rows=menu(pool);assert(keys(rows)=='status,leave,pickup' and rows.status.label=='Balls rolling',keys(rows))
+before=#notices
+for i=1,10 do step() end;assert(#notices==before,'the outcome waits for the balls to stop')
+waitUntil(function() return #notices>before end,'shot outcome notice')
+assert(lastNotice==PC.result(pool) and (lastNotice:find('shot',1,true) or lastNotice:find('Shoot again',1,true) or lastNotice:find('Foul',1,true)),lastNotice)
+rows=menu(pool);assert(keys(rows)=='status,reset,leave,pickup' and rows.reset.label=='New game',keys(rows))
+assert(pick(pool,'reset') and last().action=='reset')
+pool.owned=false;pool.revision=4;show(pool);assert(keys(menu(pool))=='status,leave','a guest: status and Leave')
+-- A foul notice from the opponent's side: ball in hand for me.
+local foul=P.copy(n);foul.last={n=n.ply+1,by='black',foul='scratch',scratch=true};foul.turn='white';foul.inHand='table'
+foul.shot=P.copy(n.shot);foul.shot.n=n.ply+1;foul.shot.at=E.serverTime(pool);foul.shot.dur=200;foul.ply=n.ply+1
+pool.game=foul;pool.actor=7;pool.revision=5;show(pool)
+waitUntil(function() return lastNotice:find('Foul by your opponent: Scratch.',1,true) end,'foul notice')
+assert(lastNotice:find('Ball in hand',1,true) and menu(pool).status.label:find('ball in hand',1,true),lastNotice)
+-- Won: a rematch re-racks (any seated player).
+local won=P.copy(foul);won.status='won';won.winner='white';won.phase='over';won.inHand=nil;won.shot.at=E.serverTime(pool)-10000
+won.last={n=foul.ply,by='black',potted=P.ballChar(9),won='white',reason='eight_early'}
+pool.game=won;pool.actor=nil;pool.revision=6;show(pool)
+rows=menu(pool);assert(keys(rows)=='status,rerack,leave' and rows.status.label=='You win' and rows.rerack.label=='Rematch (re-rack)',keys(rows))
+assert(pick(pool,'rerack') and last().action=='game' and last().operation=='rerack')
+edge('BACKSPACE')
+-- Practice: the owner alone; Re-rack after the first shot.
+local solo=fresh('pool',P.new('solo',4),{owned=true,mode='solo',players={white=7},ready=true,actor=7})
+show(solo);rendered(solo);seatedAt(solo)
+rows=menu(solo);assert(keys(rows)=='status,mode.duel,leave,pickup' and rows.status.label=='Practice' and rows['mode.duel'].label=='1v1',keys(rows))
+local shot=assert(P.shoot(solo.game,'white',{yaw=0,power=.6,nowMs=E.serverTime(solo)-60000}))
+solo.game=shot;solo.revision=2;show(solo)
+rows=menu(solo);assert(keys(rows)=='status,rerack,reset,leave,pickup' and rows.rerack.label=='Re-rack',keys(rows))
+assert(pick(solo,'rerack') and last().operation=='rerack')
+edge('BACKSPACE')
 assert(peak<5000,'a menu costs '..peak..' instructions')
-print('table menu: board games (sit, mode, new game, leave, pick up), roulette, slots, blackjack, fortune rows per state and their requests, notices, cash limits: OK; peak '..peak..' instructions per menu')
+print('table menu: board games (sit, mode, new game, leave, pick up), roulette, slots, blackjack, fortune, pool rows per state and their requests, notices, cash limits: OK; peak '..peak..' instructions per menu')
 ''')
