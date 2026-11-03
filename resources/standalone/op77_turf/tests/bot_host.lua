@@ -1,8 +1,9 @@
 -- Shared fake host for tests/bots_test.lua and tests/pve_test.lua: a fake Light RP
 -- (activity exports, activityBots, events), a fake world (TurfWorld replaced) and a fake
--- Open77.npcs (bodies, presence, damage, attitudes, relationships, tasks), then the real
--- server wiring (server/main.lua). Returns a table of handles and helpers.
-local T = { logs = {} }
+-- Open77.npcs (bodies, presence, damage, attitudes, relationships, tasks), a fake
+-- Open77.kvp (T.kvpStore), then the real server wiring (server/main.lua). Returns a
+-- table of handles and helpers.
+local T = { logs = {}, kvpStore = {} }
 T.realPrint = print
 print = function(...)
     local parts = {}
@@ -57,6 +58,12 @@ _G.Open77 = {
         end,
     },
     time = { monotonic = function() return 0 end },
+    -- The resource's KVP (staff zone resurveys, /turf.zone).
+    kvp = {
+        get = function(key) return T.kvpStore[key] end,
+        set = function(key, value) T.kvpStore[key] = value; return true end,
+        delete = function(key) local had = T.kvpStore[key] ~= nil; T.kvpStore[key] = nil; return had end,
+    },
     combat = {
         onDamage = function(fn) host.damage = fn; return fn end,
         offDamage = function(fn) host.offDamage[#host.offDamage + 1] = fn; return true end,
