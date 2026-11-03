@@ -891,9 +891,12 @@ K.two_vs_machine = { mission = function(ctx, inst, point, d, success)
 end }
 
 -- medical.lua onPatientStabilized: the patient is a downed player.
+-- Never a crewmate (the owner's call, 2026-11-03): a real emergency, as for Good Samaritan.
 K.on_call = { stabilize = function(ctx, patient)
     local theirs = accountOf(patient)
-    if theirs and theirs ~= ctx.account and jobOf(ctx.id) == "trauma" then finish(ctx, { theirs }) end
+    if not theirs or theirs == ctx.account or jobOf(ctx.id) ~= "trauma" then return end
+    for _, mate in ipairs(crewmates(ctx.id)) do if mate == patient then return end end
+    finish(ctx, { theirs })
 end }
 -- three different accounts in the week, never a crewmate: the partner rule is built in
 K.good_samaritan = { stabilize = function(ctx, patient)

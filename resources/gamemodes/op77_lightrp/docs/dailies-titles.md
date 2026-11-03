@@ -715,8 +715,11 @@ Nouveaux contrats solo pour que chaque case ait de quoi jouer seul : *Nightcap* 
 6. **Plafond de paie** : un résultat qui ouvre droit à la paie compte même quand le plafond PvE
    ou PvP du jour est atteint (payé 0) ou que la paie d'activité est coupée. C'est voulu (les
    dailies ont leur budget) ; préférez-vous l'inverse ?
+   **Tranché le 2026-11-03 : on garde.** Le contrat a son propre plafond (une fois par jour) ;
+   un résultat sans droit à la paie (test, trop court, bots du mode staff) ne compte toujours pas.
 7. **On Call** : un coéquipier soigné compte (une fois par semaine, règle du partenaire), alors
    que *Good Samaritan* exclut le crew. L'exclure aussi ?
+   **Tranché le 2026-11-03 : exclu**, comme pour *Good Samaritan* (`K.on_call`, test de flux).
 
 ## 11. Crochets et preuves
 

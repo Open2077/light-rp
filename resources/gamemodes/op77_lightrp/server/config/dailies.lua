@@ -119,7 +119,7 @@ LightRpDailies = {
           goal = "On a rooftop route, drink something between the first and the last AC unit.", target = 1 },
         { id = "on_call", slot = "shift", jobs = { "trauma" }, social = true, fixer = "okoro", title = "On Call",
           brief = "Somebody's bleeding out tonight. Be there before Trauma Team. One patient, stabilized.",
-          goal = "Stabilize another citizen.", target = 1 },
+          goal = "Stabilize a citizen outside your crew.", target = 1 },
         { id = "fare_paid", slot = "shift", jobs = { "taxi" }, social = true, fixer = "ledger", title = "Fare Paid",
           brief = "A ride is a service. A service is invoiced. Drive a citizen from the Job Center to the Crossing, or as far, let them out, and collect a fare that at least covers the fuel. Tips encouraged.",
           goal = "Drive a passenger 1.2 km, then receive at least €$ 6 from them within 3 minutes.", target = 1,
