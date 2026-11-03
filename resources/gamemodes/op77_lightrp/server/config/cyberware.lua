@@ -307,3 +307,10 @@ LightRpCyberwareConfig = {
         },
     },
 }
+
+-- Every implant by id (the shop and the iconics), for the guide's placeholders
+-- ({cfg:cyberware.byId.berserk_mk1.berserk.armor}). Read only: the module keeps its own index.
+LightRpCyberwareConfig.byId = {}
+for _, list in ipairs({ LightRpCyberwareConfig.items, LightRpCyberwareConfig.iconics.items }) do
+    for _, item in ipairs(list) do LightRpCyberwareConfig.byId[item.id] = item end
+end
