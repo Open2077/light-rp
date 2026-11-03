@@ -9,6 +9,7 @@ import { WeaponStatus } from "./WeaponStatus";
 import { GrenadeStatus } from "../inventory/Grenades";
 import { SafezoneStatus } from "./SafezoneStatus";
 import { CrewHud } from "../crew/CrewFrame";
+import { WeaponGap } from "./WeaponGap";
 import "./hud.css";
 
 /* Gameplay overlay, inside the HUD safe area: bottom-left the crew (and its invite
@@ -44,6 +45,7 @@ export function Hud() {
         <CrewHud />
         <SafezoneStatus />
         <WeaponStatus />
+        <WeaponGap />
         <GrenadeStatus />
         <PlayerVitals />
       </div>
