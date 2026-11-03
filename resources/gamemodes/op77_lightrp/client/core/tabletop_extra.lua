@@ -6,11 +6,21 @@
 --   camera=function(board,view) return pose end,          -- optional; default table views
 --   view=function(board) return {extra=...,text=...} end, -- optional; default board.game
 --   pointer=function(board,event) return handled end,     -- optional; default: panel only
+--   aim=function(board,x,y,line) end,                     -- optional; outline what x,y points at
 --   operations={name=true,...},                           -- page actions forwarded to the server
 --   turnOnly=true,                                        -- optional; only the actor may act
 -- })
--- pieceTargets runs every animation tick inside the 176 client's ~10k
--- instruction budget per resume: keep it to a few dozen props, no searches.
+-- The renderer moves only props whose target changed, every frame, and calls
+-- pieceTargets again only when a new snapshot arrives or the targets expire.
+-- pieceTargets says how long its result holds, in server time:
+--   Extra.animatingUntil(board,t) -- targets change every frame until t
+--   Extra.stillUntil(board,t)     -- targets hold until t (math.huge: next snapshot)
+-- Several calls combine (the earliest wins). An adapter that declares nothing
+-- is recomputed every frame, the safe default for a time-driven table.
+-- pieceTargets runs inside the 176 client's ~10k instruction budget per
+-- resume: keep it to a few dozen props, no searches.
+-- event.x/y are the cursor in panel mode and the screen centre (crosshair)
+-- in free mode; Open77.camera.screenRay(event.x,event.y) works for both.
 local Extra={}
 LightRpTabletopExtraClient=Extra
 local SCALE=.65
@@ -71,11 +81,40 @@ function Extra.put(result,id,kind,model,x,y,z,yaw,metadata)
     if metadata then for key,value in pairs(metadata) do piece[key]=value end end
     result[tostring(id)]={piece=piece,position={x=x or 0,y=y or 0,z=z or 0}}
 end
+-- Declared lifetime of the targets being computed (server ms), see the header.
+local holdDeclared,holdUntil,holdNow=false,math.huge,0
+function Extra.stillUntil(_,t)
+    holdDeclared=true
+    t=tonumber(t) or math.huge
+    if t<holdUntil then holdUntil=t end
+end
+function Extra.animatingUntil(_,t)
+    holdDeclared=true
+    t=tonumber(t)
+    if t and t>holdNow and holdNow<holdUntil then holdUntil=holdNow end
+end
+-- Returns the targets and the local GetGameTimer() time until which they hold
+-- (nil: recompute next frame).
 function Extra.pieceTargets(board)
     Extra.observe(board)
     local result={}
+    holdDeclared,holdUntil,holdNow=false,math.huge,Extra.serverTime(board)
     games[board.kind].pieceTargets(board,result)
-    return result
+    if not holdDeclared or holdUntil<=holdNow then return result,nil end
+    if holdUntil==math.huge then return result,math.huge end
+    return result,GetGameTimer()+(holdUntil-holdNow)
+end
+-- Whether a click at this table means something on the table itself (free
+-- mode aims with the crosshair); panel-only tables open their panel instead.
+function Extra.aimable(board)
+    local adapter=games[board.kind]
+    return adapter~=nil and adapter.pointer~=nil
+end
+-- Outline what the screen point aims at: adapter.aim calls line(a,b) with
+-- world points. Cheap: it runs every frame for the active table.
+function Extra.aim(board,x,y,line)
+    local adapter=games[board.kind]
+    if adapter and adapter.aim then adapter.aim(board,x,y,line) end
 end
 function Extra.camera(board,view)
     local adapter=games[board.kind]
@@ -143,6 +182,8 @@ Extra.register("roulette",{
             local ballEase=1-(1-t)^5
             ball=(tonumber(spin.ballFrom) or 0)+((tonumber(spin.ballTo) or 0)-(tonumber(spin.ballFrom) or 0))*ballEase
         end
+        if type(spin)=="table" and t<1 then Extra.animatingUntil(board,(tonumber(spin.startedAt or spin.t0) or 0)+(tonumber(spin.duration) or 8000))
+        else Extra.stillUntil(board,math.huge) end
         local a=math.rad(ball)
         Extra.put(result,"roulette-wheel","roulette_wheel",Extra.asset(ROULETTE,"roulette_wheel"),0,0,0,-wheel)
         Extra.put(result,"roulette-ball","roulette_ball",Extra.asset(ROULETTE,"roulette_ball"),.27*math.sin(a),.27*math.cos(a),.025+.006*math.sin(t*math.pi)^2,0)

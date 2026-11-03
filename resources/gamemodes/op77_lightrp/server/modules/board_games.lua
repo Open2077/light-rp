@@ -4,6 +4,10 @@ local boards, pending, last, playerBusy = {}, {}, {}, {}
 local lastDiagnostic = {}
 local loaded, serial, placementBusy = false, 0, false
 local REQUEST, STATE, PLACE = "lightrp:boardGames:request", "lightrp:boardGames:state", "lightrp:boardGames:place"
+-- Seats are released beyond this radius (checked every 2 s). Players move
+-- freely while seated: the client leaves on its own at 3.5 m after a short
+-- grace (client/core/board_games.lua LEAVE_RADIUS), this is the backstop.
+local SEAT_RADIUS = 5
 Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_board_games (
  id VARCHAR(96) PRIMARY KEY, owner_inventory VARCHAR(96) NOT NULL, data LONGTEXT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
@@ -401,7 +405,17 @@ CreateThread(function()
         Wait(2000)
         local changed=false
         for _,b in pairs(boards) do
-            for side,id in pairs(b.players) do if not active(id) or not near(id,b,5) then b.players[side]=nil;changed=true end end
+            for side,id in pairs(b.players) do
+                local alive=active(id)
+                if not alive or not near(id,b,SEAT_RADIUS) then
+                    b.players[side]=nil;changed=true
+                    -- Only a known position proves the player walked away.
+                    if alive and Open77.players.position(id) then
+                        LightRP.log("board_games seat released player=%d board=%s: beyond %d m",id,b.id,SEAT_RADIUS)
+                        notice(id,"You walked away from the table and left your seat.")
+                    end
+                end
+            end
         end
         refreshTick=refreshTick+1
         if changed or refreshTick%5==0 then broadcast() end -- a lost part heals within 10 s

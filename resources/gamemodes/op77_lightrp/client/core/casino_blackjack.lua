@@ -171,6 +171,9 @@ end
 -- (same round only) and a group never built yet appears a tick later.
 local REBUILD=24
 local caches={}
+-- The earliest group boundary: the renderer recomputes the table's targets
+-- only then (a stale or unbuilt group asks for the next frame).
+local holdMin=math.huge
 local function group(cache,key,result,fn,a,b,c,d,e)
     local entry=cache[key]
     local valid=entry and entry.gen==cache.gen and clockNow>=entry.builtAt and clockNow<entry.untilT
@@ -181,13 +184,18 @@ local function group(cache,key,result,fn,a,b,c,d,e)
             fn(r,a,b,c,d,e)
             budget=budget-built
             entry={r=r,untilT=horizon,builtAt=clockNow,gen=cache.gen};cache[key]=entry
-        elseif not entry then return end
+        else
+            holdMin=clockNow
+            if not entry then return end
+        end
     end
+    if entry.untilT<holdMin then holdMin=entry.untilT end
     for id,target in pairs(entry.r) do result[id]=target end
 end
 local function pieceTargets(board,result)
     local g=board.game
-    if type(g)~="table" or type(g.hands)~="table" then return end
+    if type(g)~="table" or type(g.hands)~="table" then Extra.stillUntil(board,math.huge);return end
+    holdMin=math.huge
     local now=Extra.serverTime(board);clockNow=now
     local cache=caches[board.id]
     if not cache or cache.round~=g.round then cache={gen=0,round=g.round};caches[board.id]=cache end
@@ -206,6 +214,7 @@ local function pieceTargets(board,result)
             group(cache,s.chipKey,result,handChips,hand,s,now,collect,resultAt)
         end
     end
+    Extra.stillUntil(board,holdMin)
 end
 local function seatCamera(board)
     local seat=SEATS[Extra.seat(board) or "black"]

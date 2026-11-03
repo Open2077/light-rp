@@ -101,6 +101,9 @@ Extra.register("slots",{
   local stops=game.stops or {0,0,0}
   local t=spin and Extra.serverTime(board)-(tonumber(spin.at) or 0) or math.huge
   local put=Extra.put
+  -- Lever, reels, then the win lamp blink (2.4 s) and the coins; still otherwise.
+  if spin then Extra.animatingUntil(board,(tonumber(spin.at) or 0)+S.DURATION+2400) end
+  Extra.stillUntil(board,math.huge)
   for r=1,3 do
    local j=spin and reelIndex(spin,r,t) or (tonumber(stops[r]) or 0)+1
    put(result,"slot-reel-"..r,"slot_reel",MODELS.strip[r],L.reelX[r],L.stripY,L.paylineZ+j*L.pitch,0,SNAP)
@@ -166,6 +169,14 @@ Extra.register("slots",{
  pointer=function(board,event)
   if event.pressed and not event.blocked and onLever(board,event) then pullLever(board) end
   return true -- the panel or the lever; a stray click never wagers
+ end,
+ -- Outline the lever while the crosshair (or the cursor) is on it.
+ aim=function(board,x,y,line)
+  if not onLever(board,{x=x,y=y}) then return end
+  local p,w=L.leverPivot,Extra.world
+  local x0,x1,z0,z1,fy=p[1]-.05,p[1]+.05,p[3]-.03,p[3]+L.leverLength+.04,p[2]-.07
+  local a,b,c,d=w(board,x0,fy,z0),w(board,x1,fy,z0),w(board,x1,fy,z1),w(board,x0,fy,z1)
+  line(a,b);line(b,c);line(c,d);line(d,a)
  end,
 })
 -- The page reports the chosen bet so a click on the lever can pull with it.

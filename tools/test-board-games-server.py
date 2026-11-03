@@ -85,6 +85,15 @@ json={encode=function(v) return v end,decode=function(v) return v end}
 function request(id,p) source=id;clock=clock+200;handlers['lightrp:boardGames:request'](p) end
 function count(id,item) local n=0 for _,v in pairs(inventories[id].items) do if v.name==item then n=n+v.count end end return n end
 function boards(id) request(id,{action='sync'}); return events[id].boards end
+-- One pass of the 2 s seat/broadcast loop.
+function refreshSeats()
+ for i,t in ipairs(tasks) do if t.delay==2000 then
+  table.remove(tasks,i);t.delay=resumeChecked(t.co)
+  if coroutine.status(t.co)~='dead' then tasks[#tasks+1]=t end
+  return true
+ end end
+ error('no seat refresh task')
+end
 ''')
 lua.execute((root/'resources/gamemodes/op77_lightrp/shared/board_games_rules.lua').read_text())
 lua.execute((root/'resources/gamemodes/op77_lightrp/server/modules/board_games.lua').read_text())
@@ -105,6 +114,10 @@ positions[1].x=10;request(1,{action='pickup',boardId=id});positions[1].x=0;asser
 -- Seat authorization, replay revision and transaction failures preserve game.
 request(1,{action='join',boardId=id});request(2,{action='join',boardId=id});request(3,{action='join',boardId=id})
 assert(boards(1)[1].players.black==2)
+-- Seated players move freely; beyond 5 m the server frees the seat and says why.
+notices[2]=nil;positions[2].x=4.9;refreshSeats();assert(boards(1)[1].players.black==2 and notices[2]==nil,'4.9 m keeps the seat')
+positions[2].x=5.5;refreshSeats();assert(boards(1)[1].players.black==nil and notices[2]:find('walked away',1,true),'beyond 5 m frees it')
+positions[2].x=0;notices[2]=nil;request(2,{action='join',boardId=id});assert(boards(1)[1].players.black==2)
 local move={action='move',boardId=id,revision=0,fromRow=7,fromCol=5,toRow=5,toCol=5}
 request(3,move);assert(boards(1)[1].revision==0)
 positions[2].bucket=1;request(1,move);positions[2].bucket=0;assert(boards(1)[1].revision==0)
