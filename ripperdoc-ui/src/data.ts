@@ -22,7 +22,7 @@ export interface Cyberware {
   section: string;
   icon: string;            // media/icon/<icon>.webp
   rarity: Rarity;
-  tier: number;            // 1..5
+  tier: number;            // rank 1..6 (6 shows as V+)
   capacity?: number;       // unused: no cyberware limit
   price: number;           // eurodollars
   maker: string;
@@ -30,9 +30,18 @@ export interface Cyberware {
   lore: string;
   stats: { label: string; value: string }[];
   family?: string;         // one native slot: another model of the family replaces the installed one
+  repTier?: number;        // street cred: the reputation tier this rank needs (server-owned)
+  repName?: string;        // that tier's name ("Merc")
+  locked?: boolean;        // below the patient's tier: the server refuses the install
 }
 
-const a = (mx: number, my: number, fx: number, fy: number) => ({ male: { x: mx, y: my }, female: { x: fx, y: fy } });
+/** The patient's street cred (reputation tier, earned in PvE). */
+export interface Reputation { tier: number; name?: string; points?: number; next?: number; nextName?: string }
+
+/** The tier a rank needs when the server does not say (the preview): I-II open, then one per rank. */
+export const RANK_TIER = [0, 1, 1, 2, 3, 4, 5];
+
+const a =(mx: number, my: number, fx: number, fy: number) => ({ male: { x: mx, y: my }, female: { x: fx, y: fy } });
 
 export const SECTIONS: SectionDef[] = [
   { id: "frontal_cortex", label: "Frontal Cortex", code: "FC-01", side: "left", slots: 3, locked: 0, anchor: a(0.5, 0.05, 0.53, 0.055),
@@ -185,6 +194,7 @@ export interface OpenPayload {
   wallet?: number;
   installed?: Record<string, string[]>;
   patient?: { name?: string; id?: string };
+  reputation?: Reputation; // street cred: catalogue items above it come `locked`
 }
 
 export const DEMO: Required<Omit<OpenPayload, "catalogue">> = {
@@ -199,12 +209,22 @@ export const DEMO: Required<Omit<OpenPayload, "catalogue">> = {
     skeleton: ["titanium_bones"],
   },
   patient: { name: "Alex Morgan", id: "NC-0715-3381" },
+  reputation: { tier: 2, name: "Merc", points: 820, next: 1500, nextName: "Operator" },
 };
+
+const TIER_NAMES = ["", "Street", "Merc", "Operator", "Edgerunner", "Legend"];
+/** The preview's locks: the demo catalogue carries no street cred, the rank decides. */
+export const demoLocks = (stock: Cyberware[], rep: Reputation): Cyberware[] =>
+  stock.map((x) => {
+    if (x.repTier !== undefined) return x;
+    const repTier = RANK_TIER[x.tier] ?? 1;
+    return { ...x, repTier, repName: TIER_NAMES[repTier], locked: repTier > rep.tier };
+  });
 
 export const RARITY_LABEL: Record<Rarity, string> = {
   common: "Common", uncommon: "Uncommon", rare: "Rare", epic: "Epic", legendary: "Legendary",
 };
 
-export const roman = (n: number): string => ["", "I", "II", "III", "IV", "V"][n] ?? String(n);
+export const roman = (n: number): string => ["", "I", "II", "III", "IV", "V", "V+"][n] ?? String(n);
 
 export const eddies = (n: number): string => n.toLocaleString("en-US").replace(/,/g, " ");

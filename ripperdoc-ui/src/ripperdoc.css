@@ -408,6 +408,12 @@ kbd {
 .rd-needs li.bad::before { background: var(--o77-red); }
 .rd-needs li.bad b { color: var(--o77-red); }
 .rd-card.blocked img { filter: grayscale(.6) brightness(.7) drop-shadow(0 6px 8px rgba(0, 0, 0, .7)); }
+/* Street cred: an implant above the patient's reputation tier (the accent, not the danger red:
+   it is a goal, not an error) */
+.rd-card .req.lock { color: var(--accent); box-shadow: inset 0 0 0 1px var(--line-soft); background: var(--accent-quiet); }
+.rd-card.locked img { filter: grayscale(1) brightness(.5) drop-shadow(0 6px 8px rgba(0, 0, 0, .7)); }
+.rd-card.locked .name { color: var(--text-dim); }
+.rd-rep b { color: var(--accent); text-shadow: var(--glow-text); }
 .rd-hold.off { opacity: .45; cursor: not-allowed; }
 .rd-empty small { display: block; margin-top: 10px; font: italic 12px/1.3 var(--font-core); letter-spacing: 0; color: var(--o77-ink-300); }
 .rd-proc li.bad { color: var(--o77-red); }
