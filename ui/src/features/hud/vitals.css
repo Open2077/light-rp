@@ -94,3 +94,38 @@
   .player-vital__fill, .player-vital__trail, .player-vital__icon { transition: none; }
   .player-vital__delta, .player-vitals__warning, .player-vital--critical .player-vital__icon { animation: none; }
 }
+
+/* Starving (server/modules/needs.lua): the banner stays while health drains, the empty
+   gauges and the health gauge pulse, and a soft red pulse breathes at the screen edges. */
+.player-vitals__starving {
+  position: absolute; left: 0; bottom: calc(var(--vital-health-size) + 30px);
+  display: flex; align-items: center; gap: 9px; width: max-content; max-width: 420px;
+  padding: 6px 11px 7px 9px; color: #ffd2cb; background: linear-gradient(90deg, #3a0b0fe6, #16080ad9);
+  border: 1px solid #ff4b4b88; border-left: 3px solid #ff4b4b;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+  animation: vital-warning .25s ease both, starve-banner 1.6s ease-in-out infinite;
+}
+.player-vitals__starving > svg { color: #ff6b6b; animation: starve-beat 1.6s ease-in-out infinite; }
+.player-vitals__starving b { display: block; font: 700 12px/15px var(--font-core); letter-spacing: .12em; color: #fff; }
+.player-vitals__starving span { display: block; font: 500 10.5px/14px var(--font-core); color: #ffb9b0; letter-spacing: .02em; }
+.player-vital--draining .player-vital__fill { animation: starve-gauge 1.6s ease-in-out infinite; }
+.player-vital--draining .player-vital__icon { color: #ff7a72; animation: starve-beat 1.6s ease-in-out infinite; }
+.player-vitals__vignette {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(170, 10, 20, calc(.18 + .22 * var(--starve-heat))) 100%);
+  animation: starve-vignette 1.6s ease-in-out infinite;
+}
+/* Well fed: health comes back by itself */
+.player-vitals__fed {
+  position: absolute; left: calc(var(--vital-health-size) + var(--vital-group-gap)); bottom: calc(var(--vital-size) + 26px);
+  display: flex; align-items: center; gap: 5px; width: max-content; padding: 3px 6px; border-radius: 3px;
+  background: #101013a8; color: #b9eb9a; font: 500 10px/14px var(--font-core); animation: vital-warning .25s ease both;
+}
+@keyframes starve-banner { 0%, 100% { background-color: transparent; filter: brightness(1); } 50% { filter: brightness(1.25); } }
+@keyframes starve-beat { 0%, 60%, 100% { transform: scale(1); } 15% { transform: scale(1.18); } 30% { transform: scale(1.04); } }
+@keyframes starve-gauge { 0%, 100% { stroke: var(--vital-color); } 50% { stroke: #ff4b4b; } }
+@keyframes starve-vignette { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .player-vitals__starving, .player-vitals__starving > svg, .player-vital--draining .player-vital__fill,
+  .player-vital--draining .player-vital__icon, .player-vitals__vignette { animation: none; }
+}

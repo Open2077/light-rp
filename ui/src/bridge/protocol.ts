@@ -90,7 +90,17 @@ export interface CharacterState {
   welcomeReadSeconds?: number; // how long the OK button stays locked
 }
 
-export interface NeedsState { food: number; drink: number }
+export interface NeedsState {
+  food: number; drink: number;
+  /** server/modules/needs.lua: at 0 food and/or drink the character loses health until they eat/drink. */
+  starving?: "food" | "drink" | "both" | false;
+  /** Percent of max health lost per minute while starving. */
+  drainPerMinute?: number;
+  /** Food and drink above the threshold: health comes back by itself. */
+  wellFed?: boolean;
+  /** Health points regained per minute while well fed. */
+  regenPerMinute?: number;
+}
 
 /** One ledger line of the character's wallet. `amount` is signed. */
 export interface MoneyTransaction {
