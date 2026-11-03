@@ -497,7 +497,9 @@ beginRound = function(match, now)
         else
             slot = slot + 1
             match.roles[m.id] = "cop"
-            m.point = match.route.cops[math.min(slot, #match.route.cops)]
+            -- From the front of the grid (slot 8 is the front): by car the first cop is
+            -- the closest to the runner, ~27 m behind him, however few cops there are.
+            m.point = match.route.cops[math.max(1, #match.route.cops - slot + 1)]
         end
         if m.bot then
             ChaseBots.assign(m.id, match.roles[m.id], (match.roles[m.id] == "runner" and match.mode == "foot") and "foot" or "vehicle")
