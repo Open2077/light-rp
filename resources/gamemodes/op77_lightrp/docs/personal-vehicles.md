@@ -75,7 +75,9 @@ A personal vehicle is always in one place, saved in `lightrp_owned_vehicles.stat
   connected.
 
 Fees, in whole eddies, by reason: `server/config/garages.lua` → `impound.fees`
-(defaults: restart 0, lost 150, requested 150, staff 250).
+(defaults: restart 0, lost 400, requested 250, staff 500). `lost` acts as the
+insurance excess of a destroyed car; a restart stays free. Rationale:
+`docs/economy-balance.md`.
 
 ## Staff and server API
 

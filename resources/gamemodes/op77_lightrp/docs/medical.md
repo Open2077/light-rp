@@ -27,6 +27,21 @@ can grant one for testing:
 /lightrp.giveitem me trauma_kit 1
 ```
 
+## Hospital bill
+
+Waking up at the hospital after **Give up and go to hospital** costs
+`LightRpEconomy.hospital.bill` (€$ 300, `server/config/economy.lua`), taken from the
+bank first, then from cash, and only what is there: a balance never goes below
+zero and the rest is written off. The confirmation on the unconscious screen
+shows the bill before the player commits; a notice and the ledger
+(`lightrp_transactions`, kind `hospital`) show what was paid.
+
+There is no bill on a rescue with a kit, inside a mission or an activity, during
+the first day guide, for the character's first `graceMinutes` (120) of play, nor
+on the platform's fallback hospital respawn of a script death. A transfer the
+platform refuses bills nothing. `bill = 0` disables it. Code:
+`server/modules/economy_sinks.lua`, called from `hospital()` in `medical.lua`.
+
 ## Persistence and reconnects
 
 `lightrp_medical_deaths` stores the character's death token, original wall-clock

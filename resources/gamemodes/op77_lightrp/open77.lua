@@ -61,6 +61,7 @@ server_script "server/modules/hotbar.lua"
 server_script "server/modules/economy.lua"
 server_script "server/config/economy.lua"         -- economy rules (docs/economy-balance.md)
 server_script "server/modules/mission_pay.lua"    -- what a mission / gig pays: crew pot, cooldown, daily cap
+server_script "server/modules/economy_sinks.lua"  -- hospital bill, fitting-room fee
 server_script "server/modules/jobs.lua"
 server_script "server/config/missions.lua"
 server_script "server/modules/parties.lua"

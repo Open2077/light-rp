@@ -61,7 +61,7 @@ LightRP={ db=Db, module=function(name,t) LightRP[name]=t;return t end, command=n
     keys={lock=function(id,value) world[id].locked=value;return true end,give=function() return true end},
 }
 for _,v in ipairs(LightRpConfig.vehicles.catalog) do LightRP.vehicles.byKey[v.key]=v end
-local wallets={ [1]={cash=100,bank=1000}, [2]={cash=0,bank=0} }
+local wallets={ [1]={cash=100,bank=5000}, [2]={cash=0,bank=0} }
 local notices={}
 LightRP.notice=function(id,n) notices[#notices+1]={id=id,body=n.body} end
 LightRP.money={format=function(n) return "€$"..n end,explain=function(r) return "Denied: "..tostring(r) end,
@@ -140,9 +140,9 @@ assert(entry(first).status=="impound" and entry(first).impound.fee==LightRpGarag
 assert(notices[#notices].id==1 and notices[#notices].body:find("impound"),"the owner is told")
 assert(not perform("retrieve",first),"an impounded vehicle is recovered, not retrieved")
 assert(not perform("recover",first),"a fee needs a payment method")
-failDb=true;assert(not perform("recover",first,1,{pay="bank"}) and wallets[1].bank==1000,"failed release never charges");failDb=false
+failDb=true;assert(not perform("recover",first,1,{pay="bank"}) and wallets[1].bank==5000,"failed release never charges");failDb=false
 assert(perform("recover",first,1,{pay="bank"}),"fee paid at the garage");id=nextVehicle
-assert(wallets[1].bank==1000-LightRpGarages.impound.fees.lost and world[id] and dbRows[first].state=="out","released and driven out")
+assert(wallets[1].bank==5000-LightRpGarages.impound.fees.lost and world[id] and dbRows[first].state=="out","released and driven out")
 assert(Inv.count("personal:"..first,"water")==3,"forced delete keeps trunk")
 failRemove=true;assert(not perform("store",first) and world[id]);assert(not perform("retrieve",first));failRemove=false
 assert(perform("store",first))

@@ -213,7 +213,7 @@ LightRpConfig = {
         tanks = { default = 60, Street = 55, Utility = 90, Sport = 65, Bikes = 30 }, -- litres, by vehicles.catalog category
         reserve = 0.15,              -- fraction: HUD turns amber and the driver is warned once
         rentalTank = { min = 0.35, max = 0.75 }, -- rentals are delivered with a partial tank
-        pricePerLitre = 3,           -- eddies, whole litres only at the pump
+        pricePerLitre = 4,           -- eddies, whole litres only at the pump (≈ 260 €$/h behind the wheel)
         pumpRange = 7.0,             -- metres between the pump point and the vehicle
         parkedSpeed = 0.25,
         clusterRadius = 35.0,       -- maximum separation within one station

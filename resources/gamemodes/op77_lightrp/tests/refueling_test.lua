@@ -74,8 +74,8 @@ setup(); local token=begin(); assert(token); assert(not begin(2),"pump/vehicle e
 event(E.fuelReady,{token=token},2); assert(not anim,"ticket bound to player")
 play(token); assert(level==10 and wallet.cash==500,"not instant, no early payment")
 complete(token,400); assert(level==10 and wallet.cash==500 and not R.isActive(1),"early completion refused")
-setup(); token=begin(); play(token); complete(token); assert(level==20 and wallet.cash==470 and not anim,"one complete fill, one payment")
-complete(token); assert(level==20 and wallet.cash==470,"replay cannot double grant")
+setup(); token=begin(); play(token); complete(token); assert(level==20 and wallet.cash==500-10*C.pricePerLitre and not anim,"one complete fill, one payment")
+complete(token); assert(level==20 and wallet.cash==500-10*C.pricePerLitre,"replay cannot double grant")
 setup(); token=begin(); play(token); engine=true; complete(token); assert(level==10 and wallet.cash==500,"engine restart cancels")
 setup(); token=begin(); play(token); vehicle.x=vehicle.x+2; complete(token); assert(level==10 and wallet.cash==500,"moved vehicle cancels")
 setup(); token=begin(); play(token); position.x=position.x+2; complete(token); assert(level==10 and wallet.cash==500,"walking away cancels")
@@ -86,7 +86,7 @@ setup(); token=begin(); play(token); failState=true; complete(token); assert(wal
 setup(); token=begin(); play(token); R.onDisconnected(1); assert(not R.isActive(1) and not anim and wallet.cash==500)
 setup(); actions["fuel.jerrycan"](1,{spot="pump01",pay="bank"}); token=last("prepare").token
 event(E.fuelReady,{token=token}); assert(props.can and Inv.count(Inv.playerId(1),"jerrycan")==0)
-complete(token,18000); assert(not props.can and Inv.count(Inv.playerId(1),"jerrycan")==1 and wallet.bank==415,"paid can atomic checkout")
+complete(token,18000); assert(not props.can and Inv.count(Inv.playerId(1),"jerrycan")==1 and wallet.bank==500-C.jerrycan.deposit-C.jerrycan.litres*C.pricePerLitre,"paid can atomic checkout")
 setup(); local attach=Open77.props.attach; local attempts=0
 Open77.props.attach=function(_,binding)
     attempts=attempts+1

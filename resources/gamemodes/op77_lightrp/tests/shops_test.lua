@@ -79,12 +79,14 @@ local function checkout(extra)
 end
 local inv, wallet = Inv.player(1), Money.get(1)
 local waterBefore = Inv.count(inv.id, "water")
+local waterPrice = LightRpShops.templates.street_food.items[1].buy -- items[1] is water
+assert(LightRpShops.templates.street_food.items[1].name == "water")
 local ok, reason, reply, sent = checkout({ price = 0, total = -900, target = 2 })
-assert(ok and wallet.cash == 1984 and Inv.count(inv.id, "water") == waterBefore + 2, "server prices, source wallet, delivery")
-assert(wallet.history[1].kind == "shop_buy" and lastQueries[#lastQueries].values[4] == -16)
+assert(ok and wallet.cash == 2000 - 2 * waterPrice and Inv.count(inv.id, "water") == waterBefore + 2, "server prices, source wallet, delivery")
+assert(wallet.history[1].kind == "shop_buy" and lastQueries[#lastQueries].values[4] == -2 * waterPrice)
 local committed = transactions
 assert(Shops.checkout(1, sent))
-assert(transactions == committed and wallet.cash == 1984, "replayed request never charges twice")
+assert(transactions == committed and wallet.cash == 2000 - 2 * waterPrice, "replayed request never charges twice")
 ok = checkout({ mode = "sell", pay = "bank", lines = { { name = "water", count = 2 } } })
 assert(ok and wallet.bank == 5004 and Inv.count(inv.id, "water") == waterBefore)
 
