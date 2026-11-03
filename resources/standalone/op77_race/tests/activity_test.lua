@@ -16,6 +16,15 @@ H.test("registration matches the contract", function()
     H.eq(def.modeKey, "course", "a trial is joined with a course")
     H.eq(H.core.registered["race.grid"].modeKey, nil); H.eq(H.core.registered["race.grid"].modes, nil)
     H.eq(H.core.registered["race.foot"].minPlayers, 2)
+    -- the race vs AI is PvE and plays Light RP's difficulties; the course stays the choice
+    local pve = H.core.registered["race.pve"]
+    H.eq(pve.pve, true); H.eq(pve.modeKey, "course")
+    H.eq(table.concat(pve.difficulties, ","), "standard,hard,critical")
+    H.eq(H.core.registered["race.grid"].pve, nil); H.eq(H.core.registered["race.grid"].difficulties, nil)
+    -- no AI racer code loaded here: no bot fill offered anywhere
+    for _, id in ipairs({ "race.trial", "race.grid", "race.foot", "race.pve" }) do
+        H.eq(H.core.registered[id].botFill, nil, id .. " offers no bot fill")
+    end
 end)
 
 H.test("a refused registration is retried later", function()

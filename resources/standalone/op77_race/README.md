@@ -29,6 +29,20 @@ Freeroam:
   on their way. A crew joining the race vs AI starts together once every member has
   joined (or 5 s after the first), on the leader's choice of course. Only a crew bigger
   than the whole grid is cut, and the ones left out are told.
+- **Matches** (street and rooftop races, `options.match` from Light RP's lobby: a
+  friendly crew match, a bot-filled match, or a ranked match the core gathered). Exactly
+  `match.players` race in a heat of their own (never the public queue, never joined by
+  anyone else), started as soon as all are in, or `matches.gatherSeconds` (5 s) after
+  the first with whoever came; a join arriving after the start is refused. AI racers =
+  `options.fill` (enemies + allies: a race has no sides), once per match, within
+  `matches.fillTo` (6 racers in total) and the course, through the same filling as bot
+  mode; none on a server whose natives cannot drive that kind of AI, and never in a
+  ranked match. Friendly or AI-filled matches are unranked; a ranked match is raced and
+  recorded exactly like a heat of our queue. The registration declares `botFill = true`
+  for the street and rooftop races only when their AI racers can drive here.
+- **Unranked entries** (`options.ranked == false`: friendly, bot-filled, staff bot mode):
+  no best time is written (time trial board, best vs AI), results carry
+  `unranked = true` and no reputation, and the HUD says UNRANKED / FRIENDLY.
 - **Entering.** `activityEnter` for each racer (the core captures the return point and
   puts the RP weapons aside), then the racer moves into the instance's routing bucket
   (`4200000-4299999`, one per instance, several instances at once). Drivers are seated
@@ -152,6 +166,14 @@ above) fill the grid up to `pve.fillTo` racers in total (6, within the course's 
   separate best vs AI (`records.json`, board `vsai:<courseId>`), shown as *Best vs AI*.
 - **No AI on the server** (natives missing): a player alone is refused with a sentence;
   a crew races without AI.
+- **Difficulty.** `race.pve` registers as PvE with Light RP's `standard`, `hard` and
+  `critical` (`pve.difficulties`); the join's `options.scaling` sets the AI drivers, one
+  difficulty per race (a crew's first join). `enemies` scales the AI share of the grid
+  (`(fillTo - players) x enemies`, rounded, within the grid: solo 5 / 7 / 7, crew of four
+  2 / 3 / 4); `damage` sets their top speed (`30 x (1 + (damage - 1) x 0.8)`: 30 / 36 /
+  44.4 m/s); `ai` their profile (`pve.profiles`: veteran turns in earlier, arrival radius
+  12 m instead of 8, and validates checkpoints 1.5 m wider). `health` has nothing to
+  scale in a race (invulnerable AI, no combat).
 
 ## Staff
 
@@ -187,7 +209,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File tests\run-lua.ps1 -LuaDll <path>\l
 
 `race_shared_test`, `courses_records_test`, `activity_test`, `trial_flow_test`,
 `heat_flow_test`, `editor_test`, `client_test`, `bots_test`, `foot_bots_test`,
-`pve_test`, `crew_test`. They run against a fake runtime and a stub of the contract
+`pve_test`, `crew_test`, `lobby_test`, `pve_difficulty_test`. They run against a fake runtime and a stub of the contract
 (`tests/harness.lua`, with fake `Open77.npcs` and `Open77.vehicles.ai` from
 `H.installBotNatives()`), not the game. Run them more than once: `pairs` order changes
 from run to run.
