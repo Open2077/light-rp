@@ -70,6 +70,8 @@ server_script "server/config/fixers.lua"
 server_script "server/modules/fixers.lua"          -- fixer gigs: offers by Neural-Link text, crews, meet point
 server_script "server/config/world_bosses.lua"
 server_script "server/modules/world_bosses.lua"    -- world bosses: open-world events from editor missions, shares by contribution
+server_script "server/config/announce.lua"
+server_script "server/modules/announce.lua"        -- staff voice announcements (/lightrp.broadcast): server-wide or within a radius
 server_script "server/config/job_runs.lua"
 server_script "server/config/delivery.lua"
 server_script "server/modules/job_runs.lua"
@@ -140,6 +142,7 @@ client_script "client/core/movement.lua"
 client_script "client/core/camera.lua"
 client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
+client_script "client/core/announce.lua"       -- the announcement halo's voice level (server/modules/announce.lua)
 client_script "client/core/inventory.lua"
 client_script "client/core/armament.lua"
 client_script "client/core/grenades.lua"
@@ -207,6 +210,7 @@ permissions {
     "acl.read",
     "players.disconnect",
     "players.access",
+    "voice.manage",        -- staff announcements: one admin voice channel per speaker
     -- client
     "voice.client",        -- guided setup through the trusted preference owner
     "network.client",      -- local player ID + authenticated account for animation state/preferences
