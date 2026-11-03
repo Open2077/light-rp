@@ -90,7 +90,8 @@ LightRpEconomy = {
             perMinute = { standard = 40, hard = 50, critical = 60 },
             lossShare = 0.5,
             dailyCap = 6000,
-            -- `difficulty`: the activity's own, unless its result names one.
+            -- `difficulty`: the activity's own, unless the entry (a difficulty the
+            -- player picked when joining) or the result names one.
             modes = {
                 ["arena.pve"] = { difficulty = "standard", minSeconds = 120, maxSeconds = 900, progress = { kills = 1, assists = 1 } },
                 ["race.pve"]  = { difficulty = "standard", minSeconds = 60, maxSeconds = 600, progress = { finished = true, checkpoints = 2 } },

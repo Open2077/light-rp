@@ -177,6 +177,10 @@ enter(3, "turf.pve")
 assert(why(3, { placement = 1, won = true }, { difficulty = "critical", stats = { captures = 2, kills = 3, holdSeconds = 200, durationMs = 480000, bots = 7 } }) == 480,
     "a result naming its difficulty: critical 60 x 8")
 assert(why(3, { placement = 1, won = true }, { difficulty = "nightmare", stats = { captures = 2, durationMs = 480000 } }) == 400, "unknown: the mode's own")
+owned[3].difficulty = "standard"
+assert(why(3, { placement = 1, won = true }, { difficulty = "critical", stats = { captures = 2, durationMs = 480000 } }) == 320,
+    "the entry's difficulty (picked when joining) comes first: standard 40 x 8")
+owned[3].difficulty = nil
 -- PvE is never scaled by players nor stopped by crews or the repeat cap
 crews[3] = 9
 for i = 1, 6 do assert(why(3, { placement = 1, won = true }, { stats = { captures = 1, durationMs = 480000 } }) == 400) end

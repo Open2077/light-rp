@@ -8,6 +8,8 @@
 --               first place, down to 0 for the last place (placement modes), 0.5 for
 --               a draw, 0 for a loss; a time trial's is a personal best or a record.
 --   PvE         perMinute[difficulty] x minutes played; a loss pays lossShare of it.
+--               The difficulty is the entry's (`entry.difficulty`, set by a core that
+--               lets the player pick one), else the result's, else the mode's own.
 --
 -- Nothing for: an unranked result (`result.unranked`), a PvP match with bots, a match
 -- whose real players are all one crew, a player who quit or forfeited (the one left
@@ -191,7 +193,8 @@ function Pay.quote(id, entry, r, raw)
     if not progressed(mode, r, s) then return nil, "no_progress" end
     local minutes = math.min(played, number(mode.maxSeconds, 600) * 1000) / 60000
     if pve then
-        local difficulty = raw.difficulty or s.difficulty
+        -- the entry's (a PvE core that lets the player pick one), else the result's
+        local difficulty = entry.difficulty or raw.difficulty or s.difficulty
         if not DIFFICULTIES[difficulty] then difficulty = mode.difficulty end
         if not DIFFICULTIES[difficulty] then difficulty = "standard" end
         local rates = C.pve.perMinute
