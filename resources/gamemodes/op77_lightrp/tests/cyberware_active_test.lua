@@ -260,7 +260,7 @@ assert(Active.secondHeartBlocked(9, { position = { x = 0, y = 0, z = 0 } }) == n
 tagged = true
 assert(Active.secondHeartBlocked(9, { position = { x = 0, y = 0, z = 0 } }) == "dogtown", "tagged after leaving Dogtown: still its fight")
 LightRP.dogtown = nil
--- activities: off unless PvE and unranked (A.isRanked, the activity's own flag)
+-- activities: always off, PvE included (owner decision 2026-11-03)
 local activity, rankedFlag = nil, nil
 LightRP.activities = { owns = function() return activity ~= nil end, current = function() return activity end,
     isRanked = function() return rankedFlag end }
@@ -269,12 +269,12 @@ assert(Active.secondHeartBlocked(9, {}) == "activity", "a PvP activity, even a f
 activity, rankedFlag = { pve = true, ranked = true }, true
 assert(Active.secondHeartBlocked(9, {}) == "activity", "a ranked PvE run")
 activity, rankedFlag = { pve = true, ranked = false }, false
-assert(Active.secondHeartBlocked(9, {}) == nil, "an unranked PvE run allows it")
+assert(Active.secondHeartBlocked(9, {}) == "activity", "an unranked PvE run too (owner: never in an activity)")
 activity, rankedFlag = { pve = true, ranked = false }, nil
 assert(Active.secondHeartBlocked(9, {}) == "activity", "no flag from isRanked: ranked")
 LightRP.activities = { owns = function() return activity ~= nil end, current = function() return activity end }
 activity = { pve = true, ranked = false }
-assert(Active.secondHeartBlocked(9, {}) == nil, "without isRanked: the entry's flag")
+assert(Active.secondHeartBlocked(9, {}) == "activity", "without isRanked: still an activity")
 activity = { pve = true }
 assert(Active.secondHeartBlocked(9, {}) == "activity", "no flag at all: ranked")
 LightRP.activities = { owns = function() return true end, current = function() return nil end, isRanked = function() return nil end }

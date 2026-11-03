@@ -14,8 +14,8 @@
 --                  record) gets back up by himself after `delayMs` (Open77.players.revive; the
 --                  medical module settles the record). Once per `cooldownMs` per character (kept in
 --                  memory across reconnects, not across a server restart). Never in Dogtown
---                  (LightRP.dogtown, when that module runs), never in an activity unless it is PvE
---                  and not ranked, never in a mission (those own their deaths anyway).
+--                  (LightRP.dogtown, when that module runs), never in an activity (PvE included,
+--                  owner decision 2026-11-03), never in a mission (those own their deaths anyway).
 --   Kiroshi optics ALT + click (client/core/cyberware.lua, open77_contextmenu): "cyberware.scan"
 --                  answers with a notice (name, crew, Dogtown bounty when LightRP.dogtown.bounty
 --                  exists); "cyberware.mark" (Clairvoyant) marks a player or an NPC this resource
@@ -204,18 +204,9 @@ function Active.secondHeartBlocked(playerId, state)
     end
     local A = LightRP.activities
     if type(A) == "table" and type(A.owns) == "function" and A.owns(playerId) then
-        local entry = type(A.current) == "function" and A.current(playerId) or nil
-        -- every activity is "no Second Heart" unless it is PvE and unranked (a ranked run feeds
-        -- reputation and the Hall of Fame boards): A.isRanked is the activity's own flag, an
-        -- owner without an entry (a mission's internal owner) counts as ranked
-        local ranked = true
-        if type(A.isRanked) == "function" then
-            local ok, flag = pcall(A.isRanked, playerId)
-            if ok and flag ~= nil then ranked = flag == true end
-        elseif type(entry) == "table" and entry.ranked ~= nil then
-            ranked = entry.ranked == true
-        end
-        if type(entry) ~= "table" or entry.pve ~= true or ranked then return "activity" end
+        -- owner decision 2026-11-03: never inside an activity, PvE included -- every activity
+        -- handles its own deaths (respawn, elimination, bust)
+        return "activity"
     end
     local M = LightRP.missions
     if type(M) == "table" and type(M.handlesDeath) == "function" and M.handlesDeath(playerId) then return "mission" end

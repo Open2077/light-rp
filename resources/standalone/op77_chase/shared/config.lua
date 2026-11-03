@@ -524,7 +524,8 @@ ChaseConfig.pve = {
     -- from Open77.prevention.state()). When the game refused it (population_suppressed: no
     -- police can come), "warn" keeps the run going and says so on the HUD and in the log;
     -- "void" calls the run off (nothing counts).
-    onPoliceBlocked = "warn",
+    -- owner decision 2026-11-03: "void" -- no reputation for a run no police could join
+    onPoliceBlocked = "void",
     maxRunners = 4,
     buckets = { from = 4300200, to = 4300299 },
     defaultMode = "vehicle",

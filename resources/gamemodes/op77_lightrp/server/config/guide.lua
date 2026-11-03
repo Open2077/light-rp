@@ -826,7 +826,7 @@ LightRpGuide = {
                         "- Kiroshi Optics: {key:context} + click a person, **Scan**: name, crew, Dogtown bounty.",
                         "- Kiroshi Clairvoyant: {key:context} + click, **Mark for crew**: your crew sees them on the map and on screen for {sec:cyberware.byId.kiroshi_clairvoyant.mark.durationMs} s (once every {sec:cyberware.byId.kiroshi_clairvoyant.mark.cooldownMs} s).",
                         "- Pain Editor: below {pct:cyberware.byId.pain_editor.pain.threshold} health, +{cfg:cyberware.byId.pain_editor.pain.regen} health / s for {sec:cyberware.byId.pain_editor.pain.durationMs} s, once every {sec:cyberware.byId.pain_editor.pain.cooldownMs} s.",
-                        "- Second Heart: downed in the city, you get back up by yourself after {sec:cyberware.byId.second_heart.secondHeart.delayMs} s with {pct:cyberware.byId.second_heart.secondHeart.health} health, once every {min:cyberware.byId.second_heart.secondHeart.cooldownMs} min. Never in Dogtown or in missions, and in activities only in an unranked PvE run.",
+                        "- Second Heart: downed in the city, you get back up by yourself after {sec:cyberware.byId.second_heart.secondHeart.delayMs} s with {pct:cyberware.byId.second_heart.secondHeart.health} health, once every {min:cyberware.byId.second_heart.secondHeart.cooldownMs} min. Never in Dogtown, in missions or in activities.",
                         "Passive ones (bones, armor, lungs...) just work.",
                         "> Blades stay sheathed in safe zones and in missions or activities that bring their own kit.",
                         { requires = "not:config:cyberware.activeInPvp",

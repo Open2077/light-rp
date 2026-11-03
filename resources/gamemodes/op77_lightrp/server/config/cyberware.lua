@@ -172,8 +172,8 @@ LightRpCyberwareConfig = {
         { id = "berserk_mk3", name = "Berserk Mk.3", section = "operating_system", family = "os",
           kind = "berserk", rarity = "legendary", tier = 5, price = 64000, capacity = 7,
           maker = "Moore Tech", icon = "cw_system_berserkc3",
-          berserk = { durationMs = 10000, armor = 150, regen = 6, cooldownMs = 30000 },
-          effect = "Press X: 10 s of +150 armor and +6 health / s. Cooldown 30 s.",
+          berserk = { durationMs = 10000, armor = 150, regen = 6, cooldownMs = 45000 },
+          effect = "Press X: 10 s of +150 armor and +6 health / s. Cooldown 45 s.",
           lore = "The model the fixers rent out to people they never want to see again.", stats = { { "Duration", "10 s" }, { "Armor", "+150" }, { "Regen", "+6 / s" }, { "Cooldown", "30 s" } } },
         -- Skeleton -------------------------------------------------------------------------
         { id = "impact_frame", name = "Kinetic Impact Frame", section = "skeleton", family = "slam",

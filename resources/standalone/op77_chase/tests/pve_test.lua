@@ -376,6 +376,8 @@ assert(not touched3, "a gone player and a reused id are left alone")
 
 -- ---------------------------------------------------------------- the police probe
 
+-- the default is "void" (owner, 2026-11-03); "warn" is checked first, then "void" below
+ChaseConfig.pve.onPoliceBlocked = "warn"
 match = start(1, "vehicle", "standard")
 H.run(7)
 _G.source = 1

@@ -37,6 +37,9 @@ CreateThread(function()
     if not ok then print("[lightrp] Mantis Blades key mapping failed: " .. tostring(effective)) end
     ok, effective = RegisterKeyMapping(BERSERK.id, BERSERK.name, BERSERK.key, function()
         if not kit.berserk or busy() then return end
+        -- X is also "stop animation": while an emote plays, X only stops the emote
+        local anim = LightRpAnimations
+        if anim and type(anim.playing) == "function" and anim.playing() then return end
         action({ type = "cyberware.berserk" })
     end)
     if not ok then print("[lightrp] Berserk key mapping failed: " .. tostring(effective)) end
