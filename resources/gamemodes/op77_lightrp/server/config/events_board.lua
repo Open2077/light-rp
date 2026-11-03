@@ -47,6 +47,11 @@ LightRpEventsBoard = {
     records = { boards = { "pvp.wins", "pve.wins", "missions.completed" }, size = 3 },
 
     tv = {
+        -- false: no TV at all (the page and its data are still served). Off on Light RP
+        -- Testing (user, 2026-11-03: "enlève la télé au spawn"): its url is loopback-only
+        -- there, so the screen stood blank in the spawn square. Staff can still turn it
+        -- on or off live with /lightrp.board show | hide (kept in kvp, over this).
+        enabled = false,
         -- One of `screens` below, at this scale (the picture: 1.16 x 0.66 m x scale).
         screen = "tv.16x9",
         scale = 3.0,

@@ -12,7 +12,7 @@ dofile("server/config/halloffame.lua")
 local C = LightRpHallOfFame
 -- The live config: the owner's survey (2026-11-03), the Arasaka sculpture at scale 3.
 assert(C.board.model == "decor.sculpture.arasaka" and C.board.scale == 4.5 and C.board.heading == 232.6
-    and math.abs(C.board.position.x - (-774.802)) < 1e-3 and math.abs(C.board.position.y - 784.568) < 1e-3, "the surveyed board")
+    and math.abs(C.board.position.x - (-773.499)) < 1e-3 and math.abs(C.board.position.y - 799.148) < 1e-3, "the surveyed board")
 do local found for _, row in ipairs(C.board.models) do if row.model == C.board.model then found = row end end
     assert(found and found.collision ~= false and found.height and found.width and found.depth,
         "the default is a listed candidate with a collider, a height and a footprint") end

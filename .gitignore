@@ -50,6 +50,8 @@
 !resources/assets/maps/cardealer/**
 !resources/assets/maps/casino/
 !resources/assets/maps/casino/**
+!resources/assets/maps/place_casino/
+!resources/assets/maps/place_casino/**
 # LightRP's own standalone resources: the Neural-Link phone, the icon catalogue
 # and the roleplay action bubbles.
 !resources/standalone/
@@ -59,6 +61,8 @@
 !resources/standalone/open77_icons/**
 !resources/standalone/op77_actionbubble/
 !resources/standalone/op77_actionbubble/**
+!resources/standalone/op77_playermarks/
+!resources/standalone/op77_playermarks/**
 # LightRP edition of open77_scenes (ripperdoc chairs on the LightRP E prompt).
 !resources/standalone/op77_scenes/
 !resources/standalone/op77_scenes/**

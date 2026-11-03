@@ -1,0 +1,48 @@
+/* Player marks: a yellow dot over each player's head. While the player talks,
+   radio waves ring out of it (three staggered rings, faster and wider with the
+   voice level, --lvl 0..1) and the dot swells and glows. app.js only writes the
+   transform, --s (distance scale), --fade and --lvl. */
+:root { --mark: #fcee0a; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+#marks { position: fixed; inset: 0; pointer-events: none; }
+
+.pm {
+  --s: 1; --fade: 1; --lvl: 0;
+  position: absolute; left: 0; top: 0; width: 0; height: 0;
+  opacity: 0; transition: opacity 160ms linear;
+  will-change: transform;
+}
+.pm.is-shown { opacity: var(--fade); }
+.pm__rig { position: absolute; left: 0; top: 0; transform: scale(var(--s)); }
+
+/* the dot: a solid core, a dark edge to read on bright signs, a soft glow */
+.pm__dot {
+  position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--mark);
+  box-shadow: 0 0 0 1.5px rgba(10, 10, 12, 0.75), 0 0 8px 1px rgba(252, 238, 10, 0.45);
+  transition: box-shadow 160ms ease-out, transform 160ms ease-out;
+}
+.pm.is-talking .pm__dot {
+  transform: scale(calc(1.08 + var(--lvl) * 0.25));
+  box-shadow: 0 0 0 1.5px rgba(10, 10, 12, 0.75), 0 0 calc(10px + var(--lvl) * 14px) 3px rgba(252, 238, 10, 0.7);
+}
+
+/* the radio waves: rings that grow and fade out of the dot (a thin dark halo
+   under the yellow keeps them readable on bright signs and the sky) */
+.pm__wave {
+  position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%;
+  border: 2.5px solid var(--mark); box-sizing: border-box;
+  box-shadow: 0 0 0 1px rgba(10, 10, 12, 0.35), 0 0 6px rgba(252, 238, 10, 0.35);
+  opacity: 0; transform: scale(1);
+}
+.pm.is-talking .pm__wave {
+  animation: pm-wave calc(1.4s - var(--lvl) * 0.5s) cubic-bezier(0.25, 0.5, 0.4, 1) infinite;
+}
+.pm.is-talking .pm__wave:nth-child(2) { animation-delay: calc((1.4s - var(--lvl) * 0.5s) / -3); }
+.pm.is-talking .pm__wave:nth-child(3) { animation-delay: calc((1.4s - var(--lvl) * 0.5s) / -1.5); }
+@keyframes pm-wave {
+  0%   { opacity: 1;    transform: scale(1); }
+  55%  { opacity: 0.75; }
+  100% { opacity: 0;    transform: scale(calc(3.4 + var(--lvl) * 1.8)); }
+}
+

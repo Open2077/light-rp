@@ -10,6 +10,10 @@ dofile("shared/config.lua")
 dofile("server/config/activities.lua")
 dofile("server/config/events_board.lua")
 local E, C, H = LightRpEvents, LightRpEventsBoard, LightRpActivities.hub
+-- Light RP ships the TV off (tv.enabled = false); everything below the hide/show
+-- section exercises it on.
+assert(C.tv.enabled == false, "the TV ships off")
+C.tv.enabled = true
 local SEP = " \u{B7} "
 
 -- the live config: a 16:9 set at x3, the URL from the listener, the route /board
@@ -510,6 +514,35 @@ EB = reload()
 local okNoKvp, noKvpLine = commands["lightrp.board"].fn(3, { "place" })
 assert(okNoKvp and noKvpLine:find("this session only, not saved: kvp_unavailable", 1, true))
 assert(EB.placement() and select(3, EB.placement()) == "offset from The Crossing", "nothing saved: the config next time")
+-- hide / show: the staff's choice in kvp, over tv.enabled; hidden, nothing respawns it
+freshOpen77()
+EB = reload()
+run(threads[1], 0)
+local shownProp = EB.tv.prop
+assert(shownProp, "a TV to hide")
+local okHide, hideLine = commands["lightrp.board"].fn(3, { "hide" })
+assert(okHide and hideLine:find("kept until /lightrp.board show", 1, true) and kv[EB.KVP_HIDDEN] == "1")
+assert(EB.tv.prop == nil and EB.hidden() and clientEvents[#clientEvents].payload.prop == false, "removed, the clients told")
+assert(EB.watch() == false and EB.tv.prop == nil, "the respawn check leaves it gone")
+local okPlaceHidden = commands["lightrp.board"].fn(3, { "place" })
+assert(okPlaceHidden and EB.tv.prop == nil, "placed while hidden: the spot is kept, no TV")
+EB = reload()
+local okHiddenStart, hiddenWhy = run(threads[1], 0)
+assert(EB.tv.prop == nil and EB.hidden(), "a restart keeps it hidden: " .. tostring(hiddenWhy))
+local okShow, showLine = commands["lightrp.board"].fn(3, { "show" })
+assert(okShow and kv[EB.KVP_HIDDEN] == "0" and EB.tv.prop and showLine:find("TV back", 1, true), tostring(showLine))
+-- tv.enabled = false (the shipped config) and no staff choice: no TV, the page still served
+freshOpen77()
+kv[EB.KVP_HIDDEN] = nil
+C.tv.enabled = false
+EB = reload()
+local okOff, offWhy = run(threads[1], 0)
+assert(EB.tv.prop == nil and EB.hidden() and EB.http.route and EB.info().prop == false, "off by config: " .. tostring(offWhy))
+local okShowOff = commands["lightrp.board"].fn(3, { "show" })
+assert(okShowOff and EB.tv.prop, "show overrides the config")
+kv[EB.KVP_HIDDEN] = nil
+C.tv.enabled = true
+
 -- disabled: no module at all (the guide's question hides)
 freshOpen77()
 LightRP.eventsBoard = nil
