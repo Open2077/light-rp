@@ -2,6 +2,7 @@
 -- No live game, money, NPC or database is touched.
 dofile("shared/config.lua")
 dofile("shared/items.lua")
+dofile("shared/medical.lua")
 dofile("shared/events.lua")
 local noop = function() end
 local threads, actions, events, messages, points, encoded = {}, {}, {}, {}, {}, {}
@@ -67,7 +68,7 @@ assert(npcDefinition.position.x == -667.559082 and npcDefinition.position.z == 9
 assert(points["shop.citycenter_food"] and points["shop.second_food"])
 assert(points["shop.citycenter_food"].blip.icon=="shopping-basket" and points["shop.second_food"].blip.icon=="shopping-basket")
 assert(Shops.open(1, "citycenter_food"))
-assert(lastDialog.kind == "shop" and #lastDialog.items == 15 and lastDialog.inventory.maxWeight > 0)
+assert(lastDialog.kind == "shop" and #lastDialog.items == 16 and lastDialog.inventory.maxWeight > 0)
 local session, request, revision = lastDialog.session, 1, lastDialog.revision
 local function checkout(extra)
     local p = { session = session, request = request, revision = revision, mode = "buy", pay = "cash", lines = { { name = "water", count = 2 } } }
@@ -79,14 +80,25 @@ local function checkout(extra)
 end
 local inv, wallet = Inv.player(1), Money.get(1)
 local waterBefore = Inv.count(inv.id, "water")
+local waterPrice = LightRpShops.templates.street_food.items[1].buy -- items[1] is water
+assert(LightRpShops.templates.street_food.items[1].name == "water")
 local ok, reason, reply, sent = checkout({ price = 0, total = -900, target = 2 })
-assert(ok and wallet.cash == 1984 and Inv.count(inv.id, "water") == waterBefore + 2, "server prices, source wallet, delivery")
-assert(wallet.history[1].kind == "shop_buy" and lastQueries[#lastQueries].values[4] == -16)
+assert(ok and wallet.cash == 2000 - 2 * waterPrice and Inv.count(inv.id, "water") == waterBefore + 2, "server prices, source wallet, delivery")
+assert(wallet.history[1].kind == "shop_buy" and lastQueries[#lastQueries].values[4] == -2 * waterPrice)
 local committed = transactions
 assert(Shops.checkout(1, sent))
-assert(transactions == committed and wallet.cash == 1984, "replayed request never charges twice")
+assert(transactions == committed and wallet.cash == 2000 - 2 * waterPrice, "replayed request never charges twice")
 ok = checkout({ mode = "sell", pay = "bank", lines = { { name = "water", count = 2 } } })
 assert(ok and wallet.bank == 5004 and Inv.count(inv.id, "water") == waterBefore)
+-- The trauma kit (ally revive, shared/medical.lua) is sold under the 300 hospital bill, never bought back.
+local kit = LightRpShops.templates.street_food.items[#LightRpShops.templates.street_food.items]
+assert(kit.name == "trauma_kit" and kit.buy == 250 and kit.sell == nil and LightRpItems.trauma_kit and LightRpMedicalConfig.kit == "trauma_kit")
+assert(lastDialog.items[#lastDialog.items].name == "trauma_kit" and lastDialog.items[#lastDialog.items].buy == 250)
+ok = checkout({ pay = "bank", lines = { { name = "trauma_kit", count = 1 } } })
+assert(ok and wallet.bank == 5004 - 250 and Inv.count(inv.id, "trauma_kit") == 1, "a kit costs 250 from the bank")
+ok = checkout({ mode = "sell", pay = "bank", lines = { { name = "trauma_kit", count = 1 } } })
+assert(not ok and Inv.count(inv.id, "trauma_kit") == 1, "kits are not bought back")
+wallet.bank = 5004 -- keep the arithmetic below unchanged
 
 local cashBefore, inventoryBefore = wallet.cash, inv.items
 failDb = true

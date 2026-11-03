@@ -1,7 +1,8 @@
 -- Jobs and gangs on a character: one job + grade, one gang + grade, persisted
 -- on lightrp_characters (job, job_grade, gang, gang_grade) and replicated in the
 -- player's state bag (`job`, `gang`) for other resources. Paychecks land in the
--- bank every jobs.paycheckMinutes for grades that carry a salary.
+-- bank every jobs.paycheckMinutes for grades that carry a salary, to players who
+-- really worked lately (LightRP.workActivity, LightRpEconomy.paychecks).
 --
 --   LightRP.jobs.get(playerId)  -> { name, label, tag, grade, gradeLabel, salary }
 --   LightRP.jobs.gang(playerId) -> { name, label, tag, color, grade, gradeLabel }
@@ -136,18 +137,34 @@ function Jobs.onCharacterLoaded(playerId, c)
 end
 function Jobs.onCharacterActivated(playerId, c) Jobs.onCharacterLoaded(playerId, c) end
 
+-- One payday: the salary of every salaried player who really worked lately
+-- (server/modules/work_activity.lua; idle players are told once why not).
+function Jobs.payday()
+    local paid = 0
+    local W = LightRP.workActivity
+    for _, playerId in ipairs(GetPlayers()) do
+        local job = Jobs.get(playerId)
+        if job.salary > 0 and LightRP.money and LightRP.money.get(playerId) then
+            local eligible, why = true, nil
+            if W then eligible, why = W.eligible(playerId) end
+            if not eligible then
+                W.skipped(playerId, job, why)
+            elseif LightRP.money.addBank(playerId, job.salary, "salary", job.label .. " · " .. job.gradeLabel, job.label) then
+                paid = paid + 1
+                if W then W.paid(playerId) end
+                LightRP.notice(playerId, { kind = "money", title = "Paycheck", body = string.format("%s from %s.", LightRP.money.format(job.salary), job.label), durationMs = 8000 })
+            end
+        end
+    end
+    return paid
+end
+
 CreateThread(function()
     local minutes = tonumber(Config.paycheckMinutes) or 30
     if minutes <= 0 then return end
     while true do
         Wait(minutes * 60000)
-        for _, playerId in ipairs(GetPlayers()) do
-            local job = Jobs.get(playerId)
-            if job.salary > 0 and LightRP.money and LightRP.money.get(playerId) then
-                local ok = LightRP.money.addBank(playerId, job.salary, "salary", job.label .. " · " .. job.gradeLabel, job.label)
-                if ok then LightRP.notice(playerId, { kind = "money", title = "Paycheck", body = string.format("%s from %s.", LightRP.money.format(job.salary), job.label), durationMs = 8000 }) end
-            end
-        end
+        Jobs.payday()
     end
 end)
 

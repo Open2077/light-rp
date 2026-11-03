@@ -100,6 +100,53 @@ local function allBlips()
     return list
 end
 
+-- ---------------------------------------------------------------------------
+-- Nearby player dots a resource keeps off the map (a chase hides the runner from the
+-- cops). owner -> true (every player) or { [tostring(playerId)] = true }; the union is
+-- hidden, and an owner's choice goes when it stops.
+
+local hiddenDots = {}
+local shownDots = {}   -- dot id -> player id, as the nearby loop last drew them
+
+local function dotHidden(pid)
+    if pid == nil then return false end
+    local key = tostring(pid)
+    for _, set in pairs(hiddenDots) do
+        if set == true or set[key] then return true end
+    end
+    return false
+end
+
+local function dropHiddenDots()
+    local gone = {}
+    for id, pid in pairs(shownDots) do
+        if dotHidden(pid) then gone[#gone + 1] = id; shownDots[id] = nil end
+    end
+    if #gone > 0 then send("map3d:blips", { remove = gone }) end
+end
+
+-- hidden = true: hide `ids` (server player ids), or every player when ids is nil;
+-- hidden = false: show again what this resource hid. Replaces this resource's choice.
+local function setPlayerDotsHidden(hidden, ids, owner)
+    if hidden ~= true then
+        hiddenDots[owner] = nil
+        return true
+    end
+    if ids == nil then
+        hiddenDots[owner] = true
+    elseif type(ids) == "table" then
+        local set = {}
+        for _, pid in ipairs(ids) do
+            if type(pid) == "number" or type(pid) == "string" then set[tostring(pid)] = true end
+        end
+        hiddenDots[owner] = next(set) and set or nil
+    else
+        return false, "ids must be a list of player ids"
+    end
+    dropHiddenDots()
+    return true
+end
+
 local function addBlip(def, owner)
     local b, why = B.normalize(def)
     if not b then return nil, why end
@@ -138,6 +185,87 @@ local function clearOwner(owner)
     for _, id in ipairs(gone) do blips[id] = nil end
     if #gone > 0 then send("map3d:blips", { remove = gone }) end
     return #gone
+end
+
+-- ---------------------------------------------------------------------------
+-- Areas (shared/area.lua): polygons draped over the map and the minimap. One page event
+-- per area: a 160-point outline is about 680 values, and a page event holds 1024.
+
+local A = Map3DArea
+local areas = {}          -- id -> area (normalized) + owner, seq (drawing order)
+
+local function areaId(id, owner)
+    if type(id) ~= "string" then return nil end
+    if areas[id] or not owner then return id end
+    -- the id the caller gave in its definition, without its namespace
+    local own = owner .. ":" .. id
+    return areas[own] and own or id
+end
+
+-- the map and the minimap draw areas; the holo GPS does not
+local function sendMaps(name, payload) sendTo("mini", name, payload); sendTo("full", name, payload) end
+local function sendArea(id, a) sendMaps("map3d:area", A.page(id, a)) end
+
+local function addArea(def, owner)
+    local a, why = A.normalize(def)
+    if not a then return nil, why end
+    local id
+    if type(def.id) == "string" and def.id ~= "" then
+        if #def.id > 64 then return nil, "id longer than 64 characters" end
+        id = owner .. ":" .. def.id
+    end
+    local old = id and areas[id]
+    if not old then
+        local n = 0
+        for _, other in pairs(areas) do if other.owner == owner then n = n + 1 end end
+        if n >= A.MAX_PER_OWNER then return nil, "too many areas (" .. A.MAX_PER_OWNER .. " per resource)" end
+    end
+    seq = seq + 1
+    id = id or (owner .. "#area" .. seq)
+    a.owner, a.seq = owner, old and old.seq or seq
+    areas[id] = a
+    sendArea(id, a)
+    return id
+end
+
+local function updateArea(id, patch, owner)
+    id = areaId(id, owner)
+    local a = id and areas[id]
+    if not a then return false, "unknown area" end
+    if owner and a.owner ~= owner and owner ~= GetCurrentResourceName() then return false, "not your area" end
+    local na, why = A.patch(a, patch)
+    if not na then return false, why end
+    na.owner, na.seq = a.owner, a.seq
+    areas[id] = na
+    sendArea(id, na)
+    return true
+end
+
+local function removeArea(id, owner)
+    id = areaId(id, owner)
+    local a = id and areas[id]
+    if not a then return false end
+    if owner and a.owner ~= owner and owner ~= GetCurrentResourceName() then return false end
+    areas[id] = nil
+    sendMaps("map3d:areas", { remove = { id } })
+    return true
+end
+
+local function clearAreas(owner)
+    local gone = {}
+    for id, a in pairs(areas) do if a.owner == owner then gone[#gone + 1] = id end end
+    for _, id in ipairs(gone) do areas[id] = nil end
+    if #gone > 0 then sendMaps("map3d:areas", { remove = gone }) end
+    return #gone
+end
+
+-- A page that (re)loads: forget what it had, then every area, oldest first.
+local function replayAreas(page)
+    page:send("map3d:areas", { clear = true })
+    local list = {}
+    for id, a in pairs(areas) do list[#list + 1] = { id = id, a = a } end
+    table.sort(list, function(x, y) return x.a.seq < y.a.seq end)
+    for _, e in ipairs(list) do page:send("map3d:area", A.page(e.id, e.a)) end
 end
 
 -- ---------------------------------------------------------------------------
@@ -435,7 +563,6 @@ end)
 -- Other players around you.
 CreateThread(function()
     local cfg = C.nearbyPlayers or {}
-    local shown = {}
     while true do
         Wait(math.floor((cfg.interval or 1) * 1000))
         if pageReady and cfg.enabled and type(Open77.players.nearby) == "function" then
@@ -443,9 +570,10 @@ CreateThread(function()
             local now = {}
             if ok and type(list) == "table" then
                 for _, p in ipairs(list) do
-                    if not p.isLocal and type(p.position) == "table" then
+                    local pid = p.playerId or p.id
+                    if not p.isLocal and type(p.position) == "table" and not dotHidden(pid) then
                         local id = "player:" .. tostring(p.id or p.playerId)
-                        now[id] = true
+                        now[id] = pid
                         send("map3d:blip", { id = id, x = p.position.x, y = p.position.y, z = p.position.z or 0,
                             icon = "user", label = p.name or ("#" .. tostring(p.id or "?")), category = "player",
                             color = cfg.color, routable = true, scale = 0.85 })
@@ -453,9 +581,9 @@ CreateThread(function()
                 end
             end
             local gone = {}
-            for id in pairs(shown) do if not now[id] then gone[#gone + 1] = id end end
+            for id in pairs(shownDots) do if not now[id] then gone[#gone + 1] = id end end
             if #gone > 0 then send("map3d:blips", { remove = gone }) end
-            shown = now
+            shownDots = now
         end
     end
 end)
@@ -538,6 +666,7 @@ local function createSurface(role)
         for _, patch in ipairs(configPatches) do page:send("map3d:config", patch) end
         page:send("map3d:minimap", { visible = minimapVisible })
         page:send("map3d:blips", { set = allBlips() })
+        if role ~= "holo" then replayAreas(page) end
         if waypoint then page:send("map3d:route", waypoint) end
         if role == "full" and open then page:send("map3d:open", {}) end
         if jamSent.strength > 0 then page:send("map3d:jam", jamSent) end
@@ -686,7 +815,9 @@ AddEventHandler("onClientResourceStop", function(name)
         return
     end
     clearOwner(name)
+    clearAreas(name)
     clearJams(name)
+    hiddenDots[name] = nil
 end)
 
 -- ---------------------------------------------------------------------------
@@ -758,6 +889,14 @@ exports("removeBlip", function(id) return removeBlip(id, caller()) end)
 exports("clearBlips", function() return clearOwner(caller()) end)
 exports("getBlip", function(id) local b = blips[id] or serverBlips[id]; return b and pageBlip(id, b) or nil end)
 
+-- Areas: polygons over the map and the minimap (README, "Areas"). They belong to the
+-- calling resource and go when it stops.
+exports("addArea", function(def) return addArea(def, caller()) end)
+exports("updateArea", function(id, patch) return updateArea(id, patch, caller()) end)
+exports("removeArea", function(id) return removeArea(id, caller()) end)
+exports("clearAreas", function() return clearAreas(caller()) end)
+exports("getArea", function(id) id = areaId(id, caller()); local a = id and areas[id]; return a and A.copy(id, a) or nil end)
+
 -- Jamming: the map and minimap drown in static (strength 1: nothing of them is left).
 exports("jam", function(def) return addJam(def, caller(), false) end)        -- { strength?, label?, id? }
 exports("unjam", function(id) return removeJam(id, caller()) end)
@@ -793,6 +932,10 @@ exports("setInfluenceVisible", function(visible)
     send("map3d:influenceVisible", { visible = influenceShown })
     return true
 end)
+-- Nearby players' dots: true + ids hides those players, true alone hides them all,
+-- false shows again what the calling resource hid (README, "Player dots").
+exports("setPlayerDotsHidden", function(hidden, ids) return setPlayerDotsHidden(hidden, ids, caller()) end)
+exports("arePlayerDotsHidden", function(pid) return dotHidden(pid) end)
 exports("setMinimapVisible", function(visible)
     minimapVisible = visible ~= false
     send("map3d:minimap", { visible = minimapVisible })

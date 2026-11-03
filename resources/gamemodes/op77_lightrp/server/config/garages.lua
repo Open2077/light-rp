@@ -15,10 +15,15 @@ LightRpGarages = {
     -- from the world (destroyed, deleted, lost to a bug), is towed there; an owner
     -- can send theirs from any garage (stolen, lost, stuck) and staff can tow one
     -- (/lightrp.impound <vehicle id>). It is recovered at any public garage for
-    -- the fee of its reason, in whole eddies (0 = free).
+    -- the fee of its reason, in whole eddies (0 = free), docs/economy-balance.md:
+    --   destroyed  a wreck (destroyed / exploded / health 0, whoever did it), at a
+    --              restart, a removal or the owner's own tow: the insurance excess;
+    --              the insurance repairs it
+    --   lost       gone with no sign of a wreck (deleted, cleaned up, lost to a bug)
+    --   restart    intact and left outside at a server restart: free
     impound = {
         name = "City Impound",
-        fees = { restart = 0, lost = 150, requested = 150, staff = 250 },
+        fees = { restart = 0, destroyed = 400, lost = 150, requested = 250, staff = 500 },
     },
     marker = { shape = "cylinder", radius = 1.1, height = 0.65,
         color = { r = 255, g = 204, b = 0, a = 150 }, maxDistance = 45, groundOffset = 0.05 },

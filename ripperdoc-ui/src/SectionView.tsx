@@ -3,14 +3,16 @@ import { SECTION, SECTIONS, RARITY_LABEL, eddies, roman, type Body, type Cyberwa
 import { iconImage, sectionVideo, uiImage } from "./media";
 import { useParallax } from "./Stage";
 import { play } from "./sfx";
-import { familyMate, refusal, type Session } from "./App";
+import type { Session } from "./App";
+import { capacityAfter, familyMate, fitPrice, isDropOnly, isFitted, isStored, points, refusal, repLabel } from "./model";
 
 /* The close-up of one section (A/D cycle): the game's paperdoll zoom on the right, tilted in
    depth with the pointer; installed slots and the clinic's stock on the left; the hovered or
-   selected implant in a card over the scan, with what the surgery costs and needs. Installing
-   is a hold, not a click. */
+   selected implant in a card over the scan, with what the surgery costs and needs (eurodollars,
+   street cred, capacity points). Installing is a hold, not a click. An implant taken out goes to
+   the patient's storage and is fitted again for the fitting fee; an iconic is never sold. */
 
-type Filter = "all" | "available" | "installed";
+type Filter = "all" | "available" | "installed" | "stored";
 
 interface Props {
   body: Body; section: string; session: Session; used: number; leaving: boolean; busy: boolean;
@@ -23,6 +25,8 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
   const index = SECTIONS.findIndex((s) => s.id === section);
   const installed = session.installed[section] ?? [];
   const stock = useMemo(() => session.stock.filter((c) => c.section === section), [session.stock, section]);
+  const storedHere = stock.filter((c) => isStored(session, c.id)).length;
+  const sockets = Math.max(def.slots, installed.length);
   const [filter, setFilter] = useState<Filter>("all");
   const [hoverItem, setHoverItem] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(installed[0] ?? stock[0]?.id ?? null);
@@ -31,7 +35,10 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
 
   useEffect(() => { setError(null); }, [selected]);
 
-  const shown = stock.filter((c) => filter === "all" || (filter === "installed" ? installed.includes(c.id) : refusal(session, c) === null));
+  const shown = stock.filter((c) => filter === "all"
+    || (filter === "installed" ? installed.includes(c.id)
+      : filter === "stored" ? isStored(session, c.id)
+      : refusal(session, c) === null));
   const focusId = hoverItem ?? selected;
   const focus = focusId ? session.items[focusId] : undefined;
 
@@ -46,7 +53,9 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
             <span style={{ left: "16%", top: "22%" }}>[{def.code}]</span>
             <span style={{ left: "70%", top: "30%" }}>SYNC {94 + (index % 5)}.{index}%</span>
             <span style={{ left: "64%", top: "74%" }}>IMPLANTS {String(used).padStart(2, "0")} // ONLINE</span>
-            <span style={{ left: "22%", top: "70%" }}>TISSUE // STABLE</span>
+            <span style={{ left: "22%", top: "70%" }}>
+              {session.capacity ? `CAPACITY ${session.capacity.used}/${session.capacity.total}` : "TISSUE // STABLE"}
+            </span>
           </div>
           <div className="rd-brackets"><i /><i /><i /><i /></div>
         </div>
@@ -64,12 +73,15 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
         <div className="rd-ticks">{SECTIONS.map((s, i) => <i key={s.id} className={i === index ? "on" : ""} />)}</div>
         <p className="rd-blurb">{def.blurb}</p>
 
-        <div className="rd-heading"><span>INSTALLED</span><em>{installed.length}/{def.slots} SLOTS</em></div>
+        <div className="rd-heading">
+          <span>INSTALLED</span><em>{installed.length}/{sockets} SLOTS</em>
+          {storedHere > 0 && <em className="rd-stored-count">{storedHere} IN STORAGE</em>}
+        </div>
         <div className="rd-installed">
-          {Array.from({ length: def.slots + def.locked }, (_, k) => {
+          {Array.from({ length: sockets + def.locked }, (_, k) => {
             const id = installed[k];
             const item = id ? session.items[id] : undefined;
-            const locked = k >= def.slots;
+            const locked = k >= sockets;
             return (
               <button key={k} disabled={locked}
                 className={`rd-socket ${item ? `filled r-${item.rarity}` : locked ? "locked" : "empty"} ${focusId === id && id ? "focus" : ""}`}
@@ -84,7 +96,7 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
         <div className="rd-heading">
           <span>CLINIC STOCK</span><em>{stock.length} IMPLANTS</em>
           <div className="rd-filters">
-            {(["all", "available", "installed"] as Filter[]).map((f) => (
+            {(["all", "available", "installed", "stored"] as Filter[]).map((f) => (
               <button key={f} className={filter === f ? "on" : ""} onPointerEnter={() => play("hover")}
                 onClick={() => { setFilter(f); play("tick_down"); }}>{f.toUpperCase()}</button>
             ))}
@@ -92,22 +104,31 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
         </div>
         <div className="rd-stock">
           {shown.map((item, i) => {
-            const owned = installed.includes(item.id);
-            const why = owned ? null : refusal(session, item);
-            const poor = !owned && item.price > session.wallet;
+            const fitted = installed.includes(item.id);
+            const stored = !fitted && isStored(session, item.id);
+            const drop = !fitted && isDropOnly(session, item);
+            const why = fitted ? null : refusal(session, item);
+            const poor = !fitted && !drop && fitPrice(session, item) > session.wallet;
+            const locked = !fitted && !stored && item.locked === true;
             return (
               <button key={item.id} style={{ ["--i" as string]: i }}
-                className={`rd-card r-${item.rarity} ${selected === item.id ? "selected" : ""} ${owned ? "owned" : ""} ${why ? "blocked" : ""}`}
+                className={`rd-card r-${item.rarity} ${selected === item.id ? "selected" : ""} ${fitted ? "owned" : ""} ${why ? "blocked" : ""} ${locked ? "locked" : ""}`}
                 onPointerEnter={() => { setHoverItem(item.id); play("hover"); }} onPointerLeave={() => setHoverItem(null)}
                 onClick={() => { setSelected(item.id); play("press"); }}>
                 <span className="stripe" />
+                {session.capacity && <span className="pts">{points(item)} PT</span>}
                 <img src={iconImage(item.icon)} alt="" />
                 <span className="name">{item.name}</span>
                 <span className="meta">
                   <span className="tier">{roman(item.tier)}</span>
-                  {owned ? <span className="ok">INSTALLED</span> : <span className={`price ${poor ? "poor" : ""}`}>€$ {eddies(item.price)}</span>}
+                  {fitted ? <span className="ok">INSTALLED</span>
+                    : stored ? <span className={`stored ${poor ? "poor" : ""}`}>STORED</span>
+                    : drop ? <span className="drop">ICONIC</span>
+                    : <span className={`price ${poor ? "poor" : ""}`}>€$ {eddies(item.price)}</span>}
                 </span>
-                {why && <span className="req">REQ</span>}
+                {drop ? <span className="req drop">DROP</span>
+                  : locked ? <span className="req lock">REP {roman(item.repTier ?? 0)}</span>
+                  : why && <span className="req">REQ</span>}
               </button>
             );
           })}
@@ -120,7 +141,7 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
       </div>
 
       {focus && (
-        <DetailCard key={focus.id} item={focus} session={session} owned={installed.includes(focus.id)} busy={busy} error={error}
+        <DetailCard key={focus.id} item={focus} session={session} busy={busy} error={error}
           onAct={(mode) => {
             const why = onProcedure(focus, mode);
             setError(why);
@@ -132,23 +153,37 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
 }
 
 interface CardProps {
-  item: Cyberware; session: Session; owned: boolean; busy: boolean; error: string | null;
+  item: Cyberware; session: Session; busy: boolean; error: string | null;
   onAct(mode: "install" | "remove"): void;
 }
 
-function DetailCard({ item, session, owned, busy, error, onAct }: CardProps) {
-  const mate = owned ? undefined : familyMate(session, item);
-  const why = owned ? null : refusal(session, item);
+function DetailCard({ item, session, busy, error, onAct }: CardProps) {
+  const fitted = isFitted(session, item.id);
+  const stored = !fitted && isStored(session, item.id);
+  const drop = !fitted && isDropOnly(session, item);
+  const mate = fitted ? undefined : familyMate(session, item);
+  const why = refusal(session, item, fitted ? "remove" : "install");
+  const price = fitPrice(session, item);
+  const cap = session.capacity;
+  const after = cap && !fitted ? capacityAfter(session, item) : 0;
+  const room = cap ? after <= cap.total || (mate !== undefined && after <= cap.used) : true;
+  const head = fitted ? "INSTALLED" : stored ? "IN YOUR STORAGE" : drop ? "ICONIC // NOT FOR SALE" : "IN STOCK";
+  const label = fitted ? `HOLD TO TAKE OUT · €$ ${eddies(session.fittingFee)}`
+    : drop ? "NOT FOR SALE"
+    : item.locked && !stored ? `LOCKED · REP ${roman(item.repTier ?? 0)}`
+    : why ? "UNAVAILABLE"
+    : stored ? `${mate ? "HOLD TO SWAP" : "HOLD TO FIT"} · €$ ${eddies(price)}`
+    : mate ? "HOLD TO REPLACE" : "HOLD TO INSTALL";
   return (
     <div className={`rd-detail r-${item.rarity}`}>
       <div className="rd-detail-head">
-        <span>{owned ? "INSTALLED" : "IN STOCK"}</span>
+        <span>{head}</span>
         <em>{item.maker.toUpperCase()}</em>
       </div>
       <div className="rd-detail-title">
         <div>
           <h2>{item.name}</h2>
-          <div className="rarity">{RARITY_LABEL[item.rarity]} <b>TIER {roman(item.tier)}</b></div>
+          <div className="rarity">{RARITY_LABEL[item.rarity] ?? item.rarity} <b>TIER {roman(item.tier)}</b>{cap && <b>{points(item)} PT</b>}</div>
         </div>
         <div className="rd-detail-icon"><img src={iconImage(item.icon)} alt="" /></div>
       </div>
@@ -157,17 +192,26 @@ function DetailCard({ item, session, owned, busy, error, onAct }: CardProps) {
         {item.stats.map((s) => <li key={s.label}><span>{s.label}</span><b>{s.value}</b></li>)}
       </ul>
       <p className="lore">{item.lore}</p>
-      {!owned && (
+      {drop && <div className="rd-source">DROPS FROM <b>{(item.source ?? "bosses and raids").toUpperCase()}</b></div>}
+      {!fitted && !drop && (
         <ul className="rd-needs">
-          <li className={item.price <= session.wallet ? "ok" : "bad"}><span>Price</span><b>€$ {eddies(item.price)} <i>/ €$ {eddies(session.wallet)}</i></b></li>
+          {!stored && item.repTier !== undefined && item.repTier > 1 && (
+            <li className={item.locked ? "bad" : "ok"}><span>Street cred</span>
+              <b>REP {repLabel(item).toUpperCase()} <i>/ {session.reputation ? roman(session.reputation.tier) : "—"}</i></b></li>
+          )}
+          {cap && (
+            <li className={room ? "ok" : "bad"}><span>Capacity</span>
+              <b>{after} <i>/ {cap.total} PT</i></b></li>
+          )}
+          <li className={price <= session.wallet ? "ok" : "bad"}><span>{stored ? "Fitting fee" : "Price"}</span>
+            <b>€$ {eddies(price)} <i>/ €$ {eddies(session.wallet)}</i></b></li>
         </ul>
       )}
-      {mate && <div className="replace">REPLACES <b>{mate.name}</b></div>}
-      {owned && <div className="rd-detail-foot"><span>INSTALLED</span><span>REMOVAL €$ {eddies(session.removalFee)}</span></div>}
-      {(error ?? why) && <div className="rd-detail-error">{error ?? why}</div>}
-      <HoldButton disabled={busy || (!owned && why !== null)} danger={owned}
-        label={owned ? "HOLD TO REMOVE" : why ? "UNAVAILABLE" : mate ? "HOLD TO REPLACE" : "HOLD TO INSTALL"}
-        onDone={() => onAct(owned ? "remove" : "install")} />
+      {mate && !drop && <div className="replace">REPLACES <b>{mate.name}</b> · IT GOES TO YOUR STORAGE</div>}
+      {fitted && <div className="rd-detail-foot"><span>INSTALLED</span><span>TAKE OUT → STORAGE · €$ {eddies(session.fittingFee)}</span></div>}
+      {(error ?? why) && !drop && <div className="rd-detail-error">{error ?? why}</div>}
+      <HoldButton disabled={busy || drop || why !== null} danger={fitted} label={label}
+        onDone={() => onAct(fitted ? "remove" : "install")} />
     </div>
   );
 }

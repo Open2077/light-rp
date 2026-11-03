@@ -178,17 +178,28 @@ local function ledger(w, wallet, kind, delta, balance, counterparty, note)
 end
 
 -- Inventory transfers keep the HUD/ledger in step, without mirroring cash to SQL.
-function Money.inventoryReceipt(inv, after)
+-- `label` (optional, from inventory.lua): { kind, note, counterparty, direction =
+-- "in"|"out", skip = inventory id } names a movement a module started (a Dogtown
+-- loot). It applies only in its direction and never to the `skip` inventory; the
+-- line and the onMoneyChanged hook then carry its kind.
+function Money.inventoryReceipt(inv, after, label)
     if inv.kind ~= "player" or after == Inv.cashOf(inv) then return end
     local id, w = inv.playerId, wallets[inv.playerId]
     if not w or inv.cashReady ~= true or inv.id ~= "player:" .. w.identifier .. "#" .. w.key then return nil, nil, "no_wallet" end
     if w.busy then return nil, nil, "busy" end
     local delta = after - Inv.cashOf(inv)
-    local write, receipt = ledger(w, "cash", "inventory", delta, after, nil, "Physical cash moved")
+    local kind, note, counterparty = "inventory", "Physical cash moved", nil
+    if type(label) == "table" and type(label.kind) == "string" and label.kind ~= "" and label.skip ~= inv.id
+        and ((label.direction == "in" and delta > 0) or (label.direction == "out" and delta < 0)) then
+        kind = label.kind:sub(1, 24)
+        note = type(label.note) == "string" and label.note:sub(1, 160) or note
+        counterparty = type(label.counterparty) == "string" and label.counterparty:sub(1, 96) or nil
+    end
+    local write, receipt = ledger(w, "cash", kind, delta, after, counterparty, note)
     return write, function()
         w.cash = after
         receipt()
-        if wallets[id] == w then pcall(changed, id, w, "cash", delta, "inventory") end
+        if wallets[id] == w then pcall(changed, id, w, "cash", delta, kind) end
     end
 end
 
@@ -515,6 +526,7 @@ function Money.transfer(playerId, number, amount, note)
         return false, reason
     end
     changed(playerId, w, "bank", -(n + fee), "transfer_out")
+    if target.playerId then LightRP.eachModule("onMoneySent", playerId, target.playerId, n, "transfer") end
     if target.playerId then
         LightRP.notice(target.playerId, { kind = "money", title = "Transfer received", durationMs = 10000,
             body = string.format("%s from %s%s", Money.format(n), from, note and (" — " .. note) or "") })
@@ -544,6 +556,7 @@ function Money.pay(playerId, targetId, amount)
     local ok, failure = Inv.transferCash(playerId, targetId, n)
     if not ok then return false, failure end
     LightRP.notice(targetId, { kind = "money", title = "Cash received", body = string.format("%s from %s", Money.format(n), w.ownerName), durationMs = 8000 })
+    LightRP.eachModule("onMoneySent", playerId, targetId, n, "cash")
     return true, tw
 end
 

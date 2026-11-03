@@ -288,6 +288,8 @@ function Tutorial.bind(page)
         if value.operation=="gps" then if blip then LightRpInteract.trackBlip(blip) end; return end
         if value.operation=="way" then wantReveal(true); return end
         if value.operation=="options" then LightRpUi.send(E.page.tutorial,{options=true}); return end
+        -- F1 > Skip the tutorial: the page asks for confirmation before the server is told.
+        if value.operation=="skip-ask" then LightRpUi.send(E.page.tutorial,{skipAsk=true}); return end
         if value.operation=="intro" then
             if state and state.active and state.step=="intro" then finishIntro() end
             return

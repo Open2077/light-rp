@@ -1,0 +1,85 @@
+/* Talking to Johnny (TalkView.tsx): the game's own conversation layout. No panel
+   over the world: his line as a subtitle at the bottom, the choices just above it,
+   right of centre, so Johnny himself stays in view. Design system tokens only. */
+.talk {
+  position: absolute; inset: 0; z-index: 46; outline: none;
+  color: var(--text-body); font: var(--type-body);
+}
+.talk[hidden] { display: none !important; }
+.talk * { box-sizing: border-box; }
+.talk button { font: inherit; color: inherit; cursor: pointer; }
+.talk :focus-visible { outline: var(--stroke-bold) solid var(--accent); outline-offset: 2px; }
+/* a soft shade under the text only: the top two thirds of the screen stay untouched */
+.talk::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 46vh; pointer-events: none;
+  background: linear-gradient(to top, rgba(4, 4, 6, .74) 0%, rgba(4, 4, 6, .38) 45%, rgba(4, 4, 6, 0) 100%); }
+
+.talk__stage { position: absolute; left: 50%; bottom: 5vh; transform: translateX(-50%); width: min(1000px, 92vw);
+  display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-5); }
+
+/* the choices */
+.talk__choices { display: flex; flex-direction: column; gap: 2px; width: min(390px, 100%); max-height: 46vh; overflow: auto;
+  animation: talk-in .18s var(--ease-out) both; }
+.talk-choice { display: grid; grid-template-columns: 16px 1fr auto auto; align-items: center; gap: var(--sp-4);
+  min-height: 34px; padding: var(--sp-3) var(--sp-5); text-align: left; border: 0;
+  background: var(--surface-hud); border-left: var(--stroke-bold) solid transparent; color: var(--text-hi) !important;
+  font-size: var(--fs-body); line-height: var(--lh-snug); transition: var(--t-hover); }
+.talk-choice__num { font: var(--fs-micro) var(--font-mono); color: var(--text-disabled); }
+.talk-choice__label { min-width: 0; }
+.talk-choice__icon { color: var(--accent); opacity: .8; }
+.talk-choice__key { margin-left: var(--sp-1); }
+.talk-choice.is-seen { color: var(--text-dim) !important; }
+.talk-choice.is-back, .talk-choice.is-bye { color: var(--text-dim) !important; font-size: var(--fs-label); }
+.talk-choice.is-back .talk-choice__icon, .talk-choice.is-bye .talk-choice__icon { color: var(--text-dim); }
+.talk-choice.is-more { color: var(--accent) !important; }
+.talk-choice.is-selected { background: var(--accent); border-left-color: var(--o77-black); color: var(--text-on-accent) !important; box-shadow: var(--glow-accent, none); }
+.talk-choice.is-selected .talk-choice__num, .talk-choice.is-selected .talk-choice__icon { color: var(--text-on-accent); opacity: 1; }
+
+/* the subtitle */
+.talk__sub { align-self: center; width: min(780px, 100%); padding: var(--sp-5) var(--sp-7) var(--sp-6);
+  background: var(--surface-hud); backdrop-filter: var(--blur-hud); border-top: var(--stroke-hair) solid var(--line-soft);
+  clip-path: var(--clip-chamfer); }
+.talk__who { display: flex; align-items: center; gap: var(--sp-5); min-height: 18px; }
+.talk__who strong { font: var(--fw-semibold) var(--fs-label) var(--font-mono); letter-spacing: var(--ls-label); text-transform: uppercase;
+  color: var(--accent); text-shadow: var(--glow-text, none); }
+.talk__tag { padding: 0 var(--sp-3); border: var(--stroke-hair) solid var(--line-soft); font: var(--fs-micro) var(--font-mono);
+  letter-spacing: var(--ls-tag, var(--ls-label)); text-transform: uppercase; color: var(--text-dim); }
+.talk__pips { display: flex; gap: 3px; margin-left: auto; }
+.talk__pips i { width: 14px; height: 3px; background: var(--line-neutral); }
+.talk__pips i.is-read { background: var(--accent-press); }
+.talk__pips i.is-on { background: var(--accent); }
+.talk__lines { margin-top: var(--sp-3); color: var(--text-hi); font-size: var(--fs-body-lg); line-height: 1.42; text-shadow: 0 1px 2px var(--o77-black);
+  animation: talk-line .22s ease-out both; }
+.talk__lines p { margin: var(--sp-2) 0 0; }
+.talk__lines p:first-child { margin-top: 0; }
+.talk__lines ul, .talk__lines ol { margin: var(--sp-2) 0 0; padding-left: var(--sp-8); font-size: var(--fs-body); }
+.talk__lines li + li { margin-top: var(--sp-1); }
+.talk__lines li::marker { color: var(--accent); }
+.talk__tip { display: flex; align-items: baseline; gap: var(--sp-3); color: var(--text-dim); font-size: var(--fs-label); }
+.talk__tip svg { flex: none; color: var(--accent); transform: translateY(2px); }
+.talk__feedback { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-4) 0 0;
+  font: var(--fs-tag) var(--font-mono); letter-spacing: .04em; color: var(--accent); }
+.talk__feedback.is-error { color: var(--text-danger); }
+.talk .guide-code { padding: 0 var(--sp-2); background: var(--surface-raised); font: .9em var(--font-mono); color: var(--accent); }
+.talk .guide-key { vertical-align: 1px; }
+
+/* the keys, under the subtitle (kept in place while he says goodbye: nothing moves) */
+.talk__keys { align-self: center; display: flex; gap: var(--sp-6); margin-top: calc(var(--sp-3) * -1);
+  font: var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); }
+.talk__keys span { display: flex; align-items: center; gap: var(--sp-3); }
+.talk__keys.is-hidden { visibility: hidden; }
+
+.talk.is-leaving .talk__sub { animation: talk-out .35s ease-in 1.45s both; }
+
+@keyframes talk-in { from { opacity: 0; transform: translateX(8px); } }
+@keyframes talk-line { from { opacity: 0; transform: translateY(3px); } }
+@keyframes talk-out { to { opacity: 0; } }
+
+@media (max-width: 760px) {
+  .talk__stage { left: var(--sp-6); right: var(--sp-6); width: auto; transform: none; align-items: stretch; }
+  .talk__choices { width: 100%; max-height: 40vh; }
+  .talk__sub { width: 100%; }
+  .talk__keys { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .talk__choices, .talk__lines, .talk.is-leaving .talk__sub { animation: none; }
+}

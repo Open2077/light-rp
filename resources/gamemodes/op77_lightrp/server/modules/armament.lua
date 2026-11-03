@@ -74,7 +74,18 @@ W.arsenal = arsenal
 function W.standsAside(player)
     return (LightRP.missions and LightRP.missions.handlesLoadout and LightRP.missions.handlesLoadout(player))
         or (LightRP.cyberware and LightRP.cyberware.handlesLoadout and LightRP.cyberware.handlesLoadout(player))
+        -- an activity without caps.rpWeapons hands out its own (server/modules/activities.lua)
+        or (LightRP.activities and not LightRP.activities.allows(player, "rpWeapons"))
         or false
+end
+-- During a mission that hands out a kit, the wheel lists the kit's two weapons
+-- (instanceId "kit:<slot>"), drawn back by Missions.drawKit.
+local function kitArsenal(player)
+    local kit=LightRP.missions and LightRP.missions.kitOf and LightRP.missions.kitOf(player)
+    if not kit then return nil end
+    local names=type(kit.names)=="table" and kit.names or {}
+    return {{slot=1,instanceId="kit:1",name="kit",label=names[1] or tostring(kit.primary),class="kit",kit=true},
+        {slot=2,instanceId="kit:2",name="kit",label=names[2] or tostring(kit.secondary),class="kit",kit=true}}
 end
 function W.view(player)
     local rt=W.runtime[player];local inv=Inv.player(player)
@@ -83,7 +94,7 @@ function W.view(player)
     local stock={};for kind,spec in pairs(C.ammo) do stock[kind]={remaining=rounds(inv,kind),label=spec.label,item=spec.item} end
     return {inventoryId=inv.id,generation=rt.epoch,ready=Db.ready and rt.ready==true,busy=rt.busy==true and not rt.observing,revision=s and s.revision or 0,
         right=handState(rt,s,"right"),left=handState(rt,s,"left"),
-        ammo=stock,error=rt.error,holstered=rt.holstered==true,arsenal=arsenal(inv,s),standAside=W.standsAside(player)==true}
+        ammo=stock,error=rt.error,holstered=rt.holstered==true,arsenal=kitArsenal(player) or arsenal(inv,s),standAside=W.standsAside(player)==true}
 end
 function W.push(player)
     local rt=W.runtime[player]
@@ -585,6 +596,10 @@ RegisterNetEvent(NET,function(p)
     elseif operation=="sync" then ok,error=W.synchronize(player)
     elseif operation=="holster" then
         ok,error=W.holster(player)
+    elseif operation=="select" and type(p.instanceId)=="string" and p.instanceId:match("^kit:[12]$") then
+        -- a mission kit weapon from the wheel
+        if not (LightRP.missions and LightRP.missions.drawKit) then ok,error=false,"No mission kit."
+        else ok,error=LightRP.missions.drawKit(player,tonumber(p.instanceId:sub(5))) end
     elseif operation=="equip" or operation=="unequip" or operation=="ammo" or operation=="select" then
         ok,error=beginMutation(player,p,function(accepted,why)
             if not current(rt) then return end

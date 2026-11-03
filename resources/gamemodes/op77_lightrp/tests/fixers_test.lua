@@ -48,7 +48,7 @@ _G.Open77 = { players = {
 _G.LightRpEvents = { net = { mission = "op77_lightrp:mission" } }
 
 -- op77_neuralink: lines by number, rich messages kept with their meta
-local lines, messages, msgSeq = {}, {}, 0
+local lines, messages, msgSeq, toasts = {}, {}, 0, {}
 local function numberOfPlayer(id) return string.format("555-%04d", id) end
 local neuralink = {
     npcLine = function(_, key, number, name) lines[number] = { npc = key, name = name }; return number end,
@@ -65,6 +65,7 @@ local neuralink = {
         messages[msgSeq] = { id = msgSeq, from = from, to = to, body = body, meta = meta }
         return msgSeq, 100 + to
     end,
+    notify = function(_, id, title, body) toasts[#toasts + 1] = { id = id, title = title, body = body }; return true end,
     updateMessage = function(_, id, patch) local m = messages[id]; if not m then return false end; m.meta = m.meta or {}; for k, v in pairs(patch) do m.meta[k] = v end; return true end,
 }
 _G.exports = setmetatable({}, { __index = function(_, res) if res == "op77_neuralink" then return neuralink end end })
@@ -121,6 +122,8 @@ assert(not D.validate(base), "brief limited to 240")
 base.fixer = { enabled = "yes" }
 assert(not D.validate(base), "enabled is a boolean")
 
+dofile("server/config/economy.lua")
+dofile("server/modules/mission_pay.lua")
 dofile("server/config/missions.lua")
 dofile("server/modules/missions.lua")
 dofile("server/config/fixers.lua")
@@ -155,6 +158,7 @@ local ok, gig = Fixers.offer(1, "gig_burn", "standard")
 assert(ok, tostring(gig))
 local offer = lastTo(1)
 assert(offer.from == "555-0619" and lines["555-0619"].name:find("Nix"), "the mission's fixer (Nix) texts from its own line")
+assert(offer.meta.card.lines[1]:find("up to $" .. fp.difficulties[1].payout, 1, true), "the card quotes the most one operator can earn")
 assert(offer.body:find("Burn Notice") and offer.meta.card and offer.meta.actions[1].id == "accept" and offer.meta.actions[2].id == "decline")
 assert(not select(1, Fixers.offer(1)), "one gig at a time")
 press(1, offer, "accept")
@@ -190,9 +194,15 @@ for _, a in ipairs(brief2.meta.actions) do ids2[a.id] = true end
 assert(not ids2.go and ids2.bail and ids2.share, "only the owner says go")
 press(2, brief2, "go")
 assert(not lastResult(2).ok)
+-- "Go now" far from the point says why, in the phone and in the conversation
+local m0 = msgSeq
+press(1, brief, "go")
+assert(not lastResult(1).ok and lastResult(1).text:find("m away"), "the distance is given: " .. tostring(lastResult(1).text))
+assert(toasts[#toasts].id == 1 and toasts[#toasts].body:find("m away"), "a toast in the phone")
+assert(msgSeq == m0 + 1 and messages[msgSeq].to == 1 and messages[msgSeq].body:find("m away"), "the fixer writes why")
 
 -- ── the meeting: one there, then both -> countdown -> launch ──
-positions[1] = { x = at.x + 3, y = at.y, z = at.z }
+positions[1] = { x = at.x + 3, y = at.y, z = at.z + 8 } -- a floor above the point still counts
 tick(1000)
 assert(providers.fixerGig(1).here == 1 and providers.fixerGig(1).state == "accepted", "waiting for the whole crew")
 positions[2] = { x = at.x - 4, y = at.y, z = at.z }
@@ -204,12 +214,22 @@ assert(providers.fixerGig(1).state == "accepted", "someone walked off: on hold")
 positions[2] = { x = at.x - 4, y = at.y, z = at.z }
 for _ = 1, LightRpFixers.launchSeconds + 3 do tick(1000) end
 local inst = Missions.instanceOf(1)
-assert(inst and Missions.instanceOf(2) == inst and inst.gig and inst.gig.payout == 8000 and buckets[1] == inst.bucket, "the gig runs as a mission")
+assert(inst and Missions.instanceOf(2) == inst and inst.gig and inst.gig.payout == fp.difficulties[1].payout and buckets[1] == inst.bucket, "the gig runs as a mission")
 assert(providers.fixerGig(1) == false, "the mission chip takes over")
 Missions.complete(inst.id)
-assert(paid[1] == 8000 and paid[2] == 8000, "each operator paid")
+-- a crew of two on a gig whose minimum is one: the pot is shared (mission_pay.lua)
+local share = LightRP.missionPay.share(fp.difficulties[1].payout, 2, 1)
+assert(share < fp.difficulties[1].payout and paid[1] == share and paid[2] == share, "each operator paid their share")
+assert(not lastTo(1).body:find("up to", 1, true), "after the job the fixer quotes what was paid, not a maximum")
 assert(lastTo(1).body:find("sent") or lastTo(1).body:find("LEGEND") or lastTo(1).body:find("clean"), "the fixer's last text")
 assert(brief.meta.resolved.label == "Paid" and Fixers.gigOf[1] == nil and Fixers.gigOf[2] == nil, "the gig is closed")
+
+-- ── a fixer offers only difficulties of the owner's reputation tier ──
+for _ = 1, 12 do
+    ok, gig = Fixers.offer(4, "gig_burn")
+    assert(ok and gig.difficulty == "standard", "tier I: standard gigs only, got " .. tostring(gig and gig.difficulty))
+    Fixers.close(gig, "test", "cancelled")
+end
 
 -- ── expiry ──
 ok, gig = Fixers.offer(4, "gig_burn")
@@ -257,4 +277,60 @@ assert(not got[1] and not got[4] and not got[5], "a recent offer cools a player 
 assert(got[3] and got[2], "free players get a text (a shared job is no cooldown)")
 assert(commands["fixers.list"](0, {}))
 
-print("PASS: fixer gigs (editor tag, no board, offer/take/pass, brief with meet point + objective, share to numbers, join/pass, meeting countdown + hold, launch as mission, payout + fixer text, expiry, bail + new owner, go now, dispatcher)")
+-- ── crews: the dispatcher texts leaders, not members; a leader's job brings the crew ──
+spawn(10, "Mae Lead"); spawn(11, "Ana Mate"); spawn(12, "Bo Down"); spawn(13, "Cy Member")
+local inCrew = { [10] = true, [11] = true, [12] = true, [9] = true }
+local crewMock = { id = "crew:3", leader = 10, members = { 10, 11, 9, 12 } }
+local otherCrew = { id = "crew:4", leader = 2, members = { 2, 13 } }
+LightRP.parties = { of = function(id) if inCrew[id] then return crewMock elseif id == 13 or id == 2 then return otherCrew end end }
+before = msgSeq
+Fixers.dispatch(clock)
+got = {}
+for i = before + 1, msgSeq do got[messages[i].to] = true end
+assert(got[10] and not got[11] and not got[13], "a crew member is not texted: the leader takes the jobs")
+local crewOffer
+for i = before + 1, msgSeq do if messages[i].to == 10 then crewOffer = messages[i] end end
+life[12] = "revivepending"
+press(10, crewOffer, "accept")
+local crewGig = Fixers.gigOf[10] and providers.fixerGig(10)
+assert(crewGig and crewGig.crew == 2 and Fixers.gigOf[11] == Fixers.gigOf[10], "the free member with a Neural-Link joins the gig's crew")
+assert(Fixers.gigOf[9] == nil and Fixers.gigOf[12] == nil, "no implant, or down: stays out")
+local told
+for i = #notices, 1, -1 do if notices[i].id == 10 and notices[i].title == "CREW" then told = notices[i].body; break end end
+assert(told and told:find("Your crew comes along: Ana Mate.", 1, true) and told:find("No Implant (no Neural-Link)", 1, true) and told:find("Bo Down (down)", 1, true), told)
+assert(lastTo(11).body:find("You're in"), "the member gets the brief")
+life[12] = nil
+
+-- ── a crew member below the gig's difficulty: never refused, their tier's reward, told once ──
+-- (owner decision 2026-11-03: the gig rule now holds everywhere)
+spawn(14, "Op Lead", at.x + 1, at.y); spawn(15, "Street Mate", at.x + 2, at.y)
+Missions.addReputation(14, 1500)
+assert(Missions.tier(14) == 3 and Missions.tier(15) == 1)
+local gigPoint = Missions.point("gig_burn")
+local critical = gigPoint.difficulties[3]
+assert(critical.id == "critical")
+critical.min, critical.max = 1, 3
+local opCrew = { id = "crew:5", leader = 14, members = { 14, 15 } }
+LightRP.parties = { of = function(id) if id == 14 or id == 15 then return opCrew end end }
+local okCritical, criticalGig = Fixers.offer(14, "gig_burn", "critical")
+assert(okCritical and criticalGig.difficulty == "critical", tostring(criticalGig))
+local noticesBefore = #notices
+press(14, lastTo(14), "accept")
+assert(Fixers.gigOf[15] == Fixers.gigOf[14], "the Street member comes along")
+local streetTold = {}
+for i = noticesBefore + 1, #notices do if notices[i].id == 15 and notices[i].title == "STREET CRED" then streetTold[#streetTold + 1] = notices[i].body end end
+assert(#streetTold == 1 and streetTold[1] == "Critical is above your street cred: you play it, you earn the Standard reward (+100 reputation).",
+    tostring(streetTold[1]))
+for i = noticesBefore + 1, #notices do assert(not (notices[i].id == 14 and notices[i].title == "STREET CRED"), "the owner is told nothing") end
+for _ = 1, LightRpFixers.launchSeconds + 3 do tick(1000) end
+local criticalInst = Missions.instanceOf(14)
+assert(criticalInst and Missions.instanceOf(15) == criticalInst and criticalInst.difficulty == "critical", "both play the critical gig")
+Missions.complete(criticalInst.id)
+assert(Missions.reputation(15) == LightRpMissions.reputationGain.standard, "the Street earns the standard reward")
+assert(Missions.reputation(14) == 1500 + LightRpMissions.reputationGain.critical, "the owner earns the critical reward")
+local gigDone
+for i = #notices, 1, -1 do if notices[i].id == 15 and notices[i].title == "GIG COMPLETE" then gigDone = notices[i].body; break end end
+assert(gigDone and gigDone:find("+100 reputation (Standard reward)", 1, true), gigDone)
+LightRP.parties = { of = function() return nil end }
+
+print("PASS: fixer gigs (editor tag, no board, offer/take/pass, brief with meet point + objective, share to numbers, join/pass, meeting countdown + hold, launch as mission, payout + fixer text, expiry, bail + new owner, go now, dispatcher, crews, a crew member below the gig's difficulty)")

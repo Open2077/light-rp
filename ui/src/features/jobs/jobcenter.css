@@ -115,5 +115,7 @@
   .jobcenter__contract .jobcenter__primary { width: 100%; }
   .jobcenter__footnote { align-items: flex-start; flex-direction: column; line-height: 1.6; }
 }
+.jobcenter__duo > span:first-child { color: var(--text-body); letter-spacing: .06em; } /* the Big Contract (job_runs.lua Runs.startDuo) */
+.jobcenter__duo .jobcenter__text { flex: none; }
 .jobcenter__work-links { display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px; }
 @media (prefers-reduced-motion: reduce) { .jobcenter, .jobcenter *, .jobcenter *::before, .jobcenter *::after { animation: none !important; transition: none !important; } }

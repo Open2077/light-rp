@@ -1,16 +1,40 @@
 -- Missions (The Division style): mission points in the city, a board per
--- difficulty where players tag in alone or with their squad, matchmaking that
--- fills the lobby, a countdown once it is full (or when the host launches with
--- the minimum), then the mission runs in its own routing bucket.
+-- difficulty where a crew leader tags the crew in (a player alone is a crew of
+-- one), a countdown once the crew has the minimum (or, open to matchmaking, once
+-- strangers filled the lobby or the host launches), then the mission runs in its
+-- own routing bucket.
 --
 -- The positions here are TEST points near the Little China public garage; the
 -- real points come from the server team.
 LightRpMissions = {
     enabled = true,
-    -- Reputation: points earned by finishing missions, and the tier each
-    -- threshold opens (tier 1 from the start).
-    reputation = { tiers = { 0, 500, 1500 } },
-    -- Tagging happens at the point; a squad member must be this close to it
+    -- Reputation ("street cred", per character): points earned by PvE only --
+    -- missions, the raid, fixer gigs and PvE activities (server/config/activities.lua
+    -- `pve`); PvP never grants any. Each threshold opens a tier (tier 1 from the
+    -- start), and a tier opens the harder difficulties (`difficultyTiers`) and the
+    -- higher cyberware ranks (server/config/cyberware.lua `gating`).
+    -- docs/pve-progression.md.
+    reputation = {
+        tiers = { 0, 500, 1500, 4000, 10000 },
+        names = { "Street", "Merc", "Operator", "Edgerunner", "Legend" },
+        -- told to the player when the tier is reached
+        opens = {
+            [2] = "Hard difficulties and rank III cyberware are open to you.",
+            [3] = "Critical difficulties and rank IV cyberware are open to you.",
+            [4] = "Rank V cyberware is open to you.",
+            [5] = "Rank V+ cyberware is open to you.",
+        },
+        -- The tier a difficulty needs, by difficulty id (a difficulty's own `minTier`
+        -- wins). Editor missions carry no tier of their own and follow this too.
+        difficultyTiers = { standard = 1, hard = 2, critical = 3 },
+        requireTier = true,  -- a difficulty needs its tier...
+        requireClear = true, -- ...and the one before it completed at the same point
+        -- A crew member the leader brings into a difficulty their own tier (or clears)
+        -- do not open is never refused: they play it at full difficulty and earn the
+        -- reputation of the highest difficulty they have unlocked. The leader, and a
+        -- solo player, are gated as above.
+    },
+    -- Tagging happens at the point; a crew member must be this close to it
     -- for the leader to tag them along. Wandering past `leash` untags you.
     tagRadius = 6.0,
     groupRadius = 30.0,
@@ -22,15 +46,23 @@ LightRpMissions = {
     tagCooldownMs = 1500,
     -- One routing bucket per running mission: base + instance number.
     bucketBase = 3000000,
-    -- What a finished mission pays out in reputation, per difficulty.
+    -- What a finished mission (raid and fixer gig included) pays out in
+    -- reputation, per difficulty. A crew member below the difficulty (its tier, or
+    -- on a board its clear ladder) gets the gain of the highest difficulty they
+    -- have unlocked.
     reputationGain = { standard = 100, hard = 220, critical = 450 },
-    -- Squads (parties).
-    -- `nearby`: the players listed to invite at a mission point; `inviteRange`:
-    -- how far an invite by command reaches.
-    party = { maxSize = 8, inviteSeconds = 60, nearby = 15.0, inviteRange = 300.0 },
+    -- Crews (server/modules/parties.lua): size, invite lifetime, the radius of the
+    -- "players around you" lists, the invite range, the distance past which a
+    -- member shows FAR on the crew frame, and how often the frame refreshes.
+    party = { maxSize = 8, inviteSeconds = 60, nearby = 15.0, inviteRange = 300.0, farRange = 250.0, refreshMs = 2000 },
     -- Ground marker of a mission point.
     marker = { shape = "cylinder", radius = 1.2, height = 0.7,
         color = { r = 255, g = 204, b = 0, a = 160 }, maxDistance = 60, groundOffset = 0.05 },
+    -- `payout` (per difficulty, below) is each operator's share at the difficulty's
+    -- `min` crew. A bigger crew grows the pot sub-linearly and splits it, a repeat
+    -- within the cooldown or past the daily cap pays a quarter, and the share never
+    -- exceeds maxSharePerMinute × minutes: server/config/economy.lua,
+    -- server/modules/mission_pay.lua, docs/economy-balance.md.
     points = {
         {
             id = "sector04_blackout",
@@ -48,11 +80,11 @@ LightRpMissions = {
             },
             difficulties = {
                 { id = "standard", label = "STANDARD", blurb = "Reduced security. Grid stays half-lit.",
-                  payout = 12000, minutes = 25, min = 2, max = 4, tier = 1 },
+                  payout = 3500, minutes = 25, min = 2, max = 4, tier = 1 },
                 { id = "hard", label = "HARD", blurb = "Full security roster. Shorter dark window.",
-                  payout = 22500, minutes = 30, min = 4, max = 6, tier = 2 },
+                  payout = 5000, minutes = 30, min = 4, max = 6, tier = 2 },
                 { id = "critical", label = "CRITICAL", blurb = "Corporate response team on standby. No respawns.",
-                  payout = 40000, minutes = 45, min = 6, max = 8, tier = 3 },
+                  payout = 9000, minutes = 45, min = 6, max = 8, tier = 3 },
             },
         },
         -- RAID: the Chimera (open77_chimera, Open2077/open77-base#105) in the Dogtown
@@ -80,11 +112,11 @@ LightRpMissions = {
             },
             difficulties = {
                 { id = "standard", label = "STANDARD", blurb = "Chimera on reduced output. Militech sends a handful of grunts.",
-                  payout = 18000, minutes = 20, min = 1, max = 4, tier = 1 },
+                  payout = 3000, minutes = 20, min = 1, max = 4, tier = 1 },
                 { id = "hard", label = "HARD", blurb = "Full combat output, heavier reinforcements, slower respawns.",
-                  payout = 34000, minutes = 25, min = 2, max = 6, tier = 2 },
+                  payout = 4500, minutes = 25, min = 2, max = 6, tier = 2 },
                 { id = "critical", label = "CRITICAL", blurb = "Overclocked core and a Militech response team. No respawns.",
-                  payout = 60000, minutes = 30, min = 4, max = 8, tier = 3 },
+                  payout = 6000, minutes = 30, min = 4, max = 8, tier = 3 },
             },
         },
     },

@@ -33,11 +33,22 @@ parking/retrieval using the ownership ID. Pocket goods persist with the characte
 
 | Activity | Collection per cycle | Processing per cycle | Buyer |
 | --- | --- | --- | --- |
-| Sanitation | 1 `trashbag`, 4 kg, 6.5 s | 1 bag → 1 `recyclables`, 2 kg, 5 s | €$18 per bundle |
-| Scrapper | 4 `scrap`, 4 kg total, 8 s | 4 scrap → 1 `salvaged_parts`, 2 kg, 6 s | €$24 per parts bundle |
+| Sanitation | 1 `trashbag`, 4 kg, 6.5 s | 1 bag → 1 `recyclables`, 2 kg, 5 s | €$30 per bundle |
+| Scrapper | 4 `scrap`, 4 kg total, 8 s | 4 scrap → 1 `salvaged_parts`, 2 kg, 6 s | €$40 per parts bundle |
 
 Sales take 2.5 seconds and deposit in the bank. Raw goods earn nothing by
-collection alone. The existing grade paychecks are separate and unchanged.
+collection alone. Each grade of the matching job adds
+`LightRpEconomy.jobs.gradeBonus` (10 %, `server/config/economy.lua`) to the sale
+price: a grade 2 Scrapper sells a bundle for €$48. The practice sites of the first
+day keep their own price. Grade paychecks (`shared/jobs.lua`, every 30 min) come on
+top, for active players only (`server/modules/work_activity.lua`,
+`LightRpEconomy.paychecks`): in the last 30 minutes a job task (an item-work batch, a
+work order accepted or paid), a patient stabilized with a kit, a bank transfer of at
+least €$ 50 received from another player, or 75 m covered in the city (server position
+samples every 20 s; teleports and the way back from an activity do not count). An idle
+player gets nothing and is told once why. Light RP has no clock-in: holding a salaried
+job is being on duty. The target income and its rationale are in
+`docs/economy-balance.md`.
 Choosing Sanitation/Scrapper as a character's job remains optional at the office.
 
 Commands:
@@ -140,7 +151,9 @@ abandons the run). The last drop-off pays, in the bank, with a receipt in
 `[min, max]`, where `length` is the straight-line route from where the run was
 collected through every stop, in km. It is fixed when the run is drawn and shown on the work-order HUD with
 the number of orders, the orders carried and the distance. The job center shows
-"From <min>" and the order range.
+"From <min>" and the order range. Each grade of the courier job adds
+`LightRpEconomy.jobs.gradeBonus` (10 %) to the drawn pay, which may then exceed
+`pay.max`.
 
 Cancelling, a job switch, death, staying out of the public world for more than
 `awayGraceMs` (90 s, `server/config/job_runs.lua`: a loading screen or a fitting room
@@ -159,8 +172,8 @@ ground, reachable on foot. Nothing else needs to change; restart the server.
 | --- | --- | --- |
 | `orders.min` / `orders.max` | 2 / 3 | orders per run (as many pickups, then drop-offs) |
 | `pickupMs` / `dropoffMs` | 4500 / 3500 | progress bar at a pickup / drop-off |
-| `pay.base` / `perStop` / `perKm` | 40 / 20 / 90 | €$ per run / per stop / per km of route |
-| `pay.min` / `pay.max` | 80 / 900 | bounds of a run's pay |
+| `pay.base` / `perStop` / `perKm` | 60 / 30 / 120 | €$ per run / per stop / per km of route |
+| `pay.min` / `pay.max` | 150 / 1400 | bounds of a run's pay |
 | `lifetimeMs` | 45 min | an unfinished run expires |
 
 Recruitment artwork: `img/jobs/delivery.webp` (prompt in `docs/job-art-prompts.md`).
@@ -192,7 +205,7 @@ names for the pictures).
 
 AC Cleaner is no longer offered at the job centers. Characters who already hold it
 keep its work order: collected at the employment desk, three timed rooftop tasks,
-public service exits and a €$260 bank payment on completion. Its temporary test locations remain in `server/config/job_runs.lua`.
+public service exits and a €$400 bank payment on completion (+10 % per grade). Its temporary test locations remain in `server/config/job_runs.lua`.
 A work order (AC or courier) and an item-work loop cannot run simultaneously.
 
 ## Verification

@@ -26,10 +26,19 @@ import { FuelDialog, FuelApproach } from "@/features/fuel/FuelDialog";
 import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
 import { MissionDialog } from "@/features/missions/MissionDialog";
+import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
+import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
+import { RecapDialog } from "@/features/recap/RecapDialog";
+import { GuideDialog } from "@/features/guide/GuideDialog";
+import { DailiesDialog } from "@/features/dailies/DailiesDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
+import { QueuePanel } from "@/features/queue/QueuePanel";
 import { FixerGigHud } from "@/features/missions/FixerGigHud";
-import { MissionSquadHud } from "@/features/missions/MissionSquadHud";
+import { WorldBossHud } from "@/features/missions/WorldBossHud";
+import { AnnounceHalo } from "@/features/announce/AnnounceHalo";
 import { RaidHud } from "@/features/missions/RaidHud";
+import { ActivityHud } from "@/features/activityhud/ActivityHud";
+import { DogtownHud } from "@/features/dogtown/DogtownHud";
 import { Medical } from "@/features/medical/Medical";
 import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
@@ -70,6 +79,7 @@ export function App() {
       on<ResultPayload>(PAGE_EVENTS.result, (r) => {
         if (!r) return;
         setResult(r.ok, r.text, r.action);
+        if (r.ok && r.action === "dailies.claim") return; // dailies.lua already sent the "+€$ N" money notice
         pushNotice({ kind: r.ok ? "success" : "error", title: r.ok ? undefined : "DENIED", body: r.text, source: "LIGHT RP", durationMs: 6000 });
       }),
       on<DialogPayload>(PAGE_EVENTS.dialog, (d) => { if (d?.kind) openDialog(d); }),
@@ -88,10 +98,14 @@ export function App() {
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
       <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
+      <ErrorBoundary name="queue"><QueuePanel /></ErrorBoundary>
       <ErrorBoundary name="fixer-gig"><FixerGigHud /></ErrorBoundary>
-      <ErrorBoundary name="mission-squad"><MissionSquadHud /></ErrorBoundary>
+      <ErrorBoundary name="world-boss"><WorldBossHud /></ErrorBoundary>
+      <ErrorBoundary name="announce"><AnnounceHalo /></ErrorBoundary>
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
+      <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>
+      <ErrorBoundary name="dogtown"><DogtownHud /></ErrorBoundary>
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
       <ErrorBoundary name="weapon-wheel"><WeaponWheel /></ErrorBoundary>
       <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>
@@ -105,6 +119,11 @@ export function App() {
       <ErrorBoundary name="housing"><HousingDialog /></ErrorBoundary>
       <ErrorBoundary name="dealership"><DealershipDialog /></ErrorBoundary>
       <ErrorBoundary name="mission"><MissionDialog /></ErrorBoundary>
+      <ErrorBoundary name="activities"><ActivitiesDialog /></ErrorBoundary>
+      <ErrorBoundary name="halloffame"><HallOfFameDialog /></ErrorBoundary>
+      <ErrorBoundary name="recap"><RecapDialog /></ErrorBoundary>
+      <ErrorBoundary name="guide"><GuideDialog /></ErrorBoundary>
+      <ErrorBoundary name="dailies"><DailiesDialog /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>

@@ -42,8 +42,11 @@ export interface Difficulty {
 /** A fixer gig (server/modules/fixers.lua): no board, the fixers text it to players. */
 export interface Fixer { enabled: boolean; contact: string; brief: string }
 export interface FixerContact { id: string; name: string }
+/** A world boss (server/modules/world_bosses.lua): no board, appears at random in the city. */
+export interface WorldBoss { enabled: boolean; boss: string; health: number; reward: number; minShare: number; minutes: number }
+export const WORLD_BOSS: WorldBoss = { enabled: false, boss: "", health: 25, reward: 30000, minShare: 5, minutes: 20 };
 export interface Mission {
-  id: string; revision: number; title: string; description: string; location: string; type: MissionType; enabled: boolean; fixer: Fixer;
+  id: string; revision: number; title: string; description: string; location: string; type: MissionType; enabled: boolean; fixer: Fixer; worldBoss: WorldBoss;
   point: Point; starts: Start[]; perimeter: Perimeter; outOfBounds: { graceSeconds: number };
   respawn: { seconds: number; lives: number }; spawns: Spawn[]; checkpoints: Checkpoint[]; waves: Wave[]; difficulties: Difficulty[];
 }
@@ -65,17 +68,42 @@ export const SHAPES: Shape[] = ["circle", "box", "poly"];
 export const SHAPE_LABEL: Record<Shape, string> = { circle: "Cylinder", box: "Oriented box", poly: "Polygon" };
 /* Mirror of LightRpMissionDefs.ENEMIES (labels only: the server picks the character). */
 export const ENEMIES = [
-  { id: "militech", label: "Militech trooper" },
-  { id: "militech_shotgun", label: "Militech breacher" },
-  { id: "valentinos", label: "Valentinos gunner" },
-  { id: "tygerclaws", label: "Tyger Claws gunner" },
-  { id: "maelstrom", label: "Maelstrom ganger" },
+  { id: "militech", label: "Militech trooper", group: "Corporations" },
+  { id: "militech_shotgun", label: "Militech breacher", group: "Corporations" },
+  { id: "valentinos", label: "Valentinos gunner", group: "Gangs" },
+  { id: "tygerclaws", label: "Tyger Claws gunner", group: "Gangs" },
+  { id: "maelstrom", label: "Maelstrom ganger", group: "Gangs" },
+  { id: "sixthstreet", label: "6th Street gunner", group: "6th Street" },
+  { id: "sixthstreet_shotgun", label: "6th Street breacher", group: "6th Street" },
+  { id: "sixthstreet_sniper", label: "6th Street sniper", group: "6th Street" },
+  { id: "wraiths", label: "Wraiths raider (nomads)", group: "Nomads" },
+  { id: "wraiths_gunner", label: "Wraiths gunner (nomads)", group: "Nomads" },
+  { id: "voodooboys", label: "Voodoo Boys gunner", group: "Voodoo Boys" },
+  { id: "voodooboys_sidewinder", label: "Voodoo Boys enforcer", group: "Voodoo Boys" },
+  { id: "psycho_pacifica", label: "Cyberpsycho: Pacifica, Coastview", group: "Cyberpsychos" },
+  { id: "psycho_pacifica_2", label: "Cyberpsycho: Pacifica, Coastview II", group: "Cyberpsychos" },
+  { id: "psycho_downtown", label: "Cyberpsycho: City Center, Downtown", group: "Cyberpsychos" },
+  { id: "psycho_downtown_2", label: "Cyberpsycho: City Center, Downtown II", group: "Cyberpsychos" },
+  { id: "psycho_arroyo", label: "Cyberpsycho: Santo Domingo, Arroyo", group: "Cyberpsychos" },
+  { id: "psycho_rancho", label: "Cyberpsycho: Rancho Coronado", group: "Cyberpsychos" },
+  { id: "psycho_wellsprings", label: "Cyberpsycho: Heywood, Wellsprings", group: "Cyberpsychos" },
+  { id: "psycho_wellsprings_2", label: "Cyberpsycho: Heywood, Wellsprings II", group: "Cyberpsychos" },
+  { id: "psycho_kabuki", label: "Cyberpsycho: Watson, Kabuki", group: "Cyberpsychos" },
+  { id: "psycho_kabuki_2", label: "Cyberpsycho: Watson, Kabuki II", group: "Cyberpsychos" },
+  { id: "psycho_littlechina", label: "Cyberpsycho: Watson, Little China", group: "Cyberpsychos" },
+  { id: "psycho_northside", label: "Cyberpsycho: Watson, Northside", group: "Cyberpsychos" },
+  { id: "psycho_northside_mantis", label: "Cyberpsycho: Northside (mantis blades)", group: "Cyberpsychos" },
+  { id: "psycho_mox", label: "Cyberpsycho: Northside (Mox, mantis blades)", group: "Cyberpsychos" },
+  { id: "psycho_badlands", label: "Cyberpsycho: Badlands", group: "Cyberpsychos" },
+  { id: "psycho_badlands_2", label: "Cyberpsycho: Badlands II", group: "Cyberpsychos" },
 ] as const;
 export const enemyLabel = (id: string) => ENEMIES.find(e => e.id === id)?.label ?? id;
+// payout: each operator's share at the difficulty's min crew (the server splits a
+// bigger crew's pot and applies cooldowns): keep in sync with shared/mission_defs.lua.
 export const DIFFICULTIES: Difficulty[] = [
-  { id: "standard", label: "Standard", blurb: "The contract as written.", payout: 8000, minutes: 15, min: 1, max: 4, enemyHealth: 1, enemyDamage: 1, enemyCount: 1 },
-  { id: "hard", label: "Hard", blurb: "More of them, and they hit harder.", payout: 15000, minutes: 15, min: 1, max: 4, enemyHealth: 1.5, enemyDamage: 1.25, enemyCount: 1.5 },
-  { id: "critical", label: "Critical", blurb: "Bring your best kit and a full squad.", payout: 30000, minutes: 20, min: 2, max: 4, enemyHealth: 2.25, enemyDamage: 1.6, enemyCount: 2 },
+  { id: "standard", label: "Standard", blurb: "The contract as written.", payout: 2400, minutes: 15, min: 1, max: 4, enemyHealth: 1, enemyDamage: 1, enemyCount: 1 },
+  { id: "hard", label: "Hard", blurb: "More of them, and they hit harder.", payout: 3000, minutes: 15, min: 1, max: 4, enemyHealth: 1.5, enemyDamage: 1.25, enemyCount: 1.5 },
+  { id: "critical", label: "Critical", blurb: "Bring your best kit and a full squad.", payout: 4400, minutes: 20, min: 2, max: 4, enemyHealth: 2.25, enemyDamage: 1.6, enemyCount: 2 },
 ];
 export const LIMITS = { spawns: 48, checkpoints: 16, waves: 20, starts: 8, vertices: 32, count: 12, route: 8 };
 
@@ -90,7 +118,7 @@ export function fresh(c: Capture): Mission {
   const p = c.position;
   return {
     id: "", revision: 0, title: "New mission", description: "", location: "", type: "eliminate", enabled: true,
-    fixer: { enabled: false, contact: "any", brief: "" },
+    fixer: { enabled: false, contact: "any", brief: "" }, worldBoss: { ...WORLD_BOSS },
     point: { ...p }, starts: [{ ...p, heading: c.heading }],
     perimeter: { shape: "circle", center: { ...p }, radius: 40, length: 60, width: 40, heading: 0, points: [], minZ: p.z - 10, maxZ: p.z + 30, fullHeight: false },
     outOfBounds: { graceSeconds: 10 }, respawn: { seconds: 10, lives: 3 },
@@ -105,6 +133,7 @@ export function normalizeMission(m: Mission): Mission {
   return {
     ...m, description: m.description ?? "", location: m.location ?? "",
     fixer: { enabled: m.fixer?.enabled === true, contact: m.fixer?.contact || "any", brief: m.fixer?.brief ?? "" },
+    worldBoss: { ...WORLD_BOSS, ...(m.worldBoss ?? {}), enabled: m.worldBoss?.enabled === true, boss: m.worldBoss?.boss ?? "" },
     starts: list(m.starts), spawns: list<Spawn>(m.spawns).map(s => ({ ...s, behavior: s.behavior ?? "assault", radius: s.radius ?? 12,
       alertRange: s.alertRange ?? 25, spread: s.spread ?? 2, route: list<Point>(s.route) })),
     checkpoints: list<Checkpoint>(m.checkpoints).map(c => ({ ...c, spawns: list<string>(c.spawns) })),
@@ -140,6 +169,12 @@ export function problems(m: Mission): string[] {
   const z = m.perimeter;
   if (!m.title.trim() || m.title.trim().length > 60) out.push("Title: 1–60 characters.");
   if (m.fixer.brief.trim().length > 240) out.push("Fixer brief: 240 characters at most.");
+  if (m.worldBoss.enabled) {
+    const boss = m.spawns.find(s => s.id === m.worldBoss.boss);
+    if (!boss) out.push("World boss: choose the boss spawn point.");
+    else if (boss.trigger !== "start") out.push("World boss: the boss spawn point must spawn at the start.");
+    if (m.fixer.enabled) out.push("A mission is either a fixer gig or a world boss.");
+  }
   if (z.shape === "poly" && z.points.length < 3) out.push("Perimeter: place at least 3 polygon vertices.");
   if (z.shape === "circle" && (z.radius < 0.5 || z.radius > 250)) out.push("Perimeter: radius 0.5–250 m.");
   if (z.shape === "box" && [z.length, z.width].some(v => v < 0.5 || v > 500)) out.push("Perimeter: box sides 0.5–500 m.");
@@ -156,7 +191,7 @@ export function problems(m: Mission): string[] {
   }
   m.spawns.forEach(s => {
     if (m.type === "eliminate" && s.trigger === "wave") out.push(`${s.label}: waves only exist in Survival missions.`);
-    else if (s.trigger !== "start" && !used.has(s.id)) out.push(`${s.label} ${s.trigger === "wave" ? "is in no wave" : "is woken by no checkpoint"}.`);
+    else if (s.trigger !== "start" && !used.has(s.id) && !m.worldBoss.enabled) out.push(`${s.label} ${s.trigger === "wave" ? "is in no wave" : "is woken by no checkpoint"}.`);
     if (s.behavior === "patrol" && !s.route.length) out.push(`${s.label}: a patrol needs at least one patrol point (Patrol route tool).`);
   });
   if (m.type === "eliminate" && !m.spawns.length) out.push("Place at least one enemy spawn point.");

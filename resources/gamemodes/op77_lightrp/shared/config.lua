@@ -31,6 +31,13 @@ LightRpConfig = {
         hotbar = { id = "lightrp.hotbar", name = "Light RP: show quick slots (hold)", key = "TAB" },
         weaponWheel = { id = "lightrp.weaponwheel", name = "Light RP: weapon wheel (hold)", key = "TAB" },
         raidReady = { id = "lightrp.raid.ready", name = "Light RP: raid ready check", key = "Y" },
+        -- Answer the newest crew invite while the HUD prompt shows it (the raid's
+        -- ready check keeps Y while it runs).
+        crewAccept = { id = "lightrp.crew.accept", name = "Light RP: accept crew invite", key = "Y" },
+        crewDecline = { id = "lightrp.crew.decline", name = "Light RP: decline crew invite", key = "N" },
+        -- Leave whatever queue the queue panel shows (activities, mission boards). U: free
+        -- in Light RP, its providers and the base game outside menus, same key on AZERTY.
+        queueLeave = { id = "lightrp.queue.leave", name = "Light RP: leave queue", key = "U" },
     },
 
     -- Inventories (shared/items.lua holds the item templates). Weights in kg.
@@ -213,7 +220,7 @@ LightRpConfig = {
         tanks = { default = 60, Street = 55, Utility = 90, Sport = 65, Bikes = 30 }, -- litres, by vehicles.catalog category
         reserve = 0.15,              -- fraction: HUD turns amber and the driver is warned once
         rentalTank = { min = 0.35, max = 0.75 }, -- rentals are delivered with a partial tank
-        pricePerLitre = 3,           -- eddies, whole litres only at the pump
+        pricePerLitre = 4,           -- eddies, whole litres only at the pump (≈ 260 €$/h behind the wheel)
         pumpRange = 7.0,             -- metres between the pump point and the vehicle
         parkedSpeed = 0.25,
         clusterRadius = 35.0,       -- maximum separation within one station
@@ -262,10 +269,11 @@ LightRpConfig = {
 
     spawn = {
         arrival = { name = "city", label = "City Center West", position = { x = -667.14, y = -382.61, z = 9.16 }, heading = 90.0 },
-        -- Where the first day's guide leaves the newcomer in Night City (and where a
-        -- character saved inside the arrival hall wakes up). The starter studio is
+        -- Where the first day's guide leaves the newcomer in Night City, at its end or
+        -- skipped (and where a character saved inside the arrival hall wakes up): a
+        -- Westbrook esplanade about 115 m from the starter studio's door. The studio is
         -- still given; its door is on the map. Unset: the guide takes them into it.
-        afterTutorial = { name = "after_tutorial", label = "Night City", position = { x = -1084.080322, y = -1531.998657, z = 25.779922 }, heading = -40.989071 },
+        afterTutorial = { name = "after_tutorial", label = "Night City", position = { x = -756.581, y = 777.257, z = 22.454 }, heading = 52.6 },
         hospital = { name = "hospital", label = "Hospital", position = { x = -1355.739746, y = 1737.886597, z = 18.200012 }, heading = 0.0 },
         health = 1.0,          -- fraction of the maximum, as the life primitives expect
         graceMs = 4000,
@@ -306,7 +314,24 @@ LightRpConfig = {
         foodPerTick = 0.6,   -- ~2h45 from 100 to 0
         drinkPerTick = 0.9,  -- ~1h50 from 100 to 0
         warnAt = 20,
-        starveDamagePerTick = 3, -- health lost per tick at 0
+        -- At 0 food or 0 drink the character starves: a share of max health lost every
+        -- tickMs until eating/drinking or death, health regen off meanwhile. From full
+        -- health: ~17 min to die with one need at 0, ~8 min with both.
+        starve = {
+            tickMs = 5000,
+            percentPerMinute = 6,       -- food OR drink at 0
+            bothPercentPerMinute = 12,  -- food AND drink at 0
+            noRegen = true,             -- health regen off while starving
+            -- after a death (hospital respawn) both needs come back to at least this,
+            -- or the character would respawn starving and die again
+            respawnFloor = 50,
+        },
+        -- Well fed: above `threshold` food AND drink, health comes back by itself
+        -- (healthPerMinute points, on top of the body's own regeneration).
+        wellFed = {
+            threshold = 80,
+            healthPerMinute = 5,
+        },
     },
 
     voice = {

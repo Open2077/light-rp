@@ -392,6 +392,7 @@ local function beginFight(inst, raid)
         tostring(state.aiEnabled), tostring(state.combatEnabled), tostring(state.damagePolicy),
         state.position.x, state.position.y, state.position.z) end
     raid.phase, raid.fightStarted = "fight", now()
+    raid.operators = #inst.members -- at the first shot (a leaver later does not make a solo kill)
     raid.nextLockOn = now() + 25000
     raid.nextBarrage, raid.nextPurge = now() + 6000, now() + 4000
     raid.nextResupply = now() + C.resupply.every * 1000
@@ -573,7 +574,7 @@ local function lifeTick(inst, raid)
         raid.phase, raid.wipeAt = "wipe", now() + 7000
         clearAdds(raid)
         boss("setCombatEnabled", raid.bossId, false)
-        announce(inst, raid, "SQUAD WIPED", "Every operator is down. The Chimera holds the arena.", "danger", "raid_wipe")
+        announce(inst, raid, "CREW WIPED", "Every operator is down. The Chimera holds the arena.", "danger", "raid_wipe")
     end
 end
 
@@ -581,6 +582,15 @@ end
 -- The mission script
 
 Missions.register(POINT, {
+    -- the weapon wheel lists the kit and draws it back (Missions.kitOf / drawKit)
+    kitOf = function(inst, id)
+        local raid = raids[inst.id]
+        return raid and (kits[raid.loadouts[id]] or C.loadouts[1]) or nil
+    end,
+    reissueKit = function(inst, id)
+        local raid = raids[inst.id]
+        if raid and raid.reissue then raid.reissue(id) end
+    end,
     onStart = function(inst)
         local s = scaling(inst)
         local raid = { phase = "ready", ready = {}, down = {}, out = {}, respawns = {}, adds = {}, badAdds = {}, loops = {},
@@ -627,7 +637,7 @@ Missions.register(POINT, {
         elseif raid.phase == "victory" then
             if t >= raid.victoryAt then Missions.complete(inst.id) else push(inst, raid) end
         elseif raid.phase == "wipe" then
-            if t >= raid.wipeAt then Missions.fail(inst.id, "The squad was wiped out by the Chimera.") end
+            if t >= raid.wipeAt then Missions.fail(inst.id, "The crew was wiped out by the Chimera.") end
         end
         if raids[inst.id] then lifeTick(inst, raid) end
     end,
@@ -649,11 +659,13 @@ Missions.register(POINT, {
             -- before the fight a death costs nothing
             raid.respawns[id] = now() + 3000
         elseif s.respawnSeconds and raid.lives > 0 then
+            raid.downs = (raid.downs or 0) + 1
             if s.lives < 99 then raid.lives = raid.lives - 1 end
             raid.respawns[id] = now() + s.respawnSeconds * 1000
             announce(inst, raid, "OPERATOR DOWN", string.format("%s is down. Back in %d s%s.", name(id), s.respawnSeconds,
                 s.lives < 99 and string.format(" (%d respawn%s left)", raid.lives, raid.lives == 1 and "" or "s") or ""), "warning")
         else
+            raid.downs = (raid.downs or 0) + 1
             raid.out[id] = true
             announce(inst, raid, "OPERATOR LOST", name(id) .. " is out of the fight.", "danger")
         end
@@ -667,9 +679,11 @@ Missions.register(POINT, {
         if raid.lockOn and raid.lockOn.player == id then boss("setTarget", raid.bossId, nil); raid.lockOn = nil end
     end,
     onEnd = function(inst, success)
+        LightRP.eachModule("onRaidFinished", { instance = inst.id, point = POINT, difficulty = inst.difficulty, success = success == true, test = inst.test == true, members = { table.unpack(inst.members) } }) -- iconic drops (cyberware_iconics.lua)
         local raid = raids[inst.id]
         raids[inst.id] = nil
         if not raid then return end
+        inst.report = { enraged = raid.enraged == true, downs = raid.downs or 0, operators = raid.operators } -- contracts, titles (dailies.lua, titles.lua)
         clearAdds(raid)
         clearLoops(raid)
         if raid.bossId then boss("remove", raid.bossId) end
@@ -748,7 +762,10 @@ RegisterNetEvent("op77_lightrp:raid:hit", function(npcId)
     budget.tokens = budget.tokens - pct
     local _, health = scaling(inst)
     if state.phase == "armored" then pct = pct * B.armored end
-    raid.bodyDamage = (raid.bodyDamage or 0) + (tonumber(state.maxHealth) or 100) * pct / 100 / health
+    local dealt = (tonumber(state.maxHealth) or 100) * pct / 100 / health
+    raid.bodyDamage = (raid.bodyDamage or 0) + dealt
+    -- each operator's share of the Chimera for the end-of-raid recap (recap.lua)
+    if LightRP.recap then pcall(LightRP.recap.credit, id, "bossDamage", dealt) end
 end)
 
 -- A late arrival (reconnect into the page, a resource restart) asks for the state.

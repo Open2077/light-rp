@@ -5,7 +5,12 @@
    `?registered=1` skips the wizard, `?step=appearance|confirm` starts the wizard
    at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing,
    `?dialog=rental` opens a rental desk, `?rental=1` starts with a car out,
-   `?interact=1` shows the proximity prompt, `?dialog=inventory` opens the inventory (with a trunk on the right). */
+   `?interact=1` shows the proximity prompt, `?dialog=inventory` opens the inventory (with a trunk on the right),
+   `?dialog=halloffame` opens the Hall of Fame (features/halloffame/mock.ts),
+   `?dialog=recap&recap=ffa|team|race|chase|turf|mission|boss|test|unranked|draw|big` opens an
+   end-of-match recap (features/recap/mock.ts),
+   `?dialog=dailies&tab=titles&dailies=mixed|fresh|budget|allpaid|off|loading&titles=shown|hidden|none&crew=1`
+   opens Dailies (features/dailies/mock.ts). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
@@ -13,11 +18,16 @@ import { shopFixture } from "./shopFixture";
 import { jobFixture } from "./jobFixture";
 import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
-import { missionMock } from "./missionFixture";
+import { activitiesMock, missionMock } from "./missionFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
+import { activityHudMock } from "@/features/activityhud/mock";
+import { hallOfFameMock } from "@/features/halloffame/mock";
+import { recapMock } from "@/features/recap/mock";
+import { guideMock } from "@/features/guide/mock";
+import { dailiesMock } from "@/features/dailies/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -29,13 +39,19 @@ export function installMockBridge(): void {
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const fire = (name: string, payload: unknown) => { for (const fn of handlers.get(name) ?? []) fn(payload); };
   const safezones = safezonesMock(fire, params);
+  const activityHud = activityHudMock(fire, params);
+  const guide = guideMock(fire, params); // ?dialog=guide: the guide NPC's FAQ
   const missionEditor = missionEditorMock(fire, params);
   const armament = armamentMock(fire, params);
+  const hallOfFame = hallOfFameMock(fire, params);
+  const recap = recapMock(fire, params);
+  const dailies = dailiesMock(fire, params);
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
   const garage = garageFixture();
   const mission = missionMock(params, (n, p) => fire(n, p));
+  const activities = activitiesMock(params, (n, p) => fire(n, p)); // ?dialog=activities (&lobby=search|widened|offer|match|friendly)
   const dealership = dealershipFixture();
   const step = (params.get("step") as CharacterState["step"] | null) ?? (registered ? "done" : "identity");
   const character: CharacterState = {
@@ -57,7 +73,14 @@ export function installMockBridge(): void {
   const state: UiState = {
     server: { name: "Open//77 Official Roleplay", playersOnline: 12, maxPlayers: 64, version: "2.31.13+op77.82" },
     character,
-    needs: { food: 64, drink: 38 },
+    needs: (() => {
+      // ?starve=both|food|drink: starving banner; ?starve=fed: well fed regen
+      const st = new URLSearchParams(location.search).get("starve");
+      if (st === "fed") return { food: 92, drink: 88, wellFed: true, regenPerMinute: 5 };
+      if (st === "both" || st === "food" || st === "drink")
+        return { food: st === "drink" ? 46 : 0, drink: st === "food" ? 52 : 0, starving: st, drainPerMinute: st === "both" ? 12 : 6 };
+      return { food: 64, drink: 38 };
+    })(),
     money: registered ? {
       currency: "€$", cash: 340, bank: { number: "K7F-2QD", balance: 2860 },
       history: [
@@ -136,6 +159,7 @@ export function installMockBridge(): void {
               ? { name: "delivery", label: "Courier", tag: "COURIER", grade: 0, gradeLabel: "Rider", salary: 0, paycheckMinutes: 30 }
               : state.job;
             state.jobRun = mockRun(runKind === "courier");
+            if (params.get("duo") === "1") state.jobRun.duo = { partner: "Kei Mori", half: "A" };
           }
           // what the character wears, for the inventory's Worn column
           state.worn = { ready: true, family: "f", slots: { Head: "Items.Balaclava_02_basic_04", Face: false, InnerChest: "Items.TShirt_01_basic_01",
@@ -147,6 +171,7 @@ export function installMockBridge(): void {
           safezones.boot();
           missionEditor.boot();
           armament.boot();
+          setTimeout(() => activityHud.boot(), 60); // ?activity=race|trial|arena|turf|lobby|countdown|result|editor|demo
   // ?wheel=N: hold Control to open the wheel (as the CTRL key mapping does), ?wheelopen=1 opens it at once
   if (params.has("wheel")) {
     let open = false;
@@ -156,11 +181,42 @@ export function installMockBridge(): void {
     if (params.get("wheelopen") === "1") setTimeout(show, 600);
   }
           fire(PAGE_EVENTS.state, state);
+          // ?announce=listen|self[&radius=150]: a speaker on air, a speech-like voice level
+          const an = params.get("announce");
+          if (an) {
+            const self = an === "self";
+            const radius = params.get("radius");
+            fire("lightrp:ui:announce", { kind: "cast", speaker: 7, name: "Yuki", mode: radius ? "radius" : "server",
+              radius: radius ? Number(radius) : null, self, audience: 42 });
+            const t0 = performance.now();
+            window.setInterval(() => {
+              const t = (performance.now() - t0) / 1000;
+              // words: bursts of syllables, short pauses between phrases
+              const phrase = (Math.sin(t * 0.55) + Math.sin(t * 0.21 + 1.3)) > -0.6;
+              const syll = Math.max(0, Math.sin(t * 11.0) * 0.5 + Math.sin(t * 7.3 + 0.7) * 0.35 + 0.35);
+              const level = params.get("level") ? Number(params.get("level")) : (phrase ? Math.min(1, 0.25 + syll * 0.7) : 0);
+              fire("lightrp:ui:announce", { kind: "level", speaker: 7, level, talking: level > 0.02 });
+            }, 50);
+          }
+          const wb = params.get("worldboss");
+          if (wb) fire(PAGE_EVENTS.state, { worldBoss: {
+            id: "worldboss:1", title: "Burn Notice", location: "Kabuki", boss: "Militech Juggernaut", phase: wb === "fight" ? "fight" : "cleanup",
+            bossHealth: wb === "fight" ? 0.58 : 0, enemiesLeft: wb === "fight" ? 4 : 0, fighters: 11, endsInMs: 12 * 60000 + 30000,
+            share: wb === "unpaid" ? 2.4 : 17.3, minShare: 5, eligible: wb !== "unpaid", damage: wb === "unpaid" ? 150 : 8420, kills: wb === "unpaid" ? 1 : 3,
+            reward: 30000, inZone: true,
+            result: wb === "fight" ? null : { success: true, share: wb === "unpaid" ? 2.4 : 17.3, pay: wb === "unpaid" ? 0 : 5190, eligible: wb !== "unpaid", damage: 8420, kills: 3 },
+          } });
           fire(PAGE_EVENTS.hud, hud);
           if (runKind) fire(PAGE_EVENTS.jobRun, { distance: params.get("near") === "1" ? 2 : 438, menuKey: "F1", gps: params.get("gps") !== "0" });
           if (params.get("dialog") === "shop") fire(PAGE_EVENTS.dialog, shop);
           if (params.get("dialog") === "garage") fire(PAGE_EVENTS.dialog, garage);
           if (params.get("dialog") === "dealership") fire(PAGE_EVENTS.dialog, dealership);
+          mission.boot();
+          hallOfFame.boot();
+          recap.boot();
+          guide.boot();
+          dailies.boot();
+          if (params.get("dialog") === "activities") activities.boot();
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
           if (params.get("mission") === "1") mission.running();
@@ -211,7 +267,8 @@ export function installMockBridge(): void {
             left: { id: "player:catalogue", kind: "player", label: "RP consumables · preview", slots: 30, maxWeight: 40,
               weight: itemCatalogue.reduce((sum, item) => sum + item.weight * item.count, 0), items: itemCatalogue },
             right: { id: "ground", kind: "ground", label: "Ground", slots: 1, maxWeight: 0, weight: 0, items: [] } });
-          if (params.get("dialog") === "jobcenter") fire(PAGE_EVENTS.dialog, jobFixture());
+          // &duo=1: the courier offers the Big Contract (job_runs.lua), and a courier run is one half of it
+          if (params.get("dialog") === "jobcenter") { const f = jobFixture(); if (params.get("duo") === "1") for (const j of f.jobs) if (j.route?.variable) j.route.duo = true; fire(PAGE_EVENTS.dialog, f); }
           if (params.get("dialog") === "fuel") fire(PAGE_EVENTS.dialog, fuelFixture());
           if (params.get("dialog") === "rental") fire(PAGE_EVENTS.dialog, { kind: "rental", spot: { id: "citycenter", name: "Rent-a-Ride // City Center", durationMinutes: 30, stock: [
             { key: "maimai", label: "Makigai MaiMai", category: "Street", price: 60 }, { key: "hella", label: "Archer Hella", category: "Street", price: 120 },
@@ -224,6 +281,11 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.action) {
         const action = payload as UiAction;
         if (mission.handle(action)) return;
+        if (params.get("dialog") === "activities" && activities.handle(action)) return;
+        if (hallOfFame.handle(action)) return;
+        if (recap.handle(action)) return;
+        if (guide.handle(action)) return;
+        if (dailies.handle(action)) return;
         setTimeout(() => {
           switch (action.type) {
             case "dealership.buy": {
@@ -388,6 +450,7 @@ export function installMockBridge(): void {
                 : { active: true, id: "mock-work-order", job: offer.name, label: offer.route.label, reward: offer.route.reward,
                     index: 1, total: 4, icon: offer.recruitment?.icon, hint: "Follow the yellow marker. Press E at the work point.",
                     objective: { label: "Collect the first load", kind: "work", position: { x: 0, y: 0, z: 0 }, radius: 2.6 } };
+              if (action.duo) state.jobRun.duo = { partner: "Kei Mori", half: "A" };
               fire(PAGE_EVENTS.state, { jobRun: state.jobRun });
               result(true, "Work order assigned.", action.type); break;
             }

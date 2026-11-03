@@ -11,6 +11,7 @@ local C, Db = LightRpTutorialConfig, LightRP.db
 local L = C.lobby
 local Tutorial = LightRP.module("tutorial", {})
 local sessions, loading, lastAction = {}, {}, {}
+local skipping = {}   -- player -> the session waiting for its implant before a skip leaves (skip below)
 Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_tutorial (
     identifier VARCHAR(128) NOT NULL, character_key VARCHAR(64) NOT NULL,
     step VARCHAR(24) NOT NULL DEFAULT 'intro', status VARCHAR(16) NOT NULL DEFAULT 'active',
@@ -128,6 +129,8 @@ local function change(player, s, step, status)
     s.step, s.status, s.revision, s.busy, s.dialogue = step, status, s.revision+1, false, nil
     syncPractice(player,s)
     push(player)
+    -- finished or skipped: the other modules may point the newcomer somewhere (activities_hub.lua)
+    if status=="done" and LightRP.eachModule then LightRP.eachModule("onTutorialDone", player) end
     -- an implant already in place (a restart, a ripperdoc) passes its step at once
     if status=="active" and C.steps[step].kind=="neuralink" and implantReady(player) and following[step] then
         return change(player, s, following[step], "active")
@@ -227,6 +230,8 @@ function Tutorial.restart(player, character)
 end
 
 function Tutorial.arrivalPending(player) local s=active(player); return s and s.step=="intro" end
+-- The guide is running for this character (not paused, not done).
+function Tutorial.isActive(player) return active(player) ~= nil end
 
 -- Where this character wakes up when it joins. The hall while its guide is in
 -- a hall step; the city's arrival if it was saved inside the hall with no hall
@@ -247,7 +252,7 @@ function Tutorial.deathPoint(player)
     return nil
 end
 
-function Tutorial.onDisconnected(player) sessions[player],loading[player],lastAction[player]=nil,nil,nil end
+function Tutorial.onDisconnected(player) sessions[player],loading[player],lastAction[player],skipping[player]=nil,nil,nil,nil end
 function Tutorial.onDatabaseReady()
     for _,player in ipairs(GetPlayers()) do
         local c=LightRP.characters.get(player)
@@ -349,27 +354,93 @@ local function pause(player, s)
     return ok, why
 end
 
--- The end of the hall: the checkpoint first, then the door. The newcomer is
--- given a starter studio (server/modules/housing_starter.lua). With a city point
--- after the guide (spawn.afterTutorial) they arrive there and find the studio's
--- door on the map; without one they wake up inside it; with no studio either,
--- the door opens on the city's arrival. A refused placement leaves the city step
--- with the player still in the hall; /tutorial retries it.
+-- What the guide hands out at its end, finished or skipped: a starter studio
+-- (server/modules/housing_starter.lua). With a city point after the guide
+-- (spawn.afterTutorial) it is only given, its door on the map, and the newcomer
+-- goes to that point; without one they wake up inside it (true); with no studio
+-- either, the door opens on the city's arrival.
+local function settle(player, how)
+    local starter = LightRP.housing and LightRP.housing.starter
+    if not starter then return false end
+    if LightRpConfig.spawn.afterTutorial then
+        local home, reason = starter.grant(player)
+        if not home then LightRP.log("tutorial: no starter studio for %d%s (%s)", player, how, tostring(reason)) end
+        return false
+    end
+    local home, reason = starter.moveIn(player)
+    if home then return true end
+    LightRP.log("tutorial: no starter studio for %d%s (%s), going to the city", player, how, tostring(reason))
+    return false
+end
+
+-- The end of the hall: the checkpoint first, then the door. A refused placement
+-- leaves the city step with the player still in the hall; /tutorial retries it.
 local function depart(player, s)
     local ok, why = change(player, s, "outro", "active")
     if not ok then return false, why end
-    local starter = LightRP.housing and LightRP.housing.starter
-    if starter and LightRpConfig.spawn.afterTutorial then
-        local home, reason = starter.grant(player)
-        if not home then LightRP.log("tutorial: no starter studio for %d (%s)", player, tostring(reason)) end
-    elseif starter then
-        local home, reason = starter.moveIn(player)
-        if home then return true end
-        LightRP.log("tutorial: no starter studio for %d (%s), going to the city", player, tostring(reason))
-    end
+    if settle(player, "") then return true end
     local placed = relocate(player, "outro")
     if not placed then return false, "The way to Night City is not ready. Use /tutorial to try again." end
     return true
+end
+
+-- "Skip the first day": a newcomer who already knows the city leaves at once,
+-- from any step, with what the guide hands out on the way: the implant (nobody
+-- lives in the city without one) and the starter studio. They end up where the
+-- guide's end leaves them (settle above). Only the practice pay is not earned. The
+-- checkpoint is marked done: F1 > First day guide or /tutorial brings Mara back
+-- whenever they like.
+-- The implant is fitted first. op77_neuralink installs it on its own thread (an
+-- export may not wait for its database write): the skip asks with an event and
+-- leaves when neuralink_bridge relays the answer (onImplantFitted / onImplantFailed).
+local SKIP_WAIT_MS = 8000
+local IMPLANT_FAILED = "Your Neural-Link could not be installed. Please try again."
+local function leave(player, s)
+    local ok, why = change(player, s, s.step, "done")
+    if not ok then return false, why end
+    if settle(player, " after a skip") then return true end
+    -- From the hall (or its private lesson) the door opens on the city; a player
+    -- already out in the city stays where they are.
+    if insideHall(Open77.players.position(player)) then
+        local placed, reason = LightRP.spawn and LightRP.spawn.place and LightRP.spawn.place(player, cityArrival(), "lightrp:tutorial")
+        if not placed then
+            LightRP.log("tutorial: %d skipped in the hall and could not be taken to the city (%s)", player, tostring(reason))
+            return false, "The way to Night City is not ready. Use /tutorial skip to try again."
+        end
+    end
+    return true
+end
+-- true: done; true, "pending": the implant is being fitted, the answer finishes it.
+local function skip(player, s)
+    local life, p = Open77.players.getLifeState(player), Open77.players.position(player)
+    if not life or life.phase ~= "alive" or not p then return false, "Your character is still arriving. Please wait a moment." end
+    if implantReady(player) then skipping[player] = nil; return leave(player, s) end
+    if skipping[player] == s then return true, "pending" end
+    skipping[player] = s
+    TriggerEvent("op77_neuralink:requestInstall", player)
+    -- a phone resource that never answers must not leave the button spinning
+    SetTimeout(SKIP_WAIT_MS, function()
+        if skipping[player] ~= s then return end
+        skipping[player] = nil
+        LightRP.log("tutorial: skip for %d timed out waiting for the implant", player)
+        LightRP.result(player, false, IMPLANT_FAILED, "tutorial.control")
+    end)
+    return true, "pending"
+end
+-- neuralink_bridge relays op77_neuralink's answer at once (not after the Kiroshi sequence).
+function Tutorial.onImplantFitted(player)
+    local s = skipping[player]
+    if not s then return end
+    skipping[player] = nil
+    if active(player) ~= s or not implantReady(player) then return end
+    local ok, why = leave(player, s)
+    if not ok and why then LightRP.result(player, false, why, "tutorial.control") end
+end
+function Tutorial.onImplantFailed(player, reason)
+    if not skipping[player] then return end
+    skipping[player] = nil
+    LightRP.log("tutorial: skip for %d refused, implant not installed (%s)", player, tostring(reason))
+    LightRP.result(player, false, IMPLANT_FAILED, "tutorial.control")
 end
 
 local function control(player,payload)
@@ -384,6 +455,7 @@ local function control(player,payload)
     if not s or s.busy or payload.key~=c.key or payload.revision~=s.revision then return false end
     local def=C.steps[s.step]
     if payload.operation=="pause" then return pause(player,s) end
+    if payload.operation=="skip" then return skip(player,s) end
     if payload.operation=="finish" and s.step=="outro" then return change(player,s,"outro","done") end
     if def.kind=="context" and payload.operation=="practice-retry" then
         local life,p=Open77.players.getLifeState(player),Open77.players.position(player)
@@ -476,10 +548,23 @@ function Tutorial.onLifeState(player,phase)
     if s and phase~="alive" and s.dialogue then s.dialogue=nil; push(player) end
 end
 
-LightRP.command("tutorial",{usage="/tutorial [pause|resume|restart]"},function(player,args)
+LightRP.command("tutorial",{usage="/tutorial [pause|resume|restart|skip]"},function(player,args)
     local c=LightRP.characters.get(player)
     if not c or c.status~="active" then return false,"Finish your character first." end
     local s=active(player)
+    if args[1]=="skip" then
+        if s then
+            local ok,why=skip(player,s)
+            if not ok then return false,why end
+            return true,why=="pending" and "Fitting your Neural-Link, then off to Night City." or "First day skipped. Welcome to Night City: /tutorial brings your guide back any time."
+        end
+        -- Retry of a skip whose way out was refused: the guide is done, the door still opens.
+        if insideHall(Open77.players.position(player)) and LightRP.spawn and LightRP.spawn.place
+            and LightRP.spawn.place(player, cityArrival(), "lightrp:tutorial") then
+            return true,"On your way to Night City."
+        end
+        return true,"The first day guide is not running."
+    end
     if args[1]=="pause" then
         if not s then return true,"The guide is already paused. /tutorial resumes it." end
         local ok,why=pause(player,s); return ok,ok and "Guide paused. /tutorial resumes where you stopped." or why

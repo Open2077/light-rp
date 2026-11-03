@@ -125,6 +125,12 @@ step("bank",22,{dialogue="bank"});assert(not next(world) or routeDots()==0,"a co
 assert(not frozen and hud,"and gives the body back")
 position={x=bank.x,y=bank.y-5,z=bank.z};step("station",23);tick(2);tick()
 assert(#shots==flights+1 and not next(cameras),"a close destination needs no flight")
+-- F1 > Skip the tutorial: the page asks for confirmation; only the confirmed skip reaches the server.
+local beforeSkip,shown=#sent,#pageSent
+callbacks[LightRpEvents.page.tutorial]({operation="skip-ask"})
+assert(#sent==beforeSkip and #pageSent==shown+1 and pageSent[#pageSent].skipAsk==true,"asking to skip stays on the page")
+callbacks[LightRpEvents.page.tutorial]({operation="skip"})
+assert(#sent==beforeSkip+1 and sent[#sent].operation=="skip" and sent[#sent].key=="default","the confirmed skip is the server's decision, for this slot")
 net[LightRpEvents.net.state]({tutorial={active=false,available=true,status="paused"}})
 assert(not next(cameras) and not frozen and hud)
 -- Skipping while the server relocates must not replay the scene or send during loading.

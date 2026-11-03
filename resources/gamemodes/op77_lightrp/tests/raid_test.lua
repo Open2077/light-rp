@@ -140,6 +140,8 @@ _G.LightRP = {
     db = { ready = false, schema = function() end, single = function() end, run = function() end },
 }
 
+dofile("server/config/economy.lua")
+dofile("server/modules/mission_pay.lua")
 dofile("server/config/missions.lua")
 dofile("server/modules/parties.lua")
 dofile("server/modules/missions.lua")
@@ -154,7 +156,7 @@ end
 local function any(id, key)
     for i = #sent, 1, -1 do local p = sent[i].payload; if sent[i].name == "op77_lightrp:raid" and sent[i].target == id and type(p) == "table" and p[key] then return p[key] end end
 end
--- ── standard, two operators ──
+-- ── standard, two operators: a crew, its leader tags it in ──
 local session = {}
 LightRP.dialog = function(id, kind, payload) payload.kind = kind; session[id] = payload.session end
 for i, id in ipairs({ 1, 2 }) do
@@ -162,9 +164,10 @@ for i, id in ipairs({ 1, 2 }) do
     positions[id] = { x = point.position.x + i * 0.5, y = point.position.y, z = point.position.z }; buckets[id] = 0
     Missions.onCharacterLoaded(id)
     assert(Missions.open(id, "chimera_raid"))
-    clock = clock + 2000
-    actions["mission.tag"](id, { session = session[id], difficulty = "standard" })
 end
+assert(LightRP.parties.invite(1, 2) and LightRP.parties.accept(2), "a crew of two")
+clock = clock + 2000
+actions["mission.tag"](1, { session = session[1], difficulty = "standard" })
 assert(commands["missions.launch"](0, { "1" }))
 local inst = Missions.instanceOf(1)
 assert(inst and #inst.members == 2 and buckets[1] == inst.bucket, "launched into the arena")
@@ -370,7 +373,10 @@ assert(last(1).phase == "victory")
 for _ in pairs(npcs) do error("reinforcements left after the kill") end
 assert(loopsOf(LightRpRaid.fx.enraged) == 0 and loopsOf(LightRpRaid.fx.wreck[1]) == 1 and playedName(LightRpRaid.fx.death[1]), "it dies in a blast and burns")
 seconds(LightRpRaid.victorySeconds + 1)
-assert(not Missions.instanceOf(1) and paid[1] == point.difficulties[1].payout and paid[2] == paid[1], "paid")
+-- two operators on a difficulty whose minimum crew is one: the pot is shared (mission_pay.lua)
+local share = LightRP.missionPay.share(point.difficulties[1].payout, 2, point.difficulties[1].min)
+assert(share < point.difficulties[1].payout, "a duo earns less each than a solo run")
+assert(not Missions.instanceOf(1) and paid[1] == share and paid[2] == paid[1], "paid")
 assert(bosses.boss2 == nil, "boss removed")
 assert(next(loops) == nil, "no effect left in the arena")
 assert(last(1).phase == "ended" and buckets[1] == 0, "home")
@@ -385,11 +391,14 @@ provider.create = function(options)
     return create(options)
 end
 paid = {}
-commands["missions.rep"](0, { "3", "5000" })
 chars[3] = "Op3"; positions[3] = { x = point.position.x, y = point.position.y, z = point.position.z }; buckets[3] = 0
 Missions.onCharacterLoaded(3)
+-- critical needs reputation tier III (docs/pve-progression.md): set once the character is loaded
+assert(commands["missions.rep"](0, { "3", "5000" }))
 commands["missions.unlock"](0, { "3", "chimera_raid", "standard" }); commands["missions.unlock"](0, { "3", "chimera_raid", "hard" })
 assert(Missions.open(3, "chimera_raid")); clock = clock + 2000
+-- alone below the minimum: only matchmaking lets the tag in
+assert(LightRP.parties.setMatchmaking(3, true))
 actions["mission.tag"](3, { session = session[3], difficulty = "critical" })
 assert(commands["missions.launch"](0, { "3" }))
 local inst2 = Missions.instanceOf(3)

@@ -75,7 +75,7 @@ export function RaidHud() {
     {raid.out && raid.phase === "fight" && <div className="raid-respawn is-out"><small>FLATLINED</small><span>OUT OF THE FIGHT</span><em>No respawns on this difficulty. Your squad fights on.</em></div>}
     {banner && <div key={banner.key} className={`raid-banner is-${banner.tone}`}><span>{banner.title}</span><p>{banner.body}</p></div>}
     {raid.phase === "victory" && <div className="raid-result is-victory is-live"><span>CHIMERA DOWN</span><small>{clock(raid.fightSeconds ?? 0)} · {raid.difficulty}</small></div>}
-    {raid.phase === "wipe" && <div className="raid-result is-failed is-live"><span>SQUAD WIPED</span><small>The Chimera holds the arena</small></div>}
+    {raid.phase === "wipe" && <div className="raid-result is-failed is-live"><span>CREW WIPED</span><small>The Chimera holds the arena</small></div>}
   </div>;
 }
 

@@ -39,22 +39,53 @@ M.MAX_ROUTE = 8
 
 -- Enemies an author can place. `record` (TweakDB character) or `template`
 -- (Open77 alias): both proven hostile in LightRP (the raid's adds).
+-- 6th Street, the Wraiths (nomad raiders) and the Voodoo Boys are vanilla gang records picked
+-- with the criteria of Open77's proven templates (docs/generated/npc-records-2.31.csv: category
+-- gang, risk candidate, Ganger_Aggressive, armed, no quest). The cyberpsychos (`psycho = true`)
+-- are the game's own Psycho Squad records: each one listed was spawned and checked in game (a
+-- clothed body, hostile, killable); they make world bosses. Every mission enemy shares one
+-- combat group (mission_engine.lua): mixed factions fight the players, not each other.
 M.ENEMIES = {
-    { id = "militech", label = "Militech trooper", record = "Character.max_border_guards" },
-    { id = "militech_shotgun", label = "Militech breacher", record = "Character.max_border_guards_shotgun" },
-    { id = "valentinos", label = "Valentinos gunner", template = "gang_valentinos_ranged_01" },
-    { id = "tygerclaws", label = "Tyger Claws gunner", template = "gang_tygerclaws_ranged_01" },
-    { id = "maelstrom", label = "Maelstrom ganger", template = "hostile_female_ranged_lab" },
+    { id = "militech", label = "Militech trooper", record = "Character.max_border_guards", group = "Corporations" },
+    { id = "militech_shotgun", label = "Militech breacher", record = "Character.max_border_guards_shotgun", group = "Corporations" },
+    { id = "valentinos", label = "Valentinos gunner", template = "gang_valentinos_ranged_01", group = "Gangs" },
+    { id = "tygerclaws", label = "Tyger Claws gunner", template = "gang_tygerclaws_ranged_01", group = "Gangs" },
+    { id = "maelstrom", label = "Maelstrom ganger", template = "hostile_female_ranged_lab", group = "Gangs" },
+    { id = "sixthstreet", label = "6th Street gunner", record = "Character.rcr_sixth_street_grunt_short_range_w_medium", group = "6th Street" },
+    { id = "sixthstreet_shotgun", label = "6th Street breacher", record = "Character.rcr_sixth_street_grunt_short_range_m_hard", group = "6th Street" },
+    { id = "sixthstreet_sniper", label = "6th Street sniper", record = "Character.rcr_sixth_street_sniper_long_range_m_medium", group = "6th Street" },
+    { id = "wraiths", label = "Wraiths raider (nomads)", record = "Character.wraiths_grunt1_ranged1_nova_ma", group = "Nomads" },
+    { id = "wraiths_gunner", label = "Wraiths gunner (nomads)", record = "Character.wraiths_grunt2_ranged2_copperhead_ma", group = "Nomads" },
+    { id = "voodooboys", label = "Voodoo Boys gunner", record = "Character.voodooboys_grunt1_ranged2_saratoga_ma", group = "Voodoo Boys" },
+    { id = "voodooboys_sidewinder", label = "Voodoo Boys enforcer", record = "Character.voodooboys_grunt1_ranged2_sidewinder_wa", group = "Voodoo Boys" },
+    { id = "psycho_pacifica", label = "Cyberpsycho: Pacifica, Coastview", record = "Character.ma_pac_cvi_15_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_pacifica_2", label = "Cyberpsycho: Pacifica, Coastview II", record = "Character.ma_pac_cvi_08_psycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_downtown", label = "Cyberpsycho: City Center, Downtown", record = "Character.ma_cct_dtn_07_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_downtown_2", label = "Cyberpsycho: City Center, Downtown II", record = "Character.ma_cct_dtn_03_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_arroyo", label = "Cyberpsycho: Santo Domingo, Arroyo", record = "Character.ma_std_arr_06_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_rancho", label = "Cyberpsycho: Rancho Coronado", record = "Character.rcr_05_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_wellsprings", label = "Cyberpsycho: Heywood, Wellsprings", record = "Character.ma_hey_spr_04_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_wellsprings_2", label = "Cyberpsycho: Heywood, Wellsprings II", record = "Character.ma_hey_spr_06_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_kabuki", label = "Cyberpsycho: Watson, Kabuki", record = "Character.ma_wat_kab_08_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_kabuki_2", label = "Cyberpsycho: Watson, Kabuki II", record = "Character.ma_wat_kab_02_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_littlechina", label = "Cyberpsycho: Watson, Little China", record = "Character.ma_wat_lch_06_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_northside", label = "Cyberpsycho: Watson, Northside", record = "Character.ma_wat_nid_03_shard_psycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_northside_mantis", label = "Cyberpsycho: Northside (mantis blades)", record = "Character.ma_wat_nid_15_psycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_mox", label = "Cyberpsycho: Northside (Mox, mantis blades)", record = "Character.sts_wat_nid_01_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_badlands", label = "Cyberpsycho: Badlands", record = "Character.ma_bls_ina_se1_08_cyberpsycho", group = "Cyberpsychos", psycho = true },
+    { id = "psycho_badlands_2", label = "Cyberpsycho: Badlands II", record = "Character.ma_bls_ina_se1_22_psycho", group = "Cyberpsychos", psycho = true },
 }
 M.ENEMY = {}
 for _, e in ipairs(M.ENEMIES) do M.ENEMY[e.id] = e end
 
+-- `payout`: each operator's share at the difficulty's `min` crew, before the crew
+-- pot, cooldown and daily cap of server/modules/mission_pay.lua (docs/economy-balance.md).
 M.DIFFICULTIES = {
-    { id = "standard", label = "Standard", blurb = "The contract as written.", payout = 8000, minutes = 15, min = 1, max = 4,
+    { id = "standard", label = "Standard", blurb = "The contract as written.", payout = 2400, minutes = 15, min = 1, max = 4,
         enemyHealth = 1, enemyDamage = 1, enemyCount = 1 },
-    { id = "hard", label = "Hard", blurb = "More of them, and they hit harder.", payout = 15000, minutes = 15, min = 1, max = 4,
+    { id = "hard", label = "Hard", blurb = "More of them, and they hit harder.", payout = 3000, minutes = 15, min = 1, max = 4,
         enemyHealth = 1.5, enemyDamage = 1.25, enemyCount = 1.5 },
-    { id = "critical", label = "Critical", blurb = "Bring your best kit and a full squad.", payout = 30000, minutes = 20, min = 2, max = 4,
+    { id = "critical", label = "Critical", blurb = "Bring your best kit and a full squad.", payout = 4400, minutes = 20, min = 2, max = 4,
         enemyHealth = 2.25, enemyDamage = 1.6, enemyCount = 2 },
 }
 
@@ -300,8 +331,10 @@ function M.validate(raw)
             d.waves[i] = v
         end
     end
+    -- a world boss brings its non-start spawn points as reinforcements (no checkpoint needed)
+    local worldBossOn = type(raw.worldBoss) == "table" and raw.worldBoss.enabled == true
     for _, s in ipairs(d.spawns) do
-        if s.trigger ~= "start" and not used[s.id] then
+        if s.trigger ~= "start" and not used[s.id] and not worldBossOn then
             return nil, s.label .. (s.trigger == "wave" and " is in no wave." or " is woken by no checkpoint.")
         end
     end
@@ -309,6 +342,33 @@ function M.validate(raw)
         local any = false
         for _, s in ipairs(d.spawns) do any = any or s.trigger == "start" or used[s.id] end
         if not any then return nil, "An Elimination mission needs at least one spawn point." end
+    end
+
+    -- A world boss (server/modules/world_bosses.lua): no board, no tag, no instance. It
+    -- appears at random in the city (bucket 0) and anybody fights it; the perimeter is the
+    -- event zone (no out-of-zone death). `boss` is the spawn point whose enemies are the
+    -- boss (health x `health`); the others guard it, and the non-start ones come as
+    -- reinforcements at 66 % and 33 % of the boss's health. The reward pool is shared by
+    -- contribution (damage + kills); under `minShare` % of it, nothing.
+    d.worldBoss = { enabled = false, boss = "", health = 25, reward = 30000, minShare = 5, minutes = 20 }
+    if raw.worldBoss ~= nil then
+        local wb = raw.worldBoss
+        if type(wb) ~= "table" or (wb.enabled ~= nil and type(wb.enabled) ~= "boolean") then return nil, "Invalid world boss settings." end
+        local v = { enabled = wb.enabled == true, boss = wb.boss == nil and "" or wb.boss,
+            health = wb.health == nil and 25 or wb.health, reward = wb.reward == nil and 30000 or wb.reward,
+            minShare = wb.minShare == nil and 5 or wb.minShare, minutes = wb.minutes == nil and 20 or wb.minutes }
+        if type(v.boss) ~= "string" or (v.boss ~= "" and not key(v.boss)) then return nil, "World boss: invalid boss spawn point." end
+        if not G.integer(v.health, 1, 200) then return nil, "World boss: boss health must be x1-x200." end
+        if not G.integer(v.reward, 0, 1000000) then return nil, "World boss: reward pool must be 0-1,000,000." end
+        if not G.integer(v.minShare, 0, 50) then return nil, "World boss: minimum share must be 0-50 %." end
+        if not G.integer(v.minutes, 5, 120) then return nil, "World boss: time limit must be 5-120 minutes." end
+        if v.enabled then
+            if d.fixer.enabled then return nil, "A mission is either a fixer gig or a world boss, not both." end
+            local s = byId[v.boss]
+            if not s then return nil, "World boss: choose the spawn point of the boss." end
+            if s.trigger ~= "start" then return nil, "World boss: the boss spawn point must spawn at the start." end
+        end
+        d.worldBoss = v
     end
 
     d.difficulties, why = difficulties(raw.difficulties)
@@ -325,6 +385,7 @@ function M.point(def)
             or "Clear the zone. Leave nobody standing."),
         position = def.point, start = starts, difficulties = clone(def.difficulties), custom = true,
         fixer = def.fixer and def.fixer.enabled == true or nil,
+        worldBoss = def.worldBoss and def.worldBoss.enabled == true or nil,
         fixerContact = def.fixer and def.fixer.contact or nil, fixerBrief = def.fixer and def.fixer.brief or nil }
 end
 

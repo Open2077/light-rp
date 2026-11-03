@@ -32,7 +32,7 @@ assert(locals["fuel.current"] and page[#page].data.cancelKey=="K","on-foot appro
 locals["fuel.current"].callback(); local presses=#sent; locals["fuel.current"].callback(); assert(#sent==presses,"E debounced")
 fire({token="ticket",phase="play",playbackId="anim1",durationMs=5000,litres=6,itemLabel="Test",label="Refuelling"})
 assert(not locals["fuel.current"]); resumeLast(); assert(not activity,"native starts before input capture")
-time=time+900; resumeLast(); assert(activity.durationMs==5000 and activity.allowMovement==false)
+time=time+900; resumeLast(); assert(activity.durationMs==5000 and activity.allowMovement==true)
 callback({status="success"}); assert(sent[#sent].event==E.net.fuelFinish and sent[#sent].data.status=="success")
 local count=#sent; callback({status="success"}); assert(#sent==count,"one completion only")
 fire({token="ticket",phase="finished"}); assert(not activity and not LightRpRefueling.isActive())

@@ -1,0 +1,92 @@
+/* The crew frame and the invite prompt (CrewFrame.tsx), first in the bottom-left
+   stack: above the weapon and the vitals, under the centre-left notices and the
+   chat. Compact on purpose: eight members fit between the notices and the vitals
+   at 1920x1080, and the 720p rules below shrink it again. */
+.crew-frame { width: 236px; display: flex; flex-direction: column; gap: 2px; pointer-events: none;
+  font: 12px var(--font-mono); color: var(--text-body); }
+.crew-frame__head { display: flex; align-items: center; gap: 6px; padding: 0 8px 3px 2px; font-size: 11px; letter-spacing: .2em; color: var(--accent); }
+.crew-frame__head b { font-weight: 600; }
+.crew-frame__extra { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--o77-cyan); letter-spacing: .12em; font-size: 10px; }
+.crew-frame__count { margin-left: auto; color: var(--text-dim); letter-spacing: .12em; }
+
+.crew-row { display: flex; align-items: center; gap: 6px; height: 21px; padding: 0 8px 0 6px; background: rgba(13, 13, 16, .82);
+  border-left: 2px solid rgba(255, 204, 0, .45); clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%); }
+.crew-row strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 11px; letter-spacing: .08em; color: var(--text-hi); }
+.crew-row__title { flex: 0 1 auto; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; font-weight: 600; letter-spacing: .1em; } /* titles.lua */
+.crew-row em, .crew-op em { font-style: normal; font-size: 9px; padding: 0 4px; background: var(--accent); color: var(--text-on-accent); letter-spacing: .1em; }
+.crew-row__mark { display: flex; align-items: center; justify-content: center; width: 12px; flex: none; color: var(--accent); }
+.crew-row__dot { width: 5px; height: 5px; background: rgba(242, 240, 234, .45); }
+.crew-row__chip { display: inline-flex; align-items: center; gap: 3px; flex: none; font-size: 9px; letter-spacing: .14em; padding: 1px 5px;
+  color: var(--o77-cyan); background: rgba(63, 224, 208, .12); }
+.crew-row__chip.is-dim { color: var(--text-dim); background: rgba(242, 240, 234, .08); }
+.crew-row__chip.is-alert { color: #fff; background: var(--o77-red); }
+.crew-row.is-me { border-left-color: var(--accent); background: linear-gradient(90deg, rgba(255, 204, 0, .14), rgba(13, 13, 16, .82) 60%); }
+.crew-row.is-far strong { color: var(--text-dim); }
+.crew-row.is-down { border-left-color: var(--o77-red); background: linear-gradient(90deg, rgba(227, 48, 58, .22), rgba(13, 13, 16, .82) 70%); }
+.crew-row.is-down .crew-row__chip.is-alert { animation: crew-pulse .9s ease-in-out infinite; }
+.crew-row.is-dead { opacity: .6; border-left-color: rgba(242, 240, 234, .3); }
+.crew-row.is-dead strong { text-decoration: line-through; }
+.crew-row.is-dead .crew-row__chip.is-alert { background: rgba(242, 240, 234, .22); }
+.crew-row.is-pending { opacity: .7; border-left-style: dashed; }
+.crew-row.is-pending .crew-row__mark { color: var(--text-dim); }
+.crew-row.is-more { height: 18px; justify-content: center; font-size: 10px; letter-spacing: .14em; color: var(--text-dim); }
+
+/* mission mode: health and armor per operator */
+.crew-op { position: relative; padding: 4px 8px 5px 6px; background: rgba(13, 13, 16, .85); border-left: 2px solid rgba(255, 204, 0, .55);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%); }
+.crew-op__line { display: flex; align-items: center; gap: 6px; height: 15px; }
+.crew-op__line strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 11px; letter-spacing: .08em; color: var(--text-hi); }
+.crew-op__hp { font-size: 11px; color: rgba(242, 240, 234, .8); }
+.crew-op__bar { position: relative; margin-top: 3px; background: rgba(242, 240, 234, .1); overflow: hidden; }
+.crew-op__bar i { position: absolute; inset: 0 auto 0 0; transition: width .35s ease-out; }
+.crew-op__bar.is-health { height: 4px; }
+.crew-op__bar.is-health i { background: linear-gradient(90deg, #ffcc00, #fff1a8); box-shadow: 0 0 6px rgba(255, 204, 0, .45); }
+.crew-op__bar.is-armor { height: 2px; margin-top: 2px; }
+.crew-op__bar.is-armor i { background: #2ee6e0; box-shadow: 0 0 5px rgba(46, 230, 224, .4); }
+.crew-op.is-me { border-left-color: var(--accent); background: linear-gradient(90deg, rgba(255, 204, 0, .12), rgba(13, 13, 16, .85) 60%); }
+.crew-op.is-stranger { border-left-color: rgba(242, 240, 234, .3); }
+.crew-op.is-low .crew-op__bar.is-health i { background: #ff6b3d; }
+.crew-op.is-down { border-left-color: var(--o77-red); background: linear-gradient(90deg, rgba(227, 48, 58, .2), rgba(13, 13, 16, .85) 70%); }
+.crew-op.is-down .crew-row__chip.is-alert { animation: crew-pulse .9s ease-in-out infinite; }
+.crew-op.is-dead { opacity: .55; border-left-color: rgba(242, 240, 234, .3); }
+.crew-op.is-dead strong { text-decoration: line-through; }
+.crew-op.is-dead .crew-row__chip.is-alert { background: rgba(242, 240, 234, .2); }
+.crew-op.is-recovering .crew-row__chip.is-alert { background: rgba(46, 230, 224, .2); color: #2ee6e0; }
+
+/* the invite prompt */
+.crew-invite { position: relative; width: 236px; padding: 7px 10px 9px; background: rgba(10, 10, 12, .92); border: 1px solid rgba(255, 204, 0, .55);
+  box-shadow: 0 0 18px rgba(255, 204, 0, .18); font: 12px var(--font-mono); color: var(--text-body);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); animation: crew-in .25s ease-out; }
+.crew-invite__head { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: .2em; color: var(--accent); }
+.crew-invite__head b { font-weight: 600; }
+.crew-invite__head span { margin-left: auto; color: var(--text-dim); letter-spacing: .1em; }
+.crew-invite__body { margin: 5px 0 7px; font: var(--type-body); font-size: 12px; line-height: 1.35; color: var(--text-body); }
+.crew-invite__body strong { color: var(--text-hi); }
+.crew-invite__actions { display: flex; gap: 6px; }
+.crew-invite__btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 24px; padding: 0 8px; border: 1px solid rgba(242, 240, 234, .25);
+  background: rgba(242, 240, 234, .06); color: var(--text-body); font: 600 11px var(--font-mono); letter-spacing: .14em; }
+.crew-invite__btn kbd { font: 600 10px var(--font-mono); padding: 0 4px; min-width: 16px; text-align: center; background: rgba(242, 240, 234, .16); color: var(--text-hi); }
+.crew-invite__btn.is-yes { border-color: var(--accent); background: rgba(255, 204, 0, .14); color: var(--accent); }
+.crew-invite__btn.is-yes kbd { background: var(--accent); color: var(--text-on-accent); }
+.crew-invite__btn:hover { filter: brightness(1.2); }
+.crew-invite__time { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); transition: width .5s linear; }
+
+@keyframes crew-pulse { 50% { opacity: .45; } }
+@keyframes crew-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+
+/* 1280x720 and other short screens: tighter rows, the frame stays between the
+   notices and the vitals */
+@media (max-height: 800px) {
+  .crew-frame, .crew-invite { width: 212px; }
+  .crew-row { height: 18px; }
+  .crew-row strong, .crew-op__line strong { font-size: 10px; }
+  .crew-op { padding: 3px 7px 4px 5px; }
+  .crew-op__line { height: 13px; }
+  .crew-op__bar.is-health { height: 3px; }
+  .crew-invite { padding: 5px 8px 7px; }
+  .crew-invite__body { margin: 3px 0 5px; font-size: 11px; }
+  .crew-invite__btn { height: 21px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew-row.is-down .crew-row__chip.is-alert, .crew-op.is-down .crew-row__chip.is-alert, .crew-invite { animation: none; }
+}

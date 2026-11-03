@@ -1,0 +1,145 @@
+-- op77_chase <-> Light RP: the activity contract, in one place.
+--
+-- Exports of op77_lightrp, called synchronously (they never yield and never write the
+-- database). A synchronous export RAISES when the call fails (missing resource, missing
+-- export, callee error), so every call is wrapped and turned into `nil|false, reason`.
+--
+-- This resource provides three activities (chase.1v1, chase.wanted and chase.pve): every
+-- call takes the activity id last, and defaults to chase.1v1.
+--
+--   ChaseCore.register(def)                  activityRegister
+--   ChaseCore.check(playerId, aid?, opts?)   activityCheck   -> true | false, reason (player-facing)
+--   ChaseCore.enter(playerId, aid?, opts?)   activityEnter   -> true | false, reason (opts.difficulty: PvE)
+--   ChaseCore.leave(playerId, opts, aid?)    activityLeave   -> true | false, reason
+--   ChaseCore.owner(playerId)                activityOwner   -> activityId | nil
+--   ChaseCore.player(playerId)               activityPlayer  -> { name, identifier, characterKey } | nil
+--   ChaseCore.result(playerId, result, aid?) "op77_lightrp:activity:result" (host-wide TriggerEvent)
+--   ChaseCore.status(status, force, aid?)    "op77_lightrp:activity:status", only when it changed
+ChaseCore = { resource = "op77_lightrp", lastStatus = {} }
+local C = ChaseCore
+
+local function activityId(aid) return aid or ChaseConfig.activity.id end
+
+local function log(fmt, ...)
+    print(("[op77_chase] " .. fmt):format(...))
+end
+
+-- Synchronous export call: the values, or nil plus a reason. Never raises.
+function C.call(name, ...)
+    if type(Open77) ~= "table" or type(Open77.exports) ~= "table" or type(Open77.exports.callSync) ~= "function" then
+        return nil, "exports_unavailable"
+    end
+    local packed = table.pack(pcall(Open77.exports.callSync, C.resource, name, ...))
+    if not packed[1] then return nil, tostring(packed[2]) end
+    return table.unpack(packed, 2, packed.n)
+end
+
+-- The bot-fill declaration sent with activityRegister: Light RP's lobby offers bots only
+-- where the provider registers botFill = true (top level). From config.bots.fill: false =
+-- real players only (chase.1v1, chase.wanted by default; chase.pve has no player slot for
+-- a bot). caps.botFill carries the same value for the hub's toggle.
+function C.botFill(aid) return ((ChaseConfig.bots or {}).fill or {})[aid] == true end
+function C.caps(caps, aid)
+    local out = {}
+    for k, v in pairs(caps or {}) do out[k] = v end
+    out.botFill = C.botFill(aid)
+    return out
+end
+
+function C.register(def)
+    local ok, why = C.call("activityRegister", def)
+    if ok ~= true then return false, why or "refused" end
+    return true
+end
+
+-- The contract's reasons are player-facing sentences; a transport failure is not, so it
+-- becomes a generic sentence (and the log keeps the real reason).
+local function verdict(name, playerId, aid, opts)
+    local ok, why
+    if opts ~= nil then ok, why = C.call(name, playerId, activityId(aid), opts)
+    else ok, why = C.call(name, playerId, activityId(aid)) end
+    if ok == true then return true end
+    if ok == nil then
+        log("%s(%s) failed: %s", name, tostring(playerId), tostring(why))
+        return false, "Light RP did not answer. Try again in a moment."
+    end
+    return false, why or "You cannot join a chase right now."
+end
+
+-- opts (PvE): { difficulty } - the tier gate on check, the difficulty played on enter.
+function C.check(playerId, aid, opts) return verdict("activityCheck", playerId, aid, opts) end
+function C.enter(playerId, aid, opts) return verdict("activityEnter", playerId, aid, opts) end
+
+function C.leave(playerId, opts, aid)
+    local ok, why = C.call("activityLeave", playerId, activityId(aid), opts or { returnPlayer = true })
+    if ok ~= true then
+        log("activityLeave(%s) refused: %s", tostring(playerId), tostring(why))
+        return false, why
+    end
+    return true
+end
+
+function C.owner(playerId)
+    local owner = C.call("activityOwner", playerId)
+    return type(owner) == "string" and owner or nil
+end
+
+-- The player left our queue through one of our own commands. If he had joined from
+-- Light RP's panel, the hub still lists him as queued (and refuses a new join to this
+-- activity) until it expires; activityLeave on a queued-only player clears that. Never
+-- for an owned player: activityLeave would send him home.
+function C.unqueue(playerId, aid)
+    if C.owner(playerId) ~= nil then return false end
+    return C.call("activityLeave", playerId, activityId(aid), { returnPlayer = false }) == true
+end
+
+function C.owned(playerId, aid) return C.owner(playerId) == activityId(aid) end
+
+function C.player(playerId)
+    local info = C.call("activityPlayer", playerId)
+    if type(info) ~= "table" then return nil end
+    return info
+end
+
+function C.result(playerId, result, aid)
+    TriggerEvent("op77_lightrp:activity:result", playerId, activityId(aid), result)
+end
+
+-- Light RP's queue panel (status.queue, v1): who waits in which lobby, what it takes,
+-- when it starts. One lobby per waiting group: { players, need, max, count, startsInMs,
+-- mode, joining }; an empty list = nobody waits (nil = an older provider).
+function C.queue(lobbies) return { v = 1, lobbies = lobbies or {} } end
+function C.lobby(entries, need, extra)
+    local ids = {}
+    for _, e in ipairs(entries or {}) do ids[#ids + 1] = type(e) == "table" and e.id or e end
+    local l = { players = ids, need = need }
+    for k, v in pairs(extra or {}) do l[k] = v end
+    return l
+end
+
+-- The queue in the change digest: a countdown running down is no change (its deadline,
+-- to the second, is), a player or a number that moved is.
+function C.queueDigest(queue, now)
+    if type(queue) ~= "table" or type(queue.lobbies) ~= "table" then return "-" end
+    local parts = {}
+    for _, l in ipairs(queue.lobbies) do
+        parts[#parts + 1] = table.concat({ tostring(l.need), tostring(l.max), tostring(l.count), tostring(l.mode), tostring(l.joining),
+            l.startsInMs and tostring(math.floor(((now or 0) + l.startsInMs) / 1000)) or "", table.concat(l.players or {}, ",") }, "/")
+    end
+    return table.concat(parts, ";")
+end
+
+-- Sent on change only, per activity. `status` = { phase, players, queued, joinable, detail, queue }.
+function C.status(status, force, aid)
+    aid = activityId(aid)
+    local now = ChaseWorld and ChaseWorld.now and ChaseWorld.now() or 0
+    local key = ("%s|%d|%d|%s|%s|%s"):format(tostring(status.phase), status.players or 0, status.queued or 0,
+        tostring(status.joinable), tostring(status.detail), C.queueDigest(status.queue, now))
+    if not force and key == C.lastStatus[aid] then return false end
+    C.lastStatus[aid] = key
+    TriggerEvent("op77_lightrp:activity:status", aid, status)
+    return true
+end
+
+-- Light RP restarted: it forgot every status; the next one is sent whatever it says.
+function C.resetStatus() C.lastStatus = {} end

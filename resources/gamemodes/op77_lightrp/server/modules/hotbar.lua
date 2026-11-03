@@ -36,7 +36,7 @@ function H.use(player,p)
  local label=(LightRpItems[item.name]or{}).label or item.name
  local ok,reason=Inv.use(player,p.slot)
  H.push(player)
- local messages={not_usable="This item cannot be used from a quick slot.",busy="Another inventory action is in progress.",use_refused="This item cannot be used right now.",not_alive="You must be conscious to use quick slots.",use_failed="The item could not be used.",empty_slot="This quick slot is empty."}
+ local messages={activity="Your quick slots are put away during this activity.",not_usable="This item cannot be used from a quick slot.",busy="Another inventory action is in progress.",use_refused="This item cannot be used right now.",not_alive="You must be conscious to use quick slots.",use_failed="The item could not be used.",empty_slot="This quick slot is empty."}
  return ok,ok and label or messages[reason]or tostring(reason)
 end
 RegisterNetEvent(NET,function(p)

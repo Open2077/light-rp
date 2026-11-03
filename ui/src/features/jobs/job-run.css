@@ -19,6 +19,8 @@
 .wo-job { display: flex; align-items: center; gap: var(--sp-3); flex: 1; min-width: 0; color: var(--text-accent); font: var(--fw-semibold) var(--fs-label)/1 var(--font-core); letter-spacing: var(--ls-label); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wo-timer { display: flex; align-items: center; gap: 5px; color: var(--text-dim); font: var(--type-hud-readout); letter-spacing: .06em; }
 .wo-timer.is-low { color: var(--text-danger); animation: wo-blink 1s steps(2, end) infinite; }
+.wo-duo { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-3) var(--sp-6) 0 calc(var(--chamfer-lg) + 4px); font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: .12em; color: var(--text-dim); } /* job_runs.lua duo */
+.wo-duo b { margin-left: auto; color: var(--text-hi); font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wo-hazard { height: 5px; width: 72px; margin-left: calc(var(--chamfer-lg) + 4px); background: repeating-linear-gradient(-45deg, var(--accent) 0 5px, transparent 5px 10px); opacity: .9; }
 
 /* the next stop */

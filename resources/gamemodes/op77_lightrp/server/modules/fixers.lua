@@ -13,6 +13,10 @@
 --             those present; past meetMinutes the gig launches with them, or dies.
 --   end       the mission pays (missions.lua, gig payout), the fixer texts the crew.
 --
+-- Crews (server/modules/parties.lua): the fixers text crew leaders, not their
+-- members, and a leader who takes a job brings the crew: every free member with
+-- a Neural-Link joins the gig's crew at once (up to the difficulty's size).
+--
 -- Messages go through op77_neuralink: its op77_neuralink:rpc event (npcLine,
 -- sendMessage, updateMessage: they touch its database, and an export cannot yield),
 -- answered on op77_lightrp:fixers:rpc; the buttons come back as the event
@@ -132,11 +136,23 @@ local function gigOfRef(r)
     return gigs[tonumber(id)]
 end
 
+-- A gig's pay is each operator's share at the minimum crew: a bigger crew, a repeat
+-- within the cooldown or the daily cap pays less (server/modules/mission_pay.lua).
+-- Before the end the texts say "up to"; after it, what this operator was paid.
+local function payText(gig, viewer)
+    if gig.paid then return money(viewer and gig.paid[viewer] or 0) end
+    return "up to " .. money(gig.payout)
+end
+local function gigPayout(d)
+    local pay = math.floor(d.payout * (C.payoutMultiplier or 1) + 0.5)
+    return LightRP.missionPay and LightRP.missionPay.cap(pay, d) or pay
+end
+
 local function vars(gig, viewer)
     local point, d = pointOf(gig), diffOf(gig)
     return {
         player = viewer and name(viewer) or "", title = point and point.title or "the job", location = point and point.location or "Night City",
-        difficulty = d and d.label or "", payout = money(gig.payout), objective = gig.objective or "", crew = #gig.crew,
+        difficulty = d and d.label or "", payout = payText(gig, viewer), objective = gig.objective or "", crew = #gig.crew,
         max = d and d.max or 1, minutes = d and d.minutes or 15, owner = gig.owner and name(gig.owner) or "", fixer = gig.contact.name,
     }
 end
@@ -154,6 +170,7 @@ local function free(id, ignoreGig)
     if not LightRP.characters.isRegistered(id) then return false, "no active character" end
     if not ignoreGig and gigOf[id] then return false, "already on a gig" end
     if Missions.instanceOf(id) then return false, "on a mission" end
+    if LightRP.activities and LightRP.activities.owns(id) then return false, "in an activity" end
     local life = Open77.players.getLifeState(id)
     if life and life.phase ~= "alive" then return false, "down" end
     if bucketOf(id) ~= 0 then return false, "not in the city" end
@@ -208,7 +225,7 @@ local function brief(gig, id, joining)
         source = "op77_lightrp", ref = ref(gig),
         card = card(gig, "GIG · MEET POINT", {
             "Objective: " .. (gig.objective or "the job."),
-            string.format("Pay: %s each · %d min on the clock", money(gig.payout), d and d.minutes or 15),
+            string.format("Pay: up to %s each · %d min on the clock", money(gig.payout), d and d.minutes or 15),
             string.format("Meet within %d min. Everyone who took the job must be there.", C.meetMinutes),
         }),
         location = { x = point.position.x, y = point.position.y, z = point.position.z, label = "the meet point" },
@@ -240,19 +257,25 @@ function Fixers.offer(playerId, pointId, difficultyId)
         for _, x in ipairs(point.difficulties) do if x.id == difficultyId then d = x end end
         if not d then return false, "unknown difficulty" end
     else
-        local total = 0
-        for _, x in ipairs(point.difficulties) do total = total + ((C.difficultyWeights or {})[x.id] or 1) end
-        local roll = math.random() * total
+        -- only what the owner's reputation tier opens (docs/pve-progression.md)
+        local offered = {}
         for _, x in ipairs(point.difficulties) do
+            if type(Missions.tierAllows) ~= "function" or Missions.tierAllows(playerId, x) then offered[#offered + 1] = x end
+        end
+        if #offered == 0 then offered = { point.difficulties[1] } end
+        local total = 0
+        for _, x in ipairs(offered) do total = total + ((C.difficultyWeights or {})[x.id] or 1) end
+        local roll = math.random() * total
+        for _, x in ipairs(offered) do
             roll = roll - ((C.difficultyWeights or {})[x.id] or 1)
             if not d and roll <= 0 then d = x end
         end
-        d = d or point.difficulties[1]
+        d = d or offered[1]
     end
     local contact = point.fixerContact and contactById[point.fixerContact] or pick(C.contacts)
     gigSeq = gigSeq + 1
     local gig = { id = gigSeq, point = point.id, difficulty = d.id, contact = contact, owner = playerId, crew = {}, invites = {}, briefs = {},
-        state = "offered", payout = math.floor(d.payout * (C.payoutMultiplier or 1) + 0.5), offeredAt = now(),
+        state = "offered", payout = gigPayout(d), offeredAt = now(),
         expiresAt = now() + C.offerSeconds * 1000, shares = 0, shareTimes = {},
         objective = (point.fixerBrief and point.fixerBrief ~= "") and point.fixerBrief or point.description }
     gigs[gig.id] = gig
@@ -261,7 +284,7 @@ function Fixers.offer(playerId, pointId, difficultyId)
     local msg = text(gig, playerId, line(contact, "offer", vars(gig, playerId)), {
         source = "op77_lightrp", ref = ref(gig),
         card = card(gig, "GIG · " .. string.upper(point.type or "JOB"), {
-            string.format("Pay: %s each", money(gig.payout)),
+            string.format("Pay: up to %s each", money(gig.payout)),
             string.format("Time limit: %d min", d.minutes),
             string.format("Answer within %d min", math.floor(C.offerSeconds / 60 + 0.5)),
         }),
@@ -278,7 +301,8 @@ local function launch(gig, members)
     gig.state = "running"
     local ok, launched = Missions.launchGig(gig.point, gig.difficulty, members, {
         id = gig.id, payout = gig.payout, fixerName = gig.contact.name,
-        onEnd = function(_, success, why) CreateThread(function()
+        onEnd = function(inst, success, why) CreateThread(function()
+            gig.paid = inst and inst.gig and inst.gig.paid -- what each operator was paid (mission_pay.lua)
             local crew = {}
             for _, id in ipairs(gig.crew) do crew[#crew + 1] = id end
             for _, id in ipairs(crew) do
@@ -305,11 +329,32 @@ local function launch(gig, members)
     return true
 end
 
+-- Where a player stands (`position` is nil after two idle seconds: the full read then).
+local function positionOf(id)
+    local p = Open77.players.position(id)
+    if p then return p end
+    local ok, read = pcall(Open77.players.get, id)
+    if ok and type(read) == "table" and type(read.position) == "table" then return read.position end
+end
+-- Distance to the meet point: horizontal metres, and whether the height is close enough
+-- (a point placed on a floor above or below the street still counts), or nil.
+local function meetDistance(id, point)
+    local p = point and positionOf(id)
+    if not p or bucketOf(id) ~= 0 then return nil end
+    local flat = math.sqrt((p.x - point.position.x) ^ 2 + (p.y - point.position.y) ^ 2)
+    return flat, math.abs(p.z - point.position.z) <= (C.meetHeight or 15)
+end
+local function atMeet(id, point)
+    local flat, level = meetDistance(id, point)
+    return flat ~= nil and level and flat <= C.meetRadius
+end
+Fixers.atMeet = atMeet
+
 -- Crew present at the meet point.
 local function present(gig)
     local point = pointOf(gig)
     local list = {}
-    for _, id in ipairs(gig.crew) do if point and Missions.near(id, point, C.meetRadius) then list[#list + 1] = id end end
+    for _, id in ipairs(gig.crew) do if point and atMeet(id, point) then list[#list + 1] = id end end
     return list
 end
 
@@ -335,9 +380,35 @@ local function join(gig, id, inviteKey)
     if inv then inv.open = false; resolve(inv.messageId, "Joined", "ok") end
     brief(gig, id, true)
     crewNotice(gig, "CREW", string.format("%s joined the crew (%d/%d).", name(id), #gig.crew, d and d.max or #gig.crew))
+    -- above their street cred: in all the same, for the reward of their own tier (told once)
+    if d and type(Missions.tellCarried) == "function" then Missions.tellCarried(id, pointOf(gig), d, false) end
     if gig.state == "countdown" then gig.state, gig.launchAt = "accepted", nil end
     pushGig(gig)
     return true
+end
+
+-- The owner's crew comes along: every free member with a phone joins the gig.
+local function bringCrew(gig, owner)
+    local P = LightRP.parties
+    local party = P and type(P.of) == "function" and P.of(owner) or nil
+    if not party or party.leader ~= owner or #party.members < 2 then return end
+    local came, out = {}, {}
+    for _, member in ipairs(party.members) do
+        if member ~= owner then
+            local ok, why = free(member)
+            if ok and not hasPhone(member) then ok, why = false, "no Neural-Link" end
+            if ok then
+                local joined, msg = join(gig, member, nil)
+                if joined then came[#came + 1] = name(member) else out[#out + 1] = name(member) .. " (" .. tostring(msg):gsub("%.$", ""):lower() .. ")" end
+            else
+                out[#out + 1] = name(member) .. " (" .. tostring(why) .. ")"
+            end
+        end
+    end
+    local parts = {}
+    if #came > 0 then parts[#parts + 1] = "Your crew comes along: " .. table.concat(came, ", ") .. "." end
+    if #out > 0 then parts[#parts + 1] = "Staying out: " .. table.concat(out, ", ") .. "." end
+    if #parts > 0 then LightRP.notice(owner, { kind = "contract", title = "CREW", durationMs = 8000, body = table.concat(parts, " ") }) end
 end
 
 local function leave(gig, id, why)
@@ -380,7 +451,7 @@ local function share(gig, from, number)
     local msg, why = text(gig, number, line(gig.contact, "shared", v) or fill("{owner} vouched for you. {title}, {location}. In?", v), {
         source = "op77_lightrp", ref = ref(gig),
         card = card(gig, "GIG · SHARED BY " .. string.upper(name(from)), {
-            string.format("Pay: %s each", money(gig.payout)),
+            string.format("Pay: up to %s each", money(gig.payout)),
             string.format("Crew %d/%d", #gig.crew, d and d.max or #gig.crew),
             string.format("Answer within %d min", math.floor(C.offerSeconds / 60 + 0.5)),
         }),
@@ -402,7 +473,18 @@ local function onAction(playerId, a)
     if type(a) ~= "table" or a.source ~= "op77_lightrp" or type(a.ref) ~= "string" or not a.ref:match("^gig:") then return end
     local gig = gigOfRef(a.ref)
     if not gig then resolve(a.messageId, "Expired"); return end
-    local function answer(ok, msg) if msg then LightRP.result(playerId, ok, msg, "fixer." .. a.action) end end
+    -- The answer shows in the phone (a Neural-Link toast: the player pressed the button
+    -- there, and the LightRP notices sit behind it) and in the HUD; refusals are logged.
+    local function answer(ok, msg)
+        if not msg then return end
+        LightRP.result(playerId, ok, msg, "fixer." .. a.action)
+        neural(function() return exports.op77_neuralink:notify(playerId, ok and "GIG" or "GIG · NOT NOW", msg) end)
+        if not ok then
+            log("fixers: %s %s on gig %d refused: %s", name(playerId), tostring(a.action), gig.id, msg)
+            -- and the fixer says why, in the conversation (it stays written there)
+            text(gig, playerId, msg)
+        end
+    end
     if a.action == "accept" and a.messageId == gig.offerMessage then
         if playerId ~= gig.owner or gig.state ~= "offered" then return answer(false, "That offer is not yours anymore.") end
         local ok, why = free(playerId, true)
@@ -411,6 +493,7 @@ local function onAction(playerId, a)
         resolve(gig.offerMessage, "Job taken", "ok")
         gig.state, gig.crew, gig.meetUntil = "accepted", { playerId }, now() + C.meetMinutes * 60000
         brief(gig, playerId, false)
+        bringCrew(gig, playerId)
         pushGig(gig)
         log("fixers: %s took gig %d", name(playerId), gig.id)
     elseif a.action == "decline" and a.messageId == gig.offerMessage then
@@ -438,12 +521,18 @@ local function onAction(playerId, a)
     elseif a.action == "go" then
         if playerId ~= gig.owner then return answer(false, "Only " .. name(gig.owner) .. " says go.") end
         if gig.state ~= "accepted" then return answer(false, gig.state == "countdown" and "The countdown is running." or "That job is closed.") end
+        local point = pointOf(gig)
+        if not atMeet(playerId, point) then
+            local flat = meetDistance(playerId, point)
+            return answer(false, flat and string.format("Get to the meet point first: you're %d m away. Pin it from the brief.", math.floor(flat + 0.5))
+                or "Get to the meet point first (pin it from the brief).")
+        end
         local d = diffOf(gig)
         local here = present(gig)
         if #here < (d and d.min or 1) then
             return answer(false, string.format("%s needs %d operator(s) at the meet point (%d there).", d and d.label or "This job", d and d.min or 1, #here))
         end
-        if not Missions.near(playerId, pointOf(gig), C.meetRadius) then return answer(false, "Get to the meet point first.") end
+        log("fixers: %s says go on gig %d with %d operator(s) at the meet", name(playerId), gig.id, #here)
         startCountdown(gig, here, true)
     elseif a.action == "bail" then
         if gig.state == "running" then return answer(false, "You're on the job: /mission leave to abandon it.") end
@@ -499,6 +588,10 @@ local function eligibleForOffer(id, t)
     if gigOf[id] or (lastOffer[id] and t - lastOffer[id] < C.dispatch.playerCooldownMinutes * 60000) then return false end
     if not joinedAt[id] or t - joinedAt[id] < C.dispatch.settleSeconds * 1000 then return false end
     if LightRP.tutorial and type(LightRP.tutorial.isActive) == "function" and LightRP.tutorial.isActive(id) then return false end
+    -- a crew member waits for the leader's jobs
+    local P = LightRP.parties
+    local party = P and type(P.of) == "function" and P.of(id) or nil
+    if party and #party.members > 1 and party.leader ~= id then return false end
     return free(id) and hasPhone(id)
 end
 

@@ -31,6 +31,7 @@ dependencies {
 
 -- Downloaded by clients: never put credentials in shared/.
 shared_script "shared/events.lua"
+shared_script "shared/notice.lua"         -- another resource's notice in the page (exports notice / Notice)
 shared_script "shared/safezones.lua"
 shared_script "shared/mission_defs.lua"   -- authored missions: format + validation (editor, engine, page)
 shared_script "shared/config.lua"
@@ -76,6 +77,10 @@ server_script "server/modules/armament.lua"
 server_script "server/modules/grenades.lua"
 server_script "server/modules/hotbar.lua"
 server_script "server/modules/economy.lua"
+server_script "server/config/economy.lua"         -- economy rules (docs/economy-balance.md)
+server_script "server/modules/mission_pay.lua"    -- what a mission / gig pays: crew pot, cooldown, daily cap
+server_script "server/modules/economy_sinks.lua"  -- hospital bill, fitting-room fee
+server_script "server/modules/work_activity.lua"  -- paychecks only for active players (moved, worked, served)
 server_script "server/modules/jobs.lua"
 server_script "server/config/missions.lua"
 server_script "server/modules/parties.lua"
@@ -83,8 +88,13 @@ server_script "server/modules/missions.lua"
 server_script "server/modules/mission_chimera.lua"
 server_script "server/modules/mission_engine.lua"  -- runtime of the authored missions
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
+server_script "server/modules/mission_repay.lua"   -- /lightrp.missions.repay: stored missions to the new payout scale
 server_script "server/config/fixers.lua"
 server_script "server/modules/fixers.lua"          -- fixer gigs: offers by Neural-Link text, crews, meet point
+server_script "server/config/world_bosses.lua"
+server_script "server/modules/world_bosses.lua"    -- world bosses: open-world events from editor missions, shares by contribution
+server_script "server/config/announce.lua"
+server_script "server/modules/announce.lua"        -- staff voice announcements (/lightrp.broadcast): server-wide or within a radius
 server_script "server/config/job_runs.lua"
 server_script "server/config/delivery.lua"
 server_script "server/modules/job_runs.lua"
@@ -127,7 +137,32 @@ server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"
 server_script "server/config/cyberware.lua"
 server_script "server/modules/cyberware.lua"
+server_script "server/modules/cyberware_active.lua"  -- Berserk, Pain Editor, Second Heart, Kiroshi scan / crew mark
+server_script "server/modules/cyberware_iconics.lua" -- iconic implants: drops from world bosses and the Chimera on Critical
 server_script "server/modules/ripperdoc.lua"
+server_script "server/config/activities.lua"
+server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
+server_script "server/modules/activity_queue.lua"  -- the queue panel: one queue per player (core, providers, mission boards), leave
+server_script "server/modules/activity_pay.lua"    -- eddies for activity results (PvP ranked, PvE), caps and anti-farm
+server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
+server_script "server/config/halloffame.lua"
+server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards
+server_script "server/config/guide.lua"
+server_script "server/modules/guide.lua"           -- Johnny at The Crossing: the FAQ dialogue (content in server/config/guide.lua)
+server_script "server/config/guide_dialogue.lua"
+server_script "server/modules/guide_dialogue.lua"  -- talking to Johnny: choices over the FAQ, GPS and panels (content in server/config/guide_dialogue.lua)
+server_script "server/config/dogtown.lua"
+server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
+server_script "server/config/events_board.lua"
+server_script "server/modules/events_board_fonts.lua" -- the board page's fonts (design system, base64)
+server_script "server/modules/events_board_page.lua"  -- the board page: HTML, CSS, JS
+server_script "server/modules/events_board.lua"    -- The Crossing: the events board TV, its page and data over http.serve (/lightrp.board)
+server_script "server/modules/recap.lua"           -- the end-of-match recap: activities, missions, world bosses (F1 > Last match)
+server_script "server/config/titles.lua"
+server_script "server/modules/titles.lua"          -- prestige titles: closed catalogue, earned per character, one shown by the name
+server_script "server/config/dailies.lua"
+server_script "server/modules/dailies.lua"         -- daily / weekly contracts told by the fixers (docs/dailies-titles.md)
+server_script "server/modules/job_crew.lua"        -- jobs worked together: +15 % crew bonus, Big Contract premium
 server_script "server/main.lua"
 
 -- Client: core first, then modules.
@@ -153,6 +188,10 @@ client_script "client/core/weapon_wheel.lua"
 client_script "client/core/map_places.lua"
 client_script "client/core/homes.lua"
 client_script "client/core/vehicle_gps.lua"
+client_script "client/core/activities.lua"     -- Neural-Link app "Gigs & Arena", contract GPS
+client_script "client/core/halloffame.lua"     -- ALT + click on the Hall of Fame board
+client_script "client/core/events_board.lua"   -- the events board's page on the TV's screen at The Crossing
+client_script "client/core/recap.lua"          -- the end-of-match recap, opened once back in the city
 client_script "client/core/cyberware.lua"
 client_script "client/core/wardrobe.lua"
 client_script "client/core/keys.lua"
@@ -160,12 +199,14 @@ client_script "client/core/movement.lua"
 client_script "client/core/camera.lua"
 client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
+client_script "client/core/announce.lua"       -- the announcement halo's voice level (server/modules/announce.lua)
 client_script "client/core/inventory.lua"
 client_script "client/core/armament.lua"
 client_script "client/core/grenades.lua"
 client_script "client/core/hotbar.lua"
 client_script "client/core/branding.lua"
 client_script "client/core/actions.lua"
+client_script "client/core/activity_hud.lua"   -- shared in-match HUD of the activity providers (exports ActivityHud*)
 client_script "client/core/medical.lua"
 client_script "client/core/consumables.lua"
 client_script "client/core/refueling.lua"
@@ -176,7 +217,11 @@ client_script "client/core/raid.lua"
 client_script "client/core/mission_editor.lua"
 client_script "client/core/mission_run.lua"
 client_script "client/core/vehicle_context.lua"
+client_script "client/core/crew.lua"            -- crews: ALT + click on players, invite keys (server/modules/parties.lua)
+client_script "client/core/queue.lua"           -- the queue panel's leave key (server/modules/activity_queue.lua)
 client_script "client/core/vehicle_customization.lua"
+client_script "client/core/guide.lua"           -- the guide NPC: page relay with the player's keys, ALT + click on him
+client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -206,6 +251,7 @@ permissions {
     "world.effects",        -- the raid's strikes: replicated explosions in the arena bucket
     "world.explosions",     -- ... that hurt the operators standing in them
     "combat.config",        -- pre-hit, server-authoritative safezone policy
+    "combat.scope.control", -- Dogtown: PvP grants for the players inside (global friendly fire stays off)
     "players.stats.read",
     "players.stats.apply",         -- cyberware passives: health/stamina maxima and regeneration
     "players.life.falldamage",     -- cyberware: Fortified Ankles
@@ -227,6 +273,8 @@ permissions {
     "acl.read",
     "players.disconnect",
     "players.access",
+    "voice.manage",        -- staff announcements: one admin voice channel per speaker
+    "http.serve",          -- the events board's page and data (server/modules/events_board.lua; server config httpHandlers)
     -- client
     "voice.client",        -- guided setup through the trusted preference owner
     "network.client",      -- local player ID + authenticated account for animation state/preferences

@@ -11,7 +11,7 @@ import { ContextLesson } from "./ContextLesson";
 type Keys = { menu: string; inventory: string; interact: string; context?: string; lock?: string; skip?: string; way?: string };
 /** The flight to a new destination (client/core/tutorial.lua, startReveal). */
 type Reveal = { name: string; direction?: string; distance: number; index?: number; total?: number; durationMs: number };
-type Presentation = { phase?: string; options?: boolean; keys?: Keys; distance?: number | false; reveal?: Reveal | false; voice?: VoiceSetup; voiceError?: string };
+type Presentation = { phase?: string; options?: boolean; skipAsk?: boolean; keys?: Keys; distance?: number | false; reveal?: Reveal | false; voice?: VoiceSetup; voiceError?: string };
 const control = (operation: string) => emit(PAGE_EVENTS.tutorial, { operation });
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -57,6 +57,8 @@ export function Tutorial() {
   const result = useStore(s => s.lastResult);
   const [presentation, setPresentation] = useState<Presentation>({ phase: "waiting" });
   const [options, setOptions] = useState(false);
+  // "Skip the first day?": asked once more before the guide ends, from the arrival or the options.
+  const [skipAsk, setSkipAsk] = useState(false);
   const [line, setLine] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -69,7 +71,8 @@ export function Tutorial() {
   const intro = !!guide?.active && guide.step === "intro";
   const dialogue = !!guide?.active && (!!guide.dialogue || guide.step === "outro");
   const voiceLesson = !!guide?.active && guide.step === "voice";
-  const modal = current && !otherDialog && (intro || dialogue || options || voiceLesson);
+  const asking = skipAsk && !!guide?.active;
+  const modal = current && !otherDialog && (intro || dialogue || options || voiceLesson || asking);
   const visible = current && !!guide?.active && !otherDialog;
   const lines = (Array.isArray(guide?.lines) ? guide.lines : []).map(l => typeof l === "string" ? { text: l, demo: undefined } : { text: l?.text ?? "", demo: l?.demo });
   const last = line >= lines.length - 1;
@@ -86,8 +89,10 @@ export function Tutorial() {
   const total = Math.max(1, guide?.total ?? 10), index = Math.min(total, Math.max(1, guide?.index ?? 1));
 
   useEffect(() => on<Presentation>(PAGE_EVENTS.tutorial, p => {
-    setPresentation(s => ({ ...s, ...p }));
+    const { skipAsk: ask, ...rest } = p;
+    setPresentation(s => ({ ...s, ...rest }));
     if (p.options) setOptions(true);
+    if (ask) { setOptions(false); setSkipAsk(true); }
   }), []);
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -96,6 +101,8 @@ export function Tutorial() {
     return () => media.removeEventListener("change", changed);
   }, []);
   useEffect(() => { setLine(0); setBusy(false); setError(""); }, [guide?.key, guide?.step, guide?.revision, guide?.dialogue]);
+  // A skip (or a pause) ends the guide on the same step: nothing above clears the pending click.
+  useEffect(() => { if (!guide?.active) { setSkipAsk(false); setBusy(false); } }, [guide?.active, guide?.key]);
   useEffect(() => {
     const before = previous.current;
     previous.current = { key: guide?.key, step: guide?.active ? guide.step : undefined, title: guide?.title };
@@ -104,7 +111,7 @@ export function Tutorial() {
     const timer = setTimeout(() => setDone(""), 2600);
     return () => clearTimeout(timer);
   }, [guide?.active, guide?.key, guide?.step, guide?.title]);
-  useEffect(() => { if (!current) { setOptions(false); setBusy(false); } }, [current]);
+  useEffect(() => { if (!current) { setOptions(false); setSkipAsk(false); setBusy(false); } }, [current]);
   useEffect(() => {
     if (result?.action === "tutorial.control" && !result.ok) { setBusy(false); setError(result.text); }
   }, [result]);
@@ -126,9 +133,9 @@ export function Tutorial() {
   useEffect(() => {
     if (!modal) return;
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOptions(true); }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (asking) setSkipAsk(false); else setOptions(true); }
       // Space / Enter read on: the line whole first, then the next one. A focused button keeps its own click.
-      if (!voiceLesson && (e.key === " " || e.key === "Enter") && !(document.activeElement instanceof HTMLButtonElement)) {
+      if (!voiceLesson && !asking && (e.key === " " || e.key === "Enter") && !(document.activeElement instanceof HTMLButtonElement)) {
         e.preventDefault(); if (!e.repeat) readOn.current();
       }
       if (e.key !== "Tab") return;
@@ -139,27 +146,34 @@ export function Tutorial() {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [modal, voiceLesson]);
+  }, [modal, voiceLesson, asking]);
 
   const issue = (operation: string) => { if (busy && !(operation === "intro" && presentation.phase === "intro_retry")) return; setBusy(true); setError(""); control(operation); };
   const goOn = () => { if (!last) setLine(n => n + 1); else issue(guide?.step === "outro" ? "finish" : "next"); };
-  readOn.current = () => { if (!dialogue || options) return; if (!complete) finishTyping(); else goOn(); };
+  readOn.current = () => { if (!dialogue || options || asking) return; if (!complete) finishTyping(); else goOn(); };
   if (!current || (!visible && !options) || otherDialog) return null;
   const pause = () => { control("pause"); setOptions(false); setBusy(false); };
+  const askSkip = () => { setOptions(false); setError(""); setSkipAsk(true); };
+  const skip = () => { if (busy) return; setBusy(true); setError(""); control("skip"); };
   const keyHint = guide?.step === "identity" ? `${keys.menu} · IDENTITY`
     : guide?.step === "inventory" || guide?.step === "drink" ? `${keys.inventory} · INVENTORY`
     : `${keys.interact} · INTERACT`;
   return <div className={`first-day${modal ? " first-day--modal o77-interactive" : ""}${intro ? " first-day--intro" : ""}`}>
-    {modal && <div className="first-day__modal" role="dialog" aria-modal="true" aria-label={options ? "First day guide options" : intro ? "Your first day" : voiceLesson ? "Voice setup guide" : `Conversation with ${speaker}`} tabIndex={-1} ref={root}>
-      {intro && !options && <>
+    {modal && <div className="first-day__modal" role="dialog" aria-modal="true" aria-label={asking ? "Skip the first day" : options ? "First day guide options" : intro ? "Your first day" : voiceLesson ? "Voice setup guide" : `Conversation with ${speaker}`} tabIndex={-1} ref={root}>
+      {intro && !options && !asking && <>
         <div className={`first-day__curtain${["opening", "confirming", "intro_retry"].includes(presentation.phase ?? "") ? " is-open" : ""}`} />
         <div className="first-day__opening"><span>{opening?.eyebrow ?? "LIGHT/RP · CHAPTER 02"}</span><h1>{openingTitle[0]}<br /><em>{openingTitle[1]}</em></h1><p>{opening?.subtitle ?? "A name. A guide. A place to start."}</p></div>
-        <div className="first-day__opening-foot"><span>{presentation.phase === "opening" ? (opening?.place ?? "ARRIVAL HALL") : presentation.phase === "confirming" ? "Waiting for your arrival to be confirmed…" : presentation.phase === "intro_retry" ? "Arrival not confirmed. Retry, or press Esc to pause the guide." : "Arriving…"}</span><button onClick={() => issue("intro")} disabled={busy && presentation.phase !== "intro_retry"}>{presentation.phase === "intro_retry" ? "Retry arrival" : presentation.phase === "confirming" ? "Continue" : "Skip scene"} <Icon name="arrow-right" size={15} /></button></div>
+        <div className="first-day__opening-foot"><span>{presentation.phase === "opening" ? (opening?.place ?? "ARRIVAL HALL") : presentation.phase === "confirming" ? "Waiting for your arrival to be confirmed…" : presentation.phase === "intro_retry" ? "Arrival not confirmed. Retry, or press Esc to pause the guide." : "Arriving…"}</span><div className="first-day__opening-actions"><button onClick={askSkip}>Skip the tutorial</button><button onClick={() => issue("intro")} disabled={busy && presentation.phase !== "intro_retry"}>{presentation.phase === "intro_retry" ? "Retry arrival" : presentation.phase === "confirming" ? "Continue" : "Skip scene"} <Icon name="arrow-right" size={15} /></button></div></div>
       </>}
-      {options ? <section className="first-day__options">
+      {asking ? <section className="first-day__options">
+        <span className="first-day__eyebrow">LIGHT/RP / FIRST DAY GUIDE</span><h2>Skip the first day?</h2>
+        <p>You go straight to Night City. Your Neural-Link is installed and you get your starter studio in Kabuki: its door is on your map, a short walk away, with a wardrobe in the bedroom. F1 → My homes manages its keys. Only the practice pay is not earned.</p>
+        <div><button className="first-day__primary" disabled={busy} onClick={skip}>{busy ? "Leaving…" : "Skip the first day"}</button><button onClick={() => setSkipAsk(false)}>Back to the guide</button></div>
+        <small>Changed your mind? {keys.menu} → First day guide, or /tutorial, brings {guideName} back.</small>
+      </section> : options ? <section className="first-day__options">
         <span className="first-day__eyebrow">LIGHT/RP / FIRST DAY GUIDE</span><h2>Your city. Your pace.</h2>
         <p>{guide?.active ? (guide.where === "lobby" ? "Take a break whenever you like. Your progress is saved. Continuing on your own takes you out of the arrival hall, to Night City." : "Take a break whenever you like. Your progress is saved.") : guide?.status === "done" ? "You've found your feet. You can revisit the guide whenever you like." : `Let ${guideName} show you your citizen card, your inventory, a shop, the bank and how to earn your first eddies.`}</p>
-        <div>{guide?.active ? <><button className="first-day__primary" onClick={() => setOptions(false)}>Continue guide</button><button onClick={pause}>Continue on my own</button><button onClick={() => { control("gps"); setOptions(false); }}>Show objective on GPS</button></> : <><button className="first-day__primary" disabled={busy || guide?.available === false} onClick={() => { control("resume"); setOptions(false); }}>{guide?.status === "done" ? "Revisit first day" : guide?.status === "paused" ? "Resume guide" : "Start first day"}</button><button onClick={() => setOptions(false)}>Not now</button></>}</div>
+        <div>{guide?.active ? <><button className="first-day__primary" onClick={() => setOptions(false)}>Continue guide</button><button onClick={askSkip}>Skip the first day</button><button onClick={pause}>Continue on my own</button><button onClick={() => { control("gps"); setOptions(false); }}>Show objective on GPS</button></> : <><button className="first-day__primary" disabled={busy || guide?.available === false} onClick={() => { control("resume"); setOptions(false); }}>{guide?.status === "done" ? "Revisit first day" : guide?.status === "paused" ? "Resume guide" : "Start first day"}</button><button onClick={() => setOptions(false)}>Not now</button></>}</div>
         <small>Find this guide in {keys.menu} → First day guide, or type /tutorial.</small>
       </section> : voiceLesson ? <VoiceTutorial state={presentation.voice} error={presentation.voiceError} /> : dialogue && <div className="first-day__talk">
         {lines[line]?.demo && <DialogueDemo id={lines[line].demo!} keys={keys} map={guide?.map} />}
@@ -202,6 +216,8 @@ export function Tutorial() {
         <b>{presentation.distance} m</b><span>{guide.objective.label}</span>
       </div>}
       {guide?.line && <blockquote><span>{guideName.toUpperCase()}</span>{guide.line}</blockquote>}
+      {/* Always in sight while the guide runs: F1 (the player menu) has "Skip the tutorial" on top of its server section. */}
+      <div className="first-day__skip">Press <kbd className="first-day__waykey">{keys.menu}</kbd> to skip the tutorial</div>
       <footer>{guide?.objective ? <span className="first-day__way"><kbd className="first-day__waykey">{keys.way}</kbd>Show me the way</span>
         : todo.length > 0 ? <span>{keys.menu} → First day guide</span> : <kbd>{keyHint}</kbd>}<span>/tutorial pause</span></footer>
     </aside>}

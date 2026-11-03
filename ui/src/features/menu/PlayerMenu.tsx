@@ -5,7 +5,10 @@ import { matchesToggleKey } from "@/features/inventory/model";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { RageMenu, type RageMenuItem } from "@/design/components";
 import { formatMoney, ledger, transactionLabel } from "@/bridge/money";
-import type { CharacterState, GangState, JobRunState, JobState, MoneyState } from "@/bridge/protocol";
+import type { ActivitiesState, CharacterState, GangState, JobRunState, JobState, MoneyState, PartyState, QueueState } from "@/bridge/protocol";
+import { dogtownMenu } from "@/features/dogtown/model";
+import { menuMeta, shownTitle } from "@/features/dailies/model";
+import { QUEUE_LEAVE_ITEM, queueMenuItem } from "@/features/queue/model";
 import "./menu.css";
 
 /* The player menu (F1): a RageUI-style list menu, keyboard only, top-left. The
@@ -92,6 +95,67 @@ function jobNodes(job: JobState, run: JobRunState | undefined, money: MoneyState
   };
 }
 
+/* F1 → Activities opens the Activities panel (server/modules/activities.lua); a
+   running activity or a waiting request can be left from here at once. F1 → Crew
+   manages the crew (server/modules/parties.lua): invites, members, matchmaking,
+   leave. Inviting needs the players around: ALT + click one, or the panel's crew
+   page lists them. */
+function activityItems(act: ActivitiesState | undefined, queue: QueueState | undefined): RageMenuItem[] {
+  const items: RageMenuItem[] = [{ id: "activities", type: "item", text: "Activities", icon: "swords",
+    meta: act?.current ? "IN PLAY" : act?.queued || queue ? "WAITING" : act ? `${act.list.length} OPEN` : undefined,
+    description: "Arena, races, chases and events: status, join, your record and the leaderboards. The Crossing's terminal and the Neural-Link app Gigs & Arena open the same panel." }];
+  // whatever queue the queue panel shows (an activity, a provider's lobby, a mission board)
+  const leaveQueue = queueMenuItem(queue);
+  if (act?.current && !act.current.returning) items.push({ id: "activity-leave", type: "item", text: `Leave ${act.current.label}`, icon: "log-out", danger: true,
+    disabled: act.current.leaving, description: "Ends your participation. You come back where you were before it started, healed, with your own weapons." });
+  if (leaveQueue) items.push(leaveQueue);
+  else if (act?.queued && !act.current) items.push({ id: "activity-leave", type: "item", text: `Cancel ${act.queued.label}`, icon: "x",
+    description: "Withdraws your request: you leave its queue or lobby." });
+  return items;
+}
+
+function squadNodes(party: PartyState | undefined, me: number): Record<string, MenuNode> {
+  const leader = !!party?.id && party.leader === me;
+  const inCrew = !!party?.id && (party.members?.length ?? 0) > 1;
+  const items: RageMenuItem[] = [];
+  if (party?.invites?.length) {
+    items.push({ label: "INVITES" });
+    for (const inv of party.invites) items.push(
+      { id: `squad-accept:${inv.party}`, type: "item", text: `Join ${inv.fromName}'s crew`, icon: "user-plus", meta: `${Math.max(0, Math.ceil(inv.expiresInMs / 1000))} S`,
+        description: "Accept the invite: your crew enters missions, the raid and activities together, behind its leader." },
+      { id: `squad-decline:${inv.party}`, type: "item", text: `Decline ${inv.fromName}`, icon: "x" });
+  }
+  const nodes: Record<string, MenuNode> = {};
+  items.push({ label: party?.members ? `MEMBERS ${party.members.length}/${party.maxSize}` : "MEMBERS" });
+  if (party?.members) {
+    for (const m of party.members) {
+      const manage = leader && m.id !== me;
+      items.push({ id: `squad-member:${m.id}`, type: manage ? "submenu" : "item", target: manage ? `member:${m.id}` : undefined, text: m.name,
+        icon: m.leader ? "crown" : "user", meta: m.id === me ? "YOU" : m.state === "down" || m.state === "dead" ? m.state.toUpperCase() : m.leader ? "LEADER" : m.busy ? (m.busy === "lobby" ? "BOARD" : m.busy.toUpperCase()) : m.far ? "FAR" : undefined,
+        description: manage ? "Make them crew leader or kick them from the crew." : m.leader ? "The crew leader invites, tags missions in and starts activities." : undefined });
+      if (manage) nodes[`member:${m.id}`] = { title: m.name.toUpperCase(), subtitle: "CREW MEMBER", tag: "MEMBER", items: [
+        { id: `squad-promote:${m.id}`, type: "item", text: "Make crew leader", icon: "crown", description: `${m.name} becomes the crew leader.` },
+        { id: `squad-kick:${m.id}`, type: "item", text: "Kick from crew", icon: "user-minus", danger: true },
+        { id: "squad-back", type: "item", text: "Back", icon: "arrow-left" },
+      ] };
+    }
+    for (const p of party.pending ?? []) items.push({ id: `squad-pending:${p.id}`, type: "item", text: p.name, icon: "loader", meta: "INVITED", disabled: true });
+  } else {
+    items.push({ id: "squad-none", type: "item", text: "No crew: you play solo", icon: "users", disabled: true, description: "ALT + click a player > Invite to crew: the crew forms when they accept." });
+  }
+  const canToggle = !party?.id || leader;
+  items.push({ separator: true },
+    { id: "squad-invite", type: "item", text: "Invite players nearby", icon: "user-plus", disabled: !!party?.id && !leader,
+      description: !!party?.id && !leader ? "Only the crew leader invites." : "ALT + click a player, or open the crew page of the Activities panel: the players within 15 m of you, one click to invite." },
+    { id: "squad-matchmaking", type: "item", text: party?.matchmaking ? "Mission matchmaking: open" : inCrew ? "Mission matchmaking: crew only" : "Mission matchmaking: off", icon: party?.matchmaking ? "globe" : "lock",
+      meta: party?.matchmaking ? "ON" : "OFF", disabled: !canToggle,
+      description: !canToggle ? "The crew leader decides." : inCrew
+        ? party?.matchmaking ? "Solo players fill your empty places on mission boards. Select to keep missions to your crew." : "Only your crew enters your missions. Select to let solo players fill the empty places."
+        : party?.matchmaking ? "You join open mission boards, and players fill yours. Select to enter missions alone." : "You only enter missions alone. Select to join open boards and let players fill yours." });
+  if (party?.members) items.push({ id: "squad-leave", type: "item", text: inCrew ? "Leave crew" : "Withdraw my invites", icon: "log-out", danger: true });
+  return { squad: { title: "CREW", subtitle: inCrew ? `${party!.members!.length}/${party!.maxSize} MEMBERS` : "SOLO", tag: "CREW", items }, ...nodes };
+}
+
 function buildTree(character: CharacterState, money: MoneyState, job: JobState, gang: GangState, run: JobRunState | undefined, freecamKey?: string): Record<string, MenuNode> {
   const name = `${character.firstName ?? ""} ${character.lastName ?? ""}`.trim() || character.accountName || "";
   const id = String(character.playerId).padStart(3, "0");
@@ -174,6 +238,13 @@ export function PlayerMenu() {
   const openJobGuide = useStore((s) => s.openJobGuide);
   const tutorial = useStore((s) => s.state.tutorial);
   const staff = useStore((s) => s.state.staff);
+  const activities = useStore((s) => s.state.activities);
+  const queue = useStore((s) => s.state.queue);
+  const party = useStore((s) => s.state.party);
+  const dogtown = useStore((s) => s.state.dogtown);
+  const recap = useStore((s) => s.state.recap);
+  const dailies = useStore((s) => s.state.dailies);
+  const titles = useStore((s) => s.state.titles);
   const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
   const [stack, setStack] = useState<Array<{ key: string; index: number }>>([{ key: "root", index: ROOT_INDEX }]);
   const [toggleKey, setToggleKey] = useState("F1");
@@ -209,9 +280,36 @@ export function PlayerMenu() {
 
   const tree = useMemo(() => {
     const nodes = buildTree(character, money, job, gang, jobRun, freecamKey);
+    // While the first day runs, leaving it is one choice away (the objective card points here).
+    const guide = nodes.root?.items.findIndex((i) => "id" in i && i.id === "tutorial") ?? -1;
+    if (tutorial?.active && guide >= 0) nodes.root!.items.splice(guide + 1, 0, {id:"tutorial-skip",type:"item",text:"Skip the tutorial",icon:"log-out",
+      description:"Leave the first day now: your Neural-Link is installed and you get your Kabuki starter studio, its door a short walk away. You can come back to the guide later."});
     if (staff.isStaff && nodes.root) nodes.root.items.splice(nodes.root.items.length - 2, 0, {id:"admin",type:"item",text:"Staff desk",icon:"shield",description:"LightRP administration and support cases."});
+    // Activities and the crew, under the homes
+    const homes = nodes.root?.items.findIndex((i) => "id" in i && i.id === "housing") ?? -1;
+    if (homes >= 0) nodes.root!.items.splice(homes + 1, 0, ...activityItems(activities, queue), { id: "squad", type: "submenu", target: "squad", text: "Crew", icon: "users",
+      meta: party?.invites?.length ? `${party.invites.length} INVITE${party.invites.length > 1 ? "S" : ""}` : party?.members ? `${party.members.length}/${party.maxSize}` : "SOLO",
+      description: "Your crew: accept invites, see the members, invite the players around you, mission matchmaking, leave." });
+    Object.assign(nodes, squadNodes(party, character.playerId));
+    // Dogtown (the PvP zone), under the squad.
+    const dt = dogtownMenu(dogtown, (n) => formatMoney(n, money.currency)), squad = nodes.root?.items.findIndex((i) => "id" in i && i.id === "squad") ?? -1;
+    if (dt && squad >= 0) { nodes.root!.items.splice(squad + 1, 0, dt.item); Object.assign(nodes, dt.nodes); }
+    // The last end-of-match recap (server/modules/recap.lua), under the crew
+    const last = recap ? recap.last : undefined;
+    const crew = nodes.root?.items.findIndex((i) => "id" in i && i.id === "squad") ?? -1;
+    if (last && crew >= 0) nodes.root!.items.splice(crew + 1, 0, { id: "recap", type: "item", text: "Last match", icon: "list-checks",
+      meta: last.test ? "TEST" : last.result, description: `The recap of your last ${last.mode ?? "match"}: the scoreboard, your numbers, the MVP and what it paid.` });
+    // Dailies under the homes, the title in the identity card (features/dailies)
+    const home = nodes.root?.items.findIndex((i) => "id" in i && i.id === "housing") ?? -1;
+    if (dailies && home >= 0) nodes.root!.items.splice(home + 1, 0, { id: "dailies", type: "item", text: "Dailies", icon: "list-checks", meta: menuMeta(dailies),
+      description: "Four small jobs a day from Mama Okoro, Ledger and Nix, and a big one every week, paid into your bank. Your titles are in there too." });
+    const lastName = nodes.identity?.items.findIndex((i) => "id" in i && i.id === "last") ?? -1;
+    const badge = shownTitle(titles);
+    if (titles?.enabled && lastName >= 0) nodes.identity!.items.splice(lastName + 1, 0, { id: "identity-title", type: "item", text: "Title", icon: "crown",
+      meta: badge ? badge.label.toUpperCase() : "NONE",
+      description: "What others read after your name in the chat, on your crew's frame and in the Hall of Fame. Select to pick one you earned." });
     return nodes;
-  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey]);
+  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, queue, party, dogtown, recap, dailies, titles]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;
@@ -224,6 +322,7 @@ export function PlayerMenu() {
     if (item.type === "submenu" && item.target && tree[item.target]) return setStack((s) => [...s, { key: item.target!, index: 0 }]);
     if (item.id === "briefing") { setWelcomeReplay(true); requestClose(); return; }
     if (item.id === "tutorial") { requestClose(); emit(PAGE_EVENTS.tutorial, { operation: "options" }); return; }
+    if (item.id === "tutorial-skip") { requestClose(); emit(PAGE_EVENTS.tutorial, { operation: "skip-ask" }); return; }
     if (item.id === "support" || item.id === "admin") { requestClose(); emit(PAGE_EVENTS.support, {operation:"open",scope:item.id === "admin" ? "staff" : "player"}); return; }
     if (item.id === "animations") { requestClose(); emit(PAGE_EVENTS.animationsAction, { action: "open" }); return; }
     if (item.id === "freecam") { requestClose(); emit(PAGE_EVENTS.freecam, { operation: "toggle" }); return; }
@@ -236,6 +335,22 @@ export function PlayerMenu() {
     if (item.id === "job-quit-confirm") { sendAction({ type: "jobs.quit" }); setStack((s) => s.slice(0, -1)); return; }
     if (item.id === "work-collect" || item.id === "work-process" || item.id === "work-sell") {
       requestClose(); sendAction({ type: "jobs.locate", job: job.name, stage: item.id.slice(5) as "collect" | "process" | "sell" }); return;
+    }
+    if (item.id === "activities" || item.id === "squad-invite") {
+      requestClose(); sendAction({ type: "activities.control", operation: "open", tab: item.id === "squad-invite" ? "crew" : "activities" }); return;
+    }
+    if (item.id === "recap") { sendAction({ type: "recap.open" }); requestClose(); return; }
+    if (item.id === "dailies" || item.id === "identity-title") { sendAction({ type: "dailies.open", tab: item.id === "identity-title" ? "titles" : "today" }); requestClose(); return; }
+    if (item.id === "activity-leave") { sendAction({ type: "activities.control", operation: "leave" }); requestClose(); return; }
+    if (item.id === QUEUE_LEAVE_ITEM) { sendAction({ type: "queue.leave", from: "menu" }); requestClose(); return; }
+    if (item.id === "squad-leave") { sendAction({ type: "party.leave" }); setStack((s) => s.slice(0, -1)); return; }
+    if (item.id === "squad-matchmaking") { sendAction({ type: "party.matchmaking", on: !party?.matchmaking }); return; }
+    if (item.id === "squad-back") { setStack((s) => s.slice(0, -1)); return; }
+    const [verb, arg] = (item.id ?? "").split(":");
+    if (verb === "squad-accept" && arg) { sendAction({ type: "party.accept", party: arg }); return; }
+    if (verb === "squad-decline" && arg) { sendAction({ type: "party.decline", party: arg }); return; }
+    if ((verb === "squad-promote" || verb === "squad-kick") && arg) {
+      sendAction({ type: verb === "squad-promote" ? "party.promote" : "party.kick", target: Number(arg) }); setStack((s) => s.slice(0, -1)); return;
     }
     if (item.id === "close") requestClose();
   };

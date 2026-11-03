@@ -139,6 +139,7 @@ function Rental.get(playerId) return rentals[playerId] end
 
 function Rental.rent(playerId, spotId, key, pay)
     if not Config.enabled then return false, "disabled" end
+    if LightRP.activities and not LightRP.activities.allows(playerId, "vehicles") then return false, "activity" end
     local spot = spots[tostring(spotId or "")]
     if spot == nil then return false, "unknown_desk" end
     if rentals[playerId] then return false, "already_renting" end
@@ -236,6 +237,7 @@ local REASONS = {
     not_in_stock = "This desk does not rent that model.", not_alive = "Not right now.", vehicle_refused = "The lot could not deliver the vehicle; you were refunded.",
     no_rental = "You have no rental to return.", disabled = "Rentals are closed.",
     insufficient_funds = "Insufficient funds.", busy = "Another operation is still running, try again.",
+    activity = "No rentals during an activity.",
 }
 local function explain(reason) return REASONS[reason] or LightRP.money.explain(reason) end
 

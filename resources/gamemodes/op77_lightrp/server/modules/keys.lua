@@ -163,6 +163,8 @@ function Keys.toggle(playerId, vehicleId)
     local vehicle = vehicleId and Open77.vehicles.get(vehicleId)
     if vehicle == nil then return false, "unknown_vehicle" end
     if not Keys.has(vehicleId, playerId) then return false, "no_key" end
+    -- RP keys rest during an activity without caps.vehicles (its own cars are not keyed here)
+    if LightRP.activities and not LightRP.activities.allows(playerId, "vehicles") then return false, "activity" end
     local position = Open77.players.position(playerId)
     if position == nil or position.bucket ~= vehicle.bucket then return false, "too_far" end
     local seat = Open77.vehicles.getPlayerSeat(playerId)
@@ -198,6 +200,7 @@ end)
 local REASONS = {
     unknown_vehicle = "No vehicle there.", no_key = "You have no key for this vehicle.", too_far = "Too far from the vehicle.",
     no_character = "Finish your character first.", lock_refused = "The lock did not answer.",
+    activity = "Not during an activity.",
 }
 local function explain(reason) return REASONS[reason] or ("Denied: " .. tostring(reason)) end
 Keys.explain = explain

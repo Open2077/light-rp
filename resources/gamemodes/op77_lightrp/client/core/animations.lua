@@ -197,6 +197,9 @@ local function play(payload)
         send()
     end)
 end
+-- whether an emote is playing: the stop key (X) is shared with Berserk, which stays quiet
+-- while an emote runs so X only stops the emote
+function Anim.playing() return current ~= nil end
 function Anim.bind(surface)
     page = surface
     page:on(E.animationsAction, function(payload)
