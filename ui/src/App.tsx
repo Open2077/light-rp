@@ -31,6 +31,7 @@ import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
 import { RecapDialog } from "@/features/recap/RecapDialog";
 import { GuideDialog } from "@/features/guide/GuideDialog";
 import { MissionQueueHud } from "@/features/missions/MissionQueueHud";
+import { QueuePanel } from "@/features/queue/QueuePanel";
 import { FixerGigHud } from "@/features/missions/FixerGigHud";
 import { WorldBossHud } from "@/features/missions/WorldBossHud";
 import { AnnounceHalo } from "@/features/announce/AnnounceHalo";
@@ -93,6 +94,7 @@ export function App() {
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
       <ErrorBoundary name="mission-queue"><MissionQueueHud /></ErrorBoundary>
+      <ErrorBoundary name="queue"><QueuePanel /></ErrorBoundary>
       <ErrorBoundary name="fixer-gig"><FixerGigHud /></ErrorBoundary>
       <ErrorBoundary name="world-boss"><WorldBossHud /></ErrorBoundary>
       <ErrorBoundary name="announce"><AnnounceHalo /></ErrorBoundary>
