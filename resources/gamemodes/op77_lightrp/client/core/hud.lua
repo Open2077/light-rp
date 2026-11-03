@@ -62,6 +62,16 @@ end
 -- layout (bottom, offsetY, scale) is read from op77_weaponhud every few seconds.
 local HOLOGRAM_HEIGHT, HOLOGRAM_HEAD = 210, 14 -- the display's box at scale 1; corner marks and glow above it
 local hologramLayout, hologramReadAt = nil, -math.huge
+
+-- Whether op77_weaponhud's hologram is up right now. Asked of op77_weaponhud itself: it
+-- shows for any weapon in hand, while LightRpWeaponHud.sample() only knows Light RP's
+-- armament and kit weapons, so with another weapon (an AJAX from the admin menu, 2026-11-04)
+-- the crew frame stayed across the hologram. The page's own sample is the fallback.
+local function hologramShown(own)
+    local ok, shown = pcall(function() return exports.op77_weaponhud:isShown() end)
+    if ok and type(shown) == "boolean" then return shown end
+    return type(own) == "table" and own.active == true
+end
 local function hologramTop()
     local t = GetGameTimer and GetGameTimer() or 0
     if t - hologramReadAt > 3000 then
@@ -225,7 +235,7 @@ function Hud.start()
             if Hud.externalWeaponHud then
                 syncWeaponHud()
                 local own = LightRpWeaponHud and LightRpWeaponHud.sample() or nil
-                view.weapon = { active = false, externalTop = (type(own) == "table" and own.active) and hologramTop() or 0 }
+                view.weapon = { active = false, externalTop = hologramShown(own) and hologramTop() or 0 }
             elseif LightRpWeaponHud then
                 view.weapon = LightRpWeaponHud.sample()
                 weaponHudSent.inset, weaponHudSent.labels = -1, nil
