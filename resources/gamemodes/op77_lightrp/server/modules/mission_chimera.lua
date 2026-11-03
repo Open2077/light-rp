@@ -392,6 +392,7 @@ local function beginFight(inst, raid)
         tostring(state.aiEnabled), tostring(state.combatEnabled), tostring(state.damagePolicy),
         state.position.x, state.position.y, state.position.z) end
     raid.phase, raid.fightStarted = "fight", now()
+    raid.operators = #inst.members -- at the first shot (a leaver later does not make a solo kill)
     raid.nextLockOn = now() + 25000
     raid.nextBarrage, raid.nextPurge = now() + 6000, now() + 4000
     raid.nextResupply = now() + C.resupply.every * 1000
@@ -682,7 +683,7 @@ Missions.register(POINT, {
         local raid = raids[inst.id]
         raids[inst.id] = nil
         if not raid then return end
-        inst.report = { enraged = raid.enraged == true, downs = raid.downs or 0 } -- contracts, titles (dailies.lua, titles.lua)
+        inst.report = { enraged = raid.enraged == true, downs = raid.downs or 0, operators = raid.operators } -- contracts, titles (dailies.lua, titles.lua)
         clearAdds(raid)
         clearLoops(raid)
         if raid.bossId then boss("remove", raid.bossId) end

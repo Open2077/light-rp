@@ -1043,6 +1043,7 @@ function Inv.give(playerId, slot, count)
     if not applied or not saved then return false, applied and failure or "database_error" end
     local t = template(taken.name)
     LightRP.notice(target, { kind = "item", title = "Received", body = string.format("%dx %s from %s", taken.count, t and t.label or taken.name, LightRP.characters.displayName(playerId)), durationMs = 6000 })
+    LightRP.eachModule("onItemGiven", playerId, target, taken.name, taken.count) -- dailies (Housewarming)
     return true, { target = target, name = taken.name, count = taken.count, label = t and t.label or taken.name }
 end
 
