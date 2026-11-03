@@ -681,11 +681,20 @@ end
 local function restoreArms(id, e)
     if e.caps and e.caps.rpWeapons then return end
     if LightRP.armament and type(LightRP.armament.push) == "function" then pcall(LightRP.armament.push, id) end
-    SetTimeout(3000, function()
+    -- 2026-11-03: the synchronization the push starts could still be running at 3 s
+    -- ("Weapon synchronization is already in progress."), and the one try gave up.
+    -- Wait for it and ask again, a few times, before calling it a failure.
+    local tries = 0
+    local function synchronize()
         if A.owns(id) or not LightRP.armament or type(LightRP.armament.synchronize) ~= "function" then return end
+        tries = tries + 1
         local ok, done, why = pcall(LightRP.armament.synchronize, id)
-        if not ok or done == false then LightRP.log("activities: weapons of %d not restored (%s)", id, tostring(ok and why or done)) end
-    end)
+        if ok and done ~= false then return end
+        local reason = tostring(ok and why or done)
+        if tries < 4 and reason:lower():find("in progress", 1, true) then SetTimeout(2000, synchronize); return end
+        LightRP.log("activities: weapons of %d not restored after %d tries (%s)", id, tries, reason)
+    end
+    SetTimeout(3000, synchronize)
 end
 
 -- The way back: the captured point, bucket included. A dead player respawns
