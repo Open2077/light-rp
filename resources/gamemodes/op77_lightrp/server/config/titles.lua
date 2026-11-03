@@ -6,10 +6,12 @@
 -- page's sections), how (how to earn it, shown while locked) and ONE source:
 --   tier = n                      reputation tier n or above (missions.lua)
 --   clear = { point, difficulty }  that mission cleared at least once
---   counter = name, count = n      a counter of paid activity results reaches n
+--   counter = name, count = n      a counter reaches n (paid activity results, Dogtown bounties)
+--   dogtown = stat, count = n      Dogtown's lifetime stat (kills, bestStreak) reaches n
 --   board = key                    rank 1 of that Hall of Fame board, held live
 --   feat = name                    awarded by a hook (raid report, world boss, contracts)
---   grantOnly = true               only through LightRP.titles.grant (Dogtown, staff)
+--   crown = "dogtown.week"         last week's top Dogtown killer, until the week ends
+--   grantOnly = true               only through LightRP.titles.grant (staff)
 -- `requires`: an activity id, a mission point, "worldboss" or "dogtown"; while it
 -- is missing the title is hidden, unless already earned.
 LightRpTitles = {
@@ -90,7 +92,13 @@ LightRpTitles = {
         { id = "raid_lead", label = "Raid Lead", rarity = "live", group = "hall", how = "Hold rank 1 of the raids board.", board = "missions.raids" },
         { id = "eddie_baron", label = "Eddie Baron", rarity = "live", group = "hall", how = "Hold rank 1 of the richest board.", board = "wealth.richest" },
 
+        { id = "most_wanted", label = "Most Wanted", rarity = "rare", group = "dogtown", requires = "dogtown",
+          how = "Get 5 credited kills in a row in Dogtown: the streak that puts a bounty on you.", dogtown = "bestStreak", count = 5 },
+        { id = "bounty_hunter", label = "Bounty Hunter", rarity = "epic", group = "dogtown", requires = "dogtown",
+          how = "End 3 Dogtown bounties: take down players on a kill streak.", counter = "dogtown_bounties", count = 3 },
+        { id = "barghest_problem", label = "Barghest's Problem", rarity = "epic", group = "dogtown", requires = "dogtown",
+          how = "Reach 50 credited kills in Dogtown.", dogtown = "kills", count = 50 },
         { id = "dogtown_king", label = "King of Dogtown", rarity = "legendary", group = "dogtown", requires = "dogtown",
-          how = "Awarded by Dogtown each week; it lasts until the end of the following week.", grantOnly = true },
+          how = "Be last week's top credited killer in Dogtown. The crown lasts until the end of the week.", crown = "dogtown.week", grantOnly = true },
     },
 }

@@ -866,6 +866,9 @@ local function crewResult(store, id, record, windowMs)
 end
 function D.onActivityResult(id, entry, r, raw, verdict)
     if not D.enabled or type(entry) ~= "table" then return end
+    -- ranked or PvE only: activities.lua never forwards an unranked result (a
+    -- friendly, a bot match or fill, staff testing); this guard keeps it that way
+    if entry.ranked == false or (type(raw) == "table" and (raw.unranked == true or raw.test == true)) or (type(r) == "table" and r.unranked == true) then return end
     verdict = type(verdict) == "table" and verdict or {}
     verdict.eligible = verdict.amount ~= nil
     raw = type(raw) == "table" and raw or {}
