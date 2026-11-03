@@ -48,7 +48,7 @@ _G.Open77 = { players = {
 _G.LightRpEvents = { net = { mission = "op77_lightrp:mission" } }
 
 -- op77_neuralink: lines by number, rich messages kept with their meta
-local lines, messages, msgSeq = {}, {}, 0
+local lines, messages, msgSeq, toasts = {}, {}, 0, {}
 local function numberOfPlayer(id) return string.format("555-%04d", id) end
 local neuralink = {
     npcLine = function(_, key, number, name) lines[number] = { npc = key, name = name }; return number end,
@@ -65,6 +65,7 @@ local neuralink = {
         messages[msgSeq] = { id = msgSeq, from = from, to = to, body = body, meta = meta }
         return msgSeq, 100 + to
     end,
+    notify = function(_, id, title, body) toasts[#toasts + 1] = { id = id, title = title, body = body }; return true end,
     updateMessage = function(_, id, patch) local m = messages[id]; if not m then return false end; m.meta = m.meta or {}; for k, v in pairs(patch) do m.meta[k] = v end; return true end,
 }
 _G.exports = setmetatable({}, { __index = function(_, res) if res == "op77_neuralink" then return neuralink end end })
@@ -193,9 +194,15 @@ for _, a in ipairs(brief2.meta.actions) do ids2[a.id] = true end
 assert(not ids2.go and ids2.bail and ids2.share, "only the owner says go")
 press(2, brief2, "go")
 assert(not lastResult(2).ok)
+-- "Go now" far from the point says why, in the phone and in the conversation
+local m0 = msgSeq
+press(1, brief, "go")
+assert(not lastResult(1).ok and lastResult(1).text:find("m away"), "the distance is given: " .. tostring(lastResult(1).text))
+assert(toasts[#toasts].id == 1 and toasts[#toasts].body:find("m away"), "a toast in the phone")
+assert(msgSeq == m0 + 1 and messages[msgSeq].to == 1 and messages[msgSeq].body:find("m away"), "the fixer writes why")
 
 -- ── the meeting: one there, then both -> countdown -> launch ──
-positions[1] = { x = at.x + 3, y = at.y, z = at.z }
+positions[1] = { x = at.x + 3, y = at.y, z = at.z + 8 } -- a floor above the point still counts
 tick(1000)
 assert(providers.fixerGig(1).here == 1 and providers.fixerGig(1).state == "accepted", "waiting for the whole crew")
 positions[2] = { x = at.x - 4, y = at.y, z = at.z }
@@ -216,6 +223,13 @@ assert(share < fp.difficulties[1].payout and paid[1] == share and paid[2] == sha
 assert(not lastTo(1).body:find("up to", 1, true), "after the job the fixer quotes what was paid, not a maximum")
 assert(lastTo(1).body:find("sent") or lastTo(1).body:find("LEGEND") or lastTo(1).body:find("clean"), "the fixer's last text")
 assert(brief.meta.resolved.label == "Paid" and Fixers.gigOf[1] == nil and Fixers.gigOf[2] == nil, "the gig is closed")
+
+-- ── a fixer offers only difficulties of the owner's reputation tier ──
+for _ = 1, 12 do
+    ok, gig = Fixers.offer(4, "gig_burn")
+    assert(ok and gig.difficulty == "standard", "tier I: standard gigs only, got " .. tostring(gig and gig.difficulty))
+    Fixers.close(gig, "test", "cancelled")
+end
 
 -- ── expiry ──
 ok, gig = Fixers.offer(4, "gig_burn")
@@ -286,6 +300,37 @@ for i = #notices, 1, -1 do if notices[i].id == 10 and notices[i].title == "CREW"
 assert(told and told:find("Your crew comes along: Ana Mate.", 1, true) and told:find("No Implant (no Neural-Link)", 1, true) and told:find("Bo Down (down)", 1, true), told)
 assert(lastTo(11).body:find("You're in"), "the member gets the brief")
 life[12] = nil
+
+-- ── a crew member below the gig's difficulty: never refused, their tier's reward, told once ──
+-- (owner decision 2026-11-03: the gig rule now holds everywhere)
+spawn(14, "Op Lead", at.x + 1, at.y); spawn(15, "Street Mate", at.x + 2, at.y)
+Missions.addReputation(14, 1500)
+assert(Missions.tier(14) == 3 and Missions.tier(15) == 1)
+local gigPoint = Missions.point("gig_burn")
+local critical = gigPoint.difficulties[3]
+assert(critical.id == "critical")
+critical.min, critical.max = 1, 3
+local opCrew = { id = "crew:5", leader = 14, members = { 14, 15 } }
+LightRP.parties = { of = function(id) if id == 14 or id == 15 then return opCrew end end }
+local okCritical, criticalGig = Fixers.offer(14, "gig_burn", "critical")
+assert(okCritical and criticalGig.difficulty == "critical", tostring(criticalGig))
+local noticesBefore = #notices
+press(14, lastTo(14), "accept")
+assert(Fixers.gigOf[15] == Fixers.gigOf[14], "the Street member comes along")
+local streetTold = {}
+for i = noticesBefore + 1, #notices do if notices[i].id == 15 and notices[i].title == "STREET CRED" then streetTold[#streetTold + 1] = notices[i].body end end
+assert(#streetTold == 1 and streetTold[1] == "Critical is above your street cred: you play it, you earn the Standard reward (+100 reputation).",
+    tostring(streetTold[1]))
+for i = noticesBefore + 1, #notices do assert(not (notices[i].id == 14 and notices[i].title == "STREET CRED"), "the owner is told nothing") end
+for _ = 1, LightRpFixers.launchSeconds + 3 do tick(1000) end
+local criticalInst = Missions.instanceOf(14)
+assert(criticalInst and Missions.instanceOf(15) == criticalInst and criticalInst.difficulty == "critical", "both play the critical gig")
+Missions.complete(criticalInst.id)
+assert(Missions.reputation(15) == LightRpMissions.reputationGain.standard, "the Street earns the standard reward")
+assert(Missions.reputation(14) == 1500 + LightRpMissions.reputationGain.critical, "the owner earns the critical reward")
+local gigDone
+for i = #notices, 1, -1 do if notices[i].id == 15 and notices[i].title == "GIG COMPLETE" then gigDone = notices[i].body; break end end
+assert(gigDone and gigDone:find("+100 reputation (Standard reward)", 1, true), gigDone)
 LightRP.parties = { of = function() return nil end }
 
-print("PASS: fixer gigs (editor tag, no board, offer/take/pass, brief with meet point + objective, share to numbers, join/pass, meeting countdown + hold, launch as mission, payout + fixer text, expiry, bail + new owner, go now, dispatcher, crews)")
+print("PASS: fixer gigs (editor tag, no board, offer/take/pass, brief with meet point + objective, share to numbers, join/pass, meeting countdown + hold, launch as mission, payout + fixer text, expiry, bail + new owner, go now, dispatcher, crews, a crew member below the gig's difficulty)")

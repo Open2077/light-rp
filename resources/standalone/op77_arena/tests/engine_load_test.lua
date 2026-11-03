@@ -45,7 +45,7 @@ local files = {}
 for kind, path in manifest:gmatch('(%w+_script) "([^"]+)"') do
     if kind ~= "client_script" then files[#files + 1] = path end
 end
-assert(#files == 16, "4 shared + 12 server scripts, got " .. #files)
+assert(#files == 17, "4 shared + 13 server scripts, got " .. #files)
 for _, path in ipairs(files) do
     local ok, err = pcall(dofile, path)
     assert(ok, path .. ": " .. tostring(err))
@@ -75,6 +75,12 @@ assert(DM.instances.open("ffa", "pve") == nil, "one PvE instance")
 assert(DM.instances.open("2v2", "pve") == nil, "PvE is a free-for-all ruleset only")
 assert(DM.ranked.recordRound(pve, {}) == false, "PvE never rated")
 DM.instances.close(pve, "test")
+
+-- PvP scopes: the gate wraps every way an instance opens, closes are chained.
+assert(type(ArenaPvp) == "table" and type(ArenaPvp.sync) == "function", "server/pvp.lua loaded")
+assert(manifest:find('"combat.scope.control"', 1, true), "the scope permission is declared")
+assert(DeathmatchConfig.combat.friendlyFire == false, "never global friendly fire on Light RP")
+assert(type(DM.onInstanceClosed) == "function", "scope release on close")
 
 -- Hosted switches as the engine reads them.
 assert(DeathmatchConfig.freeroam == true and DeathmatchConfig.placeOnJoin == false)

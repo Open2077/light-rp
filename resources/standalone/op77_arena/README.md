@@ -134,6 +134,51 @@ The PvE Combat Zone is open to everyone, solo or with a crew. It needs no staff 
   says `PLAYERS WIN` or `BOTS WIN`.
 - Staff bot mode does not change PvE. It fills the PvP activities only.
 
+## Player damage: one combat scope per PvP instance (`server/pvp.lua`)
+
+Global PvP is off on Light RP, and it stays off: the platform refuses every
+player-to-player hit with `friendly_fire_disabled`. Freeroam hosts this engine with
+friendly fire switched on for the whole host; this edition never calls
+`Open77.combat.setFriendlyFire(true)`, which would open PvP in every street. Instead,
+each PvP instance (Combat Zone, Blade Night, Arena Night, duels, Team Arena) gets an
+`Open77.combat.createScope` over the people fighting in its bucket, the way `op77_turf`
+does for a war (permission `combat.scope.control`). Bots are NPCs and never in a scope.
+
+- **Who is in it.** The humans attached to the instance whose life record is in its
+  bucket and who are alive or recovering. A death does not drop anyone, so the scope
+  survives free-for-all respawns and team-round eliminations.
+- **When it changes.** Checked every 500 ms. A join, a departure, a bucket change, a
+  respawn after a rebuild, or any attach/detach rebuilds it (the platform has no "add a
+  player": remove, then create). Under two people the instance has no scope. Every
+  `pvp.refreshMs` (15 s) it is rebuilt anyway, to heal a removal this file could not see.
+- **When it goes.** At the instance's close (`Deathmatch.onInstanceClosed`, chained),
+  when fewer than two people are left, and for all of them on resource stop.
+- **Teams.** The platform still applies teams inside a scope. Team Arena sides and duel
+  corners are `Open77.combat.setTeam` 1 and 2 from each round start, so teammates cannot
+  hurt each other. A leaver and every member at dissolve go back to team 0.
+- **The 8-scope budget.** The platform allows 8 scopes per resource. Every open Combat
+  Zone or Blade Night instance holds a slot, and so does every match with two people or
+  more. A PvP instance beyond the budget is not opened: `Deathmatch.instances.open`
+  answers `nil, "pvp_scope_limit"`, logged once per streak. The joiner is told the arena
+  is full, a team queue keeps waiting, and a duel "could not start". PvE never counts.
+- **32 players.** A scope holds 32 people at most, so a PvP instance's capacity is
+  clamped to 32. A larger roster would get the first 32 by arrival, logged once.
+- **Refusals.** A creation the platform refuses is logged once per instance and reason,
+  retried every `pvp.retryMs`, and, if it lasts `pvp.tellAfterMs`, told to the
+  instance's players (`NO PVP`). A match never runs silently without player damage.
+- **Second lock.** `main.lua`'s damage arbiter is unchanged. It still vetoes a
+  cross-instance hit, a hit outside an active round, the wrong weapon in Blade Night,
+  a teammate, and a spawn-shielded victim.
+- **Logs.** One line per instance when its scope opens (`pvp: instance N (format)
+  bucket B: PvP scope opened for K players (...)`), when it is refused or restored, and
+  when it closes. `/dm.instances` and `deathmatch.status` end with the scopes in use.
+- **Time to kill.** The engine's host-global multipliers (`Config.combat`: damage 0.55,
+  headshot 2.0) are Freeroam's and are not applied, because they would change PvP damage
+  everywhere on the host. `pvp.damageMultiplier` and `pvp.headshotMultiplier` scale
+  person-on-person hits inside PvP instances only. Both are 1.0: Light RP fighters keep
+  their armor and implants in the arena, so Freeroam's 0.55 would roughly double the
+  time to kill. At 1.0 no damage arbiter is installed.
+
 ## Configuration (`shared/lightrp.lua`)
 
 | Key | Default | |
@@ -149,6 +194,11 @@ The PvE Combat Zone is open to everyone, solo or with a crew. It needs no staff 
 | `reputation.pve` | 18 / 3, 120000 ms | Win, loss, minimum time in the round |
 | `crews.gatherMs` | 4000 | Team queue wait for a crew's members |
 | `allowBots` | false | Outside bot mode, never fill a match with bots |
+| `pvp.scopesPerResource` | 8 | PvP instances open at once (never above the platform's 8) |
+| `pvp.maxScopePlayers` | 32 | People per scope and per PvP instance (never above 32) |
+| `pvp.refreshMs` | 15000 | Periodic scope rebuild |
+| `pvp.retryMs` / `.tellAfterMs` | 2000 / 10000 | Retry a refused scope; tell the players after this long |
+| `pvp.damageMultiplier` / `.headshotMultiplier` | 1.0 / 1.0 | Person-on-person damage inside PvP instances only |
 
 ## Engine hooks added by this edition
 
@@ -159,8 +209,14 @@ Kept small, and each one is a no-op unless the adapter uses it:
 - `server/arena.lua`: `Arena.planRoster`, consulted by `Arena.tryForm`.
 - `server/bots.lua`: `DeathmatchBots.dropPending`. Bots seeking a target skip bots on
   their own side.
-- `server/main.lua`: the side damage gate also runs for the `pve` ruleset.
+- `server/main.lua`: the side damage gate also runs for the `pve` ruleset. The upstream
+  `applyCombatPolicy` (host-global friendly fire and multipliers) is removed; it was
+  never called here.
 - `server/ranked.lua`: `recordRound` refuses the `pve` ruleset.
+- `shared/lightrp.lua`: `Config.combat.friendlyFire = false`.
+- `server/pvp.lua` (loaded last) wraps `Deathmatch.instances.open` (the budget gate and
+  the 32 cap), `.attach` / `.detach` (mark a rebuild), `.describe` (scopes in the
+  readout) and chains `Deathmatch.onInstanceClosed` (release).
 
 ## Tests
 
@@ -179,3 +235,4 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File tests/run-lua.ps1 -LuaDll <lua54.d
 | `upstream_test.lua` | The engine's own tests from base, with this edition's geometry |
 | `bots_test.lua` | Bot-mode switch (event and `activityBots`), solo FFA with bots, team fill, duel vs bot, no DB write with bots, cleanup, PvE, crews |
 | `bots_engine_test.lua` | The real `Arena.tryForm` with crews and bot fill, the bad-plan fallback, duel vs bot, the PvE damage gate |
+| `pvp_test.lua` | PvP scopes against a simulated platform: none for one person, created at two, rebuilt on join and leave, kept through a death, duel and Team Arena (teams set and cleared), PvE without a scope, the 8-slot budget, refusals, the 32 cap, removal on close and stop, the damage scale, no `setFriendlyFire` anywhere |

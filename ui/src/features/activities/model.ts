@@ -1,4 +1,4 @@
-import type { ActivitiesState, ActivityEntry, ActivityKind, ActivityStats } from "@/bridge/protocol";
+import type { ActivitiesState, ActivityDifficulty, ActivityEntry, ActivityKind, ActivityStats } from "@/bridge/protocol";
 
 /* Lua sends an empty list as `{}`: every list of the `activities` state becomes an
    array here, once, in the store (state/store.ts applyState). */
@@ -8,7 +8,7 @@ export function normalizeActivities(raw: ActivitiesState | undefined): Activitie
   if (!raw || typeof raw !== "object") return undefined;
   return {
     ...raw,
-    list: list<ActivityEntry>(raw.list).map((a) => ({ ...a, modes: list(a.modes), top: list(a.top) })),
+    list: list<ActivityEntry>(raw.list).map((a) => ({ ...a, modes: list(a.modes), top: list(a.top), difficulties: list<ActivityDifficulty>(a.difficulties) })),
     nearby: list(raw.nearby),
     contracts: list(raw.contracts),
     current: raw.current || false,
@@ -16,6 +16,22 @@ export function normalizeActivities(raw: ActivitiesState | undefined): Activitie
     reputation: raw.reputation ?? { today: 0, dailyCap: 0, maxPerResult: 0 },
     hub: raw.hub ?? { name: "The Crossing" },
   };
+}
+
+/** Reputation tiers as the pages write them: 1 -> "I". */
+export const roman = (n: number | undefined): string => ["", "I", "II", "III", "IV", "V"][n ?? 0] ?? String(n ?? "");
+
+/** The difficulty a PvE join sends: the picked one, else the first open one (the server checks). */
+export function pickedDifficulty(a: ActivityEntry, picked: string | undefined): ActivityDifficulty | undefined {
+  const list = a.difficulties ?? [];
+  return list.find((d) => d.id === picked) ?? list.find((d) => !d.locked) ?? list[0];
+}
+
+/** The panel's footer: street cred tier and the PvE reputation of the day. */
+export function repLine(state: ActivitiesState): string {
+  const r = state.reputation;
+  const cred = r.tier ? `Street cred ${roman(r.tier)}${r.tierName ? ` ${r.tierName}` : ""}${r.next != null ? ` (${r.points ?? 0}/${r.next})` : ""} · ` : "";
+  return `${cred}PvE reputation today ${r.today}/${r.dailyCap} · PvP counts wins and rankings`;
 }
 
 export const KIND_ICON: Record<ActivityKind, string> = { pvp: "swords", race: "gauge", chase: "siren", event: "zap" };

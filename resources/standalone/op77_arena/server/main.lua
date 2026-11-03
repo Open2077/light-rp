@@ -703,34 +703,13 @@ end)
 
 -- ========================================================= combat policy --
 --
--- Combat policy is host-global. During a hot reload the incoming VM is prepared
--- before the outgoing VM receives onResourceStop. The old cleanup used to set
--- friendly fire false *after* this generation enabled it, silently cancelling
--- every PvP report after any edit. Apply once immediately and once on the first
--- scheduler tick, when the outgoing generation is guaranteed to be gone. There
--- is deliberately no stop-time reset: shutting the server needs none, and a
--- reload must leave its successor's policy intact.
-local function applyCombatPolicy()
-    local operations = {
-        { "friendly_fire", Open77.combat.setFriendlyFire, Config.combat.friendlyFire },
-        { "damage_multiplier", Open77.combat.setDamageMultiplier,
-            Config.combat.damageMultiplier },
-        { "headshot_multiplier", Open77.combat.setHeadshotMultiplier,
-            Config.combat.headshotMultiplier },
-        { "ranged_multiplier", function(value)
-            return Open77.combat.setKindDamageMultiplier("ranged", value)
-        end, Config.combat.rangedMultiplier },
-    }
-    for _, operation in ipairs(operations) do
-        local ok, reason = operation[2](operation[3])
-        if ok ~= true then
-            log(("combat policy %s failed: %s"):format(
-                operation[1], tostring(reason)))
-        end
-    end
-end
-
--- Host-global multipliers and friendly fire belong to Freeroam's combat.lua.
+-- op77_arena patch: upstream applied a HOST-GLOBAL policy here (friendly fire on,
+-- damage/headshot/ranged multipliers), and in Freeroam combat.lua switched friendly
+-- fire on for the whole host anyway. Neither exists on Light RP, where global PvP is
+-- off by design and must stay off (a city-wide friendly fire = PvP in every street).
+-- The function was removed rather than left uncalled: PvP is opened per instance by
+-- a combat scope (server/pvp.lua), and this arbiter below still vetoes every hit
+-- that crosses instances. Never call `Open77.combat.setFriendlyFire(true)` here.
 
 
 -- ========================================================= damage arbiter --

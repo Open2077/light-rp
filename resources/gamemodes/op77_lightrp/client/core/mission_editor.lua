@@ -87,8 +87,95 @@ local function cleanup(notify)
     if notify then send({ kind = "invalidate", error = notify }) end
 end
 
+-- page:send refuses a payload of more than 1024 values (and a string over 64 KiB): the
+-- mission list (whole definitions) passed it with a third mission and the editor waited
+-- forever (2026-11-02). A big response reaches the page as JSON text in parts of at most
+-- 48 KiB, cut on UTF-8 boundaries; the page joins and parses them (api.ts).
+local PAGE_VALUES, PART_BYTES = 900, 48 * 1024
+local function countValues(value, depth)
+    if type(value) ~= "table" then return 1 end
+    if (depth or 0) > 16 then return 1 end
+    local n = 1
+    for _, item in pairs(value) do n = n + 1 + countValues(item, (depth or 0) + 1) end
+    return n
+end
+Editor.countValues = countValues
+-- The sandbox's json.encode stops at 1024 values too (it returned nil on the 1065-value
+-- list, 2026-11-02): this one is plain Lua. Lists are tables with keys 1..n only; an
+-- empty table is {} (the page normalizes lists); NaN and infinities become null.
+local ESCAPES = { ['"'] = '\\"', ["\\"] = "\\\\", ["\b"] = "\\b", ["\f"] = "\\f", ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t" }
+local function encodeString(s)
+    return '"' .. s:gsub('[%c"\\]', function(c) return ESCAPES[c] or string.format("\\u%04x", c:byte()) end) .. '"'
+end
+local function encode(value, depth, out)
+    local t = type(value)
+    if t == "nil" then out[#out + 1] = "null"
+    elseif t == "boolean" then out[#out + 1] = value and "true" or "false"
+    elseif t == "number" then
+        if value ~= value or value == math.huge or value == -math.huge then out[#out + 1] = "null"
+        elseif math.type(value) == "integer" then out[#out + 1] = tostring(value)
+        else out[#out + 1] = string.format("%.14g", value) end
+    elseif t == "string" then out[#out + 1] = encodeString(value)
+    elseif t == "table" then
+        if depth > 32 then error("too deep") end
+        local n, count = #value, 0
+        for _ in pairs(value) do count = count + 1 end
+        if n > 0 and n == count then
+            out[#out + 1] = "["
+            for i = 1, n do
+                if i > 1 then out[#out + 1] = "," end
+                encode(value[i], depth + 1, out)
+            end
+            out[#out + 1] = "]"
+        else
+            out[#out + 1] = "{"
+            local first = true
+            for k, v in pairs(value) do
+                if type(k) == "string" or type(k) == "number" then
+                    if not first then out[#out + 1] = "," end
+                    first = false
+                    out[#out + 1] = encodeString(tostring(k))
+                    out[#out + 1] = ":"
+                    encode(v, depth + 1, out)
+                end
+            end
+            out[#out + 1] = "}"
+        end
+    else out[#out + 1] = "null" end
+    return out
+end
+function Editor.encodeJson(value) return table.concat(encode(value, 0, {})) end
+local partSeq = 0
+local function sendParts(value)
+    local ok, text = pcall(Editor.encodeJson, value)
+    if not ok or type(text) ~= "string" then
+        report("parts:encode", "a large event could not be encoded (%s)", tostring(text))
+        if value.kind == "response" then
+            send({ kind = "response", request = value.request, ok = false, error = "The answer was too large to show. Your draft is kept." })
+        end
+        return
+    end
+    partSeq = partSeq + 1
+    local id = "parts:" .. partSeq
+    local parts, at = {}, 1
+    while at <= #text do
+        local stop = math.min(#text, at + PART_BYTES - 1)
+        -- never split a UTF-8 sequence: step back off continuation bytes
+        while stop < #text and stop > at do
+            local b = text:byte(stop + 1)
+            if b < 0x80 or b >= 0xC0 then break end
+            stop = stop - 1
+        end
+        parts[#parts + 1] = text:sub(at, stop)
+        at = stop + 1
+    end
+    for i, part in ipairs(parts) do send({ kind = "parts", id = id, part = i, parts = #parts, text = part }) end
+end
+Editor.sendParts = sendParts
+
 RegisterNetEvent(NET, function(value)
     if type(value) ~= "table" then return end
+    if countValues(value) > PAGE_VALUES then return sendParts(value) end
     if value.kind == "open" then
         if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or (LightRpSafezones and LightRpSafezones.active) then
             return send({ kind = "invalidate", error = "Finish your current activity before editing missions." })

@@ -302,8 +302,10 @@ function M.validate(raw)
             d.waves[i] = v
         end
     end
+    -- a world boss brings its non-start spawn points as reinforcements (no checkpoint needed)
+    local worldBossOn = type(raw.worldBoss) == "table" and raw.worldBoss.enabled == true
     for _, s in ipairs(d.spawns) do
-        if s.trigger ~= "start" and not used[s.id] then
+        if s.trigger ~= "start" and not used[s.id] and not worldBossOn then
             return nil, s.label .. (s.trigger == "wave" and " is in no wave." or " is woken by no checkpoint.")
         end
     end
@@ -311,6 +313,33 @@ function M.validate(raw)
         local any = false
         for _, s in ipairs(d.spawns) do any = any or s.trigger == "start" or used[s.id] end
         if not any then return nil, "An Elimination mission needs at least one spawn point." end
+    end
+
+    -- A world boss (server/modules/world_bosses.lua): no board, no tag, no instance. It
+    -- appears at random in the city (bucket 0) and anybody fights it; the perimeter is the
+    -- event zone (no out-of-zone death). `boss` is the spawn point whose enemies are the
+    -- boss (health x `health`); the others guard it, and the non-start ones come as
+    -- reinforcements at 66 % and 33 % of the boss's health. The reward pool is shared by
+    -- contribution (damage + kills); under `minShare` % of it, nothing.
+    d.worldBoss = { enabled = false, boss = "", health = 25, reward = 30000, minShare = 5, minutes = 20 }
+    if raw.worldBoss ~= nil then
+        local wb = raw.worldBoss
+        if type(wb) ~= "table" or (wb.enabled ~= nil and type(wb.enabled) ~= "boolean") then return nil, "Invalid world boss settings." end
+        local v = { enabled = wb.enabled == true, boss = wb.boss == nil and "" or wb.boss,
+            health = wb.health == nil and 25 or wb.health, reward = wb.reward == nil and 30000 or wb.reward,
+            minShare = wb.minShare == nil and 5 or wb.minShare, minutes = wb.minutes == nil and 20 or wb.minutes }
+        if type(v.boss) ~= "string" or (v.boss ~= "" and not key(v.boss)) then return nil, "World boss: invalid boss spawn point." end
+        if not G.integer(v.health, 1, 200) then return nil, "World boss: boss health must be x1-x200." end
+        if not G.integer(v.reward, 0, 1000000) then return nil, "World boss: reward pool must be 0-1,000,000." end
+        if not G.integer(v.minShare, 0, 50) then return nil, "World boss: minimum share must be 0-50 %." end
+        if not G.integer(v.minutes, 5, 120) then return nil, "World boss: time limit must be 5-120 minutes." end
+        if v.enabled then
+            if d.fixer.enabled then return nil, "A mission is either a fixer gig or a world boss, not both." end
+            local s = byId[v.boss]
+            if not s then return nil, "World boss: choose the spawn point of the boss." end
+            if s.trigger ~= "start" then return nil, "World boss: the boss spawn point must spawn at the start." end
+        end
+        d.worldBoss = v
     end
 
     d.difficulties, why = difficulties(raw.difficulties)
@@ -327,6 +356,7 @@ function M.point(def)
             or "Clear the zone. Leave nobody standing."),
         position = def.point, start = starts, difficulties = clone(def.difficulties), custom = true,
         fixer = def.fixer and def.fixer.enabled == true or nil,
+        worldBoss = def.worldBoss and def.worldBoss.enabled == true or nil,
         fixerContact = def.fixer and def.fixer.contact or nil, fixerBrief = def.fixer and def.fixer.brief or nil }
 end
 

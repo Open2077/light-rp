@@ -123,10 +123,16 @@ clock = clock + 2000
 r = act(4, "mission.tag", { difficulty = "standard" })
 assert(r.ok, r.text)
 assert(view(4).count == 1 and view(4).state == "open" and view(4).host)
--- the critical board refuses who has not completed hard here
+-- the critical board refuses who lacks its reputation tier (III)...
+clock = clock + 2000
+r = act(3, "mission.tag", { difficulty = "critical" })
+assert(not r.ok and r.text:find("reputation tier III (Operator)", 1, true), r.text)
+-- ...and, with the tier, who has not completed hard here
+Missions.addReputation(3, 1500)
 clock = clock + 2000
 r = act(3, "mission.tag", { difficulty = "critical" })
 assert(not r.ok and r.text:find("Complete HARD", 1, true), r.text)
+Missions.addReputation(3, -1500)
 -- the crew (1 lead, 2), matchmaking off: its own lobby, nobody joins, it launches at the minimum
 assert(open(1).difficulties[1].openLobbies == 1, "the board says somebody is looking for operators")
 clock = clock + 2000
@@ -228,14 +234,92 @@ assert(done and done.body:find("$" .. P.difficulties[1].payout .. " paid", 1, tr
 assert(healed[4] and healed[1] and healed[2], "everyone leaving the mission is healed, the one who abandoned too")
 assert(Missions.reputation(4) == LightRpMissions.reputationGain.standard)
 
--- ── completing a difficulty opens the next one at this point; reputation opens nothing ──
-assert(not open(4).difficulties[2].locked and open(4).difficulties[3].locked, "a standard completed opens hard, not critical")
+-- ── a difficulty needs its reputation tier AND the one before it completed here ──
+local hard = open(4).difficulties[2]
+assert(hard.locked and hard.tierLocked and hard.tier == 2 and hard.tierName == "Merc", "a standard completed is not enough: hard needs tier II")
+local tierNotices = #notices
+assert(commands["missions.rep"](0, { "4", "500" }))
+assert(notices[#notices].title == "STREET CRED" and #notices > tierNotices, "reaching a tier is told")
+assert(not open(4).difficulties[2].locked and open(4).difficulties[3].locked, "tier II + standard completed opens hard, not critical")
 assert(Missions.cleared(4, P.id, "standard") == 1 and Missions.cleared(2, P.id, "standard") == 0)
 assert(open(2).difficulties[2].locked, "the one who abandoned did not complete it")
 assert(commands["missions.rep"](0, { "3", "5000" }))
-assert(open(3).difficulties[2].locked, "reputation alone opens nothing")
+assert(open(3).difficulties[2].locked and not open(3).difficulties[2].tierLocked, "reputation alone opens nothing: the ladder holds")
 assert(commands["missions.unlock"](0, { "3", P.id, "standard" }) and commands["missions.unlock"](0, { "3", P.id, "hard" }))
 assert(not open(3).difficulties[3].locked, "staff unlock")
+local okRep, repText = commands["missions.rep"](0, { "3" })
+assert(okRep and repText:find("5000 reputation, tier IV (Edgerunner), next at 10000", 1, true), repText)
+-- five tiers; a gig crew member carried above their tier earns their tier's gain
+assert(Missions.tier(3) == 4 and Missions.tierInfo(3).next == 10000 and Missions.tierInfo(3).nextName == "Legend")
+assert(Missions.requiredTier({ id = "critical", tier = 0 }) == 3, "editor difficulties (tier 0) follow their id")
+assert(Missions.reputationFor(3, { id = "critical" }) == LightRpMissions.reputationGain.critical)
+assert(Missions.reputationFor(2, { id = "critical" }) == LightRpMissions.reputationGain.standard, "tier I carried: standard gain")
+
+-- ── a crew member below the leader's difficulty: never refused, their own reward ──
+-- (owner decision 2026-11-03, docs/pve-progression.md)
+local function lastNotice(id, title)
+    for i = #notices, 1, -1 do if notices[i].id == id and (not title or notices[i].title == title) then return notices[i] end end
+end
+assert(commands["missions.size"](0, { P.id, "critical", "2", "8" }) and commands["missions.size"](0, { P.id, "hard", "2", "6" }))
+spawn(6, "Ada Strand", 1); spawn(7, "Low Seven", 2); spawn(8, "Mid Eight", 3)
+assert(commands["missions.rep"](0, { "6", "5000" }))
+assert(commands["missions.unlock"](0, { "6", P.id, "standard" }) and commands["missions.unlock"](0, { "6", P.id, "hard" }))
+assert(Missions.tier(7) == 1 and Missions.unlocked(6, P, P.difficulties[3]), "6 has critical, 7 is a Street")
+-- the leader's own gate still applies: a Street leading the crew cannot pick critical
+assert(Party.invite(7, 6) and Party.accept(6) and Party.of(6).leader == 7)
+clock = clock + 2000
+r = act(7, "mission.tag", { difficulty = "critical" })
+assert(not r.ok and r.text:find("reputation tier III (Operator)", 1, true), "leader gate: " .. r.text)
+assert(view(6) == false and view(7) == false, "nobody tagged")
+-- the Operator leads: the Street member is tagged with the crew, told once what they earn
+assert(Party.promote(7, 6) and Party.of(7).leader == 6)
+local s7 = open(7).difficulties[3]
+assert(s7.locked and s7.tierLocked and s7.earns == LightRpMissions.reputationGain.standard and s7.earnsAs == "STANDARD"
+    and s7.reputation == LightRpMissions.reputationGain.critical, "the member's board: locked for them, the reward they would earn")
+local told = #notices
+clock = clock + 2000
+r = act(6, "mission.tag", { difficulty = "critical" })
+assert(r.ok and r.text:find("launches", 1, true) and r.text:find("reduced reward: Low Seven (Standard)", 1, true), r.text)
+assert(view(7).count == 2 and view(7).state == "countdown", "the member below the tier is on the board")
+local credNotice = lastNotice(7, "STREET CRED")
+assert(credNotice and #notices > told and credNotice.body == "Critical is above your street cred: you play it, you earn the Standard reward (+100 reputation).",
+    credNotice and credNotice.body)
+for i = told + 1, #notices do assert(not (notices[i].id == 6 and notices[i].title == "STREET CRED"), "the leader has nothing to be told") end
+-- the launch keeps them (the last check does not gate a carried member)
+tick(LightRpMissions.countdown * 1000 + 100)
+local critical = Missions.instanceOf(7)
+assert(critical and critical.difficulty == "critical" and Missions.instanceOf(6) == critical and #critical.members == 2, "launched at critical, both inside")
+-- full payout and full difficulty, the reputation of their own best difficulty
+local repBefore6 = Missions.reputation(6)
+assert(commands["missions.complete"](0, { "6" }))
+assert(paid[7] == P.difficulties[3].payout and paid[6] == P.difficulties[3].payout, "the critical payout to both")
+assert(Missions.reputation(7) == LightRpMissions.reputationGain.standard, "the Street earns the standard reward")
+assert(Missions.reputation(6) == repBefore6 + LightRpMissions.reputationGain.critical, "the leader earns the critical reward")
+assert(lastNotice(7, "MISSION COMPLETE").body:find("+100 reputation (Standard reward)", 1, true), lastNotice(7, "MISSION COMPLETE").body)
+assert(not lastNotice(6, "MISSION COMPLETE").body:find("reward)", 1, true), "the leader's notice names no reduced reward")
+-- the clear ladder counts too: a Merc who never cleared standard here, carried into hard
+assert(commands["missions.rep"](0, { "8", "600" }) and Missions.tier(8) == 2 and Missions.cleared(8, P.id, "standard") == 0)
+assert(Party.invite(6, 8) and Party.accept(8))
+clock = clock + 2000
+r = act(6, "mission.tag", { difficulty = "hard" })
+assert(r.ok and r.text:find("Mid Eight (Standard)", 1, true) and r.text:find("Low Seven (Standard)", 1, true), r.text)
+assert(lastNotice(8, "STREET CRED").body == "You have not cleared Standard here yet: you play Hard, you earn the Standard reward (+100 reputation).",
+    lastNotice(8, "STREET CRED").body)
+assert(view(8).count == 3 and view(8).state == "countdown")
+-- members leaving the crew come off its board; the leader untags
+assert(Party.leave(8) and view(8) == false)
+assert(Party.leave(7) and Party.of(7) == nil and view(7) == false)
+actions["mission.untag"](6, { session = open(6).session })
+assert(view(6) == false, "nobody left on the board")
+-- a solo player is still gated: Low Seven alone cannot pick critical, nor hard
+clock = clock + 2000
+r = act(7, "mission.tag", { difficulty = "critical" })
+assert(not r.ok and r.text:find("reputation tier III (Operator)", 1, true), "solo gate: " .. r.text)
+clock = clock + 2000
+r = act(7, "mission.tag", { difficulty = "hard" })
+assert(not r.ok and r.text:find("reputation tier II (Merc)", 1, true), "solo gate: " .. r.text)
+assert(commands["missions.size"](0, { P.id, "critical", "6", "8" }) and commands["missions.size"](0, { P.id, "hard", "4", "6" }))
+for id = 6, 8 do LightRP.eachModule("onDisconnected", id); positions[id], chars[id] = nil, nil end
 
 -- ── time runs out ──
 clock = clock + 2000
@@ -257,4 +341,4 @@ LightRP.eachModule("onDisconnected", 4)
 assert(view(4) == false)
 LightRP.eachModule("onDisconnected", 1)
 assert(Party.of(2) == nil, "a crew of one dissolves when the other leaves the city")
-print("PASS: crews (invite/accept/lead/kick/dissolve), boards (tiers, nearby), entry by crew (private lobby, leader only), matchmaking fills open lobbies, countdown when full, cancel on leave/wander, host launch with the minimum, bucket instance, crew frame (health/armor/down), abandon, payout + reputation, tiers, time out, disconnects")
+print("PASS: crews (invite/accept/lead/kick/dissolve), boards (tiers, nearby), entry by crew (private lobby, leader only), matchmaking fills open lobbies, countdown when full, cancel on leave/wander, host launch with the minimum, bucket instance, crew frame (health/armor/down), abandon, payout + reputation, tiers, crew members below the tier or the ladder play for their own reward (leader and solo still gated), time out, disconnects")
