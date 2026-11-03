@@ -48,7 +48,22 @@ local machine={id=201,kind='slots',owned=true,position={x=0,y=0,z=0},rotation=0,
 events['lightrp:boardGames:state']({boards={machine}});step()
 waitUntil(function() return countProps()==16 end,'cabinet, 3 strips, 6 lever poses, 2 lamps, 4 coins')
 assert(C.isActive() and view.extra.kind=='slots' and view.extra.seat=='white' and view.extra.paytable.three.seven==200)
-assert(cameraSpec.lookAt and cameraSpec.position.y<cameraSpec.lookAt.y,'front camera faces the machine')
+-- Free mode: the crosshair aims at the lever (outlined) and a click pulls.
+assert(view.free and not view.panel and not camera)
+pageHandlers['lightrp:slots:bet']({amount=25})
+local freeBefore=#requests
+forcedRay={origin={x=.55*K,y=-2,z=1.6*K},direction={x=0,y=1,z=0}};step()
+assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'the aimed lever is outlined')
+keys.mouse1=true;step();keys.mouse1=false;step()
+assert(#requests==freeBefore+1 and last().operation=='pull' and last().data.bet==25,'a crosshair click on the lever pulls')
+forcedRay={origin={x=0,y=-2,z=1.4*K},direction={x=0,y=1,z=0}};step()
+assert(batches['boardGames:preview']==nil,'no outline off the lever')
+keys.mouse1=true;step();keys.mouse1=false;step();assert(#requests==freeBefore+1,'a click beside the lever never wagers')
+assert(not view.panel,'an aimable table does not open its panel on a click')
+forcedRay=nil
+-- The optional scripted view from the panel toolbar.
+pageHandlers['lightrp:boardGames:camera']({view='top'})
+assert(camera and view.panel and cameraSpec.lookAt and cameraSpec.position.y<cameraSpec.lookAt.y,'front camera faces the machine')
 local function z(name) return findProp(name).position.z/K end
 local function at(name,x,y,zz) local p=findProp(name).position;return near(p.x/K,x) and near(p.y/K,y) and near(p.z/K,zz) end
 local park=L.leverPark
@@ -88,7 +103,7 @@ for i=1,10 do step();local v=z('slot_strip_3');seen[#seen+1]=v
  local j=(v-L.paylineZ)/L.pitch;assert(j>=1-1e-9 and j<S.STOPS+1,'strip outside the wrap range')
 end
 local moving=0;for i=2,#seen do if math.abs(seen[i]-seen[i-1])>1e-6 then moving=moving+1 end end
-assert(moving>=5,'reel 3 is not spinning')
+assert(moving==#seen-1,'reel 3 must move on every frame ('..moving..'/'..(#seen-1)..')')
 -- Staggered stops on the server's stops: reel 1 at 1.8 s, reel 2 at 2.4 s, reel 3 at 3.0 s.
 advance(1850);assert(near(z('slot_strip_1'),L.paylineZ+(stops[1]+1)*L.pitch),'reel 1 landed')
 local reel3=E.pieceTargets(machine)['slot-reel-3'].position.z
@@ -124,6 +139,14 @@ end
 machine.game=assert(S.act(machine.game,'white','settle',{nowMs=now+3000}));machine.revision=3;machine.serverNow=now+60000
 events['lightrp:boardGames:state']({boards={machine}});step();step()
 for r=1,3 do assert(near(z('slot_strip_'..r),L.paylineZ+(stops[r]+1)*L.pitch)) end
+-- A still machine costs nothing per frame: no target computation, no transform.
+for i=1,10 do step() end
+local calls,original=0,E.pieceTargets
+E.pieceTargets=function(...) calls=calls+1;return original(...) end
+local idle=movedProps
+for i=1,20 do step() end
+E.pieceTargets=original
+assert(calls==0 and movedProps==idle,'still machine: '..calls..' target calls, '..(movedProps-idle)..' transforms')
 -- Every reel timeline lands exactly and stays within the wrap range for every stop pair.
 for from=0,S.STOPS-1 do for to=0,S.STOPS-1 do
  local spin={from={from,from,from},stops={to,to,to}}
@@ -134,6 +157,6 @@ for from=0,S.STOPS-1 do for to=0,S.STOPS-1 do
 end end
 pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic==false)
+assert(next(nativeProps)==nil and next(batches)==nil and cinematic~=true)
 print('slot machine client: 16 native props, lever poses, server-clock reels on the server stops, lamp and coins, cleanup: OK; peak '..peakInstructions..' (budget '..BOARD_BUDGET..')')
 ''')

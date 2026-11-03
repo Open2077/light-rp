@@ -475,16 +475,51 @@ def connect4():
     sim.advance(1500)
     b = sim.board(board_id)
     check(b is not None and b.mode == 'solo', f'solo mode: board mode {b and b.mode}, notices {sim.notices()}, diagnostics {sim.diagnostics()}')
-    rev = sim.board(board_id).revision
-    sim.client.execute(f'TriggerServerEvent("lightrp:boardGames:request",{{action="move",boardId="{board_id}",fromRow=0,fromCol=0,toRow=6,toCol=4,revision={rev}}})')
+    # Free mode: no scripted camera, the character is not frozen, the HUD stays.
+    v = sim.view()
+    check(v['free'] and not v['panel'] and v['cameraView'] == 'free', f'free mode by default {v}')
+    check(sim.client.eval('camera==nil and not frozen and not focus and cinematic~=true'), 'no camera, freeze, cursor or cinematic')
+    # Aim the crosshair at column 4 of the upright grid and click.
+    sim.client.execute(f'''local b=LightRpBoardGamesClient.boards["{board_id}"];local a=math.rad(b.rotation or 0)
+local nx,ny=-math.sin(a),math.cos(a)
+forcedRay={{origin={{x=b.position.x-nx*2,y=b.position.y-ny*2,z=b.position.z+.4*.65}},direction={{x=nx,y=ny,z=0}}}}''')
+    sim.advance(100)
+    sim.press('mouse1')
+    sim.client.execute('forcedRay=nil')
     sim.wait_for(lambda: len(sim.named(board_id, 'connect4_white_disc')) == 1, 'player disc prop', 8000)
     sim.wait_for(lambda: len(sim.named(board_id, 'connect4_black_disc')) == 1, 'AI disc prop', 15000)
     sim.advance(3000)
     discs = sim.named(board_id, 'connect4_')
     discs = [d for d in discs if d['name'] != 'connect4_board']
     check(all(d['z'] < .9 for d in discs), f'discs settled into the grid {discs}')
+    white = [d for d in discs if d['name'] == 'connect4_white_disc']
+    check(white and abs(white[0]['x']) < .01, f'the crosshair dropped the disc in column 4 {white}')
+    # Walking away: the client leaves after 1.5 s beyond 3.5 m and the server frees the seat.
+    def walk(dx, server=True, client=True):
+        b = sim.board(board_id)
+        if client:
+            sim.client.execute(f'Open77.character.state().position={{x={b.position.x+dx},y={b.position.y},z={b.position.z}+.5}}')
+        if server:
+            sim.server.execute(f'positions[1].x,positions[1].y,positions[1].z={b.position.x+dx},{b.position.y},{b.position.z}')
+    walk(3.8)
+    sim.advance(800)
+    check(sim.client.eval('LightRpBoardGamesClient.isActive()') and sim.view()['leaving'], 'a step past 3.5 m only warns')
+    sim.advance(1500)
+    check(sim.client.eval('not LightRpBoardGamesClient.isActive()'), 'the client left the table')
+    check(any('walked away' in str(n) for n in sim.notices()), f'leave notice {sim.notices()}')
+    sim.advance(500)
+    check(sim.board(board_id).players['white'] is None, 'the server freed the seat (replicated state)')
+    # Backstop: a client that never leaves loses the seat on the server's 5 m check.
+    walk(.5)
+    sim.advance(3200)
+    sim.interact(board_id)
+    sim.wait_for(lambda: sim.client.eval('LightRpBoardGamesClient.isActive()'), 'seated again')
+    walk(6, client=False)
+    sim.wait_for(lambda: sim.client.eval('not LightRpBoardGamesClient.isActive()'), 'seat released by the server', 4500)
+    check('walked away' in str(sim.server.globals()['notices'][1]), 'server notice for a released seat')
+    walk(.5)
     no_render_failures(sim, 'connect4')
-    print(f'connect4 e2e: place, join, solo, drop, AI reply, discs visible and settled: OK ({len(discs)} discs)')
+    print(f'connect4 e2e: place, join, free mode, solo, crosshair drop, AI reply, discs visible and settled, walk-away leave and 5 m server release: OK ({len(discs)} discs)')
     return sim
 
 # =========================================================================================
@@ -504,6 +539,10 @@ def blackjack():
     sim.wait_for(lambda: sim.client.eval('LightRpBoardGamesClient.isActive()'), 'seated camera')
     v = sim.view()
     check(v['kind'] == 'blackjack' and v['extra']['mySeat'] == 'white' and v['extra']['phase'] == 'betting', f'betting view {v.get("extra")}')
+    # Seated in free mode; a click at this panel-only table opens the betting panel.
+    check(v['free'] and not v['panel'], f'free mode by default {v.get("free")} {v.get("panel")}')
+    sim.press('mouse1')
+    check(sim.view()['panel'] and sim.client.eval('focus'), 'a click opens the betting panel with a cursor')
     # Bet through the page action path.
     sim.page('lightrp:tabletop:action', {'operation': 'bet', 'data': {'amount': 25}})
     sim.wait_for(lambda: (sim.view()['extra'].get('hands') or {}).get('white'), 'bet in the view')

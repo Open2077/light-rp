@@ -49,13 +49,21 @@ assert(#requests==before+1 and last().action=='game' and last().operation=='bet'
 pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,pressed=true})
 pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true});step()
 assert(#requests==before+1)
+-- Free mode: a panel-only table opens its betting panel on a click, never wagers.
+assert(view.free and not view.panel and not focus)
+keys.mouse1=true;step();keys.mouse1=false;step()
+assert(view.panel and focus and #requests==before+1,'a click opens the betting panel')
+pageHandlers['lightrp:boardGames:panel']({open=false});assert(not view.panel and not focus)
+-- A still wheel holds its targets until the next snapshot; a spin animates.
+local _,hold=E.pieceTargets(roulette);assert(hold==math.huge,'a still roulette needs no per-frame targets')
 roulette.game=assert(R.act(roulette.game,'white','spin',{outcome=17,seedAngle=41,nowMs=now}))
 roulette.revision=2;roulette.serverNow=now+1
 E.observe(roulette)
-local a=E.pieceTargets(roulette);clock=clock+4000;local b=E.pieceTargets(roulette)
+local a,spinHold=E.pieceTargets(roulette);assert(spinHold==nil,'a spinning wheel is recomputed every frame')
+clock=clock+4000;local b=E.pieceTargets(roulette)
 assert(a['roulette-wheel'].piece.yaw~=b['roulette-wheel'].piece.yaw)
 assert(math.abs(math.sqrt(b['roulette-ball'].position.x^2+b['roulette-ball'].position.y^2)-.27)<1e-9)
-clock=clock+4001;local settled=E.pieceTargets(roulette)
+clock=clock+4001;local settled,settledHold=E.pieceTargets(roulette);assert(settledHold==math.huge,'a landed ball holds')
 local spin=roulette.game.spin
 assert(math.abs(settled['roulette-wheel'].piece.yaw+spin.wheelTo)<1e-8)
 assert(math.abs(settled['roulette-ball'].position.x-.27*math.sin(math.rad(spin.ballTo)))<1e-8)
@@ -69,6 +77,6 @@ local retained=E.pieceTargets(roulette)
 assert(math.abs(retained['roulette-wheel'].piece.yaw+spin.wheelTo)<1e-8,'wheel angle survives the next betting round')
 pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step()end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic==false)
+assert(next(nativeProps)==nil and next(batches)==nil and cinematic~=true)
 print('extra tabletop client: native props, roulette clock/outcome, cleanup: OK; peak '..peakInstructions)
 ''')

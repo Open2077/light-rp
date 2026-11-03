@@ -31,20 +31,43 @@ const dist = path.resolve(process.env.BOARD_GAMES_WEB_DIR || path.resolve(__dirn
     assert(pointers.some(p => p.pressed && Math.abs(p.x - .5) < .001 && Math.abs(p.y - .5) < .001));
     assert(pointers.some(p => p.released));
     assert(pointers.every(p => p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1));
-    await show({ active: true, kind: 'chess', side: 'black', turn: 'white', status: 'playing' });
+    // Free mode (the default when seated): a non-focus HUD, the game HUD stays.
+    await show({ active: true, kind: 'chess', side: 'white', turn: 'white', isActor: true, status: 'playing', free: true, panel: false, panelKey: 'H', cameraView: 'free' });
+    await page.locator('.board-games--free').waitFor();
+    await page.getByText('Your turn', { exact: true }).waitFor();
+    assert.equal(await page.locator('.board-games__crosshair').count(), 1, 'free mode draws a crosshair');
+    assert.equal(await page.locator('.gameplay-interface').getAttribute('hidden'), null, 'free mode keeps the gameplay HUD');
+    assert.equal(await page.locator('.board-games--free').evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'free mode never takes the pointer');
+    assert.equal(await page.locator('.board-games__hud').evaluate(el => getComputedStyle(el).pointerEvents), 'none');
+    assert.equal(await page.getByRole('button').count(), 0, 'no buttons without the panel');
+    await page.getByText('Panel and camera views', { exact: true }).waitFor();
+    const freeSent = await page.evaluate(() => testBridge.sent.length);
+    await page.mouse.click(640, 360); await page.keyboard.press('Escape'); await page.keyboard.press('Backspace');
+    assert.equal(await page.evaluate(() => testBridge.sent.length), freeSent, 'free mode sends no pointer, leave or panel event');
+    await show({ active: true, kind: 'chess', side: 'white', turn: 'black', status: 'playing', free: true, panel: false, leaving: 900 });
+    await page.getByRole('alert').waitFor();
+    assert.match(await page.getByRole('alert').innerText(), /Too far from the table/);
+    await show({ active: true, kind: 'slots', ready: true, status: 'playing', free: true, panel: false, extra: { kind: 'slots', round: 1 } });
+    await page.getByText('Aim at the lever and click to pull', { exact: true }).waitFor();
+    // The panel (H): cursor, setup and the optional camera views.
+    await show({ active: true, kind: 'chess', side: 'black', turn: 'white', status: 'playing', free: true, panel: true, panelKey: 'H', cameraView: 'free' });
     await page.getByText('White to move', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Free', exact: true }).getAttribute('aria-pressed'), 'true');
+    await page.getByRole('button', { name: /Close panel/ }).click();
+    assert(await page.evaluate(() => testBridge.sent.some(e => e.name === 'lightrp:boardGames:panel' && e.payload.open === false)));
     await page.getByText('You play Black.', { exact: true }).waitFor();
     assert(await page.locator('.gameplay-interface').isHidden(), 'HUD and interaction must be hidden during a game');
     await page.getByRole('button', { name: 'Black side', exact: true }).click();
     assert(await page.evaluate(() => testBridge.sent.some(e => e.name === 'lightrp:boardGames:camera' && e.payload.view === 'black')));
-    await show({active:true,kind:'chess',cameraView:'orbit',side:'black',turn:'white',status:'playing'});
+    await show({active:true,kind:'chess',cameraView:'orbit',side:'black',turn:'white',status:'playing',panel:true,free:false});
+    await page.getByRole('button', { name: /Back to free mode/ }).waitFor();
     await page.mouse.move(800,300);await page.mouse.down({button:'right'});await page.mouse.move(850,320);await page.mouse.up({button:'right'});
     assert(await page.evaluate(() => testBridge.sent.some(e => e.name === 'lightrp:boardGames:pointer' && e.payload.rightPressed)));
     await page.mouse.wheel(0,100);
     await page.waitForFunction(() => testBridge.sent.some(e => e.name === 'lightrp:boardGames:camera' && e.payload.zoom===1));
-    await show({ active: true, kind: 'chess', status: 'won', winner: 'black' });
+    await show({ active: true, kind: 'chess', status: 'won', winner: 'black', panel: true });
     await page.getByText('Black wins', { exact: true }).waitFor();
-    await show({ active: true, kind: 'connect4', mode: 'teams', owned: true, ply: 0, canConfigure: true, ready: false, status: 'playing', playerCount: 3, side: 'white' });
+    await show({ active: true, kind: 'connect4', mode: 'teams', owned: true, ply: 0, canConfigure: true, ready: false, status: 'playing', playerCount: 3, side: 'white', panel: true });
     await page.getByRole('heading', { name: 'Connect Four' }).waitFor();
     await page.getByText('Waiting for players', { exact: true }).waitFor();
     await page.getByText('2v2 teams · 3/4 players', { exact: true }).waitFor();
@@ -52,26 +75,26 @@ const dist = path.resolve(process.env.BOARD_GAMES_WEB_DIR || path.resolve(__dirn
     await page.getByRole('button', { name: 'Solo vs AI', exact: true }).click();
     assert(await page.evaluate(() => testBridge.sent.some(e => e.name === 'lightrp:boardGames:mode' && e.payload.mode === 'solo')));
     assert.equal(await page.evaluate(() => testBridge.sent.filter(e => e.name === 'lightrp:boardGames:pointer' && !e.payload.blocked).length), before, 'mode controls must not move a piece');
-    await show({ active: true, kind: 'connect4', mode: 'solo', owned: true, ply: 1, ready: true, actor: 0, status: 'playing', turn: 'black', side: 'white' });
+    await show({ active: true, kind: 'connect4', mode: 'solo', owned: true, ply: 1, ready: true, actor: 0, status: 'playing', turn: 'black', side: 'white', panel: true });
     await page.getByText('AI is thinking…', { exact: true }).waitFor();
     await page.getByText('Yellow to move', { exact: true }).waitFor();
     assert.equal(await page.getByRole('group', { name: 'Game mode' }).count(), 0);
     await page.getByRole('button', { name: 'New game', exact: true }).click();
     assert(await page.evaluate(() => testBridge.sent.some(e => e.name === 'lightrp:boardGames:reset')));
-    await show({active:true,kind:'roulette',owned:true,ready:true,status:'playing',extra:{phase:'betting',round:1,yourStake:0}});
+    await show({active:true,kind:'roulette',owned:true,ready:true,status:'playing',panel:true,extra:{phase:'betting',round:1,yourStake:0}});
     await page.getByRole('heading',{name:'Roulette'}).waitFor();
     await page.getByRole('button',{name:'Spin wheel',exact:true}).click();
     assert(await page.evaluate(()=>testBridge.sent.some(e=>e.name==='lightrp:tabletop:action'&&e.payload.operation==='spin')));
-    await show({active:true,kind:'roulette',ready:true,status:'playing',extra:{phase:'spinning'}});
+    await show({active:true,kind:'roulette',ready:true,status:'playing',panel:true,extra:{phase:'spinning'}});
     await page.getByText('Wheel spinning… bets are closed.',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Place bet',exact:true}).count(),0);
     // Fresh casino tables as Lua sends them: empty lists arrive as {} objects.
-    await show({active:true,kind:'blackjack',ready:true,status:'playing',extra:{"shoe": {"cut": false, "left": 312, "total": 312}, "round": 1, "dealer": {"cards": {}, "total": 0}, "mode": "duel", "ply": 0, "hands": {}, "kind": "blackjack", "captured": {}, "status": "playing", "phase": "betting", "shuffledAt": 1793648509672, "objects": {}, "clientNow": 1793648600000, "mySeat": "white", "legal": {}}});
+    await show({active:true,kind:'blackjack',ready:true,status:'playing',panel:true,extra:{"shoe": {"cut": false, "left": 312, "total": 312}, "round": 1, "dealer": {"cards": {}, "total": 0}, "mode": "duel", "ply": 0, "hands": {}, "kind": "blackjack", "captured": {}, "status": "playing", "phase": "betting", "shuffledAt": 1793648509672, "objects": {}, "clientNow": 1793648600000, "mySeat": "white", "legal": {}}});
     await page.getByRole('heading',{name:'Blackjack'}).waitFor();
     await page.getByRole('button',{name:'Place bet',exact:true}).waitFor();
-    await show({active:true,kind:'slots',ready:true,status:'playing',extra:{kind:'slots',round:1,phase:'idle',result:{symbols:{}},stops:{}}});
+    await show({active:true,kind:'slots',ready:true,status:'playing',panel:true,extra:{kind:'slots',round:1,phase:'idle',result:{symbols:{}},stops:{}}});
     await page.getByRole('heading',{name:'Slot Machine'}).waitFor();
-    await show({active:true,kind:'fortune',ready:true,status:'playing',extra:{kind:'fortune',round:1,phase:'betting',recent:{},bets:{},totals:{},mine:{}}});
+    await show({active:true,kind:'fortune',ready:true,status:'playing',panel:true,extra:{kind:'fortune',round:1,phase:'betting',recent:{},bets:{},totals:{},mine:{}}});
     await page.getByRole('heading',{name:'Fortune Wheel'}).waitFor();
     assert.deepEqual(errors, [], 'casino panels must render fresh tables');
     // Every view the real Lua client sent during tools/test-casino-e2e.py
@@ -89,11 +112,14 @@ const dist = path.resolve(process.env.BOARD_GAMES_WEB_DIR || path.resolve(__dirn
       }
       console.log(`board games browser: replayed ${count} recorded casino views`);
     }
-    // Leaving from the keyboard: Escape anywhere, Backspace outside a text field.
+    // Keyboard in the panel: Escape closes the panel (back to free mode),
+    // Backspace outside a text field leaves.
     const leaves = () => page.evaluate(() => testBridge.sent.filter(e => e.name === 'lightrp:boardGames:leave').length);
-    await show({ active: true, kind: 'chess', side: 'white', turn: 'white', status: 'playing' });
-    let leftBefore = await leaves(); await page.keyboard.press('Escape'); assert.equal(await leaves(), leftBefore + 1, "Escape leaves the table");
-    await show({active:true,kind:'blackjack',ready:true,status:'playing',extra:{kind:'blackjack',phase:'betting',round:1,hands:{},dealer:{cards:{}},mySeat:'white',legal:{},clientNow:1}});
+    const closes = () => page.evaluate(() => testBridge.sent.filter(e => e.name === 'lightrp:boardGames:panel' && e.payload.open === false).length);
+    await show({ active: true, kind: 'chess', side: 'white', turn: 'white', status: 'playing', panel: true });
+    let leftBefore = await leaves(); const closedBefore = await closes(); await page.keyboard.press('Escape');
+    assert.equal(await leaves(), leftBefore, "Escape does not leave the table"); assert.equal(await closes(), closedBefore + 1, "Escape closes the panel");
+    await show({active:true,kind:'blackjack',ready:true,status:'playing',panel:true,extra:{kind:'blackjack',phase:'betting',round:1,hands:{},dealer:{cards:{}},mySeat:'white',legal:{},clientNow:1}});
     await page.getByLabel("Bet amount").focus(); leftBefore = await leaves(); await page.keyboard.press('Backspace');
     assert.equal(await leaves(), leftBefore, "Backspace in the bet field edits the amount");
     await page.locator('h2').click(); await page.keyboard.press('Backspace'); assert.equal(await leaves(), leftBefore + 1, "Backspace outside a field leaves");
@@ -103,6 +129,6 @@ const dist = path.resolve(process.env.BOARD_GAMES_WEB_DIR || path.resolve(__dirn
     await page.waitForFunction(() => !document.querySelector('.gameplay-interface').hidden);
     assert.equal(await page.locator('.gameplay-interface').getAttribute('hidden'), null, 'gameplay HUD must restore after leaving');
     assert.deepEqual(errors, []);
-    console.log('board games browser: placement, pointers, modes, teams, AI, Connect Four, reset and cleanup passed');
+    console.log('board games browser: placement, free-mode HUD, panel, pointers, modes, teams, AI, Connect Four, reset and cleanup passed');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -22,13 +22,15 @@ export interface ExtraGame {
   name: string;
   /** Anyone seated nearby may act, without turns or game modes. */
   openPlay: boolean;
-  /** What the left mouse button does at this table. */
+  /** What the left mouse button does at this table (panel, cursor). */
   hint: string;
+  /** The same in free mode, aiming with the crosshair; defaults to `hint`. */
+  freeHint?: string;
   Controls: ComponentType<ExtraControlsProps>;
 }
 export const EXTRA_GAMES: Record<string, ExtraGame> = {
-  roulette: { name: "Roulette", openPlay: true, hint: "Use the betting controls", Controls: RouletteControls },
-  slots: { name: "Slot Machine", openPlay: true, hint: "Click the lever to pull", Controls: SlotsControls },
-  blackjack: { name: "Blackjack", openPlay: true, hint: "Bet, then Hit, Stand or Double from the panel", Controls: BlackjackControls },
-  fortune: { name: "Fortune Wheel", openPlay: true, hint: "Click a felt spot to pick it", Controls: FortuneControls },
+  roulette: { name: "Roulette", openPlay: true, hint: "Use the betting controls", freeHint: "Click the table to open the bets", Controls: RouletteControls },
+  slots: { name: "Slot Machine", openPlay: true, hint: "Click the lever to pull", freeHint: "Aim at the lever and click to pull", Controls: SlotsControls },
+  blackjack: { name: "Blackjack", openPlay: true, hint: "Bet, then Hit, Stand or Double from the panel", freeHint: "Click the table to bet, Hit, Stand or Double", Controls: BlackjackControls },
+  fortune: { name: "Fortune Wheel", openPlay: true, hint: "Click a felt spot to pick it", freeHint: "Aim at a felt spot and click to pick it", Controls: FortuneControls },
 };

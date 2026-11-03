@@ -20,14 +20,34 @@ sequence remains with the same player until finished. Solo reserves White for
 the owner and Black for the AI. Connect Four uses Red and Yellow for these sides.
 The owner can select New game to reset the game and reopen the lobby.
 
-Chess and checkers use an overhead camera with click-to-move or drag-and-drop.
-Camera controls also offer both player sides and an orbit view with right-drag
-rotation and scroll zoom. Left-drag moves the selected prop visually; the server
-receives the move only on release. Native and custom HUDs and nearby interaction
-prompts are hidden during play and restored on exit.
-Connect Four uses a camera facing its upright grid: click a column to drop a
-disc. Backspace or Escape leaves the seat. The target menu's Pick up board action
-returns it to its owner's inventory, even after reconnecting, and closes all seated players' views.
+Seated players play in **free mode**: no scripted camera, the character is not
+frozen, mouse-look, movement and the HUD stay. The crosshair (screen centre)
+aims at the table and the left mouse button acts; the aimed square, column or
+table element and the current selection are outlined on the table itself.
+Chess and checkers: click a piece, then its destination, or hold the button on
+a piece and release it over another square. Connect Four: aim at a column and
+click. The server receives a move only on release.
+
+**H** opens the panel and gives the page the cursor: game setup, New game,
+casino bets and actions (Hit, Stand, amounts), and the camera toolbar. The
+toolbar's scripted views (Overhead, both sides, Orbit with right-drag rotation
+and scroll zoom) are the former default and stay available: picking one freezes
+the character, hides the HUD and keeps the cursor; **Free**, H or Escape returns
+to free mode. While chat or another page types, the table keys stay inert.
+Backspace (or the panel's Leave table button) leaves the seat. Nearby
+interaction prompts stay hidden while seated.
+
+Casino tables work the same way: aim at the slot machine's lever and click to
+pull (with the bet chosen in the panel), aim at a Fortune Wheel felt spot and
+click to pick it; at roulette and blackjack, which bet from the panel only, a
+click on the table opens the panel.
+
+Walking away leaves the table: beyond 3.5 m the HUD warns, and after 1.5 s out
+of range (or at once beyond 5 m) the client leaves with a notice. The server
+releases any seat beyond 5 m on its 2 s check and tells the player why; moves
+are refused beyond 4 m. The target menu's Pick up board action returns a board
+to its owner's inventory, even after reconnecting, and closes all seated
+players' views.
 
 Chess supports castling, en passant, checkmate/stalemate, repetition, insufficient
 material and promotion. The mouse interface promotes to a queen automatically;
@@ -37,7 +57,12 @@ Connect Four checks horizontal, vertical and diagonal wins and full-board draws.
 The AI uses bounded tactical search and only server-validated legal moves.
 
 The server validates distance, routing bucket, seats, active player and revision.
-It broadcasts snapshots; clients interpolate movement. Six original synthesized
+It broadcasts snapshots; clients interpolate movement. The engine has no tween:
+the client moves props with `setTransform`, and only the props that are not yet
+at their goal, every frame (a still table costs nothing). Goals are recomputed
+when a snapshot arrives; a casino adapter's time-driven targets declare how long
+they hold (`animatingUntil` / `stillUntil`, see `client/core/tabletop_extra.lua`)
+and are recomputed every frame only while a timeline runs. Six original synthesized
 WAV effects cover moves, captures, disc drops and wins. Spatial audio plays once
 per new move sequence within 14 metres; initial sync and mode changes are silent.
 
@@ -81,8 +106,9 @@ node ui/tests/board-games.browser.cjs
 ```
 
 The browser test accepts `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH` and optional
-`BOARD_GAMES_WEB_DIR`. Final camera, picking, audio and native rendering still
-need an in-game check with actual clients.
+`BOARD_GAMES_WEB_DIR`. Crosshair picking from the player's own camera (first
+and third person), the scripted views, audio and native rendering still need an
+in-game check with actual clients.
 
 ## Roulette
 
@@ -90,7 +116,7 @@ Additional native props are delivered by `open77_tabletop_extra` (3 props with o
 
 - `roulette_table`: European single-zero wheel and a separately animated ball. Place whole-dollar RP cash bets, then spin. The server chooses the outcome, closes betting during the eight-second spin and stores winnings atomically. Straight numbers return 36 times the stake, dozens 3 times and even-chance bets 2 times; returns include the original stake. Zero loses outside bets. Pending winnings and refunds belong to the character inventory and survive disconnections and restarts. Resetting or retrieving a table refunds unspun stakes; both are blocked during a spin.
 
-The table shares placement, cameras, HUD suppression and owner-only retrieval through the target menu with the board games. There is no numerical placement limit. Ordinary distance and overlap checks still apply.
+The table shares placement, free mode and the optional camera views, distance leave and owner-only retrieval through the target menu with the board games. There is no numerical placement limit. Ordinary distance and overlap checks still apply.
 
 Admin item command:
 

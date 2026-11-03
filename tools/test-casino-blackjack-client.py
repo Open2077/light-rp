@@ -62,6 +62,11 @@ assert(#requests==before+1 and last().action=='game' and last().operation=='bet'
 pageHandlers['lightrp:tabletop:action']({operation='splitAll',data={}});assert(#requests==before+1,'unknown operation forwarded')
 pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,pressed=true});pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true});step()
 assert(#requests==before+1)
+-- Free mode: a click at this panel-only table opens the panel (cursor), never wagers.
+assert(view.free and not view.panel and not focus)
+keys.mouse1=true;step();keys.mouse1=false;step()
+assert(view.panel and focus and #requests==before+1)
+edge('H');assert(not view.panel and not focus)
 
 -- The deal: server timestamps drive every card; staggered from the shoe.
 now=now+1000 -- a new snapshot stamp: the client re-anchors its server clock
@@ -148,7 +153,7 @@ waitUntil(function() return countProps()==1 end,'worst-case felt swept')
 print('worst-case props per table: '..(1+targets)..' (table + '..targets..' moving)')
 pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic==false)
+assert(next(nativeProps)==nil and next(batches)==nil and cinematic~=true)
 B.shuffle=real
 print('blackjack client: native props, server-clock deal, flip poses, hidden hole card, chips, cleanup: OK; peak '..peakInstructions)
 ''')

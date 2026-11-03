@@ -280,6 +280,7 @@ permissions {
     "voice.client",        -- guided setup through the trusted preference owner
     "network.client",      -- local player ID + authenticated account for animation state/preferences
     "input.actions",
+    "session.menus",        -- Open77.session.isMenuOpen: seated free mode (and the free camera) ignore input under a menu
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
     "world.npcs",           -- rental desks are NPCs
     "world.markers",        -- native 3D markers at rental desks and the raid's strike telegraphs

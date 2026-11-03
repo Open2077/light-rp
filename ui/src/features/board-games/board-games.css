@@ -24,3 +24,17 @@
 .board-games__field input,.board-games__field select{min-width:0;width:100%;padding:9px;border:1px solid var(--line-neutral);background:var(--surface-input);color:var(--text-hi);font:var(--type-body);font-size:13px;border-radius:0;outline:none}
 .board-games__field input:focus,.board-games__field select:focus{border-color:var(--accent)}
 .board-games__modes+.board-games__modes{margin-top:8px}
+/* Free mode: a non-focus HUD. Nothing here takes the pointer; the game keeps
+   mouse-look, movement and its own HUD. */
+.board-games--free{pointer-events:none;background:none;z-index:40}
+.board-games__crosshair{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 8px rgba(0,0,0,.6)}
+.board-games__hud{position:absolute;left:50%;bottom:var(--hud-safe-y);transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;max-width:min(720px,calc(100vw - 32px));padding:8px 14px;background:var(--surface-hud);border-top:2px solid var(--accent);clip-path:var(--clip-chamfer-sm)}
+.board-games__hud--leaving{border-top-color:var(--line-danger)}
+.board-games .board-games__hud p{margin:0}
+.board-games__hud-head{display:flex;align-items:baseline;justify-content:center;gap:var(--sp-5);white-space:nowrap}
+.board-games__hud-title{font:var(--type-label);font-size:11px;letter-spacing:var(--ls-label);color:var(--text-dim);text-transform:uppercase}
+.board-games__hud-status{font:var(--type-title);font-size:15px}
+.board-games__hud-warning{color:var(--text-danger);font:var(--type-label);font-size:12px;text-align:center}
+.board-games__hud-keys{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;font-size:12px;color:var(--text-body)}
+.board-games__hud-keys>span{display:inline-flex;align-items:center;gap:6px}
+@media(max-width:1100px){.board-games__hud{bottom:16px}.board-games__hud-keys{font-size:11px}}

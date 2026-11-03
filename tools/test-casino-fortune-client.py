@@ -70,6 +70,12 @@ pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true})
 for i=1,4 do step() end;forcedRay=nil
 assert(#requests==before+1,'a click never wagers money')
 assert(view.extra.picked=='5' and view.extra.pickSerial==1,'felt click picks the 5x spot')
+-- Free mode: the crosshair outlines the aimed spot (and the picked one) and a click picks it.
+assert(view.free and not view.panel)
+forcedRay={origin={x=.2*S,y=-.68*S,z=3},direction={x=0,y=0,z=-1}};step()
+assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==8,'aimed and picked spots outlined')
+keys.mouse1=true;step();keys.mouse1=false;for i=1,4 do step() end;forcedRay=nil
+assert(#requests==before+1 and view.extra.picked=='20' and view.extra.pickSerial==2 and not view.panel,'a crosshair click picks the 20x spot')
 -- The server spins: segment 13 (20x), two laps, from rest 0.
 local spun=assert(F.spin(g,{outcome=13,laps=2,nowMs=now+1000,roundKey='k'}))
 wheel.game=F.view(spun,'a');wheel.revision=2;wheel.serverNow=now+1000
@@ -134,6 +140,6 @@ assert(countProps()==1+35+7+1,'all seven stacks plus the payout: '..countProps()
 for i=1,20 do step() end
 pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step()end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic==false)
+assert(next(nativeProps)==nil and next(batches)==nil and cinematic~=true)
 print('fortune client: 38-44 native props per table, server-clock poses, flapper kicks, exact landing, chips, cleanup: OK; peak '..peakInstructions..' of '..BOARD_BUDGET)
 ''')

@@ -1,4 +1,10 @@
 -- Replicated server snapshots, local smooth presentation. No client move is authoritative.
+-- Seated players play in FREE mode by default: no scripted camera, the
+-- character keeps walking and looking around, the HUD stays. The crosshair
+-- (screen centre) aims at the table and the left mouse button acts; the aimed
+-- cell and the selection are outlined on the table itself. PANEL_KEY opens the
+-- panel with a cursor (bets, Hit/Stand, game setup, and the optional scripted
+-- camera views, the former default). Walking away from the table leaves it.
 local Ui = LightRpUi
 local NET = "lightrp:boardGames:request"
 local VIEW, POINTER = "lightrp:boardGames:view", "lightrp:boardGames:pointer"
@@ -8,7 +14,12 @@ local active, draft, pointer, previous, started, lastView = nil, nil, nil, {}, f
 local pointerDown = false
 local pointerEvents={}
 local SCALE=.65
-local CAMERA_VIEWS={"top","white","black","orbit"}
+local CAMERA_VIEWS={"free","top","white","black","orbit"}
+local PANEL_KEY="H" -- free in Light RP and its providers; E interacts, T chats, G/X belong to actions
+-- Leaving by distance: beyond LEAVE_RADIUS for LEAVE_GRACE_MS (a step back
+-- does not kick), or at once beyond LEAVE_HARD_RADIUS, the server's own seat
+-- radius (server/modules/board_games.lua SEAT_RADIUS releases it every 2 s).
+local LEAVE_RADIUS,LEAVE_HARD_RADIUS,LEAVE_GRACE_MS=3.5,5,1500
 local dragPose
 local applyCamera
 local pendingPlacement
@@ -42,8 +53,8 @@ local function trace(reason,boardId,format,...)
 end
 Client.trace=trace
 local function guarded(name,fn,...)
-    local ok,result=pcall(fn,...)
-    if ok then return result end
+    local ok,result,second=pcall(fn,...)
+    if ok then return result,second end
     local message=tostring(result)
     if threadErrors[message]==nil then threadErrors[message]=true;trace("thread_error",nil,"%s: %s",name,message) end
 end
@@ -116,18 +127,28 @@ local function sendView(force)
         turn=board and board.game.turn,ply=board and (board.game.ply or 0),
         canConfigure=board and (board.game.ply or 0)==0 and not board.game.chain,status=board and board.game.status,winner=board and board.game.winner,
         cameraView=active and active.cameraView,cameraViews=CAMERA_VIEWS,scale=SCALE,
+        panel=draft~=nil or (active~=nil and active.panel==true),free=active~=nil and active.camera==nil,panelKey=PANEL_KEY,
+        leaving=active and active.farSince and math.max(0,LEAVE_GRACE_MS-(GetGameTimer()-active.farSince)) or nil,
         side=board and member(board),mode=board and (board.mode or "duel"),owned=board and board.owned,
         actor=board and board.actor,isActor=board and isActor(board),ready=board and isReady(board),
         players=board and board.players,playerCount=board and (function()
             local count=0;for _,id in pairs(board.players or {}) do if id then count=count+1 end end;return count
         end)(),selected=active and active.selected,axis=draft and draft.axis,
         text=draft and "Mouse: position • hold click: move • X/Y/Z: axis • Q/D: rotate • PgUp/PgDn: height • E: place • Backspace: cancel"
-            or (board and board.kind=="connect4" and "Click a column to drop a disc • Backspace: leave • Target your board to pick it up"
-                or "Drag a piece or click its start and destination • Backspace: leave • Target your board to pick it up")}
+            or (board and board.kind=="connect4" and "Aim at a column and click to drop a disc • "..PANEL_KEY..": panel • Backspace: leave"
+                or "Aim at a piece, click it, then click its destination (or hold and drag) • "..PANEL_KEY..": panel • Backspace: leave")}
     local adapter=extra(board)
     if LightRpTabletopExtraClient then LightRpTabletopExtraClient.setActive(adapter and board.id or nil) end
     if adapter then for key,value in pairs(adapter.view(board)) do payload[key]=value end end
     Ui.send(VIEW,payload)
+end
+-- The page takes the cursor only for placement and the open panel; free mode
+-- leaves mouse-look, movement and the HUD to the game.
+local function wantsCursor() return draft~=nil or (active~=nil and active.panel==true) end
+local function applyFocus()
+    local cursor=wantsCursor()
+    TriggerEvent("open-voice:setHudBlocked","op77_lightrp:boardGames",cursor)
+    if Ui.page then Ui.page:setFocus(false,cursor) end
 end
 local contextBlocked,contextGeneration,contextWorker=false,0,false
 local function disableContext(value)
@@ -145,7 +166,7 @@ local function disableContext(value)
             if wanted and generation==contextGeneration and ok==true then
                 local closing=Open77.exports.call("open77_contextmenu","close")
                 if closing then closing:await() end
-                if generation==contextGeneration and Client.isActive() and Ui.page then Ui.page:setFocus(false,true) end
+                if generation==contextGeneration and Client.isActive() then applyFocus() end
             end
             -- Serialize rapid enter/leave changes: an old disable request must
             -- never finish after the final enable request and keep target locked.
@@ -155,11 +176,10 @@ local function disableContext(value)
     end)
 end
 local function takeInput()
-    TriggerEvent("open-voice:setHudBlocked","op77_lightrp:boardGames",true)
     Ui.setMenuOpen(false)
     Ui.dialogs.boardGames=true
     Ui.promptActive=true
-    if Ui.page then Ui.page:setFocus(false,true) end
+    applyFocus()
     disableContext(true)
     if LightRpControlClaims then
         for _,action in ipairs({"Attack","Melee","Grenade"}) do
@@ -235,37 +255,59 @@ applyCamera=function()
     if ok and pose.lookAt then ok=Open77.camera.lookAt(active.camera,pose.lookAt) end
     return ok==true
 end
+-- Optional scripted camera views (the former default): the panel keeps the
+-- cursor while one is active, and closing the panel returns to free mode.
+local function exitCamera()
+    if not active then return end
+    if active.cinematic then Open77.hud.setCinematic(false);active.cinematic=nil end
+    if active.camera then Open77.camera.destroy(active.camera);active.camera=nil end
+    if active.frozen then Open77.character.setFrozen(false);active.frozen=nil end
+    active.cameraView="free";active.orbitDrag=nil;active.foreignCamera=nil;active.foreignCameraSince=nil
+end
+local function enterCamera(board,view)
+    if active.camera then active.cameraView=view;return applyCamera() end
+    local registry=Open77.camera.cameras()
+    if not registry or registry.held then return false,"camera_held" end
+    local camera,why=Open77.camera.create(cameraPose(board,view))
+    if not camera then return false,"camera_create "..tostring(why) end
+    local activated,reason=Open77.camera.activate(camera,{blendMs=250})
+    if not activated then Open77.camera.destroy(camera);return false,"camera_activate "..tostring(reason) end
+    active.camera=camera;active.cameraView=view;active.cameraGraceUntil=GetGameTimer()+1200
+    -- A fixed view of a walking character makes no sense: freeze it, or give up.
+    local frozen,frozenWhy=Open77.character.setFrozen(true)
+    if not frozen then exitCamera();return false,"freeze "..tostring(frozenWhy) end
+    active.frozen=true
+    local hidden=Open77.hud.setCinematic(true,.01)
+    active.cinematic=hidden==true
+    return true
+end
+local function setPanel(open)
+    if not active then return end
+    open=open==true
+    if not open and active.camera then exitCamera() end
+    if active.panel~=open then
+        active.panel=open
+        active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;active.orbitDrag=nil;pointerDown=false
+        pointer=not open and {x=.5,y=.5} or nil
+        applyFocus()
+    end
+    sendView(true)
+end
 local function startView(board)
     if failedBoards[tostring(board.id)] then notice(ASSET_HELP);request("leave",{boardId=board.id});return end
     if active and active.id==board.id then return end
     if Client.isActive() then stop(true,"switch_board") end
-    local registry=Open77.camera.cameras()
     -- Every refusal is reported: a silent leave looks like "E does nothing".
-    local function refuse(reason)
-        request("diagnostic",{event="render",reason="view_refused",boardId=board.id,details=tostring(reason):sub(1,180)})
+    if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or Ui.supportMode or not Ui.page or Ui.promptActive then
+        request("diagnostic",{event="render",reason="view_refused",boardId=board.id,details=("ready=%s creation=%s action=%s support=%s page=%s prompt=%s"):format(
+            tostring(Ui.characterReady),tostring(Ui.creationActive),tostring(Ui.actionFocus),tostring(Ui.supportMode),tostring(Ui.page~=nil),tostring(Ui.promptActive))})
         request("leave",{boardId=board.id})
-    end
-    if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or Ui.supportMode or not Ui.page
-        or Ui.promptActive or not registry or registry.held then
-        refuse(("ready=%s creation=%s action=%s support=%s page=%s prompt=%s registry=%s held=%s"):format(tostring(Ui.characterReady),
-            tostring(Ui.creationActive),tostring(Ui.actionFocus),tostring(Ui.supportMode),tostring(Ui.page~=nil),tostring(Ui.promptActive),
-            tostring(registry~=nil),tostring(registry and registry.held)))
         return
     end
-    local view=board.kind=="connect4" and "white" or "top"
-    local camera,why=Open77.camera.create(cameraPose(board,view))
-    if not camera then notice("Camera unavailable: "..tostring(why));refuse("camera_create "..tostring(why));return end
-    local activated,reason=Open77.camera.activate(camera,{blendMs=250})
-    if not activated then Open77.camera.destroy(camera);refuse("camera_activate "..tostring(reason));return end
-    local frozen,frozenWhy=Open77.character.setFrozen(true)
-    if not frozen then Open77.camera.destroy(camera);refuse("freeze "..tostring(frozenWhy));return end
-    active={id=board.id,camera=camera,cameraView=view,frozen=true,revision=board.revision,
-        orbitAngle=-90,orbitRadius=1.8,orbitHeight=1.2,cameraGraceUntil=GetGameTimer()+1200}
+    active={id=board.id,cameraView="free",panel=false,revision=board.revision,orbitAngle=-90,orbitRadius=1.8,orbitHeight=1.2}
+    pointer={x=.5,y=.5}
     takeInput()
-    local hidden,reason=Open77.hud.setCinematic(true,.01)
-    if not hidden then notice("The game HUD could not be hidden: "..tostring(reason));stop(true,"hud_unavailable",reason);return end
-    active.cinematic=true
-    trace("view_open",board.id,"kind=%s rev=%s view=%s",board.kind,tostring(board.revision),view)
+    trace("view_open",board.id,"kind=%s rev=%s view=free",board.kind,tostring(board.revision))
     sendView(true)
 end
 local function cursor()
@@ -370,6 +412,8 @@ local function pointerAction(board,event)
         active.orbitDrag={x=event.x,y=event.y};applyCamera()
     end
     local adapter=extra(board)
+    -- A panel-only table (bets from the panel) opens its panel on a free-mode click.
+    if adapter and event.crosshair and event.pressed and not adapter.aimable(board) then setPanel(true);return end
     if adapter and adapter.pointer(board,event) then return end
     if not canMove(board) then active.drag=nil;active.clickDestination=nil;active.dropPressed=nil;return end
     if event.pressed then
@@ -391,6 +435,15 @@ local function pointerAction(board,event)
         sendView(true)
     end
     if active.drag and math.abs(event.x-active.drag.screenX)+math.abs(event.y-active.drag.screenY)>.006 then active.drag.moved=true end
+    -- The crosshair stays at the screen centre: a drag is the aim leaving the square.
+    if event.crosshair and active.drag and not active.drag.moved then
+        local point=planePoint(board)
+        if point then
+            local x,y=localXY(board,point)
+            local n=board.kind=="checkers" and 10 or 8
+            if math.floor((y+.5)*n)+1~=active.drag.row or math.floor((x+.5)*n)+1~=active.drag.col then active.drag.moved=true end
+        end
+    end
     if event.released then
         pointerDown=false
         local drag=active.drag
@@ -458,7 +511,7 @@ local function pieceTargets(board)
             result[tostring(p.id)]={piece=p,position={x=-.45+(i%10)*.1,y=(side=="white" and .64 or -.64)+math.floor(i/10)*(side=="white" and .09 or -.09),z=.004}}
         end
     end
-    return result
+    return result,math.huge -- a board game changes only with a new snapshot
 end
 -- Each observer creates resource-owned native props from the authoritative board
 -- snapshots. The game state travels over the network; these props never do.
@@ -577,6 +630,10 @@ local function aliveBoard(board)
     local current=Client.boards[board.id]
     return rendererRunning and renderAllowed[tostring(board.id)] and current and current.revision==board.revision
 end
+-- Whether the cached targets were computed from this very snapshot.
+local function fresh(cache,board)
+    return cache.snapshot==board and cache.snapshotGame==board.game and cache.snapshotRevision==board.revision
+end
 local function ensureBoard(board)
     local id=tostring(board.id)
     local failedAt=failedBoards[id]
@@ -590,7 +647,9 @@ local function ensureBoard(board)
         local prop,why=createProp(board,nil,board.position,false)
         if not prop then trace("render_create_failed",id,"kind=%s base %s",board.kind,tostring(why));failBoard(id,why);return end
         trace("render_start",id,"kind=%s model=%s",board.kind,tostring(prop.name))
-        cache={kind=board.kind,board=prop,pieces={},initialized=false}
+        -- moving: keys of props not yet at their goal (the only ones animate touches);
+        -- goals: last world targets; snapshot/holdUntil: when to recompute them.
+        cache={kind=board.kind,board=prop,pieces={},initialized=false,moving={},goals={},holdUntil=0}
         renderCaches[id]=cache
         Wait(0);beats.render=GetGameTimer() -- one native create per resume, including a full initial board
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
@@ -603,7 +662,10 @@ local function ensureBoard(board)
     -- Targets can cost several thousand instructions (chess, casino tables):
     -- compute them guarded, then yield before diffing so that several nearby
     -- tables never add up to one resume beyond the 176 client budget.
-    local targets=guarded("render targets "..tostring(board.kind),pieceTargets,board)
+    -- Once the animation thread keeps this snapshot's targets, reuse them: a
+    -- still table then costs no target computation at all.
+    local targets=cache.initialized and fresh(cache,board) and cache.targets
+        or guarded("render targets "..tostring(board.kind),pieceTargets,board)
     if not targets then return end
     for key,piece in pairs(cache.pieces) do
         local target=targets[key]
@@ -616,7 +678,7 @@ local function ensureBoard(board)
         if board.kind=="connect4" and cache.initialized then p.z=board.position.z+1.05*SCALE end
         local prop,why=createProp(board,target.piece,p,false)
         if not prop then trace("render_create_failed",id,"kind=%s piece=%s %s",board.kind,tostring(key),tostring(why));failBoard(id,why);return end
-        cache.pieces[key]=prop
+        cache.pieces[key]=prop;cache.moving[key]=true -- e.g. a new disc starts above the grid
         Wait(0);beats.render=GetGameTimer()
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end end
@@ -670,23 +732,70 @@ end)
 -- (generation tokens retire the old one) and reports it. Work that does not
 -- yield runs under pcall so an error names its line instead of killing the
 -- thread.
-local function animate(board,cache,targets,keys,from,to,amount)
-    for index=from,math.min(to,#keys) do
-        if renderCaches[tostring(board.id)]~=cache then return end
-        local key=keys[index]
-        local piece,target=cache.pieces[key],targets[key]
-        if piece and target then
-            local override,direct=dragPose(board,key)
-            local p=override or world(board,target.position.x,target.position.y,target.position.z)
-            local from=piece.position
-            local yaw=propYaw(board,target.piece)
-            if distance(p,from)>.00002 or piece.yaw~=yaw then
-                -- `snap` targets (pose swaps, server-clock timelines) jump without smoothing.
-                local gain=(direct or target.piece.snap) and 1 or amount
-                local nextPosition={x=from.x+(p.x-from.x)*gain,y=from.y+(p.y-from.y)*gain,z=from.z+(p.z-from.z)*gain}
-                if not transformProp(piece,nextPosition,yaw) then return end
+-- Smooth motion without an engine tween: every frame, only the props that are
+-- not yet at their goal get a native transform. Goals are recomputed only when
+-- a new snapshot arrives or the adapter's declared hold expires (board games:
+-- never in between; casino timelines: every frame while one runs), and a
+-- recompute marks just the props whose target changed. A static table costs
+-- nothing per frame.
+local SETTLED=.0004       -- metres: closer than this, a prop lands exactly on its goal
+local MOVE_SLICE=24       -- prop steps per resume (~100-130 instructions each, harness-measured)
+-- Returns how many targets it had to compare (the work done).
+local function refreshGoals(board,cache,targets,hold,now)
+    local goals,moving,last=cache.goals,cache.moving,cache.targets
+    local a=math.rad(board.rotation or 0);local c,s=math.cos(a)*SCALE,math.sin(a)*SCALE
+    local bx,by,bz=board.position.x,board.position.y,board.position.z
+    -- An adapter may hand back the very same target tables (blackjack reuses
+    -- its still groups): those cannot have changed while the table stays put.
+    if cache.frameX~=bx or cache.frameY~=by or cache.frameZ~=bz or cache.frameA~=a then
+        last={};cache.frameX,cache.frameY,cache.frameZ,cache.frameA=bx,by,bz,a
+    end
+    last=last or {}
+    local compared=0
+    for key,target in pairs(targets) do
+        if last[key]~=target or not goals[key] then
+            compared=compared+1
+            local p,piece=target.position,target.piece
+            local goal=goals[key]
+            local yaw=propYaw(board,piece)
+            local x,y,z=bx+p.x*c-p.y*s,by+p.x*s+p.y*c,bz+p.z*SCALE
+            local snap=piece.snap==true
+            if not goal or goal.x~=x or goal.y~=y or goal.z~=z or goal.yaw~=yaw or goal.snap~=snap then
+                goals[key]={x=x,y=y,z=z,yaw=yaw,snap=snap};moving[key]=true
             end
         end
+    end
+    for key in pairs(goals) do if not targets[key] then goals[key]=nil end end
+    cache.snapshot,cache.snapshotGame,cache.snapshotRevision=board,board.game,board.revision
+    cache.targets=targets;cache.holdUntil=hold or now
+    return compared
+end
+-- Moves one prop a step towards its goal; true once it has landed.
+local function stepProp(board,cache,key,amount,seated)
+    local piece=cache.pieces[key]
+    if not piece then return true end -- ensureBoard marks a prop moving when it creates it
+    local override,direct
+    if seated then override,direct=dragPose(board,key) end
+    if direct then return false end -- the held piece follows the cursor from the main loop
+    local goal=override or cache.goals[key]
+    if not goal then return true end
+    local yaw=override and piece.yaw or goal.yaw
+    local from=piece.position
+    local dx,dy,dz=goal.x-from.x,goal.y-from.y,goal.z-from.z
+    local landed=goal.snap or dx*dx+dy*dy+dz*dz<SETTLED*SETTLED
+    if landed then
+        if dx~=0 or dy~=0 or dz~=0 or piece.yaw~=yaw then transformProp(piece,{x=goal.x,y=goal.y,z=goal.z},yaw) end
+        return override==nil
+    end
+    transformProp(piece,{x=from.x+dx*amount,y=from.y+dy*amount,z=from.z+dz*amount},yaw)
+    return false
+end
+-- One protected call per slice of moving props (keys[from..to]).
+local function stepProps(board,cache,keys,from,to,amount,seated)
+    local moving=cache.moving
+    for index=from,to do
+        local key=keys[index]
+        if stepProp(board,cache,key,amount,seated) then moving[key]=nil end
     end
 end
 local THREADS={}
@@ -704,31 +813,69 @@ function THREADS.render(generation)
 end
 function THREADS.animate(generation)
     local previousTime=GetGameTimer()
+    local turn,yielded,pending=0,false,nil
     while rendererRunning and generations.animate==generation do
+        -- One pass per frame. A pass that ended on a yield (new targets just
+        -- computed) continues straight into the next frame's work.
+        if not yielded then Wait(0) end
+        yielded=false
         beats.animate=GetGameTimer()
-        Wait(16)
         local now=GetGameTimer();local dt=math.min(100,math.max(1,now-previousTime));previousTime=now
-        local amount=1-math.exp(-dt/100)
+        local amount=1-math.exp(-dt/90)
+        -- 0. Goals from the targets computed at the end of the last pass; two
+        -- compared targets cost about one prop step.
+        local moved=0
+        if pending then
+            local job=pending;pending=nil
+            if renderCaches[job.id]==job.cache and Client.boards[job.key]==job.board then
+                local compared=guarded("animate goals "..tostring(job.board.kind),refreshGoals,job.board,job.cache,job.targets,job.hold,job.now)
+                moved=math.floor((compared or 0)/2)
+                if moved>=MOVE_SLICE then Wait(0);beats.animate=GetGameTimer();moved=0 end
+            end
+        end
         -- Snapshot the ids: other threads clear caches while this one yields.
-        -- Yield after each board's targets and every 12 pieces, changed or
-        -- not, to stay inside the 176 client's per-resume budget.
         local ids={};for id in pairs(renderCaches) do ids[#ids+1]=id end
+        -- 1. Every moving prop of every table, every frame (sliced if many).
         for _,id in ipairs(ids) do
             local cache=renderCaches[id]
-            local board=cache and Client.boards[tonumber(id) or id]
-            if board and renderAllowed[id] then
-                local targets=guarded("animate targets "..tostring(board.kind),pieceTargets,board)
-                if targets then
-                    local held=active and active.id==board.id and active.drag and active.drag.pieceId or nil
-                    local keys={held}
-                    for key in pairs(cache.pieces) do if key~=held then keys[#keys+1]=key end end
-                    Wait(0)
-                    for from=1,#keys,12 do
+            local board=cache and renderAllowed[id] and Client.boards[tonumber(id) or id]
+            if board and cache.initialized then
+                if active and active.id==board.id then
+                    if active.drag then cache.moving[active.drag.pieceId]=true end
+                    if active.pendingMove then cache.moving[active.pendingMove.pieceId]=true end
+                end
+                if next(cache.moving)~=nil then
+                    local seated=active~=nil and active.id==board.id
+                    local keys={};for key in pairs(cache.moving) do keys[#keys+1]=key end
+                    local from=1
+                    while from<=#keys do
+                        if moved>=MOVE_SLICE then Wait(0);beats.animate=GetGameTimer();moved=0 end
                         if renderCaches[id]~=cache or not renderAllowed[id] then break end
-                        guarded("animate pieces "..tostring(board.kind),animate,board,cache,targets,keys,from,from+11,amount)
-                        if from+12<=#keys then Wait(0) end
+                        local to=math.min(#keys,from+MOVE_SLICE-moved-1)
+                        guarded("animate "..tostring(board.kind),stepProps,board,cache,keys,from,to,amount,seated)
+                        moved=moved+to-from+1;from=to+1
                     end
                 end
+            end
+        end
+        -- 2. Targets for at most one table per frame (round robin), only when
+        -- its snapshot changed or its declared hold expired. Goals follow at
+        -- the start of the next pass, in their own share of the budget.
+        now=GetGameTimer()
+        for index=1,#ids do
+            local id=ids[(turn+index-1)%#ids+1]
+            local cache=renderCaches[id]
+            local key=tonumber(id) or id
+            local board=cache and renderAllowed[id] and Client.boards[key]
+            if board and cache.initialized and (not fresh(cache,board) or now>=cache.holdUntil) then
+                turn=turn+index
+                if moved>8 then Wait(0);beats.animate=GetGameTimer() end
+                if renderCaches[id]==cache and Client.boards[key]==board then
+                    local targets,hold=guarded("animate targets "..tostring(board.kind),pieceTargets,board)
+                    if targets then pending={id=id,key=key,cache=cache,board=board,targets=targets,hold=hold,now=now} end
+                    Wait(0);yielded=true
+                end
+                break
             end
         end
     end
@@ -759,8 +906,9 @@ local function startRenderer()
     rendererRunning=true
     spawnThread("render");spawnThread("animate");spawnThread("validate")
 end
--- The held piece follows the cursor every frame from the main loop; the
--- animation thread walks pieces in slices and could lag it by several frames.
+-- The held piece follows the cursor (or the crosshair) from the main loop's
+-- render resume, right after the input that moved it; the animation thread
+-- leaves it alone while it is held.
 local function moveHeldPiece()
     local drag=active and active.drag
     if not drag or not drag.moved or not pointerDown then return end
@@ -776,13 +924,18 @@ local function renderPreview()
         if tags.preview then Open77.debugDraw.clear("boardGames:preview");tags.preview=nil end
         return
     end
-    if extra(board) and not draft then
-        if tags.preview then Open77.debugDraw.clear("boardGames:preview");tags.preview=nil end
-        return
-    end
     local geometry={lines={},triangles={},ttl=.4,maxDistance=18,thickness=2}
     local function line(a,b,color) geometry.lines[#geometry.lines+1]={a=a,b=b,color=color or "#ffcc00ff"} end
-    if draft then
+    local adapter=not draft and extra(board)
+    if adapter then
+        -- Casino tables outline what the crosshair or the cursor points at.
+        local p=cursor()
+        if p then adapter.aim(board,p.x,p.y,line) end
+        if #geometry.lines==0 then
+            if tags.preview then Open77.debugDraw.clear("boardGames:preview");tags.preview=nil end
+            return
+        end
+    elseif draft then
         if ghostProp and (distance(ghostProp.position,board.position)>.00001 or ghostProp.yaw~=(board.rotation or 0)) then
             if not transformProp(ghostProp,board.position,board.rotation or 0) then return end
         end
@@ -893,15 +1046,31 @@ function Client.bind(page)
         pointerEvents[#pointerEvents+1]=p
     end)
     page:on("lightrp:boardGames:camera",function(p)
-        if not active or type(p)~="table" then return end
+        local board=active and Client.boards[active.id]
+        if not board or type(p)~="table" then return end
         if p.view then
             local valid=false;for _,view in ipairs(CAMERA_VIEWS) do if p.view==view then valid=true end end
             if not valid then return end
-            active.cameraView=p.view;active.drag=nil;active.clickDestination=nil;active.orbitDrag=nil
+            active.drag=nil;active.clickDestination=nil;active.orbitDrag=nil
+            if p.view=="free" then exitCamera()
+            else
+                -- A scripted view needs the cursor to point: it opens the panel.
+                local ok,why=enterCamera(board,p.view)
+                if ok then
+                    if not active.panel then active.panel=true;applyFocus() end
+                else
+                    notice("This camera view is unavailable.")
+                    if why then trace("camera_refused",board.id,"view=%s %s",p.view,tostring(why)) end
+                end
+            end
         end
-        if type(p.zoom)=="number" and p.zoom==p.zoom then active.orbitRadius=math.max(1,math.min(3,active.orbitRadius+p.zoom*.15)) end
-        if not applyCamera() then notice("This camera view is unavailable.") end
+        if type(p.zoom)=="number" and p.zoom==p.zoom and active.camera then
+            active.orbitRadius=math.max(1,math.min(3,active.orbitRadius+p.zoom*.15));applyCamera()
+        end
         sendView(true)
+    end)
+    page:on("lightrp:boardGames:panel",function(p)
+        if active and type(p)=="table" then setPanel(p.open==true) end
     end)
     page:on("lightrp:boardGames:leave",function() if Client.isActive() then stop(true,"ui_leave") end end)
     page:on("lightrp:boardGames:confirm",confirmPlacement)
@@ -1029,7 +1198,14 @@ function Client.start()
                 clearSounds(false)
                 finishPlacementHandoff()
                 local keys={}
-                for _,k in ipairs({"E","BACKSPACE","ESC","Q","D","PAGEUP","PAGEDOWN","X","Y","Z","mouse1"}) do keys[k]=Open77.input.isDown(k)==true end
+                -- Free mode leaves the keyboard and mouse to the game: while chat
+                -- or another page types, or the pause menu is open, the table
+                -- keys and clicks stay inert.
+                local typing=active~=nil and not wantsCursor() and (Open77.input.isCaptured()==true
+                    or (Open77.session~=nil and type(Open77.session.isMenuOpen)=="function" and Open77.session.isMenuOpen()==true))
+                for _,k in ipairs({"E","BACKSPACE","ESC","Q","D","PAGEUP","PAGEDOWN","X","Y","Z","mouse1",PANEL_KEY}) do
+                    keys[k]=not typing and Open77.input.isDown(k)==true
+                end
                 local function pressed(k) return keys[k] and not previous[k] end
                 local events=pointerEvents;pointerEvents={}
                 if draft then
@@ -1059,9 +1235,9 @@ function Client.start()
                     elseif active then active.missingStateSince=nil end
                     if why then stop(true,why) end
                 end
-                if Client.isActive() and (pressed("BACKSPACE") or pressed("ESC")) then
-                    stop(true,pressed("BACKSPACE") and "key_backspace" or "key_escape")
-                end
+                if Client.isActive() and pressed("BACKSPACE") then stop(true,"key_backspace")
+                elseif draft and pressed("ESC") then stop(true,"key_escape")
+                elseif active and active.panel and pressed("ESC") then setPanel(false) end
                 if draft then
                     for _,axis in ipairs({"X","Y","Z"}) do if pressed(axis) then draft.axis=draft.axis==axis:lower() and "xy" or axis:lower() end end
                     local change=((keys.PAGEUP and 1 or 0)-(keys.PAGEDOWN and 1 or 0))*dt*.0003
@@ -1077,13 +1253,26 @@ function Client.start()
                     if pressed("E") then confirmPlacement() end
                 elseif active then
                     local board=Client.boards[active.id]
-                    local registry=Open77.camera.cameras()
+                    local registry=active.camera and Open77.camera.cameras()
+                    local far=board and state and state.position and distance(state.position,board.position)
+                    if far and far>LEAVE_RADIUS then
+                        if not active.farSince then active.farSince=now;sendView(true) end
+                    elseif active.farSince then active.farSince=nil;sendView(true) end
                     if not board then stop(true,"board_unavailable")
-                    elseif state and state.position and distance(state.position,board.position)>4 then stop(true,"distance")
-                    elseif cameraSwitched(active,registry,now) then
+                    elseif far and (far>LEAVE_HARD_RADIUS or (active.farSince and now-active.farSince>=LEAVE_GRACE_MS)) then
+                        notice("You walked away from the table and left your seat.")
+                        stop(true,"distance",("%.1f m"):format(far))
+                    elseif active.camera and cameraSwitched(active,registry,now) then
                         stop(true,"camera_switched","expected="..tostring(active.camera).." actual="..tostring(registry and registry.activeCamera).." held="..tostring(registry and registry.held))
                     else
+                        if pressed(PANEL_KEY) then setPanel(not active.panel) end
                         for _,event in ipairs(events) do if active then pointerAction(board,event) end end
+                        -- Free mode: the crosshair is the pointer and the left button acts.
+                        if active and not active.panel then
+                            local edge=pressed("mouse1") and "pressed" or (previous.mouse1 and not keys.mouse1) and "released" or nil
+                            if edge or keys.mouse1 then pointerAction(board,{x=.5,y=.5,crosshair=true,pressed=edge=="pressed",released=edge=="released"}) end
+                            if active and not active.panel then pointer={x=.5,y=.5} end
+                        end
                     end
                 end
                 previous=keys

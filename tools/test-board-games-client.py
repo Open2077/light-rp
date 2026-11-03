@@ -65,7 +65,7 @@ end
 function Open77.character.state() return char end
 function Open77.character.setFrozen(v) frozen=v;return true end
 function Open77.input.isDown(k) return keys[k]==true end
-function Open77.input.isCaptured() return focus end
+function Open77.input.isCaptured() return captured==true or focus end
 function Open77.input.cursor()return {x=.5,y=.5,inBounds=true}end
 function Open77.camera.cameras()
  if registryNil then return nil end
@@ -73,7 +73,7 @@ function Open77.camera.cameras()
  return {held=camera~=nil,activeCamera=camera}
 end
 function Open77.camera.create(spec)
- if spec.lookAt then assert(spec.position.y<spec.lookAt.y or spec.position.x~=spec.lookAt.x)
+ if spec.lookAt then assert(spec.position.y~=spec.lookAt.y or spec.position.x~=spec.lookAt.x)
  else assert(spec.rotation.pitch < -85)end
  cameraSpec=spec;return cameraReturnId or 'camera'
 end
@@ -134,6 +134,7 @@ function Open77.props.create(options)
 end
 function Open77.props.setTransform(id,transform)
  local row=nativeProps[id];assert(row,'transforming removed native prop')
+ transformsInStep[id]=(transformsInStep[id] or 0)+1
  row.position={x=transform.position.x,y=transform.position.y,z=transform.position.z}
  row.yaw=transform.yaw or row.yaw;movedProps=movedProps+1;return true
 end
@@ -163,9 +164,11 @@ function Open77.audio.play3D(asset,position,options)
 end
 function Open77.audio.destroy(id)assert(soundHandles[id]);soundHandles[id]=nil;return true end
 peakInstructions=0
+transformsInStep={}
 BOARD_BUDGET=tonumber(os.getenv('BOARD_BUDGET')) or 8000
 function step()
  clock=clock+50
+ transformsInStep={}
  -- Two resumes per step: the main loop splits each tick into an input resume
  -- and a render resume. The budget is still checked per resume.
  for _,co in ipairs(threads) do for _=1,2 do if coroutine.status(co)~='dead' then
@@ -191,6 +194,12 @@ function nativeCount(id)
  return propsForBoard(id==2 and 2 or 0,id==4 and 'connect4' or 'chess')
 end
 function edge(key) keys[key]=true;step();keys[key]=false;step()end
+-- Free mode: the crosshair ray (screen centre) straight down on a square.
+function aimAt(col,row,n)
+ n=n or 8
+ forcedRay={origin={x=((col-.5)/n-.5)*.65,y=((row-.5)/n-.5)*.65,z=2},direction={x=0,y=0,z=-1}}
+end
+function click() keys.mouse1=true;step();keys.mouse1=false;step() end
 function last() return requests[#requests] end
 page={on=function(self,n,f)pageHandlers[n]=f end}
 ''')
@@ -266,7 +275,39 @@ local board={id=1,owned=true,position={x=0,y=0,z=0},rotation=0,players={},revisi
 events['lightrp:boardGames:state']({boards={board}});step()
 assert(not C.isActive());LightRpInteract.points['boardGames.1'].callback();assert(last().action=='join')
 board.players={white=7,black=9};events['lightrp:boardGames:state']({boards={board}});step()
-assert(C.isActive() and camera and frozen and focus and cinematic and voiceHudBlocked)
+-- Free mode by default: no scripted camera, nothing frozen, the HUD and the
+-- mouse stay with the game.
+assert(C.isActive() and not camera and not frozen and not focus and not cinematic and not voiceHudBlocked)
+assert(view.free and not view.panel and view.cameraView=='free' and view.panelKey=='H' and view.cameraViews[1]=='free')
+waitUntil(function()return nativeCount(1)==33 end,'complete initial chess mesh (free mode)')
+-- The crosshair aims; the aimed square is outlined on the board itself.
+aimAt(5,7);step();step()
+local preview=batches['boardGames:preview'];assert(preview and #preview.lines==4,'aimed square outline')
+for _,l in ipairs(preview.lines) do assert(math.abs(l.a.x-.0625*.65)<=.0625*.65+1e-9 and math.abs(l.a.y-.3125*.65)<=.0625*.65+1e-9,'outline on e2') end
+-- Click e2, then click e4: one move request.
+local freeCount=#requests
+click();assert(view.selected and view.selected.row==7 and view.selected.col==5 and #requests==freeCount,'a click selects')
+aimAt(5,5);step();assert(#batches['boardGames:preview'].lines==8,'selection and aim outlined')
+click();assert(#requests==freeCount+1 and last().action=='move' and last().fromRow==7 and last().fromCol==5 and last().toRow==5 and last().toCol==5)
+-- Hold on d2, move the aim to d4, release: a drag, the held piece follows the aim.
+aimAt(4,7);keys.mouse1=true;step();aimAt(4,5);step();step()
+local held=false
+for _,p in pairs(nativeProps) do if p.name=='chess_white_pawn' and math.abs(p.position.x+.0625*.65)<.001 and math.abs(p.position.y-.0625*.65)<.001 then held=true end end
+assert(held,'the held piece follows the crosshair')
+keys.mouse1=false;step()
+assert(#requests==freeCount+2 and last().fromRow==7 and last().fromCol==4 and last().toRow==5 and last().toCol==4)
+-- Chat (or another page) typing: table keys are inert.
+captured=true;edge('BACKSPACE');aimAt(5,7);click();assert(C.isActive() and #requests==freeCount+2,'typing never leaves or plays');captured=false
+-- H opens the panel with a cursor (no camera); the crosshair no longer acts.
+edge('H');assert(view.panel and focus and not camera and voiceHudBlocked and not frozen)
+click();assert(#requests==freeCount+2,'the left button belongs to the panel')
+edge('H');assert(not view.panel and not focus and not voiceHudBlocked)
+pageHandlers['lightrp:boardGames:panel']({open=true});assert(view.panel and focus)
+edge('ESC');assert(not view.panel and not focus and C.isActive(),'Escape closes the panel, not the table')
+forcedRay=nil
+-- The optional scripted views (the former default) open from the panel toolbar.
+pageHandlers['lightrp:boardGames:camera']({view='top'})
+assert(C.isActive() and camera and frozen and focus and cinematic and voiceHudBlocked and view.panel and not view.free and view.cameraView=='top')
 -- Press at e2, release at e4: one authoritative move request with snapshot revision.
 local pointer=pageHandlers['lightrp:boardGames:pointer']
 pointer({x=4.5/8,y=6.5/8,pressed=true});step()
@@ -282,7 +323,6 @@ local function pawnY()
   end
  end
 end
-waitUntil(function()return nativeCount(1)==33 end,'complete initial chess mesh')
 -- Left press and an in-flight camera snapshot must retain the playing session.
 local leftCount=#requests
 registryNil=true;pointer({x=4.5/8,y=6.5/8,pressed=true});step()
@@ -299,12 +339,31 @@ assert(#requests==heldRequestCount,'dragging alone must not send a move')
 pointer({x=4.5/8,y=4.5/8,released=true});step();assert(#requests==heldRequestCount+1)
 board.game=assert(LightRPBoardRules.move(board.game,7,5,5,5));board.revision=2
 events['lightrp:boardGames:state']({boards={board}});step()
+
 waitUntil(function()return pawnY() and pawnY()<before end,'pawn animation')
 local after=pawnY();assert(after and after<before and after>.04,'piece interpolation expected')
 assert(nativeProps[pawnHandle] and createdProps==oldCreates and removedProps==oldRemoves,'normal moves must retain native prop handles')
 -- Captured pieces retain their cached mesh and slide into the capturing camp.
+waitUntil(function() return next(transformsInStep)==nil end,'every piece at rest')
 board.game=assert(LightRPBoardRules.move(board.game,2,4,4,4));board.revision=3
 events['lightrp:boardGames:state']({boards={board}})
+-- Smooth motion: the moving pawn gets a transform on every frame until it
+-- lands, and it is the only prop of the 33 that does.
+local function blackPawnY()
+ for _,p in pairs(nativeProps)do
+  if p.name=='chess_black_pawn' and math.abs(p.position.x+.0625*.65)<.001 and p.position.y<0 then return p.position.y end
+ end
+end
+step();step() -- the animation thread picks up the new snapshot's goals
+local samples={blackPawnY()}
+for i=1,6 do
+ step();samples[#samples+1]=blackPawnY()
+ local ids=0;for _ in pairs(transformsInStep) do ids=ids+1 end
+ assert(ids==1,'only the moving piece is transformed ('..ids..' props this frame)')
+ assert(samples[#samples]>samples[#samples-1],'the pawn advances on every frame')
+end
+waitUntil(function() return math.abs(blackPawnY()+.0625*.65)<1e-9 end,'pawn lands exactly on d5')
+step();step();assert(next(transformsInStep)==nil,'a landed piece costs no transform')
 board.game=assert(LightRPBoardRules.move(board.game,5,5,4,4));board.revision=4
 events['lightrp:boardGames:state']({boards={board}})
 local function capturedInTray()
@@ -353,6 +412,9 @@ for i=1,6 do many[i]={id=100+i,owned=false,position={x=4+i*3,y=0,z=0},rotation=0
 events['lightrp:boardGames:state']({boards=many});step()
 waitUntil(function() local n=0;for i=1,6 do n=n+propsForBoard(4+i*3,'chess') end;return n==6*33 end,'six nearby chess boards')
 for i=1,40 do step() end
+local idleMoves=movedProps
+for i=1,20 do step() end
+assert(movedProps==idleMoves,'seven still tables cost no transform at all')
 -- Lobby mode protocol is owner-only and locks once the game has started.
 Open77.character.state().position.x=0
 cameraReturnId=77
@@ -360,7 +422,8 @@ local solo={id=3,owned=true,position={x=0,y=0,z=0},rotation=0,players={white=7},
  kind='chess',mode='solo',ready=true,actor=7,game=LightRPBoardRules.new('chess')}
 events['lightrp:boardGames:state']({boards={solo}});step()
 assert(view.mode=='solo' and view.owned and view.ready and view.isActor and view.playerCount==1)
-assert(view.cameraView=='top' and #view.cameraViews==4)
+assert(view.cameraView=='free' and #view.cameraViews==5 and not camera)
+pageHandlers['lightrp:boardGames:camera']({view='top'});assert(view.cameraView=='top' and camera==77)
 clock=clock+1300;registryOverride={held=true,activeCamera='77'};step()
 assert(C.isActive(),'numeric and string camera IDs represent the same camera')
 registryOverride={held=false};for i=1,20 do step()end
@@ -422,7 +485,16 @@ edge('BACKSPACE')
 local four={id=4,owned=true,position={x=0,y=0,z=0},rotation=90,players={white=7},revision=1,
  kind='connect4',moveSequence=0,lastSound='connect4-drop',mode='solo',ready=true,actor=7,game=LightRPBoardRules.new('connect4')}
 events['lightrp:boardGames:state']({boards={four}});step()
-assert(C.isActive() and cameraSpec.lookAt and view.kind=='connect4')
+assert(C.isActive() and not camera and view.free and view.kind=='connect4')
+-- Free mode: aim at a column of the upright (rotated) grid and click.
+forcedRay={origin={x=-2,y=0,z=.4*.65},direction={x=1,y=0,z=0}}
+local freeDrop=#requests
+keys.mouse1=true;step();assert(#requests==freeDrop,'the drop waits for the release')
+assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'aimed cell outlined on the grid')
+keys.mouse1=false;step();assert(#requests==freeDrop+1 and last().action=='move' and last().toCol==4)
+forcedRay=nil
+pageHandlers['lightrp:boardGames:camera']({view='white'})
+assert(camera and cameraSpec.lookAt and view.panel)
 local beforeDrop=#requests
 pointer({x=3.5/7,y=.5,pressed=true});step();assert(#requests==beforeDrop,'disc drop waits for mouse release')
 pointer({x=3.5/7,y=.5,released=true});step()
@@ -468,6 +540,23 @@ waitUntil(function()return not C.isActive() and not camera and not frozen and na
 assert(lastNotice:find('rejoin through the launcher',1,true))
 events['lightrp:boardGames:state']({boards={four}})
 assert(not C.isActive() and last().action=='leave','failed board projections must not reopen a camera')
+-- Walking away: a step past 3.5 m only warns and coming back keeps the seat;
+-- staying out 1.5 s, or passing the server's 5 m, leaves with a notice.
+clock=clock+3100;Open77.character.state().position.x=0
+local walk={id=6,owned=false,position={x=0,y=0,z=0},rotation=0,players={white=7,black=9},revision=1,kind='chess',game=LightRPBoardRules.new('chess')}
+events['lightrp:boardGames:state']({boards={walk}});step()
+assert(C.isActive() and view.free and not view.leaving)
+Open77.character.state().position.x=3.8;step();assert(C.isActive() and view.leaving and view.leaving>0,'the HUD warns')
+Open77.character.state().position.x=1;step();assert(C.isActive() and not view.leaving,'a step back does not kick')
+Open77.character.state().position.x=3.8
+local walkStart=clock
+for i=1,40 do step();if not C.isActive() then break end end
+assert(not C.isActive() and clock-walkStart>=1500 and last().action=='leave' and last().boardId==6)
+assert(lastNotice:find('walked away',1,true))
+clock=clock+3100;Open77.character.state().position.x=0;walk.revision=2
+events['lightrp:boardGames:state']({boards={walk}});step();assert(C.isActive())
+Open77.character.state().position.x=5.5;step();assert(not C.isActive() and last().action=='leave','past 5 m leaves at once')
+Open77.character.state().position.x=0
 -- Resource cleanup removes every surface and interaction, releasing input/camera.
 handlers.onClientResourceStop('test');assert(next(batches)==nil and next(LightRpInteract.points)==nil and next(soundHandles)==nil and next(nativeProps)==nil)
 for i=1,20 do step()end

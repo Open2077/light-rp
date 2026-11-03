@@ -63,6 +63,9 @@ local function pieceTargets(board,result)
     local r=math.floor(pos+.5)
     local pose=blur and -1 or r%F.POSES
     local put=Extra.put
+    -- Spin, settle kick, chip sweep (600 ms) and payout rise; still otherwise.
+    if spin then Extra.animatingUntil(board,spin.startedAt+spin.spinMs+650) end
+    Extra.stillUntil(board,math.huge)
     for i=0,F.POSES-1 do put(result,DISC_IDS[i],"fortune_disc",DISCS[i],0,i==pose and WY or PARK_Y,WZ,0,SNAP) end
     local b=blur and math.floor(now/70)%2 or -1
     put(result,"fw-blur-0","fortune_blur",BLUR[0],0,b==0 and WY or PARK_Y,WZ,0,SNAP)
@@ -107,27 +110,44 @@ end
 -- Clicking a betting spot on the felt only selects it in the panel; money is
 -- wagered explicitly with the Place bet button.
 local picked,pickSerial=nil,0
-local function pointer(board,event)
-    if not event.pressed or event.blocked then return true end
-    local ray=Open77.camera.screenRay(event.x,event.y,15)
-    if not ray or not ray.origin or not ray.direction or math.abs(ray.direction.z)<.001 then return true end
+-- The betting spot under a screen point (cursor or crosshair), or nil.
+local function spotAt(board,sx,sy)
+    local ray=Open77.camera.screenRay(sx,sy,15)
+    if not ray or not ray.origin or not ray.direction or math.abs(ray.direction.z)<.001 then return end
     local planeZ=board.position.z+FELT_Z*Extra.SCALE
     local t=(planeZ-ray.origin.z)/ray.direction.z
-    if t<=0 then return true end
+    if t<=0 then return end
     local a=math.rad(board.rotation or 0)
     local dx,dy=ray.origin.x+ray.direction.x*t-board.position.x,ray.origin.y+ray.direction.y*t-board.position.y
     local x,y=(dx*math.cos(a)+dy*math.sin(a))/Extra.SCALE,(-dx*math.sin(a)+dy*math.cos(a))/Extra.SCALE
-    if math.abs(y-SPOT_Y)>.11 then return true end
-    for spot,sx in pairs(SPOT_X) do
-        if math.abs(x-sx)<.095 then picked=spot;pickSerial=pickSerial+1 end
+    if math.abs(y-SPOT_Y)>.11 then return end
+    for spot,px in pairs(SPOT_X) do
+        if math.abs(x-px)<.095 then return spot,px end
     end
+end
+local function pointer(board,event)
+    if not event.pressed or event.blocked then return true end
+    local spot=spotAt(board,event.x,event.y)
+    if spot then picked=spot;pickSerial=pickSerial+1 end
     return true
+end
+-- Outline the aimed spot on the felt, and keep the picked one outlined.
+local function aim(board,sx,sy,line)
+    local spot,px=spotAt(board,sx,sy)
+    local w,z=Extra.world,FELT_Z+.006
+    local function box(x)
+        local a,b,c,d=w(board,x-.09,SPOT_Y-.1,z),w(board,x+.09,SPOT_Y-.1,z),w(board,x+.09,SPOT_Y+.1,z),w(board,x-.09,SPOT_Y+.1,z)
+        line(a,b);line(b,c);line(c,d);line(d,a)
+    end
+    if spot then box(px) end
+    if picked and picked~=spot and SPOT_X[picked] then box(SPOT_X[picked]) end
 end
 Extra.register("fortune",{
     operations={bet=true,spin=true},
     boardModel=function() return asset("fortune_stand") end,
     pieceTargets=pieceTargets,
     pointer=pointer,
+    aim=aim,
     camera=function(board,view)
         local world=Extra.world
         if view=="white" then -- the betting felt, from the player's side
