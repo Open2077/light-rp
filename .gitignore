@@ -61,6 +61,8 @@
 !resources/standalone/open77_icons/**
 !resources/standalone/op77_actionbubble/
 !resources/standalone/op77_actionbubble/**
+!resources/standalone/op77_playermarks/
+!resources/standalone/op77_playermarks/**
 # LightRP edition of open77_scenes (ripperdoc chairs on the LightRP E prompt).
 !resources/standalone/op77_scenes/
 !resources/standalone/op77_scenes/**

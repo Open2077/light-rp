@@ -131,6 +131,7 @@
         "op77_map3d",
         "op77_loadscreen",
         "op77_actionbubble",
+      "op77_playermarks",
         "op77_speedometer",
         "op77_weaponhud",
         "op77_lightrp",
