@@ -31,7 +31,7 @@ LightRpActivities = {
     -- to dailyCap per account (all its characters) per UTC day. `grantTo =
     -- "missions"` also adds it to the street reputation shown with the mission
     -- tiers (server/modules/missions.lua); nil keeps it in the activity tables.
-    -- Activities never pay cash or items.
+    -- Eddies: server/modules/activity_pay.lua (economy.lua `activities`); never items.
     reputation = { maxPerResult = 50, dailyCap = 250, grantTo = "missions" },
 
     -- Choices the Activities panel offers when joining an activity whose provider

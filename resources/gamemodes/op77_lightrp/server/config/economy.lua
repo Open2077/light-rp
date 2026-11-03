@@ -46,6 +46,60 @@ LightRpEconomy = {
         servedMinimum = 50,
     },
 
+    -- Activity results (activity_pay.lua; the core drops staff bot mode and
+    -- `test` results before). PvP ranked pays
+    --   perMinute x rate x minutes played (to maxSeconds) x min(1, real players /
+    --   players) x (participation + resultBonus x result)
+    -- with result 1 for a win / first place down to 0 for the last place (placement
+    -- modes), 0.5 for a draw, 0 for a loss; a trial (record) scores a personal best
+    -- or a course record. An average player near the job rate (~3,400 €$ an hour of
+    -- matches), a good one about a fifth more. PvE pays perMinute[difficulty] x
+    -- minutes (a loss lossShare of it): below jobs, far below missions.
+    -- Nothing for: `result.unranked`, a PvP match with bots, real players all in one
+    -- crew, a quit / forfeit (the one left standing keeps the participation share),
+    -- under minSeconds, none of the mode's `progress` stats reached (AFK), modes not
+    -- listed. Real players = accounts the server saw in the same activity and bucket
+    -- (sampled every sampleSeconds). repeatPerHour[n]: paid results an hour between
+    -- the same n accounts (a set bigger than the list is not limited). dailyCap per
+    -- account (all characters) and UTC day, per kind.
+    activities = {
+        enabled = true,
+        sampleSeconds = 10,
+        pvp = {
+            ledger = "activity_pvp",
+            perMinute = 70,
+            participation = 0.75,
+            resultBonus = 0.5,
+            dailyCap = 12000,
+            repeatPerHour = { 4, 3, 4, 5 },
+            modes = {
+                ["arena.ffa"]    = { players = 4, minSeconds = 120, maxSeconds = 900, placement = true, progress = { kills = 1, assists = 1 } },
+                ["arena.blade"]  = { players = 4, minSeconds = 120, maxSeconds = 900, placement = true, progress = { kills = 1, assists = 1 } },
+                ["arena.duel"]   = { players = 2, minSeconds = 60, maxSeconds = 600, progress = { kills = 1, roundsWon = 1 } },
+                ["arena.teams"]  = { players = 4, minSeconds = 120, maxSeconds = 900, progress = { kills = 1, assists = 1 } },
+                ["race.trial"]   = { players = 1, rate = 0.5, minSeconds = 60, maxSeconds = 300, record = true, progress = { finished = true } },
+                ["race.grid"]    = { players = 4, minSeconds = 60, maxSeconds = 600, placement = true, progress = { finished = true, checkpoints = 2 } },
+                ["race.foot"]    = { players = 4, minSeconds = 60, maxSeconds = 600, placement = true, progress = { finished = true, checkpoints = 2 } },
+                ["chase.1v1"]    = { players = 2, minSeconds = 90, maxSeconds = 600, progress = { roundsWon = 1, busts = 1, escapes = 1 } },
+                ["chase.wanted"] = { players = 4, minSeconds = 120, maxSeconds = 900, placement = true, progress = { points = 1 } },
+                ["turf.war"]     = { players = 6, minSeconds = 180, maxSeconds = 1200, progress = { captures = 1, kills = 1, holdSeconds = 30 } },
+            },
+        },
+        pve = {
+            ledger = "activity_pve",
+            perMinute = { standard = 40, hard = 50, critical = 60 },
+            lossShare = 0.5,
+            dailyCap = 6000,
+            -- `difficulty`: the activity's own, unless its result names one.
+            modes = {
+                ["arena.pve"] = { difficulty = "standard", minSeconds = 120, maxSeconds = 900, progress = { kills = 1, assists = 1 } },
+                ["race.pve"]  = { difficulty = "standard", minSeconds = 60, maxSeconds = 600, progress = { finished = true, checkpoints = 2 } },
+                ["chase.pve"] = { difficulty = "hard", minSeconds = 60, maxSeconds = 600, wonCounts = true, progress = { shakes = 1 } },
+                ["turf.pve"]  = { difficulty = "hard", minSeconds = 120, maxSeconds = 600, progress = { captures = 1, kills = 1 } },
+            },
+        },
+    },
+
     -- Waking up at the hospital after "Give up and go to hospital" (medical.lua).
     -- Never on a revive, never inside a mission or an activity, never during the
     -- first day guide nor the character's first `graceMinutes` of play. Taken from

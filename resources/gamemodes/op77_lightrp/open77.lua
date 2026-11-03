@@ -118,6 +118,7 @@ server_script "server/modules/cyberware.lua"
 server_script "server/modules/ripperdoc.lua"
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
+server_script "server/modules/activity_pay.lua"    -- eddies for activity results (PvP ranked, PvE), caps and anti-farm
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
 server_script "server/main.lua"
 

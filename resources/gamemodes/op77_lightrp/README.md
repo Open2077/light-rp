@@ -395,9 +395,22 @@ fonctionnalités ; `server/config/economy.lua` porte les règles transversales :
 - **Cabine d'essayage** : 50 €$ par visite d'une cabine de la ville qui enregistre une
   tenue ; logement, hall d'arrivée, wizard et nouveaux venus gratuits, offert si le joueur
   ne peut pas payer.
+- **Activités** (`server/modules/activity_pay.lua`, `economy.lua` → `activities`) : un
+  résultat PvP classé paie 70 €$ par minute jouée × (0,75 + 0,5 × résultat), le résultat
+  allant de 1 (victoire, première place) à 0 (dernière place, défaite), multiplié par la
+  part du lobby plein réellement présente (joueurs vus par le serveur dans la même
+  activité et le même bucket, par compte ; jamais un chiffre du fournisseur). Un joueur
+  moyen gagne à peu près le taux d'un métier, un bon joueur un cinquième de plus. Le PvE
+  paie 40 / 50 / 60 €$ la minute selon la difficulté, moitié sur une défaite. Rien pour un
+  résultat non classé (bots, `result.unranked`, mode bots staff, `test`), un départ ou un
+  forfait, un AFK (aucune statistique de progression), un match plus court que le minimum
+  du mode, ni un match dont tous les joueurs réels sont du même crew. Les mêmes comptes
+  ne sont payés ensemble que 3 à 5 fois par heure, et un compte touche au plus
+  12 000 €$ PvP et 6 000 €$ PvE par jour UTC (table `lightrp_activity_pay_daily`).
+  Chaque paie passe par la banque (`activity_pvp` / `activity_pve`) avec une notice
+  « +€$ N — raison ».
 - Fourrière (`server/config/garages.lua`), carburant (4 €$/L, `shared/config.lua`) et
-  nourriture (`server/config/shops.lua`) sont relevés. Les activités (arène, courses,
-  poursuites, turf) ne paient aucun eddie. Aucun solde existant n'est modifié.
+  nourriture (`server/config/shops.lua`) sont relevés. Aucun solde existant n'est modifié.
 
 ## Menu joueur (F1)
 
@@ -627,6 +640,11 @@ un client ne peut pas les lever) :
 - fournisseur → noyau `op77_lightrp:activity:result (id, activityId, result)` avec
   `result = { placement, score, won, stats = { kills, deaths, timeMs, courseId, courseRevision… }, reputation }`.
   Un résultat par entrée toutes les 15 s, et un seul jusqu'à 10 min après la sortie.
+  `result.test = true` (et le mode bots staff) : rien d'enregistré ni de payé ;
+  `result.unranked = true` : enregistré, jamais payé. Les eddies d'un résultat accepté sont
+  calculés par `server/modules/activity_pay.lua` (voir *Équilibrage*), à partir de
+  `stats.durationMs` / `timeMs` / `seconds`, `quit`, `forfeit`, `bots`, `dnfReason` et des
+  statistiques de progression du mode.
 - fournisseur → noyau `op77_lightrp:activity:status (activityId, { phase, players, queued, joinable, detail })`,
   à chaque changement (les envois rapprochés sont regroupés avant d'atteindre les joueurs).
 - noyau → fournisseur `op77_lightrp:activity:join (id, activityId, options)` : le joueur l'a demandé
