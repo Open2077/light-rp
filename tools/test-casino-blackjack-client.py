@@ -15,14 +15,16 @@ namespace = {'__file__': str(ROOT/'tools/test-board-games-client.py')}
 exec(source.split("for name in ['shared/board_game_models.lua'")[0], namespace)
 lua = namespace['lua']
 assets=json.loads((ROOT/'resources/assets/models/open77_casino_blackjack/asset-manifest.json').read_text())
-lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models']})
+lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models'] + assets.get('colliders', [])})
 lua.execute(r'''
 LightRpBoardGames={};LightRpItems={}
 function Open77.props.create(options)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
  assert(options.model:find('open77\\assets\\op77_lightrp\\casino_blackjack\\',1,true)==1,options.model)
- assert(options.model:sub(-4)=='.ent' and options.kind=='prop' and options.scale==.65)
- assert(options.collision==false and options.physics=='none')
+ assert(options.model:sub(-4)=='.ent' and options.kind=='prop')
+ -- The table base gets a solid, mesh-less collider at scale 1; everything else stays non-solid.
+ if options.model:find('_collider.ent',1,true) then assert(options.scale==1 and options.collision==true and options.physics=='static')
+ else assert(options.scale==.65 and options.collision==false and options.physics=='none') end
  nextNativeId=nextNativeId+1;local id=tostring(nextNativeId)
  local name=options.model:match('([^\\]+)%.ent$')
  assert(availableModels[name],'native asset missing from the cooked package: '..tostring(name))
@@ -30,7 +32,7 @@ function Open77.props.create(options)
   yaw=options.yaw,rendered=true,failed=false,backend='raw_entity'}
  createdProps=createdProps+1;return id
 end
-function countProps() local n=0;for _ in pairs(nativeProps) do n=n+1 end;return n end
+function countProps() local n=0;for _,p in pairs(nativeProps) do if not p.name:find('_collider$') then n=n+1 end end;return n end
 function countNamed(pattern) local n=0;for _,p in pairs(nativeProps) do if p.name:find(pattern) then n=n+1 end end;return n end
 function findProp(name) for id,p in pairs(nativeProps) do if p.name==name then return p,id end end end
 ''')
