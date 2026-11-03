@@ -11,9 +11,11 @@ const fs=require('node:fs');
    const character={registered:true,status:'active',step:'done',key:'default',playerId:1,accountName:'Test player',firstName:'Alex',lastName:'Morgan',origins:[],slots:[],appearanceRevision:2,welcomePending:false};
    const state={character,staff:{isStaff:true},online:[{id:1,name:'Alex Morgan'},{id:2,name:'Jamie Rivers'}]};
    let ticket=null,messages=[],scope='player',fail=false;
-   const overview={players:[{id:2,account:'other-account',character:'default',name:'Jamie Rivers',accountName:'Jamie',status:'active',life:'alive',job:{name:'sanitation',label:'Sanitation',grade:0,gradeLabel:'Worker'},gang:{name:'none',label:'None',grade:0,gradeLabel:'None'},playtimeMs:10000}],staff:[{id:3,name:'Yuki'}],permissions:{view:true,reports:true,assign:true,audit:true,heal:true,credit:true,rename:true,job:true,noclip:true,advanced:true},jobs:[{name:'sanitation',label:'Sanitation',grades:[{value:0,label:'Worker'}]}],gangs:[{name:'none',label:'None',grades:[{value:0,label:'Citizen'}]}],database:true};
+   const overview={players:[{id:2,account:'other-account',character:'default',name:'Jamie Rivers',accountName:'Jamie',status:'active',life:'alive',job:{name:'sanitation',label:'Sanitation',grade:0,gradeLabel:'Worker'},gang:{name:'none',label:'None',grade:0,gradeLabel:'None'},playtimeMs:10000}],staff:[{id:3,name:'Yuki'}],permissions:{view:true,reports:true,assign:true,audit:true,heal:true,credit:true,rename:true,job:true,noclip:true,advanced:true,tables:true,tableTeleport:true,tableDelete:true},jobs:[{name:'sanitation',label:'Sanitation',grades:[{value:0,label:'Worker'}]}],gangs:[{name:'none',label:'None',grades:[{value:0,label:'Citizen'}]}],database:true};
    const add=(body,role='staff',internal=false)=>{ticket.revision++;messages.push({id:messages.length+1,revision:ticket.revision,author:role==='staff'?'Yuki':'Alex Morgan',role,kind:internal?'note':'reply',body,internal,at:Date.now()});};
-   window.fixture={sent,fire,ready:false,get ticket(){return ticket;},setScope(s){scope=s;fire('dialog',{kind:'support',scope:s});},fail(){fail=true;},claim(){ticket.assignee='Yuki';ticket.assigneeOnline=true;ticket.status='in_progress';ticket.assignedToMe=true;add('Case taken by Yuki.');fire('support',{kind:'changed',ticket:41});},resolve(){ticket.status='resolved';ticket.resolvedAt=Date.now();add('The elevator has been repaired.');fire('support',{kind:'changed',ticket:41});}};
+   window.fixture={sent,fire,ready:false,pending:0,tables:[
+    {id:'1790000000:4',kind:'roulette',title:'Roulette',owner:'Alex Morgan',inventory:'player:acc1#default',online:1,x:12.3,y:-4.5,z:7.8,bucket:0,revision:9,placedAt:1790000000000,seated:'#1 Alex Morgan, #2 Jamie Rivers',seatedCount:2,phase:'betting',stakes:65},
+    {id:'1790000100:5',kind:'chess',title:'Chess',owner:'Offline Owner',inventory:'player:acc9#default',x:1,y:2,z:3,bucket:4,revision:0,placedAt:1790000100000,seated:'',seatedCount:0,phase:'',stakes:0}],get ticket(){return ticket;},setScope(s){scope=s;fire('dialog',{kind:'support',scope:s});},fail(){fail=true;},claim(){ticket.assignee='Yuki';ticket.assigneeOnline=true;ticket.status='in_progress';ticket.assignedToMe=true;add('Case taken by Yuki.');fire('support',{kind:'changed',ticket:41});},resolve(){ticket.status='resolved';ticket.resolvedAt=Date.now();add('The elevator has been repaired.');fire('support',{kind:'changed',ticket:41});}};
    window.Open77={on:(name,fn)=>handlers.set(name,[...(handlers.get(name)||[]),fn]),ready(){},emit(name,p){
     sent.push({name,p});
     if(name==='lightrp:ui:ready'){window.fixture.ready=true;setTimeout(()=>{fire('state',state);fire('dialog',{kind:'support',scope,body:'A prefilled draft from the report command.'});},20);}
@@ -32,6 +34,14 @@ const fs=require('node:fs');
       add(p.body||p.action,p.scope==='staff'?'staff':'player',p.action==='note');
       if(p.action==='reopen')ticket.status='open';if(p.action==='resolve')ticket.status='resolved';if(p.action==='waiting')ticket.status='waiting_player';data={ticketId:41};
      }else if(p.operation==='player')data={...overview.players[0],firstName:'Jamie',lastName:'Rivers',birthDate:'2050-01-01',money:{cash:500,bank:1500,number:'111-222'},position:{x:1,y:2,z:3,bucket:0},history:[],canReturn:false};
+     else if(p.operation==='tables'){
+      // Flat rows exactly as server/modules/board_games_admin.lua answers them; an empty list arrives as {}.
+      const rows=window.fixture.tables.filter(t=>!p.search||t.id.includes(p.search)||t.owner.toLowerCase().includes(p.search.toLowerCase()));
+      data={tables:rows.length?rows:{},page:p.page||1,pageSize:15,total:rows.length,pendingReturns:window.fixture.pending,canTeleport:true,canDelete:true};
+     }else if(p.operation==='tableAction'){
+      if(p.action==='tableDelete'){window.fixture.tables=window.fixture.tables.filter(t=>t.id!==p.table);if(p.returnItem)window.fixture.pending++;}
+      data={accepted:true,outcome:'success',message:p.action==='tableDelete'?'Roulette table removed. Refunded €$ 65 of open stakes.':'You are next to the table.'};
+     }
      else if(p.operation==='adminAction')data={accepted:true,outcome:'success',message:'Action completed.'};
      else if(p.operation==='audit')data={entries:[{id:1,actor_name:'Yuki',target_name:'Jamie Rivers',action:'heal',reason:'Help after a collision',detail:'Action completed.',outcome:'success',at:Date.now()}],hasMore:false};
      fire('support',{kind:'response',request:p.request,ok:true,data});
@@ -108,7 +118,25 @@ const fs=require('node:fs');
   assert.equal(await page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='adminAction').at(-1).p.account),'other-account');
   await page.keyboard.press('Backspace');assert.equal(await menu.locator('.o77-rage__row--on .o77-rage__text').textContent(),'#2 Jamie Rivers','back keeps selected citizen');
   await page.keyboard.press('Backspace');await choose('Staff history');await page.getByText('Help after a collision',{exact:true}).waitFor();
+  await page.keyboard.press('Backspace');
+  // Placed tables: list, details, a reviewed removal with the item returned.
+  await choose('Placed tables');await page.locator('.o77-rage__text').filter({hasText:'Roulette · Alex Morgan'}).waitFor();
+  await choose('Roulette · Alex Morgan',false);await page.locator('.rp-support__record h2').filter({hasText:'Roulette'}).waitFor();
+  await choose('Roulette · Alex Morgan');await page.locator('.rp-support__record dd').filter({hasText:'#1 Alex Morgan, #2 Jamie Rivers'}).waitFor();
+  assert.match(await page.locator('.rp-support__record').innerText(),/€\$ 65 in open stakes/);
+  await page.screenshot({path:'artifacts/support-rage-table.png'});
+  await choose('Remove table');await page.getByLabel('Reason for this intervention').fill('Table blocking the clinic entrance');
+  assert.equal(await page.getByLabel('Give the item back to the owner').isChecked(),true);
+  const removals=()=>page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='tableAction').length);
+  await page.getByRole('button',{name:'Review intervention'}).click();await page.getByRole('alertdialog',{name:'Confirm table intervention'}).waitFor();
+  assert.equal(await removals(),0,'review cannot mutate');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Cancel','safe default focus');
+  await page.getByRole('button',{name:'Remove table'}).click();await page.getByRole('status').filter({hasText:'Refunded'}).waitFor();
+  const sent=await page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='tableAction').at(-1).p);
+  assert.equal(sent.table,'1790000000:4');assert.equal(sent.kind,'roulette');assert.equal(sent.returnItem,true);assert.equal(sent.confirmed,true);
+  assert.equal(await menu.locator('.o77-rage__title').innerText(),'PLACED TABLES');
+  await page.locator('.o77-rage__text').filter({hasText:'Items awaiting return: 1'}).waitFor();
+  assert.equal(await page.locator('.o77-rage__text').filter({hasText:'Roulette · Alex Morgan'}).count(),0,'removed row is gone');
   await page.keyboard.press('Backspace');await page.keyboard.press('Escape');await root.waitFor({state:'detached'});assert.equal(await inputMode(),'closed');
-  assert.deepEqual(errors,[]);console.log('PASS: compact Rage root/submenus, keyboard and back stack, preserved selection, menu/form input handoff, create/reply/reopen/private notes, retry identity, reviewed interventions, stable player target, history and four viewport layouts');
+  assert.deepEqual(errors,[]);console.log('PASS: compact Rage root/submenus, keyboard and back stack, preserved selection, menu/form input handoff, create/reply/reopen/private notes, retry identity, reviewed interventions, stable player target, history, placed tables (list, details, reviewed removal) and four viewport layouts');
  }catch(e){fs.mkdirSync('artifacts',{recursive:true});const p=browser.contexts()[0]?.pages()[0];if(p)await p.screenshot({path:'artifacts/support-rage-failure.png'});throw e;}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

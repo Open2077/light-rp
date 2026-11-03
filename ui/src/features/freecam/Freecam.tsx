@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { keyLabel, useKeyLayout } from "./keyLabels";
 import { on } from "@/bridge/open77";
 import { PAGE_EVENTS, type FreecamState } from "@/bridge/protocol";
 import { Icon } from "@/design/components";
@@ -9,41 +10,17 @@ import "./freecam.css";
    the lens is from the character against the radius it may not leave. Passive:
    it never takes the keyboard or the cursor. */
 
-const ALIASES: Record<string, string> = { FORWARD: "KeyW", BACK: "KeyS", STRAFE_LEFT: "KeyA", STRAFE_RIGHT: "KeyD" };
-const NAMES: Record<string, string> = { BACKSPACE: "BKSP", CONTROL: "CTRL", RETURN: "ENTER", PAGEUP: "PGUP", PAGEDOWN: "PGDN", MOUSE1: "LMB", MOUSE2: "RMB", MOUSE3: "MMB" };
-
-/** Movement aliases follow the keyboard layout: WASD, or ZQSD on AZERTY. */
-function useLayout(): Record<string, string> {
-  const [layout, setLayout] = useState<Record<string, string>>({ KeyW: "W/Z", KeyS: "S", KeyA: "A/Q", KeyD: "D" }); // until the layout answers
-  useEffect(() => {
-    const keyboard = (navigator as Navigator & { keyboard?: { getLayoutMap?: () => Promise<Map<string, string>> } }).keyboard;
-    let alive = true;
-    keyboard?.getLayoutMap?.().then((map) => {
-      if (!alive) return;
-      const next: Record<string, string> = {};
-      for (const code of Object.values(ALIASES)) next[code] = (map.get(code) ?? code.slice(3)).toUpperCase();
-      setLayout(next);
-    }).catch(() => undefined);
-    return () => { alive = false; };
-  }, []);
-  return layout;
-}
-
 function Key({ children, wide }: { children: string; wide?: boolean }) {
   return <kbd className={"freecam__key" + (wide || children.length > 1 ? " freecam__key--wide" : "")}>{children}</kbd>;
 }
 
 export function Freecam() {
   const [state, setState] = useState<FreecamState>({ active: false });
-  const layout = useLayout();
+  const layout = useKeyLayout();
   useEffect(() => on<FreecamState>(PAGE_EVENTS.freecam, (next) => setState(next?.active ? next : { active: false })), []);
   if (!state.active) return null;
 
-  const label = (name: string): string => {
-    const raw = String(state.keys?.[name] ?? "?").toUpperCase();
-    const code = ALIASES[raw];
-    return code ? layout[code] ?? code.slice(3) : NAMES[raw] ?? raw;
-  };
+  const label = (name: string): string => keyLabel(state.keys?.[name], layout);
   const radius = state.radius ?? 0;
   const distance = Math.min(state.distance ?? 0, radius);
   const ratio = radius > 0 ? distance / radius : 0;

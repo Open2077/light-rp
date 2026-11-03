@@ -15,14 +15,16 @@ namespace = {'__file__': str(ROOT/'tools/test-board-games-client.py')}
 exec(source.split("for name in ['shared/board_game_models.lua'")[0], namespace)
 lua = namespace['lua']
 assets=json.loads((ROOT/'resources/assets/models/open77_casino_blackjack/asset-manifest.json').read_text())
-lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models']})
+lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models'] + assets.get('colliders', [])})
 lua.execute(r'''
 LightRpBoardGames={};LightRpItems={}
 function Open77.props.create(options)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
  assert(options.model:find('open77\\assets\\op77_lightrp\\casino_blackjack\\',1,true)==1,options.model)
- assert(options.model:sub(-4)=='.ent' and options.kind=='prop' and options.scale==.65)
- assert(options.collision==false and options.physics=='none')
+ assert(options.model:sub(-4)=='.ent' and options.kind=='prop')
+ -- The table base gets a solid, mesh-less collider at scale 1; everything else stays non-solid.
+ if options.model:find('_collider.ent',1,true) then assert(options.scale==1 and options.collision==true and options.physics=='static')
+ else assert(options.scale==.65 and options.collision==false and options.physics=='none') end
  nextNativeId=nextNativeId+1;local id=tostring(nextNativeId)
  local name=options.model:match('([^\\]+)%.ent$')
  assert(availableModels[name],'native asset missing from the cooked package: '..tostring(name))
@@ -30,7 +32,7 @@ function Open77.props.create(options)
   yaw=options.yaw,rendered=true,failed=false,backend='raw_entity'}
  createdProps=createdProps+1;return id
 end
-function countProps() local n=0;for _ in pairs(nativeProps) do n=n+1 end;return n end
+function countProps() local n=0;for _,p in pairs(nativeProps) do if not p.name:find('_collider$') then n=n+1 end end;return n end
 function countNamed(pattern) local n=0;for _,p in pairs(nativeProps) do if p.name:find(pattern) then n=n+1 end end;return n end
 function findProp(name) for id,p in pairs(nativeProps) do if p.name==name then return p,id end end end
 ''')
@@ -53,15 +55,27 @@ local bj={id=201,kind='blackjack',owned=true,position={x=0,y=0,z=0},rotation=0,
  players={white=7,black=9},actor=nil,ready=true,mode='duel',revision=1,serverNow=now,game=B.view(s)}
 events['lightrp:boardGames:state']({boards={bj}});step()
 waitUntil(function() return findProp('blackjack_table') and countNamed('^bj_chips_')==4 end,'table and both bet stacks')
-assert(C.isActive() and view.extra.kind=='blackjack' and view.extra.mySeat=='white' and view.extra.hands.white.bet==125)
+assert(C.isActive() and E.seat(bj)=='white' and bj.game.hands.white.bet==125)
 assert(findProp('bj_chips_100_1') and findProp('bj_chips_25_1') and findProp('bj_chips_25_1'),'125 = 100 + 25 stacks')
--- Page operations reach the server; a mouse click never wagers.
+-- The game view opens behind the local player's seat (white: 54 degrees).
+assert(focus and camera and frozen and view.view=='seat' and #view.views==5 and view.views[5].key=='free' and cameraSpec.lookAt)
+assert(math.abs(cameraSpec.position.x-1.65*math.sin(math.rad(54))*.65)<1e-6 and cameraSpec.position.y<0,'the seat camera stands behind white')
+-- Bets open: my betting circle is marked (a faint ring of 12 lines).
+waitUntil(function() return marks()==12 end,'my betting circle marked')
+-- Bar operations (tools/test-table-menu.py) reach the server; a click never wagers.
 local before=#requests
-pageHandlers['lightrp:tabletop:action']({operation='bet',data={amount=25}})
+assert(E.command(bj,'bet',{amount=25}))
 assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.amount==25)
-pageHandlers['lightrp:tabletop:action']({operation='splitAll',data={}});assert(#requests==before+1,'unknown operation forwarded')
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,pressed=true});pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true});step()
-assert(#requests==before+1)
+assert(not E.command(bj,'splitAll',{}) and #requests==before+1,'unknown operation forwarded')
+-- A click on the player's betting circle selects it (outlined); elsewhere, nothing.
+local a=math.rad(54)
+local function at(x,y) forcedRay={origin={x=x*.65,y=y*.65,z=3},direction={x=0,y=0,z=-1}};pointer({x=.5,y=.6});step() end
+at(.80*math.sin(-a),-.80*math.cos(a));pointer({x=.5,y=.6,pressed=true});step();pointer({x=.5,y=.6,released=true});step()
+assert(E.selection(bj)==nil and #requests==before+1,'another seat\'s circle is not mine')
+at(.80*math.sin(a),-.80*math.cos(a));step();assert(#batches['boardGames:preview'].lines==12,'the hovered circle is outlined')
+pointer({x=.5,y=.6,pressed=true});step();pointer({x=.5,y=.6,released=true});step()
+assert(E.selection(bj) and E.selection(bj).key=='circle' and #requests==before+1,'a click selects my circle and wagers nothing')
+forcedRay=nil
 
 -- The deal: server timestamps drive every card; staggered from the shoe.
 now=now+1000 -- a new snapshot stamp: the client re-anchors its server clock
@@ -86,12 +100,20 @@ E.observe(late);local L=E.pieceTargets(late)
 assert(L['bj-white-c1'].piece.model==T['bj-white-c1'].piece.model and math.abs(L['bj-white-c1'].position.x-T['bj-white-c1'].position.x)<1e-9)
 -- The deal on the real renderer: every card becomes a native prop.
 waitUntil(function() clock=math.max(clock,0);return countNamed('^bj_card_')==6 end,'six dealt cards as native props')
-local deadline=t0+5*B.DEAL_GAP+B.SLIDE+B.FLIP
-bj.serverNow=deadline;bj.revision=3;events['lightrp:boardGames:state']({boards={bj}})
+local settled=t0+5*B.DEAL_GAP+B.SLIDE+B.FLIP
+-- The cards have settled but the dealer still pauses: no decision yet.
+bj.serverNow=settled;bj.revision=3;events['lightrp:boardGames:state']({boards={bj}})
+waitUntil(function() local t=E.serverTime(bj);return t>=settled and t<s.actAt end,'pause after the deal')
+assert(marks()==0,'no betting circle once the cards are dealt')
+local legal=B.legal(bj.game,'white',E.serverTime(bj))
+assert(not legal.stand and not legal.hit,'no decision during the pause after the deal')
+local deadline=s.actAt
+bj.serverNow=deadline;bj.revision=31;events['lightrp:boardGames:state']({boards={bj}})
 waitUntil(function() return findProp('bj_card_kh') and findProp('bj_card_6d') and findProp('bj_card_7c') end,'face-up native cards')
 assert(not findProp('bj_card_qh') and findProp('bj_card_back'),'the hole card stays a generic back')
-assert(view.extra.dealer.cards[2].c==nil and view.extra.legal.stand and view.extra.legal.hit and view.extra.legal.double)
-before=#requests;pageHandlers['lightrp:tabletop:action']({operation='stand',data={}});assert(last().operation=='stand' and #requests==before+1)
+legal=B.legal(bj.game,'white',E.serverTime(bj))
+assert(bj.game.dealer.cards[2].c==nil and legal.stand and legal.hit and legal.double)
+before=#requests;assert(E.command(bj,'stand',{}) and last().operation=='stand' and #requests==before+1)
 
 -- Stand, black stands: the dealer reveals the hole card and draws on the server clock.
 s=act(s,'white','stand',{inventory='me',nowMs=deadline});s=act(s,'black','stand',{inventory='other',nowMs=deadline})
@@ -102,16 +124,16 @@ waitUntil(function() return findProp('bj_card_qh') end,'hole card flips face-up'
 waitUntil(function() return findProp('bj_card_3h') end,'dealer draw')
 -- Chips: the losing stack slides to the dealer rack and vanishes; the winner is paid beside the bet.
 waitUntil(function() return countNamed('^bj_chips_100_1$')==2 end,'winnings stack slides out beside the bet')
-assert(E.serverTime(bj)>=s.resultAt+250,'no payout before the reveal ends')
+assert(E.serverTime(bj)>=s.resultAt+B.CHIP_STAGGER,'no payout before the reveal ends')
 T=E.pieceTargets(bj)
 assert(T['bj-white-w1'] and T['bj-white-w1'].piece.model:find('bj_chips_100_1',1,true),'125 winnings beside the bet')
-clock=clock+(s.resultAt+4*250+B.CHIPS)-E.serverTime(bj);T=E.pieceTargets(bj)
+clock=clock+(s.resultAt+4*B.CHIP_STAGGER+B.CHIPS)-E.serverTime(bj);T=E.pieceTargets(bj)
 assert(not T['bj-black-b1'],'lost chips are gone into the rack')
-local w=T['bj-white-w1'].position;assert(w.z==1.35)
+local w=T['bj-white-w1'].position;assert(math.abs(w.z-(1.35+.0005))<1e-9,'chips rest just off the felt')
 -- Before the next round the cards sweep into the discard tray.
 clock=clock+(s.nextAt-B.SWEEP+300)-E.serverTime(bj);T=E.pieceTargets(bj)
 local sweeping=T['bj-white-c1'].position;assert(sweeping.x<0,'cards travel to the discard tray at -X')
-clock=clock+900;T=E.pieceTargets(bj);assert(not T['bj-white-c1'] and not T['bj-d-c1'] and not T['bj-white-w1'])
+clock=clock+(s.nextAt-50)-E.serverTime(bj);T=E.pieceTargets(bj);assert(not T['bj-white-c1'] and not T['bj-d-c1'] and not T['bj-white-w1'] and not T['bj-black-c1'],'the sweep ends inside B.SWEEP')
 waitUntil(function() return countNamed('^bj_')==0 end,'felt cleared before the next round')
 
 -- Worst case: four 7-card hands with bet and payout stacks plus a 7-card dealer, animating.
@@ -123,7 +145,61 @@ local worst=B.view(B.new('duel',1,now));worst.phase='result';worst.resultAt=now+
 worst.hands={white=hand('white',3125),black=hand('black',3125),white2=hand('white2',3125),black2=hand('black2',3125)}
 for _,h in pairs(worst.hands) do h.total=20 end
 worst.dealer={cards={},total=22};for k=1,7 do worst.dealer.cards[k]={c='9C',t=now+k*300} end
-bj.game=worst;bj.revision=5;bj.serverNow=now+6100;events['lightrp:boardGames:state']({boards={bj}})
+
+-- Stacking: overlapping cards never share a height (two surfaces at one depth
+-- z-fight in game). Each card lies a card thickness plus a gap above the
+-- previous one of its hand; the landed x/y are the table's layout.
+local CARD_T,STEP=.0016,.0016+.0008
+local function settle(id,serverNow,game)
+ local b={id=id,kind='blackjack',position=bj.position,players=bj.players,game=game,serverNow=serverNow};E.observe(b)
+ local R;for _=1,10 do R=E.pieceTargets(b) end;return R
+end
+local S=settle(298,worst.resultAt-100,worst)
+for _,seat in ipairs({'d','white','black','white2','black2'}) do
+ for k=2,7 do
+  local a,b=S['bj-'..seat..'-c'..(k-1)],S['bj-'..seat..'-c'..k];assert(a and b,seat..k)
+  assert(b.position.z-a.position.z>=STEP-1e-9,'card '..k..' of '..seat..' lies above card '..(k-1))
+ end
+ assert(math.abs(S['bj-'..seat..'-c1'].position.z-(1.35+.001))<1e-9,'the first card of a hand just off the felt')
+end
+for seat,deg in pairs({white=54,black=18,white2=-18,black2=-54}) do
+ local a=math.rad(deg);local ux,uy,tx,ty=math.sin(a),-math.cos(a),math.cos(a),math.sin(a)
+ for k=1,7 do local r,p=.55-(k-1)*.012,S['bj-'..seat..'-c'..k].position
+  assert(math.abs(p.x-(r*ux+(k-1)*.032*tx))<1e-9 and math.abs(p.y-(r*uy+(k-1)*.032*ty))<1e-9,'landed x/y unchanged') end
+end
+for k=1,7 do local p=S['bj-d-c'..k].position;assert(math.abs(p.x-(-.07+(k-1)*.075))<1e-9 and math.abs(p.y+.24)<1e-9,'dealer row unchanged') end
+for _,seat in ipairs(B.SEATS) do assert(math.abs(S['bj-'..seat..'-b1'].position.z-(1.35+.0005))<1e-9) end
+-- In flight a card stays above the felt and above the cards it lands on, and
+-- the half-turned pose stands at its own (stacked) height.
+local single=B.view(B.new('duel',1,now));single.phase='playing'
+single.hands={white={bet=25,stake=25,total=20,betAt=now,cards={}}};single.dealer={cards={},total=0}
+for k=1,4 do single.hands.white.cards[k]={c='5S',t=now+k*1000} end
+local slot3=S['bj-white-c3'].position
+for i,p in ipairs({.02,.1,.3,.5,.7,.9,.98}) do
+ local F=settle(280+i,now+3000+math.floor(B.SLIDE*p),single)
+ local c3,c2=F['bj-white-c3'],F['bj-white-c2']
+ assert(c3.piece.model:find('bj_card_back',1,true) and c3.position.z>=slot3.z-1e-9 and c3.position.z>c2.position.z+CARD_T,'card 3 in flight over card 2 at '..p)
+ assert(c3.position.z>1.35+CARD_T)
+end
+local F=settle(288,now+3000+B.SLIDE+10,single)
+assert(F['bj-white-c3'].piece.model:find('bj_card_turn',1,true) and math.abs(F['bj-white-c3'].position.z-slot3.z)<1e-9,'flip pose at the stacked height')
+-- The sweep: every swept card heads for its own layer of the tray, later seats above.
+local sweepAt=worst.nextAt-B.SWEEP
+local W=settle(289,sweepAt+3*250+100,worst)
+local heights,order={},{}
+for _,seat in ipairs({'d','white','black','white2','black2'}) do
+ for k=1,7 do local c=W['bj-'..seat..'-c'..k]
+  if c and math.abs(c.position.x+.70)<1e-9 then assert(not c.piece.snap);order[#order+1]=c.position.z
+   assert(not heights[c.position.z],'two swept cards share a height');heights[c.position.z]=true end
+ end
+end
+assert(#order>=14,'cards of several seats in the tray at once '..#order)
+for i=2,#order do assert(order[i]>order[i-1],'later collected cards land higher') end
+-- The bet and the winnings leave over the rail side by side, never into one spot.
+local bet,win=W['bj-black2-b1'],W['bj-black2-w1'];assert(bet and win)
+assert(math.sqrt((bet.position.x-win.position.x)^2+(bet.position.y-win.position.y)^2)>.06+.06,'swept bet and winnings apart')
+bj.game=worst;bj.revision=5;bj.serverNow=worst.resultAt+4*B.CHIP_STAGGER+100; -- every payout stack in flight
+events['lightrp:boardGames:state']({boards={bj}})
 -- Count on a separate board id so the renderer below starts from a cold cache.
 local probe={id=299,kind='blackjack',position=bj.position,players=bj.players,game=worst,serverNow=bj.serverNow}
 local function measure(fn) local n=0;debug.sethook(function() n=n+1 end,'',1);fn();debug.sethook();return n end
@@ -146,9 +222,9 @@ waitUntil(function() return countProps()==1+targets end,'every worst-case prop')
 for i=1,120 do step() end
 waitUntil(function() return countProps()==1 end,'worst-case felt swept')
 print('worst-case props per table: '..(1+targets)..' (table + '..targets..' moving)')
-pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
+escape();assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic==false)
+assert(next(nativeProps)==nil and next(batches)==nil)
 B.shuffle=real
 print('blackjack client: native props, server-clock deal, flip poses, hidden hole card, chips, cleanup: OK; peak '..peakInstructions)
 ''')

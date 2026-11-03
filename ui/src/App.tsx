@@ -44,7 +44,7 @@ import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
 import { MissionObjectiveHud } from "@/features/missions/MissionObjectiveHud";
 import { WeaponWheel } from "@/features/weaponwheel/WeaponWheel";
-import { BoardGames } from "@/features/board-games/BoardGames";
+import { TableBar } from "@/features/board-games/TableBar";
 
 /* The one surface of the framework. Lua -> page events land in the store; the
    features read the store and raise actions back through the bridge. */
@@ -160,7 +160,7 @@ export function App() {
       </div>
       <div hidden={customizationActive}><ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary></div>
       <ErrorBoundary name="customization"><VehicleCustomization /></ErrorBoundary>
-      <ErrorBoundary name="board-games"><BoardGames /></ErrorBoundary>
+      <ErrorBoundary name="board-games"><TableBar /></ErrorBoundary>
     </>
   );
 }

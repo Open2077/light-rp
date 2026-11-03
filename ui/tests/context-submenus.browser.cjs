@@ -104,6 +104,22 @@ const rows = [
     await page.locator('[data-folder="op77_lightrp/cargo"]').click();
     assert.deepEqual(await labels(), ['Back', 'Access trunk inventory']);
 
+    // Dynamic rows (1.3.0): a provider's title names the target; row tokens are opaque.
+    const bet = { id: 'op77_lightrp/bet', label: 'Bet €$ 10', icon: 'interact' };
+    await fire('context:open', { epoch: ++epoch, key: 'ALT', appearance: {} });
+    await fire('context:loading', { epoch: ++epoch, x: .5, y: .5 });
+    await fire('context:menu', { epoch, target: { kind: 'prop', propId: '42' }, distance: 1.2, title: 'Roulette', actions: [
+      { token: '7#status', label: 'Place your bets', icon: 'info' }, { token: '7#bet.red', label: 'Red', submenu: bet },
+      { token: '7#spin', label: 'Spin' }] });
+    await clear();
+    assert.equal(await page.locator('#title').innerText(), 'ROULETTE');
+    assert.deepEqual(await labels(), ['Place your bets', 'Bet €$ 10', 'Spin']);
+    await item('Bet €$ 10').click();
+    await item('Red').click();
+    assert.deepEqual(await sent(), [{ name: 'context:select', payload: { token: '7#bet.red', epoch } }]);
+    await open([{ token: 'plain', label: 'Plain' }]);
+    assert.equal(await page.locator('#title').innerText(), 'VEHICLE', 'no title: the target kind');
+
     // No clipping at viewport edges, including a small window and large UI scale.
     for (const [width, height] of [[640, 360], [1280, 720], [1920, 1080]]) {
       await page.setViewportSize({ width, height });

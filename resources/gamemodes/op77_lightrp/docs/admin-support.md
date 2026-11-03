@@ -89,6 +89,32 @@ recrédite pas l'argent. L'historique conserve l'auteur, la cible, le personnage
 la raison, les paramètres et le résultat. Les avertissements sont conservés
 dans cet historique ; ils ne déclenchent pas de sanction automatique.
 
+## Tables posées
+
+**Placed tables** (droit `command.lightrp.tables`) liste toutes les tables posées
+(jeux de plateau et tables de casino) : identifiant, type, personnage
+propriétaire et identifiant d'inventaire, connecté ou non, position, instance,
+date de pose, révision, joueurs assis, phase et mises ouvertes (ou *Resolving*
+pendant un tirage). Pages de 15, tri récentes / proches, recherche par
+identifiant, type ou propriétaire.
+
+- **Go to table** : téléportation à côté de la table, face à elle, via
+  `LightRP.staff.moveTo`. Depuis une instance privée vers une table de la ville,
+  arrivée en instance 0 ; une table dans une autre instance privée est refusée.
+- **Remove table** (droit `command.lightrp.tabledelete`) : mêmes règles que le
+  ramassage par le propriétaire. Les mises ouvertes sont remboursées, refus tant
+  qu'une roue ou des rouleaux tournent, le croupier du blackjack disparaît, les
+  joueurs assis sont levés avec une notification. *Give the item back* rend
+  l'objet à l'inventaire du personnage propriétaire dans la même transaction ;
+  hors ligne (ou inventaire plein), il est livré au prochain chargement de ce
+  personnage.
+
+Raison et confirmation obligatoires, audit dans `lightrp_staff_audit` avant et
+après l'action (`tableTeleport`, `tableDelete`), visible dans **Staff history**.
+Commandes équivalentes : `/lightrp.tables [page | near]`,
+`/lightrp.tables tp <id>`, `/lightrp.tables delete <id> [return]` (la console
+serveur peut lister et supprimer). Détails : `docs/board-games.md`.
+
 Les outils personnels **Noclip**, **God mode** et **Advanced console** réutilisent
 les commandes natives et leurs permissions. Leur journalisation reste celle
 du package officiel ; `lightrp_staff_audit` couvre les interventions du bureau RP.
@@ -115,6 +141,8 @@ sont contrôlées côté serveur, y compris après les lectures SQL asynchrones.
 | `command.lightrp.warn` | Avertissement |
 | `command.admin.moderate.kick` / `ban` | Exclusion / bannissement |
 | `command.lightrp.announce` | Annonce serveur |
+| `command.lightrp.tables` | Tables posées : liste et téléportation |
+| `command.lightrp.tabledelete` | Tables posées : suppression |
 | `command.admin.self.noclip` / `god` | Outils personnels |
 | `command.adminfull` | Console technique |
 
@@ -124,7 +152,8 @@ Pour un rôle support minimal, accorder `command.admin` et
 aux superviseurs. La permission générique `command.lightrp.*` inclut ces nouveaux
 droits ; les rôles moderator/operator existants en bénéficient déjà. Le rôle
 helper actuel n'est pas élargi automatiquement : ajouter explicitement le droit
-reports dans `acl.jsonc` si souhaité, puis exécuter `acl.reload` côté serveur.
+reports dans `acl.jsonc` si souhaité, puis exécuter `acl.reload` côté serveur. Le rôle helper du `acl.jsonc` d'exemple reçoit
+`command.lightrp.tables` (liste et téléportation, sans suppression).
 
 Le manifeste du gamemode utilise `players.disconnect` et `players.access` pour
 les sanctions. Le bannissement passe par la liste d'accès persistante du serveur,
@@ -157,6 +186,9 @@ afficher une réussite fictive. Sauvegarder ces tables avec le reste de la base 
 
 ## Validation
 
+- `python tools/test-tables-admin.py` : ramassage réservé au personnage
+  propriétaire, liste, téléportation, suppression (remboursements, croupier,
+  joueurs levés, retour d'objet différé), permissions et commandes.
 - `python tools/test-support.py` depuis la racine : vrais modules Lua et
   transactions MySQL dans une base temporaire dédiée, supprimée en fin de test.
   Nécessite `pymysql`, `lupa` (Lua 5.4) et un accès local permettant de créer cette

@@ -71,7 +71,43 @@ end
 -- total, 32 per owner), same id replacement, same atomic rollback.
 local ICONS={interact=true,person=true,vehicle=true,info=true,lock=true,tool=true,location=true}
 local FLAGS={"enabled","networked","allowSelf","selfOnly","danger"}
-local FIELDS={"id","label","onSelect","canInteract","description","group","icon","enabled","networked","allowSelf","selfOnly","danger","distance","order","types","records","entities","data","submenu"}
+local FIELDS={"id","label","onSelect","canInteract","rows","description","group","icon","enabled","networked","allowSelf","selfOnly","danger","distance","order","types","records","entities","data","submenu"}
+local function submenuValid(menu)
+    if type(menu)~="table" or not name(menu.id) or not text(menu.label,40)
+        or (menu.icon~=nil and not ICONS[menu.icon]) then return false end
+    for field in pairs(menu) do
+        if field~="id" and field~="label" and field~="icon" then return false end
+    end
+    return true
+end
+-- Dynamic rows (1.3.0): an action registered with `rows` names an export of
+-- the provider that answers, for the clicked target, {title=?, rows={...}}.
+-- Each row is {key, label, description?, icon?, danger?, submenu?}; the menu
+-- shows them in place of the action's own label and hands the chosen key back
+-- to onSelect as ctx.action.key. One registration then covers a target whose
+-- actions depend on live state (a game table) without spending the per-owner
+-- action limit. This validates and copies what a provider answered, nothing
+-- of the provider's table is kept. At most `max` rows, keys unique.
+function ContextMenuRegistry.dynamicRows(value,max)
+    if type(value)~="table" then return nil,"invalid_rows" end
+    if value.title~=nil and not text(value.title,40) then return nil,"invalid_title" end
+    local list=value.rows
+    if list==nil or (type(list)=="table" and next(list)==nil) then return {title=value.title,rows={}} end
+    if not dense(list,32) then return nil,"invalid_rows" end
+    local out,keys={},{}
+    for index,row in ipairs(list) do
+        if index>max then break end
+        if type(row)~="table" or not name(row.key) or keys[row.key] or not text(row.label,80) then return nil,"invalid_row" end
+        if row.description~=nil and not text(row.description,180) then return nil,"invalid_row" end
+        if row.icon~=nil and not ICONS[row.icon] then return nil,"invalid_row" end
+        if row.danger~=nil and type(row.danger)~="boolean" then return nil,"invalid_row" end
+        if row.submenu~=nil and not submenuValid(row.submenu) then return nil,"invalid_row" end
+        keys[row.key]=true
+        out[#out+1]={key=row.key,label=row.label,description=row.description,icon=row.icon,danger=row.danger==true,
+            submenu=row.submenu and {id=row.submenu.id,label=row.submenu.label,icon=row.submenu.icon} or nil}
+    end
+    return {title=value.title,rows=out}
+end
 function ContextMenuRegistry.new(alive)
     local actions,sequence={},0
     -- Indexes over `actions`: the total, one count per owner, and per owner
@@ -117,13 +153,8 @@ function ContextMenuRegistry.new(alive)
         if d.description~=nil and not text(d.description,180) then return nil,"invalid_description" end
         if d.group~=nil and not text(d.group,40) then return nil,"invalid_group" end
         if d.icon~=nil and not ICONS[d.icon] then return nil,"invalid_icon" end
-        if d.submenu~=nil then
-            if type(d.submenu)~="table" or not name(d.submenu.id) or not text(d.submenu.label,40)
-                or (d.submenu.icon~=nil and not ICONS[d.submenu.icon]) then return nil,"invalid_submenu" end
-            for field in pairs(d.submenu) do
-                if field~="id" and field~="label" and field~="icon" then return nil,"invalid_submenu" end
-            end
-        end
+        if d.rows~=nil and not name(d.rows) then return nil,"invalid_rows" end
+        if d.submenu~=nil and not submenuValid(d.submenu) then return nil,"invalid_submenu" end
         for _,field in ipairs(FLAGS) do
             if d[field]~=nil and type(d[field])~="boolean" then return nil,"invalid_"..field end
         end
@@ -149,7 +180,7 @@ function ContextMenuRegistry.new(alive)
         local token=tostring(sequence)
         local action={token=token,owner=owner,generation=generation,id=d.id,label=d.label,
             description=d.description,group=d.group or "Actions",icon=d.icon or "interact",
-            onSelect=d.onSelect,canInteract=d.canInteract,types=types,records=records,
+            onSelect=d.onSelect,canInteract=d.canInteract,rows=d.rows,types=types,records=records,
             distance=distance,order=order,enabled=d.enabled~=false,networked=d.networked,
             allowSelf=d.allowSelf==true,selfOnly=d.selfOnly==true,danger=d.danger==true,
             entities=copy(d.entities),data=copy(d.data),submenu=copy(d.submenu)}

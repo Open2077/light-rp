@@ -11,13 +11,15 @@ namespace = {'__file__': str(ROOT/'tools/test-board-games-client.py')}
 exec(source.split("for name in ['shared/board_game_models.lua'")[0], namespace)
 lua = namespace['lua']
 assets=json.loads((ROOT/'resources/assets/models/open77_casino_fortune/asset-manifest.json').read_text())
-lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models']})
+lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models'] + assets.get('colliders', [])})
 lua.execute(r'''
 function Open77.props.create(options)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
  assert(options.model:find('open77\\assets\\op77_lightrp\\casino_fortune\\',1,true)==1)
- assert(options.model:sub(-4)=='.ent' and options.kind=='prop' and options.scale==.65)
- assert(options.collision==false and options.physics=='none')
+ assert(options.model:sub(-4)=='.ent' and options.kind=='prop')
+ -- The table base gets a solid, mesh-less collider at scale 1; everything else stays non-solid.
+ if options.model:find('_collider.ent',1,true) then assert(options.scale==1 and options.collision==true and options.physics=='static')
+ else assert(options.scale==.65 and options.collision==false and options.physics=='none') end
  nextNativeId=nextNativeId+1;local id=tostring(nextNativeId)
  local name=options.model:match('([^\\]+)%.ent$')
  assert(availableModels[name],'native asset missing from the cooked package: '..tostring(name))
@@ -29,7 +31,7 @@ function findProp(name)
  for id,p in pairs(nativeProps)do if p.name==name then return p,id end end
 end
 function countProps()
- local count=0;for _ in pairs(nativeProps)do count=count+1 end;return count
+ local count=0;for _,p in pairs(nativeProps)do if not p.name:find('_collider$') then count=count+1 end end;return count
 end
 LightRpBoardGames={};LightRpItems={}
 ''')
@@ -50,7 +52,7 @@ local wheel={id=201,kind='fortune',owned=true,position={x=0,y=0,z=0},rotation=0,
 events['lightrp:boardGames:state']({boards={wheel}});step()
 local expected=1+27+2+2+4+2
 waitUntil(function()return countProps()==expected end,'stand, 27 rotor poses, 2 blur, 2 medallions, 4 flappers, 2 chip stacks')
-assert(C.isActive() and view.extra.kind=='fortune' and findProp('fortune_stand'))
+assert(C.isActive() and findProp('fortune_stand'))
 local function near(a,b,tol) return math.abs(a-b)<(tol or 1e-6) end
 local function at(name,y) local p=assert(findProp(name),name);return near(p.position.y,y*S,1e-4) end
 -- At rest: pose 0 in the drum, all other poses parked behind it.
@@ -59,22 +61,32 @@ assert(at('fortune_blur_0',PARK) and at('fortune_blur_1',PARK) and at('fortune_f
 local eye=findProp('fortune_eye');assert(near(eye.position.x,0,1e-4) and near(eye.position.z,(WZ+.42)*S,1e-4),'eye medallion on top of the rest pose')
 assert(findProp('fortune_chips_2') and findProp('fortune_chips_1'),'stacks for 40 and 3')
 assert(near(findProp('fortune_chips_2').position.x,.2*S,1e-4),'20x stack on its spot')
--- Placing a bet is an explicit panel action; a felt click only selects a spot.
+-- The game view opens on the whole wheel above the felt.
+assert(focus and camera and frozen and view.view=='wheel' and #view.views==4 and view.views[4].key=='free' and cameraSpec.lookAt)
+-- Bets open: the seven spots are marked faintly on the felt.
+waitUntil(function() return marks()==28 end,'fortune spots marked')
+-- Bets: a click on a felt spot selects it, the bar (tools/test-table-menu.py)
+-- bets its chip on the selection.
+local Fortune=LightRpCasinoFortuneClient
+assert(Fortune.chip()==10 and not Fortune.setChip(0) and not Fortune.setChip(1001) and Fortune.setChip(25) and Fortune.chip()==25)
 local before=#requests
-pageHandlers['lightrp:tabletop:action']({operation='bet',data={spot='5',amount=25}})
-assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.spot=='5')
-pageHandlers['lightrp:tabletop:action']({operation='steal',data={}});assert(#requests==before+1)
-forcedRay={origin={x=-.2*S,y=-.68*S,z=3},direction={x=0,y=0,z=-1}}
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,pressed=true})
-pageHandlers['lightrp:boardGames:pointer']({x=.5,y=.5,released=true})
-for i=1,4 do step() end;forcedRay=nil
-assert(#requests==before+1,'a click never wagers money')
-assert(view.extra.picked=='5' and view.extra.pickSerial==1,'felt click picks the 5x spot')
+assert(E.command(wheel,'bet',{spot='5',amount=25}) and #requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.spot=='5')
+assert(not E.command(wheel,'steal',{}) and #requests==before+1)
+-- The cursor outlines the hovered spot; a click selects it (outlined too) and wagers nothing.
+forcedRay={origin={x=.2*S,y=-.68*S,z=3},direction={x=0,y=0,z=-1}};pointer({x=.6,y=.7});step()
+assert(batches['boardGames:preview'] and #batches['boardGames:preview'].lines==4,'hovered spot outlined')
+pointer({x=.6,y=.7,pressed=true});step();pointer({x=.6,y=.7,released=true});for i=1,4 do step() end
+assert(#requests==before+1 and E.selection(wheel).key=='20' and E.selection(wheel).label==F.LABEL['20'],'a click selects the 20x spot')
+forcedRay={origin={x=.2*S,y=0,z=3},direction={x=0,y=0,z=-1}};pointer({x=.6,y=.2});step()
+assert(#batches['boardGames:preview'].lines==4,'the selection stays outlined')
+pointer({x=.6,y=.2,pressed=true});step();pointer({x=.6,y=.2,released=true});step();forcedRay=nil
+assert(#requests==before+1 and E.selection(wheel).key=='20','a click off the spots changes nothing')
 -- The server spins: segment 13 (20x), two laps, from rest 0.
 local spun=assert(F.spin(g,{outcome=13,laps=2,nowMs=now+1000,roundKey='k'}))
 wheel.game=F.view(spun,'a');wheel.revision=2;wheel.serverNow=now+1000
 local origin=clock
 events['lightrp:boardGames:state']({boards={wheel}});step()
+for i=1,4 do step() end;assert(marks()==0,'no marks while the wheel spins')
 local spin=wheel.game.spin
 local function serverAt(ms) clock=origin+ms;return E.pieceTargets(wheel) end
 local function active(t,prefix)
@@ -132,8 +144,8 @@ for i=1,40 do step() end
 clock=origin+full.spin.spinMs;for i=1,6 do step() end
 assert(countProps()==1+35+7+1,'all seven stacks plus the payout: '..countProps())
 for i=1,20 do step() end
-pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
+escape();assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step()end
-assert(next(nativeProps)==nil and next(batches)==nil and cinematic==false)
+assert(next(nativeProps)==nil and next(batches)==nil)
 print('fortune client: 38-44 native props per table, server-clock poses, flapper kicks, exact landing, chips, cleanup: OK; peak '..peakInstructions..' of '..BOARD_BUDGET)
 ''')

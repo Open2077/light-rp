@@ -2,7 +2,7 @@
 -- money here: the server passes shuffle seeds and the clock, and turns the
 -- settled hands into durable claims. Private state lives in "_" keys (the
 -- shoe, the dealer's hole card, stake owners) and never reaches a client.
-LightRpBoardGames.blackjack={item="blackjack_table",label="Blackjack Table",title="Blackjack",size=1}
+LightRpBoardGames.blackjack={item="blackjack_table",label="Blackjack Table",title="Blackjack",size=1,floor=0}
 LightRpItems.blackjack_table={label="Blackjack Table",description="Use to place the table. E: play; target menu: pick up your table.",weight=8,stack=1,icon="package",category="misc"}
 
 LightRpBlackjack={}
@@ -12,15 +12,46 @@ B.SEATS={"white","black","white2","black2"}
 B.MIN_BET,B.MAX_BET=5,5000
 B.DECKS=6
 B.RESERVE=78          -- cut card: reshuffle once fewer cards remain (75% penetration)
-B.BET_WINDOW=10000    -- countdown once the first bet is down
-B.DEAL_GAP=450        -- between two cards of the opening deal
-B.SLIDE=500           -- shoe to spot
-B.FLIP=300            -- face-down to face-up
-B.TURN=20000          -- idle player: automatic stand
-B.DRAW_GAP=1000       -- between two dealer cards
-B.CHIPS=700           -- chips to the rack / payout from the rack
-B.RESULT=7000         -- result on the felt before the next round
-B.SWEEP=1500          -- before the next round: cards to the discard tray
+-- Pacing (ms on the server clock). A real table breathes: cards come out of
+-- the shoe one by one, the dealer pauses before handing over the turn and
+-- before turning the hole card, draws one card at a time, and leaves the
+-- result on the felt before collecting. Every client animates from these
+-- timestamps, so they also decide what everyone sees and when.
+B.BET_WINDOW=15000    -- countdown once the first bet is down
+B.DEAL_GAP=800        -- between two cards of the opening deal
+B.SLIDE=600           -- shoe to spot
+B.FLIP=350            -- face-down to face-up
+B.DEAL_PAUSE=1000     -- after the opening deal, before the first turn
+B.TURN=25000          -- idle player: automatic stand
+B.REVEAL_PAUSE=1000   -- after the last decision, before the hole card turns
+B.DRAW_PAUSE=700      -- hole card face-up, before the dealer's first draw
+B.DRAW_GAP=1200       -- between two dealer cards (each one rests ~0.25 s)
+B.SETTLE_PAUSE=500    -- last dealer card face-up, before the result and the chips
+B.CHIPS=800           -- chips to the rack / payout from the rack
+B.CHIP_STAGGER=300    -- per seat, first base first, when the chips move at the result
+B.RESULT=6500         -- result on the felt before the next round (sweep included)
+B.SWEEP=2000          -- before the next round: cards to the discard tray
+
+-- The croupier NPC standing behind every placed table (server/modules/
+-- casino_blackjack.lua). `x`, `y` are board-local unscaled metres like the
+-- client adapter's coordinates (dealer side = +Y, behind the shoe, the chip
+-- rack and the wooden apron that ends at y=.26); the server applies the
+-- table's 0.65 scale and rotation, and turns the body to face the players.
+-- Records are tried in order until Open77.npcs.create accepts one: a game
+-- croupier first (the Kabuki street-story gambling den, base game), then the
+-- suited crowd faces the rental desks already spawn. No real-person likeness.
+-- `gesture`: a base-game "hands over the table" clip played while cards leave
+-- the shoe (nil turns the gesture off; see docs/casino-blackjack.md).
+B.DEALER={
+ x=0,y=.72,
+ candidates={
+  {record="Character.sts_wat_kab_07_croupiers"},
+  {record="Character.mws_hey_07_zetatech_executive"},
+  {record="Character.sts_hey_rey_06_receptionist"},
+ },
+ streamingRadius=60.0,
+ gesture="stand_table_lean0__2h_on_table__01__describe_front__01",
+}
 
 local function copy(t)
  if type(t)~="table" then return t end
@@ -112,18 +143,21 @@ function B.settleHand(hand,dealerCards)
  return 0,"lose"
 end
 
+-- `at` is when the last player's card has settled: the dealer waits
+-- REVEAL_PAUSE, turns the hole card, then draws one card at a time.
 local function finish(s,at)
  -- Reveal the hole card, draw to 17 (stand on all 17s), settle every hand.
  local d=s.dealer
  local hole=d.cards[2]
- if hole and s._hole then hole.c=s._hole;hole.h=nil;hole.f=at;s._hole=nil end
- local last=at+B.FLIP
+ local reveal=at+B.REVEAL_PAUSE
+ if hole and s._hole then hole.c=s._hole;hole.h=nil;hole.f=reveal;s._hole=nil end
+ local last=reveal+B.FLIP
  local live=false
  for _,hand in pairs(s.hands) do
   if hand.total<=21 and not (B.isBlackjack(hand.cards) and not hand.doubled) then live=true end
  end
  if live and not B.isBlackjack(d.cards) then
-  local t=at+B.FLIP+200
+  local t=reveal+B.FLIP+B.DRAW_PAUSE
   while B.total(d.cards)<17 do
    d.cards[#d.cards+1]={c=draw(s),t=t}
    last=t+B.SLIDE+B.FLIP;t=t+B.DRAW_GAP
@@ -131,7 +165,8 @@ local function finish(s,at)
  end
  refreshDealer(s)
  s.phase="result";s.seatTurn=nil;s.turnEndsAt=nil
- s.resultAt=last+300;s.nextAt=s.resultAt+B.RESULT;s.animEnd=last
+ -- resultAt is also when the claims become payable (server handler).
+ s.revealAt=reveal;s.resultAt=last+B.SETTLE_PAUSE;s.nextAt=s.resultAt+B.RESULT;s.animEnd=last
  s.result={dealer=d.total,bust=d.total>21,blackjack=B.isBlackjack(d.cards)}
  for _,hand in pairs(s.hands) do
   hand.payout,hand.result=B.settleHand(hand,d.cards);hand.done=true
@@ -169,7 +204,8 @@ local function deal(s,now,seed)
   t=t+B.DEAL_GAP
  end
  local ends=t-B.DEAL_GAP+B.SLIDE+B.FLIP
- s.actAt=ends;s.animEnd=ends
+ -- The cards settle, the dealer pauses, then the first player is asked.
+ s.actAt=ends+B.DEAL_PAUSE;s.animEnd=ends
  for _,seat in ipairs(order) do
   local hand=s.hands[seat];refresh(hand)
   if hand.total==21 then hand.done=true;hand.natural=true end
@@ -178,7 +214,7 @@ local function deal(s,now,seed)
  -- The dealer peeks under a ten or an ace: a natural ends the round at once.
  local up=B.cardValue(s.dealer.cards[1].c)
  if (up==10 or up==11) and B.total({s.dealer.cards[1].c,s._hole})==21 then return finish(s,ends) end
- return nextTurn(s,nil,ends)
+ return nextTurn(s,nil,s.actAt)
 end
 
 function B.legal(s,seat,now)
@@ -262,7 +298,7 @@ function B.settle(s,now,seed)
  -- Next round: the shoe carries over until the cut card.
  n.round=n.round+1;n.phase="betting";n.hands={};n.dealer={cards={},total=0}
  n.closesAt=nil;n.actAt=nil;n.resultAt=nil;n.nextAt=nil;n.seatTurn=nil;n.turnEndsAt=nil
- n.result=nil;n.dealtAt=nil;n.animEnd=nil;n._roundKey=nil;n._hole=nil
+ n.result=nil;n.dealtAt=nil;n.animEnd=nil;n.revealAt=nil;n._roundKey=nil;n._hole=nil
  if n._pos>n._cut then reshuffle(n,seed or 1,now) end
  publishShoe(n)
  return n

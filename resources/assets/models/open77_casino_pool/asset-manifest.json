@@ -1,0 +1,850 @@
+{
+  "version": "1.0.0",
+  "style": "Night City pool: carbon and black chrome 9 ft table, midnight-teal hex cloth, cyan rail light, chrome pocket irons, diamond lights, lit ball return; carbon cue; balls numbered on a top cap",
+  "namespace": "open77\\assets\\op77_lightrp\\casino_pool",
+  "models": [
+    {
+      "name": "pool_table",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_table.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_table.ent",
+      "triangles": 4808,
+      "materials": [
+        "cloth",
+        "cushion",
+        "carbon",
+        "chrome",
+        "liner",
+        "rubber",
+        "diamond",
+        "smoke",
+        "neon_cyan",
+        "body",
+        "black_chrome",
+        "gunmetal",
+        "neon_magenta"
+      ],
+      "bounds": {
+        "min": [
+          -2.1999999999999997,
+          -1.223076923076923,
+          0.0
+        ],
+        "max": [
+          2.1999999999999997,
+          1.223076923076923,
+          1.2484615384615383
+        ]
+      }
+    },
+    {
+      "name": "pool_cue",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_cue.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_cue.ent",
+      "triangles": 960,
+      "materials": [
+        "cue_tip",
+        "chrome",
+        "carbon",
+        "cue_glow",
+        "black_chrome",
+        "cue_wrap",
+        "neon_cyan",
+        "rubber"
+      ],
+      "bounds": {
+        "min": [
+          -2.2574245969855613,
+          -0.02292307692307692,
+          -0.008901340756164583
+        ],
+        "max": [
+          0.0006224423811014257,
+          0.02292307692307692,
+          0.17901442099472875
+        ]
+      }
+    },
+    {
+      "name": "pool_rack",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_rack.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_rack.ent",
+      "triangles": 72,
+      "materials": [
+        "black_chrome",
+        "chrome",
+        "neon_cyan"
+      ],
+      "bounds": {
+        "min": [
+          -0.09317944320300445,
+          -0.2682464267333533,
+          0.0
+        ],
+        "max": [
+          0.3714369968479658,
+          0.2682464267333533,
+          0.039999999999999994
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_0",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_0.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_0.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_white",
+        "ball_glow",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_1",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_1.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_1.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_1",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_2",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_2.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_2.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_2",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_3",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_3.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_3.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_3",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_4",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_4.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_4.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_4",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_5",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_5.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_5.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_5",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_6",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_6.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_6.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_6",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_7",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_7.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_7.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_7",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_8",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_8.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_8.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_8",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_9",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_9.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_9.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_white",
+        "ball_1",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_10",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_10.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_10.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_white",
+        "ball_2",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_11",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_11.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_11.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_white",
+        "ball_3",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_12",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_12.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_12.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_white",
+        "ball_4",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_13",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_13.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_13.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_white",
+        "ball_5",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_14",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_14.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_14.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_white",
+        "ball_6",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    },
+    {
+      "name": "pool_ball_15",
+      "mesh": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_15.mesh",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_15.ent",
+      "triangles": 1408,
+      "materials": [
+        "ball_white",
+        "ball_7",
+        "balls"
+      ],
+      "bounds": {
+        "min": [
+          -0.043961538461538455,
+          -0.043961538461538455,
+          -0.043961538461538455
+        ],
+        "max": [
+          0.043961538461538455,
+          0.043961538461538455,
+          0.043961538461538455
+        ]
+      }
+    }
+  ],
+  "colliders": [
+    {
+      "name": "pool_table_collider",
+      "for": "pool_table",
+      "entity": "open77\\assets\\op77_lightrp\\casino_pool\\pool_table_collider.ent",
+      "scaleBaked": 0.65,
+      "boxes": [
+        {
+          "size": [
+            4.3999999999999995,
+            2.446153846153846,
+            1.2369230769230768
+          ],
+          "center": [
+            0.0,
+            0.0,
+            0.6184615384615384
+          ]
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "name": "pool_cloth",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\pool_cloth.xbm",
+      "width": 2048,
+      "height": 1024,
+      "mips": 12,
+      "bytes": 11184812,
+      "sourceSha256": "4a6f0e7fcb545e6615fa1f1af69ffb8e479a14e48a06b27ccaf17207d25f11a7"
+    },
+    {
+      "name": "pool_cloth_glow",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\pool_cloth_glow.xbm",
+      "width": 1024,
+      "height": 512,
+      "mips": 11,
+      "bytes": 2796204,
+      "sourceSha256": "03ee6023445eea5d446f319cb731acba071324c806bb4d2218270a1b12a952d3"
+    },
+    {
+      "name": "pool_balls",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\pool_balls.xbm",
+      "width": 1024,
+      "height": 1024,
+      "mips": 11,
+      "bytes": 5592404,
+      "sourceSha256": "11be48a45d226cd92ed13f6134376220b7fd0ca516a0ce62f585a4895021f9c5"
+    },
+    {
+      "name": "weave",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\weave.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "88d5a96aaa08da186a0bc899a59f4731ecf87c223b04c0909793337048352b8a"
+    },
+    {
+      "name": "carbon",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\carbon.xbm",
+      "width": 512,
+      "height": 512,
+      "mips": 10,
+      "bytes": 1398100,
+      "sourceSha256": "2aaee4e8f798d294eadbb61588a7acd221a3289840a2902980228248d506b41c"
+    },
+    {
+      "name": "brushed",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\brushed.xbm",
+      "width": 256,
+      "height": 256,
+      "mips": 9,
+      "bytes": 349524,
+      "sourceSha256": "f48b53fddc07b81f1882afcabeeb275b971a6db539d4b03fbfb0a373f2fff054"
+    }
+  ],
+  "files": [
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_0.ent",
+      "sha256": "4867318486eda48051819af2a1b36c9d79b936bdd58cab76bd04a9e3e2ffbf85",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_0.mesh",
+      "sha256": "4e904d7dd5d5cf1ea3c2efadb590fe73f5875ee4800201eaf4ff56bce75800b7",
+      "bytes": 30553
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_1.ent",
+      "sha256": "a8bfc30e666665565a5d294c3e535f9738e0f29e621a6405de095362dac748cd",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_1.mesh",
+      "sha256": "023defa6c406da72acd8f58dbdd7124e35ab4b1043f68854cb3cd6b681e63a6e",
+      "bytes": 29545
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_10.ent",
+      "sha256": "3c0de5bbd03e3488c369917b8194ad0200d80eca426eb5a8b2d93fde08a18599",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_10.mesh",
+      "sha256": "1a6c9684e923dda46f2f202aa235ac131f9d314fd01cd97297a30273cf6b58cb",
+      "bytes": 28481
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_11.ent",
+      "sha256": "c4dcdf026037173e89a0774c183a312ad7d2b0b6fcd3313896ab2fb0b60612f9",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_11.mesh",
+      "sha256": "3e87edc013d4c5fa2985419bcdbe97ff6557db94ea0a15bd8cd23879e661004a",
+      "bytes": 28467
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_12.ent",
+      "sha256": "0ed7c2b8c75004c6fc4e30cc3a349dd88fa3f9cd4d79e52063250769666e8d59",
+      "bytes": 13686
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_12.mesh",
+      "sha256": "d2ff9f8f2b8f053c0683b5a73c5a9ff709317ffc8a469e2af3a93045bfe18f6a",
+      "bytes": 28523
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_13.ent",
+      "sha256": "785b5a706d15614cec14520c21ecee83b2e977d134cb00497a9102481c6d775b",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_13.mesh",
+      "sha256": "92c4b00ddabe27ce904ab131dd3d4ef5efdf51e494d003e553d8cf54e1b0d2f8",
+      "bytes": 28533
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_14.ent",
+      "sha256": "b37746c65c21e75b4664f4b7ba1ac3c068b19fcf867faeffd3cb4160b92955fc",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_14.mesh",
+      "sha256": "ff3a618c848044009e63039fc96b6fff59fa854146dff4ef72073b7de4483cac",
+      "bytes": 28520
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_15.ent",
+      "sha256": "a49d388e1b661e0751b8709cdd4fb3b198586e475b0d7293d26e8974e49f4765",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_15.mesh",
+      "sha256": "c093c7f0c601111c49635dfadb2b5ea0125b22f5e09dac85c1671dcd77882982",
+      "bytes": 28510
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_2.ent",
+      "sha256": "841917bab76784b49eba64aa89d112164d2e0a5f73177572f4257bdbb5443084",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_2.mesh",
+      "sha256": "18f14f752f8cc0a5e9a4d31215ff8712d409553d527c80f9928583bcbf1185be",
+      "bytes": 29669
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_3.ent",
+      "sha256": "c1fc76bb3c2c626aeb38dc9465e57fab683db11c70a9ea93bead8cada0a10812",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_3.mesh",
+      "sha256": "bc4bdecc244466b84f5d43726c16f4ef2a955db7640753a961dd5534155db760",
+      "bytes": 29469
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_4.ent",
+      "sha256": "a95a523bccdb44f7d806afd7fe1c262345cc1659521261a296eb41bd64686563",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_4.mesh",
+      "sha256": "d636a6beb37d69605d8f7b72db2428dcd682a0483f24b182c19f311b2998f490",
+      "bytes": 29518
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_5.ent",
+      "sha256": "73893910f16ac3e3ece6ec3fe4f98bd008dc232037f956cde73f9c13a8c989c3",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_5.mesh",
+      "sha256": "0da80f8eda59dead05ace4a61cd448a5aa05ef5f3d6ab859a26f9f6392279927",
+      "bytes": 29550
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_6.ent",
+      "sha256": "fc12e3dc1627bdae91c4a5f6d8f199a11a28cabe6c950187ead73dd3f646ec4f",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_6.mesh",
+      "sha256": "f9d655d6fe92734eef31d59faab3cd96fa9b08b0fd29c5c2e8605f6eff35e639",
+      "bytes": 29482
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_7.ent",
+      "sha256": "e4e5c4c055c83915c20d3960b153da7b8cc095437639fa386660ad1b93e848e8",
+      "bytes": 13688
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_7.mesh",
+      "sha256": "ce4091ba9378bfe3443199b4ee899f580af3e5c434d77d39c4df7cfba4ce012a",
+      "bytes": 29663
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_8.ent",
+      "sha256": "669f8a8ffd7444d042feb36e9f19c81e434331aa8f30194126f84f4570067cd3",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_8.mesh",
+      "sha256": "633a977fb197a0c29f464751315704658c18fabe056c3eb9ea04e8d8776eea20",
+      "bytes": 29756
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_9.ent",
+      "sha256": "02a848e3202046c57a901d6f99415e2e37e3cc528bcbf6691bae288571c304da",
+      "bytes": 13687
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_ball_9.mesh",
+      "sha256": "44ccc7ce403ce1cbbc2ae3cbb94d0e6953447a6c543603f4f50b2de800b28c4c",
+      "bytes": 28463
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_cue.ent",
+      "sha256": "a15b3cc88d7c46040d117118158d3ecb7e1751c12efb1d4c4e2d7deb63cab51d",
+      "bytes": 13680
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_cue.mesh",
+      "sha256": "31855a27876a4e4c43febc77e3d1d87c54583c36a3f288110fcb4ee7d131892c",
+      "bytes": 23227
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_rack.ent",
+      "sha256": "c12054f4cdb2500ec89cb49281b7571f3c40b8b0d57ac9382cf06fbe509359da",
+      "bytes": 13683
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_rack.mesh",
+      "sha256": "92cdd2a0f85d8cfc1c3f74ad4af1f96631542f5b4eb49115f972cdc47b4c9bc0",
+      "bytes": 7549
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_table.ent",
+      "sha256": "1dffc5c598cfe3f86b27c0c4f47ae962a61ca1be1e98a7a866a4361c75aa7153",
+      "bytes": 13683
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_table.mesh",
+      "sha256": "ff4af306a9e200752b65a87911e4f0c0263452970369436dcbd30c7ed9c20b9b",
+      "bytes": 71068
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\pool_table_collider.ent",
+      "sha256": "deb831c60798d90add414242e0c19c0b743f8c83d30e3f311794b7fac4231cac",
+      "bytes": 14088
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\brushed.xbm",
+      "sha256": "dc26c4073b9abdd74bf419a52b3848abe2543b0a7abbc85e81571c8844e5eaf8",
+      "bytes": 61460
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\carbon.xbm",
+      "sha256": "e10dd705dc80d468d5e2874c9133896355c932da404ea1fcaf950f7350563cc4",
+      "bytes": 18969
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\pool_balls.xbm",
+      "sha256": "78c7f2e7a63542853a4964f3fe38eb7f38cd40057d1e848a994b3147e7c590c7",
+      "bytes": 114190
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\pool_cloth.xbm",
+      "sha256": "f7e558481a90c4a40a3d4a784febc90b77d0be3a2afefd7235937cc713eb2d06",
+      "bytes": 1771730
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\pool_cloth_glow.xbm",
+      "sha256": "97d1f123e9432a9ec6290e142f25e6916a0532baaf8cabb63cbb359a0f33e983",
+      "bytes": 11698
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_pool\\textures\\weave.xbm",
+      "sha256": "6a194f225165b9135513102f8fceadc97821928ae1b20f656499bdad89e2908c",
+      "bytes": 24728
+    }
+  ],
+  "layout": {
+    "scale": 0.65,
+    "authoredAt": 1.5384615384615383,
+    "cloth": [
+      2.54,
+      1.27
+    ],
+    "ball": 0.028575,
+    "bed": 0.76,
+    "railTop": 0.804,
+    "nose": 0.7965,
+    "outer": [
+      1.43,
+      0.795
+    ],
+    "tray": {
+      "x": 1.375,
+      "y0": -0.43,
+      "z": 0.605,
+      "step": 0.05865
+    },
+    "parkCueX": 0.73,
+    "spine": [
+      -0.95,
+      0.95,
+      -0.22,
+      0.22
+    ],
+    "cueLength": 1.47,
+    "cueTilt": 4.0
+  },
+  "emission": {
+    "cloth": {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "ev": 1.2
+    },
+    "neon_cyan": {
+      "rgb": [
+        40,
+        230,
+        255
+      ],
+      "ev": 3.0
+    },
+    "neon_magenta": {
+      "rgb": [
+        255,
+        46,
+        196
+      ],
+      "ev": 1.2
+    },
+    "diamond": {
+      "rgb": [
+        150,
+        240,
+        255
+      ],
+      "ev": 3.5
+    },
+    "ball_glow": {
+      "rgb": [
+        60,
+        236,
+        255
+      ],
+      "ev": 3.0
+    },
+    "cue_glow": {
+      "rgb": [
+        255,
+        46,
+        196
+      ],
+      "ev": 3.0
+    }
+  },
+  "archiveSha256": "778f678ee853fa3fcb57ec2c5ff8fd53e6ab6efcc64d1ae7e8db3a4aa95d286f",
+  "zipSha256": "5b56959bb9c8d73dd44ece2fc3d73d83c468c73d59c3f4b77533f98191e7d450",
+  "buildWork": "/home/dop42/.cache/tables-pool/build",
+  "materialDependencies": [
+    "engine\\materials\\metal_base.remt",
+    "engine\\textures\\editor\\white.xbm"
+  ]
+}

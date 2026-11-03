@@ -9,7 +9,12 @@
 --     due=function(b,now) return bool end,                -- optional timed settlement...
 --     settle=function(b,now) return game,queries end,     -- ...run by the board loop
 --     openPlay=true,                                      -- anyone seated nearby may act
+--     modes={duel=true,solo=true},                        -- optional; the board modes the owner may pick
+--     placed=function(b) end,                             -- optional: the table exists (placed, or loaded at start)
+--     removed=function(b) end,                            -- optional: the table was picked up
 --   })
+-- placed/removed run after the durable write (or the start-up load) and must
+-- not yield or fail the caller: they are protected and only logged.
 -- Helpers for handlers: X.now, X.copy, X.stake, X.claimQueries, X.strip.
 local X={};LightRP.tabletopExtra=X
 X.games={}
@@ -61,6 +66,15 @@ function X.refunds(b)
  if h and h.refunds then return h.refunds(b) end
  return {}
 end
+-- World presence of a table (e.g. the blackjack dealer NPC). Never raises.
+local function lifecycle(hook,b)
+ local h=type(b)=="table" and X.games[b.kind]
+ if not h or type(h[hook])~="function" then return end
+ local ok,why=pcall(h[hook],b)
+ if not ok then LightRP.log("tabletop_extra %s hook failed board=%s kind=%s: %s",hook,tostring(b.id),tostring(b.kind),tostring(why)) end
+end
+function X.placed(b) lifecycle("placed",b) end
+function X.removed(b) lifecycle("removed",b) end
 function X.act(player,b,operation,data,commit)
  local h=X.games[b.kind];if not h then return false,"Unknown table." end
  local seat=seatOf(b,player)

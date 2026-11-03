@@ -23,5 +23,9 @@ LightRpSupportConfig = {
         kick = "command.admin.moderate.kick",
         ban = "command.admin.moderate.ban",
         announce = "command.lightrp.announce",
+        -- Placed tables (board games, casino tables): list + go to, and removal.
+        tables = "command.lightrp.tables",
+        tableTeleport = "command.lightrp.tables",
+        tableDelete = "command.lightrp.tabledelete",
     },
 }

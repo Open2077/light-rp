@@ -1,7 +1,7 @@
 -- Fortune Wheel (a "big six" money wheel): item, kind and pure rules.
 -- No randomness and no wallet access here: the server picks the segment and
 -- moves money; clients only animate the deterministic spin geometry.
-LightRpBoardGames.fortune={item="fortune_wheel",label="Fortune Wheel",title="Fortune Wheel",size=1}
+LightRpBoardGames.fortune={item="fortune_wheel",label="Fortune Wheel",title="Fortune Wheel",size=1,floor=0}
 LightRpItems.fortune_wheel={label="Fortune Wheel",description="Use to place the money wheel. E: play; target menu: pick up your wheel.",weight=5,stack=1,icon="package",category="misc"}
 
 LightRpCasinoFortune={}

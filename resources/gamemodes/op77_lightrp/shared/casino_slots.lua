@@ -1,6 +1,6 @@
 -- Slot machine: inventory item, table kind and pure deterministic rules.
 -- No randomness here: the server picks the reel stops and passes them in.
-LightRpBoardGames.slots={item="slot_machine",label="Slot Machine",title="Slot Machine",size=1}
+LightRpBoardGames.slots={item="slot_machine",label="Slot Machine",title="Slot Machine",size=1,floor=0}
 LightRpItems.slot_machine={label="Slot Machine",description="Use to place the machine. E: play; target menu: pick up your machine.",weight=8,stack=1,icon="package",category="misc"}
 
 LightRpCasinoSlots={}

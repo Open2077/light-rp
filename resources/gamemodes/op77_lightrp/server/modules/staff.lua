@@ -69,18 +69,19 @@ local function parseTarget(source, value)
     return id
 end
 
--- Alive: teleport. Dead: respawn there. `callback(ok, reason)`.
-function Staff.moveTo(playerId, position, heading, callback)
+-- Alive: teleport. Dead: respawn there. `callback(ok, reason)`. `bucket`
+-- (optional): the routing bucket to land in; nil keeps the current one.
+function Staff.moveTo(playerId, position, heading, callback, bucket)
     local life = Open77.players.getLifeState(playerId)
     if life == nil then return callback(false, "player_not_found") end
     if life.phase == "dead" then
         return callback(Open77.players.respawn(playerId, {
-            position = position, heading = heading or 0, bucket = life.bucket or 0,
+            position = position, heading = heading or 0, bucket = bucket or life.bucket or 0,
             health = Config.spawn.health, graceMs = Config.spawn.graceMs,
         }))
     end
     CreateThread(function()
-        local promise, reason = Open77.players.teleport(playerId, position, { heading = heading or 0, dismount = true })
+        local promise, reason = Open77.players.teleport(playerId, position, { heading = heading or 0, dismount = true, bucket = bucket })
         if promise == nil then return callback(false, reason) end
         local placed, why = promise:await()
         callback(placed ~= nil and placed ~= false, why)

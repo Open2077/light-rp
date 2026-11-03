@@ -10,7 +10,10 @@
         "command.lightrp.tp",
         "command.lightrp.goto",
         "command.lightrp.bring",
-        "command.lightrp.status"
+        "command.lightrp.status",
+        // Placed tables: list + go to (/admin > Placed tables, /lightrp.tables). Removal
+        // is command.lightrp.tabledelete (moderator/operator through command.lightrp.*).
+        "command.lightrp.tables"
       ]
     },
     {

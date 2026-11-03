@@ -210,6 +210,8 @@
     if (!opened || p.epoch !== epoch) return;
     busy = false; currentSubmenu = null;
     targetHead = describeTarget(p.target, p.distance);
+    // A dynamic-rows provider may name what was clicked (e.g. a game table).
+    if (typeof p.title === 'string' && p.title) targetHead.head = p.title.slice(0, 40).toUpperCase();
     menuRows = Array.isArray(p.actions) ? p.actions : [];
     renderRows();
   });

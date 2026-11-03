@@ -37,3 +37,10 @@ export interface Profile extends Person {firstName?:string;lastName?:string;birt
 export const list = <T,>(v:T[]|undefined):T[] => Array.isArray(v) ? v : [];
 export const label = (value:string) => ({open:"Waiting for staff",in_progress:"In progress",waiting_player:"Waiting for player",resolved:"Resolved",closed:"Closed"}[value] || value.replaceAll("_"," "));
 export const date = (at:number) => Number.isFinite(at) ? new Date(at).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
+/** A placed table as the staff desk lists it (server/modules/board_games_admin.lua): flat, scalars only. */
+export interface PlacedTable {
+  id:string; kind:string; title:string; owner:string; inventory:string; online?:number;
+  x:number; y:number; z:number; bucket:number; revision:number; placedAt?:number; distance?:number;
+  seated:string; seatedCount:number; phase:string; stakes?:number; resolving?:string; busy?:boolean;
+}
+export interface TableList { tables:PlacedTable[]; page:number; pageSize:number; total:number; pendingReturns:number; canTeleport:boolean; canDelete:boolean }

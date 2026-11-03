@@ -42,7 +42,7 @@ function I.isCaptured() return captured end
 function I.keyFor(id) return mappings[id] and mappings[id].key end
 function I.axis(name) return axes[name] end
 function I.isDown(key) return pressed[key] or false end
-dofile("client/core/freecam.lua")
+dofile("client/core/freecam_motion.lua");dofile("client/core/freecam.lua")
 local F=LightRpFreecam
 F.bind({on=function(_,name,fn) callbacks[name]=fn end})
 local function key(name) return mappings[settings.keys[name].id] end

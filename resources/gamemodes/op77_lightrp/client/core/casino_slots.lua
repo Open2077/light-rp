@@ -13,10 +13,10 @@ local Extra=LightRpTabletopExtraClient
 local S=LightRpCasinoSlots
 local DEPOT="open77\\assets\\op77_lightrp\\casino_slots\\"
 local L={
- paylineZ=1.33,pitch=.085,stripY=-.33,reelX={-.22,0,.22},reelWidth=.20,
- leverAngles={0,17,34,51,68,85},leverPivot={.55,0,1.35},leverLength=.45,
- leverPark={-.14,.16,0},lampPark={0,.15,-.32},
- chuteY=-.37,chuteZ=.73,trayY=-.44,trayZ=.574,coinPark={0,.2,.4},
+ paylineZ=1.66,pitch=.085,stripY=-.365,reelX={-.22,0,.22},reelWidth=.20,
+ leverAngles={0,17,34,51,68,85},leverPivot={.56,-.04,1.64},leverLength=.50,
+ leverPark={-.30,.34,0},lampPark={0,.40,-.45},
+ chuteY=-.425,chuteZ=1.06,trayY=-.47,trayZ=.94,coinPark={0,.2,.4},
 }
 LightRpCasinoSlotsLayout=L
 local N=S.STOPS
@@ -68,12 +68,24 @@ local function coinCount(spin)
  local m=gross/bet
  return m>=50 and 4 or m>=10 and 3 or m>=2 and 2 or 1
 end
+local function me()
+ local state=Open77.network.status();return state and tonumber(state.playerId)
+end
+-- The bet a lever click (or the bar's Pull) pulls with, chosen on the bar (client/core/table_bar.lua).
 local selectedBet=10
+LightRpCasinoSlotsClient={
+ bet=function() return selectedBet end,
+ setBet=function(amount)
+  if type(amount)=="number" and amount==floor(amount) and amount>=S.MIN_BET and amount<=S.MAX_BET then selectedBet=amount;return true end
+  return false
+ end,
+}
 local function pullLever(board)
  return Extra.command(board,"pull",{bet=selectedBet})
 end
 -- Closest distance between the pointer ray and the lever arm (board-local metres).
 local function onLever(board,event)
+ if event.x==nil or event.y==nil then return false end
  local ray=Open77.camera.screenRay(event.x,event.y,15)
  if type(ray)~="table" or type(ray.origin)~="table" or type(ray.direction)~="table" then return false end
  local p=L.leverPivot
@@ -101,6 +113,9 @@ Extra.register("slots",{
   local stops=game.stops or {0,0,0}
   local t=spin and Extra.serverTime(board)-(tonumber(spin.at) or 0) or math.huge
   local put=Extra.put
+  -- Lever, reels, then the win lamp blink (2.4 s) and the coins; still otherwise.
+  if spin then Extra.animatingUntil(board,(tonumber(spin.at) or 0)+S.DURATION+2400) end
+  Extra.stillUntil(board,math.huge)
   for r=1,3 do
    local j=spin and reelIndex(spin,r,t) or (tonumber(stops[r]) or 0)+1
    put(result,"slot-reel-"..r,"slot_reel",MODELS.strip[r],L.reelX[r],L.stripY,L.paylineZ+j*L.pitch,0,SNAP)
@@ -137,43 +152,37 @@ Extra.register("slots",{
    put(result,"slot-coin-"..i,"slot_coin",MODELS.coin,x,y,z,COIN_YAW[i],SNAP)
   end
  end,
- -- Toolbar labels are the shared ones: "Overhead" = raised front view of the
- -- whole machine, "White side" = the player's seat at the reels, "Black side" =
- -- three-quarter view of the lever. Orbit keeps the shared orbit camera.
+ -- Toolbar views: the player's seat at the reels (default), a raised front
+ -- view of the whole machine, a three-quarter view of the lever.
+ views={{key="front",label="Reels"},{key="wide",label="Cabinet"},{key="lever",label="Lever"}},
  camera=function(board,view)
   local w=Extra.world
-  if view=="top" then return {position=w(board,.15,-2.9,2.2),lookAt=w(board,.06,0,1.4),fov=52} end
-  if view=="white" then return {position=w(board,0,-1.25,1.36),lookAt=w(board,0,0,1.3),fov=52} end
-  if view=="black" then return {position=w(board,1.7,-1.55,1.7),lookAt=w(board,.2,0,1.25),fov=52} end
+  if view=="wide" then return {position=w(board,.15,-2.9,2.2),lookAt=w(board,.06,0,1.4),fov=52} end
+  if view=="lever" then return {position=w(board,1.7,-1.55,1.85),lookAt=w(board,.3,0,1.45),fov=52} end
+  return {position=w(board,.1,-1.45,1.75),lookAt=w(board,.1,0,1.5),fov=52}
  end,
- view=function(board)
-  local game=board.game
-  local extra={}
-  for k,v in pairs(game) do extra[k]=v end
-  extra.seat=Extra.seat(board)
-  local spin=type(game.spin)=="table" and game.spin or nil
-  local stopped=not spin or Extra.serverTime(board)>=(tonumber(spin.endsAt) or 0)
-  extra.spinning=not stopped
-  extra.spin=nil
-  if not stopped then extra.stops=nil;extra.last=nil end -- never spoil the outcome in the panel
-  if spin and stopped then
-   local multiplier,label,symbols=S.evaluate(spin.stops)
-   extra.result={bet=spin.bet,gross=spin.gross,multiplier=multiplier,label=label,symbols=symbols,round=spin.round}
-  end
-  extra.paytable={three=S.THREE,twoCherries=S.TWO_CHERRIES,mixedFruit=S.MIXED_FRUIT,oneCherry=S.ONE_CHERRY,minBet=S.MIN_BET,maxBet=S.MAX_BET}
-  return {extra=extra,text="Set your bet, then pull the lever (click it) or press Pull. Backspace: leave."}
+ -- The lever, while this player may pull (at the lever, the reels at rest).
+ markKey=function(board)
+  local spin=type(board.game.spin)=="table" and board.game.spin
+  if tonumber(board.actor)~=me() or spin and Extra.serverTime(board)<(tonumber(spin.endsAt) or 0) then return nil end
+  return "pull"
+ end,
+ marks=function(board,line)
+  local p,w=L.leverPivot,Extra.world
+  local x0,x1,z0,z1,fy=p[1]-.045,p[1]+.045,p[3]-.025,p[3]+L.leverLength+.035,p[2]-.07
+  local a,b,c,d=w(board,x0,fy,z0),w(board,x1,fy,z0),w(board,x1,fy,z1),w(board,x0,fy,z1)
+  line(a,b);line(b,c);line(c,d);line(d,a)
  end,
  pointer=function(board,event)
-  if event.pressed and not event.blocked and onLever(board,event) then pullLever(board) end
-  return true -- the panel or the lever; a stray click never wagers
+  -- The lever is an action, not a betting spot: a click on it pulls with the bar's bet.
+  if event.pressed and onLever(board,event) then pullLever(board) end
+ end,
+ -- Outline the lever while the cursor is on it.
+ aim=function(board,x,y,line)
+  if not onLever(board,{x=x,y=y}) then return end
+  local p,w=L.leverPivot,Extra.world
+  local x0,x1,z0,z1,fy=p[1]-.05,p[1]+.05,p[3]-.03,p[3]+L.leverLength+.04,p[2]-.07
+  local a,b,c,d=w(board,x0,fy,z0),w(board,x1,fy,z0),w(board,x1,fy,z1),w(board,x0,fy,z1)
+  line(a,b);line(b,c);line(c,d);line(d,a)
  end,
 })
--- The page reports the chosen bet so a click on the lever can pull with it.
-local bind=Extra.bind
-function Extra.bind(page)
- bind(page)
- page:on("lightrp:slots:bet",function(payload)
-  local amount=type(payload)=="table" and tonumber(payload.amount)
-  if amount and amount==floor(amount) and amount>=S.MIN_BET and amount<=S.MAX_BET then selectedBet=amount end
- end)
-end

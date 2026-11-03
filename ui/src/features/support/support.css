@@ -12,3 +12,4 @@
 @media(max-width:1150px){.rp-support{gap:10px;max-width:calc(100vw - 48px)}.rp-support__panel{width:360px}.rp-support__record,.rp-support__form,.rp-support__action{padding:15px}}
 @media(max-height:800px){.rp-support__panel{max-height:calc(100vh - 48px)}.rp-support .o77-rage__desc{max-height:65px}.rp-support .o77-rage__banner{padding:16px 20px 13px}}
 @media(prefers-reduced-motion:reduce){.rp-support{animation:none}}
+.rp-support__check span{display:flex;align-items:center;gap:8px}.rp-support__check input{width:auto}

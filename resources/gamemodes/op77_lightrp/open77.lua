@@ -18,11 +18,12 @@ dependencies {
     "open77_casino_slots >=1.0.0",
     "open77_casino_blackjack >=1.0.0",
     "open77_casino_fortune >=1.0.0",
+    "open77_casino_pool >=1.0.0",
     "open77_chat >=0.5.0",
     "open77_notifications >=1.0.0",
     "open77_vehicles >=0.1.0",
     "open77_voice >=0.1.0",
-    "open77_contextmenu >=1.2.0",
+    "open77_contextmenu >=1.3.0",
     "open77_animations >=1.0.0",
     "open77_icons >=1.0.0",
     "open77_weapons >=0.2.0",
@@ -44,6 +45,7 @@ shared_script "shared/tabletop_extra_rules.lua"
 shared_script "shared/casino_slots.lua"
 shared_script "shared/casino_blackjack.lua"
 shared_script "shared/casino_fortune.lua"
+shared_script "shared/casino_pool.lua"
 shared_script "shared/medical.lua"
 shared_script "shared/armament.lua"
 shared_script "shared/grenades.lua"
@@ -71,6 +73,7 @@ server_script "server/modules/tabletop_extra.lua"
 server_script "server/modules/casino_slots.lua"
 server_script "server/modules/casino_blackjack.lua"
 server_script "server/modules/casino_fortune.lua"
+server_script "server/modules/casino_pool.lua"
 server_script "server/modules/board_games.lua"
 server_script "server/modules/armament_store.lua"
 server_script "server/modules/armament.lua"
@@ -132,6 +135,7 @@ server_script "server/config/housing.lua"
 server_script "server/modules/housing_store.lua"
 server_script "server/modules/housing.lua"
 server_script "server/modules/housing_admin.lua"
+server_script "server/modules/board_games_admin.lua" -- staff: placed tables list / go to / remove (/admin, /lightrp.tables)
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"
@@ -168,11 +172,15 @@ server_script "server/main.lua"
 -- Client: core first, then modules.
 client_script "client/core/ui.lua"
 client_script "client/core/control_claims.lua"
+client_script "client/core/freecam_motion.lua" -- the flight step of the free camera and of the tables' free view
 client_script "client/core/tabletop_extra.lua"
 client_script "client/core/casino_slots.lua"
 client_script "client/core/casino_blackjack.lua"
 client_script "client/core/casino_fortune.lua"
+client_script "client/core/casino_pool.lua"
 client_script "client/core/board_games.lua"
+client_script "client/core/table_menu.lua" -- the ALT menu of every table: management rows and notices (after board_games and the casino adapters)
+client_script "client/core/table_bar.lua" -- the game view's bottom bar, per game (after table_menu)
 client_script "client/core/safezones.lua"
 client_script "client/core/vanilla_safe_areas.lua" -- the game's own safe areas stay off
 client_script "client/core/safezone_tile.lua" -- the green tile by the voice plate (web/safezone/)
@@ -280,8 +288,9 @@ permissions {
     "voice.client",        -- guided setup through the trusted preference owner
     "network.client",      -- local player ID + authenticated account for animation state/preferences
     "input.actions",
+    "session.menus",        -- Open77.session.isMenuOpen: table keys (and the free camera) ignore input under a menu
     "webui.keep_input",     -- the F1 menu takes the keyboard while the player keeps walking
-    "world.npcs",           -- rental desks are NPCs
+    "world.npcs",           -- rental desks, blackjack croupiers (create, setAIEnabled, setTransform, tasks.playAnimation/clear) are NPCs
     "world.markers",        -- native 3D markers at rental desks and the raid's strike telegraphs
     "world.debug",          -- staff-only draft boundary preview, authored missions' perimeter walls, board-game axis/square lines
     "world.query",          -- mission editor aimRay; board placement and pointer projection
