@@ -1,20 +1,27 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { emit, on, sendAction } from "@/bridge/open77";
 import { PAGE_EVENTS, type GuideDialogPayload, type GuideTopicSummary } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
 import { Icon, Keycap, cx } from "@/design/components";
 import {
-  normalizeIndex, parseInline, plainText, searchGuide, toBlocks, topicOf, topicQuestions, useGuideFeed,
-  type GuideAction, type GuideInline, type GuideMessage, type GuideQuestion, type GuideSearchRow,
+  normalizeIndex, plainText, searchGuide, toBlocks, topicOf, topicQuestions, useGuideFeed,
+  type GuideAction, type GuideMessage, type GuideQuestion, type GuideSearchRow,
 } from "./model";
+import { Rich } from "./rich";
+import { normalizeOpening, useTalkFeed } from "./talk";
+import { TalkView, type FaqStart } from "./TalkView";
+import { useGuideActions, type GuideActions } from "./useGuideActions";
 import "./guide.css";
 
 /* Johnny at The Crossing (server/modules/guide.lua): E "Talk to Johnny" or ALT + click
-   opens the `guide` dialog with the topic index. Topics come on demand, the search
-   index right after the dialog. Topics → questions → answer, with breadcrumbs, Back,
-   a search over every question, follow-ups and buttons that do real things (a GPS
-   route, the activities panel, the job guide, F1 sections). Keyboard: ↑↓ choose,
-   Enter open, Backspace / ← / right-click back, Esc close; typing searches. */
+   opens the `guide` dialog. With a dialogue in it (server/modules/guide_dialogue.lua)
+   Johnny talks first (TalkView.tsx); one choice away, or without a dialogue, the FAQ
+   below. Topics come on demand, the search index right after the dialog. Topics →
+   questions → answer, with breadcrumbs, Back, a search over every question,
+   follow-ups and buttons that do real things (a GPS route, the activities panel, the
+   job guide, F1 sections). Keyboard: ↑↓ choose, Enter open, Backspace / ← /
+   right-click back (to the dialogue from where it opened the FAQ), Esc close; typing
+   searches. */
 
 type View = { kind: "home" } | { kind: "topic"; id: string } | { kind: "question"; topicId: string; id: string };
 
@@ -31,8 +38,13 @@ export function GuideDialog() {
   const dialog = useStore((s) => s.dialog);
   const close = useStore((s) => s.closeDialog);
   const receive = useGuideFeed((s) => s.receive);
-  // Always listening: the keys and the search index arrive right behind the dialog.
-  useEffect(() => on<GuideMessage>(PAGE_EVENTS.guide, (m) => receive(m)), [receive]);
+  const receiveTalk = useTalkFeed((s) => s.receive);
+  // Always listening: the keys, the dialogue's next nodes and the search index arrive
+  // right behind the dialog.
+  useEffect(() => on<GuideMessage>(PAGE_EVENTS.guide, (m) => {
+    receive(m);
+    if (m && typeof m === "object" && m.talk) receiveTalk(m.talk);
+  }), [receive, receiveTalk]);
   const visible = dialog?.kind === "guide";
   useEffect(() => {
     emit(PAGE_EVENTS.dialogState, { kind: "guide", open: visible });
@@ -43,7 +55,33 @@ export function GuideDialog() {
   }, [visible, close]);
   const index = useMemo(() => (dialog?.kind === "guide" ? normalizeIndex(dialog) : undefined), [dialog]);
   if (!index) return null;
-  return <GuideBody key={index.revision} index={index} onClose={close} />;
+  return <GuideRoot key={index.revision} index={index} onClose={close} />;
+}
+
+type Mode = { kind: "talk" } | { kind: "faq"; start?: FaqStart };
+
+/* The dialogue stays mounted under the FAQ (hidden), so going back to Johnny lands
+   on the line the player left. */
+function GuideRoot({ index, onClose }: { index: GuideDialogPayload; onClose(): void }) {
+  const opening = useMemo(() => normalizeOpening(index.talk), [index.talk]);
+  const [mode, setMode] = useState<Mode>(() => (opening ? { kind: "talk" } : { kind: "faq" }));
+  const actions = useGuideActions(onClose);
+  const liveKeys = useGuideFeed((s) => s.keys);
+  const keys = useMemo(() => ({ ...(index.keys ?? {}), ...liveKeys }), [index.keys, liveKeys]);
+  const faq = mode.kind === "faq";
+  const toFaq = (start: FaqStart) => { actions.setFeedback(undefined); setMode({ kind: "faq", start }); };
+  const toTalk = () => { actions.setFeedback(undefined); setMode({ kind: "talk" }); };
+  return <>
+    {opening && <TalkView index={index} opening={opening} keys={keys} active={!faq} actions={actions} onClose={onClose} onFaq={toFaq} />}
+    {mode.kind === "faq" && <GuideBody index={index} onClose={onClose} actions={actions} start={mode.start} onTalk={opening ? toTalk : undefined} />}
+  </>;
+}
+
+/** Where the FAQ opens: at a question (home → its topic → it), or on the search box. */
+function startStack(start: FaqStart | undefined, search: Record<string, GuideSearchRow>): View[] {
+  if (!start?.question) return [{ kind: "home" }];
+  const topicId = search[start.question]?.[1] ?? topicOf(start.question);
+  return [{ kind: "home" }, { kind: "topic", id: topicId }, { kind: "question", topicId, id: start.question }];
 }
 
 /* Ask the server for a topic the page does not hold yet: three tries, 1.2 s apart
@@ -70,7 +108,9 @@ function useTopic(topicId: string | undefined) {
   return { meta: cache?.meta, questions, missing, failed };
 }
 
-function GuideBody({ index, onClose }: { index: GuideDialogPayload; onClose(): void }) {
+function GuideBody({ index, onClose, actions, start, onTalk }: {
+  index: GuideDialogPayload; onClose(): void; actions: GuideActions; start?: FaqStart; onTalk?(): void;
+}) {
   const root = useRef<HTMLDivElement>(null);
   const searchBox = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -78,21 +118,14 @@ function GuideBody({ index, onClose }: { index: GuideDialogPayload; onClose(): v
   const liveKeys = useGuideFeed((s) => s.keys);
   const searchRows = useGuideFeed((s) => s.search);
   const cachedTopics = useGuideFeed((s) => s.topics);
-  const job = useStore((s) => s.state.job);
-  const openJobGuide = useStore((s) => s.openJobGuide);
-  const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
-  const result = useStore((s) => s.lastResult);
-  const [stack, setStack] = useState<View[]>([{ kind: "home" }]);
+  const [stack, setStack] = useState<View[]>(() => startStack(start, useGuideFeed.getState().search));
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
-  const [feedback, setFeedback] = useState<{ text: string; error: boolean }>();
-  const sent = useRef(0);
+  const { feedback, setFeedback } = actions;
+  // opened from the dialogue: Back from where it opened returns to Johnny
+  const entry = useRef(stack.length);
   useEffect(() => { ensure(index.revision); }, [ensure, index.revision]);
-  useEffect(() => { root.current?.focus(); }, []);
-  useEffect(() => {
-    if (!result || result.action !== "guide.gps" || result.at < sent.current) return;
-    setFeedback({ text: result.text, error: !result.ok });
-  }, [result]);
+  useEffect(() => { (start?.search ? searchBox.current : root.current)?.focus(); }, [start]);
 
   const keys = useMemo(() => ({ ...(index.keys ?? {}), ...liveKeys }), [index.keys, liveKeys]);
   const titles = useMemo(() => Object.fromEntries(index.topics.map((t) => [t.id, t.title])), [index.topics]);
@@ -124,6 +157,7 @@ function GuideBody({ index, onClose }: { index: GuideDialogPayload; onClose(): v
   };
   const back = () => {
     if (searching) { setQuery(""); return; }
+    if (onTalk && stack.length <= entry.current) { onTalk(); return; }
     if (stack.length > 1) { setStack((s) => s.slice(0, -1)); setFeedback(undefined); return; }
     onClose();
   };
@@ -140,25 +174,8 @@ function GuideBody({ index, onClose }: { index: GuideDialogPayload; onClose(): v
   useEffect(() => { list.current?.querySelector<HTMLElement>(`[data-index="${cursor}"]`)?.scrollIntoView({ block: "nearest" }); }, [cursor, listKey]);
   useEffect(() => { list.current?.scrollTo?.({ top: 0 }); }, [view]);
 
-  const runAction = (a: GuideAction) => {
-    switch (a.type) {
-      case "gps":
-        if (!a.target) return;
-        sent.current = Date.now();
-        setFeedback({ text: "Asking for a route…", error: false });
-        sendAction({ type: "guide.gps", target: a.target });
-        return;
-      case "activities": onClose(); sendAction({ type: "activities.control", operation: "open", tab: a.tab ?? "activities" }); return;
-      case "jobguide": onClose(); openJobGuide(job.name); return;
-      case "housing": onClose(); emit(PAGE_EVENTS.action, { type: "housing.open" }); return;
-      case "support": onClose(); emit(PAGE_EVENTS.support, { operation: "open", scope: "player" }); return;
-      case "animations": onClose(); emit(PAGE_EVENTS.animationsAction, { action: "open" }); return;
-      case "tutorial": onClose(); emit(PAGE_EVENTS.tutorial, { operation: "options" }); return;
-      case "briefing": onClose(); setWelcomeReplay(true); return;
-    }
-  };
-  const hasJobGuide = Array.isArray(job.guide) && job.guide.length > 0;
-  const available = (a: GuideAction) => (a.type === "jobguide" ? hasJobGuide : a.type in ACTION_LABEL);
+  const runAction = (a: GuideAction) => { actions.run(a); };
+  const available = (a: GuideAction) => a.type in ACTION_LABEL && actions.available(a.type);
 
   const say = view.kind === "home" ? index.greeting[0]
     : view.kind === "question" ? question?.say ?? topic.meta?.say ?? topic.meta?.blurb
@@ -189,7 +206,10 @@ function GuideBody({ index, onClose }: { index: GuideDialogPayload; onClose(): v
     }}>
     <header className="guide__bar">
       <span className="guide__bar-title"><Icon name="circle-help" size={15} />{(index.npc.tag ?? "THE CROSSING // GUIDE").toUpperCase()}</span>
-      <span className="guide__bar-route">FAQ · {index.topics.length} TOPICS<button aria-label="Close" onClick={onClose}><Icon name="x" size={15} /></button></span>
+      <span className="guide__bar-route">
+        {onTalk && <button className="guide__bar-talk" onClick={onTalk}><Icon name="message-circle" size={14} />TALK TO {index.npc.name.split(" ")[0]!.toUpperCase()}</button>}
+        FAQ · {index.topics.length} TOPICS<button aria-label="Close" onClick={onClose}><Icon name="x" size={15} /></button>
+      </span>
     </header>
 
     <div className="guide__split">
@@ -334,16 +354,4 @@ function Answer({ question, keys, cursor, actions, titleOf, labelOf, onOpen, onH
       </div>
     </>}
   </article>;
-}
-
-/* ---------- inline markup ---------- */
-
-function Rich({ text, keys }: { text: string; keys: Record<string, string> }) {
-  return <>{renderInline(parseInline(text), keys)}</>;
-}
-function renderInline(parts: GuideInline[], keys: Record<string, string>): ReactNode[] {
-  return parts.map((p, i) => p.kind === "text" ? <Fragment key={i}>{p.text}</Fragment>
-    : p.kind === "code" ? <code key={i} className="guide-code">{p.text}</code>
-    : p.kind === "bold" ? <strong key={i}>{renderInline(p.parts, keys)}</strong>
-    : <Keycap key={i} size="sm" className="guide-key">{keys[p.name] ?? p.name.toUpperCase()}</Keycap>);
 }

@@ -595,11 +595,14 @@ export type DialogPayload = MissionDialogPayload | RentalDialogPayload | Invento
   | RecapDialogPayload;
 
 /** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
- *  the search index and the topics follow as GuideMessage (features/guide/model.ts). */
+ *  the search index and the topics follow as GuideMessage (features/guide/model.ts).
+ *  `talk`: the dialogue's opening node (server/modules/guide_dialogue.lua), checked by
+ *  normalizeOpening (features/guide/talk.ts); without it the FAQ opens as before. */
 export interface GuideTopicSummary { id: string; title: string; icon?: string; blurb?: string; count: number }
 export interface GuideDialogPayload {
   kind: "guide"; revision: string; npc: { name: string; title?: string; tag?: string };
   greeting: string[]; topics: GuideTopicSummary[]; keys?: Record<string, string>;
+  talk?: { revision: string; root: string; node: unknown; farewell?: string };
 }
 
 export interface ActiveRental {
@@ -647,6 +650,8 @@ export type UiAction =
   | { type: "guide.open"; from?: string }
   | { type: "guide.topic"; id: string }
   | { type: "guide.gps"; target: string }
+  | { type: "guide.node"; id: string }
+  | { type: "guide.panel"; panel: "halloffame" }
   | { type: "customization.open"; vehicle: string; garage: string }
   | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
   | { type: "dealership.close"; session: string }

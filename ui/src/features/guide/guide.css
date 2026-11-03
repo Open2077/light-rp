@@ -17,6 +17,10 @@
 .guide__bar-title { display: flex; align-items: center; gap: var(--sp-5); font: var(--fw-semibold) 14px var(--font-mono); letter-spacing: var(--ls-label); }
 .guide__bar-route { display: flex; align-items: center; gap: var(--sp-6); font: var(--fw-semibold) var(--fs-tag) var(--font-mono); letter-spacing: .08em; }
 .guide__bar-route button { display: grid; place-items: center; background: none; border: 0; padding: var(--sp-1); }
+/* back to the dialogue (TalkView.tsx) */
+.guide__bar-route .guide__bar-talk { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-1) var(--sp-4); border: var(--stroke-hair) solid currentColor;
+  font: inherit; letter-spacing: inherit; }
+.guide__bar-route .guide__bar-talk:hover { background: var(--o77-black); color: var(--accent); }
 
 .guide__split { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px 1fr; }
 
