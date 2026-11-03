@@ -5,14 +5,17 @@ PlayerMarksConfig = {
     radius = 35.0,
     -- At most this many dots (the plugin allows 32 anchors per resource).
     max = 24,
-    -- Metres above the body's origin (the feet): just over the head.
-    height = 2.12,
+    -- Metres above the body's origin (the feet): the plate's pin, just over the head
+    -- (2.12 floated a hand's width too high in game).
+    height = 1.92,
+    -- A name longer than this many bytes is cut.
+    nameMax = 24,
     -- How often the list of players around is read, and the talkers.
     refreshMs = 500,
     talkMs = 100,
     -- A voice level under this is silence (capture noise).
     talkThreshold = 0.02,
-    -- The page: dot colour, and how the dot shrinks with distance.
-    color = "#FCEE0A",
-    page = { nearScale = 1.0, farScale = 0.55, fadeFrom = 0.8 },
+    -- The page: how the plate shrinks with distance and where it starts to fade
+    -- (fractions of radius).
+    page = { nearScale = 1.0, farScale = 0.6, fadeFrom = 0.75 },
 }

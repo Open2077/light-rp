@@ -15,7 +15,7 @@ _G.Open77 = {
     },
     anchors = {
         create = function(def)
-            assert(def.page and def.entity and def.offset.z == 2.12 and def.maxDistance == 35.0)
+            assert(def.page and def.entity and def.offset.z == 1.92 and def.maxDistance == 35.0)
             nextAnchor = nextAnchor + 1
             anchors[nextAnchor] = { entity = def.entity, tag = def.tag }
             return nextAnchor
@@ -47,7 +47,7 @@ local function anchorCount() local n = 0; for _ in pairs(anchors) do n = n + 1 e
 
 -- two players around (and yourself, never marked), one not streamed yet
 nearby = {
-    { playerId = 7, isLocal = false, position = { x = 1, y = 2, z = 3 } },
+    { playerId = 7, isLocal = false, name = "  Archer Hella ", position = { x = 1, y = 2, z = 3 } },
     { playerId = 8, isLocal = false, position = { x = 4, y = 5, z = 6 } },
     { playerId = 3, isLocal = true, position = { x = 0, y = 0, z = 0 } },
     { playerId = 9, isLocal = false, position = { x = 7, y = 8, z = 9 } },
@@ -57,11 +57,23 @@ PM.refresh()
 assert(PM.marks["7"] and PM.marks["8"] and not PM.marks["3"] and not PM.marks["9"], "the others with a body, never yourself")
 assert(anchorCount() == 2 and count("pm:add") == 2)
 assert(anchors[PM.marks["7"].anchor].tag == "playermark.7")
+-- the plate's name: trimmed, a player without one shows its id
+local adds = {}
+for _, s in ipairs(sent) do if s.name == "pm:add" then adds[s.payload.player] = s.payload.name end end
+assert(adds["7"] == "Archer Hella" and adds["8"] == "#8", tostring(adds["7"]) .. " / " .. tostring(adds["8"]))
 
 -- a refresh with nothing new sends nothing
 local before = #sent
 PM.refresh()
 assert(#sent == before, "steady: no page traffic")
+-- a renamed player: only the name goes to the page
+nearby[1].name = "Archer Hella (Mayor)"
+PM.refresh()
+assert(#sent == before + 1 and sent[#sent].name == "pm:name" and sent[#sent].payload.name == "Archer Hella (Mayor)")
+nearby[1].name = "A very long name that goes on and on"
+PM.refresh()
+assert(#sent[#sent].payload.name == 24, "cut to nameMax")
+before = #sent
 
 -- talking: only changes reach the page; quiet capture noise still shows the waves
 talkers = { { playerId = 7, talking = true, level = 0.6 }, { playerId = 8, talking = false, level = 0.3 } }

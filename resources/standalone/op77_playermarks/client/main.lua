@@ -1,11 +1,11 @@
--- The dots on this client: one Open77.anchors anchor per other player around
+-- The nameplates on this client: one Open77.anchors anchor per other player around
 -- (an entity anchor follows the body; the plugin projects it every frame and
 -- pushes the screen position to the page, which only draws), and the talkers'
 -- voice levels for the radio waves.
 local C = PlayerMarksConfig
 
 local page, pageReady = nil, false
-local marks = {}          -- player id (string) -> { anchor, entity, talking, level }
+local marks = {}          -- player id (string) -> { anchor, entity, name, talking, level }
 local anchorsOk = type(Open77.anchors) == "table" and type(Open77.anchors.create) == "function"
 local warned = {}
 
@@ -44,7 +44,15 @@ local function drop(key)
     send("pm:remove", { player = key })
 end
 
--- The other players around with a streamed body: player id (string) -> entity id.
+-- The name a plate shows: the player's name as the platform lists it, trimmed.
+local function nameOf(p)
+    local name = type(p.name) == "string" and p.name:gsub("^%s+", ""):gsub("%s+$", "") or ""
+    if name == "" then name = "#" .. tostring(p.playerId or p.id or "?") end
+    if #name > C.nameMax then name = name:sub(1, C.nameMax) end
+    return name
+end
+
+-- The other players around with a streamed body: player id (string) -> { entity, name }.
 local function around()
     local out, count = {}, 0
     local ok, list = pcall(Open77.players.nearby, C.radius, { includeSelf = false, limit = C.max })
@@ -54,7 +62,7 @@ local function around()
         if pid ~= nil and not p.isLocal and count < C.max and not hidden(pid) then
             local okEntity, entity = pcall(Open77.players.entity, pid)
             if okEntity and entity and tostring(entity) ~= "0" then
-                out[tostring(pid)] = tostring(entity)
+                out[tostring(pid)] = { entity = tostring(entity), name = nameOf(p) }
                 count = count + 1
             end
         end
@@ -69,7 +77,8 @@ local function refresh()
     for key in pairs(marks) do
         if not now[key] then drop(key) end
     end
-    for key, entity in pairs(now) do
+    for key, seen in pairs(now) do
+        local entity, name = seen.entity, seen.name
         local m = marks[key]
         if m and m.entity ~= entity then
             local ok, res = pcall(Open77.anchors.update, m.anchor, { entity = entity })
@@ -79,12 +88,16 @@ local function refresh()
             local id, why = Open77.anchors.create({ page = page, entity = entity, offset = { x = 0, y = 0, z = C.height },
                 tag = "playermark." .. key, maxDistance = C.radius, minDistance = 0.0 })
             if id then
-                marks[key] = { anchor = id, entity = entity, talking = false, level = 0 }
-                send("pm:add", { player = key, anchor = tostring(id) })
+                m = { anchor = id, entity = entity, name = name, talking = false, level = 0 }
+                marks[key] = m
+                send("pm:add", { player = key, anchor = tostring(id), name = name })
             else
                 if why == "anchors_backend_unavailable" then anchorsOk = false end
                 warn("anchor:" .. tostring(why), "anchor refused: " .. tostring(why))
             end
+        elseif m.name ~= name then
+            m.name = name
+            send("pm:name", { player = key, name = name })
         end
     end
 end
@@ -128,9 +141,9 @@ local function createPage()
     page = created
     page:on("pm:ready", function()
         pageReady = true
-        send("pm:config", { color = C.color, radius = C.radius, page = C.page })
+        send("pm:config", { radius = C.radius, page = C.page })
         for key, m in pairs(marks) do
-            send("pm:add", { player = key, anchor = tostring(m.anchor) })
+            send("pm:add", { player = key, anchor = tostring(m.anchor), name = m.name })
             send("pm:talk", { player = key, talking = m.talking, level = m.level })
         end
     end)

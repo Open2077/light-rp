@@ -1,6 +1,6 @@
-/* Player marks page. Two feeds:
-   - `pm:add` / `pm:remove` / `pm:talk` / `pm:config` from the client script:
-     which anchor carries which player's dot, and who is talking how loud;
+/* Player nameplates page. Two feeds:
+   - `pm:add` / `pm:name` / `pm:remove` / `pm:talk` / `pm:config` from the client
+     script: which anchor carries which player's plate, its name, who is talking;
    - `open77:anchors` from the plugin, every frame: where each anchor is on
      screen. Only transforms and custom properties are written here. */
 (() => {
@@ -8,16 +8,16 @@
   const root = document.getElementById("marks");
   const marks = new Map();            // player id -> { el, anchor }
   const byAnchor = new Map();         // anchor id -> mark
-  const cfg = { radius: 35, page: { nearScale: 1.0, farScale: 0.55, fadeFrom: 0.8 } };
+  const cfg = { radius: 35, page: { nearScale: 1.0, farScale: 0.6, fadeFrom: 0.75 } };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const safeColor = (v) => /^#[0-9a-f]{6}$/i.test(String(v || "")) ? String(v) : null;
 
-  function build(player, anchor) {
+  function build(player, anchor, name) {
     const el = document.createElement("div");
     el.className = "pm";
-    el.innerHTML = '<div class="pm__rig">'
-      + '<span class="pm__wave"></span><span class="pm__wave"></span><span class="pm__wave"></span>'
-      + '<span class="pm__dot"></span></div>';
+    el.innerHTML = '<div class="pm__rig"><div class="pm__chip">'
+      + '<span class="pm__voice"><i></i><i></i><i></i></span><span class="pm__name"></span>'
+      + '</div><span class="pm__pin"></span><span class="pm__tip"></span></div>';
+    el.querySelector(".pm__name").textContent = String(name || "").slice(0, 32);
     root.appendChild(el);
     const m = { player, anchor, el };
     marks.set(player, m);
@@ -36,15 +36,17 @@
 
   Open77.on("pm:config", (c) => {
     if (!c) return;
-    const color = safeColor(c.color);
-    if (color) document.documentElement.style.setProperty("--mark", color);
     if (Number(c.radius) > 0) cfg.radius = Number(c.radius);
     if (c.page) Object.assign(cfg.page, c.page);
   });
   Open77.on("pm:add", (msg) => {
     if (!msg || typeof msg.player !== "string" || typeof msg.anchor !== "string") return;
     remove(msg.player);
-    build(msg.player, msg.anchor);
+    build(msg.player, msg.anchor, msg.name);
+  });
+  Open77.on("pm:name", (msg) => {
+    const m = msg && marks.get(String(msg.player));
+    if (m) m.el.querySelector(".pm__name").textContent = String(msg.name || "").slice(0, 32);
   });
   Open77.on("pm:remove", (msg) => { if (msg) remove(String(msg.player)); });
   Open77.on("pm:talk", (msg) => {
