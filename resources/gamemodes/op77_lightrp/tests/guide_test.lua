@@ -22,7 +22,7 @@ dofile("shared/medical.lua")
 dofile("shared/jobs.lua")
 dofile("shared/vehicle_customization.lua")
 for _, file in ipairs({ "missions", "fixers", "job_runs", "delivery", "job_work", "garages", "vehicle_customization",
-    "dealerships", "shops", "support", "housing", "cyberware", "activities", "guide" }) do
+    "dealerships", "shops", "support", "housing", "cyberware", "activities", "economy", "halloffame", "guide" }) do
     dofile("server/config/" .. file .. ".lua")
 end
 
@@ -221,7 +221,13 @@ registry["chase.1v1"] = { id = "chase.1v1", label = "NCPD Chase" }
 registry["turf.war"] = { id = "turf.war", label = "Turf War" }
 local function allStrings(q)
     local out = { q.q }
-    for _, line in ipairs(q.a) do out[#out + 1] = line end
+    for _, line in ipairs(q.a) do
+        if type(line) == "table" then -- a gated line: { requires = ..., "text" }
+            assert(type(line[1]) == "string" and #line == 1 and line.requires ~= nil, q.id .. ": a gated line is { requires = ..., \"text\" }")
+            line = line[1]
+        end
+        out[#out + 1] = line
+    end
     if q.say then out[#out + 1] = q.say end
     for _, a in ipairs(q.actions or {}) do if a.label then out[#out + 1] = a.label end end
     return out
@@ -253,6 +259,27 @@ assert(Guide.resolve("{cfg:config.chat.icRange}") == "20" and Guide.resolve("{kb
 assert(Guide.resolve("{v:carRange}") == "€$ 4,000 to €$ 100,000", Guide.resolve("{v:carRange}"))
 assert(Guide.resolve("{v:jobCenterJobs}") == "Sanitation, Scrapper and Courier", Guide.resolve("{v:jobCenterJobs}"))
 assert(Guide.resolve("{v:jerrycanBuy}") == "€$ 105" and Guide.resolve("{v:jerrycanRefill}") == "€$ 80")
+assert(Guide.resolve("{v:repTiers}") == "I (Street) from the start, II (Merc) at 500, III (Operator) at 1,500, IV (Edgerunner) at 4,000 and V (Legend) at 10,000",
+    Guide.resolve("{v:repTiers}"))
+assert(Guide.resolve("{v:difficultyTiers}") == "Hard needs tier II (Merc) and Critical needs tier III (Operator)", Guide.resolve("{v:difficultyTiers}"))
+local opens = Guide.listOf("tierOpens")
+assert(opens[1] == "**I (Street)**, from the start: Standard missions and PvE activities; ranks I and II cyberware", opens[1])
+assert(opens[2] == "**II (Merc)**, 500 reputation: Hard missions and PvE activities; rank III cyberware", opens[2])
+assert(opens[5] == "**V (Legend)**, 10,000 reputation: rank V+ cyberware", opens[5])
+local ranks = Guide.listOf("cyberwareRanks")
+assert(ranks[1] == "Ranks I and II: from the start" and ranks[2] == "Rank III: tier II (Merc), 500 reputation" and ranks[5] == "Rank V+: tier V (Legend), 10,000 reputation", ranks[1])
+assert(Guide.resolve("{v:traumaKitPrice}") == "€$ 250" and Guide.resolve("{v:traumaKitShops}") == "Corner Market / City Center", "the trauma kit, in the city's market only")
+assert(Guide.resolve("{v:cheapestFood}") == "€$ 9")
+for _, line in ipairs(Guide.listOf("foodPrices")) do assert(not line:find("Trauma", 1, true), "food prices list food and drinks only: " .. line) end
+local fees = table.concat(Guide.listOf("impoundFees"), "\n")
+assert(fees:find("A wreck, destroyed or exploded by anyone (the insurance repairs it): €$ 400", 1, true)
+    and fees:find("Gone without a wreck (deleted, cleaned up, lost to a bug): €$ 150", 1, true)
+    and fees:find("Intact, sent there by you from a garage: €$ 250", 1, true)
+    and fees:find("Intact, left outside when the server restarted: free", 1, true), fees)
+assert(Guide.resolve("{v:impoundRange}") == "free to €$ 500")
+assert(Guide.resolve("{money:economy.hospital.bill} {pct:economy.missions.repeatShare} {money:economy.activities.pve.perMinute.critical}") == "€$ 300 25% €$ 60")
+assert(Guide.resolve("{v:missionCapScope}") == "per account (all your characters together)")
+assert(Guide.resolve("{v:activityRep}") == "30 on Standard, 60 on Hard or 100 on Critical", Guide.resolve("{v:activityRep}"))
 local unknown, missing = Guide.resolve("{cfg:config.nope} {key:nope} {v:nope}")
 assert(#missing == 3 and unknown == "— — —", "an unknown placeholder is reported")
 assert(select(1, Guide.resolve("{key:inventory}")) == "{key:inventory}", "a key is left for the page to show the player's binding")
@@ -438,9 +465,40 @@ players[1].x, players[1].y = hub.center.x, hub.center.y
 local function visible(id) return Guide.build().byId[id] ~= nil end
 assert(visible("weapons.pvp") and not visible("weapons.dogtown"), "Dogtown PvP is not described as live")
 assert(not visible("missions.sector04") and not visible("missions.chimera"), "no board without its mission")
-assert(visible("activities.rewards") and visible("cyberware.ranks") and visible("missions.reputation"))
+-- merged: activity pay, reputation tiers (missions, PvE activities, cyberware ranks)
+assert(visible("activities.pay_rebalance") and visible("missions.tiers_gate") and visible("cyberware.tiers"), "the merged economy and tiers")
+assert(not visible("activities.rewards") and not visible("cyberware.ranks") and not visible("missions.reputation"), "the answers they replace")
 assert(not visible("activities.arena") and not visible("activities.halloffame"))
 for _, log in ipairs(logs) do assert(not log:find("does not resolve", 1, true), log) end
+local function answer(id) return table.concat(Guide.build().byId[id].a, "\n") end
+-- the answers follow the economy config, line by line
+assert(answer("health.down"):find("bills €$ 300", 1, true) and not answer("health.down"):find("costs nothing", 1, true))
+assert(answer("jobs.pay"):find("last 30 minutes", 1, true) and answer("jobs.pay"):find("adds 10%", 1, true))
+assert(answer("money.earn"):find("while you're active", 1, true) and answer("money.earn"):find("**Activities**", 1, true))
+assert(answer("appearance.wardrobe"):find("costs €$ 50", 1, true))
+assert(answer("missions.rewards"):find("6 full payouts a day per account", 1, true) and answer("missions.rewards"):find("pays 25% of your share", 1, true))
+assert(answer("missions.difficulty"):find("Hard needs tier II (Merc)", 1, true))
+LightRpEconomy.hospital.bill, LightRpEconomy.paychecks.requireActivity = 0, false
+assert(answer("health.down"):find("It costs nothing.", 1, true) and not answer("health.down"):find("bills", 1, true), "a bill of 0 is free")
+assert(not answer("jobs.pay"):find("last 30 minutes", 1, true) and not answer("money.earn"):find("while you're active", 1, true))
+LightRpEconomy.hospital.bill, LightRpEconomy.paychecks.requireActivity = 300, true
+LightRpEconomy.activities.enabled = false
+assert(visible("activities.rewards") and not visible("activities.pay_rebalance") and not answer("money.earn"):find("**Activities**", 1, true), "activity pay off")
+assert(answer("activities.rewards"):find("PvE activities earn reputation: 30 on Standard", 1, true))
+LightRpEconomy.activities.enabled = true
+LightRpCyberwareConfig.gating.enabled = false
+assert(visible("cyberware.ranks") and not visible("cyberware.tiers"), "cyberware ranks without a gate")
+assert(not Guide.listOf("tierOpens")[2]:find("cyberware", 1, true), "no cyberware rank in the tiers without the gate")
+LightRpCyberwareConfig.gating.enabled = true
+-- the Hall of Fame with its module, unless its config closes it
+LightRP.hallOfFame = { name = "hallOfFame" }
+assert(visible("activities.halloffame"), "the Hall of Fame with its module")
+assert(answer("activities.halloffame"):find("top 10 of each board", 1, true) and answer("activities.halloffame"):find("**Wealth**", 1, true))
+LightRpHallOfFame.showWealth = false
+assert(not answer("activities.halloffame"):find("**Wealth**", 1, true), "no wealth board when it is off")
+LightRpHallOfFame.showWealth, LightRpHallOfFame.enabled = true, false
+assert(not visible("activities.halloffame"), "closed in its config")
+LightRpHallOfFame.enabled, LightRP.hallOfFame = true, nil
 local revision = Guide.build().revision
 G.features.dogtown = true
 assert(not visible("weapons.pvp") and visible("weapons.dogtown"), "the Dogtown answer replaces the city-wide one")
