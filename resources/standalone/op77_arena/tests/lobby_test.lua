@@ -421,6 +421,10 @@ do
     for _, id in ipairs({ 25, 26, 27 }) do assert(DM.instances.of(id) == instance) end
     assert(instance.match.sides[24] == 1 and instance.match.sides[25] == 1 and instance.match.sides[26] == 2 and instance.match.sides[27] == 2)
     assert(DM.instances.of(23) == nil and DM.arena.queuePosition(23) ~= nil, "the stranger still waits")
+    local waiting = DM.arena.queueMembers("2v2")
+    assert(#waiting == 1 and waiting[1] == 23 and #DM.arena.queueMembers("nope") == 0, "the engine lists its queue")
+    local tq = H.statusOf("teams").queue
+    assert(#tq.lobbies == 1 and tq.lobbies[1].players[1] == 23 and tq.lobbies[1].need == 4, "the queue panel sees the stranger")
     assert(#arenaBots == 0 and not H.hadBots(instance))
     assert(instance.lobby.unranked == false and not H.unrankedInstance(instance))
     assert(enteredPayload(24).unranked == nil and not noticed(24, "UNRANKED"))

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ActivitiesTab, GuideDialogPayload, GuideTopicSummary } from "@/bridge/protocol";
+import type { TalkMessage } from "./talk";
 
 /* Johnny's FAQ (server/modules/guide.lua, content in server/config/guide.lua).
    The dialog carries the index; then, on the `guide` page event, come the player's
@@ -23,6 +24,8 @@ export interface GuideMessage {
   part?: number;
   parts?: number;
   missing?: string;
+  /** The dialogue's nodes (features/guide/talk.ts). */
+  talk?: TalkMessage;
 }
 
 export function arr<T>(value: unknown): T[] {

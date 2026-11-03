@@ -54,11 +54,15 @@ RegisterNetEvent(E.net.consume, function(p)
     a.expires = GetGameTimer() + p.durationMs + 12000
     CreateThread(function()
         -- Let the native workspot mount / temporary TPP acquire the body before
-        -- the action UI captures gameplay input. Native failures cancel below.
+        -- the action UI starts. Native failures cancel below.
         Wait(900)
         if active ~= a or a.sent then return end
+        -- Input stays with the game (owner, 2026-11-03: the camera was locked while
+        -- eating): the workspot (locomotion off) holds the body, the mouse still turns
+        -- the camera, ESC cancels; walking off ends the playback or trips the server's
+        -- 0.75 m check, and the item is kept.
         local id = LightRpActions.progress({ label = p.label, description = p.itemLabel .. " · Stay still",
-            durationMs = p.durationMs, icon = p.icon, cancellable = true, allowMovement = false },
+            durationMs = p.durationMs, icon = p.icon, cancellable = true, allowMovement = true },
             function(result) finish(a, result.status) end)
         a.actionId = id
         if not id then finish(a, "cancelled") end

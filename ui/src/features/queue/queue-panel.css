@@ -1,0 +1,39 @@
+/* The queue panel (QueuePanel.tsx): one HUD strip at the top centre, on the activity
+   HUD's plate (near-black, scanlines, chamfer, the yellow edge), mono readouts, the
+   accent for the start only. Tokens only. A pure overlay but its cancel button, which
+   answers a click while the cursor is out. */
+.qp {
+  position: absolute; top: var(--hud-safe-y); left: 50%; transform: translateX(-50%); z-index: 30;
+  display: flex; align-items: center; gap: var(--sp-5); max-width: min(860px, 78vw); min-height: 38px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) calc(var(--chamfer-md) + 4px);
+  background: var(--tex-scanline), linear-gradient(180deg, rgba(10, 10, 12, .9), rgba(6, 6, 8, .78));
+  box-shadow: var(--shadow-hud); clip-path: var(--clip-chamfer);
+  color: var(--text-body); font: var(--type-body); pointer-events: none;
+  animation: qp-drop .32s steps(4, end) both; transition: opacity var(--dur-base) var(--ease-snap);
+}
+.qp::before { content: ""; position: absolute; inset: 0; pointer-events: none; border: 1px solid var(--line-hairline); border-left: 2px solid var(--accent); clip-path: inherit; }
+.qp.is-under { top: calc(var(--hud-safe-y) + 40px); } /* under the running mission's / the fixer gig's chip */
+.qp.is-quiet { opacity: 0; }
+.qp.is-quiet .qp-cancel { pointer-events: none; }
+.qp.is-starting::before { border-color: var(--line-accent); border-left-color: var(--accent); }
+
+.qp-tag { flex: none; padding: 4px 12px 3px 7px; font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--ls-label); clip-path: var(--clip-tag); color: var(--text-dim); background: var(--o77-ink-600); }
+.qp-tag.is-accent { color: var(--text-accent); background: var(--accent-quiet-strong); }
+.qp-tag.is-go { color: var(--text-on-accent); background: var(--accent); }
+
+.qp-id { display: flex; align-items: baseline; gap: var(--sp-3); min-width: 0; }
+.qp-id b { color: var(--text-hi); font: var(--fw-bold) var(--fs-body)/1 var(--font-core); letter-spacing: var(--ls-label); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.qp-id small { color: var(--text-dim); font: var(--fw-medium) var(--fs-label)/1 var(--font-core); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+
+.qp-cell { flex: none; display: flex; align-items: baseline; gap: var(--sp-2); padding-left: var(--sp-5); border-left: 1px solid var(--line-hairline); white-space: nowrap; }
+.qp-cell small { color: var(--text-disabled); font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: var(--ls-label); }
+.qp-cell b { color: var(--text-hi); font: var(--fw-bold) 15px/1 var(--font-mono); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.qp-cell em { color: var(--text-dim); font: var(--fw-bold) 10px/1 var(--font-mono); font-style: normal; letter-spacing: var(--ls-label); }
+.qp-cell.is-start b { color: var(--text-accent); text-shadow: var(--glow-text); }
+
+.qp-cancel { flex: none; display: flex; align-items: center; gap: var(--sp-2); padding: 3px var(--sp-2) 3px var(--sp-4); border: 0; border-left: 1px solid var(--line-hairline); background: none; color: var(--text-dim); font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--ls-label); cursor: pointer; }
+.qp-cancel:hover, .qp-cancel:focus-visible { color: var(--text-hi); outline: none; }
+.qp-cancel:hover .o77-keycap { color: var(--text-on-accent); background: var(--accent); box-shadow: none; }
+
+@keyframes qp-drop { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .qp, .qp * { animation: none !important; transition: none !important; } }

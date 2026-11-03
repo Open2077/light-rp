@@ -8,6 +8,7 @@ import {
   type ActivityBanner, type ActivityFeedItem, type ActivityHint, type ActivityHudMessage, type ActivityHudView,
   type ActivityPhase, type ActivityProgress, type ActivityResult, type ActivityRow, type ActivityTeam, type ActivityTimer,
 } from "./model";
+import { repeatsPanel } from "@/features/queue/model";
 import "./activity-hud.css";
 
 /* The shared in-match HUD of the activity providers (arena, race, chase, turf...),
@@ -34,7 +35,9 @@ export function ActivityHud() {
   const seq = useRef(0);
   const quiet = useStore((s) => s.menuOpen || !!s.dialog);
   const away = useStore((s) => s.state.character.status !== "active" || !!s.state.character.welcomePending);
-  const queued = useStore((s) => !!s.state.missionQueue);
+  // the chips above the header: the running mission's or a fixer gig's, then the queue panel
+  const chip = useStore((s) => (!!s.state.missionQueue && s.state.missionQueue.running) || !!s.state.fixerGig);
+  const queue = useStore((s) => s.state.queue);
   const working = useStore((s) => !!s.state.jobRun?.active);
 
   useEffect(() => on<ActivityHudMessage>(PAGE_EVENTS.activityHud, (m) => {
@@ -84,10 +87,15 @@ export function ActivityHud() {
   if (away || (!hud && !banner && !result && feed.length === 0)) return null;
   // A lobby can wait beside a work order: the order keeps its slot, the hints move up.
   const folded = hud?.phase === "lobby" && working;
-  return <div className={`ah${quiet ? " is-quiet" : ""}${queued ? " is-lowered" : ""}`} aria-live="polite" data-activity={hud?.activity}>
-    {hud && <Header hud={hud} at={at} hints={folded} />}
+  // The queue panel already shows this lobby (mode, count, wait, start, cancel key): the
+  // provider's own lobby header and panel step aside; its feed, banners and result stay.
+  const aside = repeatsPanel(queue, hud?.activity, hud?.phase);
+  const drop = (chip ? 1 : 0) + (queue ? 1 : 0);
+  return <div className={`ah${quiet ? " is-quiet" : ""}${drop > 0 ? ` is-lowered${drop > 1 ? " is-lowered-2" : ""}` : ""}`}
+    aria-live="polite" data-activity={hud?.activity}>
+    {hud && !aside && <Header hud={hud} at={at} hints={folded} />}
     {hud?.phase === "countdown" && <Countdown hud={hud} at={at} />}
-    {hud && !folded && <Panel hud={hud} />}
+    {hud && !folded && !aside && <Panel hud={hud} />}
     {feed.length > 0 && <ul className="ah-feed">{feed.map((f) => <li key={f.key} className={`is-${f.tone ?? "plain"}`} style={{ "--life": `${FEED_MS}ms` } as CSSProperties}><span>{f.text}</span></li>)}</ul>}
     {banner && <Banner banner={banner} />}
     {result && <ResultCard result={result} />}

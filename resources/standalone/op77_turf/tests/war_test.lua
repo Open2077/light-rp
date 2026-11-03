@@ -146,7 +146,7 @@ local function advance(ms)
     while clock < target do
         clock = math.min(target, clock + 250)
         Turf.tick(clock)
-        if clock - lastStatusAt >= 1000 then lastStatusAt = clock; TurfCore.status(Turf.status(clock)) end
+        if clock - lastStatusAt >= 1000 then lastStatusAt = clock; TurfCore.status(Turf.status(clock), false, nil, clock) end
     end
 end
 local function flush(fail)
@@ -208,6 +208,9 @@ local function main()
     fire("op77_lightrp:activity:join", nil, 9, "turf.war", { site = "badlands" })
     assert(#Turf.queue == 1 and Turf.queue[1].site == "badlands" and Turf.queue[1].gang == nil)
     assert(lastStatus().phase == "lobby" and lastStatus().queued == 1)
+    local wq = lastStatus().queue
+    assert(wq and wq.v == 1 and #wq.lobbies == 1 and wq.lobbies[1].players[1] == 9 and wq.lobbies[1].need == Turf.minPlayers()
+        and wq.lobbies[1].max == CFG.activity.maxPlayers and wq.lobbies[1].startsInMs == nil, "the queue panel: 1 / 6, no countdown yet")
     local leavesBefore = #core.leaves
     fire("op77_lightrp:activity:leaveRequest", nil, 9, "turf.war")
     assert(#Turf.queue == 0 and #core.leaves == leavesBefore, "a queued player is dropped, never activityLeave'd")
@@ -228,7 +231,12 @@ local function main()
     assert(Turf.lobby ~= nil, "6 queued: the lobby counts down")
     advance(1000)
     assert(lastStatus().phase == "lobby")
-    advance(44000)
+    local lq = lastStatus().queue.lobbies[1]
+    assert(#lq.players == 8 and lq.startsInMs and lq.startsInMs > 0, "the lobby's countdown is the panel's")
+    local sent = #core.statuses
+    advance(3000)
+    assert(#core.statuses == sent, "the countdown running down sends nothing")
+    advance(41000)
     local war = Turf.war
     assert(war and war.state == "placing", "the lobby closed: the war is placing")
     assert(war.site.id == "kabuki", "the voted site")
@@ -373,6 +381,11 @@ local function main()
     flush()
     advance(250)
     assert(war.members[10].placed and (war.members[10].protectedUntil or 0) > clock and equips[#equips].id == 10)
+    -- someone waiting while the war is on waits for an opening on a side (no count to reach)
+    Turf.queue[1] = { id = 77 }
+    local dq = Turf.warQueue(clock).lobbies[1]
+    assert(dq.players[1] == 77 and dq.need == nil and dq.mode == "Next opening in the war" and dq.startsInMs == nil)
+    Turf.queue[1] = nil
 
     -- long enough to count, then the target
     advance(150000)

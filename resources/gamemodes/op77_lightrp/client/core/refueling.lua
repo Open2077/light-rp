@@ -60,8 +60,10 @@ RegisterNetEvent(E.net.fuel,function(p)
     CreateThread(function()
         Wait(900)
         if active~=a or a.sent then return end
+        -- Input stays with the game so the camera turns (as eating, 2026-11-03); the server
+        -- cancels if the player walks off (0.8 m from where they started) or the car moves.
         a.actionId=LightRpActions.progress({label=p.label,description=string.format("%s · %.1f L · Stay still",p.itemLabel,p.litres),
-            durationMs=p.durationMs,icon="fuel",cancellable=true,allowMovement=false},function(result) finish(a,result.status) end)
+            durationMs=p.durationMs,icon="fuel",cancellable=true,allowMovement=true},function(result) finish(a,result.status) end)
         if not a.actionId then finish(a,"cancelled") end
     end)
 end)

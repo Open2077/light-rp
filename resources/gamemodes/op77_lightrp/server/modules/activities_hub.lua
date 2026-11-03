@@ -2,8 +2,9 @@
 -- arrive (server/config/activities.lua). A terminal beside the arrival point
 -- opens the Activities panel (with its map pin); its Contracts tab lists the
 -- mission boards of the city, with a GPS route to each (the boards themselves
--- work as before). A `kind = "contracts"` terminal opens the panel on that tab. It also points newcomers to
--- The Crossing once their first day ends, and gives staff a survey command.
+-- work as before). A `kind = "contracts"` terminal opens the panel on that tab. A terminal with
+-- `npc = true` has the hub's `host` NPC standing on it instead of a floor marker. It also points
+-- newcomers to The Crossing once their first day ends, and gives staff a survey command.
 local C = LightRpActivities
 local H = C.hub
 local E = LightRpEvents
@@ -22,6 +23,15 @@ function Hub.placeOf(terminal)
     return { x = H.center.x + fx * forward + rx * right, y = H.center.y + fy * forward + ry * right, z = H.center.z + (tonumber(o.up) or 0) }
 end
 
+-- Where The Crossing's routes lead: the activities terminal (the hub's center is the
+-- arrival point, the terminal may stand away from it).
+function Hub.anchor()
+    for _, terminal in ipairs(H.terminals) do
+        if terminal.kind == "activities" then return Hub.placeOf(terminal) end
+    end
+    return H.center
+end
+
 local function register()
     if not C.enabled then return end
     for index, terminal in ipairs(H.terminals) do
@@ -31,12 +41,83 @@ local function register()
             blip = { sprite = "objective", icon = "swords", title = H.blip.title, description = H.blip.description,
                 mapCategory = H.blip.mapCategory, mapColor = H.blip.mapColor, map = H.blip.map }
         end
+        -- a host NPC stands on it: no floor marker, the prompt at his chest
+        local marker, promptHeight = H.marker, nil
+        if terminal.npc and type(H.host) == "table" then marker, promptHeight = nil, H.host.promptHeight end
         Hub.points[id] = { kind = terminal.kind, index = index }
         LightRP.interaction(id, { position = Hub.placeOf(terminal), radius = H.interactRadius or 2.0, bucket = H.bucket or 0,
-            label = terminal.label, prompt = terminal.prompt, key = "E", marker = H.marker, ring = false, blip = blip })
+            label = terminal.label, prompt = terminal.prompt, key = "E", marker = marker, promptHeight = promptHeight,
+            ring = false, blip = blip })
     end
 end
 if LightRP.batchInteractions then LightRP.batchInteractions(register) else register() end
+
+-- ---------------------------------------------------------------------------
+-- The host: an NPC standing on each `npc = true` terminal, facing its heading. Spawned as
+-- Johnny is (server/modules/guide.lua): records tried in order, AI off, invulnerable, no
+-- combat, perception or voice, and respawned if a cleanup removes him.
+
+Hub.hosts = {} -- terminal id -> NPC id
+
+function Hub.spawnHost(terminal)
+    local host = H.host
+    if type(host) ~= "table" or type(Open77.npcs) ~= "table" or type(Open77.npcs.create) ~= "function" then return nil end
+    local at = Hub.placeOf(terminal)
+    local yaw = tonumber(terminal.heading) or tonumber(H.heading) or 0
+    for _, candidate in ipairs(host.candidates or {}) do
+        local definition = {
+            record = candidate.record, position = { x = at.x, y = at.y, z = at.z }, yaw = yaw, bucket = H.bucket or 0,
+            persistent = false, despawnWhenUnobserved = false, streamingRadius = host.streamingRadius or 150.0,
+            behavior = { combatEnabled = false, perceptionEnabled = false, voiceEnabled = false },
+        }
+        if candidate.appearance then definition.appearance = candidate.appearance end
+        if type(Open77.npcs.damage) == "table" then definition.damagePolicy = Open77.npcs.damage.invulnerable or Open77.npcs.damage.immortal end
+        if type(Open77.npcs.ai) == "table" then definition.aiMode = Open77.npcs.ai.tasks end
+        local ok, npcId, reason = pcall(Open77.npcs.create, definition)
+        if ok and npcId then
+            if type(Open77.npcs.setAIEnabled) == "function" then
+                local stillOk, stillErr = pcall(Open77.npcs.setAIEnabled, npcId, false)
+                if not stillOk or stillErr == false then LightRP.log("activities: setAIEnabled refused: %s", tostring(stillErr)) end
+            end
+            LightRP.log("activities: %s spawned as NPC %s (%s, AI off) at %.2f, %.2f, %.2f heading %.1f", tostring(host.name),
+                tostring(npcId), tostring(candidate.record), at.x, at.y, at.z, yaw)
+            return npcId
+        end
+        LightRP.log("activities: %s refused (%s), trying the next record", tostring(candidate.record), tostring(ok and reason or npcId))
+    end
+    LightRP.log("activities: no record accepted for %s; the terminal still works", tostring(host.name))
+    return nil
+end
+
+function Hub.spawnHosts()
+    if not C.enabled then return end
+    for _, terminal in ipairs(H.terminals) do
+        if terminal.npc then
+            local old = Hub.hosts[terminal.id]
+            if old and type(Open77.npcs.remove) == "function" then pcall(Open77.npcs.remove, old) end
+            Hub.hosts[terminal.id] = Hub.spawnHost(terminal)
+        end
+    end
+end
+
+CreateThread(function()
+    if not C.enabled then return end
+    Wait(900) -- after the platform's start-up, like Johnny and the desks
+    Hub.spawnHosts()
+    while true do
+        Wait(60000)
+        for _, terminal in ipairs(H.terminals) do
+            local id = Hub.hosts[terminal.id]
+            if id and type(Open77.npcs.get) == "function" then
+                local ok, snapshot = pcall(Open77.npcs.get, id)
+                if ok and snapshot == nil then
+                    LightRP.log("activities: host NPC %s is gone, respawning", tostring(id))
+                    Hub.hosts[terminal.id] = Hub.spawnHost(terminal)
+                end
+            end
+        end
+    end
+end)
 
 function Hub.onInteract(playerId, pointId)
     local point = Hub.points[pointId]
@@ -104,7 +185,7 @@ Hub.gps = gps
 A.operations.gps = function(playerId, payload)
     local id = type(payload.id) == "string" and payload.id or ""
     if id == "hub" then
-        gps(playerId, H.center, H.name, "Activities: arena, races, chases, events")
+        gps(playerId, Hub.anchor(), H.name, "Activities: arena, races, chases, events")
         return true, "GPS set: " .. H.name .. "."
     end
     local M = LightRP.missions
@@ -126,7 +207,7 @@ function Hub.onTutorialDone(playerId)
         -- far from it (no city point after the guide): the route there
         local at = Open77.players.position(playerId)
         if at and (at.bucket or 0) == 0 and ((at.x - H.center.x) ^ 2 + (at.y - H.center.y) ^ 2) > 60 ^ 2 then
-            gps(playerId, H.center, H.name, "Activities: arena, races, chases, events")
+            gps(playerId, Hub.anchor(), H.name, "Activities: arena, races, chases, events")
         end
     end)
 end

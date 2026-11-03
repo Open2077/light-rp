@@ -443,7 +443,7 @@ end
 
 -- ---------------------------------------------------------------- status (hub)
 
-function Turf.status(now)
+local function warStatus(now)
     local war, queued = Turf.war, #Turf.queue
     if war and war.state ~= "closed" then
         local n = Turf.counts(war)
@@ -488,7 +488,7 @@ function Turf.status(now)
 end
 
 -- The Gang Sweep's hub line.
-function Turf.pveStatus(now)
+local function sweepStatus(now)
     local P = cfg().pve
     local running, humans, waiting = 0, 0, 0
     for _, war in ipairs(Turf.sweeps) do
@@ -509,6 +509,72 @@ function Turf.pveStatus(now)
     end
     return { phase = "idle", players = 0, queued = 0, joinable = true,
         detail = "Take a district from an NPC gang. Solo or with your crew." }
+end
+
+-- ---------------------------------------------------------------- queue panel
+--
+-- Light RP's queue panel (status.queue, v1): lobby = { players, need, max, startsInMs,
+-- mode, joining }. An empty list = nobody waits.
+
+local function ids(entries)
+    local out = {}
+    for i, e in ipairs(entries) do out[i] = e.id end
+    return out
+end
+
+-- Turf War: the queue (the minimum, the war's seats, the lobby countdown once it opens;
+-- with a war on, the next opening on a side; behind a private match, after it), and
+-- the match gathering (joining).
+function Turf.warQueue(now)
+    local lobbies = {}
+    local war = Turf.war
+    local live = war and war.state ~= "closed"
+    if #Turf.queue > 0 then
+        local lobby = { players = ids(Turf.queue) }
+        if (live and war.match) or Turf.matchGather then
+            lobby.need, lobby.mode = Turf.minPlayers(), "After the private match"
+        elseif live and war.state ~= "resolved" then
+            lobby.mode = "Next opening in the war"
+        else
+            lobby.need, lobby.max = Turf.minPlayers(), cfg().activity.maxPlayers
+            if Turf.lobby and Turf.lobby.endsAt then lobby.startsInMs = math.max(0, Turf.lobby.endsAt - now) end
+        end
+        lobbies[#lobbies + 1] = lobby
+    end
+    local g = Turf.matchGather
+    if g and #g.entries > 0 then
+        lobbies[#lobbies + 1] = { players = ids(g.entries), need = math.max(#g.entries, #g.players), joining = true }
+    end
+    return { v = 1, lobbies = lobbies }
+end
+
+-- Gang Sweep: each group getting ready (members against the crew; it goes when
+-- complete or at readyAt, if a sweep slot is free: otherwise it waits for one).
+function Turf.sweepQueueView(now)
+    local P = cfg().pve
+    local full = #Turf.sweeps >= (P.maxSweeps or 2)
+    local lobbies = {}
+    for _, g in ipairs(Turf.sweepQueue) do
+        if #g.entries > 0 then
+            local lobby = { players = ids(g.entries), need = math.max(#g.entries, #g.expected) }
+            if full and now >= g.readyAt then lobby.mode = "Waiting for a free sweep"
+            else lobby.startsInMs = math.max(0, g.readyAt - now) end
+            lobbies[#lobbies + 1] = lobby
+        end
+    end
+    return { v = 1, lobbies = lobbies }
+end
+
+function Turf.status(now)
+    local s = warStatus(now)
+    s.queue = Turf.warQueue(now)
+    return s
+end
+
+function Turf.pveStatus(now)
+    local s = sweepStatus(now)
+    s.queue = Turf.sweepQueueView(now)
+    return s
 end
 
 -- ---------------------------------------------------------------- schedule

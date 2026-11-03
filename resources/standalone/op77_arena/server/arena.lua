@@ -238,6 +238,13 @@ function Arena.queueCounts()
     return counts
 end
 
+--- Who waits in one queue, in queue order (a copy: player ids only).
+function Arena.queueMembers(format)
+    local ids = {}
+    for _, entry in ipairs(queues[format] or {}) do ids[#ids + 1] = entry.playerId end
+    return ids
+end
+
 local function removeFrom(format, playerId)
     local queue = queues[format]
     if queue == nil then return false end

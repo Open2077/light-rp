@@ -152,10 +152,28 @@ LightRpActivities = {
         -- center, along its heading (forward) and to its right; `position`
         -- (absolute, from /lightrp.survey) replaces the offset once surveyed.
         -- One terminal: the panel has the Contracts tab (a `kind = "contracts"`
-        -- terminal would open the same panel on that tab).
+        -- terminal would open the same panel on that tab). `npc = true`: the `host`
+        -- below stands there facing `heading`, in place of the floor marker.
+        -- Surveyed by the owner in game, 2026-11-03: where he stood, facing where he
+        -- looked (his client's yaw -93.5, i.e. 266.5).
         terminals = {
-            { id = "board", kind = "activities", label = "The Crossing",
-                prompt = "Open activities & contracts", offset = { forward = 5.0, right = 0.0 } }, -- survey in game
+            { id = "board", kind = "activities", label = "Adam Smasher",
+                prompt = "Open activities & contracts", offset = { forward = 5.0, right = 0.0 },
+                position = { x = -792.575, y = 792.814, z = 22.449 }, heading = 266.5, npc = true },
+        },
+        -- Who stands at a terminal with `npc = true` (the owner's call, 2026-11-03: "something
+        -- badass"). Records tried in order (Open77.npcs.create): the boss record, the
+        -- generic Smasher, then a MaxTac heavy if the boss body is refused. Like Johnny
+        -- (server/modules/guide.lua): AI off, invulnerable, no combat, perception or voice.
+        host = {
+            name = "Adam Smasher",
+            candidates = {
+                { record = "Character.main_boss_adam_smasher" },
+                { record = "Character.Smasher" },
+                { record = "Character.maxtac_rifle_ma_elite" },
+            },
+            streamingRadius = 150.0,
+            promptHeight = 1.4,   -- he is 2.5 m tall: the E prompt at his chest
         },
         -- The map pin (game map + op77_map3d) on the activities terminal.
         blip = { title = "Activities", description = "The Crossing · arena, races, chases, events",
@@ -170,6 +188,6 @@ LightRpActivities = {
         delayMs = 8000,
         title = "THE CROSSING",
         body = "Arena, races, chases and events start at The Crossing, the esplanade where you arrived. "
-            .. "Its terminal is on your map; the Neural-Link app Gigs & Arena works from anywhere.",
+            .. "Adam Smasher runs them there (on your map); the Neural-Link app Gigs & Arena works from anywhere.",
     },
 }

@@ -194,6 +194,11 @@ Deathmatch = {
         end,
         queuePosition = queuePosition,
         queueCounts = function() return { ["1v1"] = #queues["1v1"], ["2v2"] = #queues["2v2"], ["3v3"] = #queues["3v3"] } end,
+        queueMembers = function(format)
+            local ids = {}
+            for _, entry in ipairs(queues[format] or {}) do ids[#ids + 1] = entry.id end
+            return ids
+        end,
         pickKit = function() return true end,
     },
     place = function(id, instance, reason, graceMs, mark)
@@ -502,9 +507,13 @@ do
     T = T + 10000
     assert(H.queueDuel(5) == true and H.duelQueued(5))
     assert(DM.wantsState(5) == true)
+    local dq = H.statusOf("duel").queue
+    assert(dq.v == 1 and #dq.lobbies == 1 and dq.lobbies[1].players[1] == 5 and dq.lobbies[1].need == 2
+        and dq.lobbies[1].startsInMs == nil, "the queue panel: one seeker, two to start, no countdown without bots")
     T = T + 1000
     assert(H.queueDuel(6) == true)
     assert(members[5] ~= nil and members[5] == members[6] and not H.duelQueued(5))
+    assert(#H.statusOf("duel").queue.lobbies == 0, "paired: nobody waits")
 
     -- Expiry of an invite.
     T = T + 1000
@@ -660,6 +669,19 @@ do
     st = {}
     for _, e in ipairs(eventsOf("op77_lightrp:activity:status")) do st[e.args[1]] = e.args[2] end
     assert(st["arena.teams"].phase == "lobby" and st["arena.teams"].queued == 2)
+    local tq = st["arena.teams"].queue
+    assert(tq.v == 1 and #tq.lobbies == 1 and tq.lobbies[1].mode == "2v2" and tq.lobbies[1].need == 4
+        and tq.lobbies[1].players[1] == 3 and tq.lobbies[1].players[2] == 4, "the queue panel: the 2v2 queue, four to start")
+    assert(st["arena.duel"] == nil, "the duel status did not change")
+    assert(#H.statusOf("duel").queue.lobbies == 0 and H.statusOf("ffa").queue == nil)
+    -- The 3v3 queue is a lobby of its own (six to start).
+    env.events = {}
+    queues["2v2"], queues["3v3"] = { { id = 3 } }, { { id = 4 } }
+    H.tick(T + 1200)
+    st = {}
+    for _, e in ipairs(eventsOf("op77_lightrp:activity:status")) do st[e.args[1]] = e.args[2] end
+    assert(st["arena.teams"] and #st["arena.teams"].queue.lobbies == 2 and st["arena.teams"].queue.lobbies[2].need == 6)
+    queues["2v2"], queues["3v3"] = { { id = 3 }, { id = 4 } }, {}
 
     -- The engine drops 3 from the queue (stale): the core's pending entry goes too.
     env.calls = {}

@@ -185,17 +185,24 @@ do
     assert(lastStatus().phase == "idle" and lastStatus().joinable == true)
 
     -- Two players join from the hub (Light RP already checked them).
+    assert(lastStatus().queue.v == 1 and #lastStatus().queue.lobbies == 0, "nobody waits: an empty queue")
     join(1, { mode = "car" })
     assert(env.qhud[1].queued == true and env.qhud[1].position == 1 and env.qhud[1].mode == "vehicle")
     assert(lastStatus().phase == "lobby" and lastStatus().queued == 1)
+    -- Light RP's queue panel: one lobby, everyone who waits, two to start
+    local lobby = lastStatus().queue.lobbies[1]
+    assert(#lastStatus().queue.lobbies == 1 and lobby.players[1] == 1 and #lobby.players == 1 and lobby.need == 2 and lobby.startsInMs == nil)
     join(1, { mode = "car" })
     assert(#ChaseQueue.entries == 1, "a second join does not queue twice")
     join(2)
     assert(calls("activityCheck") == 0, "a hub join is not re-checked at the door")
     assert(calls("activityEnter") == 0, "queued players are not owned yet")
+    lobby = lastStatus().queue.lobbies[1]
+    assert(#lobby.players == 2 and lobby.players[2] == 2, "the second player joins the lobby: a new status")
 
     -- Pairing: re-check, activityEnter both, match in the chase bucket range.
     run(1.0)
+    assert(#lastStatus().queue.lobbies == 0, "paired: nobody waits any more")
     local match = only()
     assert(match.mode == "vehicle" and match.bucket == 4300000)
     assert(env.owner[1] == "chase.1v1" and env.owner[2] == "chase.1v1")

@@ -53,16 +53,19 @@ LightRpGuide = {
         -- right -4, so Johnny stands on the other side, facing the arrival point
         -- (heading nil = face the arrival point). `/lightrp.guide move` (staff) places
         -- him where you stand and prints the line to paste here.
-        offset = { forward = 4, right = 4 },   -- survey in game
-        -- position = { x = -757.3, y = 782.4, z = 22.454 }, heading = 172.0, -- survey in game
+        offset = { forward = 4, right = 4 },   -- used only without `position`
+        -- Surveyed by the owner in game, 2026-11-03 (spot from his position copy, heading from
+        -- his `/lightrp.guide move` facing the plaza).
+        position = { x = -769.562, y = 770.670, z = 22.453 }, heading = 4.7,
         bucket = 0,
         streamingRadius = 150.0,
         interactRadius = 2.0,
         contextRange = 6.0,                     -- ALT + click on him works from this far
         prompt = "Talk to Johnny",
         promptHeight = 1.1,
-        marker = { shape = "cylinder", radius = 0.8, height = 0.5,
-            color = { r = 255, g = 204, b = 0, a = 120 }, maxDistance = 25, groundOffset = 0.05 },
+        -- No floor marker under him (the owner, 2026-11-03): his blip's floating icon
+        -- finds him and the E prompt shows within interactRadius. A
+        -- `marker = { shape = "cylinder", ... }` here would draw one again.
         blip = { icon = "message-circle-question", title = "Johnny Silverhand", description = "Questions about the city? Ask him.",
             mapCategory = "service", mapColor = "#FFCC00" },
     },
@@ -122,7 +125,7 @@ LightRpGuide = {
             questions = {
                 { id = "start.where", q = "Where am I?",
                   a = { "**{v:hub}**, an esplanade in Westbrook. Newcomers land here when their first day ends.",
-                        "- The terminal next to the arrival point opens the **Activities** panel: press {key:interact} at it.",
+                        "- **Adam Smasher**, by the parking, opens the **Activities** panel: press {key:interact} next to him.",
                         "- Your free starter studio is in **{v:starterDoor}**, about 115 m from here: its door is on your map.",
                         "- The Job Center, the car rental and the garage are in City Center." },
                   say = "Westbrook. Fancy neighbourhood. Don't let it fool you.",
@@ -134,7 +137,7 @@ LightRpGuide = {
                         "1. Find your free studio in {v:starterDoor} (marked on your map).",
                         "1. Get a job at the **{v:jobCenter}**: press {key:interact} at the clerk.",
                         "1. Keep an eye on hunger and thirst: your bag starts with {v:startingItems}.",
-                        "1. When you want action, come back here: arena, races and chases start from the Activities terminal." },
+                        "1. When you want action, come back here: arena, races and chases start from Adam Smasher." },
                   say = "First rule of Night City: have a plan. Second rule: have eddies.",
                   actions = { { type = "gps", target = "jobcenter", label = "Mark the Job Center" }, { type = "gps", target = "starter", label = "Mark my studio" } },
                   follow = { "jobs.find", "money.earn", "health.needs" },
@@ -500,7 +503,7 @@ LightRpGuide = {
             say = "Wanna blow off some steam? Right here, choom.",
             questions = {
                 { id = "activities.what", q = "What are activities?",
-                  a = { "Short matches started from {v:hub}: arena fights, races, chases, turf wars. Join them from the terminal here ({key:interact}), F1 → **Activities**, or the Neural-Link app **Gigs & Arena**.",
+                  a = { "Short matches started from {v:hub}: arena fights, races, chases, turf wars. Join them from Adam Smasher here ({key:interact} next to him), F1 → **Activities**, or the Neural-Link app **Gigs & Arena**.",
                         "Running right now: {v:activities}." },
                   actions = { { type = "activities" }, { type = "gps", target = "crossing", label = "Mark The Crossing" } },
                   follow = { "activities.join", "activities.pay_rebalance", "activities.rewards", "activities.leave" },
@@ -545,7 +548,7 @@ LightRpGuide = {
                   tags = "stats leaderboard record wins kills" },
                 { id = "activities.halloffame", q = "What is the Hall of Fame?",
                   requires = "halloffame",
-                  a = { "The big screen at {v:hub}, beside the Activities terminal: press {key:interact} in front of it, or hold {key:context} and click it.",
+                  a = { "The Arasaka sculpture at {v:hub}, the tall one with the trophy over it: press {key:interact} next to it, or hold {key:context} and click it.",
                         "It ranks the city's best characters, the top {cfg:halloffame.size} of each board, and shows your own rank:",
                         "- **PvP**: wins and kills in the arena, races, chases and turf wars;",
                         "- **Races**: the best time on each race's current course;",

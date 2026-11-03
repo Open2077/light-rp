@@ -13,8 +13,12 @@ end
 
 -- ---------------------------------------------------------------- registration
 
+-- The status carries the queue for Light RP's queue panel: one lobby, everyone who
+-- waits, two to start.
 local function publishStatus(force)
-    ChaseCore.status(Chase.status(Q.size()), force)
+    local status = Chase.status(Q.size())
+    status.queue = ChaseCore.queue(Q.size() > 0 and { ChaseCore.lobby(Q.entries, 2) } or {})
+    ChaseCore.status(status, force)
 end
 
 local function register()

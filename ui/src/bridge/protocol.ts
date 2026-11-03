@@ -147,6 +147,10 @@ export interface UiState {
   online: Array<{ id: number; name: string }>;
   party?: PartyState;
   missionQueue?: MissionQueueState;
+  /** The queue this player waits in, whatever it is (server/modules/activity_queue.lua); false: none. */
+  queue?: QueueState;
+  /** The key bound to "Light RP: leave queue", added by client/core/queue.lua; false: cleared. */
+  queueKey?: string | false;
   /** A fixer gig taken and not yet running (server/modules/fixers.lua); false: none. */
   fixerGig?: FixerGigState | false;
 
@@ -403,6 +407,14 @@ export interface PartyState {
   invites: CrewInvite[]; maxSize: number; inviteSeconds?: number; matchmaking?: boolean;
   keys?: { accept?: string; decline?: string };
 }
+/** The queue panel's view (server/modules/activity_queue.lua Q.view). Times are from the push:
+ *  the page counts the wait up and the start down on its own. `need`/`max`: "3 / 6" or "3 / 2-8". */
+export type QueueState = false | {
+  v: 1; id: string; label: string; mode?: string; count?: number; need?: number; max?: number;
+  sinceMs: number; startsInMs?: number; state: "waiting" | "starting" | "joining";
+  /** Queued by the crew leader: leaving takes only you out. */
+  crew?: boolean; source: "core" | "provider" | "mission";
+};
 export type MissionQueueState = false
   | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean; open?: boolean }
   | { running: true; instance: string; title: string; difficulty: string; difficultyId: string; endsInMs: number; members: number; squad: MissionSquadMember[]; objective?: MissionObjective };
@@ -643,11 +655,14 @@ export type DialogPayload = MissionDialogPayload | RentalDialogPayload | Invento
   | RecapDialogPayload | DailiesDialogPayload;
 
 /** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
- *  the search index and the topics follow as GuideMessage (features/guide/model.ts). */
+ *  the search index and the topics follow as GuideMessage (features/guide/model.ts).
+ *  `talk`: the dialogue's opening node (server/modules/guide_dialogue.lua), checked by
+ *  normalizeOpening (features/guide/talk.ts); without it the FAQ opens as before. */
 export interface GuideTopicSummary { id: string; title: string; icon?: string; blurb?: string; count: number }
 export interface GuideDialogPayload {
   kind: "guide"; revision: string; npc: { name: string; title?: string; tag?: string };
   greeting: string[]; topics: GuideTopicSummary[]; keys?: Record<string, string>;
+  talk?: { revision: string; root: string; node: unknown; farewell?: string };
 }
 
 export interface ActiveRental {
@@ -682,6 +697,7 @@ export type UiAction =
   | { type: "party.accept" | "party.decline"; party?: string }
   | { type: "party.leave" }
   | { type: "party.matchmaking"; on: boolean }
+  | { type: "queue.leave"; from: "key" | "menu" | "panel" }
   | { type: "activities.control"; operation: "open" | "refresh" | "close" | "leave"; tab?: ActivitiesTab }
   | { type: "activities.control"; operation: "join"; id: string; from?: string; options?: Record<string, string> }
   | { type: "activities.control"; operation: "gps"; id: string }
@@ -700,6 +716,8 @@ export type UiAction =
   | { type: "guide.open"; from?: string }
   | { type: "guide.topic"; id: string }
   | { type: "guide.gps"; target: string }
+  | { type: "guide.node"; id: string }
+  | { type: "guide.panel"; panel: "halloffame" }
   | { type: "customization.open"; vehicle: string; garage: string }
   | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
   | { type: "dealership.close"; session: string }

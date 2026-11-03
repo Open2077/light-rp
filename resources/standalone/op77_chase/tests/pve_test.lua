@@ -422,6 +422,12 @@ local squad = { id = "squad:9", leader = 2, members = { 2, 3 } }
 H.fire("op77_lightrp:activity:join", 2, AID, { mode = "vehicle", difficulty = "hard", squad = squad })
 H.run(3)
 assert(ChasePve.matchOf(2) == nil and env.qhud[2].crew == 2, "waits for the crew")
+-- Light RP's queue panel: the crew getting ready, its members queued against the crew
+local crewStatus
+for _, e in ipairs(H.events("op77_lightrp:activity:status")) do if e.args[1] == AID then crewStatus = e.args[2] end end
+local crewLobby = crewStatus.queue.lobbies[1]
+assert(crewStatus.queue.v == 1 and #crewStatus.queue.lobbies == 1 and crewLobby.players[1] == 2 and #crewLobby.players == 1)
+assert(crewLobby.need == 2 and crewLobby.mode == "Hard", "1 / 2, at Hard")
 H.fire("op77_lightrp:activity:join", 3, AID, { mode = "foot", difficulty = "hard", squad = squad })
 H.runUntil(function() return ChasePve.matchOf(2) ~= nil end, 3, "together")
 match = ChasePve.matchOf(2)

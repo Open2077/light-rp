@@ -93,6 +93,17 @@ starve()
 assert(#cwRefresh == 1 and cwRefresh[1].id == 2 and cwRefresh[1].starving == "food", "cyberware re-applies regen, seeing the state")
 assert(regen[2] == nil, "the flag is not set directly when cyberware answered")
 
+-- eating or drinking: no damage while the use runs (any damage would cancel it), still starving
+local using = { [2] = true }
+LightRP.consumables = { isActive = function(id) return using[id] == true end }
+damaged = {}
+starve()
+assert(#damaged == 0 and Needs.starving(2) == "food", "no starvation damage while eating or drinking")
+using[2] = nil
+starve()
+assert(#damaged == 1 and damaged[1].id == 2, "damage again once the use ends")
+LightRP.consumables = nil
+
 -- frozen in an activity
 LightRP.activities = { allows = function(id) return id ~= 2 end }
 damaged = {}
@@ -112,4 +123,4 @@ _G.source = 2
 handlers.playerDropped()
 assert(Needs.starving(2) == nil, "dropped: forgotten")
 
-print("PASS: needs starving (percent of max health per kind, no weapon string, regen off/on with and without cyberware, one notice, dead/respawn floor, activity freeze, refusal logged once, drop)")
+print("PASS: needs starving (percent of max health per kind, no weapon string, regen off/on with and without cyberware, one notice, dead/respawn floor, paused while eating, activity freeze, refusal logged once, drop)")
