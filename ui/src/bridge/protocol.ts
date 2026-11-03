@@ -37,6 +37,7 @@ export const PAGE_EVENTS = {
   mission: "lightrp:ui:mission", // Lua -> page: MissionUpdate (live board)
   raid: "lightrp:ui:raid", // Lua -> page: RaidState (server/modules/mission_chimera.lua)
   activityHud: "lightrp:ui:activityhud", // Lua -> page: ActivityHudMessage (client/core/activity_hud.lua)
+  guide: "lightrp:ui:guide", // Lua -> page: GuideMessage (client/core/guide.lua, server/modules/guide.lua)
   actionStart: "lightrp:ui:activity:start",
   actionStarted: "lightrp:ui:activity:started",
   actionFinish: "lightrp:ui:activity:finish",
@@ -515,7 +516,15 @@ export interface FuelDialogPayload {
   money: { currency: string; cash: number; bank: number };
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
-export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload;
+export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload;
+
+/** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
+ *  the search index and the topics follow as GuideMessage (features/guide/model.ts). */
+export interface GuideTopicSummary { id: string; title: string; icon?: string; blurb?: string; count: number }
+export interface GuideDialogPayload {
+  kind: "guide"; revision: string; npc: { name: string; title?: string; tag?: string };
+  greeting: string[]; topics: GuideTopicSummary[]; keys?: Record<string, string>;
+}
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -554,6 +563,9 @@ export type UiAction =
   | { type: "activities.control"; operation: "gps"; id: string }
   | { type: "halloffame.open" | "halloffame.tab" | "halloffame.refresh"; tab?: HallOfFameTab; from?: string }
   | { type: "halloffame.close" }
+  | { type: "guide.open"; from?: string }
+  | { type: "guide.topic"; id: string }
+  | { type: "guide.gps"; target: string }
   | { type: "customization.open"; vehicle: string; garage: string }
   | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
   | { type: "dealership.close"; session: string }

@@ -120,6 +120,8 @@ server_script "server/modules/activities.lua"      -- activity providers' contra
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
 server_script "server/config/halloffame.lua"
 server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards
+server_script "server/config/guide.lua"
+server_script "server/modules/guide.lua"           -- Johnny at The Crossing: the FAQ dialogue (content in server/config/guide.lua)
 server_script "server/main.lua"
 
 -- Client: core first, then modules.
@@ -169,6 +171,7 @@ client_script "client/core/mission_run.lua"
 client_script "client/core/vehicle_context.lua"
 client_script "client/core/crew.lua"            -- crews: ALT + click on players, invite keys (server/modules/parties.lua)
 client_script "client/core/vehicle_customization.lua"
+client_script "client/core/guide.lua"           -- the guide NPC: page relay with the player's keys, ALT + click on him
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
