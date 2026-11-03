@@ -20,6 +20,8 @@
 .dogtown-banner__cash { margin-top: 4px; font: 600 14px var(--font-core); color: var(--text-body); }
 .dogtown-banner__cash em { font-style: normal; font-family: var(--font-mono); color: var(--text-hi); }
 .dogtown-banner__rule { font: 11px var(--font-core); color: var(--text-dim); }
+.dogtown-banner__stake { max-width: 440px; text-align: center; font: 700 12px var(--font-core); color: var(--accent); }
+.dogtown-banner--short .dogtown-banner__law { color: var(--accent); }
 
 .dogtown-tile {
   position: absolute; top: var(--hud-safe-y); left: var(--hud-safe-x);
@@ -40,6 +42,15 @@
 .dogtown-tile--tagged { box-shadow: var(--shadow-hud), var(--glow-danger); }
 .dogtown-tile--tagged .dogtown-tile__glyph { animation: dogtown-pulse .8s steps(2, end) infinite; }
 .dogtown-tile--outside { border-left-style: dashed; }
+/* Inside without the stake: the accent (a warning, not a threat) and the escort countdown. */
+.dogtown-tile--short { border-left-color: var(--accent); }
+.dogtown-tile--short .dogtown-tile__glyph, .dogtown-tile--short .dogtown-tile__label { color: var(--accent); }
+.dogtown-tile__rows > .dogtown-tile__escort { color: var(--accent); font: 700 10px var(--font-mono); letter-spacing: .06em; }
+.dogtown-tile__rows > .dogtown-tile__escort svg { color: var(--accent); }
+/* A bounty: the player is on everyone's map. */
+.dogtown-tile--bounty { box-shadow: var(--shadow-hud), var(--glow-danger); }
+.dogtown-tile__rows > .dogtown-tile__bounty { color: var(--o77-red); font: 700 10px var(--font-mono); letter-spacing: .06em; animation: dogtown-pulse 1s steps(2, end) infinite; }
+.dogtown-tile__rows > .dogtown-tile__bounty svg { color: var(--o77-red); }
 
 @keyframes dogtown-drop { from { opacity: 0; transform: translate(-50%, -14px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @keyframes dogtown-fade { to { opacity: 0; } }
@@ -52,5 +63,5 @@
   .dogtown-tile { max-width: min(280px, calc(100vw - 36px)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dogtown-banner, .dogtown-tile, .dogtown-banner__bar svg, .dogtown-tile--tagged .dogtown-tile__glyph { animation: none; }
+  .dogtown-banner, .dogtown-tile, .dogtown-banner__bar svg, .dogtown-tile--tagged .dogtown-tile__glyph, .dogtown-tile__rows > .dogtown-tile__bounty { animation: none; }
 }
