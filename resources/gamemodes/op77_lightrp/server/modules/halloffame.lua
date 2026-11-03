@@ -1211,18 +1211,20 @@ end
 local MODEL_USAGE = "/lightrp.halloffame model <n|alias> [scale|-] [rotate] (\"-\": the row's scale; rotate: degrees added to the row's yaw), or model reset"
 
 local function trim(n) return (string.format("%.2f", n):gsub("0+$", ""):gsub("%.$", "")) end
+-- Degrees in (-180, 180].
+local function signed(d) d = d % 360; if d > 180 then d = d - 360 end; return d end
 local function modelLine()
     local row, index = rowOf(board.model)
     return string.format("model %s%s, scale %s, rotation %s (row yaw %s + rotate %s), %s",
         tostring(board.model), index and string.format(" (#%d %s)", index, tostring(row.label or "")) or " (not in board.models)",
-        trim(board.scale or 1), trim(((board.yaw or 0) + (board.rotate or 0)) % 360), trim(board.yaw or 0), trim(board.rotate or 0),
+        trim(board.scale or 1), trim(signed((board.yaw or 0) + (board.rotate or 0))), trim(board.yaw or 0), trim(board.rotate or 0),
         board.saved and "the staff's choice (kvp)" or "the config's default")
 end
 HoF.modelLine = modelLine
 -- What to paste into server/config/halloffame.lua `board` to make the choice the default.
 local function configLine()
     return string.format("model = %q, scale = %s, yaw = %s,", tostring(board.model), trim(board.scale or 1),
-        trim((((board.yaw or 0) + (board.rotate or 0) + 180) % 360) - 180))
+        trim(signed((board.yaw or 0) + (board.rotate or 0))))
 end
 
 local function listModelsVerb()
@@ -1269,7 +1271,7 @@ local function modelVerb(source, args)
     if args[4] ~= nil then
         rotate = tonumber(args[4])
         if not rotate or not (rotate > -1e6 and rotate < 1e6) then return false, "Hall of Fame: rotate in degrees. " .. MODEL_USAGE end
-        rotate = ((rotate + 180) % 360) - 180
+        rotate = signed(rotate)
     end
     local choice = choiceFor(model, scale, rotate)
     local ok, why, kept = swapModel(choice, true)
