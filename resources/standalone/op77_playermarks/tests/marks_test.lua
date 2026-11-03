@@ -27,7 +27,9 @@ _G.Open77 = {
     voice = { talkers = function() return talkers end },
 }
 _G.GetResourceState = function(name) return name == "op77_map3d" and "running" or "missing" end
-_G.exports = { op77_map3d = { arePlayerDotsHidden = function(_, pid) return hiddenOnMap[tonumber(pid)] == true end } }
+local exported = {}
+_G.exports = setmetatable({ op77_map3d = { arePlayerDotsHidden = function(_, pid) return hiddenOnMap[tonumber(pid)] == true end } },
+    { __call = function(_, name, fn) exported[name] = fn end })
 _G.AddEventHandler = function(name, fn) handlers[name] = fn end
 _G.CreateThread = function() end
 _G.Wait = function() end
@@ -112,6 +114,32 @@ local create = Open77.anchors.create
 Open77.anchors.create = function(def) if def.tag == "playermark.8" then return nil, "quota" end return create(def) end
 PM.refresh()
 assert(PM.marks["7"] and not PM.marks["8"])
+
+-- setHidden (op77_lightrp in a PvP fight): some players, then everyone, per caller
+Open77.anchors.create = create
+_G.GetInvokingResource = function() return "op77_lightrp" end
+nearby = { { playerId = 7, isLocal = false, name = "A" }, { playerId = 8, isLocal = false, name = "B" } }
+entities = { [7] = "1001", [8] = "1002" }
+PM.refresh()
+assert(PM.marks["7"] and PM.marks["8"])
+assert(exported.setHidden(true, { 8 }))
+PM.refresh()
+assert(PM.marks["7"] and not PM.marks["8"] and exported.arePlatesHidden(8) and not exported.arePlatesHidden(7), "one player hidden")
+assert(exported.setHidden(true))
+PM.refresh()
+assert(next(PM.marks) == nil, "every plate hidden")
+_G.GetInvokingResource = function() return "other" end
+assert(exported.setHidden(false), "another caller's false does not lift op77_lightrp's hide")
+PM.refresh()
+assert(next(PM.marks) == nil)
+_G.GetInvokingResource = function() return "op77_lightrp" end
+assert(exported.setHidden(false))
+PM.refresh()
+assert(PM.marks["7"] and PM.marks["8"], "shown again")
+assert(exported.setHidden(true, { 7 }))
+handlers.onClientResourceStop("op77_lightrp")
+PM.refresh()
+assert(PM.marks["7"], "the caller stopped: its hide went with it")
 
 -- map3d not running: nobody is hidden
 _G.GetResourceState = function() return "missing" end

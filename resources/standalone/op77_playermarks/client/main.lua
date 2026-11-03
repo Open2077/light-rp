@@ -31,8 +31,16 @@ local function call(name, method, ...)
     return nil
 end
 
--- A player op77_map3d keeps off the map (a chase runner) gets no dot either.
+-- What other resources hid (setHidden): owner -> true (every plate) or { [player id] = true }.
+local hiddenBy = {}
+
+-- A player op77_map3d keeps off the map (a chase runner) gets no plate either, nor one a
+-- resource hid (op77_lightrp: the players in a PvP fight).
 local function hidden(pid)
+    local key = tostring(pid)
+    for _, set in pairs(hiddenBy) do
+        if set == true or set[key] then return true end
+    end
     return call("op77_map3d", "arePlayerDotsHidden", pid) == true
 end
 
@@ -123,8 +131,26 @@ local function talk()
     end
 end
 
+-- setHidden(true[, ids]): hide every plate (no ids) or those players' (a list of server ids);
+-- setHidden(false): show again what this caller hid. Each caller's choice replaces its
+-- previous one and goes when it stops; the next refresh (refreshMs) applies it.
+local function setHidden(owner, on, ids)
+    if on ~= true then hiddenBy[owner] = nil; return true end
+    if ids == nil then hiddenBy[owner] = true; return true end
+    if type(ids) ~= "table" then return false end
+    local set = {}
+    for _, id in ipairs(ids) do set[tostring(id)] = true end
+    hiddenBy[owner] = set
+    return true
+end
+exports("setHidden", function(on, ids)
+    local owner = (type(GetInvokingResource) == "function" and GetInvokingResource()) or "export"
+    return setHidden(owner, on, ids)
+end)
+exports("arePlatesHidden", function(pid) return hidden(pid) end)
+
 -- For the offline tests: the loop bodies and the state, no game needed.
-PlayerMarks = { refresh = refresh, talk = talk, marks = marks,
+PlayerMarks = { refresh = refresh, talk = talk, marks = marks, setHidden = setHidden,
     attach = function(p) page, pageReady = p, true end }
 
 local function createPage()
@@ -170,5 +196,9 @@ AddEventHandler("onClientResourceStart", function(name)
 end)
 
 AddEventHandler("onClientResourceStop", function(name)
-    if name == GetCurrentResourceName() and anchorsOk then pcall(Open77.anchors.clear) end
+    if name == GetCurrentResourceName() then
+        if anchorsOk then pcall(Open77.anchors.clear) end
+        return
+    end
+    hiddenBy[name] = nil
 end)
