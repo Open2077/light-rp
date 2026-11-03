@@ -189,21 +189,33 @@ end
 function Active.secondHeartBlocked(playerId, state)
     local D = LightRP.dogtown
     if type(D) == "table" then
+        -- inside the Dogtown polygon (this death's position), or still in its fight (inside, or
+        -- tagged after leaving it: server/modules/dogtown.lua inZone)
         local pos = type(state) == "table" and state.position or nil
         if type(D.contains) == "function" and type(pos) == "table" then
             local ok, inside = pcall(D.contains, pos)
             if ok and inside then return "dogtown" end
         end
-        if type(D.qualifies) == "function" then
-            local ok, inside = pcall(D.qualifies, playerId)
+        local inZone = type(D.inZone) == "function" and D.inZone or D.qualifies
+        if type(inZone) == "function" then
+            local ok, inside = pcall(inZone, playerId)
             if ok and inside then return "dogtown" end
         end
     end
     local A = LightRP.activities
     if type(A) == "table" and type(A.owns) == "function" and A.owns(playerId) then
         local entry = type(A.current) == "function" and A.current(playerId) or nil
-        -- every activity is "no Second Heart" unless it is PvE and not ranked
-        if type(entry) ~= "table" or entry.pve ~= true or entry.ranked == true then return "activity" end
+        -- every activity is "no Second Heart" unless it is PvE and unranked (a ranked run feeds
+        -- reputation and the Hall of Fame boards): A.isRanked is the activity's own flag, an
+        -- owner without an entry (a mission's internal owner) counts as ranked
+        local ranked = true
+        if type(A.isRanked) == "function" then
+            local ok, flag = pcall(A.isRanked, playerId)
+            if ok and flag ~= nil then ranked = flag == true end
+        elseif type(entry) == "table" and entry.ranked ~= nil then
+            ranked = entry.ranked == true
+        end
+        if type(entry) ~= "table" or entry.pve ~= true or ranked then return "activity" end
     end
     local M = LightRP.missions
     if type(M) == "table" and type(M.handlesDeath) == "function" and M.handlesDeath(playerId) then return "mission" end
@@ -327,16 +339,27 @@ end
 
 -- The Dogtown bounty, through the Dogtown module when it has one (lightrp/dogtown-rules):
 -- LightRP.dogtown.bounty(playerId) -> number (eddies) | { amount, label } | nil. Absent: no line.
+-- The Dogtown bounty on a player (server/modules/dogtown.lua): what killing them there pays now,
+-- and their kill streak. nil without the Dogtown module.
 function Active.bountyLine(playerId)
     local D = LightRP.dogtown
-    if type(D) ~= "table" or type(D.bounty) ~= "function" then return nil end
-    local ok, value = pcall(D.bounty, playerId)
+    if type(D) ~= "table" or type(D.bountyReward) ~= "function" then return nil end
+    local ok, reward = pcall(D.bountyReward, playerId)
     if not ok then return nil end
-    local amount = type(value) == "table" and tonumber(value.amount) or tonumber(value)
-    local label = type(value) == "table" and value.label or nil
-    if label then return "Dogtown bounty: " .. tostring(label) end
-    if amount and amount > 0 then return "Dogtown bounty: " .. LightRP.money.format(math.floor(amount)) end
-    return "Dogtown bounty: none"
+    reward = math.floor(tonumber(reward) or 0)
+    local marked = false
+    if type(D.bounties) == "function" then
+        local okList, list = pcall(D.bounties)
+        marked = okList and type(list) == "table" and list[playerId] ~= nil
+    end
+    if reward <= 0 and not marked then return "Dogtown bounty: none" end
+    local streak = 0
+    if type(D.streak) == "function" then
+        local okStreak, n = pcall(D.streak, playerId)
+        streak = okStreak and math.floor(tonumber(n) or 0) or 0
+    end
+    return string.format("Dogtown bounty: %s%s", LightRP.money.format(math.max(0, reward)),
+        streak > 0 and string.format(" (%d-kill streak)", streak) or "")
 end
 
 local function crewLine(playerId)

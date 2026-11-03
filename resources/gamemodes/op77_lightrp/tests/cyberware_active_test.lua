@@ -3,7 +3,7 @@
 -- platform and framework: the client kit, Berserk (armor layer absorbed first, regeneration,
 -- cooldown from the end, early ends), Pain Editor (threshold, once a minute), Second Heart
 -- (medical downed only, delay, cooldown per character, Dogtown / ranked / non-PvE activity
--- refusals), Kiroshi scan (range, bucket, crew, Dogtown bounty hook, NPCs) and the Clairvoyant
+-- refusals), Kiroshi scan (range, bucket, crew, Dogtown bounty, NPCs) and the Clairvoyant
 -- crew mark (map blip, arrow updates, expiry, cleanup on death and disconnect), suspension in
 -- PvP; iconic rolls (chance, pity counter, owned items, eligible participants, critical raid
 -- only, test runs never drop).
@@ -249,23 +249,35 @@ P.life[9] = "alive"; downed[9] = nil
 LightRP.eachModule("onLifeState", 9, "alive")
 clock = clock + 3600000
 -- Dogtown: quiet (the Dogtown module, when it runs)
-LightRP.dogtown = { contains = function(pos) return pos and pos.x == 18 end, qualifies = function() return false end }
+local tagged = false
+LightRP.dogtown = { contains = function(pos) return pos and pos.x == 18 end, inZone = function() return tagged end }
 downed[9] = "downed"; P.life[9] = "dead"
 LightRP.eachModule("onLifeState", 9, "dead")
 step(3)
 assert(#P.revived == 1 and noticeOf(9, "SECOND HEART").body:find("Dogtown"), "quiet in Dogtown")
 P.life[9] = "alive"; downed[9] = nil
+assert(Active.secondHeartBlocked(9, { position = { x = 0, y = 0, z = 0 } }) == nil, "outside Dogtown")
+tagged = true
+assert(Active.secondHeartBlocked(9, { position = { x = 0, y = 0, z = 0 } }) == "dogtown", "tagged after leaving Dogtown: still its fight")
 LightRP.dogtown = nil
--- activities: off unless PvE and not ranked
-local activity = nil
+-- activities: off unless PvE and unranked (A.isRanked, the activity's own flag)
+local activity, rankedFlag = nil, nil
+LightRP.activities = { owns = function() return activity ~= nil end, current = function() return activity end,
+    isRanked = function() return rankedFlag end }
+activity, rankedFlag = { pve = false, ranked = false }, false
+assert(Active.secondHeartBlocked(9, {}) == "activity", "a PvP activity, even a friendly one")
+activity, rankedFlag = { pve = true, ranked = true }, true
+assert(Active.secondHeartBlocked(9, {}) == "activity", "a ranked PvE run")
+activity, rankedFlag = { pve = true, ranked = false }, false
+assert(Active.secondHeartBlocked(9, {}) == nil, "an unranked PvE run allows it")
+activity, rankedFlag = { pve = true, ranked = false }, nil
+assert(Active.secondHeartBlocked(9, {}) == "activity", "no flag from isRanked: ranked")
 LightRP.activities = { owns = function() return activity ~= nil end, current = function() return activity end }
-activity = { pve = false }
-assert(Active.secondHeartBlocked(9, {}) == "activity", "PvP activity")
-activity = { pve = true, ranked = true }
-assert(Active.secondHeartBlocked(9, {}) == "activity", "ranked activity")
+activity = { pve = true, ranked = false }
+assert(Active.secondHeartBlocked(9, {}) == nil, "without isRanked: the entry's flag")
 activity = { pve = true }
-assert(Active.secondHeartBlocked(9, {}) == nil, "a PvE activity allows it")
-LightRP.activities = { owns = function() return true end, current = function() return nil end }
+assert(Active.secondHeartBlocked(9, {}) == "activity", "no flag at all: ranked")
+LightRP.activities = { owns = function() return true end, current = function() return nil end, isRanked = function() return nil end }
 assert(Active.secondHeartBlocked(9, {}) == "activity", "an internal owner (missions) blocks it")
 LightRP.activities = nil
 -- a death that is not a city downed state (a mission respawn): nothing
@@ -284,9 +296,13 @@ assert(scan and scan.body == "Name: Runner8 · Crew: none", scan and scan.body)
 actions["cyberware.scan"](7, { target = { kind = "player", playerId = 9 } })
 assert(noticeOf(7, "KIROSHI SCAN") == scan, "two seconds between scans")
 clock = clock + 2000
-LightRP.dogtown = { bounty = function(pid) return pid == 9 and 2500 or nil end }
+LightRP.dogtown = { bountyReward = function(pid) return pid == 9 and 2500 or 0 end, bounties = function() return { [9] = "srv:bounty" } end,
+    streak = function(pid) return pid == 9 and 5 or 0 end }
 actions["cyberware.scan"](7, { target = { kind = "player", playerId = 9 } })
-assert(noticeOf(7, "KIROSHI SCAN").body == "Name: Runner9 · Crew: Runner7's crew (2) · Dogtown bounty: €$ 2500", noticeOf(7, "KIROSHI SCAN").body)
+assert(noticeOf(7, "KIROSHI SCAN").body == "Name: Runner9 · Crew: Runner7's crew (2) · Dogtown bounty: €$ 2500 (5-kill streak)", noticeOf(7, "KIROSHI SCAN").body)
+clock = clock + 2000
+actions["cyberware.scan"](7, { target = { kind = "player", playerId = 8 } })
+assert(noticeOf(7, "KIROSHI SCAN").body == "Name: Runner8 · Crew: none · Dogtown bounty: none", noticeOf(7, "KIROSHI SCAN").body)
 LightRP.dogtown = nil
 clock = clock + 2000
 P.pos[8] = { x = 80, y = 0, z = 0 }
