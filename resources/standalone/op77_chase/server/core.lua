@@ -105,11 +105,36 @@ function C.result(playerId, result, aid)
     TriggerEvent("op77_lightrp:activity:result", playerId, activityId(aid), result)
 end
 
--- Sent on change only, per activity. `status` = { phase, players, queued, joinable, detail }.
+-- Light RP's queue panel (status.queue, v1): who waits in which lobby, what it takes,
+-- when it starts. One lobby per waiting group: { players, need, max, count, startsInMs,
+-- mode, joining }; an empty list = nobody waits (nil = an older provider).
+function C.queue(lobbies) return { v = 1, lobbies = lobbies or {} } end
+function C.lobby(entries, need, extra)
+    local ids = {}
+    for _, e in ipairs(entries or {}) do ids[#ids + 1] = type(e) == "table" and e.id or e end
+    local l = { players = ids, need = need }
+    for k, v in pairs(extra or {}) do l[k] = v end
+    return l
+end
+
+-- The queue in the change digest: a countdown running down is no change (its deadline,
+-- to the second, is), a player or a number that moved is.
+function C.queueDigest(queue, now)
+    if type(queue) ~= "table" or type(queue.lobbies) ~= "table" then return "-" end
+    local parts = {}
+    for _, l in ipairs(queue.lobbies) do
+        parts[#parts + 1] = table.concat({ tostring(l.need), tostring(l.max), tostring(l.count), tostring(l.mode), tostring(l.joining),
+            l.startsInMs and tostring(math.floor(((now or 0) + l.startsInMs) / 1000)) or "", table.concat(l.players or {}, ",") }, "/")
+    end
+    return table.concat(parts, ";")
+end
+
+-- Sent on change only, per activity. `status` = { phase, players, queued, joinable, detail, queue }.
 function C.status(status, force, aid)
     aid = activityId(aid)
-    local key = ("%s|%d|%d|%s|%s"):format(tostring(status.phase), status.players or 0, status.queued or 0,
-        tostring(status.joinable), tostring(status.detail))
+    local now = ChaseWorld and ChaseWorld.now and ChaseWorld.now() or 0
+    local key = ("%s|%d|%d|%s|%s|%s"):format(tostring(status.phase), status.players or 0, status.queued or 0,
+        tostring(status.joinable), tostring(status.detail), C.queueDigest(status.queue, now))
     if not force and key == C.lastStatus[aid] then return false end
     C.lastStatus[aid] = key
     TriggerEvent("op77_lightrp:activity:status", aid, status)

@@ -23,8 +23,30 @@ local function countdownLeft(now)
     return math.max(0, L.countdownEndsAtMs - (now or W.now()))
 end
 
+-- The status carries the queue for Light RP's queue panel: the lobby (its minimum, its
+-- seats, the countdown once it runs) and, per running match, who joins at its next round.
+local function queueOf(now)
+    local lobbies = {}
+    if L.size() > 0 then
+        lobbies[1] = ChaseCore.lobby(L.entries, MW.minPlayers(), { max = WC.maxPlayers, startsInMs = countdownLeft(now) })
+    end
+    local matchIds = {}
+    for id in pairs(MW.matches) do matchIds[#matchIds + 1] = id end
+    table.sort(matchIds)
+    for _, matchId in ipairs(matchIds) do
+        local match = MW.matches[matchId]
+        if #match.pending > 0 then
+            lobbies[#lobbies + 1] = ChaseCore.lobby(match.pending, nil, { joining = true })
+        end
+    end
+    return ChaseCore.queue(lobbies)
+end
+
 local function publishStatus(force)
-    ChaseCore.status(MW.status(L.size(), countdownLeft()), force, AID)
+    local now = W.now()
+    local status = MW.status(L.size(), countdownLeft(now))
+    status.queue = queueOf(now)
+    ChaseCore.status(status, force, AID)
 end
 
 local function register()

@@ -262,6 +262,25 @@ do
     C.resetStatus()
     assert(C.status(st, false, "chase.wanted") == true, "Light RP restarted: sent again")
     print("PASS core per activity")
+
+    -- The queue panel's shape (status.queue v1): its players and numbers are changes, a
+    -- countdown running down is not (its deadline is).
+    local q = C.queue({ C.lobby({ { id = 3 }, { id = 4 } }, 3, { max = 8, startsInMs = 20000 }) })
+    assert(q.v == 1 and q.lobbies[1].players[1] == 3 and q.lobbies[1].players[2] == 4 and q.lobbies[1].need == 3 and q.lobbies[1].max == 8)
+    assert(#C.queue().lobbies == 0, "nobody waits: an empty list, never nil")
+    assert(C.queueDigest(q, 1000) == C.queueDigest(C.queue({ C.lobby({ 3, 4 }, 3, { max = 8, startsInMs = 19500 }) }), 1500),
+        "the same start half a second later")
+    assert(C.queueDigest(q, 1000) ~= C.queueDigest(C.queue({ C.lobby({ 3, 4 }, 3, { max = 8, startsInMs = 9000 }) }), 1000), "a start moved")
+    assert(C.queueDigest(q, 1000) ~= C.queueDigest(C.queue({ C.lobby({ 3 }, 3, { max = 8, startsInMs = 20000 }) }), 1000), "a player left")
+    assert(C.queueDigest(nil) == "-")
+    C.resetStatus()
+    env.events = {}
+    local qs = { phase = "lobby", players = 0, queued = 2, joinable = true, detail = "2 waiting", queue = C.queue({ C.lobby({ 3, 4 }, 2) }) }
+    assert(C.status(qs) == true and C.status(qs) == false)
+    qs.queue = C.queue({ C.lobby({ 4, 3 }, 2) })
+    assert(C.status(qs) == true, "same counters, another queue: sent")
+    assert(env.events[#env.events].args[2].queue.lobbies[1].players[1] == 4, "the queue rides on the status event")
+    print("PASS core queue shape")
 end
 
 print("PASS: op77_chase adapters (contract calls, raising exports, status dedupe per activity, placement teleport/respawn/failures, cars + fallback + sweep, HUD/feed/notify/announce/reply)")
