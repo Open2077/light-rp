@@ -686,7 +686,7 @@ LightRP.stateProvider("missionQueue", function(id)
     local point, d = points[lobby.point], diffOf(points[lobby.point], lobby.difficulty)
     return { running = false, title = point.title, difficulty = d.label, difficultyId = d.id, count = #lobby.members, min = d.min, max = d.max,
         state = lobby.state, countdownMs = lobby.state == "countdown" and math.max(0, lobby.launchAt - now()) or nil,
-        host = lobby.members[1] and lobby.members[1].id == id }
+        host = lobby.members[1] and lobby.members[1].id == id, open = lobby.open == true }
 end)
 function pushQueue(id) LightRP.state(id, "missionQueue") end
 

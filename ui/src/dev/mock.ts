@@ -13,7 +13,7 @@ import { shopFixture } from "./shopFixture";
 import { jobFixture } from "./jobFixture";
 import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
-import { missionMock } from "./missionFixture";
+import { activitiesFixture, missionMock } from "./missionFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
@@ -164,6 +164,11 @@ export function installMockBridge(): void {
           if (params.get("dialog") === "shop") fire(PAGE_EVENTS.dialog, shop);
           if (params.get("dialog") === "garage") fire(PAGE_EVENTS.dialog, garage);
           if (params.get("dialog") === "dealership") fire(PAGE_EVENTS.dialog, dealership);
+          mission.boot();
+          if (params.get("dialog") === "activities") {
+            fire(PAGE_EVENTS.state, { activities: activitiesFixture(params) });
+            fire(PAGE_EVENTS.dialog, { kind: "activities", tab: params.get("tab") ?? "activities" });
+          }
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
           if (params.get("mission") === "1") mission.running();

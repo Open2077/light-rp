@@ -9,8 +9,9 @@ import "./activities.css";
 /* The Activities panel (server/modules/activities.lua, activities_hub.lua): opened
    by The Crossing's terminal, F1 > Activities and the Neural-Link app Gigs & Arena.
    Three tabs: the activities (status, join / leave, your record, the leaderboard),
-   the contract boards of the city (a GPS route to each) and the squad. Everything
-   comes from the `activities` and `party` state; nothing is assumed. */
+   the contract boards of the city (a GPS route to each) and the crew. In a crew only
+   the leader joins, and the crew is queued with them. Everything comes from the
+   `activities` and `party` state; nothing is assumed. */
 
 const ACTION = "activities.control";
 
@@ -26,7 +27,8 @@ export function ActivitiesDialog() {
     return () => { off(); emit(PAGE_EVENTS.focus, { active: false }); emit(PAGE_EVENTS.dialogState, { kind: "activities", open: false }); };
   }, [visible, close]);
   if (dialog?.kind !== "activities") return null;
-  const tab: ActivitiesTab = dialog.tab === "contracts" || dialog.tab === "squad" ? dialog.tab : "activities";
+  const asked = dialog.tab as string | undefined;
+  const tab: ActivitiesTab = asked === "contracts" ? "contracts" : asked === "crew" || asked === "squad" ? "crew" : "activities";
   return <ActivitiesBody key={tab} initialTab={tab} onClose={close} />;
 }
 
@@ -48,9 +50,9 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
   useEffect(() => { setReceived(performance.now()); }, [state]);
   useEffect(() => { const t = window.setInterval(() => tick((n) => n + 1), 1000); return () => window.clearInterval(t); }, []);
   useEffect(() => { root.current?.focus(); }, [tab]);
-  // the players around change while the squad tab is open
+  // the players around change while the crew tab is open
   useEffect(() => {
-    if (tab !== "squad") return;
+    if (tab !== "crew") return;
     sendAction({ type: ACTION, operation: "refresh" });
     const t = window.setInterval(() => sendAction({ type: ACTION, operation: "refresh" }), 6000);
     return () => window.clearInterval(t);
@@ -83,7 +85,7 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
   const tabs = useMemo(() => [
     { value: "activities" as const, label: "ACTIVITIES", icon: "swords", count: list.length || undefined },
     { value: "contracts" as const, label: "CONTRACTS", icon: "terminal", count: state?.contracts.length || undefined },
-    { value: "squad" as const, label: "SQUAD", icon: "users", count: party?.invites?.length || (party?.members ? `${party.members.length}/${party.maxSize}` : undefined) },
+    { value: "crew" as const, label: "CREW", icon: "users", count: party?.invites?.length ? `${party.invites.length} NEW` : party?.members ? `${party.members.length}/${party.maxSize}` : undefined },
   ], [list.length, state?.contracts.length, party]);
 
   return <div className="activities o77-interactive" role="dialog" aria-modal="true" aria-labelledby="activities-title" ref={root} tabIndex={-1}
@@ -111,11 +113,11 @@ function ActivitiesBody({ initialTab, onClose }: { initialTab: ActivitiesTab; on
           {list.map((a) => <ActivityRow key={a.id} a={a} selected={a.id === activity?.id} state={state}
             onSelect={() => setSelected(a.id)} />)}
         </div>
-        {activity ? <ActivityDetail a={activity} state={state} mode={modes[activity.id]} waiting={waiting}
+        {activity ? <ActivityDetail a={activity} state={state} party={party} mode={modes[activity.id]} waiting={waiting}
           onMode={(m) => setModes((s) => ({ ...s, [activity.id]: m }))} onJoin={() => join(activity)} onLeave={leave} /> : <div />}
       </div>
       : tab === "contracts" ? <Contracts state={state} />
-      : <Squad state={state} party={party} me={me} />}
+      : <Crew state={state} party={party} me={me} />}
 
     <footer className="activities__foot">
       <span className={cx("activities__feedback", feedback?.error && "is-error")} role="status">
@@ -170,14 +172,17 @@ function ActivityRow({ a, selected, state, onSelect }: { a: ActivityEntry; selec
   </button>;
 }
 
-function ActivityDetail({ a, state, mode, waiting, onMode, onJoin, onLeave }: {
-  a: ActivityEntry; state: ActivitiesState; mode?: string; waiting: boolean; onMode(mode: string): void; onJoin(): void; onLeave(): void;
+function ActivityDetail({ a, state, party, mode, waiting, onMode, onJoin, onLeave }: {
+  a: ActivityEntry; state: ActivitiesState; party?: PartyState; mode?: string; waiting: boolean; onMode(mode: string): void; onJoin(): void; onLeave(): void;
 }) {
   const inside = !!state.current && state.current.id === a.id;
   const queuedHere = !!state.queued && state.queued.id === a.id;
   const busyElsewhere = !!state.current && !inside;
   const blocked = !state.eligible && !inside && !queuedHere;
-  const why = busyElsewhere ? `You are in ${state.current && state.current.label}.` : !a.joinable ? `${a.label} is not taking players right now.` : blocked ? state.reason : undefined;
+  const crewSize = party?.id && party.members ? party.members.length : 1;
+  const why = busyElsewhere ? `You are in ${state.current && state.current.label}.`
+    : state.crewLeader && !inside && !queuedHere ? `${state.crewLeader} leads your crew and starts activities. Leave the crew to go solo.`
+    : !a.joinable ? `${a.label} is not taking players right now.` : blocked ? state.reason : undefined;
   const board = a.board;
   const record = board ? a.mineBoard : a.mine;
   return <section className="activity-detail" aria-labelledby="activities-title">
@@ -199,8 +204,9 @@ function ActivityDetail({ a, state, mode, waiting, onMode, onJoin, onLeave }: {
     <div className="activity-detail__actions">
       {inside ? <Button variant="danger" icon="log-out" disabled={waiting || (state.current && (state.current.leaving || state.current.returning))} onClick={onLeave}>LEAVE {a.label.toUpperCase()}</Button>
         : queuedHere ? <Button variant="secondary" icon="x" disabled={waiting} onClick={onLeave}>CANCEL MY REQUEST</Button>
-        : <Button icon="chevron-right" disabled={waiting || !!why} onClick={onJoin}>{state.queued ? "SWITCH TO THIS ONE" : "JOIN"}</Button>}
-      {why && <span className="activity-detail__why"><Icon name="triangle-alert" size={13} />{why}</span>}
+        : <Button icon="chevron-right" disabled={waiting || !!why} onClick={onJoin}>{state.queued ? "SWITCH TO THIS ONE" : crewSize > 1 && !state.crewLeader ? "JOIN WITH THE CREW" : "JOIN"}</Button>}
+      {why ? <span className="activity-detail__why"><Icon name="triangle-alert" size={13} />{why}</span>
+        : crewSize > 1 && !inside && !queuedHere && <span className="activity-detail__why is-info"><Icon name="users" size={13} />Your {crewSize - 1} crew member{crewSize > 2 ? "s are" : " is"} queued with you.</span>}
     </div>
 
     <h2 className="activity-detail__step">YOUR RECORD{board ? ` · ${board.course.toUpperCase()}` : ""}</h2>
@@ -237,38 +243,51 @@ function Contracts({ state }: { state: ActivitiesState }) {
   </section>;
 }
 
-/* The squad (server/modules/parties.lua): it joins activities and missions together. */
-function Squad({ state, party, me }: { state: ActivitiesState; party?: PartyState; me: number }) {
+/* The crew (server/modules/parties.lua): players who play missions, the raid and
+   activities together. ALT + click a player does the same as the buttons here. */
+function Crew({ state, party, me }: { state: ActivitiesState; party?: PartyState; me: number }) {
   const leader = !!party?.id && party.leader === me;
+  const inCrew = !!party?.id && (party.members?.length ?? 0) > 1;
   const full = (party?.members?.length ?? 1) >= (party?.maxSize ?? 8);
+  const canToggle = !party?.id || leader;
   return <section className="activities__page activities__squad">
-    <p className="activities__hint">Squads tag missions together, and the activity you join learns who is in yours. Invites last a minute.</p>
+    <p className="activities__hint">Your crew enters missions, the Chimera raid and activities together: its leader tags in or joins, and the crew follows. ALT + click a player to invite them. Invites last {party?.inviteSeconds ?? 60} seconds.</p>
     {!!party?.invites?.length && <><h2 className="activity-detail__step">INVITES</h2>
       {party.invites.map((inv) => <div key={inv.party} className="activities-line">
         <span className="activities-line__icon"><Icon name="user-plus" size={16} /></span>
-        <span className="activities-line__text"><strong>{inv.fromName}</strong><small>wants you in their squad</small></span>
+        <span className="activities-line__text"><strong>{inv.fromName}</strong><small>wants you in their crew</small></span>
         <Button size="sm" icon="check" onClick={() => sendAction({ type: "party.accept", party: inv.party })}>ACCEPT</Button>
         <Button size="sm" variant="ghost" onClick={() => sendAction({ type: "party.decline", party: inv.party })}>DECLINE</Button>
       </div>)}</>}
     <h2 className="activity-detail__step">MEMBERS{party?.members ? ` ${party.members.length}/${party.maxSize}` : ""}</h2>
     {party?.members ? party.members.map((m) => <div key={m.id} className="activities-line">
       <span className="activities-line__icon"><Icon name={m.leader ? "crown" : "user"} size={16} /></span>
-      <span className="activities-line__text"><strong>{m.name}</strong><small>{m.leader ? "LEADER" : "MEMBER"}{m.id === me ? " · YOU" : ""}</small></span>
+      <span className="activities-line__text"><strong>{m.name}</strong><small>{m.leader ? "LEADER" : "MEMBER"}{m.id === me ? " · YOU" : ""}{m.state && m.state !== "alive" ? ` · ${m.state.toUpperCase()}` : ""}{m.busyLabel ? ` · ${m.busyLabel.toUpperCase()}` : ""}{m.far && m.id !== me ? " · FAR" : ""}</small></span>
       {leader && m.id !== me && <>
         <Button size="sm" variant="ghost" icon="crown" title="Hand the lead over" onClick={() => sendAction({ type: "party.promote", target: m.id })}>LEAD</Button>
-        <Button size="sm" variant="ghost" icon="user-minus" title="Remove from the squad" onClick={() => sendAction({ type: "party.kick", target: m.id })}>REMOVE</Button>
+        <Button size="sm" variant="ghost" icon="user-minus" title="Kick from the crew" onClick={() => sendAction({ type: "party.kick", target: m.id })}>KICK</Button>
       </>}
-    </div>) : <p className="activities__empty">No squad yet. Invite the players around you below.</p>}
+    </div>) : <p className="activities__empty">No crew yet: you play solo. Invite the players around you below, or ALT + click one.</p>}
     {party?.pending?.map((p) => <div key={p.id} className="activities-line is-pending">
       <span className="activities-line__icon"><Icon name="loader" size={16} /></span>
       <span className="activities-line__text"><strong>{p.name}</strong><small>invited</small></span>
     </div>)}
-    {party?.members && <div className="activities__row-actions"><Button size="sm" variant="danger" icon="log-out" onClick={() => sendAction({ type: "party.leave" })}>LEAVE SQUAD</Button></div>}
+    {party?.members && <div className="activities__row-actions"><Button size="sm" variant="danger" icon="log-out" onClick={() => sendAction({ type: "party.leave" })}>{inCrew ? "LEAVE CREW" : "WITHDRAW INVITES"}</Button></div>}
+    <h2 className="activity-detail__step">MISSION MATCHMAKING</h2>
+    <div className="activities-line">
+      <span className="activities-line__icon"><Icon name={party?.matchmaking ? "globe" : "lock"} size={16} /></span>
+      <span className="activities-line__text"><strong>{party?.matchmaking ? "OPEN TO MATCHMAKING" : inCrew ? "CREW ONLY" : "MATCHMAKING OFF"}</strong>
+        <small>{!canToggle ? "The crew leader decides." : inCrew
+          ? party?.matchmaking ? "Solo players fill the empty places on mission boards." : "Nobody else joins your missions. Open it to let solo players fill the empty places."
+          : party?.matchmaking ? "You join open mission boards, and players fill yours." : "You only enter missions alone. Turn it on to join open boards."}</small></span>
+      {canToggle && <Button size="sm" variant="secondary" icon={party?.matchmaking ? "lock" : "globe"}
+        onClick={() => sendAction({ type: "party.matchmaking", on: !party?.matchmaking })}>{party?.matchmaking ? (inCrew ? "CREW ONLY" : "TURN OFF") : (inCrew ? "OPEN" : "TURN ON")}</Button>}
+    </div>
     <h2 className="activity-detail__step">NEARBY</h2>
     {state.nearby.length === 0 ? <p className="activities__empty">Nobody around. Players within 15 m of you show up here.</p>
       : state.nearby.map((p) => <div key={p.id} className="activities-line">
         <span className="activities-line__icon"><Icon name="user" size={16} /></span>
-        <span className="activities-line__text"><strong>{p.name}</strong><small>{p.distance} M{p.mine ? " · IN YOUR SQUAD" : p.inSquad ? " · IN A SQUAD" : ""}</small></span>
+        <span className="activities-line__text"><strong>{p.name}</strong><small>{p.distance} M{p.mine ? " · IN YOUR CREW" : p.inSquad ? " · IN A CREW" : ""}</small></span>
         {!p.mine && <Button size="sm" variant="secondary" icon="user-plus" disabled={p.inSquad || p.invited || full || (!!party?.id && !leader)}
           onClick={() => sendAction({ type: "party.invite", target: p.id })}>{p.invited ? "INVITED" : "INVITE"}</Button>}
       </div>)}

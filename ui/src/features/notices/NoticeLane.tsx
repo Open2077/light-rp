@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useStore } from "@/state/store";
 import { Notification } from "@/design/components";
 import "./notices.css";
 
-/* Top-right notification stack: server notices (`lightrp:ui:notice`) and command
-   results. FIFO, six deep, each with its own lifetime bar; wipe-out then removal. */
+/* Centre-left notification stack: server notices (`lightrp:ui:notice`) and command
+   results. FIFO, six deep, each with its own lifetime bar; wipe-out then removal.
+   When the crew frame or its invite prompt (bottom-left stack) climbs to the
+   notices' height (a big crew, a weapon out, 720p), the lane steps to their right. */
 export function NoticeLane() {
   const notices = useStore((s) => s.notices);
   const creating = useStore((s) => s.connected && s.state.character.status !== "active");
@@ -12,6 +14,21 @@ export function NoticeLane() {
   const dismiss = useStore((s) => s.dismissNotice);
   const remove = useStore((s) => s.removeNotice);
   const [, tick] = useState(0);
+  const lane = useRef<HTMLDivElement>(null);
+  const [beside, setBeside] = useState<number | undefined>();
+
+  useLayoutEffect(() => {
+    const el = lane.current;
+    if (!el) { if (beside !== undefined) setBeside(undefined); return; }
+    const r = el.getBoundingClientRect();
+    let right = 0;
+    for (const crew of document.querySelectorAll<HTMLElement>(".hud__bottom-left > .crew-frame, .hud__bottom-left > .crew-invite")) {
+      const c = crew.getBoundingClientRect();
+      if (c.height > 0 && c.top < r.bottom + 8 && c.bottom > r.top - 8) right = Math.max(right, c.right);
+    }
+    const next = right > 0 ? Math.round(right + 16) : undefined;
+    if (next !== beside) setBeside(next);
+  });
 
   useEffect(() => {
     if (notices.length === 0) return;
@@ -32,7 +49,7 @@ export function NoticeLane() {
 
   if (creating || cinematic || notices.length === 0) return null;
   return (
-    <div className="notices o77-stack">
+    <div ref={lane} className="notices o77-stack" style={beside ? { left: beside } : undefined}>
       {notices.map((n) => (
         <Notification key={n.id} kind={n.kind} title={n.title} body={n.body} source={n.source}
           remaining={1 - Math.min(1, (Date.now() - n.createdAt) / n.durationMs)} dismissing={n.dismissing}
