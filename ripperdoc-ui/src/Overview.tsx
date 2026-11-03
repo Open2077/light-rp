@@ -1,4 +1,5 @@
 import { SECTION, SECTIONS, roman, type Body } from "./data";
+import { isStored } from "./model";
 import { iconImage, type Manifest } from "./media";
 import { anchorPoint, bodyBox } from "./Stage";
 import { play } from "./sfx";
@@ -48,7 +49,8 @@ export function Overview({ body, manifest, phase, hovered, session, onHover, onD
       {SECTIONS.map((s, i) => {
         const g = groupGeometry(manifest, body, i, s.side);
         const list = installed[s.id] ?? [];
-        const total = s.slots + s.locked;
+        const slots0 = Math.max(s.slots, list.length);
+        const total = slots0 + s.locked;
         const width = total * SLOT + (total - 1) * GAP;
         const left = s.side === "left" ? g.inner - width : g.inner;
         const on = hovered === s.id;
@@ -61,13 +63,13 @@ export function Overview({ body, manifest, phase, hovered, session, onHover, onD
             <div className="rd-group-label">
               <span className="code">{s.code}</span>
               <span className="name">{s.label}</span>
-              <span className="count">{list.length}/{s.slots}</span>
+              <span className="count">{list.length}/{slots0}</span>
             </div>
             <div className="rd-group-slots">
               {slots.map((k) => {
                 const id = list[k];
                 const item = id ? session.items[id] : undefined;
-                const locked = k >= s.slots;
+                const locked = k >= slots0;
                 return (
                   <div key={k} className={`rd-slot ${item ? `filled r-${item.rarity}` : locked ? "locked" : "empty"}`}>
                     {item && <img src={iconImage(item.icon)} alt="" />}
@@ -90,6 +92,7 @@ function Peek({ body, manifest, id, installed, session }: { body: Body; manifest
   const s = SECTION[id]!;
   const a = anchorPoint(manifest, body, id);
   const stockCount = session.stock.filter((x) => x.section === id).length;
+  const stored = session.stock.filter((x) => x.section === id && isStored(session, x.id));
   const left = s.side === "left" ? a.x + 46 : a.x - 46 - 270;
   const top = Math.min(860, Math.max(110, a.y - 30));
   return (
@@ -99,6 +102,7 @@ function Peek({ body, manifest, id, installed, session }: { body: Body; manifest
       <ul>
         {installed.length === 0 && <li className="none">No implant</li>}
         {installed.map((x) => <li key={x}><i style={{ background: `var(--r-${session.items[x]?.rarity ?? "common"})` }} />{session.items[x]?.name ?? x}</li>)}
+        {stored.map((x) => <li key={x.id} className="stored"><i style={{ background: `var(--r-${x.rarity})` }} />{x.name} · storage</li>)}
         {stockCount === 0 && <li className="none">Nothing in stock for this system</li>}
       </ul>
       <div className="rd-peek-foot"><kbd>LMB</kbd> OPEN SYSTEM</div>

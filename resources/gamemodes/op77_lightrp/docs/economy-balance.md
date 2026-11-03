@@ -315,6 +315,9 @@ cyberware des rangs II à V.
 
 ## 9. Cyberware : liste de prix exacte (pour le propriétaire du cyberware)
 
+> Mise à jour 2026-11-03 : les prix « Actuel » restent en place (set V+ à 390 000), six
+> implants s'ajoutent et chaque implant coûte des points de capacité : voir §14.
+
 `server/config/cyberware.lua` appartient à l'agent cyberware et n'est **pas modifié**
 par cette branche. Prix à appliquer, par id (`price`) :
 
@@ -392,6 +395,8 @@ régulier).
 2. **Fourrière** : le redémarrage d'un véhicule **intact** reste gratuit ; et une épave
    qui disparaît sans aucun signal de dégâts est facturée 150 (perdu), pas 400.
 3. **Prix V+** à appliquer côté cyberware (§9) — ou garder 390 000 et accepter ≈ 95 h.
+   *Tranché le 2026-11-03 : 390 000 gardé ; la capacité borne la puissance à la place
+   (§14).*
 4. **Hausse des voitures** : le haut de gamme passe de 60 000 à 100 000. La Kusanagi
    (80 000) tombe à 18,8 h pour le régulier, juste sous les 20 h ; la monter à 85 000 la
    remettrait à ≈ 20 h.
@@ -428,3 +433,124 @@ régulier).
 - **Fusion** : `activities.lua` n'est touché que par une ligne (le crochet de paie),
   `missions.lua` par les lignes de paie et l'annonce au lancement, `medical.lua` par le
   crochet `onPatientStabilized`.
+
+## 14. Cyberware : capacité, builds et kit attendu en PvE (branche `lightrp/cyberware-v2`)
+
+Décision du 2026-11-03 : **les prix ne bougent pas**, le set V+ reste à 390 000 €$
+(Neofiber Mk.3 85 000, Aegis 90 000, Rara Avis 95 000, Apogee 120 000 ; la proposition
+du §9 n'est pas appliquée). Ce qui borne la puissance n'est plus l'argent seul mais la
+**capacité** du corps : chaque implant coûte des points, et le palier de réputation
+(PvE seulement) fixe le total. Tout est dans `server/config/cyberware.lua`
+(`capacity.byTier`, `capacity` de chaque implant, `fittingFee`, `iconics`).
+
+### 14.1 Capacité par palier
+
+| Palier (réputation) | Rangs ouverts | Capacité | Ce qu'elle porte |
+| --- | --- | --- | --- |
+| I Street (0) | I – II | **10** | tout le rang II (2 + 2 + 1 + 2 + 3 = 10) |
+| II Merc (500) | III | **14** | rang II, ou un mélange II / III (II + III = 26 points) |
+| III Operator (1 500) | IV | **18** | un cœur de rang IV : 3 à 4 implants |
+| IV Edgerunner (4 000) | V | **22** | 4 à 5 implants de haut rang |
+| V Legend (10 000) | V+ | **26** | un build : les quatre V+ seuls font **28**, le meilleur de chaque famille **67** |
+
+Règles : la capacité est vérifiée par le serveur à chaque pose (message « Not enough
+capacity: X takes N points, F of your T are free »), la page l'affiche (used / total,
+points de chaque implant). Un personnage déjà au-delà garde tout, ne pose plus qu'un
+échange plus léger, et une ligne de journal le signale une fois. Sans module de missions
+(réputation illisible), la capacité vaut 26.
+
+### 14.2 Points par implant (32 en boutique + 2 iconiques)
+
+| Rang | Implants (points) |
+| --- | --- |
+| II | Kiroshi Optics 1 · Iron Lungs 2 · Subdermal Armor 2 · Titanium Bones 2 · Reinforced Tendons 3 |
+| III | Adrenaline Booster 2 · Fortified Ankles 2 · Biomonitor 3 · Pain Editor 3 · Neofiber 3 · Gorilla Arms 3 |
+| IV | Kiroshi Clairvoyant 3 · Subdermal Mk.2 4 · Impact Frame 4 · Tendons Mk.2 4 · Epimorphic 4 · Neofiber Mk.2 4 · Sandevistan Mk.1 5 · Berserk Mk.1 5 · Mantis Blades 5 · Gorilla Mk.2 5 |
+| V | Iron Lungs Mk.2 3 · Adrenaline Mk.2 3 · Bioplastic 5 · Second Heart 6 · Electric Mantis 6 · Sandevistan Mk.3 7 · Berserk Mk.3 7 |
+| V+ | Neofiber Mk.3 6 · Aegis 7 · Rara Avis 7 · Apogee 8 |
+| Iconique | Feral Biomonitor 6 (boss mondiaux) · Chimera Plating 7 (Chimera en Critical) |
+
+Prix des six nouveaux : Kiroshi Optics 7 000, Pain Editor 12 000, Kiroshi Clairvoyant
+22 000, Berserk Mk.1 26 000, Second Heart 55 000, Berserk Mk.3 64 000. Les iconiques ne
+s'achètent pas. Berserk et Sandevistan partagent la famille « os » (un seul posé).
+
+### 14.3 Builds types
+
+| Palier | Build | Implants (points) | Total | Prix |
+| --- | --- | --- | --- | --- |
+| Merc (14) | Polyvalent | Neofiber 3, Tendons 3, Biomonitor 3, Subdermal 2, Titanium 2, Kiroshi 1 | 14 | 52 500 |
+| Operator (18) | Duelliste | Sandevistan Mk.1 5, Neofiber Mk.2 4, Subdermal Mk.2 4, Epimorphic 4, Kiroshi 1 | 18 | 103 000 |
+| Operator (18) | Tenace | Berserk Mk.1 5, Subdermal Mk.2 4, Epimorphic 4, Biomonitor 3, Ankles 2 | 18 | 86 000 |
+| Legend (26) | **Tank** | Aegis 7, Rara Avis 7, Berserk Mk.3 7, Bioplastic 5 | 26 | 291 000 |
+| Legend (26) | **Mobilité** | Apogee 8, Neofiber Mk.3 6, Electric Mantis 6, Tendons Mk.2 4, Ankles 2 | 26 | 302 000 |
+| Legend (26) | **Soutien** | Second Heart 6, Bioplastic 5, Subdermal Mk.2 4, Epimorphic 4, Clairvoyant 3, Pain Editor 3 | 25 | 171 000 |
+| Legend (26) | **Bagarreur** | Berserk Mk.3 7, Gorilla Mk.2 5, Impact Frame 4, Tendons Mk.2 4, Adrenaline Mk.2 3, Iron Lungs Mk.2 3 | 26 | 212 000 |
+
+Le Tank porte +100 armure, +100 santé max, +3 santé / s, et +150 armure pendant 10 s
+(Berserk Mk.3). Le Soutien échange la défense brute contre l'équipage : marquage du
+Clairvoyant, réparation du Pain Editor, relève seul en ville (Second Heart). Le trio
+Apogee + Aegis + Rara Avis tient (22 points) mais ne laisse que 4 points : ni dash, ni
+régénération.
+
+### 14.4 Kit attendu en PvE difficile
+
+Rappel des échelles : activités PvE (`activities.lua` `pve.difficulties`) Hard =
+ennemis × 1,5, santé × 1,5, dégâts × 1,25, IA vétéran, palier II ; Critical = ennemis × 2,
+santé × 2,25, dégâts × 1,6, palier III. Raid Chimera (`missions.lua`
+`LightRpRaid.scaling`) Hard = santé × 1,8 (+ 0,6 par opérateur), dégâts × 1,1, 6 vies,
+réapparition 18 s, 4 vagues, rage à 10 min ; Critical = santé × 3 (+ 0,75 par opérateur),
+dégâts × 1,5, **aucune réapparition**, 5 vagues, rage à 8 min ; roquette 35 / 55, purge
+40 / 60. L'armure se consomme point pour point avant la santé : le « tampon » ci-dessous
+est armure + santé max ajoutées.
+
+| Contenu | Palier minimum | Kit attendu | Tampon ajouté |
+| --- | --- | --- | --- |
+| Activités Hard | Merc (14) | Subdermal + Titanium + Biomonitor, plus mobilité (Neofiber ou Tendons) | ≈ 55 (30 + 25) et 1,5 / s : une roquette Hard et demie |
+| Chimera Hard | Merc (14) | le même, en équipage ; les 6 vies pardonnent | ≈ 55 |
+| Activités Critical | Operator (18) | Subdermal Mk.2 + Epimorphic + Berserk Mk.1 ou Sandevistan Mk.1 | ≈ 120 (60 + 60), + 80 pendant 8 s avec le Berserk |
+| Chimera Critical | Operator (18), réaliste à Edgerunner (22) | Tank ou Bagarreur, un Soutien dans l'équipage | 120 à 200 permanents (≈ 2 à 3,5 roquettes Critical), + 150 au Berserk Mk.3 |
+
+Le Critical sans réapparition est le contenu qui justifie un build défensif : un
+joueur Operator le tente avec un tampon de ≈ 120, un Legend Tank avec ≈ 200 et
++ 3 santé / s. Le Second Heart n'y joue **aucun** rôle : missions et activités gèrent
+leurs morts, et il est coupé dans Dogtown et dans toute activité classée ou PvP.
+
+### 14.5 Iconiques
+
+Jamais achetés, vendus ni échangés ; tirés côté serveur, annoncés à toute la ville,
+journalisés, rangés dans le stockage (pose 50 €$, points comptés). Un joueur qui possède
+déjà l'objet d'une source n'est plus tiré pour elle.
+
+| Source | Objet | Chance | Garanti au | Moyenne (avec garantie) |
+| --- | --- | --- | --- | --- |
+| Boss mondial vaincu, part payée (`eligible`) | Feral Biomonitor (6 pts : + 3,5 / s, + 20 santé max) | 8 % | 12e échec consécutif | ≈ 7,9 victoires |
+| Raid Chimera gagné en Critical (hors test) | Chimera Plating (7 pts : + 110 armure, + 1 / s) | 12 % | 8e échec consécutif | ≈ 5,3 victoires |
+
+Ils valent un léger mieux que leur équivalent de boutique au même prix en points
+(Chimera Plating contre Aegis : + 10 armure et + 1 / s ; Feral contre Bioplastic :
++ 0,5 / s et + 20 santé pour 1 point de plus), pas un saut de puissance : la vitrine
+compte plus que le chiffre.
+
+### 14.6 Ce que la capacité change au rythme
+
+- **Début de parcours inchangé** : jusqu'à Operator, c'est l'argent qui borne. Au palier
+  II (≈ 3,8 h pour le régulier, §7.1), il a gagné ≈ 15 000 €$ ; les rangs II et III
+  coûtent 105 000. La capacité ne mord pas encore.
+- **Fin de parcours bornée** : à Legend (≈ 48 h, ≈ 197 000 €$ gagnés), un build complet
+  coûte 170 000 à 300 000 €$, soit ≈ 41 à 73 h d'épargne seule à ≈ 4 100 €$/h, au lieu
+  de viser tout le set V+ (390 000, ≈ 95 h) puis le loadout complet (617 000 aux prix
+  actuels). Le premier build Legend complet arrive donc **plus tôt** que l'ancien
+  objectif « set V+ ».
+- **Le puits d'argent tardif devient la collection** : chaque implant acheté reste au
+  stockage ; changer de build coûte 50 €$ par pose. Posséder Tank et Mobilité ≈ 590 000,
+  le set V+ en entier reste à 390 000 mais ne se porte jamais d'un bloc.
+- **La réputation pèse plus** : +4 points par palier, c'est le PvE qui débloque la
+  puissance (le joueur 100 % PvP reste à 10 points, §12 point 6).
+- **PvP classé** : la capacité resserre l'écart entre un Legend riche et un Edgerunner
+  (26 contre 22 points au lieu de « tout » contre « rang V ») ; le matchmaking par rang
+  de cyberware (`activities.lua` `lobby.matchmaking`) reste pertinent.
+
+À vérifier en jeu : la page affiche used / total et les points par implant ; une pose
+au-delà est refusée avec le message du serveur ; retirer un implant (50 €$) le range au
+stockage, le reposer coûte 50 €$ ; un iconique tiré apparaît au stockage avec l'annonce
+en ville.

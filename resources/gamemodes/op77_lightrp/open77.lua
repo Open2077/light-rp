@@ -119,6 +119,8 @@ server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"
 server_script "server/config/cyberware.lua"
 server_script "server/modules/cyberware.lua"
+server_script "server/modules/cyberware_active.lua"  -- Berserk, Pain Editor, Second Heart, Kiroshi scan / crew mark
+server_script "server/modules/cyberware_iconics.lua" -- iconic implants: drops from world bosses and the Chimera on Critical
 server_script "server/modules/ripperdoc.lua"
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)

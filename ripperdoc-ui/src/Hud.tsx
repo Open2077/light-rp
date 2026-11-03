@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { eddies, roman, type SectionDef } from "./data";
 import type { Phase, Session } from "./App";
+import type { Capacity } from "./model";
 
 /* Clinic header, wallet, cyberware capacity (segmented, game-like) and a live vitals strip. */
 export function TopBar({ session, used, phase, section }: { session: Session; used: number; phase: Phase; section?: SectionDef }) {
@@ -40,9 +41,27 @@ export function TopBar({ session, used, phase, section }: { session: Session; us
             {session.reputation.name && <em>{session.reputation.name.toUpperCase()}</em>}
           </div>
         )}
+        {session.capacity && <CapacityMeter cap={session.capacity} />}
         <div className="rd-parts"><span>IMPLANTS</span><b>{used}</b></div>
         <div className="rd-wallet"><span>BANK</span><b>€$ {eddies(shownWallet)}</b></div>
       </div>
+    </div>
+  );
+}
+
+/* Capacity points fitted over the body's total (it grows with the street cred tier): one
+   segment per point, red past the total (a body fitted before the capacity existed). */
+function CapacityMeter({ cap }: { cap: Capacity }) {
+  const over = cap.over === true || cap.used > cap.total;
+  const segments = Math.min(40, Math.max(cap.total, cap.used));
+  return (
+    <div className={`rd-parts rd-cap ${over ? "over" : ""}`}
+      title={over ? "Over capacity: you keep what is fitted, only a lighter swap fits." : `${cap.total - cap.used} points free`}>
+      <span>CAPACITY</span><b>{cap.used}<i> / {cap.total}</i></b>
+      <div className="rd-cap-bar">
+        {Array.from({ length: segments }, (_, k) => <i key={k} className={k >= cap.used ? "" : k >= cap.total ? "x" : "on"} />)}
+      </div>
+      {over && <em>OVER CAPACITY</em>}
     </div>
   );
 }

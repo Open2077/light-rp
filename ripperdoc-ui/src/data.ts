@@ -1,8 +1,9 @@
-/* Sections of the body, their slots and the demo catalogue. The installation system comes
-   later: today the page shows this catalogue, the server only says who sits in the chair. */
+/* Sections of the body, their slots, the payload's shape and the demo catalogue of the browser
+   preview (in game the server sends its own catalogue, PROTOCOL.md). */
+export { eddies, roman } from "./model";
 
 export type Body = "male" | "female";
-export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary" | "iconic";
 
 export interface SectionDef {
   id: string;
@@ -23,7 +24,7 @@ export interface Cyberware {
   icon: string;            // media/icon/<icon>.webp
   rarity: Rarity;
   tier: number;            // rank 1..6 (6 shows as V+)
-  capacity?: number;       // unused: no cyberware limit
+  capacity?: number;       // the capacity points it takes (the body's total comes with the street cred)
   price: number;           // eurodollars
   maker: string;
   effect: string;
@@ -33,6 +34,10 @@ export interface Cyberware {
   repTier?: number;        // street cred: the reputation tier this rank needs (server-owned)
   repName?: string;        // that tier's name ("Merc")
   locked?: boolean;        // below the patient's tier: the server refuses the install
+  stored?: boolean;        // in the patient's storage (owned, not fitted; also in the payload's `stock`)
+  iconic?: boolean;        // never sold: drops from bosses and raids, fitted from storage
+  dropOnly?: boolean;      // an iconic the patient does not own (no button)
+  source?: string;         // what drops an iconic ("Chimera raid (Critical)")
 }
 
 /** The patient's street cred (reputation tier, earned in PvE). */
@@ -62,7 +67,7 @@ export const SECTIONS: SectionDef[] = [
     blurb: "Jaw, mask and subdermal face plating." },
   { id: "hands", label: "Hands", code: "HA-09", side: "right", slots: 2, locked: 0, anchor: a(0.9, 0.465, 0.83, 0.475),
     blurb: "Grip, smart link and the tremor you will never have again." },
-  { id: "circulatory", label: "Circulatory System", code: "CS-10", side: "right", slots: 3, locked: 0, anchor: a(0.54, 0.245, 0.56, 0.25), still: true,
+  { id: "circulatory", label: "Circulatory System", code: "CS-10", side: "right", slots: 4, locked: 0, anchor: a(0.54, 0.245, 0.56, 0.25), still: true,
     blurb: "Heart, blood and the pumps that keep it moving under fire." },
   { id: "immune", label: "Immune System", code: "IM-11", side: "right", slots: 2, locked: 0, anchor: a(0.5, 0.315, 0.53, 0.33), still: true,
     blurb: "Toxin filters, pain editors and shock countermeasures." },
@@ -72,9 +77,11 @@ export const SECTIONS: SectionDef[] = [
 
 export const SECTION = Object.fromEntries(SECTIONS.map((s) => [s.id, s])) as Record<string, SectionDef>;
 
-const c = (id: string, name: string, section: string, icon: string, rarity: Rarity, tier: number, capacity: number,
+// `size` is the demo's old weight: brought to the server's scale (1 to 8 points, 10 to 26 a body)
+const c = (id: string, name: string, section: string, icon: string, rarity: Rarity, tier: number, size: number,
   price: number, maker: string, effect: string, lore: string, stats: [string, string][]): Cyberware =>
-  ({ id, name, section, icon, rarity, tier, capacity, price, maker, effect, lore, stats: stats.map(([label, value]) => ({ label, value })) });
+  ({ id, name, section, icon, rarity, tier, capacity: Math.max(1, Math.round(size / 2.5)), price, maker, effect, lore,
+    stats: stats.map(([label, value]) => ({ label, value })) });
 
 export const CATALOGUE: Cyberware[] = [
   // Frontal cortex
@@ -179,6 +186,10 @@ export const CATALOGUE: Cyberware[] = [
     "Silent movement.", "Footsteps nobody hears.", [["Noise", "-100%"]]),
   c("fortified_ankles", "Fortified Ankles", "legs", "cw_legs_fortifiedankles", "epic", 4, 7, 22800, "Arasaka",
     "Charged jump: hold to leap higher.", "Built to land on roofs.", [["Jump height", "+60%"]]),
+  // Iconic: never sold (the preview shows one not owned)
+  { ...c("chimera_plating", "Chimera Plating", "integumentary", "cw_integumentary_neuroactivearmor_capacitors", "iconic", 6, 17, 0, "Militech",
+    "+110 armor, health regeneration.", "Peeled off a Militech Chimera's hull plates. Nobody sells them: you were there or you were not.",
+    [["Armor", "+110"], ["Health regen", "+1/s"]]), iconic: true, dropOnly: true, source: "Chimera raid (Critical)" },
 ];
 
 export const CYBERWARE = Object.fromEntries(CATALOGUE.map((x) => [x.id, x])) as Record<string, Cyberware>;
@@ -188,7 +199,10 @@ export interface Clinic { name: string; doctor: string; tagline?: string }
 export interface OpenPayload {
   live?: boolean;          // the server runs the operations (rd:action -> rd:result / rd:state)
   catalogue?: Cyberware[]; // the clinic's stock (server-owned); the demo catalogue otherwise
-  removalFee?: number;
+  stock?: string[];        // the patient's implant storage: owned, not fitted
+  fittingFee?: number;     // one surgery without a purchase (fit from storage, take out)
+  removalFee?: number;     // = fittingFee (older servers)
+  capacity?: { used: number; total: number; over?: boolean }; // points fitted / the body's capacity
   body?: Body;
   clinic?: Clinic;
   wallet?: number;
@@ -197,34 +211,33 @@ export interface OpenPayload {
   reputation?: Reputation; // street cred: catalogue items above it come `locked`
 }
 
-export const DEMO: Required<Omit<OpenPayload, "catalogue">> = {
+export const DEMO: Required<Omit<OpenPayload, "catalogue" | "capacity">> = {
   live: false,
-  removalFee: 250,
+  stock: ["tyrosine_injector", "titanium_bones"],
+  fittingFee: 50,
+  removalFee: 50,
   body: "male",
   clinic: { name: "Viktor's Clinic", doctor: "Viktor Vektor", tagline: "Licensed // Watson // Kabuki" },
   wallet: 48250,
   installed: {
     frontal_cortex: ["ram_upgrade"], operating_system: ["sandevistan_c1"], ocular: ["kiroshi_basic"],
-    hands: ["smart_link"], circulatory: ["biomonitor", "tyrosine_injector"], integumentary: ["subdermal_armor"],
-    skeleton: ["titanium_bones"],
+    hands: ["smart_link"], circulatory: ["biomonitor"], integumentary: ["subdermal_armor"],
   },
   patient: { name: "Alex Morgan", id: "NC-0715-3381" },
   reputation: { tier: 2, name: "Merc", points: 820, next: 1500, nextName: "Operator" },
 };
 
 const TIER_NAMES = ["", "Street", "Merc", "Operator", "Edgerunner", "Legend"];
+/** The preview's capacity per street cred tier (the server's `capacity.byTier` default). */
+export const DEMO_CAPACITY = [0, 10, 14, 18, 22, 26];
 /** The preview's locks: the demo catalogue carries no street cred, the rank decides. */
 export const demoLocks = (stock: Cyberware[], rep: Reputation): Cyberware[] =>
   stock.map((x) => {
-    if (x.repTier !== undefined) return x;
+    if (x.repTier !== undefined || x.iconic) return x; // an iconic is never locked: it drops
     const repTier = RANK_TIER[x.tier] ?? 1;
     return { ...x, repTier, repName: TIER_NAMES[repTier], locked: repTier > rep.tier };
   });
 
 export const RARITY_LABEL: Record<Rarity, string> = {
-  common: "Common", uncommon: "Uncommon", rare: "Rare", epic: "Epic", legendary: "Legendary",
+  common: "Common", uncommon: "Uncommon", rare: "Rare", epic: "Epic", legendary: "Legendary", iconic: "Iconic",
 };
-
-export const roman = (n: number): string => ["", "I", "II", "III", "IV", "V", "V+"][n] ?? String(n);
-
-export const eddies = (n: number): string => n.toLocaleString("en-US").replace(/,/g, " ");
