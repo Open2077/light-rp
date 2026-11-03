@@ -63,6 +63,13 @@ LightRpEventsBoard = {
         -- /lightrp.board place: the TV this far behind the staff, its screen facing
         -- where they look.
         staffSetback = 1.5,
+        -- /lightrp.board aim [scale]: the TV hung on the surface under the staff's
+        -- crosshair (a wall, a sign), its picture centred on the hit and its back this
+        -- many metres per unit of scale off the surface; aimMaxMetres: how far the aim
+        -- reaches; aimScale: the scales a staff may ask for.
+        aimBackPerScale = 0.06,
+        aimMaxMetres = 250.0,
+        aimScale = { min = 0.5, max = 12.0 },
         -- Start-up spawn retries, then a check that it still stands every respawnMs.
         spawnRetries = 30,
         spawnRetryMs = 10000,

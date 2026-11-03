@@ -111,6 +111,33 @@ local function reselect()
     end
 end
 
+-- Staff: /lightrp.board aim -- what the crosshair is on, for the server to hang the TV
+-- there. Static and terrain only (a car or a passer-by is not a wall); older clients
+-- refuse `groups`, then the plain static trace.
+RegisterNetEvent(E.net.eventsBoardAim, function(req)
+    local reply = { token = type(req) == "table" and req.token or nil }
+    local cam = type(Open77.camera) == "table" and Open77.camera or nil
+    local reach = type(req) == "table" and tonumber(req.maxDistance) or 250
+    if not cam or type(cam.aimRay) ~= "function" then
+        reply.error = "aim_unavailable"
+    else
+        local ok, ray, why = pcall(cam.aimRay, reach, { groups = { "Static", "Terrain" } })
+        if not ok or ray == nil then ok, ray, why = pcall(cam.aimRay, reach, { dynamic = false }) end
+        if not ok or ray == nil then
+            reply.error = tostring(ok and why or ray)
+        elseif not ray.hit then
+            reply.error = "nothing_under_crosshair"
+        else
+            reply.position, reply.normal = vector(ray.position), vector(ray.normal)
+            if type(Open77.character) == "table" and type(Open77.character.position) == "function" then
+                local x, y, z = Open77.character.position()
+                if x and y and z then reply.from = { x = x, y = y, z = z } end
+            end
+        end
+    end
+    TriggerServerEvent(E.net.eventsBoardAimed, reply)
+end)
+
 RegisterNetEvent(E.net.eventsBoardTv, function(info)
     if type(info) ~= "table" then return end
     tv = info

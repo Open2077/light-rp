@@ -265,6 +265,65 @@ assert(okRespawn and removed[#removed] == propBefore and EB.tv.prop ~= propBefor
 assert(cmd.fn(3, { "refresh" }) and EB.cacheState.reason == "staff")
 assert(cmd.fn(3, { "nope" }) == false)
 
+-- aim [scale]: the client reads the crosshair, the TV hangs on that surface
+local notices = {}
+LightRP.notice = function(id, n) notices[#notices + 1] = { id = id, n = n } end
+local function aimed(id, reply) _G.source = id; netHandlers[E.net.eventsBoardAimed](reply); _G.source = nil end
+stand.position, stand.heading = { x = 100.0, y = 200.0, z = 30.0 }, 90
+local okAim, aimText = cmd.fn(3, { "aim", "5" })
+local ask = clientEvents[#clientEvents]
+assert(okAim and aimText:find("scale 5.00", 1, true) and ask.name == E.net.eventsBoardAim and ask.target == 3 and ask.payload.token, "asks the staff's client")
+assert(not cmd.fn(3, { "aim", "huge" }), "a scale is a number")
+assert(not cmd.fn(0, { "aim" }), "in game only")
+-- a wall facing west (normal -X) 20 m east of the staff, at 38 m up: the picture centred there
+local propAim = EB.tv.prop
+aimed(3, { token = ask.payload.token, position = { x = 120, y = 200, z = 38 }, normal = { x = -1, y = 0, z = 0 } })
+local q = EB.screen(5).quad
+assert(near(EB.tv.heading, 90) and EB.tv.scale == 5, "faces out of the wall (west = 90), scale 5")
+assert(near(EB.tv.position.x, 120 - 0.06 * 5) and near(EB.tv.position.y, 200 + q.offset.x * -1) and near(EB.tv.position.z, 38 - q.offset.z), "back on the wall, picture centred on the hit")
+assert(near(q.width, 1.16 * 5) and near(q.offset.z, 0.42 * 5), "the quad at the new scale")
+assert(removed[#removed] == propAim and EB.tv.prop ~= propAim and created[#created].scale == 5, "a new scale is a new prop")
+assert(kv[EB.KVP_PLACEMENT] == string.format("%.3f,%.3f,%.3f,%.1f,%.2f", EB.tv.position.x, EB.tv.position.y, EB.tv.position.z, 90, 5), "saved with its scale")
+assert(notices[#notices].id == 3 and notices[#notices].n.kind == "success", "told")
+assert(clientEvents[#clientEvents].name == E.net.eventsBoardTv and near(clientEvents[#clientEvents].payload.quad.width, 1.16 * 5), "clients get the bigger screen")
+local p5, h5, s5, sc5 = EB.placement()
+assert(p5.x == tonumber(string.format("%.3f", EB.tv.position.x)) and h5 == 90 and sc5 == 5, "the next start keeps the scale")
+local _, whereAim = cmd.fn(3, { "where" })
+assert(whereAim:find("scale = 5.00", 1, true), "where says the scale")
+-- the same scale again: moved, not remade
+cmd.fn(3, { "aim" })
+local propKeep = EB.tv.prop
+aimed(3, { token = clientEvents[#clientEvents].payload.token, position = { x = 100, y = 230, z = 34 }, normal = { x = 0, y = -1, z = 0 } })
+assert(EB.tv.prop == propKeep and EB.tv.scale == 5 and near(EB.tv.heading, 180), "kept scale, moved; faces south")
+-- the ground: faces the staff instead; no surface: told, nothing moves
+cmd.fn(3, { "aim" })
+aimed(3, { token = clientEvents[#clientEvents].payload.token, position = { x = 100, y = 190, z = 30 }, normal = { x = 0, y = 0, z = 1 },
+    from = { x = 100, y = 200, z = 30 } })
+assert(near(EB.tv.heading, 0), "a floor hit faces the staff (north)")
+local before = EB.tv.position.x
+cmd.fn(3, { "aim" })
+aimed(3, { token = clientEvents[#clientEvents].payload.token, error = "nothing_under_crosshair" })
+assert(EB.tv.position.x == before and notices[#notices].n.body:find("Nothing under your crosshair", 1, true))
+-- too far, a stale or foreign answer, a second answer
+cmd.fn(3, { "aim" })
+aimed(3, { token = clientEvents[#clientEvents].payload.token, position = { x = 900, y = 200, z = 30 }, normal = { x = -1, y = 0, z = 0 } })
+assert(EB.tv.position.x == before and notices[#notices].n.body:find("Too far", 1, true))
+local n0 = #notices
+aimed(3, { token = 1, position = { x = 110, y = 200, z = 30 }, normal = { x = -1, y = 0, z = 0 } })
+aimed(4, { token = 1, position = { x = 110, y = 200, z = 30 }, normal = { x = -1, y = 0, z = 0 } })
+assert(EB.tv.position.x == before and #notices == n0, "nothing pending: ignored")
+cmd.fn(3, { "aim" })
+local tok = clientEvents[#clientEvents].payload.token
+clock = clock + 11000
+aimed(3, { token = tok, position = { x = 110, y = 200, z = 30 }, normal = { x = -1, y = 0, z = 0 } })
+assert(EB.tv.position.x == before, "an answer after 10 s is dropped")
+-- reset: the config's spot and scale
+cmd.fn(3, { "reset" })
+assert(EB.tv.scale == nil and EB.screen().scale == C.tv.scale and kv[EB.KVP_PLACEMENT] == nil, "reset: the config's scale")
+assert(EB.parsePlacement("1,2,3,90") and select(3, EB.parsePlacement("1,2,3,90")) == nil, "a four-field kvp value: no scale")
+assert(select(3, EB.parsePlacement("1,2,3,90,99")) == 12, "a saved scale is clamped")
+LightRP.notice = nil
+
 -- ---------------------------------------------------------------------------
 -- The view: each provider from its source
 
@@ -470,7 +529,8 @@ LightRpUi = { log = function(fmt, ...) logs[#logs + 1] = string.format(fmt, ...)
 RegisterNetEvent = function(name, fn) clientNet[name] = fn end
 CreateThread = function(fn) clientThreads[#clientThreads + 1] = fn end
 AddEventHandler = function(name, fn) clientHandlers[name] = fn end
-TriggerServerEvent = function(name) sent[#sent + 1] = name; return true end
+local sentPayload = {}
+TriggerServerEvent = function(name, payload) sent[#sent + 1] = name; sentPayload[#sent] = payload; return true end
 local timer = 0
 GetGameTimer = function() return timer end
 WebUI = { create = function(opts)
@@ -535,6 +595,25 @@ clientNet[E.net.eventsBoardTv](tvInfo)
 step(); step()
 assert(#surfaces == 4 and logged("the native media API is missing on this client"))
 
+-- /lightrp.board aim: the crosshair's hit back to the server (static + terrain first)
+local rays = {}
+Open77.camera = { aimRay = function(dist, opts)
+    rays[#rays + 1] = { dist = dist, opts = opts }
+    if opts and opts.groups then return nil, "invalid_options" end -- an older client
+    return { hit = true, position = { x = 10, y = 20, z = 8 }, normal = { x = 0, y = -1, z = 0 }, distance = 30 }
+end }
+me.x, me.y, me.z = 10, 0, 0
+clientNet[E.net.eventsBoardAim]({ token = 7, maxDistance = 250 })
+local reply = sentPayload[#sent]
+assert(sent[#sent] == E.net.eventsBoardAimed and reply.token == 7 and reply.position.z == 8 and reply.normal.y == -1 and reply.from.x == 10, "the hit, the normal, the staff")
+assert(rays[1].dist == 250 and rays[1].opts.groups[1] == "Static" and rays[2].opts.dynamic == false, "grouped trace, then the static one")
+Open77.camera.aimRay = function() return { hit = false } end
+clientNet[E.net.eventsBoardAim]({ token = 8 })
+assert(sentPayload[#sent].token == 8 and sentPayload[#sent].error == "nothing_under_crosshair")
+Open77.camera = nil
+clientNet[E.net.eventsBoardAim]({ token = 9 })
+assert(sentPayload[#sent].error == "aim_unavailable", "no aim API: said so")
+
 -- ---------------------------------------------------------------------------
 -- The manifest
 
@@ -546,4 +625,4 @@ assert(at('server_script "server/modules/activities.lua"') < at('server_script "
 at('client_script "client/core/events_board.lua"')
 at('"http.serve"')
 
-print("PASS: events board view from turf, world bosses, activities, weekly boards and records (a failing provider alone), routes (page, view.json, 404, 405, HEAD), TV along the hub heading with respawn and orphan sweep, staff place/where/reset/respawn with kvp, client screen in range with slack, fallbacks without HTTP, props, kvp or when disabled")
+print("PASS: events board view from turf, world bosses, activities, weekly boards and records (a failing provider alone), routes (page, view.json, 404, 405, HEAD), TV along the hub heading with respawn and orphan sweep, staff place/aim (wall, floor, scale, too far, stale)/where/reset/respawn with kvp, client screen in range with slack, client aim reply, fallbacks without HTTP, props, kvp or when disabled")

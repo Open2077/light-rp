@@ -15,8 +15,9 @@
 --   the TV     a prop this resource owns (config tv), respawned when it disappears.
 --              The clients near it paint the page on its screen
 --              (client/core/events_board.lua, Open77.media.bind).
---   the staff  /lightrp.board [where|place|reset|respawn|refresh]: place keeps the
---              spot in kvp and prints the line to paste into the config.
+--   the staff  /lightrp.board [where|place|aim|reset|respawn|refresh]: place (where
+--              they stand) and aim [scale] (on the wall or sign under their crosshair)
+--              keep the spot in kvp and print the line to paste into the config.
 --
 -- open77_media is not used, and cannot be driven from here: its spawn and control
 -- events drop a caller without a player source (a server script has none) and check
@@ -30,7 +31,7 @@ local E = LightRpEvents
 local EB = LightRP.module("eventsBoard", {})
 
 local SELF = type(GetCurrentResourceName) == "function" and GetCurrentResourceName() or "op77_lightrp"
-local KVP_PLACEMENT = "events_board.tv.placement" -- "x,y,z,heading": the staff's spot, until copied into the config
+local KVP_PLACEMENT = "events_board.tv.placement" -- "x,y,z,heading[,scale]": the staff's spot, until copied into the config
 EB.KVP_PLACEMENT = KVP_PLACEMENT
 local SEP = " \u{B7} "
 local JSON_TYPE = "application/json; charset=utf-8"
@@ -426,7 +427,8 @@ end
 -- ---------------------------------------------------------------------------
 -- The TV: the screen record, where it stands, the prop
 
-local tv = { prop = nil, position = nil, heading = nil, source = nil }
+-- scale: the staff's (aim) when set, else the config's; propScale: the standing prop's.
+local tv = { prop = nil, position = nil, heading = nil, source = nil, scale = nil, propScale = nil }
 EB.tv = tv
 
 local function vector(v, s)
@@ -437,9 +439,18 @@ local function vector(v, s)
     return { x = x * s, y = y * s, z = z * s }
 end
 
+local function clampScale(value)
+    local lo, hi = num(cfg("tv.aimScale.min", 0.5), 0.5), num(cfg("tv.aimScale.max", 12), 12)
+    local s = num(value, nil)
+    if s == nil then return nil end
+    return math.max(lo, math.min(hi, s))
+end
+EB.clampScale = clampScale
+
 -- The record in use, its model, and the picture's rectangle at the TV's scale (named
--- vectors: the shape Open77.media.bind reads).
-function EB.screen()
+-- vectors: the shape Open77.media.bind reads). scale: an explicit one, else the
+-- staff's (tv.scale), else the config's.
+function EB.screen(scale)
     local screens = type(C.screens) == "table" and C.screens or {}
     local name = tostring(cfg("tv.screen", "tv.16x9"))
     local rec = screens[name]
@@ -448,7 +459,7 @@ function EB.screen()
         if type(rec) ~= "table" then name, rec = next(screens) end
     end
     if type(rec) ~= "table" or type(rec.quad) ~= "table" then return nil end
-    local s = math.max(0.1, math.min(40, num(cfg("tv.scale", 1), 1)))
+    local s = math.max(0.1, math.min(40, num(scale or tv.scale or cfg("tv.scale", 1), 1)))
     local q = rec.quad
     return { name = name, model = rec.model, scale = s, quad = { offset = vector(q.offset, s), right = vector(q.right), up = vector(q.up),
         width = num(q.width, 1) * s, height = num(q.height, 1) * s, faces = vector(q.faces) } }
@@ -475,18 +486,24 @@ end
 
 function EB.parsePlacement(text)
     if type(text) ~= "string" then return nil end
-    local x, y, z, h = text:match("^(%-?[%d%.]+),(%-?[%d%.]+),(%-?[%d%.]+),(%-?[%d%.]+)$")
+    local x, y, z, h, s = text:match("^(%-?[%d%.]+),(%-?[%d%.]+),(%-?[%d%.]+),(%-?[%d%.]+),?([%d%.]*)$")
     x, y, z, h = tonumber(x), tonumber(y), tonumber(z), tonumber(h)
     if not (x and y and z and h) then return nil end
-    return { x = x, y = y, z = z }, h % 360
+    return { x = x, y = y, z = z }, h % 360, clampScale(s ~= "" and s or nil)
+end
+
+local function placementText(pos, heading, scale)
+    local text = string.format("%.3f,%.3f,%.3f,%.1f", pos.x, pos.y, pos.z, heading % 360)
+    if scale then text = text .. string.format(",%.2f", scale) end
+    return text
 end
 
 -- The staff's spot (kvp), else the config's position, else the offset along The
 -- Crossing's heading. Heading: degrees about +Z, counter-clockwise, 0 facing +Y; the
--- screen faces it. -> position, heading, source
+-- screen faces it. -> position, heading, source, scale (nil: the config's)
 function EB.placement()
-    local savedPos, savedHeading = EB.parsePlacement((kvp("get", KVP_PLACEMENT)))
-    if savedPos then return savedPos, savedHeading, "staff placement (kvp)" end
+    local savedPos, savedHeading, savedScale = EB.parsePlacement((kvp("get", KVP_PLACEMENT)))
+    if savedPos then return savedPos, savedHeading, "staff placement (kvp)", savedScale end
     local T = type(C.tv) == "table" and C.tv or {}
     local H = hub() or { center = { x = 0, y = 0, z = 0 }, heading = 0 }
     local pos, source
@@ -535,6 +552,11 @@ function EB.placeProp()
     if not P then return false, "props_unavailable" end
     local sc = EB.screen()
     if not sc or type(sc.model) ~= "string" then return false, "no_screen_record" end
+    -- a new scale is a new prop (a transform does not rescale)
+    if tv.prop and tv.propScale and math.abs(tv.propScale - sc.scale) > 1e-3 then
+        if type(P.remove) == "function" then pcall(P.remove, tv.prop) end
+        tv.prop = nil
+    end
     if tv.prop and type(P.setTransform) == "function" then
         local ok, moved = pcall(P.setTransform, tv.prop, { position = tv.position, yaw = tv.heading })
         if ok and moved then return true end
@@ -547,7 +569,7 @@ function EB.placeProp()
         collision = collision, streamingRadius = num(cfg("tv.streamingRadius", 150), 150) })
     if not ok then return false, tostring(id) end
     if not id then return false, tostring(why or "refused") end
-    tv.prop = tostring(id)
+    tv.prop, tv.propScale = tostring(id), sc.scale
     return true
 end
 
@@ -622,11 +644,11 @@ function EB.watch()
 end
 
 -- ---------------------------------------------------------------------------
--- Staff: /lightrp.board [where | place | reset | respawn | refresh]
+-- Staff: /lightrp.board [where | place | aim [scale] | reset | respawn | refresh]
 
-local function placementLine(pos, heading)
-    return string.format("position = { x = %.3f, y = %.3f, z = %.3f }, heading = %.1f, -- server/config/events_board.lua tv, bucket %d",
-        pos.x, pos.y, pos.z, heading, int(cfg("tv.bucket", 0)))
+local function placementLine(pos, heading, scale)
+    return string.format("position = { x = %.3f, y = %.3f, z = %.3f }, heading = %.1f, %s-- server/config/events_board.lua tv, bucket %d",
+        pos.x, pos.y, pos.z, heading, scale and string.format("scale = %.2f, ", scale) or "", int(cfg("tv.bucket", 0)))
 end
 EB.placementLine = placementLine
 
@@ -635,18 +657,96 @@ local function pageLine()
     return "page off (" .. tostring(http.reason) .. ")"
 end
 
-local function moveTo(pos, heading, source)
-    tv.position, tv.heading, tv.source = pos, heading % 360, source
+local function moveTo(pos, heading, source, scale)
+    tv.position, tv.heading, tv.source, tv.scale = pos, heading % 360, source, scale
     local ok, why = EB.placeProp()
     EB.sendTv(-1)
     return ok, why
 end
 
-LightRP.command("lightrp.board", { restricted = true, usage = "/lightrp.board [where | place | reset | respawn | refresh]" }, function(source, args)
+-- Where the TV hangs for a crosshair hit: its picture centred on the hit, its back
+-- tv.aimBackPerScale x scale metres off the surface, its screen facing out of it (the
+-- surface normal, flattened). A floor or a ceiling has no outward side: the screen
+-- then faces the staff (from). -> position, heading | nil, reason
+function EB.aimPlacement(hit, normal, from, scale)
+    hit, normal, from = vector(hit), vector(normal), vector(from)
+    if not hit then return nil, "no hit point" end
+    local sc = EB.screen(scale)
+    if not sc then return nil, "no screen record" end
+    local nx, ny = normal and normal.x or 0, normal and normal.y or 0
+    local len = math.sqrt(nx * nx + ny * ny)
+    if len < 0.5 then
+        if not from then return nil, "aim at a wall or a sign, not the ground" end
+        nx, ny = from.x - hit.x, from.y - hit.y
+        len = math.sqrt(nx * nx + ny * ny)
+        if len < 0.01 then return nil, "aim at a wall or a sign, not the ground" end
+    end
+    nx, ny = nx / len, ny / len
+    -- the prop's +Y (the side with the picture) along (nx, ny); its +X is (ny, -nx)
+    local heading = math.deg(math.atan(-nx, ny)) % 360
+    local o = sc.quad.offset
+    local back = num(cfg("tv.aimBackPerScale", 0.06), 0.06) * sc.scale
+    return { x = hit.x + nx * back - o.x * ny, y = hit.y + ny * back + o.x * nx, z = hit.z - o.z }, heading
+end
+
+-- /lightrp.board aim: one pending read per staff, answered by their client.
+local aims, aimSeq = {}, 0
+local AIM_TIMEOUT_MS = 10000
+
+local function tell(id, kind, body)
+    if LightRP.notice then pcall(LightRP.notice, id, { kind = kind, title = "EVENTS BOARD", body = body, durationMs = 9000 }) end
+end
+
+local function staffSpot(source)
+    local read = type(Open77.players.get) == "function" and Open77.players.get(source) or nil
+    local p = type(read) == "table" and read.position or Open77.players.position(source)
+    if type(p) ~= "table" or type(p.x) ~= "number" then return nil, "Your position is not available yet." end
+    local bucket = type(GetPlayerRoutingBucket) == "function" and GetPlayerRoutingBucket(source) or (read and read.bucket) or p.bucket or 0
+    if (tonumber(bucket) or 0) ~= int(cfg("tv.bucket", 0)) then
+        return nil, string.format("Stand in the city (routing bucket %d).", int(cfg("tv.bucket", 0)))
+    end
+    return p, read
+end
+
+local function save(pos, heading, scale)
+    return kvp("set", KVP_PLACEMENT, placementText(pos, heading, scale))
+end
+
+RegisterNetEvent(E.net.eventsBoardAimed, function(reply)
+    local id = tonumber(source)
+    local pending = id and aims[id] or nil
+    if not pending then return end
+    aims[id] = nil
+    if type(reply) ~= "table" or reply.token ~= pending.token or now() - pending.at > AIM_TIMEOUT_MS then return end
+    if reply.error then
+        tell(id, "warning", reply.error == "nothing_under_crosshair" and "Nothing under your crosshair: aim at a wall or a sign."
+            or ("Your crosshair could not be read (" .. tostring(reply.error) .. ")."))
+        return
+    end
+    local p = staffSpot(id)
+    local hit = vector(reply.position)
+    if not p or not hit then tell(id, "warning", "Your position or the hit point is not available.") return end
+    local reach = num(cfg("tv.aimMaxMetres", 250), 250)
+    if (hit.x - p.x) ^ 2 + (hit.y - p.y) ^ 2 + (hit.z - p.z) ^ 2 > reach * reach then
+        tell(id, "warning", string.format("Too far: aim within %.0f m.", reach))
+        return
+    end
+    local scale = pending.scale or tv.scale
+    local pos, heading = EB.aimPlacement(hit, reply.normal, reply.from or p, scale)
+    if not pos then tell(id, "warning", "Not placed: " .. tostring(heading) .. ".") return end
+    local saved, why = save(pos, heading, scale)
+    local ok, propWhy = moveTo(pos, heading, saved == true and "staff placement (kvp)" or "staff placement (this session)", scale)
+    local line = placementLine(tv.position, tv.heading, tv.scale)
+    LightRP.log("events board: aimed by %s: %s", LightRP.characters and LightRP.characters.displayName(id) or tostring(id), line)
+    tell(id, ok and "success" or "warning", (ok and "Hung where you aimed. " or ("The TV failed (" .. tostring(propWhy) .. "). "))
+        .. (saved == true and "Kept until /lightrp.board reset." or ("This session only (" .. tostring(why) .. ").")))
+end)
+
+LightRP.command("lightrp.board", { restricted = true, usage = "/lightrp.board [where | place | aim [scale] | reset | respawn | refresh]" }, function(source, args)
     local verb = tostring(args and args[1] or "where"):lower()
     if verb == "where" then
         if not tv.position then return false, "The events board is not placed yet." end
-        return true, string.format("%s · %s · prop %s · %s", placementLine(tv.position, tv.heading), tv.source or "?",
+        return true, string.format("%s · %s · prop %s · %s", placementLine(tv.position, tv.heading, tv.scale), tv.source or "?",
             tostring(tv.prop or "none"), pageLine())
     elseif verb == "refresh" then
         EB.build("staff")
@@ -654,32 +754,41 @@ LightRP.command("lightrp.board", { restricted = true, usage = "/lightrp.board [w
     elseif verb == "respawn" then
         if not tv.position then return false, "The events board is not placed yet." end
         EB.removeProp()
-        local ok, why = moveTo(tv.position, tv.heading, tv.source)
+        local ok, why = moveTo(tv.position, tv.heading, tv.source, tv.scale)
         if not ok then return false, "Events board: the TV was not made (" .. tostring(why) .. ")." end
         return true, "Events board: TV made again, prop " .. tostring(tv.prop) .. "."
     elseif verb == "reset" then
         kvp("delete", KVP_PLACEMENT)
-        local pos, heading, src = EB.placement()
-        local ok, why = moveTo(pos, heading, src)
+        local pos, heading, src, scale = EB.placement()
+        local ok, why = moveTo(pos, heading, src, scale)
         local line = placementLine(tv.position, tv.heading)
         LightRP.log("events board: placement reset to the config: %s", line)
         return true, "Back to the config: " .. line .. (ok and "" or (" (the TV failed: " .. tostring(why) .. ")"))
+    elseif verb == "aim" then
+        if not source or source <= 0 then return false, "In game only: aim at the wall or the sign the TV goes on." end
+        local scale = nil
+        if args and args[2] ~= nil then
+            scale = clampScale(args[2])
+            if not scale then return false, "Usage: /lightrp.board aim [scale] (a number, e.g. 5)" end
+        end
+        local p, why = staffSpot(source)
+        if not p then return false, why end
+        aimSeq = aimSeq + 1
+        aims[source] = { token = aimSeq, at = now(), scale = scale }
+        TriggerClientEvent(E.net.eventsBoardAim, source, { token = aimSeq, maxDistance = num(cfg("tv.aimMaxMetres", 250), 250) })
+        return true, "Reading your crosshair: the TV goes on the surface you aim at"
+            .. (scale and string.format(" (scale %.2f).", scale) or ".")
     elseif verb == "place" then
         if not source or source <= 0 then return false, "In game only: stand at the spot, facing where the screen should face." end
-        local read = type(Open77.players.get) == "function" and Open77.players.get(source) or nil
-        local p = type(read) == "table" and read.position or Open77.players.position(source)
-        if type(p) ~= "table" or type(p.x) ~= "number" then return false, "Your position is not available yet." end
-        local bucket = type(GetPlayerRoutingBucket) == "function" and GetPlayerRoutingBucket(source) or (read and read.bucket) or p.bucket or 0
-        if (tonumber(bucket) or 0) ~= int(cfg("tv.bucket", 0)) then
-            return false, string.format("Stand in the city (routing bucket %d).", int(cfg("tv.bucket", 0)))
-        end
+        local p, read = staffSpot(source)
+        if not p then return false, read end
         local heading = (type(read) == "table" and tonumber(read.heading or read.yaw)) or 0
         -- the TV goes behind the staff; its screen faces where they look
         local h, back = math.rad(heading), num(cfg("tv.staffSetback", 1.5), 1.5)
         local pos = { x = p.x + math.sin(h) * back, y = p.y - math.cos(h) * back, z = p.z }
-        local saved, why = kvp("set", KVP_PLACEMENT, string.format("%.3f,%.3f,%.3f,%.1f", pos.x, pos.y, pos.z, heading % 360))
-        local ok, propWhy = moveTo(pos, heading, saved == true and "staff placement (kvp)" or "staff placement (this session)")
-        local line = placementLine(tv.position, tv.heading)
+        local saved, why = save(pos, heading, tv.scale)
+        local ok, propWhy = moveTo(pos, heading, saved == true and "staff placement (kvp)" or "staff placement (this session)", tv.scale)
+        local line = placementLine(tv.position, tv.heading, tv.scale)
         LightRP.log("events board: placed by %s: %s", LightRP.characters and LightRP.characters.displayName(source) or tostring(source), line)
         return true, line .. (saved == true and "  (kept until /lightrp.board reset; paste into the config to make it the default)"
             or ("  (this session only, not saved: " .. tostring(why) .. ")"))
@@ -693,8 +802,8 @@ end)
 -- status hook, the respawn check.
 
 do
-    local pos, heading, src = EB.placement()
-    tv.position, tv.heading, tv.source = pos, heading, src
+    local pos, heading, src, scale = EB.placement()
+    tv.position, tv.heading, tv.source, tv.scale = pos, heading, src, scale
 end
 EB.listen()
 
