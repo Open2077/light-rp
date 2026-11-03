@@ -15,8 +15,9 @@ LightRpHallOfFame = {
         offset = { forward = 6.0, right = -4.0, up = 0.0 }, -- survey in game
         -- `/lightrp.halloffame place` prints these two once surveyed; they replace
         -- the offset. Without a heading the screen faces the arrival point.
-        -- position = { x = -763.777, y = 777.723, z = 22.454 }, -- survey in game
-        -- heading = 266.3, -- survey in game
+        -- Surveyed by the owner in game, 2026-11-03 (the Arasaka sculpture, scale 3; round,
+        -- so no heading: it faces the arrival point).
+        position = { x = -774.802, y = 784.568, z = 22.297 },
         bucket = 0,
         -- The prop: an alias of the props catalogue (base client/src/api/Props.cpp
         -- kModelAliases; an alias gets an Open77 mesh host, a raw depot path gets none).
@@ -27,8 +28,9 @@ LightRpHallOfFame = {
         --   /lightrp.halloffame model reset                  back to this default
         -- A swap is saved in the resource's kvp store (data/, kept over restarts) and wins
         -- over `model` at start until `model reset`. `where` prints the line to paste here.
-        model = "electronics.arcade", -- survey in game
-        -- scale = 1.0, yaw = 0,      -- optional: override the row of `model`
+        -- The owner's pick, 2026-11-03: model 7 of the list below at scale 3 (4.6 m tall).
+        model = "decor.sculpture.arasaka",
+        scale = 3.0,                  -- optional (with `yaw`): override the row of `model`
         collision = true,     -- ALT + click picks physical hits only (a row may say otherwise)
         -- The candidates, best guess first. `yaw` turns the mesh so its front looks where
         -- the board faces (degrees, counter-clockwise from above): 0 for a mesh whose

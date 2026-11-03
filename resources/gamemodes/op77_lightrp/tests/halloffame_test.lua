@@ -10,6 +10,14 @@ dofile("shared/config.lua")
 dofile("server/config/activities.lua")
 dofile("server/config/halloffame.lua")
 local C = LightRpHallOfFame
+-- The live config: the owner's survey (2026-11-03), the Arasaka sculpture at scale 3.
+assert(C.board.model == "decor.sculpture.arasaka" and C.board.scale == 3.0 and C.board.heading == nil
+    and math.abs(C.board.position.x - (-774.802)) < 1e-3 and math.abs(C.board.position.y - 784.568) < 1e-3, "the surveyed board")
+do local found for _, row in ipairs(C.board.models) do if row.model == C.board.model then found = row end end
+    assert(found and found.collision ~= false and found.height, "the default is a listed candidate with a collider and a height") end
+-- Below, the offset path and the first candidate as the default (the arithmetic these
+-- assertions pin), whatever the live survey says.
+C.board.position, C.board.heading, C.board.model, C.board.scale = nil, nil, C.board.models[1].model, nil
 
 local noop = function() end
 local clock = 1000000

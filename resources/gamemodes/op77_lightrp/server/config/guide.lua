@@ -546,7 +546,7 @@ LightRpGuide = {
                   tags = "stats leaderboard record wins kills" },
                 { id = "activities.halloffame", q = "What is the Hall of Fame?",
                   requires = "halloffame",
-                  a = { "The big screen at {v:hub}, beside the Activities terminal: press {key:interact} in front of it, or hold {key:context} and click it.",
+                  a = { "The Arasaka sculpture at {v:hub}, the tall one with the trophy over it: press {key:interact} next to it, or hold {key:context} and click it.",
                         "It ranks the city's best characters, the top {cfg:halloffame.size} of each board, and shows your own rank:",
                         "- **PvP**: wins and kills in the arena, races, chases and turf wars;",
                         "- **Races**: the best time on each race's current course;",
