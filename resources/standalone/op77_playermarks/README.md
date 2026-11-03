@@ -3,8 +3,8 @@
 A nameplate in the Light RP design floats over every other player's head: a chamfered near-black chip with a yellow accent bar, the player's name in Chakra Petch capitals and three voice bars. While that player talks on voice, the bars light up yellow and move with their level, the chip warms and the pin pulses. A player tells people from the city's NPCs at a glance.
 
 - **Starts:** on its own (add `"op77_playermarks"` to `resources.load`)
-- **Needs:** nothing; it honours [op77_map3d](../op77_map3d/)'s hidden players when that resource runs (a chase runner gets no dot)
-- **Runs on:** client (the dots and a transparent HUD page)
+- **Needs:** nothing; it honours [op77_map3d](../op77_map3d/)'s hidden players when that resource runs (a chase runner gets no plate)
+- **Runs on:** client (the plates and a transparent HUD page)
 
 ## How it works
 
@@ -14,7 +14,7 @@ The plate shrinks with distance and fades out over the last fifth of `radius`. T
 
 ## Settings
 
-`shared/config.lua` (`PlayerMarksConfig`): `enabled`, `radius` (35 m), `max` (24 dots; the plugin allows 32 anchors per resource), `height` (1.92 m), `nameMax` (24), `refreshMs`, `talkMs`, `talkThreshold` and the page's distance scale. op77_lightrp's own talking dot (client/core/talkers.lua) stays off while this resource runs.
+`shared/config.lua` (`PlayerMarksConfig`): `enabled`, `radius` (35 m), `max` (24 plates; the plugin allows 32 anchors per resource), `height` (1.92 m), `nameMax` (24), `refreshMs`, `talkMs`, `talkThreshold` and the page's distance scale. op77_lightrp's own talking dot (client/core/talkers.lua) stays off while this resource runs.
 
 ## Tests
 
