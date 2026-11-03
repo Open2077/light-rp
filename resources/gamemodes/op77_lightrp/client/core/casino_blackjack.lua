@@ -7,11 +7,22 @@ local Extra=LightRpTabletopExtraClient
 local B=LightRpBlackjack
 local DEPOT="open77\\assets\\op77_lightrp\\casino_blackjack\\"
 local FZ=1.35                 -- felt height
-local CARD_DZ=.0018           -- each overlapping card lies on the previous one
+-- Overlapping cards never share a height: two surfaces at one depth z-fight
+-- (flicker) in game. Each card of a hand lies one card thickness plus a gap
+-- above the previous one, so later cards always draw on top (the props are
+-- rendered at 0.65: 2.4 mm here is 1.56 mm in game).
+local CARD_T=.0016            -- a card's thickness (authored pose, build-casino-blackjack-props.py)
+local CARD_GAP=.0008          -- air between a card and the next one
+local CARD_STEP=CARD_T+CARD_GAP
+local CARD_Z=FZ+.001          -- the first card of a hand, just off the felt
 local MAX_CARDS=7             -- rendered per hand (the panel lists every card)
 local SHOE={x=.70,y=.03,z=FZ+.04,yaw=0}       -- hidden inside the shoe body
-local EXIT={x=.70,y=-.15,z=FZ+.02}            -- the shoe mouth, where a dealt card appears
-local DISCARD={x=-.70,y=.03,z=FZ+.03}
+local EXIT={x=.70,y=-.15,z=FZ+.02}            -- the shoe mouth, where a dealt card appears (above every landed card)
+-- Swept cards converge on the tray: every card of the table gets its own layer
+-- there (dealer first, then seat by seat, the order they are collected in).
+local DISCARD={x=-.70,y=.03,z=FZ+.024}        -- just above the tray's printed pile (FZ+.022)
+local DISCARD_STEP=.0008
+local CHIP_Z=FZ+.0005         -- chip stacks rest just off the felt (no shared plane with the top)
 local RACK={x=0,y=.065,z=FZ+.04}
 -- Pacing comes from the shared rules (B.SLIDE, B.FLIP, B.CHIPS, B.CHIP_STAGGER,
 -- B.SWEEP); these are the purely visual parts, all inside the server windows.
@@ -37,10 +48,12 @@ for index,seat in ipairs(B.SEATS) do
         px=.80*ux,py=.80*uy,                      -- betting circle
         wx=.80*ux+.14*tx,wy=.80*uy+.14*ty,        -- winnings beside it
         hx=1.10*ux,hy=1.10*uy,                    -- the player's edge of the rail
+        hwx=1.10*ux+.14*tx,hwy=1.10*uy+.14*ty,    -- winnings leave beside the bet (never into the same spot)
         cards={},ids={},bet={},win={},cardKey=seat..":cards",chipKey=seat..":chips"}
     for k=1,MAX_CARDS do
         local r=.55-(k-1)*.012
-        s.cards[k]={x=r*ux+(k-1)*.032*tx,y=r*uy+(k-1)*.032*ty,z=FZ+.001+(k-1)*CARD_DZ,yaw=ANGLES[seat]}
+        s.cards[k]={x=r*ux+(k-1)*.032*tx,y=r*uy+(k-1)*.032*ty,z=CARD_Z+(k-1)*CARD_STEP,yaw=ANGLES[seat],
+            dz=DISCARD.z+(index*MAX_CARDS+k-1)*DISCARD_STEP}
         s.ids[k]="bj-"..seat.."-c"..k
     end
     for k=1,3 do s.bet[k]="bj-"..seat.."-b"..k;s.win[k]="bj-"..seat.."-w"..k end
@@ -48,7 +61,7 @@ for index,seat in ipairs(B.SEATS) do
 end
 local DEALER={cards={},ids={}}
 for k=1,MAX_CARDS do
-    DEALER.cards[k]={x=-.07+(k-1)*.075,y=-.24,z=FZ+.001,yaw=0}
+    DEALER.cards[k]={x=-.07+(k-1)*.075,y=-.24,z=CARD_Z+(k-1)*CARD_STEP,yaw=0,dz=DISCARD.z+(k-1)*DISCARD_STEP}
     DEALER.ids[k]="bj-d-c"..k
 end
 -- Chip stacks: one prop per denomination column, the three largest columns.
@@ -93,7 +106,7 @@ local function card(result,id,entry,slot,now,sweep)
         if now>=sweep then
             if now>=sweep+SWEEP_MS then return end
             soon(sweep+SWEEP_MS)
-            put(result,id,"card",entry.c and face(entry.c) or BACK,DISCARD.x,DISCARD.y,DISCARD.z,slot.yaw,true)
+            put(result,id,"card",entry.c and face(entry.c) or BACK,DISCARD.x,DISCARD.y,slot.dz,slot.yaw,true)
             return
         end
         soon(sweep)
@@ -150,19 +163,19 @@ local function handChips(r,hand,s,now,sweep,resultAt)
     if sweep then soon(sweep);soon(sweep+SWEEP_MS) end
     if stake>0 then
         if lost and now>=lost then
-            if now<lost+B.CHIPS then stack(r,s.bet,stake,s,s.px,s.py,FZ,RACK.x,RACK.y,RACK.z,lost,B.CHIPS,now) end
+            if now<lost+B.CHIPS then stack(r,s.bet,stake,s,s.px,s.py,CHIP_Z,RACK.x,RACK.y,RACK.z,lost,B.CHIPS,now) end
         elseif sweep and now>=sweep then
             if now<sweep+SWEEP_MS then stack(r,s.bet,stake,s,s.hx,s.hy,FZ+.03,s.hx,s.hy,FZ+.03,nil,0,now,true) end
         else
-            stack(r,s.bet,stake,s,s.hx,s.hy,FZ+.03,s.px,s.py,FZ,tonumber(hand.betAt),PULL_MS,now)
+            stack(r,s.bet,stake,s,s.hx,s.hy,FZ+.03,s.px,s.py,CHIP_Z,tonumber(hand.betAt),PULL_MS,now)
         end
     end
     if pay>0 then
         local at=resultAt+s.index*B.CHIP_STAGGER
         if sweep and now>=sweep then
-            if now<sweep+SWEEP_MS then stack(r,s.win,pay,s,s.hx,s.hy,FZ+.03,s.hx,s.hy,FZ+.03,nil,0,now,true) end
+            if now<sweep+SWEEP_MS then stack(r,s.win,pay,s,s.hwx,s.hwy,FZ+.03,s.hwx,s.hwy,FZ+.03,nil,0,now,true) end
         elseif now>=at then
-            stack(r,s.win,pay,s,RACK.x,RACK.y,RACK.z,s.wx,s.wy,FZ,at,B.CHIPS,now)
+            stack(r,s.win,pay,s,RACK.x,RACK.y,RACK.z,s.wx,s.wy,CHIP_Z,at,B.CHIPS,now)
         else soon(at) end
     end
 end

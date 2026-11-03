@@ -119,7 +119,7 @@ T=E.pieceTargets(bj)
 assert(T['bj-white-w1'] and T['bj-white-w1'].piece.model:find('bj_chips_100_1',1,true),'125 winnings beside the bet')
 clock=clock+(s.resultAt+4*B.CHIP_STAGGER+B.CHIPS)-E.serverTime(bj);T=E.pieceTargets(bj)
 assert(not T['bj-black-b1'],'lost chips are gone into the rack')
-local w=T['bj-white-w1'].position;assert(w.z==1.35)
+local w=T['bj-white-w1'].position;assert(math.abs(w.z-(1.35+.0005))<1e-9,'chips rest just off the felt')
 -- Before the next round the cards sweep into the discard tray.
 clock=clock+(s.nextAt-B.SWEEP+300)-E.serverTime(bj);T=E.pieceTargets(bj)
 local sweeping=T['bj-white-c1'].position;assert(sweeping.x<0,'cards travel to the discard tray at -X')
@@ -135,6 +135,59 @@ local worst=B.view(B.new('duel',1,now));worst.phase='result';worst.resultAt=now+
 worst.hands={white=hand('white',3125),black=hand('black',3125),white2=hand('white2',3125),black2=hand('black2',3125)}
 for _,h in pairs(worst.hands) do h.total=20 end
 worst.dealer={cards={},total=22};for k=1,7 do worst.dealer.cards[k]={c='9C',t=now+k*300} end
+
+-- Stacking: overlapping cards never share a height (two surfaces at one depth
+-- z-fight in game). Each card lies a card thickness plus a gap above the
+-- previous one of its hand; the landed x/y are the table's layout.
+local CARD_T,STEP=.0016,.0016+.0008
+local function settle(id,serverNow,game)
+ local b={id=id,kind='blackjack',position=bj.position,players=bj.players,game=game,serverNow=serverNow};E.observe(b)
+ local R;for _=1,10 do R=E.pieceTargets(b) end;return R
+end
+local S=settle(298,worst.resultAt-100,worst)
+for _,seat in ipairs({'d','white','black','white2','black2'}) do
+ for k=2,7 do
+  local a,b=S['bj-'..seat..'-c'..(k-1)],S['bj-'..seat..'-c'..k];assert(a and b,seat..k)
+  assert(b.position.z-a.position.z>=STEP-1e-9,'card '..k..' of '..seat..' lies above card '..(k-1))
+ end
+ assert(math.abs(S['bj-'..seat..'-c1'].position.z-(1.35+.001))<1e-9,'the first card of a hand just off the felt')
+end
+for seat,deg in pairs({white=54,black=18,white2=-18,black2=-54}) do
+ local a=math.rad(deg);local ux,uy,tx,ty=math.sin(a),-math.cos(a),math.cos(a),math.sin(a)
+ for k=1,7 do local r,p=.55-(k-1)*.012,S['bj-'..seat..'-c'..k].position
+  assert(math.abs(p.x-(r*ux+(k-1)*.032*tx))<1e-9 and math.abs(p.y-(r*uy+(k-1)*.032*ty))<1e-9,'landed x/y unchanged') end
+end
+for k=1,7 do local p=S['bj-d-c'..k].position;assert(math.abs(p.x-(-.07+(k-1)*.075))<1e-9 and math.abs(p.y+.24)<1e-9,'dealer row unchanged') end
+for _,seat in ipairs(B.SEATS) do assert(math.abs(S['bj-'..seat..'-b1'].position.z-(1.35+.0005))<1e-9) end
+-- In flight a card stays above the felt and above the cards it lands on, and
+-- the half-turned pose stands at its own (stacked) height.
+local single=B.view(B.new('duel',1,now));single.phase='playing'
+single.hands={white={bet=25,stake=25,total=20,betAt=now,cards={}}};single.dealer={cards={},total=0}
+for k=1,4 do single.hands.white.cards[k]={c='5S',t=now+k*1000} end
+local slot3=S['bj-white-c3'].position
+for i,p in ipairs({.02,.1,.3,.5,.7,.9,.98}) do
+ local F=settle(280+i,now+3000+math.floor(B.SLIDE*p),single)
+ local c3,c2=F['bj-white-c3'],F['bj-white-c2']
+ assert(c3.piece.model:find('bj_card_back',1,true) and c3.position.z>=slot3.z-1e-9 and c3.position.z>c2.position.z+CARD_T,'card 3 in flight over card 2 at '..p)
+ assert(c3.position.z>1.35+CARD_T)
+end
+local F=settle(288,now+3000+B.SLIDE+10,single)
+assert(F['bj-white-c3'].piece.model:find('bj_card_turn',1,true) and math.abs(F['bj-white-c3'].position.z-slot3.z)<1e-9,'flip pose at the stacked height')
+-- The sweep: every swept card heads for its own layer of the tray, later seats above.
+local sweepAt=worst.nextAt-B.SWEEP
+local W=settle(289,sweepAt+3*250+100,worst)
+local heights,order={},{}
+for _,seat in ipairs({'d','white','black','white2','black2'}) do
+ for k=1,7 do local c=W['bj-'..seat..'-c'..k]
+  if c and math.abs(c.position.x+.70)<1e-9 then assert(not c.piece.snap);order[#order+1]=c.position.z
+   assert(not heights[c.position.z],'two swept cards share a height');heights[c.position.z]=true end
+ end
+end
+assert(#order>=14,'cards of several seats in the tray at once '..#order)
+for i=2,#order do assert(order[i]>order[i-1],'later collected cards land higher') end
+-- The bet and the winnings leave over the rail side by side, never into one spot.
+local bet,win=W['bj-black2-b1'],W['bj-black2-w1'];assert(bet and win)
+assert(math.sqrt((bet.position.x-win.position.x)^2+(bet.position.y-win.position.y)^2)>.06+.06,'swept bet and winnings apart')
 bj.game=worst;bj.revision=5;bj.serverNow=worst.resultAt+4*B.CHIP_STAGGER+100; -- every payout stack in flight
 events['lightrp:boardGames:state']({boards={bj}})
 -- Count on a separate board id so the renderer below starts from a cold cache.
