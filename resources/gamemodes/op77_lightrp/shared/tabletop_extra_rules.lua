@@ -3,6 +3,12 @@
 LightRpTabletopExtraRules = {}
 local R=LightRpTabletopExtraRules
 local SEATS={'white','black','white2','black2'}
+-- Stakes, like the fortune wheel (prod audit 2026-11-04, docs/economy-balance.md §15):
+-- per placed bet, and per character per spin (checked by the server, which knows the
+-- inventories). A straight number returns 36x: 1,000 on it pays 36,000 at most.
+R.MIN_BET=1
+R.MAX_BET=1000
+R.MAX_ROUND=5000
 local function copy(t)
  if type(t)~='table' then return t end
  local n={} for k,v in pairs(t) do n[k]=copy(v) end return n
@@ -46,6 +52,7 @@ local function roulette(s,seat,action,p)
   if s.phase~='betting' then return nil,'Bets are closed.' end
   local bet=normalizeBet(p.bet)
   if bet==nil or not integer(p.amount,1,2147483647) then return nil,'Choose a valid bet and a positive whole amount.' end
+  if not integer(p.amount,R.MIN_BET,R.MAX_BET) then return nil,('Bet between %d and %d whole RP dollars.'):format(R.MIN_BET,R.MAX_BET) end
   local n=copy(s);n.betSerial=(n.betSerial or 0)+1
   n.bets[#n.bets+1]={id=tostring(n.round)..':'..n.betSerial,seat=seat,bet=bet,amount=p.amount}
   n.ply=n.ply+1;return n

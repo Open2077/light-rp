@@ -137,6 +137,7 @@ dofile("server/modules/parties.lua")
 dofile("server/modules/missions.lua")
 dofile("server/modules/mission_engine.lua")
 dofile("server/modules/mission_editor.lua")
+dofile("server/config/economy.lua") -- worldBosses: the pool rule (docs/economy-balance.md §15)
 dofile("server/config/world_bosses.lua")
 dofile("server/modules/world_bosses.lua")
 local D, Missions = LightRpMissionDefs, LightRP.missions
@@ -191,6 +192,10 @@ assert(not select(1, commands["worldboss.start"](0, { "burn" })), "one at a time
 local announced = 0
 for _, n in ipairs(notices) do if n.title == "WORLD BOSS" then announced = announced + 1 end end
 assert(announced == 4, "the whole city is told")
+-- the most the pool can reach: the 4 players online all paid (3,000 x 4 ^ 0.7), not the editor's 30,000
+local announceBody
+for _, n in ipairs(notices) do if n.title == "WORLD BOSS" then announceBody = n.body end end
+assert(announceBody and announceBody:find("up to $7917", 1, true), tostring(announceBody))
 seconds(4)
 local ev = WB.current()
 local bossId, guards = nil, {}
@@ -294,7 +299,9 @@ late.score = 10 + C.killShare * 5000 * (10 / (C.killAssist * 5000))
 seconds(2)
 assert(ev.phase == "cleanup", "boss down")
 assert(paid[1] and paid[2] and not paid[3] and not paid[4], "the latecomer and the far player get nothing")
-assert(paid[1] + paid[2] <= 30000 and paid[1] > paid[2], "the pool shared by score among the eligible")
+-- two paid: the pool is 3,000 x 2 ^ 0.7 = 4,874, and one share stops at 250 x 10 min
+assert(ev.pool == 4874 and paid[1] + paid[2] <= ev.pool and paid[1] > paid[2], "the pool shared by score among the eligible")
+assert(paid[1] == 2500, "the top fighter's share stops at 250 per minute of the event: " .. paid[1])
 assert(ev.results[3].share < 5 and not ev.results[3].eligible)
 local told
 for _, n in ipairs(notices) do if n.id == 3 and n.title == "WORLD BOSS DOWN" then told = n.body end end
@@ -369,6 +376,7 @@ assert(ev.phase == "cleanup", "boss down")
 local payees, total = 0, 0
 for id = 1, 30 do assert(paid[id] and paid[id] > 0, "every real fighter is paid, even with an average share under 5 %: " .. id); payees = payees + 1; total = total + paid[id] end
 for id = 31, 40 do assert(not paid[id], "watchers, latecomers and the away get nothing: " .. id) end
+assert(ev.pool == 30000, "30 paid: 3,000 x 30 ^ 0.7 = 32,435, the editor's 30,000 is the most")
 assert(total <= 30000 and total > 29900, "the whole pool shared: " .. total)
 assert(paid[30] > paid[1], "more damage, more pay")
 assert(ev.need < 5 and ev.need > 0.5, "the paying share follows the crowd: " .. ev.need)
@@ -379,8 +387,17 @@ seconds(C.cleanupSeconds + 3)
 assert(WB.current() == nil)
 print(string.format("crowd: 30 paid of 40, need %.2f %%, %.3f ms per tick with 36 in the zone", ev.need, perTick))
 
+-- ── the pool rule (server/config/economy.lua worldBosses), and the old rule without it ──
+assert(WB.pool(30000, 1) == 3000 and WB.pool(30000, 3) == 6473 and WB.pool(30000, 10) == 15036, "3,000 x fighters ^ 0.7")
+assert(WB.pool(10000, 8) == 10000 and WB.pool(0, 5) == 0, "never above the editor's reward")
+assert(WB.headCap(20) == 5000, "250 per minute of the event")
+local saved = LightRpEconomy.worldBosses
+LightRpEconomy.worldBosses = nil
+assert(WB.pool(30000, 2) == 30000 and WB.headCap(20) == math.huge, "no worldBosses table: the editor's reward, no cap")
+LightRpEconomy.worldBosses = saved
+
 -- ── withdrawn: out of the catalogue ──
 Engine.withdraw("wb-1")
 assert(#WB.catalogue() == 0)
 
-print("PASS: world bosses (editor tag + validation, no board, staff start, city notice, zone HUD + margin + height, boss health x, credit from validated damage/kills only, reinforcements 66/33, shares, latecomer and far player unpaid, cleanup, escape pays nobody, withdraw)")
+print("PASS: world bosses (editor tag + validation, no board, staff start, city notice (pool up to), pool 3,000 x n^0.7 and 250/min a share, zone HUD + margin + height, boss health x, credit from validated damage/kills only, reinforcements 66/33, shares, latecomer and far player unpaid, cleanup, escape pays nobody, withdraw)")

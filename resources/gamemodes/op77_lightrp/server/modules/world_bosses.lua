@@ -14,6 +14,10 @@
 --   the end    boss down: the pool is shared by contribution among those at or above the
 --              mission's minimum share (a latecomer's last shot or an idle player: nothing).
 --              Time out: the boss leaves, nobody is paid.
+--   the pool   the editor's reward is the most it can be: with LightRpEconomy.worldBosses
+--              it is perFighter x paid fighters ^ crewExponent, and one fighter never
+--              gets more than maxSharePerMinute x the time limit (WB.pool, WB.headCap;
+--              docs/economy-balance.md §15). Without that table, the editor's reward.
 --
 -- The enemies are the mission engine's own (spawns, behaviours, deaths): Engine.world.
 local C = LightRpWorldBosses
@@ -139,6 +143,34 @@ local function needed(ev)
 end
 WB.needed = function() return event and needed(event) or 0 end
 
+-- The pool that pays `fighters` (server/config/economy.lua worldBosses, read at call
+-- time) and the most one of them gets. Pure.
+local function economy()
+    local E = LightRpEconomy and LightRpEconomy.worldBosses
+    return type(E) == "table" and E or nil
+end
+function WB.pool(reward, fighters)
+    reward = math.max(0, math.floor(tonumber(reward) or 0))
+    local E = economy()
+    local per = E and tonumber(E.perFighter) or 0
+    if per <= 0 then return reward end
+    local n = math.max(1, math.floor(tonumber(fighters) or 1))
+    local exponent = math.max(0, math.min(1, tonumber(E.crewExponent) or 1))
+    return math.min(reward, math.floor(per * n ^ exponent + 0.5))
+end
+function WB.headCap(minutes)
+    local E = economy()
+    local perMinute = E and tonumber(E.maxSharePerMinute) or 0
+    if perMinute <= 0 then return math.huge end
+    return math.floor(perMinute * math.max(1, tonumber(minutes) or 1))
+end
+-- The pool the HUD and the zone notice quote: the fighters in the zone now (or the
+-- paid ones once it ended), as if they all earned a share.
+local function poolNow(ev)
+    if ev.pool then return ev.pool end
+    return WB.pool(ev.def.worldBoss.reward, math.max(1, ev.fighters or 0))
+end
+
 local function playerOf(source)
     local id = tonumber(tostring(source or ""):match("^player:(%d+)$"))
     return id
@@ -204,7 +236,7 @@ local function view(ev, id)
         bossHealth = ev.bossFraction, enemiesLeft = ev.run.alive + #ev.run.queue, fighters = ev.fighters,
         endsInMs = ev.phase == "fight" and math.max(0, ev.endsAt - now()) or nil,
         share = math.floor(share * 10 + 0.5) / 10, minShare = math.floor(needed(ev) * 10 + 0.5) / 10, eligible = share >= needed(ev) and (c and c.score or 0) > 0,
-        damage = c and math.floor(c.damage + 0.5) or 0, kills = c and c.kills or 0, reward = w.reward,
+        damage = c and math.floor(c.damage + 0.5) or 0, kills = c and c.kills or 0, reward = poolNow(ev), rewardMax = w.reward,
         inZone = ev.inZone[id] == true,
         -- a bystander in the zone still sees how it ended
         result = ev.results and (ev.results[id] or { success = ev.success == true, share = 0, pay = 0, eligible = false, damage = 0, kills = 0 }) or nil,
@@ -285,7 +317,8 @@ local function start(def, why)
     for _, s in ipairs(run.def.spawns) do if s.trigger == "start" then W.enqueue(run, s.id) end end
     event = ev
     blip(ev, true)
-    local vars = { boss = ev.bossLabel, location = ev.location, title = def.title, reward = money(boss.reward) }
+    -- the most the pool can reach: every player online fighting and paid
+    local vars = { boss = ev.bossLabel, location = ev.location, title = def.title, reward = money(WB.pool(boss.reward, #online())) }
     for _, id in ipairs(online()) do
         LightRP.notice(id, { kind = "warning", title = fill(C.announce.title, vars), body = fill(C.announce.body, vars), durationMs = 12000 })
     end
@@ -308,15 +341,19 @@ local function finish(ev, success, why)
     local eligibleScore = 0
     local need = needed(ev)
     ev.need = need
+    local eligible = 0
     for id, c in pairs(ev.contrib) do
         c.share = total > 0 and c.score / total * 100 or 0
         c.eligible = success and c.score > 0 and c.share >= need
-        if c.eligible then eligibleScore = eligibleScore + c.score end
+        if c.eligible then eligibleScore = eligibleScore + c.score; eligible = eligible + 1 end
     end
+    -- the pool grows with the fighters paid (WB.pool), a share never past WB.headCap
+    local pool, headCap = WB.pool(w.reward, eligible), WB.headCap(w.minutes)
+    ev.pool = pool
     local paid = 0
     for id, c in pairs(ev.contrib) do
         local pay = 0
-        if c.eligible and eligibleScore > 0 then pay = math.floor(w.reward * c.score / eligibleScore) end
+        if c.eligible and eligibleScore > 0 then pay = math.min(headCap, math.floor(pool * c.score / eligibleScore)) end
         c.pay = pay
         if pay > 0 and GetPlayerName(id) then
             paid = paid + 1
@@ -447,8 +484,8 @@ local function tick(ev)
             ev.inZone[id] = inside or nil
             if inside then
                 LightRP.notice(id, { kind = "contract", title = "WORLD BOSS ZONE", durationMs = 9000,
-                    body = string.format("Take down %s with everyone here. Your share of %s follows your damage and kills; a last shot or watching earns nothing.",
-                        ev.bossLabel, money(ev.def.worldBoss.reward)) })
+                    body = string.format("Take down %s with everyone here. Your share of %s%s follows your damage and kills; a last shot or watching earns nothing.",
+                        ev.bossLabel, money(poolNow(ev)), poolNow(ev) < ev.def.worldBoss.reward and " (more as fighters join)" or "") })
             end
         end
         if inside then

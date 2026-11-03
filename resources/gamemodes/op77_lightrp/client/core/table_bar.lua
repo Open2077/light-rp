@@ -128,14 +128,16 @@ M.register("roulette",function(board,b)
     end
     local stake=tonumber(g.yourStake) or 0
     b.status(stake>0 and "Your bets "..money(stake) or "Place your bets")
-    b.chip{value=rouletteChip,min=1,max=1000000,set=function(amount) rouletteChip=amount end}
+    local R=LightRpTabletopExtraRules
+    rouletteChip=math.max(R.MIN_BET,math.min(R.MAX_BET,rouletteChip))
+    b.chip{value=rouletteChip,min=R.MIN_BET,max=R.MAX_BET,set=function(amount) rouletteChip=amount end}
     local sel=Extra.selection(board)
     if sel then b.target(sel.label.." · pays "..Extra.roulettePays(sel.key))
     else b.hint("Click a number or a box on the layout") end
     local chip=rouletteChip
     b.button("bet",sel and "Bet "..money(chip).." on "..sel.label or "Bet "..money(chip),function()
         return command(board,"bet",{bet=sel.key,amount=chip})
-    end,{enabled=sel~=nil and affordable(chip),primary=true})
+    end,{enabled=sel~=nil and affordable(chip) and stake+chip<=R.MAX_ROUND,primary=true})
     b.button("spin","Spin",function() return command(board,"spin") end)
 end)
 

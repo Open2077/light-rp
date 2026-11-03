@@ -52,9 +52,13 @@ assert(cmd and cmd.opts.restricted, "a restricted staff command")
 assert(R.payout({ id = "standard", payout = 8000, minutes = 15 }) == 2400)
 assert(R.payout({ id = "hard", payout = 15000, minutes = 15 }) == 3000)
 assert(R.payout({ id = "critical", payout = 30000, minutes = 20 }) == 4400)
-assert(R.payout({ id = "standard", payout = 12000, minutes = 15 }) == 3600, "a custom payout keeps its proportion")
-assert(R.payout({ id = "standard", payout = 20000, minutes = 15 }) == 3750, "and stays under the ceiling (250 x 15)")
-assert(R.payout({ id = "standard", payout = 3000, minutes = 15 }) == nil, "under the ceiling: left as the staff set it")
+assert(R.payout({ id = "standard", payout = 8500, minutes = 15 }) == 2550, "a custom payout keeps its proportion")
+assert(R.payout({ id = "standard", payout = 20000, minutes = 15 }) == 2600, "and stays under the authored ceiling (maxShare 2,600 < 250 x 15)")
+assert(R.payout({ id = "critical", payout = 80000, minutes = 20 }) == 5000, "critical: 11,750 scaled, 5,000 at most")
+assert(R.payout({ id = "hard", payout = 4000, minutes = 15 }) == 3000, "just over the guard: never below the new default (4,000 x 0.2 = 800)")
+assert(R.payout({ id = "standard", payout = 3000, minutes = 15 }) == 2600, "under the guard, over the authored ceiling: brought to it")
+assert(R.payout({ id = "standard", payout = 2500, minutes = 15 }) == nil, "under the ceiling: left as the staff set it")
+assert(R.payout({ id = "hard", payout = 3000, minutes = 10 }) == 2500, "a short clock: the guard (250 x 10) is the ceiling")
 assert(R.payout({ id = "standard", payout = 2400, minutes = 15 }) == nil and R.payout({ id = "unknown", payout = 99999, minutes = 15 }) == nil)
 
 -- Preview: lists the changes, writes nothing.
@@ -62,8 +66,8 @@ local ok, text = cmd.fn(0, {})
 assert(ok and text:find("2 mission%(s%) would change") and #runs == 0 and #published == 0)
 local plan = R.plan()
 assert(#plan == 2 and plan[1].id == "custom" and plan[2].id == "old")
-assert(#plan[1].changes == 2 and plan[1].changes[1].difficulty == "standard" and plan[1].changes[1].to == 3600
-    and plan[1].changes[2].difficulty == "hard" and plan[1].changes[2].to == 7500, "40,000 x 0.2 = 8,000, capped at 250 x 30")
+assert(#plan[1].changes == 2 and plan[1].changes[1].difficulty == "standard" and plan[1].changes[1].to == 2600
+    and plan[1].changes[2].difficulty == "hard" and plan[1].changes[2].to == 3300, "40,000 x 0.2 = 8,000, capped at the authored 3,300 (not 250 x 30)")
 assert(#plan[2].changes == 3, "the old defaults all move")
 
 -- Apply: one revision-checked UPDATE per mission, records and the engine refreshed.
@@ -99,4 +103,4 @@ refuse = false
 -- No storage yet: nothing to do.
 LightRP.missionEditor.ready = false
 ok, text = cmd.fn(0, {}); assert(not ok and text:find("unavailable"))
-print("mission_repay_test: rule (proportion, ceiling, untouched), preview, apply (revision check, author, republish), idempotence, stale and refused writes passed")
+print("mission_repay_test: rule (proportion, guard, authored ceiling, default floor, untouched), preview, apply (revision check, author, republish), idempotence, stale and refused writes passed")

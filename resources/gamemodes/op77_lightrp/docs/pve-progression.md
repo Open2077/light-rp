@@ -45,6 +45,12 @@ ajoutés.
 Les montants des missions sont ceux d'aujourd'hui (`reputationGain`). Une mission ratée ne
 rapporte rien. Une activité PvE pèse selon sa durée (§4).
 
+Depuis l'audit de la prod du 2026-11-04 (`docs/economy-balance.md` §15), une mission ou un
+gig **de l'éditeur** rapporte sa réputation au prorata de sa taille, comme ses eddies :
+ennemis à battre ÷ 12 / 18 / 24 (Standard / Hard / Critical), au plus 1. Un contrat de
+3 ennemis donne 25 / 61 / 113 au lieu de 100 / 220 / 450 ; Sector 04, le raid Chimera
+et les contrats complets ne changent pas.
+
 ### Temps pour atteindre chaque palier
 
 Hypothèse « joueur régulier qui fait du PvE » : file d'attente, trajets et échecs compris

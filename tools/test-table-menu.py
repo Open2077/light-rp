@@ -163,11 +163,11 @@ local roulette=fresh('roulette',R.new('roulette','duel'),{players={white=7},read
 show(roulette);rendered(roulette);seatedAt(roulette)
 assert(keys(menu(roulette))=='status,leave' and menu(roulette).status.label=='Bets open','casino tables: status and Leave only')
 b=bar(roulette)
-assert(b.model.status=='Place your bets' and b.model.chip.value==10 and b.model.chip.min==1 and b.model.chip.max==1000000 and b.model.hint:find('layout',1,true))
+assert(b.model.status=='Place your bets' and b.model.chip.value==10 and b.model.chip.min==R.MIN_BET and b.model.chip.max==R.MAX_BET and R.MAX_BET==1000 and b.model.hint:find('layout',1,true))
 assert(akeys(b)=='bet-,spin' and b.bet.label=='Bet €$ 10' and b.bet.primary,akeys(b))
 count=#requests;act('bet');assert(#requests==count,'no target, no bet')
 chip(100);assert(bar(roulette).model.chip.value==100 and #requests==count,'a chip is a local choice')
-chip(0);chip(2.5);chip(2000000);assert(bar(roulette).model.chip.value==100,'invalid chips are refused')
+chip(0);chip(2.5);chip(1001);assert(bar(roulette).model.chip.value==100,'invalid chips are refused (above the 1,000 table limit too)')
 local L=E.rouletteLayout
 -- A click on 17 (cursor straight down on the layout) selects it.
 forcedRay={origin={x=(L.gx0+5.5*L.cell)*.65,y=(L.top-1.5*L.cell)*.65,z=3},direction={x=0,y=0,z=-1}}

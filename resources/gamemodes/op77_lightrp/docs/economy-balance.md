@@ -4,7 +4,8 @@ Monnaie : eddies (€$). Tous les chiffres ci-dessous sont dans des fichiers de
 configuration ; le code ne porte que les règles (partage du pot, recharge, plafonds,
 factures, paie des activités). Les décisions du propriétaire du 2026-11-03 (D1 à D7)
 sont appliquées sur la branche `lightrp/economy-balance` ; ce qui reste à trancher est
-au §12.
+au §12. L'audit de la prod du 2026-11-04 (contrats de l'éditeur, boss mondiaux, casino)
+est au §15, ses questions au §15.7.
 
 ## 1. Constat de départ (branche `lightrp/activities`, avant équilibrage)
 
@@ -86,6 +87,8 @@ difficulté dont la paie dépasse le garde-fou (250 €$ × ses minutes) est à 
 une paie déjà sous le garde-fou reste celle du staff. Chaque mission est réécrite avec
 contrôle de révision (une mission éditée entre-temps est sautée, jamais écrasée) puis
 republiée, donc son tableau affiche le nouveau montant. Relancer ne change rien.
+*Étendu le 2026-11-04 (§15.5) : les missions de l'éditeur ont aussi une bande par
+difficulté et paient selon leur taille ; la commande en tient compte.*
 
 ## 4. Paie des métiers : seulement aux joueurs actifs (D4)
 
@@ -554,3 +557,227 @@ compte plus que le chiffre.
 au-delà est refusée avec le message du serveur ; retirer un implant (50 €$) le range au
 stockage, le reposer coûte 50 €$ ; un iconique tiré apparaît au stockage avec l'annonce
 en ville.
+
+## 15. Audit de la prod 2026-11-04 (branche `lightrp/economy-prod-audit`)
+
+Sources : copie en lecture seule de `/opt/op77-lightrp` sur l'hôte de prod (sha256 de chaque
+`.lua`, `.json`, `.jsonc` et `.md` sous `resources/`, hors `data/`, plus `server.jsonc`),
+comparée à `origin/main` 0f01709 ; base MariaDB de Light RP en lecture, **agrégats
+seulement** (aucun identifiant de compte, aucune adresse). Modèle horaire : celui du §7
+(équipage 1,5 × le minimum, réussite 85 / 70 / 55 %, une réussite prend 70 % de l'horloge
+plus 6 min d'approche, 8 % de frais), J = 3 500 €$/h.
+
+### 15.1 Dérive prod / main
+
+| Ensemble | État en prod | Détail |
+| --- | --- | --- |
+| `op77_lightrp` | **identique à main**, sauf 7 fichiers | 686 fichiers au même sha256 |
+| 7 fichiers en retard d'**un** commit | plus anciens (PR #55 et #56) | `server/config/activities.lua`, `server/config/halloffame.lua`, `tests/activities_hub_test.lua`, `tests/halloffame_test.lua` (prod = 2157054 / f67c4ed, main = 2cd3084, placements du crossing) ; `server/config/events_board.lua`, `server/modules/events_board.lua`, `tests/events_board_test.lua` (prod = eb85a3c, main = f3feb3d, masquage du tableau) |
+| `op77_playermarks` (PR #57) | **absent** | 5 fichiers, et absent de la liste `resources.load` de prod |
+| `op77_race`, `op77_chase`, `op77_turf`, `op77_arena`, `op77_fireworks` | identiques | — |
+| `server.jsonc`, `acl.jsonc` (racine) | **modifiés en prod seulement** | voir plus bas : un déploiement des fichiers racine de main les écraserait |
+| 292 fichiers propres à la prod | hors dépôt light-rp | distribution serveur : `gamemodes/freeroam`, `open77_chimera`, `open77_cyberware_lab`, `open77_freeroam`, `open77_equipment`, `open77_gizmos_*`, `open77_wardrobe`, `polyzone`, `assets/mods/winter_in_nc`, `system/open77_*` |
+
+**Toutes nos modifications d'économie sont en prod** (2056471, 1cbf63a, 18f1ab8, 42d982a,
+7e7b80a, d90597b, 8c9739c) : les fichiers sont identiques, et le registre le confirme (parts
+de 1 949 = 2 400 à deux, une paie de recharge à 25 % le 2026-11-03, PvE à 40 €$/min). Ce
+qui manque à la prod n'est pas de l'économie : les PR #55, #56 et #57.
+
+`server.jsonc` de prod (à ne **jamais** écraser par celui du dépôt) : nom et tags du serveur,
+visibilité publique, bloc `query`, point d'accès public, 32 places, bloc `combat`, limites de
+PNJ et de véhicules IA, réplication, voix 32 / 8, `winter_in_nc` et `open77_pedestrians` dans
+`resources.load` (et pas `op77_playermarks`), rcon désactivé, métriques, URL publique de
+Warden, limites HTTP. `acl.jsonc` de prod : sa propre équipe, et **pas**
+`command.lightrp.tables` (la gestion des tables n'est donc pas ouverte au staff en prod).
+
+### 15.2 Ce que dit la base (agrégats du 2026-11-04)
+
+- 11 comptes, 11 personnages, tous actifs ; 6 vus dans les 24 h, 10 dans les 7 jours ;
+  49,4 h de jeu cumulées (moyenne 4,5 h, maximum 14,5 h).
+- Masse monétaire : 304 348 €$ en banque + 3 070 en liquide = **307 418 €$**. Par
+  personnage (banque + liquide) : minimum 814, **médiane ≈ 19 540**, moyenne 27 668,
+  maximum 143 078.
+- Registre `lightrp_transactions` : 143 lignes du 2026-10-05 au 2026-11-04.
+
+| Ligne | Lignes | Somme | Remarque |
+| --- | --- | --- | --- |
+| `mission` | 22 | 237 116 | 180 000 = 10 Chimera standard à 18 000 (ancienne échelle, 10-28 → 11-02) ; 48 000 = 6 × 8 000 sur « BOUM BOUM » (contrat supprimé depuis), le 11-02 ; 4 000 The House ; après l'équilibrage : 2 × 1 949 et 2 × 609 sur WORLD BOSS A FINIR 4, **un seul ennemi** |
+| `staff` | — | 116 200 | 112 000 en banque + 4 200 en liquide |
+| ouverture | — | 19 250 | 16 500 + 2 750 |
+| `salary` | 49 | 3 165 | |
+| `activity_pve` | 6 | 308 | |
+| `shop_sell` | — | 514 | |
+| `vehicle_purchase` | — | −63 000 | Colby, Hozuki, Merrimac |
+| `shop_buy`, `hospital`, `rental`, `fuel` | — | −2 156, −600, −580, −183 | |
+
+- **77 % de l'argent des missions date de l'ancienne échelle** : l'équilibrage n'est pas
+  rétroactif (§13). Les **dons du staff (116 200) pèsent 38 % de la masse**, plus que toutes
+  les missions payées depuis l'équilibrage.
+- Sources − dépenses du registre = 310 034 €$ pour 307 418 en circulation : 2 616 €$
+  (0,9 %) sont sortis **hors registre** (inférence : le liquide du casino, qui n'y passe pas,
+  §15.4 point 7 ; non vérifié).
+- Aucune ligne `worldboss` ; `lightrp_roulette_claims` est vide : aucun boss mondial ni gain
+  de table n'a encore été payé en prod. Tables posées : un blackjack, des dames, des échecs,
+  un puissance 4. Réputation de mission : 7 personnages, maximum 938, moyenne 357. Logement :
+  les 7 studios de départ gratuits.
+
+### 15.3 Les contrats de l'éditeur en prod
+
+19 définitions en base (`lightrp_mission_defs`), ajoutées en jeu par l'équipe de Nightwolf :
+15 au tableau, 1 gig, 3 boss mondiaux. Partout : horloge 15 / 15 / 20 min, équipage
+minimum 1 / 1 / 2, multiplicateurs d'ennemis 1 / 1,5 / 2. « Ennemis » = ceux qu'il faut
+battre à la difficulté (départ, points de passage obligatoires, chaque vague). Par tête, à
+l'équipage minimum, Standard / Hard / Critical :
+
+| Contrat | Ennemis | Enregistré | Payé jusqu'ici | Payé avec cette branche | Après `/lightrp.missions.repay` |
+| --- | --- | --- | --- | --- | --- |
+| The House | 30 / 48 / 60 | 2 000 / 4 000 / 6 000 | 2 000 / 3 750 / 5 000 | 2 000 / 3 300 / 5 000 | 2 000 / 3 000 / 4 400 |
+| WAREHOUSE | 18 / 29 / 36 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
+| SHADY CORNER (survie) | 30 / 45 / 60 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
+| VALENTINOS DEAL | 12 / 18 / 24 | 5 000 / 10 000 / 15 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
+| FAVELA (survie) | 45 / 69 / 90 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
+| RUN MOTHERFUCKER RUN | 15 / 25 / 30 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
+| SNIPA | 28 / 42 / 56 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
+| THE PIER OF DEATH (survie) | 54 / 81 / 108 | 10 000 / 30 000 / 60 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 600 / 3 300 / 5 000 |
+| CORPO COLLABS | 17 / 29 / 34 | 10 000 / 25 000 / 50 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 600 / 3 300 / 5 000 |
+| VAMOS (survie) | 72 / 108 / 144 | 15 000 / 30 000 / 80 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 600 / 3 300 / 5 000 |
+| TERMINAL B | 20 / 30 / 40 | 12 000 / 25 000 / 80 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 600 / 3 300 / 5 000 |
+| GIG 1 (gig) | 3 / 5 / 6 | 1 000 / 1 500 / 2 000 | 1 000 / 1 500 / 2 000 | **250 / 417 / 500** | inchangé |
+| 6 7 TH STREET A FINIR | 3 / 5 / 6 | 2 400 / 3 000 / 4 400 | 2 400 / 3 000 / 4 400 | **600 / 833 / 1 100** | inchangé |
+| WORLD BOSS A FINIR 1, 3, 5 (au tableau) | 3 / 5 / 6 | 2 400 / 3 000 / 4 400 | 2 400 / 3 000 / 4 400 | **600 / 833 / 1 100** | inchangé |
+| WORLD BOSS TEST, A FINIR 4, A FINIR 2 | boss mondiaux, cagnottes 10 000 / 10 000 / 30 000 | | | §15.5 | WORLD BOSS TEST réécrit, sans effet (pas de tableau) |
+
+Réputation par passage, Standard / Hard / Critical : 100 / 220 / 450 jusqu'ici partout ;
+avec cette branche, inchangée pour les contrats complets, **25 / 61 / 113** pour les
+contrats de 3 ennemis (GIG 1 compris).
+
+### 15.4 Échelles cassées (avant cette branche)
+
+1. **Le garde-fou était le seul plafond** : tout contrat enregistré à l'ancienne échelle
+   payait 250 × ses minutes, soit 3 750 / 3 750 / 5 000 = **2,59 / 2,05 / 1,69 × J** dans
+   les 6 paies pleines (cible §2 : 1,7 à 1,8 × J ; défauts de l'éditeur 1,66 / 1,64 / 1,49).
+   Plafond journalier d'un compte en Standard : 6 × 3 750 = 22 500 au lieu de 14 400.
+2. **Contournable** : le garde-fou suit l'horloge, que l'éditeur accepte jusqu'à 120 min ;
+   un contrat à 30 000 et 120 min payait 30 000 par tête.
+3. **Le tableau mentait** : il affichait le chiffre enregistré (jusqu'à 80 000), pas la paie.
+4. **Les petits contrats payaient plein** : un contrat de 3 ennemis bouclé en ≈ 9 min
+   (3 de combat, 6 d'approche) rapportait 2 400, ≈ **16 000 €$/h (4,6 × J)** dans les 6 paies
+   pleines, et sa réputation entière **sans plafond** : 100 / 220 / 450 par passage, ≈ 670 /
+   1 470 / 3 000 par heure contre 180 / 280 / 375 visés (§7) ; Legend (10 000) en 3 à 7 h de
+   farm au lieu de ≈ 48 h. Cinq contrats de ce genre sont au tableau (placeholders « A
+   FINIR » et GIG 1) ; le 11-03, deux joueurs ont touché 1 949 chacun pour **un** ennemi.
+5. **Boss mondiaux** : la cagnotte de l'éditeur (défaut 30 000) est partagée entre ceux qui
+   frappent, sans plafond par tête ni par jour. Il faut 3 joueurs en ligne ; à 3
+   combattants, **10 000 chacun** par boss, seul 30 000. Un boss toutes les ≈ 80 min (20
+   min d'attente au démarrage, puis 45 à 90 min après la fin du précédent) : jusqu'à
+   7 500 €$/h (2,1 × J) en plus, hors recharge et hors plafond journalier des missions.
+6. **Roulette sans limite** : 1 à 1 000 000 par pari, autant de paris que voulu par tour ;
+   100 000 sur un numéro plein rendent 3 600 000 (≈ 1 000 h de J). La roue de la fortune
+   (1 000 par pari, 5 000 par tour) et les machines à sous (1 000 par tirage) sont bornées.
+7. **Le casino n'est pas au registre** : mises et gains passent par le liquide de
+   l'inventaire et `lightrp_roulette_claims`, jamais par `lightrp_transactions`. En
+   espérance c'est un puits (avantage de la maison : roulette 2,7 %, machines à sous 5,6 %
+   (RTP 1 632 / 1 728), roue 11 à 24 % selon la case, blackjack ≈ 1 %), mais il est
+   invisible dans les comptes.
+8. Inchangés et sains : Dogtown (décisions du propriétaire : mise 1 000, perte 10 %, bonus
+   serveur 25 %, prime 250 par kill jusqu'à 1 500, bonus + primes ≤ 3 000 par jour et par
+   compte), quotidiens (250 / 400 / 250 / 300, hebdomadaire 3 000, budget 1 200 par jour),
+   bonus d'équipe des métiers (15 %, 2 000 par jour), Big Contract (20 / 35 %), gigs ×1,0,
+   Chimera 3 000 / 4 500 / 6 000 et Sector 04 3 500 / 5 000 / 9 000.
+
+### 15.5 Ce que change cette branche (chiffres en configuration, règles dans le code)
+
+| Fichier | Clé | Avant | Après |
+| --- | --- | --- | --- |
+| `server/config/economy.lua` | `missions.authored.maxShare` | — (seul 250 × minutes) | **2 600 / 3 300 / 5 000** par tête, quelle que soit l'horloge : 1,80 / 1,81 / 1,69 × J |
+| | `missions.authored.fullPayEnemies` | — | **12 / 18 / 24** : paie et réputation × ennemis ÷ ce seuil (au plus 1) |
+| `server/modules/mission_pay.lua` | `cap`, `contentScale` | garde-fou seul | garde-fou, puis bande, puis taille ; un gig n'est pas réduit deux fois |
+| `server/modules/missions.lua` | tableau, réputation | `payout` enregistré, 100 / 220 / 450 | **la paie réelle** ; réputation × la même taille (missions de l'éditeur et gigs) |
+| `shared/mission_defs.lua` | `M.enemies`, `point.difficulties[i].enemies` | — | ennemis à battre par difficulté, comme le moteur les met en file |
+| `server/config/economy.lua` | `worldBosses` | cagnotte = récompense de l'éditeur | **3 000 × combattants payés ^ 0,7**, au plus la récompense ; une part ≤ **250 × minutes** de l'événement |
+| `server/config/world_bosses.lua` | `announce.body` | « a share of {reward} » | « a share of **up to** {reward} » : la cagnotte maximale avec tous les joueurs en ligne |
+| `shared/tabletop_extra_rules.lua` | `R.MAX_BET`, `R.MAX_ROUND` | 1 000 000 par pari, aucune limite par tour | **1 000** par pari, **5 000** par personnage et par tour (comme la roue) |
+| `server/modules/mission_repay.lua` | règle de `/lightrp.missions.repay` | plafond = garde-fou | plafond = min(garde-fou, bande) ; au-dessus du garde-fou : ancienne échelle, jamais sous le nouveau défaut ; entre la bande et le garde-fou : la bande |
+
+Pourquoi ces nombres :
+
+- **Bande** : le haut de la cible du propriétaire (1,8 × J, §2) à l'horloge par défaut de
+  l'éditeur ; 2 600 en Standard = 1,80 × J, 3 300 en Hard = 1,81 × J (220 €$/min, le chiffre
+  du §7.4) ; en Critical 1,8 × J dépasserait le garde-fou de 20 min, la bande vaut donc le
+  garde-fou (5 000, 1,69 × J). Chimera et Sector 04 n'ont pas d'`enemies` : non concernés.
+- **Taille** : 12 / 18 / 24, c'est 12 ennemis multipliés par les multiplicateurs par défaut
+  (1 / 1,5 / 2), soit un point d'apparition au maximum de l'éditeur ou six groupes de deux.
+  Le plus petit contrat complet de la prod (VALENTINOS DEAL : 12 / 18 / 24) touche la paie
+  entière ; les placeholders de 1 à 3 ennemis en touchent 8 à 25 %. Par ennemi, un petit
+  contrat rapporte désormais ce que rapporte un grand, et l'approche le rend moins rentable
+  à l'heure : le contrat de 3 ennemis du point 4 tombe à ≈ 4 000 €$/h (1,1 × J) et à
+  170 / 410 / 750 réputation par heure.
+- **Boss mondiaux** : même forme que le pot des missions (exposant 0,7). Par tête, avec la
+  récompense de 30 000 de l'éditeur :
+
+  | Combattants payés | 1 | 2 | 3 | 5 | 10 | 20 | 30 |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | Avant, par tête | 30 000 | 15 000 | 10 000 | 6 000 | 3 000 | 1 500 | 1 000 |
+  | Cagnotte après | 3 000 | 4 874 | 6 473 | 9 256 | 15 036 | 24 425 | 30 000 |
+  | Après, par tête (moyenne) | 3 000 | 2 437 | 2 157 | 1 851 | 1 503 | 1 221 | 1 000 |
+
+  Une part ne dépasse jamais 250 × les minutes du boss (5 000 pour 20 min) ; ce qui
+  dépasserait n'est pas versé. À 3 combattants et ≈ 0,75 boss par heure, ≈ 1 600 €$/h
+  (0,46 × J) au lieu de 7 500. L'annonce, la notice de zone et le HUD (`reward`, et
+  `rewardMax` pour la récompense de l'éditeur) donnent la cagnotte réelle.
+- **Roulette** : retour maximal par tour 36 000 (1 000 sur un numéro plein, mise comprise),
+  au niveau de la roue (41 000) ; refus avant tout débit. La barre de table du client borne le jeton et le
+  bouton à ces limites.
+
+### 15.6 À déployer en prod (Nightwolf)
+
+Copier dans `/opt/op77-lightrp/resources/gamemodes/op77_lightrp/` :
+
+- de cette branche : `server/config/economy.lua`, `server/config/world_bosses.lua`,
+  `server/modules/mission_pay.lua`, `server/modules/mission_repay.lua`,
+  `server/modules/missions.lua`, `server/modules/world_bosses.lua`,
+  `server/modules/tabletop_extra.lua`, `shared/mission_defs.lua`,
+  `shared/tabletop_extra_rules.lua`, `client/core/table_bar.lua` (les tests et la doc ne
+  servent pas à l'exécution) ;
+- de main, s'ils sont voulus : les 7 fichiers en retard du §15.1 et
+  `resources/standalone/op77_playermarks` (à ajouter alors à `resources.load`).
+
+**Ne pas copier** `server.jsonc` ni `acl.jsonc` du dépôt. Redémarrer Light RP, puis en jeu
+(staff) `/lightrp.missions.repay` (aperçu : 12 contrats) et `/lightrp.missions.repay apply`.
+La paie est juste dès le redémarrage ; la commande ne fait que mettre l'éditeur d'accord.
+
+À vérifier en jeu : le tableau de WAREHOUSE affiche 2 600 / 3 300 / 5 000 avant la commande
+et 2 400 / 3 000 / 4 400 après ; 6 7 TH STREET en Standard affiche et paie 600, +25
+réputation ; un boss mondial à 3 joueurs annonce « up to » la cagnotte des joueurs en ligne
+et paie ≈ 2 160 chacun ; une mise de roulette de 1 001 est refusée, une sixième mise de 1 000
+dans le même tour aussi.
+
+### 15.7 Questions au propriétaire
+
+1. **Bande des contrats** : 2 600 / 3 300 / 5 000 (le haut de la cible) — ou les défauts de
+   l'éditeur (2 400 / 3 000 / 4 400), plus prudents ?
+2. **Réputation des missions** : elle reste « sans plafond » (`docs/pve-progression.md`) ;
+   la taille ne règle que les petits contrats. Ajouter une recharge par point comme pour
+   l'argent (60 min) ?
+3. **Boss mondiaux** : un plafond par jour (aucun aujourd'hui) ? Et la réputation fixe de
+   150 par boss ?
+4. **Machines à sous** : jusqu'à 1 000 par tirage, triple sept ×200 = **200 000** (≈ 57 h de
+   J) une fois sur 1 728. À la mise maximale, jusqu'à ≈ 900 tirages par heure (3 s le
+   tirage) : ≈ 40 % de chances de toucher le jackpot dans l'heure pour 50 000 de perte
+   moyenne. À la roulette (5 000 par tour) ou au blackjack (5 000 par main), une heure à la
+   mise maximale fait varier un solde d'environ ±50 000 (≈ 14 h de J). Proposition : diviser les mises maximales par 10 (100 par pari ou tirage, 500
+   par tour, blackjack 500), si le casino doit rester du RP plutôt qu'un moyen de gagner une
+   voiture en une heure. Non modifié ici.
+5. **Casino au registre** : écrire mises et gains dans `lightrp_transactions`
+   (`casino_stake`, `casino_win`) pour suivre ce puits ?
+6. **Dons du staff** : 116 200 €$, 38 % de la masse monétaire. Les borner ou les tracer par
+   motif ?
+7. **Fichiers de prod** : versionner un `server.prod.jsonc` et un `acl.prod.jsonc` sans
+   secrets pour qu'aucun déploiement ne les écrase ; ouvrir `command.lightrp.tables` au staff
+   de prod ?
+8. **Dogtown et quotidiens** : décisions du propriétaire, non touchées ici (§15.4 point 8).
+
+Risques et limites : la taille compte des têtes, pas leur santé (un contrat de 3 ennemis à
+santé ×5 reste payé 25 %) ; un contrat dont tous les ennemis sont derrière des points de
+passage facultatifs compte 0 et ne paie rien ; rien n'a été testé en jeu (tests unitaires
+Lua seulement).

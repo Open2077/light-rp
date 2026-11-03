@@ -129,9 +129,16 @@ local function rouletteAct(player,b,seat,operation,data,commit)
  local R=LightRpTabletopExtraRules
  if operation=="bet" then
   local amount=tonumber(data.amount)
-  if not amount or amount~=math.floor(amount) or amount<1 or amount>1000000 then return false,"Bet between 1 and 1,000,000 in whole RP dollars." end
+  if not amount or amount~=math.floor(amount) or amount<R.MIN_BET or amount>R.MAX_BET then return false,("Bet between %d and %d whole RP dollars."):format(R.MIN_BET,R.MAX_BET) end
   local game,why=R.act(b.game,seat,"bet",{bet=data.bet,amount=amount})
   if not game then return false,why end
+  -- R.MAX_ROUND per character and spin, whatever seat it bets from
+  local mine=Inv.player(player)
+  if mine and b.game.phase=="betting" then
+   local staked=0
+   for _,bet in ipairs(b.game._money or {}) do if bet.inventory==mine.id then staked=staked+bet.amount end end
+   if staked+amount>R.MAX_ROUND then return false,("Your stakes are limited to %d per spin."):format(R.MAX_ROUND) end
+  end
   local inv,draft=X.stake(player,amount)
   if not inv then return false,draft end
   game._roundKey=b.game._roundKey or (b.id..":"..tostring(b.revision+1))

@@ -49,5 +49,7 @@ LightRpWorldBosses = {
 
     -- Map blip of the event (op77_map3d), and the city-wide announcement.
     blip = { color = "#FF3B48", pulse = true, edge = true, label = "WORLD BOSS: {title}" },
-    announce = { title = "WORLD BOSS", body = "{boss} spotted in {location}. Every fighter in the zone gets a share of {reward}." },
+    -- {reward}: the most the pool can reach with every player online fighting
+    -- (server/config/economy.lua worldBosses); the pool follows the fighters paid.
+    announce = { title = "WORLD BOSS", body = "{boss} spotted in {location}. Every fighter in the zone gets a share of up to {reward}." },
 }
