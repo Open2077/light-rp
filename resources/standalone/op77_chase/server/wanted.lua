@@ -14,9 +14,23 @@
 -- heat levels, roadblocks and a late extraction point make the round; it ends on an
 -- arrest, a takedown, the clock or the extraction. Then the next runner, until everyone
 -- has run once (drop-ins join at the next round and get their turn at the end).
+--
+-- Crews (Light RP squads): the lobby never splits one (wanted_lobby.lua), and the cops of
+-- a crew line up side by side and roll out in the same wave (crewOrder).
+--
+-- Staff bot mode (server/bots.lua): one queued player is enough, bots fill the match up to
+-- ChaseConfig.bots.wanted.players and take their turn as runner like everyone else. A bot
+-- cop chases the runner once dispatch releases it (and is dispatched again on the road
+-- behind the runner when it falls far back); a bot runner drives the course, heads for the
+-- extraction once it shows up, and gives up when the unit pins it. Nothing is recorded
+-- (results are marked test, no reputation) and the bots go with the match.
 ChaseWanted = { matches = {}, playerMatch = {}, bucketOwner = {}, nextId = nil, testMode = false, daily = {} }
 local M = ChaseWanted
 local R = WantedRules
+local HOLD = { kind = "hold" }
+
+local function isBot(id) return ChaseBots ~= nil and ChaseBots.isBot(id) end
+local function squadId(s) if type(s) == "table" then return s.id end return s end
 
 local function cfg() return ChaseConfig.wanted end
 local function aid() return cfg().activity.id end
@@ -48,12 +62,41 @@ local function presentList(match)
 end
 local function presentCount(match) return #presentList(match) end
 
+local function humanCount(match)
+    local n = 0
+    for _, m in ipairs(match.members) do if present(m) and not m.bot then n = n + 1 end end
+    return n
+end
+
+-- Members of one crew next to each other (first appearance keeps its place): side by
+-- side on the grid and in the same dispatch wave.
+local function crewOrder(list)
+    local out, seen = {}, {}
+    for i, m in ipairs(list) do
+        if not seen[i] then
+            seen[i] = true
+            out[#out + 1] = m
+            if m.squad ~= nil then
+                for j = i + 1, #list do
+                    if not seen[j] and list[j].squad == m.squad then
+                        seen[j] = true
+                        out[#out + 1] = list[j]
+                    end
+                end
+            end
+        end
+    end
+    return out
+end
+M.crewOrder = crewOrder
+
 local function name(match, id)
     local m = member(match, id)
     return m and m.name or W().name(id)
 end
 
 function M.minPlayers()
+    if ChaseBots and ChaseBots.enabled then return 1 end -- staff bot mode: bots fill the rest
     return M.testMode and math.max(2, cfg().testMinPlayers or 2) or math.max(2, cfg().minPlayers or 3)
 end
 
@@ -105,8 +148,11 @@ local function createCar(match, id)
     local role = match.roles[id]
     if role == "runner" and match.mode == "foot" then return end
     removeCar(match, id)
-    local carId, recordOrReason = W().createCar(cfg().vehicles[role], carMark(m.point), match.bucket)
-    if carId then match.cars[id] = { id = carId, record = recordOrReason }
+    local mark = carMark(m.point)
+    local carId, recordOrReason = W().createCar(cfg().vehicles[role], mark, match.bucket)
+    if carId then
+        match.cars[id] = { id = carId, record = recordOrReason }
+        if m.bot then ChaseBots.mount(id, carId, mark.yaw) end
     else log("match %d: %s car for %d failed: %s", match.id, tostring(role), id, tostring(recordOrReason)) end
 end
 
@@ -243,7 +289,7 @@ local function hudPayload(match, id, now, extra)
         p.void = match.void or nil
     end
     if m and m.boarding and (match.state == "countdown" or match.state == "active") then p.boarding = m.boarding end
-    if role == "cop" and match.runnerId and (ChaseConfig.minimap or {}).hideRunnerFromCops ~= false then
+    if role == "cop" and match.runnerId and match.runnerId > 0 and (ChaseConfig.minimap or {}).hideRunnerFromCops ~= false then
         p.hideDots = { match.runnerId }
     end
     if extra then
@@ -288,7 +334,7 @@ end
 
 function M.reputation(match, m, placement)
     local rep = cfg().reputation
-    if match.void or (match.played or 0) == 0 then return 0 end
+    if match.void or (match.played or 0) == 0 or match.hasBots then return 0 end
     if m.leaving or m.forfeit then return rep.leaver or 0 end
     if (match.peakPlayers or 0) < (rep.minPlayers or 3) then return 0 end
     local day = dayOf()
@@ -309,8 +355,10 @@ local function resultFor(match, m, placement)
         stats = { mode = match.mode, rounds = match.played or 0, points = s.points, runnerMs = s.runnerMs,
             runnerRounds = s.runnerRounds, copRounds = s.copRounds, arrests = s.arrests, assists = s.assists,
             takedowns = s.takedowns, extractions = s.extractions, survivals = s.survivals, shakes = s.shakes,
-            busted = s.busted, players = match.peakPlayers, forfeit = m.forfeit or nil },
+            busted = s.busted, players = match.peakPlayers, forfeit = m.forfeit or nil, bots = match.hasBots or nil },
         reputation = M.reputation(match, m, placement),
+        -- With bots (staff bot mode) Light RP never records it, even if bot mode went off meanwhile.
+        test = match.hasBots or nil,
     }
 end
 
@@ -330,6 +378,7 @@ end
 
 local function hasMore(match)
     if presentCount(match) + #match.pending < 2 then return false end
+    if humanCount(match) + #match.pending == 0 then return false end
     if nextTurn(match) then return true end
     return #match.pending > 0 and #match.order < (cfg().maxRounds or 8)
 end
@@ -362,7 +411,7 @@ finish = function(match, now, reason)
     if not match.void then
         for _, row in ipairs(match.standings) do
             local m = member(match, row.id)
-            ChaseCore.result(row.id, resultFor(match, m, row.placement), aid())
+            if not m.bot then ChaseCore.result(row.id, resultFor(match, m, row.placement), aid()) end
         end
     end
     pushAll(match, now, function(id)
@@ -400,7 +449,7 @@ local function admitPending(match, now)
             if ok then
                 local info = ChaseCore.player(id) or {}
                 match.members[#match.members + 1] = { id = id, name = info.name or W().name(id),
-                    identifier = info.identifier, characterKey = info.characterKey, joinedRound = match.round + 1 }
+                    identifier = info.identifier, characterKey = info.characterKey, joinedRound = match.round + 1, squad = entry.squad }
                 match.order[#match.order + 1] = id
                 M.playerMatch[id] = match.id
                 R.stats(match, id)
@@ -415,7 +464,7 @@ end
 
 beginRound = function(match, now)
     admitPending(match, now)
-    if presentCount(match) < 2 then return finish(match, now, "not enough players") end
+    if presentCount(match) < 2 or humanCount(match) == 0 then return finish(match, now, "not enough players") end
     local runnerId, turn = nextTurn(match)
     if runnerId == nil then return finish(match, now, "rotation complete") end
     match.turn = turn
@@ -432,7 +481,8 @@ beginRound = function(match, now)
     match.sighting, match.lastScanAtMs, match.lastTimedScanAtMs = nil, nil, nil
     match.extraction, match.extractionCopAtMs, match.extractionCopsTold, match.extractionMissed = nil, nil, nil, nil
     match.nextBlockAtMs = nil
-    local players = presentList(match)
+    match.trail = {}
+    local players = crewOrder(presentList(match))
     match.peakPlayers = math.max(match.peakPlayers or 0, #players)
     local slot = 0
     local token = match.token
@@ -445,6 +495,9 @@ beginRound = function(match, now)
             slot = slot + 1
             match.roles[m.id] = "cop"
             m.point = match.route.cops[math.min(slot, #match.route.cops)]
+        end
+        if m.bot then
+            ChaseBots.assign(m.id, match.roles[m.id], (match.roles[m.id] == "runner" and match.mode == "foot") and "foot" or "vehicle")
         end
         local cover = nil
         if not m.covered then
@@ -497,7 +550,7 @@ end
 
 local function copIds(match)
     local list = {}
-    for _, m in ipairs(presentList(match)) do
+    for _, m in ipairs(crewOrder(presentList(match))) do
         if match.roles[m.id] == "cop" then list[#list + 1] = m.id end
     end
     return list
@@ -575,6 +628,7 @@ M.allocateBucket = allocateBucket
 -- A lobby becomes a match: Light RP takes each player (activityEnter). Those refused are
 -- reported; if fewer than the minimum entered, the ones who did are handed back.
 -- Returns match | nil, reason, refused = { { id, why } }.
+-- opts = { min, squads = { [id] = squadId }, fill = total with bots (staff bot mode) }.
 function M.admit(ids, mode, now, opts)
     opts = opts or {}
     local bucket = allocateBucket()
@@ -584,16 +638,28 @@ function M.admit(ids, mode, now, opts)
         local ok, why = ChaseCore.enter(id, aid())
         if ok then entered[#entered + 1] = id else refused[#refused + 1] = { id = id, why = why } end
     end
-    if #entered < (opts.min or M.minPlayers()) then
+    if #entered == 0 or #entered < (opts.min or M.minPlayers()) then
         for _, id in ipairs(entered) do ChaseCore.leave(id, { returnPlayer = true }, aid()) end
         return nil, "short", refused, entered
     end
-    return M.start(entered, mode, now, bucket), nil, refused
+    return M.start(entered, mode, now, bucket, opts), nil, refused
 end
 
-function M.start(ids, mode, now, bucket)
+function M.start(ids, mode, now, bucket, opts)
+    opts = opts or {}
     bucket = bucket or allocateBucket()
     if bucket == nil then return nil end
+    -- Staff bot mode: bots fill up to opts.fill (they are members like the players).
+    local bots = 0
+    if ChaseBots and (opts.fill or 0) > #ids then
+        local list = {}
+        for _, pid in ipairs(ids) do list[#list + 1] = pid end
+        for _ = #ids + 1, math.min(opts.fill, cfg().maxPlayers or 8) do
+            list[#list + 1] = ChaseBots.create({ bucket = bucket, admission = ids[1], owner = aid() })
+            bots = bots + 1
+        end
+        ids = list
+    end
     if M.nextId == nil then M.nextId = now + 1 end
     local id = M.nextId
     M.nextId = M.nextId + 1
@@ -603,16 +669,18 @@ function M.start(ids, mode, now, bucket)
         round = 0, turn = 1, played = 0, state = "new", createdAtMs = now, seed = (id % 2147483647) + 1 }
     for _, pid in ipairs(ids) do
         local info = ChaseCore.player(pid) or {}
-        match.members[#match.members + 1] = { id = pid, name = info.name or W().name(pid), identifier = info.identifier,
-            characterKey = info.characterKey, joinedRound = 1 }
+        local bot = isBot(pid) or nil
+        match.members[#match.members + 1] = { id = pid, name = info.name or W().name(pid),
+            identifier = (not bot) and info.identifier or nil, characterKey = (not bot) and info.characterKey or nil,
+            joinedRound = 1, bot = bot, squad = squadId(opts.squads and opts.squads[pid]) }
         match.order[#match.order + 1] = pid
         R.stats(match, pid)
-        M.playerMatch[pid] = id
+        if bot then match.hasBots = true else M.playerMatch[pid] = id end
     end
     M.matches[id] = match
     M.bucketOwner[bucket] = id
     W().setupBucket(bucket)
-    log("match %d created: %d players, %s, bucket %d", id, #ids, mode, bucket)
+    log("match %d created: %d players%s, %s, bucket %d", id, #ids, bots > 0 and (" (%d bots)"):format(bots) or "", mode, bucket)
     beginRound(match, now)
     return match
 end
@@ -621,13 +689,15 @@ end
 -- at its next round.
 function M.dropInSeats(match)
     if match.state == "resolved" or match.state == "closed" or match.state == "new" then return 0 end
+    -- A bot match takes players only while bot mode is on (nothing is recorded in it).
+    if match.hasBots and not (ChaseBots and ChaseBots.enabled) then return 0 end
     local seats = (cfg().maxPlayers or 8) - presentCount(match) - #match.pending
     local turns = (cfg().maxRounds or 8) - #match.order - #match.pending
     return math.max(0, math.min(seats, turns))
 end
 
-function M.offer(match, id)
-    match.pending[#match.pending + 1] = { id = id }
+function M.offer(match, id, squad)
+    match.pending[#match.pending + 1] = { id = id, squad = squadId(squad) }
     M.playerMatch[id] = nil
 end
 
@@ -652,7 +722,7 @@ end
 local function onDeparture(match, id, now, why)
     removeCar(match, id)
     if match.state == "resolved" or match.state == "closed" or match.state == "new" then return end
-    if presentCount(match) < 2 then return finish(match, now, why) end
+    if presentCount(match) < 2 or humanCount(match) == 0 then return finish(match, now, why) end
     if id ~= match.runnerId then return end
     if match.state == "active" then
         return M.resolveRound(match, { outcome = "runner_left", detail = why }, now)
@@ -725,6 +795,9 @@ function M.matchOf(id) return M.matches[M.playerMatch[id] or -1] end
 local function close(match)
     removeCars(match)
     clearBlocks(match)
+    for _, m in ipairs(match.members) do
+        if m.bot then ChaseBots.remove(m.id) end
+    end
     W().sweepBucket(match.bucket)
     M.bucketOwner[match.bucket] = nil
     for _, m in ipairs(match.members) do
@@ -739,6 +812,14 @@ end
 local function releaseMember(match, m, now)
     if m.gone or m.released then return end
     if not m.leaving and match.state ~= "resolved" then return end
+    if m.bot then
+        -- A bot goes with the scoreboard, or at once when no player is left to see it.
+        if humanCount(match) > 0 and now < (match.releaseAtMs or now) then return end
+        m.released = true
+        removeCar(match, m.id)
+        ChaseBots.remove(m.id)
+        return
+    end
     if now < (m.releaseAtMs or match.releaseAtMs or now) then return end
     m.exitStartedMs = m.exitStartedMs or now
     if m.placing and now - m.exitStartedMs < 35000 then return end
@@ -886,6 +967,87 @@ local function roadblockTick(match, now, sample)
     notifyRole(match, "cop", "info", "Roadblock deployed ahead of the suspect.", 3000)
 end
 
+-- ---------------------------------------------------------------- bots
+
+local function targetOf(m)
+    return m.bot and { bot = m.id } or { player = m.id }
+end
+
+-- The nearest cop (released or not) to a point: { member, distance }.
+local function nearestCop(match, pos)
+    local best, bestD
+    if pos == nil then return nil end
+    for _, m in ipairs(presentList(match)) do
+        if match.roles[m.id] == "cop" then
+            local p = W().position(m.id)
+            if p then
+                local d = R.planar(p, pos)
+                if bestD == nil or d < bestD then best, bestD = m, d end
+            end
+        end
+    end
+    return best, bestD
+end
+
+-- What each bot does this tick (see the header): held outside the active phase, and
+-- while dispatch holds it (cops) or the countdown holds it (runner).
+local function steerBots(match, now)
+    local runner = member(match, match.runnerId)
+    local active = match.state == "active" and match.chase ~= nil and runner ~= nil and present(runner)
+    for _, m in ipairs(match.members) do
+        if m.bot and present(m) then
+            local order = HOLD
+            if active then
+                if m.id == match.runnerId then
+                    -- On foot it runs from the nearest cop; at the wheel it drives the course
+                    -- (the threat would only restart the route each time the nearest cop changes).
+                    local cop = match.mode == "foot" and nearestCop(match, W().position(m.id)) or nil
+                    if ChaseBots.yieldCheck(m.id, match.chase.nearest, match.rules.bustDistance or 15, now) then
+                        order = { kind = "yield" }
+                    elseif match.extraction then
+                        order = { kind = "goto", position = match.extraction.position }
+                    else
+                        order = { kind = "flee", from = cop and targetOf(cop) or nil, route = match.route and match.route.course or nil,
+                            routeKey = match.round }
+                    end
+                elseif match.copReleased[m.id] and not m.respawning then
+                    order = { kind = "chase", target = targetOf(runner) }
+                end
+            end
+            ChaseBots.steer(m.id, order)
+        end
+    end
+end
+
+-- A bot cop fallen far behind (no AI drives beyond 350 m of a player) is dispatched again
+-- on the road the runner took, 120-220 m behind him.
+local function redispatchTick(match, now, sample)
+    if sample.runnerPos == nil then return end
+    ChaseBots.trailPush(match.trail, sample.runnerPos, now)
+    for _, m in ipairs(presentList(match)) do
+        if m.bot and match.roles[m.id] == "cop" and match.copReleased[m.id] and not m.respawning then
+            local p = W().position(m.id)
+            local d = p and R.planar(p, sample.runnerPos) or nil
+            if ChaseBots.wantsRedispatch(m.id, d, now) then
+                local spot = ChaseBots.trailPick(match.trail, sample.runnerPos)
+                if spot then
+                    m.point = spot
+                    removeCar(match, m.id)
+                    createCar(match, m.id)
+                    log("match %d: bot cop %d dispatched again %.0f m from the runner", match.id, m.id, R.planar(spot.position, sample.runnerPos))
+                end
+            end
+        end
+    end
+end
+
+local function brokenBot(match)
+    for _, m in ipairs(match.members) do
+        if m.bot and present(m) and ChaseBots.broken(m.id) then return m end
+    end
+    return nil
+end
+
 local function tickActive(match, now)
     refreshBoarding(match, now)
     local round = match.chase
@@ -918,6 +1080,7 @@ local function tickActive(match, now)
         end
     end
     if outcome then return M.resolveRound(match, outcome, now) end
+    if match.hasBots and ChaseBots then redispatchTick(match, now, sample) end
     scanTick(match, now, sample)
     extractionTick(match, now, sample)
     roadblockTick(match, now, sample)
@@ -927,6 +1090,14 @@ end
 
 function M.tickMatch(match, now)
     for _, m in ipairs(match.members) do releaseMember(match, m, now) end
+    if match.hasBots and ChaseBots and match.state ~= "resolved" and match.state ~= "closed" then
+        local broken = brokenBot(match)
+        if broken then
+            log("match %d: bot %d broken (%s)", match.id, broken.id, tostring(select(2, ChaseBots.broken(broken.id))))
+            return M.abort(match, now, "A bot could not be set up. Nothing counts.")
+        end
+        steerBots(match, now)
+    end
     local state = match.state
     if state == "placing" then
         local done, runnerFailed = true, false
@@ -990,6 +1161,9 @@ function M.shutdown()
         freezeAll(match, false)
         removeCars(match)
         clearBlocks(match)
+        for _, m in ipairs(match.members) do
+            if m.bot and ChaseBots then ChaseBots.remove(m.id) end
+        end
     end
 end
 
@@ -999,7 +1173,7 @@ function M.status(queued, countdownMs)
     for _, match in pairs(M.matches) do
         if match.state ~= "closed" then
             running = running + 1
-            players = players + presentCount(match)
+            players = players + humanCount(match)
             seats = seats + M.dropInSeats(match)
             roundText = ("round %d/%d"):format(match.round, roundCount(match))
         end

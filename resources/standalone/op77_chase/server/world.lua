@@ -7,10 +7,17 @@ local ALIVE = { alive = true, recovering = true }
 
 local function log(fmt, ...) print(("[op77_chase] " .. fmt):format(...)) end
 
+-- A player id (a positive integer). Bots (server/bots.lua) have negative ids and are
+-- answered before they get here; this is the last guard: a non-player id never reaches a
+-- player native (some raise on it) nor TriggerClientEvent (-1 is everyone).
+local function human(id) return type(id) == "number" and id > 0 and id % 1 == 0 end
+W.human = human
+
 function W.now() return math.floor(Open77.time.monotonic() * 1000) end
 
 -- { x, y, z, bucket } or nil (a replicated snapshot, never judged on one sample).
 function W.position(id)
+    if not human(id) then return nil end
     local ok, p = pcall(Open77.players.position, id)
     if ok and type(p) == "table" and type(p.x) == "number" then return p end
     return nil
@@ -18,12 +25,14 @@ end
 
 -- true = alive, false = down (dead, respawn/revive pending...), nil = unknown.
 function W.alive(id)
+    if not human(id) then return nil end
     local ok, life = pcall(Open77.players.getLifeState, id)
     if not ok or type(life) ~= "table" or life.phase == nil then return nil end
     return ALIVE[tostring(life.phase)] == true
 end
 
 function W.name(id)
+    if not human(id) then return "#" .. tostring(id) end
     local ok, name = pcall(Open77.players.name, id)
     return ok and type(name) == "string" and name or ("#" .. tostring(id))
 end
@@ -57,6 +66,7 @@ end
 -- went down in the last round is respawned on the mark instead (teleport refuses the
 -- dead, and Light RP does not respawn a player an activity owns).
 function W.place(id, point, bucket, done, cover)
+    if not human(id) then done(false, "not_a_player") return end
     CreateThread(function()
         local coverId = cover and W.cover(id, cover) or nil
         local ok, a, b = pcall(function()
@@ -84,6 +94,7 @@ end
 
 -- Hold (or release this resource's hold on) a player's body on his mark.
 function W.freeze(id, frozen)
+    if not human(id) then return false end
     if type(Open77.players.setFrozen) ~= "function" then return false end
     local ok, done = pcall(Open77.players.setFrozen, id, frozen == true)
     return ok and done == true
@@ -91,6 +102,7 @@ end
 
 -- Respawn a downed player where he lies (match bucket) so Light RP can move him home.
 function W.respawnInPlace(id, bucket, fallback)
+    if not human(id) then return false, "not_a_player" end
     local p = W.position(id) or (fallback and fallback.position)
     if p == nil then return false, "no_position" end
     local ok, done, why = pcall(Open77.players.respawn, id, { position = { x = p.x, y = p.y, z = p.z }, heading = 0, bucket = bucket })
@@ -166,19 +178,21 @@ end
 
 -- The vehicle id the player sits in, or nil.
 function W.seat(id)
+    if not human(id) then return nil end
     local seat = vehicleCall("getPlayerSeat", id)
     if type(seat) == "table" and seat.vehicleId ~= nil then return seat.vehicleId end
     return nil
 end
 
 function W.forceOut(id, vehicleId)
+    if not human(id) then return false end
     return vehicleCall("forcePlayerOutOfVehicle", id, vehicleId) ~= nil
 end
 
 -- ---------------------------------------------------------------- presentation
 
-function W.hud(id, payload) TriggerClientEvent("op77_chase:hud", id, payload) end
-function W.queueHud(id, payload) TriggerClientEvent("op77_chase:queue", id, payload) end
+function W.hud(id, payload) if human(id) then TriggerClientEvent("op77_chase:hud", id, payload) end end
+function W.queueHud(id, payload) if human(id) then TriggerClientEvent("op77_chase:queue", id, payload) end end
 
 -- Players whose client shows Light RP's activity HUD (it says so with op77_chase:hudFeed):
 -- their chase messages go to the HUD's feed instead of a notification. Everyone else
@@ -188,6 +202,7 @@ W.hudFeed = {}
 local TONES = { info = "info", success = "success", warning = "danger", error = "danger" }
 
 function W.notify(id, kind, message, durationMs, title)
+    if not human(id) then return end
     if W.hudFeed[id] then
         TriggerClientEvent("op77_chase:feed", id, { text = message, tone = TONES[kind or "info"] or "info", title = title })
         return

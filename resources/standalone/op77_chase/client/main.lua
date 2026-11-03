@@ -1,4 +1,4 @@
--- op77_chase client: draws the chase (1v1 and Most Wanted) in Light RP's own activity HUD
+-- op77_chase client: draws the chase (1v1, Most Wanted, NCPD Escape) in Light RP's own activity HUD
 -- and keeps the map fair. Decides nothing: the server sends, this draws.
 --
 --   op77_chase:hud    a match payload (server/match.lua, server/wanted.lua) or { state = "idle" }
@@ -97,8 +97,14 @@ local function samePoint(a, b)
     return type(a) == "table" and type(b) == "table" and math.abs((a.x or 0) - (b.x or 0)) < 1 and math.abs((a.y or 0) - (b.y or 0)) < 1
 end
 
+-- Players only (a positive id): a bot has no dot, and the map's export takes player ids.
 local function setDots(ids)
-    local key = (type(ids) == "table" and #ids > 0) and table.concat(ids, ",") or ""
+    local players = {}
+    for _, id in ipairs(type(ids) == "table" and ids or {}) do
+        if type(id) == "number" and id > 0 and id % 1 == 0 then players[#players + 1] = id end
+    end
+    ids = players
+    local key = #ids > 0 and table.concat(ids, ",") or ""
     if key == S.dotsKey then return end
     S.dotsKey = key
     if key ~= "" then call(MAP, "setPlayerDotsHidden", true, ids)
@@ -129,7 +135,7 @@ local function setExtraction(pos, routed)
     if key == S.extractionKey then return end
     S.extractionKey = key
     call(MAP, "addBlip", { id = "extraction", position = { x = pos.x, y = pos.y, z = pos.z or 0 }, icon = "flag",
-        color = "#FFCC00", label = "Extraction", description = "Most Wanted: the runner wins by reaching it.",
+        color = "#FFCC00", label = "Extraction", description = "The runner gets out by reaching it.",
         category = "mission", pulse = true, edge = true, priority = 2 })
     if routed then
         if S.waypointSet == nil then

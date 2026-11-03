@@ -33,6 +33,7 @@ local function register()
         description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers, caps = a.caps })
     if ok then
         log("registered %s with Light RP", a.id)
+        if ChaseBots then ChaseBots.refresh() end
         publishStatus(true)
     else
         log("Light RP refused %s: %s", a.id, tostring(why))
@@ -90,12 +91,18 @@ local function claims(id)
     return L.has(id) or MW.matchOf(id) ~= nil or MW.pendingMatch(id) ~= nil
 end
 
--- `checked`: Light RP already ran activityCheck (the hub join).
-local function enqueue(id, mode, checked)
+local function botMode() return ChaseBots ~= nil and ChaseBots.enabled == true end
+
+-- `checked`: Light RP already ran activityCheck (the hub join). `squad`: the crew the
+-- player joined with (Light RP options.squad).
+local function enqueue(id, mode, checked, squad)
     if MW.matchOf(id) then return false, "You are already in Most Wanted." end
     if MW.pendingMatch(id) then return true, "You join Most Wanted at its next round." end
     if ChaseMain and ChaseMain.claims(id) then
         return false, "You are in the NCPD Chase queue. /chase leave first."
+    end
+    if ChasePveMain and ChasePveMain.claims(id) then
+        return false, "You are in NCPD Escape. /escape leave first."
     end
     local requested = mode
     mode = WantedRules.normalizeMode(mode)
@@ -106,11 +113,15 @@ local function enqueue(id, mode, checked)
         local ok, why = ChaseCore.check(id, AID)
         if not ok then return false, why end
     end
-    position, total = L.add(id, mode, W.now())
+    position, total = L.add(id, mode, W.now(), squad)
     pushQueue()
     publishStatus()
     local text = ("Queued for Most Wanted (%s) - %d/%d, %d needed. Keep playing: you are pulled in when it starts. /wanted leave to cancel.")
         :format(modeLabel(mode), position, total, MW.minPlayers())
+    if botMode() then
+        text = ("Queued for Most Wanted (%s) - bot mode: bots fill the match, it starts in a few seconds. /wanted leave to cancel.")
+            :format(modeLabel(mode))
+    end
     notify(id, "info", text, 7000)
     return true, text
 end
@@ -152,6 +163,9 @@ local function lobbyTick(now)
         changed = true
     end
     local dropAfterMs = (WC.lobby.notReadyDropSeconds or 120) * 1000
+    local squadHoldMs = (WC.lobby.squadHoldSeconds or 10) * 1000
+    -- Staff bot mode: one ready player is enough, a short countdown, bots fill the rest.
+    local bots = botMode() and (ChaseConfig.bots or {}).wanted or nil
 
     -- A running match with a free seat takes queued players at its next round.
     local matchIds = {}
@@ -161,10 +175,10 @@ local function lobbyTick(now)
         local match = MW.matches[matchId]
         local seats = match and MW.dropInSeats(match) or 0
         if seats > 0 and L.size() > 0 then
-            local ids, notReady, dropped = L.take(now, ready, seats, dropAfterMs)
+            local ids, notReady, dropped, squads = L.take(now, ready, seats, dropAfterMs, squadHoldMs)
             notices(now, notReady, dropped)
             for _, id in ipairs(ids) do
-                MW.offer(match, id)
+                MW.offer(match, id, squads[id])
                 notify(id, "success", ("A Most Wanted match is on: you join it at the next round (round %d/%d now)."):format(match.round,
                     MW.roundCount(match)), 6000)
                 log("match %d: %d waits for the next round", match.id, id)
@@ -174,7 +188,8 @@ local function lobbyTick(now)
     end
 
     local start, notReady, dropped = L.poll(now, ready, { min = MW.minPlayers(), max = WC.maxPlayers,
-        countdownMs = (WC.lobby.countdownSeconds or 45) * 1000, dropAfterMs = dropAfterMs, defaultMode = WC.defaultMode })
+        countdownMs = ((bots and bots.countdownSeconds) or WC.lobby.countdownSeconds or 45) * 1000, dropAfterMs = dropAfterMs,
+        defaultMode = WC.defaultMode, allowSolo = bots ~= nil, squadHoldMs = squadHoldMs })
     notices(now, notReady, dropped)
     changed = changed or #dropped > 0
     if L.countdownStarted then
@@ -182,10 +197,11 @@ local function lobbyTick(now)
         changed = true
         local seconds = math.ceil((countdownLeft(now) or 0) / 1000)
         for _, entry in ipairs(L.entries) do
-            notify(entry.id, "info", ("Most Wanted starts in %ds with %d players - more can still join."):format(seconds, L.size()), 6000)
+            notify(entry.id, "info", ("Most Wanted starts in %ds with %d players%s - more can still join."):format(seconds, L.size(),
+                bots and " and bots" or ""), 6000)
         end
         local every = (WC.lobby.announceEverySeconds or 300) * 1000
-        if WC.lobby.announce ~= false and (lastAnnounceMs == nil or now - lastAnnounceMs >= every) then
+        if not bots and WC.lobby.announce ~= false and (lastAnnounceMs == nil or now - lastAnnounceMs >= every) then
             lastAnnounceMs = now
             W.announce(("Most Wanted starts in %ds - %d/%d players. Join from the Crossing or with /wanted."):format(seconds,
                 L.size(), WC.maxPlayers), { activity = AID, kind = "chase" })
@@ -193,7 +209,8 @@ local function lobbyTick(now)
     end
     if start then
         changed = true
-        local match, why, refused, entered = MW.admit(start.ids, start.mode, now)
+        local match, why, refused, entered = MW.admit(start.ids, start.mode, now,
+            { squads = start.squads, fill = bots and (bots.players or 3) or nil })
         for _, r in ipairs(refused or {}) do
             W.queueHud(r.id, { activity = AID, queued = false })
             notify(r.id, "warning", ("You could not join Most Wanted: %s"):format(tostring(r.why)), 6000)
@@ -203,10 +220,10 @@ local function lobbyTick(now)
             for _, id in ipairs(match.order) do noticeAt[id] = nil end
         elseif why == "busy" then
             log("every Most Wanted instance is busy; %d player(s) stay at the head of the lobby", #start.ids)
-            L.requeueFront(start.ids, start.modes, now)
+            L.requeueFront(start.ids, start.modes, now, start.squads)
         else
             -- Too many refused at the door: the others wait for the next countdown.
-            L.requeueFront(entered or {}, start.modes, now)
+            L.requeueFront(entered or {}, start.modes, now, start.squads)
         end
     end
     if changed or L.size() > 0 then pushQueue(now) end
@@ -236,7 +253,8 @@ AddEventHandler("op77_lightrp:activity:join", function(playerId, activityId, opt
     local id = validId(playerId)
     if id == nil or activityId ~= AID then return end
     local mode = type(options) == "table" and options.mode or nil
-    local ok, text = enqueue(id, mode, true)
+    local squad = type(options) == "table" and options.squad or nil
+    local ok, text = enqueue(id, mode, true, squad)
     if not ok then notify(id, "warning", text, 5000) end
 end)
 
@@ -312,12 +330,15 @@ RegisterCommand("chase.wanted.status", function(source, _, raw)
     local left = countdownLeft()
     local lines = { ("lobby %d (min %d%s)%s, instances %d-%d"):format(L.size(), MW.minPlayers(), MW.testMode and ", TEST" or "",
         left and (" countdown %ds"):format(math.ceil(left / 1000)) or "", WC.buckets.from, WC.buckets.to) }
-    for i, entry in ipairs(L.entries) do lines[#lines + 1] = ("  q%d: %d (%s)"):format(i, entry.id, tostring(entry.mode)) end
+    if botMode() then lines[1] = lines[1] .. ", BOT MODE" end
+    for i, entry in ipairs(L.entries) do
+        lines[#lines + 1] = ("  q%d: %d (%s)%s"):format(i, entry.id, tostring(entry.mode), entry.squad and (" crew " .. entry.squad.id) or "")
+    end
     for _, match in pairs(MW.matches) do
         local who = {}
         for _, m in ipairs(match.members) do
-            who[#who + 1] = ("%d=%s:%d%s"):format(m.id, tostring(match.roles[m.id] or "-"), WantedRules.stats(match, m.id).points,
-                m.gone and "(gone)" or (m.released and "(home)" or (m.leaving and "(leaving)" or "")))
+            who[#who + 1] = ("%d=%s:%d%s%s"):format(m.id, tostring(match.roles[m.id] or "-"), WantedRules.stats(match, m.id).points,
+                m.gone and "(gone)" or (m.released and "(home)" or (m.leaving and "(leaving)" or "")), m.bot and "(bot)" or "")
         end
         local pending = {}
         for _, p in ipairs(match.pending) do pending[#pending + 1] = tostring(p.id) end

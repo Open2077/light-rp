@@ -1,5 +1,5 @@
--- op77_chase client view: what the server sends (op77_chase:hud for a match, 1v1 or Most
--- Wanted; op77_chase:queue for a queue) turned into Light RP's activity HUD
+-- op77_chase client view: what the server sends (op77_chase:hud for a match: 1v1, Most
+-- Wanted or NCPD Escape; op77_chase:queue for a queue) turned into Light RP's activity HUD
 -- (exports.op77_lightrp:ActivityHudShow), and the transitions into one-off pushes
 -- (ActivityHudPush "banner" / "result"). Pure Lua, no native: tests/client_test.lua.
 --
@@ -12,6 +12,8 @@ local V = ChaseView
 
 local WANTED = "chase.wanted"
 V.WANTED = WANTED
+local PVE = "chase.pve"
+V.PVE = PVE
 
 local function num(v) return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge and v or nil end
 
@@ -49,6 +51,7 @@ local PHASE = { placing = "countdown", countdown = "countdown", active = "runnin
 
 local function inMatch(p) return type(p) == "table" and p.state ~= nil and p.state ~= "idle" end
 local function isWanted(p) return type(p) == "table" and p.activity == WANTED end
+local function isPve(p) return type(p) == "table" and p.activity == PVE end
 
 local function timer(remainingMs, label)
     local ms = num(remainingMs)
@@ -278,9 +281,110 @@ local function wanted(p)
     return hud
 end
 
+-- ---------------------------------------------------------------- NCPD Escape (chase.pve)
+
+V.ESCAPE_LINES = {
+    shake      = { title = "Escaped", text = "You lost them. Clean escape." },
+    clock      = { title = "Escaped", text = "You outlasted the NCPD." },
+    extraction = { title = "Escaped", text = "You made the extraction." },
+    arrest     = { title = "Busted", text = "You were cuffed." },
+    takedown   = { title = "Busted", text = "You went down." },
+    left       = { title = "Left", text = "You left NCPD Escape." },
+}
+
+local function escapeLine(p)
+    local l = V.ESCAPE_LINES[p.how] or (p.won and V.ESCAPE_LINES.clock or V.ESCAPE_LINES.arrest)
+    return l.text, l.title
+end
+
+local STATUS = { escaped = "Escaped", busted = "Busted", left = "Left" }
+
+-- Runners (team 1) and the NCPD's bots (team 2, "[BOT] " names from the server).
+local function escapeScoreboard(p, teams)
+    if type(p.scoreboard) ~= "table" then return nil end
+    local rows = {}
+    for _, row in ipairs(p.scoreboard) do
+        if type(row) == "table" and row.name then
+            if row.cop then
+                rows[#rows + 1] = { name = fit(row.name, 32), values = { row.released and "Rolling" or "Held", "" },
+                    team = teams and 2 or nil }
+            else
+                local status = STATUS[row.outcome] or (row.left and "Left" or "Out")
+                rows[#rows + 1] = { name = fit(row.name, 32), self = row.self == true or nil,
+                    values = { status, num(row.seconds) and V.clock(row.seconds * 1000) or "-" }, team = teams and 1 or nil }
+            end
+            if #rows >= 16 then break end
+        end
+    end
+    if #rows == 0 then return nil end
+    return { columns = { "Status", "Time" }, rows = rows }
+end
+
+local function escapeObjective(p)
+    if num(p.stalledMs) then return "Crash - engine stalled " .. secs(p.stalledMs) end
+    if p.boarding then return boardingText(p.boarding, true) end
+    if p.released == false then return "Head start - the NCPD rolls out in " .. secs(p.heldMs) end
+    if p.bustClosing then return "You are being cuffed - MOVE!" end
+    if num(p.extractionDistance) then return ("Extraction %s away - get there to escape"):format(metres(p.extractionDistance)) end
+    if num(p.escapeProgress) then
+        if num(p.escapeOpensMs) then return "Losing them - a shake counts after " .. secs(p.escapeOpensMs) end
+        return "No cop close - keep it up to lose them"
+    end
+    if p.bustContact then return "They are on you - keep moving" end
+    if not p.escapeArmed then return "The NCPD is hunting you - lose them, or survive the clock" end
+    return "Lose them. Survive the clock."
+end
+
+local function escape(p)
+    local state = p.state
+    local crew = (num(p.runners) or 1) > 1
+    local copCount = num(p.cops) or 0
+    local hud = {
+        activity = PVE, title = "NCPD Escape", phase = PHASE[state] or "running",
+        subtitle = fit(("%s - %d NCPD unit%s"):format(crew and ("Crew of " .. p.runners) or "Solo", copCount, copCount == 1 and "" or "s"), 80),
+    }
+    local left = num(p.remainingMs)
+    if state == "placing" or state == "countdown" or state == "active" then
+        hud.teams = { { name = "Runners", color = "danger", self = true }, { name = "NCPD", color = "info" } }
+    end
+    if state == "active" then
+        hud.stats = { { label = "Heat", value = ("%d/%d"):format(num(p.heat) or 1, num(p.heatCount) or 1) },
+            { label = "Cops near", value = tostring(num(p.copsNearby) or 0) }, { label = "Nearest", value = metres(p.nearestCop) } }
+        hud.timer = p.overtime and { remainingMs = 0, label = "Overtime" } or timer(left, "Time")
+        local progress = {}
+        local bust = num(p.bustMeter) or 0
+        if bust > 0 or p.bustClosing then progress[#progress + 1] = { id = "bust", label = "Being cuffed", value = bust, tone = "danger" } end
+        if num(p.escapeProgress) then progress[#progress + 1] = { id = "shake", label = "Losing them", value = p.escapeProgress, tone = "success" } end
+        if num(p.heatProgress) then
+            progress[#progress + 1] = { id = "heat", label = ("Heat %d"):format(num(p.heat) or 1), value = p.heatProgress, tone = "info" }
+        end
+        hud.progress = #progress > 0 and progress or nil
+        hud.objective = escapeObjective(p)
+    elseif state == "placing" then
+        hud.objective = "Moving to the escape area"
+    elseif state == "countdown" then
+        hud.timer, hud.countdown = timer(left, "Start"), left
+        hud.objective = boardingText(p.boarding, false)
+            or ("%s head start, then the NCPD rolls out. Lose them, outlast the clock or reach the extraction."):format(secs(p.headStartMs))
+    elseif state == "resolved" then
+        hud.timer = timer(left, "Back in")
+        if p.void then
+            hud.objective = tostring(p.reason or "Called off. Nothing counts.")
+        else
+            local text, title = escapeLine(p)
+            hud.objective = ("%s - %s"):format(title, text)
+            hud.stats = { { label = "Time", value = num(p.seconds) and V.clock(p.seconds * 1000) or "-" },
+                { label = "Reputation", value = ("+%d"):format(num(p.reputation) or 0) } }
+        end
+    end
+    hud.scoreboard = escapeScoreboard(p, hud.teams)
+    return hud
+end
+
 function V.hud(p)
     if not inMatch(p) then return nil end
     if isWanted(p) then return wanted(p) end
+    if isPve(p) then return escape(p) end
     return duel(p)
 end
 
@@ -289,6 +393,16 @@ end
 function V.queue(q)
     if type(q) ~= "table" or q.queued ~= true or q.busy then return nil end
     local position, total = num(q.position), num(q.total)
+    if isPve(q) then
+        local hud = { activity = PVE, title = "NCPD Escape", phase = "lobby", subtitle = "Getting ready - " .. modeLabel(q.mode, false) }
+        if num(q.crew) then
+            hud.stats = { { label = "Crew", value = ("%d/%d"):format(num(q.crewQueued) or 1, q.crew) } }
+            hud.objective = "Waiting for your crew. /escape leave to cancel."
+        else
+            hud.objective = "Starting in a moment. /escape leave to cancel."
+        end
+        return hud
+    end
     if isWanted(q) then
         local hud = { activity = WANTED, title = "Most Wanted", phase = "lobby" }
         if q.joining then
@@ -327,6 +441,29 @@ function V.beats(prev, p)
     local was = sameRound(prev, p) and prev.state or nil
     local function banner(title, text, tone, ms)
         out[#out + 1] = { kind = "banner", payload = { title = title, text = text, tone = tone or "accent", durationMs = ms or 3000 } }
+    end
+    if isPve(p) then
+        local sameMatch = inMatch(prev) and prev.matchId == p.matchId
+        if p.state == "countdown" and was ~= "countdown" then banner("NCPD Escape", "You are on the run", "accent", 3500)
+        elseif p.state == "active" and was == "countdown" then banner("GO", "Lose them!", "accent", 1500) end
+        if p.state == "active" and was == "active" then
+            if prev.released == false and p.released == true then banner("NCPD", "They are rolling out", "danger", 2000) end
+            if (num(p.heat) or 1) > (num(prev.heat) or 1) then banner(("Heat %d"):format(p.heat), nil, "danger", 2500) end
+        end
+        if p.state == "resolved" and not (sameMatch and prev.state == "resolved") then
+            local result = { durationMs = 10000 }
+            if p.void then
+                result.title, result.subtitle = "Called off", tostring(p.reason or "Nothing counts.")
+            else
+                local text, title = escapeLine(p)
+                result.title, result.subtitle = title, text
+                result.placement = p.won and 1 or nil
+                result.lines = { { label = "Time", value = num(p.seconds) and V.clock(p.seconds * 1000) or "-" },
+                    { label = "Reputation", value = ("+%d"):format(num(p.reputation) or 0) } }
+            end
+            out[#out + 1] = { kind = "result", payload = result }
+        end
+        return out
     end
     if p.state == "countdown" and was ~= "countdown" then
         if wantedMode then
