@@ -103,6 +103,11 @@ Open77 = {
 
 dofile("server/modules/activities.lua")
 dofile("server/modules/activities_hub.lua")
+-- The live config: the owner's survey (2026-11-03). Below, the offset path is what the
+-- assertions pin, so the survey is set aside for the rest of the test.
+assert(LightRpGuide.npc.position and math.abs(LightRpGuide.npc.position.x - (-769.562)) < 1e-3
+    and math.abs(LightRpGuide.npc.position.y - 770.670) < 1e-3 and LightRpGuide.npc.heading == 4.7, "Johnny's surveyed spot")
+LightRpGuide.npc.position, LightRpGuide.npc.heading = nil, nil
 dofile("server/modules/guide.lua")
 local Guide, G = LightRP.guide, LightRpGuide
 local registry = LightRP.activities.registry

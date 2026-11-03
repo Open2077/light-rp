@@ -53,8 +53,10 @@ LightRpGuide = {
         -- right -4, so Johnny stands on the other side, facing the arrival point
         -- (heading nil = face the arrival point). `/lightrp.guide move` (staff) places
         -- him where you stand and prints the line to paste here.
-        offset = { forward = 4, right = 4 },   -- survey in game
-        -- position = { x = -757.3, y = 782.4, z = 22.454 }, heading = 172.0, -- survey in game
+        offset = { forward = 4, right = 4 },   -- used only without `position`
+        -- Surveyed by the owner in game, 2026-11-03 (spot from his position copy, heading from
+        -- his `/lightrp.guide move` facing the plaza).
+        position = { x = -769.562, y = 770.670, z = 22.453 }, heading = 4.7,
         bucket = 0,
         streamingRadius = 150.0,
         interactRadius = 2.0,

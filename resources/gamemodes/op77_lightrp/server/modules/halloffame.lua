@@ -112,6 +112,7 @@ local function iconPosition(b)
     local row = board.model and rowOf(board.model)
     local tall = row and tonumber(row.height) and tonumber(row.height) * (tonumber(board.scale) or 1)
         or tonumber(b.height) or 2.0
+    tall = math.min(tall, tonumber(b.maxHeight) or math.huge)
     return { x = pos.x, y = pos.y, z = pos.z + tall + (tonumber(b.lift) or 0.4) }
 end
 HoF.iconPosition = function() local b = cfg("board.blip"); return type(b) == "table" and iconPosition(b) or nil end
@@ -123,9 +124,23 @@ local function blipOf()
         description = b.description, mapCategory = b.mapCategory, mapColor = b.mapColor, position = iconPosition(b) }
 end
 
+-- The E prompt's reach: `radius`, or the prop's footprint (half diagonal x scale) + `reach`
+-- when that is larger, so a big prop answers E from every side.
+function HoF.pointRadius()
+    local I = cfg("board.interact", {})
+    local radius = tonumber(I.radius) or 2.6
+    local row = board.model and rowOf(board.model)
+    local w, d = row and tonumber(row.width), row and tonumber(row.depth)
+    if w and d then
+        local around = math.sqrt(w * w + d * d) / 2 * (tonumber(board.scale) or 1) + (tonumber(I.reach) or 1.4)
+        radius = math.max(radius, around)
+    end
+    return radius
+end
+
 local function registerPoint()
     local I = cfg("board.interact", {})
-    LightRP.interaction(POINT, { position = HoF.pointOf(board.position, board.heading), radius = tonumber(I.radius) or 2.2,
+    LightRP.interaction(POINT, { position = HoF.pointOf(board.position, board.heading), radius = HoF.pointRadius(),
         bucket = cfg("board.bucket", 0), label = I.label or "Hall of Fame", prompt = I.prompt or "Open the Hall of Fame",
         key = "E", marker = I.marker, ring = false, blip = blipOf() })
 end

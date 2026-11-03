@@ -15,9 +15,12 @@ LightRpHallOfFame = {
         offset = { forward = 6.0, right = -4.0, up = 0.0 }, -- survey in game
         -- `/lightrp.halloffame place` prints these two once surveyed; they replace
         -- the offset. Without a heading the screen faces the arrival point.
-        -- Surveyed by the owner in game, 2026-11-03 (the Arasaka sculpture, scale 3; round,
-        -- so no heading: it faces the arrival point).
+        -- Surveyed by the owner in game, 2026-11-03. Heading 232.6 = The Crossing's axis
+        -- (the arrival heading 52.6, + 180 to face the plaza): the sculpture's square plinth
+        -- sits parallel to the parking (owner: "il est pas droit"). Fine-tune live with
+        -- `/lightrp.halloffame model 7 4.5 <degrees>`.
         position = { x = -774.802, y = 784.568, z = 22.297 },
+        heading = 232.6,
         bucket = 0,
         -- The prop: an alias of the props catalogue (base client/src/api/Props.cpp
         -- kModelAliases; an alias gets an Open77 mesh host, a raw depot path gets none).
@@ -28,9 +31,11 @@ LightRpHallOfFame = {
         --   /lightrp.halloffame model reset                  back to this default
         -- A swap is saved in the resource's kvp store (data/, kept over restarts) and wins
         -- over `model` at start until `model reset`. `where` prints the line to paste here.
-        -- The owner's pick, 2026-11-03: model 7 of the list below at scale 3 (4.6 m tall).
+        -- The owner's pick, 2026-11-03: model 7 of the list below at scale 4.5 (6.9 m tall,
+        -- plinth 2.6 m square). Its collider stays at scale 1 until the client scales prop
+        -- colliders (base branch fix/prop-collision-scale).
         model = "decor.sculpture.arasaka",
-        scale = 3.0,                  -- optional (with `yaw`): override the row of `model`
+        scale = 4.5,                  -- optional (with `yaw`): override the row of `model`
         collision = true,     -- ALT + click picks physical hits only (a row may say otherwise)
         -- The candidates, best guess first. `yaw` turns the mesh so its front looks where
         -- the board faces (degrees, counter-clockwise from above): 0 for a mesh whose
@@ -39,14 +44,15 @@ LightRpHallOfFame = {
         -- serialize, per-submesh vertex bounds, 2026-11-03); none is validated in game.
         -- `collision = false`: the mesh host has no collider (prop-hosts.json), so ALT +
         -- click cannot hit it; E still opens the panel. `height`: the mesh's height in
-        -- metres at scale 1 (the trophy icon floats just above it).
+        -- metres at scale 1 (the trophy icon floats just above it); `width` x `depth`: its
+        -- footprint at scale 1 (the E prompt reaches all around it).
         models = {
             -- The game's arcade cabinet (its screen sets are Roach Race, Quadra, Panzer):
             -- a "high scores" machine. 0.65 x 0.82 x 1.87 m; front +Y (control panel and
             -- glass on the +Y side); collider.
-            { model = "electronics.arcade", scale = 1.0, yaw = 0, height = 1.87, label = "Arcade cabinet" },
+            { model = "electronics.arcade", scale = 1.0, yaw = 0, height = 1.87, width = 0.65, depth = 0.82, label = "Arcade cabinet" },
             -- Kitsch jukebox, lit: 1.67 x 1.12 x 2.53 m; front +Y (glass and lights); collider.
-            { model = "electronics.jukebox", scale = 1.0, yaw = 0, height = 2.53, label = "Jukebox" },
+            { model = "electronics.jukebox", scale = 1.0, yaw = 0, height = 2.53, width = 1.67, depth = 1.12, label = "Jukebox" },
             -- A flat screen in a heavy frame: 1.38 x 0.97 m at scale 1 (2.76 x 1.95 m here),
             -- 3 cm thick and symmetric, so the picture side is NOT measured (rotate 180 if
             -- it shows its back); collider.
@@ -58,10 +64,10 @@ LightRpHallOfFame = {
             -- front +Y; NO collider.
             { model = "electronics.tv.large", scale = 1.5, yaw = 0, height = 1.01, collision = false, label = "Big wall display" },
             -- A big lit vending machine with a screen: 1.79 x 1.16 x 2.32 m; front +Y; collider.
-            { model = "electronics.vending_machine", scale = 1.0, yaw = 0, height = 2.32, label = "Vending machine" },
+            { model = "electronics.vending_machine", scale = 1.0, yaw = 0, height = 2.32, width = 1.79, depth = 1.16, label = "Vending machine" },
             -- A monument rather than a board: Arasaka's lobby sculpture, lit base,
             -- 0.57 x 0.57 x 1.54 m at scale 1 (2.3 m tall here); round; collider.
-            { model = "decor.sculpture.arasaka", scale = 1.5, yaw = 0, height = 1.54, label = "Sculpture" },
+            { model = "decor.sculpture.arasaka", scale = 1.5, yaw = 0, height = 1.54, width = 0.57, depth = 0.57, label = "Sculpture" },
             -- A framed painting standing on the ground: 1.2 x 1.67 m, 5 cm thick (1.6 x
             -- 2.2 m here); its back is flat at X 0, so the picture faces -X; NO collider.
             { model = "decor.painting", scale = 1.3, yaw = -90, height = 1.67, collision = false, label = "Painting" },
@@ -70,15 +76,16 @@ LightRpHallOfFame = {
         },
         streamingRadius = 150,
         -- The E point: `distance` metres in front of the board (0: its centre, the owner's
-        -- call 2026-11-03, so the E prompt sits on the object), the prompt within `radius`
-        -- all around it (the sculpture at scale 3 is ~1.7 m wide). No floor marker; a
-        -- `marker = { shape = "cylinder", ... }` here would draw one again.
-        interact = { distance = 0, radius = 2.6, label = "Hall of Fame", prompt = "Open the Hall of Fame" },
+        -- call 2026-11-03, so the E prompt sits on the object). The prompt shows within the
+        -- larger of `radius` and the footprint's half diagonal x scale + `reach`, so E works
+        -- from every side of a big prop (sculpture at 4.5: 1.81 + 1.4 = 3.2 m). No floor
+        -- marker; a `marker = { shape = "cylinder", ... }` here would draw one again.
+        interact = { distance = 0, radius = 2.6, reach = 1.4, label = "Hall of Fame", prompt = "Open the Hall of Fame" },
         -- Its icon: floating `lift` metres above the prop (its row's `height` x scale, or
-        -- `height` here for a model without one), with the distance (open77_icons), and a
-        -- pin on the map. `blip = false`: none.
+        -- `height` here for a model without one, never above `maxHeight` so it stays in view
+        -- up close), with the distance (open77_icons), and a pin on the map. `blip = false`: none.
         blip = { icon = "trophy", title = "Hall of Fame", description = "The best players of the city. Walk up and press E.",
-            mapCategory = "service", mapColor = "#FFCC00", height = 2.0, lift = 0.4 },
+            mapCategory = "service", mapColor = "#FFCC00", height = 2.0, lift = 0.4, maxHeight = 4.0 },
         -- An ALT + click opens the panel up to this far from the board (the client's
         -- context menu reaches 8 m), plus a little slack for the server's position feed.
         clickRange = 10.0,
