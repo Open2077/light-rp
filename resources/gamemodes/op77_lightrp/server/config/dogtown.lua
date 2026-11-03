@@ -1,12 +1,15 @@
 -- Dogtown, the open PvP danger zone (server/modules/dogtown.lua). Server only:
--- nothing here is downloaded.
+-- nothing here is downloaded. The rules below are the owner's (2026-11-03); the
+-- guide NPC quotes them from this file (server/config/guide.lua, Dogtown topic).
 --
--- Inside Dogtown, in the shared city (routing bucket 0), anyone can kill anyone.
--- Outside, nothing changes: Light RP's global PvP stays off (the platform default),
--- safe zones stay safe, activities and missions keep their own buckets and rules.
--- A player who deals or takes PvP damage here is combat-tagged: stepping out does
--- not end the fight until the tag runs out. A kill drops part of the victim's cash
--- (never the bank) as a bag anyone can pick up. PvP gives stats only: no reputation.
+-- Inside Dogtown, in the shared city (routing bucket 0), anyone carrying the stake
+-- (`stake.minCash` in pocket cash) can kill anyone else carrying it; crewmates never
+-- hurt each other. Outside, nothing changes: Light RP's global PvP stays off (the
+-- platform default), safe zones stay safe, activities and missions keep their own
+-- buckets and rules. A player who deals or takes PvP damage here is combat-tagged:
+-- stepping out does not end the fight until the tag runs out. A kill drops part of
+-- the victim's cash (never the bank) plus a server bonus as a bag, reserved to the
+-- killer's crew for a few seconds. PvP gives stats only: no reputation.
 LightRpDogtown = {
     -- The zone's switch at start. Staff toggle it with /lightrp.dogtown on|off (not
     -- persisted: a restart comes back to this value).
@@ -91,23 +94,58 @@ LightRpDogtown = {
     -- stays attackable outside the walls until it runs out (each hit renews it).
     combatTagMs = 20000,
 
-    -- Cash taken on a kill: `share` of the victim's pocket cash, at most `max`; nothing
-    -- when the victim carries less than `minCash`. The bank is never touched.
-    --   mode "bag":      the cash drops in a bag where the victim fell, anyone picks it
-    --                    up (the inventory's ground pile: session-only, gone after the
-    --                    drop TTL, LightRpConfig.inventory.drop.ttlMinutes).
-    --   mode "transfer": straight into the killer's pocket.
+    -- The stake: a player must carry at least `minCash` in POCKET cash (the bank never
+    -- counts) to fight here. Below it they are left out of the PvP grant (they can
+    -- neither deal nor take PvP damage in the zone), warned with the amount missing,
+    -- and after `graceMs` still inside and still short, sent to the nearest exit below.
+    -- A player who drops under it by dying is handled the same way once revived.
+    stake = {
+        minCash = 1000,
+        graceMs = 10000,
+    },
+    -- Where a player under the stake is sent: the nearest of these (planar distance),
+    -- each OUTSIDE the polygon (a point inside is ignored and logged at start). A
+    -- driver alone in a car is moved with the car; anyone else leaves the vehicle
+    -- behind (the platform refuses to teleport a seated player otherwise). Without a
+    -- usable exit the hospital (LightRpConfig.spawn.hospital) is the fallback.
+    -- Survey with /lightrp.dogtown survey exit (stand on the road, facing away from
+    -- Dogtown): the z values below are guesses.
+    exits = {
+        { id = "pacifica_west",  label = "Pacifica, west of the market", x = -1980.0, y = -2150.0, z = 40.0, heading = 0.0 },   -- survey in game
+        { id = "pacifica_north", label = "Pacifica, north gate",         x = -1650.0, y = -1980.0, z = 30.0, heading = 0.0 },   -- survey in game
+        { id = "stadium_north",  label = "North of the stadium",         x = -1250.0, y = -1740.0, z = 30.0, heading = 0.0 },   -- survey in game
+        { id = "stadium_east",   label = "East of the stadium",          x = -960.0,  y = -2150.0, z = 30.0, heading = 270.0 }, -- survey in game
+    },
+
+    -- Cash lost on a death: `share` of the victim's pocket cash, at least `min`, at
+    -- most `max`, never more than they carry. The bank is never touched.
+    --   mode "bag":      the cash drops in a sealed bag where the victim fell (the
+    --                    inventory's ground pile: session-only, gone after the drop
+    --                    TTL, LightRpConfig.inventory.drop.ttlMinutes).
+    --   mode "transfer": straight into the killer's pocket, the bonus paid beside it
+    --                    (ledger kind dogtown_bonus); no reserve.
     -- A bag that cannot be made falls back to the transfer.
     loot = {
         mode = "bag",
         share = 0.10,
-        max = 500,
-        minCash = 100,
+        min = 100,
+        max = 750,
+        -- The killer's bonus: new money the server adds to the bag on top of the
+        -- victim's loss (never taken from anyone), `bonus` of the loss. Every bonus a
+        -- killer's ACCOUNT earns (all its characters, kill bonus and bounties) is
+        -- capped at `bonusDailyCap` per UTC day; nothing on a blocked pair.
+        bonus = 0.25,
+        bonusDailyCap = 3000,
+        -- The bag is reserved to the killer and the killer's crew (crew at pickup
+        -- time) for this long, then anyone can take it, the victim included. The bonus
+        -- counts in the killer's cap when the bag is made, whoever ends up with it:
+        -- the reserve gives the killer the first claim, after that it is Dogtown.
+        reserveMs = 15000,
         -- Anti-farm. The same killer on the same victim (characters, in that direction)
-        -- within this long takes nothing and scores no kill; the victim's death counts.
+        -- within this long scores NOTHING: no kill, no death, no loss, no bag, no bonus.
         pairCooldownMs = 10 * 60000,
         -- Two characters of one account, or two members of one crew (LightRP.parties):
-        -- false = no cash and no kill credit between them.
+        -- false = nothing at all between them (as the pair cooldown).
         lootSameAccount = false,
         lootCrewmates = false,
         bagLabel = "Cash bag",
@@ -116,17 +154,57 @@ LightRpDogtown = {
         retries = 10, retryMs = 300,
     },
 
-    -- PvP stats (kills, deaths, eddies picked up from Dogtown cash bags or transfers):
-    -- per character, lifetime and per week (UTC, Monday 00:00). The leaderboard is
-    -- this week's top killers.
+    -- Anti-gank. A killer whose crew has `crewSize` or more members in the zone
+    -- (inside, or tagged outside) costs the victim `lossFactor` of the normal loss
+    -- (the bag and its bonus shrink with it). Killing a member of a bigger crew (the
+    -- victim's crew in the zone outnumbers the killer's) adds `underdogBonus` to the
+    -- server bonus (0.5: the bonus x 1.5), still inside the daily cap.
+    antiGank = {
+        crewSize = 4,
+        lossFactor = 0.5,
+        underdogBonus = 0.5,
+    },
+
+    -- Bounty: `streak` credited kills in the zone without dying puts the killer on
+    -- everyone's 3D map (op77_map3d, a pin following them, moved every `refreshMs`)
+    -- until they die, leave the zone (outside and no longer tagged) or disconnect.
+    -- Whoever kills them (a credited kill) gets `perKill` x their streak in pocket
+    -- cash, at most `max`, counted in the daily bonus cap.
+    bounty = {
+        streak = 5,
+        perKill = 250,
+        max = 1500,
+        refreshMs = 3000,
+        blip = { icon = "crosshair", color = "#FF2E3C", scale = 1.3, pulse = true, edge = true },
+    },
+
+    -- Combat log: a combat-tagged player who disconnects in the zone drops the bag of
+    -- a death (same loss, no bonus for anyone) where they were last seen, reserved to
+    -- their last attacker's crew. Logged.
+    combatLog = true,
+
+    -- The hospital bill (LightRpEconomy.hospital, economy_sinks.lua) is waived after a
+    -- death in a Dogtown fight: the zone already took its cut in cash, and the bank
+    -- stays out of Dogtown. false = the bill applies as after any death.
+    waiveHospitalBill = true,
+
+    -- PvP stats (credited kills and deaths, best streak, eddies picked up from Dogtown
+    -- cash bags or transfers): per character, lifetime and per week (UTC, Monday
+    -- 00:00). The F1 leaderboard is this week's top killers; the Hall of Fame at The
+    -- Crossing gets two lifetime boards in its PvP tab (kills with K/D and best streak,
+    -- and the best streaks). hallOfFame = false keeps Dogtown off the Hall of Fame.
     stats = { leaderboardSize = 5, refreshMs = 60000 },
+    hallOfFame = true,
 
     -- PvP grants: Light RP keeps global friendly fire off and gives the players who
-    -- qualify a combat scope (Open77.combat.createScope) in the city bucket. A scope
+    -- qualify a combat scope (Open77.combat.createScope) in the city bucket; members of
+    -- one crew share a combat team (Open77.combat.setTeam: they never hurt each other),
+    -- updated when crews change; team ids are `teamBase` + the crew's number. A scope
     -- holds at most 32 players and a resource at most 8 scopes: past 32 players the
     -- roster is split by position (west to east), and two players of different
     -- groups cannot hurt each other. `maxScopes` caps how many this module uses.
     maxScopes = 8,
+    teamBase = 7700000,
     -- Every grant is rebuilt at least this often (a respawn can silently drop a
     -- player from a scope on the host side).
     refreshScopesMs = 10000,
