@@ -9,8 +9,8 @@ assert(#LightRpActivities.hub.terminals == 1, "one terminal: activities and cont
 -- the live config: the owner's survey (2026-11-03), Adam Smasher standing on it
 do
     local t, host = LightRpActivities.hub.terminals[1], LightRpActivities.hub.host
-    assert(t.position and math.abs(t.position.x - (-792.575)) < 1e-3 and math.abs(t.position.y - 792.814) < 1e-3
-        and t.heading == 266.5 and t.npc == true, "the surveyed terminal with its host")
+    assert(t.position and math.abs(t.position.x - (-783.885)) < 1e-3 and math.abs(t.position.y - 787.366) < 1e-3
+        and t.heading == 240.96 and t.npc == true, "the surveyed terminal with its host")
     assert(host.name == "Adam Smasher" and host.candidates[1].record == "Character.main_boss_adam_smasher", "Smasher first")
     for _, c in ipairs(host.candidates) do assert(c.record:match("^Character%.[%w_]+$"), "a record name") end
     t.position = nil -- below: the offset path
@@ -89,7 +89,7 @@ assert(not okThread and errThread:find("stop-loop", 1, true), "the start thread 
 assert(#created == 2, "first spawn, then the respawn of a body gone")
 local hostDef = created[1]
 assert(hostDef.record == "Character.Smasher", "the boss record refused: the next candidate")
-assert(math.abs(hostDef.position.x - board.position.x) < 1e-6 and hostDef.yaw == 266.5 and hostDef.bucket == 0)
+assert(math.abs(hostDef.position.x - board.position.x) < 1e-6 and hostDef.yaw == 240.96 and hostDef.bucket == 0)
 assert(hostDef.behavior.combatEnabled == false and hostDef.behavior.perceptionEnabled == false and hostDef.behavior.voiceEnabled == false)
 assert(hostDef.damagePolicy == "invulnerable" and hostDef.aiMode == "tasks" and hostDef.persistent == false and hostDef.despawnWhenUnobserved == false)
 assert(aiCalls[1].id == 901 and aiCalls[1].on == false, "AI off: he stands")

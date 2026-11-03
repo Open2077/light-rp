@@ -19,7 +19,8 @@ LightRpHallOfFame = {
         -- (the arrival heading 52.6, + 180 to face the plaza): the sculpture's square plinth
         -- sits parallel to the parking (owner: "il est pas droit"). Fine-tune live with
         -- `/lightrp.halloffame model 7 4.5 <degrees>`.
-        position = { x = -774.802, y = 784.568, z = 22.297 },
+        -- Moved by the owner, 2026-11-03 late: the position he gave (heading kept).
+        position = { x = -773.499, y = 799.148, z = 22.580 },
         heading = 232.6,
         bucket = 0,
         -- The prop: an alias of the props catalogue (base client/src/api/Props.cpp
