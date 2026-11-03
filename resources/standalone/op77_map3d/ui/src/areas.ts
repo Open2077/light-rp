@@ -230,7 +230,8 @@ export function bakeAreas(list: { pts: number[] }[]): AreaField | null {
   return { width: W, height: H, box: [minX, minZ, W * texel, H * texel], data };
 }
 
-interface Label { el: HTMLElement; pos: THREE.Vector3; html: string }
+interface Label { el: HTMLElement; pos: THREE.Vector3 }
+const projected = new THREE.Vector3();
 
 export class AreaLayer {
   private areas = new Map<string, Area>();
@@ -238,6 +239,7 @@ export class AreaLayer {
   private blank: THREE.Texture;
   private built = "";
   private warned = false;
+  private lists: Partial<Record<AreaView, Area[]>> = {}; // shown(), until the next change
   private labels = new Map<string, Label>();
   /** Where the open map's labels go (under the blips). */
   labelRoot: HTMLElement | null = null;
@@ -252,7 +254,7 @@ export class AreaLayer {
     const a = normalizeArea(p);
     if (!a) return false;
     this.areas.set(a.id, a);
-    this.built = "";
+    this.changed();
     const l = this.labels.get(a.id);
     if (l) { l.el.remove(); this.labels.delete(a.id); }
     return true;
@@ -264,15 +266,18 @@ export class AreaLayer {
       const l = this.labels.get(key);
       if (l) { l.el.remove(); this.labels.delete(key); }
     }
-    this.built = "";
+    this.changed();
   }
+  private changed(): void { this.built = ""; this.lists = {}; }
   clear(): void { this.remove([...this.areas.keys()]); }
 
   /** The areas a view draws, oldest first, at most MAX_AREAS. */
   private shown(view: AreaView): Area[] {
+    const cached = this.lists[view];
+    if (cached) return cached;
     const list = [...this.areas.values()].filter((a) => (view === "map" ? a.map : a.minimap));
     if (list.length > MAX_AREAS && !this.warned) { this.warned = true; console.warn(`[map3d] ${list.length} areas: only the first ${MAX_AREAS} are drawn`); }
-    return list.slice(0, MAX_AREAS);
+    return (this.lists[view] = list.slice(0, MAX_AREAS));
   }
 
   /** A pulsing area is drawn in this view: keep redrawing. */
@@ -281,7 +286,8 @@ export class AreaLayer {
   /** Before drawing a view: the texture for its areas (rebuilt when they changed) and the per-frame uniforms. */
   prepare(view: AreaView, t: number, hatchMetres: number, strength: number, cam?: THREE.Camera): void {
     const list = this.shown(view);
-    const key = view + ":" + list.map((a) => a.id).join("|");
+    // the same areas on the map and the minimap (the usual case): opening the map keeps the texture
+    const key = "#" + list.map((a) => a.id).join("|");
     const u = this.uniforms;
     if (key !== this.built) {
       this.built = key;
@@ -340,13 +346,12 @@ export class AreaLayer {
           const el = document.createElement("div");
           el.className = "m3-area";
           el.style.setProperty("--ac", a.stroke);
+          el.innerHTML = `<b>${WARNING}<span>${escapeText(a.label)}</span></b>`; // a changed area gets a new label
           this.labelRoot.appendChild(el);
-          l = { el, pos: new THREE.Vector3(p.x, z + 2, -p.y), html: "" };
+          l = { el, pos: new THREE.Vector3(p.x, z + 2, -p.y) };
           this.labels.set(a.id, l);
         }
-        const html = `<b>${WARNING}<span>${escapeText(a.label)}</span></b>`;
-        if (l.html !== html) { l.html = html; l.el.innerHTML = html; }
-        const v = l.pos.clone().project(cam);
+        const v = projected.copy(l.pos).project(cam);
         const vis = v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
         l.el.style.display = vis ? "" : "none";
         if (vis) l.el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(0)}px, ${((-v.y * 0.5 + 0.5) * H).toFixed(0)}px)`;
