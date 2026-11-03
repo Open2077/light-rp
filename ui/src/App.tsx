@@ -32,6 +32,7 @@ import { FixerGigHud } from "@/features/missions/FixerGigHud";
 import { MissionSquadHud } from "@/features/missions/MissionSquadHud";
 import { RaidHud } from "@/features/missions/RaidHud";
 import { ActivityHud } from "@/features/activityhud/ActivityHud";
+import { DogtownHud } from "@/features/dogtown/DogtownHud";
 import { Medical } from "@/features/medical/Medical";
 import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
@@ -93,6 +94,7 @@ export function App() {
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>
+      <ErrorBoundary name="dogtown"><DogtownHud /></ErrorBoundary>
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
       <ErrorBoundary name="weapon-wheel"><WeaponWheel /></ErrorBoundary>
       <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>
