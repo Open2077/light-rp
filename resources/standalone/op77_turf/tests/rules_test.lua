@@ -303,4 +303,87 @@ do
     assert(R.clock(65000) == "1:05" and R.clock(0) == "0:00")
 end
 
-print("PASS rules_test: gangs, sides + mercenaries + bench, late joiners, capture + contest + decay, score + carry, respawn points, bounds, rewards, influence, weeks")
+-- ---------------------------------------------------------------- crews (Light RP squads)
+local function crewEntry(id, gang, squad, at) return { id = id, gang = gang, at = at or id, squad = squad } end
+
+do
+    -- A crew mixing both gangs is never split: it goes whole to its majority's side.
+    local form = R.formSides({ crewEntry(1, "valentinos", "s1"), crewEntry(2, "maelstrom", "s1"), crewEntry(3, "valentinos", "s1"),
+        crewEntry(4, "maelstrom"), crewEntry(5, "maelstrom"), crewEntry(6, "valentinos") },
+        { maxPlayers = 24, maxImbalance = 1, allowTurncoats = false })
+    local side = {}
+    for s = 1, 2 do for _, id in ipairs(form.sides[s]) do side[id] = s end end
+    assert(side[1] and side[1] == side[2] and side[2] == side[3], "one crew, one side")
+    assert(form.gangs[side[1]] == "valentinos" and form.merc[2] == true and not form.merc[1], "its odd member is a mercenary")
+    assert(side[4] ~= side[1] and side[5] ~= side[1])
+    -- The balance never benches part of a crew: a whole unit or nothing.
+    form = R.formSides({ crewEntry(1, "a", "s"), crewEntry(2, "a", "s"), crewEntry(3, "a", "s"), crewEntry(4, "b") },
+        { maxPlayers = 24, maxImbalance = 1, allowTurncoats = false })
+    local placed = {}
+    for s = 1, 2 do for _, id in ipairs(form.sides[s]) do placed[id] = true end end
+    assert((placed[1] and placed[2] and placed[3]) or (not placed[1] and not placed[2] and not placed[3]), "never part of a crew")
+    -- A crew of other gangs (all mercenaries) stays together too.
+    form = R.formSides({ crewEntry(1, "a"), crewEntry(2, "b"), crewEntry(3, nil, "m"), crewEntry(4, "animals", "m") },
+        { maxPlayers = 24, maxImbalance = 2, allowTurncoats = false })
+    side = {}
+    for s = 1, 2 do for _, id in ipairs(form.sides[s]) do side[id] = s end end
+    assert(side[3] and side[3] == side[4] and form.merc[3] and form.merc[4])
+    -- Late: the crew's side, whatever the balance (as long as the war has room).
+    local s, merc = R.placeLate({ 5, 2 }, { "a", "b" }, "b", { maxPlayers = 24, maxImbalance = 1, crewSide = 1 })
+    assert(s == 1 and merc == true, "with his crew, as a mercenary of the other gang")
+    s = R.placeLate({ 12, 12 }, { "a", "b" }, nil, { maxPlayers = 24, crewSide = 1 })
+    assert(s == nil, "a full war is full")
+end
+
+-- ---------------------------------------------------------------- bots
+do
+    local o = { perSide = 3, allies = true, maxPerSide = 6, maxBots = 10 }
+    local f = R.botFill({ 1, 0 }, o)
+    assert(f[1] == 2 and f[2] == 3, "1 human: 2 teammates vs 3")
+    f = R.botFill({ 1, 0 }, { perSide = 3, allies = false, maxPerSide = 6, maxBots = 10 })
+    assert(f[1] == 0 and f[2] == 3, "no allies: the human alone vs 3")
+    f = R.botFill({ 2, 1 }, o)
+    assert(f[1] == 1 and f[2] == 2, "both sides filled to 3")
+    f = R.botFill({ 5, 0 }, o)
+    assert(f[1] == 0 and f[2] == 5, "the empty side matches the larger one")
+    f = R.botFill({ 9, 0 }, o)
+    assert(f[2] == 6, "capped per side")
+    f = R.botFill({ 1, 0 }, { perSide = 6, allies = true, maxPerSide = 6, maxBots = 8 })
+    assert(f[1] + f[2] == 8 and f[2] == 6 and f[1] == 2, "the total cap trims teammates first")
+    assert(R.pveBots(1, CFG.pve) == 3 and R.pveBots(2, CFG.pve) == 5 and R.pveBots(4, CFG.pve) == 9)
+    assert(R.pveBots(8, CFG.pve) == CFG.pve.maxBots, "capped")
+    assert(R.rivalGang(CFG.bots.gangOrder, "maelstrom", CFG.gangs) == "tyger_claws")
+    assert(R.rivalGang(CFG.bots.gangOrder, nil, CFG.gangs) == "maelstrom")
+    for _, gang in ipairs(CFG.bots.gangOrder) do assert(CFG.gangs[gang], "a gang of the order has colours: " .. gang) end
+    for gang in pairs(CFG.bots.records) do assert(CFG.gangs[gang], "records for a known gang: " .. gang) end
+    for _, holder in pairs(CFG.pve.holders) do assert(CFG.gangs[holder], "a known holder: " .. holder) end
+end
+
+-- ---------------------------------------------------------------- Gang Sweep rewards
+do
+    local rw = R.scaledRewards(CFG.rewards, 0.6, CFG.pve.rewards)
+    assert(rw.win == 18 and rw.draw == 11 and rw.loss == 7 and rw.perCapture == 1 and rw.perKill == 1 and rw.bonusCap == 6)
+    assert(rw.minWarSeconds == CFG.pve.rewards.minWarSeconds and rw.needsAction == true and rw.leaver == CFG.rewards.leaver)
+    assert(CFG.rewards.win == 30, "the war's own amounts are untouched")
+    local war = { void = false, playedMs = 239000 }
+    assert(R.pveCounted(war, rw) == false, "too short")
+    war.playedMs = 240000
+    assert(R.pveCounted(war, rw) == true)
+    war.void = true
+    assert(R.pveCounted(war, rw) == false, "void")
+    local m = { side = 1, playedMs = 200000, captures = 0, kills = 0 }
+    assert(R.reputation(m, war, 1, rw, true) == 0, "no capture, no kill: nothing")
+    m.kills = 2
+    assert(R.reputation(m, war, 1, rw, true) == 18 + 2)
+    m.playedMs = 100000
+    assert(R.reputation(m, war, 1, rw, true) == 0, "played too little")
+    m.playedMs, m.kills = 200000, 0
+    assert(R.reputation(m, war, 1, CFG.rewards, true) == CFG.rewards.win, "the war has no such rule")
+    -- The holders' zones score at their rate.
+    local w = { zones = { { owner = 2 }, { owner = 2 }, { owner = 1 } }, sides = { { score = 0 }, { score = 0 } }, carry = { 0, 0 },
+        zoneRate = { 1, 0.5 } }
+    for _ = 1, 10 do R.stepScore(w, 1, CFG.scoring, 600) end
+    assert(w.sides[1].score == 10 and w.sides[2].score == 10, "1 zone at 1 vs 2 zones at 0.5")
+end
+
+print("PASS rules_test: gangs, sides + mercenaries + bench, late joiners, capture + contest + decay, score + carry, respawn points, bounds, rewards, influence, weeks, crews, bot fill, Gang Sweep rewards")
