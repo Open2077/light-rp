@@ -393,6 +393,15 @@ local function main()
     local n = 0
     for i = resultsFrom, #core.results do n = n + 1; assert(core.results[i].activity == "turf.war") end
     assert(n == 9, "one result per fighter: " .. n)
+    -- the board for Light RP's end-of-match recap: the same for every fighter
+    local board = r1.recap
+    assert(board and board.matchId == r4.recap.matchId and board.matchId:match("^turf:pvp:%d+@%d+$"), tostring(board and board.matchId))
+    assert(board.detail == "Turf War" and board.winnerSide == 1 and board.sides[1].score >= CFG.match.targetScore)
+    assert(board.sides[1].label == war.sides[1].label and #board.rows >= 9 and board.lines[1].label == "Site")
+    local row1
+    for _, row in ipairs(board.rows) do if row.id == 1 then row1 = row end end
+    assert(row1 and row1.side == 1 and row1.kills == 1 and row1.captures == 1 and row1.holdS >= 9 and row1.bot == nil)
+    assert(table.concat(board.columns, ",") == "kills,deaths,captures,holdS,score")
     -- influence of the week, in memory now (the database thread is not run here)
     local val, mae = TurfInfluence.rows.valentinos, TurfInfluence.rows.maelstrom
     assert(val and val.points == CFG.influence.win + 2 * CFG.influence.perCapture and val.wins == 1 and val.wars == 1)
@@ -444,6 +453,9 @@ local function main()
     fire("op77_lightrp:activity:leaveRequest", nil, 12, "turf.war")
     local r12 = resultOf(12, resultsFrom)
     assert(r12 and r12.reputation == 0 and r12.won == false and r12.stats.forfeit == true, "a forfeit, no reputation")
+    local left12
+    for _, row in ipairs(r12.recap.rows) do if row.id == 12 then left12 = row end end
+    assert(left12 and left12.left == true and r12.recap.winnerSide == nil, "mid-war: the leaver marked, no winner yet")
     assert(leftIds(leavesFrom)[12] and core.owned[12] == nil and teams[12] == 0)
     assert(war.state == "running", "his side plays on")
     core.owned[13] = nil -- Light RP released him before telling us

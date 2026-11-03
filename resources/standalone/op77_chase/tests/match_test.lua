@@ -118,6 +118,7 @@ local function load()
     dofile("server/core.lua")
     dofile("server/match.lua")
     dofile("server/ranked.lua")
+    dofile("server/recap.lua")
     dofile("server/main.lua")
     -- main.lua started two threads: registration, then the tick loop.
     assert(#env.threads == 2, "registration + tick threads")
@@ -269,6 +270,13 @@ do
     assert(l.stats.busts == 1 and l.stats.escapes == 0 and l.stats.copRounds == 2)
     assert(w.stats.elo == 1020 and w.stats.eloDelta == 20 and l.stats.elo == 980 and l.stats.eloDelta == -20)
     assert(w.stats.timeMs > 0 and w.cash == nil and w.items == nil, "no cash, no items")
+    -- the board for Light RP's end-of-match recap: both drivers, each round
+    assert(w.recap and l.recap and w.recap.matchId == l.recap.matchId and #w.recap.rows == 2)
+    for _, row in ipairs(w.recap.rows) do
+        if row.id == runner1 then assert(row.placement == 1 and row.roundsWon == 2 and row.escapes == 1 and row.busts == 1) end
+        if row.id == cop1 then assert(row.placement == 2 and row.roundsWon == 1) end
+    end
+    assert(#w.recap.lines == 3 and w.recap.lines[3].label == "Round 3" and w.recap.lines[3].value:find("^escaped"))
     assert(ChaseRanked.ratings["license:p" .. runner1 .. "#1"].rating == 1020)
     assert(#env.left == 0, "the scoreboard stays on screen first")
 

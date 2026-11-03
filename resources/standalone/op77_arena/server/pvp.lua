@@ -372,7 +372,7 @@ end
 -- Arena Night wrapper); `Instances.openArena` and `Instances.assignFFA` reach it
 -- through the table, so every way in is gated.
 local open = DM.instances.open
-DM.instances.open = function(format, ruleset)
+DM.instances.open = function(format, ruleset, ...)
     if P.isPvpSpec(format, ruleset) then
         local used, max = P.slotsInUse(), P.budget()
         if used >= max then
@@ -384,7 +384,7 @@ DM.instances.open = function(format, ruleset)
             return nil, "pvp_scope_limit"
         end
     end
-    local instance, reason = open(format, ruleset)
+    local instance, reason = open(format, ruleset, ...)
     if instance ~= nil and P.isPvp(instance) then
         P.openRefusal = nil
         -- One scope holds 32 people at most: a PvP instance never takes more.

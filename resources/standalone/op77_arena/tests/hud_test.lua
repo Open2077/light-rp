@@ -270,6 +270,36 @@ do
     pve.phase, pve.roundState, pve.result = "standings", "standings", { winnerId = 3, winnerName = "Jackie" }
     env.net["deathmatch:state"](pve)
     assert(#env.pushes == 1 and env.pushes[1].payload.title == "PLAYERS WIN" and env.pushes[1].payload.subtitle == "Players 6 - 1 bots")
+    -- An allied bot (Light RP "fill empty slots", team 1) fights on the players' side.
+    pve.phase, pve.roundState, pve.result = "active", "active", nil
+    pve.instanceId, pve.instance = 24, { id = 24, format = "ffa", ruleset = "pve", bots = 2 }
+    pve.rows[3].team = 2
+    pve.rows[4] = { id = -8, name = "[BOT] Rook", bot = true, team = 1, kills = 3, deaths = 0, score = 300, active = true }
+    env.net["deathmatch:state"](pve)
+    hud = env.shows[#env.shows]
+    assert(hud.teams[1].score == 9 and hud.teams[2].score == 1, "the ally's kills are the players'")
+    assert(hud.scoreboard.rows[4].team == 1 and hud.scoreboard.rows[4].name == "[BOT] Rook" and hud.scoreboard.rows[3].team == 2)
+    -- Unranked / friendly (op77_arena:entered): said on screen, unless BOTS says it already.
+    local function rankHint(h) for _, hint in ipairs(h.hints) do if hint.key == "RANK" then return hint.label end end end
+    local friendlyDuel = {
+        playerId = 3, participant = true, mode = "1v1", phase = "active", roundState = "active", instanceId = 25, remainingMs = 5000,
+        instance = { id = 25, format = "1v1", ruleset = "standard" },
+        self = { id = 3, kills = 0, deaths = 0 },
+        arena = { side = 1, format = "1v1", round = 1, bestOf = 3, wins = { 0, 0 }, aliveByTeam = { 1, 1 } },
+        rows = { { id = 3, name = "Jackie", team = 1 }, { id = 4, name = "Vee", team = 2 } },
+    }
+    env.net["op77_arena:entered"]({ activity = "arena.duel", label = "Duel", unranked = true, friendly = true })
+    env.net["deathmatch:state"](friendlyDuel)
+    hud = env.shows[#env.shows]
+    assert(rankHint(hud) == "Friendly: unranked" and #hud.hints <= 4, "a friendly is said on screen")
+    friendlyDuel.instance.bots, friendlyDuel.rows[2] = 1, { id = -5, name = "Ash", team = 2, bot = true }
+    env.net["deathmatch:state"](friendlyDuel)
+    assert(rankHint(env.shows[#env.shows]) == nil, "BOTS already says it")
+    env.net["op77_arena:returned"]()
+    env.net["op77_arena:entered"]({ activity = "arena.ffa", label = "Combat Zone" })
+    env.net["deathmatch:state"](ffaState({ instanceId = 26 }))
+    assert(rankHint(env.shows[#env.shows]) == nil, "a ranked entry shows nothing")
+    env.net["op77_arena:returned"]()
     say("PASS bots + PvE hud")
 end
 

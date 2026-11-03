@@ -22,27 +22,34 @@ LightRpArena = {
             id = "arena.ffa", label = "Combat Zone", kind = "pvp",
             description = "Drop-in free-for-all. Arena weapons only, respawn on death, leave any time.",
             minPlayers = 1, maxPlayers = 16,
+            botFill = true,        -- the panel may offer bots (an unranked practice zone of the group's own)
         },
         blade = {
             id = "arena.blade", label = "Blade Night", kind = "pvp",
             description = "Melee free-for-all. Katanas, knives and blunts only.",
             minPlayers = 1, maxPlayers = 16,
+            botFill = true,
         },
         duel = {
             id = "arena.duel", label = "Duel", kind = "pvp",
             description = "One on one, best of three. /duel <id> challenges a player near you.",
             minPlayers = 2, maxPlayers = 2,
+            botFill = true,        -- a duel against a bot (unranked)
         },
         teams = {
             id = "arena.teams", label = "Team Arena", kind = "pvp",
             description = "2v2 or 3v3, best of three, elimination rounds.",
             minPlayers = 4, maxPlayers = 6,
             modes = { { id = "2v2", label = "2v2" }, { id = "3v3", label = "3v3" } },
+            botFill = true,        -- bots complete the sides (unranked)
         },
         pve = {
             id = "arena.pve", label = "Combat Zone · PvE", kind = "pvp",
             description = "Players together against gang bots. Solo or with your crew, no friendly fire.",
             minPlayers = 1, maxPlayers = 6,
+            pve = true,
+            difficulties = { "standard", "hard", "critical" }, -- options.scaling: enemy count, health, damage, AI
+            botFill = true,        -- options.fill.allies: allied bots on the players' side (still ranked)
         },
     },
 
@@ -54,6 +61,20 @@ LightRpArena = {
         botsPerPlayer = 2,         -- more bots for every further player
         botsMax = 10,
         profile = nil,             -- engine difficulty profile; nil = DeathmatchConfig.bots.difficulty
+        -- Allied bots (options.fill.allies from the Activities panel): they take the free
+        -- player seats (maxPlayers - people), fight the gang bots with the players and count
+        -- as players for the enemy scaling above. Never scaled by the difficulty.
+        allyProfile = "standard",
+        -- The difficulty (options.scaling) multiplies the enemy count, then this caps it;
+        -- the instance's 16 bodies (people + allies + enemies) cap it too.
+        enemiesMax = 14,
+    },
+
+    -- Matches formed by Light RP (options.match: friendly crew matches, bot-filled PvP,
+    -- and ranked duel / Team Arena matches): one instance of their own each.
+    lobby = {
+        gatherMs = 5000,           -- every player of a match joins in one tick; after this it starts with who came
+        keepMs = 120000,           -- a formed match is remembered this long (late joins are refused)
     },
 
     -- Crews (options.squad from Light RP): one crew, one instance, one side.
@@ -151,6 +172,10 @@ Config.buckets.ffaFirst = 4100000
 Config.buckets.ffaLast = 4100000
 Config.buckets.arenaFirst = 4100100
 Config.buckets.arenaLast = 4100199
+-- Private Combat Zone / Blade Night instances, one per Light RP match (server/instances.lua
+-- `Instances.open(format, ruleset, private)`): never joined by anyone outside the match.
+Config.buckets.privateFirst = 4100010
+Config.buckets.privateLast = 4100029
 
 -- Only reached by engine paths this edition overrides; kept on The Crossing anyway.
 Config.lobby.center = { x = -756.581, y = 777.257, z = 22.454 }
@@ -160,6 +185,7 @@ Config.instances.ffaCeiling = 1
 Config.instances.ffaCapacity = 16
 Config.instances.ffaUnlimited = false
 Config.instances.arenaCeiling = 24
+Config.instances.privateCeiling = 8   -- the PvP scope budget (8 per resource) limits them too
 Config.instances.adoptOnReload = false -- a reload never adopts: Light RP returns everyone
 Config.instances.keepOneWarm = false
 Config.formats.ffa.capacity = 16

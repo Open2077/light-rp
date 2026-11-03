@@ -49,7 +49,7 @@ button { all: unset; cursor: pointer; }
 .m3-full { position: absolute; inset: 0; display: none; }
 .m3.is-open .m3-full { display: block; }
 .m3-full > * { pointer-events: auto; }
-.m3-full > .m3-markers, .m3-full > .m3-districts { pointer-events: none; }
+.m3-full > .m3-markers, .m3-full > .m3-districts, .m3-full > .m3-areas { pointer-events: none; }
 .m3-full::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
 
 /* Opening: the map comes in from a bright blur under a scan line, its interface a beat
@@ -196,6 +196,15 @@ button { all: unset; cursor: pointer; }
 .m3-zone span { order: -1; font: 600 11px var(--m3-core); letter-spacing: .14em; color: var(--zc); text-shadow: 0 0 8px #000, 0 0 3px #000; text-transform: uppercase; }
 .m3-zone::after { content: ""; width: 1px; height: 18px; background: linear-gradient(var(--zc), transparent); translate: -50% -100%; opacity: .8; }
 .m3.is-jammed .m3-zones { visibility: hidden; }
+/* areas: the label of each polygon (its border colour in --ac), under the blips */
+.m3-areas { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.m3-area { position: absolute; left: 0; top: 0; }
+.m3-area b { display: flex; align-items: center; gap: 7px; translate: -50% -50%; padding: 4px 12px 3px 10px; white-space: nowrap;
+  font: 700 13px var(--m3-mono); letter-spacing: .24em; color: #050506; background: var(--ac);
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+.m3-area b svg { flex: none; }
+.m3.is-jammed .m3-areas { visibility: hidden; }
+.m3-mini__info .m3-mini__area { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ac); }
 /* the density scale under the activity switch: one chip per level */
 .m3-density { list-style: none; margin: 2px 0 4px; padding: 0 6px 0 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .m3-density li { display: grid; gap: 3px; font: 600 9px var(--m3-core); letter-spacing: .1em; color: var(--m3-text); min-width: 0; }

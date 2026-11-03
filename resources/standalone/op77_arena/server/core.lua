@@ -54,8 +54,9 @@ function C.check(playerId, activityId)
     return verdict("activityCheck", "You cannot join right now.", playerId, activityId)
 end
 
-function C.enter(playerId, activityId)
-    return verdict("activityEnter", "You cannot join right now.", playerId, activityId)
+-- opts: { difficulty } -- the PvE difficulty the instance really plays.
+function C.enter(playerId, activityId, opts)
+    return verdict("activityEnter", "You cannot join right now.", playerId, activityId, opts)
 end
 
 function C.leave(playerId, activityId, opts)

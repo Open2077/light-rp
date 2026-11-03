@@ -478,7 +478,7 @@ function Scoring.beginRound(instance, roundId)
         row.score = 0
         row.streak, row.bestStreak = 0, 0
         row.headshots, row.multiKills = 0, 0
-        row.damage = 0.0
+        row.damage, row.damageTaken = 0.0, 0.0
         row.multiCount = 0
         row.lastKillAtMs = nil
         if row.bot or participantId < 0 then entry.hadBots = true end
@@ -605,6 +605,9 @@ function Scoring.creditDamage(instance, attackerId, victimId, amount, info)
 
     local record = ledgerFor(entry, victim)
     record.total = record.total + amount
+    -- what each participant took, for Light RP's end-of-match recap (lightrp_recap.lua)
+    local hurt = entry.stats[victim]
+    if hurt ~= nil then hurt.damageTaken = (hurt.damageTaken or 0) + amount end
     local reportedMax = DM.finite(info.maxHealth)
     if reportedMax ~= nil and reportedMax > 0 then record.maxHealth = reportedMax end
 
@@ -987,6 +990,7 @@ function Scoring.rows(instance)
             deaths = stats.deaths,
             assists = stats.assists,
             damage = math.floor(stats.damage + 0.5),
+            damageTaken = math.floor((stats.damageTaken or 0) + 0.5),
             streak = stats.streak,
             bestStreak = stats.bestStreak,
             headshots = stats.headshots or 0,

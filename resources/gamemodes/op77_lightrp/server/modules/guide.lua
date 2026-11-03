@@ -19,9 +19,10 @@
 --
 -- A topic, question or action with `requires` is sent only when it is met (see
 -- Guide.requirementMet): "module:<name>", "resource:<name>", "activity:<id>" or
--- "activity:<prefix>*", "config:<root.path>", a bare feature name (looked up in
--- LightRpGuide.features: features that are not on this branch yet), "not:<any of
--- these>"; a list means all of them, `{ any = { ... } }` one of them.
+-- "activity:<prefix>*", "config:<root.path>" (set, and neither false nor 0: a fee
+-- of 0 is free), a bare feature name (looked up in LightRpGuide.features), "not:<any
+-- of these>"; a list means all of them, `{ any = { ... } }` one of them. One line of
+-- an answer can be gated too: `{ requires = "...", "the line" }` in place of the string.
 --
 -- Transport: the client host drops a plain net event over 1024 JSON values
 -- (server/core/framework.lua). The dialog carries the index only (topics, no
@@ -60,7 +61,8 @@ Guide.roots = {
     shops = "LightRpShops", garages = "LightRpGarages", dealerships = "LightRpDealerships",
     customization = "LightRpVehicleCustomization", pricing = "LightRpCustomizationPricing",
     housing = "LightRpHousing", cyberware = "LightRpCyberwareConfig", medical = "LightRpMedicalConfig",
-    support = "LightRpSupportConfig", armament = "LightRpArmament",
+    support = "LightRpSupportConfig", armament = "LightRpArmament", dogtown = "LightRpDogtown",
+    economy = "LightRpEconomy", halloffame = "LightRpHallOfFame",
 }
 
 local function lookup(path)
@@ -196,6 +198,45 @@ end
 local function missionPoint(id)
     for _, p in ipairs(LightRpMissions and LightRpMissions.points or {}) do if p.id == id then return p end end
 end
+local function grouped(n)
+    local digits = tostring(math.tointeger(n) or math.floor(n))
+    return (digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", ""))
+end
+-- Reputation tiers as the missions show them: "II (Merc)" (server/modules/missions.lua tierLabel).
+local ROMAN = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII" }
+local function reputation() return LightRpMissions and LightRpMissions.reputation or {} end
+local function tierLabel(tier)
+    local name = (reputation().names or {})[tier] or ("Tier " .. tostring(tier))
+    return string.format("%s (%s)", ROMAN[tier] or tostring(tier), name)
+end
+-- An implant's rank, 1-6: the sixth shows as V+ (server/config/cyberware.lua).
+local function rankLabel(rank) return rank == 6 and "V+" or ROMAN[rank] or tostring(rank) end
+local function cyberwareGate()
+    local gate = LightRpCyberwareConfig and LightRpCyberwareConfig.gating
+    return type(gate) == "table" and gate.enabled ~= false and gate or nil
+end
+local function difficultyLabel(id) return (tostring(id):gsub("^%l", string.upper)) end
+local DIFFICULTY_ORDER = { "standard", "hard", "critical" }
+-- Items with a food or drink effect (a shop template also sells other things).
+local function isFood(name)
+    local use = LightRpItems and LightRpItems[name] and LightRpItems[name].use
+    return type(use) == "table" and (use.food ~= nil or use.drink ~= nil)
+end
+-- The bucket-0 shops whose template sells this item, and its lowest price there.
+local function soldAt(itemName)
+    local places, low = {}, nil
+    local templates = LightRpShops and LightRpShops.templates or {}
+    for _, place in ipairs(LightRpShops and LightRpShops.locations or {}) do
+        local t = templates[place.template]
+        for _, item in ipairs(cityBucket(place) and t and t.items or {}) do
+            if item.name == itemName and item.buy then
+                places[#places + 1] = place.name
+                low = low and math.min(low, item.buy) or item.buy
+            end
+        end
+    end
+    return places, low
+end
 local function difficultyLines(difficulties)
     local out = {}
     for _, d in ipairs(difficulties or {}) do
@@ -275,13 +316,51 @@ V.activities = function()
     return list(names) or "none, right now (the terminal lists them the moment a game server registers one)"
 end
 V.repTiers = function()
-    local tiers = LightRpMissions and LightRpMissions.reputation and LightRpMissions.reputation.tiers
+    local tiers = reputation().tiers
     if type(tiers) ~= "table" or #tiers == 0 then return nil end
     local parts = {}
     for i, at in ipairs(tiers) do
-        parts[#parts + 1] = at == 0 and string.format("TIER %d from the start", i) or string.format("TIER %d at %s", i, formatNumber(at))
+        parts[#parts + 1] = at == 0 and string.format("%s from the start", tierLabel(i)) or string.format("%s at %s", tierLabel(i), grouped(at))
     end
     return list(parts)
+end
+-- "Hard needs tier II (Merc), Critical tier III (Operator)": the mission difficulties above tier I
+V.difficultyTiers = function()
+    local need = reputation().difficultyTiers
+    if type(need) ~= "table" then return nil end
+    local parts = {}
+    for _, id in ipairs(DIFFICULTY_ORDER) do
+        local tier = tonumber(need[id])
+        if tier and tier > 1 then parts[#parts + 1] = string.format("%s needs tier %s", difficultyLabel(id), tierLabel(tier)) end
+    end
+    return list(parts)
+end
+-- who the missions' daily full payouts are counted for (economy.lua missions.capScope)
+V.missionCapScope = function()
+    local scope = LightRpEconomy and LightRpEconomy.missions and LightRpEconomy.missions.capScope
+    if scope == "character" then return "per character" end
+    return "per account (all your characters together)"
+end
+-- reputation a PvE activity win gives, by difficulty (activities.lua pve.difficulties)
+V.activityRep = function()
+    local parts = {}
+    for _, d in ipairs(LightRpActivities and LightRpActivities.pve and LightRpActivities.pve.difficulties or {}) do
+        if tonumber(d.reputation) then parts[#parts + 1] = string.format("%s on %s", formatNumber(d.reputation), d.label or difficultyLabel(d.id)) end
+    end
+    return list(parts, "or")
+end
+V.traumaKitPrice = function() local _, low = soldAt("trauma_kit"); return low and money(low) end
+V.traumaKitShops = function() return list((soldAt("trauma_kit")), "or") end
+V.impoundRange = function()
+    local fees = LightRpGarages and LightRpGarages.impound and LightRpGarages.impound.fees or {}
+    local low, high
+    for _, fee in pairs(fees) do
+        fee = tonumber(fee)
+        if fee then low = low and math.min(low, fee) or fee; high = high and math.max(high, fee) or fee end
+    end
+    if not low then return nil end
+    local function show(n) return n == 0 and "free" or money(n) end
+    return low == high and show(low) or (show(low) .. " to " .. money(high))
 end
 V.fixerNames = function()
     local names = {}
@@ -299,7 +378,9 @@ V.fuelPumps = function() local n = #(LightRpConfig.fuel and LightRpConfig.fuel.s
 V.cheapestFood = function()
     local t = LightRpShops and LightRpShops.templates and LightRpShops.templates.street_food
     local low
-    for _, item in ipairs(t and t.items or {}) do if item.buy then low = low and math.min(low, item.buy) or item.buy end end
+    for _, item in ipairs(t and t.items or {}) do
+        if item.buy and isFood(item.name) then low = low and math.min(low, item.buy) or item.buy end
+    end
     return low and money(low)
 end
 
@@ -328,9 +409,13 @@ L.dealerStock = function()
     for _, s in ipairs(stock) do out[#out + 1] = string.format("%s: %s", vehicleLabel(s.key), money(s.price)) end
     return out
 end
+-- server/config/garages.lua impound.fees, in the order a player meets them
 local IMPOUND_REASONS = {
-    { "restart", "left outside when the server restarted" }, { "lost", "destroyed, deleted or lost" },
-    { "requested", "sent there by you" }, { "staff", "towed by staff" },
+    { "restart", "intact, left outside when the server restarted" },
+    { "destroyed", "a wreck, destroyed or exploded by anyone (the insurance repairs it)" },
+    { "lost", "gone without a wreck (deleted, cleaned up, lost to a bug)" },
+    { "requested", "intact, sent there by you from a garage" },
+    { "staff", "towed by staff" },
 }
 L.impoundFees = function()
     local fees = LightRpGarages and LightRpGarages.impound and LightRpGarages.impound.fees or {}
@@ -345,11 +430,62 @@ L.foodPrices = function()
     local t = LightRpShops and LightRpShops.templates and LightRpShops.templates.street_food
     local out = {}
     for _, item in ipairs(t and t.items or {}) do
-        local effect = LightRpItems[item.name] and LightRpItems[item.name].use or {}
-        local gains = {}
-        if effect.food then gains[#gains + 1] = "food +" .. formatNumber(effect.food) end
-        if effect.drink then gains[#gains + 1] = "drink +" .. formatNumber(effect.drink) end
-        out[#out + 1] = string.format("%s: %s%s", itemLabel(item.name), money(item.buy), #gains > 0 and (" · " .. table.concat(gains, ", ")) or "")
+        if item.buy and isFood(item.name) then
+            local effect = LightRpItems[item.name].use
+            local gains = {}
+            if effect.food then gains[#gains + 1] = "food +" .. formatNumber(effect.food) end
+            if effect.drink then gains[#gains + 1] = "drink +" .. formatNumber(effect.drink) end
+            out[#out + 1] = string.format("%s: %s · %s", itemLabel(item.name), money(item.buy), table.concat(gains, ", "))
+        end
+    end
+    return out
+end
+-- What each reputation tier opens: mission and PvE activity difficulties, cyberware ranks.
+L.tierOpens = function()
+    local R = reputation()
+    if type(R.tiers) ~= "table" or #R.tiers == 0 then return nil end
+    local missionTier = R.requireTier ~= false and type(R.difficultyTiers) == "table" and R.difficultyTiers or {}
+    local activityTier = {}
+    for _, d in ipairs(LightRpActivities and LightRpActivities.pve and LightRpActivities.pve.difficulties or {}) do
+        if d.id then activityTier[d.id] = math.max(1, math.floor(tonumber(d.minTier) or 1)) end
+    end
+    local gate = cyberwareGate()
+    local byRank = gate and type(gate.byRank) == "table" and gate.byRank or {}
+    local out = {}
+    for tier, at in ipairs(R.tiers) do
+        local opens = {}
+        for _, id in ipairs(DIFFICULTY_ORDER) do
+            local m, a = tonumber(missionTier[id]) == tier, activityTier[id] == tier
+            local what = m and a and "missions and PvE activities" or m and "missions" or a and "PvE activities" or nil
+            if what then opens[#opens + 1] = difficultyLabel(id) .. " " .. what end
+        end
+        local ranks = {}
+        for rank = 1, 6 do if tonumber(byRank[rank]) == tier then ranks[#ranks + 1] = rankLabel(rank) end end
+        if #ranks > 0 then opens[#opens + 1] = (#ranks > 1 and "ranks " or "rank ") .. list(ranks) .. " cyberware" end
+        local head = string.format("**%s**, %s", tierLabel(tier), at == 0 and "from the start" or (grouped(at) .. " reputation"))
+        out[#out + 1] = #opens > 0 and (head .. ": " .. table.concat(opens, "; ")) or head
+    end
+    return out
+end
+-- The reputation tier each cyberware rank needs (cyberware.lua gating.byRank).
+L.cyberwareRanks = function()
+    local gate = cyberwareGate()
+    if not gate or type(gate.byRank) ~= "table" then return nil end
+    local tiers = reputation().tiers or {}
+    local byTier, order = {}, {}
+    for rank = 1, 6 do
+        local tier = tonumber(gate.byRank[rank])
+        if tier then
+            if not byTier[tier] then byTier[tier] = {}; order[#order + 1] = tier end
+            table.insert(byTier[tier], rankLabel(rank))
+        end
+    end
+    local out = {}
+    for _, tier in ipairs(order) do
+        local ranks = byTier[tier]
+        local at = tiers[tier]
+        out[#out + 1] = string.format("%s %s: %s", #ranks > 1 and "Ranks" or "Rank", list(ranks),
+            (at == nil or at == 0) and "from the start" or string.format("tier %s, %s reputation", tierLabel(tier), grouped(at)))
     end
     return out
 end
@@ -364,7 +500,8 @@ end
 L.cyberware = function()
     local out = {}
     for _, item in ipairs(LightRpCyberwareConfig and LightRpCyberwareConfig.items or {}) do
-        out[#out + 1] = string.format("**%s** (%s): %s", item.name, money(item.price), item.effect or "")
+        local rank = tonumber(item.tier) and ("rank " .. rankLabel(tonumber(item.tier)) .. ", ") or ""
+        out[#out + 1] = string.format("**%s** (%s%s): %s", item.name, rank, money(item.price), item.effect or "")
     end
     return out
 end
@@ -462,7 +599,7 @@ function Guide.requirementMet(requirement, depth)
         return registry[arg] ~= nil
     elseif kind == "config" then
         local value = lookup(arg)
-        return value ~= nil and value ~= false
+        return value ~= nil and value ~= false and value ~= 0
     end
     return false
 end
@@ -476,6 +613,7 @@ local function signature()
         if node.requires ~= nil then bits[#bits + 1] = Guide.requirementMet(node.requires) and "1" or "0" end
         for _, child in ipairs(node.questions or {}) do visit(child) end
         for _, child in ipairs(node.actions or {}) do visit(child) end
+        for _, child in ipairs(type(node.a) == "table" and node.a or {}) do visit(child) end -- gated lines
     end
     for _, topic in ipairs(C.topics or {}) do visit(topic) end
     local ids = {}
@@ -638,7 +776,8 @@ function Guide.resolve(text)
     return out, missing
 end
 
--- Lines of an answer, resolved; `{list:name}` alone on a line becomes bullets.
+-- Lines of an answer, resolved; `{list:name}` alone on a line becomes bullets; a
+-- `{ requires = ..., "line" }` entry is kept only while its requirement is met.
 local function resolveLines(value, where)
     local lines = type(value) == "table" and value or { value }
     local out = {}
@@ -647,7 +786,9 @@ local function resolveLines(value, where)
         for _, m in ipairs(missing) do warnOnce(where .. m, "guide: %s: placeholder {%s} does not resolve", where, m) end
         out[#out + 1] = text
     end
-    for _, line in ipairs(lines) do
+    for _, entry in ipairs(lines) do
+        local line = entry
+        if type(entry) == "table" then line = Guide.requirementMet(entry.requires) and entry[1] or nil end
         if type(line) == "string" then
             local name = line:match("^%s*{list:([^{}]+)}%s*$")
             if name then
