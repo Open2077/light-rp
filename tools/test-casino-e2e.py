@@ -194,7 +194,9 @@ function Open77.props.create(o)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
  local ok=false;for _,d in ipairs(DEPOTS) do if o.model:find(d,1,true)==1 then ok=true end end
  assert(ok,'unexpected depot '..tostring(o.model))
- assert(o.model:sub(-4)=='.ent' and o.kind=='prop' and o.scale==.65 and o.collision==false and o.physics=='none')
+ assert(o.model:sub(-4)=='.ent' and o.kind=='prop')
+ if o.model:find('_collider.ent',1,true) then assert(o.scale==1 and o.collision==true and o.physics=='static') -- table colliders
+ else assert(o.scale==.65 and o.collision==false and o.physics=='none') end
  local name=o.model:match('([^\\]+)%.ent$')
  assert(availableModels[name],'native asset missing from the cooked packages: '..name)
  local count=0;for _ in pairs(nativeProps) do count=count+1 end
@@ -270,7 +272,7 @@ class Sim:
         models = {}
         for pack in ('blackjack', 'slots', 'fortune'):
             manifest = json.loads((ROOT/f'resources/assets/models/open77_casino_{pack}/asset-manifest.json').read_text())
-            for m in manifest['models']:
+            for m in manifest['models'] + manifest.get('colliders', []):
                 models[m['name']] = True
         for pack in ('open77_tabletop_extra', 'open77_board_games'):
             manifest = json.loads((ROOT/f'resources/assets/models/{pack}/asset-manifest.json').read_text())

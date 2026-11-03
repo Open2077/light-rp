@@ -23,6 +23,9 @@ FONT=Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
 spec=importlib.util.spec_from_file_location('native_boards',ROOT/'tools/build-board-game-props.py');base=importlib.util.module_from_spec(spec);spec.loader.exec_module(base)
 base.RESOURCE=RESOURCE;base.DEPOT=DEPOT
 g=base.load_generator()
+# Player collision (tools/COLLISION.md): <base>_collider.ent, boxes in cabinet-local metres before the 0.65 scale.
+spec=importlib.util.spec_from_file_location('collision_props',ROOT/'tools/collision_props.py');col=importlib.util.module_from_spec(spec);spec.loader.exec_module(col)
+COLLIDERS={'slot_cabinet':[col.Box.between((-.49,-.40,0),(.49,.40,2.52))]}  # plinth+body; lever and deck lip stay open
 
 # Palette. Textured materials use sentinel colors that never appear elsewhere.
 BODY,TRIM,CHROME,LINING='#1A1C24FF','#2A2D36FF','#C8CDD6FF','#0B0B0EFF'
@@ -325,7 +328,10 @@ def verify(work,manifest):
  archive=work/'archive';verified=work/'verified';packed=(work/'packed/archive.archive').read_bytes()
  entries=checks.archive_entries(packed);files=manifest['files']
  assert len(manifest['models'])==13 and len(manifest['textures'])==3
- assert len(entries)==len(files)==2*13+3
+ assert len(entries)==len(files)==2*13+3+len(COLLIDERS)
+ for row in manifest.get('colliders',[]):
+  assert row['name']==col.collider_name(row['for']) and row['for'] in COLLIDERS and row['scaleBaked']==col.SCALE
+  col.check_collider_entity(next(verified.rglob(row['name']+'.ent.json')),COLLIDERS[row['for']])
  assert set(entries)=={checks.fnv(row['depot']) for row in files}
  allowed={row['depot'] for row in files}|set(manifest['materialDependencies'])
  for row in files:
@@ -374,7 +380,7 @@ def verify(work,manifest):
  with zipfile.ZipFile(RESOURCE/'dist/open77_casino_slots.zip') as z:
   assert z.testzip() is None and z.namelist()==['archive/pc/mod/0_open77_casino_slots.archive']
   assert z.read(z.namelist()[0])==packed
- print('VERIFIED: 13 native props (cabinet, 3 strips, 6 lever poses, 2 lamps, coin), 3 opaque mipmapped textures, 29 exact RDAR entries, geometry/bindings/package hashes, parked poses hidden, strips always cover the window inside the bay',flush=True)
+ print('VERIFIED: 13 native props (cabinet, 3 strips, 6 lever poses, 2 lamps, coin), 3 opaque mipmapped textures, 29 exact RDAR entries + '+str(len(COLLIDERS))+' collider entities, geometry/bindings/package hashes, parked poses hidden, strips always cover the window inside the bay',flush=True)
 
 
 def main():
@@ -405,6 +411,10 @@ def main():
   (schemas/(name+'.ent.json')).write_text(json.dumps(base.entity_json(template,name,i)))
   lo,hi=bounds(faces)
   records.append({'name':name,'mesh':DEPOT+'\\'+name+'.mesh','entity':DEPOT+'\\'+name+'.ent','triangles':len(faces),'materials':colors,'bounds':{'min':lo,'max':hi}})
+ colliders=[]
+ for i,(name,boxes) in enumerate(COLLIDERS.items()):
+  (schemas/(col.collider_name(name)+'.ent.json')).write_text(json.dumps(col.collider_entity_json(template,boxes,i)))
+  colliders.append({'name':col.collider_name(name),'for':name,'entity':DEPOT+'\\'+col.collider_name(name)+'.ent','scaleBaked':col.SCALE,'boxes':[{'size':list(b.size),'center':list(b.center)} for b in boxes]})
  archive=work/'archive';target=archive/DEPOT.replace('\\','/');(target/'textures').mkdir(parents=True,exist_ok=True)
  cli('convert','deserialize',schemas,'-o',target);cli('convert','deserialize',tex,'-o',target/'textures');cli('import',*[raw/(name+'.mesh.glb') for name in geometry],'-o',target,'--keep',imports=len(geometry))
  verified=work/'verified';verified.mkdir(exist_ok=True);cli('convert','serialize',archive,'-o',verified);packed=work/'packed';packed.mkdir(exist_ok=True);cli('pack',archive,'-o',packed)
@@ -412,7 +422,7 @@ def main():
  with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
   info=zipfile.ZipInfo('archive/pc/mod/0_open77_casino_slots.archive',(2026,1,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,cooked.read_bytes())
  files=[{'depot':str(p.relative_to(archive)).replace('/','\\'),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in sorted(archive.rglob('*')) if p.is_file()]
- manifest={'version':'1.0.0','namespace':DEPOT,'models':records,'textures':textures,'files':files,'symbols':symbols,'reels':strips,'layout':LAYOUT,
+ manifest={'version':'1.0.0','namespace':DEPOT,'models':records,'colliders':colliders,'textures':textures,'files':files,'symbols':symbols,'reels':strips,'layout':LAYOUT,
   'archiveSha256':hashlib.sha256(cooked.read_bytes()).hexdigest(),'zipSha256':hashlib.sha256(output.read_bytes()).hexdigest(),'buildWork':str(work),'materialDependencies':['engine\\materials\\metal_base.remt','engine\\textures\\editor\\white.xbm']}
  (RESOURCE/'asset-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('COOKED',len(records),'models,',len(textures),'textures,',len(files),'native files, ZIP',output.stat().st_size,'bytes',flush=True)
  verify(work,manifest)

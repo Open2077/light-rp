@@ -26,7 +26,7 @@ local LOAD_GRACE_MS,RETRY_MS=15000,20000
 -- props fit PROP_BUDGET (the client quota is 256 props per resource; the rest
 -- is headroom for the placement ghost and new pieces).
 local RENDER_RADIUS,PROP_BUDGET=40,220
-local PROP_ESTIMATE={chess=33,checkers=41,connect4=43,roulette=3,slots=16,blackjack=60,fortune=45}
+local PROP_ESTIMATE={chess=33,checkers=41,connect4=43,roulette=3,slots=17,blackjack=60,fortune=45}
 local ASSET_HELP="Close the game and rejoin through the launcher to install the board-game assets."
 local sounds, soundSequences = {}, {}
 local SOUND_NAMES={['chess-move']=true,['chess-capture']=true,['checkers-move']=true,
@@ -467,6 +467,12 @@ local rendererRunning=false
 local ownedProps={}
 local ghostProp
 local DEPOT="open77\\assets\\op77_lightrp\\board_games\\"
+-- Player collision (tools/COLLISION.md). A visual prop is never solid: a base
+-- listed here has a cooked `<base>_collider.ent` beside it (static boxes, the
+-- 0.65 scale baked in), created as its own prop at scale 1 once the table is
+-- placed. The placement ghost and the pieces never get one. Add a base name
+-- here only after its pack build ships the collider entity.
+local TABLE_COLLIDERS={slot_cabinet=true}
 local function removeProp(record)
     if record and record.handle then
         ownedProps[tostring(record.handle)]=nil
@@ -481,7 +487,7 @@ local function clearGeometry(id)
     if id=="draft" then clearGhost();return end
     local cache=renderCaches[id]
     if cache then
-        removeProp(cache.board)
+        removeProp(cache.board);removeProp(cache.collider)
         for _,piece in pairs(cache.pieces) do removeProp(piece) end
         renderCaches[id]=nil
     end
@@ -519,6 +525,24 @@ local function createProp(board,piece,position,isGhost)
     ownedProps[tostring(handle)]=record
     return record
 end
+local function colliderModel(board)
+    local name=modelName(board,nil)
+    local path=name:sub(-4)==".ent" and name or DEPOT..name..".ent"
+    local base=path:match("([^\\]+)%.ent$")
+    if base and TABLE_COLLIDERS[base] then return path:sub(1,-5).."_collider.ent" end
+end
+-- Solid, invisible to the eye (no mesh), never validated as a render: a missing
+-- or failed collider only leaves the table walk-through, as before.
+local function createCollider(board,model)
+    local yaw=propYaw(board,nil)
+    local handle,why=Open77.props.create({model=model,kind="prop",position=board.position,yaw=yaw,
+        scale=1,physics="static",collision=true,visible=true})
+    if not handle then trace("collider_create_failed",tostring(board.id),"%s %s",model,tostring(why));return nil end
+    local record={handle=handle,name=model,position={x=board.position.x,y=board.position.y,z=board.position.z},yaw=yaw,
+        created=GetGameTimer(),boardId=tostring(board.id),collider=true,ready=true}
+    ownedProps[tostring(handle)]=record
+    return record
+end
 local function transformProp(record,position,yaw)
     if not record or not record.handle then return false end
     local ok,why=Open77.props.setTransform(record.handle,{position=position,yaw=yaw or record.yaw})
@@ -553,7 +577,7 @@ local function validateProps(yieldFn)
         local record,row=ownedProps[id],byId[id]
         -- A ready prop is re-checked only when its back-end changes (e.g. to a
         -- placeholder), which keeps the common path to a few instructions.
-        if record and not (record.ready and row and not row.failed and row.backend==record.backend) then
+        if record and not record.collider and not (record.ready and row and not row.failed and row.backend==record.backend) then
             record.backend=row and row.backend
             local backend=row and tostring(row.backend or ""):lower() or ""
             local fallback=backend:find("marker",1,true) or backend:find("fallback",1,true)
@@ -595,8 +619,21 @@ local function ensureBoard(board)
         Wait(0);beats.render=GetGameTimer() -- one native create per resume, including a full initial board
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end
+    if not cache.colliderTried then -- once per cache, even if a snapshot interrupted the pass above
+        cache.colliderTried=true
+        local model=colliderModel(board)
+        if model then
+            cache.collider=createCollider(board,model)
+            Wait(0);beats.render=GetGameTimer() -- a failed create is a native call too
+            if not aliveBoard(board) or renderCaches[id]~=cache then return end
+        end
+    end
     if distance(cache.board.position,board.position)>.00001 or cache.board.yaw~=(board.rotation or 0) then
         if not transformProp(cache.board,board.position,board.rotation or 0) then return end
+        local collider=cache.collider
+        if collider and collider.handle and Open77.props.setTransform(collider.handle,{position=board.position,yaw=propYaw(board,nil)}) then
+            collider.position={x=board.position.x,y=board.position.y,z=board.position.z};collider.yaw=propYaw(board,nil)
+        end
         Wait(0);beats.render=GetGameTimer()
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end
@@ -633,6 +670,7 @@ local function pickupBoard(context)
     local target=context.target
     if target.kind~="prop" or target.networked~=false or (type(target.propId)~="string" and type(target.propId)~="number") then return end
     local record=ownedProps[tostring(target.propId)]
+    if record and record.collider then local cache=renderCaches[record.boardId];record=cache and cache.board end
     if not record or record.ghost or not record.boardId then return end
     local cache=renderCaches[record.boardId]
     local board=Client.boards[tonumber(record.boardId) or record.boardId]
@@ -1112,7 +1150,7 @@ function Client.start()
                 for _,entry in ipairs(near) do
                     local id=tostring(entry.board.id);local cache=renderCaches[id]
                     local cost=PROP_ESTIMATE[entry.board.kind] or 45
-                    if cache then cost=1;for _ in pairs(cache.pieces) do cost=cost+1 end end
+                    if cache then cost=cache.collider and 2 or 1;for _ in pairs(cache.pieces) do cost=cost+1 end end
                     if #renderCandidates>0 and props+cost>PROP_BUDGET then break end
                     props=props+cost;renderCandidates[#renderCandidates+1]=entry;allowed[id]=true
                 end

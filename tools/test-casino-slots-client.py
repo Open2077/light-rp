@@ -10,15 +10,17 @@ namespace={'__file__':str(ROOT/'tools/test-board-games-client.py')}
 exec(source.split("for name in ['shared/board_game_models.lua'")[0],namespace)
 lua=namespace['lua']
 assets=json.loads((ROOT/'resources/assets/models/open77_casino_slots/asset-manifest.json').read_text())
-lua.globals().availableModels=lua.table_from({model['name']:True for model in assets['models']})
+lua.globals().availableModels=lua.table_from({model['name']:True for model in assets['models']+assets.get('colliders',[])})
 lua.globals().assetLayout=lua.table_from({k:(lua.table_from(v) if isinstance(v,list) else v) for k,v in assets['layout'].items()})
 lua.execute(r'''
 LightRpBoardGames={};LightRpItems={}
 function Open77.props.create(options)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
  assert(options.model:find('open77\\assets\\op77_lightrp\\casino_slots\\',1,true)==1)
- assert(options.model:sub(-4)=='.ent' and options.kind=='prop' and options.scale==.65)
- assert(options.collision==false and options.physics=='none')
+ assert(options.model:sub(-4)=='.ent' and options.kind=='prop')
+ if options.model:find('_collider.ent',1,true) then -- tools/test-table-colliders.py
+  assert(options.collision==true and options.physics=='static' and options.scale==1)
+ else assert(options.scale==.65 and options.collision==false and options.physics=='none') end
  nextNativeId=nextNativeId+1;local id=tostring(nextNativeId)
  local name=options.model:match('([^\\]+)%.ent$')
  assert(availableModels[name],'native asset missing from the cooked package: '..tostring(name))
@@ -46,7 +48,7 @@ local now=1700000000000
 local machine={id=201,kind='slots',owned=true,position={x=0,y=0,z=0},rotation=0,
  players={white=7,black=9},actor=7,ready=true,mode='duel',revision=1,serverNow=now,game=S.new('duel')}
 events['lightrp:boardGames:state']({boards={machine}});step()
-waitUntil(function() return countProps()==16 end,'cabinet, 3 strips, 6 lever poses, 2 lamps, 4 coins')
+waitUntil(function() return countProps()==17 end,'cabinet, its collider, 3 strips, 6 lever poses, 2 lamps, 4 coins')
 assert(C.isActive() and view.extra.kind=='slots' and view.extra.seat=='white' and view.extra.paytable.three.seven==200)
 assert(cameraSpec.lookAt and cameraSpec.position.y<cameraSpec.lookAt.y,'front camera faces the machine')
 local function z(name) return findProp(name).position.z/K end
@@ -135,5 +137,5 @@ end end
 pageHandlers['lightrp:boardGames:leave']({});assert(not C.isActive())
 handlers.onClientResourceStop('test');for i=1,20 do step() end
 assert(next(nativeProps)==nil and next(batches)==nil and cinematic==false)
-print('slot machine client: 16 native props, lever poses, server-clock reels on the server stops, lamp and coins, cleanup: OK; peak '..peakInstructions..' (budget '..BOARD_BUDGET..')')
+print('slot machine client: 16 native props + collider, lever poses, server-clock reels on the server stops, lamp and coins, cleanup: OK; peak '..peakInstructions..' (budget '..BOARD_BUDGET..')')
 ''')

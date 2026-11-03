@@ -293,6 +293,28 @@
       }
     }
   ],
+  "colliders": [
+    {
+      "name": "slot_cabinet_collider",
+      "for": "slot_cabinet",
+      "entity": "open77\\assets\\op77_lightrp\\casino_slots\\slot_cabinet_collider.ent",
+      "scaleBaked": 0.65,
+      "boxes": [
+        {
+          "size": [
+            0.98,
+            0.8,
+            2.52
+          ],
+          "center": [
+            0.0,
+            0.0,
+            1.26
+          ]
+        }
+      ]
+    }
+  ],
   "textures": [
     {
       "name": "slot_symbols",
@@ -335,6 +357,11 @@
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_cabinet.mesh",
       "sha256": "ac51aa4dcb0464c94659169e044a99d3c012a4a9780ab224e44b6e68c8ad681a",
       "bytes": 22767
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_cabinet_collider.ent",
+      "sha256": "a1c5a8160aa1ba9dba964df565b280303ad47fbf6ea06bc1c7308cfe705e3107",
+      "bytes": 14088
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_slots\\slot_coin.ent",
@@ -570,9 +597,9 @@
       0.4
     ]
   },
-  "archiveSha256": "99f7656f1b85cf87f513ba46cf55570bf5c75b65f94fe008cf3627b82ace0609",
-  "zipSha256": "8e27bac865ed860c7d762349d13eaef8c57eab2c37979a448f42c402a18237c6",
-  "buildWork": "/home/dop42/.cache/lrp-rebuild/casino-slots",
+  "archiveSha256": "fda34509a9b8220108fd6ffedae61e505da7bdb06fe8652d10b7b8ba71c3b4d3",
+  "zipSha256": "997e0387479242d318ee5f8158c4ce084bec6452c6e5fe0f823f4d10dd793af0",
+  "buildWork": "/home/dop42/.cache/tables-col/build-slots",
   "materialDependencies": [
     "engine\\materials\\metal_base.remt",
     "engine\\textures\\editor\\white.xbm"
