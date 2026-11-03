@@ -1522,7 +1522,11 @@ end
 
 function H.queueTeams(playerId, format)
     format = (format == "3v3") and "3v3" or ((format == "2v2") and "2v2" or L.teams.defaultFormat)
+    -- The engine's "queued" card stays quiet: Light RP answers the panel's join and its
+    -- queue panel shows the roster filling (/arena.teams replies in chat).
+    H.quietQueue = true
     local position = DM.arena.enqueue(playerId, format, false)
+    H.quietQueue = false
     DM.broadcastState()
     return position ~= nil
 end
@@ -1631,7 +1635,8 @@ function H.queueDuel(playerId)
         return started
     end
     H.duelQueue[#H.duelQueue + 1] = { playerId = playerId, atMs = now() }
-    H.tell(playerId, "success", ACT.duel.label, "Looking for an opponent. /arena.leave to stop.")
+    -- No "looking for an opponent" notice: Light RP answers the panel's join and its queue
+    -- panel shows the seeker (/duel random replies in chat).
     DM.broadcastState()
     return true
 end
@@ -2059,7 +2064,7 @@ function H.joinMatch(playerId, key, spec, options)
     record.arrived[playerId] = now()
     for _, member in ipairs(record.players) do
         if not record.arrived[member] and connected(member) then
-            H.tell(playerId, "info", ACT[key].label, "Waiting for the other players of the match.")
+            -- No "waiting for the others" notice: the match is Light RP's, its join says so.
             DM.broadcastState()
             return true
         end
@@ -2403,7 +2408,10 @@ AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activit
     else
         local _, format = DM.arena.queuePosition(id)
         if format ~= nil and ((key == "teams" and format ~= "1v1") or (key == "duel" and format == "1v1")) then
+            -- Light RP's answer to the leave already says it: no "queue left" card on top.
+            H.quietQueue = true
             DM.leave(id, "queue")
+            H.quietQueue = false
         end
     end
     DM.broadcastState()

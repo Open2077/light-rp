@@ -457,7 +457,7 @@ do
     matchJoin({ 30, 31, 32 }, ACT.teams.id, { id = "match:g1", friendly = false, ranked = true, format = "2v2",
         players = { 30, 31, 32, 33 }, teams = { { 30, 31 }, { 32, 33 } } }, { mode = "2v2" })
     assert(DM.instances.of(30) == nil and DM.arena.queuePosition(30) == nil, "gathering, in no queue")
-    assert(noticed(30, "Waiting"))
+    assert(not noticed(30, "Waiting"), "the match is Light RP's: its join says so, no notice of ours")
     T = T + L.lobby.gatherMs
     H.tick(T)
     local instance = DM.instances.of(30)

@@ -33,12 +33,17 @@ S.call = call
 
 local TONE = { success = "success", warning = "danger", error = "danger", info = "info" }
 
--- A Light RP notice from the client side (same event the core raises).
+-- A Light RP notice from the client side: the core's Notice export, the core's event
+-- only for a core older than that export. The page knows a closed set of kinds.
+local KINDS = { info = true, success = true, warning = true, error = true }
 local function notify(kind, title, body, durationMs)
-    TriggerEvent("op77_lightrp:notice", {
-        kind = kind or "info", title = title or L.source, body = body or "",
+    local notice = {
+        kind = KINDS[kind] and kind or "info", title = title or L.source, body = body or "",
         source = L.source, durationMs = durationMs or 5000,
-    })
+    }
+    local ok, why = call("Notice", notice)
+    if ok == true or why == "rate_limited" or why == "empty_notice" then return end
+    TriggerEvent("op77_lightrp:notice", notice)
 end
 S.notify = notify
 

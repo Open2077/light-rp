@@ -25,6 +25,12 @@ contract through the seams the engine resolves at call time.
   per arena match. They carry a proposed reputation, never cash or items.
 - **The HUD** is Light RP's shared activity HUD (`ActivityHudShow`, `ActivityHudPush`,
   `ActivityHudClear`). This resource has no page of its own.
+- **Notices** are Light RP's own: the server raises `op77_lightrp:notice`, the client
+  goes through `exports.op77_lightrp:Notice` (the core's event only for an older core).
+  Light RP answers a join or a leave from its panel and shows the duel seekers and the
+  team rosters in its queue panel, so there is no "QUEUED", "You left the queue",
+  "Looking for an opponent" or "Waiting for the other players of the match" notice on
+  top. `/duel random` and `/arena.teams` still reply in chat.
 
 ## Player commands
 
