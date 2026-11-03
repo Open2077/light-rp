@@ -11,13 +11,53 @@ local function playerId(value)
     return nil
 end
 
+-- The client host drops a plain net event of more than 1024 JSON values or ~48 KiB, and tells
+-- nobody (kMaximumEventValues, scripting/src/ResourceHost.cpp). A full clinic payload (34
+-- implants with their stats) is past it: a payload over LATENT_VALUES (counted generously,
+-- every key and every value) or LATENT_BYTES goes as a latent event, reassembled by the host and
+-- delivered under the same name. A newer payload replaces a stream to the same player still in
+-- flight; when that stream was the "open", the newer one is sent as the "open" (same shape).
+local LATENT_VALUES, LATENT_BYTES, LATENT_RATE = 900, 40 * 1024, 512 * 1024
+local streams = {} -- playerId -> { id, name }
+local function countValues(value, depth)
+    if type(value) ~= "table" then return 1 end
+    if (depth or 0) > 12 then return 1 end
+    local n = 1
+    for key, item in pairs(value) do n = n + 1 + countValues(item, (depth or 0) + 1); if type(key) == "table" then n = n + 1 end end
+    return n
+end
+local function sizeOf(value)
+    if type(json) ~= "table" or type(json.encode) ~= "function" then return 0 end
+    local ok, text = pcall(json.encode, value)
+    return ok and type(text) == "string" and #text or 0
+end
+local function cancelStream(pid)
+    local s = streams[pid]
+    streams[pid] = nil
+    if not s or type(Open77.net) ~= "table" or type(Open77.net.cancelLatent) ~= "function" then return nil end
+    local ok, cancelled = pcall(Open77.net.cancelLatent, s.id)
+    return ok and cancelled == true and s or nil
+end
+local function deliver(pid, name, payload)
+    if (countValues(payload) > LATENT_VALUES or sizeOf(payload) > LATENT_BYTES) and type(TriggerLatentClientEvent) == "function" then
+        local previous = cancelStream(pid)
+        if previous and previous.name == "op77_ripperdoc:open" then name = "op77_ripperdoc:open" end
+        local id, why = TriggerLatentClientEvent(name, pid, LATENT_RATE, payload)
+        if id then streams[pid] = { id = id, name = name } return true end
+        print(("[ripperdoc] %s for %d not sent: %s"):format(name, pid, tostring(why)))
+        return nil, why
+    end
+    TriggerClientEvent(name, pid, payload)
+    return true
+end
+RipperdocTransport = { countValues = countValues, deliver = deliver, LATENT_VALUES = LATENT_VALUES } -- tests
+
 --- open(playerId, payload?) -> true | nil, reason
 exports("open", function(pid, payload)
     pid = playerId(pid)
     if not pid then return nil, "invalid_player" end
     open[pid] = true
-    TriggerClientEvent("op77_ripperdoc:open", pid, type(payload) == "table" and payload or {})
-    return true
+    return deliver(pid, "op77_ripperdoc:open", type(payload) == "table" and payload or {})
 end)
 
 --- close(playerId) -> true. Closes without asking the client to report back.
@@ -26,6 +66,7 @@ exports("close", function(pid)
     if not pid then return nil, "invalid_player" end
     if open[pid] then
         open[pid] = nil
+        cancelStream(pid)
         TriggerClientEvent("op77_ripperdoc:close", pid)
     end
     return true
@@ -43,8 +84,7 @@ end)
 exports("update", function(pid, payload)
     pid = playerId(pid)
     if not pid or not open[pid] then return nil, "not_open" end
-    TriggerClientEvent("op77_ripperdoc:update", pid, type(payload) == "table" and payload or {})
-    return true
+    return deliver(pid, "op77_ripperdoc:update", type(payload) == "table" and payload or {})
 end)
 
 -- The page asked for an install / removal: the clinic's owner decides (host event).
@@ -70,12 +110,13 @@ RegisterNetEvent("op77_ripperdoc:closed", function()
     local pid = playerId(source)
     if not pid or not open[pid] then return end
     open[pid] = nil
+    cancelStream(pid)
     TriggerEvent("op77_ripperdoc:closed", pid)
 end)
 
 AddEventHandler("onPlayerDisconnected", function(pid)
     pid = playerId(pid)
-    if pid then open[pid] = nil; lastAction[pid] = nil end
+    if pid then open[pid] = nil; lastAction[pid] = nil; streams[pid] = nil end
 end)
 
 -- Console preview without a chair: ripperdoc.open <playerId> [male|female]

@@ -4,7 +4,9 @@
 --   Chase 1v1  both drivers: rounds won, busts made as cop, escapes made as runner,
 --              time in the rounds; each round as a line (who won it, how)
 --   NCPD Escape  the runners (players): escaped / busted / left and how long they
---              lasted; the NCPD units as a line (the cop cars are not players)
+--              lasted; police = "ncpd": the difficulty, the stars reached, the result
+--              (how) and the time as lines; police = "bots": the NCPD units as a line
+--              (the cop cars are not players)
 --   Most Wanted  the table: placement, points, arrests (busts), extractions and
 --              survivals (escapes), time as the runner
 --
@@ -40,11 +42,53 @@ function CR.ranked(match)
         columns = { "placement", "roundsWon", "busts", "escapes", "timeMs" } }
 end
 
+-- NCPD Escape's own lines. police = "ncpd" (the game's NCPD, a wanted level): the police
+-- and difficulty, the stars reached, then the result and the time (solo) or one line per
+-- runner (a crew: "Escaped - 4★ - 1:38"). police = "bots": the NCPD units and runners.
+local HOW_TEXT = { extraction = "extraction", clock = "clock", shake = "lost them", arrest = "cuffed", takedown = "down" }
+local BUST_TEXT = { stopped = "stopped", out_of_car = "out of the car" }
+local OUTCOME_TEXT = { escaped = "Escaped", busted = "Busted", left = "Left" }
+
+local function clock(seconds)
+    seconds = int(seconds)
+    return ("%d:%02d"):format(math.floor(seconds / 60), seconds % 60)
+end
+
+local function resultText(m)
+    if m.outcome == nil then return "Still running" end
+    local why = (m.how == "arrest" and BUST_TEXT[tostring(m.bustDetail)]) or (m.outcome ~= "left" and HOW_TEXT[m.how]) or nil
+    return (OUTCOME_TEXT[m.outcome] or tostring(m.outcome)) .. (why and (" - " .. why) or "")
+end
+
+local function starsOf(m) return m.run and int(m.run.maxStars) or 0 end
+
+local function ncpdLines(match, runners)
+    local diff = match.diff and match.diff.label or tostring(match.difficulty or "Standard")
+    local ceiling = 0
+    if match.diff and ChaseEscapeRules then ceiling = ChaseEscapeRules.ceiling(match.diff.heat) end
+    local best = 0
+    for _, m in ipairs(runners) do best = math.max(best, starsOf(m)) end
+    local lines = { { label = "Police", value = "NCPD - " .. diff },
+        { label = "Stars reached", value = ceiling > 0 and ("%d of %d"):format(best, ceiling) or tostring(best) } }
+    if #runners == 1 then
+        local m = runners[1]
+        lines[#lines + 1] = { label = "Result", value = resultText(m) }
+        lines[#lines + 1] = { label = "Time", value = m.seconds and clock(m.seconds) or "-" }
+    else
+        for _, m in ipairs(runners) do
+            if #lines >= 8 then break end
+            lines[#lines + 1] = { label = tostring(m.name or ("Runner " .. tostring(m.id))),
+                value = ("%s - %d★ - %s"):format(resultText(m), starsOf(m), m.seconds and clock(m.seconds) or "-") }
+        end
+    end
+    return lines
+end
+
 function CR.pve(match)
-    local rows, runners = {}, 0
+    local rows, runners = {}, {}
     for _, m in ipairs(match.members or {}) do
         if not botOf(m) then
-            runners = runners + 1
+            runners[#runners + 1] = m
             rows[#rows + 1] = { id = m.id, name = m.name, outcome = m.outcome, left = m.outcome == "left" or nil,
                 placement = m.outcome == "escaped" and 1 or (m.outcome ~= nil and 2 or nil),
                 timeMs = m.seconds and m.seconds * 1000 or nil, inMatchMs = m.seconds and m.seconds * 1000 or nil,
@@ -52,10 +96,15 @@ function CR.pve(match)
         end
     end
     local now = type(Open77) == "table" and Open77.time and type(Open77.time.monotonic) == "function" and math.floor(Open77.time.monotonic() * 1000) or nil
+    local lines
+    if match.police == "ncpd" then
+        lines = ncpdLines(match, runners)
+    else
+        lines = { { label = "NCPD units", value = tostring(int(match.copCount)) }, { label = "Runners", value = tostring(#runners) } }
+    end
     return { matchId = "chase-pve:" .. idOf(match), detail = "NCPD Escape", rows = rows,
         durationMs = (now and match.startedAtMs) and math.max(0, now - match.startedAtMs) or nil,
-        lines = { { label = "NCPD units", value = tostring(int(match.copCount)) }, { label = "Runners", value = tostring(runners) } },
-        columns = { "timeMs" } }
+        lines = lines, columns = { "timeMs" } }
 end
 
 function CR.wanted(match)

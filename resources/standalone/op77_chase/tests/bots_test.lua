@@ -19,6 +19,9 @@
 -- Run: pwsh -NoProfile -File tests/run-lua.ps1 -LuaDll <lua54.dll> -Test bots_test.lua
 local H = dofile("tests/bots_env.lua")
 local env
+-- chase.1v1 and chase.wanted are real players only by default (config.bots.fill, caps.botFill
+-- = false); the bot-fill sections below turn it on, as a server owner would.
+local FILL = { ["chase.1v1"] = true, ["chase.wanted"] = true }
 
 local function botOf(match)
     for _, m in ipairs(match.members) do if m.bot then return m.id end end
@@ -51,9 +54,34 @@ assert(ChaseBots.enabled == false, "an older Light RP without activityBots: off,
 H.fire("op77_lightrp:activity:bots", true)
 assert(ChaseBots.enabled == true, "the event still works")
 
+-- ---------------------------------------------------------------- real players only (the default)
+
+-- Bot mode on, the default config: chase.1v1 and chase.wanted say caps.botFill = false to
+-- Light RP, start nothing with bots and tell the player why; NCPD Escape fills nothing either.
+env = H.load({ botsEnabled = true })
+for _, aid in ipairs({ "chase.1v1", "chase.wanted", "chase.pve" }) do
+    assert(env.registered[aid].botFill == false and env.registered[aid].caps.botFill == false, aid .. " registers botFill = false")
+end
+assert(ChaseBots.enabled == true and not ChaseBots.fills("chase.1v1") and not ChaseBots.fills("chase.wanted"), "on, but no fill")
+H.run(6)
+H.fire("op77_lightrp:activity:join", 1, "chase.1v1", { mode = "vehicle" })
+H.run(10)
+assert(Chase.matchOf(1) == nil and ChaseQueue.has(1), "no bot 1v1: he waits for a player")
+assert(H.noted(1, "Bot mode is on, but NCPD Chase is real players only"), "and is told why")
+H.fire("op77_lightrp:activity:join", 2, "chase.wanted", { mode = "vehicle" })
+H.run(10)
+assert(ChaseWanted.matchOf(2) == nil and ChaseWantedLobby.has(2) and ChaseWanted.minPlayers() >= 2, "no bot Most Wanted")
+assert(H.noted(2, "Bot mode is on, but Most Wanted is real players only"), "told why")
+H.fire("op77_lightrp:activity:join", 3, "chase.1v1", { mode = "vehicle" })
+H.runUntil(function() return Chase.matchOf(1) ~= nil end, 10, "two real players")
+assert(Chase.matchOf(1) == Chase.matchOf(3) and not Chase.matchOf(1).hasBots, "a real 1v1, no bot")
+assert(H.count(ChaseBots.bots) == 0, "not one bot created")
+
 -- ---------------------------------------------------------------- 1v1 by car, the player runs first
 
-env = H.load({ botsEnabled = true })
+env = H.load({ botsEnabled = true, botFill = FILL })
+assert(env.registered["chase.1v1"].botFill == true and env.registered["chase.wanted"].caps.botFill == true
+    and env.registered["chase.pve"].botFill == false, "config.bots.fill = true: declared to Light RP")
 Chase.botFirstRole[1] = "cop" -- his last bot match started as cop: this one as runner
 H.fire("op77_lightrp:activity:join", 1, "chase.1v1", { mode = "vehicle" })
 H.runUntil(function() return Chase.matchOf(1) ~= nil end, 6, "a bot match")
@@ -165,7 +193,7 @@ assert(#env.db == 0, "no database so far")
 -- ---------------------------------------------------------------- missing natives
 
 -- No NPC natives: the car drives itself (driverless attach), the match goes on.
-env = H.load({ botsEnabled = true, before = function(e) _G.Open77.npcs = nil end })
+env = H.load({ botsEnabled = true, botFill = FILL, before = function(e) _G.Open77.npcs = nil end })
 H.fire("op77_lightrp:activity:join", 1, "chase.1v1", { mode = "vehicle" })
 H.runUntil(function() return Chase.matchOf(1) ~= nil end, 6, "match without npcs")
 match = Chase.matchOf(1)
@@ -178,7 +206,7 @@ H.fire("op77_lightrp:activity:leaveRequest", 1, "chase.1v1")
 H.runUntil(function() return Chase.matches[match.id] == nil end, 10, "closed")
 
 -- Nothing at all (no NPC, no vehicle AI): the bot is broken, the match is called off.
-env = H.load({ botsEnabled = true, before = function(e) _G.Open77.npcs = nil; _G.Open77.vehicles.ai = nil end })
+env = H.load({ botsEnabled = true, botFill = FILL, before = function(e) _G.Open77.npcs = nil; _G.Open77.vehicles.ai = nil end })
 H.fire("op77_lightrp:activity:join", 1, "chase.1v1", { mode = "vehicle" })
 H.runUntil(function() return Chase.matchOf(1) ~= nil end, 6, "match without natives")
 match = Chase.matchOf(1)
@@ -191,7 +219,7 @@ noTraces()
 
 -- ---------------------------------------------------------------- Most Wanted filled by bots
 
-env = H.load({ botsEnabled = true })
+env = H.load({ botsEnabled = true, botFill = FILL })
 H.run(6) -- past the bots' settle window
 H.fire("op77_lightrp:activity:join", 2, "chase.wanted", { mode = "vehicle" })
 H.runUntil(function() return ChaseWanted.matchOf(2) ~= nil end, 12, "a bot Most Wanted")
@@ -244,7 +272,7 @@ assert(ChaseBots.stopping, "nothing created once stopping")
 
 -- ---------------------------------------------------------------- the yield heuristic
 
-env = H.load({ botsEnabled = true })
+env = H.load({ botsEnabled = true, botFill = FILL })
 local id = ChaseBots.create({ role = "runner", mode = "vehicle", bucket = 4300000 })
 local t0 = env.clock
 assert(ChaseBots.yieldCheck(id, 10, 15, t0) == false, "pinned: not yet")
@@ -299,6 +327,7 @@ L.reset()
 local order = ChaseWanted.crewOrder({ { id = 1, squad = "a" }, { id = 2 }, { id = 3, squad = "a" }, { id = 4, squad = "b" }, { id = 5, squad = "b" } })
 assert(order[1].id == 1 and order[2].id == 3 and order[3].id == 2 and order[4].id == 4 and order[5].id == 5, "crews kept together")
 
-print("PASS: op77_chase bots and crews (switch: activityBots + event + old Light RP; solo 1v1 car runner/cop and foot cop, "
+print("PASS: op77_chase bots and crews (switch: activityBots + event + old Light RP; real players only by default (caps.botFill = false, "
+    .. "told why); with config.bots.fill: solo 1v1 car runner/cop and foot cop, "
     .. "escape and bust on the bot's car/body position, alternation, test results, no DB, cleanup on end/leave/drop/stop; "
     .. "bot mode off; missing natives; Most Wanted bot fill; yield; 1v1 crew pair, Most Wanted crew lobby and order)")

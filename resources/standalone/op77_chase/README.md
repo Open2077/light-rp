@@ -9,12 +9,14 @@ own routing bucket:
 - **`chase.wanted` — Most Wanted**: one runner against 2–7 cops (3–8 players), heat that rises
   with time, roadblocks, a late extraction point. Everyone runs once; points and a final ranking.
 - **`chase.pve` — NCPD Escape**: public PvE, no staff switch. One player or a crew (1–4
-  runners, each in his own car or on foot) against NCPD bot cops, 1 + 2 per runner (8 at most).
-  Lose every cop, outlast the clock or reach the extraction. Results and reputation as usual
-  (less than PvP), no rating.
+  runners, each in his own car or on foot) against **the game's own NCPD**: the server raises
+  each runner's wanted level, stars climbing with the clock up to the difficulty's ceiling
+  (Standard 3, Hard 4, Critical 5). Stop and you are busted; reach the extraction or outlast the
+  clock. Results and reputation as usual (less than PvP, × the difficulty), no rating.
 
-Staff **bot mode** (Light RP's `/lightrp.bots on`) lets one player play the 1v1 or Most Wanted
-against bots, and Light RP **crews** (`options.squad`) are kept together in all three.
+The 1v1 and Most Wanted are **real players only**: they register `botFill = false` with Light
+RP, and staff bot mode no longer fills them unless `config.bots.fill` says so. Light RP
+**crews** (`options.squad`) are kept together in all three.
 
 All three draw in **Light RP's own activity HUD** (`exports.op77_lightrp:ActivityHudShow / Push /
 Clear`, Light RP's design): this resource ships no page. Every call is pcall'd; without the
@@ -89,42 +91,112 @@ no result, no `activityLeave`. A match with no round played is void.
 
 ## How NCPD Escape runs
 
-1. **Queue.** From the hub (`options.mode = "vehicle" | "foot"`, plus `options.squad` for a
-   crew) or with `/escape [car|foot]`. A solo join starts 2 s later. A crew starts once every
-   member has joined and is ready (plus the same 2 s), or after 10 s with whoever is there
-   (4 runners at most); the mode is the leader's choice. A player Light RP refuses for the
-   moment is told every 30 s and dropped after 2 min. One chase activity at a time: in NCPD
-   Escape, refused by `/chase` and `/wanted`, and the reverse.
-2. **The start.** Bucket 4300200–4300299, on one of Most Wanted's routes. The runners line up
-   behind the start checkpoint, 9 m apart, each beside his own car (on foot: side by side).
-   The cops are bots in NCPD cars at the front of the route's cop grid, `1 + 2 × runners`
-   (8 at most, never more than the grid). 10 s countdown, everyone held.
-3. **GO.** A head start (10 s by car, 15 s on foot), then the cops roll out in Most Wanted's
-   waves (half, then the rest at heat 2) and chase their runner (spread evenly over the
-   runners; when a runner is out, his cops take the one with the fewest). Heat rises as in Most
-   Wanted (5 levels); the extraction point shows up at heat 4 (95 s). A cop that falls 300 m
-   behind its runner for 5 s is dispatched again on the road he drove, 120–220 m behind him.
-4. **Each runner's own end.** Busted: Most Wanted's unit arrest, measured on the bot cars' and
-   bodies' server-side positions, or downed. Escaped: a **shake** (no released cop within
-   150 m by car / 90 m on foot for 15 s, after they closed in once), outlasting the 2:45 clock,
-   or reaching the extraction. A shake only counts after `minSeconds` (60 s): an earlier one
-   tells the runner and re-arms the hunt. The others play on; the match ends when no runner is
-   left, after an 8 s scoreboard, home through `activityLeave(..., { returnPlayer = true })`.
-5. **Results**, one per runner at his own end: placement 1 escaped / 2 busted, `won`, stats
-   (outcome, how, seconds, shakes, cops, runners, crew), reputation **18 escaped / 6 busted**
-   (~60 % of the 1v1's 30 / 10). Nothing for a round under 60 s, nothing for a leaver, and only
-   the first 8 paid rounds of a character per day pay (counted in memory). No rating, no
-   database. While staff bot mode is on, Light RP records no result for NCPD Escape either.
+1. **Queue.** From the hub (`options.mode = "vehicle" | "foot"`, `options.difficulty =
+   "standard" | "hard" | "critical"`, plus `options.squad` for a crew) or with
+   `/escape [car|foot] [standard|hard|critical]` (any order; `normal`, `hardcore`, `maxtac` work
+   too). The difficulty goes to `activityCheck` / `activityEnter` as `{ difficulty }`: Light RP
+   gates it by reputation tier and its sentence is the refusal. A solo join starts 2 s later; a
+   crew starts once every member has joined (or after 10 s with whoever is there, 4 at most), in
+   the leader's mode and difficulty (Light RP may refuse a member that difficulty). One chase
+   activity at a time.
+2. **The start.** Bucket 4300200–4300299, on one of Most Wanted's routes, each runner beside
+   his own car (on foot: side by side). The instance gets **crowd, traffic and police**
+   (`world.setPopulation(bucket, { crowd = 0.5, traffic = 1.0, police = true })`, emptied again
+   after). 10 s countdown, everyone held.
+3. **GO and the heat.** A head start (6 s by car, 8 s on foot), then the runner's wanted level
+   follows the clock (`config.pve.difficulties[*].heat`, seconds after the head start):
+
+   | Difficulty | Stars | Bust meter | Extraction | Clock |
+   |---|---|---|---|---|
+   | Standard | 1 → 2 at +30 s → 3 at +75 s | 5 s | at 40 s | 2:30 |
+   | Hard | 2 → 3 at +30 s → 4 at +75 s | 4 s | at 55 s | 2:45 |
+   | Critical | 2 → 3 at +25 s → 4 at +55 s → 5 at +95 s | 3 s | at 70 s | 3:00 |
+
+   The ceiling (`setMaxWanted`) is sent first, then the level (`setWanted`), and the level is
+   sent again every 15 s (the engine may drop it). The police are the runner's own game's: the
+   server cannot see them, so it owns the outcome.
+4. **Each runner's own end.**
+   - **BUSTED** by the **bust meter**: it fills while he is stopped (under 10 km/h by car, 5 km/h
+     on foot, measured over a 1 s window) or, by car, out of every car (under 35 km/h without a
+     seat: faster means a car the server cannot see), over the difficulty's bust time; it drains
+     in 2.5 s once he moves. It arms with the first star, and by car once he has sat in his car
+     (or 15 s after GO). A meter past 60 % that drains back is a **close call**. An unreadable
+     position freezes it; 3 s of blackout empties it. **Downed** = busted at once.
+   - **ESCAPED**: inside the extraction (15 m by car, 7 m on foot; 450–1300 m away by car,
+     200–500 m on foot, with a GPS route), or still free when the clock runs out.
+   - Either way his stars go back to **0 and the ceiling to 5** at once. The others play on;
+     the match ends when no runner is left, after an 8 s scoreboard, home through
+     `activityLeave(..., { returnPlayer = true })`.
+5. **Results**, one per runner at his own end: placement 1 escaped / 2 busted, `won`,
+   `difficulty`, stats (outcome, how, seconds, stars reached, close calls as `shakes`, police,
+   policeBlocked, crew) and the end-of-match **recap** board (the runners; lines: police and
+   difficulty, stars reached, result and how, time — one line per runner for a crew).
+   Reputation **18 escaped / 6 busted** at Standard, × 2 at Hard (36 / 12), × 10/3 at Critical
+   (60 / 20) — Light RP's PvE rewards 30 / 60 / 100 × 0.6. Nothing for a round under 60 s,
+   nothing for a leaver, only the first 8 paid rounds of a character per day (in memory). No
+   rating, no database.
 
 Leaving after GO: an immediate result (placement 2, `forfeit`, no reputation), home at once.
-Leaving before GO with nobody left, a placement failure, bots that cannot be set up or
-`chase.pve.stop`: void, nothing counts. `dropped`: no result, no `activityLeave`.
+Leaving before GO with nobody left, a placement failure or `chase.pve.stop`: void, nothing
+counts. `dropped`: no result, no `activityLeave`. **Every one of these clears the wanted
+level** (below).
+
+**Bot cops instead** (`config.pve.police = "bots"`, off by default): the previous NCPD Escape
+— NCPD bot cars, `1 + 2 × runners` (8 at most), Most Wanted's waves and unit arrest, a shake
+escapes; no wanted level, no population. It needs working bot drivers ("Bot drivers" below).
+
+## NCPD Escape and the wanted level
+
+Natives (server): `Open77.players.setWanted`, `setMaxWanted`, `getWanted` (`players.wanted`,
+`players.wanted.read`); the population through `Open77.world.setPopulation`
+(`world.population`). The client reads `Open77.prevention.state()` (`world.prevention`, never
+a write). `Open77.world.setPreventionEnabled` is **never called**: bucket 0's dispatch is
+never touched (and the chase buckets, above 65535, could not be addressed by it anyway).
+
+**Always back to 0 / 5.** The level and the ceiling are cleared on a bust, an escape, a leave,
+a drop, a disconnect, a bucket change away from the instance (`onPlayerBucketChange`), Light
+RP stopping, a staff stop, the match closing, and the player going home. Each raise is
+written to this resource's KVP (`escape.wanted.<id>` = identifier); a clear that succeeds
+deletes it. **A resource stop or reload cannot clear**: the runtime refuses every call once
+the resource is stopping (`resource_stopping`). The ledger keeps those players, and the next
+start (1.5 s after it) clears every one still connected under the same identifier (an id now
+used by someone else, or a player who left, only loses his entry; the server forgets a
+disconnected player's level anyway). Until a platform fix (the prevention service releasing a
+stopped resource's levels, or Light RP clearing the level when a PvE activity releases its
+players), a runner may keep his stars for the few seconds of a reload.
+
+**The platform gap.** Wanted level and police are per client (one PreventionSystem in each
+game) and not replicated; the server's PreventionService pushes the level to the player's
+client (`open77_prevention`, deployed with Light RP). On 2.31 builds up to now the client
+**refuses every raise while population suppression is active**, and Open77 turns
+suppression on at start: `client/src/api/Prevention.cpp:47`,
+`if (aLevel > 0 && Population::IsSuppressionActive()) return Status::PopulationSuppressed;`.
+The fix is to check `&& !Population::PoliceAllowed()` too (the bucket's `police = true`
+allows it): a client DLL rebuild. Until it ships the server cannot know whether police came,
+so the client probes `Open77.prevention.state()` every ~2 s while it has stars and sends
+`op77_chase:police` (`expected`, `requested`, `suppressed`, `acknowledged`, `attached`: five
+values). A level still refused after 6 s is logged, shown on the HUD ("Your game refused the
+NCPD") and either tolerated (`config.pve.onPoliceBlocked = "warn"`, the default: the run goes
+on, the bust and the clock still apply) or called off (`"void"`, nothing counts). The staff
+status line shows both sides: `wanted: <id>=<ours>/<ceiling> server <L>/<M> game <requested>
+suppressed BLOCKED`.
+
+**Traffic and population** are per client too: each game populates its own world from the
+bucket's settings, so two runners in one instance do not see the same cars or the same cops.
 
 ## Bot mode (staff)
 
 Light RP's staff switch `/lightrp.bots on|off` (host-wide event `op77_lightrp:activity:bots`,
-read again through the `activityBots()` export after every registration; off at start) lets
-one player play the PvP chases against bots. While it is on Light RP records no result at all;
+read again through the `activityBots()` export after every registration; off at start).
+
+**The 1v1 and Most Wanted are real players only by default.** `config.bots.fill` (`chase.1v1`,
+`chase.wanted`: `false`) decides; each registration declares it to Light RP as **`botFill`**
+(top level: Light RP's lobby offers bots only where it is `true`) and as `caps.botFill` (the
+hub's toggle). NCPD Escape always declares `false` (no player slot for a bot: the police are
+the game's). With bot mode on and the fill off, a queued player gets "Bot mode is on, but
+NCPD Chase / Most Wanted is real players only: you wait for other players." and nothing
+starts with bots. With a fill turned on (it needs working bot drivers, below), the
+behaviour is the one described here. While bot mode is on Light RP records no result at all;
 this resource still posts them, marked `test = true` with no reputation, and never writes
 `op77_chase_ratings` / `op77_chase_matches` for a match with a bot.
 
@@ -159,6 +231,19 @@ this resource still posts them, marked `test = true` with no reputation, and nev
 
 `chase.bots` lists the switch and every live bot (1v1, Most Wanted, NCPD Escape).
 
+## Bot drivers
+
+On the client builds up to now **no bot car drives after a player or along a route**: the
+client log shows `vehicle.ai malformed_request fields=16` for every `vehicles.ai.chase`,
+`followRoute` and `driveTo` order. The request is a `|`-joined line of 17 fields and the
+traffic pattern field is empty for everything but `joinTraffic`; REDscript's
+`StrSplit(request, "|")` drops empty fields by default (`includeEmpty = false`), so the line
+splits into 16 and `Open77ApplyDriving` rejects it. The fix is one argument in
+`base/client/redscript/Open77VehicleDriving.reds` (the poll loop, `fields = StrSplit(request,
+"|");`, ~line 1508): `StrSplit(request, "|", true)`. REDscript only, no DLL rebuild, but the
+client script has to ship. `joinTraffic` is not affected (its pattern field is filled); the
+race AI and every other `chase` / `followRoute` / `driveTo` caller are.
+
 ## Crews
 
 Light RP passes a crew as `options.squad = { id, leader, members }` on each member's join.
@@ -170,7 +255,9 @@ Light RP passes a crew as `options.squad = { id, leader, members }` on each memb
   `wanted.lobby.squadHoldSeconds`) while a member is missing or not ready, and splits it only
   when it is bigger than the seats left. In a round its cops line up side by side and roll out
   in the same wave.
-- **NCPD Escape**: the crew runs together, one runner each (above).
+- **NCPD Escape**: `config.pve.crews = "together"` (the default): one instance, each runner
+  chased by his own NCPD (his own wanted level; police and traffic are per client anyway); or
+  `"solo"`: each member in his own instance, started together.
 
 ## The HUD and the map
 
@@ -180,9 +267,13 @@ banded distance to the runner for the cops, points), bars (arrest, shake, heat),
 sides and the round scoreboard (points, time as runner, arrests, assists); round starts, GO,
 dispatch, heat and round results as banners, the final ranking as a result card. Server
 messages go to the HUD's feed, split to its line length. NCPD Escape draws "Solo" or "Crew of
-N" with its unit count, heat / cops near / nearest cop, the arrest, shake and heat bars, and a
-scoreboard of the runners (status, time) and the `[BOT]` cops (held or rolling); each runner
-gets his own result card (time, reputation) when his round ends.
+N" with the difficulty, the wanted level as stars (★ held, ☆ still to come up to the
+ceiling), the next star or MAX, the extraction distance, close calls, the clock, the **bust
+meter** (visible once armed; "MOVE" / "get back in a car" when it fills), a star banner each
+time the heat rises, and a scoreboard of the runners (status, heat, time); each runner gets
+his own result card (time, heat, reputation) when his round ends. With `police = "bots"`:
+the unit count, heat / cops near / nearest cop, the arrest, shake and heat bars and the
+`[BOT]` cops.
 
 With `op77_map3d` (optional): the runner's dot is hidden from the cops for the whole match
 (`setPlayerDotsHidden`, 1v1 and Most Wanted, `config.minimap.hideRunnerFromCops`; players
@@ -200,7 +291,7 @@ this resource stops.
 | `/chase status` / `top` / `rank` | everyone | where you are, the ladder, your rating |
 | `/wanted [car\|foot]` | everyone | queue for Most Wanted |
 | `/wanted leave` / `status` | everyone | leave the queue or the match / where you are |
-| `/escape [car\|foot]` | everyone | start NCPD Escape (solo; a crew joins from the hub) |
+| `/escape [car\|foot] [standard\|hard\|critical]` | everyone | start NCPD Escape (solo; a crew joins from the hub) |
 | `/escape leave` / `status` | everyone | leave the queue or the escape / where you are |
 | `chase.status` | staff (`command.chase.status`) | 1v1 queue and matches |
 | `chase.force <a> <b> [car\|foot]` | staff (`command.chase.force`) | start a 1v1 now |
@@ -209,10 +300,10 @@ this resource stops.
 | `chase.wanted.force <id> <id> [...] [car\|foot]` | staff (`command.chase.wanted.force`) | start Most Wanted now (2–8 players) |
 | `chase.wanted.stop <matchId>` | staff (`command.chase.wanted.stop`) | void it, everyone goes home |
 | `chase.wanted.test [on\|off]` | staff (`command.chase.wanted.test`) | 2 players are enough (never any reputation) |
-| `chase.pve.status` | staff (`command.chase.pve.status`) | NCPD Escape queue and matches |
+| `chase.pve.status` | staff (`command.chase.pve.status`) | NCPD Escape queue and matches, each runner's stars, bust meter and wanted level (ours, the server's, his game's) |
 | `chase.pve.stop <matchId>` | staff (`command.chase.pve.stop`) | void an escape, everyone goes home |
 | `chase.bots` | staff (`command.chase.bots`) | bot mode and every live bot |
-| `/lightrp.bots on\|off` | staff (Light RP's own) | bot mode for the 1v1 and Most Wanted |
+| `/lightrp.bots on\|off` | staff (Light RP's own) | bot mode (fills the 1v1 / Most Wanted only where `config.bots.fill` allows) |
 
 ## Database
 
@@ -230,7 +321,10 @@ in memory for the run and the replies say so. Most Wanted and NCPD Escape store 
 `server/match.lua` 1v1 lifecycle · `server/ranked.lua` Elo, results, reputation ·
 `server/wanted_rules.lua` Most Wanted rules (pure) · `server/wanted_lobby.lua` (pure) ·
 `server/wanted.lua` Most Wanted lifecycle · `server/bots.lua` bots (NPC drivers, orders,
-positions; a bot id never reaches a player native) · `server/pve.lua` NCPD Escape lifecycle ·
+positions; a bot id never reaches a player native) · `server/escape_rules.lua` NCPD Escape
+heat, bust meter, extraction, clock (pure) · `server/police.lua` the wanted level, its KVP
+ledger and the client's reports · `server/pve.lua` NCPD Escape lifecycle · `server/recap.lua`
+the board each result carries for Light RP's end-of-match recap ·
 `server/main.lua`, `server/wanted_main.lua`, `server/pve_main.lua` wiring ·
 `client/view.lua` payload → activity HUD (pure) · `client/main.lua` HUD, feed, map.
 
@@ -244,6 +338,6 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File tests\run-lua.ps1 -LuaDll <path>\l
 ```
 
 `bots_test.lua` and `pve_test.lua` load the whole resource through `tests/bots_env.lua`: a fake
-Light RP (with `activityBots`), fake `npcs` / `vehicles.ai` natives that record every call, a
-fake world that fails the test if a bot id ever reaches a player native, and a recorder that
-fails it on any database touch.
+Light RP (with `activityBots` and the tier gate), fake `npcs` / `vehicles.ai` natives that record
+every call, a fake world (wanted level, population, KVP) that fails the test if a bot id ever
+reaches a player native, and a recorder that fails it on any database touch.

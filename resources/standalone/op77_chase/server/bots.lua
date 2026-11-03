@@ -683,6 +683,19 @@ function B.setEnabled(on, why)
     return true
 end
 
+-- Does staff bot mode fill this activity's missing players? Only where config.bots.fill
+-- says so (registered with Light RP as caps.botFill): chase.1v1 and chase.wanted are real
+-- players only, and bot mode then starts nothing there.
+function B.fills(activityId)
+    return B.enabled == true and (cfg().fill or {})[activityId] == true
+end
+
+-- Bot mode is on but this activity is real players only: the line a queued player reads.
+function B.refusal(label)
+    if B.enabled ~= true then return nil end
+    return ("Bot mode is on, but %s is real players only: you wait for other players."):format(label)
+end
+
 -- After every successful activityRegister: Light RP's current value (an older Light RP
 -- without the export leaves it as it is).
 function B.refresh()

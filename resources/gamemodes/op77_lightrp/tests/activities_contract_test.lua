@@ -313,11 +313,12 @@ loaded = true
 threads = {}
 dofile("server/modules/needs.lua")
 local needsLoop = table.remove(threads, 1)
-assert(needsLoop and #threads == 0, "needs.lua starts its tick thread")
+local starveLoop = table.remove(threads, 1)
+assert(needsLoop and starveLoop and #threads == 0, "needs.lua starts its tick and starve threads")
 -- run exactly one tick: Wait raises once the first tick is done
 local ticks = 0
 Wait = function() ticks = ticks + 1; if ticks > 1 then error("stop") end end
-local function tick() ticks = 0; pcall(needsLoop) end
+local function tick() ticks = 0; pcall(needsLoop); ticks = 0; pcall(starveLoop) end
 local Q, R, S = 2, 3, 4
 for _, id in ipairs({ Q, R, S }) do character(id); place(id) end
 chars[P].food, chars[P].drink = 80, 80

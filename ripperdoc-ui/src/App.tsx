@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CATALOGUE, DEMO, SECTION, SECTIONS, demoLocks, roman, type Body, type Cyberware, type OpenPayload, type Reputation } from "./data";
+import { CATALOGUE, DEMO, DEMO_CAPACITY, SECTION, SECTIONS, demoLocks, type Body, type Cyberware, type OpenPayload, type Reputation } from "./data";
+import { refusal, simulate, usedPoints, type Capacity, type ClinicState } from "./model";
 import { emit, inGame, onClose, onOpen, onResult, onState, ready } from "./bridge";
 import { loadManifest, type Manifest } from "./media";
 import { play, preload } from "./sfx";
@@ -11,13 +12,15 @@ import { Procedure } from "./Procedure";
 
 export type Phase = "closed" | "boot" | "overview" | "diving" | "section" | "surfacing" | "leaving";
 
-export interface Session {
+export interface Session extends ClinicState {
   live: boolean;
   body: Body;
   clinic: NonNullable<OpenPayload["clinic"]>;
   wallet: number;
-  removalFee: number;
+  fittingFee: number;                    // fit from storage, take out
   installed: Record<string, string[]>;
+  storage: string[];                     // the patient's implant storage (payload `stock`)
+  capacity?: Capacity;                   // points used / total (absent: no limit shown)
   patient: NonNullable<OpenPayload["patient"]>;
   reputation?: Reputation;               // street cred (absent: no gate shown)
   stock: Cyberware[];                    // the clinic's catalogue
@@ -30,46 +33,32 @@ const fromPayload = (p: OpenPayload): Session => {
   const given = p.catalogue && p.catalogue.length > 0 ? p.catalogue : CATALOGUE;
   // live: the server says what is locked; the preview derives it from the rank
   const stock = live || !reputation ? given : demoLocks(given, reputation);
+  const items = Object.fromEntries(stock.map((x) => [x.id, x]));
+  const installed = p.installed ?? (live ? {} : structuredClone(DEMO.installed));
+  // live: the server counts the points; the preview counts them against the demo tier's total
+  let capacity: Capacity | undefined = p.capacity;
+  if (!capacity && !live && reputation) {
+    const used = usedPoints({ installed, items }), total = DEMO_CAPACITY[reputation.tier] ?? 26;
+    capacity = { used, total, over: used > total };
+  }
   return {
     reputation,
-    live: p.live === true,
+    live,
     body: p.body === "female" ? "female" : "male",
     clinic: p.clinic ?? DEMO.clinic,
     wallet: typeof p.wallet === "number" ? p.wallet : DEMO.wallet,
-    removalFee: p.removalFee ?? DEMO.removalFee,
-    installed: p.installed ?? (p.live ? {} : structuredClone(DEMO.installed)),
+    fittingFee: p.fittingFee ?? p.removalFee ?? DEMO.fittingFee,
+    installed,
+    storage: p.stock ?? (live ? stock.filter((x) => x.stored).map((x) => x.id) : [...DEMO.stock]),
+    capacity,
     patient: p.patient ?? DEMO.patient,
     stock,
-    items: Object.fromEntries(stock.map((x) => [x.id, x])),
+    items,
   };
 };
 
-/** Implants fitted on the body (no limit: only shown). */
+/** Implants fitted on the body. */
 export const installedCount = (s: Session) => Object.values(s.installed).flat().length;
-
-/** The installed implant of the same family (it is replaced by a better model). */
-export const familyMate = (s: Session, item: Cyberware): Cyberware | undefined => {
-  if (!item.family) return undefined;
-  for (const id of Object.values(s.installed).flat()) {
-    const other = s.items[id];
-    if (other && other.id !== item.id && other.family === item.family) return other;
-  }
-  return undefined;
-};
-
-/** "III (Operator)": the street cred tier an implant needs. */
-export const repLabel = (item: Cyberware): string =>
-  `${roman(item.repTier ?? 0)}${item.repName ? ` (${item.repName})` : ""}`;
-
-/** Why the clinic would refuse this installation, or null. Same rules as the server: no limit,
-    the street cred tier of the rank, eurodollars only (a model of the same family simply
-    replaces the installed one). */
-export function refusal(s: Session, item: Cyberware): string | null {
-  if (Object.values(s.installed).flat().includes(item.id)) return "Already installed.";
-  if (item.locked) return `Street cred too low: needs reputation tier ${repLabel(item)}. PvE missions, raids, gigs and PvE activities earn it.`;
-  if (item.price > s.wallet) return "Not enough eurodollars in your bank account.";
-  return null;
-}
 
 /* 1920x1080 design canvas scaled to the viewport: every coordinate below is canvas pixels. */
 function useCanvasScale() {
@@ -201,13 +190,8 @@ export function App() {
 
   const startProcedure = (item: Cyberware, mode: "install" | "remove"): string | null => {
     if (procedure) return "An operation is already in progress.";
-    if (mode === "install") {
-      const why = refusal(session, item);
-      if (why) { play("denied"); return why; }
-    } else if (session.wallet < session.removalFee) {
-      play("denied");
-      return "Not enough eurodollars for the removal.";
-    }
+    const why = refusal(session, item, mode);
+    if (why) { play("denied"); return why; }
     const state: ProcedureState = { item, mode, startedAt: performance.now(), minMs: mode === "install" ? 4600 : 2200 };
     setProcedure(state);
     play(mode === "install" ? "install" : "unequip");
@@ -215,16 +199,7 @@ export function App() {
     if (!session.live) {
       // Browser preview: the clinic is simulated here.
       later(state.minMs - 400, () => {
-        setSession((s) => {
-          const mate = mode === "install" ? familyMate(s, item) : undefined;
-          const list = (s.installed[item.section] ?? []).filter((id) => id !== item.id && id !== mate?.id);
-          const installed = { ...s.installed };
-          if (mate && mate.section !== item.section) installed[mate.section] = (installed[mate.section] ?? []).filter((id) => id !== mate.id);
-          installed[item.section] = mode === "install" ? [...list, item.id] : list;
-          return mode === "install"
-            ? { ...s, installed, wallet: s.wallet - item.price }
-            : { ...s, installed, wallet: s.wallet - s.removalFee };
-        });
+        setSession((s) => ({ ...s, ...simulate(s, item, mode) }));
         setProcedure((p) => (p && p.item.id === item.id ? { ...p, result: { ok: true } } : p));
       });
     }

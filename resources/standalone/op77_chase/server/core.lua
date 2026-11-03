@@ -8,8 +8,8 @@
 -- call takes the activity id last, and defaults to chase.1v1.
 --
 --   ChaseCore.register(def)                  activityRegister
---   ChaseCore.check(playerId, aid?)          activityCheck   -> true | false, reason (player-facing)
---   ChaseCore.enter(playerId, aid?)          activityEnter   -> true | false, reason
+--   ChaseCore.check(playerId, aid?, opts?)   activityCheck   -> true | false, reason (player-facing)
+--   ChaseCore.enter(playerId, aid?, opts?)   activityEnter   -> true | false, reason (opts.difficulty: PvE)
 --   ChaseCore.leave(playerId, opts, aid?)    activityLeave   -> true | false, reason
 --   ChaseCore.owner(playerId)                activityOwner   -> activityId | nil
 --   ChaseCore.player(playerId)               activityPlayer  -> { name, identifier, characterKey } | nil
@@ -34,6 +34,18 @@ function C.call(name, ...)
     return table.unpack(packed, 2, packed.n)
 end
 
+-- The bot-fill declaration sent with activityRegister: Light RP's lobby offers bots only
+-- where the provider registers botFill = true (top level). From config.bots.fill: false =
+-- real players only (chase.1v1, chase.wanted by default; chase.pve has no player slot for
+-- a bot). caps.botFill carries the same value for the hub's toggle.
+function C.botFill(aid) return ((ChaseConfig.bots or {}).fill or {})[aid] == true end
+function C.caps(caps, aid)
+    local out = {}
+    for k, v in pairs(caps or {}) do out[k] = v end
+    out.botFill = C.botFill(aid)
+    return out
+end
+
 function C.register(def)
     local ok, why = C.call("activityRegister", def)
     if ok ~= true then return false, why or "refused" end
@@ -42,8 +54,10 @@ end
 
 -- The contract's reasons are player-facing sentences; a transport failure is not, so it
 -- becomes a generic sentence (and the log keeps the real reason).
-local function verdict(name, playerId, aid)
-    local ok, why = C.call(name, playerId, activityId(aid))
+local function verdict(name, playerId, aid, opts)
+    local ok, why
+    if opts ~= nil then ok, why = C.call(name, playerId, activityId(aid), opts)
+    else ok, why = C.call(name, playerId, activityId(aid)) end
     if ok == true then return true end
     if ok == nil then
         log("%s(%s) failed: %s", name, tostring(playerId), tostring(why))
@@ -52,8 +66,9 @@ local function verdict(name, playerId, aid)
     return false, why or "You cannot join a chase right now."
 end
 
-function C.check(playerId, aid) return verdict("activityCheck", playerId, aid) end
-function C.enter(playerId, aid) return verdict("activityEnter", playerId, aid) end
+-- opts (PvE): { difficulty } - the tier gate on check, the difficulty played on enter.
+function C.check(playerId, aid, opts) return verdict("activityCheck", playerId, aid, opts) end
+function C.enter(playerId, aid, opts) return verdict("activityEnter", playerId, aid, opts) end
 
 function C.leave(playerId, opts, aid)
     local ok, why = C.call("activityLeave", playerId, activityId(aid), opts or { returnPlayer = true })

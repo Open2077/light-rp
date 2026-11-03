@@ -20,6 +20,10 @@ function H.fresh()
         hud = {}, hudLog = {}, qhud = {}, notes = {}, replies = {},
         npcs = {}, npcSeq = 500, removedNpcs = {}, npcRefuse = {}, ai = {}, tasks = {}, taskSeq = 0,
         aiState = {}, db = {}, botsEnabled = false,
+        -- NCPD Escape: the fake PreventionService ({ level, maxLevel } per player), every
+        -- wanted call, a refusal per player, the population per bucket, this resource's KVP.
+        wanted = {}, wantedLog = {}, wantedRefuse = {}, population = {}, populationRefuse = nil, depopulated = {}, kvp = {},
+        tierRefuse = {},
     }
     for id = 1, 12 do
         env.identity[id] = { name = "Player" .. id, identifier = "license:p" .. id, characterKey = 1 }
@@ -105,15 +109,20 @@ function H.stubs()
                     if env.noBotsExport then error("no such export activityBots") end
                     return env.botsEnabled == true
                 end
+                -- env.tierRefuse[id] = { [difficulty] = reason }: Light RP's reputation tier gate.
+                local tier = env.tierRefuse and env.tierRefuse[id]
+                local wantedDifficulty = type(a[3]) == "table" and a[3].difficulty or nil
                 if name == "activityCheck" then
                     if env.blocked[id] then return false, env.blocked[id] end
                     if env.owner[id] then return false, "You are already in an activity." end
+                    if tier and wantedDifficulty and tier[wantedDifficulty] then return false, tier[wantedDifficulty] end
                     return true
                 end
                 if name == "activityEnter" then
                     assert(type(id) == "number" and id > 0, "a bot never reaches Light RP")
                     if env.blocked[id] then return false, env.blocked[id] end
                     if env.enterFail[id] then return false, env.enterFail[id] end
+                    if tier and wantedDifficulty and tier[wantedDifficulty] then return false, tier[wantedDifficulty] end
                     env.owner[id] = a[2]
                     return true
                 end
@@ -174,6 +183,41 @@ function H.stubs()
         name = function(id) assert(id > 0, "bot name from ChaseBots"); return "#" .. id end,
         connected = function(id) return env.connected[id] ~= false end,
         setupBucket = function() end,
+        depopulate = function(bucket) env.depopulated[#env.depopulated + 1] = bucket; env.population[bucket] = nil end,
+        populate = function(bucket, opts)
+            if env.populationRefuse then return false, env.populationRefuse end
+            env.population[bucket] = opts
+            return true
+        end,
+        setWanted = function(id, level)
+            assert(type(id) == "number" and id > 0, "a bot has no wanted level")
+            env.wantedLog[#env.wantedLog + 1] = { id = id, op = "set", level = level, at = env.clock }
+            if env.wantedRefuse[id] then return false, env.wantedRefuse[id] end
+            local w = env.wanted[id] or { level = 0, maxLevel = 5 }
+            w.level = math.min(level, w.maxLevel)
+            env.wanted[id] = w
+            return true, { level = w.level, requested = level, maxLevel = w.maxLevel }
+        end,
+        setMaxWanted = function(id, level)
+            assert(type(id) == "number" and id > 0, "a bot has no wanted level")
+            env.wantedLog[#env.wantedLog + 1] = { id = id, op = "max", level = level, at = env.clock }
+            if env.wantedRefuse[id] then return false, env.wantedRefuse[id] end
+            local w = env.wanted[id] or { level = 0, maxLevel = 5 }
+            w.maxLevel = level
+            w.level = math.min(w.level, level)
+            env.wanted[id] = w
+            return true, { level = w.level, maxLevel = level }
+        end,
+        getWanted = function(id) local w = env.wanted[id] or { level = 0, maxLevel = 5 }; return { level = w.level, maxLevel = w.maxLevel, enabled = true } end,
+        identifier = function(id) return env.identity[id] and env.identity[id].identifier or nil end,
+        kvpSet = function(key, value) env.kvp[key] = value; return true end,
+        kvpDelete = function(key) local had = env.kvp[key] ~= nil; env.kvp[key] = nil; return had end,
+        kvpFind = function(prefix)
+            local rows = {}
+            for k, v in pairs(env.kvp) do if k:sub(1, #prefix) == prefix then rows[#rows + 1] = { key = k, value = v } end end
+            table.sort(rows, function(a, b) return a.key < b.key end)
+            return rows
+        end,
         place = function(id, point, bucket, done, cover)
             assert(id > 0, "a bot is placed by ChaseBots")
             env.placements[#env.placements + 1] = { id = id, point = point, bucket = bucket, cover = cover }
@@ -215,10 +259,13 @@ end
 local FILES = {
     "shared/config.lua", "server/rules.lua", "server/elo.lua", "server/queue.lua", "server/core.lua", "server/bots.lua",
     "server/match.lua", "server/ranked.lua", "server/wanted_rules.lua", "server/wanted_lobby.lua", "server/wanted.lua",
-    "server/pve.lua", "server/recap.lua", "server/main.lua", "server/wanted_main.lua", "server/pve_main.lua",
+    "server/escape_rules.lua", "server/police.lua", "server/pve.lua", "server/recap.lua", "server/main.lua", "server/wanted_main.lua",
+    "server/pve_main.lua",
 }
 
--- opts = { botsEnabled, noBotsExport, before = function(env) end (after the stubs, before the files) }
+-- opts = { botsEnabled, noBotsExport, botFill = { [activityId] = true }, before = function(env) end
+-- (after the stubs, before the files), after = function(env) end (after the config, before
+-- the other files: config overrides) }
 function H.load(opts)
     opts = opts or {}
     H.fresh()
@@ -228,10 +275,20 @@ function H.load(opts)
     if opts.before then opts.before(env) end
     ChaseQueue, Chase, ChaseCore, ChaseRanked, ChaseMain, ChaseBots = nil, nil, nil, nil, nil, nil
     WantedRules, ChaseWantedLobby, ChaseWanted, ChaseWantedMain, ChasePve, ChasePveMain = nil, nil, nil, nil, nil, nil
-    for _, f in ipairs(FILES) do dofile(f) end
+    ChaseEscapeRules, ChasePolice = nil, nil
+    for i, f in ipairs(FILES) do
+        dofile(f)
+        if i == 1 then
+            for aid, on in pairs(opts.botFill or {}) do ChaseConfig.bots.fill[aid] = on end
+            if opts.after then opts.after(env) end
+        end
+    end
     H.run(0.2) -- the registrations
     return env
 end
+
+-- The wanted level the server holds for a player (the fake PreventionService).
+function H.wanted(id) return env.wanted[id] or { level = 0, maxLevel = 5 } end
 
 -- Advance the clock by `seconds`, resuming every thread whose Wait is over, in order.
 function H.run(seconds)

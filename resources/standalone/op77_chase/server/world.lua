@@ -50,6 +50,80 @@ function W.setupBucket(bucket)
     pcall(SetRoutingBucketEntityLockdownMode, bucket, "relaxed")
 end
 
+-- Back to empty (a match bucket that had a population).
+function W.depopulate(bucket)
+    pcall(SetRoutingBucketPopulationEnabled, bucket, false)
+end
+
+-- The ambient population of a match bucket (Open77.world.setPopulation, needs
+-- world.population): crowd 0..1, traffic 0..1 (a switch on 2.31), police on/off. Every
+-- client in the bucket spawns its own; nothing of it is replicated. true | false, reason.
+function W.populate(bucket, opts)
+    local world = type(Open77) == "table" and Open77.world or nil
+    if type(world) ~= "table" or type(world.setPopulation) ~= "function" then return false, "unavailable:world.setPopulation" end
+    local ok, result, reason = pcall(world.setPopulation, bucket,
+        { crowd = tonumber(opts.crowd) or 0, traffic = tonumber(opts.traffic) or 0, police = opts.police == true })
+    if not ok then return false, tostring(result) end
+    if not result then return false, tostring(reason or "refused") end
+    return true
+end
+
+-- ---------------------------------------------------------------- wanted level (NCPD Escape)
+
+-- Open77.players.setWanted / setMaxWanted (players.wanted): pushed to that player's own
+-- game, whose police are local to it. true, result | false, reason; never raises.
+local function wantedCall(name, id, level)
+    if not human(id) then return false, "not_a_player" end
+    local api = type(Open77) == "table" and Open77.players or nil
+    if type(api) ~= "table" or type(api[name]) ~= "function" then return false, "unavailable:players." .. name end
+    local ok, result, reason = pcall(api[name], id, level)
+    if not ok then return false, tostring(result) end
+    if result == nil or result == false then return false, tostring(reason or "refused") end
+    return true, result
+end
+
+function W.setWanted(id, level) return wantedCall("setWanted", id, level) end
+function W.setMaxWanted(id, level) return wantedCall("setMaxWanted", id, level) end
+
+-- What the server holds for him (players.wanted.read): { level, maxLevel, enabled } | nil.
+function W.getWanted(id)
+    if not human(id) then return nil end
+    local api = type(Open77) == "table" and Open77.players or nil
+    if type(api) ~= "table" or type(api.getWanted) ~= "function" then return nil, "unavailable:players.getWanted" end
+    local ok, result, reason = pcall(api.getWanted, id)
+    if not ok then return nil, tostring(result) end
+    if type(result) ~= "table" then return nil, tostring(reason or "refused") end
+    return result
+end
+
+-- The durable identifier (never called with a non-player id: the native throws on it).
+function W.identifier(id)
+    if not human(id) then return nil end
+    local api = type(Open77) == "table" and Open77.players or nil
+    if type(api) ~= "table" or type(api.identifier) ~= "function" then return nil end
+    local ok, value = pcall(api.identifier, id)
+    return ok and type(value) == "string" and value or nil
+end
+
+-- This resource's KVP (no permission): the NCPD Escape ledger of raised wanted levels.
+local function kvp(name, ...)
+    local api = type(Open77) == "table" and Open77.kvp or nil
+    if type(api) ~= "table" or type(api[name]) ~= "function" then return nil, "unavailable:kvp." .. name end
+    local ok, result, reason = pcall(api[name], ...)
+    if not ok then return nil, tostring(result) end
+    return result, reason
+end
+
+function W.kvpSet(key, value)
+    local ok, why = kvp("set", key, value)
+    return ok == true, why
+end
+function W.kvpDelete(key) return kvp("delete", key) == true end
+function W.kvpFind(prefix, limit)
+    local rows = kvp("find", prefix, limit or 256)
+    return type(rows) == "table" and rows or {}
+end
+
 -- Loading cover (op77_loadscreen, optional): an id, or nil when the resource is absent.
 function W.cover(id, opts)
     local ok, coverId = pcall(function() return exports.op77_loadscreen:cover(id, opts) end)

@@ -20,7 +20,8 @@ end
 local function register()
     local a = C.activity
     local ok, why = ChaseCore.register({ id = a.id, resource = GetCurrentResourceName(), label = a.label, kind = a.kind,
-        description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers, caps = a.caps })
+        description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers,
+        caps = ChaseCore.caps(a.caps, a.id), botFill = ChaseCore.botFill(a.id) })
     if ok then
         log("registered %s with Light RP", a.id)
         -- Staff bot mode is Light RP's: its current value after every registration.
@@ -109,15 +110,20 @@ local function enqueue(id, mode, checked, squad)
     publishStatus()
     local text = ("Queued for NCPD Chase (%s) - %d/%d. Keep playing, you will be pulled in when an opponent is found. /chase leave to cancel.")
         :format(modeLabel(mode), position, total)
-    if ChaseBots and ChaseBots.enabled then text = text .. " Bot mode: a bot takes the other side if nobody else is waiting." end
+    if ChaseBots and ChaseBots.fills(C.activity.id) then
+        text = text .. " Bot mode: a bot takes the other side if nobody else is waiting."
+    elseif ChaseBots and ChaseBots.refusal(C.activity.label) then
+        text = text .. " " .. ChaseBots.refusal(C.activity.label)
+    end
     W.notify(id, "info", text, 7000)
     return true, text
 end
 
--- Staff bot mode: the first ready player who has waited soloWaitSeconds (and whose crew
--- is not on its way) gets a bot. Human pairs always come first (tryPair).
+-- Staff bot mode, where config.bots.fill allows it (chase.1v1 is real players only by
+-- default): the first ready player who has waited soloWaitSeconds (and whose crew is not
+-- on its way) gets a bot. Human pairs always come first (tryPair).
 local function tryBotMatch(now)
-    if not (ChaseBots and ChaseBots.enabled) then return false end
+    if not (ChaseBots and ChaseBots.fills(C.activity.id)) then return false end
     local wait = ((C.bots or {}).soloWaitSeconds or 2) * 1000
     local holdMs = (C.queue.squadHoldSeconds or 10) * 1000
     for _, entry in ipairs(Q.entries) do

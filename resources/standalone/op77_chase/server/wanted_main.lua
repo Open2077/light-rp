@@ -30,7 +30,8 @@ end
 local function register()
     local a = WC.activity
     local ok, why = ChaseCore.register({ id = a.id, resource = GetCurrentResourceName(), label = a.label, kind = a.kind,
-        description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers, caps = a.caps })
+        description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers,
+        caps = ChaseCore.caps(a.caps, a.id), botFill = ChaseCore.botFill(a.id) })
     if ok then
         log("registered %s with Light RP", a.id)
         if ChaseBots then ChaseBots.refresh() end
@@ -91,7 +92,9 @@ local function claims(id)
     return L.has(id) or MW.matchOf(id) ~= nil or MW.pendingMatch(id) ~= nil
 end
 
-local function botMode() return ChaseBots ~= nil and ChaseBots.enabled == true end
+-- Staff bot mode fills Most Wanted only where config.bots.fill allows it (real players only
+-- by default: caps.botFill = false).
+local function botMode() return ChaseBots ~= nil and ChaseBots.fills(AID) end
 
 -- `checked`: Light RP already ran activityCheck (the hub join). `squad`: the crew the
 -- player joined with (Light RP options.squad).
@@ -121,6 +124,8 @@ local function enqueue(id, mode, checked, squad)
     if botMode() then
         text = ("Queued for Most Wanted (%s) - bot mode: bots fill the match, it starts in a few seconds. /wanted leave to cancel.")
             :format(modeLabel(mode))
+    elseif ChaseBots and ChaseBots.refusal(WC.activity.label) then
+        text = text .. " " .. ChaseBots.refusal(WC.activity.label)
     end
     notify(id, "info", text, 7000)
     return true, text
@@ -330,7 +335,8 @@ RegisterCommand("chase.wanted.status", function(source, _, raw)
     local left = countdownLeft()
     local lines = { ("lobby %d (min %d%s)%s, instances %d-%d"):format(L.size(), MW.minPlayers(), MW.testMode and ", TEST" or "",
         left and (" countdown %ds"):format(math.ceil(left / 1000)) or "", WC.buckets.from, WC.buckets.to) }
-    if botMode() then lines[1] = lines[1] .. ", BOT MODE" end
+    if botMode() then lines[1] = lines[1] .. ", BOT MODE"
+    elseif ChaseBots and ChaseBots.enabled then lines[1] = lines[1] .. ", bot mode on (real players only here)" end
     for i, entry in ipairs(L.entries) do
         lines[#lines + 1] = ("  q%d: %d (%s)%s"):format(i, entry.id, tostring(entry.mode), entry.squad and (" crew " .. entry.squad.id) or "")
     end

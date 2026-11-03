@@ -4,6 +4,7 @@
 --   op77_chase:hud    a match payload (server/match.lua, server/wanted.lua) or { state = "idle" }
 --   op77_chase:queue  a queue payload ({ queued = false } when out)
 --   op77_chase:feed   { text, tone, title }: a message for the HUD's feed
+--   op77_chase:police (to the server) NCPD Escape: what this game did with the wanted level
 --
 -- The HUD is exports.op77_lightrp:ActivityHudShow / ActivityHudPush / ActivityHudClear
 -- (Light RP's page, in Light RP's design). Every call is pcall'd: without it (an older
@@ -177,6 +178,32 @@ local function forgetMap()
     S.dotsKey, S.extractionKey, S.sightingKey = nil, nil, nil
 end
 
+-- ---------------------------------------------------------------- NCPD Escape: the police probe
+
+-- The server sets this player's wanted level (open77_prevention applies it to this game);
+-- nothing tells the server whether the game took it. While an NCPD Escape run is on with
+-- stars (payload.wanted > 0), every PROBE_EVERY-th payload (the server pushes every 500 ms,
+-- so ~2 s) sends what Open77.prevention.state() says: the level this game holds, and
+-- whether population suppression refuses raises. A handful of numbers; the server only
+-- warns about it.
+local PROBE_EVERY = 4
+
+local function policeProbe(m)
+    if not (m and m.activity == V.PVE and m.police == "ncpd" and m.state == "active") then S.probeCount = nil return end
+    local expected = tonumber(m.wanted) or 0
+    if expected <= 0 then return end
+    S.probeCount = (S.probeCount or 0) + 1
+    if S.probeCount % PROBE_EVERY ~= 1 then return end
+    local api = type(Open77) == "table" and Open77.prevention or nil
+    if type(api) ~= "table" or type(api.state) ~= "function" then return end
+    local ok, state = pcall(api.state)
+    if not ok or type(state) ~= "table" then return end
+    TriggerServerEvent("op77_chase:police", { expected = expected, requested = tonumber(state.requestedLevel) or 0,
+        suppressed = state.populationSuppressed == true, acknowledged = state.levelAcknowledged == true,
+        attached = state.scriptAttached ~= false })
+end
+S.policeProbe = policeProbe
+
 -- ---------------------------------------------------------------- what the server sends
 
 local function render()
@@ -197,6 +224,7 @@ RegisterNetEvent("op77_chase:hud", function(payload)
     if S.match and S.shown then
         for _, beat in ipairs(V.beats(prev, payload)) do pushHud(beat.kind, beat.payload) end
     end
+    policeProbe(S.match)
 end)
 
 RegisterNetEvent("op77_chase:queue", function(payload)
