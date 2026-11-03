@@ -233,6 +233,7 @@ local function place(player,p,inv)
     local b={id=id,kind=p.kind,owner=player,ownerInventory=inv.id,position=candidate.position,
         rotation=p.rotation or 0,bucket=candidate.bucket,players={},revision=0,mode="duel",moveSequence=0,game=newGame(p.kind,"duel")}
     local ok,why=Inv.commitDrafts({{inv,draft}},{write(b)},function() boards[b.id]=b;pending[player]=nil end)
+    if ok and extra(b.kind) then LightRP.tabletopExtra.placed(b) end
     return ok,why
 end
 local function handle(player,p,inv)
@@ -283,7 +284,10 @@ local function handle(player,p,inv)
             if extra(b.kind) then refunds,reason=LightRP.tabletopExtra.refunds(b) end
             if not refunds then return false,reason end
             local queries={{query="DELETE FROM lightrp_board_games WHERE id=?",values={b.id}}};for _,query in ipairs(refunds) do queries[#queries+1]=query end
-            return Inv.commitDrafts({{inv,draft}},queries,function() boards[b.id]=nil end)
+            return Inv.commitDrafts({{inv,draft}},queries,function()
+                boards[b.id]=nil
+                if extra(b.kind) then LightRP.tabletopExtra.removed(b) end
+            end)
         elseif p.action=="game" and extra(b.kind) then
             if not ready(b) then return false,"The table is not ready." end
             if p.revision~=b.revision then return false,"The table has changed. Try again." end
@@ -380,6 +384,7 @@ LightRP.module("board_games",{
             if decoded and type(b)=="table" and LightRpBoardGames[b.kind] and type(b.game)=="table" and type(b.position)=="table" then
                 b.id=row.id;b.ownerInventory=row.owner_inventory;b.players={};b.owner=nil;b.mode=b.mode or "duel"
                 boards[b.id]=b
+                if extra(b.kind) then LightRP.tabletopExtra.placed(b) end
             end
         end
         loaded=true;broadcast()

@@ -86,8 +86,13 @@ E.observe(late);local L=E.pieceTargets(late)
 assert(L['bj-white-c1'].piece.model==T['bj-white-c1'].piece.model and math.abs(L['bj-white-c1'].position.x-T['bj-white-c1'].position.x)<1e-9)
 -- The deal on the real renderer: every card becomes a native prop.
 waitUntil(function() clock=math.max(clock,0);return countNamed('^bj_card_')==6 end,'six dealt cards as native props')
-local deadline=t0+5*B.DEAL_GAP+B.SLIDE+B.FLIP
-bj.serverNow=deadline;bj.revision=3;events['lightrp:boardGames:state']({boards={bj}})
+local settled=t0+5*B.DEAL_GAP+B.SLIDE+B.FLIP
+-- The cards have settled but the dealer still pauses: no decision yet.
+bj.serverNow=settled;bj.revision=3;events['lightrp:boardGames:state']({boards={bj}})
+waitUntil(function() return view.extra.clientNow and view.extra.clientNow>=settled and view.extra.clientNow<s.actAt end,'pause after the deal')
+assert(not view.extra.legal.stand and not view.extra.legal.hit,'no decision during the pause after the deal')
+local deadline=s.actAt
+bj.serverNow=deadline;bj.revision=31;events['lightrp:boardGames:state']({boards={bj}})
 waitUntil(function() return findProp('bj_card_kh') and findProp('bj_card_6d') and findProp('bj_card_7c') end,'face-up native cards')
 assert(not findProp('bj_card_qh') and findProp('bj_card_back'),'the hole card stays a generic back')
 assert(view.extra.dealer.cards[2].c==nil and view.extra.legal.stand and view.extra.legal.hit and view.extra.legal.double)
@@ -102,16 +107,16 @@ waitUntil(function() return findProp('bj_card_qh') end,'hole card flips face-up'
 waitUntil(function() return findProp('bj_card_3h') end,'dealer draw')
 -- Chips: the losing stack slides to the dealer rack and vanishes; the winner is paid beside the bet.
 waitUntil(function() return countNamed('^bj_chips_100_1$')==2 end,'winnings stack slides out beside the bet')
-assert(E.serverTime(bj)>=s.resultAt+250,'no payout before the reveal ends')
+assert(E.serverTime(bj)>=s.resultAt+B.CHIP_STAGGER,'no payout before the reveal ends')
 T=E.pieceTargets(bj)
 assert(T['bj-white-w1'] and T['bj-white-w1'].piece.model:find('bj_chips_100_1',1,true),'125 winnings beside the bet')
-clock=clock+(s.resultAt+4*250+B.CHIPS)-E.serverTime(bj);T=E.pieceTargets(bj)
+clock=clock+(s.resultAt+4*B.CHIP_STAGGER+B.CHIPS)-E.serverTime(bj);T=E.pieceTargets(bj)
 assert(not T['bj-black-b1'],'lost chips are gone into the rack')
 local w=T['bj-white-w1'].position;assert(w.z==1.35)
 -- Before the next round the cards sweep into the discard tray.
 clock=clock+(s.nextAt-B.SWEEP+300)-E.serverTime(bj);T=E.pieceTargets(bj)
 local sweeping=T['bj-white-c1'].position;assert(sweeping.x<0,'cards travel to the discard tray at -X')
-clock=clock+900;T=E.pieceTargets(bj);assert(not T['bj-white-c1'] and not T['bj-d-c1'] and not T['bj-white-w1'])
+clock=clock+(s.nextAt-50)-E.serverTime(bj);T=E.pieceTargets(bj);assert(not T['bj-white-c1'] and not T['bj-d-c1'] and not T['bj-white-w1'] and not T['bj-black-c1'],'the sweep ends inside B.SWEEP')
 waitUntil(function() return countNamed('^bj_')==0 end,'felt cleared before the next round')
 
 -- Worst case: four 7-card hands with bet and payout stacks plus a 7-card dealer, animating.
@@ -123,7 +128,8 @@ local worst=B.view(B.new('duel',1,now));worst.phase='result';worst.resultAt=now+
 worst.hands={white=hand('white',3125),black=hand('black',3125),white2=hand('white2',3125),black2=hand('black2',3125)}
 for _,h in pairs(worst.hands) do h.total=20 end
 worst.dealer={cards={},total=22};for k=1,7 do worst.dealer.cards[k]={c='9C',t=now+k*300} end
-bj.game=worst;bj.revision=5;bj.serverNow=now+6100;events['lightrp:boardGames:state']({boards={bj}})
+bj.game=worst;bj.revision=5;bj.serverNow=worst.resultAt+4*B.CHIP_STAGGER+100; -- every payout stack in flight
+events['lightrp:boardGames:state']({boards={bj}})
 -- Count on a separate board id so the renderer below starts from a cold cache.
 local probe={id=299,kind='blackjack',position=bj.position,players=bj.players,game=worst,serverNow=bj.serverNow}
 local function measure(fn) local n=0;debug.sethook(function() n=n+1 end,'',1);fn();debug.sethook();return n end

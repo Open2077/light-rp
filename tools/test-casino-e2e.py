@@ -520,9 +520,11 @@ def blackjack():
     a = math.radians(54)
     check(chips and near(chips[0], .80*math.sin(a), -.80*math.cos(a), 1.35, .02), f'chips in the betting circle {chips}')
     # The countdown: the page counts down from the projected server clock.
+    window = sim.server.globals().LightRpBlackjack.BET_WINDOW/1000
+    check(window == 15, f'15 s betting window, got {window}')
     sim.advance(5000)
     left = (closes - sim.view()['extra']['clientNow'])/1000
-    check(4 < left < 5.5, f'countdown follows the server clock ({left:.2f} s left)')
+    check(window-6.5 < left < window-5, f'countdown follows the server clock ({left:.2f} s left)')
     check(not sim.named(board_id, 'bj_card_'), 'no cards before the deal')
     sim.advance_to_server(closes)
     # The server deals on its next 2 s board tick.
@@ -558,6 +560,10 @@ def blackjack():
         seen_motion.add(code)
     sim.advance_to_server(int(dealer[1]['t']) + slide + flip + 400)
     snapshot('settled')
+    # The dealer pauses after the deal: the cards rest, nobody may act yet.
+    check(int(game['actAt']) - (int(dealer[1]['t']) + slide + flip) == B.DEAL_PAUSE, f'pause after the deal {game["actAt"]}')
+    check(sim.server_now() < int(game['actAt']) and not sim.view()['extra']['legal']['hit'], 'no decision during the pause')
+    sim.advance_to_server(int(game['actAt']) + 400)   # the client's clock trails the server by the network delay
     for code, slot, t in timeline:
         name = 'bj_card_' + (code.lower() if code else 'back')
         found = [p for p in sim.named(board_id, name) if near(p, slot[0], slot[1], 1.35, .015)]
@@ -579,17 +585,27 @@ def blackjack():
     game = sim.server_boards()[board_id]['game']
     check(game['dealer']['total'] == 21 and game['hands']['white']['result'] == 'lose', f'result {game["dealer"]} {game["hands"]["white"]}')
     reveal = game['dealer']['cards'][1]['f']
+    check(int(reveal) >= int(t3) + slide + flip + B.REVEAL_PAUSE, f'the dealer pauses before the reveal ({reveal})')
+    sim.advance_to_server(int(reveal) - 200)
+    check(not sim.named(board_id, 'bj_card_7c'), 'hole card still down during the pause')
     sim.advance_to_server(int(reveal) + flip + 200)
     check([p for p in sim.named(board_id, 'bj_card_7c') if near(p, dealer_slot[1][0], dealer_slot[1][1], None, .015)], 'hole card flipped face-up')
     third = game['dealer']['cards'][2]['t']
+    check(int(third) == int(reveal) + flip + B.DRAW_PAUSE, 'first dealer draw after the hole card settles')
+    sim.advance_to_server(int(third) - 100)
+    check(not sim.named(board_id, 'bj_card_5s'), 'the draw waits for its time')
     sim.advance_to_server(int(third) + slide + flip + 300)
     check([p for p in sim.named(board_id, 'bj_card_5s') if near(p, dealer_slot[2][0], dealer_slot[2][1], None, .015)], f'dealer draw on its spot {sim.named(board_id, "bj_card")}')
     v = sim.view()['extra']
     check(v['phase'] == 'result', 'result view')
     # Lost chips slide into the rack and disappear.
-    sim.advance_to_server(int(game['resultAt']) + 250 + B.CHIPS + 300)
+    sim.advance_to_server(int(game['resultAt']) + B.CHIP_STAGGER + B.CHIPS + 300)
     check(not sim.named(board_id, 'bj_chips_'), f'lost stack collected {sim.named(board_id, "bj_chips_")}')
-    # Sweep, then the next round.
+    # The result stays on the felt 4-5 s, then the sweep, then the next round.
+    sweep = int(game['nextAt']) - B.SWEEP
+    check(4000 <= sweep - int(game['resultAt']) <= 5000, f'result shown {sweep - int(game["resultAt"])} ms before the sweep')
+    sim.advance_to_server(sweep - 100)
+    check(sim.named(board_id, 'bj_card_5s'), 'cards still on the felt before the sweep')
     sim.advance_to_server(int(game['nextAt']) + 100)
     sim.wait_for(lambda: sim.server_boards()[board_id]['game']['round'] == 2, 'next round', 2500)
     sim.wait_for(lambda: not sim.named(board_id, 'bj_card_'), 'felt cleared', 2000)
@@ -606,7 +622,7 @@ def blackjack():
     sim.page('lightrp:tabletop:action', {'operation': 'stand', 'data': {}})
     sim.wait_for(lambda: sim.server_boards()[board_id]['game']['phase'] == 'result', 'round 2 result', 1000)
     game = sim.server_boards()[board_id]['game']
-    sim.advance_to_server(int(game['resultAt']) + 250 + B.CHIPS + 300)
+    sim.advance_to_server(int(game['resultAt']) + B.CHIP_STAGGER + B.CHIPS + 300)
     if game['hands']['white']['result'] == 'win':
         check(sim.named(board_id, 'bj_chips_'), 'winnings stack beside the bet')
     sim.advance(1500)
