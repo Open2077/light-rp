@@ -376,18 +376,44 @@ local function close(ev)
     nextAt = now() + math.random(s.minMinutes, math.max(s.minMinutes, s.maxMinutes)) * 60000
 end
 
--- Enemies stay in the zone: one past it (perimeter + margin + leash) runs back to its
--- post, and the engine does not send it after a target for a few seconds.
+-- Enemies stay in the zone. One past the perimeter by `leashMetres` is leashed: combat and
+-- perception off (the native AI would keep chasing its target through any task), the
+-- engine's retargeting held, and a run back to its post (re-ordered every few seconds).
+-- Back inside the perimeter it fights again; still out after `leashTeleportSeconds`, it is
+-- put back on its post.
+local LEASH_CHECK_MS, LEASH_REORDER_MS = 1000, 5000
+local function setFighting(npcId, on)
+    pcall(Open77.npcs.setCombatEnabled, npcId, on)
+    pcall(Open77.npcs.setPerceptionEnabled, npcId, on)
+end
 local function leash(ev, t)
-    local def, limit = ev.def, (C.zoneMargin or 40) + (C.leashMetres or 15)
+    local def, out = ev.def, C.leashMetres or 20
+    local teleportMs = (C.leashTeleportSeconds or 30) * 1000
     for npcId, e in pairs(ev.run.enemies or {}) do
         if not e.deadAt and (e.leashAt or 0) <= t then
+            e.leashAt = t + LEASH_CHECK_MS
             local ok, npc = pcall(Open77.npcs.get, npcId)
             local p = ok and type(npc) == "table" and npc.position
-            if p and not WB.inZone(def, p, limit) then
-                local s = e.spawn
-                e.leashAt, e.taskAt = t + 6000, t + 6000
-                pcall(Open77.npcs.tasks.guard, npcId, s.position, s.radius or 12, { speed = "run" })
+            local s = e.spawn
+            if p and not e.leashed and not WB.inZone(def, p, out) then
+                e.leashed, e.leashedAt, e.leashOrderAt, e.taskAt = true, t, t, math.huge
+                setFighting(npcId, false)
+                pcall(Open77.npcs.tasks.guard, npcId, s.position, 4, { speed = "run" })
+            elseif p and e.leashed then
+                if WB.inZone(def, p, 0) then
+                    -- home: an ambusher not yet alerted stays blind, as it started
+                    e.leashed, e.taskAt = nil, 0
+                    if s.behavior ~= "ambush" or e.alerted then setFighting(npcId, true) end
+                elseif t - e.leashedAt >= teleportMs then
+                    pcall(Open77.npcs.setTransform, npcId, { position = { x = s.position.x, y = s.position.y, z = s.position.z }, yaw = s.heading or 0 })
+                    e.leashedAt, e.leashOrderAt = t, t
+                    pcall(Open77.npcs.tasks.guard, npcId, s.position, 4, { speed = "run" })
+                elseif t - e.leashOrderAt >= LEASH_REORDER_MS then
+                    -- an alert (a shot from outside) turns combat back on: held off again
+                    e.leashOrderAt, e.taskAt = t, math.huge
+                    setFighting(npcId, false)
+                    pcall(Open77.npcs.tasks.guard, npcId, s.position, 4, { speed = "run" })
+                end
             end
         end
     end
