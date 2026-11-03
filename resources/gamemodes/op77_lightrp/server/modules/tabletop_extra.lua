@@ -12,6 +12,9 @@
 --     modes={duel=true,solo=true},                        -- optional; the board modes the owner may pick
 --     placed=function(b) end,                             -- optional: the table exists (placed, or loaded at start)
 --     removed=function(b) end,                            -- optional: the table was picked up
+--     npc=function(b) return npcId end,                   -- optional: the table's own NPC (the
+--                                                         -- blackjack dealer), published to clients
+--                                                         -- so the ALT menu resolves it to its table
 --   })
 -- placed/removed run after the durable write (or the start-up load) and must
 -- not yield or fail the caller: they are protected and only logged.
@@ -21,6 +24,22 @@ X.games={}
 local Inv,Db=LightRP.inventory,LightRP.db
 local paying={}
 local lastClaimFailure={}
+-- What X.claim knows per inventory id, so that it does not lock every
+-- inventory every second (a locked inventory makes other money requests
+-- wait): nil = unknown (one lock-free read decides), false = nothing to pay,
+-- a number = the earliest known available_at of a claim written since.
+-- claimQueries marks every claim it writes (a claim whose transaction then
+-- fails only costs one more read); a generation per inventory keeps a read
+-- that raced a new claim from clearing it.
+local claimable,claimGeneration={},{}
+local CLAIM_HORIZON_MS=86400000 -- claims are available within seconds or minutes of their round
+local function markClaim(inventory,at)
+ claimGeneration[inventory]=(claimGeneration[inventory] or 0)+1
+ local due=claimable[inventory]
+ if due==nil then return end -- unknown: the next claim pass reads anyway
+ at=tonumber(at) or 0
+ claimable[inventory]=type(due)=="number" and math.min(due,at) or at
+end
 Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_roulette_claims (
  round_key VARCHAR(128) NOT NULL, inventory_id VARCHAR(96) NOT NULL,
  amount BIGINT NOT NULL, available_at BIGINT NOT NULL, paid TINYINT NOT NULL DEFAULT 0,
@@ -40,9 +59,17 @@ function X.strip(t)
 end
 local function seatOf(b,player) for seat,id in pairs(b.players) do if id==player then return seat end end end
 -- Debit a whole-dollar stake: answers inventory and draft for commit's changes.
+-- A locked inventory (a payout, a shop, a transfer being saved) answers a
+-- clear retry message; the request handler does not lock it for game
+-- operations, the commit does (board_games.lua commitGame).
+X.BUSY="Your inventory is saving another payment. Try again in a moment."
 function X.stake(player,amount)
  if type(amount)~="number" or amount~=math.floor(amount) or amount<1 or amount>1000000 then return nil,"Bet between 1 and 1,000,000 in whole RP dollars." end
  local inv=Inv.player(player);if not inv or not inv.persistent then return nil,"Your inventory is not ready." end
+ if inv.busy then
+  LightRP.log("tabletop stake refused player=%s inventory=%s: inventory busy",tostring(player),tostring(inv.id))
+  return nil,X.BUSY
+ end
  local draft=Inv.draft(inv);local ok,reason=Inv.adjustCash(draft,-amount)
  if not ok then return nil,reason=="insufficient_funds" and "Not enough cash for this bet." or reason end
  return inv,draft
@@ -51,6 +78,7 @@ local function claimQueries(key,totals,at)
  local out={}
  for inventory,amount in pairs(totals) do if amount>0 then
   out[#out+1]={query="INSERT INTO lightrp_roulette_claims (round_key,inventory_id,amount,available_at,paid) VALUES (?,?,?,?,0)",values={key,inventory,amount,at}}
+  markClaim(inventory,at)
  end end
  return out
 end
@@ -72,6 +100,13 @@ local function lifecycle(hook,b)
  if not h or type(h[hook])~="function" then return end
  local ok,why=pcall(h[hook],b)
  if not ok then LightRP.log("tabletop_extra %s hook failed board=%s kind=%s: %s",hook,tostring(b.id),tostring(b.kind),tostring(why)) end
+end
+-- The table's own NPC id (nil: none, or not spawned yet). Never raises.
+function X.npc(b)
+ local h=type(b)=="table" and X.games[b.kind]
+ if not h or type(h.npc)~="function" then return nil end
+ local ok,id=pcall(h.npc,b)
+ return ok and id or nil
 end
 function X.placed(b) lifecycle("placed",b) end
 function X.removed(b) lifecycle("removed",b) end
@@ -135,12 +170,37 @@ X.register("roulette",{
  due=function(b,now) return b.game.phase=="spinning" and type(b.game.spin)=="table" and now>=b.game.spin.endsAt end,
  settle=function(b,now) return LightRpTabletopExtraRules.act(b.game,"white","settle",{nowMs=now}) end,
 })
+local function claimFailed(inv,why)
+ local at=X.now()
+ if not lastClaimFailure[inv.id] or at-lastClaimFailure[inv.id]>10000 then
+  lastClaimFailure[inv.id]=at
+  LightRP.log("roulette claim failed inventory=%s: %s",inv.id,tostring(why))
+ end
+end
+-- Pays what is due to a character (table winnings and refunds), exactly once:
+-- the claims are marked paid in the same transaction as the cash. Runs every
+-- second for every player; the inventory is locked only when something is
+-- due (see claimable above).
 function X.claim(player)
  if not Db.ready then return end
  local inv=Inv.player(player);if not inv or not inv.persistent or inv.busy then return end
  if paying[inv.id] then return end
- paying[inv.id]=true
- local called,ok,amount=pcall(function()
+ local id,now=inv.id,X.now()
+ local due=claimable[id]
+ if due==false or (type(due)=="number" and due>now) then return end
+ paying[id]=true
+ -- A lock-free look first: the earliest unpaid claim, if any.
+ local generation=claimGeneration[id] or 0
+ local called,read,rows=pcall(Db.read,"SELECT round_key,amount,available_at FROM lightrp_roulette_claims WHERE inventory_id=? AND paid=0 AND available_at<=? ORDER BY available_at LIMIT 1",{id,now+CLAIM_HORIZON_MS})
+ if not called or not read then paying[id]=nil;claimFailed(inv,called and "Roulette claim storage is unavailable." or read);return end
+ local first=rows[1]
+ local at=first and tonumber(first.available_at)
+ if (claimGeneration[id] or 0)~=generation then claimable[id]=nil -- a claim was written meanwhile: look again
+ elseif not first then claimable[id]=false
+ elseif at and at>now then claimable[id]=at end
+ if not first or (at and at>now) then paying[id]=nil;return end
+ local ok,amount
+ called,ok,amount=pcall(function()
   return Inv.transaction(player,function(current)
    local read,rows=Db.read("SELECT round_key,amount FROM lightrp_roulette_claims WHERE inventory_id=? AND paid=0 AND available_at<=? ORDER BY available_at LIMIT 30",{current.id,X.now()})
    if not read then return false,"Roulette claim storage is unavailable." end
@@ -156,18 +216,20 @@ function X.claim(player)
    return saved,saved and total or why
   end)
  end)
- paying[inv.id]=nil
- if not called or (not ok and amount and amount~="busy") then
-  local at=X.now()
-  if not lastClaimFailure[inv.id] or at-lastClaimFailure[inv.id]>10000 then
-   lastClaimFailure[inv.id]=at
-   LightRP.log("roulette claim failed inventory=%s: %s",inv.id,tostring(called and amount or ok))
-  end
- end
+ paying[id]=nil
+ -- Paid or not, look again next pass (more than 30 rows, a failed commit, a
+ -- busy lock); the look is a cheap read until the inventory is settled.
+ claimable[id]=nil
+ if not called or (not ok and amount and amount~="busy") then claimFailed(inv,called and amount or ok) end
  local current=Inv.player(player)
  if called and ok and current and current.id==inv.id then LightRP.notice(player,{kind="success",title="Casino",body="Received €$ "..tostring(amount).." in table winnings/refunds."}) end
 end
-LightRP.module("tabletop_extra",{onCharacterLoaded=function(player) X.claim(player) end})
+-- A character (re)loaded: what it is owed is unknown again (one cheap read).
+function X.forget(inventory) if inventory then claimable[inventory]=nil end end
+LightRP.module("tabletop_extra",{onCharacterLoaded=function(player)
+ local inv=Inv.player(player);if inv then X.forget(inv.id) end
+ X.claim(player)
+end})
 CreateThread(function()
  while true do Wait(1000);if Db.ready then for _,id in ipairs(GetPlayers()) do X.claim(tonumber(id)) end end end
 end)

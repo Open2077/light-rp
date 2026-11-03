@@ -36,6 +36,7 @@ function I.adjustCash(draft,delta)
 end
 function I.releaseBusy(inv) inv.busy=nil end
 function I.transaction(player,fn)
+ transactions=(transactions or 0)+1
  local inv=I.player(player);if not inv then return false,'no_inventory' end
  if inv.busy then return false,'busy' end
  inv.busy=true
@@ -71,6 +72,8 @@ function Db.read(sql,values)
  if readFailure then return false,{} end
  if sql:find('FROM lightrp_board_games',1,true) then local out={};for _,row in pairs(dbBoards) do out[#out+1]=clone(row) end;return true,out end
  if sql:find('FROM lightrp_roulette_claims',1,true) then
+  claimReads=(claimReads or 0)+1
+  if sql:find('LIMIT 30',1,true) and duringClaimRead then local fn=duringClaimRead;duringClaimRead=nil;fn() end
   local out={};for _,row in pairs(dbClaims) do if row.inventory_id==values[1] and row.paid==0 and row.available_at<=values[2] then out[#out+1]=clone(row) end end
   table.sort(out,function(a,b) return a.available_at<b.available_at end)
   while #out>30 do table.remove(out) end
@@ -184,6 +187,60 @@ LightRP.tabletopExtra.claim(1);assert(cash(1)==initial+350 and unpaid('inv1')==0
 LightRP.tabletopExtra.claim(1);LightRP.tabletopExtra.claim(5);assert(cash(1)==initial+350)
 assert(step(2000));assert(board(id).game.phase=='result')
 game(1,id,'nextRound',{});assert(board(id).game.phase=='betting' and #board(id).game.bets==0)
+''')
+
+scenario('a locked inventory: moves and joins go through, a bet is answered, claims pay once and skip the lock when nothing is due',r'''
+-- A chess board and two roulette tables side by side.
+local chess=place('chess',2,0,0)
+local wheel=place('roulette',1,2,0)
+local open=place('roulette',3,2,2)
+positions[1].x,positions[1].y=2,0;positions[3].x,positions[3].y=2,1
+action(1,wheel,'join');action(3,open,'join')
+-- Player 1 wins on the first table: a claim due when the wheel stops.
+local initial=cash(1)
+game(1,wheel,'bet',{bet=0,amount=10});fixedOutcome(0);game(1,wheel,'spin',{})
+local ends=board(wheel).game.spin.endsAt;assert(unpaid('inv1')==360)
+action(1,wheel,'leave') -- the claim is bound to the inventory, not the seat
+-- Before the wheel stops: no lock; one lock-free read learns when it is due.
+transactions,claimReads=0,0
+for i=1,5 do LightRP.tabletopExtra.claim(1) end
+assert(transactions==0 and claimReads==1,'nothing due yet: one read, no lock ('..claimReads..' reads)')
+-- The claim pays while player 1 plays chess and bets on the other table.
+wall=ends
+local during={}
+duringClaimRead=function()
+ assert(inventories[1].busy,'the claim holds the inventory lock')
+ action(1,chess,'join');during.joined=board(chess).players.black==1 or board(chess).players.white==1
+ action(2,chess,'join')
+ local b=board(chess);local side=b.players.white==1 and 1 or 2
+ local revision=b.revision
+ action(side,chess,'move',{fromRow=7,fromCol=5,toRow=5,toCol=5,revision=revision})
+ during.moved=board(chess).revision==revision+1
+ action(1,chess,'leave');action(1,open,'join')
+ local before=cash(1);notices[1]=nil
+ game(1,open,'bet',{bet='red',amount=25})
+ during.bet=notices[1];during.cash=cash(1)==before
+ action(1,chess,'pickup');during.pickup=notices[1]
+end
+LightRP.tabletopExtra.claim(1)
+assert(during.joined and during.moved,'a join and a move are never dropped for a locked inventory')
+assert(during.bet==LightRP.tabletopExtra.BUSY and during.cash,'a bet during the claim gets a clear answer and costs nothing: '..tostring(during.bet))
+assert(during.pickup and during.pickup:find('busy',1,true),'an item operation is answered too: '..tostring(during.pickup))
+local logged=false;for _,line in ipairs(logs) do if line:find('inventory busy',1,true) then logged=true end end;assert(logged,'and logged')
+assert(cash(1)==initial-10+360 and unpaid('inv1')==0 and not inventories[1].busy,'the claim paid')
+-- Exactly once, and afterwards one cheap read settles it: no more locks.
+transactions,claimReads=0,0
+for i=1,10 do LightRP.tabletopExtra.claim(1) end
+assert(cash(1)==initial-10+360,'paid exactly once')
+assert(transactions==0 and claimReads==1,'settled: one lock-free read, then nothing ('..transactions..' locks, '..claimReads..' reads)')
+-- The bet goes through once the lock is gone.
+game(1,open,'bet',{bet='red',amount=25});assert(cash(1)==initial-10+360-25 and board(open).game.yourStake==25)
+-- A new claim (a refund on reset) is noticed without polling the database.
+action(3,open,'reset');assert(unpaid('inv1')==25)
+transactions,claimReads=0,0
+LightRP.tabletopExtra.claim(1);assert(cash(1)==initial-10+360 and transactions==1,'the refund is paid at once')
+-- A character load forgets what was known: one read again.
+claimReads=0;modules.tabletop_extra.onCharacterLoaded(1);assert(claimReads==1)
 ''')
 
 scenario('roulette refunds bind durable character inventories and commit atomically',r'''

@@ -194,6 +194,8 @@ assert(npc.def.persistent==false and npc.def.despawnWhenUnobserved==false and np
 assert(math.abs(npc.position.x-10)<1e-9 and math.abs(npc.position.y-(20+.72*.65))<1e-9 and npc.position.z==0,'behind the felt, on the floor')
 assert(npc.yaw==180,'faces the players at -Y')
 dealerTick();assert(#bodies()==1,'no duplicate on the next tick')
+-- Clients learn the dealer's NPC id (the ALT menu on the croupier opens the table's menu).
+assert(board(id,1).npc==npc.id,'the snapshot publishes the dealer NPC id: '..tostring(board(id,1).npc))
 -- The table's rotation turns the stand point and the facing with it.
 local at,yaw=LightRpBlackjack.dealerStand({position={x=0,y=0,z=0},rotation=90})
 assert(math.abs(at.x+.72*.65)<1e-9 and math.abs(at.y)<1e-9 and yaw==270,'rotation 90: dealer at -X facing +X')

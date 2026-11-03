@@ -13,6 +13,8 @@
 -- with ctx.action.key. Both build the same rows from the same state, so a row
 -- that is no longer valid cannot run. Every request is one the server already
 -- validates (lightrp:boardGames:request join, mode, reset, pickup).
+-- Targets: the table's props, the surfaces around it, and its own NPC (the
+-- blackjack croupier, whose id the server publishes as board.npc).
 -- The client budget is ~10k instructions per resume and this runs on every
 -- ALT click on a table: a few rows, no searches.
 local Ui=LightRpUi
@@ -90,28 +92,75 @@ function M.freeSeat(board)
     for _,slot in ipairs(slots) do if players[slot]==nil then return true end end
     return false
 end
--- The table a menu context points at: the clicked native prop (base, collider
--- or piece) or, for a surface hit, the nearest rendered table within reach.
-local function boardFor(ctx)
-    if GetInvokingResource()~="open77_contextmenu" or type(ctx)~="table" or type(ctx.target)~="table" then return end
-    if not Ui.characterReady or Ui.creationActive or Ui.menuOpen or Ui.actionFocus or Ui.supportMode then return end
-    for name,open in pairs(Ui.dialogs or {}) do if open and name~="boardGames" then return end end
-    local character=Open77.character.state()
-    if not character or character.alive~=true or character.attached~=true or not character.position then return end
-    local board=ctx.target.kind=="prop" and ctx.target.networked==false and Client.boardOfProp(ctx.target.propId) or nil
-    if not board and type(ctx.position)=="table" and ctx.hasSurface~=false then
-        local best=1.4
-        for _,candidate in pairs(Client.boards) do
-            local p=candidate.position
-            local d=math.sqrt((p.x-ctx.position.x)^2+(p.y-ctx.position.y)^2)
-            if d<best and math.abs(p.z-ctx.position.z)<2.5 and Client.isRendered(candidate) then best,board=d,candidate end
-        end
+-- The table a menu context points at, and how it was found (for the trace):
+--   "prop":    the clicked native prop (base, collider or piece);
+--   "dealer":  the table's own NPC (the blackjack croupier stands behind the
+--              table and in the context ray: its hitbox is what an ALT click
+--              on the far half of the felt, the shoe or the chip rack hits);
+--   "surface": a surface hit next to a rendered table (and an NPC hit next to
+--              a dealer table whose NPC id is not known yet).
+-- Answers nil and why not.
+local DEALER_KINDS={blackjack=true}
+local function nearestTable(position,dealerOnly)
+    local best,board=1.4,nil
+    for _,candidate in pairs(Client.boards) do
+        local p=candidate.position
+        local d=math.sqrt((p.x-position.x)^2+(p.y-position.y)^2)
+        if d<best and math.abs(p.z-position.z)<2.5 and Client.isRendered(candidate)
+            and (not dealerOnly or DEALER_KINDS[candidate.kind]) then best,board=d,candidate end
     end
-    if not board or distance(character.position,board.position)>TABLE_REACH then return end
     return board
 end
+local function boardFor(ctx)
+    if GetInvokingResource()~="open77_contextmenu" or type(ctx)~="table" or type(ctx.target)~="table" then return nil,"caller" end
+    if not Ui.characterReady or Ui.creationActive or Ui.menuOpen or Ui.actionFocus or Ui.supportMode then return nil,"ui_busy" end
+    for name,open in pairs(Ui.dialogs or {}) do if open and name~="boardGames" then return nil,"dialog_"..tostring(name) end end
+    local character=Open77.character.state()
+    if not character or character.alive~=true or character.attached~=true or not character.position then return nil,"character" end
+    local target=ctx.target
+    local board,how
+    if target.kind=="prop" and target.networked==false then
+        board=Client.boardOfProp(target.propId);how=board and "prop"
+    elseif target.kind=="npc" then
+        local npc=tonumber(target.npcId)
+        if npc then for _,candidate in pairs(Client.boards) do
+            if tonumber(candidate.npc)==npc then board,how=candidate,"dealer";break end
+        end end
+    end
+    if not board and type(ctx.position)=="table" and ctx.hasSurface~=false then
+        -- Any other NPC (a passer-by) is not a table: only a dealer table answers it.
+        board=nearestTable(ctx.position,target.kind=="npc");how=board and "surface"
+    end
+    if not board then return nil,"no_table" end
+    if distance(character.position,board.position)>TABLE_REACH then return nil,"far" end
+    return board,how
+end
+M.boardFor=boardFor
+-- What the ALT click hit, in the server log (at most one per 1.5 s, and only
+-- near a table): a live test shows why a table did or did not answer.
+local lastTargetTrace=-100000
+local function traceTarget(ctx,board,how)
+    local now=GetGameTimer()
+    if now-lastTargetTrace<1500 or type(ctx)~="table" or type(ctx.target)~="table" then return end
+    if not board then
+        local character=Open77.character.state()
+        local here=character and character.position
+        local near=false
+        if here then for _,candidate in pairs(Client.boards) do
+            if distance(here,candidate.position)<=TABLE_REACH+1 then near=true;break end
+        end end
+        if not near then return end
+    end
+    lastTargetTrace=now
+    local t=ctx.target
+    Client.trace("menu_target",board and board.id,"kind=%s prop=%s npc=%s networked=%s record=%s via=%s board=%s",
+        tostring(t.kind),tostring(t.propId),tostring(t.npcId),tostring(t.networked),tostring(t.record),tostring(how),
+        board and (tostring(board.kind)..":"..tostring(board.id)) or "none")
+end
 exports("tableMenuRows",function(ctx)
-    local board=boardFor(ctx);if not board then return {rows={}} end
+    local board,how=boardFor(ctx)
+    if how~="caller" then traceTarget(ctx,board,how) end
+    if not board then return {rows={}} end
     local list=rowsFor(board,ctx)
     return {title=title(board),rows=list}
 end)
@@ -132,7 +181,7 @@ local function register()
         Wait(0)
         local pending,why=Open77.exports.call("open77_contextmenu","register",{
             id="tables.menu",label="Table",icon="interact",group="Table",order=-10,
-            types={"prop","world","object","device","item"},distance=REACH,
+            types={"prop","world","object","device","item","npc"},distance=REACH,
             rows="tableMenuRows",onSelect="tableMenuSelect",
         })
         local token

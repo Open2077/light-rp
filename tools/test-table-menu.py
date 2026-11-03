@@ -314,7 +314,76 @@ act('rerack');assert(last().operation=='rerack')
 local function size(t) local n=0;for k,v in pairs(t) do n=n+#tostring(k)+(type(v)=='table' and size(v) or #tostring(v)) end;return n end
 assert(size(view)<1500,'bar payload '..size(view))
 escape()
+-- ALT target resolution, per game: the base prop, the collider (a solid
+-- box, what the context ray really hits), a piece, a surface next to it;
+-- for blackjack also the dealer NPC (it stands behind the table, in the ray
+-- of a click on the far half of the felt). A passer-by NPC is never a table.
+-- Every ALT click near a table is traced (menu_target), at most every 1.5 s.
+local function lastTrace() for i=#diagnostics,1,-1 do local d=diagnostics[i];if d.event=='trace' and d.reason=='menu_target' then return d end end end
+local function resolve(c)
+ invokingResource='open77_contextmenu'
+ local board,how=M.boardFor(c)
+ local answer=exportCallbacks.tableMenuRows(c)
+ invokingResource=nil
+ return board,how,answer
+end
+local function prop(board,suffix)
+ local name=MODELS[board.kind] and MODELS[board.kind]..(suffix or '')
+ for id,p in pairs(nativeProps) do if (suffix=='piece' and p.name~=MODELS[board.kind] and not p.name:find('_collider',1,true)) or p.name==name then return id end end
+end
+MODELS.checkers='checkers_board';MODELS.connect4='connect4_board'
+local GAMES={chess=function() return LightRPBoardRules.new('chess') end,checkers=function() return LightRPBoardRules.new('checkers') end,
+ connect4=function() return LightRPBoardRules.new('connect4') end,roulette=function() return R.new('roulette','duel') end,
+ slots=function() return S.new('duel') end,blackjack=function() return B.view(B.new('duel',7,now)) end,
+ fortune=function() return F.view(F.new('duel',5,now),'me') end,pool=function() return P.new('duel',3) end}
+local resolved={}
+for _,kind in ipairs({'chess','checkers','connect4','roulette','slots','blackjack','fortune','pool'}) do
+ local t=fresh(kind,GAMES[kind](),{npc=kind=='blackjack' and 4242 or nil})
+ show(t);waitUntil(function() return C.isRendered(t) and prop(t)~=nil and prop(t,'_collider')~=nil end,kind..' rendered with its collider')
+ for _=1,30 do step() end
+ local function check(c,via,label)
+  clock=clock+1600
+  local board,how,answer=resolve(c)
+  assert(board==t and how==via,kind..' '..label..': '..tostring(how))
+  assert(#answer.rows>0 and answer.title==(LightRpBoardGames[kind].title),kind..' '..label..' has rows')
+  local d=lastTrace();assert(d and d.details:find('via='..via,1,true) and d.details:find('board='..kind..':'..t.id,1,true),kind..' '..label..' traced: '..tostring(d and d.details))
+ end
+ check({target={kind='prop',networked=false,propId=prop(t)},position=t.position,hasSurface=true,playerDistance=1},'prop','base')
+ check({target={kind='prop',networked=false,propId=prop(t,'_collider')},position=t.position,hasSurface=true,playerDistance=1},'prop','collider')
+ if prop(t,'piece') then check({target={kind='prop',networked=false,propId=prop(t,'piece')},position=t.position,hasSurface=true,playerDistance=1},'prop','piece') end
+ check({target={kind='world',networked=false},position={x=.3,y=.2,z=.6},hasSurface=true,playerDistance=1},'surface','surface')
+ check({target={kind='object',networked=false,engineEntity='99'},position={x=-.2,y=.1,z=.6},hasSurface=true,playerDistance=1},'surface','unknown object')
+ local npc={kind='npc',networked=true,npcId=4242,record='Character.sts_wat_kab_07_croupiers'}
+ if kind=='blackjack' then
+  check({target=npc,position={x=0,y=.47,z=1.1},hasSurface=true,playerDistance=1.5},'dealer','dealer NPC')
+  -- Before its id reaches the client: an NPC hit on the dealer side still finds the table.
+  check({target={kind='npc',networked=true,npcId=777},position={x=0,y=.47,z=1.1},hasSurface=true,playerDistance=1.5},'surface','dealer NPC, id unknown')
+ else
+  clock=clock+1600
+  local board,how,answer=resolve({target={kind='npc',networked=true,npcId=4242},position={x=0,y=.47,z=1.1},hasSurface=true,playerDistance=1.5})
+  assert(board==nil and how=='no_table' and #answer.rows==0,kind..': a passer-by NPC is not the table')
+  assert(lastTrace().details:find('kind=npc',1,true) and lastTrace().details:find('board=none',1,true),'a miss near a table is traced too')
+ end
+ resolved[#resolved+1]=kind
+end
+-- The registration includes NPCs (the dealer), still within the real registry.
+local types={};for _,t in ipairs(registered.types) do types[t]=true end
+local registry=ContextMenuRegistry.new(function() return true end)
+assert(types.npc and registry.register('op77_lightrp',1,registered))
+-- The real registry offers the table menu on the dealer: before, its types
+-- left NPCs out, so an ALT click that hit the croupier listed nothing.
+assert(#registry.candidates({target={kind='npc',networked=true,npcId=4242},playerDistance=1.5})==1,'the table menu is a candidate on the dealer NPC')
+assert(#registry.candidates({target={kind='npc',networked=true,npcId=4242},playerDistance=3.5})==0,'within the 3 m menu reach')
+-- The trace is rate-limited and stays silent far from every table.
+local traces=0;for _,d in ipairs(diagnostics) do if d.reason=='menu_target' then traces=traces+1 end end
+invokingResource='open77_contextmenu';exportCallbacks.tableMenuRows({target={kind='world'},position={x=0,y=0,z=0},hasSurface=true});invokingResource=nil
+local after=0;for _,d in ipairs(diagnostics) do if d.reason=='menu_target' then after=after+1 end end
+assert(after==traces,'at most one target trace per 1.5 s')
+Open77.character.state().position.x=30;clock=clock+1600
+invokingResource='open77_contextmenu';exportCallbacks.tableMenuRows({target={kind='world'},position={x=30,y=0,z=0},hasSurface=true});invokingResource=nil
+after=0;for _,d in ipairs(diagnostics) do if d.reason=='menu_target' then after=after+1 end end
+assert(after==traces,'no trace far from every table');Open77.character.state().position.x=0
 assert(peak<5000,'a menu costs '..peak..' instructions')
 assert(barPeak<3000,'a bar costs '..barPeak..' instructions')
-print('table menu and bar: management rows (status, sit, mode, new game, leave, pick up), bar per game and state (chess, roulette, slots, blackjack, fortune, pool) and their requests, chip limits, cash limits, notices: OK; peak '..peak..' instructions per menu, '..barPeak..' per bar')
+print('table menu and bar: management rows (status, sit, mode, new game, leave, pick up), bar per game and state (chess, roulette, slots, blackjack, fortune, pool) and their requests, chip limits, cash limits, notices, ALT target resolution per game ('..table.concat(resolved,', ')..': base, collider, piece, surface, dealer NPC, passer-by NPC, traced): OK; peak '..peak..' instructions per menu, '..barPeak..' per bar')
 ''')

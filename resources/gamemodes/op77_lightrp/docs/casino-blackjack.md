@@ -116,6 +116,12 @@ routing bucket, on the floor under the table origin.
   without it. It is removed on pickup and on resource stop (the framework also
   clears every NPC this resource owns at start and stop, so a hot reload
   never leaves a double).
+- **ALT menu**: the croupier stands inside the ALT ray of a click on the
+  far half of the felt, the shoe or the chip rack. The server publishes its
+  NPC id with the table (handler hook `npc`, `npc` in the snapshot,
+  broadcast as soon as it spawns) and the table menu is also registered for
+  NPC targets, so ALT on the dealer opens the table's menu (see
+  `board-games.md`, *The ALT menu manages tables*).
 - **Record**: tried in order until `Open77.npcs.create` accepts one:
   `Character.sts_wat_kab_07_croupiers` (the base-game Kabuki gambling-den
   croupier; the record id is derived from its catalogued template

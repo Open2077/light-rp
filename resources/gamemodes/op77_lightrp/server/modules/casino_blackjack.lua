@@ -178,6 +178,8 @@ function B.dealerTick(now)
   if not d.npc and d.attempts<MAX_ATTEMPTS and now>=d.retryAt then
    d.attempts=d.attempts+1
    local ok,why=spawnDealer(d)
+   -- Clients learn the dealer's id at once (the ALT menu resolves it to its table).
+   if ok and LightRP.boardGames and type(LightRP.boardGames.broadcast)=="function" then pcall(LightRP.boardGames.broadcast) end
    if not ok then
     d.retryAt=now+RETRY_MS
     LightRP.log("blackjack dealer board=%s: no NPC (attempt %d/%d): %s",d.board.id,d.attempts,MAX_ATTEMPTS,tostring(why))
@@ -214,6 +216,8 @@ X.register("blackjack",{
  due=function(b,now) return B.due(b.game,now) end,
  placed=placed,
  removed=removed,
+ -- The croupier's NPC id: the ALT menu on the dealer opens the table's menu.
+ npc=function(b) local d=dealers[b.id];return d and d.npc or nil end,
  settle=function(b,now)
   local game=B.settle(b.game,now,seed())
   if not game then return nil end
