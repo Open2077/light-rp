@@ -33,7 +33,8 @@ LightRpActivities = {
     -- adds it to the street reputation whose tiers open the harder difficulties and
     -- cyberware (server/modules/missions.lua); nil keeps it in the activity tables.
     -- `pvpGrants = true` brings the old rule back (every kind granted, clamped to
-    -- maxPerResult). Activities never pay cash or items. docs/pve-progression.md.
+    -- maxPerResult). docs/pve-progression.md. Eddies: server/modules/activity_pay.lua
+    -- (economy.lua `activities`); never items.
     reputation = { maxPerResult = 50, dailyCap = 500, grantTo = "missions", pvpGrants = false },
 
     -- PvE activities (players against bots). A provider marks its activity with

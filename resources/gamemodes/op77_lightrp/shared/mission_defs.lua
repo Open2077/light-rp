@@ -49,12 +49,14 @@ M.ENEMIES = {
 M.ENEMY = {}
 for _, e in ipairs(M.ENEMIES) do M.ENEMY[e.id] = e end
 
+-- `payout`: each operator's share at the difficulty's `min` crew, before the crew
+-- pot, cooldown and daily cap of server/modules/mission_pay.lua (docs/economy-balance.md).
 M.DIFFICULTIES = {
-    { id = "standard", label = "Standard", blurb = "The contract as written.", payout = 8000, minutes = 15, min = 1, max = 4,
+    { id = "standard", label = "Standard", blurb = "The contract as written.", payout = 2400, minutes = 15, min = 1, max = 4,
         enemyHealth = 1, enemyDamage = 1, enemyCount = 1 },
-    { id = "hard", label = "Hard", blurb = "More of them, and they hit harder.", payout = 15000, minutes = 15, min = 1, max = 4,
+    { id = "hard", label = "Hard", blurb = "More of them, and they hit harder.", payout = 3000, minutes = 15, min = 1, max = 4,
         enemyHealth = 1.5, enemyDamage = 1.25, enemyCount = 1.5 },
-    { id = "critical", label = "Critical", blurb = "Bring your best kit and a full squad.", payout = 30000, minutes = 20, min = 2, max = 4,
+    { id = "critical", label = "Critical", blurb = "Bring your best kit and a full squad.", payout = 4400, minutes = 20, min = 2, max = 4,
         enemyHealth = 2.25, enemyDamage = 1.6, enemyCount = 2 },
 }
 

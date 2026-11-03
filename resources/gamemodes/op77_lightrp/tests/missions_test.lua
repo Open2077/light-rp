@@ -65,6 +65,8 @@ _G.LightRP = {
     db = { ready = false, schema = function() end, single = function() end, run = function() end },
 }
 
+dofile("server/config/economy.lua")
+dofile("server/modules/mission_pay.lua")
 dofile("server/config/missions.lua")
 dofile("server/modules/parties.lua")
 dofile("server/modules/missions.lua")
@@ -220,7 +222,15 @@ assert(not mapJams[2] and mapJams[4], "leaving lifts the jam for that operator o
 assert(commands["missions.complete"](0, { "4" }))
 assert(not Missions.instanceOf(4) and buckets[4] == 0 and buckets[1] == 0, "home again")
 assert(next(mapJams) == nil, "the map comes back for everyone at the end")
-assert(paid[4] == 12000 and paid[1] == 12000 and not paid[2], "payout to the finishers only")
+-- two finishers at the minimum crew of two: each gets the full share (mission_pay_test covers the rules)
+assert(paid[4] == P.difficulties[1].payout and paid[1] == P.difficulties[1].payout and not paid[2], "payout to the finishers only")
+local announced, done
+for _, n in ipairs(notices) do
+    if n.id == 4 and n.title == "PAYOUT" then announced = n end
+    if n.id == 4 and n.title == "MISSION COMPLETE" then done = n end
+end
+assert(announced and announced.body:find("If you finish", 1, true), "the expected pay is announced at launch")
+assert(done and done.body:find("$" .. P.difficulties[1].payout .. " paid", 1, true), "the notice quotes what was paid")
 assert(healed[4] and healed[1] and healed[2], "everyone leaving the mission is healed, the one who abandoned too")
 assert(Missions.reputation(4) == LightRpMissions.reputationGain.standard)
 

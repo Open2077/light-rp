@@ -66,7 +66,7 @@ TriggerClientEvent=function(e,_,p) if e==LightRpEvents.net.workCycle then last=p
 dofile("server/modules/inventory.lua");dofile("server/modules/economy.lua")
 local I,M=LightRP.inventory,LightRP.money
 I.onCharacterLoaded(1,char);M.onCharacterLoaded(1,char)
-dofile("server/config/job_work.lua");dofile("server/modules/job_work.lua")
+dofile("server/config/economy.lua");dofile("server/config/job_work.lua");dofile("server/modules/job_work.lua")
 local W,C=LightRP.jobWork,LightRpJobWork
 local a=I.player(1)
 local function gotoPoint(job,kind)
@@ -118,14 +118,22 @@ assert(I.move(1,trunk.id,1,a.id,1,40))
 begin("scrapper","process");for _=1,10 do finish() end
 assert(not W.isActive(1) and count("scrap")==0 and count("salvaged_parts")==10 and I.weightOf(a)==20)
 local bank=M.get(1).bank;begin("scrapper","sell");finish()
-assert(count("salvaged_parts")==0 and M.get(1).bank==bank+240 and #state.ledger>0 and not W.isActive(1))
+assert(count("salvaged_parts")==0 and M.get(1).bank==bank+10*C.jobs.scrapper.price and #state.ledger>0 and not W.isActive(1))
 assert(not W.begin(1,gotoPoint("scrapper","sell")),"no reward without goods")
 -- Sanitation is the same item pipeline with independent goods and prices.
 reset();begin("sanitation","collect");for _=1,10 do finish() end
 assert(count("trashbag")==10 and not W.isActive(1))
 begin("sanitation","process");for _=1,10 do finish() end
 assert(count("trashbag")==0 and count("recyclables")==10)
-bank=M.get(1).bank;begin("sanitation","sell");finish();assert(M.get(1).bank==bank+180 and count("recyclables")==0)
+bank=M.get(1).bank;begin("sanitation","sell");finish();assert(M.get(1).bank==bank+10*C.jobs.sanitation.price and count("recyclables")==0)
+-- Each grade adds LightRpEconomy.jobs.gradeBonus to the sale price (grade 2: +20 %).
+LightRP.jobs={get=function() return {name=char.job,grade=2} end}
+reset();begin("sanitation","collect");for _=1,10 do finish() end
+begin("sanitation","process");for _=1,10 do finish() end
+bank=M.get(1).bank;begin("sanitation","sell");finish()
+local graded=math.floor(C.jobs.sanitation.price*(1+2*LightRpEconomy.jobs.gradeBonus)+0.5)
+assert(graded>C.jobs.sanitation.price and M.get(1).bank==bank+10*graded,"a higher grade sells for more")
+LightRP.jobs={get=function() return {name=char.job} end}
 -- Slot pressure, freed input slots, exact post-recipe weight, unique metadata.
 reset();a.slots=1;assert(I.addItem(a.id,"trashbag",2))
 local before=a.items;assert(not I.produce(1,{{name="trashbag",count=1}},{{name="recyclables",count=1}}) and a.items==before,"output needs a slot when input stack remains")
@@ -175,7 +183,7 @@ assert(coroutine.resume(co));W.onDisconnected(1);I.onDisconnected(1);M.onDisconn
 assert(coroutine.resume(co));yieldDb=false;assert(not W.isActive(1))
 I.onCharacterLoaded(1,char);M.onCharacterLoaded(1,char);a=I.player(1)
 assert(count("scrap")==4,"completed SQL batch persists after reconnect")
-assert(W.preview("scrapper").price==24 and W.preview("sanitation").collectWeight==4)
+assert(W.preview("scrapper").price==C.jobs.scrapper.price and W.preview("sanitation").collectWeight==4)
 -- Animation failure/interruption never turns into a silent timed reward.
 reset();failAnimation=true;assert(not W.begin(1,gotoPoint("scrapper","collect")));assert(not W.isActive(1));failAnimation=false
 animation={active=true,playbackId="other-resource"};assert(not W.begin(1,gotoPoint("scrapper","collect")));assert(animation.playbackId=="other-resource");animation=nil

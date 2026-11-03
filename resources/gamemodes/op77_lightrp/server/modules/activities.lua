@@ -1238,6 +1238,7 @@ function A.result(playerId, activityId, result)
             tostring(r.placement), tostring(r.won))
         return true
     end
+    if LightRP.activityPay then pcall(LightRP.activityPay.onResult, id, e, r, result) end -- eddies: activity_pay.lua
     CreateThread(function() record(id, e, r) end)
     return true
 end

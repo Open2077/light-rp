@@ -140,6 +140,8 @@ _G.LightRP = {
     db = { ready = false, schema = function() end, single = function() end, run = function() end },
 }
 
+dofile("server/config/economy.lua")
+dofile("server/modules/mission_pay.lua")
 dofile("server/config/missions.lua")
 dofile("server/modules/parties.lua")
 dofile("server/modules/missions.lua")
@@ -371,7 +373,10 @@ assert(last(1).phase == "victory")
 for _ in pairs(npcs) do error("reinforcements left after the kill") end
 assert(loopsOf(LightRpRaid.fx.enraged) == 0 and loopsOf(LightRpRaid.fx.wreck[1]) == 1 and playedName(LightRpRaid.fx.death[1]), "it dies in a blast and burns")
 seconds(LightRpRaid.victorySeconds + 1)
-assert(not Missions.instanceOf(1) and paid[1] == point.difficulties[1].payout and paid[2] == paid[1], "paid")
+-- two operators on a difficulty whose minimum crew is one: the pot is shared (mission_pay.lua)
+local share = LightRP.missionPay.share(point.difficulties[1].payout, 2, point.difficulties[1].min)
+assert(share < point.difficulties[1].payout, "a duo earns less each than a solo run")
+assert(not Missions.instanceOf(1) and paid[1] == share and paid[2] == paid[1], "paid")
 assert(bosses.boss2 == nil, "boss removed")
 assert(next(loops) == nil, "no effect left in the arena")
 assert(last(1).phase == "ended" and buckets[1] == 0, "home")

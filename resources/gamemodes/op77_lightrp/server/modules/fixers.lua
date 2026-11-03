@@ -136,11 +136,23 @@ local function gigOfRef(r)
     return gigs[tonumber(id)]
 end
 
+-- A gig's pay is each operator's share at the minimum crew: a bigger crew, a repeat
+-- within the cooldown or the daily cap pays less (server/modules/mission_pay.lua).
+-- Before the end the texts say "up to"; after it, what this operator was paid.
+local function payText(gig, viewer)
+    if gig.paid then return money(viewer and gig.paid[viewer] or 0) end
+    return "up to " .. money(gig.payout)
+end
+local function gigPayout(d)
+    local pay = math.floor(d.payout * (C.payoutMultiplier or 1) + 0.5)
+    return LightRP.missionPay and LightRP.missionPay.cap(pay, d) or pay
+end
+
 local function vars(gig, viewer)
     local point, d = pointOf(gig), diffOf(gig)
     return {
         player = viewer and name(viewer) or "", title = point and point.title or "the job", location = point and point.location or "Night City",
-        difficulty = d and d.label or "", payout = money(gig.payout), objective = gig.objective or "", crew = #gig.crew,
+        difficulty = d and d.label or "", payout = payText(gig, viewer), objective = gig.objective or "", crew = #gig.crew,
         max = d and d.max or 1, minutes = d and d.minutes or 15, owner = gig.owner and name(gig.owner) or "", fixer = gig.contact.name,
     }
 end
@@ -213,7 +225,7 @@ local function brief(gig, id, joining)
         source = "op77_lightrp", ref = ref(gig),
         card = card(gig, "GIG · MEET POINT", {
             "Objective: " .. (gig.objective or "the job."),
-            string.format("Pay: %s each · %d min on the clock", money(gig.payout), d and d.minutes or 15),
+            string.format("Pay: up to %s each · %d min on the clock", money(gig.payout), d and d.minutes or 15),
             string.format("Meet within %d min. Everyone who took the job must be there.", C.meetMinutes),
         }),
         location = { x = point.position.x, y = point.position.y, z = point.position.z, label = "the meet point" },
@@ -263,7 +275,7 @@ function Fixers.offer(playerId, pointId, difficultyId)
     local contact = point.fixerContact and contactById[point.fixerContact] or pick(C.contacts)
     gigSeq = gigSeq + 1
     local gig = { id = gigSeq, point = point.id, difficulty = d.id, contact = contact, owner = playerId, crew = {}, invites = {}, briefs = {},
-        state = "offered", payout = math.floor(d.payout * (C.payoutMultiplier or 1) + 0.5), offeredAt = now(),
+        state = "offered", payout = gigPayout(d), offeredAt = now(),
         expiresAt = now() + C.offerSeconds * 1000, shares = 0, shareTimes = {},
         objective = (point.fixerBrief and point.fixerBrief ~= "") and point.fixerBrief or point.description }
     gigs[gig.id] = gig
@@ -272,7 +284,7 @@ function Fixers.offer(playerId, pointId, difficultyId)
     local msg = text(gig, playerId, line(contact, "offer", vars(gig, playerId)), {
         source = "op77_lightrp", ref = ref(gig),
         card = card(gig, "GIG · " .. string.upper(point.type or "JOB"), {
-            string.format("Pay: %s each", money(gig.payout)),
+            string.format("Pay: up to %s each", money(gig.payout)),
             string.format("Time limit: %d min", d.minutes),
             string.format("Answer within %d min", math.floor(C.offerSeconds / 60 + 0.5)),
         }),
@@ -289,7 +301,8 @@ local function launch(gig, members)
     gig.state = "running"
     local ok, launched = Missions.launchGig(gig.point, gig.difficulty, members, {
         id = gig.id, payout = gig.payout, fixerName = gig.contact.name,
-        onEnd = function(_, success, why) CreateThread(function()
+        onEnd = function(inst, success, why) CreateThread(function()
+            gig.paid = inst and inst.gig and inst.gig.paid -- what each operator was paid (mission_pay.lua)
             local crew = {}
             for _, id in ipairs(gig.crew) do crew[#crew + 1] = id end
             for _, id in ipairs(crew) do
@@ -438,7 +451,7 @@ local function share(gig, from, number)
     local msg, why = text(gig, number, line(gig.contact, "shared", v) or fill("{owner} vouched for you. {title}, {location}. In?", v), {
         source = "op77_lightrp", ref = ref(gig),
         card = card(gig, "GIG · SHARED BY " .. string.upper(name(from)), {
-            string.format("Pay: %s each", money(gig.payout)),
+            string.format("Pay: up to %s each", money(gig.payout)),
             string.format("Crew %d/%d", #gig.crew, d and d.max or #gig.crew),
             string.format("Answer within %d min", math.floor(C.offerSeconds / 60 + 0.5)),
         }),

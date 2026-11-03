@@ -184,6 +184,15 @@ function Runs.start(id, remote)
         if not route then return false, "Dispatch has no route to offer right now. Please retry later." end
         dropStale(id, route.item)
     end
+    -- Each grade adds LightRpEconomy.jobs.gradeBonus to the pay (server/config/economy.lua).
+    local per = LightRpEconomy and LightRpEconomy.jobs and tonumber(LightRpEconomy.jobs.gradeBonus) or 0
+    local grade = math.max(0, tonumber(LightRP.jobs.get(id).grade) or 0)
+    if per > 0 and grade > 0 then
+        local graded = {}
+        for k, v in pairs(route) do graded[k] = v end
+        graded.reward = math.floor(route.reward * (1 + per * grade) + 0.5)
+        route = graded
+    end
     runs[id] = { id = row.id, owner = owner, identifier = char.identifier, key = char.key, job = job,
         route = route, index = 1, serial = 0, expires = LightRP.nowMs() + (route.lifetimeMs or C.lifetimeMs),
         inv = LightRP.inventory.playerId(id), carried = 0 }

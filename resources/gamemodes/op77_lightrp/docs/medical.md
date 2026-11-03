@@ -20,12 +20,30 @@ patient at a time. The reserved kit cannot be transferred away during treatment.
 A confirmed rescue revives at the same place with **35% health** and **5 seconds
 of damage grace**, consuming one kit. The existing MaxDoc and first-aid items
 retain their living-patient healing behavior; they do not become self-revival
-items. Kits are not granted automatically. Existing staff inventory commands
-can grant one for testing:
+items. Kits are not granted automatically: the **Corner Market** (template
+`street_food`, City Center and the arrival hall) sells them for **€$ 250**, under
+the €$ 300 hospital bill, and does not buy them back. A kit always revives
+**someone else**: an unconscious player cannot use their own. Existing staff
+inventory commands can grant one for testing:
 
 ```text
 /lightrp.giveitem me trauma_kit 1
 ```
+
+## Hospital bill
+
+Waking up at the hospital after **Give up and go to hospital** costs
+`LightRpEconomy.hospital.bill` (€$ 300, `server/config/economy.lua`), taken from the
+bank first, then from cash, and only what is there: a balance never goes below
+zero and the rest is written off. The confirmation on the unconscious screen
+shows the bill before the player commits; a notice and the ledger
+(`lightrp_transactions`, kind `hospital`) show what was paid.
+
+There is no bill on a rescue with a kit, inside a mission or an activity, during
+the first day guide, for the character's first `graceMinutes` (120) of play, nor
+on the platform's fallback hospital respawn of a script death. A transfer the
+platform refuses bills nothing. `bill = 0` disables it. Code:
+`server/modules/economy_sinks.lua`, called from `hospital()` in `medical.lua`.
 
 ## Persistence and reconnects
 
