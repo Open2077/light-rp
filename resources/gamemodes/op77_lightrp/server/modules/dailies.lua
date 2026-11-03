@@ -220,21 +220,59 @@ D.available = available
 -- ---------------------------------------------------------------------------
 -- The draws
 
-local function pick(list, seed, exclude)
+local function candidates(list, exclude)
     local cands = {}
     for _, def in ipairs(list) do
         if available(def) and not (exclude and exclude[def.id]) then cands[#cands + 1] = def end
     end
+    return cands
+end
+-- One contract for one player (the swap).
+local function pick(list, seed, exclude)
+    local cands = candidates(list, exclude)
     if #cands == 0 then return nil end
     return cands[hash(seed) % #cands + 1]
 end
-local function seedOf(slot, period) return slot .. ":" .. period .. ":" .. (salts[slot .. period] or 0) end
-local function rawDraw(slot, period) return pick(bySlot[slot], seedOf(slot, period)) end
--- Never the same contract as the period before in the same slot.
-local function drawSlot(slot, period)
-    local before = rawDraw(slot, period - 1)
-    return pick(bySlot[slot], seedOf(slot, period), before and { [before.id] = true } or nil)
+-- A permutation of the candidates drawn from the seed (Fisher-Yates on FNV-1a).
+local function permutation(cands, seed)
+    local perm = {}
+    for i, def in ipairs(cands) do perm[i] = def end
+    for i = #perm, 2, -1 do
+        local j = hash(seed .. ":" .. i) % i + 1
+        perm[i], perm[j] = perm[j], perm[i]
+    end
+    return perm
 end
+-- A slot's order: every available contract once per cycle of n periods (n = the
+-- candidates), shuffled per cycle; a cycle never opens with the contract the one
+-- before closed on. So a contract never comes twice in a row, and each comes back
+-- within 2n - 1 periods (a Street contract at least every 13 days).
+local function cycleAt(cands, name, period)
+    local n = #cands
+    if n == 0 then return nil end
+    period = math.tointeger(period) or math.floor(period)
+    if n <= 2 then return cands[period % n + 1] end
+    local cycle = period // n
+    local perm = permutation(cands, name .. ":" .. cycle)
+    local pos = period - cycle * n + 1
+    if pos <= 2 then
+        local before = permutation(cands, name .. ":" .. (cycle - 1))
+        if perm[1] == before[n] then perm[1], perm[2] = perm[2], perm[1] end
+    end
+    return perm[pos]
+end
+D.cycleAt = cycleAt
+-- The order's contract, or after a staff reroll (salt) another one that is
+-- neither the order's nor the period before's.
+local function ordered(cands, name, period, salt)
+    local def = cycleAt(cands, name, period)
+    if (salt or 0) <= 0 or #cands < 3 then return def end
+    local before = cycleAt(cands, name, period - 1)
+    local others = {}
+    for _, d in ipairs(cands) do if d ~= def and d ~= before then others[#others + 1] = d end end
+    return others[hash(name .. ":" .. period .. ":" .. salt) % #others + 1]
+end
+local function drawSlot(slot, period) return ordered(candidates(bySlot[slot]), slot, period, salts[slot .. period]) end
 -- The shared contracts of a day. Frozen once the server has settled (providers
 -- register in the first seconds), so a resource stopping later never changes
 -- what the city is doing today.
@@ -253,18 +291,24 @@ local function weekDraw(week)
     if now() - startedAt >= 120000 then draws[key] = d end
     return d.weekly
 end
--- Shift: the same for everyone in a job; a job without contracts (NCPD) gets a
--- Street contract other than the city's one.
+-- Shift: the same for everyone in a job, in the job's own order; a job without
+-- contracts (NCPD) gets a Street contract other than the city's one (the city's
+-- order, a few days ahead).
 local function shiftDraw(day, job)
     local list = {}
     for _, def in ipairs(bySlot.shift) do
         for _, j in ipairs(def.jobs or {}) do if j == job then list[#list + 1] = def break end end
     end
-    local salt = (salts["shift" .. day] or 0)
-    local chosen = pick(list, "shift:" .. job .. ":" .. day .. ":" .. salt)
+    local salt = salts["shift" .. day] or 0
+    local chosen = ordered(candidates(list), "shift:" .. job, day, salt)
     if chosen then return chosen end
-    local street = dayDraw(day).street
-    return pick(bySlot.street, "shift-street:" .. job .. ":" .. day .. ":" .. salt, street and { [street.id] = true } or nil)
+    local city = dayDraw(day).street
+    local streets = candidates(bySlot.street)
+    for ahead = 3, 4 + #streets do
+        local def = ordered(streets, "street", day + ahead, salt)
+        if def and def ~= city then return def end
+    end
+    return nil
 end
 D.dayDraw, D.weekDraw, D.shiftDraw = dayDraw, weekDraw, shiftDraw
 
@@ -424,7 +468,7 @@ local function finish(ctx)
     touch(ctx.rec)
     saveRec(ctx.account, ctx.rec)
     LightRP.notice(ctx.id, { kind = "contract", title = "CONTRACT COMPLETE", durationMs = 9000,
-        body = string.format("%s · %s. Claim %s in F1 > Contracts.", def.title, fixerName(def), money(C.rewards[ctx.slot] or 0)) })
+        body = string.format("%s · %s. Claim %s in F1 > Daily Contracts.", def.title, fixerName(def), money(C.rewards[ctx.slot] or 0)) })
     LightRP.log("dailies: %s completed %s", ctx.account, def.id)
     pushNow(ctx.id)
     LightRP.eachModule("onContractCompleted", ctx.id, def.id, ctx.slot)

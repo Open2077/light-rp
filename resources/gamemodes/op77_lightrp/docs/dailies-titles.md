@@ -19,7 +19,7 @@ voit en jeu.
 
 Sommaire : §1 règles des contrats · §2 contrats du jour (Rue, Action, Métier) · §3 contrats de
 crew · §4 contrats de la semaine · §5 métiers à plusieurs · §6 titres · §7 écarts volontaires
-avec la proposition · §8 questions au propriétaire.
+avec la proposition · §8 questions au propriétaire · §9 crochets posés dans les fichiers partagés.
 
 ---
 
@@ -27,7 +27,7 @@ avec la proposition · §8 questions au propriétaire.
 
 ### 1.1 Ce que voit le joueur
 
-F1 → **Contracts** ouvre un panneau à deux onglets, **Today** et **Titles**. *Today* montre :
+F1 → **Daily Contracts** ouvre un panneau à deux onglets, **Today** et **Titles**. *Today* montre :
 
 - trois **contrats du jour**, un par case : **Street** (la ville, le social), **Action**
   (missions et activités), **Shift** (le métier du joueur) ;
@@ -50,8 +50,15 @@ atteint, une notice « Contract complete » apparaît ; le bouton **Claim** vers
   de danseurs, et tout le monde sait pourquoi. **Shift** est commun à tous ceux du même métier.
   Le contrat de la semaine est commun à tout le serveur.
 - Le tirage **saute un contrat dont la source manque** (ressource `op77_chase` arrêtée, métier sans
-  route, Chimera absente) et ne reprend pas le contrat de la veille dans la même case. Un contrat
-  devenu impossible en cours de journée reste affiché mais peut être échangé gratuitement.
+  route, Chimera absente). Un contrat devenu impossible en cours de journée reste affiché mais
+  peut être échangé gratuitement. Le tirage du jour est figé deux minutes après le démarrage du
+  serveur, le temps que les ressources s'enregistrent.
+- **Chaque case suit un cycle** : sur *n* jours (*n* = contrats disponibles de la case), chaque
+  contrat passe une fois, dans un ordre tiré pour ce cycle, et un cycle ne commence jamais par
+  le contrat qui a fini le précédent. Donc **jamais deux jours de suite le même**, et chaque
+  contrat revient au plus tard 2*n* − 1 jours après (Street : au moins toutes les deux semaines).
+  Shift suit le même principe dans la liste de chaque métier ; un métier sans contrat (NCPD)
+  reçoit un contrat Street autre que celui de la ville.
 - **Un échange gratuit par jour** : le joueur remplace un de ses trois contrats du jour par un
   autre de la même case, tiré pour lui seul. C'est la soupape des contrats sociaux sur un serveur
   calme. La progression du contrat échangé est perdue. Pas d'échange pour le crew ni la semaine.
@@ -85,9 +92,12 @@ atteint, une notice « Contract complete » apparaît ; le bouton **Claim** vers
 
 - **Progression et récompense par compte** (l'`identifier` Master), comme le `capScope =
   "account"` des missions : un alt ne double rien.
-- **Seules les sources déjà filtrées comptent.** Pour une activité, c'est le verdict
-  d'`activity_pay` (pas de bots, pas de partie tout-un-crew, pas de forfait, durée et progression
-  minimales, limites de répétition par paire) ; un résultat `test` ne compte jamais. Pour une
+- **Seules les sources déjà filtrées comptent.** Pour une activité, seuls les résultats
+  **classés ou PvE** : un résultat non classé (match amical, partie ou remplissage avec bots,
+  test du staff, `result.unranked`) est arrêté par `activities.lua` avant même `activity_pay`, et
+  les contrats comme les titres le refusent encore par sécurité. Ensuite, c'est le verdict
+  d'`activity_pay` (pas de bots en PvP, pas de partie tout-un-crew, pas de forfait, durée et
+  progression minimales, limites de répétition par paire). Pour une
   mission, une mission réussie hors test. Pour un world boss, une part `eligible`.
 - **Tout contrat « avec quelqu'un » exige un autre compte**, et le serveur mesure lui-même
   positions, sièges et animations par échantillonnage (toutes les 5 s). Le client n'envoie
@@ -157,7 +167,7 @@ pourquoi c'est amusant · récompense.
 - *Pourquoi* : proposer de déposer quelqu'un devient naturel, et un taxi improvisé apparaît.
 
 **Street Performer** (Nix)
-> "the crossing needs ✨culture✨. pick an emote, hold it a full minute, and somebody has to watch.
+> "the crossing needs culture. pick an emote, hold it a full minute, and somebody has to watch.
 > if ur audience walks off u start over"
 
 - *Objectif* : à **The Crossing** (rayon 40 m), tenir **la même animation 60 s** pendant qu'au
@@ -304,9 +314,9 @@ contrat Street tiré pour lui.
 > collect the fare. At least twenty. Tips encouraged."
 
 - *Objectif* : conduire un passager d'un autre compte sur **2 km**, puis recevoir de lui un
-  virement d'**au moins 20 €$** dans les **3 minutes** après sa sortie.
-- *Crochet* : `getPlayerSeat` échantillonné, puis `onMoneyChanged` (`transfer_in` venant de ce
-  passager).
+  virement ou des espèces, **au moins 20 €$**, dans les **3 minutes** après sa sortie.
+- *Crochet* : `getPlayerSeat` échantillonné, puis le nouvel appel `onMoneySent(from, to, amount,
+  channel)` d'`economy.lua` (virement ou espèces remises en main propre par ce passager).
 - *Pourquoi* : le taxi n'avait aucune boucle. Celle-ci est du vrai RP : le client paie sa course,
   et donne un pourboire s'il est content.
 
@@ -369,8 +379,9 @@ seule fois.
 **Album Cover** (Nix)
 > "crew pic at the crossing. everybody strike a pose at the same time, 10 seconds, nobody blinks"
 
-- *Objectif* : à The Crossing, **tous** les membres du crew (deux au moins) jouent une animation
-  en même temps, à moins de **6 m** les uns des autres, pendant **10 s**.
+- *Objectif* : à The Crossing, **tous les membres du crew présents** (deux au moins) jouent une
+  animation en même temps, à moins de **6 m** les uns des autres, pendant **10 s**. Un membre
+  présent qui ne pose pas fait tout recommencer ; un membre ailleurs en ville ne compte pas.
 - *Crochet* : `Open77.animations.current` et positions, échantillonnés.
 - *Pourquoi* : chaque crew repart avec une capture d'écran. Le contrat est court, mais il faut
   se coordonner, et c'est drôle à voir de l'extérieur.
@@ -455,7 +466,8 @@ Un seul par semaine, commun à tout le serveur, remis à zéro le lundi à 00:00
 - **Limites** :
   - un compte n'est payé qu'une fois par vente, quel que soit le nombre de coéquipiers ;
   - au plus **2 000 €$** de bonus par compte et par jour UTC (`crewBonus.dailyCap`), soit
-    environ 13 000 €$ de ventes ;
+    environ 13 000 €$ de ventes. Ce compteur vit en mémoire : un redémarrage du serveur le remet
+    à zéro (au pire 2 000 €$ de plus ce jour-là) ;
   - un coéquipier inactif ne déclenche rien, puisqu'il faut son propre cycle récent ;
   - les sites d'entraînement du tutoriel sont exclus, tout comme le Big Contract, qui a sa
     propre prime.
@@ -464,12 +476,12 @@ Un seul par semaine, commun à tout le serveur, remis à zéro le lundi à 00:00
 
 ### 5.2 Le Big Contract (Courier, deux coursiers)
 
-> Okoro : "Wedding in Heywood. Six orders, two couriers. And the bride wants everything on the
+> Okoro : "Wedding in Heywood. Five, six orders, two couriers. And the bride wants everything on the
 > table at once: last two drops inside two minutes of each other, or it's cold canapés."
 
 - **Comment ça se joue** :
   - au Job Center, un coursier en crew avec un autre coursier (compte distinct, à moins de 30 m,
-    aucun des deux en course) voit l'option **Big Contract** ;
+    aucun des deux en course) voit l'option **Big Contract · 2 couriers** (ou tape `/job duo`) ;
   - le dispatch tire **5 à 6 commandes** et les partage en **deux moitiés**, avec des adresses
     différentes : chacun a sa route, son GPS et ses commandes dans le sac ;
   - chacun est payé de sa moitié à sa dernière livraison, au tarif normal d'une course.
@@ -498,7 +510,7 @@ Un seul par semaine, commun à tout le serveur, remis à zéro le lundi à 00:00
   (`identifier#characterKey`). Les titres gagnés par le compte (série de jours, contrats) vont au
   personnage actif au moment du gain.
 - **Un seul titre affiché**, choisi dans F1 → Identity → **Title**, ou dans l'onglet **Titles**
-  du panneau Contracts. « No title » est toujours possible.
+  du panneau Daily Contracts. « No title » est toujours possible.
 - **Où il s'affiche** :
   - dans le chat RP de proximité (« Kaito Mori · Legend ») ;
   - sous le nom dans le cadre du crew ;
@@ -548,7 +560,10 @@ Un seul par semaine, commun à tout le serveur, remis à zéro le lundi à 00:00
 | **Track Record** | N° 1 du contre-la-montre | Hall of Fame | Live |
 | **Raid Lead** | N° 1 des raids réussis | Hall of Fame | Live |
 | **Eddie Baron** | N° 1 des fortunes | Hall of Fame | Live |
-| **King of Dogtown** | Accordé par Dogtown chaque semaine, expire à la fin de la semaine suivante | crochet `LightRP.titles.grant` | Legendary |
+| **Most Wanted** | 5 kills crédités d'affilée à Dogtown, la série qui met une prime sur la tête | statistiques de `dogtown.lua` (`bestStreak`) | Rare |
+| **Bounty Hunter** | Mettre fin à 3 primes de Dogtown | nouvel appel `onDogtownKill` | Epic |
+| **Barghest's Problem** | 50 kills crédités à Dogtown | statistiques de `dogtown.lua` (`kills`) | Epic |
+| **King of Dogtown** | Meilleur tueur crédité de Dogtown la semaine passée ; la couronne tient jusqu'à la fin de la semaine | table `lightrp_dogtown_stats` | Legendary |
 
 Notes :
 
@@ -557,9 +572,16 @@ Notes :
 - **Les titres PvP** répondent au point 12.6 d'`economy-balance.md` : le joueur 100 % PvP, que la
   réputation ignore, a enfin une piste. Ils ne comptent que des résultats déjà filtrés par
   `activity_pay`, donc pas de bots, pas de farm entre deux comptes au-delà des limites par paire.
-- **King of Dogtown** est un crochet : Dogtown (branche `lightrp/dogtown-rules`) appelle
-  `LightRP.titles.grant(id, "dogtown_king", { suffix = "W45", expiresAt = … })`. Le titre
-  s'affiche « King of Dogtown · W45 ». Rien n'est câblé côté Dogtown sur cette branche.
+- **Les titres de Dogtown** lisent les vraies statistiques de la zone (fusion de
+  `lightrp/dogtown-rules`) : uniquement des kills **crédités** (pas le même compte, pas un
+  coéquipier, pas la même paire avant le délai de `pairCooldownMs`). *Most Wanted* et
+  *Barghest's Problem* lisent `LightRP.dogtown.statsFor` (compteurs à vie du personnage) ;
+  *Bounty Hunter* compte un kill crédité sur un joueur qui avait une prime (`onDogtownKill`).
+- **King of Dogtown** : chaque lundi, `titles.lua` lit dans `lightrp_dogtown_stats` le premier
+  de la semaine écoulée (kills, puis butin, puis morts), saute les comptes exclus du Hall of
+  Fame (staff, tests) et lui donne la couronne jusqu'au dimanche 23:59 UTC. Elle s'affiche
+  « King of Dogtown · W45 » (semaine ISO de la semaine gagnée). Une semaine sans kill crédité
+  ne couronne personne. Il faut la base de données.
 - **Les trois titres « drôles »** (*Lucky Seven*, *Crowd Pleaser*, *Fumes Connoisseur*) gardent
   une trace des contrats dont on parle le plus. Ils demandent que le contrat repasse trois fois
   dans la rotation (ou par échange), donc quelques semaines.
@@ -577,7 +599,8 @@ Notes :
 - **« 2 courses Courier » et « Finir une mission en crew »** ont été écartés : ce sont exactement
   les objectifs génériques que le propriétaire refuse. Ils sont remplacés par *Still Hot*,
   *Fragile*, *Billable Hours* et *Answer the Phone*.
-- **Panneau** : F1 → Contracts ouvre son propre panneau. L'onglet dans le panneau Activités
+- **Panneau** : F1 → Daily Contracts ouvre son propre panneau. Le panneau Activités a déjà un
+  onglet « Contracts » (les tableaux de missions), d'où le nom. L'onglet dans le panneau Activités
   attendra que la branche `lightrp/activity-lobby`, qui réécrit ce panneau, soit fusionnée.
 - **Crochet `onActivityResult`** : il est placé dans `activity_pay.lua`, juste après le calcul du
   verdict, et non dans `activities.lua`, que la branche `lightrp/activity-lobby` modifie.
@@ -594,3 +617,23 @@ Notes :
 4. **King of Dogtown** : quel suffixe afficher, le numéro de semaine ISO (« W45 ») ou une date ?
 5. **Taxi et mécano** : *Fare Paid* et *Roadside Assistance* donnent une première boucle à ces
    métiers. Faut-il aller plus loin (appel de taxi, dépanneuse) dans une autre branche ?
+
+## 9. Crochets posés dans les fichiers partagés
+
+Toute la logique vit dans les nouveaux modules (`dailies.lua`, `titles.lua`, `job_crew.lua`) ;
+les fichiers partagés ne reçoivent qu'un appel d'une ligne, protégé quand le module peut manquer.
+
+| Fichier | Crochet | Sert à |
+|---|---|---|
+| `activity_pay.lua` | `onActivityResult(id, entry, r, raw, verdict)` après le devis | contrats d'activité, compteurs PvP |
+| `missions.lua` | `onMissionFinished(inst, point, d, success, why, payouts)` | contrats de mission, titres de raid |
+| `mission_chimera.lua` | `inst.report = { enraged, downs }` | *Before the Overclock*, *Flawless* |
+| `world_bosses.lua` | `ev.lastHit`, `onWorldEventEnded(ev, success)` | *Lion's Share*, *Boss Killer* |
+| `refueling.lua` | `onRefuelled(id, { kind, vehicle, litres, before, capacity })` | *Running on Fumes*, *Roadside* |
+| `job_work.lua` | 4ᵉ argument d'`onJobWorkCompleted` (`count`, `total`, `point`, `practice`) | contrats Shift, bonus de crew |
+| `job_runs.lua` | `onJobRunStep`, `onJobRunCompleted`, `Runs.startDuo`, `/job duo` | Shift, bonus de crew, Big Contract |
+| `economy.lua` | `onMoneySent(from, to, amount, channel)` | *Fare Paid* |
+| `dogtown.lua` | `onDogtownKill(killer, victim, { streak, bountyStreak })` | *Bounty Hunter* |
+| `parties.lua` | `title`, `titleRarity` des membres | titre dans le cadre du crew |
+| `chat.lua` | auteur « Nom · Titre » | titre dans le chat RP |
+| `halloffame.lua` | `title` des lignes | titre dans le Hall of Fame |
