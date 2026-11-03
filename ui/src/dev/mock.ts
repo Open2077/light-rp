@@ -5,7 +5,8 @@
    `?registered=1` skips the wizard, `?step=appearance|confirm` starts the wizard
    at that step, `?vehicle=1` seats the player, `?welcome=1` shows the first-spawn briefing,
    `?dialog=rental` opens a rental desk, `?rental=1` starts with a car out,
-   `?interact=1` shows the proximity prompt, `?dialog=inventory` opens the inventory (with a trunk on the right). */
+   `?interact=1` shows the proximity prompt, `?dialog=inventory` opens the inventory (with a trunk on the right),
+   `?dialog=halloffame` opens the Hall of Fame (features/halloffame/mock.ts). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
@@ -19,6 +20,7 @@ import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
 import { activityHudMock } from "@/features/activityhud/mock";
+import { hallOfFameMock } from "@/features/halloffame/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -33,6 +35,7 @@ export function installMockBridge(): void {
   const activityHud = activityHudMock(fire, params);
   const missionEditor = missionEditorMock(fire, params);
   const armament = armamentMock(fire, params);
+  const hallOfFame = hallOfFameMock(fire, params);
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -165,6 +168,7 @@ export function installMockBridge(): void {
           if (params.get("dialog") === "garage") fire(PAGE_EVENTS.dialog, garage);
           if (params.get("dialog") === "dealership") fire(PAGE_EVENTS.dialog, dealership);
           mission.boot();
+          hallOfFame.boot();
           if (params.get("dialog") === "activities") {
             fire(PAGE_EVENTS.state, { activities: activitiesFixture(params) });
             fire(PAGE_EVENTS.dialog, { kind: "activities", tab: params.get("tab") ?? "activities" });
@@ -232,6 +236,7 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.action) {
         const action = payload as UiAction;
         if (mission.handle(action)) return;
+        if (hallOfFame.handle(action)) return;
         setTimeout(() => {
           switch (action.type) {
             case "dealership.buy": {

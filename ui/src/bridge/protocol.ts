@@ -204,6 +204,20 @@ export interface ActivitiesState {
 }
 export type ActivitiesTab = "activities" | "contracts" | "crew";
 
+/** The Hall of Fame at The Crossing (server/modules/halloffame.lua): one tab per
+ *  dialog payload, from the server cache. Names are character names only. */
+export type HallOfFameTab = "overview" | "pvp" | "races" | "pve" | "missions" | "wealth";
+export type HallOfFameUnit = "wins" | "kills" | "time" | "eddies" | "rep" | "count" | "clears" | "points";
+export interface HallOfFameRow { rank: number; name: string; value: number; detail?: string; you?: boolean }
+export interface HallOfFameBoard {
+  key: string; title: string; subtitle?: string; unit: HallOfFameUnit; ascending?: boolean; total: number;
+  rows: HallOfFameRow[]; mine?: { rank: number; value: number; detail?: string };
+}
+export interface HallOfFameDialogPayload {
+  kind: "halloffame"; title: string; hub: string; tab: HallOfFameTab; tabs: HallOfFameTab[]; boards: HallOfFameBoard[];
+  database: boolean; updatedAgoS?: number; refreshInS?: number; wealthBankOnly?: boolean;
+}
+
 /* ── Missions (server/modules/missions.lua) and crews (server/modules/parties.lua) ── */
 export interface MissionDifficulty {
   id: string; label: string; blurb: string; payout: number; minutes: number;
@@ -479,7 +493,7 @@ export interface FuelDialogPayload {
   money: { currency: string; cash: number; bank: number };
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
-export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab };
+export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload;
 
 export interface ActiveRental {
   spotId: string; spotName: string; key: string; label: string; price: number; paidWith: "cash" | "bank";
@@ -516,6 +530,8 @@ export type UiAction =
   | { type: "activities.control"; operation: "open" | "refresh" | "close" | "leave"; tab?: ActivitiesTab }
   | { type: "activities.control"; operation: "join"; id: string; from?: string; options?: Record<string, string> }
   | { type: "activities.control"; operation: "gps"; id: string }
+  | { type: "halloffame.open" | "halloffame.tab" | "halloffame.refresh"; tab?: HallOfFameTab; from?: string }
+  | { type: "halloffame.close" }
   | { type: "customization.open"; vehicle: string; garage: string }
   | { type: "dealership.buy"; session: string; request: number; key: string; pay: "cash" | "bank" }
   | { type: "dealership.close"; session: string }
