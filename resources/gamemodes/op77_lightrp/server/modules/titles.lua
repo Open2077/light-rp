@@ -165,9 +165,14 @@ T.push = function(playerId) LightRP.state(playerId, { "titles" }) end
 local function store(key, titleId, entry)
     local identifier, characterKey = split(key)
     if not identifier or not Db.ready then return true end
-    local ok = Db.run([[INSERT INTO lightrp_titles (identifier, character_key, title_id, suffix, expires_at) VALUES (?, ?, ?, ?, ?)
+    -- A nil in the values list ends it ({ a, b, c, nil, nil } has 3 values), and the runtime
+    -- refuses 5 placeholders for 3 values: every title without a suffix or an expiry was
+    -- never stored (parameter_count_mismatch, LightRP Testing). "" and 0 travel instead and
+    -- NULLIF turns them back into NULL.
+    local ok = Db.run([[INSERT INTO lightrp_titles (identifier, character_key, title_id, suffix, expires_at)
+        VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, 0))
         ON DUPLICATE KEY UPDATE suffix = VALUES(suffix), expires_at = VALUES(expires_at)]],
-        { identifier, characterKey, titleId, entry.suffix, entry.expiresAt })
+        { identifier, characterKey, titleId, entry.suffix or "", entry.expiresAt or 0 })
     return ok == true
 end
 

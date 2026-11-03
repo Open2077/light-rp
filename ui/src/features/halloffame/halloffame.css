@@ -42,7 +42,14 @@
 .hof-board__title { display: flex; flex-direction: column; min-width: 0; }
 .hof-board__title strong { font: var(--type-display); font-size: var(--fs-body); color: var(--text-hi); letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hof-board__title small { font: var(--fs-micro) var(--font-mono); letter-spacing: .08em; color: var(--text-dim); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hof-board__badges { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
 .hof-board__empty { margin: 0; color: var(--text-dim); font-size: var(--fs-label); }
+/* a card opens its board's full ladder (click, Enter or Space) */
+.hof-board.is-link { cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out); }
+.hof-board.is-link:hover { border-color: var(--line-soft); }
+.hof-board.is-link:focus-visible { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.hof-board__go { color: var(--text-dim); transition: color var(--dur-fast) var(--ease-out); }
+.hof-board.is-link:hover .hof-board__go, .hof-board.is-link:focus-visible .hof-board__go { color: var(--accent); }
 .hof-board__mine { display: flex; align-items: center; gap: var(--sp-3); margin: 0; padding: var(--sp-3) var(--sp-5); background: var(--accent-quiet);
   color: var(--accent); font: var(--fw-semibold) var(--fs-tag) var(--font-mono); letter-spacing: .06em; }
 
@@ -79,6 +86,25 @@
 .hof-list li.is-you .hof-list__name { color: var(--accent); }
 .hof-list__detail { font: var(--fs-micro) var(--font-mono); letter-spacing: .06em; color: var(--text-dim); white-space: nowrap; }
 .hof-list__value { grid-column: 4; font: var(--fw-semibold) var(--fs-label) var(--font-mono); color: var(--text-body); white-space: nowrap; text-align: right; }
+
+/* one board's full ladder, in place of the grid: its header stays, the podium and the
+   ranks scroll inside the dialog, the viewer's own rank stays pinned under them */
+.halloffame__page.is-ladder { display: flex; flex-direction: column; overflow: hidden; }
+.hof-ladder { flex: 1; min-height: 0; }
+.hof-ladder__head { display: flex; align-items: center; gap: var(--sp-6); flex: none; }
+.hof-ladder__title { flex: 1; }
+.hof-ladder__title strong { font-size: var(--fs-body-lg); }
+.hof-ladder__scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-5); padding-right: var(--sp-3); }
+/* the list takes the keyboard for scrolling (↑ ↓, Page Up/Down): not a control to ring */
+.halloffame .hof-ladder__scroll:focus-visible { outline: none; }
+.hof-ladder__podium { flex: none; width: 100%; max-width: 760px; margin: 0 auto; }
+.hof-ladder__podium .hof-podium__step.is-1 { min-height: 148px; }
+.hof-ladder__podium .hof-podium__step.is-2 { min-height: 124px; }
+.hof-ladder__podium .hof-podium__step.is-3 { min-height: 106px; }
+.hof-ladder__scroll .hof-list { flex: none; }
+/* values in one column, so the details line up whatever the value's width */
+.hof-ladder .hof-list__value { min-width: 13ch; }
+.hof-ladder__mine { flex: none; padding-top: var(--sp-4); border-top: var(--stroke-hair) solid var(--line-hairline); margin-right: var(--sp-3); }
 
 .halloffame__foot { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-6); padding: var(--sp-5) var(--sp-8); flex: none;
   border-top: var(--stroke-hair) solid var(--line-hairline); background: var(--surface-panel); }

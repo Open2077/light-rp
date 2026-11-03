@@ -58,6 +58,7 @@ export function normalizeHallOfFame(raw: unknown): HallOfFameDialogPayload | und
     updatedAgoS: typeof p.updatedAgoS === "number" && Number.isFinite(p.updatedAgoS) ? Math.max(0, p.updatedAgoS) : undefined,
     refreshInS: Math.max(0, Math.floor(num(p.refreshInS))),
     wealthBankOnly: p.wealthBankOnly === true || undefined,
+    ladder: p.ladder !== undefined ? normalizeBoard(p.ladder) : undefined,
   };
 }
 
@@ -121,4 +122,14 @@ export function podium(rows: HallOfFameRow[]): Array<{ row: HallOfFameRow; place
   if (top[0]) out.push({ row: top[0], place: 1 });
   if (top[2]) out.push({ row: top[2], place: 3 });
   return out;
+}
+
+/** The viewer's own rank pinned under a ladder: only when their row is not in it. */
+export function pinnedRank(board: HallOfFameBoard): HallOfFameBoard["mine"] {
+  return board.rows.some((r) => r.you) ? undefined : board.mine;
+}
+
+/** The ladder's footer count: "TOP 50 OF 312", or "14 RANKED" when every row is shown. */
+export function ladderLine(board: HallOfFameBoard): string {
+  return board.rows.length < board.total ? `TOP ${board.rows.length} OF ${board.total}` : `${board.total} RANKED`;
 }
