@@ -631,9 +631,25 @@ les fichiers partagés ne reçoivent qu'un appel d'une ligne, protégé quand le
 | `world_bosses.lua` | `ev.lastHit`, `onWorldEventEnded(ev, success)` | *Lion's Share*, *Boss Killer* |
 | `refueling.lua` | `onRefuelled(id, { kind, vehicle, litres, before, capacity })` | *Running on Fumes*, *Roadside* |
 | `job_work.lua` | 4ᵉ argument d'`onJobWorkCompleted` (`count`, `total`, `point`, `practice`) | contrats Shift, bonus de crew |
-| `job_runs.lua` | `onJobRunStep`, `onJobRunCompleted`, `Runs.startDuo`, `/job duo` | Shift, bonus de crew, Big Contract |
+| `job_runs.lua` | `onJobRunStep`, `onJobRunCompleted`, `Runs.startDuo`, `/job duo`, `duo` dans `Runs.snapshot` | Shift, bonus de crew, Big Contract |
 | `economy.lua` | `onMoneySent(from, to, amount, channel)` | *Fare Paid* |
 | `dogtown.lua` | `onDogtownKill(killer, victim, { streak, bountyStreak })` | *Bounty Hunter* |
 | `parties.lua` | `title`, `titleRarity` des membres | titre dans le cadre du crew |
 | `chat.lua` | auteur « Nom · Titre » | titre dans le chat RP |
 | `halloffame.lua` | `title` des lignes | titre dans le Hall of Fame |
+
+Côté page (`ui/`), le panneau vit dans `features/dailies/` (modèle, panneau, maquette) ;
+les fichiers partagés reçoivent :
+
+| Fichier | Crochet |
+|---|---|
+| `bridge/protocol.ts` | états `dailies` / `titles`, dialogue `dailies`, actions `dailies.*` et `titles.select`, `title` des membres et des lignes du Hall of Fame, `duo` du devis et de la course |
+| `state/store.ts`, `App.tsx` | normalisation des deux états, rendu du panneau ; un `dailies.claim` réussi ne double pas la notice « +€$ N » du serveur |
+| `features/menu/PlayerMenu.tsx` | F1 → **Daily Contracts** (compte des contrats à encaisser), F1 → Identity → **Title** |
+| `features/crew/CrewFrame.tsx` | titre de chaque membre, couleur de sa rareté |
+| `features/halloffame/` | titre sous le nom (podium) et à côté (rangs 4 à 10) |
+| `features/jobs/JobCenterDialog.tsx`, `JobRunHud.tsx` | bouton **Big Contract · 2 couriers**, moitié et partenaire sur la fiche de course |
+| `dev/mock.ts` | `?dialog=dailies&tab=&dailies=&titles=&crew=1`, `?run=courier&duo=1` |
+
+Le paquet `web/` n'est pas reconstruit sur cette branche : il faut le régénérer
+(`npm run build` dans `ui/`) avant de tester en jeu.
