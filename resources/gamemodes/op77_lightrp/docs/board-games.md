@@ -60,6 +60,49 @@ releases any seat beyond 5 m on its 2 s check and tells the player why; moves
 are refused beyond 4 m. *Pick up board* returns a board to its owner's
 inventory, even after reconnecting, and unseats everyone at it.
 
+The owner is the **character** that placed the table (its inventory ID,
+`player:<account>#<slot>`), not the account or the session. The ALT row
+*Pick up board* only appears for that character (`owned` in the snapshot), and
+the server refuses everyone else, including the same player on another
+character slot, with *Only the character who placed this table can pick it
+up.* *Mode* and *New game* (which can refund stakes) are owner-only too. No
+other path removes a table: placement tickets are bound to the inventory that
+used the item, and staff go through the desk below.
+
+### Staff management
+
+`/admin` > **Placed tables** (and `/lightrp.tables` in chat) lists every placed
+table: ID, kind, owner character name and inventory ID, online state,
+position, instance, placement time (from the ID) and revision, seated players,
+phase, and the open stakes a removal would refund (*Resolving: …* while a spin
+or a dealt round settles). Rows are flat and paginated (15 per page in the
+desk, 10 per chat page) so hundreds of tables never make one large or deeply
+nested event. Sort by newest or nearest; search by ID, kind or owner.
+
+- **Go to table** teleports the staff member with `LightRP.staff.moveTo`
+  (`Open77.players.teleport`, or a respawn when dead) to a point beyond the
+  players' edge of the table (about 1.2–1.6 m from its origin, outside the
+  collider), facing it. From a private instance to a city table it lands in
+  instance 0; a table inside another private instance (housing) is refused.
+- **Remove table** is `LightRP.boardGames.remove`: pickup without the owner.
+  It takes the same busy lock (refused while a move or payout saves), refunds
+  open stakes with `LightRP.tabletopExtra.refunds` (refused, nothing changed,
+  while a roulette/wheel spin or the slot reels resolve: retry once settled;
+  a running blackjack round is refunded like a pickup), runs the `removed`
+  hook (blackjack dealer NPC), deletes the row and the refund claims in one
+  transaction, and unseats players with a notice. With *Give the item back*,
+  the item goes into the owner's loaded character inventory in that same
+  transaction; if the character is offline, full or busy, the row stays as
+  `{returnPending=true,kind}` and the item is delivered when that character is
+  next loaded (retried every 30 s while online, with a notice to free a
+  slot). Other characters of the same account never receive it.
+
+Every action needs a reason and a confirmation in the desk (commands record
+`Chat command /lightrp.tables …`), is written to `lightrp_staff_audit` before
+it runs and completed with its outcome, and is logged. Permissions:
+`command.lightrp.tables` (list, go to) and `command.lightrp.tabledelete`
+(remove), see `docs/admin-support.md`. Tests: `tools/test-tables-admin.py`.
+
 The menu is one `open77_contextmenu` registration with **dynamic rows**
 (`rows="tableMenuRows"`, open77_contextmenu 1.3.0): at each ALT click the menu
 asks LightRP for this table's rows, built from the snapshot the client already

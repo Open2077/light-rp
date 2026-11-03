@@ -135,6 +135,7 @@ server_script "server/config/housing.lua"
 server_script "server/modules/housing_store.lua"
 server_script "server/modules/housing.lua"
 server_script "server/modules/housing_admin.lua"
+server_script "server/modules/board_games_admin.lua" -- staff: placed tables list / go to / remove (/admin, /lightrp.tables)
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"

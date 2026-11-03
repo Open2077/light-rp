@@ -3,6 +3,10 @@ local Inv, Db = LightRP.inventory, LightRP.db
 local boards, pending, last, playerBusy = {}, {}, {}, {}
 local lastDiagnostic = {}
 local loaded, serial, placementBusy = false, 0, false
+-- Tables a staff member removed while the owner's character was offline (or
+-- its inventory full/busy): row id -> {kind, inventory}. The row stays in
+-- lightrp_board_games as {returnPending=true,kind} until the item is delivered.
+local returns = {}
 local REQUEST, STATE, PLACE = "lightrp:boardGames:request", "lightrp:boardGames:state", "lightrp:boardGames:place"
 -- Seats are released beyond this radius (checked every 2 s). Players move
 -- freely while seated: the client leaves on its own at 3.5 m after a short
@@ -233,7 +237,7 @@ local function place(player,p,inv)
     end
     if not found then return false,"You no longer have this board." end
     local id
-    repeat serial=serial+1;id=tostring(math.floor(Open77.time.unix()))..":"..serial until not boards[id]
+    repeat serial=serial+1;id=tostring(math.floor(Open77.time.unix()))..":"..serial until not boards[id] and not returns[id]
     local b={id=id,kind=p.kind,owner=player,ownerInventory=inv.id,position=candidate.position,
         rotation=p.rotation or 0,bucket=candidate.bucket,players={},revision=0,mode="duel",moveSequence=0,game=newGame(p.kind,"duel")}
     local ok,why=Inv.commitDrafts({{inv,draft}},{write(b)},function() boards[b.id]=b;pending[player]=nil end)
@@ -280,7 +284,10 @@ local function handle(player,p,inv)
                 b.mode=mode;b.game=n.game;b.revision=n.revision;b.aiPending=nil;b.players=wasSeated and {white=player} or {}
             end)
         elseif p.action=="pickup" then
-            if inv.id~=b.ownerInventory then return false,"Only the owner can pick up this board." end
+            -- The owner is the CHARACTER that placed it (its inventory id), not the
+            -- account or the session: another player or another character of the
+            -- same player is refused. Staff remove tables through LightRP.boardGames.remove.
+            if inv.id~=b.ownerInventory then return false,"Only the character who placed this table can pick it up." end
             local item=LightRpBoardGames[b.kind].item
             local can,reason=Inv.canHold(inv,item,1); if not can then return false,reason end
             local draft=Inv.draft(inv); local slot
@@ -382,13 +389,134 @@ RegisterNetEvent(REQUEST,function(p)
     broadcast()
     for _,b in pairs(boards) do queueAI(b) end
 end)
+-- Staff tools (server/modules/board_games_admin.lua) -------------------------
+-- A staff removal is a pickup without the owner: the same busy lock, the same
+-- refunds (refused while a spin/round resolves), the same removed hook (the
+-- blackjack dealer NPC), one SQL transaction. With returnItem, the board item
+-- goes back to the owner's LOADED character inventory in that transaction;
+-- offline, full or busy, the row is kept as a pending return and delivered
+-- when that character is next loaded (and retried every 30 s while online).
+local BG={}
+LightRP.boardGames=BG
+local function title(kind) return (LightRpBoardGames[kind] or {}).title or tostring(kind) end
+BG.title=title
+function BG.loaded() return loaded end
+function BG.get(id) return type(id)=="string" and boards[id] or nil end
+function BG.all() local out={};for _,b in pairs(boards) do out[#out+1]=b end;return out end
+function BG.pendingReturns() local n=0;for _ in pairs(returns) do n=n+1 end;return n end
+local function refundTotal(refunds)
+    local total=0
+    for _,q in ipairs(refunds) do total=total+(tonumber(type(q.values)=="table" and q.values[3]) or 0) end
+    return total
+end
+-- Open stakes a removal would refund now, or nil + reason while a spin/round resolves.
+function BG.money(b)
+    if not extra(b.kind) then return 0 end
+    local refunds,reason=LightRP.tabletopExtra.refunds(b)
+    if not refunds then return nil,tostring(reason) end
+    return refundTotal(refunds)
+end
+local function onlineOwner(b)
+    for _,raw in ipairs(GetPlayers()) do
+        local id=tonumber(raw)
+        if id and Inv.playerId(id)==b.ownerInventory then return id end
+    end
+end
+-- opts = { returnItem = bool, actor = "staff name" }. Answers ok, detail|reason
+-- with detail = { refunded = total, item = "returned"|"pending"|"kept", seated = {playerIds}, owner = playerId|nil }.
+function BG.remove(id,opts)
+    opts=type(opts)=="table" and opts or {}
+    local b=BG.get(id)
+    if not loaded or not b then return false,"This table no longer exists. Refresh the list." end
+    if b.busy then return false,"The table is saving a move or a payout. Retry in a moment; nothing was removed." end
+    b.busy=true
+    local holder
+    local called,ok,detail=pcall(function()
+        local refunds,reason={}
+        if extra(b.kind) then refunds,reason=LightRP.tabletopExtra.refunds(b) end
+        if not refunds then return false,tostring(reason).." Nothing was removed." end
+        local item=LightRpBoardGames[b.kind].item
+        local changes,result={},"kept"
+        local queries={{query="DELETE FROM lightrp_board_games WHERE id=?",values={b.id}}}
+        if opts.returnItem then
+            local owner=Inv.get and Inv.get(b.ownerInventory)
+            local draft=owner and owner.persistent and not owner.busy and Inv.canHold(owner,item,1) and Inv.draft(owner)
+            if draft and Inv.place(draft,item,1)==1 then
+                owner.busy=true;holder=owner
+                changes={{owner,draft}};result="returned"
+            else
+                queries[1]={query="INSERT INTO lightrp_board_games (id,owner_inventory,data) VALUES (?,?,?) ON DUPLICATE KEY UPDATE data=VALUES(data)",
+                    values={b.id,b.ownerInventory,json.encode({kind=b.kind,returnPending=true,removedBy=tostring(opts.actor or "staff"):sub(1,96),removedAt=math.floor(Open77.time.unix())})}}
+                result="pending"
+            end
+        end
+        for _,query in ipairs(refunds) do queries[#queries+1]=query end
+        local seatedPlayers={};for _,player in pairs(b.players) do seatedPlayers[#seatedPlayers+1]=player end
+        local saved,why=Inv.commitDrafts(changes,queries,function()
+            boards[b.id]=nil
+            if result=="pending" then returns[b.id]={kind=b.kind,inventory=b.ownerInventory} end
+            if extra(b.kind) then LightRP.tabletopExtra.removed(b) end
+        end)
+        if not saved then return false,"Storage refused the removal ("..tostring(why).."). Nothing was changed." end
+        return true,{refunded=refundTotal(refunds),item=result,seated=seatedPlayers}
+    end)
+    b.busy=nil
+    if holder then if Inv.releaseBusy then Inv.releaseBusy(holder) else holder.busy=nil end end
+    if not called then LightRP.log("board_games staff removal board=%s failed: %s",tostring(id),tostring(ok));return false,"The removal could not finish. Nothing was changed." end
+    if not ok then return false,detail end
+    LightRP.log("board_games staff removal board=%s kind=%s owner=%s by=%s refunded=%d item=%s",b.id,b.kind,tostring(b.ownerInventory),
+        tostring(opts.actor),detail.refunded,detail.item)
+    b.players={} -- the board is gone; its seats go with it
+    for _,player in ipairs(detail.seated) do
+        notice(player,"A staff member removed this "..title(b.kind).." table. You left your seat."..(detail.refunded>0 and " Open stakes are refunded." or ""))
+    end
+    local owner=onlineOwner(b);detail.owner=owner
+    if owner then
+        notice(owner,"A staff member removed your "..title(b.kind).." table."..
+            (detail.item=="returned" and " It is back in your inventory." or detail.item=="pending" and " Free a slot: it will be returned to this character's inventory." or ""))
+    end
+    broadcast()
+    return true,detail
+end
+-- Pending returns for a loaded character: each item and its row go in one transaction.
+local warned={}
+local function deliver(player)
+    local inv=Inv.player(player)
+    if not loaded or not inv or not inv.persistent or not next(returns) then return end
+    local due={}
+    for id,r in pairs(returns) do if r.inventory==inv.id and not r.busy then due[#due+1]=id end end
+    table.sort(due)
+    for _,id in ipairs(due) do
+        local r=returns[id]
+        local spec=r and LightRpBoardGames[r.kind]
+        if r and spec and not r.busy and not inv.busy and Inv.player(player)==inv then
+            local draft=Inv.canHold(inv,spec.item,1) and Inv.draft(inv)
+            if draft and Inv.place(draft,spec.item,1)==1 then
+                inv.busy=true;r.busy=true
+                local called,ok=pcall(Inv.commitDrafts,{{inv,draft}},{{query="DELETE FROM lightrp_board_games WHERE id=?",values={id}}},function() returns[id]=nil end)
+                r.busy=nil
+                if Inv.releaseBusy then Inv.releaseBusy(inv) else inv.busy=nil end
+                if called and ok then
+                    LightRP.log("board_games pending return board=%s kind=%s delivered to %s",id,r.kind,inv.id)
+                    notice(player,"A staff member removed your "..title(r.kind).." table. It is back in your inventory.")
+                end
+            elseif warned[id]~=inv.id then
+                warned[id]=inv.id
+                notice(player,"A staff member removed your "..title(r.kind).." table. Free an inventory slot to get it back.")
+            end
+        end
+    end
+end
+BG.deliver=deliver
 LightRP.module("board_games",{
     onDatabaseReady=function()
         local ok,rows=Db.read("SELECT id,owner_inventory,data FROM lightrp_board_games",{})
         if not ok then return end
         for _,row in ipairs(rows) do
             local decoded,b=pcall(json.decode,row.data)
-            if decoded and type(b)=="table" and LightRpBoardGames[b.kind] and type(b.game)=="table" and type(b.position)=="table" then
+            if decoded and type(b)=="table" and b.returnPending==true and LightRpBoardGames[b.kind] then
+                returns[row.id]={kind=b.kind,inventory=row.owner_inventory}
+            elseif decoded and type(b)=="table" and LightRpBoardGames[b.kind] and type(b.game)=="table" and type(b.position)=="table" then
                 b.id=row.id;b.ownerInventory=row.owner_inventory;b.players={};b.owner=nil;b.mode=b.mode or "duel"
                 boards[b.id]=b
                 if extra(b.kind) then LightRP.tabletopExtra.placed(b) end
@@ -398,7 +526,7 @@ LightRP.module("board_games",{
     end,
     onUiReady=push,
     onDisconnected=function(player) last[player]=nil;lastDiagnostic[player]=nil;stateLogged[player]=nil;pushPending[player]=nil;stateSeq[player]=nil;release(player) end,
-    onCharacterLoaded=release,
+    onCharacterLoaded=function(player) release(player);deliver(player) end,
     onLifeState=function(player) if not active(player) then release(player) end end,
 })
 AddEventHandler("onPlayerBucketChange",function(player) release(tonumber(player)) end)
@@ -423,6 +551,7 @@ CreateThread(function()
         refreshTick=refreshTick+1
         if changed or refreshTick%5==0 then broadcast() end -- a lost part heals within 10 s
         for player in pairs(pushPending) do push(player) end
+        if refreshTick%15==0 and next(returns) then for _,id in ipairs(GetPlayers()) do deliver(tonumber(id)) end end
         for _,b in pairs(boards) do queueAI(b) end
         local X=LightRP.tabletopExtra
         for _,b in pairs(boards) do

@@ -3,13 +3,14 @@ import { useStore } from "@/state/store";
 import { emit, on } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { RageMenu, isPickable, type RageMenuItem } from "@/design/components";
-import { request, key, list, date, label, type Scope, type TicketList, type Detail, type Overview, type Wire, type Person, type Profile, type Audit } from "./api";
-import { ActionForm, ProfileCard, AuditEntry, actionLabels } from "./StaffTools";
+import { request, key, list, date, label, type Scope, type TicketList, type Detail, type Overview, type Wire, type Person, type Profile, type Audit, type TableList, type PlacedTable } from "./api";
+import { ActionForm, ProfileCard, AuditEntry, actionLabels, auditLabels } from "./StaffTools";
+import { TableCard, TableActionForm, moneyLine } from "./TableTools";
 import { NewReport, MessageForm, SearchForm } from "./SupportForms";
 import "./support.css";
 
-type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tools"; selected?:string; caseId?:number; person?:Person; history?:Audit[] };
-type Form = { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players" } | { kind:"action"; action:string };
+type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tools"|"tables"|"table"; selected?:string; caseId?:number; person?:Person; history?:Audit[]; table?:PlacedTable };
+type Form = { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players"|"tables" } | { kind:"action"; action:string } | { kind:"tableAction"; action:"tableTeleport"|"tableDelete" };
 type Entry = RageMenuItem & { run?:()=>void; change?:(patch:Partial<RageMenuItem>)=>void };
 const filters=["active","open","in_progress","waiting_player","finished","all"];
 const filterNames=["Active","Waiting","In progress","Need reply","Finished","All"];
@@ -33,6 +34,7 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const [overview,setOverview]=useState<Overview>(),[cases,setCases]=useState<TicketList>(),[detail,setDetail]=useState<Detail>(),[profile,setProfile]=useState<Profile>();
   const [history,setHistory]=useState<{entries:Audit[];hasMore:boolean}>(),[historyPage,setHistoryPage]=useState(1);
   const [filter,setFilter]=useState(0),[mine,setMine]=useState(false),[query,setQuery]=useState(""),[citizenQuery,setCitizenQuery]=useState(""),[page,setPage]=useState(1);
+  const [tables,setTables]=useState<TableList>(),[tablePage,setTablePage]=useState(1),[tableSort,setTableSort]=useState(0),[tableQuery,setTableQuery]=useState(""),[tableDetail,setTableDetail]=useState<TableList>();
   const [epoch,setEpoch]=useState(0),[error,setError]=useState(""),[feedback,setFeedback]=useState(""),[busy,setBusy]=useState(false),[showConversation,setShowConversation]=useState(true);
   const top=stack[stack.length-1]!,panel=useRef<HTMLElement>(null),menu=useRef<HTMLDivElement>(null),working=useRef(false);
   const mutation=useRef<{signature:string;key:string}>();
@@ -51,6 +53,15 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     let live=true;if(top.kind==="tickets")request<TicketList>("list",{scope,filter:filters[filter],mine,search:query,page}).then(v=>{if(live){setCases(v);setError("");}},e=>{if(live){setCases(undefined);setError(e.message);}});
     return()=>{live=false;};
   },[top.kind,scope,filter,mine,query,page,epoch]);
+  useEffect(()=>{
+    let live=true;if(top.kind==="tables")request<TableList>("tables",{page:tablePage,sort:tableSort?"near":"newest",search:tableQuery}).then(v=>{if(live){setTables(v);setError("");}},e=>{if(live){setTables(undefined);setError(e.message);}});
+    return()=>{live=false;};
+  },[top.kind,tablePage,tableSort,tableQuery,epoch]);
+  const tableId=top.kind==="table"?top.table?.id:undefined;
+  useEffect(()=>{
+    let live=true;if(tableId)request<TableList>("tables",{search:tableId}).then(v=>{if(live)setTableDetail(v);},e=>{if(live){setTableDetail(undefined);setError(e.message);}});
+    return()=>{live=false;};
+  },[tableId,epoch]);
   const caseId=top.caseId;
   useEffect(()=>{
     let live=true;if(caseId)request<Detail>("detail",{scope,ticket:caseId}).then(v=>{
@@ -116,6 +127,7 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       submenu("citizens","Citizens",()=>push({kind:"players"}),{icon:"users",meta:String(list(overview?.players).length),disabled:!overview,description:"RP records, moderation and character interventions."}),
       ...(overview?.permissions.audit?[submenu("history","Staff history",()=>{setHistoryPage(1);push({kind:"history"});},{icon:"file-text",description:"Who acted, why and whether the intervention completed."})]:[]),
       submenu("tools","Personal tools",()=>push({kind:"tools"}),{icon:"shield",disabled:!overview,description:"Noclip, god mode and the advanced console."}),
+      ...(overview?.permissions.tables?[submenu("tables","Placed tables",()=>{setTablePage(1);push({kind:"tables"});},{icon:"box",description:"Every placed board and casino table: owner, seats, open stakes. Go to one or remove it."})]:[]),
       ...(overview?.permissions.housing?[submenu("housing","Housing",()=>{close();emit(PAGE_EVENTS.action,{type:"housing.open",admin:true});},{icon:"map-pin",description:"Interior templates, dwellings and resident assignments."})]:[]),
       ...(overview?.permissions.safezones?[submenu("safezones","Safe zones",()=>{close();emit(PAGE_EVENTS.safezones,{operation:"open"});},{icon:"shield",description:"Create and edit world-space PvP protection zones."})]:[]),
     ]:[submenu("reports","My reports",()=>push({kind:"tickets"}),{icon:"message-square",description:"Private conversations with staff, including closed cases."}),item("new","New report",()=>setForm({kind:"new",body:""}),{icon:"message-square",description:"Describe a problem and follow its handling here."})];
@@ -164,10 +176,31 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       if(overview?.permissions.audit)entries.push(submenu("history","Recent interventions",()=>push({kind:"history",history:currentProfile.history})));
       content=<ProfileCard profile={currentProfile}/>;
     }
+  }else if(top.kind==="tables"){
+    title="PLACED TABLES";subtitle=`${tables?.total??"—"} TABLES · PAGE ${tablePage}`;
+    const rows=list(tables?.tables);
+    entries=[{id:"sort",text:"Sort",type:"list",options:["Newest","Nearest"],index:tableSort,change:p=>{setTables(undefined);setTableSort(p.index||0);setTablePage(1);},description:"Nearest: tables in your instance first, by distance."},
+      item("search","Search tables",()=>setForm({kind:"search",target:"tables"}),{icon:"search",meta:tableQuery||"ALL",description:"Table ID, kind, owner name or inventory."}),{separator:true},
+      ...(!tables?[loading]:rows.length?rows.map(t=>submenu(`table:${t.id}`,`${t.title} · ${t.owner}`,()=>{setTableDetail(undefined);push({kind:"table",table:t});},{meta:t.distance!==undefined?`${t.distance.toFixed(0)} m`:t.seatedCount?`${t.seatedCount} seated`:undefined,description:`${t.id} · instance ${t.bucket} · ${moneyLine(t)}`})):[{id:"empty",text:"No placed tables match",disabled:true}]),
+      ...(tablePage>1?[item("previous","Previous page",()=>{setTables(undefined);setTablePage(n=>n-1);})]:[]),
+      ...(tables&&tablePage*tables.pageSize<tables.total?[item("next","Next page",()=>{setTables(undefined);setTablePage(n=>n+1);})]:[]),
+      ...(tables?.pendingReturns?[{id:"pending",text:`Items awaiting return: ${tables.pendingReturns}`,disabled:true,description:"Removed tables whose item goes back when the owner's character is next loaded."}]:[]),
+      item("refresh","Refresh",refresh)];
+    const chosen=rows.find(t=>`table:${t.id}`===top.selected);if(chosen)content=<TableCard table={chosen}/>;
+  }else if(top.kind==="table"){
+    const live=list(tableDetail?.tables).find(t=>t.id===top.table?.id),t=live||top.table!;
+    title="PLACED TABLE";subtitle=`${t.title} · ${t.id}`;
+    if(!tableDetail)entries=[loading];
+    else if(!live)entries=[{id:"gone",text:"This table no longer exists",disabled:true}];
+    else entries=[
+      ...(tableDetail?.canTeleport?[submenu("tableTeleport","Go to table",()=>setForm({kind:"tableAction",action:"tableTeleport"}),{icon:"navigation",description:"Teleport beside the table, facing it. A reason is recorded."})]:[]),
+      ...(tableDetail?.canDelete?[submenu("tableDelete","Remove table",()=>setForm({kind:"tableAction",action:"tableDelete"}),{icon:"trash-2",danger:true,description:"Refunds open stakes, unseats players, optionally gives the item back. A reason is recorded."})]:[]),
+      item("refresh","Refresh table",refresh)];
+    content=<TableCard table={t}/>;
   }else if(top.kind==="history"){
     title="STAFF HISTORY";subtitle=top.history?"SELECTED CITIZEN":`PAGE ${historyPage}`;
     const rows=top.history||list(history?.entries);
-    entries=rows.map(a=>({id:`audit:${a.id}`,text:`${actionLabels[a.action]||a.action} · ${a.target_name||"Server"}`,meta:a.outcome,description:`${a.actor_name} · ${date(Number(a.at))}`}));
+    entries=rows.map(a=>({id:`audit:${a.id}`,text:`${auditLabels[a.action]||a.action} · ${a.target_name||"Server"}`,meta:a.outcome,description:`${a.actor_name} · ${date(Number(a.at))}`}));
     const chosen=rows.find(a=>`audit:${a.id}`===top.selected)||rows[0];if(chosen)content=<AuditEntry entry={chosen}/>;
     if(!rows.length)entries.push({id:"empty",text:history||top.history?"No recorded interventions":"Loading…",disabled:true});
     if(!top.history){if(historyPage>1)entries.push(item("previous","Previous page",()=>setHistoryPage(n=>n-1)));if(history?.hasMore)entries.push(item("next","Next page",()=>setHistoryPage(n=>n+1)));entries.push(item("refresh","Refresh",refresh));}
@@ -177,7 +210,8 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const index=selected>=0?selected:Math.max(0,entries.findIndex(isPickable));
   const cancel=()=>{setForm(null);setError("");};
   if(form?.kind==="new")content=<NewReport initial={form.body} onCancel={cancel} onCreated={id=>{setForm(null);setDetail(undefined);setStack([{kind:"root",selected:"reports"},{kind:"tickets"},{kind:"ticket",caseId:id}]);refresh();}}/>;
-  else if(form?.kind==="search")content=<SearchForm initial={form.target==="tickets"?query:citizenQuery} onCancel={cancel} onSave={value=>{if(form.target==="tickets"){setCases(undefined);setQuery(value);setPage(1);}else setCitizenQuery(value);cancel();}}/>;
+  else if(form?.kind==="search")content=<SearchForm initial={form.target==="tickets"?query:form.target==="tables"?tableQuery:citizenQuery} onCancel={cancel} onSave={value=>{if(form.target==="tickets"){setCases(undefined);setQuery(value);setPage(1);}else if(form.target==="tables"){setTables(undefined);setTableQuery(value);setTablePage(1);}else setCitizenQuery(value);cancel();}}/>;
+  else if(form?.kind==="tableAction"&&top.table){const t=list(tableDetail?.tables).find(r=>r.id===top.table!.id)||top.table;content=<TableActionForm key={form.action} action={form.action} table={t} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);if(form.action==="tableDelete"){setTables(undefined);setStack(s=>s.slice(0,-1));}refresh();}}/>;}
   else if(form?.kind==="message")content=<MessageForm action={form.action} busy={busy} onCancel={cancel} onSend={async body=>{if(await mutate(form.action,body))setForm(null);}}/>;
   else if(form?.kind==="action"&&currentProfile&&overview)content=<ActionForm action={form.action} person={currentProfile} overview={overview} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);refresh();}}/>;
   return <section className="rp-support" aria-label={staff?"LightRP staff menu":"Reports and support"}>
