@@ -89,12 +89,21 @@ export interface InfluenceConfig {
   beaconLevel: number; // from this level on, a column of light
 }
 
+export interface AreasConfig {
+  labels: boolean; // each area's label on the open map
+  hatch: number; // pixels between two hatching stripes on the open map
+  minimapHatch: number; // on the minimap
+  minimapStrength: number; // 0..1: how strongly the minimap shows the areas
+  minimapLabel: boolean; // the line under the minimap names the labelled area you stand in
+}
+
 export interface MapConfig {
   theme: Theme;
   minimap: MinimapConfig;
   map: MapViewConfig;
   gps: GpsConfig;
   influence: InfluenceConfig;
+  areas: AreasConfig;
   categories: CategoryConfig[];
   keys: Record<string, string>; // labels shown in the help bar
   locale: Record<string, string>;
@@ -175,6 +184,13 @@ export const DEFAULT_CONFIG: MapConfig = {
     showCount: true,
     buildings: true,
     beaconLevel: 2,
+  },
+  areas: {
+    labels: true,
+    hatch: 11,
+    minimapHatch: 9,
+    minimapStrength: 0.85,
+    minimapLabel: true,
   },
   categories: [
     { id: "player", label: "Players", icon: "user" },

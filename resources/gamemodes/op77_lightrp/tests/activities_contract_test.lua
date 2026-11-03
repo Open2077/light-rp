@@ -6,6 +6,8 @@
 -- hunger / thirst frozen while owned (server/modules/needs.lua). No game, no DB.
 dofile("shared/config.lua")
 dofile("server/config/activities.lua")
+-- race.grid joins its provider's own queue here (the core's ranked queue: activities_lobby_test.lua)
+LightRpActivities.lobby.activities["race.grid"] = nil
 local noop = function() end
 local t = 1000
 local providers, actions, commands, handlers, exported = {}, {}, {}, {}, {}

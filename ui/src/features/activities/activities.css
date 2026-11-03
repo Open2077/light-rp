@@ -103,3 +103,47 @@
 .activities__feedback.is-error { color: var(--o77-red); }
 .activities__keys { display: flex; align-items: center; gap: var(--sp-6); flex: none; font: var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); }
 .activities__keys > span { display: flex; align-items: center; gap: var(--sp-3); }
+
+/* the lobby: bots toggle, ranked line, the bot fill offer, a match on its way */
+.activity-detail__lobby { max-width: 520px; margin-top: var(--sp-6); padding: var(--sp-2) var(--sp-6); background: var(--surface-panel);
+  border: var(--stroke-hair) solid var(--line-neutral); clip-path: var(--clip-chamfer-sm); }
+.activity-detail__ranked { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-4) 0 0; font: var(--fs-micro) var(--font-mono);
+  letter-spacing: var(--ls-label); color: var(--text-dim); text-transform: uppercase; }
+.activity-detail__ranked > svg { color: var(--accent); }
+.activity-detail__ranked.is-unranked, .activity-detail__ranked.is-unranked > svg { color: var(--text-disabled); }
+.activities__strip .o77-badge { flex: none; }
+.activities__strip.is-match > svg { animation: none; color: var(--o77-green); }
+.activities__strip.is-match b { color: var(--o77-green); }
+.activities__offer { display: flex; align-items: center; gap: var(--sp-5); padding: var(--sp-4) var(--sp-8); flex: none;
+  background: var(--accent-quiet); border-bottom: var(--stroke-hair) solid var(--line-soft); color: var(--text-body);
+  animation: activities-in-offer .2s cubic-bezier(.2, .9, .3, 1) both; }
+.activities__offer > svg { color: var(--accent); flex: none; }
+.activities__offer > span { flex: 1; display: flex; align-items: baseline; gap: var(--sp-5); min-width: 0; }
+.activities__offer b { font: var(--fw-semibold) var(--fs-tag) var(--font-mono); letter-spacing: var(--ls-label); color: var(--accent); white-space: nowrap; }
+.activities__offer small { font-size: var(--fs-tag); color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes activities-in-offer { from { opacity: 0; transform: translateY(-4px); } }
+
+/* the friendly set-up: one column per team, then the bench */
+.friendly { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-7) var(--sp-8); }
+.friendly__cols { display: grid; gap: var(--sp-5); margin-top: var(--sp-7); }
+.friendly__col { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; padding: var(--sp-5); background: var(--surface-panel);
+  border: var(--stroke-hair) solid var(--line-neutral); clip-path: var(--clip-chamfer); }
+.friendly__col.is-bench { background: transparent; border-style: dashed; }
+.friendly__col h2 { display: flex; justify-content: space-between; margin: 0 0 var(--sp-2); font: var(--fw-semibold) var(--fs-tag) var(--font-mono);
+  letter-spacing: var(--ls-tag); color: var(--accent); }
+.friendly__col.is-bench h2 { color: var(--text-dim); }
+.friendly__col h2 span { color: var(--text-dim); }
+.friendly-chip { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); text-align: left;
+  background: var(--surface-raised); border: 0; box-shadow: inset 0 0 0 1px var(--line-neutral); clip-path: var(--clip-chamfer-sm); color: var(--text-hi);
+  transition: background .12s, box-shadow .12s; }
+.friendly-chip > svg { color: var(--accent); }
+.friendly-chip span { font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.friendly-chip small { font: var(--fs-micro) var(--font-mono); letter-spacing: .08em; color: var(--text-dim); }
+button.friendly-chip:not(:disabled):hover, button.friendly-chip:focus-visible { background: var(--accent-quiet-strong); box-shadow: inset 0 0 0 1px var(--line-accent); }
+button.friendly-chip:disabled { cursor: default; }
+.friendly-chip.is-bot { color: var(--text-dim); background: transparent; box-shadow: inset 0 0 0 1px var(--line-hairline); }
+.friendly-chip.is-bot > svg { color: var(--text-dim); }
+.friendly__empty { margin: 0; padding: var(--sp-3) 0; color: var(--text-disabled); font-size: var(--fs-tag); }
+.friendly__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-7); }
+.friendly__actions .o77-toggle { width: auto; flex: 0 1 380px; margin-right: auto; }
+.friendly > .activity-detail__why { margin-top: var(--sp-5); }

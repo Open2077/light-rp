@@ -651,7 +651,7 @@ activités (`GetInvokingResource`).
 
 | Export | Rôle |
 |---|---|
-| `activityRegister(def)` → `true` \| `false, raison` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` préfixé par le fournisseur (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (tout à `false` par défaut). Réenregistrer remplace. Facultatif : `modes = { { id, label } }` et `modeKey` (choix proposés par le panneau, rendus dans `options[modeKey]` ; un choix inconnu est refusé avant d'atteindre le fournisseur ; sans `modes`, `joinChoices` de la config peut en fournir — voiture ou à pied pour `chase.1v1`). Facultatif aussi : `pve = true` (joueurs contre bots, seule source de réputation ; sans le drapeau, la liste `pve.activities` de la config peut marquer l'id, `pve = false` l'emporte) et `difficulties = { "standard", "hard", "critical" }` (celles que le fournisseur joue vraiment ; sans elles, Standard seule). |
+| `activityRegister(def)` → `true` \| `false, raison` | `def = { id, resource, label, kind, description, minPlayers, maxPlayers, caps }`. `id` préfixé par le fournisseur (`arena.ffa`, `race.trial`, `chase.1v1`), `kind` ∈ `pvp`, `race`, `chase`, `event`, `caps = { rpWeapons, rpItems, needs, vehicles }` (tout à `false` par défaut). Réenregistrer remplace. Facultatif : `modes = { { id, label } }` et `modeKey` (choix proposés par le panneau, rendus dans `options[modeKey]` ; un choix inconnu est refusé avant d'atteindre le fournisseur ; sans `modes`, `joinChoices` de la config peut en fournir — voiture ou à pied pour `chase.1v1`). Facultatif aussi : `pve = true` (joueurs contre bots, seule source de réputation ; sans le drapeau, la liste `pve.activities` de la config peut marquer l'id, `pve = false` l'emporte) et `difficulties = { "standard", "hard", "critical" }` (celles que le fournisseur joue vraiment ; sans elles, Standard seule). `botFill = true` : le fournisseur sait compléter avec des bots (`options.fill`, `options.match.bots`) — sans lui, le panneau ne propose jamais de bots ; un mode s'en exclut par `modes = { { id, label, botFill = false } }`. |
 | `activityCheck(id, activityId, opts)` → `true` \| `false, raison` | Éligibilité seule, dans cet ordre : personnage actif, vivant et pas à terre, ni en mission ni dans une autre activité, pas dans le premier jour, pas dans un logement, pas en véhicule, pas blessé depuis 60 s, et dans la ville partagée (bucket 0). Avec `opts.difficulty` sur une activité PvE : aussi le palier de réputation qu'elle demande — pour un membre de crew, celui de son chef (un membre sous la difficulté passe, pour la récompense de son palier). La raison est une phrase anglaise montrée au joueur. |
 | `activityEnter(id, activityId, opts)` | Revérifie, enregistre la possession, capture `{ x, y, z, heading, bucket }`, range les armes RP si `caps.rpWeapons` est faux. Le fournisseur déplace ensuite le joueur dans son bucket. PvE : la difficulté jouée est `opts.difficulty`, sinon celle choisie au panneau (celle du chef pour un membre mis en file avec lui), sinon la première proposée ; refusée au-dessus du palier d'un joueur solo ou d'un chef. Un membre de crew sous le palier n'est **jamais refusé** si son chef peut choisir cette difficulté : il la joue en entier, son résultat compte à la plus haute difficulté que son palier ouvre, et il le lit une fois en notice. |
 | `activityLeave(id, activityId, opts)` | Libère. `opts.returnPlayer` (vrai par défaut) : retour au point capturé, bucket compris, en descendant du véhicule ; un joueur mort y réapparaît (jamais laissé mort), puis soin complet et armes RP rendues, sur le thread de Light RP. |
@@ -665,8 +665,11 @@ un client ne peut pas les lever) :
   `result = { placement, score, won, stats = { kills, deaths, timeMs, courseId, courseRevision… }, reputation, difficulty }`.
   Un résultat par entrée toutes les 15 s, et un seul jusqu'à 10 min après la sortie. `reputation`
   ne compte que pour une activité PvE (voir plus bas) ; ailleurs il est ignoré.
-  `result.test = true` (et le mode bots staff) : rien d'enregistré ni de payé ;
-  `result.unranked = true` : enregistré, jamais payé. Les eddies d'un résultat accepté sont
+  Un résultat **non classé** n'enregistre rien — ni statistique (donc aucune ligne au Hall of
+  Fame), ni classement, ni réputation, ni paie : mode bots staff, entrée non classée (match
+  amical, PvP complété par des bots), `result.test = true`, `result.unranked = true` du
+  fournisseur, ou résultat PvP portant `stats.bots` / `stats.vsAi`. Le noyau le marque alors
+  `result.unranked = true` et `result.ranked = false` (voir *Lobby* plus bas). Les eddies d'un résultat accepté sont
   calculés par `server/modules/activity_pay.lua` (voir *Équilibrage*), à partir de
   `stats.durationMs` / `timeMs` / `seconds`, `quit`, `forfeit`, `bots`, `dnfReason`, de la
   difficulté de l'entrée et des statistiques de progression du mode.
@@ -678,6 +681,8 @@ un client ne peut pas les lever) :
   (le même pour chaque membre mis en file par le chef ; voir *Crews*).
   Pour une activité PvE à difficultés : `options.difficulty` (celle du chef, déjà vérifiée contre son
   palier) et `options.scaling = { enemies, health, damage, ai }`, que le fournisseur traduit en bots.
+  Toujours `options.ranked` ; selon le cas `options.fill = { allies, enemies }` et
+  `options.match = { id, ranked, friendly, format, players, teams, side, bots }` (voir *Lobby*).
 - noyau → fournisseur `op77_lightrp:activity:leaveRequest (id, activityId)` : le joueur veut
   partir (panneau, F1, `/leave`) — y compris s'il n'est qu'en file. Sans `activityLeave` du
   fournisseur sous 15 s, le noyau libère et ramène le joueur lui-même (`dropped`, raison `timeout`).
@@ -752,6 +757,49 @@ victoires sinon. Sans base, tout vit le temps de la session.
   Staff : `/lightrp.activities` (activités, propriétaires, files, opérateurs en mission) et
   `/lightrp.survey [libellé]` (position et cap, au format de la config).
 
+### Lobby : bots, file classée, match amical (`server/config/activities.lua` → `lobby`)
+
+Les bots sont un **choix du panneau**, plus une commande. Une activité n'en propose que si elle
+figure dans `lobby.activities` **et** que son fournisseur a déclaré `botFill = true` (un mode peut
+s'en exclure) ; une activité absente de la liste se rejoint comme avant (classée, sans bots ni
+match amical). Les poursuites (`op77_chase`) n'y sont pas : joueurs réels ou NCPD du jeu seulement.
+
+- **PvE, « Fill empty slots with bots »** (`allies = true`) : des bots alliés complètent le crew
+  jusqu'à `seats` places (par défaut `maxPlayers`) — 6 places et un crew de 4 donnent 2 alliés.
+  Le fournisseur les reçoit dans `options.fill.allies` ; ils ne prennent aucun multiplicateur de
+  difficulté. **Toujours classé** : réputation, paie et Hall of Fame comme d'habitude.
+- **PvP, « Play with bots »** (`bots = true`) : le noyau forme tout de suite un match avec des bots
+  (`options.match`, `bots` par camp). **Non classé.**
+- **File classée** (`queue = true` : `arena.duel`, `arena.teams`, `race.grid`, `race.foot`) : une
+  demande PvP sans bots devient un ticket dans la file du noyau. Un crew reste entier, du même
+  côté, et compte pour la taille d'équipe (`teams`, `teamSize`, une taille par mode possible) ; un
+  crew trop grand est refusé. Appariement par **tranche de cyberware** : le rang que débloque le
+  street cred (`cyberware.lua` → `gating.byRank`, le plus haut membre pour un crew), ramené à une
+  tranche par `matchmaking.brackets`. D'abord la même tranche ou la voisine, puis l'écart s'élargit
+  selon l'attente du plus ancien (`matchmaking.widen` : 2 tranches à 60 s, 3 à 80 s, tout le monde à
+  100 s) ; les courses ignorent les tranches (`brackets = false`) et attendent `gatherMs` (15 s)
+  d'autres joueurs une fois le minimum atteint. Le panneau montre le chrono, trouvés / requis,
+  *Near your rank* ou *All ranks*, et *Cancel*. Après `fillAfterMs` (2 min), le chef se voit
+  proposer *Fill with bots* (match non classé) ou *Keep waiting*. `turf.war` garde la file de son
+  fournisseur (une guerre à la fois) ; la proposition de bots y vaut aussi.
+- **Match amical** (`friendly = true`) : le chef de crew ouvre *Friendly match* ; le noyau répartit
+  le crew par street cred (*Auto-balance*), le chef déplace les joueurs (flèches ou clic, un camp
+  plein échange), met des bots dans les places vides si le mode le permet, puis *Start*. Les membres
+  voient la répartition sans la modifier. Toujours **non classé**.
+
+**Ce qui compte.** Le noyau seul décide : `options.ranked` sur chaque `join`,
+`A.isRanked(entrée | match | joueur)` et l'export `activityRanked(id)`. Un résultat non classé
+(match amical, PvP avec bots, mode bots staff, `test`, `unranked` du fournisseur, `stats.bots` /
+`stats.vsAi` en PvP — jamais un PvE avec alliés) est marqué `result.unranked = true`,
+`result.ranked = false` dans `A.result` et s'arrête là : aucune statistique (donc aucune ligne du
+Hall of Fame, dont les lignes d'activité viennent de `lightrp_activity_stats`), aucun classement, aucune réputation, et
+`activity_pay.lua` n'est pas appelé (il refuse aussi `result.unranked` de lui-même). Un résultat
+classé porte `result.ranked = true`.
+
+Le panneau envoie l'action `activities.lobby` (`fill`, `friendly`, `move`, `balance`, `bots`,
+`cancel`, `start`). Un ticket expire après 15 min, un match formé qui n'a pas démarré après 2 min.
+`/lightrp.bots on|off` (staff) reste disponible pour tester seul : rien n'est enregistré.
+
 ### Mise en place de The Crossing (en jeu)
 
 Les positions des terminaux sont des décalages plausibles depuis le point d'arrivée
@@ -761,6 +809,199 @@ Les positions des terminaux sont des décalages plausibles depuis le point d'arr
 (ce sont des enregistrements audités en base) : **/admin → Safe zones**, nouvelle zone centrée
 sur l'esplanade (`-756.6, 777.3`), rayon d'environ 30 m, *blockShoot*, *blockMelee* et
 *blockGrenades* cochés, puis publier.
+
+## Dogtown, zone PvP ouverte (`server/modules/dogtown.lua`, `server/config/dogtown.lua`, `client/core/dogtown.lua`, page `features/dogtown/`)
+
+Dans la ville partagée (bucket 0), Dogtown est une zone de danger : passé les murs, quiconque
+porte la **mise** peut tuer quiconque la porte aussi, et une mort coûte une part de l'argent
+liquide — jamais la banque. Les membres d'une même escouade ne se blessent pas. **Ailleurs, rien
+ne change** : le tir ami global reste coupé (défaut de la plateforme), les zones de sécurité
+restent sûres (y compris celles posées dans Dogtown), missions et activités gardent leurs buckets
+et leurs règles. Les règles sont celles du propriétaire (2026-11-03) ; tous les nombres sont dans
+`server/config/dogtown.lua`, commentés, et le guide (Johnny) les cite depuis cette config.
+
+### Comment le PvP est accordé
+
+- Le tir ami global n'est jamais activé. Toutes les 500 ms (`sweepMs`), chaque joueur est placé
+  dedans ou dehors (polygone plan, toute hauteur : toits et stade compris) et les joueurs
+  **qualifiés** reçoivent une portée de combat (`Open77.combat.createScope`) dans le bucket 0.
+  Qualifié = personnage actif, bucket 0, ni activité ni mission, vivant ou en récupération, zone
+  allumée, **mise en poche**, **et** dans le polygone ou marqué au combat. Une position de plus
+  de 2,5 s (`positionMaxAgeMs`) garde la dernière réponse.
+- **Escouades** : les membres d'une escouade `LightRP.parties` partagent une équipe de combat
+  (`Open77.combat.setTeam`, `teamBase` + numéro de l'escouade) : la plateforme refuse les coups
+  entre eux. L'équipe suit chaque changement d'escouade (`onPartyChanged`) ; en quittant la
+  portée, le joueur repasse sans équipe, sauf s'il est passé dans un autre bucket ou une
+  activité, qui gère alors la sienne. L'arbitre refuse aussi entre équipiers, le temps d'une mise
+  à jour.
+- **Marque de combat** : un coup entre deux joueurs de la zone marque les deux pendant 20 s
+  (`combatTagMs`), renouvelée à chaque coup. Un joueur marqué qui sort reste attaquable jusqu'à
+  la fin de la marque.
+- L'arbitre de dégâts (`Open77.combat.onDamage`) ne fait que **refuser** : il ferme l'écart entre
+  deux balayages quand l'un des deux ne qualifie plus. Zones de sécurité, porte d'armement,
+  activités refusent comme avant (le premier refus gagne).
+- Limites de la plateforme : 32 joueurs par portée, 8 portées par ressource (`maxScopes`), 64 sur
+  tout le serveur, partagées avec les autres ressources. Au-delà de 32 joueurs qualifiés, le
+  groupe est découpé par position (d'ouest en est) et deux joueurs de groupes différents ne
+  peuvent pas se blesser.
+- Prérequis : les permissions `combat.scope.control`, `combat.config` (équipes),
+  `players.teleport` (escorte) et `world.vehicles` (voiture de l'escorte), déclarées dans
+  `open77.lua`, et **la base de données** — sans elle, les zones de sécurité sont indisponibles
+  et leur arbitre refuse tout PvP, et l'argent ne bouge pas (`database_unavailable`).
+
+### La mise
+
+- Il faut `stake.minCash` (€$ 1 000) **en poche** pour se battre ; la banque ne compte pas. En
+  dessous, dans la zone : pas de PvP (ni tirer, ni être touché), une notice avec **le montant
+  manquant**, et la tuile passe au jaune avec un compte à rebours.
+- Après `stake.graceMs` (10 s), toujours dedans et toujours sous la mise : téléporté à la
+  **sortie la plus proche** (`exits`, points hors du polygone, distance plane ; sans sortie
+  utilisable, l'hôpital). À pied (`dismount`), sauf le conducteur seul dans sa voiture : la
+  voiture est posée 4 m à côté de lui (`Open77.vehicles.setTransform`). Un passager laisse le
+  véhicule aux autres. Un téléport refusé est retenté 3 s plus tard.
+- Même chose après une mort : relevé dedans sous la mise → notice, délai, escorte. Revenir
+  au-dessus de la mise (DAB, virement) arrête le compte à rebours.
+- Les quatre sorties livrées sont **à relever en jeu** (`-- survey in game`, `z` estimés) :
+  `/lightrp.dogtown survey exit [nom]` imprime la ligne (refusé dans le polygone). Une sortie
+  dans le polygone est ignorée et signalée au démarrage.
+
+### Mort, sac, bonus
+
+- La mort suit le **parcours médical normal** (inconscience, trauma kit, transfert à l'hôpital,
+  hors de Dogtown). **Pas de facture d'hôpital** après une mort dans un combat de Dogtown
+  (`waiveHospitalBill`, exemption `dogtown` de `economy_sinks.lua`) : la zone a déjà pris sa part
+  et la banque reste hors du jeu. La dispense vaut jusqu'à 15 s après la remise sur pied (au plus
+  30 min après la mort).
+- Un kill compte quand les deux joueurs partagent une portée, ou que le tueur a touché la victime
+  dans les 20 dernières secondes ; victime dans le bucket 0, aucun des deux en activité.
+- **Perte** : `loot.share` (10 %) de l'argent porté, au moins `loot.min` (€$ 100), au plus
+  `loot.max` (€$ 750), jamais plus que ce qui est porté.
+- **Sac** (`loot.mode = "bag"`) : un sac scellé (on ne peut rien y déposer) tombe là où la victime
+  est tombée, avec la perte **plus un bonus serveur** de `loot.bonus` (25 % de la perte) : de
+  l'argent neuf (`Inv.dropCash`, option `mint`), payé par personne. Le sac est **réservé au tueur
+  et à son escouade** pendant `loot.reserveMs` (15 s ; l'escouade au moment du ramassage), puis
+  n'importe qui peut le prendre, victime comprise : le tueur a la priorité, ensuite c'est
+  Dogtown. C'est un tas au sol de l'inventaire, en mémoire seulement : perdu au redémarrage et
+  après `LightRpConfig.inventory.drop.ttlMinutes`.
+- **Plafond du bonus** : `loot.bonusDailyCap` (€$ 3 000) par **compte** (tous ses personnages) et
+  par jour UTC, bonus de kill et primes compris. Table `lightrp_dogtown_bonus_daily`
+  (identifiant, jour, total), cache en écriture relu une fois par jour, comme
+  `activity_pay.lua`. Le bonus compte quand le sac est posé, même si un autre le ramasse. Journal
+  : `dogtown bonus: +N minted into a cash bag for <compte> (killer …, victim …)`.
+- `"transfer"` : la perte passe dans la poche du tueur et le bonus est versé à côté (écriture
+  `dogtown_bonus`). Un sac impossible à poser retombe sur le transfert.
+
+### Anti-gank, primes
+
+- Escouade du tueur avec `antiGank.crewSize` (4) membres ou plus **dans la zone** (dedans, ou
+  marqués dehors ; la mise n'est pas exigée pour compter) : la perte est multipliée par
+  `antiGank.lossFactor` (0,5), après le minimum et le plafond — le sac et son bonus rétrécissent
+  avec.
+- Victime d'une escouade plus nombreuse dans la zone que celle du tueur : bonus × (1 +
+  `antiGank.underdogBonus`), soit × 1,5, toujours dans le plafond.
+- **Prime** : `bounty.streak` (5) kills comptés d'affilée dans la zone sans mourir → une épingle
+  `op77_map3d` (`addBlip(-1, …)`, réticule rouge pulsant, « BOUNTY · Nom ») qui suit la cible
+  toutes les `bounty.refreshMs` (3 s) sur la carte de tout le monde. Retirée à la mort (quelle
+  qu'en soit la cause), en quittant la zone (dehors et plus marqué : la série s'arrête), à la
+  déconnexion, au changement de personnage, à l'arrêt de la zone ou de la ressource. Celui qui
+  l'abat (kill compté) reçoit `bounty.perKill` (€$ 250) par kill de la série, au plus
+  `bounty.max` (€$ 1 500), **en liquide** (écriture `dogtown_bounty`), dans son plafond. Journal :
+  `dogtown bounty: +N to <compte> (…)`.
+
+### Anti-farm, déconnexion en combat
+
+- **Paires bloquées** : même compte (`lootSameAccount`), même escouade (`lootCrewmates`), ou même
+  tueur sur la même victime en moins de 10 min (`pairCooldownMs`, par personnage et dans ce
+  sens : la revanche reste possible). **Rien du tout** : ni kill, ni mort, ni perte, ni sac, ni
+  bonus. Chaque refus est expliqué aux deux joueurs.
+- **Déconnexion en combat** (`combatLog`) : un joueur marqué qui se déconnecte dans la zone lâche
+  le sac d'une mort (même perte, **sans bonus**) à sa dernière position, réservé à l'escouade de
+  son dernier attaquant ; journal `combat log by …`. Rien s'il était déjà à terre (le kill
+  compte) ou mort depuis moins d'une marque. Nouveau crochet de framework `onDisconnecting`,
+  appelé avant `onDisconnected` tant que l'inventaire et le portefeuille sont chargés (il peut
+  attendre).
+- **Tout passe par `LightRP.money`** : `dogtown_loss` chez la victime, `dogtown_loot` chez celui
+  qui ramasse (la note nomme le bonus), `dogtown_bonus` (transfert), `dogtown_bounty`. Ramasser
+  son propre sac reste une écriture `inventory`. Fichiers partagés touchés : `inventory.lua`
+  (tas scellés, `mint`, `reserve`, raison `reserved`), `economy.lua` (étiquettes),
+  `economy_sinks.lua` (exemption), `framework.lua` (`onDisconnecting`). À l'arrêt de la
+  ressource, portées, équipes, épingles de prime et sacs en cours sont retirés.
+
+### Statistiques, Temple de la renommée
+
+Table `lightrp_dogtown_stats` (compte + personnage + semaine, la semaine 0 portant le cumul) :
+kills comptés, morts, meilleure série (`best_streak`, colonne ajoutée par migration au démarrage
+sur une table plus ancienne), eddies ramassés (`dogtown_loot` et `dogtown_bonus` positifs ; une
+prime n'est pas du butin). Semaines UTC, du lundi 00:00. Classement F1 : les 5 meilleurs tueurs
+de la semaine (`stats.leaderboardSize`), relus toutes les 60 s. **Temple de la renommée**
+(`halloffame.lua`, onglet PvP) : `dogtown.kills` (kills à vie, détail K/D et meilleure série) et
+`dogtown.streak` (meilleures séries, hors vue d'ensemble) ; `hallOfFame = false` les retire.
+**Aucune réputation.** Sans base, tout vit en mémoire le temps de la session.
+
+### Ce que voit le joueur
+
+- **À l'entrée** : un bandeau rouge « DOGTOWN — NO LAW · ANYONE CAN KILL YOU », l'argent porté et
+  ce qu'un tueur en prendrait (plus le bonus) ; sans la mise, « NO STAKE · YOU CAN'T FIGHT
+  HERE » et le montant manquant. Une ligne de chat (mise, argent porté) au plus toutes les 2 min
+  (`entryChatMs`).
+- **Tuile en haut à gauche** tant qu'il est dedans ou marqué : marque de combat, argent en jeu,
+  série en cours, « BOUNTY · ON EVERYONE'S MAP » ; sans la mise, tuile jaune « €$ X missing » et
+  « ESCORTED OUT IN N S ».
+- **F1 → Dogtown** : les règles chiffrées depuis la config (mise, perte, bonus et plafond avec le
+  bonus gagné aujourd'hui, escouades, prime, fair-play), son bilan (semaine, total, meilleure
+  série, série en cours ou prime), les meilleurs tueurs de la semaine.
+- **Guide (Johnny)** : le sujet « Dogtown PvP » (mise, mort et sac, bonus, escouades, prime,
+  anti-farm, déconnexion, hôpital) et les réponses PvP de la ville suivent `enabled` dans la
+  config, pas l'interrupteur `/lightrp.dogtown`.
+- **Carte 3D (`op77_map3d`, touche M) et minicarte** : la zone elle-même, le polygone du serveur
+  posé sur le sol, les routes et les bâtiments : remplissage rouge translucide hachuré en
+  diagonale, bordure rouge pleine, étiquette « DOGTOWN · DANGER ZONE » lisible à l'échelle de la
+  ville ; sur la minicarte, la ligne sous la carte affiche ce nom tant qu'on est dedans. La tête
+  de mort rouge reste au centre. Réglages dans `area` de `server/config/dogtown.lua` (couleurs,
+  opacité, motif `hatch` ou `solid`, épaisseur de bordure, position de l'étiquette, minicarte,
+  pulsation ; `area = false` n'affiche que l'épingle). La zone suit `/lightrp.dogtown on|off`
+  (retirée à l'arrêt) et `survey apply|reset` (redessinée chez tout le monde) ; le serveur envoie
+  au plus 150 points (un relevé plus long perd d'abord ses sommets les moins marquants). Les
+  primes y ajoutent leur épingle mobile.
+- **Carte du jeu** : le sprite de la porte de Dogtown (panneau de danger en repli), rien de plus.
+  La plateforme n'y pose que des épingles (`Open77.blips` : sprite, titre, distance de
+  visibilité) et `Open77.map` ne donne ni projection monde-écran ni distance de zoom : aucun
+  polygone, cercle ou calque n'est possible sur la carte native (vérifié dans
+  `wiki/data/api.json`).
+
+### Staff : `/lightrp.dogtown`
+
+ACL `command.lightrp.dogtown` (couverte par `command.lightrp.*`).
+
+| Sous-commande | Effet |
+|---|---|
+| `status` | État, joueurs dedans (dont sous la mise), marqués, portées, primes, source du polygone, sorties, mise, perte, bonus, plafond, réserve. |
+| `on` · `off` | Allume ou coupe la zone jusqu'au prochain redémarrage (`enabled` fixe le défaut). `off` retire portées, équipes, marques, séries et primes. |
+| `survey add` · `undo` · `clear` | Ajoute un point à sa position (avec le district que voit le moteur), retire le dernier, vide le brouillon. |
+| `survey list` | Écrit le brouillon au format de `polygon` dans le journal serveur. |
+| `survey apply` · `reset` | Le brouillon devient la zone pour la session ; retour au polygone de la config. La zone dessinée sur la carte 3D suit. |
+| `survey test` | Dedans ou dehors ici, et district du moteur. |
+| `survey passage` | Ligne `{ x, y, z, heading }` pour une extrémité de passage. |
+| `survey exit [nom]` | Ligne d'une sortie pour `exits` (dehors seulement ; se placer sur la route, dos à Dogtown). |
+
+Chaque client signale aussi les frontières de district que franchit le moteur ; un désaccord
+avec le polygone est journalisé (`logDistrictMismatch`). C'est une aide au relevé, jamais une
+source d'autorisation : le serveur ne connaît pas les districts.
+
+### Mise en place (en jeu)
+
+Le polygone livré (30 points) est dérivé des volumes du district `ep1_dogtown` des données de
+`op77_map3d` : il épouse l'extérieur des murs, donc un peu large, et chaque point est marqué
+`-- survey in game`. Longer les murs avec `/lightrp.dogtown survey add` à chaque angle,
+`survey apply` pour essayer, `survey list`, coller les lignes dans `polygon`. Relever ensuite les
+sorties avec `survey exit` (une par porte ou route principale) et les coller dans `exits`, puis
+`ensure op77_lightrp`.
+
+**Phantom Liberty.** Dogtown appartient à l'extension, que le lanceur exige. Sur une sauvegarde
+où l'extension n'a jamais commencé, les portes du district peuvent rester fermées ; Open77 coupe
+le téléport de frontière, mais l'accès réel est à vérifier en jeu. Si les portes restent closes,
+`passages` ajoute des points **E** (dehors → dedans et retour, sortie refusée en étant marqué,
+entrée refusée sans la mise), relevés avec `survey passage`.
 
 ## Progression PvE : paliers de réputation, difficultés, cyberware
 
@@ -817,6 +1058,24 @@ sous chaque tableau. Noms de personnages uniquement, jamais d'identifiant de com
 - Staff : `/lightrp.halloffame place` (se placer devant l'emplacement, face à là où l'écran doit
   regarder : le panneau se pose 0,8 m derrière, le point E suit, la ligne de config est
   affichée), `where`, `refresh`. Coller la ligne dans `server/config/halloffame.lua` (`board`).
+- Exclusions (`exclude` dans `server/config/halloffame.lua`) : staff et personnages de test ne
+  figurent sur **aucun** tableau, y compris ceux ajoutés par `registerBoard` (un seul filtre
+  dans `HoF.refresh`, après tous les fournisseurs, avant le classement : les autres
+  remontent). Un joueur exclu ne voit pas de « YOU #N ». Les lignes portent le compte Open77
+  (`GetPlayerIdentifier`, le même `userId` que les principaux d'`acl.jsonc`) et la clé du
+  personnage (`<compte>#<clé>`).
+  - Staff (`staff = true`) : le test de Light RP (`LightRP.staff.isStaff`, les
+    `LightRpConfig.staffPermissions` dans l'ACL). L'ACL ne répond que pour un joueur en ligne
+    (une ressource ne peut pas lire `acl.jsonc`) : chaque compte staff vu en ligne est retenu
+    dans le magasin kvp de la ressource (`data/`, conservé aux redémarrages) et reste exclu
+    hors ligne ; un compte retenu revu en ligne sans les droits est oublié. **Limite** : un
+    staff jamais vu en ligne depuis cette version est inconnu — mettre son `userId` dans
+    `staffAccounts`. Une ACL qui ne répond pas (pas d'`acl.read`) n'oublie personne.
+  - Tests (`tests = true`) : `characters` (`<compte>#<clé>`), `accounts` (`<compte>`, tous ses
+    personnages), plus la liste de la commande `/lightrp.halloffame exclude <playerId [account]
+    | compte#clé | compte>`, `include <…>` (retire de la liste ; sur un compte, oublie aussi
+    un staff retenu), `excluded` (état). Conservée en kvp ; chaque changement relance la
+    reconstruction des tableaux.
 
 ## Housing
 

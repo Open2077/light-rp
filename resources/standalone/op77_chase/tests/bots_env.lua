@@ -215,7 +215,7 @@ end
 local FILES = {
     "shared/config.lua", "server/rules.lua", "server/elo.lua", "server/queue.lua", "server/core.lua", "server/bots.lua",
     "server/match.lua", "server/ranked.lua", "server/wanted_rules.lua", "server/wanted_lobby.lua", "server/wanted.lua",
-    "server/pve.lua", "server/main.lua", "server/wanted_main.lua", "server/pve_main.lua",
+    "server/pve.lua", "server/recap.lua", "server/main.lua", "server/wanted_main.lua", "server/pve_main.lua",
 }
 
 -- opts = { botsEnabled, noBotsExport, before = function(env) end (after the stubs, before the files) }

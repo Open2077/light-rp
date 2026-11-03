@@ -5,7 +5,8 @@
 -- loadout), the scripted target choice and the seek walk skipping team-mates, a
 -- rebuilt body after death, the halftime swap (clusters trade ends, sides stay),
 -- a real side change, a human leaving, the match ending, the free-for-all left
--- untouched, and a platform build without the natives.
+-- untouched, the op77_arena `add` options (health, damage, tag, team; kept by
+-- paced spawns and respawns), and a platform build without the natives.
 -- Run: pwsh -NoProfile -ExecutionPolicy Bypass -File tests/run-lua.ps1 -LuaDll <lua54.dll> -Test bot_sides_test.lua
 local say = print
 local printed = {}
@@ -81,15 +82,16 @@ Open77.npcs.tasks.clear = function() return true end
 Open77.npcs.tasks.lookAt = function() return 1 end
 
 local playerAt = { x = 0.0, y = 0.0 }
-Open77.players.position = function() return { x = playerAt.x, y = playerAt.y, z = 100.0, bucket = BUCKET } end
+local playerBucket = {} -- player -> bucket (default: the arena's)
+Open77.players.position = function(id) return { x = playerAt.x, y = playerAt.y, z = 100.0, bucket = playerBucket[id] or BUCKET } end
 Open77.players.getLifeState = function() return { phase = "alive" } end
 Open77.players.isDead = function() return false end
 local shots = {}
-Open77.players.damage = function(id, amount, info) shots[#shots + 1] = { victim = id, attacker = info and info.attacker }; return true end
+Open77.players.damage = function(id, amount, info) shots[#shots + 1] = { victim = id, attacker = info and info.attacker, amount = amount }; return true end
 
-local handlers, threads = {}, {}
+local handlers, threads, net = {}, {}, {}
 _G.AddEventHandler = function(name, fn) handlers[name] = fn end
-_G.RegisterNetEvent = function() end
+_G.RegisterNetEvent = function(name, fn) net[name] = fn end
 _G.RegisterCommand = function() end
 _G.TriggerEvent = function() end
 _G.TriggerClientEvent = function() end
@@ -115,6 +117,7 @@ local B = DeathmatchBots
 
 -- ── the arena, as bots.lua sees it ──
 local sides = {}     -- Arena.match.sides: participant -> side
+local playerInstance = {} -- player -> instance (the net handlers' host call); empty unless a test sets it
 local humans = { 1 }
 local marksA = { { x = 2.0, y = 0.0, z = 100.0 }, { x = 4.0, y = 0.0, z = 100.0 } }
 local marksB = { { x = 10.0, y = 0.0, z = 100.0 }, { x = 12.0, y = 0.0, z = 100.0 }, { x = 14.0, y = 0.0, z = 100.0 } }
@@ -128,6 +131,7 @@ B.setHost({
     playersIn = function(id) return tonumber(id) == INSTANCE and humans or {} end,
     capacity = function(id) local v = views[tonumber(id)]; return v and v.capacity end,
     arenaSide = function(id) return sides[tonumber(id)] end,
+    instanceOfPlayer = function(id) return playerInstance[tonumber(id)] end,
     addParticipant = function() return true end,
     removeParticipant = function() return true end,
     rebindNpc = function() return true end,
@@ -297,6 +301,59 @@ do
     say("PASS free-for-all untouched")
 end
 
+-- ── op77_arena add options: health, damage, tag, team; paced spawns and respawns keep them ──
+do
+    local plain = nil
+    for _, row in ipairs(B.snapshot(FFA)) do plain = plain or row.id end
+    local base = B.get(plain).maxHealth
+    assert(base and base > 0 and B.get(plain).damageScale == 1.0 and B.get(plain).tag == nil, "a plain bot is unscaled")
+    local added, _, queued = B.add(FFA, 2, "veteran", { healthScale = 2.25, damageScale = 1.6, tag = "ally", team = 1 })
+    added, queued = tonumber(added) or 0, tonumber(queued) or 0
+    assert(added + queued == 2, "two asked for")
+    assert(B.pendingCount(FFA, "ally") == queued and B.pendingCount(FFA, false) == 0, "parked spawns keep their tag")
+    for _ = 1, 8 do step(500) end
+    assert(B.pendingCount(FFA) == 0)
+    local scaled = {}
+    for _, row in ipairs(B.snapshot(FFA)) do
+        local bot = B.get(row.id)
+        if bot.tag == "ally" then
+            scaled[#scaled + 1] = row.id
+            assert(row.tag == "ally" and bot.team == 1 and bot.damageScale == 1.6)
+            assert(math.abs(bot.maxHealth - base * 2.25) < 0.001 and bot.health == bot.maxHealth, "health scaled, full")
+            assert(math.abs(npc(row.id).maxHealth - base * 2.25) < 0.001 and npc(row.id).health == npc(row.id).maxHealth,
+                "the body is born with it")
+        end
+    end
+    assert(#scaled == 2, "both arrived with their options (paced or not)")
+    -- A respawn rebuilds the body with the same maximum.
+    local id = scaled[1]
+    local oldNpc = B.npcIdOf(id)
+    handlers.onNpcDied(oldNpc, "player:1", "firearm")
+    for _ = 1, 10 do step(500) end
+    assert(B.npcIdOf(id) ~= nil and B.npcIdOf(id) ~= oldNpc and B.get(id).state == "alive", "reborn")
+    assert(math.abs(npc(id).maxHealth - base * 2.25) < 0.001 and math.abs(B.get(id).health - base * 2.25) < 0.001,
+        "reborn with its own maximum")
+    -- Damage: the same engine hit, x1.6 from the scaled bot (after the per-hit clamp).
+    local function hit(victim, botId)
+        playerInstance[victim] = FFA
+        playerBucket[victim] = BUCKET + 1
+        local n = npc(botId)
+        n.x, n.y = playerAt.x + 3.0, playerAt.y
+        n.bucket = BUCKET + 1
+        local before = #shots
+        _G.source = victim
+        net["deathmatch:npcHurtMe"]({ npcId = B.npcIdOf(botId), amount = 10.0 })
+        _G.source = nil
+        assert(#shots == before + 1, "the hit landed")
+        return shots[#shots].amount
+    end
+    local plainHit, scaledHit = hit(21, plain), hit(22, scaled[2])
+    assert(plainHit > 0 and math.abs(scaledHit - plainHit * 1.6) < 0.001,
+        ("damage x1.6: %s vs %s"):format(tostring(scaledHit), tostring(plainHit)))
+    playerInstance[21], playerInstance[22] = nil, nil
+    say("PASS add options (health x2.25 on spawn, parked spawn and respawn; damage x1.6; tag, team)")
+end
+
 -- ── a platform build without the natives: said once, nothing raises ──
 do
     rawset(Open77.npcs, "setGroup", nil)
@@ -314,4 +371,4 @@ end
 for _, line in ipairs(printed) do
     assert(not line:find("tick raised", 1, true), "a tick raised: " .. line)
 end
-say("PASS: op77_arena bot sides (engine groups and rows per side, scripted targets, seek, respawn, swap, side change, departure, FFA, missing natives)")
+say("PASS: op77_arena bot sides (engine groups and rows per side, scripted targets, seek, respawn, swap, side change, departure, FFA, add options, missing natives)")

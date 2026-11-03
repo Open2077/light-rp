@@ -3,6 +3,8 @@
 -- ties, race times lowest first on the current course, the wealth switch, the cache
 -- and its rate limits, the payload under the plain-event limit, the staff command,
 -- the session rows without a database, and no account identifier in any payload.
+-- Exclusions: staff accounts (online through the ACL, remembered offline, configured,
+-- revoked) and test characters (config + the command's kvp list) on no board.
 dofile("shared/events.lua")
 dofile("shared/config.lua")
 dofile("server/config/activities.lua")
@@ -198,6 +200,39 @@ Open77 = {
         get = function() return staffRead end,
     },
 }
+-- The resource's kvp store (data/, kept over restarts): a plain table outliving the module.
+local kvpStore = {}
+Open77.kvp = {
+    set = function(k, v)
+        assert(type(k) == "string" and k ~= "" and #k <= 256 and not k:find("%c"), "kvp key: " .. tostring(k))
+        assert(type(v) == "string" and #v <= 65536, "kvp value")
+        kvpStore[k] = v
+        return true
+    end,
+    get = function(k, default) local v = kvpStore[k]; if v == nil then return default end; return v end,
+    delete = function(k) local had = kvpStore[k] ~= nil; kvpStore[k] = nil; return had end,
+    find = function(prefix, limit)
+        assert(limit == nil or (limit >= 1 and limit <= 4096), "kvp limit")
+        local keys = {}
+        for k in pairs(kvpStore) do if k:sub(1, #prefix) == prefix then keys[#keys + 1] = k end end
+        table.sort(keys)
+        local out = {}
+        for i = 1, math.min(#keys, limit or 4096) do out[i] = { key = keys[i], value = kvpStore[keys[i]], type = "string" } end
+        return out
+    end,
+}
+-- The ACL (players online only), and server/modules/staff.lua's test over it.
+local aclGrants, aclBroken = {}, false
+Open77.acl = { isAllowed = function(id, permission)
+    if aclBroken then return false, "permission_denied:acl.read" end
+    return aclGrants[id] ~= nil and aclGrants[id][permission] == true
+end }
+LightRP.staff = { isStaff = function(id)
+    for _, permission in ipairs(LightRpConfig.staffPermissions) do
+        if Open77.acl.isAllowed(id, permission) == true then return true end
+    end
+    return false
+end }
 
 local function countValues(value, n)
     n = (n or 0) + 1
@@ -569,7 +604,186 @@ assert(#queries == mark, "not at once: the other modules create their tables fir
 pump()
 assert(#queries == mark + 6 and HoF.payload(1, "pvp").database == true, "then from the database")
 
+-- ---------------------------------------------------------------------------
+-- Exclusions: staff (online, offline, config, revoked), test characters, the command
+
+local function holding(key)
+    local list = {}
+    for boardKey, entry in pairs(HoF.cache().boards) do if entry.byKey[key] then list[#list + 1] = boardKey end end
+    table.sort(list)
+    return list
+end
+local function noRank(payload)
+    for _, b in ipairs(payload.boards) do
+        if b.mine then return false end
+        for _, r in ipairs(b.rows) do if r.you then return false end end
+    end
+    return true
+end
+local function rebuild() clock = clock + 11000; HoF.refresh("test") end
+local FAY, JAX, NYX = "license:fff666#default", "license:aaa111#default", "license:ddd444#default"
+
+-- Fay Nox (player 2, online) leads every board; a registered board (a coming Dogtown) too
+chars[#chars + 1] = { id = "license:fff666", key = "default", first = "Fay", last = "Nox" }
+totals[#totals + 1] = { "license:fff666", "default", "arena.ffa", wins = 90, played = 90, kills = 300, deaths = 1 }
+totals[#totals + 1] = { "license:fff666", "default", "turf.pve", wins = 90, played = 90, kills = 300, deaths = 1 }
+times[#times + 1] = { "license:fff666", "default", "race.foot", "", 1000, 500 }
+reps[#reps + 1] = { "license:fff666", "default", rep = 90000, completed = 900 }
+clears[#clears + 1] = { "license:fff666", "default", "sector04_blackout", "critical", 90 }
+wallets[#wallets + 1] = { "license:fff666", "default", 9000000, nil }
+assert(HoF.registerBoard("dogtown.staffcheck", { tab = "pvp", title = "DOGTOWN", unit = "kills",
+    provider = function() return { { identifier = "license:fff666", characterKey = "default", value = 9 },
+        { identifier = "license:aaa111", characterKey = "default", value = 4 }, { identifier = "license:ddd444", characterKey = "default", value = 2 } } end }))
+rebuild()
+local fayBoards = #holding(FAY)
+-- pvp wins/kills, rooftop race, pve wins/kills/rep, contracts, heists, richest, the registered board
+assert(fayBoards == 10 and HoF.cache().boards["pvp.wins"].rows[1].name == "Fay Nox", "Fay on every board she plays: " .. fayBoards)
+assert(HoF.cache().excluded == 0 and next(kvpStore) == nil, "nobody excluded yet, nothing stored")
+
+-- staff online: the ACL says so at the rebuild; off every board, the registered one included, ranks closed
+aclGrants[2] = { ["command.admin"] = true }
+rebuild()
+assert(#holding(FAY) == 0, "a staff online is on no board: " .. table.concat(holding(FAY), ","))
+assert(HoF.cache().boards["pvp.wins"].rows[1].name == "Extra Number 12" and HoF.cache().boards["pvp.wins"].rows[1].rank == 1, "the others close ranks")
+local dogtown = HoF.cache().boards["dogtown.staffcheck"].rows
+assert(#dogtown == 2 and dogtown[1].name == "Jax Rook" and dogtown[1].rank == 1, "a registered board goes through the same filter")
+assert(kvpStore["halloffame.staff.license:fff666"] == "Fay Nox", "the staff account is remembered (kvp)")
+assert(HoF.cache().excluded == 1 and HoF.excludedBy(FAY) == "staff")
+
+-- staff offline: the ACL cannot answer for them any more; the remembered account still counts
+GetPlayers = function() return { "1" } end
+local fayOnline = online[2]
+online[2] = nil
+rebuild()
+assert(#holding(FAY) == 0, "a staff offline stays off the boards")
+
+-- the ACL cannot answer (acl.read refused): nothing is forgotten
+GetPlayers = function() return { "1", "2" } end
+online[2] = fayOnline
+aclGrants[2], aclBroken = nil, true
+rebuild()
+assert(#holding(FAY) == 0 and kvpStore["halloffame.staff.license:fff666"], "an ACL failure is not a demotion")
+aclBroken = false
+
+-- rights revoked: forgotten the next time they are seen online (opening the panel), back at once
+mark = #queries
+clock = clock + 11000
+HoF.open(2, "pvp")
+assert(kvpStore["halloffame.staff.license:fff666"] == nil and #queries == mark + 6, "forgotten, and the open rebuilds first")
+assert(#holding(FAY) == fayBoards and boardOf(last(), "pvp.wins").rows[1].you == true, "back on the boards, her own row highlighted")
+aclGrants[2] = { ["command.lightrp.status"] = true } -- a helper is staff too (LightRpConfig.staffPermissions)
+rebuild()
+assert(#holding(FAY) == 0)
+
+-- the viewer becomes staff: no "YOU #N" from the panel's next answer, before the rebuild itself
+aclGrants[1] = { ["command.adminfull"] = true }
+clock = clock + 2000 -- inside the 10 s floor: the cache is not rebuilt yet
+mark = #queries
+actions["halloffame.tab"](1, { type = "halloffame.tab", tab = "pvp" })
+assert(#queries == mark and HoF.cache().boards["pvp.wins"].byKey[JAX], "the cache still holds the viewer")
+assert(noRank(last()), "but the excluded viewer sees no rank and no highlighted row")
+assert(HoF.cache().retryAt, "the boards are marked for a rebuild")
+clock = clock + 11000
+pump() -- the timer picks it up
+assert(#queries == mark + 6 and #holding(JAX) == 0, "rebuilt without the viewer")
+for _, tab in ipairs(HoF.tabs()) do assert(noRank(HoF.payload(1, tab)), "no rank on " .. tab) end
+aclGrants[1] = nil
+clock = clock + 11000
+HoF.open(1, "pvp")
+assert(#holding(JAX) > 0 and boardOf(last(), "pvp.wins").mine, "demoted: ranked again")
+
+-- staff never seen online: exclude.staffAccounts (their acl.jsonc userId)
+C.exclude.staffAccounts = { "license:ddd444" }
+rebuild()
+assert(#holding(NYX) == 0 and HoF.excludedBy(NYX) == "staff (exclude.staffAccounts)", "a configured staff account, offline")
+
+-- the switch: exclude.staff = false puts every staff back; Fay is still remembered meanwhile
+C.exclude.staff = false
+rebuild()
+assert(#holding(FAY) == fayBoards and #holding(NYX) > 0 and kvpStore["halloffame.staff.license:fff666"], "staff exclusion off")
+C.exclude.staff = true
+rebuild()
+assert(#holding(FAY) == 0 and #holding(NYX) == 0)
+C.exclude.staffAccounts = {}
+
+-- test characters and accounts from the config
+C.exclude.characters = { "license:ccc333#second" }
+C.exclude.accounts = { "license:bbb222" }
+rebuild()
+assert(#holding("license:ccc333#second") == 0 and #holding("license:bbb222#default") == 0, "config test character and account")
+assert(#HoF.cache().boards["dogtown.kills"].rows == 0, "Mira's account is off the earlier registered board too")
+C.exclude.tests = false
+rebuild()
+assert(#holding("license:ccc333#second") > 0 and #holding("license:bbb222#default") > 0, "tests switch off")
+C.exclude.tests, C.exclude.characters, C.exclude.accounts = true, {}, {}
+
+-- the command: exclude / include / excluded, applied at the rebuild it triggers
+ok, line = cmd(1, { "exclude" })
+assert(not ok and line:find("usage", 1, true), tostring(line))
+ok, line = cmd(1, { "exclude", "99" })
+assert(not ok and line:find("No player 99", 1, true), tostring(line))
+ok, line = cmd(1, { "exclude", "a#b#c" })
+assert(not ok and line:find("Invalid", 1, true), tostring(line))
+mark = #queries
+ok, line = cmd(1, { "exclude", "1" })
+assert(ok and line:find("Jax Rook (license:aaa111#default) excluded", 1, true), tostring(line))
+assert(#queries == mark + 6 and #holding(JAX) == 0, "a player online: their character, rebuilt at once")
+assert(kvpStore["halloffame.exclude.license:aaa111#default"] == "Jax Rook", "saved")
+assert(noRank(HoF.payload(1, "pvp")) and noRank(HoF.payload(1, "overview")), "an excluded viewer: no YOU #N")
+ok, line = cmd(1, { "exclude", "1" })
+assert(ok and line:find("already", 1, true))
+ok, line = cmd(1, { "exclude", "license:x05#default" })
+assert(ok and line:find("Extra Number 05", 1, true) and #holding("license:x05#default") == 0, "an offline character id: " .. line)
+ok, line = cmd(1, { "exclude", "license:x06" })
+assert(ok and line:find("every character", 1, true) and #holding("license:x06#default") == 0, "a whole account")
+ok, line = cmd(0, { "exclude", "license:x07#default" })
+assert(ok and #holding("license:x07#default") == 0, "from the console too")
+ok, line = cmd(1, { "exclude", "2", "account" })
+assert(ok and kvpStore["halloffame.exclude.license:fff666"] == "Fay Nox", "a player online's whole account")
+ok, line = cmd(1, { "excluded" })
+assert(ok and line:find("Staff (on): 1 seen online [Fay Nox (license:fff666) [every character]]", 1, true), line)
+assert(line:find("Tests (on): 5 by command", 1, true) and line:find("Jax Rook (license:aaa111#default)", 1, true)
+    and line:find("license:x06 [every character]", 1, true) and line:find("Last rebuild: ", 1, true), line)
+
+ok, line = cmd(1, { "include", "1" })
+assert(ok and line:find("back on the boards", 1, true) and #holding(JAX) > 0 and boardOf(HoF.payload(1, "pvp"), "pvp.wins").mine, line)
+assert(kvpStore["halloffame.exclude.license:aaa111#default"] == nil)
+ok, line = cmd(1, { "include", "1" })
+assert(not ok and line:find("is not excluded", 1, true), line)
+ok, line = cmd(1, { "include", "license:x05#default" })
+assert(ok and #holding("license:x05#default") > 0)
+ok, line = cmd(1, { "include", "license:x06#default" })
+assert(not ok and line:find("stays excluded: test list (account)", 1, true), line)
+ok, line = cmd(1, { "include", "2" })
+assert(not ok and line:find("stays excluded", 1, true), "Fay's character: her account is listed (and staff)")
+-- her account off the test list and forgotten as staff; still staff online, so remembered again at the rebuild
+ok, line = cmd(1, { "include", "2", "account" })
+assert(ok and line:find("off the test list", 1, true) and line:find("forgotten as staff", 1, true), line)
+assert(#holding(FAY) == 0 and kvpStore["halloffame.staff.license:fff666"] == "Fay Nox", "seen online with staff rights: remembered again")
+
+-- persisted: a restart (a new generation of the module) reads the kvp store back
+GetPlayers = function() return { "1" } end
+online[2] = nil
+dofile("server/modules/halloffame.lua")
+local restarted = LightRP.hallOfFame
+assert(restarted ~= HoF and next(restarted.saved.staff) == nil, "a fresh module: nothing in memory before its first use")
+HoF, cmd = restarted, commands["lightrp.halloffame"]
+rebuild()
+assert(#holding(FAY) == 0, "the remembered staff, offline, after a restart")
+assert(#holding("license:x06#default") == 0 and #holding("license:x07#default") == 0, "the test list after a restart")
+assert(#holding(JAX) > 0 and #holding("license:x05#default") > 0, "the included ones stay included")
+ok, line = cmd(1, { "include", "license:x06" })
+assert(ok and #holding("license:x06#default") > 0)
+
+-- still no identifier in a player's payload
+everything = {}
+for _, d in ipairs(dialogs) do serialize(d.payload, everything) end
+for _, tab in ipairs(HoF.tabs()) do serialize(HoF.payload(1, tab), everything) end
+blob = table.concat(everything, "\n")
+assert(not blob:find("license:", 1, true) and not blob:find("#default", 1, true), "no account identifier in any payload")
+
 print(string.format("PASS: board beside the terminal (%.3f, %.3f, heading %.1f), E point, prop + orphan sweep, competition ranks and ties,"
     .. " race times on the current course, PvE/missions/clears by difficulty, wealth switch + bank-only fallback, cache 5 min +"
-    .. " 30 s/player + 10 s floor, payload max %d values (%s) ~%d bytes, extension trim, staff place/where/refresh, no identifiers, no-DB mode, retry + database-ready rebuild",
+    .. " 30 s/player + 10 s floor, payload max %d values (%s) ~%d bytes, extension trim, staff place/where/refresh, no identifiers, no-DB mode, retry + database-ready rebuild,"
+    .. " exclusions: staff online/offline/config/revoked/ACL failure, registered boards, no YOU #N, switches, test list command, kvp across a restart",
     initial.x, initial.y, initial.heading, maxValues, tostring(maxTab), maxBytes))

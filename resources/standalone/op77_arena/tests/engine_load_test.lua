@@ -45,14 +45,14 @@ local files = {}
 for kind, path in manifest:gmatch('(%w+_script) "([^"]+)"') do
     if kind ~= "client_script" then files[#files + 1] = path end
 end
-assert(#files == 17, "4 shared + 13 server scripts, got " .. #files)
+assert(#files == 18, "4 shared + 14 server scripts, got " .. #files)
 for _, path in ipairs(files) do
     local ok, err = pcall(dofile, path)
     assert(ok, path .. ": " .. tostring(err))
 end
 
 local DM, H = Deathmatch, ArenaHost
-assert(DM and H and ArenaCore and LightRpArena)
+assert(DM and H and ArenaCore and LightRpArena and ArenaRecap)
 
 -- The seams the engine resolves at call time are the adapter's.
 assert(DM.sendToLobby == H.returnHome, "the way home")

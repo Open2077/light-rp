@@ -125,6 +125,35 @@ platform can make NPCs (`world.npcs`, `Open77.npcs.create`).
   (While staff bot mode is on, the core drops every result, Gang Sweep included.)
 - The HUD title is **GANG SWEEP**; the line-up shows the crew gathering or the wait for a slot.
 
+## Activity lobby (Light RP join options v2)
+
+Both definitions carry `botFill = true` only when bots work on the build (`turf.war`: NPC
+create/remove; `turf.pve`: also `setAttitude`, which allies need). `turf.pve` declares
+`pve = true` and `difficulties = { "standard", "hard", "critical" }`.
+
+- **Difficulty** (`turf.pve`, `options.difficulty` + `options.scaling`, one per sweep: the first
+  join's). Applies to the NPC gang only. Standard / Hard / Critical: gang 3 / 5 / 6 for one human
+  (3 x enemies, rounded, +2 per extra human before the multiplier, never above `pve.maxBots` 10),
+  health 100 / 150 / 225, a ganger's hit x1 / x1.25 / x1.6 (and the victim's per-second ceiling),
+  objective profile `pve.ai.standard` / `veteran` (veteran: half of them push instead of a third,
+  new orders every 4 s instead of 6, 3 s combat quiet instead of 5, guard leash +6 m instead of +3).
+  The engine's own combat AI (accuracy) has no native on this build. HUD: `GANG SWEEP · HARD`.
+- **Allied bots** (`turf.pve`, `options.fill.allies`): push the zones with the crew, friendly to
+  every crew member and to each other, no difficulty multiplier. The largest asked by the group,
+  applied once, capped to the free seats (8 minus the crew) and to `pve.maxBodies` (14) minus the
+  gang. A crew member arriving late takes an ally's seat back. Results stay ranked (PvE).
+- **Core matches** (`turf.war`, `options.match`): a war of its own for exactly `match.players`,
+  `match.teams` -> sides 1 / 2, `match.bots` per side (else `options.fill` spread over the smaller
+  side), capped by `bots.maxPerSide` 6 and `bots.maxBots` 10 (teammates trimmed first). It starts
+  when everyone is in, or after `match.gatherSeconds` (15 s); a missing player's seat goes to a
+  bot when the match has bots, and he takes it back if he arrives. Strangers never join; the public
+  queue waits. **One war at a time**: refused, every player told why, while a public war is queued,
+  in its lobby or on, staff scheduled one, or another match holds the slot.
+- **Unranked** (`options.ranked = false`, a friendly match, any bots in a match): no influence (not
+  even a history row), no reputation, results carry `unranked = true`, HUD/notices say FRIENDLY or
+  UNRANKED. A ranked match without bots counts like a public war. Staff bot mode is unchanged
+  (results `test = true`).
+
 ## HUD (Light RP's design system)
 
 This resource has no page of its own. The client drives Light RP's shared activity HUD through
@@ -233,5 +262,6 @@ pwsh -NoProfile -File tests/run-lua.ps1 -LuaDll C:\Games\cyberm\light-rp\lua54.d
 
 The other test files are `adapter_test.lua`, `war_test.lua` (the full flows, against a fake
 Light RP through the real `server/main.lua`), `influence_test.lua`, `hud_test.lua`,
-`bots_test.lua` (staff bot mode) and `pve_test.lua` (Gang Sweep and crews). The last two share
+`bots_test.lua` (staff bot mode), `pve_test.lua` (Gang Sweep and crews) and `lobby_test.lua`
+(join options v2: difficulties, allies, core matches, refusals, unranked). The last three share
 `tests/bot_host.lua`, a fake Light RP, world and `Open77.npcs`.

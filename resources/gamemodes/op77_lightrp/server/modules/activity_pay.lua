@@ -278,13 +278,14 @@ function Pay.settle(id, entry, r, amount, kind, detail)
                 body = string.format("Daily %s pay reached (%s). Results still count for stats, rankings and reputation.",
                     kind == "pvp" and "PvP" or "PvE", money(cap)) })
         end
-        return 0
+        return 0, "daily_cap"
     end
-    if not sameCharacter(id, who) then return 0 end
+    if not sameCharacter(id, who) then return 0, "character" end
     local label = labelOf(entry.activity)
-    local note = label .. " · " .. reasonText(r, detail, kind)
+    local why = reasonText(r, detail, kind)
+    local note = label .. " · " .. why
     local ok = LightRP.money and LightRP.money.addBank(id, amount, cfg.ledger or ("activity_" .. kind), note, label)
-    if not ok then LightRP.log("activity pay: %d for %s not credited", amount, who.identifier) return 0 end
+    if not ok then LightRP.log("activity pay: %d for %s not credited", amount, who.identifier) return 0, "not_credited" end
     d.paid = d.paid + amount
     if Db.ready then
         Db.run("INSERT INTO lightrp_activity_pay_daily (identifier, day_index, kind, paid) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE paid = GREATEST(paid, VALUES(paid))",
@@ -299,7 +300,15 @@ function Pay.settle(id, entry, r, amount, kind, detail)
     pcall(LightRP.notice, id, { kind = "money", title = "ACTIVITY PAY", durationMs = 7000,
         body = string.format("+%s — %s", money(amount), note) })
     LightRP.log("activity pay: +%d %s to %s (%s)", amount, kind, who.identifier, note)
-    return amount
+    return amount, kind, why
+end
+
+-- What this result paid, for the end-of-match recap (recap.lua): the amount credited,
+-- or 0 and why not (unranked, too_short, bots, alone, repeat, daily_cap...).
+local function recap(id, entry, amount, reason, note)
+    if LightRP.recap then
+        pcall(LightRP.recap.reward, id, entry.activity, { eddies = amount or 0, eddiesReason = reason, eddiesNote = note })
+    end
 end
 
 function Pay.onResult(id, entry, r, raw)
@@ -307,9 +316,10 @@ function Pay.onResult(id, entry, r, raw)
     local amount, kind, detail = Pay.quote(id, entry, r, raw)
     -- contracts and titles (dailies.lua, titles.lua): amount ~= nil = a paid-eligible result
     if LightRP.eachModule then LightRP.eachModule("onActivityResult", id, entry, r, raw, { amount = amount, kind = kind, detail = detail }) end
-    if not C.enabled then return end
+    if not C.enabled then recap(id, entry, 0, "off") return end
     since[entry] = now()
     if not amount then
+        recap(id, entry, 0, kind)
         if kind == "repeat" then
             pcall(LightRP.notice, id, { kind = "info", title = "ACTIVITY PAY", durationMs = 7000,
                 body = "No pay this time: the same players already met for pay several times this hour. Results still count." })
@@ -317,10 +327,11 @@ function Pay.onResult(id, entry, r, raw)
         LightRP.log("activity pay: nothing for %s in %s (%s)", tostring(id), tostring(entry.activity), tostring(kind))
         return
     end
-    if amount <= 0 then return end
+    if amount <= 0 then recap(id, entry, 0, "none") return end
     CreateThread(function()
-        local ok, err = pcall(Pay.settle, id, entry, r or {}, amount, kind, detail)
-        if not ok then LightRP.log("activity pay: settle failed: %s", tostring(err)) end
+        local ok, paid, why, note = pcall(Pay.settle, id, entry, r or {}, amount, kind, detail)
+        if not ok then LightRP.log("activity pay: settle failed: %s", tostring(paid)) end
+        if ok and (paid or 0) > 0 then recap(id, entry, paid, kind, note) else recap(id, entry, 0, ok and why or "not_credited") end
     end)
 end
 

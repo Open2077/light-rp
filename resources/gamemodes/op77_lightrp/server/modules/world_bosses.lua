@@ -341,6 +341,8 @@ local function finish(ev, success, why)
     end
     log("world boss: %s %s (%s); %d contributor(s), %d paid", ev.def.title, success and "down" or "escaped", tostring(why or ""),
         (function() local n = 0 for _ in pairs(ev.contrib) do n = n + 1 end return n end)(), paid)
+    -- the end-of-fight recap (recap.lua): each fighter's damage, share and pay, as paid above
+    if LightRP.recap then pcall(LightRP.recap.worldBossEnded, ev, success, why, C.reputation) end
     blip(ev, false)
     pushHud(ev, true)
     LightRP.eachModule("onWorldEventEnded", ev, success) -- contracts, titles

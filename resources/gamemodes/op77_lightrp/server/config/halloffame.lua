@@ -63,6 +63,31 @@ LightRpHallOfFame = {
     -- Street-cred tier beside the reputation (from the missions' tiers).
     showTier = true,
 
+    -- Who is on no board at all: the built-in ones and every board another module
+    -- registers (registerBoard), filtered once after the providers, before the
+    -- ranking (the others close ranks). An excluded viewer gets no "YOU #N" either.
+    -- Ids are the ones the boards' rows carry: the account is the player's Open77
+    -- account id (GetPlayerIdentifier, the `userId` of an acl.jsonc principal), a
+    -- character is "<account>#<characterKey>" (characterKey "default" for the first).
+    -- Every change shows at the next rebuild (the command triggers one).
+    exclude = {
+        -- Staff accounts (Light RP's staff test: LightRpConfig.staffPermissions in the
+        -- ACL, server/modules/staff.lua), every character of theirs. The ACL only
+        -- answers for a player online (a resource cannot read acl.jsonc), so each staff
+        -- account seen online is remembered (the resource's kvp store, data/: kept over
+        -- restarts) and stays off the boards offline. A remembered account seen online
+        -- without the rights any more is forgotten. LIMIT: a staff never seen online
+        -- since this shipped is unknown: list them in staffAccounts.
+        staff = true,
+        -- Staff accounts known before they are seen: their acl.jsonc `userId`.
+        staffAccounts = {},
+        -- Test characters / accounts. `/lightrp.halloffame exclude | include | excluded`
+        -- keeps a list of its own beside these two (same kvp store).
+        tests = true,
+        characters = {},    -- "<account>#<characterKey>"
+        accounts = {},      -- "<account>": every character of the account
+    },
+
     -- Which activity results count where (server/modules/activities.lua stats).
     -- An activity missing from every list counts as PvP, or PvE when its id ends in
     -- ".pve"; races rank by best time on their current course.

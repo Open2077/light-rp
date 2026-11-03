@@ -68,6 +68,11 @@ local function subtitleOf(s)
     local parts = {}
     if course.name then parts[#parts + 1] = course.name end
     if not course.onFoot and course.vehicle then parts[#parts + 1] = course.vehicle end
+    -- the race vs AI's difficulty; a run Light RP does not rank says so
+    if s.mode == "pve" and type(s.difficulty) == "string" then
+        parts[#parts + 1] = s.difficulty:sub(1, 1):upper() .. s.difficulty:sub(2)
+    end
+    if s.friendly then parts[#parts + 1] = "FRIENDLY" elseif s.unranked then parts[#parts + 1] = "UNRANKED" end
     return table.concat(parts, " · ")
 end
 
@@ -251,8 +256,11 @@ local function pushResult(s)
                 line("Best vs AI", time(s.personalBestMs))
             end
         elseif s.mode ~= "pve" and (tonumber(s.bots) or 0) > 0 then
-            line("Bots", tostring(s.bots) .. ", test race not recorded")
+            line("Bots", tostring(s.bots) .. (s.match and ", unranked" or ", test race not recorded"))
         end
+    end
+    if s.unranked and not ((tonumber(s.bots) or 0) > 0 and s.mode ~= "pve") then
+        line("Ranking", s.friendly and "Friendly, unranked" or "Unranked")
     end
     item.durationMs = math.max(4000, math.min(15000, math.floor(tonumber(s.remainingMs) or 8000)))
     push("result", item)
