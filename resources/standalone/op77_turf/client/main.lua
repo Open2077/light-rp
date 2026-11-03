@@ -3,8 +3,10 @@
 -- Clear), fed from the server's state; when that HUD is missing (older Light RP) the
 -- server falls back to notifications. The world-space zone markers (a ring on the
 -- ground and a beacon above, in the holder's colour, the Light RP accent when
--- contested) and the op77_map3d zone blips are this resource's own.
--- Purely visual: the server alone decides captures, from its own positions.
+-- contested) and the op77_map3d zone blips are this resource's own. A Gang Sweep
+-- (turf.pve) uses the same view (mode "pve"). The engine's hits on the war's NPC bots
+-- are forwarded to the server, which checks and prices them.
+-- Purely visual otherwise: the server alone decides captures, from its own positions.
 local C = TurfConfig
 local H = TurfHud
 
@@ -204,6 +206,31 @@ RegisterNetEvent("op77_turf:clear", function()
     hud.missing = false
     removeZones()
     state = { shared = nil, personal = nil, board = nil, site = nil, queued = nil }
+end)
+
+-- ---------------------------------------------------------------- bot hits
+-- The engine's hit reports on Open77-owned NPCs (the war's bots), forwarded while a war
+-- runs. Owner reports only (the platform decides who may report): npcHit on the
+-- shooter's client, npcAttackedMe on the victim's, npcCrossfire on the client holding
+-- the victim bot's simulation lease. Every argument arrives as a STRING; the NPC id is
+-- forwarded untouched (a 64-bit id does not survive a Lua double). The server checks
+-- and prices everything (server/bots.lua).
+
+local function fighting() return state.shared ~= nil and state.shared.phase == "running" end
+
+AddEventHandler("open77:npcHit", function(npcId, damage)
+    if npcId == nil or not fighting() then return end
+    TriggerServerEvent("op77_turf:npcHit", npcId, tonumber(damage))
+end)
+
+AddEventHandler("open77:npcAttackedMe", function(npcId, damage)
+    if npcId == nil or not fighting() then return end
+    TriggerServerEvent("op77_turf:npcHurtMe", npcId, tonumber(damage))
+end)
+
+AddEventHandler("open77:npcCrossfire", function(victimNpcId, attackerNpcId, damage)
+    if victimNpcId == nil or attackerNpcId == nil or not fighting() then return end
+    TriggerServerEvent("op77_turf:npcCrossfire", victimNpcId, attackerNpcId, tonumber(damage))
 end)
 
 -- ---------------------------------------------------------------- keys

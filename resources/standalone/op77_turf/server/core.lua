@@ -4,16 +4,21 @@
 -- database). A synchronous export RAISES when the call fails (core stopped, export
 -- missing, export_yielded...), so every call is wrapped and turned into nil|false, reason.
 --
---   TurfCore.register(def)            activityRegister
---   TurfCore.check(playerId)          activityCheck   -> true | false, sentence
---   TurfCore.enter(playerId)          activityEnter   -> true | false, sentence
---   TurfCore.leave(playerId, opts)    activityLeave   -> true | false, reason
---   TurfCore.owner(playerId)          activityOwner   -> activityId | nil
---   TurfCore.player(playerId)         activityPlayer  -> { name, identifier, characterKey, gang?, job? } | nil
---   TurfCore.result(playerId, result) "op77_lightrp:activity:result" (host-wide TriggerEvent)
---   TurfCore.status(status)           "op77_lightrp:activity:status", only when it changed
---   TurfCore.announce(text, opts)     "op77_lightrp:announce"
-TurfCore = { lastStatus = nil }
+-- This resource registers two activities: the war (TurfConfig.activity, "turf.war") and
+-- the Gang Sweep (TurfConfig.pve.activity, "turf.pve"). Every call below takes the
+-- activity id last; omitted, it is the war's.
+--
+--   TurfCore.register(def)                      activityRegister
+--   TurfCore.bots()                             activityBots    -> true while staff bot mode is on
+--   TurfCore.check(playerId, activity)          activityCheck   -> true | false, sentence
+--   TurfCore.enter(playerId, activity)          activityEnter   -> true | false, sentence
+--   TurfCore.leave(playerId, opts, activity)    activityLeave   -> true | false, reason
+--   TurfCore.owner(playerId)                    activityOwner   -> activityId | nil
+--   TurfCore.player(playerId)                   activityPlayer  -> { name, identifier, characterKey, gang?, job? } | nil
+--   TurfCore.result(playerId, result, activity) "op77_lightrp:activity:result" (host-wide TriggerEvent)
+--   TurfCore.status(status, force, activity)    "op77_lightrp:activity:status", only when it changed
+--   TurfCore.announce(text, opts)               "op77_lightrp:announce"
+TurfCore = { lastStatus = nil, lastStatuses = {} }
 local C = TurfCore
 
 local function cfg() return TurfConfig end
@@ -32,30 +37,39 @@ end
 
 -- The registration Light RP gets (and again after every core restart). `modes` /
 -- `modeKey` are the core's optional site choice for the panel: options.site.
-function C.definition()
-    local a = cfg().activity
+-- kind "pve": the Gang Sweep's definition.
+function C.definition(kind)
+    local a = kind == "pve" and cfg().pve.activity or cfg().activity
     local modes = {}
     for _, site in ipairs(cfg().sites) do
         if site.enabled ~= false then modes[#modes + 1] = { id = site.id, label = site.label } end
     end
+    local caps = a.caps or {}
     return { id = a.id, resource = GetCurrentResourceName(), label = a.label, kind = a.kind,
         description = a.description, minPlayers = a.minPlayers, maxPlayers = a.maxPlayers,
-        caps = { rpWeapons = a.caps.rpWeapons == true, rpItems = a.caps.rpItems == true,
-            needs = a.caps.needs == true, vehicles = a.caps.vehicles == true },
+        caps = { rpWeapons = caps.rpWeapons == true, rpItems = caps.rpItems == true,
+            needs = caps.needs == true, vehicles = caps.vehicles == true },
         modes = #modes > 1 and modes or nil, modeKey = #modes > 1 and "site" or nil }
 end
 
 function C.register(def)
-    local ok, why = C.call("activityRegister", def or C.definition())
+    def = def or C.definition()
+    local ok, why = C.call("activityRegister", def)
     if ok ~= true then return false, why or "refused" end
-    C.lastStatus = nil
+    if def.id == activityId() then C.lastStatus = nil else C.lastStatuses[def.id] = nil end
     return true
+end
+
+-- Staff bot mode (/lightrp.bots): the core's current value. Read after every successful
+-- registration; an older core without the export (or no answer) reads as off.
+function C.bots()
+    return C.call("activityBots") == true
 end
 
 -- The contract's reasons are player-facing sentences; a transport failure is not, so it
 -- becomes a generic sentence (and the log keeps the real reason).
-local function verdict(name, playerId, ...)
-    local ok, why = C.call(name, playerId, activityId(), ...)
+local function verdict(name, playerId, activity)
+    local ok, why = C.call(name, playerId, activity or activityId())
     if ok == true then return true end
     if ok == nil then
         log("%s(%s) failed: %s", name, tostring(playerId), tostring(why))
@@ -64,11 +78,11 @@ local function verdict(name, playerId, ...)
     return false, why or "You cannot join a turf war right now."
 end
 
-function C.check(playerId) return verdict("activityCheck", playerId) end
-function C.enter(playerId) return verdict("activityEnter", playerId) end
+function C.check(playerId, activity) return verdict("activityCheck", playerId, activity) end
+function C.enter(playerId, activity) return verdict("activityEnter", playerId, activity) end
 
-function C.leave(playerId, opts)
-    local ok, why = C.call("activityLeave", playerId, activityId(), opts or { returnPlayer = true })
+function C.leave(playerId, opts, activity)
+    local ok, why = C.call("activityLeave", playerId, activity or activityId(), opts or { returnPlayer = true })
     if ok ~= true then
         log("activityLeave(%s) refused: %s", tostring(playerId), tostring(why))
         return false, why
@@ -85,12 +99,12 @@ end
 -- Light RP's panel, the hub still lists him as queued (and refuses a new join to this
 -- activity) until it expires; activityLeave on a queued-only player clears that. Never
 -- for an owned player: activityLeave would send him home.
-function C.unqueue(playerId)
+function C.unqueue(playerId, activity)
     if C.owner(playerId) ~= nil then return false end
-    return C.call("activityLeave", playerId, activityId(), { returnPlayer = false }) == true
+    return C.call("activityLeave", playerId, activity or activityId(), { returnPlayer = false }) == true
 end
 
-function C.owned(playerId) return C.owner(playerId) == activityId() end
+function C.owned(playerId, activity) return C.owner(playerId) == (activity or activityId()) end
 
 function C.player(playerId)
     local info = C.call("activityPlayer", playerId)
@@ -98,18 +112,26 @@ function C.player(playerId)
     return info
 end
 
-function C.result(playerId, result)
-    TriggerEvent("op77_lightrp:activity:result", playerId, activityId(), result)
+function C.result(playerId, result, activity)
+    TriggerEvent("op77_lightrp:activity:result", playerId, activity or activityId(), result)
 end
 
 -- Sent on change only. `status` = { phase, players, queued, joinable, detail }.
-function C.status(status, force)
+function C.status(status, force, activity)
+    activity = activity or activityId()
     local key = ("%s|%d|%d|%s|%s"):format(tostring(status.phase), status.players or 0, status.queued or 0,
         tostring(status.joinable), tostring(status.detail))
-    if not force and key == C.lastStatus then return false end
-    C.lastStatus = key
-    TriggerEvent("op77_lightrp:activity:status", activityId(), status)
+    local last
+    if activity == activityId() then last = C.lastStatus else last = C.lastStatuses[activity] end
+    if not force and key == last then return false end
+    if activity == activityId() then C.lastStatus = key else C.lastStatuses[activity] = key end
+    TriggerEvent("op77_lightrp:activity:status", activity, status)
     return true
+end
+
+-- Light RP forgot us (it stopped): every status is sent again once registered.
+function C.forgetStatus()
+    C.lastStatus, C.lastStatuses = nil, {}
 end
 
 function C.announce(text, opts)

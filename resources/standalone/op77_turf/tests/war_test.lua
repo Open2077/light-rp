@@ -73,6 +73,7 @@ dofile("shared/config.lua")
 dofile("server/rules.lua")
 dofile("server/core.lua")
 dofile("server/world.lua")
+dofile("server/bots.lua")
 dofile("server/influence.lua")
 dofile("server/war.lua")
 
