@@ -817,6 +817,24 @@ sous chaque tableau. Noms de personnages uniquement, jamais d'identifiant de com
 - Staff : `/lightrp.halloffame place` (se placer devant l'emplacement, face à là où l'écran doit
   regarder : le panneau se pose 0,8 m derrière, le point E suit, la ligne de config est
   affichée), `where`, `refresh`. Coller la ligne dans `server/config/halloffame.lua` (`board`).
+- Exclusions (`exclude` dans `server/config/halloffame.lua`) : staff et personnages de test ne
+  figurent sur **aucun** tableau, y compris ceux ajoutés par `registerBoard` (un seul filtre
+  dans `HoF.refresh`, après tous les fournisseurs, avant le classement : les autres
+  remontent). Un joueur exclu ne voit pas de « YOU #N ». Les lignes portent le compte Open77
+  (`GetPlayerIdentifier`, le même `userId` que les principaux d'`acl.jsonc`) et la clé du
+  personnage (`<compte>#<clé>`).
+  - Staff (`staff = true`) : le test de Light RP (`LightRP.staff.isStaff`, les
+    `LightRpConfig.staffPermissions` dans l'ACL). L'ACL ne répond que pour un joueur en ligne
+    (une ressource ne peut pas lire `acl.jsonc`) : chaque compte staff vu en ligne est retenu
+    dans le magasin kvp de la ressource (`data/`, conservé aux redémarrages) et reste exclu
+    hors ligne ; un compte retenu revu en ligne sans les droits est oublié. **Limite** : un
+    staff jamais vu en ligne depuis cette version est inconnu — mettre son `userId` dans
+    `staffAccounts`. Une ACL qui ne répond pas (pas d'`acl.read`) n'oublie personne.
+  - Tests (`tests = true`) : `characters` (`<compte>#<clé>`), `accounts` (`<compte>`, tous ses
+    personnages), plus la liste de la commande `/lightrp.halloffame exclude <playerId [account]
+    | compte#clé | compte>`, `include <…>` (retire de la liste ; sur un compte, oublie aussi
+    un staff retenu), `excluded` (état). Conservée en kvp ; chaque changement relance la
+    reconstruction des tableaux.
 
 ## Housing
 
