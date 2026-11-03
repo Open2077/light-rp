@@ -106,6 +106,11 @@ LightRpHallOfFame = {
     size = 10,          -- rows per board
     overviewSize = 3,   -- rows per board on the OVERVIEW tab (the podiums)
     overviewMax = 12,   -- boards on the OVERVIEW tab
+    -- Rows of a board's full ladder (a card clicked on any tab: the podium, then the
+    -- list, the viewer's own rank pinned under it when outside). 10 to 100; one plain
+    -- event carries it, so a ladder over the value limit loses its last rows (50 with
+    -- long names, titles and details fits: tests/halloffame_test.lua).
+    ladderSize = 50,
 
     -- The richest characters (cash + bank). The owner wants it on.
     showWealth = true,

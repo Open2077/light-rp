@@ -335,9 +335,12 @@ export interface HallOfFameBoard {
   key: string; title: string; subtitle?: string; unit: HallOfFameUnit; ascending?: boolean; total: number;
   rows: HallOfFameRow[]; mine?: { rank: number; value: number; detail?: string };
 }
+/** `ladder`: the answer to `halloffame.board` (a card clicked), one board's full ladder
+ *  (top `ladderSize`, the viewer's own rank in `mine`) under the header of `tab`, the
+ *  tab it was opened from; `boards` is empty then. */
 export interface HallOfFameDialogPayload {
   kind: "halloffame"; title: string; hub: string; tab: HallOfFameTab; tabs: HallOfFameTab[]; boards: HallOfFameBoard[];
-  database: boolean; updatedAgoS?: number; refreshInS?: number; wealthBankOnly?: boolean;
+  database: boolean; updatedAgoS?: number; refreshInS?: number; wealthBankOnly?: boolean; ladder?: HallOfFameBoard;
 }
 
 /** The end-of-match recap (server/modules/recap.lua): one activity match, mission or
@@ -716,7 +719,9 @@ export type UiAction =
   | { type: "activities.lobby"; operation: "friendly"; id: string; mode?: string; bots?: boolean }
   | { type: "activities.lobby"; operation: "move"; target: number; team?: number }
   | { type: "activities.lobby"; operation: "bots"; on: boolean }
-  | { type: "halloffame.open" | "halloffame.tab" | "halloffame.refresh"; tab?: HallOfFameTab; from?: string }
+  | { type: "halloffame.open" | "halloffame.tab"; tab?: HallOfFameTab; from?: string }
+  | { type: "halloffame.refresh"; tab?: HallOfFameTab; key?: string }
+  | { type: "halloffame.board"; key: string; tab: HallOfFameTab }
   | { type: "halloffame.close" }
   | { type: "recap.open" | "recap.close" }
   | { type: "dailies.open"; tab?: DailiesTab }

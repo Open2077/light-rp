@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatValue, mineLine, normalizeHallOfFame, podium, rankLabel, tied, updatedLine } from "../src/features/halloffame/model.ts";
+import { formatValue, ladderLine, mineLine, normalizeHallOfFame, pinnedRank, podium, rankLabel, tied, updatedLine } from "../src/features/halloffame/model.ts";
 
 test("Lua's empty tables become arrays; junk rows and boards are dropped", () => {
   const p = normalizeHallOfFame({ kind: "halloffame", title: "HALL OF FAME", hub: "The Crossing", tab: "pvp", tabs: {}, database: false,
@@ -46,4 +46,30 @@ test("podium 2-1-3, shared ranks, the viewer's line", () => {
   assert.equal(mineLine(board), "YOU #14 OF 15 · 4 WINS · 7 played");
   assert.equal(mineLine({ ...board, rows: [...rows, { rank: 5, name: "Me", value: 4, you: true }] }), undefined, "already highlighted in the list");
   assert.equal(mineLine({ ...board, mine: undefined }), undefined, "not ranked: nothing");
+});
+
+test("a ladder answer: one board under the tab's header, its rows and the viewer's rank", () => {
+  const rows = Array.from({ length: 50 }, (_, i) => ({ rank: i === 49 ? 49 : i + 1, name: `Name ${i + 1}`, value: 500 - i, detail: "d", title: i === 0 ? "Champion" : undefined }));
+  const p = normalizeHallOfFame({ kind: "halloffame", tab: "overview", tabs: ["overview", "pvp"], boards: {}, database: true, updatedAgoS: 4,
+    ladder: { key: "pvp.wins", title: "MOST WINS", subtitle: "Arena", unit: "wins", total: 312, rows: [...rows, { rank: 51, value: 1 }],
+      mine: { rank: 80, value: 12, detail: "40 played" } } })!;
+  assert.equal(p.tab, "overview", "the tab it was opened from");
+  assert.deepEqual(p.boards, [], "Lua's empty boards: no tab boards with a ladder");
+  const ladder = p.ladder!;
+  assert.equal(ladder.key, "pvp.wins");
+  assert.equal(ladder.rows.length, 50, "a row without a name is dropped");
+  assert.equal(ladder.rows[0]!.title, "Champion");
+  assert.equal(ladder.total, 312);
+  assert.equal(tied(ladder.rows, 49), true, "a tie across the cut keeps its marker");
+  assert.deepEqual(pinnedRank(ladder), { rank: 80, value: 12, detail: "40 played" }, "outside the fifty: pinned under the list");
+  assert.equal(ladderLine(ladder), "TOP 50 OF 312");
+  const inside = { ...ladder, rows: ladder.rows.map((r, i) => (i === 29 ? { ...r, you: true as const } : r)), mine: { rank: 30, value: 471 } };
+  assert.equal(pinnedRank(inside), undefined, "inside: the highlighted row says it");
+  assert.equal(pinnedRank({ ...ladder, mine: undefined }), undefined, "not ranked: nothing pinned");
+  assert.equal(ladderLine({ ...ladder, rows: ladder.rows.slice(0, 14), total: 14 }), "14 RANKED");
+  const ascending = normalizeHallOfFame({ kind: "halloffame", tab: "races", tabs: [], boards: [],
+    ladder: { key: "races.race.trial", title: "TIME TRIAL", unit: "time", ascending: true, total: 0, rows: {} } })!;
+  assert.equal(ascending.ladder!.ascending, true);
+  assert.deepEqual(ascending.ladder!.rows, [], "an empty ladder");
+  assert.equal(normalizeHallOfFame({ kind: "halloffame", tab: "pvp", tabs: [], boards: [] })!.ladder, undefined, "a tab answer has no ladder");
 });

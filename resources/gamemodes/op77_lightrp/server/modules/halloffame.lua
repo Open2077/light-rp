@@ -16,6 +16,10 @@
 -- Only character names leave this file: never an account identifier. The dialog
 -- is one plain net event, kept under the client's 1024-value limit per tab.
 --
+-- A board card clicked in the panel (`halloffame.board`) answers the same dialog with
+-- that one board's full ladder instead of the tab's boards: the top `ladderSize` rows
+-- (podium + list) and the viewer's own rank, from the cache, in one plain event too.
+--
 -- Another module adds a board without editing this one:
 --   LightRP.hallOfFame.registerBoard("dogtown.kills", { tab = "pvp", title = "DOGTOWN KILLS", unit = "kills",
 --       subtitle = "This week in Dogtown", provider = function(ctx)
@@ -1012,11 +1016,26 @@ local function fit(payload)
     return n
 end
 
+-- The viewer's row key, or nil: an excluded viewer has no rank (no "YOU #N", no
+-- highlighted row), even before the rebuild that takes them off the boards.
+local function rankedViewer(playerId)
+    local me = viewerKey(playerId)
+    if me and exclusions()(me) then return nil end
+    return me
+end
+
+-- What every answer carries beside its boards (or its ladder): the panel's header.
+local function header(playerId, tab)
+    local asked = playerAsked[playerId]
+    local wait = asked and math.max(0, (tonumber(cfg("cache.playerRefreshMs", 30000)) or 30000) - (now() - asked)) or 0
+    return { title = (C.title or "Hall of Fame"):upper(), hub = HoF.hubName(), tab = tab, tabs = HoF.tabs(),
+        database = cache.database == true, updatedAgoS = cache.at and math.floor((now() - cache.at) / 1000) or nil,
+        refreshInS = math.ceil(wait / 1000), wealthBankOnly = (C.showWealth and cache.database and cache.wealthCash == false) or nil }
+end
+
 function HoF.payload(playerId, tab)
     if not TAB_SET[tab] or (tab == "wealth" and not C.showWealth) then tab = "overview" end
-    local me = viewerKey(playerId)
-    -- an excluded viewer has no rank: no "YOU #N", no highlighted row (even before the rebuild)
-    if me and exclusions()(me) then me = nil end
+    local me = rankedViewer(playerId)
     local list = {}
     if tab == "overview" then
         local size, max = tonumber(C.overviewSize) or 3, tonumber(C.overviewMax) or 12
@@ -1031,16 +1050,65 @@ function HoF.payload(playerId, tab)
             if entry and entry.def.tab == tab then list[#list + 1] = boardView(entry, size, me) end
         end
     end
-    local asked = playerAsked[playerId]
-    local wait = asked and math.max(0, (tonumber(cfg("cache.playerRefreshMs", 30000)) or 30000) - (now() - asked)) or 0
-    local payload = { title = (C.title or "Hall of Fame"):upper(), hub = HoF.hubName(), tab = tab, tabs = HoF.tabs(), boards = list,
-        database = cache.database == true, updatedAgoS = cache.at and math.floor((now() - cache.at) / 1000) or nil,
-        refreshInS = math.ceil(wait / 1000), wealthBankOnly = (C.showWealth and cache.database and cache.wealthCash == false) or nil }
+    local payload = header(playerId, tab)
+    payload.boards = list
     fit(payload)
     return payload
 end
 
-local function send(playerId, tab) LightRP.dialog(playerId, "halloffame", HoF.payload(playerId, tab)) end
+-- ---------------------------------------------------------------------------
+-- The full ladder of one board: a card clicked on any tab
+
+-- Rows of a ladder (config `ladderSize`, 10 to 100); the value limit may trim the tail.
+local function ladderSize()
+    return math.max(10, math.min(100, math.floor(tonumber(C.ladderSize) or 50)))
+end
+HoF.ladderSize = ladderSize
+
+-- A board the panel shows: registered, and wealth only behind its switch. Cached or
+-- not yet (an empty ladder until the first rebuild that has it).
+local function visibleBoard(key)
+    local def = type(key) == "string" and boards[key] or nil
+    if not def or (def.tab == "wealth" and not C.showWealth) then return nil end
+    return def
+end
+HoF.visibleBoard = visibleBoard
+
+-- Over the limit (long names, titles and details on every row, a large ladderSize):
+-- the ladder's last rows go, never its podium; `mine` always stays, so a viewer
+-- trimmed out of the list still reads their rank under it.
+local function fitLadder(payload)
+    local rows = payload.ladder.rows
+    local n = countValues(payload)
+    while n > VALUE_LIMIT and #rows > 3 do
+        n = n - countValues(rows[#rows]) - 1 -- the row and its index
+        rows[#rows] = nil
+    end
+    return n
+end
+
+-- One board's ladder under the header of the tab it was opened from.
+-- -> payload | nil when the panel does not show that board.
+function HoF.ladderPayload(playerId, key, tab)
+    local def = visibleBoard(key)
+    if not def then return nil end
+    if not TAB_SET[tab] or (tab == "wealth" and not C.showWealth) then tab = def.tab end
+    local entry = cache.boards[key] or { def = def, rows = {}, byKey = {}, meta = {} }
+    local payload = header(playerId, tab)
+    payload.ladder = boardView(entry, ladderSize(), rankedViewer(playerId))
+    fitLadder(payload)
+    return payload
+end
+
+local REFUSED_BOARD = "That board is not on the Hall of Fame."
+
+-- `key`: the ladder of that board instead of the tab's boards.
+local function send(playerId, tab, key)
+    if key == nil then return LightRP.dialog(playerId, "halloffame", HoF.payload(playerId, tab)) end
+    local payload = HoF.ladderPayload(playerId, key, tab)
+    if payload then return LightRP.dialog(playerId, "halloffame", payload) end
+    LightRP.result(playerId, false, REFUSED_BOARD, "halloffame.board") -- gone meanwhile (wealth switched off)
+end
 
 -- Opens (or switches the tab of) the panel: the cache, rebuilt first only when stale.
 function HoF.open(playerId, tab)
@@ -1051,17 +1119,31 @@ function HoF.open(playerId, tab)
     end)
 end
 
+-- One board's ladder, by the same rule as a tab: the cache, rebuilt first only when
+-- stale. -> false (nothing sent) when the panel does not show that board.
+function HoF.openBoard(playerId, key, tab)
+    if not visibleBoard(key) then return false end
+    CreateThread(function()
+        HoF.observeStaff(playerId)
+        if stale() and floorPassed() then HoF.refresh("ladder") end
+        send(playerId, tab, key)
+    end)
+    return true
+end
+
 -- The REFRESH button: at most once per playerRefreshMs per player, never faster than
--- floorMs for the server. Answered by the panel itself (its "updated" line).
-function HoF.requestRefresh(playerId, tab)
+-- floorMs for the server. Answered by the panel itself (its "updated" line), with the
+-- ladder `key` when it was pressed on one.
+function HoF.requestRefresh(playerId, tab, key)
+    if key ~= nil and not visibleBoard(key) then key = nil end
     local t = now()
     local last = playerAsked[playerId]
     if (last and t - last < (tonumber(cfg("cache.playerRefreshMs", 30000)) or 30000)) or not floorPassed() then
-        CreateThread(function() send(playerId, tab) end)
+        CreateThread(function() send(playerId, tab, key) end)
         return false
     end
     playerAsked[playerId] = t
-    CreateThread(function() HoF.refresh("player"); send(playerId, tab) end)
+    CreateThread(function() HoF.refresh("player"); send(playerId, tab, key) end)
     return true
 end
 
@@ -1084,9 +1166,16 @@ LightRP.action("halloffame.open", function(id, payload)
     end
     HoF.open(id, payload.tab)
 end)
--- The panel is open: switching tabs and refreshing work from wherever the player stands.
+-- The panel is open: switching tabs, opening a board's ladder and refreshing work from
+-- wherever the player stands.
 LightRP.action("halloffame.tab", function(id, payload) if C.enabled ~= false then HoF.open(id, payload.tab) end end)
-LightRP.action("halloffame.refresh", function(id, payload) if C.enabled ~= false then HoF.requestRefresh(id, payload.tab) end end)
+LightRP.action("halloffame.board", function(id, payload)
+    if C.enabled == false then return LightRP.result(id, false, "The Hall of Fame is closed.", "halloffame.board") end
+    if not HoF.openBoard(id, payload.key, payload.tab) then return LightRP.result(id, false, REFUSED_BOARD, "halloffame.board") end
+end)
+LightRP.action("halloffame.refresh", function(id, payload)
+    if C.enabled ~= false then HoF.requestRefresh(id, payload.tab, type(payload.key) == "string" and payload.key or nil) end
+end)
 LightRP.action("halloffame.close", function() end) -- the page closes locally; nothing to do here
 
 function HoF.onInteract(playerId, pointId)

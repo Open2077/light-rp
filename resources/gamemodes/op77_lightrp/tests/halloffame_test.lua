@@ -556,6 +556,156 @@ assert(not blob:find("license:", 1, true) and not blob:find("#default", 1, true)
 assert(not blob:find("acct-", 1, true) and not blob:find("Account", 1, true), "nor an account name")
 
 -- ---------------------------------------------------------------------------
+-- The full ladder of one board (a card clicked): podium + list + the viewer's own
+-- rank, from the cache, in one plain event
+
+local function rebuildNow() clock = clock + 11000; HoF.refresh("test") end
+-- the worst case: 120 characters with the longest names (64), details (60) and a long title on every row
+local ladderBase = #chars
+for i = 1, 120 do
+    chars[#chars + 1] = { id = string.format("license:l%03d", i), key = "default", first = string.rep("W", 30) .. string.format("%03d", i), last = string.rep("X", 40) }
+end
+local viewerAt = 80 -- where the viewer (Jax, player 1) stands on that board
+assert(HoF.registerBoard("ext.ladder", { tab = "pvp", title = "LADDER CHECK", subtitle = string.rep("S", 80), unit = "kills",
+    provider = function()
+        local out, value = {}, 2000
+        for i = 1, 120 do
+            if not (i == 6 or i == 50) then value = value - 2 end -- ties: 5 = 6, 49 = 50 (across the cut)
+            if i == viewerAt then out[#out + 1] = { identifier = "license:aaa111", characterKey = "default", value = value + 1, detail = string.rep("D", 80) } end
+            out[#out + 1] = { identifier = string.format("license:l%03d", i), characterKey = "default", value = value, detail = string.rep("D", 80) }
+        end
+        return out
+    end }))
+LightRP.titles = { forKey = function() return string.rep("T", 40) end } -- titles.lua labels are ~15 characters
+rebuildNow()
+
+mark = #queries
+local shownBefore = #dialogs
+actions["halloffame.board"](1, { type = "halloffame.board", key = "ext.ladder", tab = "overview" })
+assert(#dialogs == shownBefore + 1 and #queries == mark, "a ladder reads the cache")
+p = last()
+local lad = p.ladder
+assert(p.kind == "halloffame" and p.tab == "overview" and p.boards == nil and p.title == "HALL OF FAME" and p.hub == "The Crossing"
+    and table.concat(p.tabs, ",") == "overview,pvp,races,pve,missions,wealth" and p.database == true and p.updatedAgoS == 0,
+    "the header of the tab it was opened from, no boards")
+assert(lad.key == "ext.ladder" and lad.title == "LADDER CHECK" and lad.unit == "kills" and lad.total == 121 and lad.ascending == nil, tostring(lad.total))
+assert(#lad.rows == 50, "fifty rows: " .. #lad.rows)
+assert(lad.rows[1].rank == 1 and lad.rows[5].rank == 5 and lad.rows[6].rank == 5 and lad.rows[7].rank == 7, "ties share a rank")
+assert(lad.rows[49].rank == 49 and lad.rows[50].rank == 49, "a tie across the cut")
+for i, r in ipairs(lad.rows) do
+    assert(r.you == nil and #r.name == 64 and #r.detail == 60 and r.title == string.rep("T", 40), "row " .. i .. ": the worst case")
+end
+assert(lad.mine and lad.mine.rank == 80 and lad.mine.value == 2000 - 2 * 78 + 1 and lad.mine.detail == string.rep("D", 60),
+    "the viewer outside the fifty: their own rank")
+local ladderValues, ladderBytes = countValues(p), jsonBytes(p)
+assert(ladderValues == HoF.countValues(p), "the module counts as framework.lua")
+assert(ladderValues <= 900 and ladderBytes < 40 * 1024, string.format("50 worst-case rows in one plain event: %d values, %d bytes", ladderValues, ladderBytes))
+
+-- the viewer inside the fifty: their row highlighted (and `mine`, which the page hides then)
+viewerAt = 30
+rebuildNow()
+lad = HoF.ladderPayload(1, "ext.ladder", "pvp").ladder
+assert(lad.rows[30].you == true and lad.rows[30].name == "Jax Rook" and lad.rows[30].rank == 30 and lad.mine.rank == 30, "the viewer's row")
+for i, r in ipairs(lad.rows) do assert(i == 30 or r.you == nil, "one highlighted row") end
+
+-- a ladderSize over the limit: the tail goes, never the podium nor `mine`
+viewerAt = 75
+rebuildNow()
+C.ladderSize = 100
+p = HoF.ladderPayload(1, "ext.ladder", "pvp"); p.kind = "halloffame"
+assert(countValues(p) <= 900 and #p.ladder.rows >= 50 and #p.ladder.rows < 75, "trimmed to fit: " .. #p.ladder.rows .. " rows, " .. countValues(p))
+assert(p.ladder.rows[1].rank == 1 and p.ladder.rows[3].rank == 3 and p.ladder.mine.rank == 75, "the podium and the viewer's rank stay")
+for _, r in ipairs(p.ladder.rows) do assert(r.you == nil, "the viewer's row was trimmed: `mine` says it") end
+local trimmedRows = #p.ladder.rows
+C.ladderSize = 3
+assert(#HoF.ladderPayload(1, "ext.ladder", "pvp").ladder.rows == 10 and HoF.ladderSize() == 10, "at least ten")
+C.ladderSize = "lots"
+assert(HoF.ladderSize() == 50 and #HoF.ladderPayload(1, "ext.ladder", "pvp").ladder.rows == 50, "junk: fifty")
+C.ladderSize = 50
+
+-- an ascending board: lowest first, every row of it
+actions["halloffame.board"](1, { type = "halloffame.board", key = "races.race.trial", tab = "races" })
+lad = last().ladder
+assert(last().tab == "races" and lad.ascending == true and lad.unit == "time" and lad.subtitle == "Best time · WATSON LOOP · REV 2", tostring(lad.subtitle))
+assert(#lad.rows == #HoF.cache().boards["races.race.trial"].rows and #lad.rows == lad.total and lad.rows[1].value == 30001, "fastest first, all of them")
+for i = 2, #lad.rows do assert(lad.rows[i].value >= lad.rows[i - 1].value, "lowest first") end
+assert(lad.mine == nil, "the viewer has no time on the current course")
+
+-- wealth: behind its switch
+actions["halloffame.board"](1, { type = "halloffame.board", key = "wealth.richest", tab = "wealth" })
+assert(last().ladder.key == "wealth.richest" and last().ladder.mine.value == 1500 and last().ladder.rows[1].detail == nil, "the richest, total only")
+C.showWealth = false
+shownBefore = #dialogs
+actions["halloffame.board"](1, { type = "halloffame.board", key = "wealth.richest", tab = "wealth" })
+assert(#dialogs == shownBefore and results[#results].ok == false and results[#results].kind == "halloffame.board"
+    and results[#results].text == "That board is not on the Hall of Fame.", "wealth off: refused, nothing sent")
+assert(HoF.ladderPayload(1, "wealth.richest", "pvp") == nil)
+C.showWealth = true
+
+-- unknown boards and a closed Hall of Fame: a clean refusal, never an error
+for _, bad in ipairs({ "nope.board", 42, {}, "" }) do
+    shownBefore = #dialogs
+    actions["halloffame.board"](1, { type = "halloffame.board", key = bad, tab = "pvp" })
+    assert(#dialogs == shownBefore and results[#results].ok == false and results[#results].kind == "halloffame.board", "refused: " .. tostring(bad))
+end
+actions["halloffame.board"](1, { type = "halloffame.board", tab = "pvp" })
+assert(results[#results].ok == false, "no key")
+C.enabled = false
+shownBefore = #dialogs
+actions["halloffame.board"](1, { type = "halloffame.board", key = "pvp.wins", tab = "pvp" })
+assert(#dialogs == shownBefore and results[#results].ok == false and results[#results].text == "The Hall of Fame is closed.")
+C.enabled = true
+-- a junk tab: the board's own
+p = HoF.ladderPayload(1, "pvp.kills", "nowhere")
+assert(p.tab == "pvp" and p.ladder.key == "pvp.kills")
+
+-- a board registered but not computed yet: an empty ladder, not a refusal
+assert(HoF.registerBoard("ext.later", { tab = "pve", title = "LATER", unit = "count", provider = function() return {} end }))
+lad = HoF.ladderPayload(1, "ext.later", "overview").ladder
+assert(lad.title == "LATER" and #lad.rows == 0 and lad.total == 0 and lad.mine == nil, "empty until the next rebuild")
+assert(HoF.unregisterBoard("ext.later"))
+
+-- exclusions: a test character leaves the ladder (the others close ranks), an excluded viewer has no rank
+viewerAt = 30
+C.exclude.characters = { "license:l001#default" }
+rebuildNow()
+lad = HoF.ladderPayload(1, "ext.ladder", "pvp").ladder
+assert(lad.total == 120 and lad.rows[1].rank == 1 and lad.rows[1].name:sub(31, 33) == "002", "the leader excluded: " .. lad.rows[1].name)
+assert(lad.rows[29].you == true and lad.mine.rank == 29, "the viewer moves up one")
+C.exclude.characters = { "license:l001#default", "license:aaa111#default" }
+lad = HoF.ladderPayload(1, "ext.ladder", "pvp").ladder
+assert(lad.mine == nil, "excluded viewer, before the rebuild: no rank")
+for _, r in ipairs(lad.rows) do assert(r.you == nil, "and no highlighted row") end
+rebuildNow()
+lad = HoF.ladderPayload(1, "ext.ladder", "pvp").ladder
+assert(lad.total == 119 and lad.mine == nil, "after it: off the ladder")
+for _, r in ipairs(lad.rows) do assert(r.name ~= "Jax Rook") end
+C.exclude.characters = {}
+rebuildNow()
+
+-- a stale cache: rebuilt first, as an open; a fresh one is read as is
+mark = #queries
+clock = clock + C.cache.refreshMs
+actions["halloffame.board"](1, { type = "halloffame.board", key = "pvp.wins", tab = "pvp" })
+assert(#queries == mark + 6 and last().ladder.key == "pvp.wins" and last().updatedAgoS == 0, "stale: rebuilt before the ladder")
+actions["halloffame.board"](1, { type = "halloffame.board", key = "pvp.wins", tab = "pvp" })
+assert(#queries == mark + 6, "fresh: the cache")
+
+-- REFRESH on a ladder answers the ladder (inside the limits too); a board gone answers the tab
+clock = clock + 31000
+actions["halloffame.refresh"](1, { type = "halloffame.refresh", tab = "pvp", key = "ext.ladder" })
+assert(#queries == mark + 12 and last().ladder and last().ladder.key == "ext.ladder" and last().refreshInS == 30, "rebuilt, the ladder again")
+actions["halloffame.refresh"](1, { type = "halloffame.refresh", tab = "pvp", key = "ext.ladder" })
+assert(#queries == mark + 12 and last().ladder.key == "ext.ladder", "a refused refresh still answers the ladder")
+actions["halloffame.refresh"](1, { type = "halloffame.refresh", tab = "pvp", key = "nope.board" })
+assert(last().ladder == nil and last().boards and last().tab == "pvp", "an unknown board: the tab")
+
+assert(HoF.unregisterBoard("ext.ladder"))
+for i = #chars, ladderBase + 1, -1 do chars[i] = nil end
+LightRP.titles = nil
+rebuildNow()
+
+-- ---------------------------------------------------------------------------
 -- Staff: /lightrp.halloffame place | where | refresh
 
 local cmd = commands["lightrp.halloffame"]
@@ -976,6 +1126,8 @@ assert(not blob:find("license:", 1, true) and not blob:find("#default", 1, true)
 
 print(string.format("PASS: board beside the terminal (%.3f, %.3f, heading %.1f), E point, prop + orphan sweep, competition ranks and ties,"
     .. " race times on the current course, PvE/missions/clears by difficulty, wealth switch + bank-only fallback, cache 5 min +"
-    .. " 30 s/player + 10 s floor, payload max %d values (%s) ~%d bytes, extension trim, staff place/where/refresh, board model picker (list, swap by number/alias, scale/rotate, refused, kvp + restart, reset, sweep across models), trophy blip without a floor marker, no identifiers, no-DB mode, retry + database-ready rebuild,"
+    .. " 30 s/player + 10 s floor, payload max %d values (%s) ~%d bytes, extension trim,"
+    .. " ladder (cache only, 50 worst-case rows = %d values ~%d bytes, ladderSize 100 trimmed to %d rows, ties across the cut, viewer in/out/trimmed,"
+    .. " ascending, wealth gate, refusals, empty, exclusions, stale rebuild, refresh), staff place/where/refresh, board model picker (list, swap by number/alias, scale/rotate, refused, kvp + restart, reset, sweep across models), trophy blip without a floor marker, no identifiers, no-DB mode, retry + database-ready rebuild,"
     .. " exclusions: staff online/offline/config/revoked/ACL failure, registered boards, no YOU #N, switches, test list command, kvp across a restart",
-    initial.x, initial.y, initial.heading, maxValues, tostring(maxTab), maxBytes))
+    initial.x, initial.y, initial.heading, maxValues, tostring(maxTab), maxBytes, ladderValues, ladderBytes, trimmedRows))

@@ -507,6 +507,7 @@ LightRpCyberwareConfig.gating.enabled = true
 LightRP.hallOfFame = { name = "hallOfFame" }
 assert(visible("activities.halloffame"), "the Hall of Fame with its module")
 assert(answer("activities.halloffame"):find("top 10 of each board", 1, true) and answer("activities.halloffame"):find("**Wealth**", 1, true))
+assert(answer("activities.halloffame"):find("click a board for its full ladder, the top 50 with your own rank", 1, true), "the ladder (halloffame.ladderSize)")
 LightRpHallOfFame.showWealth = false
 assert(not answer("activities.halloffame"):find("**Wealth**", 1, true), "no wealth board when it is off")
 LightRpHallOfFame.showWealth, LightRpHallOfFame.enabled = true, false
