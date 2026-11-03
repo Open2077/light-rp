@@ -737,14 +737,20 @@ local function resultOf(m, info, row, rows)
     if outcome == "dnf" then return { label = "DNF", tone = "loss" } end
     if outcome == "escaped" then return { label = "ESCAPED", tone = "win" } end
     if outcome == "busted" or outcome == "caught" then return { label = "BUSTED", tone = "loss" } end
-    local players = 0 -- every placed row, the ones cut from the board too
-    for _, rid in ipairs(m.order) do if m.rows[rid].placement then players = players + 1 end end
+    local players, firsts = 0, 0 -- every placed row, the ones cut from the board too
+    for _, rid in ipairs(m.order) do
+        local placement = m.rows[rid].placement
+        if placement then players = players + 1 end
+        if placement == 1 then firsts = firsts + 1 end
+    end
     if m.sides and #m.sides >= 2 then
         if info.won then return { label = "WIN", tone = "win" } end
         if m.winnerSide == 0 or info.placement == 1 then return { label = "DRAW", tone = "neutral" } end
         return { label = "LOSS", tone = "loss" }
     end
     if info.won then return { label = "WIN", tone = "win", placement = info.placement, of = players > 1 and players or nil } end
+    -- shared first place, nobody won (a drawn chase): not a loss
+    if info.placement == 1 and firsts >= 2 then return { label = "DRAW", tone = "neutral", placement = 1, of = players } end
     if info.placement and players > 2 then return { label = "#" .. info.placement, tone = info.placement <= 3 and "neutral" or "loss", placement = info.placement, of = players } end
     if info.placement == 1 and players <= 1 then return { label = "FINISHED", tone = "win" } end
     if info.placement then return { label = "LOSS", tone = "loss", placement = info.placement, of = players > 1 and players or nil } end

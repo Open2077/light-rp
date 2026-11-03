@@ -282,6 +282,15 @@ _G.GetInvokingResource = nil
 local pr = R.payload(race, 21, {})
 assert(pr.result.label == "WIN" and table.concat(pr.columns, ",") == "placement,timeMs,bestLapMs", table.concat(pr.columns, ","))
 assert(rowOf(pr, -1).outcome == "dnf")
+-- a drawn chase: both first, nobody won -- DRAW for both, not a loss
+local drawn = { matchId = "chase:3@1", detail = "Chase 1v1", rows = {
+    { id = 24, name = "Player24", placement = 1, roundsWon = 1 }, { id = 25, name = "Player25", placement = 1, roundsWon = 1 } } }
+local e24, e25 = enter(24, "chase.1v1", 71), enter(25, "chase.1v1", 72)
+R.activityResult(24, e24, { placement = 1, won = false, recap = drawn }, { placement = 1 }, false)
+R.activityResult(25, e25, { placement = 1, won = false, recap = drawn }, { placement = 1 }, false)
+local d24 = R.payload(R.matches["chase.1v1|chase:3@1"], 24, {})
+local d25 = R.payload(R.matches["chase.1v1|chase:3@1"], 25, {})
+assert(d24.result.label == "DRAW" and d24.result.tone == "neutral" and d25.result.label == "DRAW", d24.result.label)
 
 -- ── a mission: the crew, the run's lines, the raid's share, home before the screen ──
 local inst = { id = "m-7", point = "heist.docks", members = { 1, 2 }, startedAt = clock, test = false,
