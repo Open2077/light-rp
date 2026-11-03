@@ -2,6 +2,6 @@
    rail and the bottom-left vitals stay clear. NoticeLane moves it right of the
    crew frame when the two would meet. */
 .notices { position: absolute; left: var(--hud-safe-x); top: 50%; transform: translateY(-50%); align-items: flex-start; max-width: 380px; }
-/* During a board game the left edge holds the game panel: right edge, above the
-   game layer (z-index 140). */
+/* During a table game view the page holds the cursor: notices rise above its
+   pointer layer (see board-games/table-bar.css). */
 .o77-notice { position: relative; }

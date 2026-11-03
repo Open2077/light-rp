@@ -3,12 +3,13 @@
 -- (shared/casino_pool.lua) and every client evaluates them analytically at the
 -- projected server time, so all players see the same balls at the same time.
 --
--- Free mode: the seated player whose shot it is aims with the crosshair (the
--- cue turns about the cue ball, a guide line shows the path and the first ball
--- it meets), holds the left button to charge (the cue draws back; the power
--- swings 0..1..0 every 1.6 s) and releases to shoot. Ball in hand: the cue
--- ball follows the crosshair on the cloth, a click places it. Everything else
--- (mode, new game, re-rack, the status) is in the ALT menu (table_menu.lua).
+-- Game view: the seated player whose shot it is aims with the cursor (the
+-- cue turns about the cue ball towards the cursor's point on the cloth, a
+-- guide line shows the path and the first ball it meets), holds the left
+-- button to charge (the cue draws back; the power swings 0..1..0 every 1.6 s,
+-- shown on the bar) and releases to shoot; a release on the bar cancels.
+-- Ball in hand: the cue ball follows the cursor on the cloth, a click places
+-- it. Re-rack, mode and New game are bar buttons (client/core/table_bar.lua).
 -- Coordinates: P works in table metres (real size, origin at the centre of
 -- the cloth); props are board-local unscaled metres, i.e. table metres / 0.65.
 local Extra=LightRpTabletopExtraClient
@@ -257,7 +258,7 @@ local function pieceTargets(board,result)
     if not flying and not live then Extra.stillUntil(board,math.huge) end
 end
 
--- The crosshair on the cloth: the aim point (every frame, active table only),
+-- The cursor on the cloth: the aim point (every frame, active table only),
 -- and the guide: the cue ball's path to the first ball or cushion it meets,
 -- the ghost ball there and where that object ball would go.
 local GUIDE,OBJECT,HAND="#38f2ffd0","#ff3cc8c0","#38f2ff90"
@@ -274,7 +275,7 @@ local function circle(board,line,x,y,r,color)
     end
 end
 local function aimAt(board,x,y,line)
-    local ray=Open77.camera.screenRay(x,y,15)
+    local ray=x and y and Open77.camera.screenRay(x,y,15)
     local planeZ=board.position.z+(P.BED+P.R)
     if ray and abs(ray.direction.z)>.001 then
         local t=(planeZ-ray.origin.z)/ray.direction.z
@@ -330,8 +331,10 @@ local function hint(text)
     notified=GetGameTimer()
     LightRpBoardGamesClient.notice(text,"Pool")
 end
+function PC.charging(board) return charge~=nil and charge.id==board.id end
 local function pointer(board,event)
     if event.cancelled then charge=nil;return true end
+    if event.x and event.y then aimAt(board,event.x,event.y) end -- the click's own point on the cloth
     if event.pressed then
         if PC.placing(board) then
             local c=cacheFor(board);local gx,gy=ghost(board,c)
@@ -340,7 +343,7 @@ local function pointer(board,event)
             return true
         end
         if PC.canShoot(board) then charge={id=board.id,start=GetGameTimer()}
-        elseif board.game.status~="playing" then hint("Game over: hold ALT on the table for a rematch or a new game.")
+        elseif board.game.status~="playing" then hint("Game over: Rematch or New game from the bar.")
         elseif PC.busy(board) then hint("Wait for the balls to stop.")
         elseif seated(board) and not myShot(board) then hint(board.ready==false and "Waiting for an opponent to sit." or "It is your opponent's shot.") end
         return true
@@ -359,7 +362,7 @@ local function pointer(board,event)
     return true
 end
 
--- Status and result text (ALT menu status row and notices).
+-- Status and result text (the bar status and the notices).
 local FOULS={scratch="Scratch",no_contact="No ball hit",wrong_first="Wrong ball first",no_rail="No rail after contact"}
 local function names(chars)
     local out={}
@@ -385,7 +388,7 @@ function PC.describe(board)
     local balls=P.decodePositions(g.pos)
     if g.mode=="solo" then
         local left=0;for i=2,16 do if balls[i] then left=left+1 end end
-        return ("Practice: %d balls on the table. Aim with the crosshair, hold the left button to charge, release to shoot. Re-rack from this menu."):format(left)
+        return ("Practice: %d balls on the table. Aim with the cursor, hold the left button to charge, release to shoot."):format(left)
     end
     local group=P.groupOf(g,seat)
     local text=PC.status(board)..". "
@@ -393,7 +396,7 @@ function PC.describe(board)
         local mine=P.left(balls,group);local theirs=P.left(balls,group=="solids" and "stripes" or "solids")
         text=text..(mine==0 and "You are on the 8. " or ("You have %d %s left, your opponent %d. "):format(mine,group,theirs))
     else text=text.."The table is open: the first clean pot claims a group. " end
-    return text.."Aim with the crosshair, hold the left button to charge, release to shoot."
+    return text.."Aim with the cursor, hold the left button to charge, release to shoot."
 end
 function PC.result(board)
     local g=board.game;local last=type(g.last)=="table" and g.last or nil
@@ -403,8 +406,8 @@ function PC.result(board)
     local potted=names(last.potted)
     if g.mode=="solo" then
         local parts={potted~="" and ("Potted "..potted..".") or "No ball potted."}
-        if last.scratch then parts[#parts+1]="Scratch: aim at the cloth and click to place the cue ball." end
-        if last.cleared then parts[#parts+1]="Table cleared! Re-rack from the ALT menu." end
+        if last.scratch then parts[#parts+1]="Scratch: click the cloth to place the cue ball." end
+        if last.cleared then parts[#parts+1]="Table cleared! Re-rack from the bar." end
         return table.concat(parts," ")
     end
     local parts={}
@@ -412,12 +415,12 @@ function PC.result(board)
     if last.respot then parts[#parts+1]="The 8 is back on the foot spot." end
     if last.won then
         local REASONS={eight="the 8 is down",eight_early="the 8 went down too early",eight_foul="foul on the 8"}
-        parts[#parts+1]=(last.won==seat and "You win" or "Opponent wins").." ("..(REASONS[last.reason] or "game over").."). Re-rack from the ALT menu for a rematch."
+        parts[#parts+1]=(last.won==seat and "You win" or "Opponent wins").." ("..(REASONS[last.reason] or "game over").."). Rematch from the bar."
         return table.concat(parts," ")
     end
     if last.foul then
         parts[#parts+1]=("Foul%s: %s."):format(you and " by you" or " by your opponent",FOULS[last.foul] or last.foul)
-        parts[#parts+1]=g.turn==seat and "Ball in hand: aim at the cloth and click to place the cue ball." or "Your opponent has ball in hand."
+        parts[#parts+1]=g.turn==seat and "Ball in hand: click the cloth to place the cue ball." or "Your opponent has ball in hand."
     end
     if last.assigned then
         local group=P.groupOf(g,seat)
@@ -436,4 +439,14 @@ Extra.register("pool",{
     pieceTargets=pieceTargets,
     pointer=pointer,
     aim=aimAt,
+    -- Board-local unscaled metres: the cloth is at P.BED/0.65, the table
+    -- runs along X (head at -X, the rack at +X), the bar never covers it.
+    views={{key="top",label="Overhead"},{key="head",label="Head end"},{key="side",label="Side rail"},{key="orbit",label="Orbit"}},
+    orbit={x=0,y=0,z=P.BED*K,radius=3.2,height=2.0},
+    camera=function(board,view)
+        local w,z=Extra.world,P.BED*K
+        if view=="head" then return {position=w(board,-3.3,0,z+1.45),lookAt=w(board,.25,0,z),fov=50} end
+        if view=="side" then return {position=w(board,0,-2.75,z+1.9),lookAt=w(board,0,-.1,z),fov=52} end
+        return {position=w(board,0,-.015,z+3.6),rotation={pitch=-89.5,yaw=board.rotation or 0,roll=0},fov=52}
+    end,
 })

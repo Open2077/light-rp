@@ -3,18 +3,20 @@
 Item `slot_machine` (Slot Machine). No shop sells it yet; staff can grant it with `/lightrp.giveitem me slot_machine 1`. Use the item to
 place the cabinet (same placement controls as the board games), press E near it
 to sit down. The first player seated (White) plays; anyone else who joins watches.
-Hold ALT and click the machine for its menu (*Sit*, *Pick up board* for the
-owner, *Leave table*; see board-games.md); pickup is refused while the reels
-spin.
+Hold ALT and click the machine for its menu (status, *Sit*, *Pick up board*
+for the owner; see board-games.md); pickup is refused while the reels spin.
 
 ## Playing
 
-There is no panel. Seated in the first seat, hold ALT on the machine: *Bet:
-€$ 10 ›* picks the bet (10, 50, 100, 500 or 1,000, within your cash; the
-server accepts 1 to 1,000) and *Pull (€$ 10)* pulls; or aim at the lever on the
-right of the cabinet (it is outlined) and click, which pulls with the same bet.
-The status row shows *Ready*, *Reels spinning* or the last result, and selecting
-it recalls the paytable. Watchers only get the status and *Leave table*. The pull debits the stake from
+Sitting opens the game view (board-games.md) on the reels (views *Reels*,
+*Cabinet*, *Lever*). Seated in the first seat, set the bet on the bar with − /
++ (1, 5, 10, 25, 50, 100, 250, 500, 1,000; the server accepts 1 to 1,000) and
+press *Pull €$ 10*, or point the cursor at the lever on the right of the
+cabinet (it is outlined) and click, which pulls with the same bet. The lever is
+an action, not a betting spot: a click on it pulls at once. The bar status
+shows *Ready*, *Reels spinning* or the last result (*Won €$ 2,000*, *No win*);
+*Pull* is disabled while the reels spin or above your cash. Watchers see the
+status and *Another player is at the lever*. The pull debits the stake from
 cash, the server picks the three reel stops (`math.random`), stores the payout
 claim and the new state in one SQL transaction. Every client then plays the same
 server-clock timeline: the lever goes down and springs back (0.6 s), the reels

@@ -48,14 +48,15 @@ discs above ~22 segments/s, two orbiting 40x medallions, four flapper poses
 kicked at each peg crossing (timed exactly from the easing), and one chip stack
 per staked spot; at the stop, losing stacks are swept and the payout rises
 next to the winning spot. 38-44 props per table; the measured client peak is
-4,700 instructions per resume. There is no panel. Seated, hold ALT on the
-wheel: *Chip: €$ 10 ›* (10, 50, 100, 500, 1,000 within your cash) picks the
-amount, *Bet €$ 10 ›* lists 1x, 2x, 5x, 10x, 20x, Neon Eye 40x and Starburst
-40x (with what each pays), and *Spin* spins (also after a result: it starts the
-next round); while the wheel turns only the status and *Leave table* remain.
-Aiming at a felt spot outlines it and a click bets the chosen chip there
-(confirmed by a notice). The status row shows your bets or the last result,
-and the result notice says what you won.
+4,700 instructions per resume. Sitting opens the game view (board-games.md)
+on the whole wheel above the betting felt (views *Wheel*, *Betting felt*,
+*Pointer*). Click a spot on the felt (1x, 2x, 5x, 10x, 20x, Neon Eye 40x,
+Starburst 40x) to select it: it is outlined in cyan and the bar shows
+*20x · pays 20 to 1*; set the chip with − / + and press *Bet €$ 10 on 20x*
+(within 5,000 per round and your cash), then *Spin* (also after a result: it
+starts the next round). A click only selects; money moves on *Bet*. While the
+wheel turns the bar shows a countdown and no buttons; then *20x wins* and what
+you won. Each accepted bet and the result arrive as notices.
 
 Look: original art from `tools/build-casino-fortune-props.py` (shared kit
 `tools/wheel_tables_art.py`: an original stroke typeface drawn with Pillow,
@@ -65,4 +66,5 @@ A collider entity `fortune_stand_collider` (counter, tower, drum; the space in
 front of the counter is free) follows `tools/COLLISION.md`.
 
 Validation: `tools/test-casino-fortune.py`, `tools/test-casino-fortune-server.py`,
-`tools/test-casino-fortune-client.py`, `tools/build-casino-fortune-props.py`.
+`tools/test-casino-fortune-client.py` (spot picking), `tools/test-table-menu.py` (the
+bar), `tools/test-casino-e2e.py fortune`, `tools/build-casino-fortune-props.py`.

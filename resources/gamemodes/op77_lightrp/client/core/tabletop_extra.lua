@@ -3,14 +3,20 @@
 -- Casino tables plug in with Extra.register(kind,{
 --   boardModel=function(board) return depotPath end,     -- the placed base prop
 --   pieceTargets=function(board,result) end,              -- Extra.put(...) each moving prop
---   pointer=function(board,event) return handled end,     -- optional; a crosshair click on the table
---   aim=function(board,x,y,line) end,                     -- optional; outline what x,y points at
+--   views={{key=,label=},...},                            -- optional camera views, the first is the default
+--   camera=function(board,view) return pose end,          -- optional; {position,lookAt|rotation,fov}
+--   orbit={x=,y=,z=,radius=,height=},                     -- optional focus of an "orbit" view (local metres)
+--   pointer=function(board,event) end,                    -- optional; the page cursor on the table
+--   aim=function(board,x,y,line) end,                     -- optional; outline the hovered target and the selection
 --   operations={name=true,...},                           -- requests Extra.command forwards to the server
 --   turnOnly=true,                                        -- optional; only the actor may act
 -- })
--- There is no panel: what a player can do at the table (bets, Spin, Hit...)
--- is listed in the ALT target menu, built per kind in client/core/table_menu.lua
--- (LightRpTableMenu.register), which sends Extra.command requests.
+-- In the game view the page owns the cursor: event.x/y are the normalized
+-- cursor (Open77.camera.screenRay(event.x,event.y) is the picking ray),
+-- event.pressed/released the left button, event.cancelled a press that ended
+-- on the bar. aim's x,y are nil while the cursor is off the table. A pointer
+-- that picks a betting target calls Extra.select(board,key,label): the bar
+-- (client/core/table_bar.lua) bets the chip on Extra.selection(board).
 -- The renderer moves only props whose target changed, every frame, and calls
 -- pieceTargets again only when a new snapshot arrives or the targets expire.
 -- pieceTargets says how long its result holds, in server time:
@@ -20,8 +26,6 @@
 -- is recomputed every frame, the safe default for a time-driven table.
 -- pieceTargets runs inside the 176 client's ~10k instruction budget per
 -- resume: keep it to a few dozen props, no searches.
--- event.x/y are the screen centre (the crosshair); Open77.camera.screenRay(event.x,event.y)
--- gives the aiming ray.
 local Extra={}
 LightRpTabletopExtraClient=Extra
 local SCALE=.65
@@ -29,6 +33,7 @@ Extra.SCALE=SCALE
 local NET="lightrp:boardGames:request"
 local games={}
 local boards,clocks={},{}
+local activeId,selected
 local function clamp(v,a,b) return math.max(a,math.min(b,v)) end
 Extra.clamp=clamp
 local function me()
@@ -100,17 +105,61 @@ function Extra.pieceTargets(board)
     if holdUntil==math.huge then return result,math.huge end
     return result,GetGameTimer()+(holdUntil-holdNow)
 end
--- Whether a crosshair click at this table means something on the table itself;
--- the others are played from the ALT menu only.
-function Extra.aimable(board)
-    local adapter=games[board.kind]
-    return adapter~=nil and adapter.pointer~=nil
+-- The table of the game view (nil when standing); its selection is cleared
+-- when the view closes or moves to another table.
+function Extra.setActive(board)
+    local id=board and board.id
+    if id~=activeId then selected=nil end
+    activeId=id
 end
--- Outline what the screen point aims at: adapter.aim calls line(a,b) with
--- world points. Cheap: it runs every frame for the active table.
+-- The betting target picked on the table: {key=,label=,data=} or nil.
+function Extra.select(board,key,label,data)
+    if not board or board.id~=activeId then return end
+    if key==nil then selected=nil;return end
+    if selected and selected.key==key then return end
+    selected={key=key,label=label or tostring(key),data=data}
+end
+function Extra.selection(board)
+    if board and board.id==activeId then return selected end
+end
+-- Outline what the cursor points at: adapter.aim calls line(a,b) with world
+-- points. Cheap: it runs every frame for the active table.
 function Extra.aim(board,x,y,line)
     local adapter=games[board.kind]
     if adapter and adapter.aim then adapter.aim(board,x,y,line) end
+end
+-- Camera views: the adapter's, else overhead / players' side / orbit.
+local DEFAULT_VIEWS={{key="top",label="Overhead"},{key="side",label="Players' side"},{key="orbit",label="Orbit"}}
+function Extra.views(board)
+    local adapter=games[board.kind]
+    return adapter.views or DEFAULT_VIEWS
+end
+function Extra.orbit(board)
+    local adapter=games[board.kind]
+    return adapter.orbit or {x=0,y=0,z=0,radius=1.8,height=1.2}
+end
+function Extra.camera(board,view)
+    local adapter=games[board.kind]
+    if adapter.camera then local pose=adapter.camera(board,view);if pose then return pose end end
+    if view=="side" then return {position=world(board,0,-1.65,.85),lookAt=world(board,0,0,0),fov=52} end
+    return {position=world(board,0,-.015,1.85),rotation={pitch=-89.5,yaw=board.rotation or 0,roll=0},fov=52}
+end
+-- A screen point on a horizontal plane of the table (local height z), in
+-- board-local unscaled metres: x,y or nil.
+function Extra.onPlane(board,sx,sy,z)
+    if sx==nil or sy==nil then return end
+    local ray=Open77.camera.screenRay(sx,sy,15)
+    if type(ray)~="table" or type(ray.origin)~="table" or type(ray.direction)~="table" or math.abs(ray.direction.z)<.001 then return end
+    local t=(board.position.z+z*SCALE-ray.origin.z)/ray.direction.z
+    if t<=0 then return end
+    local a=math.rad(board.rotation or 0)
+    local dx,dy=ray.origin.x+ray.direction.x*t-board.position.x,ray.origin.y+ray.direction.y*t-board.position.y
+    return (dx*math.cos(a)+dy*math.sin(a))/SCALE,(-dx*math.sin(a)+dy*math.cos(a))/SCALE
+end
+-- Outline a local rectangle at height z.
+function Extra.box(board,line,x0,y0,x1,y1,z,color)
+    local a,b,c,d=world(board,x0,y0,z),world(board,x1,y0,z),world(board,x1,y1,z),world(board,x0,y1,z)
+    line(a,b,color);line(b,c,color);line(c,d,color);line(d,a,color)
 end
 local function trace(reason,board,format,...)
     local client=LightRpBoardGamesClient
@@ -128,9 +177,8 @@ end
 Extra.command=command
 function Extra.pointer(board,event)
     local adapter=games[board.kind]
-    if not adapter then return false end
-    if adapter.pointer then return adapter.pointer(board,event) end
-    return true -- money is wagered explicitly from the ALT menu
+    if adapter and adapter.pointer then adapter.pointer(board,event) end
+    return true -- casino tables never fall through to the board-game moves
 end
 
 -- Roulette -------------------------------------------------------------------
@@ -143,6 +191,43 @@ local POCKET_R,POCKET_Z=.27,.025       -- settled ball centre (unchanged)
 local PATH_R={.388,.372,.330,.322,.296,.283,.27}
 local PATH_Z={.074,.068,.050,.047,.047,.042,.025}
 local DROP_T,LAND_T=.52,.76            -- spin fractions: leaves the track, lands in its pocket
+-- The printed betting layout (tools/build-tabletop-extra-props.py LAYOUT,
+-- CELL, ZERO_W, DOZEN_H, GRID_X0, GRID_Y1): 12 columns of 3 numbers from
+-- GRID_X0 along +X, the zero before them, then the dozens and the six even
+-- chances towards the players (-Y).
+local LAYOUT={z=.0215,gx0=.68,top=.24,cell=.10,zeroW=.10,band=.09}
+Extra.rouletteLayout=LAYOUT
+local EVEN={{"low","1-18"},{"even","Even"},{"red","Red"},{"black","Black"},{"odd","Odd"},{"high","19-36"}}
+local DOZENS={{"dozen1","1st 12"},{"dozen2","2nd 12"},{"dozen3","3rd 12"}}
+local PAYS={}
+-- The cell under a board-local point: bet key, label, rectangle.
+local function rouletteCell(x,y)
+    if x==nil then return end
+    local L=LAYOUT
+    local gx0,top,cell=L.gx0,L.top,L.cell
+    local dz=top-3*cell;local ev=dz-L.band
+    local right=gx0+12*cell
+    if y<=top and y>dz then
+        if x>=gx0 and x<right then
+            local col=math.floor((x-gx0)/cell);local row=math.floor((top-y)/cell)
+            local n=col*3+(3-row)
+            local x0,y1=gx0+col*cell,top-row*cell
+            return "number:"..n,tostring(n),x0,y1-cell,x0+cell,y1
+        elseif x>=gx0-L.zeroW and x<gx0 then
+            return "number:0","Zero",gx0-L.zeroW,dz,gx0,top
+        end
+    elseif y<=dz and y>ev and x>=gx0 and x<right then
+        local i=math.floor((x-gx0)/(4*cell))
+        return DOZENS[i+1][1],DOZENS[i+1][2],gx0+i*4*cell,ev,gx0+(i+1)*4*cell,dz
+    elseif y<=ev and y>ev-L.band and x>=gx0 and x<right then
+        local i=math.floor((x-gx0)/(2*cell))
+        return EVEN[i+1][1],EVEN[i+1][2],gx0+i*2*cell,ev-L.band,gx0+(i+1)*2*cell,ev
+    end
+end
+Extra.rouletteCell=rouletteCell
+for _,bet in ipairs(EVEN) do PAYS[bet[1]]="1:1" end
+for _,bet in ipairs(DOZENS) do PAYS[bet[1]]="2:1" end
+function Extra.roulettePays(bet) return PAYS[bet] or "35:1" end
 local function smooth(x) x=clamp(x,0,1);return x*x*(3-2*x) end
 -- Ball centre at fraction s (0..1) of the drop path.
 local function dropPoint(s)
@@ -187,5 +272,30 @@ Extra.register("roulette",{
         local a=math.rad(ball)
         Extra.put(result,"roulette-wheel","roulette_wheel",Extra.asset(ROULETTE,"roulette_wheel"),0,0,0,-wheel)
         Extra.put(result,"roulette-ball","roulette_ball",Extra.asset(ROULETTE,"roulette_ball"),r*math.sin(a),r*math.cos(a),z,0)
+    end,
+    -- The table runs along +X from the wheel; players stand on the -Y side.
+    views={{key="top",label="Overhead"},{key="layout",label="Layout"},{key="wheel",label="Wheel"},{key="orbit",label="Orbit"}},
+    orbit={x=.95,y=0,z=0,radius=2.1,height=1.3},
+    camera=function(board,view)
+        if view=="layout" then -- the betting layout, from the players' side
+            return {position=world(board,1.15,-1.45,1.05),lookAt=world(board,1.15,-.05,0),fov=50}
+        elseif view=="wheel" then -- close on the wheel to follow the ball
+            return {position=world(board,-.10,-.80,.70),lookAt=world(board,0,.02,.03),fov=44}
+        end
+        return {position=world(board,.78,-.01,2.05),rotation={pitch=-89.5,yaw=board.rotation or 0,roll=0},fov=52}
+    end,
+    -- A click on a layout cell selects that bet; the bar places the chip on it.
+    pointer=function(board,event)
+        if not event.pressed then return end
+        local x,y=Extra.onPlane(board,event.x,event.y,LAYOUT.z)
+        local bet,label,x0,y0,x1,y1=rouletteCell(x,y)
+        if bet then Extra.select(board,bet,label,{x0,y0,x1,y1}) end
+    end,
+    aim=function(board,sx,sy,line)
+        local z=LAYOUT.z+.004
+        local sel=Extra.selection(board)
+        if sel and sel.data then local r=sel.data;Extra.box(board,line,r[1],r[2],r[3],r[4],z,"#38f2ffff") end
+        local bet,_,x0,y0,x1,y1=rouletteCell(Extra.onPlane(board,sx,sy,LAYOUT.z))
+        if bet and not (sel and sel.key==bet) then Extra.box(board,line,x0,y0,x1,y1,z) end
     end,
 })

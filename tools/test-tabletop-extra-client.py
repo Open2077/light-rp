@@ -9,6 +9,7 @@ namespace = {'__file__': str(ROOT/'tools/test-board-games-client.py')}
 exec(source.split("for name in ['shared/board_game_models.lua'")[0], namespace)
 lua = namespace['lua']
 assets=json.loads((ROOT/'resources/assets/models/open77_tabletop_extra/asset-manifest.json').read_text())
+lua.globals().layoutManifest=lua.table_from(assets['layout'])
 lua.globals().availableModels=lua.table_from({model['name']: True for model in assets['models'] + assets.get('colliders', [])})
 lua.execute(r'''
 function Open77.props.create(options)
@@ -49,9 +50,36 @@ local before=#requests
 assert(E.command(roulette,'bet',{bet='red',amount=25}))
 assert(#requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.amount==25 and last().revision==1)
 assert(not E.command(roulette,'teleport',{}) and #requests==before+1,'unknown operations never reach the server')
--- A crosshair click cannot silently wager any RP money: it points at the ALT menu.
-keys.mouse1=true;step();keys.mouse1=false;step()
-assert(#requests==before+1 and not focus and lastNotice:find('Hold ALT',1,true),'a click explains the ALT menu')
+-- The game view opens overhead on the wheel and the layout.
+assert(focus and camera and frozen and cameraSpec.rotation and view.view=='top' and #view.views==4 and view.views[2].key=='layout')
+-- Cursor picking on the printed layout (straight down on a cell): a click
+-- selects the bet, outlined on the table; it never wagers by itself.
+local L=E.rouletteLayout
+local function at(x,y) forcedRay={origin={x=x*.65,y=y*.65,z=3},direction={x=0,y=0,z=-1}};pointer({x=.4,y=.6});step();step() end
+local function pick(x,y) at(x,y);pointer({x=.4,y=.6,pressed=true});step();pointer({x=.4,y=.6,released=true});step();step() end
+local function sel() local s=E.selection(roulette);return s and s.key end
+local dz,ev=L.top-3*L.cell,L.top-3*L.cell-L.band
+at(L.gx0+5.5*L.cell,L.top-1.5*L.cell);assert(outlines()==4 and sel()==nil,'the hovered cell is outlined')
+pick(L.gx0+5.5*L.cell,L.top-1.5*L.cell);assert(sel()=='number:17' and E.selection(roulette).label=='17' and outlines()==4)
+assert(#requests==before+1,'a click selects, the bar bets')
+at(L.gx0+.5*L.cell,L.top-.5*L.cell);assert(outlines()==8,'selection and hover')
+pick(L.gx0+11.5*L.cell,L.top-.5*L.cell);assert(sel()=='number:36')
+pick(L.gx0+.5*L.cell,L.top-2.5*L.cell);assert(sel()=='number:1')
+pick(L.gx0-.05,L.top-1.5*L.cell);assert(sel()=='number:0' and E.selection(roulette).label=='Zero')
+pick(L.gx0+6*L.cell,dz-L.band/2);assert(sel()=='dozen2')
+pick(L.gx0+5*L.cell,ev-L.band/2);assert(sel()=='red' and E.roulettePays('red')=='1:1')
+pick(L.gx0+11*L.cell,ev-L.band/2);assert(sel()=='high')
+pick(.2,0);assert(sel()=='high','a click on the wheel keeps the selection')
+-- Every cell of the layout maps to a bet the server accepts.
+for col=0,11 do for row=0,2 do
+ local key=E.rouletteCell(L.gx0+(col+.5)*L.cell,L.top-(row+.5)*L.cell)
+ assert(key=='number:'..(col*3+3-row) and R.roulettePayout(key,col*3+3-row,1)==36)
+end end
+-- The layout matches the cooked asset (tools/build-tabletop-extra-props.py).
+local layout=layoutManifest
+assert(math.abs(L.gx0-(layout.x0+.025+L.zeroW))<1e-9 and math.abs(L.top-(layout.y1-.025))<1e-9 and math.abs(L.z-layout.z)<1e-6)
+assert(L.gx0+12*L.cell<=layout.x1 and ev-L.band>=layout.y0)
+forcedRay=nil
 -- A still wheel holds its targets until the next snapshot; a spin animates.
 local _,hold=E.pieceTargets(roulette);assert(hold==math.huge,'a still roulette needs no per-frame targets')
 roulette.game=assert(R.act(roulette.game,'white','spin',{outcome=17,seedAngle=41,nowMs=now}))
@@ -90,8 +118,8 @@ roulette.game=assert(R.act(roulette.game,'white','settle',{nowMs=now+8001}))
 roulette.game=assert(R.act(roulette.game,'white','nextRound',{}))
 local retained=E.pieceTargets(roulette)
 assert(math.abs(retained['roulette-wheel'].piece.yaw+spin.wheelTo)<1e-8,'wheel angle survives the next betting round')
-edge('BACKSPACE');assert(not C.isActive())
+edge('BACKSPACE');assert(not C.isActive() and not focus and not camera and E.selection(roulette)==nil,'leaving clears the selection')
 handlers.onClientResourceStop('test');for i=1,20 do step()end
 assert(next(nativeProps)==nil and next(batches)==nil)
-print('extra tabletop client: native props, roulette clock/outcome, cleanup: OK; peak '..peakInstructions)
+print('extra tabletop client: native props, game view, roulette layout picking, roulette clock/outcome, cleanup: OK; peak '..peakInstructions)
 ''')

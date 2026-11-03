@@ -8,36 +8,40 @@ practice for the table's owner. No money is involved.
 /lightrp.giveitem me pool_table 1
 ```
 
-Use the item to place it (free mode, it stands on the floor: `floor=0`), E or
-the ALT menu's *Sit* to take a seat. Backspace or *Leave table* leaves.
+Use the item to place it (crosshair placement, it stands on the floor:
+`floor=0`), E or the ALT menu's *Sit* to take a seat; that opens the game view
+(board-games.md) overhead (views *Overhead*, *Head end*, *Side rail*, *Orbit*).
+Backspace or the bar's *Leave* leaves.
 
 ## Playing
 
-Everything is played on the cloth, in free mode (the character keeps walking
-and looking around):
+Everything is played on the cloth with the cursor:
 
-- **Aim**: the seated player whose shot it is points the crosshair at the
+- **Aim**: the seated player whose shot it is points the cursor at the
   cloth. The cue turns about the cue ball towards that point, a cyan guide runs
   from the cue ball to the first ball or cushion on that line, with the ghost
   ball at the contact and a magenta line where that object ball would go.
 - **Shoot**: hold the left button to charge (the cue draws back; the power
   swings from 0 to full in 1.6 s, then back down, so holding longer is not
-  always harder), release to shoot. Holding ALT (or opening the menu) during a
-  charge cancels it: no shot.
+  always harder; the bar shows *Power 64%*), release to shoot. Releasing over
+  the bar cancels the charge: no shot.
 - **Ball in hand**: after a foul the incoming player places the cue ball: it
-  follows the crosshair on the cloth (never onto another ball), a click puts
+  follows the cursor on the cloth (never onto another ball), a click puts
   it down, then aim and shoot as usual.
 
-The ALT menu on the table holds the rest (`client/core/table_menu.lua`):
+The bar holds the rest (`client/core/table_bar.lua`); the status reads *Your
+shot · solids*, *Opponent's shot · open table*, *Balls rolling*, *You win*,
+*Practice*...
 
-| Row | Who | When |
+| Button | Who | When |
 | --- | --- | --- |
-| Status (*Your shot · solids*, *Opponent's shot · open table*, *Balls rolling*, *You win*, *Practice*...) | seated | always; selecting it explains the state (balls left per group) |
-| *Mode: 1v1 ›* Solo practice / *Mode: Solo practice ›* 1v1 | owner | before the first shot |
+| *Mode: 1v1* / *Mode: Practice* (switches) | owner | before the first shot |
 | *New game* | owner | after the first shot, balls still |
 | *Re-rack* | seated (practice) | after a shot, balls still |
-| *Rematch (re-rack)* | seated (1v1) | the game is won |
-| *Sit*, *Leave table*, *Pick up board* | as for every table | |
+| *Rematch* | seated (1v1) | the game is won |
+
+The ALT menu on the table manages it like every table: status, *Sit*, the
+owner's mode (Solo practice / 1v1) and *New game*, *Pick up board*.
 
 Notices say what happened once the balls stop on every client: what was
 potted, fouls ("Foul by your opponent: Scratch. Ball in hand: ..."), the group
@@ -147,7 +151,7 @@ spine of the base (`P.PARK`).
 python3 tools/test-casino-pool.py          # physics + rules
 python3 tools/test-casino-pool-server.py   # validation, replay, ball in hand, size
 python3 tools/test-casino-pool-client.py   # playback, aim/charge/shoot, budget
-python3 tools/test-table-menu.py           # ALT rows and notices
+python3 tools/test-table-menu.py           # ALT rows, the bar and notices
 python3 tools/test-casino-e2e.py pool      # real server + client through JSON
 python3 tools/build-casino-pool-props.py --lab <dop-tests lab> --work ~/.cache/casino-pool-build
 python3 tools/test-table-colliders.py
@@ -155,5 +159,5 @@ python3 tools/test-table-colliders.py
 
 Not verified in game yet: the look of the emission and the cloth under the
 game's lighting, whether the ALT ray reports the table props, the feel of the
-power swing and the deceleration, and the crosshair picking from the player's
-own camera at shallow angles.
+power swing and the deceleration, the camera framings and the cursor picking
+from the low views (*Head end*, *Side rail*).

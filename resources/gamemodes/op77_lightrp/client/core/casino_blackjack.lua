@@ -15,7 +15,7 @@ local CARD_T=.0016            -- a card's thickness (authored pose, build-casino
 local CARD_GAP=.0008          -- air between a card and the next one
 local CARD_STEP=CARD_T+CARD_GAP
 local CARD_Z=FZ+.001          -- the first card of a hand, just off the felt
-local MAX_CARDS=7             -- rendered per hand (the panel lists every card)
+local MAX_CARDS=7             -- rendered per hand
 local SHOE={x=.70,y=.03,z=FZ+.04,yaw=0}       -- hidden inside the shoe body
 local EXIT={x=.70,y=-.15,z=FZ+.02}            -- the shoe mouth, where a dealt card appears (above every landed card)
 -- Swept cards converge on the tray: every card of the table gets its own layer
@@ -229,8 +229,46 @@ local function pieceTargets(board,result)
     end
     Extra.stillUntil(board,holdMin)
 end
+-- The local player's betting circle: a click selects it (the bar bets the
+-- chip there; with one circle per seat it is also the default target).
+local CIRCLE_R=.09
+local function mySeat(board) return SEATS[Extra.seat(board) or ""] end
+local function onCircle(board,sx,sy)
+    local s=mySeat(board);if not s then return end
+    local x,y=Extra.onPlane(board,sx,sy,FZ)
+    if x and (x-s.px)^2+(y-s.py)^2<=CIRCLE_R*CIRCLE_R then return s end
+end
+local function ring(board,line,s,r,color)
+    local w=Extra.world
+    local px,py=s.px+r,s.py
+    for k=1,12 do
+        local a=k*math.pi/6;local qx,qy=s.px+r*math.cos(a),s.py+r*math.sin(a)
+        line(w(board,px,py,FZ+.004),w(board,qx,qy,FZ+.004),color);px,py=qx,qy
+    end
+end
 Extra.register("blackjack",{
     operations={bet=true,deal=true,hit=true,stand=true,double=true},
     boardModel=function() return asset("blackjack_table") end,
     pieceTargets=pieceTargets,
+    views={{key="seat",label="Your seat"},{key="top",label="Overhead"},{key="dealer",label="Dealer"},{key="orbit",label="Orbit"}},
+    orbit={x=0,y=-.3,z=FZ,radius=1.9,height=1.0},
+    camera=function(board,view)
+        local w=Extra.world
+        if view=="top" then
+            return {position=w(board,0,-.42,FZ+2.4),rotation={pitch=-89.5,yaw=board.rotation or 0,roll=0},fov=52}
+        elseif view=="dealer" then
+            return {position=w(board,0,.95,FZ+.8),lookAt=w(board,0,-.55,FZ),fov=55}
+        end
+        local s=mySeat(board) or SEATS.black
+        return {position=w(board,1.65*s.ux,1.65*s.uy,FZ+.85),lookAt=w(board,0,-.28,FZ),fov=50}
+    end,
+    pointer=function(board,event)
+        if event.pressed and onCircle(board,event.x,event.y) then Extra.select(board,"circle","Your circle") end
+    end,
+    aim=function(board,sx,sy,line)
+        local s=mySeat(board);if not s then return end
+        local sel=Extra.selection(board)
+        if sel then ring(board,line,s,CIRCLE_R,"#38f2ffff") end
+        if not sel and onCircle(board,sx,sy) then ring(board,line,s,CIRCLE_R) end
+    end,
 })

@@ -9,43 +9,71 @@ shop needs an NPC placed in game); staff grant them with
 All item labels, controls, status messages and errors are in English.
 
 Use an item to place its board. The inventory closes first, then placement
-runs in free mode (no cursor): the preview stands where the crosshair hits the
+runs without a cursor: the preview stands where the crosshair hits the
 world within 3.5 m (a floor-standing table on the floor, a board on the
 surface), the Left/Right arrow keys turn it, Page Up/Down adjust its height,
 and E confirms. Backspace or Escape cancels. A notice lists the keys. Placement
 must be within 4 metres. There is no per-character or server-wide placement
 count limit; nearby props stream as needed.
 
-**There is no table panel and no table HUD.** Everything happens in the world
-(free mode) and in the ALT target menu:
+**Sitting opens the game view.** E near a table (the interaction prompt) or
+*Sit* in the table's ALT menu takes a seat, and the client
+(`client/core/board_games.lua`) then:
 
-- **Crosshair + left click** plays on the board itself. The character is not
-  frozen, mouse-look, movement and the game HUD stay. The aimed square, column
-  or table element and the selection are outlined on the table, and a small
-  cross marks where the screen centre meets a chess or checkers board.
-  Chess and checkers: click a piece, then its destination, or hold the button
-  on a piece and release it over another square. Connect Four: aim at a column
-  and click. The server receives a move only on release. While ALT is held (or
-  the target menu is open) and while chat or another page types, clicks and
-  table keys stay inert.
-- **Hold ALT and click the table** (its base, its collider, a piece, or the
-  surface right under it) for a menu titled with the game's name that lists
-  only what makes sense for you right now (`client/core/table_menu.lua`):
-  *Sit* when a seat is free for you, *Leave table* when seated, *Pick up board*
-  for the owner within 2 m. Seated on a board game: a status row (*Your turn*,
-  *Black to move*, *You win*... selecting it explains the mode, the players and
-  the controls), and for the owner *Mode: 1v1 ›* (Solo vs AI, 1v1, 2v2) before
-  the first move, then *New game*. The casino rows are in each casino document.
-- **E** near a table also sits down (the interaction prompt). It stays because
-  it is how every other Light RP object is used and needs no aiming; the ALT
-  menu offers the same *Sit* so the table's menu is complete.
-- **Notices** say what the panel used to show: how to play when you sit, your
-  turn, the result, each confirmed bet and payout, refusals from the server
-  ("It is not your turn", "Not enough cash for this bet"...). Timed reveals
-  (reels, the dealer's hand) are announced when every client shows them.
+- activates a **scripted camera** framing the table (per game, see below),
+  freezes the character, hides the game HUD (cinematic, letterbox 1 %) and the
+  page's gameplay HUD and voice plate, and gives the page the **mouse cursor**
+  (keyboard stays with the game). The ALT target menu is disabled while the
+  page holds the cursor;
+- lets the cursor **pick on the table** through `Open77.camera.screenRay`:
+  chess and checkers squares and pieces (tall pieces by their bodies, so a side
+  view picks the piece, not the square behind it), Connect Four columns,
+  roulette layout cells, fortune spots, your blackjack betting circle, the slot
+  lever, the pool cloth. The hovered target is outlined on the table in amber,
+  the selection in cyan (`Open77.debugDraw`);
+- shows a compact **bar centred at the bottom of the screen**
+  (`ui/src/features/board-games/TableBar.tsx`, model built per game by
+  `client/core/table_bar.lua`): the game's title, a short status (whose turn,
+  the phase, a countdown, your hand total), the chip amount (− / value / +,
+  stepping through 1, 5, 10, 25, 50, 100... within the game's limits), the
+  target picked on the table, the buttons that make sense right now (Bet,
+  Spin, Pull, Deal now, Hit, Stand, Double, Next round, Re-rack, Rematch, the
+  owner's Mode and New game), the camera switch and Leave. Buttons that do not
+  apply are not shown; buttons that apply but cannot be used yet are disabled.
+  It never covers the middle of the screen.
 
-Backspace or the menu's *Leave table* leaves the seat. Nearby interaction
-prompts stay hidden while seated.
+Chess and checkers: click a piece, then its destination, or press on a piece
+and release it over another square (the held piece follows the cursor).
+Connect Four: click a column (the drop is sent on release over the same
+column). The server receives a move only on release; a press or release over
+the bar is never a table click. Promotion is always to a queen.
+
+Camera views (the camera button cycles them; the first is the default):
+chess and checkers *Overhead*, *White side*, *Black side*, *Orbit*; Connect
+Four *Front*, *Low front*, *Orbit*. In an orbit view the right button turns
+the camera and the wheel zooms. If another script holds the camera when you
+sit, you keep the cursor and the bar over the game camera (a notice says so);
+if another script takes the camera over while you play (a cutscene), the
+table view closes.
+
+Backspace, the bar's *Leave* or walking away (see below) leaves the seat and
+restores the camera, the character, the cursor and the HUD. Escape stays with
+the game's pause menu. Nearby interaction prompts stay hidden while seated.
+
+**The ALT menu manages tables.** Hold ALT and click a table (its base, its
+collider, a piece, or the surface right under it) for a menu titled with the
+game's name (`client/core/table_menu.lua`): a status row (*White to move ·
+1v1*, *Bets open*, *Hand in play*...; selecting it repeats it as a notice),
+*Sit* when a seat is free for you, for the owner *Mode: 1v1 ›* (Solo vs AI,
+1v1, 2v2; pool: Solo practice, 1v1) before the first move then *New game*,
+and *Pick up board* within 2 m. The owner can configure a table without
+sitting. Seated players use the bar (the menu cannot open while the page holds
+the cursor); its *Leave table* row remains only as a fallback.
+
+**Notices** complement the bar: how to play when you sit, your turn, the
+result, each confirmed bet and payout, refusals from the server ("It is not
+your turn", "Not enough cash for this bet"...). Timed reveals (reels, the
+dealer's hand) are announced when every client shows them.
 
 The owner chooses Solo vs AI, 1v1 or 2v2 before the first move. Teams share a
 colour; full turns alternate White 1, Black 1, White 2, Black 2. All four
@@ -63,15 +91,22 @@ inventory, even after reconnecting, and unseats everyone at it.
 The menu is one `open77_contextmenu` registration with **dynamic rows**
 (`rows="tableMenuRows"`, open77_contextmenu 1.3.0): at each ALT click the menu
 asks LightRP for this table's rows, built from the snapshot the client already
-holds (seat, phase, turn, owner, legal moves, last known cash), and on
-selection asks again and runs the row only if it is still offered. A static
-registration per action would not fit: the menu allows 32 actions per resource
-and Light RP already uses 23 for vehicles, crew, cyberware, the guide and the
-Hall of Fame. Every row sends a request the server already validates
-(`lightrp:boardGames:request` join/leave/mode/reset/pickup, and the tabletop
-`game` operations through `LightRpTabletopExtraClient.command`); nothing about
-the rules or the money changed. A menu costs about 1,400 VM instructions to
-build (`tools/test-table-menu.py`).
+holds, and on selection asks again and runs the row only if it is still
+offered. The bar works the same way: a click sends `lightrp:boardGames:action
+{key}` and the client rebuilds the bar from the current state and runs the
+button only if it is still offered and enabled, so a click that crosses a
+phase change is dropped. Every row and button sends a request the server
+already validates (`lightrp:boardGames:request` join/leave/mode/reset/pickup,
+and the tabletop `game` operations through `LightRpTabletopExtraClient.command`);
+nothing about the rules or the money changed. A menu costs about 750 VM
+instructions to build and a bar about 800 (`tools/test-table-menu.py`); the bar
+is sent to the page at most every 200 ms while seated (a few hundred bytes).
+
+Page protocol (`lightrp:boardGames:*`): Lua sends `view` (active, kind,
+title, status, tone, detail, hint, countdownMs, chip, target, actions, views,
+view, orbit, camera, leaving); the page sends `pointer` (normalized cursor and
+button edges, or `blocked` over the bar), `camera` (`cycle`, `view`, `zoom`),
+`action`, `chip`, `leave`.
 
 Chess supports castling, en passant, checkmate/stalemate, repetition, insufficient
 material and promotion. The mouse interface promotes to a queen automatically;
@@ -114,7 +149,7 @@ White pieces are pearl and chrome with cyan accents, Black pieces onyx and
 gunmetal with magenta accents; checker kings carry a raised neon crown;
 Connect Four is a gunmetal frame with red and yellow machined discs. There is
 no emissive shader: the glow is bright paint, texture bands and bevel
-highlights. The crosshair picking heights (`PIECE_HEIGHTS` in
+highlights. The cursor picking heights (`PIECE_HEIGHTS` in
 `client/core/board_games.lua`) follow the cooked piece heights; the pack test
 fails if they drift. Each board base also ships a mesh-less collider entity
 (`<base>_collider.ent`, see `tools/COLLISION.md`).
@@ -138,14 +173,18 @@ python3 tools/test-board-games-server.py
 python3 tools/test-board-games-client.py
 python3 tools/test-table-menu.py
 python3 tools/test-casino-e2e.py
+npm --prefix ui run build && PLAYWRIGHT_MODULE=<playwright> BROWSER_CHANNEL=chromium node ui/tests/board-games.browser.cjs
 ```
 
 `resources/gamemodes/op77_lightrp/tests/context_rows_test.lua` covers the
 dynamic rows of open77_contextmenu and `ui/tests/context-submenus.browser.cjs`
-its page (title and row tokens). Crosshair picking from the player's own camera
-(first and third person), whether the ALT ray reports the table props (it hits
-the cooked colliders; the menu falls back to the nearest table under a surface
-hit), audio and native rendering still need an in-game check with actual clients.
+its page (title and row tokens); `ui/tests/board-games.browser.cjs` covers the
+bar for every game (buttons, chip, camera, Leave, pointer forwarding, the
+hidden HUD, its size at 1280×720 and 1920×1080). Still to check in game with
+actual clients: the camera framings, cursor picking through the real
+`screenRay` of each view, the ALT ray on the table props (it hits the cooked
+colliders; the menu falls back to the nearest table under a surface hit),
+audio and native rendering.
 
 ## Roulette
 
@@ -155,7 +194,7 @@ Additional native props are delivered by `open77_tabletop_extra` (3 props with o
 
 The roulette is a full casino table in the Night City high-roller style: a black-chrome bowl with a smoked-glass ball track and chrome deflectors, a rotor with frets, an etched number ring, a brushed cone and a chrome turret, a dark composite layout printed with 0-36, the dozens and the even chances under thin cyan lines, a chip rack, a rail and a sculpted pedestal. The board position is still the wheel centre: the table runs 2.1 m along +X (1.37 m in game) and stands 1.23 m below the wheel datum (0.80 m in game), so aim at the floor while placing: the preview stands its plinth on the aimed surface (PgUp/PgDn adjust). The ball (3 cm, 2 cm in game, faintly luminous) rides the ball track for the first half of the spin, drops over the deflectors and the number ring, then lands in its pocket and turns with the rotor. A collider entity `roulette_table_collider` follows `tools/COLLISION.md`. Preview renders: `resources/assets/models/open77_tabletop_extra/sources/preview_roulette*.png`.
 
-The table shares placement, free mode, distance leave and owner-only retrieval through the ALT menu with the board games. Seated, hold ALT on the table: *Chip: €$ 10 ›* (10, 50, 100, 500, 1,000, within your cash) picks the amount, *Bet €$ 10 ›* lists Red, Black, Even, Odd, 1-18, 19-36, 1-12, 13-24, 25-36 and Zero, and *Spin* spins; while the wheel turns only the status and *Leave table* remain; then the status shows the result (*Result: 17 Black*) with *Next round*. Each accepted bet and the result with your winnings arrive as notices. Straight numbers 1-36 are not in the menu (the menu shows at most 24 rows and one folder level); the server still accepts them. There is no numerical placement limit. Ordinary distance and overlap checks still apply.
+The table shares placement, the game view, distance leave and owner-only retrieval with the board games. Seated, the camera opens *Overhead* (wheel and layout; also *Layout* from the players' side, *Wheel* close on the ball, *Orbit*). Click any cell of the printed layout (a straight number 0-36, a dozen or an even chance) to select it (outlined in cyan; the bar shows *17 · pays 35:1*), set the chip with − / + and press *Bet €$ 25 on 17*; repeat for more bets, then *Spin*. While the wheel turns the bar shows the countdown and no buttons; then the result (*17 Black*, *You win €$ 900*) with *Next round*. Each accepted bet and the result with your winnings arrive as notices. A click only selects: money moves only on *Bet*. The server has no bet withdrawal, so there is no *Clear*. There is no numerical placement limit. Ordinary distance and overlap checks still apply.
 
 Admin item command:
 
@@ -163,4 +202,4 @@ Admin item command:
 /lightrp.giveitem me roulette_table 1
 ```
 
-Validation: `tools/test-tabletop-extra.py`, `tools/test-tabletop-extra-client.py`, `tools/test-tabletop-extra-server.py`, `tools/build-tabletop-extra-props.py --verify-only`, and `tools/test-table-menu.py`. Server tests cover atomic cash debits, failed storage, exactly-once payouts after restarts, offline refunds and recycled player IDs.
+Validation: `tools/test-tabletop-extra.py`, `tools/test-tabletop-extra-client.py` (layout picking, matched against the cooked layout), `tools/test-tabletop-extra-server.py`, `tools/build-tabletop-extra-props.py --verify-only`, `tools/test-table-menu.py` (the bar) and `tools/test-casino-e2e.py roulette`. Server tests cover atomic cash debits, failed storage, exactly-once payouts after restarts, offline refunds and recycled player IDs.
