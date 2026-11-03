@@ -253,6 +253,11 @@ Deathmatch = {
         end,
         queuePosition = queuePosition,
         queueCounts = function() return { ["1v1"] = #queues["1v1"], ["2v2"] = #queues["2v2"], ["3v3"] = #queues["3v3"] } end,
+        queueMembers = function(format)
+            local ids = {}
+            for _, entry in ipairs(queues[format] or {}) do ids[#ids + 1] = entry.playerId end
+            return ids
+        end,
         sideOf = function(id)
             local instance = members[tonumber(id)]
             return instance and instance.match and instance.match.sides[tonumber(id)] or nil
@@ -499,6 +504,9 @@ do
     T = T + 10000
     H.tick(T)
     assert(#fake.enqueues == before, "still waiting for people")
+    -- The queue panel counts down to the bots.
+    local tq = H.statusOf("teams").queue.lobbies[1]
+    assert(tq.players[1] == 7 and tq.need == 4 and tq.mode == "2v2" and tq.startsInMs == 20000, tostring(tq.startsInMs))
     T = T + 25000
     H.tick(T)
     assert(fake.enqueues[#fake.enqueues].id == 7 and fake.enqueues[#fake.enqueues].bots == true, "then bots complete it")
@@ -556,7 +564,10 @@ do
     setMode(true)
     L.bots.duelWaitMs = 20000
     assert(H.queueDuel(6) == true and DM.instances.of(6) == nil and #H.duelQueue == 1)
-    T = T + 21000
+    T = T + 5000
+    local dq = H.statusOf("duel").queue.lobbies[1]
+    assert(dq.players[1] == 6 and dq.need == 2 and dq.startsInMs == 15000, "the panel counts down to the bot")
+    T = T + 16000
     H.tick(T)
     assert(DM.instances.of(6) ~= nil and #H.duelQueue == 0)
     say("PASS duel vs bot")

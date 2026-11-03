@@ -94,4 +94,16 @@ C.forgetStatuses()
 assert(C.status("arena.duel", s) == true, "forgotten after a core restart")
 assert(#env.events == 4 and env.events[1].name == "op77_lightrp:activity:status" and env.events[1].args[1] == "arena.duel")
 
+-- The queue shape (status.queue v1) is in the digest: a countdown running down is no
+-- change, a player who joined is.
+local q = { phase = "lobby", players = 0, queued = 1, joinable = true, detail = "1 waiting",
+    queue = C.queue({ C.lobby({ 7 }, 2, { startsInMs = 20000 }) }) }
+assert(q.queue.v == 1 and q.queue.lobbies[1].players[1] == 7 and q.queue.lobbies[1].need == 2)
+assert(C.status("arena.duel", q, false, 100000) == true)
+q.queue.lobbies[1].startsInMs = 15000
+assert(C.status("arena.duel", q, false, 105000) == false, "the same deadline")
+q.queue.lobbies[1].players = { 7, 8 }
+assert(C.status("arena.duel", q, false, 105000) == true, "a player joined")
+assert(C.queueDigest(nil) == "-" and #C.queue().lobbies == 0)
+
 say("PASS: op77_arena core (contract calls, sentences, raising exports, leave defaults, status dedupe)")
