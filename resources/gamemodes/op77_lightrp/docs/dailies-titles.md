@@ -756,5 +756,22 @@ maquette), `features/activities/ActivitiesDialog.tsx` (onglet DAILIES), `bridge/
   outils du staff, aller-retour en base, nom « Dailies » des notices ;
 - `titles_test.lua` : dont le raid à trois avec un départ (pas de Two-Man Army) ;
 - `dailies_flow_*_test.lua` : chaque contrat alimenté par un autre module, piloté **par le vrai
-  module producteur** (économie, inventaire, carburant, activités, missions et Chimera, métiers,
-  médical, world boss), seuls les natifs étant simulés, avec les cas d'échec.
+  module producteur**, seuls les natifs étant simulés, avec les cas d'échec et un cas de
+  régression par bug trouvé :
+  - `dailies_flow_street_test.lua` : économie, inventaire et consommables, logement, carburant,
+    pompe et jerrycan (*Lucky Number*, *Nobody Eats Alone*, *Housewarming*, *Bar Crawl*,
+    *Running on Fumes*, *Roadside*, *Pit Crew*, *Fare Paid*, *Walk of Shame*) ;
+  - `dailies_flow_missions_test.lua` : vrai raid Chimera, du tableau à la victoire (*Clean
+    Invoice*, *One-Man Army*, *Two Against the Machine* et sa règle du partenaire) ;
+  - `dailies_flow_jobs_test.lua` : `job_work` et `job_runs` (*Full Truck*, *The Full Round*,
+    *Two Wheels*, *Fragile*, *Water Break*) ;
+  - `dailies_flow_activities_test.lua` : `activities.lua` et `activity_pay.lua` avec les charges
+    exactes d'`op77_chase`, `op77_arena` et `op77_race`, world boss et médical (*Lose Them*,
+    *Leg Day*, *Five Without a Dirt Nap*, *Support Act*, *Nightcap*, *Back to Back*, *Nobody
+    Left Behind*, *All the Way*, *Both Sides*, *Lion's Share*, *On Call*, *Good Samaritan*) ;
+  - les contrats de l'échantillonneur (*Street Performer*, *The Tour*, *Ride Along*, *Convoy*,
+    *Album Cover*) n'ont pas d'autre producteur que les positions, sièges et animations lus
+    par `dailies.lua` lui-même : ils sont dans `dailies_test.lua`.
+- `guide_test.lua`, `guide_dialogue_test.lua` : la FAQ `money.dailies` (F1 → Dailies, onglet
+  Dailies du panneau Activities, ce que paie chaque case, remise à zéro) et le choix de Johnny
+  sous « How do I make money? ».
