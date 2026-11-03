@@ -30,7 +30,7 @@ local function play(token)
     step(#threads); step(#threads)
 end
 prepare("a"); play("a")
-assert(progress.durationMs == 6500 and progress.cancellable and not progress.allowMovement)
+assert(progress.durationMs == 6500 and progress.cancellable and progress.allowMovement == true, "input stays with the game: the camera turns while eating")
 assert(progress.description:find("Water"))
 progressCallback({ status = "success" }); progress = nil
 assert(sent[#sent].data.status == "success" and #cancellations == 0, "success waits for authoritative commit before stopping animation")
