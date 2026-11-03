@@ -28,7 +28,7 @@
 -- NEVER hand a bot id (negative) to a player native: players.position / name /
 -- identifier raise on a non-positive id, through pcall, and stop the resource.
 TurfBots = { byNpc = {}, lastHit = {}, created = 0, removed = 0, stopping = false, loadedAt = nil, lastSpawnAt = nil,
-    noLoadout = false }
+    noLoadout = false, noBehavior = false }
 local B = TurfBots
 local R = TurfRules
 
@@ -296,7 +296,17 @@ local function createBody(war, bot, point)
         -- Same group = friendly; acquirePlayers lets a side without humans go for them.
         def.loadout = { combat = { group = war.botGroups[bot.side], acquirePlayers = bot.acquire == true } }
     end
+    if not B.noBehavior then
+        -- Hits are priced here (onPlayerHit / onCrossfire), never by the platform as well.
+        def.behavior = { hitPricing = "resource" }
+    end
     local npcId, why = B.call("create", def)
+    if (npcId == nil or npcId == false) and def.behavior and tostring(why):lower():find("behavio") then
+        B.noBehavior = true
+        once("nobehavior", "bots: create refused behavior.hitPricing (%s): the build's default pricing applies", tostring(why))
+        def.behavior = nil
+        npcId, why = B.call("create", def)
+    end
     if (npcId == nil or npcId == false) and def.loadout and tostring(why):lower():find("loadout") then
         B.noLoadout = true
         once("noloadout", "bots: create refused the combat loadout (%s): bodies without a relationship group", tostring(why))

@@ -65,6 +65,7 @@ local function main()
     for _, c in ipairs(npc.created) do
         assert(c.def.bucket == war.bucket, "bots live in the war bucket only")
         assert(c.def.aiMode == 2 and c.def.damagePolicy == 0, "native combat AI, mortal")
+        assert(c.def.behavior and c.def.behavior.hitPricing == "resource", "hits priced by this resource only")
     end
     for _, b in ipairs(war.bots) do
         local def = T.body(b.npcId).def

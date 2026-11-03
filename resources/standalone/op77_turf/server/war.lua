@@ -755,6 +755,11 @@ function Turf.onPlaced(warId, id, token, ok, why)
         m.protectedUntil = now + (cfg().life.protectionSeconds or 3) * 1000
         Turf.equip(war, m)
         war.boardDirty = true
+    elseif war.state == "countdown" then
+        -- (a crew member who caught up with his sweep's countdown) armed for the start
+        m.aliveSince = W().now()
+        Turf.equip(war, m)
+        war.boardDirty = true
     end
 end
 
@@ -1521,6 +1526,7 @@ function Turf.sweepLate(war, e, now)
     local added = B().scale(war, now)
     feedAll(war, ("%s joins the sweep%s"):format(member.name, added > 0 and (" · %d more gangers"):format(added) or ""), "info")
     war.boardDirty = true
+    W().notify(e.id, "info", ("Joining your crew's Gang Sweep at %s."):format(war.site.label), 5000)
     return true, "Joining your crew's Gang Sweep."
 end
 
