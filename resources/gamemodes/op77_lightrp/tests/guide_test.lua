@@ -250,7 +250,7 @@ for _, log in ipairs(logs) do assert(not log:find("does not resolve", 1, true), 
 assert(Guide.resolve("{money:config.economy.startingCash}") == "€$ 250")
 assert(Guide.resolve("{sec:medical.giveUpDelayMs}") == "90" and Guide.resolve("{pct:medical.reviveHealth}") == "35%")
 assert(Guide.resolve("{cfg:config.chat.icRange}") == "20" and Guide.resolve("{kbd:cyberware.overdriveKey}") == "X")
-assert(Guide.resolve("{v:carRange}") == "€$ 4,000 to €$ 60,000", Guide.resolve("{v:carRange}"))
+assert(Guide.resolve("{v:carRange}") == "€$ 4,000 to €$ 100,000", Guide.resolve("{v:carRange}"))
 assert(Guide.resolve("{v:jobCenterJobs}") == "Sanitation, Scrapper and Courier", Guide.resolve("{v:jobCenterJobs}"))
 assert(Guide.resolve("{v:jerrycanBuy}") == "€$ 85" and Guide.resolve("{v:jerrycanRefill}") == "€$ 60")
 local unknown, missing = Guide.resolve("{cfg:config.nope} {key:nope} {v:nope}")
