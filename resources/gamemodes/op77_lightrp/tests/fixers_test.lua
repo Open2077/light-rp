@@ -263,4 +263,29 @@ assert(not got[1] and not got[4] and not got[5], "a recent offer cools a player 
 assert(got[3] and got[2], "free players get a text (a shared job is no cooldown)")
 assert(commands["fixers.list"](0, {}))
 
-print("PASS: fixer gigs (editor tag, no board, offer/take/pass, brief with meet point + objective, share to numbers, join/pass, meeting countdown + hold, launch as mission, payout + fixer text, expiry, bail + new owner, go now, dispatcher)")
+-- ── crews: the dispatcher texts leaders, not members; a leader's job brings the crew ──
+spawn(10, "Mae Lead"); spawn(11, "Ana Mate"); spawn(12, "Bo Down"); spawn(13, "Cy Member")
+local inCrew = { [10] = true, [11] = true, [12] = true, [9] = true }
+local crewMock = { id = "crew:3", leader = 10, members = { 10, 11, 9, 12 } }
+local otherCrew = { id = "crew:4", leader = 2, members = { 2, 13 } }
+LightRP.parties = { of = function(id) if inCrew[id] then return crewMock elseif id == 13 or id == 2 then return otherCrew end end }
+before = msgSeq
+Fixers.dispatch(clock)
+got = {}
+for i = before + 1, msgSeq do got[messages[i].to] = true end
+assert(got[10] and not got[11] and not got[13], "a crew member is not texted: the leader takes the jobs")
+local crewOffer
+for i = before + 1, msgSeq do if messages[i].to == 10 then crewOffer = messages[i] end end
+life[12] = "revivepending"
+press(10, crewOffer, "accept")
+local crewGig = Fixers.gigOf[10] and providers.fixerGig(10)
+assert(crewGig and crewGig.crew == 2 and Fixers.gigOf[11] == Fixers.gigOf[10], "the free member with a Neural-Link joins the gig's crew")
+assert(Fixers.gigOf[9] == nil and Fixers.gigOf[12] == nil, "no implant, or down: stays out")
+local told
+for i = #notices, 1, -1 do if notices[i].id == 10 and notices[i].title == "CREW" then told = notices[i].body; break end end
+assert(told and told:find("Your crew comes along: Ana Mate.", 1, true) and told:find("No Implant (no Neural-Link)", 1, true) and told:find("Bo Down (down)", 1, true), told)
+assert(lastTo(11).body:find("You're in"), "the member gets the brief")
+life[12] = nil
+LightRP.parties = { of = function() return nil end }
+
+print("PASS: fixer gigs (editor tag, no board, offer/take/pass, brief with meet point + objective, share to numbers, join/pass, meeting countdown + hold, launch as mission, payout + fixer text, expiry, bail + new owner, go now, dispatcher, crews)")

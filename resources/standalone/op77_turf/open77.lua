@@ -1,4 +1,5 @@
--- op77_turf: Turf War, a Light RP activity (turf.war, kind pvp). An instanced king of
+-- op77_turf: Turf War, a Light RP activity (turf.war, kind pvp), and Gang Sweep
+-- (turf.pve, kind event), its public PvE variant against an NPC gang. An instanced king of
 -- the hill between the two most represented gangs of the queue, in a copy of a real
 -- district: hold the capture zones, out-score the rival crew. Everyone else signs on
 -- as a mercenary. Engine-native kits, nothing persists, no cash, no items: results
@@ -6,7 +7,8 @@
 -- (op77_turf_influence) says who holds the city.
 --
 -- Server: activity adapter (core.lua), rules (rules.lua), war lifecycle (war.lua),
---         natives (world.lua), weekly influence + exports (influence.lua), wiring.
+--         natives (world.lua), NPC bots (bots.lua: staff bot mode, the sweep's gang),
+--         weekly influence + exports (influence.lua), wiring.
 -- Client: Light RP's shared activity HUD (op77_lightrp client exports), zone markers,
 --         op77_map3d zone blips, the kit key.
 resource "op77_turf"
@@ -31,6 +33,7 @@ shared_script "shared/config.lua"
 server_script "server/rules.lua"
 server_script "server/core.lua"
 server_script "server/world.lua"
+server_script "server/bots.lua"
 server_script "server/influence.lua"
 server_script "server/war.lua"
 server_script "server/main.lua"
@@ -49,6 +52,8 @@ permissions {
     "combat.config",         -- Open77.combat.setTeam (no friendly fire), onDamage/offDamage (war arbiter)
     "combat.scope.control",  -- Open77.combat.createScope/removeScope: PvP between the fighters only
     "database.access",       -- op77_turf_influence / op77_turf_wars (weekly gang influence)
+    "world.npcs",            -- Open77.npcs: the bots of staff bot mode and the Gang Sweep's NPC gang
+    "players.stats.apply",   -- Open77.players.damage: a bot's checked, clamped hit on a fighter
     -- client
     "world.markers",         -- zone rings and beacons
     "input.actions",         -- the rebindable kit key (RegisterKeyMapping, input.keyFor)

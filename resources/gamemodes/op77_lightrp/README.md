@@ -500,6 +500,65 @@ Tables `lightrp_characters` (identité Master, compte, prénom/nom, dernière po
 temps de jeu) et `lightrp_reports`. Sans base configurée le framework démarre et le dit dans le
 journal ; tout vit alors le temps de la session.
 
+## Crews (`server/modules/parties.lua`, `client/core/crew.lua`, page `features/crew/`)
+
+Le **crew** est la seule façon de se grouper : missions, raid Chimera, activités (arène, courses,
+poursuites, turf) et gigs de fixers. Le serveur fait foi ; le crew vit en mémoire (un
+redémarrage le dissout). Réglages dans `server/config/missions.lua`, bloc `party` :
+`maxSize` (8), `inviteSeconds` (60), `nearby` (15 m, liste « Nearby » des panneaux),
+`inviteRange` (300 m, portée d'une invitation), `farRange` (250 m, au-delà un membre est
+marqué FAR), `refreshMs` (2 s, rafraîchissement de l'état des membres).
+
+- **Inviter** : **Alt + clic** sur un joueur › *Invite to crew* (`open77_contextmenu`, groupe
+  « Crew », 15 m), ou `/crew invite <id>`, ou le bouton *Invite* des panneaux. Seul le chef
+  invite ; le joueur doit être dans la même instance et à moins de 300 m. Le premier envoi crée
+  un crew d'une personne qui reste **solo** tant que personne n'a accepté.
+- **Répondre** : invite à l'écran au-dessus du cadre du crew, **Y** accepter / **N** refuser
+  (touches réassignables, « Light RP: accept crew invite » et « Light RP: decline crew invite » ;
+  l'invite affiche la touche effective), boutons cliquables quand le curseur est visible, ou
+  **F1 › Crew**, l'onglet *Crew* du panneau Activités, `/crew accept` · `/crew decline`.
+  Pendant le ready-check du raid, si les deux actions partagent la même touche, c'est le raid
+  qui la prend. Pour rejoindre un autre crew, il faut quitter le sien (un crew d'une personne
+  qui attend encore des réponses s'efface de lui-même).
+- **Gérer** : Alt + clic › *Make crew leader* / *Kick from crew* (chef seulement) et, sur
+  soi-même, *Leave crew* ; ou `/crew lead <id>`, `/crew kick <id>`, `/crew leave`, et les
+  mêmes boutons dans F1 › Crew et l'onglet *Crew*. Si le chef part, le commandement passe au
+  plus ancien membre ; un crew réduit à une personne se dissout.
+- **Commandes** : `/crew` (état), `/crew invite <id> · accept · decline · leave · kick <id> ·
+  lead <id> · matchmaking on|off` ; `/party` est un alias.
+- **Cadre HUD** en bas à gauche, au-dessus de l'arme et des jauges : couronne du chef, YOU,
+  DOWN / DEAD, MISSION / BOARD / ACTIVITY (ce qui occupe le membre), FAR. Huit lignes en 1080p,
+  cinq sur un écran court (≤ 800 px de haut), le reste dans F1 › Crew ; votre ligne reste
+  toujours visible. Pendant une mission, le même cadre montre la vie et l'armure de chaque
+  opérateur (les inconnus du matchmaking en grisé). Les notices se décalent à droite du cadre
+  quand les deux se touchent.
+
+**Missions et raid Chimera.** Le **chef inscrit le crew** sur le tableau (**E**) ; un membre ne
+peut pas s'inscrire seul (« Your crew leader tags the crew in. Leave the crew to go solo. »).
+L'interrupteur **matchmaking** (touche **M** sur le tableau, F1 › Crew, onglet *Crew*,
+`/crew matchmaking on|off`, réservé au chef) est **coupé par défaut** :
+
+- coupé : tableau privé, personne d'autre n'entre ; le compte à rebours part dès que le crew
+  atteint le minimum de la difficulté ; en dessous, l'inscription est refusée avec la marche à
+  suivre (inviter, ou ouvrir le matchmaking) ;
+- ouvert : le crew rejoint le tableau ouvert le plus rempli qui a la place, des joueurs solo en
+  matchmaking complètent ; le compte à rebours part au maximum, ou l'hôte lance (**R**) dès le
+  minimum atteint.
+
+Un joueur solo suit la même règle : matchmaking coupé, il n'entre que dans une difficulté
+jouable seul ; ouvert, il rejoint les tableaux ouverts. Le tableau signale les tableaux ouverts
+voisins. Quitter le crew retire le joueur du tableau où le crew l'avait inscrit, en rejoindre un
+annule son inscription solo ; fermer le matchmaking ferme le tableau du crew, ou retire le crew
+d'un tableau partagé. La puce de file affiche FILLING (ouvert) ou CREW ONLY.
+
+**Activités.** Le chef rejoint (*Join with the crew*) : chaque membre éligible est mis en file
+avec les mêmes `options` et le même `options.squad = { id, leader, members }` ; un membre
+inéligible reste dehors avec la raison en notice. Un membre ne lance pas d'activité seul ;
+`/leave` le sort de la file, et si le chef annule, les membres mis en file avec lui sortent aussi.
+
+**Gigs de fixers.** Les offres ne vont qu'au chef d'un crew (ou aux joueurs solo) ; quand il
+accepte, les membres libres qui ont un implant Neural-Link rejoignent le gig avec lui.
+
 ## Gigs de fixers (`server/modules/fixers.lua`, `server/config/fixers.lua`)
 
 Des fixers fictifs (côté serveur : Mama Okoro, Silas "Ledger" Varga, Nix Delacroix) envoient au
@@ -515,6 +574,8 @@ de fixer n'a **pas de tableau** dans la ville : on ne peut pas s'y inscrire, on 
 - **Rendez-vous** : quand tout l'équipage est au point (20 m), compte à rebours de 10 s puis la
   mission démarre comme une mission normale (kit, instance). Sans tout le monde après 20 min :
   lancement avec les présents s'ils suffisent, sinon le job tombe.
+- **Crew** : quand le chef d'un crew accepte, ses membres libres (avec implant) rejoignent le
+  gig ; les offres automatiques ne vont pas aux membres d'un crew qu'ils ne mènent pas.
 - **Fin** : chaque opérateur est payé (`gig` à la banque) selon les règles des missions
   (cagnotte partagée, recharge de 60 min, plafond journalier, voir « Équilibrage ») +
   réputation ; le fixer envoie un message avec la somme réellement versée.
@@ -560,7 +621,8 @@ un client ne peut pas les lever) :
   à chaque changement (les envois rapprochés sont regroupés avant d'atteindre les joueurs).
 - noyau → fournisseur `op77_lightrp:activity:join (id, activityId, options)` : le joueur l'a demandé
   depuis le panneau (`activityCheck` déjà passé). `options` contient le choix du panneau
-  (`options.mode`, `options.course`…), `options.from` et `options.squad = { id, leader, members }`.
+  (`options.mode`, `options.course`…), `options.from` et, pour un crew, `options.squad = { id, leader, members }`
+  (le même pour chaque membre mis en file par le chef ; voir *Crews*).
 - noyau → fournisseur `op77_lightrp:activity:leaveRequest (id, activityId)` : le joueur veut
   partir (panneau, F1, `/leave`) — y compris s'il n'est qu'en file. Sans `activityLeave` du
   fournisseur sous 15 s, le noyau libère et ramène le joueur lui-même (`dropped`, raison `timeout`).
@@ -611,10 +673,12 @@ meilleur temps pour les courses, aux victoires sinon. Sans base, tout vit le tem
   pas). Une épingle « Activities » sur la carte (`op77_map3d`, catégorie Missions).
 - **Panneau Activités** (`ui/src/features/activities/`) : la liste (état, joueurs, file), le
   détail (choix du mode quand il y en a, Rejoindre / Partir / Annuler, la raison d'un refus),
-  votre bilan et le classement ; onglets *Contracts* et *Squad* (invitations, membres, joueurs à
-  15 m). Bandeau d'état en tête : dans une activité, en attente, en mission, ou pourquoi pas.
-- **F1 → Activities** (ouvre le panneau, et *Leave …* / *Cancel …* direct) et **F1 → Squad**
-  (accepter ou refuser une invitation, membres, passer le commandement, exclure, quitter).
+  votre bilan et le classement ; onglets *Contracts* et *Crew* (invitations, membres, matchmaking
+  des missions, joueurs à 15 m). Bandeau d'état en tête : dans une activité, en attente, en
+  mission, ou pourquoi pas.
+- **F1 → Activities** (ouvre le panneau, et *Leave …* / *Cancel …* direct) et **F1 → Crew**
+  (accepter ou refuser une invitation, membres, passer le commandement, exclure, matchmaking,
+  quitter).
 - **Neural-Link → Gigs & Arena** (`client/core/activities.lua`) : ouvre le même panneau partout.
 - À la fin du premier jour (terminé ou passé) : une notice qui pointe vers The Crossing, et un
   itinéraire si le joueur en est loin. Les répliques voix de Mara ne changent pas.

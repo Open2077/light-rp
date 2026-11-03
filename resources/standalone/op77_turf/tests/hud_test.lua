@@ -94,6 +94,31 @@ do
     assert(H.rgb("#FFCC00").g == 204 and H.rgb("nope") == nil)
 end
 
+-- ---------------------------------------------------------------- bots and the Gang Sweep
+do
+    -- bot rows: "[BOT] " always, however the server named them
+    local hud = H.war(shared(), personal, { { id = -1, name = "[BOT] Rook", bot = true, side = 2, kills = 1, deaths = 0, captures = 0,
+        score = 3 }, { id = -2, name = "Vex", bot = true, side = 1, kills = 0, deaths = 0, captures = 0, score = 0 } }, {})
+    assert(hud.scoreboard.rows[1].name == "[BOT] Rook" and hud.scoreboard.rows[2].name == "[BOT] Vex")
+    -- a sweep: its own title and activity, the holders named
+    local sweep = shared({ mode = "pve", sides = { { label = "Valentinos", color = "#D9A441", score = 10, count = 2 },
+        { label = "Tyger Claws", color = "#E93BD6", score = 30, count = 5, bots = 5 } } })
+    hud = H.war(sweep, personal, {}, {})
+    assert(hud.activity == "turf.pve" and hud.title == "GANG SWEEP" and hud.objective:find("Take the zones from Tyger Claws"))
+    local cd = H.war(shared({ mode = "pve", phase = "countdown", countdownMs = 5000, sides = sweep.sides }), personal, {}, {})
+    assert(cd.objective:find("Tyger Claws hold every zone"))
+    local won = H.war(shared({ mode = "pve", phase = "ended", winner = 1, sides = sweep.sides }), personal, {}, {})
+    assert(won.objective:find("district is yours"))
+    local lost = H.war(shared({ mode = "pve", phase = "ended", winner = 2, sides = sweep.sides }), personal, {}, {})
+    assert(lost.objective:find("Tyger Claws keep the turf"))
+    -- the line-up: the crew gathering, then waiting for a slot
+    local lobby = H.lobby({ queued = true, mode = "pve", position = 1, total = 2, min = 3, lobbyMs = 6000, kit = "assault" }, {})
+    assert(lobby.activity == "turf.pve" and lobby.title == "GANG SWEEP" and lobby.objective:find("gathering 2/3")
+        and lobby.timer.remainingMs == 6000 and lobby.stats[1].value == "2 / 3")
+    lobby = H.lobby({ queued = true, mode = "pve", position = 1, total = 1, min = 1, lobbyMs = 0, waiting = true, kit = "assault" }, {})
+    assert(lobby.objective:find("slot") and lobby.timer == nil)
+end
+
 -- ---------------------------------------------------------------- the client wiring
 local host = { net = {}, server = {}, shows = {}, pushes = {}, clears = 0, markers = {}, updates = {}, removed = {}, blips = {},
     blipUpdates = 0, keys = {} }
@@ -131,7 +156,8 @@ end })
 _G.RegisterNetEvent = function(name, fn) host.net[name] = fn end
 _G.TriggerServerEvent = function(name, ...) host.server[#host.server + 1] = { name = name, args = { ... } } end
 _G.RegisterKeyMapping = function(id, name, key, handler) host.keys[id] = { key = key, handler = handler }; return true, key end
-_G.AddEventHandler = function() end
+local localHandlers = {}
+_G.AddEventHandler = function(name, fn) localHandlers[name] = fn end
 _G.CreateThread = function(fn) fn() end
 _G.Wait = function() end
 _G.GetCurrentResourceName = function() return "op77_turf" end
@@ -182,6 +208,15 @@ do
     host.keys["op77_turf.kit"].handler()
     assert(sent("op77_turf:kit").args[1] == "next")
 
+    -- the engine's hits on the war's bots go to the server, the NPC id untouched
+    localHandlers["open77:npcHit"]("8070450532247928833", "27.5", "1.2", "Items.Preset_Nova", "1")
+    localHandlers["open77:npcAttackedMe"]("8070450532247928834", "40", "1.1", "Items.x", "1")
+    localHandlers["open77:npcCrossfire"]("8070450532247928834", "8070450532247928835", "12")
+    local hit, hurt, cross = sent("op77_turf:npcHit"), sent("op77_turf:npcHurtMe"), sent("op77_turf:npcCrossfire")
+    assert(hit and hit.args[1] == "8070450532247928833" and hit.args[2] == 27.5, "a hit on a bot, forwarded")
+    assert(hurt and hurt.args[1] == "8070450532247928834" and hurt.args[2] == 40)
+    assert(cross and cross.args[1] == "8070450532247928834" and cross.args[2] == "8070450532247928835" and cross.args[3] == 12)
+
     -- feed / banner / result go to the HUD
     host.net["op77_turf:push"]("banner", { title = "ZONE A CAPTURED", text = "x", tone = "success", durationMs = 3500, extra = 1 })
     host.net["op77_turf:push"]("result", { title = "VICTORY", placement = 1, lines = { { label = "a", value = 1 } }, influence = {} })
@@ -195,6 +230,9 @@ do
     -- the war is over: HUD cleared, markers and blips gone
     host.net["op77_turf:clear"]()
     assert(host.clears == 1 and markerCount() == 0 and next(host.blips) == nil)
+    local forwarded = #host.server
+    localHandlers["open77:npcHit"]("8070450532247928833", "27.5")
+    assert(#host.server == forwarded, "no war: nothing forwarded")
 
     -- queued, lobby counting down: the lobby HUD; queued without a lobby: nothing
     host.net["op77_turf:state"](nil, { queued = true, position = 1, total = 3, min = 6, kit = "assault" })
@@ -220,4 +258,4 @@ do
     assert(n == 2, "reported again for the next war (the server's flag is per war entry)")
 end
 
-realPrint("PASS hud_test: HUD model (phases, limits, zone tones, scoreboard self row, end card influence, lobby, result, signature, colours) + client wiring (show/push/clear, resend policy, markers + recolour, blips, kit key, hudless fallback)")
+realPrint("PASS hud_test: HUD model (phases, limits, zone tones, scoreboard self row, end card influence, lobby, result, signature, colours) + client wiring (show/push/clear, resend policy, markers + recolour, blips, kit key, hudless fallback) + [BOT] rows, Gang Sweep HUD + line-up, bot hit forwarding")

@@ -4,8 +4,8 @@
 -- database). A synchronous export RAISES when the call fails (missing resource, missing
 -- export, callee error), so every call is wrapped and turned into `nil|false, reason`.
 --
--- This resource provides two activities (chase.1v1 and chase.wanted): every call takes
--- the activity id last, and defaults to chase.1v1.
+-- This resource provides three activities (chase.1v1, chase.wanted and chase.pve): every
+-- call takes the activity id last, and defaults to chase.1v1.
 --
 --   ChaseCore.register(def)                  activityRegister
 --   ChaseCore.check(playerId, aid?)          activityCheck   -> true | false, reason (player-facing)

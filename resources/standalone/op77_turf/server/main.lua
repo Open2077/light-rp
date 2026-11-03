@@ -1,6 +1,8 @@
--- op77_turf server wiring: registration with Light RP, the contract events, the death
--- events, the damage arbiter, the influence exports, the commands and the tick.
--- The rules live in rules.lua, the lifecycle in war.lua, the natives in world.lua.
+-- op77_turf server wiring: registration with Light RP (turf.war, and turf.pve when the
+-- platform can make NPCs), the contract events, staff bot mode, the death and NPC events,
+-- the damage arbiter, the influence exports, the commands and the tick.
+-- The rules live in rules.lua, the lifecycle in war.lua, the bots in bots.lua, the
+-- natives in world.lua.
 local C = TurfConfig
 local W = TurfWorld
 
@@ -11,27 +13,49 @@ local function validId(id)
     return math.tointeger(id)
 end
 
+local PVP, PVE = C.activity.id, C.pve.activity.id
+local pveRegistered = false
+
 -- ---------------------------------------------------------------- registration
 
 local function publishStatus(force)
-    TurfCore.status(Turf.status(W.now()), force)
+    local now = W.now()
+    TurfCore.status(Turf.status(now), force)
+    if pveRegistered then TurfCore.status(Turf.pveStatus(now), force, PVE) end
 end
 
+local pveNotice = false
 local function register()
     local def = TurfCore.definition()
     local ok, why = TurfCore.register(def)
-    if ok then
-        log("registered %s with Light RP (%s)", def.id, def.modes and ("sites: " .. Turf.siteList()) or "one site")
-        publishStatus(true)
-    else
+    if not ok then
         log("Light RP refused %s: %s", def.id, tostring(why))
+        return false
     end
-    return ok
+    log("registered %s with Light RP (%s)", def.id, def.modes and ("sites: " .. Turf.siteList()) or "one site")
+    -- The Gang Sweep needs NPCs (world.npcs, Open77.npcs.create/remove on this build).
+    pveRegistered = false
+    if C.pve.enabled and TurfBots.available() then
+        local pdef = TurfCore.definition("pve")
+        local fine, reason = TurfCore.register(pdef)
+        pveRegistered = fine == true
+        if fine then log("registered %s (%s) with Light RP", pdef.id, pdef.label)
+        else log("Light RP refused %s: %s", pdef.id, tostring(reason)) end
+    elseif C.pve.enabled and not pveNotice then
+        pveNotice = true
+        log("%s not registered: no NPC API on this build (world.npcs, Open77.npcs.create)", PVE)
+    end
+    -- Staff bot mode survives a provider restart: read it after every registration.
+    Turf.setBots(TurfCore.bots(), "registration")
+    publishStatus(true)
+    return true
 end
 
 -- Exports may not be called while this VM is still preparing: register from a thread,
 -- and again whenever Light RP (re)starts (it forgets its providers when it stops).
 CreateThread(function()
+    -- Bodies a previous run of this resource left behind (hot reload) go first.
+    pcall(TurfBots.sweep)
     for _ = 1, 30 do
         if register() then return end
         Wait(2000)
@@ -46,6 +70,13 @@ AddEventHandler("onResourceStart", function(name)
     if name == C.core then
         CreateThread(function() Wait(1000); register() end)
     end
+end)
+
+-- Staff bot mode (/lightrp.bots on|off). Host-wide, raised by op77_lightrp: never
+-- RegisterNetEvent'd, a client cannot fire it.
+AddEventHandler("op77_lightrp:activity:bots", function(enabled)
+    Turf.setBots(enabled == true, "staff switch")
+    publishStatus()
 end)
 
 -- ---------------------------------------------------------------- damage arbiter
@@ -66,13 +97,16 @@ end
 
 AddEventHandler("onResourceStop", function(name)
     if name == GetCurrentResourceName() then
-        -- Light RP releases and returns our players itself; drop our holds and teams.
+        -- Light RP releases and returns our players itself; drop our holds, teams, bots.
+        TurfBots.stopping = true
         Turf.shutdown()
         if arbiter and type(Open77.combat.offDamage) == "function" then pcall(Open77.combat.offDamage, arbiter) end
     elseif name == C.core then
-        -- Light RP forgot us and returned everyone: void the war, forget the queue.
+        -- Light RP forgot us and returned everyone: void every war, forget the queues.
         Turf.coreStopped(W.now())
-        TurfCore.lastStatus = nil
+        TurfCore.forgetStatus()
+        pveRegistered = false
+        Turf.setBots(false, "op77_lightrp stopped")
     end
 end)
 
@@ -80,33 +114,47 @@ end)
 -- Host-wide events raised by op77_lightrp with TriggerEvent. Never RegisterNetEvent'd:
 -- a client cannot fire them.
 
+local function ours(activityId) return activityId == PVP or activityId == PVE end
+
 AddEventHandler("op77_lightrp:activity:join", function(playerId, activityId, options)
     local id = validId(playerId)
-    if id == nil or activityId ~= C.activity.id then return end
-    local ok, text = Turf.enqueue(id, options, W.now(), true)
-    if not ok then W.notify(id, "warning", text, 5000) end
+    if id == nil or not ours(activityId) then return end
+    if activityId == PVE then
+        local ok, text = Turf.sweepJoin(id, options, W.now(), true)
+        if not ok then
+            W.notify(id, "warning", text, 5000, "Gang Sweep")
+            TurfCore.unqueue(id, PVE)
+        end
+    else
+        local ok, text = Turf.enqueue(id, options, W.now(), true)
+        if not ok then W.notify(id, "warning", text, 5000) end
+    end
     publishStatus()
 end)
 
 AddEventHandler("op77_lightrp:activity:leaveRequest", function(playerId, activityId)
     local id = validId(playerId)
-    if id == nil or activityId ~= C.activity.id then return end
-    local done, where = Turf.leaveRequest(id, W.now())
-    if done and where == "queue" then W.notify(id, "info", "You left the turf war queue.", 5000) end
+    if id == nil or not ours(activityId) then return end
+    local done, where = Turf.leaveRequest(id, W.now(), activityId)
+    if done and where == "queue" then
+        W.notify(id, "info", activityId == PVE and "You left the Gang Sweep line-up." or "You left the turf war queue.", 5000)
+    end
     publishStatus()
 end)
 
 AddEventHandler("op77_lightrp:activity:dropped", function(playerId, activityId, reason)
     local id = validId(playerId)
-    if id == nil or activityId ~= C.activity.id then return end
-    Turf.dropped(id, W.now(), reason)
+    if id == nil or not ours(activityId) then return end
+    Turf.dropped(id, W.now(), reason, activityId)
     publishStatus()
 end)
 
--- A queued player who switches character (or goes back to the selector) leaves the queue.
+-- A queued player who switches character (or goes back to the selector) leaves the queues.
 AddEventHandler("op77_lightrp:characterChanged", function(playerId)
     local id = validId(playerId)
-    if id and Turf.dequeue(id) then W.clear(id); publishStatus() end
+    if id == nil then return end
+    local a, b = Turf.dequeue(id), Turf.unsweep(id)
+    if a or b then W.clear(id); publishStatus() end
 end)
 
 AddEventHandler("playerDropped", function()
@@ -119,22 +167,42 @@ end)
 
 -- ---------------------------------------------------------------- deaths
 
+-- The raw killer goes along: an NPC id (a bot's kill) is never a player id.
 AddEventHandler("open77:playerKilled", function(victimId, killerId)
     local victim, killer = validId(victimId), validId(killerId)
-    if victim then Turf.onDeath(victim, killer, W.now()) end
+    if victim then Turf.onDeath(victim, killer, W.now(), killerId) end
 end)
 
 AddEventHandler("open77:playerDied", function(playerId, context)
     local victim = validId(playerId)
     if victim == nil then return end
-    local killer
-    if type(context) == "string" then killer = validId(context:match('"killer"%s*:%s*(%d+)')) end
-    Turf.onDeath(victim, killer, W.now())
+    local killer, raw
+    if type(context) == "string" then
+        raw = context:match('"killer"%s*:%s*"?(%-?%d+)"?')
+        killer = validId(raw)
+    end
+    Turf.onDeath(victim, killer, W.now(), raw)
+end)
+
+-- ---------------------------------------------------------------- NPC events (platform)
+
+AddEventHandler("onNpcDied", function(npcId, killer, cause)
+    local ok, err = pcall(TurfBots.onNpcDied, npcId, killer, cause, W.now())
+    if not ok then log("onNpcDied: %s", tostring(err)) end
+end)
+
+AddEventHandler("onNpcDamaged", function(npcId, attacker, amount, health)
+    pcall(TurfBots.onNpcDamaged, npcId, attacker, amount, health, W.now())
+end)
+
+AddEventHandler("onNpcRemoved", function(npcId, reason)
+    local ok, err = pcall(TurfBots.onNpcRemoved, npcId, reason, W.now())
+    if not ok then log("onNpcRemoved: %s", tostring(err)) end
 end)
 
 -- ---------------------------------------------------------------- client events
 -- Our own network events: everything a client sends is checked against the server's
--- state (membership, kit ids) and rate-limited.
+-- state (membership, kit ids, the war's bots) and rate-limited.
 
 local lastKit = {}
 RegisterNetEvent("op77_turf:kit", function(choice)
@@ -155,6 +223,45 @@ RegisterNetEvent("op77_turf:hudless", function()
     if id then Turf.markHudless(id) end
 end)
 
+-- Hit reports (client/main.lua forwards the engine's open77:npc* events). An NPC id is
+-- an opaque text (or an integer), never trusted beyond "a bot of the sender's war":
+-- TurfBots checks the war, the sides, the states, the distance and the rates.
+local hitBudget = {}
+local function npcIdOk(v)
+    if type(v) == "string" then return #v > 0 and #v <= 32 end
+    return math.type(v) == "integer"
+end
+local function hitAllowed(id, now)
+    local b = hitBudget[id]
+    if not b or now - b.at >= 1000 then b = { at = now, n = 0 }; hitBudget[id] = b end
+    b.n = b.n + 1
+    return b.n <= 40
+end
+
+RegisterNetEvent("op77_turf:npcHit", function(npcId, damage)
+    local id = validId(source)
+    if id == nil or not npcIdOk(npcId) then return end
+    local now = W.now()
+    if not hitAllowed(id, now) then return end
+    TurfBots.onPlayerHit(id, npcId, tonumber(damage), now)
+end)
+
+RegisterNetEvent("op77_turf:npcHurtMe", function(npcId, damage)
+    local id = validId(source)
+    if id == nil or not npcIdOk(npcId) then return end
+    local now = W.now()
+    if not hitAllowed(id, now) then return end
+    TurfBots.onBotHit(id, npcId, tonumber(damage), now)
+end)
+
+RegisterNetEvent("op77_turf:npcCrossfire", function(victimNpc, attackerNpc, damage)
+    local id = validId(source)
+    if id == nil or not npcIdOk(victimNpc) or not npcIdOk(attackerNpc) then return end
+    local now = W.now()
+    if not hitAllowed(id, now) then return end
+    TurfBots.onCrossfire(id, victimNpc, attackerNpc, tonumber(damage), now)
+end)
+
 -- The client script (re)started: what it should be showing now.
 RegisterNetEvent("op77_turf:ready", function()
     local id = validId(source)
@@ -167,13 +274,14 @@ RegisterNetEvent("op77_turf:ready", function()
         W.board(id, Turf.boardRows(war))
     else
         local _, _, e = Turf.position(id)
+        if not e then _, e = Turf.sweepEntry(id) end
         if e then e.pushedKey = nil; Turf.lastQueuePush = 0 end
     end
 end)
 
 AddEventHandler("playerDropped", function()
     local id = validId(source)
-    if id then lastKit[id] = nil end
+    if id then lastKit[id], hitBudget[id] = nil, nil end
 end)
 
 -- ---------------------------------------------------------------- exports
@@ -201,17 +309,27 @@ local function describe(id, now)
     local m, war = Turf.memberOf(id)
     if m then
         local n = Turf.counts(war)
-        return ("Turf war at %s (%s): %s %d - %d %s, %d vs %d. You fight for %s%s: %d kills, %d deaths, %d captures.")
-            :format(war.site.label, war.state, war.sides[1].label, war.sides[1].score, war.sides[2].score, war.sides[2].label,
-                n[1], n[2], war.sides[m.side].label, m.merc and " (mercenary)" or "", m.kills, m.deaths, m.captures)
+        local bots = war.bots and TurfBots.count(war) or 0
+        return ("%s at %s (%s): %s %d - %d %s, %d vs %d%s. You fight for %s%s: %d kills, %d deaths, %d captures.")
+            :format(war.kind == "pve" and "Gang Sweep" or "Turf war", war.site.label, war.state, war.sides[1].label,
+                war.sides[1].score, war.sides[2].score, war.sides[2].label, n[1], n[2],
+                bots > 0 and (" (+%d bots)"):format(bots) or "", war.sides[m.side].label, m.merc and " (mercenary)" or "",
+                m.kills, m.deaths, m.captures)
     end
     local position, total, e = Turf.position(id)
     if position then
         return ("Queued for Turf War (%d/%d, %d needed)%s. /turf leave to cancel."):format(position, total, Turf.minPlayers(),
             e.gangLabel and (" for the " .. e.gangLabel) or " as a mercenary")
     end
+    local g = Turf.sweepEntry(id)
+    if g then
+        return ("Lined up for a Gang Sweep (%d in your group, %d sweep(s) running). /turf leave to cancel.")
+            :format(#g.entries, #Turf.sweeps)
+    end
     local s = Turf.status(now)
-    return "Turf War: " .. tostring(s.detail) .. ". /turf join to queue."
+    local text = "Turf War: " .. tostring(s.detail) .. ". /turf join to queue."
+    if pveRegistered then text = text .. " Gang Sweep (PvE): /turf sweep." end
+    return text
 end
 
 local function kitList()
@@ -220,17 +338,23 @@ local function kitList()
     return table.concat(parts, ", ")
 end
 
--- /turf [join [site]|leave|kit [id]|influence|status]
+local USAGE = "usage: /turf [join [site]|sweep [site]|leave|kit [id]|influence|status]"
+
+-- /turf [join [site]|sweep [site]|leave|kit [id]|influence|status]
 RegisterCommand("turf", function(source, args, raw)
     local id = validId(source)
     if id == nil then W.reply(source, raw, false, "In game only.") return end
     local now = W.now()
     local sub = tostring(args and args[1] or ""):lower()
     if sub == "leave" or sub == "quit" or sub == "cancel" then
-        local done, where = Turf.leaveRequest(id, now)
-        if done and where == "queue" then TurfCore.unqueue(id) end
+        local done, where, activity = Turf.leaveRequest(id, now)
+        if done and where == "queue" then TurfCore.unqueue(id, activity) end
         publishStatus()
-        if done then W.reply(id, raw, true, where == "queue" and "You left the turf war queue." or "You left the turf war.") return end
+        if done then
+            local what = activity == PVE and "Gang Sweep" or "turf war"
+            W.reply(id, raw, true, where == "queue" and ("You left the %s queue."):format(what) or ("You left the %s."):format(what))
+            return
+        end
         W.reply(id, raw, false, "You are not queued or in a turf war.")
     elseif sub == "kit" then
         local choice = args[2] and tostring(args[2]):lower() or nil
@@ -241,6 +365,13 @@ RegisterCommand("turf", function(source, args, raw)
         W.reply(id, raw, true, TurfInfluence.describe(C.influence.topSize))
     elseif sub == "status" then
         W.reply(id, raw, true, describe(id, now))
+    elseif sub == "sweep" or sub == "pve" then
+        if not pveRegistered then W.reply(id, raw, false, "Gang Sweep is closed right now.") return end
+        local site = args[2] and tostring(args[2]):lower() or nil
+        if site and not Turf.site(site) then W.reply(id, raw, false, "Unknown site. Sites: " .. Turf.siteList()) return end
+        local ok, text = Turf.sweepJoin(id, { site = site }, now, false)
+        publishStatus()
+        W.reply(id, raw, ok, text)
     elseif sub == "" or sub == "join" or sub == "queue" then
         local site = args[2] and tostring(args[2]):lower() or nil
         if site and not Turf.site(site) then W.reply(id, raw, false, "Unknown site. Sites: " .. Turf.siteList()) return end
@@ -248,11 +379,12 @@ RegisterCommand("turf", function(source, args, raw)
         publishStatus()
         W.reply(id, raw, ok, text)
     else
-        W.reply(id, raw, false, "usage: /turf [join [site]|leave|kit [id]|influence|status]")
+        W.reply(id, raw, false, USAGE)
     end
 end, false)
 
 -- Staff (ACL command.turf.schedule / .start / .stop / .testing / .survey / .status).
+-- Staff bot mode is op77_lightrp's own /lightrp.bots: no command of ours.
 
 -- /turf.schedule <site|auto> <minutes> | cancel
 RegisterCommand("turf.schedule", function(source, args, raw)
@@ -278,7 +410,8 @@ RegisterCommand("turf.schedule", function(source, args, raw)
     W.reply(caller, raw, ok, text)
 end, true)
 
--- /turf.start [site]: the lobby closes now with whoever is queued (min players apply).
+-- /turf.start [site]: the lobby closes now with whoever is queued (min players apply;
+-- one is enough in staff bot mode, bots fill the sides).
 RegisterCommand("turf.start", function(source, args, raw)
     local caller = validId(source) or 0
     local now = W.now()
@@ -288,19 +421,38 @@ RegisterCommand("turf.start", function(source, args, raw)
     Turf.lobby = { site = site and site.id or (Turf.lobby and Turf.lobby.site), endsAt = now, scheduled = true }
     local war = Turf.launch(now)
     publishStatus()
-    W.reply(caller, raw, war ~= nil, war and ("War %d starting at %s."):format(war.id, war.site.label)
-        or ("Not started: %d queued, %d needed%s."):format(#Turf.queue, Turf.minPlayers(),
-            Turf.testing and "" or " (turf.testing on lowers it to 2)"))
+    local hint = Turf.botMode() and " (bot mode on: 1 is enough)" or (Turf.testing and "" or " (turf.testing on lowers it to 2)")
+    W.reply(caller, raw, war ~= nil, war and ("War %d starting at %s%s."):format(war.id, war.site.label,
+            war.botWar and (" with %d bots"):format(TurfBots.count(war)) or "")
+        or ("Not started: %d queued, %d needed%s."):format(#Turf.queue, Turf.minPlayers(), hint))
 end, true)
 
--- /turf.stop: the running war ends now, nothing counts; also clears a lobby / schedule.
-RegisterCommand("turf.stop", function(source, _, raw)
+-- /turf.stop [all]: the running war ends now, nothing counts; also clears a lobby /
+-- schedule. `all` also calls off every Gang Sweep and the sweep line-up.
+RegisterCommand("turf.stop", function(source, args, raw)
     local caller = validId(source) or 0
     local now = W.now()
     local done = {}
     if Turf.war and Turf.abort(Turf.war, now, "Stopped by staff. Nothing counts.") then done[#done + 1] = "war stopped" end
     if Turf.lobby then Turf.lobby = nil; done[#done + 1] = "lobby closed" end
     if Turf.schedule then Turf.schedule = nil; done[#done + 1] = "schedule cancelled" end
+    if args and tostring(args[1] or ""):lower() == "all" then
+        local n = 0
+        for _, war in ipairs(Turf.sweeps) do
+            if Turf.abort(war, now, "Stopped by staff. Nothing counts.") then n = n + 1 end
+        end
+        if n > 0 then done[#done + 1] = ("%d sweep(s) stopped"):format(n) end
+        local waiting = 0
+        for _, g in ipairs(Turf.sweepQueue) do
+            for _, e in ipairs(g.entries) do
+                waiting = waiting + 1
+                W.clear(e.id)
+                TurfCore.unqueue(e.id, PVE)
+            end
+        end
+        Turf.sweepQueue = {}
+        if waiting > 0 then done[#done + 1] = ("%d lined-up player(s) released"):format(waiting) end
+    end
     publishStatus()
     W.reply(caller, raw, #done > 0, #done > 0 and table.concat(done, ", ") or "Nothing to stop.")
 end, true)
@@ -330,35 +482,51 @@ RegisterCommand("turf.survey", function(source, args, raw)
     W.reply(caller, raw, true, line)
 end, true)
 
+local function describeWar(lines, war)
+    lines[#lines + 1] = ("  %s %d %s at %s bucket %d: %s %d - %d %s scope=%s%s%s"):format(war.kind == "pve" and "sweep" or "war",
+        war.id, war.state, war.site.id, war.bucket, war.sides[1].label, war.sides[1].score, war.sides[2].score, war.sides[2].label,
+        tostring(war.scope), war.scopeError and (" (" .. tostring(war.scopeError) .. ")") or "",
+        war.botWar and " BOT WAR (not counted)" or "")
+    for _, zone in ipairs(war.zones) do
+        lines[#lines + 1] = ("    zone %s owner=%s capturing=%s %.0f%%%s"):format(zone.def.id, tostring(zone.owner),
+            tostring(zone.capturing), zone.progress * 100, zone.contested and " CONTESTED" or "")
+    end
+    for _, mid in ipairs(war.order) do
+        local m = war.members[mid]
+        lines[#lines + 1] = ("    %d %s side=%d%s%s %d/%d/%d%s"):format(m.id, tostring(m.name), m.side, m.merc and " merc" or "",
+            m.squad and (" squad=" .. m.squad) or "", m.kills, m.deaths, m.captures,
+            m.gone and " (gone)" or m.released and " (home)" or m.leaving and " (leaving)" or m.down and " (down)" or "")
+    end
+    for _, line in ipairs(TurfBots.describe(war)) do lines[#lines + 1] = line end
+end
+
 RegisterCommand("turf.status", function(source, _, raw)
     local caller = validId(source) or 0
     local now = W.now()
     local s = Turf.status(now)
-    local lines = { ("status %s: %s (queue %d, testing %s, buckets %d-%d)"):format(s.phase, tostring(s.detail), #Turf.queue,
-        Turf.testing and "on" or "off", C.buckets.from, C.buckets.to) }
+    local lines = { ("status %s: %s (queue %d, testing %s, bot mode %s%s, buckets %d-%d)"):format(s.phase, tostring(s.detail),
+        #Turf.queue, Turf.testing and "on" or "off", Turf.bots and "ON" or "off",
+        Turf.bots and not TurfBots.available() and " but no NPC API" or "", C.buckets.from, C.buckets.to) }
     for i, e in ipairs(Turf.queue) do
-        lines[#lines + 1] = ("  q%d: %d %s gang=%s site=%s"):format(i, e.id, tostring(e.name), tostring(e.gang), tostring(e.site))
+        lines[#lines + 1] = ("  q%d: %d %s gang=%s site=%s%s"):format(i, e.id, tostring(e.name), tostring(e.gang), tostring(e.site),
+            e.squad and (" squad=" .. e.squad) or "")
     end
     if Turf.lobby then lines[#lines + 1] = ("  lobby: site=%s in %ds"):format(tostring(Turf.lobby.site),
         math.max(0, math.ceil((Turf.lobby.endsAt - now) / 1000))) end
     if Turf.schedule then lines[#lines + 1] = ("  schedule: %s in %ds"):format(Turf.schedule.site,
         math.max(0, math.ceil((Turf.schedule.at - now) / 1000))) end
-    local war = Turf.war
-    if war then
-        lines[#lines + 1] = ("  war %d %s at %s bucket %d: %s %d - %d %s scope=%s%s"):format(war.id, war.state, war.site.id,
-            war.bucket, war.sides[1].label, war.sides[1].score, war.sides[2].score, war.sides[2].label, tostring(war.scope),
-            war.scopeError and (" (" .. tostring(war.scopeError) .. ")") or "")
-        for _, zone in ipairs(war.zones) do
-            lines[#lines + 1] = ("    zone %s owner=%s capturing=%s %.0f%%%s"):format(zone.def.id, tostring(zone.owner),
-                tostring(zone.capturing), zone.progress * 100, zone.contested and " CONTESTED" or "")
-        end
-        for _, mid in ipairs(war.order) do
-            local m = war.members[mid]
-            lines[#lines + 1] = ("    %d %s side=%d%s %d/%d/%d%s"):format(m.id, tostring(m.name), m.side, m.merc and " merc" or "",
-                m.kills, m.deaths, m.captures,
-                m.gone and " (gone)" or m.released and " (home)" or m.leaving and " (leaving)" or m.down and " (down)" or "")
-        end
+    if Turf.war then describeWar(lines, Turf.war) end
+    local ps = Turf.pveStatus(now)
+    lines[#lines + 1] = ("  gang sweep (%s): %s %s"):format(pveRegistered and "registered" or "not registered", ps.phase,
+        tostring(ps.detail))
+    for _, g in ipairs(Turf.sweepQueue) do
+        local ids = {}
+        for _, e in ipairs(g.entries) do ids[#ids + 1] = tostring(e.id) end
+        lines[#lines + 1] = ("  line-up %s: %s (expected %d, starts in %ds)"):format(g.key, table.concat(ids, ","), #g.expected,
+            math.max(0, math.ceil((g.readyAt - now) / 1000)))
     end
+    for _, war in ipairs(Turf.sweeps) do describeWar(lines, war) end
+    lines[#lines + 1] = ("  bots: %d created, %d removed"):format(TurfBots.created, TurfBots.removed)
     lines[#lines + 1] = "  " .. TurfInfluence.describe(C.influence.topSize)
     W.reply(caller, raw, true, table.concat(lines, "\n"))
 end, true)
@@ -391,4 +559,8 @@ CreateThread(function()
     end
 end)
 
-log("loaded (%s, buckets %d-%d, %d sites)", C.activity.id, C.buckets.from, C.buckets.to, #C.sites)
+-- No body in the first seconds of this VM (a hot reload's previous bodies go first).
+pcall(function() TurfBots.start(W.now()) end)
+
+log("loaded (%s + %s, buckets %d-%d, %d sites, NPC API %s)", PVP, PVE, C.buckets.from, C.buckets.to, #C.sites,
+    TurfBots.available() and "yes" or "no")

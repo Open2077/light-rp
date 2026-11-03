@@ -573,7 +573,7 @@ local function lifeTick(inst, raid)
         raid.phase, raid.wipeAt = "wipe", now() + 7000
         clearAdds(raid)
         boss("setCombatEnabled", raid.bossId, false)
-        announce(inst, raid, "SQUAD WIPED", "Every operator is down. The Chimera holds the arena.", "danger", "raid_wipe")
+        announce(inst, raid, "CREW WIPED", "Every operator is down. The Chimera holds the arena.", "danger", "raid_wipe")
     end
 end
 
@@ -627,7 +627,7 @@ Missions.register(POINT, {
         elseif raid.phase == "victory" then
             if t >= raid.victoryAt then Missions.complete(inst.id) else push(inst, raid) end
         elseif raid.phase == "wipe" then
-            if t >= raid.wipeAt then Missions.fail(inst.id, "The squad was wiped out by the Chimera.") end
+            if t >= raid.wipeAt then Missions.fail(inst.id, "The crew was wiped out by the Chimera.") end
         end
         if raids[inst.id] then lifeTick(inst, raid) end
     end,

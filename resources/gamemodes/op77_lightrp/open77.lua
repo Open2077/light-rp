@@ -162,6 +162,7 @@ client_script "client/core/raid.lua"
 client_script "client/core/mission_editor.lua"
 client_script "client/core/mission_run.lua"
 client_script "client/core/vehicle_context.lua"
+client_script "client/core/crew.lua"            -- crews: ALT + click on players, invite keys (server/modules/parties.lua)
 client_script "client/core/vehicle_customization.lua"
 client_script "client/main.lua"
 

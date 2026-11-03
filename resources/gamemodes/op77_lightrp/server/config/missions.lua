@@ -1,7 +1,8 @@
 -- Missions (The Division style): mission points in the city, a board per
--- difficulty where players tag in alone or with their squad, matchmaking that
--- fills the lobby, a countdown once it is full (or when the host launches with
--- the minimum), then the mission runs in its own routing bucket.
+-- difficulty where a crew leader tags the crew in (a player alone is a crew of
+-- one), a countdown once the crew has the minimum (or, open to matchmaking, once
+-- strangers filled the lobby or the host launches), then the mission runs in its
+-- own routing bucket.
 --
 -- The positions here are TEST points near the Little China public garage; the
 -- real points come from the server team.
@@ -10,7 +11,7 @@ LightRpMissions = {
     -- Reputation: points earned by finishing missions, and the tier each
     -- threshold opens (tier 1 from the start).
     reputation = { tiers = { 0, 500, 1500 } },
-    -- Tagging happens at the point; a squad member must be this close to it
+    -- Tagging happens at the point; a crew member must be this close to it
     -- for the leader to tag them along. Wandering past `leash` untags you.
     tagRadius = 6.0,
     groupRadius = 30.0,
@@ -24,10 +25,10 @@ LightRpMissions = {
     bucketBase = 3000000,
     -- What a finished mission pays out in reputation, per difficulty.
     reputationGain = { standard = 100, hard = 220, critical = 450 },
-    -- Squads (parties).
-    -- `nearby`: the players listed to invite at a mission point; `inviteRange`:
-    -- how far an invite by command reaches.
-    party = { maxSize = 8, inviteSeconds = 60, nearby = 15.0, inviteRange = 300.0 },
+    -- Crews (server/modules/parties.lua): size, invite lifetime, the radius of the
+    -- "players around you" lists, the invite range, the distance past which a
+    -- member shows FAR on the crew frame, and how often the frame refreshes.
+    party = { maxSize = 8, inviteSeconds = 60, nearby = 15.0, inviteRange = 300.0, farRange = 250.0, refreshMs = 2000 },
     -- Ground marker of a mission point.
     marker = { shape = "cylinder", radius = 1.2, height = 0.7,
         color = { r = 255, g = 204, b = 0, a = 160 }, maxDistance = 60, groundOffset = 0.05 },

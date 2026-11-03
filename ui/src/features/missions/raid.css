@@ -158,4 +158,4 @@
 
 /* the intro owns the screen: the rest of the HUD steps aside */
 html[data-raid-cinematic] .hud__bottom-left, html[data-raid-cinematic] .hud__bottom-right, html[data-raid-cinematic] .notices,
-html[data-raid-cinematic] .mission-squad-hud, html[data-raid-cinematic] .mission-queue { opacity: 0; transition: opacity .4s; }
+html[data-raid-cinematic] .mission-queue { opacity: 0; transition: opacity .4s; }

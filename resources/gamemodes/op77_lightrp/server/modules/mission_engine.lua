@@ -400,7 +400,7 @@ local function respawnTick(inst)
     end
     if standing == 0 and #inst.members > 0 then
         run.phase = "done"
-        Missions.fail(inst.id, "squad wiped")
+        Missions.fail(inst.id, "crew wiped")
     end
 end
 

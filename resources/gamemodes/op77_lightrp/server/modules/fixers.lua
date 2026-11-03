@@ -13,6 +13,10 @@
 --             those present; past meetMinutes the gig launches with them, or dies.
 --   end       the mission pays (missions.lua, gig payout), the fixer texts the crew.
 --
+-- Crews (server/modules/parties.lua): the fixers text crew leaders, not their
+-- members, and a leader who takes a job brings the crew: every free member with
+-- a Neural-Link joins the gig's crew at once (up to the difficulty's size).
+--
 -- Messages go through op77_neuralink: its op77_neuralink:rpc event (npcLine,
 -- sendMessage, updateMessage: they touch its database, and an export cannot yield),
 -- answered on op77_lightrp:fixers:rpc; the buttons come back as the event
@@ -354,6 +358,30 @@ local function join(gig, id, inviteKey)
     return true
 end
 
+-- The owner's crew comes along: every free member with a phone joins the gig.
+local function bringCrew(gig, owner)
+    local P = LightRP.parties
+    local party = P and type(P.of) == "function" and P.of(owner) or nil
+    if not party or party.leader ~= owner or #party.members < 2 then return end
+    local came, out = {}, {}
+    for _, member in ipairs(party.members) do
+        if member ~= owner then
+            local ok, why = free(member)
+            if ok and not hasPhone(member) then ok, why = false, "no Neural-Link" end
+            if ok then
+                local joined, msg = join(gig, member, nil)
+                if joined then came[#came + 1] = name(member) else out[#out + 1] = name(member) .. " (" .. tostring(msg):gsub("%.$", ""):lower() .. ")" end
+            else
+                out[#out + 1] = name(member) .. " (" .. tostring(why) .. ")"
+            end
+        end
+    end
+    local parts = {}
+    if #came > 0 then parts[#parts + 1] = "Your crew comes along: " .. table.concat(came, ", ") .. "." end
+    if #out > 0 then parts[#parts + 1] = "Staying out: " .. table.concat(out, ", ") .. "." end
+    if #parts > 0 then LightRP.notice(owner, { kind = "contract", title = "CREW", durationMs = 8000, body = table.concat(parts, " ") }) end
+end
+
 local function leave(gig, id, why)
     local i = crewIndex(gig, id)
     if not i then return end
@@ -425,6 +453,7 @@ local function onAction(playerId, a)
         resolve(gig.offerMessage, "Job taken", "ok")
         gig.state, gig.crew, gig.meetUntil = "accepted", { playerId }, now() + C.meetMinutes * 60000
         brief(gig, playerId, false)
+        bringCrew(gig, playerId)
         pushGig(gig)
         log("fixers: %s took gig %d", name(playerId), gig.id)
     elseif a.action == "decline" and a.messageId == gig.offerMessage then
@@ -513,6 +542,10 @@ local function eligibleForOffer(id, t)
     if gigOf[id] or (lastOffer[id] and t - lastOffer[id] < C.dispatch.playerCooldownMinutes * 60000) then return false end
     if not joinedAt[id] or t - joinedAt[id] < C.dispatch.settleSeconds * 1000 then return false end
     if LightRP.tutorial and type(LightRP.tutorial.isActive) == "function" and LightRP.tutorial.isActive(id) then return false end
+    -- a crew member waits for the leader's jobs
+    local P = LightRP.parties
+    local party = P and type(P.of) == "function" and P.of(id) or nil
+    if party and #party.members > 1 and party.leader ~= id then return false end
     return free(id) and hasPhone(id)
 end
 

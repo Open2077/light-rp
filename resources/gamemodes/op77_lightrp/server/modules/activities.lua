@@ -176,6 +176,7 @@ end
 -- (death, kit), return them to the mission point and keep their RP items.
 
 function A.registerInternal(id, provider) internal[id] = provider end
+A.labelOf = labelOf
 
 A.registerInternal("missions", {
     label = "Mission",
@@ -598,9 +599,64 @@ local function extraOptions(value)
     return out
 end
 
+-- The player's crew (server/modules/parties.lua), guarded: tests stub parties.
+local function crewOf(id)
+    local P = LightRP.parties
+    return P and type(P.of) == "function" and P.of(id) or nil
+end
+local function squadOf(party)
+    return party and { id = party.id, leader = party.leader, members = copy(party.members) } or nil
+end
+local function lowerFirst(text) return (tostring(text):gsub("^%u", string.lower)) end
+
+-- The rest of the crew follows its leader into the queue: each member is
+-- checked like a join of their own and gets the leader's options (the same
+-- `squad`); a member who cannot go is told why and stays out.
+local function queueCrew(leader, a, options, party)
+    local followed, out = 0, {}
+    local leaderName = LightRP.characters.displayName(leader)
+    for _, member in ipairs(party.members) do
+        if member ~= leader then
+            local e, q = owned[member], pending[member]
+            if e and e.activity == a.id then
+                followed = followed + 1
+            elseif q and q.activity == a.id then
+                followed = followed + 1
+            else
+                local ok, why = check(member, a.id)
+                if ok then
+                    if q then emit(EV.leaveRequest, member, q.activity) end
+                    local theirs = {}
+                    for key, value in pairs(options) do theirs[key] = value end
+                    theirs.target = nil -- a challenge stays the leader's
+                    theirs.squad = squadOf(party)
+                    pending[member] = { activity = a.id, at = now(), crew = party.id }
+                    if emit(EV.join, member, a.id, theirs) then
+                        followed = followed + 1
+                        touch(member)
+                        LightRP.notice(member, { kind = "contract", title = "CREW", durationMs = 6000,
+                            body = leaderName .. " queued the crew for " .. a.label .. ". /leave drops you out." })
+                    else
+                        pending[member] = nil
+                    end
+                else
+                    out[#out + 1] = LightRP.characters.displayName(member) .. " stays out: " .. lowerFirst(why)
+                    LightRP.notice(member, { kind = "warning", title = "CREW", durationMs = 7000,
+                        body = leaderName .. " queued the crew for " .. a.label .. ". You stay out: " .. lowerFirst(why) })
+                end
+            end
+        end
+    end
+    return followed, out
+end
+
 function A.requestJoin(id, activityId, from, extra)
     local a = type(activityId) == "string" and registry[activityId] or nil
     if not a then return false, "That activity is not available." end
+    -- in a crew, its leader starts the activities and the crew follows
+    local party = crewOf(id)
+    local crew = party and #party.members > 1 and party or nil
+    if crew and crew.leader ~= id then return false, "Your crew leader starts activities. Leave the crew to go solo." end
     local q = pending[id]
     if q and q.activity == activityId then return false, "You are already queued for " .. a.label .. "." end
     local ok, why = check(id, activityId)
@@ -614,19 +670,20 @@ function A.requestJoin(id, activityId, from, extra)
         if not known then return false, "Choose " .. a.modeKey .. ": " .. table.concat(ids, ", ") .. "." end
     end
     if q then emit(EV.leaveRequest, id, q.activity) end
-    local squad
-    local P = LightRP.parties
-    local party = P and type(P.of) == "function" and P.of(id)
-    if party then squad = { id = party.id, leader = party.leader, members = copy(party.members) } end
     pending[id] = { activity = a.id, at = now() }
-    options.from, options.squad = clean(from, 24) or "panel", squad
+    options.from, options.squad = clean(from, 24) or "panel", squadOf(party)
     if not emit(EV.join, id, a.id, options) then
         pending[id] = nil
         return false, a.label .. " did not answer. Try again in a moment."
     end
     touch(id)
-    if owned[id] then return true, "Joining " .. a.label .. "." end
-    return true, "Request sent to " .. a.label .. "."
+    local followed, out = 0, {}
+    if crew then followed, out = queueCrew(id, a, options, crew) end
+    local text = (owned[id] and "Joining " or "Request sent to ") .. a.label
+    if followed > 0 then text = text .. string.format(" with %d crew member%s", followed, followed == 1 and "" or "s") end
+    text = text .. "."
+    if #out > 0 then text = text .. " " .. table.concat(out, ". ") .. "." end
+    return true, text
 end
 
 function A.requestLeave(id)
@@ -635,6 +692,7 @@ function A.requestLeave(id)
         local label = labelOf(e.activity)
         if leaving[id] and leaving[id].token == e.token then return true, "Leaving " .. label .. "..." end
         leaving[id] = { token = e.token, at = now() }
+        LightRP.log("activities: %d asked to leave %s", id, e.activity)
         emit(EV.leaveRequest, id, e.activity)
         if owned[id] == e then
             -- the provider did not hand the player back: the core does, and says so
@@ -653,6 +711,19 @@ function A.requestLeave(id)
         pending[id] = nil
         emit(EV.leaveRequest, id, q.activity)
         touch(id)
+        -- a crew leader leaving the queue takes the crew they queued out of it
+        local party = crewOf(id)
+        if party and party.leader == id then
+            for _, member in ipairs(party.members) do
+                local theirs = pending[member]
+                if member ~= id and theirs and theirs.crew == party.id and theirs.activity == q.activity then
+                    pending[member] = nil
+                    emit(EV.leaveRequest, member, q.activity)
+                    touch(member)
+                    LightRP.notice(member, { kind = "info", title = "CREW", body = "Your crew leader left the queue for " .. labelOf(q.activity) .. "." })
+                end
+            end
+        end
         return true, "You left the queue for " .. labelOf(q.activity) .. "."
     end
     if returning[id] then return false, "You are already on your way back." end
@@ -1062,8 +1133,7 @@ local function nearby(id)
     local me = Open77.players.position(id)
     local list = {}
     if not me then return list end
-    local P = LightRP.parties
-    local squad = P and type(P.of) == "function" and P.of(id) or nil
+    local squad = crewOf(id)
     local range = (tonumber(C.nearbyRange) or 15) ^ 2
     for _, raw in ipairs(GetPlayers()) do
         local other = pid(raw)
@@ -1072,7 +1142,7 @@ local function nearby(id)
             if p and (p.bucket or 0) == (me.bucket or 0) then
                 local d2 = (p.x - me.x) ^ 2 + (p.y - me.y) ^ 2 + (p.z - me.z) ^ 2
                 if d2 <= range then
-                    local theirs = P and P.of(other) or nil
+                    local theirs = crewOf(other)
                     list[#list + 1] = { id = other, name = LightRP.characters.displayName(other), distance = math.floor(math.sqrt(d2) + 0.5),
                         inSquad = theirs ~= nil, mine = squad ~= nil and theirs == squad,
                         invited = squad ~= nil and squad.invites ~= nil and squad.invites[other] ~= nil }
@@ -1121,6 +1191,11 @@ function A.view(id)
         bots = A.botsEnabled == true,
         nearby = (watchers[id] or 0) > now() and nearby(id) or {},
     }
+    -- a crew member waits for the leader: the panel says so instead of a join button
+    local party = crewOf(id)
+    if party and #party.members > 1 and party.leader ~= id then
+        state.crewLeader = LightRP.characters.displayName(party.leader)
+    end
     for _, extend in ipairs(A.extensions) do
         local done, err = pcall(extend, id, state)
         if not done then LightRP.log("activities: state extension failed: %s", tostring(err)) end
@@ -1138,7 +1213,8 @@ LightRP.action("activities.control", function(id, payload)
         A.watch(id)
         touch(id)
         if op == "open" then
-            local tab = (payload.tab == "contracts" or payload.tab == "squad") and payload.tab or "activities"
+            local tab = payload.tab == "contracts" and "contracts"
+                or ((payload.tab == "crew" or payload.tab == "squad") and "crew") or "activities"
             LightRP.dialog(id, "activities", { tab = tab })
         end
         return

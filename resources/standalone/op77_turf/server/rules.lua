@@ -57,13 +57,33 @@ function R.topGangs(entries)
     return keys[1], keys[2]
 end
 
+-- Players of one crew (entries sharing `squad`, the Light RP squad id) are a unit:
+-- never split, always placed whole. A solo player is a unit of one.
+local function unitsOf(list)
+    local out, byKey = {}, {}
+    for _, e in ipairs(list) do
+        local key = e.squad ~= nil and ("squad:" .. tostring(e.squad)) or ("solo:" .. tostring(e.id))
+        local u = byKey[key]
+        if u == nil then
+            u = { key = key, members = {} }
+            byKey[key] = u
+            out[#out + 1] = u
+        end
+        u.members[#u.members + 1] = e
+    end
+    return out
+end
+
 -- Forms the two sides of a war from the queue.
---   entries: { { id, gang = key|nil, at }, ... }
+--   entries: { { id, gang = key|nil, at, squad = id|nil }, ... }
 --   opts:    { maxPlayers, maxImbalance, allowTurncoats }
 -- Gang 1's members take side 1, gang 2's side 2; everyone else (other gangs, no gang)
 -- signs on as a MERCENARY with whichever side is smaller. Sides never differ by more
 -- than maxImbalance; a gang's surplus is benched (stays queued) unless turncoats are
--- allowed. Returns { gangs = { g1, g2 }, sides = { {ids}, {ids} }, merc = { [id] = true }, bench = { ids } }.
+-- allowed. A crew (same `squad`) is never split: it goes whole to the side of the gang
+-- most of it belongs to (its other members as mercenaries), and may overshoot the
+-- balance by its own size. Returns { gangs = { g1, g2 }, sides = { {ids}, {ids} },
+-- merc = { [id] = true }, bench = { ids } }.
 function R.formSides(entries, opts)
     opts = opts or {}
     local max = opts.maxPlayers or 24
@@ -72,55 +92,80 @@ function R.formSides(entries, opts)
     for _, e in ipairs(entries) do list[#list + 1] = e end
     table.sort(list, byQueue)
     local g1, g2 = R.topGangs(list)
+    local gangs = { g1, g2 }
     local core, others = { {}, {} }, {}
-    for _, e in ipairs(list) do
-        if g1 ~= nil and e.gang == g1 then core[1][#core[1] + 1] = e
-        elseif g2 ~= nil and e.gang == g2 then core[2][#core[2] + 1] = e
-        else others[#others + 1] = e end
+    for _, u in ipairs(unitsOf(list)) do
+        local a, b = 0, 0
+        for _, e in ipairs(u.members) do
+            if g1 ~= nil and e.gang == g1 then a = a + 1 elseif g2 ~= nil and e.gang == g2 then b = b + 1 end
+        end
+        if a > 0 or b > 0 then
+            local s = a >= b and 1 or 2
+            core[s][#core[s] + 1] = u
+        else
+            others[#others + 1] = u
+        end
     end
     local sides, merc, used = { {}, {} }, {}, {}
-    local nextCore, nextOther = { 1, 1 }, 1
-    local function take(side, fromCore, asMerc)
-        local e
-        if fromCore then
-            e = core[fromCore][nextCore[fromCore]]
-            nextCore[fromCore] = nextCore[fromCore] + 1
-        else
-            e = others[nextOther]
-            nextOther = nextOther + 1
+    local function place(side, u)
+        u.used = true
+        for _, e in ipairs(u.members) do
+            sides[side][#sides[side] + 1] = e.id
+            used[e.id] = true
+            if not (gangs[side] ~= nil and e.gang == gangs[side]) then merc[e.id] = true end
         end
-        sides[side][#sides[side] + 1] = e.id
-        used[e.id] = true
-        if asMerc then merc[e.id] = true end
     end
-    local function hasCore(s) return core[s][nextCore[s]] ~= nil end
-    local function hasOther() return others[nextOther] ~= nil end
-    while #sides[1] + #sides[2] < max do
+    -- The first unit of a pool (queue order) that fits the room left (and `fits`).
+    local function first(pool, room, fits)
+        for _, u in ipairs(pool) do
+            if not u.used and #u.members <= room and (fits == nil or fits(u)) then return u end
+        end
+        return nil
+    end
+    while true do
         local a, b = #sides[1], #sides[2]
+        local room = max - a - b
+        if room <= 0 then break end
         -- The smaller side first; level: the side that still has its own people.
         local s
         if a < b then s = 1 elseif b < a then s = 2
-        elseif hasCore(1) or not hasCore(2) then s = 1 else s = 2 end
+        elseif first(core[1], room) or not first(core[2], room) then s = 1 else s = 2 end
         local o = s == 1 and 2 or 1
-        if hasCore(s) then take(s, s, false)
-        elseif hasOther() then take(s, nil, true)
-        elseif hasCore(o) and (#sides[o] + 1 - #sides[s]) <= imbalance then take(o, o, false)
-        elseif hasCore(o) and opts.allowTurncoats then take(s, o, true)
-        else break end
+        local u = first(core[s], room) or first(others, room)
+        if u then
+            place(s, u)
+        else
+            u = first(core[o], room, function(x) return #sides[o] + #x.members - #sides[s] <= imbalance end)
+            if u then
+                place(o, u)
+            elseif opts.allowTurncoats then
+                u = first(core[o], room)
+                if not u then break end
+                place(s, u)
+            else
+                break
+            end
+        end
     end
     local bench = {}
     for _, e in ipairs(list) do if not used[e.id] then bench[#bench + 1] = e.id end end
-    return { gangs = { g1, g2 }, sides = sides, merc = merc, bench = bench }
+    return { gangs = gangs, sides = sides, merc = merc, bench = bench }
 end
 
 -- Where a late joiner goes during a running war, or nil (benched for now).
 --   counts = { n1, n2 } fighters per side, gangs = { g1, g2 }, total cap = opts.maxPlayers.
+--   opts.crewSide: the side his crew already fights on (never split: that side, as long
+--   as the war has room, whatever the balance).
 -- Returns side, isMercenary.
 function R.placeLate(counts, gangs, gang, opts)
     opts = opts or {}
     local max = opts.maxPlayers or 24
     local imbalance = math.max(0, opts.maxImbalance or 1)
     if counts[1] + counts[2] >= max then return nil end
+    if opts.crewSide == 1 or opts.crewSide == 2 then
+        local s = opts.crewSide
+        return s, not (gang ~= nil and gangs[s] == gang)
+    end
     for s = 1, 2 do
         if gang ~= nil and gangs[s] == gang then
             local o = s == 1 and 2 or 1
@@ -132,6 +177,47 @@ function R.placeLate(counts, gangs, gang, opts)
     -- A mercenary: the smaller side, side 1 when level.
     if counts[2] < counts[1] then return 2, true end
     return 1, true
+end
+
+-- ---------------------------------------------------------------- bots
+
+-- Bots per side of a war with bots (staff bot mode): each side is filled up to
+-- max(perSide, the larger side's humans). A side without humans is always filled; a
+-- side with humans gets bot teammates only when `allies` is on. Capped per side and in
+-- total (teammates are trimmed before the enemy).
+--   humans = { n1, n2 }; opts = { perSide, allies, maxPerSide, maxBots }. Returns { b1, b2 }.
+function R.botFill(humans, opts)
+    opts = opts or {}
+    local target = math.max(opts.perSide or 3, humans[1] or 0, humans[2] or 0)
+    local out = { 0, 0 }
+    for s = 1, 2 do
+        local n = humans[s] or 0
+        if n == 0 or opts.allies then out[s] = math.max(0, target - n) end
+        if opts.maxPerSide then out[s] = math.min(out[s], opts.maxPerSide) end
+    end
+    local cap = opts.maxBots
+    while cap and out[1] + out[2] > cap do
+        local s
+        if (humans[1] or 0) > 0 and out[1] > 0 then s = 1
+        elseif (humans[2] or 0) > 0 and out[2] > 0 then s = 2
+        else s = out[1] >= out[2] and 1 or 2 end
+        out[s] = out[s] - 1
+    end
+    return out
+end
+
+-- The NPC gang of a Gang Sweep: base + perHuman for each human past the first, capped.
+function R.pveBots(humans, pve)
+    local n = (pve.baseBots or 3) + (pve.botsPerHuman or 2) * math.max(0, (humans or 1) - 1)
+    return math.max(0, math.min(pve.maxBots or n, n))
+end
+
+-- A rival gang for a side nobody of a gang holds: the first of `order` that is not `taken`.
+function R.rivalGang(order, taken, gangs)
+    for _, key in ipairs(order or {}) do
+        if key ~= taken and (gangs == nil or gangs[key] ~= nil) then return key end
+    end
+    return nil
 end
 
 -- ---------------------------------------------------------------- zones
@@ -217,13 +303,15 @@ end
 -- ---------------------------------------------------------------- score
 
 -- Points of one step: held zones x rate x dt, accumulated with a fractional carry so
--- a 1 s cadence and a jittery one score the same. Returns the winner side or nil.
+-- a 1 s cadence and a jittery one score the same. `war.zoneRate` (optional, per side)
+-- scales a side's zone points (a Gang Sweep's holders). Returns the winner side or nil.
 function R.stepScore(war, dt, scoring, target)
     for s = 1, 2 do
         local held = 0
         for _, zone in ipairs(war.zones) do if zone.owner == s then held = held + 1 end end
         war.carry = war.carry or { 0, 0 }
-        local gain = held * (scoring.pointsPerZonePerSecond or 1) * dt + war.carry[s]
+        local rate = (scoring.pointsPerZonePerSecond or 1) * (war.zoneRate and war.zoneRate[s] or 1)
+        local gain = held * rate * dt + war.carry[s]
         local whole = math.floor(gain)
         war.carry[s] = gain - whole
         war.sides[s].score = war.sides[s].score + whole
@@ -318,6 +406,23 @@ function R.counted(war, rewards, minAccounts)
     return true
 end
 
+-- Did a Gang Sweep count (not void, long enough)? No accounts rule: the other side is NPCs.
+function R.pveCounted(war, rewards)
+    if war.void then return false end
+    return (war.playedMs or 0) >= (rewards.minWarSeconds or 0) * 1000
+end
+
+-- A copy of `rewards` with the reputation amounts scaled (rounded), then `overrides`.
+function R.scaledRewards(rewards, scale, overrides)
+    local out = {}
+    for k, v in pairs(rewards or {}) do out[k] = v end
+    for _, k in ipairs({ "win", "draw", "loss", "perCapture", "perKill", "bonusCap" }) do
+        if type(out[k]) == "number" then out[k] = math.floor(out[k] * (scale or 1) + 0.5) end
+    end
+    for k, v in pairs(overrides or {}) do out[k] = v end
+    return out
+end
+
 -- Personal score shown on the board: captures, kills and time on the zones.
 function R.personalScore(m, scoring)
     return (m.captures or 0) * (scoring.captureBonus or 0) + (m.kills or 0) * (scoring.killPoints or 0)
@@ -329,6 +434,8 @@ end
 function R.reputation(m, war, winner, rewards, counted)
     if not counted or m.left then return rewards.leaver or 0 end
     if (m.playedMs or 0) < (rewards.minPlaySeconds or 0) * 1000 then return 0 end
+    -- (Gang Sweep) nothing for a fighter who neither captured nor eliminated anyone.
+    if rewards.needsAction and (m.captures or 0) + (m.kills or 0) == 0 then return 0 end
     local base
     if winner == 0 then base = rewards.draw elseif winner == m.side then base = rewards.win else base = rewards.loss end
     local bonus = (m.captures or 0) * (rewards.perCapture or 0) + (m.kills or 0) * (rewards.perKill or 0)

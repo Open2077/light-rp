@@ -196,17 +196,21 @@ export interface ActivitiesState {
   reputation: { today: number; dailyCap: number; maxPerResult: number };
   /** Staff bot mode (/lightrp.bots): bots fill the missing places, nothing is recorded. */
   bots?: boolean;
-  /** Players around (only while the panel is open), for squad invites. */
+  /** Players around (only while the panel is open), for crew invites. */
   nearby: ActivityNearby[];
   contracts: ActivityContract[];
+  /** In a crew led by someone else: the leader's name (only the leader starts activities). */
+  crewLeader?: string;
 }
-export type ActivitiesTab = "activities" | "contracts" | "squad";
+export type ActivitiesTab = "activities" | "contracts" | "crew";
 
-/* ── Missions (server/modules/missions.lua) and squads (server/modules/parties.lua) ── */
+/* ── Missions (server/modules/missions.lua) and crews (server/modules/parties.lua) ── */
 export interface MissionDifficulty {
   id: string; label: string; blurb: string; payout: number; minutes: number;
   min: number; max: number; tier: number; locked: boolean; tagged: number;
   requires?: string; cleared?: number; // the difficulty to complete first at this point; how often this one was completed
+  /** Lobbies open to matchmaking with room for this player's crew (shown to a closed crew). */
+  openLobbies?: number;
 }
 export interface MissionLobbyMember { id: number; name: string; citizen: string; tier: number; host: boolean; squad?: string }
 export interface MissionBoard {
@@ -221,15 +225,34 @@ export interface MissionDialogPayload {
   difficulties: MissionDifficulty[]; boards: Record<string, MissionBoard>;
   tagged?: { lobby: string; difficulty: string; host: boolean }; taggedElsewhere?: string;
   nearby: MissionNearby[];
+  /** How this player enters: alone (a crew of one) or with their crew; only its leader tags in. */
+  entry?: MissionEntry;
+}
+export interface MissionEntry {
+  crew?: string; size: number; leader?: string; leads: boolean;
+  /** Open to matchmaking: strangers fill the empty places (the crew's flag, or the solo player's). */
+  matchmaking: boolean;
+  /** The lobby this player is tagged in takes strangers. */
+  open: boolean;
 }
 export interface MissionUpdate { session: string; state?: MissionDialogPayload; closed?: boolean }
-export interface PartyMember { id: number; name: string; leader: boolean; tier: number }
+/** One member on the crew frame. `busy`: what keeps them (mission, lobby = tagged on a board, activity),
+ *  `far`: out of reach of the viewer (another instance, or past the configured distance). */
+export interface PartyMember {
+  id: number; name: string; leader: boolean; tier: number; you?: boolean;
+  state?: "alive" | "down" | "dead"; busy?: "mission" | "lobby" | "activity"; busyLabel?: string; far?: boolean;
+}
+export interface CrewInvite { party: string; from: number; fromName: string; expiresInMs: number }
+/** The crew (server/modules/parties.lua "party" state). Without `id` the player is alone. `keys`: the
+ *  effective invite keys, added by client/core/crew.lua. */
 export interface PartyState {
-  id?: string; leader?: number; members?: PartyMember[]; pending?: Array<{ id: number; name: string }>;
-  invites: Array<{ party: string; from: number; fromName: string; expiresInMs: number }>; maxSize: number;
+  you?: number; id?: string; leader?: number; members?: PartyMember[];
+  pending?: Array<{ id: number; name: string; expiresInMs?: number }>;
+  invites: CrewInvite[]; maxSize: number; inviteSeconds?: number; matchmaking?: boolean;
+  keys?: { accept?: string; decline?: string };
 }
 export type MissionQueueState = false
-  | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean }
+  | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean; open?: boolean }
   | { running: true; instance: string; title: string; difficulty: string; difficultyId: string; endsInMs: number; members: number; squad: MissionSquadMember[]; objective?: MissionObjective };
 /** An authored mission's progress for this operator (server/modules/mission_engine.lua view()). Countdowns are from the push. */
 export interface MissionObjective {
@@ -256,7 +279,7 @@ export interface RaidState {
   intro?: { boss: { x: number; y: number; z: number }; durationMs: number; difficulty: string; operators: number };
   loadouts?: Array<{ id: string; label: string; blurb: string }>; loadout?: string;
 }
-/** One operator in the squad frame of a running mission. `state`: alive, down (waiting for a revive), dead, recovering. */
+/** One operator on the crew frame of a running mission. `state`: alive, down (waiting for a revive), dead, recovering. */
 export interface MissionSquadMember { id: number; name: string; citizen: string; host: boolean; health: number; maxHealth: number; armor: number; state: "alive" | "down" | "dead" | "recovering" }
 export type UiStatePatch = Partial<UiState>;
 
@@ -485,9 +508,11 @@ export type UiAction =
   | { type: "mission.ready" }
   | { type: "mission.tag" | "mission.tagGroup"; session: string; difficulty: string }
   | { type: "mission.untag" | "mission.launch" | "mission.close"; session: string }
+  | { type: "mission.matchmaking"; session: string; on: boolean }
   | { type: "party.invite" | "party.kick" | "party.promote"; target: number }
   | { type: "party.accept" | "party.decline"; party?: string }
   | { type: "party.leave" }
+  | { type: "party.matchmaking"; on: boolean }
   | { type: "activities.control"; operation: "open" | "refresh" | "close" | "leave"; tab?: ActivitiesTab }
   | { type: "activities.control"; operation: "join"; id: string; from?: string; options?: Record<string, string> }
   | { type: "activities.control"; operation: "gps"; id: string }

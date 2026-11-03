@@ -95,6 +95,36 @@ function LightRP.buildState(playerId, keys)
     return state
 end
 
+-- The client host drops a plain net event of more than 1024 JSON values
+-- (kMaximumEventValues, scripting/src/ResourceHost.cpp) or ~48 KiB, and tells the
+-- server nothing. On 2026-11-03 the whole state (activities, crews, missions, ...)
+-- crossed it: the page never got it, kept its empty default character and reopened
+-- the creator over an active character until a lone `character` push arrived. A
+-- state too large for one event goes one key per event, `character` first; a key
+-- still too large alone goes as a latent event (reassembled by the host and
+-- delivered under the same name). Counted generously, with margin, like interact.lua.
+local STATE_PLAIN_VALUES, STATE_PLAIN_BYTES, STATE_LATENT_RATE = 900, 40 * 1024, 512 * 1024
+local function countStateValues(value, limit, n)
+    n = (n or 0) + 1
+    if type(value) ~= "table" then return n end
+    for _, item in pairs(value) do
+        n = countStateValues(item, limit, n + 1) -- the key, then the value
+        if n > limit then return n end
+    end
+    return n
+end
+local function fitsPlainEvent(payload)
+    local values = countStateValues(payload, STATE_PLAIN_VALUES)
+    if values > STATE_PLAIN_VALUES then return false, values end
+    if values > 200 and type(json) == "table" and type(json.encode) == "function" then
+        local ok, text = pcall(json.encode, payload)
+        if ok and type(text) == "string" and #text > STATE_PLAIN_BYTES then return false, values, #text end
+    end
+    return true, values
+end
+LightRP.stateFitsPlainEvent = fitsPlainEvent
+local splitReported, latentReported = false, {}
+
 -- Push one or several keys to one player. `keys` nil = the whole state.
 function LightRP.state(playerId, keys)
     if playerId == nil or playerId <= 0 then return end
@@ -104,7 +134,36 @@ function LightRP.state(playerId, keys)
         set = {}
         for _, key in ipairs(keys) do set[key] = true end
     end
-    TriggerClientEvent(E.net.state, playerId, LightRP.buildState(playerId, set))
+    local state = LightRP.buildState(playerId, set)
+    if fitsPlainEvent(state) then
+        TriggerClientEvent(E.net.state, playerId, state)
+        return
+    end
+    local order = {}
+    for key in pairs(state) do if key ~= "character" then order[#order + 1] = key end end
+    table.sort(order)
+    if state.character ~= nil then table.insert(order, 1, "character") end
+    if not splitReported then
+        splitReported = true
+        LightRP.log("state for player %s: over %d values or %d bytes, sent as %d events (one per key)", tostring(playerId), STATE_PLAIN_VALUES, STATE_PLAIN_BYTES, #order)
+    end
+    for _, key in ipairs(order) do
+        local part = { [key] = state[key] }
+        local fits, values, bytes = fitsPlainEvent(part)
+        if fits then
+            TriggerClientEvent(E.net.state, playerId, part)
+        elseif type(TriggerLatentClientEvent) == "function" then
+            local id, why = TriggerLatentClientEvent(E.net.state, playerId, STATE_LATENT_RATE, part)
+            if not id then
+                LightRP.log("state key %s for player %s not sent (%s)", key, tostring(playerId), tostring(why))
+            elseif not latentReported[key] then
+                latentReported[key] = true
+                LightRP.log("state key %s: %d+ values, %s bytes: sent as a latent event", key, values, tostring(bytes or "?"))
+            end
+        else
+            LightRP.log("state key %s for player %s too large for one event and no latent transport", key, tostring(playerId))
+        end
+    end
 end
 
 function LightRP.broadcastState(keys)
@@ -119,14 +178,28 @@ function LightRP.action(actionType, handler)
     actions[actionType] = handler
 end
 
-local actionLastMs = {} -- playerId -> stamp; the page is throttled to 4 actions/s
+-- playerId -> { [type] = stamp }: 4 actions/s per action TYPE. One shared stamp
+-- per player made one click eat the next: the F1 menu sends its item, then the
+-- client sends menu.close as it closes, and a periodic refresh could land just
+-- before a click; the dropped one was never answered (2026-11-03, "Leave" in F1
+-- did nothing inside an activity).
+local actionLastMs = {}
+local throttledLogMs = {}
 RegisterNetEvent(E.net.action, function(payload)
     local playerId = source
     if type(payload) ~= "table" or type(payload.type) ~= "string" then return end
-    local last = actionLastMs[playerId]
+    local stamps = actionLastMs[playerId]
+    if stamps == nil then stamps = {}; actionLastMs[playerId] = stamps end
+    local last = stamps[payload.type]
     local now = LightRP.nowMs()
-    if last and now - last < 250 then return end
-    actionLastMs[playerId] = now
+    if last and now - last < 250 then
+        if now - (throttledLogMs[playerId] or -60000) >= 60000 then
+            throttledLogMs[playerId] = now
+            LightRP.log("action %s by %s throttled (another one %d ms before)", payload.type, tostring(playerId), now - last)
+        end
+        return
+    end
+    stamps[payload.type] = now
     local handler = actions[payload.type]
     if handler == nil then
         LightRP.result(playerId, false, "Unknown action: " .. payload.type, payload.type)
@@ -184,7 +257,7 @@ end)
 AddEventHandler("onPlayerDisconnected", function(playerIdStr, reason)
     local playerId = tonumber(playerIdStr)
     if playerId == nil then return end
-    actionLastMs[playerId] = nil
+    actionLastMs[playerId], throttledLogMs[playerId] = nil, nil
     LightRP.eachModule("onDisconnected", playerId, reason)
 end)
 

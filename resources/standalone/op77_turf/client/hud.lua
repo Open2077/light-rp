@@ -13,6 +13,7 @@ TurfHud = {}
 local H = TurfHud
 
 local MAX_ROWS = 16
+local BOT_PREFIX = "[BOT] "
 
 local function clock(ms)
     local s = math.max(0, math.floor((ms or 0) / 1000 + 0.5))
@@ -65,7 +66,25 @@ local function kitLabel(personal, kits)
     return personal.kitLabel or tostring(personal.kit or "-")
 end
 
+-- A Gang Sweep (mode "pve"): the humans take the zones from the NPC gang (side 2).
+local function sweepObjective(shared, personal, target)
+    local holders = sideOf(shared, 2).label
+    if shared.phase == "placing" then return "Deploying to " .. tostring(shared.site and shared.site.label) end
+    if shared.phase == "countdown" then return ("%s hold every zone · take them, first to %s"):format(holders, tostring(target)) end
+    if shared.phase == "ended" then
+        if shared.void then return "Sweep called off · nothing counts" end
+        if shared.winner == 0 then return "Draw" end
+        if shared.winner == personal.side then return "Victory · the district is yours" end
+        return "Defeat · " .. holders .. " keep the turf"
+    end
+    if personal.respawnMs then return ("Down · back in %ds"):format(math.ceil(personal.respawnMs / 1000)) end
+    if personal.outMs then return ("Back to the war zone! %ds"):format(math.ceil(personal.outMs / 1000)) end
+    if personal.protectedMs then return "Spawn protection · take the zones from " .. holders end
+    return ("Take the zones from %s · first to %s"):format(holders, tostring(target))
+end
+
 local function objective(shared, personal, target)
+    if shared.mode == "pve" then return sweepObjective(shared, personal, target) end
     local mine = sideOf(shared, personal.side)
     local as = ("You fight for %s%s"):format(mine.label, personal.merc and " (mercenary)" or "")
     if shared.phase == "placing" then return "Deploying to " .. tostring(shared.site and shared.site.label) .. " · " .. as end
@@ -85,7 +104,10 @@ local function scoreboard(shared, board, myId)
     local columns = { "K", "D", "CAP", "SCORE" }
     local rows, selfRow = {}, nil
     for _, r in ipairs(board or {}) do
-        local row = { name = tostring(r.name) .. (r.merc and " ·M" or ""), values = { r.kills or 0, r.deaths or 0, r.captures or 0, r.score or 0 },
+        local name = tostring(r.name)
+        -- A bot always reads as one (the server names it so; never trust that alone).
+        if r.bot and name:sub(1, #BOT_PREFIX) ~= BOT_PREFIX then name = BOT_PREFIX .. name end
+        local row = { name = name .. (r.merc and " ·M" or ""), values = { r.kills or 0, r.deaths or 0, r.captures or 0, r.score or 0 },
             self = r.id == myId, team = sideOf(shared, r.side).label }
         if row.self then selfRow = row end
         if #rows < MAX_ROWS then rows[#rows + 1] = row
@@ -101,7 +123,8 @@ function H.war(shared, personal, board, opts)
     local phase = shared.phase
     local hudPhase = (phase == "placing" or phase == "countdown") and "countdown" or (phase == "ended" and "ended" or "running")
     local site = shared.site or {}
-    local hud = { activity = "turf.war", title = "TURF WAR",
+    local pve = shared.mode == "pve"
+    local hud = { activity = pve and "turf.pve" or "turf.war", title = pve and "GANG SWEEP" or "TURF WAR",
         subtitle = site.district and (tostring(site.label) .. " · " .. tostring(site.district)) or tostring(site.label),
         phase = hudPhase, objective = objective(shared, personal, opts.target or shared.target) }
     if phase == "countdown" then
@@ -152,12 +175,35 @@ end
 -- The lobby HUD for a queued player while the war is about to start.
 function H.lobby(personal, opts)
     opts = opts or {}
+    if personal.mode == "pve" then return H.sweepLobby(personal, opts) end
     local hud = { activity = "turf.war", title = "TURF WAR", subtitle = personal.site or "Night City", phase = "lobby",
         objective = ("Queued %d/%d · you will be pulled in when it starts"):format(personal.position or 0, personal.min or 0) }
     if personal.lobbyMs then hud.timer = { remainingMs = personal.lobbyMs, label = "STARTS IN" } end
     hud.stats = {
         { label = "Fighters", value = ("%d / %d"):format(personal.total or 0, personal.min or 0) },
         { label = "Side", value = personal.gang or "Mercenary" },
+        { label = "Kit", value = kitLabel(personal, opts.kits) },
+    }
+    hud.hints = { { key = opts.kitKey or "K", label = "Change kit" } }
+    return hud
+end
+
+-- A Gang Sweep line-up: the crew gathering, or waiting for a free sweep slot.
+function H.sweepLobby(personal, opts)
+    opts = opts or {}
+    local objective
+    if personal.waiting then
+        objective = "Every sweep slot is taken · you go in when one frees up"
+    elseif (personal.min or 0) > (personal.total or 0) then
+        objective = ("Your crew is gathering %d/%d"):format(personal.total or 0, personal.min or 0)
+    else
+        objective = "Going in"
+    end
+    local hud = { activity = "turf.pve", title = "GANG SWEEP", subtitle = personal.site or "Night City", phase = "lobby",
+        objective = objective }
+    if personal.lobbyMs and not personal.waiting then hud.timer = { remainingMs = personal.lobbyMs, label = "STARTS IN" } end
+    hud.stats = {
+        { label = "Crew", value = ("%d / %d"):format(personal.total or 0, math.max(personal.min or 0, personal.total or 0)) },
         { label = "Kit", value = kitLabel(personal, opts.kits) },
     }
     hud.hints = { { key = opts.kitKey or "K", label = "Change kit" } }

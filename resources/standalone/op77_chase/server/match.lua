@@ -13,11 +13,19 @@
 --     went down is respawned on his next mark, and in place before going home;
 --   * the return is activityLeave: Light RP brings the player back to where he was;
 --   * match buckets live in ChaseConfig.buckets (4300000+).
-Chase = { matches = {}, playerMatch = {}, bucketOwner = {}, pairings = {}, nextId = nil }
+--
+-- Bot mode (staff, server/bots.lua): Chase.admitBot puts one queued player against a bot.
+-- The bot is a member like a player (its id is negative, ChaseBots answers for it); on
+-- top of the usual flow the match steers it (steerBots: the cop chases once released,
+-- the runner drives the course then the traffic, or flees on foot, and gives up when
+-- cornered), never rates it, and removes it with the match. The player's first role
+-- alternates from one bot match to the next.
+Chase = { matches = {}, playerMatch = {}, bucketOwner = {}, pairings = {}, botFirstRole = {}, nextId = nil }
 local FINAL = { opponent_left = true }
 
 local function cfg() return ChaseConfig end
 local function log(fmt, ...) print(("[op77_chase] " .. fmt):format(...)) end
+local function isBot(id) return ChaseBots ~= nil and ChaseBots.isBot(id) end
 
 -- The rules a match plays by: its mode's column plus the general numbers.
 function Chase.rulesFor(mode)
@@ -67,6 +75,9 @@ end
 
 function Chase.spawnPair(match, index)
     local list = match.mode == "foot" and cfg().match.footSpawns or cfg().match.vehicleSpawns
+    -- A car chase against a bot starts on a course's grid: the bot runner drives the course.
+    local botSpawns = cfg().bots and cfg().bots.vehicleSpawns
+    if match.hasBots and match.mode == "vehicle" and type(botSpawns) == "table" and #botSpawns > 0 then list = botSpawns end
     if type(list) ~= "table" or #list == 0 then return nil end
     return list[((match.id + (index or 1) - 2) % #list) + 1]
 end
@@ -102,6 +113,11 @@ function Chase.roundCount(match)
 end
 
 local function present(m) return not m.gone and not m.released end
+
+local function humanPresent(match)
+    for _, m in ipairs(match.members) do if not m.bot and present(m) then return true end end
+    return false
+end
 
 local function allPresent(match)
     if #match.members < cfg().match.size then return false end
@@ -160,8 +176,10 @@ local function hudPayload(match, id, now, extra)
     end
     -- The minimap would show the runner to the cop (op77_map3d, players within 350 m):
     -- the client hides these players' dots while the chase lasts.
-    if role == "cop" and (cfg().minimap or {}).hideRunnerFromCops ~= false then
-        payload.hideDots = { roleId(match, "runner") }
+    -- Players only: a bot runner has no dot to hide.
+    local runnerId = roleId(match, "runner")
+    if role == "cop" and (cfg().minimap or {}).hideRunnerFromCops ~= false and runnerId and runnerId > 0 then
+        payload.hideDots = { runnerId }
     end
     if extra then for k, v in pairs(extra) do payload[k] = v end end
     return payload
@@ -202,9 +220,11 @@ local function createCars(match)
         local driver = roleId(match, role)
         local point = match.spawn[role]
         if driver and point then
-            local id, recordOrReason = ChaseWorld.createCar(cfg().vehicles[role], Chase.carMark(point), match.bucket)
+            local mark = Chase.carMark(point)
+            local id, recordOrReason = ChaseWorld.createCar(cfg().vehicles[role], mark, match.bucket)
             if id then
                 match.cars[role] = { id = id, record = recordOrReason, driver = driver }
+                if isBot(driver) then ChaseBots.mount(driver, id, mark.yaw) end
             else
                 log("match %d: %s car failed: %s", match.id, role, tostring(recordOrReason))
             end
@@ -271,7 +291,7 @@ local function finish(match, outcome, winner, now, detail)
     -- Remember the last sides so a rematch continues the alternation.
     local ids = {}
     for _, m in ipairs(match.members) do ids[#ids + 1] = m.id end
-    if #ids == 2 then
+    if #ids == 2 and not match.hasBots then
         local roles = {}
         for id, role in pairs(match.roles) do roles[id] = role end
         Chase.pairings[pairKey(ids[1], ids[2])] = { roles = roles, atMs = now }
@@ -442,6 +462,7 @@ beginRound = function(match, index, now)
         m.placed, m.placeError, m.boarding = nil, nil, nil
         if present(m) then
             local point = match.spawn[match.roles[m.id]]
+            if m.bot then ChaseBots.assign(m.id, match.roles[m.id], match.mode) end
             m.placing = true
             ChaseWorld.place(m.id, lifted(point), match.bucket, function(ok, why)
                 m.placing = nil
@@ -480,6 +501,23 @@ function Chase.admit(a, b, mode, now)
     return Chase.start(a, b, mode, now, bucket)
 end
 
+-- Staff bot mode: one queued player against a bot (server/bots.lua). Same returns as admit.
+function Chase.admitBot(humanId, mode, now)
+    if ChaseBots == nil then return nil, nil, "Bots are not available." end
+    local bucket = allocateBucket()
+    if bucket == nil then return nil, nil, "Every chase instance is busy. You stay in the queue." end
+    local ok, why = ChaseCore.enter(humanId)
+    if not ok then return nil, humanId, why end
+    local botId = ChaseBots.create({ bucket = bucket, admission = humanId, owner = cfg().activity.id })
+    local match = Chase.start(humanId, botId, mode, now, bucket)
+    if not match then
+        ChaseBots.remove(botId)
+        ChaseCore.leave(humanId, { returnPlayer = true })
+        return nil, nil, "no_bucket"
+    end
+    return match
+end
+
 function Chase.start(a, b, mode, now, bucket)
     bucket = bucket or allocateBucket()
     if bucket == nil then return nil, nil, "no_bucket" end
@@ -491,15 +529,24 @@ function Chase.start(a, b, mode, now, bucket)
         score = {}, rounds = {}, round = 0, state = "new", createdAtMs = now, cars = {} }
     for _, pid in ipairs({ a, b }) do
         local info = ChaseCore.player(pid) or {}
+        local bot = isBot(pid) or nil
         match.members[#match.members + 1] = { id = pid, name = info.name or ChaseWorld.name(pid),
-            identifier = info.identifier, characterKey = info.characterKey }
+            identifier = (not bot) and info.identifier or nil, characterKey = (not bot) and info.characterKey or nil, bot = bot }
         match.score[pid] = 0
-        Chase.playerMatch[pid] = id
+        if bot then match.hasBots = true else Chase.playerMatch[pid] = id end
     end
     -- First sides: a rematch inside ten minutes continues the alternation, otherwise the
-    -- match id decides (deterministic, so a failure is reproducible).
+    -- match id decides (deterministic, so a failure is reproducible). Against a bot the
+    -- player starts on the other side than in his last bot match.
     local previous = Chase.pairings[pairKey(a, b)]
-    if previous and (now - previous.atMs) <= 600000 and previous.roles[a] and previous.roles[b] then
+    local human = match.hasBots and ((not isBot(a)) and a or ((not isBot(b)) and b or nil)) or nil
+    if human then
+        local last = Chase.botFirstRole[human]
+        local first = last and (last == "cop" and "runner" or "cop") or ((id % 2 == 0) and "cop" or "runner")
+        local other = human == a and b or a
+        match.roles[human], match.roles[other] = first, first == "cop" and "runner" or "cop"
+        Chase.botFirstRole[human] = first
+    elseif previous and (now - previous.atMs) <= 600000 and previous.roles[a] and previous.roles[b] then
         match.roles[a] = previous.roles[a] == "cop" and "runner" or "cop"
         match.roles[b] = previous.roles[b] == "cop" and "runner" or "cop"
     else
@@ -580,6 +627,9 @@ end
 
 local function close(match)
     removeCars(match)
+    for _, m in ipairs(match.members) do
+        if m.bot then ChaseBots.remove(m.id) end
+    end
     ChaseWorld.sweepBucket(match.bucket)
     Chase.bucketOwner[match.bucket] = nil
     for _, m in ipairs(match.members) do
@@ -593,6 +643,13 @@ end
 -- One member home: out of the car, alive, then activityLeave (Light RP teleports him back).
 local function releaseMember(match, m, now)
     if m.gone or m.released then return end
+    if m.bot then
+        -- A bot goes with the scoreboard, or at once when no player is left to see it.
+        if humanPresent(match) and now < (match.releaseAtMs or now) then return end
+        m.released = true
+        ChaseBots.remove(m.id)
+        return
+    end
     if now < (m.releaseAtMs or match.releaseAtMs or now) then return end
     m.exitStartedMs = m.exitStartedMs or now
     -- A placement still in flight would land him back in the match bucket after Light RP
@@ -663,7 +720,57 @@ local function tickActive(match, now)
     if now - (match.lastHudMs or 0) >= (cfg().match.hudPushMs or 500) then pushAll(match, now) end
 end
 
+-- ---------------------------------------------------------------- bots
+
+local function separation(a, b)
+    if a == nil or b == nil then return nil end
+    local dx, dy, dz = a.x - b.x, a.y - b.y, (a.z or 0) - (b.z or 0)
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+-- What each bot does this tick: held outside the active phase (and while its side is held),
+-- the cop chases the runner once released, the runner flees (the course by car) and gives
+-- up when the cop has pinned it for a few seconds (server/bots.lua yieldCheck).
+local function steerBots(match, now)
+    for _, m in ipairs(match.members) do
+        if m.bot and present(m) then
+            local role, other = match.roles[m.id], opponent(match, m.id)
+            local order = { kind = "hold" }
+            if match.state == "active" and match.chase and other and present(other) then
+                local target = other.bot and { bot = other.id } or { player = other.id }
+                if role == "cop" then
+                    if match.chase.copReleased then order = { kind = "chase", target = target } end
+                else
+                    local sep = match.chase.copReleased and separation(ChaseWorld.position(m.id), ChaseWorld.position(other.id)) or nil
+                    if ChaseBots.yieldCheck(m.id, sep, match.rules.bustDistance or 15, now) then
+                        order = { kind = "yield" }
+                    else
+                        order = { kind = "flee", from = target, route = match.spawn and match.spawn.route or nil, routeKey = match.round }
+                    end
+                end
+            end
+            ChaseBots.steer(m.id, order)
+        end
+    end
+end
+
+-- A bot that cannot be set up (no NPC, no vehicle AI): nothing counts, everyone goes home.
+local function brokenBot(match)
+    for _, m in ipairs(match.members) do
+        if m.bot and present(m) and ChaseBots.broken(m.id) then return m end
+    end
+    return nil
+end
+
 function Chase.tickMatch(match, now)
+    if match.hasBots and ChaseBots and match.state ~= "resolved" and match.state ~= "closed" then
+        local broken = brokenBot(match)
+        if broken then
+            log("match %d: bot %d broken (%s)", match.id, broken.id, tostring(select(2, ChaseBots.broken(broken.id))))
+            return Chase.abort(match, now, "The bot could not be set up. Nothing counts.")
+        end
+        steerBots(match, now)
+    end
     local state = match.state
     if state == "placing" then
         local done, failed = true, nil
@@ -716,6 +823,9 @@ function Chase.shutdown()
     for _, match in pairs(Chase.matches) do
         freezeAll(match, false)
         removeCars(match)
+        for _, m in ipairs(match.members) do
+            if m.bot and ChaseBots then ChaseBots.remove(m.id) end
+        end
     end
 end
 
@@ -725,7 +835,7 @@ function Chase.status(queued)
     for _, match in pairs(Chase.matches) do
         if match.state ~= "closed" then
             running = running + 1
-            for _, m in ipairs(match.members) do if present(m) then players = players + 1 end end
+            for _, m in ipairs(match.members) do if present(m) and not m.bot then players = players + 1 end end
         end
     end
     local free = allocateBucket() ~= nil

@@ -1,8 +1,9 @@
--- Missions matchmaking and squads, server side, with the host stubbed:
--- squads (invite / accept / leave / kick / lead), tagging alone and as a squad,
--- matchmaking that fills a squad's empty seats, the countdown when full or when
--- the host launches, untag on walking away, launch into a bucket, finish with
--- payout and reputation, abandon.
+-- Missions entry and crews, server side, with the host stubbed: crews
+-- (invite / accept / leave / kick / lead), entry by crew (private lobby, its
+-- leader tags it in), matchmaking that fills open lobbies, the countdown when
+-- full or when the host launches, untag on walking away, launch into a bucket,
+-- finish with payout and reputation, abandon. tests/crews_test.lua covers the
+-- crews themselves in depth.
 local clock = 0
 local threads = {}
 local function tick(ms)
@@ -91,15 +92,15 @@ end
 
 spawn(1, "Jack Okonkwo", 0); spawn(2, "Kei Mori", 2); spawn(3, "Rosa Vasquez", 3); spawn(4, "Vi Asada", 1); spawn(5, "Far Away", 400)
 
--- ── squads ──
+-- ── crews ──
 assert(Party.invite(1, 2))
 assert(Party.of(1).leader == 1 and providers.party(2).invites[1].fromName == "Jack Okonkwo", "invite pending")
-assert(Party.invite(2, 3), "anyone starts a squad by inviting")
-assert(Party.accept(2), "a squad of one gives way to the invite")
-assert(providers.party(3).invites[1] == nil, "2's dropped squad took its invite along")
+assert(Party.invite(2, 3), "anyone starts a crew by inviting")
+assert(Party.accept(2), "a crew of one gives way to the invite")
+assert(providers.party(3).invites[1] == nil, "2's dropped crew took its invite along")
 assert(#Party.of(1).members == 2 and Party.of(2) == Party.of(1))
 assert(Party.invite(1, 3)); assert(Party.accept(3))
-assert(select(2, Party.invite(2, 4)) == "Only the squad leader invites.")
+assert(select(2, Party.invite(2, 4)) == "Only the crew leader invites.")
 assert(select(2, Party.invite(1, 5)):find("too far"))
 assert(Party.promote(1, 2) and Party.of(1).leader == 2)
 assert(Party.kick(2, 3) and Party.of(3) == nil and #Party.of(1).members == 2)
@@ -114,32 +115,51 @@ assert(s.difficulties[2].requires == "STANDARD" and s.difficulties[3].requires =
 assert(s.me.tier == 1 and s.boards.standard.max == 4)
 assert(#s.nearby >= 2, "players around to invite")
 
--- ── tag solo, then a squad fills the same lobby ──
+-- ── alone below the minimum: matchmaking on, then a crew fills the lobby ──
 local r = act(4, "mission.tag", { difficulty = "standard" })
+assert(not r.ok and r.text:find("needs 2 operators", 1, true) and r.text:find("matchmaking"), r.text)
+assert(act(4, "mission.matchmaking", { on = true }).ok and open(4).entry.matchmaking)
+clock = clock + 2000
+r = act(4, "mission.tag", { difficulty = "standard" })
 assert(r.ok, r.text)
 assert(view(4).count == 1 and view(4).state == "open" and view(4).host)
 -- the critical board refuses who has not completed hard here
 clock = clock + 2000
 r = act(3, "mission.tag", { difficulty = "critical" })
 assert(not r.ok and r.text:find("Complete HARD", 1, true), r.text)
--- the squad (1 lead, 2) tags as a group: joins Vi's lobby (room for 2)
+-- the crew (1 lead, 2), matchmaking off: its own lobby, nobody joins, it launches at the minimum
+assert(open(1).difficulties[1].openLobbies == 1, "the board says somebody is looking for operators")
+clock = clock + 2000
+r = act(1, "mission.tag", { difficulty = "standard" })
+assert(r.ok and r.text:find("launches"), r.text)
+assert(view(1).count == 2 and view(2).count == 2 and view(1).state == "countdown" and view(4).count == 1, "a private crew lobby")
+assert(open(1).entry.crew and open(1).entry.leads and not open(2).entry.leads and open(2).entry.leader == "Jack Okonkwo")
+-- a member cannot tag in, for the crew or alone
+clock = clock + 2000
+r = act(2, "mission.tag", { difficulty = "standard" })
+assert(not r.ok and r.text == "Your crew leader tags the crew in. Leave the crew to go solo.", r.text)
+r = act(2, "mission.matchmaking", { on = true })
+assert(not r.ok and r.text:find("leader"), "only the leader opens the crew")
+-- the leader opens the crew to matchmaking: the countdown stops, the lobby waits for players
+assert(act(1, "mission.matchmaking", { on = true }).ok)
+assert(view(1).state == "open" and Party.matchmaking(2), "an open lobby waits to be full")
+-- tagging again joins the fullest open lobby with room: Vi's
 clock = clock + 2000
 r = act(1, "mission.tagGroup", { difficulty = "standard" })
 assert(r.ok, r.text)
-assert(view(1).count == 3 and view(2).count == 3 and not view(1).host, "squad joined the fullest lobby with room")
--- a non-leader cannot tag the squad
-clock = clock + 2000
-r = act(2, "mission.tagGroup", { difficulty = "standard" })
-assert(not r.ok and r.text:find("leader"))
--- the board shows everyone, the host first
+assert(view(1).count == 3 and view(2).count == 3 and not view(1).host, "the crew joined the fullest open lobby with room")
+-- the board shows everyone, the host first (to who is open to matchmaking)
+assert(open(3).boards.standard.id == nil, "matchmaking off: open lobbies stay off your board")
+assert(act(3, "mission.matchmaking", { on = true }).ok)
 s = open(3)
 assert(#s.boards.standard.members == 3 and s.boards.standard.members[1].host and s.boards.standard.members[1].name == "Vi Asada")
 assert(s.difficulties[1].tagged == 3)
 
 -- ── the fourth fills it: countdown ──
 clock = clock + 2000
+assert(act(3, "mission.matchmaking", { on = true }).ok)
 r = act(3, "mission.tag", { difficulty = "standard" })
-assert(r.ok and r.text:find("full"), r.text)
+assert(r.ok and r.text:find("launches"), r.text)
 assert(view(3).state == "countdown" and view(3).countdownMs > 0)
 -- someone leaves: cancelled; back: countdown again
 actions["mission.untag"](3, { session = open(3).session })
@@ -222,6 +242,7 @@ clock = clock + 2000
 assert(act(5, "mission.tag", { difficulty = "standard" }).ok == false, "far away player cannot tag")
 positions[5] = { x = at.x, y = at.y + 1, z = at.z }
 clock = clock + 2000
+assert(act(5, "mission.matchmaking", { on = true }).ok)
 assert(act(5, "mission.tag", { difficulty = "standard" }).ok)
 assert(commands["missions.launch"](0, { "5" }))
 local solo = Missions.instanceOf(5)
@@ -229,11 +250,11 @@ assert(solo and #solo.members == 1)
 tick(LightRpMissions.points[1].difficulties[1].minutes * 60000 + 1000)
 assert(not Missions.instanceOf(5) and buckets[5] == 0 and not paid[5], "failed on time")
 
--- ── disconnect while tagged and while in a squad ──
+-- ── disconnect while tagged and while in a crew ──
 clock = clock + 2000
 assert(act(4, "mission.tag", { difficulty = "standard" }).ok)
 LightRP.eachModule("onDisconnected", 4)
 assert(view(4) == false)
 LightRP.eachModule("onDisconnected", 1)
-assert(Party.of(2) == nil, "squad of one dissolves when the other leaves the city")
-print("PASS: squads (invite/accept/lead/kick/dissolve), boards (tiers, nearby), tag solo / squad fills the fullest lobby, countdown when full, cancel on leave/wander, host launch with the minimum, bucket instance, squad frame (health/armor/down), abandon, payout + reputation, tiers, time out, disconnects")
+assert(Party.of(2) == nil, "a crew of one dissolves when the other leaves the city")
+print("PASS: crews (invite/accept/lead/kick/dissolve), boards (tiers, nearby), entry by crew (private lobby, leader only), matchmaking fills open lobbies, countdown when full, cancel on leave/wander, host launch with the minimum, bucket instance, crew frame (health/armor/down), abandon, payout + reputation, tiers, time out, disconnects")
