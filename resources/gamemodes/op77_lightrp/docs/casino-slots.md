@@ -56,7 +56,13 @@ checked against them.
   about 2,000 instructions per resume.
 - UI: `ui/src/features/board-games/extra/SlotsControls.tsx`.
 - Assets: `resources/assets/models/open77_casino_slots`, built by
-  `tools/build-casino-slots-props.py` (see its README).
+  `tools/build-casino-slots-props.py` (see its README). Look: a Night City
+  black chrome cabinet between two fins with cyan neon edges, a curved topper
+  screen, a lit paytable screen above the reels, a slanted console with
+  glowing buttons, a chrome lever with a glowing knob and a lit coin tray.
+  Neon, screens and reel strips use the material's emissive channel. Preview
+  renders: `sources/preview_slots_*.png` (`--preview`). The pack also cooks
+  `slot_cabinet_collider.ent` (player collision, `tools/COLLISION.md`).
 
 Tests: `python3 tools/test-casino-slots.py`, `tools/test-casino-slots-server.py`,
 `tools/test-casino-slots-client.py`.
