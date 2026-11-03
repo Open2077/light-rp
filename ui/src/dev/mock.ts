@@ -14,7 +14,7 @@ import { shopFixture } from "./shopFixture";
 import { jobFixture } from "./jobFixture";
 import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
-import { activitiesFixture, missionMock } from "./missionFixture";
+import { activitiesMock, missionMock } from "./missionFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
@@ -43,6 +43,7 @@ export function installMockBridge(): void {
   const shop = shopFixture();
   const garage = garageFixture();
   const mission = missionMock(params, (n, p) => fire(n, p));
+  const activities = activitiesMock(params, (n, p) => fire(n, p)); // ?dialog=activities (&lobby=search|widened|offer|match|friendly)
   const dealership = dealershipFixture();
   const step = (params.get("step") as CharacterState["step"] | null) ?? (registered ? "done" : "identity");
   const character: CharacterState = {
@@ -197,10 +198,7 @@ export function installMockBridge(): void {
           mission.boot();
           hallOfFame.boot();
           guide.boot();
-          if (params.get("dialog") === "activities") {
-            fire(PAGE_EVENTS.state, { activities: activitiesFixture(params) });
-            fire(PAGE_EVENTS.dialog, { kind: "activities", tab: params.get("tab") ?? "activities" });
-          }
+          if (params.get("dialog") === "activities") activities.boot();
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
           if (params.get("mission") === "1") mission.running();
@@ -264,6 +262,7 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.action) {
         const action = payload as UiAction;
         if (mission.handle(action)) return;
+        if (params.get("dialog") === "activities" && activities.handle(action)) return;
         if (hallOfFame.handle(action)) return;
         if (guide.handle(action)) return;
         setTimeout(() => {

@@ -182,14 +182,57 @@ export interface ActivityEntry {
   phase: ActivityPhase; players: number; queued: number; joinable: boolean; detail: string;
   /** Races rank by best time, everything else by wins. */
   byTime: boolean;
-  /** Join choices (options[modeKey]); empty: the provider decides. */
-  modes: Array<{ id: string; label: string }>; modeKey: string;
+  /** Join choices (options[modeKey]); empty: the provider decides. botFill false: no bots in that mode. */
+  modes: Array<{ id: string; label: string; botFill?: boolean }>; modeKey: string;
+  /** What the panel offers beyond a plain join (absent: nothing). */
+  lobby?: ActivityLobby;
   /** Players against bots: earns reputation; its difficulties go as options.difficulty. */
   pve?: boolean; difficulties?: ActivityDifficulty[];
   top: ActivityTopRow[];
   /** The course board the leaderboard shows (a race with courses). */
   board?: { id: string; course: string; revision: number };
   mine?: ActivityStats; mineBoard?: ActivityStats;
+}
+/** The lobby of an activity (server/config/activities.lua `lobby`, the provider's botFill). */
+export interface ActivityLobby {
+  /** PvE: "Fill empty slots with bots", allied bots up to `seats` beside the crew (still ranked). */
+  allies?: boolean; seats?: number;
+  /** PvP: "Play with bots" up front, and the bot fill offer of a long search (unranked). */
+  bots?: boolean;
+  /** PvP: a crew leader starts a friendly match inside the crew (unranked). */
+  friendly?: boolean;
+  /** The ranked search is the core's queue (team sizes; cyberware brackets unless brackets is absent). */
+  queue?: boolean; brackets?: boolean;
+}
+/** A join waiting (the provider's queue, the core's ranked search, a match on its way). */
+export interface ActivityQueued {
+  id: string; label: string; sinceMs: number; difficulty?: string;
+  /** false: a friendly, a bot match or fill, staff bot mode. */
+  ranked?: boolean; mode?: string;
+  /** This player decides (solo or crew leader); a crew member only follows. */
+  lead?: boolean;
+  /** A match formed by the core is on its way (the provider is setting it up). */
+  match?: boolean; friendly?: boolean;
+  /** PvE: allied bots asked. */
+  allies?: number;
+  /** The core's ranked search: searchers that fit now, players a match needs, near your rank or all ranks. */
+  search?: { found?: number; needed?: number; scope?: "near" | "all"; widenInMs?: number; bracket?: number };
+  /** The bot fill offer (unranked) opens in this long (0: open now); absent: no offer for this search. */
+  fillInMs?: number;
+}
+export interface ActivityFriendlyPlayer { id: number; name: string; tier: number }
+/** A friendly crew match being set up by the crew leader (always unranked). */
+export interface ActivityFriendly {
+  id: string; label: string; mode?: string;
+  /** Bots take the empty places (only when canBots). */
+  bots: boolean; canBots: boolean;
+  /** teams: sides of `size`; split: two halves; ffa: everyone for themselves. */
+  shape: "teams" | "split" | "ffa"; size: number;
+  leader: string; mine: boolean; bench: ActivityFriendlyPlayer[];
+  /** Why it cannot start yet. */
+  issue?: string;
+  teams?: ActivityFriendlyPlayer[][]; teamBots?: number[];
+  players?: ActivityFriendlyPlayer[]; enemies?: number;
 }
 /** A mission board of the city, for the Contracts terminal (GPS only). */
 export interface ActivityContract { id: string; title: string; type: string; location: string; description: string; distance?: number }
@@ -200,8 +243,11 @@ export interface ActivitiesState {
   list: ActivityEntry[];
   /** The activity that owns the player (sinceMs at the push), or false. */
   current: false | { id: string; label: string; sinceMs: number; leaving: boolean; returning: boolean; difficulty?: string };
-  /** A join asked and not entered yet (the provider's queue or lobby), or false. */
-  queued: false | { id: string; label: string; sinceMs: number; difficulty?: string };
+  /** A join asked and not entered yet (the provider's queue or lobby, the ranked search), or false. */
+  queued: false | ActivityQueued;
+  /** The crew's friendly match being set up (the leader edits it), or false. */
+  friendly?: false | ActivityFriendly;
+  lobby?: { fillAfterMs: number };
   /** On a mission: activities wait (/mission leave). */
   mission: boolean;
   /** Free for an activity, else the reason in one sentence. */
@@ -563,6 +609,10 @@ export type UiAction =
   | { type: "activities.control"; operation: "open" | "refresh" | "close" | "leave"; tab?: ActivitiesTab }
   | { type: "activities.control"; operation: "join"; id: string; from?: string; options?: Record<string, string> }
   | { type: "activities.control"; operation: "gps"; id: string }
+  | { type: "activities.lobby"; operation: "fill" | "balance" | "cancel" | "start" }
+  | { type: "activities.lobby"; operation: "friendly"; id: string; mode?: string; bots?: boolean }
+  | { type: "activities.lobby"; operation: "move"; target: number; team?: number }
+  | { type: "activities.lobby"; operation: "bots"; on: boolean }
   | { type: "halloffame.open" | "halloffame.tab" | "halloffame.refresh"; tab?: HallOfFameTab; from?: string }
   | { type: "halloffame.close" }
   | { type: "guide.open"; from?: string }
