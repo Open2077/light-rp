@@ -133,17 +133,10 @@ routing bucket, on the floor under the table origin.
 - **Behaviour**: like the other service NPCs: invulnerable, `aiMode = tasks`,
   combat, perception and voice off, native AI off (`setAIEnabled(false)`), so
   the body stands still behind the table and never walks into players.
-- **Dealing gesture**: `Open77.npcs.tasks.playAnimation` exists, but a server
-  NPC runs tasks only while its AI is on. While cards leave the shoe (the
-  opening deal, a hit, the hole card and the dealer's draws, read from the card
-  timestamps) the dealer tick queues the clip
-  `stand_table_lean0__2h_on_table__01__describe_front__01` (base game, both
-  hands over a table, looping until the cards have settled), switches the AI on
-  for that window, then off again and puts the body back on its mark
-  (`setTransform`). The clip is a raw clip, not a workspot profile, so the
-  generic device may not load its animset (the devkit says such a clip then
-  simply does not play). Set `LightRpBlackjack.DEALER.gesture = nil` to turn
-  the gesture off if the AI toggle misbehaves in game.
+- **No animation**: the dealer stays still for the whole round, AI off
+  throughout. An earlier dealing gesture (a looping "hands over the table"
+  clip, played by switching the AI on while cards left the shoe) looked wrong
+  in game and was removed.
 
 Tests: `tools/test-casino-blackjack.py`, `tools/test-casino-blackjack-server.py`,
 `tools/test-casino-blackjack-client.py`. Assets:

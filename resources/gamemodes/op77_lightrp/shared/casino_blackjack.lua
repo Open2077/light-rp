@@ -40,8 +40,6 @@ B.SWEEP=2000          -- before the next round: cards to the discard tray
 -- Records are tried in order until Open77.npcs.create accepts one: a game
 -- croupier first (the Kabuki street-story gambling den, base game), then the
 -- suited crowd faces the rental desks already spawn. No real-person likeness.
--- `gesture`: a base-game "hands over the table" clip played while cards leave
--- the shoe (nil turns the gesture off; see docs/casino-blackjack.md).
 B.DEALER={
  x=0,y=.72,
  candidates={
@@ -50,7 +48,6 @@ B.DEALER={
   {record="Character.sts_hey_rey_06_receptionist"},
  },
  streamingRadius=60.0,
- gesture="stand_table_lean0__2h_on_table__01__describe_front__01",
 }
 
 local function copy(t)
