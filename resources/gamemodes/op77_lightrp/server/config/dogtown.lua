@@ -90,6 +90,37 @@ LightRpDogtown = {
     sweepMs = 500,
     positionMaxAgeMs = 2500,
 
+    -- Entry protection (anti spawn-kill at the gates): walking in, or connecting inside,
+    -- gives a player `ms` of safety. While it runs they are left out of the PvP grant:
+    -- nobody can hurt them and they cannot hurt anyone. It counts down inside or out (a
+    -- step back through the gate does not reset it). It comes back on a later entry only
+    -- after `rearmMs` spent out of the zone (outside the walls and untagged) or after a
+    -- death; never while combat-tagged. ms = 0 switches it off.
+    entryProtection = {
+        ms = 120000,
+        rearmMs = 60000,
+    },
+
+    -- Doors held open for good (open77_doors). Every networked door within `radius` m
+    -- (planar) of an area's centre, and every door listed in `ids`, is claimed by Light RP
+    -- and kept open, unlocked and unsealed in the city bucket, whatever state the quest
+    -- left it in on a player's save. A door joins once a client nearby has reported it
+    -- (open77_doors discovery); the check runs every `checkMs`. An admin door command can
+    -- still close one for a moment: the next check opens it again. Each door claimed is
+    -- logged once with its position (survey material for new areas).
+    openDoors = {
+        checkMs = 3000,
+        areas = {
+            -- The north-west checkpoint, Pacifica side, opened by hand on Testing on
+            -- 2026-11-03 (16:49-16:53, the six ids below).
+            { id = "nw_checkpoint", label = "North-west checkpoint (Pacifica)", x = -2071.0, y = -2312.0, radius = 45.0 },
+        },
+        ids = {
+            "0xFFAAFCAF9857A30A", "0xA0004F53827C01AE", "0x344D2632F383A04A",
+            "0xD90E1432A6DC1CA9", "0x74BB40F77538BD25", "0xC0EF47799AD771B2",
+        },
+    },
+
     -- Dealing or taking PvP damage tags both players for this long; a tagged player
     -- stays attackable outside the walls until it runs out (each hit renews it).
     combatTagMs = 20000,
