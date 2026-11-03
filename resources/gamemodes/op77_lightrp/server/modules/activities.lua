@@ -525,7 +525,9 @@ local function validate(def)
             if #modes >= 8 then break end
             if type(m) == "table" and type(m.id) == "string" and #m.id <= 48 and m.id:match("^[%w_%-%.]+$") then
                 -- botFill = false: this mode cannot be filled with bots (the activity's botFill aside)
-                modes[#modes + 1] = { id = m.id, label = clean(m.label, 32) or m.id, botFill = m.botFill == false and false or nil }
+                local mode = { id = m.id, label = clean(m.label, 32) or m.id }
+                if m.botFill == false then mode.botFill = false end
+                modes[#modes + 1] = mode
             end
         end
         if #modes == 0 then modes = nil end
@@ -1557,9 +1559,10 @@ local function ownFriendly(id)
     return nil, "No friendly match is being set up."
 end
 
--- team 1 -> team 2 -> ... -> bench -> team 1. A full team (fixed size) swaps: its
--- last player takes the moved player's place. Free-for-all: in <-> bench.
-function A.friendlyMove(id, target)
+-- `to`: a team index (1, 2...) or 0 for the bench; without it, a cycle: team 1 ->
+-- team 2 -> ... -> bench -> team 1. A full team (fixed size) swaps: its last player
+-- takes the moved player's place. Free-for-all: in <-> bench.
+function A.friendlyMove(id, target, to)
     local f, why = ownFriendly(id)
     if not f then return false, why end
     target = pid(target)
@@ -1581,7 +1584,14 @@ function A.friendlyMove(id, target)
     end
     if not from then return false, "That player is not in the set-up." end
     local n = #f.teams
-    local to = from == 0 and 1 or (from < n and from + 1 or 0)
+    to = tonumber(to)
+    if to ~= nil then
+        to = math.floor(to)
+        if to < 0 or to > n then return false, "No such team." end
+        if to == from then return true end
+    else
+        to = from == 0 and 1 or (from < n and from + 1 or 0)
+    end
     local size = shapeOf(l) == "teams" and teamSizeOf(l, f.mode) or nil
     local source = from == 0 and f.bench or f.teams[from]
     table.remove(source, index)
@@ -2225,9 +2235,13 @@ end
 -- else a player id: their entry, else their pending join. nil: nothing to say.
 function A.isRanked(x)
     if A.botsEnabled == true then
-        if type(x) == "table" then return x.ranked ~= nil and false or nil end
+        if type(x) == "table" then
+            if x.ranked == nil then return nil end
+            return false
+        end
         local id = pid(x)
-        return id and (owned[id] or pending[id]) and false or nil
+        if id and (owned[id] or pending[id]) then return false end
+        return nil
     end
     if type(x) == "table" then
         if x.ranked == nil then return nil end
@@ -2568,7 +2582,7 @@ LightRP.action("activities.lobby", function(id, payload)
         local bots
         if payload.bots == true or payload.bots == false then bots = payload.bots end
         ok, text = A.friendlyOpen(id, payload.id, type(payload.mode) == "string" and clean(payload.mode, 24) or nil, bots)
-    elseif op == "move" then ok, text = A.friendlyMove(id, payload.target)
+    elseif op == "move" then ok, text = A.friendlyMove(id, payload.target, payload.team)
     elseif op == "balance" then ok, text = A.friendlyBalance(id)
     elseif op == "bots" then ok, text = A.friendlyBots(id, payload.on == true)
     elseif op == "cancel" then ok, text = A.friendlyCancel(id)
