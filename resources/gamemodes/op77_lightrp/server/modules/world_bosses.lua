@@ -522,3 +522,4 @@ end)
 WB.tick = tick
 function WB.current() return event end
 function WB.setNext(ms) nextAt = ms end
+function WB.nextAt() return nextAt end -- the events board (events_board.lua)
