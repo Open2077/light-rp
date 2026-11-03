@@ -161,6 +161,16 @@ ripperdoc-ui/public/media/
 !resources/system/open77_elevators/**
 !resources/system/open77_wardrobe_ui/
 !resources/system/open77_wardrobe_ui/**
+# Seating with ALT + click (menu mode, not in base yet) and its three dependencies:
+# none of the four ships in the server distribution (checked on 2.50.0+op77.184).
+!resources/system/open77_seating/
+!resources/system/open77_seating/**
+!resources/system/open77_furniture/
+!resources/system/open77_furniture/**
+!resources/system/open77_actions/
+!resources/system/open77_actions/**
+!resources/system/open77_uikit/
+!resources/system/open77_uikit/**
 !ui/
 !ui/**
 

@@ -113,6 +113,13 @@
       "open77_media",
       "open77_remote_camera",
       "open77_interactions",
+      // Seats on chairs, couches and benches with ALT + click (open77_seating, menu mode);
+      // the three below are its dependencies. None ships in the server distribution, and
+      // all four are opt-in (auto_start false): see "startup" for the ensures.
+      "open77_uikit",
+      "open77_actions",
+      "open77_furniture",
+      "open77_seating",
       "open77_worldui",
       "open77_zones",
       "open77_icons",
@@ -127,7 +134,14 @@
         "op77_lightrp",
         "op77_scenes",
         "op77_ripperdoc",
-        "op77_neuralink"
+        "op77_neuralink",
+        // Light RP activities: each registers with op77_lightrp at start, so Adam Smasher's
+        // terminal at The Crossing lists nothing without them. Their tables self-create.
+        "op77_fireworks",
+        "op77_race",
+        "op77_chase",
+        "op77_turf",
+        "op77_arena"
     ],
     "autoStart": true,
     "watchIntervalMilliseconds": 0,
@@ -172,6 +186,13 @@
     "hubFileGatewayOrigin": "https://files.open2077.net"
   },
   "startup": {
-    "commands": []
+    // Opt-in (auto_start false) resources are not started by the load list alone.
+    "commands": ["ensure open77_furniture", "ensure open77_actions", "ensure open77_seating"]
+  },
+  "convars": {
+    // Seats are chosen with ALT + click on the furniture (open77_contextmenu), no E card;
+    // no /sit or /stand player command (Light RP has no out-of-character commands).
+    "open77_seating_ui": "menu",
+    "open77_seating_commands": "0"
   }
 }
