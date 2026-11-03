@@ -54,9 +54,26 @@ roulette.revision=2;roulette.serverNow=now+1
 E.observe(roulette)
 local a=E.pieceTargets(roulette);clock=clock+4000;local b=E.pieceTargets(roulette)
 assert(a['roulette-wheel'].piece.yaw~=b['roulette-wheel'].piece.yaw)
-assert(math.abs(math.sqrt(b['roulette-ball'].position.x^2+b['roulette-ball'].position.y^2)-.27)<1e-9)
-clock=clock+4001;local settled=E.pieceTargets(roulette)
+-- Mid-spin the ball still rides the ball track (the cooked bowl's TRACK_R/Z).
+assert(math.abs(math.sqrt(b['roulette-ball'].position.x^2+b['roulette-ball'].position.y^2)-.388)<1e-9 and math.abs(b['roulette-ball'].position.z-.074)<1e-9)
 local spin=roulette.game.spin
+local function radius(t) return math.sqrt(t['roulette-ball'].position.x^2+t['roulette-ball'].position.y^2) end
+local function ballAngle(t) return math.deg(math.atan(t['roulette-ball'].position.x,t['roulette-ball'].position.y)) end
+-- The drop: the radius only shrinks, and the ball stays above the bowl's surfaces.
+local lastR=1
+for ms=4100,6100,100 do
+ clock=clock+100;local t=E.pieceTargets(roulette);local r,z=radius(t),t['roulette-ball'].position.z
+ assert(r<=lastR+1e-9 and r>=.27-1e-9,'ball radius '..r);lastR=r
+ -- Bowl apron (.330,.033)-(.372,.051), track to (.400,.063), number ring Z=.030 (ball radius .015).
+ local surface=r>=.372 and .051+(r-.372)/.028*.012 or r>=.33 and .033+(r-.33)/.042*.018 or r>=.292 and .030 or nil
+ if surface then assert(z>=surface+.015*.92-1e-9,('ball sinks into the bowl at r=%.3f z=%.3f'):format(r,z)) end
+end
+-- Landed (t>.76): the ball sits in its pocket and turns with the rotor.
+clock=clock+300;local landed=E.pieceTargets(roulette)
+assert(math.abs(radius(landed)-.27)<1e-9)
+local pocketAngle=(spin.ballTo-spin.wheelTo)%360
+assert(math.abs(((ballAngle(landed)+landed['roulette-wheel'].piece.yaw-pocketAngle)+180)%360-180)<1e-6,'ball rides its pocket')
+clock=clock+1601;local settled=E.pieceTargets(roulette)
 assert(math.abs(settled['roulette-wheel'].piece.yaw+spin.wheelTo)<1e-8)
 assert(math.abs(settled['roulette-ball'].position.x-.27*math.sin(math.rad(spin.ballTo)))<1e-8)
 -- Different local arrival times produce the same state at the same server time.

@@ -1,32 +1,38 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "style": "Night City high-roller: black chrome drum with an illuminated rim, smoked-glass segments, neon spot tiles",
   "namespace": "open77\\assets\\op77_lightrp\\casino_fortune",
   "models": [
     {
       "name": "fortune_stand",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_stand.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_stand.ent",
-      "triangles": 4144,
+      "triangles": 14804,
       "materials": [
-        "#10100FFF",
-        "#5A3822FF",
-        "#C79A3BFF",
-        "#7A2FC0FF",
-        "#FE170001",
-        "#FFE7A0FF",
-        "#C9CED6FF",
-        "#3A700001"
+        "black_chrome",
+        "gold",
+        "neon_magenta",
+        "cushion",
+        "chrome",
+        "neon_cyan",
+        "gunmetal",
+        "carbon",
+        "composite",
+        "felt",
+        "cavity",
+        "lamp",
+        "marquee"
       ],
       "bounds": {
         "min": [
-          -0.87,
-          -1.15,
-          0.0
+          -0.86,
+          -1.12,
+          0
         ],
         "max": [
-          0.87,
-          0.39,
-          3.2399999999999998
+          0.86,
+          0.36,
+          3.25
         ]
       }
     },
@@ -34,11 +40,10 @@
       "name": "fortune_disc_00",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_00.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_00.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -57,11 +62,10 @@
       "name": "fortune_disc_01",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_01.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_01.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -80,11 +84,10 @@
       "name": "fortune_disc_02",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_02.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_02.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -103,11 +106,10 @@
       "name": "fortune_disc_03",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_03.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_03.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -126,11 +128,10 @@
       "name": "fortune_disc_04",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_04.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_04.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -149,11 +150,10 @@
       "name": "fortune_disc_05",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_05.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_05.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -172,11 +172,10 @@
       "name": "fortune_disc_06",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_06.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_06.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -195,11 +194,10 @@
       "name": "fortune_disc_07",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_07.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_07.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -218,11 +216,10 @@
       "name": "fortune_disc_08",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_08.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_08.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -241,11 +238,10 @@
       "name": "fortune_disc_09",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_09.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_09.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -264,11 +260,10 @@
       "name": "fortune_disc_10",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_10.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_10.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -287,11 +282,10 @@
       "name": "fortune_disc_11",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_11.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_11.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -310,11 +304,10 @@
       "name": "fortune_disc_12",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_12.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_12.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -333,11 +326,10 @@
       "name": "fortune_disc_13",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_13.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_13.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -356,11 +348,10 @@
       "name": "fortune_disc_14",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_14.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_14.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -379,11 +370,10 @@
       "name": "fortune_disc_15",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_15.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_15.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -402,11 +392,10 @@
       "name": "fortune_disc_16",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_16.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_16.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -425,11 +414,10 @@
       "name": "fortune_disc_17",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_17.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_17.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -448,11 +436,10 @@
       "name": "fortune_disc_18",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_18.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_18.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -471,11 +458,10 @@
       "name": "fortune_disc_19",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_19.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_19.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -494,11 +480,10 @@
       "name": "fortune_disc_20",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_20.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_20.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -517,11 +502,10 @@
       "name": "fortune_disc_21",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_21.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_21.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -540,11 +524,10 @@
       "name": "fortune_disc_22",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_22.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_22.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -563,11 +546,10 @@
       "name": "fortune_disc_23",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_23.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_23.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -586,11 +568,10 @@
       "name": "fortune_disc_24",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_24.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_24.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -609,11 +590,10 @@
       "name": "fortune_disc_25",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_25.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_25.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -632,11 +612,10 @@
       "name": "fortune_disc_26",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_26.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_26.ent",
-      "triangles": 1026,
+      "triangles": 2322,
       "materials": [
-        "#FACE0001",
-        "#17171CFF",
-        "#C9CED6FF"
+        "face",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -657,8 +636,8 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_blur_0.ent",
       "triangles": 162,
       "materials": [
-        "#B1B20001",
-        "#17171CFF"
+        "blur",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -679,8 +658,8 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_blur_1.ent",
       "triangles": 162,
       "materials": [
-        "#B1B20001",
-        "#17171CFF"
+        "blur",
+        "chrome"
       ],
       "bounds": {
         "min": [
@@ -699,22 +678,23 @@
       "name": "fortune_flapper_0",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_0.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_0.ent",
-      "triangles": 128,
+      "triangles": 96,
       "materials": [
-        "#8E1B22FF",
-        "#C9CED6FF",
-        "#C79A3BFF"
+        "flapper",
+        "gold",
+        "neon_cyan",
+        "chrome"
       ],
       "bounds": {
         "min": [
-          -0.024788260737689527,
-          -0.012,
-          -0.1498054550848469
+          -0.025472200231905967,
+          -0.013,
+          -0.149178284305241
         ],
         "max": [
-          0.02266194367828385,
-          0.012,
-          0.01910196994988137
+          0.024074579426722732,
+          0.013,
+          0.02318458599462211
         ]
       }
     },
@@ -722,22 +702,23 @@
       "name": "fortune_flapper_1",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_1.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_1.ent",
-      "triangles": 128,
+      "triangles": 96,
       "materials": [
-        "#8E1B22FF",
-        "#C9CED6FF",
-        "#C79A3BFF"
+        "flapper",
+        "gold",
+        "neon_cyan",
+        "chrome"
       ],
       "bounds": {
         "min": [
-          -0.021,
-          -0.012,
+          -0.022,
+          -0.013,
           -0.15
         ],
         "max": [
-          0.021,
-          0.012,
-          0.017
+          0.022,
+          0.013,
+          0.020999999999999998
         ]
       }
     },
@@ -745,22 +726,23 @@
       "name": "fortune_flapper_2",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_2.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_2.ent",
-      "triangles": 128,
+      "triangles": 96,
       "materials": [
-        "#8E1B22FF",
-        "#C9CED6FF",
-        "#C79A3BFF"
+        "flapper",
+        "gold",
+        "neon_cyan",
+        "chrome"
       ],
       "bounds": {
         "min": [
-          -0.02226906863576905,
-          -0.012,
-          -0.15000835463433626
+          -0.023579822352413557,
+          -0.013,
+          -0.1495376000599692
         ],
         "max": [
-          0.021641395869946293,
-          0.012,
-          0.01859523568374792
+          0.022638313203679417,
+          0.013,
+          0.022661364114408274
         ]
       }
     },
@@ -768,22 +750,23 @@
       "name": "fortune_flapper_3",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_3.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_3.ent",
-      "triangles": 128,
+      "triangles": 96,
       "materials": [
-        "#8E1B22FF",
-        "#C9CED6FF",
-        "#C79A3BFF"
+        "flapper",
+        "gold",
+        "neon_cyan",
+        "chrome"
       ],
       "bounds": {
         "min": [
-          -0.02340084105818182,
-          -0.012,
-          -0.14909185787951204
+          -0.025014267258937878,
+          -0.013,
+          -0.14815325108927066
         ],
         "max": [
-          0.03209057744166416,
-          0.012,
-          0.02007582555596219
+          0.031612084232564494,
+          0.013,
+          0.02418301338338297
         ]
       }
     },
@@ -791,21 +774,21 @@
       "name": "fortune_eye",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_eye.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_eye.ent",
-      "triangles": 60,
+      "triangles": 168,
       "materials": [
-        "#3E0A1001",
-        "#C79A3BFF"
+        "medals",
+        "chrome"
       ],
       "bounds": {
         "min": [
-          -0.026,
-          -0.006,
-          -0.026
+          -0.03,
+          -0.0075,
+          -0.03
         ],
         "max": [
-          0.026,
+          0.03,
           0,
-          0.026
+          0.03
         ]
       }
     },
@@ -813,21 +796,21 @@
       "name": "fortune_star",
       "mesh": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_star.mesh",
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_star.ent",
-      "triangles": 60,
+      "triangles": 168,
       "materials": [
-        "#3E0A1001",
-        "#C79A3BFF"
+        "medals",
+        "chrome"
       ],
       "bounds": {
         "min": [
-          -0.026,
-          -0.006,
-          -0.026
+          -0.03,
+          -0.0075,
+          -0.03
         ],
         "max": [
-          0.026,
+          0.03,
           0,
-          0.026
+          0.03
         ]
       }
     },
@@ -837,8 +820,8 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_1.ent",
       "triangles": 240,
       "materials": [
-        "#C8282EFF",
-        "#F4F1E8FF"
+        "chip_crimson",
+        "chip_white"
       ],
       "bounds": {
         "min": [
@@ -849,7 +832,7 @@
         "max": [
           0.035,
           0.035,
-          0.0083
+          0.0081
         ]
       }
     },
@@ -859,9 +842,9 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_2.ent",
       "triangles": 480,
       "materials": [
-        "#C8282EFF",
-        "#F4F1E8FF",
-        "#1F4FB8FF"
+        "chip_crimson",
+        "chip_white",
+        "chip_cyan"
       ],
       "bounds": {
         "min": [
@@ -872,7 +855,7 @@
         "max": [
           0.035,
           0.035,
-          0.0165
+          0.016300000000000002
         ]
       }
     },
@@ -882,10 +865,10 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_3.ent",
       "triangles": 720,
       "materials": [
-        "#C8282EFF",
-        "#F4F1E8FF",
-        "#1F4FB8FF",
-        "#1E8A4AFF"
+        "chip_crimson",
+        "chip_white",
+        "chip_cyan",
+        "chip_green"
       ],
       "bounds": {
         "min": [
@@ -896,7 +879,7 @@
         "max": [
           0.035,
           0.035,
-          0.0247
+          0.0245
         ]
       }
     },
@@ -906,12 +889,12 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_4.ent",
       "triangles": 1200,
       "materials": [
-        "#C8282EFF",
-        "#F4F1E8FF",
-        "#1F4FB8FF",
-        "#1E8A4AFF",
-        "#16161AFF",
-        "#7A2FC0FF"
+        "chip_crimson",
+        "chip_white",
+        "chip_cyan",
+        "chip_green",
+        "chip_graphite",
+        "chip_violet"
       ],
       "bounds": {
         "min": [
@@ -922,7 +905,7 @@
         "max": [
           0.035,
           0.035,
-          0.041100000000000005
+          0.040900000000000006
         ]
       }
     },
@@ -932,13 +915,13 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_5.ent",
       "triangles": 1920,
       "materials": [
-        "#C8282EFF",
-        "#F4F1E8FF",
-        "#1F4FB8FF",
-        "#1E8A4AFF",
-        "#16161AFF",
-        "#7A2FC0FF",
-        "#E0A21AFF"
+        "chip_crimson",
+        "chip_white",
+        "chip_cyan",
+        "chip_green",
+        "chip_graphite",
+        "chip_violet",
+        "chip_gold"
       ],
       "bounds": {
         "min": [
@@ -949,7 +932,7 @@
         "max": [
           0.035,
           0.035,
-          0.06570000000000001
+          0.0655
         ]
       }
     },
@@ -959,13 +942,13 @@
       "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_6.ent",
       "triangles": 2880,
       "materials": [
-        "#C8282EFF",
-        "#F4F1E8FF",
-        "#1F4FB8FF",
-        "#1E8A4AFF",
-        "#16161AFF",
-        "#7A2FC0FF",
-        "#E0A21AFF"
+        "chip_crimson",
+        "chip_white",
+        "chip_cyan",
+        "chip_green",
+        "chip_graphite",
+        "chip_violet",
+        "chip_gold"
       ],
       "bounds": {
         "min": [
@@ -976,47 +959,87 @@
         "max": [
           0.035,
           0.035,
-          0.0985
+          0.0983
         ]
       }
     }
   ],
+  "colliders": [
+    {
+      "name": "fortune_stand_collider",
+      "for": "fortune_stand",
+      "entity": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_stand_collider.ent",
+      "scaleBaked": 0.65,
+      "boxes": [
+        {
+          "size": [
+            1.6,
+            0.7000000000000001,
+            1.3
+          ],
+          "center": [
+            0.0,
+            -0.7,
+            0.65
+          ]
+        },
+        {
+          "size": [
+            0.6,
+            0.6499999999999999,
+            1.45
+          ],
+          "center": [
+            0.0,
+            -0.024999999999999994,
+            0.725
+          ]
+        },
+        {
+          "size": [
+            1.6,
+            0.29000000000000004,
+            1.6000000000000003
+          ],
+          "center": [
+            0.0,
+            0.125,
+            2.15
+          ]
+        }
+      ]
+    }
+  ],
   "textures": [
     {
-      "name": "wood_ivory",
-      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_ivory.xbm",
+      "name": "brushed",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\brushed.xbm",
       "width": 256,
       "height": 256,
       "mips": 9,
       "bytes": 349524,
-      "sourceSha256": "113769ac15bf98d2135189304df196c9015068dbc8a2f9f322078bb6dd7e4519"
+      "sourceSha256": "5393334addd4e1e3ed1dcf1b7020714f0beb87805d1d8accac2dd24e87ed2726"
     },
     {
-      "name": "wood_ebony",
-      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_ebony.xbm",
-      "width": 256,
-      "height": 256,
-      "mips": 9,
-      "bytes": 349524,
-      "sourceSha256": "39039c8bb2603891415cc1c7bd42a2c14a88dd162e405e137e080a32988ba27d"
+      "name": "carbon",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\carbon.xbm",
+      "width": 512,
+      "height": 512,
+      "mips": 10,
+      "bytes": 1398100,
+      "sourceSha256": "2aaee4e8f798d294eadbb61588a7acd221a3289840a2902980228248d506b41c"
     },
     {
-      "name": "wood_natural",
-      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_natural.xbm",
-      "width": 256,
-      "height": 256,
-      "mips": 9,
-      "bytes": 349524,
-      "sourceSha256": "93dcbe4295b97ae37ca30578505b7728efb4f164a3b3d440474fdd3fd1485c8c"
-    },
-    {
-      "name": "wood_grain",
-      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_grain.xbm",
-      "width": 256,
-      "height": 256,
-      "mips": 9,
-      "bytes": 349524,
-      "sourceSha256": "1ccb4c7ec32c2eff69fd2c274195641ad4f11fa32f41c7887f5e467744586e69"
+      "name": "composite",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\composite.xbm",
+      "width": 512,
+      "height": 512,
+      "mips": 10,
+      "bytes": 1398100,
+      "sourceSha256": "318defca57ecbae65edc8ca075a4058144243ecf416cf944793b6346b348e52b"
     },
     {
       "name": "fortune_face",
@@ -1026,7 +1049,17 @@
       "height": 2048,
       "mips": 12,
       "bytes": 11184812,
-      "sourceSha256": "80c8c06eda5709f5116b79d9c54a6106bf70741a84672a3cecf016ed2fa0ed7b"
+      "sourceSha256": "262c22a197bd2276d708a72c95ae3952d5ec746e20391a22605d3570606f65b4"
+    },
+    {
+      "name": "fortune_face_glow",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_face_glow.xbm",
+      "width": 512,
+      "height": 1024,
+      "mips": 11,
+      "bytes": 2796204,
+      "sourceSha256": "a7311b7f15450dcf2248e5bab33f82e3ef040c6686fb60e373541073c5a11f81"
     },
     {
       "name": "fortune_blur",
@@ -1036,7 +1069,7 @@
       "height": 512,
       "mips": 10,
       "bytes": 1398100,
-      "sourceSha256": "28d0a59668da1db41b659ffcb439818b7f0dc22784266787f8f30386c06e37c9"
+      "sourceSha256": "3c0df433bf424e4dec57a53466c6939a1b83cb7322bf4e9ce30d9a23a07e0bc9"
     },
     {
       "name": "fortune_felt",
@@ -1046,7 +1079,17 @@
       "height": 512,
       "mips": 11,
       "bytes": 2796204,
-      "sourceSha256": "fbd46700890bbedb92e8d55752cb6239fac60991946843ad3b5cb67f39fb767c"
+      "sourceSha256": "656ca23cbe71afae261df3019b9dffebfea97b1be0b9bde61470a3b3670390e1"
+    },
+    {
+      "name": "fortune_felt_glow",
+      "flipV": true,
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_felt_glow.xbm",
+      "width": 512,
+      "height": 256,
+      "mips": 10,
+      "bytes": 699052,
+      "sourceSha256": "e00c119c4be8c4dc6b8a70bdb5d3c3efeedfccdc929ad60663fc8adb03fc9fd0"
     },
     {
       "name": "fortune_marquee",
@@ -1056,7 +1099,7 @@
       "height": 256,
       "mips": 11,
       "bytes": 1398108,
-      "sourceSha256": "d471efc56d7a7077a47d07ea0bfd394e398d1cf1afff91833b2c8ca7b4d0ceba"
+      "sourceSha256": "41685ccc8910ed49a3049184b9d32a49bb0015d5b4481a1a9352518dd9ff7b96"
     },
     {
       "name": "fortune_medals",
@@ -1066,7 +1109,7 @@
       "height": 256,
       "mips": 10,
       "bytes": 699052,
-      "sourceSha256": "f1079c5874bdfbd9f8083a80264a684db33f0ea60d06a907d4ba350a7be33a63"
+      "sourceSha256": "7c6a12e80d705fba7e76fa9c88790c485b71e06d61492955dd6e8b0d1adf7323"
     }
   ],
   "files": [
@@ -1077,8 +1120,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_blur_0.mesh",
-      "sha256": "2893d10217130880d9be48a9b19caf7161a2ecd4f40d104e2c6e316df8efee0a",
-      "bytes": 8289
+      "sha256": "a34ea9cac32b27264473ad41dd9a8ceb9933b2200a9c87c9af5b0e23f25d5901",
+      "bytes": 8466
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_blur_1.ent",
@@ -1087,8 +1130,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_blur_1.mesh",
-      "sha256": "9851690d4d9d19a84f7f46cfbc24ec563e57bd667905f6e88c5e9696125cf9ff",
-      "bytes": 8287
+      "sha256": "915d13515b404780516b6d52ec5284beb636ec086f88df06625e1234d750f518",
+      "bytes": 8464
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_1.ent",
@@ -1097,8 +1140,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_1.mesh",
-      "sha256": "c8f05a5f2280c67b50a89f55bf714dd15a9ec9d23fc265f884191d99e3bc443b",
-      "bytes": 9081
+      "sha256": "7f24e321557255fa9d10d86aee010f734870c8c7185d601a6fd2cea60136df1c",
+      "bytes": 9567
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_2.ent",
@@ -1107,8 +1150,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_2.mesh",
-      "sha256": "210c7f52e4a87982acb95306ae5225f34f43e73b6310769ce3891c98005c69be",
-      "bytes": 11549
+      "sha256": "30dc222a6b20c9d4f63dbe45e74e3fd65cced677e0c4d1f95c57254e5558aa82",
+      "bytes": 11524
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_3.ent",
@@ -1117,8 +1160,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_3.mesh",
-      "sha256": "6618d77a88cc0b69f87a610f4aefdfde905555a799a32a917f76343013942a55",
-      "bytes": 13552
+      "sha256": "84316b2540292c53f256060047c8a5ea5c5fb2b89985c5ba12c341b63cdd95d1",
+      "bytes": 13449
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_4.ent",
@@ -1127,8 +1170,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_4.mesh",
-      "sha256": "50b0d6a387633302b492841fbd9f9550daf2b1d58704a9b5342046c91bf2b0b7",
-      "bytes": 17515
+      "sha256": "6ac169f247a650f11ff37f454adfa7842dd6f86d929603bd4b2549b2087434d4",
+      "bytes": 17605
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_5.ent",
@@ -1137,8 +1180,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_5.mesh",
-      "sha256": "02cf6dd92288fa2b4723913eb064e6fe661036040aa7580bb26a94f8b94ab22f",
-      "bytes": 22702
+      "sha256": "23783e88b1dcb19e2d7722eeb9f689cf7545045036f6f26b9c763b128e7c7d67",
+      "bytes": 23166
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_6.ent",
@@ -1147,8 +1190,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_chips_6.mesh",
-      "sha256": "9c5af44057b03a07471acbbc0461e30174756dfeb520617b3905c53c091e2d8c",
-      "bytes": 28408
+      "sha256": "be81359c90ac61918f3628e0c29e2190722ddcdf4d4fdb844813a1f05be1d8c6",
+      "bytes": 27807
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_00.ent",
@@ -1157,8 +1200,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_00.mesh",
-      "sha256": "949deb8f4d233589f6d1b77851452e54595a58fa86e981f8e3bfa72adaefd38e",
-      "bytes": 16431
+      "sha256": "49d4b44d150c63eb3aa756a74edf40e6c63c63ffcc9b639888234c8a127264b1",
+      "bytes": 25864
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_01.ent",
@@ -1167,8 +1210,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_01.mesh",
-      "sha256": "55324f2d4b0c72df09104b757bd275e739e544b5389289e0b609c3fa43a51f4e",
-      "bytes": 17160
+      "sha256": "56c396e28cf13c02f8f7aa48b3a2ab1867d8a65c04164532980a75c912e41b08",
+      "bytes": 27503
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_02.ent",
@@ -1177,8 +1220,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_02.mesh",
-      "sha256": "b93c1b92261baf03c38876831ef38cd58100fda1decbc6a9884d15516eee1cbe",
-      "bytes": 17362
+      "sha256": "46d10c55160f46ca98eb2b8336008325ef22886ccc0ba37d3cf3ce42c2916400",
+      "bytes": 27714
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_03.ent",
@@ -1187,8 +1230,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_03.mesh",
-      "sha256": "8db9b5a8934bb56f714dee27b0eafe1cc4ae99272d7dc65d6f8e0fbb97e48623",
-      "bytes": 17066
+      "sha256": "d6ed4a901ec78df91fcb94c4e07a9538e04ce3dc14f47eaeeee7eba7c589d700",
+      "bytes": 27454
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_04.ent",
@@ -1197,8 +1240,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_04.mesh",
-      "sha256": "ededd2c8a9418346c5d7ea2c71e659fd89cc0cf0f05b0ec22a01151082018abd",
-      "bytes": 17093
+      "sha256": "45bc1790dac2f574b784467d426345ca38e12e2aa4b716f7a799974d38a713b2",
+      "bytes": 27180
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_05.ent",
@@ -1207,8 +1250,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_05.mesh",
-      "sha256": "713f7e7032f3cb9f95d6594b56de7cc0b49aac7c7dd1e9766e8473c151c0e56d",
-      "bytes": 17057
+      "sha256": "8f33044913d258c15e64d7424722d5547a345b4742b5adb80a09f1e851338007",
+      "bytes": 27166
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_06.ent",
@@ -1217,8 +1260,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_06.mesh",
-      "sha256": "80807979402fb8d9f77bfea3065d4bf9837f0eb2165c338fa8d06de3e24e9a06",
-      "bytes": 17190
+      "sha256": "0d8d1a1b0496283c059bd9152e6975e6dc687b17077af3d2504e6eb5bff65fe7",
+      "bytes": 27048
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_07.ent",
@@ -1227,8 +1270,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_07.mesh",
-      "sha256": "67252f039c3dd0611033b089a36b8e169eafce73f084677c630bcd6efaacbd19",
-      "bytes": 17249
+      "sha256": "0adee66d7e6ae11e4d7d6b194c004dbd80d20675a5f399549ff2f4605fc5c023",
+      "bytes": 27102
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_08.ent",
@@ -1237,8 +1280,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_08.mesh",
-      "sha256": "c7af19f391f26346b68ef0aa78c254262a07d156765bd3d25079dfc4f507affc",
-      "bytes": 17109
+      "sha256": "3bf7f027dbf43b5401d4a8425b3de22b5fe8307a98de233305bd43af926fee92",
+      "bytes": 27441
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_09.ent",
@@ -1247,8 +1290,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_09.mesh",
-      "sha256": "47e7fd76a3011562515f8086598cd90342c8440edea5128a263b31683a48c04e",
-      "bytes": 16437
+      "sha256": "48f120e0a5df0e18212687bb03da016ac25750263927b4de2cb3f07774c709f5",
+      "bytes": 27560
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_10.ent",
@@ -1257,8 +1300,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_10.mesh",
-      "sha256": "733fd00bab0ba8148fc3b30ad0e9d3ee77833ab2b4a458cd9f8dac5364700afa",
-      "bytes": 17010
+      "sha256": "db38de6477714d2220559394a6d6a47b86416ee3a3d131300c399394b284a613",
+      "bytes": 26097
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_11.ent",
@@ -1267,8 +1310,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_11.mesh",
-      "sha256": "b2960d012bc5ecd1491549f8ec09a649a6fd64cb3ca3587002c721a0e703613a",
-      "bytes": 17201
+      "sha256": "f4384d14674a0a3639179c97f16a59052d5cc4606ec0841c740b034929b642e4",
+      "bytes": 27147
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_12.ent",
@@ -1277,8 +1320,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_12.mesh",
-      "sha256": "c90b9bf8d379907fc801e7d4d3fd0a83048ab04b7beeb6465441032d01496aee",
-      "bytes": 17133
+      "sha256": "f6efcd5a4a3f90aa1c27a5d7eae9a24396d96e5045682a2df6c991de53f5e221",
+      "bytes": 27501
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_13.ent",
@@ -1287,8 +1330,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_13.mesh",
-      "sha256": "a21b174206b9cd85dec7a16a0adf6cfda1f17bca2f99a0085d5c4593b3406c96",
-      "bytes": 17135
+      "sha256": "1c04047b33d881af2e728eaac1823bbedaad7546806a45bcdd64c90d25224152",
+      "bytes": 27309
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_14.ent",
@@ -1297,8 +1340,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_14.mesh",
-      "sha256": "ec0303f3a2e31681660ccee1f3dc2af67c399aa93e0fed1804bf053e7727915c",
-      "bytes": 17080
+      "sha256": "7b52cdb2945106efaa148d752a8499bfd978f4c9ce26381a73ba3fa4cb6a880c",
+      "bytes": 27846
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_15.ent",
@@ -1307,8 +1350,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_15.mesh",
-      "sha256": "7cc44b78a8e7a30ce431f1c61c5c51a0bd6df10b40da3e0d642df23e15025048",
-      "bytes": 17075
+      "sha256": "c89cfa3967ff807b7f91e63b732d310643045537c414d2124dd7bf6078722ae2",
+      "bytes": 27742
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_16.ent",
@@ -1317,8 +1360,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_16.mesh",
-      "sha256": "30547b4d2c607ed629dba16062186187b700de4c61a5c41ec03d946c4aa8733d",
-      "bytes": 17296
+      "sha256": "64704848bd1cbb72c433e00a0a98731fee37e0a9104636494c7ec2dd9af59c07",
+      "bytes": 27797
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_17.ent",
@@ -1327,8 +1370,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_17.mesh",
-      "sha256": "4372dad6372ff2d3dcfacd2cd6620348319d2a644452252cbc387a81ec6f286e",
-      "bytes": 17285
+      "sha256": "adbf1b44c0e4b01825bd155d8e034e274756128f6344f4370fa665387a3f2d21",
+      "bytes": 26337
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_18.ent",
@@ -1337,8 +1380,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_18.mesh",
-      "sha256": "21ead245ef131900ca0264cf297ab65f8dde615130fe492560f14214d53d3ef6",
-      "bytes": 16194
+      "sha256": "c6d6a1e9e86aa0e9e87826000a5aa72fcefb3af8479b2dde54504a822b0cbc2b",
+      "bytes": 27325
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_19.ent",
@@ -1347,8 +1390,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_19.mesh",
-      "sha256": "fe0c1dd6c326e92f2277aa7005d96abce4fa58e8232877b184aa9821ecbbcc23",
-      "bytes": 17119
+      "sha256": "81768f9df0badd0a5bb931736c3ebe5cfc71982841fae1d3c097a66643ad7e93",
+      "bytes": 27262
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_20.ent",
@@ -1357,8 +1400,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_20.mesh",
-      "sha256": "9eabf5820f1b0ec6171dfe879610860278fdf6b155d7aad0986c58f9bdb1e375",
-      "bytes": 17184
+      "sha256": "d11036b4824b42c8f5461925fd1a13e444fe4d8f8159c97ec5f20ce979910dca",
+      "bytes": 27000
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_21.ent",
@@ -1367,8 +1410,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_21.mesh",
-      "sha256": "ef082d45fd0312ef82b3262657c0ec61eb5e663402b0014e4a64e63386b5db93",
-      "bytes": 16947
+      "sha256": "aa18d4e7b8bb552584fcb4ab24145d16d88887ecfbdcd18dc6b1c733792766c8",
+      "bytes": 27445
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_22.ent",
@@ -1377,8 +1420,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_22.mesh",
-      "sha256": "583ca9c4212973f23e4db7a8cde20caa919d9c05ea7869342a463b4e554cd16e",
-      "bytes": 17001
+      "sha256": "d3838eef1c444969aead9c489eeb735ce65fb58159f031622aa27ffbfa2a4516",
+      "bytes": 27444
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_23.ent",
@@ -1387,8 +1430,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_23.mesh",
-      "sha256": "395350b00db8e3f1308fee9b2f9f6ade8e3645a103e0c80a9b93c0ab222510b4",
-      "bytes": 17093
+      "sha256": "921a0942f5be07ac0398554b8c3aeb27a72c6ef016f7d65cf5e79cdbe7988165",
+      "bytes": 27660
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_24.ent",
@@ -1397,8 +1440,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_24.mesh",
-      "sha256": "0e4e45b3680b040127f1177c9f290d6e022aea159271d9b6422fc5ee0e349cc6",
-      "bytes": 17036
+      "sha256": "43ef6a580ec6d155485203525e7eae20ba373db93046e682ea24687eb00f941c",
+      "bytes": 27269
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_25.ent",
@@ -1407,8 +1450,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_25.mesh",
-      "sha256": "2f837835b2412ec6849a5b7f20dd8f2b1628b439dcf3c331272670b6e897c28a",
-      "bytes": 17324
+      "sha256": "ea2cd1705efaed2342ee9469ef885d908123d7367a7310c8c47280ed3a062972",
+      "bytes": 27612
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_26.ent",
@@ -1417,8 +1460,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_disc_26.mesh",
-      "sha256": "6d46d6cd2f9210d2298ab71cfdb5c535dd443a4a5874e92d562826905c4de090",
-      "bytes": 17195
+      "sha256": "b54bca6fb458bc7d273e58081445f25a690f6ca5e3291f507ac9b13083bbf103",
+      "bytes": 27634
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_eye.ent",
@@ -1427,8 +1470,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_eye.mesh",
-      "sha256": "371b684228043635bdeb4fb1c56a278944c8d06628a4cd4a9ae682f4d20ada1a",
-      "bytes": 6589
+      "sha256": "25d1c2a41273af50716dd82d195e33ae36fc2c3ddd322fed1208b61c7729eab1",
+      "bytes": 8803
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_0.ent",
@@ -1437,8 +1480,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_0.mesh",
-      "sha256": "adb3eb53ff5aa205df48d7ce3b5dd4644ff32f3efd35b989db5e9f2d56ba054f",
-      "bytes": 8150
+      "sha256": "1af1690b56a3216360744a0680a1b0ef88e06e9769a91aac802bc204ba8b56cf",
+      "bytes": 8613
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_1.ent",
@@ -1447,8 +1490,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_1.mesh",
-      "sha256": "1c1641147e5d012bc4f65f07c5a9383c716c9ede855183e3d0acaec11e1819cb",
-      "bytes": 8134
+      "sha256": "31e0018aeb147f6d58f66d2eef2701c88e28e400c987986c1763cc8b861e3859",
+      "bytes": 8558
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_2.ent",
@@ -1457,8 +1500,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_2.mesh",
-      "sha256": "035d7185e61f6a25739c53981986d21b78fbe47d3e90b0850e1c0172888b87f7",
-      "bytes": 8138
+      "sha256": "4aa842a440ce938de2917eaaecb4dbd154b67b94314578907e38643494749a5f",
+      "bytes": 8649
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_3.ent",
@@ -1467,8 +1510,8 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_flapper_3.mesh",
-      "sha256": "e06de3cf7db5bf6d6994f0090e2542545bc02510be0cd18d8fd144adf913ade6",
-      "bytes": 8146
+      "sha256": "60506dd651de4c1bb3d36bfe9abf1add004cc4dc7c2d9d4176ebc0dbcf7d03e6",
+      "bytes": 8599
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_stand.ent",
@@ -1477,8 +1520,13 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_stand.mesh",
-      "sha256": "7396047dcfd854cd15fe87bce2ad6837217631bfd30c833a8f6a529ba4a634b7",
-      "bytes": 54703
+      "sha256": "ddfc255211a378292b840cf2790b111704fb42c9fe4cfed2ba18db69089a2d68",
+      "bytes": 151977
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_stand_collider.ent",
+      "sha256": "de979067e6192ac1866252b4aa2365a65ed1319a31be5b7be2a1b5ed0a417379",
+      "bytes": 14206
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_star.ent",
@@ -1487,53 +1535,58 @@
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\fortune_star.mesh",
-      "sha256": "2611479ce2ea6ea198b67202f4a009664c576b826288241b87af9dc14eb289b0",
-      "bytes": 6592
+      "sha256": "a22f5c2ecfcd90e1401fc2316c34ead86fffc0f5e9393b56b0115c524f061fc0",
+      "bytes": 8793
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\brushed.xbm",
+      "sha256": "0c22a9fab10634163ce3020e3667845008be412ed877059d9ca963049aaa735e",
+      "bytes": 64773
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\carbon.xbm",
+      "sha256": "e10dd705dc80d468d5e2874c9133896355c932da404ea1fcaf950f7350563cc4",
+      "bytes": 18969
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\composite.xbm",
+      "sha256": "2f5231ab5815afc6939d17b6f2864ee05b5b5e3bb0bc8a4863e13ccbeab18798",
+      "bytes": 199095
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_blur.xbm",
-      "sha256": "2734e1f77a948dbd77f0a0436c31ae5a6369e3fdda67412e067a1da043d5811d",
-      "bytes": 420068
+      "sha256": "e2e598700f48b262e03ba9fa28d8999540da2dabec904737b5851660dab9e63a",
+      "bytes": 462589
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_face.xbm",
-      "sha256": "49e5083815ce3acf3616fa13185b19bbdc3e0801be428a1680d1183b29de05a0",
-      "bytes": 460198
+      "sha256": "997502d5ca03a7081ff10ca17a32e61377faa869d06521cd567a05c03f21e810",
+      "bytes": 551966
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_face_glow.xbm",
+      "sha256": "73fd9df40849567030afa763fad9516652c632d03b15dfbbc636953006d640f7",
+      "bytes": 102804
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_felt.xbm",
-      "sha256": "706f5920068b29b76d5b72186e2bb66679c82f23ac6b0a3c75ecc9850af4afa0",
-      "bytes": 248619
+      "sha256": "0424525401d8d7402f7a4603fbd79fb5850ebd4c9174d5abe82768ce3240e720",
+      "bytes": 343575
+    },
+    {
+      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_felt_glow.xbm",
+      "sha256": "f22ed466aaf07ad62b1f961d5423e186e6763fe2df0aea9e9a61a9e8f6939b06",
+      "bytes": 39031
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_marquee.xbm",
-      "sha256": "ab0b2aa29caa03539aad9916db5b64f02bf24bcaf9950fd38d7a5b0f502a4aaa",
-      "bytes": 66371
+      "sha256": "1f2e6418fc2f1d737007f470410bdd16f02f3126788826922bad94fbb9562aa7",
+      "bytes": 190573
     },
     {
       "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\fortune_medals.xbm",
-      "sha256": "a145d661077b5c062e0c77c131b5e0dace298223f7612e7ba7d25012ca873064",
-      "bytes": 44038
-    },
-    {
-      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_ebony.xbm",
-      "sha256": "fffcf81e013947c48875dc4a9a4ce06b32d2e6f1d26f82141a8ef63350e3d57f",
-      "bytes": 29729
-    },
-    {
-      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_grain.xbm",
-      "sha256": "50966a50d5b1a87ace2a4b065539aecfae70b899f8257c2d6e1bca9497b2e3f3",
-      "bytes": 68193
-    },
-    {
-      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_ivory.xbm",
-      "sha256": "28b05cad42a40382f59e510bbf3f7bf5c2edbbcc569a34e2157cd31931fc8e10",
-      "bytes": 45367
-    },
-    {
-      "depot": "open77\\assets\\op77_lightrp\\casino_fortune\\textures\\wood_natural.xbm",
-      "sha256": "8421192eaef661d7daeb24d79124c8b2713ef6e2df85517c1f974d34cab354f4",
-      "bytes": 89246
+      "sha256": "d1da930b6fd8f8c3cd51baaaadfeda974a6a1c6f2d88b0c160059918af75a18a",
+      "bytes": 42168
     }
   ],
   "wheel": {
@@ -1572,6 +1625,7 @@
     "centreZ": 2.15,
     "faceRadius": 0.66,
     "pegRadius": 0.625,
+    "parkY": 0.195,
     "flapperPivot": [
       0,
       0.042,
@@ -1604,9 +1658,75 @@
     "spotY": -0.68,
     "feltZ": 1.252
   },
-  "archiveSha256": "a34a9de8ba96d87bc2626bb259ec8eb84de746fce3b76675be82139b04893f20",
-  "zipSha256": "707fe11c13f02523b05970fe77bfe33e1f69339dfd4d74433352dd4a27db77ae",
-  "buildWork": "/home/dop42/.cache/lrp-rebuild/casino-fortune",
+  "emission": {
+    "face": {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "ev": 2.0
+    },
+    "blur": {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "ev": 1.2
+    },
+    "felt": {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "ev": 2.0
+    },
+    "marquee": {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "ev": 2.5
+    },
+    "medals": {
+      "rgb": [
+        255,
+        255,
+        255
+      ],
+      "ev": 2.5
+    },
+    "neon_cyan": {
+      "rgb": [
+        48,
+        226,
+        255
+      ],
+      "ev": 3.0
+    },
+    "neon_magenta": {
+      "rgb": [
+        255,
+        46,
+        196
+      ],
+      "ev": 1.2
+    },
+    "lamp": {
+      "rgb": [
+        255,
+        196,
+        110
+      ],
+      "ev": 3.5
+    }
+  },
+  "archiveSha256": "d772ae3e62668be144e4d11ec133ffe5f8d123b83c13b162a8dcb16f48141556",
+  "zipSha256": "9dad16c060bc6431c0c296b57fdfe68b7059f4975a06617c803402eb10b90bc8",
+  "buildWork": "/home/dop42/.cache/tables-art-wheels/build-fortune",
   "materialDependencies": [
     "engine\\materials\\metal_base.remt",
     "engine\\textures\\editor\\white.xbm"

@@ -1,7 +1,11 @@
 # Fortune Wheel
 
 A big-six money wheel: a 1.3 m vertical wheel on a stand (0.85 m in game) with
-a leather flapper at the top and a betting table in front. Item
+a steel flapper at the top and a betting table in front. Night City high-roller
+style: a black-chrome drum with an illuminated rim of warm lamps and a thin cyan
+ring, smoked-glass segments with crisp multiplier numerals, a waisted gunmetal
+counter whose composite top carries seven neon-edged betting tiles matching
+the wheel's colours, and a lit marquee. Item
 `fortune_wheel` (staff: `/lightrp.giveitem me fortune_wheel 1`); kind `fortune`. Players seated
 at the table bet whole RP dollars on a multiplier; any seated player may spin.
 
@@ -47,6 +51,13 @@ next to the winning spot. 38-44 props per table; the measured client peak is
 4,700 instructions per resume. Clicking a felt spot selects it in the panel
 (it never wagers). Camera views: default = wheel and table, white = felt,
 black = flapper close-up.
+
+Look: original art from `tools/build-casino-fortune-props.py` (shared kit
+`tools/wheel_tables_art.py`: an original stroke typeface drawn with Pillow,
+carbon/brushed/composite textures, emissive `metal_base` materials). Preview
+renders (`--preview-only`) live in the asset's `sources/preview_fortune*.png`.
+A collider entity `fortune_stand_collider` (counter, tower, drum; the space in
+front of the counter is free) follows `tools/COLLISION.md`.
 
 Validation: `tools/test-casino-fortune.py`, `tools/test-casino-fortune-server.py`,
 `tools/test-casino-fortune-client.py`, `tools/build-casino-fortune-props.py`.
