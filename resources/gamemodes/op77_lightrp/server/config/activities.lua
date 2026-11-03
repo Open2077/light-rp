@@ -27,12 +27,40 @@ LightRpActivities = {
     nearbyRange = 15.0,
     nearbyMax = 8,
 
-    -- Reputation granted by results. Clamped to [0, maxPerResult] per result and
-    -- to dailyCap per account (all its characters) per UTC day. `grantTo =
-    -- "missions"` also adds it to the street reputation shown with the mission
-    -- tiers (server/modules/missions.lua); nil keeps it in the activity tables.
-    -- Activities never pay cash or items.
-    reputation = { maxPerResult = 50, dailyCap = 250, grantTo = "missions" },
+    -- Reputation granted by results: PvE activities only (`pve` below); PvP, races,
+    -- chases and events record stats and leaderboards, never reputation. Capped to
+    -- dailyCap per account (all its characters) per UTC day. `grantTo = "missions"`
+    -- adds it to the street reputation whose tiers open the harder difficulties and
+    -- cyberware (server/modules/missions.lua); nil keeps it in the activity tables.
+    -- `pvpGrants = true` brings the old rule back (every kind granted, clamped to
+    -- maxPerResult). Activities never pay cash or items. docs/pve-progression.md.
+    reputation = { maxPerResult = 50, dailyCap = 500, grantTo = "missions", pvpGrants = false },
+
+    -- PvE activities (players against bots). A provider marks its activity with
+    -- `pve = true` in activityRegister and lists the difficulties it really plays
+    -- (`difficulties = { "standard", "hard", "critical" }`); without the flag, an id
+    -- listed in `activities` here counts as PvE (`pve = false` wins over the list).
+    -- The core refuses a difficulty above the player's reputation tier and hands the
+    -- provider options.difficulty and options.scaling (the provider translates it
+    -- into bots, health, damage and AI). Reputation per result: the difficulty's
+    -- `reputation` x the activity's `weight` (a long run weighs more), the full
+    -- amount for a win when the provider sends none, never more than that.
+    pve = {
+        difficulties = {
+            { id = "standard", label = "Standard", minTier = 1, reputation = 30,
+              scaling = { enemies = 1, health = 1, damage = 1, ai = "standard" } },
+            { id = "hard", label = "Hard", minTier = 2, reputation = 60,
+              scaling = { enemies = 1.5, health = 1.5, damage = 1.25, ai = "veteran" } },
+            { id = "critical", label = "Critical", minTier = 3, reputation = 100,
+              scaling = { enemies = 2, health = 2.25, damage = 1.6, ai = "veteran" } },
+        },
+        activities = {
+            ["arena.pve"] = { weight = 1.0 }, -- Combat Zone · PvE, ~10 min rounds
+            ["race.pve"] = { weight = 0.5 },  -- Street Race vs AI, 2-5 min
+            ["turf.pve"] = { weight = 1.2 },  -- Gang Sweep, ~15 min
+            ["chase.pve"] = { weight = 0.6 }, -- NCPD Escape, 3-6 min
+        },
+    },
 
     -- Choices the Activities panel offers when joining an activity whose provider
     -- declares none (`modes` in activityRegister). The pick is handed to the
