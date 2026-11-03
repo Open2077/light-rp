@@ -198,3 +198,10 @@ ripperdoc-ui/scripts/__pycache__/
 !tools/test-casino-blackjack-server.py
 !tools/test-casino-blackjack-client.py
 !tools/test-casino-e2e.py
+# Pool table: native props and its build/test tools.
+!resources/assets/models/open77_casino_pool/
+!resources/assets/models/open77_casino_pool/**
+!tools/build-casino-pool-props.py
+!tools/test-casino-pool.py
+!tools/test-casino-pool-server.py
+!tools/test-casino-pool-client.py
