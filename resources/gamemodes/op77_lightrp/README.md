@@ -490,8 +490,11 @@ suppression admin. **Aucune voiture de départ n'est attribuée.**
 propriétaire peut y envoyer le sien (volé, perdu, bloqué), ce qui le retire du monde
 où qu'il soit. On le récupère dans n'importe quel garage public (onglet Impound),
 contre des frais selon le motif (`impound.fees` dans `server/config/garages.lua` :
-gratuit après un redémarrage, 400 €$ pour un véhicule détruit ou perdu, 250 €$ sur
-demande du propriétaire, 500 €$ après un enlèvement par le staff). Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`,
+gratuit après un redémarrage pour un véhicule intact, 400 €$ pour une épave (détruit,
+explosé ou à 0 de santé, quel qu'en soit l'auteur ; l'assurance la répare), 150 €$ pour
+un véhicule disparu sans trace d'épave (supprimé, nettoyé, bug), 250 €$ sur demande du
+propriétaire, 500 €$ après un enlèvement par le staff). Une épave ne se range pas au
+garage. Staff : `/lightrp.givevehicle <id|me> <modèle> [garage]`,
 `/lightrp.impound` à côté du véhicule (ou avec son id réseau).
 SQL est obligatoire pour ces fonctionnalités ; elles se ferment en cas d'erreur
 de stockage. Voir [configuration, API et garanties](docs/personal-vehicles.md).

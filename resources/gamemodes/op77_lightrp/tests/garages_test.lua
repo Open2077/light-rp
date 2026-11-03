@@ -181,6 +181,32 @@ assert(perform("recover",first,1,{pay="bank"}));id=nextVehicle;assert(world[id].
 -- Staff tow: /lightrp.impound <vehicle id>.
 assert(not G.towLive(99999),"only personal vehicles");assert(G.towLive(id) and not world[id] and dbRows[first].state=="impound")
 assert(perform("recover",first,1,{pay="bank"}));id=nextVehicle
+-- Destroyed (owner decision 6): a wreck, whoever wrecked it, pays the insurance excess
+-- (400) and comes back repaired; gone with no sign of a wreck it is "lost" (150, above).
+assert(LightRpGarages.impound.fees.destroyed==400 and LightRpGarages.impound.fees.lost==150)
+world[id].position={x=10,y=0,z=0};world[id].occupants={};world[id].speed=0
+world[id].destroyed=true;world[id].health=0;event("onVehicleDamageChanged",tostring(id))
+open();assert(entry(first).wrecked and lastDialog.impound.fees.destroyed==400,"the page knows it is a wreck")
+assert(not perform("store",first),"a wreck cannot be parked")
+world[id]=nil;event("onVehicleRemoved",tostring(id),"cleanup") -- cleaned up before any autosave
+open();assert(entry(first).status=="impound" and entry(first).impound.fee==400 and entry(first).impound.reason:find("insurance"),"destroyed: 400")
+local bankBefore=wallets[1].bank
+assert(perform("recover",first,1,{pay="bank"}));id=nextVehicle
+assert(wallets[1].bank==bankBefore-400 and world[id].health==1 and not world[id].destroyed,"the insurance repairs the wreck")
+-- Only the flags bit says so, and the owner sends it: the excess (400), not the tow (250).
+world[id].flags=4;world[id].position={x=5000,y=0,z=0}
+assert(perform("impound",first) and entry(first).impound.fee==400,"the owner's tow of a wreck is the insurance excess")
+assert(perform("recover",first,1,{pay="bank"}));id=nextVehicle
+-- Health 0 captured by an update, then removed: still a wreck without the live record.
+world[id].health=0;event("onVehicleUpdated",tostring(id));V.remove(id)
+open();assert(entry(first).impound.fee==400,"captured health 0 is a wreck")
+assert(perform("recover",first,1,{pay="bank"}));id=nextVehicle;assert(world[id].health==1)
+-- The insurance keeps the shape of the stored damage and zeroes it.
+local props={health=0,drivable=false,damage={body={.5,1,0},glass=7,lights=3,tires=15,detachedParts=2,destroyed=true,exploded=true}}
+G.insuranceRepair(props)
+assert(props.health==1 and props.drivable==true and #props.damage.body==3 and props.damage.body[2]==0 and props.damage.glass==0
+    and props.damage.tires==0 and props.damage.detachedParts==0 and props.damage.destroyed==false and props.damage.exploded==false)
+world[id].health=.6;assert(perform("impound",first) and perform("recover",first,1,{pay="bank"}));id=nextVehicle -- the condition the restart checks below expect
 -- Resource restart: fresh registry/handlers, same SQL; the car left outside is
 -- still in the world with its tag: removed, and towed (free).
 assert(dbRows[first].state=="out" and world[id].bag.lightrpOwned==first)
@@ -200,6 +226,14 @@ dofile("server/modules/garages.lua");G=LightRP.garage;G.onDatabaseReady()
 notices={};G.onGameplayReady(1);assert(#notices==1 and notices[1].body:find("free of charge"),"told once on joining")
 G.onGameplayReady(1);assert(#notices==1,"not twice")
 open();assert(entry(first).status=="impound" and perform("recover",first))
+-- A wreck left outside at a restart is destroyed (400), not the free restart.
+id=nextVehicle;world[id].health=0;event("onVehicleUpdated",tostring(id))
+local saver=coroutine.create(threads[#threads]);for _=1,10 do assert(coroutine.resume(saver));tick=tick+2000 end
+world={};handlers={};threads={};LightRP.inventory=nil
+dofile("server/modules/inventory.lua");Inv=LightRP.inventory
+dofile("server/modules/garages.lua");G=LightRP.garage;G.onDatabaseReady()
+open();assert(entry(first).status=="impound" and entry(first).impound.fee==400,"a wreck at the restart pays the excess")
+assert(perform("recover",first,1,{pay="bank"}) and world[nextVehicle].health==1,"and comes back repaired")
 print("garages_test: ownership, replay, storage, recovery, impound (restart, lost, requested, staff, fees, notices, no duplicates), trunk, identity and failure checks passed")
 
 -- Customization starts from the recovered vehicle, out in the world.

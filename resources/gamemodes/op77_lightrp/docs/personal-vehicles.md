@@ -59,13 +59,23 @@ A personal vehicle is always in one place, saved in `lightrp_owned_vehicles.stat
 `stored` (at its garage), `out` (in the world) or `impound`.
 
 - **Left outside at a restart.** A vehicle still `out` when the server starts goes to
-  the impound (reason `restart`). After a resource restart its old entity, found by
-  the `lightrpOwned` key of its state bag, is removed first: never two copies.
-- **Gone from the world** (destroyed, deleted by staff or a cleanup, lost to a bug)
-  while out: towed (reason `lost`), from the removal event or the periodic worker.
-- **Sent by its owner** from any garage (reason `requested`): "Stolen, lost or stuck?
-  Send it to the impound". The vehicle is removed from the world wherever it is, even
-  far away or occupied; its condition, fuel and trunk are saved first.
+  the impound (reason `restart`, or `destroyed` when it was a wreck). After a resource
+  restart its old entity, found by the `lightrpOwned` key of its state bag, is removed
+  first: never two copies.
+- **Gone from the world** while out: towed from the removal event or the periodic
+  worker, reason `destroyed` when it was a wreck, `lost` otherwise (deleted by staff or
+  a cleanup, lost to a bug).
+- **Sent by its owner** from any garage (reason `requested`, or `destroyed` for a
+  wreck): "Stolen, lost or stuck? Send it to the impound". The vehicle is removed from
+  the world wherever it is, even far away or occupied; its condition, fuel and trunk are
+  saved first. A wreck cannot be parked in a garage.
+- **A wreck** is what the server can really tell: the live canonical record (`destroyed`
+  or `exploded` flag, health 0), an `onVehicleDamageChanged` seen while it was out, or
+  the last captured properties (`damage.destroyed`, `damage.exploded`, health 0). Who
+  wrecked it does not matter. A car removed with none of those signs (an explosion
+  followed by a removal before any update reached the server, for instance) is charged
+  as `lost`, the smaller fee. The insurance repairs a `destroyed` car: its stored
+  properties keep their shape with the damage zeroed and health 1.
 - **Towed by staff** (reason `staff`): `/lightrp.impound` next to it (closest personal
   vehicle within 8 m), or `/lightrp.impound <vehicle network id>`.
 - **Recovered** at any public garage, tab Impound: the owner pays the fee of its
@@ -75,9 +85,9 @@ A personal vehicle is always in one place, saved in `lightrp_owned_vehicles.stat
   connected.
 
 Fees, in whole eddies, by reason: `server/config/garages.lua` → `impound.fees`
-(defaults: restart 0, lost 400, requested 250, staff 500). `lost` acts as the
-insurance excess of a destroyed car; a restart stays free. Rationale:
-`docs/economy-balance.md`.
+(defaults: restart 0, destroyed 400, lost 150, requested 250, staff 500). `destroyed`
+is the insurance excess; an intact car left outside at a restart stays free.
+Rationale: `docs/economy-balance.md`.
 
 ## Staff and server API
 
