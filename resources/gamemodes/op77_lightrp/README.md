@@ -1039,9 +1039,11 @@ proposés. En bref :
 
 ### Hall of Fame (`server/modules/halloffame.lua`, page `features/halloffame/`)
 
-Un vrai panneau (prop serveur `electronics.tv.screen.16x9`, collision active) à environ 4 m à
-gauche du terminal *The Crossing*, écran tourné vers le point d'arrivée, plus un point **E**
-devant lui. **ALT + clic** sur le panneau (`open77_contextmenu`) ou **E** ouvrent le dialogue
+Un vrai prop serveur (par défaut la borne d'arcade `electronics.arcade`, collision active) à
+environ 4 m à gauche du terminal *The Crossing*, face tournée vers le point d'arrivée, plus un
+point **E** devant lui : pas de marqueur au sol, une icône trophée flottante (avec la distance)
+et une épingle sur la carte (`board.blip`). **ALT + clic** sur le prop (`open77_contextmenu`,
+modèles avec collision seulement) ou **E** ouvrent le dialogue
 `halloffame` de la page Light RP : onglets *Overview* (podiums), *PvP*, *Races*, *PvE*,
 *Missions*, *Wealth* ; podium du top 3, rangs 4 à 10, la ligne du joueur surlignée ou « YOU #N »
 sous chaque tableau. Noms de personnages uniquement, jamais d'identifiant de compte.
@@ -1057,7 +1059,16 @@ sous chaque tableau. Noms de personnages uniquement, jamais d'identifiant de com
   tête du module).
 - Staff : `/lightrp.halloffame place` (se placer devant l'emplacement, face à là où l'écran doit
   regarder : le panneau se pose 0,8 m derrière, le point E suit, la ligne de config est
-  affichée), `where`, `refresh`. Coller la ligne dans `server/config/halloffame.lua` (`board`).
+  affichée), `where` (position, modèle, échelle, rotation et ligne de config), `refresh`. Coller
+  la ligne dans `server/config/halloffame.lua` (`board`).
+- Choix du prop en jeu (staff) : `/lightrp.halloffame model` liste les candidats numérotés de
+  `board.models` (alias, échelle, décalage de lacet, libellé ; `*` = en place) ;
+  `model <n|alias> [échelle|-] [rotation]` remplace le prop tout de suite (le nouveau d'abord :
+  un modèle refusé laisse l'ancien debout ; le point E, l'icône et l'ALT + clic suivent) et
+  garde le choix en kvp (`halloffame.board.model`), prioritaire sur `board.model` au
+  démarrage ; `model reset` revient au défaut de la config. La rotation s'ajoute au décalage
+  de la ligne (« - » : l'échelle de la ligne). Le balayage des orphelins reconnaît tous les
+  candidats.
 - Exclusions (`exclude` dans `server/config/halloffame.lua`) : staff et personnages de test ne
   figurent sur **aucun** tableau, y compris ceux ajoutés par `registerBoard` (un seul filtre
   dans `HoF.refresh`, après tous les fournisseurs, avant le classement : les autres

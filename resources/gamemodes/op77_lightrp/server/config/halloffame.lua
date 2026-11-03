@@ -18,21 +18,63 @@ LightRpHallOfFame = {
         -- position = { x = -763.777, y = 777.723, z = 22.454 }, -- survey in game
         -- heading = 266.3, -- survey in game
         bucket = 0,
-        -- A prop alias of the props catalogue (base client/src/api/Props.cpp
-        -- kModelAliases). `electronics.tv.screen.16x9` is the game's bare 16:9 TV
-        -- panel (1.16 x 0.66 m at scale 1, its picture faces the prop's +Y, a static
-        -- collider in its host): open77_media spawns it server side, up to 39x, as its
-        -- cinema screens. Not validated at this size and place: survey in game, and
-        -- swap for `electronics.tv.large` (a 1.92 x 1.01 m wall display, no collider:
-        -- ALT + click needs a collider to hit) if it reads wrong.
-        model = "electronics.tv.screen.16x9", -- survey in game
-        scale = 2.5,          -- about 2.9 x 1.65 m, its lower edge ~0.2 m above the ground
-        collision = true,     -- ALT + click picks physical hits only
+        -- The prop: an alias of the props catalogue (base client/src/api/Props.cpp
+        -- kModelAliases; an alias gets an Open77 mesh host, a raw depot path gets none).
+        -- `model` is the default; its scale and yaw come from its row of `models` below
+        -- unless `scale` / `yaw` are set here. The staff try the rows live in game:
+        --   /lightrp.halloffame model                        the numbered list (* = in use)
+        --   /lightrp.halloffame model <n|alias> [scale|-] [rotate]   swap now ("-": the row's scale)
+        --   /lightrp.halloffame model reset                  back to this default
+        -- A swap is saved in the resource's kvp store (data/, kept over restarts) and wins
+        -- over `model` at start until `model reset`. `where` prints the line to paste here.
+        model = "electronics.arcade", -- survey in game
+        -- scale = 1.0, yaw = 0,      -- optional: override the row of `model`
+        collision = true,     -- ALT + click picks physical hits only (a row may say otherwise)
+        -- The candidates, best guess first. `yaw` turns the mesh so its front looks where
+        -- the board faces (degrees, counter-clockwise from above): 0 for a mesh whose
+        -- front is its +Y, -90 for -X, 90 for +X, 180 for -Y; `rotate` in the command
+        -- adds to it. Sizes and fronts are measured from the 2.31 meshes (WolvenKit
+        -- serialize, per-submesh vertex bounds, 2026-11-03); none is validated in game.
+        -- `collision = false`: the mesh host has no collider (prop-hosts.json), so ALT +
+        -- click cannot hit it; E still opens the panel.
+        models = {
+            -- The game's arcade cabinet (its screen sets are Roach Race, Quadra, Panzer):
+            -- a "high scores" machine. 0.65 x 0.82 x 1.87 m; front +Y (control panel and
+            -- glass on the +Y side); collider.
+            { model = "electronics.arcade", scale = 1.0, yaw = 0, label = "Arcade cabinet" },
+            -- Kitsch jukebox, lit: 1.67 x 1.12 x 2.53 m; front +Y (glass and lights); collider.
+            { model = "electronics.jukebox", scale = 1.0, yaw = 0, label = "Jukebox" },
+            -- A flat screen in a heavy frame: 1.38 x 0.97 m at scale 1 (2.76 x 1.95 m here),
+            -- 3 cm thick and symmetric, so the picture side is NOT measured (rotate 180 if
+            -- it shows its back); collider.
+            { model = "electronics.tv.neokitsch.16x9", scale = 2.0, yaw = 0, label = "Framed screen" },
+            -- The stand-up television with its housing (today's picture with a body and a
+            -- back): 1.26 x 0.85 m at scale 1 (3.2 x 2.1 m here); front +Y; collider.
+            { model = "electronics.tv.16x9", scale = 2.5, yaw = 0, label = "TV with housing" },
+            -- The big wall display: 1.92 x 1.01 m face at scale 1 (2.9 x 1.5 m here);
+            -- front +Y; NO collider.
+            { model = "electronics.tv.large", scale = 1.5, yaw = 0, collision = false, label = "Big wall display" },
+            -- A big lit vending machine with a screen: 1.79 x 1.16 x 2.32 m; front +Y; collider.
+            { model = "electronics.vending_machine", scale = 1.0, yaw = 0, label = "Vending machine" },
+            -- A monument rather than a board: Arasaka's lobby sculpture, lit base,
+            -- 0.57 x 0.57 x 1.54 m at scale 1 (2.3 m tall here); round; collider.
+            { model = "decor.sculpture.arasaka", scale = 1.5, yaw = 0, label = "Sculpture" },
+            -- A framed painting standing on the ground: 1.2 x 1.67 m, 5 cm thick (1.6 x
+            -- 2.2 m here); its back is flat at X 0, so the picture faces -X; NO collider.
+            { model = "decor.painting", scale = 1.3, yaw = -90, collision = false, label = "Painting" },
+            -- Until 2026-11-03: the bare 16:9 TV panel, a black slab (nothing plays on it).
+            { model = "electronics.tv.screen.16x9", scale = 2.5, yaw = 0, label = "Bare screen (before)" },
+        },
         streamingRadius = 150,
-        -- The E point: this far in front of the screen, toward the people looking at it.
-        interact = { distance = 1.8, radius = 1.6, label = "Hall of Fame", prompt = "Open the Hall of Fame",
-            marker = { shape = "cylinder", radius = 0.7, height = 0.5,
-                color = { r = 255, g = 204, b = 0, a = 140 }, maxDistance = 30, groundOffset = 0.05 } },
+        -- The E point: this far in front of the board, toward the people looking at it.
+        -- No floor marker (the owner, 2026-11-03): the blip's floating icon finds it and
+        -- the E prompt shows within `radius`. A `marker = { shape = "cylinder", ... }`
+        -- here would draw one again.
+        interact = { distance = 1.8, radius = 1.6, label = "Hall of Fame", prompt = "Open the Hall of Fame" },
+        -- Its icon: floating over the E point with the distance (open77_icons), and a pin
+        -- on the map. `blip = false`: none.
+        blip = { icon = "trophy", title = "Hall of Fame", description = "The best players of the city. Walk up and press E.",
+            mapCategory = "service", mapColor = "#FFCC00" },
         -- An ALT + click opens the panel up to this far from the board (the client's
         -- context menu reaches 8 m), plus a little slack for the server's position feed.
         clickRange = 10.0,

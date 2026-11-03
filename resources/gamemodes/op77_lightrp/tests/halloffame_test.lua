@@ -181,6 +181,7 @@ GetPlayerRoutingBucket = function(id) return buckets[id] or 0 end
 TriggerClientEvent = function(name, id, payload) clientEvents[#clientEvents + 1] = { name = name, id = id, payload = payload } end
 
 local props, removed, transforms, propSeq = {}, {}, {}, 41
+local refuseModels = {} -- models the props layer refuses (an alias it does not know)
 local spots = { [1] = { x = 0, y = 0, z = 0 }, [2] = { x = 0, y = 0, z = 0 } }
 local staffRead = { position = { x = 10, y = 20, z = 5 }, heading = 90 }
 -- a board left by the previous generation (removed at start) and another resource's (kept)
@@ -190,7 +191,10 @@ local allProps = {
 }
 Open77 = {
     props = {
-        create = function(def) propSeq = propSeq + 1; props[tostring(propSeq)] = def; return tostring(propSeq) end,
+        create = function(def)
+            if refuseModels[def.model] then return nil, "unknown_model" end
+            propSeq = propSeq + 1; props[tostring(propSeq)] = def; return tostring(propSeq)
+        end,
         setTransform = function(id, def) if not props[id] then return false, "not_found" end; transforms[#transforms + 1] = { id = id, def = def }; return true end,
         remove = function(id) removed[#removed + 1] = id; return true end,
         all = function() return allProps end,
@@ -269,6 +273,10 @@ assert(HoF and type(HoF.registerBoard) == "function", "LightRP.hallOfFame.regist
 local point = interactions["halloffame.board"]
 local initial = { x = HoF.board.position.x, y = HoF.board.position.y, heading = HoF.board.heading }
 assert(point and point.bucket == 0 and point.key == "E" and point.label == "Hall of Fame", "the E point")
+assert(point.marker == nil and point.ring == false, "no floor marker nor ground ring: the icon and the E prompt")
+assert(point.blip and point.blip.icon == "trophy" and point.blip.title == "Hall of Fame" and point.blip.mapCategory == "service"
+    and point.blip.mapColor == "#FFCC00" and type(point.blip.description) == "string" and point.blip.description ~= "",
+    "a floating trophy icon with the distance, and a map pin")
 assert(math.abs(HoF.board.position.x - (-763.777)) < 0.01 and math.abs(HoF.board.position.y - 777.723) < 0.01,
     string.format("forward 6 / right -4 of the hub: %.3f %.3f", HoF.board.position.x, HoF.board.position.y))
 assert(math.abs(HoF.board.heading - 266.3) < 0.1, "the screen faces the arrival point: " .. HoF.board.heading)
@@ -279,9 +287,11 @@ assert(apart > 3 and apart < 5, "a few metres from the activities terminal: " ..
 assert(math.abs(point.position.x - (-761.98)) < 0.05 and math.abs(point.position.y - 777.61) < 0.05,
     string.format("E point %.2f %.2f", point.position.x, point.position.y))
 local created = props[HoF.board.prop]
-assert(created and created.model == "electronics.tv.screen.16x9" and created.collision == true and created.physics == "static",
-    "a static board with a collider (ALT + click hits physical bodies)")
-assert(math.abs(created.yaw - HoF.board.heading) < 1e-6 and created.bucket == 0 and created.scale == 2.5)
+assert(created and created.model == C.board.model and created.model == C.board.models[1].model, "the default: the first candidate")
+assert(created.collision == true and created.physics == "static", "a static board with a collider (ALT + click hits physical bodies)")
+assert(math.abs(created.yaw - (HoF.board.heading + C.board.models[1].yaw) % 360) < 1e-6 and created.bucket == 0
+    and created.scale == C.board.models[1].scale, "its row's scale and yaw")
+assert(HoF.board.saved == false, "nothing saved yet: the config's default")
 assert(#removed == 1 and removed[1] == "7", "the previous generation's board goes, another resource's stays")
 local boardEvent = clientEvents[#clientEvents]
 assert(boardEvent.name == LightRpEvents.net.hallOfFameBoard and boardEvent.id == -1 and boardEvent.payload.prop == HoF.board.prop,
@@ -775,6 +785,167 @@ assert(#holding(JAX) > 0 and #holding("license:x05#default") > 0, "the included 
 ok, line = cmd(1, { "include", "license:x06" })
 assert(ok and #holding("license:x06#default") > 0)
 
+-- ---------------------------------------------------------------------------
+-- The board's model, picked live by the staff: /lightrp.halloffame model
+
+-- props.all as the server answers it: every prop of the bucket, the live ones included
+local strays = {}
+Open77.props.all = function()
+    local list = {}
+    for _, s in ipairs(allProps) do list[#list + 1] = s end
+    for _, s in ipairs(strays) do list[#list + 1] = s end
+    for id, def in pairs(props) do list[#list + 1] = { id = id, resource = "op77_lightrp", model = def.model, position = def.position } end
+    return list
+end
+Open77.props.remove = function(id) removed[#removed + 1] = id; props[id] = nil; return true end
+local function removedSince(n) local set = {}; for i = n + 1, #removed do set[removed[i]] = (set[removed[i]] or 0) + 1 end; return set end
+local function liveBoards()
+    local n = 0
+    for _, def in pairs(props) do
+        local d = (def.position.x - HoF.board.position.x) ^ 2 + (def.position.y - HoF.board.position.y) ^ 2
+        if d < 25 and HoF.boardModels()[def.model] then n = n + 1 end
+    end
+    return n
+end
+local rows = C.board.models
+assert(#rows >= 6 and rows[1].model == C.board.model, "the config default is the first candidate")
+local seenModels = {}
+for i, row in ipairs(rows) do
+    assert(type(row.model) == "string" and row.model:match("^%a[%w_]*[%w_%.]*$") and not seenModels[row.model], "row " .. i .. ": an alias, once")
+    seenModels[row.model] = true
+    assert(type(row.scale) == "number" and row.scale >= 0.1 and row.scale <= 10 and type(row.yaw) == "number"
+        and type(row.label) == "string" and row.label ~= "", "row " .. i .. ": scale, yaw, label")
+end
+assert(seenModels["electronics.tv.screen.16x9"], "the old board stays in the list, to go back")
+
+-- the list: numbered, the one in use marked
+local KEY = HoF.KVP_MODEL
+local boardAt = HoF.board.prop
+ok, line = cmd(1, { "model" })
+assert(ok and line:find("1* " .. rows[1].model, 1, true) and line:find("2 " .. rows[2].model, 1, true), line)
+for i, row in ipairs(rows) do assert(line:find(i .. (i == 1 and "*" or "") .. " " .. row.model, 1, true), "listed: " .. row.model) end
+assert(line:find("config's default", 1, true) and #line <= 900, "the model in use and its source, under the chat limit")
+assert(HoF.board.prop == boardAt and kvpStore[KEY] == nil, "listing changes nothing")
+
+-- swap by number: a new prop, the old one gone, the clients told, the choice saved
+mark = #removed
+local events, heading = #clientEvents, HoF.board.heading
+local pointBefore = interactions["halloffame.board"]
+ok, line = cmd(1, { "model", "2" })
+assert(ok, tostring(line))
+local swapped = props[HoF.board.prop]
+assert(HoF.board.prop ~= boardAt and swapped.model == rows[2].model and swapped.scale == rows[2].scale, "the second candidate at its scale")
+assert(math.abs(swapped.yaw - (heading + rows[2].yaw) % 360) < 1e-6 and swapped.collision == true and swapped.physics == "static")
+assert(swapped.position.x == HoF.board.position.x and swapped.position.y == HoF.board.position.y, "where the board stands")
+assert(removedSince(mark)[boardAt] == 1 and props[boardAt] == nil and liveBoards() == 1, "the old board removed once: one board")
+assert(clientEvents[#clientEvents].name == LightRpEvents.net.hallOfFameBoard and clientEvents[#clientEvents].id == -1
+    and clientEvents[#clientEvents].payload.prop == HoF.board.prop and #clientEvents > events, "every client learns the new prop (ALT + click)")
+assert(kvpStore[KEY] == rows[2].model .. "||0.0" and HoF.board.saved == true, "saved: the model, the row's scale, no extra turn")
+assert(line:find("Kept over restarts", 1, true) and line:find("model = \"" .. rows[2].model .. "\"", 1, true), line)
+local pointAfter = interactions["halloffame.board"]
+assert(pointAfter == pointBefore and pointAfter.blip and pointAfter.marker == nil, "the E point and its icon stay in front of the board")
+
+-- swap by alias with a scale and a turn; a row without a collider asks for none
+local painting
+for _, row in ipairs(rows) do if row.collision == false then painting = row end end
+assert(painting, "a candidate without a collider")
+local before = HoF.board.prop
+ok, line = cmd(1, { "model", painting.model, "1.5", "90" })
+assert(ok, tostring(line))
+local p2 = props[HoF.board.prop]
+assert(p2.model == painting.model and p2.scale == 1.5 and p2.collision == false and p2.physics == "none", "no collider asked of a host without one")
+assert(math.abs(p2.yaw - (heading + painting.yaw + 90) % 360) < 1e-6, "the row's yaw plus the turn")
+assert(props[before] == nil and liveBoards() == 1)
+assert(kvpStore[KEY] == string.format("%s|1.500|90.0", painting.model), kvpStore[KEY])
+ok, line = cmd(1, { "where" })
+assert(ok and line:find("model " .. painting.model, 1, true) and line:find("scale 1.5,", 1, true)
+    and line:find(string.format("row yaw %d + rotate 90", painting.yaw), 1, true) and line:find("staff's choice", 1, true), line)
+assert(line:find("prop " .. HoF.board.prop, 1, true) and line:find(string.format("yaw = %d,", (painting.yaw + 90 + 180) % 360 - 180), 1, true),
+    "where: the prop and the config line: " .. line)
+
+-- "-" keeps the row's scale; a turn reads in (-180, 180]
+ok, line = cmd(1, { "model", "3", "-", "540" })
+assert(ok and props[HoF.board.prop].model == rows[3].model and props[HoF.board.prop].scale == rows[3].scale and HoF.board.rotate == 180, line)
+assert(kvpStore[KEY] == rows[3].model .. "||180.0", kvpStore[KEY])
+
+-- mistakes change nothing
+local state = { prop = HoF.board.prop, model = HoF.board.model, kvp = kvpStore[KEY], removed = #removed }
+for _, bad in ipairs({ { "model", "99" }, { "model", "0" }, { "model", "base\\environment\\x.mesh" }, { "model", "2", "50" },
+    { "model", "2", "big" }, { "model", "2", "1", "left" } }) do
+    ok, line = cmd(1, bad)
+    assert(not ok and type(line) == "string" and line ~= "", "refused: " .. table.concat(bad, " "))
+end
+assert(HoF.board.prop == state.prop and HoF.board.model == state.model and kvpStore[KEY] == state.kvp and #removed == state.removed)
+-- a model the props layer refuses leaves the old board standing, the old choice in use and saved
+refuseModels["electronics.nothing"] = true
+ok, line = cmd(1, { "model", "electronics.nothing", "2" })
+assert(not ok and line:find("refused", 1, true) and line:find("stays", 1, true), line)
+assert(HoF.board.prop == state.prop and HoF.board.model == state.model and HoF.board.saved == true and kvpStore[KEY] == state.kvp
+    and #removed == state.removed and liveBoards() == 1, "nothing swapped")
+
+-- the orphan sweep knows every candidate: strays of any of them near the board go, others stay
+local bx, by = HoF.board.position.x, HoF.board.position.y
+strays = {
+    { id = "90", resource = "op77_lightrp", model = rows[1].model, position = { x = bx + 1, y = by, z = 0 } },
+    { id = "91", resource = "op77_lightrp", model = rows[#rows].model, position = { x = bx, y = by - 2, z = 0 } },
+    { id = "92", resource = "op77_lightrp", model = "furniture.chair.metal", position = { x = bx, y = by, z = 0 } },  -- not a board
+    { id = "93", resource = "open77_media", model = rows[2].model, position = { x = bx, y = by, z = 0 } },          -- another resource's
+    { id = "94", resource = "op77_lightrp", model = rows[2].model, position = { x = bx + 30, y = by, z = 0 } },     -- far away
+}
+mark = #removed
+local old = HoF.board.prop
+ok, line = cmd(1, { "model", "4" })
+assert(ok, line)
+local gone = removedSince(mark)
+assert(gone["90"] == 1 and gone["91"] == 1 and gone[old] == 1, "the strays of other candidates and the old board, once each")
+assert(not gone["92"] and not gone["93"] and not gone["94"] and not gone[HoF.board.prop], "nothing else, never the new board")
+strays = {}
+
+-- reset: the config's default, the saved choice forgotten
+ok, line = cmd(1, { "model", "reset" })
+assert(ok and line:find("config's default", 1, true), line)
+assert(kvpStore[KEY] == nil and HoF.board.saved == false and HoF.board.model == C.board.model and HoF.board.rotate == 0
+    and props[HoF.board.prop].model == rows[1].model and props[HoF.board.prop].scale == rows[1].scale and liveBoards() == 1)
+
+-- the default reads board.scale / board.yaw before its row
+C.board.scale, C.board.yaw = 1.7, 15
+local c = HoF.choiceFor(C.board.model)
+assert(c.scale == 1.7 and c.yaw == 15 and HoF.choiceFor(rows[2].model).scale == rows[2].scale, "overrides for the default only")
+C.board.scale, C.board.yaw = nil, nil
+
+-- kept over restarts: a new generation wears the saved model; strays of every candidate around
+-- its place go (the hot reload's leftovers), its own board stays alone
+ok, line = cmd(1, { "model", "2", "1.2", "45" })
+assert(ok and kvpStore[KEY] == rows[2].model .. "|1.200|45.0", tostring(kvpStore[KEY]))
+strays = {
+    { id = "95", resource = "op77_lightrp", model = rows[#rows].model, position = { x = initial.x + 0.5, y = initial.y, z = 22 } },
+    { id = "96", resource = "op77_lightrp", model = rows[3].model, position = { x = initial.x, y = initial.y + 1, z = 22 } },
+}
+mark = #removed
+dofile("server/modules/halloffame.lua")
+HoF, cmd = LightRP.hallOfFame, commands["lightrp.halloffame"]
+gone = removedSince(mark)
+local fresh = props[HoF.board.prop]
+assert(HoF.board.saved == true and HoF.board.model == rows[2].model and HoF.board.scale == 1.2 and HoF.board.rotate == 45, "the saved choice wins at start")
+assert(fresh.model == rows[2].model and fresh.scale == 1.2 and math.abs(fresh.yaw - (HoF.board.heading + rows[2].yaw + 45) % 360) < 1e-6)
+assert(gone["95"] == 1 and gone["96"] == 1, "the previous generation's boards of other models swept at start")
+assert(interactions["halloffame.board"].blip.icon == "trophy" and interactions["halloffame.board"].marker == nil)
+strays = {}
+-- an unreadable choice is ignored: the config's default
+kvpStore[KEY] = "not a choice"
+local logged = #logs
+dofile("server/modules/halloffame.lua")
+HoF, cmd = LightRP.hallOfFame, commands["lightrp.halloffame"]
+assert(HoF.board.saved == false and HoF.board.model == C.board.model and props[HoF.board.prop].model == rows[1].model, "garbage: the default")
+local ignored = false
+for i = logged + 1, #logs do if logs[i]:find("unreadable board model", 1, true) then ignored = true end end
+assert(ignored, "logged")
+local decoded = HoF.decodeChoice(rows[2].model .. "|abc|zz")
+assert(decoded and decoded.model == rows[2].model and decoded.scale == rows[2].scale and decoded.rotate == 0, "bad numbers: the row's")
+assert(HoF.decodeChoice("a|b") == nil and HoF.decodeChoice(nil) == nil and HoF.decodeChoice("bad path\\x|1|0") == nil)
+kvpStore[KEY] = nil
+rebuild()
+
 -- still no identifier in a player's payload
 everything = {}
 for _, d in ipairs(dialogs) do serialize(d.payload, everything) end
@@ -784,6 +955,6 @@ assert(not blob:find("license:", 1, true) and not blob:find("#default", 1, true)
 
 print(string.format("PASS: board beside the terminal (%.3f, %.3f, heading %.1f), E point, prop + orphan sweep, competition ranks and ties,"
     .. " race times on the current course, PvE/missions/clears by difficulty, wealth switch + bank-only fallback, cache 5 min +"
-    .. " 30 s/player + 10 s floor, payload max %d values (%s) ~%d bytes, extension trim, staff place/where/refresh, no identifiers, no-DB mode, retry + database-ready rebuild,"
+    .. " 30 s/player + 10 s floor, payload max %d values (%s) ~%d bytes, extension trim, staff place/where/refresh, board model picker (list, swap by number/alias, scale/rotate, refused, kvp + restart, reset, sweep across models), trophy blip without a floor marker, no identifiers, no-DB mode, retry + database-ready rebuild,"
     .. " exclusions: staff online/offline/config/revoked/ACL failure, registered boards, no YOU #N, switches, test list command, kvp across a restart",
     initial.x, initial.y, initial.heading, maxValues, tostring(maxTab), maxBytes))
