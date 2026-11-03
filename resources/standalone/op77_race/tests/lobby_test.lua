@@ -207,6 +207,9 @@ H.test("a match member leaving the gathering is no longer waited for", function(
     join(1, "race.grid", options)
     join(2, "race.grid", options)
     H.eq(instance(1), nil, "player 3 still expected")
+    -- Light RP's queue panel: the match on its way (two of three here, joining).
+    local q = L.queueOf(RaceActivity.byKey.grid)
+    H.eq(#q.lobbies, 1); H.eq(#q.lobbies[1].players, 2); H.eq(q.lobbies[1].need, 3); H.eq(q.lobbies[1].joining, true)
     H.fire("op77_lightrp:activity:leaveRequest", 2, "race.grid")
     H.eq(L.queuedIn(2), nil)
     H.advance(300)

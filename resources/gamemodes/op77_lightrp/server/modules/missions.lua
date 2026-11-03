@@ -865,7 +865,28 @@ LightRP.stateProvider("missionQueue", function(id)
         state = lobby.state, countdownMs = lobby.state == "countdown" and math.max(0, lobby.launchAt - now()) or nil,
         host = lobby.members[1] and lobby.members[1].id == id, open = lobby.open == true }
 end)
-function pushQueue(id) LightRP.state(id, "missionQueue") end
+-- A tagged board also shows in the player's queue panel (activity_queue.lua), which
+-- hears of every change here.
+function pushQueue(id)
+    LightRP.state(id, "missionQueue")
+    local queue = LightRP.activityQueue
+    if queue and queue.refresh then queue.refresh(id) end
+end
+-- The board this player is tagged on, for the queue panel: nil once it launched.
+function Missions.queueEntry(id)
+    local lobby = queueOf[id] and lobbies[queueOf[id]]
+    if not lobby or instanceOf[id] then return nil end
+    local point = points[lobby.point]
+    local d = point and diffOf(point, lobby.difficulty)
+    if not d then return nil end
+    return { key = lobby.id, label = point.title, mode = d.label, count = #lobby.members, need = d.min, max = d.max,
+        startsAt = lobby.state == "countdown" and lobby.launchAt or nil }
+end
+function Missions.queuedPlayers()
+    local list = {}
+    for id in pairs(queueOf) do list[#list + 1] = id end
+    return list
+end
 
 function Missions.open(id, pointId)
     local point = points[pointId]

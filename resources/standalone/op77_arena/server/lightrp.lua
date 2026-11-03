@@ -2149,13 +2149,54 @@ local function statusOf(key)
     end
     if botsFor(key) then detail = detail .. PRACTICE end
     local phase = matches > 0 and "running" or (queued > 0 and "lobby" or "idle")
-    return { phase = phase, players = players, queued = queued, joinable = true, detail = detail }
+    return { phase = phase, players = players, queued = queued, joinable = true, detail = detail, queue = H.queueOf(key) }
 end
 H.statusOf = statusOf
 
+-- The queue panel's shape (status.queue v1): each random duel seeker waits for one
+-- opponent (crewmates are never paired together, so two in the queue are not a duel);
+-- each team format's queue waits for its full roster. In bot mode with a wait, the
+-- countdown is when a bot takes the duel / bots complete the sides. Light RP matches
+-- gathering are the core's own (its joins say so).
+function H.queueOf(key, t)
+    t = t or now()
+    if key == "duel" then
+        local lobbies = {}
+        for _, item in ipairs(H.duelQueue) do
+            local extra = { mode = "Random" }
+            if botsFor("duel") and L.bots.duelWaitMs > 0 and item.atMs then
+                extra.startsInMs = math.max(0, L.bots.duelWaitMs - (t - item.atMs))
+            end
+            lobbies[#lobbies + 1] = Core.lobby({ item.playerId }, 2, extra)
+        end
+        return Core.queue(lobbies)
+    end
+    if key ~= "teams" or type(DM.arena.queueMembers) ~= "function" then return nil end
+    local lobbies = {}
+    for _, format in ipairs({ "2v2", "3v3" }) do
+        local spec = Config.formats[format]
+        local ids = DM.arena.queueMembers(format) or {}
+        if spec and #ids > 0 then
+            local extra = { mode = format }
+            if botsFor("teams") and L.bots.teamWaitMs > 0 then
+                local first
+                for _, id in ipairs(ids) do
+                    local since = not H.teamUpgraded[id] and H.teamQueuedAt[id] or nil
+                    if since and (first == nil or since < first) then first = since end
+                end
+                if first then extra.startsInMs = math.max(0, L.bots.teamWaitMs - (t - first)) end
+            end
+            local need = tonumber(spec.capacity) or (spec.teams or 2) * (spec.teamSize or 1)
+            lobbies[#lobbies + 1] = Core.lobby(ids, need, extra)
+        end
+    end
+    return Core.queue(lobbies)
+end
+
 function H.pushStatuses(force)
+    local t = now()
     for key, def in pairs(ACT) do
-        Core.status(def.id, statusOf(key), force)
+        Core.status(def.id, statusOf(key), force, t)
     end
 end
 

@@ -90,12 +90,36 @@ function C.result(playerId, activityId, result)
     TriggerEvent(EVENTS.result, playerId, activityId, result)
 end
 
--- Sent on change only: Light RP pushes statuses to every open panel.
+-- Light RP's queue panel (status.queue, v1): who waits in which lobby, what it takes,
+-- when it starts. One lobby per waiting group: { players, need, max, count, startsInMs,
+-- mode, joining }; an empty list = nobody waits (no `queue` = an older provider).
+function C.queue(lobbies) return { v = 1, lobbies = lobbies or {} } end
+function C.lobby(ids, need, extra)
+    local l = { players = ids or {}, need = need }
+    for k, v in pairs(extra or {}) do l[k] = v end
+    return l
+end
+
+-- The queue in the change digest: a countdown running down is no change (its deadline,
+-- to the second, is), a player or a number that moved is.
+function C.queueDigest(queue, nowMs)
+    if type(queue) ~= "table" or type(queue.lobbies) ~= "table" then return "-" end
+    local parts = {}
+    for _, l in ipairs(queue.lobbies) do
+        parts[#parts + 1] = table.concat({ tostring(l.need), tostring(l.max), tostring(l.count), tostring(l.mode), tostring(l.joining),
+            l.startsInMs and tostring(math.floor(((nowMs or 0) + l.startsInMs) / 1000)) or "", table.concat(l.players or {}, ",") }, "/")
+    end
+    return table.concat(parts, ";")
+end
+
+-- Sent on change only: Light RP pushes statuses to every open panel. `nowMs` dates a
+-- queue countdown (so one running down is not a change).
 local lastStatus = {}
-function C.status(activityId, status, force)
+function C.status(activityId, status, force, nowMs)
     if type(status) ~= "table" then return false end
-    local key = ("%s|%d|%d|%s|%s"):format(tostring(status.phase), math.floor(tonumber(status.players) or 0),
-        math.floor(tonumber(status.queued) or 0), tostring(status.joinable ~= false), tostring(status.detail or ""))
+    local key = ("%s|%d|%d|%s|%s|%s"):format(tostring(status.phase), math.floor(tonumber(status.players) or 0),
+        math.floor(tonumber(status.queued) or 0), tostring(status.joinable ~= false), tostring(status.detail or ""),
+        C.queueDigest(status.queue, nowMs))
     if not force and lastStatus[activityId] == key then return false end
     lastStatus[activityId] = key
     TriggerEvent(EVENTS.status, activityId, status)

@@ -147,6 +147,10 @@ export interface UiState {
   online: Array<{ id: number; name: string }>;
   party?: PartyState;
   missionQueue?: MissionQueueState;
+  /** The queue this player waits in, whatever it is (server/modules/activity_queue.lua); false: none. */
+  queue?: QueueState;
+  /** The key bound to "Light RP: leave queue", added by client/core/queue.lua; false: cleared. */
+  queueKey?: string | false;
   /** A fixer gig taken and not yet running (server/modules/fixers.lua); false: none. */
   fixerGig?: FixerGigState | false;
 
@@ -399,6 +403,14 @@ export interface PartyState {
   invites: CrewInvite[]; maxSize: number; inviteSeconds?: number; matchmaking?: boolean;
   keys?: { accept?: string; decline?: string };
 }
+/** The queue panel's view (server/modules/activity_queue.lua Q.view). Times are from the push:
+ *  the page counts the wait up and the start down on its own. `need`/`max`: "3 / 6" or "3 / 2-8". */
+export type QueueState = false | {
+  v: 1; id: string; label: string; mode?: string; count?: number; need?: number; max?: number;
+  sinceMs: number; startsInMs?: number; state: "waiting" | "starting" | "joining";
+  /** Queued by the crew leader: leaving takes only you out. */
+  crew?: boolean; source: "core" | "provider" | "mission";
+};
 export type MissionQueueState = false
   | { running: false; title: string; difficulty: string; difficultyId: string; count: number; min: number; max: number; state: "open" | "countdown"; countdownMs?: number; host: boolean; open?: boolean }
   | { running: true; instance: string; title: string; difficulty: string; difficultyId: string; endsInMs: number; members: number; squad: MissionSquadMember[]; objective?: MissionObjective };
@@ -681,6 +693,7 @@ export type UiAction =
   | { type: "party.accept" | "party.decline"; party?: string }
   | { type: "party.leave" }
   | { type: "party.matchmaking"; on: boolean }
+  | { type: "queue.leave"; from: "key" | "menu" | "panel" }
   | { type: "activities.control"; operation: "open" | "refresh" | "close" | "leave"; tab?: ActivitiesTab }
   | { type: "activities.control"; operation: "join"; id: string; from?: string; options?: Record<string, string> }
   | { type: "activities.control"; operation: "gps"; id: string }

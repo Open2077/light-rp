@@ -239,6 +239,13 @@ do
     join(3, { mode = "car" })
     run(1.2)
     assert(ChaseWantedLobby.countdownEndsAtMs ~= nil and env.qhud[3].countdownMs > 40000)
+    -- Light RP's queue panel: the lobby, its minimum and seats, the countdown
+    local wl = lastStatus().queue.lobbies[1]
+    assert(lastStatus().queue.v == 1 and #wl.players == 3 and wl.need == 3 and wl.max == ChaseConfig.wanted.maxPlayers)
+    assert(wl.startsInMs and wl.startsInMs > 40000 and wl.startsInMs <= 45000 and not wl.joining)
+    local statuses = #events("op77_lightrp:activity:status")
+    run(2.0)
+    assert(#events("op77_lightrp:activity:status") == statuses, "the countdown running down sends no status")
     local ann = events("op77_lightrp:announce")
     assert(#ann == 1 and ann[1].args[1]:find("Most Wanted starts in") and ann[1].args[2].activity == "chase.wanted")
     assert(noted(1, "starts in") and lastStatus().detail:find("starts in"))
@@ -414,6 +421,8 @@ do
     assert(not ChaseWantedLobby.has(3) and ChaseWanted.pendingMatch(3) == match and env.owner[3] == nil)
     assert(env.qhud[3].joining == true and env.qhud[3].matchId == match.id and noted(3, "next round"))
     assert(ChaseWantedMain.claims(3) and match.roles[3] == nil)
+    local drop = lastStatus().queue.lobbies
+    assert(#drop == 1 and drop[1].joining == true and drop[1].players[1] == 3 and drop[1].need == nil, "a drop-in: joining the match")
 
     -- Round 1: the runner goes down near the cop: a takedown.
     at(1, 0, 0); at(2, 20, 0)

@@ -40,8 +40,11 @@ end
 
 -- ---------------------------------------------------------------- registration
 
+local queueOf -- the queue for Light RP's queue panel (below)
 local function publishStatus(force)
-    ChaseCore.status(P.status(#Q.entries), force, AID)
+    local status = P.status(#Q.entries)
+    status.queue = queueOf and queueOf() or nil
+    ChaseCore.status(status, force, AID)
 end
 
 local function register()
@@ -106,6 +109,25 @@ local function pushQueue()
             crewQueued = e.squad and queued or nil, busy = e.notReadySince ~= nil or nil,
             difficulty = e.difficulty, difficultyLabel = e.difficulty and difficultyLabel(e.difficulty) or nil })
     end
+end
+
+-- One lobby per crew getting ready (its members queued, against the crew), one per
+-- runner alone (one to start: in a moment).
+function queueOf()
+    local lobbies, byCrew = {}, {}
+    for _, e in ipairs(Q.entries) do
+        local key = e.squad and e.squad.id or nil
+        local lobby = key and byCrew[key] or nil
+        if lobby then
+            lobby.players[#lobby.players + 1] = e.id
+        else
+            lobby = ChaseCore.lobby({ e.id }, e.squad and #e.squad.members or 1,
+                { mode = e.difficulty and difficultyLabel(e.difficulty) or nil })
+            lobbies[#lobbies + 1] = lobby
+            if key then byCrew[key] = lobby end
+        end
+    end
+    return ChaseCore.queue(lobbies)
 end
 
 local function dequeue(id, text)

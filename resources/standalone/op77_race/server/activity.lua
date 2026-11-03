@@ -190,15 +190,27 @@ function A.recap(activityId, recap)
     return true
 end
 
-local function digest(status)
-    return table.concat({ tostring(status.phase), tostring(status.players), tostring(status.queued),
-        tostring(status.joinable), tostring(status.detail) }, "|")
+-- The queue (status.queue v1, Light RP's queue panel) in the digest: a countdown running
+-- down is no change (its deadline, to the second, is); a player or a number that moved is.
+function A.queueDigest(queue, nowMs)
+    if type(queue) ~= "table" or type(queue.lobbies) ~= "table" then return "-" end
+    local parts = {}
+    for _, l in ipairs(queue.lobbies) do
+        parts[#parts + 1] = table.concat({ tostring(l.need), tostring(l.max), tostring(l.count), tostring(l.mode), tostring(l.joining),
+            l.startsInMs and tostring(math.floor(((nowMs or 0) + l.startsInMs) / 1000)) or "", table.concat(l.players or {}, ",") }, "/")
+    end
+    return table.concat(parts, ";")
 end
 
--- Sent on change only.
-function A.status(activityId, status, force)
+local function digest(status, nowMs)
+    return table.concat({ tostring(status.phase), tostring(status.players), tostring(status.queued),
+        tostring(status.joinable), tostring(status.detail), A.queueDigest(status.queue, nowMs) }, "|")
+end
+
+-- Sent on change only. `nowMs` dates a queue countdown.
+function A.status(activityId, status, force, nowMs)
     if not A.mine(activityId) or type(status) ~= "table" then return false end
-    local key = digest(status)
+    local key = digest(status, nowMs)
     if not force and lastStatus[activityId] == key then return false end
     lastStatus[activityId] = key
     TriggerEvent("op77_lightrp:activity:status", activityId, status)

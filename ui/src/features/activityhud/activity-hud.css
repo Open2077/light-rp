@@ -15,7 +15,8 @@
 
 /* ---------- header strip, top centre ---------- */
 .ah-head { position: absolute; top: var(--hud-safe-y); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); max-width: min(760px, 70vw); animation: ah-drop .32s steps(4, end) both; }
-.ah.is-lowered .ah-head { top: calc(var(--hud-safe-y) + 52px); } /* the mission queue chip holds the very top */
+.ah.is-lowered .ah-head { top: calc(var(--hud-safe-y) + 52px); } /* the mission chip or the queue panel holds the very top */
+.ah.is-lowered-2 .ah-head { top: calc(var(--hud-safe-y) + 92px); } /* both: the queue panel sits under the chip */
 .ah-head__plate { display: flex; align-items: center; gap: var(--sp-6); min-height: 44px; padding: var(--sp-3) var(--sp-6) var(--sp-3) calc(var(--chamfer-md) + 6px); clip-path: var(--clip-chamfer); }
 .ah-head__id { display: flex; align-items: center; gap: var(--sp-4); min-width: 0; }
 .ah-head__id b { color: var(--text-hi); font: var(--fw-bold) var(--fs-body)/1 var(--font-core); letter-spacing: var(--ls-label); text-transform: uppercase; white-space: nowrap; }

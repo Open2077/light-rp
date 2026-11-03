@@ -245,6 +245,40 @@ function L.windowRemainingMs(key, now)
     return math.max(0, q.windowEndsAt - (now or E.nowMs()))
 end
 
+-- Light RP's queue panel (status.queue, v1) for one activity: the heat (its minimum,
+-- the grid's seats, the join window once open), each crew getting ready for a race vs
+-- AI (its members; it goes when complete or when the gather wait is over), each match
+-- gathering (joining). Lobby = { players, need, max, startsInMs, joining }.
+function L.queueOf(def, now)
+    now = now or E.nowMs()
+    local lobbies = {}
+    local q = def.queued and queues[def.key] or nil
+    if q and #q.members > 0 then
+        local players = {}
+        for i, id in ipairs(q.members) do players[i] = id end
+        lobbies[#lobbies + 1] = { players = players, need = L.minimum(def), max = def.maxPlayers,
+            startsInMs = L.windowRemainingMs(def.key, now) }
+    end
+    for _, crew in pairs(crews) do
+        if crew.def.key == def.key and #crew.members > 0 then
+            local players = {}
+            for i, id in ipairs(crew.members) do players[i] = id end
+            lobbies[#lobbies + 1] = { players = players, need = math.max(#crew.members, #crew.expected),
+                startsInMs = math.max(0, crew.at + gatherMs() - now) }
+        end
+    end
+    for _, m in pairs(matches) do
+        if m.def.key == def.key and #m.members > 0 then
+            local players = {}
+            for i, id in ipairs(m.members) do players[i] = id end
+            lobbies[#lobbies + 1] = { players = players, need = math.max(#m.members, #m.expected), joining = true }
+        end
+    end
+    -- pairs order is no order: the same lobbies give the same digest
+    table.sort(lobbies, function(a, b) return a.players[1] < b.players[1] end)
+    return { v = 1, lobbies = lobbies }
+end
+
 -- Removes a player from any queue or gathering crew. Returns true when they were in one.
 function L.leave(playerId)
     local found = false

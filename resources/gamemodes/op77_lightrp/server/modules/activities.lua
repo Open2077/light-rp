@@ -44,6 +44,17 @@
 --   core -> provider  op77_lightrp:activity:dropped (playerId, activityId, reason)
 --   core -> provider  op77_lightrp:activity:ready   ()  Light RP (re)started: register again
 --   core -> provider  op77_lightrp:activity:bots    (enabled)  staff bot mode toggled
+-- status = { phase = "idle"|"lobby"|"running", players, queued, joinable, detail, queue }
+--   queue (optional, v1): the provider's own queue, for the queued players' queue panel
+--   (activity_queue.lua; a provider without it keeps working, the panel then reads
+--   minPlayers / maxPlayers and `queued`):
+--     { v = 1, lobbies = { { players = { playerId... }, need, max, count, startsInMs, mode, joining } } }
+--     players     who waits in that lobby (64 per lobby, 32 lobbies, 256 in all)
+--     need / max  the players it takes to start / the most it takes ("3 / 2-8"); max optional
+--     count       the players waiting when the list is not all of them (optional)
+--     startsInMs  a start already scheduled (the panel counts it down); mode: a short
+--                 label ("2v2", "by car"); joining = true: a match on its way to them
+--   Send it on change only: fold startsInMs into its absolute deadline in the digest.
 --
 -- Lobby (server/config/activities.lua `lobby`): the join's options also carry
 --   options.ranked  always: true = the result counts (stats, leaderboards, Hall of Fame,
@@ -129,7 +140,7 @@ local matches = {}    -- matchId -> { id, activity, friendly, ranked = false, pl
 local friendlies = {} -- leaderId -> { activity, mode, teams, bench, players, bots, at }: a friendly being set up
 local matchSeq = 0
 
-A.registry, A.owned = registry, owned
+A.registry, A.owned, A.pending = registry, owned, pending
 A.matches, A.friendlies = matches, friendlies
 -- Copies of the session rows (no database) for the Hall of Fame, read only
 -- (server/modules/halloffame.lua). key = identifier|characterKey|activityId|board.
@@ -324,6 +335,7 @@ local function effectiveDifficulty(id, list, wanted)
     return best
 end
 local function diffLabel(diffId) return DIFFS[diffId] and DIFFS[diffId].label or tostring(diffId) end
+A.diffLabel = diffLabel
 -- What a crew member carried above their tier is told, once: they play it, for less.
 local function carriedLine(id, a, diffId)
     local basis = effectiveDifficulty(id, offered(a), diffId)
@@ -497,7 +509,11 @@ local function dirty()
     SetTimeout(C.statusPushMs, pushAll)
 end
 A.dirty = dirty
-local function touch(id) LightRP.state(id, "activities") end
+-- Every change of a player's join also refreshes their queue panel (activity_queue.lua).
+local function touch(id)
+    LightRP.state(id, "activities")
+    if A.queueTouched then A.queueTouched(id) end
+end
 function A.watch(id) watchers[id] = now() + C.watchMs end
 
 -- ---------------------------------------------------------------------------
@@ -808,6 +824,7 @@ local function forget(resource, since, reason)
         local a = registry[aid]
         if a and a.resource == resource and a.generation <= since then
             registry[aid], tops[aid] = nil, nil
+            if A.queueForget then A.queueForget(aid) end
             LightRP.log("activities: %s forgotten (%s %s)", aid, resource, tostring(reason))
         elseif a then kept[#kept + 1] = aid end
     end
@@ -1349,6 +1366,7 @@ local function searchView(id, q, a)
     return { found = math.min(found, math.max(needed, found)), needed = needed,
         scope = spread == math.huge and "all" or "near", widenInMs = widenIn, bracket = lobbyOf(a).brackets ~= false and b or nil }
 end
+A.searchView = searchView
 
 -- "Play with bots" chosen in the panel (PvP): the player and their eligible crew
 -- members, alone against bots, unranked.
@@ -2328,9 +2346,17 @@ function A.status(activityId, status)
     local a = type(activityId) == "string" and registry[activityId] or nil
     if not a or type(status) ~= "table" then return false end
     if foreign(a.resource) then return false end
-    a.status = { phase = PHASES[status.phase] and status.phase or "idle", players = int(status.players, 0, 10000) or 0,
+    local was = a.status
+    local s = { phase = PHASES[status.phase] and status.phase or "idle", players = int(status.players, 0, 10000) or 0,
         queued = int(status.queued, 0, 10000) or 0, joinable = status.joinable ~= false, detail = clean(status.detail, 120) or "" }
-    dirty()
+    a.status = s
+    -- the open panels hear of a new line only: a queue that moved (status.queue)
+    -- reaches the queue panels of its own players, never every Activities panel
+    if not was or was.phase ~= s.phase or was.players ~= s.players or was.queued ~= s.queued
+        or was.joinable ~= s.joinable or was.detail ~= s.detail then
+        dirty()
+    end
+    if A.queueStatus then A.queueStatus(a, status.queue) end
     return true
 end
 AddEventHandler(EV.status, function(activityId, status)
