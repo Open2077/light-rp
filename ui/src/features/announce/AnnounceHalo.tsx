@@ -91,9 +91,9 @@ export function AnnounceHalo() {
       const targetLevel = fresh && l!.talking ? l!.level : 0;
       const targetTalk = fresh && l!.talking ? 1 : 0;
       // fast attack, softer release: liquid, never twitchy
-      level += (targetLevel - level) * (1 - Math.exp(-dt * (targetLevel > level ? 22 : 7)));
-      energy += (level - energy) * (1 - Math.exp(-dt * (level > energy ? 6 : 1.6)));
-      talk += (targetTalk - talk) * (1 - Math.exp(-dt * (targetTalk > talk ? 10 : 2.5)));
+      level += (targetLevel - level) * (1 - Math.exp(-dt * (targetLevel > level ? 8 : 3.5)));
+      energy += (level - energy) * (1 - Math.exp(-dt * (level > energy ? 2.5 : 1.0)));
+      talk += (targetTalk - talk) * (1 - Math.exp(-dt * (targetTalk > talk ? 5 : 2)));
       presence += ((pick ? 1 : 0) - presence) * (1 - Math.exp(-dt * (pick ? 3.2 : 4.5)));
 
       const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -112,12 +112,12 @@ export function AnnounceHalo() {
       } else if (fallbackRef.current) {
         const f = fallbackRef.current;
         f.style.opacity = String(presence);
-        f.style.height = `${(0.085 + 0.33 * level + 0.05 * energy) * presence * h}px`;
-        f.style.width = `${(0.34 + 0.14 * level) * presence * h}px`;
+        f.style.height = `${(0.085 + 0.13 * level + 0.03 * energy) * presence * h}px`;
+        f.style.width = `${(0.34 + 0.06 * level) * presence * h}px`;
       }
       // the label rides just under the drop
       if (labelRef.current) {
-        const drop = (0.085 + 0.33 * level + 0.05 * energy) * presence * h;
+        const drop = (0.085 + 0.13 * level + 0.03 * energy) * presence * h;
         labelRef.current.style.transform = `translate(-50%, ${Math.round(drop + 14)}px)`;
         labelRef.current.style.opacity = String(Math.max(0, presence * 1.15 - 0.15));
       }

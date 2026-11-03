@@ -81,17 +81,17 @@ void main() {
   float pres = uPresence;
   float lvl = uLevel;
   float t = uTime;
-  float flowSpeed = 0.35 + 0.9 * uEnergy;
+  float flowSpeed = 0.3 + 0.35 * uEnergy;
 
   // the liquid wobbles: a flowing warp, stronger with the voice
   vec2 q = p;
   float wx = snoise(vec3(q * 3.2, t * flowSpeed));
   float wy = snoise(vec3(q * 3.2 + 11.7, t * flowSpeed * 1.1));
-  q += vec2(wx, wy) * (0.012 + 0.03 * lvl + 0.01 * uEnergy) * pres;
+  q += vec2(wx, wy) * (0.009 + 0.012 * lvl + 0.005 * uEnergy) * pres;
 
   // the hanging drop: grows with presence, swells with the voice
-  float h = (0.085 + 0.33 * lvl + 0.05 * uEnergy) * pres;
-  float w = (0.17 + 0.07 * lvl + 0.03 * uEnergy) * pres + 0.0001;
+  float h = (0.085 + 0.13 * lvl + 0.03 * uEnergy) * pres;
+  float w = (0.17 + 0.03 * lvl + 0.015 * uEnergy) * pres + 0.0001;
   // a heavier bottom: liquid sags
   vec2 dq = q;
   dq.x *= 1.0 + 0.35 * smoothstep(0.0, -h, q.y);
@@ -107,12 +107,12 @@ void main() {
   // droplets falling from the drop and melting back
   for (int i = 0; i < 4; i++) {
     float fi = float(i);
-    float speed = 0.16 + 0.06 * fi + 0.25 * uEnergy;
+    float speed = 0.12 + 0.04 * fi + 0.08 * uEnergy;
     float ph = fract(t * speed + fi * 0.29);
     float fall = ph * ph;
     float x = (fi - 1.5) * w * 0.38 + 0.015 * sin(t * 0.9 + fi * 2.3);
-    float y = -h * 0.82 - fall * (0.08 + 0.26 * uEnergy);
-    float r = (0.022 + 0.026 * lvl + 0.016 * uEnergy) * (1.0 - 0.6 * ph) * pres * (0.3 + 0.7 * uTalk);
+    float y = -h * 0.82 - fall * (0.06 + 0.1 * uEnergy);
+    float r = (0.018 + 0.012 * lvl + 0.006 * uEnergy) * (1.0 - 0.6 * ph) * pres * (0.4 + 0.6 * uTalk);
     float dd = length(q - vec2(x, y)) - r;
     d = smin(d, dd, 0.045);
   }
@@ -126,7 +126,7 @@ void main() {
   vec3 gold = vec3(1.0, 0.80, 0.0);
   vec3 hot = vec3(1.0, 0.97, 0.82);
   vec3 col = mix(deep, gold, smoothstep(0.0, 0.45, depth + flow * 0.12));
-  col = mix(col, hot, smoothstep(0.5, 1.0, depth + flow * 0.1) * (0.25 + 0.75 * lvl));
+  col = mix(col, hot, smoothstep(0.5, 1.0, depth + flow * 0.1) * (0.25 + 0.45 * lvl));
   // a highlight sliding on the surface
   float spec = smoothstep(0.75, 1.0, snoise(vec3(q * 9.0 + vec2(t * 0.3, 0.0), t * 0.2))) * depth;
   col += hot * spec * 0.35;
@@ -135,16 +135,16 @@ void main() {
 
   // the glow and the rings running out while the voice is on
   float outside = max(d, 0.0);
-  float glow = exp(-outside * (11.0 - 5.0 * lvl)) * (0.22 + 0.6 * lvl + 0.18 * uEnergy);
+  float glow = exp(-outside * (12.0 - 3.0 * lvl)) * (0.2 + 0.28 * lvl + 0.1 * uEnergy);
   // two pulses leaving the drop and fading as they spread
   float rings = 0.0;
   for (int k = 0; k < 2; k++) {
-    float ph = fract(t * (0.55 + 0.35 * uEnergy) + float(k) * 0.5);
+    float ph = fract(t * (0.4 + 0.15 * uEnergy) + float(k) * 0.5);
     float radius = 0.01 + ph * 0.32;
     float ring = exp(-abs(outside - radius) * (95.0 - 40.0 * ph));
     rings += ring * (1.0 - ph) * (1.0 - ph);
   }
-  rings *= (0.2 + 0.8 * uEnergy) * uTalk * step(0.0, d);
+  rings *= (0.1 + 0.35 * uEnergy) * uTalk * step(0.0, d);
   float halo = clamp(glow * 0.6 + rings * 0.55, 0.0, 1.0) * pres;
   vec3 haloCol = mix(gold, hot, rings * 0.5);
 
