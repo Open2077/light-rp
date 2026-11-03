@@ -269,6 +269,10 @@ assert(HoF and type(HoF.registerBoard) == "function", "LightRP.hallOfFame.regist
 local point = interactions["halloffame.board"]
 local initial = { x = HoF.board.position.x, y = HoF.board.position.y, heading = HoF.board.heading }
 assert(point and point.bucket == 0 and point.key == "E" and point.label == "Hall of Fame", "the E point")
+assert(point.marker == nil and point.ring == false, "no floor marker nor ground ring: the icon and the E prompt")
+assert(point.blip and point.blip.icon == "trophy" and point.blip.title == "Hall of Fame" and point.blip.mapCategory == "service"
+    and point.blip.mapColor == "#FFCC00" and type(point.blip.description) == "string" and point.blip.description ~= "",
+    "a floating trophy icon with the distance, and a map pin")
 assert(math.abs(HoF.board.position.x - (-763.777)) < 0.01 and math.abs(HoF.board.position.y - 777.723) < 0.01,
     string.format("forward 6 / right -4 of the hub: %.3f %.3f", HoF.board.position.x, HoF.board.position.y))
 assert(math.abs(HoF.board.heading - 266.3) < 0.1, "the screen faces the arrival point: " .. HoF.board.heading)
@@ -279,9 +283,11 @@ assert(apart > 3 and apart < 5, "a few metres from the activities terminal: " ..
 assert(math.abs(point.position.x - (-761.98)) < 0.05 and math.abs(point.position.y - 777.61) < 0.05,
     string.format("E point %.2f %.2f", point.position.x, point.position.y))
 local created = props[HoF.board.prop]
-assert(created and created.model == "electronics.tv.screen.16x9" and created.collision == true and created.physics == "static",
-    "a static board with a collider (ALT + click hits physical bodies)")
-assert(math.abs(created.yaw - HoF.board.heading) < 1e-6 and created.bucket == 0 and created.scale == 2.5)
+assert(created and created.model == C.board.model and created.model == C.board.models[1].model, "the default: the first candidate")
+assert(created.collision == true and created.physics == "static", "a static board with a collider (ALT + click hits physical bodies)")
+assert(math.abs(created.yaw - (HoF.board.heading + C.board.models[1].yaw) % 360) < 1e-6 and created.bucket == 0
+    and created.scale == C.board.models[1].scale, "its row's scale and yaw")
+assert(HoF.board.saved == false, "nothing saved yet: the config's default")
 assert(#removed == 1 and removed[1] == "7", "the previous generation's board goes, another resource's stays")
 local boardEvent = clientEvents[#clientEvents]
 assert(boardEvent.name == LightRpEvents.net.hallOfFameBoard and boardEvent.id == -1 and boardEvent.payload.prop == HoF.board.prop,

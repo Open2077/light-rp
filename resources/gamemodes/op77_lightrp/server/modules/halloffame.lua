@@ -43,7 +43,10 @@ local boards, order = {}, {}       -- key -> definition, keys in registration or
 local cache = { at = nil, boards = {}, database = false }
 local refreshing, lastRefreshAt = false, nil
 local playerAsked, helloAt = {}, {}
-local board = { prop = nil, position = nil, heading = nil }
+-- heading: where the board faces (its readers); model / scale / yaw / rotate: the prop
+-- in use (yaw = its models row's offset, rotate = the staff's extra turn), `saved` when
+-- it is the staff's choice from the kvp store.
+local board = { prop = nil, position = nil, heading = nil, model = nil, scale = 1, yaw = 0, rotate = 0, saved = false }
 HoF.board = board
 
 local function now() return LightRP.nowMs() end
@@ -100,49 +103,190 @@ function HoF.pointOf(pos, heading)
     return { x = pos.x - math.sin(h) * d, y = pos.y + math.cos(h) * d, z = pos.z }
 end
 
+-- The floating icon and map pin of the E point (config `board.blip`; false: none).
+local function blipOf()
+    local b = cfg("board.blip")
+    if type(b) ~= "table" then return nil end
+    return { icon = b.icon or "trophy", sprite = b.sprite, title = b.title or C.title or "Hall of Fame",
+        description = b.description, mapCategory = b.mapCategory, mapColor = b.mapColor }
+end
+
 local function registerPoint()
     local I = cfg("board.interact", {})
     LightRP.interaction(POINT, { position = HoF.pointOf(board.position, board.heading), radius = tonumber(I.radius) or 1.6,
         bucket = cfg("board.bucket", 0), label = I.label or "Hall of Fame", prompt = I.prompt or "Open the Hall of Fame",
-        key = "E", marker = I.marker, ring = false })
+        key = "E", marker = I.marker, ring = false, blip = blipOf() })
 end
 
 local function boardInfo() return { prop = board.prop or false, position = board.position } end
 local function sendBoard(target) TriggerClientEvent(E.net.hallOfFameBoard, target, boardInfo()) end
 HoF.boardInfo = boardInfo
 
+-- ---------------------------------------------------------------------------
+-- The board's model: the config default (`board.model` and its `models` row), or the
+-- staff's choice, saved in the kvp store as "model|scale|rotate" (an empty scale: the
+-- row's), which wins at start until `/lightrp.halloffame model reset`.
+
+local KVP_MODEL = "halloffame.board.model"
+HoF.KVP_MODEL = KVP_MODEL
+
+local function candidates()
+    local list = {}
+    for _, row in ipairs(type(cfg("board.models")) == "table" and C.board.models or {}) do
+        if type(row) == "table" and type(row.model) == "string" and row.model ~= "" then list[#list + 1] = row end
+    end
+    return list
+end
+HoF.candidates = candidates
+
+local function rowOf(model)
+    for i, row in ipairs(candidates()) do if row.model == model then return row, i end end
+    return nil
+end
+
+local function defaultModel()
+    local m = cfg("board.model")
+    if type(m) == "string" and m ~= "" then return m end
+    local first = candidates()[1]
+    return first and first.model or nil
+end
+
+-- A choice: the alias, its scale (given, or the row's), the row's yaw offset, the
+-- staff's extra turn. The default model reads board.scale / board.yaw first.
+local function choiceFor(model, scale, rotate)
+    local B, row = C.board or {}, rowOf(model)
+    local isDefault = model == defaultModel()
+    return { model = model, givenScale = scale,
+        scale = scale or (isDefault and tonumber(B.scale)) or (row and tonumber(row.scale)) or 1,
+        yaw = (isDefault and tonumber(B.yaw)) or (row and tonumber(row.yaw)) or 0,
+        rotate = rotate or 0 }
+end
+HoF.choiceFor = choiceFor
+
+local function applyChoice(c, saved)
+    board.model, board.scale, board.yaw, board.rotate, board.givenScale = c.model, c.scale, c.yaw, c.rotate, c.givenScale
+    board.saved = saved == true
+end
+local function currentChoice()
+    return { model = board.model, scale = board.scale, yaw = board.yaw, rotate = board.rotate, givenScale = board.givenScale }, board.saved
+end
+
+local function collisionOf(model)
+    local row = rowOf(model)
+    if row and row.collision ~= nil then return row.collision == true end
+    return cfg("board.collision", true) == true
+end
+local function propYaw() return ((board.heading or 0) + (tonumber(board.yaw) or 0) + (tonumber(board.rotate) or 0)) % 360 end
+HoF.propYaw = propYaw
+
+local function validAlias(model)
+    return type(model) == "string" and #model <= 96 and model:match("^%a[%w_]*[%w_%.]*$") ~= nil
+end
+
+local function encodeChoice(c)
+    return string.format("%s|%s|%.1f", c.model, c.givenScale and string.format("%.3f", c.givenScale) or "", c.rotate or 0)
+end
+local function decodeChoice(text)
+    if type(text) ~= "string" then return nil end
+    local model, scale, rotate = text:match("^([^|]+)|([^|]*)|([^|]*)$")
+    if not validAlias(model) then return nil end
+    scale, rotate = tonumber(scale), tonumber(rotate)
+    if scale and not (scale >= 0.1 and scale <= 10) then scale = nil end
+    if rotate and not (rotate > -1e6 and rotate < 1e6) then rotate = nil end
+    return choiceFor(model, scale, rotate)
+end
+HoF.decodeChoice = decodeChoice
+
+local store -- the kvp helper (Exclusions, below)
+
+-- At start: the config default, replaced by the staff's saved choice if there is one.
+local function loadChoice()
+    applyChoice(choiceFor(defaultModel()))
+    local text = store("get", KVP_MODEL)
+    local saved = decodeChoice(text)
+    if saved then
+        applyChoice(saved, true)
+        LightRP.log("hall of fame: board model %s x%.2f rotate %.1f from the staff's choice (kvp %s; /lightrp.halloffame model reset for the config's)",
+            saved.model, saved.scale, saved.rotate, KVP_MODEL)
+    elseif type(text) == "string" and text ~= "" then
+        LightRP.log("hall of fame: ignoring an unreadable board model in kvp %s: %q", KVP_MODEL, text:sub(1, 120))
+    end
+end
+HoF.loadChoice = loadChoice
+
+-- Every model a board of this resource may wear: the candidates, the default, the one
+-- in use. A swap or a hot reload leaves none of them behind near the board.
+local function boardModels()
+    local set = {}
+    for _, row in ipairs(candidates()) do set[row.model] = true end
+    local default = defaultModel()
+    if default then set[default] = true end
+    if board.model then set[board.model] = true end
+    return set
+end
+HoF.boardModels = boardModels
+
 -- A hot reload may leave the previous generation's board where the new one goes.
-local function sweepOrphans(pos)
-    if type(Open77.props.all) ~= "function" then return end
+local function sweepOrphans(pos, skip)
+    if type(Open77.props) ~= "table" or type(Open77.props.all) ~= "function" then return end
     local ok, list = pcall(Open77.props.all, cfg("board.bucket", 0))
     if not ok or type(list) ~= "table" then return end
+    local models = boardModels()
     for _, s in ipairs(list) do
         local p = type(s) == "table" and (type(s.position) == "table" and s.position or s) or nil
-        if p and s.resource == SELF and s.model == C.board.model and tostring(s.id) ~= board.prop
+        local id = p and tostring(s.id)
+        if p and s.resource == SELF and models[s.model] and id ~= board.prop and id ~= skip
             and type(p.x) == "number" and type(p.y) == "number" and (p.x - pos.x) ^ 2 + (p.y - pos.y) ^ 2 < 25 then
-            pcall(Open77.props.remove, tostring(s.id))
+            pcall(Open77.props.remove, id)
         end
     end
+end
+
+local function createProp()
+    local B, collision = C.board, collisionOf(board.model)
+    return Open77.props.create({ model = board.model, position = { x = board.position.x, y = board.position.y, z = board.position.z },
+        yaw = propYaw(), scale = board.scale, bucket = B.bucket or 0, physics = collision and "static" or "none",
+        collision = collision, streamingRadius = B.streamingRadius })
 end
 
 -- Puts the prop where `board` says: moved when it exists, created otherwise.
 local function placeProp()
     if type(Open77.props) ~= "table" then return false, "props_unavailable" end
-    local B = C.board
     if board.prop then
-        local ok = Open77.props.setTransform(board.prop, { position = board.position, yaw = board.heading })
+        local ok = Open77.props.setTransform(board.prop, { position = board.position, yaw = propYaw() })
         if ok then return true end
         board.prop = nil -- gone: make a new one
     end
     sweepOrphans(board.position)
-    local id, why = Open77.props.create({ model = B.model, position = { x = board.position.x, y = board.position.y, z = board.position.z },
-        yaw = board.heading, scale = B.scale, bucket = B.bucket or 0, physics = B.collision and "static" or "none",
-        collision = B.collision == true, streamingRadius = B.streamingRadius })
+    local id, why = createProp()
     if not id then return false, why end
     board.prop = tostring(id)
     return true
 end
 HoF.placeProp = placeProp
+
+-- Wears another model: the new prop first, then the old one goes, so a model the
+-- props layer refuses leaves the old board standing (and the old choice in use).
+-- -> true | false, reason, kept (true: the old board still stands)
+local function swapModel(c, saved)
+    local before, wasSaved = currentChoice()
+    local old = board.prop
+    applyChoice(c, saved)
+    if not board.position then return true end
+    if type(Open77.props) ~= "table" or type(Open77.props.create) ~= "function" then return false, "props_unavailable", false end
+    local ok, id, why = pcall(createProp)
+    if not ok then id, why = nil, tostring(id) end
+    if not id then
+        if old then applyChoice(before, wasSaved); return false, why or "refused", true end
+        return false, why or "refused", false -- nothing stood there: the start-up retries make this one
+    end
+    board.prop = tostring(id)
+    if old and old ~= board.prop then pcall(Open77.props.remove, old) end
+    sweepOrphans(board.position, old)
+    sendBoard(-1)
+    return true
+end
+HoF.swapModel = swapModel
 
 local function setPlacement(pos, heading)
     board.position, board.heading = pos, heading % 360
@@ -237,7 +381,7 @@ local saved = { staff = {}, tests = {}, loaded = false } -- account -> label; su
 HoF.saved = saved
 local lastNames = {} -- the last rebuild's character names, to label the staff's listing
 
-local function store(fn, ...)
+function store(fn, ...) -- declared above (the board model reads it too)
     local K = type(Open77) == "table" and Open77.kvp or nil
     if type(K) ~= "table" or type(K[fn]) ~= "function" then return false, "kvp_unavailable" end
     local ok, result, why = pcall(K[fn], ...)
@@ -947,7 +1091,7 @@ RegisterNetEvent(E.net.hallOfFameHello, function()
 end)
 
 -- ---------------------------------------------------------------------------
--- Staff: /lightrp.halloffame place | where | refresh | exclude | include | excluded
+-- Staff: /lightrp.halloffame place | where | model | refresh | exclude | include | excluded
 
 local function placementLine(pos, heading)
     return string.format("position = { x = %.3f, y = %.3f, z = %.3f }, heading = %.1f, -- server/config/halloffame.lua `board`, bucket %d",
@@ -1063,7 +1207,90 @@ local function excludedVerb()
     return true, clip(text, 900)
 end
 
-LightRP.command("lightrp.halloffame", { restricted = true, usage = "/lightrp.halloffame [place|where|refresh|exclude|include|excluded]" }, function(source, args)
+-- model [<n|alias> [scale|-] [rotate]] | model reset: the board's prop, live, saved in kvp.
+local MODEL_USAGE = "/lightrp.halloffame model <n|alias> [scale|-] [rotate] (\"-\": the row's scale; rotate: degrees added to the row's yaw), or model reset"
+
+local function trim(n) return (string.format("%.2f", n):gsub("0+$", ""):gsub("%.$", "")) end
+local function modelLine()
+    local row, index = rowOf(board.model)
+    return string.format("model %s%s, scale %s, rotation %s (row yaw %s + rotate %s), %s",
+        tostring(board.model), index and string.format(" (#%d %s)", index, tostring(row.label or "")) or " (not in board.models)",
+        trim(board.scale or 1), trim(((board.yaw or 0) + (board.rotate or 0)) % 360), trim(board.yaw or 0), trim(board.rotate or 0),
+        board.saved and "the staff's choice (kvp)" or "the config's default")
+end
+HoF.modelLine = modelLine
+-- What to paste into server/config/halloffame.lua `board` to make the choice the default.
+local function configLine()
+    return string.format("model = %q, scale = %s, yaw = %s,", tostring(board.model), trim(board.scale or 1),
+        trim((((board.yaw or 0) + (board.rotate or 0) + 180) % 360) - 180))
+end
+
+local function listModelsVerb()
+    local parts = {}
+    for i, row in ipairs(candidates()) do
+        parts[#parts + 1] = string.format("%d%s %s x%s%s", i, row.model == board.model and "*" or "", row.model,
+            trim(tonumber(row.scale) or 1), type(row.label) == "string" and (" " .. row.label) or "")
+    end
+    if #parts == 0 then parts[1] = "none in server/config/halloffame.lua board.models" end
+    return true, clip("Hall of Fame board models (* in use): " .. table.concat(parts, "; ") .. ". Now: " .. modelLine()
+        .. ". Swap: " .. MODEL_USAGE .. ".", 900)
+end
+
+local function modelVerb(source, args)
+    local pick = tostring(args[2] or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if pick == "" or pick:lower() == "list" then return listModelsVerb() end
+    local who = actorOf(source)
+    if pick:lower() == "reset" then
+        local ok, why, kept = swapModel(choiceFor(defaultModel()), false)
+        LightRP.log("hall of fame: board model reset to the config's by %s (%s)", who, ok and "done" or tostring(why))
+        if not ok and kept then return false, "Hall of Fame: the config's model was refused (" .. tostring(why) .. "): the board stays " .. modelLine() .. "." end
+        store("delete", KVP_MODEL)
+        if not ok then return true, "Hall of Fame: back to the config's default, " .. modelLine() .. " (the prop is not made yet: " .. tostring(why) .. ")." end
+        return true, "Hall of Fame: back to the config's default, " .. modelLine() .. "."
+    end
+    local model
+    if pick:match("^%d+$") then
+        local list = candidates()
+        local row = list[tonumber(pick)]
+        if not row then return false, string.format("Hall of Fame: no board model %s (1-%d: /lightrp.halloffame model lists them).", pick, #list) end
+        model = row.model
+    elseif validAlias(pick) then
+        model = pick
+    else
+        return false, "Hall of Fame: not a prop alias: " .. clip(pick, 60) .. ". " .. MODEL_USAGE
+    end
+    local scale
+    local rawScale = args[3] ~= nil and tostring(args[3]) or "-"
+    if rawScale ~= "-" and rawScale:lower() ~= "default" then
+        scale = tonumber(rawScale)
+        if not scale or not (scale >= 0.1 and scale <= 10) then return false, "Hall of Fame: scale 0.1 to 10 (or - for the row's). " .. MODEL_USAGE end
+    end
+    local rotate = 0
+    if args[4] ~= nil then
+        rotate = tonumber(args[4])
+        if not rotate or not (rotate > -1e6 and rotate < 1e6) then return false, "Hall of Fame: rotate in degrees. " .. MODEL_USAGE end
+        rotate = ((rotate + 180) % 360) - 180
+    end
+    local choice = choiceFor(model, scale, rotate)
+    local ok, why, kept = swapModel(choice, true)
+    if not ok and kept then
+        LightRP.log("hall of fame: board model %s refused for %s (%s)", model, who, tostring(why))
+        return false, "Hall of Fame: " .. model .. " was refused (" .. tostring(why) .. "): the board stays " .. modelLine() .. "."
+    end
+    if not ok then
+        -- no board stood there: this session tries the choice, nothing is saved
+        board.saved = false
+        return false, "Hall of Fame: " .. model .. " not made (" .. tostring(why) .. "): used for this session's next try, not saved."
+    end
+    local saved, saveWhy = store("set", KVP_MODEL, encodeChoice(choice))
+    if saved ~= true then board.saved = false end
+    LightRP.log("hall of fame: board model %s by %s: %s", tostring(board.model), who, configLine())
+    return true, "Hall of Fame: " .. modelLine() .. ", prop " .. tostring(board.prop)
+        .. (saved == true and ". Kept over restarts (model reset: the config's)." or (". This session only (not saved: " .. tostring(saveWhy) .. ")."))
+        .. " Config: " .. configLine()
+end
+
+LightRP.command("lightrp.halloffame", { restricted = true, usage = "/lightrp.halloffame [place|where|model|refresh|exclude|include|excluded]" }, function(source, args)
     local verb = tostring(args and args[1] or "where"):lower()
     -- the lists can be prepared while the Hall of Fame is off
     if verb == "exclude" then return excludeVerb(source, args) end
@@ -1076,8 +1303,10 @@ LightRP.command("lightrp.halloffame", { restricted = true, usage = "/lightrp.hal
     end
     if verb == "where" then
         if not board.position then return false, "The board is not placed yet." end
-        return true, placementLine(board.position, board.heading) .. string.format(" · prop %s (%s)", tostring(board.prop or "none"), tostring(C.board.model))
+        return true, placementLine(board.position, board.heading) .. string.format(" · prop %s · %s · config: %s",
+            tostring(board.prop or "none"), modelLine(), configLine())
     end
+    if verb == "model" then return modelVerb(source, args) end
     if verb ~= "place" then return false end
     if not source or source <= 0 then return false, "In game only: stand in front of the spot, facing where the screen should face." end
     local read = type(Open77.players.get) == "function" and Open77.players.get(source) or nil
@@ -1102,6 +1331,7 @@ end)
 -- Start: the E point now, the prop once the world takes it, then the cache timer.
 
 if C.enabled ~= false then
+    loadChoice() -- the staff's saved model wins over board.model
     local pos, heading = HoF.placement()
     if LightRP.batchInteractions then LightRP.batchInteractions(function() setPlacement(pos, heading) end) else setPlacement(pos, heading) end
     CreateThread(function()
@@ -1109,11 +1339,14 @@ if C.enabled ~= false then
         for attempt = 1, retries do
             local ok, why = placeProp()
             if ok then
-                LightRP.log("hall of fame: board %s at %.1f, %.1f (prop %s)", tostring(C.board.model), board.position.x, board.position.y, board.prop)
+                LightRP.log("hall of fame: board %s at %.1f, %.1f (prop %s)", tostring(board.model), board.position.x, board.position.y, board.prop)
                 sendBoard(-1)
                 return
             end
-            if attempt == 1 then LightRP.log("hall of fame: board prop not created yet (%s): retrying; the E point works", tostring(why)) end
+            if attempt == 1 then
+                LightRP.log("hall of fame: board prop %s not created yet (%s): retrying; the E point works%s", tostring(board.model), tostring(why),
+                    board.saved and " (a staff choice from kvp: /lightrp.halloffame model reset goes back to the config's)" or "")
+            end
             Wait(tonumber(cfg("board.spawnRetryMs", 10000)) or 10000)
         end
         LightRP.log("hall of fame: board prop gave up after %d tries; the E point still opens the panel", retries)

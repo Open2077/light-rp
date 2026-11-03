@@ -61,8 +61,9 @@ LightRpGuide = {
         contextRange = 6.0,                     -- ALT + click on him works from this far
         prompt = "Talk to Johnny",
         promptHeight = 1.1,
-        marker = { shape = "cylinder", radius = 0.8, height = 0.5,
-            color = { r = 255, g = 204, b = 0, a = 120 }, maxDistance = 25, groundOffset = 0.05 },
+        -- No floor marker under him (the owner, 2026-11-03): his blip's floating icon
+        -- finds him and the E prompt shows within interactRadius. A
+        -- `marker = { shape = "cylinder", ... }` here would draw one again.
         blip = { icon = "message-circle-question", title = "Johnny Silverhand", description = "Questions about the city? Ask him.",
             mapCategory = "service", mapColor = "#FFCC00" },
     },

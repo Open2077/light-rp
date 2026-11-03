@@ -167,7 +167,8 @@ for _, c in ipairs(G.npc.candidates) do assert(type(c.record) == "string" and c.
 -- the interaction
 local point = interactions[Guide.INTERACTION]
 assert(point and point.prompt == "Talk to Johnny" and point.label == "Johnny Silverhand" and point.key == "E" and point.bucket == 0)
-assert(near(point.position.x, ex) and point.radius == G.npc.interactRadius and point.ring == false and point.marker)
+assert(near(point.position.x, ex) and point.radius == G.npc.interactRadius and point.ring == false)
+assert(point.marker == nil, "no floor cylinder under Johnny: his blip icon and the E prompt find him")
 assert(point.blip and point.blip.icon == "message-circle-question" and point.blip.title == "Johnny Silverhand")
 -- the clients learn which NPC he is (ALT + click)
 local announce = clientEvents[#clientEvents]
