@@ -60,6 +60,7 @@ server_script "server/modules/grenades.lua"
 server_script "server/modules/hotbar.lua"
 server_script "server/modules/economy.lua"
 server_script "server/config/economy.lua"         -- economy rules (docs/economy-balance.md)
+server_script "server/modules/mission_pay.lua"    -- what a mission / gig pays: crew pot, cooldown, daily cap
 server_script "server/modules/jobs.lua"
 server_script "server/config/missions.lua"
 server_script "server/modules/parties.lua"

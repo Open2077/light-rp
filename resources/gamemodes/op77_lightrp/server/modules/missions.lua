@@ -395,23 +395,27 @@ local function finish(inst, success, why)
         local ok, err = pcall(script.onEnd, inst, success, why)
         if not ok then LightRP.log("missions: %s onEnd failed: %s", inst.point, tostring(err)) end
     end
+    -- What each finisher earns (crew pot, cooldown, daily cap): server/modules/mission_pay.lua.
+    local payouts = {}
+    if success and not inst.test then
+        if LightRP.missionPay then payouts = LightRP.missionPay.settle(inst, point, d)
+        else LightRP.log("missions: payout rules unavailable (mission_pay.lua not loaded), nothing paid for %s", inst.id) end
+    end
     for slot, id in ipairs(inst.members) do
         instanceOf[id] = nil
         setMapJam(id, false)
+        local pay = payouts[id] or { amount = 0, detail = "" }
         if success and inst.gig then
-            local pay = inst.gig.payout or d.payout
-            if LightRP.money and pay > 0 then LightRP.money.addBank(id, pay, "gig", "Gig: " .. point.title .. " (" .. (inst.gig.fixerName or "fixer") .. ")") end
             Missions.addReputation(id, C.reputationGain[d.id] or 0)
             LightRP.notice(id, { kind = "success", title = "GIG COMPLETE", durationMs = 10000,
-                body = string.format("%s · %s. %s wired by %s, +%d reputation.", point.title, d.label,
-                    LightRP.money and LightRP.money.format(pay) or tostring(pay), inst.gig.fixerName or "your fixer", C.reputationGain[d.id] or 0) })
+                body = string.format("%s · %s. %s wired by %s%s, +%d reputation.", point.title, d.label,
+                    LightRP.money and LightRP.money.format(pay.amount) or tostring(pay.amount), inst.gig.fixerName or "your fixer", pay.detail, C.reputationGain[d.id] or 0) })
         elseif inst.gig then
             LightRP.notice(id, { kind = "error", title = "GIG FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the job went sideways.") })
         elseif success and inst.test then
             LightRP.notice(id, { kind = "success", title = "TEST RUN COMPLETE", durationMs = 10000,
                 body = point.title .. " · " .. d.label .. ". Editor test runs pay nothing and unlock nothing." })
         elseif success then
-            if LightRP.money then LightRP.money.addBank(id, d.payout, "mission", "Mission: " .. point.title .. " (" .. d.label .. ")") end
             reputation[id] = reputation[id] or { rep = 0, completed = 0 }
             reputation[id].completed = reputation[id].completed + 1
             Missions.addReputation(id, C.reputationGain[d.id] or 0)
@@ -424,7 +428,7 @@ local function finish(inst, success, why)
                     body = string.format("%s · %s is now open to you.", point.title, opens.label) })
             end
             LightRP.notice(id, { kind = "success", title = "MISSION COMPLETE", durationMs = 10000,
-                body = string.format("%s · %s. %s paid to your account, +%d reputation.", point.title, d.label, LightRP.money and LightRP.money.format(d.payout) or tostring(d.payout), C.reputationGain[d.id] or 0) })
+                body = string.format("%s · %s. %s paid to your account%s, +%d reputation.", point.title, d.label, LightRP.money and LightRP.money.format(pay.amount) or tostring(pay.amount), pay.detail, C.reputationGain[d.id] or 0) })
         else
             LightRP.notice(id, { kind = "error", title = "MISSION FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the operation was lost.") })
         end
@@ -551,6 +555,7 @@ local function launch(lobby)
         pushQueue(m.id)
     end
     LightRP.log("missions: %s launched %s (%s) with %d operator(s) in bucket %d", inst.id, point.title, d.label, #inst.members, inst.bucket)
+    if LightRP.missionPay then LightRP.missionPay.announce(inst, point, d) end
     local script = scripts[point.id]
     if script and script.onStart then
         local ok, err = pcall(script.onStart, inst)

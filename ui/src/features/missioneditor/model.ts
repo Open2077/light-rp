@@ -66,10 +66,12 @@ export const ENEMIES = [
   { id: "maelstrom", label: "Maelstrom ganger" },
 ] as const;
 export const enemyLabel = (id: string) => ENEMIES.find(e => e.id === id)?.label ?? id;
+// payout: each operator's share at the difficulty's min crew (the server splits a
+// bigger crew's pot and applies cooldowns): keep in sync with shared/mission_defs.lua.
 export const DIFFICULTIES: Difficulty[] = [
-  { id: "standard", label: "Standard", blurb: "The contract as written.", payout: 8000, minutes: 15, min: 1, max: 4, enemyHealth: 1, enemyDamage: 1, enemyCount: 1 },
-  { id: "hard", label: "Hard", blurb: "More of them, and they hit harder.", payout: 15000, minutes: 15, min: 1, max: 4, enemyHealth: 1.5, enemyDamage: 1.25, enemyCount: 1.5 },
-  { id: "critical", label: "Critical", blurb: "Bring your best kit and a full squad.", payout: 30000, minutes: 20, min: 2, max: 4, enemyHealth: 2.25, enemyDamage: 1.6, enemyCount: 2 },
+  { id: "standard", label: "Standard", blurb: "The contract as written.", payout: 2400, minutes: 15, min: 1, max: 4, enemyHealth: 1, enemyDamage: 1, enemyCount: 1 },
+  { id: "hard", label: "Hard", blurb: "More of them, and they hit harder.", payout: 3000, minutes: 15, min: 1, max: 4, enemyHealth: 1.5, enemyDamage: 1.25, enemyCount: 1.5 },
+  { id: "critical", label: "Critical", blurb: "Bring your best kit and a full squad.", payout: 4400, minutes: 20, min: 2, max: 4, enemyHealth: 2.25, enemyDamage: 1.6, enemyCount: 2 },
 ];
 export const LIMITS = { spawns: 48, checkpoints: 16, waves: 20, starts: 8, vertices: 32, count: 12, route: 8 };
 

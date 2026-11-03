@@ -27,6 +27,8 @@ mission system: board, difficulty, squads, matchmaking, the instance's routing b
   - `admin.player.tp` is a kill followed by a respawn on the platform, so it spends a team respawn. If the operator is already back on their feet when the respawn delay ends, the mission does not respawn them again.
 - **Time limit.** Set per difficulty, as for every mission.
 - **Difficulties.** Standard, Hard and Critical, each with its own payout, time limit and squad size.
+  - The payout is what **each** operator earns when the squad is at the difficulty's minimum size (defaults 2,400 / 3,000 / 4,400 €$). A bigger squad shares a pot that grows slower than the squad, a repeat within 60 minutes of a full payout at the same board or past six full payouts in the UTC day pays a quarter, and no payout goes above 250 €$ per minute of the time limit. The rules live in `server/config/economy.lua` (`missions`) and `docs/economy-balance.md`; the operators see the expected pay at launch and the reason when it is reduced.
+  - Missions saved before these defaults keep their stored payouts: open them in the editor and set the new values (the 250 €$/min ceiling bounds them meanwhile).
   - Enemy count, health and damage each have a multiplier from 0.25 to 5.
   - Hard opens once Standard has been cleared on that board, and Critical once Hard has, as on every board.
 
