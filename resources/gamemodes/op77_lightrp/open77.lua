@@ -157,6 +157,7 @@ server_script "server/config/guide_dialogue.lua"
 server_script "server/modules/guide_dialogue.lua"  -- talking to Johnny: choices over the FAQ, GPS and panels (content in server/config/guide_dialogue.lua)
 server_script "server/config/dogtown.lua"
 server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
+server_script "server/modules/pvp_marks.lua"       -- who is in a PvP fight (Dogtown, PvP/chase activities): their nameplates hidden
 server_script "server/config/events_board.lua"
 server_script "server/modules/events_board_fonts.lua" -- the board page's fonts (design system, base64)
 server_script "server/modules/events_board_page.lua"  -- the board page: HTML, CSS, JS
@@ -230,6 +231,7 @@ client_script "client/core/crew.lua"            -- crews: ALT + click on players
 client_script "client/core/queue.lua"           -- the queue panel's leave key (server/modules/activity_queue.lua)
 client_script "client/core/vehicle_customization.lua"
 client_script "client/core/guide.lua"           -- the guide NPC: page relay with the player's keys, ALT + click on him
+client_script "client/core/pvp_marks.lua"      -- nameplates (op77_playermarks) hidden in PvP
 client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
 client_script "client/main.lua"
 
