@@ -652,11 +652,24 @@ local function on(name, fn)
     end)
 end
 
+-- The deck box and the playmats are the binder's: seated at a duel table, they are put away.
+local function atTable(player)
+    local m = byPlayer[player]
+    local seat = m and seatOf(m, player)
+    return seat and seat.seated
+end
+local function offTable(fn)
+    return function(player, ...)
+        if atTable(player) then return S.notify(player, "Not at the duel table: decks are built before a duel.", "error") end
+        return fn(player, ...)
+    end
+end
+
 on("decks", function(player) sendDecks(player) end)
-on("saveDeck", saveDeck)
-on("deleteDeck", deleteDeck)
-on("setPlaymat", setPlaymat)
-on("selectDeck", selectDeck)
+on("saveDeck", offTable(saveDeck))
+on("deleteDeck", offTable(deleteDeck))
+on("setPlaymat", offTable(setPlaymat))
+on("selectDeck", offTable(selectDeck))
 on("nearby", sendNearby)
 on("challenge", challenge)
 on("cancelChallenge", cancelChallenge)

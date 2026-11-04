@@ -620,8 +620,8 @@
         if (!duel.match || duel.match.id !== d.id) { duel.cam = "seat"; duel.outgoing = null; }
         duel.match = d; duel.matchAt = Date.now();
         // Seated: the binder steps aside for the table.
-        if (d.seats[d.you].seated && T.ui.open && !T.isBusy() && !duel.keepBinder) T.closeBinder();
-        duel.keepBinder = false;
+        // At the table the binder is put away: decks are built before a duel, never during one.
+        if (d.seats[d.you].seated && T.ui.open && !T.isBusy()) T.closeBinder();
       }
       renderHud();
       if (T.ui.open && T.ui.tab === "duel") renderDuel();
@@ -647,7 +647,6 @@
     $("chAccept").onclick = function () { answer(true); };
     $("chDecline").onclick = function () { answer(false); };
     $("dhView").onclick = function () { T.emit("tcg:camera", { mode: "next" }); };
-    $("dhBinder").onclick = function () { duel.keepBinder = true; T.emit("tcg:openBinder", { tab: "decks" }); };
     $("dhLeave").dataset.label = "Leave the table";
     $("dhLeave").onclick = leaveClick($("dhLeave"));
     document.addEventListener("keydown", function (e) {
@@ -743,7 +742,6 @@
       }
       if (name === "tcg:leaveMatch") { fire("tcg:match", { id: 7, ended: true, won: false, winner: "Jerem Zzzer", reason: "Yuki conceded." }); return true; }
       if (name === "tcg:camera") { var modes = ["seat", "table", "mat"]; fire("tcg:cameraMode", { mode: modes[(modes.indexOf(duel.cam) + 1) % 3] }); return true; }
-      if (name === "tcg:openBinder") { T.show(); T.setTab(d.tab || "decks"); return true; }
       return false;
     };
     var dm = params.get("duel");

@@ -124,6 +124,12 @@ check(r1 != r2 and 1 <= r1 <= 20 and 1 <= r2 <= 20 and decider == (1 if r1 > r2 
 loser = 2 if decider == 1 else 1
 fire("op77_tcg:choose", loser, True)
 check(str(last("match", 1)["phase"]) == "choose", "only the d20 winner chooses")
+n_decks = con.execute("SELECT count(*) FROM tcg_decks").fetchone()[0]
+fire("op77_tcg:saveDeck", 1, tbl({"name": "At the table", "legends": "", "cards": ""}))
+fire("op77_tcg:setPlaymat", 1, "arasaka")
+check(con.execute("SELECT count(*) FROM tcg_decks").fetchone()[0] == n_decks and
+      con.execute("SELECT playmat FROM tcg_settings WHERE identifier = 'id-1'").fetchone()[0] == "militech",
+      "seated at the table: no deck building, no playmat change")
 fire("op77_tcg:choose", decider, False)   # the decider lets the other go first
 m = last("match", 1)
 first = loser

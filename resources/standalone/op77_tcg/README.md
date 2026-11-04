@@ -86,7 +86,7 @@ The page checks the rules live, and the server checks them again before a duel.
    - the Legends go face down, and the first player's two left-most Legends start spent (turned sideways on the table);
    - each player draws 6, then may mulligan once; the first player decides first.
 
-While seated, a camera looks at the table. **V** switches between three views: your seat, the whole table, and
+Decks and the playmat are chosen in the binder before a duel. Seated at the table, the binder stays closed and the server refuses deck changes. While seated, a camera looks at the table. **V** switches between three views: your seat, the whole table, and
 top-down on your mat. The overlay shows your hand, the rival's public state (deck, hand size, Legends), the d20 rolls,
 the decisions and a log.
 
