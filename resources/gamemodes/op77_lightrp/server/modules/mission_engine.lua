@@ -612,15 +612,40 @@ end
 -- would count twice.
 local PLATFORM_VICTIM_HITS = type(Open77.npcs) == "table" and Open77.npcs.victimHits == true
 Engine.platformVictimHits = PLATFORM_VICTIM_HITS
+
+-- A server with the victim path can still host clients from before it (a player who has not
+-- relaunched since the update): such a client reports nothing on the victim path, and dropping
+-- its relay left it immune to every NPC (LightRP Testing, 2026-11-04). So a player's client
+-- counts as on the victim path once it has reported a hit on itself there; until then its relay
+-- is held for RELAY_HOLD_MS and applied unless that first victim report arrives meanwhile (a
+-- current client sends it within 250 ms), so a current client's own hits never count twice.
+local platformClients = {}
+local RELAY_HOLD_MS = 600
+Engine.platformClients = platformClients
+function Engine.relay(reporter, apply)
+    if not PLATFORM_VICTIM_HITS then apply(); return end
+    if platformClients[reporter] then return end
+    SetTimeout(RELAY_HOLD_MS, function()
+        if not platformClients[reporter] then apply() end
+    end)
+end
+AddEventHandler("playerDropped", function()
+    local id = tonumber(source)
+    if id then platformClients[id] = nil end
+end)
+
 RegisterNetEvent(NET .. ":npcHit", function(victimId, npcId, epoch, amount)
-    if PLATFORM_VICTIM_HITS then return end
     local reporter = tonumber(source)
-    if reporter and reporter > 0 then Engine.npcHit(reporter, victimId, npcId, epoch, amount) end
+    if not reporter or reporter <= 0 then return end
+    Engine.relay(reporter, function() Engine.npcHit(reporter, victimId, npcId, epoch, amount) end)
 end)
 AddEventHandler("onNpcPlayerHit", function(npcId, victimId, amount, kind, epoch, authority)
     if not PLATFORM_VICTIM_HITS then return end
     local victim = tonumber(victimId)
     if not victim then return end
+    -- A victim report other than a blast comes from the victim's own client: it is current. A
+    -- blast may be the authority's report on someone else, which says nothing of the victim.
+    if kind ~= "explosion" then platformClients[victim] = true end
     -- the platform names the attack: firearm, melee or explosion (an NPC's grenade)
     local cause = (kind == "melee" or kind == "explosion") and kind or "firearm"
     local ok, why = Engine.npcHit(victim, victimId, npcId, epoch, amount, true, cause)
