@@ -1,0 +1,251 @@
+6851 2026-11-04_00:19:56 server.jsonc
+{
+  "$schema": "./config/server.schema.json",
+  "schemaVersion": 1,
+  "logging": {
+    "verbose": false
+  },
+  "identity": {
+    "name": "$o$fffLight$ff0RP $n$888Testing",
+    "description": "Serveur de test LightRP. Acces reserve aux comptes autorises.",
+    "locale": "fr-FR",
+    "tags": [
+      "roleplay",
+      "light-rp",
+      "testing",
+      "whitelist",
+      "fr"
+    ],
+    "website": "https://open2077.net/",
+    "icon": "server-icon.png",
+    "banner": "server-banner.png",
+    "visibility": "public"
+  },
+  "query": {
+    "map": "Night City",
+    "gamemode": ""
+  },
+  "network": {
+    "port": 11828,
+    "publicEndpoint": "<ip>:11828",
+    "maximumPlayers": 32
+  },
+  "simulation": {
+    "tickRate": 30,
+    "snapshotRate": 20,
+    "expectedGameBuild": 25000,
+    "helloTimeoutSeconds": 10,
+    "maximumAiVehiclesPerSimulator": 32,
+    "maximumNpcs": 32768,
+    "maximumNpcsPerResource": 32768,
+    "connectGateTimeoutSeconds": 8
+  },
+  "combat": {
+    "vehicleHitCreditsDriver": false,
+    "vehicleHitSpeedDamage": false,
+    "vehicleHitDamageFloor": 10,
+    "vehicleHitDamageFloorSpeed": 5,
+    "vehicleHitDamageCap": 90,
+    "vehicleHitDamageCapSpeed": 30,
+    "vehicleHitAudit": false,
+    "handheldDischarges": true,
+    "handheldVehicleDamage": false
+  },
+  "replication": {},
+  "voice": {
+    "enabled": true,
+    "quality": "standard",
+    "proximityDistance": 15,
+    "minimumClientProximityDistance": 1,
+    "maximumClientProximityDistance": 40,
+    "maximumChannelAudience": 32,
+    "maximumSimultaneousTalkers": 8,
+    "maximumTalkersPerRecipient": 8,
+    "globalEgressKbps": 0,
+    "recipientEgressKbps": 0,
+    "ingressRejectLimit": 200,
+    "ingressRejectWindowSeconds": 10,
+    "ingressBackoffMilliseconds": 250
+  },
+  "masterServer": {
+    "enabled": true,
+    "url": "https://master.open2077.net/",
+    "tokenEnvironmentVariable": "<redacted>",
+    "identityFile": ".open77/master-identity.json",
+    "heartbeatIntervalSeconds": 30,
+    "licenseKeyEnvironmentVariable": "<redacted>",
+    "requireConnectTicket": true,
+    "publishPlayerList": true,
+    "devLocalAuth": false
+  },
+  "resources": {
+    "enabled": true,
+    "root": "resources",
+    "load": [
+      "archivexl",
+      "open77_board_games",
+      "open77_tabletop_extra",
+      "open77_casino_slots",
+      "open77_casino_blackjack",
+      "open77_casino_fortune",
+      "open77_casino_pool",
+      "winter_in_nc",
+      "lobby",
+      "open77_lobby_cubes",
+      "kabuki_appart1",
+      "appart3",
+      "entrepot1",
+      "ncpd_watson",
+      "cardealer",
+      "ncwe_local",
+      "casino",
+      "place_casino",
+      "polyzone",
+      "open77_contextmenu",
+      "open77_admin",
+      "open77_shell",
+      "open77_pause",
+      "open77_chat",
+      "open77_voice",
+      "open-voice",
+      "open77_weather",
+      "open77_pedestrians",
+      "open77_blips",
+      "open77_notifications",
+      "open77_death",
+      "open77_appearance",
+      "open77_cyberware",
+      "open77_dash",
+      "open77_reflex",
+      "open77_effects",
+      "open77_equipment",
+      "open77_wardrobe",
+      "open77_wardrobe_ui",
+      "open77_perspective",
+      "open77_animations",
+      "open77_prevention",
+      "open77_player_interactions",
+      "open77_vehicles",
+      "open77_elevators",
+      "open77_doors",
+      "open77_weapons",
+      "open77_props",
+      "open77_media",
+      "open77_remote_camera",
+      "open77_interactions",
+      "open77_uikit",
+      "open77_actions",
+      "open77_furniture",
+      "open77_seating",
+      "open77_worldui",
+      "open77_zones",
+      "open77_icons",
+      "open77_gizmos_demo",
+      "open77_gizmos_editor",
+      "open77_chimera",
+      "op77_map3d",
+      "op77_loadscreen",
+      "op77_actionbubble",
+      "op77_playermarks",
+      "op77_speedometer",
+      "op77_weaponhud",
+      "op77_lightrp",
+      "op77_scenes",
+      "op77_ripperdoc",
+      "op77_neuralink",
+      "op77_turf",
+      "op77_race",
+      "op77_arena",
+      "op77_chase",
+      "op77_fireworks"
+],
+    "autoStart": true,
+    "watchIntervalMilliseconds": 0,
+    "download": {
+      "enabled": true,
+      "listenUrl": "http://0.0.0.0:11829",
+      "publicBaseUrl": "https://lightrp-warden.open77.dev/",
+      "allowInsecureHttp": false,
+      "cacheDirectory": ".open77/resource-cache",
+      "signingKeyFile": "<redacted>",
+      "chunkSizeBytes": 1048576
+    }
+  },
+  "requiredMods": {
+    "enabled": true,
+    "unsecured": true,
+    "packages": []
+  },
+  "accessControl": {
+    "file": "acl.jsonc"
+  },
+  "database": {
+    "enabled": true,
+    "connectionString": "",
+    "connectionStringEnvironmentVariable": "<redacted>",
+    "maxRows": 10000
+  },
+  "http": {
+    "enabled": false,
+    "allowedHosts": [],
+    "timeoutSeconds": 10,
+    "maxTimeoutSeconds": 120,
+    "maxResponseBytes": 1048576,
+    "maxRequestBytes": 8388608,
+    "maxDownloadBytes": 67108864,
+    "maxConcurrentRequests": 16
+  },
+  "httpHandlers": {
+    "enabled": false,
+    "listenUrl": "http://127.0.0.1:11781",
+    "timeoutSeconds": 5
+  },
+  "warden": {
+    "enabled": true,
+    "listenUrl": "http://127.0.0.1:11830",
+    "hubFileGatewayOrigin": "https://files.open2077.net"
+  },
+  "rcon": {
+    "enabled": false,
+    "bindAddress": "127.0.0.1",
+    "port": 11782,
+    "passwordEnvironmentVariable": "<redacted>",
+    "allowWardenAccounts": false,
+    "permissions": [
+      "*"
+    ],
+    "allowInsecureRemote": false,
+    "tlsCertificatePasswordEnvironmentVariable": "<redacted>",
+    "maxConnections": 32,
+    "maxConnectionsPerIp": 8,
+    "maxFrameBytes": 1048576,
+    "maxInFlightRequests": 8,
+    "maxRequestsPerSecond": 30,
+    "authenticationTimeoutSeconds": 10,
+    "requestTimeoutSeconds": 60,
+    "idleTimeoutSeconds": 600,
+    "sessionLifetimeSeconds": 3600,
+    "maxUploadBytes": 67108864
+  },
+  "metrics": {
+    "enabled": false,
+    "listenUrl": "http://127.0.0.1:11783",
+    "tokenEnvironmentVariable": "<redacted>"
+  },
+  "startup": {
+    // Opt-in (auto_start false) resources are not started by the load list alone.
+    "commands": ["ensure open77_furniture", "ensure open77_actions", "ensure open77_seating"]
+  },
+  "convars": {
+    // Seats are chosen with ALT + click on the furniture (open77_contextmenu), no E card;
+    // no /sit or /stand player command (Light RP has no out-of-character commands).
+    "open77_seating_ui": "menu",
+    "open77_seating_commands": "0",
+    // Lighter crowd and no pedestrian within 40 m of the spawn (playback_timeout, 2026-11-04).
+    "open77_pedestrians_crowd_density": "2.5",
+    "open77_pedestrians_crowd_max_near_player": "120",
+    "open77_pedestrians_max_near_player": "80",
+    "open77_pedestrians_crowd_max_cluster": "300",
+    "open77_pedestrians_exclusions": "-779.648,781.561,22.580,40"
+  }
+}

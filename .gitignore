@@ -7,6 +7,10 @@
 !server.local.jsonc
 !server.env.example
 !acl.jsonc
+# A redacted snapshot of what prod runs (deploy/prod/README.md).
+!deploy/
+!deploy/prod/
+!deploy/prod/**
 !Start-LightRP.cmd
 !Start-LightRP-Local.cmd
 !templates/

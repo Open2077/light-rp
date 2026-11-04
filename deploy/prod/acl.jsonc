@@ -1,0 +1,124 @@
+{
+  "version": 2,
+  "roles": [
+    {
+      "name": "helper",
+      "permissions": [
+        "command.admin",
+        "command.admin.read.*",
+        "command.admin.self.*",
+        "command.lightrp.tp",
+        "command.lightrp.goto",
+        "command.lightrp.bring",
+        "command.lightrp.status"
+      ]
+    },
+    {
+      "name": "moderator",
+      "permissions": [
+        "command.admin",
+        "command.adminfull",
+        "command.admin.read.*",
+        "command.admin.self.*",
+        "command.admin.player.*",
+        "command.admin.moderate.*",
+        "command.admin.veh.*",
+        "command.admin.world.cleanup",
+        "command.admin.world.announce",
+        "command.lightrp.*"
+      ]
+    },
+    {
+      "name": "operator",
+      "permissions": [
+        "command.safezones",
+        // Staff tools of the Light RP activities (op77_fireworks / race / chase / turf / arena).
+        "command.fireworks",
+        "command.race.editor",
+        "command.race.force",
+        "command.chase.status",
+        "command.chase.force",
+        "command.chase.stop",
+        "command.turf.schedule",
+        "command.turf.start",
+        "command.turf.stop",
+        "command.turf.testing",
+        "command.turf.survey",
+        "command.turf.status",
+        "command.turf.zone",
+        "command.chase.wanted.status",
+        "command.chase.wanted.force",
+        "command.chase.wanted.stop",
+        "command.chase.wanted.test",
+        "command.chase.bots",
+        "command.chase.pve.status",
+        "command.chase.pve.stop",
+        "command.arena.night",
+        "command.dm.bot",
+        "command.dm.goto",
+        "command.dm.leash",
+        "command.dm.arena.mock",
+        "command.dm.rating.sim",
+        "command.dm.stats.of",
+        "command.worldboss.*",
+        "command.admin",
+        "command.adminfull",
+        "command.admin.*",
+        "command.gun",
+        "command.maptp",
+        "command.weather.*",
+        "command.vehicle.*",
+        "command.npc.*",
+        "command.loot.*",
+        "command.elevator.*",
+        "command.lightrp.*"
+      ]
+    }
+  ],
+  "principals": [
+    {
+      "name": "owner",
+      "userId": "<redacted>",
+      "publicKey": "<redacted>",
+      "permissions": [
+        "*"
+      ]
+    },
+    {
+      "name": "<staff-1>",
+      "userId": "<redacted>",
+      "role": "admin",
+      "permissions": []
+    },
+    {
+      "name": "<staff-2>",
+      "userId": "<redacted>",
+      "role": "admin",
+      "permissions": []
+    },
+    {
+      "name": "<staff-3>",
+      "userId": "<redacted>",
+      "role": "admin",
+      "permissions": []
+    },
+    {
+      "name": "<staff-4>",
+      "userId": "<redacted>",
+      "role": "admin",
+      "permissions": []
+    },
+    {
+      "name": "<staff-5>",
+      "userId": "<redacted>",
+      "role": "admin",
+      "permissions": []
+    },
+    {
+      "name": "<staff-6>",
+      "userId": "<redacted>",
+      "role": "admin",
+      "permissions": []
+    }
+  ]
+}
