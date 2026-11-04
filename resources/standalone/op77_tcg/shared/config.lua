@@ -47,6 +47,23 @@ TcgConfig = {
     -- With one, set resource/charge to an export `charge(playerId, amount, reason) -> boolean`.
     economy = { resource = nil, charge = nil, prices = { wnc = 450, beta = 650, box = 9500 }, freeEveryMs = 20 * 60 * 1000 },
 
+    -- Duels at a TCG table (shared/table.lua: the tables, the mats, the zones). A collector challenges a player nearby
+    -- with one of their decks; both walk to the table, sit down and the game is set up on their playmats.
+    duel = {
+        challengeRadius = 15.0,  -- the players you can challenge
+        challengeMs = 60000,     -- an unanswered challenge expires
+        seatMs = 180000,         -- both players must sit down within (else the table is freed)
+        sitReach = 2.2,          -- how close to your chair the sit prompt appears
+        chooseMs = 25000,        -- the d20 winner picks who goes first (default: they do)
+        mulliganMs = 60000,      -- each player keeps or mulligans (default: keep)
+        lendStarters = true,     -- the shop lends the two official starter decks to everyone
+        -- Sitting at the table: the first profile the runtime plays wins (hands on the table, then the plain chair).
+        sit = {
+            { profile = "amb_d7c499_sit_chair_table_keybo", clip = "sit_chair_table_keyboard__2h_on_keyboard__01__shuffle__02" },
+            { profile = "chair", clip = "sit_chair_lean180__2h_on_lap__01__long__01" },
+        },
+    },
+
     -- New collectors receive a starter gift once.
     starter = { wnc = 3 },
 
