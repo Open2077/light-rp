@@ -6,8 +6,9 @@ gamemode, and any server can load it.
 ## What players do
 
 - **Sealed product.** Players get Welcome to Night City and Beta Edition boosters (12 cards each), plus Booster
-  Displays of 24 packs (you cut the shrink-wrap). New collectors receive 3 starter packs. Sealed product is shown in
-  the binder's **Sealed** tab.
+  Displays of 24 packs. New collectors receive 3 starter packs. Sealed product is shown in the binder's **Sealed**
+  tab. A display is opened for real: run the blade along the line (or click / Space) to cut its shrink-wrap, the two
+  halves of plastic fall away and the 24 packs come out onto the shelf; pick one to open it at once.
 - **Opening a pack, for real.** The opener holds the 3D booster in the right hand, and everyone within 40 m sees it.
   - On the opener's screen, the pack follows the mouse (foil shine, tilt). A swipe along the dashed line under the
     crimp tears it little by little: the strip lifts, light leaks through, the wrapper crackles. Let go and the tear

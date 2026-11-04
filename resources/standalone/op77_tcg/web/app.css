@@ -338,6 +338,47 @@ dt { color: var(--muted); letter-spacing: .06em; } dd { margin: 0; font-weight: 
 .summary .tag.dup { background: #1b2129; color: var(--muted); border: 1px solid var(--line); }
 @keyframes deal { from { opacity: 0; transform: translateY(40px) rotate(-6deg) scale(.8); } }
 
+/* Display box: a blade along the shrink-wrap, the two halves of plastic fall away, the 24 packs come out ---------- */
+#unbox { z-index: 20; }
+#unbox .table-felt { background: radial-gradient(ellipse 60% 70% at 50% 45%, rgba(4, 8, 12, .6), rgba(2, 3, 5, .35) 70%, rgba(2, 3, 5, .2)); }
+.ubox { position: absolute; left: 50%; top: 35%; width: 600px; height: 600px; margin: -300px 0 0 -300px; cursor: crosshair; touch-action: none;
+  /* the box body in the picture: 24 %..76 % across, the cut runs through its middle */
+  --cut-y: 76%; --body-l: 24%; --body-w: 52%; animation: packIn .8s cubic-bezier(.16, 1.2, .3, 1) both; }
+.ubox-img { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 26px 30px rgba(0, 0, 0, .65)); pointer-events: none; }
+/* the plastic: gloss bands, stretch lines and a cold tint, cut out to the box's own silhouette */
+.wrap { position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask-image: var(--box-img); mask-image: var(--box-img); -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+  background:
+    linear-gradient(115deg, transparent 16%, rgba(255, 255, 255, .62) 27%, transparent 37%, transparent 52%, rgba(255, 255, 255, .34) 60%, transparent 70%),
+    repeating-linear-gradient(82deg, rgba(255, 255, 255, .06) 0 2px, transparent 2px 15px),
+    repeating-linear-gradient(-10deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 23px),
+    rgba(205, 232, 255, .16);
+  background-size: 240% 240%, auto, auto, auto; background-position: var(--gloss, 40%) 50%, 0 0, 0 0, 0 0; }
+.wrap-top { clip-path: inset(0 0 calc(100% - var(--cut-y)) 0); transform: translateY(calc(var(--cut, 0) * -5px)); }
+.wrap-bottom { clip-path: inset(var(--cut-y) 0 0 0); transform: translateY(calc(var(--cut, 0) * 4px)); }
+.wrap-top.off { animation: wrapUp .85s cubic-bezier(.3, .6, .4, 1) forwards; }
+.wrap-bottom.off { animation: wrapDown .8s cubic-bezier(.5, 0, .7, .4) forwards; }
+@keyframes wrapUp { to { transform: translate(-50px, -280px) rotate(-16deg) scale(1.05); opacity: 0; } }
+@keyframes wrapDown { to { transform: translate(40px, 240px) rotate(9deg); opacity: 0; } }
+.cut-guide { position: absolute; left: calc(var(--body-l) - 3%); width: calc(var(--body-w) + 6%); top: calc(var(--cut-y) - 9px); height: 18px; pointer-events: none; transition: opacity .3s; }
+.ubox.touched .cut-guide { opacity: 0; }
+/* the box is yellow: a white blade line with a dark edge and a cold glow */
+.cut-guide .tear-dash { border-top: 3px dashed #fff; filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 8px #22d8e2); }
+.cut-guide .tear-arrow { color: #fff; text-shadow: 0 0 3px #000, 0 0 12px #22d8e2; }
+.cut-line { position: absolute; left: var(--body-l); top: calc(var(--cut-y) - 2px); height: 4px; width: calc(var(--cut, 0) * var(--body-w)); pointer-events: none;
+  background: #fff; box-shadow: 0 0 14px 3px rgba(160, 240, 255, .9); border-radius: 2px; opacity: calc(var(--cut, 0) * 2); }
+.ubox.rtl .cut-line { left: auto; right: var(--body-l); }
+.ubox.cut { cursor: default; }
+.ubox.cut .cut-line { opacity: 0; transition: opacity .4s; }
+.ubox.pop { animation: boxPop .5s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes boxPop { 40% { transform: scale(1.06) rotate(-1deg); } }
+.ubox-packs { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.upack { position: absolute; width: 66px; height: 132px; pointer-events: auto; cursor: pointer; transition: transform .15s, filter .15s; }
+.upack img { width: 100%; height: 100%; display: block; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .6)); }
+.upack:hover { transform: translateY(-12px) rotate(-3deg); filter: brightness(1.15) drop-shadow(0 0 12px rgba(252, 238, 9, .65)); }
+#unbox .opening-hint { left: 50%; top: 6%; }
+.ubox-actions { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); display: flex; gap: 14px; z-index: 6; animation: hintIn .4s; }
+
 .toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); background: var(--panel); border-left: 4px solid var(--yellow);
   padding: 12px 22px; z-index: 30; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 16px; }
 .toast.show { opacity: 1; }

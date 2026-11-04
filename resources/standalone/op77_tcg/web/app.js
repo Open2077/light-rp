@@ -39,7 +39,7 @@
   var SEALED = {
     wnc: { label: "Welcome to Night City", art: "img/ui/booster_wnc.webp", kind: "booster" },
     beta: { label: "Beta Edition", art: "img/ui/booster_beta.webp", kind: "booster" },
-    box: { label: "Booster Display", art: "img/ui/box_retail.webp", kind: "box" }
+    box: { label: "Booster Display", art: "img/ui/box_retail.webp", kind: "box", contains: "wnc", count: 24 }
   };
   var RECYCLE = [0, 5, 10, 25, 60, 150, 400], PRINT = [0, 40, 80, 200, 500, 1600], SECRET_PLUS = 3;
 
@@ -203,7 +203,7 @@
       p.innerHTML = '<div class="art"><img src="' + SEALED[k].art + '" alt=""></div><h4>' + SEALED[k].label + '</h4><div class="n">x' + n + '</div>';
       var b = el("div", "buttons");
       var open = el("button", "primary", SEALED[k].kind === "box" ? "Cut the wrap" : "Open a pack");
-      open.onclick = function () { if (SEALED[k].kind === "box") emit("tcg:unbox", { product: k }); else emit("tcg:openPack", { product: k }); };
+      open.onclick = function () { if (SEALED[k].kind === "box") startUnbox(k); else emit("tcg:openPack", { product: k }); };
       b.appendChild(open); p.appendChild(b); shelf.appendChild(p);
     });
     $("sealedHint").textContent = any ? "Packs open in your hands: stand at a table and the cards are dealt on it for everyone around to see."
@@ -384,6 +384,7 @@
   }
 
   function startOpening(d) {
+    if (ub) closeUnbox(true);
     show(); sfx.unlock();
     $("binder").classList.add("hidden");
     $("opening").classList.remove("hidden");
@@ -723,8 +724,147 @@
     hide();
   }
 
+/* ---------------------------------------------------------------------------------------- display box */
+  // Cut the shrink-wrap with a blade (a drag along the line, or a click / Space for one clean cut), the plastic
+  // falls away in two halves and the box's packs come out one by one. Pick one to open it at once.
+  var ub = null;
+  function uhint(html) { var h = $("uboxHint"); h.innerHTML = html; h.style.animation = "none"; void h.offsetWidth; h.style.animation = ""; }
+  function startUnbox(product) {
+    var def = SEALED[product];
+    if (!def || def.kind !== "box") return;
+    ub = { product: product, contains: def.contains || "wnc", count: def.count || 24, pct: 0, dir: 0, cut: false, last: 0 };
+    sfx.unlock();
+    show();
+    $("binder").classList.add("hidden");
+    $("unbox").classList.remove("hidden");
+    $("app").classList.add("opening-on");
+    var box = $("ubox");
+    box.className = "ubox";
+    box.style.setProperty("--box-img", "url(" + def.art + ")");
+    box.style.setProperty("--cut", "0");
+    $("uboxImg").src = def.art;
+    $("wrapTop").className = "wrap wrap-top";
+    $("wrapBottom").className = "wrap wrap-bottom";
+    $("uboxPacks").innerHTML = "";
+    $("uboxActions").classList.add("hidden");
+    uhint("Run the blade along the line to cut the shrink-wrap");
+    wireBox(box);
+  }
+  function setCut(pct) {
+    var box = $("ubox"), r = box.getBoundingClientRect();
+    if (pct - ub.last > 0.05) {
+      ub.last = pct;
+      sfx.crinkle(pct * 0.8);
+      var x = ub.dir >= 0 ? r.left + r.width * (0.24 + 0.52 * pct) : r.right - r.width * (0.24 + 0.52 * pct);
+      fx.burst(x, r.top + r.height * 0.76, 4, ["#ffffff", "#cdeaff", "#9ff3ff"], { speed: 3, kind: "shard", life: 0.7, grav: 0.2, size: 2.4 });
+    }
+    ub.pct = pct;
+    box.style.setProperty("--cut", pct.toFixed(3));
+  }
+  function wireBox(box) {
+    var drag = null;
+    box.onpointerdown = function (e) {
+      if (!ub || ub.cut) return;
+      sfx.unlock();
+      drag = { x0: e.clientX, base: ub.pct, moved: false };
+      box.classList.add("touched");
+      try { box.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+    };
+    box.onpointermove = function (e) {
+      if (!ub || ub.cut) return;
+      var r = box.getBoundingClientRect();
+      box.style.setProperty("--gloss", (100 - ((e.clientX - r.left) / r.width) * 100).toFixed(0) + "%");
+      if (!drag) return;
+      var dx = e.clientX - drag.x0;
+      if (!ub.dir && Math.abs(dx) > 6) { ub.dir = dx > 0 ? 1 : -1; box.classList.toggle("rtl", ub.dir < 0); }
+      if (!ub.dir) return;
+      if (Math.abs(dx) > 6) drag.moved = true;
+      var pct = Math.max(ub.pct, Math.min(1, drag.base + (dx * ub.dir) / (r.width * 0.46)));
+      setCut(pct);
+      if (pct >= 1) { drag = null; cutWrap(); }
+    };
+    box.onpointerup = box.onpointercancel = function () {
+      if (!drag || !ub || ub.cut) { drag = null; return; }
+      var click = !drag.moved;
+      drag = null;
+      if (click) autoCut();
+    };
+  }
+  function autoCut() {
+    if (!ub || ub.cut || ub.auto) return;
+    ub.auto = true;
+    $("ubox").classList.add("touched");
+    if (!ub.dir) ub.dir = 1;
+    var t0 = performance.now(), from = ub.pct;
+    var step = function (now) {
+      if (!ub || ub.cut) return;
+      var k = Math.min(1, (now - t0) / 520);
+      setCut(from + (1 - from) * k);
+      if (k < 1) requestAnimationFrame(step); else cutWrap();
+    };
+    requestAnimationFrame(step);
+  }
+  function cutWrap() {
+    if (!ub || ub.cut) return;
+    ub.cut = true;
+    emit("tcg:unbox", { product: ub.product });
+    sfx.rip();
+    var box = $("ubox"), r = box.getBoundingClientRect();
+    box.classList.add("cut");
+    restart(box, "pop");
+    $("wrapTop").classList.add("off");
+    $("wrapBottom").classList.add("off");
+    fx.burst(r.left + r.width / 2, r.top + r.height * 0.76, 40, ["#ffffff", "#cdeaff", "#9ff3ff", "#fcee09"],
+      { speed: 7, kind: "mix", life: 1.1, grav: 0.18, jitterX: r.width * 0.5, size: 2.6 });
+    uhint("");
+    setTimeout(dealBoxPacks, 650);
+  }
+  function dealBoxPacks() {
+    if (!ub) return;
+    var host = $("unbox").getBoundingClientRect(), box = $("ubox").getBoundingClientRect(), holder = $("uboxPacks");
+    var perRow = 12, w = 66, h = 132, gap = 10;
+    var x0 = host.width / 2 - (perRow * w + (perRow - 1) * gap) / 2, y0 = box.top - host.top + box.height * 0.95;
+    var sx = box.left - host.left + box.width / 2 - w / 2, sy = box.top - host.top + box.height * 0.56 - h / 2;
+    var art = PACK_ART[ub.contains] || PACK_ART.wnc;
+    for (var i = 0; i < ub.count; i++) {
+      var col = i % perRow, row = Math.floor(i / perRow);
+      var x = x0 + col * (w + gap), y = y0 + row * (h + 14);
+      var p = el("div", "upack", '<img src="' + art + '" alt="">');
+      p.style.left = x + "px"; p.style.top = y + "px";
+      p.onclick = openFromBox;
+      holder.appendChild(p);
+      p.animate([
+        { transform: "translate(" + (sx - x) + "px," + (sy - y) + "px) scale(.35) rotate(" + (Math.random() * 40 - 20).toFixed(0) + "deg)", opacity: 0 },
+        { opacity: 1, offset: 0.25 },
+        { transform: "translate(0,0) scale(1) rotate(0deg)", opacity: 1 }
+      ], { duration: 520, delay: i * 55, easing: "cubic-bezier(.2,.9,.3,1.15)", fill: "backwards" });
+      (function (k) { setTimeout(function () { if (ub) sfx.flip(); }, k * 55 + 420); })(i);
+    }
+    setTimeout(function () {
+      if (!ub) return;
+      uhint(ub.count + " packs on your shelf &middot; pick one to open it");
+      $("uboxActions").classList.remove("hidden");
+    }, ub.count * 55 + 600);
+  }
+  function openFromBox() {
+    if (!ub) return;
+    var product = ub.contains;
+    closeUnbox(true);
+    emit("tcg:openPack", { product: product });
+  }
+  function closeUnbox(keepOpen) {
+    if (!ub) return;
+    ub = null;
+    $("unbox").classList.add("hidden");
+    $("uboxPacks").innerHTML = "";
+    $("app").classList.remove("opening-on");
+    if (keepOpen) return;
+    $("binder").classList.remove("hidden");
+    setTab("sealed");
+  }
+
 /* ---------------------------------------------------------------------------------------- wiring */
-  function close() { if (op) return finishOpening(); hide(); emit("tcg:close", {}); }
+  function close() { if (op) return finishOpening(); if (ub) return closeUnbox(); hide(); emit("tcg:close", {}); }
   $("closeBtn").onclick = close;
   $("inspectClose").onclick = hideModals;
   $("prevBtn").onclick = function () { turn(-1); };
@@ -733,6 +873,8 @@
   $("printSearch").oninput = renderPrint;
   $("summaryDone").onclick = finishOpening;
   $("skipBtn").onclick = skipAll;
+  $("uboxOpen").onclick = openFromBox;
+  $("uboxBack").onclick = function () { closeUnbox(); };
   // A hold (the rare slot) ends wherever the button or the key is let go.
   document.addEventListener("keyup", function (e) { if (op && (e.key === " " || e.key === "Enter")) press(false); });
   document.addEventListener("pointerup", function () { if (op) press(false); });
@@ -743,6 +885,7 @@
     if (!ui.open) return;
     if (e.key === "Escape") { if (!$("inspect").classList.contains("hidden")) hideModals(); else close(); e.preventDefault(); }
     else if (op && (e.key === " " || e.key === "Enter")) { if (!e.repeat) press(true); e.preventDefault(); }
+    else if (ub && !ub.cut && (e.key === " " || e.key === "Enter")) { autoCut(); e.preventDefault(); }
     else if (!op && ui.tab === "binder" && $("inspect").classList.contains("hidden")) {
       if (e.key === "ArrowRight") turn(1); if (e.key === "ArrowLeft") turn(-1);
     }
@@ -802,6 +945,14 @@
   /* ---------------------------------------------------------------------------------------- preview */
   function preview(name, d) {
     console.log("[preview] emit", name, d);
+    if (name === "tcg:unbox" || name === "tcg:openPack") {
+      var sealed = Object.assign({}, state.sealed);
+      if ((sealed[d.product] || 0) <= 0) { toast("No " + d.product + " left", "error"); return; }
+      sealed[d.product] -= 1;
+      if (name === "tcg:unbox") sealed.wnc = (sealed.wnc || 0) + 24;
+      state.sealed = sealed; renderStats(); if (ui.tab === "sealed" && !op && !ub) renderSealed();
+      if (name === "tcg:unbox") { toast("You cut the shrink-wrap: 24 Welcome to Night City packs."); return; }
+    }
     if (name === "tcg:openPack") {
       var pool = function (t) { return catalogue.filter(function (c) { return c.tier === t; }); };
       var pick = function (l) { return l[Math.floor(Math.random() * l.length)]; };
@@ -811,6 +962,7 @@
     }
   }
   function startPreview() {
+    document.body.style.background = "radial-gradient(ellipse at 40% 30%, #2b3a4a, #10161e 60%, #1d1410)";
     var owned = [];
     catalogue.forEach(function (c, i) { if (i % 3 !== 1) owned.push(c.id + ":" + (i % 7 === 0 ? 3 : 1)); });
     handlers["tcg:state"]({ owned: owned.join(","), population: "", sealed: { wnc: 3, beta: 1, box: 1 }, dust: 640, dustPlus: 2, prices: {}, freeIn: 0 });
