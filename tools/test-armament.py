@@ -85,6 +85,7 @@ local function complete(job)
  elseif job.op=="clear"then nativeRows={};nativeReserve=0
  elseif job.op=="holster"then holsterCount=(holsterCount or 0)+1
  elseif job.op=="setAmmo"then local row=nativeRows[a[1]];assert(row);row.magazine=a[2].magazine or row.magazine;nativeReserve=a[2].reserve or nativeReserve end
+ if refuseNext and job.op==refuseNext then accepted,reason=false,"weapon_not_drawn";refuseNext=nil end
  local result=job.op=="snapshot"and snapshot()or{}
  for _,fn in ipairs(events["open77:weapons:completed"]or{})do fn(job.player,job.id,job.op,accepted,reason,result)end
 end
@@ -186,6 +187,43 @@ assert(W.runtime[1].quarantine,"wrong target cannot settle a native job")
 suppressNative=false;tick(200)
 assert(not W.runtime[1].quarantine and not W.view(1).ready,"late completion requires explicit reconciliation")
 assert(W.synchronize(1));tick(1800);assert(W.view(1).ready)
+-- The platform's own timeout (request_timeout at 10 s) is final: no completion follows,
+-- so the quarantine lifts after a short delay and a full synchronization reconciles.
+suppressNative=true
+assert(W.synchronize(1));tick(10000)
+local stuck;for _,j in ipairs(jobs)do stuck=j end;assert(stuck,"a native job in flight")
+for _,fn in ipairs(events["open77:weapons:completed"])do fn(1,stuck.id,stuck.op,false,"request_timeout",nil)end
+jobs={} -- the platform forgot it: a late client answer is ignored
+tick(100)
+assert(W.runtime[1].quarantine and W.runtime[1].quarantine.final and not W.view(1).ready,"quarantined, known final")
+suppressNative=false;tick(2500)
+assert(W.runtime[1].quarantine,"not before the recovery delay")
+tick(4000)
+assert(not W.runtime[1].quarantine and W.view(1).ready,"lifted and resynchronized without a reconnect")
+-- A client that keeps timing out: each recovery's own synchronization times out again;
+-- three recoveries in two minutes, then the quarantine stays until a reconnect.
+suppressNative=true
+assert(W.synchronize(1))
+for _=1,6 do
+  tick(10000)
+  local j;for _,x in ipairs(jobs)do j=x end
+  if j then
+    for _,fn in ipairs(events["open77:weapons:completed"])do fn(1,j.id,j.op,false,"request_timeout",nil)end
+    jobs={}
+  end
+  tick(4000)
+end
+assert(W.runtime[1].quarantine and not W.runtime[1].recovering and #W.runtime[1].recoveries==3,"bounded: past three recoveries the quarantine stays")
+-- (a reconnect is a new incarnation; this harness just clears it to go on)
+W.runtime[1].quarantine=nil;W.runtime[1].recoveries=nil
+suppressNative=false;clock=clock+200000;tick(100);assert(W.synchronize(1));tick(1800);assert(W.view(1).ready)
+-- One refusal from the engine (the weapon not drawn yet): the synchronization tries again by
+-- itself, no second press needed.
+refuseNext="snapshot"
+assert(W.synchronize(1));tick(300)
+assert(not W.view(1).ready and W.runtime[1].syncRetries==1,"refused once: a retry is scheduled")
+tick(3000)
+assert(W.view(1).ready and W.runtime[1].syncRetries==nil,"the retry went through and the count reset")
 -- Retiring the character prevents the previous generation from settling.
 suppressNative=true;assert(W.synchronize(1));tick(100)
 local old=W.runtime[1];hooks.armament.onLifeState(1,"dead");assert(not W.runtime[1])
@@ -287,5 +325,5 @@ assert(W.synchronize(1));tick(1800);assert(W.view(1).ready)
 LightRP.missions=nil
 local dup=Inv.draft(inv);dup.items[20]={name=rightItem.name,count=1,metadata={instanceId=rightItem.metadata.instanceId}}
 assert(not Inv.commitDrafts({{inv,dup}}),"duplicate serial refused")
-print("PASS: serialized grants, draft isolation, SQL rollback, atomic boxes/replay, async equip, equipped-transfer and ephemeral-storage guards, spent-ammo sync, shared dual pool, rounds as inventory items (shots, purchases, drops, increases, empty), legacy stock migration, weapon families (handgun pairs only, rifle pool apart), weapon wheel (arsenal, select, unarmed, holstered on return), timeout quarantine and stale completions")
+print("PASS: serialized grants, draft isolation, SQL rollback, atomic boxes/replay, async equip, equipped-transfer and ephemeral-storage guards, spent-ammo sync, shared dual pool, rounds as inventory items (shots, purchases, drops, increases, empty), legacy stock migration, weapon families (handgun pairs only, rifle pool apart), weapon wheel (arsenal, select, unarmed, holstered on return), timeout quarantine (lifted after a platform request_timeout, bounded) and stale completions")
 ''')
