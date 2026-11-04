@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cyberpunk TCG</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div id="app" class="hidden">
+    <div class="backdrop"></div>
+
+    <!-- The binder and its tabs -->
+    <section id="binder" class="screen">
+      <header class="topbar">
+        <img class="logo" src="img/ui/logo.webp" alt="Cyberpunk TCG">
+        <nav class="tabs">
+          <button data-tab="binder" class="active">Binder</button>
+          <button data-tab="sealed">Sealed <span id="sealedCount" class="pill"></span></button>
+          <button data-tab="shop" id="shopTab">Shop</button>
+        </nav>
+        <div class="wallet">
+          <div class="stat"><span class="k">Collection</span><span class="v" id="statEditions">0 / 320</span></div>
+          <div class="stat"><span class="k">Cards</span><span class="v" id="statCards">0 / 151</span></div>
+          <div class="stat dust"><img src="img/ui/dust.webp" alt=""><span class="v" id="statDust">0</span></div>
+          <div class="stat dust"><img src="img/ui/dust_plus.webp" alt=""><span class="v" id="statDustPlus">0</span></div>
+          <button class="close" id="closeBtn" title="Close (Esc)">&times;</button>
+        </div>
+      </header>
+
+      <div class="tab" id="tab-binder">
+        <div class="filters">
+          <input id="search" type="search" placeholder="Search a card..." autocomplete="off">
+          <div class="chips" id="chips"></div>
+          <div class="progress"><div class="bar" id="progressBar"></div><span id="progressText"></span></div>
+        </div>
+        <div class="album">
+          <div class="spread" id="spread">
+            <div class="page left" id="pageLeft"></div>
+            <div class="rings"><i></i><i></i><i></i></div>
+            <div class="page right" id="pageRight"></div>
+            <div class="turn" id="turn"><div class="face front"></div><div class="face back"></div></div>
+          </div>
+          <button class="flip prev" id="prevBtn">&#8249;</button>
+          <button class="flip next" id="nextBtn">&#8250;</button>
+          <div class="pageno" id="pageNo"></div>
+        </div>
+      </div>
+
+      <div class="tab hidden" id="tab-sealed">
+        <div class="shelf" id="sealedShelf"></div>
+        <p class="hint" id="sealedHint"></p>
+      </div>
+
+      <div class="tab hidden" id="tab-shop">
+        <div class="shop-off" id="shopOff">Stand at a Cyberpunk TCG shop counter to buy sealed product, recycle duplicates and print editions.</div>
+        <div class="shop" id="shopOn">
+          <div class="col">
+            <h3>Counter</h3>
+            <div id="shopProducts" class="products"></div>
+          </div>
+          <div class="col">
+            <h3>Recycler <small>duplicates into Dust</small></h3>
+            <div id="recycleList" class="list"></div>
+            <button class="primary" id="recycleAll">Recycle every duplicate</button>
+          </div>
+          <div class="col">
+            <h3>Card printer <small>missing editions</small></h3>
+            <input id="printSearch" type="search" placeholder="Find an edition to print...">
+            <div id="printList" class="list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- A card in your hands -->
+    <section id="inspect" class="modal hidden">
+      <div class="inspect-card" id="inspectCard"><div class="card big"><img alt=""><div class="sheen"></div><div class="holo"></div><div class="glare"></div></div></div>
+      <div class="inspect-info">
+        <div class="rarity" id="inspectRarity"></div>
+        <h2 id="inspectName"></h2>
+        <dl>
+          <dt>Set number</dt><dd id="inspectNo"></dd>
+          <dt>Finish</dt><dd id="inspectFinish"></dd>
+          <dt>In your binder</dt><dd id="inspectCount"></dd>
+          <dt>Population</dt><dd id="inspectPop"></dd>
+        </dl>
+        <div class="actions" id="inspectActions"></div>
+        <div class="give hidden" id="givePanel"></div>
+        <button class="ghost" id="inspectClose">Back to the binder</button>
+      </div>
+    </section>
+
+    <!-- A trade offer -->
+    <section id="offer" class="modal hidden">
+      <div class="offer-box">
+        <h3 id="offerTitle"></h3>
+        <div class="card mid" id="offerCard"><img alt=""></div>
+        <div class="actions">
+          <button class="primary" id="offerAccept">Accept</button>
+          <button class="ghost" id="offerDecline">Decline</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Opening a pack -->
+    <section id="opening" class="screen hidden">
+      <div class="table-felt"></div>
+      <div class="pack" id="pack">
+        <img id="packImg" alt="">
+        <div class="strip" id="packStrip"></div>
+        <div class="tearline" id="tearLine"><div class="tearfill" id="tearFill"></div></div>
+      </div>
+      <div class="stack" id="stack"></div>
+      <div class="revealed" id="revealed"></div>
+      <div class="opening-hint" id="openingHint"></div>
+      <div class="summary hidden" id="summary">
+        <h2>Pack summary</h2>
+        <div class="summary-grid" id="summaryGrid"></div>
+        <button class="primary" id="summaryDone">Sleeve them into the binder</button>
+      </div>
+    </section>
+
+    <div class="toast" id="toast"></div>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
