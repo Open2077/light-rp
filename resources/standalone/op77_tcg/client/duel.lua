@@ -12,6 +12,47 @@ local cam, camMode = nil, 1
 local overlay = false    -- the duel overlay holds the cursor
 
 local function seatOfMine() return match and match.seats and match.seats[match.you] end
+
+-- ---------------------------------------------------------------------------------------------
+-- The tutorial's 3D labels: the areas of your playmat, named on the table while the coach talks about them.
+
+local ZONES = {
+    fixer = { 0.0725, 0.53, "FIXER", "your 6 dice, waiting to be rolled" },
+    legends = { 0.313, 0.805, "LEGENDS", "3 Legends, face down" },
+    field = { 0.5, 0.37, "FIELD", "your Units" },
+    eddies = { 0.695, 0.81, "EDDIES", "sold cards: 1 \u{20AC}$ each per turn" },
+    deck = { 0.9325, 0.53, "DECK", "you draw from here" },
+    trash = { 0.9325, 0.82, "TRASH", "used and defeated cards" },
+    gigs = { 0.705, 0.055, "GIGS", "your rolled dice: 7 to win" },
+}
+local labels, labelsKey = {}, nil
+
+local function clearLabels()
+    local kit = K.uikit()
+    for _, h in ipairs(labels) do if kit then pcall(kit.clearText3D, h) end end
+    labels, labelsKey = {}, nil
+end
+
+local function tutorialLabels(p)
+    local t = p and p.tutorial
+    local zones = t and t.zones
+    local key = zones and (t.id .. ":" .. tostring(p.id)) or nil
+    if key == labelsKey then return end
+    clearLabels()
+    if not key or not p.mat then return end
+    local kit = K.uikit()
+    if not kit then return end
+    local pose = { mat = p.mat, yaw = p.yaw or 0 }
+    for _, name in ipairs(zones) do
+        local z = ZONES[name]
+        if z then
+            local at = TcgTable.onMat(pose, z[1], z[2], 0.1)
+            local ok, h = pcall(kit.drawText3D, { position = at, text = z[3], sublabel = z[4], maxDistance = 6, accent = "#FCEE09", color = "#F2F6F8" })
+            if ok and h then labels[#labels + 1] = h end
+        end
+    end
+    labelsKey = key
+end
 local function seated() local s = seatOfMine(); return s and s.seated == true end
 
 -- ---------------------------------------------------------------------------------------------
@@ -33,6 +74,9 @@ local RELAY = {
     ["tcg:sit"] = function() TriggerServerEvent(NET .. "sit") end,
     -- A game action at the table (server/duel.lua "act").
     ["tcg:act"] = function(d) TriggerServerEvent(NET .. "act", d) end,
+    -- The tutorial: start it (Duel tab), the coach's Next.
+    ["tcg:tutorial"] = function() TriggerServerEvent(NET .. "tutorial") end,
+    ["tcg:tutorialNext"] = function() TriggerServerEvent(NET .. "tutorialNext") end,
 }
 for name, fn in pairs(RELAY) do K.on(name, fn) end
 
@@ -144,13 +188,18 @@ local function nearChair()
     return dx * dx + dy * dy + dz * dz <= C.duel.sitReach * C.duel.sitReach
 end
 
+-- The duel is over: let go of everything at once (the camera, the cursor, any animation still on the body).
+local function release()
+    clearPrompt()
+    clearLabels()
+    stopCam(0)
+    overlay = false
+    if not K.isOpen() then K.release() end
+    if Open77.animations and type(Open77.animations.stopSelf) == "function" then pcall(Open77.animations.stopSelf) end
+end
+
 local function apply()
-    if not match then
-        clearPrompt()
-        stopCam(700)
-        setOverlay(false)
-        return
-    end
+    if not match then return release() end
     if seated() then
         clearPrompt()
         if not cam and camMode ~= 0 then startCam() end
@@ -178,6 +227,7 @@ RegisterNetEvent(NET .. "match", function(p)
     if first then camMode = 1 end
     K.send("tcg:match", p)
     apply()
+    if seated() then tutorialLabels(p) else clearLabels() end
 end)
 
 local function trySit()
@@ -186,6 +236,9 @@ end
 
 local called, okKey, why = pcall(RegisterKeyMapping, "op77_tcg.sit", "Cyberpunk TCG: sit at your duel table", "E", trySit)
 if not called or not okKey then K.log("sit key refused: %s", tostring(called and why or okKey)) end
+
+-- /tcgtutorial: a guided demonstration duel against the house at a NEON DECK table.
+RegisterCommand("tcgtutorial", function() TriggerServerEvent(NET .. "tutorial") end, false)
 
 -- Back in the game after a resource restart or a reconnect: ask for the duel in progress.
 CreateThread(function()
@@ -196,6 +249,7 @@ end)
 
 AddEventHandler("onResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end
+    clearLabels()
     clearPrompt()
     stopCam(0)
 end)

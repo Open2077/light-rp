@@ -71,6 +71,19 @@ def play_at(player, profile, at, yaw, opts=None):
     return L.table_from({"playbackId": "pb-%d" % len(animations)})
 
 
+def sequence_at(player, steps, at, yaw, opts=None):
+    step = steps[1]
+    if step["profile"] in refuse_profiles or "sequence" in refuse_profiles:
+        return None, "unknown_profile"
+    animations.append((int(player), step["profile"], step["clip"]))
+    return L.table_from({"playbackId": "seq-%d" % len(animations)})
+
+
+def anim_stop_at(playback):
+    animations.append((None, "stopAt", playback))
+    return True
+
+
 def anim_stop(player, playback):
     animations.append((int(player), "stop", playback))
     return True
@@ -141,7 +154,7 @@ g.Open77 = L.table_from({
                              "nearby": nearby}),
     "props": L.table_from({"create": prop_create, "attach": prop_attach, "remove": prop_remove, "get": lambda p: None,
                            "setTransform": prop_move}),
-    "animations": L.table_from({"playAt": play_at, "stop": anim_stop}),
+    "animations": L.table_from({"playAt": play_at, "stop": anim_stop, "sequenceAt": sequence_at, "stopAt": anim_stop_at}),
 })
 
 
@@ -164,7 +177,7 @@ def boot(prelude=""):
     if prelude:
         L.execute(prelude)
     for f in ["shared/catalogue.lua", "shared/rules.lua", "shared/cards.lua", "shared/decks.lua", "shared/starters.lua",
-              "shared/table.lua", "shared/game.lua", "shared/effects.lua", "server/main.lua", "server/duel.lua"]:
+              "shared/table.lua", "shared/game.lua", "shared/effects.lua", "shared/tutorial.lua", "server/main.lua", "server/duel.lua"]:
         L.execute((ROOT / f).read_text(encoding="utf-8"))
     L.eval("__pump")(10)
 

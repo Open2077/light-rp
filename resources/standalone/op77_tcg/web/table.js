@@ -471,11 +471,66 @@
     boardHtml($("tbMine"), m.seats[m.you], m, true);
     renderHand(m);
     renderPanel(m);
+    renderCoach(m);
     playEvents(m);
+  }
+
+  /* ------------------------------------------------------------------------------------------- the tutorial's coach */
+  // The coach panel (top centre) and what it points at: overlay elements light up, a hand card glows.
+  var COACH_TARGETS = {
+    legends: "#dhYou .tb-legs", hand: "#dhHand", rival: "#dhRival", rivalBoard: "#tbRival .tb-field", rivalGigs: "#tbRival .tb-gigs",
+    myBoard: "#tbMine .tb-field", myGigs: "#tbMine .tb-gigs", money: "#dhYou .tb-money", panel: "#dhCentre",
+    endTurn: "#dhCentre .actions .primary", log: "#dhLog"
+  };
+  var EXPECT = { roll: "Roll a die", sell: "Sell the card", play: "Play the card", call: "Call a Legend", endTurn: "Click End turn",
+    attack: "Attack the Gigs", resolve: "Let it through", steal: "Pick a Gig and Steal" };
+  function renderCoach(m) {
+    var box = $("tbCoach"), t = m.tutorial;
+    Array.prototype.forEach.call(document.querySelectorAll(".coach-focus"), function (n) { n.classList.remove("coach-focus"); });
+    if (!t) { box.classList.add("hidden"); box.dataset.key = ""; return; }
+    box.classList.remove("hidden");
+    var key = t.id + "|" + !!m.prompt;
+    if (box.dataset.key !== key) {
+      box.dataset.key = key;
+      box.innerHTML = '<div class="tc-head"><span class="tc-step">TUTORIAL &middot; ' + t.index + " / " + t.total + '</span><span class="tc-bar"><i style="width:' +
+        Math.round(100 * t.index / t.total) + '%"></i></span></div><h3>' + esc(t.title) + "</h3><p>" + esc(t.text) + "</p>";
+      var row = el("div", "tc-actions");
+      if (t.final) {
+        var keep = el("button", "primary", "Keep playing");
+        keep.onclick = function () { X.T.emit("tcg:tutorialNext", {}); };
+        var bye = el("button", "ghost", "Leave the table");
+        bye.onclick = function () { X.T.emit("tcg:leaveMatch", {}); };
+        row.appendChild(keep); row.appendChild(bye);
+      } else if (t.next) {
+        var next = el("button", "primary", "Next");
+        next.onclick = function () { X.T.emit("tcg:tutorialNext", {}); };
+        row.appendChild(next);
+      } else if (t.expect) {
+        row.appendChild(el("span", "tc-todo", "Your move: " + esc(EXPECT[t.expect] || t.expect)));
+      } else {
+        row.appendChild(el("span", "tc-wait", t.house ? "The house is playing" : "Resolving"));
+      }
+      if (!t.final) {
+        var skip = el("button", "tc-skip", "Leave the tutorial");
+        skip.onclick = function () { X.T.emit("tcg:leaveMatch", {}); };
+        row.appendChild(skip);
+      }
+      box.appendChild(row);
+      box.classList.remove("show"); void box.offsetWidth; box.classList.add("show");
+    }
+    (t.ui ? arr(t.ui) : []).forEach(function (name) {
+      var sel = COACH_TARGETS[name];
+      Array.prototype.forEach.call(sel ? document.querySelectorAll(sel) : [], function (n) { n.classList.add("coach-focus"); });
+    });
+    if (t.card) {
+      var c = document.querySelector('#dhHand .dh-card[data-card="' + t.card + '"]');
+      if (c) c.classList.add("coach-focus");
+    }
   }
   function clear() {
     sel = null; last = null; seenEvents = null; handKeys = [];
     ["tbRival", "tbMine", "tbFx"].forEach(function (id) { var n = $(id); if (n) n.innerHTML = ""; });
+    var coach = $("tbCoach"); if (coach) { coach.classList.add("hidden"); coach.dataset.key = ""; }
     closePop();
     document.body.classList.remove("tb-on");
   }
@@ -495,7 +550,7 @@
   /* ------------------------------------------------------------------------------------------- preview (no game) */
   function preview() {
     var mode = new URLSearchParams(location.search).get("duel");
-    if (["game", "react", "steal", "roll", "prompt", "multi", "effects"].indexOf(mode) < 0) return;
+    if (["game", "react", "steal", "roll", "prompt", "multi", "effects", "tutorial"].indexOf(mode) < 0) return;
     var u = function (uid, slug, power, o) { return Object.assign({ uid: uid, card: slug, power: power, spent: false, lag: false, gear: "" }, o || {}); };
     var view = { id: 9, slot: "nd_a", label: "NEON DECK - Table 1 A", you: 1, phase: "game", step: mode === "game" ? "main" : mode,
       active: mode === "react" ? 2 : 1, turn: 5, first: 1, deadline: 140000, hand: "mantis_blades,corpo_security,chrome_fang,over_the_edge,kiroshi_optics",
@@ -514,7 +569,12 @@
              field: [u(21, "delamain_cab", 4, { spent: true }), u(22, "psycho_squad", 6)],
              gigs: [{ uid: 41, kind: "d10", value: 7, owner: 2 }, { uid: 42, kind: "d6", value: 5, owner: 2 }], fixer: ["d4", "d12", "d20"] }
       } };
-    if (mode === "prompt" || mode === "multi" || mode === "effects") view.step = "main";
+    if (mode === "prompt" || mode === "multi" || mode === "effects" || mode === "tutorial") view.step = "main";
+    if (mode === "tutorial") {
+      view.hand = "mantis_blades,emergency_atlus,japantown_jonin,corporate_surveillance,kiroshi_optics,floor_it,field_operator";
+      view.tutorial = { index: 10, total: 29, id: "sell", title: "Sell a card for money", card: "mantis_blades", ui: ["hand"], expect: "sell",
+        text: "Mantis Blades has a Sell Tag. Click it in your hand, then Sell: it goes face down into your Eddies and pays 1 \u20AC$ every turn from now on. You may sell one card per turn." };
+    }
     if (mode === "prompt") view.prompt = { id: 5, mine: true, title: "Defeat a rival Unit with power 4 or less", min: 1, max: 1, optional: false,
       source: "bonnie_and_clyde", options: [{ label: "Delamain Cab (4)", card: "delamain_cab", uid: 21 }, { label: "Psycho Squad (6)", card: "psycho_squad", uid: 22, disabled: true }] };
     if (mode === "multi") view.prompt = { id: 6, mine: true, title: "Up to 2 Gears (cost 2 or less)", min: 0, max: 2, optional: true, source: "viktor_vektor_sit_down_and_relax",

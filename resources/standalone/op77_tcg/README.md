@@ -57,6 +57,22 @@ gamemode, and any server can load it.
 
 ## Decks, playmats and duels
 
+**Learn to play.** A tutorial (Duel tab > Start the tutorial, or `/tcgtutorial`) sets a demonstration duel against
+the house at the nearest free NEON DECK table (`shared/tutorial.lua`).
+- **Concrete examples:** the decks, the card order and the dice are fixed, so each rule is shown on a real move: the
+  d20 for the first player, rolling a Gig, selling, paying, Lag, Calling a Legend and its choice, an attack, a Blocker
+  and the fight, the React step, steals both ways, and how to win.
+- **The coach:** a coach panel guides step by step (Next, or "your move: ..."). It highlights the overlay elements it
+  talks about, and labels the zones of your playmat in 3D on the table (open77_uikit).
+- **Gating:** the house plays scripted turns. Moves outside the script are refused with the step's hint.
+- **The end:** "Keep playing" turns the duel into a normal game against the house. A tutorial isn't recorded in
+  `tcg_matches`.
+- **Exports** (for a gamemode's onboarding): `exports.op77_tcg:tutorial(playerId)` / `tutorialNext(playerId)`.
+
+**Tables.** NEON DECK has two duel tables with two 1v1 slots each: Table 1 upstairs (the room was deepened 0.5 m)
+and the duel table in the middle of the ground floor. A duel takes the free slot nearest to the challenger. At the end
+of a duel the client lets go of its camera, cursor and animation at once.
+
 **Decks tab.** Decks follow the official deck-building rules (`shared/decks.lua`, docs/RULES.md §6):
 - exactly 3 Legends, with different names;
 - a main deck of 40 to 50 cards, with no Legend in it;
@@ -75,8 +91,8 @@ The page checks the rules live, and the server checks them again before a duel.
 
 **A duel**
 1. You challenge a player. They accept with one of their own legal decks.
-2. A free slot of **NEON DECK Table 1** is reserved. It has two 1v1 slots (four seats), and the players sit face to
-   face.
+2. The free NEON DECK slot nearest to the challenger is reserved (Table 1 upstairs, or the ground-floor duel table),
+   and the players sit face to face.
 3. The table is set for everyone around to see: both playmats, both deck stacks, and both dice sets in the fixer
    areas. These are server props from the `neon_deck` world resource.
 4. Each player walks to their chair (a marker shows it) and presses **E** (`op77_tcg.sit`, rebindable) to sit down.
@@ -183,6 +199,7 @@ local c = exports.op77_tcg:getCollection(playerId)  -- { dust, dustPlus, sealed,
 exports.op77_tcg:useSealed(playerId, "box")         -- a gamemode's inventory item: open it on the player's screen
 exports.op77_tcg:houseDuel(playerId, "the_heist")   -- a duel against the house at a free NEON DECK table
 exports.op77_tcg:sitDown(playerId)                  -- seats a player in their duel (they stand at their chair)
+exports.op77_tcg:leaveDuel(playerId)                -- takes a player out of their duel (concedes once the game has begun)
 ```
 
 ## With a gamemode (LightRP)

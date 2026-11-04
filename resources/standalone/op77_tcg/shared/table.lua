@@ -54,20 +54,29 @@ TcgTable.zones = {
     rivalGigs = { x0 = 0.16, x1 = 0.45, y = 0.055 },
 }
 
--- NEON DECK, upper floor, Table 1 (the one in front of the stairs): two 1v1 slots, the players face to face across
--- the table. The shop's frame (tools/frame.py): origin (-824.6, 930.0), yaw 9, upper floor 16.68, table top 17.43;
--- u runs along the table, v across it (south seat at v 5.32 facing +v, north seat at v 7.18 facing -v).
-TcgTable.frame = { ox = -824.6, oy = 930.0, yaw = 9.0, floor = 16.68, top = 17.43 }
--- The table runs u 2.8 - 6.4. Each shop mat mesh carries its sleeve box 0.555 m to the player's right, so the slots
--- keep both boxes (one per seat, on opposite sides) on the table top.
-TcgTable.slots = {
-    { id = "nd_a", label = "NEON DECK - Table 1 A", bucket = 0, u = 3.45 },
-    { id = "nd_b", label = "NEON DECK - Table 1 B", bucket = 0, u = 5.75 },
+-- NEON DECK's duel tables, in the shop's frame (tools/frame.py of E:/Open77/Maps/TCGShop): origin (-824.6, 930.0),
+-- yaw 9; u runs along the tables, v across them. Each table has two 1v1 slots, the players face to face; a seat is
+-- its chair (v, anchor = the floor under it), the mat's centre (v), where the player stands up (v, away from the
+-- table) and the dice colour. Each shop mat mesh carries its sleeve box 0.555 m to the player's right: the slots keep
+-- both boxes on the table top.
+TcgTable.frame = { ox = -824.6, oy = 930.0, yaw = 9.0 }
+TcgTable.tables = {
+    -- Upper floor, Table 1 (in front of the stairs): u 2.8-6.4, v 5.8-6.7; the room was deepened to v 3.95.
+    etage = { floor = 16.68, top = 17.43, seats = {
+        { side = "south", chairV = 5.32, matV = 6.03, turn = 0, standV = 4.75, dice = "netrunner" },
+        { side = "north", chairV = 7.18, matV = 6.47, turn = 180, standV = 7.75, dice = "arasaka" },
+    } },
+    -- Ground floor, the duel table in the middle of the shop: u 5.9-9.1, v 4.5-5.4.
+    rdc = { floor = 12.14, top = 12.89, seats = {
+        { side = "south", chairV = 4.02, matV = 4.73, turn = 0, standV = 3.45, dice = "netrunner" },
+        { side = "north", chairV = 5.88, matV = 5.17, turn = 180, standV = 6.45, dice = "arasaka" },
+    } },
 }
--- Per seat: the chair (v), the mat centre (v) and the way the player faces (+v south seat, -v north seat).
-TcgTable.seatLayout = {
-    { side = "south", chairV = 5.32, matV = 6.03, turn = 0, standV = 4.85, dice = "netrunner" },
-    { side = "north", chairV = 7.18, matV = 6.47, turn = 180, standV = 7.65, dice = "arasaka" },
+TcgTable.slots = {
+    { id = "nd_a", label = "NEON DECK - Table 1 A (upstairs)", table = "etage", bucket = 0, u = 3.45 },
+    { id = "nd_b", label = "NEON DECK - Table 1 B (upstairs)", table = "etage", bucket = 0, u = 5.75 },
+    { id = "nd_c", label = "NEON DECK - Duel table A (ground floor)", table = "rdc", bucket = 0, u = 6.75 },
+    { id = "nd_d", label = "NEON DECK - Duel table B (ground floor)", table = "rdc", bucket = 0, u = 8.25 },
 }
 
 local function frameXY(u, v)
@@ -78,22 +87,29 @@ local function frameXY(u, v)
 end
 TcgTable.frameXY = frameXY
 
--- The two seats of a slot: chair anchor (floor under the seat), where the player stands to sit, the mat pose.
+-- The two seats of a slot: chair anchor (floor under the seat), where the player stands up, the mat pose.
 function TcgTable.seats(slot)
+    local tbl = TcgTable.tables[slot.table or "etage"]
     local out = {}
-    for i, s in ipairs(TcgTable.seatLayout) do
+    for i, s in ipairs(tbl.seats) do
         local yaw = (TcgTable.frame.yaw + s.turn) % 360
         local cx, cy = frameXY(slot.u, s.chairV)
         local sx, sy = frameXY(slot.u, s.standV)
         local mx, my = frameXY(slot.u, s.matV)
         out[i] = {
             index = i, side = s.side, yaw = yaw, dice = s.dice,
-            chair = { x = cx, y = cy, z = TcgTable.frame.floor },
-            stand = { x = sx, y = sy, z = TcgTable.frame.floor },
-            mat = { x = mx, y = my, z = TcgTable.frame.top },
+            chair = { x = cx, y = cy, z = tbl.floor },
+            stand = { x = sx, y = sy, z = tbl.floor },
+            mat = { x = mx, y = my, z = tbl.top },
         }
     end
     return out
+end
+
+-- The middle of a slot (between its two mats): to find the slot nearest to a player.
+function TcgTable.centre(slot)
+    local s = TcgTable.seats(slot)
+    return { x = (s[1].mat.x + s[2].mat.x) / 2, y = (s[1].mat.y + s[2].mat.y) / 2, z = s[1].mat.z }
 end
 
 -- A point of a mat (xn, yn: fraction of the artwork from its top-left) in the world, and the mat's yaw.

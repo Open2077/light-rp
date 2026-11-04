@@ -68,10 +68,12 @@ row = con.execute("SELECT playmat, deck FROM tcg_settings WHERE identifier = 'id
 check(row["playmat"] == "militech" and row["deck"] == key, "playmat and deck choice saved, unknown mat refused")
 
 # --- Challenges --------------------------------------------------------------------------------
+# Players 1 and 2 upstairs at NEON DECK (the nearest free slot is Table 1 A); 3 far away.
+positions[1], positions[2] = (-822.0, 936.5, 16.7), (-821.5, 936.9, 16.7)
 fire("op77_tcg:nearby", 1)
 nb = last("nearby", 1)
 ids = [int(p["id"]) for p in nb["players"].values()]
-check(ids == [2] and int(nb["freeTables"]) == 2, "nearby lists the close player only, two free tables")
+check(ids == [2] and int(nb["freeTables"]) == 4 and int(nb["tables"]) == 4, "nearby lists the close player only, four free tables")
 # Player 2 has no legal own deck: a draft is refused, a lent starter is fine.
 fire("op77_tcg:challenge", 1, 3, key)
 check(last("challenged", 3) is None, "a far player cannot be challenged")
@@ -105,6 +107,7 @@ fire("op77_tcg:challenge", 3, 1, "s:the_heist")
 check(last("challenged", 1) is None or last("challenged", 1)["id"] == ch["id"], "a player in a duel is not challenged")
 
 # --- Seating and setup -------------------------------------------------------------------------
+positions[1] = (-815.0, 931.0, 12.2)   # downstairs: far from the Table 1 A chair
 fire("op77_tcg:sit", 1)
 check(not any(a[0] == 1 for a in animations), "too far from the chair: no sit")
 c1, c2 = seat1.chair, L.eval("TcgTable.seats(TcgTable.slots[1])")[2].chair
@@ -201,14 +204,14 @@ check(any(e["kind"] == "draw" and int(e["seat"]) == second for e in last("match"
 check(all(e["card"] is None for e in last("match", first)["events"].values() if e["kind"] == "draw"), "the rival's drawn card stays hidden")
 # The second slot is still free for another pair.
 fire("op77_tcg:nearby", 3)
-check(int(last("nearby", 3)["freeTables"]) == 1, "one table left")
+check(int(last("nearby", 3)["freeTables"]) == 3, "three tables left")
 
 # --- Leaving -----------------------------------------------------------------------------------
 fire("op77_tcg:leaveMatch", 2)
 e1, e2 = last("match", 1), last("match", 2)
 check(e1["ended"] is True and e1["won"] is True and e2["won"] is False, "conceding gives the win to the rival")
 check(not any("nd_tcg_" in str(p["model"]) or "nd_p3_mat" in str(p["model"]) for p in props.values()), "the table is cleared")
-check(any(a[0] == 1 and a[1] == "stop" for a in animations) and any(a[0] == 2 and a[1] == "stop" for a in animations), "both stand up")
+check(sum(1 for a in animations if a[1] in ("stop", "stopAt")) >= 2, "both stand up (the sequence stops at its stand point)")
 row = con.execute("SELECT winner, reason FROM tcg_matches").fetchone()
 check(row["winner"] == "id-1" and "conceded" in row["reason"], "the result is recorded")
 
@@ -247,6 +250,13 @@ fire("op77_tcg:challenge", 1, 2, key)
 check(last("challenged", 2) is not None, "challenge again")
 fire("playerDropped", 1)
 check(str(last("challengeClosed", 2)["reason"]) == "left", "a dropped challenger closes the challenge")
+# Two players downstairs get the ground-floor duel table (the nearest free slot), its mats at the table's height.
+positions[2], positions[3] = (-818.0, 934.0, 12.2), (-817.5, 934.3, 12.2)
+fire("op77_tcg:challenge", 2, 3, "s:embracing_power")
+ch = last("challenged", 3)
+fire("op77_tcg:answerChallenge", 3, ch["id"], True, "s:the_heist")
+mg = last("match", 2)
+check(str(mg["slot"]) == "nd_c" and abs(mg["mat"]["z"] - 12.89) < 1e-6, "downstairs: the ground-floor duel table, mats on its top")
 
 print(f"PASS: op77_tcg duels ({checks[0]} checks: decks drafts/legal/owned copies, playmat, nearby, challenge decline/accept, "
       "table props per seat, seating fallback, d20 + choice, Legends spent/face down, draw 6, mulligan order, concede, "
