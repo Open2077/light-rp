@@ -3,6 +3,8 @@
 -- blip icon; a point picks one with `blip.map = "<name>"` (client/core/interact.lua).
 -- Long guns are drawn on the diagonal so they fill the pin like the pistol does.
 LightRpMapIcons = {
+    -- Ripperdoc clinics (mapPlaces kind ripperdoc): a medical cross with a chrome core.
+    ripperdoc = [[<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="M9 2.5h6v6.5h6.5v6H15v6.5H9V15H2.5V9H9zM12 9.4a2.6 2.6 0 1 0 0 5.2a2.6 2.6 0 1 0 0-5.2z"/><circle cx="12" cy="12" r="1.2"/></svg>]],
     -- The Crossing, the activities hub (server/modules/activities_hub.lua): crossed blades.
     crossing = [[<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M2.5 2.5h3l10.3 10.3-3 3L2.5 5.5z"/><path d="M21.5 2.5h-3L8.2 12.8l3 3L21.5 5.5z"/><path d="M11.6 15.8l4.2-4.2 1.4 1.4-4.2 4.2z"/><path d="M14.6 16.6l1.8-1.8 3.4 3.4-1.8 1.8z"/><circle cx="20.4" cy="20.4" r="1.6"/><path d="M12.4 15.8 8.2 11.6l-1.4 1.4 4.2 4.2z"/><path d="M9.4 16.6l-1.8-1.8-3.4 3.4 1.8 1.8z"/><circle cx="3.6" cy="20.4" r="1.6"/></svg>]],
     bar = [[<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="M3.2 4.2h17.6q.7 0 .3.6L13.1 14v5.2l3.6 1q.6.2.6.8v.4H6.7V21q0-.6.6-.8l3.6-1V14L2.9 4.8q-.4-.6.3-.6zM6.4 6.4l2.2 2.5h6.8l2.2-2.5z"/><path d="M16.9 1.4l1 .9-4.6 5.4-1-.9zM12.6 6.6a1.6 1.6 0 1 1-.1 3.2 1.6 1.6 0 0 1 .1-3.2z"/></svg>]],

@@ -154,8 +154,27 @@ LightRpConfig = {
         kinds = {
             bar = { sprite = "bar", title = "Bar", mapIcon = "bar", category = "nightlife", color = "#FF3FB4", description = "Drinks, music and the night crowd." },
             club = { sprite = "bar", title = "Club", mapIcon = "club", category = "nightlife", color = "#FF3FB4", description = "A club: dancefloor, VIP rooms, private shows." },
+            ripperdoc = { sprite = "ripperdoc", title = "Ripperdoc", mapIcon = "ripperdoc", category = "service", color = "#B48CFF",
+                description = "A ripperdoc's clinic: lie on the operating chair and the doc installs your cyberware (paid from the bank)." },
         },
         places = {
+            -- The game's 14 ripperdocs (cyberpunk2077-map.com category 26), each placed on the
+            -- operating chair of its clinic (op77_scenes spots-generated.lua): lying on it opens
+            -- the clinic (server/modules/ripperdoc.lua). District from the 3D map's buildings.
+            { id = "ripperdoc_135", kind = "ripperdoc", name = "Ripperdoc // Watson 1", district = "Watson", position = { x = -1686.06, y = 2377.41, z = 18.78 } }, -- site RIPPERDOC 135: the chair surgical_chair_a@-1686_2377_19 (15 m from the site's pin)
+            { id = "ripperdoc_138", kind = "ripperdoc", name = "Ripperdoc // Watson 2", district = "Watson", position = { x = -1239.71, y = 1939.65, z = 8.49 } }, -- site RIPPERDOC 138: the chair surgical_chair_a@-1240_1940_8 (11 m from the site's pin)
+            { id = "ripperdoc_142", kind = "ripperdoc", name = "Ripperdoc // Watson 3", district = "Watson", position = { x = -1089.05, y = 2149.03, z = 13.76 } }, -- site RIPPERDOC 142: the chair surgical_chair_a@-1089_2149_14 (5 m from the site's pin)
+            { id = "ripperdoc_151", kind = "ripperdoc", name = "Ripperdoc // Westbrook 1", district = "Westbrook", position = { x = -716.10, y = 869.44, z = 12.40 } }, -- site RIPPERDOC 151: the chair surgical_chair_a_mirrored@-716_869_12 (41 m from the site's pin)
+            { id = "ripperdoc_155", kind = "ripperdoc", name = "Ripperdoc // Westbrook 2", district = "Westbrook", position = { x = -577.68, y = 792.85, z = 25.42 } }, -- site RIPPERDOC 155: the chair surgical_chair_b@-578_793_25 (44 m from the site's pin)
+            { id = "ripperdoc_158", kind = "ripperdoc", name = "Ripperdoc // Westbrook 3", district = "Westbrook", position = { x = -39.69, y = -48.56, z = 7.62 } }, -- site RIPPERDOC 158: the chair surgical_chair_a_mirrored@-40_-49_8 (21 m from the site's pin)
+            { id = "ripperdoc_164", kind = "ripperdoc", name = "Ripperdoc // Watson 4", district = "Watson", position = { x = -1546.49, y = 1234.96, z = 11.92 } }, -- site RIPPERDOC 164: the chair surgical_chair_a@-1546_1235_12 (12 m from the site's pin)
+            { id = "ripperdoc_169", kind = "ripperdoc", name = "Ripperdoc // Watson 5", district = "Watson", position = { x = -1039.37, y = 1445.65, z = 0.91 } }, -- site RIPPERDOC 169: the chair surgical_chair_a@-1039_1446_1 (7 m from the site's pin)
+            { id = "ripperdoc_174", kind = "ripperdoc", name = "Ripperdoc // City Center", district = "City Center", position = { x = -2414.56, y = 391.81, z = 12.28 } }, -- site RIPPERDOC 174: the chair surgical_chair_a_mirrored@-2415_392_12 (15 m from the site's pin)
+            { id = "ripperdoc_186", kind = "ripperdoc", name = "Ripperdoc // Heywood", district = "Heywood", position = { x = -2358.18, y = -927.02, z = 12.70 } }, -- site RIPPERDOC 186: the chair surgical_chair_a_mirrored@-2358_-927_13 (32 m from the site's pin)
+            { id = "ripperdoc_191", kind = "ripperdoc", name = "Ripperdoc // Santo Domingo 1", district = "Santo Domingo", position = { x = -1069.50, y = -1271.36, z = 11.89 } }, -- site RIPPERDOC 191: the chair surgical_chair_a_mirrored@-1069_-1271_12 (25 m from the site's pin)
+            { id = "ripperdoc_199", kind = "ripperdoc", name = "Ripperdoc // Pacifica", district = "Pacifica", position = { x = -2624.16, y = -2467.47, z = 17.30 } }, -- site RIPPERDOC 199: the chair surgical_chair_a_mirrored@-2624_-2467_17 (7 m from the site's pin)
+            { id = "ripperdoc_212", kind = "ripperdoc", name = "Ripperdoc // Santo Domingo 2", district = "Santo Domingo", position = { x = 586.52, y = -2178.49, z = 42.95 } }, -- site RIPPERDOC 212: the chair surgical_chair_b@587_-2178_43 (12 m from the site's pin)
+            { id = "ripperdoc_219", kind = "ripperdoc", name = "Ripperdoc // Badlands", district = "Badlands", position = { x = 3439.99, y = -387.25, z = 136.03 } }, -- site RIPPERDOC 219: the chair surgical_chair_a_mirrored@3440_-387_136 (17 m from the site's pin)
             { id = "bar_188", kind = "bar", name = "El Coyote Cojo", district = "Heywood", position = { x = -1251.26, y = -968.78, z = 11.89 } }, -- site BAR 188, named after "El Coyote Cojo" 44 m away
             { id = "bar_963", kind = "bar", name = "Afterlife", district = "Watson", position = { x = -1455.58, y = 1030.10, z = 22.56 } }, -- site BAR 963, named after "Afterlife" 38 m away
             { id = "bar_167", kind = "bar", name = "Ho-Oh", district = "Watson", position = { x = -1037.37, y = 1347.92, z = 5.17 } }, -- site BAR 167, named after "Ho-Oh" 31 m away
