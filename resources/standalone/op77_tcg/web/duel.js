@@ -14,6 +14,8 @@
   ];
   var T = null;
   var $ = function (id) { return document.getElementById(id); };
+  // An empty Lua table reaches the page as {} (JSON object), not []: every list from the client goes through list().
+  function list(x) { return Array.isArray(x) ? x : (x && typeof x === "object" ? Object.keys(x).map(function (k) { return x[k]; }) : []); }
   var D = { decks: [], starters: [], playmat: "netrunner", selected: "", max: 12, asked: false };
   var edit = null;            // { key, name, legends: [], cards: { slug: n }, dirty }
   var pool = { type: "all", colour: "all", search: "", owned: true };
@@ -44,7 +46,7 @@
 
   // shared/decks.lua TcgDecks.validate, for live feedback (the server has the last word).
   function validate(deck, own) {
-    var errors = [], names = {}, legends = deck.legends || [];
+    var errors = [], names = {}, legends = list(deck.legends);
     if (legends.length !== RULES.legends) errors.push("Pick " + RULES.legends + " Legends (" + legends.length + "/" + RULES.legends + ").");
     var limits = { Red: 0, Green: 0, Blue: 0, Yellow: 0 }, used = { Red: 0, Green: 0, Blue: 0, Yellow: 0 };
     legends.forEach(function (slug) {
@@ -567,7 +569,7 @@
     $("dhRival").innerHTML = seatHtml(rival, false);
     $("dhYou").innerHTML = seatHtml(me, true);
     // Only the lines that are new slide in (a rebuild would replay every line).
-    var logBox = $("dhLog"), lines = (m.log || []).slice(-6), before = logBox.dataset.lines ? JSON.parse(logBox.dataset.lines) : [];
+    var logBox = $("dhLog"), lines = list(m.log).slice(-6), before = logBox.dataset.lines ? JSON.parse(logBox.dataset.lines) : [];
     if (JSON.stringify(lines) !== logBox.dataset.lines) {
       var shift = 0;
       while (shift < before.length && JSON.stringify(before.slice(shift)) !== JSON.stringify(lines.slice(0, before.length - shift))) shift++;
@@ -586,7 +588,7 @@
   /* ------------------------------------------------------------------------------------------- events */
   function bind() {
     T.on("tcg:decks", function (d) {
-      D.decks = d.decks || []; D.starters = d.starters || []; D.playmat = d.playmat || D.playmat; D.selected = d.selected || "";
+      D.decks = list(d.decks); D.starters = list(d.starters); D.playmat = d.playmat || D.playmat; D.selected = d.selected || "";
       D.max = d.max || D.max;
       var ex = d.extra || {};
       if (ex.saved && edit) { edit.key = ex.saved; edit.dirty = false; }
@@ -596,7 +598,7 @@
       if (duel.incoming && !$("challengeModal").classList.contains("hidden")) showChallenge();
     });
     T.on("tcg:nearby", function (d) {
-      duel.nearby = d.players || []; duel.freeTables = d.freeTables || 0; duel.tables = d.tables || 2;
+      duel.nearby = list(d.players); duel.freeTables = d.freeTables || 0; duel.tables = d.tables || 2;
       if (T.ui.open && T.ui.tab === "duel") renderDuel();
     });
     T.on("tcg:challenged", function (d) {

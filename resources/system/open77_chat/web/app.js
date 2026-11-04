@@ -300,7 +300,8 @@
       command.className = "suggestion-command";
       command.textContent = item.command;
       syntax.append(command);
-      for (const parameter of (item.parameters || []).slice(0, 8)) {
+      // An empty Lua table arrives as {} (a JSON object), not []: only a real array lists parameters.
+      for (const parameter of (Array.isArray(item.parameters) ? item.parameters : []).slice(0, 8)) {
         const node = document.createElement("span");
         node.className = "suggestion-params";
         const name = bounded(parameter && parameter.name || parameter, 40);
