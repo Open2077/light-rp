@@ -341,9 +341,10 @@ ChaseConfig.wanted = {
     },
 
     vehicles = {
-        -- Records from Freeroam's race list (running distribution). The runner gets a muscle
-        -- car against the NCPD sedans: he is alone against up to seven of them.
-        runner = { record = "Vehicle.v_sport2_quadra_type66_avenger_player", fallbackRecord = "Vehicle.v_standard2_archer_hella_player",
+        -- Records from Freeroam's race list (running distribution). The runner drives an
+        -- Archer Hella, a daily sedan like the NCPD's Cortes: the Quadra Type-66 he had until
+        -- 2026-11-04 outran the cops now that they leave with him (owner, prod test).
+        runner = { record = "Vehicle.v_standard2_archer_hella_player", fallbackRecord = "Vehicle.v_standard2_villefort_cortes_player",
             lightsOn = true, sirenOn = false },
         cop = {
             record = "Vehicle.ncpd_villefort_cortes_heat_1",

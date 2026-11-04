@@ -268,7 +268,7 @@ do
     assert(math.abs(cp2.x - front.x) < 5 and math.abs(cp2.y - front.y) < 5, "the first cop takes the front slot of the grid")
     assert(countCars() == 3 and countCars(function(c) return c.bucket == 4300100 end) == 3)
     assert(countCars(function(c) return c.spec.sirenOn end) == 2, "two NCPD cars")
-    assert(countCars(function(c) return c.spec.record == "Vehicle.v_sport2_quadra_type66_avenger_player" end) == 1)
+    assert(countCars(function(c) return c.spec.record == "Vehicle.v_standard2_archer_hella_player" end) == 1)
     assert(env.frozen[1] and env.frozen[2] and env.frozen[3])
     local h1, h2 = env.hud[1], env.hud[2]
     assert(h1.activity == "chase.wanted" and h1.role == "runner" and h2.role == "cop" and h1.round == 1 and h1.roundCount == 3)
