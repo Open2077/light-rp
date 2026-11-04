@@ -566,7 +566,15 @@
     var me = m.seats[m.you], rival = m.seats[m.you === 1 ? 2 : 1];
     $("dhRival").innerHTML = seatHtml(rival, false);
     $("dhYou").innerHTML = seatHtml(me, true);
-    $("dhLog").innerHTML = (m.log || []).slice(-6).map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("");
+    // Only the lines that are new slide in (a rebuild would replay every line).
+    var logBox = $("dhLog"), lines = (m.log || []).slice(-6), before = logBox.dataset.lines ? JSON.parse(logBox.dataset.lines) : [];
+    if (JSON.stringify(lines) !== logBox.dataset.lines) {
+      var shift = 0;
+      while (shift < before.length && JSON.stringify(before.slice(shift)) !== JSON.stringify(lines.slice(0, before.length - shift))) shift++;
+      var known = before.length - shift;
+      logBox.innerHTML = lines.map(function (l, i) { return "<p" + (i >= known ? ' class="new"' : "") + ">" + esc(l) + "</p>"; }).join("");
+      logBox.dataset.lines = JSON.stringify(lines);
+    }
     $("dhSeated").classList.toggle("game", m.phase === "game");
     if (m.phase === "game" && gameRenderer) { gameRenderer.render(m); return; }
     if (gameRenderer) gameRenderer.clear();

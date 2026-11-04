@@ -174,3 +174,28 @@
 
 /* The overlay lets clicks through to the game, except on its panels (dice to roll, Legends to Call). */
 .dh-seated.game .dh-centre, .dh-seated.game .dh-you, .dh-seated.game .dh-rival { pointer-events: auto; }
+
+/* ------------------------------------------------------------------------------------------------ layout over the 3D table
+   The table is the show: the boards are compact strips on the left (the rival's at the top, yours above your panel),
+   the hand sits low and rises on hover, the log moves up between them. */
+.tb-rival, .tb-mine { left: 30px; transform: none; gap: 12px; flex-direction: column; align-items: flex-start; }
+.tb-rival { top: 96px; }
+.tb-mine { bottom: 236px; flex-direction: column-reverse; }
+.tc.bd { width: 64px; height: 89px; border-radius: 4px; }
+.tb-field { gap: 8px; min-height: 104px; padding: 18px 10px 6px; background: rgba(8, 10, 13, .62); max-width: 760px; flex-wrap: wrap; }
+.tb-field.empty { min-width: 180px; min-height: 60px; }
+.tb-unit.spent { margin: 0 12px; }
+.tb-pow { min-width: 24px; height: 22px; font-size: 13px; right: -5px; bottom: -5px; }
+.tb-tags { top: -15px; font-size: 9px; }
+.tb-gigs { padding: 20px 10px 8px; min-height: 64px; }
+.tb-die { width: 40px; height: 45px; }
+.tb-die b { font-size: 17px; }
+.dh-seated.game .dh-log { left: auto; right: 40px; top: auto; bottom: 92px; transform: none; width: 400px; gap: 3px; }
+.dh-seated.game .dh-log p { font-size: 13px; padding: 4px 10px; }
+@keyframes tbLog { from { opacity: 0; transform: translateX(14px); } }
+.dh-seated.game .dh-centre { top: 42%; }
+.dh-seated.game .dh-hand { bottom: -78px; }
+.dh-seated.game .dh-card.hot { transform: translateX(var(--push, 0px)) translateY(-150px) scale(1.12) rotate(0deg); }
+.dh-seated.game .dh-hand:hover .dh-card:not(.hot) { transform: translateX(var(--push, 0px)) translateY(calc(var(--y) - 40px)) rotate(var(--r)); }
+.dh-seated.game .dh-you { bottom: 130px; }
+.dh-log p.new { animation: tbLog .45s var(--ease-out) both; }
