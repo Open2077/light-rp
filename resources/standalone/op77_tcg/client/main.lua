@@ -342,6 +342,8 @@ local function closeBinder()
     isOpen = false
     send("tcg:close", {})
     pcall(function() page:setFocus(false, false) end)
+    -- Seated at a duel table, the page keeps the cursor for the game overlay (client/duel.lua).
+    if TcgClient and TcgClient.afterClose then TcgClient.afterClose() end
 end
 
 local function openPack(product)
@@ -396,6 +398,25 @@ local PAGE_ACTIONS = {
         local names = { tear = "booster_open.wav" }
         if names[d.name] then pcall(Open77.audio.play2D, "sounds/" .. names[d.name], { volume = 0.8 }) end
     end,
+}
+
+-- What client/duel.lua shares with this script: the page, its actions, the binder.
+TcgClient = {
+    log = log, me = me, notify = notify, uikit = uikit, send = send, here = here, forward = forward, right = right,
+    isOpen = function() return isOpen end,
+    -- A page action (page -> client); registered on the page now if it already exists.
+    on = function(name, fn)
+        PAGE_ACTIONS[name] = fn
+        if page then page:on(name, function(d) local ok, err = pcall(fn, type(d) == "table" and d or {}); if not ok then log("%s: %s", name, tostring(err)) end end) end
+    end,
+    -- The page over the game: `focus` takes the cursor and the keyboard (a duel at the table, the binder).
+    show = function(focus)
+        if not page then return end
+        pcall(function() page:show() end)
+        pcall(function() page:setFocus(focus == true, focus == true) end)
+    end,
+    release = function() if page then pcall(function() page:setFocus(false, false) end) end end,
+    openBinder = function(tab) openBinder(tab) end,
 }
 
 CreateThread(function()

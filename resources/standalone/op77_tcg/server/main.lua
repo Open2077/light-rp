@@ -800,6 +800,18 @@ exports("getCollection", function(player)
 end)
 
 -- ---------------------------------------------------------------------------------------------
+-- What the other server scripts of op77_tcg (server/duel.lua) share with this one.
+
+TcgServer = {
+    log = log, now = now, unix = unix, query = query, exec = exec, notify = notify, session = session,
+    profile = profile, positionOf = positionOf, dist = dist, witnesses = witnesses, playerOf = playerOf,
+    isReady = function() return ready end,
+    insert = function(sql, params) return db.insert.await(sql, params or {}) end,
+    name = function(player) return Open77.players.name(player) or ("Player " .. tostring(player)) end,
+    handler = handler,
+}
+
+-- ---------------------------------------------------------------------------------------------
 -- Boot
 
 CreateThread(function()

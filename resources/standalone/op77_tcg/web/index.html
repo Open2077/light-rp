@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Cyberpunk TCG</title>
   <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="./duel.css">
 </head>
 <body>
   <div id="app" class="hidden">
@@ -18,6 +19,8 @@
           <button data-tab="binder" class="active">Binder</button>
           <button data-tab="sealed">Sealed <span id="sealedCount" class="pill"></span></button>
           <button data-tab="shop" id="shopTab">Shop</button>
+          <button data-tab="decks">Decks</button>
+          <button data-tab="duel">Duel <span id="duelPill" class="pill"></span></button>
         </nav>
         <div class="wallet">
           <div class="stat"><span class="k">Collection</span><span class="v" id="statEditions">0 / 320</span></div>
@@ -69,6 +72,83 @@
             <input id="printSearch" type="search" placeholder="Find an edition to print...">
             <div id="printList" class="list"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Deck building, the official rules: 3 Legends, 40-50 cards, 3 copies, RAM per colour (docs/RULES.md §6) -->
+      <div class="tab hidden" id="tab-decks">
+        <aside class="dk-list">
+          <h3>Deck box <small id="dkCount"></small></h3>
+          <div id="dkDecks" class="dk-decks"></div>
+          <button class="primary" id="dkNew">New deck</button>
+          <h3 class="dk-lent">Lent by the shop</h3>
+          <div id="dkStarters" class="dk-decks"></div>
+        </aside>
+        <section class="dk-edit" id="dkEdit">
+          <div class="dk-head">
+            <input id="dkName" maxlength="32" placeholder="Deck name" autocomplete="off">
+            <span class="dk-status" id="dkStatus"></span>
+            <button class="primary" id="dkSave">Save</button>
+            <button class="ghost" id="dkUse">Use for duels</button>
+            <button class="ghost danger" id="dkDelete">Delete</button>
+          </div>
+          <div class="dk-top">
+            <div class="dk-legends" id="dkLegends"></div>
+            <div class="dk-meters">
+              <div class="dk-count"><b id="dkMain">0</b><span>/ 40-50 cards</span></div>
+              <div class="dk-ram" id="dkRam"></div>
+              <ul class="dk-errors" id="dkErrors"></ul>
+            </div>
+          </div>
+          <div class="dk-body">
+            <div class="dk-pool">
+              <div class="dk-filters">
+                <input id="dkSearch" type="search" placeholder="Search name, tag or text..." autocomplete="off">
+                <div class="chips" id="dkTypes"></div>
+                <div class="chips" id="dkColours"></div>
+                <label class="dk-owned"><input type="checkbox" id="dkOwnedOnly" checked> Owned only</label>
+              </div>
+              <div class="dk-grid" id="dkPool"></div>
+            </div>
+            <div class="dk-cards" id="dkCards"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Duels: your playmat, your deck, the players around to challenge -->
+      <div class="tab hidden" id="tab-duel">
+        <div class="du-cols">
+          <section class="du-mats">
+            <h3>Playmat <small>what you play on at the table</small></h3>
+            <div class="du-matgrid" id="duMats"></div>
+          </section>
+          <section class="du-side">
+            <div class="du-box" id="duCurrent"></div>
+            <div class="du-box">
+              <h3>Duel deck</h3>
+              <select id="duDeck"></select>
+              <p class="hint" id="duDeckHint"></p>
+            </div>
+            <div class="du-box">
+              <h3>Challenge a player <button class="ghost small" id="duRefresh">Refresh</button></h3>
+              <p class="hint" id="duTables"></p>
+              <div id="duPlayers" class="du-players"></div>
+              <div id="duOutgoing" class="du-outgoing"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- A duel challenge for you -->
+    <section id="challengeModal" class="modal hidden">
+      <div class="offer-box du-challenge">
+        <h3 id="chTitle"></h3>
+        <p id="chText"></p>
+        <label>Your deck <select id="chDeck"></select></label>
+        <div class="actions">
+          <button class="primary" id="chAccept">Accept the duel</button>
+          <button class="ghost" id="chDecline">Decline</button>
         </div>
       </div>
     </section>
@@ -159,7 +239,27 @@
 
     <div class="toast" id="toast"></div>
   </div>
+
+  <!-- At the duel table: outside the binder, over the game -->
+  <div id="duelHud" class="hidden">
+    <div class="dh-banner" id="dhBanner"></div>
+    <div class="dh-seated" id="dhSeated">
+      <div class="dh-rival" id="dhRival"></div>
+      <div class="dh-centre" id="dhCentre"></div>
+      <div class="dh-log" id="dhLog"></div>
+      <div class="dh-you" id="dhYou"></div>
+      <div class="dh-hand" id="dhHand"></div>
+      <div class="dh-tools">
+        <button class="ghost" id="dhView">View: seat</button>
+        <button class="ghost" id="dhBinder">Binder</button>
+        <button class="ghost danger" id="dhLeave">Leave the table</button>
+      </div>
+      <div class="dh-zoom hidden" id="dhZoom"></div>
+    </div>
+  </div>
   <script src="./data/catalogue.js"></script>
+  <script src="./data/cards.js"></script>
+  <script src="./duel.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

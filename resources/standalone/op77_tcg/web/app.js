@@ -267,10 +267,14 @@
   function setTab(tab) {
     ui.tab = tab;
     document.querySelectorAll(".tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === tab); });
-    ["binder", "sealed", "shop"].forEach(function (t) { $("tab-" + t).classList.toggle("hidden", t !== tab); });
+    document.querySelectorAll("#binder .tab").forEach(function (t) { t.classList.toggle("hidden", t.id !== "tab-" + tab); });
     renderAll();
   }
-  function renderAll() { renderStats(); if (ui.tab === "binder") renderBinder(); if (ui.tab === "sealed") renderSealed(); if (ui.tab === "shop") renderShop(); }
+  var TABS = {};   // tabs added by other scripts of the page (web/duel.js: Decks, Duel)
+  function renderAll() {
+    renderStats(); if (ui.tab === "binder") renderBinder(); if (ui.tab === "sealed") renderSealed(); if (ui.tab === "shop") renderShop();
+    if (TABS[ui.tab]) TABS[ui.tab]();
+  }
 
   function show() { $("app").classList.remove("hidden"); ui.open = true; }
   function hide() { $("app").classList.add("hidden"); hideModals(); ui.open = false; }
@@ -973,11 +977,20 @@
   catalogue.forEach(function (c) { byId[c.id] = c; });
   buildChips();
   renderAll();
+  // What web/duel.js shares with the binder.
+  window.TCG = {
+    emit: emit, on: on, toast: toast, show: show, hide: hide, setTab: setTab, cardNode: cardNode, img: img, escapeHtml: escapeHtml,
+    el: el, state: function () { return state; }, ui: ui, catalogue: function () { return catalogue; }, byId: byId,
+    tab: function (id, render) { TABS[id] = render; }, preview: PREVIEW, previewHandlers: handlers,
+    isBusy: function () { return !!(op || ub); }, closeBinder: function () { close(); }
+  };
+  document.dispatchEvent(new Event("tcg:binderReady"));
   if (O) { try { O.ready(); } catch (e) { console.error(e); } } else startPreview();
 
   /* ---------------------------------------------------------------------------------------- preview */
   function preview(name, d) {
     console.log("[preview] emit", name, d);
+    if (window.TCG_PREVIEW_HOOK && window.TCG_PREVIEW_HOOK(name, d)) return;
     if (name === "tcg:unbox" || name === "tcg:openPack") {
       var sealed = Object.assign({}, state.sealed);
       if ((sealed[d.product] || 0) <= 0) { toast("No " + d.product + " left", "error"); return; }
