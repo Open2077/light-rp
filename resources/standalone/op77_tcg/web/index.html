@@ -106,17 +106,35 @@
     <!-- Opening a pack -->
     <section id="opening" class="screen hidden">
       <div class="table-felt"></div>
-      <div class="pack" id="pack">
-        <img id="packImg" alt="">
-        <div class="strip" id="packStrip"></div>
-        <div class="tearline" id="tearLine"><div class="tearfill" id="tearFill"></div></div>
+      <div class="rays" id="rays"></div>
+      <!-- The stage: the pack, then the deck of 12 face-down cards that comes out of it -->
+      <div class="stage" id="stage">
+        <div class="pack" id="pack">
+          <div class="pack-tilt">
+            <div class="pack-body"></div>
+            <div class="pack-top" id="packTop"></div>
+            <div class="pack-shine"></div>
+            <div class="tear-guide"><span class="tear-dash"></span><span class="tear-arrow">&#10148;</span></div>
+            <div class="tear-glow"></div>
+          </div>
+        </div>
+        <div class="deck" id="deck"></div>
+        <div class="charge" id="charge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"></circle><circle class="arc" id="chargeArc" cx="50" cy="50" r="46"></circle></svg></div>
       </div>
-      <div class="stack" id="stack"></div>
-      <div class="revealed" id="revealed"></div>
+      <div class="counter" id="counter"></div>
+      <!-- 12 slots: every revealed card lands in its own -->
+      <div class="tray" id="tray"></div>
       <div class="opening-hint" id="openingHint"></div>
+      <button class="ghost skip" id="skipBtn">Reveal all</button>
+      <canvas class="fx" id="fx"></canvas>
+      <div class="flash" id="flash"></div>
       <div class="summary hidden" id="summary">
         <h2>Pack summary</h2>
-        <div class="summary-grid" id="summaryGrid"></div>
+        <div class="summary-stats" id="summaryStats"></div>
+        <div class="summary-body">
+          <div class="summary-hit" id="summaryHit"></div>
+          <div class="summary-grid" id="summaryGrid"></div>
+        </div>
         <button class="primary" id="summaryDone">Sleeve them into the binder</button>
       </div>
     </section>

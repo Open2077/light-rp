@@ -9,13 +9,19 @@ gamemode, and any server can load it.
   Displays of 24 packs (you cut the shrink-wrap). New collectors receive 3 starter packs. Sealed product is shown in
   the binder's **Sealed** tab.
 - **Opening a pack, for real.** The opener holds the 3D booster in the right hand, and everyone within 40 m sees it.
-  - On the opener's screen, a drag across the top tears the pack, with the sound played in 3D for the people around.
-  - The opener then reveals the cards one by one with Space or a click. At the same pace, the real 3D cards are
-    dealt on the table in front of them: four columns by three rows, with the premium card alone in front. The cards
-    slide out of the hand.
-  - With no table, the cards fan out in the hand.
-  - The rare slot comes last, after a suspense shake. It gets a rarity banner and burst on screen, and a flash of
-    the rarity's colour on the table (Epic and above).
+  - On the opener's screen, the pack follows the mouse (foil shine, tilt). A swipe along the dashed line under the
+    crimp tears it little by little: the strip lifts, light leaks through, the wrapper crackles. Let go and the tear
+    stays where it got; a click or Space tears it in one go. The rip is also played in 3D for the people around.
+  - The 12 cards slide out of the pack face down. Each click or Space flips the next card and sends the previous one
+    to its slot in the tray at the bottom of the screen (with NEW / rarity marks). A counter shows the progress.
+    Uncommon and better cards chime and spark; Rare gets a banner, Epic and above a flash.
+  - The rare slot comes last: the hidden card glows in its rarity's colour and you **hold** to reveal it. The glow,
+    the rays and a ring charge up; letting go cools it down. Then a flash, a shake, a burst, the rarity banner, and a
+    rain of gold for Nova Rare / Iconic and Secret.
+  - The pack summary shows the hit in large, the other 11 cards, and the new / duplicate counts. "Reveal all" skips.
+  - Sounds of the opening are made by the page (WebAudio), no asset needed.
+  - At the same pace, the real 3D cards are dealt on the table in front of the opener: four columns by three rows,
+    with the premium card alone in front. With no table, the cards fan out in the hand.
   - The cards stay on the table for 30 s, then go into the binder. They are written to the database before the first
     reveal, so a crash never loses or duplicates a card.
 - **The binder** (F6, `/binder`; rebindable in Settings → Key bindings). It is a ring album with 3x3 sleeved pages, page turns, plastic gloss and finish
@@ -89,6 +95,11 @@ The zips are not in git. Rebuild them, along with the catalogue and the images:
 ```powershell
 pwsh tools/build-assets.ps1 -ModZip "<path>\Cyberpunk TCG Collectibles 34654 1.1 ....zip"
 ```
+
+The binder and the opening show the official renders of cyberpunktcg.com (733 x 1024) rather than the in-game
+textures. `tools/fetch_official.py <resource> <work dir>` downloads the English printings from the NetDeck card API
+behind that site and matches each edition to its printing by comparing pictures (the mod's art variants are
+different printings). It writes `web/img/cards/<id>.webp` and a `report.json`.
 
 The source meshes are about 6 times the size of a real card, so the resource scales them to real size (63 x 88 mm):
 `TcgConfig.scale`.
