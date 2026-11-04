@@ -17,7 +17,7 @@ _G.Wait = function() coroutine.yield() end
 
 local positions, weapons, now = {}, {}, 0
 local sent, notices, bank, titles, states, chat = {}, {}, {}, {}, {}, {}
-local handlers, commands, providers = {}, {}, {}
+local handlers, commands, providers, actions, results = {}, {}, {}, {}, {}
 _G.GetPlayers = function() local t = {} for id in pairs(positions) do t[#t + 1] = tostring(id) end table.sort(t) return t end
 _G.GetPlayerName = function(id) return positions[id] and ("P" .. id) or nil end
 _G.TriggerClientEvent = function(name, id, payload) sent[#sent + 1] = { name = name, id = id, payload = payload } end
@@ -35,6 +35,8 @@ _G.LightRP = {
     log = function(fmt, ...) if os.getenv("MANEKI_TEST_LOG") then print(string.format(fmt, ...)) end end,
     module = function(name, def) LightRP[name] = def; return def end,
     command = function(name, _, fn) commands[name] = fn end,
+    action = function(name, fn) actions[name] = fn end,
+    result = function(id, ok, text, action) results[#results + 1] = { id = id, ok = ok, text = text, action = action } end,
     notice = function(id, n) notices[#notices + 1] = { id = id, title = n.title, body = n.body } end,
     state = function(id, key) states[#states + 1] = { id = id, key = key } end,
     stateProvider = function(key, fn) providers[key] = fn end,
@@ -50,7 +52,8 @@ _G.LightRP = {
         displayName = function(id) return "Player " .. id end,
     },
     money = { addBank = function(id, amount, kind) bank[id] = (bank[id] or 0) + amount; return true end },
-    titles = { award = function(id, title) titles[#titles + 1] = { id = id, title = title }; return true end },
+    titles = { award = function(id, title) titles[#titles + 1] = { id = id, title = title }; return true end,
+        defs = { lucky_cat = { id = "lucky_cat", label = "Lucky Cat" } } },
     staff = { moveTo = function(id, position, heading, cb) positions[id] = { x = position.x, y = position.y, z = position.z }; cb(true) end },
     chat = { system = function(id, text) chat[#chat + 1] = text end },
     admin = { handlers = {} },
@@ -152,6 +155,24 @@ local done = last(2, "found")
 assert(done.id == catB and done.found == 2 and done.complete == true and done.title == true and done.milestone == 5000, "set complete")
 assert(bank[2] == 500 + 500 + 5000, "find + find + milestone: " .. tostring(bank[2]))
 assert(#titles == 1 and titles[1].title == "lucky_cat", "title awarded once")
+
+-- The collection panel: one slot per cat, found ones with where/when/how, the others empty.
+actions["maneki.open"](4)
+local col = last(4, "collection").collection
+assert(col.total == 2 and col.found == 1 and #col.slots == 2, "player 4: 1 of 2")
+assert(col.slots[1] == "" and col.slots[2]:match("^" .. catB .. "|"), "slot A empty (not found), slot B found: " .. col.slots[2])
+local parts = {}
+for f in (col.slots[2] .. "|"):gmatch("([^|]*)|") do parts[#parts + 1] = f end
+assert(parts[4] == "shot" and tonumber(parts[3]) > 0 and tonumber(parts[5]) == 20, "how, when, where")
+assert(col.intro == true and col.title.label == "Lucky Cat" and col.reward == 500, "first opening explains itself")
+actions["maneki.intro"](4)
+actions["maneki.open"](4)
+assert(last(4, "collection").collection.intro == nil, "explained once")
+actions["maneki.open"](2)
+assert(last(2, "collection").collection.found == 2, "player 2 has both")
+local stateKeys = 0
+for _, st in ipairs(states) do if st.id == 3 and st.key == "maneki" then stateKeys = stateKeys + 1 end end
+assert(stateKeys >= 1, "the F1 count is pushed once the finds are read")
 
 -- The desk: list with find counts, then an audited removal.
 local list = M.list(1, { sort = "near" })

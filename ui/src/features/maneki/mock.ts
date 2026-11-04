@@ -14,6 +14,18 @@ export function manekiMock(fire: Fire, params: URLSearchParams) {
     boot() {
       if (mode === "tool") fire(PAGE_EVENTS.maneki, { active: true, scale: 1.5, yaw: 15, aim: true, nearby: 3, message: "Maneki-neko mk6a1f3c2e01 placed (3 in the city).", ok: true });
       if (mode === "desk") fire(PAGE_EVENTS.dialog, { kind: "support", scope: "staff" });
+      // ?maneki=collection[&intro=1]: F1 > Maneki-neko with 7 of 18 found
+      if (mode === "collection") {
+        const districts = ["Kabuki", "Japantown", "Little China", "Northside", "Downtown", "Vista del Rey", "Charter Hill"];
+        const found = new Set([0, 1, 3, 6, 7, 10, 14]);
+        const slots = Array.from({ length: 18 }, (_, i) => found.has(i)
+          ? `mk${i}|${districts[i % districts.length]}|${Date.now() - (18 - i) * 3600e3 * 7}|${i % 3 === 0 ? "shot" : "take"}|${-1400 + i * 90}|${120 + i * 40}|18`
+          : "");
+        fire(PAGE_EVENTS.state, { maneki: { found: found.size, total: slots.length } });
+        fire(PAGE_EVENTS.dialog, { kind: "maneki", slots, found: found.size, total: slots.length, reward: 500,
+          milestones: [{ count: 10, cash: 5000 }, { count: 25, cash: 15000 }, { count: 50, cash: 40000 }], completeMin: 10,
+          title: { id: "lucky_cat", label: "Lucky Cat" }, intro: params.get("intro") === "1" || undefined });
+      }
     },
     /** The staff desk's requests: true when answered. */
     receive(payload: unknown): boolean {

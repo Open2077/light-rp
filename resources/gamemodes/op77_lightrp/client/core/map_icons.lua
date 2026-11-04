@@ -3,6 +3,8 @@
 -- blip icon; a point picks one with `blip.map = "<name>"` (client/core/interact.lua).
 -- Long guns are drawn on the diagonal so they fill the pin like the pistol does.
 LightRpMapIcons = {
+    -- A Maneki-neko of the player's collection (client/core/maneki.lua showOnMap): head with ears, raised paw, body with its coin.
+    maneki = [[<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="M5.6 2.6l3.2 3.3a7 7 0 0 1 6.4 0l3.2-3.3.7 5.3a6.6 6.6 0 0 1-6.3 7.8h-.6a6.6 6.6 0 0 1-6.3-7.8zM8.6 9.2h2.2v1.1H8.6zM13.2 9.2h2.2v1.1h-2.2z"/><path d="M6.6 15.2C5.4 16.6 5 18.2 5 19.6 5 21 6 21.6 7.4 21.6h9.2c1.4 0 2.4-.6 2.4-2 0-1.4-.4-3-1.6-4.4a7.6 7.6 0 0 1-10.8 0zM12 16.6a1.9 2.3 0 1 0 0 4.6 1.9 2.3 0 1 0 0-4.6z"/><path d="M19.4 13.6c1-1.4 1.6-3.4 1.6-5.2 0-1-.5-1.6-1.2-1.6s-1.2.6-1.2 1.6c0 1.4-.4 2.8-1 4z"/></svg>]],
     -- Ripperdoc clinics (mapPlaces kind ripperdoc): a medical cross with a chrome core.
     ripperdoc = [[<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="M9 2.5h6v6.5h6.5v6H15v6.5H9V15H2.5V9H9zM12 9.4a2.6 2.6 0 1 0 0 5.2a2.6 2.6 0 1 0 0-5.2z"/><circle cx="12" cy="12" r="1.2"/></svg>]],
     -- The Crossing, the activities hub (server/modules/activities_hub.lua): crossed blades.

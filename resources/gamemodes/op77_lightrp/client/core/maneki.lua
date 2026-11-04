@@ -200,9 +200,94 @@ local function jingle(event)
     if Open77.sfx and type(Open77.sfx.play2d) == "function" then pcall(Open77.sfx.play2d, event) end
 end
 
+-- ---------------------------------------------------------------------------
+-- F1 > Maneki-neko: the collection panel (ui/src/features/maneki/ManekiCollection.tsx)
+-- and "Show on the city map": op77_map3d opens on the spot, every found cat pinned;
+-- closing the map brings the collection back.
+
+local function split(raw)
+    local out, from = {}, 1
+    while true do
+        local at = raw:find("|", from, true)
+        if not at then out[#out + 1] = raw:sub(from); return out end
+        out[#out + 1] = raw:sub(from, at - 1)
+        from = at + 1
+    end
+end
+function Maneki.parseCollection(payload)
+    local list, width = {}, math.max(2, #tostring(#(payload.slots or {})))
+    for i, raw in ipairs(type(payload.slots) == "table" and payload.slots or {}) do
+        if type(raw) == "string" and raw ~= "" then
+            local f = split(raw)
+            local x, y, z = tonumber(f[5]), tonumber(f[6]), tonumber(f[7])
+            if f[1] ~= "" and x and y and z then
+                list[#list + 1] = { id = f[1], district = f[2] ~= "" and f[2] or nil, at = tonumber(f[3]), how = f[4], x = x, y = y, z = z,
+                    number = ("%0" .. width .. "d"):format(i) }
+            end
+        end
+    end
+    return list
+end
+
+local mapBlips, backToCollection = {}, false
+local function mapCall(method, ...)
+    if type(GetResourceState) ~= "function" or GetResourceState("op77_map3d") ~= "running" then return false, "not running" end
+    return pcall(function(...) return exports.op77_map3d[method](exports.op77_map3d, ...) end, ...)
+end
+local function clearMapBlips()
+    for _, id in ipairs(mapBlips) do mapCall("removeBlip", id) end
+    mapBlips = {}
+end
+local function dateOf(ms)
+    if not ms or type(os) ~= "table" or type(os.date) ~= "function" then return nil end
+    local ok, text = pcall(os.date, "%d %b %Y %H:%M", math.floor(ms / 1000))
+    return ok and text or nil
+end
+
+function Maneki.showOnMap(id)
+    local c = Maneki.collection
+    if not c then return false, "Open your collection again." end
+    local target
+    for _, f in ipairs(c.found) do if f.id == id then target = f end end
+    if not target then return false, "That cat is not in your collection." end
+    if type(GetResourceState) ~= "function" or GetResourceState("op77_map3d") ~= "running" then return false, "The city map is not available on this server." end
+    clearMapBlips()
+    for _, f in ipairs(c.found) do
+        local selected = f.id == id
+        local when = dateOf(f.at)
+        local ok, blip = mapCall("addBlip", { id = "maneki." .. f.id, position = { x = f.x, y = f.y, z = f.z },
+            icon = LightRpMapIcons and LightRpMapIcons.maneki or nil, color = selected and "#FFCC00" or "#B8962E",
+            label = "Maneki-neko #" .. f.number, category = "maneki", pulse = selected, priority = selected and 2 or 1,
+            scale = selected and 1.25 or 0.9, minimap = false,
+            description = table.concat({ f.district or "Night City", f.how == "shot" and "shot down" or "taken", when and ("found " .. when) or nil }, " · ") })
+        if ok and blip then mapBlips[#mapBlips + 1] = blip end
+    end
+    c.payload.intro = nil
+    Ui.send(E.page.dialogClose, { kind = "maneki" })
+    local position = { x = target.x, y = target.y, z = target.z }
+    local opened = mapCall("open", position)
+    if not opened then clearMapBlips(); return false, "The city map could not open." end
+    mapCall("focus", position, 260)
+    backToCollection = true
+    return true
+end
+
+AddEventHandler("op77_map3d:closed", function()
+    if #mapBlips == 0 and not backToCollection then return end
+    clearMapBlips()
+    if backToCollection and Maneki.collection then
+        backToCollection = false
+        Ui.send(E.page.dialog, Maneki.collection.payload)
+    end
+end)
+
 RegisterNetEvent(E.net.maneki, function(p)
     if type(p) ~= "table" then return end
-    if p.kind == "near" then
+    if p.kind == "collection" and type(p.collection) == "table" then
+        Maneki.collection = { payload = p.collection, found = Maneki.parseCollection(p.collection) }
+        if Ui.supportMode and Ui.setSupportInput then Ui.setSupportInput("closed") end
+        Ui.send(E.page.dialog, p.collection)
+    elseif p.kind == "near" then
         if type(p.model) == "string" and p.model ~= "" then Maneki.model = p.model end
         Maneki.height = tonumber(p.height) or Maneki.height
         Maneki.apply(p.spots, p.editing == true)

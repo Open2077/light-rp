@@ -27,16 +27,23 @@ Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_maneki_finds (
     method VARCHAR(8) NOT NULL DEFAULT 'take', found_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (identifier, character_key, spot_id), KEY maneki_spot (spot_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+-- The collection panel's explanation, shown once per character (F1 > Maneki-neko).
+Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_maneki_intro (
+    identifier VARCHAR(128) NOT NULL, character_key VARCHAR(64) NOT NULL,
+    seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (identifier, character_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
 
 local spots, order = {}, {}   -- id -> spot { id, x, y, z, yaw, scale, bucket, district, placedBy, placedAt }; ids oldest first
 local loadedSpots = false
-local finds = {}              -- "identifier#key" -> { [spotId] = true }
+local finds = {}              -- "identifier#key" -> { [spotId] = { at = unix ms, how = "take" | "shot" } }
+local introSeen = {}          -- "identifier#key" -> true once the collection panel explained itself
 local findCount = {}          -- spotId -> number of characters that found it
 local sent = {}               -- playerId -> { key, ids = { [id] = true }, sig }
 local editors = {}            -- playerId -> true while the placement tool runs
 local lastCollect = {}        -- playerId -> ms
 local busy = {}               -- spot id -> true while a find or a removal is written
 local dirty = true
+local stateFor = {}            -- playerId -> the character key whose `maneki` state was pushed
 
 local function log(...) LightRP.log(...) end
 local function finite(v) local n = tonumber(v); return n and n == n and math.abs(n) < 1e7 and n or nil end
@@ -98,7 +105,7 @@ function M.onDatabaseReady()
     findCount = {}
     if okCount then for _, r in ipairs(counts) do findCount[r.spot_id] = tonumber(r.n) or 0 end end
     loadedSpots, dirty = true, true
-    finds, sent = {}, {}
+    finds, sent, stateFor = {}, {}, {}
     log("maneki: %d cat(s) hidden in the city", #order)
 end
 
@@ -107,10 +114,10 @@ local function findsOf(key)
     if finds[key] then return finds[key] end
     if not Db.ready then finds[key] = {}; return finds[key] end
     local identifier, ck = key:match("^(.*)#([^#]+)$")
-    local ok, rows = Db.read("SELECT spot_id FROM lightrp_maneki_finds WHERE identifier = ? AND character_key = ?", { identifier, ck })
+    local ok, rows = Db.read("SELECT spot_id, method, UNIX_TIMESTAMP(found_at) AS at FROM lightrp_maneki_finds WHERE identifier = ? AND character_key = ?", { identifier, ck })
     if not ok then return nil end
     local set = {}
-    for _, r in ipairs(rows) do set[r.spot_id] = true end
+    for _, r in ipairs(rows) do set[r.spot_id] = { at = math.floor((tonumber(r.at) or 0) * 1000), how = r.method == "shot" and "shot" or "take" } end
     finds[key] = set
     return set
 end
@@ -138,6 +145,8 @@ local function streamTo(player, force)
     local key = keyOf(player)
     local p = key and positionOf(player)
     local set = key and findsOf(key)
+    -- The F1 entry needs the count: push it once the character's finds are read.
+    if set and loadedSpots and stateFor[player] ~= key then stateFor[player] = key; LightRP.state(player, "maneki") end
     local editing = editors[player] == true
     local list = {}
     if p and set and loadedSpots and C.enabled ~= false then
@@ -155,7 +164,7 @@ local function streamTo(player, force)
     local out, ids, sig = {}, {}, {}
     for i = 1, math.min(#list, cap) do
         local s = list[i].s
-        local found = editing and set and set[s.id] or nil
+        local found = editing and set and set[s.id] ~= nil or nil
         out[#out + 1] = payload(s, found)
         ids[s.id] = true
         sig[#sig + 1] = s.id .. (found and "+" or "")
@@ -190,7 +199,7 @@ CreateThread(function()
     end
 end)
 
-local function forget(player) sent[player], editors[player], lastCollect[player] = nil, nil, nil end
+local function forget(player) sent[player], editors[player], lastCollect[player], stateFor[player] = nil, nil, nil, nil end
 function M.onCharacterLoaded(player) sent[player] = nil; dirty = true end
 function M.onCharacterSwitched(player) sent[player] = nil; dirty = true end
 function M.onCharacterActivated(player) sent[player] = nil; dirty = true; LightRP.state(player, "maneki") end
@@ -250,7 +259,7 @@ function M.collect(player, p)
         LightRP.notice(player, { kind = "warning", title = "Maneki-neko", body = "The find could not be saved. Try again in a moment." })
         return
     end
-    set[id] = true
+    set[id] = { at = unix() * 1000, how = how }
     if tonumber(affected) == 0 then streamTo(player, true); return end -- already stored (another session)
     findCount[id] = (findCount[id] or 0) + 1
     local found, all = foundCount(set), total()
@@ -272,6 +281,77 @@ function M.collect(player, p)
     streamTo(player, true)
 end
 RegisterNetEvent(E.net.manekiCollect, function(p) M.collect(source, p) end)
+
+-- ---------------------------------------------------------------------------
+-- The collection panel (F1 > Maneki-neko, ui/src/features/maneki/ManekiCollection.tsx)
+--
+-- One slot per cat in the city, in the order the staff hid them. A found slot carries
+-- where and when this character found it (the page shows it on the city map); a slot
+-- not found carries nothing at all: no id, no district, no position. The slots travel
+-- as one string each ("id|district|at|how|x|y|z", "" when not found), so 600 cats stay
+-- far under the 1,024-value cap; past ~30 KB the event goes latent.
+
+local function slotsFor(set)
+    local slots, found = {}, 0
+    for _, id in ipairs(order) do
+        local s, f = spots[id], set[id]
+        if f then
+            found = found + 1
+            slots[#slots + 1] = table.concat({ id, (s.district or ""):gsub("|", " "), tostring(f.at or 0), f.how or "take",
+                ("%.1f"):format(s.x), ("%.1f"):format(s.y), ("%.1f"):format(s.z) }, "|")
+        else
+            slots[#slots + 1] = ""
+        end
+    end
+    return slots, found
+end
+
+local function introOf(key)
+    if introSeen[key] ~= nil then return introSeen[key] end
+    if not Db.ready then return false end
+    local identifier, ck = key:match("^(.*)#([^#]+)$")
+    local ok, rows = Db.read("SELECT 1 AS seen FROM lightrp_maneki_intro WHERE identifier = ? AND character_key = ?", { identifier, ck })
+    if not ok then return true end -- unreadable: do not nag
+    introSeen[key] = rows[1] ~= nil
+    return introSeen[key]
+end
+
+function M.collection(player)
+    local key = keyOf(player)
+    if not key then return nil, "Your character is not loaded yet." end
+    local set = findsOf(key)
+    if not set or (not loadedSpots and Db.ready) then return nil, "The collection is loading. Try again in a moment." end
+    local slots, found = slotsFor(set)
+    local milestones = {}
+    for _, m in ipairs(C.milestones or {}) do milestones[#milestones + 1] = { count = m.count, cash = m.cash } end
+    local titleDef = LightRP.titles and LightRP.titles.defs and C.completeTitle and LightRP.titles.defs[C.completeTitle]
+    return { kind = "maneki", slots = slots, found = found, total = #slots, reward = C.reward and C.reward.cash or 0,
+        milestones = milestones, completeMin = C.completeMin or 10,
+        title = titleDef and { id = titleDef.id, label = titleDef.label } or nil,
+        intro = not introOf(key) or nil, shotRange = C.shotRange, enabled = C.enabled ~= false }
+end
+
+LightRP.action("maneki.open", function(player)
+    local payload, why = M.collection(player)
+    if not payload then LightRP.result(player, false, why, "maneki.open"); return end
+    local bytes = 0
+    for _, slot in ipairs(payload.slots) do bytes = bytes + #slot + 4 end
+    if bytes > 30000 and type(TriggerLatentClientEvent) == "function" then
+        TriggerLatentClientEvent(E.net.maneki, player, 256 * 1024, { kind = "collection", collection = payload })
+    else
+        TriggerClientEvent(E.net.maneki, player, { kind = "collection", collection = payload })
+    end
+end)
+
+LightRP.action("maneki.intro", function(player)
+    local key = keyOf(player)
+    if not key or introSeen[key] == true then return end
+    introSeen[key] = true
+    if Db.ready then
+        local identifier, ck = key:match("^(.*)#([^#]+)$")
+        Db.run("INSERT IGNORE INTO lightrp_maneki_intro (identifier, character_key) VALUES (?, ?)", { identifier, ck })
+    end
+end)
 
 -- ---------------------------------------------------------------------------
 -- Staff: audit, placement, removal
