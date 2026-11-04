@@ -265,6 +265,13 @@ assert(select(2, Engine.npcHit(1, 4, tostring(guards[1]), 4, 10)) == "not_in_mis
 assert(select(2, Engine.npcHit(2, 1, tostring(guards[1]), 4, 10)) == "not_owner", "only the NPC's owner reports")
 assert(select(2, Engine.npcHit(1, 2, "424242", 4, 10)) == "no_run", "not an enemy of the event")
 assert(#damaged == hitsBefore + 2)
+-- the platform's victim path (onNpcPlayerHit): the platform already checked that the NPC's authority
+-- fights the victim, so the victim's own report lands whoever owns the simulation, at any epoch
+assert(Engine.npcHit(2, 2, tostring(guards[1]), 9, 7, true) and damaged[#damaged].id == 2 and damaged[#damaged].amount == 7,
+    "a fighter's own report through the platform lands")
+assert(select(2, Engine.npcHit(4, 4, tostring(guards[1]), 9, 7, true)) == "not_in_mission", "still only a fighter of the event")
+assert(#damaged == hitsBefore + 3)
+damaged[#damaged] = nil
 
 -- ── credit: server-validated damage and kills ──
 npcs[bossId].health = 5000 - 3000

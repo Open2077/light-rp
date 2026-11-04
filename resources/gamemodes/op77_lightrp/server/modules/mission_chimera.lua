@@ -772,7 +772,7 @@ end)
 -- A reinforcement hit an operator (the boss's own hits are applied by open77_chimera).
 -- Same checks and caps as an authored mission (Engine.applyNpcHit): the HUD health is
 -- the server's, and nothing else moved it.
-local function reinforcementHit(reporter, victimId, npcId, epoch, amount)
+local function reinforcementHit(reporter, victimId, npcId, epoch, amount, platform)
     local victim, damage, reportedEpoch = tonumber(victimId), tonumber(amount), tonumber(epoch)
     if not victim or not damage or damage ~= damage or damage <= 0 or not reportedEpoch then return false, "invalid" end
     local inst = Missions.instanceOf(victim)
@@ -783,10 +783,13 @@ local function reinforcementHit(reporter, victimId, npcId, epoch, amount)
     if key == nil then return false, "not_a_reinforcement" end
     local engine = LightRP.missionEngine
     if not engine or type(engine.applyNpcHit) ~= "function" then return false, "engine_missing" end
-    return engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage)
+    return engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage, platform)
 end
 LightRP.raidReinforcementHit = reinforcementHit
 RegisterNetEvent("op77_lightrp:raid:npcHit", function(victimId, npcId, epoch, amount)
+    -- the platform's victim path (mission_engine.lua) carries these hits when it exists
+    local engine = LightRP.missionEngine
+    if engine and engine.platformVictimHits then return end
     local reporter = tonumber(source)
     if reporter and reporter > 0 then reinforcementHit(reporter, victimId, npcId, epoch, amount) end
 end)
