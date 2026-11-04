@@ -308,11 +308,11 @@ export function PlayerMenu() {
       description: "Four small jobs a day from Mama Okoro, Ledger and Nix, and a big one every week, paid into your bank. Your titles are in there too." });
     // The Maneki-neko collection, under the dailies: a count, never a hint of where (server/modules/maneki.lua).
     const daily = nodes.root?.items.findIndex((i) => "id" in i && (i.id === "dailies" || i.id === "housing")) ?? -1;
-    if (maneki && maneki.total > 0 && daily >= 0) nodes.root!.items.splice(daily + 1, 0, { id: "maneki", type: "item", text: "Maneki-neko", icon: "coins",
+    if (maneki && daily >= 0) nodes.root!.items.splice(daily + 1, 0, { id: "maneki", type: "item", text: "Maneki-neko", icon: "coins",
       meta: `${maneki.found} / ${maneki.total}`,
-      description: maneki.found >= maneki.total
-        ? "You found every lucky cat hidden in Night City. More may appear: keep your eyes open."
-        : "Lucky cats are hidden around Night City: no map, no marker. Spot one, then take it with E or shoot it. Each find pays, every tenth pays more." });
+      description: maneki.total > 0 && maneki.found >= maneki.total
+        ? "Your collection: every lucky cat hidden in Night City is yours. Select to see where you found each one."
+        : "Your collection of the lucky cats hidden around Night City: which ones you found, where and when, and how the hunt works." });
     const lastName = nodes.identity?.items.findIndex((i) => "id" in i && i.id === "last") ?? -1;
     const badge = shownTitle(titles);
     if (titles?.enabled && lastName >= 0) nodes.identity!.items.splice(lastName + 1, 0, { id: "identity-title", type: "item", text: "Title", icon: "crown",
@@ -351,6 +351,7 @@ export function PlayerMenu() {
       requestClose(); sendAction({ type: "activities.control", operation: "open", tab: item.id === "squad-invite" ? "crew" : "activities" }); return;
     }
     if (item.id === "recap") { sendAction({ type: "recap.open" }); requestClose(); return; }
+    if (item.id === "maneki") { sendAction({ type: "maneki.open" }); requestClose(); return; }
     if (item.id === "dailies" || item.id === "identity-title") { sendAction({ type: "dailies.open", tab: item.id === "identity-title" ? "titles" : "today" }); requestClose(); return; }
     if (item.id === "activity-leave") { sendAction({ type: "activities.control", operation: "leave" }); requestClose(); return; }
     if (item.id === QUEUE_LEAVE_ITEM) { sendAction({ type: "queue.leave", from: "menu" }); requestClose(); return; }

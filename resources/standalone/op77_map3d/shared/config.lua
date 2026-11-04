@@ -127,6 +127,9 @@ Map3DConfig = {
             -- LightRP's gun stores (each pin draws its own weapon: op77_lightrp map_icons.lua)
             { id = "weapons", label = "Gun stores", color = "#FF7A1A",
                 icon = [[<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" fill-rule="evenodd"><g transform="translate(12 12) scale(1.08) translate(-12 -12.6)"><path d="M2.8 6.2H19.3V5.5h1v.7h.6q.8 0 .8.8v2.4q0 .8-.8.8h-6.4l-.2.6q-.6 2.2-2.4 2.2h-1.6l-1 5.8q-.1.8-.9.8H5.3q-.8 0-.7-.8l1-6.6q-1.3-.1-2.1-.8l-.6-.6Q2.4 10.6 2.4 9.8V7.4L2 6.8q0-.6.8-.6zM10.5 10.6h2.8q-.4 1.6-1.7 1.6h-1.3zM4 7.1h.5v2.4H4zM5.2 7.1h.5v2.4h-.5zM6.4 7.1h.5v2.4h-.5zM11.6 7.1h3.4V8h-3.4z"/><path d="M11.2 10.6h.7l-.3 1.3h-.6z"/><path d="M2.4 5.2h1.2l.4 1H2.6z"/></g></svg>]] },
+            -- LightRP's Maneki-neko collection: only the cats this player found, shown from F1 > Maneki-neko
+            { id = "maneki", label = "Maneki-neko", color = "#FFCC00",
+                icon = [[<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" fill-rule="evenodd"><path d="M5.6 2.6l3.2 3.3a7 7 0 0 1 6.4 0l3.2-3.3.7 5.3a6.6 6.6 0 0 1-6.3 7.8h-.6a6.6 6.6 0 0 1-6.3-7.8zM8.6 9.2h2.2v1.1H8.6zM13.2 9.2h2.2v1.1h-2.2z"/><path d="M6.6 15.2C5.4 16.6 5 18.2 5 19.6 5 21 6 21.6 7.4 21.6h9.2c1.4 0 2.4-.6 2.4-2 0-1.4-.4-3-1.6-4.4a7.6 7.6 0 0 1-10.8 0zM12 16.6a1.9 2.3 0 1 0 0 4.6 1.9 2.3 0 1 0 0-4.6z"/><path d="M19.4 13.6c1-1.4 1.6-3.4 1.6-5.2 0-1-.5-1.6-1.2-1.6s-1.2.6-1.2 1.6c0 1.4-.4 2.8-1 4z"/></svg>]] },
             { id = "default", label = "Other", icon = "pin" },
         },
     },

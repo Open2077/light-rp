@@ -45,6 +45,22 @@ so its face points at yaw + 180°.
 - A find plays a small burst (`neon.loot_drop`, `sparks.burst.small` for a shot) and the
   game's money jingle (`ui_jingle_achiev` for the whole set).
 
+## The collection panel (F1 > Maneki-neko)
+
+`ui/src/features/maneki/ManekiCollection.tsx`, opened by the action `maneki.open`
+(server `M.collection`, sent as `{ kind = "collection" }` on `op77_lightrp:maneki`, latent past 30 KB).
+
+- One slot per cat in the city, numbered in the order the staff hid them. A found slot is
+  `"id|district|at|how|x|y|z"`; a slot not found is `""`: no id, no district, no position.
+- The strip: found / total, every find's pay, the next milestone, the title.
+- A found slot (click or Enter) opens the city map (`op77_map3d`) on the spot, with every
+  found cat pinned (category `maneki`, the clicked one pulsing); closing the map removes the
+  pins and brings the panel back (`client/core/maneki.lua showOnMap`, page action `maneki.map`,
+  handled in the client: the positions are the player's own data).
+- The first opening explains the hunt (table `lightrp_maneki_intro`, action `maneki.intro`);
+  HOW IT WORKS or `?` shows it again.
+- Mock: `?maneki=collection&intro=1`.
+
 ## Staff
 
 ACL (`server/config/support.lua`): `command.lightrp.maneki` lists and visits,
