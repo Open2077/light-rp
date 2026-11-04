@@ -164,7 +164,7 @@ kbd { background: var(--yellow); color: var(--ink); padding: 1px 8px; font-weigh
 .dh-rival, .dh-you { position: absolute; display: flex; align-items: center; gap: 18px; background: linear-gradient(90deg, rgba(8, 10, 13, .9), rgba(8, 10, 13, .7));
   border: 1px solid var(--line); padding: 10px 16px; }
 .dh-rival { top: 22px; left: 50%; transform: translateX(-50%); border-top: 2px solid var(--red); }
-.dh-you { left: 30px; bottom: 30px; border-bottom: 2px solid var(--cyan); }
+.dh-you { left: 30px; bottom: 130px; border-bottom: 2px solid var(--cyan); }  /* above the game's health bar */
 .dh-name b { display: block; font-size: 18px; }
 .dh-name small { color: var(--muted); font-size: 12px; letter-spacing: .06em; }
 .dh-legends { display: flex; gap: 6px; }

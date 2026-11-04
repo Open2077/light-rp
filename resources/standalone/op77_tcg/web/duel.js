@@ -400,15 +400,23 @@
     } else if (m && !m.seats[m.you].seated) {
       var rival = m.seats[m.you === 1 ? 2 : 1], left = remainingMs();
       html = '<div class="dh-call"><span class="tag">DUEL</span><b>vs ' + esc(rival.name) + "</b><span>" + esc(m.label) +
-        "</span><span>Walk to your chair (yellow marker) and press <kbd>E</kbd> to sit down</span>" + (left != null ? '<span class="clock">' + clock(left) + "</span>" : "") + "</div>";
+        "</span><span>Walk to your chair (yellow marker) and press <kbd>E</kbd> to sit down</span>" + (left != null ? '<span class="clock"></span>' : "") + "</div>";
     } else if (duel.incoming && !T.ui.open) {
       html = '<div class="dh-call"><span class="tag">CHALLENGE</span><b>' + esc(duel.incoming.name) + "</b><span>challenges you to a duel - type <kbd>/tcgbinder</kbd> to answer</span></div>";
     }
-    b.innerHTML = html;
+    // Rebuilt only when it changes: a rebuild replays the entry animation.
+    if (b.dataset.key !== html) { b.innerHTML = html; b.dataset.key = html; }
+    tick(b);
     b.classList.toggle("hidden", !html);
     var seated = !!(m && m.seats[m.you].seated);
     $("dhSeated").classList.toggle("hidden", !seated);
     $("duelHud").classList.toggle("hidden", !html && !seated);
+  }
+
+  // The countdowns: only their text changes every half second.
+  function tick(root) {
+    var left = remainingMs();
+    root.querySelectorAll(".clock").forEach(function (n) { n.textContent = left != null ? clock(left) : ""; });
   }
 
   function legendsHtml(seat) {
@@ -429,7 +437,7 @@
     var m = duel.match, c = $("dhCentre");
     var me = m.seats[m.you], rival = m.seats[m.you === 1 ? 2 : 1];
     var left = remainingMs(), html = "", buttons = [];
-    var timer = left != null ? '<div class="clock">' + clock(left) + "</div>" : "";
+    var timer = left != null ? '<div class="clock"></div>' : "";
     if (m.phase === "seating") {
       html = "<h2>Waiting for " + esc(rival.name) + "</h2><p>They are on their way to the table.</p>";
     } else if (m.phase === "choose") {
@@ -453,7 +461,11 @@
       c.classList.add("compact");
     }
     if (m.phase !== "main") c.classList.remove("compact");
+    var key = html + timer + buttons.map(function (b) { return b[0]; }).join("|");
+    if (c.dataset.key === key) { tick(c); return; }
+    c.dataset.key = key;
     c.innerHTML = html + timer;
+    tick(c);
     if (buttons.length) {
       var row = el("div", "actions");
       buttons.forEach(function (b) { var n = el("button", b[2], b[0]); n.onclick = b[1]; row.appendChild(n); });
