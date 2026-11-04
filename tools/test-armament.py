@@ -217,6 +217,16 @@ assert(W.runtime[1].quarantine and not W.runtime[1].recovering and #W.runtime[1]
 -- (a reconnect is a new incarnation; this harness just clears it to go on)
 W.runtime[1].quarantine=nil;W.runtime[1].recoveries=nil
 suppressNative=false;clock=clock+200000;tick(100);assert(W.synchronize(1));tick(1800);assert(W.view(1).ready)
+-- A synchronization in progress does not make the target invincible: the projected
+-- firearm still hits; a refusal names its reason in the log.
+assert(W.view(1).ready)
+local equippedHash="hash:"..nativeRows[1].record
+assert(W.synchronize(1) and W.runtime[1].busy)
+assert(W.damageGate({attacker=1,victim=2,weaponTdbId=equippedHash,attackKind="ranged"})==nil,"hits during a sync")
+tick(1800);assert(W.view(1).ready)
+assert(W.damageGate({attacker=1,victim=2,weaponTdbId="hash:not_ours",attackKind="ranged"})==false)
+local logged=false;for _,m in ipairs(messages)do if tostring(m):find("refused (not a Light RP firearm",1,true)then logged=true end end
+assert(logged or next(W.refusalLoggedAt)~=nil,"the refusal is logged with its reason")
 -- One refusal from the engine (the weapon not drawn yet): the synchronization tries again by
 -- itself, no second press needed.
 refuseNext="snapshot"

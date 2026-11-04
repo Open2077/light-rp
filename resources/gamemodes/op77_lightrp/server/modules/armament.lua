@@ -701,6 +701,20 @@ CreateThread(function()
 end)
 -- This gate authorizes known RP firearm damage; it does not count shots. The
 -- native cache remains client-reported and is never used to mint ammunition.
+-- Every refusal is logged once per attacker and reason every REFUSAL_LOG_S: a refused hit
+-- shows as an invincible target (Dogtown, 2026-11-04) and said nothing about why.
+local REFUSAL_LOG_S=10
+local refusalLoggedAt={}
+local function refuse(player,why,hash)
+    local key=tostring(player)..":"..why
+    local t=now()
+    if not refusalLoggedAt[key] or t-refusalLoggedAt[key]>=REFUSAL_LOG_S then
+        refusalLoggedAt[key]=t
+        LightRP.log("armament: hit by player %d refused (%s, weapon %s)",player,why,hash~="" and hash or "?")
+    end
+    return false
+end
+W.refusalLoggedAt=refusalLoggedAt
 local function damageGate(event)
     if type(event)~="table" or event.source=="vehicle" then return nil end
     local player=tonumber(event.attacker)
@@ -710,11 +724,16 @@ local function damageGate(event)
     local hash=tostring(event.weaponTdbId or ""):lower()
     local managed=hashes[hash]
     if not managed and event.attackKind~="ranged" then return nil end
-    if not rt then return false end
+    if not rt then return refuse(player,"no armament runtime",hash) end
     local s=W.states[rt.inventory]
-    if not s or not s.right then return false end
-    if (rt.busy and not rt.observing) or not rt.ready or not rt.baseline or rt.baseline.rounds<=0 then return false end
-    if not rt.allowedHashes or not rt.allowedHashes[hash] then return false end
+    if not s or not s.right then return refuse(player,"no Light RP firearm equipped",hash) end
+    if not rt.baseline or rt.baseline.rounds<=0 then return refuse(player,"no rounds",hash) end
+    if not rt.allowedHashes or not rt.allowedHashes[hash] then return refuse(player,managed and "not the equipped firearm" or "not a Light RP firearm",hash) end
+    -- The firearm of the last projection still fires while a synchronization runs (a
+    -- wheel select, the automatic retry): refusing then made the target look invincible
+    -- for the seconds a sync takes. Not ready AND not syncing (a failed sync, a
+    -- quarantine) still refuses.
+    if not rt.ready and not rt.busy then return refuse(player,rt.quarantine and "quarantined" or "equipment not synchronized",hash) end
     return nil
 end
 W.damageGate=damageGate

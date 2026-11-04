@@ -30,7 +30,9 @@ local function clinicFor(spot)
     if spot ~= nil and type(list) == "table" then
         for _, c in ipairs(list) do
             if c.chair == spot then
-                return { name = c.name, doctor = C.clinic.doctor, tagline = C.clinic.tagline }
+                -- the page prints "Ripperdoc // <name>" itself: the branch alone
+                local name = tostring(c.name):gsub("^[Rr]ipperdoc%s*//%s*", "")
+                return { name = name, doctor = C.clinic.doctor, tagline = C.clinic.tagline }
             end
         end
     end
