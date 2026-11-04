@@ -56,7 +56,7 @@ waitUntil(function() return marks()==4 end,'the lever is marked')
 -- The cursor on the lever outlines it and a click pulls with the bet chosen
 -- on the bar (LightRpCasinoSlotsClient.setBet, tools/test-table-menu.py).
 local Slots=LightRpCasinoSlotsClient
-assert(Slots.bet()==10 and not Slots.setBet(0) and not Slots.setBet(1001) and not Slots.setBet(2.5) and Slots.setBet(25) and Slots.bet()==25)
+assert(Slots.bet()==10 and not Slots.setBet(0) and not Slots.setBet(101) and not Slots.setBet(2.5) and Slots.setBet(25) and Slots.bet()==25)
 local freeBefore=#requests
 forcedRay={origin={x=L.leverPivot[1]*K,y=-2,z=(L.leverPivot[3]+L.leverLength/2)*K},direction={x=0,y=1,z=0}}
 pointer({x=.7,y=.4});step()

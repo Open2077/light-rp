@@ -11,7 +11,8 @@ for the owner; see board-games.md); pickup is refused while the reels spin.
 Sitting opens the game view (board-games.md) on the reels (views *Reels*,
 *Cabinet*, *Lever*, *Free*; Escape leaves). The lever is marked faintly as
 clickable when you are at it and the reels are at rest. Seated in the first seat, set the bet on the bar with − /
-+ (1, 5, 10, 25, 50, 100, 250, 500, 1,000; the server accepts 1 to 1,000) and
++ (1, 5, 10, 25, 50, 100; the server accepts 1 to 100, owner decision 2026-11-04,
+economy-balance.md §16) and
 press *Pull €$ 10*, or point the cursor at the lever on the right of the
 cabinet (it is outlined) and click, which pulls with the same bet. The lever is
 an action, not a betting spot: a click on it pulls at once. The bar status
@@ -26,7 +27,10 @@ top lamp blinks and up to four coins drop into the tray on a win. Winnings are
 paid into cash when the last reel stops (`lightrp_roulette_claims`, the shared
 casino claim table, `available_at` = stop time); a disconnected or restarted
 player is paid on the next claim pass. The result notice ("Three Sevens · €$ 2,000.",
-"No win.") comes only when the last reel stops, never before.
+"No win.") comes only when the last reel stops, never before. The pull writes one
+line to the player's transaction log (`lightrp_transactions`, kind `casino`, counterparty
+*Slots table*, amount = return − stake, note *Slots: staked €$ 10, returned €$ 0*) in the
+same transaction; neither the stake nor the payout writes a line of its own.
 
 ## Reels and paytable
 
@@ -44,6 +48,10 @@ Three reels of 12 stops, one payline (middle row). Returns include the stake.
 | Cherry, Cherry (reels 1–2) | ×4 |
 | Any cherry/lemon/grape on all reels | ×2 |
 | Cherry on reel 1 | ×1 (stake back) |
+
+Every return is a multiple of the bet: there is no fixed jackpot. Three Sevens
+(one pull in 1,728) pays 200 × the bet, so **20,000** at the 100 maximum (it was
+200,000 at the former 1,000 maximum).
 
 Return to player is exactly 1632/1728 = **94.4 %**, hit rate 33.8 %
 (`tools/test-casino-slots.py` enumerates all 1,728 outcomes). Strips, symbols and

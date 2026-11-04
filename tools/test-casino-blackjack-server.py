@@ -83,12 +83,16 @@ scenario('stakes: whole-dollar limits, insufficient cash, atomic debit, four sea
 local id=place('blackjack',1);seated(id)
 local b=board(id);assert(b.players.white==1 and b.players.black==2 and b.players.white2==3 and b.players.black2==4,'four seats')
 action(5,id,'join');assert(notices[5]:find('All seats'))
-for _,amount in ipairs({4,7.5,-5,5001,'x'}) do local before=commits;game(1,id,'bet',{amount=amount});assert(cash(1)==1000 and commits==before) end
-game(2,id,'bet',{amount=1001});assert(cash(2)==1000 and notices[2]:find('Not enough cash'),notices[2])
+for _,amount in ipairs({4,7.5,-5,501,'x'}) do local before=commits;game(1,id,'bet',{amount=amount});assert(cash(1)==1000 and commits==before) end
+inventories[2].items[2].count=400
+game(2,id,'bet',{amount=401});assert(cash(2)==400 and notices[2]:find('Not enough cash'),notices[2])
+inventories[2].items[2].count=1000
 failDB=true;game(1,id,'bet',{amount=25});failDB=false;assert(cash(1)==1000 and next(view(id).hands)==nil)
 game(1,id,'bet',{amount=25});assert(cash(1)==975 and view(id).hands.white.bet==25 and view(id).closesAt)
 game(1,id,'bet',{amount=5});assert(cash(1)==970 and view(id).hands.white.bet==30)
-game(1,id,'bet',{amount=4971});assert(cash(1)==970 and view(id).hands.white.bet==30,'hand max 5000')
+game(1,id,'bet',{amount=471});assert(cash(1)==970 and view(id).hands.white.bet==30,'hand max 500')
+game(1,id,'bet',{amount=470});assert(cash(1)==500 and view(id).hands.white.bet==500,'up to 500 a hand')
+assert(#dbLedger==0,'a bet writes no ledger line')
 assert(dbBoards[id].data.game.hands.white._inv=='inv1' and dbBoards[id].data.game._roundKey)
 assert(not private(view(id)),private(view(id)))
 ''')
@@ -134,13 +138,39 @@ game(4,id,'stand',{})
 local g=view(id);assert(g.phase=='result' and g.dealer.total==18)
 assert(g.hands.white.result=='win' and g.hands.black.result=='push' and g.hands.white2.result=='blackjack' and g.hands.black2.result=='lose')
 assert(unpaid('inv1')==200 and unpaid('inv2')==50 and unpaid('inv3')==50 and unpaid('inv4')==0)
+-- One net ledger line per character, in the settlement's transaction (economy-balance.md section 16).
+local by={};for _,l in ipairs(dbLedger) do by[l.inventory]=l end
+assert(#dbLedger==4 and #ledgerShown==4 and by.inv1.game=='Blackjack')
+assert(by.inv1.net==100 and by.inv2.net==0 and by.inv3.net==30 and by.inv4.net==-30)
+assert(by.inv4.staked==30 and by.inv4.returned==0 and by.inv3.returned==50)
 wall=g.resultAt-1;for p=1,4 do LightRP.tabletopExtra.claim(p) end;assert(cash(1)==900 and cash(3)==980,'paid before the reveal ended')
 wall=g.resultAt;for p=1,4 do LightRP.tabletopExtra.claim(p) end
 assert(cash(1)==1100 and cash(2)==1000 and cash(3)==1030 and cash(4)==970)
 for p=1,4 do LightRP.tabletopExtra.claim(p) end;assert(cash(1)==1100 and cash(3)==1030 and totalUnpaid()==0)
+assert(#dbLedger==4,'payouts write no second line')
+for _,m in ipairs(cashMoves) do assert(m.label and m.label.silent==true and m.label.kind=='casino','every table cash move is silent') end
 local rows=claimRows()
 wall=g.nextAt;assert(step(2000));g=view(id);assert(g.phase=='betting' and g.round==2 and next(g.hands)==nil)
 assert(claimRows()==rows and totalUnpaid()==0)
+''')
+
+scenario('ledger: a double that ends the round counts its own stake once, refunds write nothing',r'''
+-- white 5,6=11 doubles onto 9 = 20; dealer 6 up, T hole = 16 draws 2 = 18
+stack({'5S','6D','6H','TD','9C'})
+local id=place('blackjack',1);seated(id)
+game(1,id,'bet',{amount=10});game(1,id,'deal',{});wall=view(id).actAt
+game(1,id,'double',{})
+local g=view(id);assert(g.phase=='result' and g.hands.white.doubled and cash(1)==980)
+assert(#dbLedger==1 and #ledgerShown==1,'one line for the hand')
+local line=dbLedger[1]
+assert(line.inventory=='inv1' and line.staked==20 and line.unsettled==10 and line.returned==unpaid('inv1'))
+assert(line.net==line.returned-20)
+wall=g.resultAt;LightRP.tabletopExtra.claim(1);assert(cash(1)==980+line.returned and #dbLedger==1)
+-- Open stakes refunded by a reset: silent both ways, no line.
+wall=g.nextAt;assert(step(2000));assert(view(id).phase=='betting')
+game(2,id,'bet',{amount=30});action(1,id,'reset');LightRP.tabletopExtra.claim(2)
+assert(cash(2)==1000 and #dbLedger==1)
+for _,m in ipairs(cashMoves) do assert(m.label and m.label.silent==true and m.label.kind=='casino') end
 ''')
 
 scenario('refunds: reset and pickup before the result return every open stake once',r'''
@@ -178,6 +208,10 @@ wall=g.turnEndsAt;step(2000);g=view(id);assert(g.seatTurn=='black' and g.hands.w
 for p=1,4 do modules.board_games.onDisconnected(p) end
 wall=g.turnEndsAt;step(2000);g=view(id,5);assert(g.phase=='result')
 assert(unpaid('inv1')==20 and unpaid('inv2')==0)
+-- settled by the board loop: the lines are written and shown once committed
+assert(#dbLedger==2 and #ledgerShown==2)
+local by={};for _,l in ipairs(dbLedger) do by[l.inventory]=l end
+assert(by.inv1.net==10 and by.inv2.net==-10)
 ''')
 
 scenario('dealer NPC: placed behind the shoe facing the players, fallback record, pickup removes it',r"""
@@ -252,7 +286,7 @@ for pass=1,2 do for p=1,4 do add(twos[p]) end;add(pass==1 and '2D' or '3D') end
 for p=1,4 do for _,c in ipairs({'2S','2H','2D','3S','3H'}) do add(c) end end
 stack(list)
 worstId=place('blackjack',1);seated(worstId)
-for p=1,4 do inventories[p].items[2]={name='cash',count=100000};game(p,worstId,'bet',{amount=4999}) end
+for p=1,4 do inventories[p].items[2]={name='cash',count=100000};game(p,worstId,'bet',{amount=499}) end
 game(1,worstId,'deal',{});wall=view(worstId).actAt
 for p=1,4 do for i=1,5 do wall=math.max(wall,view(worstId).animEnd or 0);game(p,worstId,'hit',{}) end;game(p,worstId,'stand',{}) end
 local g=view(worstId);assert(g.phase=='result' and #g.dealer.cards==8)

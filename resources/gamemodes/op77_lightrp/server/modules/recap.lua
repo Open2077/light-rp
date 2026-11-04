@@ -622,6 +622,10 @@ function R.worldBossEnded(ev, success, why, reputation)
             local pay = math.max(0, math.floor(tonumber(result.pay) or 0))
             m.players[id].rewards.eddies = pay
             if pay > 0 then m.players[id].rewards.reputation = math.max(0, math.floor(tonumber(reputation) or 0))
+            elseif success and result.dailyCapped then
+                -- past the daily world boss pay (world_bosses.lua C.dailyPaid): no pay, no reputation
+                m.players[id].rewards.eddiesReason = "daily_cap"
+                m.players[id].rewards.reputationAsked = math.max(0, math.floor(tonumber(reputation) or 0))
             elseif success then m.players[id].rewards.eddiesReason = "share" end
         end
         pend(id, key, now() + CONFIG.worldBossDelayMs)

@@ -68,7 +68,7 @@ waitUntil(function() return marks()==28 end,'fortune spots marked')
 -- Bets: a click on a felt spot selects it, the bar (tools/test-table-menu.py)
 -- bets its chip on the selection.
 local Fortune=LightRpCasinoFortuneClient
-assert(Fortune.chip()==10 and not Fortune.setChip(0) and not Fortune.setChip(1001) and Fortune.setChip(25) and Fortune.chip()==25)
+assert(Fortune.chip()==10 and not Fortune.setChip(0) and not Fortune.setChip(101) and Fortune.setChip(25) and Fortune.chip()==25)
 local before=#requests
 assert(E.command(wheel,'bet',{spot='5',amount=25}) and #requests==before+1 and last().action=='game' and last().operation=='bet' and last().data.spot=='5')
 assert(not E.command(wheel,'steal',{}) and #requests==before+1)
@@ -136,7 +136,7 @@ local nextRound=assert(F.bet(settled,{inventory='a',spot='2',amount=1,roundKey='
 wheel.game=F.view(nextRound,'a');wheel.revision=3;wheel.serverNow=now+20000
 t=E.pieceTargets(wheel);assert(active(t,'fw-fortune_disc_')=='fw-'..final and t['fw-chips-2'] and not t['fw-payout'])
 -- Worst case for the budget: every spot staked, sweeping and paying at once.
-local full=F.new();for _,spot in ipairs(F.SPOTS) do full=assert(F.bet(full,{inventory='a',spot=spot,amount=600,roundKey='f'})) end
+local full=F.new();for _,spot in ipairs(F.SPOTS) do full=assert(F.bet(full,{inventory='a',spot=spot,amount=70,roundKey='f'})) end
 full=assert(F.spin(full,{outcome=0,laps=3,nowMs=now+30000,roundKey='f'}))
 wheel.game=F.view(full,'a');wheel.revision=4;wheel.serverNow=now+30000;origin=clock
 events['lightrp:boardGames:state']({boards={wheel}})

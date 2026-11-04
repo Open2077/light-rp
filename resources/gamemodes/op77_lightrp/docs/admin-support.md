@@ -137,7 +137,8 @@ sont contrôlées côté serveur, y compris après les lectures SQL asynchrones.
 | `command.lightrp.heal` | Soigner / réanimer |
 | `command.lightrp.setname` | Renommer le personnage |
 | `command.lightrp.setjob` / `setgang` | Métier / affiliation et grade |
-| `command.lightrp.givemoney` / `takemoney` | Crédit / débit |
+| `command.lightrp.givemoney` / `takemoney` | Crédit / débit (crédit : motif obligatoire, 10 000 €$ au plus par don) |
+| `lightrp.money.unlimited` | Crédit au-delà du plafond par don (`/lightrp.givemoney` et bureau) |
 | `command.lightrp.warn` | Avertissement |
 | `command.admin.moderate.kick` / `ban` | Exclusion / bannissement |
 | `command.lightrp.announce` | Annonce serveur |
@@ -147,6 +148,20 @@ sont contrôlées côté serveur, y compris après les lectures SQL asynchrones.
 | `command.adminfull` | Console technique |
 
 Les suffixes abrégés dans ce tableau gardent le préfixe de la première permission.
+
+Dons d'argent du staff (décision du propriétaire du 2026-11-04,
+`docs/economy-balance.md` §16, réglages `staffGrants` de `server/config/economy.lua`) :
+`/lightrp.givemoney <id|me> <cash|bank> <montant> <motif>` refuse un don sans motif
+d'au moins 4 caractères (il répond l'usage) ; le motif devient la note de la ligne
+`staff` du registre (`lightrp_transactions`, 160 octets au plus). Un don dépasse
+10 000 €$ seulement si le donneur détient **`lightrp.money.unlimited`** ; la console
+du serveur n'est pas plafonnée. Le *Crédit* du bureau suit la même règle (son motif
+d'audit de 4 à 500 caractères est coupé à 160 octets pour la note). Cette permission
+n'est volontairement **pas** sous `command.lightrp.*` : les rôles moderator/operator
+qui détiennent ce joker ne la reçoivent pas ; seul `*` (le propriétaire) ou une ligne
+explicite dans `acl.jsonc` l'accorde, par exemple pour un rôle « owner » :
+`"lightrp.money.unlimited"`, puis `acl.reload`. Le débit (`takemoney`) n'est pas
+plafonné.
 Pour un rôle support minimal, accorder `command.admin` et
 `command.lightrp.reports`. Ajouter `command.lightrp.reportassign` uniquement
 aux superviseurs. La permission générique `command.lightrp.*` inclut ces nouveaux

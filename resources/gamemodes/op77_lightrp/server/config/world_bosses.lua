@@ -27,6 +27,13 @@ LightRpWorldBosses = {
     killAssist = 0.10,
     -- Reputation for every rewarded fighter.
     reputation = 150,
+    -- Pay per character and UTC day (owner decision 2026-11-04, docs/economy-balance.md
+    -- §16): once a character has been paid for this many world bosses since 00:00 UTC,
+    -- their share and the reputation above stop until the next day. The fight stays open
+    -- to them (they score, help, see the HUD) and they are told so; they no longer count
+    -- among the paid fighters (the pool follows the others). Their share still qualifies
+    -- for what is not pay (daily contracts, titles, iconic rolls). 0 turns the cap off.
+    dailyPaid = 3,
     -- The guards still standing when the boss falls leave after this.
     cleanupSeconds = 45,
     -- How long the end (BOSS DOWN / GOT AWAY, your pay) stays on the zone's HUD.

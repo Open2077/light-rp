@@ -590,8 +590,13 @@ CreateThread(function()
                 LightRP.log("board_games due board=%s kind=%s phase=%s rev=%d",b.id,b.kind,tostring(b.game.phase),b.revision)
                 b.busy=true
                 local called,ok,why=pcall(function()
-                    local game,queries=h.settle(b,X.now())
-                    if game then return commitGame(b,game,queries) end
+                    local game,queries,after=h.settle(b,X.now())
+                    if game then
+                        local ok,why=commitGame(b,game,queries)
+                        -- the round's ledger lines are durable: show them (tabletop_extra.lua)
+                        if ok and type(after)=="function" then after() end
+                        return ok,why
+                    end
                     LightRP.log("board_games settle board=%s kind=%s returned no game: %s",b.id,b.kind,tostring(queries))
                 end)
                 b.busy=nil

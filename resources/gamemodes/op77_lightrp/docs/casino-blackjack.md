@@ -10,7 +10,8 @@ left).
 - Six-deck shoe, shuffled on the server from a server seed
   (`LightRpBlackjack.shuffle`, Park–Miller), reshuffled at the next round once
   fewer than 78 cards remain (cut card).
-- Bets 5–5,000 whole RP dollars per hand. The first bet starts a 15 s
+- Bets 5–500 whole RP dollars per hand (a double takes it to 1,000; owner
+  decision 2026-11-04, economy-balance.md §16). The first bet starts a 15 s
   countdown; any bettor may press **Deal now**.
 - Dealer stands on all 17s (soft 17 included), peeks under a ten or an ace:
   a dealer natural ends the round at once (a player natural pushes).
@@ -61,6 +62,12 @@ Resetting or picking up the table before the result refunds every open stake
 (bets and doubles) as claims in the same transaction. A seat taken over by
 another character cannot bet into or play the absent owner's hand.
 
+The settlement also writes one line per character to the transaction log
+(`lightrp_transactions`, kind `casino`, counterparty *Blackjack table*, amount =
+returns − stakes of all their hands, doubles included), in the same transaction
+as the claims. Stakes, payouts and refunds move pocket cash without a line of
+their own: a refunded round leaves no line (docs/economy-balance.md §16).
+
 ## Privacy
 
 The shoe, the dealer's hole card and stake owners are `_` keys, stripped from
@@ -86,8 +93,8 @@ Sitting opens the game view (board-games.md) from behind your seat (views
 *Your seat*, *Overhead*, *Dealer*, *Orbit*, *Free*; Escape leaves). While bets
 are open your betting circle is marked faintly as clickable. Betting: click your betting circle
 (it is outlined in cyan; the only betting target, so the bar's *Bet* works
-without it), set the chip with − / + (5 to 5,000) and press *Bet €$ 50* (*Add
-€$ 50* once a bet is down; disabled past 5,000 per hand or your cash), and
+without it), set the chip with − / + (5 to 500) and press *Bet €$ 50* (*Add
+€$ 50* once a bet is down; disabled past 500 per hand or your cash), and
 *Deal now* once you have a bet. The bar status reads *Place a bet* or *Your bet
 €$ 50* with the countdown to the deal. On your turn, after the dealer's pause,
 *Hit*, *Stand* and *Double €$ 50* (first two cards, enough cash) are enabled

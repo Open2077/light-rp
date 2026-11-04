@@ -271,6 +271,17 @@ anything is owed (claims mark it as they are written; one lock-free read
 settles an unknown state, e.g. after a character load) and pays as before,
 exactly once.
 
+The transaction log (`lightrp_transactions`) gets one line per character and
+settled round of a casino table (roulette spin, slot pull, wheel spin, blackjack
+result): kind `casino`, counterparty *Roulette table* (*Slots*, *Fortune Wheel*,
+*Blackjack*), amount = gross returns − stakes of that round, note *Roulette:
+staked €$ 30, returned €$ 360*, written in the transaction that writes the
+round's claims (`X.ledgerLines`, `X.commitRound`, economy.lua `Money.casinoLine`).
+Stakes, payouts and refunds move pocket cash without a line of their own (a
+`silent` ledger label on their drafts): a refunded round leaves no line. Roulette
+stakes: 1 to 100 per bet, 500 per character and spin. Owner decision 2026-11-04,
+economy-balance.md §16.
+
 Chess supports castling, en passant, checkmate/stalemate, repetition, insufficient
 material and promotion. The mouse interface promotes to a queen automatically;
 the rules API also supports underpromotion. Checkers uses international 10x10

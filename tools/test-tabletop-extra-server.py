@@ -14,12 +14,20 @@ function clone(t) if type(t)~='table' then return t end local n={} for k,v in pa
 wall=1790000000000;clock=0;logs={};notices={};events={};handlers={};modules={};uses={};tasks={}
 dbBoards={};dbClaims={};dbInventories={};inventories={};positions={};life={}
 failDB=false;throwDB=false;readFailure=false;cashFull=false;commits=0
+-- committed casino ledger lines (economy.lua Money.casinoLine stand-in below), the
+-- history refreshes run after a commit, and every committed cash movement's label
+dbLedger={};ledgerShown={};cashMoves={}
 for i=1,5 do
  inventories[i]={id='inv'..i,persistent=true,slots=10,kind='player',items={[1]={name='roulette_board',count=1},[2]={name='cash',count=1000}}}
  positions[i]={x=0,y=0,z=0,bucket=0};life[i]={phase='alive'}
 end
 LightRpBoardGames={chess={item='chess_board'},checkers={item='checkers_board'},connect4={item='connect4_board'},roulette={item='roulette_board'}}
 LightRP={inventory={},db={ready=true}}
+-- One net line per character and settled round (docs/economy-balance.md section 16).
+LightRP.money={casinoLine=function(inventory,game,staked,returned,unsettled)
+ return {query='INSERT INTO lightrp_transactions',values={inventory,game,staked,returned,unsettled or 0}},
+  function() ledgerShown[#ledgerShown+1]=inventory end
+end}
 local I,Db=LightRP.inventory,LightRP.db
 function I.player(id) return inventories[id] end
 function I.draft(inv) return {slots=inv.slots,items=clone(inv.items)} end
@@ -46,7 +54,7 @@ function I.transaction(player,fn)
 end
 function I.commitDrafts(changes,queries,after)
  commits=commits+1
- local nextBoards,nextClaims,nextInventories=clone(dbBoards),clone(dbClaims),clone(dbInventories)
+ local nextBoards,nextClaims,nextInventories,nextLedger=clone(dbBoards),clone(dbClaims),clone(dbInventories),clone(dbLedger)
  for _,q in ipairs(queries or {}) do local sql,v=q.query,q.values
   if sql:find('INSERT INTO lightrp_board_games',1,true) then nextBoards[v[1]]={id=v[1],owner_inventory=v[2],data=clone(v[3])}
   elseif sql:find('DELETE FROM lightrp_board_games',1,true) then nextBoards[v[1]]=nil
@@ -55,13 +63,19 @@ function I.commitDrafts(changes,queries,after)
    nextClaims[key]={round_key=v[1],inventory_id=v[2],amount=v[3],available_at=v[4],paid=0}
   elseif sql:find('UPDATE lightrp_roulette_claims SET paid=1',1,true) then
    local row=nextClaims[v[1]..'|'..v[2]];if row and row.paid==0 then row.paid=1 end
+  elseif sql:find('INSERT INTO lightrp_transactions',1,true) then
+   nextLedger[#nextLedger+1]={inventory=v[1],game=v[2],staked=v[3],returned=v[4],net=v[4]-v[3],unsettled=v[5]}
   else error('unhandled transaction query: '..sql) end
  end
  for _,c in ipairs(changes) do nextInventories[c[1].id]=clone(c[2].items) end
  if duringCommit then local fn=duringCommit;duringCommit=nil;fn() end
  if throwDB then error('injected SQL transaction exception') end
  if failDB then return false,'injected_db_failure' end
- dbBoards,dbClaims,dbInventories=nextBoards,nextClaims,nextInventories
+ dbBoards,dbClaims,dbInventories,dbLedger=nextBoards,nextClaims,nextInventories,nextLedger
+ for _,c in ipairs(changes) do
+  local delta=I.cashOf(c[2])-I.cashOf(c[1])
+  if delta~=0 then cashMoves[#cashMoves+1]={inventory=c[1].id,delta=delta,label=clone(c[2].ledger)} end
+ end
  if crashAfterCommit then error('simulated process crash after durable commit') end
  for _,c in ipairs(changes) do c[1].items=c[2].items end
  if after then after() end
@@ -241,6 +255,29 @@ transactions,claimReads=0,0
 LightRP.tabletopExtra.claim(1);assert(cash(1)==initial-10+360 and transactions==1,'the refund is paid at once')
 -- A character load forgets what was known: one read again.
 claimReads=0;modules.tabletop_extra.onCharacterLoaded(1);assert(claimReads==1)
+''')
+
+scenario('casino ledger: one net line per character and spin; stakes, payouts and refunds move cash silently',r'''
+local id=place('roulette',1);action(1,id,'join');action(2,id,'join')
+game(1,id,'bet',{bet=0,amount=10});game(1,id,'bet',{bet='red',amount=20});game(2,id,'bet',{bet='black',amount=5})
+assert(cash(1)==970 and cash(2)==995 and #dbLedger==0,'a bet writes no line')
+fixedOutcome(0);failDB=true;game(1,id,'spin',{});failDB=false
+assert(#dbLedger==0 and #ledgerShown==0,'a failed spin writes no line')
+game(1,id,'spin',{})
+assert(#dbLedger==2 and #ledgerShown==2,'one line per character and spin')
+local by={};for _,l in ipairs(dbLedger) do by[l.inventory]=l end
+assert(by.inv1.game=='Roulette' and by.inv1.staked==30 and by.inv1.returned==360 and by.inv1.net==330 and by.inv1.unsettled==0)
+assert(by.inv2.staked==5 and by.inv2.returned==0 and by.inv2.net==-5)
+wall=board(id).game.spin.endsAt;LightRP.tabletopExtra.claim(1);LightRP.tabletopExtra.claim(2)
+assert(cash(1)==1330 and cash(2)==995 and #dbLedger==2,'the payout writes no second line')
+assert(step(2000));game(1,id,'nextRound',{})
+-- A refunded round nets nothing: no line, the refund moves silently too.
+game(2,id,'bet',{bet='red',amount=7});action(1,id,'reset');LightRP.tabletopExtra.claim(2)
+assert(cash(2)==995 and #dbLedger==2,'a refund writes no line')
+assert(#cashMoves==6,#cashMoves) -- four stakes, one payout, one refund
+for _,m in ipairs(cashMoves) do
+ assert(m.label and m.label.silent==true and m.label.kind=='casino' and m.label.direction==(m.delta>0 and 'in' or 'out'),'every table cash move is silent')
+end
 ''')
 
 scenario('roulette refunds bind durable character inventories and commit atomically',r'''
