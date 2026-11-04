@@ -30,12 +30,15 @@ assert(#created == 6, "first slice: " .. #created)
 for _ = 1, math.ceil(#places / 6) do tick() end -- a slice that ends on the last place yields once more before the log
 assert(#created == #places and #mapAdds == #places and logs[#logs]:find(#places .. " map place", 1, true), "every place")
 local byTitle = {}
-local ripperdocs = 0
+local ripperdocs, shops = 0, 0
 for _, b in ipairs(created) do
-    if b.sprite == "ripperdoc" then ripperdocs = ripperdocs + 1 else byTitle[b.title] = b; assert(b.sprite == "bar") end
+    if b.sprite == "ripperdoc" then ripperdocs = ripperdocs + 1
+    elseif b.sprite == "vendor" then shops = shops + 1; byTitle[b.title] = b
+    else byTitle[b.title] = b; assert(b.sprite == "bar") end
     assert(b.routable == true and b.active == true)
 end
 assert(ripperdocs == 14, "the game's 14 ripperdocs: " .. ripperdocs)
+assert(shops == 1 and byTitle["Cyberpunk TCG Shop"] and byTitle["Cyberpunk TCG Shop"].description:find("play hall", 1, true), "the Cyberpunk TCG shop")
 assert(byTitle.Afterlife and byTitle.Afterlife.description:find("Drinks", 1, true), "a named venue keeps its name")
 assert(byTitle.Bar and byTitle.Bar.description:find("Bar // ", 1, true), "a numbered bar shows its kind, the branch in the description")
 assert(byTitle.Clouds and byTitle.Clouds.description:find("club", 1, true), "the club")
@@ -45,6 +48,8 @@ local pin = pins["place.bar_188"]
 assert(pin and pin.category == "nightlife" and pin.color == "#FF3FB4" and pin.icon:sub(1, 4) == "<svg", "3D map pin")
 local doc = pins["place.ripperdoc_164"]
 assert(doc and doc.category == "service" and doc.icon:sub(1, 4) == "<svg" and doc.label:find("Ripperdoc // ", 1, true) and doc.description:find("operating chair", 1, true), "a clinic's 3D map pin")
+local tcg = pins["place.tcgshop_neon_deck"]
+assert(tcg and tcg.category == "shop" and tcg.color == "#FCEE0A" and tcg.icon:find("<svg", 1, true) == 1 and tcg.label == "Cyberpunk TCG Shop", "the TCG shop's 3D map pin")
 -- staying in the world: no rebuild
 tick(); tick(); assert(#created == #places, "built once per entry")
 -- out of the world and back: the blips are rebuilt (the old handles removed first)
@@ -57,4 +62,4 @@ events["op77_map3d:ready"]()
 local resend = threads[#threads]
 while coroutine.status(resend) ~= "dead" do assert(coroutine.resume(resend)) end
 assert(#mapAdds == before + #places, "map pins resent")
-print("PASS: map places (bars, clubs and ripperdocs: native sprites, routable, named venues, 3D map pins, slices, rebuilt on world entry, map restart)")
+print("PASS: map places (bars, clubs, ripperdocs and the TCG shop: native sprites, routable, named venues, 3D map pins, slices, rebuilt on world entry, map restart)")
