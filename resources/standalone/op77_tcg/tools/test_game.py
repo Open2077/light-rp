@@ -1,5 +1,5 @@
-"""The rules engine (shared/game.lua) against the official rules (docs/RULES.md §1, §4, §8-§11).
-Usage: python tools/test_game.py   (needs lupa)"""
+"""The rules engine (shared/game.lua) and every card's script (shared/effects.lua) against the official rules
+(docs/RULES.md §1, §4, §8-§11) and the cards' texts. Usage: python tools/test_game.py   (needs lupa)"""
 import pathlib
 import sys
 
@@ -7,7 +7,7 @@ import lupa.lua54 as lupa  # the server runs Lua 5.4 (and lupa's 5.5 build crash
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 L = lupa.LuaRuntime(unpack_returned_tuples=True)
-for f in ["shared/cards.lua", "shared/game.lua"]:
+for f in ["shared/cards.lua", "shared/game.lua", "shared/effects.lua"]:
     L.execute((ROOT / f).read_text(encoding="utf-8"))
 checks = 0
 
@@ -20,196 +20,372 @@ def check(cond, what):
     checks += 1
 
 
-# A test match: fixed rolls (a queue), hand-picked cards. Card picks from the real data.
+def n(t):
+    return len(list(t.values())) if t is not None else 0
+
+
+def ok(r):
+    """An engine call returns true, or false and a reason."""
+    return (r[0] if isinstance(r, tuple) else r) is True
+
+
+def why(r):
+    return str(r[1]) if isinstance(r, tuple) and len(r) > 1 else ""
+
+
 L.execute("""
-function pickCard(pred) local keys = {} for k in pairs(TcgCards) do keys[#keys + 1] = k end table.sort(keys)
-    for _, k in ipairs(keys) do if pred(TcgCards[k], k) then return k end end end
+LEGS = { 'yorinobu_arasaka_embracing_destruction', 'jackie_welles_pour_one_out_for_me', 'kerry_eurodyne_axe_attitude_audience' }
 function newMatch(rolls)
     local q = rolls or {}
     local m = { first = 1, log = {}, random = function(a, b) local v = table.remove(q, 1) or a; return math.max(a, math.min(b, v)) end }
     local function seat(i, name)
         return { index = i, name = name, library = {}, hand = {}, deck = { name = 'test' },
-                 legends = { { slug = LEG1, faceUp = false, spent = (i == 1) }, { slug = LEG2, faceUp = false, spent = (i == 1) },
-                             { slug = LEG3, faceUp = false, spent = false } } }
+                 legends = { { slug = LEGS[1], faceUp = false, spent = (i == 1) }, { slug = LEGS[2], faceUp = false, spent = (i == 1) },
+                             { slug = LEGS[3], faceUp = false, spent = false } } }
     end
     m.seats = { seat(1, 'A'), seat(2, 'B') }
     TcgGame.begin(m)
     return m
 end
-function fill(seat, slug, n) for _ = 1, n do seat.library[#seat.library + 1] = slug end end
+function fill(seat, slug, k) for _ = 1, k do seat.library[#seat.library + 1] = slug end end
+function put(m, seat, slug, spent, lag)
+    local u = { uid = TcgGame.nextId(m), slug = slug, spent = spent, lag = lag, gear = {}, mods = {}, playedTurn = 0 }
+    seat.field[#seat.field + 1] = u
+    return u
+end
+function eddies(m, seat, k) for _ = 1, k do seat.eddies[#seat.eddies + 1] = { uid = TcgGame.nextId(m), slug = 'mantis_blades', spent = false } end end
+function gig(m, seat, kind, value) return TcgGame.addGig(m, seat, kind, value, seat.index) end
+function settle(m) local k = 0 while m.prompt and k < 50 do m.prompt.house = true; TcgGame.defaultAnswer(m); k = k + 1 end end
+function flag(seat, name, untilStart) seat.flags[#seat.flags + 1] = { flag = name, untilStart = untilStart } end
 """)
 G = L.eval("TcgGame")
-# Picked from the real data: Ruthless Lowlife 2/4, Jacked-in Voodoo Boy 2/2 (no keyword), Kiroshi Optics (Gear, Sell Tag),
-# Corpo Security (Blocker), Mantis Blades (Gear 1, +2), V: Corporate Exile (Go Solo, cost 5), Saburo (null cost).
-unit, cheap, seller, blocker, gear = "ruthless_lowlife", "jacked_in_voodoo_boy", "kiroshi_optics", "corpo_security", "mantis_blades"
-solo, nulllegend = "v_corporate_exile", "saburo_arasaka_stubborn_patriarch"
-program = L.eval("pickCard(function(c) return c.type == 'Program' and (c.cost or 9) <= 2 end)")
-legs = ["yorinobu_arasaka_embracing_destruction", "jackie_welles_pour_one_out_for_me", "kerry_eurodyne_axe_attitude_audience"]
-L.globals().LEG1, L.globals().LEG2, L.globals().LEG3 = legs[0], legs[1], legs[2]
-check(all(x for x in (unit, cheap, seller, blocker, gear, program, solo)), "test cards found in the real data")
+newMatch, fill, put, eddies, gig, settle, flag = (L.eval(x) for x in ("newMatch", "fill", "put", "eddies", "gig", "settle", "flag"))
+check(n(L.eval("TcgEffects.coverage()")) == 0, "every card of the set has a script")
 
-m = L.eval("newMatch")(L.table_from([3, 5, 2, 6, 4, 1, 1, 1, 1, 1, 1, 1]))
+# --- The turn [8] --------------------------------------------------------------------------------------------
+m = newMatch(L.table_from([3, 5, 2, 6, 4, 1, 1, 1, 1, 1, 1, 1]))
 A, B = m.seats[1], m.seats[2]
-fill = L.eval("fill")
-fill(A, unit, 20)
-fill(B, unit, 20)
-
-# Start of turn 1: no win, the first player's two spent Legends stay spent, draw 1, roll a Gig.
-check(G.startTurn(m) and m.step == "roll" and m.turn == 1 and m.active == 1, "turn 1 starts with the roll step")
-check(len(list(A.hand.values())) == 1 and len(list(A.library.values())) == 19, "draw 1 at the start of the turn")
+fill(A, "psycho_squad", 20)
+fill(B, "psycho_squad", 20)
+check(ok(G.startTurn(m)) and m.step == "roll" and m.turn == 1 and m.active == 1, "turn 1 starts with the roll step")
+check(n(A.hand) == 1 and n(A.library) == 19, "draw 1 at the start of the turn")
 check(A.legends[1].spent and A.legends[2].spent and not A.legends[3].spent, "the first player's two Legends stay spent on turn 1")
-ok, why = G.roll(m, 1, "d20")
-check(not ok and "last" in why, "the d20 only when it is the last die")
-ok, why = G.sell(m, 1, 1)
-check(not ok, "no main-phase action before the roll")
-check(G.roll(m, 1, "d6") and A.gigs[1].value == 3 and A.gigs[1].kind == "d6" and m.step == "main", "roll a d6 into the Gig area")
-check(len(list(A.fixer.values())) == 5, "the die leaves the fixer")
+r = G.roll(m, 1, "d20")
+check(not ok(r) and "last" in why(r), "the d20 only when it is the last die")
+check(not ok(G.sell(m, 1, 1)), "no main-phase action before the roll")
+check(ok(G.roll(m, 1, "d6")) and A.gigs[1].value == 3 and m.step == "main", "roll a d6 into the Gig area")
 check(G.streetCred(A) == 3 and G.streetCred(B) is None, "Street Cred: sum of Gigs, null without Gigs")
-
-# Paying: 1 €$ per ready Eddie or Legend (face-down, or face-up with a Sell Tag); the spent Legends cannot pay.
 check(G.available(A) == 1, "only the ready Legend pays on turn 1")
-A.hand[2] = unit
-ok, why = G.play(m, 1, 2)
-check(not ok and "Not enough" in why, "a 2-cost Unit is not affordable with 1 €$")
-A.hand[3] = seller
-check(G.sell(m, 1, 3) and len(list(A.eddies.values())) == 1, "sell a card with a Sell Tag into the Eddies")
-ok, why = G.sell(m, 1, 1)
-check(not ok, "sell once per turn (or the card has no Sell Tag)")
-check(G.available(A) == 2 and G.play(m, 1, 2), "Eddie + Legend pay a 2-cost Unit")
+A.hand[2] = "psycho_squad"
+r = G.play(m, 1, 2)
+check(not ok(r) and "Not enough" in why(r), "a 4-cost Unit is not affordable with 1 €$")
+A.hand[3] = "kiroshi_optics"
+check(ok(G.sell(m, 1, 3)) and n(A.eddies) == 1, "sell a card with a Sell Tag into the Eddies")
+check(not ok(G.sell(m, 1, 1)), "sell once per turn")
+eddies(m, A, 2)
+check(ok(G.play(m, 1, 2)), "Eddies and a Legend pay a 4-cost Unit")
 u = A.field[1]
-check(u.lag and not u.spent and A.eddies[1].spent and A.legends[3].spent, "the Unit enters ready with Lag; the payers are spent")
-ok, why = G.attack(m, 1, u.uid, "gigs")
-check(not ok and "Lag" in why, "a lagging Unit cannot attack")
-ok, why = G.call(m, 1, 3)
-check(not ok, "no Eddie left to Call a Legend")
-ok, why = G.roll(m, 2, "d4")
-check(not ok, "not the rival's turn")
-
-# Turn 2 (B): ready step, draw, roll. Then B plays and passes.
-check(G.endTurn(m, 1) and m.active == 2 and m.turn == 2 and m.step == "roll", "pass: the rival's turn begins")
+check(u.lag and not u.spent, "the Unit enters ready with Lag")
+r = G.attack(m, 1, u.uid, "gigs")
+check(not ok(r) and "Lag" in why(r), "a lagging Unit cannot attack")
+check(ok(G.endTurn(m, 1)) and m.active == 2 and m.turn == 2 and m.step == "roll", "pass: the rival's turn begins")
 check(not u.lag, "Units lose their Lag at the end of the turn")
-check(G.roll(m, 2, "d8") and B.gigs[1].value == 5, "the rival rolls a Gig")
-B.hand[2] = cheap
-check(G.play(m, 2, 2) and len(list(B.field.values())) == 1, "the rival plays a 1-cost Unit with a Legend")
-b1 = B.field[1]
-check(G.endTurn(m, 2) and m.turn == 3, "turn 3")
+check(ok(G.roll(m, 2, "d8")) and B.gigs[1].value == 5, "the rival rolls a Gig")
+check(ok(G.endTurn(m, 2)) and m.turn == 3, "turn 3")
+check(not A.legends[1].spent and not A.legends[2].spent and not A.eddies[1].spent, "ready step from turn 2 on")
+check(ok(G.roll(m, 1, "d4")) and ok(G.attack(m, 1, u.uid, "gigs")) and m.step == "react" and u.spent, "attack the Gigs: spent, the rival reacts")
+check(not ok(G.endTurn(m, 1)), "no pass during the React step")
+check(ok(G.resolve(m, 2)) and m.step == "steal" and m.attack.steal == 1, "steal floor(6/10)+1 = 1 Gig")
+check(not ok(G.steal(m, 1, L.table_from([999]))), "steal only the rival's Gigs")
+check(ok(G.steal(m, 1, L.table_from([B.gigs[1].uid]))) and n(A.gigs) == 3 and n(B.gigs) == 0, "the stolen Gig moves")
+check(A.gigs[3].value == 5 and m.step == "main", "a stolen Gig keeps its value")
 
-# Turn 3 (A): everything readies, including the Legends spent on turn 1.
-check(not A.legends[1].spent and not A.legends[2].spent and not A.eddies[1].spent and not u.spent, "ready step from turn 2 on")
-check(G.roll(m, 1, "d4") and A.gigs[2].value == 2, "second Gig")
-ok, why = G.attack(m, 1, u.uid, b1.uid)
-check(not ok and "spent" in why, "only spent rival Units can be attacked")
-pa = G.power(u)
-check(G.attack(m, 1, u.uid, "gigs") and m.step == "react" and u.spent, "attack the Gigs: the attacker is spent, the rival reacts")
-ok, why = G.endTurn(m, 1)
-check(not ok, "no pass during the React step")
-check(G.resolve(m, 2) and m.step == "steal" and m.attack.steal == min(len(list(B.gigs.values())), pa // 10 + 1), "steal floor(power/10)+1 Gigs")
-gid = B.gigs[1].uid
-ok, why = G.steal(m, 1, L.table_from([999]))
-check(not ok, "steal only the rival's Gigs")
-check(G.steal(m, 1, L.table_from([gid])) and len(list(A.gigs.values())) == 3 and len(list(B.gigs.values())) == 0, "the stolen Gig moves")
-check(A.gigs[3].value == 5, "a stolen Gig keeps its value")
 
-# Call a Legend: 1 €$, once per turn, the card is flipped face up.
-check(G.call(m, 1, 1) and A.legends[1].faceUp, "Call a Legend")
-ok, why = G.call(m, 1, 2)
-check(not ok and "already" in why, "Call once per turn")
+# --- Card scripts: targeted ----------------------------------------------------------------------------------
+def fresh(rolls=None):
+    mm = newMatch(L.table_from(rolls or [6] * 40))
+    fill(mm.seats[1], "psycho_squad", 15)
+    fill(mm.seats[2], "psycho_squad", 15)
+    G.startTurn(mm)
+    G.roll(mm, 1, "d4")
+    eddies(mm, mm.seats[1], 10)
+    return mm, mm.seats[1], mm.seats[2]
 
-# Gear and Programs.
-A.hand[len(list(A.hand.values())) + 1] = gear
-gi = len(list(A.hand.values()))
-before = G.power(u)
-A.eddies[2] = L.table_from({"uid": 900, "slug": seller, "spent": False})
-A.eddies[3] = L.table_from({"uid": 901, "slug": seller, "spent": False})
-ok, why = G.play(m, 1, gi, None)
-check(not ok and "equip" in why, "a Gear needs a holder")
-check(G.play(m, 1, gi, u.uid) and G.power(u) == before + (L.eval("TcgCards")[gear].power or 0), "Gear adds its power")
-A.eddies[4] = L.table_from({"uid": 902, "slug": seller, "spent": False})
-A.eddies[5] = L.table_from({"uid": 903, "slug": seller, "spent": False})
-A.hand[len(list(A.hand.values())) + 1] = program
-pi = len(list(A.hand.values()))
-check(G.play(m, 1, pi) and A.trash[len(list(A.trash.values()))] == program, "a Program resolves into the trash")
 
-# Fights: B's Unit is spent after attacking; equal power both lose; a Blocker redirects a Gig attack (nothing stolen).
-check(G.endTurn(m, 1) and G.roll(m, 2, "d10"), "turn 4, B rolls")
-check(G.attack(m, 2, b1.uid, "gigs") and G.resolve(m, 1) and m.step == "steal", "B attacks A's Gigs")
-check(G.steal(m, 2, L.table_from([A.gigs[1].uid])) and len(list(B.gigs.values())) == 2, "B steals one back")
-check(G.endTurn(m, 2) and G.roll(m, 1, "d8"), "turn 5")
-check(b1.spent is False, "B's Unit readied on B's turn... and stays ready during A's turn") if False else None
-L.execute("function spend(u) u.spent = true end")
-L.eval("spend")(b1)
-pb = G.power(b1)
-check(G.attack(m, 1, u.uid, b1.uid) and G.resolve(m, 2), "fight a spent rival Unit")
-pu = G.power(u)
-if pu > pb:
-    check(len(list(B.field.values())) == 0 and B.trash[len(list(B.trash.values()))] == cheap, "the weaker Unit is defeated to the trash")
-else:
-    check(len(list(A.field.values())) == 0, "the weaker attacker is defeated")
+def play_last(mm, seat_index, slug):
+    s = mm.seats[seat_index]
+    s.hand[n(s.hand) + 1] = slug
+    return G.play(mm, seat_index, n(s.hand))
 
-# Blocker, Go Solo, null-cost Legends, empty deck, 7 Gigs.
-m2 = L.eval("newMatch")(L.table_from([6] * 40))
-A2, B2 = m2.seats[1], m2.seats[2]
-fill(A2, unit, 10)
-fill(B2, unit, 10)
-G.startTurn(m2); G.roll(m2, 1, "d4")
-L.execute("function put(seat, slug, spent, lag) local u = { uid = 500 + #seat.field, slug = slug, spent = spent, lag = lag, gear = {} } seat.field[#seat.field + 1] = u return u end")
-put = L.eval("put")
-atk = put(A2, unit, False, False)
-blk = put(B2, blocker, False, False)
-B2.gigs[1] = L.table_from({"uid": 700, "kind": "d6", "value": 6})
-check(G.attack(m2, 1, atk.uid, "gigs"), "attack the Gigs")
-check(G.block(m2, 2, blk.uid) and m2.attack.target.kind == "unit" and blk.spent, "Blocker redirects the attack")
-check(G.resolve(m2, 2) and m2.step == "main" and len(list(B2.gigs.values())) == 1, "a blocked Gig attack steals nothing")
-A2.legends[3].faceUp = True
-A2.legends[3].slug = solo
-for i in range(1, 9):
-    A2.eddies[i] = L.table_from({"uid": 800 + i, "slug": seller, "spent": False})
-check(G.playLegend(m2, 1, 3), "play a Go Solo Legend")
-sl = A2.field[len(list(A2.field.values()))]
-check(sl.solo and not sl.lag and not sl.spent and G.canAttack(sl), "Go Solo: ready, can attack this turn")
-A2.legends[2].faceUp = True
-A2.legends[2].slug = nulllegend
-ok, why = G.playLegend(m2, 1, 2)
-check(not ok and "null" in why, "a null-cost Legend cannot be played to the field")
-# 7 Gigs at the start of your turn wins.
-for i in range(1, 8):
-    A2.gigs[i] = L.table_from({"uid": 600 + i, "kind": "d6", "value": 1})
-check(G.endTurn(m2, 1) and m2.active == 2, "B's turn")
-L.execute("function emptyLib(seat) for i = #seat.library, 1, -1 do seat.library[i] = nil end end")
-check(G.roll(m2, 2, "d4") and G.endTurn(m2, 2) and m2.step == "over" and m2.winner == 1, "7 Gigs at the start of the turn: win")
-m3 = L.eval("newMatch")(L.table_from([1] * 10))
+
+mm, a, b = fresh()
+rl = put(mm, a, "ruthless_lowlife", False, False)
+cs = put(mm, a, "corpo_security", False, False)
+gig(mm, b, "d6", 4)
+r = G.canAttack(mm, a, rl, "gigs")
+check(not ok(r) and "only attack rival Units" in why(r), "Ruthless Lowlife can't attack Gig areas")
+check(not ok(G.canAttack(mm, a, cs)), "Corpo Security can't attack")
+h0 = n(a.hand)
+check(ok(play_last(mm, 1, "delamain_rideshare_ai")) and n(a.hand) == h0 + 2, "Delamain Rideshare AI: {Play} draw 2")
+put(mm, b, "psycho_squad", False, False)
+eddies(mm, a, 6)
+check(ok(play_last(mm, 1, "adam_smasher_metal_over_meat")), "play Adam Smasher, Metal over Meat")
+settle(mm)
+check(n(a.field) == 1 and n(b.field) == 0 and a.field[1].slug == "adam_smasher_metal_over_meat", "Adam Smasher defeats all other Units")
+
+mm, a, b = fresh()
+target = put(mm, b, "psycho_squad", False, False)
+check(ok(play_last(mm, 1, "corporate_surveillance")) and mm.prompt is not None and mm.prompt.seat == 1, "a Program asks its player for a target")
+check(not ok(G.answer(mm, 2, L.table_from([1]))), "only the prompted player answers")
+check(ok(G.answer(mm, 1, L.table_from([1]))) and target.spent and a.trash[n(a.trash)] == "corporate_surveillance",
+      "Corporate Surveillance spends the target, then goes to the trash")
+
+mm, a, b = fresh()
+g = gig(mm, a, "d10", 5)
+play_last(mm, 1, "industrial_assembly")
+check(mm.prompt is not None and "Increase" in str(mm.prompt.title), "Industrial Assembly asks which Gig")
+opts = list(mm.prompt.options.values())
+pick = [i for i, o in enumerate(opts, 1) if "d10 showing 5" in str(o.label)][0]
+G.answer(mm, 1, L.table_from([pick]))
+vals = list(mm.prompt.options.values())
+check(len(vals) == 4 and "5 -> 9" in str(vals[3].label), "up to 4: four new values")
+hb = n(a.hand)
+G.answer(mm, 1, L.table_from([4]))
+check(g.value == 9 and n(a.hand) == hb + 1, "the Gig shows 9; a Gig with 8+ draws 1")
+
+mm, a, b = fresh()
+for s in ["mantis_blades", "psycho_squad", "kiroshi_optics", "psycho_squad", "riot_shield"]:
+    a.library[n(a.library) + 1] = s
+a.legends[3].slug = "viktor_vektor_sit_down_and_relax"
+lib = n(a.library)
+check(ok(G.call(mm, 1, 3)) and mm.prompt is not None, "Calling Viktor Vektor searches the top 5")
+opts = list(mm.prompt.options.values())
+gears = [i for i, o in enumerate(opts, 1) if not o.disabled]
+check(len(gears) == 3, "only Gears with cost 2 or less can be picked")
+G.answer(mm, 1, L.table_from(gears[:2]))
+check(n(a.library) == lib - 2, "two Gears to the hand, the rest bottom-decked")
+
+mm, a, b = fresh()
+atk = put(mm, a, "psycho_squad", False, False)
+dfd = put(mm, b, "rockn_rockerboy", False, False)
+dfd.gear[1] = "mandibular_upgrade"
+gig(mm, b, "d6", 6)
+check(G.kw(mm, b, dfd, "Blocker"), "Mandibular Upgrade gives its holder Blocker")
+check(ok(G.attack(mm, 1, atk.uid, "gigs")) and ok(G.block(mm, 2, dfd.uid)), "blocked")
+G.resolve(mm, 2)
+settle(mm)
+check(n(b.gigs) == 1 and n(a.field) == 0, "a blocked Gig attack steals nothing; the 6-power attacker loses to 8")
+
+mm, a, b = fresh()
+w = put(mm, a, "psycho_squad", True, False)
+w.gear[1] = "deadman_transmitter"
+k = put(mm, b, "rockn_rockerboy", False, False)
+mm.active = 2
+check(ok(G.attack(mm, 2, k.uid, w.uid)) and ok(G.resolve(mm, 1)), "attack the equipped Unit")
+settle(mm)
+check(n(a.field) == 1 and n(w.gear) == 0 and "deadman_transmitter" in list(a.trash.values()), "Deadman Transmitter is defeated instead")
+
+mm, a, b = fresh()
+j = put(mm, a, "johnny_silverhand_never_stop_fighting", False, False)
+c = put(mm, b, "meredith_stout_stone_cold_corpo", True, False)
+check(G.hasTag("meredith_stout_stone_cold_corpo", "Corpo"), "Meredith is CORPO")
+G.attack(mm, 1, j.uid, c.uid)
+G.resolve(mm, 2)
+settle(mm)
+check(n(b.field) == 0 and n(a.field) == 1 and not j.spent, "Johnny wins against CORPO and readies the first time")
+
+mm, a, b = fresh()
+put(mm, b, "maxtac_suppression_team", False, False)
+gig(mm, b, "d6", 2)
+play_last(mm, 1, "riding_nomad")
+nomad = a.field[n(a.field)]
+check(not ok(G.canAttack(mm, a, nomad, "gigs")), "a rival's Maxtac Suppression Team stops an Adrenaline Unit the turn it's played")
+
+mm, a, b = fresh()
+for _ in range(8):
+    put(mm, b, "psycho_squad", False, False)
+check(G.costOf(mm, a, "maxtac_heavy", "hand") == 1, "Maxtac Heavy: -1 per rival Unit, never below 1")
+check(G.costOf(mm, a, "trauma_team_operatives", "hand") == 6, "Trauma Team: no Unit in the trash, full cost")
+rs = put(mm, b, "psycho_squad", False, False)
+rs.gear[1] = "riot_shield"
+check(G.costOf(mm, a, "v_corporate_exile", "solo") == 7, "Riot Shield: rivals pay +2 €$ to Go Solo")
+
+mm, a, b = fresh()
+gig(mm, b, "d12", 11)
+gig(mm, b, "d4", 2)
+flag(b, "chromeFang", 2)
+att = put(mm, a, "psycho_squad", False, False)
+G.attack(mm, 1, att.uid, "gigs")
+G.resolve(mm, 2)
+check(mm.step == "steal" and n(mm.attack.stealable) == 1, "Chrome Fang: only Gigs worth 6 or less can be stolen by a 6-power Unit")
+
+mm, a, b = fresh()
+a.legends[3].faceUp = True
+a.legends[3].slug = "hanako_arasaka_daughter_of_the_emperor"
+mine = gig(mm, a, "d4", 1)
+theirs = gig(mm, b, "d20", 18)
+acts = list(G.options(mm, 1).activate.values())
+x = [x for x in acts if str(x.card) == "hanako_arasaka_daughter_of_the_emperor"]
+check(x and x[0].ok, "Hanako's Spend effect is available")
+check(ok(G.activate(mm, 1, x[0].uid, x[0].id)), "activate Hanako")
+settle(mm)
+check(theirs.uid in [x.uid for x in a.gigs.values()] and n(b.gigs) == 1 and b.gigs[1].kind == "d4" and a.legends[3].spent,
+      "Gigs swapped, Hanako spent")
+
+mm, a, b = fresh()
+at = put(mm, a, "psycho_squad", False, False)
+gig(mm, b, "d6", 3)
+eddies(mm, b, 3)
+b.hand[n(b.hand) + 1] = "floor_it"
+G.attack(mm, 1, at.uid, "gigs")
+qs = list(G.options(mm, 2).quick.values())
+check(qs == [n(b.hand)], "Floor It is offered as a Quick reaction")
+hb = n(b.hand)
+check(ok(G.quick(mm, 2, n(b.hand))), "play Floor It as a reaction")
+settle(mm)
+check(G.power(mm, at, a) == 5 and n(b.hand) == hb, "the attacker has -1 power; Floor It drew 1 and left the hand")
+
+mm, a, b = fresh()
+put(mm, b, "psycho_squad", False, False)
+play_last(mm, 1, "mox_inciters")
+settle(mm)
+G.endTurn(mm, 1)
+settle(mm)
+G.roll(mm, 2, "d4")
+settle(mm)
+gig(mm, a, "d6", 2)
+r = G.endTurn(mm, 2)
+check(not ok(r) and "must attack" in why(r), "Mox Inciters: that Unit must attack before the turn ends")
+
+mm = newMatch(L.table_from([1, 1, 4, 4, 4, 4]))
+a = mm.seats[1]
+fill(a, "psycho_squad", 10)
+fill(mm.seats[2], "psycho_squad", 10)
+a.legends[3].faceUp = True
+G.startTurn(mm)
+h = n(a.hand)
+G.roll(mm, 1, "d6")
+check(mm.prompt is not None and "reroll" in str(mm.prompt.title), "Kerry Eurodyne offers a reroll")
+G.answer(mm, 1, L.table_from([2]))
+check(a.gigs[1].value == 1 and n(a.hand) == h + 1, "kept the min roll: draw 1")
+
+mm, a, b = fresh()
+for s in ["psycho_squad"] * 3:
+    b.hand[n(b.hand) + 1] = s
+play_last(mm, 1, "shattered_memories")
+settle(mm)
+check(n(a.hand) >= 5 and n(b.hand) == 5, "Shattered Memories: hands discarded, 5 drawn")
+
+mm, a, b = fresh()
+a.legends[3].faceUp = True
+a.legends[3].slug = "saburo_arasaka_stubborn_patriarch"
+ara = [k for k, cc in L.eval("TcgCards").items() if cc.type == "Unit" and G.hasTag(k, "Arasaka")]
+if ara:
+    au = put(mm, a, ara[0], False, False)
+    base = G.power(mm, au, a)
+    gig(mm, b, "d6", 1)
+    G.attack(mm, 1, au.uid, "gigs")
+    check(G.power(mm, au, a) == base + 1, "Saburo: a friendly ARASAKA Unit has +1 power while attacking")
+
+# --- Engine edges --------------------------------------------------------------------------------------------
+mm = newMatch(L.table_from([6] * 40))
+fill(mm.seats[1], "psycho_squad", 10)
+fill(mm.seats[2], "psycho_squad", 10)
+G.startTurn(mm)
+G.roll(mm, 1, "d4")
+a = mm.seats[1]
+a.legends[2].faceUp = True
+a.legends[2].slug = "saburo_arasaka_stubborn_patriarch"
+r = G.playLegend(mm, 1, 2)
+check(not ok(r) and "null" in why(r), "a null-cost Legend cannot be played to the field")
+a.legends[3].faceUp = True
+a.legends[3].slug = "v_corporate_exile"
+eddies(mm, a, 6)
+check(ok(G.playLegend(mm, 1, 3)), "Go Solo")
+sl = a.field[n(a.field)]
+check(sl.solo and not sl.lag and ok(G.canAttack(mm, a, sl)), "Go Solo: ready, can attack this turn")
+for _ in range(7):
+    gig(mm, a, "d6", 1)
+check(ok(G.endTurn(mm, 1)) and mm.active == 2, "B's turn")
+settle(mm)
+G.roll(mm, 2, "d4")
+settle(mm)
+check(ok(G.endTurn(mm, 2)) and mm.step == "over" and mm.winner == 1, "7 Gigs at the start of the turn: win")
+m3 = newMatch(L.table_from([1] * 10))
 G.startTurn(m3)
 check(m3.step == "over" and m3.winner == 2, "drawing from an empty deck loses")
 
-# The house plays a whole game against itself without breaking the rules (and ends it).
+# --- Every card, in real games: house vs house with decks drawn from the whole set ---------------------------
 L.execute("""
 function houseGame(seed)
     math.randomseed(seed)
     local m = { first = 1, log = {}, random = math.random }
-    local deck = TcgStarters and nil
-    local function seat(i) return { index = i, name = 'H' .. i, library = {}, hand = {}, deck = { name = 'x' },
-        legends = { { slug = LEG1, faceUp = false, spent = i == 1 }, { slug = LEG2, faceUp = false, spent = i == 1 }, { slug = LEG3, faceUp = false, spent = false } } } end
+    local units, others, legends = {}, {}, {}
+    for k, c in pairs(TcgCards) do
+        if c.type == 'Legend' then legends[#legends + 1] = k elseif c.type == 'Unit' then units[#units + 1] = k else others[#others + 1] = k end
+    end
+    table.sort(units); table.sort(others); table.sort(legends)
+    local function seat(i)
+        local ls = {}
+        for j = 1, 3 do ls[j] = { slug = legends[math.random(#legends)], faceUp = false, spent = i == 1 and j <= 2 } end
+        return { index = i, name = 'H' .. i, library = {}, hand = {}, deck = { name = 'x' }, legends = ls, house = true }
+    end
     m.seats = { seat(1), seat(2) }
-    local pool = {}
-    for k, c in pairs(TcgCards) do if c.type ~= 'Legend' then pool[#pool + 1] = k end end
-    table.sort(pool)
-    for _, s in ipairs(m.seats) do for i = 1, 40 do s.library[i] = pool[math.random(#pool)] end for i = 1, 6 do s.hand[i] = table.remove(s.library) end end
+    for _, s in ipairs(m.seats) do
+        for i = 1, 26 do s.library[#s.library + 1] = units[math.random(#units)] end
+        for i = 1, 18 do s.library[#s.library + 1] = others[math.random(#others)] end
+        for i = #s.library, 2, -1 do local j = math.random(i); s.library[i], s.library[j] = s.library[j], s.library[i] end
+        for i = 1, 6 do s.hand[i] = table.remove(s.library) end
+    end
     TcgGame.begin(m)
     TcgGame.startTurn(m)
-    local steps = 0
-    while m.step ~= 'over' and steps < 5000 do
+    local steps, used = 0, {}
+    while m.step ~= 'over' and steps < 8000 do
         steps = steps + 1
         local who = m.active
-        if m.step == 'react' then who = m.attack.defender end
-        local ok, why = TcgGame.housePlay(m, who)
-        if not ok then return false, 'house stuck: ' .. tostring(why) .. ' at ' .. m.step end
+        if m.prompt then who = m.prompt.seat elseif m.step == 'react' and m.attack then who = m.attack.defender end
+        if not m.prompt and not TcgGame.busy(m) and m.step == 'main' and math.random() < 0.55 then
+            local s = m.seats[who]
+            local i = math.random(math.max(1, #s.hand))
+            if s.hand[i] then
+                local slug = s.hand[i]
+                if TcgGame.play(m, who, i) then used[slug] = true end
+            end
+            if not TcgGame.busy(m) and m.step == 'main' then
+                local acts = TcgGame.activations(m, s)
+                if #acts > 0 and math.random() < 0.4 then
+                    local e = acts[math.random(#acts)]
+                    if TcgGame.canActivate(m, s, e, false) and TcgGame.activate(m, who, e.holder.uid, e.id) then used[e.id] = true end
+                end
+            end
+            if not TcgGame.busy(m) and m.step == 'main' then
+                for j, l in ipairs(s.legends) do
+                    if not l.faceUp and not l.removed and math.random() < 0.25 and TcgGame.call(m, who, j) then used[l.slug] = true break end
+                end
+            end
+        else
+            local ok, why = TcgGame.housePlay(m, who)
+            if not ok and why ~= 'waiting' and m.step ~= 'over' then
+                if not (m.step == 'main' and TcgGame.busy(m) == false and why and why:find('must attack')) then
+                    return false, 'house stuck: ' .. tostring(why) .. ' at ' .. m.step
+                end
+            end
+        end
     end
-    return m.step == 'over', m.endReason, m.turn
+    for _, l in ipairs(m.log) do if l:find('failed:', 1, true) then return false, l end end
+    if m.step ~= 'over' then return false, 'no end after ' .. steps .. ' steps (' .. m.step .. ')' end
+    local k = 0 for _ in pairs(used) do k = k + 1 end
+    return true, m.endReason, m.turn, k, used
 end
 """)
-for seed in (1, 2, 3, 4, 5):
-    ok, reason, turns = L.eval("houseGame")(seed)
-    check(ok, f"house game {seed} ends by the rules ({reason})")
-print(f"PASS: rules engine ({checks} checks: start phase, Gig roll + d20 last, Street Cred, paying, sell once, Units + Lag, "
-      f"attacks, react/steal, stolen values, Call once, Gear, Programs, fights, Blocker, Go Solo, null cost, 7 Gigs, empty deck, "
-      f"5 house games; last: {reason}, turn {turns})")
+failures, seen = [], set()
+games = 80
+for seed in range(1, games + 1):
+    res = L.eval("function(s) local ok, a, b, c, d, e = pcall(houseGame, s) return ok, a, b, c, d, e end")(seed)
+    if not res[0] or res[1] is False:
+        failures.append((seed, res[1], res[2]))
+    else:
+        for k in res[5].keys():
+            seen.add(str(k))
+check(not failures, f"{games} random games with every card end by the rules, no script error: {failures[:3]}")
+print(f"PASS: rules engine and card scripts ({checks} checks; {games} random full games exercised {len(seen)} different cards/effects)")

@@ -199,3 +199,25 @@
 .dh-seated.game .dh-hand:hover .dh-card:not(.hot) { transform: translateX(var(--push, 0px)) translateY(calc(var(--y) - 40px)) rotate(var(--r)); }
 .dh-seated.game .dh-you { bottom: 130px; }
 .dh-log p.new { animation: tbLog .45s var(--ease-out) both; }
+
+/* Card effects: choices and activated effects */
+.tb-choices { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; margin-top: 4px; }
+.tb-choices.cards { flex-direction: row; flex-wrap: wrap; }
+.tb-choice { display: flex; align-items: center; gap: 10px; text-align: left; background: #0d1116; border: 1px solid var(--line); color: var(--text);
+  padding: 8px 10px; transition: border-color .15s, background .15s, transform .15s var(--ease-out); }
+.tb-choices.cards .tb-choice { flex-direction: column; width: 104px; padding: 6px; font-size: 11px; text-align: center; }
+.tb-choice:hover:not(:disabled) { border-color: var(--yellow); transform: translateY(-2px); }
+.tb-choice.on { border-color: var(--yellow); background: rgba(252, 238, 9, .12); box-shadow: 0 0 14px rgba(252, 238, 9, .25); }
+.tb-choice.off, .tb-choice:disabled { opacity: .4; cursor: default; }
+.tb-choices.cards .tb-choice:disabled { opacity: 1; }
+.tb-choices.cards .tb-choice.off { opacity: .35; }
+.tb-effects { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.tb-effects h6 { margin: 0; font-size: 11px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
+.tb-effect { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: #0d1116; border: 1px solid #1c2229;
+  border-left: 2px solid var(--me); color: var(--text); padding: 6px 10px; transition: border-color .15s, background .15s; }
+.tb-effect:hover:not(:disabled) { background: #121a22; border-color: var(--me); }
+.tb-effect b { font-size: 13px; }
+.tb-effect span { font-size: 12px; color: var(--muted); }
+.tb-effect em { font-size: 11px; color: #ff9aa2; font-style: normal; }
+.tb-effect.off { opacity: .55; border-left-color: var(--line); cursor: default; }
+.tb-panel { max-height: 80vh; overflow-y: auto; }

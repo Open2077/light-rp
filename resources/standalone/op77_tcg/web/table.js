@@ -31,6 +31,10 @@
     m.options.roll = arr(m.options.roll);
     m.options.attackers = arr(m.options.attackers);
     m.options.blockers = arr(m.options.blockers);
+    m.options.activate = arr(m.options.activate);
+    m.options.quick = arr(m.options.quick);
+    m.options.costs = arr(m.options.costs);
+    if (m.prompt) m.prompt.options = arr(m.prompt.options);
   }
 
   /* ------------------------------------------------------------------------------------------- pieces */
@@ -168,7 +172,8 @@
     var o = m.options, main = m.step === "main" && o.mine;
     Array.prototype.forEach.call(h.children, function (c) {
       var cc = card(c.dataset.card);
-      var playable = main && cc.type !== "Legend" && (cc.cost || 0) <= o.eddies;
+      var cost = o.costs && o.costs[Number(c.dataset.index) - 1] != null ? o.costs[Number(c.dataset.index) - 1] : (cc.cost || 0);
+      var playable = main && cc.type !== "Legend" && cost <= o.eddies;
       var sellable = main && o.sell && cc.sell;
       c.classList.toggle("playable", !!playable);
       c.classList.toggle("sellable", !!sellable && !playable);
@@ -201,7 +206,7 @@
     if (!(m.step === "main" && o.mine)) return hint("Wait for your turn.");
     var buttons = [];
     if (c.type === "Legend") return hint("Legends are played from your Legends area.");
-    var cost = c.cost || 0;
+    var cost = o.costs && o.costs[index - 1] != null ? o.costs[index - 1] : (c.cost || 0);
     var verb = c.type === "Gear" ? "Equip" : (c.type === "Program" ? "Run" : "Play");
     buttons.push({ label: verb + " &middot; " + cost + " &euro;$", cls: "primary", disabled: cost > o.eddies,
       why: cost > o.eddies ? "Not enough €$" : "", fn: function () {
@@ -302,10 +307,45 @@
     var c = $("dhCentre"), o = m.options, me = m.seats[m.you], rival = rivalOf(m);
     var mineTurn = m.active === m.you;
     var title = "", body = "", buttons = [], extra = null;
-    var key = [m.step, m.active, m.turn, JSON.stringify(o), sel ? JSON.stringify(sel) : "", JSON.stringify(m.attack || null)].join("|");
+    var key = [m.step, m.active, m.turn, JSON.stringify(o), sel ? JSON.stringify(sel) : "", JSON.stringify(m.attack || null),
+      m.prompt ? m.prompt.id + ":" + JSON.stringify(picks) : ""].join("|");
     if (c.dataset.key === key) return tick();
     c.dataset.key = key;
-    if (m.step === "roll" && mineTurn) {
+    var src = m.prompt && m.prompt.source ? card(m.prompt.source) : null;
+    if (m.prompt && m.prompt.mine) {
+      var p = m.prompt;
+      if (picks.id !== p.id) picks = { id: p.id, list: [] };
+      title = esc(p.title);
+      body = (src && src.name ? "<b>" + esc(src.name) + "</b> &middot; " : "") +
+        (p.max === 0 ? "Look, then continue." : p.max === 1 ? (p.optional ? "Pick one, or skip." : "Pick one.") :
+          (p.optional || !p.min ? "Pick up to " + p.max + "." : (p.min === p.max ? "Pick " + p.max + "." : "Pick " + p.min + " to " + p.max + ".")));
+      extra = el("div", "tb-choices" + (p.options.some(function (o) { return o.card; }) ? " cards" : ""));
+      p.options.forEach(function (o, i) {
+        var b = el("button", "tb-choice" + (o.disabled ? " off" : "") + (picks.list.indexOf(i + 1) >= 0 ? " on" : ""));
+        if (o.card) { b.appendChild(X.miniCard(o.card, "bd")); b.dataset.card = o.card; }
+        b.appendChild(el("span", "", esc(o.label)));
+        b.disabled = !!o.disabled || p.max === 0;
+        b.onclick = function () {
+          var k = picks.list.indexOf(i + 1);
+          if (p.max === 1) { act("answer", { prompt: p.id, picks: String(i + 1) }); return; }
+          if (k >= 0) picks.list.splice(k, 1); else if (picks.list.length < p.max) picks.list.push(i + 1);
+          c.dataset.key = ""; rerender();
+        };
+        extra.appendChild(b);
+      });
+      if (p.max > 1 || p.max === 0) {
+        var need = p.optional ? 0 : p.min;
+        buttons.push([p.max === 0 ? "Continue" : "Confirm (" + picks.list.length + ")", function () { act("answer", { prompt: p.id, picks: picks.list.join(",") }); },
+          "primary", p.max > 0 && (picks.list.length < need || picks.list.length > p.max)]);
+      }
+      if (p.optional && p.max === 1) buttons.push(["Skip", function () { act("answer", { prompt: p.id, picks: "" }); }, "ghost"]);
+    } else if (m.prompt) {
+      title = esc(m.prompt.who) + " is choosing";
+      body = src && src.name ? "<b>" + esc(src.name) + "</b>" : "A card effect resolves.";
+    } else if (o.waiting) {
+      title = "Resolving";
+      body = "A card effect resolves...";
+    } else if (m.step === "roll" && mineTurn) {
       title = "Roll a Gig in";
       body = "Pick a die from your fixer area. The d20 comes last.";
       extra = el("div", "tb-fixer");
@@ -322,6 +362,7 @@
       else body = "Play cards, sell one, Call a Legend, attack with ready Units, then end your turn.";
       if (sel) buttons.push(["Cancel", function () { sel = null; rerender(); }, "ghost"]);
       buttons.push(["End turn", function () { sel = null; act("endTurn"); }, "primary"]);
+      extra = effectsList(o, false);
     } else if (m.step === "react" && m.attack && m.attack.defender === m.you) {
       var a = m.attack;
       var att = rival.field.filter(function (u) { return u.uid === a.attacker; })[0];
@@ -330,6 +371,11 @@
         (a.target === "gigs" ? "your <b>Gigs</b>" : "one of your Units") + ". React: block with a ready <b>Blocker</b>" +
         (o.call ? ", Call a Legend" : "") + ", or let it through.";
       buttons.push(["Let it through", function () { act("resolve"); }, "primary"]);
+      var hand = X.splitList(m.hand);
+      o.quick.forEach(function (hi) {
+        buttons.push(["Quick: " + esc(card(hand[hi - 1]).name), function () { act("quick", { hand: hi, card: hand[hi - 1] }); }, "ghost"]);
+      });
+      extra = effectsList(o, true);
     } else if (m.step === "steal" && m.attack && m.attack.owner === m.you) {
       if (!sel || sel.kind !== "steal") sel = { kind: "steal", picks: [] };
       title = "Steal " + o.steal + " Gig" + (o.steal > 1 ? "s" : "");
@@ -352,6 +398,23 @@
     }
     tick();
   }
+  // Activated effects ("X €$, {Spend}: ..."): one row each, greyed out when they can't be used now.
+  function effectsList(o, reacting) {
+    if (!o.activate || !o.activate.length) return null;
+    var box = el("div", "tb-effects");
+    box.appendChild(el("h6", "", reacting ? "Quick effects" : "Effects"));
+    o.activate.forEach(function (a) {
+      var b = el("button", "tb-effect" + (a.ok ? "" : " off"));
+      b.dataset.card = a.card;
+      b.innerHTML = "<b>" + esc(card(a.card).name || a.card) + "</b><span>" + esc(a.text || "") + "</span>" + (a.ok ? "" : "<em>" + esc(a.why || "") + "</em>");
+      b.disabled = !a.ok;
+      b.onclick = function () { act("activate", { uid: a.uid, id: a.id }); };
+      box.appendChild(b);
+    });
+    return box;
+  }
+  var picks = { id: null, list: [] };
+
   function tick() {
     var left = X.remainingMs();
     var c = document.querySelector("#dhCentre .clock");
@@ -432,7 +495,7 @@
   /* ------------------------------------------------------------------------------------------- preview (no game) */
   function preview() {
     var mode = new URLSearchParams(location.search).get("duel");
-    if (["game", "react", "steal", "roll"].indexOf(mode) < 0) return;
+    if (["game", "react", "steal", "roll", "prompt", "multi", "effects"].indexOf(mode) < 0) return;
     var u = function (uid, slug, power, o) { return Object.assign({ uid: uid, card: slug, power: power, spent: false, lag: false, gear: "" }, o || {}); };
     var view = { id: 9, slot: "nd_a", label: "NEON DECK - Table 1 A", you: 1, phase: "game", step: mode === "game" ? "main" : mode,
       active: mode === "react" ? 2 : 1, turn: 5, first: 1, deadline: 140000, hand: "mantis_blades,corpo_security,chrome_fang,over_the_edge,kiroshi_optics",
@@ -451,6 +514,15 @@
              field: [u(21, "delamain_cab", 4, { spent: true }), u(22, "psycho_squad", 6)],
              gigs: [{ uid: 41, kind: "d10", value: 7, owner: 2 }, { uid: 42, kind: "d6", value: 5, owner: 2 }], fixer: ["d4", "d12", "d20"] }
       } };
+    if (mode === "prompt" || mode === "multi" || mode === "effects") view.step = "main";
+    if (mode === "prompt") view.prompt = { id: 5, mine: true, title: "Defeat a rival Unit with power 4 or less", min: 1, max: 1, optional: false,
+      source: "bonnie_and_clyde", options: [{ label: "Delamain Cab (4)", card: "delamain_cab", uid: 21 }, { label: "Psycho Squad (6)", card: "psycho_squad", uid: 22, disabled: true }] };
+    if (mode === "multi") view.prompt = { id: 6, mine: true, title: "Up to 2 Gears (cost 2 or less)", min: 0, max: 2, optional: true, source: "viktor_vektor_sit_down_and_relax",
+      options: [{ label: "Mantis Blades", card: "mantis_blades" }, { label: "Psycho Squad", card: "psycho_squad", disabled: true }, { label: "Kiroshi Optics", card: "kiroshi_optics" },
+        { label: "Riot Shield", card: "riot_shield" }, { label: "Gorilla Arms", card: "gorilla_arms", disabled: true }] };
+    if (mode === "effects") view.options.activate = [
+      { uid: 12, card: "kerry_eurodyne_the_last_rockerboy", id: "kerry_eurodyne_the_last_rockerboy", ok: true, cost: 0, text: "Spend: draw 2 if you control a Gig with 8+ value" },
+      { uid: 30, card: "hanako_arasaka_daughter_of_the_emperor", id: "hanako_arasaka_daughter_of_the_emperor", ok: false, why: "It is spent.", text: "Spend: swap a friendly Gig with a rival Gig" }];
     setTimeout(function () {
       X.T.hide();
       X.T.previewHandlers["tcg:match"](JSON.parse(JSON.stringify(view)));

@@ -379,15 +379,15 @@ local function view(m, seat)
     local seats = {}
     for i, s in ipairs(m.seats) do
         local legends = {}
-        for k, l in ipairs(s.legends) do legends[k] = { spent = l.spent, card = l.faceUp and l.slug or nil } end
+        for k, l in ipairs(s.legends) do legends[k] = { spent = l.spent, card = l.faceUp and l.slug or nil, uid = l.uid } end
         for k, l in ipairs(s.legends) do
             legends[k].onField, legends[k].removed = l.onField, l.removed
             if l.gear and #l.gear > 0 then legends[k].gear = table.concat(l.gear, ",") end
         end
         local field, gigs, fixer = {}, {}, {}
         for k, u in ipairs(s.field or {}) do
-            field[k] = { uid = u.uid, card = u.slug, spent = u.spent, lag = u.lag, power = TcgGame.power(u), legend = u.legend,
-                         solo = u.solo, gear = table.concat(u.gear or {}, ","), canAttack = (TcgGame.canAttack(u)) }
+            field[k] = { uid = u.uid, card = u.slug, spent = u.spent, lag = u.lag, power = TcgGame.power(m, u, s), legend = u.legend,
+                         solo = u.solo, gear = table.concat(u.gear or {}, ","), canAttack = (TcgGame.canAttack(m, s, u)) == true }
         end
         for k, g in ipairs(s.gigs or {}) do gigs[k] = { uid = g.uid, kind = g.kind, value = g.value, owner = g.owner or i } end
         for k, d in ipairs(s.fixer or {}) do fixer[k] = d end
@@ -411,7 +411,18 @@ local function view(m, seat)
         if e.kind == "draw" and e.seat ~= seat.index then events[k] = { kind = "draw", seat = e.seat }
         else events[k] = e end
     end
-    return { id = m.id, slot = m.slot.id, label = m.slot.label, you = seat.index, phase = m.phase, deadline = remaining(m),
+    local prompt
+    if m.prompt then
+        local p = m.prompt
+        if p.seat == seat.index then
+            local opts = {}
+            for k, o in ipairs(p.options) do opts[k] = { label = o.label, card = o.card, uid = o.uid, gig = o.gig, disabled = o.disabled } end
+            prompt = { id = p.id, mine = true, title = p.title, options = opts, min = p.min, max = p.max, optional = p.optional, source = p.source }
+        else
+            prompt = { id = p.id, mine = false, source = p.source, who = m.seats[p.seat].name }
+        end
+    end
+    return { id = m.id, slot = m.slot.id, label = m.slot.label, you = seat.index, phase = m.phase, deadline = remaining(m), prompt = prompt,
         decider = m.decider, first = m.first, turn = m.turn, active = m.active, seats = seats,
         hand = table.concat(seat.hand, ","), log = m.log, step = m.step, attack = attack, events = events, overtime = m.overtime,
         options = m.phase == "game" and TcgGame.options(m, seat.index) or nil,
@@ -531,7 +542,7 @@ local function afterAction(m)
         local winner = m.winner and m.seats[m.winner] or nil
         return endMatch(m, m.endReason or "The game is over.", winner)
     end
-    m.deadline = S.now() + (STEP_MS[m.step] or 60000)
+    m.deadline = S.now() + (m.prompt and (STEP_MS.prompt or 45000) or (STEP_MS[m.step] or 60000))
     m.stepKey = (m.stepKey or 0) + 1
     syncTable(m)
     broadcast(m)
@@ -540,6 +551,7 @@ end
 
 -- Who must act now: the active player, the defender during a React step.
 local function actor(m)
+    if m.prompt then return m.prompt.seat end
     if m.step == "react" and m.attack then return m.attack.defender end
     return m.active
 end
@@ -559,7 +571,8 @@ end
 -- Nobody answers in time: the smallest die is rolled, the React step passes, the best Gigs are stolen, the turn ends.
 local function timeout(m)
     local index = actor(m)
-    if m.step == "main" and not cfg.houseForIdle then TcgGame.endTurn(m, index)
+    if m.prompt then TcgGame.defaultAnswer(m)
+    elseif m.step == "main" and not cfg.houseForIdle then TcgGame.endTurn(m, index)
     else TcgGame.housePlay(m, index) end
     afterAction(m)
 end
@@ -830,6 +843,15 @@ local ACTIONS = {
         return TcgGame.steal(m, i, ids)
     end,
     endTurn = function(m, i) return TcgGame.endTurn(m, i) end,
+    -- Card effects: answer a prompt (picks = "1,3"), use an activated effect, a Quick Program as a reaction.
+    answer = function(m, i, d)
+        if not m.prompt or tonumber(d.prompt) ~= m.prompt.id then return false, "That choice is over." end
+        local picks = {}
+        for k in tostring(d.picks or ""):gmatch("%d+") do picks[#picks + 1] = tonumber(k) end
+        return TcgGame.answer(m, i, picks)
+    end,
+    activate = function(m, i, d) return TcgGame.activate(m, i, tonumber(d.uid), tostring(d.id or "")) end,
+    quick = function(m, i, d) return TcgGame.quick(m, i, d.hand) end,
 }
 
 on("act", function(player, d)

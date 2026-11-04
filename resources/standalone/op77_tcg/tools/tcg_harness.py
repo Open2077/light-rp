@@ -164,7 +164,7 @@ def boot(prelude=""):
     if prelude:
         L.execute(prelude)
     for f in ["shared/catalogue.lua", "shared/rules.lua", "shared/cards.lua", "shared/decks.lua", "shared/starters.lua",
-              "shared/table.lua", "shared/game.lua", "server/main.lua", "server/duel.lua"]:
+              "shared/table.lua", "shared/game.lua", "shared/effects.lua", "server/main.lua", "server/duel.lua"]:
         L.execute((ROOT / f).read_text(encoding="utf-8"))
     L.eval("__pump")(10)
 

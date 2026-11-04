@@ -59,7 +59,7 @@ TcgConfig = {
         lendStarters = true,     -- the shop lends the two official starter decks to everyone
         -- The game's clock per step (ms): rolling a Gig, the main phase, a React step, picking stolen Gigs. When it
         -- runs out the smallest die is rolled, the React step passes, the best Gigs are stolen, the turn ends.
-        stepMs = { roll = 30000, main = 150000, react = 30000, steal = 30000 },
+        stepMs = { roll = 30000, main = 150000, react = 30000, steal = 30000, prompt = 45000 },
         -- Tests and showcases: an idle player's turn is played by the house instead of just ending.
         houseForIdle = false,
         -- Sitting at the table: the first profile the runtime plays wins (hands on the table, then the plain chair).
