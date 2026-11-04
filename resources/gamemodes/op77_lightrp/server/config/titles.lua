@@ -32,6 +32,7 @@ LightRpTitles = {
         { id = "contracts", label = "Dailies" },
         { id = "hall", label = "Hall of Fame" },
         { id = "dogtown", label = "Dogtown" },
+        { id = "collections", label = "Collections" },
     },
 
     catalogue = {
@@ -59,6 +60,10 @@ LightRpTitles = {
           how = "Land the killing blow on a world boss.", feat = "boss_killer" },
         { id = "lions_share", label = "Lion's Share", rarity = "epic", group = "feats", requires = "worldboss",
           how = "Be the top contributor of a world boss that goes down.", feat = "lions_share" },
+
+        -- The Maneki-neko collection (server/modules/maneki.lua, server/config/maneki.lua completeTitle).
+        { id = "lucky_cat", label = "Lucky Cat", rarity = "legendary", group = "collections",
+          how = "Find every Maneki-neko hidden in Night City.", feat = "lucky_cat" },
 
         { id = "duelist", label = "Duelist", rarity = "rare", group = "pvp", requires = "arena.duel",
           how = "Win 10 paid ranked duels.", counter = "duel_wins", count = 10 },

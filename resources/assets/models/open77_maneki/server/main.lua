@@ -1,0 +1,1 @@
+-- Data-only resource: op77_lightrp owns the collectible (server/modules/maneki.lua).

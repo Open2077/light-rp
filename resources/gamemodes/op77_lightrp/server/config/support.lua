@@ -27,5 +27,10 @@ LightRpSupportConfig = {
         tables = "command.lightrp.tables",
         tableTeleport = "command.lightrp.tables",
         tableDelete = "command.lightrp.tabledelete",
+        -- Maneki-neko collectibles: list + go to, and the placement tool + removal.
+        maneki = "command.lightrp.maneki",
+        manekiTeleport = "command.lightrp.maneki",
+        manekiEdit = "command.lightrp.manekiedit",
+        manekiDelete = "command.lightrp.manekiedit",
     },
 }
