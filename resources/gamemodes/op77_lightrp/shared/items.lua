@@ -201,13 +201,13 @@ LightRpItems = {
     },
     -- Cyberpunk TCG sealed product (resource op77_tcg; server/modules/tcg.lua). Using one opens the real thing: a
     -- booster tears open in your hands (on a table if you stand at one), a display has its shrink-wrap cut and its
-    -- 24 boosters come out into this inventory. The cards go to the character's binder (F6, /binder).
+    -- 24 boosters come out into this inventory. The cards go to the character's binder (F1 menu > TCG binder, /tcgbinder).
     tcg_booster_wnc = {
-        label = "TCG Booster · Night City", description = "A sealed Cyberpunk TCG Set Booster, Welcome to Night City: 12 cards (9 Common, 2 Uncommon and a Rare or better). Use it to tear it open; the cards go to your binder (F6).",
+        label = "TCG Booster · Night City", description = "A sealed Cyberpunk TCG Set Booster, Welcome to Night City: 12 cards (9 Common, 2 Uncommon and a Rare or better). Use it to tear it open; the cards go to your binder (F1 menu > TCG binder).",
         weight = 0.03, stack = 48, icon = "package", category = "collectible", image = "img/items/tcg_booster_wnc.png",
     },
     tcg_booster_beta = {
-        label = "TCG Booster · Beta", description = "A sealed Cyberpunk TCG Beta Edition booster: 12 cards (9 Common, 2 Uncommon and a Rare or better). Use it to tear it open; the cards go to your binder (F6).",
+        label = "TCG Booster · Beta", description = "A sealed Cyberpunk TCG Beta Edition booster: 12 cards (9 Common, 2 Uncommon and a Rare or better). Use it to tear it open; the cards go to your binder (F1 menu > TCG binder).",
         weight = 0.03, stack = 48, icon = "package", category = "collectible", image = "img/items/tcg_booster_beta.png",
     },
     tcg_display_wnc = {

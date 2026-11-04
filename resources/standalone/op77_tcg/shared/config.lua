@@ -20,6 +20,9 @@ TcgConfig = {
 
     -- Opening a pack in the world.
     opening = {
+        -- The 3D side of an opening: the pack in the hand, the 12 cards dealt on the table / fanned in the hand for
+        -- everyone around, the opener's camera on them. Off: the opening happens on the opener's screen only.
+        physical = false,
         nearRadius = 40.0,       -- players who see it (same routing bucket)
         maxAnchorGap = 4.0,      -- the opener's anchor must be this close to where the server sees them
         cooldownMs = 4000,       -- between two openings by the same player
@@ -53,6 +56,7 @@ TcgConfig = {
     -- item calls exports.op77_tcg:useSealed. Absent or nil: accounts and the binder's own sealed shelf.
     framework = "op77_lightrp",
 
-    -- Keys (rebindable in the game's key settings, Open77 RegisterKeyMapping).
-    keys = { binder = "F6", interact = "E" },
+    -- The binder opens with this chat command (no key: a gamemode adds its own entry, LightRP its F1 menu),
+    -- or from another resource with TriggerEvent("op77_tcg:openBinder", tab).
+    command = "tcgbinder",
 }

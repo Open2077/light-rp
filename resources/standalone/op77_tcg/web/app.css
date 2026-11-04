@@ -184,7 +184,7 @@ dt { color: var(--muted); letter-spacing: .06em; } dd { margin: 0; font-weight: 
    One stage on the left third (the middle of the screen belongs to the real cards the opener camera frames):
    the pack, torn by a swipe along its crimp, then the deck that slides out of it. Every click flips the next card
    and sends the previous one to its slot in the tray below. The last card is the rare slot: hold to reveal. */
-#opening { z-index: 20; --sx: 30%; --sy: 45%; }
+#opening { z-index: 20; --sx: 50%; --sy: 45%; }
 .table-felt { position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(ellipse 34% 60% at var(--sx) var(--sy), rgba(4, 8, 12, .55) 0%, rgba(3, 5, 8, .25) 55%, rgba(2, 3, 5, 0) 100%),
               linear-gradient(0deg, rgba(2, 3, 5, .75) 0%, rgba(2, 3, 5, 0) 26%); }

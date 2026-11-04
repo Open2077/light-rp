@@ -394,6 +394,7 @@
     show(); sfx.unlock();
     $("binder").classList.add("hidden");
     $("opening").classList.remove("hidden");
+    $("opening").style.setProperty("--sx", d.physical ? "30%" : "50%");
     $("app").classList.add("opening-on");
     var cards = (d.cards || []).map(function (id) { return byId[id]; }).filter(Boolean);
     op = { seq: d.seq, cards: cards, fresh: String(d.fresh || ""), index: 0, shown: -1, torn: false, busy: false, dealt: false,
