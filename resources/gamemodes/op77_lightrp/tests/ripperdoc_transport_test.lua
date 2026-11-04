@@ -8,7 +8,8 @@ _G.exports = function(name, fn) exported[name] = fn end
 _G.RegisterNetEvent = function(name, fn) net[name] = fn end
 _G.AddEventHandler = function() end
 _G.RegisterCommand = function() end
-_G.TriggerEvent = function() end
+local hostEvents = {}
+_G.TriggerEvent = function(name, ...) hostEvents[#hostEvents + 1] = { name = name, args = table.pack(...) } end
 local say = print
 _G.print = function() end
 _G.json = { encode = function(v)
@@ -70,5 +71,22 @@ exported.update(7, big)
 exported.close(7)
 assert(cancelled[#cancelled] == latent[#latent].id and plain[#plain].name == "op77_ripperdoc:close", "close cancels the stream")
 assert(exported.update(7, big) == nil, "closed: nothing sent")
+
+-- the guide seen: relayed to the clinic's owner only for an open interface, only as seen = true
+local function guideEvents()
+    local n = 0
+    for _, e in ipairs(hostEvents) do if e.name == "op77_ripperdoc:guide" then n = n + 1 end end
+    return n
+end
+_G.source = 8
+net["op77_ripperdoc:guide"]({ seen = true })
+assert(guideEvents() == 0, "not open: nothing relayed")
+exported.open(8, { live = true, catalogue = {} })
+net["op77_ripperdoc:guide"]({ seen = false })
+net["op77_ripperdoc:guide"]("seen")
+assert(guideEvents() == 0, "only { seen = true }")
+net["op77_ripperdoc:guide"]({ seen = true })
+local last = hostEvents[#hostEvents]
+assert(guideEvents() == 1 and last.args[1] == 8 and last.args[2].seen == true, "relayed to the host with the player id")
 
 say("ripperdoc_transport_test: ok")

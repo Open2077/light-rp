@@ -65,6 +65,14 @@ AddEventHandler("op77_ripperdoc:action", function(playerId, p)
     end)
 end)
 
+-- The page's guide was finished or skipped: it no longer opens by itself for this character (the
+-- GUIDE button still opens it).
+AddEventHandler("op77_ripperdoc:guide", function(playerId, p)
+    playerId = tonumber(playerId)
+    if not playerId or type(p) ~= "table" or p.seen ~= true or not LightRP.cyberware then return end
+    if type(LightRP.cyberware.markGuideSeen) == "function" then LightRP.cyberware.markGuideSeen(playerId) end
+end)
+
 AddEventHandler("op77_scenes:started", function(p)
     if type(p) ~= "table" or p.scene ~= C.scene then return end
     local playerId, spot = tonumber(p.playerId), p.spot

@@ -156,6 +156,8 @@ LightRpConfig = {
             club = { sprite = "bar", title = "Club", mapIcon = "club", category = "nightlife", color = "#FF3FB4", description = "A club: dancefloor, VIP rooms, private shows." },
             ripperdoc = { sprite = "ripperdoc", title = "Ripperdoc", mapIcon = "ripperdoc", category = "service", color = "#B48CFF",
                 description = "A ripperdoc's clinic: lie on the operating chair and the doc installs your cyberware (paid from the bank)." },
+            tcgshop = { sprite = "vendor", title = "Cyberpunk TCG Shop", mapIcon = "cards", category = "shop", color = "#FCEE0A",
+                description = "Cyberpunk TCG: boosters, singles, graded cards, and a play hall upstairs for duels and tournaments." },
         },
         places = {
             -- The game's 14 ripperdocs (cyberpunk2077-map.com category 26), each placed on the
@@ -175,6 +177,9 @@ LightRpConfig = {
             { id = "ripperdoc_199", kind = "ripperdoc", name = "Ripperdoc // Pacifica", district = "Pacifica", position = { x = -2624.16, y = -2467.47, z = 17.30 } }, -- site RIPPERDOC 199: the chair surgical_chair_a_mirrored@-2624_-2467_17 (7 m from the site's pin)
             { id = "ripperdoc_212", kind = "ripperdoc", name = "Ripperdoc // Santo Domingo 2", district = "Santo Domingo", position = { x = 586.52, y = -2178.49, z = 42.95 } }, -- site RIPPERDOC 212: the chair surgical_chair_b@587_-2178_43 (12 m from the site's pin)
             { id = "ripperdoc_219", kind = "ripperdoc", name = "Ripperdoc // Badlands", district = "Badlands", position = { x = 3439.99, y = -387.25, z = 136.03 } }, -- site RIPPERDOC 219: the chair surgical_chair_a_mirrored@3440_-387_136 (17 m from the site's pin)
+            -- NEON DECK, the Cyberpunk TCG shop (world resource neon_deck, NCWE project E:/Open77/Maps/TCGShop):
+            -- the pin sits on its street door in the Kabuki market.
+            { id = "tcgshop_neon_deck", kind = "tcgshop", name = "Cyberpunk TCG Shop", district = "Kabuki", position = { x = -810.56, y = 941.08, z = 12.05 } },
             { id = "bar_188", kind = "bar", name = "El Coyote Cojo", district = "Heywood", position = { x = -1251.26, y = -968.78, z = 11.89 } }, -- site BAR 188, named after "El Coyote Cojo" 44 m away
             { id = "bar_963", kind = "bar", name = "Afterlife", district = "Watson", position = { x = -1455.58, y = 1030.10, z = 22.56 } }, -- site BAR 963, named after "Afterlife" 38 m away
             { id = "bar_167", kind = "bar", name = "Ho-Oh", district = "Watson", position = { x = -1037.37, y = 1347.92, z = 5.17 } }, -- site BAR 167, named after "Ho-Oh" 31 m away
