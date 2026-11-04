@@ -13,6 +13,12 @@ des propres assets du jeu, retravaillés (étalonnage ambre et graphite) :
 - chaque opération est payée en eurodollars (banque), puis persistée par personnage ;
 - les implants sont réappliqués à chaque connexion, changement de personnage et réapparition.
 
+**Gros messages.** Le pont WebUI refuse sans rien dire un message de plus de 1 024 valeurs, et
+l'ouverture (tout le catalogue) en fait environ 1 600. Le client envoie donc `rd:open` et `rd:state`
+en texte JSON (`{ __json }`, ou `{ __part }` par morceaux de 48 Ko), et `web/bridge-parts.js`, chargé
+avant `app.js`, les décode avant les handlers de la page. Ce fichier ne fait pas partie du build de
+`ripperdoc-ui` : le garder dans `index.html` quand la page est reconstruite.
+
 Sans serveur (aperçu navigateur, console `ripperdoc.open`), la page reprend son catalogue de démo et
 simule les opérations. Voir PROTOCOL.md.
 
