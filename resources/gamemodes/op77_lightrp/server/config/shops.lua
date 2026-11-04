@@ -106,7 +106,7 @@ LightRpShops = {
             },
         },
         -- Cyberpunk TCG sealed product (op77_tcg; server/modules/tcg.lua): the items go to the inventory and are
-        -- opened from there (or from the binder's Sealed tab, F6). Sealed product is bought back at half price;
+        -- opened from there (or from the binder's Sealed tab: F1 menu > TCG binder). Sealed product is bought back at half price;
         -- a display is a little cheaper than its 24 boosters.
         tcg_shop = {
             label = "NEON DECK",

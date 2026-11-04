@@ -222,12 +222,16 @@ RegisterNetEvent(NET .. "opening", function(p)
     local a = p.anchor
     local o = { seq = p.seq, opener = opener, cards = cards, anchor = a, props = {} }
     openings[opener] = o
+    local physical = C.opening.physical == true
     -- The sealed pack in the right hand.
-    o.pack = createProp(def.pack, { x = a.x, y = a.y, z = a.z + 1.2 }, a.yaw, C.scale.pack)
-    if o.pack then attachToHand(o.pack, opener, { x = 0.0, y = 0.05, z = 0.02 }, { x = 75.0, y = 0.0, z = 180.0 }) end
+    if physical then
+        o.pack = createProp(def.pack, { x = a.x, y = a.y, z = a.z + 1.2 }, a.yaw, C.scale.pack)
+        if o.pack then attachToHand(o.pack, opener, { x = 0.0, y = 0.05, z = 0.02 }, { x = 75.0, y = 0.0, z = 180.0 }) end
+    end
     if opener == me() then
-        startCamera(o)
-        send("tcg:opening", { seq = p.seq, product = p.product, cards = cards, fresh = p.fresh or "", table = a.surface ~= nil })
+        if physical then startCamera(o) end
+        send("tcg:opening", { seq = p.seq, product = p.product, cards = cards, fresh = p.fresh or "", table = a.surface ~= nil,
+                              physical = physical })
         isOpen = true
         pcall(function() page:show() end)
         pcall(function() page:setFocus(true, true) end)
@@ -249,7 +253,12 @@ RegisterNetEvent(NET .. "reveal", function(p)
     end
     -- Late joiners and skipped reveals: deal everything up to this card.
     remove(o.pack); o.pack = nil
-    for k = 1, math.min(tonumber(p.index) or 0, #o.cards) do deal(o, k) end
+    if C.opening.physical then
+        for k = 1, math.min(tonumber(p.index) or 0, #o.cards) do deal(o, k) end
+    elseif p.finished then
+        clearOpening(o.opener)
+        return
+    end
     if p.finished then
         if o.opener == me() then SetTimeout(4000, function() stopCamera(900) end) end
         local seq = o.seq
@@ -288,7 +297,7 @@ end)
 
 RegisterNetEvent(NET .. "offer", function(p)
     if type(p) ~= "table" then return end
-    notify(("%s offers you a card - open your binder (%s)"):format(p.name or "Someone", C.keys.binder))
+    notify(("%s offers you a card - open your binder (/%s)"):format(p.name or "Someone", C.command))
     send("tcg:offer", p)
 end)
 
@@ -410,13 +419,15 @@ CreateThread(function()
     end
 end)
 
-RegisterKeyMapping("op77_tcg_binder", "Cyberpunk TCG: binder", C.keys.binder, function()
+-- /tcgbinder: the binder, or the counter's Shop tab when standing at a TCG shop.
+RegisterCommand(C.command, function()
     if isOpen then closeBinder() else openBinder(nearShopId and "shop" or "binder") end
+end, false)
+-- Other resources (a gamemode menu, a phone app, a shop NPC) open the binder: TriggerEvent("op77_tcg:openBinder", tab).
+-- Without a tab: the Shop tab at a TCG counter, the binder elsewhere.
+AddEventHandler("op77_tcg:openBinder", function(tab)
+    openBinder(type(tab) == "string" and tab or (nearShopId and "shop" or "binder"))
 end)
-
-RegisterCommand("binder", function() openBinder("binder") end, false)
--- Other resources (a phone app, a shop NPC) open the binder on a tab: TriggerEvent("op77_tcg:openBinder", "sealed").
-AddEventHandler("op77_tcg:openBinder", function(tab) openBinder(type(tab) == "string" and tab or "binder") end)
 -- /tcg.demo from the server console (ACL-gated there).
 RegisterNetEvent(NET .. "demo", function(d)
     local action = type(d) == "table" and d.action or ""
@@ -439,7 +450,6 @@ AddEventHandler("op77_tcg:closeBinder", function()
     send("tcg:close", { force = true })
     pcall(function() page:setFocus(false, false) end)
 end)
-RegisterCommand("tcg", function() openBinder("binder") end, false)
 
 -- ---------------------------------------------------------------------------------------------
 -- Shops: a prompt over the counter while you stand at it.
@@ -465,7 +475,7 @@ CreateThread(function()
             if prompt and kit then pcall(kit.clearText3D, prompt); prompt = nil end
             if found and kit then
                 local ok, handle = pcall(kit.drawText3D, { position = { x = found.x, y = found.y, z = found.z + 1.6 },
-                    text = found.label or "Cyberpunk TCG", sublabel = ("[%s] Boosters - Recycler - Card printer"):format(C.keys.binder),
+                    text = found.label or "Cyberpunk TCG", sublabel = ("/%s - Recycler - Card printer"):format(C.command),
                     maxDistance = 8, accent = "#FCEE09" })
                 if ok then prompt = handle end
             end

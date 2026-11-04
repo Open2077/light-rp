@@ -593,7 +593,7 @@ local function welcome(player)
             if all then
                 p.starter = true
                 saveProfile(s.identifier, p)
-                local where = select(2, sealedOf(player, s.identifier)) and "your inventory" or ("the binder (" .. C.keys.binder .. ")")
+                local where = select(2, sealedOf(player, s.identifier)) and "your inventory" or ("the binder (/" .. C.command .. ")")
                 notify(player, "Welcome, collector: your starter packs are in " .. where .. ".", "loot")
             end
         end

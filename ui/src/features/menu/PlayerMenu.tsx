@@ -178,6 +178,8 @@ function buildTree(character: CharacterState, money: MoneyState, job: JobState, 
         { id: "freecam", type: "item", text: "Free camera", icon: "video", meta: freecamKey,
           description: "Detach the view from your character to watch the scene from another angle. On foot, within a short range; your character stays in place." },
         { id: "housing", type: "item", text: "My homes", icon: "map-pin", description: "Find a home, manage rent and keys, or recover stored belongings." },
+        { id: "tcgbinder", type: "item", text: "TCG binder", icon: "book-open",
+          description: "Your Cyberpunk TCG collection: the binder, your sealed boosters and displays. At a TCG shop counter: the recycler and the card printer." },
         { separator: true },
         { label: "SERVER" },
         { id: "briefing", type: "item", text: "Server briefing", icon: "info", description: "Read the welcome briefing again: what Light Roleplay means here." },
@@ -327,6 +329,7 @@ export function PlayerMenu() {
     if (item.id === "animations") { requestClose(); emit(PAGE_EVENTS.animationsAction, { action: "open" }); return; }
     if (item.id === "freecam") { requestClose(); emit(PAGE_EVENTS.freecam, { operation: "toggle" }); return; }
     if (item.id === "housing") { requestClose(); emit(PAGE_EVENTS.action, { type: "housing.open" }); return; }
+    if (item.id === "tcgbinder") { requestClose(); emit(PAGE_EVENTS.action, { type: "tcg.binder" }); return; }
     if (item.id === "job-guide") { requestClose(); openJobGuide(job.name); return; }
     if (item.id === "run-start") { requestClose(); sendAction({ type: "jobs.start", from: "menu" }); return; }
     if (item.id === "run-gps") { requestClose(); sendAction({ type: "jobs.gps" }); return; }
