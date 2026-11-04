@@ -171,6 +171,7 @@ server_script "server/modules/job_crew.lua"        -- jobs worked together: +15 
 server_script "server/main.lua"
 
 -- Client: core first, then modules.
+client_script "client/core/state_json.lua"   -- native-first JSON for an oversized state key (ui.lua)
 client_script "client/core/ui.lua"
 client_script "client/core/control_claims.lua"
 client_script "client/core/freecam_motion.lua" -- the flight step of the free camera and of the tables' free view

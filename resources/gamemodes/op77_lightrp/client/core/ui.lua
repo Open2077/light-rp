@@ -313,6 +313,9 @@ end
 -- activities board never arrived ("Waiting for the activities board", Testing
 -- 2026-11-03). So a patch over the limit goes one key per message, `character` first, and
 -- a key still over it travels as JSON text in parts the page reassembles (App.tsx).
+-- That text is encoded natively where it can (state_json.lua) in a thread of its own:
+-- on prod 2026-11-04 the pure-Lua encoder ran past the 2 ms frame budget inside this
+-- event handler for some players, and their activities board never came.
 local STATE_PAGE_VALUES, STATE_PART_BYTES = 900, 48 * 1024
 local function countValues(value, depth, limit, n)
     n = (n or 0) + 1
@@ -323,17 +326,18 @@ local function countValues(value, depth, limit, n)
     end
     return n
 end
-local statePartSeq, stateWarned = 0, {}
-local function sendStateText(key, value)
-    local encode = LightRpMissionEditor and LightRpMissionEditor.encodeJson
-    local ok, text = false, nil
+local statePartSeq, stateWarned, stateLatest = 0, {}, {}
+local function encodeStateText(key, value, seq)
+    if stateLatest[key] ~= seq then return end -- a newer copy of this key went out meanwhile
+    local encode = LightRpStateJson and LightRpStateJson.encode
+        or (LightRpMissionEditor and LightRpMissionEditor.encodeJson)
+    local ok, text = false, "no encoder"
     if encode then ok, text = pcall(encode, value) end
     if not ok or type(text) ~= "string" then
         if not stateWarned[key] then stateWarned[key] = true; print("[lightrp] state key " .. tostring(key) .. " too large for the page and not encodable: " .. tostring(text)) end
         return
     end
-    statePartSeq = statePartSeq + 1
-    local id, parts, at = "state:" .. statePartSeq, {}, 1
+    local id, parts, at = "state:" .. seq, {}, 1
     while at <= #text do
         local stop = math.min(#text, at + STATE_PART_BYTES - 1)
         -- never split a UTF-8 sequence: step back off continuation bytes
@@ -349,8 +353,26 @@ local function sendStateText(key, value)
         Ui.send(E.page.state, { __stateParts = { key = key, id = id, part = i, parts = #parts, text = part } })
     end
 end
+local function sendStateText(key, value)
+    statePartSeq = statePartSeq + 1
+    local seq = statePartSeq
+    stateLatest[key] = seq
+    -- a resume of its own, with a fresh budget, away from this handler's other work
+    if type(CreateThread) == "function" then
+        CreateThread(function() encodeStateText(key, value, seq) end)
+    else
+        encodeStateText(key, value, seq)
+    end
+end
+-- A key sent plain supersedes a larger copy of it still waiting for its thread.
+local function supersede(patch)
+    for key in pairs(patch) do
+        if stateLatest[key] then statePartSeq = statePartSeq + 1; stateLatest[key] = statePartSeq end
+    end
+end
 function Ui.sendState(patch)
     if type(patch) ~= "table" or countValues(patch, 0, STATE_PAGE_VALUES) <= STATE_PAGE_VALUES then
+        if type(patch) == "table" then supersede(patch) end
         return Ui.send(E.page.state, patch)
     end
     local order = {}
@@ -359,7 +381,7 @@ function Ui.sendState(patch)
     if patch.character ~= nil then table.insert(order, 1, "character") end
     for _, key in ipairs(order) do
         local part = { [key] = patch[key] }
-        if countValues(part, 0, STATE_PAGE_VALUES) <= STATE_PAGE_VALUES then Ui.send(E.page.state, part)
+        if countValues(part, 0, STATE_PAGE_VALUES) <= STATE_PAGE_VALUES then supersede(part); Ui.send(E.page.state, part)
         else sendStateText(key, patch[key]) end
     end
     return true
