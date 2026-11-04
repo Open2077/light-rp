@@ -105,6 +105,19 @@ LightRpShops = {
                 { name = "ammo_sniper_box", buy = 150, sell = 37 },
             },
         },
+        -- Cyberpunk TCG sealed product (op77_tcg; server/modules/tcg.lua): the items go to the inventory and are
+        -- opened from there (or from the binder's Sealed tab, F6). Sealed product is bought back at half price;
+        -- a display is a little cheaper than its 24 boosters.
+        tcg_shop = {
+            label = "NEON DECK",
+            subtitle = "Cyberpunk TCG boosters and displays. Cash or bank. Sealed product bought back at half price.",
+            payments = { "cash", "bank" },
+            items = {
+                { name = "tcg_booster_wnc", buy = 120, sell = 60 },
+                { name = "tcg_booster_beta", buy = 180, sell = 90 },
+                { name = "tcg_display_wnc", buy = 2600, sell = 1300 },
+            },
+        },
     },
     locations = {
         {
@@ -159,6 +172,16 @@ LightRpShops = {
             npc = { record = "Character.std_rcr_gunsmith_01" },
             blip = { icon = "crosshair", sprite = "guns", description = "Precision and sniper rifles, their ammunition.",
                 map = "sniper", mapCategory = "weapons", mapColor = "#FF7A1A" },
+        },
+        -- NEON DECK, the Cyberpunk TCG shop in the Kabuki market (world resource neon_deck, NCWE project
+        -- E:/Open77/Maps/TCGShop): the clerk stands behind the checkout counter, by the register, facing the
+        -- customers (pose measured in game). The map pin is the mapPlaces entry tcgshop_neon_deck on the street door.
+        {
+            id = "tcgshop_neon_deck", template = "tcg_shop", name = "NEON DECK",
+            position = { x = -814.122498, y = 933.517334, z = 12.139999 },
+            orientation = { x = 0.0, y = 0.0, z = 0.061173, w = 0.998127 },
+            yaw = 7.014237, bucket = 0,
+            npc = { record = "Character.mws_thenerves_driver_01" },
         },
         -- The shop of the arrival hall (first day guide, shared/tutorial.lua), in
         -- the hall's routing bucket: the newcomer's first real checkout.

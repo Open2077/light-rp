@@ -79,6 +79,7 @@ server_script "server/modules/armament_store.lua"
 server_script "server/modules/armament.lua"
 server_script "server/modules/grenades.lua"
 server_script "server/modules/hotbar.lua"
+server_script "server/modules/tcg.lua"            -- Cyberpunk TCG (op77_tcg): sealed product as inventory items
 server_script "server/modules/economy.lua"
 server_script "server/config/economy.lua"         -- economy rules (docs/economy-balance.md)
 server_script "server/modules/mission_pay.lua"    -- what a mission / gig pays: crew pot, cooldown, daily cap
@@ -212,6 +213,7 @@ client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
 client_script "client/core/announce.lua"       -- the announcement halo's voice level (server/modules/announce.lua)
 client_script "client/core/inventory.lua"
+client_script "client/core/tcg.lua"               -- closes the inventory when the TCG page takes the mouse
 client_script "client/core/armament.lua"
 client_script "client/core/grenades.lua"
 client_script "client/core/hotbar.lua"

@@ -103,6 +103,12 @@ resources/standalone/op77_map3d/ui/node_modules/
 # Deathmatch engine hosted as a Light RP activity provider.
 !resources/standalone/op77_arena/
 !resources/standalone/op77_arena/**
+# Cyberpunk TCG collection (standalone). The four preload zips (~580 MiB, one over GitHub's 100 MB
+# limit each) are rebuilt from the mod archive by tools/build-assets.ps1; the database is runtime data.
+!resources/standalone/op77_tcg/
+!resources/standalone/op77_tcg/**
+resources/standalone/op77_tcg/dist/*.zip
+resources/standalone/op77_tcg/data/
 # Source of the Neural-Link page (npm run build writes into op77_neuralink/web).
 !neuralink-ui/
 !neuralink-ui/**
@@ -213,3 +219,6 @@ ripperdoc-ui/scripts/__pycache__/
 !tools/test-casino-pool.py
 !tools/test-casino-pool-server.py
 !tools/test-casino-pool-client.py
+# op77_tcg ships its binder catalogue under web/data (the server database stays ignored).
+!resources/standalone/op77_tcg/web/data/
+!resources/standalone/op77_tcg/web/data/**
