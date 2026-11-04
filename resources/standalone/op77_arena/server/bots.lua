@@ -1013,6 +1013,21 @@ function defaultHost.instanceOfPlayer(playerId)
     return record.id
 end
 
+--- op77_arena (2026-11-04): may a player's shot hurt a bot in this instance right
+--- now? An ARENA answers with its round: only a live round, never the buy window
+--- -- the window where arena.lua now hands out the kits -- nor the interval or
+--- the result card. That is main.lua's M5 rule for player victims, which this
+--- path never reaches. `nil` (no opinion) for every other kind of instance, so
+--- the free-for-all keeps its own rules.
+function defaultHost.roundLive(instanceId)
+    local _, instances = kernel()
+    if instances == nil then return nil end
+    local id = tonumber(instanceId)
+    local record = id ~= nil and instances.registry[id] or nil
+    if record == nil or record.kind ~= "arena" then return nil end
+    return record.round ~= nil and record.round.state == "active"
+end
+
 function defaultHost.playersIn(instanceId)
     local _, instances = kernel()
     if instances == nil then return {} end
@@ -3958,6 +3973,8 @@ local function admitReport(playerId, weapon, seq, path)
 
     local instanceId = hostCall("instanceOfPlayer", playerId)
     if instanceId == nil then return nil, "no_instance" end
+    -- Gate 1b: an arena round that is not live (see `defaultHost.roundLive`).
+    if hostCall("roundLive", instanceId) == false then return nil, "round_not_live" end
     if DeathmatchBots.count(instanceId) == 0 then return nil, "no_bots" end
     if not playerAlive(playerId) then return nil, "shooter_not_alive" end
 

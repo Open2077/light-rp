@@ -240,6 +240,29 @@ local function placeAt(playerId, position, heading, bucket, reason, graceMs)
     return true
 end
 
+-- op77_arena patch (2026-11-04): HAS THE LAST PLACEMENT LANDED? arena.lua arms
+-- a player inside the buy window instead of at GO, and must not hand weapons
+-- to a body that is still in transition -- see "arena arming" in
+-- server/loadout.lua. `placeAt` returning true only says the REQUEST was
+-- accepted (the note above `verifyPlacement`); this answers the other fact.
+--
+-- Landed means the canonical phase is `alive` or `recovering` -- a respawn has
+-- left `respawnpending`, i.e. the client acknowledged it -- and no teleport the
+-- host started is still in flight (`Deathmatch.bodyInFlight`, server/lightrp.lua).
+-- A bot is never asked: it is not placed by this primitive.
+function DM.bodySettled(playerId)
+    playerId = DM.playerId(playerId)
+    if playerId == nil or playerId <= 0 then return false, "bad_player_id" end
+    if type(DM.bodyInFlight) == "function" and DM.bodyInFlight(playerId) then
+        return false, "moving"
+    end
+    local life = Open77.players.getLifeState(playerId)
+    if life == nil then return false, "player_not_found" end
+    local phase = phaseOf(life)
+    if phase == "alive" or phase == "recovering" then return true, phase end
+    return false, phase
+end
+
 
 -- ------------------------------------------------------------ spawn marks --
 

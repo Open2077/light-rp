@@ -315,6 +315,12 @@ DeathmatchConfig = {
         swapSidesAfterRounds = 3,
         placementGraceMs = 5000,
         roundStartGraceMs = 1500,
+        -- How long a player's round-start placement must have LANDED (alive or
+        -- recovering, no teleport in flight) before the kit is issued inside
+        -- the buy window. A respawn is acknowledged in the frame that queues
+        -- the engine's ResurrectEvent, before the engine processed it; this
+        -- is the margin. See "arming" in server/arena.lua.
+        kitSettleMs = 1000,
         -- ------------------------------------------------------------------
         -- BOTS FILLING A ROSTER
         -- ------------------------------------------------------------------
