@@ -62,6 +62,9 @@ TcgConfig = {
         stepMs = { roll = 30000, main = 150000, react = 30000, steal = 30000, prompt = 45000 },
         -- Tests and showcases: an idle player's turn is played by the house instead of just ending.
         houseForIdle = false,
+        -- Sit with a held sequence that stands the player up at the seat's stand point (needs a runtime whose sequences
+        -- hold at a workspot chair; the looped animation is the default).
+        sitSequence = false,
         -- Sitting at the table: the first profile the runtime plays wins (hands on the table, then the plain chair).
         sit = {
             { profile = "amb_d7c499_sit_chair_table_keybo", clip = "sit_chair_table_keyboard__2h_on_keyboard__01__shuffle__02" },

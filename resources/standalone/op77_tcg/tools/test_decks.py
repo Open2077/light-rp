@@ -69,6 +69,9 @@ d = ((s1.mat.x - s2.mat.x) ** 2 + (s1.mat.y - s2.mat.y) ** 2) ** 0.5
 check(0.40 < d < 0.48, f"mats side by side across the table ({d:.3f} m)")
 deckpos = L.eval("function(s) return TcgTable.onMat(s, 0.9325, 0.53) end")(s1)
 check(abs(deckpos.z - (17.43 + 0.0029)) < 1e-6, "zones sit on the mat")
+rdc = L.eval("TcgTable.seats(TcgTable.slots[3])")
+check(abs(rdc[1].mat.z - 12.89) < 1e-6 and abs(rdc[1].chair.z - 12.14) < 1e-6 and len(list(L.eval("TcgTable.slots").values())) == 4,
+      "four slots: two upstairs, two at the ground-floor duel table")
 centre = L.eval("function(s) return TcgTable.onMat(s, 0.5, 0.5) end")(s1)
 check(abs(centre.x - s1.mat.x) < 1e-9 and abs(centre.y - s1.mat.y) < 1e-9, "the artwork centre is the mat centre")
 check(len(list(L.eval("TcgTable.playmats").values())) == 6, "six playmats")

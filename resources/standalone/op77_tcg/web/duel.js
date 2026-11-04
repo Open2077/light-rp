@@ -657,6 +657,7 @@
     $("dkOwnedOnly").onchange = function (e) { pool.owned = e.target.checked; renderPool(owned()); };
     buildPoolFilters();
     $("duRefresh").onclick = function () { T.emit("tcg:nearby", {}); };
+    $("duTutorial").onclick = function () { T.emit("tcg:tutorial", {}); T.closeBinder(); };
     $("chAccept").onclick = function () { answer(true); };
     $("chDecline").onclick = function () { answer(false); };
     $("dhView").onclick = function () { T.emit("tcg:camera", { mode: "next" }); };

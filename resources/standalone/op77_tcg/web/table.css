@@ -221,3 +221,29 @@
 .tb-effect em { font-size: 11px; color: #ff9aa2; font-style: normal; }
 .tb-effect.off { opacity: .55; border-left-color: var(--line); cursor: default; }
 .tb-panel { max-height: 80vh; overflow-y: auto; }
+
+/* The tutorial's coach */
+.tb-coach { position: absolute; top: 104px; left: 50%; transform: translateX(-50%); width: 660px; pointer-events: auto; z-index: 45;
+  background: linear-gradient(180deg, rgba(10, 13, 17, .97), rgba(8, 10, 13, .94)); border: 1px solid rgba(252, 238, 9, .55);
+  border-left: 4px solid var(--yellow); padding: 14px 18px 12px; box-shadow: 0 20px 50px rgba(0, 0, 0, .6), 0 0 30px rgba(252, 238, 9, .12); }
+.tb-coach.show { animation: tcIn .4s var(--ease-out); }
+@keyframes tcIn { from { opacity: 0; transform: translateX(-50%) translateY(-12px); } }
+.tb-coach h3 { margin: 6px 0 4px; font-size: 22px; color: var(--yellow); letter-spacing: .04em; }
+.tb-coach p { margin: 0; font-size: 15px; line-height: 1.55; color: #dfe6ec; }
+.tc-head { display: flex; align-items: center; gap: 12px; }
+.tc-step { font-size: 11px; font-weight: 800; letter-spacing: .16em; color: var(--muted); white-space: nowrap; }
+.tc-bar { flex: 1; height: 4px; background: #1a2027; }
+.tc-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--yellow)); transition: width .5s var(--ease-out); }
+.tc-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.tc-todo { color: var(--cyan); font-weight: 800; letter-spacing: .06em; animation: tbLow 1.4s ease-in-out infinite; }
+.tc-wait { color: var(--muted); font-style: italic; }
+.tc-wait::after { content: "..."; animation: tcDots 1.2s steps(4) infinite; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; }
+@keyframes tcDots { from { width: 0; } to { width: 1.2em; } }
+.tc-skip { margin-left: auto; background: transparent; border: 0; color: var(--muted); font-size: 12px; text-decoration: underline; cursor: pointer; }
+.tc-skip:hover { color: var(--text); }
+.coach-focus { outline: 2px solid var(--yellow) !important; outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(252, 238, 9, .16), 0 0 34px rgba(252, 238, 9, .45) !important; animation: coachPulse 1.3s ease-in-out infinite; z-index: 7; }
+@keyframes coachPulse { 50% { outline-color: rgba(252, 238, 9, .35); box-shadow: 0 0 0 2px rgba(252, 238, 9, .1), 0 0 12px rgba(252, 238, 9, .2) !important; } }
+.dh-hand .dh-card.coach-focus { transform: translateX(var(--push, 0px)) translateY(-40px) rotate(0deg); }
+.du-learn { border-color: rgba(34, 216, 226, .45); }
+.du-learn .hint b { color: var(--yellow); }

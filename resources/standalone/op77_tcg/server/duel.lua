@@ -422,7 +422,14 @@ local function view(m, seat)
             prompt = { id = p.id, mine = false, source = p.source, who = m.seats[p.seat].name }
         end
     end
+    local tutorial
+    local ts = m.tutorial and not m.tutorial.free and TcgTutorial.steps[m.tutorial.i]
+    if ts then
+        tutorial = { index = ts.index, total = #TcgTutorial.steps, id = ts.id, title = ts.title, text = ts.text, ui = ts.ui, zones = ts.zones,
+            card = ts.card, next = ts.next, final = ts.final, expect = ts.expect and ts.expect.type or nil, house = ts.house ~= nil }
+    end
     return { id = m.id, slot = m.slot.id, label = m.slot.label, you = seat.index, phase = m.phase, deadline = remaining(m), prompt = prompt,
+        tutorial = tutorial, isTutorial = m.tutorial ~= nil,
         decider = m.decider, first = m.first, turn = m.turn, active = m.active, seats = seats,
         hand = table.concat(seat.hand, ","), log = m.log, step = m.step, attack = attack, events = events, overtime = m.overtime,
         options = m.phase == "game" and TcgGame.options(m, seat.index) or nil,
@@ -439,9 +446,18 @@ local function broadcast(m)
     m.sent = nil
 end
 
+-- Stand up: a sequence stops at its stand point (away from the table); a looped animation just stops. The client
+-- also lets go of its camera, cursor and animation when the duel ends (client/duel.lua).
 local function standUp(seat)
-    if seat.player and seat.playback then pcall(Open77.animations.stop, seat.player, seat.playback) end
-    seat.playback = nil
+    if seat.player and seat.playback then
+        if seat.sequence and type(Open77.animations.stopAt) == "function" then
+            local ok = pcall(Open77.animations.stopAt, seat.playback)
+            if not ok then pcall(Open77.animations.stop, seat.player, seat.playback) end
+        else
+            pcall(Open77.animations.stop, seat.player, seat.playback)
+        end
+    end
+    seat.playback, seat.sequence = nil, nil
 end
 
 local function endMatch(m, reason, winner)
@@ -459,13 +475,24 @@ local function endMatch(m, reason, winner)
         end
     end
     matches[m.id] = nil
+    if m.tutorial then return S.log("tutorial %d at %s ended: %s", m.id, m.slot.id, tostring(reason)) end
     S.exec("INSERT INTO tcg_matches (slot, a, b, deck_a, deck_b, winner, reason, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         { m.slot.id, m.seats[1].identifier, m.seats[2].identifier, m.seats[1].deck.name, m.seats[2].deck.name,
           winner and winner.identifier or "", reason or "", m.startedAt, S.unix() })
     S.log("duel %d at %s ended: %s%s", m.id, m.slot.id, tostring(reason), winner and (" - " .. winner.name .. " wins") or "")
 end
 
-local function freeSlot()
+local function freeSlot(near)
+    if near then
+        local best, bestD
+        for _, slot in ipairs(T.slots) do
+            if not bySlot[slot.id] then
+                local d = S.dist(near, T.centre(slot))
+                if not bestD or d < bestD then best, bestD = slot, d end
+            end
+        end
+        return best
+    end
     for _, slot in ipairs(T.slots) do if not bySlot[slot.id] then return slot end end
 end
 
@@ -500,7 +527,9 @@ local function createMatch(slot, a, b)
 end
 
 -- Setup [7.4-7.9]: d20 for the first player (ties rerolled), the higher roller chooses.
+local startTutorialGame_
 local function startSetup(m)
+    if m.tutorial then return startTutorialGame_(m) end
     m.phase = "choose"
     local ra, rb
     repeat ra, rb = math.random(1, 20), math.random(1, 20) until ra ~= rb
@@ -530,6 +559,75 @@ local function houseMulligan(m)
     end
 end
 
+-- ---------------------------------------------------------------------------------------------
+-- The tutorial (shared/tutorial.lua): a scripted demonstration duel against the house.
+
+local TUT = TcgTutorial
+local function tutStep(m) return m.tutorial and not m.tutorial.free and TUT.steps[m.tutorial.i] or nil end
+
+local function tutAdvance(m)
+    m.tutorial.i = m.tutorial.i + 1
+    m.tutorial.k = 0
+    if not TUT.steps[m.tutorial.i] then m.tutorial.free = true end
+end
+
+-- Does a player's move match what the step expects?
+local function tutMatches(step, d, seat)
+    local e = step.expect
+    if not e or e.type ~= d.type then return false end
+    if e.card and seat.hand[tonumber(d.hand) or 0] ~= e.card then return false end
+    if e.target and tostring(d.target) ~= e.target then return false end
+    return true
+end
+
+-- One scripted move of the house.
+local function tutHouseMove(m, a)
+    local house = m.seats[2]
+    local function handIndex(slug) for i, s in ipairs(house.hand) do if s == slug then return i end end end
+    local function unit(slug) for _, u in ipairs(house.field) do if u.slug == slug then return u end end end
+    local kind = a[1]
+    if kind == "roll" then return TcgGame.roll(m, 2, a[2])
+    elseif kind == "sell" then return TcgGame.sell(m, 2, handIndex(a[2]))
+    elseif kind == "play" then return TcgGame.play(m, 2, handIndex(a[2]))
+    elseif kind == "endTurn" then return TcgGame.endTurn(m, 2)
+    elseif kind == "resolve" then return TcgGame.resolve(m, 2)
+    elseif kind == "block" then local u = unit(a[2]); return u and TcgGame.block(m, 2, u.uid)
+    elseif kind == "attack" then local u = unit(a[2]); return u and TcgGame.attack(m, 2, u.uid, a[3] or "gigs")
+    elseif kind == "steal" then
+        local best
+        for _, g in ipairs(m.seats[1].gigs) do if m.attack and m.attack.stealable[g.uid] and (not best or g.value > best.value) then best = g end end
+        return best and TcgGame.steal(m, 2, { best.uid })
+    end
+end
+
+-- The tutorial's own deck order, Legends and dice; the house goes first; both keep their hands.
+local function startTutorialGame(m)
+    local you, house = m.seats[1], m.seats[2]
+    you.roll, house.roll = TUT.d20.player, TUT.d20.house
+    m.first = 2
+    say(m, "d20: %s rolls %d, %s rolls %d.", you.name, you.roll, house.name, house.roll)
+    say(m, "%s goes first.", house.name)
+    for _, x in ipairs({ { you, TUT.player }, { house, TUT.house } }) do
+        local seat, def = x[1], x[2]
+        seat.library = def.library()
+        seat.hand = {}
+        for i, s in ipairs(def.hand) do seat.hand[i] = s end
+        seat.legends = {}
+        for i, s in ipairs(def.legends) do seat.legends[i] = { slug = s, faceUp = false, spent = seat.index == m.first and i <= 2 } end
+        seat.mulligan = "kept"
+    end
+    local q = {}
+    for i, v in ipairs(TUT.rolls) do q[i] = v end
+    m.phase = "game"
+    m.random = function(a, b)
+        local v = table.remove(q, 1)
+        if v == nil then return math.random(a, b) end
+        return math.max(a, math.min(b, v))
+    end
+    TcgGame.begin(m)
+    TcgGame.startTurn(m)
+end
+
 -- The game [8-9]: shared/game.lua plays the rules; here are the clock, the house and the table.
 local STEP_MS = cfg.stepMs or { roll = 30000, main = 150000, react = 30000, steal = 30000 }
 local driveHouse
@@ -542,7 +640,10 @@ local function afterAction(m)
         local winner = m.winner and m.seats[m.winner] or nil
         return endMatch(m, m.endReason or "The game is over.", winner)
     end
+    local ts = tutStep(m)
+    if ts and ts.settle and not m.prompt and not TcgGame.busy(m) then tutAdvance(m) end
     m.deadline = S.now() + (m.prompt and (STEP_MS.prompt or 45000) or (STEP_MS[m.step] or 60000))
+    if tutStep(m) then m.deadline = nil end
     m.stepKey = (m.stepKey or 0) + 1
     syncTable(m)
     broadcast(m)
@@ -557,6 +658,37 @@ local function actor(m)
 end
 
 function driveHouse(m)
+    local ts = tutStep(m)
+    if ts and not m.over and m.phase == "game" then
+        local key = m.stepKey
+        if m.prompt and m.seats[m.prompt.seat].house then
+            SetTimeout(900, function()
+                if matches[m.id] ~= m or m.stepKey ~= key then return end
+                m.prompt.house = true
+                TcgGame.defaultAnswer(m)
+                afterAction(m)
+            end)
+        elseif ts.house then
+            SetTimeout(1800, function()
+                if matches[m.id] ~= m or m.over or m.stepKey ~= key then return end
+                m.tutorial.k = (m.tutorial.k or 0) + 1
+                local a = ts.house[m.tutorial.k]
+                if a then
+                    local ok, why = tutHouseMove(m, a)
+                    if not ok then S.log("duel %d: tutorial house move %s refused (%s)", m.id, tostring(a[1]), tostring(why)) end
+                end
+                if m.tutorial.k >= #ts.house and not TcgGame.busy(m) then tutAdvance(m) end
+                afterAction(m)
+            end)
+        elseif ts.expect and m.seats[actor(m)].house then
+            SetTimeout(1300, function()
+                if matches[m.id] ~= m or m.over or m.stepKey ~= key then return end
+                TcgGame.housePlay(m, 2)
+                afterAction(m)
+            end)
+        end
+        return
+    end
     local who = m.seats[actor(m)]
     if not who or not who.house or m.over or m.phase ~= "game" then return end
     local key = m.stepKey
@@ -578,6 +710,7 @@ local function timeout(m)
 end
 
 local function startGame(m)
+    if m.tutorial then return end
     m.phase = "game"
     m.random = math.random
     TcgGame.begin(m)
@@ -681,7 +814,7 @@ local function challenge(player, target, deckKey)
     if byPlayer[player] then return S.notify(player, "Finish your current duel first.", "error") end
     if byPlayer[target] then return S.notify(player, "They are already playing a duel.", "error") end
     if not near(player, target, cfg.challengeRadius) then return S.notify(player, "Stand near the player you want to challenge.", "error") end
-    if not freeSlot() then return S.notify(player, "Both duel tables are taken. Try again in a moment.", "error") end
+    if not freeSlot() then return S.notify(player, "Every duel table is taken. Try again in a moment.", "error") end
     for _, ch in pairs(challenges) do
         if ch.from == player and ch.to == target then return S.notify(player, "Your challenge is already waiting for an answer.", "info") end
     end
@@ -720,10 +853,10 @@ local function answerChallenge(player, id, accept, deckKey)
     end
     local b, whyB = collector(player, deckKey)
     if not b then return S.notify(player, whyB, "error") end
-    local slot = freeSlot()
+    local slot = freeSlot(S.positionOf(ch.from))
     if not slot then
-        S.notify(ch.from, "Both duel tables are taken.", "error")
-        return S.notify(player, "Both duel tables are taken.", "error")
+        S.notify(ch.from, "Every duel table is taken.", "error")
+        return S.notify(player, "Every duel table is taken.", "error")
     end
     local m = createMatch(slot, a, b)
     bindMatch(m)
@@ -738,11 +871,25 @@ end
 local function trySit(seat)
     local c = seat.pose.chair
     local reasons = {}
+    local st = seat.pose.stand
     for _, option in ipairs(cfg.sit or {}) do
+        -- 1. A held sequence that ends with the player standing at the seat's stand point when it stops.
+        -- (Off by default: in game a held sequence at these chairs was interrupted with "player_moving" after a minute.)
+        if cfg.sitSequence and type(Open77.animations.sequenceAt) == "function" then
+            local ok, state, why = pcall(Open77.animations.sequenceAt, seat.player, { { profile = option.profile, clip = option.clip } },
+                { x = c.x, y = c.y, z = c.z }, seat.pose.yaw,
+                { hold = true, arrivalRadius = 1.5, standAt = { x = st.x, y = st.y, z = st.z, yaw = (seat.pose.yaw + 180) % 360 } })
+            if ok and type(state) == "table" and type(state.playbackId) == "string" then
+                seat.playback, seat.sequence = state.playbackId, true
+                return true, option.profile .. " (sequence)"
+            end
+            reasons[#reasons + 1] = option.profile .. " sequence: " .. tostring(ok and why or state)
+        end
+        -- 2. The plain looped animation at the chair.
         local ok, animation, why = pcall(Open77.animations.playAt, seat.player, option.profile, { x = c.x, y = c.y, z = c.z },
             seat.pose.yaw, { loop = true, clip = option.clip, arrivalRadius = 1.5 })
         if ok and type(animation) == "table" then
-            seat.playback = animation.playbackId
+            seat.playback, seat.sequence = animation.playbackId, false
             return true, option.profile
         end
         reasons[#reasons + 1] = option.profile .. ": " .. tostring(ok and why or animation)
@@ -826,6 +973,12 @@ on("choose", function(player, goFirst)
     local seat = m and seatOf(m, player)
     if seat then m.choose(seat.index, goFirst ~= false) end
 end)
+startTutorialGame_ = function(m)
+    startTutorialGame(m)
+    say(m, "Tutorial: follow the coach.")
+    afterAction(m)
+end
+
 -- A game action from the page: { type = roll|sell|play|call|legend|attack|block|resolve|steal|endTurn, ... }.
 -- Hand cards are named by index and slug, so a stale click never plays another card.
 local ACTIONS = {
@@ -865,12 +1018,34 @@ on("act", function(player, d)
         if seat.hand[hi] == nil or seat.hand[hi] ~= d.card then return S.notify(player, "That card is no longer in your hand.", "error") end
         d.hand = hi
     end
+    local ts = tutStep(m)
+    if ts and d.type ~= "answer" and not tutMatches(ts, d, seat) then
+        return TriggerClientEvent(NET .. "duelRefused", player, { reason = "Tutorial: " .. (ts.expect and ts.title or "read the coach, then click Next") .. "." })
+    end
     local ok, why = fn(m, seat.index, d)
     if not ok then
         TriggerClientEvent(NET .. "duelRefused", player, { reason = tostring(why) })
         return
     end
+    if ts and d.type ~= "answer" then tutAdvance(m) end
     afterAction(m)
+end)
+
+-- The coach's Next (and, on the last step, "keep playing": the duel goes on as a normal game against the house).
+local function tutorialNext(player)
+    local m = byPlayer[player]
+    local ts = m and tutStep(m)
+    if not ts or not ts.next then return false end
+    if ts.final then m.tutorial.free = true else tutAdvance(m) end
+    afterAction(m)
+    return true
+end
+on("tutorialNext", tutorialNext)
+exports("tutorialNext", function(player)
+    player = tonumber(player)
+    if not player then return false end
+    CreateThread(function() tutorialNext(player) end)
+    return true
 end)
 
 on("mulligan", function(player, again)
@@ -918,13 +1093,45 @@ local function houseDuel(target, starter)
     local houseDeck = TcgStarters.byId[starter or "the_heist"] or TcgStarters[2]
     local b = { player = nil, identifier = "house", name = "NEON DECK house", house = true, playmat = "arasaka",
         deck = { key = "s:" .. houseDeck.id, name = houseDeck.name, legends = houseDeck.legends, cards = houseDeck.cards, starter = true } }
-    local slot = freeSlot()
-    if not slot then return nil, "both tables are taken" end
+    local slot = freeSlot(S.positionOf(target))
+    if not slot then return nil, "every table is taken" end
     local m = createMatch(slot, a, b)
     bindMatch(m)
     S.notify(target, ("%s is set for you: sit down at your chair."):format(slot.label), "loot")
     return m
 end
+
+-- The tutorial: a duel against the house with the tutorial's fixed decks, at the nearest free table.
+local function tutorialDuel(target)
+    if byPlayer[target] then return nil, "already in a duel" end
+    local s = S.session(target)
+    if not s then return nil, "unknown player" end
+    local set = settingsOf(s.identifier)
+    local a = { player = target, identifier = s.identifier, name = S.name(target), playmat = set.playmat,
+        deck = { key = "tutorial", name = "Tutorial deck", legends = TUT.player.legends, cards = {} } }
+    local b = { player = nil, identifier = "house", name = "NEON DECK house", house = true, playmat = "arasaka",
+        deck = { key = "tutorial", name = "House deck", legends = TUT.house.legends, cards = {} } }
+    local slot = freeSlot(S.positionOf(target))
+    if not slot then return nil, "Every duel table is taken: try again in a moment." end
+    local m = createMatch(slot, a, b)
+    m.tutorial = { i = 1, k = 0 }
+    bindMatch(m)
+    broadcast(m)
+    S.notify(target, ("Tutorial: %s is set for you. Walk to your chair and press E."):format(slot.label), "loot")
+    return m
+end
+
+on("tutorial", function(player)
+    local m, why = tutorialDuel(player)
+    if not m then S.notify(player, tostring(why), "error") end
+end)
+
+exports("tutorial", function(player)
+    player = tonumber(player)
+    if not player then return false end
+    CreateThread(function() while not dready do Wait(50) end tutorialDuel(player) end)
+    return true
+end)
 
 -- Exports for a gamemode (a tutorial, an NPC dealer): both run in a thread and answer at once.
 exports("houseDuel", function(player, starter)
@@ -938,6 +1145,14 @@ exports("sitDown", function(player)
     player = tonumber(player)
     if not player or not byPlayer[player] then return false end
     CreateThread(function() sit(player) end)
+    return true
+end)
+
+-- Takes a player out of their duel (conceding once the game has begun): a gamemode's own exits, tests.
+exports("leaveDuel", function(player)
+    player = tonumber(player)
+    if not player or not byPlayer[player] then return false end
+    CreateThread(function() leave(player, "left the table") end)
     return true
 end)
 
