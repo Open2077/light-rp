@@ -55,6 +55,53 @@ gamemode, and any server can load it.
 - attacking (fight and steal), effect timing, keywords, tournament formats;
 - notes for a playable mode.
 
+## Decks, playmats and duels
+
+**Decks tab.** Decks follow the official deck-building rules (`shared/decks.lua`, docs/RULES.md §6):
+- exactly 3 Legends, with different names;
+- a main deck of 40 to 50 cards, with no Legend in it;
+- at most 3 copies of a card;
+- every card's RAM is at most its colour's limit, which is the sum of the Legends' RAM in that colour.
+
+A collector builds from the copies they own, and every finish of an edition counts. A deck that breaks a rule is
+kept as a draft until it is fixed. The deck box holds 12 decks. The shop lends the two official starter decks
+(Embracing Power, The Heist), so anyone can play without owning the cards; a starter can also be copied and edited.
+The page checks the rules live, and the server checks them again before a duel.
+
+**Duel tab.** It has three parts:
+- the playmat you play on, one of the six NEON DECK mats;
+- the deck you duel with;
+- the players around you (15 m) and how many duel tables are free.
+
+**A duel**
+1. You challenge a player. They accept with one of their own legal decks.
+2. A free slot of **NEON DECK Table 1** is reserved. It has two 1v1 slots (four seats), and the players sit face to
+   face.
+3. The table is set for everyone around to see: both playmats, both deck stacks, and both dice sets in the fixer
+   areas. These are server props from the `neon_deck` world resource.
+4. Each player walks to their chair (a marker shows it) and presses **E** (`op77_tcg.sit`, rebindable) to sit down.
+5. The game is then set up by the rules:
+   - both players roll a d20; the higher roll chooses who goes first;
+   - the decks are shuffled;
+   - the Legends go face down, and the first player's two left-most Legends start spent (turned sideways on the table);
+   - each player draws 6, then may mulligan once; the first player decides first.
+
+While seated, a camera looks at the table. **V** switches between three views: your seat, the whole table, and
+top-down on your mat. The overlay shows your hand, the rival's public state (deck, hand size, Legends), the d20 rolls,
+the decisions and a log.
+
+**Ending a duel**
+- Leaving the table (two clicks) during the setup frees the table.
+- Leaving after turn 1 has started concedes the duel.
+- Walking more than 6 m away for 15 s, disconnecting or switching character counts as leaving.
+- Nobody seated within 3 minutes frees the table.
+
+Results go to `tcg_matches`. The card-play engine (turns, attacks, gigs) is the next step; the table and the setup
+are ready for it.
+
+Admin: `/tcg.duel demo <playerId> [embracing_power|the_heist]` starts a duel against the house (a test, a
+showcase). `/tcg.duel end <slot>` and `/tcg.duel list` are also available.
+
 ## Rarity
 
 The pack rules are those of the original set: **9 Common, 2 Uncommon, 1 premium slot**. The premium slot is a Rare
@@ -88,6 +135,8 @@ exports.op77_tcg:giveBooster(playerId, "wnc", 2)   -- mission loot, rewards
 exports.op77_tcg:giveCard(playerId, "a0b083a4f")
 local c = exports.op77_tcg:getCollection(playerId)  -- { dust, dustPlus, sealed, editions, cards, totalEditions, totalCards }
 exports.op77_tcg:useSealed(playerId, "box")         -- a gamemode's inventory item: open it on the player's screen
+exports.op77_tcg:houseDuel(playerId, "the_heist")   -- a duel against the house at a free NEON DECK table
+exports.op77_tcg:sitDown(playerId)                  -- seats a player in their duel (they stand at their chair)
 ```
 
 ## With a gamemode (LightRP)
@@ -115,7 +164,9 @@ shelf.
 ## Data
 
 `data/tcg.db` (SQLite) holds the profiles (Dust, Dust+, the free-pack clock), sealed product, cards per durable
-player identifier, the server population, the pull log and the shops.
+player identifier, the server population, the pull log and the shops, plus the decks (`tcg_decks`), each
+collector's playmat and duel deck (`tcg_settings`) and the duel results (`tcg_matches`). The rules data of the 151
+cards (`shared/cards.lua`, `web/data/cards.js`) comes from the NetDeck card API: `tools/fetch_rules.py <resource>`.
 
 ## Assets
 
@@ -149,5 +200,14 @@ a card, and the exports. `python tools/test_framework.py` runs the same script w
 collectors, starter items, `useSealed`, an opening and a display through the inventory, the no-room refund, the
 counter deferring to the vendor, and a character switch.
 
+`python tools/test_decks.py` checks the deck rules against the real card data and the table geometry.
+`python tools/test_duel.py` runs the duels end to end:
+- decks: drafts, legality and owned copies;
+- the playmat and the nearby list;
+- challenges, declined and accepted;
+- the table props per seat, sitting down (with the fallback animation), the d20 and the choice;
+- the Legends spent and face down, the 6-card draw and the mulligan order;
+- conceding, the house demo, the timeouts, walking away and disconnecting.
+
 `web/index.html` also runs in a plain browser as a preview with a demo collection: `?tab=sealed`, `?tab=shop&shop=1`,
-`?open=1&reveal=12`.
+`?open=1&reveal=12`, `?tab=decks`, `?tab=duel&challenged=1`, `?duel=walk|seated|mulligan|main`.

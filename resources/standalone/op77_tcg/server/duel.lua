@@ -705,6 +705,42 @@ AddEventHandler("onResourceStop", function(name)
     end
 end)
 
+-- A duel against the house (NEON DECK's own player, a starter deck): a showcase, a tutorial, a test.
+local function houseDuel(target, starter)
+    if byPlayer[target] then return nil, "already in a duel" end
+    local s = S.session(target)
+    if not s then return nil, "unknown player" end
+    local set = settingsOf(s.identifier)
+    local key = resolveDeck(s.identifier, set.deck) and set.deck or "s:embracing_power"
+    local a, why = collector(target, key)
+    if not a then a, why = collector(target, "s:embracing_power") end
+    if not a then return nil, why end
+    local houseDeck = TcgStarters.byId[starter or "the_heist"] or TcgStarters[2]
+    local b = { player = nil, identifier = "house", name = "NEON DECK house", house = true, playmat = "arasaka",
+        deck = { key = "s:" .. houseDeck.id, name = houseDeck.name, legends = houseDeck.legends, cards = houseDeck.cards, starter = true } }
+    local slot = freeSlot()
+    if not slot then return nil, "both tables are taken" end
+    local m = createMatch(slot, a, b)
+    bindMatch(m)
+    S.notify(target, ("%s is set for you: sit down at your chair."):format(slot.label), "loot")
+    return m
+end
+
+-- Exports for a gamemode (a tutorial, an NPC dealer): both run in a thread and answer at once.
+exports("houseDuel", function(player, starter)
+    player = tonumber(player)
+    if not player then return false end
+    CreateThread(function() while not dready do Wait(50) end houseDuel(player, starter) end)
+    return true
+end)
+-- Seats a player in their duel as if they had pressed the sit key at their chair (they must stand near it).
+exports("sitDown", function(player)
+    player = tonumber(player)
+    if not player or not byPlayer[player] then return false end
+    CreateThread(function() sit(player) end)
+    return true
+end)
+
 -- /tcg.duel demo <playerId> [starter] | end <slot> | list: a duel against the house (a test, a showcase).
 RegisterCommand("tcg.duel", function(source_, args)
     local verb = args[1] or "list"
@@ -716,23 +752,9 @@ RegisterCommand("tcg.duel", function(source_, args)
         if verb == "demo" then
             local target = tonumber(args[2])
             if not target then return reply("usage: /tcg.duel demo <playerId> [embracing_power|the_heist]") end
-            if byPlayer[target] then return reply("already in a duel") end
-            local s = S.session(target)
-            if not s then return reply("unknown player") end
-            local set = settingsOf(s.identifier)
-            local key = resolveDeck(s.identifier, set.deck) and set.deck or "s:embracing_power"
-            local a, why = collector(target, key)
-            if not a then a, why = collector(target, "s:embracing_power") end
-            if not a then return reply(tostring(why)) end
-            local houseDeck = TcgStarters.byId[args[3] or "the_heist"] or TcgStarters[2]
-            local b = { player = nil, identifier = "house", name = "NEON DECK house", house = true, playmat = "arasaka",
-                deck = { key = "s:" .. houseDeck.id, name = houseDeck.name, legends = houseDeck.legends, cards = houseDeck.cards, starter = true } }
-            local slot = freeSlot()
-            if not slot then return reply("both tables are taken") end
-            local m = createMatch(slot, a, b)
-            bindMatch(m)
-            S.notify(target, ("%s is set for you: sit down at your chair."):format(slot.label), "loot")
-            reply(("duel %d at %s: %s vs the house"):format(m.id, slot.id, a.name))
+            local m, why = houseDuel(target, args[3])
+            if not m then return reply(tostring(why)) end
+            reply(("duel %d at %s: %s vs the house"):format(m.id, m.slot.id, m.seats[1].name))
         elseif verb == "end" then
             local m = bySlot[args[2] or ""]
             if not m then return reply("no duel at that slot") end
