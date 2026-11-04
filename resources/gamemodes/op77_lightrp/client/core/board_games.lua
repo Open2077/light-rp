@@ -78,10 +78,14 @@ local leftBoards={}
 -- prop, because a pass over many tables legitimately takes several seconds.
 local beats,generations,threadErrors={},{},{}
 local LOAD_GRACE_MS,RETRY_MS=15000,20000
--- Tables render up to RENDER_RADIUS metres away, nearest first, while their
+-- Tables render up to FAR_RADIUS metres away, nearest first, while their
 -- props fit PROP_BUDGET (the client quota is 256 props per resource; the rest
--- is headroom for the placement ghost and new pieces).
-local RENDER_RADIUS,PROP_BUDGET=40,220
+-- is headroom for the placement ghost and new pieces). Three levels of detail
+-- (renderAllowed[id]): "full" within RENDER_RADIUS (pieces and the solid
+-- collider), "far" beyond it (pieces, no collider: nobody walks into a table
+-- 100 m away), "base" when the pieces no longer fit (the table alone, 1 prop).
+-- The meshes are cooked LODMode AlwaysVisible, so a far table is drawn.
+local RENDER_RADIUS,FAR_RADIUS,PROP_BUDGET=40,150,220
 local PROP_ESTIMATE={chess=34,checkers=42,connect4=44,roulette=4,slots=17,blackjack=61,fortune=46,pool=20}
 local ASSET_HELP="Close the game and rejoin through the launcher to install the board-game assets."
 local sounds, soundSequences = {}, {}
@@ -888,7 +892,7 @@ local function ensureBoard(board)
         Wait(0);beats.render=GetGameTimer() -- one native create per resume, including a full initial board
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end
-    if not cache.colliderTried then -- once per cache, even if a snapshot interrupted the pass above
+    if not cache.colliderTried and renderAllowed[id]=="full" then -- once per cache, even if a snapshot interrupted the pass above
         cache.colliderTried=true
         local model=colliderModel(board)
         if model then
@@ -906,6 +910,12 @@ local function ensureBoard(board)
         Wait(0);beats.render=GetGameTimer()
         if not aliveBoard(board) or renderCaches[id]~=cache then return end
     end
+    -- Seen from far with the quota full: the table alone.
+    if renderAllowed[id]=="base" then
+        if not cache.base then cache.base=true;trace("render_base",id,"kind=%s",board.kind) end
+        return
+    end
+    cache.base=nil
     -- Targets can cost several thousand instructions (chess, casino tables):
     -- compute them guarded, then yield before diffing so that several nearby
     -- tables never add up to one resume beyond the 176 client budget.
@@ -927,13 +937,11 @@ local function ensureBoard(board)
         if not prop then trace("render_create_failed",id,"kind=%s piece=%s %s",board.kind,tostring(key),tostring(why));failBoard(id,why);return end
         cache.pieces[key]=prop;cache.moving[key]=true -- e.g. a new disc starts above the grid
         Wait(0);beats.render=GetGameTimer()
-        if not aliveBoard(board) or renderCaches[id]~=cache then return end
+        if not aliveBoard(board) or renderCaches[id]~=cache or renderAllowed[id]=="base" then return end
     end end
-    if not cache.initialized then
-        local count=0;for _ in pairs(cache.pieces) do count=count+1 end
-        trace("render_done",id,"kind=%s pieces=%d",board.kind,count)
-    end
-    cache.initialized=true
+    local count=0;for _ in pairs(cache.pieces) do count=count+1 end
+    if not cache.initialized then trace("render_done",id,"kind=%s pieces=%d",board.kind,count) end
+    cache.count=count;cache.initialized=true
 end
 -- The table a native prop belongs to: its base, its collider or one of its
 -- pieces (the ALT menu's target). One table lookup, cheap enough for every pick.
@@ -1127,11 +1135,42 @@ local function buildMarks(board,line)
     local targets=sel and from[sel.row*16+sel.col]
     if targets then for key in pairs(targets) do square(key,half*.38) end end
 end
+-- What a lower level of detail no longer draws goes first in every render
+-- pass, before anything nearer is created, so the quota is never overrun on
+-- the way; removals are sliced (seven tables shedding at once is ~230 props).
+local SHED_SLICE=24
+local function shedDetail(generation)
+    local removed=0
+    local function slice()
+        removed=removed+1
+        if removed>=SHED_SLICE then Wait(0);beats.render=GetGameTimer();removed=0 end
+    end
+    local ids={};for id in pairs(renderCaches) do ids[#ids+1]=id end
+    for _,id in ipairs(ids) do
+        if generations.render~=generation then return end
+        local cache,mode=renderCaches[id],renderAllowed[id]
+        if cache and mode and mode~="full" and cache.collider then
+            removeProp(cache.collider);cache.collider=nil;cache.colliderTried=nil;slice()
+        end
+        cache,mode=renderCaches[id],renderAllowed[id]
+        if cache and mode=="base" and next(cache.pieces)~=nil then
+            cache.initialized=false;cache.moving={};cache.goals={};cache.targets=nil;cache.count=0
+            local keys={};for key in pairs(cache.pieces) do keys[#keys+1]=key end
+            for _,key in ipairs(keys) do
+                if renderCaches[id]~=cache or renderAllowed[id]~="base" then break end
+                removeProp(cache.pieces[key]);cache.pieces[key]=nil;slice()
+            end
+            for _,tag in ipairs(tags[id] or {}) do Open77.debugDraw.clear(tag) end
+            tags[id]=nil
+        end
+    end
+end
 local THREADS={}
 function THREADS.render(generation)
     while rendererRunning and generations.render==generation do
         beats.render=GetGameTimer()
         Wait(0)
+        shedDetail(generation)
         for _,entry in ipairs(renderCandidates) do
             if generations.render~=generation then return end
             if aliveBoard(entry.board) then ensureBoard(entry.board) end
@@ -1808,7 +1847,7 @@ function Client.start()
                 if state and state.position then
                     for _,board in pairs(Client.boards) do
                         local d=distance(state.position,board.position)
-                        if d<RENDER_RADIUS then near[#near+1]={board=board,d=d} end
+                        if d<FAR_RADIUS then near[#near+1]={board=board,d=d} end
                     end
                     table.sort(near,function(a,b)
                         if active and a.board.id==active.id then return true end
@@ -1818,14 +1857,20 @@ function Client.start()
                 end
                 -- Nearest first (the active table always), within the per-resource
                 -- client prop quota (256): a blackjack table alone is up to 60 props.
+                -- A table whose pieces no longer fit keeps its base; one whose base
+                -- does not fit either is not drawn.
                 renderCandidates={}
                 local props=0
                 for _,entry in ipairs(near) do
                     local id=tostring(entry.board.id);local cache=renderCaches[id]
-                    local cost=PROP_ESTIMATE[entry.board.kind] or 45
-                    if cache then cost=cache.collider and 2 or 1;for _ in pairs(cache.pieces) do cost=cost+1 end end
-                    if #renderCandidates>0 and props+cost>PROP_BUDGET then break end
-                    props=props+cost;renderCandidates[#renderCandidates+1]=entry;allowed[id]=true
+                    local close=entry.d<RENDER_RADIUS or (active~=nil and active.id==entry.board.id)
+                    local pieces=PROP_ESTIMATE[entry.board.kind] or 45
+                    if cache and cache.initialized and cache.count then pieces=cache.count end
+                    local mode,cost=close and "full" or "far",1+pieces+(close and 1 or 0)
+                    if #renderCandidates>0 and props+cost>PROP_BUDGET then mode,cost="base",1 end
+                    if #renderCandidates==0 or props+cost<=PROP_BUDGET then
+                        props=props+cost;renderCandidates[#renderCandidates+1]=entry;allowed[id]=mode
+                    end
                 end
                 renderAllowed=allowed
                 for id in pairs(renderCaches) do if not allowed[id] then clearGeometry(id) end end

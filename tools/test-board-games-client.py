@@ -587,9 +587,17 @@ Open77.character.state().position.x=2;step()
 waitUntil(function()return nativeCount(2)==33 end,'new nearest chess cache')
 local hasSecond=boardProp(2)~=nil
 assert(hasSecond,'new nearest board should be rendered')
-Open77.character.state().position.x=60;step();assert(next(nativeProps)==nil,'distant native props must stream out')
+-- Seen from 60 m the tables stay drawn, pieces included, without colliders.
+local function colliders() local n=0;for _,p in pairs(nativeProps) do if p.name:find('_collider$') then n=n+1 end end;return n end
+assert(colliders()==2,'two solid tables nearby')
+Open77.character.state().position.x=60;step()
+waitUntil(function()return colliders()==0 end,'far tables shed their colliders')
+assert(nativeCount(1)==33 and nativeCount(2)==33,'far tables keep their pieces')
+assert(traced('collider_create_failed')==nil)
+-- Beyond FAR_RADIUS they stream out.
+Open77.character.state().position.x=200;step();assert(next(nativeProps)==nil,'distant native props must stream out')
 Open77.character.state().position.x=0;step()
-waitUntil(function()return nativeCount(1)==33 and nativeCount(2)==33 end,'nearby native boards stream back in')
+waitUntil(function()return nativeCount(1)==33 and nativeCount(2)==33 and colliders()==2 end,'nearby native boards stream back in, solid')
 -- Several complete tables nearby must not add up to one render resume over budget
 -- (live: the render thread died with 7-8 tables in range and new pieces never appeared).
 local many={}
@@ -600,6 +608,27 @@ for i=1,40 do step() end
 local idleMoves=movedProps
 for i=1,20 do step() end
 assert(movedProps==idleMoves,'seven still tables cost no transform at all')
+-- Twelve tables seen from far: the nearest keep their pieces while the quota
+-- allows, the rest show their base alone (1 prop), and coming closer brings
+-- the pieces back.
+local crowd={}
+for i=1,12 do crowd[i]={id=200+i,owned=false,position={x=60+i*4,y=0,z=0},rotation=0,players={},revision=1,kind='chess',game=LightRPBoardRules.new('chess')} end
+events['lightrp:boardGames:state']({boards=crowd});step()
+waitUntil(function() return propsForBoard(108,'chess')==1 and propsForBoard(64,'chess')==33 end,'far crowd: pieces near, bases beyond the quota')
+local total=0;for _ in pairs(nativeProps) do total=total+1 end
+assert(total<=220,'the far crowd stays within the prop budget: '..total)
+local bases=0;for i=1,12 do if propsForBoard(60+i*4,'chess')==1 then bases=bases+1 end end
+assert(bases>=5 and propsForBoard(64,'chess')==33,'the farthest tables are drawn as bases: '..bases)
+assert(traced('render_base'),'a base-only table is traced')
+local peak=0
+Open77.character.state().position.x=104;step()
+waitUntil(function()
+ local n=0;for _ in pairs(nativeProps) do n=n+1 end;peak=math.max(peak,n)
+ return propsForBoard(108,'chess')==33 and propsForBoard(64,'chess')==1
+end,'walking over swaps the detail')
+assert(peak<=230,'never over the client quota on the way: '..peak)
+Open77.character.state().position.x=0
+events['lightrp:boardGames:state']({boards=many});step()
 -- Solo: the human plays without a black seat. A camera held by another
 -- script: the cursor and the bar still work over the game camera.
 Open77.character.state().position.x=0
