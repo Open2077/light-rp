@@ -231,6 +231,7 @@ RegisterNetEvent(NET .. "opening", function(p)
         isOpen = true
         pcall(function() page:show() end)
         pcall(function() page:setFocus(true, true) end)
+        TriggerEvent("op77_tcg:focus")
     end
 end)
 
@@ -323,6 +324,8 @@ local function openBinder(tab)
     pcall(function() page:show() end)
     send("tcg:open", { tab = tab or "binder", shop = nearShopId, nearby = nearbyCollectors() })
     pcall(function() page:setFocus(true, true) end)
+    -- A gamemode closes its own panels over ours (LightRP: the inventory a booster was used from).
+    TriggerEvent("op77_tcg:focus")
     TriggerServerEvent(NET .. "state")
 end
 
@@ -339,6 +342,23 @@ local function openPack(product)
     closeBinder()
     TriggerServerEvent(NET .. "open", product, at)
 end
+
+-- A display used from a gamemode's inventory: the shrink-wrap scene, then the server cuts it (tcg:unbox).
+local function openUnbox(product)
+    if not page or not pageReady then return end
+    isOpen = true
+    pcall(function() page:show() end)
+    send("tcg:unboxStart", { product = product })
+    pcall(function() page:setFocus(true, true) end)
+    TriggerEvent("op77_tcg:focus")
+    TriggerServerEvent(NET .. "state")
+end
+
+-- exports.op77_tcg:useSealed (a gamemode's inventory item): open the real thing.
+RegisterNetEvent(NET .. "use", function(d)
+    if type(d) ~= "table" or type(d.product) ~= "string" then return end
+    if d.kind == "box" then openUnbox(d.product) else openPack(d.product) end
+end)
 
 local function placeCard(edition)
     local at = here()

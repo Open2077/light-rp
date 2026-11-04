@@ -19,9 +19,38 @@ local function log(fmt, ...) print(("[op77_tcg] " .. fmt):format(...)) end
 -- The server sandbox has no `os` library: Open77.time.unix() is the wall clock, GetGameTimer() the monotonic one.
 local function now() return GetGameTimer() end
 
+-- The collector: the active character when a framework provides one (LightRP: one collection per character,
+-- nobody before a character is loaded), the account otherwise.
+local function framework(fn, ...)
+    local res = C.framework
+    if not res then return false end
+    local args = table.pack(...)
+    local ok, a, b = pcall(function() local e = exports[res]; return e[fn](e, table.unpack(args, 1, args.n)) end)
+    if not ok then return false end
+    return true, a, b
+end
+
+-- The same, asynchronously: anything that writes (the framework's inventory goes to its database) must not run as
+-- a synchronous export (it would yield: export_yielded). Needs a thread. A framework that does not publish the
+-- export (resource absent, older version) leaves the call "not made".
+local function frameworkAsync(fn, ...)
+    local res = C.framework
+    if not res or type(Open77.exports) ~= "table" or type(Open77.exports.call) ~= "function" then return false end
+    local ok, pending = pcall(Open77.exports.call, res, fn, ...)
+    if not ok or not pending then return false end
+    local a, b = pending:await()
+    if a == nil and type(b) == "string" and b:find("^export_") then return false end
+    return true, a, b
+end
+
 local function identifierOf(player)
-    local id = Open77.players.identifier(player)
-    return id and tostring(id) or nil
+    local called, id = framework("characterIdentity", player)
+    if called then
+        if type(id) ~= "table" or not id.identifier then return nil end
+        return tostring(id.identifier) .. "#" .. tostring(id.characterKey or "default")
+    end
+    local account = Open77.players.identifier(player)
+    return account and tostring(account) or nil
 end
 
 -- ---------------------------------------------------------------------------------------------
@@ -118,12 +147,14 @@ local function freeReadyIn(p)
     return wait > 0 and wait or 0
 end
 
+local sealedOf
 local function sendState(player, identifier, extra)
     local p = profiles[identifier]
     if not p then return end
+    local sealed, inInventory = sealedOf(player, identifier)
     local c = R.completion(p.owned)
     TriggerClientEvent(NET .. "state", player, {
-        dust = p.dust, dustPlus = p.dustPlus, sealed = p.sealed, owned = encodeCounts(p.owned),
+        dust = p.dust, dustPlus = p.dustPlus, sealed = sealed, store = inInventory and "inventory" or "binder", owned = encodeCounts(p.owned),
         population = encodeCounts(population), editions = c.editions, totalEditions = c.totalEditions,
         cards = c.cards, totalCards = c.totalCards, freeIn = freeReadyIn(p), paid = C.economy.resource ~= nil,
         prices = C.economy.prices, shops = shopList(), extra = extra,
@@ -152,6 +183,30 @@ local function addSealed(identifier, product, count)
     p.sealed[product] = math.max(0, (p.sealed[product] or 0) + count)
     saveSealed(identifier, product, p.sealed[product])
     return p.sealed[product]
+end
+
+-- Sealed product: in the framework's inventory when it keeps one (LightRP items: tcgSealed / tcgTakeSealed /
+-- tcgGiveSealed), in tcg.db otherwise. Every caller goes through these three.
+function sealedOf(player, identifier)
+    local called, counts = framework("tcgSealed", player)
+    if called and type(counts) == "table" then return counts, true end
+    return profile(identifier).sealed, false
+end
+
+local function takeSealed(player, identifier, product, n)
+    local called, ok = frameworkAsync("tcgTakeSealed", player, product, n)
+    if called then return ok == true end
+    local p = profile(identifier)
+    if (p.sealed[product] or 0) < n then return false end
+    addSealed(identifier, product, -n)
+    return true
+end
+
+local function giveSealed(player, identifier, product, n)
+    local called, ok, why = frameworkAsync("tcgGiveSealed", player, product, n)
+    if called then return ok == true, why end
+    addSealed(identifier, product, n)
+    return true
 end
 
 local function addCard(identifier, edition, count)
@@ -220,13 +275,14 @@ local function openPack(player, product, anchor)
     if dist(here, anchor) > C.opening.maxAnchorGap then return end
     if anchor.surface and (anchor.surface > anchor.z + 2.2 or anchor.surface < anchor.z - 0.2) then anchor.surface = nil end
     local p = profile(s.identifier)
-    if (p.sealed[product] or 0) <= 0 then return notify(player, "You have no sealed " .. def.label .. " pack.", "error") end
+    if not takeSealed(player, s.identifier, product, 1) then return notify(player, "You have no sealed " .. def.label .. " pack.", "error") end
 
     local cards, why = R.roll(C.pack, math.random, function(id) return p.owned[id] end)
-    if not cards then return notify(player, "This set is incomplete on the server (" .. tostring(why) .. ").", "error") end
+    if not cards then
+        giveSealed(player, s.identifier, product, 1)
+        return notify(player, "This set is incomplete on the server (" .. tostring(why) .. ").", "error")
+    end
     -- Written before anything is shown.
-    p.sealed[product] = p.sealed[product] - 1
-    saveSealed(s.identifier, product, p.sealed[product])
     local ids, fresh = {}, {}
     for i, e in ipairs(cards) do
         ids[i] = e.id
@@ -339,6 +395,8 @@ local function buy(player, product)
     local def = C.products[product]
     if not s or not def then return end
     if not nearShop(player) then return notify(player, "Buy sealed product at a TCG shop.", "error") end
+    -- A framework that keeps sealed product in its inventory sells it too (LightRP: the vendor at the counter).
+    if select(2, sealedOf(player, s.identifier)) then return notify(player, "Buy boosters and displays from the vendor at the counter.", "error") end
     local p = profile(s.identifier)
     if not C.economy.resource then
         if def.kind ~= "booster" then return notify(player, "This shop gives one booster at a time.", "error") end
@@ -350,11 +408,7 @@ local function buy(player, product)
         local price = C.economy.prices[product] or 0
         if not charge(player, price, "Cyberpunk TCG - " .. def.label) then return notify(player, "Payment refused.", "error") end
     end
-    if def.kind == "box" then
-        addSealed(s.identifier, product, 1)
-    else
-        addSealed(s.identifier, product, 1)
-    end
+    giveSealed(player, s.identifier, product, 1)
     notify(player, ("You got a sealed %s."):format(def.label), "loot")
     sendState(player, s.identifier, { bought = product })
 end
@@ -364,10 +418,16 @@ local function unbox(player, product)
     local s = session(player)
     local def = C.products[product]
     if not s or not def or def.kind ~= "box" then return end
-    local p = profile(s.identifier)
-    if (p.sealed[product] or 0) <= 0 then return end
-    addSealed(s.identifier, product, -1)
-    addSealed(s.identifier, def.contains, def.count)
+    if not takeSealed(player, s.identifier, product, 1) then
+        notify(player, "You have no sealed " .. def.label .. ".", "error")
+        return sendState(player, s.identifier, { unboxFailed = product })
+    end
+    local given, why = giveSealed(player, s.identifier, def.contains, def.count)
+    if not given then
+        giveSealed(player, s.identifier, product, 1)
+        notify(player, why or "There is no room for the packs.", "error")
+        return sendState(player, s.identifier, { unboxFailed = product })
+    end
     notify(player, ("You cut the shrink-wrap: %d %s packs."):format(def.count, C.products[def.contains].label), "loot")
     sendState(player, s.identifier, { unboxed = product })
 end
@@ -519,22 +579,41 @@ end
 -- ---------------------------------------------------------------------------------------------
 -- Events
 
-RegisterNetEvent(NET .. "hello", function()
-    local player = source
+local function welcome(player)
     CreateThread(function()
         while not ready do Wait(100) end
         local s = session(player)
         if not s then return end
         local p = profile(s.identifier)
         if not p.starter then
-            p.starter = true
-            for product, n in pairs(C.starter or {}) do addSealed(s.identifier, product, n) end
-            saveProfile(s.identifier, p)
-            notify(player, "Welcome, collector: your starter packs are in the binder (" .. C.keys.binder .. ").", "loot")
+            local all = true
+            for product, n in pairs(C.starter or {}) do
+                if not giveSealed(player, s.identifier, product, n) then all = false end
+            end
+            if all then
+                p.starter = true
+                saveProfile(s.identifier, p)
+                local where = select(2, sealedOf(player, s.identifier)) and "your inventory" or ("the binder (" .. C.keys.binder .. ")")
+                notify(player, "Welcome, collector: your starter packs are in " .. where .. ".", "loot")
+            end
         end
         sendState(player, s.identifier)
     end)
-end)
+end
+
+RegisterNetEvent(NET .. "hello", function() welcome(source) end)
+
+-- A framework's character: a new one is a new collector (its own binder); switching drops the old session.
+if C.framework then
+    local function rebind(player)
+        player = tonumber(player)
+        if not player then return end
+        sessions[player] = nil
+        welcome(player)
+    end
+    AddEventHandler(C.framework .. ":characterReady", rebind)
+    AddEventHandler(C.framework .. ":characterChanged", rebind)
+end
 
 local function handler(name, fn)
     RegisterNetEvent(NET .. name, function(...)
@@ -682,9 +761,21 @@ exports("giveBooster", function(player, product, count)
     local s = session(tonumber(player))
     if not s or not C.products[product or "wnc"] then return false end
     CreateThread(function()
-        addSealed(s.identifier, product or "wnc", math.max(1, math.floor(tonumber(count) or 1)))
+        giveSealed(player, s.identifier, product or "wnc", math.max(1, math.floor(tonumber(count) or 1)))
         sendState(player, s.identifier)
     end)
+    return true
+end)
+
+-- A framework's inventory item was used: the player's client starts the real thing (a booster: the opening, with
+-- the hands and the table it stands at; a display: the shrink-wrap). The product is taken from the store only
+-- when the pack is actually opened / the wrap cut, so an item use that goes nowhere costs nothing.
+exports("useSealed", function(player, product)
+    player = tonumber(player)
+    local def = C.products[product or ""]
+    if not player or not def then return false, "unknown_product" end
+    if not session(player) then return false, "no_collector" end
+    TriggerClientEvent(NET .. "use", player, { product = product, kind = def.kind })
     return true
 end)
 

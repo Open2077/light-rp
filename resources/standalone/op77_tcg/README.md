@@ -78,7 +78,30 @@ There are four finishes: sleeved, foil, premium and metal. Each edition has its 
 exports.op77_tcg:giveBooster(playerId, "wnc", 2)   -- mission loot, rewards
 exports.op77_tcg:giveCard(playerId, "a0b083a4f")
 local c = exports.op77_tcg:getCollection(playerId)  -- { dust, dustPlus, sealed, editions, cards, totalEditions, totalCards }
+exports.op77_tcg:useSealed(playerId, "box")         -- a gamemode's inventory item: open it on the player's screen
 ```
+
+## With a gamemode (LightRP)
+
+`TcgConfig.framework` names a gamemode resource (`op77_lightrp` by default). When it runs:
+
+- **Each character is a collector**, with its own binder, Dust and starter packs. The resource asks the gamemode's
+  `characterIdentity(playerId)` export, and rebinds on its `<framework>:characterReady` and `:characterChanged`
+  events. A player has no collection until a character is loaded.
+- **Sealed product lives in the gamemode's inventory.** In LightRP these are the items `tcg_booster_wnc`,
+  `tcg_booster_beta` and `tcg_display_wnc`, sold by the NEON DECK vendor in Kabuki. The resource reads them with
+  `tcgSealed(playerId)`. It takes and gives them with `tcgTakeSealed` / `tcgGiveSealed` through
+  `Open77.exports.call`, because those writes reach the database and must not run as a synchronous export.
+- **Using an item** calls `useSealed`, and the player's screen opens it for real: a booster tears in the hands, and
+  a display has its shrink-wrap cut. The item is taken only when the pack is torn or the wrap is cut. If a display
+  does not fit the bag (24 boosters), it stays sealed, and the page puts its plastic back.
+- **The binder's Sealed tab shows the inventory.** The TCG counter keeps its printer and recycler, and points to the
+  vendor for sealed product.
+- **The page raises the local client event `op77_tcg:focus`** whenever it takes the mouse. LightRP closes its
+  inventory on it.
+
+Without the gamemode (or with `framework = nil`), collections are per account, and the binder keeps its own sealed
+shelf.
 
 ## Data
 
@@ -113,7 +136,9 @@ mod's distribution permissions on Nexus.
 `python tools/test_server.py` (needs `lupa`) runs the real server script against stubbed natives and an in-memory
 SQLite database. It covers the starter packs, an opening (persisted before it is shown, the witnesses, the reveal
 relay), a shop, recycling, printing, the free-pack cooldown, a display box, a trade, showing, placing and picking up
-a card, and the exports.
+a card, and the exports. `python tools/test_framework.py` runs the same script with a fake gamemode: character
+collectors, starter items, `useSealed`, an opening and a display through the inventory, the no-room refund, the
+counter deferring to the vendor, and a character switch.
 
 `web/index.html` also runs in a plain browser as a preview with a demo collection: `?tab=sealed`, `?tab=shop&shop=1`,
 `?open=1&reveal=12`.

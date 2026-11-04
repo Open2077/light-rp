@@ -379,6 +379,7 @@ dt { color: var(--muted); letter-spacing: .06em; } dd { margin: 0; font-weight: 
 #unbox .opening-hint { left: 50%; top: 6%; }
 .ubox-actions { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); display: flex; gap: 14px; z-index: 6; animation: hintIn .4s; }
 
+.shop p.muted { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 6px 0; }
 .toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); background: var(--panel); border-left: 4px solid var(--yellow);
   padding: 12px 22px; z-index: 30; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 16px; }
 .toast.show { opacity: 1; }

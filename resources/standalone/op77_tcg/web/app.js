@@ -206,8 +206,12 @@
       open.onclick = function () { if (SEALED[k].kind === "box") startUnbox(k); else emit("tcg:openPack", { product: k }); };
       b.appendChild(open); p.appendChild(b); shelf.appendChild(p);
     });
-    $("sealedHint").textContent = any ? "Packs open in your hands: stand at a table and the cards are dealt on it for everyone around to see."
-      : "No sealed product. Visit a Cyberpunk TCG shop counter.";
+    var inv = state.store === "inventory";
+    $("sealedHint").textContent = any
+      ? (inv ? "Your sealed product is in your inventory: open it here or use it from there. " : "") +
+        "Packs open in your hands: stand at a table and the cards are dealt on it for everyone around to see."
+      : (inv ? "No booster or display in your inventory. Buy some from the vendor at a Cyberpunk TCG shop."
+             : "No sealed product. Visit a Cyberpunk TCG shop counter.");
   }
 
   /* ---------------------------------------------------------------------------------------- shop */
@@ -217,7 +221,9 @@
     $("shopOn").classList.toggle("hidden", !on);
     if (!on) return;
     var prods = $("shopProducts"); prods.innerHTML = "";
-    Object.keys(SEALED).forEach(function (k) {
+    // A gamemode that keeps sealed product in its inventory sells it at its own vendor.
+    if (state.store === "inventory") prods.appendChild(el("p", "muted", "Boosters and displays are sold by the vendor at the counter. They go to your inventory."));
+    else Object.keys(SEALED).forEach(function (k) {
       if (!state.paid && SEALED[k].kind !== "booster") return;
       var row = el("div", "row");
       var price = state.paid ? ((state.prices || {})[k] || 0) + " €$" : (state.freeIn > 0 ? "next free pack in " + Math.ceil(state.freeIn / 60) + " min" : "Free pack ready");
@@ -747,6 +753,7 @@
     $("wrapBottom").className = "wrap wrap-bottom";
     $("uboxPacks").innerHTML = "";
     $("uboxActions").classList.add("hidden");
+    $("uboxOpen").classList.remove("hidden");
     uhint("Run the blade along the line to cut the shrink-wrap");
     wireBox(box);
   }
@@ -817,7 +824,27 @@
     fx.burst(r.left + r.width / 2, r.top + r.height * 0.76, 40, ["#ffffff", "#cdeaff", "#9ff3ff", "#fcee09"],
       { speed: 7, kind: "mix", life: 1.1, grav: 0.18, jitterX: r.width * 0.5, size: 2.6 });
     uhint("");
-    setTimeout(dealBoxPacks, 650);
+    // The packs come out once the server has them in the store (tcg:state extra.unboxed), not before.
+    ub.cutAt = performance.now();
+    ub.timer = setTimeout(function () { unboxResult(ub && ub.product, false, "The display could not be opened."); }, 8000);
+  }
+  // The server's answer to the cut: deal the packs, or put the plastic back (no room in the inventory...).
+  function unboxResult(product, ok, why) {
+    if (!ub || !ub.cut || ub.dealt || product !== ub.product) return;
+    clearTimeout(ub.timer);
+    if (ok) {
+      ub.dealt = true;
+      setTimeout(dealBoxPacks, Math.max(0, 650 - (performance.now() - ub.cutAt)));
+      return;
+    }
+    var box = $("ubox");
+    ub.cut = false; ub.auto = false; ub.pct = 0; ub.last = 0; ub.dir = 0;
+    box.className = "ubox";
+    box.style.setProperty("--cut", "0");
+    $("wrapTop").className = "wrap wrap-top"; $("wrapBottom").className = "wrap wrap-bottom";
+    uhint((why ? why + " &middot; " : "") + "The display is still sealed");
+    $("uboxOpen").classList.add("hidden");
+    $("uboxActions").classList.remove("hidden");
   }
   function dealBoxPacks() {
     if (!ub) return;
@@ -842,7 +869,7 @@
     }
     setTimeout(function () {
       if (!ub) return;
-      uhint(ub.count + " packs on your shelf &middot; pick one to open it");
+      uhint(ub.count + " packs " + (state.store === "inventory" ? "in your inventory" : "on your shelf") + " &middot; pick one to open it");
       $("uboxActions").classList.remove("hidden");
     }, ub.count * 55 + 600);
   }
@@ -895,6 +922,9 @@
     state.owned = parseCounts(s.owned); state.population = parseCounts(s.population);
     state.sealed = s.sealed || {}; state.dust = s.dust || 0; state.dustPlus = s.dustPlus || 0;
     state.prices = s.prices || {}; state.freeIn = s.freeIn || 0; state.paid = !!s.paid; state.shops = s.shops || [];
+    state.store = s.store || "binder";
+    if (s.extra && s.extra.unboxed) unboxResult(s.extra.unboxed, true);
+    if (s.extra && s.extra.unboxFailed) unboxResult(s.extra.unboxFailed, false);
     if (inspecting) inspect(inspecting);
     if (ui.open && !op) renderAll(); else renderStats();
   });
@@ -909,6 +939,8 @@
   });
   on("tcg:shop", function (d) { ui.shop = d.shop || null; if (ui.open && ui.tab === "shop") renderShop(); });
   on("tcg:opening", startOpening);
+  // A display used from a gamemode's inventory.
+  on("tcg:unboxStart", function (d) { if (SEALED[d.product]) startUnbox(d.product); });
   // The server moved the opening on (a demo, the 90 s watchdog, a reveal from elsewhere): follow it silently.
   on("tcg:advance", function (d) {
     if (!op || d.seq !== op.seq) return;
@@ -926,7 +958,7 @@
     };
     step();
   });
-  on("tcg:notice", function (n) { if (ui.open) toast(n.text, n.kind); });
+  on("tcg:notice", function (n) { if (ui.open || ub) toast(n.text, n.kind); });
   on("tcg:offer", function (o) {
     ui.offer = o; var c = byId[o.edition]; if (!c) return;
     $("offerTitle").textContent = (o.name || "A collector") + " offers you " + c.name;
@@ -951,7 +983,11 @@
       sealed[d.product] -= 1;
       if (name === "tcg:unbox") sealed.wnc = (sealed.wnc || 0) + 24;
       state.sealed = sealed; renderStats(); if (ui.tab === "sealed" && !op && !ub) renderSealed();
-      if (name === "tcg:unbox") { toast("You cut the shrink-wrap: 24 Welcome to Night City packs."); return; }
+      if (name === "tcg:unbox") {
+        toast("You cut the shrink-wrap: 24 Welcome to Night City packs.");
+        setTimeout(function () { unboxResult(d.product, true); }, 250);
+        return;
+      }
     }
     if (name === "tcg:openPack") {
       var pool = function (t) { return catalogue.filter(function (c) { return c.tier === t; }); };

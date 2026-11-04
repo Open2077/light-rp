@@ -47,6 +47,12 @@ TcgConfig = {
     -- New collectors receive a starter gift once.
     starter = { wnc = 3 },
 
+    -- A gamemode that owns characters and an inventory (LightRP). When it runs, each character is its own collector
+    -- (exports characterIdentity, events <framework>:characterReady / :characterChanged), and sealed product lives
+    -- in its inventory as items (exports tcgSealed / tcgTakeSealed / tcgGiveSealed); using a booster or a display
+    -- item calls exports.op77_tcg:useSealed. Absent or nil: accounts and the binder's own sealed shelf.
+    framework = "op77_lightrp",
+
     -- Keys (rebindable in the game's key settings, Open77 RegisterKeyMapping).
     keys = { binder = "F6", interact = "E" },
 }
