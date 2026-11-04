@@ -329,6 +329,9 @@ end
 
 local function openBinder(tab)
     if not page or not pageReady then return end
+    if TcgClient and TcgClient.binderBlocked and TcgClient.binderBlocked() then
+        return notify("Not at the duel table: the binder stays in your bag until the duel is over.")
+    end
     isOpen = true
     pcall(function() page:show() end)
     send("tcg:open", { tab = tab or "binder", shop = nearShopId, nearby = nearbyCollectors() })
@@ -347,6 +350,9 @@ local function closeBinder()
 end
 
 local function openPack(product)
+    if TcgClient and TcgClient.binderBlocked and TcgClient.binderBlocked() then
+        return notify("Not at the duel table: the binder stays in your bag until the duel is over.")
+    end
     local at = here()
     if not at then return end
     at.surface = surfaceAhead(at)
@@ -357,6 +363,9 @@ end
 -- A display used from a gamemode's inventory: the shrink-wrap scene, then the server cuts it (tcg:unbox).
 local function openUnbox(product)
     if not page or not pageReady then return end
+    if TcgClient and TcgClient.binderBlocked and TcgClient.binderBlocked() then
+        return notify("Not at the duel table: the binder stays in your bag until the duel is over.")
+    end
     isOpen = true
     pcall(function() page:show() end)
     send("tcg:unboxStart", { product = product })

@@ -3,7 +3,7 @@ Usage: python tools/test_decks.py   (needs lupa)"""
 import pathlib
 import sys
 
-import lupa
+import lupa.lua54 as lupa  # the server runs Lua 5.4 (and lupa's 5.5 build crashes in its GC)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 L = lupa.LuaRuntime(unpack_returned_tuples=True)

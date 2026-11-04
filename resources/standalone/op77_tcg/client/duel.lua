@@ -31,11 +31,12 @@ local RELAY = {
     ["tcg:choose"] = function(d) TriggerServerEvent(NET .. "choose", d.first ~= false) end,
     ["tcg:mulligan"] = function(d) TriggerServerEvent(NET .. "mulligan", d.again == true) end,
     ["tcg:sit"] = function() TriggerServerEvent(NET .. "sit") end,
-    ["tcg:openBinder"] = function(d) K.openBinder(type(d.tab) == "string" and d.tab or "decks") end,
+    -- A game action at the table (server/duel.lua "act").
+    ["tcg:act"] = function(d) TriggerServerEvent(NET .. "act", d) end,
 }
 for name, fn in pairs(RELAY) do K.on(name, fn) end
 
-for _, name in ipairs({ "decks", "nearby", "challengeSent", "challengeClosed" }) do
+for _, name in ipairs({ "decks", "nearby", "challengeSent", "challengeClosed", "duelRefused" }) do
     RegisterNetEvent(NET .. name, function(p) K.send("tcg:" .. name, type(p) == "table" and p or {}) end)
 end
 
@@ -129,6 +130,9 @@ local function setOverlay(on)
     overlay = on
     if on then K.show(true) elseif not K.isOpen() then K.release() end
 end
+
+-- Seated at a duel table, the binder stays closed (client/main.lua asks): decks are built before a duel.
+K.binderBlocked = function() return seated() == true end
 
 -- Closing the binder while seated hands the cursor back to the duel overlay.
 K.afterClose = function() if overlay then K.show(true) end end

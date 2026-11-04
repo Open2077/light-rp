@@ -86,7 +86,7 @@ The page checks the rules live, and the server checks them again before a duel.
    - the Legends go face down, and the first player's two left-most Legends start spent (turned sideways on the table);
    - each player draws 6, then may mulligan once; the first player decides first.
 
-While seated, a camera looks at the table. **V** switches between three views: your seat, the whole table, and
+Decks and the playmat are chosen in the binder before a duel. Seated at the table, the binder stays closed and the server refuses deck changes. While seated, a camera looks at the table. **V** switches between three views: your seat, the whole table, and
 top-down on your mat. The overlay shows your hand, the rival's public state (deck, hand size, Legends), the d20 rolls,
 the decisions and a log.
 
@@ -96,8 +96,41 @@ the decisions and a log.
 - Walking more than 6 m away for 15 s, disconnecting or switching character counts as leaving.
 - Nobody seated within 3 minutes frees the table.
 
-Results go to `tcg_matches`. The card-play engine (turns, attacks, gigs) is the next step; the table and the setup
-are ready for it.
+Results go to `tcg_matches`.
+
+**The game** (`shared/game.lua`, the official rules: docs/RULES.md §1, §4, §8-§11):
+- **Start of turn:** the win check (7+ Gigs), Ready (the first player's two Legends stay spent on turn 1), Draw 1
+  (an empty deck loses), then roll a Gig in. The d20 is rolled only when it is the last die.
+- **Main phase:**
+  - Sell a card with a Sell Tag (once per turn).
+  - Play Units (they enter with Lag), Gear (equipped to a Unit or a face-up Legend) and Programs. You pay with
+    Eddies, then face-down Legends, then face-up Legends with a Sell Tag, 1 €$ each.
+  - Call a Legend (1 €$, once per turn, also as a reaction).
+  - Play a face-up Legend to the field. With GO SOLO it enters ready and can attack this turn.
+  - Attack with a ready Unit without Lag (ADRENALINE ignores Lag).
+- **Attacks:**
+  - The defender's React step: block with a ready BLOCKER, Call a Legend, or let it through.
+  - A fight: the higher power wins, a tie defeats both, and 0 power defeats nothing.
+  - A steal: floor(power / 10) + 1 Gigs, chosen by the stealer, which keep their values. A blocked Gig attack steals
+    nothing.
+- **Endings:** overtime (after two turns that both players began with an empty fixer area), conceding, and a tie
+  when both players win at once.
+- **Card texts are not automated yet.** Each card's PLAY, CALL, ATTACK and DEFEATED text and each Program's text is
+  shown in the log for both players. The keywords Adrenaline, Blocker and Go Solo are applied.
+- **The clock:** each step has its own (`duel.stepMs`). When it runs out, the smallest die is rolled, the React step
+  passes, the best Gigs are stolen, or the turn ends. `duel.houseForIdle` lets the house play for an idle player, in
+  tests.
+- **The 3D table follows the game,** as one diff of replicated props:
+  - the Units as their 3D cards, turned when spent, with their Gear tucked under them;
+  - the Legends, face down or face up;
+  - the Eddies, face down;
+  - the dice moving from the fixer area to the Gig area, a stolen die keeping its owner's colour;
+  - the top of the trash and the deck stack.
+- **The page** (`web/table.js`):
+  - compact boards (yours and the rival's), your hand and your Legends;
+  - every legal action lit up, Gear targets and attack targets picked on the boards;
+  - animations for draws, Gig rolls, rival plays, fights and steals.
+- **The house** plays by the same rules: `/tcg.duel demo`.
 
 Admin: `/tcg.duel demo <playerId> [embracing_power|the_heist]` starts a duel against the house (a test, a
 showcase). `/tcg.duel end <slot>` and `/tcg.duel list` are also available.
@@ -207,7 +240,11 @@ counter deferring to the vendor, and a character switch.
 - challenges, declined and accepted;
 - the table props per seat, sitting down (with the fallback animation), the d20 and the choice;
 - the Legends spent and face down, the 6-card draw and the mulligan order;
-- conceding, the house demo, the timeouts, walking away and disconnecting.
+- conceding, the house demo, the timeouts, walking away and disconnecting;
+- the game over the network: refused actions, rolls, sales, passing the turn, hidden rival draws, house-driven turns.
+
+`python tools/test_game.py` checks the rules engine: 57 checks and five whole house-vs-house games. The harness runs
+Lua 5.4, as the server does (lupa's 5.5 build crashes in its GC).
 
 `web/index.html` also runs in a plain browser as a preview with a demo collection: `?tab=sealed`, `?tab=shop&shop=1`,
 `?open=1&reveal=12`, `?tab=decks`, `?tab=duel&challenged=1`, `?duel=walk|seated|mulligan|main`.

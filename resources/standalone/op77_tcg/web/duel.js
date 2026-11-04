@@ -20,6 +20,7 @@
   var duel = { nearby: [], freeTables: 0, tables: 2, outgoing: null, incoming: null, match: null, matchAt: 0, cam: "seat",
                result: null, dismissed: {} };
   var art = {};               // base card slug -> its card picture (the first edition)
+  var gameRenderer = null;    // web/table.js: the game once the setup is done
 
   function el(tag, cls, html) { var n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
   function esc(s) { return T.escapeHtml(s == null ? "" : s); }
@@ -78,7 +79,7 @@
     var c = CARDS[slug] || {};
     var n = el("div", "tc " + (cls || ""));
     n.innerHTML = '<img alt="" loading="lazy" src="' + cardImg(slug) + '">';
-    n.title = c.name ? label(c) : slug;
+    n.dataset.card = slug;
     return n;
   }
   function colourDot(c) { return '<i class="cdot" style="--c:' + (COLOUR_CSS[c.color] || "#777") + '"></i>'; }
@@ -190,8 +191,7 @@
       var t = el("div", "dk-tile" + (have ? "" : " unowned") + (inDeck ? " in" : ""));
       t.appendChild(miniCard(slug));
       t.appendChild(el("div", "dk-badges", '<span class="own">x' + have + "</span>" + (inDeck ? '<span class="use">' + inDeck + "</span>" : "")));
-      t.title = label(c) + "\n" + c.type + (c.cost != null ? " - cost " + c.cost : "") + (c.power != null ? " - power " + c.power : "") +
-        (c.ram ? " - " + c.ram + " " + c.color + " RAM" : "") + "\n" + (c.text || "").replace(/[{}]/g, "") + "\n\nClick: add   Right click: remove";
+      t.dataset.hint = "Click: add to the deck   Right click: take one out";
       t.onclick = function () { addCard(slug); };
       t.oncontextmenu = function (ev) { ev.preventDefault(); removeCard(slug); };
       grid.appendChild(t);
@@ -219,7 +219,7 @@
         s.appendChild(miniCard(slug, "md"));
         s.appendChild(el("div", "dk-leg-info", "<b>" + esc(c.name) + "</b><small>" + esc(c.subtitle) + "</small>" +
           '<span class="ram" style="--c:' + COLOUR_CSS[c.color] + '">' + (c.ram || 0) + " " + c.color + " RAM</span>"));
-        s.title = "Click to take this Legend out";
+        s.dataset.hint = "Click: take this Legend out";
         s.onclick = (function (x) { return function () { removeCard(x); }; })(slug);
       } else {
         s.innerHTML = '<div class="tc md ph"><span>LEGEND ' + (i + 1) + "</span></div><div class=\"dk-leg-info\"><small>Pick a Legend in the pool</small></div>";
@@ -259,7 +259,7 @@
         var minus = el("button", "", "&minus;"), plus = el("button", "", "+");
         minus.onclick = function () { removeCard(s); }; plus.onclick = function () { addCard(s); };
         row.appendChild(minus); row.appendChild(plus);
-        row.onmouseenter = function () { row.title = (c.text || "").replace(/[{}]/g, ""); };
+        row.dataset.card = s;
         dc.appendChild(row);
       });
     });
@@ -421,7 +421,8 @@
 
   function legendsHtml(seat) {
     return '<div class="dh-legends">' + seat.legends.map(function (l) {
-      return '<i class="lg' + (l.spent ? " spent" : "") + '">' + (l.card ? '<img src="' + cardImg(l.card) + '">' : "") + "</i>";
+      return '<i class="lg' + (l.spent ? " spent" : "") + '"' + (l.card ? ' data-card="' + l.card + '"' : "") + ">" +
+        (l.card ? '<img src="' + cardImg(l.card) + '">' : "") + "</i>";
     }).join("") + "</div>";
   }
   function seatHtml(seat, mine) {
@@ -473,6 +474,59 @@
     }
   }
 
+  /* ------------------------------------------------------------------------------------------- the card preview */
+  // Hovering any card picture (the hand, a visible card on the table, the deck builder) shows it large at the screen
+  // edge, with its rules, its stats and what its keywords mean; on the left when the hovered card is on the right.
+  var KEYWORDS = {
+    "Play": "When you play this card.",
+    "Attack": "When this Unit attacks: it is spent to declare the attack, the effect resolves before the React step.",
+    "Call": "When this Legend is flipped face up by Call a Legend.",
+    "Defeated": "When this card is defeated (its last state on the field counts).",
+    "Adrenaline": "Can attack the turn it is played: it ignores Lag for attacking.",
+    "Blocker": "When a rival Unit attacks, you may spend this Unit to become the attack's target instead.",
+    "Go Solo": "Pay this Legend's cost to play it as a ready Unit that can attack this turn. If it leaves the field, it is removed from the game.",
+    "Quick": "Can also be used as a reaction during the Rival's React step. Its cost is still paid.",
+    "Spend": "Spend this Unit or Legend to use the effect. Lagging Units cannot."
+  };
+  var previewing = null;
+  function cardPreview(slug, hint, onLeft) {
+    var box = $("cardPreview");
+    if (!box) { box = el("div", "hidden", ""); box.id = "cardPreview"; document.body.appendChild(box); }
+    var c = slug && CARDS[slug];
+    if (!c) { box.className = "hidden"; previewing = null; return; }
+    var key = slug + "|" + (hint || "") + "|" + (onLeft ? "l" : "r");
+    if (previewing === key) return;
+    previewing = key;
+    box.className = onLeft ? "left" : "";
+    var stats = ['<span class="pv-type">' + esc(c.type) + "</span>"];
+    if (c.cost != null) stats.push('<span class="pv-stat"><small>COST</small>' + c.cost + " &euro;$</span>");
+    if (c.power != null) stats.push('<span class="pv-stat"><small>POWER</small>' + c.power + "</span>");
+    if (c.color) stats.push('<span class="pv-stat ram" style="--c:' + (COLOUR_CSS[c.color] || "#888") + '"><small>' +
+      (c.ram ? "RAM" : "COLOUR") + "</small>" + (c.ram ? c.ram + " " : "") + esc(c.color) + "</span>");
+    if (c.sell) stats.push('<span class="pv-sell">SELL TAG</span>');
+    var kws = (c.keywords || []).filter(function (k) { return KEYWORDS[k]; }).map(function (k) {
+      return "<li><b>" + esc(k.toUpperCase()) + "</b> " + esc(KEYWORDS[k]) + "</li>";
+    }).join("");
+    var own = owned()[slug] || 0;
+    box.innerHTML = "";
+    box.appendChild(miniCard(slug, "xl"));
+    box.appendChild(el("div", "pv-info", "<h3>" + esc(c.name) + "</h3>" + (c.subtitle ? "<h4>" + esc(c.subtitle) + "</h4>" : "") +
+      '<div class="pv-stats">' + stats.join("") + "</div>" +
+      (c.text ? '<div class="pv-text">' + rulesHtml(c.text) + "</div>" : "") +
+      (kws ? '<ul class="pv-kw">' + kws + "</ul>" : "") +
+      ((c.tags && c.tags.length) ? '<div class="pv-tags">' + c.tags.map(esc).join(" &middot; ") + "</div>" : "") +
+      '<div class="pv-own">In your binder: <b>' + own + "</b></div>" +
+      (hint ? '<div class="pv-hint">' + esc(hint) + "</div>" : "")));
+  }
+  document.addEventListener("mouseover", function (e) {
+    var n = e.target.closest ? e.target.closest("[data-card]") : null;
+    if (n && n.closest("#cardPreview")) n = null;
+    if (!n) { if (previewing) cardPreview(null); return; }
+    var hintNode = n.closest("[data-hint]");
+    // At the table: always on the right. In the binder: on the left when the card hovered is on the right half.
+    cardPreview(n.dataset.card, hintNode ? hintNode.dataset.hint : "", !n.closest("#duelHud") && e.clientX > window.innerWidth * 0.55);
+  });
+
   function zoom(slug) {
     var z = $("dhZoom"), c = CARDS[slug];
     if (!slug || !c) { z.classList.add("hidden"); return; }
@@ -500,7 +554,7 @@
       k.style.setProperty("--y", (Math.abs(i - mid) * Math.abs(i - mid) * 3).toFixed(1) + "px");
       k.style.setProperty("--d", (i * 70) + "ms");
       k.appendChild(miniCard(slug, "lg"));
-      k.onclick = function () { zoom(slug); };
+      k.dataset.hint = "Your hand";
       h.appendChild(k);
     });
   }
@@ -512,7 +566,18 @@
     var me = m.seats[m.you], rival = m.seats[m.you === 1 ? 2 : 1];
     $("dhRival").innerHTML = seatHtml(rival, false);
     $("dhYou").innerHTML = seatHtml(me, true);
-    $("dhLog").innerHTML = (m.log || []).slice(-6).map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("");
+    // Only the lines that are new slide in (a rebuild would replay every line).
+    var logBox = $("dhLog"), lines = (m.log || []).slice(-6), before = logBox.dataset.lines ? JSON.parse(logBox.dataset.lines) : [];
+    if (JSON.stringify(lines) !== logBox.dataset.lines) {
+      var shift = 0;
+      while (shift < before.length && JSON.stringify(before.slice(shift)) !== JSON.stringify(lines.slice(0, before.length - shift))) shift++;
+      var known = before.length - shift;
+      logBox.innerHTML = lines.map(function (l, i) { return "<p" + (i >= known ? ' class="new"' : "") + ">" + esc(l) + "</p>"; }).join("");
+      logBox.dataset.lines = JSON.stringify(lines);
+    }
+    $("dhSeated").classList.toggle("game", m.phase === "game");
+    if (m.phase === "game" && gameRenderer) { gameRenderer.render(m); return; }
+    if (gameRenderer) gameRenderer.clear();
     renderCentre();
     renderHand();
     $("dhView").textContent = "View: " + duel.cam;
@@ -559,6 +624,7 @@
         }
         duel.match = null; zoom(null);
         $("dhHand").dataset.hand = "";
+        if (gameRenderer) gameRenderer.clear();
       } else {
         // Lua's seats 1 and 2 arrive as a JSON array: index them by seat number again.
         if (Array.isArray(d.seats)) d.seats = { 1: d.seats[0], 2: d.seats[1] };
@@ -567,8 +633,8 @@
         if (!duel.match || duel.match.id !== d.id) { duel.cam = "seat"; duel.outgoing = null; }
         duel.match = d; duel.matchAt = Date.now();
         // Seated: the binder steps aside for the table.
-        if (d.seats[d.you].seated && T.ui.open && !T.isBusy() && !duel.keepBinder) T.closeBinder();
-        duel.keepBinder = false;
+        // At the table the binder is put away: decks are built before a duel, never during one.
+        if (d.seats[d.you].seated && T.ui.open && !T.isBusy()) T.closeBinder();
       }
       renderHud();
       if (T.ui.open && T.ui.tab === "duel") renderDuel();
@@ -594,7 +660,6 @@
     $("chAccept").onclick = function () { answer(true); };
     $("chDecline").onclick = function () { answer(false); };
     $("dhView").onclick = function () { T.emit("tcg:camera", { mode: "next" }); };
-    $("dhBinder").onclick = function () { duel.keepBinder = true; T.emit("tcg:openBinder", { tab: "decks" }); };
     $("dhLeave").dataset.label = "Leave the table";
     $("dhLeave").onclick = leaveClick($("dhLeave"));
     document.addEventListener("keydown", function (e) {
@@ -605,7 +670,9 @@
     // The clocks, the pending challenge when the binder opens, the duel tab's player list.
     setInterval(function () {
       if (duel.match && duel.match.deadline != null) {
-        if (duel.match.seats[duel.match.you].seated) renderCentre(); else renderBanner();
+        if (!duel.match.seats[duel.match.you].seated) renderBanner();
+        else if (duel.match.phase === "game") { if (gameRenderer) gameRenderer.tick(); }
+        else renderCentre();
       }
       if (duel.incoming && T.ui.open && $("challengeModal").classList.contains("hidden")) showChallenge();
       if (duel.incoming && !T.ui.open) renderBanner();
@@ -625,6 +692,13 @@
     Object.keys(best).forEach(function (k) { art[k] = "img/cards/" + best[k].id + ".webp"; });
     T.tab("decks", renderDecks);
     T.tab("duel", renderDuel);
+    // What web/table.js (the game at the table) uses from here.
+    window.TCGDUEL = {
+      T: T, CARDS: CARDS, COLOUR_CSS: COLOUR_CSS, cardImg: cardImg, miniCard: miniCard, esc: esc, label: label, el: el,
+      clock: clock, remainingMs: remainingMs, duel: duel, splitList: splitList, legendsHtml: legendsHtml,
+      setGameRenderer: function (r) { gameRenderer = r; }
+    };
+    document.dispatchEvent(new Event("tcg:duelReady"));
     bind();
     if (T.preview) previewSetup();
   }
@@ -664,6 +738,7 @@
       view.log.push((first === 1 ? "Yuki" : "Jerem Zzzer") + " goes first.");
     }
     window.TCG_PREVIEW_HOOK = function (name, d) {
+      if (window.TCG_PREVIEW_HOOK_GAME && window.TCG_PREVIEW_HOOK_GAME(name, d)) return true;
       if (name === "tcg:decks") { fire("tcg:decks", decksPayload()); return true; }
       if (name === "tcg:saveDeck") {
         var key = d.key || String(100 + mine.length);
@@ -690,11 +765,10 @@
       }
       if (name === "tcg:leaveMatch") { fire("tcg:match", { id: 7, ended: true, won: false, winner: "Jerem Zzzer", reason: "Yuki conceded." }); return true; }
       if (name === "tcg:camera") { var modes = ["seat", "table", "mat"]; fire("tcg:cameraMode", { mode: modes[(modes.indexOf(duel.cam) + 1) % 3] }); return true; }
-      if (name === "tcg:openBinder") { T.show(); T.setTab(d.tab || "decks"); return true; }
       return false;
     };
     var dm = params.get("duel");
-    if (dm) {
+    if (["walk", "seated", "mulligan", "main"].indexOf(dm) >= 0) {
       setTimeout(function () {
         T.hide();
         if (dm === "walk") { view.seats[0].seated = false; }

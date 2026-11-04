@@ -6,7 +6,7 @@ import pathlib
 import sqlite3
 import sys
 
-import lupa
+import lupa.lua54 as lupa  # the server runs Lua 5.4 (and lupa's 5.5 build crashes in its GC)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 L = lupa.LuaRuntime(unpack_returned_tuples=True)
@@ -164,7 +164,7 @@ def boot(prelude=""):
     if prelude:
         L.execute(prelude)
     for f in ["shared/catalogue.lua", "shared/rules.lua", "shared/cards.lua", "shared/decks.lua", "shared/starters.lua",
-              "shared/table.lua", "server/main.lua", "server/duel.lua"]:
+              "shared/table.lua", "shared/game.lua", "server/main.lua", "server/duel.lua"]:
         L.execute((ROOT / f).read_text(encoding="utf-8"))
     L.eval("__pump")(10)
 
