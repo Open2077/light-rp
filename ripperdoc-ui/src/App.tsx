@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CATALOGUE, DEMO, DEMO_CAPACITY, SECTION, SECTIONS, demoLocks, type Body, type Cyberware, type Guide, type OpenPayload, type Reputation } from "./data";
-import { refusal, simulate, usedPoints, type Capacity, type ClinicState } from "./model";
+import { project, refusal, simulate, usedPoints, type Capacity, type ClinicState } from "./model";
 import { emit, inGame, onClose, onOpen, onResult, onState, ready } from "./bridge";
 import { loadManifest, type Manifest } from "./media";
 import { play, preload } from "./sfx";
@@ -93,6 +93,8 @@ export function App() {
   const [procedure, setProcedure] = useState<ProcedureState | null>(null);
   // The guide on screen; `auto`: it opened by itself (first visit), so closing it tells the server.
   const [guide, setGuide] = useState<{ auto: boolean } | null>(null);
+  // The implant whose surgery the HUD previews (SectionView: hovered, else selected).
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const timers = useRef<number[]>([]);
   const later = (ms: number, fn: () => void) => { timers.current.push(window.setTimeout(fn, ms)); };
   const procedureRef = useRef<ProcedureState | null>(null);
@@ -215,6 +217,9 @@ export function App() {
   }, [phase, procedure, guide, surface, close, cycle, openGuide]);
 
   const used = useMemo(() => installedCount(session), [session]);
+  const previewItem = previewId ? session.items[previewId] : undefined;
+  const preview = useMemo(() => (previewItem && phase === "section" && !procedure ? project(session, previewItem) : undefined),
+    [previewItem, phase, procedure, session]);
 
   const startProcedure = (item: Cyberware, mode: "install" | "remove"): string | null => {
     if (procedure) return "An operation is already in progress.";
@@ -251,10 +256,11 @@ export function App() {
         {(phase === "section" || phase === "surfacing") && (
           <SectionView key={section} body={session.body} section={section} session={session} used={used}
             leaving={phase === "surfacing"} busy={procedure !== null}
-            onBack={surface} onCycle={cycle} onProcedure={startProcedure} />
+            onBack={surface} onCycle={cycle} onProcedure={startProcedure} onPreview={setPreviewId} />
         )}
         <TopBar session={session} used={used} phase={phase} section={phase === "section" ? SECTION[section] : undefined}
-          onGuide={session.guide && !procedure && (phase === "overview" || phase === "section") ? openGuide : undefined} />
+          onGuide={session.guide && !procedure && (phase === "overview" || phase === "section") ? openGuide : undefined}
+          preview={preview} />
         <BottomBar phase={phase} guide={session.guide !== undefined} />
         {procedure && <Procedure state={procedure} body={session.body} />}
         {guide && session.guide && <GuideLayer guide={session.guide} session={session} onClose={closeGuide} />}

@@ -4,7 +4,8 @@ import { iconImage, sectionVideo, uiImage } from "./media";
 import { useParallax } from "./Stage";
 import { play } from "./sfx";
 import type { Session } from "./App";
-import { capacityAfter, familyMate, fitPrice, isDropOnly, isFitted, isStored, points, refusal, repLabel } from "./model";
+import { familyMate, fitPrice, isDropOnly, isFitted, isStored, points, project, refusal, repLabel, type Projection } from "./model";
+import { CapacityBar, CapacityVerdict } from "./Hud";
 
 /* The close-up of one section (A/D cycle): the game's paperdoll zoom on the right, tilted in
    depth with the pointer; installed slots and the clinic's stock on the left; the hovered or
@@ -18,9 +19,11 @@ interface Props {
   body: Body; section: string; session: Session; used: number; leaving: boolean; busy: boolean;
   onBack(): void; onCycle(step: number): void;
   onProcedure(item: Cyberware, mode: "install" | "remove"): string | null;
+  /** The implant whose surgery the HUD previews (hovered, else selected), null when none. */
+  onPreview(id: string | null): void;
 }
 
-export function SectionView({ body, section, session, used, leaving, busy, onBack, onCycle, onProcedure }: Props) {
+export function SectionView({ body, section, session, used, leaving, busy, onBack, onCycle, onProcedure, onPreview }: Props) {
   const def = SECTION[section]!;
   const index = SECTIONS.findIndex((s) => s.id === section);
   const installed = session.installed[section] ?? [];
@@ -41,6 +44,8 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
       : refusal(session, c) === null));
   const focusId = hoverItem ?? selected;
   const focus = focusId ? session.items[focusId] : undefined;
+  useEffect(() => { onPreview(leaving ? null : focusId); }, [focusId, leaving, onPreview]);
+  useEffect(() => () => onPreview(null), [onPreview]);
 
   return (
     <div className={`rd-section ${leaving ? "is-leaving" : ""}`}>
@@ -110,13 +115,14 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
             const why = fitted ? null : refusal(session, item);
             const poor = !fitted && !drop && fitPrice(session, item) > session.wallet;
             const locked = !fitted && !stored && item.locked === true;
+            const p = fitted ? undefined : project(session, item);
             return (
               <button key={item.id} style={{ ["--i" as string]: i }}
-                className={`rd-card r-${item.rarity} ${selected === item.id ? "selected" : ""} ${fitted ? "owned" : ""} ${why ? "blocked" : ""} ${locked ? "locked" : ""}`}
+                className={`rd-card r-${item.rarity} ${selected === item.id ? "selected" : ""} ${fitted ? "owned" : ""} ${why ? `blocked v-${p?.verdict}` : ""} ${locked ? "locked" : ""}`}
                 onPointerEnter={() => { setHoverItem(item.id); play("hover"); }} onPointerLeave={() => setHoverItem(null)}
                 onClick={() => { setSelected(item.id); play("press"); }}>
                 <span className="stripe" />
-                {session.capacity && <span className="pts">{points(item)} PT</span>}
+                {session.capacity && <span className={`pts ${fitted ? "" : p?.verdict === "room" ? "bad" : "fits"}`}>{points(item)} PT</span>}
                 <img src={iconImage(item.icon)} alt="" />
                 <span className="name">{item.name}</span>
                 <span className="meta">
@@ -128,6 +134,8 @@ export function SectionView({ body, section, session, used, leaving, busy, onBac
                 </span>
                 {drop ? <span className="req drop">DROP</span>
                   : locked ? <span className="req lock">REP {roman(item.repTier ?? 0)}</span>
+                  : p?.verdict === "room" ? <span className="req room">NO ROOM</span>
+                  : p?.verdict === "money" ? <span className="req money">NO €$</span>
                   : why && <span className="req">REQ</span>}
               </button>
             );
@@ -165,8 +173,10 @@ function DetailCard({ item, session, busy, error, onAct }: CardProps) {
   const why = refusal(session, item, fitted ? "remove" : "install");
   const price = fitPrice(session, item);
   const cap = session.capacity;
-  const after = cap && !fitted ? capacityAfter(session, item) : 0;
-  const room = cap ? after <= cap.total || (mate !== undefined && after <= cap.used) : true;
+  const p = project(session, item);
+  const after = p.after;
+  // the capacity line on its own (an implant can be locked AND too heavy): a lighter swap on a body over its limit is fine
+  const room = p.over === 0 || (p.mate !== undefined && p.after <= p.used);
   const head = fitted ? "INSTALLED" : stored ? "IN YOUR STORAGE" : drop ? "ICONIC // NOT FOR SALE" : "IN STOCK";
   const label = fitted ? `HOLD TO TAKE OUT · €$ ${eddies(session.fittingFee)}`
     : drop ? "NOT FOR SALE"
@@ -176,6 +186,7 @@ function DetailCard({ item, session, busy, error, onAct }: CardProps) {
     : mate ? "HOLD TO REPLACE" : "HOLD TO INSTALL";
   return (
     <div className={`rd-detail r-${item.rarity}`}>
+      <StatusBanner p={p} item={item} stored={stored} drop={drop} />
       <div className="rd-detail-head">
         <span>{head}</span>
         <em>{item.maker.toUpperCase()}</em>
@@ -200,8 +211,11 @@ function DetailCard({ item, session, busy, error, onAct }: CardProps) {
               <b>REP {repLabel(item).toUpperCase()} <i>/ {session.reputation ? roman(session.reputation.tier) : "—"}</i></b></li>
           )}
           {cap && (
-            <li className={room ? "ok" : "bad"}><span>Capacity</span>
-              <b>{after} <i>/ {cap.total} PT</i></b></li>
+            <li className={`rd-need-cap ${room ? "ok" : "bad"}`}><span>Capacity</span>
+              <b>{cap.used} → {after} <i>/ {cap.total} PT</i></b>
+              <CapacityBar cap={cap} preview={p} className="rd-cap-bar mini" />
+              <CapacityVerdict cap={cap} preview={p} />
+            </li>
           )}
           <li className={price <= session.wallet ? "ok" : "bad"}><span>{stored ? "Fitting fee" : "Price"}</span>
             <b>€$ {eddies(price)} <i>/ €$ {eddies(session.wallet)}</i></b></li>
@@ -209,9 +223,31 @@ function DetailCard({ item, session, busy, error, onAct }: CardProps) {
       )}
       {mate && !drop && <div className="replace">REPLACES <b>{mate.name}</b> · IT GOES TO YOUR STORAGE</div>}
       {fitted && <div className="rd-detail-foot"><span>INSTALLED</span><span>TAKE OUT → STORAGE · €$ {eddies(session.fittingFee)}</span></div>}
+      {fitted && cap && (
+        <div className="rd-need-cap ok solo"><span>Capacity after</span><b>{cap.used} → {after} <i>/ {cap.total} PT</i></b>
+          <CapacityBar cap={cap} preview={p} className="rd-cap-bar mini" /><CapacityVerdict cap={cap} preview={p} /></div>
+      )}
       {(error ?? why) && !drop && <div className="rd-detail-error">{error ?? why}</div>}
       <HoldButton disabled={busy || drop || why !== null} danger={fitted} label={label}
         onDone={() => onAct(fitted ? "remove" : "install")} />
+    </div>
+  );
+}
+
+/* What the surgery would do, in one line at the top of the card: ready (install, swap, fit from
+   storage, take out) in green, or the exact reason it would be refused in red. */
+function StatusBanner({ p, item, stored, drop }: { p: Projection; item: Cyberware; stored: boolean; drop: boolean }) {
+  const [kind, title, sub] = drop ? ["drop", "DROPS ONLY", `Never sold: ${item.source ?? "bosses and raids"} drop it.`]
+    : p.mode === "remove" ? (p.verdict === "ok" ? ["remove", "INSTALLED", `Taking it out frees ${p.freed} PT · it goes to your storage`]
+      : ["bad", "NOT ENOUGH €$", "Taking it out costs the fitting fee."])
+    : p.verdict === "rep" ? ["bad", `STREET CRED ${roman(item.repTier ?? 0)} NEEDED`, `Reach ${item.repName ?? "that tier"} with PvE missions, raids and gigs.`]
+    : p.verdict === "room" ? ["bad", "NOT ENOUGH CAPACITY", `Over by ${p.over} PT · take an implant out or raise your street cred`]
+    : p.verdict === "money" ? ["bad", "NOT ENOUGH €$", `It costs €$ ${eddies(p.cost)} · you have €$ ${eddies(p.walletAfter + p.cost)}`]
+    : p.mate ? ["ok", stored ? "READY TO SWAP" : "READY TO REPLACE", `${p.mate.name} goes to your storage`]
+    : ["ok", stored ? "READY TO FIT" : "READY TO INSTALL", stored ? "From your storage · fitting fee only" : "Surgery included"];
+  return (
+    <div key={`${kind}:${title}`} className={`rd-status ${kind}`}>
+      <i className="dot" /><b>{title}</b><span>{sub}</span>
     </div>
   );
 }

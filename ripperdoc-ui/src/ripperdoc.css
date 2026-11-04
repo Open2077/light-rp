@@ -517,3 +517,77 @@ kbd {
 .rd-guide-btn.ghost { background: transparent; color: var(--text-body); box-shadow: inset 0 0 0 1px var(--line-neutral); }
 .rd-guide-btn.ghost:hover:not(:disabled) { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .rd-guide-btn:disabled { opacity: .35; cursor: default; }
+
+/* ---- Surgery preview (hover / select an implant): the capacity bar, the wallet and the verdicts show
+   what the surgery would do before the hold. Added points pulse in, freed points blink out, anything
+   past the body's total is red; every verdict chip pops in when it changes. ---- */
+.rd-cap-bar i { transition: background .18s ease, box-shadow .18s ease, opacity .18s ease; }
+.rd-cap-bar i.edge { box-shadow: 2px 0 0 rgba(255, 255, 255, .55); }
+.rd-cap-bar i.on.edge { box-shadow: 0 0 6px rgba(255, 204, 0, .4), 2px 0 0 rgba(255, 255, 255, .55); }
+.rd-cap-bar i.add { background: var(--o77-green); box-shadow: 0 0 8px rgba(143, 224, 74, .6);
+  animation: rd-seg-add 1s ease-in-out infinite; animation-delay: calc(var(--k) * 25ms); }
+.rd-cap-bar i.add.over { background: var(--o77-red); box-shadow: 0 0 10px rgba(255, 46, 60, .75); animation-name: rd-seg-over; }
+.rd-cap-bar i.free { background: transparent; box-shadow: inset 0 0 0 1px var(--o77-cyan); animation: rd-seg-free 1s steps(2) infinite; }
+@keyframes rd-seg-add { 0%, 100% { opacity: 1; transform: scaleY(1); } 50% { opacity: .45; transform: scaleY(1.35); } }
+@keyframes rd-seg-over { 0%, 100% { opacity: 1; transform: scaleY(1.2); } 50% { opacity: .35; transform: scaleY(1.5); } }
+@keyframes rd-seg-free { 50% { opacity: .25; } }
+.rd-cap b s { text-decoration: none; color: var(--o77-green); animation: rd-pop .25s cubic-bezier(.2, 1.4, .4, 1) both; }
+.rd-cap.v-room b s, .rd-cap.v-room b { color: var(--o77-red); }
+.rd-cap.is-preview { position: relative; }
+.rd-verdict { display: inline-block; margin-top: 2px; padding: 3px 7px; font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: .16em; font-style: normal;
+  animation: rd-pop .25s cubic-bezier(.2, 1.4, .4, 1) both; }
+.rd-verdict.ok { color: var(--o77-black); background: var(--o77-green); box-shadow: 0 0 10px rgba(143, 224, 74, .45); }
+.rd-verdict.bad { color: #fff; background: var(--o77-red); box-shadow: 0 0 12px rgba(255, 46, 60, .6); animation: rd-pop .25s cubic-bezier(.2, 1.4, .4, 1) both, rd-blink 1s steps(2) .25s infinite; }
+.rd-verdict.free { color: var(--o77-black); background: var(--o77-cyan); }
+.rd-verdict.warn { color: var(--o77-black); background: var(--accent); }
+@keyframes rd-pop { from { opacity: 0; transform: scale(.6); } }
+@keyframes rd-blink { 50% { opacity: .55; } }
+.rd-rep.is-short b, .rd-rep.is-short em { color: var(--o77-red); text-shadow: 0 0 10px rgba(255, 46, 60, .6); animation: rd-blink .8s steps(2) infinite; }
+.rd-wallet { position: relative; }
+.rd-wallet em { position: absolute; right: 0; top: 100%; margin-top: 4px; white-space: nowrap; font: var(--fw-bold) 12px/1 var(--font-mono); letter-spacing: .1em;
+  font-style: normal; animation: rd-pop .25s cubic-bezier(.2, 1.4, .4, 1) both; }
+.rd-wallet.is-spending em { color: var(--accent); }
+.rd-wallet.is-short em { color: var(--o77-red); }
+.rd-wallet.is-short b { color: var(--o77-red); text-shadow: 0 0 12px rgba(255, 46, 60, .55); }
+
+/* Cards: the points badge says at once whether it fits, the corner badge why it would be refused. */
+.rd-card .pts.fits { color: var(--o77-green); }
+.rd-card .pts.bad { color: var(--o77-red); animation: rd-blink 1.2s steps(2) infinite; }
+.rd-card .req.room, .rd-card .req.money { color: #fff; background: var(--o77-red); box-shadow: 0 0 10px rgba(255, 46, 60, .45); }
+.rd-card.blocked.v-room, .rd-card.blocked.v-money { box-shadow: inset 0 0 0 1px rgba(255, 46, 60, .35); }
+.rd-card:not(.blocked):not(.owned):hover::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(143, 224, 74, .0), rgba(143, 224, 74, .12)); animation: rd-pop .2s ease both; }
+
+/* Detail card: one status line at the top, and the capacity need with its own preview bar. */
+.rd-status { display: flex; align-items: center; gap: 10px; padding: 10px 18px; font: var(--fw-semibold) 12px/1.2 var(--font-core); color: var(--text-body);
+  animation: rd-status-in .3s cubic-bezier(.2, .9, .2, 1) both; }
+.rd-status b { font: var(--fw-bold) 13px/1 var(--font-mono); letter-spacing: .16em; white-space: nowrap; }
+.rd-status span { opacity: .85; }
+.rd-status .dot { flex: none; width: 10px; height: 10px; transform: rotate(45deg); }
+.rd-status.ok { background: linear-gradient(90deg, rgba(143, 224, 74, .28), rgba(143, 224, 74, .04)); box-shadow: inset 3px 0 0 var(--o77-green); }
+.rd-status.ok b { color: var(--o77-green); }
+.rd-status.ok .dot { background: var(--o77-green); box-shadow: 0 0 10px var(--o77-green); animation: rd-blink 1.4s ease-in-out infinite; }
+.rd-status.bad { background: linear-gradient(90deg, rgba(255, 46, 60, .32), rgba(255, 46, 60, .04)); box-shadow: inset 3px 0 0 var(--o77-red); }
+.rd-status.bad b { color: var(--o77-red); }
+.rd-status.bad .dot { background: var(--o77-red); box-shadow: 0 0 10px var(--o77-red); animation: rd-blink .8s steps(2) infinite; }
+.rd-status.remove { background: linear-gradient(90deg, rgba(63, 224, 208, .22), rgba(63, 224, 208, .03)); box-shadow: inset 3px 0 0 var(--o77-cyan); }
+.rd-status.remove b { color: var(--o77-cyan); }
+.rd-status.remove .dot { background: var(--o77-cyan); }
+.rd-status.drop { background: linear-gradient(90deg, rgba(63, 224, 208, .22), rgba(63, 224, 208, .03)); box-shadow: inset 3px 0 0 var(--o77-cyan); }
+.rd-status.drop b { color: var(--o77-cyan); }
+.rd-status.drop .dot { background: var(--o77-cyan); }
+@keyframes rd-status-in { from { opacity: 0; transform: translateY(-6px); } }
+.rd-needs li.rd-need-cap { flex-wrap: wrap; row-gap: 6px; }
+.rd-need-cap .rd-cap-bar.mini { flex-basis: 100%; gap: 3px; padding-left: 16px; }
+.rd-need-cap .rd-cap-bar.mini i { flex: 1; width: auto; height: 9px; transform: skewX(-24deg); }
+.rd-need-cap .rd-verdict { margin-left: 16px; }
+.rd-need-cap.solo { display: flex; flex-wrap: wrap; align-items: baseline; row-gap: 6px; margin: 0 18px 12px; padding: 8px 10px;
+  background: rgba(63, 224, 208, .05); box-shadow: inset 0 0 0 1px rgba(63, 224, 208, .25); font: var(--fw-semibold) 12px/1 var(--font-core); color: var(--text-body); }
+.rd-need-cap.solo span { margin-right: auto; }
+.rd-need-cap.solo b { font-family: var(--font-mono); color: var(--text-hi); }
+.rd-need-cap.solo b i { font-style: normal; color: var(--text-dim); }
+.rd-need-cap.solo .rd-cap-bar.mini, .rd-need-cap.solo .rd-verdict { padding-left: 0; margin-left: 0; }
+/* the preview never wraps the top bar */
+.rd-brand-title, .rd-brand-sub, .rd-crumb, .rd-wallet b, .rd-cap b { white-space: nowrap; }
+.rd-meters { gap: 26px; }
+.rd-cap b s { font-size: .72em; }

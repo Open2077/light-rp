@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Cyberware } from "../src/data.ts";
 import {
-  capacityAfter, capacityRefusal, eddies, familyMate, fitPrice, isDropOnly, points, refusal, repLabel, roman, simulate, usedPoints,
+  capacityAfter, capacityRefusal, eddies, familyMate, fitPrice, isDropOnly, points, project, refusal, repLabel, roman, simulate, usedPoints,
   type ClinicState,
 } from "../src/model.ts";
 
@@ -117,4 +117,31 @@ test("the preview's surgery: mate and removed implants to storage, fee or price 
   assert.deepEqual(out.storage, ["berserk_mk1", "subdermal_armor"]);
   assert.equal(out.wallet, 100000 - 50);
   assert.equal(out.capacity?.used, 5);
+});
+
+test("the surgery projection: what the bar, the wallet and the verdict show", () => {
+  // a plain install that fits: 7 + 6 of 14
+  let p = project(clinic(), items.second_heart!);
+  assert.deepEqual([p.mode, p.used, p.add, p.freed, p.after, p.over, p.verdict, p.cost, p.walletAfter], ["install", 7, 6, 0, 13, 0, "ok", 55000, 45000]);
+  // a swap: the family mate's 5 points come back, 7 go in
+  p = project(clinic(), items.berserk_mk3!);
+  assert.deepEqual([p.add, p.freed, p.after, p.verdict, p.mate?.id], [7, 5, 9, "ok", "sandevistan_mk1"]);
+  // past the total: the overflow and the room verdict
+  p = project(clinic({ capacity: { used: 12, total: 14 } }), items.second_heart!);
+  assert.deepEqual([p.after, p.over, p.verdict], [18, 4, "room"]);
+  assert.match(p.reason ?? "", /Not enough capacity/);
+  // the order: street cred before room, an iconic not owned first, money last
+  assert.equal(project(clinic(), items.aegis_dermal_plating!).verdict, "rep");
+  assert.equal(project(clinic(), items.chimera_plating!).verdict, "drop");
+  assert.equal(project(clinic({ wallet: 100 }), items.second_heart!).verdict, "money");
+  // from storage: the fitting fee
+  p = project(clinic({ storage: ["second_heart"] }), items.second_heart!);
+  assert.deepEqual([p.cost, p.verdict], [50, "ok"]);
+  // taking one out frees its points
+  p = project(clinic(), items.sandevistan_mk1!);
+  assert.deepEqual([p.mode, p.freed, p.after, p.cost, p.verdict], ["remove", 5, 2, 50, "ok"]);
+  assert.equal(project(clinic({ wallet: 10 }), items.sandevistan_mk1!).verdict, "money");
+  // no capacity in the payload: no limit, never "room"
+  p = project(clinic({ capacity: undefined }), items.second_heart!);
+  assert.deepEqual([p.total, p.over, p.verdict], [undefined, 0, "ok"]);
 });
