@@ -162,6 +162,47 @@ local function deal(o, k)
     end
 end
 
+-- The opener's own view: an over-the-shoulder camera on the hand (no table) or on the table, so the opener watches
+-- the real cards land behind the page's translucent reveal.
+local openerCam = nil
+
+local function stopCamera(blendMs)
+    if not openerCam then return end
+    local cam = openerCam
+    openerCam = nil
+    pcall(Open77.camera.deactivate, { blendMs = blendMs or 700 })
+    SetTimeout((blendMs or 700) + 100, function() pcall(Open77.camera.destroy, cam) end)
+end
+
+local function startCamera(o)
+    stopCamera(0)
+    local a = o.anchor
+    local fx, fy = forward(a.yaw)
+    local rx, ry = right(a.yaw)
+    -- The page reveals on the left third: the camera puts the real cards in the middle of the frame.
+    local focus, eye
+    if a.surface then
+        -- Over the right shoulder, close above the dealt grid.
+        local d = C.opening.tableReach + 0.08
+        focus = { x = a.x + fx * d, y = a.y + fy * d, z = a.surface }
+        eye = { x = a.x - fx * 0.12 + rx * 0.32, y = a.y - fy * 0.12 + ry * 0.32, z = a.surface + 0.62 }
+    else
+        -- No hold animation: the fan hangs at the right hip. Seen from the front right, looking back at the hand.
+        focus = { x = a.x + rx * 0.22 + fx * 0.05, y = a.y + ry * 0.22 + fy * 0.05, z = a.z + 0.88 }
+        eye = { x = a.x + fx * 0.62 + rx * 0.5, y = a.y + fy * 0.62 + ry * 0.5, z = a.z + 1.3 }
+    end
+    -- create / activate report a refusal as (nil|false, reason), not as an error.
+    local ok, cam, why = pcall(Open77.camera.create, { position = eye, lookAt = focus, fov = 42, thirdPersonBody = true })
+    if not ok or cam == nil then return log("opening camera refused: %s", tostring(ok and why or cam)) end
+    local called, activated, reason = pcall(Open77.camera.activate, cam, { blendMs = 700 })
+    if not called or activated ~= true then
+        pcall(Open77.camera.destroy, cam)
+        return log("opening camera not activated: %s", tostring(called and reason or activated))
+    end
+    log("opening camera on (%s)", a.surface and "table" or "hand")
+    openerCam = cam
+end
+
 local function clearOpening(opener)
     local o = openings[opener]
     if not o then return end
@@ -185,6 +226,7 @@ RegisterNetEvent(NET .. "opening", function(p)
     o.pack = createProp(def.pack, { x = a.x, y = a.y, z = a.z + 1.2 }, a.yaw, C.scale.pack)
     if o.pack then attachToHand(o.pack, opener, { x = 0.0, y = 0.05, z = 0.02 }, { x = 75.0, y = 0.0, z = 180.0 }) end
     if opener == me() then
+        startCamera(o)
         send("tcg:opening", { seq = p.seq, product = p.product, cards = cards, fresh = p.fresh or "", table = a.surface ~= nil })
         isOpen = true
         pcall(function() page:show() end)
@@ -196,6 +238,8 @@ RegisterNetEvent(NET .. "reveal", function(p)
     if type(p) ~= "table" then return end
     local o = openings[tonumber(p.opener)]
     if not o or o.seq ~= p.seq then return end
+    -- The opener's page follows a reveal the server drove (it ignores its own echoes).
+    if o.opener == me() then send("tcg:advance", { seq = p.seq, stage = p.stage, index = p.index }) end
     if p.stage == "tear" then
         sound3D("booster_open.wav", { x = o.anchor.x, y = o.anchor.y, z = o.anchor.z + 1.2 }, 15)
         remove(o.pack)
@@ -206,6 +250,7 @@ RegisterNetEvent(NET .. "reveal", function(p)
     remove(o.pack); o.pack = nil
     for k = 1, math.min(tonumber(p.index) or 0, #o.cards) do deal(o, k) end
     if p.finished then
+        if o.opener == me() then SetTimeout(4000, function() stopCamera(900) end) end
         local seq = o.seq
         SetTimeout(C.opening.lingerMs, function()
             local cur = openings[o.opener]
@@ -306,9 +351,10 @@ end
 
 local PAGE_ACTIONS = {
     ["tcg:close"] = function() closeBinder() end,
+    ["tcg:log"] = function(d) log("page: %s", tostring(d.text)) end,
     ["tcg:openPack"] = function(d) openPack(d.product) end,
     ["tcg:revealed"] = function(d) TriggerServerEvent(NET .. "reveal", { seq = d.seq, stage = d.stage, index = d.index }) end,
-    ["tcg:openingDone"] = function() closeBinder() end,
+    ["tcg:openingDone"] = function() stopCamera(700); closeBinder() end,
     ["tcg:recycle"] = function(d) TriggerServerEvent(NET .. "recycle", d.id, d.count) end,
     ["tcg:print"] = function(d) TriggerServerEvent(NET .. "print", d.id) end,
     ["tcg:buy"] = function(d) TriggerServerEvent(NET .. "buy", d.product) end,
@@ -336,6 +382,7 @@ CreateThread(function()
     page = created
     page:on("ui:ready", function()
         pageReady = true
+        log("page ready")
         if state then send("tcg:state", state) end
     end)
     for name, fn in pairs(PAGE_ACTIONS) do
@@ -348,6 +395,30 @@ RegisterKeyMapping("op77_tcg_binder", "Cyberpunk TCG: binder", C.keys.binder, fu
 end)
 
 RegisterCommand("binder", function() openBinder("binder") end, false)
+-- Other resources (a phone app, a shop NPC) open the binder on a tab: TriggerEvent("op77_tcg:openBinder", "sealed").
+AddEventHandler("op77_tcg:openBinder", function(tab) openBinder(type(tab) == "string" and tab or "binder") end)
+-- /tcg.demo from the server console (ACL-gated there).
+RegisterNetEvent(NET .. "demo", function(d)
+    local action = type(d) == "table" and d.action or ""
+    if action == "open" or action == "table" then
+        local at = here()
+        if not at then return end
+        at.surface = action == "table" and (at.z + 0.9) or surfaceAhead(at)
+        TriggerServerEvent(NET .. "open", "wnc", at)
+    elseif action == "binder" or action == "sealed" or action == "shop" then
+        openBinder(action)
+    elseif action == "close" then
+        TriggerEvent("op77_tcg:closeBinder")
+    end
+end)
+
+-- Closes the page, an opening in progress included (it is finished for the others at once).
+AddEventHandler("op77_tcg:closeBinder", function()
+    isOpen = false
+    stopCamera(700)
+    send("tcg:close", { force = true })
+    pcall(function() page:setFocus(false, false) end)
+end)
 RegisterCommand("tcg", function() openBinder("binder") end, false)
 
 -- ---------------------------------------------------------------------------------------------
@@ -385,5 +456,6 @@ end)
 
 AddEventHandler("onResourceStop", function(name)
     if name ~= RES then return end
+    stopCamera(0)
     for opener in pairs(openings) do clearOpening(opener) end
 end)

@@ -48,5 +48,5 @@ TcgConfig = {
     starter = { wnc = 3 },
 
     -- Keys (rebindable in the game's key settings, Open77 RegisterKeyMapping).
-    keys = { binder = "F9", interact = "E" },
+    keys = { binder = "F6", interact = "E" },
 }

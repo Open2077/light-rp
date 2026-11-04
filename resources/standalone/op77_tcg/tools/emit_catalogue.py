@@ -1,4 +1,4 @@
-"""Emit the catalogue the resource ships: shared/catalogue.lua (server + client) and web/data/catalogue.json (binder).
+"""Emit the catalogue the resource ships: shared/catalogue.lua (server + client) and web/data/catalogue.js (binder).
 
 Input: the catalogue.json written by build_catalogue.py. Usage: emit_catalogue.py <catalogue.json> <resource dir>
 """
@@ -35,6 +35,7 @@ lines.append("}")
 web = [{"id": c["id"], "card": c["card"], "n": c["number"], "name": c["name"], "tier": c["tier"], "rarity": c["rarity"],
         "finish": c["finish"], "booster": c["inBoosters"]} for c in cards]
 (res / "web/data").mkdir(parents=True, exist_ok=True)
-(res / "web/data/catalogue.json").write_text(json.dumps(web, ensure_ascii=False, separators=(",", ":")),
-                                             encoding="utf-8")
+# The page loads it as a script: no fetch of a local file from the WebUI (it never answered in game).
+(res / "web/data/catalogue.js").write_text("window.TCG_CATALOGUE = " + json.dumps(web, ensure_ascii=False, separators=(",", ":"))
+                                           + ";" + chr(10), encoding="utf-8")
 print(len(cards), "editions emitted")

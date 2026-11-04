@@ -3,6 +3,10 @@
 (function () {
   "use strict";
   var O = window.Open77 || null;
+  // Page errors reach the client log ([op77_tcg] page: ...).
+  window.addEventListener("error", function (e) {
+    try { if (window.Open77) window.Open77.emit("tcg:log", { text: String(e.message) + " @" + (e.filename || "") + ":" + (e.lineno || 0) }); } catch (x) {}
+  });
   var PREVIEW = !O;
   function emit(name, payload) { if (O) { try { O.emit(name, payload || {}); } catch (e) { console.error(e); } } else { preview(name, payload || {}); } }
   function on(name, fn) { if (O) O.on(name, fn); else handlers[name] = fn; }
@@ -271,6 +275,7 @@
     show();
     $("binder").classList.add("hidden");
     var o = $("opening"); o.classList.remove("hidden");
+    $("app").classList.add("opening-on");
     var cards = (d.cards || []).map(function (id) { return byId[id]; }).filter(Boolean);
     op = { seq: d.seq, cards: cards, fresh: String(d.fresh || ""), index: 0, torn: false, busy: false };
     $("packImg").src = (SEALED[d.product] || SEALED.wnc).art;
@@ -289,11 +294,10 @@
     };
     pack.onpointerup = function () { dragging = false; if (!op.torn) $("tearFill").style.width = "0"; };
   }
-  function tear() {
+  function tear(silent) {
     if (!op || op.torn) return;
     op.torn = true;
-    emit("tcg:sfx", { name: "tear" });
-    emit("tcg:revealed", { seq: op.seq, stage: "tear" });
+    if (!silent) { emit("tcg:sfx", { name: "tear" }); emit("tcg:revealed", { seq: op.seq, stage: "tear" }); }
     var pack = $("pack"); pack.classList.add("shake");
     setTimeout(function () { pack.classList.remove("shake"); pack.classList.add("torn"); }, 250);
     setTimeout(function () {
@@ -311,8 +315,9 @@
       $("openingHint").textContent = "Click or press SPACE to reveal the next card";
     }, 800);
   }
-  function next() {
+  function next(silent) {
     if (!op || !op.torn || op.busy) return;
+    if (silent !== true) silent = false;
     if (op.index >= op.cards.length) return;
     var i = op.index, c = op.cards[i];
     var node = $("stack").querySelector('[data-index="' + i + '"]');
@@ -322,7 +327,7 @@
       node.style.transform = "";
       node.classList.add("up");
       if (c.tier >= 3) node.classList.add("glow-" + Math.min(6, c.tier));
-      emit("tcg:revealed", { seq: op.seq, stage: "card", index: i + 1 });
+      if (!silent) emit("tcg:revealed", { seq: op.seq, stage: "card", index: i + 1 });
       if (c.tier >= 4 || last) rarityMoment(c);
       var tag = op.fresh.charAt(i) === "1";
       if (tag) ui.fresh[c.id] = true;
@@ -366,6 +371,7 @@
     op = null;
     $("opening").classList.add("hidden");
     $("binder").classList.remove("hidden");
+    $("app").classList.remove("opening-on");
     ui.tab = "binder"; ui.filter = "all"; buildChips();
     emit("tcg:openingDone", {});
     hide();
@@ -401,12 +407,28 @@
   });
   on("tcg:open", function (d) {
     ui.shop = d.shop || null; ui.nearby = d.nearby || [];
-    show(); $("binder").classList.remove("hidden"); $("opening").classList.add("hidden");
+    show(); $("binder").classList.remove("hidden"); $("opening").classList.add("hidden"); $("app").classList.remove("opening-on");
     setTab(d.tab === "shop" ? "shop" : (d.tab || "binder"));
   });
-  on("tcg:close", function () { if (!op) hide(); });
+  on("tcg:close", function (d) {
+    if (op && d && d.force) { finishOpening(); return; }
+    if (!op) hide();
+  });
   on("tcg:shop", function (d) { ui.shop = d.shop || null; if (ui.open && ui.tab === "shop") renderShop(); });
   on("tcg:opening", startOpening);
+  // The server moved the opening on (a demo, the 90 s watchdog, a reveal from elsewhere): follow it silently.
+  on("tcg:advance", function (d) {
+    if (!op || d.seq !== op.seq) return;
+    if (d.stage === "tear") { if (!op.torn) tear(true); return; }
+    var target = Number(d.index) || 0;
+    var step = function () {
+      if (!op || op.index >= target) return;
+      if (!op.torn) { tear(true); setTimeout(step, 900); return; }
+      if (op.busy) { setTimeout(step, 120); return; }
+      next(true); setTimeout(step, 750);
+    };
+    step();
+  });
   on("tcg:notice", function (n) { if (ui.open) toast(n.text, n.kind); });
   on("tcg:offer", function (o) {
     ui.offer = o; var c = byId[o.edition]; if (!c) return;
@@ -416,13 +438,12 @@
     show(); $("offer").classList.remove("hidden");
   });
 
-  fetch("data/catalogue.json").then(function (r) { return r.json(); }).then(function (list) {
-    catalogue = list.sort(function (a, b) { return a.n - b.n; });
-    catalogue.forEach(function (c) { byId[c.id] = c; });
-    buildChips();
-    renderAll();
-    if (O) { try { O.ready(); } catch (e) { console.error(e); } } else startPreview();
-  });
+  // The catalogue ships as a script (data/catalogue.js): the page is ready at once, no fetch.
+  catalogue = (window.TCG_CATALOGUE || []).slice().sort(function (a, b) { return a.n - b.n; });
+  catalogue.forEach(function (c) { byId[c.id] = c; });
+  buildChips();
+  renderAll();
+  if (O) { try { O.ready(); } catch (e) { console.error(e); } } else startPreview();
 
   /* ---------------------------------------------------------------------------------------- preview */
   function preview(name, d) {

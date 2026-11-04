@@ -16,7 +16,8 @@ local offers = {}     -- offer id -> { from, to, edition, expires }
 local offerSeq, openSeq = 0, 0
 
 local function log(fmt, ...) print(("[op77_tcg] " .. fmt):format(...)) end
-local function now() return GetGameTimer and GetGameTimer() or math.floor(os.clock() * 1000) end
+-- The server sandbox has no `os` library: Open77.time.unix() is the wall clock, GetGameTimer() the monotonic one.
+local function now() return GetGameTimer() end
 
 local function identifierOf(player)
     local id = Open77.players.identifier(player)
@@ -45,7 +46,7 @@ CREATE TABLE IF NOT EXISTS tcg_shops (
 local function exec(sql, params) return db.execute.await(sql, params or {}) end
 local function query(sql, params) return db.query.await(sql, params or {}) end
 
-local function unix() return os.time() end
+local function unix() return math.floor(Open77.time.unix()) end
 
 local function saveProfile(identifier, p)
     exec("INSERT INTO tcg_profiles (identifier, dust, dust_plus, last_free, starter, created_at) VALUES (?, ?, ?, ?, ?, ?) " ..
@@ -246,7 +247,8 @@ local function openPack(player, product, anchor)
         TriggerClientEvent(NET .. "opening", w, payload)
     end
     local premium = cards[#cards]
-    log("%s opened %s -> premium %s (%s, %s)", name, product, premium.name, premium.rarity, premium.finish)
+    log("%s opened %s (seq %d, %s) -> premium %s (%s, %s)", name, product, openSeq, anchor.surface and "on a table" or "in hand",
+        premium.name, premium.rarity, premium.finish)
     sendState(player, s.identifier)
 
     -- An opener who walks away from the page still finishes the pack for the others.
@@ -618,12 +620,34 @@ RegisterCommand("tcg.dust", function(source_, args)
     end)
 end, true)
 
+-- /tcg.demo <playerId> <open|table|binder|sealed|close|tear|reveal [n]>: drives a player's TCG from the console
+-- (a showcase, or a test): open makes their client open a pack where they stand (table = on a surface 0.9 m up),
+-- tear / reveal [n] play their current opening for everyone around without their page.
+RegisterCommand("tcg.demo", function(source_, args)
+    local target, action = tonumber(args[1]), args[2]
+    if not target or not action then return reply(source_, "usage: /tcg.demo <playerId> <open|table|binder|sealed|close|tear|reveal [n]>") end
+    CreateThread(function()
+        if action == "tear" or action == "reveal" then
+            local s = sessions[target]
+            local o = s and s.opening
+            if not o then return reply(source_, "no opening in progress") end
+            if action == "tear" then return reveal(target, { seq = o.seq, stage = "tear" }) end
+            local upto = math.min(#o.cards, math.floor(tonumber(args[3]) or #o.cards))
+            for k = o.revealed + 1, upto do reveal(target, { seq = o.seq, stage = "card", index = k }); Wait(500) end
+            return
+        end
+        TriggerClientEvent(NET .. "demo", target, { action = action })
+    end)
+end, true)
+
 -- /tcg.shop here [label] | remove <id> | list
 RegisterCommand("tcg.shop", function(source_, args)
     local verb = args[1] or "list"
     CreateThread(function()
-        if verb == "here" then
-            local player = tonumber(source_)
+        if verb == "here" or verb == "at" then
+            -- here: at the admin typing it; at <playerId>: at that player (from the console).
+            local player = verb == "at" and tonumber(args[2]) or tonumber(source_)
+            if verb == "at" then table.remove(args, 2) end
             local p = player and player > 0 and positionOf(player)
             if not p then return reply(source_, "stand where the counter goes") end
             local yaw = tonumber(args[3]) or 0
@@ -688,7 +712,7 @@ end)
 -- Boot
 
 CreateThread(function()
-    math.randomseed(os.time() + math.floor(os.clock() * 1000))
+    math.randomseed(math.floor(unix() + GetGameTimer()))
     db = SQLite.open.await("tcg.db")
     db.execute.await(SCHEMA)
     for _, r in ipairs(query("SELECT edition, pulled FROM tcg_population")) do population[r.edition] = tonumber(r.pulled) or 0 end

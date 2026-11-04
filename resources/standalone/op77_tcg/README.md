@@ -18,7 +18,7 @@ gamemode, and any server can load it.
     the rarity's colour on the table (Epic and above).
   - The cards stay on the table for 30 s, then go into the binder. They are written to the database before the first
     reveal, so a crash never loses or duplicates a card.
-- **The binder** (F9, `/binder`). It is a ring album with 3x3 sleeved pages, page turns, plastic gloss and finish
+- **The binder** (F6, `/binder`; rebindable in Settings → Key bindings). It is a ring album with 3x3 sleeved pages, page turns, plastic gloss and finish
   effects:
   - holographic foil from the set's own spectrum map, following the mouse;
   - golden sheen on premium cards and brushed metal on metal cards;
@@ -33,7 +33,7 @@ gamemode, and any server can load it.
     player for 30 min;
   - **give it** to a collector next to you, who accepts or declines.
 - **TCG shops.** A counter with the card printer, the recycler, the card loader and a collection shelf. Admins place
-  shops with `/tcg.shop here [label] [yaw]`. Standing at the counter, F9 opens the **Shop** tab:
+  shops with `/tcg.shop here [label] [yaw]`. Standing at the counter, F6 opens the **Shop** tab:
   - Buy sealed product. Without an economy, the shop gives one free pack every 20 minutes. With one, set
     `economy.resource` and `economy.charge`.
   - Recycle duplicates into Dust. One copy always stays in the binder, and top-tier cards also give Dust+.

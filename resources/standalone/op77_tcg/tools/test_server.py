@@ -83,7 +83,7 @@ def trigger(name, target, payload=None):
 
 L.execute("""
 local co_list = {}
-local clock = 100000
+local clock = 100000.5   -- GetGameTimer is a float on the server
 function GetGameTimer() return clock end
 function CreateThread(fn) local co = coroutine.create(fn); local ok, err = coroutine.resume(co); if not ok then error(err) end
     if coroutine.status(co) ~= "dead" then co_list[#co_list + 1] = co end end
@@ -102,6 +102,8 @@ function exports(name, fn) exported[name] = fn end
 function fire(name, src, ...) source = src; handlers[name](...) ; __pump(60) end
 """)
 g.TriggerClientEvent = trigger
+g.os = None  # the server sandbox has no os library
+g.GetUnixTime = None
 db_tbl = L.table_from({
     "execute": L.table_from({"await": execute}),
     "query": L.table_from({"await": query}),
@@ -109,6 +111,7 @@ db_tbl = L.table_from({
 })
 g.SQLite = L.table_from({"open": L.table_from({"await": lambda path: db_tbl})})
 g.Open77 = L.table_from({
+    "time": L.table_from({"unix": lambda: 1793800000.37, "monotonic": lambda: 0}),
     "players": L.table_from({"identifier": lambda p: "id-%d" % p, "position": position, "name": lambda p: names.get(int(p)),
                              "nearby": nearby}),
     "props": L.table_from({"create": prop_create, "attach": prop_attach, "remove": prop_remove, "get": lambda p: None}),
