@@ -47,6 +47,14 @@ gamemode, and any server can load it.
   - Recycle duplicates into Dust. One copy always stays in the binder, and top-tier cards also give Dust+.
   - Print a missing edition for Dust. Secret cards cost Dust+.
 
+## How the card game is played
+
+`docs/RULES.md` summarises the official rules of the Cyberpunk TCG:
+- the win condition (7 Gig dice), the playmat areas and card anatomy;
+- deck building (3 Legends, 40-50 cards, RAM limits), setup and the turn structure;
+- attacking (fight and steal), effect timing, keywords, tournament formats;
+- notes for a playable mode.
+
 ## Rarity
 
 The pack rules are those of the original set: **9 Common, 2 Uncommon, 1 premium slot**. The premium slot is a Rare
