@@ -562,12 +562,16 @@ local function isMember(inst, id)
 end
 -- One reported hit of `key` (an NPC the caller already tied to `inst`) on `victim`.
 -- Also used by the raid's reinforcements (server/modules/mission_chimera.lua).
-function Engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage)
-    if not isMember(inst, reporter) or not isMember(inst, victim) then return false, "not_in_mission" end
+-- `platform`: the hit came from the platform's victim path (onNpcPlayerHit), which already
+-- checked that the NPC's authority fights the victim; the legacy relay must come from the
+-- client that owns the NPC's simulation, for its current lease.
+function Engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage, platform, cause)
+    if not isMember(inst, victim) or (not platform and not isMember(inst, reporter)) then return false, "not_in_mission" end
     local ok, npc = pcall(Open77.npcs.get, key)
     if not ok or type(npc) ~= "table" or (tonumber(npc.health) or 0) <= 0 then return false, "npc_gone" end
-    -- only the client that owns the NPC's simulation reports its hits, for its current lease
-    if tostring(npc.authorityPlayerId) ~= tostring(reporter) or tonumber(npc.authorityEpoch) ~= reportedEpoch then return false, "not_owner" end
+    if not platform and (tostring(npc.authorityPlayerId) ~= tostring(reporter) or tonumber(npc.authorityEpoch) ~= reportedEpoch) then
+        return false, "not_owner"
+    end
     local victimBucket, phase = bucketOf(victim)
     if victimBucket ~= inst.bucket or (phase ~= "alive" and phase ~= "recovering") then return false, "victim_not_here" end
     local p, n = positionOf(victim), npc.position
@@ -577,11 +581,11 @@ function Engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage)
     if not w or t - w.since >= 1000 then w = { since = t, total = 0 }; incomingWindow[victim] = w end
     if w.total + damage > INCOMING.maxPerSecond then return false, "rate" end
     w.total = w.total + damage
-    local applied, why = Open77.players.damage(victim, damage, { attacker = key, cause = "firearm" })
+    local applied, why = Open77.players.damage(victim, damage, { attacker = key, cause = cause or "firearm" })
     if applied == false then LightRP.log("mission %s: hit on %s refused (%s)", inst.id, name(victim), tostring(why)) end
     return applied ~= false, why
 end
-function Engine.npcHit(reporter, victimId, npcId, epoch, amount)
+function Engine.npcHit(reporter, victimId, npcId, epoch, amount, platform, cause)
     local victim, damage, reportedEpoch = tonumber(victimId), tonumber(amount), tonumber(epoch)
     if not victim or not damage or damage ~= damage or damage <= 0 or not reportedEpoch then return false, "invalid" end
     local inst = Missions.instanceOf(victim)
@@ -591,17 +595,39 @@ function Engine.npcHit(reporter, victimId, npcId, epoch, amount)
         local W = LightRP.worldBosses
         local world, key = nil, nil
         if W and W.instanceOfNpc then world, key = W.instanceOfNpc(npcId) end
-        if world then return Engine.applyNpcHit(world, reporter, victim, key, reportedEpoch, damage) end
+        if world then return Engine.applyNpcHit(world, reporter, victim, key, reportedEpoch, damage, platform, cause) end
         return false, "no_run"
     end
     local key
     for id in pairs(run.enemies) do if tostring(id) == tostring(npcId) then key = id end end
     if key == nil then return false, "not_this_mission" end
-    return Engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage)
+    return Engine.applyNpcHit(inst, reporter, victim, key, reportedEpoch, damage, platform, cause)
 end
+
+-- Where NPC hits on players come from. A platform with Open77.npcs.victimHits judges each hit
+-- from the VICTIM's own client -- the only machine on which an NPC's shots land on that body
+-- with the game's player accuracy (the host's shots at a remote player almost never connect)
+-- -- and raises onNpcPlayerHit to this resource. On an older platform the authority's client
+-- relays open77:npcPlayerHit (client/core/mission_run.lua). Never both: the host's own hits
+-- would count twice.
+local PLATFORM_VICTIM_HITS = type(Open77.npcs) == "table" and Open77.npcs.victimHits == true
+Engine.platformVictimHits = PLATFORM_VICTIM_HITS
 RegisterNetEvent(NET .. ":npcHit", function(victimId, npcId, epoch, amount)
+    if PLATFORM_VICTIM_HITS then return end
     local reporter = tonumber(source)
     if reporter and reporter > 0 then Engine.npcHit(reporter, victimId, npcId, epoch, amount) end
+end)
+AddEventHandler("onNpcPlayerHit", function(npcId, victimId, amount, kind, epoch, authority)
+    if not PLATFORM_VICTIM_HITS then return end
+    local victim = tonumber(victimId)
+    if not victim then return end
+    -- the platform names the attack: firearm, melee or explosion (an NPC's grenade)
+    local cause = (kind == "melee" or kind == "explosion") and kind or "firearm"
+    local ok, why = Engine.npcHit(victim, victimId, npcId, epoch, amount, true, cause)
+    -- a raid's reinforcements are tied to the raid, not to a mission run
+    if not ok and (why == "no_run" or why == "not_this_mission") and LightRP.raidReinforcementHit then
+        LightRP.raidReinforcementHit(victim, victimId, npcId, epoch, amount, true)
+    end
 end)
 
 -- ---------------------------------------------------------------------------
