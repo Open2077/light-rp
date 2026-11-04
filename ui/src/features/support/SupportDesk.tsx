@@ -3,14 +3,15 @@ import { useStore } from "@/state/store";
 import { emit, on } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { RageMenu, isPickable, type RageMenuItem } from "@/design/components";
-import { request, key, list, date, label, type Scope, type TicketList, type Detail, type Overview, type Wire, type Person, type Profile, type Audit, type TableList, type PlacedTable } from "./api";
+import { request, key, list, date, label, type Scope, type TicketList, type Detail, type Overview, type Wire, type Person, type Profile, type Audit, type TableList, type PlacedTable, type ManekiList, type ManekiSpot } from "./api";
 import { ActionForm, ProfileCard, AuditEntry, actionLabels, auditLabels } from "./StaffTools";
 import { TableCard, TableActionForm, moneyLine } from "./TableTools";
+import { ManekiCard, ManekiActionForm, sizeLabel } from "./ManekiTools";
 import { NewReport, MessageForm, SearchForm } from "./SupportForms";
 import "./support.css";
 
-type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tools"|"tables"|"table"; selected?:string; caseId?:number; person?:Person; history?:Audit[]; table?:PlacedTable };
-type Form = { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players"|"tables" } | { kind:"action"; action:string } | { kind:"tableAction"; action:"tableTeleport"|"tableDelete" };
+type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tools"|"tables"|"table"|"maneki"|"manekiSpot"; selected?:string; caseId?:number; person?:Person; history?:Audit[]; table?:PlacedTable; spot?:ManekiSpot };
+type Form = { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players"|"tables"|"maneki" } | { kind:"action"; action:string } | { kind:"tableAction"; action:"tableTeleport"|"tableDelete" } | { kind:"manekiAction"; action:"manekiTeleport"|"manekiDelete" };
 type Entry = RageMenuItem & { run?:()=>void; change?:(patch:Partial<RageMenuItem>)=>void };
 const filters=["active","open","in_progress","waiting_player","finished","all"];
 const filterNames=["Active","Waiting","In progress","Need reply","Finished","All"];
@@ -35,6 +36,7 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const [history,setHistory]=useState<{entries:Audit[];hasMore:boolean}>(),[historyPage,setHistoryPage]=useState(1);
   const [filter,setFilter]=useState(0),[mine,setMine]=useState(false),[query,setQuery]=useState(""),[citizenQuery,setCitizenQuery]=useState(""),[page,setPage]=useState(1);
   const [tables,setTables]=useState<TableList>(),[tablePage,setTablePage]=useState(1),[tableSort,setTableSort]=useState(0),[tableQuery,setTableQuery]=useState(""),[tableDetail,setTableDetail]=useState<TableList>();
+  const [cats,setCats]=useState<ManekiList>(),[catPage,setCatPage]=useState(1),[catSort,setCatSort]=useState(1),[catQuery,setCatQuery]=useState(""),[catDetail,setCatDetail]=useState<ManekiList>();
   const [epoch,setEpoch]=useState(0),[error,setError]=useState(""),[feedback,setFeedback]=useState(""),[busy,setBusy]=useState(false),[showConversation,setShowConversation]=useState(true);
   const top=stack[stack.length-1]!,panel=useRef<HTMLElement>(null),menu=useRef<HTMLDivElement>(null),working=useRef(false);
   const mutation=useRef<{signature:string;key:string}>();
@@ -62,6 +64,23 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     let live=true;if(tableId)request<TableList>("tables",{search:tableId}).then(v=>{if(live)setTableDetail(v);},e=>{if(live){setTableDetail(undefined);setError(e.message);}});
     return()=>{live=false;};
   },[tableId,epoch]);
+  useEffect(()=>{
+    let live=true;if(top.kind==="maneki")request<ManekiList>("maneki",{page:catPage,sort:catSort?"near":"newest",search:catQuery}).then(v=>{if(live){setCats(v);setError("");}},e=>{if(live){setCats(undefined);setError(e.message);}});
+    return()=>{live=false;};
+  },[top.kind,catPage,catSort,catQuery,epoch]);
+  const spotId=top.kind==="manekiSpot"?top.spot?.id:undefined;
+  useEffect(()=>{
+    let live=true;if(spotId)request<ManekiList>("maneki",{search:spotId}).then(v=>{if(live)setCatDetail(v);},e=>{if(live){setCatDetail(undefined);setError(e.message);}});
+    return()=>{live=false;};
+  },[spotId,epoch]);
+  const manekiDesk=async(action:"manekiEditor"|"manekiResetSelf",extra:Record<string,unknown>={})=>{
+    if(working.current)return;working.current=true;setBusy(true);setError("");
+    try{
+      const r=await request<{message:string;close?:boolean}>("manekiAction",{action,...extra});
+      if(r.close){close();return;}
+      setFeedback(r.message);refresh();
+    }catch(e){setError((e as Error).message);}finally{working.current=false;setBusy(false);}
+  };
   const caseId=top.caseId;
   useEffect(()=>{
     let live=true;if(caseId)request<Detail>("detail",{scope,ticket:caseId}).then(v=>{
@@ -128,6 +147,7 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       ...(overview?.permissions.audit?[submenu("history","Staff history",()=>{setHistoryPage(1);push({kind:"history"});},{icon:"file-text",description:"Who acted, why and whether the intervention completed."})]:[]),
       submenu("tools","Personal tools",()=>push({kind:"tools"}),{icon:"shield",disabled:!overview,description:"Noclip, god mode and the advanced console."}),
       ...(overview?.permissions.tables?[submenu("tables","Placed tables",()=>{setTablePage(1);push({kind:"tables"});},{icon:"box",description:"Every placed board and casino table: owner, seats, open stakes. Go to one or remove it."})]:[]),
+      ...(overview?.permissions.maneki?[submenu("maneki","Maneki-neko",()=>{setCatPage(1);push({kind:"maneki"});},{icon:"coins",description:"The hidden lucky cats: hide new ones with the placement tool, list, visit or remove them."})]:[]),
       ...(overview?.permissions.housing?[submenu("housing","Housing",()=>{close();emit(PAGE_EVENTS.action,{type:"housing.open",admin:true});},{icon:"map-pin",description:"Interior templates, dwellings and resident assignments."})]:[]),
       ...(overview?.permissions.safezones?[submenu("safezones","Safe zones",()=>{close();emit(PAGE_EVENTS.safezones,{operation:"open"});},{icon:"shield",description:"Create and edit world-space PvP protection zones."})]:[]),
     ]:[submenu("reports","My reports",()=>push({kind:"tickets"}),{icon:"message-square",description:"Private conversations with staff, including closed cases."}),item("new","New report",()=>setForm({kind:"new",body:""}),{icon:"message-square",description:"Describe a problem and follow its handling here."})];
@@ -197,6 +217,31 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       ...(tableDetail?.canDelete?[submenu("tableDelete","Remove table",()=>setForm({kind:"tableAction",action:"tableDelete"}),{icon:"trash-2",danger:true,description:"Refunds open stakes, unseats players, optionally gives the item back. A reason is recorded."})]:[]),
       item("refresh","Refresh table",refresh)];
     content=<TableCard table={t}/>;
+  }else if(top.kind==="maneki"){
+    title="MANEKI-NEKO";subtitle=`${cats?.cats??"—"} HIDDEN · PAGE ${catPage}`;
+    const rows=list(cats?.spots);
+    entries=[
+      ...(cats?.canEdit?[item("tool",cats.editing?"Close the placement tool":"Placement tool",()=>{void manekiDesk("manekiEditor",{active:!cats.editing});},{icon:"crosshair",disabled:busy,
+        description:cats.editing?"Stop placing: the cats go back to your normal view.":"Closes this menu. Aim and LEFT CLICK to hide a cat, LEFT / RIGHT turn it, UP / DOWN size, DELETE removes the aimed one, BACKSPACE leaves. Every cat around shows with a marker."})]:[]),
+      {id:"sort",text:"Sort",type:"list",options:["Newest","Nearest"],index:catSort,change:p=>{setCats(undefined);setCatSort(p.index||0);setCatPage(1);},description:"Nearest: cats in your instance first, by distance."},
+      item("search","Search cats",()=>setForm({kind:"search",target:"maneki"}),{icon:"search",meta:catQuery||"ALL",description:"Cat ID, district or who hid it."}),
+      {id:"stats",text:`Found by ${cats?.finders??"—"} character(s)`,disabled:true,meta:cats?`YOU ${cats.mine}/${cats.cats}`:undefined,description:"Characters that found at least one cat, and your own count."},{separator:true},
+      ...(!cats?[loading]:rows.length?rows.map(c=>submenu(`cat:${c.id}`,`${c.district||"Night City"} · ${c.id}`,()=>{setCatDetail(undefined);push({kind:"manekiSpot",spot:c});},{meta:c.distance!==undefined?`${c.distance.toFixed(0)} m`:`${c.finds} FOUND`,description:`${sizeLabel(c.scale)} · found ${c.finds}× · instance ${c.bucket} · by ${c.placedBy}`})):[{id:"empty",text:catQuery?"No cats match":"No cats hidden yet",disabled:true}]),
+      ...(catPage>1?[item("previous","Previous page",()=>{setCats(undefined);setCatPage(n=>n-1);})]:[]),
+      ...(cats&&catPage*cats.pageSize<cats.total?[item("next","Next page",()=>{setCats(undefined);setCatPage(n=>n+1);})]:[]),
+      ...(cats?.canEdit?[item("reset","Reset my own collection",()=>{void manekiDesk("manekiResetSelf");},{icon:"undo-2",disabled:busy,description:"For testing: every cat comes back for your current character. Money already paid is not taken back."})]:[]),
+      item("refresh","Refresh",refresh)];
+    const chosen=rows.find(c=>`cat:${c.id}`===top.selected);if(chosen)content=<ManekiCard spot={chosen}/>;
+  }else if(top.kind==="manekiSpot"){
+    const live=list(catDetail?.spots).find(c=>c.id===top.spot?.id),c=live||top.spot!;
+    title="MANEKI-NEKO";subtitle=`${c.district||"Night City"} · ${c.id}`;
+    if(!catDetail)entries=[loading];
+    else if(!live)entries=[{id:"gone",text:"This cat no longer exists",disabled:true}];
+    else entries=[
+      ...(catDetail.canTeleport?[submenu("manekiTeleport","Go to this cat",()=>setForm({kind:"manekiAction",action:"manekiTeleport"}),{icon:"navigation",description:"Teleport a step in front of it. A reason is recorded."})]:[]),
+      ...(catDetail.canEdit?[submenu("manekiDelete","Remove this cat",()=>setForm({kind:"manekiAction",action:"manekiDelete"}),{icon:"trash-2",danger:true,description:"It disappears for everyone. A reason is recorded."})]:[]),
+      item("refresh","Refresh",refresh)];
+    content=<ManekiCard spot={c}/>;
   }else if(top.kind==="history"){
     title="STAFF HISTORY";subtitle=top.history?"SELECTED CITIZEN":`PAGE ${historyPage}`;
     const rows=top.history||list(history?.entries);
@@ -210,8 +255,9 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const index=selected>=0?selected:Math.max(0,entries.findIndex(isPickable));
   const cancel=()=>{setForm(null);setError("");};
   if(form?.kind==="new")content=<NewReport initial={form.body} onCancel={cancel} onCreated={id=>{setForm(null);setDetail(undefined);setStack([{kind:"root",selected:"reports"},{kind:"tickets"},{kind:"ticket",caseId:id}]);refresh();}}/>;
-  else if(form?.kind==="search")content=<SearchForm initial={form.target==="tickets"?query:form.target==="tables"?tableQuery:citizenQuery} onCancel={cancel} onSave={value=>{if(form.target==="tickets"){setCases(undefined);setQuery(value);setPage(1);}else if(form.target==="tables"){setTables(undefined);setTableQuery(value);setTablePage(1);}else setCitizenQuery(value);cancel();}}/>;
+  else if(form?.kind==="search")content=<SearchForm initial={form.target==="tickets"?query:form.target==="tables"?tableQuery:form.target==="maneki"?catQuery:citizenQuery} onCancel={cancel} onSave={value=>{if(form.target==="tickets"){setCases(undefined);setQuery(value);setPage(1);}else if(form.target==="tables"){setTables(undefined);setTableQuery(value);setTablePage(1);}else if(form.target==="maneki"){setCats(undefined);setCatQuery(value);setCatPage(1);}else setCitizenQuery(value);cancel();}}/>;
   else if(form?.kind==="tableAction"&&top.table){const t=list(tableDetail?.tables).find(r=>r.id===top.table!.id)||top.table;content=<TableActionForm key={form.action} action={form.action} table={t} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);if(form.action==="tableDelete"){setTables(undefined);setStack(s=>s.slice(0,-1));}refresh();}}/>;}
+  else if(form?.kind==="manekiAction"&&top.spot){const c=list(catDetail?.spots).find(r=>r.id===top.spot!.id)||top.spot;content=<ManekiActionForm key={form.action} action={form.action} spot={c} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);if(form.action==="manekiDelete"){setCats(undefined);setStack(s=>s.slice(0,-1));}refresh();}}/>;}
   else if(form?.kind==="message")content=<MessageForm action={form.action} busy={busy} onCancel={cancel} onSend={async body=>{if(await mutate(form.action,body))setForm(null);}}/>;
   else if(form?.kind==="action"&&currentProfile&&overview)content=<ActionForm action={form.action} person={currentProfile} overview={overview} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);refresh();}}/>;
   return <section className="rp-support" aria-label={staff?"LightRP staff menu":"Reports and support"}>

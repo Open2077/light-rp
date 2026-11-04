@@ -44,3 +44,9 @@ export interface PlacedTable {
   seated:string; seatedCount:number; phase:string; stakes?:number; resolving?:string; busy?:boolean;
 }
 export interface TableList { tables:PlacedTable[]; page:number; pageSize:number; total:number; pendingReturns:number; canTeleport:boolean; canDelete:boolean }
+/** A hidden Maneki-neko as the staff desk lists it (server/modules/maneki.lua): flat, scalars only. */
+export interface ManekiSpot {
+  id:string; x:number; y:number; z:number; bucket:number; yaw:number; scale:number;
+  district:string; placedBy:string; placedAt:number; finds:number; distance?:number;
+}
+export interface ManekiList { spots:ManekiSpot[]; page:number; pageSize:number; total:number; cats:number; finders:number; mine:number; editing:boolean; canEdit:boolean; canTeleport:boolean }

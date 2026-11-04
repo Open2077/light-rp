@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "namespace": "open77\\assets\\op77_lightrp\\maneki",
+  "models": [
+    {
+      "name": "maneki_neko",
+      "entity": "open77\\assets\\op77_lightrp\\maneki\\maneki_neko.ent",
+      "mesh": "base\\environment\\decoration\\misc\\sculptures\\chinese_sculpture_small\\chinese_sculpture_small_c.mesh",
+      "vanilla": true,
+      "bounds": {
+        "min": [
+          -0.045,
+          -0.065,
+          -0.001
+        ],
+        "max": [
+          0.047,
+          0.053,
+          0.161
+        ]
+      }
+    }
+  ],
+  "host": "open77_board_games open77/assets/op77_lightrp/board_games/checkers_black_man.ent",
+  "archiveSha256": "3e4fd80746153e7da3d03582daccc429994ef01387da351557a858f175793dbe",
+  "zipSha256": "55fb198b0dd47aa4593b09d9c6b198953d2f80625ea44729945a8fe93ffbb8ae"
+}

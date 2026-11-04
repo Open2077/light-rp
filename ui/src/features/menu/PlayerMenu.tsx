@@ -245,6 +245,7 @@ export function PlayerMenu() {
   const recap = useStore((s) => s.state.recap);
   const dailies = useStore((s) => s.state.dailies);
   const titles = useStore((s) => s.state.titles);
+  const maneki = useStore((s) => s.state.maneki);
   const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
   const [stack, setStack] = useState<Array<{ key: string; index: number }>>([{ key: "root", index: ROOT_INDEX }]);
   const [toggleKey, setToggleKey] = useState("F1");
@@ -303,13 +304,20 @@ export function PlayerMenu() {
     const home = nodes.root?.items.findIndex((i) => "id" in i && i.id === "housing") ?? -1;
     if (dailies && home >= 0) nodes.root!.items.splice(home + 1, 0, { id: "dailies", type: "item", text: "Dailies", icon: "list-checks", meta: menuMeta(dailies),
       description: "Four small jobs a day from Mama Okoro, Ledger and Nix, and a big one every week, paid into your bank. Your titles are in there too." });
+    // The Maneki-neko collection, under the dailies: a count, never a hint of where (server/modules/maneki.lua).
+    const daily = nodes.root?.items.findIndex((i) => "id" in i && (i.id === "dailies" || i.id === "housing")) ?? -1;
+    if (maneki && maneki.total > 0 && daily >= 0) nodes.root!.items.splice(daily + 1, 0, { id: "maneki", type: "item", text: "Maneki-neko", icon: "coins",
+      meta: `${maneki.found} / ${maneki.total}`,
+      description: maneki.found >= maneki.total
+        ? "You found every lucky cat hidden in Night City. More may appear: keep your eyes open."
+        : "Lucky cats are hidden around Night City: no map, no marker. Spot one, then take it with E or shoot it. Each find pays, every tenth pays more." });
     const lastName = nodes.identity?.items.findIndex((i) => "id" in i && i.id === "last") ?? -1;
     const badge = shownTitle(titles);
     if (titles?.enabled && lastName >= 0) nodes.identity!.items.splice(lastName + 1, 0, { id: "identity-title", type: "item", text: "Title", icon: "crown",
       meta: badge ? badge.label.toUpperCase() : "NONE",
       description: "What others read after your name in the chat, on your crew's frame and in the Hall of Fame. Select to pick one you earned." });
     return nodes;
-  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, queue, party, dogtown, recap, dailies, titles]);
+  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, queue, party, dogtown, recap, dailies, titles, maneki]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;
