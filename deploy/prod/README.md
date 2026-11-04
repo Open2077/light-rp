@@ -31,3 +31,11 @@ Prod is a plain file copy of `main` (no git there). When copying `main` over it:
 - Prod convars thin the pedestrian crowd and keep pedestrians 40 m away from the spawn
   (`open77_pedestrians_*`, added for the `playback_timeout` animation failures of 2026-11-04).
 - Prod keeps `httpHandlers.enabled = false`: the events board TV page is not served there.
+
+## To port by hand after the snapshot
+
+- **2026-11-04, economy decisions:** one staff money grant is capped at 10 000 €$
+  (`/lightrp.givemoney` and the staff desk's Credit, a reason is now required). The bypass is
+  the permission `lightrp.money.unlimited`, deliberately outside `command.lightrp.*` so the
+  moderator and operator wildcards do not grant it. The owner's `"*"` covers it; add it to a
+  principal or role only for staff who must credit more in one go.
