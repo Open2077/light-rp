@@ -13,7 +13,11 @@
 --   repeat  a character paid in full at a mission point waits cooldownMinutes
 --           before that point pays them in full again; an account (or character,
 --           capScope) gets dailyFullPayouts full payouts per UTC day. Meanwhile a
---           completion pays repeatShare of the share. Reputation is untouched.
+--           completion pays repeatShare of the share.
+--   reputation  the same rule per point (owner decision 2026-11-04): a character
+--           granted a point's full reputation gets reputationRepeatShare of it there
+--           for reputationCooldownMinutes (its own window; the daily cap does not
+--           touch reputation). missions.lua asks Pay.reputation, then adds it.
 --
 --   LightRP.missionPay.cap(payout, d)              -> payout after the ceilings (what the board shows)
 --   LightRP.missionPay.contentScale(d)             -> 0..1: an authored difficulty's size (1 otherwise)
@@ -22,6 +26,9 @@
 --   LightRP.missionPay.quote(id, pointId, share)   -> amount, state, info (records nothing)
 --   LightRP.missionPay.settle(inst, point, d)      -> { [id] = { amount, share, crew, state, detail } }; pays
 --   LightRP.missionPay.announce(inst, point, d)    -> one notice per operator: what success will pay
+--   LightRP.missionPay.reputationStatus(id, pointId)     -> "full" | "cooldown", info
+--   LightRP.missionPay.reputationQuote(id, pointId, rep) -> amount, state, info (records nothing)
+--   LightRP.missionPay.reputation(id, pointId, rep)      -> amount, state, detail; a full grant starts the window
 local C = (LightRpEconomy and LightRpEconomy.missions) or {}
 local Db = LightRP.db
 local Pay = LightRP.module("missionPay", {})
@@ -31,12 +38,20 @@ Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_mission_payout_cooldowns (
     until_unix BIGINT NOT NULL,
     PRIMARY KEY (identifier, character_key, point_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_mission_rep_cooldowns (
+    identifier VARCHAR(128) NOT NULL, character_key VARCHAR(64) NOT NULL, point_id VARCHAR(64) NOT NULL,
+    until_unix BIGINT NOT NULL,
+    PRIMARY KEY (identifier, character_key, point_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
 Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_mission_payout_daily (
     scope_key VARCHAR(200) NOT NULL, day_index INT NOT NULL, full_payouts INT NOT NULL DEFAULT 0,
     PRIMARY KEY (scope_key, day_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
 
-local cooldowns = {} -- "identifier#key" -> { synced = bool, points = { [pointId] = untilUnix } }
+-- Per character and mission point: when the point pays (money) or grants
+-- (reputation) in full again. byCharacter: "identifier#key" -> { synced = bool, points = { [pointId] = untilUnix } }
+local MONEY = { table = "lightrp_mission_payout_cooldowns", byCharacter = {} }
+local REPUTATION = { table = "lightrp_mission_rep_cooldowns", byCharacter = {} }
 local daily = {}     -- scope key -> { day, count, synced }
 
 local function unix()
@@ -99,13 +114,14 @@ end
 -- ---------------------------------------------------------------------------
 -- Cooldowns and the daily cap: write-through caches, loaded once from SQL.
 
-local function cooldownsOf(who)
+local function cooldownsOf(who, store)
+    store = store or MONEY
     local k = characterKey(who)
-    local entry = cooldowns[k]
-    if not entry then entry = { synced = false, points = {} }; cooldowns[k] = entry end
+    local entry = store.byCharacter[k]
+    if not entry then entry = { synced = false, points = {} }; store.byCharacter[k] = entry end
     if not entry.synced and Db.ready then
         entry.synced = true
-        local rows = Db.query("SELECT point_id, until_unix FROM lightrp_mission_payout_cooldowns WHERE identifier = ? AND character_key = ? AND until_unix > ?",
+        local rows = Db.query("SELECT point_id, until_unix FROM " .. store.table .. " WHERE identifier = ? AND character_key = ? AND until_unix > ?",
             { who.identifier, who.key, unix() }) or {}
         for _, row in ipairs(rows) do
             local untilUnix = tonumber(row.until_unix) or 0
@@ -113,6 +129,17 @@ local function cooldownsOf(who)
         end
     end
     return entry.points
+end
+
+-- Starts the point's window for this character (nothing for 0 minutes).
+local function startWindow(who, pointId, store, minutes)
+    local untilUnix = unix() + math.floor(number(minutes, 0) * 60)
+    if untilUnix <= unix() then return end
+    cooldownsOf(who, store)[pointId] = untilUnix
+    if Db.ready then
+        Db.run("INSERT INTO " .. store.table .. " (identifier, character_key, point_id, until_unix) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE until_unix = VALUES(until_unix)",
+            { who.identifier, who.key, pointId, untilUnix })
+    end
 end
 
 local function dailyOf(who)
@@ -128,14 +155,7 @@ local function dailyOf(who)
 end
 
 local function record(who, pointId)
-    local untilUnix = unix() + math.floor(number(C.cooldownMinutes, 0) * 60)
-    if untilUnix > unix() then
-        cooldownsOf(who)[pointId] = untilUnix
-        if Db.ready then
-            Db.run("INSERT INTO lightrp_mission_payout_cooldowns (identifier, character_key, point_id, until_unix) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE until_unix = VALUES(until_unix)",
-                { who.identifier, who.key, pointId, untilUnix })
-        end
-    end
+    startWindow(who, pointId, MONEY, C.cooldownMinutes)
     local entry = dailyOf(who)
     entry.count = entry.count + 1
     if Db.ready then
@@ -178,6 +198,48 @@ local function detail(state, info, crew, min, share)
     return ""
 end
 Pay.detail = detail
+
+-- ---------------------------------------------------------------------------
+-- Reputation: the same repeat rule per mission point, on its own window
+
+local function repShare() return math.max(0, math.min(1, number(C.reputationRepeatShare, 1))) end
+local function repMinutes() return math.max(0, number(C.reputationCooldownMinutes, 0)) end
+local function repRule() return repShare() < 1 and repMinutes() > 0 end
+
+function Pay.reputationStatus(id, pointId)
+    if not repRule() then return "full", {} end
+    local who = owner(id)
+    if not who then return "full", {} end
+    local untilUnix = cooldownsOf(who, REPUTATION)[pointId]
+    local now = unix()
+    if untilUnix and untilUnix > now then return "cooldown", { seconds = untilUnix - now } end
+    return "full", {}
+end
+
+function Pay.reputationQuote(id, pointId, rep)
+    rep = math.max(0, math.floor(number(rep, 0)))
+    local state, info = Pay.reputationStatus(id, pointId)
+    if state == "full" or rep <= 0 then return rep, state, info end
+    return round(rep * repShare()), state, info
+end
+
+-- The words a notice adds after "+N reputation" ("" for the full reputation).
+local function reputationDetail(state, info, full)
+    if state ~= "cooldown" then return "" end
+    return string.format(" (%d%% of %d: this job gave you its full reputation less than %d min ago, full reputation again in %d min)",
+        round(repShare() * 100), full, math.floor(repMinutes()), math.max(1, math.ceil((info.seconds or 0) / 60)))
+end
+
+-- What a completion grants this character at the point (missions.lua adds it with
+-- Missions.addReputation): amount, state, the notice's words. A full grant starts the
+-- point's window; a reduced one does not extend it (like the money).
+function Pay.reputation(id, pointId, rep)
+    local full = math.max(0, math.floor(number(rep, 0)))
+    local amount, state, info = Pay.reputationQuote(id, pointId, full)
+    local who = owner(id)
+    if state == "full" and amount > 0 and who and repRule() then startWindow(who, pointId, REPUTATION, repMinutes()) end
+    return amount, state, reputationDetail(state, info, full)
+end
 
 -- ---------------------------------------------------------------------------
 -- Settlement and the launch notice
@@ -228,14 +290,18 @@ function Pay.announce(inst, point, d)
     CreateThread(function()
         for _, id in ipairs(members) do
             local amount, state, info = Pay.quote(id, point.id, share)
-            LightRP.notice(id, { kind = state == "full" and "money" or "warning", title = "PAYOUT", durationMs = 10000,
-                body = string.format("If you finish: %s to your account%s.", money(amount), detail(state, info, crew, d.min, share)) })
+            local repState, repInfo = Pay.reputationStatus(id, point.id)
+            local repNote = repState == "cooldown" and string.format(" Reputation: %d%% of it, this job gave you its full reputation less than %d min ago (full again in %d min).",
+                round(repShare() * 100), math.floor(repMinutes()), math.max(1, math.ceil((repInfo.seconds or 0) / 60))) or ""
+            LightRP.notice(id, { kind = (state == "full" and repState == "full") and "money" or "warning", title = "PAYOUT", durationMs = 10000,
+                body = string.format("If you finish: %s to your account%s.%s", money(amount), detail(state, info, crew, d.min, share), repNote) })
         end
     end)
 end
 
 local authoredMax = type(C.authored) == "table" and type(C.authored.maxShare) == "table" and C.authored.maxShare or {}
-LightRP.log("missionPay ready: crew exponent %.2f, %d min cooldown per point, %d full payouts a day per %s, %d%% beyond, ceiling %s/min, authored %s/%s/%s",
+LightRP.log("missionPay ready: crew exponent %.2f, %d min cooldown per point, %d full payouts a day per %s, %d%% beyond, ceiling %s/min, authored %s/%s/%s, reputation %d%% for %d min per point",
     number(C.crewExponent, 1), math.floor(number(C.cooldownMinutes, 0)), math.floor(number(C.dailyFullPayouts, 0)),
     C.capScope == "character" and "character" or "account", round(number(C.repeatShare, 0) * 100), tostring(C.maxSharePerMinute or "none"),
-    tostring(authoredMax.standard or "-"), tostring(authoredMax.hard or "-"), tostring(authoredMax.critical or "-"))
+    tostring(authoredMax.standard or "-"), tostring(authoredMax.hard or "-"), tostring(authoredMax.critical or "-"),
+    round(repShare() * 100), math.floor(repMinutes()))

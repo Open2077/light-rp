@@ -334,6 +334,22 @@ assert(solo and #solo.members == 1)
 tick(LightRpMissions.points[1].difficulties[1].minutes * 60000 + 1000)
 assert(not Missions.instanceOf(5) and buckets[5] == 0 and not paid[5], "failed on time")
 
+-- ── the same mission again inside the hour: money and reputation at the repeat share,
+--    and the notice says both (owner decision 2026-11-04, mission_pay_test covers the rule) ──
+clock = clock + 2000
+local repBefore4, paidBefore4 = Missions.reputation(4), paid[4]
+assert(act(4, "mission.tag", { difficulty = "standard" }).ok)
+assert(commands["missions.launch"](0, { "4" }))
+assert(Missions.instanceOf(4), "launched again")
+assert(commands["missions.complete"](0, { "4" }))
+local share = LightRpEconomy.missions.reputationRepeatShare
+local reduced = math.floor(LightRpMissions.reputationGain.standard * share + 0.5)
+assert(Missions.reputation(4) == repBefore4 + reduced, "a quarter of the reputation: " .. (Missions.reputation(4) - repBefore4))
+assert(paid[4] - paidBefore4 < P.difficulties[1].payout, "and a reduced payout")
+local again = lastNotice(4, "MISSION COMPLETE").body
+assert(again:find("+" .. reduced .. " reputation (" .. math.floor(share * 100 + 0.5) .. "% of " .. LightRpMissions.reputationGain.standard
+    .. ": this job gave you its full reputation less than 60 min ago", 1, true), again)
+
 -- ── disconnect while tagged and while in a crew ──
 clock = clock + 2000
 assert(act(4, "mission.tag", { difficulty = "standard" }).ok)

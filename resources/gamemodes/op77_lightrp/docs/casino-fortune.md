@@ -23,8 +23,9 @@ at the table bet whole RP dollars on a multiplier; any seated player may spin.
 | Neon Eye | 1 | 40 to 1 | 24.1% |
 | Starburst | 1 | 40 to 1 | 24.1% |
 
-A winning bet returns multiplier x stake + stake. Bets: 1 to 1,000 per bet,
-at most 5,000 per character per spin, 32 distinct stakes per spin. The 2x/5x
+A winning bet returns multiplier x stake + stake. Bets: 1 to 100 per bet,
+at most 500 per character per spin (owner decision 2026-11-04,
+economy-balance.md §16), 32 distinct stakes per spin. The 2x/5x
 counts differ from the classic 15/7 because the symmetric face needs even
 counts; that is what lets 27 pose meshes show all 54 positions.
 
@@ -33,7 +34,9 @@ counts; that is what lets 27 pose meshes show all 54 positions.
 `shared/casino_fortune.lua` holds the layout, payouts and the deterministic
 spin plan; `server/modules/casino_fortune.lua` picks the segment
 (`math.random(0,53)`) and the laps (2-3), debits stakes through `X.stake`, and
-writes every winner's durable claim in the same transaction as the spin, with
+writes every winner's durable claim in the same transaction as the spin (with
+one transaction-log line per bettor: kind `casino`, *Fortune Wheel table*, amount
+= returns − stakes of the spin; the chips themselves write no line), with
 `available_at` = end of the spin (9 s: 8.2 s motion with linear deceleration,
 then the flapper settles). Bets are closed while spinning; pickup and reset
 are refused during a spin and refund open bets otherwise. The next bet or spin
@@ -54,7 +57,7 @@ on the whole wheel above the betting felt (views *Wheel*, *Betting felt*,
 spots are marked faintly as clickable. Click a spot on the felt (1x, 2x, 5x, 10x, 20x, Neon Eye 40x,
 Starburst 40x) to select it: it is outlined in cyan and the bar shows
 *20x · pays 20 to 1*; set the chip with − / + and press *Bet €$ 10 on 20x*
-(within 5,000 per round and your cash), then *Spin* (also after a result: it
+(within 500 per round and your cash), then *Spin* (also after a result: it
 starts the next round). A click only selects; money moves on *Bet*. While the
 wheel turns the bar shows a countdown and no buttons; then *20x wins* and what
 you won. Each accepted bet and the result arrive as notices.

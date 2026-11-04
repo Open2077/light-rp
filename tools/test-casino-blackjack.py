@@ -37,12 +37,12 @@ local function after(s) return math.max(s.actAt or 0,s.animEnd or 0) end
 -- Bets: limits, whole dollars, one owner per seat, countdown starts at the first bet.
 local s=B.new('duel',1,now)
 assert(s.phase=='betting' and s.shoe.left==312 and not s.closesAt)
-no(s,'white','bet',{amount=4,inventory='i1'});no(s,'white','bet',{amount=5001,inventory='i1'});no(s,'white','bet',{amount=7.5,inventory='i1'})
+no(s,'white','bet',{amount=4,inventory='i1'});no(s,'white','bet',{amount=501,inventory='i1'});no(s,'white','bet',{amount=7.5,inventory='i1'})
 no(s,'white','hit',{inventory='i1'});no(s,'white','deal',{inventory='i1'})
 s=ok(s,'white','bet',{amount=10,inventory='i1'});assert(s.closesAt==now+B.BET_WINDOW and s.hands.white.bet==10)
 s=ok(s,'white','bet',{amount=15,inventory='i1',nowMs=now+3000});assert(s.hands.white.bet==25 and s.closesAt==now+B.BET_WINDOW)
 assert(no(s,'white','bet',{amount=10,inventory='i2'}):find('another player'))
-no(s,'white','bet',{amount=4980,inventory='i1'})
+no(s,'white','bet',{amount=476,inventory='i1'});assert(B.MAX_BET==500)
 assert(not B.due(s,now+B.BET_WINDOW-1) and B.due(s,now+B.BET_WINDOW))
 
 -- Natural pays 3:2 (whole dollars, rounded down); dealer S17 stands on soft 17.

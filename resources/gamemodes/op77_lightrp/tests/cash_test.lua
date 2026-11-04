@@ -121,9 +121,40 @@ assert(I.trade(1,"buy",{{name="phone",count=1}},"cash",20,"Shop"));assert(a.item
 bank=M.get(1).bank;assert(not M.withdraw(1,1) and M.get(1).bank==bank,"full inventory never loses a withdrawal")
 assert(I.trade(1,"sell",{{name="phone",count=1}},"cash",10,"Shop"));assert(a.items[1].name=="cash" and M.get(1).cash==10)
 a.items,a.slots=saved,slots
+-- Casino rounds (docs/economy-balance.md §16): stakes and table payouts move pocket cash
+-- without a line; the round writes one net line, kind "casino", in its own transaction.
+do
+    local inv=I.player(1); local lines=#state.ledger; local pocket=M.get(1).cash
+    local draft=I.draft(inv); assert(I.adjustCash(draft,-100)); draft.ledger={silent=true,direction="out",kind="casino"}
+    local q,done=M.casinoLine(inv.id,"Slots",100,0,100)
+    fail=true; assert(not I.commitDrafts({{inv,draft}},{q})); fail=false
+    assert(M.get(1).cash==pocket and #state.ledger==lines,"a failed pull moves nothing and writes nothing")
+    assert(I.commitDrafts({{inv,draft}},{q})); done()
+    assert(M.get(1).cash==pocket-100 and #state.ledger==lines+1,"one line for the stake and its loss")
+    local row=state.ledger[#state.ledger] -- account, wallet, kind, amount, balance_after, counterparty, note
+    assert(row[1]==M.get(1).number and row[2]=="cash" and row[3]=="casino" and row[4]==-100 and row[5]==pocket-100)
+    assert(row[6]=="Slots table" and row[7]=="Slots: staked €$ 100, returned €$ 0",row[7])
+    assert(M.history(1)[1].kind=="casino" and M.history(1)[1].amount==-100,"the line reaches the online history")
+    -- a win settled now and claimed later: the line counts the return, the claim moves silently
+    q,done=M.casinoLine(inv.id,"Roulette",30,360); assert(q.values[4]==330 and q.values[5]==pocket-100+360)
+    assert(I.commitDrafts({},{q})); done()
+    draft=I.draft(inv); assert(I.adjustCash(draft,360)); draft.ledger={silent=true,direction="in",kind="casino"}
+    assert(I.commitDrafts({{inv,draft}},{}))
+    assert(M.get(1).cash==pocket+260 and #state.ledger==lines+2,"the claim writes no line")
+    -- a silent label only covers its own direction
+    draft=I.draft(inv); assert(I.adjustCash(draft,-5)); draft.ledger={silent=true,direction="in",kind="casino"}
+    assert(I.commitDrafts({{inv,draft}},{})); assert(#state.ledger==lines+3 and state.ledger[#state.ledger][3]=="inventory")
+    -- an owner offline at settlement: written through the account lookup, balance unknown (0)
+    q=M.casinoLine("player:gone-offline#alt","Fortune Wheel",10,50)
+    assert(q.query:find("FROM lightrp_wallets WHERE identifier = ? AND character_key = ?",1,true))
+    assert(q.values[1]==40 and q.values[4]=="gone-offline" and q.values[5]=="alt")
+    assert(M.casinoLine(inv.id,"Slots",0,0)==nil and M.casinoLine("stash:x","Slots",5,0)==nil,"nothing to write")
+    draft=I.draft(inv); assert(I.adjustCash(draft,pocket-M.get(1).cash)); assert(I.commitDrafts({{inv,draft}},{}))
+    assert(M.get(1).cash==pocket)
+end
 -- Disconnect while committing: the old cache must never overwrite SQL.
 yieldDb=true;co=coroutine.create(function() assert(M.addCash(1,1)) end)
 assert(coroutine.resume(co));I.onDisconnected(1);M.onDisconnected(1)
 assert(coroutine.resume(co));yieldDb=false;assert(not I.get(a.id))
 load(1);assert(I.cashOf(I.player(1))==10976,"committed cash survives reconnect")
-print("PASS: cash migration + backup + retries; new/reconnecting characters; zero weight; split/merge/give/pay/drop/storage; cash/bank/shop/external payments; rollback; locks; full bags; disconnect; invalid quantities")
+print("PASS: cash migration + backup + retries; new/reconnecting characters; zero weight; split/merge/give/pay/drop/storage; cash/bank/shop/external payments; casino net lines + silent stakes; rollback; locks; full bags; disconnect; invalid quantities")

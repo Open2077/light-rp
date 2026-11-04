@@ -50,7 +50,7 @@ def scenario(name,script):
 scenario('slot stake is debited atomically; invalid bets and insufficient cash change nothing',r'''
 local id=place('slots',1);action(1,id,'join')
 assert(board(id).game.kind=='slots' and board(id).game.phase=='idle')
-for _,bet in ipairs({0,-1,1.5,1001,'abc',0/0}) do
+for _,bet in ipairs({0,-1,1.5,101,1001,'abc',0/0}) do
  local before=commits;game(1,id,'pull',{bet=bet});assert(cash(1)==1000 and commits==before and board(id).game.round==0)
 end
 local revision=board(id).revision
@@ -65,6 +65,10 @@ local state=board(id).game
 assert(cash(1)==975 and state.phase=='spinning' and state.round==1 and state.spin.gross==0 and claims()==0)
 assert(state._inventory==nil and dbBoards[id].data.game._inventory=='inv1' and state.yours==true)
 assert(state.spin.endsAt-state.spin.at==3000 and state.spin.at>1790000000000)
+-- one ledger line for the pull, in its own commit; the failed pulls wrote none
+assert(#dbLedger==1 and #ledgerShown==1)
+local line=dbLedger[1]
+assert(line.inventory=='inv1' and line.game=='Slots' and line.staked==25 and line.returned==0 and line.net==-25 and line.unsettled==25)
 ''')
 
 scenario('slot win: server stops, payout claim available when the reels stop, paid exactly once',r'''
@@ -72,6 +76,7 @@ local id=place('slots',1);action(1,id,'join');action(2,id,'join')
 win('seven');game(1,id,'pull',{bet=5})
 local state=board(id).game;local spin=state.spin
 assert(cash(1)==995 and unpaid('inv1')==1000 and spin.gross==1000)
+assert(#dbLedger==1 and dbLedger[1].staked==5 and dbLedger[1].returned==1000 and dbLedger[1].net==995)
 assert(spin.stops[1]==stopOf(1,'seven') and spin.stops[3]==stopOf(3,'seven'))
 local row;for _,r in pairs(dbClaims) do row=r end
 assert(row.available_at==spin.endsAt and row.round_key:find(id,1,true)==1)
@@ -85,6 +90,11 @@ LightRP.tabletopExtra.claim(1);LightRP.tabletopExtra.claim(5);assert(cash(1)==19
 -- The board loop settles once the reels have stopped.
 assert(step(2000));state=board(id).game
 assert(state.phase=='idle' and state.last.gross==1000 and state.last.label=='Three Sevens')
+assert(#dbLedger==1,'the payout writes no second line')
+for _,m in ipairs(cashMoves) do assert(m.label and m.label.silent==true and m.label.kind=='casino') end
+-- The jackpot is 200x the bet: at the 100 maximum it pays 20,000 (it was 200,000 at 1,000).
+win('seven');game(1,id,'pull',{bet=100});state=board(id).game
+assert(state.spin.gross==20000 and cash(1)==1895 and dbLedger[2].net==19900)
 ''')
 
 scenario('slot: no double pull, replayed and reentrant packets never charge twice, watchers cannot pull',r'''

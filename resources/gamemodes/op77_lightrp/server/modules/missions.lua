@@ -211,6 +211,17 @@ local function gain(basisId, d)
     return rep
 end
 Missions.reputationGainOf = gain
+-- The repeat rule on a finished run's reputation (owner decision 2026-11-04,
+-- mission_pay.lua Pay.reputation): the reputation granted and the words the
+-- notice adds when it is reduced ("" in full). A full grant starts the point's window.
+local function repeatReputation(id, point, rep)
+    local Pay = LightRP.missionPay
+    if rep > 0 and Pay and type(Pay.reputation) == "function" then
+        local amount, _, words = Pay.reputation(id, point.id, rep)
+        return amount, words or ""
+    end
+    return rep, ""
+end
 -- The reputation a finished difficulty pays this character (Missions.rewardBasis).
 function Missions.reputationFor(id, d, point, ladder)
     local basis = Missions.rewardBasis(id, d, point, ladder)
@@ -589,11 +600,11 @@ local function finish(inst, success, why)
         if success and inst.gig then
             -- a gig counts the tier only (no clear ladder); the money is mission_pay's
             local basis = Missions.rewardBasis(id, d, point, false)
-            local rep = basis and gain(basis.id, d) or 0
+            local rep, repWords = repeatReputation(id, point, basis and gain(basis.id, d) or 0)
             Missions.addReputation(id, rep); gained = rep
             LightRP.notice(id, { kind = "success", title = "GIG COMPLETE", durationMs = 10000,
-                body = string.format("%s · %s. %s wired by %s%s, +%d reputation%s.", point.title, d.label,
-                    LightRP.money and LightRP.money.format(pay.amount) or tostring(pay.amount), inst.gig.fixerName or "your fixer", pay.detail, rep,
+                body = string.format("%s · %s. %s wired by %s%s, +%d reputation%s%s.", point.title, d.label,
+                    LightRP.money and LightRP.money.format(pay.amount) or tostring(pay.amount), inst.gig.fixerName or "your fixer", pay.detail, rep, repWords,
                     basis ~= d and (" (" .. (basis and sentenceLabel(basis) or "no") .. " reward)") or "") })
         elseif inst.gig then
             LightRP.notice(id, { kind = "error", title = "GIG FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the job went sideways.") })
@@ -605,7 +616,7 @@ local function finish(inst, success, why)
             reputation[id].completed = reputation[id].completed + 1
             -- a crew member carried above what they have unlocked: the reward of their best
             local basis = Missions.rewardBasis(id, d, point, true)
-            local rep = basis and gain(basis.id, d) or 0
+            local rep, repWords = repeatReputation(id, point, basis and gain(basis.id, d) or 0)
             Missions.addReputation(id, rep); gained = rep
             local opens = Missions.cleared(id, point.id, d.id) == 0 and point.difficulties[(function()
                 for i, other in ipairs(point.difficulties) do if other.id == d.id then return i + 1 end end
@@ -620,7 +631,7 @@ local function finish(inst, success, why)
                         Missions.tierLabel(Missions.requiredTier(opens))) })
             end
             LightRP.notice(id, { kind = "success", title = "MISSION COMPLETE", durationMs = 10000,
-                body = string.format("%s · %s. %s paid to your account%s, +%d reputation%s.", point.title, d.label, LightRP.money and LightRP.money.format(pay.amount) or tostring(pay.amount), pay.detail, rep,
+                body = string.format("%s · %s. %s paid to your account%s, +%d reputation%s%s.", point.title, d.label, LightRP.money and LightRP.money.format(pay.amount) or tostring(pay.amount), pay.detail, rep, repWords,
                     basis ~= d and (" (" .. (basis and sentenceLabel(basis) or "no") .. " reward)") or "") })
         else
             LightRP.notice(id, { kind = "error", title = "MISSION FAILED", durationMs = 10000, body = point.title .. ": " .. (why or "the operation was lost.") })

@@ -11,10 +11,25 @@ local function inventoryId(player)
  return inv and inv.persistent and inv.id or nil
 end
 -- The round became settled in this change: one claim per stake owner, paid
--- once the reveal animation ends.
-local function claims(before,after)
- if after.phase~="result" or before.phase=="result" then return {} end
- return X.claimQueries(after._roundKey,B.returns(after),after.resultAt)
+-- once the reveal animation ends, and one net ledger line per stake owner
+-- (X.ledgerLines). `unsettled`: the stakes debited by this same commit (a
+-- double). Answers the queries and the function to run once committed.
+local function claims(before,after,unsettled)
+ if after.phase~="result" or before.phase=="result" then return {},nil end
+ local returned=B.returns(after)
+ local queries=X.claimQueries(after._roundKey,returned,after.resultAt)
+ local staked={}
+ for _,hand in pairs(after.hands or {}) do
+  if hand._inv then staked[hand._inv]=(staked[hand._inv] or 0)+(hand.stake or hand.bet or 0) end
+ end
+ local lines,logged=X.ledgerLines("Blackjack",staked,returned,unsettled)
+ for _,query in ipairs(lines) do queries[#queries+1]=query end
+ return queries,logged
+end
+local function commitWith(commit,game,queries,changes,logged)
+ local ok,why=commit(game,queries,changes)
+ if ok and logged then logged() end
+ return ok,why
 end
 local function act(player,b,seat,operation,data,commit)
  local now=X.now()
@@ -37,11 +52,13 @@ local function act(player,b,seat,operation,data,commit)
   if not game then return false,why end
   local inv,draft=X.stake(player,hand.bet)
   if not inv then return false,draft end
-  return commit(game,claims(b.game,game),{{inv,draft}})
+  local queries,logged=claims(b.game,game,{[inv.id]=hand.bet})
+  return commitWith(commit,game,queries,{{inv,draft}},logged)
  elseif operation=="hit" or operation=="stand" or operation=="deal" then
   local game,why=B.act(b.game,seat,operation,{nowMs=now,inventory=inventory,seed=seed()})
   if not game then return false,why end
-  return commit(game,claims(b.game,game))
+  local queries,logged=claims(b.game,game)
+  return commitWith(commit,game,queries,nil,logged)
  end
  return false,"Unknown blackjack action."
 end
@@ -165,6 +182,6 @@ X.register("blackjack",{
  settle=function(b,now)
   local game=B.settle(b.game,now,seed())
   if not game then return nil end
-  return game,claims(b.game,game)
+  return game,claims(b.game,game) -- queries, then the ledger refresh (board loop)
  end,
 })

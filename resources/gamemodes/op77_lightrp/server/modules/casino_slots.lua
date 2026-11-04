@@ -10,7 +10,7 @@ local S=LightRpCasinoSlots
 local function pull(player,b,seat,data,commit)
  if seat~="white" then return false,"Only the player at the machine can pull the lever." end
  local bet=tonumber(data.bet)
- if not bet or bet~=math.floor(bet) or bet<S.MIN_BET or bet>S.MAX_BET then return false,"Bet between 1 and 1,000 in whole RP dollars." end
+ if not bet or bet~=math.floor(bet) or bet<S.MIN_BET or bet>S.MAX_BET then return false,S.BET_TEXT end
  local now=X.now()
  local stops={math.random(0,S.STOPS-1),math.random(0,S.STOPS-1),math.random(0,S.STOPS-1)}
  local game,why=S.act(b.game,seat,"pull",{bet=bet,stops=stops,nowMs=now})
@@ -20,7 +20,8 @@ local function pull(player,b,seat,data,commit)
  game._inventory=inv.id
  local key=b.id..":"..tostring(b.revision+1)
  local queries=X.claimQueries(key,{[inv.id]=game.spin.gross},game.spin.endsAt)
- return commit(game,queries,{{inv,draft}})
+ -- one ledger line for the pull: the stake out, the gross return in
+ return X.commitRound(commit,game,queries,{{inv,draft}},"Slots",{[inv.id]=bet},{[inv.id]=game.spin.gross},{[inv.id]=bet})
 end
 
 X.register("slots",{

@@ -18,23 +18,33 @@ LightRpEconomy = {
         dailyFullPayouts = 6,
         capScope = "account",
         -- What a completion pays while on cooldown or past the daily cap, as a
-        -- fraction of the share (reputation is never reduced).
+        -- fraction of the share.
         repeatShare = 0.25,
+        -- Reputation follows the same repeat rule per mission point (owner decision
+        -- 2026-11-04, docs/economy-balance.md §16): after a completion that granted a
+        -- character the full reputation, the same point grants them
+        -- reputationRepeatShare of it for reputationCooldownMinutes (board missions,
+        -- gigs, Chimera and Sector 04 alike). Its own window, started by every full
+        -- grant: a run past the daily money cap starts it too. The daily cap itself
+        -- does not touch reputation. 1 (or 0 minutes) turns it off.
+        reputationCooldownMinutes = 60,
+        reputationRepeatShare = 0.25,
         -- Ceiling of the per-head payout, in eddies per minute of the difficulty's
         -- time limit: guards against authored missions saved with old payouts.
         maxSharePerMinute = 250,
         -- Missions and gigs of the mission editor only (Chimera and Sector 04 keep their
         -- own payouts), on top of the per-minute ceiling (prod audit 2026-11-04,
-        -- docs/economy-balance.md §15):
+        -- docs/economy-balance.md §15; owner decision §16):
         --   maxShare        the per-head payout at the minimum crew never exceeds this,
         --                   whatever the payout and time limit saved in the editor:
-        --                   1.8 x J at the editor's default clock (critical: 250 x 20)
+        --                   the editor's own defaults (shared/mission_defs.lua), 1.66 /
+        --                   1.64 / 1.49 x J at its default clock
         --   fullPayEnemies  a difficulty with fewer enemies to beat (start spawn points,
         --                   required checkpoints, every wave) pays enemies / this of it,
         --                   and the same fraction of its reputation: a 3-enemy contract
         --                   is not a full contract. {} turns it off.
         authored = {
-            maxShare = { standard = 2600, hard = 3300, critical = 5000 },
+            maxShare = { standard = 2400, hard = 3000, critical = 4400 },
             fullPayEnemies = { standard = 12, hard = 18, critical = 24 },
         },
     },
@@ -157,5 +167,18 @@ LightRpEconomy = {
         fee = 50,
         graceMinutes = 120,
         counterparty = "Fitting room",
+    },
+
+    -- Staff money grants (owner decision 2026-11-04, docs/economy-balance.md §16):
+    -- /lightrp.givemoney and the staff desk's Credit (admin.lua) refuse a grant
+    -- without a reason of at least minReason characters (it is the ledger line's
+    -- note) and above maxGrant €$. A holder of unlimitedPermission (an ACL
+    -- permission, not a command: the staff roles' "command.lightrp.*" never
+    -- includes it, only an explicit grant or "*") and the server console are
+    -- not capped. maxGrant = 0 turns the cap off.
+    staffGrants = {
+        maxGrant = 10000,
+        minReason = 4,
+        unlimitedPermission = "lightrp.money.unlimited",
     },
 }

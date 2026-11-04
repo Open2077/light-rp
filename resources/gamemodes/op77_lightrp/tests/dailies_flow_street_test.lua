@@ -493,7 +493,8 @@ join(4, "acc4", "Dex")
 
 give(1, "lucky_number")
 assert(bank(1) == 1500 and money(1).cash == 250, "a new wallet")
-assert(commands["lightrp.givemoney"](0, { "1", "cash", "1000" }))
+assert(not commands["lightrp.givemoney"](0, { "1", "cash", "1000" }), "a staff grant needs a reason (economy-balance.md section 16)")
+assert(commands["lightrp.givemoney"](0, { "1", "cash", "1000", "test", "grant" }))
 -- economy.lua move() (deposit / withdraw) raises onMoneyChanged for the cash wallet
 -- only: the bank side is silent, so ignoreKinds' deposit/withdraw never come into play.
 actions["money.deposit"](1, { amount = 277 })

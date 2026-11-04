@@ -8,14 +8,14 @@ local C = LightRpEconomy.missions
 local noop = function() end
 local unixNow = 20000 * 86400 + 3600 -- 01:00 UTC
 local chars, credits, notices, failing = {}, {}, {}, {}
-local store = { cooldowns = {}, daily = {} }
+local store = { cooldowns = {}, repCooldowns = {}, daily = {} }
 local db = { ready = true, schema = noop }
 function db.query(sql, p)
     local out = {}
-    if sql:find("FROM lightrp_mission_payout_cooldowns", 1, true) then
-        for _, r in pairs(store.cooldowns) do
-            if r.identifier == p[1] and r.character_key == p[2] and r.until_unix > p[3] then out[#out + 1] = { point_id = r.point_id, until_unix = r.until_unix } end
-        end
+    local rows = sql:find("FROM lightrp_mission_payout_cooldowns", 1, true) and store.cooldowns
+        or sql:find("FROM lightrp_mission_rep_cooldowns", 1, true) and store.repCooldowns
+    for _, r in pairs(rows or {}) do
+        if r.identifier == p[1] and r.character_key == p[2] and r.until_unix > p[3] then out[#out + 1] = { point_id = r.point_id, until_unix = r.until_unix } end
     end
     return out
 end
@@ -28,6 +28,8 @@ end
 function db.run(sql, p)
     if sql:find("INSERT INTO lightrp_mission_payout_cooldowns", 1, true) then
         store.cooldowns[p[1] .. "|" .. p[2] .. "|" .. p[3]] = { identifier = p[1], character_key = p[2], point_id = p[3], until_unix = p[4] }
+    elseif sql:find("INSERT INTO lightrp_mission_rep_cooldowns", 1, true) then
+        store.repCooldowns[p[1] .. "|" .. p[2] .. "|" .. p[3]] = { identifier = p[1], character_key = p[2], point_id = p[3], until_unix = p[4] }
     elseif sql:find("INSERT INTO lightrp_mission_payout_daily", 1, true) then
         local k = p[1] .. "|" .. p[2]
         store.daily[k] = math.max(store.daily[k] or 0, p[3])
@@ -87,13 +89,16 @@ end
 -- ── authored missions and gigs (prod audit 2026-11-04): a band, and the content's size ──
 -- The prod contracts as the editor saved them (15 / 15 / 20 min, 1 / 1 / 2 operators):
 -- the band holds whatever the payout and the time limit, the per-minute guard stays.
+-- The band is the editor's own defaults (owner decision 2026-11-04, §16).
 local A = C.authored
-assert(A.maxShare.standard == 2600 and A.maxShare.hard == 3300 and A.maxShare.critical == 5000)
+assert(A.maxShare.standard == 2400 and A.maxShare.hard == 3000 and A.maxShare.critical == 4400)
 local function authoredD(id, minutes, enemies) return { id = id, minutes = minutes, min = 1, enemies = enemies } end
-assert(Pay.cap(8000, authoredD("standard", 15, 18)) == 2600, "WAREHOUSE standard: 8,000 saved, 2,600 paid (not 250 x 15)")
-assert(Pay.cap(30000, authoredD("hard", 15, 36)) == 3300, "VAMOS hard: 30,000 saved, 3,300 paid")
-assert(Pay.cap(80000, authoredD("critical", 20, 48)) == 5000, "TERMINAL B critical: 80,000 saved, 5,000 paid")
-assert(Pay.cap(80000, authoredD("critical", 120, 48)) == 5000, "a 120-min clock no longer lifts the ceiling to 30,000")
+assert(Pay.cap(8000, authoredD("standard", 15, 18)) == 2400, "WAREHOUSE standard: 8,000 saved, 2,400 paid (not 250 x 15)")
+assert(Pay.cap(30000, authoredD("hard", 15, 36)) == 3000, "VAMOS hard: 30,000 saved, 3,000 paid")
+assert(Pay.cap(80000, authoredD("critical", 20, 48)) == 4400, "TERMINAL B critical: 80,000 saved, 4,400 paid")
+assert(Pay.cap(80000, authoredD("critical", 120, 48)) == 4400, "a 120-min clock no longer lifts the ceiling to 30,000")
+assert(Pay.cap(2600, authoredD("standard", 15, 12)) == 2400 and Pay.cap(3300, authoredD("hard", 15, 18)) == 3000
+    and Pay.cap(5000, authoredD("critical", 20, 24)) == 4400, "the old band (2,600 / 3,300 / 5,000) is above it now")
 assert(Pay.cap(2400, authoredD("hard", 5, 30)) == 1250, "a short clock: the guard (250 x 5) still applies")
 assert(Pay.cap(2000, authoredD("standard", 15, 30)) == 2000, "under the band: as saved")
 -- a small contract pays its size: enemies / fullPayEnemies of its difficulty
@@ -108,6 +113,9 @@ assert(Pay.contentScale(standard) == 1 and Pay.cap(6000, { id = "critical", minu
 dofile("shared/safezones.lua")
 dofile("shared/mission_defs.lua")
 local D = LightRpMissionDefs
+for _, base in ipairs(D.DIFFICULTIES) do
+    assert(A.maxShare[base.id] == base.payout, "the band is the editor's default: " .. base.id)
+end
 local O = { x = 100, y = 200, z = 10 }
 local function spawn(id, count, trigger) return { id = id, position = { x = 110, y = 200, z = 10 }, enemy = "militech", count = count, trigger = trigger } end
 local function def(t)
@@ -184,7 +192,7 @@ out = Pay.settle({ id = "g4", members = { 7 }, gig = gig }, point("small"), smal
 assert(gig.payout == 600 and out[7].amount == 600, "a 3-enemy gig: 600 quoted, 600 paid")
 gig = { payout = 9000, fixerName = "Nix" }
 out = Pay.settle({ id = "g5", members = { 7 }, gig = gig }, point("big"), authoredD("hard", 30, 40))
-assert(out[7].amount == 3300, "a gig quoted before the band is still held to it")
+assert(out[7].amount == 3000, "a gig quoted before the band is still held to it")
 
 -- ── what never pays ──
 local before = #credits
@@ -207,16 +215,55 @@ local count = #notices
 Pay.announce({ id = "a2", members = { 8 }, test = true }, point("raid"), standard)
 assert(#notices == count, "no payout notice for a test run")
 
+-- ── reputation: the same repeat rule per mission point (owner decision 2026-11-04) ──
+assert(C.reputationCooldownMinutes == C.cooldownMinutes and C.reputationRepeatShare == C.repeatShare, "the money's window and factor")
+char(12, "acc-12")
+local rep, repState, words = Pay.reputation(12, "warehouse", 100)
+assert(rep == 100 and repState == "full" and words == "", "the first completion: the full reputation, nothing to say")
+rep, repState, words = Pay.reputation(12, "warehouse", 100)
+assert(rep == 25 and repState == "cooldown", "a repeat inside the hour: a quarter")
+assert(words:find("25% of 100: this job gave you its full reputation less than 60 min ago", 1, true) and words:find("full reputation again in 60 min", 1, true), words)
+assert(Pay.reputation(12, "warehouse", 220) == 55, "the factor applies to what the difficulty grants (hard 220: 55)")
+assert(Pay.reputation(12, "pier", 100) == 100, "another mission point grants in full")
+unixNow = unixNow + C.reputationCooldownMinutes * 60 - 30
+assert(Pay.reputationStatus(12, "warehouse") == "cooldown", "a reduced grant does not extend the window")
+unixNow = unixNow + 31
+assert(Pay.reputationStatus(12, "warehouse") == "full", "an hour after the full grant: full again")
+assert(Pay.reputationQuote(12, "warehouse", 100) == 100 and Pay.reputationStatus(12, "warehouse") == "full", "a quote records nothing")
+-- its own window: past the daily money cap no money cooldown starts, the reputation one does
+char(13, "acc-13")
+for n = 1, C.dailyFullPayouts do Pay.settle({ id = "rc" .. n, members = { 13 } }, point("rc" .. n), standard) end
+assert(Pay.settle({ id = "rcx", members = { 13 } }, point("farm"), standard)[13].state == "capped", "money: past the cap")
+assert(Pay.reputation(13, "farm", 100) == 100, "the daily cap does not touch reputation")
+assert(Pay.status(13, "farm") == "capped", "no money cooldown past the cap")
+assert(Pay.reputation(13, "farm", 100) == 25, "but the reputation window started: the repeat is reduced")
+char(14, "acc-13", "second")
+assert(Pay.reputation(14, "farm", 100) == 100, "per character: the account's other character has its own window")
+-- the launch notice says it before the job
+char(15, "acc-15")
+Pay.reputation(15, "solo", 100)
+Pay.announce({ id = "ra", members = { 15 } }, point("solo"), standard)
+local launch = lastNotice(15)
+assert(launch.kind == "warning" and launch.body:find("€$ 3000 to your account.", 1, true)
+    and launch.body:find("Reputation: 25% of it, this job gave you its full reputation less than 60 min ago", 1, true), launch.body)
+C.reputationRepeatShare = 1
+assert(Pay.reputation(13, "farm", 100) == 100 and Pay.reputationStatus(13, "farm") == "full", "share 1: the rule is off")
+C.reputationRepeatShare = 0.25
+assert(Pay.reputation(13, "none", 0) == 0 and Pay.reputationStatus(13, "none") == "full", "no reputation, no window")
+assert(Pay.reputation(99, "farm", 100) == 100 and Pay.reputation(99, "farm", 100) == 100, "no active character: tracked nowhere")
+
 -- ── cooldowns and the daily count survive a restart ──
 char(10, "acc-10")
 Pay.settle({ id = "r1", members = { 10 } }, point("restart"), standard)
+Pay.reputation(10, "restart", 100)
 dofile("server/modules/mission_pay.lua") -- a fresh module: empty caches, rows still in the store
 Pay = LightRP.missionPay
 assert(Pay.status(10, "restart") == "cooldown", "the cooldown is read back from SQL")
+assert(Pay.reputationStatus(10, "restart") == "cooldown" and Pay.reputationStatus(10, "other") == "full", "the reputation window too")
 char(11, "acc-11")
 for n = 1, C.dailyFullPayouts do Pay.settle({ id = "q" .. n, members = { 11 } }, point("q" .. n), standard) end
 dofile("server/modules/mission_pay.lua")
 Pay = LightRP.missionPay
 assert(Pay.status(11, "q-new") == "capped", "the daily count is read back from SQL")
 
-print("PASS: mission pay (crew pot, ceiling, cooldown per character and point, daily cap per account / character and UTC reset, gigs, test runs, failed bank, launch notice, persistence)")
+print("PASS: mission pay (crew pot, ceiling, authored band = editor defaults, cooldown per character and point, daily cap per account / character and UTC reset, gigs, test runs, failed bank, launch notice, reputation repeat rule, persistence)")

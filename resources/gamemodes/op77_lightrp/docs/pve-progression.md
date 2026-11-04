@@ -36,9 +36,9 @@ ajoutés.
 
 | Source | Standard | Hard | Critical | Plafond |
 |---|---:|---:|---:|---|
-| Mission (Sector 04, missions de l'éditeur) | 100 | 220 | 450 | aucun |
-| Raid Chimera | 100 | 220 | 450 | aucun |
-| Gig de fixer | 100 | 220 | 450 | aucun |
+| Mission (Sector 04, missions de l'éditeur) | 100 | 220 | 450 | 25 % sur le même point pendant 60 min après une réputation pleine |
+| Raid Chimera | 100 | 220 | 450 | idem |
+| Gig de fixer | 100 | 220 | 450 | idem |
 | Activité PvE (par résultat, poids 1,0) | 30 | 60 | 100 | 500 / compte / jour |
 | Activité PvP, course, poursuite, Turf War PvP | 0 | 0 | 0 | — |
 
@@ -50,6 +50,16 @@ gig **de l'éditeur** rapporte sa réputation au prorata de sa taille, comme ses
 ennemis à battre ÷ 12 / 18 / 24 (Standard / Hard / Critical), au plus 1. Un contrat de
 3 ennemis donne 25 / 61 / 113 au lieu de 100 / 220 / 450 ; Sector 04, le raid Chimera
 et les contrats complets ne changent pas.
+
+Depuis la décision du propriétaire du 2026-11-04 (`docs/economy-balance.md` §16), la
+réputation des missions, gigs, Sector 04 et raid Chimera suit la même règle de répétition
+que l'argent, par personnage et par point de mission : après une réussite qui a rapporté
+la réputation pleine, le même point ne rapporte que **25 %** de sa réputation pendant
+**60 min** (`missions.reputationRepeatShare` / `reputationCooldownMinutes` dans
+`server/config/economy.lua`). La notice de fin le dit (« +25 reputation (25% of 100: this
+job gave you its full reputation less than 60 min ago, full reputation again in 42 min) »),
+comme l'annonce au lancement. Changer de point de mission rend la réputation pleine ; le
+plafond journalier de l'argent ne touche pas la réputation.
 
 ### Temps pour atteindre chaque palier
 

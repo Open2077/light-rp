@@ -495,7 +495,9 @@ local function commitDrafts(changes, extraQueries, afterCommit)
         if LightRP.money and LightRP.money.inventoryReceipt then
             local query, commit, reason = LightRP.money.inventoryReceipt(inv, Inv.cashOf(draft), draft.ledger or tag)
             if reason then return false, reason end
-            if query then writes[#writes + 1] = query; receipts[#receipts + 1] = commit end
+            -- a silent movement (a casino stake or payout) answers a commit without a line
+            if query then writes[#writes + 1] = query end
+            if commit then receipts[#receipts + 1] = commit end
         end
     end
     if #writes > 0 then

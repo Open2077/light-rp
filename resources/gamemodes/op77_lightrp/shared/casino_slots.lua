@@ -5,7 +5,10 @@ LightRpItems.slot_machine={label="Slot Machine",description="Use to place the ma
 
 LightRpCasinoSlots={}
 local S=LightRpCasinoSlots
-S.MIN_BET,S.MAX_BET=1,1000
+-- Stakes per pull (owner decision 2026-11-04, docs/economy-balance.md §16: casino max
+-- bets / 10). Every return is a multiple of the bet: the 200x jackpot falls with it.
+S.MIN_BET,S.MAX_BET=1,100
+S.BET_TEXT=("Bet between %d and %d in whole RP dollars."):format(S.MIN_BET,S.MAX_BET)
 S.STOPS=12 -- stops per reel; weighting comes from how often a symbol repeats
 S.SYMBOLS={"cherry","lemon","grape","bell","bar","chip","diamond","seven"}
 S.LABELS={cherry="Cherry",lemon="Lemon",grape="Grape",bell="Bell",bar="Bar",chip="Chip",diamond="Diamond",seven="Seven"}
@@ -52,7 +55,7 @@ function S.evaluate(stops)
  return 0,"No win",s
 end
 function S.payout(stops,bet)
- if not integer(bet,S.MIN_BET,S.MAX_BET) then return nil,"Bet between 1 and 1,000 in whole RP dollars." end
+ if not integer(bet,S.MIN_BET,S.MAX_BET) then return nil,S.BET_TEXT end
  local multiplier,why=S.evaluate(stops);if not multiplier then return nil,why end
  return bet*multiplier
 end
@@ -69,7 +72,7 @@ function S.act(s,seat,action,p)
  if action=="pull" then
   if seat~="white" then return nil,"Only the player at the machine can pull the lever." end
   if s.phase=="spinning" and s.spin and now<s.spin.endsAt then return nil,"The reels are still spinning." end
-  if not integer(p.bet,S.MIN_BET,S.MAX_BET) then return nil,"Bet between 1 and 1,000 in whole RP dollars." end
+  if not integer(p.bet,S.MIN_BET,S.MAX_BET) then return nil,S.BET_TEXT end
   if not validStops(p.stops) then return nil,"The server must provide the reel stops." end
   local multiplier=S.evaluate(p.stops)
   local n=copy(s);n.round=n.round+1;n.ply=n.ply+1;n.phase="spinning";n.bet=p.bet

@@ -23,7 +23,9 @@ local function act(player,b,seat,operation,data,commit)
   local key=b.game.phase=="result" and (b.id..":"..tostring(b.revision+1)) or roundKey(b)
   local game,totals=F.spin(b.game,{outcome=math.random(0,F.SEGMENTS-1),laps=math.random(2,3),nowMs=X.now(),roundKey=key})
   if not game then return false,totals end
-  return commit(game,X.claimQueries(game._roundKey,totals,game.spin.endsAt))
+  local staked={}
+  for _,m in ipairs(game._money or {}) do staked[m.inventory]=(staked[m.inventory] or 0)+m.amount end
+  return X.commitRound(commit,game,X.claimQueries(game._roundKey,totals,game.spin.endsAt),nil,"Fortune Wheel",staked,totals)
  end
  return false,"Unknown wheel action."
 end

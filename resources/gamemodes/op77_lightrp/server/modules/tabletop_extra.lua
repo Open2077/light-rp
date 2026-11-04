@@ -7,7 +7,8 @@
 --     view=function(b,inv) return publicGame end,         -- optional; default strips "_" keys
 --     refunds=function(b) return queries end,             -- optional; nil,reason blocks pickup/reset
 --     due=function(b,now) return bool end,                -- optional timed settlement...
---     settle=function(b,now) return game,queries end,     -- ...run by the board loop
+--     settle=function(b,now) return game,queries,after end, -- ...run by the board loop;
+--                                                         -- after (optional) runs once committed
 --     openPlay=true,                                      -- anyone seated nearby may act
 --     modes={duel=true,solo=true},                        -- optional; the board modes the owner may pick
 --     placed=function(b) end,                             -- optional: the table exists (placed, or loaded at start)
@@ -18,7 +19,12 @@
 --   })
 -- placed/removed run after the durable write (or the start-up load) and must
 -- not yield or fail the caller: they are protected and only logged.
--- Helpers for handlers: X.now, X.copy, X.stake, X.claimQueries, X.strip.
+-- Helpers for handlers: X.now, X.copy, X.stake, X.claimQueries, X.ledgerLines,
+-- X.commitRound, X.strip.
+-- The ledger (owner decision 2026-11-04, docs/economy-balance.md §16): stakes,
+-- payouts and refunds move pocket cash without a transaction line; each settled
+-- round writes ONE line per character (kind "casino", the net result) in the
+-- same transaction as its claims (X.ledgerLines / X.commitRound).
 local X={};LightRP.tabletopExtra=X
 X.games={}
 local Inv,Db=LightRP.inventory,LightRP.db
@@ -72,6 +78,7 @@ function X.stake(player,amount)
  end
  local draft=Inv.draft(inv);local ok,reason=Inv.adjustCash(draft,-amount)
  if not ok then return nil,reason=="insufficient_funds" and "Not enough cash for this bet." or reason end
+ draft.ledger={silent=true,direction="out",kind="casino"} -- the round's net line carries it
  return inv,draft
 end
 local function claimQueries(key,totals,at)
@@ -83,6 +90,38 @@ local function claimQueries(key,totals,at)
  return out
 end
 X.claimQueries=claimQueries
+-- One net ledger line per character for a settled round (economy.lua
+-- Money.casinoLine): `staked` and `returned` map inventory id -> amount (gross
+-- return, stake included); `unsettled` the stakes debited by this same commit.
+-- Answers the queries to add to the round's commit and a function to run once
+-- it is committed.
+function X.ledgerLines(game,staked,returned,unsettled)
+ local Money=LightRP.money
+ local queries,after={},{}
+ if type(Money)~="table" or type(Money.casinoLine)~="function" then return queries,function() end end
+ staked,returned,unsettled=staked or {},returned or {},unsettled or {}
+ local ids,seen={},{}
+ for _,t in ipairs({staked,returned}) do for id in pairs(t) do if not seen[id] then seen[id]=true;ids[#ids+1]=id end end end
+ table.sort(ids)
+ for _,id in ipairs(ids) do
+  local query,done=Money.casinoLine(id,game,staked[id] or 0,returned[id] or 0,unsettled[id] or 0)
+  if query then queries[#queries+1]=query;after[#after+1]=done end
+ end
+ return queries,function()
+  for _,done in ipairs(after) do
+   local ok,why=pcall(done)
+   if not ok then LightRP.log("casino ledger line committed; history refresh failed: %s",tostring(why)) end
+  end
+ end
+end
+-- commit(game,queries,changes) with the round's ledger lines added.
+function X.commitRound(commit,game,queries,changes,name,staked,returned,unsettled)
+ local lines,logged=X.ledgerLines(name,staked,returned,unsettled)
+ for _,query in ipairs(lines) do queries[#queries+1]=query end
+ local ok,why=commit(game,queries,changes)
+ if ok then logged() end
+ return ok,why
+end
 function X.new(kind,mode) return X.games[kind].new(mode or "duel") end
 function X.view(b,inv)
  local h=X.games[b.kind]
@@ -149,12 +188,13 @@ local function rouletteAct(player,b,seat,operation,data,commit)
   local game,why=R.act(b.game,seat,"spin",{outcome=math.random(0,36),nowMs=X.now(),seedAngle=math.random()*360})
   if not game then return false,why end
   game._roundKey=b.game._roundKey or (b.id..":"..tostring(b.revision+1));game._money=copy(b.game._money or {})
-  local sums={}
+  local sums,staked={},{}
   for _,bet in ipairs(game._money) do
    local gross=R.roulettePayout(bet.bet,game.spin.outcome,bet.amount)
    sums[bet.inventory]=(sums[bet.inventory] or 0)+gross
+   staked[bet.inventory]=(staked[bet.inventory] or 0)+bet.amount
   end
-  return commit(game,claimQueries(game._roundKey,sums,game.spin.endsAt))
+  return X.commitRound(commit,game,claimQueries(game._roundKey,sums,game.spin.endsAt),nil,"Roulette",staked,sums)
  elseif operation=="nextRound" then
   local game,why=R.act(b.game,seat,"nextRound",{})
   if not game then return false,why end
@@ -219,6 +259,7 @@ function X.claim(player)
     queries[#queries+1]={query="UPDATE lightrp_roulette_claims SET paid=1 WHERE round_key=? AND inventory_id=? AND paid=0",values={row.round_key,current.id}}
    end
    local draft=Inv.draft(current);local can,why=Inv.adjustCash(draft,total);if not can then return false,why end
+   draft.ledger={silent=true,direction="in",kind="casino"} -- in the round's net line already
    local saved,why=Inv.commitDrafts({{current,draft}},queries)
    return saved,saved and total or why
   end)

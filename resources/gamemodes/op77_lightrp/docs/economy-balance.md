@@ -72,8 +72,10 @@ Référence : **J = 3 500 €$/h** pour un joueur actif au grade d'entrée, avec
 4. **Plafond journalier par compte (D2, D3)** : **6 paies pleines** par jour UTC, tous
    personnages du compte confondus (`capScope = "account"`).
 5. **Au-delà** : la mission paie **25 %** de la part. Aider ses amis reste payé, farmer
-   ne l'est plus. La réputation reste entière (et suit le palier de chacun : un équipier
-   sous le palier gagne la réputation de son palier, `docs/pve-progression.md`).
+   ne l'est plus. La réputation suit le palier de chacun (un équipier sous le palier
+   gagne la réputation de son palier, `docs/pve-progression.md`) et, depuis le
+   2026-11-04, la même recharge par point : 25 % pendant 60 min après une réputation
+   pleine (§16.2) ; le plafond journalier ne la touche pas.
 6. **Garde-fou** : une part ne dépasse jamais **250 €$ par minute d'horloge** de la
    difficulté.
 7. **Annonce** : au lancement, chaque opérateur reçoit sa paie attendue (et la raison
@@ -689,14 +691,14 @@ contrats de 3 ennemis (GIG 1 compris).
 
 | Fichier | Clé | Avant | Après |
 | --- | --- | --- | --- |
-| `server/config/economy.lua` | `missions.authored.maxShare` | — (seul 250 × minutes) | **2 600 / 3 300 / 5 000** par tête, quelle que soit l'horloge : 1,80 / 1,81 / 1,69 × J |
+| `server/config/economy.lua` | `missions.authored.maxShare` | — (seul 250 × minutes) | **2 600 / 3 300 / 5 000** par tête, quelle que soit l'horloge : 1,80 / 1,81 / 1,69 × J (*remplacé au §16.1 : 2 400 / 3 000 / 4 400*) |
 | | `missions.authored.fullPayEnemies` | — | **12 / 18 / 24** : paie et réputation × ennemis ÷ ce seuil (au plus 1) |
 | `server/modules/mission_pay.lua` | `cap`, `contentScale` | garde-fou seul | garde-fou, puis bande, puis taille ; un gig n'est pas réduit deux fois |
 | `server/modules/missions.lua` | tableau, réputation | `payout` enregistré, 100 / 220 / 450 | **la paie réelle** ; réputation × la même taille (missions de l'éditeur et gigs) |
 | `shared/mission_defs.lua` | `M.enemies`, `point.difficulties[i].enemies` | — | ennemis à battre par difficulté, comme le moteur les met en file |
 | `server/config/economy.lua` | `worldBosses` | cagnotte = récompense de l'éditeur | **3 000 × combattants payés ^ 0,7**, au plus la récompense ; une part ≤ **250 × minutes** de l'événement |
 | `server/config/world_bosses.lua` | `announce.body` | « a share of {reward} » | « a share of **up to** {reward} » : la cagnotte maximale avec tous les joueurs en ligne |
-| `shared/tabletop_extra_rules.lua` | `R.MAX_BET`, `R.MAX_ROUND` | 1 000 000 par pari, aucune limite par tour | **1 000** par pari, **5 000** par personnage et par tour (comme la roue) |
+| `shared/tabletop_extra_rules.lua` | `R.MAX_BET`, `R.MAX_ROUND` | 1 000 000 par pari, aucune limite par tour | **1 000** par pari, **5 000** par personnage et par tour (comme la roue) (*divisés par 10 au §16.4*) |
 | `server/modules/mission_repay.lua` | règle de `/lightrp.missions.repay` | plafond = garde-fou | plafond = min(garde-fou, bande) ; au-dessus du garde-fou : ancienne échelle, jamais sous le nouveau défaut ; entre la bande et le garde-fou : la bande |
 
 Pourquoi ces nombres :
@@ -731,6 +733,9 @@ Pourquoi ces nombres :
 
 ### 15.6 À déployer en prod (Nightwolf)
 
+*Complété par le §16.8 (décisions du 2026-11-04), qui change aussi les chiffres à vérifier
+ci-dessous : bande 2 400 / 3 000 / 4 400, roulette 100 / 500.*
+
 Copier dans `/opt/op77-lightrp/resources/gamemodes/op77_lightrp/` :
 
 - de cette branche : `server/config/economy.lua`, `server/config/world_bosses.lua`,
@@ -753,6 +758,11 @@ et paie ≈ 2 160 chacun ; une mise de roulette de 1 001 est refusée, une sixi�
 dans le même tour aussi.
 
 ### 15.7 Questions au propriétaire
+
+*Réponses du 2026-11-04 au §16 : 1 → les défauts de l'éditeur (§16.1) ; 2 → oui, 25 %
+pendant 60 min par point (§16.2) ; 3 → 3 boss payés par jour, réputation comprise
+(§16.3) ; 4 → mises ÷ 10 (§16.4) ; 5 → une ligne nette `casino` par manche (§16.5) ;
+6 → motif obligatoire, 10 000 par don (§16.6). 7 et 8 restent ouverts.*
 
 1. **Bande des contrats** : 2 600 / 3 300 / 5 000 (le haut de la cible) — ou les défauts de
    l'éditeur (2 400 / 3 000 / 4 400), plus prudents ?
@@ -781,3 +791,206 @@ Risques et limites : la taille compte des têtes, pas leur santé (un contrat de
 santé ×5 reste payé 25 %) ; un contrat dont tous les ennemis sont derrière des points de
 passage facultatifs compte 0 et ne paie rien ; rien n'a été testé en jeu (tests unitaires
 Lua seulement).
+
+## 16. Décisions du propriétaire 2026-11-04 (branche `lightrp/economy-decisions`)
+
+Réponses aux questions du §15.7 (1 à 6). Chaque nombre est en configuration ; les règles
+sont dans le code. Rien n'a été testé en jeu (tests Lua et Python seulement, §16.9).
+
+### 16.1 Bande des contrats de l'éditeur = défauts de l'éditeur
+
+| Clé (`server/config/economy.lua`) | Avant (§15.5) | Après |
+| --- | --- | --- |
+| `missions.authored.maxShare` | 2 600 / 3 300 / 5 000 | **2 400 / 3 000 / 4 400** (= `shared/mission_defs.lua`), 1,66 / 1,64 / 1,49 × J |
+| `missions.authored.fullPayEnemies` | 12 / 18 / 24 | inchangé |
+
+Le tableau, la paie et `/lightrp.missions.repay` suivent la bande sans autre changement
+(`mission_repay.lua` plafonne à min(garde-fou, bande)). Le §15.3 devient, pour les onze
+contrats complets : **2 400 / 3 000 / 4 400 payés dès le redémarrage, et après la
+commande** (THE PIER OF DEATH, CORPO COLLABS, VAMOS et TERMINAL B compris, qui restaient à
+2 600 / 3 300 / 5 000) ; The House 2 000 / 3 000 / 4 400 ; les petits contrats ne
+changent pas (600 / 833 / 1 100, GIG 1 250 / 417 / 500 : ils sont sous la bande). Plafond
+journalier d'un compte en Standard : 6 × 2 400 = **14 400** (la cible du §15.4 point 1).
+
+### 16.2 Réputation des missions : même règle de répétition que l'argent
+
+| Clé (`missions`) | Valeur | Effet |
+| --- | --- | --- |
+| `reputationCooldownMinutes` | **60** | fenêtre par personnage et par point de mission |
+| `reputationRepeatShare` | **0,25** | part de la réputation pendant la fenêtre (1 ou 0 min : règle coupée) |
+
+Après une réussite qui lui a donné la réputation **pleine**, le même point (tableau, gig,
+Sector 04, raid Chimera) ne donne à ce personnage que 25 % de sa réputation pendant 60 min :
+100 / 220 / 450 → **25 / 55 / 113** (petits contrats 25 / 61 / 113 → 6 / 15 / 28). Une
+réputation réduite ne prolonge pas la fenêtre ; elle a sa propre fenêtre (table
+`lightrp_mission_rep_cooldowns`, créée au démarrage), lancée par chaque réputation pleine,
+même au-delà du plafond journalier de l'argent, lequel ne touche pas la réputation. Le
+joueur le lit à deux endroits : l'annonce au lancement (« Reputation: 25% of it, this job
+gave you its full reputation less than 60 min ago (full again in 42 min). ») et la notice
+de fin (« +55 reputation (25% of 220: this job gave you its full reputation less than
+60 min ago, full reputation again in 42 min). »). Sur un seul point, une heure de farm en
+Standard (≈ 3 passages) rapporte 100 + 25 + 25 = 150 au lieu de 300 ; changer de point
+garde la réputation pleine, comme pour l'argent. Fichiers : `server/modules/mission_pay.lua`
+(`Pay.reputation`, `reputationQuote`, `reputationStatus`), `server/modules/missions.lua`.
+
+### 16.3 Boss mondiaux : 3 paies par personnage et par jour UTC
+
+`server/config/world_bosses.lua` → **`dailyPaid = 3`** (0 coupe le plafond). Un personnage
+payé pour 3 boss mondiaux depuis 00:00 UTC (le même jour que le reste de l'économie,
+`floor(unix / 86400)`) ne touche plus ni part ni les 150 de réputation fixe jusqu'au
+lendemain. Le combat reste ouvert : il marque des points, aide les autres, voit le HUD ;
+il ne compte plus parmi les combattants payés (la cagnotte suit les autres). Sa part
+continue de compter pour ce qui n'est pas de la paie (contrats quotidiens, titres,
+tirages d'iconiques : `results.eligible`) ; seuls l'argent et la réputation s'arrêtent.
+Il est prévenu en entrant dans la zone et à la fin (« Daily world boss pay reached: you
+were paid for 3 world bosses today. Fight on if you like; no pay or reputation from world
+bosses until 00:00 UTC. »), et le récapitulatif de fin affiche le motif `daily_cap`. Un
+boss raté ou une part sous le minimum ne compte pas ; une paie refusée par la banque non
+plus (le joueur est prévenu). Compte tenu dans `lightrp_worldboss_daily` (créée au
+démarrage), relu après un redémarrage. Maximum par jour à 3 combattants : ≈ 3 × 2 157 =
+6 500 €$ et 450 réputation ; seul, 3 × 3 000. Limite connue : le HUD web n'a pas de texte
+pour ce cas ; pour un personnage au plafond, il affiche la ligne générique « no reward »
+(la notice donne la raison). Le bundle `web/` de main n'est pas reproductible depuis
+`ui/` (une reconstruction change `app.js` et `app.css` et efface `web/safezone`), il n'a
+donc pas été reconstruit ici.
+
+### 16.4 Casino : mises maximales divisées par 10
+
+| Jeu (fichier `shared/`) | Avant | Après |
+| --- | --- | --- |
+| Machines à sous (`casino_slots.lua`, `S.MAX_BET`) | 1 – 1 000 par tirage | **1 – 100** |
+| Roulette (`tabletop_extra_rules.lua`, `R.MAX_BET` / `R.MAX_ROUND`) | 1 – 1 000 par pari, 5 000 par personnage et par tour | **1 – 100**, **500** |
+| Roue de la fortune (`casino_fortune.lua`, `F.MAX_BET` / `F.MAX_ROUND`) | 1 – 1 000 par pari, 5 000 par tour | **1 – 100**, **500** |
+| Blackjack (`casino_blackjack.lua`, `B.MAX_BET`) | 5 – 5 000 par main | **5 – 500** (un double porte la main à 1 000) |
+
+Il n'y a pas d'autre table d'argent (billard, échecs, dames, puissance 4 : sans mise). Le
+serveur refuse au-delà avant tout débit ; la barre de table du client lit ces constantes
+(jetons 1, 5, 10, 25, 50, 100 ; blackjack 5 à 500) : rien à reconstruire côté web.
+Seules les textures cuites gardent les anciens chiffres : le tapis du blackjack porte
+« TABLE LIMITS 5 – 5,000 » et la vitre des machines « BET 1 - 1000 ». Les scripts de
+cuisson les lisent dans ces constantes (`tools/build-casino-blackjack-props.py`,
+`tools/build-casino-slots-props.py`) : une recuisson et un nouvel archive client les
+mettront à jour (hors de cette branche, qui ne touche aucun asset).
+
+**Jackpot des machines à sous** : il n'est pas fixe. Toute combinaison paie un multiple de
+la mise (`S.THREE.seven = 200`, mise comprise) : le triple sept rapporte 200 × la mise,
+donc **20 000** à 100 (il en valait 200 000 à 1 000). Rien d'autre à mettre à l'échelle.
+À la mise maximale, une heure de machine à sous (≈ 900 tirages) coûte ≈ 5 000 en
+espérance et touche le jackpot avec ≈ 40 % de chances ; à la roulette ou au blackjack,
+une heure à la mise maximale fait varier un solde d'environ ±5 000 (≈ 1,4 h de J) au lieu
+de ±50 000.
+
+### 16.5 Casino au registre : une ligne nette par personnage et par manche
+
+Chaque manche réglée (tour de roulette, tirage, tour de roue, résultat de blackjack)
+écrit **une** ligne `lightrp_transactions` par personnage qui y a misé : `kind = "casino"`,
+portefeuille `cash`, montant = retours bruts − mises de la manche (doubles compris),
+contrepartie « Roulette table » (« Slots table », « Fortune Wheel table », « Blackjack
+table »), note « Roulette: staked €$ 30, returned €$ 360 ». Elle est écrite dans la même
+transaction SQL que les créances de la manche (`lightrp_roulette_claims`) : une manche qui
+échoue n'écrit rien. Les jetons eux-mêmes n'écrivent plus de ligne : la mise, le paiement
+de la créance et le remboursement passent par une étiquette `silent` du brouillon
+d'inventaire (`Money.inventoryReceipt`) ; une manche remboursée (table rangée ou remise à
+zéro) ne laisse donc aucune ligne. `balance_after` = la poche une fois les gains arrivés ;
+0 si le personnage est hors ligne au règlement (la poche est dans l'inventaire, hors de
+portée du SQL). L'historique en jeu (`/bank`, état `money`) reçoit la ligne dès le
+règlement. Aucun changement de schéma. Code : `server/modules/economy.lua`
+(`Money.casinoLine`, étiquette `silent`), `server/modules/inventory.lua`,
+`server/modules/tabletop_extra.lua` (`X.ledgerLines`, `X.commitRound`, `X.stake`,
+`X.claim`), `casino_slots.lua`, `casino_fortune.lua`, `casino_blackjack.lua`,
+`board_games.lua` (le règlement minuté rafraîchit l'historique).
+
+**Les 2 616 €$ hors registre (§15.2).** Le casino n'était pas absent du registre : toute
+variation de la poche d'un joueur écrivait déjà une ligne, mais anonyme — `kind =
+"inventory"`, note « Physical cash moved » —, une par jeton misé et une par paiement de
+créance. Le tableau du §15.2 ne somme que les lignes nommées (`mission`, `staff`,
+`salary`…) ; il manque donc les lignes `inventory`. Or la seule table de casino posée en
+prod était un blackjack et `lightrp_roulette_claims` est vide : aucune main n'a jamais été
+payée, chaque mise perdue est sortie de la poche par une ligne `inventory` négative.
+Les autres mouvements de liquide hors de la poche (dépôt dans un coffre ou un coffre de
+véhicule, liquide posé au sol) passent par le même chemin : l'argent existe encore mais
+plus dans la masse comptée. **Inférence** : les 2 616 €$ sont la somme des lignes
+`inventory` (mises de blackjack perdues, plus le liquide rangé ou posé) ; à vérifier par
+`SELECT SUM(amount) FROM lightrp_transactions WHERE kind = 'inventory'` (non exécuté :
+pas d'accès à la base pour cette branche). Depuis cette branche, le casino a ses lignes
+`casino` et les lignes `inventory` ne décrivent plus que ces rangements.
+
+Transition : une créance écrite avant le déploiement et payée après passe sans ligne (sa
+mise avait sa ligne `inventory`) ; une mise posée avant le redémarrage sur une manche
+réglée après compte deux fois (ligne `inventory` et ligne `casino`). Une seule fois, et de
+l'ordre d'une mise.
+
+### 16.6 Dons du staff : motif obligatoire, 10 000 par don
+
+`server/config/economy.lua` → `staffGrants` :
+
+| Clé | Valeur | Effet |
+| --- | --- | --- |
+| `maxGrant` | **10 000** | plafond d'un don (0 : pas de plafond) |
+| `minReason` | **4** | caractères minimum du motif |
+| `unlimitedPermission` | **`lightrp.money.unlimited`** | permission ACL qui lève le plafond |
+
+`/lightrp.givemoney <id|me> <cash|bank> <montant> <motif>` refuse un don sans motif (il
+répond l'usage) et, au-delà de 10 000, un donneur qui n'a pas `lightrp.money.unlimited`.
+La console du serveur n'est pas plafonnée. Le motif devient la note de la ligne `staff`
+du registre. Le *Crédit* du bureau staff (`admin.lua`) suit la même règle ; son motif
+d'audit (4 à 500 caractères) est coupé à 160 octets, sans couper un caractère UTF-8,
+pour la note — auparavant un motif de plus de 160 caractères faisait échouer l'insertion
+de la ligne (MariaDB en mode strict) alors que l'argent était déjà versé. Le débit
+(`takemoney`) n'est pas plafonné.
+
+**Pourquoi pas `command.lightrp.money.unlimited`** : `PermissionMatches` (base) accorde
+une permission par `*`, par égalité ou par préfixe `xxx.*`, sans refus. Les rôles
+moderator et operator du dépôt détiennent `command.lightrp.*` : ils recevraient la levée
+du plafond d'office. `lightrp.money.unlimited` est hors de l'espace `command.` : seul `*`
+(le propriétaire) ou une ligne explicite l'accorde. **À ajouter par Nightwolf dans
+l'`acl.jsonc` de prod**, au rôle voulu, puis `acl.reload` ; les fichiers `acl.jsonc` et
+`server.jsonc` ne sont pas modifiés ici.
+
+### 16.7 Ce qui reste ouvert
+
+§15.7 points 7 (fichiers de prod versionnés, `command.lightrp.tables`) et 8 (Dogtown,
+quotidiens) : non traités. Le HUD des boss mondiaux pour un personnage au plafond (§16.3)
+attend une reconstruction du bundle web ; les limites imprimées sur le tapis du blackjack
+et la vitre des machines (§16.4), une recuisson des props.
+
+### 16.8 À déployer en prod (Nightwolf)
+
+Copier de cette branche dans `/opt/op77-lightrp/resources/gamemodes/op77_lightrp/` :
+
+- `server/config/economy.lua`, `server/config/world_bosses.lua` ;
+- `server/modules/admin.lua`, `server/modules/board_games.lua`,
+  `server/modules/casino_blackjack.lua`, `server/modules/casino_fortune.lua`,
+  `server/modules/casino_slots.lua`, `server/modules/economy.lua`,
+  `server/modules/inventory.lua`, `server/modules/mission_pay.lua`,
+  `server/modules/missions.lua`, `server/modules/recap.lua`,
+  `server/modules/tabletop_extra.lua`, `server/modules/world_bosses.lua` ;
+- `shared/casino_blackjack.lua`, `shared/casino_fortune.lua`, `shared/casino_slots.lua`,
+  `shared/tabletop_extra_rules.lua`.
+
+Si le §15.6 n'a pas encore été déployé, copier aussi ses fichiers (identiques à main) :
+`server/modules/mission_repay.lua`, `shared/mission_defs.lua`, `client/core/table_bar.lua`.
+Ne pas copier `server.jsonc` ni `acl.jsonc` ; ajouter `lightrp.money.unlimited` à l'ACL de
+prod pour qui doit pouvoir dépasser 10 000. Redémarrer Light RP (les tables
+`lightrp_mission_rep_cooldowns` et `lightrp_worldboss_daily` se créent seules), puis
+`/lightrp.missions.repay` (aperçu) et `/lightrp.missions.repay apply`.
+
+À vérifier en jeu : WAREHOUSE affiche et paie 2 400 / 3 000 / 4 400 ; refaire le même
+contrat dans l'heure donne 25 % de la réputation avec le motif ; un quatrième boss mondial
+payé dans la journée est refusé avec la notice ; une mise de 101 est refusée à la
+roulette, à la roue et aux machines, 501 au blackjack ; après un tour de roulette, `/bank`
+montre une ligne `casino` nette et aucune ligne `inventory` ; `/lightrp.givemoney me bank
+500` répond l'usage, `/lightrp.givemoney me bank 20000 test du plafond` est refusé sans la
+permission.
+
+### 16.9 Tests
+
+Lua (`tests/run-lua.ps1`) : `mission_pay_test` (bande, réputation répétée), `mission_repay_test`,
+`missions_test` (notice de réputation réduite), `world_boss_test` (plafond journalier),
+`roulette_limits_test` (100 / 500), `cash_test` (ligne `casino`, étiquettes `silent`),
+`staff_money_test` (nouveau : motif, plafond, permission, console, notes UTF-8, bureau),
+`dailies_flow_street_test` (`givemoney` avec motif). Python (`tools/`) : les tests du casino
+et des tables suivent les nouvelles limites ; `test-tabletop-extra-server.py`,
+`test-casino-slots-server.py`, `test-casino-fortune-server.py` et
+`test-casino-blackjack-server.py` vérifient une ligne nette par personnage et par manche,
+rien pour un remboursement, et que chaque mouvement de jetons est `silent`.

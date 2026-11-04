@@ -39,7 +39,8 @@ assert(S.evaluate(stops('bar','bar','bell'))==0)
 assert(S.evaluate(stops('bell','cherry','cherry'))==0,'cherries only count from reel 1')
 -- Invalid input.
 for _,bad in ipairs({{0,0},{12,0,0},{-1,0,0},{0.5,0,0},{0,0,0/0},'x'}) do assert(S.evaluate(bad)==nil) end
-for _,bet in ipairs({0,1001,1.5,-3,0/0}) do assert(S.payout({0,0,0},bet)==nil) end
+assert(S.MAX_BET==100)
+for _,bet in ipairs({0,101,1001,1.5,-3,0/0}) do assert(S.payout({0,0,0},bet)==nil) end
 -- Pull / settle state machine.
 local now=1790000000000
 local s=S.new();assert(s.phase=='idle' and s.round==0)

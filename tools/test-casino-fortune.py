@@ -38,10 +38,12 @@ s=ok(F.bet(s,{inventory='invA',seat='white',spot='2',amount=10,roundKey='k1'}))
 s=ok(F.bet(s,{inventory='invA',seat='white',spot='2',amount=5,roundKey='other'}))
 s=ok(F.bet(s,{inventory='invB',seat='black',spot='eye',amount=7,roundKey='other'}))
 assert(s._roundKey=='k1' and #s._money==2 and s._money[1].amount==15 and s.pot['2']==15 and s.pot.eye==7)
-for _,p in ipairs({{spot='3',amount=1},{spot='1',amount=0},{spot='1',amount=1001},{spot='1',amount=2.5},{spot='1',amount=0/0},{spot={},amount=1}}) do
+for _,p in ipairs({{spot='3',amount=1},{spot='1',amount=0},{spot='1',amount=101},{spot='1',amount=1001},{spot='1',amount=2.5},{spot='1',amount=0/0},{spot={},amount=1}}) do
  p.inventory='invA';p.roundKey='k';assert(not F.bet(s,p))
 end
-local big=F.new();for i=1,5 do big=ok(F.bet(big,{inventory='x',spot='1',amount=1000,roundKey='k'})) end
+-- 100 per placed bet, 500 per character and round (economy-balance.md section 16)
+assert(F.MAX_BET==100 and F.MAX_ROUND==500)
+local big=F.new();for i=1,5 do big=ok(F.bet(big,{inventory='x',spot='1',amount=100,roundKey='k'})) end
 assert(not F.bet(big,{inventory='x',spot='2',amount=1,roundKey='k'}),'per-round cap')
 local many=F.new();for i=1,F.MAX_ENTRIES do many=ok(F.bet(many,{inventory='i'..i,spot='1',amount=1,roundKey='k'})) end
 assert(not F.bet(many,{inventory='new',spot='1',amount=1,roundKey='k'}),'entry cap')

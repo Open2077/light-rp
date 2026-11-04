@@ -21,9 +21,10 @@ for i=0,F.SEGMENTS-1 do
  if spot=='S' then spot=i==0 and 'eye' or 'star' end
  F.layout[i]=spot
 end
+-- Stakes (owner decision 2026-11-04, docs/economy-balance.md §16: casino max bets / 10).
 F.MIN_BET=1
-F.MAX_BET=1000          -- per placed bet
-F.MAX_ROUND=5000        -- per character per round
+F.MAX_BET=100           -- per placed bet
+F.MAX_ROUND=500         -- per character per round
 F.MAX_ENTRIES=32        -- distinct (character, spot) stakes per round
 F.SPIN_MS=8200          -- motion: fast start, long deceleration
 F.DURATION=9000         -- motion + the flapper's settle; claims open at the end

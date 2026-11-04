@@ -396,8 +396,77 @@ LightRpEconomy.worldBosses = nil
 assert(WB.pool(30000, 2) == 30000 and WB.headCap(20) == math.huge, "no worldBosses table: the editor's reward, no cap")
 LightRpEconomy.worldBosses = saved
 
+-- ── the daily cap (owner decision 2026-11-04): 3 paid world bosses per character and UTC day ──
+assert(C.dailyPaid == 3, "three a day")
+local unixNow = 20500 * 86400 + 3600 -- 01:00 UTC on a day no event above was paid
+Open77.time.unix = function() return unixNow end
+for id = 5, 40 do positions[id], chars[id] = nil, nil end
+for id = 1, 3 do chars[id] = "Fighter " .. id; positions[id] = { x = 495 + id, y = 500, z = 10 }; buckets[id] = 0 end
+positions[4] = { x = 2000, y = 0, z = 10 }; buckets[4] = 0; chars[4] = "Away 4"
+-- one event: `hits` (player id -> damage) on the boss, then it falls
+local function fight(hits)
+    paid, notices = {}, {}
+    assert(commands["worldboss.start"](0, {}))
+    seconds(3)
+    local fightEv = WB.current()
+    local boss
+    for _, n in pairs(fightEv.bossNpcs) do boss = n end
+    for id, amount in pairs(hits) do fire("onNpcDamaged", tostring(boss), "player:" .. id, tostring(amount), "1", "player_hit") end
+    npcs[boss].health = 0
+    fire("onNpcDied", tostring(boss), "player:1", "player_hit")
+    seconds(2)
+    assert(fightEv.phase == "cleanup", "boss down")
+    return fightEv
+end
+local function close() seconds(C.cleanupSeconds + 3); assert(WB.current() == nil) end
+local function noticeOf(id, title) for i = #notices, 1, -1 do if notices[i].id == id and notices[i].title == title then return notices[i].body end end end
+for n = 1, 3 do
+    fight({ [1] = 1000, [2] = 1000 })
+    assert(paid[1] and paid[1] > 0 and paid[2] and paid[2] > 0, "paid world boss " .. n .. " of 3")
+    close()
+end
+assert(select(2, WB.dailyCapped(1)) == 3 and WB.dailyCapped(1) and WB.dailyCapped(2) and not WB.dailyCapped(3), "two fighters at the cap")
+local repBefore1, repBefore2 = Missions.reputation(1), Missions.reputation(2)
+local fourth = fight({ [1] = 1000, [2] = 1000, [3] = 1000 })
+-- the zone told them as they came in; the HUD stops promising a share
+local zone1 = noticeOf(1, "WORLD BOSS ZONE")
+assert(zone1 and zone1:find("Daily world boss pay reached: you were paid for 3 world bosses today", 1, true), tostring(zone1))
+assert(noticeOf(3, "WORLD BOSS ZONE"):find("Your share of", 1, true), "an uncapped fighter is promised a share")
+assert(providers.worldBoss(1).dailyCapped == true and providers.worldBoss(1).eligible == false, "the HUD: no share to earn")
+-- the fight counted, the pay did not: no money, no reputation, told why
+assert(not paid[1] and not paid[2], "past the cap: no money")
+assert(Missions.reputation(1) == repBefore1 and Missions.reputation(2) == repBefore2, "past the cap: no reputation")
+assert(fourth.contrib[1].score > 0 and fourth.results[1].dailyCapped and fourth.results[1].pay == 0, "their score still counts in the fight")
+assert(fourth.results[1].eligible, "their share still qualifies (contracts, titles, iconic rolls): only money and reputation stop")
+local down1 = noticeOf(1, "WORLD BOSS DOWN")
+assert(down1 and down1:find("Your share: ", 1, true) and down1:find("no pay or reputation from world bosses until 00:00 UTC", 1, true), tostring(down1))
+-- the capped do not count as paid fighters: the pool is the one of fighter 3 alone
+assert(fourth.pool == WB.pool(30000, 1) and paid[3] == math.min(WB.headCap(10), fourth.pool), "pool for one paid fighter: " .. tostring(paid[3]))
+assert(select(2, WB.dailyCapped(1)) == 3, "an unpaid event does not count")
+close()
+-- a new UTC day: paid again
+unixNow = (math.floor(unixNow / 86400) + 1) * 86400 + 60
+assert(not WB.dailyCapped(1), "the count starts over at 00:00 UTC")
+fight({ [1] = 1000, [2] = 1000 })
+assert(paid[1] and paid[1] > 0 and Missions.reputation(1) == repBefore1 + C.reputation, "paid again, reputation again")
+close()
+-- read back from SQL (a restart), and written through
+local wrote, savedDb = {}, { ready = LightRP.db.ready, single = LightRP.db.single, run = LightRP.db.run }
+LightRP.db.ready = true
+LightRP.db.single = function(sql, p) if sql:find("FROM lightrp_worldboss_daily", 1, true) and p[1] == "id-3" then return { paid_events = 3 } end end
+LightRP.db.run = function(sql, p) if sql:find("INSERT INTO lightrp_worldboss_daily", 1, true) then wrote[#wrote + 1] = p end; return true, 1 end
+assert(WB.dailyCapped(3), "the day's count is read back from SQL")
+chars[6] = "Fresh 6"
+assert(not WB.dailyCapped(6), "another character: nothing paid today")
+assert(select(2, WB.dailyCapped(1)) == 1, "a character already read keeps its count")
+LightRP.db.ready, LightRP.db.single, LightRP.db.run = savedDb.ready, savedDb.single, savedDb.run
+chars[6] = nil
+C.dailyPaid = 0
+assert(not WB.dailyCapped(3), "0: no cap")
+C.dailyPaid = 3
+
 -- ── withdrawn: out of the catalogue ──
 Engine.withdraw("wb-1")
 assert(#WB.catalogue() == 0)
 
-print("PASS: world bosses (editor tag + validation, no board, staff start, city notice (pool up to), pool 3,000 x n^0.7 and 250/min a share, zone HUD + margin + height, boss health x, credit from validated damage/kills only, reinforcements 66/33, shares, latecomer and far player unpaid, cleanup, escape pays nobody, withdraw)")
+print("PASS: world bosses (editor tag + validation, no board, staff start, city notice (pool up to), pool 3,000 x n^0.7 and 250/min a share, zone HUD + margin + height, boss health x, credit from validated damage/kills only, reinforcements 66/33, shares, latecomer and far player unpaid, cleanup, escape pays nobody, daily cap of 3 paid events (money + reputation, told, pool without them, UTC reset, SQL), withdraw)")

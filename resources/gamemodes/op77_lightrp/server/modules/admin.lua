@@ -92,8 +92,17 @@ local function execute(player,target,c,p,reason)
     elseif op=="credit" or op=="debit" then
         local amount=finite(p.amount)
         if not amount or amount<1 or amount>10000000 or amount~=math.floor(amount) or (p.wallet~="cash" and p.wallet~="bank") then return false,"Enter a whole amount between 1 and 10,000,000." end
-        local f=op=="credit" and (p.wallet=="cash" and LightRP.money.addCash or LightRP.money.addBank) or (p.wallet=="cash" and LightRP.money.removeCash or LightRP.money.removeBank)
-        return f(target,amount,"staff",reason,GetPlayerName(player))
+        local M=LightRP.money
+        -- A credit is capped per grant (economy.lua Money.staffGrantRefusal, docs/economy-balance.md
+        -- §16). The reason (4-500 characters, the audit) is the ledger note, cut to its 160 bytes.
+        if op=="credit" and M.staffGrantRefusal then
+            if not M.staffReason(reason) then return false,("A credit needs a reason of at least %d characters."):format(M.staffGrantRule().minReason) end
+            local refusal=M.staffGrantRefusal(player,amount)
+            if refusal then return false,refusal end
+        end
+        local note=M.clip and M.clip(reason,160) or reason:sub(1,160)
+        local f=op=="credit" and (p.wallet=="cash" and M.addCash or M.addBank) or (p.wallet=="cash" and M.removeCash or M.removeBank)
+        return f(target,amount,"staff",note,GetPlayerName(player))
     elseif op=="warn" then
         LightRP.notice(target,{kind="warning",title="Staff warning",body=reason,durationMs=20000})
         LightRP.chat.system(target,"Staff warning: "..reason);return true

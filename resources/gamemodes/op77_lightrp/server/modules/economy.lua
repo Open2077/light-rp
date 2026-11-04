@@ -14,6 +14,10 @@
 --   LightRP.money.pay(playerId, targetId, amount)  -> cash, hand to hand, within economy.payRange
 --   LightRP.money.creditAccount(accountNumber, amount, kind, note, counterparty) -> offline-capable
 --   LightRP.money.findAccount(accountNumber)       -> { number, ownerName } | nil
+--   LightRP.money.casinoLine(inventoryId, game, staked, returned, unsettled) -> SQL write, afterCommit
+--                                                    (one net "casino" line per character and round)
+--   LightRP.money.staffReason(text) / staffGrantRefusal(source, amount) / clip(text, bytes)
+--                                                    (staff grants: reason, cap, UTF-8-safe notes)
 --   hook onMoneyChanged(playerId, wallet, delta, balance, kind)
 local Config = LightRpConfig.economy
 local Db = LightRP.db
@@ -188,6 +192,16 @@ function Money.inventoryReceipt(inv, after, label)
     if not w or inv.cashReady ~= true or inv.id ~= "player:" .. w.identifier .. "#" .. w.key then return nil, nil, "no_wallet" end
     if w.busy then return nil, nil, "busy" end
     local delta = after - Inv.cashOf(inv)
+    -- `silent = true` (a casino stake, a table payout or refund): the cash moves without
+    -- a line of its own; the round writes one net line per character (Money.casinoLine).
+    if type(label) == "table" and label.silent == true and label.skip ~= inv.id
+        and ((label.direction == "in" and delta > 0) or (label.direction == "out" and delta < 0)) then
+        local silentKind = type(label.kind) == "string" and label.kind ~= "" and label.kind:sub(1, 24) or "casino"
+        return nil, function()
+            w.cash = after
+            if wallets[id] == w then pcall(changed, id, w, "cash", delta, silentKind) end
+        end
+    end
     local kind, note, counterparty = "inventory", "Physical cash moved", nil
     if type(label) == "table" and type(label.kind) == "string" and label.kind ~= "" and label.skip ~= inv.id
         and ((label.direction == "in" and delta > 0) or (label.direction == "out" and delta < 0)) then
@@ -201,6 +215,45 @@ function Money.inventoryReceipt(inv, after, label)
         receipt()
         if wallets[id] == w then pcall(changed, id, w, "cash", delta, kind) end
     end
+end
+
+-- Casino rounds (owner decision 2026-11-04, docs/economy-balance.md §16): the stakes
+-- and the table payouts move pocket cash silently (above); each settled round writes
+-- ONE line per character instead, kind "casino", amount = returned - staked (gross
+-- return, stake included, minus every stake of that round), in the same transaction
+-- as the round's claims. `inventoryId` is the character's inventory id
+-- ("player:<identifier>#<key>"); `unsettled` is the part of `staked` debited by that
+-- same commit (a slot pull, a blackjack double), not yet out of the pocket.
+-- balance_after is the pocket once the winnings land; 0 for an owner offline at
+-- settlement (the pocket lives in the inventory, out of SQL's reach).
+-- Answers the SQL write (nil: nothing to write) and a function to run once it is
+-- committed (adds the line to an online owner's history).
+function Money.casinoLine(inventoryId, game, staked, returned, unsettled)
+    staked = math.tointeger(tonumber(staked) or 0) or 0
+    returned = math.tointeger(tonumber(returned) or 0) or 0
+    unsettled = math.tointeger(tonumber(unsettled) or 0) or 0
+    if type(inventoryId) ~= "string" or staked < 0 or returned < 0 or (staked == 0 and returned == 0) then return nil end
+    local identifier, key = inventoryId:match("^player:(.+)#([^#]+)$")
+    if not identifier then return nil end
+    game = type(game) == "string" and game ~= "" and game or "Casino"
+    local net = returned - staked
+    local note = string.format("%s: staked %s, returned %s", game, Money.format(staked), Money.format(returned)):sub(1, 160)
+    local counterparty = (game .. " table"):sub(1, 96)
+    for playerId, w in pairs(wallets) do
+        if w.identifier == identifier and w.key == key then
+            local current = Money.get(playerId)
+            local pocket = current and current.cash or w.cash or 0
+            local write, receipt = ledger(w, "cash", "casino", net, pocket - unsettled + returned, counterparty, note)
+            return write, function()
+                if wallets[playerId] ~= w then return end
+                receipt()
+                pcall(LightRP.state, playerId, "money")
+            end
+        end
+    end
+    return { query = [[INSERT INTO lightrp_transactions (account_number, wallet, kind, amount, balance_after, counterparty, note)
+        SELECT account_number, 'cash', 'casino', ?, 0, ?, ? FROM lightrp_wallets WHERE identifier = ? AND character_key = ?]],
+        values = { net, counterparty, note, identifier, key } }, function() end
 end
 
 local function migrateCash(playerId, w)
@@ -663,15 +716,75 @@ local function walletArg(value)
     return nil
 end
 
-LightRP.command("lightrp.givemoney", { restricted = true, usage = "/lightrp.givemoney <id|me> <cash|bank> <amount> [note]" }, function(source, args)
+-- Staff grants (owner decision 2026-11-04, docs/economy-balance.md §16; the numbers are
+-- server/config/economy.lua staffGrants): a reason is required and becomes the ledger
+-- line's note; one grant is capped at maxGrant unless the grantor holds the ACL
+-- permission unlimitedPermission. The server console (source 0) is not capped.
+-- Used by /lightrp.givemoney below and the staff desk's Credit (admin.lua).
+function Money.staffGrantRule()
+    local g = type(LightRpEconomy) == "table" and type(LightRpEconomy.staffGrants) == "table" and LightRpEconomy.staffGrants or {}
+    local permission = g.unlimitedPermission
+    return {
+        maxGrant = math.max(0, math.floor(tonumber(g.maxGrant) or 0)),
+        minReason = math.max(1, math.floor(tonumber(g.minReason) or 1)),
+        permission = type(permission) == "string" and permission ~= "" and permission or nil,
+    }
+end
+
+-- At most `bytes` bytes, never inside a UTF-8 character (the ledger columns reject a
+-- broken one, and the line would be lost while the money moved).
+function Money.clip(text, bytes)
+    text = tostring(text or "")
+    if #text <= bytes then return text end
+    local n = bytes
+    while n > 0 do
+        local b = text:byte(n + 1)
+        if b < 0x80 or b >= 0xC0 then break end
+        n = n - 1
+    end
+    return text:sub(1, n)
+end
+
+-- The reason as the ledger note: spaces collapsed, at most 160 bytes; nil when shorter
+-- than staffGrants.minReason.
+function Money.staffReason(text)
+    local value = type(text) == "string" and text:gsub("%s+", " ") or ""
+    value = value:gsub("^ ", ""):gsub(" $", "")
+    if #value < Money.staffGrantRule().minReason then return nil end
+    return Money.clip(value, 160)
+end
+
+-- nil when `source` may grant `amount`, else why not.
+function Money.staffGrantRefusal(source, amount)
+    local rule = Money.staffGrantRule()
+    if rule.maxGrant <= 0 or (tonumber(amount) or 0) <= rule.maxGrant then return nil end
+    if (tonumber(source) or 0) <= 0 then return nil end -- the server console
+    if rule.permission and LightRP.staff and type(LightRP.staff.allowed) == "function"
+        and LightRP.staff.allowed(source, rule.permission) then return nil end
+    return string.format("One staff grant is capped at %s; larger grants need the ACL permission %s.",
+        Money.format(rule.maxGrant), rule.permission or "(none configured)")
+end
+
+local GIVE_USAGE = "/lightrp.givemoney <id|me> <cash|bank> <amount> <reason>"
+LightRP.command("lightrp.givemoney", { restricted = true, usage = GIVE_USAGE }, function(source, args)
     local target, wallet = parseTarget(source, args[1]), walletArg(args[2])
     if target == nil or wallet == nil or args[3] == nil then return false end
-    local note = LightRP.joinArgs(args, 4)
+    local reason = Money.staffReason(LightRP.joinArgs(args, 4))
+    if reason == nil then
+        return false, string.format("A reason is required (at least %d characters): it is written to the ledger. usage: %s",
+            Money.staffGrantRule().minReason, GIVE_USAGE)
+    end
+    local amount = Money.validAmount(args[3])
+    if amount == nil then return false, explain("invalid_amount") end
+    local refusal = Money.staffGrantRefusal(source, amount)
+    if refusal then return false, refusal end
     local fn = wallet == "cash" and Money.addCash or Money.addBank
-    local ok, reason = fn(target, args[3], "staff", note ~= "" and note or "Staff grant", "Staff")
-    if not ok then return false, explain(reason) end
-    LightRP.notice(target, { kind = "money", title = "Staff", body = string.format("%s added to your %s.", Money.format(args[3]), wallet), durationMs = 8000 })
-    return true, string.format("%s given to %s (%s).", Money.format(args[3]), LightRP.characters.displayName(target), wallet)
+    local ok, why = fn(target, amount, "staff", reason, "Staff")
+    if not ok then return false, explain(why) end
+    LightRP.log("staff grant by %s: %d %s to %s (%s): %s", tostring(source), amount, wallet, tostring(target),
+        LightRP.characters.displayName(target), reason)
+    LightRP.notice(target, { kind = "money", title = "Staff", body = string.format("%s added to your %s.", Money.format(amount), wallet), durationMs = 8000 })
+    return true, string.format("%s given to %s (%s).", Money.format(amount), LightRP.characters.displayName(target), wallet)
 end)
 
 LightRP.command("lightrp.takemoney", { restricted = true, usage = "/lightrp.takemoney <id|me> <cash|bank> <amount> [note]" }, function(source, args)

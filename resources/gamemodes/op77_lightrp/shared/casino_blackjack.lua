@@ -9,7 +9,9 @@ LightRpBlackjack={}
 local B=LightRpBlackjack
 -- Dealing order: first base (the dealer's left) to third base.
 B.SEATS={"white","black","white2","black2"}
-B.MIN_BET,B.MAX_BET=5,5000
+-- Per hand, before a double (owner decision 2026-11-04, docs/economy-balance.md §16:
+-- casino max bets / 10; a double takes a hand to 1,000).
+B.MIN_BET,B.MAX_BET=5,500
 B.DECKS=6
 B.RESERVE=78          -- cut card: reshuffle once fewer cards remain (75% penetration)
 -- Pacing (ms on the server clock). A real table breathes: cards come out of

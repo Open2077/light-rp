@@ -18,22 +18,82 @@
 --              it is perFighter x paid fighters ^ crewExponent, and one fighter never
 --              gets more than maxSharePerMinute x the time limit (WB.pool, WB.headCap;
 --              docs/economy-balance.md §15). Without that table, the editor's reward.
+--   per day    a character paid for C.dailyPaid world bosses since 00:00 UTC is paid
+--              nothing more that day, money nor reputation (owner decision 2026-11-04,
+--              §16): they still fight, are told why, and do not count as a paid fighter.
 --
 -- The enemies are the mission engine's own (spawns, behaviours, deaths): Engine.world.
 local C = LightRpWorldBosses
 local D = LightRpMissionDefs
+local Db = LightRP.db
 local WB = LightRP.module("worldBosses", {})
+
+Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_worldboss_daily (
+    identifier VARCHAR(128) NOT NULL, character_key VARCHAR(64) NOT NULL, day_index INT NOT NULL,
+    paid_events INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (identifier, character_key, day_index)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
 
 local catalogue = {}     -- definition id -> definition (published, enabled world bosses)
 local event = nil        -- the running event, or nil
 local nextAt = nil       -- ms of the next random spawn
 local eventSeq = 0
+local daily = {}         -- "identifier#key" -> { day, count, synced, identifier, key }: paid events today
 
 local function now() return LightRP.nowMs() end
 local function log(...) LightRP.log(...) end
 local function name(id) return LightRP.characters.displayName(id) end
 local function money(n) return LightRP.money and LightRP.money.format(n) or ("€$" .. tostring(n)) end
 local function fill(text, vars) return (text:gsub("{(%w+)}", function(k) return vars[k] ~= nil and tostring(vars[k]) or "" end)) end
+
+-- ---------------------------------------------------------------------------
+-- Pay per character and UTC day: the day index of the rest of the economy
+-- (mission_pay.lua, activity_pay.lua), a write-through cache read once from SQL.
+
+local function unix()
+    if Open77 and Open77.time and type(Open77.time.unix) == "function" then return math.floor(Open77.time.unix()) end
+    if type(GetUnixTime) == "function" then return math.floor(GetUnixTime()) end
+    return os.time()
+end
+local function today() return math.floor(unix() / 86400) end
+local function dailyCap() return math.max(0, math.floor(tonumber(C.dailyPaid) or 0)) end
+local function dailyOf(id)
+    local c = LightRP.characters.get and LightRP.characters.get(id)
+    if not c or not c.identifier then return nil end
+    local identifier, key = tostring(c.identifier), tostring(c.key or "default")
+    local k, day = identifier .. "#" .. key, today()
+    local entry = daily[k]
+    if not entry or entry.day ~= day then entry = { day = day, count = 0, synced = false, identifier = identifier, key = key }; daily[k] = entry end
+    if not entry.synced and Db.ready then
+        entry.synced = true
+        local row = Db.single("SELECT paid_events FROM lightrp_worldboss_daily WHERE identifier = ? AND character_key = ? AND day_index = ?",
+            { identifier, key, day })
+        entry.count = math.max(entry.count, row and tonumber(row.paid_events) or 0)
+    end
+    return entry
+end
+-- capped, paid today, the cap: this character's world boss pay is over until 00:00 UTC.
+function WB.dailyCapped(id)
+    local cap = dailyCap()
+    if cap <= 0 then return false, 0, 0 end
+    local entry = dailyOf(id)
+    if not entry then return false, 0, cap end
+    return entry.count >= cap, entry.count, cap
+end
+local function countPaid(id)
+    local entry = dailyOf(id)
+    if not entry then return end
+    entry.count = entry.count + 1
+    if Db.ready then
+        Db.run("INSERT INTO lightrp_worldboss_daily (identifier, character_key, day_index, paid_events) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE paid_events = GREATEST(paid_events, VALUES(paid_events))",
+            { entry.identifier, entry.key, entry.day, entry.count })
+    end
+end
+local function cappedText(paidToday)
+    return string.format("Daily world boss pay reached: you were paid for %d world boss%s today. Fight on if you like; no pay or reputation from world bosses until 00:00 UTC.",
+        paidToday, paidToday == 1 and "" or "es")
+end
+WB.cappedText = cappedText
 -- The running event's instance (fighters in the zone as members, city bucket) and the
 -- enemy's id when `npcId` is one of its enemies: mission_engine.lua's NPC hit relay applies
 -- those hits to the fighters (the enemies opt into authoritativePlayerHits, so the engine
@@ -231,11 +291,14 @@ local function view(ev, id)
     local c = ev.contrib[id]
     local share = shareOf(ev, id)
     local w = ev.def.worldBoss
+    -- the daily cap as read at the zone entry (no SQL read here)
+    local capped = ev.capped[id] == true
     return {
         id = ev.id, title = ev.def.title, location = ev.location, boss = ev.bossLabel, phase = ev.phase,
         bossHealth = ev.bossFraction, enemiesLeft = ev.run.alive + #ev.run.queue, fighters = ev.fighters,
         endsInMs = ev.phase == "fight" and math.max(0, ev.endsAt - now()) or nil,
-        share = math.floor(share * 10 + 0.5) / 10, minShare = math.floor(needed(ev) * 10 + 0.5) / 10, eligible = share >= needed(ev) and (c and c.score or 0) > 0,
+        share = math.floor(share * 10 + 0.5) / 10, minShare = math.floor(needed(ev) * 10 + 0.5) / 10,
+        eligible = not capped and share >= needed(ev) and (c and c.score or 0) > 0, dailyCapped = capped or nil,
         damage = c and math.floor(c.damage + 0.5) or 0, kills = c and c.kills or 0, reward = poolNow(ev), rewardMax = w.reward,
         inZone = ev.inZone[id] == true,
         -- a bystander in the zone still sees how it ended
@@ -305,7 +368,7 @@ local function start(def, why)
     end
     local bossSpawn = run.spawns[boss.boss]
     local ev = { id = run.instance, def = run.def, run = run, startedAt = now(), endsAt = now() + boss.minutes * 60000,
-        phase = "fight", contrib = {}, npcs = {}, bossNpcs = {}, bossMax = {}, inZone = {}, watchers = {}, hudKeys = {},
+        phase = "fight", contrib = {}, npcs = {}, bossNpcs = {}, bossMax = {}, inZone = {}, watchers = {}, hudKeys = {}, capped = {},
         reinforced = {}, bossFraction = 1, fighters = 0, npcMax = {},
         bossLabel = bossSpawn and bossSpawn.label or "The boss", location = def.location ~= "" and def.location or "Night City" }
     -- every enemy of the event is known by id (credit) and the boss's apart (its bar)
@@ -342,31 +405,48 @@ local function finish(ev, success, why)
     local need = needed(ev)
     ev.need = need
     local eligible = 0
-    for id, c in pairs(ev.contrib) do
+    -- a snapshot: the payments below yield (SQL), and a late kill event may add a contributor
+    local ids = {}
+    for id in pairs(ev.contrib) do ids[#ids + 1] = id end
+    for _, id in ipairs(ids) do
+        local c = ev.contrib[id]
         c.share = total > 0 and c.score / total * 100 or 0
         c.eligible = success and c.score > 0 and c.share >= need
-        if c.eligible then eligibleScore = eligibleScore + c.score; eligible = eligible + 1 end
+        -- past the daily cap (owner decision 2026-11-04): the fight and the share count
+        -- (results.eligible: contracts, titles, iconic rolls), the money and reputation do not
+        if c.eligible then c.capped, c.paidToday = WB.dailyCapped(id) end
+        if c.eligible and not c.capped then eligibleScore = eligibleScore + c.score; eligible = eligible + 1 end
     end
     -- the pool grows with the fighters paid (WB.pool), a share never past WB.headCap
     local pool, headCap = WB.pool(w.reward, eligible), WB.headCap(w.minutes)
     ev.pool = pool
     local paid = 0
-    for id, c in pairs(ev.contrib) do
+    for _, id in ipairs(ids) do
+        local c = ev.contrib[id]
         local pay = 0
-        if c.eligible and eligibleScore > 0 then pay = math.min(headCap, math.floor(pool * c.score / eligibleScore)) end
-        c.pay = pay
+        if c.eligible and not c.capped and eligibleScore > 0 then pay = math.min(headCap, math.floor(pool * c.score / eligibleScore)) end
         if pay > 0 and GetPlayerName(id) then
-            paid = paid + 1
-            if LightRP.money then LightRP.money.addBank(id, pay, "worldboss", "World boss: " .. ev.def.title) end
-            if LightRP.missions and LightRP.missions.addReputation then LightRP.missions.addReputation(id, C.reputation) end
+            local credited = not LightRP.money or LightRP.money.addBank(id, pay, "worldboss", "World boss: " .. ev.def.title) == true
+            if credited then
+                paid = paid + 1
+                countPaid(id)
+                if LightRP.missions and LightRP.missions.addReputation then LightRP.missions.addReputation(id, C.reputation) end
+            else
+                log("world boss: %s payout of %d to %s failed", ev.def.title, pay, tostring(id))
+                pay, c.failed = 0, true
+            end
         end
+        c.pay = pay
         ev.results[id] = { success = success, share = math.floor(c.share * 10 + 0.5) / 10, pay = pay, eligible = c.eligible == true,
-            damage = math.floor(c.damage + 0.5), kills = c.kills }
+            damage = math.floor(c.damage + 0.5), kills = c.kills, dailyCapped = c.capped == true or nil }
         if GetPlayerName(id) then
             local body
             if not success then body = (why or "The boss got away.") .. string.format(" Your share: %.1f %%. Nobody is paid.", c.share)
             elseif pay > 0 then body = string.format("Your share: %.1f %% (%d damage, %d kill%s). %s paid to your account, +%d reputation.",
                 c.share, math.floor(c.damage + 0.5), c.kills, c.kills == 1 and "" or "s", money(pay), C.reputation)
+            elseif c.failed then body = string.format("Your share: %.1f %%. The bank did not answer: tell the staff, nothing was paid.", c.share)
+            elseif c.capped then body = string.format("Your share: %.1f %% (%d damage, %d kill%s). %s", c.share, math.floor(c.damage + 0.5), c.kills,
+                c.kills == 1 and "" or "s", cappedText(c.paidToday or 0))
             else body = string.format("Your share: %.1f %%, under the %.1f %% needed: no reward. Fight it, don't watch it.", c.share, need) end
             LightRP.notice(id, { kind = success and (pay > 0 and "success" or "warning") or "error",
                 title = success and "WORLD BOSS DOWN" or "WORLD BOSS ESCAPED", body = body, durationMs = 12000 })
@@ -483,9 +563,16 @@ local function tick(ev)
         if inside ~= (ev.inZone[id] == true) then
             ev.inZone[id] = inside or nil
             if inside then
-                LightRP.notice(id, { kind = "contract", title = "WORLD BOSS ZONE", durationMs = 9000,
-                    body = string.format("Take down %s with everyone here. Your share of %s%s follows your damage and kills; a last shot or watching earns nothing.",
-                        ev.bossLabel, money(poolNow(ev)), poolNow(ev) < ev.def.worldBoss.reward and " (more as fighters join)" or "") })
+                local capped, paidToday = WB.dailyCapped(id)
+                ev.capped[id] = capped or nil
+                if capped then
+                    LightRP.notice(id, { kind = "warning", title = "WORLD BOSS ZONE", durationMs = 9000,
+                        body = string.format("Take down %s with everyone here. %s", ev.bossLabel, cappedText(paidToday)) })
+                else
+                    LightRP.notice(id, { kind = "contract", title = "WORLD BOSS ZONE", durationMs = 9000,
+                        body = string.format("Take down %s with everyone here. Your share of %s%s follows your damage and kills; a last shot or watching earns nothing.",
+                            ev.bossLabel, money(poolNow(ev)), poolNow(ev) < ev.def.worldBoss.reward and " (more as fighters join)" or "") })
+                end
             end
         end
         if inside then

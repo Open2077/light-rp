@@ -60,7 +60,7 @@ assert(cash(1)==1000 and board(id).revision==revision and next(board(id).game.po
 throwDB=true;game(1,id,'bet',{spot='20',amount=10});throwDB=false
 assert(cash(1)==1000 and not inventories[1].busy)
 inventories[2].items[2].count=5;game(2,id,'bet',{spot='1',amount=6});assert(cash(2)==5 and notices[2]=='Not enough cash for this bet.')
-for _,data in ipairs({{spot='3',amount=10},{spot='1',amount=0},{spot='1',amount=1.5},{spot='1',amount=1001},{spot={x=1},amount=5},{amount=5}}) do
+for _,data in ipairs({{spot='3',amount=10},{spot='1',amount=0},{spot='1',amount=1.5},{spot='1',amount=101},{spot='1',amount=1001},{spot={x=1},amount=5},{amount=5}}) do
  local before=commits;game(1,id,'bet',data);assert(cash(1)==1000 and commits==before)
 end
 game(1,id,'bet',{spot='20',amount=10});game(1,id,'bet',{spot='20',amount=5});game(2,id,'bet',{spot='eye',amount=5})
@@ -76,6 +76,10 @@ game(2,id,'spin',{outcome=0,laps=6})
 local state=board(id).game;assert(state.phase=='spinning' and state.spin.outcome==13 and state.spin.to-state.spin.from>=162)
 assert(state.spin.startedAt>1790000000000 and state.spin.endsAt==state.spin.startedAt+9000)
 assert(unpaid('inv1')==315 and unpaid('inv2')==0 and cash(1)==985)
+-- one net ledger line per character for the spin (economy-balance.md section 16)
+local by={};for _,l in ipairs(dbLedger) do by[l.inventory]=l end
+assert(#dbLedger==2 and #ledgerShown==2 and by.inv1.game=='Fortune Wheel')
+assert(by.inv1.staked==15 and by.inv1.returned==315 and by.inv1.net==300 and by.inv2.staked==5 and by.inv2.net==-5)
 assert(publicSize(id,1)<700,'public view '..publicSize(id,1))
 -- Bets are closed while spinning, and pickup/reset are refused.
 game(1,id,'bet',{spot='1',amount=5});assert(cash(1)==985 and notices[1]=='Bets are closed while the wheel spins.')
@@ -99,6 +103,8 @@ inventories[2].items[2]={name='cash',count=100};game(2,id,'bet',{spot='1',amount
 g=board(id,2).game;assert(g.round==2 and g.phase=='betting' and g.pot['1']==4 and g.pot['20']==nil and g.yourStake==4)
 fixedSpin(1,2);game(1,id,'spin',{});assert(unpaid('inv2')==8)
 wall=board(id).game.spin.endsAt;LightRP.tabletopExtra.claim(2);assert(cash(2)==104)
+assert(#dbLedger==3 and dbLedger[3].inventory=='inv2' and dbLedger[3].staked==4 and dbLedger[3].net==4,'payouts add no line')
+for _,m in ipairs(cashMoves) do assert(m.label and m.label.silent==true and m.label.kind=='casino') end
 ''')
 
 scenario('fortune refunds open bets on pickup and reset, never twice, bound to characters',r'''
@@ -133,8 +139,9 @@ action(1,id,'pickup');assert(not board(id) and unpaid('inv1')==0 and cash(1)==98
 scenario('fortune per-round cap and recycled seats keep winnings with the character',r'''
 local id=place('fortune',1);action(1,id,'join');action(2,id,'join')
 inventories[1].items[2].count=9000
-for i=1,5 do game(1,id,'bet',{spot='1',amount=1000}) end
-game(1,id,'bet',{spot='2',amount=1});assert(cash(1)==4000 and notices[1]:find('limited',1,true))
+game(1,id,'bet',{spot='1',amount=101});assert(cash(1)==9000,'100 per placed bet')
+for i=1,5 do game(1,id,'bet',{spot='1',amount=100}) end
+game(1,id,'bet',{spot='2',amount=1});assert(cash(1)==8500 and notices[1]:find('limited',1,true))
 game(2,id,'bet',{spot='eye',amount=7})
 local original=inventories[2];modules.board_games.onDisconnected(2)
 inventories[2]={id='new-character',persistent=true,slots=10,items={[2]={name='cash',count=700}}};action(2,id,'join')
@@ -177,9 +184,9 @@ game(1,id,'nextRound',{});assert(notices[1]=='Unknown wheel action.')
 scenario('fortune public view stays small with a full table',r'''
 local id=place('fortune',1)
 for p=1,4 do positions[p].x=0;action(p,id,'join') end
-for p=1,2 do inventories[p].items[2].count=100000;for _,spot in ipairs(LightRpCasinoFortune.SPOTS) do game(p,id,'bet',{spot=spot,amount=700}) end end
+for p=1,2 do inventories[p].items[2].count=100000;for _,spot in ipairs(LightRpCasinoFortune.SPOTS) do game(p,id,'bet',{spot=spot,amount=70}) end end
 for r=1,9 do fixedSpin(r,2);game(1,id,'spin',{});wall=board(id).game.spin.endsAt;assert(step(2000))
- for _,spot in ipairs(LightRpCasinoFortune.SPOTS) do game(1,id,'bet',{spot=spot,amount=999}) end end
+ for _,spot in ipairs(LightRpCasinoFortune.SPOTS) do game(1,id,'bet',{spot=spot,amount=99}) end end
 fixedSpin(0,3);game(1,id,'spin',{})
 local size=publicSize(id,1);assert(size<900,'public view '..size)
 print('  public view bytes with bets, spin and result: '..size)
