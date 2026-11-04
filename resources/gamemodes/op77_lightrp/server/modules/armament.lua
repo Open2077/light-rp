@@ -102,6 +102,43 @@ function W.push(player)
     TriggerClientEvent(NET,player,{kind="state",state=W.view(player)})
     if LightRP.grenades then LightRP.grenades.push(player) end
 end
+-- A request the platform itself timed out (completed with request_timeout) never completes
+-- later: the platform forgets it and ignores the client's late answer. Waiting for a
+-- completion left the player quarantined until a reconnect ("NOT EQUIPPED: A timed-out
+-- native request is quarantined", 2026-11-04, a slow client). Such a quarantine is lifted
+-- after RECOVER_DELAY s and a full synchronization (a fresh snapshot, then the projection)
+-- reconciles whatever the client did apply. At most RECOVER_MAX in RECOVER_WINDOW s; past
+-- that the quarantine stays until a reconnect, as before. A request still unanswered keeps
+-- waiting for its completion.
+local RECOVER_DELAY,RECOVER_MAX,RECOVER_WINDOW=3,3,120
+local SYNC_RETRIES,SYNC_RETRY_MS=3,1500
+function W.recover(rt)
+    local job=rt and rt.quarantine
+    if not job or not job.final or rt.recovering or not current(rt) then return false end
+    local t,recent=now(),{}
+    for _,at in ipairs(rt.recoveries or {}) do if t-at<RECOVER_WINDOW then recent[#recent+1]=at end end
+    rt.recoveries=recent
+    if #recent>=RECOVER_MAX then
+        LightRP.log("armament: player %d quarantined again after %d recoveries in %d s: until a reconnect",rt.player,#recent,RECOVER_WINDOW)
+        return false
+    end
+    recent[#recent+1]=t
+    rt.recovering=true
+    CreateThread(function()
+        Wait(RECOVER_DELAY*1000)
+        -- the request's own thread may still be closing (busy): give it a moment
+        local waited=0
+        while current(rt) and rt.busy and waited<10000 do Wait(250);waited=waited+250 end
+        rt.recovering=false
+        if not current(rt) or rt.quarantine~=job then return end
+        for key,pending in pairs(W.pending) do if pending==job then W.pending[key]=nil end end
+        rt.quarantine=nil;rt.ready=false;rt.error="Resynchronizing your equipment after a timed-out request."
+        LightRP.log("armament: player %d %s request timed out on the platform: quarantine lifted, resynchronizing",rt.player,tostring(job.operation))
+        W.push(rt.player)
+        if not W.synchronize(rt.player) then rt.error="Your equipment will resynchronize when you can hold a weapon again.";W.push(rt.player) end
+    end)
+    return true
+end
 local function nativeUsing(rt,api,method,operation,...)
     if not current(rt) or not alive(rt.player) then return nil,"Your character changed or is not alive." end
     local fn=api and api[method]
@@ -115,6 +152,8 @@ local function nativeUsing(rt,api,method,operation,...)
     if not current(rt) then W.pending[key]=nil;return nil,"Your character incarnation changed." end
     if not job.done or (job.accepted~=true and job.reason=="request_timeout") then
         job.timedOut=true;rt.quarantine=job
+        -- the platform already answered request_timeout: final, nothing more will come
+        if job.done then job.final=true;W.recover(rt) end
         return nil,"A weapon request timed out and may still complete. Synchronization is quarantined until a late completion or a new character incarnation."
     end
     W.pending[key]=nil
@@ -132,6 +171,9 @@ AddEventHandler("open77:weapons:completed",function(player,id,operation,accepted
     if job.timedOut and reason~="request_timeout" then
         W.pending[key]=nil;job.runtime.quarantine=nil
         job.runtime.ready=false;job.runtime.error="The delayed native request settled. Synchronize to reconcile your equipment.";W.push(job.runtime.player)
+    elseif job.timedOut and job.runtime.quarantine==job then
+        -- the platform's own timeout reached after ours: final as well
+        job.final=true;W.recover(job.runtime)
     end
 end)
 local function rowsOf(result)
@@ -373,7 +415,22 @@ function W.synchronize(player,onlyObserve)
         if not current(rt) then return end
         rt.busy=false;rt.observing=false
         rt.ready=ok and result==true
-        if rt.ready then rt.error=nil else rt.error=tostring(ok and why or result) end
+        if rt.ready then rt.error=nil;rt.syncRetries=nil else rt.error=tostring(ok and why or result) end
+        -- A synchronization the engine refused or left unanswered once (weapon not drawn
+        -- yet, a slow client) is tried again by itself: players had to press again until
+        -- it went through ("quand il spam il arrive a sortir", 2026-11-04). SYNC_RETRIES
+        -- in a row, SYNC_RETRY_MS apart; a quarantine has its own recovery (W.recover).
+        if not rt.ready and not onlyObserve and not rt.quarantine and (rt.syncRetries or 0)<SYNC_RETRIES then
+            rt.syncRetries=(rt.syncRetries or 0)+1
+            local attempt=rt.syncRetries
+            CreateThread(function()
+                Wait(SYNC_RETRY_MS*attempt)
+                if current(rt) and not rt.ready and not rt.busy and not rt.quarantine and alive(rt.player) then
+                    LightRP.log("armament: player %d synchronization retry %d (%s)",rt.player,attempt,tostring(rt.error))
+                    W.synchronize(rt.player)
+                end
+            end)
+        end
         -- A low-reserve dual cannot keep firing while its ambiguous native
         -- reload is reconciled. Durable intent remains; the player may unequip.
         if not rt.ready then rt.observed=rt.observed or {} end
