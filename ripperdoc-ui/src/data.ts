@@ -234,7 +234,7 @@ export const DEMO: Required<Omit<OpenPayload, "catalogue" | "capacity">> = {
   fittingFee: 50,
   removalFee: 50,
   body: "male",
-  clinic: { name: "Viktor's Clinic", doctor: "Viktor Vektor", tagline: "Licensed // Watson // Kabuki" },
+  clinic: { name: "Clinic", doctor: "Ripperdoc on duty", tagline: "Licensed surgery" },
   wallet: 48250,
   installed: {
     frontal_cortex: ["ram_upgrade"], operating_system: ["sandevistan_c1"], ocular: ["kiroshi_basic"],

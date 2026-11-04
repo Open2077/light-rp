@@ -268,7 +268,7 @@ export function App() {
         <div className="rd-fx-vignette" />
         <div className="rd-fx-lines" />
         {phase === "diving" && <div className="rd-fx-dive" />}
-        {phase === "boot" && <BootLayer patient={session.patient.name ?? "UNKNOWN"} clinic={session.clinic.name} />}
+        {phase === "boot" && <BootLayer patient={session.patient.name ?? "UNKNOWN"} />}
         {phase === "closed" && (
           <button className="rd-reopen" onClick={() => open({ ...DEMO, body: session.body })}>REOPEN PREVIEW</button>
         )}
@@ -277,11 +277,11 @@ export function App() {
   );
 }
 
-function BootLayer({ patient, clinic }: { patient: string; clinic: string }) {
+function BootLayer({ patient }: { patient: string }) {
   return (
     <div className="rd-boot">
       <div className="rd-boot-frame">
-        <div className="rd-boot-kicker">NEURAL HANDSHAKE // {clinic.toUpperCase()}</div>
+        <div className="rd-boot-kicker">NEURAL HANDSHAKE // RIPPERDOC CLINIC</div>
         <div className="rd-boot-title" data-text="PATIENT LINKED">PATIENT LINKED</div>
         <div className="rd-boot-sub">{patient.toUpperCase()} — BIOMETRIC SCAN IN PROGRESS</div>
         <div className="rd-boot-bar"><i /></div>

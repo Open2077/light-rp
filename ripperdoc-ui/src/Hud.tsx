@@ -24,8 +24,8 @@ export function TopBar({ session, used, phase, section, onGuide, preview }: { se
       <div className="rd-brand">
         <div className="rd-brand-mark"><span>R</span></div>
         <div>
-          <div className="rd-brand-title">RIPPERDOC <i>//</i> {session.clinic.name.toUpperCase()}</div>
-          <div className="rd-brand-sub">{session.clinic.doctor.toUpperCase()} · {(session.clinic.tagline ?? "LICENSED CLINIC").toUpperCase()}</div>
+          <div className="rd-brand-title">RIPPERDOC <i>//</i> CLINIC</div>
+          <div className="rd-brand-sub">LICENSED CYBERNETIC SURGERY · NIGHT CITY</div>
         </div>
       </div>
       <div className="rd-crumb">
@@ -113,30 +113,12 @@ export function BottomBar({ phase, guide }: { phase: Phase; guide?: boolean }) {
     : [["LMB"], "Open system", ["ESC"], "Leave the chair"]).concat(guide ? [["H"], "Guide"] : []);
   return (
     <div className="rd-bottom">
-      <Vitals />
       <div className="rd-keys">
         {keys.map((k, i) => typeof k === "string"
           ? <span key={i} className="label">{k}</span>
           : <span key={i} className="keys">{k.map((x) => <kbd key={x}>{x}</kbd>)}</span>)}
       </div>
       <div className="rd-legal">OPEN//77 MEDICAL NETWORK · NCPD SURGERY LICENCE 2077-A</div>
-    </div>
-  );
-}
-
-/* A heartbeat trace drawn on a canvas (no images): the patient is alive and on the table. */
-function Vitals() {
-  const [bpm, setBpm] = useState(72);
-  useEffect(() => {
-    const id = window.setInterval(() => setBpm(68 + Math.round(Math.random() * 9)), 1400);
-    return () => window.clearInterval(id);
-  }, []);
-  return (
-    <div className="rd-vitals">
-      <svg viewBox="0 0 220 40" className="rd-ecg">
-        <path d="M0 22 H40 L48 22 L54 8 L60 34 L66 22 H110 L118 22 L124 4 L130 36 L136 22 H180 L188 22 L194 10 L200 32 L206 22 H220" />
-      </svg>
-      <div className="rd-vitals-read"><b>{bpm}</b><span>BPM</span><b>98</b><span>SPO2</span><b>36.8</b><span>°C</span></div>
     </div>
   );
 }
