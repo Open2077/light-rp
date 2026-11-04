@@ -74,9 +74,54 @@ end
 -- PART_BYTES, else in parts; web/bridge-parts.js decodes them before the page's handlers.
 local PART_BYTES = 48 * 1024
 local partSeq = 0
+-- Open77.json.encode returned nil for the clinic's payload in game (2026-11-04 02:06, "rd:open
+-- could not be encoded: nil"): a plain Lua encoder (op77_lightrp's mission editor's, proven in
+-- game) does it. An empty table goes as {}; the page reads both {} and [].
+local ESCAPES = { ['"'] = '\\"', ["\\"] = "\\\\", ["\b"] = "\\b", ["\f"] = "\\f", ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t" }
+local function encodeString(s)
+    return '"' .. s:gsub('[%c"\\]', function(c) return ESCAPES[c] or string.format("\\u%04x", c:byte()) end) .. '"'
+end
+local function encode(value, depth, out)
+    local t = type(value)
+    if t == "nil" then out[#out + 1] = "null"
+    elseif t == "boolean" then out[#out + 1] = value and "true" or "false"
+    elseif t == "number" then
+        if value ~= value or value == math.huge or value == -math.huge then out[#out + 1] = "null"
+        elseif math.type(value) == "integer" then out[#out + 1] = tostring(value)
+        else out[#out + 1] = string.format("%.14g", value) end
+    elseif t == "string" then out[#out + 1] = encodeString(value)
+    elseif t == "table" then
+        if depth > 32 then error("too deep") end
+        local n, count = #value, 0
+        for _ in pairs(value) do count = count + 1 end
+        if n > 0 and n == count then
+            out[#out + 1] = "["
+            for i = 1, n do
+                if i > 1 then out[#out + 1] = "," end
+                encode(value[i], depth + 1, out)
+            end
+            out[#out + 1] = "]"
+        else
+            out[#out + 1] = "{"
+            local first = true
+            for k, v in pairs(value) do
+                if type(k) == "string" or type(k) == "number" then
+                    if not first then out[#out + 1] = "," end
+                    first = false
+                    out[#out + 1] = encodeString(tostring(k))
+                    out[#out + 1] = ":"
+                    encode(v, depth + 1, out)
+                end
+            end
+            out[#out + 1] = "}"
+        end
+    else out[#out + 1] = "null" end
+    return out
+end
+local function encodeJson(value) return table.concat(encode(value, 0, {})) end
 local function sendLarge(name, payload)
     if not page or not pageReady then return false end
-    local ok, text = pcall(Open77.json.encode, payload == nil and {} or payload)
+    local ok, text = pcall(encodeJson, payload == nil and {} or payload)
     if not ok or type(text) ~= "string" then
         print("[ripperdoc] " .. name .. " could not be encoded: " .. tostring(text))
         return false
