@@ -69,6 +69,35 @@ local function send(name, payload)
     if page and pageReady then page:send(name, payload == nil and {} or payload) end
 end
 
+-- page:send refuses more than 1024 values without a word; the open and the state carry
+-- the whole catalogue (~1600 values). They travel as JSON text, one message when it fits
+-- PART_BYTES, else in parts; web/bridge-parts.js decodes them before the page's handlers.
+local PART_BYTES = 48 * 1024
+local partSeq = 0
+local function sendLarge(name, payload)
+    if not page or not pageReady then return false end
+    local ok, text = pcall(Open77.json.encode, payload == nil and {} or payload)
+    if not ok or type(text) ~= "string" then
+        print("[ripperdoc] " .. name .. " could not be encoded: " .. tostring(text))
+        return false
+    end
+    if #text <= PART_BYTES then page:send(name, { __json = text }) return true end
+    partSeq = partSeq + 1
+    local id, parts, at = name .. ":" .. partSeq, {}, 1
+    while at <= #text do
+        local stop = math.min(#text, at + PART_BYTES - 1)
+        while stop < #text and stop > at do -- never split a UTF-8 sequence
+            local b = text:byte(stop + 1)
+            if b < 0x80 or b >= 0xC0 then break end
+            stop = stop - 1
+        end
+        parts[#parts + 1] = text:sub(at, stop)
+        at = stop + 1
+    end
+    for i, part in ipairs(parts) do page:send(name, { __part = { id = id, i = i, n = #parts, text = part } }) end
+    return true
+end
+
 local close
 local function open(payload)
     if not page or not pageReady then
@@ -81,7 +110,7 @@ local function open(payload)
     local seq = openSeq
     answered = false
     pcall(function() page:show() end)
-    send("rd:open", payload or {})
+    sendLarge("rd:open", payload or {})
     local ok, why = pcall(function() return page:setFocus(true, true) end)
     log("open sent (#%d), focus %s", seq, ok and "taken" or ("refused: " .. tostring(why)))
     CreateThread(function()
@@ -154,7 +183,7 @@ if type(RegisterCommand) == "function" then
 end
 RegisterNetEvent("op77_ripperdoc:close", function() close(false) end)
 RegisterNetEvent("op77_ripperdoc:result", function(result) if isOpen then send("rd:result", type(result) == "table" and result or {}) end end)
-RegisterNetEvent("op77_ripperdoc:update", function(payload) if isOpen then send("rd:state", type(payload) == "table" and payload or {}) end end)
+RegisterNetEvent("op77_ripperdoc:update", function(payload) if isOpen then sendLarge("rd:state", type(payload) == "table" and payload or {}) end end)
 
 AddEventHandler("onClientResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end
