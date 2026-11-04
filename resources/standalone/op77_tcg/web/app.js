@@ -926,7 +926,7 @@
   on("tcg:state", function (s) {
     state.owned = parseCounts(s.owned); state.population = parseCounts(s.population);
     state.sealed = s.sealed || {}; state.dust = s.dust || 0; state.dustPlus = s.dustPlus || 0;
-    state.prices = s.prices || {}; state.freeIn = s.freeIn || 0; state.paid = !!s.paid; state.shops = s.shops || [];
+    state.prices = s.prices || {}; state.freeIn = s.freeIn || 0; state.paid = !!s.paid; state.shops = Array.isArray(s.shops) ? s.shops : [];
     state.store = s.store || "binder";
     if (s.extra && s.extra.unboxed) unboxResult(s.extra.unboxed, true);
     if (s.extra && s.extra.unboxFailed) unboxResult(s.extra.unboxFailed, false);
@@ -934,7 +934,7 @@
     if (ui.open && !op) renderAll(); else renderStats();
   });
   on("tcg:open", function (d) {
-    ui.shop = d.shop || null; ui.nearby = d.nearby || [];
+    ui.shop = d.shop || null; ui.nearby = Array.isArray(d.nearby) ? d.nearby : [];
     show(); $("binder").classList.remove("hidden"); $("opening").classList.add("hidden"); $("app").classList.remove("opening-on");
     setTab(d.tab === "shop" ? "shop" : (d.tab || "binder"));
   });
