@@ -38,7 +38,8 @@
 --   1. THE 250 ms GAP between removing the old weapons and assigning the new
 --      ones. The removals are themselves asynchronous; assigning into a slot
 --      still being torn down loses the assignment silently.
---   2. THE VERSION PER PLAYER. Every issue and every strip bumps it, and a
+--   2. THE VERSION PER PLAYER. Every issue, every strip and every arena
+--      survival check (see "arena arming") bumps it, and a
 --      completion whose version no longer matches is DROPPED. Without it a
 --      verdict from the previous round -- an assign that took a second while
 --      the round rolled over -- writes a stale TweakDBID into the current
@@ -150,6 +151,9 @@ local function book(instance)
             plans = {},          -- playerId -> the slot plan last issued
             sets = {},           -- playerId -> slot -> verified "0x..." id
             kits = {},           -- playerId -> kit key chosen in the buy window
+            -- playerId -> { version, atMs, outstanding }: the last issue and how
+            -- many of its assigns still owe a verdict. See `issueInFlight`.
+            issued = {},
             rotationIndex = 0,   -- FFA equalizer cursor, PER INSTANCE
             weapon = nil,        -- the entry the current round is being played with
         }
@@ -266,8 +270,17 @@ function Loadout.kitFor(instance, playerId)
     return kitByKey(chosen) or kitByKey(Config.kits.default) or Config.kits.list[1]
 end
 
--- The buy window's write. Returns ok, reason. It records the CHOICE only; the
--- weapons are issued when the round starts, by arena.lua calling `issue`.
+-- The buy window's write. Returns ok, reason.
+--
+-- 2026-11-04: THE CHOICE IS NO LONGER HELD UNTIL GO. The arena used to issue
+-- every kit at the end of the buy window, so the weapon assets of both players
+-- were torn down and reloaded at the exact moment the fight began (the
+-- frame-rate drop players reported "when the duel starts"). arena.lua now arms
+-- each player inside the window, once their placement has landed, and a pick
+-- made after that is handed over at once through `Arena.kitChanged` -- still
+-- inside the window, where the M5 gate refuses every shot. A pick made before
+-- the body has landed, or outside the window, is only recorded: the next
+-- arming reads it.
 function Loadout.chooseKit(playerId, kitKey)
     playerId = DM.playerId(playerId)
     if playerId == nil then return false, "bad_player_id" end
@@ -277,6 +290,11 @@ function Loadout.chooseKit(playerId, kitKey)
     local kit = kitByKey(tostring(kitKey))
     if kit == nil then return false, "unknown_kit" end
     book(instance).kits[playerId] = kit.key
+    -- Resolved at call time: arena.lua loads after this file.
+    local arena = DM.arena
+    if type(arena) == "table" and type(arena.kitChanged) == "function" then
+        arena.kitChanged(playerId, instance)
+    end
     return true, kit.key
 end
 
@@ -1058,12 +1076,22 @@ function Loadout.strip(playerId, instance)
     if entry ~= nil then
         entry.sets[playerId] = nil
         entry.plans[playerId] = nil
+        entry.issued[playerId] = nil
     end
     if instance ~= nil then instance.weaponIds[playerId] = nil end
 
     Open77.weapons.holster(playerId)
     for slot = 1, 3 do Open77.weapons.remove(playerId, slot) end
     return true
+end
+
+-- One assign of an issue has its final verdict (verified, failed for good, or
+-- refused before it left). Only the CURRENT issue is counted down: a verdict
+-- for an older version was already dropped by the staleness checks.
+local function assignSettled(entry, playerId, version)
+    local issued = entry ~= nil and entry.issued[playerId] or nil
+    if issued == nil or issued.version ~= version then return end
+    issued.outstanding = math.max(0, (issued.outstanding or 0) - 1)
 end
 
 -- Issue the whole loadout. Returns true when the requests went out; the WEAPON
@@ -1098,6 +1126,7 @@ function Loadout.issue(playerId, instance, reason, slots)
         and (plan[1].key == "mantis" or plan[1].key == "mantis_electric")
     entry.plans[playerId] = plan
     entry.sets[playerId] = {}
+    entry.issued[playerId] = { version = version, atMs = DM.nowMs(), outstanding = #plan }
     -- Cleared IMMEDIATELY, not when the new verdict lands: between the strip and
     -- the verification the player is holding nothing the server issued, and the
     -- arbiter must say so.
@@ -1129,6 +1158,7 @@ function Loadout.issue(playerId, instance, reason, slots)
                 DM.log(("loadout assign refused player=%d slot=%d weapon=%s reason=%s"):format(
                     playerId, spec.slot, tostring(spec.key), tostring(refusal)))
                 if spec.slot == 1 then DM.notice(playerId, "error", "loadoutFailed") end
+                assignSettled(entry, playerId, version)
             else
                 track(requestId, {
                     playerId = playerId, instanceId = instance.id, version = version,
@@ -1277,6 +1307,220 @@ function Loadout.equip(playerId, instance, slots)
 end
 
 
+-- ============================================================ arena arming --
+--
+-- 2026-11-04. NOTHING WEAPON-RELATED HAPPENS AT GO WHEN IT CAN HAPPEN EARLIER.
+--
+-- The arena used to call `issue` for every player at the end of the buy window:
+-- holster, remove three slots, 250 ms, three assigns -- every round, kit changed
+-- or not. So at the exact moment the fight began each client unloaded and
+-- reloaded the weapon assets and played the draw, for its own player and for
+-- the opponent's proxy, and until the verdict landed the arbiter refused the
+-- player's shots (`weapon_not_verified`). Prod 2026-11-04, a ranked duel: 11
+-- and 22 hitch frames (30-39 ms average, 106-128 ms peaks) right after each GO.
+--
+-- Now there are three moments, and arena.lua decides which one it is:
+--
+--   `arm`          inside the buy window, once the round-start placement has
+--                  LANDED (arena.lua watches `Deathmatch.bodySettled`), and
+--                  again on a kit change made after that. A new or changed
+--                  kit is a full `issue`. An UNCHANGED kit whose every slot is
+--                  verified is not re-issued: the client is asked what it
+--                  holds (`requestSnapshot`, a read) and only a mismatch --
+--                  a placement that wiped or swapped the weapons -- re-issues.
+--   `onRoundLive`  at GO. A verified kit matching the plan gets its RESERVE
+--                  topped up and nothing else; a matching issue still in
+--                  flight is left alone; anything else (nothing verified, a
+--                  kit that never armed) falls back to the full issue.
+--
+-- WHY THE PLACEMENT HAS TO LAND FIRST. A round-start placement is a teleport
+-- for the living and a respawn for the dead, and a respawn is asynchronous: the
+-- client queues the engine's ResurrectEvent and acknowledges in the same frame,
+-- before the engine processed it. An assign racing that is exactly the kind of
+-- assignment the 250 ms gap exists to avoid losing. Whether a respawn keeps or
+-- clears the weapon slots is not something this file assumes either way --
+-- the free-for-all only resupplies after a death, which says they survive, and
+-- the Cordon notes say a placement holstered what was in hand -- so the
+-- snapshot settles it per player, per round.
+--
+-- NOTHING ABOUT THE SECURITY MODEL MOVES. Every issue and every survival check
+-- bumps the version, so a verdict from a superseded request is dropped. The
+-- arbiter still matches only ids a verdict returned. A kit in hand during the
+-- buy window cannot hurt anyone: main.lua's M5 gate refuses every shot while
+-- `round.state ~= "active"`, and bots.lua refuses the player -> bot report the
+-- same way. Spawn protection is untouched.
+
+-- Same record in the same slot, slot for slot. The key and the label are
+-- presentation; the record is what the client was handed.
+local function samePlan(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" or #a ~= #b then return false end
+    for index, spec in ipairs(a) do
+        local other = b[index]
+        if other == nil or other.slot ~= spec.slot or other.record ~= spec.record then
+            return false
+        end
+    end
+    return true
+end
+
+-- Every slot of the plan carries an id a verdict returned. One slot short is
+-- not verified: the survival check could not compare it, and `onRoundLive`
+-- re-issues rather than start a round with a slot the server cannot vouch for.
+local function fullyVerified(entry, playerId, plan)
+    local set = entry ~= nil and entry.sets[playerId] or nil
+    if type(set) ~= "table" or type(plan) ~= "table" or #plan == 0 then return false end
+    for _, spec in ipairs(plan) do
+        local id = set[spec.slot]
+        if id == nil or id == "" then return false end
+    end
+    return true
+end
+
+-- The current issue still owes verdicts. Bounded by the pending TTL so an issue
+-- whose completions were all lost reads as finished, and is re-issued at GO,
+-- instead of holding a player unarmed for the whole round.
+local function issueInFlight(entry, playerId)
+    local issued = entry ~= nil and entry.issued[playerId] or nil
+    if issued == nil or issued.version ~= versions[playerId] then return false end
+    if (issued.outstanding or 0) <= 0 then return false end
+    return DM.nowMs() - (issued.atMs or 0) < PENDING_TTL_MS
+end
+
+-- The full issue, answered as ok, outcome like the two entry points below.
+local function issueNow(playerId, instance, reason)
+    local ok, why = Loadout.issue(playerId, instance, reason)
+    if not ok then return false, why end
+    return true, "issued"
+end
+
+-- Asks the client what it holds. The answer lands on `open77:weapons:completed`
+-- as a `snapshot` and is judged by `survivalVerdict` below.
+local function requestSurvivalCheck(playerId, instance, reason)
+    local request = Open77.weapons.requestSnapshot
+    if type(request) ~= "function" then
+        return issueNow(playerId, instance, reason .. "_no_snapshot")
+    end
+    -- A check is a request like any other: anything still in flight for this
+    -- player belongs to a world this answer supersedes.
+    local version = bumpVersion(playerId)
+    local requestId, refusal = request(playerId)
+    if requestId == nil then
+        DM.log(("loadout snapshot refused player=%d reason=%s -- issuing instead"):format(
+            playerId, tostring(refusal)))
+        return issueNow(playerId, instance, reason .. "_snapshot_refused")
+    end
+    track(requestId, {
+        playerId = playerId, instanceId = instance.id, version = version,
+        step = "snapshot", reason = reason,
+    })
+    return true, "checking"
+end
+
+-- The verdict on a survival check. `info` has already passed the version and
+-- instance checks, so this is the round that is being armed right now.
+local function survivalVerdict(instance, info, accepted, reason, result)
+    local playerId = info.playerId
+    local entry = book(instance)
+    local plan = entry.plans[playerId]
+    if plan == nil then return end -- stripped since; the strip bumped the version anyway
+    local live = type(instance.round) == "table" and instance.round.state == "active"
+
+    if accepted ~= true or type(result) ~= "table" then
+        -- The client could not be read. Inside the buy window that is a plain
+        -- re-issue, i.e. the old behaviour, still before GO. In a live round
+        -- the server's verdict stands: stripping a weapon that is most likely
+        -- still in the player's hands is the hitch this exists to remove.
+        DM.log(("loadout snapshot failed player=%d reason=%s -- %s"):format(
+            playerId, tostring(reason), live and "keeping the verified kit" or "re-issuing"))
+        if not live then Loadout.issue(playerId, instance, "survival_unreadable") end
+        return
+    end
+
+    local rows = {}
+    for _, row in ipairs(result) do
+        local slot = type(row) == "table" and math.floor(tonumber(row.slot) or 0) or 0
+        if slot >= 1 and slot <= 3 then rows[slot] = row end
+    end
+    local set = entry.sets[playerId] or {}
+    for _, spec in ipairs(plan) do
+        local row = rows[spec.slot]
+        local held = row ~= nil and normalizeWeaponId(row.tweakDbId) or ""
+        if held == "" or held ~= set[spec.slot] then
+            DM.log(("loadout placement did not keep player=%d slot=%d expected=%s held=%s -- re-issuing"):format(
+                playerId, spec.slot, tostring(set[spec.slot]), held ~= "" and held or "empty"))
+            Loadout.issue(playerId, instance, "survival_mismatch")
+            return
+        end
+    end
+
+    -- Survived. A placement may still have holstered the primary; drawing it
+    -- is an animation, not an asset load, and it happens now rather than at GO.
+    local primary = rows[1]
+    local draw = not (primary ~= nil and primary.active == true and primary.drawn == true)
+    if draw and type(Open77.weapons.setActive) == "function" then
+        Open77.weapons.setActive(playerId, 1)
+    end
+    -- Said every time, like the placement line: it is the proof, in a server
+    -- log, that a round started without re-assigning anybody's weapons.
+    DM.log(("loadout kept player=%d instance=%d -- the placement kept the verified kit%s"):format(
+        playerId, instance.id, draw and " (primary drawn back)" or ""))
+end
+
+--- Arm a player inside the buy window. arena.lua calls it once the player's
+--- round-start placement has landed (`afterPlacement` true) and again on a kit
+--- change made after that (`afterPlacement` false).
+---
+--- Returns ok, outcome: "issued", "checking" (a survival check is out),
+--- "in_flight" (this exact kit is already on its way), "unchanged".
+function Loadout.arm(playerId, instance, reason, afterPlacement)
+    if type(playerId) == "number" and playerId <= 0 then return false, "bot" end
+    playerId = DM.playerId(playerId)
+    if playerId == nil then return false, "bad_player_id" end
+    instance = instance or instanceOf(playerId)
+    if instance == nil or instance.closed then return false, "not_in_instance" end
+    if not instance.members[playerId] then return false, "not_a_member" end
+    reason = reason or "arm"
+
+    local plan = Loadout.planFor(instance, playerId)
+    if plan == nil or #plan == 0 then return false, "no_plan" end
+    local entry = book(instance)
+    if samePlan(entry.plans[playerId], plan) then
+        if issueInFlight(entry, playerId) then return true, "in_flight" end
+        if fullyVerified(entry, playerId, plan) then
+            -- Same kit, every slot verified. Without a placement in between
+            -- nothing can have touched it; after one, the client is asked.
+            if not afterPlacement then return true, "unchanged" end
+            return requestSurvivalCheck(playerId, instance, reason)
+        end
+    end
+    return issueNow(playerId, instance, reason)
+end
+
+--- GO. Returns ok, outcome: "topped_up" (reserve only, nothing re-assigned),
+--- "in_flight" (the matching issue has not verified yet; its own verdict
+--- brings the ammunition), or "issued" (the full issue, as GO always did).
+function Loadout.onRoundLive(playerId, instance)
+    if type(playerId) == "number" and playerId <= 0 then return false, "bot" end
+    playerId = DM.playerId(playerId)
+    if playerId == nil then return false, "bad_player_id" end
+    instance = instance or instanceOf(playerId)
+    if instance == nil or instance.closed then return false, "not_in_instance" end
+
+    local plan = Loadout.planFor(instance, playerId)
+    local entry = book(instance)
+    if plan ~= nil and samePlan(entry.plans[playerId], plan) then
+        if fullyVerified(entry, playerId, plan) then
+            -- RESERVE ONLY -- `resupply` goes through `ammoOptions`, which
+            -- refuses to send a magazine (see the header).
+            Loadout.resupply(playerId, instance, "round_live")
+            return true, "topped_up"
+        end
+        if issueInFlight(entry, playerId) then return true, "in_flight" end
+    end
+    return issueNow(playerId, instance, "round_live")
+end
+
+
 -- ----------------------------------------------------------- verification --
 
 -- The slot-1 verified id -- the exact value main.lua's arbiter and bots.lua's
@@ -1409,6 +1653,13 @@ AddEventHandler("open77:weapons:completed", function(
     local instance = instanceOf(info.playerId)
     if instance == nil or instance.closed or instance.id ~= info.instanceId then return end
 
+    -- An arena survival check (see "arena arming"). Never retried: a failure
+    -- has its own answer there, and it is not the assign/ammo retry below.
+    if operation == "snapshot" then
+        survivalVerdict(instance, info, accepted, reason, result)
+        return
+    end
+
     if accepted ~= true then
         if instance.ruleset == "blade" and operation == "assign" and reason == "native_arm_slot_owned" then
             bladeChoices[info.playerId] = Config.blade.default
@@ -1442,8 +1693,9 @@ AddEventHandler("open77:weapons:completed", function(
         end
         DM.log(("loadout %s failed player=%d slot=%s reason=%s"):format(
             tostring(operation), info.playerId, tostring(info.slot), tostring(reason)))
-        if operation == "assign" and info.slot == 1 then
-            DM.notice(info.playerId, "error", "loadoutFailed")
+        if operation == "assign" then
+            assignSettled(book(instance), info.playerId, info.version)
+            if info.slot == 1 then DM.notice(info.playerId, "error", "loadoutFailed") end
         end
         return
     end
@@ -1453,6 +1705,7 @@ AddEventHandler("open77:weapons:completed", function(
     result = type(result) == "table" and result or {}
     local verifiedId = normalizeWeaponId(result.tweakDbId)
     local entry = book(instance)
+    assignSettled(entry, info.playerId, info.version)
     if verifiedId == "" then
         -- The weapon IS equipped -- the platform accepted -- but without an id
         -- the arbiter has nothing to match a shot against, so the player's

@@ -317,10 +317,26 @@ local function fullHealth(playerId)
     end
 end
 
+-- playerId -> { token, atMs } while a teleport we started has not settled. Read by
+-- main.lua's `Deathmatch.bodySettled`: the arena arms a player inside the buy
+-- window only once the round-start move has landed (2026-11-04), and a living
+-- player's move is this promise, not a life-state transition. Bounded, so a
+-- promise that never answers cannot hold anyone unarmed.
+H.moving = {}
+local MOVE_IN_FLIGHT_MS = 25000
+local moveToken = 0
+
+DM.bodyInFlight = function(playerId)
+    local move = H.moving[playerId]
+    return move ~= nil and now() - move.atMs < MOVE_IN_FLIGHT_MS
+end
+
 -- main.lua's placeAt hands the body move to us (op77_arena patch).
 DM.moveBody = function(playerId, position, heading, bucket, reason, graceMs, life)
     local phase = type(life) == "table" and life.phase or nil
     local target = { x = position.x, y = position.y, z = position.z }
+    -- A new move supersedes whatever teleport was still settling.
+    H.moving[playerId] = nil
     if phase == "dead" then
         local ok, why = Open77.players.respawn(playerId, {
             position = target, heading = heading or 0.0, bucket = bucket, health = 1.0, graceMs = graceMs,
@@ -338,9 +354,14 @@ DM.moveBody = function(playerId, position, heading, bucket, reason, graceMs, lif
         fullHealth(playerId)
         local entry = H.entered[playerId]
         local settled = false
+        moveToken = moveToken + 1
+        local token = moveToken
+        H.moving[playerId] = { token = token, atMs = now() }
         CreateThread(function()
             local placed, failure = promise:await()
             settled = true
+            local move = H.moving[playerId]
+            if move ~= nil and move.token == token then H.moving[playerId] = nil end
             if placed then
                 if entry then entry.landed = true end
                 return
@@ -390,6 +411,7 @@ function H.forget(playerId)
     H.returning[playerId] = nil
     H.released[playerId] = nil
     H.lobby[playerId] = nil
+    H.moving[playerId] = nil
 end
 
 -- A downed player is stood up where they lie before Light RP takes them home.

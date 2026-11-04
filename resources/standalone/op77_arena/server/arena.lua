@@ -522,6 +522,10 @@ local function startRound(instance, reason)
         -- `weapon`: an arena round issues kits rather than one shared weapon, and
         -- loadout.lua resolves the plan from the format.
         weapon = nil,
+        -- playerId -> { placedAtMs, settledAtMs, armed }: the humans whose
+        -- placement went out, waiting to be armed inside the buy window. See
+        -- `armLanded`.
+        arming = {},
     }
     instance.round = round
 
@@ -577,6 +581,10 @@ local function startRound(instance, reason)
                             { name = DM.playerName(participantId), team = side, bot = false })
                     end
                     DM.holdProtection(participantId, graceMs)
+                    -- Armed by `step` once this placement has LANDED, still
+                    -- inside the buy window -- never here, into a body that is
+                    -- mid-teleport or mid-respawn.
+                    round.arming[participantId] = { placedAtMs = at }
                     placed = placed + 1
                 else
                     DM.log(("arena %d: placement failed player=%d detail=%s"):format(
@@ -636,7 +644,93 @@ local function startRound(instance, reason)
     return round
 end
 
---- The buy window closes: kits are issued and the round goes live.
+-- ------------------------------------------------------------ arming --
+--
+-- 2026-11-04: KITS ARE ISSUED INSIDE THE BUY WINDOW, NOT AT GO. `goLive` used to
+-- `DM.equip` every human at the end of the window, so every round began with
+-- both clients tearing down and reloading their weapons -- the frame-rate drop
+-- reported "when the duel starts" (prod, a ranked duel: 11 and 22 hitch frames
+-- right after each GO). The WHAT is still loadout.lua's ("arena arming"); this
+-- file decides WHEN:
+--
+--   1. `startRound` records every human whose placement went out.
+--   2. `step` arms each one as soon as the placement has LANDED and stayed
+--      landed for `Config.arena.kitSettleMs` -- `Deathmatch.bodySettled`:
+--      alive or recovering, no teleport in flight. Never earlier: a respawn
+--      is asynchronous on the client, and an assign racing it can be lost.
+--   3. A kit picked after that is handed over at once (`Arena.kitChanged`).
+--   4. GO tops up the reserve of a verified matching kit and re-assigns
+--      nothing; only a player with nothing verified still gets the full
+--      issue there.
+--
+-- The buy window stays harmless with a kit in hand: M5 refuses every shot
+-- while `round.state ~= "active"` (main.lua), the player -> bot report path
+-- refuses the same way (bots.lua), and spawn protection covers the window.
+
+local function kitSettleMs()
+    return math.max(0, math.floor(tonumber(Config.arena.kitSettleMs) or 1000))
+end
+
+--- Arms, inside the buy window, every human whose placement has landed. Called
+--- from `step` on every tick of the window.
+local function armLanded(instance, round, now)
+    local arming = round.arming
+    if arming == nil then return end
+    local loadout = DM.loadout
+    if type(loadout) ~= "table" or type(loadout.arm) ~= "function" then return end
+    local hold = kitSettleMs()
+    for playerId, state in pairs(arming) do
+        if not state.armed and instance.members[playerId] then
+            local settled = type(DM.bodySettled) ~= "function" or DM.bodySettled(playerId)
+            if not settled then
+                -- Landed means landed CONTINUOUSLY for `hold`.
+                state.settledAtMs = nil
+            else
+                state.settledAtMs = state.settledAtMs or now
+                if now - state.settledAtMs >= hold then
+                    state.armed = true
+                    local ok, outcome = loadout.arm(playerId, instance, "buy_window", true)
+                    DM.log(("arena %d round %d: player %d armed in the buy window (%s, %d ms after placement, %d ms before GO)"):format(
+                        instance.id, round.number, playerId, tostring(ok and outcome or ("failed: " .. tostring(outcome))),
+                        now - (state.placedAtMs or now), math.max(0, (round.buyEndsAtMs or now) - now)))
+                end
+            end
+        end
+    end
+end
+
+--- A kit pick was recorded for this player (loadout.lua's `chooseKit`, whatever
+--- route it came by). Inside the buy window and after the player was armed, it
+--- is handed over now; before the body has landed the arming will read it, and
+--- outside the window it waits for the next round.
+function Arena.kitChanged(playerId, instance)
+    playerId = DM.playerId(playerId)
+    if playerId == nil then return false end
+    instance = instance or DM.instances.of(playerId)
+    if instance == nil or instance.match == nil then return false end
+    local round = instance.round
+    if round == nil or round.state ~= "buy" then return false end
+    local state = round.arming ~= nil and round.arming[playerId] or nil
+    if state == nil or not state.armed then return false end
+    local ok, outcome = DM.loadout.arm(playerId, instance, "buy_kit_change", false)
+    DM.log(("arena %d round %d: player %d changed kit in the buy window (%s)"):format(
+        instance.id, round.number, playerId, tostring(ok and outcome or ("failed: " .. tostring(outcome)))))
+    return ok == true
+end
+
+--- GO for one player. loadout.lua answers which of the three it was.
+local function armForLive(instance, playerId)
+    local loadout = DM.loadout
+    if type(loadout) == "table" and type(loadout.onRoundLive) == "function" then
+        local ok, outcome = loadout.onRoundLive(playerId, instance)
+        return ok and outcome or ("failed: " .. tostring(outcome))
+    end
+    DM.equip(playerId, instance)
+    return "equip"
+end
+
+--- The buy window closes and the round goes live. The kits were issued inside
+--- the window (see "arming" above); GO only tops them up.
 local function goLive(instance, now)
     local round = instance.round
     local match = instance.match
@@ -645,15 +739,20 @@ local function goLive(instance, now)
     round.endsAtMs = now + roundSeconds(instance) * 1000
     refreshAlive(instance)
 
-    -- HUMANS, not members. This loop touches the ENGINE -- `DM.equip` runs the
-    -- loadout path -- and `members` is the participant roster, which now
+    -- HUMANS, not members. This loop touches the ENGINE -- the loadout path --
+    -- and `members` is the participant roster, which now
     -- genuinely contains bots. A bot needs no kit: the gang record arrives
     -- armed and `bots.combat.forceWeapon` is the only thing that touches it.
+    local outcomes = {}
     for _, playerId in ipairs(DM.instances.humans(instance)) do
         -- loadout.lua resolves the kit the player chose during the window; this
         -- file owns the window, not the choice made inside it.
-        DM.equip(playerId, instance)
+        outcomes[#outcomes + 1] = ("%d=%s"):format(playerId, armForLive(instance, playerId))
         DM.notice(playerId, "success", "roundStart")
+    end
+    if #outcomes > 0 then
+        DM.log(("arena %d round %d GO loadouts: %s"):format(
+            instance.id, round.number, table.concat(outcomes, " ")))
     end
 
     -- ELIMINATION IS ARMED HERE, not at round start. The buy window is exactly
@@ -1507,6 +1606,9 @@ local function step(instance, now)
     end
 
     if round.state == "buy" then
+        -- First, so a body that lands on the window's last tick is armed by
+        -- the window and not by GO.
+        armLanded(instance, round, now)
         if now >= round.buyEndsAtMs then
             -- THE BUY WINDOW DOUBLES AS THE ROSTER'S GRACE PERIOD, and only
             -- while a body is still on its way. bots.lua paces creation across
