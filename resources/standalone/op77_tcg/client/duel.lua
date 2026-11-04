@@ -31,10 +31,12 @@ local RELAY = {
     ["tcg:choose"] = function(d) TriggerServerEvent(NET .. "choose", d.first ~= false) end,
     ["tcg:mulligan"] = function(d) TriggerServerEvent(NET .. "mulligan", d.again == true) end,
     ["tcg:sit"] = function() TriggerServerEvent(NET .. "sit") end,
+    -- A game action at the table (server/duel.lua "act").
+    ["tcg:act"] = function(d) TriggerServerEvent(NET .. "act", d) end,
 }
 for name, fn in pairs(RELAY) do K.on(name, fn) end
 
-for _, name in ipairs({ "decks", "nearby", "challengeSent", "challengeClosed" }) do
+for _, name in ipairs({ "decks", "nearby", "challengeSent", "challengeClosed", "duelRefused" }) do
     RegisterNetEvent(NET .. name, function(p) K.send("tcg:" .. name, type(p) == "table" and p or {}) end)
 end
 

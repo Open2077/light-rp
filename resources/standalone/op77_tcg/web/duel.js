@@ -20,6 +20,7 @@
   var duel = { nearby: [], freeTables: 0, tables: 2, outgoing: null, incoming: null, match: null, matchAt: 0, cam: "seat",
                result: null, dismissed: {} };
   var art = {};               // base card slug -> its card picture (the first edition)
+  var gameRenderer = null;    // web/table.js: the game once the setup is done
 
   function el(tag, cls, html) { var n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
   function esc(s) { return T.escapeHtml(s == null ? "" : s); }
@@ -566,6 +567,9 @@
     $("dhRival").innerHTML = seatHtml(rival, false);
     $("dhYou").innerHTML = seatHtml(me, true);
     $("dhLog").innerHTML = (m.log || []).slice(-6).map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("");
+    $("dhSeated").classList.toggle("game", m.phase === "game");
+    if (m.phase === "game" && gameRenderer) { gameRenderer.render(m); return; }
+    if (gameRenderer) gameRenderer.clear();
     renderCentre();
     renderHand();
     $("dhView").textContent = "View: " + duel.cam;
@@ -612,6 +616,7 @@
         }
         duel.match = null; zoom(null);
         $("dhHand").dataset.hand = "";
+        if (gameRenderer) gameRenderer.clear();
       } else {
         // Lua's seats 1 and 2 arrive as a JSON array: index them by seat number again.
         if (Array.isArray(d.seats)) d.seats = { 1: d.seats[0], 2: d.seats[1] };
@@ -657,7 +662,9 @@
     // The clocks, the pending challenge when the binder opens, the duel tab's player list.
     setInterval(function () {
       if (duel.match && duel.match.deadline != null) {
-        if (duel.match.seats[duel.match.you].seated) renderCentre(); else renderBanner();
+        if (!duel.match.seats[duel.match.you].seated) renderBanner();
+        else if (duel.match.phase === "game") { if (gameRenderer) gameRenderer.tick(); }
+        else renderCentre();
       }
       if (duel.incoming && T.ui.open && $("challengeModal").classList.contains("hidden")) showChallenge();
       if (duel.incoming && !T.ui.open) renderBanner();
@@ -677,6 +684,13 @@
     Object.keys(best).forEach(function (k) { art[k] = "img/cards/" + best[k].id + ".webp"; });
     T.tab("decks", renderDecks);
     T.tab("duel", renderDuel);
+    // What web/table.js (the game at the table) uses from here.
+    window.TCGDUEL = {
+      T: T, CARDS: CARDS, COLOUR_CSS: COLOUR_CSS, cardImg: cardImg, miniCard: miniCard, esc: esc, label: label, el: el,
+      clock: clock, remainingMs: remainingMs, duel: duel, splitList: splitList, legendsHtml: legendsHtml,
+      setGameRenderer: function (r) { gameRenderer = r; }
+    };
+    document.dispatchEvent(new Event("tcg:duelReady"));
     bind();
     if (T.preview) previewSetup();
   }
@@ -716,6 +730,7 @@
       view.log.push((first === 1 ? "Yuki" : "Jerem Zzzer") + " goes first.");
     }
     window.TCG_PREVIEW_HOOK = function (name, d) {
+      if (window.TCG_PREVIEW_HOOK_GAME && window.TCG_PREVIEW_HOOK_GAME(name, d)) return true;
       if (name === "tcg:decks") { fire("tcg:decks", decksPayload()); return true; }
       if (name === "tcg:saveDeck") {
         var key = d.key || String(100 + mine.length);
@@ -745,7 +760,7 @@
       return false;
     };
     var dm = params.get("duel");
-    if (dm) {
+    if (["walk", "seated", "mulligan", "main"].indexOf(dm) >= 0) {
       setTimeout(function () {
         T.hide();
         if (dm === "walk") { view.seats[0].seated = false; }

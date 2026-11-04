@@ -6,6 +6,7 @@
   <title>Cyberpunk TCG</title>
   <link rel="stylesheet" href="./app.css">
   <link rel="stylesheet" href="./duel.css">
+  <link rel="stylesheet" href="./table.css">
 </head>
 <body>
   <div id="app" class="hidden">
@@ -253,12 +254,17 @@
         <button class="ghost" id="dhView">View: seat</button>
         <button class="ghost danger" id="dhLeave">Leave the table</button>
       </div>
+      <div class="tb-rival" id="tbRival"></div>
+      <div class="tb-mine" id="tbMine"></div>
+      <div class="tb-pop hidden" id="tbPop"></div>
+      <div class="tb-fx" id="tbFx"></div>
       <div class="dh-zoom hidden" id="dhZoom"></div>
     </div>
   </div>
   <script src="./data/catalogue.js"></script>
   <script src="./data/cards.js"></script>
   <script src="./duel.js"></script>
+  <script src="./table.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

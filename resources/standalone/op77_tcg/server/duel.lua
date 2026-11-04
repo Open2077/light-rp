@@ -520,7 +520,7 @@ local function houseMulligan(m)
 end
 
 -- The game [8-9]: shared/game.lua plays the rules; here are the clock, the house and the table.
-local STEP_MS = { roll = 30000, main = 150000, react = 30000, steal = 30000 }
+local STEP_MS = cfg.stepMs or { roll = 30000, main = 150000, react = 30000, steal = 30000 }
 local driveHouse
 
 local function afterAction(m)
@@ -559,7 +559,7 @@ end
 -- Nobody answers in time: the smallest die is rolled, the React step passes, the best Gigs are stolen, the turn ends.
 local function timeout(m)
     local index = actor(m)
-    if m.step == "main" then TcgGame.endTurn(m, index)
+    if m.step == "main" and not cfg.houseForIdle then TcgGame.endTurn(m, index)
     else TcgGame.housePlay(m, index) end
     afterAction(m)
 end
