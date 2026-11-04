@@ -13,7 +13,7 @@
 -- Who opens it on LightRP: op77_lightrp/server/modules/ripperdoc.lua, once a player lies in a
 -- ripperdoc chair (op77_scenes).
 resource "op77_ripperdoc"
-version "0.1.0"
+version "0.2.0"
 open77_version ">=0.0.1"
 auto_start true
 -- The client owns a WebUI surface: a live reload would leave a stale one.

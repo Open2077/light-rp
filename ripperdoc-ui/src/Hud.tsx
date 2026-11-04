@@ -4,7 +4,7 @@ import type { Phase, Session } from "./App";
 import type { Capacity } from "./model";
 
 /* Clinic header, wallet, cyberware capacity (segmented, game-like) and a live vitals strip. */
-export function TopBar({ session, used, phase, section }: { session: Session; used: number; phase: Phase; section?: SectionDef }) {
+export function TopBar({ session, used, phase, section, onGuide }: { session: Session; used: number; phase: Phase; section?: SectionDef; onGuide?: () => void }) {
   const [shownWallet, setShownWallet] = useState(session.wallet);
   useEffect(() => {
     // The wallet rolls to its new value like a counter.
@@ -44,6 +44,11 @@ export function TopBar({ session, used, phase, section }: { session: Session; us
         {session.capacity && <CapacityMeter cap={session.capacity} />}
         <div className="rd-parts"><span>IMPLANTS</span><b>{used}</b></div>
         <div className="rd-wallet"><span>BANK</span><b>€$ {eddies(shownWallet)}</b></div>
+        {session.guide && (
+          <button className="rd-guide-open" disabled={!onGuide} onClick={onGuide} title="How capacity, street cred and storage work (H)">
+            <i>?</i><span>GUIDE</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -66,10 +71,10 @@ function CapacityMeter({ cap }: { cap: Capacity }) {
   );
 }
 
-export function BottomBar({ phase }: { phase: Phase }) {
-  const keys = phase === "section" || phase === "surfacing"
+export function BottomBar({ phase, guide }: { phase: Phase; guide?: boolean }) {
+  const keys = (phase === "section" || phase === "surfacing"
     ? [["A", "D"], "Cycle systems", ["E"], "Hold to operate", ["ESC"], "Full body"]
-    : [["LMB"], "Open system", ["ESC"], "Leave the chair"];
+    : [["LMB"], "Open system", ["ESC"], "Leave the chair"]).concat(guide ? [["H"], "Guide"] : []);
   return (
     <div className="rd-bottom">
       <Vitals />

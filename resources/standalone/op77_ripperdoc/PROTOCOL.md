@@ -26,7 +26,17 @@ interface OpenPayload {
   clinic?: { name: string; doctor: string; tagline?: string };
   patient?: { name?: string; id?: string };
   reputation?: { tier: number; name?: string; points?: number; next?: number; nextName?: string };
+  guide?: Guide;                                   // the clinic guide (below); absent: no guide
 }                                                  // street cred: the patient's reputation tier
+interface Guide {                                  // what the walkthrough explains, from the live config
+  auto?: boolean;                                  // never finished or skipped: open it after the boot
+  tiers: { tier: number; name: string; points: number; capacity?: number; rank: number }[]; // street cred ladder
+  gains?: { label: string; points: number; tier: number; tierName?: string }[]; // per mission difficulty
+  pvpGivesNone?: boolean;
+  drops?: string[];                                // where iconic implants drop
+  fittingFee?: number; payFrom?: "bank" | "cash";
+  keys?: { label: string; key?: string }[];       // the active implants' default keys
+}
 interface Cyberware {
   id: string; name: string; section: string; icon: string; rarity: string; // rarity "iconic" too
   tier: number;                                    // rank 1..6, 6 shown as V+
@@ -70,6 +80,7 @@ simulates the operations itself. Section ids: `frontal_cortex`, `ocular`, `arms`
 | `rd:close` | `{}` | The patient left (Esc on the full body): focus back to the game, `op77_ripperdoc:closed` to the server. |
 | `rd:sound` | `{ name }` | Plays `web/media/sfx/<name>.mp3` with Play2DSound (one handle per slot). |
 | `rd:action` | `{ op: "install" \| "remove", item }` | Relayed to the server (`op77_ripperdoc:action`), answered by `rd:result` then `rd:state`. |
+| `rd:guide` | `{ seen: true }` | The guide was finished or skipped: relayed to the server (`op77_ripperdoc:guide`), which remembers it per character. |
 
 ## Server
 
@@ -81,7 +92,17 @@ exports.op77_ripperdoc:close(playerId)
 exports.op77_ripperdoc:isOpen(playerId)
 AddEventHandler("op77_ripperdoc:action", function(playerId, { op, item, replace }) end) -- the page asked
 AddEventHandler("op77_ripperdoc:closed", function(playerId) end)                        -- the patient left
+AddEventHandler("op77_ripperdoc:guide", function(playerId, { seen }) end)              -- guide finished / skipped
 ```
 
 Console (restricted): `ripperdoc.open <playerId> [male|female]`, `ripperdoc.close <playerId>`,
 `ripperdoc.action <playerId> <install|remove> <item>` (the page's request, for support).
+
+## The guide
+
+The page walks the patient through the clinic: the body systems and the controls, capacity, street
+cred (its ladder: points, capacity and the highest implant rank of each tier), how street cred is
+earned (per mission difficulty, PvE only), buying / storage / swaps, and the active implants' keys.
+It opens by itself after the boot when `guide.auto` is true; the GUIDE button (top bar) or H opens it
+again at any time. Finishing or skipping it sends `rd:guide { seen: true }` (only when it opened by
+itself). Every number comes from `guide`; without `guide` the button is hidden.

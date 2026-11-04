@@ -216,6 +216,11 @@ local function createPage()
         if type(payload) ~= "table" then return end
         TriggerServerEvent("op77_ripperdoc:action", { op = payload.op, item = payload.item, replace = payload.replace })
     end)
+    -- The guide was finished or skipped: the clinic's owner remembers it per character.
+    page:on("rd:guide", function(payload)
+        heard("guide")
+        if type(payload) == "table" and payload.seen == true then TriggerServerEvent("op77_ripperdoc:guide", { seen = true }) end
+    end)
 end
 
 RegisterNetEvent("op77_ripperdoc:open", function(payload) open(type(payload) == "table" and payload or {}) end)
