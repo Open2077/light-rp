@@ -216,70 +216,118 @@ local function selectDeck(player, key)
 end
 
 -- ---------------------------------------------------------------------------------------------
--- The table: replicated props
+-- The table: replicated props, kept in step with the game by a diff (key -> prop). Everything a player can see on a
+-- real table is there: both mats, the deck stacks, the dice in the fixer areas, the Gigs, the Legends (face down or
+-- face up, spent sideways), the Units with their Gear tucked under them, the Eddies (face down), the top of the trash.
 
-local function propOf(m, model, at, yaw)
-    local id, why = Open77.props.create({ model = model, kind = "prop", position = { x = at.x, y = at.y, z = at.z },
-        yaw = yaw % 360, scale = 1.0, bucket = m.slot.bucket or 0, collision = false, physics = "none" })
-    if not id then S.log("duel %d: %s refused (%s)", m.id, model, tostring(why)) end
-    return id
+-- A base card's 3D card: its first edition (lowest tier, sleeved first), as the binder shows it.
+local entityOf = {}
+do
+    local best = {}
+    for _, e in ipairs(TcgCatalogue) do
+        local score = e.tier * 10 + (e.finish == "sleeved" and 0 or 1)
+        if not best[e.card] or score < best[e.card].score then best[e.card] = { score = score, entity = e.entity } end
+    end
+    for card, b in pairs(best) do entityOf[card] = b.entity end
 end
 
 local function removeProp(id) if id then pcall(Open77.props.remove, id) end end
 
--- The deck stack sinks into the table as it thins (one mesh, 45 cards tall): what shows is the cards left.
-local function deckPose(seat)
-    local n = #seat.library
-    local at = T.onMat(seat.pose, T.zones.deck[1], T.zones.deck[2])
-    at.z = at.z - T.mesh.deckHeight * (1 - math.min(1, n / 45))
-    return at
-end
-
-local function placeDeck(m, seat)
-    if #seat.library == 0 then removeProp(seat.props.deck); seat.props.deck = nil; return end
-    local at = deckPose(seat)
-    if seat.props.deck then
-        pcall(Open77.props.setTransform, seat.props.deck, { position = at, yaw = seat.pose.yaw })
-    else
-        seat.props.deck = propOf(m, T.mesh.deck, at, seat.pose.yaw)
-    end
-end
-
-local function placeLegends(m, seat)
-    for i, l in ipairs(seat.legends) do
-        local z = T.zones.legends[i]
-        local at = T.onMat(seat.pose, z[1], z[2])
-        local yaw = seat.pose.yaw + (l.spent and 90 or 0)
-        if seat.props.legends[i] then
-            pcall(Open77.props.setTransform, seat.props.legends[i], { position = at, yaw = yaw })
-        else
-            seat.props.legends[i] = propOf(m, T.mesh.cardback, at, yaw)
-        end
-    end
-end
-
--- The table is set as soon as a match is made: both mats, both decks, both dice sets in the fixer areas.
-local function setTable(m)
+local CARD_SCALE = C.scale.card
+local function desired(m)
+    local out = {}
+    local function put(key, model, at, yaw, scale) if model then out[key] = { model = model, at = at, yaw = yaw % 360, scale = scale or 1.0 } end end
+    local function card(slug) return entityOf[slug] end
     for _, seat in ipairs(m.seats) do
+        local i, pose = seat.index, seat.pose
         local mat = T.playmatById[seat.playmat] or T.playmatById[T.defaultPlaymat]
-        seat.props.mat = propOf(m, mat.mesh, seat.pose.mat, seat.pose.yaw)
-        placeDeck(m, seat)
-        local dice = T.dice[seat.pose.dice] or T.dice.netrunner
-        for _, kind in ipairs(T.dieKinds) do
+        put("mat:" .. i, mat.mesh, pose.mat, pose.yaw)
+        -- The deck stack sinks into the table as it thins (one mesh, 45 cards tall).
+        local n = #seat.library
+        if n > 0 then
+            local at = T.onMat(pose, T.zones.deck[1], T.zones.deck[2])
+            at.z = at.z - T.mesh.deckHeight * (1 - math.min(1, n / 45))
+            put("deck:" .. i, T.mesh.deck, at, pose.yaw)
+        end
+        local dice = T.dice[pose.dice] or T.dice.netrunner
+        m.dieYaw = m.dieYaw or {}
+        for _, kind in ipairs(seat.fixer or T.dieKinds) do
             local z = T.zones.fixer[kind]
-            seat.props.dice[kind] = propOf(m, dice[kind], T.onMat(seat.pose, z[1], z[2]), seat.pose.yaw + math.random(0, 359))
+            local key = "fixer:" .. i .. ":" .. kind
+            m.dieYaw[key] = m.dieYaw[key] or math.random(0, 359)
+            put(key, dice[kind], T.onMat(pose, z[1], z[2]), pose.yaw + m.dieYaw[key])
+        end
+        -- Gigs: in a row in the friendly Gig area, each die in its owner's colour.
+        local gz = T.zones.friendlyGigs
+        for k, g in ipairs(seat.gigs or {}) do
+            local x = gz.x0 + (k - 0.5) * (gz.x1 - gz.x0) / 7
+            local set = T.dice[m.seats[g.owner or i].pose.dice] or dice
+            put("gig:" .. g.uid, set[g.kind], T.onMat(pose, x, gz.y), pose.yaw + (g.uid * 47) % 360)
+        end
+        -- Legends area.
+        for k, l in ipairs(seat.legends) do
+            if not l.onField and not l.removed then
+                local z = T.zones.legends[k]
+                local yaw = pose.yaw + (l.spent and 90 or 0)
+                local model = l.faceUp and card(l.slug) or T.mesh.cardback
+                put("leg:" .. i .. ":" .. k .. ":" .. (l.faceUp and l.slug or "back"), model, T.onMat(pose, z[1], z[2], 0.0005), yaw,
+                    l.faceUp and CARD_SCALE or 1.0)
+                for gi, g in ipairs(l.gear or {}) do
+                    put("lgear:" .. i .. ":" .. k .. ":" .. gi, card(g), T.onMat(pose, z[1], z[2] + 0.06 * gi, 0.0002), pose.yaw, CARD_SCALE)
+                end
+            end
+        end
+        -- The field: Units in a row, closer together as it fills; Gear peeks out under its Unit.
+        local f = T.zones.field
+        local count = #(seat.field or {})
+        local step = count > 0 and math.min(0.125, (f.x1 - f.x0) / count) or 0
+        for k, u in ipairs(seat.field or {}) do
+            local x = f.x0 + (k - 0.5) * step
+            local yaw = pose.yaw + (u.spent and 90 or 0)
+            put("unit:" .. u.uid, card(u.slug), T.onMat(pose, x, f.y, 0.001), yaw, CARD_SCALE)
+            for gi, g in ipairs(u.gear or {}) do
+                put("gear:" .. u.uid .. ":" .. gi .. ":" .. g, card(g), T.onMat(pose, x, f.y + 0.07 * gi, 0.0004 - gi * 0.0001), yaw, CARD_SCALE)
+            end
+        end
+        -- Eddies: face-down cards overlapping in a row, spent ones turned.
+        local e = T.zones.eddies
+        local ecount = #(seat.eddies or {})
+        local estep = ecount > 0 and math.min(0.045, (e.x1 - e.x0) / ecount) or 0
+        for k, ed in ipairs(seat.eddies or {}) do
+            put("edd:" .. ed.uid, T.mesh.cardback, T.onMat(pose, e.x0 + (k - 0.5) * estep, e.y, 0.0005 * k), pose.yaw + (ed.spent and 90 or 0))
+        end
+        -- Trash: the top card, face up.
+        local top = seat.trash and seat.trash[#seat.trash]
+        if top then put("trash:" .. i .. ":" .. #seat.trash, card(top), T.onMat(pose, T.zones.trash[1], T.zones.trash[2], 0.001), pose.yaw, CARD_SCALE) end
+    end
+    return out
+end
+
+local function syncTable(m)
+    m.props = m.props or {}
+    local want = desired(m)
+    for key, have in pairs(m.props) do
+        if not want[key] then removeProp(have.id); m.props[key] = nil end
+    end
+    for key, w in pairs(want) do
+        local have = m.props[key]
+        if have then
+            local d = math.abs(have.at.x - w.at.x) + math.abs(have.at.y - w.at.y) + math.abs(have.at.z - w.at.z)
+            if d > 0.0005 or math.abs(have.yaw - w.yaw) > 0.5 then
+                pcall(Open77.props.setTransform, have.id, { position = w.at, yaw = w.yaw })
+                have.at, have.yaw = w.at, w.yaw
+            end
+        else
+            local id, why = Open77.props.create({ model = w.model, kind = "prop", position = { x = w.at.x, y = w.at.y, z = w.at.z },
+                yaw = w.yaw, scale = w.scale, bucket = m.slot.bucket or 0, collision = false, physics = "none" })
+            if id then m.props[key] = { id = id, at = w.at, yaw = w.yaw } else S.log("duel %d: %s refused (%s)", m.id, w.model, tostring(why)) end
         end
     end
 end
 
 local function clearTable(m)
-    for _, seat in ipairs(m.seats) do
-        removeProp(seat.props.mat)
-        removeProp(seat.props.deck)
-        for _, id in pairs(seat.props.dice) do removeProp(id) end
-        for _, id in pairs(seat.props.legends) do removeProp(id) end
-        seat.props = { dice = {}, legends = {} }
-    end
+    for _, have in pairs(m.props or {}) do removeProp(have.id) end
+    m.props = {}
 end
 
 -- ---------------------------------------------------------------------------------------------
@@ -332,20 +380,52 @@ local function view(m, seat)
     for i, s in ipairs(m.seats) do
         local legends = {}
         for k, l in ipairs(s.legends) do legends[k] = { spent = l.spent, card = l.faceUp and l.slug or nil } end
+        for k, l in ipairs(s.legends) do
+            legends[k].onField, legends[k].removed = l.onField, l.removed
+            if l.gear and #l.gear > 0 then legends[k].gear = table.concat(l.gear, ",") end
+        end
+        local field, gigs, fixer = {}, {}, {}
+        for k, u in ipairs(s.field or {}) do
+            field[k] = { uid = u.uid, card = u.slug, spent = u.spent, lag = u.lag, power = TcgGame.power(u), legend = u.legend,
+                         solo = u.solo, gear = table.concat(u.gear or {}, ","), canAttack = (TcgGame.canAttack(u)) }
+        end
+        for k, g in ipairs(s.gigs or {}) do gigs[k] = { uid = g.uid, kind = g.kind, value = g.value, owner = g.owner or i } end
+        for k, d in ipairs(s.fixer or {}) do fixer[k] = d end
+        local ready = 0
+        for _, e in ipairs(s.eddies or {}) do if not e.spent then ready = ready + 1 end end
         seats[i] = { name = s.name, side = s.pose.side, playmat = s.playmat, seated = s.seated, house = s.house, deck = s.deck.name,
-            library = #s.library, handCount = #s.hand, legends = legends, mulligan = s.mulligan, roll = s.roll }
+            library = #s.library, handCount = #s.hand, legends = legends, mulligan = s.mulligan, roll = s.roll,
+            field = field, gigs = gigs, fixer = fixer, eddies = #(s.eddies or {}), eddiesReady = ready,
+            trash = #(s.trash or {}), trashTop = s.trash and s.trash[#s.trash] or nil, streetCred = s.gigs and TcgGame.streetCred(s) or nil,
+            available = s.fixer and TcgGame.available(s) or 0 }
+    end
+    local attack
+    if m.attack then
+        local a = m.attack
+        attack = { attacker = a.attacker, owner = a.owner, defender = a.defender, target = a.target.kind == "gigs" and "gigs" or a.target.uid,
+                   blocked = a.blocked, steal = a.steal }
+    end
+    local events = {}
+    for k, e in ipairs(m.sent or {}) do
+        -- The rival's draws are public, their cards are not.
+        if e.kind == "draw" and e.seat ~= seat.index then events[k] = { kind = "draw", seat = e.seat }
+        else events[k] = e end
     end
     return { id = m.id, slot = m.slot.id, label = m.slot.label, you = seat.index, phase = m.phase, deadline = remaining(m),
         decider = m.decider, first = m.first, turn = m.turn, active = m.active, seats = seats,
-        hand = table.concat(seat.hand, ","), log = m.log,
+        hand = table.concat(seat.hand, ","), log = m.log, step = m.step, attack = attack, events = events, overtime = m.overtime,
+        options = m.phase == "game" and TcgGame.options(m, seat.index) or nil,
         chair = seat.pose.chair, stand = seat.pose.stand, mat = seat.pose.mat, yaw = seat.pose.yaw,
         rivalMat = other(m, seat).pose.mat }
 end
 
 local function broadcast(m)
+    m.sent = m.events or {}
+    m.events = {}
     for _, seat in ipairs(m.seats) do
         if seat.player then TriggerClientEvent(NET .. "match", seat.player, view(m, seat)) end
     end
+    m.sent = nil
 end
 
 local function standUp(seat)
@@ -380,8 +460,7 @@ end
 
 local function newSeat(index, pose, who)
     return { index = index, pose = pose, player = who.player, identifier = who.identifier, name = who.name, house = who.house,
-        deck = who.deck, playmat = who.playmat, seated = false, library = {}, hand = {}, legends = {}, mulligan = nil,
-        props = { dice = {}, legends = {} } }
+        deck = who.deck, playmat = who.playmat, seated = false, library = {}, hand = {}, legends = {}, mulligan = nil }
 end
 
 local function createMatch(slot, a, b)
@@ -402,7 +481,7 @@ local function createMatch(slot, a, b)
     for id, ch in pairs(challenges) do
         if ch.from == a.player or ch.to == a.player or ch.from == b.player or ch.to == b.player then challenges[id] = nil end
     end
-    setTable(m)
+    syncTable(m)
     say(m, "%s vs %s at %s.", a.name, b.name, slot.label)
     S.log("duel %d at %s: %s (%s) vs %s (%s)", m.id, slot.id, a.name, a.deck.name, b.name, b.deck.name)
     broadcast(m)
@@ -440,13 +519,61 @@ local function houseMulligan(m)
     end
 end
 
-local function startGame(m)
-    m.phase = "main"
-    m.turn = 1
-    m.active = m.first
-    m.deadline = nil
-    say(m, "The game begins: turn 1, %s.", m.seats[m.first].name)
+-- The game [8-9]: shared/game.lua plays the rules; here are the clock, the house and the table.
+local STEP_MS = { roll = 30000, main = 150000, react = 30000, steal = 30000 }
+local driveHouse
+
+local function afterAction(m)
+    if m.over then return end
+    if m.step == "over" then
+        syncTable(m)
+        broadcast(m)
+        local winner = m.winner and m.seats[m.winner] or nil
+        return endMatch(m, m.endReason or "The game is over.", winner)
+    end
+    m.deadline = S.now() + (STEP_MS[m.step] or 60000)
+    m.stepKey = (m.stepKey or 0) + 1
+    syncTable(m)
     broadcast(m)
+    driveHouse(m)
+end
+
+-- Who must act now: the active player, the defender during a React step.
+local function actor(m)
+    if m.step == "react" and m.attack then return m.attack.defender end
+    return m.active
+end
+
+function driveHouse(m)
+    local who = m.seats[actor(m)]
+    if not who or not who.house or m.over or m.phase ~= "game" then return end
+    local key = m.stepKey
+    SetTimeout(1300, function()
+        if matches[m.id] ~= m or m.over or m.stepKey ~= key then return end
+        local ok, why = TcgGame.housePlay(m, who.index)
+        if not ok then S.log("duel %d: the house is stuck (%s)", m.id, tostring(why)); TcgGame.concede(m, who.index) end
+        afterAction(m)
+    end)
+end
+
+-- Nobody answers in time: the smallest die is rolled, the React step passes, the best Gigs are stolen, the turn ends.
+local function timeout(m)
+    local index = actor(m)
+    if m.step == "main" then TcgGame.endTurn(m, index)
+    else TcgGame.housePlay(m, index) end
+    afterAction(m)
+end
+
+local function startGame(m)
+    m.phase = "game"
+    m.random = math.random
+    TcgGame.begin(m)
+    for _, seat in ipairs(m.seats) do
+        for _, g in ipairs(seat.gigs) do g.owner = seat.index end
+    end
+    say(m, "The game begins: %s plays first.", m.seats[m.first].name)
+    TcgGame.startTurn(m)
+    afterAction(m)
 end
 
 local function bindMatch(m)
@@ -465,9 +592,8 @@ local function bindMatch(m)
             end
             draw(seat, 6)
             seat.mulligan = "deciding"
-            placeLegends(m, seat)
-            placeDeck(m, seat)
         end
+        syncTable(m)
         startMulligans(m)
         houseMulligan(m)
     end
@@ -487,7 +613,7 @@ local function bindMatch(m)
             seat.mulligan = "kept"
             say(m, "%s keeps.", seat.name)
         end
-        placeDeck(m, seat)
+        syncTable(m)
         local nextSeat = other(m, seat)
         if index == m.first then
             m.decider = nextSeat.index
@@ -635,6 +761,7 @@ local function leave(player, reason)
     local m = byPlayer[player]
     local seat = m and seatOf(m, player)
     if not seat then return end
+    if m.phase == "game" then TcgGame.concede(m, seat.index) end
     if m.phase == "seating" or m.phase == "choose" or m.phase == "mulligan" then
         endMatch(m, ("%s left the table before the game began."):format(seat.name), nil)
     else
@@ -686,6 +813,44 @@ on("choose", function(player, goFirst)
     local seat = m and seatOf(m, player)
     if seat then m.choose(seat.index, goFirst ~= false) end
 end)
+-- A game action from the page: { type = roll|sell|play|call|legend|attack|block|resolve|steal|endTurn, ... }.
+-- Hand cards are named by index and slug, so a stale click never plays another card.
+local ACTIONS = {
+    roll = function(m, i, d) return TcgGame.roll(m, i, tostring(d.die or "")) end,
+    sell = function(m, i, d) return TcgGame.sell(m, i, d.hand) end,
+    play = function(m, i, d) return TcgGame.play(m, i, d.hand, d.target) end,
+    call = function(m, i, d) return TcgGame.call(m, i, tonumber(d.legend), m.step == "react") end,
+    legend = function(m, i, d) return TcgGame.playLegend(m, i, tonumber(d.legend)) end,
+    attack = function(m, i, d) return TcgGame.attack(m, i, tonumber(d.uid), d.target == "gigs" and "gigs" or tonumber(d.target)) end,
+    block = function(m, i, d) return TcgGame.block(m, i, tonumber(d.uid)) end,
+    resolve = function(m, i) return TcgGame.resolve(m, i) end,
+    steal = function(m, i, d)
+        local ids = {}
+        for id in tostring(d.uids or ""):gmatch("%d+") do ids[#ids + 1] = tonumber(id) end
+        return TcgGame.steal(m, i, ids)
+    end,
+    endTurn = function(m, i) return TcgGame.endTurn(m, i) end,
+}
+
+on("act", function(player, d)
+    local m = byPlayer[player]
+    local seat = m and seatOf(m, player)
+    if not seat or m.phase ~= "game" or m.over or type(d) ~= "table" then return end
+    local fn = ACTIONS[tostring(d.type)]
+    if not fn then return end
+    if d.hand ~= nil then
+        local hi = math.floor(tonumber(d.hand) or 0)
+        if seat.hand[hi] == nil or seat.hand[hi] ~= d.card then return S.notify(player, "That card is no longer in your hand.", "error") end
+        d.hand = hi
+    end
+    local ok, why = fn(m, seat.index, d)
+    if not ok then
+        TriggerClientEvent(NET .. "duelRefused", player, { reason = tostring(why) })
+        return
+    end
+    afterAction(m)
+end)
+
 on("mulligan", function(player, again)
     local m = byPlayer[player]
     local seat = m and seatOf(m, player)
@@ -808,6 +973,8 @@ CreateThread(function()
                     m.choose(m.decider, true)
                 elseif m.phase == "mulligan" then
                     m.mulligan(m.decider, false)
+                elseif m.phase == "game" then
+                    timeout(m)
                 end
             end
             -- A seated player who walked away from the table concedes after a short grace.

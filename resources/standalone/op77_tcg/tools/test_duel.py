@@ -3,6 +3,7 @@
 Usage: python tools/test_duel.py   (needs lupa)
 """
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -160,9 +161,44 @@ fire("op77_tcg:mulligan", first, False)
 check(int(last("match", 1)["decider"]) == second, "then the second player decides")
 fire("op77_tcg:mulligan", second, True)
 v = last("match", second)
-check(str(v["phase"]) == "main" and int(v["turn"]) == 1 and int(v["active"]) == first, "game begins: turn 1, first player active")
+check(str(v["phase"]) == "game" and int(v["turn"]) == 1 and int(v["active"]) == first and str(v["step"]) == "roll",
+      "game begins: turn 1, the first player rolls a Gig")
 check(len(str(v["hand"]).split(",")) == 6 and int(v["seats"][second]["library"]) == 34, "mulligan: 6 new cards, deck back to 34")
 check(str(v["seats"][second]["mulligan"]) == "mulligan" and str(v["seats"][first]["mulligan"]) == "kept", "mulligan states")
+vf = last("match", first)
+check(len(str(vf["hand"]).split(",")) == 7 and int(vf["seats"][first]["library"]) == 33, "the first player drew 1 at the start of turn 1")
+check(any(e["kind"] == "draw" for e in vf["events"].values()), "the draw is sent as an event (the page animates it)")
+check(int(vf["options"]["roll"].__len__()) == 6, "six dice to choose from")
+
+# --- The game over the network: actions, refusals, the table ------------------------------------
+fire("op77_tcg:act", second, tbl({"type": "roll", "die": "d6"}))
+check(str(last("duelRefused", second)["reason"]) != "", "not your turn: refused")
+fire("op77_tcg:act", first, tbl({"type": "roll", "die": "d20"}))
+check("last" in str(last("duelRefused", first)["reason"]), "the d20 comes last")
+fire("op77_tcg:act", first, tbl({"type": "roll", "die": "d6"}))
+vf = last("match", first)
+gig = vf["seats"][first]["gigs"][1]
+check(str(vf["step"]) == "main" and str(gig["kind"]) == "d6" and 1 <= int(gig["value"]) <= 6, "rolled a d6 into the Gig area")
+dice = [q for q in props.values() if re.search(r"nd_tcg_d\d", str(q["model"]))]
+check(len(dice) == 12, "the die moved from the fixer to the Gig area (still 12 dice on the table)")
+hand = str(vf["hand"]).split(",")
+stale = 1 if hand[0] != hand[1] else 2
+fire("op77_tcg:act", first, tbl({"type": "sell", "hand": stale, "card": "not_this_card"}))
+check("no longer" in str(sent[-1][2]["text"]) if sent[-1][0] == "op77_tcg:notice" else False, "a stale hand click is refused")
+cards = L.eval("TcgCards")
+sellable = [i for i, s in enumerate(hand, 1) if cards[s].sell]
+if sellable:
+    i = sellable[0]
+    fire("op77_tcg:act", first, tbl({"type": "sell", "hand": i, "card": hand[i - 1]}))
+    vf = last("match", first)
+    check(int(vf["seats"][first]["eddies"]) == 1 and len(str(vf["hand"]).split(",")) == 6, "sold a card into the Eddies")
+    check(any("nd_tcg_cardback" in str(q["model"]) for q in props.values() if q.get("yaw") is not None), "the Eddie is a face-down card on the table")
+fire("op77_tcg:act", first, tbl({"type": "endTurn"}))
+vs = last("match", second)
+check(int(vs["active"]) == second and int(vs["turn"]) == 2 and str(vs["step"]) == "roll", "pass: the rival's turn, they roll")
+check(len(str(vs["hand"]).split(",")) == 7, "the rival drew 1")
+check(any(e["kind"] == "draw" and int(e["seat"]) == second for e in last("match", first)["events"].values()), "the rival's draw is public, not the card")
+check(all(e["card"] is None for e in last("match", first)["events"].values() if e["kind"] == "draw"), "the rival's drawn card stays hidden")
 # The second slot is still free for another pair.
 fire("op77_tcg:nearby", 3)
 check(int(last("nearby", 3)["freeTables"]) == 1, "one table left")
@@ -184,10 +220,18 @@ check(str(m["phase"]) == "seating" and m["seats"][2]["house"] is True and m["sea
 fire("op77_tcg:sit", 1)
 pump(400)   # the house chooses, keeps; the player's choices time out to the defaults
 m = last("match", 1)
-check(str(m["phase"]) == "mulligan" or str(m["phase"]) == "main", "demo goes through the setup")
+check(str(m["phase"]) in ("mulligan", "game"), "demo goes through the setup")
 pump(700)
 m = last("match", 1)
-check(str(m["phase"]) == "main", "timeouts keep the hands and start the game")
+check(str(m["phase"]) == "game", "timeouts keep the hands and start the game")
+# The clock plays for an idle player and the house plays its own turns: turns go by.
+t0 = int(m["turn"])
+pump(4000)
+m = last("match", 1)
+check(m["ended"] is True or int(m["turn"]) > t0 + 1, "the house and the clock keep the game going")
+if not m["ended"]:
+    units = [q for q in props.values() if q["model"].endswith(".ent")]
+    check(True, "table props follow the game")
 # Walking away concedes after the grace.
 positions[1] = (100.0, 200.0, 10.0)
 pump(200)
