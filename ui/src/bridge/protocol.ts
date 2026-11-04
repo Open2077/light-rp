@@ -24,6 +24,7 @@ export const PAGE_EVENTS = {
   tutorial: "lightrp:ui:tutorial",
   jobRun: "lightrp:ui:jobrun", // Lua -> page: JobRunLive
   freecam: "lightrp:ui:freecam", // page -> Lua: { operation: "toggle" }; Lua -> page: FreecamState
+  maneki: "lightrp:ui:maneki", // Lua -> page: ManekiToolState (client/core/maneki_editor.lua)
   characterEditor: "lightrp:ui:character:editor", // Lua -> page: native editor handoff { active, error? }
   state: "lightrp:ui:state",
   hud: "lightrp:ui:hud",
@@ -176,6 +177,8 @@ export interface UiState {
   dailies?: DailiesState;
   /** Earned titles and the one shown (server/modules/titles.lua T.view; features/dailies). */
   titles?: TitlesState;
+  /** The Maneki-neko collection of this character (server/modules/maneki.lua): found / hidden. */
+  maneki?: { found: number; total: number };
 }
 
 /* ── Dailies and titles (server/modules/dailies.lua, titles.lua; docs/dailies-titles.md) ── */
@@ -459,6 +462,12 @@ export interface RaidState {
 /** One operator on the crew frame of a running mission. `state`: alive, down (waiting for a revive), dead, recovering. */
 export interface MissionSquadMember { id: number; name: string; citizen: string; host: boolean; health: number; maxHealth: number; armor: number; state: "alive" | "down" | "dead" | "recovering" }
 export type UiStatePatch = Partial<UiState>;
+
+/** The staff placement tool for the Maneki-neko, as client/core/maneki_editor.lua publishes it. */
+export interface ManekiToolState {
+  active: boolean; scale?: number; yaw?: number; aim?: boolean; hovered?: string; hoveredFound?: boolean;
+  nearby?: number; message?: string; ok?: boolean;
+}
 
 /** The free camera, as client/core/freecam.lua publishes it. `keys` are the effective bindings. */
 export interface FreecamState {

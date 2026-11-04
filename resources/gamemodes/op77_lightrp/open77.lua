@@ -28,6 +28,7 @@ dependencies {
     "open77_icons >=1.0.0",
     "open77_weapons >=0.2.0",
     "open77_chimera >=1.0.0", -- the raid boss (server/modules/mission_chimera.lua)
+    "open77_maneki >=1.0.0",  -- the Maneki-neko collectible's visual host (client/core/maneki.lua)
 }
 
 -- Downloaded by clients: never put credentials in shared/.
@@ -137,6 +138,8 @@ server_script "server/modules/housing_store.lua"
 server_script "server/modules/housing.lua"
 server_script "server/modules/housing_admin.lua"
 server_script "server/modules/board_games_admin.lua" -- staff: placed tables list / go to / remove (/admin, /lightrp.tables)
+server_script "server/config/maneki.lua"
+server_script "server/modules/maneki.lua"          -- Maneki-neko collectibles: streamed near players, E or a shot, staff tool (/lightrp.maneki)
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"
@@ -236,6 +239,8 @@ client_script "client/core/vehicle_customization.lua"
 client_script "client/core/guide.lua"           -- the guide NPC: page relay with the player's keys, ALT + click on him
 client_script "client/core/pvp_marks.lua"      -- nameplates (op77_playermarks) hidden in PvP
 client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
+client_script "client/core/maneki.lua"         -- Maneki-neko collectibles: local props, E prompt, shot detection
+client_script "client/core/maneki_editor.lua"  -- the staff placement tool for the cats
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -312,6 +317,7 @@ permissions {
     "ui.vanilla.hud",
     "camera.style",         -- the dynamic shoulder camera by default, /camchange (client/core/camera.lua)
     "player.weapons.read", -- read-only magazine and reload HUD snapshots
+    "player.aim.read",      -- Maneki-neko: a shot is the trigger held with a weapon drawn (client/core/maneki.lua)
     "pause_menu.customize", -- accent + logo of the pause menu
     "map.control",          -- title + accent of the native map
 }
