@@ -110,3 +110,27 @@ Constraints: NO words or typography, no logos, no UI border, no decorative parti
   - Original: `C:/Users/Nightwolf/.codex/generated_images/01a17870-09ab-7030-8e00-75db1100fb25/exec-85962429-69d6-48d9-bcfe-4f8771aba41c.png`
 - `salvaged_parts.png`: one compact shallow worn metal crate of recovered reusable mechanical and electronic spare parts, intact small gear, copper coil and sound circuit module, neatly sorted, usable polished components distinct from broken scrap.
   - Original: `C:/Users/Nightwolf/.codex/generated_images/01a17870-09ab-7030-8e00-75db1100fb25/exec-e43e5893-d837-4f3a-818b-7e214cde62a0.png`
+
+## Cyberpunk TCG sealed product — 2026-11-04
+
+`tcg_booster_wnc.png`, `tcg_booster_beta.png`, `tcg_display_wnc.png`: generated with **Gemini (Nano Banana, model 3.1 Pro)**
+in the web app, each from a reference image of the real product pasted in the prompt (the op77_tcg pack / box
+artwork). Gemini has no real alpha: the prompt asks for a flat chroma-green backdrop, and
+`tools/chroma_icon.py <render> <out.png>` cuts it out (green connected to the border plus pure-chroma holes such as
+the hang hole, soft edge, despill), trims the object and centres it on the 1254 px canvas at 80 %. Raw renders and
+references: `E:/Open77/tmp/tcg-icons` (not in the project). These depict the licensed product's own packaging, so the
+words and logos on it are kept (unlike the other icons).
+
+Booster prompt (the Beta one says "exactly this pack design and artwork (keep its illustration, colours and the
+vertical side band)" instead of describing the art):
+
+```text
+Use case: game inventory item icon. Render the attached product as a single 3D object: one sealed foil trading-card booster pack, exactly this pack design (dark foil wrapper, the woman with the baseball bat over the neon city, the acid-yellow vertical side band, crimped top and bottom seals with a hang hole). Make it a physical object: slightly pillowed, crinkled metallic foil with glossy reflections and subtle wear on the crimps. Style: premium realistic 3D game prop render, readable at 80px, matching a set of realistic worn industrial Cyberpunk inventory props. Composition: square 1:1 canvas, single centered pack, three-quarter view slightly from above and turned about 20 degrees, entire pack visible, occupies 80% of the canvas height with comfortable margins. Lighting: neutral soft studio key light, subtle cool edge light, crisp silhouette. Background: one perfectly flat uniform pure chroma green #00FF00, no gradient, no floor, no shadow on the background, no reflection. No extra objects, no hands, no UI border, no watermark.
+```
+
+Display prompt (reference: only the front of the box; with the display header illustration in the reference
+Gemini refused):
+
+```text
+Use case: game inventory item icon. Render the attached product as a single 3D object: one closed, factory-sealed trading-card booster display box with this exact front design (acid-yellow cardboard, the black logo, the blue label). The box is a compact rectangular carton with its yellow top lid closed flat, and the whole box tightly wrapped in clear glossy shrink-wrap plastic with visible creases, folded seams at the corners and sharp specular highlights on the plastic. Cardboard with subtle wear on the edges. Style: premium realistic 3D game prop render, readable at 80px, matching a set of realistic worn industrial Cyberpunk inventory props. Composition: square 1:1 canvas, single centered box, three-quarter view slightly from above, entire box visible, occupies 80% of the canvas width with comfortable margins. Lighting: neutral soft studio key light, subtle cool edge light, crisp silhouette. Background: one perfectly flat uniform pure chroma green #00FF00, no gradient, no floor, no shadow on the background, no reflection. No extra objects, no hands, no UI border, no watermark.
+```
