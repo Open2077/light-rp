@@ -99,7 +99,11 @@ _G.Open77 = {
 local rows, stored, notices, logs, hooks = {}, {}, {}, {}, {}
 local bank = { [7] = 0 }
 local synced, failTransaction = 0, false
-local function tableOf(sql) return sql:match("lightrp_cyberware_stock") and stored or rows end
+local guideRows = {}
+local function tableOf(sql)
+    if sql:match("lightrp_cyberware_guide") then return guideRows end
+    return sql:match("lightrp_cyberware_stock") and stored or rows
+end
 _G.LightRP = {
     log = function(fmt, ...) logs[#logs + 1] = string.format(fmt, ...) end,
     notice = function(pid, def) notices[#notices + 1] = def end,
@@ -109,8 +113,9 @@ _G.LightRP = {
         ready = true, schema = function() end,
         run = function(sql, p)
             local t = tableOf(sql)
-            if sql:match("^INSERT") then t[p[1] .. "#" .. p[2] .. "#" .. p[3]] = true
-            elseif sql:match("^DELETE") then t[p[1] .. "#" .. p[2] .. "#" .. p[3]] = nil end
+            local key = p[1] .. "#" .. p[2] .. "#" .. tostring(p[3] or "seen")
+            if sql:match("^INSERT") then t[key] = true
+            elseif sql:match("^DELETE") then t[key] = nil end
             return true
         end,
         transaction = function(queries)
@@ -500,5 +505,41 @@ CW.activeInPvp = true
 view = Cyber.view(7)
 local function count(v) if type(v) ~= "table" then return 1 end local n = 1 for _, x in pairs(v) do n = n + 2 + (type(x) == "table" and count(x) - 1 or 0) end return n end
 assert(count(view) < 4000, "payload values: " .. count(view))
+
+-- The clinic guide: built from the live configuration, opens by itself until seen, remembered per character
+_G.LightRpMissions = {
+    reputation = { tiers = { 0, 500, 1500, 4000, 10000 }, names = { "Street", "Merc", "Operator", "Edgerunner", "Legend" },
+        difficultyTiers = { standard = 1, hard = 2, critical = 3 } },
+    reputationGain = { standard = 100, hard = 220, critical = 450 },
+}
+local guide = Cyber.view(7).guide
+assert(guide and guide.auto == true, "a first visit: the guide opens by itself")
+assert(#guide.tiers == 5, "the street cred ladder")
+for t, row in ipairs(guide.tiers) do
+    assert(row.tier == t and row.points == LightRpMissions.reputation.tiers[t] and row.name == LightRpMissions.reputation.names[t], "tier " .. t)
+    assert(row.capacity == CW.capacity.byTier[t], "capacity of tier " .. t)
+end
+assert(guide.tiers[1].rank == 2 and guide.tiers[2].rank == 3 and guide.tiers[3].rank == 4 and guide.tiers[5].rank == 6,
+    "the highest rank a tier opens (gating.byRank)")
+assert(#guide.gains == 3 and guide.gains[1].label == "Standard" and guide.gains[1].points == 100 and guide.gains[1].tier == 1
+    and guide.gains[3].label == "Critical" and guide.gains[3].points == 450 and guide.gains[3].tier == 3
+    and guide.gains[3].tierName == "Operator", "street cred per difficulty and the tier it needs")
+assert(guide.fittingFee == CW.fittingFee and guide.payFrom == "bank" and guide.pvpGivesNone == true, "fees and rules")
+local drops = table.concat(guide.drops, "|")
+assert(drops:find("Chimera raid (Critical)", 1, true), "iconic drop sources: " .. drops)
+local keyOf = {}
+for _, k in ipairs(guide.keys) do keyOf[k.label] = k.key end
+assert(keyOf["Dash / Air Dash"] == "CTRL" and keyOf["Ground Slam"] == "G" and keyOf["Sandevistan"] == "X"
+    and keyOf["Berserk"] == CW.keys.berserk.key and keyOf["Mantis Blades (draw / sheathe)"] == CW.keys.blades.key, "implant keys")
+assert(Cyber.markGuideSeen(7) == true and Cyber.markGuideSeen(7) == false, "seen once")
+assert(Cyber.view(7).guide.auto == false, "seen: it no longer opens by itself")
+assert(guideRows["u1#default#seen"] == true, "remembered in the database")
+Cyber.onCharacterLoaded(7, character)
+pump()
+assert(Cyber.view(7).guide.auto == false, "still seen after the character is loaded again")
+assert(Cyber.markGuideSeen(999) == false, "no character, nothing to remember")
+view = Cyber.view(7)
+assert(count(view) < 4000, "payload values with the guide: " .. count(view))
+_G.LightRpMissions = nil
 
 print("cyberware_test: ok")

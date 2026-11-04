@@ -209,6 +209,23 @@ export interface OpenPayload {
   installed?: Record<string, string[]>;
   patient?: { name?: string; id?: string };
   reputation?: Reputation; // street cred: catalogue items above it come `locked`
+  guide?: Guide;           // the clinic guide (Guide.tsx); absent: no guide
+}
+
+/** One street cred tier: the points it takes, the capacity it gives, the highest implant rank it opens. */
+export interface GuideTier { tier: number; name: string; points: number; capacity?: number; rank: number }
+/** What a finished mission pays in street cred at one difficulty, and the tier that difficulty needs. */
+export interface GuideGain { label: string; points: number; tier: number; tierName?: string }
+/** What the clinic guide explains, sent by the server from its live configuration. */
+export interface Guide {
+  auto?: boolean;          // never finished or skipped: it opens by itself after the boot
+  tiers: GuideTier[];
+  gains?: GuideGain[];
+  pvpGivesNone?: boolean;
+  drops?: string[];        // where iconic implants drop
+  fittingFee?: number;
+  payFrom?: "bank" | "cash";
+  keys?: { label: string; key?: string }[];
 }
 
 export const DEMO: Required<Omit<OpenPayload, "catalogue" | "capacity">> = {
@@ -217,7 +234,7 @@ export const DEMO: Required<Omit<OpenPayload, "catalogue" | "capacity">> = {
   fittingFee: 50,
   removalFee: 50,
   body: "male",
-  clinic: { name: "Viktor's Clinic", doctor: "Viktor Vektor", tagline: "Licensed // Watson // Kabuki" },
+  clinic: { name: "Clinic", doctor: "Ripperdoc on duty", tagline: "Licensed surgery" },
   wallet: 48250,
   installed: {
     frontal_cortex: ["ram_upgrade"], operating_system: ["sandevistan_c1"], ocular: ["kiroshi_basic"],
@@ -225,6 +242,30 @@ export const DEMO: Required<Omit<OpenPayload, "catalogue" | "capacity">> = {
   },
   patient: { name: "Alex Morgan", id: "NC-0715-3381" },
   reputation: { tier: 2, name: "Merc", points: 820, next: 1500, nextName: "Operator" },
+  // the server's defaults (cyberware.lua, missions.lua); the preview opens it like a first visit
+  guide: {
+    auto: true,
+    tiers: [
+      { tier: 1, name: "Street", points: 0, capacity: 10, rank: 2 },
+      { tier: 2, name: "Merc", points: 500, capacity: 14, rank: 3 },
+      { tier: 3, name: "Operator", points: 1500, capacity: 18, rank: 4 },
+      { tier: 4, name: "Edgerunner", points: 4000, capacity: 22, rank: 5 },
+      { tier: 5, name: "Legend", points: 10000, capacity: 26, rank: 6 },
+    ],
+    gains: [
+      { label: "Standard", points: 100, tier: 1, tierName: "Street" },
+      { label: "Hard", points: 220, tier: 2, tierName: "Merc" },
+      { label: "Critical", points: 450, tier: 3, tierName: "Operator" },
+    ],
+    pvpGivesNone: true,
+    drops: ["Chimera raid (Critical)"],
+    fittingFee: 50,
+    payFrom: "bank",
+    keys: [
+      { label: "Dash / Air Dash", key: "CTRL" }, { label: "Ground Slam", key: "G" }, { label: "Sandevistan", key: "X" },
+      { label: "Berserk", key: "X" }, { label: "Mantis Blades (draw / sheathe)", key: "B" }, { label: "Kiroshi scan", key: "ALT + CLICK" },
+    ],
+  },
 };
 
 const TIER_NAMES = ["", "Street", "Merc", "Operator", "Edgerunner", "Legend"];
