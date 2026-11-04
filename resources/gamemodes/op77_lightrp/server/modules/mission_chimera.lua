@@ -787,11 +787,13 @@ local function reinforcementHit(reporter, victimId, npcId, epoch, amount, platfo
 end
 LightRP.raidReinforcementHit = reinforcementHit
 RegisterNetEvent("op77_lightrp:raid:npcHit", function(victimId, npcId, epoch, amount)
-    -- the platform's victim path (mission_engine.lua) carries these hits when it exists
-    local engine = LightRP.missionEngine
-    if engine and engine.platformVictimHits then return end
+    -- the platform's victim path (mission_engine.lua) carries these hits for a current client;
+    -- a client from before it still relays them (Engine.relay holds and dedupes the relay)
     local reporter = tonumber(source)
-    if reporter and reporter > 0 then reinforcementHit(reporter, victimId, npcId, epoch, amount) end
+    if not reporter or reporter <= 0 then return end
+    local engine = LightRP.missionEngine
+    local apply = function() reinforcementHit(reporter, victimId, npcId, epoch, amount) end
+    if engine and type(engine.relay) == "function" then engine.relay(reporter, apply) else apply() end
 end)
 
 RegisterNetEvent("op77_lightrp:raid:hello", function()
