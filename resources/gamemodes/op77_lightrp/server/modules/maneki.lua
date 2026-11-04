@@ -564,8 +564,11 @@ LightRP.command("lightrp.maneki", { restricted = true, usage = USAGE }, function
     return true, ("Page %d/%d shown."):format(page, pages)
 end)
 
--- Without a database: the session keeps what the staff place.
+-- Without a database bridge at all: the session keeps what the staff place. With one,
+-- onDatabaseReady loads the cats however long the database takes at boot.
 CreateThread(function()
     Wait(5000)
-    if not Db.ready and not loadedSpots then loadedSpots = true; log("maneki: no database, cats placed now last this session only") end
+    if not Db.ready and not loadedSpots and not (Db.available and Db.available()) then
+        loadedSpots = true; log("maneki: no database, cats placed now last this session only")
+    end
 end)
