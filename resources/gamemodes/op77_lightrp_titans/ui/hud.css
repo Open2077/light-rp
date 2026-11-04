@@ -1,0 +1,248 @@
+/* The Titan HUD surface: one transparent canvas over the whole game picture (the crosshair, the aim range, the execution hint,
+   the tracers and the world labels, which belong to a point of the picture) and DOM panels over it (the PROTOCOLS lamps, the control
+   hints, the notices and the carry's prompt). It is all passive: it never takes focus and never answers the pointer. The Titan's hull,
+   shield, weapon, abilities and core are not drawn here: LightRP's own HUD shows them (the resource's `hudState` export hands it the
+   same state), so nothing is drawn in the top right (LightRP's minimap), on the left or at the bottom centre.
+
+   The panels wear LightRP's design system (ui/src/design/tokens.css, components.css): near-black HUD plates with hairline
+   rings and chamfers instead of radii, one yellow accent for what is lit, red for danger only, Chakra Petch for labels, Share Tech
+   Mono for readouts. The tokens below are the subset this page uses, under the same names; a page runs under its own origin and
+   loads only what its manifest lists, so it cannot link the UI's file. The font files are the UI's own (public/fonts). Everything
+   is sized in rem and 1rem is a hundredth of the picture's height (10 px at 1080p), so the panels grow and shrink with the game's
+   picture as the canvas does. */
+@font-face {
+  font-family: "Open77Hud";
+  src: url("chakra-petch-500-latin.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face { font-family: "Chakra Petch"; font-weight: 600; font-style: normal; font-display: swap; src: url("chakra-petch-600-latin.woff2") format("woff2"); }
+@font-face { font-family: "Share Tech Mono"; font-weight: 400; font-style: normal; font-display: swap; src: url("share-tech-mono-400-latin.woff2") format("woff2"); }
+
+:root {
+  --o77-black: #050506;
+  --o77-ink-700: #17181C;
+  --o77-yellow-400: #FFCC00;
+  --o77-red: #FF2E3C;
+
+  --surface-hud: rgba(6, 6, 8, .72);
+  --text-hi: #F2F3F5;
+  --text-body: #C3C7D1;
+  --text-dim: #8A8F9C;
+  --text-on-accent: #050506;
+  --text-danger: var(--o77-red);
+  --line-soft: rgba(255, 204, 0, .28);
+  --line-accent: var(--o77-yellow-400);
+  --accent: var(--o77-yellow-400);
+  --accent-quiet: rgba(255, 204, 0, .12);
+
+  --font-core: "Chakra Petch", "Bahnschrift", "Segoe UI", sans-serif;
+  --font-mono: "Share Tech Mono", "Cascadia Mono", "Consolas", monospace;
+  --ls-label: 0.14em;
+
+  /* tokens.css chamfers (6 / 10 / 14 px) and keycap corner, in rem */
+  --clip-chamfer-sm: polygon(0.6rem 0, 100% 0, 100% calc(100% - 0.6rem), calc(100% - 0.6rem) 100%, 0 100%, 0 0.6rem);
+  --clip-keycap: polygon(0 0, calc(100% - 0.4rem) 0, 100% 0.4rem, 100% 100%, 0.4rem 100%, 0 calc(100% - 0.4rem));
+  --glow-accent: inset 0 0 1.6rem -0.4rem rgba(255, 204, 0, .5);
+  --text-halo: 0 1px 2px rgba(0, 0, 0, .95), 0 0 8px rgba(0, 0, 0, .7);
+
+  --dur-instant: 60ms;
+  --dur-base: 180ms;
+  --dur-slow: 320ms;
+  --ease-snap: cubic-bezier(.2, .9, .2, 1);
+  --ease-out: cubic-bezier(0, .6, .3, 1);
+
+  /* LightRP's HUD safe area (--hud-safe-x), and the slot the bottom right keeps free for its voice plate */
+  --inset-x: 3.2rem;
+  --kit-bottom: 12rem;
+  --panel-w: 30rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { font-size: calc(100vh / 108); }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text-body);
+  font-family: var(--font-core);
+  pointer-events: none;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#hud {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+.titan { position: fixed; inset: 0; pointer-events: none; }
+
+kbd { font-family: var(--font-mono); }
+
+/* The readout voice: a short dim caption in capitals (LightRP's .o77-readout). */
+.tag {
+  color: var(--text-dim);
+  font: 700 1rem / 1 var(--font-mono);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  padding: 0.3rem 0.8rem;
+  color: var(--text-body);
+  background: var(--o77-ink-700);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  clip-path: var(--clip-keycap);
+  font: 700 1.2rem / 1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.keycap--sm { min-width: 1.6rem; padding: 0.15rem 0.5rem; font-size: 1.1rem; }
+
+/* ---- notices --------------------------------------------------------------------------------------------------------- */
+
+.notice {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.9rem 2.2rem;
+  color: var(--text-hi);
+  background: var(--surface-hud);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  clip-path: var(--clip-chamfer-sm);
+  font: 600 1.3rem / 1 var(--font-core);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.notice[data-kind="eject"] { top: 30%; color: var(--text-danger); box-shadow: inset 0 0 0 1px rgba(255, 46, 60, .55); }
+.notice[data-kind="leave"] { top: 78%; }
+
+/* ---- the carry's prompt (ctx.grabUi) ------------------------------------------------------------------------------- */
+
+.grab {
+  position: fixed;
+  left: 50%;
+  top: 64%;
+  min-width: 24rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem 1.6rem;
+  background: var(--surface-hud);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  clip-path: var(--clip-chamfer-sm);
+  animation: rise var(--dur-slow) var(--ease-out);
+}
+.grab-main { display: flex; align-items: center; gap: 1.4rem; }
+.grab-key {
+  min-width: 2.8rem;
+  height: 2.8rem;
+  padding: 0 0.6rem;
+  color: var(--text-on-accent);
+  background: var(--accent);
+  box-shadow: none;
+  font-size: 1.5rem;
+}
+.grab-text { flex: 1; display: flex; flex-direction: column; gap: 0.6rem; }
+.grab-label {
+  color: var(--text-hi);
+  font: 600 1.4rem / 1 var(--font-core);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+.grab-sub { font-size: 0.9rem; }
+.grab-target { padding: 0.4rem 0.8rem; box-shadow: inset 0 0 0 1px var(--line-soft); clip-path: var(--clip-keycap); }
+.grab-charge {
+  position: relative;
+  height: 0.5rem;
+  overflow: hidden;
+  background: var(--accent-quiet);
+}
+.grab-charge i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--accent);
+  transition: width var(--dur-instant) linear;
+}
+
+/* Charging: the key is down, so the cap is the outline of what it was. */
+.grab[data-phase="charging"] .grab-key { color: var(--accent); background: var(--o77-black); box-shadow: inset 0 0 0 1px var(--line-accent); }
+.grab[data-phase="charging"] { box-shadow: inset 0 0 0 1px var(--line-accent), var(--glow-accent); }
+
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 1rem); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ---- bottom right: the PROTOCOLS lamps and the control hints ---------------------------------------------------------- */
+
+/* Lifted above the slot LightRP keeps for its voice plate and vehicle cluster. */
+.kit {
+  position: fixed;
+  right: var(--inset-x);
+  bottom: var(--kit-bottom);
+  width: var(--panel-w);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.7rem;
+}
+
+/* PROTOCOLS: three small lamps, lit for a while by what BT does. A class without those perks never shows them. */
+.protocols { display: flex; justify-content: flex-end; align-items: center; gap: 1.2rem; }
+.protocols-lamps { display: flex; gap: 1rem; }
+.lamp {
+  position: relative;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 2px solid var(--c, #fff);
+  opacity: 0.15;
+  transition: opacity var(--dur-base) var(--ease-snap);
+}
+.lamp[data-have="true"] { opacity: 0.45; }
+.lamp[data-on="true"] { opacity: 0.95; background: color-mix(in srgb, var(--c, #fff) 55%, transparent); }
+.lamp b {
+  position: absolute;
+  left: -2px;
+  bottom: -0.8rem;
+  height: 0.3rem;
+  width: 0;
+  background: var(--c, #fff);
+  transition: width var(--dur-base) linear;
+}
+
+/* The control hints: no plate, a keycap and a few words, readable on the world through the text shadow (like LightRP's
+   proximity prompt). `/titanhints` switches them off. */
+.controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem 1.2rem; }
+.hint { display: inline-flex; align-items: center; gap: 0.5rem; }
+.hint span {
+  color: var(--text-body);
+  font: 600 1rem / 1 var(--font-core);
+  letter-spacing: 0.08em;
+  text-shadow: var(--text-halo);
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

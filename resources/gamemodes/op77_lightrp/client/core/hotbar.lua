@@ -24,7 +24,10 @@ local function publish(force)
  if not eligible then held=false;untilTime=0 end
  -- TAB also opens the weapon wheel: the quick slots stay out of its way
  local wheel=LightRpWeaponWheel and LightRpWeaponWheel.open
- local visible=eligible and not wheel and(held or GetGameTimer()<untilTime)or false
+ -- piloting a Titan, TAB is its shoulder key and the ability bar takes the bar's place (client/core/hud.lua sets titanActive): no
+ -- peek, whatever asked for it; the quick-use keys still work
+ local titan=LightRpHud and LightRpHud.titanActive
+ local visible=eligible and not wheel and not titan and(held or GetGameTimer()<untilTime)or false
  local stamp=table.concat({tostring(cached.inventoryId),tostring(cached.revision),tostring(cached.ready),tostring(visible),showKey,table.concat(slotKeys,",")},":")
  if stamp==lastPublished and not force then return end
  lastPublished=stamp

@@ -1,0 +1,36 @@
+-- Generated once by Open77's scripts/titans/prepare_bt7274_package.py from its scripts/titans/titan_env.py (not in this repository): the globals the controller and its modules may read; a hand edit that needs another adds it here.
+return {
+ lua = {
+  "assert", "error", "ipairs", "next", "pairs", "pcall", "print", "rawget", "select", "table", "tonumber",
+  "tostring", "type",
+ },
+ types = {
+  "AIActionHelper", "AIComponent", "AIFollowTargetCommand", "AIHoldPositionCommand", "AIPositionSpec",
+  "AnimationControllerComponent", "AttackData", "AttackInitContext", "AudioXLNative", "BT7274Voice",
+  "DynamicEntitySpec", "EAIAttitude", "EngineTime", "EquipmentManipulationAction",
+  "EquipmentSystemWeaponManipulationRequest", "GameInstance", "GameObject", "GameObjectEffectHelper", "HDRColor",
+  "IAttack", "ItemID", "MountEventData", "MountingInfo", "MountingRequest", "MountingSlotId", "NavGenAgentSize",
+  "PhysicalImpulseEvent", "QuestFollowTarget", "QuestStopFollowingTarget", "RPGManager",
+  "RagdollActivationRequestEvent", "RagdollApplyImpulseEvent", "ResRef", "ScannerDescription", "ScriptedPuppet",
+  "SimpleMessageType", "StatusEffectHelper", "StatusEffectSystem", "TDBID", "TS_TargetPartInfo", "TargetingSet",
+  "TimeDilationHelper", "TraceResult", "Transform", "TweakDBInterface", "UnmountingRequest", "VehicleComponent",
+  "VehicleQuestVisualDestructionEvent", "WorkspotSlidingBehaviour", "entAttachmentTarget", "entEntityID",
+  "entragdollActivationRequestType", "gameDeathEvent", "gameFxResource", "gameGodModeType", "gameHitEvent",
+  "gameStatModifierType", "gameinputActionType", "gameinteractionsvisInteractionChoiceData",
+  "gameinteractionsvisInteractionChoiceHubData", "gameinteractionsvisVisualizersInfo", "gameprojectileWeaponParams",
+  "gamedataNPCType", "gamedataStatPoolType", "gamedataStatType", "gamedataStatusEffectType", "gamedataStimType",
+  "hitFlag", "inkCanvas", "inkEAnchor", "inkImage", "inkMenuScenario", "inkText", "moveMovementType",
+  "textHorizontalAlignment", "textLetterCase", "textVerticalAlignment", "worldEffectBlackboard",
+ },
+ game = {
+  "CreateForceRagdollEvent", "CreateForceRagdollEvent;CName", "FindEntityByID", "GetAllBlackboardDefs",
+  "GetAnimationSystem", "GetAudioSystem", "GetBlackboardSystem", "GetCameraSystem", "GetDamageSystem",
+  "GetDelaySystem", "GetDynamicEntitySystem", "GetFxSystem", "GetGodModeSystem", "GetInkSystem",
+  "GetLocalizedTextByKey", "GetMountingFacility", "GetNavigationSystem", "GetPersistencySystem", "GetPlayer",
+  "GetQuestsSystem", "GetResourceDepot", "GetScriptableSystemsContainer", "GetSettingsSystem", "GetSimTime",
+  "GetSpatialQueriesSystem", "GetStatPoolsSystem", "GetStatsSystem", "GetStatusEffectSystem", "GetTargetingSystem",
+  "GetTeleportationFacility", "GetTimeSystem", "GetTransactionSystem", "GetWorkspotSystem", "NameToString",
+  "Open77TitanBridgePlaceCarriedNpc", "TSQ_ALL;", "TSQ_NPC;",
+ },
+ functions = { "GetLocalizedTextByKey" },
+}

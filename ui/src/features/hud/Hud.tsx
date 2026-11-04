@@ -4,6 +4,7 @@ import { VehicleCluster } from "./VehicleCluster";
 import { useEffect, useState } from "react";
 import { WalkFlash } from "./WalkFlash";
 import { Hotbar } from "./Hotbar";
+import { TitanAbilityBar } from "./TitanAbilityBar";
 import { PlayerVitals } from "./PlayerVitals";
 import { WeaponStatus } from "./WeaponStatus";
 import { GrenadeStatus } from "../inventory/Grenades";
@@ -13,7 +14,8 @@ import { WeaponGap } from "./WeaponGap";
 import "./hud.css";
 
 /* Gameplay overlay, inside the HUD safe area: bottom-left the crew (and its invite
-   prompt) above the weapon and the vitals, bottom-right
+   prompt) above the weapon and the vitals, bottom-centre the quick items (the Titan's
+   ability bar in their place while the player pilots one), bottom-right
    vehicle cluster (above the voice plate) with the rental countdown while a car
    is out. No status rail: identity and money live in the F1 menu. */
 function countdown(ms: number): string {
@@ -41,6 +43,7 @@ export function Hud() {
     <div className={`hud${inventoryOpen ? " hud--quiet" : ""}`} aria-hidden="true">
       <WalkFlash />
       <Hotbar />
+      <TitanAbilityBar />
       <div className="hud__bottom-left">
         <CrewHud />
         <SafezoneStatus />

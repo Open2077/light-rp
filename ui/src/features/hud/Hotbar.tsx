@@ -7,6 +7,7 @@ import "./hotbar.css";
 interface Wire { kind:string; state?:Omit<HotbarState,"visible">; visible?:boolean; showKey?:string;slotKeys?:string[];slot?:number;request?:string;ok?:boolean;text?:string }
 export function Hotbar() {
   const state=useStore(s=>s.hotbar);
+  const piloting=useStore(s=>!!s.hud.titan); // the Titan's ability bar takes the bar's place (hotbar.lua stops asking for the peek too)
   const [flash,setFlash]=useState<{slot:number;request?:string;error?:boolean;text?:string}>();
   const flashRef=useRef(flash);flashRef.current=flash;
   useEffect(()=>on<Wire>("lightrp:ui:hotbar",p=>{
@@ -15,7 +16,7 @@ export function Hotbar() {
     if(p.kind==="response"&&p.slot&&p.request===flashRef.current?.request){const next={slot:p.slot,request:p.request,error:!p.ok,text:p.ok?undefined:p.text};flashRef.current=next;setFlash(next);}
   }),[]);
   useEffect(()=>{if(!flash)return;const t=window.setTimeout(()=>setFlash(undefined),1800);return()=>clearTimeout(t)},[flash]);
-  if(!state?.ready||!state.visible)return null;
+  if(!state?.ready||!state.visible||piloting)return null;
   return <div className="hotbar" data-testid="hotbar">
     <div className="hotbar__slots">{Array.from({length:5},(_,i)=>{
       const slot=i+1,item=state.items.find(x=>x.slot===slot),active=flash?.slot===slot;

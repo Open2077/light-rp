@@ -37,6 +37,7 @@ export const PAGE_EVENTS = {
   shop: "lightrp:ui:shop",
   mission: "lightrp:ui:mission", // Lua -> page: MissionUpdate (live board)
   raid: "lightrp:ui:raid", // Lua -> page: RaidState (server/modules/mission_chimera.lua)
+  titan: "lightrp:ui:titan", // Lua -> page: TitanState (server/modules/mission_titan.lua)
   activityHud: "lightrp:ui:activityhud", // Lua -> page: ActivityHudMessage (client/core/activity_hud.lua)
   guide: "lightrp:ui:guide", // Lua -> page: GuideMessage (client/core/guide.lua, server/modules/guide.lua)
   actionStart: "lightrp:ui:activity:start",
@@ -456,6 +457,21 @@ export interface RaidState {
   intro?: { boss: { x: number; y: number; z: number }; durationMs: number; difficulty: string; operators: number };
   loadouts?: Array<{ id: string; label: string; blurb: string }>; loadout?: string;
 }
+/** Titan Assault (server/modules/mission_titan.lua view()), plus one-shot fields. Countdowns are from the push.
+ *  `classes` rides only the pick phase; `abilities` of a class are the ids the engine leaves unlocked. */
+export type TitanAbility = "missiles" | "vortex" | "smoke" | "dash" | "jets" | "sentry" | "flight" | "designator" | "core";
+export interface TitanClass { id: string; label: string; weapon: string; core: string; labels?: Partial<Record<TitanAbility, string>>; ultimate?: string; abilities: TitanAbility[]; speed: number }
+export interface TitanState {
+  instance?: string; phase: "arrive" | "pick" | "starting" | "countdown" | "wave" | "intermission" | "victory" | "wipe" | "ended";
+  title?: string; difficulty?: string; result?: "victory" | "failed";
+  operators?: Array<{ id: number; name: string; class?: string; ready: boolean; down: boolean; titan: boolean; kills: number }>;
+  arrived?: boolean; arena?: { x: number; y: number; z: number };
+  classes?: TitanClass[]; class?: string; ready?: boolean;
+  pickEndsInMs?: number; startsInMs?: number; nextWaveInMs?: number;
+  wave?: number; waves?: number; enemies?: number; waveSize?: number; kills?: number; killsTotal?: number;
+  down?: boolean; respawnInMs?: number;
+  announce?: { title: string; body: string; tone: "info" | "warning" | "danger" | "success"; at: number };
+}
 /** One operator on the crew frame of a running mission. `state`: alive, down (waiting for a revive), dead, recovering. */
 export interface MissionSquadMember { id: number; name: string; citizen: string; host: boolean; health: number; maxHealth: number; armor: number; state: "alive" | "down" | "dead" | "recovering" }
 export type UiStatePatch = Partial<UiState>;
@@ -495,6 +511,26 @@ export interface TutorialState {
   objective?: { position: { x: number; y: number; z: number }; label: string; radius: number; kind?: string; interaction?: string };
 }
 
+/** The Titan the player pilots (Titan Assault, op77_lightrp_titans), sampled by client/core/hud.lua only while its HUD state exists.
+ *  The health and armor gauges show `hull` and `shield` in place of the player's own. `flash` counts BT's hits. */
+export interface TitanHudState {
+  name: string; className?: string; held: boolean;
+  hull?: { value: number; max: number; low: boolean; doomed?: number; doomedText?: string };
+  shield?: number; // 0..100
+  flash?: number;
+}
+/** One cell of the Titan's ability bar: a state, a charge (`fill` 0..1), a count, the seconds it still needs (`left`) and a tone. */
+export interface TitanAbilityCell {
+  id: string; name?: string; key?: string; state?: "ready" | "empty" | "active"; fill?: number; count?: number; left?: number;
+  tone?: "blue" | "yellow" | "red";
+}
+/** The abilities the Titan's class may use, and its burst core (`share` 0..1, `need` marks the shot's cost). Lua sends an empty list as {}.
+ *  The core tile is the plain core unless the Titan renames it (`name`, "FLIGHT STRIKE") and gives it an ability's icon (`ability`, "flight"). */
+export interface TitanKit {
+  abilities?: TitanAbilityCell[];
+  core?: { share: number; state?: "charging" | "ready" | "active"; key?: string; need?: number; name?: string; ability?: string };
+}
+
 /** Sampled on the client every ~100 ms: vitals, vehicle, voice. */
 export interface HudState {
   ready: boolean;
@@ -504,10 +540,13 @@ export interface HudState {
   vehicle: { active: boolean; label?: string; speedKph?: number; gear?: string; health?: number; fuel?: FuelGauge };
   voice: { state: "off" | "idle" | "talking" | "muted"; level: number; range: "whisper" | "normal" | "shout" };
   clock: string; // HH:MM in-game
-  /** externalTop: op77_weaponhud's hologram is up and reaches this high (px from the screen bottom); 0 = not shown. */
-  weapon?: { active: boolean; externalTop?: number; reserve?: number; hands?: Array<{
-    hand: "right" | "left"; label: string; magazine?: number; capacity?: number; reloading: boolean;
+  /** externalTop: op77_weaponhud's hologram is up and reaches this high (px from the screen bottom); 0 = not shown.
+   *  titan: the Titan's weapon while the player pilots one (one hand, no reserve; `melee` hands have no magazine). */
+  weapon?: { active: boolean; titan?: boolean; externalTop?: number; reserve?: number; hands?: Array<{
+    hand: "right" | "left"; label: string; magazine?: number; capacity?: number; melee?: boolean; reloading: boolean;
   }> };
+  titan?: TitanHudState;
+  titanKit?: TitanKit;
   street?: string;
   walk?: { mode: string; label: string; speed?: number; index?: number; count?: number }; // current walk mode once the key was used
 }
@@ -702,6 +741,8 @@ export interface IdentityFields { firstName: string; lastName: string; birthDate
 export type UiAction =
   | { type: "raid.ready" }
   | { type: "raid.loadout"; id: string }
+  | { type: "titan.class"; id: string }
+  | { type: "titan.ready" }
   | { type: "mission.loadout"; id: string }
   | { type: "mission.ready" }
   | { type: "mission.tag" | "mission.tagGroup"; session: string; difficulty: string }

@@ -187,6 +187,29 @@ function W.describe(record, info, catalogue, labels, names)
     return { name = tostring(name):upper(), type = kind, class = class, melee = melee }
 end
 
+-- A weapon that is not one of V's, handed in by a gamemode (exports.op77_weaponhud:setExternal): the state a caller
+-- sends -> what the HUD shows, or nil when it names nothing. Text is upper case like the described weapons; counts are
+-- whole numbers or unknown; a melee weapon has neither magazine nor reserve; a capacity of 0 is unknown (as in W.row);
+-- `boost` (true only) makes the readout glow, melee or not.
+local function text(v)
+    if type(v) == "string" and v ~= "" then return v end
+end
+function W.external(state)
+    if type(state) ~= "table" then return nil end
+    local name = text(state.name)
+    local key = text(state.key) or name
+    if not key then return nil end
+    local melee = state.melee == true
+    local capacity = count(state.capacity)
+    if capacity == 0 then capacity = nil end
+    local class, kind = text(state.class), text(state.type)
+    return {
+        key = key, name = (name or "WEAPON"):upper(), class = class and class:upper() or nil, type = kind and kind:upper() or nil,
+        melee = melee, magazine = not melee and count(state.magazine) or nil, capacity = not melee and capacity or nil,
+        reserve = not melee and count(state.reserve) or nil, reloading = not melee and state.reloading == true, boost = state.boost == true,
+    }
+end
+
 -- ── what changed ──
 -- prev / cur: { key, magazine, reloading } of the held weapon. shots = rounds gone without
 -- a reload in between (no shot event exists: magazine deltas between two snapshots).

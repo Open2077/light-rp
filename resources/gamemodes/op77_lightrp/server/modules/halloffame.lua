@@ -844,6 +844,8 @@ local function clearsProvider(types)
         return rows
     end
 end
+-- A module with a mission type of its own ranks its clears the same way (mission_titan.lua).
+HoF.clearsProvider = clearsProvider
 
 local function registerBuiltins()
     HoF.registerBoard("pvp.wins", { tab = "pvp", title = "MOST WINS", subtitle = "Arena, duels, races, chases and turf war", unit = "wins",

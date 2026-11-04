@@ -3,6 +3,8 @@
 -- cropped to the bottom-left corner, created visible and transparent: the page shows and
 -- hides its own content. There is no shot event: shots are magazine deltas between two
 -- snapshots; reloads come from the snapshot's flag and Open77.players.isReloading().
+-- A weapon that is not V's (a piloted Titan's) is handed over by a gamemode (setExternal)
+-- and shown in its place, through the same show / data / hide flow.
 local W = WeaponHud
 local base = W.copy(WeaponHudConfig)
 local config = W.copy(base)
@@ -147,30 +149,26 @@ local function armedHint()
     if type(Open77.character) == "table" then return read(Open77.character.isArmed) end
 end
 
-local function publish(rows)
-    local right, left = W.held(rows)
-    if not right and left then right, left = left, nil end
-    local reloadingNow = read(type(Open77.players) == "table" and Open77.players.isReloading or nil) == true
-    local inVehicle = read(type(Open77.players) == "table" and Open77.players.isInVehicle or nil) == true
-    local want = page ~= nil and W.shouldShow(config, { armed = right ~= nil, busy = cursorTaken(), inVehicle = inVehicle, suppressed = next(suppress) ~= nil })
-    if not want then
+-- Draws one weapon, or folds the display away when `w` is nil. `w` = { key, magazine, capacity, reserve, reloading, left?, boost? };
+-- `describe()` answers { name, type, class, melee } and runs only when the page needs to know the weapon (shown, switched,
+-- renamed). Shots are the magazine deltas against the last weapon drawn.
+local function present(w, describe)
+    if not w then
         if shown then shown = false; send("weapon:hide", {}); dbg("hide") end
         held = nil
         return
     end
-    local key = right.slot .. ":" .. right.tweakDbId
-    local reloading = right.reloading or reloadingNow
-    local cur = { key = key, magazine = right.magazine, reloading = reloading }
+    local cur = { key = w.key, magazine = w.magazine, reloading = w.reloading }
     local change = W.diff(held, cur)
     if change.switched or not shown or (held and held.name == nil) then
-        local d = describe(right.record)
-        lastShow = { key = key, name = d.name, type = d.type, class = d.class, melee = d.melee, capacity = right.capacity }
+        local d = describe()
+        lastShow = { key = w.key, name = d.name, type = d.type, class = d.class, melee = d.melee, capacity = w.capacity }
         cur.name = d.name
         if change.switched or not shown then
             lastData = nil
             shown = true
             send("weapon:show", lastShow)
-            dbg("show %s (%s)", d.name, key)
+            dbg("show %s (%s)", d.name, w.key)
         else
             send("weapon:show", W.merge(lastShow, { instant = true }))
         end
@@ -179,22 +177,79 @@ local function publish(rows)
     end
     if lastShow and lastShow.melee then
         -- blades, fists, arm cyberware: no magazine, no reserve, never "NO AMMO"
-        lastData = { melee = true, shots = 0, reloaded = false, low = false, empty = false }
+        lastData = { melee = true, shots = 0, reloaded = false, low = false, empty = false, boost = w.boost == true }
     else
         lastData = {
-            magazine = right.magazine, capacity = right.capacity, reserve = right.reserve, reloading = reloading,
+            magazine = w.magazine, capacity = w.capacity, reserve = w.reserve, reloading = w.reloading,
             shots = change.shots, reloaded = change.reloaded == true,
-            low = W.low(right.magazine, right.capacity, pageConfig), empty = right.magazine == 0,
-            left = left and { magazine = left.magazine, capacity = left.capacity } or nil,
+            low = W.low(w.magazine, w.capacity, pageConfig), empty = w.magazine == 0,
+            left = w.left, boost = w.boost == true,
         }
     end
     send("weapon:data", lastData)
     held = cur
 end
 
+-- Whether the display may show now: the surface exists and no rule hides it (disabled, a menu holds the cursor, a vehicle
+-- when showInVehicles is off, a gamemode's hide()).
+local function mayShow(armed)
+    local inVehicle = read(type(Open77.players) == "table" and Open77.players.isInVehicle or nil) == true
+    return page ~= nil and W.shouldShow(config, { armed = armed, busy = cursorTaken(), inVehicle = inVehicle, suppressed = next(suppress) ~= nil })
+end
+
+-- ── a weapon that is not V's (a piloted Titan's) ──
+-- A gamemode that owns such a weapon hands it over with setExternal; it is shown instead of the snapshot's weapon for as
+-- long as it is set: no snapshot is asked, the same display rules apply. With several owners the latest to set one wins.
+local externals = {}          -- owner -> { seq, weapon = W.external(state) }
+local externalSeq = 0
+local function external()
+    local best
+    for _, entry in pairs(externals) do if not best or entry.seq > best.seq then best = entry end end
+    return best and best.weapon or nil
+end
+local function setExternal(owner, state)
+    owner = tostring(owner)
+    if state == nil then externals[owner] = nil; return true end
+    local weapon = W.external(state)
+    if not weapon then return false end
+    local entry = externals[owner]
+    if entry then
+        entry.weapon = weapon
+    else
+        externalSeq = externalSeq + 1
+        externals[owner] = { seq = externalSeq, weapon = weapon }
+    end
+    pending = nil -- a snapshot in flight is not this weapon's
+    return true
+end
+
+local function publishExternal(weapon)
+    present(mayShow(true) and weapon or nil, function()
+        return { name = weapon.name, type = weapon.type, class = weapon.class, melee = weapon.melee }
+    end)
+end
+
+local function publish(rows)
+    if external() then return end -- the snapshot answered after a weapon was handed over
+    local right, left = W.held(rows)
+    if not right and left then right, left = left, nil end
+    local reloadingNow = read(type(Open77.players) == "table" and Open77.players.isReloading or nil) == true
+    if not mayShow(right ~= nil) then return present(nil) end
+    present({
+        key = right.slot .. ":" .. right.tweakDbId, magazine = right.magazine, capacity = right.capacity, reserve = right.reserve,
+        reloading = right.reloading or reloadingNow,
+        left = left and { magazine = left.magazine, capacity = left.capacity } or nil,
+    }, function() return describe(right.record) end)
+end
+
 local function step()
     local t = now()
     if pending and t - pending.at > 1500 then pending = nil end
+    local weapon = external()
+    if weapon then
+        publishExternal(weapon)
+        return true -- a weapon is handed over: keep the display's pace even while a menu hides it
+    end
     local armed = armedHint()
     if armed == false then
         pending = nil
@@ -243,7 +298,7 @@ AddEventHandler("onClientResourceStart", function(name)
 end)
 AddEventHandler("onClientResourceStop", function(name)
     if name ~= GetCurrentResourceName() then
-        suppress[name] = nil; insets[name] = nil; labels[name] = nil
+        suppress[name] = nil; insets[name] = nil; labels[name] = nil; externals[name] = nil
         return
     end
     TriggerEvent("op77_weaponhud:state", { active = false })
@@ -262,3 +317,9 @@ exports("show", function(reason) suppress[tostring(reason or GetInvokingResource
 exports("setInset", function(px) setInset(GetInvokingResource() or "export", px) return true end)
 -- Names for records, e.g. { ["Items.Preset_Lexington_Default"] = "Service pistol" }.
 exports("setLabels", function(map) labels[GetInvokingResource() or "export"] = type(map) == "table" and map or nil; return true end)
+-- A weapon that is not one of V's, shown instead of the drawn weapon until it is cleared: a piloted Titan's, for example.
+-- setExternal({ key, name, class?, type?, melee?, magazine?, capacity?, reserve?, reloading?, boost? }) sets or updates it (call it
+-- again with the new magazine; `key` tells one weapon from another: a new key unfolds the display), setExternal(nil) clears
+-- it. Per calling resource, cleared when that resource stops. Returns false for a state that names nothing. `boost = true`
+-- makes the readout glow (a core burns).
+exports("setExternal", function(state) return setExternal(GetInvokingResource() or "export", state) end)
