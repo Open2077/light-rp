@@ -126,3 +126,46 @@ export function simulate(s: ClinicState, item: Cyberware, mode: Mode): Pick<Clin
   }
   return next;
 }
+
+/** What the surgery on `item` would do, at a glance (the page's previews: capacity bar, wallet,
+    card badges, the detail card's verdict). `verdict` follows refusal()'s order. */
+export type Verdict = "ok" | "drop" | "rep" | "room" | "money";
+export interface Projection {
+  mode: Mode;
+  used: number;            // points fitted now
+  total?: number;          // the body's capacity (absent: no limit)
+  add: number;             // points this surgery adds (install)
+  freed: number;           // points it frees (the family mate replaced, or the implant taken out)
+  after: number;           // points fitted after it
+  over: number;            // points past the total after it (0 when it fits)
+  cost: number;            // eurodollars it takes (price, or the fitting fee)
+  walletAfter: number;
+  verdict: Verdict;
+  reason: string | null;   // refusal()'s words, null when the clinic would do it
+  mate?: Cyberware;        // the family mate it replaces
+}
+
+export function project(s: ClinicState, item: Cyberware): Projection {
+  const fitted = isFitted(s, item.id);
+  const used = s.capacity?.used ?? usedPoints(s);
+  const total = s.capacity?.total;
+  if (fitted) {
+    const freed = points(item);
+    const reason = refusal(s, item, "remove");
+    return { mode: "remove", used, total, add: 0, freed, after: used - freed, over: total === undefined ? 0 : Math.max(0, used - freed - total),
+      cost: s.fittingFee, walletAfter: s.wallet - s.fittingFee, verdict: reason ? "money" : "ok", reason };
+  }
+  const mate = familyMate(s, item);
+  const add = points(item), freed = points(mate);
+  const after = used - freed + add;
+  const cost = fitPrice(s, item);
+  const owned = isStored(s, item.id);
+  const reason = refusal(s, item, "install");
+  const verdict: Verdict = !reason ? "ok"
+    : !owned && item.iconic ? "drop"
+    : !owned && item.locked ? "rep"
+    : capacityRefusal(s, item) ? "room"
+    : "money";
+  return { mode: "install", used, total, add, freed, after, over: total === undefined ? 0 : Math.max(0, after - total),
+    cost, walletAfter: s.wallet - cost, verdict, reason, mate };
+}

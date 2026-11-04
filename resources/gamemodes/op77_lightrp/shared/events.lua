@@ -18,6 +18,7 @@ LightRpEvents = {
         tutorial = "lightrp:ui:tutorial", -- first-day controls / local presentation
         jobRun = "lightrp:ui:jobrun",   -- Lua -> page: { distance, menuKey } live data of the work order tracker
         freecam = "lightrp:ui:freecam", -- page -> Lua: { operation = "toggle" }; Lua -> page: free camera state and keys
+        maneki = "lightrp:ui:maneki",   -- Lua -> page: the Maneki-neko placement tool's bar (client/core/maneki_editor.lua)
         state = "lightrp:ui:state",     -- Lua -> page: full state or a patch
         hud = "lightrp:ui:hud",         -- Lua -> page: sampled vitals / vehicle / voice
         open = "lightrp:ui:open",       -- Lua -> page: the player menu opens
@@ -103,5 +104,8 @@ LightRpEvents = {
         fuelReady = "op77_lightrp:fuel:ready",
         fuelFinish = "op77_lightrp:fuel:finish",
         wardrobe = "op77_lightrp:wardrobe",    -- client -> server: the fitting room opened (true) or closed (false)
+        maneki = "op77_lightrp:maneki",        -- server -> client: { kind = "near" | "found" | "editor" | "staff" } (server/modules/maneki.lua)
+        manekiCollect = "op77_lightrp:maneki:collect", -- client -> server: { id, how = "take" | "shot" }
+        manekiEdit = "op77_lightrp:maneki:edit",       -- client -> server: the staff placement tool { op = "place" | "delete" | "close", ... }
     },
 }

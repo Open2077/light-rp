@@ -1,0 +1,95 @@
+/* F1 > Maneki-neko (ManekiCollection.tsx): the frame of the Dailies and the recap
+   (accent bar, near-black panel, chamfers, mono labels), with gold for what was found. */
+.maneki {
+  --mk-gold: #FFCC00; --mk-gold-dim: #8a6d00;
+  position: absolute; left: 50%; top: 50%; z-index: 47; width: min(1240px, 96vw); height: min(820px, 92vh);
+  transform: translate(-50%, -50%); display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface-app); border: var(--stroke-hair) solid var(--line-soft); box-shadow: var(--shadow-panel), 0 0 0 1px var(--o77-black);
+  color: var(--text-body); font: var(--type-body); font-size: var(--fs-label); outline: none;
+  animation: maneki-in .24s cubic-bezier(.2, .9, .3, 1) both;
+}
+.maneki * { box-sizing: border-box; }
+.maneki button:not(.o77-btn) { font: inherit; color: inherit; cursor: pointer; }
+.maneki :focus-visible { outline: var(--stroke-bold) solid var(--accent); outline-offset: 2px; }
+@keyframes maneki-in { from { opacity: 0; transform: translate(-50%, -48%) scale(.985); } }
+
+.maneki__bar { display: flex; justify-content: space-between; align-items: center; height: 36px; padding: 0 var(--sp-6); background: var(--accent); color: var(--text-on-accent); flex: none; }
+.maneki__bar-title { display: flex; align-items: center; gap: var(--sp-5); font: var(--fw-semibold) 14px var(--font-mono); letter-spacing: var(--ls-label); }
+.maneki__bar-route { display: flex; align-items: center; gap: var(--sp-6); font: var(--fw-semibold) var(--fs-tag) var(--font-mono); letter-spacing: .08em; }
+.maneki__bar-route button { display: inline-flex; align-items: center; gap: var(--sp-2); background: none; border: 0; padding: var(--sp-1); }
+.maneki__help { padding: 2px var(--sp-4) !important; border: 1px solid currentColor !important; font: inherit; }
+
+/* the strip: progress, every find, next milestone, the title */
+.maneki__strip { flex: none; display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: var(--sp-4); padding: var(--sp-5) var(--sp-8);
+  background: var(--surface-panel); border-bottom: var(--stroke-hair) solid var(--line-hairline); background-image: var(--tex-scanline); }
+.maneki-progress { display: flex; align-items: center; gap: var(--sp-7); padding: var(--sp-4) var(--sp-6); background: var(--surface-raised);
+  border-left: var(--stroke-bold) solid var(--mk-gold); clip-path: var(--clip-chamfer-sm); }
+.maneki-progress__count { display: flex; align-items: baseline; gap: var(--sp-2); font: var(--fw-bold) 30px var(--font-mono); color: var(--mk-gold); font-variant-numeric: tabular-nums; }
+.maneki-progress__count em { font-style: normal; font-size: 16px; color: var(--text-dim); }
+.maneki-progress__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.maneki-progress__text small, .maneki-stat small { font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); }
+.maneki-progress__bar { position: relative; display: block; height: 6px; background: #ffffff14; overflow: hidden; }
+.maneki-progress__bar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--mk-gold-dim), var(--mk-gold)); box-shadow: 0 0 10px #ffcc0066; transition: width .5s ease; }
+.maneki-stat { display: flex; align-items: center; gap: var(--sp-5); min-width: 0; padding: var(--sp-4) var(--sp-6); background: var(--surface-raised);
+  border-left: var(--stroke-bold) solid var(--line-neutral); clip-path: var(--clip-chamfer-sm); }
+.maneki-stat > svg { color: var(--text-dim); flex: none; }
+.maneki-stat > span { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.maneki-stat b { font: var(--fw-bold) var(--fs-body) var(--font-mono); color: var(--text-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.maneki-stat.is-done { border-left-color: var(--mk-gold); }
+.maneki-stat.is-done > svg, .maneki-stat.is-done b { color: var(--mk-gold); }
+
+/* the slots and the selected one */
+.maneki__main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; }
+.maneki__grid { min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); align-content: start; gap: var(--sp-4); padding: var(--sp-7) var(--sp-8); }
+.maneki__empty { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-4); color: var(--text-dim); }
+.maneki-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); min-width: 0; padding: var(--sp-5) var(--sp-2) var(--sp-4);
+  background: var(--surface-raised); border: var(--stroke-hair) solid var(--line-hairline); clip-path: var(--clip-chamfer-sm); transition: transform .12s ease, border-color .12s ease, background .12s ease; }
+.maneki-card__n { position: absolute; left: 6px; top: 4px; font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: .06em; color: var(--text-dim); }
+.maneki-card__label { max-width: 100%; font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.maneki-card__how { position: absolute; right: 6px; top: 4px; color: var(--mk-gold); opacity: .8; }
+.maneki-card.is-found { background: radial-gradient(ellipse at 50% 40%, #ffcc0018, transparent 70%), var(--surface-raised); border-color: #ffcc0040; }
+.maneki-card.is-found .maneki-card__label { color: var(--text-hi); }
+.maneki-card.is-found .maneki-card__n { color: var(--mk-gold); }
+.maneki-card.is-locked svg { opacity: .8; }
+.maneki-card.is-selected { border-color: var(--accent); background-color: var(--surface-panel); transform: translateY(-2px); }
+.maneki-card.is-found.is-selected { box-shadow: inset 0 0 0 1px var(--mk-gold), 0 0 18px #ffcc0030; cursor: pointer; }
+.maneki-card.is-locked { cursor: default; }
+
+.maneki__detail { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-7) var(--sp-7);
+  background: var(--surface-panel); border-left: var(--stroke-hair) solid var(--line-hairline); }
+.maneki__portrait { display: grid; place-items: center; height: 210px; background: var(--surface-raised); clip-path: var(--clip-chamfer-sm); background-image: var(--tex-scanline); }
+.maneki__portrait.is-found { background: radial-gradient(ellipse at 50% 55%, #ffcc0022, transparent 65%), var(--surface-raised); }
+.maneki__detail-n { font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--mk-gold); }
+.maneki__detail h2 { margin: 0; font: var(--fw-bold) 20px var(--font-display); color: var(--text-hi); text-transform: uppercase; letter-spacing: .02em; }
+.maneki__detail dl { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-2) var(--sp-5); margin: 0 0 var(--sp-3); }
+.maneki__detail dt { font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); text-transform: uppercase; align-self: center; }
+.maneki__detail dd { margin: 0; color: var(--text-hi); }
+.maneki__note { margin: 0; font-size: var(--fs-tag); line-height: var(--lh-body); color: var(--text-dim); }
+
+.maneki__foot { flex: none; display: flex; justify-content: space-between; align-items: center; gap: var(--sp-6); padding: var(--sp-4) var(--sp-8);
+  border-top: var(--stroke-hair) solid var(--line-hairline); background: var(--surface-panel); }
+.maneki__feedback { font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); }
+.maneki__feedback.is-error { color: var(--status-danger, #ff5a4d); }
+.maneki__keys { display: flex; gap: var(--sp-6); font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); }
+.maneki__keys > span { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* the first opening: how the hunt works */
+.maneki-intro { position: absolute; inset: 36px 0 0; z-index: 2; display: grid; place-items: center; background: #05060acc; backdrop-filter: blur(6px); animation: maneki-fade .2s ease both; }
+.maneki-intro__card { display: grid; grid-template-columns: 200px minmax(0, 1fr); width: min(860px, 92%); background: var(--surface-app);
+  border: var(--stroke-hair) solid var(--line-soft); border-top: 2px solid var(--mk-gold); box-shadow: var(--shadow-panel); }
+.maneki-intro__art { display: grid; place-items: center; background: radial-gradient(ellipse at 50% 50%, #ffcc0026, transparent 70%), var(--surface-panel); background-image: var(--tex-scanline); }
+.maneki-intro__art svg { animation: maneki-wave 2.6s ease-in-out infinite; transform-origin: 50% 90%; }
+.maneki-intro__body { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-8) var(--sp-9); }
+.maneki-intro__body > small { font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: var(--ls-label); color: var(--mk-gold); }
+.maneki-intro__body h2 { margin: 0; font: var(--fw-bold) 22px var(--font-display); color: var(--text-hi); text-transform: uppercase; }
+.maneki-intro__body ol { display: flex; flex-direction: column; gap: var(--sp-5); margin: var(--sp-3) 0; padding: 0; list-style: none; }
+.maneki-intro__body li { display: flex; gap: var(--sp-5); align-items: flex-start; animation: maneki-step .35s ease both; }
+.maneki-intro__body li > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.maneki-intro__body li b { color: var(--text-hi); font-weight: var(--fw-semibold); }
+.maneki-intro__body li span span { color: var(--text-dim); line-height: var(--lh-body); }
+.maneki-intro__icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; color: var(--mk-gold); background: #ffcc0014; border: 1px solid #ffcc0040; clip-path: var(--clip-chamfer-sm); }
+.maneki-intro__body footer { display: flex; align-items: center; gap: var(--sp-5); margin-top: var(--sp-3); }
+@keyframes maneki-fade { from { opacity: 0; } }
+@keyframes maneki-step { from { opacity: 0; translate: 0 6px; } }
+@keyframes maneki-wave { 0%, 100% { rotate: 0deg; } 50% { rotate: -2.5deg; } }

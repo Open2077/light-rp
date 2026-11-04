@@ -25,6 +25,8 @@ import { DealershipDialog } from "@/features/dealership/DealershipDialog";
 import { FuelDialog, FuelApproach } from "@/features/fuel/FuelDialog";
 import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
+import { ManekiTool } from "@/features/maneki/ManekiTool";
+import { ManekiCollection } from "@/features/maneki/ManekiCollection";
 import { MissionDialog } from "@/features/missions/MissionDialog";
 import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
 import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
@@ -136,6 +138,7 @@ export function App() {
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
       <ErrorBoundary name="weapon-wheel"><WeaponWheel /></ErrorBoundary>
       <ErrorBoundary name="freecam"><Freecam /></ErrorBoundary>
+      <ErrorBoundary name="maneki-tool"><ManekiTool /></ErrorBoundary>
       <ErrorBoundary name="wizard"><CharacterWizard /></ErrorBoundary>
       <ErrorBoundary name="welcome"><WelcomeModal /></ErrorBoundary>
       <ErrorBoundary name="tutorial"><Tutorial /></ErrorBoundary>
@@ -151,6 +154,7 @@ export function App() {
       <ErrorBoundary name="recap"><RecapDialog /></ErrorBoundary>
       <ErrorBoundary name="guide"><GuideDialog /></ErrorBoundary>
       <ErrorBoundary name="dailies"><DailiesDialog /></ErrorBoundary>
+      <ErrorBoundary name="maneki"><ManekiCollection /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>

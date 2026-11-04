@@ -100,6 +100,13 @@ RegisterNetEvent("op77_ripperdoc:action", function(p)
     TriggerEvent("op77_ripperdoc:action", pid, { op = op, item = item, replace = type(p.replace) == "string" and p.replace or nil })
 end)
 
+-- The page's guide was finished or skipped: the clinic's owner remembers it (host event).
+RegisterNetEvent("op77_ripperdoc:guide", function(p)
+    local pid = playerId(source)
+    if not pid or not open[pid] or type(p) ~= "table" or p.seen ~= true then return end
+    TriggerEvent("op77_ripperdoc:guide", pid, { seen = true })
+end)
+
 exports("isOpen", function(pid)
     pid = playerId(pid)
     return pid ~= nil and open[pid] == true

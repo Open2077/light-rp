@@ -199,6 +199,21 @@ LightRpItems = {
         label = "Salvaged Parts", description = "Reusable parts recovered from scrap. Sell them at the salvage depot.",
         weight = 2.0, stack = 20, icon = "wrench", category = "material",
     },
+    -- Cyberpunk TCG sealed product (resource op77_tcg; server/modules/tcg.lua). Using one opens the real thing: a
+    -- booster tears open in your hands (on a table if you stand at one), a display has its shrink-wrap cut and its
+    -- 24 boosters come out into this inventory. The cards go to the character's binder (F1 menu > TCG binder, /tcgbinder).
+    tcg_booster_wnc = {
+        label = "TCG Booster · Night City", description = "A sealed Cyberpunk TCG Set Booster, Welcome to Night City: 12 cards (9 Common, 2 Uncommon and a Rare or better). Use it to tear it open; the cards go to your binder (F1 menu > TCG binder).",
+        weight = 0.03, stack = 48, icon = "package", category = "collectible", image = "img/items/tcg_booster_wnc.png",
+    },
+    tcg_booster_beta = {
+        label = "TCG Booster · Beta", description = "A sealed Cyberpunk TCG Beta Edition booster: 12 cards (9 Common, 2 Uncommon and a Rare or better). Use it to tear it open; the cards go to your binder (F1 menu > TCG binder).",
+        weight = 0.03, stack = 48, icon = "package", category = "collectible", image = "img/items/tcg_booster_beta.png",
+    },
+    tcg_display_wnc = {
+        label = "TCG Booster Display", description = "A shrink-wrapped display of 24 Welcome to Night City boosters. Use it to cut the wrap: the 24 boosters go to your inventory.",
+        weight = 1.4, stack = 4, icon = "package", category = "collectible", image = "img/items/tcg_display_wnc.png",
+    },
 }
 
 -- Existing names stay stable: saved inventories need no migration. Each template

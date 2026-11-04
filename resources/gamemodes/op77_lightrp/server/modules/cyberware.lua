@@ -64,6 +64,17 @@ Db.schema([[
     )
 ]])
 
+-- The clinic guide (the ripperdoc page's walkthrough of capacity, street cred, storage and keys):
+-- a row once the character finished or skipped it, so it opens by itself only on a first visit.
+Db.schema([[
+    CREATE TABLE IF NOT EXISTS lightrp_cyberware_guide (
+        identifier    VARCHAR(64) NOT NULL,
+        character_key VARCHAR(32) NOT NULL,
+        seen_at       TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (identifier, character_key)
+    )
+]])
+
 -- playerId -> { identifier, key, installed = {id=true}, stock = {id=true}, busy, drawn, baseline,
 -- suspended, boosts = { name = healthRegen } }
 local state = {}
@@ -253,6 +264,80 @@ local function fits(playerId, st, item, replaced)
 end
 
 -- ---------------------------------------------------------------------------
+-- The clinic guide
+
+local DIFFICULTY_LABEL = { standard = "Standard", hard = "Hard", critical = "Critical" }
+
+--- What the ripperdoc page's guide explains, read from the live configuration (so it never lies when
+--- a number changes): the street cred ladder (points, capacity and the highest implant rank of each
+--- tier), what a finished mission pays in street cred per difficulty and the tier it needs, where else
+--- street cred comes from, the iconic drops, the surgery fee and the keys of the active implants.
+--- `auto`: the character has never finished or skipped it (the page opens it by itself).
+function Cyber.guide(playerId)
+    local st = state[playerId]
+    local M = type(LightRpMissions) == "table" and LightRpMissions or {}
+    local rep = type(M.reputation) == "table" and M.reputation or {}
+    local thresholds, names = rep.tiers or {}, rep.names or {}
+    local byTier = type(CAP.byTier) == "table" and CAP.byTier or {}
+    local byRank = type(C.gating) == "table" and C.gating.byRank or {}
+    local tiers = {}
+    for t = 1, #thresholds do
+        local rank = 0
+        for r, need in pairs(byRank) do
+            if tonumber(need) and tonumber(need) <= t and tonumber(r) > rank then rank = tonumber(r) end
+        end
+        tiers[#tiers + 1] = { tier = t, name = names[t] or ("Tier " .. t), points = thresholds[t],
+            capacity = CAP.enabled ~= false and tonumber(byTier[t]) or nil, rank = rank }
+    end
+    local gains = {}
+    for _, id in ipairs({ "standard", "hard", "critical" }) do
+        local points = type(M.reputationGain) == "table" and tonumber(M.reputationGain[id])
+        if points then
+            local needs = type(rep.difficultyTiers) == "table" and tonumber(rep.difficultyTiers[id]) or 1
+            gains[#gains + 1] = { label = DIFFICULTY_LABEL[id] or id, points = points, tier = needs,
+                tierName = names[needs] }
+        end
+    end
+    local drops = {}
+    for _, source in pairs(ICONIC.sources or {}) do
+        if type(source.label) == "string" then drops[#drops + 1] = source.label end
+    end
+    table.sort(drops)
+    local key = function(k) return type(k) == "string" and k:upper() or nil end
+    local keys = {
+        { label = "Dash / Air Dash", key = key(C.dashKey) },
+        { label = "Ground Slam", key = key(C.slamKey) },
+        { label = "Sandevistan", key = key(C.overdriveKey) },
+        { label = "Berserk", key = key(C.keys and C.keys.berserk and C.keys.berserk.key) },
+        { label = "Mantis Blades (draw / sheathe)", key = key(C.keys and C.keys.blades and C.keys.blades.key) },
+        { label = "Kiroshi scan", key = "ALT + CLICK" },
+    }
+    return {
+        auto = st ~= nil and st.guideSeen ~= true,
+        tiers = tiers,
+        gains = gains,
+        pvpGivesNone = true,
+        drops = drops,
+        fittingFee = C.fittingFee or C.removalFee,
+        payFrom = C.payFrom == "cash" and "cash" or "bank",
+        keys = keys,
+    }
+end
+
+--- The character finished or skipped the guide: it no longer opens by itself (the GUIDE button still
+--- opens it). Persisted per character.
+function Cyber.markGuideSeen(playerId)
+    local st = state[playerId]
+    if not st or st.guideSeen then return false end
+    st.guideSeen = true
+    if Db.ready then
+        Db.run("INSERT IGNORE INTO lightrp_cyberware_guide (identifier, character_key) VALUES (?, ?)", { st.identifier, st.key })
+    end
+    log("guide seen by %d", playerId)
+    return true
+end
+
+-- ---------------------------------------------------------------------------
 -- The clinic payload
 
 --- Everything the page needs to show and price the stock.
@@ -294,7 +379,8 @@ function Cyber.view(playerId)
         capacity = cap.total and { used = cap.used, total = cap.total, over = cap.over } or nil,
         busy = st ~= nil and st.busy ~= nil,
         reputation = type(info) == "table" and { tier = info.tier, name = info.name, points = info.points,
-            next = info.next, nextName = info.nextName } or nil }
+            next = info.next, nextName = info.nextName } or nil,
+        guide = Cyber.guide(playerId) }
 end
 
 -- The label of the source an iconic drops from ("Chimera raid (Critical)").
@@ -843,6 +929,8 @@ local function load(playerId, c)
             { c.identifier, c.key }) or {}) do
             if byId[row.item] and not st.installed[row.item] then st.stock[row.item] = true end
         end
+        st.guideSeen = #(Db.query("SELECT 1 AS seen FROM lightrp_cyberware_guide WHERE identifier = ? AND character_key = ?",
+            { c.identifier, c.key }) or {}) > 0
     end
     state[playerId] = st
     CreateThread(function()

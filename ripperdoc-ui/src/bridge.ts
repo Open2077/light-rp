@@ -34,7 +34,7 @@ export function onState(handler: (payload: OpenPayload) => void): void {
   window.Open77?.on("rd:state", (raw) => handler((raw ?? {}) as OpenPayload));
 }
 
-export function emit(name: "rd:close" | "rd:sound" | "rd:action", payload: unknown = {}): void {
+export function emit(name: "rd:close" | "rd:sound" | "rd:action" | "rd:guide", payload: unknown = {}): void {
   try { window.Open77?.emit(name, payload); } catch (err) { console.error("[ripperdoc] emit", name, err); }
 }
 

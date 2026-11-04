@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cyberpunk TCG</title>
+  <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="./duel.css">
+  <link rel="stylesheet" href="./table.css">
+</head>
+<body>
+  <div id="app" class="hidden">
+    <div class="backdrop"></div>
+
+    <!-- The binder and its tabs -->
+    <section id="binder" class="screen">
+      <header class="topbar">
+        <img class="logo" src="img/ui/logo.webp" alt="Cyberpunk TCG">
+        <nav class="tabs">
+          <button data-tab="binder" class="active">Binder</button>
+          <button data-tab="sealed">Sealed <span id="sealedCount" class="pill"></span></button>
+          <button data-tab="shop" id="shopTab">Shop</button>
+          <button data-tab="decks">Decks</button>
+          <button data-tab="duel">Duel <span id="duelPill" class="pill"></span></button>
+        </nav>
+        <div class="wallet">
+          <div class="stat"><span class="k">Collection</span><span class="v" id="statEditions">0 / 320</span></div>
+          <div class="stat"><span class="k">Cards</span><span class="v" id="statCards">0 / 151</span></div>
+          <div class="stat dust"><img src="img/ui/dust.webp" alt=""><span class="v" id="statDust">0</span></div>
+          <div class="stat dust"><img src="img/ui/dust_plus.webp" alt=""><span class="v" id="statDustPlus">0</span></div>
+          <button class="close" id="closeBtn" title="Close (Esc)">&times;</button>
+        </div>
+      </header>
+
+      <div class="tab" id="tab-binder">
+        <div class="filters">
+          <input id="search" type="search" placeholder="Search a card..." autocomplete="off">
+          <div class="chips" id="chips"></div>
+          <div class="progress"><div class="bar" id="progressBar"></div><span id="progressText"></span></div>
+        </div>
+        <div class="album">
+          <div class="spread" id="spread">
+            <div class="page left" id="pageLeft"></div>
+            <div class="rings"><i></i><i></i><i></i></div>
+            <div class="page right" id="pageRight"></div>
+            <div class="turn" id="turn"><div class="face front"></div><div class="face back"></div></div>
+          </div>
+          <button class="flip prev" id="prevBtn">&#8249;</button>
+          <button class="flip next" id="nextBtn">&#8250;</button>
+          <div class="pageno" id="pageNo"></div>
+        </div>
+      </div>
+
+      <div class="tab hidden" id="tab-sealed">
+        <div class="shelf" id="sealedShelf"></div>
+        <p class="hint" id="sealedHint"></p>
+      </div>
+
+      <div class="tab hidden" id="tab-shop">
+        <div class="shop-off" id="shopOff">Stand at a Cyberpunk TCG shop counter to buy sealed product, recycle duplicates and print editions.</div>
+        <div class="shop" id="shopOn">
+          <div class="col">
+            <h3>Counter</h3>
+            <div id="shopProducts" class="products"></div>
+          </div>
+          <div class="col">
+            <h3>Recycler <small>duplicates into Dust</small></h3>
+            <div id="recycleList" class="list"></div>
+            <button class="primary" id="recycleAll">Recycle every duplicate</button>
+          </div>
+          <div class="col">
+            <h3>Card printer <small>missing editions</small></h3>
+            <input id="printSearch" type="search" placeholder="Find an edition to print...">
+            <div id="printList" class="list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deck building, the official rules: 3 Legends, 40-50 cards, 3 copies, RAM per colour (docs/RULES.md §6) -->
+      <div class="tab hidden" id="tab-decks">
+        <aside class="dk-list">
+          <h3>Deck box <small id="dkCount"></small></h3>
+          <div id="dkDecks" class="dk-decks"></div>
+          <button class="primary" id="dkNew">New deck</button>
+          <h3 class="dk-lent">Lent by the shop</h3>
+          <div id="dkStarters" class="dk-decks"></div>
+        </aside>
+        <section class="dk-edit" id="dkEdit">
+          <div class="dk-head">
+            <input id="dkName" maxlength="32" placeholder="Deck name" autocomplete="off">
+            <span class="dk-status" id="dkStatus"></span>
+            <button class="primary" id="dkSave">Save</button>
+            <button class="ghost" id="dkUse">Use for duels</button>
+            <button class="ghost danger" id="dkDelete">Delete</button>
+          </div>
+          <div class="dk-top">
+            <div class="dk-legends" id="dkLegends"></div>
+            <div class="dk-meters">
+              <div class="dk-count"><b id="dkMain">0</b><span>/ 40-50 cards</span></div>
+              <div class="dk-ram" id="dkRam"></div>
+              <ul class="dk-errors" id="dkErrors"></ul>
+            </div>
+          </div>
+          <div class="dk-body">
+            <div class="dk-pool">
+              <div class="dk-filters">
+                <input id="dkSearch" type="search" placeholder="Search name, tag or text..." autocomplete="off">
+                <div class="chips" id="dkTypes"></div>
+                <div class="chips" id="dkColours"></div>
+                <label class="dk-owned"><input type="checkbox" id="dkOwnedOnly" checked> Owned only</label>
+              </div>
+              <div class="dk-grid" id="dkPool"></div>
+            </div>
+            <div class="dk-cards" id="dkCards"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Duels: your playmat, your deck, the players around to challenge -->
+      <div class="tab hidden" id="tab-duel">
+        <div class="du-cols">
+          <section class="du-mats">
+            <h3>Playmat <small>what you play on at the table</small></h3>
+            <div class="du-matgrid" id="duMats"></div>
+          </section>
+          <section class="du-side">
+            <div class="du-box" id="duCurrent"></div>
+            <div class="du-box">
+              <h3>Duel deck</h3>
+              <select id="duDeck"></select>
+              <p class="hint" id="duDeckHint"></p>
+            </div>
+            <div class="du-box">
+              <h3>Challenge a player <button class="ghost small" id="duRefresh">Refresh</button></h3>
+              <p class="hint" id="duTables"></p>
+              <div id="duPlayers" class="du-players"></div>
+              <div id="duOutgoing" class="du-outgoing"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- A duel challenge for you -->
+    <section id="challengeModal" class="modal hidden">
+      <div class="offer-box du-challenge">
+        <h3 id="chTitle"></h3>
+        <p id="chText"></p>
+        <label>Your deck <select id="chDeck"></select></label>
+        <div class="actions">
+          <button class="primary" id="chAccept">Accept the duel</button>
+          <button class="ghost" id="chDecline">Decline</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- A card in your hands -->
+    <section id="inspect" class="modal hidden">
+      <div class="inspect-card" id="inspectCard"><div class="card big"><img alt=""><div class="sheen"></div><div class="holo"></div><div class="glare"></div></div></div>
+      <div class="inspect-info">
+        <div class="rarity" id="inspectRarity"></div>
+        <h2 id="inspectName"></h2>
+        <dl>
+          <dt>Set number</dt><dd id="inspectNo"></dd>
+          <dt>Finish</dt><dd id="inspectFinish"></dd>
+          <dt>In your binder</dt><dd id="inspectCount"></dd>
+          <dt>Population</dt><dd id="inspectPop"></dd>
+        </dl>
+        <div class="actions" id="inspectActions"></div>
+        <div class="give hidden" id="givePanel"></div>
+        <button class="ghost" id="inspectClose">Back to the binder</button>
+      </div>
+    </section>
+
+    <!-- A trade offer -->
+    <section id="offer" class="modal hidden">
+      <div class="offer-box">
+        <h3 id="offerTitle"></h3>
+        <div class="card mid" id="offerCard"><img alt=""></div>
+        <div class="actions">
+          <button class="primary" id="offerAccept">Accept</button>
+          <button class="ghost" id="offerDecline">Decline</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Opening a display box: cut the shrink-wrap, the packs come out -->
+    <section id="unbox" class="screen hidden">
+      <div class="table-felt"></div>
+      <div class="ubox" id="ubox">
+        <img class="ubox-img" id="uboxImg" alt="">
+        <div class="wrap wrap-top" id="wrapTop"></div>
+        <div class="wrap wrap-bottom" id="wrapBottom"></div>
+        <div class="cut-guide"><span class="tear-dash"></span><span class="tear-arrow">&#10148;</span></div>
+        <div class="cut-line"></div>
+      </div>
+      <div class="ubox-packs" id="uboxPacks"></div>
+      <div class="opening-hint" id="uboxHint"></div>
+      <div class="ubox-actions hidden" id="uboxActions">
+        <button class="primary" id="uboxOpen">Open a pack now</button>
+        <button class="ghost" id="uboxBack">Back to the shelf</button>
+      </div>
+    </section>
+
+    <!-- Opening a pack -->
+    <section id="opening" class="screen hidden">
+      <div class="table-felt"></div>
+      <div class="rays" id="rays"></div>
+      <!-- The stage: the pack, then the deck of 12 face-down cards that comes out of it -->
+      <div class="stage" id="stage">
+        <div class="pack" id="pack">
+          <div class="pack-tilt">
+            <div class="pack-body"></div>
+            <div class="pack-top" id="packTop"></div>
+            <div class="pack-shine"></div>
+            <div class="tear-guide"><span class="tear-dash"></span><span class="tear-arrow">&#10148;</span></div>
+            <div class="tear-glow"></div>
+          </div>
+        </div>
+        <div class="deck" id="deck"></div>
+        <div class="charge" id="charge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"></circle><circle class="arc" id="chargeArc" cx="50" cy="50" r="46"></circle></svg></div>
+      </div>
+      <div class="counter" id="counter"></div>
+      <!-- 12 slots: every revealed card lands in its own -->
+      <div class="tray" id="tray"></div>
+      <div class="opening-hint" id="openingHint"></div>
+      <button class="ghost skip" id="skipBtn">Reveal all</button>
+      <canvas class="fx" id="fx"></canvas>
+      <div class="flash" id="flash"></div>
+      <div class="summary hidden" id="summary">
+        <h2>Pack summary</h2>
+        <div class="summary-stats" id="summaryStats"></div>
+        <div class="summary-body">
+          <div class="summary-hit" id="summaryHit"></div>
+          <div class="summary-grid" id="summaryGrid"></div>
+        </div>
+        <button class="primary" id="summaryDone">Sleeve them into the binder</button>
+      </div>
+    </section>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <!-- At the duel table: outside the binder, over the game -->
+  <div id="duelHud" class="hidden">
+    <div class="dh-banner" id="dhBanner"></div>
+    <div class="dh-seated" id="dhSeated">
+      <div class="dh-rival" id="dhRival"></div>
+      <div class="dh-centre" id="dhCentre"></div>
+      <div class="dh-log" id="dhLog"></div>
+      <div class="dh-you" id="dhYou"></div>
+      <div class="dh-hand" id="dhHand"></div>
+      <div class="dh-tools">
+        <button class="ghost" id="dhView">View: seat</button>
+        <button class="ghost danger" id="dhLeave">Leave the table</button>
+      </div>
+      <div class="tb-rival" id="tbRival"></div>
+      <div class="tb-mine" id="tbMine"></div>
+      <div class="tb-pop hidden" id="tbPop"></div>
+      <div class="tb-fx" id="tbFx"></div>
+      <div class="dh-zoom hidden" id="dhZoom"></div>
+    </div>
+  </div>
+  <script src="./data/catalogue.js"></script>
+  <script src="./data/cards.js"></script>
+  <script src="./duel.js"></script>
+  <script src="./table.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

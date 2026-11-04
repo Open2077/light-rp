@@ -178,6 +178,8 @@ function buildTree(character: CharacterState, money: MoneyState, job: JobState, 
         { id: "freecam", type: "item", text: "Free camera", icon: "video", meta: freecamKey,
           description: "Detach the view from your character to watch the scene from another angle. On foot, within a short range; your character stays in place." },
         { id: "housing", type: "item", text: "My homes", icon: "map-pin", description: "Find a home, manage rent and keys, or recover stored belongings." },
+        { id: "tcgbinder", type: "item", text: "TCG binder", icon: "book-open",
+          description: "Your Cyberpunk TCG collection: the binder, your sealed boosters and displays. At a TCG shop counter: the recycler and the card printer." },
         { separator: true },
         { label: "SERVER" },
         { id: "briefing", type: "item", text: "Server briefing", icon: "info", description: "Read the welcome briefing again: what Light Roleplay means here." },
@@ -245,6 +247,7 @@ export function PlayerMenu() {
   const recap = useStore((s) => s.state.recap);
   const dailies = useStore((s) => s.state.dailies);
   const titles = useStore((s) => s.state.titles);
+  const maneki = useStore((s) => s.state.maneki);
   const setWelcomeReplay = useStore((s) => s.setWelcomeReplay);
   const [stack, setStack] = useState<Array<{ key: string; index: number }>>([{ key: "root", index: ROOT_INDEX }]);
   const [toggleKey, setToggleKey] = useState("F1");
@@ -303,13 +306,20 @@ export function PlayerMenu() {
     const home = nodes.root?.items.findIndex((i) => "id" in i && i.id === "housing") ?? -1;
     if (dailies && home >= 0) nodes.root!.items.splice(home + 1, 0, { id: "dailies", type: "item", text: "Dailies", icon: "list-checks", meta: menuMeta(dailies),
       description: "Four small jobs a day from Mama Okoro, Ledger and Nix, and a big one every week, paid into your bank. Your titles are in there too." });
+    // The Maneki-neko collection, under the dailies: a count, never a hint of where (server/modules/maneki.lua).
+    const daily = nodes.root?.items.findIndex((i) => "id" in i && (i.id === "dailies" || i.id === "housing")) ?? -1;
+    if (maneki && daily >= 0) nodes.root!.items.splice(daily + 1, 0, { id: "maneki", type: "item", text: "Maneki-neko", icon: "coins",
+      meta: `${maneki.found} / ${maneki.total}`,
+      description: maneki.total > 0 && maneki.found >= maneki.total
+        ? "Your collection: every lucky cat hidden in Night City is yours. Select to see where you found each one."
+        : "Your collection of the lucky cats hidden around Night City: which ones you found, where and when, and how the hunt works." });
     const lastName = nodes.identity?.items.findIndex((i) => "id" in i && i.id === "last") ?? -1;
     const badge = shownTitle(titles);
     if (titles?.enabled && lastName >= 0) nodes.identity!.items.splice(lastName + 1, 0, { id: "identity-title", type: "item", text: "Title", icon: "crown",
       meta: badge ? badge.label.toUpperCase() : "NONE",
       description: "What others read after your name in the chat, on your crew's frame and in the Hall of Fame. Select to pick one you earned." });
     return nodes;
-  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, queue, party, dogtown, recap, dailies, titles]);
+  }, [character, money, job, gang, jobRun, staff.isStaff, freecamKey, tutorial?.active, activities, queue, party, dogtown, recap, dailies, titles, maneki]);
   if (!open || character.status !== "active") return null;
 
   const root = tree.root!;
@@ -327,6 +337,7 @@ export function PlayerMenu() {
     if (item.id === "animations") { requestClose(); emit(PAGE_EVENTS.animationsAction, { action: "open" }); return; }
     if (item.id === "freecam") { requestClose(); emit(PAGE_EVENTS.freecam, { operation: "toggle" }); return; }
     if (item.id === "housing") { requestClose(); emit(PAGE_EVENTS.action, { type: "housing.open" }); return; }
+    if (item.id === "tcgbinder") { requestClose(); emit(PAGE_EVENTS.action, { type: "tcg.binder" }); return; }
     if (item.id === "job-guide") { requestClose(); openJobGuide(job.name); return; }
     if (item.id === "run-start") { requestClose(); sendAction({ type: "jobs.start", from: "menu" }); return; }
     if (item.id === "run-gps") { requestClose(); sendAction({ type: "jobs.gps" }); return; }
@@ -340,6 +351,7 @@ export function PlayerMenu() {
       requestClose(); sendAction({ type: "activities.control", operation: "open", tab: item.id === "squad-invite" ? "crew" : "activities" }); return;
     }
     if (item.id === "recap") { sendAction({ type: "recap.open" }); requestClose(); return; }
+    if (item.id === "maneki") { sendAction({ type: "maneki.open" }); requestClose(); return; }
     if (item.id === "dailies" || item.id === "identity-title") { sendAction({ type: "dailies.open", tab: item.id === "identity-title" ? "titles" : "today" }); requestClose(); return; }
     if (item.id === "activity-leave") { sendAction({ type: "activities.control", operation: "leave" }); requestClose(); return; }
     if (item.id === QUEUE_LEAVE_ITEM) { sendAction({ type: "queue.leave", from: "menu" }); requestClose(); return; }

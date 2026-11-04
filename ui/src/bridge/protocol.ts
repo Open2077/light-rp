@@ -24,6 +24,7 @@ export const PAGE_EVENTS = {
   tutorial: "lightrp:ui:tutorial",
   jobRun: "lightrp:ui:jobrun", // Lua -> page: JobRunLive
   freecam: "lightrp:ui:freecam", // page -> Lua: { operation: "toggle" }; Lua -> page: FreecamState
+  maneki: "lightrp:ui:maneki", // Lua -> page: ManekiToolState (client/core/maneki_editor.lua)
   characterEditor: "lightrp:ui:character:editor", // Lua -> page: native editor handoff { active, error? }
   state: "lightrp:ui:state",
   hud: "lightrp:ui:hud",
@@ -177,6 +178,8 @@ export interface UiState {
   dailies?: DailiesState;
   /** Earned titles and the one shown (server/modules/titles.lua T.view; features/dailies). */
   titles?: TitlesState;
+  /** The Maneki-neko collection of this character (server/modules/maneki.lua): found / hidden. */
+  maneki?: { found: number; total: number };
 }
 
 /* ── Dailies and titles (server/modules/dailies.lua, titles.lua; docs/dailies-titles.md) ── */
@@ -476,6 +479,21 @@ export interface TitanState {
 export interface MissionSquadMember { id: number; name: string; citizen: string; host: boolean; health: number; maxHealth: number; armor: number; state: "alive" | "down" | "dead" | "recovering" }
 export type UiStatePatch = Partial<UiState>;
 
+/** F1 > Maneki-neko (server/modules/maneki.lua M.collection): one slot per cat in the city, in
+ *  the order the staff hid them. A found slot is "id|district|at|how|x|y|z"; a slot not found is
+ *  "" and carries nothing. `intro`: the panel has never explained itself to this character. */
+export interface ManekiDialogPayload {
+  kind: "maneki"; slots: string[]; found: number; total: number; reward: number;
+  milestones: Array<{ count: number; cash: number }>; completeMin: number;
+  title?: { id: string; label: string }; intro?: boolean; shotRange?: number; enabled?: boolean;
+}
+
+/** The staff placement tool for the Maneki-neko, as client/core/maneki_editor.lua publishes it. */
+export interface ManekiToolState {
+  active: boolean; scale?: number; yaw?: number; aim?: boolean; hovered?: string; hoveredFound?: boolean;
+  nearby?: number; message?: string; ok?: boolean;
+}
+
 /** The free camera, as client/core/freecam.lua publishes it. `keys` are the effective bindings. */
 export interface FreecamState {
   active: boolean;
@@ -705,7 +723,7 @@ export interface FuelDialogPayload {
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
 export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload
-  | RecapDialogPayload | DailiesDialogPayload;
+  | RecapDialogPayload | DailiesDialogPayload | ManekiDialogPayload;
 
 /** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
  *  the search index and the topics follow as GuideMessage (features/guide/model.ts).
@@ -769,6 +787,9 @@ export type UiAction =
   | { type: "dailies.claim"; id: string }
   | { type: "dailies.swap"; slot: DailySlot }
   | { type: "dailies.refresh" }
+  | { type: "maneki.open" }
+  | { type: "maneki.intro" }
+  | { type: "maneki.map"; id: string }
   | { type: "titles.select"; id: string }
   | { type: "guide.open"; from?: string }
   | { type: "guide.topic"; id: string }

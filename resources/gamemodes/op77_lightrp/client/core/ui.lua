@@ -262,6 +262,19 @@ function Ui.create()
             if ok ~= true then Ui.send(E.page.result, { ok = false, text = "The route could not be set.", action = payload.type }) end
             return
         end
+        -- F1 > Maneki-neko: a found cat on the city map is the player's own data, opened here.
+        if payload.type == "maneki.map" then
+            local ok, why = LightRpManeki and LightRpManeki.showOnMap(payload.id)
+            if ok ~= true then Ui.send(E.page.result, { ok = false, text = tostring(why or "The city map is not available."), action = payload.type }) end
+            return
+        end
+        -- The Cyberpunk TCG binder (op77_tcg, client side): the menu closes, the binder takes the mouse.
+        if payload.type == "tcg.binder" then
+            Ui.setMenuOpen(false)
+            Ui.setPromptFocus(false)
+            TriggerEvent("op77_tcg:openBinder")
+            return
+        end
         if payload.type == "character.appearance.open" then
             local mode = payload.mode == "hairdresser" and "hairdresser" or "ripperdoc"
             local family = (payload.family == "male" or payload.family == "female") and payload.family or nil

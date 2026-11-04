@@ -29,6 +29,7 @@ import { hallOfFameMock } from "@/features/halloffame/mock";
 import { recapMock } from "@/features/recap/mock";
 import { guideMock } from "@/features/guide/mock";
 import { dailiesMock } from "@/features/dailies/mock";
+import { manekiMock } from "@/features/maneki/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -47,6 +48,7 @@ export function installMockBridge(): void {
   const hallOfFame = hallOfFameMock(fire, params);
   const recap = recapMock(fire, params);
   const dailies = dailiesMock(fire, params);
+  const maneki = manekiMock(fire, params); // ?maneki=tool|desk
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -182,6 +184,7 @@ export function installMockBridge(): void {
     emit(name, payload) {
       console.log("[mock] emit", name, payload);
       if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
+      if (name === PAGE_EVENTS.support && maneki.receive(payload)) return;
       if (name === PAGE_EVENTS.missionEditor) { missionEditor.receive(payload); return; }
       if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
       if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
@@ -253,6 +256,7 @@ export function installMockBridge(): void {
           recap.boot();
           guide.boot();
           dailies.boot();
+          maneki.boot();
           if (params.get("dialog") === "activities") activities.boot();
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();

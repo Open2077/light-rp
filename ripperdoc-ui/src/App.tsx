@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CATALOGUE, DEMO, DEMO_CAPACITY, SECTION, SECTIONS, demoLocks, type Body, type Cyberware, type OpenPayload, type Reputation } from "./data";
-import { refusal, simulate, usedPoints, type Capacity, type ClinicState } from "./model";
+import { CATALOGUE, DEMO, DEMO_CAPACITY, SECTION, SECTIONS, demoLocks, type Body, type Cyberware, type Guide, type OpenPayload, type Reputation } from "./data";
+import { project, refusal, simulate, usedPoints, type Capacity, type ClinicState } from "./model";
 import { emit, inGame, onClose, onOpen, onResult, onState, ready } from "./bridge";
 import { loadManifest, type Manifest } from "./media";
 import { play, preload } from "./sfx";
@@ -9,6 +9,7 @@ import { Overview } from "./Overview";
 import { SectionView } from "./SectionView";
 import { TopBar, BottomBar } from "./Hud";
 import { Procedure } from "./Procedure";
+import { GuideLayer } from "./Guide";
 
 export type Phase = "closed" | "boot" | "overview" | "diving" | "section" | "surfacing" | "leaving";
 
@@ -23,6 +24,7 @@ export interface Session extends ClinicState {
   capacity?: Capacity;                   // points used / total (absent: no limit shown)
   patient: NonNullable<OpenPayload["patient"]>;
   reputation?: Reputation;               // street cred (absent: no gate shown)
+  guide?: Guide;                         // the clinic guide (absent: no GUIDE button)
   stock: Cyberware[];                    // the clinic's catalogue
   items: Record<string, Cyberware>;      // the same, by id
 }
@@ -43,6 +45,7 @@ const fromPayload = (p: OpenPayload): Session => {
   }
   return {
     reputation,
+    guide: p.guide ?? (live ? undefined : DEMO.guide),
     live,
     body: p.body === "female" ? "female" : "male",
     clinic: p.clinic ?? DEMO.clinic,
@@ -88,6 +91,10 @@ export function App() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [section, setSection] = useState<string>(SECTIONS[0]!.id);
   const [procedure, setProcedure] = useState<ProcedureState | null>(null);
+  // The guide on screen; `auto`: it opened by itself (first visit), so closing it tells the server.
+  const [guide, setGuide] = useState<{ auto: boolean } | null>(null);
+  // The implant whose surgery the HUD previews (SectionView: hovered, else selected).
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const timers = useRef<number[]>([]);
   const later = (ms: number, fn: () => void) => { timers.current.push(window.setTimeout(fn, ms)); };
   const procedureRef = useRef<ProcedureState | null>(null);
@@ -96,16 +103,21 @@ export function App() {
   const open = useCallback((payload: OpenPayload) => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
-    setSession(fromPayload(payload));
+    const next = fromPayload(payload);
+    setSession(next);
     setHovered(null);
     setProcedure(null);
+    setGuide(null);
     setPhase("boot");
     play("open");
     later(380, () => play("glitch"));
     later(2300, () => setPhase("overview"));
+    // First visit: the guide opens by itself once the body is on screen.
+    if (next.guide?.auto) later(2900, () => { setGuide({ auto: true }); play("scan_tag"); });
   }, []);
 
   const close = useCallback(() => {
+    setGuide(null);
     setPhase((p) => (p === "closed" ? p : "leaving"));
     play("close");
     later(650, () => { setPhase("closed"); emit("rd:close", {}); });
@@ -115,7 +127,7 @@ export function App() {
     void loadManifest().then(setManifest);
     preload();
     onOpen(open);
-    onClose(() => { timers.current.forEach(clearTimeout); setProcedure(null); setPhase("closed"); });
+    onClose(() => { timers.current.forEach(clearTimeout); setProcedure(null); setGuide(null); setPhase("closed"); });
     // The server's answer to the running operation, then the fresh state.
     onResult((r) => {
       const p = procedureRef.current;
@@ -147,6 +159,23 @@ export function App() {
     return () => window.clearTimeout(id);
   }, [procedure]);
 
+  // Finished, skipped or closed: a guide that opened by itself is remembered (it will not open by itself again).
+  const closeGuide = useCallback(() => {
+    setGuide((g) => {
+      if (g?.auto) {
+        emit("rd:guide", { seen: true });
+        setSession((s) => (s.guide ? { ...s, guide: { ...s.guide, auto: false } } : s));
+      }
+      return null;
+    });
+    play("zoom_out");
+  }, []);
+  const openGuide = useCallback(() => {
+    if (!session.guide || procedure || (phase !== "overview" && phase !== "section")) return;
+    setGuide({ auto: false });
+    play("scan_tag");
+  }, [session.guide, procedure, phase]);
+
   const dive = useCallback((id: string) => {
     if (phase !== "overview") return;
     setSection(id);
@@ -175,7 +204,8 @@ export function App() {
   // Keyboard: Esc backs out, A/D (or arrows) cycle the sections inside the close-up.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (procedure) return;
+      if (procedure || guide) return;
+      if (e.key === "h" || e.key === "H") { e.preventDefault(); openGuide(); return; }
       if (e.key === "Escape" || e.key === "Backspace") {
         e.preventDefault();
         if (phase === "section") surface(); else if (phase === "overview") close();
@@ -184,9 +214,12 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase, procedure, surface, close, cycle]);
+  }, [phase, procedure, guide, surface, close, cycle, openGuide]);
 
   const used = useMemo(() => installedCount(session), [session]);
+  const previewItem = previewId ? session.items[previewId] : undefined;
+  const preview = useMemo(() => (previewItem && phase === "section" && !procedure ? project(session, previewItem) : undefined),
+    [previewItem, phase, procedure, session]);
 
   const startProcedure = (item: Cyberware, mode: "install" | "remove"): string | null => {
     if (procedure) return "An operation is already in progress.";
@@ -223,16 +256,19 @@ export function App() {
         {(phase === "section" || phase === "surfacing") && (
           <SectionView key={section} body={session.body} section={section} session={session} used={used}
             leaving={phase === "surfacing"} busy={procedure !== null}
-            onBack={surface} onCycle={cycle} onProcedure={startProcedure} />
+            onBack={surface} onCycle={cycle} onProcedure={startProcedure} onPreview={setPreviewId} />
         )}
-        <TopBar session={session} used={used} phase={phase} section={phase === "section" ? SECTION[section] : undefined} />
-        <BottomBar phase={phase} />
+        <TopBar session={session} used={used} phase={phase} section={phase === "section" ? SECTION[section] : undefined}
+          onGuide={session.guide && !procedure && (phase === "overview" || phase === "section") ? openGuide : undefined}
+          preview={preview} />
+        <BottomBar phase={phase} guide={session.guide !== undefined} />
         {procedure && <Procedure state={procedure} body={session.body} />}
+        {guide && session.guide && <GuideLayer guide={session.guide} session={session} onClose={closeGuide} />}
         <div className="rd-fx-scan" />
         <div className="rd-fx-vignette" />
         <div className="rd-fx-lines" />
         {phase === "diving" && <div className="rd-fx-dive" />}
-        {phase === "boot" && <BootLayer patient={session.patient.name ?? "UNKNOWN"} clinic={session.clinic.name} />}
+        {phase === "boot" && <BootLayer patient={session.patient.name ?? "UNKNOWN"} />}
         {phase === "closed" && (
           <button className="rd-reopen" onClick={() => open({ ...DEMO, body: session.body })}>REOPEN PREVIEW</button>
         )}
@@ -241,11 +277,11 @@ export function App() {
   );
 }
 
-function BootLayer({ patient, clinic }: { patient: string; clinic: string }) {
+function BootLayer({ patient }: { patient: string }) {
   return (
     <div className="rd-boot">
       <div className="rd-boot-frame">
-        <div className="rd-boot-kicker">NEURAL HANDSHAKE // {clinic.toUpperCase()}</div>
+        <div className="rd-boot-kicker">NEURAL HANDSHAKE // RIPPERDOC CLINIC</div>
         <div className="rd-boot-title" data-text="PATIENT LINKED">PATIENT LINKED</div>
         <div className="rd-boot-sub">{patient.toUpperCase()} — BIOMETRIC SCAN IN PROGRESS</div>
         <div className="rd-boot-bar"><i /></div>

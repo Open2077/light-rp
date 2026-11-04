@@ -66,7 +66,7 @@ for name, t in pairs(LightRpItems) do
         assert(inv.items[1].count == t.stack and inv.items[2].count == 1, name .. " stack splitting")
     end
 end
-assert(total == 40 and counts.food == 9 and counts.drink == 6 and counts.medical == 3)
+assert(total == 43 and counts.food == 9 and counts.drink == 6 and counts.medical == 3) -- 43 with the three Cyberpunk TCG sealed items
 assert(LightRpItems.cash.weight == 0 and LightRpItems.cash.use == nil)
 for _, base in ipairs({ "../../../ui/public/", "web/" }) do
     local file = assert(io.open(base .. LightRpItems.cash.image, "rb"))
