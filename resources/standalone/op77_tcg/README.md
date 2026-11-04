@@ -115,8 +115,21 @@ Results go to `tcg_matches`.
     nothing.
 - **Endings:** overtime (after two turns that both players began with an empty fixer area), conceding, and a tie
   when both players win at once.
-- **Card texts are not automated yet.** Each card's PLAY, CALL, ATTACK and DEFEATED text and each Program's text is
-  shown in the log for both players. The keywords Adrenaline, Blocker and Go Solo are applied.
+- **Every card's text is scripted** (`shared/effects.lua`, one entry per card, checked against the official texts):
+  - {Play} {Call} {Attack} {Defeated}, "when ... is spent / steals / wins a fight / at the end of your turn";
+  - activated effects (`X €$, {Spend}`), including Quick ones in the React step;
+  - Quick Programs from the hand as a reaction;
+  - continuous effects: power, keywords given by Gear, attack restrictions, cost changes;
+  - replacement effects (Deadman Transmitter, Muamar's Call) and steal limits (Chrome Fang, Westbrook, Take Control).
+- **Choices:** a card asks its player through a prompt: targets, "choose one effect", searches, discards, Gig changes.
+  - The game waits for the answer, which the house or the clock may give.
+  - "Look at" prompts are only sent to the player who looks.
+  - Pending effects resolve in a fixed order: the turn player's first, in the order they triggered. Players don't
+    choose that order.
+- **Two decisions are automatic,** because they happen in the middle of a fight or a steal:
+  - Alt Cunningham, Mother of Daemons discards the first matching card;
+  - Jackie Welles, Mama's Favorite is removed instead of a friendly Unit with 5+ power when 1 €$ is available.
+
 - **The clock:** each step has its own (`duel.stepMs`). When it runs out, the smallest die is rolled, the React step
   passes, the best Gigs are stolen, or the turn ends. `duel.houseForIdle` lets the house play for an idle player, in
   tests.
