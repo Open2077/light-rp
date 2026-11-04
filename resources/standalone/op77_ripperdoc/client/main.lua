@@ -8,6 +8,13 @@ local page
 local pageReady = false
 local isOpen = false
 local pending -- an open that arrived before the page was ready
+-- The page answers an open within a few hundred ms (its "open" sound). One that stays
+-- silent holds the keyboard and mouse with nothing on screen: every input blocked
+-- (LightRP Testing, 2026-11-04). Past ANSWER_MS without a word from the page, the focus
+-- goes back to the game, the interface closes and the patient gets up.
+local ANSWER_MS = 4000
+local openSeq, answered = 0, true
+local function log(fmt, ...) print("[ripperdoc] " .. fmt:format(...)) end
 
 local SOUNDS = {
     open = 0.85, close = 0.8, zoom_in = 0.8, zoom_out = 0.75, hover = 0.35, press = 0.6, menu_open = 0.7,
@@ -62,19 +69,45 @@ local function send(name, payload)
     if page and pageReady then page:send(name, payload == nil and {} or payload) end
 end
 
+local close
 local function open(payload)
-    if not page or not pageReady then pending = payload or {} return end
+    if not page or not pageReady then
+        pending = payload or {}
+        log("open queued: page %s", page and "not ready yet" or "missing")
+        return
+    end
     isOpen = true
+    openSeq = openSeq + 1
+    local seq = openSeq
+    answered = false
+    pcall(function() page:show() end)
     send("rd:open", payload or {})
-    page:setFocus(true, true)
+    local ok, why = pcall(function() return page:setFocus(true, true) end)
+    log("open sent (#%d), focus %s", seq, ok and "taken" or ("refused: " .. tostring(why)))
+    CreateThread(function()
+        Wait(ANSWER_MS)
+        if isOpen and openSeq == seq and not answered then
+            log("the page did not answer the open #%d in %d ms: focus released, interface closed", seq, ANSWER_MS)
+            close(true)
+        end
+    end)
 end
 
-local function close(notify)
+-- Any word from the page after an open: it is alive.
+local function heard(what)
+    if isOpen and not answered then
+        answered = true
+        log("page answered the open #%d (%s)", openSeq, tostring(what))
+    end
+end
+
+close = function(notify)
     pending = nil
     if not isOpen then return end
     isOpen = false
     send("rd:close", {})
-    if page then page:setFocus(false, false) end
+    if page then pcall(function() page:setFocus(false, false) end) end
+    log("closed (%s)", notify and "by the patient or the watchdog" or "by the server")
     for _, entry in pairs(slots) do StopSound(entry.id) end
     if notify then TriggerServerEvent("op77_ripperdoc:closed") end
 end
@@ -83,7 +116,7 @@ local function createPage()
     local created, why
     for _ = 1, 120 do
         created, why = Open77.webui.create({
-            entry = "web/index.html", layer = "menu", zIndex = 45,
+            entry = "web/index.html", layer = "menu", zIndex = 45, width = 1920, height = 1080,
             transparent = true, visible = true, fps = 60,
         })
         if created or why ~= "resource_preparing" then break end
@@ -93,22 +126,32 @@ local function createPage()
     page = created
     page:on("ui:ready", function()
         pageReady = true
+        log("page ready")
         if pending then local payload = pending pending = nil open(payload) end
     end)
     -- The patient left (Esc on the full body, or the page's close): give the game back.
-    page:on("rd:close", function() close(true) end)
+    page:on("rd:close", function() heard("close"); close(true) end)
     page:on("rd:sound", function(payload)
+        heard("sound")
         local name = type(payload) == "table" and type(payload.name) == "string" and payload.name or ""
         if name:match("^[%w_]+$") then playSound(name) end
     end)
     -- An install / removal: the server's clinic owner decides and answers (rd:result, rd:state).
     page:on("rd:action", function(payload)
+        heard("action")
         if type(payload) ~= "table" then return end
         TriggerServerEvent("op77_ripperdoc:action", { op = payload.op, item = payload.item, replace = payload.replace })
     end)
 end
 
 RegisterNetEvent("op77_ripperdoc:open", function(payload) open(type(payload) == "table" and payload or {}) end)
+-- The way out when nothing else answers: F8 console "ripperdoc.release" gives the game back.
+if type(RegisterCommand) == "function" then
+    RegisterCommand("ripperdoc.release", function()
+        log("released from the console")
+        if isOpen then close(true) elseif page then pcall(function() page:setFocus(false, false) end) end
+    end, false)
+end
 RegisterNetEvent("op77_ripperdoc:close", function() close(false) end)
 RegisterNetEvent("op77_ripperdoc:result", function(result) if isOpen then send("rd:result", type(result) == "table" and result or {}) end end)
 RegisterNetEvent("op77_ripperdoc:update", function(payload) if isOpen then send("rd:state", type(payload) == "table" and payload or {}) end end)

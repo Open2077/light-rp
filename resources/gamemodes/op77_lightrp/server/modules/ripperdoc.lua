@@ -76,7 +76,8 @@ AddEventHandler("op77_scenes:started", function(p)
         local current = call("op77_scenes", "current", playerId)
         if type(current) ~= "table" or current.spot ~= spot then seated[playerId] = nil return end
         local ok, why = call("op77_ripperdoc", "open", playerId, payloadFor(playerId))
-        if not ok then print(("[lightrp] ripperdoc interface refused for %d: %s"):format(playerId, tostring(why))) end
+        LightRP.log("ripperdoc: interface %s for %d on %s%s", ok and "opened" or "refused", playerId, tostring(spot),
+            ok and "" or (" (" .. tostring(why) .. ")"))
     end)
 end)
 
