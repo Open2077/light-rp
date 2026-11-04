@@ -23,12 +23,26 @@ local function call(resource, name, ...)
     return a, b
 end
 
+-- The clinic a chair belongs to (LightRpGuideDialogue.clinics `chair`: the op77_scenes spot id),
+-- else the generic street clinic.
+local function clinicFor(spot)
+    local list = LightRpGuideDialogue and LightRpGuideDialogue.clinics
+    if spot ~= nil and type(list) == "table" then
+        for _, c in ipairs(list) do
+            if c.chair == spot then
+                return { name = c.name, doctor = C.clinic.doctor, tagline = C.clinic.tagline }
+            end
+        end
+    end
+    return C.clinic
+end
+Ripperdoc.clinicFor = clinicFor
 local function payloadFor(playerId)
     local c = LightRP.characters and LightRP.characters.get(playerId)
     local wallet = LightRP.money and LightRP.money.get(playerId)
     local payload = LightRP.cyberware and LightRP.cyberware.view(playerId) or {}
     payload.body = c and c.bodyFamily == "female" and "female" or "male"
-    payload.clinic = C.clinic
+    payload.clinic = clinicFor(seated[playerId])
     payload.patient = { name = LightRP.characters and LightRP.characters.displayName(playerId) or GetPlayerName(playerId),
         id = wallet and wallet.number or nil }
     return payload

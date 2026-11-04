@@ -37,10 +37,25 @@ LightRpGuideDialogue = {
     -- click reaches.
     panelRange = 12.0,
     -- Ripperdoc clinics for "Mark the nearest clinic": { id, name, position = { x, y, z } },
-    -- city bucket. Empty: the choice is hidden and Johnny says clinics are not on the
-    -- map (the operating chairs are scanned world furniture, op77_scenes; nothing says
-    -- which ones a player can walk into). Survey a clinic in game before adding it.
-    clinics = {},
+    -- city bucket. Empty: the choice is hidden. The game's 14 ripperdocs, each on the
+    -- operating chair of its clinic (the same points as shared/config.lua mapPlaces); `chair`
+    -- is the op77_scenes spot, so the clinic interface shows the clinic's name.
+    clinics = {
+        { id = "ripperdoc_135", name = "Ripperdoc // Watson 1", chair = "surgical_chair_a@-1686_2377_19", position = { x = -1686.06, y = 2377.41, z = 18.78 } },
+        { id = "ripperdoc_138", name = "Ripperdoc // Watson 2", chair = "surgical_chair_a@-1240_1940_8", position = { x = -1239.71, y = 1939.65, z = 8.49 } },
+        { id = "ripperdoc_142", name = "Ripperdoc // Watson 3", chair = "surgical_chair_a@-1089_2149_14", position = { x = -1089.05, y = 2149.03, z = 13.76 } },
+        { id = "ripperdoc_151", name = "Ripperdoc // Westbrook 1", chair = "surgical_chair_a_mirrored@-716_869_12", position = { x = -716.10, y = 869.44, z = 12.40 } },
+        { id = "ripperdoc_155", name = "Ripperdoc // Westbrook 2", chair = "surgical_chair_b@-578_793_25", position = { x = -577.68, y = 792.85, z = 25.42 } },
+        { id = "ripperdoc_158", name = "Ripperdoc // Westbrook 3", chair = "surgical_chair_a_mirrored@-40_-49_8", position = { x = -39.69, y = -48.56, z = 7.62 } },
+        { id = "ripperdoc_164", name = "Ripperdoc // Watson 4", chair = "surgical_chair_a@-1546_1235_12", position = { x = -1546.49, y = 1234.96, z = 11.92 } },
+        { id = "ripperdoc_169", name = "Ripperdoc // Watson 5", chair = "surgical_chair_a@-1039_1446_1", position = { x = -1039.37, y = 1445.65, z = 0.91 } },
+        { id = "ripperdoc_174", name = "Ripperdoc // City Center", chair = "surgical_chair_a_mirrored@-2415_392_12", position = { x = -2414.56, y = 391.81, z = 12.28 } },
+        { id = "ripperdoc_186", name = "Ripperdoc // Heywood", chair = "surgical_chair_a_mirrored@-2358_-927_13", position = { x = -2358.18, y = -927.02, z = 12.70 } },
+        { id = "ripperdoc_191", name = "Ripperdoc // Santo Domingo 1", chair = "surgical_chair_a_mirrored@-1069_-1271_12", position = { x = -1069.50, y = -1271.36, z = 11.89 } },
+        { id = "ripperdoc_199", name = "Ripperdoc // Pacifica", chair = "surgical_chair_a_mirrored@-2624_-2467_17", position = { x = -2624.16, y = -2467.47, z = 17.30 } },
+        { id = "ripperdoc_212", name = "Ripperdoc // Santo Domingo 2", chair = "surgical_chair_b@587_-2178_43", position = { x = 586.52, y = -2178.49, z = 42.95 } },
+        { id = "ripperdoc_219", name = "Ripperdoc // Badlands", chair = "surgical_chair_a_mirrored@3440_-387_136", position = { x = 3439.99, y = -387.25, z = 136.03 } },
+    },
 
     -- Said when the player picks "That's all." (one at random).
     farewell = {
