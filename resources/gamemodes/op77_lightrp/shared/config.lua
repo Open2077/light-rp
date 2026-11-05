@@ -597,3 +597,10 @@ LightRpConfig = {
     -- How often the server pushes its light state (online count) to every client.
     statePushMs = 15000,
 }
+
+-- A performance stage is a derived record, Vehicle.<dealer record>_o77s1..3
+-- (server/modules/vehicle_customization.lua): every catalogue lookup by a live
+-- vehicle's record goes through its dealer record.
+function LightRpConfig.baseRecord(record)
+    return (tostring(record or ""):gsub("_o77s%d+$", ""))
+end

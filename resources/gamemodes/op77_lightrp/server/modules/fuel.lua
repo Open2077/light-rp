@@ -54,6 +54,7 @@ end
 
 -- Tank size from the catalogue category of the record (shared/config.lua).
 local function capacityOf(record)
+    record = LightRpConfig.baseRecord(record)
     local tanksByCategory = Config.tanks or {}
     if LightRP.vehicles and LightRP.vehicles.byKey then
         for _, entry in pairs(LightRP.vehicles.byKey) do
@@ -66,7 +67,7 @@ local function capacityOf(record)
 end
 
 function Fuel.labelOf(record)
-    record = tostring(record or "")
+    record = LightRpConfig.baseRecord(record)
     if LightRP.vehicles and LightRP.vehicles.byKey then
         for _, entry in pairs(LightRP.vehicles.byKey) do if entry.record == record then return entry.label end end
     end

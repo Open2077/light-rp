@@ -72,7 +72,7 @@ LightRP.stateProvider("vehicles", function(playerId)
     local owned = {}
     for _, id in ipairs(garages[playerId] or {}) do
         local vehicle = Open77.vehicles.get and Open77.vehicles.get(id)
-        local record = vehicle and vehicle.record or ""
+        local record = vehicle and LightRpConfig.baseRecord(vehicle.record) or ""
         local label = "VEHICLE"
         for _, entry in ipairs(Config.catalog) do if entry.record == record then label = entry.label end end
         owned[#owned + 1] = { id = id, key = record, label = label }
