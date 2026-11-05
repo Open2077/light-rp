@@ -2,8 +2,10 @@
 
 ## Accès en jeu
 
-- `/admin` ouvre le menu compact **LIGHT/RP**, au même emplacement que le menu
-  joueur : reports, citoyens connectés, historique et outils personnels.
+- `/admin` (et `/lightrp.admin`) ouvre le menu admin **LIGHT/RP**, au même
+  emplacement que le menu joueur. C'est le seul menu admin du serveur : il
+  réunit l'ancien menu compact de la plateforme et le bureau staff (voir
+  « Menu admin unifié » plus bas).
 - `/report` et `/reports` ouvrent les dossiers privés du joueur.
 - `/report message` ouvre un nouveau brouillon prérempli. Le joueur complète
   la catégorie et le sujet avant d'envoyer.
@@ -21,10 +23,48 @@
   masquer ce panneau pendant le traitement d'un dossier.
 - `/adminfull` conserve la console technique officielle, avec son ACL habituelle.
 
-La commande officielle `/admin` délègue à l'export `openAdmin` du gamemode
-lorsqu'il fonctionne. Conserver la modification de
-`resources/system/open77_admin/server/main.lua` après une mise à jour de la
-distribution. Sans LightRP, le comportement officiel reste disponible.
+`op77_lightrp` enregistre lui-même `/admin` (droit `command.admin`, le même que
+la plateforme). Le serveur cherche une commande dans les ressources lancées par
+ordre ordinal de nom, et `op77_lightrp` passe avant `open77_admin` : c'est donc
+ce menu qui répond. Le menu compact de la plateforme ne s'ouvre plus par-dessus.
+Aucune modification de `open77_admin` n'est nécessaire, et une mise à jour de la
+distribution ne casse rien. Sans LightRP, le `/admin` officiel reste disponible.
+
+## Menu admin unifié
+
+Les outils de la plateforme et ceux de LightRP sont lancés depuis le menu sous
+forme des commandes restreintes qu'ils sont déjà (`open77:command:execute`). L'ACL
+de l'hôte décide donc de chacune, comme si elle était tapée. La page n'accorde
+rien : la vue d'ensemble envoie la liste des commandes autorisées pour
+l'opérateur (`server/modules/admin.lua`, `COMMANDS`, une seule chaîne) et masque
+le reste. La réponse de chaque commande s'affiche sous le menu, en vert si elle a
+réussi, en rouge si elle a été refusée.
+
+| Section | Contenu |
+| --- | --- |
+| Reports | file des dossiers (inchangé) |
+| Players | fiche RP, puis aller à / ramener / spectate / soigner / ranimer / envoyer vers un lieu ; groupes **Moderation** (avertissement, kick, ban audités, god mode, kill), **Character & money** (nom, job, affiliation, argent audités, faim et soif, street cred, compte), **Give** (objet, véhicule au garage, véhicule à côté), **Missions & activities** (gig, mission en cours, contrats, salle TCG) |
+| Personal tools | noclip, fly, vitesse, god mode, soin, réanimation, faim et soif, compte, console plateforme (`/adminfull`) |
+| Teleport | sur la carte (double-clic), coordonnées, lieux de `LightRpConfig.locations`, ramener tout le monde |
+| Vehicles | catalogue LightRP (`lightrp.car`), n'importe quel record du jeu, réparer et refaire le plein (`lightrp.repair`), plein seul, fourrière, locations, consommation, nettoyage, tout supprimer |
+| Items & weapons | chaque objet du serveur par catégorie (armes et munitions comprises), à soi-même |
+| World | **Time** (préréglages, heure exacte, figer, reprendre), **Weather** (chaque météo, suivante, aléatoire), **Announcements & voice** (annonce, broadcast vocal serveur / 150 m / off) |
+| Missions & events | éditeur de missions ; **World bosses** (planning, lancer, lancer celui choisi, programmer, finir en victoire, annuler), **Fixer gigs**, **Contracts & activities** (contrats du jour, activités, turf, Dogtown, salles TCG) |
+| Places & content | tables posées, Maneki-neko, housing, safe zones, panneau des jobs, PNJ guide, hall of fame |
+| Server | statut LightRP et plateforme, bots d'ambiance, ramener tout le monde, tout supprimer, annuler l'action de masse, console plateforme |
+| Staff history | journal des interventions auditées |
+
+Les actions destructrices (kill, ramener tout le monde, tout supprimer, fourrière,
+fin de world boss, arrêt du turf) passent par une étape **Confirm?**, avec
+**Cancel** sélectionné et la commande exacte affichée. Les listes (véhicules,
+objets, lieux, météos) viennent de `adminCatalog`, sous forme de lignes `a|b|c`
+pour rester sous la limite de 1024 valeurs d'un événement réseau. Le clic droit
+sur un véhicule ou une porte (`open77_contextmenu`) ouvre toujours les actions
+ciblées de la plateforme.
+
+Test : `tests/admin_menu_test.lua` vérifie l'enregistrement de `/admin`, la
+projection ACL, la taille du catalogue et `/lightrp.repair`. En dev, le menu
+s'ouvre avec `ui` + `?admin=1`.
 
 ## Parcours joueur / admin
 
