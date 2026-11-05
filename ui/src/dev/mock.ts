@@ -29,6 +29,7 @@ import { recapMock } from "@/features/recap/mock";
 import { guideMock } from "@/features/guide/mock";
 import { dailiesMock } from "@/features/dailies/mock";
 import { manekiMock } from "@/features/maneki/mock";
+import { parkourMock } from "@/features/parkour/mock";
 import { adminMock } from "@/features/support/mock";
 
 const ORIGINS = [
@@ -49,6 +50,7 @@ export function installMockBridge(): void {
   const recap = recapMock(fire, params);
   const dailies = dailiesMock(fire, params);
   const maneki = manekiMock(fire, params); // ?maneki=tool|desk
+  const parkour = parkourMock(fire, params); // ?parkour=hud|count|result|record|dnf|browser|editor
   const admin = adminMock(fire, params); // ?admin=1: the admin menu
 
   const registered = params.get("registered") === "1";
@@ -152,6 +154,7 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
       if (name === PAGE_EVENTS.support && (maneki.receive(payload) || admin.receive(payload))) return;
       if (name === PAGE_EVENTS.missionEditor) { missionEditor.receive(payload); return; }
+      if (name === PAGE_EVENTS.parkourEditor) { parkour.editor(payload); return; }
       if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
       if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
     // the weapon wheel: Lua releases the focus and answers commit / cancel
@@ -223,6 +226,7 @@ export function installMockBridge(): void {
           guide.boot();
           dailies.boot();
           maneki.boot();
+          parkour.boot();
           admin.boot();
           if (params.get("dialog") === "activities") activities.boot();
           if (params.get("dialog") === "mission") mission.open();
@@ -289,6 +293,7 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.action) {
         const action = payload as UiAction;
         if (mission.handle(action)) return;
+        if (parkour.action(action as { type: string })) return;
         if (params.get("dialog") === "activities" && activities.handle(action)) return;
         if (hallOfFame.handle(action)) return;
         if (recap.handle(action)) return;

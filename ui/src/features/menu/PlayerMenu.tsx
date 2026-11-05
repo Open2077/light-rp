@@ -313,6 +313,10 @@ export function PlayerMenu() {
       description: maneki.total > 0 && maneki.found >= maneki.total
         ? "Your collection: every lucky cat hidden in Night City is yours. Select to see where you found each one."
         : "Your collection of the lucky cats hidden around Night City: which ones you found, where and when, and how the hunt works." });
+    // Parkour: every course and its leaderboard (server/modules/parkour.lua), under the cats.
+    const cats = nodes.root?.items.findIndex((i) => "id" in i && (i.id === "maneki" || i.id === "dailies" || i.id === "housing")) ?? -1;
+    if (cats >= 0) nodes.root!.items.splice(cats + 1, 0, { id: "parkour", type: "item", text: "Parkour", icon: "footprints",
+      description: "Rooftop courses against the clock: start orb, checkpoints, finish. Every course's full leaderboard, your best times and splits, a route to the start." });
     const lastName = nodes.identity?.items.findIndex((i) => "id" in i && i.id === "last") ?? -1;
     const badge = shownTitle(titles);
     if (titles?.enabled && lastName >= 0) nodes.identity!.items.splice(lastName + 1, 0, { id: "identity-title", type: "item", text: "Title", icon: "crown",
@@ -352,6 +356,7 @@ export function PlayerMenu() {
     }
     if (item.id === "recap") { sendAction({ type: "recap.open" }); requestClose(); return; }
     if (item.id === "maneki") { sendAction({ type: "maneki.open" }); requestClose(); return; }
+    if (item.id === "parkour") { sendAction({ type: "parkour.open" }); requestClose(); return; }
     if (item.id === "dailies" || item.id === "identity-title") { sendAction({ type: "dailies.open", tab: item.id === "identity-title" ? "titles" : "today" }); requestClose(); return; }
     if (item.id === "activity-leave") { sendAction({ type: "activities.control", operation: "leave" }); requestClose(); return; }
     if (item.id === QUEUE_LEAVE_ITEM) { sendAction({ type: "queue.leave", from: "menu" }); requestClose(); return; }
