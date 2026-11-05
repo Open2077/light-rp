@@ -69,8 +69,8 @@ LightRP.inventory.attachPersonalTrunk=function() return true end
 local function gps() for i=#messages,1,-1 do if messages[i].position and messages[i].title then return messages[i] end end end
 local M,G,D=LightRP.money,LightRP.garage,LightRP.dealership
 LightRP.inventory.onCharacterLoaded(1,owner);M.onCharacterLoaded(1,owner);G.onDatabaseReady()
-assert(points["garage.citycenter"] and points["dealership.ncmotors"] and not points["dealership.citycenter"], "the test dealership is gone")
-assert(points["garage.citycenter"].blip.icon=="warehouse" and points["dealership.ncmotors"].blip.icon=="car-front")
+assert(points["garage.kabuki"] and points["dealership.ncmotors"] and not points["dealership.citycenter"], "the test dealership is gone")
+assert(points["garage.kabuki"].blip.icon=="warehouse" and points["dealership.ncmotors"].blip.icon=="car-front")
 assert(next(owned)==nil,"no starter vehicle")
 local function open() assert(D.open(1,"ncmotors"));return dialog end
 local function buy(extra)
@@ -80,7 +80,7 @@ local function buy(extra)
     local message=messages[#messages];if message and message.state then dialog=message.state end
     return ok,id,p
 end
-open();assert(#dialog.stock==15 and dialog.garage.id=="citycenter" and dialog.delivery.name:find("Delivery bay"))
+open();assert(#dialog.stock==15 and dialog.garage.id=="kabuki" and dialog.delivery.name:find("Delivery bay"))
 local ok,id,p=buy({price=1,total=-999,playerId=2})
 assert(ok and owned[id] and owned[id].identifier==owner.identifier and M.get(1).cash==11000 and committed==1)
 -- Night City Motors drives it out to the delivery bay at once, keys handed over, GPS to it.
@@ -98,7 +98,7 @@ local function price(key) for _,s in ipairs(LightRpDealerships.locations[1].stoc
 local afterThrax=100000-price("thrax")
 ok,id=buy({key="thrax",pay="bank"});assert(ok and M.get(1).bank==afterThrax and owned[id].model=="thrax")
 -- A personal vehicle is already out: this one waits at the garage, and the GPS points there.
-route=gps();assert(route.garage and route.position==LightRP.garage.location("citycenter").position, "stored and routed to the garage")
+route=gps();assert(route.garage and route.position==LightRP.garage.location("kabuki").position, "stored and routed to the garage")
 assert(messages[#messages].ok and messages[#messages].text:find("could not be driven out"))
 local previous=LightRpDealerships.locations[1].stock[1].price
 LightRpDealerships.locations[1].stock[1].price=previous+1
