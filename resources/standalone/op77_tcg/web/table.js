@@ -577,6 +577,7 @@
     var coach = $("tbCoach"); if (coach) { coach.classList.add("hidden"); coach.dataset.key = ""; }
     if (window.TCGTUTO) { window.TCGTUTO.reset(); window.TCGTUTO.renderFree(false); }
     var hud = document.getElementById("duelHud"); if (hud) hud.classList.remove("must-respond");
+    var wl = $("tbWorld"); if (wl) wl.innerHTML = "";
     ask = { state: "", key: "", total: 0 };
     closePop();
     document.body.classList.remove("tb-on");
@@ -590,6 +591,22 @@
     X = window.TCGDUEL;
     X.setGameRenderer({ render: render, clear: clear, tick: tick });
     X.rerenderCoach = function () { var b = $("tbCoach"); if (b) b.dataset.key = ""; rerender(); };
+    // World labels (the tutorial's zones, the rival's hand count): projected by client/duel.lua, drawn here, since the
+    // duel's focus mode hides every other page (open77_uikit's 3D text included).
+    X.T.on("tcg:worldLabels", function (d) {
+      var box = $("tbWorld");
+      if (!box) { box = el("div", "tb-world"); box.id = "tbWorld"; document.getElementById("duelHud").appendChild(box); }
+      var list = arr(d && d.labels), seen = {};
+      list.forEach(function (l) {
+        var n = box.querySelector('[data-id="' + l.id + '"]');
+        if (!n) { n = el("div", "tb-wl " + (l.kind || "zone")); n.dataset.id = l.id; box.appendChild(n); }
+        var html = "<b>" + esc(l.text) + "</b>" + (l.sub ? "<span>" + esc(l.sub) + "</span>" : "");
+        if (n.dataset.html !== html) { n.dataset.html = html; n.innerHTML = html; }
+        n.style.left = (l.x * 100) + "%"; n.style.top = (l.y * 100) + "%";
+        seen[l.id] = true;
+      });
+      Array.prototype.forEach.call(box.children, function (n) { if (!seen[n.dataset.id]) n.remove(); });
+    });
     X.T.on("tcg:duelRefused", function (d) {
       var why = String(d.reason || "Not allowed.");
       // The tutorial's own refusals, in the coach's language.

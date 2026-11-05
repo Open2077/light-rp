@@ -25,16 +25,42 @@ local ZONES = {
     trash = { 0.9325, 0.82, "TRASH", "used and defeated cards", "DÉFAUSSE", "cartes utilisées et détruites" },
     gigs = { 0.705, 0.055, "GIGS", "your rolled dice: 7 to win", "GIGS", "tes dés lancés : 7 pour gagner" },
 }
-local labels, labelsKey = {}, nil
+local labelsKey = nil
 local labelLang = "en"   -- the tutorial's language, picked on the page (tcg:tutorialLang)
--- The 3D labels are drawn by open77_uikit on a surface above this resource's page: while the page shows a window
--- (a concept, the glossary) it asks for them to be put away (tcg:tutorialLabels), and back when the window closes.
+-- While the page shows a window (a concept, the glossary) it asks for the labels to be put away (tcg:tutorialLabels).
 local labelsHidden = false
 
+-- World labels drawn BY THIS PAGE (not open77_uikit): the duel's focus mode hides every other resource's page,
+-- open77_uikit's included. Each label is a world point projected to the screen ten times a second
+-- (Open77.camera.project), only while there is something to show.
+local worldLabels, lastLabels = {}, ""
+local function setLabel(id, entry) worldLabels[id] = entry end
+local function pushLabels()
+    local out, parts = {}, {}
+    for id, e in pairs(worldLabels) do
+        local ok, s = pcall(Open77.camera.project, e.pos)
+        if ok and type(s) == "table" and s.onScreen then
+            local x, y = math.floor(s.x * 1000 + 0.5) / 1000, math.floor(s.y * 1000 + 0.5) / 1000
+            out[#out + 1] = { id = id, x = x, y = y, text = e.text, sub = e.sub, kind = e.kind }
+            parts[#parts + 1] = id .. "@" .. x .. "," .. y .. ":" .. tostring(e.text) .. tostring(e.sub)
+        end
+    end
+    table.sort(parts)
+    local key = table.concat(parts, "|")
+    if key == lastLabels then return end
+    lastLabels = key
+    K.send("tcg:worldLabels", { labels = out })
+end
+CreateThread(function()
+    while true do
+        Wait(100)
+        if next(worldLabels) or lastLabels ~= "" then pushLabels() end
+    end
+end)
+
 local function clearLabels()
-    local kit = K.uikit()
-    for _, h in ipairs(labels) do if kit then pcall(kit.clearText3D, h) end end
-    labels, labelsKey = {}, nil
+    for id in pairs(worldLabels) do if id:sub(1, 2) == "z:" then worldLabels[id] = nil end end
+    labelsKey = nil
 end
 
 local function tutorialLabels(p)
@@ -45,17 +71,12 @@ local function tutorialLabels(p)
     if key == labelsKey then return end
     clearLabels()
     if not key or not p.mat then return end
-    local kit = K.uikit()
-    if not kit then return end
     local pose = { mat = p.mat, yaw = p.yaw or 0 }
+    local fr = labelLang == "fr"
     for _, name in ipairs(zones) do
         local z = ZONES[name]
         if z then
-            local at = TcgTable.onMat(pose, z[1], z[2], 0.1)
-            local fr = labelLang == "fr"
-            local ok, h = pcall(kit.drawText3D, { position = at, text = fr and z[5] or z[3], sublabel = fr and z[6] or z[4], maxDistance = 6,
-                accent = "#FCEE09", color = "#F2F6F8" })
-            if ok and h then labels[#labels + 1] = h end
+            setLabel("z:" .. name, { pos = TcgTable.onMat(pose, z[1], z[2], 0.1), text = fr and z[5] or z[3], sub = fr and z[6] or z[4], kind = "zone" })
         end
     end
     labelsKey = key
@@ -65,13 +86,12 @@ local function seated() local s = seatOfMine(); return s and s.seated == true en
 -- ---------------------------------------------------------------------------------------------
 -- The rival's hand in 3D: their cards, backs up, fanned in the air over their edge of the table, with the count
 -- floating above (local props: only the player facing them sees it, nothing crosses their own view).
-local rivalFan = { props = {}, label = nil, key = nil }
+local rivalFan = { props = {}, key = nil }
 
 local function clearRivalHand()
     for _, id in ipairs(rivalFan.props) do pcall(Open77.props.remove, id) end
-    local kit = K.uikit()
-    if rivalFan.label and kit then pcall(kit.clearText3D, rivalFan.label) end
-    rivalFan = { props = {}, label = nil, key = nil }
+    setLabel("rh", nil)
+    rivalFan = { props = {}, key = nil }
 end
 
 local function rivalHand(p)
@@ -95,13 +115,21 @@ local function rivalHand(p)
             scale = 1.35, collision = false, physics = "none" })
         if ok and id then rivalFan.props[#rivalFan.props + 1] = id end
     end
-    local kit = K.uikit()
-    if kit then
-        local at = TcgTable.onMat(pose, 0.5, 1.1, 0.34)
-        local ok, h = pcall(kit.drawText3D, { position = at, text = n .. (n == 1 and " CARD" or " CARDS"),
-            sublabel = (rival.name or "Rival") .. "'s hand", maxDistance = 6, accent = "#00F0FF", color = "#F2F6F8" })
-        if ok and h then rivalFan.label = h end
-    end
+    setLabel("rh", { pos = TcgTable.onMat(pose, 0.5, 1.1, 0.34), text = n .. (n == 1 and " CARD" or " CARDS"),
+        sub = (rival.name or "Rival") .. "'s hand", kind = "hand" })
+end
+
+-- ---------------------------------------------------------------------------------------------
+-- Focus mode: seated at a duel table, nothing else on screen. Open77.hud.setCinematic hides the game's HUD and every
+-- other resource's page that does not hold the focus (LightRP's needs and voice, the minimap, name tags...); this
+-- page keeps the focus while seated, so the duel stays. Hair-thin bars (1 %). Released on leaving / resource stop.
+local focusOn = false
+local function focusMode(on)
+    on = on == true
+    if on == focusOn then return end
+    if not (Open77.hud and type(Open77.hud.setCinematic) == "function") then return end
+    local ok, done, why = pcall(Open77.hud.setCinematic, on, 0.01)
+    if ok and done then focusOn = on else K.log("focus mode %s refused: %s", on and "on" or "off", tostring(ok and why or done)) end
 end
 
 -- ---------------------------------------------------------------------------------------------
@@ -256,6 +284,7 @@ local function release()
     clearPrompt()
     clearLabels()
     clearRivalHand()
+    focusMode(false)
     stopCam(0)
     overlay = false
     if not K.isOpen() then K.release() end
@@ -292,6 +321,7 @@ RegisterNetEvent(NET .. "match", function(p)
     K.send("tcg:match", p)
     apply()
     if seated() then tutorialLabels(p); rivalHand(p) else clearLabels(); clearRivalHand() end
+    focusMode(seated() and not p.ended)
 end)
 
 local function trySit()
