@@ -36,7 +36,7 @@ local COMMANDS={
  "admin.server.status","adminfull",
  "weather.set","weather.next","weather.random","weather.time.set","weather.time.freeze","weather.time.resume",
  "lightrp.tp","lightrp.car","lightrp.repair","lightrp.refuel","lightrp.impound","lightrp.rentals","lightrp.fuelrate",
- "lightrp.giveitem","lightrp.givevehicle","lightrp.needs","lightrp.account","lightrp.inv","lightrp.status","lightrp.bots",
+ "lightrp.giveitem","lightrp.giveweapon","lightrp.giveammo","lightrp.takeweapon","lightrp.weapons","lightrp.givevehicle","lightrp.needs","lightrp.account","lightrp.inv","lightrp.status","lightrp.bots",
  "lightrp.announce","lightrp.broadcast","lightrp.missions","lightrp.activities","lightrp.dailies","lightrp.dogtown",
  "lightrp.guide","lightrp.board","lightrp.halloffame",
  "worldboss.list","worldboss.start","worldboss.stop","worldboss.next",
@@ -74,7 +74,8 @@ function Admin.overview(player)
 end
 -- What the admin menu offers in its lists, as "a|b|c" strings (one value each, see COMMANDS):
 -- LightRP vehicles (key|label|category|record), items (name|label|category), teleport places
--- (name|label) and the weather presets.
+-- (name|label), the weather presets, the firearms (id|label|class|ammo) and the ammunition
+-- types (kind|label).
 function Admin.catalog(player)
     if not S.allowed(player,"view") then return nil,"Staff access denied." end
     local vehicles,items,places={},{},{}
@@ -89,7 +90,13 @@ function Admin.catalog(player)
     end
     table.sort(items)
     for _,l in ipairs(cfg.locations or {}) do if type(l.name)=="string" then places[#places+1]=l.name.."|"..tostring(l.label or l.name) end end
-    return {vehicles=vehicles,items=items,places=places,weather={"sunny","lightclouds","cloudy","rain","heavyclouds","fog","pollution","sandstorm"}}
+    local weapons,ammo={},{}
+    local A=LightRpArmament or {}
+    for id,w in pairs(A.weapons or {}) do weapons[#weapons+1]=table.concat({id,tostring(w.label or id),tostring(w.class or ""),tostring(w.ammo or "")},"|") end
+    table.sort(weapons)
+    for kind,a in pairs(A.ammo or {}) do ammo[#ammo+1]=kind.."|"..tostring(a.label or kind) end
+    table.sort(ammo)
+    return {vehicles=vehicles,items=items,places=places,weapons=weapons,ammo=ammo,weather={"sunny","lightclouds","cloudy","rain","heavyclouds","fog","pollution","sandstorm"}}
 end
 function Admin.player(player,p)
     if not S.allowed(player,"view") then return nil,"Staff access denied." end

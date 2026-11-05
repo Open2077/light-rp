@@ -33,12 +33,26 @@ const fs=require('node:fs');
   await choose('Spawn a LightRP vehicle');await choose('Makigai MaiMai');
   await page.locator('.rp-support__success').filter({hasText:'lightrp.car maimai: done'}).waitFor();
   await page.keyboard.press('Backspace');await page.keyboard.press('Backspace');
+  // weapons: by class, with rounds of their type, into the wheel
+  await choose('Items & weapons');await choose('Weapons');await choose('Handguns');await choose('Militech Lexington');
+  assert.match(await page.locator('.rp-support__panel').innerText(),/weapon wheel/i);
+  await page.getByRole('button',{name:'Run',exact:true}).click();
+  await page.locator('.rp-support__success').filter({hasText:'lightrp.giveweapon me weapon_lexington 60: done'}).waitFor();
+  await page.keyboard.press('Backspace');await page.keyboard.press('Backspace');
+  await choose('Ammunition');await choose('Rifle rounds');await page.getByRole('button',{name:'Run',exact:true}).click();
+  await page.locator('.rp-support__success').filter({hasText:'lightrp.giveammo me rifle 120: done'}).waitFor();
+  await page.keyboard.press('Backspace');await page.keyboard.press('Backspace');
+  assert.equal(await title(),'LIGHT/RP');
   // a player: quick moves, the groups, a give form
   await choose('Players');await choose('#2 Jerem Kade');await page.locator('.rp-support__record h2').filter({hasText:'Jerem Kade'}).waitFor();
   assert.equal(await title(),'PLAYER');
   const rows=await menu.locator('.o77-rage__text').allInnerTexts();
   assert(rows.length<=16,'the player page stays short: '+rows.length);
-  await choose('Give');await choose('Give an item…');
+  await choose('Give');await choose('Give a weapon…');
+  await page.getByLabel('Weapon').selectOption('weapon_m251s_ajax');await page.getByLabel('Rounds of its type').selectOption('250');
+  await page.getByRole('button',{name:'Run',exact:true}).click();
+  await page.locator('.rp-support__success').filter({hasText:'lightrp.giveweapon 2 weapon_m251s_ajax 250: done'}).waitFor();
+  await choose('Give an item…');
   await page.getByLabel('Count').fill('3');await page.getByRole('button',{name:'Run',exact:true}).click();
   await page.locator('.rp-support__success').filter({hasText:'lightrp.giveitem 2 water 3: done'}).waitFor();
   await page.keyboard.press('Backspace');

@@ -71,6 +71,9 @@ for _, row in ipairs(catalog.items) do assert(select(2, row:gsub("|", "")) == 2,
 local cats = {}
 for _, row in ipairs(catalog.items) do cats[row:match("|([^|]*)$")] = true end
 assert(not catalog.items[1]:find("^cash|"), "cash is not offered")
+assert(#catalog.weapons == 22 and #catalog.ammo == 4, "firearms and ammunition types listed")
+for _, row in ipairs(catalog.weapons) do assert(select(2, row:gsub("|", "")) == 3, "weapon row id|label|class|ammo: " .. row) end
+assert(granted["lightrp.giveitem"] and not granted["lightrp.giveweapon"], "weapon commands go through the ACL too")
 print(("catalogue: %d vehicles, %d items, %d places, %d values"):format(#catalog.vehicles, #catalog.items, #catalog.places, values(catalog)))
 LightRP.support.allowed = function() return false end
 assert(A.handlers.adminCatalog(1) == nil, "the catalogue needs the staff view")
