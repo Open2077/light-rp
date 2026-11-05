@@ -202,9 +202,8 @@ function TablesAdmin.action(player,p)
     local op=p.action
     if op~="tableTeleport" and op~="tableDelete" then return nil,"Unknown table action." end
     if not desk(player,op) then return nil,"You do not have permission for this action." end
-    if p.confirmed~=true then return nil,"Confirm the selected table and action first." end
-    local reason=S.text(p.reason,500,4)
-    if not reason then return nil,"Add a reason (4–500 characters) for the audit log." end
+    -- acts at once, the reason optional (owner, 2026-11-05); the staff history keeps a default line
+    local reason=S.text(p.reason,500,4) or (op=="tableDelete" and "Table removed via /admin." or "Go to table via /admin.")
     if type(p.mutation)~="string" or #p.mutation<8 or #p.mutation>96 or not p.mutation:match("^[%w:_%-]+$") then return nil,"Invalid action request." end
     local b=BG.get(p.table)
     if not b or b.kind~=p.kind then return nil,"This table no longer exists or changed. Refresh the list." end

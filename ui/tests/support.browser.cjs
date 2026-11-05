@@ -109,12 +109,13 @@ const fs=require('node:fs');
   await page.keyboard.press('Backspace');await page.keyboard.press('Backspace');
   await choose('Players');await choose('#2 Jamie Rivers');await page.locator('.rp-support__record h2').filter({hasText:'Jamie Rivers'}).waitFor();
   await page.setViewportSize({width:1920,height:1080});await page.screenshot({path:'artifacts/support-rage-profile.png'});
-  await choose('Character & money');await choose('Credit money');await page.getByLabel('Amount',{exact:true}).fill('250');await page.getByLabel('Reason for this intervention').fill('Restore payment after verified bug');
+  // no reason, no review step (owner, 2026-11-05): the amount, then Apply
+  await choose('Character & money');await choose('Credit money');await page.getByLabel('Amount',{exact:true}).fill('250');
+  assert.equal(await page.getByLabel('Reason for this intervention').count(),0,'no reason to type');
   const before=await page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='adminAction').length);
-  await page.getByRole('button',{name:'Review intervention'}).click();await page.getByRole('alertdialog',{name:'Confirm staff intervention'}).waitFor();
-  assert.equal(await page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='adminAction').length),before,'review cannot mutate');
-  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Cancel','safe default focus');
-  await page.getByRole('button',{name:'Confirm intervention'}).click();await page.getByRole('status').filter({hasText:'Action completed'}).waitFor();
+  await page.getByRole('button',{name:'Apply',exact:true}).click();await page.getByRole('status').filter({hasText:'Action completed'}).waitFor();
+  assert.equal(await page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='adminAction').length),before+1,'one request, at once');
+  assert.equal(await page.getByRole('alertdialog').count(),0,'no confirmation step');
   assert.equal(await page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='adminAction').at(-1).p.account),'other-account');
   await page.keyboard.press('Backspace');await page.keyboard.press('Backspace');assert.equal(await menu.locator('.o77-rage__row--on .o77-rage__text').textContent(),'#2 Jamie Rivers','back keeps selected citizen');
   await page.keyboard.press('Backspace');await choose('Staff history');await page.getByText('Help after a collision',{exact:true}).waitFor();
@@ -126,13 +127,9 @@ const fs=require('node:fs');
   assert.match(await page.locator('.rp-support__record').innerText(),/€\$ 65 in open stakes/);
   await page.screenshot({path:'artifacts/support-rage-table.png'});
   // the table's own rows come with its detail request (queued behind the 12 s poll at times)
-  await menu.locator('.o77-rage__text').filter({hasText:/^Remove table$/i}).waitFor();
-  await choose('Remove table');await page.getByLabel('Reason for this intervention').fill('Table blocking the clinic entrance');
-  assert.equal(await page.getByLabel('Give the item back to the owner').isChecked(),true);
-  const removals=()=>page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='tableAction').length);
-  await page.getByRole('button',{name:'Review intervention'}).click();await page.getByRole('alertdialog',{name:'Confirm table intervention'}).waitFor();
-  assert.equal(await removals(),0,'review cannot mutate');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Cancel','safe default focus');
-  await page.getByRole('button',{name:'Remove table'}).click();await page.getByRole('status').filter({hasText:'Refunded'}).waitFor();
+  await menu.locator('.o77-rage__text').filter({hasText:/^Remove table \(item back to its owner\)$/i}).waitFor();
+  // removed at once, the item back to its owner
+  await choose('Remove table (item back to its owner)');await page.getByRole('status').filter({hasText:'Refunded'}).waitFor();
   const sent=await page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='tableAction').at(-1).p);
   assert.equal(sent.table,'1790000000:4');assert.equal(sent.kind,'roulette');assert.equal(sent.returnItem,true);assert.equal(sent.confirmed,true);
   assert.equal(await menu.locator('.o77-rage__title').innerText(),'PLACED TABLES');

@@ -337,8 +337,8 @@ export function playerTools(ctx: AdminContext, p: Profile | Person): Entry[] {
 /** A command with its fields, then a confirmation when asked; the answer shows under the menu. */
 export function CommandForm({ spec, onCancel, onRun }: { spec: CommandSpec; onCancel: () => void; onRun: (tokens: string[]) => void }) {
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(spec.fields.map(f => [f.id, f.initial ?? (f.type === "select" ? f.options?.[0]?.value ?? "" : "")])));
-  // nothing to fill: straight to the confirmation, Cancel focused
-  const [confirm, setConfirm] = useState(!!spec.confirm && spec.fields.length === 0), [error, setError] = useState("");
+  // no confirmation step (owner, 2026-11-05: "faut que ça soit rapide"): the fields, then Run
+  const [confirm, setConfirm] = useState(false), [error, setError] = useState("");
   const cancel = useRef<HTMLButtonElement>(null), ref = useFormFocus();
   useEffect(() => { if (confirm) cancel.current?.focus(); else ref.current?.querySelector<HTMLElement>("input,select,button[data-submit]")?.focus(); }, [confirm, ref]);
   const tokens = () => spec.build(values).map(t => String(t).trim()).filter(Boolean);
@@ -349,7 +349,6 @@ export function CommandForm({ spec, onCancel, onRun }: { spec: CommandSpec; onCa
       if (f.type === "number" && v && (!Number.isFinite(Number(v)) || (f.min !== undefined && Number(v) < f.min) || (f.max !== undefined && Number(v) > f.max))) { setError(`${f.label}: out of range.`); return; }
     }
     setError("");
-    if (spec.confirm && !confirm) { setConfirm(true); return; }
     onRun(tokens());
   };
   return <div className="rp-support__action"><h2>{spec.title}</h2>{spec.subtitle && <p>{spec.subtitle}</p>}{spec.description && <p>{spec.description}</p>}
@@ -362,6 +361,6 @@ export function CommandForm({ spec, onCancel, onRun }: { spec: CommandSpec; onCa
           ? <select value={values[f.id]} onChange={e => setValues(v => ({ ...v, [f.id]: e.target.value }))}>{(f.options || []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
           : <input type={f.type === "number" ? "number" : "text"} min={f.min} max={f.max} maxLength={f.maxLength ?? 120} placeholder={f.placeholder} value={values[f.id]} onChange={e => setValues(v => ({ ...v, [f.id]: e.target.value }))} />}
       </label>)}
-      <footer><button type="button" onClick={onCancel}>Back</button><button data-submit className={spec.danger ? "is-danger" : "is-primary"}>{spec.confirm ? "Review" : "Run"}</button></footer>
+      <footer><button type="button" onClick={onCancel}>Back</button><button data-submit className={spec.danger ? "is-danger" : "is-primary"}>Run</button></footer>
     </form>}{error && <p className="rp-support__error" role="alert">{error}</p>}</div>;
 }
