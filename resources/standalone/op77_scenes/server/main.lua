@@ -209,10 +209,41 @@ end, true)
 -- ---------------------------------------------------------------------------
 -- Platform events
 -- ---------------------------------------------------------------------------
+local resumes = {} -- pid -> { times }: the push resumes (below)
 AddEventHandler("onPlayerDisconnected", function(pid)
     pid = playerId(pid)
-    if pid then core:forget(pid); intents[pid] = nil end
+    if pid then core:forget(pid); intents[pid] = nil; resumes[pid] = nil end
 end)
+
+-- A held pose interrupted by a push (another player walking into the seated body reads as moving on
+-- clients before the 2026-11-05 runtime fix) is taken back at once, in place: only while the player is
+-- still on the seat (RESUME_RADIUS from its anchor), at most RESUME_MAX times in RESUME_WINDOW_MS, so a
+-- player who really walks off is never pulled back for long. H (stand) ends a scene normally.
+local RESUME_RADIUS, RESUME_MAX, RESUME_WINDOW_MS, RESUME_DELAY_MS = 0.6, 3, 30000, 400
+local function interruption(reason)
+    reason = tostring(reason or "")
+    return reason:find("interrupt", 1, true) or reason:find("moving", 1, true) or reason:find("grounded", 1, true)
+end
+local function resumeLater(pid, spotId, idle)
+    local now = Open77.time.monotonic() * 1000
+    local list = {}
+    for _, at in ipairs(resumes[pid] or {}) do if now - at < RESUME_WINDOW_MS then list[#list + 1] = at end end
+    if #list >= RESUME_MAX then resumes[pid] = list; say("no resume for %s at %s: %d already in %d s", tostring(pid), tostring(spotId), #list, RESUME_WINDOW_MS // 1000); return end
+    list[#list + 1] = now
+    resumes[pid] = list
+    CreateThread(function()
+        Wait(RESUME_DELAY_MS)
+        if core.byPlayer[pid] then return end
+        local spot = core.spots[spotId]
+        local actor = spot and core:actor(pid)
+        local anchor = spot and core:anchorOf(spot)
+        if not actor or not anchor then return end
+        local dx, dy = actor.position.x - anchor.x, actor.position.y - anchor.y
+        if dx * dx + dy * dy > RESUME_RADIUS * RESUME_RADIUS then return end
+        local ok, why = core:start(pid, spotId, { idle = idle })
+        say("resume player %s at %s after a push: %s", tostring(pid), tostring(spotId), ok and "ok" or tostring(why))
+    end)
+end
 
 AddEventHandler("onPlayerAnimationChanged", function(pid, value)
     pid = playerId(pid)
@@ -222,7 +253,12 @@ AddEventHandler("onPlayerAnimationChanged", function(pid, value)
         if not ok then return end
         value = decoded
     end
+    local session = core.byPlayer[pid]
+    local spot, idle, ours = session.spot, session.idle, type(value) == "table" and value.playbackId == session.playbackId
     core:onAnimation(pid, value)
+    if ours and value.active == false and core.byPlayer[pid] == nil and interruption(value.reason) then
+        resumeLater(pid, spot, idle)
+    end
 end)
 
 -- A resource that registered spots took them with it.
