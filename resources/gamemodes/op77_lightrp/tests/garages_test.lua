@@ -10,6 +10,7 @@ assert(LightRpGarages.impound.fees.destroyed==1500 and LightRpGarages.impound.fe
 -- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
 LightRpGarages.impound.fees={ restart = 0, destroyed = 400, lost = 150, requested = 250, staff = 500 }
 local C = LightRpGarages
+C.defaultGarage = "citycenter" -- this test's own garage
 C.garages = { { id="citycenter", name="Central", position={x=0,y=0,z=0}, parking={ {position={x=10,y=0,z=0}}, {position={x=20,y=0,z=0}} } },
     { id="other", name="Other", position={x=100,y=0,z=0}, parking={ {position={x=110,y=0,z=0}} } } }
 local threads, handlers, actions, points, messages = {}, {}, {}, {}, {}

@@ -12,6 +12,7 @@ local function clone(v) if type(v)~="table" then return v end;local out={};for k
 local encoded,enc={},0
 json={encode=function(v)enc=enc+1;encoded[tostring(enc)]=clone(v);return tostring(enc)end,
  decode=function(v)if v=="{}"then return{}end;return clone(assert(encoded[v]))end}
+LightRpGarages.defaultGarage="citycenter"
 LightRpGarages.garages={{id="citycenter",name="Garage",position={x=0,y=0,z=0},parking={{position={x=10,y=0,z=0}}}}}
 local Db = {ready=true,schema=noop,query=function() return {} end}
 function Db.read(query)

@@ -37,7 +37,7 @@ LightRpDealerships = {
             -- reception, facing the entrance (north; the hall is turned -4 degrees).
             id = "ncmotors", name = "Night City Motors", subtitle = "Drive it home today.", bucket = 0,
             position = { x = -288.450867, y = -1877.942139, z = 9.0 }, heading = -4.0, clerk = true,
-            garage = "citycenter",
+            garage = "kabuki",
             delivery = { name = "Night City Motors // Delivery bay",
                 position = { x = -290.010284, y = -1913.319824, z = 8.571625 }, heading = 169.623779 },
             stock = publicStock,
