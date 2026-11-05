@@ -224,13 +224,17 @@ local function interruption(reason)
     reason = tostring(reason or "")
     return reason:find("interrupt", 1, true) or reason:find("moving", 1, true) or reason:find("grounded", 1, true)
 end
-local function resumeLater(pid, spotId, idle)
+-- At most RESUME_MAX in RESUME_WINDOW_MS (counted when allowed).
+local function resumeAllowed(pid)
     local now = Open77.time.monotonic() * 1000
     local list = {}
     for _, at in ipairs(resumes[pid] or {}) do if now - at < RESUME_WINDOW_MS then list[#list + 1] = at end end
-    if #list >= RESUME_MAX then resumes[pid] = list; say("no resume for %s at %s: %d already in %d s", tostring(pid), tostring(spotId), #list, RESUME_WINDOW_MS // 1000); return end
-    list[#list + 1] = now
     resumes[pid] = list
+    if #list >= RESUME_MAX then say("no resume for %s: %d already in %d s", tostring(pid), #list, RESUME_WINDOW_MS // 1000); return false end
+    list[#list + 1] = now
+    return true
+end
+local function resumeLater(pid, spotId, idle)
     CreateThread(function()
         Wait(RESUME_DELAY_MS)
         if core.byPlayer[pid] then return end
@@ -240,7 +244,7 @@ local function resumeLater(pid, spotId, idle)
         if not actor or not anchor then return end
         local dx, dy = actor.position.x - anchor.x, actor.position.y - anchor.y
         if dx * dx + dy * dy > RESUME_RADIUS * RESUME_RADIUS then return end
-        local ok, why = core:start(pid, spotId, { idle = idle })
+        local ok, why = core:start(pid, spotId, { idle = idle, resumed = true })
         say("resume player %s at %s after a push: %s", tostring(pid), tostring(spotId), ok and "ok" or tostring(why))
     end)
 end
@@ -255,10 +259,10 @@ AddEventHandler("onPlayerAnimationChanged", function(pid, value)
     end
     local session = core.byPlayer[pid]
     local spot, idle, ours = session.spot, session.idle, type(value) == "table" and value.playbackId == session.playbackId
+    local pushed = ours and value.active == false and interruption(value.reason) and resumeAllowed(pid)
+    if pushed then session.resuming = true end
     core:onAnimation(pid, value)
-    if ours and value.active == false and core.byPlayer[pid] == nil and interruption(value.reason) then
-        resumeLater(pid, spot, idle)
-    end
+    if pushed and core.byPlayer[pid] == nil then resumeLater(pid, spot, idle) end
 end)
 
 -- A resource that registered spots took them with it.

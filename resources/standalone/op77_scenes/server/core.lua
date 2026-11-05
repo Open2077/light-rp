@@ -213,7 +213,9 @@ function Core.start(self, pid, target, options)
     self.taken[actor.bucket] = self.taken[actor.bucket] or {}
     self.taken[actor.bucket][spot.id] = pid
     self:publish(session, true)
-    if self.P.event then self.P.event("op77_scenes:started", { playerId = pid, scene = scene.id, spot = spot.id, bucket = actor.bucket }) end
+    -- resumed: the same seat taken back after a push (main.lua), not a new visit
+    if self.P.event then self.P.event("op77_scenes:started", { playerId = pid, scene = scene.id, spot = spot.id, bucket = actor.bucket,
+        resumed = options.resumed == true or nil }) end
     return self:current(pid)
 end
 
@@ -276,7 +278,9 @@ function Core.finish(self, session, reason)
     if map and map[session.spot] == session.pid then map[session.spot] = nil end
     self:publish(session, false, reason)
     if self.P.event then
-        self.P.event("op77_scenes:ended", { playerId = session.pid, scene = session.scene, spot = session.spot, reason = reason })
+        -- resuming: a push ended the pose and main.lua takes the seat back at once (keep what hangs on it)
+        self.P.event("op77_scenes:ended", { playerId = session.pid, scene = session.scene, spot = session.spot, reason = reason,
+            resuming = session.resuming == true or nil })
     end
 end
 

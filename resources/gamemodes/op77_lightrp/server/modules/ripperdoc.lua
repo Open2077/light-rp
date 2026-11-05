@@ -77,6 +77,8 @@ AddEventHandler("op77_scenes:started", function(p)
     if type(p) ~= "table" or p.scene ~= C.scene then return end
     local playerId, spot = tonumber(p.playerId), p.spot
     if not playerId then return end
+    -- the same chair taken back after a push (op77_scenes): the interface stayed open
+    if p.resumed and seated[playerId] == spot then return end
     seated[playerId] = spot
     CreateThread(function()
         Wait(C.openDelayMs)
@@ -93,6 +95,20 @@ AddEventHandler("op77_scenes:ended", function(p)
     if type(p) ~= "table" or p.scene ~= C.scene then return end
     local playerId = tonumber(p.playerId)
     if not playerId or seated[playerId] == nil then return end
+    -- a push ended the pose and the chair takes the patient back at once: keep the interface; if the
+    -- resume does not happen (moved off the chair), the next ended/closed tidies up
+    if p.resuming then
+        local spot = seated[playerId]
+        CreateThread(function()
+            Wait(2500)
+            local current = call("op77_scenes", "current", playerId)
+            if seated[playerId] == spot and (type(current) ~= "table" or current.spot ~= spot) then
+                seated[playerId] = nil
+                call("op77_ripperdoc", "close", playerId)
+            end
+        end)
+        return
+    end
     seated[playerId] = nil
     call("op77_ripperdoc", "close", playerId)
 end)
