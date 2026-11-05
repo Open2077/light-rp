@@ -8,7 +8,7 @@ import "./tutorial.css";
 import { VoiceTutorial, type VoiceSetup } from "./VoiceTutorial";
 import { ContextLesson } from "./ContextLesson";
 
-type Keys = { menu: string; inventory: string; interact: string; context?: string; lock?: string; skip?: string; way?: string };
+type Keys = { menu: string; inventory: string; interact: string; context?: string; lock?: string; skip?: string; way?: string; quit?: string };
 /** The flight to a new destination (client/core/tutorial.lua, startReveal). */
 type Reveal = { name: string; direction?: string; distance: number; index?: number; total?: number; durationMs: number };
 type Presentation = { phase?: string; options?: boolean; skipAsk?: boolean; keys?: Keys; distance?: number | false; reveal?: Reveal | false; voice?: VoiceSetup; voiceError?: string };
@@ -78,7 +78,7 @@ export function Tutorial() {
   const last = line >= lines.length - 1;
   const said = lines[line]?.text ?? "";
   const [typed, complete, finishTyping] = useTyping(said);
-  const keys: Keys = { menu: "F1", inventory: "I", interact: "E", context: "ALT", lock: "L", skip: "SPACE", way: "G", ...presentation.keys };
+  const keys: Keys = { menu: "F1", inventory: "I", interact: "E", context: "ALT", lock: "L", skip: "SPACE", way: "G", quit: "F6", ...presentation.keys };
   const reveal = presentation.phase === "reveal" && presentation.reveal ? presentation.reveal : null;
   // Who speaks: the contact of the step (the arrival hall has several), the guide for everything else.
   const guideName = guide?.guide ?? "Mara";
@@ -167,7 +167,7 @@ export function Tutorial() {
       </>}
       {asking ? <section className="first-day__options">
         <span className="first-day__eyebrow">LIGHT/RP / FIRST DAY GUIDE</span><h2>Skip the first day?</h2>
-        <p>You go straight to Night City. Your Neural-Link is installed and you get your starter studio in Kabuki: its door is on your map, a short walk away, with a wardrobe in the bedroom. F1 → My homes manages its keys. Only the practice pay is not earned.</p>
+        <p>You go straight to Night City, at The Crossing in Westbrook. Your Neural-Link is installed and you get your free starter studio in Kabuki Studios: its door is on your map, a short walk away. F1 → My homes manages its keys. Only the practice pay is not earned.</p>
         <div><button className="first-day__primary" disabled={busy} onClick={skip}>{busy ? "Leaving…" : "Skip the first day"}</button><button onClick={() => setSkipAsk(false)}>Back to the guide</button></div>
         <small>Changed your mind? {keys.menu} → First day guide, or /tutorial, brings {guideName} back.</small>
       </section> : options ? <section className="first-day__options">
@@ -216,8 +216,8 @@ export function Tutorial() {
         <b>{presentation.distance} m</b><span>{guide.objective.label}</span>
       </div>}
       {guide?.line && <blockquote><span>{guideName.toUpperCase()}</span>{guide.line}</blockquote>}
-      {/* Always in sight while the guide runs: F1 (the player menu) has "Skip the tutorial" on top of its server section. */}
-      <div className="first-day__skip">Press <kbd className="first-day__waykey">{keys.menu}</kbd> to skip the tutorial</div>
+      {/* Always in sight while the guide runs: its own key (F6 by default) opens the "Skip the first day?" confirmation. */}
+      <div className="first-day__skip">Press <kbd className="first-day__waykey">{keys.quit}</kbd> to skip the tutorial</div>
       <footer>{guide?.objective ? <span className="first-day__way"><kbd className="first-day__waykey">{keys.way}</kbd>Show me the way</span>
         : todo.length > 0 ? <span>{keys.menu} → First day guide</span> : <kbd>{keyHint}</kbd>}<span>/tutorial pause</span></footer>
     </aside>}

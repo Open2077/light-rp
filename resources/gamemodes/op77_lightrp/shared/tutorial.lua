@@ -61,6 +61,9 @@ LightRpTutorialConfig = {
         dots = { spacing = 3.0, max = 40 },
         skip = { id = "lightrp.tutorial.skip", name = "Light RP: skip the first day camera", key = "SPACE" },
         way = { id = "lightrp.tutorial.way", name = "Light RP: first day, show me the way", key = "G" },
+        -- "Press F1 to skip" did not work for players (F1 is the player menu): skipping the first
+        -- day has its own key, which opens the "Skip the first day?" confirmation (clickable).
+        quit = { id = "lightrp.tutorial.quit", name = "Light RP: skip the first day guide", key = "F6" },
     },
 
     total = 15,
@@ -178,19 +181,21 @@ LightRpTutorialConfig = {
             line = "Sell everything you made. That is a payday: small, but yours." },
         depart = { index = 14, place = "Mara, your guide", direction = "Back on the square", todo = { { text = "Follow the arrow back to Mara" }, { key = "interact", text = "Talk to her to leave for Night City" } },
             where = "lobby", kind = "talk", contact = "guide", prompt = "Talk to Mara", action = "Take me home",
-            title = "Ready when you are", hint = "Go back to Mara on the square. She opens the way to Night City and to your new home.",
+            title = "Ready when you are", hint = "Go back to Mara on the square. She opens the way to Night City.",
             line = "You have a name, a bag, an account and you know how to earn. Come and see me when you are ready to leave.",
             lines = {
                 { text = "There you go: a name, money, wheels to rent, and a way to earn. In the city, sanitation and scrap work exactly like the practice you just did; the job center hands out the rest.", demo = "work" },
                 "Which job you take is your story, not mine: the job center, the shops, the rental desk and the wardrobe are marked on your map out there. Respect the people you meet.",
-                "One last thing: Night City Housing gave you a starter studio in Kabuki: the Kabuki Studios door is on your map. This door takes you into the city. You can come back to this guide any time with /tutorial. Ready?",
+                "One last thing: Night City Housing gave you a free starter studio in Kabuki Studios, a short walk from where you arrive; its door is on your map. This door takes you into the city. You can come back to this guide any time with /tutorial. Ready?",
             } },
+        -- The guide leaves the newcomer at The Crossing (spawn.afterTutorial, Westbrook), not inside
+        -- the studio: the studio is given and its door marked on the map, a short walk away.
         outro = { index = 15, where = "city", kind = "outro", action = "See you around, Mara", title = "The rest is your story",
-            hint = "You know how to get started. Find a job, explore or meet your neighbours.",
+            hint = "Your studio's door is on your map, a short walk away. Find a job, explore or meet your neighbours.",
             lines = {
-                { text = "Welcome home: this studio in Kabuki is yours. Your practice pay is on your account; check it in the player menu.", demo = "payday" },
-                "The storage in the living room and the wardrobe in the bedroom are for you and the people you give a key to. The door by the entrance takes you out to the street; F1, My homes, manages the lock and the keys.",
-                "Log out here and you wake up here. Looking for work? The job center is on your map. I'll be in the hall for the next newcomers. Welcome to Night City.",
+                { text = "Welcome to Night City. This is The Crossing, in Westbrook. Your practice pay is on your account; check it in the player menu.", demo = "payday" },
+                "Your free studio is in Kabuki Studios, about 115 m from here: its door is on your map. Inside, the storage and the wardrobe are yours and your key holders'; F1, My homes, manages the lock and the keys.",
+                "Questions about the city? Johnny, on this esplanade, knows the jobs, the cars and the money. The job center is on your map. I'll be in the hall for the next newcomers. See you around.",
             } },
     },
 }
