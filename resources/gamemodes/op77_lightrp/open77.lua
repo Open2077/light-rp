@@ -148,6 +148,7 @@ server_script "server/modules/cyberware.lua"
 server_script "server/modules/cyberware_active.lua"  -- Berserk, Pain Editor, Second Heart, Kiroshi scan / crew mark
 server_script "server/modules/cyberware_iconics.lua" -- iconic implants: drops from world bosses and the Chimera on Critical
 server_script "server/modules/ripperdoc.lua"
+server_script "server/modules/pose_ghost.lua"       -- held poses are non-solid to other players (no push out of an emote/seat)
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
 server_script "server/modules/activity_queue.lua"  -- the queue panel: one queue per player (core, providers, mission boards), leave
@@ -262,6 +263,7 @@ permissions {
     "world.props",          -- networked jerrycan, cleaned up with the action
     "state.write",          -- vehicle keys live in state bags
     "players.life.read",
+    "players.life.ghost",          -- pose_ghost: a held pose is non-solid to other players
     "players.life.kill",
     "players.life.revive",
     "players.life.respawn",
