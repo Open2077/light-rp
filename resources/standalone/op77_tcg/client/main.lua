@@ -13,6 +13,9 @@ local page, pageReady = nil, false
 local isOpen = false
 local state = nil          -- last state from the server
 local openings = {}        -- opener -> { seq, cards = {ids}, anchor, pack, props = {}, light }
+-- My pack request not dealt yet (declared up here: the opening handler below must clear THIS one, not a global).
+local pendingOpen = nil
+local function nowMs() return type(GetGameTimer) == "function" and GetGameTimer() or math.floor(os.clock() * 1000) end
 local nearShopId = nil
 
 local function log(fmt, ...) print(("[op77_tcg] " .. fmt):format(...)) end
@@ -365,11 +368,9 @@ local function closeBinder()
     if TcgClient and TcgClient.afterClose then TcgClient.afterClose() end
 end
 
-local function nowMs() return type(GetGameTimer) == "function" and GetGameTimer() or math.floor(os.clock() * 1000) end
 
 -- A pack asked for and not dealt yet (the server takes the item and writes the pull first, which can take a
 -- moment): the page shows "opening..." at once, and nothing else can be opened until it lands or fails.
-local pendingOpen = nil
 local function packBusy()
     if pendingOpen and nowMs() - pendingOpen.at < 20000 then return true end
     local o = openings[me()]
