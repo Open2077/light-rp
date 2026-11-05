@@ -79,6 +79,13 @@ def sequence_at(player, steps, at, yaw, opts=None):
     return L.table_from({"playbackId": "seq-%d" % len(animations)})
 
 
+def anim_play(player, profile, opts=None):
+    if profile in refuse_profiles:
+        return None, "unknown_profile"
+    animations.append((int(player), profile, opts["clip"] if opts else None))
+    return L.table_from({"playbackId": "play-%d" % len(animations)})
+
+
 def anim_stop_at(playback):
     animations.append((None, "stopAt", playback))
     return True
@@ -179,7 +186,7 @@ g.Open77 = L.table_from({
     "npcs": L.table_from({"create": npc_create, "setAIEnabled": lambda i, on: True, "remove": lambda i: npcs.pop(i, None) is not None}),
     "props": L.table_from({"create": prop_create, "attach": prop_attach, "remove": prop_remove, "get": lambda p: None,
                            "setTransform": prop_move}),
-    "animations": L.table_from({"playAt": play_at, "stop": anim_stop, "sequenceAt": sequence_at, "stopAt": anim_stop_at}),
+    "animations": L.table_from({"play": anim_play, "playAt": play_at, "stop": anim_stop, "sequenceAt": sequence_at, "stopAt": anim_stop_at}),
 })
 # Python callables are userdata in Lua: wrap the ones a resource type-checks (`type(f) == "function"`).
 L.execute("""

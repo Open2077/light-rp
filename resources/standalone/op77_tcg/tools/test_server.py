@@ -8,7 +8,7 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from tcg_harness import L, boot, check, checks, con, counts, fire, last, props  # noqa: E402
+from tcg_harness import L, animations, boot, check, checks, con, counts, fire, last, props  # noqa: E402
 
 # No framework: `exports` is only the registration function here, so exports.op77_lightrp does not exist.
 boot("TcgConfig.framework = nil")
@@ -40,6 +40,10 @@ check(last("reveal", 2)["stage"] == "tear", "tear relayed to witnesses")
 fire("op77_tcg:reveal", 1, L.table_from({"seq": op1["seq"], "stage": "card", "index": 12}))
 r = last("reveal", 2)
 check(r["index"] == 12 and r["finished"], "the last card finishes the opening")
+# The opener's act: an animation while the pack is in the hands, stopped with the last card.
+played = [a for a in animations if a[0] == 1 and a[1] == "tablet2"]
+check(len(played) >= 1, "the opener plays the opening animation")
+check(any(a[0] == 1 and a[1] == "stop" for a in animations), "the animation stops with the last card")
 # A request that goes nowhere tells the opener's page (its "opening..." screen goes away).
 fire("op77_tcg:open", 1, "nope", anchor)
 check(last("openFailed", 1) is not None, "a refused pack request sends openFailed")

@@ -81,6 +81,14 @@ TcgConfig = {
     -- item calls exports.op77_tcg:useSealed. Absent or nil: accounts and the binder's own sealed shelf.
     framework = "op77_lightrp",
 
+    -- Opening sealed product in front of others: the opener plays `animation` (both hands in front, the pack
+    -- between them) for as long as the pack is in their hands, and an action bubble (op77_actionbubble, the same
+    -- bubble as LightRP's /me) shows over them to the players within `range` metres. false turns either off.
+    openingAct = {
+        animation = { profile = "tablet2", clip = "stand__2h_tablet__02__use_tablet__01", maxMs = 90000 },
+        bubble = { range = 20, duration = 6, booster = "Opens a %s booster", box = "Cuts open a booster display" },
+    },
+
     -- The binder opens with this chat command (no key: a gamemode adds its own entry, LightRP its F1 menu),
     -- or from another resource with TriggerEvent("op77_tcg:openBinder", tab).
     command = "tcgbinder",
