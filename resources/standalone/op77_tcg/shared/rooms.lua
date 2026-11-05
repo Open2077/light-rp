@@ -10,10 +10,11 @@ TcgRooms = {
     codeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",   -- no I, O, 0, 1
     emptyCloseMs = 5 * 60 * 1000,                     -- a room nobody is in closes after this
     floor = 4.0,
-    -- The host behind the counter (east end of the checkout counter) and where a player stands to talk to them.
-    host = { u = 12.3, v = 1.84, z = 12.14, turn = 0, record = "Character.sts_hey_rey_06_receptionist",
-             talk = { u = 12.3, v = 3.3, z = 12.14 }, talkRadius = 2.2,
-             back = { u = 12.0, v = 3.7, z = 12.14, turn = 180 } },
+    -- The host at the private rooms desk and where a player stands to talk to them.
+    -- (pose measured in game by the user 2026-11-05: -818.566, 932.813, 12.14, yaw 11.7)
+    host = { u = 6.4, v = 1.834, z = 12.14, turn = 2.7, record = "Character.sts_hey_rey_06_receptionist",
+             talk = { u = 6.4, v = 3.3, z = 12.14 }, talkRadius = 2.2,
+             back = { u = 6.1, v = 3.7, z = 12.14, turn = 180 } },
     -- Room centres (u, v); inner size 7.0 x 6.6, the exit door on the south wall.
     styles = {
         shop = { label = "Neon Deck", blurb = "The shop's own look: black lacquer, yellow and neon.", u = -0.5, v = 4.5, order = 1 },
