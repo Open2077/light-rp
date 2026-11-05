@@ -647,6 +647,8 @@ export interface PersonalVehicle {
   canImpound?: boolean; canRecover?: boolean; impound?: { reason: string; fee: number };
   /** Out and wrecked (destroyed / exploded / health 0): the tow charges the insurance excess. */
   wrecked?: boolean;
+  /** Registration plate bought at the Auto Studio, and the fitted performance stage (0 = stock). */
+  plate?: string; stage?: number;
 }
 export interface GarageDialogPayload {
   kind: "garage"; session: string; nextRequest: number;
