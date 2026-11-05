@@ -99,9 +99,30 @@ def prop_remove(pid):
     return True
 
 
+buckets = {}     # player -> routing bucket (0 when absent)
+teleports = []   # (player, x, y, z, bucket)
+npcs = {}        # id -> definition
+
+
 def position(pid):
     p = positions.get(int(pid))
-    return L.table_from({"x": p[0], "y": p[1], "z": p[2], "bucket": 0}) if p else None
+    return L.table_from({"x": p[0], "y": p[1], "z": p[2], "bucket": buckets.get(int(pid), 0)}) if p else None
+
+
+def teleport(pid, pos, opts=None):
+    pid = int(pid)
+    b = opts["bucket"] if opts is not None and opts["bucket"] is not None else buckets.get(pid, 0)
+    positions[pid] = (pos["x"], pos["y"], pos["z"])
+    buckets[pid] = int(b)
+    teleports.append((pid, pos["x"], pos["y"], pos["z"], int(b)))
+    res = L.table_from({"x": pos["x"], "y": pos["y"], "z": pos["z"], "state": "settled"})
+    return L.table_from({"await": lambda self=None: res})
+
+
+def npc_create(d):
+    nid = "npc%d" % (len(npcs) + 1)
+    npcs[nid] = d
+    return nid
 
 
 def nearby(anchor, radius, opts=None):
@@ -151,11 +172,24 @@ g.SQLite = L.table_from({"open": L.table_from({"await": lambda path: db_tbl})})
 g.Open77 = L.table_from({
     "time": L.table_from({"unix": lambda: 1793800000.37, "monotonic": lambda: 0}),
     "players": L.table_from({"identifier": lambda p: "id-%d" % p, "position": position, "name": lambda p: names.get(int(p)),
-                             "nearby": nearby}),
+                             "nearby": nearby, "teleport": teleport}),
+    "routingBuckets": L.table_from({"getPlayer": lambda p: buckets.get(int(p), 0),
+                                    "setPlayer": lambda p, b: buckets.__setitem__(int(p), int(b)),
+                                    "setPopulationEnabled": lambda b, on: True}),
+    "npcs": L.table_from({"create": npc_create, "setAIEnabled": lambda i, on: True, "remove": lambda i: npcs.pop(i, None) is not None}),
     "props": L.table_from({"create": prop_create, "attach": prop_attach, "remove": prop_remove, "get": lambda p: None,
                            "setTransform": prop_move}),
     "animations": L.table_from({"playAt": play_at, "stop": anim_stop, "sequenceAt": sequence_at, "stopAt": anim_stop_at}),
 })
+# Python callables are userdata in Lua: wrap the ones a resource type-checks (`type(f) == "function"`).
+L.execute("""
+for _, path in ipairs({ {"npcs", "create"}, {"npcs", "setAIEnabled"}, {"npcs", "remove"}, {"players", "teleport"},
+                        {"routingBuckets", "getPlayer"}, {"routingBuckets", "setPlayer"}, {"routingBuckets", "setPopulationEnabled"} }) do
+    local t, k = Open77[path[1]], path[2]
+    local f = t[k]
+    t[k] = function(...) return f(...) end
+end
+""")
 
 
 
@@ -177,7 +211,8 @@ def boot(prelude=""):
     if prelude:
         L.execute(prelude)
     for f in ["shared/catalogue.lua", "shared/rules.lua", "shared/cards.lua", "shared/decks.lua", "shared/starters.lua",
-              "shared/table.lua", "shared/game.lua", "shared/effects.lua", "shared/tutorial.lua", "server/main.lua", "server/duel.lua"]:
+              "shared/table.lua", "shared/rooms.lua", "shared/game.lua", "shared/effects.lua", "shared/tutorial.lua", "server/main.lua",
+              "server/duel.lua", "server/rooms.lua"]:
         L.execute((ROOT / f).read_text(encoding="utf-8"))
     L.eval("__pump")(10)
 

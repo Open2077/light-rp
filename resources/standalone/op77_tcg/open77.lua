@@ -27,13 +27,16 @@ shared_script "shared/cards.lua"
 shared_script "shared/decks.lua"
 shared_script "shared/starters.lua"
 shared_script "shared/table.lua"
+shared_script "shared/rooms.lua"
 shared_script "shared/game.lua"
 shared_script "shared/effects.lua"
 shared_script "shared/tutorial.lua"
 server_script "server/main.lua"
 server_script "server/duel.lua"
+server_script "server/rooms.lua"
 client_script "client/main.lua"
 client_script "client/duel.lua"
+client_script "client/rooms.lua"
 
 web_ui_page "web/index.html"
 web_ui_auto_create false
@@ -58,4 +61,7 @@ permissions {
     "players.animations.control",
     -- client: the sit key at a duel table (rebindable)
     "input.actions",
+    -- server: the private rooms' host behind the counter, and taking players down to their room / back up
+    "world.npcs",
+    "players.teleport",
 }

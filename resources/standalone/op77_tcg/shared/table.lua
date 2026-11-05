@@ -72,6 +72,40 @@ TcgTable.tables = {
         { side = "north", chairV = 5.88, matV = 5.17, turn = 180, standV = 6.45, dice = "arasaka" },
     } },
 }
+-- The private rooms under the shop (shared/rooms.lua), level -1, floor 4.0: one duel table per room (u = room centre
+-- +- 1.6, v 4.05-4.95), the same layout in all three.
+for _, style in ipairs({ "shop", "cozy", "jp" }) do
+    TcgTable.tables["room_" .. style] = { floor = 4.0, top = 4.75, seats = {
+        { side = "south", chairV = 3.57, matV = 4.28, turn = 0, standV = 3.0, dice = "netrunner" },
+        { side = "north", chairV = 5.43, matV = 4.72, turn = 180, standV = 6.0, dice = "arasaka" },
+    } }
+end
+-- Templates of the private rooms' slots: never used as they are, only through TcgTable.roomSlot(template, bucket)
+-- (one copy per room instance, in that instance's bucket).
+TcgTable.roomSlots = {
+    shop = { { id = "rm_shop_a", table = "room_shop", u = -0.5 - 0.78, room = "shop" }, { id = "rm_shop_b", table = "room_shop", u = -0.5 + 0.78, room = "shop" } },
+    cozy = { { id = "rm_cozy_a", table = "room_cozy", u = 7.1 - 0.78, room = "cozy" }, { id = "rm_cozy_b", table = "room_cozy", u = 7.1 + 0.78, room = "cozy" } },
+    jp = { { id = "rm_jp_a", table = "room_jp", u = 14.7 - 0.78, room = "jp" }, { id = "rm_jp_b", table = "room_jp", u = 14.7 + 0.78, room = "jp" } },
+}
+local roomSlotCache = {}
+function TcgTable.roomSlot(template, bucket)
+    local id = template.id .. "@" .. tostring(bucket)
+    local s = roomSlotCache[id]
+    if not s then
+        local side = template.id:sub(-1) == "a" and "A" or "B"
+        s = { id = id, label = "Private room - duel table " .. side, table = template.table, u = template.u, bucket = bucket,
+              room = template.room, template = template.id }
+        roomSlotCache[id] = s
+    end
+    return s
+end
+-- The slots of one private room instance.
+function TcgTable.roomSlotsFor(style, bucket)
+    local out = {}
+    for i, tpl in ipairs(TcgTable.roomSlots[style] or {}) do out[i] = TcgTable.roomSlot(tpl, bucket) end
+    return out
+end
+
 TcgTable.slots = {
     { id = "nd_a", label = "NEON DECK - Table 1 A (upstairs)", table = "etage", bucket = 0, u = 3.45 },
     { id = "nd_b", label = "NEON DECK - Table 1 B (upstairs)", table = "etage", bucket = 0, u = 5.75 },
@@ -126,4 +160,11 @@ end
 
 function TcgTable.slotById(id)
     for _, s in ipairs(TcgTable.slots) do if s.id == id then return s end end
+    -- a private room's instance slot: "<template>@<bucket>"
+    local base, bucket = tostring(id or ""):match("^([%w_]+)@(%d+)$")
+    if base then
+        for _, list in pairs(TcgTable.roomSlots) do
+            for _, tpl in ipairs(list) do if tpl.id == base then return TcgTable.roomSlot(tpl, tonumber(bucket)) end end
+        end
+    end
 end

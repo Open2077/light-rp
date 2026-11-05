@@ -482,10 +482,19 @@ local function endMatch(m, reason, winner)
     S.log("duel %d at %s ended: %s%s", m.id, m.slot.id, tostring(reason), winner and (" - " .. winner.name .. " wins") or "")
 end
 
+-- The duel tables a player can use where they stand: in a private room (its own bucket) that room's two slots,
+-- anywhere else the shop's tables.
+local function slotsNear(near)
+    local b = near and tonumber(near.bucket) or 0
+    local room = TcgRoomState and TcgRoomState.byBucket[b]
+    if room then return T.roomSlotsFor(room.style, b) end
+    return T.slots
+end
+
 local function freeSlot(near)
     if near then
         local best, bestD
-        for _, slot in ipairs(T.slots) do
+        for _, slot in ipairs(slotsNear(near)) do
             if not bySlot[slot.id] then
                 local d = S.dist(near, T.centre(slot))
                 if not bestD or d < bestD then best, bestD = slot, d end
@@ -803,9 +812,9 @@ local function sendNearby(player)
             out[#out + 1] = { id = id, name = S.name(id), busy = byPlayer[id] ~= nil }
         end
     end
-    local free = 0
-    for _, slot in ipairs(T.slots) do if not bySlot[slot.id] then free = free + 1 end end
-    TriggerClientEvent(NET .. "nearby", player, { players = out, freeTables = free, tables = #T.slots })
+    local free, list = 0, slotsNear(here)
+    for _, slot in ipairs(list) do if not bySlot[slot.id] then free = free + 1 end end
+    TriggerClientEvent(NET .. "nearby", player, { players = out, freeTables = free, tables = #list })
 end
 
 local function challenge(player, target, deckKey)
@@ -1149,6 +1158,12 @@ exports("sitDown", function(player)
 end)
 
 -- Takes a player out of their duel (conceding once the game has begun): a gamemode's own exits, tests.
+-- For the private rooms (server/rooms.lua): is a player in a duel, take them out of it.
+TcgDuelApi = {
+    inMatch = function(player) return byPlayer[tonumber(player)] ~= nil end,
+    leave = function(player, reason) player = tonumber(player); if player and byPlayer[player] then leave(player, reason or "left the room") end end,
+}
+
 exports("leaveDuel", function(player)
     player = tonumber(player)
     if not player or not byPlayer[player] then return false end
