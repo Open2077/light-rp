@@ -267,6 +267,34 @@ local function openFailed(player, text, kind)
     TriggerClientEvent(NET .. "openFailed", player, { reason = text })
 end
 
+-- The opener's act (TcgConfig.openingAct): an animation while the pack is in their hands, and the /me bubble.
+local function actBubble(player, text, icon)
+    local b = C.openingAct and C.openingAct.bubble
+    if not b or not text then return end
+    -- op77_actionbubble is optional: without it nothing shows, the opening goes on
+    pcall(function()
+        return exports.op77_actionbubble:show({ text = text, kind = "action", icon = icon, duration = b.duration or 6,
+            player = player, network = { range = b.range or 20 } })
+    end)
+end
+local function actStop(player, s)
+    if s and s.openAnim then
+        pcall(Open77.animations.stop, player, s.openAnim)
+        s.openAnim = nil
+    end
+end
+local function actStart(player, s)
+    local a = C.openingAct and C.openingAct.animation
+    if not a or type(Open77.animations) ~= "table" or not Open77.animations.play then return end
+    actStop(player, s)
+    local ok, playback, why = pcall(Open77.animations.play, player, a.profile, { clip = a.clip, loop = true, durationMs = a.maxMs or 90000 })
+    if ok and type(playback) == "table" and playback.playbackId then
+        s.openAnim = playback.playbackId
+    else
+        log("opening animation for %d refused: %s", player, tostring(ok and why or playback))
+    end
+end
+
 local function openPack(player, product, anchor)
     local s = session(player)
     if not s then return openFailed(player) end
@@ -322,6 +350,9 @@ local function openPack(player, product, anchor)
     for _, w in ipairs(witnesses(anchor, here.bucket or 0, C.opening.nearRadius)) do
         TriggerClientEvent(NET .. "opening", w, payload)
     end
+    actStart(player, s)
+    local b = C.openingAct and C.openingAct.bubble
+    if b and b.booster then actBubble(player, b.booster:format(def.label), "card") end
     local premium = cards[#cards]
     log("%s opened %s (seq %d, %s) -> premium %s (%s, %s)", name, product, openSeq, anchor.surface and "on a table" or "in hand",
         premium.name, premium.rarity, premium.finish)
@@ -334,6 +365,7 @@ local function openPack(player, product, anchor)
         local o = sessions[player] and sessions[player].opening
         if o and o.seq == seq and not o.done then
             o.done = true
+            actStop(player, sessions[player])
             for _, w in ipairs(witnesses(o.anchor, o.bucket, C.opening.nearRadius)) do
                 TriggerClientEvent(NET .. "reveal", w, { seq = seq, opener = player, index = #o.cards, finished = true })
             end
@@ -351,7 +383,7 @@ local function reveal(player, data)
     if stage == "card" and (index < 1 or index > #o.cards or index <= o.revealed) then return end
     if stage == "card" then o.revealed = index end
     local finished = stage == "card" and index == #o.cards
-    if finished then o.done = true end
+    if finished then o.done = true; actStop(player, s) end
     for _, w in ipairs(witnesses(o.anchor, o.bucket, C.opening.nearRadius)) do
         TriggerClientEvent(NET .. "reveal", w, { seq = o.seq, opener = player, stage = stage, index = index, finished = finished })
     end
@@ -449,6 +481,8 @@ local function unbox(player, product)
         return sendState(player, s.identifier, { unboxFailed = product })
     end
     notify(player, ("You cut the shrink-wrap: %d %s packs."):format(def.count, C.products[def.contains].label), "loot")
+    local b = C.openingAct and C.openingAct.bubble
+    if b and b.box then actBubble(player, b.box, "box") end
     sendState(player, s.identifier, { unboxed = product })
 end
 
