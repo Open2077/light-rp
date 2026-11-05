@@ -1,6 +1,7 @@
 /* The contract between this page and the client Lua (client/core/ui.lua), and the
    shapes the server pushes through it. Mirror of shared/events.lua: change both. */
 import type { DogtownState } from "@/features/dogtown/model";
+import type { ParkourDialogPayload } from "@/features/parkour/model";
 
 export const PAGE_EVENTS = {
   customization: "lightrp:ui:customization",
@@ -25,6 +26,8 @@ export const PAGE_EVENTS = {
   jobRun: "lightrp:ui:jobrun", // Lua -> page: JobRunLive
   freecam: "lightrp:ui:freecam", // page -> Lua: { operation: "toggle" }; Lua -> page: FreecamState
   maneki: "lightrp:ui:maneki", // Lua -> page: ManekiToolState (client/core/maneki_editor.lua)
+  parkour: "lightrp:ui:parkour", // Lua -> page: the run HUD, the course card's leaderboard (client/core/parkour.lua); page -> Lua: { op }
+  parkourEditor: "lightrp:ui:parkoureditor", // page <-> Lua: the staff parkour editor (client/core/parkour_editor.lua)
   characterEditor: "lightrp:ui:character:editor", // Lua -> page: native editor handoff { active, error? }
   state: "lightrp:ui:state",
   hud: "lightrp:ui:hud",
@@ -688,7 +691,7 @@ export interface FuelDialogPayload {
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
 export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload
-  | RecapDialogPayload | DailiesDialogPayload | ManekiDialogPayload;
+  | RecapDialogPayload | DailiesDialogPayload | ManekiDialogPayload | ParkourDialogPayload;
 
 /** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
  *  the search index and the topics follow as GuideMessage (features/guide/model.ts).
@@ -753,6 +756,10 @@ export type UiAction =
   | { type: "maneki.open" }
   | { type: "maneki.intro" }
   | { type: "maneki.map"; id: string }
+  | { type: "parkour.open"; course?: string }
+  | { type: "parkour.board"; course: string; page: number }
+  | { type: "parkour.start"; course: string }
+  | { type: "parkour.gps"; course: string }
   | { type: "titles.select"; id: string }
   | { type: "guide.open"; from?: string }
   | { type: "guide.topic"; id: string }

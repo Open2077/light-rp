@@ -217,6 +217,8 @@ function Ui.create()
     Ui.page = page
     if LightRpSafezones then LightRpSafezones.bind(page) end
     if LightRpMissionEditor then LightRpMissionEditor.bind(page) end
+    if LightRpParkourClient then LightRpParkourClient.bind(page) end
+    if LightRpParkourEditor then LightRpParkourEditor.bind(page) end
     if LightRpCreator then LightRpCreator.bind(page) end
     if LightRpTutorial then LightRpTutorial.bind(page) end
     if LightRpSupport then LightRpSupport.bind(page) end
@@ -266,6 +268,12 @@ function Ui.create()
         if payload.type == "maneki.map" then
             local ok, why = LightRpManeki and LightRpManeki.showOnMap(payload.id)
             if ok ~= true then Ui.send(E.page.result, { ok = false, text = tostring(why or "The city map is not available."), action = payload.type }) end
+            return
+        end
+        -- F1 > Parkour > GPS: the route to a course's start is local.
+        if payload.type == "parkour.gps" then
+            local ok, why = LightRpParkourClient and LightRpParkourClient.gps(payload.course)
+            Ui.send(E.page.result, { ok = ok == true, text = ok == true and "Route set to the start orb." or tostring(why or "The GPS is not available."), action = payload.type })
             return
         end
         -- The Cyberpunk TCG binder (op77_tcg, client side): the menu closes, the binder takes the mouse.

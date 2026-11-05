@@ -36,6 +36,7 @@ shared_script "shared/events.lua"
 shared_script "shared/notice.lua"         -- another resource's notice in the page (exports notice / Notice)
 shared_script "shared/safezones.lua"
 shared_script "shared/mission_defs.lua"   -- authored missions: format + validation (editor, engine, page)
+shared_script "shared/parkour.lua"        -- parkour courses: limits, validation, orb geometry (server, client, tests)
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
@@ -154,6 +155,7 @@ server_script "server/modules/ripperdoc.lua"
 server_script "server/modules/pose_ghost.lua"       -- held poses are non-solid to other players (no push out of an emote/seat)
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
+server_script "server/modules/parkour.lua"         -- parkour courses, runs against the clock, leaderboards, staff editor (/lightrp.parkour)
 server_script "server/modules/activity_queue.lua"  -- the queue panel: one queue per player (core, providers, mission boards), leave
 server_script "server/modules/activity_pay.lua"    -- eddies for activity results (PvP ranked, PvE), caps and anti-farm
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
@@ -245,6 +247,8 @@ client_script "client/core/pvp_marks.lua"      -- nameplates (op77_playermarks) 
 client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
 client_script "client/core/maneki.lua"         -- Maneki-neko collectibles: local props, E prompt, shot detection
 client_script "client/core/maneki_editor.lua"  -- the staff placement tool for the cats
+client_script "client/core/parkour.lua"        -- parkour: start orbs, the run's orbs, keys, sounds (the page draws the clock)
+client_script "client/core/parkour_editor.lua" -- the staff parkour editor: relay, captures, 3D preview, build mode
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
