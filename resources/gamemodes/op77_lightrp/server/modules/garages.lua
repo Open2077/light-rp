@@ -442,6 +442,7 @@ local REFUSALS = {
     part_not_for_model = "This part does not fit this vehicle.",
     unknown_part = "This part is not available on this server right now.",
     invalid_profile = "This livery does not exist for this vehicle.",
+    invalid_plate = "This plate cannot be shown on a vehicle.",
 }
 local function explain(why, fallback) return REFUSALS[why] or fallback end
 local function same(a, b)
@@ -451,14 +452,20 @@ local function same(a, b)
     for k in pairs(b) do if a[k] == nil then return false end end
     return true
 end
--- The registration plate on the car. The text is validated, unique and stored; the
--- `lightrpPlate` state bag key carries it to every client (respawnAs keeps it).
--- LEAD: no native renders a plate yet (contract section 7, `visual.plate` reserved):
--- wire the render here once one exists. Returning false fails a preview / rollback.
+-- The registration plate on the car. The text is validated, unique and stored here;
+-- `Open77.vehicles.setPlate` puts it on the car for every client (contract section 7,
+-- `visual.plate`; respawnAs keeps it), and the `lightrpPlate` state bag key mirrors it
+-- for Light RP's own UI. A server build without setPlate keeps the data side only.
+-- Returning false fails a preview / rollback.
 local function renderPlate(vehicleId, plate)
     if type(plate) ~= "string" or plate == "" then plate = nil end
-    if type(Open77.state) ~= "table" or type(Open77.state.entity) ~= "function" then return true end
-    pcall(function() Open77.state.entity("vehicle", vehicleId):set("lightrpPlate", plate) end)
+    if type(Open77.state) == "table" and type(Open77.state.entity) == "function" then
+        pcall(function() Open77.state.entity("vehicle", vehicleId):set("lightrpPlate", plate) end)
+    end
+    local setPlate = Open77.vehicles.setPlate
+    if type(setPlate) ~= "function" then return true end
+    local ok, why = setPlate(vehicleId, plate)
+    if not ok then return false, explain(why, "The plate could not be fitted (" .. tostring(why) .. ").") end
     return true
 end
 -- Performance stages: record of `stage` for a row, from the stage resolver the
