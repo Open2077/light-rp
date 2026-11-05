@@ -120,6 +120,7 @@ server_script "server/modules/refueling.lua"
 server_script "server/modules/medical_store.lua"
 server_script "server/modules/medical.lua"
 server_script "server/config/garages.lua"
+server_script "server/config/vehicle_kit.lua"      -- Auto Studio rims + body kit catalogue (tools/build_vehicle_kit.py)
 server_script "server/modules/garages.lua"
 server_script "server/config/vehicle_customization.lua"
 server_script "server/modules/vehicle_customization.lua"

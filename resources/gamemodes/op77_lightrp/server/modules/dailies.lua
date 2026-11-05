@@ -210,6 +210,7 @@ local function categoryOf(vehicleId)
     local ok, snap = pcall(Open77.vehicles.get, vehicleId)
     local record = ok and type(snap) == "table" and snap.record
     if not record then return nil end
+    record = LightRpConfig.baseRecord(record)
     for _, entry in pairs(LightRP.vehicles and LightRP.vehicles.byKey or {}) do
         if entry.record == record then return entry.category end
     end

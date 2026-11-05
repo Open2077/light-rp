@@ -327,7 +327,10 @@ M,G=LightRP.money,LightRP.garage
 LightRP.inventory.onCharacterLoaded(1,owner);M.onCharacterLoaded(1,owner);G.onDatabaseReady()
 dofile("server/modules/vehicle_customization.lua");Custom=LightRP.vehicleCustomization
 car=retrieve(galena);m=open(galena)
-assert(#m.categories==2 and category(m,"paint").available and category(m,"lights").available,"unknown model: paint and lights, no trim")
+local sold={};for _,c in ipairs(m.categories)do if c.available then sold[#sold+1]=c.id end end
+-- plate needs no native; every other phase-2 category is greyed with its reason on this build (no visual natives)
+assert(table.concat(sold,",")=="paint,lights,plate" and not category(m,"trim"),"unknown model: paint, lights and plate, no trim")
+for _,c in ipairs(m.categories)do assert(c.available or (type(c.reason)=="string" and c.reason~=""),"greyed with a reason: "..c.id)end
 reply=issue("preview",{category="lights",stock=true});assert(reply.ok)
 close()
 print("customization categories: lights preview/autosave/close/save/replay/hue equality/DB failure, trim allowlist and restore, mixed-category masks, park+restart+retrieve, support table and unknown models passed")

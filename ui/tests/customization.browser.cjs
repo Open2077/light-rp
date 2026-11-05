@@ -27,8 +27,10 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
   await fire({kind:'presentation',session:state.session});
   await p.waitForFunction(()=>document.querySelector('.gameplay-interface').hidden);
   await fire(state);const ui=p.getByRole('dialog',{name:'AUTO STUDIO_'});await ui.waitFor();assert(await p.locator('.gameplay-interface').isHidden());assert(await p.locator('.notices').isHidden());
-  const calls=()=>p.evaluate(()=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization').map(x=>x.payload));
-  const untilCalls=async n=>{await p.waitForFunction(n=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization').length>=n,n);return(await calls()).at(-1);};
+  // Camera framing presets follow the selected category: counted apart from the requests.
+  const calls=()=>p.evaluate(()=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization'&&x.payload.command!=='preset').map(x=>x.payload));
+  const presets=()=>p.evaluate(()=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization'&&x.payload.command==='preset').map(x=>x.payload.category));
+  const untilCalls=async n=>{await p.waitForFunction(n=>testBridge.sent.filter(x=>x.name==='lightrp:ui:customization'&&x.payload.command!=='preset').length>=n,n);return(await calls()).at(-1);};
   const payButton=()=>p.getByRole('button',{name:'Apply paint · €$ 1,000',exact:true});
   const original=state.vehicle.paint;
   const paid={applied:true,primary:{r:35,g:63,b:128},secondary:{r:0,g:0,b:0}};
@@ -147,6 +149,127 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
   assert.equal(await lightsButton().count(),1,'the lights editor opens instead');
   await p.screenshot({path:path.join(output,'vehicle-customization-unsupported.png')});
   await p.keyboard.press('Escape');assert.equal(await ui.count(),0);
-  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup; lights (presets, grey refusal, per-category drafts and purchase, factory lights), factory trim options and unsupported categories');
+  // The complete studio: ten categories in a compact grid, greyed ones selectable with their reason.
+  await p.setViewportSize({width:1920,height:1080});
+  const full={...state,session:'custom:full',price:2500,money:{cash:500,bank:100000,currency:'€$'},
+   prices:{paint:2500,livery:4000,rims:6000,body:3500,neon:5000,lights:500,plate:2500},
+   vehicle:{...state.vehicle,model:'hella',lightsHue:0.1,appearance:''},
+   confirmed:{paint:original,lightsHue:0.1,appearance:'',profile:'',body:{},plate:'',stage:0},
+   categories:[{id:'paint',label:'Body paint',description:'Primary and secondary colors',available:true},
+    {id:'livery',label:'Livery',description:'Factory two-tone schemes',available:true,options:[{id:'tt_1',label:'Scheme 1',main:'#C81414',secondary:'#0A0A0A'},{id:'tt_2',label:'Scheme 2'}]},
+    {id:'rims',label:'Rims',description:'Aftermarket wheels and finish',available:true,pack:'lightrp_vk_rims',options:[
+     {id:'rim_classic',label:'Classic 10',variants:[{id:'chrome',label:'Chrome'},{id:'black',label:'Black'}]},{id:'rim_dish',label:'Deep dish',variants:[{id:'chrome',label:'Chrome'},{id:'black',label:'Black'}]}]},
+    {id:'body',label:'Body kit',description:'Wings, lips, skirts, roof and bars',available:true,options:[
+     {id:'spoiler',label:'Wing',parts:[{id:'wing_street',label:'Street wing',variants:[{id:'carbon',label:'Carbon'},{id:'white',label:'White'}]},{id:'wing_gt',label:'GT wing',variants:[{id:'carbon',label:'Carbon'}]}]},
+     {id:'lip',label:'Front lip',parts:[{id:'lip_splitter',label:'Splitter',variants:[{id:'carbon',label:'Carbon'},{id:'black',label:'Black'}]}]}]},
+    {id:'neon',label:'Neon',description:'Under-chassis lights',available:true,options:{colors:[{id:'cyan',label:'Cyan',color:'#00E5FF'},{id:'red',label:'Red',color:'#FF1E3C'}],
+     intensities:[{id:'low',label:'Low',value:300},{id:'medium',label:'Medium',value:600},{id:'high',label:'High',value:1200}]}},
+    {id:'lights',label:'Lights',description:'Headlight and lamp tint',available:true},
+    {id:'trim',label:'Trim',description:'Factory variants of this model',available:false,reason:'No factory trim is offered for this model.'},
+    {id:'plate',label:'Plate',description:'Registration number',available:true,options:{minLength:7,maxLength:7,charset:'A-Z0-9'}},
+    {id:'windows',label:'Windows',description:'Window tint',available:false,soon:true,reason:'Coming soon.'},
+    {id:'performance',label:'Performance',description:'Engine stages 1 to 3',available:true,options:{current:0,removal:1000,stages:[
+     {stage:0,label:'Stock',record:'Vehicle.base',available:true},{stage:1,label:'Stage 1',price:2500,record:'Vehicle.base_o77s1',available:true},
+     {stage:2,label:'Stage 2',price:3500,record:'Vehicle.base_o77s2',available:false,missing:true},{stage:3,label:'Stage 3',price:5000,record:'Vehicle.base_o77s3',available:true}]}}]};
+  const fid=full.session,answer=(request,extra)=>fire({kind:'response',session:fid,request,nextRequest:request+1,ok:true,...extra});
+  const view=(extra)=>({...full.confirmed,...extra}),rimHeld={rim:{id:'rim_dish',variant:'black'}};
+  await fire(full);await ui.waitFor();
+  assert.equal(await nav.getByRole('button').count(),10);
+  assert(await p.locator('.workshop__categories--grid').isVisible(),'more than four categories: compact grid');
+  base=(await calls()).length;
+  // Greyed categories stay aria-disabled for assistive tech, yet a click opens them on their reason.
+  await nav.getByRole('button',{name:/^Windows/}).click({force:true});
+  await p.locator('.workshop__locked').getByText('Coming soon.',{exact:true}).waitFor();
+  assert(await p.getByRole('button',{name:'Coming soon · —',exact:true}).isDisabled(),'nothing to buy on a greyed category');
+  assert.equal(await nav.getByRole('button',{name:/^Windows/}).getAttribute('aria-disabled'),'true');
+  await nav.getByRole('button',{name:/^Trim/}).click({force:true});
+  await p.locator('.workshop__locked').getByText('No factory trim is offered for this model.',{exact:true}).waitFor();
+  // Rims: rim then finish, framing preset, a warning from this game's client.
+  await nav.getByRole('button',{name:/^Rims/}).click();
+  await p.waitForFunction(()=>testBridge.sent.filter(x=>x.payload?.command==='preset').at(-1)?.payload.category==='rims');
+  const rimsGroup=p.getByRole('group',{name:'Rims',exact:true});
+  await rimsGroup.getByRole('button',{name:'Deep dish'}).click();
+  sent=await untilCalls(base+1);assert.deepEqual([sent.operation,sent.category,sent.rim,sent.variant],['preview','rims','rim_dish','chrome']);
+  await answer(1,{confirmed:view()});
+  await p.getByRole('group',{name:'Rim finish'}).getByRole('button',{name:'Black'}).click();
+  sent=await untilCalls(base+2);assert.equal(sent.variant,'black');await answer(2,{confirmed:view()});
+  await fire({kind:'warning',session:fid,category:'rims',text:'These parts are invisible in your game: its parts pack is missing. Reconnect to download it.'});
+  await p.getByRole('alert').filter({hasText:'invisible in your game'}).waitFor();
+  const rimsButton=()=>p.getByRole('button',{name:'Apply rims · €$ 6,000',exact:true});
+  await rimsButton().click();sent=await untilCalls(base+3);assert.deepEqual([sent.operation,sent.rim,sent.variant,sent.pay],['save','rim_dish','black','bank']);
+  await answer(3,{operation:'save',text:'Rims purchased and saved to your vehicle.',money:{cash:500,bank:94000,currency:'€$'},confirmed:view(rimHeld)});
+  await p.getByRole('status').filter({hasText:'Rims purchased'}).waitFor();assert(await rimsButton().isDisabled(),'confirmed rims are not sold twice');
+  assert.equal(await p.getByRole('alert').count(),0,'a new rims answer clears the old warning');
+  // Body kit: one part per group, priced per group changed.
+  await nav.getByRole('button',{name:/^Body kit/}).click();
+  await p.getByRole('group',{name:'Wing',exact:true}).getByRole('button',{name:'GT wing'}).click();
+  sent=await untilCalls(base+4);assert.deepEqual(sent.parts,{spoiler:{part:'wing_gt',variant:'carbon'}});await answer(4,{confirmed:view(rimHeld)});
+  await p.getByRole('group',{name:'Wing',exact:true}).getByRole('button',{name:'Street wing'}).click();
+  sent=await untilCalls(base+5);assert.deepEqual(sent.parts,{spoiler:{part:'wing_street',variant:'carbon'}},'a second wing replaces the first');
+  await answer(5,{confirmed:view(rimHeld)});
+  await p.getByRole('button',{name:'Apply body kit · €$ 3,500',exact:true}).waitFor();
+  await p.getByRole('group',{name:'Front lip',exact:true}).getByRole('button',{name:'Splitter'}).click();
+  sent=await untilCalls(base+6);assert.deepEqual(sent.parts,{spoiler:{part:'wing_street',variant:'carbon'},lip:{part:'lip_splitter',variant:'carbon'}});
+  await answer(6,{confirmed:view(rimHeld)});
+  await p.getByRole('button',{name:'Apply body kit · €$ 7,000',exact:true}).waitFor();
+  // Neon: presets, a colour too dark is never previewed, brightness steps, no neon.
+  await nav.getByRole('button',{name:/^Neon/}).click();
+  await p.getByRole('button',{name:'Neon Cyan',exact:true}).click();
+  sent=await untilCalls(base+7);assert.deepEqual([sent.category,sent.color,sent.intensity],['neon','#00E5FF','medium']);await answer(7,{});
+  await p.getByRole('textbox',{name:'Neon hex color'}).fill('#101010');
+  await p.getByText('This color is too dark to light anything.',{exact:true}).waitFor();await p.waitForTimeout(400);
+  assert.equal((await calls()).length,base+7,'a colour too dark is never previewed');
+  await p.getByRole('button',{name:'Neon Red',exact:true}).click();sent=await untilCalls(base+8);await answer(8,{});
+  await p.getByRole('group',{name:'Neon brightness'}).getByRole('button',{name:'High'}).click();
+  sent=await untilCalls(base+9);assert.deepEqual([sent.color,sent.intensity],['#FF1E3C','high']);await answer(9,{});
+  await p.getByRole('button',{name:'Apply neon · €$ 5,000',exact:true}).waitFor();
+  await p.getByRole('button',{name:'No neon',exact:true}).click();sent=await untilCalls(base+10);assert.equal(sent.stock,true);await answer(10,{});
+  // Plate: normalised, previewed only once the format is met; the server answers availability.
+  await nav.getByRole('button',{name:/^Plate/}).click();
+  await p.getByRole('textbox',{name:'Plate number'}).fill('ab 12');await p.waitForTimeout(400);
+  assert.equal((await calls()).length,base+10,'an incomplete plate is not sent');
+  await p.getByRole('textbox',{name:'Plate number'}).fill('abc 1234');
+  sent=await untilCalls(base+11);assert.deepEqual([sent.operation,sent.category,sent.plate],['preview','plate','ABC1234']);
+  await answer(11,{text:'This plate is available.'});await p.getByRole('status').filter({hasText:'This plate is available.'}).waitFor();
+  await p.getByRole('button',{name:'Register plate · €$ 2,500',exact:true}).click();
+  sent=await untilCalls(base+12);assert.deepEqual([sent.operation,sent.plate],['save','ABC1234']);
+  await answer(12,{operation:'save',text:'Plate registered to your vehicle.',confirmed:view({...rimHeld,plate:'ABC1234'})});
+  await p.locator('.workshop__header').getByText('ABC1234').waitFor();
+  // Performance: no preview, a stage this game lacks is disabled, a removal fee going down.
+  await nav.getByRole('button',{name:/^Performance/}).click();
+  const stagesGroup=p.getByRole('group',{name:'Performance stages'});
+  assert(await stagesGroup.getByRole('button',{name:/^Stage 2/}).isDisabled(),'a stage record missing in this game');
+  await stagesGroup.getByRole('button',{name:/^Stage 3/}).click();await p.waitForTimeout(400);
+  assert.equal((await calls()).length,base+12,'a stage is never previewed');
+  await p.getByRole('button',{name:'Fit stage · €$ 11,000',exact:true}).waitFor();
+  await stagesGroup.getByRole('button',{name:/^Stage 1/}).click();
+  await p.getByRole('button',{name:'Fit stage · €$ 2,500',exact:true}).click();
+  sent=await untilCalls(base+13);assert.deepEqual([sent.operation,sent.category,sent.stage,sent.pay],['save','performance',1,'bank']);
+  await answer(13,{operation:'save',text:'Stage fitted and saved to your vehicle.',confirmed:view({...rimHeld,plate:'ABC1234',stage:1})});
+  await p.locator('.workshop__header').getByText('ABC1234 · STAGE 1').waitFor();
+  await stagesGroup.getByRole('button',{name:/^Stock/}).click();await p.getByRole('button',{name:'Fit stage · €$ 1,000',exact:true}).waitFor();
+  // Livery: a scheme goes on the factory paint layer, so the paint draft follows.
+  await nav.getByRole('button',{name:/^Livery/}).click();
+  await p.getByRole('group',{name:'Factory schemes'}).getByRole('button',{name:'Scheme 1'}).click();
+  sent=await untilCalls(base+14);assert.deepEqual([sent.category,sent.profile],['livery','tt_1']);await answer(14,{});
+  await nav.getByRole('button',{name:/^Body paint/}).click();
+  assert.equal(await p.getByRole('button',{name:'Factory finish',exact:true}).getAttribute('aria-pressed'),'true','the car shows the factory layer under the scheme');
+  const framed=await presets();
+  for(const c of['windows','trim','rims','body','neon','plate','performance','livery','paint'])assert(framed.includes(c),'framing preset sent for '+c);
+  await fire({kind:'camera',session:fid,rotating:false});await p.getByRole('button',{name:'Resume rotation',exact:true}).waitFor();
+  for(const [width,height]of[[1920,1080],[1280,720],[800,600]]){
+   await p.setViewportSize({width,height});await p.waitForTimeout(100);
+   const boxes=await Promise.all(['.workshop__panel','.workshop__checkout','.workshop__camera','.workshop__categories','.workshop__editor'].map(s=>p.locator(s).boundingBox()));
+   for(const box of boxes.slice(0,4))assert(box.x>=0&&box.y>=0&&box.x+box.width<=width&&box.y+box.height<=height,'ten categories fit at '+width);
+   assert(boxes[3].y+boxes[3].height<=boxes[1].y,'the category grid stays above the checkout at '+width);
+   assert(boxes[3].x>=boxes[0].x&&boxes[3].x+boxes[3].width<=boxes[0].x+boxes[0].width,'the category grid stays inside the panel at '+width);
+   assert.deepEqual(await p.locator('.workshop__panel').evaluate(e=>[e.scrollLeft,e.scrollWidth<=e.clientWidth]),[0,true],'nothing widens the panel at '+width);
+   assert(await nav.evaluate(e=>e.scrollWidth<=e.clientWidth),'long descriptions are cut, not widening the grid at '+width);
+   assert(boxes[4].height>=40,`the editor keeps room at ${width}: ${JSON.stringify(boxes[4])}`);
+   assert(!overlap(boxes[0],boxes[2]),'camera controls stay outside the left panel');
+   await p.screenshot({path:path.join(output,`vehicle-customization-full-${width}.png`)});
+  }
+  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);
+  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup; lights (presets, grey refusal, per-category drafts and purchase, factory lights), factory trim options and unsupported categories; full studio: compact grid, selectable locked categories, framing presets, rims and finish, exclusive body groups priced per group, neon presets/brightness/dark refusal, plate format and availability, stages without preview and removal fee, linked livery, client warnings, camera state and ten-category layout');
  }finally{await b.close()}
 })().catch(e=>{console.error(e);process.exit(1)});

@@ -218,7 +218,7 @@ local function trunkOf(vehicleId)
     local vehicle = Open77.vehicles.get(vehicleId)
     if vehicle == nil then return nil end
     local label = "Trunk"
-    for _, entry in ipairs(LightRpConfig.vehicles.catalog) do if entry.record == vehicle.record then label = entry.label end end
+    for _, entry in ipairs(LightRpConfig.vehicles.catalog) do if entry.record == LightRpConfig.baseRecord(vehicle.record) then label = entry.label end end
     return register({ id = id, kind = "trunk", label = label, slots = Config.trunk.slots, maxWeight = Config.trunk.weight, vehicleId = vehicleId })
 end
 

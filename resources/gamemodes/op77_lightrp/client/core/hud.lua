@@ -138,7 +138,7 @@ local function sampleVehicle()
     if not seatOk or type(seat) ~= "table" or seat.vehicleId == nil then view.vehicle = { active = false } return end
     local vehicleOk, vehicle = pcall(Open77.vehicles.get, seat.vehicleId)
     if not vehicleOk or type(vehicle) ~= "table" then view.vehicle = { active = false } return end
-    local record = tostring(vehicle.record or "")
+    local record = LightRpConfig.baseRecord(vehicle.record)
     local label = record:gsub("^Vehicle%.v_%w+_", ""):gsub("_player$", ""):gsub("_", " "):upper()
     for _, entry in ipairs(Config.vehicles.catalog) do if entry.record == record then label = entry.label:upper() end end
     local gear = math.floor(number(vehicle.gear, 0))

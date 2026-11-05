@@ -141,6 +141,11 @@ now = now + 500
 ok = V.perform(1, { vehicle = 10, action = "horn" }); assert(not ok and effectCount == before, "horn has its own anti-spam")
 V.onDisconnected(1)
 assert(V.perform(1, { vehicle = 10, action = "horn" }))
+now = now + 5000
+LightRP.garage = { plateOf = function(id) return id == 10 and "ABC1234" or nil end }
+local infoOk, info = V.perform(1, { vehicle = 10, action = "info" })
+assert(infoOk and info:find("Archer Hella · Plate ABC1234 · ", 1, true), "the vehicle info shows the registration plate")
+LightRP.garage = nil
 
 -- Real client registration validated by the actual standalone registry.
 dofile("../../system/open77_contextmenu/client/registry.lua")
