@@ -40,10 +40,13 @@ local function forward(payload)
     draining = true
     CreateThread(function()
         while #queue > 0 do
-            local delay = 180 - (GetGameTimer() - lastSent)
-            if delay > 0 then Wait(delay) end
+            -- the server spaces mutations; a state read (the wheel opening) or a wheel pick (the
+            -- server queues it, latest wins) goes at once
             local request = table.remove(queue, 1)
-            lastSent = GetGameTimer()
+            local spaced = request.operation ~= "state" and request.operation ~= "select" and request.operation ~= "holster"
+            local delay = spaced and (180 - (GetGameTimer() - lastSent)) or 0
+            if delay > 0 then Wait(delay) end
+            if spaced then lastSent = GetGameTimer() end
             local ok, reason = TriggerServerEvent(NET, request)
             if ok == false then
                 send({kind="response", request=request.request, ok=false, error=tostring(reason or "network_refused")})

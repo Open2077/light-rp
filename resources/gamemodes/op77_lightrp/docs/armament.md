@@ -143,6 +143,49 @@ crée une présentation qu'après un refus définitif `weapon_not_owned`. Retire
 un slot natif ne supprime pas son item natif local. Le registre RP ne doit
 jamais reconstruire une propriété depuis ces objets locaux.
 
+## Vitesse et fiabilité de la roue (2026-11-05)
+
+Mesuré sur un serveur local (runtime 193) avec `/lightrp.armtest`. Chaque requête native coûte environ 200 ms aller-retour,
+même en local : le client l'exécute dans une frame REDscript.
+
+| Action | Avant | Après |
+|---|---|---|
+| Ressortir l'arme équipée (après un rangement) | toute la projection, 2 à 4 s | `setActive(1)` seul : 130 à 330 ms |
+| Mains nues / HOLSTER | désentraînement + `clear`, puis tout à reprojeter | `holster` seul : 130 à 270 ms, l'arme reste équipée |
+| Changer d'arme | environ 10 requêtes en série, plus l'attente du passage d'observation | photo préalable, puis `assign` et `setAmmo` (avec `activate`) envoyés ensemble : environ 1,0 s jusqu'à l'arme en main |
+| Premier changement vers une arme depuis le démarrage | idem | séquentiel une fois (lecture de la capacité du chargeur), environ 1,8 s |
+
+**Ce qui a changé dans `server/modules/armament.lua` :**
+- `issue` / `settle` : une requête native est envoyée puis attendue. Le client exécute les requêtes d'un joueur dans l'ordre, donc une suite connue part en une fois.
+- La photo prise par `beginMutation` est réutilisée par `project` (`rt.freshRows`, valable 1,5 s).
+- La règle des deux mains n'est renvoyée que si elle change (`rt.dualAllowed`).
+- La capacité du chargeur est mise en cache par record (`capacityOf`). Le mode d'assignation est mémorisé par incarnation (`rt.assignMode`) ; pour un record encore jamais assigné, l'objet de présentation est créé d'emblée.
+- Une arme seule : le chargeur est fixé directement, sans remise à zéro, et l'arme est dégainée dans la même requête (`setAmmo{activate=true}`). Si le résultat ne dit pas `drawn`, un `setActive` suit.
+- L'arme est assignée par-dessus l'ancienne dans le slot 1, sans `remove`.
+- En cas de refus du chemin groupé, le serveur reprend la voie séquentielle depuis une photo fraîche, et cette incarnation arrête de grouper (`rt.noPipeline`).
+
+**Plus de refus :**
+- Un choix de la roue ou un rangement qui arrive pendant une opération attend dans une file : la dernière demande gagne (`rt.queued`, `drain`).
+- `state` ne compte plus dans l'espacement de 150 ms, et un choix non plus, puisque la file le gère.
+- Le client n'espace plus `state`, `select` ni `holster`.
+
+**Rien de natif pendant l'écran de chargement :**
+- La synchronisation des armes et la boucle des grenades attendent `W.inWorld` (gameplayReady, ou la page LightRP prête).
+- Avant, une requête « consumable » partie 5 s après la connexion expirait, et trois reprises mettaient l'équipement en quarantaine jusqu'à la reconnexion.
+- `player_unavailable` est retenté toutes les 2 s pendant 2 min, sans consommer les tentatives.
+- Une quarantaine n'attend plus la reconnexion : après 3 reprises en 120 s, la suivante a lieu toutes les 30 s.
+
+**Diagnostic :**
+- Chaque requête écrit une ligne `armament: trace <op> player N: ok, in hand X ms, done Y ms, db until Z ms, n native (...)`.
+- Commande staff `/lightrp.armtest <id> <next|n|unarmed|holster|state|die>` : elle emprunte le même chemin que la roue (`die` tue puis fait réapparaître sur place).
+- Banc du lab : `E:\Open77	mp\lrp-weaponsrmbench.ps1`.
+
+**Vérifié en jeu (client Jack Test, serveur de lab 193) :**
+- roue réelle (TAB, souris, clic), HOLSTER puis ressortie ;
+- 9 choix à 120 ms d'intervalle : le dernier gagne ;
+- mort et réapparition : arme rangée, puis ressortie en 330 ms ;
+- tirs suivis d'un changement immédiat : 6 balles déduites, et l'inventaire égale le chargeur plus la réserve du jeu.
+
 ## HUD d’armes
 
 Le composant natif `weapon` est masqué ; le HUD RP intégré aux statuts en bas à gauche affiche

@@ -3,6 +3,29 @@ local W,C,Db,Inv=LightRP.armament,LightRpArmament,LightRP.db,LightRP.inventory
 local NET="op77_lightrp:armament"
 local epochs,lastRequest,hashes={},{},{}
 local now=function() return Open77.time.monotonic() end
+local drain -- defined with the request queue, used by every busy spell's end
+-- Players whose world and body exist (open77:session:gameplayReady). A native request sent during
+-- the loading screen times out (10 s) and quarantined the weapons (lab 2026-11-05): nothing native
+-- goes out before, the synchronization waits for onGameplayReady.
+local inWorld={}
+function W.inWorld(player) return inWorld[tonumber(player) or player]==true end
+-- One trace per player request (select / equip / holster ...): when the weapon was in hand,
+-- when everything settled, every native round trip and its time. One log line at the end.
+local function traceStart(rt,operation)
+    if rt then rt.trace={operation=operation,t0=now(),calls=0,nativeMs=0,ops={}} end
+end
+local function traceMark(rt,key)
+    local tr=rt and rt.trace
+    if tr and not tr[key] then tr[key]=math.floor((now()-tr.t0)*1000+0.5) end
+end
+local function traceEnd(rt,result,why)
+    local tr=rt and rt.trace
+    if not tr then return end
+    rt.trace=nil
+    LightRP.log("armament: trace %s player %d: %s, in hand %s ms, done %d ms, db until %s ms, %d native (%d ms) %s%s",
+        tr.operation,rt.player,result and "ok" or "failed",tostring(tr.drawn or "-"),math.floor((now()-tr.t0)*1000+0.5),tostring(tr.tx or "-"),
+        tr.calls,math.floor(tr.nativeMs+0.5),table.concat(tr.ops," "),why and (" · "..tostring(why)) or "")
+end
 local function alive(player)
     local c=LightRP.characters.get(player)
     local life=Open77.players.getLifeState(player)
@@ -110,7 +133,7 @@ end
 -- reconciles whatever the client did apply. At most RECOVER_MAX in RECOVER_WINDOW s; past
 -- that the quarantine stays until a reconnect, as before. A request still unanswered keeps
 -- waiting for its completion.
-local RECOVER_DELAY,RECOVER_MAX,RECOVER_WINDOW=3,3,120
+local RECOVER_DELAY,RECOVER_MAX,RECOVER_WINDOW,RECOVER_SLOW=3,3,120,30
 local SYNC_RETRIES,SYNC_RETRY_MS=3,1500
 function W.recover(rt)
     local job=rt and rt.quarantine
@@ -118,14 +141,17 @@ function W.recover(rt)
     local t,recent=now(),{}
     for _,at in ipairs(rt.recoveries or {}) do if t-at<RECOVER_WINDOW then recent[#recent+1]=at end end
     rt.recoveries=recent
+    -- past RECOVER_MAX in the window it keeps trying, slower (it used to wait for a reconnect:
+    -- weapons dead for the whole session)
+    local delay=RECOVER_DELAY
     if #recent>=RECOVER_MAX then
-        LightRP.log("armament: player %d quarantined again after %d recoveries in %d s: until a reconnect",rt.player,#recent,RECOVER_WINDOW)
-        return false
+        delay=RECOVER_SLOW
+        LightRP.log("armament: player %d quarantined again after %d recoveries in %d s: next try in %d s",rt.player,#recent,RECOVER_WINDOW,delay)
     end
     recent[#recent+1]=t
     rt.recovering=true
     CreateThread(function()
-        Wait(RECOVER_DELAY*1000)
+        Wait(delay*1000)
         -- the request's own thread may still be closing (busy): give it a moment
         local waited=0
         while current(rt) and rt.busy and waited<10000 do Wait(250);waited=waited+250 end
@@ -139,15 +165,23 @@ function W.recover(rt)
     end)
     return true
 end
-local function nativeUsing(rt,api,method,operation,...)
+-- A native request is sent (issue) then awaited (settle). Requests to one player run in order on
+-- the client, so a known sequence (remove, assign, setAmmo) can be sent at once and awaited once:
+-- each round trip costs ~200 ms even on a local server (measured 2026-11-05).
+local function issue(rt,api,method,operation,...)
     if not current(rt) or not alive(rt.player) then return nil,"Your character changed or is not alive." end
     local fn=api and api[method]
     if type(fn)~="function" then return nil,"The required weapon API is unavailable on this server." end
+    local t0=now()
     local called,id,reason=pcall(fn,rt.player,...)
     if not called or not id then return nil,tostring(reason or id or "Weapon request refused.") end
     local key=tostring(rt.player)..":"..tostring(id)
-    local job={runtime=rt,operation=operation,deadline=now()+12}
+    local job={runtime=rt,operation=operation,deadline=now()+12,key=key,method=method,t0=t0}
     W.pending[key]=job
+    return job
+end
+local function settle(rt,job)
+    local key,method,t0=job.key,job.method,job.t0
     while current(rt) and not job.done and now()<job.deadline do Wait(25) end
     if not current(rt) then W.pending[key]=nil;return nil,"Your character incarnation changed." end
     if not job.done or (job.accepted~=true and job.reason=="request_timeout") then
@@ -157,8 +191,15 @@ local function nativeUsing(rt,api,method,operation,...)
         return nil,"A weapon request timed out and may still complete. Synchronization is quarantined until a late completion or a new character incarnation."
     end
     W.pending[key]=nil
+    local tr=rt.trace
+    if tr then local ms=(now()-t0)*1000;tr.calls=tr.calls+1;tr.nativeMs=tr.nativeMs+ms;tr.ops[#tr.ops+1]=method.."="..math.floor(ms+0.5) end
     if job.accepted~=true then return nil,tostring(job.reason or "Native weapon request refused.") end
     return job.result or {}
+end
+local function nativeUsing(rt,api,method,operation,...)
+    local job,err=issue(rt,api,method,operation,...)
+    if not job then return nil,err end
+    return settle(rt,job)
 end
 local function native(rt,method,operation,...) return nativeUsing(rt,Open77.weapons,method,operation,...) end
 W.native = native
@@ -274,6 +315,24 @@ local function readback(rt,rows)
     end
     return true
 end
+-- magazine capacity per native record, learned from snapshots (it never changes for a record)
+local capacityOf={}
+-- After the weapon is set: when it was in hand, the projection baseline, the verification
+-- snapshot and, for holstered hands, the holster.
+local function finishProjection(rt,d,balance,held)
+    if not rt.holstered then traceMark(rt,"drawn") end
+    rt.baseline={kind=d.ammo,rounds=balance,held=held}
+    local snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
+    local verified,verificationError=readback(rt,rowsOf(snapshot))
+    if verified then rt.projectedRecords={[1]=d.right.record};if d.left then rt.projectedRecords[4]=d.left.record end end
+    -- a character coming into the world (connect, respawn) gets its loadout back in
+    -- the holster, never in its hands; so does a pocket refresh of holstered hands
+    if verified and rt.holstered then
+        local holstered,why=native(rt,"holster","holster")
+        if not holstered then LightRP.log("armament: holster after projection refused for %d: %s",rt.player,tostring(why)) end
+    end
+    return verified,verificationError
+end
 local function project(rt)
     local d,why=desired(rt)
     if not d then
@@ -283,8 +342,15 @@ local function project(rt)
         if cleared then rt.observed={};rt.allowedHashes={};rt.projectedRecords=nil;rt.baseline=nil end
         return false,why
     end
-    local snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
-    local rows=rowsOf(snapshot)
+    -- the snapshot a mutation took a moment ago (beginMutation's preflight) still describes the
+    -- slots: only the database changed since. One round trip saved on every weapon switch.
+    local rows
+    if rt.freshRows and rt.freshAt and now()-rt.freshAt<1.5 then rows=rt.freshRows end
+    rt.freshRows,rt.freshAt=nil,nil
+    if not rows then
+        local snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
+        rows=rowsOf(snapshot)
+    end
     local settled,settleError=settleExisting(rt,rows)
     if not settled then return false,settleError end
     local migrated,migrateError=W.migrateLegacy(rt);if not migrated then return false,migrateError end
@@ -299,8 +365,59 @@ local function project(rt)
     end
     -- An old native item may remain after unequip. Try reuse first and create
     -- presentation inventory only after a definitive weapon_not_owned refusal.
-    local policy,policyError=native(rt,"setDualWieldAllowed","setDualWieldAllowed",d.left~=nil)
-    if not policy then return false,policyError end
+    -- the dual-wield policy only changes with a left-hand pistol: not sent again when it is the same
+    if rt.dualAllowed~=(d.left~=nil) then
+        local policy,policyError=native(rt,"setDualWieldAllowed","setDualWieldAllowed",d.left~=nil)
+        if not policy then return false,policyError end
+        rt.dualAllowed=d.left~=nil
+    end
+    -- A single weapon whose capacity and assign mode are known: removes, assign and the ammunition
+    -- with the draw go out at once and are awaited once. Any refusal falls back to the sequential
+    -- path below from a fresh snapshot (and this runtime stops pipelining).
+    -- a record this incarnation never assigned is not in the native inventory yet (the plain assign
+    -- answers weapon_not_owned at every first switch): its presentation item is created at once
+    local mode=rt.assignMode and rt.assignMode[d.right.record]
+    if mode==nil then mode=true end
+    local cap=capacityOf[d.right.record]
+    if not d.left and cap and mode~=nil and not rt.noPipeline then
+        local held=rounds(Inv.player(rt.player),d.ammo)
+        local balance=math.min(held,C.maxAmmo)
+        local magR=math.min(cap,balance)
+        local drawAtOnce=not rt.holstered
+        local jobs,failed={},nil
+        local function add(accept,method,operation,...)
+            if failed then return end
+            local job,err=issue(rt,Open77.weapons,method,operation,...)
+            if not job then failed=err;return end
+            jobs[#jobs+1]={job=job,accept=accept}
+        end
+        for slot=6,1,-1 do
+            local row=rows[slot]
+            if not empty(row) and slot~=1 then
+                add(function(why) return why=="weapon_slot_empty" end,"remove","remove",slot)
+            end
+        end
+        if empty(rows[1]) or rows[1].record~=d.right.record then
+            add(nil,"assign","assign",d.right.record,1,{active=false,addToInventory=mode})
+        end
+        add(nil,"setAmmo","setAmmo",1,{magazine=magR,reserve=balance-magR,activate=drawAtOnce or nil})
+        local last
+        for _,j in ipairs(jobs) do
+            local res,why=settle(rt,j.job)
+            if res then last=res elseif not (j.accept and j.accept(why)) then failed=failed or why end
+        end
+        if not failed then
+            if drawAtOnce and not (type(last)=="table" and last.drawn==true) then
+                local active,activeError=native(rt,"setActive","setActive",1);if not active then return false,activeError end
+            end
+            return finishProjection(rt,d,balance,held)
+        end
+        if not current(rt) then return false,failed end
+        LightRP.log("armament: player %d pipelined switch refused (%s): sequential",rt.player,tostring(failed))
+        rt.noPipeline=true
+        local snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
+        rows=rowsOf(snapshot)
+    end
     for slot=6,1,-1 do
         local spec=slot==1 and d.right or slot==4 and d.left or nil
         local row=rows[slot]
@@ -312,16 +429,25 @@ local function project(rt)
     end
     for _,entry in ipairs({{slot=1,spec=d.right},{slot=4,spec=d.left}}) do
         if entry.spec and (empty(rows[entry.slot]) or rows[entry.slot].record~=entry.spec.record) then
+            local added=false
             local assigned,reason=native(rt,"assign","assign",entry.spec.record,entry.slot,{active=false,addToInventory=false})
-            if not assigned and reason=="weapon_not_owned" then assigned,reason=native(rt,"assign","assign",entry.spec.record,entry.slot,{active=false,addToInventory=true}) end
+            if not assigned and reason=="weapon_not_owned" then added=true;assigned,reason=native(rt,"assign","assign",entry.spec.record,entry.slot,{active=false,addToInventory=true}) end
             if not assigned then return false,reason end
+            rt.assignMode=rt.assignMode or {};rt.assignMode[entry.spec.record]=added
         end
     end
-    snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
-    local prepared=rowsOf(snapshot)
-    local r,l=ammo(prepared[1]),d.left and ammo(prepared[4]) or nil
+    -- a single weapon whose magazine capacity is already known needs no snapshot here
+    local r,l
+    if not d.left and capacityOf[d.right.record] then
+        r={capacity=capacityOf[d.right.record]}
+    else
+        local snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
+        local prepared=rowsOf(snapshot)
+        r,l=ammo(prepared[1]),d.left and ammo(prepared[4]) or nil
+        if r and W.integer(r.capacity,1,100000) then capacityOf[d.right.record]=r.capacity end
+        if l and (prepared[1].ammo.tweakDbId~=prepared[4].ammo.tweakDbId or prepared[1].ammo.record~=prepared[4].ammo.record) then return false,"These pistols do not share compatible native ammunition." end
+    end
     if not r or (d.left and not l) then return false,"Native pistol capacity could not be read. No ammunition was created." end
-    if l and (prepared[1].ammo.tweakDbId~=prepared[4].ammo.tweakDbId or prepared[1].ammo.record~=prepared[4].ammo.record) then return false,"These pistols do not share compatible native ammunition." end
     local held=rounds(Inv.player(rt.player),d.ammo)
     local balance=math.min(held,C.maxAmmo)
     if l and balance<2*(r.capacity+l.capacity) then return false,"Dual wield needs at least "..(2*(r.capacity+l.capacity)).." "..C.ammo[d.ammo].label:lower().." in your pockets on this build. Unpack more boxes or unequip the left pistol." end
@@ -329,24 +455,22 @@ local function project(rt)
     local magL=l and math.min(l.capacity,balance-magR) or 0
     -- Reset both magazine projections first. Each following operation expresses
     -- an exact remaining pool; no hand's shared reserve is added twice.
-    local changed,reason=native(rt,"setAmmo","setAmmo",1,{magazine=0,reserve=0})
-    if not changed then return false,reason end
-    if l then changed,reason=native(rt,"setAmmo","setAmmo",4,{magazine=0,reserve=0});if not changed then return false,reason end end
-    changed,reason=native(rt,"setAmmo","setAmmo",1,{magazine=magR,reserve=balance-magR})
+    -- (a single weapon has no shared reserve to reset: its exact pool is set at once, and drawn in
+    -- the same request when it goes to the hands)
+    local changed,reason
+    if l then
+        changed,reason=native(rt,"setAmmo","setAmmo",1,{magazine=0,reserve=0})
+        if not changed then return false,reason end
+        changed,reason=native(rt,"setAmmo","setAmmo",4,{magazine=0,reserve=0});if not changed then return false,reason end
+    end
+    local drawAtOnce=not l and not rt.holstered
+    changed,reason=native(rt,"setAmmo","setAmmo",1,{magazine=magR,reserve=balance-magR,activate=drawAtOnce or nil})
     if not changed then return false,reason end
     if l then changed,reason=native(rt,"setAmmo","setAmmo",4,{magazine=magL,reserve=balance-magR-magL});if not changed then return false,reason end end
-    local active,activeError=native(rt,"setActive","setActive",1);if not active then return false,activeError end
-    rt.baseline={kind=d.ammo,rounds=balance,held=held}
-    snapshot,err=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,err end
-    local verified,verificationError=readback(rt,rowsOf(snapshot))
-    if verified then rt.projectedRecords={[1]=d.right.record};if d.left then rt.projectedRecords[4]=d.left.record end end
-    -- a character coming into the world (connect, respawn) gets its loadout back in
-    -- the holster, never in its hands; so does a pocket refresh of holstered hands
-    if verified and rt.holstered then
-        local holstered,why=native(rt,"holster","holster")
-        if not holstered then LightRP.log("armament: holster after projection refused for %d: %s",rt.player,tostring(why)) end
+    if not (drawAtOnce and type(changed)=="table" and changed.drawn==true) then
+        local active,activeError=native(rt,"setActive","setActive",1);if not active then return false,activeError end
     end
-    return verified,verificationError
+    return finishProjection(rt,d,balance,held)
 end
 -- Characters from before rounds were items kept a hidden pistol stock (s.ammo).
 -- It moves into the pockets as loose rounds, in one transaction with the state; what
@@ -389,6 +513,7 @@ function W.synchronize(player,onlyObserve)
     end
     local rt=W.runtime[player]
     if not current(rt) then return false,"Your character is not ready." end
+    if not inWorld[player] then return true end -- onGameplayReady synchronizes
     if rt.busy then return false,"Weapon synchronization is already in progress." end
     if rt.quarantine then return false,"An ambiguous native request is quarantined. Wait for its completion or reconnect." end
     if not alive(player) then return false,"Your character must be alive to synchronize weapons." end
@@ -420,7 +545,16 @@ function W.synchronize(player,onlyObserve)
         -- yet, a slow client) is tried again by itself: players had to press again until
         -- it went through ("quand il spam il arrive a sortir", 2026-11-04). SYNC_RETRIES
         -- in a row, SYNC_RETRY_MS apart; a quarantine has its own recovery (W.recover).
-        if not rt.ready and not onlyObserve and not rt.quarantine and (rt.syncRetries or 0)<SYNC_RETRIES then
+        -- player_unavailable (the body is not there yet: loading screen, respawn) keeps trying every
+        -- 2 s for up to 2 min without using up the retries
+        local unavailable=not rt.ready and tostring(rt.error):find("player_unavailable",1,true)~=nil
+        if unavailable then rt.unavailableSince=rt.unavailableSince or now() else rt.unavailableSince=nil end
+        if unavailable and not onlyObserve and not rt.quarantine and now()-rt.unavailableSince<120 then
+            CreateThread(function()
+                Wait(2000)
+                if current(rt) and not rt.ready and not rt.busy and not rt.quarantine and alive(rt.player) then W.synchronize(rt.player) end
+            end)
+        elseif not rt.ready and not onlyObserve and not rt.quarantine and (rt.syncRetries or 0)<SYNC_RETRIES then
             rt.syncRetries=(rt.syncRetries or 0)+1
             local attempt=rt.syncRetries
             CreateThread(function()
@@ -434,7 +568,9 @@ function W.synchronize(player,onlyObserve)
         -- A low-reserve dual cannot keep firing while its ambiguous native
         -- reload is reconciled. Durable intent remains; the player may unequip.
         if not rt.ready then rt.observed=rt.observed or {} end
+        if not onlyObserve then traceEnd(rt,rt.ready,rt.error) end
         W.push(player)
+        drain(rt)
     end)
     return true
 end
@@ -543,12 +679,15 @@ local function beginMutation(player,p,callback)
         local called,success,why=pcall(function()
             if rt.projectedRecords then
                 local snapshot,error=native(rt,"requestSnapshot","snapshot");if not snapshot then return false,error end
-                local ok,reason=settleExisting(rt,rowsOf(snapshot));if not ok then return false,reason end
+                local rows=rowsOf(snapshot)
+                local ok,reason=settleExisting(rt,rows);if not ok then return false,reason end
+                rt.freshRows,rt.freshAt=rows,now()
             end
             settled=true
             if not current(rt) then return false,"Character changed." end
             if payload.baseRevision==beforeRevision then payload.baseRevision=W.states[rt.inventory].revision end
             local ok,error=Inv.transaction(player,function(inv) return apply(player,payload,inv,true) end)
+            traceMark(rt,"tx")
             return ok,error,"validated"
         end)
         if not current(rt) then return end
@@ -558,6 +697,7 @@ local function beginMutation(player,p,callback)
             rt.error=tostring(called and why or success)
             W.push(player)
             if callback then callback(false,rt.error) else LightRP.notice(player,{kind="error",title="Equipment",body=rt.error}) end
+            drain(rt)
             return
         end
         -- Preflight settled the previous projection before this transaction.
@@ -583,7 +723,16 @@ local function attach(player)
     rt.ready=false;W.push(player)
     -- Clear a previous/native single-player loadout even when this RP
     -- character owns no equipped firearm. No projection is implicitly trusted.
-    if alive(player) then W.synchronize(player) end
+    -- Not before the player is in the world: onGameplayReady synchronizes then.
+    if alive(player) and inWorld[player] then W.synchronize(player) end
+end
+function W.enterWorld(player,why)
+    local first=not inWorld[player]
+    inWorld[player]=true
+    if first then LightRP.log("armament: player %d in the world (%s): weapons synchronize",player,tostring(why)) end
+    attach(player)
+    local rt=W.runtime[player]
+    if rt and first and not rt.busy and alive(player) then W.synchronize(player) end
 end
 local function retire(player,reason)
     local rt=W.runtime[player]
@@ -592,17 +741,19 @@ local function retire(player,reason)
     for key,job in pairs(W.pending) do if job.runtime.player==player then W.pending[key]=nil end end
 end
 LightRP.module("armament",{
-    onDatabaseReady=function() W.loaded=true;LightRP.log("armament ready: serialized firearms, rounds as inventory items per ammunition type, native projection queue enabled");for _,id in ipairs(GetPlayers()) do attach(tonumber(id)) end end,
+    -- a resource restart: the players connected already are in the world (gameplayReady will not come again)
+    onDatabaseReady=function() W.loaded=true;LightRP.log("armament ready: serialized firearms, rounds as inventory items per ammunition type, native projection queue enabled");for _,id in ipairs(GetPlayers()) do inWorld[tonumber(id)]=true;attach(tonumber(id)) end end,
     onCharacterLoaded=function(player) retire(player,"Character changed.");attach(player) end,
     onCharacterActivated=function(player) retire(player,"Character changed.");attach(player) end,
-    onGameplayReady=function(player) attach(player);local rt=W.runtime[player];if rt and not rt.busy and alive(player) then W.synchronize(player) end end,
-    onDisconnected=function(player) retire(player,"Disconnected.");lastRequest[player]=nil end,
+    onGameplayReady=function(player) W.enterWorld(player,"gameplay ready") end,
+    onDisconnected=function(player) retire(player,"Disconnected.");lastRequest[player]=nil;inWorld[player]=nil end,
     onLifeState=function(player,phase)
         if phase~="alive" then
             retire(player,"Weapon projection waits for a living character.")
         else attach(player) end
     end,
-    onUiReady=function(player) attach(player);W.push(player) end,
+    -- the LightRP page comes up in the world: a second proof, should gameplayReady not come
+    onUiReady=function(player) W.enterWorld(player,"ui ready");W.push(player) end,
 })
 -- Puts away whatever is in the hands without changing the loadout: drawn Mantis Blades
 -- (sheathed), a pocket firearm, the bare fists. B and the wheel's top slot. With the
@@ -619,11 +770,12 @@ function W.holster(player)
         if done == false then return false, tostring(why) end
         return true
     end
-    if rt.busy then return false,"Your equipment is busy. Try again in a moment." end
+    if rt.busy then rt.queued={operation="holster",request="queued:holster"};return true end
     rt.busy=true;W.push(player)
+    traceStart(rt,"holster")
     CreateThread(function()
         local result,why=native(rt,"holster","holster")
-        if current(rt) then rt.busy=false;rt.error=result and nil or why;if result then rt.holstered=true end;W.push(player) end
+        if current(rt) then rt.busy=false;rt.error=result and nil or why;if result then rt.holstered=true end;traceEnd(rt,result,why);W.push(player);drain(rt) end
     end)
     return true
 end
@@ -637,36 +789,146 @@ RegisterNetEvent("op77_lightrp:armament:holster",function()
     W.holster(player)
 end)
 
-RegisterNetEvent(NET,function(p)
-    local player=tonumber(source)
+-- A wheel pick or a holster landing while the equipment is busy (an observe pass, a projection,
+-- a holster) waits for it instead of being refused; a newer one replaces it (latest wins).
+-- Refusals here were the "sometimes nothing happens" of the wheel (2026-11-05).
+drain=function(rt)
+    if not current(rt) or rt.busy or not rt.queued then return end
+    local q=rt.queued;rt.queued=nil
+    local s=W.states[rt.inventory]
+    if s then q.baseRevision=s.revision end -- a selection states the whole intent: the newest revision
+    lastRequest[rt.player]=nil
+    CreateThread(function() W.request(rt.player,q) end)
+end
+W.drain=drain
+-- The weapon already equipped, drawn again (after a holster, from the wheel): one native round trip.
+local function fastDraw(player,p)
+    local rt=W.runtime[player];local inv=Inv.player(player);local s=inv and W.states[inv.id]
+    if not current(rt) or rt.busy or not rt.ready or rt.quarantine or not s or s.right~=p.instanceId then return false end
+    if not (rt.projectedRecords and rt.projectedRecords[1]) or missionLoadout(player) or not alive(player) then return false end
+    rt.busy=true;W.push(player)
+    traceStart(rt,"draw")
+    CreateThread(function()
+        local active,why=native(rt,"setActive","setActive",1)
+        if not current(rt) then return end
+        rt.busy=false
+        if active then
+            rt.holstered=false;traceMark(rt,"drawn");traceEnd(rt,true)
+            TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=true,data={state=W.view(player)}})
+            W.push(player);drain(rt)
+        else
+            -- the slot no longer holds it (a death, a native reset): the full projection puts it back
+            traceEnd(rt,false,why)
+            rt.holstered=false
+            local ok,error=W.synchronize(player)
+            TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=ok==true,error=error,data={state=W.view(player)}})
+        end
+    end)
+    return true
+end
+function W.request(player,p)
     if not player or player<=0 or type(p)~="table" or type(p.request)~="string" or #p.request>96 or #p.request==0 then return end
     local operation=p.operation
     if type(operation)~="string" then return end
-    local at=now()
-    if lastRequest[player] and at-lastRequest[player]<.15 then TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=false,error="Please wait before the next equipment request."});return end
-    lastRequest[player]=at
+    -- "state" only reads (the wheel asks for it when it opens) and a wheel pick waits in the
+    -- latest-wins queue: neither counts against the spacing (a quick pick right after opening
+    -- the wheel was refused, 2026-11-05)
+    local picking=operation=="select" or operation=="holster"
+    if operation~="state" and not picking then
+        local at=now()
+        if lastRequest[player] and at-lastRequest[player]<.15 then TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=false,error="Please wait before the next equipment request."});return end
+        lastRequest[player]=at
+    end
     attach(player)
     local rt=W.runtime[player]
     local ok,error=true,nil
+    local pick=(operation=="select" and not (type(p.instanceId)=="string" and p.instanceId:match("^kit:"))) or operation=="holster"
+    if pick and current(rt) and rt.busy then
+        local replaced=rt.queued~=nil
+        rt.queued=p
+        TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=true,queued=true,data={state=W.view(player)}})
+        if not replaced then LightRP.log("armament: player %d %s queued behind a busy equipment",player,operation) end
+        return
+    end
     if operation=="state" then
         W.push(player)
     elseif operation=="sync" then ok,error=W.synchronize(player)
     elseif operation=="holster" then
         ok,error=W.holster(player)
+    elseif operation=="select" and p.unarmed==true and not missionLoadout(player) then
+        -- empty hands: the weapon goes back in its holster and stays equipped, so the wheel draws
+        -- it again in one round trip (it used to unequip it and clear the native slots)
+        ok,error=W.holster(player)
+    elseif operation=="select" and type(p.instanceId)=="string" and fastDraw(player,p) then
+        return
     elseif operation=="select" and type(p.instanceId)=="string" and p.instanceId:match("^kit:[12]$") then
         -- a mission kit weapon from the wheel
         if not (LightRP.missions and LightRP.missions.drawKit) then ok,error=false,"No mission kit."
         else ok,error=LightRP.missions.drawKit(player,tonumber(p.instanceId:sub(5))) end
     elseif operation=="equip" or operation=="unequip" or operation=="ammo" or operation=="select" then
+        traceStart(rt,operation)
         ok,error=beginMutation(player,p,function(accepted,why)
             if not current(rt) then return end
+            if not accepted then traceEnd(rt,false,why) end
             TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=accepted,error=why,data={state=W.view(player)}})
         end)
         if ok then return end -- final reply is sent only after the intent/box transaction settles
+        traceEnd(rt,false,error)
     else ok,error=false,"Unknown equipment operation." end
     if rt and not current(rt) then return end
     TriggerClientEvent(NET,player,{kind="response",request=p.request,ok=ok==true,error=error,data={state=W.view(player)}})
+end
+RegisterNetEvent(NET,function(p) W.request(tonumber(source),p) end)
+
+-- Staff and lab: drive a player's weapon from the console, the same path as the wheel.
+--   /lightrp.armtest <id> next      the next pocket weapon (cycles)
+--   /lightrp.armtest <id> <n>       the n-th pocket weapon of the wheel
+--   /lightrp.armtest <id> unarmed | holster | state
+-- Each request logs an "armament: trace" line (time to hand, native round trips).
+local armtestNext={}
+local armtest
+LightRP.command("lightrp.armtest",{restricted=true,usage="/lightrp.armtest <id> <next|n|unarmed|holster|state>"},function(source,args)
+    local ok,text=armtest(source,args)
+    LightRP.log("armtest: %s",tostring(text or (ok and "ok" or "usage")))
+    return ok,text
 end)
+armtest=function(source,args)
+    local player=tonumber(args[1]);local what=tostring(args[2] or "state")
+    if not player then return false end
+    attach(player)
+    local rt=W.runtime[player];local inv=Inv.player(player);local s=inv and W.states[inv.id]
+    if not current(rt) or not s then return false,"No armament runtime for that player." end
+    local list=W.view(player).arsenal or {}
+    if what=="state" then
+        local names={}
+        for i,a in ipairs(list) do names[#names+1]=("%d:%s%s"):format(i,tostring(a.label or a.name),a.instanceId==s.right and "*" or "") end
+        return true,("ready=%s busy=%s holstered=%s queued=%s · %s"):format(tostring(rt.ready),tostring(rt.busy),tostring(rt.holstered),tostring(rt.queued and rt.queued.operation or "-"),table.concat(names," "))
+    end
+    local p={request="armtest:"..tostring(now()),mutation="armtest:"..tostring(W.uuid()),baseRevision=s.revision}
+    if what=="die" then
+        local at=Open77.players.position(player)
+        local killed,why=Open77.players.kill(player,{cause="script",weapon="lightrp:armtest"})
+        if not killed then return false,"kill refused: "..tostring(why) end
+        CreateThread(function()
+            Wait(3000)
+            local ok,err=Open77.players.respawn(player,{position={x=at.x,y=at.y,z=at.z},heading=0,bucket=at.bucket or 0,health=1.0,graceMs=3000})
+            LightRP.log("armtest: respawn %s %s",tostring(ok),tostring(err or ""))
+        end)
+        return true,"killed "..player..", respawn in 3 s"
+    end
+    if what=="holster" then p.operation="holster"
+    elseif what=="unarmed" then p.operation="select";p.unarmed=true
+    else
+        local n=tonumber(what)
+        if what=="next" then n=((armtestNext[player] or 0)%math.max(1,#list))+1;armtestNext[player]=n end
+        local a=n and list[n]
+        if not a then return false,"No pocket weapon #"..tostring(what).." ("..#list.." in the pockets)." end
+        p.operation="select";p.instanceId=a.instanceId
+    end
+    lastRequest[player]=nil
+    W.request(player,p)
+    return true,("%s sent to %d"):format(p.operation..(p.instanceId and (" "..p.instanceId) or (p.unarmed and " unarmed" or "")),player)
+end
 -- Generic item use routes to the same transaction, already under Inv.use's lock.
 for name in pairs(C.boxes) do Inv.onUse(name,function(player,item)
     attach(player);local inv=Inv.player(player);local slot
