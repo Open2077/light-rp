@@ -176,3 +176,19 @@ RaceBuiltinCourses = {
         },
     },
 }
+
+-- The parkour race's course: Rooftop Run's surveyed route, coordinate for coordinate and in
+-- the same order (no point here is new; every one was walked on foot by its author). It is
+-- only marked `parkour`, which takes it to race.parkour and nowhere else.
+for _, course in ipairs(RaceBuiltinCourses) do
+    if course.id == "rooftop-run" then
+        RaceBuiltinCourses[#RaceBuiltinCourses + 1] = {
+            id = "rooftop-parkour", name = "Rooftop Parkour",
+            description = "Rooftop Run with double jump and dash, on foot.",
+            type = course.type, laps = course.laps, checkpointRadius = course.checkpointRadius,
+            vehicle = course.vehicle, revision = 1, parkour = true,
+            start = course.start, grid = course.grid, checkpoints = course.checkpoints,
+        }
+        break
+    end
+end

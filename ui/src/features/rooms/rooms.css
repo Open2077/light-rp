@@ -1,0 +1,18 @@
+/* The hosting menu (RoomsDialog.tsx): the Activities panel's frame and rows
+   (activities.css); only what a room adds. Tokens only. */
+.rooms__pad { padding: 0 var(--sp-8); }
+.rooms .activity-row { width: 100%; }
+.rooms .activity-row:disabled { cursor: default; }
+.rooms .activity-row:not(.is-closed):disabled { opacity: .7; }
+.rooms__code { display: flex; align-items: flex-end; gap: var(--sp-5); max-width: 420px; }
+.rooms__code .o77-input { flex: 1; }
+.rooms__code .o77-input__control { font-family: var(--font-mono); letter-spacing: .24em; text-transform: uppercase; }
+.rooms__private { margin-top: var(--sp-7); }
+.rooms__slots { margin-left: auto; font: var(--fw-bold) var(--fs-body) var(--font-mono); color: var(--text-hi); }
+.rooms__codeline { display: flex; align-items: center; gap: var(--sp-4); margin: var(--sp-5) 0 0; font: var(--fs-tag) var(--font-mono); letter-spacing: var(--ls-label); color: var(--text-dim); }
+.rooms__codeline > svg { color: var(--accent); }
+.rooms__codeline b { padding: var(--sp-1) var(--sp-4); background: var(--accent-quiet-strong); color: var(--accent); font: var(--fw-bold) var(--fs-body) var(--font-mono); letter-spacing: .24em; user-select: text; }
+.rooms__member { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); }
+.rooms__kick { display: grid; place-items: center; width: 30px; padding: 0; border: 0; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--line-neutral);
+  clip-path: var(--clip-chamfer-sm); color: var(--text-dim) !important; transition: background .12s, color .12s; }
+.rooms__kick:not(:disabled):hover, .rooms__kick:focus-visible { background: var(--surface-panel); color: var(--o77-red) !important; }

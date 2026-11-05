@@ -81,6 +81,8 @@
 --   `lobby.fillAfterMs` the leader is offered a bot fill (unranked) or keeps waiting.
 --   A friendly crew match (action activities.lobby: friendly / move / balance / bots /
 --   start / cancel) is set up by the crew leader in the panel and is always unranked.
+--   A room (activity_rooms.lua: the NPC at The Crossing, action activities.rooms) is a
+--   friendly with no crew requirement: same launch (A.launchFriendly), always unranked.
 --   A.isRanked(entry | match | playerId), export activityRanked(playerId): the flag.
 --   A.result decides once per result: unranked (the entry's flag, staff bot mode,
 --   result.test / result.unranked, a PvP result with stats.bots or stats.vsAi) sets
@@ -613,6 +615,7 @@ function A.register(def)
     registry[a.id] = a
     if not tops[a.id] then CreateThread(function() refreshTop(a.id) end) end
     dirty()
+    if A.roomsListed then A.roomsListed() end
     LightRP.log("activities: %s registered by %s (%s, caps %s)", a.id, a.resource, a.kind,
         table.concat((function() local t = {}; for _, k in ipairs(CAPS) do if a.caps[k] then t[#t + 1] = k end end; return t end)(), ",") )
     return true
@@ -828,6 +831,7 @@ local function forget(resource, since, reason)
         if a and a.resource == resource and a.generation <= since then
             registry[aid], tops[aid] = nil, nil
             if A.queueForget then A.queueForget(aid) end
+            if A.roomsForget then A.roomsForget(aid) end
             LightRP.log("activities: %s forgotten (%s %s)", aid, resource, tostring(reason))
         elseif a then kept[#kept + 1] = aid end
     end
@@ -904,6 +908,7 @@ local function modeTakesBots(a, mode)
     return true
 end
 local function offersFriendly(a) return a ~= nil and not a.pve and lobbyOf(a).friendly == true and a.maxPlayers >= 2 end
+A.offersFriendly = offersFriendly
 local function fillAfterMs() return math.max(0, math.floor(tonumber(lobbyCfg().fillAfterMs) or 120000)) end
 -- "teams": sides of a fixed size (one size per mode allowed); "split": two halves of
 -- any size (turf war); "ffa": everyone for themselves (races, Combat Zone, Most Wanted).
@@ -912,6 +917,7 @@ local function shapeOf(l)
     if n and n >= 2 then return l.teamSize ~= nil and "teams" or "split", math.floor(n) end
     return "ffa", 1
 end
+A.shapeOf = shapeOf
 local function teamSizeOf(l, mode)
     if type(l.teamSize) == "table" then return mode ~= nil and tonumber(l.teamSize[mode]) or nil end
     return tonumber(l.teamSize)
@@ -1483,8 +1489,8 @@ local function balance(a, l, mode, members)
 end
 
 -- Bots in a friendly: the activity (and the mode) must take them, and the leader
--- turned them on.
-local function friendlyCanBots(a, f) return offersBots(a) and modeTakesBots(a, f.mode) end
+-- turned them on. A room (`noBots`) plays its humans only.
+local function friendlyCanBots(a, f) return not f.noBots and offersBots(a) and modeTakesBots(a, f.mode) end
 local function friendlyHasBots(a, f) return f.bots == true and friendlyCanBots(a, f) end
 
 -- The bots of a friendly: per team (team shapes) or AI opponents (free-for-all).
@@ -1527,6 +1533,12 @@ local function friendlyIssue(a, l, f)
         if humans < least then return string.format("%s needs %d players%s.", a.label, least, orBots) end
     end
     return nil
+end
+
+function A.friendlyIssueOf(f)
+    local a = registry[f.activity]
+    if not a then return "That activity is not available." end
+    return friendlyIssue(a, lobbyOf(a), f)
 end
 
 -- The set-up follows the crew: a member who left is dropped, a new one waits on the
@@ -1594,9 +1606,8 @@ end
 -- `to`: a team index (1, 2...) or 0 for the bench; without it, a cycle: team 1 ->
 -- team 2 -> ... -> bench -> team 1. A full team (fixed size) swaps: its last player
 -- takes the moved player's place. Free-for-all: in <-> bench.
-function A.friendlyMove(id, target, to)
-    local f, why = ownFriendly(id)
-    if not f then return false, why end
+-- `f.sideMax`: a room's side limit (a split shape of a friendly has none).
+function A.moveInSetup(f, target, to)
     target = pid(target)
     local a, l = registry[f.activity], lobbyOf(registry[f.activity])
     if not f.teams then
@@ -1606,7 +1617,6 @@ function A.friendlyMove(id, target, to)
             if #f.players >= a.maxPlayers then f.bench[#f.bench + 1] = table.remove(f.players) end
             f.players[#f.players + 1] = target
         else return false, "That player is not in the set-up." end
-        touchCrew(id)
         return true
     end
     local from, index
@@ -1624,7 +1634,7 @@ function A.friendlyMove(id, target, to)
     else
         to = from == 0 and 1 or (from < n and from + 1 or 0)
     end
-    local size = shapeOf(l) == "teams" and teamSizeOf(l, f.mode) or nil
+    local size = f.sideMax or (shapeOf(l) == "teams" and teamSizeOf(l, f.mode) or nil)
     local source = from == 0 and f.bench or f.teams[from]
     table.remove(source, index)
     if to == 0 then
@@ -1634,6 +1644,14 @@ function A.friendlyMove(id, target, to)
         if size and #dest >= size then table.insert(source, index, table.remove(dest)) end
         dest[#dest + 1] = target
     end
+    return true
+end
+
+function A.friendlyMove(id, target, to)
+    local f, why = ownFriendly(id)
+    if not f then return false, why end
+    local ok, refused = A.moveInSetup(f, target, to)
+    if not ok then return false, refused end
     touchCrew(id)
     return true
 end
@@ -1666,10 +1684,13 @@ function A.friendlyCancel(id)
     return true, "Friendly cancelled."
 end
 
-function A.friendlyStart(id)
-    local f, why = ownFriendly(id)
-    if not f then return false, why end
+-- Starts a set-up led by `id`: a crew's friendly, or a room (activity_rooms.lua, which
+-- passes opts.stuck, what the host may do about a player who cannot play). Every player
+-- is re-checked here; nothing starts unless all of them can. true, text | false, reason
+function A.launchFriendly(id, f, opts)
+    opts = opts or {}
     local a = registry[f.activity]
+    if not a then return false, "That activity is not available." end
     local l = lobbyOf(a)
     local issue = friendlyIssue(a, l, f)
     if issue then return false, issue end
@@ -1679,7 +1700,7 @@ function A.friendlyStart(id)
         local ok, reason = check(p, a.id)
         if not ok then
             return false, (p == id and "You cannot play: " or (displayName(p) .. " cannot play: ")) .. lowerFirst(reason)
-                .. (p == id and "" or " Bench them or wait.")
+                .. (p == id and "" or (opts.stuck or " Bench them or wait."))
         end
     end
     withdraw(players)
@@ -1687,10 +1708,9 @@ function A.friendlyStart(id)
     local teams
     if f.teams then teams = {}; for i, team in ipairs(f.teams) do teams[i] = copy(team) end end
     if not startMatch(a, players, { friendly = true, teams = teams, bots = bots, enemies = enemies, mode = f.mode,
-            options = {}, from = "friendly", lead = id }) then
+            options = {}, from = opts.from or "friendly", lead = id }) then
         return false, a.label .. " did not answer. Try again in a moment."
     end
-    friendlies[id] = nil
     for _, p in ipairs(players) do
         if p ~= id then
             local side
@@ -1704,8 +1724,19 @@ function A.friendlyStart(id)
         LightRP.notice(p, { kind = "info", title = "FRIENDLY MATCH", durationMs = 6000,
             body = displayName(id) .. " started a friendly " .. a.label .. ". You sit this one out." })
     end
-    touchCrew(id)
+    -- whoever goes in leaves a set-up of their own behind, as a join does (a room's host
+    -- may lead a crew with one)
+    if friendlies[id] then friendlies[id] = nil; touchCrew(id) end
+    for _, p in ipairs(players) do
+        if friendlies[p] then friendlies[p] = nil; touchCrew(p) end
+    end
     return true, "Friendly " .. a.label .. " starting · unranked."
+end
+
+function A.friendlyStart(id)
+    local f, why = ownFriendly(id)
+    if not f then return false, why end
+    return A.launchFriendly(id, f)
 end
 
 -- The set-up as the crew's panels show it (leader: editable; members: read only).
@@ -1984,6 +2015,10 @@ function A.requestLeave(id)
     end
     if returning[id] then return false, "You are already on your way back." end
     if internalOwner(id) == "missions" then return false, "You are on a mission: /mission leave abandons it." end
+    if A.roomLeave then
+        local left, text = A.roomLeave(id)
+        if left then return true, text end
+    end
     return false, "You are not in an activity."
 end
 

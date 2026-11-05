@@ -14,7 +14,8 @@ local resultFor = nil      -- instance:run whose result card was pushed
 local hudShown = false     -- the activity HUD currently shows ours
 local keys = {}
 
-local LABEL = { trial = "Time Trial", grid = "Street Race", foot = "Rooftop Race", pve = "Street Race vs AI" }
+local LABEL = { trial = "Time Trial", grid = "Street Race", foot = "Rooftop Race", pve = "Street Race vs AI",
+    parkour = "Parkour Race" }
 -- The Activities panel lives in Light RP: /race opens it through Light RP's own
 -- validated UI action (server/modules/activities.lua, `activities.control`).
 local CORE_ACTION = "op77_lightrp:action"

@@ -26,6 +26,8 @@ local function log(text) print("[race:editor] " .. tostring(text)) end
 local MESSAGES = {
     name_too_short = "The name needs at least 3 characters.",
     invalid_type = "Type is circuit or sprint.",
+    invalid_parkour = "Parkour is on or off.",
+    parkour_on_foot = "A parkour course is on foot.",
     invalid_laps = ("Laps go from %d to %d."):format(Limits.minimumLaps, Limits.maximumLaps),
     invalid_checkpoint_radius = ("The radius goes from %.0f to %.0f m."):format(Limits.minimumRadius, Limits.maximumRadius),
     invalid_vehicle = "Unknown vehicle. /race.editor vehicles lists them.",
@@ -113,6 +115,9 @@ function Ed.open(playerId, from)
     local draft
     if from == "--foot" then
         draft = blank(true)
+    elseif from == "--parkour" then
+        draft = blank(true)
+        draft.name, draft.parkour = "New parkour course", true
     elseif type(from) == "string" and from ~= "" then
         local course = RaceCourses.get(from)
         if course == nil then return false, "course_not_found" end
@@ -187,6 +192,12 @@ function Ed.action(playerId, action, value, heading)
         draft.type = kind
         if kind == "sprint" then draft.laps = 1 end
         message = "Type: " .. kind .. "."
+    elseif action == "parkour" then
+        local switch = tostring(value or ""):lower()
+        if switch ~= "on" and switch ~= "off" then return false, "invalid_parkour" end
+        if switch == "on" and not foot then return false, "parkour_on_foot" end
+        draft.parkour = switch == "on" or nil
+        message = "Parkour course: " .. switch .. "."
     elseif action == "radius" then
         local radius = S.finite(value)
         if radius == nil or radius < Limits.minimumRadius or radius > Limits.maximumRadius then return false, "invalid_checkpoint_radius" end

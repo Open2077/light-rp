@@ -29,6 +29,7 @@ import { ManekiTool } from "@/features/maneki/ManekiTool";
 import { ManekiCollection } from "@/features/maneki/ManekiCollection";
 import { MissionDialog } from "@/features/missions/MissionDialog";
 import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
+import { RoomsDialog } from "@/features/rooms/RoomsDialog";
 import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
 import { RecapDialog } from "@/features/recap/RecapDialog";
 import { GuideDialog } from "@/features/guide/GuideDialog";
@@ -148,6 +149,7 @@ export function App() {
       <ErrorBoundary name="dealership"><DealershipDialog /></ErrorBoundary>
       <ErrorBoundary name="mission"><MissionDialog /></ErrorBoundary>
       <ErrorBoundary name="activities"><ActivitiesDialog /></ErrorBoundary>
+      <ErrorBoundary name="rooms"><RoomsDialog /></ErrorBoundary>
       <ErrorBoundary name="halloffame"><HallOfFameDialog /></ErrorBoundary>
       <ErrorBoundary name="recap"><RecapDialog /></ErrorBoundary>
       <ErrorBoundary name="guide"><GuideDialog /></ErrorBoundary>

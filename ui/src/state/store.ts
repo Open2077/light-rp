@@ -1,5 +1,6 @@
 import { normalizeMission, normalizeParty, normalizeQueue } from "@/features/missions/model";
 import { normalizeActivities } from "@/features/activities/model";
+import { normalizeRooms } from "@/features/rooms/model";
 import { normalizeDailies, normalizeDailiesDialog, normalizeTitles } from "@/features/dailies/model";
 import { normalizeQueue as normalizeQueuePanel } from "@/features/queue/model";
 import { create } from "zustand";
@@ -142,6 +143,7 @@ export const useStore = create<Store>((set) => ({
     ...("missionQueue" in patch ? { missionQueue: normalizeQueue(patch.missionQueue) } : {}),
     ...("queue" in patch ? { queue: normalizeQueuePanel(patch.queue) } : {}),
     ...("activities" in patch ? { activities: normalizeActivities(patch.activities) } : {}),
+    ...("rooms" in patch ? { rooms: normalizeRooms(patch.rooms) } : {}),
     ...("dailies" in patch ? { dailies: normalizeDailies(patch.dailies) } : {}),
     ...("titles" in patch ? { titles: normalizeTitles(patch.titles) } : {}),
     ...(patch.character ? { character: { ...patch.character,

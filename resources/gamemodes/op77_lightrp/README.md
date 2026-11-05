@@ -699,7 +699,7 @@ un client ne peut pas les lever) :
 Quand un fournisseur s'arrête, ses activités sont oubliées et ses joueurs ramenés ; lors d'un
 rechargement, ce que la nouvelle VM a déjà réenregistré est conservé.
 
-Buckets : arène `4100000–4199999`, course `4200000–4299999`, poursuite `4300000–4399999`
+Buckets : arène `4100000–4199999`, course `4200000–4299999`, poursuite `4300000–4399999`, jeux `4500000–4599999`
 (ville 0, hall 620000, pratique 700000+id, cabines 710000+id, logements 1000000+id, missions
 3000000+n). Le carburant ignore les véhicules de ces buckets ; clés et fourrière ne concernent
 que les véhicules du système RP (personnels, location, `/car`), jamais ceux qu'une activité crée.
@@ -802,12 +802,47 @@ Le panneau envoie l'action `activities.lobby` (`fill`, `friendly`, `move`, `bala
 `cancel`, `start`). Un ticket expire après 15 min, un match formé qui n'a pas démarré après 2 min.
 `/lightrp.bots on|off` (staff) reste disponible pour tester seul : rien n'est enregistré.
 
+### Salons de jeu (`server/modules/activity_rooms.lua`, `ui/src/features/rooms/`)
+
+Un joueur héberge une partie auprès du **PNJ des salons** de The Crossing (terminal
+`kind = "rooms"`, *The Croupier*, avec son propre `host` et sa propre épingle), ou par `/room`
+de n'importe où : il choisit le jeu, la carte, la taille des camps, salon public ou privé (un code
+de 5 caractères) ; les autres entrent ; l'hôte lance. **Un salon est un match amical sans crew** :
+même forme que la mise en place d'un amical, même lancement (`A.launchFriendly`, donc `startMatch`
+avec `friendly = true`). Le match, le récapitulatif et le retour sont ceux du noyau, et rien n'est
+enregistré (ni statistique, ni Hall of Fame, ni paie, ni réputation). Tout vit en mémoire.
+
+- **Ce qui s'héberge** : `rooms = true` dans `lobby.activities`, activité enregistrée, match amical
+  possible, forme sans `teamSize` fixe. Le menu ne montre que l'intersection de `rooms.games` et de
+  la liste `activities` : un fournisseur absent disparaît. Sans `modes` (`race.grid`,
+  `race.foot`), le fournisseur fait tourner ses parcours.
+- **Camps** : `teams = n` donne `n` camps d'au plus `size` joueurs, choisi par l'hôte entre
+  `ceil(min / n)` et `floor(max / n)` ; sinon tout le monde dans une liste de `size` au plus. Un
+  joueur qui entre rejoint le camp le plus petit. Pas de banc ni de bots. *Prop hunt* est sans camps
+  : le fournisseur tire ses chasseurs à chaque manche.
+- **Fin d'un salon** : l'hôte part, la main passe au membre suivant, le dernier ferme. Une
+  déconnexion, un changement de personnage, une autre activité ou une mission (vu toutes les 5 s)
+  sortent le joueur. `/leave` aussi. Dix minutes sans changement (`rooms.idleMs`) ferment le salon,
+  tout comme l'arrêt du fournisseur (`A.roomsForget`) et le lancement lui-même. `rooms.maxRooms` (24)
+  borne les salons du serveur, privés compris.
+- **Lancer** : réservé à l'hôte, chaque membre repasse `A.check`, et un seul membre refusé refuse
+  tout. Il faut au moins deux joueurs et aucun camp vide.
+- **Action** `activities.rooms` (`create`, `join`, `leave`, `kick`, `move`, `settings`, `start`,
+  `open`, `close`) : entrée hostile, tout est recherché côté serveur. Un exclu ne revient pas
+  dans ce salon. Un salon privé ne se trouve que par son code. La page espace ses actions de
+  260 ms (limite de 250 ms par type).
+- **État** : clé `rooms`, poussée au changement seulement (regroupée sur `rooms.pushMs`), aux membres,
+  et aux menus ouverts pour un salon public. Les libellés et cartes restent dans `activities`.
+
+Aperçu sans jeu : `npm run dev` puis `?registered=1&dialog=rooms` (`&room=host|member|private`).
+Tests : `lua tests/activity_rooms_test.lua`, `tests/rooms-model.test.ts`.
+
 ### Mise en place de The Crossing (en jeu)
 
 Les positions des terminaux sont des décalages plausibles depuis le point d'arrivée
 (`server/config/activities.lua`, `hub.terminals`, marqués `-- survey in game`). Sur place :
 `/lightrp.survey board`, coller la ligne en `position = { ... }` du terminal, idem pour
-`contracts`, puis `ensure op77_lightrp`. La zone de sécurité ne peut pas venir de la config
+`contracts` et `rooms` (le PNJ des salons, encore à son décalage par défaut), puis `ensure op77_lightrp`. La zone de sécurité ne peut pas venir de la config
 (ce sont des enregistrements audités en base) : **/admin → Safe zones**, nouvelle zone centrée
 sur l'esplanade (`-756.6, 777.3`), rayon d'environ 30 m, *blockShoot*, *blockMelee* et
 *blockGrenades* cochés, puis publier.

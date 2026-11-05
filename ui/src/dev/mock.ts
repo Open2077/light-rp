@@ -19,6 +19,7 @@ import { jobFixture } from "./jobFixture";
 import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
 import { activitiesMock, missionMock } from "./missionFixture";
+import { roomsMock } from "./roomsFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
@@ -54,6 +55,7 @@ export function installMockBridge(): void {
   const garage = garageFixture();
   const mission = missionMock(params, (n, p) => fire(n, p));
   const activities = activitiesMock(params, (n, p) => fire(n, p)); // ?dialog=activities (&lobby=search|widened|offer|match|friendly)
+  const rooms = roomsMock(params, (n, p) => fire(n, p)); // ?dialog=rooms (&room=host|member|private)
   const dealership = dealershipFixture();
   const step = (params.get("step") as CharacterState["step"] | null) ?? (registered ? "done" : "identity");
   const character: CharacterState = {
@@ -222,6 +224,7 @@ export function installMockBridge(): void {
           dailies.boot();
           maneki.boot();
           if (params.get("dialog") === "activities") activities.boot();
+          if (params.get("dialog") === "rooms") rooms.boot();
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
           if (params.get("mission") === "1") mission.running();
@@ -287,6 +290,7 @@ export function installMockBridge(): void {
         const action = payload as UiAction;
         if (mission.handle(action)) return;
         if (params.get("dialog") === "activities" && activities.handle(action)) return;
+        if (params.get("dialog") === "rooms" && rooms.handle(action)) return;
         if (hallOfFame.handle(action)) return;
         if (recap.handle(action)) return;
         if (guide.handle(action)) return;

@@ -40,7 +40,8 @@ function A.mine(activityId) return type(activityId) == "string" and byId[activit
 -- The time trial and the race vs AI offer their courses as join choices in Light RP's
 -- Activities panel (at most 8, handed back as options.course); street and rooftop races
 -- rotate theirs. /timetrial <course> and /race.join pve <course> reach every course.
-local function choosesCourse(def) return def.mode == "trial" or def.mode == "pve" end
+-- The parkour race offers its courses too: its heat runs the queue's first choice.
+local function choosesCourse(def) return def.mode == "trial" or def.mode == "pve" or def.mode == "parkour" end
 A.choosesCourse = choosesCourse
 
 local function courseChoices(def)
@@ -65,7 +66,7 @@ end
 -- this server's natives let that kind of AI racer drive (RaceBots.capable). The race vs
 -- AI has its AI built in; the time trial is solo.
 local function botFill(def)
-    if def.queued ~= true or type(RaceBots) ~= "table" then return nil end
+    if def.queued ~= true or def.noBots or type(RaceBots) ~= "table" then return nil end
     return RaceBots.capable(def.mode == "foot") == true or nil
 end
 

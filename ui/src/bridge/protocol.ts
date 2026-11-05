@@ -167,6 +167,8 @@ export interface UiState {
 
   /** Arena, races, chases, events and The Crossing (server/modules/activities.lua A.view). */
   activities?: ActivitiesState;
+  /** The game rooms (server/modules/activity_rooms.lua R.view). */
+  rooms?: RoomsState;
   /** The Dogtown PvP zone (server/modules/dogtown.lua; features/dogtown). */
   dogtown?: DogtownState;
   /** A world boss whose zone you are in, or that you fought (server/modules/world_bosses.lua). */
@@ -327,6 +329,32 @@ export interface ActivitiesState {
   crewLeader?: string;
 }
 export type ActivitiesTab = "activities" | "contracts" | "dailies" | "crew";
+
+/* ── Game rooms (server/modules/activity_rooms.lua): a friendly with no crew requirement ── */
+/** What can be hosted now. Labels, maps and limits come from the `activities` list.
+ *  `least` / `most`: the range of `size`, per side with `teams`, the whole room without. */
+export interface RoomGame { id: string; teams?: number; least: number; most: number }
+/** A public room, as the browse list shows it. */
+export interface RoomListing {
+  id: number; activity: string; label: string; mode?: string; modeLabel?: string; host: string; count: number; max: number; teams?: number;
+}
+export interface RoomPlayer { id: number; name: string; host?: boolean }
+/** The room this player is in. `code`: a private room's. `mine`: this player hosts. */
+export interface RoomView {
+  id: number; activity: string; label: string; mode?: string; modeLabel?: string; host: string; count: number; max: number;
+  private: boolean; code?: string; mine: boolean; size: number; least?: number; most?: number;
+  /** Why it cannot start yet. */
+  issue?: string;
+  teams?: RoomPlayer[][]; players?: RoomPlayer[];
+}
+export interface RoomsState {
+  enabled: boolean;
+  /** Free to host or join, else the reason in one sentence. */
+  eligible: boolean; reason?: string;
+  /** The server's room limit is reached. */
+  full: boolean;
+  games: RoomGame[]; list: RoomListing[]; room: false | RoomView;
+}
 
 /** The Hall of Fame at The Crossing (server/modules/halloffame.lua): one tab per
  *  dialog payload, from the server cache. Names are character names only. */
@@ -683,7 +711,7 @@ export interface FuelDialogPayload {
   money: { currency: string; cash: number; bank: number };
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
-export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload
+export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | { kind: "rooms" } | HallOfFameDialogPayload | GuideDialogPayload
   | RecapDialogPayload | DailiesDialogPayload | ManekiDialogPayload;
 
 /** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
@@ -737,6 +765,13 @@ export type UiAction =
   | { type: "activities.lobby"; operation: "friendly"; id: string; mode?: string; bots?: boolean }
   | { type: "activities.lobby"; operation: "move"; target: number; team?: number }
   | { type: "activities.lobby"; operation: "bots"; on: boolean }
+  | { type: "activities.rooms"; operation: "open" | "leave" | "start" }
+  | { type: "activities.rooms.close" }
+  | { type: "activities.rooms"; operation: "create"; id: string; mode?: string; size?: number; private?: boolean }
+  | { type: "activities.rooms"; operation: "join"; id?: number; code?: string }
+  | { type: "activities.rooms"; operation: "kick"; target: number }
+  | { type: "activities.rooms"; operation: "move"; target: number; team: number }
+  | { type: "activities.rooms"; operation: "settings"; mode?: string; size?: number; private?: boolean }
   | { type: "halloffame.open" | "halloffame.tab"; tab?: HallOfFameTab; from?: string }
   | { type: "halloffame.refresh"; tab?: HallOfFameTab; key?: string }
   | { type: "halloffame.board"; key: string; tab: HallOfFameTab }

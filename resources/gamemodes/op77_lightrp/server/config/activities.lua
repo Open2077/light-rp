@@ -4,13 +4,14 @@
 -- Activity providers (op77_arena, op77_race, op77_chase, op77_turf...) run
 -- their own instances in their own routing buckets:
 --   arena 4100000-4199999 · race 4200000-4299999 · chase 4300000-4399999 · turf 4400000-4499999
+--   games 4500000-4599999
 -- (city 0, arrival hall 620000, tutorial practice 700000+id, fitting rooms
 -- 710000+id, dwellings 1000000+id, missions 3000000+n).
 LightRpActivities = {
     enabled = true,
     -- The providers' bucket ranges. Vehicles there are the activity's own: no RP
     -- fuel burns in them (server/modules/fuel.lua).
-    buckets = { { 4100000, 4199999 }, { 4200000, 4299999 }, { 4300000, 4399999 }, { 4400000, 4499999 } },
+    buckets = { { 4100000, 4199999 }, { 4200000, 4299999 }, { 4300000, 4399999 }, { 4400000, 4499999 }, { 4500000, 4599999 } },
 
     -- Eligibility: no activity within this long of taking damage.
     damageCooldownMs = 60000,
@@ -109,21 +110,45 @@ LightRpActivities = {
         --   queue = true    PvP: the ranked search is the core's queue (matchmaking
         --                   above); without it the provider's own queue takes it.
         --   brackets = false  that queue ignores the cyberware brackets (races).
+        --   rooms = true    the hosting menu offers it (server/modules/activity_rooms.lua):
+        --                   needs friendly = true, and a shape without a fixed teamSize.
         activities = {
-            ["arena.ffa"] = { bots = true, friendly = true, fillTo = 6 },   -- drop-in: ranked = no bots
+            ["arena.ffa"] = { bots = true, friendly = true, fillTo = 6, rooms = true },   -- drop-in: ranked = no bots
             ["arena.blade"] = { bots = true, friendly = true, fillTo = 6 }, -- drop-in
             ["arena.duel"] = { bots = true, friendly = true, queue = true, teams = 2, teamSize = 1 },
             ["arena.teams"] = { bots = true, friendly = true, queue = true, teams = 2, teamSize = { ["2v2"] = 2, ["3v3"] = 3 } },
             ["arena.pve"] = { allies = true },
-            ["race.grid"] = { bots = true, friendly = true, queue = true, brackets = false, fillTo = 6 },
-            ["race.foot"] = { bots = true, friendly = true, queue = true, brackets = false, fillTo = 6 },
+            ["race.grid"] = { bots = true, friendly = true, queue = true, brackets = false, fillTo = 6, rooms = true },
+            ["race.foot"] = { bots = true, friendly = true, queue = true, brackets = false, fillTo = 6, rooms = true },
             -- op77_chase is not listed: its modes are real players only or the game's own
             -- NCPD (owner, 2026-11-03), and it plays no core match yet. List a chase
             -- mode here once the provider takes options.match / declares botFill.
             -- ranked turf war stays the provider's own queue (a gang war, one at a time)
             ["turf.war"] = { bots = true, friendly = true, teams = 2, fillTo = 6 },
             ["turf.pve"] = { allies = true },
+            -- op77_games and the parkour race: hosted from the rooms NPC, unranked. Prop
+            -- hunt draws its own hunters every round (a share of the players, as a
+            -- free-for-all shape): the host does not pick them.
+            ["games.tdm"] = { friendly = true, teams = 2, rooms = true },
+            ["games.ctf"] = { friendly = true, teams = 2, rooms = true },
+            ["games.control"] = { friendly = true, teams = 2, rooms = true },
+            ["games.gungame"] = { friendly = true, rooms = true },
+            ["games.redlight"] = { friendly = true, rooms = true },
+            ["games.prophunt"] = { friendly = true, rooms = true },
+            ["race.parkour"] = { friendly = true, rooms = true },
         },
+    },
+
+    -- Rooms (server/modules/activity_rooms.lua): a player hosts a friendly at the NPC of a
+    -- `kind = "rooms"` terminal, no crew needed; lobby `rooms = true` above lists what they
+    -- may host. Memory only: a restart closes every room.
+    rooms = {
+        enabled = true,
+        maxRooms = 24,          -- on this server, private ones included (the list stays small)
+        idleMs = 10 * 60000,    -- a room nobody touched for this long closes
+        codeLength = 5,         -- a private room's join code
+        pushMs = 150,           -- changes within this long go out as one push
+        joinNoticeMs = 60000,   -- one player's comings and goings: the host hears once per this long
     },
 
     -- Choices the Activities panel offers when joining an activity whose provider
@@ -161,8 +186,24 @@ LightRpActivities = {
             { id = "board", kind = "activities", label = "Adam Smasher",
                 prompt = "Open activities & contracts", offset = { forward = 5.0, right = 0.0 },
                 position = { x = -783.885, y = 787.366, z = 22.580 }, heading = 240.96, npc = true },
+            -- The rooms NPC: not surveyed yet, about 4.5 m from Adam Smasher along the hub's
+            -- right (survey in game, then `position`). `host` and `blip` are his own.
+            { id = "rooms", kind = "rooms", label = "The Croupier",
+                prompt = "Host or join a game", offset = { forward = 27.0, right = -4.5, up = 0.13 }, heading = 240.96, npc = true,
+                host = {
+                    name = "The Croupier",
+                    candidates = {   -- the casino's dealers (shared/casino_blackjack.lua), same order
+                        { record = "Character.sts_wat_kab_07_croupiers" },
+                        { record = "Character.mws_hey_07_zetatech_executive" },
+                        { record = "Character.sts_hey_rey_06_receptionist" },
+                    },
+                    streamingRadius = 150.0,
+                    promptHeight = 1.1,
+                },
+                blip = { title = "Game Rooms", description = "The Crossing · host a game, private or public",
+                    mapCategory = "mission", mapColor = "#FFCC00", map = "crossing" } },
         },
-        -- Who stands at a terminal with `npc = true` (the owner's call, 2026-11-03: "something
+        -- Who stands at a terminal with `npc = true` and no `host` of its own (the owner's call, 2026-11-03: "something
         -- badass"). Records tried in order (Open77.npcs.create): the boss record, the
         -- generic Smasher, then a MaxTac heavy if the boss body is refused. Like Johnny
         -- (server/modules/guide.lua): AI off, invulnerable, no combat, perception or voice.

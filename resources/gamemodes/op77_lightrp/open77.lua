@@ -152,6 +152,7 @@ server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
 server_script "server/modules/activity_queue.lua"  -- the queue panel: one queue per player (core, providers, mission boards), leave
 server_script "server/modules/activity_pay.lua"    -- eddies for activity results (PvP ranked, PvE), caps and anti-farm
+server_script "server/modules/activity_rooms.lua"  -- rooms: a player hosts an unranked match at The Crossing's rooms NPC
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
 server_script "server/config/halloffame.lua"
 server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards

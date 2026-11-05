@@ -10,6 +10,7 @@ Freeroam:
 | Street Race | `race.grid` | 2-8 | A grid of identical loaner cars |
 | Rooftop Race | `race.foot` | 2-8 | On foot across the rooftops |
 | Street Race vs AI | `race.pve` | 1-8 | Solo or with a crew, AI drivers fill the grid; course chosen like the trial |
+| Parkour Race | `race.parkour` | 2-8 | A rooftop race on parkour courses, double jump and dash for the race only; unranked; course chosen in the panel |
 
 ## How it works
 
@@ -50,7 +51,8 @@ Freeroam:
   flag; runners are teleported to the line and frozen until GO. God mode is on for the
   race and restored after.
 - **Nothing is handed out.** No Athlete legs, Dash, Overdrive, implant or weapon. Cars
-  are loaners, never a personal vehicle, removed at the end.
+  are loaners, never a personal vehicle, removed at the end. (`race.parkour` alone lends
+  two abilities for its race: see *Parkour race*.)
 - **Checkpoints** are validated on the server only (100 ms tick, swept cylinder test,
   4 m height tolerance, in order). Drivers who die are out (revived, then returned);
   runners who die are revived at their last checkpoint with the clock running.
@@ -74,7 +76,7 @@ Freeroam:
 |---|---|
 | `/race` | Opens Light RP's Activities panel, where the races are listed and joined |
 | `/timetrial [course]` | Start a time trial |
-| `/race.join trial\|street\|rooftop\|pve [course]` | Join (`pve`, also `ai` / `vsai`: Street Race vs AI) |
+| `/race.join trial\|street\|rooftop\|pve\|parkour [course]` | Join (`pve`, also `ai` / `vsai`: Street Race vs AI) |
 | `/race.leave` | Leave the race (forfeit) or the queue |
 | `/race.restart` | Time trial: go again |
 | `/race.status` | Server state |
@@ -175,14 +177,52 @@ above) fill the grid up to `pve.fillTo` racers in total (6, within the course's 
   12 m instead of 8, and validates checkpoints 1.5 m wider). `health` has nothing to
   scale in a race (invulnerable AI, no combat).
 
+## Parkour race
+
+`race.parkour` is `race.foot`'s engine, rules, checkpoints, last-checkpoint key and god
+mode on courses marked `parkour`. Everything else about it is in `server/parkour.lua`,
+which no other race reaches.
+
+- **Double jump** is a temporary cyberware lease (`Open77.cyberware.lease`, the `legs`
+  slot), asked once the runner stands on the line, in the race's bucket: a bucket change
+  ends a lease. `current` keeps the paid record throughout. The countdown waits for the
+  leases, `parkour.readyWaitSeconds` (8 s) at most.
+- **Dash** is a session grant of this resource (`Open77.dash.grant`), given at GO and
+  never during the hold: a freeze is documented against locomotion input, not this.
+- **Own implants.** A runner with durable legs gets no lease and one with another
+  resource's dash (Light RP's Neofiber) no grant: their implant does the work and there
+  is nothing to take back. They race with their implant's values, not the race's. The
+  manifest has no `players.cyberware.manage`, so this resource cannot install or remove
+  anything. If an implant's dash had lapsed when the race granted its own, Light RP's
+  10 s check grants it back after the race.
+- **Taken back** at the finish, on a DNF (a finisher watching has nothing left), and first
+  thing in any release: leave, core drop, character switch, core stopped. A refused
+  revoke or release is asked again every second until the platform shows no grant and no
+  lease, and a sweep every second catches any exit that did not call it. A disconnect and
+  this resource stopping are the platform's: it ends the session's grant and lease, and
+  restores even after we stopped. A lease also ends by itself in 5 minutes at most.
+- **Mid-race.** What the platform ended (death, the 5-minute ceiling, a bucket change) is
+  lent again once the body is alive and the old lease is gone, so the double jump has a
+  short gap on a race over 5 minutes.
+- **Refused.** Without both definitions on this server, joins are refused with a sentence
+  and the status says not joinable. A runner the platform refuses races on, retried every
+  second, told once 5 s after GO.
+- **Unranked for now**: every result carries `unranked` and no reputation, whatever the
+  join says, no best time is written, and the recap shows as usual. Not in `economy.lua`.
+- **No bots**: the panel is not offered them, staff bot mode and `options.fill` add none.
+- **Courses.** The first choice in the queue (`options.course`, or a match's) sets the
+  heat's course, a later different one is told; no choice rotates. A parkour course runs
+  in this race only, never in the time trial or `race.foot`, whose lists do not change.
+  `rooftop-parkour` is Rooftop Run's route, coordinate for coordinate.
+
 ## Staff
 
-- `/race.editor open [courseId|--foot]` opens a course editor session (a copy for a
+- `/race.editor open [courseId|--foot|--parkour]` opens a course editor session (a copy for a
   built-in course). Then `UP` captures the start, `INSERT` a checkpoint, `RIGHT` a grid
   slot, `DOWN` undoes the last checkpoint (all rebindable, inert without a session), or
-  `/race.editor start|cp|grid|undo|undogrid|name <text>|laps <n>|type circuit|sprint|radius <m>|vehicle <id>|vehicles|save|close|list|delete <id>`.
+  `/race.editor start|cp|grid|undo|undogrid|name <text>|laps <n>|type circuit|sprint|parkour on|off|radius <m>|vehicle <id>|vehicles|save|close|list|delete <id>`.
   Points come from the server's position (the car's when driving), in bucket 0.
-- `/race.force street|rooftop` starts a queued race now, even below its minimum (filled
+- `/race.force street|rooftop|parkour` starts a queued race now, even below its minimum (filled
   with bots in bot mode).
 - Bot mode itself is op77_lightrp's `/lightrp.bots on|off`; `/race.status` shows it.
 
@@ -196,15 +236,18 @@ above) fill the grid up to `pve.fillTo` racers in total (6, within the course's 
   and shows the grid filling or a crew gathering in its queue panel, so there is no "you are
   in the queue" or "waiting for your crew" notice on top; `/race.join` still replies in chat,
   and the staff bot-mode sentence, the grid countdown, refusals and in-race messages stay.
-- Permissions: `world.vehicles` (loaner cars, `vehicles.ai`) and `world.npcs` (bots).
-- Activities: `race.trial`, `race.grid`, `race.foot`, `race.pve`. A server that loads
-  the resource gets the race vs AI too.
+- Permissions: `world.vehicles` (loaner cars, `vehicles.ai`), `world.npcs` (bots),
+  `players.dash.define|manage|read` and `players.cyberware.define|read|temporary` (parkour).
+- Parkour needs `open77_cyberware`, `open77_dash` and `open77_appearance` (the character
+  binding) in the load list; without them only `race.parkour` is refused.
+- Activities: `race.trial`, `race.grid`, `race.foot`, `race.pve`, `race.parkour`. A server
+  that loads the resource gets the race vs AI and the parkour race too.
 - ACL: `command.race.editor` and `command.race.force` for staff (no new command).
 - Data (operator state, git-ignored): `data/courses/<id>.json` (saved courses),
   `data/records.json` (time trial best times per course revision, and the best vs AI
   under `vsai:<courseId>`).
 - Built-in courses: `server/builtin_courses.lua` (Street Circuit, Shion Sprint,
-  Rooftop Run, from Freeroam's authored courses).
+  Rooftop Run, from Freeroam's authored courses; Rooftop Parkour, Rooftop Run's route).
 - Configuration: `shared/config.lua`.
 
 ## Tests
@@ -215,7 +258,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File tests\run-lua.ps1 -LuaDll <path>\l
 
 `race_shared_test`, `courses_records_test`, `activity_test`, `trial_flow_test`,
 `heat_flow_test`, `editor_test`, `client_test`, `bots_test`, `foot_bots_test`,
-`pve_test`, `crew_test`, `lobby_test`, `pve_difficulty_test`. They run against a fake runtime and a stub of the contract
+`pve_test`, `crew_test`, `lobby_test`, `pve_difficulty_test`, `parkour_test`. They run against a fake runtime and a stub of the contract
 (`tests/harness.lua`, with fake `Open77.npcs` and `Open77.vehicles.ai` from
-`H.installBotNatives()`), not the game. Run them more than once: `pairs` order changes
+`H.installBotNatives()`, fake `Open77.dash` and `Open77.cyberware` from
+`H.installAbilityNatives()`), not the game. Run them more than once: `pairs` order changes
 from run to run.

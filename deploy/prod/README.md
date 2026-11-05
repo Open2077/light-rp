@@ -34,6 +34,9 @@ Prod is a plain file copy of `main` (no git there). When copying `main` over it:
 
 ## To port by hand after the snapshot
 
+- **2026-11-05, minigames and game rooms:** add `op77_games` to `resources.load`, after
+  `op77_lightrp` (a silent allowlist: without it the new games never register and the rooms
+  menu simply does not list them). The rooms NPC at The Crossing needs no entry.
 - **2026-11-04, economy decisions:** one staff money grant is capped at 10 000 €$
   (`/lightrp.givemoney` and the staff desk's Credit, a reason is now required). The bypass is
   the permission `lightrp.money.unlimited`, deliberately outside `command.lightrp.*` so the

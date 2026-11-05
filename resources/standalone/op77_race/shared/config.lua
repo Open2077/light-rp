@@ -9,7 +9,7 @@ RaceConfig = {
     bucketBase = 4200000,
     bucketCount = 100000,
 
-    -- The three activities this resource provides. `key` is internal, `id` is the
+    -- The activities this resource provides. `key` is internal, `id` is the
     -- contract's namespaced id. caps: nothing from the RP world comes along (no RP
     -- weapons, no RP items, needs frozen, no personal vehicles).
     activities = {
@@ -46,13 +46,26 @@ RaceConfig = {
             description = "Solo or with your crew against AI drivers on a full grid. Pick the course.",
             minPlayers = 1, maxPlayers = 8,
         },
+        {
+            -- The rooftop race's rules on parkour courses, and the one race that lends
+            -- anything: double jump and dash from the line to the finish (`parkour` below,
+            -- server/parkour.lua). Unranked for now: nothing is recorded, no reputation.
+            -- The course is a join choice; the first choice in the queue sets the heat's.
+            key = "parkour", id = "race.parkour", mode = "parkour", kind = "race",
+            label = "Parkour Race",
+            description = "Two to eight runners. Double jump and dash for the race only. Unranked.",
+            minPlayers = 2, maxPlayers = 8,
+            queued = true,
+            joinSeconds = 25, fullSeconds = 5,
+            abilities = true, unranked = true, noBots = true,
+        },
     },
     caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
 
     engine = {
         -- Minimum loading window after the grid is set (the car streams in, the
         -- runner settles); early readiness does not shorten it.
-        loadSeconds = { trial = 4, grid = 15, foot = 4, pve = 15 },
+        loadSeconds = { trial = 4, grid = 15, foot = 4, pve = 15, parkour = 4 },
         loadAfterRestartSeconds = 2,
         -- A racer still not ready after this is classified DNF and sent back.
         readyTimeoutSeconds = 60,
@@ -60,7 +73,7 @@ RaceConfig = {
         durationSeconds = 1200,
         -- Once the winner finishes, the others have this long to cross the line.
         finishGraceSeconds = 30,
-        resultsSeconds = { trial = 15, grid = 12, foot = 12, pve = 12 },
+        resultsSeconds = { trial = 15, grid = 12, foot = 12, pve = 12, parkour = 12 },
         checkpointRadius = 7.0,
         -- Do not accept a parallel street on a bridge above the course.
         checkpointZTolerance = 4.0,
@@ -158,6 +171,37 @@ RaceConfig = {
         -- Racers in total (players + AI racers asked by options.fill) a match puts on the
         -- line, within the course's capacity: the budget the race vs AI already runs (6).
         fillTo = { grid = 6, foot = 6 },
+    },
+
+    -- Parkour race (race.parkour): what is lent, and how (server/parkour.lua). The dash is a
+    -- session grant of this resource; the double jump a temporary cyberware lease, which
+    -- never touches the durable record. Values: the abilities Freeroam lends for a match.
+    parkour = {
+        dash = {
+            id = "op77_race.dash", version = 1, profile = "dash",
+            config = {
+                inputKey = "ctrl", allowGround = true, allowAir = true, presentation = "native",
+                staminaCost = 15, cooldownMs = 900, maxCharges = 2, chargeRegenMs = 3000,
+            },
+        },
+        legs = {
+            id = "op77_race.double_jump", version = 1, slot = "legs", profile = "double_jump",
+            grades = { {
+                id = "race", normalDamage = 0, chargedDamage = 0, knockbackMeters = 0, cooldownMs = 800,
+                chargeMs = 650, jumpStaminaCost = 10, maxAirborneMs = 10000, maxFallSpeed = 30,
+            } },
+        },
+        grade = "race",
+        dashKeyLabel = "Ctrl",
+        -- The platform's ceiling. A race outlasting it is lent the legs again; a release
+        -- that never gets through ends here at the latest.
+        leaseMs = 300000,
+        syncMs = 1000,
+        defineRetryMs = 10000,
+        -- The countdown waits this long past the loading window for legs still projecting.
+        readyWaitSeconds = 8,
+        -- GO + this: a runner still without an ability is told once.
+        checkAfterMs = 5000,
     },
 
     -- Staff bot mode (op77_lightrp `/lightrp.bots on|off`, off at every start): a street
