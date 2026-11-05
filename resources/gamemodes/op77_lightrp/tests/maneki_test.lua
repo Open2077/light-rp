@@ -169,11 +169,11 @@ assert(#given == 1 and given[1].inv == "inv2" and given[1].name == "tcg_booster_
 assert(done.milestoneItems and done.milestoneItems[1].label == "TCG Booster · Night City", "the find tells the page about the boosters")
 assert(#titles == 1 and titles[1].title == "lucky_cat", "title awarded once")
 
--- The collection panel: one slot per cat, found ones with where/when/how, the others empty.
+-- The collection panel: one slot per cat, found ones with where/when/how, the others their district only.
 actions["maneki.open"](4)
 local col = last(4, "collection").collection
 assert(col.total == 2 and col.found == 1 and #col.slots == 2, "player 4: 1 of 2")
-assert(col.slots[1] == "" and col.slots[2]:match("^" .. catB .. "|"), "slot A empty (not found), slot B found: " .. col.slots[2])
+assert(col.slots[1] == "|Kabuki" and col.slots[2]:match("^" .. catB .. "|"), "slot A not found: its district only (no id, no position); slot B found: " .. col.slots[1] .. " / " .. col.slots[2])
 local parts = {}
 for f in (col.slots[2] .. "|"):gmatch("([^|]*)|") do parts[#parts + 1] = f end
 assert(parts[4] == "shot" and tonumber(parts[3]) > 0 and tonumber(parts[5]) == 20, "how, when, where")

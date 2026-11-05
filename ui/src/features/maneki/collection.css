@@ -93,3 +93,16 @@
 @keyframes maneki-fade { from { opacity: 0; } }
 @keyframes maneki-step { from { opacity: 0; translate: 0 6px; } }
 @keyframes maneki-wave { 0%, 100% { rotate: 0deg; } 50% { rotate: -2.5deg; } }
+
+/* District groups (owner 2026-11-05): a full-row header with the district's completion, its cats below. */
+.maneki-district { grid-column: 1 / -1; display: grid; grid-template-columns: auto auto auto 1fr auto; align-items: center; gap: var(--sp-4);
+  margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-hair) solid var(--line-soft);
+  font: var(--fw-semibold) var(--fs-micro) var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+.maneki-district:first-child { margin-top: 0; }
+.maneki-district b { color: var(--text-hi); font-size: var(--fs-small, 12px); letter-spacing: .1em; }
+.maneki-district svg { color: var(--mk-gold-dim); }
+.maneki-district__count { color: var(--text-mid, var(--text-dim)); }
+.maneki-district__bar { position: relative; display: block; height: 4px; background: #ffffff14; overflow: hidden; }
+.maneki-district__bar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--mk-gold-dim), var(--mk-gold)); transition: width .5s ease; }
+.maneki-district__pct { min-width: 4ch; text-align: right; color: var(--mk-gold); }
+.maneki-district.is-done svg, .maneki-district.is-done b { color: var(--mk-gold); }

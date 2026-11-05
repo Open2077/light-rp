@@ -336,8 +336,9 @@ RegisterNetEvent(E.net.manekiCollect, function(p) M.collect(source, p) end)
 --
 -- One slot per cat in the city, in the order the staff hid them. A found slot carries
 -- where and when this character found it (the page shows it on the city map); a slot
--- not found carries nothing at all: no id, no district, no position. The slots travel
--- as one string each ("id|district|at|how|x|y|z", "" when not found), so 600 cats stay
+-- not found carries only its district (owner 2026-11-05: grouped by district, with a completion per
+-- district): no id, no position. The slots travel
+-- as one string each ("id|district|at|how|x|y|z", "|district" when not found), so 600 cats stay
 -- far under the 1,024-value cap; past ~30 KB the event goes latent.
 
 local function slotsFor(set)
@@ -349,7 +350,8 @@ local function slotsFor(set)
             slots[#slots + 1] = table.concat({ id, (s.district or ""):gsub("|", " "), tostring(f.at or 0), f.how or "take",
                 ("%.1f"):format(s.x), ("%.1f"):format(s.y), ("%.1f"):format(s.z) }, "|")
         else
-            slots[#slots + 1] = ""
+            -- not found: its district only (the panel groups the cats by district), never an id or a position
+            slots[#slots + 1] = "|" .. (s.district or ""):gsub("|", " ")
         end
     end
     return slots, found
