@@ -28,7 +28,7 @@ LightRpJobWork = {
             label = "Sanitation", icon = "trash-2",
             raw = "trashbag", collected = 1, collectMs = 6500,
             input = 1, product = "recyclables", produced = 1, processMs = 5000,
-            price = 30, sellMs = 2500, -- ≈ 3,000 €$/h with a car (docs/economy-balance.md)
+            price = 20, sellMs = 2500, -- ≈ 2,000 €$/h with a car (docs/economy-balance.md §17)
             animations = {
                 collect = { profile="examine", clip="kneel__rk_on_ground__01__inspect_ground__01" },
                 process = { profile="examine", clip="kneel__rk_on_ground__01__inspect_ground__01" },
@@ -45,7 +45,7 @@ LightRpJobWork = {
             label = "Scrapper", icon = "hammer",
             raw = "scrap", collected = 4, collectMs = 8000,
             input = 4, product = "salvaged_parts", produced = 1, processMs = 6000,
-            price = 40, sellMs = 2500, -- longer loop than sanitation: ≈ 3,200 €$/h with a car
+            price = 26, sellMs = 2500, -- longer loop than sanitation: ≈ 2,100 €$/h with a car
             animations = {
                 collect = { profile="repair", clip="kneel__rh_screwdriver__01__repair_01" },
                 process = { profile="mechanic", clip="kneel__rh_tool_fix__01__long__01" },

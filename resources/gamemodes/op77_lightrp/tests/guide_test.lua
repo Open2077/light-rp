@@ -262,9 +262,9 @@ for _, log in ipairs(logs) do assert(not log:find("does not resolve", 1, true), 
 assert(Guide.resolve("{money:config.economy.startingCash}") == "€$ 250")
 assert(Guide.resolve("{sec:medical.giveUpDelayMs}") == "90" and Guide.resolve("{pct:medical.reviveHealth}") == "35%")
 assert(Guide.resolve("{cfg:config.chat.icRange}") == "20" and Guide.resolve("{kbd:cyberware.overdriveKey}") == "X")
-assert(Guide.resolve("{v:carRange}") == "€$ 4,000 to €$ 100,000", Guide.resolve("{v:carRange}"))
+assert(Guide.resolve("{v:carRange}") == "€$ 10,000 to €$ 250,000", Guide.resolve("{v:carRange}"))
 assert(Guide.resolve("{v:jobCenterJobs}") == "Sanitation, Scrapper and Courier", Guide.resolve("{v:jobCenterJobs}"))
-assert(Guide.resolve("{v:jerrycanBuy}") == "€$ 105" and Guide.resolve("{v:jerrycanRefill}") == "€$ 80")
+assert(Guide.resolve("{v:jerrycanBuy}") == "€$ 145" and Guide.resolve("{v:jerrycanRefill}") == "€$ 120")
 assert(Guide.resolve("{v:repTiers}") == "I (Street) from the start, II (Merc) at 500, III (Operator) at 1,500, IV (Edgerunner) at 4,000 and V (Legend) at 10,000",
     Guide.resolve("{v:repTiers}"))
 assert(Guide.resolve("{v:difficultyTiers}") == "Hard needs tier II (Merc) and Critical needs tier III (Operator)", Guide.resolve("{v:difficultyTiers}"))
@@ -278,12 +278,12 @@ assert(Guide.resolve("{v:traumaKitPrice}") == "€$ 250" and Guide.resolve("{v:t
 assert(Guide.resolve("{v:cheapestFood}") == "€$ 9")
 for _, line in ipairs(Guide.listOf("foodPrices")) do assert(not line:find("Trauma", 1, true), "food prices list food and drinks only: " .. line) end
 local fees = table.concat(Guide.listOf("impoundFees"), "\n")
-assert(fees:find("A wreck, destroyed or exploded by anyone (the insurance repairs it): €$ 400", 1, true)
-    and fees:find("Gone without a wreck (deleted, cleaned up, lost to a bug): €$ 150", 1, true)
-    and fees:find("Intact, sent there by you from a garage: €$ 250", 1, true)
+assert(fees:find("A wreck, destroyed or exploded by anyone (the insurance repairs it): €$ 1,500", 1, true)
+    and fees:find("Gone without a wreck (deleted, cleaned up, lost to a bug): €$ 600", 1, true)
+    and fees:find("Intact, sent there by you from a garage: €$ 500", 1, true)
     and fees:find("Intact, left outside when the server restarted: free", 1, true), fees)
-assert(Guide.resolve("{v:impoundRange}") == "free to €$ 500")
-assert(Guide.resolve("{money:economy.hospital.bill} {pct:economy.missions.repeatShare} {money:economy.activities.pve.perMinute.critical}") == "€$ 300 25% €$ 60")
+assert(Guide.resolve("{v:impoundRange}") == "free to €$ 1,500")
+assert(Guide.resolve("{money:economy.hospital.bill} {pct:economy.missions.repeatShare} {money:economy.activities.pve.perMinute.critical}") == "€$ 750 15% €$ 40")
 assert(Guide.resolve("{v:missionCapScope}") == "per account (all your characters together)")
 assert(Guide.resolve("{v:activityRep}") == "30 on Standard, 60 on Hard or 100 on Critical", Guide.resolve("{v:activityRep}"))
 assert(Guide.resolve("{money:dogtown.stake.minCash}") == "€$ 1,000" and Guide.resolve("{sec:dogtown.stake.graceMs}") == "10")
@@ -485,16 +485,16 @@ assert(not visible("activities.arena") and not visible("activities.halloffame"))
 for _, log in ipairs(logs) do assert(not log:find("does not resolve", 1, true), log) end
 local function answer(id) return table.concat(Guide.build().byId[id].a, "\n") end
 -- the answers follow the economy config, line by line
-assert(answer("health.down"):find("bills €$ 300", 1, true) and not answer("health.down"):find("costs nothing", 1, true))
-assert(answer("jobs.pay"):find("last 30 minutes", 1, true) and answer("jobs.pay"):find("adds 10%", 1, true))
+assert(answer("health.down"):find("bills €$ 750", 1, true) and not answer("health.down"):find("costs nothing", 1, true))
+assert(answer("jobs.pay"):find("last 30 minutes", 1, true) and answer("jobs.pay"):find("adds 15%", 1, true))
 assert(answer("money.earn"):find("while you're active", 1, true) and answer("money.earn"):find("**Activities**", 1, true))
 assert(answer("appearance.wardrobe"):find("costs €$ 50", 1, true))
-assert(answer("missions.rewards"):find("6 full payouts a day per account", 1, true) and answer("missions.rewards"):find("pays 25% of your share", 1, true))
+assert(answer("missions.rewards"):find("4 full payouts a day per account", 1, true) and answer("missions.rewards"):find("pays 15% of your share", 1, true))
 assert(answer("missions.difficulty"):find("Hard needs tier II (Merc)", 1, true))
 LightRpEconomy.hospital.bill, LightRpEconomy.paychecks.requireActivity = 0, false
 assert(answer("health.down"):find("It costs nothing.", 1, true) and not answer("health.down"):find("bills", 1, true), "a bill of 0 is free")
 assert(not answer("jobs.pay"):find("last 30 minutes", 1, true) and not answer("money.earn"):find("while you're active", 1, true))
-LightRpEconomy.hospital.bill, LightRpEconomy.paychecks.requireActivity = 300, true
+LightRpEconomy.hospital.bill, LightRpEconomy.paychecks.requireActivity = 750, true
 LightRpEconomy.activities.enabled = false
 assert(visible("activities.rewards") and not visible("activities.pay_rebalance") and not answer("money.earn"):find("**Activities**", 1, true), "activity pay off")
 assert(answer("activities.rewards"):find("PvE activities earn reputation: 30 on Standard", 1, true))

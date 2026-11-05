@@ -310,6 +310,11 @@ local function open(playerId, c)
     local number = generateNumber()
     if number == nil then return nil, "account_number_exhausted" end
     w.number, w.cash, w.bank = number, Config.startingCash or 0, Config.startingBank or 0
+    -- the starting bank is once per account: the account's other characters get startingBankExtraCharacters
+    if Config.startingBankExtraCharacters ~= nil and Db.ready and c.identifier then
+        local row = Db.single("SELECT COUNT(*) AS n FROM lightrp_wallets WHERE identifier = ?", { c.identifier })
+        if row and (tonumber(row.n) or 0) > 0 then w.bank = math.max(0, math.floor(tonumber(Config.startingBankExtraCharacters) or 0)) end
+    end
     if Db.ready and c.identifier then
         local ok = Db.run([[INSERT INTO lightrp_wallets (account_number, identifier, character_key, owner_name, cash, bank)
                             VALUES (?, ?, ?, ?, ?, ?)]], { w.number, c.identifier, c.key, w.ownerName, w.cash, w.bank })
@@ -552,13 +557,22 @@ function Money.creditAccount(number, amount, kind, note, counterparty)
 end
 
 -- Bank to bank, to any account number. The fee (config) is taken on top.
+-- Flat transferFee, plus transferFeeRate of the amount (at least transferFeeMin when a rate is set).
+function Money.transferFee(amount)
+    local flat = math.max(0, math.tointeger(tonumber(Config.transferFee) or 0) or 0)
+    local rate = math.max(0, tonumber(Config.transferFeeRate) or 0)
+    if rate <= 0 then return flat end
+    local share = math.max(math.floor((tonumber(amount) or 0) * rate + 0.5), math.max(0, math.floor(tonumber(Config.transferFeeMin) or 0)))
+    return flat + share
+end
+
 function Money.transfer(playerId, number, amount, note)
     local w, n = guard(playerId, amount)
     if w == nil then return false, n end
     local target = Money.findAccount(number)
     if target == nil then return false, "unknown_account" end
     if target.number == w.number then return false, "same_account" end
-    local fee = math.max(0, math.tointeger(tonumber(Config.transferFee) or 0) or 0)
+    local fee = Money.transferFee(n)
     if w.bank < n + fee then return false, "insufficient_funds" end
     note = note and tostring(note):sub(1, 160) or nil
     w.busy = true
@@ -726,6 +740,7 @@ function Money.staffGrantRule()
     local permission = g.unlimitedPermission
     return {
         maxGrant = math.max(0, math.floor(tonumber(g.maxGrant) or 0)),
+        dailyCap = math.max(0, math.floor(tonumber(g.dailyCapPerStaff) or 0)),
         minReason = math.max(1, math.floor(tonumber(g.minReason) or 1)),
         permission = type(permission) == "string" and permission ~= "" and permission or nil,
     }
@@ -755,14 +770,40 @@ function Money.staffReason(text)
 end
 
 -- nil when `source` may grant `amount`, else why not.
+-- What each staff account granted today (UTC day): the daily cap (staffGrants.dailyCapPerStaff).
+local staffGranted = {}
+local function staffKey(source)
+    local c = LightRP.characters and LightRP.characters.get(source)
+    return c and c.identifier or ("player:" .. tostring(source))
+end
+local function utcDay()
+    local fn = (Open77 and Open77.time and Open77.time.unix) or GetUnixTime
+    local ok, v = pcall(fn)
+    return math.floor((ok and tonumber(v) or 0) / 86400)
+end
+
+-- nil when the grant may go ahead (and then it counts against the staff member's day), else the refusal.
 function Money.staffGrantRefusal(source, amount)
     local rule = Money.staffGrantRule()
-    if rule.maxGrant <= 0 or (tonumber(amount) or 0) <= rule.maxGrant then return nil end
+    amount = math.max(0, math.floor(tonumber(amount) or 0))
     if (tonumber(source) or 0) <= 0 then return nil end -- the server console
     if rule.permission and LightRP.staff and type(LightRP.staff.allowed) == "function"
         and LightRP.staff.allowed(source, rule.permission) then return nil end
-    return string.format("One staff grant is capped at %s; larger grants need the ACL permission %s.",
-        Money.format(rule.maxGrant), rule.permission or "(none configured)")
+    if rule.maxGrant > 0 and amount > rule.maxGrant then
+        return string.format("One staff grant is capped at %s; larger grants need the ACL permission %s.",
+            Money.format(rule.maxGrant), rule.permission or "(none configured)")
+    end
+    if rule.dailyCap > 0 then
+        local key, day = staffKey(source), utcDay()
+        local row = staffGranted[key]
+        if not row or row.day ~= day then row = { day = day, amount = 0 }; staffGranted[key] = row end
+        if row.amount + amount > rule.dailyCap then
+            return string.format("Staff grants are capped at %s a day per staff member (%s left today).",
+                Money.format(rule.dailyCap), Money.format(math.max(0, rule.dailyCap - row.amount)))
+        end
+        row.amount = row.amount + amount
+    end
+    return nil
 end
 
 local GIVE_USAGE = "/lightrp.givemoney <id|me> <cash|bank> <amount> <reason>"

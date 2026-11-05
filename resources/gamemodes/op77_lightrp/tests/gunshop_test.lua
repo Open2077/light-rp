@@ -77,6 +77,18 @@ Inv.onCharacterLoaded(1, LightRP.characters.get(1))
 Money.onCharacterLoaded(1, LightRP.characters.get(1))
 dofile("server/modules/armament_store.lua")
 dofile("server/config/shops.lua")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+do local old = { weapon_lexington = 1200, weapon_unity = 1400, weapon_nue = 1800, weapon_overture = 2500, weapon_dr_5_nova = 2800,
+        weapon_ds1_pulsar = 2600, weapon_m221_saratoga = 3000, weapon_tki_20_shingen = 4200,
+        weapon_crusher = 2800, weapon_m2038_tactician = 3400, weapon_carnage = 3900, weapon_l_69_zhuo = 4600,
+        weapon_d5_copperhead = 4200, weapon_m251s_ajax = 4800, weapon_kyubi = 5200, weapon_hjsh_18_masamune = 5600,
+        weapon_d5_sidewinder = 6400, weapon_m2067_defender = 8500, weapon_kolac = 5200, weapon_m_179e_achilles = 6800,
+        weapon_spt32_grad = 8500, weapon_nekomata = 10500,
+        ammo_pistol_box = { 75, 20 }, ammo_shotgun_box = { 90, 22 }, ammo_rifle_box = { 110, 27 }, ammo_sniper_box = { 150, 37 } }
+    for _, t in pairs(LightRpShops.templates) do for _, item in ipairs(t.items or {}) do
+        local o = old[item.name]
+        if type(o) == "table" then item.buy, item.sell = o[1], o[2] elseif o then item.buy = o end
+    end end end
 local start = #threads + 1
 dofile("server/modules/shops.lua")
 threads[start]()

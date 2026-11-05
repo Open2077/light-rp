@@ -59,6 +59,10 @@ _G.LightRP = {
     admin = { handlers = {} },
 }
 dofile("server/config/maneki.lua")
+assert(LightRpManeki.reward.cash == 250 and LightRpManeki.milestones[3].cash == 20000, "shipped 2026-11-05 numbers")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+LightRpManeki.reward = { cash = 500 }
+LightRpManeki.milestones = { { count = 10, cash = 5000 }, { count = 25, cash = 15000 }, { count = 50, cash = 40000 } }
 dofile("server/modules/maneki.lua")
 local M, C = LightRP.maneki, LightRpManeki
 C.milestones = { { count = 2, cash = 5000 } }

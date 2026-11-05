@@ -88,7 +88,11 @@ local M,G=LightRP.money,LightRP.garage
 LightRP.inventory.onCharacterLoaded(1,owner);M.onCharacterLoaded(1,owner);G.onDatabaseReady()
 local ok,id=G.grant(1,"hella");assert(ok);assert(G.open(1,"citycenter"))
 assert(G.perform(1,{type="garage.retrieve",session=dialog.session,request=1,vehicle=id}))
-dofile("shared/vehicle_customization.lua");dofile("server/config/vehicle_customization.lua");dofile("server/modules/vehicle_customization.lua")
+dofile("shared/vehicle_customization.lua");dofile("server/config/vehicle_customization.lua")
+assert(LightRpCustomizationPricing.paint==2500)
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+LightRpCustomizationPricing.paint=1000
+dofile("server/modules/vehicle_customization.lua")
 local C=LightRP.vehicleCustomization
 assert(C.open(1,id,"citycenter"));local session=messages[#messages].session
 assert(messages[#messages].price==1000 and messages[#messages].money.bank==100000)

@@ -33,7 +33,7 @@ LightRpWorldBosses = {
     -- to them (they score, help, see the HUD) and they are told so; they no longer count
     -- among the paid fighters (the pool follows the others). Their share still qualifies
     -- for what is not pay (daily contracts, titles, iconic rolls). 0 turns the cap off.
-    dailyPaid = 3,
+    dailyPaid = 2,
     -- The guards still standing when the boss falls leave after this.
     cleanupSeconds = 45,
     -- How long the end (BOSS DOWN / GOT AWAY, your pay) stays on the zone's HUD.

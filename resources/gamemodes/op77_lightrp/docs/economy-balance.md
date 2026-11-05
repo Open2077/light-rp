@@ -994,3 +994,73 @@ et des tables suivent les nouvelles limites ; `test-tabletop-extra-server.py`,
 `test-casino-slots-server.py`, `test-casino-fortune-server.py` et
 `test-casino-blackjack-server.py` vérifient une ligne nette par personnage et par manche,
 rien pour un remboursement, et que chaque mouvement de jetons est `silent`.
+
+## 17. Économie exigeante, 2026-11-05 (branche `feat/lightrp-economy-hard`)
+
+Demande du propriétaire : « un serveur pas simple, prendre du temps, que ce soit gratifiant d'acheter des choses ». Le
+revenu de référence passe de **J = 3 500 €$/h** à **J ≈ 2 200 €$/h** au grade d'entrée. Monter en grade compte davantage :
+le bonus par grade passe de 10 % à 15 %, soit environ 3 300 €$/h au grade 3. Les prix s'étalent pour que chaque achat
+soit un palier.
+
+### État de Testing avant la refonte (base de données, 2026-11-05)
+
+- 11 personnages pour environ 82 h de jeu cumulées, et 265 k €$ en banque.
+- 470 k €$ ont été créés en un mois et 108 k €$ seulement détruits.
+- Missions : 261 k €$, presque tout payé avant les plafonds du 2026-11-04 (Chimera à 18 000 €$ par tête, 11 fois).
+- Crédits staff : 156 k €$, dont un seul crédit de 100 k €$.
+- Les soldes ne sont **pas** remis à zéro : c'est irréversible et ça demande une décision explicite du propriétaire.
+
+### Failles fermées
+
+| Faille | Correction |
+|---|---|
+| AC Cleaner : 400 €$ toutes les 1 à 1,5 min sur le parcours de test (~20 k €$/h) | 120 €$ par tournée et `cooldownMs` de 3 min propre à la route (job_runs.lua) |
+| Bonus Big Contract hors de tout plafond | il compte maintenant dans `crewBonus.dailyCap`, réduit à 1 500 €$/jour (job_crew.lua) |
+| Relance gratuite des courses de coursier | `cancelCooldownMs` = 2 min après un abandon par le joueur (pas après une expiration, une chute ou un changement de métier) |
+| Sector 04 affichée mais sans script (expirait toujours sans payer) | `disabled = true` : ni tableau ni blip tant qu'elle n'a pas de script |
+| Crédits staff sans plafond journalier | `staffGrants.dailyCapPerStaff` = 25 000 €$ par compte staff et jour UTC (console et `lightrp.money.unlimited` exemptés) |
+| Personnages secondaires : 1 500 €$ en banque à chaque création, virements gratuits | `startingBankExtraCharacters = 0`, frais de virement de 2 % (minimum 10 €$) |
+
+### Revenus
+
+| Source | Avant | Après |
+|---|---|---|
+| Éboueur / ferrailleur (par unité) | 30 / 40 | 20 / 26 |
+| Coursier (base, par arrêt, par km, bornes) | 60, 30, 120, 150–1 400 | 40, 20, 80, 100–900 |
+| Bonus par grade | 10 % | 15 % |
+| Salaires (toutes les 30 min) | 100 à 500 | divisés par deux (50 à 250) |
+| Déplacement qui vaut une activité pour le salaire | 75 m | 600 m |
+| Missions de l'éditeur, part max Standard / Hard / Critical | 2 400 / 3 000 / 4 400 | 1 500 / 2 400 / 3 600 |
+| Missions : plafond par minute, paies pleines par jour, attente, part en répétition | 250, 6, 60 min, 25 % | 150, 4, 90 min, 15 % |
+| Chimera par tête | 3 000 / 4 500 / 6 000 | 2 000 / 3 000 / 4 000 |
+| Boss de monde : par combattant, par minute, paies par jour | 3 000, 250, 3 | 2 000, 150, 2 |
+| Activités PvP : par minute, plafond par jour | 70, 12 000 | 45, 7 500 |
+| Activités PvE : par minute, plafond par jour | 40 / 50 / 60, 6 000 | 25 / 32 / 40, 4 000 |
+| Contrats quotidiens et budget du jour | 250 / 400 / 250 / 300, 1 200 | 175 / 275 / 175 / 200, 800 (l'hebdomadaire reste à 3 000) |
+| Maneki-neko : par chat, paliers | 500, 5 k / 15 k / 40 k | 250, 2,5 k / 7,5 k / 20 k |
+
+### Dépenses
+
+| Poste | Avant | Après |
+|---|---|---|
+| Armes | 1 200 à 10 500 | ×1,5, arrondi à 50 (1 800 à 15 750) |
+| Munitions (boîte : 9 mm, chevrotine, fusil, sniper) | 75 / 90 / 110 / 150 | 110 / 135 / 165 / 225 (rachat 25 / 30 / 40 / 55) |
+| Boosters TCG WNC / Beta, display | 120 / 180, 2 600 | 400 / 600, 8 500 (rachat 150 / 220 / 3 000) |
+| Véhicules | 4 000 à 100 000 | ×2,5, arrondi à 500 (MaiMai 10 000 … Semimaru 250 000) |
+| Fourrière : détruit / perdu / demandé / staff | 400 / 150 / 250 / 500 | 1 500 / 600 / 500 / 750 |
+| Peinture | 1 000 | 2 500 |
+| Essence | 4 €$/L | 6 €$/L (~400 €$/h au volant) |
+| Hôpital | 300 | 750 |
+| Nourriture | inchangée : ~12 €$/h, car la faim et la soif baissent 4 fois moins vite (choix du propriétaire) | |
+
+Les 24 boosters d'un display, revendus, rapportent 3 600 €$, bien moins que les 8 500 €$ du display : aucune boucle
+d'achat-revente n'est possible.
+
+### Pas encore fait (code à écrire)
+
+- **Dette d'hôpital :** aujourd'hui, la facture n'est prélevée que sur l'argent disponible, jamais en négatif.
+- **Assurance véhicule :** optionnelle, 1 % du prix par semaine.
+- **Fourrière en % du prix du véhicule :** ce sont des forfaits pour l'instant.
+- **Paliers maneki par compte :** ils comptent encore par personnage.
+- **Plafond absolu des répétitions de mission :** la part tombe à 15 %, mais sans limite.
+- **Loyers et prix d'achat des logements :** ils sont en base, à régler avec `/housingadmin` (cible : petit appartement à 6 000 €$/semaine, moyen à 18 000 €$/semaine, achat de 120 k à 500 k €$).

@@ -6,6 +6,9 @@ json = { encode = function(t) enc=enc+1; encoded[tostring(enc)]=clone(t); return
     decode = function(s) if s == "{}" then return {} end assert(encoded[s], "invalid JSON"); return clone(encoded[s]) end }
 dofile("shared/config.lua"); dofile("shared/items.lua"); dofile("shared/events.lua")
 dofile("server/config/garages.lua")
+assert(LightRpGarages.impound.fees.destroyed==1500 and LightRpGarages.impound.fees.lost==600)
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+LightRpGarages.impound.fees={ restart = 0, destroyed = 400, lost = 150, requested = 250, staff = 500 }
 local C = LightRpGarages
 C.garages = { { id="citycenter", name="Central", position={x=0,y=0,z=0}, parking={ {position={x=10,y=0,z=0}}, {position={x=20,y=0,z=0}} } },
     { id="other", name="Other", position={x=100,y=0,z=0}, parking={ {position={x=110,y=0,z=0}} } } }

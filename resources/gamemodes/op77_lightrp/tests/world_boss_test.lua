@@ -139,6 +139,9 @@ dofile("server/modules/mission_engine.lua")
 dofile("server/modules/mission_editor.lua")
 dofile("server/config/economy.lua") -- worldBosses: the pool rule (docs/economy-balance.md §15)
 dofile("server/config/world_bosses.lua")
+assert(LightRpWorldBosses.dailyPaid == 2 and LightRpEconomy.worldBosses.perFighter == 2000)
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+LightRpWorldBosses.dailyPaid, LightRpEconomy.worldBosses.perFighter, LightRpEconomy.worldBosses.maxSharePerMinute = 3, 3000, 250
 dofile("server/modules/world_bosses.lua")
 local D, Missions = LightRpMissionDefs, LightRP.missions
 local WB, Engine = LightRP.worldBosses, LightRP.missionEngine

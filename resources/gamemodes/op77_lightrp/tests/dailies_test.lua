@@ -128,6 +128,9 @@ _G.LightRpConfig = {
 }
 
 dofile("server/config/dailies.lua")
+assert(LightRpDailies.rewards.action == 275 and LightRpDailies.dailyBudget == 800, "shipped 2026-11-05 numbers")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+LightRpDailies.rewards = { street = 250, action = 400, shift = 250, crew = 300, weekly = 3000 }; LightRpDailies.dailyBudget = 1200
 dofile("server/modules/dailies.lua")
 local D, C = LightRP.dailies, LightRpDailies
 

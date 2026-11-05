@@ -24,11 +24,11 @@ LightRpManeki = {
 
     -- Rewards: every find, then the milestones (found count), then the title for the
     -- whole set (only once at least completeMin cats exist, so 3 test cats give no title).
-    reward = { cash = 500 },
+    reward = { cash = 250 },
     milestones = {
-        { count = 10, cash = 5000 },
-        { count = 25, cash = 15000 },
-        { count = 50, cash = 40000 },
+        { count = 10, cash = 2500 },
+        { count = 25, cash = 7500 },
+        { count = 50, cash = 20000 },
     },
     completeTitle = "lucky_cat",
     completeMin = 10,

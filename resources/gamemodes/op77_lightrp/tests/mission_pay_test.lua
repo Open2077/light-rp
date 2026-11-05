@@ -5,6 +5,10 @@
 -- in-memory table stands in for SQL; nothing connects to a database).
 dofile("server/config/economy.lua")
 local C = LightRpEconomy.missions
+assert(C.authored.maxShare.standard == 1500 and C.authored.maxShare.hard == 2400 and C.authored.maxShare.critical == 3600)
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+C.cooldownMinutes, C.dailyFullPayouts, C.repeatShare, C.maxSharePerMinute = 60, 6, 0.25, 250
+C.authored.maxShare = { standard = 2400, hard = 3000, critical = 4400 }
 local noop = function() end
 local unixNow = 20000 * 86400 + 3600 -- 01:00 UTC
 local chars, credits, notices, failing = {}, {}, {}, {}

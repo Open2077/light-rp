@@ -37,7 +37,9 @@ _G.LightRP = {
 dofile("server/config/economy.lua")
 dofile("server/modules/job_crew.lua")
 local J, CB, BC = LightRP.jobCrew, LightRpEconomy.jobs.crewBonus, LightRpEconomy.jobs.bigContract
-assert(CB.rate == 0.15 and CB.dailyCap == 2000 and BC.bonus == 0.20 and BC.togetherBonus == 0.35)
+assert(CB.rate == 0.15 and CB.dailyCap == 1500 and BC.bonus == 0.20 and BC.togetherBonus == 0.35)
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+CB.dailyCap = 2000
 
 local function join(id, account, name, x) chars[id] = { status = "active", identifier = account, key = "c1", name = name }; pos[id] = { x = x or 0, y = 0, z = 0, bucket = 0 } end
 local function crewUp(...) local c = { id = "crew1", leader = 1, members = { ... } }; for _, id in ipairs(c.members) do crews[id] = c end end

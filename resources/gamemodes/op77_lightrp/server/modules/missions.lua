@@ -1274,7 +1274,7 @@ for _, point in ipairs(C.points) do
     assert(type(point.id) == "string" and not points[point.id] and #point.difficulties > 0 and #point.start > 0, "Invalid mission point config")
     points[point.id] = point
     order[#order + 1] = point.id
-    if C.enabled then
+    if C.enabled and not point.disabled then
         LightRP.interaction("mission." .. point.id, { position = point.position, radius = 2.0, bucket = 0,
             label = point.title, prompt = "Open the mission board", key = "E", marker = C.marker, ring = false,
             blip = { sprite = "objective", title = point.title, description = point.type .. " · " .. point.location } })

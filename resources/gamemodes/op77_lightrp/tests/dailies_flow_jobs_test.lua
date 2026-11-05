@@ -148,7 +148,11 @@ dofile("server/modules/jobs.lua")
 dofile("server/modules/consumables.lua")
 dofile("server/modules/vehicles.lua") -- LightRP.vehicles.byKey: the catalogue categories (Bikes)
 dofile("server/config/job_work.lua"); dofile("server/modules/job_work.lua")
-dofile("server/config/job_runs.lua"); dofile("server/config/delivery.lua"); dofile("server/modules/job_runs.lua")
+dofile("server/config/job_runs.lua"); dofile("server/config/delivery.lua")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+LightRpJobRuns.cancelCooldownMs = 0; LightRpJobRuns.routes.ac_cleaner.cooldownMs = nil; LightRpJobRuns.routes.ac_cleaner.reward = 400
+LightRpDelivery.pay = { base = 60, perStop = 30, perKm = 120, min = 150, max = 1400 }
+dofile("server/modules/job_runs.lua")
 dofile("server/config/dailies.lua"); dofile("server/modules/dailies.lua")
 local Inv, Money, W, Runs = LightRP.inventory, LightRP.money, LightRP.jobWork, LightRP.jobRuns
 local CW, CR = LightRpJobWork, LightRpJobRuns

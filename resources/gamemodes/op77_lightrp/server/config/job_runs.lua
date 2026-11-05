@@ -10,6 +10,8 @@ local function work(label, x, y, z, duration)
 end
 LightRpJobRuns = {
     range = 2.6, lifetimeMs = 90 * 60000, cooldownMs = 15000,
+    -- after the player abandons an order: no rerolling a route until a well-paid one comes up
+    cancelCooldownMs = 120000,
     -- How long a run survives its worker being out of the public world (a loading
     -- screen, a fitting room, an interior) before it ends.
     awayGraceMs = 90000,
@@ -21,7 +23,8 @@ LightRpJobRuns = {
     },
     routes = {
         ac_cleaner = {
-            label = "Rooftop maintenance", reward = 400, estimate = "5–8 min", icon = "fan",
+            -- the test deck is a 1–1.5 min loop: 400 a run was ~20k €$/h (audit 2026-11-05)
+            label = "Rooftop maintenance", reward = 120, cooldownMs = 180000, estimate = "5–8 min", icon = "fan",
             description = "Use the marked service access, clean the rooftop cooling units, then return your maintenance report.",
             steps = {}, -- Temporary test deck below; replace with the real HVAC locations.
         },

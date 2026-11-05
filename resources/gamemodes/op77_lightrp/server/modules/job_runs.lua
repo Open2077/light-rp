@@ -186,7 +186,10 @@ function Runs.cancel(id, reason)
     local run = runs[id]
     if Runs.isBusy(id) then return false, "Please wait for the current operation to finish." end
     if not run then return false, "You have no active work order." end
-    stopWork(id, run); runs[id] = nil; push(id)
+    stopWork(id, run); runs[id] = nil
+    -- abandoned by the player (not expired, not a job change or a fall): no instant reroll
+    if reason == nil and (tonumber(C.cancelCooldownMs) or 0) > 0 then cooldown[id] = LightRP.nowMs() + C.cancelCooldownMs end
+    push(id)
     dropCarried(run)
     notify(id, reason or "Work order cancelled. No payment was issued. Service exits remain available.", "warning")
     return true, "Work order cancelled."
@@ -399,7 +402,7 @@ function Runs.finish(id, payload)
     run.busy = false
     if runs[id] ~= run then return ok == true end -- disconnected; SQL still belongs to captured wallet
     if called and ok then
-        runs[id] = nil; cooldown[id] = LightRP.nowMs() + C.cooldownMs; push(id)
+        runs[id] = nil; cooldown[id] = LightRP.nowMs() + (tonumber(run.route.cooldownMs) or C.cooldownMs); push(id)
         notify(id, LightRP.money.format(run.route.reward) .. " deposited in your bank. Route complete.", "money")
         LightRP.log("job run paid: %s %s amount=%d", run.id, run.job, run.route.reward)
         LightRP.eachModule("onJobRunCompleted", id, run) -- contracts, crew bonus, Big Contract premium
