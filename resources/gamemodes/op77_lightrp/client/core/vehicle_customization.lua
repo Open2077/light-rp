@@ -1,7 +1,10 @@
-local Ui, C = LightRpUi, LightRpVehicleCustomization.camera
+local Ui, Studio = LightRpUi, LightRpVehicleCustomization
+local C = Studio.camera
 local NET, PAGE = LightRpEvents.net.customization, LightRpEvents.page.customization
 local Custom, session = {}, nil
 LightRpVehicleCustomizationClient = Custom
+-- A performance stage rebuilds the car (same id): it may vanish or shift for a moment.
+local RESPAWN_GRACE_MS, WARNING_DELAY_MS, WARNING_GIVE_UP_MS = 8000, 1500, 6000
 function Custom.isActive() return session ~= nil end
 local function stop(notify)
     local s = session; if not s then return end
@@ -22,14 +25,88 @@ end
 local function shot(s, v)
     local a = math.rad(s.angle)
     local p = v.position
-    return { position = { x = p.x + math.cos(a)*s.radius, y = p.y + math.sin(a)*s.radius, z = p.z+C.height },
-        rotation = { yaw = (s.angle+90)%360, pitch = -math.deg(math.atan((C.height-C.targetHeight)/s.radius)) }, fov = C.fov }
+    return { position = { x = p.x + math.cos(a)*s.radius, y = p.y + math.sin(a)*s.radius, z = p.z+s.height },
+        rotation = { yaw = (s.angle+90)%360, pitch = -math.deg(math.atan((s.height-s.targetHeight)/s.radius)) }, fov = C.fov }
 end
 local function refuse(token, text)
     if session and session.id == token then stop(false) end
     TriggerServerEvent(NET, { operation = "close", session = token })
     Ui.send(PAGE, { kind = "unavailable", session = token, text = text or "Vehicle preview is unavailable. Reopen the garage and try again." })
 end
+
+-- What THIS game can show. The server decides what is sold; the client greys what it
+-- would not render (a parts pack it has not loaded, stage records TweakXL did not create).
+local function running(resource)
+    if type(GetResourceState) ~= "function" then return true end -- cannot tell: the server decides
+    return GetResourceState(resource) == "running"
+end
+local function knownRecord(record)
+    if type(Open77.data) ~= "table" or type(Open77.data.vehicle) ~= "function" then return true end
+    local ok, found, why = pcall(Open77.data.vehicle, record)
+    if not ok then return true end
+    return found ~= nil or (why ~= "record_unknown" and why ~= "record_wrong_kind")
+end
+local function grey(entry, reason) entry.available, entry.reason = false, reason end
+local function localChecks(p)
+    local look = nil
+    if type(Open77.vehicles.customizationAvailable) == "function" then
+        local ok, state = pcall(Open77.vehicles.customizationAvailable, p.vehicle.vehicleId)
+        if ok and type(state) == "table" then look = state end
+    end
+    for _, entry in ipairs(type(p.categories) == "table" and p.categories or {}) do
+        if entry.available then
+            if (entry.id == "rims" or entry.id == "body") and type(entry.pack) == "string" and not running(entry.pack) then
+                grey(entry, Studio.unsupported.clientPack)
+            elseif entry.id == "livery" and look and look.twintone == false then
+                grey(entry, Studio.unsupported.clientLivery)
+            elseif entry.id == "performance" and type(entry.options) == "table" then
+                local any = false
+                for _, stage in ipairs(entry.options.stages or {}) do
+                    if stage.stage > 0 and stage.record then
+                        if knownRecord(stage.record) then any = true else stage.available, stage.missing = false, true end
+                    end
+                end
+                if not any then grey(entry, Studio.unsupported.clientStages) end
+            end
+        end
+    end
+end
+-- After a rims / body change, the parts this game skipped (customizationAvailable).
+local function skippedWarning(s, category)
+    local ok, state = pcall(Open77.vehicles.customizationAvailable, s.vehicle)
+    if not ok or type(state) ~= "table" then return nil, true end
+    if (state.appliedRev or 0) < (state.rev or 0) then return nil, false end -- not applied yet
+    local prefix = category == "rims" and "attach:rims." or ("attach:" .. GetCurrentResourceName() .. ":")
+    for _, entry in ipairs(state.skipped or {}) do
+        if type(entry) == "string" and entry:sub(1, #prefix) == prefix then
+            local reason = entry:match(":([%w_]+)$")
+            return Studio.warnings[reason] or Studio.warnings.other, true
+        end
+    end
+    return nil, true
+end
+
+-- Per-category framing, eased in. Angles are relative to the car's heading.
+local function ease(t) return t < .5 and 2*t*t or 1 - (-2*t + 2)^2/2 end
+local function preset(s, v, name)
+    local target = C.presets and (C.presets[name] or C.presets.default)
+    if not target then return end
+    local yaw = v.yaw or 0
+    -- shortest way round to the new angle
+    local goal = s.angle + ((yaw + target.angle - s.angle + 180) % 360 - 180)
+    s.blend = { at = GetGameTimer(), from = { angle = s.angle, radius = s.radius, height = s.height, targetHeight = s.targetHeight },
+        to = { angle = goal, radius = target.radius, height = target.height, targetHeight = target.targetHeight } }
+    s.rotating = target.orbit ~= false
+end
+local function blend(s, now)
+    local b = s.blend
+    if not b then return end
+    local t = math.min(1, math.max(0, (now - b.at) / math.max(1, C.presetMs or 1)))
+    local k = ease(t)
+    for key, goal in pairs(b.to) do s[key] = b.from[key] + (goal - b.from[key]) * k end
+    if t >= 1 then s.blend = nil end
+end
+
 local function start(p)
     if session then stop(true) end
     local character = Open77.character.state()
@@ -41,7 +118,7 @@ local function start(p)
     local v = Open77.vehicles.get(p.vehicle.vehicleId)
     if not v or not v.position or v.streamed == false then refuse(p.session); return end
     local s = { id = p.session, vehicle = p.vehicle.vehicleId, angle = (v.yaw or 0)+35, radius = C.radius,
-        rotating = true, clock = GetGameTimer(), anchor = v.position }
+        height = C.height, targetHeight = C.targetHeight, rotating = true, clock = GetGameTimer(), anchor = v.position }
     local transform = shot(s,v); transform.thirdPersonBody = true
     local camera, why = Open77.camera.create(transform)
     if not camera then refuse(p.session); return end
@@ -55,6 +132,7 @@ local function start(p)
     local hidden, reason = Open77.hud.setCinematic(true, 0.01)
     if not hidden then Ui.log("vehicle cinematic unavailable: %s", tostring(reason)); refuse(p.session); return end
     s.cinematic = true
+    localChecks(p)
     Ui.send(PAGE, { kind = "presentation", session = s.id })
     CreateThread(function()
         local ok, failure = pcall(function()
@@ -72,7 +150,15 @@ RegisterNetEvent(NET, function(p)
     if type(p) ~= "table" then return end
     if p.kind == "open" then start(p)
     elseif session and p.session == session.id then
-        if p.kind == "closed" then stop(false) else Ui.send(PAGE,p) end
+        if p.kind == "closed" then stop(false)
+        else
+            if p.kind == "response" and p.ok and (p.category == "rims" or p.category == "body")
+                and type(Open77.vehicles.customizationAvailable) == "function" then
+                local now = GetGameTimer()
+                session.check = { category = p.category, at = now + WARNING_DELAY_MS, until_ = now + WARNING_GIVE_UP_MS }
+            end
+            Ui.send(PAGE,p)
+        end
     end
 end)
 function Custom.bind(page)
@@ -81,12 +167,21 @@ function Custom.bind(page)
         if not s or type(p) ~= "table" or p.session ~= s.id then return end
         if p.operation == "close" then stop(true)
         elseif p.operation == "camera" then
+            if p.command ~= "preset" then s.blend = nil end -- a manual move ends the framing
             if p.command == "rotate" then s.rotating = p.enabled == true
             elseif p.command == "left" then s.angle = s.angle-20
             elseif p.command == "right" then s.angle = s.angle+20
             elseif p.command == "zoomIn" then s.radius = math.max(4,s.radius-.5)
-            elseif p.command == "zoomOut" then s.radius = math.min(10,s.radius+.5) end
-        elseif p.operation == "preview" or p.operation == "save" then TriggerServerEvent(NET,p) end
+            elseif p.command == "zoomOut" then s.radius = math.min(10,s.radius+.5)
+            elseif p.command == "preset" and type(p.category) == "string" then
+                local v = Open77.vehicles.get(s.vehicle)
+                if v then preset(s, v, p.category) end
+                Ui.send(PAGE, { kind = "camera", session = s.id, rotating = s.rotating })
+            end
+        elseif p.operation == "preview" or p.operation == "save" then
+            if p.operation == "save" and p.category == "performance" then s.graceUntil = GetGameTimer() + RESPAWN_GRACE_MS end
+            TriggerServerEvent(NET,p)
+        end
     end)
 end
 AddEventHandler("onClientResourceStop",function(name) if name == GetCurrentResourceName() then stop(true) end end)
@@ -97,15 +192,28 @@ CreateThread(function()
         if s then
             local ok, why = pcall(function()
                 local char, v, registry = Open77.character.state(), Open77.vehicles.get(s.vehicle), Open77.camera.cameras()
+                local now = GetGameTimer()
+                local respawning = s.graceUntil and now < s.graceUntil
+                if respawning and (not v or not v.position or v.streamed == false) then return end
                 if not char or not char.attached or not char.alive or not Ui.characterReady or not v or not v.position
                     or (v.speed or 0)>.5 or next(v.occupants or {}) ~= nil or Ui.creationActive then stop(true); return end
-                if math.abs(v.position.x-s.anchor.x)+math.abs(v.position.y-s.anchor.y)+math.abs(v.position.z-s.anchor.z)>2 then stop(true); return end
+                if math.abs(v.position.x-s.anchor.x)+math.abs(v.position.y-s.anchor.y)+math.abs(v.position.z-s.anchor.z)>2 then
+                    if not respawning then stop(true); return end
+                    s.anchor = v.position -- the rebuilt car settles where the engine puts it
+                end
                 if not s.active then return end
                 if not registry or not registry.held or registry.activeCamera ~= s.camera then stop(true); return end
-                local now = GetGameTimer(); local dt = math.min(.05,math.max(0,(now-s.clock)/1000)); s.clock = now
-                if s.rotating then s.angle = (s.angle+C.degreesPerSecond*dt)%360 end
+                local dt = math.min(.05,math.max(0,(now-s.clock)/1000)); s.clock = now
+                blend(s, now)
+                if s.rotating and not s.blend then s.angle = (s.angle+C.degreesPerSecond*dt)%360 end
                 local moved = Open77.camera.setTransform(s.camera, shot(s,v))
-                if not moved then stop(true) end
+                if not moved then stop(true); return end
+                local check = s.check
+                if check and now >= check.at then
+                    local text, done = skippedWarning(s, check.category)
+                    if text then Ui.send(PAGE, { kind = "warning", session = s.id, category = check.category, text = text }) end
+                    if done or now >= check.until_ then s.check = nil else check.at = now + 500 end
+                end
             end)
             if not ok and session == s then Ui.log("vehicle orbit failed: %s", tostring(why)); stop(true) end
         end

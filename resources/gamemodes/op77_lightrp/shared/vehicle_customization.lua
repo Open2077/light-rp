@@ -113,6 +113,17 @@ LightRpVehicleCustomization = {
         rimsPack = "The rim workshop is not installed on this server yet.",
         bodyPack = "The body shop is not installed on this server yet.",
         stagesPack = "Performance tuning is not installed on this server yet.",
+        -- Checked by the client in its own game (the server cannot see it).
+        clientPack = "Your game has not loaded this workshop's parts. Reconnect to the server to download them.",
+        clientStages = "Your game has not loaded the performance stages (TweakXL). Reconnect to the server.",
+        clientLivery = "Your game reports no two-tone scheme on this vehicle.",
+    },
+    -- Shown after a rims / body preview when this game skipped a part (`skipped` of
+    -- customizationAvailable): by the reason at the end of "attach:<key>:<reason>".
+    warnings = {
+        model_not_registered = "These parts are invisible in your game: its parts pack is missing. Reconnect to download it.",
+        slot_absent = "This part has no mount point on this vehicle in your game.",
+        other = "Part of this look could not be shown in your game.",
     },
     -- Neon: presets, the custom colour and the brightness steps (intensity 0-5000, the
     -- native's default is 600). A very dark colour lights nothing and is refused.
