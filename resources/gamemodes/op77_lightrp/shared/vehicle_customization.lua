@@ -4,7 +4,7 @@ LightRpVehicleCustomization = {
     categories = {
         { id = "paint", label = "Body paint", description = "Primary and secondary colors", icon = "palette" },
         { id = "lights", label = "Lights", description = "Headlight and lamp tint", icon = "lightbulb" },
-        { id = "trim", label = "Factory trim", description = "Factory variants of this model", icon = "car" },
+        { id = "trim", label = "Trim", description = "Factory variants of this model", icon = "car" },
     },
     -- Factory trims (entity appearance variants), per Light RP catalogue key
     -- (shared/config.lua LightRpConfig.vehicles.catalog). The server only accepts an

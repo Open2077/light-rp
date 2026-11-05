@@ -78,6 +78,75 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
   await p.keyboard.press('Escape');assert.equal(await ui.count(),0);assert.equal((await calls()).at(-1).operation,'close');assert.equal(await p.locator('.gameplay-interface').getAttribute('hidden'),null);assert(await p.locator('.notices').isVisible());
   await fire(state);await ui.waitFor();await fire({kind:'closed',session:'stale'});assert.equal(await ui.count(),1);assert(await p.locator('.gameplay-interface').isHidden());await fire({kind:'closed',session:state.session});assert.equal(await ui.count(),0);
   await fire({kind:'unavailable',session:'failed',text:'Vehicle preview is unavailable.'});await p.getByText('Vehicle preview is unavailable.',{exact:true}).waitFor();
-  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup');
+  // Lights and factory trim: per-category drafts, prices, payloads and confirmations.
+  const studio={...state,session:'custom:categories',price:2500,prices:{paint:2500,lights:500,trim:2500},
+   vehicle:{...state.vehicle,model:'hella',lightsHue:0.1,appearance:''},
+   categories:[{id:'paint',label:'Body paint',description:'Primary and secondary colors',available:true,price:2500},
+    {id:'lights',label:'Lights',description:'Headlight and lamp tint',available:true,price:500},
+    {id:'trim',label:'Trim',description:'Factory variants of this model',available:true,price:2500,options:[{id:'hella_trim_a',label:'Street'},{id:'hella_trim_b',label:'Sport'}]}]};
+  const sid=studio.session,respond=(request,extra)=>fire({kind:'response',session:sid,request,nextRequest:request+1,ok:true,...extra});
+  await fire(studio);await ui.waitFor();
+  const nav=p.getByRole('navigation',{name:'Customization categories'});
+  assert.equal(await nav.getByRole('button').count(),3);
+  let base=(await calls()).length;
+  await nav.getByRole('button',{name:/^Lights/}).click();
+  const lightsButton=()=>p.getByRole('button',{name:'Apply lights · €$ 500',exact:true});
+  assert(await lightsButton().isDisabled(),'unchanged lights cannot be purchased');
+  await p.getByRole('button',{name:'Light #00D8FF',exact:true}).click();
+  sent=await untilCalls(base+1);assert.deepEqual([sent.operation,sent.category,sent.color,sent.stock,sent.request],['preview','lights','#00D8FF',false,1]);
+  assert(!('primary'in sent)&&!('trim'in sent),'a lights request carries no other category');
+  await respond(1,{confirmed:{paint:original,lightsHue:0.1,appearance:''}});
+  await p.getByRole('textbox',{name:'Light hex color'}).fill('#808080');
+  await p.getByText('Pick a more saturated color: a grey has no hue.',{exact:true}).waitFor();
+  assert(await lightsButton().isDisabled());await p.waitForTimeout(400);assert.equal((await calls()).length,base+1,'a grey is never previewed');
+  await p.getByRole('button',{name:'Light #FF1E3C',exact:true}).click();
+  sent=await untilCalls(base+2);assert.equal(sent.color,'#FF1E3C');await respond(2,{confirmed:{paint:original,lightsHue:0.1,appearance:''}});
+  // Paint previews in between keep the lights draft; the purchase is per category.
+  await nav.getByRole('button',{name:/^Body paint/}).click();
+  await p.getByRole('button',{name:'Paint #28705A',exact:true}).click();
+  sent=await untilCalls(base+3);assert.equal(sent.category,'paint');await respond(3,{confirmed:{paint:original,lightsHue:0.1,appearance:''}});
+  await nav.getByRole('button',{name:/^Lights/}).click();
+  assert.equal(await p.getByRole('textbox',{name:'Light hex color'}).inputValue(),'#FF1E3C','the lights draft survives a category switch');
+  await lightsButton().click();
+  sent=await untilCalls(base+4);assert.deepEqual([sent.operation,sent.category,sent.color,sent.pay],['save','lights','#FF1E3C','bank']);
+  await respond(4,{operation:'save',category:'lights',text:'Light tint purchased and saved to your vehicle.',money:{cash:500,bank:4500,currency:'€$'},
+   confirmed:{paint:original,lightsHue:352/360,appearance:''}});
+  await p.getByRole('status').filter({hasText:'Light tint purchased'}).waitFor();
+  assert(await lightsButton().isDisabled(),'the confirmed hue is not sold again');
+  for(const [width,height]of[[1920,1080],[1280,720],[800,600]]){
+   await p.setViewportSize({width,height});await p.waitForTimeout(100);
+   const boxes=await Promise.all(['.workshop__panel','.workshop__checkout','.workshop__camera','.workshop__categories'].map(s=>p.locator(s).boundingBox()));
+   for(const box of boxes)assert(box.x>=0&&box.y>=0&&box.x+box.width<=width&&box.y+box.height<=height,'three categories fit at '+width);
+   assert(!overlap(boxes[0],boxes[2]),'camera controls stay outside the left panel');
+   await p.screenshot({path:path.join(output,`vehicle-customization-lights-${width}.png`)});
+  }
+  await p.getByRole('button',{name:'Factory lights',exact:true}).click();
+  sent=await untilCalls(base+5);assert.equal(sent.stock,true);await respond(5,{confirmed:{paint:original,lightsHue:352/360,appearance:''}});
+  // Trim: only the listed options, Factory trim sends stock without a name.
+  await nav.getByRole('button',{name:/^Trim/}).click();
+  const trims=p.getByRole('group',{name:'Factory trims'});
+  assert.equal(await trims.getByRole('button').count(),3);
+  const trimButton=()=>p.getByRole('button',{name:'Apply trim · €$ 2,500',exact:true});
+  assert(await trimButton().isDisabled());
+  await trims.getByRole('button',{name:'Sport'}).click();
+  sent=await untilCalls(base+6);assert.deepEqual([sent.category,sent.trim,sent.operation],['trim','hella_trim_b','preview']);
+  await respond(6,{confirmed:{paint:original,lightsHue:352/360,appearance:''}});
+  await trimButton().click();sent=await untilCalls(base+7);assert.deepEqual([sent.operation,sent.trim,sent.pay],['save','hella_trim_b','bank']);
+  await respond(7,{operation:'save',text:'Trim purchased and saved to your vehicle.',money:{cash:500,bank:2000,currency:'€$'},confirmed:{paint:original,lightsHue:352/360,appearance:'hella_trim_b'}});
+  await p.getByRole('status').filter({hasText:'Trim purchased'}).waitFor();assert(await trimButton().isDisabled());
+  await trims.getByRole('button',{name:'Factory trim'}).click();
+  sent=await untilCalls(base+8);assert.equal(sent.stock,true);assert(!('trim'in sent),'factory trim names no variant');
+  await respond(8,{confirmed:{paint:original,lightsHue:352/360,appearance:'hella_trim_b'}});
+  await p.screenshot({path:path.join(output,'vehicle-customization-trim.png')});
+  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);assert.equal((await calls()).at(-1).operation,'close');
+  // A category the server marks unsupported is greyed with its reason; the first usable one opens.
+  await fire({...studio,session:'custom:unsupported',categories:[{...studio.categories[0],available:false,reason:'This model has no custom paint layer.'},studio.categories[1]]});
+  await ui.waitFor();
+  assert(await nav.getByRole('button',{name:/^Body paint/}).isDisabled());
+  await nav.getByText('This model has no custom paint layer.',{exact:true}).waitFor();
+  assert.equal(await lightsButton().count(),1,'the lights editor opens instead');
+  await p.screenshot({path:path.join(output,'vehicle-customization-unsupported.png')});
+  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);
+  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup; lights (presets, grey refusal, per-category drafts and purchase, factory lights), factory trim options and unsupported categories');
  }finally{await b.close()}
 })().catch(e=>{console.error(e);process.exit(1)});
