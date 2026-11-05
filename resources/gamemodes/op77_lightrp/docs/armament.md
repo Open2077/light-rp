@@ -178,7 +178,7 @@ même en local : le client l'exécute dans une frame REDscript.
 **Diagnostic :**
 - Chaque requête écrit une ligne `armament: trace <op> player N: ok, in hand X ms, done Y ms, db until Z ms, n native (...)`.
 - Commande staff `/lightrp.armtest <id> <next|n|unarmed|holster|state|die>` : elle emprunte le même chemin que la roue (`die` tue puis fait réapparaître sur place).
-- Banc du lab : `E:\Open77	mp\lrp-weaponsrmbench.ps1`.
+- Banc du lab : `E:/Open77/tmp/lrp-weapons/armbench.ps1`.
 
 **Vérifié en jeu (client Jack Test, serveur de lab 193) :**
 - roue réelle (TAB, souris, clic), HOLSTER puis ressortie ;
