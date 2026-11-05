@@ -502,8 +502,16 @@ end)
 
 function Tutorial.onInventoryOpened(player) advance(player,"inventory",following.inventory) end
 -- A look saved in a fitting room (wardrobe.lua relays open77_appearance): dressed or not.
-function Tutorial.onDressed(player, dressed)
-    if dressed then advance(player,"dress",following.dress) end
+-- A look saved without trousers (or without a top) said nothing and the player thought the
+-- guide was stuck (LightRP Testing 2026-11-06: boots and underwear, no Legs): it now says
+-- what is missing.
+function Tutorial.onDressed(player, dressed, missing)
+    if dressed then advance(player,"dress",following.dress); return end
+    local s = active(player)
+    if not s or s.step ~= "dress" then return end
+    local what = type(missing) == "table" and #missing > 0 and table.concat(missing, " and ") or "a top and trousers"
+    LightRP.notice(player, {kind="warning", title="First day guide", durationMs=9000,
+        body="Almost: your saved look has no " .. what .. ". Put " .. (what:find(" and ") and "them" or "it") .. " on in the fitting room and save again."})
 end
 -- op77_neuralink installed the implant (neuralink_bridge.lua relays it).
 function Tutorial.onNeuralinkInstalled(player)
