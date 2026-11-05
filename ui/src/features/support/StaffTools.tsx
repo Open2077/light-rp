@@ -5,7 +5,7 @@ import { tableActionLabels } from "./TableTools";
 import { manekiActionLabels } from "./ManekiTools";
 import { eventAuditLabels } from "./EventsTools";
 
-export const actionLabels:Record<string,string>={gotoPlayer:"Go to player",bring:"Bring player",returnPlayer:"Return player",heal:"Heal / revive",rename:"Rename character",job:"Change job",gang:"Change affiliation",credit:"Credit money",debit:"Remove money",warn:"Formal warning",kick:"Kick player",ban:"Ban player",announce:"Server announcement"};
+export const actionLabels:Record<string,string>={gotoPlayer:"Go to player",bring:"Bring player",returnPlayer:"Return player",setBucket:"Set instance",heal:"Heal / revive",rename:"Rename character",job:"Change job",gang:"Change affiliation",credit:"Credit money",debit:"Remove money",warn:"Formal warning",kick:"Kick player",ban:"Ban player",announce:"Server announcement"};
 /** Every action the audit log can hold (citizen interventions + placed tables). */
 export const auditLabels:Record<string,string>={...actionLabels,...tableActionLabels,...manekiActionLabels,...eventAuditLabels};
 const money=(v:number|undefined)=>`€$ ${(v||0).toLocaleString()}`;
@@ -18,6 +18,7 @@ export function ProfileCard({profile:p}:{profile:Profile}) {
 export function ActionForm({action,person,overview,onCancel,onDone}:{action:string;person:Profile;overview:Overview;onCancel:()=>void;onDone:(message:string)=>void}) {
   const [reason,setReason]=useState(""),[first,setFirst]=useState(person.firstName||""),[last,setLast]=useState(person.lastName||"");
   const [name,setName]=useState(""),[grade,setGrade]=useState("0"),[wallet,setWallet]=useState("bank"),[amount,setAmount]=useState(""),[duration,setDuration]=useState("3600");
+  const [bucket,setBucket]=useState(String((person as {position?:{bucket?:number}}).position?.bucket??0));
   const [confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(""),[uncertain,setUncertain]=useState(false);
   const mutation=useRef<string>(),cancel=useRef<HTMLButtonElement>(null),ref=useFormFocus();
   useEffect(()=>{if(confirm)cancel.current?.focus();else ref.current?.querySelector<HTMLElement>("input,textarea,select")?.focus();},[confirm,ref]);
@@ -25,7 +26,7 @@ export function ActionForm({action,person,overview,onCancel,onDone}:{action:stri
   const send=async()=>{
     if(busy||uncertain)return;setBusy(true);setError("");mutation.current??=key();
     try{
-      const r=await request<{accepted:boolean;outcome:string;message:string}>("adminAction",{confirmed:true,mutation:mutation.current,target:person.id,account:person.account,character:person.character,action,reason,firstName:first,lastName:last,name,grade:Number(grade),wallet,amount:Number(amount),duration:duration==="permanent"?duration:Number(duration)});
+      const r=await request<{accepted:boolean;outcome:string;message:string}>("adminAction",{confirmed:true,mutation:mutation.current,target:person.id,account:person.account,character:person.character,action,reason,firstName:first,lastName:last,name,grade:Number(grade),wallet,amount:Number(amount),duration:duration==="permanent"?duration:Number(duration),bucket:Number(bucket)});
       if(r.accepted&&r.outcome==="success")onDone(r.message);else{setError(r.message);setConfirm(false);setUncertain(r.outcome==="pending");}
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   };
@@ -37,6 +38,7 @@ export function ActionForm({action,person,overview,onCancel,onDone}:{action:stri
       {action==="rename"&&<><label>First name<input required value={first} onChange={e=>setFirst(e.target.value)} maxLength={24}/></label><label>Last name<input required value={last} onChange={e=>setLast(e.target.value)} maxLength={24}/></label></>}
       {(action==="job"||action==="gang")&&<><label>{action==="job"?"Job":"Affiliation"}<select required value={name} onChange={e=>{setName(e.target.value);setGrade("0");}}><option value="">Choose…</option>{list(catalog).map(r=><option key={r.name} value={r.name}>{r.label}</option>)}</select></label><label>Grade<select value={grade} onChange={e=>setGrade(e.target.value)}>{list(role?.grades).map(g=><option key={g.value} value={g.value}>{g.value} · {g.label}</option>)}</select></label></>}
       {(action==="credit"||action==="debit")&&<><label>Wallet<select value={wallet} onChange={e=>setWallet(e.target.value)}><option value="bank">Bank</option><option value="cash">Cash</option></select></label><label>Amount<input type="number" min={1} max={10000000} step={1} required value={amount} onChange={e=>setAmount(e.target.value)}/></label></>}
+      {action==="setBucket"&&<label>Instance (0 = the city; now {String((person as {position?:{bucket?:number}}).position?.bucket??0)})<input type="number" min={0} max={2147483647} step={1} required value={bucket} onChange={e=>setBucket(e.target.value)}/></label>}
       {action==="ban"&&<label>Duration<select value={duration} onChange={e=>setDuration(e.target.value)}><option value="3600">1 hour</option><option value="86400">1 day</option><option value="604800">7 days</option><option value="2592000">30 days</option><option value="permanent">Permanent</option></select></label>}
       {action==="announce"&&<label>Announcement<textarea required minLength={4} maxLength={500} rows={4} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
       <footer><button type="button" onClick={onCancel}>Back</button><button className={["ban","debit"].includes(action)?"is-danger":"is-primary"} disabled={uncertain||busy}>{busy?"Applying…":"Apply"}</button></footer>

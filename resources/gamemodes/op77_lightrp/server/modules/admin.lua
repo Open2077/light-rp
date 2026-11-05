@@ -122,12 +122,13 @@ function Admin.audit(player,p)
     local more=#list>25;if more then table.remove(list) end
     return {entries=list,page=page,hasMore=more}
 end
-local DEFAULT_REASON={warn="Please respect the server rules.",kick="Kicked by staff.",ban="Banned by staff.",credit="Staff credit via /admin.",debit="Staff debit via /admin."}
+local DEFAULT_REASON={warn="Please respect the server rules.",kick="Kicked by staff.",ban="Banned by staff.",credit="Staff credit via /admin.",debit="Staff debit via /admin.",setBucket="Instance changed via /admin."}
 local function actionDetail(p)
     if p.action=="job" or p.action=="gang" then return tostring(p.name).." / "..tostring(p.grade) end
     if p.action=="credit" or p.action=="debit" then return tostring(p.wallet).." / "..tostring(p.amount) end
     if p.action=="rename" then return tostring(p.firstName).." "..tostring(p.lastName) end
     if p.action=="ban" then return p.duration=="permanent" and "permanent" or tostring(p.duration).." seconds" end
+    if p.action=="setBucket" then return "instance "..tostring(p.bucket) end
     return ""
 end
 local function kickReason(reason)
@@ -168,6 +169,14 @@ local function execute(player,target,c,p,reason)
         if not identifier then return false,"No authenticated player identity." end
         return Open77.access.ban(identifier,reason,duration,GetPlayerName(target))
     elseif op=="announce" then LightRP.staff.announce(reason);return true
+    elseif op=="setBucket" then
+        -- the player stays where they stand, in another instance (routing bucket)
+        local bucket=finite(p.bucket)
+        if not bucket or bucket<0 or bucket>2147483647 or bucket~=math.floor(bucket) then return false,"Enter an instance number (0 is the city)." end
+        if type(SetPlayerRoutingBucket)~="function" then return false,"Instances are not available on this server." end
+        local okSet,set=pcall(SetPlayerRoutingBucket,target,math.floor(bucket))
+        if not okSet or set==false then return false,"The instance could not be changed." end
+        return true,("Moved to instance %d."):format(math.floor(bucket))
     end
     local moved,position,heading=target,nil,0
     if op=="gotoPlayer" then position=Open77.players.position(target);moved=player
@@ -178,10 +187,15 @@ local function execute(player,target,c,p,reason)
     else return false,"Unknown admin action." end
     if not position then return false,"Position unavailable." end
     local before=Open77.players.position(moved)
-    if not before or (position.bucket or 0)~=(before.bucket or 0) then return false,"Players must be in the same instance. Do not interrupt character creation." end
+    if not before then return false,"Position unavailable." end
+    -- Another instance (owner 2026-11-06: "si je bring change le de bucket automatiquement"): the
+    -- moved player lands in the destination's instance. Character creation is refused above
+    -- (only active characters reach here).
+    local bucket=position.bucket or 0
     local destination={x=position.x+(op=="returnPlayer" and 0 or 1.5),y=position.y,z=position.z}
     local done,ok,why=false,false,nil
-    LightRP.staff.moveTo(moved,destination,heading,function(success,failure) ok,why,done=success,failure,true end)
+    LightRP.staff.moveTo(moved,destination,heading,function(success,failure) ok,why,done=success,failure,true end,
+        bucket~=(before.bucket or 0) and bucket or nil)
     while not done do Wait(20) end
     if ok and op=="bring" and current(target,c) then returned[target]={character=c,position=before,heading=before.heading or 0}
     elseif ok and op=="returnPlayer" then returned[target]=nil end
