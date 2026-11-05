@@ -117,8 +117,7 @@ check(coll["editions"] > 0 and coll["totalEditions"] == 320, "export getCollecti
 
 # Client: the pack-request lock is a local declared before the handlers that clear it (a later `local` made the
 # opening handler clear a global instead: "The server did not answer" 20 s after every pack, live 2026-11-05).
-src = (pathlib.Path(__file__).resolve().parent.parent / "client" / "main.lua").read_text(encoding="utf-8").split("
-")
+src = (pathlib.Path(__file__).resolve().parent.parent / "client" / "main.lua").read_text(encoding="utf-8").splitlines()
 decl = next(i for i, x in enumerate(src) if x.startswith("local pendingOpen"))
 first = next(i for i, x in enumerate(src) if "pendingOpen" in x.split("--")[0])
 check(first == decl, f"client/main.lua: pendingOpen declared (line {decl + 1}) before its first use (line {first + 1})")
