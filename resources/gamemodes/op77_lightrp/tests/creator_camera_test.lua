@@ -5,6 +5,7 @@ LightRpConfig.characters.arrivalScene.bench = "furniture.bench.outdoor"
 local threads, events, net, page, sent, requests = {}, {}, {}, {}, {}, {}
 local now, opened, loading, frozen, hud, chat = 0, false, false, false, true, true
 local inWorkspot = true
+local standAt, lastCreate = nil, nil
 local cameras, props, sounds, nextId, transforms = {}, {}, {}, 0, {}
 local function id(set) nextId=nextId+1; set[nextId]=true; return nextId end
 CreateThread = function(fn) threads[#threads+1] = coroutine.create(fn) end
@@ -22,7 +23,7 @@ Open77 = {
     screen={isLoading=function() return loading end},
     animations={current=function(entity) assert(entity==0); return inWorkspot and "sit_chair_lean180__2h_on_lap__01__long__01" or nil end},
     character={setFrozen=function(v) frozen=v; return true end,
-        state=function() return {grounded=true,inWorkspot=inWorkspot,position=LightRpConfig.characters.arrivalScene.position} end},
+        state=function() return {grounded=true,inWorkspot=inWorkspot,yaw=90,position=standAt or LightRpConfig.characters.arrivalScene.position} end},
     hud={setVisible=function(_,v) hud=v; return true end},
     props={create=function(d) assert(d.model=="furniture.bench.outdoor"); return id(props) end, remove=function(i) props[i]=nil end},
     audio={
@@ -31,7 +32,7 @@ Open77 = {
         setVolume=function(i,v) assert(sounds[i] and v>=0 and v<=0.12); sounds[i]=v end,
     },
     camera={
-        create=function(d) assert(d.thirdPersonBody and d.position.z<d.lookAt.z); return id(cameras) end,
+        create=function(d) assert(d.thirdPersonBody and d.position.z<d.lookAt.z); lastCreate=d; return id(cameras) end,
         activate=function() return true, {await=function() return true end} end,
         destroy=function(i) cameras[i]=nil end,
         setTransform=function(i,d) assert(cameras[i]); transforms[#transforms+1]=d end,
@@ -74,9 +75,36 @@ tick(1); assert(next(cameras) and next(sounds) and not hud and not chat, "author
 relay("placement"); assert(not next(cameras) and not next(sounds) and hud and chat, "walk restores the camera and HUD")
 relay("placement_closed"); assert(not C.isPlacing())
 relay("placed"); tick(1); inWorkspot=false; relay("seated"); tick(2)
-assert(not next(cameras), "accepted animation does not prove native seated body")
-tick(16); assert(sent[#sent].phase=="error", "missing native pose has a bounded retry state")
-page[LightRpEvents.page.creator]({retry=true}); inWorkspot=true; tick(4)
-relay("placed"); tick(1); relay("seated"); tick(1.2); assert(next(cameras))
-inWorkspot=false; tick(1); tick(3); assert(not next(cameras), "lost workspot releases the cinematic")
-print("PASS: native handoff, loading gate, low-angle camera, movement controls, audio/mute, cleanup, slot change and resource stop")
+assert(not next(cameras), "the native pose is waited for a moment")
+tick(1.5); tick(); assert(next(cameras) and sent[#sent].phase=="ready", "seated by the server without the native pose: shown anyway")
+-- off the seat during the scene: the seat is asked again, the scene stays on screen
+tick(2.5); tick(1); tick(3.2)
+assert(next(cameras) and sent[#sent].phase=="ready", "a lost seat keeps the scene on screen")
+assert(requests[#requests]=="seat", "a lost seat asks the seat again")
+inWorkspot=true
+
+local function fresh(key, body)
+    C.sync({status="active",key="old"}); C.sync({status="draft",key=key,bodyFamily=body,appearanceTracked=true})
+    assert(not next(cameras))
+end
+-- the server refuses the scene: shown where the body stands, framed on the body
+standAt={x=100,y=200,z=5}
+fresh("slot3","male"); tick(4); assert(requests[#requests]=="start")
+net[LightRpEvents.net.creator]({phase="error",error="occupied"}); tick(); tick()
+assert(next(cameras) and sent[#sent].phase=="ready", "a server error shows the scene anyway")
+assert(math.abs(lastCreate.lookAt.x-100)<3 and math.abs(lastCreate.lookAt.y-200)<3, "framed on the body, not the bench")
+-- the server never answers the start (readiness gate): shown after the deadline
+fresh("slot4","female"); tick(4); tick(4); tick(1.5); assert(not next(cameras) and sent[#sent].phase~="ready")
+tick(4); tick(2); tick(); tick(); assert(next(cameras) and sent[#sent].phase=="ready", "no answer to the start: shown anyway")
+-- the arrival never settles (streamed respawn lost): shown after the deadline
+fresh("slot5","female"); tick(4); relay("preparing"); tick(19); assert(not next(cameras))
+tick(2); tick(); tick(); assert(next(cameras) and sent[#sent].phase=="ready", "a stuck arrival is shown anyway")
+-- the body record never reaches the client: shown after the deadline, no start asked
+fresh("slot6",nil); local n=#requests; tick(); tick(16); tick(); tick()
+assert(next(cameras) and sent[#sent].phase=="ready" and #requests==n, "a draft without its body still sees the scene")
+-- the camera itself refused: the cover goes anyway (the game's own view)
+local create=Open77.camera.create; Open77.camera.create=function() return nil, "camera_busy" end
+fresh("slot7","male"); net[LightRpEvents.net.creator]({phase="error"}); tick(); tick()
+assert(not next(cameras) and sent[#sent].phase=="ready", "no camera at all: never a black screen")
+Open77.camera.create=create
+print("PASS: native handoff, loading gate, low-angle camera, movement controls, audio/mute, cleanup, slot change, resource stop and the scene always shown (pose, refusal, silence, stuck arrival, missing body, camera refused)")
