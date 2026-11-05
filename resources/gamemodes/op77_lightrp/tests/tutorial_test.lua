@@ -27,7 +27,7 @@ local T
 local props,cars,serial={}, {},100
 LightRP={db=Db,module=function(name,v) LightRP[name]=v;if name=="tutorial" then T=v end;return v end,characters={get=function(id) return chars[id] end},
  state=function() end,stateProvider=function(k,fn) providers[k]=fn end,log=function() end,
- nowMs=function() return time end,notice=function() end,result=function() end,
+ nowMs=function() return time end,notice=function(_,n) _G.TUTO_NOTICE=n end,result=function() end,
  jobs={get=function() return {name=job} end},jobRuns={preview=function(name) if name=="ac_cleaner" then return {} end end,snapshot=function() return {active=runActive} end},
  jobWork={preview=function(name) if name=="sanitation" then return {} end end,
   firstPoint=function(name) if name=="sanitation" then return {position={x=10,y=20,z=30},label="Collect waste"},"work.sanitation.collection_west" end end},
@@ -124,7 +124,8 @@ assert(closed==1,"a later installation leaves the phone alone")
 action("finish");assert(state().step=="voice","voice is optional but cannot complete the entire guide")
 action("voice-configured");assert(state().step=="dress","already configured keeps the guide moving")
 assert(state().objective and state().objective.interaction=="wardrobe.lobby_fitting","the hall's fitting room is the destination")
-T.onDressed(1,false);assert(state().step=="dress","a look saved in underwear does not count")
+T.onDressed(1,false,{"trousers"});assert(state().step=="dress","a look saved in underwear does not count")
+assert(TUTO_NOTICE and TUTO_NOTICE.body:find("no trousers"),"a look saved without trousers says what is missing")
 action("finish");assert(state().step=="dress","the browser cannot dress the player")
 T.onDressed(1,true);assert(state().step=="identity","clothes on: the guide moves on")
 T.onDressed(1,true);assert(state().step=="identity","a later saved look does not skip a step")
