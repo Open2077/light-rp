@@ -3,10 +3,11 @@ import { request, key, list, date, type Overview, type Profile, type Audit } fro
 import { useFormFocus } from "./SupportForms";
 import { tableActionLabels } from "./TableTools";
 import { manekiActionLabels } from "./ManekiTools";
+import { eventAuditLabels } from "./EventsTools";
 
 export const actionLabels:Record<string,string>={gotoPlayer:"Go to player",bring:"Bring player",returnPlayer:"Return player",heal:"Heal / revive",rename:"Rename character",job:"Change job",gang:"Change affiliation",credit:"Credit money",debit:"Remove money",warn:"Formal warning",kick:"Kick player",ban:"Ban player",announce:"Server announcement"};
 /** Every action the audit log can hold (citizen interventions + placed tables). */
-export const auditLabels:Record<string,string>={...actionLabels,...tableActionLabels,...manekiActionLabels};
+export const auditLabels:Record<string,string>={...actionLabels,...tableActionLabels,...manekiActionLabels,...eventAuditLabels};
 const money=(v:number|undefined)=>`€$ ${(v||0).toLocaleString()}`;
 export function ProfileCard({profile:p}:{profile:Profile}) {
   return <div className="rp-support__record"><small>CITIZEN #{p.id} · {p.character}</small><h2>{p.name}</h2><p>{p.accountName} · {p.status}</p>
@@ -42,5 +43,5 @@ export function ActionForm({action,person,overview,onCancel,onDone}:{action:stri
     </form>}{error&&<p className="rp-support__error" role="alert">{error}</p>}</div>;
 }
 export function AuditEntry({entry:a}:{entry:Audit}) {
-  return <article className="rp-support__record"><small>{date(Number(a.at))} · {a.outcome.toUpperCase()}</small><h2>{auditLabels[a.action]||a.action}</h2><dl><dt>Staff member</dt><dd>{a.actor_name}</dd><dt>{tableActionLabels[a.action]?"Table owner":manekiActionLabels[a.action]?"Collectible":"Citizen"}</dt><dd>{a.target_name||"Server"}</dd></dl><h3>Reason</h3><p>{a.reason}</p><p>{a.detail}</p>{a.outcome==="pending"&&<p className="rp-support__error">Check the player before repeating this action.</p>}</article>;
+  return <article className="rp-support__record"><small>{date(Number(a.at))} · {a.outcome.toUpperCase()}</small><h2>{auditLabels[a.action]||a.action}</h2><dl><dt>Staff member</dt><dd>{a.actor_name}</dd><dt>{tableActionLabels[a.action]?"Table owner":manekiActionLabels[a.action]?"Collectible":eventAuditLabels[a.action]?"Event":"Citizen"}</dt><dd>{a.target_name||"Server"}</dd></dl><h3>Reason</h3><p>{a.reason}</p><p>{a.detail}</p>{a.outcome==="pending"&&<p className="rp-support__error">Check the player before repeating this action.</p>}</article>;
 }

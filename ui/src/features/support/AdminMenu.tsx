@@ -8,7 +8,7 @@ import type { RageMenuItem } from "@/design/components";
 import { useFormFocus } from "./SupportForms";
 import type { Person, Profile } from "./api";
 
-export type AdminKind = "self" | "teleport" | "vehicles" | "vehicleList" | "items" | "itemList" | "world" | "time" | "weather" | "voice" | "events" | "bosses" | "gigs" | "contracts" | "content" | "server";
+export type AdminKind = "self" | "teleport" | "vehicles" | "vehicleList" | "items" | "itemList" | "world" | "time" | "weather" | "voice" | "missions" | "bosses" | "gigs" | "contracts" | "content" | "server";
 export interface Catalog {
   vehicles: { key: string; label: string; category: string; record: string }[];
   items: { name: string; label: string; category: string }[];
@@ -69,7 +69,7 @@ export function sectionHasAny(ctx: AdminContext, kind: AdminKind): boolean {
     case "vehicles": return any("lightrp.car", "admin.veh.spawn", "lightrp.repair", "lightrp.refuel", "admin.veh.remove", "admin.world.cleanup", "admin.bulk.dvall");
     case "items": return any("lightrp.giveitem");
     case "world": return any("weather.set", "weather.time.set", "lightrp.announce", "lightrp.broadcast");
-    case "events": return any("lightrp.missions", "worldboss.list", "worldboss.start", "fixers.list", "fixers.dispatch", "lightrp.dailies", "lightrp.activities", "turf.status", "lightrp.dogtown", "tcg.rooms");
+    case "missions": return any("lightrp.missions", "worldboss.list", "worldboss.start", "fixers.list", "fixers.dispatch", "lightrp.dailies", "lightrp.activities", "turf.status", "lightrp.dogtown", "tcg.rooms");
     case "server": return any("lightrp.status", "admin.server.status", "lightrp.bots", "adminfull", "admin.bulk.tpall", "admin.bulk.dvall");
     default: return true;
   }
@@ -171,7 +171,7 @@ export function adminSection(ctx: AdminContext, kind: AdminKind, extra: { catego
     ], parts: { time, weather: sky, voice } } as ReturnType<typeof adminSection> & { parts: Record<string, Entry[]> };
   }
 
-  if (kind === "events") {
+  if (kind === "missions") {
     const bosses: Entry[] = allowed(ctx, [
     needs(item("bossList", "World bosses: schedule", () => run(["worldboss.list"]), { icon: "skull" }), "worldboss.list"),
     needs(item("bossStart", "Start the next world boss now", () => run(["worldboss.start"]), { icon: "skull" }), "worldboss.start"),
@@ -208,7 +208,7 @@ export function adminSection(ctx: AdminContext, kind: AdminKind, extra: { catego
 
   // a sub-section: the parent builds it (one place for each list)
   const parents: Record<string, [AdminKind, string, string]> = { time: ["world", "TIME", "CLOCK"], weather: ["world", "WEATHER", "SKY"], voice: ["world", "ANNOUNCEMENTS & VOICE", "TO EVERYONE"],
-    bosses: ["events", "WORLD BOSSES", "SCHEDULE · FIGHT"], gigs: ["events", "FIXER GIGS", "OFFERS · DISPATCH"], contracts: ["events", "CONTRACTS & ACTIVITIES", "DAILIES · TURF · ROOMS"] };
+    bosses: ["missions", "WORLD BOSSES", "SCHEDULE · FIGHT"], gigs: ["missions", "FIXER GIGS", "OFFERS · DISPATCH"], contracts: ["missions", "CONTRACTS & ACTIVITIES", "DAILIES · TURF · ROOMS"] };
   const parent = parents[kind];
   if (parent) {
     const built = adminSection(ctx, parent[0]) as ReturnType<typeof adminSection> & { parts?: Record<string, Entry[]> };

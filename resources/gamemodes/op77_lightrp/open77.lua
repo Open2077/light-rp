@@ -140,6 +140,8 @@ server_script "server/modules/housing_admin.lua"
 server_script "server/modules/board_games_admin.lua" -- staff: placed tables list / go to / remove (/admin, /lightrp.tables)
 server_script "server/config/maneki.lua"
 server_script "server/modules/maneki.lua"          -- Maneki-neko collectibles: streamed near players, E or a shot, staff tool (/lightrp.maneki)
+server_script "server/config/staff_events.lua"
+server_script "server/modules/staff_events.lua"    -- staff events: world bosses / cyberpsychos / gang attacks where the staff want, event nights (/admin > Events)
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"

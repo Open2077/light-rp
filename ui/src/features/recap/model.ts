@@ -311,6 +311,7 @@ export const EDDIES_REASONS: Record<string, string> = {
   no_identity: "Your identity could not be read.",
   cooldown: "Repeat run: reduced pay.",
   capped: "Daily full payouts used: reduced pay.",
+  staff_event: "Staff event for fun: no pay.",
 };
 const SUCCESS_KINDS = new Set(["pvp", "pve", "full"]);
 
