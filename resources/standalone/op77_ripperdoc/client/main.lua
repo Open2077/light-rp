@@ -129,7 +129,7 @@ local function sendLarge(name, payload)
     if not page or not pageReady then return false end
     local ok, text = pcall(encodeJson, payload == nil and {} or payload)
     if not ok or type(text) ~= "string" then
-        print("[ripperdoc] " .. name .. " could not be encoded: " .. tostring(text))
+        log("%s could not be encoded: %s", name, tostring(text))
         return false
     end
     if #text <= PART_BYTES then page:send(name, { __json = text }) return true end
@@ -221,6 +221,11 @@ createPage = function()
         heard("sound")
         local name = type(payload) == "table" and type(payload.name) == "string" and payload.name or ""
         if name:match("^[%w_]+$") then playSound(name) end
+    end)
+    -- What the page received and the errors it hit (web/bridge-parts.js, App.tsx): the server log.
+    page:on("rd:diag", function(payload)
+        local text = type(payload) == "table" and type(payload.text) == "string" and payload.text or ""
+        if text ~= "" then log("page: %s", text:sub(1, 300)) end
     end)
     -- An install / removal: the server's clinic owner decides and answers (rd:result, rd:state).
     page:on("rd:action", function(payload)

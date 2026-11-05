@@ -10,6 +10,13 @@
   function wrap(bridge) {
   if (!bridge || typeof bridge.on !== "function" || bridge.__partsWrapped) return;
   var on = bridge.on.bind(bridge);
+  // What the page received and every error it hit go to the server log (rd:diag, relayed by
+  // client/main.lua): a blank page with the cursor alone said nothing (2026-11-05).
+  function diag(text) { try { bridge.emit("rd:diag", { text: String(text).slice(0, 300) }); } catch (e) { /* no bridge */ } }
+  window.addEventListener("error", function (e) {
+    diag("error: " + (e && e.message) + " @" + (e && e.filename ? String(e.filename).split("/").pop() : "?") + ":" + (e && e.lineno));
+  });
+  window.addEventListener("unhandledrejection", function (e) { diag("rejection: " + (e && e.reason)); });
   var pending = {}; // event name -> { id, parts, got }
   function decode(name, payload) {
     if (!payload || typeof payload !== "object") return { ready: true, value: payload };
@@ -29,8 +36,15 @@
     return on(name, function (payload) {
       var out;
       try { out = decode(name, payload); }
-      catch (e) { console.error("[ripperdoc] " + name + " did not decode", e); return; }
-      if (out.ready) return handler(out.value);
+      catch (e) { console.error("[ripperdoc] " + name + " did not decode", e); diag(name + " did not decode: " + e); return; }
+      if (!out.ready) return;
+      if (name === "rd:open") {
+        var v = out.value;
+        diag("rd:open received: " + (v && typeof v === "object" ? Object.keys(v).length + " keys, catalogue " +
+          (v.catalogue ? (Array.isArray(v.catalogue) ? v.catalogue.length : "object") : "none") : typeof v));
+      }
+      try { return handler(out.value); }
+      catch (e) { diag(name + " handler threw: " + e); throw e; }
     });
   };
   bridge.__partsWrapped = true;
