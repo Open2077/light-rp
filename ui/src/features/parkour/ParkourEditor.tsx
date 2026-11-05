@@ -58,7 +58,8 @@ export function ParkourEditor() {
   const refresh = useCallback(async () => {
     const data = await request<{ courses: Course[] }>("list");
     if (!live.current) return;
-    setCourses((data.courses ?? []).map(normalizeCourse).sort((a, b) => a.name.localeCompare(b.name)));
+    // Lua sends an empty list as {} (not []): the last course deleted left the old list on screen
+    setCourses((Array.isArray(data.courses) ? data.courses : []).map(normalizeCourse).sort((a, b) => a.name.localeCompare(b.name)));
   }, []);
   const run = useCallback(async (task: () => Promise<void>) => {
     if (working.current) return;

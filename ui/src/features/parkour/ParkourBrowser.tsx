@@ -52,7 +52,10 @@ function Browser({ payload, onClose }: { payload: ParkourDialogPayload; onClose(
   const course = courses.find((c) => c.id === selected);
 
   useEffect(() => { root.current?.focus(); }, []);
-  useEffect(() => on<BoardPayload>(PAGE_EVENTS.parkour, (e) => { if (e?.kind === "board") setBoard(e); }), []);
+  useEffect(() => on<BoardPayload>(PAGE_EVENTS.parkour, (e) => {
+    if (e?.kind !== "board") return;
+    setBoard({ ...e, rows: Array.isArray(e.rows) ? e.rows : [] }); // an empty board arrives as {}
+  }), []);
   useEffect(() => {
     if (!selected) return;
     setOpened(null);

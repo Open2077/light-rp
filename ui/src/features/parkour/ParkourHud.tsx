@@ -35,6 +35,8 @@ export function ParkourHud() {
     switch (e.kind) {
       case "run": {
         if (!e.course) return;
+        // a course without checkpoints arrives with checkpoints = {} (Lua's empty table)
+        if (!Array.isArray(e.course.checkpoints)) e.course.checkpoints = [];
         if (e.music) startMusic(e.music.file, e.music.volume);
         const elapsed = typeof e.elapsedMs === "number" ? e.elapsedMs : undefined;
         setRun({
@@ -67,6 +69,7 @@ export function ParkourHud() {
         setRun((r) => r && { ...r, phase: "finished", finishMs: e.timeMs, finishedAt: now() });
         break;
       case "result":
+        if (e.top && !Array.isArray(e.top)) e.top = [];
         setRun((r) => r && r.attempt === e.attempt ? { ...r, result: e, finishMs: e.timeMs } : r);
         break;
       case "dnf":
