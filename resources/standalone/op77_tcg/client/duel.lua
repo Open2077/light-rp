@@ -27,6 +27,9 @@ local ZONES = {
 }
 local labels, labelsKey = {}, nil
 local labelLang = "en"   -- the tutorial's language, picked on the page (tcg:tutorialLang)
+-- The 3D labels are drawn by open77_uikit on a surface above this resource's page: while the page shows a window
+-- (a concept, the glossary) it asks for them to be put away (tcg:tutorialLabels), and back when the window closes.
+local labelsHidden = false
 
 local function clearLabels()
     local kit = K.uikit()
@@ -38,6 +41,7 @@ local function tutorialLabels(p)
     local t = p and p.tutorial
     local zones = t and t.zones
     local key = zones and (t.id .. ":" .. tostring(p.id) .. ":" .. labelLang) or nil
+    if labelsHidden then key = nil end
     if key == labelsKey then return end
     clearLabels()
     if not key or not p.mat then return end
@@ -80,6 +84,13 @@ local RELAY = {
     -- The tutorial: start it (Duel tab), the coach's Next.
     ["tcg:tutorial"] = function() TriggerServerEvent(NET .. "tutorial") end,
     ["tcg:tutorialNext"] = function() TriggerServerEvent(NET .. "tutorialNext") end,
+    -- A window of the page is open (or closed): the 3D labels go away (or come back) so they don't cross it.
+    ["tcg:tutorialLabels"] = function(d)
+        local hidden = type(d) == "table" and d.hidden == true
+        if hidden == labelsHidden then return end
+        labelsHidden = hidden
+        if hidden then clearLabels() elseif match and seated() then tutorialLabels(match) end
+    end,
     -- The tutorial's language (the coach's choice): the 3D labels follow it.
     ["tcg:tutorialLang"] = function(d)
         local v = type(d) == "table" and d.lang == "fr" and "fr" or "en"

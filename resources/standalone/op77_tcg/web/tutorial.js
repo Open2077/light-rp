@@ -429,9 +429,17 @@
   };
 
   /* ------------------------------------------------------------------------------------------------ concept window */
+  // The 3D zone labels (open77_uikit) are drawn above this page: put them away while a window is open.
+  var labelsHidden = false;
+  function hideLabels(v) {
+    if (v === labelsHidden || !X) return;
+    labelsHidden = v;
+    X.T.emit("tcg:tutorialLabels", { hidden: v });
+  }
   function openConcept(id, fromQueue) {
     var c = CONCEPTS[id];
     if (!c) return;
+    hideLabels(true);
     seen[id] = true;
     var box = $("tbConcept");
     box.innerHTML = "";
@@ -460,9 +468,11 @@
     if (queue.length) return openConcept(queue.shift(), true);
     box.classList.add("hidden");
     box.innerHTML = "";
+    hideLabels(false);
   }
   function openGlossary() {
     queue = [];
+    hideLabels(true);
     var box = $("tbConcept");
     box.innerHTML = "";
     var card = el("div", "tu-win glossary");
@@ -477,7 +487,7 @@
     card.appendChild(grid);
     var row = el("div", "tu-actions");
     var close = el("button", "primary", L(UI.close));
-    close.onclick = function () { box.classList.add("hidden"); box.innerHTML = ""; };
+    close.onclick = function () { box.classList.add("hidden"); box.innerHTML = ""; hideLabels(false); };
     row.appendChild(close);
     card.appendChild(row);
     box.appendChild(card);
@@ -580,7 +590,7 @@
     g.onclick = function () { openGlossary(); };
   }
 
-  function reset() { seen = {}; queue = []; lastStep = null; var b = $("tbConcept"); if (b) { b.classList.add("hidden"); b.innerHTML = ""; } }
+  function reset() { seen = {}; queue = []; lastStep = null; var b = $("tbConcept"); if (b) { b.classList.add("hidden"); b.innerHTML = ""; } hideLabels(false); }
 
   function init() {
     X = window.TCGDUEL;
