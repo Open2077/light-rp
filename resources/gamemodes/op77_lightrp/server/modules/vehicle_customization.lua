@@ -238,8 +238,13 @@ local OFFER = {
     livery = function(entry, state)
         if not native("listPaintProfiles", "setPaintProfile", "getVisual") then return entry, C.unsupported.native end
         entry.options = {}
+        -- Factory schemes have no name of their own ("Scheme N", counted among them only);
+        -- a livery a resource registered (registerPaintProfiles) carries its label.
+        local factory = 0
         for i, profile in ipairs(Open77.vehicles.listPaintProfiles(state.vehicleId) or {}) do
-            entry.options[i] = { id = profile.id, label = "Scheme " .. i, main = hexOf(profile.main), secondary = hexOf(profile.sec) }
+            local label = profile.resource and type(profile.label) == "string" and profile.label ~= "" and profile.label
+            if not label then factory = factory + 1; label = "Scheme " .. factory end
+            entry.options[i] = { id = profile.id, label = label, main = hexOf(profile.main), secondary = hexOf(profile.sec) }
         end
         if #entry.options == 0 then return entry, C.unsupported.livery end
         return entry

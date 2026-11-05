@@ -483,6 +483,14 @@ for _,id in ipairs({"livery","rims","body","neon","plate","performance"})do asse
 assert(m.prices.livery==P.livery and m.prices.rims==P.rims and m.prices.neon==P.neon and m.prices.plate==P.plate and m.prices.windows==nil)
 local livery=category(m,"livery")
 assert(#livery.options==2 and livery.options[1].id=="hella_tt_1" and livery.options[1].label=="Scheme 1" and livery.options[1].main=="#C81414","factory schemes from listPaintProfiles")
+-- A livery a pack registered (registerPaintProfiles) follows the factory ones with its own name;
+-- a registered row without a label is numbered among the factory schemes.
+table.insert(profiles[HELLA],{id="Vehicle.o77_livery_taxi_hella",label="City Taxi",resource="lightrp_vk_liveries",main={r=240,g=200,b=20},hasPattern=true})
+table.insert(profiles[HELLA],{id="Vehicle.o77_livery_plain_hella",resource="lightrp_vk_liveries",hasPattern=true})
+close();m=open(hella);livery=category(m,"livery")
+assert(#livery.options==4 and livery.options[2].label=="Scheme 2" and livery.options[3].label=="City Taxi"
+    and livery.options[3].id=="Vehicle.o77_livery_taxi_hella" and livery.options[4].label=="Scheme 3","pack liveries carry their label")
+table.remove(profiles[HELLA]);table.remove(profiles[HELLA]);close();m=open(hella)
 local rims=category(m,"rims")
 assert(#rims.options==8 and rims.options[1].id=="rim_classic" and rims.options[1].label==KIT.rims.parts.rim_classic.label,"every rim, in catalogue order")
 assert(rims.options[1].variants[1].id=="chrome" and rims.options[1].variants[1].label=="Chrome","finishes ordered and labelled")
