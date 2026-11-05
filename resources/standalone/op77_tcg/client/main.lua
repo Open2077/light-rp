@@ -229,6 +229,7 @@ RegisterNetEvent(NET .. "opening", function(p)
         if o.pack then attachToHand(o.pack, opener, { x = 0.0, y = 0.05, z = 0.02 }, { x = 75.0, y = 0.0, z = 180.0 }) end
     end
     if opener == me() then
+        pendingOpen = nil
         if physical then startCamera(o) end
         send("tcg:opening", { seq = p.seq, product = p.product, cards = cards, fresh = p.fresh or "", table = a.surface ~= nil,
                               physical = physical })
@@ -246,11 +247,19 @@ RegisterNetEvent(NET .. "reveal", function(p)
     -- The opener's page follows a reveal the server drove (it ignores its own echoes).
     if o.opener == me() then send("tcg:advance", { seq = p.seq, stage = p.stage, index = p.index }) end
     if p.stage == "tear" then
-        sound3D("booster_open.wav", { x = o.anchor.x, y = o.anchor.y, z = o.anchor.z + 1.2 }, 15)
+        -- The opener's page plays the game's booster sound itself; a witness close by hears it too.
+        if o.opener ~= me() then
+            local at = here()
+            local dx, dy = at and at.x - o.anchor.x or 99, at and at.y - o.anchor.y or 99
+            if dx * dx + dy * dy < 64 and Open77.sfx and type(Open77.sfx.play2d) == "function" then
+                pcall(Open77.sfx.play2d, "ui_menu_item_consumable_booster")
+            end
+        end
         remove(o.pack)
         o.pack = nil
         return
     end
+    if p.finished then o.finished = true end
     -- Late joiners and skipped reveals: deal everything up to this card.
     remove(o.pack); o.pack = nil
     if C.opening.physical then
@@ -349,16 +358,45 @@ local function closeBinder()
     if TcgClient and TcgClient.afterClose then TcgClient.afterClose() end
 end
 
-local function openPack(product)
+local function nowMs() return type(GetGameTimer) == "function" and GetGameTimer() or math.floor(os.clock() * 1000) end
+
+-- A pack asked for and not dealt yet (the server takes the item and writes the pull first, which can take a
+-- moment): the page shows "opening..." at once, and nothing else can be opened until it lands or fails.
+local pendingOpen = nil
+local function packBusy()
+    if pendingOpen and nowMs() - pendingOpen.at < 20000 then return true end
+    local o = openings[me()]
+    return o ~= nil and not o.finished
+end
+
+local function openPack(product, again)
     if TcgClient and TcgClient.binderBlocked and TcgClient.binderBlocked() then
         return notify("Not at the duel table: the binder stays in your bag until the duel is over.")
     end
+    local waiting = pendingOpen and nowMs() - pendingOpen.at < 20000
+    if waiting or (packBusy() and not again) then return notify("Your pack is already opening: finish it first.") end
     local at = here()
     if not at then return end
     at.surface = surfaceAhead(at)
-    closeBinder()
+    pendingOpen = { at = nowMs(), product = product }
+    -- The page right away: the pack in the hands with "opening...", no focus yet (the opening takes it).
+    isOpen = true
+    pcall(function() page:show() end)
+    send("tcg:packPending", { product = product })
     TriggerServerEvent(NET .. "open", product, at)
+    local mine = pendingOpen
+    SetTimeout(20000, function()
+        if pendingOpen == mine then
+            pendingOpen = nil
+            send("tcg:packFailed", { reason = "The server did not answer." })
+        end
+    end)
 end
+
+RegisterNetEvent(NET .. "openFailed", function(d)
+    pendingOpen = nil
+    send("tcg:packFailed", { reason = type(d) == "table" and d.reason or nil })
+end)
 
 -- A display used from a gamemode's inventory: the shrink-wrap scene, then the server cuts it (tcg:unbox).
 local function openUnbox(product)
@@ -389,12 +427,33 @@ local function placeCard(edition)
     TriggerServerEvent(NET .. "place", edition, { x = at.x + fx * C.opening.tableReach, y = at.y + fy * C.opening.tableReach, z = surface + 0.002 }, at.yaw)
 end
 
+local sfxAt = {}   -- last time each game sound was posted (a burst of crinkles is one sound)
+
 local PAGE_ACTIONS = {
     ["tcg:close"] = function() closeBinder() end,
     ["tcg:log"] = function(d) log("page: %s", tostring(d.text)) end,
     ["tcg:openPack"] = function(d) openPack(d.product) end,
     ["tcg:revealed"] = function(d) TriggerServerEvent(NET .. "reveal", { seq = d.seq, stage = d.stage, index = d.index }) end,
-    ["tcg:openingDone"] = function() stopCamera(700); closeBinder() end,
+    ["tcg:openingDone"] = function()
+        local o = openings[me()]
+        if o then o.finished = true end
+        stopCamera(700); closeBinder()
+    end,
+    -- "Open another": the summary goes straight to the next pack of the same kind (or the one picked).
+    ["tcg:openAgain"] = function(d)
+        local o = openings[me()]
+        if o then o.finished = true end
+        openPack(type(d) == "table" and d.product or "wnc", true)
+    end,
+    -- The game's own interface sounds (Wwise events, 2D): the page names them, a short list is allowed.
+    ["tcg:gameSfx"] = function(d)
+        local event = type(d) == "table" and d.event
+        if type(event) ~= "string" or not event:match("^ui_[%w_]+$") or #event > 64 then return end
+        local t = nowMs()
+        if sfxAt[event] and t - sfxAt[event] < 45 then return end
+        sfxAt[event] = t
+        if Open77.sfx and type(Open77.sfx.play2d) == "function" then pcall(Open77.sfx.play2d, event) end
+    end,
     ["tcg:recycle"] = function(d) TriggerServerEvent(NET .. "recycle", d.id, d.count) end,
     ["tcg:print"] = function(d) TriggerServerEvent(NET .. "print", d.id) end,
     ["tcg:buy"] = function(d) TriggerServerEvent(NET .. "buy", d.product) end,
@@ -403,10 +462,8 @@ local PAGE_ACTIONS = {
     ["tcg:place"] = function(d) closeBinder(); placeCard(d.id) end,
     ["tcg:offer"] = function(d) TriggerServerEvent(NET .. "offer", d.target, d.id) end,
     ["tcg:answer"] = function(d) TriggerServerEvent(NET .. "answer", d.id, d.accept == true) end,
-    ["tcg:sfx"] = function(d)
-        local names = { tear = "booster_open.wav" }
-        if names[d.name] then pcall(Open77.audio.play2D, "sounds/" .. names[d.name], { volume = 0.8 }) end
-    end,
+    -- (The tear now plays the game's booster sound from the page: tcg:gameSfx.)
+    ["tcg:sfx"] = function() end,
 }
 
 -- What client/duel.lua shares with this script: the page, its actions, the binder.

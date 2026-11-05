@@ -261,26 +261,40 @@ local function sanitizeAnchor(a)
     return { x = x, y = y, z = z, yaw = yaw % 360, surface = surface }
 end
 
+-- A pack request that went nowhere: the opener's page drops its "opening..." screen (client: openFailed).
+local function openFailed(player, text, kind)
+    if text then notify(player, text, kind or "error") end
+    TriggerClientEvent(NET .. "openFailed", player, { reason = text })
+end
+
 local function openPack(player, product, anchor)
     local s = session(player)
-    if not s then return end
+    if not s then return openFailed(player) end
     local def = C.products[product]
-    if not def or def.kind ~= "booster" then return notify(player, "Unknown product.", "error") end
+    if not def or def.kind ~= "booster" then return openFailed(player, "Unknown product.") end
     local t = now()
-    if s.opening and not s.opening.done then return notify(player, "Finish the pack in your hands first.", "error") end
-    if t - s.lastOpen < C.opening.cooldownMs then return end
+    if s.opening and not s.opening.done then return openFailed(player, "Finish the pack in your hands first.") end
+    -- One request at a time, from the first message on: taking the item from the framework's inventory and writing
+    -- the pull both wait on databases, and a second use of the item in that window used to open (and take) another.
+    if s.pendingOpen and t - s.pendingOpen < 20000 then return openFailed(player, "Your pack is already opening.", "info") end
+    if t - s.lastOpen < C.opening.cooldownMs then return openFailed(player) end
     local here = positionOf(player)
     anchor = sanitizeAnchor(anchor)
-    if not here or not anchor then return notify(player, "You need both hands free and a place to stand.", "error") end
-    if dist(here, anchor) > C.opening.maxAnchorGap then return end
+    if not here or not anchor then return openFailed(player, "You need both hands free and a place to stand.") end
+    if dist(here, anchor) > C.opening.maxAnchorGap then return openFailed(player) end
     if anchor.surface and (anchor.surface > anchor.z + 2.2 or anchor.surface < anchor.z - 0.2) then anchor.surface = nil end
+    s.pendingOpen = t
     local p = profile(s.identifier)
-    if not takeSealed(player, s.identifier, product, 1) then return notify(player, "You have no sealed " .. def.label .. " pack.", "error") end
+    if not takeSealed(player, s.identifier, product, 1) then
+        s.pendingOpen = nil
+        return openFailed(player, "You have no sealed " .. def.label .. " pack.")
+    end
 
     local cards, why = R.roll(C.pack, math.random, function(id) return p.owned[id] end)
     if not cards then
         giveSealed(player, s.identifier, product, 1)
-        return notify(player, "This set is incomplete on the server (" .. tostring(why) .. ").", "error")
+        s.pendingOpen = nil
+        return openFailed(player, "This set is incomplete on the server (" .. tostring(why) .. ").")
     end
     -- Written before anything is shown.
     local ids, fresh = {}, {}
@@ -294,6 +308,7 @@ local function openPack(player, product, anchor)
         { s.identifier, product, table.concat(ids, ","), unix() })
     openSeq = openSeq + 1
     s.lastOpen = t
+    s.pendingOpen = nil
     s.opening = { seq = openSeq, product = product, cards = ids, revealed = 0, anchor = anchor, bucket = here.bucket or 0,
                   started = t, done = false }
     local name = Open77.players.name(player) or ("Player " .. player)

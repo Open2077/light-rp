@@ -384,3 +384,19 @@ dt { color: var(--muted); letter-spacing: .06em; } dd { margin: 0; font-weight: 
   padding: 12px 22px; z-index: 30; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 16px; }
 .toast.show { opacity: 1; }
 .toast.error { border-left-color: var(--red); }
+
+/* Opening: "opening..." from the first moment, open another from the summary */
+.pack-loading { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(4, 6, 9, .72); backdrop-filter: blur(3px); }
+.pl-card { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.pl-pack { width: 190px; animation: plShake 1.1s ease-in-out infinite; filter: drop-shadow(0 18px 40px rgba(0, 0, 0, .7)) drop-shadow(0 0 22px rgba(252, 238, 9, .25)); }
+.pl-pack img { width: 100%; display: block; }
+@keyframes plShake { 0%, 100% { transform: rotate(-2deg) translateY(0); } 25% { transform: rotate(2.5deg) translateY(-6px); } 50% { transform: rotate(-1.5deg) translateY(-2px); } 75% { transform: rotate(2deg) translateY(-5px); } }
+.pl-ring { width: 46px; height: 46px; border-radius: 50%; border: 3px solid rgba(252, 238, 9, .2); border-top-color: var(--yellow); animation: plSpin .8s linear infinite; }
+@keyframes plSpin { to { transform: rotate(360deg); } }
+.pl-card h3 { margin: 0; font-size: 24px; color: var(--yellow); letter-spacing: .04em; }
+.pl-card p { margin: 0; color: var(--muted); font-size: 15px; }
+.summary-actions { display: flex; gap: 12px; justify-content: center; margin-top: 16px; }
+.summary-actions .primary small { margin-left: 8px; opacity: .75; font-size: 12px; font-weight: 700; }
+.summary-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.summary-foot .quick { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.summary-foot .quick input { accent-color: var(--yellow); width: 16px; height: 16px; }

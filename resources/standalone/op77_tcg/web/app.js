@@ -203,7 +203,12 @@
       p.innerHTML = '<div class="art"><img src="' + SEALED[k].art + '" alt=""></div><h4>' + SEALED[k].label + '</h4><div class="n">x' + n + '</div>';
       var b = el("div", "buttons");
       var open = el("button", "primary", SEALED[k].kind === "box" ? "Cut the wrap" : "Open a pack");
-      open.onclick = function () { if (SEALED[k].kind === "box") startUnbox(k); else emit("tcg:openPack", { product: k }); };
+      open.onclick = function () {
+        if (SEALED[k].kind === "box") return startUnbox(k);
+        open.disabled = true;
+        packLoading(true, { product: k });
+        emit("tcg:openPack", { product: k });
+      };
       b.appendChild(open); p.appendChild(b); shelf.appendChild(p);
     });
     var inv = state.store === "inventory";
@@ -266,6 +271,7 @@
   /* ---------------------------------------------------------------------------------------- tabs */
   function setTab(tab) {
     ui.tab = tab;
+    if (tab !== "decks" && window.TCGDECKGUIDE) window.TCGDECKGUIDE.hide();
     document.querySelectorAll(".tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === tab); });
     document.querySelectorAll("#binder .tab").forEach(function (t) { t.classList.toggle("hidden", t.id !== "tab-" + tab); });
     renderAll();
@@ -277,7 +283,7 @@
   }
 
   function show() { $("app").classList.remove("hidden"); ui.open = true; }
-  function hide() { $("app").classList.add("hidden"); hideModals(); ui.open = false; }
+  function hide() { $("app").classList.add("hidden"); hideModals(); ui.open = false; if (window.TCGDECKGUIDE) window.TCGDECKGUIDE.hide(); }
 
   /* ---------------------------------------------------------------------------------------- opening */
   // Sounds made by the page (WebAudio): no asset to stream; silent where the host has no audio output.
@@ -314,19 +320,37 @@
       osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.05);
     }
     var CHORD = { 2: [659, 988], 3: [523, 659, 784], 4: [523, 659, 784, 988], 5: [523, 659, 784, 1047, 1319], 6: [587, 740, 880, 1175, 1480, 1760] };
+    // In game: the game's own interface sounds (Wwise events, posted by client/main.lua with Open77.sfx.play2d),
+    // the same ones as its loot, crafting and perk screens. A plain browser keeps the synthesised ones.
+    var last = {};
+    function game(event, gapMs) {
+      if (!O) return false;
+      var t = Date.now();
+      if (gapMs && last[event] && t - last[event] < gapMs) return true;
+      last[event] = t;
+      emit("tcg:gameSfx", { event: event });
+      return true;
+    }
+    var RARITY_SFX = { 2: "ui_menu_item_additional_equip", 3: "ui_loot_cyberware", 4: "ui_loot_rarity_epic", 5: "ui_loot_rarity_legendary", 6: "ui_loot_rarity_legendary" };
     var api = {
-      unlock: function () { var c = ac(); if (c && c.state === "suspended") c.resume(); },
-      crinkle: function (k) { noise(0.04 + Math.random() * 0.05, { f: 2200 + Math.random() * 3800, q: 1.4, v: 0.06 + k * 0.22 }); },
-      rip: function () { noise(0.5, { f: 900, f2: 6000, q: 0.5, v: 0.8, a: 0.01 }); tone(95, 0.3, { to: 45, v: 0.45 }); },
-      slide: function () { noise(0.55, { type: "lowpass", f: 1100, f2: 260, v: 0.28, a: 0.09 }); },
-      flip: function () { noise(0.06, { type: "highpass", f: 2600, v: 0.5 }); tone(170, 0.09, { to: 85, v: 0.22 }); },
-      whoosh: function () { noise(0.24, { f: 500, f2: 2600, q: 0.7, v: 0.16, a: 0.05 }); },
-      chime: function (tier) { (CHORD[tier] || []).forEach(function (f, i) { tone(f, 1.1, { delay: i * 0.07, v: 0.11, type: "triangle" }); }); },
-      hum: function (heat) { tone(90 + heat * 380, 0.13, { v: 0.04 + heat * 0.09, type: "sawtooth" }); },
+      unlock: function () { var c = !O && ac(); if (c && c.state === "suspended") c.resume(); },
+      crinkle: function (k) { if (game("ui_menu_hover", 140)) return; noise(0.04 + Math.random() * 0.05, { f: 2200 + Math.random() * 3800, q: 1.4, v: 0.06 + k * 0.22 }); },
+      rip: function () { if (game("ui_menu_item_consumable_booster")) return; noise(0.5, { f: 900, f2: 6000, q: 0.5, v: 0.8, a: 0.01 }); tone(95, 0.3, { to: 45, v: 0.45 }); },
+      slide: function () { if (game("ui_loot_additional")) return; noise(0.55, { type: "lowpass", f: 1100, f2: 260, v: 0.28, a: 0.09 }); },
+      flip: function () { if (game("ui_loot_generic", 60)) return; noise(0.06, { type: "highpass", f: 2600, v: 0.5 }); tone(170, 0.09, { to: 85, v: 0.22 }); },
+      whoosh: function () { if (game("ui_menu_value_up", 80)) return; noise(0.24, { f: 500, f2: 2600, q: 0.7, v: 0.16, a: 0.05 }); },
+      chime: function (tier) {
+        if (O) { if (RARITY_SFX[tier]) game(RARITY_SFX[tier]); return; }
+        (CHORD[tier] || []).forEach(function (f, i) { tone(f, 1.1, { delay: i * 0.07, v: 0.11, type: "triangle" }); });
+      },
+      hum: function (heat) { if (game("ui_menu_attributes_progress_bar_start", 650)) return; tone(90 + heat * 380, 0.13, { v: 0.04 + heat * 0.09, type: "sawtooth" }); },
       boom: function (tier) {
+        if (O) { game(tier >= 6 ? "ui_menu_perk_buy_relic" : tier >= 5 ? "ui_menu_perk_buy_master" : "ui_menu_perk_buy_major_tier"); setTimeout(function () { api.chime(Math.max(3, tier)); }, 260); return; }
         tone(150, 1.1, { to: 32, v: 0.85 }); noise(0.9, { type: "lowpass", f: 2200, f2: 180, v: 0.65 });
         setTimeout(function () { api.chime(Math.max(3, tier)); }, 140);
-      }
+      },
+      // The binder's other moments (game sounds only).
+      ui: function (event) { game(event); }
     };
     return api;
   })();
@@ -401,7 +425,8 @@
     $("opening").style.setProperty("--sx", d.physical ? "30%" : "50%");
     $("app").classList.add("opening-on");
     var cards = (d.cards || []).map(function (id) { return byId[id]; }).filter(Boolean);
-    op = { seq: d.seq, cards: cards, fresh: String(d.fresh || ""), index: 0, shown: -1, torn: false, busy: false, dealt: false,
+    packLoading(false); loading.again = false;
+    op = { seq: d.seq, product: d.product || "wnc", cards: cards, fresh: String(d.fresh || ""), index: 0, shown: -1, torn: false, busy: false, dealt: false,
       tearPct: 0, tearDir: 0, heat: 0, holding: false, armed: false, done: false, summarised: false, skipping: false };
     var pack = $("pack");
     pack.className = "pack";
@@ -415,9 +440,56 @@
     var tray = $("tray"); tray.innerHTML = "";
     cards.forEach(function (c, i) { tray.appendChild(el("div", "tslot" + (i === cards.length - 1 ? " rare" : ""))); });
     counter();
-    hint('Swipe along the top of the pack to tear it open');
+    hint('Swipe along the top of the pack to tear it open &middot; <b>Space</b> tears it, <b>Reveal all</b> skips the show');
     wirePack(pack);
+    // Quick open (a box of packs to go through): the pack tears and every card turns by itself.
+    if (quickOpen()) setTimeout(function () { if (op && op.seq === d.seq) skipAll(); }, 250);
   }
+
+  /* "Opening..." from the very first moment: the server takes the item and writes the pull before the pack is
+     dealt, which can take a second or two; nothing else can be opened meanwhile (client/main.lua). */
+  var loading = { owned: false, timer: 0 };
+  function packLoading(on, d) {
+    var box = $("packLoading");
+    if (!box) {
+      box = el("div", "pack-loading hidden");
+      box.id = "packLoading";
+      box.innerHTML = '<div class="pl-card"><div class="pl-pack"><img alt=""></div><div class="pl-ring"></div><h3></h3><p></p></div>';
+      $("app").appendChild(box);
+    }
+    clearTimeout(loading.timer);
+    if (!on) { box.classList.add("hidden"); return; }
+    var def = SEALED[(d && d.product) || "wnc"] || SEALED.wnc;
+    box.querySelector("img").src = (PACK_ART[(d && d.product) || "wnc"] || PACK_ART.wnc);
+    box.querySelector("h3").textContent = "Opening your " + def.label + " pack";
+    box.querySelector("p").textContent = "Tearing the seal...";
+    box.classList.remove("hidden");
+    loading.timer = setTimeout(function () { box.querySelector("p").textContent = "Still dealing the cards, hang on..."; }, 2500);
+  }
+  function quickOpen() { try { return localStorage.getItem("op77_tcg_quick") === "1"; } catch (e) { return false; } }
+  on("tcg:packPending", function (d) {
+    if (op && !op.summarised) return;
+    loading.owned = !ui.open;
+    show();
+    $("binder").classList.add("hidden");
+    packLoading(true, d);
+  });
+  on("tcg:packFailed", function (d) {
+    packLoading(false);
+    if (d && d.reason) toast(d.reason, "error");
+    if (loading.again && !op) {
+      // "Open another" went nowhere: leave the opening screen the normal way (camera back, page closed).
+      loading.again = false;
+      $("opening").classList.add("hidden"); $("app").classList.remove("opening-on"); $("binder").classList.remove("hidden");
+      emit("tcg:openingDone", {});
+      hide();
+      return;
+    }
+    if (!op && !ub) {
+      $("binder").classList.remove("hidden");
+      if (loading.owned) { loading.owned = false; close(); }
+    }
+  });
 
   /* the pack: drag along the crimp (either way), or click / Space for a quick tear */
   function setTearDir(dir) {
@@ -718,7 +790,31 @@
       g.appendChild(e);
     });
     $("rays").className = "rays";
+    var left = (state.sealed || {})[op.product] || 0, again = $("summaryAgain");
+    again.classList.toggle("hidden", left <= 0);
+    again.innerHTML = "Open another <small>" + left + " left</small>";
+    $("summaryLeft").textContent = left > 0 ? "Enter: open another \u00B7 Esc: back to the binder" : "No " + ((SEALED[op.product] || {}).label || "") + " pack left.";
+    $("quickOpen").checked = quickOpen();
     $("summary").classList.remove("hidden");
+    setTimeout(function () { try { (left > 0 ? again : $("summaryDone")).focus(); } catch (e) {} }, 60);
+  }
+  // The next pack of the same kind, without going back to the inventory.
+  function openAnother() {
+    if (!op || !op.summarised) return;
+    var product = op.product, left = (state.sealed || {})[product] || 0;
+    if (left <= 0) return toast("No pack of this kind left.", "error");
+    clearOpeningScreen();
+    sfx.ui("ui_menu_onpress");
+    loading.again = true;
+    packLoading(true, { product: product });
+    emit("tcg:openAgain", { product: product });
+  }
+  function clearOpeningScreen() {
+    if (op && op.index < op.cards.length) emit("tcg:revealed", { seq: op.seq, stage: "card", index: op.cards.length });
+    op = null;
+    document.querySelectorAll("#opening .flying, #opening .rarity-banner").forEach(function (x) { x.remove(); });
+    $("deck").innerHTML = ""; $("tray").innerHTML = ""; $("rays").className = "rays";
+    $("summary").classList.add("hidden");
   }
   function finishOpening() {
     if (!op) return;
@@ -904,6 +1000,8 @@
   $("search").oninput = function (e) { ui.search = e.target.value; ui.spread = 0; renderBinder(); };
   $("printSearch").oninput = renderPrint;
   $("summaryDone").onclick = finishOpening;
+  $("summaryAgain").onclick = openAnother;
+  $("quickOpen").onchange = function (e) { try { localStorage.setItem("op77_tcg_quick", e.target.checked ? "1" : "0"); } catch (x) {} };
   $("skipBtn").onclick = skipAll;
   $("uboxOpen").onclick = openFromBox;
   $("uboxBack").onclick = function () { closeUnbox(); };
@@ -915,6 +1013,11 @@
   $("offerDecline").onclick = function () { if (ui.offer) emit("tcg:answer", { id: ui.offer.id, accept: false }); ui.offer = null; $("offer").classList.add("hidden"); };
   document.addEventListener("keydown", function (e) {
     if (!ui.open) return;
+    if (op && op.summarised && (e.key === "Enter" || e.key === "Escape")) {
+      e.preventDefault();
+      if (e.key === "Enter" && !$("summaryAgain").classList.contains("hidden")) openAnother(); else finishOpening();
+      return;
+    }
     if (e.key === "Escape") { if (!$("inspect").classList.contains("hidden")) hideModals(); else close(); e.preventDefault(); }
     else if (op && (e.key === " " || e.key === "Enter")) { if (!e.repeat) press(true); e.preventDefault(); }
     else if (ub && !ub.cut && (e.key === " " || e.key === "Enter")) { autoCut(); e.preventDefault(); }
@@ -1003,6 +1106,7 @@
         return;
       }
     }
+    if (name === "tcg:openAgain") name = "tcg:openPack";
     if (name === "tcg:openPack") {
       var pool = function (t) { return catalogue.filter(function (c) { return c.tier === t; }); };
       var pick = function (l) { return l[Math.floor(Math.random() * l.length)]; };
