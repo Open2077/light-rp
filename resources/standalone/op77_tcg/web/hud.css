@@ -1,0 +1,180 @@
+/* The duel HUD in the Cyberpunk TCG house style (cyberpunktcg.com): deep night-blue panels with a turquoise hairline
+   and glow, scanlines, square corners cut at the bottom right, turquoise / yellow / red, condensed uppercase type.
+   Loaded after table.css: it restyles, the layout stays where table.css puts it. */
+#duelHud {
+  --da-bg: #00000f; --da-panel: rgba(10, 12, 22, .84); --da-panel-2: rgba(16, 20, 34, .9);
+  --da-cyan: #00f0ff; --da-yellow: #fcee0a; --da-red: #f75049; --da-gold: #f0b537; --da-green: #10b981;
+  --da-line: rgba(0, 240, 255, .2); --da-dim: rgba(255, 255, 255, .55); --da-faint: rgba(255, 255, 255, .3);
+  --da-cut: 12px;
+  font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+}
+
+/* --------------------------------------------------------------------------------------------- panels */
+#duelHud .dh-rival, #duelHud .dh-you, #duelHud .dh-centre, #duelHud .tb-gigs, #duelHud .tb-field {
+  background: var(--da-panel); border: 1px solid var(--da-line); border-radius: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 240, 255, .05), 0 18px 50px rgba(0, 0, 0, .55), 0 0 22px rgba(0, 240, 255, .07);
+  backdrop-filter: blur(8px);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--da-cut)), calc(100% - var(--da-cut)) 100%, 0 100%);
+}
+#duelHud .dh-centre, #duelHud .dh-you, #duelHud .dh-rival { position: absolute; overflow: hidden; }
+#duelHud .dh-centre::after, #duelHud .dh-you::after, #duelHud .dh-rival::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 4px); mix-blend-mode: overlay; opacity: .55;
+}
+#duelHud .dh-name b { font-size: 17px; letter-spacing: .06em; text-transform: uppercase; color: #fff; }
+#duelHud .dh-name small { color: var(--da-cyan); letter-spacing: .12em; text-transform: uppercase; font-size: 10px; opacity: .85; }
+#duelHud .dh-counts span { font-size: 13px; letter-spacing: .04em; color: rgba(255, 255, 255, .85); }
+#duelHud .tb-money b { color: var(--da-yellow); text-shadow: 0 0 14px rgba(252, 238, 10, .5); }
+#duelHud .tb-money small { letter-spacing: .14em; text-transform: uppercase; }
+#duelHud .dh-you { border-top: 2px solid var(--da-cyan); }
+#duelHud .dh-rival { border-top: 2px solid var(--da-red); }
+
+/* the rival's hand: card backs fanned, the count beside */
+#duelHud .dh-rhand { display: inline-flex; align-items: center; gap: 6px; }
+#duelHud .dh-rhand .fan { position: relative; display: inline-block; width: calc(18px + var(--n, 0) * 7px); height: 28px; }
+#duelHud .dh-rhand .fan i { position: absolute; left: calc(50% + var(--k) * 7px - 9px); bottom: 0; width: 18px; height: 26px;
+  background: url(img/backside.webp) center / cover; border: 1px solid rgba(255, 255, 255, .25); transform-origin: 50% 120%;
+  transform: rotate(calc(var(--k) * 8deg)); box-shadow: 0 2px 6px rgba(0, 0, 0, .6); }
+#duelHud .dh-rhand b { font-size: 18px; color: #fff; }
+#duelHud .dh-rhand small { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--da-dim); }
+
+/* --------------------------------------------------------------------------------------------- the turn panel */
+#duelHud .dh-centre { padding: 0 20px 16px; min-width: 360px; max-width: 430px; border-left: 0; }
+#duelHud .dh-centre .hp-head { display: flex; align-items: center; gap: 8px; margin: 0 -20px; padding: 10px 20px 8px;
+  background: linear-gradient(90deg, rgba(0, 240, 255, .14), transparent 70%); border-bottom: 1px solid var(--da-line); }
+#duelHud .hp-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--da-cyan); box-shadow: 0 0 10px var(--da-cyan); }
+#duelHud .hp-label { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--da-cyan); }
+#duelHud .dh-centre .clock { margin-left: auto; position: static; font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+#duelHud .dh-centre .clock.low { color: var(--da-red); }
+#duelHud .hp-timer { height: 3px; margin: 0 -20px 12px; background: rgba(255, 255, 255, .06); }
+#duelHud .hp-timer i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--da-cyan), #8ffbff); box-shadow: 0 0 10px var(--da-cyan);
+  transition: width .5s linear; }
+#duelHud .hp-timer.low i { background: linear-gradient(90deg, var(--da-red), #ff9a8f); box-shadow: 0 0 12px var(--da-red); }
+#duelHud .dh-centre h2 { margin: 2px 0 6px; font-size: 24px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--da-yellow); line-height: 1.15; }
+#duelHud .dh-centre p { margin: 0 0 6px; font-size: 15px; line-height: 1.5; color: rgba(255, 255, 255, .82); }
+#duelHud .dh-centre p b { color: #fff; }
+
+/* waiting: quiet */
+#duelHud .dh-centre.wait { opacity: .9; }
+#duelHud .dh-centre.wait .hp-dot { background: var(--da-faint); box-shadow: none; animation: hpBlink 1.6s steps(2) infinite; }
+#duelHud .dh-centre.wait .hp-label { color: var(--da-dim); }
+#duelHud .dh-centre.wait .hp-head { background: linear-gradient(90deg, rgba(255, 255, 255, .06), transparent 70%); }
+#duelHud .dh-centre.wait h2 { color: #fff; font-size: 20px; }
+/* your move: turquoise, alive */
+#duelHud .dh-centre.act { border-color: rgba(0, 240, 255, .55);
+  box-shadow: inset 0 0 0 1px rgba(0, 240, 255, .2), 0 0 26px rgba(0, 240, 255, .25), 0 0 60px rgba(252, 238, 10, .06); }
+#duelHud .dh-centre.act .hp-dot { animation: hpPulse 1.2s ease-in-out infinite; }
+/* respond: yellow, loud */
+#duelHud .dh-centre.respond { border-color: var(--da-yellow); animation: hpRespond 1.4s ease-in-out infinite; }
+#duelHud .dh-centre.respond .hp-head { background: linear-gradient(90deg, rgba(252, 238, 10, .3), rgba(252, 238, 10, .04) 75%); border-bottom-color: rgba(252, 238, 10, .5); }
+#duelHud .dh-centre.respond .hp-dot { background: var(--da-yellow); box-shadow: 0 0 12px var(--da-yellow); animation: hpPulse .7s ease-in-out infinite; }
+#duelHud .dh-centre.respond .hp-label { color: var(--da-yellow); }
+#duelHud .dh-centre.respond .hp-timer i { background: linear-gradient(90deg, var(--da-yellow), #fff7a0); box-shadow: 0 0 10px var(--da-yellow); }
+@keyframes hpPulse { 50% { transform: scale(1.6); opacity: .5; } }
+@keyframes hpBlink { 50% { opacity: .3; } }
+@keyframes hpRespond { 50% { box-shadow: inset 0 0 0 1px rgba(252, 238, 10, .3), 0 0 34px rgba(252, 238, 10, .35), 0 0 80px rgba(252, 238, 10, .12); } }
+
+/* the whole screen says it too while you must respond: a thin yellow frame breathing */
+#duelHud.must-respond::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  box-shadow: inset 0 0 0 2px rgba(252, 238, 10, .55), inset 0 0 90px rgba(252, 238, 10, .16); animation: hpFrame 1.4s ease-in-out infinite; }
+@keyframes hpFrame { 50% { box-shadow: inset 0 0 0 2px rgba(252, 238, 10, .2), inset 0 0 50px rgba(252, 238, 10, .06); } }
+
+/* the banner when it becomes your move / your answer */
+#duelHud .tb-attention { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%) scaleX(.2); opacity: 0; z-index: 50; pointer-events: none;
+  display: flex; align-items: center; gap: 18px; padding: 14px 54px 18px; background: var(--da-cyan); color: var(--da-bg);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
+  box-shadow: 0 0 60px rgba(0, 240, 255, .5); }
+#duelHud .tb-attention.respond { background: var(--da-yellow); box-shadow: 0 0 60px rgba(252, 238, 10, .5); }
+#duelHud .tb-attention b { font-size: 38px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+#duelHud .tb-attention .dot { width: 10px; height: 10px; background: var(--da-bg); }
+#duelHud .tb-attention.show { animation: hpBanner 2.2s var(--ease-out, ease-out) both; }
+@keyframes hpBanner {
+  0% { opacity: 0; transform: translate(-50%, -50%) scaleX(.2); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scaleX(1.04); }
+  14% { transform: translate(calc(-50% + 6px), -50%) scaleX(1); filter: hue-rotate(40deg); }
+  17% { transform: translate(calc(-50% - 4px), -50%); filter: none; }
+  80% { opacity: 1; transform: translate(-50%, -50%); }
+  100% { opacity: 0; transform: translate(-50%, -60%); }
+}
+
+/* --------------------------------------------------------------------------------------------- buttons */
+#duelHud button.primary, #duelHud button.ghost, #duelHud .tb-pop button {
+  position: relative; border: 0; border-radius: 0; background: transparent; z-index: 0; cursor: pointer;
+  font-family: inherit; font-weight: 700; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; padding: 10px 22px 13px;
+  transition: color .2s, transform .15s; }
+#duelHud button.primary { color: var(--da-bg); }
+#duelHud button.primary::before, #duelHud button.ghost::after, #duelHud .tb-pop button::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+#duelHud button.primary::before { background: var(--da-cyan); box-shadow: 0 0 18px rgba(0, 240, 255, .5); }
+#duelHud .dh-centre.respond button.primary::before { background: var(--da-yellow); }
+#duelHud button.primary:hover { animation: hpShake .25s; }
+#duelHud button.primary:hover::before { filter: brightness(1.15); }
+#duelHud button.ghost, #duelHud .tb-pop button { color: var(--da-cyan); }
+#duelHud button.ghost::after, #duelHud .tb-pop button::after {
+  background: var(--da-cyan);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 0, 1px 1px, 1px calc(100% - 1px), calc(100% - 11px) calc(100% - 1px), calc(100% - 1px) calc(100% - 11px), calc(100% - 1px) 1px, 1px 1px); }
+#duelHud button.ghost:hover, #duelHud .tb-pop button:hover { color: var(--da-yellow); }
+#duelHud button.ghost:hover::after, #duelHud .tb-pop button:hover::after { background: var(--da-yellow); }
+#duelHud button.danger { color: var(--da-red); }
+#duelHud button.danger::after { background: var(--da-red); }
+#duelHud button:disabled { opacity: .45; cursor: default; animation: none; }
+@keyframes hpShake { 25% { transform: translateX(-2px); } 50% { transform: translateX(2px) skewX(-4deg); } 75% { transform: translateX(-1px); } }
+#duelHud .dh-centre .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+/* choices of a card effect */
+#duelHud .tb-choice { border-radius: 0; background: var(--da-panel-2); border: 1px solid var(--da-line); transition: border-color .15s, transform .15s, box-shadow .15s; }
+#duelHud .tb-choice:hover:not(:disabled) { border-color: var(--da-yellow); transform: translateY(-3px); box-shadow: 0 0 18px rgba(252, 238, 10, .3); }
+#duelHud .tb-choice.on { border-color: var(--da-yellow); box-shadow: 0 0 0 1px var(--da-yellow), 0 0 22px rgba(252, 238, 10, .4); }
+#duelHud .tb-effect { border-radius: 0; background: var(--da-panel-2); border: 1px solid var(--da-line); border-left: 3px solid var(--da-cyan); }
+
+/* --------------------------------------------------------------------------------------------- the board */
+#duelHud .tb-gigs::before { color: var(--da-dim); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+#duelHud .tb-gigs { min-width: 170px; }
+#duelHud .tb-gigs.target, #duelHud .tb-gigs.stealing { border-color: var(--da-yellow); cursor: crosshair; overflow: visible; clip-path: none;
+  box-shadow: 0 0 0 1px var(--da-yellow), 0 0 30px rgba(252, 238, 10, .35); animation: hpTarget 1s ease-in-out infinite; }
+#duelHud .tb-gigs[data-cue]:not([data-cue=""])::after { content: attr(data-cue); position: absolute; left: calc(100% + 14px); top: 50%; transform: translateY(-50%); z-index: 20;
+  white-space: nowrap; background: var(--da-yellow); color: var(--da-bg); font-size: 12px; font-weight: 700; letter-spacing: .14em; padding: 4px 12px 6px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%); animation: hpCue 1s ease-in-out infinite; }
+@keyframes hpTarget { 50% { box-shadow: 0 0 0 1px rgba(252, 238, 10, .4), 0 0 12px rgba(252, 238, 10, .15); } }
+@keyframes hpCue { 50% { transform: translateY(-50%) translateX(4px); } }
+/* a Gig you can steal: it glows yellow and bobs (the dice are clipped to their shape, so no frame around them) */
+#duelHud .tb-die.pickable { cursor: pointer; filter: drop-shadow(0 0 7px rgba(252, 238, 10, .95)) drop-shadow(0 0 2px #fff); animation: hpPickDie .9s ease-in-out infinite; }
+#duelHud .tb-die.pickable:hover { transform: translateY(-4px) scale(1.15); }
+#duelHud .tb-die.picked { filter: drop-shadow(0 0 10px var(--da-yellow)) drop-shadow(0 0 3px #fff) brightness(1.25); transform: translateY(-6px) scale(1.18); animation: none; }
+@keyframes hpPickDie { 50% { transform: translateY(-4px) scale(1.08); filter: drop-shadow(0 0 3px rgba(252, 238, 10, .5)); } }
+#duelHud .tb-gigs.threat { border-color: var(--da-red); box-shadow: 0 0 0 1px var(--da-red), 0 0 28px rgba(247, 80, 73, .4); animation: hpThreat .8s ease-in-out infinite; clip-path: none; }
+@keyframes hpThreat { 50% { box-shadow: 0 0 0 1px rgba(247, 80, 73, .4), 0 0 10px rgba(247, 80, 73, .15); } }
+#duelHud .tb-unit.can .tc { box-shadow: 0 0 0 2px var(--da-cyan), 0 0 20px rgba(0, 240, 255, .55); }
+#duelHud .tb-rival .tb-unit.can .tc { box-shadow: 0 0 0 2px var(--da-yellow), 0 0 20px rgba(252, 238, 10, .55); }
+
+/* --------------------------------------------------------------------------------------------- what happened */
+#duelHud .tb-callout { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); z-index: 48; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 40px 20px;
+  background: var(--da-panel); border: 1px solid var(--da-line); clip-path: polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%);
+  animation: hpCallout 1.8s var(--ease-out, ease-out) both; }
+#duelHud .tb-callout b { font-size: 34px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+#duelHud .tb-callout span { font-size: 14px; letter-spacing: .08em; color: rgba(255, 255, 255, .8); text-transform: uppercase; }
+#duelHud .tb-callout i { font-style: normal; font-size: 28px; }
+#duelHud .tb-callout.block { border-color: var(--da-cyan); box-shadow: 0 0 40px rgba(0, 240, 255, .35); }
+#duelHud .tb-callout.block b, #duelHud .tb-callout.block i { color: var(--da-cyan); }
+#duelHud .tb-callout.defeat { flex-direction: row; gap: 16px; padding: 12px 30px 16px; }
+#duelHud .tb-callout.defeat .tc { filter: grayscale(1) brightness(.7); transform: rotate(-6deg); animation: hpShatter 1.7s ease-in both; }
+#duelHud .tb-callout.defeat b { color: var(--da-red); }
+#duelHud .tb-callout.steal.mine { border-color: var(--da-green); box-shadow: 0 0 40px rgba(16, 185, 129, .35); }
+#duelHud .tb-callout.steal.mine b, #duelHud .tb-callout.steal.mine i { color: var(--da-green); }
+#duelHud .tb-callout.steal.theirs { border-color: var(--da-red); box-shadow: 0 0 40px rgba(247, 80, 73, .35); }
+#duelHud .tb-callout.steal.theirs b, #duelHud .tb-callout.steal.theirs i { color: var(--da-red); }
+#duelHud .tb-callout.over { top: 40%; padding: 26px 80px 30px; animation-duration: 4.2s; }
+#duelHud .tb-callout.over b { font-size: 64px; }
+#duelHud .tb-callout.over.won { border-color: var(--da-yellow); box-shadow: 0 0 80px rgba(252, 238, 10, .45); }
+#duelHud .tb-callout.over.won b { color: var(--da-yellow); }
+#duelHud .tb-callout.over.lost b { color: var(--da-red); }
+@keyframes hpCallout { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.7); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  18% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -58%); } }
+@keyframes hpShatter { 60% { opacity: 1; } 100% { opacity: 0; transform: rotate(-14deg) translateY(30px) scale(.8); } }
+
+/* the log, as a terminal feed */
+#duelHud .dh-log p { background: var(--da-panel); border: 0; border-left: 2px solid var(--da-line); border-radius: 0; font-family: inherit; letter-spacing: .02em; }
+#duelHud .dh-log p.new { border-left-color: var(--da-cyan); }
+/* the popover on a hand card */
+#duelHud .tb-pop { background: var(--da-panel-2); border: 1px solid var(--da-line); border-radius: 0; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }

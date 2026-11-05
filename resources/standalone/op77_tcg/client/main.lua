@@ -269,7 +269,14 @@ RegisterNetEvent(NET .. "reveal", function(p)
         return
     end
     if p.finished then
-        if o.opener == me() then SetTimeout(4000, function() stopCamera(900) end) end
+        -- (only if no newer pack was opened meanwhile: "Open another" starts its own camera)
+        if o.opener == me() then
+            local mine = o.seq
+            SetTimeout(4000, function()
+                local cur = openings[me()]
+                if not cur or cur.seq == mine then stopCamera(900) end
+            end)
+        end
         local seq = o.seq
         SetTimeout(C.opening.lingerMs, function()
             local cur = openings[o.opener]
@@ -434,6 +441,8 @@ local PAGE_ACTIONS = {
     ["tcg:log"] = function(d) log("page: %s", tostring(d.text)) end,
     ["tcg:openPack"] = function(d) openPack(d.product) end,
     ["tcg:revealed"] = function(d) TriggerServerEvent(NET .. "reveal", { seq = d.seq, stage = d.stage, index = d.index }) end,
+    -- The opening screen gave way to the binder without closing the page: the camera comes back to the player.
+    ["tcg:cameraBack"] = function() stopCamera(500) end,
     ["tcg:openingDone"] = function()
         local o = openings[me()]
         if o then o.finished = true end

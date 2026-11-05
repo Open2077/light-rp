@@ -16,7 +16,8 @@
   function arr(x) { return Array.isArray(x) ? x : (x && typeof x === "object" ? Object.keys(x).map(function (k) { return x[k]; }) : []); }
   function el(tag, cls, html) { return X.el(tag, cls, html); }
   function esc(s) { return X.esc(s); }
-  function act(type, extra) { var d = extra || {}; d.type = type; X.T.emit("tcg:act", d); }
+  function sfx(event) { try { X.T.emit("tcg:gameSfx", { event: event }); } catch (e) { /* preview */ } }
+  function act(type, extra) { var d = extra || {}; d.type = type; X.T.emit("tcg:act", d); sfx(type === "endTurn" ? "ui_menu_item_crafting_done" : "ui_menu_onpress"); }
   function card(slug) { return X.CARDS[slug] || {}; }
   function rivalOf(m) { return m.seats[m.you === 1 ? 2 : 1]; }
 
@@ -122,6 +123,8 @@
     var cred = seat.streetCred;
     gigs.dataset.count = seat.gigs.length + " / 7 Gigs" + (cred != null ? "  ·  Street Cred " + cred : "");
     gigs.classList.toggle("target", !mine && ((sel && sel.kind === "attack") || (m.attack && m.attack.target === "gigs" && m.attack.owner === m.you)));
+    gigs.classList.toggle("stealing", !mine && !!(sel && sel.kind === "steal"));
+    gigs.dataset.cue = !mine && sel && sel.kind === "steal" ? "CLICK A GIG TO STEAL" : (!mine && sel && sel.kind === "attack" ? "ATTACK THE GIGS" : "");
     gigs.classList.toggle("threat", mine && m.attack && m.attack.target === "gigs" && m.attack.defender === m.you);
   }
 
@@ -287,12 +290,32 @@
     $("dhRival").innerHTML = '<div class="dh-name"><b>' + esc(rival.name) + "</b><small>" + esc(rival.deck) + "</small></div>" +
       X.legendsHtml(rival) +
       '<div class="dh-counts"><span title="Cards in their deck"><i class="ico i-deck"></i>' + rival.library + "</span>" +
-      '<span title="Cards in their hand"><i class="ico i-hand"></i>' + rival.handCount + "</span>" +
+      '<span class="dh-rhand" title="Cards in their hand">' + handFan(rival.handCount) + "<b>" + rival.handCount + "</b><small>in hand</small></span>" +
       '<span title="Eddies (ready / total)">' + rival.eddiesReady + "/" + rival.eddies + " &euro;$</span>" +
       '<span title="Trash">' + rival.trash + " trash</span></div>";
   }
 
+  // The rival's hand as card backs fanned out (up to 8 drawn), the number beside it.
+  function handFan(n) {
+    var shown = Math.min(8, n || 0), h = '<span class="fan" style="--n:' + shown + '">';
+    for (var k = 0; k < shown; k++) h += '<i style="--k:' + (k - (shown - 1) / 2) + '"></i>';
+    return h + "</span>";
+  }
+
   /* ------------------------------------------------------------------------------------------- the turn panel */
+  // What the panel asks of you: "act" (your turn / your roll), "respond" (you are attacked, a card asks you to choose,
+  // you steal), or nothing (wait). Entering act/respond rings: a banner, the panel lights up, the game's own sound.
+  var ask = { state: "", key: "", total: 0 };
+  function attention(state, text) {
+    var a = $("tbAttention");
+    if (!a) { a = el("div", "tb-attention"); a.id = "tbAttention"; document.getElementById("duelHud").appendChild(a); }
+    a.className = "tb-attention " + state;
+    a.innerHTML = '<i class="dot"></i><b>' + text + "</b><i class=\"dot\"></i>";
+    void a.offsetWidth; a.classList.add("show");
+    clearTimeout(attention.t);
+    attention.t = setTimeout(function () { a.classList.remove("show"); }, 2200);
+    try { X.T.emit("tcg:gameSfx", { event: state === "respond" ? "ui_phone_incoming_call_positive" : "ui_jingle_car_call" }); } catch (e) { /* preview */ }
+  }
   var hintTimer = null;
   function hint(text) {
     var h = $("tbHint");
@@ -387,8 +410,23 @@
       body = m.step === "react" ? "Your rival decides how to react..." : (m.step === "steal" ? "Your rival picks the Gigs they steal..." :
         (m.step === "roll" ? "Your rival rolls a Gig in..." : "Your rival is playing."));
     }
-    c.className = "dh-centre tb-panel" + (mineTurn ? " mine" : "");
-    c.innerHTML = '<div class="clock"></div><h2>' + title + "</h2><p>" + body + "</p>" +
+    var respond = !!(m.prompt && m.prompt.mine) || (m.step === "react" && m.attack && m.attack.defender === m.you) ||
+      (m.step === "steal" && m.attack && m.attack.owner === m.you);
+    var acting = !respond && mineTurn && (m.step === "main" || m.step === "roll") && !m.prompt && !o.waiting;
+    var state = respond ? "respond" : acting ? "act" : "wait";
+    var label = respond ? (m.prompt && m.prompt.mine ? "Choose now" : m.step === "steal" ? "Pick your Gigs" : "Respond now") :
+      acting ? (m.step === "roll" ? "Your roll" : "Your move") : (m.prompt || o.waiting ? "Resolving" : "Opponent's turn");
+    var stateKey = state + ":" + m.step + ":" + m.turn + ":" + (m.prompt ? m.prompt.id : "");
+    if (stateKey !== ask.key) {
+      ask.key = stateKey;
+      ask.total = Math.max(1, X.remainingMs() || 1);
+      if (state !== "wait" && ask.state !== state + m.turn + m.step) attention(state, state === "respond" ? label : (m.step === "roll" ? "Your turn" : "Your move"));
+      ask.state = state === "wait" ? "" : state + m.turn + m.step;
+    }
+    c.className = "dh-centre tb-panel hud " + state;
+    document.getElementById("duelHud").classList.toggle("must-respond", respond);
+    c.innerHTML = '<div class="hp-head"><i class="hp-dot"></i><span class="hp-label">' + label + '</span><span class="clock"></span></div>' +
+      '<div class="hp-timer"><i></i></div><h2>' + title + "</h2><p>" + body + "</p>" +
       (m.overtime ? '<p class="tb-ot">OVERTIME: 7 Gigs win at once.</p>' : "") + '<div class="tb-hint" id="tbHint"></div>';
     if (extra) c.appendChild(extra);
     if (buttons.length) {
@@ -419,6 +457,12 @@
     var left = X.remainingMs();
     var c = document.querySelector("#dhCentre .clock");
     if (c) { c.textContent = left != null ? X.clock(left) : ""; c.classList.toggle("low", left != null && left < 10000); }
+    var bar = document.querySelector("#dhCentre .hp-timer i");
+    if (bar) {
+      var k = left != null && ask.total ? Math.max(0, Math.min(1, left / ask.total)) : 0;
+      bar.style.width = (k * 100).toFixed(1) + "%";
+      bar.parentNode.classList.toggle("low", left != null && left < 10000);
+    }
   }
 
   /* ------------------------------------------------------------------------------------------- what happened */
@@ -430,6 +474,26 @@
     seenEvents = key;
     m.events.forEach(function (e, i) {
       setTimeout(function () {
+        var SFX = { roll: "ui_menu_value_up", draw: "ui_messenger_select", play: "ui_menu_item_crafted", legend: "ui_menu_perk_buy_minor",
+          program: "ui_hacking_access_granted", equip: "ui_menu_item_weapon_equip", sell: "ui_loot_money", call: "ui_menu_perk_unlock_level",
+          attack: "ui_hacking_press", block: "ui_menu_item_chest_equip", fight: "ui_gmpl_perk_cw_breach", defeat: "ui_menu_item_disassemble",
+          steal: e.seat === m.you ? "ui_loot_cash_picking" : "ui_menu_perk_buy_fail", activate: "ui_focus_mode_quickhack",
+          over: e.winner === m.you ? "ui_jingle_quest_success" : "ui_jingle_quest_failed" };
+        if (SFX[e.kind]) sfx(SFX[e.kind]);
+        if (e.kind === "block") {
+          fx(el("div", "tb-callout block", "<i>&#9670;</i><b>BLOCKED</b><span>" + esc(card((m.seats[e.seat] && (m.seats[e.seat].field || []).filter(function (u) { return u.uid === e.uid; })[0] || {}).card).name || "A Blocker") + " steps in</span>"), 1800);
+        } else if (e.kind === "defeat") {
+          var dn = el("div", "tb-callout defeat " + (e.seat === m.you ? "mine" : "theirs"));
+          dn.appendChild(X.miniCard(e.card, "bd"));
+          dn.appendChild(el("b", "", "DEFEATED"));
+          fx(dn, 1700);
+        } else if (e.kind === "steal") {
+          fx(el("div", "tb-callout steal " + (e.seat === m.you ? "mine" : "theirs"), "<i>&#8644;</i><b>" + (e.seat === m.you ? "GIG STOLEN" : "GIG LOST") + "</b><span>" +
+            (e.seat === m.you ? "+1 Gig for you" : "the rival took one of yours") + "</span>"), 1800);
+        } else if (e.kind === "over") {
+          fx(el("div", "tb-callout over " + (e.winner === m.you ? "won" : "lost"), "<b>" + (e.winner === m.you ? "VICTORY" : "DEFEAT") + "</b><span>" +
+            (e.winner === m.you ? "7 Gigs: Night City remembers your name" : "Better luck next run, choom") + "</span>"), 4200);
+        }
         if (e.kind === "roll") {
           var mine = e.seat === m.you;
           var d = dieNode(e.die, 1, mine ? "me" : "rv", "tb-rolling" + (mine ? "" : " rival"));
@@ -465,6 +529,8 @@
     last = m;
     if (sel && !(m.step === "main" || m.step === "steal")) sel = null;
     if (sel && sel.kind === "steal" && m.step !== "steal") sel = null;
+    // Stealing: the picking mode is on before the board is drawn, so the Gigs show their reticles at once.
+    if (m.step === "steal" && m.attack && m.attack.owner === m.you && (!sel || sel.kind !== "steal")) sel = { kind: "steal", picks: [] };
     document.body.classList.toggle("tb-on", true);
     renderYou(m);
     boardHtml($("tbRival"), rivalOf(m), m, false);
@@ -510,6 +576,8 @@
     ["tbRival", "tbMine", "tbFx"].forEach(function (id) { var n = $(id); if (n) n.innerHTML = ""; });
     var coach = $("tbCoach"); if (coach) { coach.classList.add("hidden"); coach.dataset.key = ""; }
     if (window.TCGTUTO) { window.TCGTUTO.reset(); window.TCGTUTO.renderFree(false); }
+    var hud = document.getElementById("duelHud"); if (hud) hud.classList.remove("must-respond");
+    ask = { state: "", key: "", total: 0 };
     closePop();
     document.body.classList.remove("tb-on");
   }

@@ -478,11 +478,11 @@
     packLoading(false);
     if (d && d.reason) toast(d.reason, "error");
     if (loading.again && !op) {
-      // "Open another" went nowhere: leave the opening screen the normal way (camera back, page closed).
+      // "Open another" went nowhere: back to the binder's Sealed shelf (the reason is in the toast), page still open.
       loading.again = false;
       $("opening").classList.add("hidden"); $("app").classList.remove("opening-on"); $("binder").classList.remove("hidden");
-      emit("tcg:openingDone", {});
-      hide();
+      emit("tcg:cameraBack", {});
+      setTab("sealed");
       return;
     }
     if (!op && !ub) {

@@ -63,6 +63,48 @@ end
 local function seated() local s = seatOfMine(); return s and s.seated == true end
 
 -- ---------------------------------------------------------------------------------------------
+-- The rival's hand in 3D: their cards, backs up, fanned in the air over their edge of the table, with the count
+-- floating above (local props: only the player facing them sees it, nothing crosses their own view).
+local rivalFan = { props = {}, label = nil, key = nil }
+
+local function clearRivalHand()
+    for _, id in ipairs(rivalFan.props) do pcall(Open77.props.remove, id) end
+    local kit = K.uikit()
+    if rivalFan.label and kit then pcall(kit.clearText3D, rivalFan.label) end
+    rivalFan = { props = {}, label = nil, key = nil }
+end
+
+local function rivalHand(p)
+    local slot = p and p.slot and TcgTable.slotById(tostring(p.slot))
+    local rival = p and p.seats and p.seats[p.you == 1 and 2 or 1]
+    if not slot or not rival or p.ended or p.phase ~= "game" then return clearRivalHand() end
+    local n = math.max(0, math.floor(tonumber(rival.handCount) or 0))
+    local key = tostring(p.id) .. ":" .. n
+    if key == rivalFan.key then return end
+    clearRivalHand()
+    rivalFan.key = key
+    local seats = TcgTable.seats(slot)
+    local pose = seats[p.you == 1 and 2 or 1]
+    if not pose then return end
+    local shown = math.min(10, n)
+    local mid = (shown + 1) / 2
+    for k = 1, shown do
+        local off = k - mid
+        local at = TcgTable.onMat(pose, 0.5 + off * 0.05, 1.1 + off * off * 0.004, 0.2 + k * 0.0012)
+        local ok, id = pcall(Open77.props.create, { model = TcgTable.mesh.cardback, position = at, yaw = (pose.yaw + off * 9) % 360,
+            scale = 1.35, collision = false, physics = "none" })
+        if ok and id then rivalFan.props[#rivalFan.props + 1] = id end
+    end
+    local kit = K.uikit()
+    if kit then
+        local at = TcgTable.onMat(pose, 0.5, 1.1, 0.34)
+        local ok, h = pcall(kit.drawText3D, { position = at, text = n .. (n == 1 and " CARD" or " CARDS"),
+            sublabel = (rival.name or "Rival") .. "'s hand", maxDistance = 6, accent = "#00F0FF", color = "#F2F6F8" })
+        if ok and h then rivalFan.label = h end
+    end
+end
+
+-- ---------------------------------------------------------------------------------------------
 -- The binder: relays
 
 local RELAY = {
@@ -213,6 +255,7 @@ end
 local function release()
     clearPrompt()
     clearLabels()
+    clearRivalHand()
     stopCam(0)
     overlay = false
     if not K.isOpen() then K.release() end
@@ -248,7 +291,7 @@ RegisterNetEvent(NET .. "match", function(p)
     if first then camMode = 1 end
     K.send("tcg:match", p)
     apply()
-    if seated() then tutorialLabels(p) else clearLabels() end
+    if seated() then tutorialLabels(p); rivalHand(p) else clearLabels(); clearRivalHand() end
 end)
 
 local function trySit()
@@ -271,6 +314,7 @@ end)
 AddEventHandler("onResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end
     clearLabels()
+    clearRivalHand()
     clearPrompt()
     stopCam(0)
 end)
