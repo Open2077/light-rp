@@ -13,6 +13,8 @@ LightRpSupportConfig = {
         gotoPlayer = "command.lightrp.goto",
         bring = "command.lightrp.bring",
         returnPlayer = "command.lightrp.bring",
+        -- Move a player into another instance (routing bucket), where they stand.
+        setBucket = "command.lightrp.bring",
         heal = "command.lightrp.heal",
         rename = "command.lightrp.setname",
         job = "command.lightrp.setjob",

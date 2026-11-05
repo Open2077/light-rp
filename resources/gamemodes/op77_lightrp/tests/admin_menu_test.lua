@@ -89,4 +89,27 @@ closest = nil
 ok, why = repair(1, {})
 assert(ok == false and why:find("No vehicle"), "nothing around: refused")
 assert(repair(1, { "99" }) == false, "a failed repair is reported")
+-- Across instances (owner 2026-11-06: "si je bring change le de bucket automatiquement"): a bring or
+-- a go-to lands the moved player in the destination's instance; Set instance moves one in place.
+local chars = { [1] = { identifier = "op77:a", key = "default", status = "active" }, [2] = { identifier = "op77:b", key = "default", status = "active" } }
+LightRP.characters.get = function(id) return chars[id] end
+LightRP.support.identity = function(id) return chars[id] end
+LightRP.support.allowed = function() return true end
+LightRP.notice, LightRP.chat = function() end, { system = function() end }
+local pos = { [1] = { x = 0, y = 0, z = 0, bucket = 0 }, [2] = { x = 50, y = 0, z = 0, bucket = 710003 } }
+Open77.players.position = function(id) return pos[id] end
+local moved = {}
+LightRP.staff.moveTo = function(id, at, _, cb, bucket) moved[#moved + 1] = { id = id, at = at, bucket = bucket }; cb(true) end
+SetPlayerRoutingBucket = function(id, b) pos[id].bucket = b; return true end
+local r = A.action(1, { action = "bring", target = 2, account = "op77:b", character = "default", mutation = "mutation-bring-1" })
+assert(r and r.accepted and moved[1].id == 2 and moved[1].bucket == 0 and moved[1].at.x == 1.5, "bring from another instance: into the staff's instance")
+r = A.action(1, { action = "gotoPlayer", target = 2, account = "op77:b", character = "default", mutation = "mutation-goto-1" })
+assert(r and r.accepted and moved[2].id == 1 and moved[2].bucket == 710003, "go to a player in another instance: into theirs")
+pos[1].bucket = 710003
+r = A.action(1, { action = "gotoPlayer", target = 2, account = "op77:b", character = "default", mutation = "mutation-goto-2" })
+assert(r and r.accepted and moved[3].bucket == nil, "same instance: the instance is left alone")
+r = A.action(1, { action = "setBucket", target = 2, account = "op77:b", character = "default", bucket = 42, mutation = "mutation-bucket-1" })
+assert(r and r.accepted and pos[2].bucket == 42, "Set instance moves the player in place")
+r = A.action(1, { action = "setBucket", target = 2, account = "op77:b", character = "default", bucket = -3, mutation = "mutation-bucket-2" })
+assert(r and not r.accepted and pos[2].bucket == 42, "an invalid instance is refused")
 print("admin_menu_test: ok")

@@ -13,7 +13,7 @@ import { adminSection, contentEntries, playerTools, sectionHasAny, parseCatalog,
 import "./support.css";
 
 // A player's page: the moves at hand first, then the groups (ids of StaffTools actionLabels and AdminMenu playerTools).
-const PLAYER_QUICK=["gotoPlayer","bring","returnPlayer","spectate","heal","reviveHere","tpPlace"];
+const PLAYER_QUICK=["gotoPlayer","bring","returnPlayer","setBucket","spectate","heal","reviveHere","tpPlace"];
 const PLAYER_GROUPS:Record<string,{label:string;icon:string;description:string;ids:string[]}>={
   moderation:{label:"Moderation",icon:"shield-alert",description:"Warning, kick, ban (audited), god mode, kill.",ids:["warn","kick","ban","godOther","kill"]},
   character:{label:"Character & money",icon:"id-card",description:"Name, job, affiliation, money (audited), needs, street cred, account.",ids:["rename","job","gang","credit","debit","needsOther","cred","acc"]},
