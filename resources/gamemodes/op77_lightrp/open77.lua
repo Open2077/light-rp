@@ -78,6 +78,7 @@ server_script "server/modules/casino_pool.lua"
 server_script "server/modules/board_games.lua"
 server_script "server/modules/armament_store.lua"
 server_script "server/modules/armament.lua"
+server_script "server/modules/armament_admin.lua"
 server_script "server/modules/grenades.lua"
 server_script "server/modules/hotbar.lua"
 server_script "server/modules/tcg.lua"            -- Cyberpunk TCG (op77_tcg): sealed product as inventory items

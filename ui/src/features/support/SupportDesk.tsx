@@ -17,11 +17,11 @@ const PLAYER_QUICK=["gotoPlayer","bring","returnPlayer","spectate","heal","reviv
 const PLAYER_GROUPS:Record<string,{label:string;icon:string;description:string;ids:string[]}>={
   moderation:{label:"Moderation",icon:"shield-alert",description:"Warning, kick, ban (audited), god mode, kill.",ids:["warn","kick","ban","godOther","kill"]},
   character:{label:"Character & money",icon:"id-card",description:"Name, job, affiliation, money (audited), needs, street cred, account.",ids:["rename","job","gang","credit","debit","needsOther","cred","acc"]},
-  give:{label:"Give",icon:"package",description:"An item, a vehicle for their garage, a vehicle beside them.",ids:["giveItem","giveVehicle","spawnBeside"]},
+  give:{label:"Give",icon:"package",description:"A weapon (into their wheel) and rounds, an item, a vehicle for their garage or beside them.",ids:["giveWeapon","giveAmmo","theirWeapons","takeWeapon","giveItem","giveVehicle","spawnBeside"]},
   activities:{label:"Missions & activities",icon:"swords",description:"Fixer gig, their running mission, daily contracts, their TCG room.",ids:["gig","missionWin","missionFail","dailies","roomExit"]},
 };
-const PATH_LABELS:Record<string,string>={root:"Admin",tickets:"Reports",ticket:"Case",players:"Players",player:"Player",vehicleList:"Models",items:"Items",teleport:"Teleport",self:"Tools",missions:"Missions",events:"Events",content:"Places",history:"History",voice:"Voice",bosses:"Bosses",gigs:"Gigs",contracts:"Contracts",manekiSpot:"Cat",table:"Table",tables:"Tables"};
-const ADMIN_KINDS:AdminKind[]=["self","teleport","vehicles","vehicleList","items","itemList","world","time","weather","voice","missions","bosses","gigs","contracts","server"];
+const PATH_LABELS:Record<string,string>={root:"Admin",tickets:"Reports",ticket:"Case",players:"Players",player:"Player",vehicleList:"Models",items:"Items",weapons:"Weapons",ammo:"Ammo",teleport:"Teleport",self:"Tools",missions:"Missions",events:"Events",content:"Places",history:"History",voice:"Voice",bosses:"Bosses",gigs:"Gigs",contracts:"Contracts",manekiSpot:"Cat",table:"Table",tables:"Tables"};
+const ADMIN_KINDS:AdminKind[]=["self","teleport","vehicles","vehicleList","items","itemList","weapons","weaponClass","ammo","world","time","weather","voice","missions","bosses","gigs","contracts","server"];
 type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tables"|"table"|"maneki"|"manekiSpot"|"content"|"playerGroup"|AdminKind|EventPageKind; selected?:string; caseId?:number; person?:Person; history?:Audit[]; table?:PlacedTable; spot?:ManekiSpot; category?:string; event?:LiveEvent; place?:EventSpot };
 type Form = { kind:"command"; spec:CommandSpec } | { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players"|"tables"|"maneki" } | { kind:"action"; action:string } | { kind:"tableAction"; action:"tableTeleport"|"tableDelete" } | { kind:"manekiAction"; action:"manekiTeleport"|"manekiDelete" } | { kind:"event"; form:EventForm };
 type Entry = RageMenuItem & { run?:()=>void; change?:(patch:Partial<RageMenuItem>)=>void };
@@ -347,7 +347,7 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   else if(form?.kind==="action"&&currentProfile&&overview)content=<ActionForm action={form.action} person={currentProfile} overview={overview} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);refresh();}}/>;
   return <section className="rp-support" aria-label={staff?"LightRP admin menu":"Reports and support"}>
     <div className="rp-support__menu" ref={menu} tabIndex={-1}>
-      <RageMenu title={title} subtitle={subtitle} tag={staff?"ADMIN":"SUPPORT"} items={entries} index={index} path={stack.map(p=>(PATH_LABELS[p.kind]||(p.kind==="itemList"||p.kind==="playerGroup"?String(p.category||p.kind):p.kind)).toUpperCase())} width={350} visibleRows={9} active={!form}
+      <RageMenu title={title} subtitle={subtitle} tag={staff?"ADMIN":"SUPPORT"} items={entries} index={index} path={stack.map(p=>(PATH_LABELS[p.kind]||(p.kind==="itemList"||p.kind==="playerGroup"||p.kind==="weaponClass"?String(p.category||p.kind):p.kind)).toUpperCase())} width={350} visibleRows={9} active={!form}
         onIndexChange={i=>setStack(s=>s.map((p,n)=>n===s.length-1?{...p,selected:entries[i]?.id}:p))}
         onSelect={(_,i)=>entries[i]?.run?.()} onChange={(_,i,patch)=>entries[i]?.change?.(patch)} onBack={back}
         footer={<><span>↑↓ MOVE</span><span>←→ CHANGE</span><span>ENTER SELECT</span><span>BKSP / ESC BACK</span></>}/>

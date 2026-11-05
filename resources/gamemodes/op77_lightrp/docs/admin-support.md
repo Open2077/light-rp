@@ -43,11 +43,11 @@ réussi, en rouge si elle a été refusée.
 | Section | Contenu |
 | --- | --- |
 | Reports | file des dossiers (inchangé) |
-| Players | fiche RP, puis aller à / ramener / spectate / soigner / ranimer / envoyer vers un lieu ; groupes **Moderation** (avertissement, kick, ban audités, god mode, kill), **Character & money** (nom, job, affiliation, argent audités, faim et soif, street cred, compte), **Give** (objet, véhicule au garage, véhicule à côté), **Missions & activities** (gig, mission en cours, contrats, salle TCG) |
+| Players | fiche RP, puis aller à / ramener / spectate / soigner / ranimer / envoyer vers un lieu ; groupes **Moderation** (avertissement, kick, ban audités, god mode, kill), **Character & money** (nom, job, affiliation, argent audités, faim et soif, street cred, compte), **Give** (arme + munitions de son type, munitions, ses armes et munitions, retirer une arme qu'il n'a pas en main, objet, véhicule au garage, véhicule à côté), **Missions & activities** (gig, mission en cours, contrats, salle TCG) |
 | Personal tools | noclip, fly, vitesse, god mode, soin, réanimation, faim et soif, compte, console plateforme (`/adminfull`) |
 | Teleport | sur la carte (double-clic), coordonnées, lieux de `LightRpConfig.locations`, ramener tout le monde |
 | Vehicles | catalogue LightRP (`lightrp.car`), n'importe quel record du jeu, réparer et refaire le plein (`lightrp.repair`), plein seul, fourrière, locations, consommation, nettoyage, tout supprimer |
-| Items & weapons | chaque objet du serveur par catégorie (armes et munitions comprises), à soi-même |
+| Items & weapons | **Weapons** par classe (avec des munitions de son type, l'arme arrive dans la roue des armes), **Ammunition** par type ou toutes, ses propres armes et munitions, puis chaque autre objet par catégorie |
 | World | **Time** (préréglages, heure exacte, figer, reprendre), **Weather** (chaque météo, suivante, aléatoire), **Announcements & voice** (annonce, broadcast vocal serveur / 150 m / off) |
 | Missions & events | éditeur de missions ; **Staff events** (cyberpsychos, attaques de gang, world bosses où l'on veut, soirées, spots : [staff-events.md](staff-events.md)) ; **World bosses** (planning, lancer, lancer celui choisi, programmer, finir en victoire, annuler), **Fixer gigs**, **Contracts & activities** (contrats du jour, activités, turf, Dogtown, salles TCG) |
 | Places & content | tables posées, Maneki-neko, housing, safe zones, panneau des jobs, PNJ guide, hall of fame |
@@ -273,3 +273,27 @@ afficher une réussite fictive. Sauvegarder ces tables avec le reste de la base 
 En jeu, vérifier avec un joueur et un admin : `/report`, prise en charge dans
 `/admin`, réponse publique, note privée absente côté joueur, résolution,
 reconnexion et consultation du dossier terminé.
+
+### Armes données par le staff
+
+`server/modules/armament_admin.lua` gère les armes données par le staff.
+
+**Commandes**
+
+| Commande | Effet |
+| --- | --- |
+| `/lightrp.giveweapon <id\|me> <arme> [munitions]` | donne une arme et, en option, des munitions de son type ; `<arme>` accepte `weapon_lexington`, `lexington`, le record ou le nom affiché |
+| `/lightrp.giveammo <id\|me> <pistol\|rifle\|shotgun\|sniper\|all> <munitions>` | donne des munitions en vrac |
+| `/lightrp.takeweapon <id\|me> <arme>` | retire un exemplaire qu'il n'a pas en main |
+| `/lightrp.weapons <id\|me>` | affiche ce que liste sa roue et ses munitions par type |
+
+Les droits viennent de `command.lightrp.*`. Un don est limité à 2000 munitions.
+
+**Pourquoi l'arme apparaît dans la roue :** une arme donnée est un vrai objet sérialisé. Son numéro de série est créé dans la transaction d'inventaire (`armament_store`), dans la même écriture que ses munitions. Ensuite :
+
+- la roue des armes du joueur est rafraîchie aussitôt ;
+- une arme en main charge les nouvelles munitions immédiatement.
+
+**À éviter :** les armes natives de la plateforme (`admin.weap.give`, console `/adminfull`) ne sont pas des objets LightRP. La projection les reprend, et elles n'apparaissent pas dans la roue.
+
+Test : `tests/armament_admin_test.lua`, qui utilise l'inventaire et le registre de numéros de série réels.

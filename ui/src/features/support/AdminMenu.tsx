@@ -8,21 +8,27 @@ import type { RageMenuItem } from "@/design/components";
 import { useFormFocus } from "./SupportForms";
 import type { Person, Profile } from "./api";
 
-export type AdminKind = "self" | "teleport" | "vehicles" | "vehicleList" | "items" | "itemList" | "world" | "time" | "weather" | "voice" | "missions" | "bosses" | "gigs" | "contracts" | "content" | "server";
+export type AdminKind = "self" | "teleport" | "vehicles" | "vehicleList" | "items" | "itemList" | "weapons" | "weaponClass" | "ammo" | "world" | "time" | "weather" | "voice" | "missions" | "bosses" | "gigs" | "contracts" | "content" | "server";
 export interface Catalog {
   vehicles: { key: string; label: string; category: string; record: string }[];
   items: { name: string; label: string; category: string }[];
   places: { name: string; label: string }[];
   weather: string[];
+  /** Serialized firearms (LightRpArmament.weapons): the wheel lists them once given. */
+  weapons: { id: string; label: string; class: string; ammo: string }[];
+  /** Ammunition types (LightRpArmament.ammo): loose rounds, one native pool each. */
+  ammo: { kind: string; label: string }[];
 }
 /** The server's catalogue: "a|b|c" rows (one value each on the wire). */
-export function parseCatalog(raw: { vehicles?: unknown; items?: unknown; places?: unknown; weather?: unknown } | undefined): Catalog {
+export function parseCatalog(raw: { vehicles?: unknown; items?: unknown; places?: unknown; weather?: unknown; weapons?: unknown; ammo?: unknown } | undefined): Catalog {
   const rows = (v: unknown) => (Array.isArray(v) ? v : v && typeof v === "object" ? Object.values(v) : []).filter((x): x is string => typeof x === "string").map(s => s.split("|"));
   return {
     vehicles: rows(raw?.vehicles).map(([key = "", label = "", category = "", record = ""]) => ({ key, label: label || key, category, record })).filter(v => v.key),
     items: rows(raw?.items).map(([name = "", label = "", category = "misc"]) => ({ name, label: label || name, category: category || "misc" })).filter(i => i.name),
     places: rows(raw?.places).map(([name = "", label = ""]) => ({ name, label: label || name })).filter(p => p.name),
     weather: rows(raw?.weather).map(r => r[0]!).filter(Boolean),
+    weapons: rows(raw?.weapons).map(([id = "", label = "", cls = "", ammo = ""]) => ({ id, label: label || id, class: cls, ammo })).filter(w => w.id),
+    ammo: rows(raw?.ammo).map(([kind = "", label = ""]) => ({ kind, label: label || kind })).filter(a => a.kind),
   };
 }
 
@@ -67,7 +73,7 @@ export function sectionHasAny(ctx: AdminContext, kind: AdminKind): boolean {
     case "self": return any("admin.self.noclip", "admin.self.fly", "admin.self.god", "admin.self.heal", "admin.self.revive", "lightrp.needs", "lightrp.account", "adminfull");
     case "teleport": return any("lightrp.tp", "admin.self.maptravel", "admin.bulk.tpall");
     case "vehicles": return any("lightrp.car", "admin.veh.spawn", "lightrp.repair", "lightrp.refuel", "admin.veh.remove", "admin.world.cleanup", "admin.bulk.dvall");
-    case "items": return any("lightrp.giveitem");
+    case "items": return any("lightrp.giveitem", "lightrp.giveweapon", "lightrp.giveammo");
     case "world": return any("weather.set", "weather.time.set", "lightrp.announce", "lightrp.broadcast");
     case "missions": return any("lightrp.missions", "worldboss.list", "worldboss.start", "fixers.list", "fixers.dispatch", "lightrp.dailies", "lightrp.activities", "turf.status", "lightrp.dogtown", "tcg.rooms");
     case "server": return any("lightrp.status", "admin.server.status", "lightrp.bots", "adminfull", "admin.bulk.tpall", "admin.bulk.dvall");
@@ -75,9 +81,34 @@ export function sectionHasAny(ctx: AdminContext, kind: AdminKind): boolean {
   }
 }
 
+/** The wheel's own order: handguns first. */
+export const WEAPON_CLASSES: { id: string; label: string; classes: string[] }[] = [
+  { id: "handguns", label: "Handguns", classes: ["pistol", "revolver"] },
+  { id: "smgs", label: "Submachine guns", classes: ["smg"] },
+  { id: "shotguns", label: "Shotguns", classes: ["shotgun"] },
+  { id: "rifles", label: "Assault rifles & LMGs", classes: ["rifle", "lmg"] },
+  { id: "precision", label: "Precision & sniper rifles", classes: ["precision", "sniper"] },
+];
+const ammoLabel = (c: Catalog | undefined, kind: string) => c?.ammo.find(a => a.kind === kind)?.label || kind;
+const roundOptions = (values: number[], none = false) => [...(none ? [{ value: "0", label: "No rounds" }] : []), ...values.map(v => ({ value: String(v), label: `${v} rounds` }))];
+const weaponOptions = (c?: Catalog) => WEAPON_CLASSES.flatMap(g => (c?.weapons || []).filter(w => g.classes.includes(w.class)).map(w => ({ value: w.id, label: `${w.label} · ${g.label}` })));
+/** A firearm and rounds of its own type, in one inventory write; the wheel shows it at once. */
+export function giveWeaponSpec(c: Catalog | undefined, w: Catalog["weapons"][number], to: string, who?: string): CommandSpec {
+  return { title: `Give ${w.label}`, subtitle: who, description: `A serialized firearm: it shows in the weapon wheel (TAB) at once. Rounds: ${ammoLabel(c, w.ammo).toLowerCase()}, shared by every weapon of that type.`,
+    fields: [{ id: "r", label: `${ammoLabel(c, w.ammo)} with it`, type: "select", initial: "60", options: roundOptions([30, 60, 120, 250, 500], true) }],
+    build: v => ["lightrp.giveweapon", to, w.id, v.r || "0"] };
+}
+export function giveAmmoSpec(c: Catalog | undefined, to: string, who?: string, kind?: string): CommandSpec {
+  return { title: "Give ammunition", subtitle: who, description: "Loose rounds in the pockets: a weapon in hand loads them at once, the others when drawn.",
+    fields: [
+      ...(kind ? [] : [{ id: "k", label: "Type", type: "select" as const, options: [...(c?.ammo || []).map(a => ({ value: a.kind, label: a.label })), { value: "all", label: "Every type" }] }]),
+      { id: "r", label: "Rounds", type: "select", initial: "120", options: roundOptions([30, 60, 120, 250, 500, 1000]) }],
+    build: v => ["lightrp.giveammo", to, kind || v.k!, v.r!] };
+}
+
 const vehicleOptions = (c?: Catalog, by: "key" | "record" = "key") =>
   (c?.vehicles || []).filter(v => by === "key" || v.record).map(v => ({ value: by === "key" ? v.key : v.record, label: `${v.label} · ${v.category}` }));
-const itemOptions = (c?: Catalog) => (c?.items || []).map(i => ({ value: i.name, label: `${i.label} · ${i.category}` }));
+const itemOptions = (c?: Catalog) => (c?.items || []).filter(i => i.category !== "weapon" && i.category !== "ammo").map(i => ({ value: i.name, label: `${i.label} · ${i.category}` }));
 const placeOptions = (c?: Catalog) => (c?.places || []).map(p => ({ value: p.name, label: p.label }));
 
 /** The entries of one admin section. */
@@ -131,10 +162,38 @@ export function adminSection(ctx: AdminContext, kind: AdminKind, extra: { catego
   if (kind === "items") {
     const rows = ctx.catalog?.items;
     const groups = new Map<string, number>();
-    rows?.forEach(i => groups.set(i.category, (groups.get(i.category) || 0) + 1));
-    return { title: "ITEMS & WEAPONS", subtitle: "GIVE TO YOURSELF", entries: !rows ? [loading] : [
-      ...[...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([cat, n]) => submenu(`cat:${cat}`, title(cat), () => ctx.open("itemList", { category: cat }), { icon: cat === "weapon" ? "crosshair" : cat === "ammo" ? "box" : "package", meta: String(n) })),
+    // firearms and rounds have their own pages (serials, the wheel, rounds by type)
+    rows?.filter(i => i.category !== "weapon" && i.category !== "ammo").forEach(i => groups.set(i.category, (groups.get(i.category) || 0) + 1));
+    return { title: "ITEMS & WEAPONS", subtitle: "GIVE TO YOURSELF", entries: !rows ? [loading] : allowed(ctx, [
+      needs(submenu("weapons", "Weapons", () => ctx.open("weapons"), { icon: "crosshair", meta: String(ctx.catalog?.weapons.length ?? ""), description: "Every firearm, with rounds of its type: it shows in your weapon wheel (TAB) at once." }), "lightrp.giveweapon"),
+      needs(submenu("ammo", "Ammunition", () => ctx.open("ammo"), { icon: "box", meta: String(ctx.catalog?.ammo.length ?? ""), description: "Loose rounds by type: the weapon in hand loads them at once." }), "lightrp.giveammo"),
+      needs(item("mine", "My weapons and rounds", () => run(["lightrp.weapons", "me"]), { icon: "list-checks", description: "What your wheel lists and the rounds of each type, in the result line." }), "lightrp.weapons"),
+      sep("i1"),
+      ...(can("lightrp.giveitem") ? [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([cat, n]) => submenu(`cat:${cat}`, title(cat), () => ctx.open("itemList", { category: cat }), { icon: "package", meta: String(n) })) : []),
       { id: "hint", text: "To give a player: Players > them > Give", disabled: true } as Entry,
+    ]) };
+  }
+
+  if (kind === "weapons") {
+    const list = ctx.catalog?.weapons;
+    return { title: "WEAPONS", subtitle: "INTO YOUR WHEEL", entries: !list ? [loading] : [
+      ...WEAPON_CLASSES.map(g => ({ g, n: list.filter(w => g.classes.includes(w.class)).length })).filter(x => x.n > 0)
+        .map(({ g, n }) => submenu(`class:${g.id}`, g.label, () => ctx.open("weaponClass", { category: g.id }), { icon: "crosshair", meta: String(n) })),
+    ] };
+  }
+
+  if (kind === "weaponClass") {
+    const group = WEAPON_CLASSES.find(g => g.id === extra.category);
+    const list = (ctx.catalog?.weapons || []).filter(w => group?.classes.includes(w.class)).sort((a, b) => a.label.localeCompare(b.label));
+    return { title: (group?.label || "WEAPONS").toUpperCase(), subtitle: `${list.length} FIREARMS`, entries: list.map(w =>
+      item(`weapon:${w.id}`, w.label, () => form(giveWeaponSpec(ctx.catalog, w, "me")), { icon: "crosshair", meta: ammoLabel(ctx.catalog, w.ammo).split(" ")[0]!.toUpperCase(), description: `${w.class} · ${ammoLabel(ctx.catalog, w.ammo).toLowerCase()}` })) };
+  }
+
+  if (kind === "ammo") {
+    const list = ctx.catalog?.ammo;
+    return { title: "AMMUNITION", subtitle: "INTO YOUR POCKETS", entries: !list ? [loading] : [
+      ...list.map(a => item(`ammo:${a.kind}`, a.label, () => form(giveAmmoSpec(ctx.catalog, "me", undefined, a.kind)), { icon: "box", meta: a.kind.toUpperCase() })),
+      item("ammo:all", "Every type", () => form(giveAmmoSpec(ctx.catalog, "me", undefined, "all")), { icon: "box" }),
     ] };
   }
 
@@ -253,6 +312,14 @@ export function playerTools(ctx: AdminContext, p: Profile | Person): Entry[] {
     needs(item("godOther", "Toggle god mode", () => run(["admin.player.god", id]), { icon: "shield" }), "admin.player.god"),
     needs(item("needsOther", "Fill hunger and thirst", () => run(["lightrp.needs", id, "100", "100"]), { icon: "utensils" }), "lightrp.needs"),
     needs(item("tpPlace", "Send to a place…", () => form({ title: "Send to a place", subtitle: who, fields: [{ id: "p", label: "Place", type: "select", options: placeOptions(ctx.catalog) }], build: v => ["lightrp.tp", id, v.p!] }), { icon: "navigation" }), "lightrp.tp"),
+    needs(item("giveWeapon", "Give a weapon…", () => form({ title: "Give a weapon", subtitle: who, description: "A serialized firearm with rounds of its own type: it shows in their weapon wheel (TAB) at once.",
+      fields: [{ id: "w", label: "Weapon", type: "select", options: weaponOptions(ctx.catalog) }, { id: "r", label: "Rounds of its type", type: "select", initial: "60", options: roundOptions([30, 60, 120, 250, 500], true) }],
+      build: v => ["lightrp.giveweapon", id, v.w!, v.r || "0"] }), { icon: "crosshair" }), "lightrp.giveweapon"),
+    needs(item("giveAmmo", "Give ammunition…", () => form(giveAmmoSpec(ctx.catalog, id, who)), { icon: "box" }), "lightrp.giveammo"),
+    needs(item("theirWeapons", "Their weapons and rounds", () => run(["lightrp.weapons", id]), { icon: "list-checks" }), "lightrp.weapons"),
+    needs(item("takeWeapon", "Take a weapon…", () => form({ title: "Take a weapon", subtitle: who, description: "One they carry and do not hold in a hand.", danger: true,
+      fields: [{ id: "w", label: "Weapon", type: "select", options: weaponOptions(ctx.catalog) }], confirm: "The weapon leaves their inventory for good.",
+      build: v => ["lightrp.takeweapon", id, v.w!] }), { icon: "trash-2", danger: true }), "lightrp.takeweapon"),
     needs(item("giveItem", "Give an item…", () => form({ title: "Give an item", subtitle: who, fields: [{ id: "i", label: "Item", type: "select", options: itemOptions(ctx.catalog) }, { id: "n", label: "Count", type: "number", initial: "1", min: 1, max: 1000 }], build: v => ["lightrp.giveitem", id, v.i!, v.n || "1"] }), { icon: "package" }), "lightrp.giveitem"),
     needs(item("giveVehicle", "Give a vehicle (garage)…", () => form({ title: "Give a vehicle", subtitle: who, description: "Owned for good: filed in their garage.", fields: [{ id: "v", label: "Vehicle", type: "select", options: vehicleOptions(ctx.catalog) }], confirm: "The vehicle becomes theirs.", build: v => ["lightrp.givevehicle", id, v.v!] }), { icon: "car" }), "lightrp.givevehicle"),
     needs(item("spawnBeside", "Spawn a vehicle beside them…", () => form({ title: "Spawn beside", subtitle: who, fields: [{ id: "r", label: "Vehicle", type: "select", options: vehicleOptions(ctx.catalog, "record") }], build: v => ["admin.veh.give", id, v.r!] }), { icon: "car" }), "admin.veh.give"),

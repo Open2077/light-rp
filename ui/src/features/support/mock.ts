@@ -7,7 +7,7 @@ const COMMANDS = ["admin.self.noclip", "admin.self.fly", "admin.self.speed", "ad
   "admin.player.revive", "admin.player.god", "admin.player.kill", "admin.player.observe", "admin.veh.spawn", "admin.veh.give", "admin.veh.remove", "admin.world.cleanup",
   "admin.bulk.tpall", "admin.bulk.dvall", "admin.bulk.cancel", "admin.server.status", "adminfull", "weather.set", "weather.next", "weather.random", "weather.time.set",
   "weather.time.freeze", "weather.time.resume", "lightrp.tp", "lightrp.car", "lightrp.repair", "lightrp.refuel", "lightrp.impound", "lightrp.rentals", "lightrp.fuelrate",
-  "lightrp.giveitem", "lightrp.givevehicle", "lightrp.needs", "lightrp.account", "lightrp.inv", "lightrp.status", "lightrp.bots", "lightrp.announce", "lightrp.broadcast",
+  "lightrp.giveitem", "lightrp.giveweapon", "lightrp.giveammo", "lightrp.takeweapon", "lightrp.weapons", "lightrp.givevehicle", "lightrp.needs", "lightrp.account", "lightrp.inv", "lightrp.status", "lightrp.bots", "lightrp.announce", "lightrp.broadcast",
   "lightrp.missions", "lightrp.activities", "lightrp.dailies", "lightrp.dogtown", "lightrp.guide", "lightrp.board", "lightrp.halloffame", "worldboss.list", "worldboss.start",
   "worldboss.stop", "worldboss.next", "fixers.list", "fixers.dispatch", "fixers.offer", "fixers.cancel", "missions.launch", "missions.complete", "missions.fail", "missions.rep",
   "turf.status", "turf.start", "turf.stop", "tcg.rooms"];
@@ -41,6 +41,8 @@ export function adminMock(fire: Fire, params: URLSearchParams) {
           items: ["water|Bottle of Water|drink", "medkit|MaxDoc Mk.1|medical", "weapon_lexington|Militech Lexington|weapon", "weapon_unity|Arasaka Unity|weapon", "ammo_handgun|Handgun rounds|ammo", "tcg_booster_wnc|TCG Booster · Night City|collectible"],
           places: ["city|City Center West", "hospital|Hospital", "stoop|King Stoop", "north|North Promenade"],
           weather: ["sunny", "cloudy", "rain", "fog", "sandstorm"],
+          weapons: ["weapon_lexington|Militech Lexington|pistol|pistol", "weapon_overture|Malorian Arms Overture|revolver|pistol", "weapon_m221_saratoga|M221 Saratoga|smg|pistol", "weapon_crusher|Budget Arms Crusher|shotgun|shotgun", "weapon_m251s_ajax|Militech M251s Ajax|rifle|rifle", "weapon_spt32_grad|SPT32 Grad|sniper|sniper"],
+          ammo: ["pistol|Handgun rounds", "rifle|Rifle rounds", "shotgun|Shotgun shells", "sniper|Sniper rounds"],
         });
         return true;
       }
