@@ -86,6 +86,32 @@ local function legacyRim(entry)
     end
     return out
 end
+-- Curated trims (server/config/vehicle_kit_trims.lua): a trim is another entity appearance
+-- whose stock rims (and some body pieces) carry other component names than the default
+-- appearance the kit was measured on. The platform resolves a fit by record only and
+-- setWheels / setParts carry no hide list, so every sold appearance's names are unioned
+-- into the record's fit; the client skips a name absent from the current appearance.
+local TRIMS = type(LightRpVehicleKitTrims) == "table" and LightRpVehicleKitTrims or {}
+local function withTrimHides(section, id, entry)
+    local byRecord = section == "rims" and TRIMS.rims or (TRIMS.body or {})[id]
+    if type(byRecord) ~= "table" then return entry end
+    for record, fit in pairs(entry.fit or {}) do
+        local extra = byRecord[record]
+        if type(extra) == "table" then
+            local hide, seen = {}, {}
+            local function add(name) if not seen[name] then seen[name] = true; hide[#hide + 1] = name end end
+            for _, name in ipairs(fit.hide or {}) do add(name) end
+            local appearances = {}
+            for appearance in pairs(extra) do appearances[#appearances + 1] = appearance end
+            table.sort(appearances)
+            for _, appearance in ipairs(appearances) do
+                for _, name in ipairs(extra[appearance]) do add(name) end
+            end
+            fit.hide = hide
+        end
+    end
+    return entry
+end
 local function bodyOrder()
     local list = {}
     for _, group in ipairs(KIT.body.groups) do
@@ -100,9 +126,9 @@ local function registerKit()
     local count, degraded = 0, 0
     for _, section in ipairs({ "rims", "body" }) do
         for _, id in ipairs(order[section]) do
-            local entry = KIT[section].parts[id]
+            local entry = withTrimHides(section, id, copy(KIT[section].parts[id]))
             partLabel[id] = entry.label
-            local ok, why = Open77.vehicles.registerParts({ [id] = copy(entry) })
+            local ok, why = Open77.vehicles.registerParts({ [id] = entry })
             if not ok and section == "rims" and tostring(why):find("wheels", 1, true) then
                 ok, why = Open77.vehicles.registerParts({ [id] = legacyRim(entry) })
                 if ok then degraded = degraded + 1 end
