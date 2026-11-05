@@ -23,6 +23,8 @@ Open77={
  destroy=function(id)registry[id]=nil;if active==id then active=nil end;return true end,
  setTransform=function(id,p)assert(registry[id]);transforms[#transforms+1]=p;return true end}
 }
+-- The client only relays: any vehicle mutation from this side is a test failure.
+setmetatable(Open77.vehicles,{__index=function(_,k) error("client-side vehicle native called: "..tostring(k)) end})
 dofile("client/core/vehicle_customization.lua")
 local Custom=LightRpVehicleCustomizationClient
 Custom.bind({on=function(_,n,fn)listeners[n]=fn end})
@@ -31,18 +33,31 @@ local function tick()
  for _,co in ipairs(threads)do if coroutine.status(co)~="dead"then local ok,why=coroutine.resume(co);assert(ok,why)end end
 end
 local function open(token)
- net["op77_lightrp:customization"]({kind="open",session=token or "session",vehicle={vehicleId=1}});tick()
+ net["op77_lightrp:customization"]({kind="open",session=token or "session",vehicle={vehicleId=1,model="hella",lightsHue=.5},
+  categories={{id="paint",available=true},{id="lights",available=false,reason="unsupported"},{id="trim",available=true,options={{id="a",label="A"}}}},
+  prices={paint=2500,lights=500,trim=2500}});tick()
 end
 local function page(command)
  command.session=command.session or "session";listeners["lightrp:ui:customization"](command)
 end
 open();assert(Custom.isActive() and frozen and focused and active and cinematic)
+local opened;for i=#sent,1,-1 do if sent[i].kind=="open" then opened=sent[i];break end end
+assert(opened and opened.categories[2].available==false and opened.categories[3].options[1].id=="a" and opened.prices.lights==500,"category availability and trims reach the page untouched")
 tick();local a=transforms[#transforms];tick();local b=transforms[#transforms];assert(a.position.x~=b.position.x,"camera orbits over time")
 page({operation="camera",command="rotate",enabled=false});tick();a=transforms[#transforms];tick();b=transforms[#transforms];assert(a.position.x==b.position.x)
 page({operation="camera",command="right"});tick();assert(transforms[#transforms].position.x~=b.position.x)
 for _=1,40 do page({operation="camera",command="zoomIn"})end;tick();local p=transforms[#transforms].position;assert(math.abs(math.sqrt(p.x*p.x+p.y*p.y)-4)<.001,"zoom bounded")
 local count=#requests;page({operation="save",session="forged"});assert(#requests==count)
 page({operation="preview",request=1,category="paint",primary="#000000"});assert(requests[#requests].operation=="preview")
+-- Lights and trim requests reach the server unchanged: the client names no native.
+page({operation="preview",request=2,category="lights",color="#00D8FF"})
+assert(requests[#requests].category=="lights" and requests[#requests].color=="#00D8FF" and requests[#requests].request==2)
+page({operation="save",request=3,category="lights",stock=true,pay="bank"})
+assert(requests[#requests].operation=="save" and requests[#requests].stock==true and requests[#requests].pay=="bank")
+page({operation="preview",request=4,category="trim",trim="some_variant"})
+assert(requests[#requests].category=="trim" and requests[#requests].trim=="some_variant")
+count=#requests;page({operation="preview",session="forged",category="lights",color="#FF0000"});page({operation="save",session="forged",category="trim",trim="x"})
+assert(#requests==count,"another session's lights/trim requests are dropped")
 page({operation="close"});assert(not Custom.isActive() and not frozen and not focused and not active and next(registry)==nil and not cinematic and ordinaryHudClaim)
 failCinematic=true;open();assert(not Custom.isActive() and not frozen and not focused and not cinematic and next(registry)==nil,"cinematic failure releases all presentation state");failCinematic=false
 foreign=true;open();assert(not Custom.isActive() and requests[#requests].operation=="close","never steal another camera");foreign=false
@@ -52,4 +67,4 @@ open();removed=true;tick();assert(not Custom.isActive());removed=false
 open();moved=true;tick();assert(not Custom.isActive());moved=false
 open();net["op77_lightrp:customization"]({kind="closed",session="stale"});assert(Custom.isActive(),"old session cannot close current camera")
 events.onClientResourceStop("op77_lightrp");assert(not Custom.isActive() and not frozen and next(registry)==nil and not cinematic)
-print("customization client: orbit, pause, controls, bounded zoom, session correlation, refusal, death, removal and resource cleanup passed")
+print("customization client: orbit, pause, controls, bounded zoom, session correlation, lights/trim relay without natives, refusal, death, removal and resource cleanup passed")
