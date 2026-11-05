@@ -30,7 +30,9 @@ dofile("server/modules/work_activity.lua")
 dofile("server/modules/jobs.lua")
 local W, Jobs = LightRP.workActivity, LightRP.jobs
 local P = LightRpEconomy.paychecks
-assert(P.requireActivity == true and P.windowMinutes == 30 and P.moveMetres == 75)
+assert(P.requireActivity == true and P.windowMinutes == 30 and P.moveMetres == 600)
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+P.moveMetres, LightRpJobs.sanitation.grades[0].salary, LightRpJobs.trauma.grades[0].salary = 75, 100, 225
 
 local function payday() credits, notices = {}, {}; return Jobs.payday() end
 local function paidTo(id) for _, c in ipairs(credits) do if tonumber(c.id) == id then return c.amount end end end

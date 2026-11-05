@@ -34,7 +34,10 @@ dofile("server/modules/activity_pay.lua")
 local Pay, C = LightRP.activityPay, LightRpEconomy.activities
 assert(#threads == 1, "one roster sampler thread")
 threads = {}
-assert(C.enabled and C.pvp.perMinute == 70 and C.pvp.dailyCap == 12000 and C.pve.dailyCap == 6000)
+assert(C.enabled and C.pvp.perMinute == 45 and C.pvp.dailyCap == 7500 and C.pve.dailyCap == 4000)
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+C.pvp.perMinute, C.pvp.dailyCap, C.pve.dailyCap = 70, 12000, 6000
+C.pve.perMinute = { standard = 40, hard = 50, critical = 60 }
 assert(C.pvp.ledger == "activity_pvp" and C.pve.ledger == "activity_pve")
 
 local function flush() local list = threads; threads = {}; for _, fn in ipairs(list) do fn() end end

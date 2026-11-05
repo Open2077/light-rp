@@ -56,6 +56,9 @@ _G.json = {
 dofile("shared/config.lua"); dofile("shared/items.lua"); dofile("shared/events.lua")
 dofile("shared/consumables.lua"); dofile("shared/fuel.lua")
 dofile("server/config/dailies.lua"); dofile("server/config/housing.lua")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+LightRpConfig.economy.transferFeeRate = 0; LightRpConfig.economy.startingBankExtraCharacters = nil; LightRpConfig.fuel.pricePerLitre = 4
+LightRpDailies.rewards = { street = 250, action = 400, shift = 250, crew = 300, weekly = 3000 }; LightRpDailies.dailyBudget = 1200
 local E = LightRpEvents.net
 
 -- ---------------------------------------------------------------------------

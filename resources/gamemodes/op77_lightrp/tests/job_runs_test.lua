@@ -49,7 +49,10 @@ AddEventHandler = noop
 dofile("server/modules/inventory.lua"); dofile("server/modules/economy.lua"); dofile("server/modules/jobs.lua")
 LightRP.inventory.onCharacterLoaded(1, char)
 LightRP.money.onCharacterLoaded(1, char)
-dofile("server/config/economy.lua"); dofile("server/config/job_runs.lua"); dofile("server/config/delivery.lua"); dofile("server/modules/job_runs.lua")
+dofile("server/config/economy.lua"); dofile("server/config/job_runs.lua"); dofile("server/config/delivery.lua")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+LightRpJobRuns.cancelCooldownMs, LightRpJobRuns.routes.ac_cleaner.cooldownMs, LightRpJobRuns.routes.ac_cleaner.reward = 0, nil, 400
+dofile("server/modules/job_runs.lua")
 local R, C, Money = LightRP.jobRuns, LightRpJobRuns, LightRP.money
 -- The two item activities must never issue old mission rewards.
 assert(C.routes.sanitation == nil and C.routes.scrapper == nil)

@@ -66,6 +66,9 @@ LightRpMissions = {
     points = {
         {
             id = "sector04_blackout",
+            -- no mission script is registered for it: every run timed out unpaid. Off the
+            -- map until it has one (no board, no blip).
+            disabled = true,
             title = "Sector 04 Blackout",
             type = "HEIST",
             location = "SECTOR 04 // SUBSTATION C",
@@ -112,11 +115,11 @@ LightRpMissions = {
             },
             difficulties = {
                 { id = "standard", label = "STANDARD", blurb = "Chimera on reduced output. Militech sends a handful of grunts.",
-                  payout = 3000, minutes = 20, min = 1, max = 4, tier = 1 },
+                  payout = 2000, minutes = 20, min = 1, max = 4, tier = 1 },
                 { id = "hard", label = "HARD", blurb = "Full combat output, heavier reinforcements, slower respawns.",
-                  payout = 4500, minutes = 25, min = 2, max = 6, tier = 2 },
+                  payout = 3000, minutes = 25, min = 2, max = 6, tier = 2 },
                 { id = "critical", label = "CRITICAL", blurb = "Overclocked core and a Militech response team. No respawns.",
-                  payout = 6000, minutes = 30, min = 4, max = 8, tier = 3 },
+                  payout = 4000, minutes = 30, min = 4, max = 8, tier = 3 },
             },
         },
     },

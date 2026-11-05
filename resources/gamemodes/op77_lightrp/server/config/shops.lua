@@ -14,7 +14,7 @@ LightRpShops = {
             payments = { "cash", "bank" },
             -- buy = player pays; sell = player receives. Omit either price to
             -- disable that direction. Supplies are unlimited, not fake stock.
-            -- Eating and drinking cost ≈ 50 €$ an hour (docs/economy-balance.md).
+            -- Eating and drinking cost ≈ 12 €$ an hour since needs drop 4x slower (2026-11-05): kept cheap on purpose.
             items = {
                 { name = "water", buy = 12, sell = 2 },
                 { name = "burrito", buy = 26, sell = 5 },
@@ -47,12 +47,12 @@ LightRpShops = {
             subtitle = "Pistols and revolvers. Handgun ammunition. Cash or bank.",
             payments = { "cash", "bank" },
             items = {
-                { name = "weapon_lexington", buy = 1200 },
-                { name = "weapon_unity", buy = 1400 },
-                { name = "weapon_nue", buy = 1800 },
-                { name = "weapon_overture", buy = 2500 },
-                { name = "weapon_dr_5_nova", buy = 2800 },
-                { name = "ammo_pistol_box", buy = 75, sell = 20 },
+                { name = "weapon_lexington", buy = 1800 },
+                { name = "weapon_unity", buy = 2100 },
+                { name = "weapon_nue", buy = 2700 },
+                { name = "weapon_overture", buy = 3750 },
+                { name = "weapon_dr_5_nova", buy = 4200 },
+                { name = "ammo_pistol_box", buy = 110, sell = 25 },
             },
         },
         smg_store = {
@@ -60,10 +60,10 @@ LightRpShops = {
             subtitle = "Submachine guns. They fire handgun ammunition.",
             payments = { "cash", "bank" },
             items = {
-                { name = "weapon_ds1_pulsar", buy = 2600 },
-                { name = "weapon_m221_saratoga", buy = 3000 },
-                { name = "weapon_tki_20_shingen", buy = 4200 },
-                { name = "ammo_pistol_box", buy = 75, sell = 20 },
+                { name = "weapon_ds1_pulsar", buy = 3900 },
+                { name = "weapon_m221_saratoga", buy = 4500 },
+                { name = "weapon_tki_20_shingen", buy = 6300 },
+                { name = "ammo_pistol_box", buy = 110, sell = 25 },
             },
         },
         shotgun_store = {
@@ -71,11 +71,11 @@ LightRpShops = {
             subtitle = "Shotguns and shells. Close quarters only.",
             payments = { "cash", "bank" },
             items = {
-                { name = "weapon_crusher", buy = 2800 },
-                { name = "weapon_m2038_tactician", buy = 3400 },
-                { name = "weapon_carnage", buy = 3900 },
-                { name = "weapon_l_69_zhuo", buy = 4600 },
-                { name = "ammo_shotgun_box", buy = 90, sell = 22 },
+                { name = "weapon_crusher", buy = 4200 },
+                { name = "weapon_m2038_tactician", buy = 5100 },
+                { name = "weapon_carnage", buy = 5850 },
+                { name = "weapon_l_69_zhuo", buy = 6900 },
+                { name = "ammo_shotgun_box", buy = 135, sell = 30 },
             },
         },
         rifle_store = {
@@ -83,13 +83,13 @@ LightRpShops = {
             subtitle = "Assault rifles and a light machine gun. Rifle ammunition.",
             payments = { "cash", "bank" },
             items = {
-                { name = "weapon_d5_copperhead", buy = 4200 },
-                { name = "weapon_m251s_ajax", buy = 4800 },
-                { name = "weapon_kyubi", buy = 5200 },
-                { name = "weapon_hjsh_18_masamune", buy = 5600 },
-                { name = "weapon_d5_sidewinder", buy = 6400 },
-                { name = "weapon_m2067_defender", buy = 8500 },
-                { name = "ammo_rifle_box", buy = 110, sell = 27 },
+                { name = "weapon_d5_copperhead", buy = 6300 },
+                { name = "weapon_m251s_ajax", buy = 7200 },
+                { name = "weapon_kyubi", buy = 7800 },
+                { name = "weapon_hjsh_18_masamune", buy = 8400 },
+                { name = "weapon_d5_sidewinder", buy = 9600 },
+                { name = "weapon_m2067_defender", buy = 12750 },
+                { name = "ammo_rifle_box", buy = 165, sell = 40 },
             },
         },
         marksman_store = {
@@ -97,25 +97,26 @@ LightRpShops = {
             subtitle = "Precision and sniper rifles. Precision rifles fire rifle rounds.",
             payments = { "cash", "bank" },
             items = {
-                { name = "weapon_kolac", buy = 5200 },
-                { name = "weapon_m_179e_achilles", buy = 6800 },
-                { name = "weapon_spt32_grad", buy = 8500 },
-                { name = "weapon_nekomata", buy = 10500 },
-                { name = "ammo_rifle_box", buy = 110, sell = 27 },
-                { name = "ammo_sniper_box", buy = 150, sell = 37 },
+                { name = "weapon_kolac", buy = 7800 },
+                { name = "weapon_m_179e_achilles", buy = 10200 },
+                { name = "weapon_spt32_grad", buy = 12750 },
+                { name = "weapon_nekomata", buy = 15750 },
+                { name = "ammo_rifle_box", buy = 165, sell = 40 },
+                { name = "ammo_sniper_box", buy = 225, sell = 55 },
             },
         },
         -- Cyberpunk TCG sealed product (op77_tcg; server/modules/tcg.lua): the items go to the inventory and are
-        -- opened from there (or from the binder's Sealed tab: F1 menu > TCG binder). Sealed product is bought back at half price;
-        -- a display is a little cheaper than its 24 boosters.
+        -- opened from there (or from the binder's Sealed tab: F1 menu > TCG binder). Sealed product is bought back at
+        -- about a third (2026-11-05: a pack is a treat, not pocket change); a display is a little cheaper than its 24
+        -- boosters, and 24 boosters sold back (3,600) never reach the display's price.
         tcg_shop = {
             label = "NEON DECK",
-            subtitle = "Cyberpunk TCG boosters and displays. Cash or bank. Sealed product bought back at half price.",
+            subtitle = "Cyberpunk TCG boosters and displays. Cash or bank. Sealed product bought back.",
             payments = { "cash", "bank" },
             items = {
-                { name = "tcg_booster_wnc", buy = 120, sell = 60 },
-                { name = "tcg_booster_beta", buy = 180, sell = 90 },
-                { name = "tcg_display_wnc", buy = 2600, sell = 1300 },
+                { name = "tcg_booster_wnc", buy = 400, sell = 150 },
+                { name = "tcg_booster_beta", buy = 600, sell = 220 },
+                { name = "tcg_display_wnc", buy = 8500, sell = 3000 },
             },
         },
     },

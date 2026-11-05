@@ -23,7 +23,7 @@ LightRpGarages = {
     --   restart    intact and left outside at a server restart: free
     impound = {
         name = "City Impound",
-        fees = { restart = 0, destroyed = 400, lost = 150, requested = 250, staff = 500 },
+        fees = { restart = 0, destroyed = 1500, lost = 600, requested = 500, staff = 750 },
     },
     marker = { shape = "cylinder", radius = 1.1, height = 0.65,
         color = { r = 255, g = 204, b = 0, a = 150 }, maxDistance = 45, groundOffset = 0.05 },

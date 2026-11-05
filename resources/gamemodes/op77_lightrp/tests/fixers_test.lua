@@ -126,6 +126,11 @@ assert(not D.validate(base), "enabled is a boolean")
 dofile("server/config/economy.lua")
 dofile("server/modules/mission_pay.lua")
 dofile("server/config/missions.lua")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+do local M = LightRpEconomy.missions
+    M.cooldownMinutes, M.dailyFullPayouts, M.repeatShare, M.maxSharePerMinute = 60, 6, 0.25, 250
+    M.authored.maxShare = { standard = 2400, hard = 3000, critical = 4400 }
+    for _, p in ipairs(LightRpMissions.points) do if p.id == "sector04_blackout" then p.disabled = nil end end end
 dofile("server/modules/missions.lua")
 dofile("server/config/fixers.lua")
 LightRpFixers.dispatch.chance, LightRpFixers.dispatch.settleSeconds, LightRpFixers.dispatch.firstDelaySeconds = 0, 0, 0

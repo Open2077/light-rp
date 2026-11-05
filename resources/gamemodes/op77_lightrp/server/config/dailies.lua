@@ -11,9 +11,9 @@ LightRpDailies = {
     enabled = true,
 
     -- What each slot pays (bank, ledger kind `contract`).
-    rewards = { street = 250, action = 400, shift = 250, crew = 300, weekly = 3000 },
+    rewards = { street = 175, action = 275, shift = 175, crew = 200, weekly = 3000 },
     -- Most an account can be paid by daily + crew contracts of one UTC day.
-    dailyBudget = 1200,
+    dailyBudget = 800,
     -- A finished contract can still be claimed this many days after its own day.
     claimGraceDays = 1,
     -- Free swaps per day (street, action or shift; never crew or weekly).

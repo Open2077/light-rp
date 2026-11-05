@@ -75,6 +75,9 @@ for id = 1, 3 do I.onCharacterLoaded(id, chars[id]); M.onCharacterLoaded(id, cha
 assert(M.get(2), "the citizen has a wallet")
 local rule = M.staffGrantRule()
 assert(rule.maxGrant == 10000 and rule.minReason == 4 and rule.permission == "lightrp.money.unlimited")
+assert(rule.dailyCap == 25000)
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config); the daily cap has its own section below
+LightRpEconomy.staffGrants.dailyCapPerStaff = 0
 
 local give = commands["lightrp.givemoney"]
 local function line() return state.ledger[#state.ledger] end -- account, wallet, kind, amount, balance, counterparty, note
@@ -118,6 +121,20 @@ LightRpEconomy.staffGrants.maxGrant = 0
 assert(give(1, { "2", "bank", "20000", "no", "cap", "now" }))
 assert(not give(1, { "2", "bank", "20000" }))
 LightRpEconomy.staffGrants.maxGrant = 10000
+
+-- The daily cap per staff account (staffGrants.dailyCapPerStaff): every grant of the UTC day
+-- counts; past it, refused with what is left. The unlimited permission and the console are not counted.
+LightRpEconomy.staffGrants.dailyCapPerStaff = 25000
+bank, lines = M.get(2).bank, #state.ledger
+assert(give(1, { "2", "bank", "10000", "daily", "cap", "one" }) and give(1, { "2", "bank", "10000", "daily", "cap", "two" }))
+ok, text = give(1, { "2", "bank", "5001", "daily", "cap", "three" })
+assert(ok == false and text:find("capped at €$ 25,000 a day per staff member (€$ 5,000 left today)", 1, true), tostring(text))
+assert(M.get(2).bank == bank + 20000 and #state.ledger == lines + 2, "a grant past the daily cap moves nothing")
+assert(give(1, { "2", "bank", "5000", "daily", "cap", "rest" }), "up to the cap exactly")
+assert(not give(1, { "2", "bank", "1", "daily", "cap", "over" }), "the cap is spent")
+assert(give(3, { "2", "bank", "30000", "owner", "grant" }) and give(0, { "2", "bank", "30000", "console", "grant" }), "unlimited and console: not counted")
+assert(M.get(2).bank == bank + 85000)
+LightRpEconomy.staffGrants.dailyCapPerStaff = 0
 
 -- The staff desk's Credit (admin.lua) follows the same rule; its reason (4-500
 -- characters, the audit) is cut to the note's 160 bytes instead of losing the line.

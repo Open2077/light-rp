@@ -1,6 +1,10 @@
 -- Real dealer, ownership and economy code; deterministic SQL/native boundaries.
 dofile("shared/config.lua"); dofile("shared/events.lua"); dofile("shared/items.lua")
 dofile("server/config/garages.lua"); dofile("server/config/dealerships.lua")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+do local old={maimai=4000,galena=6500,apollo=5000,hella=12000,colby=14000,quartz=19000,hozuki=24000,supron=16000,
+    columbus=30000,cortes=38000,thrax=62000,bandit=52000,merrimac=46000,semimaru=100000,kusanagi=80000}
+    for _,l in ipairs(LightRpDealerships.locations) do for _,s in ipairs(l.stock) do s.price=old[s.key] or s.price end end end
 local function noop() end
 local tick, uid, committed, attempts = 1000, 0, 0, 0
 local failDb, yieldDb, yieldRead, near, alive, seat = false, false, false, true, true, nil

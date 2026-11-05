@@ -12,14 +12,14 @@ LightRpEconomy = {
         crewExponent = 0.7,
         -- After a full payout, the same mission point pays in full again to that
         -- character only after this long (board missions and gigs alike).
-        cooldownMinutes = 60,
+        cooldownMinutes = 90,
         -- Full payouts per UTC day. capScope "account" counts every character of
         -- the account together, "character" each character on its own.
-        dailyFullPayouts = 6,
+        dailyFullPayouts = 4,
         capScope = "account",
         -- What a completion pays while on cooldown or past the daily cap, as a
         -- fraction of the share.
-        repeatShare = 0.25,
+        repeatShare = 0.15,
         -- Reputation follows the same repeat rule per mission point (owner decision
         -- 2026-11-04, docs/economy-balance.md §16): after a completion that granted a
         -- character the full reputation, the same point grants them
@@ -31,7 +31,7 @@ LightRpEconomy = {
         reputationRepeatShare = 0.25,
         -- Ceiling of the per-head payout, in eddies per minute of the difficulty's
         -- time limit: guards against authored missions saved with old payouts.
-        maxSharePerMinute = 250,
+        maxSharePerMinute = 150,
         -- Missions and gigs of the mission editor only (Chimera and Sector 04 keep their
         -- own payouts), on top of the per-minute ceiling (prod audit 2026-11-04,
         -- docs/economy-balance.md §15; owner decision §16):
@@ -44,7 +44,8 @@ LightRpEconomy = {
         --                   and the same fraction of its reputation: a 3-enemy contract
         --                   is not a full contract. {} turns it off.
         authored = {
-            maxShare = { standard = 2400, hard = 3000, critical = 4400 },
+            -- hard economy (owner 2026-11-05, docs/economy-balance.md §17): was 2400 / 3000 / 4400
+            maxShare = { standard = 1500, hard = 2400, critical = 3600 },
             fullPayEnemies = { standard = 12, hard = 18, critical = 24 },
         },
     },
@@ -55,26 +56,27 @@ LightRpEconomy = {
     -- limit. 3 fighters: 6,473 (≈ 2,160 each); 10: 15,036; 30: the editor's 30,000.
     -- false (or no table) pays the editor's reward split by score, the old rule.
     worldBosses = {
-        perFighter = 3000,
+        perFighter = 2000,
         crewExponent = 0.7,
-        maxSharePerMinute = 250,
+        maxSharePerMinute = 150,
     },
 
     -- Free work (job_work.lua) and work orders (job_runs.lua): each grade of the
     -- matching job adds this fraction to a sale or a run's pay (grade 2 = +20 %).
     jobs = {
-        gradeBonus = 0.10,
+        gradeBonus = 0.15,  -- climbing a job's grades is the way up (was 0.10)
         -- Jobs worked together (server/modules/job_crew.lua, docs/dailies-titles.md §5):
         -- two crewmates on different accounts in the same job each get `rate` of a
         -- sale or a paid run on a separate ledger line (`crew_bonus`), when the other
         -- worked too in the last `recentMinutes`: within `range` metres at a fixed
         -- work site (Sanitation, Scrapper); anywhere on a route (Courier, AC Cleaner).
         -- At most `dailyCap` per account and UTC day. rate = 0 turns it off.
-        crewBonus = { rate = 0.15, range = 60.0, recentMinutes = 5, dailyCap = 2000 },
+        crewBonus = { rate = 0.15, range = 60.0, recentMinutes = 5, dailyCap = 1500 },
         -- The Courier's Big Contract (job_runs.lua): 5–6 orders in two halves, one per
         -- courier (crewmates, different accounts, within `range` m at the desk). Each
         -- half pays as a run; when both land, each courier gets `bonus` of their half,
         -- `togetherBonus` if the two last drops are within `togetherSeconds`.
+        -- Its bonus counts against crewBonus.dailyCap too (it used to bypass every cap).
         bigContract = { enabled = true, orders = { min = 5, max = 6 }, range = 30.0,
             bonus = 0.20, togetherBonus = 0.35, togetherSeconds = 120 },
     },
@@ -88,7 +90,7 @@ LightRpEconomy = {
     paychecks = {
         requireActivity = true,
         windowMinutes = 30,
-        moveMetres = 75,
+        moveMetres = 600,   -- a real trip across the district, not a step outside (was 75)
         teleportMetres = 2000,
         sampleSeconds = 20,
         servedMinimum = 50,
@@ -115,10 +117,10 @@ LightRpEconomy = {
         sampleSeconds = 10,
         pvp = {
             ledger = "activity_pvp",
-            perMinute = 70,
+            perMinute = 45,
             participation = 0.75,
             resultBonus = 0.5,
-            dailyCap = 12000,
+            dailyCap = 7500,
             repeatPerHour = { 4, 3, 4, 5 },
             modes = {
                 ["arena.ffa"]    = { players = 4, minSeconds = 120, maxSeconds = 900, placement = true, progress = { kills = 1, assists = 1 } },
@@ -135,9 +137,9 @@ LightRpEconomy = {
         },
         pve = {
             ledger = "activity_pve",
-            perMinute = { standard = 40, hard = 50, critical = 60 },
+            perMinute = { standard = 25, hard = 32, critical = 40 },
             lossShare = 0.5,
-            dailyCap = 6000,
+            dailyCap = 4000,
             -- `difficulty`: the activity's own, unless the entry (a difficulty the
             -- player picked when joining) or the result names one.
             modes = {
@@ -154,7 +156,7 @@ LightRpEconomy = {
     -- first day guide nor the character's first `graceMinutes` of play. Taken from
     -- the bank, then from cash, and only what is there: never below zero.
     hospital = {
-        bill = 300,
+        bill = 750,
         graceMinutes = 120,
         counterparty = "Night City Medical",
     },
@@ -178,6 +180,9 @@ LightRpEconomy = {
     -- not capped. maxGrant = 0 turns the cap off.
     staffGrants = {
         maxGrant = 10000,
+        -- most one staff member (account) may grant per UTC day, all grants together;
+        -- the console and unlimitedPermission holders are not counted. 0 = no daily cap.
+        dailyCapPerStaff = 25000,
         minReason = 4,
         unlimitedPermission = "lightrp.money.unlimited",
     },

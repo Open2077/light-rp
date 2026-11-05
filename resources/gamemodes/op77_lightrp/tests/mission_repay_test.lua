@@ -7,6 +7,10 @@ json = { encode = function(v) stored[#stored + 1] = v; return "#" .. #stored end
 dofile("shared/safezones.lua")
 dofile("shared/mission_defs.lua")
 dofile("server/config/economy.lua")
+-- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
+do local M = LightRpEconomy.missions
+    M.cooldownMinutes, M.dailyFullPayouts, M.repeatShare, M.maxSharePerMinute = 60, 6, 0.25, 250
+    M.authored.maxShare = { standard = 2400, hard = 3000, critical = 4400 } end
 local D = LightRpMissionDefs
 local runs, published, logs, chats, commands = {}, {}, {}, {}, {}
 local refuse, stale = false, false

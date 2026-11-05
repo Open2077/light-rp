@@ -244,7 +244,7 @@ LightRpConfig = {
         tanks = { default = 60, Street = 55, Utility = 90, Sport = 65, Bikes = 30 }, -- litres, by vehicles.catalog category
         reserve = 0.15,              -- fraction: HUD turns amber and the driver is warned once
         rentalTank = { min = 0.35, max = 0.75 }, -- rentals are delivered with a partial tank
-        pricePerLitre = 4,           -- eddies, whole litres only at the pump (≈ 260 €$/h behind the wheel)
+        pricePerLitre = 6,           -- eddies, whole litres only at the pump (≈ 400 €$/h behind the wheel)
         pumpRange = 7.0,             -- metres between the pump point and the vehicle
         parkedSpeed = 0.25,
         clusterRadius = 35.0,       -- maximum separation within one station
@@ -459,9 +459,14 @@ LightRpConfig = {
         currency = "€$",
         startingCash = 250,
         startingBank = 1500,
+        -- the account's other characters open with this in the bank instead (alts are
+        -- not a second starting bonus to wire to the main one)
+        startingBankExtraCharacters = 0,
         maxTransaction = 1000000000,
         payRange = 6.0,          -- metres: /pay hands cash to someone next to you
         transferFee = 0,         -- flat fee per bank transfer, on top of the amount
+        transferFeeRate = 0.02,  -- plus this share of the amount (2 %), at least transferFeeMin
+        transferFeeMin = 10,
         historyLength = 10,      -- ledger lines kept in memory and shown on the page
     },
 

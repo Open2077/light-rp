@@ -110,12 +110,18 @@ local function premium(id, run)
     local together = math.abs(d[id].at - other.at) <= (tonumber(b.togetherSeconds) or 120) * 1000
     local rate = together and (tonumber(b.togetherBonus) or 0) or (tonumber(b.bonus) or 0)
     duos[run.duo.id] = nil
+    local c, day = cfg(), today()
     for pid, e in pairs(d) do
         local amount = math.floor(e.reward * rate + 0.5)
+        -- the same daily cap as the crew bonus (it used to bypass every cap)
+        local row = e.account and paid[e.account]
+        if e.account and (not row or row.day ~= day) then row = { day = day, amount = 0 }; paid[e.account] = row end
+        if row then amount = math.min(amount, (tonumber(c.dailyCap) or math.huge) - row.amount) end
         if amount > 0 and accountOf(pid) == e.account then
             local partner = pid == id and run.duo.partner or id
             local ok = LightRP.money.addBank(pid, amount, "crew_bonus", together and "Big Contract · served together" or "Big Contract", nameOf(partner))
             if ok then
+                if row then row.amount = row.amount + amount end
                 LightRP.notice(pid, { kind = "money", title = together and "SERVED TOGETHER" or "BIG CONTRACT", durationMs = 9000,
                     body = string.format("+%s (+%d%%) with %s.%s", money(amount), math.floor(rate * 100 + 0.5), nameOf(partner),
                         together and "" or " Land your last drops closer together for the full bonus.") })
