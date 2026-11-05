@@ -206,8 +206,10 @@ LightRpConfig = {
         -- `jobs` lists what that desk offers; applying starts at grade 0.
         centers = {
             {
-                id = "citycenter", name = "Job Center // City Center",
-                position = { x = -645.578979, y = -412.519470, z = 8.196312 }, heading = 56.899963,
+                -- moved to Kabuki, near NEON DECK (pose taken in game by the owner, 2026-11-05); the id stays
+                -- "citycenter" (interaction and log keys), only the place and the name changed
+                id = "citycenter", name = "Job Center // Kabuki",
+                position = { x = -761.657593, y = 778.363586, z = 22.580002 }, heading = 67.360504,
                 jobs = { "sanitation", "scrapper", "delivery" },
             },
         },

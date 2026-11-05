@@ -58,7 +58,8 @@ local R, C, Money = LightRP.jobRuns, LightRpJobRuns, LightRP.money
 assert(C.routes.sanitation == nil and C.routes.scrapper == nil)
 for _,job in ipairs({"sanitation","scrapper"}) do char.job=job;assert(not R.start(1)) end
 local routePositions = {}
-local function desk() p = { x = -645.578979, y = -412.519470, z = 8.196312, bucket = 0 }; now = now + 16000 end
+-- the job center desk, wherever the config puts it
+local function desk() local c = LightRpConfig.jobs.centers[1].position; p = { x = c.x, y = c.y, z = c.z, bucket = 0 }; now = now + 16000 end
 local function begin()
     local s = R.snapshot(1); now = now + 600; p = s.objective.position
     assert(R.begin(1, { id = s.id, index = s.index }))
