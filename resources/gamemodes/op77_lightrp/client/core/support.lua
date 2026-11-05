@@ -27,6 +27,20 @@ function LightRpSupport.bind(page)
             end
             return
         end
+        -- Staff events made here or a spot saved here: the district the engine sees, as the
+        -- place name the city is told (the server keeps it a label, never a check).
+        if p.operation=="eventsAction" and (p.where=="here" or p.action=="spotSave" or (p.action=="night" and p.where=="here")) then
+            p.district=LightRpSupport.district()
+        end
         TriggerServerEvent(E.net.support,p)
     end)
+end
+-- "Districts.LittleChina" / "LittleChina" -> "Little China"; "" when the engine has none.
+function LightRpSupport.district()
+    if not (Open77.world and type(Open77.world.district)=="function") then return "" end
+    local ok,d=pcall(Open77.world.district)
+    if not ok or type(d)~="table" then return "" end
+    local name=tostring(d.subDistrict~=nil and d.subDistrict~="" and d.subDistrict or d.district or "")
+    name=name:gsub("^[%w_]+%.",""):gsub("_"," "):gsub("(%l)(%u)","%1 %2")
+    return name:sub(1,48)
 end

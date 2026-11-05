@@ -115,6 +115,17 @@ Commandes équivalentes : `/lightrp.tables [page | near]`,
 `/lightrp.tables tp <id>`, `/lightrp.tables delete <id> [return]` (la console
 serveur peut lister et supprimer). Détails : `docs/board-games.md`.
 
+## Events (modes anim)
+
+**Events** (droit `command.lightrp.events`) lance des world bosses, des cyberpsychos et
+des attaques de gang là où le staff veut (sa position, un joueur, un spot enregistré, ou
+la place d'origine d'un world boss), à trois niveaux, pour le fun (rien n'est payé ni
+compté) ou payés comme un world boss (droit `command.worldboss.start`). On y trouve aussi
+les événements en cours (aller voir, finir en victoire, annuler), les soirées enchaînées
+(Psycho Night, Boss Rush, Gang War, Siege), les spots enregistrés et l'interrupteur des
+world bosses aléatoires. Chaque action est auditée (`eventLaunch`, `eventStop`…).
+Commande équivalente : `/lightrp.event`. Détails : `docs/staff-events.md`.
+
 Les outils personnels **Noclip**, **God mode** et **Advanced console** réutilisent
 les commandes natives et leurs permissions. Leur journalisation reste celle
 du package officiel ; `lightrp_staff_audit` couvre les interventions du bureau RP.
@@ -144,6 +155,8 @@ sont contrôlées côté serveur, y compris après les lectures SQL asynchrones.
 | `command.lightrp.announce` | Annonce serveur |
 | `command.lightrp.tables` | Tables posées : liste et téléportation |
 | `command.lightrp.tabledelete` | Tables posées : suppression |
+| `command.lightrp.events` | Events : lancer, arrêter, spots, soirées, sans paie |
+| `command.worldboss.start` | Events payés, world bosses aléatoires |
 | `command.admin.self.noclip` / `god` | Outils personnels |
 | `command.adminfull` | Console technique |
 

@@ -125,6 +125,8 @@ const fs=require('node:fs');
   await choose('Roulette · Alex Morgan');await page.locator('.rp-support__record dd').filter({hasText:'#1 Alex Morgan, #2 Jamie Rivers'}).waitFor();
   assert.match(await page.locator('.rp-support__record').innerText(),/€\$ 65 in open stakes/);
   await page.screenshot({path:'artifacts/support-rage-table.png'});
+  // the table's own rows come with its detail request (queued behind the 12 s poll at times)
+  await menu.locator('.o77-rage__text').filter({hasText:/^Remove table$/i}).waitFor();
   await choose('Remove table');await page.getByLabel('Reason for this intervention').fill('Table blocking the clinic entrance');
   assert.equal(await page.getByLabel('Give the item back to the owner').isChecked(),true);
   const removals=()=>page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='tableAction').length);

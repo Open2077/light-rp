@@ -22,6 +22,11 @@
 --              nothing more that day, money nor reputation (owner decision 2026-11-04,
 --              §16): they still fight, are told why, and do not count as a paid fighter.
 --
+--   at once    the random one and the staff's (server/modules/staff_events.lua) run side by
+--              side, up to C.maxLive; the same definition never twice. A staff event can
+--              be silent (no city notice, no map pin) or pay nothing (a fun event: no
+--              money, no reputation, and nothing counts for dailies, titles or drops).
+--
 -- The enemies are the mission engine's own (spawns, behaviours, deaths): Engine.world.
 local C = LightRpWorldBosses
 local D = LightRpMissionDefs
@@ -35,7 +40,9 @@ Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_worldboss_daily (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
 
 local catalogue = {}     -- definition id -> definition (published, enabled world bosses)
-local event = nil        -- the running event, or nil
+-- The running events, oldest first. Each enemy's event is known by its id (npcEvent).
+local events = {}
+local npcEvent = {}      -- tostring(npc id) -> its event
 local nextAt = nil       -- ms of the next random spawn
 local eventSeq = 0
 local daily = {}         -- "identifier#key" -> { day, count, synced, identifier, key }: paid events today
@@ -99,7 +106,7 @@ WB.cappedText = cappedText
 -- those hits to the fighters (the enemies opt into authoritativePlayerHits, so the engine
 -- itself never drains a player's health).
 function WB.instanceOfNpc(npcId)
-    local ev = event
+    local ev = npcEvent[tostring(npcId)]
     if not ev or ev.phase ~= "fight" or not ev.inst then return nil end
     local key = ev.npcs[tostring(npcId)]
     if key == nil then return nil end
@@ -126,6 +133,12 @@ local function online()
     end
     return list
 end
+
+-- The events: a copy of the list, one by id, the one whose zone holds a player.
+function WB.events() local out = {} for i, ev in ipairs(events) do out[i] = ev end return out end
+function WB.event(id) for _, ev in ipairs(events) do if ev.id == id then return ev end end end
+function WB.zoneOf(player) for _, ev in ipairs(events) do if ev.inZone[player] then return ev end end end
+function WB.maxLive() return math.max(1, math.floor(tonumber(C.maxLive) or 4)) end
 
 -- ---------------------------------------------------------------------------
 -- Catalogue (the mission engine publishes and withdraws)
@@ -190,7 +203,7 @@ local function shareOf(ev, id)
     if not c or total <= 0 then return 0 end
     return c.score / total * 100
 end
-WB.shareOf = function(id) return event and shareOf(event, id) or 0 end
+WB.shareOf = function(id) local ev = WB.zoneOf(id) or WB.current(); return ev and shareOf(ev, id) or 0 end
 -- The share that pays. The mission's minimum, lowered when many fight so a crowd still
 -- gets paid: never under a quarter (fairShareFraction) of an equal share between
 -- everyone who scored. A last shot or a watcher stays far below it either way.
@@ -201,7 +214,7 @@ local function needed(ev)
     if n <= 0 then return w.minShare end
     return math.min(w.minShare, (C.fairShareFraction or 0.25) * 100 / n)
 end
-WB.needed = function() return event and needed(event) or 0 end
+WB.needed = function(id) local ev = (id and WB.zoneOf(id)) or WB.current(); return ev and needed(ev) or 0 end
 
 -- The pool that pays `fighters` (server/config/economy.lua worldBosses, read at call
 -- time) and the most one of them gets. Pure.
@@ -236,7 +249,7 @@ local function playerOf(source)
     return id
 end
 AddEventHandler("onNpcDamaged", function(npcId, source, amount)
-    local ev = event
+    local ev = npcEvent[tostring(npcId)]
     if not ev or ev.phase ~= "fight" then return end
     local key = tostring(npcId)
     if not ev.npcs[key] then return end
@@ -253,7 +266,7 @@ AddEventHandler("onNpcDamaged", function(npcId, source, amount)
     ev.dirty = true
 end)
 AddEventHandler("onNpcDied", function(npcId, source)
-    local ev = event
+    local ev = npcEvent[tostring(npcId)]
     if not ev then return end
     local key = tostring(npcId)
     if not ev.npcs[key] then return end
@@ -299,19 +312,20 @@ local function view(ev, id)
         endsInMs = ev.phase == "fight" and math.max(0, ev.endsAt - now()) or nil,
         share = math.floor(share * 10 + 0.5) / 10, minShare = math.floor(needed(ev) * 10 + 0.5) / 10,
         eligible = not capped and share >= needed(ev) and (c and c.score or 0) > 0, dailyCapped = capped or nil,
-        damage = c and math.floor(c.damage + 0.5) or 0, kills = c and c.kills or 0, reward = poolNow(ev), rewardMax = w.reward,
+        damage = c and math.floor(c.damage + 0.5) or 0, kills = c and c.kills or 0, reward = ev.noPay and 0 or poolNow(ev), rewardMax = ev.noPay and 0 or w.reward,
         inZone = ev.inZone[id] == true,
+        -- the HUD's tag (WORLD BOSS, CYBERPSYCHO...) and a staff event that pays nothing
+        tag = ev.words.tag, noPay = ev.noPay or nil,
         -- a bystander in the zone still sees how it ended
         result = ev.results and (ev.results[id] or { success = ev.success == true, share = 0, pay = 0, eligible = false, damage = 0, kills = 0 }) or nil,
     }
 end
 LightRP.stateProvider("worldBoss", function(id)
-    local ev = event
-    if not ev then return false end
-    -- only in the zone, and the end only for a few seconds
-    if not ev.inZone[id] then return false end
-    if ev.hudUntil and now() >= ev.hudUntil then return false end
-    return view(ev, id)
+    -- only in a zone, and the end only for a few seconds
+    for _, ev in ipairs(events) do
+        if ev.inZone[id] and not (ev.hudUntil and now() >= ev.hudUntil) then return view(ev, id) end
+    end
+    return false
 end)
 local function pushHud(ev, force)
     for id in pairs(ev.watchers) do
@@ -332,10 +346,12 @@ end
 local function blip(ev, on)
     local ok, err = pcall(function()
         if on then
+            if ev.silent then return end -- a silent staff event: found, not announced
             local z = ev.def.perimeter.center
             local why
-            ev.blipId, why = exports.op77_map3d:addBlip(-1, { id = "worldboss", position = { x = z.x, y = z.y, z = z.z },
-                icon = "skull", color = C.blip.color, label = fill(C.blip.label, { title = ev.def.title }),
+            ev.blipId, why = exports.op77_map3d:addBlip(-1, { id = ev.blipKey, position = { x = z.x, y = z.y, z = z.z },
+                icon = ev.look.icon or "skull", color = ev.look.color or C.blip.color,
+                label = fill(ev.look.label or C.blip.label, { title = ev.def.title, boss = ev.bossLabel }),
                 description = ev.bossLabel .. " · " .. ev.location, pulse = C.blip.pulse, edge = C.blip.edge, routable = true,
                 category = "event", priority = 2, scale = 1.4 })
             if not ev.blipId then log("world boss: map blip refused: %s", tostring(why)) end
@@ -350,8 +366,22 @@ end
 -- ---------------------------------------------------------------------------
 -- Start / stop
 
-local function start(def, why)
-    if event then return false, "A world boss is already out: " .. event.def.title .. "." end
+-- The words of an event (a staff event brings its own: CYBERPSYCHO, GANG ATTACK...).
+local WORDS = { tag = "WORLD BOSS", zone = "WORLD BOSS ZONE", down = "WORLD BOSS DOWN", away = "WORLD BOSS ESCAPED" }
+local function wordsOf(custom)
+    local out = {}
+    for k, v in pairs(WORDS) do out[k] = type(custom) == "table" and type(custom[k]) == "string" and custom[k] or v end
+    return out
+end
+
+-- `opts` (staff_events.lua): { custom, pay = false, silent, by, kind, words, look = { icon,
+-- color, label }, announce = { title, body, bodyNoPay } }. Nil: a world boss as authored.
+local function start(def, why, opts)
+    opts = type(opts) == "table" and opts or {}
+    for _, other in ipairs(events) do
+        if other.def.id == def.id then return false, def.title .. " is already out." end
+    end
+    if #events >= WB.maxLive() then return false, string.format("%d world events are already out: that is the most at once.", #events) end
     local W = engine()
     if not W then return false, "The mission engine is not ready." end
     local boss = def.worldBoss
@@ -370,22 +400,30 @@ local function start(def, why)
     local ev = { id = run.instance, def = run.def, run = run, startedAt = now(), endsAt = now() + boss.minutes * 60000,
         phase = "fight", contrib = {}, npcs = {}, bossNpcs = {}, bossMax = {}, inZone = {}, watchers = {}, hudKeys = {}, capped = {},
         reinforced = {}, bossFraction = 1, fighters = 0, npcMax = {},
-        bossLabel = bossSpawn and bossSpawn.label or "The boss", location = def.location ~= "" and def.location or "Night City" }
+        bossLabel = bossSpawn and bossSpawn.label or "The boss", location = def.location ~= "" and def.location or "Night City",
+        custom = opts.custom == true, noPay = opts.pay == false, silent = opts.silent == true, by = opts.by, kind = opts.kind or "boss",
+        words = wordsOf(opts.words), look = type(opts.look) == "table" and opts.look or {}, blipKey = ("worldboss_%d"):format(eventSeq) }
     -- every enemy of the event is known by id (credit) and the boss's apart (its bar)
     run.onCreated = function(npcId, s)
         ev.npcs[tostring(npcId)] = npcId
+        npcEvent[tostring(npcId)] = ev
         if s.id == boss.boss then ev.bossNpcs[tostring(npcId)] = npcId; ev.bossSeen = true end
     end
     ev.inst = { id = ev.id, bucket = 0, members = {}, run = run, world = true }
     for _, s in ipairs(run.def.spawns) do if s.trigger == "start" then W.enqueue(run, s.id) end end
-    event = ev
+    events[#events + 1] = ev
     blip(ev, true)
     -- the most the pool can reach: every player online fighting and paid
     local vars = { boss = ev.bossLabel, location = ev.location, title = def.title, reward = money(WB.pool(boss.reward, #online())) }
-    for _, id in ipairs(online()) do
-        LightRP.notice(id, { kind = "warning", title = fill(C.announce.title, vars), body = fill(C.announce.body, vars), durationMs = 12000 })
+    if not ev.silent then
+        local a = type(opts.announce) == "table" and opts.announce or {}
+        local body = ev.noPay and (a.bodyNoPay or "{boss} spotted in {location}. A staff event: no pay, just the glory.") or (a.body or C.announce.body)
+        for _, id in ipairs(online()) do
+            LightRP.notice(id, { kind = "warning", title = fill(a.title or C.announce.title, vars), body = fill(body, vars), durationMs = 12000 })
+        end
     end
-    log("world boss: %s (%s) out at %s, %s", def.title, ev.bossLabel, ev.location, tostring(why or "random"))
+    log("world boss: %s (%s) out at %s, %s%s%s", def.title, ev.bossLabel, ev.location, tostring(why or "random"),
+        ev.noPay and ", no pay" or "", ev.silent and ", silent" or "")
     return true, ev
 end
 WB.start = start
@@ -411,7 +449,7 @@ local function finish(ev, success, why)
     for _, id in ipairs(ids) do
         local c = ev.contrib[id]
         c.share = total > 0 and c.score / total * 100 or 0
-        c.eligible = success and c.score > 0 and c.share >= need
+        c.eligible = success and not ev.noPay and c.score > 0 and c.share >= need
         -- past the daily cap (owner decision 2026-11-04): the fight and the share count
         -- (results.eligible: contracts, titles, iconic rolls), the money and reputation do not
         if c.eligible then c.capped, c.paidToday = WB.dailyCapped(id) end
@@ -442,6 +480,8 @@ local function finish(ev, success, why)
         if GetPlayerName(id) then
             local body
             if not success then body = (why or "The boss got away.") .. string.format(" Your share: %.1f %%. Nobody is paid.", c.share)
+            elseif ev.noPay then body = string.format("Your share: %.1f %% (%d damage, %d kill%s). A staff event: no pay, the glory is yours.",
+                c.share, math.floor(c.damage + 0.5), c.kills, c.kills == 1 and "" or "s")
             elseif pay > 0 then body = string.format("Your share: %.1f %% (%d damage, %d kill%s). %s paid to your account, +%d reputation.",
                 c.share, math.floor(c.damage + 0.5), c.kills, c.kills == 1 and "" or "s", money(pay), C.reputation)
             elseif c.failed then body = string.format("Your share: %.1f %%. The bank did not answer: tell the staff, nothing was paid.", c.share)
@@ -449,33 +489,37 @@ local function finish(ev, success, why)
                 c.kills == 1 and "" or "s", cappedText(c.paidToday or 0))
             else body = string.format("Your share: %.1f %%, under the %.1f %% needed: no reward. Fight it, don't watch it.", c.share, need) end
             LightRP.notice(id, { kind = success and (pay > 0 and "success" or "warning") or "error",
-                title = success and "WORLD BOSS DOWN" or "WORLD BOSS ESCAPED", body = body, durationMs = 12000 })
+                title = success and ev.words.down or ev.words.away, body = body, durationMs = 12000 })
         end
     end
     if not success then
         -- whoever stands in the zone without a share yet is told too
         for id in pairs(ev.inZone) do
             if not ev.contrib[id] and GetPlayerName(id) then
-                LightRP.notice(id, { kind = "error", title = "WORLD BOSS ESCAPED", durationMs = 8000, body = (why or "The boss got away.") .. " Nobody is paid." })
+                LightRP.notice(id, { kind = "error", title = ev.words.away, durationMs = 8000, body = (why or "The boss got away.") .. " Nobody is paid." })
             end
         end
     end
-    if success then
+    if success and not ev.silent then
         for _, id in ipairs(online()) do
             if not ev.contrib[id] then
-                LightRP.notice(id, { kind = "info", title = "WORLD BOSS DOWN", durationMs = 8000,
-                    body = string.format("%s fell in %s. %d fighter%s paid.", ev.bossLabel, ev.location, paid, paid == 1 and "" or "s") })
+                LightRP.notice(id, { kind = "info", title = ev.words.down, durationMs = 8000,
+                    body = ev.noPay and string.format("%s fell in %s.", ev.bossLabel, ev.location)
+                        or string.format("%s fell in %s. %d fighter%s paid.", ev.bossLabel, ev.location, paid, paid == 1 and "" or "s") })
             end
         end
     end
     log("world boss: %s %s (%s); %d contributor(s), %d paid", ev.def.title, success and "down" or "escaped", tostring(why or ""),
         (function() local n = 0 for _ in pairs(ev.contrib) do n = n + 1 end return n end)(), paid)
-    LightRP.eachModule("onWorldBossFinished", { id = ev.def.id, title = ev.def.title, boss = ev.bossLabel, success = ev.success, results = ev.results }) -- iconic drops (cyberware_iconics.lua)
+    -- a fun staff event (no pay) counts for nothing: no iconic drop, contract or title
+    if not ev.noPay then
+        LightRP.eachModule("onWorldBossFinished", { id = ev.def.id, title = ev.def.title, boss = ev.bossLabel, success = ev.success, results = ev.results }) -- iconic drops (cyberware_iconics.lua)
+    end
     -- the end-of-fight recap (recap.lua): each fighter's damage, share and pay, as paid above
-    if LightRP.recap then pcall(LightRP.recap.worldBossEnded, ev, success, why, C.reputation) end
+    if LightRP.recap then pcall(LightRP.recap.worldBossEnded, ev, success, why, ev.noPay and 0 or C.reputation) end
     blip(ev, false)
     pushHud(ev, true)
-    LightRP.eachModule("onWorldEventEnded", ev, success) -- contracts, titles
+    if not ev.noPay then LightRP.eachModule("onWorldEventEnded", ev, success) end -- contracts, titles
     if not success then
         local W = engine()
         if W then W.clearEnemies(ev.run) end
@@ -486,11 +530,18 @@ WB.finish = finish
 local function close(ev)
     local W = engine()
     if W then W.clearEnemies(ev.run) end
-    if event == ev then event = nil end
+    for i = #events, 1, -1 do if events[i] == ev then table.remove(events, i) end end
+    for key, owner in pairs(npcEvent) do if owner == ev then npcEvent[key] = nil end end
+    ev.closed = true
     -- the HUD of the last fighters goes away with the event
     for id in pairs(ev.watchers) do LightRP.state(id, "worldBoss") end
-    local s = C.schedule
-    nextAt = now() + math.random(s.minMinutes, math.max(s.minMinutes, s.maxMinutes)) * 60000
+    -- a world boss of the catalogue (random or staff) restarts the random clock; a staff
+    -- event built from scratch (staff_events.lua) leaves it alone
+    if not ev.custom then
+        local s = C.schedule
+        nextAt = now() + math.random(s.minMinutes, math.max(s.minMinutes, s.maxMinutes)) * 60000
+    end
+    LightRP.eachModule("onWorldEventClosed", ev) -- staff_events.lua: event nights
 end
 
 -- Enemies stay in the zone. One past the perimeter by `leashMetres` is leashed: combat and
@@ -563,13 +614,17 @@ local function tick(ev)
         if inside ~= (ev.inZone[id] == true) then
             ev.inZone[id] = inside or nil
             if inside then
-                local capped, paidToday = WB.dailyCapped(id)
+                local capped, paidToday = false, 0
+                if not ev.noPay then capped, paidToday = WB.dailyCapped(id) end
                 ev.capped[id] = capped or nil
-                if capped then
-                    LightRP.notice(id, { kind = "warning", title = "WORLD BOSS ZONE", durationMs = 9000,
+                if ev.noPay then
+                    LightRP.notice(id, { kind = "contract", title = ev.words.zone, durationMs = 9000,
+                        body = string.format("Take down %s with everyone here. A staff event, for the glory: nothing is paid.", ev.bossLabel) })
+                elseif capped then
+                    LightRP.notice(id, { kind = "warning", title = ev.words.zone, durationMs = 9000,
                         body = string.format("Take down %s with everyone here. %s", ev.bossLabel, cappedText(paidToday)) })
                 else
-                    LightRP.notice(id, { kind = "contract", title = "WORLD BOSS ZONE", durationMs = 9000,
+                    LightRP.notice(id, { kind = "contract", title = ev.words.zone, durationMs = 9000,
                         body = string.format("Take down %s with everyone here. Your share of %s%s follows your damage and kills; a last shot or watching earns nothing.",
                             ev.bossLabel, money(poolNow(ev)), poolNow(ev) < ev.def.worldBoss.reward and " (more as fighters join)" or "") })
                 end
@@ -624,10 +679,11 @@ CreateThread(function()
     nextAt = now() + (C.schedule.firstDelayMinutes or 20) * 60000
     while true do
         Wait(1000)
-        local ev = event
-        if ev then
-            local ok, err = pcall(tick, ev)
-            if not ok then log("world boss: tick failed: %s", tostring(err)) end
+        if #events > 0 then
+            for _, ev in ipairs(WB.events()) do
+                local ok, err = pcall(tick, ev)
+                if not ok then log("world boss: tick failed (%s): %s", tostring(ev.id), tostring(err)) end
+            end
         elseif C.enabled and nextAt and now() >= nextAt then
             nextAt = now() + 5 * 60000   -- retried in 5 min if nothing could start
             local list = WB.catalogue()
@@ -640,8 +696,7 @@ CreateThread(function()
 end)
 
 function WB.onDisconnected(id)
-    local ev = event
-    if ev then ev.inZone[id], ev.watchers[id], ev.hudKeys[id] = nil, nil, nil end
+    for _, ev in ipairs(events) do ev.inZone[id], ev.watchers[id], ev.hudKeys[id] = nil, nil, nil end
 end
 
 -- ---------------------------------------------------------------------------
@@ -660,17 +715,28 @@ LightRP.command("worldboss.start", { restricted = true, usage = "/worldboss.star
     if not ok then return false, why end
     return true, string.format("%s is out at %s.", def.title, def.location ~= "" and def.location or "its zone")
 end)
-LightRP.command("worldboss.stop", { restricted = true, usage = "/worldboss.stop [win]" }, function(_, args)
-    local ev = event
-    if not ev then return false, "No world boss is out." end
-    if args[1] == "win" then finish(ev, true) else finish(ev, false, "Called off by the staff.") end
-    return true, "World boss ended."
+LightRP.command("worldboss.stop", { restricted = true, usage = "/worldboss.stop [win] [all]" }, function(_, args)
+    -- the oldest event still fighting, or every one with "all"
+    local win, all = false, false
+    for _, a in ipairs(args) do if a == "win" then win = true elseif a == "all" then all = true end end
+    local ended = 0
+    for _, ev in ipairs(WB.events()) do
+        if ev.phase == "fight" and (all or ended == 0) then
+            if win then finish(ev, true) else finish(ev, false, "Called off by the staff.") end
+            ended = ended + 1
+        end
+    end
+    if ended == 0 then return false, "No world boss is out." end
+    return true, ended == 1 and "World boss ended." or string.format("%d world events ended.", ended)
 end)
 LightRP.command("worldboss.list", { restricted = true, usage = "/worldboss.list" }, function()
     local names = {}
     for _, def in ipairs(WB.catalogue()) do names[#names + 1] = def.title end
-    local ev = event
-    local status = ev and string.format("Out: %s (%s, boss %d %%, %d fighter(s)).", ev.def.title, ev.phase, math.floor((ev.bossFraction or 0) * 100), ev.fighters)
+    local out = {}
+    for _, ev in ipairs(events) do
+        out[#out + 1] = string.format("%s (%s, boss %d %%, %d fighter(s))", ev.def.title, ev.phase, math.floor((ev.bossFraction or 0) * 100), ev.fighters)
+    end
+    local status = #out > 0 and ("Out: " .. table.concat(out, "; ") .. ".")
         or string.format("None out; next in %d min.", math.max(0, math.floor(((nextAt or now()) - now()) / 60000)))
     return true, status .. " Catalogue: " .. (#names > 0 and table.concat(names, ", ") or "empty")
 end)
@@ -682,6 +748,10 @@ LightRP.command("worldboss.next", { restricted = true, usage = "/worldboss.next 
 end)
 
 WB.tick = tick
-function WB.current() return event end
+-- The headline event (the events board's LIVE NOW): the oldest the city was told about.
+function WB.current()
+    for _, ev in ipairs(events) do if not ev.silent and ev.phase == "fight" then return ev end end
+    for _, ev in ipairs(events) do if not ev.silent then return ev end end
+end
 function WB.setNext(ms) nextAt = ms end
 function WB.nextAt() return nextAt end -- the events board (events_board.lua)

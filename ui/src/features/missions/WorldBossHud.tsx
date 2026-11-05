@@ -2,7 +2,8 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useStore } from "@/state/store";
 import "./worldboss.css";
 
-/* A world boss (server/modules/world_bosses.lua, state key worldBoss): shown to whoever
+/* A world boss (server/modules/world_bosses.lua, state key worldBoss), or a staff event on
+   its engine (a cyberpsycho, a gang attack: `tag`, maybe `noPay`): shown to whoever
    stands in its zone or fought it. The boss's bar, the common objective, the clock, and
    your own share against the minimum that pays; at the end, what you got and why. */
 const clock = (ms: number) => {
@@ -24,7 +25,7 @@ export function WorldBossHud() {
   const r = b.result;
   return <section className={`wboss${b.phase !== "fight" ? " is-over" : ""}${b.inZone ? "" : " is-away"}`} role="status">
     <header>
-      <span className="wboss__tag">WORLD BOSS</span>
+      <span className="wboss__tag">{b.tag || "WORLD BOSS"}</span>
       <b className="wboss__name">{b.boss.toUpperCase()}</b>
       <span className="wboss__dim">{b.location}</span>
       {b.phase === "fight" && b.endsInMs != null && <span className="wboss__clock">{clock(b.endsInMs - elapsed)}</span>}
@@ -32,7 +33,7 @@ export function WorldBossHud() {
     <div className="wboss__bar" style={{ "--hp": health } as CSSProperties}><i /><span>{Math.ceil(health * 100)} %</span></div>
     <div className="wboss__line">
       <span>{b.phase === "fight" ? `Take it down · ${b.enemiesLeft} hostile${b.enemiesLeft === 1 ? "" : "s"} · ${b.fighters} fighter${b.fighters === 1 ? "" : "s"} in the zone`
-        : r ? (r.success ? "BOSS DOWN" : "THE BOSS GOT AWAY") : "OVER"}</span>
+        : r ? (r.success ? `${(b.tag || "BOSS").replace(/^WORLD /, "")} DOWN` : "IT GOT AWAY") : "OVER"}</span>
       {!b.inZone && b.phase === "fight" && <span className="wboss__away">OUT OF THE ZONE</span>}
     </div>
     <div className={`wboss__share${b.eligible ? " is-eligible" : ""}`}>
@@ -43,8 +44,10 @@ export function WorldBossHud() {
     </div>
     {r ? <div className={`wboss__result${r.pay > 0 ? " is-paid" : ""}`}>
       {r.pay > 0 ? <>PAID <b>{money(r.pay)}</b> · {r.share.toFixed(1)} % of the fight</>
+        : b.noPay ? <>STAFF EVENT · {r.share.toFixed(1)} % of the fight, no pay</>
         : r.success ? <>NO REWARD · {r.share.toFixed(1)} % (under {b.minShare} %)</> : <>NOBODY PAID</>}
     </div>
-      : <div className="wboss__hint">{b.eligible ? `Above ${b.minShare} %: you share ${money(b.reward)}.` : `Under ${b.minShare} %: no reward. Damage and kills count.`}</div>}
+      : <div className="wboss__hint">{b.noPay ? "Staff event: no pay, just the glory. Damage and kills still rank you."
+        : b.eligible ? `Above ${b.minShare} %: you share ${money(b.reward)}.` : `Under ${b.minShare} %: no reward. Damage and kills count.`}</div>}
   </section>;
 }

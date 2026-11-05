@@ -3,15 +3,16 @@ import { useStore } from "@/state/store";
 import { emit, on } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { RageMenu, isPickable, type RageMenuItem } from "@/design/components";
-import { request, key, list, date, label, type Scope, type TicketList, type Detail, type Overview, type Wire, type Person, type Profile, type Audit, type TableList, type PlacedTable, type ManekiList, type ManekiSpot } from "./api";
+import { request, key, list, date, label, type Scope, type TicketList, type Detail, type Overview, type Wire, type Person, type Profile, type Audit, type TableList, type PlacedTable, type ManekiList, type ManekiSpot, type EventsView, type LiveEvent, type EventSpot, type DeskResult } from "./api";
 import { ActionForm, ProfileCard, AuditEntry, actionLabels, auditLabels } from "./StaffTools";
 import { TableCard, TableActionForm, moneyLine } from "./TableTools";
 import { ManekiCard, ManekiActionForm, sizeLabel } from "./ManekiTools";
+import { eventsMenu, EventFormPanel, isEventPage, LAUNCH_DEFAULT, NIGHT_DEFAULT, type EventPageKind, type EventForm, type LaunchConfig, type NightConfig } from "./EventsTools";
 import { NewReport, MessageForm, SearchForm } from "./SupportForms";
 import "./support.css";
 
-type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tools"|"tables"|"table"|"maneki"|"manekiSpot"; selected?:string; caseId?:number; person?:Person; history?:Audit[]; table?:PlacedTable; spot?:ManekiSpot };
-type Form = { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players"|"tables"|"maneki" } | { kind:"action"; action:string } | { kind:"tableAction"; action:"tableTeleport"|"tableDelete" } | { kind:"manekiAction"; action:"manekiTeleport"|"manekiDelete" };
+type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tools"|"tables"|"table"|"maneki"|"manekiSpot"|EventPageKind; selected?:string; caseId?:number; person?:Person; history?:Audit[]; table?:PlacedTable; spot?:ManekiSpot; event?:LiveEvent; place?:EventSpot };
+type Form = { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players"|"tables"|"maneki" } | { kind:"action"; action:string } | { kind:"tableAction"; action:"tableTeleport"|"tableDelete" } | { kind:"manekiAction"; action:"manekiTeleport"|"manekiDelete" } | { kind:"event"; form:EventForm };
 type Entry = RageMenuItem & { run?:()=>void; change?:(patch:Partial<RageMenuItem>)=>void };
 const filters=["active","open","in_progress","waiting_player","finished","all"];
 const filterNames=["Active","Waiting","In progress","Need reply","Finished","All"];
@@ -37,6 +38,7 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const [filter,setFilter]=useState(0),[mine,setMine]=useState(false),[query,setQuery]=useState(""),[citizenQuery,setCitizenQuery]=useState(""),[page,setPage]=useState(1);
   const [tables,setTables]=useState<TableList>(),[tablePage,setTablePage]=useState(1),[tableSort,setTableSort]=useState(0),[tableQuery,setTableQuery]=useState(""),[tableDetail,setTableDetail]=useState<TableList>();
   const [cats,setCats]=useState<ManekiList>(),[catPage,setCatPage]=useState(1),[catSort,setCatSort]=useState(1),[catQuery,setCatQuery]=useState(""),[catDetail,setCatDetail]=useState<ManekiList>();
+  const [events,setEvents]=useState<EventsView>(),[launchCfg,setLaunchCfg]=useState<LaunchConfig>(LAUNCH_DEFAULT),[nightCfg,setNightCfg]=useState<NightConfig>(NIGHT_DEFAULT);
   const [epoch,setEpoch]=useState(0),[error,setError]=useState(""),[feedback,setFeedback]=useState(""),[busy,setBusy]=useState(false),[showConversation,setShowConversation]=useState(true);
   const top=stack[stack.length-1]!,panel=useRef<HTMLElement>(null),menu=useRef<HTMLDivElement>(null),working=useRef(false);
   const mutation=useRef<{signature:string;key:string}>();
@@ -79,6 +81,19 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       const r=await request<{message:string;close?:boolean}>("manekiAction",{action,...extra});
       if(r.close){close();return;}
       setFeedback(r.message);refresh();
+    }catch(e){setError((e as Error).message);}finally{working.current=false;setBusy(false);}
+  };
+  const eventPage=isEventPage(top.kind);
+  useEffect(()=>{
+    let live=true;if(eventPage)request<EventsView>("events").then(v=>{if(live){setEvents(v);setError("");}},e=>{if(live){setEvents(undefined);setError(e.message);}});
+    return()=>{live=false;};
+  },[eventPage,top.kind,epoch]);
+  // a desk action with no form of its own (go to, random world bosses): one request, its answer shown
+  const eventDirect=async(action:string,extra:Record<string,unknown>={})=>{
+    if(working.current)return;working.current=true;setBusy(true);setError("");setFeedback("");
+    try{
+      const r=await request<DeskResult>("eventsAction",{action,confirmed:true,mutation:key(),...extra});
+      if(r.accepted)setFeedback(r.message);else setError(r.message);refresh();
     }catch(e){setError((e as Error).message);}finally{working.current=false;setBusy(false);}
   };
   const caseId=top.caseId;
@@ -148,6 +163,7 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       submenu("tools","Personal tools",()=>push({kind:"tools"}),{icon:"shield",disabled:!overview,description:"Noclip, god mode and the advanced console."}),
       ...(overview?.permissions.tables?[submenu("tables","Placed tables",()=>{setTablePage(1);push({kind:"tables"});},{icon:"box",description:"Every placed board and casino table: owner, seats, open stakes. Go to one or remove it."})]:[]),
       ...(overview?.permissions.maneki?[submenu("maneki","Maneki-neko",()=>{setCatPage(1);push({kind:"maneki"});},{icon:"coins",description:"The hidden lucky cats: hide new ones with the placement tool, list, visit or remove them."})]:[]),
+      ...(overview?.permissions.events?[submenu("events","Events",()=>push({kind:"events"}),{icon:"siren",description:"World bosses, cyberpsychos and gang attacks where you want them, event nights, saved spots. For fun or paid."})]:[]),
       ...(overview?.permissions.housing?[submenu("housing","Housing",()=>{close();emit(PAGE_EVENTS.action,{type:"housing.open",admin:true});},{icon:"map-pin",description:"Interior templates, dwellings and resident assignments."})]:[]),
       ...(overview?.permissions.safezones?[submenu("safezones","Safe zones",()=>{close();emit(PAGE_EVENTS.safezones,{operation:"open"});},{icon:"shield",description:"Create and edit world-space PvP protection zones."})]:[]),
     ]:[submenu("reports","My reports",()=>push({kind:"tickets"}),{icon:"message-square",description:"Private conversations with staff, including closed cases."}),item("new","New report",()=>setForm({kind:"new",body:""}),{icon:"message-square",description:"Describe a problem and follow its handling here."})];
@@ -242,6 +258,11 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       ...(catDetail.canEdit?[submenu("manekiDelete","Remove this cat",()=>setForm({kind:"manekiAction",action:"manekiDelete"}),{icon:"trash-2",danger:true,description:"It disappears for everyone. A reason is recorded."})]:[]),
       item("refresh","Refresh",refresh)];
     content=<ManekiCard spot={c}/>;
+  }else if(isEventPage(top.kind)){
+    const m=eventsMenu({page:{kind:top.kind,selected:top.selected,event:top.event,spot:top.place},view:events,players:list(overview?.players),busy,
+      launch:launchCfg,setLaunch:patch=>setLaunchCfg(c=>({...c,...patch})),night:nightCfg,setNight:patch=>setNightCfg(c=>({...c,...patch})),
+      push:p=>push({kind:p.kind,event:p.event,place:p.spot}),openForm:f=>{setError("");setForm({kind:"event",form:f});},direct:(a,x)=>{void eventDirect(a,x);},item,submenu});
+    title=m.title;subtitle=m.subtitle;entries=m.entries;content=m.content;
   }else if(top.kind==="history"){
     title="STAFF HISTORY";subtitle=top.history?"SELECTED CITIZEN":`PAGE ${historyPage}`;
     const rows=top.history||list(history?.entries);
@@ -258,6 +279,14 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   else if(form?.kind==="search")content=<SearchForm initial={form.target==="tickets"?query:form.target==="tables"?tableQuery:form.target==="maneki"?catQuery:citizenQuery} onCancel={cancel} onSave={value=>{if(form.target==="tickets"){setCases(undefined);setQuery(value);setPage(1);}else if(form.target==="tables"){setTables(undefined);setTableQuery(value);setTablePage(1);}else if(form.target==="maneki"){setCats(undefined);setCatQuery(value);setCatPage(1);}else setCitizenQuery(value);cancel();}}/>;
   else if(form?.kind==="tableAction"&&top.table){const t=list(tableDetail?.tables).find(r=>r.id===top.table!.id)||top.table;content=<TableActionForm key={form.action} action={form.action} table={t} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);if(form.action==="tableDelete"){setTables(undefined);setStack(s=>s.slice(0,-1));}refresh();}}/>;}
   else if(form?.kind==="manekiAction"&&top.spot){const c=list(catDetail?.spots).find(r=>r.id===top.spot!.id)||top.spot;content=<ManekiActionForm key={form.action} action={form.action} spot={c} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);if(form.action==="manekiDelete"){setCats(undefined);setStack(s=>s.slice(0,-1));}refresh();}}/>;}
+  else if(form?.kind==="event"&&events){
+    const f=form.form;
+    content=<EventFormPanel key={JSON.stringify(f)} form={f} view={events} launch={launchCfg} night={nightCfg} players={list(overview?.players)} onCancel={cancel} onDone={message=>{
+      setFeedback(message);setForm(null);
+      // launched, ended or removed: back to the events hub (a spot saved stays on the spots)
+      if(f.kind==="launch"||f.kind==="night"||(f.kind==="confirm"&&f.action!=="nightStop"))setStack(s=>{const i=s.findIndex(p=>p.kind==="events");return i>=0?s.slice(0,f.kind==="confirm"&&f.action==="spotDelete"?i+2:i+1):s;});
+      refresh();}}/>;
+  }
   else if(form?.kind==="message")content=<MessageForm action={form.action} busy={busy} onCancel={cancel} onSend={async body=>{if(await mutate(form.action,body))setForm(null);}}/>;
   else if(form?.kind==="action"&&currentProfile&&overview)content=<ActionForm action={form.action} person={currentProfile} overview={overview} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);refresh();}}/>;
   return <section className="rp-support" aria-label={staff?"LightRP staff menu":"Reports and support"}>

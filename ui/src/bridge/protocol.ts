@@ -221,6 +221,10 @@ export interface WorldBossState {
   id: string; title: string; location: string; boss: string; phase: "fight" | "cleanup" | "done";
   bossHealth: number; enemiesLeft: number; fighters: number; endsInMs?: number;
   share: number; minShare: number; eligible: boolean; damage: number; kills: number; reward: number; inZone: boolean;
+  /** The event's tag (WORLD BOSS, CYBERPSYCHO, GANG ATTACK: server/config/staff_events.lua). */
+  tag?: string;
+  /** A staff event for fun: nothing is paid or counted. */
+  noPay?: boolean;
   result?: { success: boolean; share: number; pay: number; eligible: boolean; damage: number; kills: number } | null;
 }
 export interface FixerGigState {
