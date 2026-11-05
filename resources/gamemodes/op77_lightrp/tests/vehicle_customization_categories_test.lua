@@ -121,7 +121,29 @@ local P=LightRpCustomizationPricing
 -- pinned: provisional lights/trim tariffs (owner to confirm) and the 2026-11-05 paint price
 assert(P.paint==2500 and P.lights==500 and P.trim==2500)
 local C=LightRpVehicleCustomization
-assert(next(C.trims)==nil and next(C.support)==nil,"shipped tables stay empty until the lead measures the models")
+-- shipped tables = the lead's 2026-11-05 measurements: every trim belongs to a catalogue
+-- model, its id is an appearance of that model's own entity (prefix of the stock
+-- appearance), ids are unique per model, and only Bandit and Apollo refuse a lights hue
+local stockPrefix={hella="archer_hella__basic_",quartz="archer_quartz__basic_",cortes="villefort_cortes__basic_",
+  colby="thorton_colby__basic_",galena="thorton_galena__basic_",maimai="makigai_maimai__basic_",
+  hozuki="mizutani_hozuki__basic_",supron="mahir_supron__basic_",columbus="villefort_columbus__basic_",
+  kusanagi="yaiba_kusanagi_basic_",apollo="brennan_apollo_basic_"}
+local shippedTrims=0
+for model,list in pairs(C.trims) do
+  assert(LightRP.vehicles.byKey[model],"trim model is a catalogue key: "..model)
+  assert(stockPrefix[model],"trim model has a measured appearance prefix: "..model)
+  local seen={}
+  for _,t in ipairs(list) do
+    assert(t.id:sub(1,#stockPrefix[model])==stockPrefix[model],"trim id belongs to "..model..": "..t.id)
+    assert(not t.id:find("burnt",1,true) and not seen[t.id] and type(t.label)=="string" and t.label~="")
+    seen[t.id]=true;shippedTrims=shippedTrims+1
+  end
+end
+assert(shippedTrims==33,"33 measured trims ship")
+for model,s in pairs(C.support) do assert(LightRP.vehicles.byKey[model] and s.lights==false and s.paint==nil,model) end
+assert(C.support.bandit and C.support.apollo,"Bandit and Apollo refuse lights")
+local measured=0;for _ in pairs(C.support) do measured=measured+1 end
+assert(measured==2,"only Bandit and Apollo carry a support override")
 C.trims={hella={{id="hella_trim_a",label="Street"},{id="hella_trim_b",label="Sport"}},galena={}}
 C.support={kusanagi={paint=false},quartz={lights=false}}
 dofile("server/modules/vehicle_customization.lua")
