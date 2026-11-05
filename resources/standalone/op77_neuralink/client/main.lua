@@ -145,7 +145,7 @@ local function createPage()
     -- A surface cannot be created while the resource is still preparing (file
     -- scope at start): retry until the host accepts it.
     local created, why
-    for attempt = 1, 120 do
+    for attempt = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
         created, why = Open77.webui.create({
             entry = "web/index.html", layer = "menu", zIndex = 40,
             transparent = true, visible = true, fps = 60,

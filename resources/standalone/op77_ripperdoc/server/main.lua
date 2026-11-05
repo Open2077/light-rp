@@ -113,6 +113,19 @@ exports("isOpen", function(pid)
 end)
 
 -- The patient closed the interface himself: tell the host (the gamemode stands him up).
+-- The client's own lines (client/main.lua log): at most 30 a minute per player.
+local diagCount = {}
+RegisterNetEvent("op77_ripperdoc:diag", function(text)
+    local pid = tonumber(source)
+    if not pid or type(text) ~= "string" then return end
+    local minute = math.floor(Open77.time.monotonic() / 60)
+    local d = diagCount[pid]
+    if not d or d.minute ~= minute then d = { minute = minute, n = 0 }; diagCount[pid] = d end
+    d.n = d.n + 1
+    if d.n > 30 then return end
+    print(("[ripperdoc] client %d: %s"):format(pid, text:sub(1, 200):gsub("[%c]", " ")))
+end)
+
 RegisterNetEvent("op77_ripperdoc:closed", function()
     local pid = playerId(source)
     if not pid or not open[pid] then return end

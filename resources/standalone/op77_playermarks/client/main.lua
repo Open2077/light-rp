@@ -155,7 +155,7 @@ PlayerMarks = { refresh = refresh, talk = talk, marks = marks, setHidden = setHi
 
 local function createPage()
     local created, why
-    for _ = 1, 120 do
+    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
         created, why = WebUI.create({
             entry = "web/index.html", layer = "hud", width = 1920, height = 1080,
             fps = 60, zIndex = 600, transparent = true, visible = true,
