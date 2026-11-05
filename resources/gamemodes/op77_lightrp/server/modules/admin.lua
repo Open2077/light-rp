@@ -23,6 +23,32 @@ local function grants(player)
     for _,entry in ipairs({{"noclip","admin.self.noclip"},{"god","admin.self.god"},{"advanced","adminfull"},{"observe","admin.player.observe"}}) do out[entry[1]]=LightRP.staff.allowed(player,"command."..entry[2]) end
     return out
 end
+-- One /admin (owner, 2026-11-05: "merge /admin et /lightrp.admin dans un seul gros menu"). The staff
+-- desk is the server's admin menu: the platform's open77_admin tools (noclip, vehicles, weather,
+-- bulk actions...) and the LightRP ones (missions, world bosses, gigs, items...) run from it as the
+-- restricted commands they already are, through open77:command:execute, so the host's ACL still
+-- decides every one of them. The page only shows what the operator may run: this list, projected
+-- through the ACL, travels as one comma-separated string (the 1024-value cap of a net event).
+local COMMANDS={
+ "admin.self.noclip","admin.self.fly","admin.self.speed","admin.self.god","admin.self.heal","admin.self.revive","admin.self.maptravel",
+ "admin.player.revive","admin.player.god","admin.player.kill","admin.player.observe",
+ "admin.veh.spawn","admin.veh.give","admin.veh.remove","admin.world.cleanup","admin.bulk.tpall","admin.bulk.dvall","admin.bulk.cancel",
+ "admin.server.status","adminfull",
+ "weather.set","weather.next","weather.random","weather.time.set","weather.time.freeze","weather.time.resume",
+ "lightrp.tp","lightrp.car","lightrp.repair","lightrp.refuel","lightrp.impound","lightrp.rentals","lightrp.fuelrate",
+ "lightrp.giveitem","lightrp.givevehicle","lightrp.needs","lightrp.account","lightrp.inv","lightrp.status","lightrp.bots",
+ "lightrp.announce","lightrp.broadcast","lightrp.missions","lightrp.activities","lightrp.dailies","lightrp.dogtown",
+ "lightrp.guide","lightrp.board","lightrp.halloffame",
+ "worldboss.list","worldboss.start","worldboss.stop","worldboss.next",
+ "fixers.list","fixers.dispatch","fixers.offer","fixers.cancel",
+ "missions.launch","missions.complete","missions.fail","missions.rep",
+ "turf.status","turf.start","turf.stop","tcg.rooms",
+}
+local function commandGrants(player)
+    local out={}
+    for _,name in ipairs(COMMANDS) do if LightRP.staff.allowed(player,"command."..name) then out[#out+1]=name end end
+    return table.concat(out,",")
+end
 local function catalogue(source)
     local out={};for key,entry in pairs(source) do
         local grades={};for n,g in pairs(entry.grades) do grades[#grades+1]={value=n,label=g.label} end
@@ -44,7 +70,26 @@ function Admin.overview(player)
         end
     end
     table.sort(roster,function(a,b)return a.id<b.id end)
-    return {players=roster,staff=staff,permissions=grants(player),jobs=catalogue(LightRpJobs),gangs=catalogue(LightRpGangs),database=Db.ready}
+    return {players=roster,staff=staff,permissions=grants(player),commands=commandGrants(player),jobs=catalogue(LightRpJobs),gangs=catalogue(LightRpGangs),database=Db.ready}
+end
+-- What the admin menu offers in its lists, as "a|b|c" strings (one value each, see COMMANDS):
+-- LightRP vehicles (key|label|category|record), items (name|label|category), teleport places
+-- (name|label) and the weather presets.
+function Admin.catalog(player)
+    if not S.allowed(player,"view") then return nil,"Staff access denied." end
+    local vehicles,items,places={},{},{}
+    local cfg=LightRpConfig or {}
+    for _,v in ipairs(cfg.vehicles and cfg.vehicles.catalog or {}) do
+        if type(v.key)=="string" then vehicles[#vehicles+1]=table.concat({v.key,tostring(v.label or v.key),tostring(v.category or ""),tostring(v.record or "")},"|") end
+    end
+    for name,item in pairs(LightRpItems or {}) do
+        if type(name)=="string" and name~="cash" and type(item)=="table" and #items<800 then
+            items[#items+1]=table.concat({name,tostring(item.label or name):gsub("|","/"),tostring(item.category or "misc")},"|")
+        end
+    end
+    table.sort(items)
+    for _,l in ipairs(cfg.locations or {}) do if type(l.name)=="string" then places[#places+1]=l.name.."|"..tostring(l.label or l.name) end end
+    return {vehicles=vehicles,items=items,places=places,weather={"sunny","lightclouds","cloudy","rain","heavyclouds","fog","pollution","sandstorm"}}
 end
 function Admin.player(player,p)
     if not S.allowed(player,"view") then return nil,"Staff access denied." end
@@ -165,10 +210,38 @@ function Admin.action(player,p)
     if not called then LightRP.log("admin %s failed: %s",tostring(op),tostring(accepted));return nil,"The action could not finish. Check its audit entry before retrying." end
     return accepted,message
 end
-Admin.handlers={overview=Admin.overview,player=Admin.player,audit=Admin.audit,adminAction=Admin.action}
+Admin.handlers={overview=Admin.overview,player=Admin.player,audit=Admin.audit,adminAction=Admin.action,adminCatalog=Admin.catalog}
 function Admin.onDisconnected(player) returned[player],busy[player]=nil,nil end
 exports("openAdmin",function(player)
     if GetInvokingResource()~="open77_admin" or not S.allowed(player,"view") then return false,"Staff access denied." end
     return S.open(player,"staff")
 end)
-LightRP.command("lightrp.admin",{restricted=true},function(player) return S.open(player,"staff") end)
+-- /admin is this menu on a LightRP server. Command dispatch walks the running resources in ordinal
+-- name order and takes the first match: op77_lightrp sorts before open77_admin, so this answers and
+-- the platform's compact menu no longer opens over it (its console stays on /adminfull, and every
+-- open77_admin command keeps working, from this menu or typed). Same right: command.admin.
+local function openDesk(player)
+    local ok,why=S.open(player,"staff")
+    if ok==false then return false,why end
+    return nil
+end
+LightRP.command("admin",{restricted=true},openDesk)
+LightRP.command("lightrp.admin",{restricted=true},openDesk)
+
+-- Repair the vehicle the operator sits in, or the nearest one within 10 m (or an id), and fill it.
+LightRP.command("lightrp.repair",{restricted=true,usage="/lightrp.repair [vehicleId]"},function(player,args)
+    local id=tonumber(args[1])
+    if not id and player and player>0 then
+        local seat=Open77.vehicles.getPlayerSeat(player)
+        if type(seat)=="table" and seat.vehicleId then id=seat.vehicleId end
+        if not id then
+            local ok,entry=pcall(Open77.vehicles.closest,player,{radius=10.0})
+            if ok and type(entry)=="table" then id=entry.id or entry.vehicleId end
+        end
+    end
+    if not id then return false,"No vehicle: sit in one, stand next to one or give an id." end
+    local ok=Open77.vehicles.repair(id,"full")
+    if not ok then return false,"Vehicle "..tostring(id).." could not be repaired." end
+    if LightRP.fuel and type(LightRP.fuel.seed)=="function" then pcall(LightRP.fuel.seed,id,"full") end
+    return true,"Vehicle "..tostring(id).." repaired."
+end)

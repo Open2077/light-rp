@@ -66,7 +66,8 @@ const fs=require('node:fs');
   const actions=()=>page.evaluate(()=>window.fixture.sent.filter(x=>x.p?.operation==='eventsAction').map(x=>x.p));
   await root.waitFor();
   await page.locator('.o77-rage__row:not(.o77-rage__row--disabled)').filter({hasText:'Events'}).waitFor();
-  await choose('Events');
+  // /admin > Missions & events > Staff events (the unified admin menu)
+  await choose('Missions & events');await choose('Staff events');
   await page.locator('.o77-rage__text').filter({hasText:'No world event out'}).waitFor();
   assert.equal(await title(),'EVENTS');
   // ── the launch configurator: every option moves the summary ──
