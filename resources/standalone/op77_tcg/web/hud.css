@@ -191,3 +191,10 @@
 #duelHud .tb-wl.hand { border-color: rgba(0, 240, 255, .6); }
 #duelHud .tb-wl.hand b { color: var(--da-cyan); font-size: 18px; }
 @keyframes tbWlIn { from { opacity: 0; transform: translate(-50%, -80%); } }
+
+/* a primary button in the hand / Legend popover: dark text on turquoise, no outline on top */
+#duelHud .tb-pop button.primary, #duelHud .dh-centre button.primary { color: var(--da-bg); }
+#duelHud .tb-pop button.primary::after { background: transparent; }
+#duelHud .tb-pop button.primary:disabled { color: rgba(0, 0, 15, .6); }
+#duelHud .tb-pop button { display: block; width: 100%; margin: 6px 0 0; text-align: left; }
+#duelHud .tb-pop { z-index: 45; }
