@@ -137,11 +137,12 @@ S.handler("rooms", function(player)
     sendState(player)
 end)
 
-S.handler("roomCreate", function(player, style)
+-- staff: true skips the counter (the /tcg.rooms command and the staffRoom export).
+local function openRoom(player, style, staff)
     style = tostring(style or "")
     if not R.styles[style] then return S.notify(player, "Unknown room.", "error") end
     if st.byPlayer[player] then return S.notify(player, "You are already in a private room.", "error") end
-    if not nearHost(player) then return S.notify(player, "Talk to the host at the NEON DECK counter.", "error") end
+    if not staff and not nearHost(player) then return S.notify(player, "Talk to the host at the NEON DECK counter.", "error") end
     local n = 0
     for _ in pairs(st.rooms) do n = n + 1 end
     if n >= R.maxRooms then return S.notify(player, "Every private room is taken. Try again in a moment.", "error") end
@@ -157,17 +158,21 @@ S.handler("roomCreate", function(player, style)
     end
     S.log("room %s (%s, bucket %d) opened by %s", code, style, bucket, S.name(player))
     enter(player, room)
-end)
+    return code
+end
 
-S.handler("roomJoin", function(player, code)
+local function joinRoom(player, code, staff)
     code = tostring(code or ""):upper():gsub("[^%w]", "")
     local room = st.rooms[code]
     if not room then return S.notify(player, "No room with the code " .. code .. ".", "error") end
     if st.byPlayer[player] == room then return sendState(player) end
     if st.byPlayer[player] then return S.notify(player, "Leave your room first.", "error") end
-    if not nearHost(player) then return S.notify(player, "Talk to the host at the NEON DECK counter.", "error") end
+    if not staff and not nearHost(player) then return S.notify(player, "Talk to the host at the NEON DECK counter.", "error") end
     enter(player, room)
-end)
+end
+
+S.handler("roomCreate", function(player, style) openRoom(player, style, false) end)
+S.handler("roomJoin", function(player, code) joinRoom(player, code, false) end)
 
 -- The exit door of a room. Also for someone standing in a room without being in one (a reconnect puts a player
 -- back where they were, in the public bucket): they are brought up all the same.
@@ -220,8 +225,28 @@ AddEventHandler("onResourceStop", function(name)
     if hostNpc and Open77.npcs and Open77.npcs.remove then pcall(Open77.npcs.remove, hostNpc) end
 end)
 
--- Staff: /tcg.rooms (list).
-RegisterCommand("tcg.rooms", function(src)
+-- Staff: open / join / leave for a player, without the counter. Returns the code for "open".
+local function staffRoom(player, action, arg)
+    player = tonumber(player)
+    if not player or not S.positionOf(player) then return nil, "player_not_found" end
+    if action == "open" then return openRoom(player, arg, true) end
+    if action == "join" then return joinRoom(player, arg, true) end
+    if action == "exit" then return backUp(player) end
+    return nil, "unknown_action"
+end
+
+-- Staff: /tcg.rooms (list) | /tcg.rooms open <player> <style> | join <player> <code> | exit <player>.
+RegisterCommand("tcg.rooms", function(src, args)
+    local action = args and args[1]
+    if action == "open" or action == "join" or action == "exit" then
+        local player, arg = tonumber(args[2]), args[3]
+        CreateThread(function()
+            local res, why = staffRoom(player, action, arg)
+            local text = ("tcg.rooms %s %s: %s"):format(action, tostring(args[2]), tostring(res or why or "done"))
+            if src and src > 0 then S.notify(src, text, "info") else print("[op77_tcg] " .. text) end
+        end)
+        return
+    end
     local lines = {}
     for code, room in pairs(st.rooms) do
         lines[#lines + 1] = ("%s %s bucket %d, %d player(s)"):format(code, room.style, room.bucket, count(room))
@@ -229,6 +254,12 @@ RegisterCommand("tcg.rooms", function(src)
     local text = #lines > 0 and table.concat(lines, " | ") or "no private room open"
     if src and src > 0 then S.notify(src, text, "info") else print("[op77_tcg] " .. text) end
 end, true)
+
+-- Runs in its own thread (the moves await): poll exports.op77_tcg:roomOf(player) for the result.
+exports("staffRoom", function(player, action, arg)
+    CreateThread(function() staffRoom(player, action, arg) end)
+    return true
+end)
 
 exports("roomOf", function(player)
     local room = st.byPlayer[tonumber(player)]

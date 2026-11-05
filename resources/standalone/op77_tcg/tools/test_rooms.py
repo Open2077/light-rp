@@ -99,5 +99,16 @@ n_before = len(teleports)
 fire("op77_tcg:roomExit", 3)
 check(len(teleports) == n_before, "the door does nothing for someone outside the rooms")
 
+# Staff: /tcg.rooms open <player> <style> skips the counter; exit brings them back up.
+positions[3] = far
+buckets[3] = 0
+L.execute('commands["tcg.rooms"](0, {"open", "3", "shop"})')
+pump(5)
+check(buckets.get(3, 0) > 5200000 and L.eval("TcgRooms.styleAt")(L.table_from({"x": positions[3][0], "y": positions[3][1], "z": positions[3][2]})) == "shop",
+      "staff open: the player is taken into a Neon Deck room from anywhere")
+L.execute('exported.staffRoom(3, "exit")')
+pump(5)
+check(buckets.get(3) == 0 and abs(positions[3][0] - back.x) < 0.01, "staff exit: back up, public bucket")
+
 print(f"PASS: private rooms ({checks[0]} checks: host NPC, create at the counter only, code + own bucket, arrival point, join by code, "
       f"the room's two duel slots, leave = back up + out of the duel, empty room closes, stray player brought up)")
