@@ -68,7 +68,8 @@ LightRpUi.page = page
 Parkour.bind(page)
 Editor.bind(page)
 Parkour.start()
-check(mappings["lightrp.parkour.restart"].key == "HOME" and mappings["lightrp.parkour.checkpoint"].key == "END", "run keys mapped")
+check(mappings["lightrp.parkour.restart"].key == "HOME" and mappings["lightrp.parkour.checkpoint"].key == "END"
+    and mappings["lightrp.parkour.leave"].key == "DELETE", "run keys mapped (leave on DELETE: F1 is the menu)")
 
 -- start orbs: 6 courses, the 4 nearest within sight get an orb (core + beam + ring)
 local list = {}
@@ -99,6 +100,8 @@ mappings["lightrp.parkour.restart"].fn()
 check(toServer[#toServer].name == "op77_lightrp:parkour:key" and toServer[#toServer].payload.op == "restart", "HOME restarts during a run")
 mappings["lightrp.parkour.checkpoint"].fn()
 check(toServer[#toServer].payload.op == "checkpoint", "END goes back to the last checkpoint")
+mappings["lightrp.parkour.leave"].fn()
+check(toServer[#toServer].payload.op == "leave", "DELETE leaves the run")
 park({ kind = "cp", index = 1, total = 2, elapsedMs = 2125, attempt = 1 })
 -- next = checkpoint 2 (3) + finish shown as next-after? no: the one after is the finish -> next (3) + finish (2) = 5
 check(count(markers) == 5, "after checkpoint 1: " .. count(markers))

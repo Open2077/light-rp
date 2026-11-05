@@ -107,7 +107,9 @@
 .pk-result footer { display: flex; align-items: center; gap: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line-hairline);
   color: var(--text-dim); font: var(--fw-bold) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--ls-label); }
 .pk-result footer > span { display: flex; align-items: center; gap: var(--sp-3); }
-.pk-result__back { margin-left: auto; }
+.pk-result__back { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); white-space: nowrap; font-size: 10px; }
+.pk-result { pointer-events: auto; }
+.pk-result__actions .o77-btn { pointer-events: auto; }
 
 /* ---------- the browser (F1 > Parkour) ---------- */
 .pk-browser { --pk-cyan: #00F0FF; --pk-gold: #FFCC00; --pk-good: #4DFF9A; --pk-red: #FF4D4D;

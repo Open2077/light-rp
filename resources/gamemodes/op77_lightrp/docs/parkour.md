@@ -34,7 +34,7 @@ course has its own full leaderboard, with each runner's splits.
 - **The Activities panel** lists *Parkour* (kind race), with up to 8 courses as join
   choices (the most finished first).
 - **A run:**
-  - **Start.** You are placed on the start, facing the course, held for 3-2-1, then GO. God
+  - **Start.** You are placed on the start, facing the course, held for 3-2-1, then GO. The hold is applied again every 200 ms, and a runner who still walks off the start orb is put back. God
     mode is on, and the core puts the RP weapons aside and freezes the needs.
   - **Orbs.** The next checkpoint is a gold orb, with its trigger sphere drawn around it and
     a beam. The one after it is a small dim orb. The finish is a green orb with a beam.
@@ -44,10 +44,10 @@ course has its own full leaderboard, with each runner's splits.
     - a delta flash at each checkpoint, against your personal best (else the record);
     - the splits on the right.
   - **Keys** (rebindable): **HOME** restarts, **END** returns to the last checkpoint with the
-    clock running, **F1 > Leave activity** or `/parkour.leave` leaves.
+    clock running, **DELETE** (or `/parkour.leave`) leaves. F1 stays the player menu.
   - **Finish.** The result card shows the time, NEW PERSONAL BEST or COURSE RECORD, your
-    rank out of all runners, each split against your previous best, and the top 5. After 25 s
-    (or when you leave) you are sent back. A new record is announced to the city.
+    rank out of all runners, each split against your previous best, and the top 5. It takes the
+    cursor: **RUN AGAIN**, **LEADERBOARD**, **LEAVE** buttons (Enter / Escape). After 25 s you are sent back. A new record is announced to the city.
   - **DNF** in these cases: the time limit; a sample faster than 42 m/s (a vehicle); a jump
     of more than 45 m outside our own teleports.
   - **Death** sends you back to the last checkpoint, clock running.

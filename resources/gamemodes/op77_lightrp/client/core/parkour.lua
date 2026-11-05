@@ -9,7 +9,7 @@
 --     plays the game's UI sounds and a burst. The page draws the clock, the splits, the
 --     countdown and the result card (ui/src/features/parkour/ParkourHud.tsx) and plays the
 --     course music at 5 %.
---   * Keys (rebindable): HOME restart, END back to the last checkpoint.
+--   * Keys (rebindable): HOME restart, END back to the last checkpoint, DELETE leave.
 local E, Ui = LightRpEvents, LightRpUi
 local P = LightRpParkour
 local C = P.config
@@ -243,6 +243,8 @@ function Parkour.start()
     started = true
     RegisterKeyMapping("lightrp.parkour.restart", "Parkour: restart the run", "HOME", function() key("restart") end)
     RegisterKeyMapping("lightrp.parkour.checkpoint", "Parkour: back to the last checkpoint", "END", function() key("checkpoint") end)
+    -- F1 is the player menu: leaving a run has its own key (the result card has buttons too).
+    RegisterKeyMapping("lightrp.parkour.leave", "Parkour: leave the run", "DELETE", function() key("leave") end)
     CreateThread(function()
         while true do
             Wait(1000)
