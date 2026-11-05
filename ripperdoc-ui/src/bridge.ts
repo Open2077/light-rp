@@ -14,24 +14,32 @@ declare global {
 
 export const inGame = (): boolean => typeof window.Open77 !== "undefined";
 
+/* One bridge listener per event, forwarding to the latest handler: the app remounts after a render
+   error (main.tsx) and registers again, which must not stack a second listener. */
+const current: Record<string, (raw: unknown) => void> = {};
+function listen(name: string, handler: (raw: unknown) => void): void {
+  if (!(name in current)) window.Open77?.on(name, (raw) => current[name]?.(raw));
+  current[name] = handler;
+}
+
 export function onOpen(handler: (payload: OpenPayload) => void): void {
-  window.Open77?.on("rd:open", (raw) => handler((raw ?? {}) as OpenPayload));
+  listen("rd:open", (raw) => handler((raw ?? {}) as OpenPayload));
 }
 
 export function onClose(handler: () => void): void {
-  window.Open77?.on("rd:close", () => handler());
+  listen("rd:close", () => handler());
 }
 
 export interface ActionResult { ok?: boolean; message?: string; op?: string; item?: string }
 
 /** The server's answer to the page's last `rd:action`. */
 export function onResult(handler: (result: ActionResult) => void): void {
-  window.Open77?.on("rd:result", (raw) => handler((raw ?? {}) as ActionResult));
+  listen("rd:result", (raw) => handler((raw ?? {}) as ActionResult));
 }
 
 /** Fresh state after an operation (same shape as `rd:open`). */
 export function onState(handler: (payload: OpenPayload) => void): void {
-  window.Open77?.on("rd:state", (raw) => handler((raw ?? {}) as OpenPayload));
+  listen("rd:state", (raw) => handler((raw ?? {}) as OpenPayload));
 }
 
 export function emit(name: "rd:close" | "rd:sound" | "rd:action" | "rd:guide", payload: unknown = {}): void {
@@ -39,3 +47,8 @@ export function emit(name: "rd:close" | "rd:sound" | "rd:action" | "rd:guide", p
 }
 
 export function ready(): void { window.Open77?.ready(); }
+
+/** A line for the server log (client/main.lua relays rd:diag to op77_ripperdoc:diag). */
+export function diag(text: string): void {
+  try { window.Open77?.emit("rd:diag", { text: text.slice(0, 300) }); } catch { /* nothing to tell it with */ }
+}
