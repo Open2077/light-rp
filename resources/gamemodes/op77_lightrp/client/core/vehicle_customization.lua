@@ -22,11 +22,35 @@ local function stop(notify)
     Ui.setPromptFocus(false)
     Ui.send(PAGE, { kind = "closed", session = s.id })
 end
+-- Workshop bays are narrow: the orbit would put the camera inside a pillar or a barrel.
+-- One ray per frame from the car to the wanted spot; the camera stops short of the first
+-- obstacle (never closer than MIN_RADIUS). The car itself never counts as an obstacle.
+local MIN_RADIUS, CLEARANCE = 2.0, 0.35
+local function unobstructed(s, p, position)
+    if type(Open77.world) ~= "table" or type(Open77.world.raycast) ~= "function" then return nil end
+    local from = { x = p.x, y = p.y, z = p.z + s.targetHeight }
+    local ok, hit = pcall(Open77.world.raycast, from, position, { entities = true })
+    if not ok or type(hit) ~= "table" or not hit.hit or type(hit.distance) ~= "number" then return nil end
+    if type(hit.entity) == "table" and hit.entity.vehicleId == s.vehicle then return nil end
+    local dx, dy, dz = position.x - from.x, position.y - from.y, position.z - from.z
+    local length = math.sqrt(dx*dx + dy*dy + dz*dz)
+    if length <= 0 or hit.distance >= length then return nil end
+    local keep = math.max(MIN_RADIUS, hit.distance - CLEARANCE) / length
+    if keep >= 1 then return nil end
+    return { x = from.x + dx*keep, y = from.y + dy*keep, z = from.z + dz*keep }
+end
 local function shot(s, v)
     local a = math.rad(s.angle)
     local p = v.position
-    return { position = { x = p.x + math.cos(a)*s.radius, y = p.y + math.sin(a)*s.radius, z = p.z+s.height },
-        rotation = { yaw = (s.angle+90)%360, pitch = -math.deg(math.atan((s.height-s.targetHeight)/s.radius)) }, fov = C.fov }
+    local position = { x = p.x + math.cos(a)*s.radius, y = p.y + math.sin(a)*s.radius, z = p.z+s.height }
+    local radius, height = s.radius, s.height
+    local clear = unobstructed(s, p, position)
+    if clear then
+        position, height = clear, clear.z - p.z
+        radius = math.sqrt((clear.x - p.x)^2 + (clear.y - p.y)^2)
+    end
+    return { position = position,
+        rotation = { yaw = (s.angle+90)%360, pitch = -math.deg(math.atan((height-s.targetHeight)/math.max(.1, radius))) }, fov = C.fov }
 end
 local function refuse(token, text)
     if session and session.id == token then stop(false) end

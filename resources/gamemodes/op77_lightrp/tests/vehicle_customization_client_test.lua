@@ -54,6 +54,18 @@ tick();local a=transforms[#transforms];tick();local b=transforms[#transforms];as
 page({operation="camera",command="rotate",enabled=false});tick();a=transforms[#transforms];tick();b=transforms[#transforms];assert(a.position.x==b.position.x)
 page({operation="camera",command="right"});tick();assert(transforms[#transforms].position.x~=b.position.x)
 for _=1,40 do page({operation="camera",command="zoomIn"})end;tick();local p=transforms[#transforms].position;assert(math.abs(math.sqrt(p.x*p.x+p.y*p.y)-4)<.001,"zoom bounded")
+-- A pillar 1 m from the car: the camera stops in front of it, never closer than 2 m, and
+-- still looks at the car. The car's own body is not an obstacle.
+local rays,hitWhat=0,{hit=true,distance=1.0}
+Open77.world={raycast=function(from,to,options)rays=rays+1;assert(options and options.entities==true);return hitWhat end}
+tick();local q=transforms[#transforms];local th=LightRpVehicleCustomization.camera.targetHeight
+local d=math.sqrt(q.position.x^2+q.position.y^2+(q.position.z-th)^2)
+assert(rays>0 and math.abs(d-2.0)<.001,"camera pulled in front of the obstacle, 2 m minimum: "..d)
+assert(q.rotation.pitch<=0,"still looking down at the car")
+hitWhat={hit=true,distance=1.0,entity={vehicleId=1}};tick();q=transforms[#transforms]
+assert(math.abs(math.sqrt(q.position.x^2+q.position.y^2)-4)<.001,"the car itself does not pull the camera in")
+hitWhat={hit=false};tick();q=transforms[#transforms];assert(math.abs(math.sqrt(q.position.x^2+q.position.y^2)-4)<.001,"clear line: orbit radius kept")
+Open77.world=nil
 local count=#requests;page({operation="save",session="forged"});assert(#requests==count)
 page({operation="preview",request=1,category="paint",primary="#000000"});assert(requests[#requests].operation=="preview")
 -- Lights and trim requests reach the server unchanged: the client names no native.
