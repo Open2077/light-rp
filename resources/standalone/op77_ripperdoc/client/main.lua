@@ -14,7 +14,13 @@ local pending -- an open that arrived before the page was ready
 -- goes back to the game, the interface closes and the patient gets up.
 local ANSWER_MS = 4000
 local openSeq, answered = 0, true
-local function log(fmt, ...) print("[ripperdoc] " .. fmt:format(...)) end
+-- Every line also goes to the server log (op77_ripperdoc:diag): a player whose interface does not show
+-- cannot read us their F8 console, the server log can (2026-11-05, a slow loader got no page).
+local function log(fmt, ...)
+    local text = fmt:format(...)
+    print("[ripperdoc] " .. text)
+    pcall(TriggerServerEvent, "op77_ripperdoc:diag", text:sub(1, 200))
+end
 
 local SOUNDS = {
     open = 0.85, close = 0.8, zoom_in = 0.8, zoom_out = 0.75, hover = 0.35, press = 0.6, menu_open = 0.7,
@@ -144,10 +150,13 @@ local function sendLarge(name, payload)
 end
 
 local close
+local createPage, creating
 local function open(payload)
     if not page or not pageReady then
         pending = payload or {}
         log("open queued: page %s", page and "not ready yet" or "missing")
+        -- no surface at all (its creation gave up): try again now, the open runs once it is ready
+        if not page and not creating and createPage then CreateThread(createPage) end
         return
     end
     isOpen = true
@@ -186,9 +195,11 @@ close = function(notify)
     if notify then TriggerServerEvent("op77_ripperdoc:closed") end
 end
 
-local function createPage()
+createPage = function()
+    if creating or page then return end
+    creating = true
     local created, why
-    for _ = 1, 120 do
+    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
         created, why = Open77.webui.create({
             entry = "web/index.html", layer = "menu", zIndex = 45, width = 1920, height = 1080,
             transparent = true, visible = true, fps = 60,
@@ -196,7 +207,8 @@ local function createPage()
         if created or why ~= "resource_preparing" then break end
         Wait(250)
     end
-    if not created then print("[ripperdoc] no WebUI surface: " .. tostring(why)) return end
+    creating = false
+    if not created then log("no WebUI surface: %s", tostring(why)) return end
     page = created
     page:on("ui:ready", function()
         pageReady = true

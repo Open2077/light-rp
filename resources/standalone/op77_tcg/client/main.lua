@@ -498,7 +498,7 @@ TcgClient = {
 CreateThread(function()
     -- The page: always created visible with a transparent body; the binder opens and closes inside it.
     local created, why
-    for _ = 1, 120 do
+    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
         created, why = Open77.webui.create({ entry = "web/index.html", layer = "menu", zIndex = 44, width = 1920, height = 1080,
             transparent = true, visible = true, fps = 60 })
         if created or why ~= "resource_preparing" then break end

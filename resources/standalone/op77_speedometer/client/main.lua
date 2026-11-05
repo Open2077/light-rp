@@ -68,7 +68,7 @@ local function createSurface()
         zIndex = math.floor(tonumber(config.zIndex) or 710), drawBounds = bounds,
     }
     local created, why
-    for _ = 1, 120 do
+    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
         created, why = WebUI.create(options)
         if created or why ~= "resource_preparing" then break end
         Wait(250)
