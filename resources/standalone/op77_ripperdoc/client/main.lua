@@ -12,7 +12,10 @@ local pending -- an open that arrived before the page was ready
 -- silent holds the keyboard and mouse with nothing on screen: every input blocked
 -- (LightRP Testing, 2026-11-04). Past ANSWER_MS without a word from the page, the focus
 -- goes back to the game, the interface closes and the patient gets up.
-local ANSWER_MS = 4000
+-- 5 s; then the open is sent once more (re-encoded, shown, focus taken: the menu shows
+-- "anyway", owner 2026-11-05), and only a second silence gives the game back.
+local ANSWER_MS = 5000
+local OPEN_TRIES = 2
 local openSeq, answered = 0, true
 -- Every line also goes to the server log (op77_ripperdoc:diag): a player whose interface does not show
 -- cannot read us their F8 console, the server log can (2026-11-05, a slow loader got no page).
@@ -87,7 +90,14 @@ local ESCAPES = { ['"'] = '\\"', ["\\"] = "\\\\", ["\b"] = "\\b", ["\f"] = "\\f"
 local function encodeString(s)
     return '"' .. s:gsub('[%c"\\]', function(c) return ESCAPES[c] or string.format("\\u%04x", c:byte()) end) .. '"'
 end
+-- The clinic's payload is ~1600 values: encoded in one go, it ran past the client's script
+-- execution budget ("rd:open could not be encoded: ... budget exceeded", 2026-11-05, nothing
+-- reached the page). The encoder runs in a thread and yields every ENCODE_SLICE nodes.
+local ENCODE_SLICE = 120
+local encodeSteps = 0
 local function encode(value, depth, out)
+    encodeSteps = encodeSteps + 1
+    if encodeSteps % ENCODE_SLICE == 0 then Wait(0) end
     local t = type(value)
     if t == "nil" then out[#out + 1] = "null"
     elseif t == "boolean" then out[#out + 1] = value and "true" or "false"
@@ -124,7 +134,8 @@ local function encode(value, depth, out)
     else out[#out + 1] = "null" end
     return out
 end
-local function encodeJson(value) return table.concat(encode(value, 0, {})) end
+-- Thread only (it yields).
+local function encodeJson(value) encodeSteps = 0; return table.concat(encode(value, 0, {})) end
 local function sendLarge(name, payload)
     if not page or not pageReady then return false end
     local ok, text = pcall(encodeJson, payload == nil and {} or payload)
@@ -163,16 +174,20 @@ local function open(payload)
     openSeq = openSeq + 1
     local seq = openSeq
     answered = false
-    pcall(function() page:show() end)
-    sendLarge("rd:open", payload or {})
-    local ok, why = pcall(function() return page:setFocus(true, true) end)
-    log("open sent (#%d), focus %s", seq, ok and "taken" or ("refused: " .. tostring(why)))
+    payload = payload or {}
     CreateThread(function()
-        Wait(ANSWER_MS)
-        if isOpen and openSeq == seq and not answered then
-            log("the page did not answer the open #%d in %d ms: focus released, interface closed", seq, ANSWER_MS)
-            close(true)
+        for try = 1, OPEN_TRIES do
+            if not isOpen or openSeq ~= seq or answered then return end
+            pcall(function() page:show() end)
+            local sent = sendLarge("rd:open", payload)
+            local ok, why = pcall(function() return page:setFocus(true, true) end)
+            log("open sent (#%d, try %d%s), focus %s", seq, try, sent and "" or ", NOT encoded", ok and "taken" or ("refused: " .. tostring(why)))
+            Wait(ANSWER_MS)
+            if not isOpen or openSeq ~= seq or answered then return end
+            if try < OPEN_TRIES then log("the page did not answer the open #%d in %d ms: sent again", seq, ANSWER_MS) end
         end
+        log("the page did not answer the open #%d after %d tries: focus released, interface closed", seq, OPEN_TRIES)
+        close(true)
     end)
 end
 
@@ -250,7 +265,10 @@ if type(RegisterCommand) == "function" then
 end
 RegisterNetEvent("op77_ripperdoc:close", function() close(false) end)
 RegisterNetEvent("op77_ripperdoc:result", function(result) if isOpen then send("rd:result", type(result) == "table" and result or {}) end end)
-RegisterNetEvent("op77_ripperdoc:update", function(payload) if isOpen then sendLarge("rd:state", type(payload) == "table" and payload or {}) end end)
+RegisterNetEvent("op77_ripperdoc:update", function(payload)
+    if not isOpen then return end
+    CreateThread(function() if isOpen then sendLarge("rd:state", type(payload) == "table" and payload or {}) end end)
+end)
 
 AddEventHandler("onClientResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end
