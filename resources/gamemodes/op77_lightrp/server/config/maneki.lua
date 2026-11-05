@@ -25,10 +25,14 @@ LightRpManeki = {
     -- Rewards: every find, then the milestones (found count), then the title for the
     -- whole set (only once at least completeMin cats exist, so 3 test cats give no title).
     reward = { cash = 250 },
+    -- A milestone pays `cash` to the bank and puts `items` (Cyberpunk TCG sealed product, op77_tcg) in the
+    -- character's inventory. A full inventory gets the items' NEON DECK price in the bank instead.
     milestones = {
-        { count = 10, cash = 2500 },
-        { count = 25, cash = 7500 },
-        { count = 50, cash = 20000 },
+        { count = 5, cash = 0, items = { { name = "tcg_booster_wnc", count = 1 } } },
+        { count = 10, cash = 2500, items = { { name = "tcg_booster_wnc", count = 2 } } },
+        { count = 25, cash = 7500, items = { { name = "tcg_booster_beta", count = 2 } } },
+        { count = 50, cash = 20000, items = { { name = "tcg_display_wnc", count = 1 } } },
+        { count = 100, cash = 40000, items = { { name = "tcg_display_wnc", count = 1 }, { name = "tcg_booster_beta", count = 3 } } },
     },
     completeTitle = "lucky_cat",
     completeMin = 10,

@@ -210,12 +210,54 @@ function M.onGameplayReady(player) sent[player] = nil; dirty = true end
 -- ---------------------------------------------------------------------------
 -- Collecting
 
+-- A milestone's items, as { name, count, label } (shared/items.lua labels).
+local function milestoneItems(m)
+    local out = {}
+    for _, it in ipairs(type(m.items) == "table" and m.items or {}) do
+        local count = math.floor(tonumber(it.count) or 1)
+        local def = type(LightRpItems) == "table" and LightRpItems[it.name] or nil
+        if type(it.name) == "string" and def and count > 0 then out[#out + 1] = { name = it.name, count = count, label = def.label or it.name } end
+    end
+    return out
+end
+M.milestoneItems = milestoneItems
+
+-- What NEON DECK sells an item for (the bank refund when the inventory is full).
+local function shopPrice(name)
+    local t = type(LightRpShops) == "table" and LightRpShops.templates and LightRpShops.templates.tcg_shop
+    for _, it in ipairs(t and t.items or {}) do if it.name == name then return math.floor(tonumber(it.buy) or 0) end end
+    return 0
+end
+
+-- Pays the milestones reached at `found`: { { count, cash, items = {...}, refunded = €$ or nil } }.
 local function payMilestones(player, found)
     local paid = {}
     for _, m in ipairs(C.milestones or {}) do
-        if found == m.count and (m.cash or 0) > 0 then
-            local ok = LightRP.money.addBank(player, m.cash, "collectible", ("Maneki-neko: %d found"):format(found), "Maneki-neko")
-            if ok then paid[#paid + 1] = m end
+        local items = milestoneItems(m)
+        if found == m.count and ((m.cash or 0) > 0 or #items > 0) then
+            local entry = { count = m.count, cash = 0, items = {} }
+            if (m.cash or 0) > 0 and LightRP.money.addBank(player, m.cash, "collectible", ("Maneki-neko: %d found"):format(found), "Maneki-neko") then
+                entry.cash = m.cash
+            end
+            if #items > 0 then
+                local invId = LightRP.inventory and LightRP.inventory.playerId and LightRP.inventory.playerId(player)
+                local list = {}
+                for _, it in ipairs(items) do list[#list + 1] = { name = it.name, count = it.count } end
+                local ok, why = false, "no_inventory"
+                if invId then ok, why = LightRP.inventory.addItems(invId, list) end
+                if ok then
+                    entry.items = items
+                else
+                    -- no room: their NEON DECK price in the bank, never nothing
+                    local value = 0
+                    for _, it in ipairs(items) do value = value + shopPrice(it.name) * it.count end
+                    if value > 0 and LightRP.money.addBank(player, value, "collectible", ("Maneki-neko: %d found (TCG, inventory full)"):format(found), "Maneki-neko") then
+                        entry.refunded = value
+                    end
+                    log("maneki: milestone %d items for %d not delivered (%s), refunded %d", m.count, player, tostring(why), value)
+                end
+            end
+            if entry.cash > 0 or #entry.items > 0 or entry.refunded then paid[#paid + 1] = entry end
         end
     end
     return paid
@@ -270,10 +312,17 @@ function M.collect(player, p)
     local titled = complete and C.completeTitle and LightRP.titles and LightRP.titles.award(player, C.completeTitle) or false
     log("maneki: %s found %s by %s (%d/%d, %.1f m)", LightRP.characters.displayName(player) or tostring(player), id, how, found, all, d)
     TriggerClientEvent(E.net.maneki, player, { kind = "found", id = id, how = how, found = found, total = all,
-        cash = paid and cash or 0, milestone = milestones[1] and milestones[1].cash or nil, complete = complete or nil, title = titled or nil })
+        cash = paid and cash or 0, milestone = milestones[1] and milestones[1].cash or nil,
+        milestoneItems = milestones[1] and #milestones[1].items > 0 and milestones[1].items or nil, complete = complete or nil, title = titled or nil })
     local lines = { ("%d / %d found"):format(found, all) }
     if paid then lines[#lines + 1] = ("+€$ %s to your bank"):format(tostring(cash)) end
-    for _, m in ipairs(milestones) do lines[#lines + 1] = ("Milestone %d: +€$ %s"):format(m.count, tostring(m.cash)) end
+    for _, m in ipairs(milestones) do
+        local parts = {}
+        if m.cash > 0 then parts[#parts + 1] = ("+€$ %s"):format(tostring(m.cash)) end
+        for _, it in ipairs(m.items) do parts[#parts + 1] = ("%dx %s"):format(it.count, it.label) end
+        if m.refunded then parts[#parts + 1] = ("inventory full: +€$ %s instead of the TCG product"):format(tostring(m.refunded)) end
+        lines[#lines + 1] = ("Milestone %d: %s"):format(m.count, table.concat(parts, ", "))
+    end
     if complete then lines[#lines + 1] = titled and "Every cat found: title \"Lucky Cat\" unlocked." or "Every cat found!" end
     LightRP.notice(player, { kind = "item", title = how == "shot" and "Maneki-neko shot down" or "Maneki-neko found",
         body = table.concat(lines, " · "), durationMs = complete and 12000 or 7000 })
@@ -287,8 +336,9 @@ RegisterNetEvent(E.net.manekiCollect, function(p) M.collect(source, p) end)
 --
 -- One slot per cat in the city, in the order the staff hid them. A found slot carries
 -- where and when this character found it (the page shows it on the city map); a slot
--- not found carries nothing at all: no id, no district, no position. The slots travel
--- as one string each ("id|district|at|how|x|y|z", "" when not found), so 600 cats stay
+-- not found carries only its district (owner 2026-11-05: grouped by district, with a completion per
+-- district): no id, no position. The slots travel
+-- as one string each ("id|district|at|how|x|y|z", "|district" when not found), so 600 cats stay
 -- far under the 1,024-value cap; past ~30 KB the event goes latent.
 
 local function slotsFor(set)
@@ -300,7 +350,8 @@ local function slotsFor(set)
             slots[#slots + 1] = table.concat({ id, (s.district or ""):gsub("|", " "), tostring(f.at or 0), f.how or "take",
                 ("%.1f"):format(s.x), ("%.1f"):format(s.y), ("%.1f"):format(s.z) }, "|")
         else
-            slots[#slots + 1] = ""
+            -- not found: its district only (the panel groups the cats by district), never an id or a position
+            slots[#slots + 1] = "|" .. (s.district or ""):gsub("|", " ")
         end
     end
     return slots, found
@@ -323,7 +374,11 @@ function M.collection(player)
     if not set or (not loadedSpots and Db.ready) then return nil, "The collection is loading. Try again in a moment." end
     local slots, found = slotsFor(set)
     local milestones = {}
-    for _, m in ipairs(C.milestones or {}) do milestones[#milestones + 1] = { count = m.count, cash = m.cash } end
+    for _, m in ipairs(C.milestones or {}) do
+        local items = {}
+        for _, it in ipairs(milestoneItems(m)) do items[#items + 1] = { name = it.name, count = it.count, label = it.label } end
+        milestones[#milestones + 1] = { count = m.count, cash = m.cash or 0, items = #items > 0 and items or nil }
+    end
     local titleDef = LightRP.titles and LightRP.titles.defs and C.completeTitle and LightRP.titles.defs[C.completeTitle]
     return { kind = "maneki", slots = slots, found = found, total = #slots, reward = C.reward and C.reward.cash or 0,
         milestones = milestones, completeMin = C.completeMin or 10,

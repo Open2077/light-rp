@@ -52,20 +52,27 @@ _G.LightRP = {
         displayName = function(id) return "Player " .. id end,
     },
     money = { addBank = function(id, amount, kind) bank[id] = (bank[id] or 0) + amount; return true end },
+    inventory = { playerId = function(id) return "inv" .. id end,
+        addItems = function(invId, list) if invFull[invId] then return false, "inventory_full" end
+            for _, it in ipairs(list) do given[#given + 1] = { inv = invId, name = it.name, count = it.count } end; return true end },
     titles = { award = function(id, title) titles[#titles + 1] = { id = id, title = title }; return true end,
         defs = { lucky_cat = { id = "lucky_cat", label = "Lucky Cat" } } },
     staff = { moveTo = function(id, position, heading, cb) positions[id] = { x = position.x, y = position.y, z = position.z }; cb(true) end },
     chat = { system = function(id, text) chat[#chat + 1] = text end },
     admin = { handlers = {} },
 }
+invFull, given = {}, {}
+LightRpItems = { tcg_booster_wnc = { label = "TCG Booster · Night City" }, tcg_booster_beta = { label = "TCG Booster · Beta" } }
+LightRpShops = { templates = { tcg_shop = { items = { { name = "tcg_booster_wnc", buy = 400 }, { name = "tcg_booster_beta", buy = 600 } } } } }
 dofile("server/config/maneki.lua")
-assert(LightRpManeki.reward.cash == 250 and LightRpManeki.milestones[3].cash == 20000, "shipped 2026-11-05 numbers")
+assert(LightRpManeki.reward.cash == 250 and LightRpManeki.milestones[4].cash == 20000, "shipped 2026-11-05 numbers")
+for _, m in ipairs(LightRpManeki.milestones) do assert(type(m.items) == "table" and #m.items > 0, "every milestone gives TCG product") end
 -- pinned: this test checks the mechanics at the pre-2026-11-05 numbers (balance lives in config)
 LightRpManeki.reward = { cash = 500 }
 LightRpManeki.milestones = { { count = 10, cash = 5000 }, { count = 25, cash = 15000 }, { count = 50, cash = 40000 } }
 dofile("server/modules/maneki.lua")
 local M, C = LightRP.maneki, LightRpManeki
-C.milestones = { { count = 2, cash = 5000 } }
+C.milestones = { { count = 2, cash = 5000, items = { { name = "tcg_booster_wnc", count = 2 }, { name = "nope_item", count = 1 } } } }
 C.completeMin = 2
 
 local function last(id, kind)
@@ -158,13 +165,15 @@ from(2, handlers["op77_lightrp:maneki:collect"], { id = catB, how = "shot" })
 local done = last(2, "found")
 assert(done.id == catB and done.found == 2 and done.complete == true and done.title == true and done.milestone == 5000, "set complete")
 assert(bank[2] == 500 + 500 + 5000, "find + find + milestone: " .. tostring(bank[2]))
+assert(#given == 1 and given[1].inv == "inv2" and given[1].name == "tcg_booster_wnc" and given[1].count == 2, "milestone boosters in the inventory (unknown items skipped)")
+assert(done.milestoneItems and done.milestoneItems[1].label == "TCG Booster · Night City", "the find tells the page about the boosters")
 assert(#titles == 1 and titles[1].title == "lucky_cat", "title awarded once")
 
--- The collection panel: one slot per cat, found ones with where/when/how, the others empty.
+-- The collection panel: one slot per cat, found ones with where/when/how, the others their district only.
 actions["maneki.open"](4)
 local col = last(4, "collection").collection
 assert(col.total == 2 and col.found == 1 and #col.slots == 2, "player 4: 1 of 2")
-assert(col.slots[1] == "" and col.slots[2]:match("^" .. catB .. "|"), "slot A empty (not found), slot B found: " .. col.slots[2])
+assert(col.slots[1] == "|Kabuki" and col.slots[2]:match("^" .. catB .. "|"), "slot A not found: its district only (no id, no position); slot B found: " .. col.slots[1] .. " / " .. col.slots[2])
 local parts = {}
 for f in (col.slots[2] .. "|"):gmatch("([^|]*)|") do parts[#parts + 1] = f end
 assert(parts[4] == "shot" and tonumber(parts[3]) > 0 and tonumber(parts[5]) == 20, "how, when, where")
@@ -200,4 +209,8 @@ assert(last(1, "editor").active == false, "editor closed")
 -- The chat command lists.
 local ok, text = commands["lightrp.maneki"](1, {})
 assert(ok and text:find("Page 1/1"), "command lists")
+-- The collection panel lists each milestone's TCG product (known items only).
+actions["maneki.open"](2)
+local ms = last(2, "collection").collection.milestones
+assert(ms[1].items and #ms[1].items == 1 and ms[1].items[1].count == 2 and ms[1].items[1].label == "TCG Booster · Night City", "milestone items on the panel")
 print("maneki_test: ok")

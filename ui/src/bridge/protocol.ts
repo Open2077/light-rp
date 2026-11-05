@@ -468,7 +468,7 @@ export type UiStatePatch = Partial<UiState>;
  *  "" and carries nothing. `intro`: the panel has never explained itself to this character. */
 export interface ManekiDialogPayload {
   kind: "maneki"; slots: string[]; found: number; total: number; reward: number;
-  milestones: Array<{ count: number; cash: number }>; completeMin: number;
+  milestones: Array<{ count: number; cash: number; items?: Array<{ name: string; count: number; label: string }> }>; completeMin: number;
   title?: { id: string; label: string }; intro?: boolean; shotRange?: number; enabled?: boolean;
 }
 

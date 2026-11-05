@@ -11,15 +11,31 @@ import "./collection.css";
    the city as a slot, in the order the staff hid them. A found one shows where and when
    this character found it, and a click (or Enter) opens the city map on that spot with
    every found cat pinned (client/core/maneki.lua showOnMap); a slot not found carries
-   nothing, by design. The first opening explains the hunt (`intro`); ? shows it again. */
+   only its district: the cats are grouped by district, each group with its completion. The first
+   opening explains the hunt (`intro`); ? shows it again. */
 
 export interface ManekiSlot { n: number; found: boolean; id?: string; district?: string; at?: number; how?: "take" | "shot" }
 export function parseSlot(raw: string, index: number): ManekiSlot {
   if (!raw) return { n: index + 1, found: false };
   const [id, district, at, how] = raw.split("|");
+  if (!id) return { n: index + 1, found: false, district: district || undefined };
   return { n: index + 1, found: true, id, district: district || undefined, at: Number(at) || undefined, how: how === "shot" ? "shot" : "take" };
 }
 const COLS = 8;
+const ELSEWHERE = "Night City";
+export interface ManekiGroup { district: string; slots: ManekiSlot[]; found: number }
+/** The slots by district (alphabetical, cats without a district last), each with how many are found. */
+export function groupSlots(slots: ManekiSlot[]): ManekiGroup[] {
+  const byName = new Map<string, ManekiGroup>();
+  for (const s of slots) {
+    const name = s.district || ELSEWHERE;
+    let g = byName.get(name);
+    if (!g) { g = { district: name, slots: [], found: 0 }; byName.set(name, g); }
+    g.slots.push(s); if (s.found) g.found += 1;
+  }
+  return [...byName.values()].sort((a, b) => (a.district === ELSEWHERE ? 1 : 0) - (b.district === ELSEWHERE ? 1 : 0) || a.district.localeCompare(b.district));
+}
+const pct = (found: number, total: number) => total > 0 ? Math.floor((found / total) * 100) : 0;
 const pad = (n: number, total: number) => String(n).padStart(Math.max(2, String(total).length), "0");
 const when = (at?: number) => at ? new Date(at).toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
@@ -43,7 +59,9 @@ function Collection({ payload, onClose }: { payload: ManekiDialogPayload; onClos
   const currency = useStore((s) => s.state.money.currency);
   const result = useStore((s) => s.lastResult);
   const fmt = (n: number) => formatMoney(n, currency);
-  const slots = useMemo(() => payload.slots.map(parseSlot), [payload.slots]);
+  const groups = useMemo(() => groupSlots(payload.slots.map(parseSlot)), [payload.slots]);
+  // the order on screen: district after district (keys and the selection follow it)
+  const slots = useMemo(() => groups.flatMap((g) => g.slots), [groups]);
   const firstFound = Math.max(0, slots.findIndex((s) => s.found));
   const [index, setIndex] = useState(firstFound);
   const [intro, setIntro] = useState(payload.intro === true);
@@ -101,22 +119,39 @@ function Collection({ payload, onClose }: { payload: ManekiDialogPayload; onClos
       </div>
       <div className="maneki-stat"><Icon name="coins" size={15} /><span><small>EVERY FIND</small><b>+{fmt(payload.reward)}</b></span></div>
       <div className={cx("maneki-stat", !next && "is-done")}><Icon name="badge-check" size={15} />
-        <span><small>NEXT MILESTONE</small><b>{next ? `${next.count} FOUND · +${fmt(next.cash)}` : "ALL PAID"}</b></span></div>
+        <span><small>{next ? `NEXT MILESTONE · ${next.count} FOUND` : "NEXT MILESTONE"}</small>
+          <b>{next ? [next.cash > 0 ? `+${fmt(next.cash)}` : "", milestoneItems(next) ? `+${milestoneItems(next)}` : ""].filter(Boolean).join(" ") : "ALL PAID"}</b></span></div>
       {payload.title && <div className={cx("maneki-stat", complete && titleReady && "is-done")}><Icon name="crown" size={15} />
         <span><small>TITLE · {payload.title.label.toUpperCase()}</small><b>{complete && titleReady ? "EARNED" : titleReady ? "FIND THEM ALL" : `FROM ${payload.completeMin} CATS`}</b></span></div>}
     </section>
 
     <div className="maneki__main">
-      <section className="maneki__grid" aria-label="Slots">
+      <section className="maneki__grid" aria-label="Slots by district">
         {slots.length === 0 && <p className="maneki__empty"><Icon name="search" size={14} />No Maneki-neko is hidden in the city yet. The staff place them; check again later.</p>}
-        {slots.map((s, i) => <button key={i} id={`maneki-slot-${i}`} className={cx("maneki-card", s.found ? "is-found" : "is-locked", i === index && "is-selected")}
-          onMouseEnter={() => setIndex(i)} onFocus={() => setIndex(i)} onClick={() => { setIndex(i); showOnMap(s); }}
-          aria-label={s.found ? `Maneki-neko ${s.n}, found in ${s.district ?? "Night City"}. Show on the map.` : `Maneki-neko ${s.n}, not found yet`}>
-          <span className="maneki-card__n">#{pad(s.n, total)}</span>
-          <ManekiArt locked={!s.found} size={58} />
-          <span className="maneki-card__label">{s.found ? (s.district ?? "Night City") : "???"}</span>
-          {s.found && <span className="maneki-card__how" title={s.how === "shot" ? "Shot down" : "Taken"}><Icon name={s.how === "shot" ? "crosshair" : "hand"} size={11} /></span>}
-        </button>)}
+        {groups.map((g) => {
+          const start = slots.indexOf(g.slots[0]!);
+          const done = g.found >= g.slots.length;
+          return [
+            <div key={`h-${g.district}`} className={cx("maneki-district", done && "is-done")}>
+              <Icon name={done ? "badge-check" : "map-pin"} size={13} />
+              <b>{g.district}</b>
+              <span className="maneki-district__count">{g.found} / {g.slots.length}</span>
+              <i className="maneki-district__bar" aria-hidden><i style={{ width: `${pct(g.found, g.slots.length)}%` }} /></i>
+              <span className="maneki-district__pct">{pct(g.found, g.slots.length)}%</span>
+            </div>,
+            ...g.slots.map((s, k) => {
+              const i = start + k;
+              return <button key={s.n} id={`maneki-slot-${i}`} className={cx("maneki-card", s.found ? "is-found" : "is-locked", i === index && "is-selected")}
+                onMouseEnter={() => setIndex(i)} onFocus={() => setIndex(i)} onClick={() => { setIndex(i); showOnMap(s); }}
+                aria-label={s.found ? `Maneki-neko ${s.n}, found in ${s.district ?? ELSEWHERE}. Show on the map.` : `Maneki-neko ${s.n}, somewhere in ${s.district ?? ELSEWHERE}, not found yet`}>
+                <span className="maneki-card__n">#{pad(s.n, total)}</span>
+                <ManekiArt locked={!s.found} size={58} />
+                <span className="maneki-card__label">{s.found ? (s.district ?? ELSEWHERE) : "???"}</span>
+                {s.found && <span className="maneki-card__how" title={s.how === "shot" ? "Shot down" : "Taken"}><Icon name={s.how === "shot" ? "crosshair" : "hand"} size={11} /></span>}
+              </button>;
+            }),
+          ];
+        })}
       </section>
 
       <aside className="maneki__detail" aria-live="polite">
@@ -133,7 +168,7 @@ function Collection({ payload, onClose }: { payload: ManekiDialogPayload; onClos
             <p className="maneki__note">The map opens on the spot where you found it, with every cat of your collection pinned. Close the map to come back here.</p>
           </> : <>
             <h2>Not found yet</h2>
-            <p className="maneki__note">Somewhere in Night City. No marker, no hint: keep your eyes open.</p>
+            <p className="maneki__note">Somewhere in {selected.district ?? ELSEWHERE}. No marker, no hint: keep your eyes open.</p>
           </>}
         </> : <p className="maneki__note">Your collection shows here.</p>}
       </aside>
@@ -155,11 +190,20 @@ function Collection({ payload, onClose }: { payload: ManekiDialogPayload; onClos
   </div>;
 }
 
+/** A milestone's TCG product, short: "2 BOOSTERS", "1 DISPLAY + 3 BOOSTERS" ("" for none). */
+function milestoneItems(m: { items?: Array<{ name: string; count: number }> }): string {
+  const parts = (m.items ?? []).map((it) => {
+    const kind = it.name.includes("display") ? "DISPLAY" : "BOOSTER";
+    return `${it.count} ${kind}${it.count > 1 ? "S" : ""}`;
+  });
+  return parts.join(" + ");
+}
+
 function Intro({ reward, first, title, onDone }: { reward: string; first: boolean; title?: string; onDone(): void }) {
   const steps: Array<{ icon: "eye" | "hand" | "coins" | "crown" | "map-pin"; head: string; body: string }> = [
     { icon: "eye", head: "Hidden in Night City", body: "Lucky cats are tucked away all over the city: on counters, shelves, ledges, rooftops. No map marker, no blip, no hint. You find them by looking." },
     { icon: "hand", head: "Take it or shoot it", body: "Walk up to a cat and press E, or hit it with a shot from a distance. Each cat counts once for your character, and only you see the ones you still have to find." },
-    { icon: "coins", head: "Paid on the spot", body: `Every cat pays ${reward} into your bank. Milestones pay more along the way.` },
+    { icon: "coins", head: "Paid on the spot", body: `Every cat pays ${reward} into your bank. Milestones pay more along the way, with Cyberpunk TCG boosters and displays.` },
     { icon: "crown", head: "The whole set", body: title ? `Find every cat in the city to earn the title "${title}".` : "Find every cat in the city to complete the collection." },
     { icon: "map-pin", head: "Your collection, here", body: "F1 > Maneki-neko. Click a cat you found to see on the city map where you found it." },
   ];
