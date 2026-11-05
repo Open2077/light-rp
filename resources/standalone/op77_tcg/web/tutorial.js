@@ -304,8 +304,8 @@
            fr: "<p>Regarde la table devant toi : <b>des noms jaunes flottent au-dessus de ton tapis</b>. Chacun est une zone où va une sorte de carte.</p><p>La maison est assise <b>en face</b>, avec le même tapis. Ses cartes sont celles en haut de ton écran.</p>" } },
     legends: { learn: ["legend"],
       t: { en: "Your 3 Legends", fr: "Tes 3 Légendes" },
-      b: { en: "<p>The <b>3 cards that glow</b> in your panel (bottom right) are your <b>Legends</b>, face down. They are your money, and special characters you can reveal.</p>",
-           fr: "<p>Les <b>3 cartes qui brillent</b> dans ton panneau (en bas à droite) sont tes <b>Légendes</b>, face cachée. C'est ton argent, et des personnages spéciaux que tu peux révéler.</p>" } },
+      b: { en: "<p>The <b>3 cards that glow</b> in your panel (bottom left, with your name) are your <b>Legends</b>, face down. They are your money, and special characters you can reveal.</p>",
+           fr: "<p>Les <b>3 cartes qui brillent</b> dans ton panneau (en bas à gauche, avec ton nom) sont tes <b>Légendes</b>, face cachée. C'est ton argent, et des personnages spéciaux que tu peux révéler.</p>" } },
     hand: { learn: ["card"],
       t: { en: "Your hand", fr: "Ta main" },
       b: { en: "<p>At the bottom of the screen: your <b>hand</b>, 6 cards only you can see. <b>Move the mouse over a card</b>: it shows big on the right.</p><p>Try it now on 2 or 3 cards, then read the window to know what the numbers mean.</p>",
@@ -356,8 +356,8 @@
       t: { en: "Call a Legend", fr: "Appelle une Légende" },
       b: { en: "<p>You have <b>1 €$ left</b>: just enough to <b>Call</b> a Legend and see who is hiding there.</p>",
            fr: "<p>Il te reste <b>1 €$</b> : juste assez pour <b>appeler</b> une Légende et voir qui se cache là.</p>" },
-      do: { en: ["In your panel (bottom right), click one of your <b>face-down Legends</b> (they glow).", "Click <b>Call &middot; 1 €$</b>.", "It flips face up: read what it does."],
-            fr: ["Dans ton panneau (en bas à droite), clique sur une de tes <b>Légendes face cachée</b> (elles brillent).", "Clique sur <b>Call &middot; 1 €$</b> (appeler).", "Elle se retourne : lis ce qu'elle fait."] } },
+      do: { en: ["In your panel (bottom left, with your name), click one of your <b>face-down Legends</b> (they glow).", "Click <b>Call &middot; 1 €$</b>.", "It flips face up: read what it does."],
+            fr: ["Dans ton panneau (en bas à gauche, avec ton nom), clique sur une de tes <b>Légendes face cachée</b> (elles brillent).", "Clique sur <b>Call &middot; 1 €$</b> (appeler).", "Elle se retourne : lis ce qu'elle fait."] } },
     choice: {
       t: { en: "The card asks you something", fr: "La carte te pose une question" },
       b: { en: "<p>Its <b>CALL</b> effect needs a choice: the <b>panel on the right</b> shows the options. Click one, then confirm.</p><p>Every time a card needs a decision, it asks you <b>there</b>.</p>",
@@ -379,8 +379,8 @@
       t: { en: "Your first attack", fr: "Ta première attaque" },
       b: { en: "<p>Emergency Atlus has <b>no Lag any more</b>: it can attack! Let's try to steal a Gig from the house.</p>",
            fr: "<p>Emergency Atlus n'a <b>plus de Lag</b> : elle peut attaquer ! Essayons de voler un Gig à la maison.</p>" },
-      do: { en: ["Click <b>Emergency Atlus</b> on <b>your</b> side of the board (bottom left, it glows).", "Then click the <b>house's Gigs</b> (its dice, top left, they glow too)."],
-            fr: ["Clique sur <b>Emergency Atlus</b> de <b>ton</b> côté du plateau (en bas à gauche, elle brille).", "Puis clique sur les <b>Gigs de la maison</b> (ses dés, en haut à gauche, ils brillent aussi)."] } },
+      do: { en: ["Click <b>Emergency Atlus</b> in <b>your</b> Units (on the left of the screen, just above your panel; it glows).", "Then click the <b>house's Gigs</b> (its dice, top left, they glow too)."],
+            fr: ["Clique sur <b>Emergency Atlus</b> dans <b>tes</b> Units (à gauche de l'écran, juste au-dessus de ton panneau ; elle brille).", "Puis clique sur les <b>Gigs de la maison</b> (ses dés, en haut à gauche, ils brillent aussi)."] } },
     block: { learn: ["blocker"],
       t: { en: "Blocked!", fr: "Bloquée !" },
       b: { en: "<p>The house <b>reacts</b>: Corpo Security has <b>BLOCKER</b>, it jumps in front of your attack. Now it is a <b>fight</b> between the two Units. Watch.</p>",
@@ -414,8 +414,8 @@
       t: { en: "Take a Gig back", fr: "Reprends un Gig" },
       b: { en: "<p>The house has <b>no Blocker</b> any more. Attack its Gigs: this time nothing can stop you.</p>",
            fr: "<p>La maison n'a <b>plus de Blocker</b>. Attaque ses Gigs : cette fois rien ne peut t'arrêter.</p>" },
-      do: { en: ["Click <b>Emergency Atlus</b> on your side (bottom left).", "Click the <b>house's Gigs</b> (top left)."],
-            fr: ["Clique sur <b>Emergency Atlus</b> de ton côté (en bas à gauche).", "Clique sur les <b>Gigs de la maison</b> (en haut à gauche)."] } },
+      do: { en: ["Click <b>Emergency Atlus</b> in your Units (on the left, just above your panel).", "Click the <b>house's Gigs</b> (top left)."],
+            fr: ["Clique sur <b>Emergency Atlus</b> dans tes Units (à gauche, juste au-dessus de ton panneau).", "Clique sur les <b>Gigs de la maison</b> (en haut à gauche)."] } },
     pick: {
       t: { en: "Choose the Gig you steal", fr: "Choisis le Gig que tu voles" },
       b: { en: "<p>The attack went through: you steal <b>1 Gig</b> and <b>you choose</b> which. Take a <b>high number</b>: it raises your Street Cred.</p>",
@@ -597,6 +597,6 @@
     if (X) X.T.emit("tcg:tutorialLang", { lang: lang });
   }
   window.TCGTUTO = { render: render, renderFree: renderFree, reset: reset, open: openConcept, glossary: openGlossary,
-    lang: function () { return lang; }, concepts: CONCEPTS, steps: STEPS };
+    lang: function () { return lang; }, setLang: setLang, concepts: CONCEPTS, steps: STEPS };
   if (window.TCGDUEL) init(); else document.addEventListener("tcg:duelReady", init);
 })();

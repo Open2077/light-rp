@@ -290,6 +290,10 @@
     if (!D.asked) { D.asked = true; T.emit("tcg:decks", {}); }
     if (!edit) newEdit(D.decks.filter(function (d) { return d.key === D.selected; })[0] || D.decks[0] || null);
     renderEditor();
+    // The deck guide opens by itself the first time (web/deckguide.js); the "Deck guide" button opens it again.
+    var G = window.TCGDECKGUIDE;
+    $("dkHelp").onclick = function () { if (G) G.show(0); };
+    if (G && G.firstTime() && !G.isOpen()) setTimeout(function () { if ($("tab-decks") && !$("tab-decks").classList.contains("hidden")) G.show(0); }, 400);
   }
 
   /* ------------------------------------------------------------------------------------------- duel tab */

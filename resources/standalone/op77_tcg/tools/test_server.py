@@ -40,6 +40,17 @@ check(last("reveal", 2)["stage"] == "tear", "tear relayed to witnesses")
 fire("op77_tcg:reveal", 1, L.table_from({"seq": op1["seq"], "stage": "card", "index": 12}))
 r = last("reveal", 2)
 check(r["index"] == 12 and r["finished"], "the last card finishes the opening")
+# A request that goes nowhere tells the opener's page (its "opening..." screen goes away).
+fire("op77_tcg:open", 1, "nope", anchor)
+check(last("openFailed", 1) is not None, "a refused pack request sends openFailed")
+# The request lock is released once a pack is dealt: the next pack opens (Open another).
+fire("op77_tcg:open", 1, "wnc", anchor)
+op2 = last("opening", 1)
+check(op2 is not None and str(op2["seq"]) != str(op1["seq"]), "after a finished pack, the next one opens")
+fire("op77_tcg:reveal", 1, L.table_from({"seq": op2["seq"], "stage": "card", "index": 12}))
+# (that extra pack is given back so the shop checks below keep their counts)
+L.eval("exported.giveBooster")(1, "wnc", 1)
+L.eval("__pump")(20)
 
 # Recycle needs a shop; place one with the admin command at player 1.
 fire_cmd = L.eval("function(name, src, args) commands[name](src, args); __pump(60) end")

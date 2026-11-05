@@ -48,6 +48,8 @@ permissions {
     -- client: the cards dealt on the table (local props), the surface under the hands, the pack and shop sounds
     "world.query",
     "audio.play",
+    -- client: the game's own interface sounds for the openings (Open77.sfx.play2d)
+    "world.effects",
     -- client: the opener's over-the-shoulder camera on the hand / the table during an opening
     "camera.script",
     -- server: duels at a TCG table (players sit down on their chair)

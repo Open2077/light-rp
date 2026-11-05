@@ -79,6 +79,7 @@
       <!-- Deck building, the official rules: 3 Legends, 40-50 cards, 3 copies, RAM per colour (docs/RULES.md §6) -->
       <div class="tab hidden" id="tab-decks">
         <aside class="dk-list">
+          <button class="dk-help" id="dkHelp" type="button"><i>?</i><span>Deck guide<small>How to build a deck &middot; Comment construire un deck</small></span></button>
           <h3>Deck box <small id="dkCount"></small></h3>
           <div id="dkDecks" class="dk-decks"></div>
           <button class="primary" id="dkNew">New deck</button>
@@ -240,7 +241,14 @@
           <div class="summary-hit" id="summaryHit"></div>
           <div class="summary-grid" id="summaryGrid"></div>
         </div>
-        <button class="primary" id="summaryDone">Sleeve them into the binder</button>
+        <div class="summary-actions">
+          <button class="ghost" id="summaryDone">Sleeve them into the binder</button>
+          <button class="primary hidden" id="summaryAgain">Open another</button>
+        </div>
+        <div class="summary-foot">
+          <span id="summaryLeft"></span>
+          <label class="quick"><input type="checkbox" id="quickOpen"> Quick open: tear and reveal by themselves</label>
+        </div>
       </div>
     </section>
 
@@ -275,6 +283,7 @@
   <script src="./duel.js"></script>
   <script src="./table.js"></script>
   <script src="./tutorial.js"></script>
+  <script src="./deckguide.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

@@ -242,3 +242,49 @@ kbd { background: var(--yellow); color: var(--ink); padding: 1px 8px; font-weigh
 .pv-own { color: var(--muted); font-size: 13px; }
 .pv-own b { color: var(--text); }
 .pv-hint { color: var(--cyan); font-size: 12px; letter-spacing: .06em; border-top: 1px solid var(--line); padding-top: 8px; }
+
+/* The deck builder's guide (web/deckguide.js) */
+.dk-help { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 12px; padding: 10px 12px; text-align: left; cursor: pointer;
+  background: linear-gradient(90deg, rgba(252, 238, 9, .16), rgba(252, 238, 9, .04)); border: 1px solid rgba(252, 238, 9, .6); color: #f2f6f8;
+  transition: background .15s, transform .15s; }
+.dk-help:hover { background: linear-gradient(90deg, rgba(252, 238, 9, .28), rgba(252, 238, 9, .08)); transform: translateY(-1px); }
+.dk-help i { font-style: normal; display: grid; place-items: center; min-width: 30px; height: 30px; background: var(--yellow); color: #0a0d11; font-weight: 900; font-size: 18px; }
+.dk-help span { display: flex; flex-direction: column; font-weight: 800; letter-spacing: .04em; }
+.dk-help small { font-weight: 500; font-size: 11px; color: var(--muted); letter-spacing: 0; }
+.dg-panel { position: fixed; right: 24px; bottom: 24px; width: 520px; max-height: calc(100vh - 48px); overflow-y: auto; z-index: 70;
+  background: linear-gradient(180deg, rgba(13, 18, 23, .98), rgba(9, 12, 16, .97)); border: 1px solid rgba(252, 238, 9, .6); border-top: 4px solid var(--yellow);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .7), 0 0 40px rgba(252, 238, 9, .1); padding: 14px 20px; }
+.dg-panel.left { right: auto; left: 24px; }
+.dg-panel.show { animation: tuIn .35s var(--ease-out, ease-out); }
+.dg-panel h3 { margin: 8px 0 4px; font-size: 22px; color: var(--yellow); }
+.dg-panel .tc-head { display: flex; align-items: center; gap: 12px; }
+.dg-panel .tc-step { font-size: 11px; font-weight: 800; letter-spacing: .16em; color: var(--muted); white-space: nowrap; }
+.dg-panel .tc-bar { flex: 1; height: 4px; background: #1a2027; }
+.dg-panel .tc-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--yellow)); }
+.dg-panel .tc-skip { margin-right: auto; }
+.dg-focus { outline: 2px solid var(--yellow) !important; outline-offset: 4px; box-shadow: 0 0 0 6px rgba(252, 238, 9, .14), 0 0 34px rgba(252, 238, 9, .45) !important;
+  animation: dgPulse 1.3s ease-in-out infinite; position: relative; z-index: 5; }
+@keyframes dgPulse { 50% { outline-color: rgba(252, 238, 9, .35); } }
+.dg-ram { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+.dg-ram > div { display: grid; grid-template-columns: 56px 18px 1fr; align-items: center; gap: 8px; font-size: 13px; color: #dfe6ec; }
+.dg-ram b { color: var(--c); font-size: 16px; text-align: right; }
+.dg-ram em { display: flex; gap: 3px; }
+.dg-ram em i { width: 16px; height: 10px; background: #1b222a; }
+.dg-ram em i.on { background: var(--c); box-shadow: 0 0 8px var(--c); }
+.dg-stack { position: relative; display: flex; }
+.dg-stack .tu-card { margin-left: -46px; }
+.dg-stack .tu-card:first-child { margin-left: 0; }
+.dg-stack b { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #0a0d11; color: var(--yellow); padding: 4px 8px; font-size: 18px; border: 1px solid var(--yellow); }
+.dg-count { display: flex; flex-direction: column; align-items: center; padding: 8px 12px; border: 1px solid #2a323b; }
+.dg-count b { font-size: 26px; color: #f2f6f8; }
+.dg-count span { font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.dg-count.ok { border-color: #3fd28c; }
+.dg-count.ok b { color: #3fd28c; }
+.dg-copies { position: relative; display: flex; }
+.dg-copies .tu-card { margin-left: -40px; }
+.dg-copies .tu-card:first-child { margin-left: 0; }
+.dg-copies b { position: absolute; right: -6px; bottom: -8px; background: var(--yellow); color: #0a0d11; padding: 2px 6px; font-size: 13px; }
+.dg-curve { display: flex; align-items: flex-end; gap: 10px; height: 100px; }
+.dg-curve > div { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dg-curve i { display: block; width: 34px; background: linear-gradient(180deg, var(--yellow), rgba(252, 238, 9, .25)); }
+.dg-curve span { font-size: 12px; color: var(--muted); font-weight: 800; }

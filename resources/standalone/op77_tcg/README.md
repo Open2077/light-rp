@@ -79,6 +79,24 @@ the house at the nearest free NEON DECK table (`shared/tutorial.lua`).
 and the duel table in the middle of the ground floor. A duel takes the free slot nearest to the challenger. At the end
 of a duel the client lets go of its camera, cursor and animation at once.
 
+**Opening packs.** "Opening..." shows the moment an item is used or Open is clicked.
+- Nothing else can be opened until that pack is dealt or refused: the server locks the request before it takes the item
+  (`openFailed` tells the page).
+- The summary offers **Open another** (packs left shown; Enter) and **Quick open** (the next packs tear and reveal by
+  themselves).
+- Sounds are the game's own interface events through `Open77.sfx.play2d` (`tcg:gameSfx`, permission `world.effects`):
+  - `ui_menu_item_consumable_booster` for the tear;
+  - `ui_loot_*` for the cards and their rarity;
+  - `ui_menu_perk_buy_*` for the premium card.
+
+  A plain browser keeps the synthesised ones.
+
+**Deck guide.** `web/deckguide.js` explains deck building in English and French, in 9 pages: what a deck is, the deck
+box, the 3 Legends, colours and RAM, adding cards, 40-50 cards and 3 copies, the problem list, a good first deck,
+and save / use.
+- Each page makes the part of the Decks tab it explains glow.
+- It opens by itself the first time; the **Deck guide** button reopens it.
+
 **Decks tab.** Decks follow the official deck-building rules (`shared/decks.lua`, docs/RULES.md §6):
 - exactly 3 Legends, with different names;
 - a main deck of 40 to 50 cards, with no Legend in it;
