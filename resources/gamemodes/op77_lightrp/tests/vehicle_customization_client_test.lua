@@ -34,10 +34,14 @@ local function tick()
  now=now+100
  for _,co in ipairs(threads)do if coroutine.status(co)~="dead"then local ok,why=coroutine.resume(co);assert(ok,why)end end
 end
+-- The server sends the category tree as JSON text (too deep for a net event); json.decode
+-- here hands back the table the server encoded.
+local wire={}
+json={decode=function(s) return assert(wire[s],"not JSON") end}
 local function open(token)
+ wire.categories={{id="paint",available=true},{id="lights",available=false,reason="unsupported"},{id="trim",available=true,options={{id="a",label="A"}}}}
  net["op77_lightrp:customization"]({kind="open",session=token or "session",vehicle={vehicleId=1,model="hella",lightsHue=.5},
-  categories={{id="paint",available=true},{id="lights",available=false,reason="unsupported"},{id="trim",available=true,options={{id="a",label="A"}}}},
-  prices={paint=2500,lights=500,trim=2500}});tick()
+  categoriesJson="categories",prices={paint=2500,lights=500,trim=2500}});tick()
 end
 local function page(command)
  command.session=command.session or "session";listeners["lightrp:ui:customization"](command)
@@ -45,6 +49,7 @@ end
 open();assert(Custom.isActive() and frozen and focused and active and cinematic)
 local opened;for i=#sent,1,-1 do if sent[i].kind=="open" then opened=sent[i];break end end
 assert(opened and opened.categories[2].available==false and opened.categories[3].options[1].id=="a" and opened.prices.lights==500,"category availability and trims reach the page untouched")
+assert(opened.categoriesJson==nil,"the page gets the decoded tree, not the JSON text")
 tick();local a=transforms[#transforms];tick();local b=transforms[#transforms];assert(a.position.x~=b.position.x,"camera orbits over time")
 page({operation="camera",command="rotate",enabled=false});tick();a=transforms[#transforms];tick();b=transforms[#transforms];assert(a.position.x==b.position.x)
 page({operation="camera",command="right"});tick();assert(transforms[#transforms].position.x~=b.position.x)

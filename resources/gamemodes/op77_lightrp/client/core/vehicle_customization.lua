@@ -148,7 +148,14 @@ local function start(p)
 end
 RegisterNetEvent(NET, function(p)
     if type(p) ~= "table" then return end
-    if p.kind == "open" then start(p)
+    if p.kind == "open" then
+        -- The server sends the category tree as JSON text (too deep for a net event).
+        if type(p.categoriesJson) == "string" then
+            local ok, decoded = pcall(json.decode, p.categoriesJson)
+            if not ok or type(decoded) ~= "table" then refuse(p.session); return end
+            p.categories, p.categoriesJson = decoded, nil
+        end
+        start(p)
     elseif session and p.session == session.id then
         if p.kind == "closed" then stop(false)
         else

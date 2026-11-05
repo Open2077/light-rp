@@ -436,8 +436,12 @@ function Custom.open(id, vehicle, garage)
     G.closeVisit(id)
     local confirmed = view(state)
     state.visual, state.lightrp = nil, nil
+    -- The category tree nests deeper than the client's net event reader accepts (8 levels;
+    -- body options > groups > parts > variants reach 10), and the client drops a too-deep
+    -- event whole: it travels as JSON text, which the client decodes for the page.
     TriggerClientEvent(NET, id, { kind = "open", session = token, nextRequest = 1, vehicle = state,
-        categories = categories, price = prices.paint, prices = prices, money = wallet(id), confirmed = confirmed })
+        categoriesJson = json.encode(categories), price = prices.paint, prices = prices, money = wallet(id),
+        confirmed = confirmed })
     return true
 end
 LightRP.action("customization.open", function(id, p)

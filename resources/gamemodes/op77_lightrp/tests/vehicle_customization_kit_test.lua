@@ -277,7 +277,9 @@ local function store(rowId)
 end
 local session,request
 local function open(rowId)
-    assert(Custom.open(1,rowId,"citycenter"));local m=messages[#messages];session,request=m.session,0;return m
+    assert(Custom.open(1,rowId,"citycenter"));local raw=messages[#messages];session,request=raw.session,0
+    assert(type(raw.categoriesJson)=="string" and raw.categories==nil,"the category tree travels as JSON text")
+    local m={};for k,v in pairs(raw)do m[k]=v end;m.categories=json.decode(raw.categoriesJson);return m
 end
 local function issue(operation,fields,pay)
     request=request+1;tick=tick+300
@@ -304,6 +306,17 @@ local function count(t) local n=0;for _ in pairs(t)do n=n+1 end;return n end
 local ok,hella=G.grant(1,"hella");assert(ok)
 local car=retrieve(hella)
 local m=open(hella)
+-- The client's net event reader (scripting/src/ResourceHost.cpp, JsonReader) drops a whole
+-- event deeper than 8 levels (the argument array is level 0) or over 1024 values: what the
+-- studio sends must fit, or the page never opens ("dropped malformed network event payload").
+local function shape(v,depth) depth=depth or 1
+    if type(v)~="table" then return 1,depth end
+    local nodes,deepest=1,depth
+    for _,x in pairs(v)do local n,d=shape(x,depth+1);nodes=nodes+n;if d>deepest then deepest=d end end
+    return nodes,deepest end
+local function fitsClient(p,label) local nodes,depth=shape(p);nodes=nodes+1
+    assert(depth<=8 and nodes<=1024,("%s exceeds the client event reader: depth %d (max 8), %d values (max 1024)"):format(label,depth,nodes)) end
+fitsClient(messages[#messages],"the studio open message")
 local order={};for _,c in ipairs(m.categories)do order[#order+1]=c.id end
 assert(table.concat(order,",")=="paint,livery,rims,body,neon,lights,trim,plate,windows,performance","page order: "..table.concat(order,","))
 local windows=category(m,"windows")
@@ -538,4 +551,5 @@ local legacy=catalogue[NS.."rim_classic"].fit
 assert(legacy[HELLA] and legacy[HELLA].wheels==nil and legacy["Vehicle.v_standard2_makigai_maimai_player"],"default-slot records keep their rims")
 assert(legacy["Vehicle.v_standard25_thorton_merrimac_player"]==nil and legacy["Vehicle.v_sportbike3_brennan_apollo_player"]==nil,"Merrimac and Apollo need per-wheel fits")
 assert(catalogue[NS.."wing_street"] and logged("server predates them"))
+for i,msg in ipairs(messages)do fitsClient(msg,"studio message "..i.." ("..tostring(msg.kind)..")")end
 print("customization kit: catalogue contract, livery, rims, body exclusivity and per-group price, neon, plates (format, words, uniqueness, hold), performance stages (sum, removal, cooldown, refusals), park+restart+retrieve, dormant choices and greying passed")

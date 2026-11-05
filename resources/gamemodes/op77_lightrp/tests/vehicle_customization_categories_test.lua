@@ -162,7 +162,9 @@ local function store(rowId)
 end
 local session,request
 local function open(rowId)
-    assert(Custom.open(1,rowId,"citycenter"));local m=messages[#messages];session,request=m.session,0;return m
+    assert(Custom.open(1,rowId,"citycenter"));local raw=messages[#messages];session,request=raw.session,0
+    assert(type(raw.categoriesJson)=="string" and raw.categories==nil,"the category tree travels as JSON text")
+    local m={};for k,v in pairs(raw)do m[k]=v end;m.categories=json.decode(raw.categoriesJson);return m
 end
 local function issue(operation,fields,pay)
     request=request+1;tick=tick+300
