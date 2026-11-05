@@ -449,6 +449,85 @@ LightRpConfig = {
                     { key = "apollo", price = 60 },
                 },
             },
+            -- Seven more desks, poses taken in game by the owner (2026-11-05). District names are a best guess:
+            -- rename freely (ids are what rentals in progress refer to).
+            {
+                id = "wellsprings", name = "Rent-a-Ride // Wellsprings",
+                position = { x = -1535.325684, y = -221.540863, z = 8.074615 }, heading = -51.748066,
+                parking = { position = { x = -1532.692261, y = -215.654587, z = 7.871185 }, heading = -51.798050 },
+                stock = {
+                    { key = "maimai", price = 50 },
+                    { key = "galena", price = 80 },
+                    { key = "colby",  price = 100 },
+                    { key = "apollo", price = 60 },
+                },
+            },
+            {
+                id = "littlechina", name = "Rent-a-Ride // Little China",
+                position = { x = -1451.475830, y = 1240.616211, z = 23.060539 }, heading = -134.805923,
+                parking = { position = { x = -1445.735962, y = 1231.881104, z = 22.852661 }, heading = -131.555878 },
+                stock = {
+                    { key = "maimai", price = 50 },
+                    { key = "galena", price = 80 },
+                    { key = "colby",  price = 100 },
+                    { key = "apollo", price = 60 },
+                },
+            },
+            {
+                id = "northoak", name = "Rent-a-Ride // North Oak",
+                position = { x = -23.107239, y = 1623.115234, z = 120.036667 }, heading = 91.155182,
+                parking = { position = { x = -29.300797, y = 1628.778076, z = 120.272400 }, heading = 94.705154 },
+                stock = {
+                    { key = "maimai", price = 50 },
+                    { key = "galena", price = 80 },
+                    { key = "colby",  price = 100 },
+                    { key = "apollo", price = 60 },
+                },
+            },
+            {
+                id = "glen", name = "Rent-a-Ride // The Glen",
+                position = { x = -491.387329, y = -721.683594, z = 7.412888 }, heading = 92.923882,
+                parking = { position = { x = -492.648590, y = -727.640259, z = 7.225807 }, heading = 51.973896 },
+                stock = {
+                    { key = "maimai", price = 50 },
+                    { key = "galena", price = 80 },
+                    { key = "colby",  price = 100 },
+                    { key = "apollo", price = 60 },
+                },
+            },
+            {
+                id = "badlands_south", name = "Rent-a-Ride // Badlands South",
+                position = { x = -2770.793701, y = -5392.104004, z = 96.817169 }, heading = -125.297188,
+                parking = { position = { x = -2768.101318, y = -5397.690430, z = 96.439499 }, heading = -148.447235 },
+                stock = {
+                    { key = "maimai", price = 50 },
+                    { key = "galena", price = 80 },
+                    { key = "colby",  price = 100 },
+                    { key = "apollo", price = 60 },
+                },
+            },
+            {
+                id = "badlands_east", name = "Rent-a-Ride // Badlands East",
+                position = { x = 1681.268066, y = -766.002686, z = 49.876144 }, heading = 4.930262,
+                parking = { position = { x = 1678.195312, y = -761.801392, z = 49.880203 }, heading = 110.630257 },
+                stock = {
+                    { key = "maimai", price = 50 },
+                    { key = "galena", price = 80 },
+                    { key = "colby",  price = 100 },
+                    { key = "apollo", price = 60 },
+                },
+            },
+            {
+                id = "coastview", name = "Rent-a-Ride // Coastview",
+                position = { x = -1842.295654, y = -1996.610596, z = 42.625755 }, heading = 129.176208,
+                parking = { position = { x = -1846.780273, y = -1999.266724, z = 42.390099 }, heading = 34.926247 },
+                stock = {
+                    { key = "maimai", price = 50 },
+                    { key = "galena", price = 80 },
+                    { key = "colby",  price = 100 },
+                    { key = "apollo", price = 60 },
+                },
+            },
         },
     },
 
