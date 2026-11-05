@@ -547,6 +547,20 @@ HoF.refresh("test")
 local dog = HoF.cache().boards["dogtown.kills"].rows
 assert(#dog == 1 and dog[1].name == "Mira Sol", "the provider's name never wins over the character's; the unnamed stays out")
 
+-- a mission type of its own (mission_titan.lua registers this board while its service runs): the clears of that
+-- type, ranked like the raids', the point's type read from config when the point is gone
+clears[#clears + 1] = { "license:ccc333", "second", "titan_assault", "hard", 3 }
+assert(type(HoF.clearsProvider) == "function")
+assert(HoF.registerBoard("missions.assaults", { tab = "missions", title = "TITAN ASSAULT", unit = "clears", provider = HoF.clearsProvider({ ASSAULT = true }) }))
+clock = clock + 11000
+HoF.refresh("test")
+local assaults = HoF.cache().boards["missions.assaults"].rows
+assert(#assaults == 1 and assaults[1].name == "Tomas Kade" and assaults[1].value == 3 and assaults[1].detail == "HARD 3", "the ASSAULT clears, by type")
+for _, r in ipairs(HoF.cache().boards["missions.raids"].rows) do assert(r.name ~= "Tomas Kade" or r.detail == "HARD 2", "an assault is not a raid") end
+for _, r in ipairs(HoF.cache().boards["missions.heists"].rows) do assert(r.name ~= "Tomas Kade", "nor a heist") end
+assert(HoF.unregisterBoard("missions.assaults"))
+clears[#clears] = nil
+
 local everything = {}
 for _, d in ipairs(dialogs) do serialize(d.payload, everything) end
 serialize(HoF.payload(1, "pvp"), everything)

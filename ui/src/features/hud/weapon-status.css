@@ -4,6 +4,7 @@
 .weapon-status__hand{--dial-size:52px;text-align:center}
 .weapon-status__hand .player-vital__number{font-size:16px}
 .weapon-status__hand.is-empty .player-vital__number{color:#ffb3ab}
+.weapon-status__hand.is-melee .player-vital__number{font-size:calc(var(--dial-size)*.16);font-weight:700;letter-spacing:.08em;line-height:1.2;color:var(--accent)}
 .weapon-status__name{display:block;max-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:8px;color:var(--text-dim);margin:1px -9px 0}
 .weapon-status__reserve{display:flex;flex-direction:column;gap:2px;min-width:75px;color:var(--text-dim)}
 .weapon-status__reserve>span{font:7px var(--font-mono);letter-spacing:.06em}

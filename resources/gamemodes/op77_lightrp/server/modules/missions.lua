@@ -745,6 +745,9 @@ local function leaveInstance(id, why, goHome)
     end
     if #inst.members == 0 then finish(inst, false, "every operator left") end
 end
+-- A script that cannot field one operator (no Titan for them) sends them home: no payout, the run goes on
+-- without them (the last one out fails it, leaveInstance).
+function Missions.dismiss(id, why) if instanceOf[id] then leaveInstance(id, why or "dismissed", true) end end
 
 local function launch(lobby)
     local point, d = points[lobby.point], diffOf(points[lobby.point], lobby.difficulty)

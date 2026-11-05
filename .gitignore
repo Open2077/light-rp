@@ -20,12 +20,23 @@
 !resources/gamemodes/
 !resources/gamemodes/op77_lightrp/
 !resources/gamemodes/op77_lightrp/**
+# LightRP's own fork of open77_titans, the generated BT-7274 controller included (owner decision 2026-11-04).
+!resources/gamemodes/op77_lightrp_titans/
+!resources/gamemodes/op77_lightrp_titans/**
+# Its two BT-7274 preload zips (~350 MB, one over GitHub's 100 MB limit) are rebuilt by its tools/build-assets.ps1.
+resources/gamemodes/op77_lightrp_titans/dist/*.zip
 # ArchiveXL runtime dependency (official 1.28.0 release zip, MIT) and the lobby map
 # the first day takes place in: without them the server cannot run the tutorial.
 !resources/assets/
 !resources/assets/loaders/
 !resources/assets/loaders/archivexl/
 !resources/assets/loaders/archivexl/**
+# Codeware 1.21.2 (official release zip, MIT): BT-7274's key script and entity spawning need it.
+!resources/assets/loaders/codeware/
+!resources/assets/loaders/codeware/**
+# AudioXL 0.9.1 (official release zip; not freely redistributable, shipped under the author's authorization): BT's sounds.
+!resources/assets/loaders/audioxl/
+!resources/assets/loaders/audioxl/**
 !resources/assets/maps/
 !resources/assets/models/
 !resources/assets/models/open77_board_games/

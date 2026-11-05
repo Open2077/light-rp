@@ -161,3 +161,16 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 .melee__class { font: 700 40px/46px var(--font-core); letter-spacing: .08em; color: var(--core); }
 .melee__hint { font: 400 13px/16px var(--font-mono); letter-spacing: .14em; color: rgba(var(--accent-rgb), .7); }
 .stage.is-melee .tag { display: none; }
+
+/* ── boost: a core burns (`boost` from setExternal: BT's Burst, Sword or Berserker core). The readout (digits and reserve, or
+   the edge), the cells and the frame glow hotter and pulse together. The filters sit on the blocks inside #holo, never on
+   #holo itself: its own flash animation owns that filter. ── */
+.stage.is-boost .readout, .stage.is-boost .melee, .stage.is-boost .cells, .stage.is-boost .corner {
+  filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), .9)) brightness(1.25);
+  animation: wh-boost 900ms ease-in-out infinite;
+}
+.stage.is-boost:not(.is-empty) .corner { border-color: rgba(var(--core-rgb), .95); }
+@keyframes wh-boost { 50% { filter: drop-shadow(0 0 12px rgba(var(--accent-rgb), 1)) drop-shadow(0 0 26px rgba(var(--accent-rgb), .6)) brightness(1.7); } }
+@media (prefers-reduced-motion: reduce) {
+  .stage.is-boost .readout, .stage.is-boost .melee, .stage.is-boost .cells, .stage.is-boost .corner { animation: none; }
+}

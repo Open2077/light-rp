@@ -39,6 +39,7 @@ import { FixerGigHud } from "@/features/missions/FixerGigHud";
 import { WorldBossHud } from "@/features/missions/WorldBossHud";
 import { AnnounceHalo } from "@/features/announce/AnnounceHalo";
 import { RaidHud } from "@/features/missions/RaidHud";
+import { TitanMissionHud } from "@/features/missions/TitanMissionHud";
 import { ActivityHud } from "@/features/activityhud/ActivityHud";
 import { DogtownHud } from "@/features/dogtown/DogtownHud";
 import { Medical } from "@/features/medical/Medical";
@@ -131,6 +132,7 @@ export function App() {
       <ErrorBoundary name="announce"><AnnounceHalo /></ErrorBoundary>
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
+      <ErrorBoundary name="titan-mission"><TitanMissionHud /></ErrorBoundary>
       <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>
       <ErrorBoundary name="dogtown"><DogtownHud /></ErrorBoundary>
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>

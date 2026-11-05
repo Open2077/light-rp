@@ -164,7 +164,9 @@ LightRpHallOfFame = {
     missions = {
         heistTypes = { HEIST = true },
         raidTypes = { RAID = true },
-        knownTypes = { chimera_raid = "RAID", sector04_blackout = "HEIST" },
+        -- the clears of a point that is gone (a withdrawn mission, the Titan service stopped) keep their type; Titan Assault's
+        -- own board is registered by server/modules/mission_titan.lua while its service runs
+        knownTypes = { chimera_raid = "RAID", sector04_blackout = "HEIST", titan_assault = "ASSAULT" },
         difficulties = { { id = "critical", short = "CRIT" }, { id = "hard", short = "HARD" }, { id = "standard", short = "STD" } },
     },
 }

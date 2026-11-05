@@ -5,7 +5,7 @@
   //   weapon:config  the sanitized config (shared/weaponhud.lua WeaponHud.pageConfig)
   //   weapon:show    { key, name, type, class, melee, capacity, instant? }  drawn / switched
   //   weapon:hide    {}                                                     holstered
-  //   weapon:data    { magazine, capacity, reserve, reloading, shots, reloaded, low, empty, left? }
+  //   weapon:data    { magazine, capacity, reserve, reloading, shots, reloaded, low, empty, left?, boost? }
   //   weapon:inset   { px }   lift above a growing bottom-left stack
   // Shots are the magazine deltas the client measured (there is no shot event); the page
   // animates them. Without the game, URL parameters drive a preview: see preview() below.
@@ -168,6 +168,7 @@
     const meleeClass = document.getElementById("meleeClass");
     if (meleeClass) meleeClass.textContent = current.class === "BLUNT" ? "BLUNT" : "BLADE";
     stage.classList.toggle("is-reloading", !!d.reloading && !melee);
+    stage.classList.toggle("is-boost", d.boost === true);
     stage.classList.toggle("is-empty", !!d.empty && !d.reloading && !melee);
     stage.classList.toggle("is-low", !!d.low && !d.empty && !d.reloading);
     reserveEl.textContent = melee || d.reserve == null ? "---" : String(d.reserve).padStart(3, "0");
@@ -239,7 +240,7 @@
   }
 
   // Browser preview: index.html?mag=21&cap=21&reserve=120&name=LEXINGTON&class=POWER&type=HANDGUN
-  // &state=low|empty|reloading|melee&left=8&instant=0&inset=28&tilt=0&flicker=0&demo=1
+  // &state=low|empty|reloading|melee&left=8&boost=1&instant=0&inset=28&tilt=0&flicker=0&demo=1
   // window.__weaponPreview.fire(n) / .reload() / .holster() drive it from a script.
   function preview() {
     const q = new URLSearchParams(location.search);
@@ -257,7 +258,7 @@
     const melee = state === "melee";
     const dataOf = (extra = {}) => ({ magazine: melee ? null : mag, capacity: melee ? null : cap, reserve: melee ? null : reserve,
       reloading: state === "reloading", shots: 0, low: mag > 0 && mag <= Math.min(10, Math.max(1, Math.round(cap * 0.25))), empty: mag === 0,
-      left: q.has("left") ? { magazine: num("left", 8), capacity: 10 } : undefined, ...extra });
+      left: q.has("left") ? { magazine: num("left", 8), capacity: 10 } : undefined, boost: q.get("boost") === "1", ...extra });
     if (q.get("hidden") === "1") return;
     data = dataOf();
     show({ key: "1:x", name: q.get("name") ?? (melee ? "SATORI" : "LEXINGTON"), class: q.get("class") ?? (melee ? "BLADE" : "POWER"),

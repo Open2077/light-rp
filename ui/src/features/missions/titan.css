@@ -1,0 +1,103 @@
+/* Titan Assault HUD (TitanMissionHud.tsx). The design system's yellow accent on the near-black stack, signal
+   colours for state only (green ready, red danger), chamfers instead of radii. */
+.titan { position: absolute; inset: 0; z-index: 31; pointer-events: none; color: var(--text-hi); font-family: var(--font-mono); }
+
+/* the arrival card and the class picker share one panel */
+.titan-card { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); width: 460px; padding: 16px 20px 14px; background: var(--surface-hud-solid);
+  border: 1px solid var(--line-soft); clip-path: var(--clip-notch); box-shadow: var(--shadow-panel); animation: titan-in var(--dur-slow) var(--ease-snap) both; }
+.titan-card.is-choosing { width: 700px; pointer-events: auto; outline: none; }
+.titan-card header { display: flex; align-items: center; gap: 10px; font-size: var(--fs-tag); letter-spacing: var(--ls-label); }
+.titan-card__tag { padding: 1px 8px; background: var(--o77-yellow-400); color: var(--text-on-accent); font-weight: var(--fw-semibold); }
+.titan-card header b { color: var(--accent); font-weight: var(--fw-semibold); }
+.titan-card header em { margin-left: auto; font-style: normal; color: var(--text-dim); }
+.titan-card h2 { margin: 10px 0 8px; font: 400 26px/1 var(--font-display); letter-spacing: .06em; }
+.titan-card__timer { position: relative; height: 6px; background: rgba(242, 243, 245, .1); margin-bottom: 14px; }
+.titan-card__timer i { position: absolute; inset: 0 auto 0 0; background: var(--accent); transition: width .25s linear; box-shadow: 0 0 8px rgba(255, 204, 0, .5); }
+.titan-card__timer span { position: absolute; right: 0; top: 10px; font-size: var(--fs-micro); color: var(--text-dim); }
+.titan-card ul { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.titan-card li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: #ffffff06; font-size: var(--fs-tag); letter-spacing: .1em; color: var(--text-dim); }
+.titan-card li span { flex: 1; }
+.titan-card li em { font-style: normal; font-size: 10px; letter-spacing: .18em; }
+.titan-card li.is-ready { color: var(--text-hi); background: rgba(143, 224, 74, .08); }
+.titan-card li.is-ready svg, .titan-card li.is-ready em { color: var(--o77-green); }
+.titan-card li.is-loading em { color: var(--accent); animation: titan-pulse 1s ease-in-out infinite; }
+.titan-card footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: var(--fs-tag); letter-spacing: .1em; color: var(--text-body); }
+.titan-card kbd { padding: 1px 7px; background: var(--accent); color: var(--text-on-accent); font: 600 12px var(--font-mono); }
+.titan-card__go { all: unset; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: var(--accent); color: var(--text-on-accent);
+  font: 600 13px var(--font-mono); letter-spacing: .2em; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%); }
+.titan-card__go:hover:not(:disabled) { background: var(--accent-hover); }
+.titan-card__go:disabled { cursor: default; background: rgba(242, 243, 245, .14); color: var(--text-dim); }
+.titan-card__go kbd { background: var(--o77-black); color: var(--accent); }
+.titan-card__go:disabled kbd { background: transparent; color: inherit; }
+
+/* the five classes: key, icon, name and weapon, then the ultimate over the abilities the class keeps */
+.titan-classes { display: flex; flex-direction: column; gap: 5px; }
+.titan-class { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 22px 20px 132px 1fr; align-items: center; gap: 10px; padding: 8px 10px;
+  background: #ffffff05; border: 1px solid rgba(242, 243, 245, .1); cursor: pointer; color: var(--text-body); }
+.titan-class:hover:not(:disabled) { background: #ffffff0c; color: var(--text-hi); }
+.titan-class:disabled { cursor: default; opacity: .55; }
+.titan-class.is-picked { border-color: var(--accent); background: var(--accent-quiet); color: var(--text-hi); opacity: 1; }
+.titan-class.is-picked svg, .titan-class.is-picked .titan-class__name b { color: var(--accent); }
+.titan-class__key { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; font-size: 11px; }
+.titan-class__name { display: flex; flex-direction: column; gap: 2px; }
+.titan-class__name b { font-weight: var(--fw-semibold); letter-spacing: .16em; font-size: var(--fs-label); text-transform: uppercase; }
+.titan-class__name small { font-size: var(--fs-micro); letter-spacing: .08em; color: var(--text-dim); }
+.titan-class__body { display: flex; flex-direction: column; gap: 5px; }
+.titan-class__body > small { font: var(--fs-tag) / 1.3 var(--font-core); letter-spacing: .02em; color: var(--text-body); }
+.titan-class__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.titan-class__chips i { font-style: normal; padding: 0 6px; font-size: 10px; letter-spacing: .14em; color: var(--text-dim); border: 1px solid rgba(242, 243, 245, .16); }
+.titan-class__chips i.is-core { color: var(--accent); border-color: var(--line-soft); }
+/* the ultimate: what the class's core does, in the accent colour with a flame, and the one rule that holds for all of them */
+.titan-class__body > small.titan-class__ultimate { display: flex; align-items: flex-start; gap: 6px; font-size: var(--fs-micro); letter-spacing: .04em; color: var(--accent); }
+.titan-class__ultimate svg { flex: none; margin-top: 1px; }
+.titan-classes__rule { margin: 8px 0 0; font-size: var(--fs-micro); letter-spacing: .08em; color: var(--text-dim); }
+.titan-classes__rule kbd { padding: 0 5px; font-size: 10px; }
+
+/* the countdown and the quiet status */
+.titan-center { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.titan-center small { font-size: var(--fs-tag); letter-spacing: .3em; color: var(--o77-green); }
+.titan-center span { font: 400 22px var(--font-display); letter-spacing: .2em; }
+.titan-center b { font: 400 120px/1 var(--font-display); color: var(--accent); text-shadow: 0 0 30px rgba(255, 204, 0, .5); animation: titan-count 1s ease-out both; }
+.titan-center.is-quiet span { font-size: 18px; animation: titan-pulse 1s ease-in-out infinite; }
+@keyframes titan-count { from { transform: scale(1.6); opacity: 0; } 30% { opacity: 1; } to { transform: scale(1); } }
+
+/* the wave counter: slim, top centre */
+.titan-wave { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); min-width: 420px; padding: 7px 14px 8px; background: var(--surface-hud);
+  backdrop-filter: var(--blur-hud); border-top: 2px solid var(--accent); box-shadow: var(--shadow-hud); animation: titan-in var(--dur-slow) var(--ease-snap) both; }
+.titan-wave header { display: flex; align-items: baseline; gap: 18px; font-size: var(--fs-tag); letter-spacing: .14em; color: var(--text-body); }
+.titan-wave__n { font-size: var(--fs-label); color: var(--text-hi); }
+.titan-wave__n b { font: 400 22px/1 var(--font-display); color: var(--accent); letter-spacing: .04em; }
+.titan-wave__left { margin-left: auto; }
+.titan-wave__left b, .titan-wave__kills b { color: var(--text-hi); font-weight: var(--fw-bold); font-size: 15px; }
+.titan-wave__left.is-rest b { color: var(--accent); }
+.titan-wave__kills { display: flex; align-items: center; gap: 5px; }
+.titan-wave__kills svg { color: var(--accent); }
+.titan-wave__pips { display: flex; gap: 3px; margin-top: 6px; }
+.titan-wave__pips i { flex: 1; height: 4px; background: rgba(242, 243, 245, .14); }
+.titan-wave__pips i.is-done { background: var(--o77-green); }
+.titan-wave__pips i.is-live { background: var(--accent); animation: titan-pulse 1s ease-in-out infinite; }
+
+/* down: the timer to the new Titan */
+.titan-respawn { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.titan-respawn small { font-size: 13px; letter-spacing: .4em; color: var(--o77-red); }
+.titan-respawn span { font: 400 22px var(--font-display); letter-spacing: .18em; }
+.titan-respawn b { font: 400 84px/1 var(--font-display); color: var(--accent); }
+
+/* announcements */
+.titan-banner { position: absolute; left: 50%; top: 26%; transform: translateX(-50%); min-width: 420px; padding: 10px 26px 12px; text-align: center;
+  background: linear-gradient(90deg, transparent, #0d0d10ee 18%, #0d0d10ee 82%, transparent); animation: titan-banner 4.2s ease both; }
+.titan-banner span { display: block; font: 400 30px/1.1 var(--font-display); letter-spacing: .14em; color: var(--accent); }
+.titan-banner p { margin: 6px 0 0; font-size: 13px; letter-spacing: .08em; color: var(--text-body); }
+.titan-banner.is-danger span { color: var(--o77-red); text-shadow: 0 0 18px rgba(255, 46, 60, .6); }
+.titan-banner.is-success span { color: var(--o77-green); } .titan-banner.is-info span { color: var(--o77-cyan); }
+@keyframes titan-banner { 0% { opacity: 0; transform: translate(-50%, 10px) scale(1.06); } 8% { opacity: 1; transform: translate(-50%, 0) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; } }
+
+/* result */
+.titan-result { position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 8px; animation: titan-in .5s ease-out both; }
+.titan-result span { font: 400 64px/1 var(--font-display); letter-spacing: .1em; white-space: nowrap; }
+.titan-result small { font-size: 14px; letter-spacing: .3em; color: var(--text-body); }
+.titan-result.is-victory span { color: var(--o77-green); text-shadow: 0 0 30px rgba(143, 224, 74, .5); }
+.titan-result.is-failed span { color: var(--o77-red); text-shadow: 0 0 30px rgba(255, 46, 60, .5); }
+
+@keyframes titan-in { from { opacity: 0; transform: translate(-50%, -12px); } }
+@keyframes titan-pulse { 50% { opacity: .5; } }

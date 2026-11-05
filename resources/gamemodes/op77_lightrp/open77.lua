@@ -91,6 +91,7 @@ server_script "server/config/missions.lua"
 server_script "server/modules/parties.lua"
 server_script "server/modules/missions.lua"
 server_script "server/modules/mission_chimera.lua"
+server_script "server/modules/mission_titan.lua"   -- Titan Assault: BT-7274 pilots, ten waves; on the board only while op77_lightrp_titans runs (no dependency)
 server_script "server/modules/mission_engine.lua"  -- runtime of the authored missions
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
 server_script "server/modules/mission_repay.lua"   -- /lightrp.missions.repay: stored missions to the new payout scale
@@ -230,6 +231,7 @@ client_script "client/core/animations.lua"
 client_script "client/core/job_runs.lua"
 client_script "client/core/job_work.lua"
 client_script "client/core/raid.lua"
+client_script "client/core/titan_mission.lua"  -- Titan Assault: the arrival report, the hit relay and the ground probe (server/modules/mission_titan.lua)
 client_script "client/core/mission_editor.lua"
 client_script "client/core/mission_run.lua"
 client_script "client/core/vehicle_context.lua"

@@ -649,9 +649,10 @@ AddEventHandler("onNpcPlayerHit", function(npcId, victimId, amount, kind, epoch,
     -- the platform names the attack: firearm, melee or explosion (an NPC's grenade)
     local cause = (kind == "melee" or kind == "explosion") and kind or "firearm"
     local ok, why = Engine.npcHit(victim, victimId, npcId, epoch, amount, true, cause)
-    -- a raid's reinforcements are tied to the raid, not to a mission run
-    if not ok and (why == "no_run" or why == "not_this_mission") and LightRP.raidReinforcementHit then
-        LightRP.raidReinforcementHit(victim, victimId, npcId, epoch, amount, true)
+    -- a raid's reinforcements and Titan Assault's hostiles are tied to their script, not to a mission run
+    if not ok and (why == "no_run" or why == "not_this_mission") then
+        local handled = LightRP.raidReinforcementHit and LightRP.raidReinforcementHit(victim, victimId, npcId, epoch, amount, true)
+        if not handled and LightRP.titanEnemyHit then LightRP.titanEnemyHit(victim, victimId, npcId, epoch, amount, true, cause) end
     end
 end)
 

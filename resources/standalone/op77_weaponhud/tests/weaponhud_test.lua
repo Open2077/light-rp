@@ -3,6 +3,7 @@
 -- stands down, the grenade chip lifts the HUD, RP names). Run from the resource folder:
 --   pwsh -NoProfile -File tests/run-lua.ps1
 -- The client Lua sandbox has no setmetatable / load / require / debug...: removed here too.
+local hostSetmetatable = setmetatable -- the stubbed host needs it (exports is callable and indexable); the client code under test never sees it
 setmetatable, getmetatable, rawget, rawset, rawequal, load, loadstring, require, debug = nil, nil, nil, nil, nil, nil, nil, nil, nil
 
 -- ── shared ──
@@ -64,6 +65,24 @@ do
     assert(W.diff({ key = "a", magazine = 2 }, { key = "b", magazine = 30 }).switched)
     assert(W.low(4, 21, page) and not W.low(10, 21, page) and not W.low(0, 21, page) and W.low(10, 100, page) and not W.low(11, 100, page))
 
+    -- a weapon that is not V's: upper case text, whole counts or unknown, nothing for melee but its names
+    local ext = W.external({ key = "titan:xo16", name = "XO-16", class = "Titan", type = "rifle", magazine = 31, capacity = 40, reserve = 3, reloading = true })
+    assert(ext.key == "titan:xo16" and ext.name == "XO-16" and ext.class == "TITAN" and ext.type == "RIFLE" and ext.melee == false
+        and ext.magazine == 31 and ext.capacity == 40 and ext.reserve == 3 and ext.reloading == true, "external gun")
+    local sword = W.external({ key = "titan:sword", name = "broadsword", class = "BLADE", type = "SWORD", melee = true, magazine = 5, capacity = 9, reserve = 2, reloading = true })
+    assert(sword.melee == true and sword.name == "BROADSWORD" and sword.class == "BLADE" and sword.magazine == nil and sword.capacity == nil
+        and sword.reserve == nil and sword.reloading == false, "external melee carries no ammunition")
+    local bare = W.external({ name = "Thing" })
+    assert(bare.key == "Thing" and bare.name == "THING" and bare.class == nil and bare.type == nil and bare.magazine == nil and bare.reloading == false, "the name stands for the key")
+    assert(W.external({ key = "k" }).name == "WEAPON", "no name: WEAPON")
+    local junk = W.external({ key = "k", magazine = -3, capacity = 0, reserve = 1.5, reloading = "yes", class = 4, type = "" })
+    assert(junk.magazine == nil and junk.capacity == nil and junk.reserve == nil and junk.reloading == false and junk.class == nil and junk.type == nil, "junk counts and text are unknown")
+    assert(W.external(nil) == nil and W.external("x") == nil and W.external({}) == nil and W.external({ key = "", name = "" }) == nil and W.external({ magazine = 3 }) == nil, "nothing named, nothing shown")
+    -- boost (a core burns): true and only true, melee or not
+    assert(ext.boost == false and bare.boost == false and junk.boost == false and sword.boost == false, "no boost unless asked")
+    assert(W.external({ key = "k", boost = true }).boost == true and W.external({ key = "k", melee = true, boost = true }).boost == true, "boost, a gun or a blade")
+    assert(W.external({ key = "k", boost = "yes" }).boost == false and W.external({ key = "k", boost = 1 }).boost == false and W.external({ key = "k", boost = false }).boost == false, "anything but true is off")
+
     assert(W.shouldShow(WeaponHudConfig, { armed = true }))
     assert(not W.shouldShow(WeaponHudConfig, { armed = false }))
     assert(not W.shouldShow(WeaponHudConfig, { armed = true, busy = true }))
@@ -88,9 +107,27 @@ do
     function TriggerServerEvent() end
     function CreateThread(fn) threads[#threads + 1] = coroutine.create(fn) end
     function Wait() coroutine.yield() end
-    function exports(name, fn) exportsMap[name] = fn end
+    -- the host's `exports`: callable to register one, indexable to call another resource's (exports.res:name()); a call made
+    -- through it comes from LightRP (what GetInvokingResource answers), a direct call of exportsMap from `invoker`
+    local invoker, titanAnswer = "tester", nil
+    local function call(name, ...)
+        local previous = invoker
+        invoker = "op77_lightrp"
+        local ok, a, b = pcall(exportsMap[name], ...)
+        invoker = previous
+        assert(ok, a)
+        return a, b
+    end
+    local weaponHudExports = hostSetmetatable({}, { __index = function(_, name) return exportsMap[name] and function(_, ...) return call(name, ...) end end })
+    exports = hostSetmetatable({}, {
+        __call = function(_, name, fn) exportsMap[name] = fn end,
+        __index = function(_, resource)
+            if resource == "op77_weaponhud" then return weaponHudExports end
+            if resource == "op77_lightrp_titans" then return { hudState = function() return titanAnswer end } end
+        end,
+    })
     function GetCurrentResourceName() return "op77_weaponhud" end
-    function GetInvokingResource() return "tester" end
+    function GetInvokingResource() return invoker end
     function GetGameTimer() return clock end
     local function tick(n)
         for _ = 1, n or 1 do
@@ -209,6 +246,112 @@ do
     exportsMap.hide("cutscene"); step(); assert(count(s, "weapon:hide") == 3)
     exportsMap.show("cutscene"); step(); assert(count(s, "weapon:show") == 5)
 
+    -- a weapon that is not V's (a piloted Titan's), handed over by a gamemode: shown instead of the drawn one, no snapshot asked
+    local asked, shows, hides = requests, count(s, "weapon:show"), count(s, "weapon:hide")
+    local function xo16(mag, reloading) return { key = "titan:xo16", name = "XO-16", class = "TITAN", type = "RIFLE", magazine = mag, capacity = 40, reloading = reloading or false } end
+    assert(exportsMap.setExternal({ magazine = 3 }) == false and exportsMap.setExternal("x") == false, "a state that names nothing is refused")
+    step(); assert(count(s, "weapon:show") == shows and count(s, "weapon:hide") == hides, "and changes nothing")
+    asked = requests
+    assert(exportsMap.setExternal(xo16(40)) == true)
+    step()
+    show = last(s, "weapon:show")
+    assert(count(s, "weapon:show") == shows + 1 and show.key == "titan:xo16" and show.name == "XO-16" and show.class == "TITAN" and show.type == "RIFLE"
+        and show.capacity == 40 and not show.melee, "an unfold for it, not for the katana")
+    d = last(s, "weapon:data")
+    assert(d.magazine == 40 and d.capacity == 40 and d.reserve == nil and d.shots == 0 and not d.low and not d.empty and not d.reloading, "its magazine, no reserve")
+    assert(requests == asked, "no snapshot is asked while it is set")
+    -- shots from the magazine deltas, low, empty, reload
+    exportsMap.setExternal(xo16(37)); step()
+    assert(last(s, "weapon:data").shots == 3 and count(s, "weapon:show") == shows + 1, "three shots, the same unfold")
+    exportsMap.setExternal(xo16(8)); step(); d = last(s, "weapon:data")
+    assert(d.shots == 29 and d.low and not d.empty, "low")
+    exportsMap.setExternal(xo16(0)); step(); d = last(s, "weapon:data")
+    assert(d.empty and not d.low and d.reserve == nil, "empty")
+    exportsMap.setExternal(xo16(0, true)); step(); assert(last(s, "weapon:data").reloading, "reloading")
+    exportsMap.setExternal(xo16(40)); step(); d = last(s, "weapon:data")
+    assert(d.reloaded and d.magazine == 40 and d.shots == 0 and not d.reloading, "refilled")
+    exportsMap.setExternal(xo16(30, true)); step(); assert(last(s, "weapon:data").shots == 0, "no shots counted while reloading")
+    exportsMap.setExternal(xo16(40)); step()
+    -- boost (a core burns) rides with the data, no new unfold; junk and its absence are off
+    local function boosted(boost) local state = xo16(40); state.boost = boost; return state end
+    assert(exportsMap.setExternal(boosted(true)) == true); step()
+    assert(last(s, "weapon:data").boost == true and count(s, "weapon:show") == shows + 1, "boost: sent with the data, the same unfold")
+    exportsMap.setExternal(boosted("yes")); step(); assert(last(s, "weapon:data").boost == false, "a junk boost is off")
+    exportsMap.setExternal(boosted(true)); step(); exportsMap.setExternal(xo16(40)); step()
+    assert(last(s, "weapon:data").boost == false, "boost gone when the state no longer carries it")
+    -- the same rules as the drawn weapon: a menu, a scene, a vehicle when the config says so
+    cursor = true; step(); assert(count(s, "weapon:hide") == hides + 1, "a menu hides it")
+    cursor = false; step(); assert(count(s, "weapon:show") == shows + 2, "and it unfolds again")
+    exportsMap.hide("cutscene"); step(); assert(count(s, "weapon:hide") == hides + 2, "a scene hides it")
+    exportsMap.show("cutscene"); step(); assert(count(s, "weapon:show") == shows + 3)
+    exportsMap.setConfig({ showInVehicles = false }); inVehicle = true; step()
+    assert(count(s, "weapon:hide") == hides + 3, "no vehicle display when the config says so")
+    inVehicle = false; step(); exportsMap.setConfig({ showInVehicles = true })
+    assert(count(s, "weapon:show") == shows + 4)
+    shows, hides = shows + 4, hides + 3
+    -- melee: its names, no magazine, no reserve, never NO AMMO
+    assert(exportsMap.setExternal({ key = "titan:sword", name = "Broadsword", class = "BLADE", type = "SWORD", melee = true, magazine = 0, capacity = 9, reserve = 0 }))
+    step(); show = last(s, "weapon:show"); d = last(s, "weapon:data")
+    assert(count(s, "weapon:show") == shows + 1 and show.melee == true and show.name == "BROADSWORD" and show.class == "BLADE" and show.type == "SWORD" and show.capacity == nil, "a melee unfold")
+    assert(d.melee and d.magazine == nil and d.reserve == nil and d.shots == 0 and not d.empty and not d.low, "melee data")
+    exportsMap.setExternal({ key = "titan:sword", name = "Broadsword", class = "BLADE", type = "SWORD", melee = true, boost = true }); step()
+    assert(last(s, "weapon:data").melee and last(s, "weapon:data").boost == true and count(s, "weapon:show") == shows + 1, "a melee weapon glows too")
+    exportsMap.setExternal({ key = "titan:sword", name = "Broadsword", class = "BLADE", type = "SWORD", melee = true }); step()
+    assert(last(s, "weapon:data").boost == false, "and stops")
+    shows = shows + 1
+    -- cleared: the drawn weapon again (the snapshot is asked once more)
+    assert(exportsMap.setExternal(nil) == true)
+    step()
+    show = last(s, "weapon:show")
+    assert(requests == asked + 1 and count(s, "weapon:show") == shows + 1 and show.key == "2:0xBB" and show.class == "BLADE" and show.melee, "back to the katana")
+    shows = shows + 1
+    -- with nothing drawn it shows all the same (it is armed by definition), and clearing folds it away
+    armed = false; step(); assert(count(s, "weapon:hide") == hides + 1); hides = hides + 1
+    assert(exportsMap.setExternal(xo16(40)))
+    step(); assert(count(s, "weapon:show") == shows + 1 and last(s, "weapon:show").name == "XO-16", "shown with nothing drawn")
+    shows = shows + 1
+    exportsMap.setExternal(nil); step(); assert(count(s, "weapon:hide") == hides + 1 and requests == asked + 1, "cleared, nothing drawn: folded away")
+    hides = hides + 1
+    armed = true; step(); assert(count(s, "weapon:show") == shows + 1 and last(s, "weapon:show").key == "2:0xBB")
+    shows = shows + 1
+    -- per calling resource: the latest owner shows, an older owner's update does not take over, clearing one gives the other back
+    invoker = "gamemode-a"; exportsMap.setExternal({ key = "a", name = "Aaa" })
+    invoker = "gamemode-b"; exportsMap.setExternal({ key = "b", name = "Bbb" })
+    step(); assert(last(s, "weapon:show").name == "BBB", "the latest owner shows")
+    invoker = "gamemode-a"; exportsMap.setExternal({ key = "a", name = "Aaa", magazine = 5, capacity = 5 }); step()
+    assert(last(s, "weapon:show").name == "BBB", "an update by the older owner does not take over")
+    invoker = "gamemode-b"; exportsMap.setExternal(nil); step()
+    assert(last(s, "weapon:show").name == "AAA" and last(s, "weapon:data").magazine == 5, "clearing one gives the other back")
+    for _, fn in ipairs(handlers.onClientResourceStop) do fn("gamemode-a") end
+    step(); assert(last(s, "weapon:show").key == "2:0xBB", "its owner stopped: cleared, the drawn weapon again")
+    invoker = "tester"
+    shows, hides = count(s, "weapon:show"), count(s, "weapon:hide")
+
+    -- LightRP's piloted Titan, through the real sampler: BT's weapon goes to the hologram, the page's own dial stays down
+    titanAnswer = { className = "Vanguard", weapon = { id = "xo16", name = "XO-16", melee = false, ammo = 40, capacity = 40 } }
+    step(2)
+    show = last(s, "weapon:show")
+    assert(show.key == "titan:xo16" and show.name == "XO-16" and show.class == "TITAN" and show.type == "RIFLE" and show.capacity == 40, "BT's weapon in the hologram")
+    local view = hudViews[#hudViews]
+    assert(view.weapon.active == false and view.weapon.titan == nil and view.weapon.hands == nil and view.titan.name == "BT-7274", "the dial is down, the hull is up")
+    assert(view.weapon.externalTop > 0, "the crew frame clears the hologram")
+    assert(last(s, "weapon:data").magazine == 40 and last(s, "weapon:data").reserve == nil)
+    titanAnswer.weapon.ammo = 37; step(2)
+    assert(last(s, "weapon:data").shots == 3, "BT's shots")
+    titanAnswer.core = { share = 1, state = "active", key = "Y" }; step(2)
+    assert(last(s, "weapon:data").boost == true, "a core burns: the hologram glows")
+    titanAnswer.core.ability = "flight"; step(2)
+    assert(last(s, "weapon:data").boost == false, "not for the flight strike")
+    titanAnswer.core = { share = 0, state = "ready" }; step(2)
+    assert(last(s, "weapon:data").boost == false, "and not once it is over")
+    titanAnswer = { weapon = { id = "sword", name = "SWORD", melee = true } }
+    step(2)
+    show = last(s, "weapon:show")
+    assert(show.key == "titan:sword" and show.melee == true and show.class == "BLADE" and show.type == "SWORD", "BT's sword: a melee unfold")
+    titanAnswer = nil
+    step(2)
+    assert(last(s, "weapon:show").key == "2:0xBB", "out of BT: the drawn weapon again")
+
     -- the server restyles: theme only keeps the surface, a layout change recreates it
     net["op77_weaponhud:config"]({ theme = { accent = "#3FE0D0" } }); tick()
     assert(#surfaces == 1 and last(s, "weapon:config").theme.accent == "#3FE0D0")
@@ -219,8 +362,21 @@ do
     exportsMap.setEnabled(false); tick()
     assert(LightRpHud.externalWeaponHud == false and claims.weapon == true)
     tick(); assert(legacySamples > 0, "legacy readout sampled again")
-    exportsMap.setEnabled(true); tick()
+    -- BT's weapon stays on LightRP's own dial while the hologram is off, and goes back to the hologram with it
+    titanAnswer = { weapon = { id = "xo16", name = "XO-16", ammo = 12, capacity = 40 } }
+    tick(2)
+    local dial = hudViews[#hudViews].weapon
+    assert(dial.active == true and dial.titan == true and dial.hands[1].label == "XO-16" and dial.hands[1].magazine == 12, "hologram off: BT's weapon on the dial")
+    exportsMap.setEnabled(true); tick(2)
     assert(LightRpHud.externalWeaponHud == true)
+    local live = surfaces[#surfaces]
+    assert(live ~= s and not live.destroyed, "the surface is back")
+    live.on["weapon:ready"](); tick(2)
+    dial = hudViews[#hudViews].weapon
+    assert(dial.active == false and dial.hands == nil, "hologram back: the dial stands down")
+    assert(last(live, "weapon:show").key == "titan:xo16", "and BT's weapon is in it")
+    titanAnswer = nil; step(3)
+    assert(last(live, "weapon:show").key == "2:0xBB", "out of BT: the drawn weapon, nothing of BT's left in it")
 
     -- stops: LightRP takes over
     for _, fn in ipairs(handlers.onClientResourceStop) do fn("op77_weaponhud") end

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Titan HUD</title>
+<link rel="stylesheet" href="hud.css">
+</head>
+<body data-on="false">
+<canvas id="hud"></canvas>
+
+<!-- The panels' content is filled by hud_panel.js from the "hud:state" event (open77_titan_hud.lua builds the state); until
+     the first state they are all hidden. Nothing here takes the pointer. The Titan's hull, shield, weapon, abilities and core are
+     LightRP's own HUD (it reads the same state from the resource's `hudState` export), so this page keeps only what is not its
+     business: the notices, the carry's prompt, and at the bottom right the PROTOCOLS lamps and the control hints. The top right
+     (LightRP's minimap), the left edge and the bottom centre belong to LightRP's own HUD (map, vitals, ability bar, mission
+     objective).
+       bottom right  .kit    the PROTOCOLS lamps, then the control hints -->
+<main class="titan" id="titan">
+  <section class="notice" id="notice" role="status" hidden><span></span></section>
+
+  <section class="grab" id="grab" data-phase="ready" data-target="person" aria-label="Carry" hidden>
+    <div class="grab-main">
+      <kbd class="keycap grab-key" id="grab-key">E</kbd>
+      <div class="grab-text">
+        <strong class="grab-label" id="grab-label">GRAB</strong>
+        <span class="tag grab-sub" id="grab-sub"></span>
+      </div>
+      <span class="tag grab-target" id="grab-target">PERSON</span>
+    </div>
+    <div class="grab-charge" id="grab-charge" hidden><i></i></div>
+  </section>
+
+  <div class="kit" id="kit">
+    <div class="protocols" id="protocols" aria-label="Protocols" hidden>
+      <span class="tag" id="protocols-link"></span>
+      <div class="protocols-lamps" id="protocols-lamps"></div>
+    </div>
+    <aside class="controls" id="controls" aria-label="Controls" hidden></aside>
+  </div>
+</main>
+
+<script src="hud_font.js"></script>
+<script src="hud_panel.js"></script>
+<script src="hud.js"></script>
+</body>
+</html>

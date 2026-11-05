@@ -10,7 +10,8 @@
    `?dialog=recap&recap=ffa|team|race|chase|turf|mission|boss|test|unranked|draw|big` opens an
    end-of-match recap (features/recap/mock.ts),
    `?dialog=dailies&tab=titles&dailies=mixed|fresh|budget|allpaid|off|loading&titles=shown|hidden|none&crew=1`
-   opens Dailies (features/dailies/mock.ts). */
+   opens Dailies (features/dailies/mock.ts),
+   `?titanhud=1|held|low|doomed|melee|reload|ready|active|legion|northstar` pilots a Titan (hull, shield, weapon, ability bar; &hit=1 hits it). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
@@ -110,6 +111,37 @@ export function installMockBridge(): void {
     locations: [{ name: "city", label: "City Center West" }, { name: "hospital", label: "Hospital" }, { name: "stoop", label: "King Stoop" }, { name: "coast", label: "South-west Coast" }],
     online: [{ id: 3, name: "w0dm4n" }, { id: 8, name: "szys" }, { id: 12, name: "fronterawave" }],
   };
+  // ?titanhud=1|held|low|doomed|melee|reload|ready|active|legion|northstar: the player pilots a Titan (op77_lightrp_titans): BT's hull and shield on the
+  // health and armor dials, its weapon on the weapon readout and its abilities and core on the bar that takes the quick items'
+  // place; &hit=1 lands a hit on BT every three seconds
+  const pilot = params.get("titanhud");
+  const titan: HudState["titan"] = pilot ? {
+    name: "BT-7274", className: pilot === "legion" ? "Legion" : pilot === "northstar" ? "Northstar" : "Vanguard", held: pilot === "held",
+    hull: pilot === "doomed" ? { value: 0, max: 3600, low: true, doomed: 0.55, doomedText: "DOOMED  -  press [F] x3 to EJECT   1 / 3" }
+      : { value: pilot === "low" ? 900 : 2500, max: 3600, low: pilot === "low" },
+    shield: pilot === "doomed" ? undefined : pilot === "low" ? 0 : 70,
+    flash: 0,
+  } : undefined;
+  const titanKit: HudState["titanKit"] = pilot ? {
+    abilities: pilot === "melee" ? [
+      { id: "dash", name: "DASH", key: "L-CTRL", state: "ready", fill: 0.4, count: 1 },
+      { id: "smoke", name: "SMOKE", key: "C", state: "active", left: 2.4 },
+    ] : pilot === "legion" ? [
+      { id: "sentry", name: "SENTRY", key: "Q", state: "ready", count: 2 },
+      { id: "vortex", name: "VORTEX", key: "F", state: "ready" },
+      { id: "smoke", name: "SMOKE", key: "C", state: "active", left: 2.4, tone: "yellow" },
+    ] : pilot === "northstar" ? [
+      { id: "jets", name: "JETS", key: "SPACE", state: "ready", fill: 0.7 },
+      { id: "flight", name: "FLIGHT", key: "V", state: "empty", fill: 0.2, left: 14 },
+      { id: "designator", name: "DESIGNATOR", key: "G", state: "ready", tone: "red" },
+    ] : [
+      { id: "missiles", name: "MISSILES", key: "Q", state: "ready", fill: 0.55, count: 5 },
+      { id: "vortex", name: "VORTEX", key: "F", state: "empty", fill: 0.3, left: 8.2 },
+      { id: "dash", name: "DASH", key: "L-CTRL", state: "ready", fill: 0.4, count: 1 },
+      { id: "jets", name: "JETS", key: "SPACE", state: "ready", fill: 0.7 },
+    ],
+    core: { share: pilot === "ready" ? 1 : pilot === "active" ? 0.6 : 0.62, state: pilot === "ready" ? "ready" : pilot === "active" ? "active" : "charging", key: "X", need: 0.5 },
+  } : undefined;
   const hud: HudState = {
     ready: true, health: { value: 78, max: 100 }, stamina: { value: 92, max: 100 }, armor: 40,
     vehicle: params.get("vehicle") === "1" ? { active: true, label: "ARCHER QUARTZ", speedKph: 87, gear: "3", health: 0.9,
@@ -117,14 +149,18 @@ export function installMockBridge(): void {
         : params.get("fuel") === "low" ? { litres: 6.4, capacity: 55, fraction: 0.116, low: true, empty: false }
         : { litres: 31.7, capacity: 55, fraction: 0.576, low: false, empty: false } } : { active: false },
     voice: { state: "idle", level: 0, range: "normal" }, clock: "22:41", street: "KANDA ST",
-    // ?weaponhud=external: op77_weaponhud's hologram is up and reaches 282 px (LightRP's readout stands down)
-    weapon: params.get("weaponhud") === "external" ? { active: false, externalTop: 282 } : params.has("weaponhud") ? {
+    // the Titan's weapon while piloting; ?weaponhud=external: op77_weaponhud's hologram is up and reaches 282 px (LightRP's readout stands down)
+    weapon: pilot ? { active: true, titan: true, hands: [pilot === "melee"
+      ? { hand: "right", label: "BROADSWORD", melee: true, reloading: false }
+      : { hand: "right", label: "XO-16", magazine: 7, capacity: 40, reloading: pilot === "reload" }] }
+      : params.get("weaponhud") === "external" ? { active: false, externalTop: 282 } : params.has("weaponhud") ? {
       active: params.get("weaponhud") !== "holstered", reserve: params.get("weaponhud") === "unknown" ? undefined : 59,
       hands: [
         { hand: "right", label: "Militech Lexington", magazine: params.get("weaponhud") === "unknown" ? undefined : params.get("weaponhud") === "empty" ? 0 : 21, capacity: 21, reloading: params.get("weaponhud") === "reload" },
         ...(params.get("weaponhud") === "dual" ? [{ hand: "left" as const, label: "Tsunami Nue", magazine: 10, capacity: 10, reloading: false }] : []),
       ],
     } : undefined,
+    titan, titanKit,
     walk: params.get("walk") === "1" ? { mode: "walk", label: "WALK", speed: 1.5, index: 2, count: 3 } : undefined,
   };
 
@@ -249,6 +285,32 @@ export function installMockBridge(): void {
               : { ...base, phase: "fight", ...fight, respawnInMs: params.get("dead") === "1" ? 12000 : undefined,
                   announce: params.get("announce") === "1" ? { title: "ARMOR BREACHED", body: "Its plating is gone. Hit the exposed parts.", tone: "warning", at: 0 } : undefined };
             setTimeout(() => fire(PAGE_EVENTS.raid, state), raidPhase === "intro" ? 0 : 100);
+          }
+          // ?titan=arrive|pick|countdown|wave|intermission|victory|wipe (&picked=1 a class chosen, &ready=1 locked, &dead=1 down)
+          const titanPhase = params.get("titan");
+          if (titanPhase) {
+            mission.running();
+            const classes = [
+              { id: "vanguard", label: "Vanguard", weapon: "XO-16", core: "Burst Core", speed: 1, ultimate: "BURST CORE · 7.5 s: unlimited ammo, the XO-16 fires 3x faster.", abilities: ["missiles", "vortex", "jets", "core"] },
+              { id: "ronin", label: "Ronin", weapon: "Sword", core: "Sword Core", speed: 1.2, ultimate: "SWORD CORE · 7.5 s: swings 3x faster, +2 m reach, the Arc Wave recharges 3x faster, one more dash.", abilities: ["dash", "smoke", "core"] },
+              { id: "northstar", label: "Northstar", weapon: "Railgun", core: "Burst Core", speed: 1, ultimate: "FLIGHT STRIKE · BT rises and fires rockets for 6 s.", abilities: ["jets", "flight", "designator", "core"] },
+              { id: "legion", label: "Legion", weapon: "Predator Cannon", core: "Burst Core", speed: 0.85, ultimate: "BURST CORE · 7.5 s: unlimited ammo, the Predator fires 3x faster.", abilities: ["sentry", "vortex", "smoke", "core"] },
+              { id: "brawler", label: "Brawler", weapon: "Fists", core: "Berserker Core", speed: 1, ultimate: "BERSERKER CORE · 7.5 s: punches hit 3x harder and send enemies flying (bosses stand), a shockwave on every punch, half the damage taken.", abilities: ["jets", "dash", "vortex", "core"] },
+            ];
+            const mine = params.get("picked") === "1" || params.get("ready") === "1" ? "legion" : undefined;
+            const ops = [{ id: 7, name: "Vi Asada", class: mine ? "Legion" : undefined, ready: params.get("ready") === "1", down: false, titan: true, kills: 14 },
+              { id: 87, name: "Kei Mori", class: "Ronin", ready: true, down: false, titan: titanPhase !== "arrive", kills: 9 },
+              { id: 132, name: "Rosa Vasquez", class: undefined, ready: false, down: false, titan: true, kills: 6 }];
+            const base = { instance: "mission:1", title: "Titan Assault", difficulty: "STANDARD", operators: ops, arrived: true, waves: 10, kills: 14, killsTotal: 29, class: mine, ready: params.get("ready") === "1" };
+            const state = titanPhase === "arrive" ? { ...base, phase: "arrive" }
+              : titanPhase === "pick" ? { ...base, phase: "pick", classes, pickEndsInMs: 38000 }
+              : titanPhase === "countdown" ? { ...base, phase: "countdown", startsInMs: 4000, wave: 0 }
+              : titanPhase === "intermission" ? { ...base, phase: "intermission", wave: 3, enemies: 0, nextWaveInMs: 6000 }
+              : titanPhase === "victory" ? { ...base, phase: "victory", wave: 10, waves: 10, enemies: 0 }
+              : titanPhase === "wipe" ? { ...base, phase: "wipe", wave: 6, enemies: 9 }
+              : { ...base, phase: "wave", wave: 6, enemies: 11, waveSize: 18, down: params.get("dead") === "1", respawnInMs: params.get("dead") === "1" ? 9000 : undefined,
+                  announce: params.get("banner") === "1" ? { title: "WAVE 6", body: "18 hostiles on the road.", tone: "danger", at: 0 } : undefined };
+            setTimeout(() => fire(PAGE_EVENTS.titan, state), 100);
           }
           if (params.get("menu") === "1") fire(PAGE_EVENTS.open, {});
           if (params.get("interact") === "1") {
@@ -493,6 +555,9 @@ export function installMockBridge(): void {
     hud.voice = { ...hud.voice, state: talking ? "talking" : "idle", level: talking ? 0.3 + Math.random() * 0.6 : 0 };
     hud.stamina = { value: 70 + Math.round(Math.sin(t / 8) * 20), max: 100 };
     if (hud.vehicle.active) hud.vehicle = { ...hud.vehicle, speedKph: 80 + Math.round(Math.sin(t / 10) * 25) };
+    if (hud.titan?.hull && params.get("hit") === "1" && t % 30 === 0) {
+      hud.titan = { ...hud.titan, flash: (hud.titan.flash ?? 0) + 1, hull: { ...hud.titan.hull, value: Math.max(0, hud.titan.hull.value - 100) } };
+    }
     fire(PAGE_EVENTS.hud, { ...hud });
     if(params.get("hotbar")==="1")fire("lightrp:ui:hotbar",{kind:"state",state:armament.hotbar(),visible:true,showKey:"TAB",slotKeys:["1","2","3","4","5"]});
   }, 100);
