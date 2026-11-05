@@ -34,15 +34,35 @@ local function burst(p, effect)
     pcall(Open77.vfx.play, effect or "neon.loot_drop", { position = { x = p.x, y = p.y, z = p.z + LIFT }, duration = 1.5 })
 end
 
+-- Creating a native marker costs (the client's markers module peaked at 16-24 ms in one frame
+-- when a run's orbs were all created at once, LightRP Testing 2026-11-06 00:03): the markers
+-- are created one per frame from a queue. A handle list dropped before its turn is skipped.
+local queue, draining = {}, false
+local function drain()
+    if draining then return end
+    draining = true
+    CreateThread(function()
+        while #queue > 0 do
+            local job = table.remove(queue, 1)
+            if not job.handles.cancelled then
+                local ok, handle = pcall(Open77.markers.create, job.def)
+                if ok and handle then
+                    if job.handles.cancelled then pcall(Open77.markers.remove, handle)
+                    else job.handles[#job.handles + 1] = handle end
+                end
+                Wait(0)
+            end
+        end
+        draining = false
+    end)
+end
+
 -- One orb: a solid core, the trigger sphere (translucent, the size the server tests) and a
--- light beam up into the sky. Returns the list of marker handles.
+-- light beam up into the sky. Returns the list its marker handles fill in (queued).
 local function orb(p, opts)
     if not markersOk() then return {} end
     local handles = {}
-    local function add(def)
-        local ok, handle = pcall(Open77.markers.create, def)
-        if ok and handle then handles[#handles + 1] = handle end
-    end
+    local function add(def) queue[#queue + 1] = { handles = handles, def = def } end
     local cz = p.z + LIFT
     local core = opts.core or 0.45
     add({ position = { x = p.x, y = p.y, z = cz - core }, shape = "sphere", radius = core, height = core * 2,
@@ -60,10 +80,13 @@ local function orb(p, opts)
         add({ position = { x = p.x, y = p.y, z = p.z + 0.06 }, shape = "ring", radius = math.max(0.8, (p.radius or 2) * 0.9), height = 1,
             color = color(opts.color, 200), maxDistance = 120 })
     end
+    drain()
     return handles
 end
 local function drop(handles)
-    for _, h in ipairs(handles or {}) do pcall(Open77.markers.remove, h) end
+    if not handles then return end
+    handles.cancelled = true
+    for _, h in ipairs(handles) do pcall(Open77.markers.remove, h) end
 end
 
 -- ---------------------------------------------------------------------------
