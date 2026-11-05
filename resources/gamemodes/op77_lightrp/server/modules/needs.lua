@@ -56,6 +56,7 @@ end
 
 local starving = {}   -- playerId -> "food" | "drink" | "both"
 local lastPhase = {}  -- playerId -> the life phase seen at the previous starve tick
+local died = {}       -- playerId -> true from a death until the floor is applied after the respawn
 local regenOff = {}   -- playerId -> true when this module turned health regen off itself
 local damageWarned = false
 
@@ -124,6 +125,18 @@ local function consuming(playerId)
     return ok and yes == true
 end
 
+--- After a death, once back in the world: both needs raised to at least `respawnFloor`
+--- (never lowered). The hospital calls it at once; the starve tick catches any other respawn.
+function Needs.afterRespawn(playerId)
+    playerId = tonumber(playerId) or playerId
+    died[playerId] = nil
+    local c = character(playerId)
+    local floor = tonumber(S().respawnFloor) or 0
+    if c == nil or floor <= 0 then return false end
+    if (c.food or 100) >= floor and (c.drink or 100) >= floor then return false end
+    return Needs.set(playerId, math.max(c.food or 100, floor), math.max(c.drink or 100, floor))
+end
+
 local function starveTick()
     if not Config.enabled then return end
     local cfg = S()
@@ -133,13 +146,10 @@ local function starveTick()
         local c = character(playerId)
         local life = Open77.players.getLifeState(playerId)
         local phase = life and life.phase or nil
-        -- a hospital respawn after a death: never back into the world starving
-        if c and phase == "alive" and lastPhase[playerId] == "dead" then
-            local floor = tonumber(cfg.respawnFloor) or 0
-            if floor > 0 and ((c.food or 100) < floor or (c.drink or 100) < floor) then
-                Needs.set(playerId, math.max(c.food or 100, floor), math.max(c.drink or 100, floor))
-            end
-        end
+        -- back in the world after a death: never starving. A respawn goes dead -> recovering (the
+        -- grace) -> alive, so "the previous tick was dead" missed it and players came back at 0 / 0.
+        if phase == "dead" then died[playerId] = true end
+        if c and died[playerId] and (phase == "alive" or phase == "recovering") then Needs.afterRespawn(playerId) end
         lastPhase[playerId] = phase
         local free = not LightRP.activities or LightRP.activities.allows(playerId, "needs")
         local kind = (c and phase == "alive" and free) and starveKind(c) or nil
@@ -210,7 +220,7 @@ Needs.wellFedTick = wellFedTick
 
 AddEventHandler("playerDropped", function()
     local id = tonumber(source) or source
-    starving[id], lastPhase[id], regenOff[id] = nil, nil, nil
+    starving[id], lastPhase[id], regenOff[id], died[id] = nil, nil, nil, nil
     fedState[id], fedCarry[id] = nil, nil
 end)
 

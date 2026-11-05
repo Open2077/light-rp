@@ -335,8 +335,9 @@ LightRpConfig = {
     needs = {
         enabled = true,
         tickMs = 60000,
-        foodPerTick = 0.6,   -- ~2h45 from 100 to 0
-        drinkPerTick = 0.9,  -- ~1h50 from 100 to 0
+        -- a quarter of the first rates (owner 2026-11-05: "faut pas que ça soit handicapant")
+        foodPerTick = 0.15,  -- ~11h from 100 to 0
+        drinkPerTick = 0.225, -- ~7h25 from 100 to 0
         warnAt = 20,
         -- At 0 food or 0 drink the character starves: a share of max health lost every
         -- tickMs until eating/drinking or death, health regen off meanwhile. From full
