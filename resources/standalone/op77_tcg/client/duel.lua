@@ -17,15 +17,16 @@ local function seatOfMine() return match and match.seats and match.seats[match.y
 -- The tutorial's 3D labels: the areas of your playmat, named on the table while the coach talks about them.
 
 local ZONES = {
-    fixer = { 0.0725, 0.53, "FIXER", "your 6 dice, waiting to be rolled" },
-    legends = { 0.313, 0.805, "LEGENDS", "3 Legends, face down" },
-    field = { 0.5, 0.37, "FIELD", "your Units" },
-    eddies = { 0.695, 0.81, "EDDIES", "sold cards: 1 \u{20AC}$ each per turn" },
-    deck = { 0.9325, 0.53, "DECK", "you draw from here" },
-    trash = { 0.9325, 0.82, "TRASH", "used and defeated cards" },
-    gigs = { 0.705, 0.055, "GIGS", "your rolled dice: 7 to win" },
+    fixer = { 0.0725, 0.53, "FIXER", "your 6 dice, waiting to be rolled", "FIXER", "tes 6 dés, pas encore lancés" },
+    legends = { 0.313, 0.805, "LEGENDS", "3 Legends, face down", "LÉGENDES", "3 Légendes, face cachée" },
+    field = { 0.5, 0.37, "FIELD", "your Units", "TERRAIN", "tes Units (combattants)" },
+    eddies = { 0.695, 0.81, "EDDIES", "sold cards: 1 \u{20AC}$ each per turn", "EDDIES", "cartes vendues : 1 \u{20AC}$ chacune par tour" },
+    deck = { 0.9325, 0.53, "DECK", "you draw from here", "PIOCHE", "tu pioches ici" },
+    trash = { 0.9325, 0.82, "TRASH", "used and defeated cards", "DÉFAUSSE", "cartes utilisées et détruites" },
+    gigs = { 0.705, 0.055, "GIGS", "your rolled dice: 7 to win", "GIGS", "tes dés lancés : 7 pour gagner" },
 }
 local labels, labelsKey = {}, nil
+local labelLang = "en"   -- the tutorial's language, picked on the page (tcg:tutorialLang)
 
 local function clearLabels()
     local kit = K.uikit()
@@ -36,7 +37,7 @@ end
 local function tutorialLabels(p)
     local t = p and p.tutorial
     local zones = t and t.zones
-    local key = zones and (t.id .. ":" .. tostring(p.id)) or nil
+    local key = zones and (t.id .. ":" .. tostring(p.id) .. ":" .. labelLang) or nil
     if key == labelsKey then return end
     clearLabels()
     if not key or not p.mat then return end
@@ -47,7 +48,9 @@ local function tutorialLabels(p)
         local z = ZONES[name]
         if z then
             local at = TcgTable.onMat(pose, z[1], z[2], 0.1)
-            local ok, h = pcall(kit.drawText3D, { position = at, text = z[3], sublabel = z[4], maxDistance = 6, accent = "#FCEE09", color = "#F2F6F8" })
+            local fr = labelLang == "fr"
+            local ok, h = pcall(kit.drawText3D, { position = at, text = fr and z[5] or z[3], sublabel = fr and z[6] or z[4], maxDistance = 6,
+                accent = "#FCEE09", color = "#F2F6F8" })
             if ok and h then labels[#labels + 1] = h end
         end
     end
@@ -77,6 +80,13 @@ local RELAY = {
     -- The tutorial: start it (Duel tab), the coach's Next.
     ["tcg:tutorial"] = function() TriggerServerEvent(NET .. "tutorial") end,
     ["tcg:tutorialNext"] = function() TriggerServerEvent(NET .. "tutorialNext") end,
+    -- The tutorial's language (the coach's choice): the 3D labels follow it.
+    ["tcg:tutorialLang"] = function(d)
+        local v = type(d) == "table" and d.lang == "fr" and "fr" or "en"
+        if v == labelLang then return end
+        labelLang = v
+        if match and seated() then tutorialLabels(match) end
+    end,
 }
 for name, fn in pairs(RELAY) do K.on(name, fn) end
 

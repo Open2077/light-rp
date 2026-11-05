@@ -7,6 +7,8 @@
 --   settle = true        advances once no card choice is pending (a prompt was answered)
 --   ui = { ... }         overlay elements to highlight (web/table.js COACH_TARGETS); card = a hand card to highlight
 --   zones = { ... }      zones of the player's mat labelled in 3D on the table (client/duel.lua)
+-- What the player reads (English or French, concept windows with pictures) lives in web/tutorial.js, keyed by id;
+-- title/text here are the fallback and what the tests read.
 -- The player is seat 1 (south), the house seat 2; the house goes first (the player's Legends are all ready).
 TcgTutorial = {}
 
@@ -36,6 +38,8 @@ TcgTutorial.d20 = { player = 9, house = 17 }
 TcgTutorial.rolls = { 4, 3, 7, 5, 8, 2, 6, 4, 9, 3, 5, 6 }
 
 TcgTutorial.steps = {
+    -- The page shows two buttons (English / French): the coach's texts and the 3D labels follow the choice (web/tutorial.js).
+    { id = "language", title = "Language", next = true, text = "Choose the language of the tutorial." },
     { id = "welcome", title = "Welcome to NEON DECK", next = true,
       text = "This is a demonstration duel against the house. Goal of the game: start one of your turns holding 7 Gigs (dice in your Gig area). You own only 6 dice, so you will have to steal at least one from your rival." },
     { id = "table", title = "Your side of the table", next = true, zones = { "fixer", "legends", "field", "eddies", "deck", "trash", "gigs" },

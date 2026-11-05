@@ -100,5 +100,21 @@ check("blocks with Corpo Security" in alllog and "Fight: Emergency Atlus 4 vs Co
 check("NEON DECK house steals a" in alllog and "Tutorial steals a" not in alllog or "Yuki steals a" in alllog, "steals both ways")
 mine = m["seats"][1]
 check(int(len(list(mine["gigs"].values()))) >= 2, "the player stole a Gig back")
+# The page's coach (web/tutorial.js) has every step in English and French, and every concept it names exists.
+import re
+web = (pathlib.Path(__file__).resolve().parent.parent / "web" / "tutorial.js").read_text(encoding="utf-8")
+steps_js = web[web.index("var STEPS = {"):web.index("/* ---", web.index("var STEPS = {"))]
+concepts_js = web[web.index("var CONCEPTS = {"):web.index("var GLOSSARY")]
+heads = list(re.finditer(r"\n    (\w+): \{", steps_js))
+blocks = {h.group(1): steps_js[h.start():(heads[i + 1].start() if i + 1 < len(heads) else len(steps_js))] for i, h in enumerate(heads)}
+missing = [x for x in order if x not in blocks]
+check(not missing, f"web/tutorial.js has a coach text for every step (missing {missing})")
+both = [x for x in order if x != "language" and x in blocks and not re.search(r"\bb: \{ en: [\s\S]*?\bfr: ", blocks[x])]
+both += [x for x in order if x in blocks and "do: {" in blocks[x] and "fr: [" not in blocks[x]]
+check(not both, f"every step's text (and its clicks) exists in English and French (missing {both[:4]})")
+named = set(re.findall(r'(?:learn|more): \[([^\]]*)\]', steps_js))
+names = {n.strip().strip('"') for group in named for n in group.split(",") if n.strip()}
+defined = set(re.findall(r"\n    (\w+): \{\n      icon:", concepts_js))
+check(names <= defined and len(defined) >= 15, f"every concept window a step names exists ({sorted(names - defined)}; {len(defined)} concepts)")
 print(f"PASS: tutorial ({checks[0]} checks: the nearest free table, fixed d20 and hands, refused moves, all {total} steps in order "
       f"(house turns scripted, Call choice, Blocker fight, React, steal both ways), keep playing)")
