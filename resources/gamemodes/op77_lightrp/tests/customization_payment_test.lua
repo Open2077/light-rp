@@ -78,6 +78,8 @@ local function rgb(v)if type(v)=="table"then return clone(v)end;return{r=tonumbe
 V.setPaint=function(id,p)world[id].paint={applied=true,primary=rgb(p.primary),secondary=rgb(p.secondary)};return true end
 V.resetPaint=function(id)world[id].paint={applied=false};return true end
 V.setLightsHue=function(id,hue)world[id].paint.lightsHue=hue;return true end
+V.getAppearance=function(id)return world[id] and (world[id].appearance or "")end
+V.setAppearance=function(id,name)world[id].appearance=name;return true end
 V.remove=function(id)world[id]=nil;for _,fn in ipairs(events.onVehicleRemoved or{})do fn(tostring(id),"test")end;return true end
 RegisterNetEvent=function(name,fn)rpc[name]=fn end
 CreateThread=function(fn) threads[#threads+1]=fn end;Wait=function() coroutine.yield() end

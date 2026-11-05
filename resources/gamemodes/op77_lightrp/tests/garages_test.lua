@@ -272,6 +272,8 @@ V.setLightsHue=function(vehicle,hue)
     local v=world[vehicle];if not v then return false end
     v.paint=v.paint or {applied=false};v.paint.lightsHue=hue;return true
 end
+V.getAppearance=function(vehicle) local v=world[vehicle];return v and (v.appearance or "") end
+V.setAppearance=function(vehicle,name) local v=world[vehicle];if not v then return false,"vehicle_not_found" end;v.appearance=name;return true end
 local ownedVehicle=nextVehicle
 local ownedHealth=world[ownedVehicle].health -- customization never repairs
 assert(not G.beginCustomization(2,first,"stolen","citycenter"),"other owner rejected")

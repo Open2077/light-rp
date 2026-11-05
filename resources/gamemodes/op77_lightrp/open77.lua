@@ -260,6 +260,7 @@ permissions {
     "local.events",
     -- server
     "world.vehicles",
+    "world.vehicles.appearance", -- Auto Studio factory trims: setAppearance to a curated variant, and its rollback (a restatement needs no grant)
     "world.props",          -- networked jerrycan, cleaned up with the action
     "state.write",          -- vehicle keys live in state bags
     "players.life.read",

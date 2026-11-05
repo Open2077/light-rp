@@ -9,7 +9,7 @@ local C, Db, E = LightRpGarages, LightRP.db, LightRpEvents
 local Garage = LightRP.module("garage", {})
 local rows, live, places, sessions, ownerBusy = {}, {}, {}, {}, {}
 local customizationPlaces = {} -- trusted workshop configuration, separate from storage garages
-local edits = {} -- player -> leased owned vehicle; preview paint is never durable
+local edits = {} -- player -> leased owned vehicle; Auto Studio previews are never durable
 local loaded, loading, sequence = false, false, 0
 local send, snapshot
 Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_owned_vehicles (
@@ -70,12 +70,39 @@ local function label(row)
     local entry = LightRP.vehicles.byKey[row.model]
     return entry and entry.label or row.model
 end
+-- Auto Studio (customization service below) ------------------------------------
+local function copy(value)
+    if type(value) ~= "table" then return value end
+    local out = {}; for k,v in pairs(value) do out[k] = copy(v) end; return out
+end
+local function look(value) return type(value) == "string" and value or "" end -- "" = the record's own appearance
+-- The confirmed-property mask: the getProperties() fields each Auto Studio category
+-- owns. While a lease is open, every write (autosave, removal, close, disconnect, the
+-- purchase of ANOTHER category) takes these fields from the last confirmed state,
+-- never from a preview. Paint and lights share the engine's one visual template, so
+-- both live in `paint`; the trim is the entity appearance variant.
+local OWNS = {
+    paint = function(to, from)
+        local src = from.paint or { applied = false }
+        to.paint = to.paint or {}
+        to.paint.applied, to.paint.primary, to.paint.secondary = src.applied, copy(src.primary), copy(src.secondary)
+    end,
+    lights = function(to, from)
+        to.paint = to.paint or { applied = false }
+        to.paint.lightsHue = from.paint and from.paint.lightsHue
+    end,
+    trim = function(to, from) to.appearance = from.appearance end,
+}
+local function maskConfirmed(props, confirmed, except)
+    for category, take in pairs(OWNS) do if category ~= except then take(props, confirmed) end end
+    return props
+end
 local function capture(row)
     if not row.vehicleId then return end
     local props = Open77.vehicles.getProperties(row.vehicleId)
     if type(props) == "table" then
-        -- Autosaves and removal recovery keep the last confirmed paint, never a preview.
-        if row.edit then props.paint = row.edit.savedPaint end
+        -- Autosaves and removal recovery keep the last confirmed look, never a preview.
+        if row.edit then props = maskConfirmed(copy(props), row.edit.saved) end
         row.props = props
         row.dirty = true
         row.revision = (row.revision or 0) + 1
@@ -329,16 +356,31 @@ local function canStore(playerId, row, place)
 end
 
 -- Trusted customization service. Durable IDs and ownership stay inside the garage.
-local function copy(value)
-    if type(value) ~= "table" then return value end
-    local out = {}; for k,v in pairs(value) do out[k] = copy(v) end; return out
-end
+local RECEIPTS = { -- ledger kind (VARCHAR 24) and note, per category
+    paint = { "vehicle_paint", "Body paint for vehicle " },
+    lights = { "vehicle_lights", "Light tint for vehicle " },
+    trim = { "vehicle_trim", "Factory trim for vehicle " },
+}
 local function applyPaint(id, paint)
     local ok, why
     if paint.applied then ok, why = Open77.vehicles.setPaint(id, { primary = paint.primary, secondary = paint.secondary })
     else ok, why = Open77.vehicles.resetPaint(id) end
     if not ok then return false, why or "Vehicle paint was refused." end
     return Open77.vehicles.setLightsHue(id, paint.lightsHue)
+end
+-- setAppearance only when the variant really changes: a restatement would reschedule
+-- the entity appearance on every viewer for nothing.
+local function applyTrim(id, appearance)
+    if look(appearance) == look(Open77.vehicles.getAppearance(id)) then return true end
+    local ok, why = Open77.vehicles.setAppearance(id, look(appearance) ~= "" and appearance or nil)
+    if not ok then return false, why or "Vehicle trim was refused." end
+    return true
+end
+-- Puts a complete look (paint, lights hue, trim) back on the car.
+local function applyLook(id, state)
+    local ok, why = applyPaint(id, state.paint or { applied = false })
+    if not ok then return false, why end
+    return applyTrim(id, state.appearance)
 end
 local function editGuard(playerId, row)
     local edit = row and row.edit
@@ -377,10 +419,12 @@ function Garage.beginCustomization(playerId, ownedId, token, garageId)
     if not ok then return nil, why end
     local props = Open77.vehicles.getProperties(row.vehicleId)
     if not props then return nil, "Could not read vehicle properties." end
-    local paint = copy(props.paint or { applied = false })
-    row.edit = { player = playerId, token = token, place = place, vehicleId = row.vehicleId, savedPaint = paint }
+    -- saved: the confirmed look (what the SQL row holds); shown: what the car wears now.
+    local saved = { paint = copy(props.paint or { applied = false }), appearance = props.appearance }
+    row.edit = { player = playerId, token = token, place = place, vehicleId = row.vehicleId, saved = saved, shown = copy(saved) }
     edits[playerId] = row
-    return { id = row.id, vehicleId = row.vehicleId, label = label(row), paint = copy(paint) }
+    return { id = row.id, vehicleId = row.vehicleId, label = label(row), model = row.model, paint = copy(saved.paint),
+        lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance) }
 end
 function Garage.customizationValid(playerId, token)
     local row = edits[playerId]
@@ -393,11 +437,11 @@ function Garage.endCustomization(playerId, token)
     if row.busy then row.edit.closeRequested = true; return false end
     local edit = row.edit
     if Open77.vehicles.get(edit.vehicleId) then
-        local ok, why = applyPaint(edit.vehicleId, edit.savedPaint)
+        local ok, why = applyLook(edit.vehicleId, edit.saved)
         if not ok then
             -- Keep the lease so periodic cleanup retries instead of persisting a preview.
             edit.closeRequested = true
-            LightRP.log("customization paint restore pending: %s", tostring(why)); return false
+            LightRP.log("customization restore pending: %s", tostring(why)); return false
         end
     end
     row.edit, edits[playerId] = nil, nil
@@ -412,29 +456,73 @@ local function samePaint(a,b)
     if a.applied ~= b.applied then return false end
     return not a.applied or (colorKey(a.primary) == colorKey(b.primary) and colorKey(a.secondary) == colorKey(b.secondary))
 end
+local function sameHue(a, b)
+    if a == nil or b == nil then return a == b end
+    local d = math.abs(a - b) % 1
+    return math.min(d, 1 - d) < 0.0005
+end
 function Garage.customizationPaint(playerId, token)
     local row = edits[playerId]
-    if row and row.edit.token == token then return copy(row.edit.savedPaint) end
+    if row and row.edit.token == token then return copy(row.edit.saved.paint) end
 end
-function Garage.customizePaint(playerId, token, paint, commit, payment)
+-- The confirmed look of every category, for the page.
+function Garage.customizationState(playerId, token)
+    local row = edits[playerId]
+    if not row or row.edit.token ~= token then return nil end
+    local saved = row.edit.saved
+    return { paint = copy(saved.paint), lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance) }
+end
+-- One category's change on top of what the car wears now; `edit.shown` follows.
+local function applyChange(edit, change)
+    local id, V = edit.vehicleId, Open77.vehicles
+    if change.category == "paint" then
+        local target = copy(change.paint); target.lightsHue = edit.shown.paint and edit.shown.paint.lightsHue
+        local ok, why = applyPaint(id, target)
+        if not ok then return false, why end
+        OWNS.paint(edit.shown, { paint = target })
+    elseif change.category == "lights" then
+        local ok, why
+        if change.color then ok, why = V.setHeadlightColor(id, change.color) else ok, why = V.clearLightsHue(id) end
+        if not ok then return false, why or "The light tint was refused." end
+        -- the engine keeps one hue: read back the value it actually stored
+        OWNS.lights(edit.shown, { paint = { lightsHue = change.color and V.getLightsHue(id) or nil } })
+    elseif change.category == "trim" then
+        local ok, why = applyTrim(id, change.appearance)
+        if not ok then return false, why end
+        OWNS.trim(edit.shown, { appearance = change.appearance })
+    else return false, "Unknown customization category." end
+    return true
+end
+-- Trusted callers only: `change` is { category = "paint", paint = {...} } |
+-- { category = "lights", color = "#RRGGBB"|nil } | { category = "trim", appearance = name|"" },
+-- already validated against the shared tables; `payment` carries the server quote.
+function Garage.customize(playerId, token, change, commit, payment)
     local row = edits[playerId]
     local valid, why = Garage.customizationValid(playerId, token)
     if not valid then return false, why end
+    if type(change) ~= "table" or not OWNS[change.category] then return false, "Unknown customization category." end
     if row.busy or ownerBusy[owner(row)] then return false, "Vehicle save is still running." end
-    local edit, key, operation = row.edit, owner(row), {}
+    local edit, key, operation, category = row.edit, owner(row), {}, change.category
     if commit then
         if not payment or (payment.method ~= "cash" and payment.method ~= "bank")
             or not LightRP.money or not LightRP.money.validAmount(payment.amount) then return false, "Choose a valid payment method." end
-        if samePaint(paint, edit.savedPaint) then return false, "Choose a different finish before purchasing." end
+        if category == "paint" and samePaint(change.paint, edit.saved.paint) then return false, "Choose a different finish before purchasing." end
+        if category == "lights" and not change.color and edit.saved.paint.lightsHue == nil then return false, "Choose a different light color before purchasing." end
+        if category == "trim" and look(change.appearance) == look(edit.saved.appearance) then return false, "Choose a different trim before purchasing." end
     end
     row.busy, ownerBusy[key] = true, operation
     local ran, ok, reason = pcall(function()
-        local target = copy(paint); target.lightsHue = edit.savedPaint.lightsHue
-        local applied, failure = applyPaint(edit.vehicleId, target)
+        local applied, failure = applyChange(edit, change)
         if not applied then return false, failure end
         if not commit then return true end
+        local hue = edit.shown.paint.lightsHue
+        if category == "lights" and change.color and type(hue) == "number" and sameHue(hue, edit.saved.paint.lightsHue) then
+            return false, "Choose a different light color before purchasing."
+        end
         local props = Open77.vehicles.getProperties(edit.vehicleId)
-        if not props then return false, "Could not read the new paint." end
+        if not props then return false, "Could not read the vehicle." end
+        -- Only the purchased category leaves the preview: every other field is confirmed.
+        props = maskConfirmed(copy(props), edit.saved, category)
         -- Save the complete canonical properties before acknowledging success.
         local encoded = json.encode(props)
         if not encoded then return false, "Could not encode vehicle properties." end
@@ -443,17 +531,20 @@ function Garage.customizePaint(playerId, token, paint, commit, payment)
             and { query = "UPDATE lightrp_owned_vehicles SET garage_id = ?, properties = ? WHERE id = ?",
                   values = { row.garage_id, encoded, row.id } }
             or { query = "UPDATE lightrp_owned_vehicles SET properties = ? WHERE id = ?", values = { encoded, row.id } }
+        local receipt = RECEIPTS[category]
         local saved, failure = LightRP.money.exchange(playerId, payment.method, -payment.amount, write,
             function()
-                edit.savedPaint = copy(props.paint)
-                row.props.paint = copy(props.paint) -- removal during SQL cannot overwrite the purchased finish
+                OWNS[category](edit.saved, props)
+                OWNS[category](row.props, props) -- removal during SQL cannot overwrite the purchase
                 row.dirty = true
-            end, "vehicle_paint", "Body paint for vehicle " .. row.id, "Auto Studio")
+            end, receipt[1], receipt[2] .. row.id, "Auto Studio")
         if not saved then return false, LightRP.money.explain(failure) end
         return true
     end)
     if not ran or not ok then
-        local restored, failure = applyPaint(edit.vehicleId, edit.savedPaint)
+        -- The failed category goes back to its confirmed value; other previews stay.
+        OWNS[category](edit.shown, edit.saved)
+        local restored, failure = applyLook(edit.vehicleId, edit.shown)
         if not restored then edit.closeRequested = true; LightRP.log("customization rollback pending: %s", tostring(failure)) end
     end
     capture(row) -- also captures damage received during an asynchronous SQL write
@@ -461,6 +552,9 @@ function Garage.customizePaint(playerId, token, paint, commit, payment)
     if ownerBusy[key] == operation then ownerBusy[key] = nil end
     if edit.closeRequested then Garage.endCustomization(playerId, token) end
     return ran and ok == true, ran and reason or "Vehicle customization failed."
+end
+function Garage.customizePaint(playerId, token, paint, commit, payment)
+    return Garage.customize(playerId, token, { category = "paint", paint = paint }, commit, payment)
 end
 
 -- `check` replaces the "at the garage marker" guard for a delivery that is not
