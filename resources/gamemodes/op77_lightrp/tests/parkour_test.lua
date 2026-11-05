@@ -171,6 +171,12 @@ local function startRun(player)
     check(frozen[player] == true and god[player] == true, "held and god mode during the countdown")
     local cd = lastTo(player, "countdown")
     check(cd and cd.goInMs == 3000, "countdown event")
+    -- a runner who walks off the line during the 3-2-1 is put back (and held again)
+    local start = positions[player]
+    frozen[player] = false
+    positions[player] = { x = start.x + 5, y = start.y, z = start.z }
+    step(250)
+    check(positions[player].x == start.x and frozen[player] == true, "walked off during the countdown: back on the line, held again")
     for _ = 1, 61 do step(50); if runs[player].phase == "running" then break end end
     check(runs[player].phase == "running" and frozen[player] == false, "GO: released")
     check(lastTo(player, "go"), "go event")

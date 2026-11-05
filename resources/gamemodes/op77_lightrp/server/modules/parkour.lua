@@ -494,13 +494,30 @@ local function begin(player, run)
         endRun(player, "start_failed")
         return
     end
-    local frozen = type(Open77.players.setFrozen) == "function" and pcall(Open77.players.setFrozen, player, true)
-    run.frozen = frozen and true or false
     run.phase = "countdown"
     send(player, { kind = "countdown", goInMs = C.countdownMs, attempt = run.attempt })
-    Wait(C.countdownMs)
+    -- Held on the line until GO. One freeze right after the teleport did not hold (LightRP
+    -- Testing 2026-11-06: the runner walked during the 3-2-1): like op77_race's holdRunner, it
+    -- is applied again every 200 ms, and a runner who still leaves the start orb is put back.
+    local goAt, reported, putBack = now() + C.countdownMs, false, 0
+    while now() < goAt do
+        if runs[player] ~= run or run.token ~= token then return end
+        if type(Open77.players.setFrozen) == "function" then
+            local called, ok, why = pcall(Open77.players.setFrozen, player, true)
+            if called and ok == true then run.frozen = true
+            elseif not reported then reported = true; log("parkour: freeze of %d refused: %s", player, tostring(called and why or ok)) end
+        end
+        local at = positionOf(player)
+        if at and P.distance(at, s) > math.max(1.5, (s.radius or 3) * 0.5) and putBack < 3 and not run.teleporting then
+            putBack = putBack + 1
+            teleport(player, run, s, s.heading)
+            if runs[player] ~= run or run.token ~= token then return end
+        end
+        Wait(200)
+    end
     if runs[player] ~= run or run.token ~= token then return end
-    if run.frozen then pcall(Open77.players.setFrozen, player, false); run.frozen = false end
+    if type(Open77.players.setFrozen) == "function" then pcall(Open77.players.setFrozen, player, false) end
+    run.frozen = false
     run.phase, run.startedAt = "running", now()
     run.prev, run.graceUntil = nil, now() + 500
     send(player, { kind = "go", attempt = run.attempt })

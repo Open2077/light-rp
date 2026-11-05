@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { on } from "@/bridge/open77";
+import { emit, on, sendAction } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
-import { Icon, Keycap, cx } from "@/design/components";
+import { Button, Icon, Keycap, cx } from "@/design/components";
 import { DIFFICULTY_LABEL, decodeSplits, formatDelta, formatTime, type ParkourEvent, type ParkourResult, type RunCourse } from "./model";
 import { startMusic, stopMusic } from "./music";
 import "./parkour.css";
@@ -146,7 +146,7 @@ export function ParkourHud() {
     {run.phase !== "finished" && <footer className="pk-keys">
       <span><Keycap size="sm">HOME</Keycap>RESTART</span>
       <span><Keycap size="sm">END</Keycap>LAST CHECKPOINT</span>
-      <span><Keycap size="sm">F1</Keycap>LEAVE</span>
+      <span><Keycap size="sm">DEL</Keycap>LEAVE</span>
     </footer>}
   </div>;
 }
@@ -159,6 +159,31 @@ function Countdown({ end }: { end: number }) {
   }, [end]);
   const text = left > 0 ? String(left) : "GO";
   return <div className="pk-count" aria-live="assertive"><b key={text} className={cx(left <= 0 && "is-go")}>{text}</b><small>GET READY</small></div>;
+}
+
+/* The result and DNF cards take the cursor (F1 is the player menu): RUN AGAIN, LEADERBOARD,
+   LEAVE are buttons; Enter runs again, Escape leaves. The focus goes back when the card does. */
+const again = () => emit(PAGE_EVENTS.parkour, { op: "restart" });
+const leave = () => emit(PAGE_EVENTS.parkour, { op: "leave" });
+function useCardFocus() {
+  useEffect(() => {
+    emit(PAGE_EVENTS.focus, { active: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (e.key === "Enter") { e.preventDefault(); again(); }
+      else if (e.key === "Escape" || e.key === "Delete") { e.preventDefault(); leave(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); emit(PAGE_EVENTS.focus, { active: false }); };
+  }, []);
+}
+function CardActions({ course, back, board }: { course: string; back: number; board?: boolean }) {
+  return <footer className="pk-result__actions">
+    <Button variant="primary" icon="play" onClick={again}>RUN AGAIN</Button>
+    {board && <Button variant="secondary" icon="trophy" onClick={() => sendAction({ type: "parkour.open", course })}>LEADERBOARD</Button>}
+    <Button variant="danger" icon="log-out" onClick={leave}>LEAVE</Button>
+    <span className="pk-result__back">BACK IN {back}s · <Keycap size="sm">ENTER</Keycap> AGAIN · <Keycap size="sm">ESC</Keycap> LEAVE</span>
+  </footer>;
 }
 
 function useHold(at?: number) {
@@ -177,7 +202,8 @@ function ResultCard({ run }: { run: RunState }) {
   const before = run.best;
   const back = useHold(run.finishedAt);
   const vsPrevious = r?.previous ? time - r.previous.timeMs : undefined;
-  return <section className="pk-result" role="status">
+  useCardFocus();
+  return <section className="pk-result o77-interactive" role="dialog" aria-label="Run result">
     <header>
       <span className="pk-result__tag"><Icon name="flag" size={14} />{r?.test ? "STAFF TEST · NOT RECORDED" : "FINISH"}</span>
       <b className="pk-result__time">{formatTime(time)}</b>
@@ -210,28 +236,21 @@ function ResultCard({ run }: { run: RunState }) {
         {r?.test && <p className="pk-result__note">A staff test of the draft: nothing is written on the board.</p>}
       </div>
     </div>
-    <footer>
-      <span><Keycap size="sm">HOME</Keycap>RUN AGAIN</span>
-      <span><Keycap size="sm">F1</Keycap>LEAVE</span>
-      <span className="pk-result__back">BACK IN {back}s · F1 &gt; PARKOUR FOR THE FULL BOARD</span>
-    </footer>
+    <CardActions course={run.course.id} back={back} board={!run.course.test} />
   </section>;
 }
 
 const DNF_TEXT: Record<string, string> = { time: "Time limit reached.", teleported: "You left the course.", too_fast: "Too fast for a runner." };
 function DnfCard({ run }: { run: RunState }) {
   const back = useHold(run.finishedAt);
-  return <section className="pk-result is-dnf" role="status">
+  useCardFocus();
+  return <section className="pk-result is-dnf o77-interactive" role="dialog" aria-label="Did not finish">
     <header>
       <span className="pk-result__tag"><Icon name="x" size={14} />DID NOT FINISH</span>
       <b className="pk-result__time">DNF</b>
       <span className="pk-result__badges"><i>{run.dnf?.text ?? DNF_TEXT[run.dnf?.reason ?? ""] ?? "Run over."}</i></span>
     </header>
     <p className="pk-result__note">Checkpoints passed: {run.dnf?.checkpoint ?? 0} / {run.course.checkpoints.length}</p>
-    <footer>
-      <span><Keycap size="sm">HOME</Keycap>RUN AGAIN</span>
-      <span><Keycap size="sm">F1</Keycap>LEAVE</span>
-      <span className="pk-result__back">BACK IN {back}s</span>
-    </footer>
+    <CardActions course={run.course.id} back={back} />
   </section>;
 }
