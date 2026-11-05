@@ -23,7 +23,7 @@ export function manekiMock(fire: Fire, params: URLSearchParams) {
           : "");
         fire(PAGE_EVENTS.state, { maneki: { found: found.size, total: slots.length } });
         fire(PAGE_EVENTS.dialog, { kind: "maneki", slots, found: found.size, total: slots.length, reward: 500,
-          milestones: [{ count: 10, cash: 5000 }, { count: 25, cash: 15000 }, { count: 50, cash: 40000 }], completeMin: 10,
+          milestones: [{ count: 5, cash: 0, items: [{ name: "tcg_booster_wnc", count: 1, label: "TCG Booster · Night City" }] }, { count: 10, cash: 2500, items: [{ name: "tcg_booster_wnc", count: 2, label: "TCG Booster · Night City" }] }, { count: 25, cash: 7500, items: [{ name: "tcg_booster_beta", count: 2, label: "TCG Booster · Beta" }] }], completeMin: 10,
           title: { id: "lucky_cat", label: "Lucky Cat" }, intro: params.get("intro") === "1" || undefined });
       }
     },

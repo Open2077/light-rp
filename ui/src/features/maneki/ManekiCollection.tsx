@@ -101,7 +101,8 @@ function Collection({ payload, onClose }: { payload: ManekiDialogPayload; onClos
       </div>
       <div className="maneki-stat"><Icon name="coins" size={15} /><span><small>EVERY FIND</small><b>+{fmt(payload.reward)}</b></span></div>
       <div className={cx("maneki-stat", !next && "is-done")}><Icon name="badge-check" size={15} />
-        <span><small>NEXT MILESTONE</small><b>{next ? `${next.count} FOUND · +${fmt(next.cash)}` : "ALL PAID"}</b></span></div>
+        <span><small>{next ? `NEXT MILESTONE · ${next.count} FOUND` : "NEXT MILESTONE"}</small>
+          <b>{next ? [next.cash > 0 ? `+${fmt(next.cash)}` : "", milestoneItems(next) ? `+${milestoneItems(next)}` : ""].filter(Boolean).join(" ") : "ALL PAID"}</b></span></div>
       {payload.title && <div className={cx("maneki-stat", complete && titleReady && "is-done")}><Icon name="crown" size={15} />
         <span><small>TITLE · {payload.title.label.toUpperCase()}</small><b>{complete && titleReady ? "EARNED" : titleReady ? "FIND THEM ALL" : `FROM ${payload.completeMin} CATS`}</b></span></div>}
     </section>
@@ -155,11 +156,20 @@ function Collection({ payload, onClose }: { payload: ManekiDialogPayload; onClos
   </div>;
 }
 
+/** A milestone's TCG product, short: "2 BOOSTERS", "1 DISPLAY + 3 BOOSTERS" ("" for none). */
+function milestoneItems(m: { items?: Array<{ name: string; count: number }> }): string {
+  const parts = (m.items ?? []).map((it) => {
+    const kind = it.name.includes("display") ? "DISPLAY" : "BOOSTER";
+    return `${it.count} ${kind}${it.count > 1 ? "S" : ""}`;
+  });
+  return parts.join(" + ");
+}
+
 function Intro({ reward, first, title, onDone }: { reward: string; first: boolean; title?: string; onDone(): void }) {
   const steps: Array<{ icon: "eye" | "hand" | "coins" | "crown" | "map-pin"; head: string; body: string }> = [
     { icon: "eye", head: "Hidden in Night City", body: "Lucky cats are tucked away all over the city: on counters, shelves, ledges, rooftops. No map marker, no blip, no hint. You find them by looking." },
     { icon: "hand", head: "Take it or shoot it", body: "Walk up to a cat and press E, or hit it with a shot from a distance. Each cat counts once for your character, and only you see the ones you still have to find." },
-    { icon: "coins", head: "Paid on the spot", body: `Every cat pays ${reward} into your bank. Milestones pay more along the way.` },
+    { icon: "coins", head: "Paid on the spot", body: `Every cat pays ${reward} into your bank. Milestones pay more along the way, with Cyberpunk TCG boosters and displays.` },
     { icon: "crown", head: "The whole set", body: title ? `Find every cat in the city to earn the title "${title}".` : "Find every cat in the city to complete the collection." },
     { icon: "map-pin", head: "Your collection, here", body: "F1 > Maneki-neko. Click a cat you found to see on the city map where you found it." },
   ];
