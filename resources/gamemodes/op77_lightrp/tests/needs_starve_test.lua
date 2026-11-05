@@ -81,6 +81,16 @@ life[3] = "alive"
 starve()
 assert(chars[3].food == 25 and chars[3].drink == 25, "respawn floor")
 assert(Needs.starving(3) == nil, "no longer starving after the floor")
+-- the real respawn goes dead -> recovering (grace) -> alive: the floor still comes
+chars[3].food, chars[3].drink = 0, 0
+life[3] = "dead"; starve(); life[3] = "recovering"; starve()
+assert(chars[3].food == 25 and chars[3].drink == 25, "respawn floor through the recovering grace")
+life[3] = "alive"; starve()
+assert(chars[3].food == 25 and chars[3].drink == 25, "applied once")
+-- the hospital applies it at once
+chars[3].food, chars[3].drink = 0, 3
+assert(Needs.afterRespawn(3) and chars[3].food == 25 and chars[3].drink == 25, "afterRespawn raises both to the floor")
+assert(Needs.afterRespawn(3) == false, "nothing to raise: no-op")
 -- a floor never lowers anything
 chars[1].food, chars[1].drink = 10, 90
 life[1] = "dead"; starve(); life[1] = "alive"; starve()

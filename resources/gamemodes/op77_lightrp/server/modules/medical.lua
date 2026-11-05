@@ -327,6 +327,8 @@ local function hospital(player)
   return false,"Hospital transfer was refused: "..tostring(why)
  end
  if r.attempt then M.attempts[r.attempt]=nil end
+ -- Out of the clinic fed and watered up to the floor (server/modules/needs.lua), not at 0 / 0.
+ if LightRP.needs and LightRP.needs.afterRespawn then pcall(LightRP.needs.afterRespawn,player)end
  -- The clinic's bill (server/modules/economy_sinks.lua): never on a revive, never below zero.
  if LightRP.sinks then CreateThread(function()LightRP.sinks.chargeHospital(player)end)end
  M.push(player);return true

@@ -344,7 +344,8 @@ threads = {}
 dofile("server/modules/needs.lua")
 local needsLoop = table.remove(threads, 1)
 local starveLoop = table.remove(threads, 1)
-assert(needsLoop and starveLoop and #threads == 0, "needs.lua starts its tick and starve threads")
+local fedLoop = table.remove(threads, 1)
+assert(needsLoop and starveLoop and fedLoop and #threads == 0, "needs.lua starts its tick, starve and well-fed threads")
 -- run exactly one tick: Wait raises once the first tick is done
 local ticks = 0
 Wait = function() ticks = ticks + 1; if ticks > 1 then error("stop") end end

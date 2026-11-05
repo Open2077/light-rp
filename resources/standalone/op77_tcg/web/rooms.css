@@ -63,3 +63,5 @@
 .rm-badge b { color: #fcee0a; font-size: 16px; letter-spacing: .24em; }
 .rm-badge .rm-n { color: rgba(255, 255, 255, .6); }
 .hidden.rm-panel, .hidden.rm-badge { display: none; }
+/* the binder (its tabs) and the duel HUD own the top of the screen: the badge steps aside while they show */
+body:has(#app:not(.hidden)) .rm-badge, body:has(#duelHud:not(.hidden)) .rm-badge { display: none; }
