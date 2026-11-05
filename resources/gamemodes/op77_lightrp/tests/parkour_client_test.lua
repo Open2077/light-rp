@@ -85,8 +85,8 @@ local course = { id = "c1", name = "C1", difficulty = "hard", revision = 1,
     start = { x = 0, y = 0, z = 10, radius = 3, heading = 0 },
     checkpoints = { { x = 20, y = 0, z = 10, radius = 3 }, { x = 40, y = 0, z = 10, radius = 3 } },
     finish = { x = 60, y = 0, z = 10, radius = 3 } }
-nets["op77_lightrp:parkour"]({ kind = "run", phase = "loading", course = course, attempt = 1, music = { file = "audio/x.webm", volume = 0.15 } })
-check(lastPage("lightrp:ui:parkour", "run").music.volume == 0.15, "the run (and its music) reaches the page")
+nets["op77_lightrp:parkour"]({ kind = "run", phase = "loading", course = course, attempt = 1, music = { file = "audio/x.webm", volume = 0.05 } })
+check(lastPage("lightrp:ui:parkour", "run").music.volume == 0.05, "the run (and its music) reaches the page")
 check(lastPage("lightrp:ui:dialog:close").kind == "parkour", "the card closes when the run starts")
 -- next (core + trigger + beam) + later (core) + finish (core + beam) = 6
 check(count(markers) == 6, "run orbs: " .. count(markers))
