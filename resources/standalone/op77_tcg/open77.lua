@@ -50,6 +50,8 @@ permissions {
     "audio.play",
     -- client: the game's own interface sounds for the openings (Open77.sfx.play2d)
     "world.effects",
+    -- client: the duel's focus mode (Open77.hud.setCinematic: the game's HUD and other resources' pages hidden at the table)
+    "ui.vanilla.hud",
     -- client: the opener's over-the-shoulder camera on the hand / the table during an opening
     "camera.script",
     -- server: duels at a TCG table (players sit down on their chair)
