@@ -926,6 +926,41 @@ local function sit(player)
     if m.phase == "seating" and other(m, seat).seated then startSetup(m) else broadcast(m) end
 end
 
+-- A seated player pushed by someone walking into them: clients before the 2026-11-05 runtime fix read
+-- it as moving and stood them up. The seat takes them back at once, in place: only while they are
+-- still at their chair (RESUME_RADIUS), at most RESUME_MAX times in RESUME_WINDOW_MS.
+local RESUME_RADIUS, RESUME_MAX, RESUME_WINDOW_MS, RESUME_DELAY_MS = 1.0, 3, 30000, 400
+local seatResumes = {}
+AddEventHandler("onPlayerAnimationChanged", function(pid, value)
+    pid = tonumber(pid)
+    local m = pid and byPlayer[pid]
+    local seat = m and seatOf(m, pid)
+    if not seat or not seat.seated or not seat.playback or m.over then return end
+    if type(value) == "string" then
+        local decoder = (type(json) == "table" and json.decode) or (Open77.json and Open77.json.decode)
+        local ok, decoded = pcall(decoder, value)
+        if not ok then return end
+        value = decoded
+    end
+    if type(value) ~= "table" or value.active ~= false or value.playbackId ~= seat.playback then return end
+    local reason = tostring(value.reason or "")
+    if not (reason:find("interrupt", 1, true) or reason:find("moving", 1, true) or reason:find("grounded", 1, true)) then return end
+    seat.playback, seat.sequence = nil, nil
+    local now, list = S.now(), {}
+    for _, at in ipairs(seatResumes[pid] or {}) do if now - at < RESUME_WINDOW_MS then list[#list + 1] = at end end
+    if #list >= RESUME_MAX then seatResumes[pid] = list; return S.log("duel %d: %s stood up (%s), not seated again: %d resumes already", m.id, seat.name, reason, #list) end
+    list[#list + 1] = now
+    seatResumes[pid] = list
+    CreateThread(function()
+        Wait(RESUME_DELAY_MS)
+        if byPlayer[pid] ~= m or m.over or seatOf(m, pid) ~= seat or seat.playback then return end
+        local here, c = S.positionOf(pid), seat.pose.chair
+        if not here or S.dist(here, c) > RESUME_RADIUS then return end
+        local ok, how = trySit(seat)
+        S.log("duel %d: %s pushed off the chair (%s), seated again: %s", m.id, seat.name, reason, ok and how or ("refused: " .. tostring(how)))
+    end)
+end)
+
 local function leave(player, reason)
     local m = byPlayer[player]
     local seat = m and seatOf(m, player)

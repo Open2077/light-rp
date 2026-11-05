@@ -120,6 +120,13 @@ check(str(last("match", 1)["phase"]) == "seating" and last("match", 1)["seats"][
 refuse_profiles.clear()
 fire("op77_tcg:sit", 2)
 check(animations[-1][:2] == (2, "amb_d7c499_sit_chair_table_keybo"), "the table profile when the runtime has it")
+# Pushed by someone walking into them: the seat takes the player back in place (not a walk away).
+pb2, n0 = "pb-%d" % len(animations), len(animations)
+anim_changed = L.eval('handlers["onPlayerAnimationChanged"]')
+anim_changed(2, L.table_from({"active": False, "playbackId": pb2, "reason": "interrupted"})); L.eval("__pump")(6)
+check(len(animations) == n0 + 1 and animations[-1][:2] == (2, "amb_d7c499_sit_chair_table_keybo"), "pushed off the chair: seated again in place")
+anim_changed(2, L.table_from({"active": False, "playbackId": "pb-other", "reason": "interrupted"})); L.eval("__pump")(6)
+check(len(animations) == n0 + 1, "another playback's end changes nothing")
 m = last("match", 1)
 check(str(m["phase"]) == "choose", "both seated: d20 roll, the winner chooses")
 r1, r2 = int(m["seats"][1]["roll"]), int(m["seats"][2]["roll"])
