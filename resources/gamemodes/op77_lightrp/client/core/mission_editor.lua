@@ -488,6 +488,43 @@ local function buildAction(action, extra)
     send(payload)
 end
 
+-- Every authored mission on the map (the editor's "Show on the map"): one pin each, styled by kind,
+-- through op77_lightrp's own points (passive: no E prompt), so the game map, the 3D map and the GPS
+-- all show them. They stay after the editor closes, until turned off.
+local PIN_STYLE = {
+    boss  = { icon = "skull",     color = "#F75049", label = "World boss" },
+    gig   = { icon = "briefcase", color = "#FFCC00", label = "Fixer gig" },
+    board = { icon = "swords",    color = "#00F0FF", label = "Mission board" },
+    off   = { icon = "circle-off", color = "#8A8F98", label = "Disabled mission" },
+}
+local pins = {} -- mission id -> blip handle (or true)
+local function clearPins()
+    if not LightRpInteract then pins = {}; return end
+    for id in pairs(pins) do LightRpInteract.setLocal("editorpin." .. id, nil) end
+    pins = {}
+end
+local function showPins(list)
+    clearPins()
+    if not LightRpInteract or type(list) ~= "table" then return 0 end
+    local n = 0
+    for _, q in ipairs(list) do
+        local x, y, z = tonumber(q.x), tonumber(q.y), tonumber(q.z)
+        if type(q.id) == "string" and q.id ~= "" and x and y and z and n < 200 then
+            local style = PIN_STYLE[q.kind] or PIN_STYLE.board
+            local title = tostring(q.title or "Mission"):sub(1, 60)
+            local blip = LightRpInteract.setLocal("editorpin." .. q.id, {
+                position = { x = x, y = y, z = z }, radius = 0.5, passive = true, prompt = title,
+                blip = { title = title, icon = style.icon, color = style.color, routable = true, mapCategory = "mission",
+                    description = style.label .. (type(q.location) == "string" and q.location ~= "" and (" · " .. q.location:sub(1, 40)) or "") },
+            })
+            pins[q.id] = blip or true
+            n = n + 1
+        end
+    end
+    return n
+end
+Editor.showPins, Editor.clearPins = showPins, clearPins
+
 function Editor.bind(page)
     page:on(PAGE, function(p)
         if type(p) ~= "table" or type(p.operation) ~= "string" then return end
@@ -503,6 +540,13 @@ function Editor.bind(page)
         elseif p.operation == "capture" then
             local value, why = capture(p.mode == "aim" and "aim" or "feet")
             send({ kind = "response", request = p.request, ok = value ~= nil, data = value, error = why })
+        elseif p.operation == "pins" then
+            local n = p.on == true and showPins(p.pins) or (clearPins() or 0)
+            local tracked
+            if p.on == true and type(p.track) == "string" and pins[p.track] and pins[p.track] ~= true and LightRpInteract.trackBlip then
+                tracked = LightRpInteract.trackBlip(pins[p.track]) == true
+            end
+            send({ kind = "response", request = p.request, ok = true, data = { shown = n, tracked = tracked } })
         elseif p.operation == "close" then
             cleanup()
         else forward(p) end

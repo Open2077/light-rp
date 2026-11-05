@@ -32,6 +32,7 @@ const coords = (p: Point) => `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixe
 export function MissionEditor() {
   const [opened, setOpened] = useState(false), [missions, setMissions] = useState<Mission[]>([]), [ready, setReady] = useState(false);
   const [fixers, setFixers] = useState<{ id: string; name: string }[]>([]);
+  const [mapPins, setMapPins] = useState(false);
   // the list fills mission by mission (`mission` events after `list`)
   const [loading, setLoading] = useState<{ received: number; total: number } | null>(null);
   const [draft, setDraft] = useState<Mission>(), [original, setOriginal] = useState("");
@@ -287,6 +288,20 @@ export function MissionEditor() {
   const coordinateRows = (prefix: string, p: Point, change: (p: Point) => void): Entry[] =>
     (["x", "y", "z"] as const).map(axis => numberEntry(`${prefix}:${axis}`, axis.toUpperCase(), p[axis], v => change({ ...p, [axis]: v }), -100000, 100000));
 
+  // Every mission on the map: where its fight is (the perimeter's centre, a polygon's centroid, else the board).
+  const pinOf = (m: Mission) => {
+    const z = m.perimeter;
+    const c = z && z.shape === "poly" && z.points.length
+      ? z.points.reduce((s, q) => ({ x: s.x + q.x / z.points.length, y: s.y + q.y / z.points.length, z: s.z + q.z / z.points.length }), { x: 0, y: 0, z: 0 })
+      : z && z.center ? z.center : m.point;
+    const kind = !m.enabled ? "off" : m.worldBoss.enabled ? "boss" : m.fixer.enabled ? "gig" : "board";
+    return { id: m.id, title: m.title, location: m.location, kind, x: c.x, y: c.y, z: c.z };
+  };
+  const showPins = async (on: boolean, track?: string) => {
+    const r = await request<{ shown: number; tracked?: boolean }>("pins", { on, pins: on ? missions.filter(m => m.id).map(pinOf) : [], track });
+    setMapPins(on);
+    return r;
+  };
   let entries: Entry[] = [], subtitle = "MISSIONS";
   const issues = draft ? problems(draft) : [];
   if (top.kind === "list") {
@@ -296,6 +311,10 @@ export function MissionEditor() {
         description: `${TYPE_LABEL[m.type]} · ${m.spawns.length} spawn point(s) · ${m.checkpoints.length} checkpoint(s)${m.type === "waves" ? ` · ${m.waves.length} wave(s)` : ""} · revision ${m.revision}` })),
       ...(loading ? [item("loading", `Loading missions ${loading.received}/${loading.total}`, undefined, { disabled: true, icon: "activity" })] : []),
       ...(!missions.length && !loading ? [item("empty", ready ? "No authored mission yet" : busy ? "Waiting..." : "Storage unavailable", undefined, { disabled: true })] : []), { separator: true },
+      item("mapPins", "Show every mission on the map", () => { void run(async () => { await showPins(!mapPins); }); },
+        { type: "checkbox", checked: mapPins, icon: "map-pin", disabled: busy || !missions.length,
+          change: patch => { void run(async () => { await showPins(patch.checked === true); }); },
+          description: "Pins on the map and the 3D map: red = world boss, gold = fixer gig, cyan = board mission, grey = disabled. They stay after the editor closes, until you turn them off here." }),
       item("refresh", "Refresh", () => { void run(refresh); }, { icon: "activity", disabled: busy }), item("close", "Close editor", close, { icon: "x", disabled: busy })];
   } else if (draft) {
     subtitle = draft.title;
@@ -326,6 +345,8 @@ export function MissionEditor() {
           item("save", unconfirmed === "save" ? "Check publication" : "Publish mission", publish, { icon: "check", disabled: busy || unconfirmed === "delete" || issues.length > 0 || !ready,
             description: issues[0] ?? "Validate and save. An enabled mission gets its board in the city at once." }),
           submenu("test", "Test now", { kind: "test" }, { icon: "zap", disabled: busy || !m.id || changed, description: !m.id ? "Publish once to test." : changed ? "Publish your changes first: the test runs the published version." : "Launch it alone now (no payout, no unlock). /mission leave ends it." }),
+          item("gps", "Show on the map and set the GPS", () => { void run(async () => { const r = await showPins(true, m.id); if (!r.tracked) throw new Error("Publish the mission first: only saved missions are pinned."); }); },
+            { icon: "map-pin", disabled: busy || !m.id, description: !m.id ? "Publish once to pin it." : "Pins every mission on the map (see the list) and routes your GPS to this one." }),
           item("duplicate", "Duplicate mission", () => { void edit(m, true); }, { disabled: readOnly, description: "An independent draft from these settings." }),
           submenu("delete", "Delete mission", { kind: "delete" }, { danger: true, disabled: readOnly || !m.id, description: "Remove its board. Runs in progress finish normally." }),
         ];
