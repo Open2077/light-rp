@@ -30,7 +30,7 @@ return {
   "GetQuestsSystem", "GetResourceDepot", "GetScriptableSystemsContainer", "GetSettingsSystem", "GetSimTime",
   "GetSpatialQueriesSystem", "GetStatPoolsSystem", "GetStatsSystem", "GetStatusEffectSystem", "GetTargetingSystem",
   "GetTeleportationFacility", "GetTimeSystem", "GetTransactionSystem", "GetWorkspotSystem", "NameToString",
-  "Open77TitanBridgePlaceCarriedNpc", "TSQ_ALL;", "TSQ_NPC;",
+  "TSQ_ALL;", "TSQ_NPC;",
  },
  functions = { "GetLocalizedTextByKey" },
 }

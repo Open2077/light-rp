@@ -81,7 +81,15 @@ local function encode(value)
     return tostring(value)
 end
 
-local rttiType = function() return {} end
+-- What the client's object model answers to the probe's `rtti.type("GameInstance")`: a type, the permission refusal
+-- (`nil, reason`, as the host does when rtti.native was not granted) or any other failure.
+local rttiType = function()
+    if current.rtti == "denied" then return nil, "permission_denied:rtti.native" end
+    if current.rtti == "broken" then return nil, "type_not_found" end
+    return {}
+end
+-- The platform's carry placement API: only its presence matters to the client resource, which never calls it.
+local placeCarried = function() return true end
 Open77 = {
     time = { monotonic = function() return now end },
     log = {
@@ -91,12 +99,9 @@ Open77 = {
     players = { setLocalPuppetVisible = function(visible) puppet[#puppet + 1] = visible; return puppetResult end },
     rtti = {
         type = rttiType,
-        global = function(name)
-            if current.rtti == "missing" then error("function_not_found:" .. name, 0) end
-            if current.rtti == "denied" then error("permission_denied:rtti.native", 0) end
-            return function() end
-        end,
+        global = function() return function() end end,
     },
+    npcs = { placeCarried = placeCarried },
     scheduler = {
         reserve = function(microseconds)
             order[#order + 1] = "reserve"
@@ -160,8 +165,9 @@ local T = Open77Titans
 local V = T.protocol
 local MSG = T.event.message
 
--- Starts the resource. `breaks` names what is made to fail: catalog = false, rtti = "unavailable" | "missing" |
--- "denied", reserve = false, controller = "missing" | "failed", bridge = "failed", commands = false, keys = false; and
+-- Starts the resource. `breaks` names what is made to fail: catalog = false, rtti = "unavailable" | "broken" |
+-- "denied", placement = false (no Open77.npcs.placeCarried), reserve = false, controller = "missing" | "failed",
+-- bridge = "failed", commands = false, keys = false; and
 -- `hold = true` loads the resource without starting it (onClientResourceStart is the test's to fire).
 local function boot(breaks)
     for _, tbl in ipairs({ handlers, sent, logs, threads, ticks, puppet, commands, keymaps, order, frames, menus, actions, reserved, polled }) do clear(tbl) end
@@ -170,6 +176,7 @@ local function boot(breaks)
     now = now + 100
     if current.catalog == false then Open77TitanCatalog = nil else Open77TitanCatalog = catalog end
     Open77.rtti.type = current.rtti ~= "unavailable" and rttiType or nil
+    Open77.npcs.placeCarried = current.placement ~= false and placeCarried or nil
     package.loaded["controller.init"], package.loaded["controller.open77_titan_bridge"] = nil, nil
     package.preload["controller.init"] = function()
         order[#order + 1] = "controller"
@@ -271,7 +278,8 @@ local FAILURES = {
     { code = "bridge_missing", breaks = { catalog = false }, reserved = 0 },
     { code = "rtti_unavailable", breaks = { rtti = "unavailable" }, reserved = 0 },
     { code = "rtti_denied", breaks = { rtti = "denied" }, reserved = 0 },
-    { code = "bridge_missing", breaks = { rtti = "missing" }, reserved = 0 },
+    { code = "rtti_unavailable", breaks = { rtti = "broken" }, reserved = 0 },
+    { code = "bridge_missing", breaks = { placement = false }, reserved = 0 },
     { code = "scheduler_denied", breaks = { reserve = false }, reserved = 1 },
     { code = "controller_missing", breaks = { controller = "missing" }, reserved = 1 },
     { code = "controller_failed", breaks = { controller = "failed" }, reserved = 1 },
@@ -859,13 +867,11 @@ local rows, snapshots, vehicleLookups, npcCalls, npcFailure = {}, { vehicle = {}
 -- The server-owned NPC set: vanilla population peds are in no row, and every row is a canonical NPC's snapshot (its Open77 `id`,
 -- the REDengine id as `engineEntity`, and the replicated readiness). There is no world scan at all: Open77.world is not even
 -- defined here, so a client that still asked for one would fail every test below.
-Open77.npcs = {
-    all = function(...)
-        npcCalls[#npcCalls + 1] = select("#", ...)
-        if npcFailure then return nil, npcFailure end
-        return rows
-    end,
-}
+Open77.npcs.all = function(...)
+    npcCalls[#npcCalls + 1] = select("#", ...)
+    if npcFailure then return nil, npcFailure end
+    return rows
+end
 Open77.vehicles = {
     fromEntity = function(entity)
         vehicleLookups[#vehicleLookups + 1] = entity

@@ -48,14 +48,14 @@ local function wrap180(a) return (a + 180.0) % 360.0 - 180.0 end
 local function round(v, places) local m = 10 ^ places return floor(v * m + 0.5) / m end
 local function dist(ax, ay, az, b) return sqrt((ax - b[1]) ^ 2 + (ay - b[2]) ^ 2 + (az - b[3]) ^ 2) end
 
--- Where a held person's whole body is put before its throw: the bridge's native places the canonical body's own root,
--- and only while this Titan's HOLD claim lives (it refuses everything else without changing anything). The
--- controller's own ways - the AI teleport order and the teleportation facility - only queue a request that a puppet
--- never obeys, so neither is used, as a fallback or otherwise. True only when the native took the placement: a native
--- that is missing, raises or refuses places nothing.
+-- Where a held person's whole body is put before its throw: the platform's client API (Open77.npcs.placeCarried) places
+-- the canonical body's own root, and only while this client's HOLD claim lives (it refuses everything else without
+-- changing anything). The controller's own ways - the AI teleport order and the teleportation facility - only queue a
+-- request that a puppet never obeys, so neither is used, as a fallback or otherwise. True only when the API took the
+-- placement: an API that is missing, raises or refuses places nothing.
 local function place_root(ent, x, y, z, yaw)
   local ok, placed = pcall(function()
-    return Game.Open77TitanBridgePlaceCarriedNpc(ent:GetEntityID(), Vector4.new(x, y, z, 1.0), yaw)
+    return Open77.npcs.placeCarried(ent:GetEntityID(), { x = x, y = y, z = z }, yaw)
   end)
   return ok and placed == true
 end
@@ -66,9 +66,10 @@ local function clear_rig(rig)
   return (pcall(function() rig:SetLocalTransform(Vector4.new(0.0, 0.0, 0.0, 1.0), Quaternion.new(0.0, 0.0, 0.0, 1.0)) end))
 end
 
--- A person's own mover (`moveComponent`) rewrites its root every frame while it is enabled, and the native above refuses
--- to place a root it would overwrite. These turn the body's enabled movers off through the engine's own Toggle (never by
--- writing isEnabled) and put back exactly the ones they turned off; a mover that was already off is never touched.
+-- A person's own mover (`moveComponent`) rewrites its root every frame while it is enabled, and the placement API above
+-- refuses to place a root it would overwrite. These turn the body's enabled movers off through the engine's own Toggle
+-- (never by writing isEnabled) and put back exactly the ones they turned off; a mover that was already off is never
+-- touched.
 -- The body's enabled movers, or nil when its components cannot be read (a component that cannot be told from a mover
 -- counts as unreadable).
 local function enabled_movers(ent)
@@ -770,12 +771,12 @@ function M.new(ctx)
   -- on its root is the stale held one. Both are awaited against what the engine READS BACK (never a sleep), together for
   -- at most PLACE_WAIT from the moment the placement was asked for, with the clip pinned at the release meanwhile; if
   -- either does not arrive nothing is thrown and the body is put back - the wait is never faked.
-  -- The root: the bridge's native places the canonical body's own root ONCE (the claim must still be live; nothing is
-  -- retried through the controller's own teleports), with the offset kept, until the root READ BACK is within
-  -- PLACE_NEAR of the place it was asked for. That place and its yaw are read once, when the native is asked
-  -- (c.placing), and are all the wait compares with, publishes as the hold and throws from: the hand keeps moving
-  -- while the root is awaited, so a later read of Cr.hold149 is another place. A native that refuses the placement (or
-  -- is missing) cancels the throw at once: the body is never released from where it was taken.
+  -- The root: the platform's placement API (place_root) places the canonical body's own root ONCE (the claim must
+  -- still be live; nothing is retried through the controller's own teleports), with the offset kept, until the root
+  -- READ BACK is within PLACE_NEAR of the place it was asked for. That place and its yaw are read once, when the API
+  -- is asked (c.placing), and are all the wait compares with, publishes as the hold and throws from: the hand keeps
+  -- moving while the root is awaited, so a later read of Cr.hold149 is another place. An API that refuses the
+  -- placement (or is missing) cancels the throw at once: the body is never released from where it was taken.
   -- The body's own mover is turned off first and stays off (c.movers) through the whole throw, so that it cannot
   -- overwrite the placed root before the queued ragdoll and impulse run; abort and landing put it back.
   -- Returns true when the root stands at the requested place, false while it does not (yet), nil when the placement was refused.
@@ -891,7 +892,7 @@ function M.new(ctx)
         local waited = c.placing ~= nil
         local placed = self.place_body(c)
         if placed == nil then
-          ctx.diag("carry.place.refused", "the Titan bridge did not place a held person's body before its throw (its mover could not be turned off, the placement was refused, or its native is missing): the throw is cancelled and the body put back")
+          ctx.diag("carry.place.refused", "the Titan bridge did not place a held person's body before its throw (its mover could not be turned off, the placement was refused, or the client's Open77.npcs.placeCarried is missing): the throw is cancelled and the body put back")
           return self.abort(c, "refused")
         end
         if not placed then

@@ -28,8 +28,8 @@ local RESOURCE = GetCurrentResourceName()
 -- What to fix, per failure code. These are the only strings that describe a setup problem; the code, never free text,
 -- travels to the server.
 local ADVICE = {
-    bridge_missing = "The Open77 Titan carry native (Open77TitanBridgePlaceCarriedNpc) is not registered. This client needs "
-        .. "the Open77 build that includes it (client/redscript/Open77TitanBridge.reds); reinstall the client and restart the game.",
+    bridge_missing = "The client has no Open77.npcs.placeCarried (an Open77 build older than the carry placement API): a held "
+        .. "person cannot be placed before its throw. Update the Open77 client and restart the game.",
     rtti_denied = "This resource was not granted rtti.native, so it cannot reach the game. The resource manifest must declare it.",
     rtti_unavailable = "Open77.rtti is unavailable on this client build, so the Titan controller cannot run.",
     scheduler_denied = "This resource could not reserve its frame time (scheduler.dedicated): the operator must select it in "
@@ -74,16 +74,20 @@ local function once(key, text, interval, level)
     Open77.log[level or "warn"]("[titans] " .. text)
 end
 
--- The one engine write the controller makes through the host: the carried person's root.
+-- What the controller needs from the client: its object model (Open77.rtti, which needs rtti.native) and the platform's
+-- carry placement API, the one engine write the controller makes through the host: the carried person's root.
 local function probe()
     local rtti = Open77.rtti
     if type(rtti) ~= "table" or type(rtti.global) ~= "function" or type(rtti.type) ~= "function" then
         return false, "rtti_unavailable"
     end
-    local ok, found, reason = pcall(rtti.global, "Open77TitanBridgePlaceCarriedNpc")
+    local ok, found, reason = pcall(rtti.type, "GameInstance")
     if not ok or found == nil then
         reason = tostring(ok and reason or found)
         if reason:find("^permission_denied") then return false, "rtti_denied" end
+        return false, "rtti_unavailable"
+    end
+    if type(Open77.npcs) ~= "table" or type(Open77.npcs.placeCarried) ~= "function" then
         return false, "bridge_missing"
     end
     return true

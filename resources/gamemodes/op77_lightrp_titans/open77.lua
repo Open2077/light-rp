@@ -39,8 +39,8 @@ web_files {
 }
 
 -- network.events            frames, requests and the server's bridge messages
--- rtti.native               the controller's engine access (Open77.rtti) and the carry native (client; privileged,
---                           granted only to this reviewed resource in the lab server)
+-- rtti.native               the controller's engine access (Open77.rtti; client; privileged, granted only to this
+--                           reviewed resource in the lab server)
 -- scheduler.dedicated       the controller's own frame time: the resource reserves its slice with
 --                           Open77.scheduler.reserve and runs the controller from one SetTick per frame
 -- players.life.read         dead/alive and V's current visibility before it is hidden
@@ -51,6 +51,7 @@ web_files {
 -- world.vehicles            carry a vehicle and read its canonical state (server)
 -- npcs.read                 resolve the body the controller grabbed to its replicated identity: an NPC's id and readiness
 --                           (Open77.npcs.all, the server-owned set, no world query) (client)
+-- npcs.carry                place the body this client's carry claim holds before its throw (Open77.npcs.placeCarried) (client)
 -- vehicles.read             ... a vehicle's identity and readiness (client)
 -- screen.capture            the display size the HUD draws in (Open77.screen.surface; nothing is captured)
 -- players.stats.apply       Titan blows on players (Open77.players.damage under PvP rules)
@@ -59,6 +60,6 @@ permissions {
     "network.events", "rtti.native", "scheduler.dedicated",
     "players.life.read", "players.life.visibility", "players.local.visibility",
     "world.npcs", "npcs.foreign", "world.vehicles",
-    "npcs.read", "vehicles.read", "players.stats.apply",
+    "npcs.read", "npcs.carry", "vehicles.read", "players.stats.apply",
     "screen.capture", "input.actions"
 }

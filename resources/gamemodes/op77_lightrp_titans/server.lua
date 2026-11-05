@@ -176,7 +176,7 @@ local TEXT = {
     loadout_disabled = "the server disabled that ability in your Titan's loadout",
 }
 local BRIDGE_TEXT = {
-    bridge_missing = "the Open77 Titan bridge natives are not registered: this client needs the Open77 build with the Titan bridge (plugin + Open77TitanBridge.reds)",
+    bridge_missing = "this client has no Open77.npcs.placeCarried (an Open77 build older than the carry placement API): a held person cannot be placed before its throw",
     rtti_denied = "the client did not grant rtti.native to this resource",
     rtti_unavailable = "this client build has no Open77.rtti",
 }
