@@ -277,7 +277,12 @@ local function openPack(player, product, anchor)
     -- One request at a time, from the first message on: taking the item from the framework's inventory and writing
     -- the pull both wait on databases, and a second use of the item in that window used to open (and take) another.
     if s.pendingOpen and t - s.pendingOpen < 20000 then return openFailed(player, "Your pack is already opening.", "info") end
-    if t - s.lastOpen < C.opening.cooldownMs then return openFailed(player) end
+    -- The cooldown is only anti-spam now (the request lock above does the real work): a pack revealed in a hurry
+    -- ("Reveal all", Quick open) and followed by "Open another" must not be refused -- it was, silently, and the page
+    -- closed (live 2026-11-05).
+    local finished = s.opening and s.opening.done
+    if not finished and t - s.lastOpen < C.opening.cooldownMs then return openFailed(player, "Wait a second before the next pack.", "info") end
+    if finished and t - s.lastOpen < 800 then return openFailed(player, "Wait a second before the next pack.", "info") end
     local here = positionOf(player)
     anchor = sanitizeAnchor(anchor)
     if not here or not anchor then return openFailed(player, "You need both hands free and a place to stand.") end
