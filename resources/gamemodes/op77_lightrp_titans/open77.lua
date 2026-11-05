@@ -4,11 +4,21 @@ open77_version ">=0.0.1"
 auto_start true
 reload_policy "local"
 
--- Shared executable loaders (TweakXL, and the Open77 fork of ArchiveXL) this resource depends on. Both ride along as
--- required mods through the launcher preflight, so a server that loads op77_lightrp_titans must set requiredMods.unsecured.
--- The versions are the exact numeric loader versions published under resources/assets/loaders.
+-- Shared executable loaders (TweakXL, the Open77 fork of ArchiveXL, Codeware for BT7274Keys.reds and BT's entities, and
+-- AudioXL for BT's sounds) this resource depends on. All ride along as required mods through the launcher preflight, so
+-- a server that loads op77_lightrp_titans must set requiredMods.unsecured. The versions are the exact numeric loader
+-- versions published under resources/assets/loaders (ArchiveXL, Codeware and AudioXL in this repository, TweakXL in
+-- Open77's).
 dependency "tweakxl >=1.12.0"
 dependency "archivexl >=1.28.0"
+dependency "codeware >=1.21.2"
+dependency "audioxl >=0.9.1"
+
+-- The BT-7274 game files every pilot and observer needs before the game starts: Open77's prepare_bt7274_package.py
+-- output cut in two by tools/build-assets.ps1 (the 256 MiB preload limit). Not committed: rebuild them before the server
+-- starts, or it refuses to boot. bt7274_2.zip carries redscript, so it is executable content (requiredMods.unsecured).
+preload_mod "dist/bt7274_1.zip"
+preload_mod "dist/bt7274_2.zip"
 
 -- controller/ (the author's controller, the bridge modules and their environment) is committed here, generated once by
 -- Open77's scripts/titans/prepare_bt7274_package.py at Open77 commit c050d430a and maintained by hand since: there is no port
