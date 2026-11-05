@@ -87,28 +87,39 @@ local function legacyRim(entry)
     return out
 end
 -- Curated trims (server/config/vehicle_kit_trims.lua): a trim is another entity appearance
--- whose stock rims (and some body pieces) carry other component names than the default
--- appearance the kit was measured on. The platform resolves a fit by record only and
--- setWheels / setParts carry no hide list, so every sold appearance's names are unioned
--- into the record's fit; the client skips a name absent from the current appearance.
+-- whose stock rims carry other component names, and often other sizes, than the default
+-- appearance the kit was measured on. A rim fit carries them as `appearances` overrides,
+-- resolved by the platform from the car's current appearance. A server that predates
+-- them refuses the key (`invalid_part:<id>.fit.appearances`): the rims then register with
+-- the record fit alone and every trim's hide names merged into it (the client skips a
+-- name the current appearance lacks), so the stock rims stay hidden under the default
+-- fit. Body parts always merge their trims' extra names into the record fit.
 local TRIMS = type(LightRpVehicleKitTrims) == "table" and LightRpVehicleKitTrims or {}
-local function withTrimHides(section, id, entry)
-    local byRecord = section == "rims" and TRIMS.rims or (TRIMS.body or {})[id]
-    if type(byRecord) ~= "table" then return entry end
+local appearanceFits = true -- false once this server refused fit.appearances
+local function mergeHides(fit, byAppearance, field)
+    local hide, seen = {}, {}
+    local function add(name) if not seen[name] then seen[name] = true; hide[#hide + 1] = name end end
+    for _, name in ipairs(fit.hide or {}) do add(name) end
+    local appearances = {}
+    for appearance in pairs(byAppearance) do appearances[#appearances + 1] = appearance end
+    table.sort(appearances)
+    for _, appearance in ipairs(appearances) do
+        local names = byAppearance[appearance]
+        if field then names = names[field] end
+        for _, name in ipairs(names or {}) do add(name) end
+    end
+    fit.hide = hide
+end
+-- The kit entry with its trims: per-appearance rim overrides, or (perAppearance false)
+-- the rims' trim hide names merged into the record fit.
+local function withTrims(section, id, entry, perAppearance)
     for record, fit in pairs(entry.fit or {}) do
-        local extra = byRecord[record]
-        if type(extra) == "table" then
-            local hide, seen = {}, {}
-            local function add(name) if not seen[name] then seen[name] = true; hide[#hide + 1] = name end end
-            for _, name in ipairs(fit.hide or {}) do add(name) end
-            local appearances = {}
-            for appearance in pairs(extra) do appearances[#appearances + 1] = appearance end
-            table.sort(appearances)
-            for _, appearance in ipairs(appearances) do
-                for _, name in ipairs(extra[appearance]) do add(name) end
-            end
-            fit.hide = hide
+        local trims = section == "rims" and type(TRIMS.rims) == "table" and TRIMS.rims[record]
+        local extra = section == "body" and type(TRIMS.body) == "table" and type(TRIMS.body[id]) == "table" and TRIMS.body[id][record]
+        if type(trims) == "table" then
+            if perAppearance then fit.appearances = copy(trims) else mergeHides(fit, trims, "hide") end
         end
+        if type(extra) == "table" then mergeHides(fit, extra) end
     end
     return entry
 end
@@ -126,11 +137,16 @@ local function registerKit()
     local count, degraded = 0, 0
     for _, section in ipairs({ "rims", "body" }) do
         for _, id in ipairs(order[section]) do
-            local entry = withTrimHides(section, id, copy(KIT[section].parts[id]))
-            partLabel[id] = entry.label
-            local ok, why = Open77.vehicles.registerParts({ [id] = entry })
+            local source = KIT[section].parts[id]
+            partLabel[id] = source.label
+            local ok, why = Open77.vehicles.registerParts({ [id] = withTrims(section, id, copy(source), appearanceFits) })
+            if not ok and appearanceFits and tostring(why):find("fit.appearances", 1, true) then
+                appearanceFits = false
+                LightRP.log("auto studio: no per-appearance fits on this server build (%s); trims wear the default rim fit, their stock rims hidden", tostring(why))
+                ok, why = Open77.vehicles.registerParts({ [id] = withTrims(section, id, copy(source), false) })
+            end
             if not ok and section == "rims" and tostring(why):find("wheels", 1, true) then
-                ok, why = Open77.vehicles.registerParts({ [id] = legacyRim(entry) })
+                ok, why = Open77.vehicles.registerParts({ [id] = legacyRim(withTrims(section, id, copy(source), false)) })
                 if ok then degraded = degraded + 1 end
             end
             registered[section][id] = ok and true or nil

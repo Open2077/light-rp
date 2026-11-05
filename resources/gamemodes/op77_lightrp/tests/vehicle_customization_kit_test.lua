@@ -71,7 +71,7 @@ local NS="op77_lightrp:"
 local HELLA="Vehicle.v_standard2_archer_hella_player"
 local world,vid,events,rpc,bags={},100,{},{},{}
 local calls={registerParts=0,respawnAs=0,setPaint=0,create={}}
-local catalogue,b2,stagesOnServer,failRespawn,attachLimit,refusePart={},true,true,nil,16,{}
+local catalogue,b2,b3,stagesOnServer,failRespawn,attachLimit,refusePart={},true,true,true,nil,16,{} -- b2: per-wheel fits, b3: per-appearance fits
 local packs={lightrp_vk_rims="running",lightrp_vk_body="running",lightrp_vehicle_stages="running"}
 GetResourceState=function(name) return packs[name] or "missing" end
 GetCurrentResourceName=function() return "op77_lightrp" end
@@ -153,15 +153,34 @@ V.getLightsHue=function(id)local v=world[id];return v and v.paint.lightsHue end
 V.getAppearance=function(id)local v=world[id];return v and (v.appearance or "") end
 V.setAppearance=function(id,name)local v=world[id];v.appearance=name or "";return true end
 V.remove=function(id)world[id]=nil;for _,fn in ipairs(events.onVehicleRemoved or{})do fn(tostring(id),"test")end;return true end
+-- The Lua->JSON marshaller of registerParts (LuaResourceRuntime ReadLuaValue): 4096 values,
+-- depth 16, else invalid_part_catalogue.
+local function marshalled(v,depth,count) count=count or {n=0};depth=depth or 0
+    count.n=count.n+1;if count.n>4096 or depth>16 then return false end
+    if type(v)=="table" then for _,x in pairs(v)do if not marshalled(x,depth+1,count) then return false end end end
+    return true,count.n end
+local largestCall=0
+local APPEARANCE_FIT={offset=1,rotation=1,scale=1,wheels=1,hide=1,show=1}
 V.registerParts=function(cat)
     calls.registerParts=calls.registerParts+1
+    local fits,size=marshalled(cat);if not fits then return false,"invalid_part_catalogue" end
+    largestCall=math.max(largestCall,size)
     local n=0
     for id,e in pairs(cat)do
         n=n+1
         if refusePart[id] then return false,"invalid_part:"..id..".variants" end
         for k in pairs(e)do if not ENTRY[k] then return false,"invalid_part:"..id.."."..k end end
-        for _,fit in pairs(e.fit)do for k in pairs(fit)do
-            if not FIT[k] or (k=="wheels" and (not b2 or e.kind~="rim")) then return false,"invalid_part:"..id..".fit."..k end
+        for _,fit in pairs(e.fit)do for k,x in pairs(fit)do
+            if k=="appearances" and b3 then -- per-appearance overrides: no slot, 32 at most
+                local count=0
+                for name,o in pairs(x)do
+                    count=count+1
+                    if type(name)~="string" or type(o)~="table" or count>32 then return false,"invalid_part:"..id..".fit.appearances" end
+                    for key in pairs(o)do
+                        if not APPEARANCE_FIT[key] or (key=="wheels" and (not b2 or e.kind~="rim")) then return false,"invalid_part:"..id..".fit.appearances."..name.."."..key end
+                    end
+                end
+            elseif not FIT[k] or (k=="wheels" and (not b2 or e.kind~="rim")) then return false,"invalid_part:"..id..".fit."..k end
         end end
     end
     assert(n==1,"one part per registerParts call (the Lua->JSON marshaller caps one call)")
@@ -267,69 +286,112 @@ local NET="op77_lightrp:customization"
 assert(calls.registerParts==16 and catalogue[NS.."rim_classic"] and catalogue[NS.."bull_bar"],"one registerParts call per kit part")
 assert(#catalogue[NS.."rim_classic"].fit["Vehicle.v_standard25_thorton_merrimac_player"].wheels==6,"per-wheel fits reach the server")
 
--- Curated trims (server/config/vehicle_kit_trims.lua): a trim is another appearance with
--- other stock rim names. Every sold trim of a rim-fitted model has its list, and the
--- registered fit hides the union (the platform resolves a fit by record only).
+-- Curated trims (server/config/vehicle_kit_trims.lua): every sold trim of a rim-fitted
+-- model has its rim fit override in the platform's fit.appearances contract: offset,
+-- rotation, scale, wheels, hide, show (never slot), 32 per record fit at most; an entry
+-- replaces only the fields it gives, `wheels` the whole list.
 local function has(list,name) for _,n in ipairs(list or {})do if n==name then return true end end end
+local function same(a,b)
+    if type(a)~="table" or type(b)~="table" then return a==b end
+    for k,v in pairs(a)do if not same(v,b[k]) then return false end end
+    for k in pairs(b)do if a[k]==nil then return false end end
+    return true end
+local function resolve(fit,appearance) -- the platform's resolution of a record fit on an appearance
+    local o=fit.appearances and fit.appearances[appearance];if not o then return fit end
+    local out={};for k,v in pairs(fit)do if k~="appearances" then out[k]=v end end
+    for k,v in pairs(o)do out[k]=v end;return out end
+local CAR_WHEELS={{slot="wheel_front_left"},{slot="wheel_front_right"},{slot="wheel_back_left"},{slot="wheel_back_right"}}
+local function wheelOf(fit,slot) for _,w in ipairs(fit.wheels or CAR_WHEELS)do if w.slot==slot then return {offset=w.offset or fit.offset,scale=w.scale or fit.scale} end end end
 local recordOf={};for _,v in ipairs(LightRpConfig.vehicles.catalog)do recordOf[v.key]=v.record end
+local function sold(record,app) for key,r in pairs(recordOf)do if r==record then for _,t in ipairs(C.trims[key] or {})do if t.id==app then return true end end end end end
 local rimFits=KIT.rims.parts.rim_classic.fit
 for key,list in pairs(C.trims)do
     local record=assert(recordOf[key],"trim model in the catalogue: "..key)
     for _,trim in ipairs(list)do
-        local names=(TRIMS.rims[record] or {})[trim.id]
-        if rimFits[record] then assert(type(names)=="table" and #names>=2,"no rim hide list for the sold trim "..trim.id)
-        else assert(names==nil,"no rim fit, no trim list: "..trim.id) end
+        local o=(TRIMS.rims[record] or {})[trim.id]
+        if rimFits[record] then assert(type(o)=="table" and type(o.hide)=="table" and #o.hide>=2,"no rim fit override for the sold trim "..trim.id)
+        else assert(o==nil,"no rim fit, no trim override: "..trim.id) end
     end
 end
+local overrides,resized=0,0
 for record,apps in pairs(TRIMS.rims)do
-    assert(rimFits[record],"trim lists name a rim-fitted record: "..record)
-    local key;for k,r in pairs(recordOf)do if r==record then key=k end end
-    for app,names in pairs(apps)do
-        local sold=false;for _,t in ipairs(C.trims[key] or {})do if t.id==app then sold=true end end
-        assert(sold,"a listed appearance is a sold trim: "..app)
-        for _,name in ipairs(names)do assert(type(name)=="string" and #name>0 and #name<=128,"hide name: "..app) end
+    local base=assert(rimFits[record],"trim overrides name a rim-fitted record: "..record)
+    local slots,all={},0;for _,w in ipairs(base.wheels or CAR_WHEELS)do slots[w.slot]=true;all=all+1 end
+    local count=0
+    for app,o in pairs(apps)do
+        count=count+1;overrides=overrides+1
+        assert(sold(record,app),"an overridden appearance is a sold trim: "..app)
+        for k in pairs(o)do assert(APPEARANCE_FIT[k],"appearance field "..k.." of "..app.." (no slot inside an appearance)") end
+        assert(vecOk(o.offset,-10,10) and vecOk(o.rotation,-360,360) and vecOk(o.scale,.01,10),"override vectors: "..app)
+        assert(#o.hide<=64,"hide cap: "..app)
+        for _,name in ipairs(o.hide)do assert(type(name)=="string" and #name>0 and #name<=128,"hide name: "..app) end
+        if o.wheels then
+            local seen={}
+            for _,w in ipairs(o.wheels)do
+                assert(slots[w.slot] and not seen[w.slot],"override wheel slot: "..app.." "..tostring(w.slot));seen[w.slot]=true
+                assert(w.offset and w.scale and vecOk(w.offset,-10,10) and vecOk(w.rotation,-360,360) and vecOk(w.scale,.01,10),"every override wheel carries its own offset and scale: "..app)
+                for k in pairs(w)do assert(k=="slot" or k=="offset" or k=="rotation" or k=="scale") end
+            end
+            assert(#o.wheels==all,"an override's wheels list names every wheel of the record: "..app)
+        elseif o.offset or o.scale then
+            assert(base.wheels==nil,"a record with a wheels list needs the override's own (its entries carry their own vectors): "..app)
+        end
+        if o.offset or o.scale or o.wheels then resized=resized+1 end
     end
+    assert(count<=32,"32 appearance overrides per record fit at most: "..record)
 end
+assert(overrides==30 and resized==26,("30 sold trims with a rim fit, 26 refitted (%d, %d)"):format(overrides,resized))
 for id,records in pairs(TRIMS.body)do
     assert(KIT.body.parts[id],"a body trim list names a kit part: "..id)
     for record,apps in pairs(records)do
         assert(KIT.body.parts[id].fit[record],"a body trim list names a fitted record: "..id.." "..record)
-        local key;for k,r in pairs(recordOf)do if r==record then key=k end end
-        for app in pairs(apps)do local sold=false;for _,t in ipairs(C.trims[key] or {})do if t.id==app then sold=true end end;assert(sold,"sold trim: "..app) end
+        for app in pairs(apps)do assert(sold(record,app),"sold trim: "..app) end
     end
 end
+-- Registered on a server with per-appearance fits: the record fit as generated, the
+-- overrides beside it; body parts merge their trims' extra names into the record fit.
 local bodyIds={};for id in pairs(KIT.body.parts)do bodyIds[#bodyIds+1]=id end
-for section,ids in pairs({rims=KIT.rims.order,body=bodyIds})do
-    for _,id in ipairs(ids)do
-        local part=assert(catalogue[NS..id],"registered: "..id)
-        for record,fit in pairs(part.fit)do
+local function checkBodyHides()
+    for _,id in ipairs(bodyIds)do
+        for record,fit in pairs(assert(catalogue[NS..id],"registered: "..id).fit)do
+            assert(fit.appearances==nil,"body parts carry no appearance overrides: "..id)
             local seen={}
             for _,n in ipairs(fit.hide or {})do assert(not seen[n],"hide names deduplicated: "..id.." "..n);seen[n]=true end
-            assert(#(fit.hide or {})<=64,"hide list cap: "..id.." "..record)
-            for _,n in ipairs(KIT[section].parts[id].fit[record].hide or {})do assert(seen[n],"the default appearance's names are kept: "..id.." "..record) end
-            local extra=section=="rims" and TRIMS.rims[record] or (TRIMS.body[id] or {})[record]
-            for app,names in pairs(extra or {})do for _,n in ipairs(names)do assert(seen[n],id.." on "..app.." hides "..n) end end
+            for _,n in ipairs(KIT.body.parts[id].fit[record].hide or {})do assert(seen[n],"the default appearance's names are kept: "..id.." "..record) end
+            for app,names in pairs((TRIMS.body[id] or {})[record] or {})do for _,n in ipairs(names)do assert(seen[n],id.." on "..app.." hides "..n) end end
         end
     end
+    local rack=catalogue[NS.."roof_rack"].fit["Vehicle.v_standard2_thorton_colby_player"].hide
+    assert(#rack==3 and has(rack,"roof_rack") and has(rack,"v_common_suitcase_01") and has(rack,"junk_solar"),"Colby rack: the trims' solar junk too")
 end
-local hellaHide=catalogue[NS.."rim_dish"].fit[HELLA].hide
-assert(#hellaHide==16 and hellaHide[1]=="wheel_01_bl_a" and has(hellaHide,"wheel_bl_01") and has(hellaHide,"police_wheel_01_fl_0a"),"Hella: player, Suburban and Worn IV rims all hidden")
-assert(#KIT.rims.parts.rim_dish.fit[HELLA].hide==4,"the generated catalogue stays as measured")
+for _,id in ipairs(KIT.rims.order)do
+    for record,fit in pairs(catalogue[NS..id].fit)do
+        assert(same(fit.hide,KIT.rims.parts[id].fit[record].hide),"the record fit keeps its own hide list: "..id.." "..record)
+        assert(same(fit.appearances,TRIMS.rims[record]),"the trims' overrides reach the server: "..id.." "..record)
+    end
+end
+checkBodyHides()
 local COLBY="Vehicle.v_standard2_thorton_colby_player"
-local rack=catalogue[NS.."roof_rack"].fit[COLBY].hide
-assert(#rack==3 and has(rack,"roof_rack") and has(rack,"v_common_suitcase_01") and has(rack,"junk_solar"),"Colby rack: the trims' solar junk too")
--- The heaviest car of every record (the longest rim on every wheel, the heaviest part of
--- each body group, livery, neon, plate) still fits the visual bag:
+local dish=catalogue[NS.."rim_dish"].fit
+local suburbanFit=resolve(dish[HELLA],"archer_hella__basic_suburban_1")
+assert(suburbanFit.offset[1]==-0.0062 and wheelOf(suburbanFit,"wheel_back_left").offset[1]==-0.038 and wheelOf(suburbanFit,"wheel_front_right").scale[2]==0.9846,"Hella Suburban: its own rim depth and size")
+assert(same(suburbanFit.hide,{"wheel_bl_01","wheel_br_01","wheel_fl_01","wheel_fr_01"}),"Hella Suburban: only its own stock rims hidden")
+local stockFit=resolve(dish[HELLA],"archer_hella__basic_player_01")
+assert(stockFit==dish[HELLA] and wheelOf(stockFit,"wheel_back_left").offset[1]==-0.143 and #stockFit.hide==4,"the stock body wears the record fit")
+local urbanFit=resolve(dish[COLBY],"thorton_colby__basic_urban_01")
+assert(urbanFit.offset[1]==0.0392 and same(urbanFit.hide,{"wheel_bl_04","wheel_br_04","wheel_fl_04","wheel_fr_04"}),"a trim within tolerance: the record fit, its own hide list")
+assert(largestCall<=4096,"every registerParts call fits the marshaller")
+-- The heaviest car of every record and appearance (the longest rim on every wheel, the
+-- heaviest part of each body group, livery, neon, plate) still fits the visual bag:
 -- VehicleCustomizationService.FitsBag, 4 KiB and 256 JSON values; an attachment is 16
 -- values, the rest 18, plus one per hide name. Bytes over-estimated (12 per number).
 local function longest(part) local n=0;for _,model in pairs(part.variants)do n=math.max(n,#model)end;return n end
-local CAR_WHEELS={{slot="wheel_front_left"},{slot="wheel_front_right"},{slot="wheel_back_left"},{slot="wheel_back_right"}}
-local function worstBag(record)
+local function worstBag(record,appearance)
     local bytes,values,hide=300,18,{}
     local function group(ids,rim)
         local most,count=0,0
         for _,id in ipairs(ids)do
-            local part=catalogue[NS..id];local fit=part and part.fit[record]
+            local part=catalogue[NS..id];local fit=part and part.fit[record] and resolve(part.fit[record],appearance)
             if fit then
                 for _,n in ipairs(fit.hide or {})do if not hide[n] then hide[n]=true;bytes=bytes+#n+3;values=values+1 end end
                 local b,v=0,0
@@ -346,13 +408,20 @@ local function worstBag(record)
     return bytes,values
 end
 local records={};for _,section in ipairs({"rims","body"})do for _,e in pairs(KIT[section].parts)do for record in pairs(e.fit)do records[record]=true end end end
-local heaviest,heaviestValues,heaviestRecord=0,0
-for record in pairs(records)do
-    local b,v=worstBag(record)
-    assert(b<=4096 and v<=256,("%s: the fullest kit overflows the visual bag (%d bytes, %d values)"):format(record,b,v))
-    if v>heaviestValues then heaviest,heaviestValues,heaviestRecord=b,v,record end
+local function checkBags(label)
+    local heaviest,heaviestValues,where=0,0,""
+    for record in pairs(records)do
+        local appearances={""};for app in pairs(TRIMS.rims[record] or {})do appearances[#appearances+1]=app end
+        for _,app in ipairs(appearances)do
+            local b,v=worstBag(record,app)
+            assert(b<=4096 and v<=256,("%s %s: the fullest kit overflows the visual bag (%d bytes, %d values)"):format(record,app,b,v))
+            if v>heaviestValues then heaviest,heaviestValues,where=b,v,record..(app~="" and "#"..app or "") end
+        end
+    end
+    print(("trim fits (%s): fullest kit %d values (cap 256), <= %d bytes (cap 4096), on %s"):format(label,heaviestValues,heaviest,where))
 end
-print(("trim hides: fullest kit %d values (cap 256), <= %d bytes (cap 4096), on %s"):format(heaviestValues,heaviest,heaviestRecord))
+checkBags("per appearance")
+print(("trim fits: largest registerParts call %d values (marshaller cap 4096)"):format(largestCall))
 
 local function retrieve(rowId)
     assert(G.open(1,"citycenter"))
@@ -633,24 +702,54 @@ assert(category(m,"rims").available==false and category(m,"rims").reason==C.unsu
 assert(category(m,"livery").available==false and category(m,"livery").reason==C.unsupported.livery,"no factory scheme")
 assert(category(m,"performance").available and category(m,"plate").available)
 close();store(kusanagi)
--- A server without per-wheel rim fits: rims register on the default slots, the
--- records that need other slots lose them.
-b2=false;reboot();b2=true
+-- A server without per-appearance fits refuses `appearances` once: every rim registers
+-- with the record fit alone and every trim's hide names merged into it (the default fit
+-- for every trim; the client skips the names an appearance lacks).
+local logsBefore=#logs
+b3=false;reboot();b3=true
+assert(calls.registerParts==17,"one refused registration, then the merged rims ("..calls.registerParts..")")
+local notices=0;for i=logsBefore+1,#logs do if logs[i]:find("no per-appearance fits",1,true) then notices=notices+1 end end
+assert(notices==1 and logged("fit.appearances"),"the fallback is logged once, with the server's reason")
+local function checkMerged(fits,label)
+    for record,fit in pairs(fits)do
+        assert(fit.appearances==nil,label..": no overrides on "..record)
+        local seen={};for _,n in ipairs(fit.hide or {})do assert(not seen[n],label..": deduplicated "..n);seen[n]=true end
+        assert(#fit.hide<=64,label..": hide cap")
+        for _,n in ipairs(KIT.rims.parts.rim_classic.fit[record].hide or {})do assert(seen[n],label..": default names kept on "..record) end
+        for app,o in pairs(TRIMS.rims[record] or {})do for _,n in ipairs(o.hide)do assert(seen[n],label..": "..app.." hides "..n) end end
+    end
+end
+for _,id in ipairs(KIT.rims.order)do
+    checkMerged(catalogue[NS..id].fit,"merged "..id)
+    for record,fit in pairs(catalogue[NS..id].fit)do
+        assert(same(fit.wheels,KIT.rims.parts[id].fit[record].wheels) and same(fit.offset,KIT.rims.parts[id].fit[record].offset),"merged: the default fit")
+    end
+end
+local merged=catalogue[NS.."rim_dish"].fit[HELLA].hide
+assert(#merged==16 and merged[1]=="wheel_01_bl_a" and has(merged,"wheel_bl_01") and has(merged,"police_wheel_01_fl_0a"),"Hella: player, Suburban and Worn IV rims all hidden")
+assert(#KIT.rims.parts.rim_dish.fit[HELLA].hide==4 and KIT.rims.parts.rim_dish.fit[HELLA].appearances==nil,"the generated catalogue stays as measured")
+checkBodyHides();checkBags("merged fallback")
+-- A server without per-wheel rim fits (nor per-appearance ones): rims register merged on
+-- the default slots, the records that need other slots lose them.
+b2=false;b3=false;reboot();b2=true;b3=true
 local legacy=catalogue[NS.."rim_classic"].fit
 assert(legacy[HELLA] and legacy[HELLA].wheels==nil and legacy["Vehicle.v_standard2_makigai_maimai_player"],"default-slot records keep their rims")
 assert(legacy["Vehicle.v_standard25_thorton_merrimac_player"]==nil and legacy["Vehicle.v_sportbike3_brennan_apollo_player"]==nil,"Merrimac and Apollo need per-wheel fits")
 assert(catalogue[NS.."wing_street"] and logged("server predates them"))
+checkMerged(legacy,"legacy")
 assert(#legacy[HELLA].hide==16 and has(legacy[HELLA].hide,"wheel_bl_01"),"the default-slot registration hides the trims' rims too")
--- A trim, then rims: the rim's fit hides that trim's own stock rims, on the stage record too.
-reboot()
+-- A trim, then rims, on a server with per-appearance fits: the rim resolves to that trim's
+-- own fit (its depth, size and stock rims), on the stage record too.
+reboot();assert(calls.registerParts==16)
 local _,suburban=G.grant(1,"hella");car=retrieve(suburban)
 m=open(suburban)
 local TRIM="archer_hella__basic_suburban_1"
 reply=issue("save",{category="trim",trim=TRIM},"bank");assert(reply.ok and world[car].appearance==TRIM,"the Suburban trim is worn")
 reply=issue("save",{category="rims",rim="rim_dish",variant="black"},"bank");assert(reply.ok and world[car].visual.wheels.rim==NS.."rim_dish")
+local want=TRIMS.rims[HELLA][TRIM]
 for _,record in ipairs({world[car].record,HELLA.."_o77s2"})do
-    local fit=fitFor(catalogue[world[car].visual.wheels.rim],record)
-    for _,name in ipairs(TRIMS.rims[HELLA][TRIM])do assert(has(fit.hide,name),"the Suburban's stock rim is hidden under ours: "..name.." ("..record..")") end
+    local fit=resolve(fitFor(catalogue[world[car].visual.wheels.rim],record),world[car].appearance)
+    assert(same(fit.hide,want.hide) and same(fit.offset,want.offset) and same(fit.wheels,want.wheels),"the Suburban wears its own rim fit ("..record..")")
 end
 close();store(suburban)
 for i,msg in ipairs(messages)do fitsClient(msg,"studio message "..i.." ("..tostring(msg.kind)..")")end
