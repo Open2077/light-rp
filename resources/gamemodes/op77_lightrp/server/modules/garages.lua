@@ -76,11 +76,45 @@ local function copy(value)
     local out = {}; for k,v in pairs(value) do out[k] = copy(v) end; return out
 end
 local function look(value) return type(value) == "string" and value or "" end -- "" = the record's own appearance
+-- Kit parts are declared by the customization module under this resource's namespace
+-- (server/config/vehicle_kit.lua): the category of a full part id, "rims" | "body" | nil.
+local NS = (type(GetCurrentResourceName) == "function" and GetCurrentResourceName() or "op77_lightrp") .. ":"
+local function kitKind(id)
+    local kit = LightRpVehicleKit
+    if type(kit) ~= "table" or type(id) ~= "string" or id:sub(1, #NS) ~= NS then return nil end
+    local name = id:sub(#NS + 1)
+    if kit.rims and kit.rims.parts and kit.rims.parts[name] then return "rims" end
+    if kit.body and kit.body.parts and kit.body.parts[name] then return "body" end
+end
+Garage.kitKind = kitKind
+-- One field of `visual` (getProperties' open77.visual view). A car without any visual
+-- state keeps no `visual` key: older servers refuse it in setProperties.
+local function visualKey(to, from, key)
+    local value = type(from.visual) == "table" and from.visual[key] or nil
+    if value == nil and type(to.visual) ~= "table" then return end
+    to.visual = type(to.visual) == "table" and to.visual or {}
+    to.visual[key] = copy(value)
+end
+-- The kit parts of one category inside `visual.parts`; parts of other resources stay.
+local function visualParts(to, from, kind)
+    local source = type(from.visual) == "table" and from.visual.parts or {}
+    local any = false
+    for id in pairs(source) do if kitKind(id) == kind then any = true; break end end
+    if not any and type(to.visual) ~= "table" then return end
+    to.visual = type(to.visual) == "table" and to.visual or {}
+    local parts = {}
+    for id, value in pairs(to.visual.parts or {}) do if kitKind(id) ~= kind then parts[id] = value end end
+    for id, value in pairs(source) do if kitKind(id) == kind then parts[id] = copy(value) end end
+    to.visual.parts = parts
+end
+-- Light RP's own stored fields (plate, performance stage): never sent to setProperties.
+local function own(to) to.lightrp = type(to.lightrp) == "table" and to.lightrp or {}; return to.lightrp end
 -- The confirmed-property mask: the getProperties() fields each Auto Studio category
 -- owns. While a lease is open, every write (autosave, removal, close, disconnect, the
 -- purchase of ANOTHER category) takes these fields from the last confirmed state,
 -- never from a preview. Paint and lights share the engine's one visual template, so
--- both live in `paint`; the trim is the entity appearance variant.
+-- both live in `paint`; the trim is the entity appearance variant; livery, neon, rims
+-- and body kit live in `visual`; plate and stage in Light RP's `lightrp`.
 local OWNS = {
     paint = function(to, from)
         local src = from.paint or { applied = false }
@@ -92,17 +126,50 @@ local OWNS = {
         to.paint.lightsHue = from.paint and from.paint.lightsHue
     end,
     trim = function(to, from) to.appearance = from.appearance end,
+    livery = function(to, from) visualKey(to, from, "profile") end,
+    neon = function(to, from) visualKey(to, from, "neon") end,
+    rims = function(to, from) visualParts(to, from, "rims"); visualKey(to, from, "wheels") end,
+    body = function(to, from) visualParts(to, from, "body") end,
+    plate = function(to, from) own(to).plate = type(from.lightrp) == "table" and from.lightrp.plate or nil end,
+    performance = function(to, from) own(to).stage = type(from.lightrp) == "table" and from.lightrp.stage or nil end,
 }
+-- Generic paint replaces a TwinTone livery and a livery goes on the factory paint layer:
+-- a purchase (or a rollback) of one is a purchase (or a rollback) of both.
+local LINKED = { paint = { "paint", "livery" }, livery = { "livery", "paint" } }
+local function linked(category) return LINKED[category] or { category } end
+-- Categories stored only by Light RP: the purchased value comes from the lease, not the car.
+local STORED = { plate = true, performance = true }
 local function maskConfirmed(props, confirmed, except)
-    for category, take in pairs(OWNS) do if category ~= except then take(props, confirmed) end end
+    local skip = {}
+    for _, category in ipairs(except and linked(except) or {}) do skip[category] = true end
+    for category, take in pairs(OWNS) do if not skip[category] then take(props, confirmed) end end
     return props
+end
+-- Stored choices this car cannot wear right now (a part dropped from the catalogue, a
+-- server without visual support): kept in the row until the owner buys that category again.
+local DORMANT = {
+    livery = function(d) d.profile = nil end, neon = function(d) d.neon = nil end,
+    rims = function(d) d.wheels = nil; for id in pairs(d.parts or {}) do if kitKind(id) == "rims" then d.parts[id] = nil end end end,
+    body = function(d) for id in pairs(d.parts or {}) do if kitKind(id) == "body" then d.parts[id] = nil end end end,
+}
+local function wake(props, dormant)
+    props.visual = type(props.visual) == "table" and props.visual or {}
+    local v = props.visual
+    v.parts = type(v.parts) == "table" and v.parts or {}
+    for id, value in pairs(dormant.parts or {}) do if v.parts[id] == nil then v.parts[id] = copy(value) end end
+    for _, key in ipairs({ "wheels", "profile", "neon" }) do
+        if dormant[key] ~= nil and v[key] == nil then v[key] = copy(dormant[key]) end
+    end
 end
 local function capture(row)
     if not row.vehicleId then return end
     local props = Open77.vehicles.getProperties(row.vehicleId)
     if type(props) == "table" then
+        props = copy(props)
+        props.lightrp = copy(type(row.props) == "table" and row.props.lightrp or nil)
         -- Autosaves and removal recovery keep the last confirmed look, never a preview.
-        if row.edit then props = maskConfirmed(copy(props), row.edit.saved) end
+        if row.edit then props = maskConfirmed(props, row.edit.saved) end
+        if row.dormant then wake(props, row.dormant) end
         row.props = props
         row.dirty = true
         row.revision = (row.revision or 0) + 1
@@ -360,7 +427,92 @@ local RECEIPTS = { -- ledger kind (VARCHAR 24) and note, per category
     paint = { "vehicle_paint", "Body paint for vehicle " },
     lights = { "vehicle_lights", "Light tint for vehicle " },
     trim = { "vehicle_trim", "Factory trim for vehicle " },
+    livery = { "vehicle_livery", "Livery for vehicle " },
+    rims = { "vehicle_rims", "Rims for vehicle " },
+    body = { "vehicle_bodykit", "Body kit for vehicle " },
+    neon = { "vehicle_neon", "Neon for vehicle " },
+    plate = { "vehicle_plate", "Registration plate for vehicle " },
+    performance = { "vehicle_stage", "Performance stage for vehicle " },
 }
+-- Native refusals a player can act on.
+local REFUSALS = {
+    vehicle_occupied = "Everyone must step out of the vehicle first.",
+    attach_limit = "Too many parts on this vehicle: remove one first.",
+    visual_too_large = "Too many parts on this vehicle: remove one first.",
+    part_not_for_model = "This part does not fit this vehicle.",
+    unknown_part = "This part is not available on this server right now.",
+    invalid_profile = "This livery does not exist for this vehicle.",
+}
+local function explain(why, fallback) return REFUSALS[why] or fallback end
+local function same(a, b)
+    if type(a) ~= type(b) then return false end
+    if type(a) ~= "table" then return a == b end
+    for k, v in pairs(a) do if not same(v, b[k]) then return false end end
+    for k in pairs(b) do if a[k] == nil then return false end end
+    return true
+end
+-- The registration plate on the car. The text is validated, unique and stored; the
+-- `lightrpPlate` state bag key carries it to every client (respawnAs keeps it).
+-- LEAD: no native renders a plate yet (contract section 7, `visual.plate` reserved):
+-- wire the render here once one exists. Returning false fails a preview / rollback.
+local function renderPlate(vehicleId, plate)
+    if type(plate) ~= "string" or plate == "" then plate = nil end
+    if type(Open77.state) ~= "table" or type(Open77.state.entity) ~= "function" then return true end
+    pcall(function() Open77.state.entity("vehicle", vehicleId):set("lightrpPlate", plate) end)
+    return true
+end
+-- Performance stages: record of `stage` for a row, from the stage resolver the
+-- customization module registers (nil while the stage records are offline).
+local stageResolver
+function Garage.setStageResolver(fn) stageResolver = fn end
+local function stageRecord(row, stage)
+    stage = math.tointeger(tonumber(stage) or 0) or 0
+    if stage <= 0 then return row.record end
+    return stageResolver and stageResolver(row.record, stage) or nil
+end
+local function liveRecord(id)
+    local v = Open77.vehicles.get(id)
+    if type(v) == "table" and v.record then return v.record end
+    local props = Open77.vehicles.getProperties(id)
+    return type(props) == "table" and props.record or nil
+end
+-- Rebuilds the car on `record` (same id, same place, every look and key carried over).
+local function applyStage(id, record)
+    if not record or liveRecord(id) == record then return true end
+    if type(Open77.vehicles.respawnAs) ~= "function" then return false, "This server build cannot fit performance stages." end
+    local result, why = Open77.vehicles.respawnAs(id, record)
+    if not result then return false, explain(why, "The stage could not be fitted (" .. tostring(why) .. ").") end
+    if tonumber(result) ~= tonumber(id) then LightRP.log("garage: respawnAs moved %s to a new id %s", tostring(id), tostring(result)) end
+    return true
+end
+local function neonSpec(neon)
+    return { enabled = neon.enabled ~= false, color = neon.color, intensity = neon.intensity, radius = neon.radius }
+end
+-- Puts the visual categories (livery, neon, rims, body kit) of `state` on the car,
+-- touching only what differs. Light RP's body parts only: other resources' stay.
+local function applyVisual(id, state)
+    local V = Open77.vehicles
+    if type(V.getVisual) ~= "function" then return true end
+    local want = type(state.visual) == "table" and state.visual or {}
+    local have = V.getVisual(id)
+    if type(have) ~= "table" then return false, "Could not read the vehicle's look." end
+    local ok, why = true, nil
+    if have.profile ~= want.profile then ok, why = V.setPaintProfile(id, want.profile) end
+    if ok and not same(have.neon, want.neon) then
+        if type(want.neon) == "table" then ok, why = V.setNeon(id, neonSpec(want.neon)) else ok, why = V.clearNeon(id) end
+    end
+    if ok and not same(have.wheels, want.wheels) then
+        ok, why = V.setWheels(id, type(want.wheels) == "table" and { rim = want.wheels.rim, variant = want.wheels.variant } or nil)
+    end
+    if ok then
+        local change, wanted, held = {}, want.parts or {}, have.parts or {}
+        for part in pairs(held) do if kitKind(part) == "body" and wanted[part] == nil then change[part] = false end end
+        for part, value in pairs(wanted) do if kitKind(part) == "body" and not same(held[part], value) then change[part] = value end end
+        if next(change) then ok, why = V.setParts(id, change) end
+    end
+    if not ok then return false, explain(why, "The vehicle's look was refused (" .. tostring(why) .. ").") end
+    return true
+end
 local function applyPaint(id, paint)
     local ok, why
     if paint.applied then ok, why = Open77.vehicles.setPaint(id, { primary = paint.primary, secondary = paint.secondary })
@@ -376,11 +528,21 @@ local function applyTrim(id, appearance)
     if not ok then return false, why or "Vehicle trim was refused." end
     return true
 end
--- Puts a complete look (paint, lights hue, trim) back on the car.
-local function applyLook(id, state)
+-- Puts a complete look back on the car: paint and lights hue, trim, then the visual
+-- categories (a repaint clears the livery, so the livery comes after), the plate and
+-- the performance stage of `row`.
+local function applyLook(id, state, row)
     local ok, why = applyPaint(id, state.paint or { applied = false })
     if not ok then return false, why end
-    return applyTrim(id, state.appearance)
+    ok, why = applyTrim(id, state.appearance)
+    if not ok then return false, why end
+    ok, why = applyVisual(id, state)
+    if not ok then return false, why end
+    local stored = type(state.lightrp) == "table" and state.lightrp or {}
+    ok, why = renderPlate(id, stored.plate)
+    if not ok then return false, why end
+    if row then return applyStage(id, stageRecord(row, stored.stage)) end
+    return true
 end
 local function editGuard(playerId, row)
     local edit = row and row.edit
@@ -420,11 +582,13 @@ function Garage.beginCustomization(playerId, ownedId, token, garageId)
     local props = Open77.vehicles.getProperties(row.vehicleId)
     if not props then return nil, "Could not read vehicle properties." end
     -- saved: the confirmed look (what the SQL row holds); shown: what the car wears now.
-    local saved = { paint = copy(props.paint or { applied = false }), appearance = props.appearance }
+    local saved = { paint = copy(props.paint or { applied = false }), appearance = props.appearance,
+        visual = copy(props.visual), lightrp = copy(type(row.props) == "table" and row.props.lightrp or nil) or {} }
     row.edit = { player = playerId, token = token, place = place, vehicleId = row.vehicleId, saved = saved, shown = copy(saved) }
     edits[playerId] = row
-    return { id = row.id, vehicleId = row.vehicleId, label = label(row), model = row.model, paint = copy(saved.paint),
-        lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance) }
+    return { id = row.id, vehicleId = row.vehicleId, label = label(row), model = row.model, record = row.record,
+        paint = copy(saved.paint), lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance),
+        visual = copy(saved.visual), lightrp = copy(saved.lightrp) }
 end
 function Garage.customizationValid(playerId, token)
     local row = edits[playerId]
@@ -437,7 +601,7 @@ function Garage.endCustomization(playerId, token)
     if row.busy then row.edit.closeRequested = true; return false end
     local edit = row.edit
     if Open77.vehicles.get(edit.vehicleId) then
-        local ok, why = applyLook(edit.vehicleId, edit.saved)
+        local ok, why = applyLook(edit.vehicleId, edit.saved, row)
         if not ok then
             -- Keep the lease so periodic cleanup retries instead of persisting a preview.
             edit.closeRequested = true
@@ -470,16 +634,75 @@ function Garage.customizationState(playerId, token)
     local row = edits[playerId]
     if not row or row.edit.token ~= token then return nil end
     local saved = row.edit.saved
-    return { paint = copy(saved.paint), lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance) }
+    return { paint = copy(saved.paint), lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance),
+        visual = copy(saved.visual), lightrp = copy(saved.lightrp) }
 end
+-- Plates are unique across every owned vehicle, held ones included while a purchase
+-- is being written. `plate` is already normalized (upper case).
+local platesHeld = {}
+function Garage.plateTaken(plate, exceptRowId)
+    if type(plate) ~= "string" or plate == "" then return false end
+    if platesHeld[plate] and platesHeld[plate] ~= exceptRowId then return true end
+    for id, row in pairs(rows) do
+        local stored = type(row.props) == "table" and type(row.props.lightrp) == "table" and row.props.lightrp.plate
+        if id ~= exceptRowId and type(stored) == "string" and stored:upper() == plate then return true end
+    end
+    return false
+end
+local function plateOfRow(row)
+    local stored = row and type(row.props) == "table" and type(row.props.lightrp) == "table" and row.props.lightrp.plate
+    return type(stored) == "string" and stored ~= "" and stored or nil
+end
+-- The registration plate of a live personal vehicle (vehicle menu, staff tools), or nil.
+function Garage.plateOf(vehicleId) return plateOfRow(live[tonumber(vehicleId)]) end
 -- One category's change on top of what the car wears now; `edit.shown` follows.
 local function applyChange(edit, change)
     local id, V = edit.vehicleId, Open77.vehicles
+    local function readBack(category)
+        local visual = V.getVisual(id)
+        if type(visual) ~= "table" then return false, "Could not read the vehicle's look." end
+        OWNS[category](edit.shown, { visual = visual })
+        return true
+    end
     if change.category == "paint" then
         local target = copy(change.paint); target.lightsHue = edit.shown.paint and edit.shown.paint.lightsHue
         local ok, why = applyPaint(id, target)
         if not ok then return false, why end
         OWNS.paint(edit.shown, { paint = target })
+        OWNS.livery(edit.shown, {}) -- the server cleared any livery (generic paint replaces it)
+    elseif change.category == "livery" then
+        -- A scheme goes on the factory paint layer (lights hue kept); the profile last,
+        -- since a repaint clears it.
+        if change.profile ~= "" then
+            local base = { applied = false, lightsHue = edit.shown.paint and edit.shown.paint.lightsHue }
+            local ok, why = applyPaint(id, base)
+            if not ok then return false, why end
+            OWNS.paint(edit.shown, { paint = base })
+        end
+        local ok, why = V.setPaintProfile(id, change.profile ~= "" and change.profile or nil)
+        if not ok then return false, explain(why, "The livery was refused.") end
+        OWNS.livery(edit.shown, { visual = { profile = change.profile ~= "" and change.profile or nil } })
+    elseif change.category == "neon" then
+        local ok, why
+        if change.neon then ok, why = V.setNeon(id, neonSpec(change.neon)) else ok, why = V.clearNeon(id) end
+        if not ok then return false, explain(why, "The neon was refused.") end
+        return readBack("neon")
+    elseif change.category == "rims" then
+        local ok, why = V.setWheels(id, change.rim ~= "" and { rim = change.rim, variant = change.variant } or nil)
+        if not ok then return false, explain(why, "These rims were refused.") end
+        return readBack("rims")
+    elseif change.category == "body" then
+        local ok, why = V.setParts(id, change.parts)
+        if not ok then return false, explain(why, "This body kit was refused.") end
+        return readBack("body")
+    elseif change.category == "plate" then
+        local ok, why = renderPlate(id, change.plate)
+        if not ok then return false, why or "The plate could not be fitted." end
+        own(edit.shown).plate = change.plate
+    elseif change.category == "performance" then
+        local ok, why = applyStage(id, change.record)
+        if not ok then return false, why end
+        own(edit.shown).stage = change.stage
     elseif change.category == "lights" then
         local ok, why
         if change.color then ok, why = V.setHeadlightColor(id, change.color) else ok, why = V.clearLightsHue(id) end
@@ -493,8 +716,41 @@ local function applyChange(edit, change)
     else return false, "Unknown customization category." end
     return true
 end
--- Trusted callers only: `change` is { category = "paint", paint = {...} } |
--- { category = "lights", color = "#RRGGBB"|nil } | { category = "trim", appearance = name|"" },
+-- Unchanged purchases are refused per category (`saved` is the confirmed look).
+local function savedVisual(saved) return type(saved.visual) == "table" and saved.visual or {} end
+local function neonKey(neon)
+    if type(neon) ~= "table" or neon.enabled == false then return "off" end
+    local color = neon.color
+    if type(color) == "table" then color = string.format("#%02X%02X%02X", color.r or 0, color.g or 0, color.b or 0) end
+    return tostring(color):upper() .. "@" .. tostring(math.floor((tonumber(neon.intensity) or 600) + 0.5))
+end
+local UNCHANGED = {
+    paint = function(change, saved) return samePaint(change.paint, saved.paint), "Choose a different finish before purchasing." end,
+    lights = function(change, saved) return not change.color and saved.paint.lightsHue == nil, "Choose a different light color before purchasing." end,
+    trim = function(change, saved) return look(change.appearance) == look(saved.appearance), "Choose a different trim before purchasing." end,
+    livery = function(change, saved) return change.profile == (savedVisual(saved).profile or ""), "Choose a different livery before purchasing." end,
+    neon = function(change, saved) return neonKey(change.neon) == neonKey(savedVisual(saved).neon), "Choose a different neon before purchasing." end,
+    rims = function(change, saved)
+        local held = savedVisual(saved).wheels
+        if change.rim == "" then return held == nil, "These are already the factory rims." end
+        return type(held) == "table" and held.rim == change.rim and (held.variant or "") == (change.variant or ""), "Choose different rims before purchasing."
+    end,
+    body = function(change, saved)
+        local held = savedVisual(saved).parts or {}
+        for part, value in pairs(change.parts) do
+            if (value == false and held[part] ~= nil) or (value ~= false and not same(held[part], value)) then return false end
+        end
+        return true, "Change at least one body part before purchasing."
+    end,
+    plate = function(change, saved) return change.plate == (saved.lightrp or {}).plate, "This vehicle already wears that plate." end,
+    performance = function(change, saved) return change.stage == ((saved.lightrp or {}).stage or 0), "This stage is already fitted." end,
+}
+-- Trusted callers only (server/modules/vehicle_customization.lua validators): `change` is
+-- { category = "paint", paint = {...} } | { category = "lights", color = "#RRGGBB"|nil } |
+-- { category = "trim", appearance = name|"" } | { category = "livery", profile = id|"" } |
+-- { category = "neon", neon = { color, intensity, radius }|false } |
+-- { category = "rims", rim = fullId|"", variant } | { category = "body", parts = { [fullId] = variant|false } } |
+-- { category = "plate", plate = text } | { category = "performance", stage = n, record = name },
 -- already validated against the shared tables; `payment` carries the server quote.
 function Garage.customize(playerId, token, change, commit, payment)
     local row = edits[playerId]
@@ -506,11 +762,12 @@ function Garage.customize(playerId, token, change, commit, payment)
     if commit then
         if not payment or (payment.method ~= "cash" and payment.method ~= "bank")
             or not LightRP.money or not LightRP.money.validAmount(payment.amount) then return false, "Choose a valid payment method." end
-        if category == "paint" and samePaint(change.paint, edit.saved.paint) then return false, "Choose a different finish before purchasing." end
-        if category == "lights" and not change.color and edit.saved.paint.lightsHue == nil then return false, "Choose a different light color before purchasing." end
-        if category == "trim" and look(change.appearance) == look(edit.saved.appearance) then return false, "Choose a different trim before purchasing." end
+        local unchanged, text = UNCHANGED[category](change, edit.saved)
+        if unchanged then return false, text end
+        if category == "plate" and Garage.plateTaken(change.plate, row.id) then return false, "This plate is already registered to another vehicle." end
     end
     row.busy, ownerBusy[key] = true, operation
+    local held
     local ran, ok, reason = pcall(function()
         local applied, failure = applyChange(edit, change)
         if not applied then return false, failure end
@@ -523,6 +780,12 @@ function Garage.customize(playerId, token, change, commit, payment)
         if not props then return false, "Could not read the vehicle." end
         -- Only the purchased category leaves the preview: every other field is confirmed.
         props = maskConfirmed(copy(props), edit.saved, category)
+        if STORED[category] then OWNS[category](props, edit.shown) end
+        if row.dormant then
+            local dormant = copy(row.dormant)
+            for _, c in ipairs(linked(category)) do if DORMANT[c] then DORMANT[c](dormant) end end
+            wake(props, dormant)
+        end
         -- Save the complete canonical properties before acknowledging success.
         local encoded = json.encode(props)
         if not encoded then return false, "Could not encode vehicle properties." end
@@ -531,20 +794,25 @@ function Garage.customize(playerId, token, change, commit, payment)
             and { query = "UPDATE lightrp_owned_vehicles SET garage_id = ?, properties = ? WHERE id = ?",
                   values = { row.garage_id, encoded, row.id } }
             or { query = "UPDATE lightrp_owned_vehicles SET properties = ? WHERE id = ?", values = { encoded, row.id } }
+        if category == "plate" then held = change.plate; platesHeld[held] = row.id end
         local receipt = RECEIPTS[category]
         local saved, failure = LightRP.money.exchange(playerId, payment.method, -payment.amount, write,
             function()
-                OWNS[category](edit.saved, props)
-                OWNS[category](row.props, props) -- removal during SQL cannot overwrite the purchase
+                for _, c in ipairs(linked(category)) do
+                    OWNS[c](edit.saved, props)
+                    OWNS[c](row.props, props) -- removal during SQL cannot overwrite the purchase
+                    if row.dormant and DORMANT[c] then DORMANT[c](row.dormant) end
+                end
                 row.dirty = true
             end, receipt[1], receipt[2] .. row.id, "Auto Studio")
         if not saved then return false, LightRP.money.explain(failure) end
         return true
     end)
+    if held and platesHeld[held] == row.id then platesHeld[held] = nil end
     if not ran or not ok then
         -- The failed category goes back to its confirmed value; other previews stay.
-        OWNS[category](edit.shown, edit.saved)
-        local restored, failure = applyLook(edit.vehicleId, edit.shown)
+        for _, c in ipairs(linked(category)) do OWNS[c](edit.shown, edit.saved) end
+        local restored, failure = applyLook(edit.vehicleId, edit.shown, row)
         if not restored then edit.closeRequested = true; LightRP.log("customization rollback pending: %s", tostring(failure)) end
     end
     capture(row) -- also captures damage received during an asynchronous SQL write
@@ -555,6 +823,51 @@ function Garage.customize(playerId, token, change, commit, payment)
 end
 function Garage.customizePaint(playerId, token, paint, commit, payment)
     return Garage.customize(playerId, token, { category = "paint", paint = paint }, commit, payment)
+end
+
+-- The stored properties as setProperties takes them on a fresh car of `record`: no
+-- `lightrp` (Light RP's own fields), the spawned record, and only the visual choices
+-- this server can put on it; the others are kept dormant on the row.
+local function restorable(row, record)
+    local props, restore = row.props, {}
+    for key, value in pairs(props) do if key ~= "lightrp" then restore[key] = value end end
+    if restore.record ~= nil then restore.record = record end
+    if type(props.paint) == "table" and props.paint.applied == false then
+        -- On shipped hosts, sending colour channels also enables paint,
+        -- even when applied=false was saved. A fresh spawn already has
+        -- its original livery: do not accidentally repaint it black.
+        restore.paint = {}; for key, value in pairs(props.paint) do
+            if key ~= "primary" and key ~= "secondary" then restore.paint[key] = value end
+        end
+    end
+    row.dormant = nil
+    local visual = restore.visual
+    if type(visual) ~= "table" then restore.visual = nil; return restore end
+    local V = Open77.vehicles
+    if type(V.getVisual) ~= "function" or type(V.listParts) ~= "function" then
+        row.dormant, restore.visual = copy(visual), nil -- a server without visual support
+        return restore
+    end
+    local known, dormant, keep = {}, {}, copy(visual)
+    for _, part in ipairs(V.listParts(record) or {}) do known[part.id] = part end
+    keep.parts = {}
+    for id, value in pairs(type(visual.parts) == "table" and visual.parts or {}) do
+        local part = known[id]
+        if part and (value == true or (type(part.variants) == "table" and part.variants[value] ~= nil)) then keep.parts[id] = copy(value)
+        else dormant.parts = dormant.parts or {}; dormant.parts[id] = copy(value) end
+    end
+    if type(visual.wheels) == "table" and keep.parts[visual.wheels.rim] == nil then dormant.wheels, keep.wheels = copy(visual.wheels), nil end
+    if visual.profile ~= nil and type(V.listPaintProfiles) == "function" then
+        local offered = false
+        for _, profile in ipairs(V.listPaintProfiles(record) or {}) do if profile.id == visual.profile then offered = true end end
+        if not offered then dormant.profile, keep.profile = visual.profile, nil end
+    end
+    if next(dormant) then
+        row.dormant = dormant
+        LightRP.log("garage: %s keeps visual choices this server cannot put on it dormant", row.id)
+    end
+    restore.visual = keep
+    return restore
 end
 
 -- `check` replaces the "at the garage marker" guard for a delivery that is not
@@ -582,26 +895,34 @@ local function retrieve(playerId, row, place, check)
         local valid, reason = check(playerId, place)
         if not valid or identity(playerId) ~= owner(row) then return false, reason or "Your character changed." end
         if not clearSpace(place, slot) then return false, "The pickup bay became occupied." end
-        created, reason = Open77.vehicles.create({ record = row.record, appearance = row.props.appearance,
+        -- A performance stage spawns its stage record; while the stage records are offline
+        -- the car comes out stock and keeps its stage stored (dormant).
+        local stored = type(row.props.lightrp) == "table" and row.props.lightrp or {}
+        local record = stageRecord(row, stored.stage)
+        if not record then
+            record = row.record
+            LightRP.log("garage: %s keeps stage %s dormant (stage records offline)", row.id, tostring(stored.stage))
+        end
+        created, reason = Open77.vehicles.create({ record = record, appearance = row.props.appearance,
             position = slot.position, yaw = slot.heading or 0, bucket = place.bucket,
             persistent = true, despawnWhenUnobserved = false })
         if not created then return false, "Vehicle delivery failed: " .. tostring(reason) end
         row.vehicleId, live[created] = created, row
         tag(created, row.id)
-        if next(row.props) ~= nil then
-            local restore = row.props
-            if type(row.props.paint) == "table" and row.props.paint.applied == false then
-                -- On shipped hosts, sending colour channels also enables paint,
-                -- even when applied=false was saved. A fresh spawn already has
-                -- its original livery: do not accidentally repaint it black.
-                restore = {}; for key, value in pairs(row.props) do restore[key] = value end
-                restore.paint = {}; for key, value in pairs(row.props.paint) do
-                    if key ~= "primary" and key ~= "secondary" then restore.paint[key] = value end
-                end
-            end
+        local restore = restorable(row, record)
+        if next(restore) ~= nil then
             local applied, err = Open77.vehicles.setProperties(created, restore)
+            if not applied and restore.visual ~= nil then
+                -- Never refuse a delivery over the look: the car comes out without its
+                -- visual choices, which stay stored until it can wear them again.
+                LightRP.log("garage: %s delivered without its visual (%s); kept dormant", row.id, tostring(err))
+                row.dormant = copy(type(row.props.visual) == "table" and row.props.visual or {})
+                restore.visual = nil
+                applied, err = Open77.vehicles.setProperties(created, restore)
+            end
             if not applied then return false, "Could not restore this vehicle: " .. tostring(err) end
         end
+        renderPlate(created, stored.plate)
         if LightRP.fuel then LightRP.fuel.restore(created, row.id) end
         Open77.vehicles.setEngine(created, false)
         local locked = LightRP.keys.lock(created, true)
@@ -811,6 +1132,8 @@ snapshot = function(playerId, session)
                 wrecked = status == "out" and wrecked(row) or nil,
                 canRecover = status == "impound" and not row.invalid,
                 impound = status == "impound" and { reason = REASONS[row.impound_reason] or "Towed", fee = row.impound_fee or 0 } or nil,
+                plate = plateOfRow(row), stage = type(row.props) == "table" and type(row.props.lightrp) == "table"
+                    and math.tointeger(tonumber(row.props.lightrp.stage) or 0) or 0,
                 hint = row.invalid and "Storage record needs a staff check." or hint }
         end
     end

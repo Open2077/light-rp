@@ -11,3 +11,5 @@ LuaRuntime(unpack_returned_tuples=True).execute((root / 'tests/vehicle_customiza
 LuaRuntime(unpack_returned_tuples=True).execute((root / 'tests/customization_payment_test.lua').read_text())
 
 LuaRuntime(unpack_returned_tuples=True).execute((root / 'tests/vehicle_customization_categories_test.lua').read_text())
+
+LuaRuntime(unpack_returned_tuples=True).execute((root / 'tests/vehicle_customization_kit_test.lua').read_text())

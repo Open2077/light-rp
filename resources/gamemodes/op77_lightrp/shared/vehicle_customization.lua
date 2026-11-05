@@ -1,10 +1,18 @@
 -- Register future categories here; each needs a server validator and UI editor
 -- (docs/vehicle-customization.md, "Adding a category").
 LightRpVehicleCustomization = {
+    -- Page order. `soon` = shown greyed with "Coming soon" (no native yet).
     categories = {
         { id = "paint", label = "Body paint", description = "Primary and secondary colors", icon = "palette" },
+        { id = "livery", label = "Livery", description = "Factory two-tone schemes", icon = "spray" },
+        { id = "rims", label = "Rims", description = "Aftermarket wheels and finish", icon = "rims" },
+        { id = "body", label = "Body kit", description = "Wings, lips, skirts, roof and bars", icon = "body" },
+        { id = "neon", label = "Neon", description = "Under-chassis lights", icon = "neon" },
         { id = "lights", label = "Lights", description = "Headlight and lamp tint", icon = "lightbulb" },
         { id = "trim", label = "Trim", description = "Factory variants of this model", icon = "car" },
+        { id = "plate", label = "Plate", description = "Registration number", icon = "plate" },
+        { id = "windows", label = "Windows", description = "Window tint", icon = "windows", soon = true },
+        { id = "performance", label = "Performance", description = "Engine stages 1 to 3", icon = "performance" },
     },
     -- Factory trims (entity appearance variants), per Light RP catalogue key
     -- (shared/config.lua LightRpConfig.vehicles.catalog). The server only accepts an
@@ -94,7 +102,48 @@ LightRpVehicleCustomization = {
         paint = "This model has no custom paint layer.",
         lights = "This model's lights cannot be tinted.",
         trim = "No factory trim is offered for this model.",
+        livery = "This model has no factory two-tone scheme.",
+        rims = "No rim fits this model yet.",
+        body = "No body part fits this model yet.",
+        neon = "Neon is not available on this server.",
+        plate = "Plates are not available on this server.",
+        performance = "No performance stage exists for this model.",
+        windows = "Coming soon.",
+        native = "This server build has no support for it yet.",
+        rimsPack = "The rim workshop is not installed on this server yet.",
+        bodyPack = "The body shop is not installed on this server yet.",
+        stagesPack = "Performance tuning is not installed on this server yet.",
     },
+    -- Neon: presets, the custom colour and the brightness steps (intensity 0-5000, the
+    -- native's default is 600). A very dark colour lights nothing and is refused.
+    neon = {
+        colors = {
+            { id = "cyan", label = "Cyan", color = "#00E5FF" },
+            { id = "magenta", label = "Magenta", color = "#FF2BD6" },
+            { id = "red", label = "Red", color = "#FF1E3C" },
+            { id = "amber", label = "Amber", color = "#FFB000" },
+            { id = "green", label = "Green", color = "#3CFF6E" },
+            { id = "blue", label = "Blue", color = "#2F6BFF" },
+            { id = "violet", label = "Violet", color = "#9B3CFF" },
+            { id = "white", label = "White", color = "#F2F4FF" },
+        },
+        intensities = {
+            { id = "low", label = "Low", value = 300 },
+            { id = "medium", label = "Medium", value = 600 },
+            { id = "high", label = "High", value = 1200 },
+        },
+        radius = 3,
+        minBrightness = 0.2, -- HSV value (0..1) below which a colour lights nothing visible
+    },
+    -- Registration plate: PROVISIONAL format (owner to confirm): exactly 7 characters,
+    -- capital letters and digits. Stored with the vehicle; shown in the studio, the
+    -- garage and the ALT vehicle menu. Nothing renders it on the car yet (no native).
+    plate = { minLength = 7, maxLength = 7, charset = "A-Z0-9", pattern = "^[A-Z0-9]+$" },
+    -- Performance stages: the TweakXL records Vehicle.<dealer record>_o77s1..3 shipped by the
+    -- `resource` (stageRecord / stageOf exports). Fitted on an empty car at the studio only;
+    -- one change per vehicle per `cooldownMs`.
+    stages = { resource = "lightrp_vehicle_stages", max = 3, cooldownMs = 600000,
+        labels = { [0] = "Stock", "Stage 1", "Stage 2", "Stage 3" } },
     -- The engine stores one hue for the lights: a grey has no hue and would read as red.
     -- Colours below this HSV saturation (0..1) are refused.
     lightsMinSaturation = 0.25,
@@ -105,5 +154,17 @@ LightRpVehicleCustomization = {
         { id = "auto_studio_2", name = "Auto Studio // Bay 02", bucket = 0, interactRadius = 3, storeRadius = 6,
           position = { x = -1025.970703, y = -1709.572754, z = 11.015274 } },
     },
-    camera = { radius = 6.5, height = 2.1, targetHeight = 0.7, fov = 55, degreesPerSecond = 10, blendMs = 400 },
+    camera = { radius = 6.5, height = 2.1, targetHeight = 0.7, fov = 55, degreesPerSecond = 10, blendMs = 400,
+        -- Per-category framing, eased in over `presetMs`. `angle` is relative to the car's
+        -- heading: 90 = in front, -90 = behind, 0 = right side, 180 = left side.
+        -- `orbit = false` stops the auto orbit (the arrows still turn it).
+        presetMs = 700,
+        presets = {
+            default = { angle = 35, radius = 6.5, height = 2.1, targetHeight = 0.7, orbit = true },
+            rims = { angle = 15, radius = 4.2, height = 0.75, targetHeight = 0.35, orbit = false },
+            neon = { angle = 35, radius = 6, height = 0.45, targetHeight = 0, orbit = true },
+            lights = { angle = 90, radius = 5.5, height = 1.1, targetHeight = 0.6, orbit = false },
+            plate = { angle = -90, radius = 4.2, height = 1, targetHeight = 0.5, orbit = false },
+            body = { angle = -55, radius = 6.5, height = 2.4, targetHeight = 0.8, orbit = true },
+        } },
 }
