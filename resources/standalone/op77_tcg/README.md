@@ -62,8 +62,14 @@ the house at the nearest free NEON DECK table (`shared/tutorial.lua`).
 - **Concrete examples:** the decks, the card order and the dice are fixed, so each rule is shown on a real move: the
   d20 for the first player, rolling a Gig, selling, paying, Lag, Calling a Legend and its choice, an attack, a Blocker
   and the fight, the React step, steals both ways, and how to win.
-- **The coach:** a coach panel guides step by step (Next, or "your move: ..."). It highlights the overlay elements it
-  talks about, and labels the zones of your playmat in 3D on the table (open77_uikit).
+- **The coach** (`web/tutorial.js`, English or French, chosen on the first step and kept): each step says what happens
+  and why; a move to make comes as numbered clicks quoting the game's buttons. It highlights the overlay elements it talks
+  about, and labels the zones of your playmat in 3D on the table (open77_uikit, in the chosen language).
+- **Concept windows:** one idea per window (how you win, the mat, reading a card, a turn, the dice, a Gig, Street Cred,
+  ready/spent, money, selling, Legends, Units, Lag, attacking, BLOCKER, fights, reacting, stealing, the other cards),
+  each with a picture (real cards, a plan of the mat, dice, a fight bar, the steal table) and an example. They open by
+  themselves the first time a step needs them; chips under the coach and the Glossary reopen them, also after the
+  tutorial ("Keep playing").
 - **Gating:** the house plays scripted turns. Moves outside the script are refused with the step's hint.
 - **The end:** "Keep playing" turns the duel into a normal game against the house. A tutorial isn't recorded in
   `tcg_matches`.

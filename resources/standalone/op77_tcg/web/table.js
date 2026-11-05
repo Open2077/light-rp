@@ -482,41 +482,19 @@
     myBoard: "#tbMine .tb-field", myGigs: "#tbMine .tb-gigs", money: "#dhYou .tb-money", panel: "#dhCentre",
     endTurn: "#dhCentre .actions .primary", log: "#dhLog"
   };
-  var EXPECT = { roll: "Roll a die", sell: "Sell the card", play: "Play the card", call: "Call a Legend", endTurn: "Click End turn",
-    attack: "Attack the Gigs", resolve: "Let it through", steal: "Pick a Gig and Steal" };
   function renderCoach(m) {
-    var box = $("tbCoach"), t = m.tutorial;
+    var box = $("tbCoach"), t = m.tutorial, TU = window.TCGTUTO;
     Array.prototype.forEach.call(document.querySelectorAll(".coach-focus"), function (n) { n.classList.remove("coach-focus"); });
+    if (TU) TU.renderFree(!t && !!m.isTutorial);
     if (!t) { box.classList.add("hidden"); box.dataset.key = ""; return; }
     box.classList.remove("hidden");
-    var key = t.id + "|" + !!m.prompt;
+    var key = t.id + "|" + !!m.prompt + "|" + (TU ? TU.lang() : "en");
     if (box.dataset.key !== key) {
+      var fresh = String(box.dataset.key || "").split("|")[0] !== t.id;
       box.dataset.key = key;
-      box.innerHTML = '<div class="tc-head"><span class="tc-step">TUTORIAL &middot; ' + t.index + " / " + t.total + '</span><span class="tc-bar"><i style="width:' +
-        Math.round(100 * t.index / t.total) + '%"></i></span></div><h3>' + esc(t.title) + "</h3><p>" + esc(t.text) + "</p>";
-      var row = el("div", "tc-actions");
-      if (t.final) {
-        var keep = el("button", "primary", "Keep playing");
-        keep.onclick = function () { X.T.emit("tcg:tutorialNext", {}); };
-        var bye = el("button", "ghost", "Leave the table");
-        bye.onclick = function () { X.T.emit("tcg:leaveMatch", {}); };
-        row.appendChild(keep); row.appendChild(bye);
-      } else if (t.next) {
-        var next = el("button", "primary", "Next");
-        next.onclick = function () { X.T.emit("tcg:tutorialNext", {}); };
-        row.appendChild(next);
-      } else if (t.expect) {
-        row.appendChild(el("span", "tc-todo", "Your move: " + esc(EXPECT[t.expect] || t.expect)));
-      } else {
-        row.appendChild(el("span", "tc-wait", t.house ? "The house is playing" : "Resolving"));
-      }
-      if (!t.final) {
-        var skip = el("button", "tc-skip", "Leave the tutorial");
-        skip.onclick = function () { X.T.emit("tcg:leaveMatch", {}); };
-        row.appendChild(skip);
-      }
-      box.appendChild(row);
-      box.classList.remove("show"); void box.offsetWidth; box.classList.add("show");
+      if (TU) TU.render(box, t, m, function (name, d) { X.T.emit(name, d || {}); });
+      else box.innerHTML = "<h3>" + esc(t.title) + "</h3><p>" + esc(t.text) + "</p>";
+      if (fresh) { box.classList.remove("show"); void box.offsetWidth; box.classList.add("show"); }
     }
     (t.ui ? arr(t.ui) : []).forEach(function (name) {
       var sel = COACH_TARGETS[name];
@@ -531,6 +509,7 @@
     sel = null; last = null; seenEvents = null; handKeys = [];
     ["tbRival", "tbMine", "tbFx"].forEach(function (id) { var n = $(id); if (n) n.innerHTML = ""; });
     var coach = $("tbCoach"); if (coach) { coach.classList.add("hidden"); coach.dataset.key = ""; }
+    if (window.TCGTUTO) { window.TCGTUTO.reset(); window.TCGTUTO.renderFree(false); }
     closePop();
     document.body.classList.remove("tb-on");
   }
@@ -542,7 +521,14 @@
     if (X) return;
     X = window.TCGDUEL;
     X.setGameRenderer({ render: render, clear: clear, tick: tick });
-    X.T.on("tcg:duelRefused", function (d) { hint(d.reason || "Not allowed."); });
+    X.rerenderCoach = function () { var b = $("tbCoach"); if (b) b.dataset.key = ""; rerender(); };
+    X.T.on("tcg:duelRefused", function (d) {
+      var why = String(d.reason || "Not allowed.");
+      // The tutorial's own refusals, in the coach's language.
+      if (why.indexOf("Tutorial:") === 0 && window.TCGTUTO && window.TCGTUTO.lang() === "fr") why = "Pas maintenant : suis les étapes du coach (en haut).";
+      else if (why.indexOf("Tutorial:") === 0) why = "Not now: follow the coach's steps (top of the screen).";
+      hint(why);
+    });
     if (X.T.preview) preview();
   }
   if (window.TCGDUEL) init(); else document.addEventListener("tcg:duelReady", init);
@@ -572,7 +558,12 @@
     if (mode === "prompt" || mode === "multi" || mode === "effects" || mode === "tutorial") view.step = "main";
     if (mode === "tutorial") {
       view.hand = "mantis_blades,emergency_atlus,japantown_jonin,corporate_surveillance,kiroshi_optics,floor_it,field_operator";
-      view.tutorial = { index: 10, total: 29, id: "sell", title: "Sell a card for money", card: "mantis_blades", ui: ["hand"], expect: "sell",
+      var sid = new URLSearchParams(location.search).get("step") || "sell";
+      view.isTutorial = true;
+      view.tutorial = { index: 11, total: 30, id: sid, title: "Sell a card for money", card: sid === "sell" ? "mantis_blades" : null, ui: ["hand"],
+        expect: ({ sell: "sell", roll: "roll", play: "play", attack: "attack", pick: "steal", react: "resolve", call: "call" })[sid] || null,
+        next: ["language", "welcome", "table", "legends", "hand", "d20", "draw", "gigs", "money", "lag", "fight", "done"].indexOf(sid) >= 0,
+        final: sid === "done", house: ["house1", "house2", "house3", "block", "stolen"].indexOf(sid) >= 0,
         text: "Mantis Blades has a Sell Tag. Click it in your hand, then Sell: it goes face down into your Eddies and pays 1 \u20AC$ every turn from now on. You may sell one card per turn." };
     }
     if (mode === "prompt") view.prompt = { id: 5, mine: true, title: "Defeat a rival Unit with power 4 or less", min: 1, max: 1, optional: false,
