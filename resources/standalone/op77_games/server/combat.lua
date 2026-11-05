@@ -1,5 +1,7 @@
 -- PvP for the games: one combat scope per pvp match (never setFriendlyFire: that would open
--- PvP in every street), the damage arbiter, the weapon sets.
+-- PvP in every street), the damage arbiter, and the mode's kit through Light RP's contract
+-- (activityKit, the temporary kit of a mission): the core hands it, verifies it, draws it
+-- from the wheel and takes it back at every exit. No weapon request starts here.
 --
 -- Scope rules (DamageAuthorityService, see op77_arena/server/pvp.lua): 2..32 unique players,
 -- alive in the bucket at creation; one scope per player; 8 per resource, 64 on the host; a
@@ -14,16 +16,6 @@ local C = GamesCombat
 
 C.scopes = {} -- match id -> { id, players = { [id] = true }, list, atMs }
 local books = {}    -- match id -> { dirty, refusal = { reason, key, sinceMs }, retryAtMs, told }
-local versions = {} -- playerId -> issue version: a verdict for an older issue is dropped
-local pending = {}  -- tostring(request id) -> { playerId, p, version, step, spec, slot, retries, atMs }
-local PENDING_TTL_MS = 15000 -- no answer at all (the relay itself times out at 10 s): a timeout
--- The source's retry (core/server/weapons.lua): about 20 s of backoff while the owner is busy.
-local MAX_RETRIES = 6
-local BACKOFF_MS = { 750, 1500, 3000, 5000, 5000, 5000 }
-local DRAW_RETRY_MS = 750
-local BUSY = { request_timeout = true, queue_full = true, player_unavailable = true, script_bridge_unavailable = true,
-    network_unavailable = true, clear_in_progress = true }
-local DRAW = { weapon_not_drawn = true, weapon_slot_empty = true, activation_rejected = true } -- slot 1 on its way to the hand
 
 -- ---------------------------------------------------------------- budget --
 
@@ -185,146 +177,55 @@ function C.join(match, p)
     if match.def.pvp then bookOf(match).dirty = true end
 end
 
-local function bump(id)
-    versions[id] = (versions[id] or 0) + 1
-    return versions[id]
+-- What this game hands out by default: its kit id of the config, or false for the kit
+-- missions preselect. Light RP answers for an id it does not know.
+function C.configured(key) return Config.kits[key] or false end
+
+-- The kit of this body: nil, none; false, id or explicit table: see C.arm.
+function C.kitOf(match, p)
+    local kit = match.def.kit
+    if type(kit) == "function" then return kit(match, p) end
+    if kit == true then return C.configured(match.def.key) end
+    return nil
 end
 
-local function ammoOptions(spec, activate)
-    local reserve = tonumber(spec.reserve)
-    if reserve == nil or reserve <= 0 then return nil end
-    -- Reserve only, never a magazine: setAmmo fails as a whole when one exceeds capacity.
-    return { reserve = math.floor(reserve), activate = activate == true }
-end
-
-local function track(requestId, info)
-    if requestId == nil then return end
-    info.atMs = E.now()
-    pending[tostring(requestId)] = info
-end
-
--- Still worth asking: the same issue, and a weapon of a match only while its player is in it.
--- A removal outlives the match: it belongs to the way back.
-local function current(info)
-    if versions[info.playerId] ~= info.version then return false end
-    if info.step == "remove" then return true end
-    local match = E.matchOf(info.playerId)
-    return match ~= nil and match.players[info.playerId] == info.p
-end
-
-local function transient(info, reason)
-    if info.step == "remove" then return reason ~= "weapon_slot_empty" end -- empty is done
-    return BUSY[reason] == true or (info.slot == 1 and DRAW[reason] == true)
-end
-
-local send = {} -- step -> sends this request
-
--- A refused request, answered or not: asked again, a bounded number of times, then final.
--- The primary that never came is told, as the arena does: until then it is a silent match.
-local function failed(info, reason)
-    local retries = info.retries or 0
-    if transient(info, reason) and retries < MAX_RETRIES then
-        info.retries = retries + 1
-        local busy = BUSY[reason] or info.step == "remove"
-        SetTimeout(busy and BACKOFF_MS[info.retries] or DRAW_RETRY_MS, function()
-            if current(info) then send[info.step](info) end
-        end)
+-- Hands out a kit: a kit id of Light RP, an explicit kit, or false (the kit missions
+-- preselect). It replaces the one held. Until the core reports a verified id this player's
+-- shots are refused: a weapon that never verified cannot land damage.
+function C.arm(match, p, kit, immediate)
+    p.armed, p.plan, p.verified, p.hand = true, kit, {}, nil
+    local ok, hand = GamesActivity.kit(p.id, match.def.id, kit or nil, immediate and { immediate = true } or nil)
+    if ok == true then
+        p.hand = hand
         return
     end
-    E.log(("%s failed for %d slot %s: %s"):format(info.step, info.playerId, tostring(info.slot), tostring(reason)))
-    local match = E.matchOf(info.playerId)
-    if match and info.step == "assign" and info.slot == 1 then
-        GamesActivity.notice(info.playerId, "error", match.def.label, "Your weapon could not be equipped.")
-    end
+    E.log(("%d refused a kit in %s: %s"):format(p.id, match.id, tostring(hand)))
+    GamesActivity.notice(p.id, "error", match.def.label, "Your weapon could not be equipped.")
 end
 
-function send.setAmmo(info)
-    local requestId, why = Open77.weapons.setAmmo(info.playerId, info.slot, ammoOptions(info.spec, info.activate))
-    if requestId == nil then return failed(info, why) end
-    track(requestId, info)
+-- After a respawn: the kit again, as a mission does. The body's kit stopped at the death.
+function C.reissue(match, p)
+    if not p.armed then return end
+    local kit = C.kitOf(match, p)
+    if kit == nil then kit = p.plan end
+    C.arm(match, p, kit)
 end
 
-function send.assign(info)
-    local spec = info.spec
-    local requestId, why = Open77.weapons.assign(info.playerId, spec.record, spec.slot, { active = spec.slot == 1, addToInventory = true })
-    if requestId == nil then return failed(info, why) end
-    track(requestId, info)
-end
-
--- Does this slot still hold what we gave? The way back hands the RP weapons to these same
--- slots, so a late removal touches only our record. nil: the cache cannot tell.
-local function slotHoldsOurs(info)
-    local ok, read = pcall(Open77.weapons.get, info.playerId)
-    if not ok or type(read) ~= "table" or type(read.slots) ~= "table" then return nil end
-    for _, row in ipairs(read.slots) do
-        if type(row) == "table" and row.slot == info.slot then return row.record == info.record end
-    end
-    return false
-end
-
-function send.remove(info)
-    if (info.retries or 0) > 0 then
-        if GamesActivity.owner(info.playerId) ~= nil then return end -- another activity owns these slots now
-        local ours = slotHoldsOurs(info)
-        if ours == false then return end
-        if ours == nil then return failed(info, "weapons_unreported") end
-    end
-    local ok, requestId, why = pcall(Open77.weapons.remove, info.playerId, info.slot)
-    if not ok or requestId == nil then return failed(info, ok and why or tostring(requestId)) end
-    track(requestId, info)
-end
-
-local function requestAmmo(p, version, spec, activate)
-    if ammoOptions(spec, activate) == nil then return end
-    send.setAmmo({ playerId = p.id, p = p, version = version, step = "setAmmo", slot = spec.slot, spec = spec, activate = activate })
-end
-
-local function requestAssign(p, version, spec)
-    send.assign({ playerId = p.id, p = p, version = version, step = "assign", slot = spec.slot, spec = spec })
-end
-
--- Holster, clear the slots, 250 ms (the removals are asynchronous: assigning into a slot
--- being torn down loses the weapon silently), then the set, slot 1 last so it ends in hand.
--- A verified id comes back on open77:weapons:completed; until then this player's shots
--- are refused: a weapon that never verified cannot land damage.
-function C.arm(match, p, weapons)
-    local version = bump(p.id)
-    p.armed, p.plan, p.verified = true, weapons, {}
-    Open77.weapons.holster(p.id)
-    for slot = 1, 3 do Open77.weapons.remove(p.id, slot) end
-    SetTimeout(250, function()
-        if E.matchOf(p.id) ~= match or versions[p.id] ~= version then return end
-        for index = #weapons, 1, -1 do requestAssign(p, version, weapons[index]) end
-    end)
-end
-
--- Ammunition back after a respawn: reserve only, nothing drawn, the weapons stay.
-function C.resupply(p)
-    if not p.armed or type(p.plan) ~= "table" then return end
-    for _, spec in ipairs(p.plan) do requestAmmo(p, versions[p.id] or 0, spec, false) end
-end
-
--- Takes back what we gave: never touches someone we never armed (their RP weapons), and
--- the team comes off. Safe on every way out. A dead body may refuse the removal of a weapon
--- of ours: that one is asked again through the player's return, see send.remove.
-function C.disarm(p)
+-- The team comes off, and the kit if we gave one: a body we never armed keeps its slots.
+-- The core takes a kit back by itself at every exit, this is the way out it hears first.
+function C.disarm(match, p)
     if p.teamed then
         p.teamed = nil
         if type(Open77.combat) == "table" and type(Open77.combat.setTeam) == "function" then pcall(Open77.combat.setTeam, p.id, 0) end
     end
     if not p.armed then return end
-    local given = {}
-    for _, spec in ipairs(type(p.plan) == "table" and p.plan or {}) do given[spec.slot] = spec.record end
-    p.armed, p.plan, p.verified = nil, nil, nil
-    local version = bump(p.id)
-    pcall(Open77.weapons.holster, p.id)
-    for slot = 1, 3 do
-        if given[slot] then send.remove({ playerId = p.id, version = version, step = "remove", slot = slot, record = given[slot] })
-        else pcall(Open77.weapons.remove, p.id, slot) end
-    end
+    local hand = p.hand
+    p.armed, p.plan, p.verified, p.hand = nil, nil, nil, nil
+    if hand == nil then return end
+    local ok, why = GamesActivity.kitTake(p.id, match.def.id, { hand = hand })
+    -- The core died: nobody else is left to empty these slots until it restarts.
+    if not ok and tostring(why):find("^core_") then pcall(Open77.weapons.clear, p.id) end
 end
-
-function C.forget(id) versions[id] = nil end
 
 -- TweakDB ids are 64-bit: the canonical form is a lowercase "0x..." string with leading
 -- zeroes stripped, or two spellings of one weapon read like a cheat.
@@ -349,31 +250,24 @@ end
 
 function C.accepts(p, reported) return C.slotOf(p, reported) ~= nil end
 
-AddEventHandler("open77:weapons:completed", function(playerId, requestId, operation, accepted, reason, result)
-    local key = tostring(requestId)
-    local info = pending[key]
-    if info == nil then return end -- another resource's request, or one we do not track
-    pending[key] = nil
-    if E.playerId(playerId) ~= info.playerId or info.step ~= operation then return end
-    if not current(info) then return end
-    if accepted ~= true then return failed(info, reason) end
-    if operation ~= "assign" then return end
-    local verified = normalize(type(result) == "table" and result.tweakDbId or nil)
-    local p = info.p
-    if verified ~= "" and type(p.verified) == "table" then p.verified[info.slot] = verified end
-    requestAmmo(p, info.version, info.spec, info.slot == 1)
-    -- Slot 1 is the last assign issued: the set has landed, the primary goes in hand.
-    if info.slot == 1 and Open77.weapons.setActive ~= nil then Open77.weapons.setActive(info.playerId, 1) end
-end)
-
-function C.sweep(t)
-    for key, info in pairs(pending) do
-        if t - (info.atMs or t) > PENDING_TTL_MS then
-            pending[key] = nil
-            if current(info) then failed(info, "request_timeout") end
-        end
+-- The core's word on a kit (activities.lua): a verified id opens that weapon for the
+-- arbiter, a kit that never came is told, as the arena does. An older hand is dropped.
+AddEventHandler("op77_lightrp:activity:kit", function(playerId, activityId, report)
+    local id = E.playerId(playerId)
+    local match = id and E.matchOf(id)
+    if match == nil or match.def.id ~= activityId or type(report) ~= "table" then return end
+    local p = match.players[id]
+    if p == nil or p.hand == nil or report.hand ~= p.hand then return end
+    if report.state == "failed" then
+        E.log(("kit never reached %d in %s"):format(id, match.id))
+        GamesActivity.notice(id, "error", match.def.label, "Your weapon could not be equipped.")
+        return
     end
-end
+    for _, row in ipairs(type(report.weapons) == "table" and report.weapons or {}) do
+        local verified = type(row) == "table" and normalize(row.tweakDbId) or ""
+        if verified ~= "" then p.verified[row.slot] = verified end
+    end
+end)
 
 -- ---------------------------------------------------------------- damage --
 

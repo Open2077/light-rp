@@ -3,6 +3,7 @@ local Config = GamesConfig
 local A = GamesActivity
 local E = GamesEngine
 local L = GamesLobby
+local Maps = GamesMapStore
 
 local function log(text) print("[games] " .. tostring(text)) end
 local playerIdOf = E.playerId
@@ -50,8 +51,12 @@ AddEventHandler("op77_lightrp:activity:dropped", function(playerId, activityId, 
     statusDirty = true
 end)
 
+-- Schemas first (the core validates and imports with them), then the maps, then the choices.
 local function registerNow()
+    if not Maps.offer() then return end
+    local synced = Maps.syncAll()
     if A.register() then pushStatus(true) end
+    if not synced then A.registered = false end
 end
 
 -- Retries every 3 s until the core accepts, and again whenever the core restarts (it
@@ -60,6 +65,23 @@ local nextRegisterAt = 0
 AddEventHandler("op77_lightrp:activity:ready", function()
     A.registered = false
     nextRegisterAt = 0
+end)
+
+-- Staff changed a game's maps (or the core can answer at last). Nothing arrives with the signal.
+-- A failed pull goes through the retry above. Before the first registration there is no choice
+-- to update: registerNow pulls for itself.
+AddEventHandler("op77_lightrp:gamemaps:changed", function(activityId)
+    if activityId ~= nil and not A.mine(activityId) then return end
+    if not A.registered then return end
+    local list = activityId and { A.definition(activityId) } or A.list
+    for _, def in ipairs(list) do
+        local ok, changed = Maps.sync(def)
+        if not ok or (changed and not A.registerOne(def)) then
+            A.registered = false
+            nextRegisterAt = 0
+        end
+    end
+    statusDirty = true
 end)
 
 AddEventHandler("onResourceStart", function(name)
@@ -106,7 +128,6 @@ AddEventHandler("onPlayerDisconnected", function(value)
     if id == nil then return end
     E.remove(id, "disconnect")
     L.leave(id)
-    GamesCombat.forget(id)
     statusDirty = true
 end)
 
@@ -136,7 +157,6 @@ CreateThread(function()
         if not ok then log("engine tick failed: " .. tostring(err)) end
         ok, err = pcall(L.tick, t)
         if not ok then log("lobby tick failed: " .. tostring(err)) end
-        pcall(GamesCombat.sweep, t)
         if A.registered and (statusDirty or t - statusAt >= Config.statusMs) then
             statusDirty, statusAt = false, t
             pushStatus(false)

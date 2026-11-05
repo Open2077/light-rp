@@ -68,7 +68,7 @@ Open77.audio = {
 H.loadServer()
 H.advance(200)
 local E, G = GamesEngine, GamesProphunt
-local LEXINGTON = H.hash("Items.Preset_Lexington_Default")
+local GUN = H.hash("Items.Preset_Ajax_Default")
 
 -- ---------------------------------------------------------------- helpers --
 
@@ -141,7 +141,7 @@ end
 local function kill(attacker, victim)
     for _ = 1, 40 do
         if E.matchOf(victim) == nil or E.matchOf(victim).players[victim].ph.role == "hunter" then return end
-        H.hit(attacker, victim, LEXINGTON, { amount = 200 })
+        H.hit(attacker, victim, GUN, { amount = 200 })
         H.settle(100)
     end
     error("never found")
@@ -173,23 +173,50 @@ H.test("the catalogue: every object has a family and a health, nothing doubled",
     end
 end)
 
+H.test("a map's own objects: only they are worn; none, or none known: the whole catalogue", function()
+    H.eq(#G.pool({}), #G.catalog, "no list")
+    H.eq(#G.pool({ props = {} }), #G.catalog, "an empty list")
+    H.eq(#G.pool({ props = { "gone.alias" } }), #G.catalog, "nothing known")
+    local a, b = G.catalog[3], G.catalog[7]
+    H.eq(#G.pool({ props = { a.model, b.model, "gone.alias" } }), 2)
+    local raw
+    for _, map in ipairs(H.core.maps["games.prophunt"]) do if map.id == "water-side" then raw = map end end
+    raw.props, raw.revision = { a.model, b.model }, raw.revision + 1
+    H.signalMaps("games.prophunt")
+    local match, _, list = live(4)
+    H.eq(#match.ph.pool, 2)
+    for _, id in ipairs(list) do
+        local s = match.players[id].ph
+        H.eq(#s.order, 2, "two steps")
+        for _, index in ipairs(s.order) do
+            local model = G.catalog[index].model
+            H.ok(model == a.model or model == b.model, model .. " is not this map's")
+        end
+        H.ok(s.object == a or s.object == b, "worn from the map's list")
+    end
+    finish(match)
+    raw.props, raw.revision = nil, raw.revision + 1
+    H.signalMaps("games.prophunt")
+end)
+
 H.test("8 maps offered, 5 kept; each has both spawns, its timings, the hunters inside the area", function()
     local offered = H.core.registered["games.prophunt"].modes
     H.eq(#offered, 8)
-    H.eq(#GamesMaps.prophunt, 8)
-    H.eq(#GamesMaps.prophuntSpare, 5)
-    local all = {}
-    for _, map in ipairs(GamesMaps.prophunt) do all[#all + 1] = map end
-    for _, map in ipairs(GamesMaps.prophuntSpare) do all[#all + 1] = map end
-    for index, map in ipairs(all) do
+    H.eq(#H.mapsOf("prophunt"), 8)
+    local spare, delivered = 0, {}
+    for _, raw in ipairs(H.seedData["games.prophunt"]) do if not raw.enabled then spare = spare + 1 end end
+    H.eq(spare, 5)
+    for index, map in ipairs(H.mapsOf("prophunt")) do
         H.ok(map.id:match("^[a-z0-9-]+$"), map.id)
         H.eq(map.hideSeconds, 45, map.id .. " hide")
         H.eq(map.roundSeconds, 300, map.id .. " hunt")
         H.ok(map.autoWhistleSeconds and map.whistleCooldown and map.changeCooldown, map.id .. " timings")
         H.eq(map.centre.x, map.propsSpawn.x, map.id .. ": the area is around the props' spawn")
         H.ok(E.distance(map.huntersSpawn, map.centre) < map.radius, map.id .. ": hunters inside")
-        if index <= 8 then H.eq(offered[index].id, map.id, "offered in order") end
+        H.eq(offered[index].id, map.id, "offered in order")
+        delivered[map.id] = true
     end
+    H.ok(not delivered["school"], "a spare is not delivered")
     H.eq(H.core.registered["games.prophunt"].kind, "event")
 end)
 
@@ -296,12 +323,16 @@ H.test("the hide: props hidden under an object, hunters held blind, nobody armed
     finish(match)
 end)
 
-H.test("the hunt: hunters free, sighted, armed with a finite reserve", function()
+H.test("the hunt: hunters free, sighted, in the kit missions preselect; the props get none", function()
     local match, hunters = hunted(3)
     local hunter = hunters[1]
     H.eq(H.players[hunter].frozen, false)
     H.eq(blind[hunter], nil)
-    H.eq(H.weapons[hunter][1], "Items.Preset_Lexington_Default")
+    H.eq(H.weapons[hunter][1], "Items.Preset_Ajax_Default")
+    H.eq(H.coreCalls("activityKit", hunter)[1].args[3], nil, "the default kit")
+    for id, p in pairs(match.players) do
+        if p.ph.role == "prop" then H.eq(#H.coreCalls("activityKit", id), 0, "no kit for a prop") end
+    end
     H.eq(H.lastClient("op77_games:hud", hunter).args[1].timer.label, "TIME")
     finish(match)
 end)
@@ -311,16 +342,16 @@ H.test("only a hunter's hit counts, never a melee, never before the hunt, and th
     local hunter, prop = hunters[1], list[1]
     local s = match.players[prop].ph
     local full = s.hp
-    H.eq(H.hit(hunter, prop, LEXINGTON), false, "not while hiding")
+    H.eq(H.hit(hunter, prop, GUN), false, "not while hiding")
     H.eq(s.hp, full)
     H.settle(45200)
-    H.eq(H.hit(hunter, prop, LEXINGTON, { attackKind = "melee" }), false, "melee")
+    H.eq(H.hit(hunter, prop, GUN, { attackKind = "melee" }), false, "melee")
     H.eq(s.hp, full, "melee counts for nothing")
-    H.eq(H.hit(prop, hunter, LEXINGTON), false, "a prop hurts nobody")
-    H.eq(H.hit(list[2], prop, LEXINGTON), false, "nor another prop")
-    H.eq(H.hit(hunter, prop, H.hash("Items.Preset_Ajax_Default")), false, "a weapon we did not issue")
+    H.eq(H.hit(prop, hunter, GUN), false, "a prop hurts nobody")
+    H.eq(H.hit(list[2], prop, GUN), false, "nor another prop")
+    H.eq(H.hit(hunter, prop, H.hash("Items.Preset_Defender_Default")), false, "a weapon we did not issue")
     H.eq(s.hp, full)
-    H.eq(H.hit(hunter, prop, LEXINGTON, { amount = 20 }), false, "the real hit is always refused")
+    H.eq(H.hit(hunter, prop, GUN, { amount = 20 }), false, "the real hit is always refused")
     H.eq(s.hp, full - 20, "counted against the object")
     H.eq(H.players[prop].health, 100, "the real body is untouched")
     H.settle(200)
@@ -331,7 +362,7 @@ end)
 H.test("a found prop: the object goes, it comes back a hunter, armed, seen, and the find counts", function()
     local match, hunters, list = hunted(3)
     local hunter, prop = hunters[1], list[1]
-    H.hit(hunter, prop, LEXINGTON, { amount = 500 })
+    H.hit(hunter, prop, GUN, { amount = 500 })
     H.settle(200)
     local s = match.players[prop].ph
     H.eq(s.role, "hunter")
@@ -346,9 +377,9 @@ H.test("a found prop: the object goes, it comes back a hunter, armed, seen, and 
     H.eq(hidden[prop], nil, "seen again")
     H.eq(H.players[prop].frozen, false)
     H.ok(E.flat(H.players[prop], match.map.huntersSpawn) <= 1.51, "at the hunters' spawn")
-    H.eq(H.weapons[prop][1], "Items.Preset_Lexington_Default", "armed")
+    H.eq(H.weapons[prop][1], "Items.Preset_Ajax_Default", "armed")
     H.eq(lastState(prop).role, "hunter")
-    H.eq(H.hit(prop, list[2], LEXINGTON, { amount = 1 }), false)
+    H.eq(H.hit(prop, list[2], GUN, { amount = 1 }), false)
     H.eq(match.players[list[2]].ph.hp < match.players[list[2]].ph.maxHp, true, "it hunts")
     finish(match)
 end)
@@ -554,7 +585,7 @@ H.test("a real death of a prop: out of the props, back as a hunter by the engine
     H.eq(H.players[prop].life, "alive")
     H.eq(H.players[prop].bucket, match.bucket)
     H.ok(E.flat(H.players[prop], match.map.huntersSpawn) <= 1.51, "at the hunters' spawn")
-    H.eq(H.weapons[prop][1], "Items.Preset_Lexington_Default", "armed")
+    H.eq(H.weapons[prop][1], "Items.Preset_Ajax_Default", "armed")
     H.eq(hidden[prop], nil, "never hidden again")
     H.eq(match.ph.found, 1)
     H.eq(match.players[prop].deaths, 1, "counted once")
@@ -593,7 +624,7 @@ end)
 
 H.test("a found prop leaving before it joins: seen, free, no object", function()
     local match, hunters, list = hunted(3)
-    H.hit(hunters[1], list[1], LEXINGTON, { amount = 500 })
+    H.hit(hunters[1], list[1], GUN, { amount = 500 })
     H.settle(200)
     H.fire("op77_lightrp:activity:leaveRequest", list[1], "games.prophunt")
     clean(list[1], "found, then left")

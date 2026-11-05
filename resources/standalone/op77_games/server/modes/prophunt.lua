@@ -33,7 +33,6 @@ local HUNTERS, PROPS = 1, 2
 
 local PH = {
     perHunter = 4,          -- 1 hunter per this many players, at least 1, never everyone
-    weapons = { { record = "Items.Preset_Lexington_Default", slot = 1, reserve = 360 } },
     hideChange = 1,         -- s between two objects while hiding (the map's own while hunting)
     rotateStep = 45,        -- degrees
     tries = 8,              -- objects one attempt tries before it waits for the retry
@@ -215,6 +214,26 @@ end
 G.catalog, G.families = {}, FAMILIES
 for index, row in ipairs(ROWS) do
     G.catalog[index] = { model = row[1], label = row[2], health = row[4] or SIZE_HEALTH[row[3]], family = familyOf[row[1]:match("^[^.]+")] }
+end
+
+-- The objects a map allows, as catalogue indices. A map's `props` lists aliases; none (or none
+-- we still know): the whole catalogue.
+function G.propOptions()
+    local options = {}
+    for index, object in ipairs(G.catalog) do options[index] = { id = object.model, label = object.label } end
+    return options
+end
+
+function G.pool(map)
+    local wanted, pool = {}, {}
+    for _, model in ipairs(type(map.props) == "table" and map.props or {}) do wanted[model] = true end
+    for index, object in ipairs(G.catalog) do
+        if wanted[object.model] then pool[#pool + 1] = index end
+    end
+    if #pool == 0 then
+        for index in ipairs(G.catalog) do pool[index] = index end
+    end
+    return pool
 end
 
 -- An alias the platform refused by name is left out for the rest of this run.
@@ -455,7 +474,7 @@ local function loose(match, p)
     if p.frozen then E.setFrozen(p, false) end
     sight(p)
     p.holdUntil = 0
-    if p.alive then C.arm(match, p, PH.weapons) end
+    if p.alive then C.arm(match, p, C.configured("prophunt")) end
 end
 
 local function startHunt(match, t)
@@ -701,14 +720,34 @@ definition = E.mode({
     id = "games.prophunt", key = "prophunt", label = "Prop Hunt", kind = "event",
     description = "Hide as an object, or hunt the objects that breathe. One hunter per four players, a found prop joins the hunters.",
     minPlayers = 2, maxPlayers = 16,
-    maps = GamesMaps.prophunt,
+    -- The area is drawn around the props' spawn (flat, see below); `centre` is that point.
+    schema = {
+        points = {
+            { key = "propsSpawn", label = "Props' spawn", color = "#3ddc84" },
+            { key = "huntersSpawn", label = "Hunters' spawn", color = "#ff4d4d" },
+        },
+        numbers = {
+            { key = "radius", label = "Play area radius", min = 10, max = 400, default = 65, unit = "m" },
+            { key = "hideSeconds", label = "Hide time", min = 10, max = 180, default = 45, unit = "s", integer = true },
+            { key = "roundSeconds", label = "Hunt time", min = 60, max = 1200, default = 300, unit = "s", integer = true },
+            { key = "autoWhistleSeconds", label = "Forced whistle every", min = 0, max = 300, default = 60, unit = "s", integer = true },
+            { key = "whistleCooldown", label = "Whistle cooldown", min = 1, max = 60, default = 8, unit = "s", integer = true },
+            { key = "changeCooldown", label = "Object change cooldown", min = 1, max = 60, default = 5, unit = "s", integer = true },
+        },
+        choices = { { key = "props", label = "Objects", about = "None ticked: every object.", options = G.propOptions() } },
+        area = { centre = "propsSpawn", radius = "radius", flat = true, holds = { "huntersSpawn" } },
+    },
+    prepare = function(map)
+        map.centre = map.propsSpawn
+        map.spawns = { map.propsSpawn, map.huntersSpawn } -- spawnFor reads the named two; this is the engine's fallback
+    end,
     pvp = true, respawnMs = PH.respawnMs,
     flatBounds = true, -- the source's area ignores height (prophunt/server.lua distance2d)
 
     setup = function(match)
         local map, list = match.map, E.members(match)
         match.seconds = (map.hideSeconds or 45) + (map.roundSeconds or 300)
-        match.ph = { phase = "countdown", found = 0, total = #list }
+        match.ph = { phase = "countdown", found = 0, total = #list, pool = G.pool(map) }
         local order = G.shuffled(#list)
         local hunters = G.hunterCount(#list)
         for index, p in ipairs(list) do
@@ -733,7 +772,8 @@ definition = E.mode({
             pcall(Open77.weapons.holster, p.id)
             if s.role == "prop" then
                 s.yaw = math.random(0, 7) * PH.rotateStep
-                s.order, s.slot = G.shuffled(#G.catalog), 1
+                s.order, s.slot = {}, 1
+                for slot, at in ipairs(G.shuffled(#ph.pool)) do s.order[slot] = ph.pool[at] end
                 hide(p, t) -- even with no object yet: the tick keeps trying one
                 if not wearFrom(match, p, 1, t) then s.retryAt = t + PH.retryMs end
                 local every = map.autoWhistleSeconds or 0

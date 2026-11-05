@@ -2,19 +2,25 @@
 -- Light RP owns the player (activityEnter ... activityLeave); this owns the match.
 --
 -- THE MODE CONTRACT. A mode is one file in server/modes/ that calls GamesEngine.mode(def),
--- plus one server_script line in open77.lua and its maps in shared/maps/.
+-- plus one server_script line in open77.lua. Its maps are made in game (server/maps.lua).
 --   Fields
 --     id, key, label, description  activity id ("games.tdm"), short key, panel text
 --     kind                 "pvp" | "event"
 --     minPlayers, maxPlayers
---     maps                 list of { id, name, radius, centre, spawns = { { x, y, z, heading } } }
+--     schema     what a map of this game needs, read by the map editor and the core's
+--                validation (server/maps.lua has the format). Plain data, next to the rules
+--     prepare    function(map): fields derived from a delivered map, on this VM's copy.
+--                The engine needs map.spawns, and map.centre + map.radius unless bounds = false
+--     maps       filled by server/maps.lua: { id, name, radius, centre, spawns = { { x, y, z, heading } } }
+--                A game with none is not offered and is no error (a test fixture may set its own)
 --     pvp        true: a combat scope, the damage arbiter, kills. false: nobody hurts anybody
 --     teams      2: sides, friendly fire off. nil: everyone alone
 --     seconds    the clock from GO (setup may set match.seconds instead)
 --     respawnMs  a death comes back after this long
 --     protectMs  after a respawn nobody hurts you and you hurt nobody (optional)
---     weapons    { { record, slot, reserve } }, the set handed out; nil: no weapons;
---                or function(match, p) -> that set: one body's own (gun game)
+--     kit        true: the game's kit of Config.kits, handed by Light RP (a mission's temporary
+--                kit); nil: no weapons; or function(match, p) -> a kit of that contract, one
+--                body's own (gun game's explicit steps)
 --     bounds     false: no play area (default: map.radius around map.centre)
 --     flatBounds true: that area ignores height (default: a sphere, as the source's PvP)
 --     joinInProgress  true: a join may enter a running match
@@ -42,7 +48,7 @@
 --     E.setFrozen(p, frozen)    held or released; E.remove lets go of whoever is still held
 --     E.feed(match, text, tone)   E.banner(target, title, text, tone, ms)   E.cue(target, name)
 --                               (target: a match or a player id; cues are Config.sounds keys)
---     GamesCombat.arm(match, p, weapons)   a new set mid-match (gun game)
+--     GamesCombat.arm(match, p, kit, immediate)   a new kit mid-match (gun game, a new hunter)
 --   Rules the engine keeps and no mode repeats: a pvp match ends "forfeit" when under two
 --   sides remain; a match ends "time" at the clock; a match nobody is left in closes.
 --   A mode's own net event must check its sender with E.matchOf(source).
@@ -55,7 +61,7 @@ local E = GamesEngine
 local HOOKS = { setup = true, spawnFor = true, start = true, tick = true, killed = true, damage = true, left = true,
     hud = true, results = true }
 local FIELDS = { id = true, key = true, label = true, description = true, kind = true, minPlayers = true, maxPlayers = true,
-    maps = true, pvp = true, teams = true, seconds = true, respawnMs = true, protectMs = true, weapons = true, bounds = true,
+    maps = true, schema = true, prepare = true, pvp = true, teams = true, seconds = true, respawnMs = true, protectMs = true, kit = true, bounds = true,
     joinInProgress = true, flatBounds = true }
 
 E.matches = {}    -- match id -> match
@@ -142,7 +148,10 @@ function E.mode(def)
     end
     assert(type(def.id) == "string" and type(def.key) == "string" and type(def.label) == "string", "mode: id, key, label")
     assert(def.kind == "pvp" or def.kind == "event", def.id .. ": kind is pvp or event")
-    assert(type(def.maps) == "table" and #def.maps > 0, def.id .. ": no maps")
+    assert(def.schema == nil or type(def.schema) == "table", def.id .. ": schema is a table")
+    assert(def.prepare == nil or type(def.prepare) == "function", def.id .. ": prepare is a function")
+    def.maps = def.maps or {}
+    assert(type(def.maps) == "table", def.id .. ": maps is a list")
     def.minPlayers, def.maxPlayers = def.minPlayers or 2, def.maxPlayers or 16
     assert(not def.pvp or def.maxPlayers <= Config.scopes.maxPlayers, def.id .. ": a combat scope takes 32 players")
     A.add(def)
@@ -381,7 +390,7 @@ function E.remove(id, how)
     match.players[id], byPlayer[id] = nil, nil
     p.left, p.leftAt, p.how = how ~= "ended", E.now(), how
     p.move = nil
-    GamesCombat.disarm(p)
+    GamesCombat.disarm(match, p)
     hook(match, "left", p, how)
     if connected(id) then
         if p.frozen then setFrozen(p, false) end
@@ -569,9 +578,8 @@ local function landed(match, p)
     fullHealth(p.id)
     GamesCombat.join(match, p)
     if match.phase == "placing" or match.phase == "countdown" then setFrozen(p, true) end
-    local weapons = match.def.weapons
-    if type(weapons) == "function" then weapons = weapons(match, p) end
-    if weapons then GamesCombat.arm(match, p, weapons) end
+    local kit = GamesCombat.kitOf(match, p)
+    if kit ~= nil then GamesCombat.arm(match, p, kit) end
 end
 
 local function placeIn(match, p)
@@ -588,6 +596,7 @@ end
 function E.open(def, ids, opts)
     opts = opts or {}
     if E.stopped then return nil, "stopped" end
+    if #def.maps == 0 then return nil, "no_map" end
     if def.pvp and GamesCombat.free() <= 0 then return nil, "no_scope" end
     local map = E.mapOf(def, opts.map)
     if map == nil then
@@ -696,7 +705,7 @@ end
 local function respawned(match, p, t)
     p.alive, p.respawnAt = true, nil
     if match.def.protectMs then p.protectedUntil = t + match.def.protectMs end
-    GamesCombat.resupply(p)
+    GamesCombat.reissue(match, p) -- the core holds this hand until the body stands, or reports "failed"
 end
 
 local function serveRespawn(match, p, t)
@@ -894,7 +903,7 @@ function E.shutdown()
     local coreUp = A.call("activityBots") ~= nil
     for id, match in pairs(byPlayer) do
         local p = match.players[id]
-        GamesCombat.disarm(p)
+        GamesCombat.disarm(match, p)
         hook(match, "left", p, "shutdown")
         TriggerClientEvent("op77_games:clear", id)
         if not coreUp then E.fallback(id, true) end

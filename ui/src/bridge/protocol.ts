@@ -7,6 +7,7 @@ export const PAGE_EVENTS = {
   armament: "lightrp:ui:armament",
   safezones: "lightrp:ui:safezones",
   missionEditor: "lightrp:ui:missioneditor",
+  mapEditor: "lightrp:ui:mapeditor",
   support: "lightrp:ui:support",
   animationsAction: "lightrp:ui:animations:action",
   animationsState: "lightrp:ui:animations:state",
@@ -593,8 +594,9 @@ export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "amm
 export interface ArsenalWeapon {
   slot: number; instanceId: string; name: string; label: string; class?: string; ammo?: string; ammoLabel?: string;
   rounds?: number; image?: string; dual?: boolean; hand?: "right" | "left";
-  /** A mission kit weapon (instanceId "kit:1" / "kit:2"), during a mission. */
+  /** A temporary kit weapon (instanceId "kit:1" / "kit:2"): a mission's, or a match's with kitScope "match". */
   kit?: boolean;
+  kitScope?: "match";
 }
 export interface ArmamentWeapon {
   instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;

@@ -446,6 +446,37 @@ reset()
 assert(next(R.rooms) == nil)
 
 -- ---------------------------------------------------------------------------
+-- Game maps change with no restart: the provider registers again, the menu follows. A game with
+-- no map left stays known (a match may still run on one) and leaves the menu and the panel.
+do
+    local function listed()
+        local ids = {}
+        for _, g in ipairs(view(1).games) do ids[g.id] = true end
+        return ids
+    end
+    local function panel()
+        local ids = {}
+        for _, a in ipairs(A.view(1).list or A.view(1).activities or {}) do ids[a.id] = a end
+        return ids
+    end
+    local gun = { id = "games.gungame", label = "Gun Game", kind = "pvp", minPlayers = 2, maxPlayers = 8, modeKey = "map" }
+    gun.modes = { MAPS[1] }
+    register("op77_games", gun)
+    assert(#A.registry["games.gungame"].modes == 1, "the choices follow")
+    assert(listed()["games.gungame"], "still hosted")
+    refused(1, "create", { id = "games.gungame", mode = "map-2" }, "map")
+    gun.modes, gun.offered = {}, false
+    register("op77_games", gun)
+    assert(A.registry["games.gungame"] and A.registry["games.gungame"].offered == false, "known, not offered")
+    assert(not listed()["games.gungame"], "no map: not in the rooms menu")
+    assert(not panel()["games.gungame"], "no map: not in the panel")
+    refused(1, "create", { id = "games.gungame" }, "cannot be hosted")
+    gun.modes, gun.offered = MAPS, true
+    register("op77_games", gun)
+    assert(listed()["games.gungame"] and panel()["games.gungame"], "back with a map")
+end
+
+-- ---------------------------------------------------------------------------
 -- A provider stops: its rooms close; a reload keeps them; the start checks the map again
 assert(act(1, "create", { id = "games.tdm", mode = "map-2" }))
 assert(act(2, "join", { id = view(1).room.id }))

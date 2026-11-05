@@ -1,9 +1,11 @@
 -- The Light RP activity contract, seen from a provider. Everything that crosses into
 -- op77_lightrp goes through this file:
 --   exports (synchronous, may raise): activityRegister / activityCheck / activityEnter /
---     activityLeave / activityOwner / activityPlayer / notice
+--     activityLeave / activityOwner / activityPlayer / activityKit / activityKitTake / notice /
+--     gameMapSchema / gameMapIndex / gameMap (server/maps.lua)
 --   events we raise:   op77_lightrp:activity:result / :status / :recap
---   events we receive: op77_lightrp:activity:join / :leaveRequest / :dropped / :ready (main.lua)
+--   events we receive: op77_lightrp:activity:join / :leaveRequest / :dropped / :ready (main.lua),
+--     :kit (combat.lua)
 -- A synchronous export raises instead of returning nil, reason (core stopped, export
 -- missing...): every call is wrapped and turned into nil, reason.
 local Config = GamesConfig
@@ -36,7 +38,8 @@ function A.definition(activityId) return byId[activityId] end
 function A.mine(activityId) return type(activityId) == "string" and byId[activityId] ~= nil end
 
 -- Each map is a join choice in the panel (at most 8), handed back as options.map. No
--- botFill: these games have no bots.
+-- botFill: these games have no bots. A game with no map stays known to the core (a match may
+-- still run on one withdrawn meanwhile) with offered = false: neither panel nor rooms list it.
 function A.registration(def)
     local modes = {}
     for _, map in ipairs(def.maps) do
@@ -46,7 +49,7 @@ function A.registration(def)
     return {
         id = def.id, resource = GetCurrentResourceName(), label = def.label, kind = def.kind,
         description = def.description, minPlayers = def.minPlayers, maxPlayers = def.maxPlayers,
-        modes = modes, modeKey = "map",
+        modes = modes, modeKey = "map", offered = #modes > 0,
         caps = {
             rpWeapons = Config.caps.rpWeapons == true, rpItems = Config.caps.rpItems == true,
             needs = Config.caps.needs == true, vehicles = Config.caps.vehicles == true,
@@ -69,6 +72,14 @@ function A.register()
     A.registered = all
     if all then lastStatus = {} end
     return all
+end
+
+-- One game again: its maps changed. The core replaces it, statuses and matches untouched.
+function A.registerOne(def)
+    local ok, reason = call("activityRegister", A.registration(def))
+    if ok == true then return true end
+    log(("register %s refused: %s"):format(def.id, tostring(reason)))
+    return false
 end
 
 local function sentence(reason, fallback)
@@ -95,6 +106,20 @@ end
 -- Releases ownership; with returnPlayer (default) the core sends the player back.
 function A.leave(playerId, activityId, opts)
     local ok, reason = call("activityLeave", playerId, activityId, opts or { returnPlayer = true })
+    if ok == true then return true end
+    return false, reason
+end
+
+-- A temporary kit, handed by the core. Returns true and the hand, or false and a reason.
+-- kit: nil (the kit missions preselect), a kit id, or { primary, secondary, reserve, label, names }.
+function A.kit(playerId, activityId, kit, opts)
+    local ok, hand = call("activityKit", playerId, activityId, kit, opts)
+    if ok == true then return true, hand end
+    return false, hand
+end
+
+function A.kitTake(playerId, activityId, opts)
+    local ok, reason = call("activityKitTake", playerId, activityId, opts)
     if ok == true then return true end
     return false, reason
 end

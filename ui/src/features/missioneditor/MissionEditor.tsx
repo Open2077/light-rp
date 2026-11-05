@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { emit } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { useStore } from "@/state/store";
-import { RageMenu, isPickable, type RageMenuItem } from "@/design/components";
+import { RageMenu, isPickable } from "@/design/components";
 import { MissionRequestTimeout, mutationKey, onEditor, request } from "./api";
+import { rounded, rowBuilders, STEPS, useTyping, type Entry, type TextEdit } from "./rows";
 import {
   BEHAVIOR_HELP, BEHAVIOR_LABEL, BEHAVIORS, BRUSH, clone, DIFFICULTIES, ENEMIES, enemyLabel, fresh, LIMITS, newId, normalizeMission, problems,
   SHAPE_LABEL, SHAPES, TOOL_LABEL, TRIGGER_LABEL, TRIGGERS, TYPE_LABEL, TYPES,
@@ -19,12 +20,8 @@ type Kind = "list" | "mission" | "general" | "perimeter" | "vertices" | "vertex"
   | "checkpoints" | "checkpoint" | "waves" | "wave" | "rules" | "fixer" | "worldboss" | "difficulties" | "difficulty" | "test" | "issues" | "discard" | "delete"
   | "brush" | "route";
 type Page = { kind: Kind; selected?: string; index?: number; key?: string };
-type Entry = RageMenuItem & { run?: () => void; change?: (patch: Partial<RageMenuItem>) => void };
-type TextEdit = { id: string; value: string; replace: boolean; numeric: boolean; max: number; commit: (value: string) => string | undefined };
 type CaptureMode = "feet" | "aim";
-const STEPS = [0.1, 1, 5, 10];
 const message = (error: unknown) => error instanceof Error ? error.message : "The request failed.";
-const rounded = (value: number) => Math.round(value * 1000) / 1000;
 const PLACEABLE: Kind[] = ["mission", "general", "perimeter", "vertices", "vertex", "starts", "start", "spawns", "spawn", "checkpoints", "checkpoint"];
 const coords = (p: Point) => `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`;
 
@@ -184,27 +181,7 @@ export function MissionEditor() {
     count: brush.count, spread: brush.spread, radius: brush.checkpointRadius };
   const buildKey = JSON.stringify(buildWire);
   useEffect(() => { if (opened) emit(PAGE_EVENTS.missionEditor, { operation: "preview", mission: draft ?? null, focus, build: buildWire }); }, [draft, opened, focus, buildKey]);
-  // Full keyboard capture while typing a row's value.
-  useEffect(() => {
-    if (!opened || !editing) return;
-    const handler = (event: KeyboardEvent) => {
-      event.stopPropagation();
-      if (event.key === "Enter") {
-        event.preventDefault(); if (event.repeat) return;
-        const reason = editing.commit(editing.value);
-        if (reason) setError(reason); else { setEditing(undefined); setError(""); }
-      } else if (event.key === "Escape") { event.preventDefault(); setEditing(undefined); setError(""); }
-      else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") { event.preventDefault(); setEditing(previous => previous ? { ...previous, replace: true } : previous); }
-      else if (event.key === "Backspace" || event.key === "Delete") {
-        event.preventDefault(); setEditing(previous => previous ? { ...previous, value: previous.replace || event.key === "Delete" ? "" : Array.from(previous.value).slice(0, -1).join(""), replace: false } : previous);
-      } else if (!event.ctrlKey && !event.metaKey && !event.altKey && Array.from(event.key).length === 1) {
-        event.preventDefault(); const character = event.key;
-        if (editing.numeric && !/[0-9eE+.-]/.test(character)) return;
-        setEditing(previous => previous ? { ...previous, value: (previous.replace ? character : previous.value + character).slice(0, previous.max), replace: false } : previous);
-      } else if (event.key === "Tab") event.preventDefault();
-    };
-    window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler);
-  }, [opened, editing]);
+  useTyping(opened, editing, setEditing, setError);
 
   const edit = (source?: Mission, duplicate = false) => run(async () => {
     let next: Mission;
@@ -256,28 +233,7 @@ export function MissionEditor() {
   };
 
   // ---- row builders --------------------------------------------------------
-  const readOnly = locked;
-  const item = (id: string, text: string, action?: () => void, options: Partial<Entry> = {}): Entry => ({ id, text, run: action, ...options });
-  const submenu = (id: string, text: string, page: Page, options: Partial<Entry> = {}): Entry => item(id, text, () => push(page), { type: "submenu", ...options });
-  const textEntry = (id: string, text: string, value: string, commit: (value: string) => string | undefined, max = 60, description?: string): Entry => item(id, text, () => {
-    if (readOnly) return;
-    setError(""); setEditing({ id, value, replace: true, numeric: false, max, commit });
-  }, { meta: value || "EMPTY", disabled: locked, description: description ?? "Enter edits this row. Type, then Enter applies or Escape cancels. Ctrl+A selects all." });
-  const numberEntry = (id: string, text: string, value: number, change: (value: number) => void, min: number, max: number, unit = "m", step?: number, integer = false): Entry => item(id, text, () => {
-    if (readOnly) return;
-    setError(""); setEditing({ id, value: String(value), replace: true, numeric: true, max: 24, commit: input => {
-      const n = input.trim() === "" ? NaN : Number(input);
-      if (!Number.isFinite(n) || n < min || n > max || (integer && !Number.isInteger(n))) return `Enter ${integer ? "a whole number" : "a number"} from ${min} to ${max}.`;
-      change(rounded(n)); return undefined;
-    } });
-  }, { type: "slider", value, min, max, step: step ?? STEPS[stepIndex], unit, disabled: locked,
-    change: patch => { if (!readOnly && patch.value != null) { const v = Math.min(max, Math.max(min, integer ? Math.round(patch.value) : rounded(patch.value))); change(v); } },
-    description: `Left/right adjusts by ${step ?? STEPS[stepIndex]} ${unit}. Enter types an exact value.` });
-  const toggle = (id: string, text: string, checked: boolean, change: (checked: boolean) => void, description: string): Entry => item(id, text, () => { if (!readOnly) change(!checked); },
-    { type: "checkbox", checked, disabled: locked, change: patch => { if (!readOnly) change(patch.checked === true); }, description });
-  const choice = <T extends string,>(id: string, text: string, options: readonly T[], labels: (v: T) => string, value: T, change: (v: T) => void, description: string): Entry =>
-    item(id, text, undefined, { type: "list", options: options.map(labels), index: Math.max(0, options.indexOf(value)), disabled: locked,
-      change: patch => { const v = options[patch.index ?? 0]; if (!readOnly && v) change(v); }, description });
+  const { readOnly, item, submenu, textEntry, numberEntry, toggle, choice } = rowBuilders<Page>({ locked, stepIndex, setEditing, setError, push });
   const placeRows = (what: string, target: Tool | Ref): Entry[] => [
     item("placeAim", `Place ${what} with the mouse`, () => {
       if (typeof target === "string") enterBuild(target);

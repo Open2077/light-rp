@@ -7,7 +7,8 @@
 -- arbiter remembers it: a kill the platform reports without such a hit by that killer, on that
 -- step, scores nothing and costs the victim nothing. Explosions and anything else never hurt, a
 -- body seen drawing something else is armed again, and no weapon changes hands without a server
--- that saw the assign verified (GamesCombat.arm).
+-- that saw the assign verified (GamesCombat.arm). Each step is an explicit kit of Light RP's
+-- temporary-kit contract, handed again at each change of step.
 local Config = GamesConfig
 local E = GamesEngine
 
@@ -50,12 +51,12 @@ local G = GamesGungame
 local LADDER = GG.ladder
 local TOP = #LADDER
 
--- One weapon set per step: p.plan == SETS[step] is what "armed for this step" means.
+-- One kit per step: the step's weapon, and the knife the rules need beside it (the top step
+-- is the knife alone). p.plan == SETS[step] is what "armed for this step" means.
 local SETS = {}
 for step, entry in ipairs(LADDER) do
-    SETS[step] = entry.melee and { { record = KNIFE, slot = SLOT.step } } or {
-        { record = entry.record, slot = SLOT.step, reserve = entry.reserve },
-        { record = KNIFE, slot = SLOT.knife },
+    SETS[step] = entry.melee and { primary = KNIFE, label = entry.name, names = { entry.name } } or {
+        primary = entry.record, secondary = KNIFE, reserve = { entry.reserve }, label = entry.name, names = { entry.name, "Knife" },
     }
 end
 G.sets = SETS
@@ -87,7 +88,7 @@ end
 
 local function armStep(match, p, t)
     p.gg.armedAt = t
-    GamesCombat.arm(match, p, SETS[p.gg.step])
+    GamesCombat.arm(match, p, SETS[p.gg.step], true) -- mid-fight: no time for a body to land
 end
 
 local function announce(p)
@@ -158,10 +159,15 @@ local def = E.mode({
     id = "games.gungame", key = "gungame", label = "Gun Game", kind = "pvp",
     description = "Everyone alone on a ladder of 14 weapons. A kill climbs, a knife kill sends the victim down, a kill with the knife wins.",
     minPlayers = 2, maxPlayers = 16,
-    maps = GamesMaps.gungame,
+    schema = {
+        points = { { key = "centre", label = "Play area centre", color = "#ffcc00" } },
+        lists = { { key = "spawns", label = "Spawn", color = "#3ddc84", min = 2, max = 32 } },
+        numbers = { { key = "radius", label = "Play area radius", min = 10, max = 400, default = 70, unit = "m" } },
+        area = { centre = "centre", radius = "radius", holds = { "spawns" } },
+    },
     pvp = true,
     seconds = GG.seconds, respawnMs = GG.respawnMs, protectMs = GG.protectMs,
-    weapons = function(_, p) return SETS[p.gg.step] end,
+    kit = function(_, p) return SETS[p.gg.step] end,
 
     setup = function(match)
         match.gg = { next = 0 }

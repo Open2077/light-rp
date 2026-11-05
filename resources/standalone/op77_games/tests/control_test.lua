@@ -14,7 +14,7 @@ H.advance(200)
 local E, G = GamesEngine, GamesControl
 local R = G.rules
 local AJAX = H.hash("Items.Preset_Ajax_Default")
-local MAP = GamesMaps.control[1]
+local MAP = H.mapsOf("control")[1]
 
 local nextId = 0
 local function players(n)
@@ -181,7 +181,7 @@ H.test("camping: a grace of 2 s, then a sting a second, gone on leaving", functi
 end)
 
 H.test("the map: one, its points placed, its play area covers them", function()
-    H.eq(#GamesMaps.control, 1)
+    H.eq(#H.mapsOf("control"), 1)
     H.eq(MAP.id, "kang-tao")
     H.ok(MAP.point and MAP.redSpawn and MAP.blueSpawn, "points")
     H.eq(#MAP.spawns, 2)

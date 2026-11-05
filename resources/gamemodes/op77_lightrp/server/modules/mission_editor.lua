@@ -20,9 +20,9 @@ Db.schema([[CREATE TABLE IF NOT EXISTS lightrp_mission_defs (
 local lastRequest, done = {}, {}   -- done[actor][mutation] = result (idempotent retries)
 local function now() return Open77.time.monotonic() end
 
-function Editor.allowed(player)
+function Editor.allowed(player, permission)
     if not player or player <= 0 or type(Open77.acl) ~= "table" or type(Open77.acl.isAllowed) ~= "function" then return false end
-    local ok, value = pcall(Open77.acl.isAllowed, player, PERMISSION)
+    local ok, value = pcall(Open77.acl.isAllowed, player, permission or PERMISSION)
     return ok and value == true
 end
 local function actor(player)
@@ -30,6 +30,7 @@ local function actor(player)
     if type(a) ~= "string" or #a == 0 or #a > 128 then return nil end
     return a
 end
+Editor.actor = actor
 
 function Editor.list()
     local list = {}
@@ -143,16 +144,18 @@ local function countValues(value, depth)
     return n
 end
 Editor.countValues = countValues
-local function reply(player, response)
+-- Also the map editor's way out (server/modules/game_maps.lua), on its own event.
+function Editor.deliver(net, player, response)
     local count = countValues(response)
     if count > LATENT_VALUES and type(TriggerLatentClientEvent) == "function" then
-        local id, why = TriggerLatentClientEvent(NET, player, LATENT_RATE, response)
-        if id then LightRP.log("mission editor: reply of %d values sent as a latent event", count); return end
-        LightRP.log("mission editor: latent reply refused (%s, %d values)", tostring(why), count)
+        local id, why = TriggerLatentClientEvent(net, player, LATENT_RATE, response)
+        if id then LightRP.log("%s: reply of %d values sent as a latent event", net, count); return end
+        LightRP.log("%s: latent reply refused (%s, %d values)", net, tostring(why), count)
     end
-    local ok, why = TriggerClientEvent(NET, player, response)
-    if ok == false then LightRP.log("mission editor: reply refused (%s, %d values)", tostring(why), count) end
+    local ok, why = TriggerClientEvent(net, player, response)
+    if ok == false then LightRP.log("%s: reply refused (%s, %d values)", net, tostring(why), count) end
 end
+local function reply(player, response) return Editor.deliver(NET, player, response) end
 
 local function dispatch(player, p)
     if not Editor.allowed(player) then return nil, "Mission editor permission denied." end

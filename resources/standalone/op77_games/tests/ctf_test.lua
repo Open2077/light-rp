@@ -8,7 +8,7 @@ local R = G.rules
 local AJAX = H.hash("Items.Preset_Ajax_Default")
 
 local function mapOf(id)
-    for _, map in ipairs(GamesMaps.ctf) do if map.id == id then return map end end
+    return H.mapOf("ctf", id)
 end
 local DOCKS, SCHOOL = mapOf("watson-docks"), mapOf("school")
 
@@ -67,13 +67,13 @@ H.test("the activity: two maps, flags as markers, no model anywhere", function()
     local def = H.ok(H.core.registered["games.ctf"], "registered")
     H.eq(def.kind, "pvp")
     H.eq(#def.modes, 2)
-    H.eq(def.modes[1].id, "watson-docks")
-    H.eq(def.modes[2].id, "school")
+    H.eq(def.modes[1].id, "school", "by name")
+    H.eq(def.modes[2].id, "watson-docks")
 end)
 
 H.test("the play area always covers both bases by 15 m", function()
     H.ok(DOCKS.radius > 50, "widened from the source's 50")
-    for _, map in ipairs(GamesMaps.ctf) do
+    for _, map in ipairs(H.mapsOf("ctf")) do
         for _, base in ipairs({ map.redBase, map.blueBase }) do
             H.ok(E.distance(base, map.centre) + 15 <= map.radius + 0.001, map.id .. ": covered")
         end

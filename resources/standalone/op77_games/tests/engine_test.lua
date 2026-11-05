@@ -13,16 +13,16 @@ local declareTestModes
 declareTestModes = function()
 E.mode({
     id = "games.testopen", key = "testopen", label = "Open Game", kind = "pvp", minPlayers = 2, maxPlayers = 4,
-    maps = GamesMaps.tdm, pvp = true, teams = 2, seconds = 300, respawnMs = 1000, joinInProgress = true,
+    maps = H.seedOf("tdm"), pvp = true, teams = 2, seconds = 300, respawnMs = 1000, joinInProgress = true,
 })
 E.mode({
     id = "games.testffa", key = "testffa", label = "FFA", kind = "pvp", minPlayers = 2, maxPlayers = 8,
-    maps = GamesMaps.tdm, pvp = true, seconds = 300, respawnMs = 1000,
-    weapons = { { record = "Items.Preset_Ajax_Default", slot = 1, reserve = 240 } },
+    maps = H.seedOf("tdm"), pvp = true, seconds = 300, respawnMs = 1000,
+    kit = true,
 })
 E.mode({
     id = "games.testbroken", key = "testbroken", label = "Broken", kind = "event", minPlayers = 1, maxPlayers = 8,
-    maps = GamesMaps.redlight, seconds = 5, bounds = false,
+    maps = H.seedOf("redlight"), seconds = 5, bounds = false,
     tick = function() error("a bug in a mode") end, results = function() error("another") end,
 })
 end
@@ -481,11 +481,39 @@ H.test("a respawn lands in the match's bucket, on a spawn, armed, protected", fu
     H.eq(H.players[ids[1]].bucket, match.bucket)
     H.ok(match.players[ids[1]].alive, "alive")
     H.ok(match.players[ids[1]].protectedUntil > E.now(), "protected")
-    local ammo = 0
-    for _, entry in ipairs(H.weaponLog) do
-        if entry.operation == "setAmmo" and entry.playerId == ids[1] and entry.amounts.magazine == nil then ammo = ammo + 1 end
-    end
-    H.ok(ammo >= 4, "reserve only, twice over")
+    H.eq(#H.coreCalls("activityKit", ids[1]), 2, "the kit again at the respawn")
+    E.cancel(match)
+    H.settle(500)
+end)
+
+H.test("a slow respawn: nothing verified until the body stands, then the kit counts", function()
+    local match, ids = live("games.tdm", 2)
+    H.die(ids[1])
+    H.respawnDelayMs = 3000
+    H.settle(4500)
+    H.eq(H.players[ids[1]].life, "respawnpending", "respawn() answered, the body is not up")
+    H.eq(#H.coreCalls("activityKit", ids[1]), 2, "the kit asked for")
+    H.eq(H.hit(ids[1], ids[2], AJAX), false, "nothing verified yet")
+    H.settle(3500)
+    H.respawnDelayMs = nil
+    H.eq(H.players[ids[1]].life, "alive")
+    H.eq(H.hit(ids[1], ids[2], AJAX), true, "armed once it stood")
+    E.cancel(match)
+    H.settle(500)
+end)
+
+H.test("a body that never stands: the core's failure reaches the player", function()
+    local match, ids = live("games.tdm", 2)
+    H.die(ids[1])
+    H.respawnDelayMs = 1000000
+    H.settle(4500)
+    H.eq(H.players[ids[1]].life, "respawnpending")
+    H.eq(H.noticeFor(ids[1], "could not be equipped"), nil, "nothing to tell yet")
+    H.kitReport(ids[1], H.kits[ids[1]], "failed")
+    H.ok(H.noticeFor(ids[1], "could not be equipped"), "told")
+    H.eq(H.hit(ids[1], ids[2], AJAX), false, "still nothing verified")
+    H.respawnDelayMs = nil
+    H.players[ids[1]].life = "alive"
     E.cancel(match)
     H.settle(500)
 end)
@@ -632,245 +660,113 @@ H.test("the arbiter: forged weapons, friendly fire, spawn protection both ways",
     H.settle(500)
 end)
 
-H.test("a weapon that never verified lands nothing; a stale verdict is dropped", function()
+H.test("a weapon that never verified lands nothing; a report of an older hand is dropped", function()
     H.autoWeapons = false
     local ids = players(2)
     H.matchJoin("games.tdm", ids, {})
     local match = H.untilPhase(ids[1], "running")
-    H.eq(H.hit(ids[1], ids[2], AJAX), false, "unverified")
-    -- the verdicts arrive after a player left: nothing of theirs is reopened
-    local stale = H.weaponRequests
-    H.weaponRequests = {}
-    E.cancel(match)
-    H.weaponRequests = stale
-    H.completeWeapons()
+    local a, b = ids[1], ids[2]
+    H.eq(H.hit(a, b, AJAX), false, "unverified")
+    local old = H.kits[a]
+    C.arm(match, match.players[a], false) -- a new hand
+    H.ok(H.kits[a].hand ~= old.hand, "replaced")
+    H.kitReport(a, old, "armed")
+    H.eq(H.hit(a, b, AJAX), false, "the old hand's word is worth nothing")
+    H.kitReport(a, old, "failed")
+    H.eq(H.noticeFor(a, "could not be equipped"), nil, "nor its failure")
+    H.fire("op77_lightrp:activity:kit", 999, "games.tdm", { hand = H.kits[a].hand, state = "armed", weapons = {} })
+    H.fire("op77_lightrp:activity:kit", a, "games.redlight", { hand = H.kits[a].hand, state = "armed", weapons = { { slot = 1, tweakDbId = AJAX } } })
+    H.eq(H.hit(a, b, AJAX), false, "a stranger's report, another game's")
+    H.kitReport(a, H.kits[a], "assigned")
+    H.eq(H.hit(a, b, AJAX), true, "verified on its way to the hand")
     H.autoWeapons = true
+    E.cancel(match)
     H.settle(500)
     gone(ids)
 end)
 
-H.test("transient weapon failures retry; hard ones give up; someone never armed keeps their slots", function()
-    H.autoWeapons = false
+H.test("a kit that never came is told; the game's own requests are gone; a body never armed keeps its slots", function()
     local ids = players(2)
+    H.kitFails[ids[1]] = true
+    local requests = #H.weaponLog
     H.matchJoin("games.tdm", ids, {})
-    H.untilPhase(ids[1], "countdown")
-    H.advance(400)
-    local list = H.weaponRequests
-    H.weaponRequests = {}
-    local assigns = 0
-    for _, entry in ipairs(H.weaponLog) do if entry.operation == "assign" then assigns = assigns + 1 end end
-    for _, entry in ipairs(list) do
-        if entry.operation == "assign" then
-            H.fire("open77:weapons:completed", entry.playerId, entry.id, "assign", false, entry.slot == 1 and "queue_full" or "invalid", nil)
-        end
-    end
-    H.advance(800)
-    local after = 0
-    for _, entry in ipairs(H.weaponLog) do if entry.operation == "assign" then after = after + 1 end end
-    H.eq(after, assigns + 2, "slot 1 retried for both, the hard failure not")
-    H.autoWeapons = true
-    H.fire("open77:weapons:completed", ids[1], "req-unknown", "assign", true, nil, { tweakDbId = AJAX })
-    E.cancel(E.matchOf(ids[1]))
-    H.settle(500)
-
-    local rl = players(1)
-    H.addPlayer(rl[1])
-    H.weapons[rl[1]] = { [1] = "Items.RP_Weapon" }
-    H.matchJoin("games.redlight", rl, {})
-    local match = H.untilPhase(rl[1], "running")
-    H.fire("op77_lightrp:activity:leaveRequest", rl[1], "games.redlight")
-    H.eq(H.weapons[rl[1]][1], "Items.RP_Weapon", "never strip someone we never armed")
-    H.ok(match.closed, "closed")
-end)
-
--- Answers the open requests of `id`, `operation` slot `slot` refused for `reason`, the rest fine.
-local function refuseOpen(id, operation, slot, reason)
-    local list = H.weaponRequests
-    H.weaponRequests = {}
-    local refused = 0
-    for _, entry in ipairs(list) do
-        if entry.playerId == id and entry.operation == operation and entry.slot == slot then
-            refused = refused + 1
-            H.fire("open77:weapons:completed", id, entry.id, operation, false, reason, nil)
-        else
-            local result = entry.operation == "assign" and { tweakDbId = H.hash(entry.record) } or {}
-            H.fire("open77:weapons:completed", entry.playerId, entry.id, entry.operation, true, nil, result)
-        end
-    end
-    return refused
-end
-
-local function sent(id, operation, slot)
-    local n = 0
-    for _, entry in ipairs(H.weaponLog) do
-        if entry.playerId == id and entry.operation == operation and entry.slot == slot then n = n + 1 end
-    end
-    return n
-end
-
-H.test("a stalled client: a timed out primary is asked six more times, then the player is told", function()
-    H.autoWeapons = false
-    local ids = players(2)
-    H.matchJoin("games.tdm", ids, {})
-    H.untilPhase(ids[1], "countdown")
-    H.advance(400)
-    local a, tries = ids[1], 0
-    local before = sent(a, "assign", 1)
-    for _ = 1, 10 do
-        tries = tries + refuseOpen(a, "assign", 1, "request_timeout")
-        H.advance(5100)
-    end
-    H.eq(tries, 7, "the first and six more")
-    H.eq(sent(a, "assign", 1), before + 6, "bounded")
-    H.ok(H.noticeFor(a, "could not be equipped"), "told, as the arena does")
-    H.autoWeapons = true
-    E.cancel(E.matchOf(a))
-    H.settle(500)
-end)
-
-H.test("a client that recovers gets its gun; a timed out reload of ammunition stays bounded", function()
-    H.autoWeapons = false
-    local ids = players(2)
-    H.matchJoin("games.tdm", ids, {})
-    local match = H.untilPhase(ids[1], "countdown")
-    H.advance(400)
-    local a = ids[1]
-    refuseOpen(a, "assign", 1, "request_timeout")
-    H.advance(800)
-    H.completeWeapons() -- the second try lands
-    H.ok(match.players[a].verified[1] ~= nil, "verified")
-    local tries = 0
-    for _ = 1, 10 do
-        tries = tries + refuseOpen(a, "setAmmo", 1, "queue_full")
-        H.advance(5100)
-    end
-    H.ok(tries >= 1 and tries <= 7, "ammunition is bounded too: " .. tries)
-    H.autoWeapons = true
+    local match = H.untilPhase(ids[1], "running")
+    H.ok(H.noticeFor(ids[1], "could not be equipped"), "told, as the arena does")
+    H.eq(H.noticeFor(ids[2], "could not be equipped"), nil)
+    H.eq(H.hit(ids[1], ids[2], AJAX), false, "nothing verified")
+    H.kitFails[ids[1]] = nil
+    H.die(ids[1])
+    H.settle(7000) -- the respawn and its protection
+    H.eq(H.hit(ids[1], ids[2], AJAX), true, "the respawn's kit made it")
     E.cancel(match)
     H.settle(500)
-end)
-
-H.test("no answer at all counts as a timeout: the assign is asked again", function()
-    H.autoWeapons = false
-    local ids = players(2)
-    H.matchJoin("games.tdm", ids, {})
-    local match = H.untilPhase(ids[1], "countdown")
-    H.advance(400)
-    local a = ids[1]
-    local before = sent(a, "assign", 1)
-    H.weaponRequests = {} -- the answers never come
-    H.advance(17000)
-    H.ok(sent(a, "assign", 1) > before, "asked again")
-    H.autoWeapons = true
-    if not match.closed then E.cancel(match) end
-    H.settle(500)
-end)
-
-H.test("a body dead at the end: a refused removal is asked again through the return", function()
-    local match, ids = live("games.tdm", 2)
-    local a = ids[1]
-    local record = H.weapons[a][1]
-    H.ok(record, "armed")
-    H.autoWeapons = false
-    local remove, refusing = Open77.weapons.remove, true
-    Open77.weapons.remove = function(id, slot) -- a dead body keeps what it holds
-        local kept = H.weapons[id] and H.weapons[id][slot]
-        local request = remove(id, slot)
-        if refusing and kept then H.weapons[id][slot] = kept end
-        return request
+    gone(ids)
+    for index = requests + 1, #H.weaponLog do
+        H.ok(H.weaponLog[index].operation == "holster", "no assign, setAmmo or remove of ours: " .. H.weaponLog[index].operation)
     end
-    H.weaponRequests = {}
-    E.finish(match, "time")
-    H.advance(GamesConfig.match.endMs + 200)
-    H.eq(H.weapons[a][1], record, "still there")
-    H.eq(refuseOpen(a, "remove", 1, "unequip_rejected"), 1, "the removal was tracked")
-    refusing = false
-    H.advance(800)
-    H.eq(H.weapons[a][1], nil, "gone on the second try")
-    H.eq(refuseOpen(a, "remove", 1, "weapon_slot_empty"), 1)
-    local asked = sent(a, "remove", 1)
-    H.advance(6000)
-    H.eq(sent(a, "remove", 1), asked, "done")
-    Open77.weapons.remove = remove
-    H.autoWeapons = true
-    H.settle(300)
+
+    local rl = players(1)
+    H.weapons[rl[1]] = { [1] = "Items.RP_Weapon" }
+    H.matchJoin("games.redlight", rl, {})
+    local red = H.untilPhase(rl[1], "running")
+    H.eq(#H.coreCalls("activityKit", rl[1]), 0, "red light hands nothing")
+    H.fire("op77_lightrp:activity:leaveRequest", rl[1], "games.redlight")
+    H.eq(H.weapons[rl[1]][1], "Items.RP_Weapon", "never strip someone we never armed")
+    H.eq(#H.coreCalls("activityKitTake", rl[1]), 0, "nothing to take")
+    H.ok(red.closed, "closed")
 end)
 
-H.test("a late removal never touches an RP weapon handed back, and stops when bounded", function()
+H.test("the kit of a game: the core's default, a configured id, an id the core refuses", function()
+    local match, ids = live("games.tdm", 2)
+    local call = H.coreCalls("activityKit", ids[1])[1]
+    H.eq(call.args[3], nil, "default: the core picks what missions preselect")
+    H.eq(H.weapons[ids[1]][1], LightRpRaid.loadouts[1].primary)
+    E.cancel(match)
+    H.settle(500)
+    GamesConfig.kits.tdm = "breacher"
+    match, ids = live("games.tdm", 2)
+    H.eq(H.coreCalls("activityKit", ids[1])[1].args[3], "breacher", "by id")
+    H.eq(H.weapons[ids[1]][1], "Items.Preset_Carnage_Default")
+    E.cancel(match)
+    H.settle(500)
+    GamesConfig.kits.tdm = "no-such-kit"
+    match, ids = live("games.tdm", 2)
+    H.ok(H.noticeFor(ids[1], "could not be equipped"), "refused and told")
+    E.cancel(match)
+    H.settle(500)
+    GamesConfig.kits.tdm = false
+end)
+
+H.test("every way out: the kit is taken back, a body dead at the end too, and a stranger is not asked", function()
     local match, ids = live("games.tdm", 2)
     local a, b = ids[1], ids[2]
-    H.autoWeapons = false
-    H.weaponRequests = {}
-    E.finish(match, "time")
-    H.advance(GamesConfig.match.endMs + 200)
-    refuseOpen(a, "remove", 1, "player_unavailable")
-    H.weapons[a] = { [1] = "Items.RP_Weapon" } -- the armament projected it back
-    local before = sent(a, "remove", 1)
-    H.advance(21000)
-    H.eq(sent(a, "remove", 1), before, "not ours: left alone")
-    H.eq(H.weapons[a][1], "Items.RP_Weapon")
-    -- A slot still ours, refused for ever: bounded.
-    local record = "Items.Preset_Ajax_Default"
-    local match2, list = live("games.tdm", 2)
-    local c = list[1]
-    H.autoWeapons = false
-    local remove = Open77.weapons.remove
-    Open77.weapons.remove = function(id, slot)
-        local request = remove(id, slot)
-        if id == c and slot == 1 then H.weapons[id][1] = record end
-        return request
-    end
-    H.weaponRequests = {}
-    E.finish(match2, "time")
-    H.advance(GamesConfig.match.endMs + 200)
-    local tries = 0
-    for _ = 1, 10 do
-        tries = tries + refuseOpen(c, "remove", 1, "unequip_rejected")
-        H.advance(5100)
-    end
-    H.eq(tries, 7, "the first and six more")
-    Open77.weapons.remove = remove
-    H.weapons[c] = nil
-    H.autoWeapons = true
-    H.settle(300)
-    H.eq(H.weaponCount(b), 0)
-end)
+    H.ok(H.kits[a] and H.kits[b], "both hold one")
+    H.players[a].life = "dead"
+    H.fire("op77_lightrp:activity:leaveRequest", b, "games.tdm")
+    H.eq(H.kits[b], nil, "a leave")
+    H.settle(GamesConfig.match.endMs + 500)
+    H.eq(H.kits[a], nil, "the body dead at the end")
+    H.eq(#H.coreCalls("activityKitTake", a), 1, "asked with its hand")
+    H.eq(H.coreCalls("activityKitTake", a)[1].args[3].hand ~= nil, true)
+    gone({ b })
 
-H.test("a cache that cannot tell removes nothing, and asks again", function()
-    local match, ids = live("games.tdm", 2)
-    local a = ids[1]
-    H.autoWeapons = false
-    H.weaponRequests = {}
-    local remove = Open77.weapons.remove
-    local record = H.weapons[a][1]
-    Open77.weapons.remove = function(id, slot)
-        local request = remove(id, slot)
-        if id == a and slot == 1 then H.weapons[id][1] = record end
-        return request
-    end
-    E.finish(match, "time")
-    H.advance(GamesConfig.match.endMs + 200)
-    refuseOpen(a, "remove", 1, "unequip_rejected")
-    H.weaponsUnreported = true
-    local before = sent(a, "remove", 1)
-    H.advance(1000)
-    H.eq(sent(a, "remove", 1), before, "unknown: nothing touched")
-    H.weaponsUnreported = false
-    Open77.weapons.remove = remove
-    H.advance(2000)
-    H.eq(sent(a, "remove", 1), before + 1, "and asked again once it can tell")
-    H.autoWeapons = true
-    H.settle(300)
-    H.eq(H.weapons[a][1], nil)
+    match, ids = live("games.tdm", 2)
+    a, b = ids[1], ids[2]
+    H.fire("onPlayerDisconnected", a)
+    H.removePlayer(a)
+    H.kits[a] = nil
+    H.settle(GamesConfig.match.endMs + 500)
+    H.eq(H.kits[b], nil, "the one left behind, at the forfeit")
 end)
 
 -- ---------------------------------------------------------------- the contract --
 
 H.test("the mode table: a typo fails at load, pvp over 32 fails at load", function()
-    H.ok(not pcall(E.mode, { id = "x", key = "x", label = "x", kind = "pvp", maps = GamesMaps.tdm, onKilled = function() end }), "unknown hook")
-    H.ok(not pcall(E.mode, { id = "x", key = "x", label = "x", kind = "pvp", maps = GamesMaps.tdm, pvp = true, maxPlayers = 33 }), "33")
-    H.ok(not pcall(E.mode, { id = "x", key = "x", label = "x", kind = "ffa", maps = GamesMaps.tdm }), "kind")
-    H.ok(not pcall(E.mode, { id = "x", key = "x", label = "x", kind = "pvp", maps = {} }), "no maps")
+    H.ok(not pcall(E.mode, { id = "x", key = "x", label = "x", kind = "pvp", maps = H.seedOf("tdm"), onKilled = function() end }), "unknown hook")
+    H.ok(not pcall(E.mode, { id = "x", key = "x", label = "x", kind = "pvp", maps = H.seedOf("tdm"), pvp = true, maxPlayers = 33 }), "33")
+    H.ok(not pcall(E.mode, { id = "x", key = "x", label = "x", kind = "ffa", maps = H.seedOf("tdm") }), "kind")
+    H.ok(pcall(E.mode, { id = "games.nomaps", key = "nomaps", label = "x", kind = "pvp", maps = {} }), "no map is no error")
+    H.eq(select(2, E.open(A.definition("games.nomaps"), {}, {})), "no_map", "and nothing opens")
     for _, def in ipairs(A.list) do H.eq(def.botFill, nil, def.id .. " declares no botFill") end
 end)
 
@@ -909,7 +805,7 @@ end)
 
 H.test("a hostile client: the contract is not a net event, ready gives nothing away", function()
     for _, name in ipairs({ "op77_lightrp:activity:join", "op77_lightrp:activity:leaveRequest", "op77_lightrp:activity:dropped",
-        "op77_lightrp:activity:ready", "open77:playerDied", "open77:playerKilled", "open77:weapons:completed" }) do
+        "op77_lightrp:activity:ready", "op77_lightrp:activity:kit", "open77:playerDied", "open77:playerKilled" }) do
         H.eq(H.netHandlers[name], nil, name .. " must never be a net event")
     end
     local names = {}

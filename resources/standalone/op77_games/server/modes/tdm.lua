@@ -43,15 +43,18 @@ local function sideName(side) return LABELS[side] or "Team" end
 
 E.mode({
     id = "games.tdm", key = "tdm", label = "Team Deathmatch", kind = "pvp",
-    description = "Two teams, arena weapons, respawns. First team to the kill limit wins.",
+    description = "Two teams, issued weapons, respawns. First team to the kill limit wins.",
     minPlayers = 2, maxPlayers = 16,
-    maps = GamesMaps.tdm,
+    -- Team sides come from how the spawns lie (GamesTdm.sides): at least two.
+    schema = {
+        points = { { key = "centre", label = "Play area centre", color = "#ffcc00" } },
+        lists = { { key = "spawns", label = "Spawn", color = "#3ddc84", min = 2, max = 32 } },
+        numbers = { { key = "radius", label = "Play area radius", min = 10, max = 400, default = 70, unit = "m" } },
+        area = { centre = "centre", radius = "radius", holds = { "spawns" } },
+    },
     pvp = true, teams = 2,
     seconds = TDM.seconds, respawnMs = TDM.respawnMs, protectMs = TDM.protectMs,
-    weapons = {
-        { record = "Items.Preset_Ajax_Default", slot = 1, reserve = 240 },
-        { record = "Items.Preset_Lexington_Default", slot = 2, reserve = 180 },
-    },
+    kit = true,
 
     setup = function(match)
         local count = 0

@@ -140,7 +140,19 @@ E.mode({
     id = "games.redlight", key = "redlight", label = "Red Light, Green Light", kind = "event",
     description = "Run on green, freeze on red: move under the red light and you go back to the start. Cross the line before the clock.",
     minPlayers = 1, maxPlayers = 16,
-    maps = GamesMaps.redlight,
+    -- No play area (bounds = false): a map's stored centre and radius are kept, nothing reads them.
+    schema = {
+        points = {
+            { key = "finish", label = "Finish line", color = "#ff4d4d" },
+            { key = "centre", label = "Map centre", hidden = true },
+        },
+        lists = { { key = "spawns", label = "Start line spot", color = "#3ddc84", min = 1, max = 32 } },
+        numbers = {
+            { key = "timeLimit", label = "Time limit", min = RL.minClock, max = RL.maxClock, default = RL.limit, unit = "s", integer = true },
+            { key = "radius", label = "Map radius", min = 10, max = 400, default = 80, unit = "m", hidden = true },
+        },
+        apart = { { a = "finish", b = "spawns", metres = 5 } }, -- a course with a length
+    },
     pvp = false, bounds = false, respawnMs = RL.respawnMs,
 
     setup = function(match)

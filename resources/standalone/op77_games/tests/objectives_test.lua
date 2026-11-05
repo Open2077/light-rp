@@ -41,8 +41,8 @@ local E = GamesEngine
 local verdict
 E.mode({
     id = "games.hooks", key = "hooks", label = "Hooks", kind = "pvp", minPlayers = 2, maxPlayers = 8,
-    maps = GamesMaps.tdm, pvp = true, seconds = 600,
-    weapons = function(_, p) return { { record = p.id % 2 == 1 and "Items.Preset_Ajax_Default" or "Items.Preset_Nova_Default", slot = 1, reserve = 10 } } end,
+    maps = H.seedOf("tdm"), pvp = true, seconds = 600,
+    kit = function(_, p) return { primary = p.id % 2 == 1 and "Items.Preset_Ajax_Default" or "Items.Preset_Nova_Default", reserve = { 10 }, label = "Own" } end,
     damage = function(_, event, attacker, victim)
         seen.damage = seen.damage + 1
         seen.event, seen.attacker, seen.victim = event, attacker, victim
@@ -58,7 +58,7 @@ local function ids(a, b)
     return { a, b }
 end
 
-H.test("weapons as a function: each body its own set", function()
+H.test("a kit as a function: each body its own", function()
     local list = ids(1, 2)
     H.matchJoin("games.hooks", list)
     local match = H.untilPhase(1, "running")

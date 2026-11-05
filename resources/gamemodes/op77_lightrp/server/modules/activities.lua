@@ -12,6 +12,8 @@
 --               description, minPlayers, maxPlayers,
 --               botFill = true|false,                             -- optional: honours options.fill
 --               modes = { { id, label, botFill = false } },       -- optional: per-mode opt-out
+--               offered = false,                                  -- optional: known, not listed
+--                                                                    nor joinable (no map left)
 --               caps = { rpWeapons, rpItems, needs, vehicles },   -- every cap false by default
 --               pve = true|false,                                 -- optional: players vs bots
 --               difficulties = { "standard", "hard", "critical" } } -- optional, PvE only
@@ -26,6 +28,30 @@
 --   notice(playerId, notice)                 -> true | false, reason   a player-facing message in
 --                                               Light RP's own notice, never a UI of the provider's
 --                                               (shared/notice.lua: { kind, title, body, durationMs })
+--   activityKit(playerId, activityId, kit, opts) -> true, hand | false, reason
+--       a temporary kit for a player this activity owns, handed by the core exactly as a
+--       mission's (server/modules/activity_kits.lua). Nothing to wait for: it runs on the
+--       core's thread and the result comes on op77_lightrp:activity:kit.
+--       kit = nil                                  the kit missions preselect (first of
+--                                                  LightRpRaid.loadouts)
+--             "assault"                            a kit of LightRpRaid.loadouts, by id
+--             { primary, secondary, reserve = { n1, n2 }, label, names = { a, b } }
+--                                                  an explicit one: records "Items.*";
+--                                                  secondary, names optional; a weapon
+--                                                  with no reserve is a melee weapon
+--       opts.immediate = true: no 1.5 s for the body to land (a swap mid-fight)
+--       A new call replaces the kit held, whichever it is: that is how to hand out a new
+--       one, and how to re-issue after a respawn (a dead body's kit stops at the death).
+--       Refused: invalid player, unknown activity, another resource's activity, a player
+--       this activity does not own (never entered, left, on the way back), an unknown kit.
+--   activityKitTake(playerId, activityId, opts) -> true | false, reason
+--       takes it back mid-activity; opts.hand: refuses a late call for an older kit. The
+--       core also takes it back at every exit by itself: leave, dropped, disconnect,
+--       character change, provider stop, Light RP stop, a body dead at the end. Then the
+--       slots are emptied and read back, and the RP weapons return as after a mission.
+--       Character weapons are never touched: only native slots are, nothing is written.
+--   While a kit is held the armament stands aside and the weapon wheel lists and draws the
+--   kit (reissuing it if the slot is empty), even with caps.rpWeapons.
 -- PvE and reputation (docs/pve-progression.md): only an activity with `pve = true`
 -- (or listed in server/config/activities.lua `pve.activities`) grants reputation;
 -- every other result records stats at 0 reputation, whatever it asks. A PvE
@@ -47,6 +73,13 @@
 --   core -> provider  op77_lightrp:activity:dropped (playerId, activityId, reason)
 --   core -> provider  op77_lightrp:activity:ready   ()  Light RP (re)started: register again
 --   core -> provider  op77_lightrp:activity:bots    (enabled)  staff bot mode toggled
+--   core -> provider  op77_lightrp:activity:kit     (playerId, activityId, report)
+--       report = { hand, kit, state, weapons = { { slot, tweakDbId } } }, for the hand
+--       activityKit answered: drop a report of an older hand. state "assigned": a weapon
+--       the platform verified, on its way to the hand; "armed": in hand with rounds;
+--       "failed": six attempts did not get it there, or the body never stood, tell the
+--       player. A hand on a body that is not up waits for its `alive` (a respawn answers
+--       before that), so re-issue at the respawn; a new hand replaces the waiting one.
 -- status = { phase = "idle"|"lobby"|"running", players, queued, joinable, detail, queue }
 --   queue (optional, v1): the provider's own queue, for the queued players' queue panel
 --   (activity_queue.lua; a provider without it keeps working, the panel then reads
@@ -113,6 +146,7 @@ local EV = {
     dropped = "op77_lightrp:activity:dropped",
     ready = "op77_lightrp:activity:ready",
     bots = "op77_lightrp:activity:bots",
+    kit = "op77_lightrp:activity:kit",
 }
 A.events = EV
 
@@ -206,6 +240,7 @@ local function foreign(resource)
     local by = caller()
     return by ~= nil and by ~= resource
 end
+A.foreign, A.clean = foreign, clean
 local function running(resource)
     if type(GetResourceState) ~= "function" then return true end
     local state = GetResourceState(resource)
@@ -595,7 +630,8 @@ local function validate(def)
     if def.botFill ~= nil and type(def.botFill) ~= "boolean" then return nil, "botFill must be true or false." end
     return { id = id, resource = resource, label = label, kind = def.kind, description = clean(def.description, 280) or "",
         minPlayers = minPlayers, maxPlayers = maxPlayers, caps = caps, modes = modes, modeKey = modeKey,
-        pve = pve, difficulties = difficulties, weight = weight, botFill = def.botFill == true }
+        pve = pve, difficulties = difficulties, weight = weight, botFill = def.botFill == true,
+        offered = def.offered ~= false }
 end
 
 local refreshTop -- defined with the stats below
@@ -717,15 +753,15 @@ end
 
 -- RP weapons back once the activity's own are gone: the armament pushes at once
 -- (it stops standing aside) and projects again a moment later, like a mission's end.
-local function restoreArms(id, e)
-    if e.caps and e.caps.rpWeapons then return end
+-- `stays`: the player is still owned, by an activity that keeps RP weapons.
+local function rearm(id, stays)
     if LightRP.armament and type(LightRP.armament.push) == "function" then pcall(LightRP.armament.push, id) end
     -- 2026-11-03: the synchronization the push starts could still be running at 3 s
     -- ("Weapon synchronization is already in progress."), and the one try gave up.
     -- Wait for it and ask again, a few times, before calling it a failure.
     local tries = 0
     local function synchronize()
-        if A.owns(id) or not LightRP.armament or type(LightRP.armament.synchronize) ~= "function" then return end
+        if (A.owns(id) and not stays) or not LightRP.armament or type(LightRP.armament.synchronize) ~= "function" then return end
         tries = tries + 1
         local ok, done, why = pcall(LightRP.armament.synchronize, id)
         if ok and done ~= false then return end
@@ -734,6 +770,14 @@ local function restoreArms(id, e)
         LightRP.log("activities: weapons of %d not restored after %d tries (%s)", id, tries, reason)
     end
     SetTimeout(3000, synchronize)
+end
+A.rearm = rearm
+-- A temporary kit goes first (activity_kits.lua), even from an activity that keeps RP
+-- weapons: the kit took their projection. The way back continues when the slots are clean.
+local function restoreArms(id, e)
+    if A.withdrawKit and A.withdrawKit(id, function() rearm(id) end) then return end
+    if e.caps and e.caps.rpWeapons then return end
+    rearm(id)
 end
 
 -- The way back: the captured point, bucket included. A dead player respawns
@@ -848,6 +892,7 @@ AddEventHandler("onResourceStop", function(name, reason)
     if type(name) ~= "string" then return end
     if name == SELF then
         -- Light RP goes: the providers clean their side; the return points go with this VM.
+        if A.kitsStop then pcall(A.kitsStop) end
         for id, e in pairs(owned) do
             local p = e.returnPoint
             if type(SetPlayerRoutingBucket) == "function" then pcall(SetPlayerRoutingBucket, id, p.bucket) end
@@ -2423,6 +2468,7 @@ local function exported(name, fn)
         return table.unpack(result, 2, result.n)
     end)
 end
+A.exported, A.emit = exported, emit
 exported("activityRegister", A.register)
 exported("activityBots", function() return A.botsEnabled == true end)
 -- true | false | nil (no entry, no join): the entry's ranked flag (A.isRanked)
@@ -2490,13 +2536,17 @@ function A.onDisconnected(id)
     elseif q then pending[id] = nil; emit(EV.leaveRequest, id, q.activity) end
     pending[id], friendlies[id] = nil, nil
     returning[id], leaving[id], damagedAt[id], watchers[id], mine[id] = nil, nil, nil, nil, nil
+    if A.forgetKit then A.forgetKit(id) end -- gone, on the way back too: the slots went with the client
 end
 -- Another character (or the selector): the activity lets go, Light RP places the new one.
 local function characterChanged(id, c)
     local e = owned[id]
     if e and e.character ~= c then release(id, e, false, "character") end
     local back = returning[id]
-    if back and back.character ~= c then returning[id] = nil end
+    if back and back.character ~= c then
+        returning[id] = nil -- the way back stops here: so a kit goes now
+        if A.withdrawKit then A.withdrawKit(id, function() A.rearm(id) end) end
+    end
     local q = pending[id]
     if q and q.held then dropFromTicket(id, LightRP.characters.displayName(id) .. " changed character: the search ended.")
     elseif q then pending[id] = nil; emit(EV.leaveRequest, id, q.activity) end
@@ -2589,7 +2639,7 @@ function A.view(id)
     local list = {}
     for _, aid in ipairs(order) do
         local a = registry[aid]
-        if a then
+        if a and a.offered then
             local s, top = a.status, tops[aid]
             list[#list + 1] = {
                 id = a.id, label = a.label, kind = a.kind, description = a.description,

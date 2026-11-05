@@ -198,6 +198,15 @@ Open77 = {
             p.life, p.x, p.y, p.z = "alive", opts.position.x, opts.position.y, opts.position.z
             p.bucket = opts.bucket or 0 -- the runtime's default: a respawn without one leaves the match
             p.frozen = false
+            -- H.respawnDelayMs: true comes first, the body stands later, as on the platform
+            if H.respawnDelayMs then
+                p.life = "respawnpending"
+                local delay = H.respawnDelayMs
+                CreateThread(function()
+                    Wait(delay)
+                    if p.life == "respawnpending" then p.life = "alive" end
+                end)
+            end
             return true
         end,
         teleport = function(id, position, opts)
@@ -269,6 +278,7 @@ function H.completeWeapons()
         local result = entry.operation == "assign" and { tweakDbId = H.hash(entry.record) } or {}
         H.fire("open77:weapons:completed", entry.playerId, entry.id, entry.operation, true, nil, result)
     end
+    H.answerKits()
 end
 
 Open77.weapons = {
@@ -281,16 +291,13 @@ Open77.weapons = {
         if H.weapons[id] then H.weapons[id][slot] = nil end
         return request("remove", id, { slot = slot })
     end,
+    clear = function(id)
+        H.weapons[id] = nil
+        return request("clear", id)
+    end,
     holster = function(id) return request("holster", id) end,
     setAmmo = function(id, slot, amounts) return request("setAmmo", id, { slot = slot, amounts = amounts }) end,
     setActive = function(id, slot) return request("setActive", id, { slot = slot }) end,
-    -- The server's cache, as the owner last reported it.
-    get = function(id)
-        if H.weaponsUnreported then return nil, "weapons_unreported" end
-        local rows = {}
-        for slot = 1, 3 do rows[slot] = { slot = slot, record = H.weapons[id] and H.weapons[id][slot] or nil } end
-        return { playerId = id, slots = rows, source = "report" }
-    end,
 }
 
 function H.weaponCount(id)
@@ -360,14 +367,127 @@ Open77.effects = {
 
 -- ---------------------------------------------------------------- core stub --
 
+-- The core's own rules and import data: a game test plays what the core would deliver. Nothing
+-- at runtime reads across resources; only these tests do.
+local CORE_DIR = "../../gamemodes/op77_lightrp/server/"
+dofile(CORE_DIR .. "config/game_maps_seed.lua")
+dofile(CORE_DIR .. "modules/game_map_rules.lua")
+dofile(CORE_DIR .. "config/missions.lua") -- the kits a game may name
+local Rules = LightRpGameMapRules
+H.seedData = LightRpGameMapSeed
+
+local function deepCopy(value)
+    if type(value) ~= "table" then return value end
+    local out = {}
+    for key, item in pairs(value) do out[key] = deepCopy(item) end
+    return out
+end
+H.deepCopy = deepCopy
+
+-- The core's temporary kits: what it holds (the real work is proved by the core's own
+-- tests/activity_kits_test.lua). A hand lands in the slots at once; its report waits for
+-- H.completeWeapons, as the requests do, and for the body to stand, as the core's hand does.
+-- H.kitFails[id]: that delivery ends "failed".
+H.kits, H.kitReports, H.kitFails = {}, {}, {}
+local handSeq = 0
+
+local function kitResolved(kit)
+    if kit == nil then return LightRpRaid.loadouts[1] end
+    if type(kit) == "table" then return kit end
+    for _, entry in ipairs(LightRpRaid.loadouts) do
+        if entry.id == kit then return entry end
+    end
+    return nil
+end
+
+function H.kitReport(id, entry, state)
+    local weapons = {}
+    for slot, record in ipairs({ entry.kit.primary, entry.kit.secondary }) do
+        weapons[slot] = { slot = slot, tweakDbId = H.hash(record) }
+    end
+    H.fire("op77_lightrp:activity:kit", id, entry.activity, { hand = entry.hand, kit = entry.kit.id, state = state,
+        weapons = state == "failed" and {} or weapons })
+end
+
+function H.answerKits()
+    local list = H.kitReports
+    H.kitReports = {}
+    for _, open in ipairs(list) do
+        local entry = H.kits[open.id]
+        local body = H.players[open.id]
+        if entry and entry.hand == open.hand then
+            if body and body.life ~= "alive" and not H.kitFails[open.id] then H.kitReports[#H.kitReports + 1] = open
+            else H.kitReport(open.id, entry, H.kitFails[open.id] and "failed" or "armed") end
+        end
+    end
+end
+
+-- Every way out of the core ends here.
+function H.kitGone(id)
+    if H.kits[id] then H.weapons[id] = nil end
+    H.kits[id] = nil
+end
+
 -- A stand-in for op77_lightrp's side of the contract.
 H.core = {
     registered = {}, owner = {}, returns = {}, pending = {},
+    schemas = {}, refuseSchema = false,
+    mapsReady = true,     -- false: the core answers ready = false (starting, or no database)
+    maps = {},            -- game -> { { id, name, revision, enabled, ...fields } }
+    mapFetches = 0,
     eligible = {},        -- playerId -> reason: refused
     enterRefused = {},    -- playerId -> reason: activityEnter refused only
     refuseRegister = false, leaveFails = false,
 }
 local core = H.core
+
+function H.resetMaps()
+    core.maps = {}
+    for game, list in pairs(H.seedData) do
+        core.maps[game] = {}
+        for index, raw in ipairs(list) do
+            local map = deepCopy(raw)
+            map.revision = 1
+            core.maps[game][index] = map
+        end
+    end
+end
+H.resetMaps()
+
+-- The enabled maps of a game, by name, as the core's index keeps them: valid under the schema
+-- the provider gave, 8 at most.
+local function playable(game)
+    local entry = core.schemas[game]
+    local list = {}
+    for _, raw in ipairs(core.maps[game] or {}) do
+        if raw.enabled then
+            local map = Rules.sanitize(entry.schema, raw)
+            if map and #Rules.problems(entry.schema, map) == 0 then list[#list + 1] = raw end
+        end
+    end
+    table.sort(list, function(a, b) return a.name < b.name end)
+    return list
+end
+
+-- What a game test reads: the maps the provider holds, with its derived fields.
+function H.mapsOf(key) return GamesActivity.definition("games." .. key).maps end
+function H.mapOf(key, id)
+    for _, map in ipairs(H.mapsOf(key)) do if map.id == id then return map end end
+    error("no map " .. id .. " in " .. key)
+end
+-- The import data as it stands (a fixture for a mode of a test's own).
+function H.seedOf(key)
+    local list = {}
+    for _, raw in ipairs(H.seedData["games." .. key]) do
+        if raw.enabled then list[#list + 1] = deepCopy(raw) end
+    end
+    return list
+end
+-- Staff changed a game: the signal the core raises, nothing more.
+function H.signalMaps(game)
+    H.fire("op77_lightrp:gamemaps:changed", game)
+end
+
 local function note(name, ...) H.coreLog[#H.coreLog + 1] = { name = name, args = table.pack(...) } end
 H.notices = {}
 
@@ -402,10 +522,59 @@ H.coreExports = {
             return false, "not_owner"
         end
         core.owner[id] = nil
+        H.kitGone(id)
         if opts == nil or opts.returnPlayer ~= false then H.coreReturn(id) end
         return true
     end,
     activityOwner = function(_, id) return core.owner[id] end,
+    activityKit = function(_, id, activityId, kit, opts)
+        note("activityKit", id, activityId, kit, opts)
+        if core.owner[id] ~= activityId then return false, "That player is not in this activity." end
+        local resolved = kitResolved(kit)
+        if resolved == nil then return false, "That kit does not exist." end
+        handSeq = handSeq + 1
+        H.kits[id] = { hand = handSeq, activity = activityId, kit = resolved, opts = opts }
+        H.weapons[id] = { [1] = resolved.primary, [2] = resolved.secondary }
+        H.kitReports[#H.kitReports + 1] = { id = id, hand = handSeq }
+        return true, handSeq
+    end,
+    activityKitTake = function(_, id, activityId, opts)
+        note("activityKitTake", id, activityId, opts)
+        if core.owner[id] ~= activityId then return false, "That player is not in this activity." end
+        local entry = H.kits[id]
+        if entry == nil or (type(opts) == "table" and opts.hand ~= nil and opts.hand ~= entry.hand) then return false, "stale" end
+        H.kitGone(id)
+        return true
+    end,
+    gameMapSchema = function(_, def)
+        note("gameMapSchema", def.id)
+        if core.refuseSchema then return false, "core_not_ready" end
+        local schema, why = Rules.schema(def.schema)
+        if not schema then return false, why end
+        core.schemas[def.id] = { id = def.id, label = def.label, schema = schema }
+        return true
+    end,
+    gameMapIndex = function(_, game)
+        note("gameMapIndex", game)
+        if not core.mapsReady or not core.schemas[game] then return { ready = false } end
+        local rows = {}
+        for index, raw in ipairs(playable(game)) do
+            if index > Rules.MAX_ENABLED then break end
+            rows[index] = { id = raw.id, revision = raw.revision }
+        end
+        return { ready = true, maps = rows }
+    end,
+    gameMap = function(_, game, id)
+        core.mapFetches = core.mapFetches + 1
+        for _, raw in ipairs(playable(game)) do
+            if raw.id == id then
+                local map = Rules.sanitize(core.schemas[game].schema, raw)
+                map.id, map.enabled = raw.id, nil
+                return map
+            end
+        end
+        return nil
+    end,
     activityBots = function() return false end,
     activityPlayer = function(_, id)
         local p = H.players[id]
@@ -445,6 +614,7 @@ H.coreGone = setmetatable({}, { __index = function() error("op77_lightrp is not 
 -- raises onResourceStop.
 function H.coreStop()
     for id, activityId in pairs(core.owner) do
+        H.kitGone(id)
         H.coreReturn(id)
         H.fire("op77_lightrp:activity:dropped", id, activityId, "core_stopped")
     end
@@ -456,6 +626,7 @@ end
 
 -- The core dies with no word: its exports raise, its owners are lost, players stay put.
 function H.coreCrash()
+    H.kits = {}
     core.owner = {}
     core.registered = {}
     exports.op77_lightrp = H.coreGone
@@ -472,6 +643,7 @@ function H.providerStop()
     H.fire("onResourceStop", "op77_games")
     for id, activityId in pairs(core.owner) do
         core.owner[id] = nil
+        H.kitGone(id)
         H.coreReturn(id)
     end
     core.registered = {}

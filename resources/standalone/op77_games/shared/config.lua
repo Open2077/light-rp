@@ -10,6 +10,12 @@ GamesConfig = {
     -- and vehicles while a player is ours.
     caps = { rpWeapons = false, rpItems = false, needs = false, vehicles = false },
 
+    -- The temporary kit of each game (hunters only in prop hunt), a mission's kit handed by
+    -- Light RP: the id of one of its kits (LightRpRaid.loadouts in its server/config/missions.lua:
+    -- assault, breacher, marksman, gunner, tech), or false for the kit missions preselect, the
+    -- first of that list. Gun game hands its own ladder, red light and the props nothing.
+    kits = { tdm = false, control = false, ctf = false, prophunt = false },
+
     -- Owner decision: only the hosting menu's friendly path and the panel reach these
     -- games, none of them is ranked. Results carry `unranked`, so the core records and
     -- pays nothing and the recap still shows.

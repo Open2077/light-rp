@@ -75,8 +75,6 @@ function G.teamSpots(map, side)
     return spots
 end
 
-for _, map in ipairs(GamesMaps.ctf) do map.radius = G.area(map) end
-
 -- ---------------------------------------------------------------- moves --
 
 local function goHome(match, side, text)
@@ -213,13 +211,29 @@ E.mode({
     id = "games.ctf", key = "ctf", label = "Capture the Flag", kind = "pvp",
     description = "Two teams, two flags. Bring the enemy flag home while yours is there. Three captures win.",
     minPlayers = 2, maxPlayers = 16,
-    maps = GamesMaps.ctf,
+    -- The play area widens itself over both bases. The team lists are optional: an empty one
+    -- spawns the team on its base, and spots nearer the enemy base are ignored (G.teamSpots).
+    schema = {
+        points = {
+            { key = "redBase", label = "Red base", color = "#ff4d4d" },
+            { key = "blueBase", label = "Blue base", color = "#22d8e2" },
+            { key = "centre", label = "Play area centre", color = "#ffcc00" },
+        },
+        lists = {
+            { key = "redSpawns", label = "Red spawn", color = "#ff9f1c", min = 0, max = 32 },
+            { key = "blueSpawns", label = "Blue spawn", color = "#3ddc84", min = 0, max = 32 },
+        },
+        numbers = { { key = "radius", label = "Play area radius", min = 10, max = 400, default = 80, unit = "m" } },
+        area = { centre = "centre", radius = "radius" },
+        apart = { { a = "redBase", b = "blueBase", metres = 10 } },
+    },
+    prepare = function(map)
+        map.radius = G.area(map)
+        map.spawns = { map.redBase, map.blueBase } -- spawnFor always answers; this is the engine's fallback
+    end,
     pvp = true, teams = 2,
     seconds = CTF.seconds, respawnMs = CTF.respawnMs,
-    weapons = {
-        { record = "Items.Preset_Ajax_Default", slot = 1, reserve = 240 },
-        { record = "Items.Preset_Lexington_Default", slot = 2, reserve = 180 },
-    },
+    kit = true,
 
     setup = function(match)
         match.ctf = { score = { 0, 0 }, flags = { G.home(match.map, 1), G.home(match.map, 2) },

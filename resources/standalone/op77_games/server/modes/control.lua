@@ -135,8 +135,6 @@ function G.overtime(c, endsAt, t)
     return math.min(t + 1000, c.overtimeUntil)
 end
 
-for _, map in ipairs(GamesMaps.control) do map.radius = G.area(map) end
-
 local function hurt(match, p)
     local ok, done, why = pcall(Open77.players.damage, p.id, C.spawnDamage, { cause = "games_spawn_guard" })
     if not ok or done ~= true then E.log(("%s: spawn guard on %d refused: %s"):format(match.id, p.id, tostring(ok and why or done))) end
@@ -222,13 +220,24 @@ E.mode({
     id = "games.control", key = "control", label = "Control", kind = "pvp",
     description = "Two teams, one point. Stand on it alone to take it, hold it alone to bank seconds. First to 180 wins.",
     minPlayers = 2, maxPlayers = 16,
-    maps = GamesMaps.control,
+    -- The play area widens itself over both spawns and the point: nothing to keep inside.
+    schema = {
+        points = {
+            { key = "point", label = "Control point", color = "#ffcc00" },
+            { key = "redSpawn", label = "Red spawn", color = "#ff4d4d" },
+            { key = "blueSpawn", label = "Blue spawn", color = "#22d8e2" },
+            { key = "centre", label = "Play area centre", color = "#f2f3f5" },
+        },
+        numbers = { { key = "radius", label = "Play area radius", min = 10, max = 400, default = 80, unit = "m" } },
+        area = { centre = "centre", radius = "radius" },
+    },
+    prepare = function(map)
+        map.radius = G.area(map)
+        map.spawns = { map.redSpawn, map.blueSpawn } -- spawnFor reads the named two; this is the engine's fallback
+    end,
     pvp = true, teams = 2,
     seconds = C.seconds, respawnMs = C.respawnMs,
-    weapons = {
-        { record = "Items.Preset_Ajax_Default", slot = 1, reserve = 240 },
-        { record = "Items.Preset_Lexington_Default", slot = 2, reserve = 180 },
-    },
+    kit = true,
 
     setup = function(match)
         match.control = { score = { 0, 0 }, zone = G.newZone(match.map.point), guards = G.guards(match.map) }

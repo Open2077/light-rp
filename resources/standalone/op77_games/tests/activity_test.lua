@@ -18,7 +18,8 @@ H.test("every game registers: map choices, every cap off, no botFill", function(
         H.ok(def.caps.rpWeapons == false and def.caps.rpItems == false and def.caps.needs == false and def.caps.vehicles == false, "caps")
     end
     H.eq(#core.registered["games.tdm"].modes, 2, "two TDM maps")
-    H.eq(core.registered["games.tdm"].modes[1].id, "watson-docks")
+    H.eq(core.registered["games.tdm"].modes[1].id, "grand-imperial-mall", "by name")
+    H.eq(core.registered["games.tdm"].modes[2].id, "watson-docks")
     H.eq(#core.registered["games.redlight"].modes, 1, "one red light map")
     H.eq(core.registered["games.tdm"].kind, "pvp")
     H.eq(core.registered["games.redlight"].kind, "event")

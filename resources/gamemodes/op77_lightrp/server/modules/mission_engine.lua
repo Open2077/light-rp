@@ -415,15 +415,12 @@ end
 -- `loadout` on the definition picks a kit of LightRpRaid.loadouts ("none": the
 -- operators bring their own); without it the first kit (assault) is handed out.
 
-local function kitList() return type(LightRpRaid) == "table" and LightRpRaid.loadouts or {} end
-local function kitById(id)
-    for _, kit in ipairs(kitList()) do if kit.id == id then return kit end end
-end
+local K = LightRP.kits
 -- The kit preselected for a mission (its `loadout`, else the first); nil: no kits at all.
 local function kitFor(def)
     local wanted = def.loadout or "assault"
     if wanted == "none" then return nil end
-    return kitById(wanted) or kitList()[1]
+    return K.byId(wanted) or K.default()
 end
 Engine.kitFor = kitFor
 -- What the briefing lists (id, label, blurb), like the raid's ready check.
@@ -431,43 +428,8 @@ local KIT_VIEW
 local function kitView()
     if KIT_VIEW then return KIT_VIEW end
     KIT_VIEW = {}
-    for _, kit in ipairs(kitList()) do KIT_VIEW[#KIT_VIEW + 1] = { id = kit.id, label = kit.label, blurb = kit.blurb } end
+    for _, kit in ipairs(K.list()) do KIT_VIEW[#KIT_VIEW + 1] = { id = kit.id, label = kit.label, blurb = kit.blurb } end
     return KIT_VIEW
-end
-
-local waitingWeapons = {}
-AddEventHandler("open77:weapons:completed", function(player, request, _, accepted, reason, result)
-    waitingWeapons[tostring(player) .. ":" .. tostring(request)] = { accepted = accepted, reason = reason, result = result }
-end)
-local function weapons(player, method, ...)
-    if type(Open77.weapons) ~= "table" or type(Open77.weapons[method]) ~= "function" then return nil, "weapons_api_unavailable" end
-    local ok, request, why = pcall(Open77.weapons[method], player, ...)
-    if not ok or not request then return nil, ok and why or request end
-    local key = tostring(player) .. ":" .. tostring(request)
-    local deadline = now() + 10000
-    while not waitingWeapons[key] and now() < deadline do Wait(50) end
-    local done = waitingWeapons[key]
-    waitingWeapons[key] = nil
-    if not done then return nil, "request_timeout" end
-    if not done.accepted then return nil, done.reason end
-    return done.result or true
-end
-local function slotsOf(snapshot) return type(snapshot) == "table" and (snapshot.slots or snapshot) or {} end
-local function capacityOf(snapshot, slot)
-    for _, row in ipairs(slotsOf(snapshot)) do
-        if type(row) == "table" and tonumber(row.slot) == slot and type(row.ammo) == "table" then return tonumber(row.ammo.capacity) end
-    end
-end
--- In hand: slot 1 holds the kit's primary with rounds in it.
-local function armed(snapshot, kit)
-    for _, row in ipairs(slotsOf(snapshot)) do
-        if type(row) == "table" and tonumber(row.slot) == 1 then
-            local a = type(row.ammo) == "table" and row.ammo or {}
-            local rounds = tonumber(a.total) or ((tonumber(a.reserve) or 0) + (tonumber(a.magazine) or 0))
-            return row.record == kit.primary and rounds > 0
-        end
-    end
-    return false
 end
 
 local function equip(inst, id)
@@ -476,39 +438,16 @@ local function equip(inst, id)
     run.equipping = run.equipping or {}
     if run.equipping[id] then return end
     run.equipping[id] = true
-    local kit = kitById(run.choice and run.choice[id]) or run.kit
+    local kit = K.byId(run.choice and run.choice[id]) or run.kit
     CreateThread(function()
-        Wait(1500) -- the operator lands in the arena first
-        for attempt = 1, 6 do
-            if inst.run ~= run or run.phase == "done" or not alive(id) then break end
-            local function step(method, ...)
-                local result, why = weapons(id, method, ...)
-                if not result and why ~= "weapon_slot_empty" then
-                    LightRP.log("mission %s: kit %s for %s: %s refused (%s)", inst.id, kit.id, name(id), method, tostring(why))
-                end
-                return result
-            end
-            step("clear")
-            step("assign", kit.primary, 1, { active = true, addToInventory = true })
-            step("assign", kit.secondary, 2, { active = false, addToInventory = true })
-            for slot = 1, 2 do
-                step("setAmmo", slot, { reserve = kit.reserve[slot], activate = slot == 1 })
-                local capacity = capacityOf(step("requestSnapshot"), slot)
-                if capacity then step("setAmmo", slot, { magazine = capacity, activate = slot == 1 }) end
-            end
-            step("setActive", 1)
-            if armed(weapons(id, "requestSnapshot"), kit) then
-                LightRP.log("mission %s: kit %s handed to %s", inst.id, kit.id, name(id))
-                break
-            end
-            LightRP.log("mission %s: kit %s for %s not in hand (attempt %d), retrying", inst.id, kit.id, name(id), attempt)
-            Wait(3000)
-        end
+        local handed = K.deliver(id, kit, { tag = "mission " .. tostring(inst.id) .. ": kit",
+            live = function() return inst.run == run and run.phase ~= "done" and alive(id) end })
+        if handed then LightRP.log("mission %s: kit %s handed to %s", inst.id, kit.id, name(id)) end
         run.equipping[id] = nil
     end)
 end
 Engine.equip = equip
-Engine.weapons = weapons
+Engine.weapons = K.weapons
 
 -- The briefing (staging), like the raid's ready check: each operator picks a kit (page
 -- action mission.loadout, keys 1-5) and says ready (mission.ready, Enter); the kit is
@@ -525,7 +464,7 @@ end
 LightRP.action("mission.loadout", function(id, payload)
     local inst = Missions.instanceOf(id)
     local run = inst and inst.run
-    local kit = type(payload) == "table" and kitById(payload.id)
+    local kit = type(payload) == "table" and K.byId(payload.id)
     if not run or not kit or not canChoose(run, id) then return end
     run.choice[id] = kit.id
     -- already ready in the briefing: the new kit at once
@@ -695,7 +634,7 @@ local function script(def)
         -- the weapon wheel lists the kit and draws it back (Missions.kitOf / drawKit)
         kitOf = function(inst, id)
             local run = inst.run
-            return run and run.kit and (kitById(run.choice and run.choice[id]) or run.kit) or nil
+            return run and run.kit and (K.byId(run.choice and run.choice[id]) or run.kit) or nil
         end,
         reissueKit = function(inst, id) equip(inst, id) end,
         onStart = function(inst)

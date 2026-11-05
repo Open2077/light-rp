@@ -54,7 +54,7 @@ H.test("the limit scales with the room", function()
 end)
 
 H.test("the spawns split in two sides, the farthest pair apart, on both maps", function()
-    for _, map in ipairs(GamesMaps.tdm) do
+    for _, map in ipairs(H.mapsOf("tdm")) do
         local sides = T.sides(map.spawns)
         H.ok(#sides[1] > 0 and #sides[2] > 0, map.id .. ": two sides")
         H.eq(#sides[1] + #sides[2], #map.spawns, "every spawn on one side")
@@ -67,7 +67,7 @@ H.test("the spawns split in two sides, the farthest pair apart, on both maps", f
     H.eq(#sides[2], 2, "c joins the nearer anchor")
 end)
 
-H.test("each team starts on its own side; the loadout is the mode's", function()
+H.test("each team starts on its own side, in a mission's kit", function()
     local match, a, b = live(4, "grand-imperial-mall")
     local sides = T.sides(match.map.spawns)
     local function near(list, id)
@@ -81,12 +81,7 @@ H.test("each team starts on its own side; the loadout is the mode's", function()
     for _, id in ipairs(b) do H.ok(near(sides[2], id), "team B on its side") end
     H.eq(H.weapons[a[1]][1], "Items.Preset_Ajax_Default", "slot 1 in hand")
     H.eq(H.weapons[a[1]][2], "Items.Preset_Lexington_Default", "slot 2")
-    local reserve
-    for _, entry in ipairs(H.weaponLog) do
-        if entry.operation == "setAmmo" and entry.playerId == a[1] and entry.slot == 1 then reserve = entry.amounts end
-    end
-    H.eq(reserve.reserve, 240, "reserve")
-    H.eq(reserve.magazine, nil, "never a magazine")
+    H.eq(H.coreCalls("activityKit", a[1])[1].args[3], nil, "the kit missions preselect")
     H.eq(H.core.registered["games.tdm"].caps.rpWeapons, false, "RP weapons aside")
     E.cancel(match)
     H.settle(500)
@@ -217,8 +212,8 @@ H.test("the recap: every column it names has a value in every row", function()
 end)
 
 H.test("every map: spawns inside the play area, each with a heading", function()
-    H.eq(#GamesMaps.tdm, 2)
-    for _, map in ipairs(GamesMaps.tdm) do
+    H.eq(#H.mapsOf("tdm"), 2)
+    for _, map in ipairs(H.mapsOf("tdm")) do
         H.ok(map.id:match("^[a-z0-9%-]+$"), "a slug")
         H.ok(#map.spawns >= 2, "spawns")
         for _, spawn in ipairs(map.spawns) do

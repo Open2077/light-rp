@@ -24,6 +24,7 @@ L.queues, L.gathers = queues, gathers
 local REASONS = {
     no_scope = "Every fight slot is in use. Try again in a moment.",
     no_bucket = "Every instance is in use. Try again in a moment.",
+    no_map = "This game has no map right now.",
     not_enough = "Not enough players are ready.",
     stopped = "This game is not available right now.",
 }
@@ -165,6 +166,10 @@ end
 function L.join(id, def, options)
     options = type(options) == "table" and options or {}
     if E.matchOf(id) then return false, "You are already in a game." end
+    if #def.maps == 0 then
+        release(def, id)
+        return false, REASONS.no_map
+    end
     local current = L.queuedIn(id)
     if current and current ~= def.id then
         release(def, id)
@@ -259,6 +264,7 @@ function L.statusOf(def, t)
     local detail = games > 0 and ("%d game%s on"):format(games, games == 1 and "" or "s") or (queued > 0 and "Waiting for players" or "Open")
     local joinable = not def.pvp or C.free() > 0
     if not joinable then detail = "Every fight slot is in use" end
+    if #def.maps == 0 then joinable, detail = false, "No map" end
     return { phase = games > 0 and "running" or (queued > 0 and "lobby" or "idle"), players = players, queued = queued,
         joinable = joinable, detail = detail, queue = L.queueOf(def, t) }
 end

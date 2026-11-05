@@ -2,7 +2,7 @@
 -- (op77_lightrp). Each match runs in its own routing bucket (4500000-4599999), nothing is
 -- paid or recorded, the end of a match is Light RP's recap. A new game is one file in
 -- server/modes/ (the contract is at the top of server/engine.lua), its server_script line
--- below, its maps in shared/maps/.
+-- below. Its maps are made in game with /lightrp.maps and live in op77_lightrp.
 --
 -- Server: activity adapter, engine (instances, exits, clock), combat (scopes, arbiter,
 --         weapons), lobby (queues), modes.
@@ -21,17 +21,12 @@ dependencies {
 }
 
 shared_script "shared/config.lua"
-shared_script "shared/maps/tdm.lua"
-shared_script "shared/maps/redlight.lua"
-shared_script "shared/maps/gungame.lua"
-shared_script "shared/maps/control.lua"
-shared_script "shared/maps/ctf.lua"
-shared_script "shared/maps/prophunt.lua"
 
 server_script "server/activity.lua"
 server_script "server/engine.lua"
 server_script "server/combat.lua"
 server_script "server/lobby.lua"
+server_script "server/maps.lua"
 server_script "server/modes/tdm.lua"
 server_script "server/modes/redlight.lua"
 server_script "server/modes/gungame.lua"

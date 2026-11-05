@@ -71,8 +71,8 @@ H.test("the lights' lengths: green 4 to 10 s, red 3 to 6 s", function()
 end)
 
 H.test("the course and the clock come from the map, one map", function()
-    H.eq(#GamesMaps.redlight, 1)
-    local map = GamesMaps.redlight[1]
+    H.eq(#H.mapsOf("redlight"), 1)
+    local map = H.mapsOf("redlight")[1]
     H.eq(map.id, "rocket-ramp")
     H.eq(map.timeLimit, 90)
     local course = G.course(map)

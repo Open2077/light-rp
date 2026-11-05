@@ -23,6 +23,7 @@ import { roomsMock } from "./roomsFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
+import { mapEditorMock } from "@/features/mapeditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
 import { activityHudMock } from "@/features/activityhud/mock";
 import { hallOfFameMock } from "@/features/halloffame/mock";
@@ -44,6 +45,7 @@ export function installMockBridge(): void {
   const activityHud = activityHudMock(fire, params);
   const guide = guideMock(fire, params); // ?dialog=guide: the guide NPC's FAQ
   const missionEditor = missionEditorMock(fire, params);
+  const mapEditor = mapEditorMock(fire, params);
   const armament = armamentMock(fire, params);
   const hallOfFame = hallOfFameMock(fire, params);
   const recap = recapMock(fire, params);
@@ -152,6 +154,7 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
       if (name === PAGE_EVENTS.support && maneki.receive(payload)) return;
       if (name === PAGE_EVENTS.missionEditor) { missionEditor.receive(payload); return; }
+      if (name === PAGE_EVENTS.mapEditor) { mapEditor.receive(payload); return; }
       if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
       if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
     // the weapon wheel: Lua releases the focus and answers commit / cancel
@@ -176,6 +179,7 @@ export function installMockBridge(): void {
             hidden: { Face: "Items.Glasses_01_basic_01" }, slots: { ...state.worn.slots, Face: false } };
           safezones.boot();
           missionEditor.boot();
+          mapEditor.boot();
           armament.boot();
           setTimeout(() => activityHud.boot(), 60); // ?activity=race|trial|arena|turf|lobby|countdown|result|editor|demo
   // ?wheel=N: hold Control to open the wheel (as the CTRL key mapping does), ?wheelopen=1 opens it at once

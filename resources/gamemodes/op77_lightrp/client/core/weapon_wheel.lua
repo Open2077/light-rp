@@ -45,6 +45,7 @@ local function allowed()
     if not Ui.page or not Ui.characterReady or Ui.creationActive or Ui.menuOpen or Ui.promptActive or Ui.actionFocus or Ui.supportMode then return false end
     for _, open in pairs(Ui.dialogs or {}) do if open then return false end end
     if LightRpMissionEditor and LightRpMissionEditor.active then return false end
+    if LightRpMapEditor and LightRpMapEditor.active then return false end
     if LightRpSafezones and LightRpSafezones.active then return false end
     if LightRpFreecam and LightRpFreecam.isActive and LightRpFreecam.isActive() then return false end
     if LightRpMedical and LightRpMedical.isActive() then return false end
@@ -64,6 +65,7 @@ function Wheel.refusal()
     end
     for name, open in pairs(Ui.dialogs or {}) do if open then return "dialog " .. tostring(name) end end
     if LightRpMissionEditor and LightRpMissionEditor.active then return "mission editor" end
+    if LightRpMapEditor and LightRpMapEditor.active then return "map editor" end
     if LightRpSafezones and LightRpSafezones.active then return "safezones" end
     if LightRpFreecam and LightRpFreecam.isActive and LightRpFreecam.isActive() then return "freecam" end
     if LightRpMedical and LightRpMedical.isActive() then return "medical" end

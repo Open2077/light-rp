@@ -45,6 +45,7 @@ import { DogtownHud } from "@/features/dogtown/DogtownHud";
 import { Medical } from "@/features/medical/Medical";
 import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
+import { MapEditor } from "@/features/mapeditor/MapEditor";
 import { MissionObjectiveHud } from "@/features/missions/MissionObjectiveHud";
 import { WeaponWheel } from "@/features/weaponwheel/WeaponWheel";
 import { TableBar } from "@/features/board-games/TableBar";
@@ -122,6 +123,7 @@ export function App() {
       <div className="gameplay-interface" hidden={customizationActive || boardGamesActive}>
       <ErrorBoundary name="safezones"><Safezones /></ErrorBoundary>
       <ErrorBoundary name="mission-editor"><MissionEditor /></ErrorBoundary>
+      <ErrorBoundary name="map-editor"><MapEditor /></ErrorBoundary>
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>

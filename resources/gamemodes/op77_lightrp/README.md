@@ -44,6 +44,12 @@ avec périmètre (avertissement puis mort hors zone), points de spawn ennemis, c
 Les missions enregistrées avant l'équilibrage passent au nouveau barème avec `/lightrp.missions.repay` (aperçu) puis
 `/lightrp.missions.repay apply` (staff). Voir [docs/mission-editor.md](docs/mission-editor.md).
 
+**Éditeur de cartes** (`/lightrp.maps`, ACL `command.lightrp.maps`) : créer en jeu les cartes des jeux d'`op77_games`, avec le mode construction
+de l'éditeur de missions : choisir un jeu, voir ses cartes, créer, dupliquer, renommer, activer ou désactiver, supprimer, ouvrir. Ce qu'une carte
+exige vient du `schema` que chaque jeu déclare à côté de ses règles ; le noyau stocke (`lightrp_game_maps`) et valide. Un brouillon incomplet
+s'enregistre mais ne s'active jamais, et un jeu n'offre que 8 cartes : la neuvième est refusée. Aucun redémarrage : les salons suivent, une partie
+en cours garde sa carte. Voir [docs/map-editor.md](docs/map-editor.md).
+
 ## Création de personnage et scène d'arrivée
 
 ### Placement de la scène
@@ -658,6 +664,8 @@ activités (`GetInvokingResource`).
 | `activityLeave(id, activityId, opts)` | Libère. `opts.returnPlayer` (vrai par défaut) : retour au point capturé, bucket compris, en descendant du véhicule ; un joueur mort y réapparaît (jamais laissé mort), puis soin complet et armes RP rendues, sur le thread de Light RP. |
 | `activityOwner(id)` | L'id de l'activité, `"missions"` pendant une mission, sinon `nil`. |
 | `activityPlayer(id)` | `{ name, identifier, characterKey, gang = { id, label, grade, gradeLabel, tag, color } \| nil, job = { id, label, grade, gradeLabel, tag } }` — `nil` sans personnage actif ; `gang` vaut `nil` sans affiliation, `job.id` vaut `unemployed` sans emploi. Le gang et le métier sont lus dans `server/modules/jobs.lua` (mêmes vues que les state bags `gang` / `job`). `job.onDuty` reste absent : Light RP n'a pas de prise de service. |
+| `activityKit(id, activityId, kit, opts)` → `true, hand` \| `false, raison` | Un kit temporaire de mission pour un joueur que cette activité possède, remis par le même code que les missions (`server/modules/activity_kits.lua`) : `kit` nul pour celui que les missions présélectionnent, l'id d'un kit de `LightRpRaid.loadouts`, ou `{ primary, secondary, reserve, label, names }`. L'issue arrive sur `op77_lightrp:activity:kit`. Pendant le kit, l'armement s'efface et la roue liste et dégaine le kit. Contrat complet : en-tête de `activities.lua`. |
+| `activityKitTake(id, activityId, opts)` → `true` \| `false, raison` | Reprend le kit en cours d'activité. Le cœur le reprend aussi seul à chaque sortie, puis rend les armes RP par le même chemin qu'après une mission. Les armes du personnage ne sont jamais touchées. |
 | `notice(id, notice)` → `true` \| `false, raison` | Un message au joueur dans la notice de Light RP (sa page, son design) : **un fournisseur n'affiche jamais d'interface à lui** (règle du 2026-11-02), il passe par là et ne retombe sur `open77_notifications` que sans Light RP. `notice = { kind, title, body, durationMs, source }` nettoyé par `shared/notice.lua` : `kind` ∈ `info`, `success`, `warning`, `error` (`danger` lu `warning`, autre → `info`), titre 48 car., texte 280 (requis ; `text` ou `message` acceptés), durée 2 à 20 s (6 s par défaut). Un seul joueur, jamais `-1`. Raisons : `Invalid player.`, `invalid_notice`, `empty_notice`. Ce que le noyau dit déjà (réponse d'inscription « Request sent to … », sortie de file, MATCH FOUND, panneau de file) n'est pas répété par le fournisseur. |
 
 Événements serveur, `TriggerEvent` / `AddEventHandler` uniquement (jamais `RegisterNetEvent` :
@@ -807,7 +815,7 @@ Le panneau envoie l'action `activities.lobby` (`fill`, `friendly`, `move`, `bala
 Un joueur héberge une partie auprès du **PNJ des salons** de The Crossing (terminal
 `kind = "rooms"`, *The Croupier*, avec son propre `host` et sa propre épingle), ou par `/room`
 de n'importe où : il choisit le jeu, la carte, la taille des camps, salon public ou privé (un code
-de 5 caractères) ; les autres entrent ; l'hôte lance. **Un salon est un match amical sans crew** :
+de 5 caractères) ; les autres entrent ; l'hôte lance. Un jeu sans carte activée n'apparaît pas. **Un salon est un match amical sans crew** :
 même forme que la mise en place d'un amical, même lancement (`A.launchFriendly`, donc `startMatch`
 avec `friendly = true`). Le match, le récapitulatif et le retour sont ceux du noyau, et rien n'est
 enregistré (ni statistique, ni Hall of Fame, ni paie, ni réputation). Tout vit en mémoire.

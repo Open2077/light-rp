@@ -92,7 +92,7 @@ H.test("the activity: registered, three maps, 14 steps ending on the knife", fun
 end)
 
 H.test("every map: spawns inside the play area, each with a heading", function()
-    for _, map in ipairs(GamesMaps.gungame) do
+    for _, map in ipairs(H.mapsOf("gungame")) do
         H.ok(map.id:match("^[a-z0-9%-]+$"), "a slug")
         H.ok(#map.spawns >= 2, "spawns")
         for _, spawn in ipairs(map.spawns) do
@@ -122,6 +122,57 @@ H.test("a kill climbs one step and hands the next weapon at once", function()
     H.eq(H.weapons[a][1], "Items.Preset_Nova_Default", "the next weapon")
     H.eq(H.weapons[a][2], G.knife, "and the knife")
     H.eq(H.hit(a, b, gun(2)), false, "b is still down")
+    E.cancel(match)
+    H.settle(500)
+end)
+
+H.test("the ladder: every step is an explicit kit, handed at once, the old hand's word worth nothing", function()
+    local match, ids = live(2)
+    local a, b = ids[1], ids[2]
+    local p = match.players[a]
+    for step, entry in ipairs(R.ladder) do
+        local kit = G.sets[step]
+        H.eq(kit.primary, entry.record, "the step's one weapon, in hand")
+        H.eq(kit.label, entry.name)
+        if entry.melee then
+            H.eq(kit.secondary, nil, "the top step is the knife alone")
+            H.eq(kit.reserve, nil, "a knife holds no rounds")
+        else
+            H.eq(kit.secondary, G.knife, "the knife the rules need")
+            H.eq(kit.reserve[1], entry.reserve)
+        end
+    end
+    H.eq(H.coreCalls("activityKit", a)[1].args[3], G.sets[1], "the first step, handed on landing")
+    for step = 1, #R.ladder - 1 do
+        local hand = H.kits[a].hand
+        local before = #H.coreCalls("activityKit", a)
+        local old = H.kits[a]
+        kill(match, a, b, nil)
+        H.eq(stepOf(match, a), step + 1)
+        H.eq(#H.coreCalls("activityKit", a), before + 1, "re-handed once")
+        local call = H.coreCalls("activityKit", a)[before + 1]
+        H.eq(call.args[3], G.sets[step + 1], "the next step's kit")
+        H.eq(call.args[4].immediate, true, "mid-fight: no landing wait")
+        H.ok(H.kits[a].hand ~= hand, "a new hand")
+        H.eq(H.weapons[a][1], R.ladder[step + 1].record)
+        H.kitReport(a, old, "armed")
+        H.settle(100) -- the new hand reports
+        H.eq(p.plan, G.sets[step + 1])
+        H.eq(H.hit(a, b, gun(step)), false, "the last step's gun is dead")
+        revive(b)
+    end
+    H.eq(H.weapons[a][2], nil, "the knife alone")
+    H.eq(H.hit(a, b, H.hash(G.knife), { attackKind = "melee" }), true, "the knife verified by slot 1")
+    E.cancel(match)
+    H.settle(500)
+end)
+
+H.test("the gate: a step moved before anyone re-armed: the gun in hand counts for nothing", function()
+    local match, ids = live(2)
+    local a, b = ids[1], ids[2]
+    H.eq(H.hit(a, b, gun(1)), true, "the step's weapon")
+    match.players[a].gg.step = 2 -- no tick ran
+    H.eq(H.hit(a, b, gun(1)), false, "held strictly: the plan is the step's, or nothing")
     E.cancel(match)
     H.settle(500)
 end)
@@ -272,13 +323,7 @@ end)
 H.test("the guard: another weapon drawn re-arms, at most every 2 s, strings as the host sends them", function()
     local match, ids = live(2)
     local a = ids[1]
-    local function arms()
-        local n = 0
-        for _, entry in ipairs(H.weaponLog) do
-            if entry.operation == "assign" and entry.playerId == a and entry.record == R.ladder[1].record then n = n + 1 end
-        end
-        return n
-    end
+    local function arms() return #H.coreCalls("activityKit", a) end
     H.settle(2100)
     local before = arms()
     H.fire("onPlayerWeaponChanged", tostring(a), "3", "Items.Preset_Defender_Default", "true")

@@ -13,79 +13,15 @@
 --   F9           back to the menu
 -- Shooting, melee and grenades are blocked while building. The page owns the
 -- draft and applies every action; this file only measures and draws.
+--
+-- The build mode itself is a session (newSession below), not tied to missions: the game map
+-- editor (client/core/map_editor.lua) is a second one with its own net event, page event and
+-- drawing. The two share the key mappings, and only one is open at a time.
 local E, Ui = LightRpEvents, LightRpUi
-local NET, PAGE = "op77_lightrp:missioneditor", "lightrp:ui:missioneditor"
-local Editor = { active = false, mode = "closed", draft = nil, focus = nil, build = nil, hover = nil, aim = nil }
-LightRpMissionEditor = Editor
-local drawKey, ghostKey = "lightrp:missions:draft", "lightrp:missions:ghost"
-local drawWarning, started = false, false
 local AIM_DISTANCE, HOVER_RADIUS = 250, 2.2
 local AIM_GROUPS = { "Static", "Terrain" }
 local BLOCKED = { "Attack", "Melee", "Grenade" }
-local function send(value) Ui.send(PAGE, value) end
--- One line per distinct outcome, so a preview that never shows can be read from the log.
-local reported = {}
-local function report(key, fmt, ...)
-    if reported[key] then return end
-    reported[key] = true
-    Ui.log("mission editor: " .. fmt, ...)
-end
-
-local sequence = 0
-local outgoing, draining, lastSent = {}, false, -1000
-local function forward(payload)
-    if type(payload.request) ~= "string" then
-        sequence = sequence + 1
-        payload.request = "client:" .. tostring(GetGameTimer()) .. ":" .. tostring(sequence)
-    end
-    if #outgoing >= 32 then
-        send({ kind = "response", request = payload.request, ok = false, error = "Too many pending requests. Your draft is kept." })
-        return
-    end
-    outgoing[#outgoing + 1] = payload
-    if draining then return end
-    draining = true
-    CreateThread(function()
-        while #outgoing > 0 do
-            local delay = 180 - (GetGameTimer() - lastSent)
-            if delay > 0 then Wait(delay) end
-            local nextRequest = table.remove(outgoing, 1)
-            lastSent = GetGameTimer()
-            TriggerServerEvent(NET, nextRequest)
-        end
-        draining = false
-    end)
-end
-
-local function clear(key)
-    if Open77.debugDraw and Open77.debugDraw.clear then pcall(Open77.debugDraw.clear, key) end
-end
-local claimed = false
-local function claimWeapons(on)
-    if claimed == on then return end
-    claimed = on
-    for _, action in ipairs(BLOCKED) do
-        if LightRpControlClaims then pcall(LightRpControlClaims.set, "missioneditor", action, on)
-        elseif Open77.input and Open77.input.setActionBlocked then pcall(Open77.input.setActionBlocked, action, on) end
-    end
-end
-local function input(mode)
-    if mode ~= "menu" and mode ~= "form" and mode ~= "typing" and mode ~= "world" then mode = "closed" end
-    Editor.mode = mode
-    claimWeapons(mode == "world")
-    if mode ~= "world" then clear(ghostKey); Editor.hover, Editor.aim = nil, nil end
-    if mode == "world" or mode == "closed" then Ui.setSupportInput("closed")
-    elseif mode == "typing" then
-        Ui.setSupportInput("form")
-        if Ui.page then Ui.page:setConsumedKeys({}); Ui.page:setFocus(true, false) end
-    else Ui.setSupportInput(mode) end
-end
-local function cleanup(notify)
-    Editor.active, Editor.draft, Editor.focus, Editor.build = false, nil, nil, nil
-    input("closed")
-    clear(drawKey); clear(ghostKey)
-    if notify then send({ kind = "invalidate", error = notify }) end
-end
+local HIGHLIGHT = "#ffffffff"
 
 -- page:send refuses a payload of more than 1024 values (and a string over 64 KiB): the
 -- mission list (whole definitions) passed it with a third mission and the editor waited
@@ -99,7 +35,6 @@ local function countValues(value, depth)
     for _, item in pairs(value) do n = n + 1 + countValues(item, (depth or 0) + 1) end
     return n
 end
-Editor.countValues = countValues
 -- The sandbox's json.encode stops at 1024 values too (it returned nil on the 1065-value
 -- list, 2026-11-02): this one is plain Lua. Lists are tables with keys 1..n only; an
 -- empty table is {} (the page normalizes lists); NaN and infinities become null.
@@ -144,52 +79,10 @@ local function encode(value, depth, out)
     else out[#out + 1] = "null" end
     return out
 end
-function Editor.encodeJson(value) return table.concat(encode(value, 0, {})) end
-local partSeq = 0
-local function sendParts(value)
-    local ok, text = pcall(Editor.encodeJson, value)
-    if not ok or type(text) ~= "string" then
-        report("parts:encode", "a large event could not be encoded (%s)", tostring(text))
-        if value.kind == "response" then
-            send({ kind = "response", request = value.request, ok = false, error = "The answer was too large to show. Your draft is kept." })
-        end
-        return
-    end
-    partSeq = partSeq + 1
-    local id = "parts:" .. partSeq
-    local parts, at = {}, 1
-    while at <= #text do
-        local stop = math.min(#text, at + PART_BYTES - 1)
-        -- never split a UTF-8 sequence: step back off continuation bytes
-        while stop < #text and stop > at do
-            local b = text:byte(stop + 1)
-            if b < 0x80 or b >= 0xC0 then break end
-            stop = stop - 1
-        end
-        parts[#parts + 1] = text:sub(at, stop)
-        at = stop + 1
-    end
-    for i, part in ipairs(parts) do send({ kind = "parts", id = id, part = i, parts = #parts, text = part }) end
-end
-Editor.sendParts = sendParts
-
-RegisterNetEvent(NET, function(value)
-    if type(value) ~= "table" then return end
-    if countValues(value) > PAGE_VALUES then return sendParts(value) end
-    if value.kind == "open" then
-        if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or (LightRpSafezones and LightRpSafezones.active) then
-            return send({ kind = "invalidate", error = "Finish your current activity before editing missions." })
-        end
-        Ui.setMenuOpen(false)
-        if LightRpAnimations then LightRpAnimations.close() end
-        Editor.active = true
-        input("menu")
-    end
-    send(value)
-end)
+local function encodeJson(value) return table.concat(encode(value, 0, {})) end
 
 -- ---------------------------------------------------------------------------
--- Measuring
+-- Measuring and drawing: shared by every editor on this build mode (Editor.draw)
 
 local function round(n) return math.floor(n * 100 + 0.5) / 100 end
 local function facing(from, to)
@@ -197,80 +90,12 @@ local function facing(from, to)
     if dx * dx + dy * dy < 0.01 then return nil end
     return round(math.deg(math.atan(-dx, dy)) % 360)
 end
-local function trace()
-    if not Open77.camera or type(Open77.camera.aimRay) ~= "function" then report("aim:missing", "camera.aimRay missing"); return nil, "Aiming needs a newer client." end
-    -- The ground of the game is two collision groups: the city is `Static`, the open
-    -- terrain (Badlands, hills, slopes) is `Terrain`, which the default trace ignores.
-    -- Clients older than Stable 157 refuse `groups`: the plain static trace then.
-    local ok, ray, why = pcall(Open77.camera.aimRay, AIM_DISTANCE, { groups = AIM_GROUPS })
-    if not ok or ray == nil then
-        report("aim-groups:" .. tostring(ok and why or ray), "grouped aim trace refused (%s), static only", tostring(ok and why or ray))
-        ok, ray, why = pcall(Open77.camera.aimRay, AIM_DISTANCE, { dynamic = false })
-    end
-    if not ok or ray == nil then
-        report("aim:" .. tostring(ok and why or ray), "aim trace unavailable: %s", tostring(ok and why or ray))
-        return nil, "Aiming unavailable (" .. tostring(ok and why or ray) .. ")."
-    end
-    if not ray.hit then return nil, "Nothing under the crosshair within 250 m." end
-    report("aim:ok", "aim trace ok (hit %.1f m away)", tonumber(ray.distance) or -1)
-    return { x = round(ray.position.x), y = round(ray.position.y), z = round(ray.position.z) }
-end
--- Where an element lands and which way it faces. Aimed: facing back at the
--- author unless the page set a facing; at the feet: the author's own facing.
-local function capture(kind)
-    local state = Open77.character.state()
-    if not state or not state.position then return nil, "Your position is unavailable." end
-    local feet = { x = round(state.position.x), y = round(state.position.y), z = round(state.position.z) }
-    local own = round((tonumber(state.yaw) or 0) % 360)
-    local manual = Editor.build and tonumber(Editor.build.heading)
-    if kind == "aim" then
-        local p, why = trace()
-        if not p then return nil, why end
-        return { position = p, heading = manual or facing(p, feet) or own }
-    end
-    return { position = feet, heading = manual or own }
-end
-
--- ---------------------------------------------------------------------------
--- What the crosshair points at
-
 local function finite(n) return type(n) == "number" and n == n and math.abs(n) <= 100000 end
 local function point(p) return type(p) == "table" and finite(p.x) and finite(p.y) and finite(p.z) end
 local function dist(a, b) return math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 + (a.z - b.z) ^ 2) end
-local function hovered(m, p)
-    if type(m) ~= "table" or not p then return nil end
-    local best, bestD
-    local function consider(ref, q)
-        if point(q) then
-            local d = dist(p, q)
-            if d <= HOVER_RADIUS and (not bestD or d < bestD) then ref.position = { x = q.x, y = q.y, z = q.z }; best, bestD = ref, d end
-        end
-    end
-    for _, s in ipairs(m.spawns or {}) do
-        consider({ type = "spawn", id = s.id, label = s.label }, s.position)
-        for j, q in ipairs(s.route or {}) do consider({ type = "route", id = s.id, index = j, label = (s.label or "Spawn") .. " · patrol " .. j }, q) end
-    end
-    for _, c in ipairs(m.checkpoints or {}) do consider({ type = "checkpoint", id = c.id, label = c.label }, c.position) end
-    for i, s in ipairs(m.starts or {}) do consider({ type = "start", index = i, label = "Start " .. i }, s) end
-    consider({ type = "board", label = "Mission board" }, m.point)
-    local z = m.perimeter or {}
-    if z.shape == "poly" then
-        for i, q in ipairs(z.points or {}) do consider({ type = "vertex", index = i, label = "Perimeter vertex " .. i }, q) end
-    else consider({ type = "centre", label = "Perimeter centre" }, z.center) end
-    return best
-end
 local function same(a, b)
-    return a == b or (a and b and a.type == b.type and a.id == b.id and a.index == b.index)
+    return a == b or (a and b and a.type == b.type and a.id == b.id and a.key == b.key and a.index == b.index)
 end
-
--- ---------------------------------------------------------------------------
--- Drawing (debug wireframes, author only)
-
-local COLORS = { perimeter = "#ffcc00ed", perimeterFill = "#ffcc001a", start = "#3ddc84ff", board = "#f2f3f5ff",
-    start_spawn = "#ff4d4dff", checkpoint_spawn = "#ff9f1cff", wave_spawn = "#d65bffff", checkpoint = "#22d8e2ff",
-    route = "#d65bffb0", focus = "#ffffffff", hover = "#ffffffff" }
-local TOOL_COLORS = { spawn = "#ff4d4dff", checkpoint = "#22d8e2ff", start = "#3ddc84ff", perimeter = "#ffcc00ff",
-    radius = "#ffcc00ff", patrol = "#d65bffff", move = "#ffffffff", board = "#f2f3f5ff" }
 
 local function circle(batch, c, radius, z, color, segments)
     segments = segments or 24
@@ -297,6 +122,375 @@ local function cross(batch, p, size, color)
     line(batch, { x = p.x - size, y = p.y, z = p.z + 0.05 }, { x = p.x + size, y = p.y, z = p.z + 0.05 }, color)
     line(batch, { x = p.x, y = p.y - size, z = p.z + 0.05 }, { x = p.x, y = p.y + size, z = p.z + 0.05 }, color)
 end
+
+-- ---------------------------------------------------------------------------
+-- One editor: the relay to its server module, the input modes, the captures, the crosshair
+-- loop and the build keys. cfg: name, title (the notice's), net, page, claim, drawKey, ghostKey,
+-- draftKey (the preview's field), busy, closed (sentences), and optional onPreview(p) and
+-- onOperation(p) -> true when it took the page's operation. What it draws is the editor's own:
+-- Editor.hovered(draft, p), Editor.geometry(draft, focus, hover, yield), Editor.ghost(build, p, draft),
+-- and optionally Editor.geometryKey(): a change of it rebuilds the wireframe too.
+local sessions = {}
+local bindKeys
+local function current()
+    for _, s in ipairs(sessions) do if s.active then return s end end
+end
+
+local function newSession(cfg)
+    local NET, PAGE = cfg.net, cfg.page
+    local Editor = { active = false, mode = "closed", draft = nil, focus = nil, build = nil, hover = nil, aim = nil }
+    sessions[#sessions + 1] = Editor
+    local drawKey, ghostKey = cfg.drawKey, cfg.ghostKey
+    local drawWarning, started = false, false
+    local function send(value) Ui.send(PAGE, value) end
+    Editor.send = send
+
+    -- One line per distinct outcome, so a preview that never shows can be read from the log.
+    local reported = {}
+    local function report(key, fmt, ...)
+        if reported[key] then return end
+        reported[key] = true
+        Ui.log(cfg.name .. ": " .. fmt, ...)
+    end
+
+    local sequence = 0
+    local outgoing, draining, lastSent = {}, false, -1000
+    local function forward(payload)
+        if type(payload.request) ~= "string" then
+            sequence = sequence + 1
+            payload.request = "client:" .. tostring(GetGameTimer()) .. ":" .. tostring(sequence)
+        end
+        if #outgoing >= 32 then
+            send({ kind = "response", request = payload.request, ok = false, error = "Too many pending requests. Your draft is kept." })
+            return
+        end
+        outgoing[#outgoing + 1] = payload
+        if draining then return end
+        draining = true
+        CreateThread(function()
+            while #outgoing > 0 do
+                local delay = 180 - (GetGameTimer() - lastSent)
+                if delay > 0 then Wait(delay) end
+                local nextRequest = table.remove(outgoing, 1)
+                lastSent = GetGameTimer()
+                TriggerServerEvent(NET, nextRequest)
+            end
+            draining = false
+        end)
+    end
+
+    local function clear(key)
+        if Open77.debugDraw and Open77.debugDraw.clear then pcall(Open77.debugDraw.clear, key) end
+    end
+    local claimed = false
+    local function claimWeapons(on)
+        if claimed == on then return end
+        claimed = on
+        for _, action in ipairs(BLOCKED) do
+            if LightRpControlClaims then pcall(LightRpControlClaims.set, cfg.claim, action, on)
+            elseif Open77.input and Open77.input.setActionBlocked then pcall(Open77.input.setActionBlocked, action, on) end
+        end
+    end
+    local function input(mode)
+        if mode ~= "menu" and mode ~= "form" and mode ~= "typing" and mode ~= "world" then mode = "closed" end
+        Editor.mode = mode
+        claimWeapons(mode == "world")
+        if mode ~= "world" then clear(ghostKey); Editor.hover, Editor.aim = nil, nil end
+        if mode == "world" or mode == "closed" then Ui.setSupportInput("closed")
+        elseif mode == "typing" then
+            Ui.setSupportInput("form")
+            if Ui.page then Ui.page:setConsumedKeys({}); Ui.page:setFocus(true, false) end
+        else Ui.setSupportInput(mode) end
+    end
+    Editor.setInput = input
+    local function cleanup(notify)
+        Editor.active, Editor.draft, Editor.focus, Editor.build = false, nil, nil, nil
+        input("closed")
+        clear(drawKey); clear(ghostKey)
+        if notify then send({ kind = "invalidate", error = notify }) end
+    end
+
+    local partSeq = 0
+    local function sendParts(value)
+        local ok, text = pcall(encodeJson, value)
+        if not ok or type(text) ~= "string" then
+            report("parts:encode", "a large event could not be encoded (%s)", tostring(text))
+            if value.kind == "response" then
+                send({ kind = "response", request = value.request, ok = false, error = "The answer was too large to show. Your draft is kept." })
+            end
+            return
+        end
+        partSeq = partSeq + 1
+        local id = "parts:" .. partSeq
+        local parts, at = {}, 1
+        while at <= #text do
+            local stop = math.min(#text, at + PART_BYTES - 1)
+            -- never split a UTF-8 sequence: step back off continuation bytes
+            while stop < #text and stop > at do
+                local b = text:byte(stop + 1)
+                if b < 0x80 or b >= 0xC0 then break end
+                stop = stop - 1
+            end
+            parts[#parts + 1] = text:sub(at, stop)
+            at = stop + 1
+        end
+        for i, part in ipairs(parts) do send({ kind = "parts", id = id, part = i, parts = #parts, text = part }) end
+    end
+    Editor.sendParts = sendParts
+
+    RegisterNetEvent(NET, function(value)
+        if type(value) ~= "table" then return end
+        if countValues(value) > PAGE_VALUES then return sendParts(value) end
+        if value.kind == "open" then
+            local other = current()
+            if not Ui.characterReady or Ui.creationActive or Ui.actionFocus or (LightRpSafezones and LightRpSafezones.active) or (other and other ~= Editor) then
+                return send({ kind = "invalidate", error = cfg.busy })
+            end
+            Ui.setMenuOpen(false)
+            if LightRpAnimations then LightRpAnimations.close() end
+            Editor.active = true
+            input("menu")
+        end
+        send(value)
+    end)
+
+
+    local function trace()
+        if not Open77.camera or type(Open77.camera.aimRay) ~= "function" then report("aim:missing", "camera.aimRay missing"); return nil, "Aiming needs a newer client." end
+        -- The ground of the game is two collision groups: the city is `Static`, the open
+        -- terrain (Badlands, hills, slopes) is `Terrain`, which the default trace ignores.
+        -- Clients older than Stable 157 refuse `groups`: the plain static trace then.
+        local ok, ray, why = pcall(Open77.camera.aimRay, AIM_DISTANCE, { groups = AIM_GROUPS })
+        if not ok or ray == nil then
+            report("aim-groups:" .. tostring(ok and why or ray), "grouped aim trace refused (%s), static only", tostring(ok and why or ray))
+            ok, ray, why = pcall(Open77.camera.aimRay, AIM_DISTANCE, { dynamic = false })
+        end
+        if not ok or ray == nil then
+            report("aim:" .. tostring(ok and why or ray), "aim trace unavailable: %s", tostring(ok and why or ray))
+            return nil, "Aiming unavailable (" .. tostring(ok and why or ray) .. ")."
+        end
+        if not ray.hit then return nil, "Nothing under the crosshair within 250 m." end
+        report("aim:ok", "aim trace ok (hit %.1f m away)", tonumber(ray.distance) or -1)
+        return { x = round(ray.position.x), y = round(ray.position.y), z = round(ray.position.z) }
+    end
+    -- Where an element lands and which way it faces. Aimed: facing back at the
+    -- author unless the page set a facing; at the feet: the author's own facing.
+    local function capture(kind)
+        local state = Open77.character.state()
+        if not state or not state.position then return nil, "Your position is unavailable." end
+        local feet = { x = round(state.position.x), y = round(state.position.y), z = round(state.position.z) }
+        local own = round((tonumber(state.yaw) or 0) % 360)
+        local manual = Editor.build and tonumber(Editor.build.heading)
+        if kind == "aim" then
+            local p, why = trace()
+            if not p then return nil, why end
+            return { position = p, heading = manual or facing(p, feet) or own }
+        end
+        return { position = feet, heading = manual or own }
+    end
+
+    function Editor.buildAction(action, extra)
+        if not Editor.active or Editor.mode ~= "world" or not Editor.draft then return end
+        local payload = { kind = "build", action = action, hovered = Editor.hover }
+        for k, v in pairs(extra or {}) do payload[k] = v end
+        if action == "place" or action == "placeFeet" then
+            local value, why = capture(action == "placeFeet" and "feet" or "aim")
+            if not value then send({ kind = "build", action = "error", error = why }) return end
+            payload.position, payload.heading = value.position, value.heading
+        end
+        send(payload)
+    end
+
+    function Editor.bind(page)
+        page:on(PAGE, function(p)
+            if type(p) ~= "table" or type(p.operation) ~= "string" then return end
+            if p.operation == "preview" then
+                if not Editor.active then return end
+                Editor.draft = type(p[cfg.draftKey]) == "table" and p[cfg.draftKey] or nil
+                Editor.focus = type(p.focus) == "string" and p.focus or nil
+                Editor.build = type(p.build) == "table" and p.build or nil
+                if cfg.onPreview then cfg.onPreview(p) end
+                Editor.version = (Editor.version or 0) + 1
+                if not Editor.draft then clear(drawKey) end
+            elseif p.operation == "input" then
+                if Editor.active then input(p.mode) end
+            elseif p.operation == "capture" then
+                local value, why = capture(p.mode == "aim" and "aim" or "feet")
+                send({ kind = "response", request = p.request, ok = value ~= nil, data = value, error = why })
+            elseif p.operation == "close" then
+                cleanup()
+            elseif not (cfg.onOperation and cfg.onOperation(p)) then forward(p) end
+        end)
+    end
+
+    function Editor.start()
+        if started then return end
+        started = true
+        bindKeys()
+
+        -- The crosshair (20 Hz, build mode) and the draft. One resume must stay short (the
+        -- runtime retires a loop that overruns its slice), so each pass is its own resume and
+        -- the draft's wireframe is rebuilt only when it changed, then re-sent with a long TTL.
+        CreateThread(function()
+            local cache, sentAt = { key = nil, batch = nil }, -1e9
+            while true do
+                Wait(50)
+                if Editor.active then
+                    local state = Open77.character.state()
+                    if not state or not state.alive or not state.attached then
+                        cleanup(cfg.closed)
+                    elseif Editor.draft then
+                        if Editor.mode == "world" then
+                            local p = trace()
+                            local h = Editor.hovered(Editor.draft, p)
+                            if not same(h, Editor.hover) then
+                                Editor.hover = h
+                                send({ kind = "hover", hovered = h })
+                            end
+                            Editor.aim = p
+                            Wait(0)
+                            local ghost = Editor.ghost(Editor.build, p, Editor.draft)
+                            -- the aimed element, highlighted white on top of the draft
+                            if ghost and h and h.position then
+                                pillar(ghost, h.position, 3.2, HIGHLIGHT)
+                                circle(ghost, h.position, 0.9, h.position.z + 0.08, HIGHLIGHT, 12)
+                            end
+                            if ghost and Open77.debugDraw then
+                                local ok, result, why = pcall(Open77.debugDraw.set, ghostKey, ghost)
+                                if not ok or result == false or result == nil then report("ghost:" .. tostring(ok and why or result), "ghost draw refused: %s %s", tostring(result), tostring(why))
+                                else report("ghost:ok", "ghost drawn (%d lines)", #ghost.lines) end
+                            else clear(ghostKey) end
+                            Wait(0)
+                        end
+                        local key = tostring(Editor.version) .. "|" .. tostring(Editor.focus) .. "|" .. (Editor.geometryKey and Editor.geometryKey() or "")
+                        local now = GetGameTimer()
+                        if key ~= cache.key and Editor.draft then
+                            cache.key = key
+                            cache.batch = Editor.geometry(Editor.draft, Editor.focus, nil, function() Wait(0) end)
+                            sentAt = -1e9
+                            Wait(0)
+                        end
+                        if cache.batch and now - sentAt >= 700 and Editor.active and Editor.draft and Open77.debugDraw and Open77.debugDraw.set then
+                            sentAt = now
+                            local ok, result, why = pcall(Open77.debugDraw.set, drawKey, cache.batch)
+                            if not ok or result == false or result == nil then report("draft:" .. tostring(ok and why or result), "draft draw refused: %s %s", tostring(result), tostring(why))
+                            else report("draft:ok", "draft drawn (%d lines, %d triangles)", #cache.batch.lines, #cache.batch.triangles) end
+                            if (not ok or not result) and not drawWarning then
+                                drawWarning = true
+                                Ui.send(E.page.notice, { kind = "error", title = cfg.title, body = "3D preview unavailable. Update your client and check the world.debug permission." })
+                            end
+                        end
+                    end
+                else
+                    cache.key, cache.batch = nil, nil
+                end
+            end
+        end)
+
+    end
+
+    AddEventHandler("onClientResourceStop", function(name)
+        if name == GetCurrentResourceName() then cleanup() end
+    end)
+    return Editor
+end
+
+
+-- One set of mappings: a rebind serves both editors, each key goes to the open one.
+local keysBound = false
+bindKeys = function()
+    if keysBound then return end
+    keysBound = true
+    local function act(action, extra)
+        return function()
+            local Editor = current()
+            if Editor then Editor.buildAction(action, extra) end
+        end
+    end
+    RegisterKeyMapping("lightrp.missions.inspector", "Mission editor: build mode / menu", "F9", function()
+        local Editor = current()
+        if not Editor or Editor.mode == "typing" then return end
+        local mode = Editor.mode == "world" and "menu" or "world"
+        Editor.setInput(mode); Editor.send({ kind = "editor", mode = mode })
+    end)
+    RegisterKeyMapping("lightrp.missions.place", "Mission editor: place (build mode)", "MOUSE1", act("place"))
+    RegisterKeyMapping("lightrp.missions.select", "Mission editor: select the aimed element", "MOUSE2", act("select"))
+    RegisterKeyMapping("lightrp.missions.remove", "Mission editor: remove the aimed element", "DELETE", act("delete"))
+    RegisterKeyMapping("lightrp.missions.toolPrevious", "Mission editor: previous tool", "UP", act("tool", { delta = -1 }))
+    RegisterKeyMapping("lightrp.missions.toolNext", "Mission editor: next tool", "DOWN", act("tool", { delta = 1 }))
+    RegisterKeyMapping("lightrp.missions.turnLeft", "Mission editor: turn left", "LEFT", act("rotate", { delta = 15 }))
+    RegisterKeyMapping("lightrp.missions.turnRight", "Mission editor: turn right", "RIGHT", act("rotate", { delta = -15 }))
+    RegisterKeyMapping("lightrp.missions.capture", "Mission editor: place where I aim", "F10", function()
+        local Editor = current()
+        if Editor and Editor.draft and Editor.mode ~= "typing" then
+            if Editor.mode == "world" then Editor.buildAction("place") else Editor.send({ kind = "captureKey", mode = "aim" }) end
+        end
+    end)
+    RegisterKeyMapping("lightrp.missions.feet", "Mission editor: place at my feet", "F11", function()
+        local Editor = current()
+        if Editor and Editor.draft and Editor.mode ~= "typing" then
+            if Editor.mode == "world" then Editor.buildAction("placeFeet") else Editor.send({ kind = "captureKey", mode = "feet" }) end
+        end
+    end)
+end
+
+
+-- ---------------------------------------------------------------------------
+-- The mission editor
+
+local showPins, clearPins, pins
+local Editor = newSession({
+    name = "mission editor", title = "Mission editor", net = "op77_lightrp:missioneditor", page = "lightrp:ui:missioneditor",
+    claim = "missioneditor", drawKey = "lightrp:missions:draft", ghostKey = "lightrp:missions:ghost", draftKey = "mission",
+    busy = "Finish your current activity before editing missions.",
+    closed = "Mission editor closed because your character is unavailable.",
+    onOperation = function(p)
+        if p.operation ~= "pins" then return false end
+        local n = p.on == true and showPins(p.pins) or (clearPins() or 0)
+        local tracked
+        if p.on == true and type(p.track) == "string" and pins[p.track] and pins[p.track] ~= true and LightRpInteract.trackBlip then
+            tracked = LightRpInteract.trackBlip(pins[p.track]) == true
+        end
+        Ui.send("lightrp:ui:missioneditor", { kind = "response", request = p.request, ok = true, data = { shown = n, tracked = tracked } })
+        return true
+    end,
+})
+LightRpMissionEditor = Editor
+Editor.countValues, Editor.encodeJson = countValues, encodeJson
+Editor.session = newSession
+Editor.draw = { circle = circle, pillar = pillar, line = line, arrow = arrow, cross = cross, point = point, dist = dist, facing = facing,
+    HOVER_RADIUS = HOVER_RADIUS }
+
+
+function Editor.hovered(m, p)
+    if type(m) ~= "table" or not p then return nil end
+    local best, bestD
+    local function consider(ref, q)
+        if point(q) then
+            local d = dist(p, q)
+            if d <= HOVER_RADIUS and (not bestD or d < bestD) then ref.position = { x = q.x, y = q.y, z = q.z }; best, bestD = ref, d end
+        end
+    end
+    for _, s in ipairs(m.spawns or {}) do
+        consider({ type = "spawn", id = s.id, label = s.label }, s.position)
+        for j, q in ipairs(s.route or {}) do consider({ type = "route", id = s.id, index = j, label = (s.label or "Spawn") .. " · patrol " .. j }, q) end
+    end
+    for _, c in ipairs(m.checkpoints or {}) do consider({ type = "checkpoint", id = c.id, label = c.label }, c.position) end
+    for i, s in ipairs(m.starts or {}) do consider({ type = "start", index = i, label = "Start " .. i }, s) end
+    consider({ type = "board", label = "Mission board" }, m.point)
+    local z = m.perimeter or {}
+    if z.shape == "poly" then
+        for i, q in ipairs(z.points or {}) do consider({ type = "vertex", index = i, label = "Perimeter vertex " .. i }, q) end
+    else consider({ type = "centre", label = "Perimeter centre" }, z.center) end
+    return best
+end
+
+local COLORS = { perimeter = "#ffcc00ed", perimeterFill = "#ffcc001a", start = "#3ddc84ff", board = "#f2f3f5ff",
+    start_spawn = "#ff4d4dff", checkpoint_spawn = "#ff9f1cff", wave_spawn = "#d65bffff", checkpoint = "#22d8e2ff",
+    route = "#d65bffb0", focus = "#ffffffff", hover = "#ffffffff" }
+local TOOL_COLORS = { spawn = "#ff4d4dff", checkpoint = "#22d8e2ff", start = "#3ddc84ff", perimeter = "#ffcc00ff",
+    radius = "#ffcc00ff", patrol = "#d65bffff", move = "#ffffffff", board = "#f2f3f5ff" }
+
 
 -- Perimeter walls: a floor and a ceiling outline plus some verticals. A circle is 32
 -- segments with a vertical every other point; the translucent fill only when the
@@ -416,14 +610,6 @@ function Editor.geometry(m, focus, hover, yield)
     return batch
 end
 
-local function hoverKey(h)
-    if not h then return nil end
-    if h.type == "spawn" or h.type == "checkpoint" then return h.type .. ":" .. tostring(h.id) end
-    if h.type == "route" then return "route:" .. tostring(h.id) .. ":" .. h.index end
-    if h.type == "start" or h.type == "vertex" then return h.type .. ":" .. h.index end
-    return h.type
-end
-
 -- The element the current tool would create, where the crosshair points.
 function Editor.ghost(build, p, m)
     if not build or not p then return nil end
@@ -473,37 +659,19 @@ function Editor.ghost(build, p, m)
     return batch
 end
 
--- ---------------------------------------------------------------------------
--- Build actions -> page
-
-local function buildAction(action, extra)
-    if not Editor.active or Editor.mode ~= "world" or not Editor.draft then return end
-    local payload = { kind = "build", action = action, hovered = Editor.hover }
-    for k, v in pairs(extra or {}) do payload[k] = v end
-    if action == "place" or action == "placeFeet" then
-        local value, why = capture(action == "placeFeet" and "feet" or "aim")
-        if not value then send({ kind = "build", action = "error", error = why }) return end
-        payload.position, payload.heading = value.position, value.heading
-    end
-    send(payload)
-end
-
--- Every authored mission on the map (the editor's "Show on the map"): one pin each, styled by kind,
--- through op77_lightrp's own points (passive: no E prompt), so the game map, the 3D map and the GPS
--- all show them. They stay after the editor closes, until turned off.
 local PIN_STYLE = {
     boss  = { icon = "skull",     color = "#F75049", label = "World boss" },
     gig   = { icon = "briefcase", color = "#FFCC00", label = "Fixer gig" },
     board = { icon = "swords",    color = "#00F0FF", label = "Mission board" },
     off   = { icon = "circle-off", color = "#8A8F98", label = "Disabled mission" },
 }
-local pins = {} -- mission id -> blip handle (or true)
-local function clearPins()
+pins = {} -- mission id -> blip handle (or true)
+function clearPins()
     if not LightRpInteract then pins = {}; return end
     for id in pairs(pins) do LightRpInteract.setLocal("editorpin." .. id, nil) end
     pins = {}
 end
-local function showPins(list)
+function showPins(list)
     clearPins()
     if not LightRpInteract or type(list) ~= "table" then return 0 end
     local n = 0
@@ -524,120 +692,3 @@ local function showPins(list)
     return n
 end
 Editor.showPins, Editor.clearPins = showPins, clearPins
-
-function Editor.bind(page)
-    page:on(PAGE, function(p)
-        if type(p) ~= "table" or type(p.operation) ~= "string" then return end
-        if p.operation == "preview" then
-            if not Editor.active then return end
-            Editor.draft = type(p.mission) == "table" and p.mission or nil
-            Editor.focus = type(p.focus) == "string" and p.focus or nil
-            Editor.build = type(p.build) == "table" and p.build or nil
-            Editor.version = (Editor.version or 0) + 1
-            if not Editor.draft then clear(drawKey) end
-        elseif p.operation == "input" then
-            if Editor.active then input(p.mode) end
-        elseif p.operation == "capture" then
-            local value, why = capture(p.mode == "aim" and "aim" or "feet")
-            send({ kind = "response", request = p.request, ok = value ~= nil, data = value, error = why })
-        elseif p.operation == "pins" then
-            local n = p.on == true and showPins(p.pins) or (clearPins() or 0)
-            local tracked
-            if p.on == true and type(p.track) == "string" and pins[p.track] and pins[p.track] ~= true and LightRpInteract.trackBlip then
-                tracked = LightRpInteract.trackBlip(pins[p.track]) == true
-            end
-            send({ kind = "response", request = p.request, ok = true, data = { shown = n, tracked = tracked } })
-        elseif p.operation == "close" then
-            cleanup()
-        else forward(p) end
-    end)
-end
-
-function Editor.start()
-    if started then return end
-    started = true
-    RegisterKeyMapping("lightrp.missions.inspector", "Mission editor: build mode / menu", "F9", function()
-        if not Editor.active or Editor.mode == "typing" then return end
-        local mode = Editor.mode == "world" and "menu" or "world"
-        input(mode); send({ kind = "editor", mode = mode })
-    end)
-    RegisterKeyMapping("lightrp.missions.place", "Mission editor: place (build mode)", "MOUSE1", function() buildAction("place") end)
-    RegisterKeyMapping("lightrp.missions.select", "Mission editor: select the aimed element", "MOUSE2", function() buildAction("select") end)
-    RegisterKeyMapping("lightrp.missions.remove", "Mission editor: remove the aimed element", "DELETE", function() buildAction("delete") end)
-    RegisterKeyMapping("lightrp.missions.toolPrevious", "Mission editor: previous tool", "UP", function() buildAction("tool", { delta = -1 }) end)
-    RegisterKeyMapping("lightrp.missions.toolNext", "Mission editor: next tool", "DOWN", function() buildAction("tool", { delta = 1 }) end)
-    RegisterKeyMapping("lightrp.missions.turnLeft", "Mission editor: turn left", "LEFT", function() buildAction("rotate", { delta = 15 }) end)
-    RegisterKeyMapping("lightrp.missions.turnRight", "Mission editor: turn right", "RIGHT", function() buildAction("rotate", { delta = -15 }) end)
-    RegisterKeyMapping("lightrp.missions.capture", "Mission editor: place where I aim", "F10", function()
-        if Editor.active and Editor.draft and Editor.mode ~= "typing" then
-            if Editor.mode == "world" then buildAction("place") else send({ kind = "captureKey", mode = "aim" }) end
-        end
-    end)
-    RegisterKeyMapping("lightrp.missions.feet", "Mission editor: place at my feet", "F11", function()
-        if Editor.active and Editor.draft and Editor.mode ~= "typing" then
-            if Editor.mode == "world" then buildAction("placeFeet") else send({ kind = "captureKey", mode = "feet" }) end
-        end
-    end)
-    -- The crosshair (20 Hz, build mode) and the draft. One resume must stay short (the
-    -- runtime retires a loop that overruns its slice), so each pass is its own resume and
-    -- the draft's wireframe is rebuilt only when it changed, then re-sent with a long TTL.
-    CreateThread(function()
-        local cache, sentAt = { key = nil, batch = nil }, -1e9
-        while true do
-            Wait(50)
-            if Editor.active then
-                local state = Open77.character.state()
-                if not state or not state.alive or not state.attached then
-                    cleanup("Mission editor closed because your character is unavailable.")
-                elseif Editor.draft then
-                    if Editor.mode == "world" then
-                        local p = trace()
-                        local h = hovered(Editor.draft, p)
-                        if not same(h, Editor.hover) then
-                            Editor.hover = h
-                            send({ kind = "hover", hovered = h })
-                        end
-                        Editor.aim = p
-                        Wait(0)
-                        local ghost = Editor.ghost(Editor.build, p, Editor.draft)
-                        -- the aimed element, highlighted white on top of the draft
-                        if ghost and h and h.position then
-                            pillar(ghost, h.position, 3.2, COLORS.hover)
-                            circle(ghost, h.position, 0.9, h.position.z + 0.08, COLORS.hover, 12)
-                        end
-                        if ghost and Open77.debugDraw then
-                            local ok, result, why = pcall(Open77.debugDraw.set, ghostKey, ghost)
-                            if not ok or result == false or result == nil then report("ghost:" .. tostring(ok and why or result), "ghost draw refused: %s %s", tostring(result), tostring(why))
-                            else report("ghost:ok", "ghost drawn (%d lines)", #ghost.lines) end
-                        else clear(ghostKey) end
-                        Wait(0)
-                    end
-                    local key = tostring(Editor.version) .. "|" .. tostring(Editor.focus)
-                    local now = GetGameTimer()
-                    if key ~= cache.key and Editor.draft then
-                        cache.key = key
-                        cache.batch = Editor.geometry(Editor.draft, Editor.focus, nil, function() Wait(0) end)
-                        sentAt = -1e9
-                        Wait(0)
-                    end
-                    if cache.batch and now - sentAt >= 700 and Editor.active and Editor.draft and Open77.debugDraw and Open77.debugDraw.set then
-                        sentAt = now
-                        local ok, result, why = pcall(Open77.debugDraw.set, drawKey, cache.batch)
-                        if not ok or result == false or result == nil then report("draft:" .. tostring(ok and why or result), "draft draw refused: %s %s", tostring(result), tostring(why))
-                        else report("draft:ok", "draft drawn (%d lines, %d triangles)", #cache.batch.lines, #cache.batch.triangles) end
-                        if (not ok or result == false) and not drawWarning then
-                            drawWarning = true
-                            Ui.send(E.page.notice, { kind = "error", title = "Mission editor", body = "3D preview unavailable. Update your client and check the world.debug permission." })
-                        end
-                    end
-                end
-            else
-                cache.key, cache.batch = nil, nil
-            end
-        end
-    end)
-end
-
-AddEventHandler("onClientResourceStop", function(name)
-    if name == GetCurrentResourceName() then cleanup() end
-end)

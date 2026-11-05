@@ -91,7 +91,7 @@ local function menus() toAll = true; schedule() end
 -- not a room's.
 local function hostable(activityId)
     local a = type(activityId) == "string" and A.registry[activityId] or nil
-    if not a or not A.offersFriendly(a) then return nil end
+    if not a or a.offered == false or not A.offersFriendly(a) then return nil end
     local l = A.lobbyOf(activityId)
     if l.rooms ~= true then return nil end
     local shape, n = A.shapeOf(l)
