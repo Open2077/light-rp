@@ -436,6 +436,18 @@ LightRpConfig = {
                     { key = "apollo", price = 60 },  -- Brennan Apollo, cheap dirt bike
                 },
             },
+            {
+                -- Kabuki, south of NEON DECK (spot taken in game by the user on 2026-11-05).
+                id = "kabuki", name = "Rent-a-Ride // Kabuki",
+                position = { x = -800.879822, y = 794.995056, z = 22.453995 }, heading = -164.108871,
+                parking = { position = { x = -805.216736, y = 800.582031, z = 22.255150 }, heading = 88.011139 },
+                stock = {
+                    { key = "maimai", price = 50 },
+                    { key = "galena", price = 80 },
+                    { key = "colby",  price = 100 },
+                    { key = "apollo", price = 60 },
+                },
+            },
         },
     },
 
