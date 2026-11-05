@@ -56,13 +56,10 @@ const fs=require('node:fs');
   await page.getByLabel('Count').fill('3');await page.getByRole('button',{name:'Run',exact:true}).click();
   await page.locator('.rp-support__success').filter({hasText:'lightrp.giveitem 2 water 3: done'}).waitFor();
   await page.keyboard.press('Backspace');
-  // a destructive action: review step, Cancel focused, the exact command shown, refused by the "ACL"
+  // a destructive action runs at once (no confirmation step); the "ACL" refusal shows
   await choose('Moderation');await choose('Kill');
-  await page.getByRole('alertdialog').waitFor();
-  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Cancel','safe default focus');
-  assert.match(await page.getByRole('alertdialog').innerText(),/admin\.player\.kill 2/);
-  await page.getByRole('button',{name:'Confirm',exact:true}).click();
   await page.locator('.rp-support__error').filter({hasText:'Refused'}).waitFor();
+  assert.equal(await page.getByRole('alertdialog').count(),0,'no confirmation step');
   for(let i=0;i<3;i++)await page.keyboard.press('Backspace');
   assert.equal(await title(),'LIGHT/RP');
   // world and missions sub-sections
@@ -77,6 +74,6 @@ const fs=require('node:fs');
   }
   fs.mkdirSync('artifacts',{recursive:true});await page.screenshot({path:'artifacts/admin-menu.png'});
   assert.deepEqual(errors,[]);
-  console.log('PASS: unified /admin (root sections, catalogue spawn + answer, grouped player page, give form, reviewed destructive action with Cancel focused and its refusal, world weather, world bosses, three viewports)');
+  console.log('PASS: unified /admin (root sections, catalogue spawn + answer, grouped player page, give form, destructive action at once and its refusal, world weather, world bosses, three viewports)');
  }catch(e){fs.mkdirSync('artifacts',{recursive:true});const p=browser.contexts()[0]?.pages()[0];if(p)await p.screenshot({path:'artifacts/admin-menu-failure.png'});throw e;}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

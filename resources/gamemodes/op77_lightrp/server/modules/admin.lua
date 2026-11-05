@@ -122,6 +122,7 @@ function Admin.audit(player,p)
     local more=#list>25;if more then table.remove(list) end
     return {entries=list,page=page,hasMore=more}
 end
+local DEFAULT_REASON={warn="Please respect the server rules.",kick="Kicked by staff.",ban="Banned by staff.",credit="Staff credit via /admin.",debit="Staff debit via /admin."}
 local function actionDetail(p)
     if p.action=="job" or p.action=="gang" then return tostring(p.name).." / "..tostring(p.grade) end
     if p.action=="credit" or p.action=="debit" then return tostring(p.wallet).." / "..tostring(p.amount) end
@@ -189,9 +190,13 @@ end
 function Admin.action(player,p)
     local actor=S.identity(player);local op=p.action
     if not actor or not permitted(player,op) then return nil,"You do not have permission for this action." end
-    if p.confirmed~=true then return nil,"Confirm the selected player and action first." end
+    -- no confirmation step and no reason to type (owner, 2026-11-05: "faut que ça soit rapide"): a
+    -- missing reason becomes a default line; the staff history still records every intervention
     local reason=S.text(p.reason,500,4)
-    if not reason then return nil,"Add a reason (4–500 characters) for the audit log." end
+    if not reason then
+        if op=="announce" then return nil,"Write the announcement." end
+        reason=DEFAULT_REASON[op] or "Via /admin."
+    end
     if type(p.mutation)~="string" or #p.mutation<8 or #p.mutation>96 or not p.mutation:match("^[%w:_%-]+$") then return nil,"Invalid action request." end
     local previous=read("SELECT outcome,detail FROM lightrp_staff_audit WHERE actor_id=? AND request_key=?",{actor.identifier,p.mutation})[1]
     if previous then return {accepted=previous.outcome=="success",outcome=previous.outcome,message=previous.outcome=="pending" and "This action was submitted. Check the player and audit log before doing anything else." or previous.detail} end

@@ -54,9 +54,13 @@ réussi, en rouge si elle a été refusée.
 | Server | statut LightRP et plateforme, bots d'ambiance, ramener tout le monde, tout supprimer, annuler l'action de masse, console plateforme |
 | Staff history | journal des interventions auditées |
 
-Les actions destructrices (kill, ramener tout le monde, tout supprimer, fourrière,
-fin de world boss, arrêt du turf) passent par une étape **Confirm?**, avec
-**Cancel** sélectionné et la commande exacte affichée. Les listes (véhicules,
+**Tout part tout de suite** (choix du propriétaire, 2026-11-05 : « faut que ça
+soit rapide ») : aucune étape de confirmation, aucune raison à écrire. Les actions
+sans champ (aller à, ramener, soigner, kick, avertir, kill, aller à une table, la
+supprimer, un Maneki, finir ou annuler un événement, lancer et démarrer une
+soirée…) s'exécutent dès **Entrée** ; les autres n'affichent que leurs champs utiles
+(montant, durée de ban, nom…) puis **Apply / Run**. L'historique staff enregistre
+toujours chaque intervention, avec une ligne par défaut à la place de la raison. Les listes (véhicules,
 objets, lieux, météos) viennent de `adminCatalog`, sous forme de lignes `a|b|c`
 pour rester sous la limite de 1024 valeurs d'un événement réseau. Le clic droit
 sur un véhicule ou une porte (`open77_contextmenu`) ouvre toujours les actions

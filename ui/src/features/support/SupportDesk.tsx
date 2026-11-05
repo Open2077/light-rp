@@ -112,12 +112,21 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     return()=>{live=false;};
   },[eventPage,top.kind,epoch]);
   // a desk action with no form of its own (go to, random world bosses): one request, its answer shown
-  const eventDirect=async(action:string,extra:Record<string,unknown>={})=>{
+  const eventDirect=async(action:string,extra:Record<string,unknown>={},after?:()=>void)=>{
     if(working.current)return;working.current=true;setBusy(true);setError("");setFeedback("");
     try{
       const r=await request<DeskResult>("eventsAction",{action,confirmed:true,mutation:key(),...extra});
-      if(r.accepted)setFeedback(r.message);else setError(r.message);refresh();
+      if(r.accepted){setFeedback(r.message);after?.();}else setError(r.message);refresh();
     }catch(e){setError((e as Error).message);}finally{working.current=false;setBusy(false);}
+  };
+  // One desk request applied at once (owner, 2026-11-05: no confirmation, no reason): its answer
+  // shows under the menu; `after` runs on success.
+  const fast=async(operation:string,payload:Record<string,unknown>,after?:()=>void)=>{
+    if(working.current)return;working.current=true;setBusy(true);setError("");setFeedback("");
+    try{
+      const r=await request<{accepted?:boolean;outcome?:string;message?:string}>(operation,{confirmed:true,mutation:key(),reason:"",...payload});
+      if(r.accepted!==false&&r.outcome!=="failed"){setFeedback(r.message||"Done.");after?.();}else setError(r.message||"Refused.");
+    }catch(e){setError((e as Error).message);}finally{working.current=false;setBusy(false);refresh();}
   };
   const caseId=top.caseId;
   useEffect(()=>{
@@ -177,10 +186,12 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const item=(id:string,text:string,run:()=>void,options:Partial<Entry>={}):Entry=>({id,text,run,...options});
   const submenu=(id:string,text:string,run:()=>void,options:Partial<Entry>={}):Entry=>item(id,text,run,{type:"submenu",...options});
   const granted=new Set(String((overview as {commands?:string}|undefined)?.commands||"").split(",").filter(Boolean));
+  const runCommand=(tokens:string[],options:{close?:boolean}={})=>{setError("");setFeedback(`Sent: /${tokens.join(" ")}`);emit(PAGE_EVENTS.support,{operation:"command",tokens,close:options.close===true});};
   const ctx:AdminContext={
     can:name=>granted.has(name),catalog,item,submenu,
-    run:(tokens,options={})=>{setError("");setFeedback(`Sent: /${tokens.join(" ")}`);emit(PAGE_EVENTS.support,{operation:"command",tokens,close:options.close===true});},
-    form:spec=>{setError("");setFeedback("");setForm({kind:"command",spec});},
+    run:(tokens,options={})=>runCommand(tokens,options),
+    // a command with nothing to fill runs at once (no confirmation step)
+    form:spec=>{setError("");setFeedback("");if(!spec.fields.length){runCommand(spec.build({}),{close:spec.close});return;}setForm({kind:"command",spec});},
     open:(kind,extra={})=>push({kind,...extra}),
   };
   let title="LIGHT/RP",subtitle=staff?"ADMIN MENU":"PLAYER SUPPORT",entries:Entry[]=[],content:ReactNode=null;
@@ -256,7 +267,10 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     if(!currentProfile)entries=[loading];else{
       // The audited LightRP interventions (a reason, a confirmation, the staff history) and the
       // platform / LightRP admin tools, sorted into a few groups so the page stays short.
-      const audited=Object.entries(actionLabels).filter(([a])=>a!=="announce"&&overview?.permissions[a]&&(a!=="returnPlayer"||currentProfile.canReturn)).map(([a,text])=>submenu(a,text,()=>setForm({kind:"action",action:a}),{danger:["kick","ban","debit"].includes(a),description:`${currentProfile.name} · A reason and confirmation are required (staff history).`}));
+      const p=currentProfile,instant=new Set(["gotoPlayer","bring","returnPlayer","heal","warn","kick"]);
+      const audited=Object.entries(actionLabels).filter(([a])=>a!=="announce"&&overview?.permissions[a]&&(a!=="returnPlayer"||p.canReturn)).map(([a,text])=>instant.has(a)
+        ?item(a,text,()=>{void fast("adminAction",{action:a,target:p.id,account:p.account,character:p.character});},{danger:a==="kick",disabled:busy,description:`${p.name} · at once.`})
+        :submenu(a,text,()=>setForm({kind:"action",action:a}),{danger:["ban","debit"].includes(a),description:`${p.name}`}));
       const all=[...audited,...playerTools(ctx,currentProfile)],byId=new Map(all.map(e=>[e.id,e]));
       const pick=(ids:string[])=>ids.map(id=>byId.get(id)).filter((e):e is Entry=>!!e);
       if(top.kind==="player"){
@@ -284,8 +298,9 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     if(!tableDetail)entries=[loading];
     else if(!live)entries=[{id:"gone",text:"This table no longer exists",disabled:true}];
     else entries=[
-      ...(tableDetail?.canTeleport?[submenu("tableTeleport","Go to table",()=>setForm({kind:"tableAction",action:"tableTeleport"}),{icon:"navigation",description:"Teleport beside the table, facing it. A reason is recorded."})]:[]),
-      ...(tableDetail?.canDelete?[submenu("tableDelete","Remove table",()=>setForm({kind:"tableAction",action:"tableDelete"}),{icon:"trash-2",danger:true,description:"Refunds open stakes, unseats players, optionally gives the item back. A reason is recorded."})]:[]),
+      ...(tableDetail?.canTeleport?[item("tableTeleport","Go to table",()=>{void fast("tableAction",{action:"tableTeleport",table:live.id,kind:live.kind,returnItem:false});},{icon:"navigation",disabled:busy,description:"Beside the table, facing it."})]:[]),
+      ...(tableDetail?.canDelete?[item("tableDelete","Remove table (item back to its owner)",()=>{void fast("tableAction",{action:"tableDelete",table:live.id,kind:live.kind,returnItem:true},()=>{setTables(undefined);setStack(s=>s.slice(0,-1));});},{icon:"trash-2",danger:true,disabled:busy,description:"Refunds open stakes, unseats players, the item goes back to the owner."}),
+        item("tableDeleteKeep","Remove table (keep the item)",()=>{void fast("tableAction",{action:"tableDelete",table:live.id,kind:live.kind,returnItem:false},()=>{setTables(undefined);setStack(s=>s.slice(0,-1));});},{icon:"trash-2",danger:true,disabled:busy,description:"Refunds open stakes, unseats players, the item is NOT given back."})]:[]),
       item("refresh","Refresh table",refresh)];
     content=<TableCard table={t}/>;
   }else if(top.kind==="maneki"){
@@ -309,14 +324,17 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     if(!catDetail)entries=[loading];
     else if(!live)entries=[{id:"gone",text:"This cat no longer exists",disabled:true}];
     else entries=[
-      ...(catDetail.canTeleport?[submenu("manekiTeleport","Go to this cat",()=>setForm({kind:"manekiAction",action:"manekiTeleport"}),{icon:"navigation",description:"Teleport a step in front of it. A reason is recorded."})]:[]),
-      ...(catDetail.canEdit?[submenu("manekiDelete","Remove this cat",()=>setForm({kind:"manekiAction",action:"manekiDelete"}),{icon:"trash-2",danger:true,description:"It disappears for everyone. A reason is recorded."})]:[]),
+      ...(catDetail.canTeleport?[item("manekiTeleport","Go to this cat",()=>{void fast("manekiAction",{action:"manekiTeleport",id:live.id});},{icon:"navigation",disabled:busy,description:"A step in front of it."})]:[]),
+      ...(catDetail.canEdit?[item("manekiDelete","Remove this cat",()=>{void fast("manekiAction",{action:"manekiDelete",id:live.id},()=>{setCats(undefined);setStack(s=>s.slice(0,-1));});},{icon:"trash-2",danger:true,disabled:busy,description:"It disappears for everyone."})]:[]),
       item("refresh","Refresh",refresh)];
     content=<ManekiCard spot={c}/>;
   }else if(isEventPage(top.kind)){
     const m=eventsMenu({page:{kind:top.kind,selected:top.selected,event:top.event,spot:top.place},view:events,players:list(overview?.players),busy,
       launch:launchCfg,setLaunch:patch=>setLaunchCfg(c=>({...c,...patch})),night:nightCfg,setNight:patch=>setNightCfg(c=>({...c,...patch})),
-      push:p=>push({kind:p.kind,event:p.event,place:p.spot}),openForm:f=>{setError("");setForm({kind:"event",form:f});},direct:(a,x)=>{void eventDirect(a,x);},item,submenu});
+      push:p=>push({kind:p.kind,event:p.event,place:p.spot}),openForm:f=>{setError("");setForm({kind:"event",form:f});},direct:(a,x)=>{
+        // launched, ended, removed: back to the events hub (a spot removed: its list), as the panels did
+        const back=["launch","night","stop","win","spotDelete"].includes(a)?()=>setStack(s=>{const i=s.findIndex(p=>p.kind==="events");return i>=0?s.slice(0,a==="spotDelete"?i+2:i+1):s;}):undefined;
+        void eventDirect(a,x,back);},item,submenu});
     title=m.title;subtitle=m.subtitle;entries=m.entries;content=m.content;
   }else if(top.kind==="history"){
     title="STAFF HISTORY";subtitle=top.history?"SELECTED CITIZEN":`PAGE ${historyPage}`;

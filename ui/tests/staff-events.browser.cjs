@@ -89,12 +89,10 @@ const fs=require('node:fs');
   await page.locator('.rp-support__panel p').filter({hasText:'Level: Hard'}).waitFor();
   assert.match(await panel.innerText(),/For fun: nothing is paid or counted/);
   fs.mkdirSync('artifacts',{recursive:true});await page.screenshot({path:'artifacts/staff-events-launch.png'});
-  await choose('Review and launch');
+  // named: the panel holds the two names and launches on submit (no review step)
+  await choose('Launch with a name…');
   await page.getByLabel('Place name the city is told').fill("Tom's Diner");await page.getByLabel('Boss name').fill('Static');
-  await page.getByRole('button',{name:'Review',exact:true}).click();
-  await page.getByRole('alertdialog',{name:'Confirm the event'}).waitFor();
-  assert.equal((await actions()).length,0,'review cannot launch');
-  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Cancel','safe default focus');
+  assert.equal(await page.getByLabel('Note for the staff history (optional)').count(),0,'no note to write');
   await page.getByRole('button',{name:'Launch',exact:true}).click();
   await page.getByRole('status').filter({hasText:"Static is out in Tom's Diner."}).waitFor();
   const launch=(await actions()).at(-1);
@@ -107,15 +105,14 @@ const fs=require('node:fs');
   await choose("Static · Tom's Diner",false);await panel.locator('h2').filter({hasText:'Static'}).waitFor();
   await page.screenshot({path:'artifacts/staff-events-hub.png'});
   await choose("Static · Tom's Diner");assert.equal(await title(),'CYBERPSYCHO');
-  await choose('Call it off');await page.getByLabel('Note for the staff history (optional)').fill('Test event');
-  await page.getByRole('button',{name:'Review',exact:true}).click();await page.getByRole('button',{name:'Confirm',exact:true}).click();
+  await choose('Call it off');
   await page.getByRole('status').filter({hasText:'Called off'}).waitFor();
   assert.equal(await title(),'EVENTS');await page.locator('.o77-rage__text').filter({hasText:'No world event out'}).waitFor();
-  const stop=(await actions()).at(-1);assert.equal(stop.action,'stop');assert.equal(stop.id,'worldboss:1');assert.equal(stop.reason,'Test event');
+  const stop=(await actions()).at(-1);assert.equal(stop.action,'stop');assert.equal(stop.id,'worldboss:1');assert.equal(stop.confirmed,true);
   // ── a spot saved here ──
   await choose('Saved spots');await choose('Save a spot here');
   await page.getByLabel('Spot name').fill('Market behind the clinic');
-  await page.getByRole('button',{name:'Review',exact:true}).click();await page.getByRole('button',{name:'Save spot',exact:true}).click();
+  await page.getByRole('button',{name:'Save spot',exact:true}).click();
   await page.getByRole('status').filter({hasText:'saved'}).waitFor();
   await page.locator('.o77-rage__text').filter({hasText:'Market behind the clinic'}).waitFor();
   assert.equal(await title(),'SAVED SPOTS','a saved spot stays on the list');
@@ -123,8 +120,7 @@ const fs=require('node:fs');
   // ── an event night ──
   await choose('Event nights');assert.equal(await title(),'EVENT NIGHTS');
   await panel.locator('h2').filter({hasText:'Psycho Night: 5 rounds'}).waitFor();
-  await choose('Review and start');await page.getByRole('button',{name:'Review',exact:true}).click();
-  await page.getByRole('button',{name:'Start the night',exact:true}).click();await page.getByRole('status').filter({hasText:'Psycho Night announced'}).waitFor();
+  await choose('Start the night');await page.getByRole('status').filter({hasText:'Psycho Night announced'}).waitFor();
   const night=(await actions()).at(-1);
   assert.deepEqual([night.action,night.preset,night.rounds,night.where,night.level,night.pay],['night','psycho_night',5,'spots','normal',false]);
   // ── random world bosses off ──

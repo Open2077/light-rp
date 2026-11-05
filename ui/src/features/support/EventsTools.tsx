@@ -140,11 +140,10 @@ export function eventsMenu(ctx:{
     return { title:kindLabel(e.kind).toUpperCase(), subtitle:`${e.boss} · ${e.location}`, content:<LiveCard event={e}/>, entries:[
       item("goto","Go to the event",()=>direct("goto",{id:e.id}),{ icon:"navigation", disabled:busy, description:"Teleport to the edge of its zone, facing in. Recorded in the staff history." }),
       ...(fighting?[
-        submenu("win","End it as a win",()=>openForm({kind:"confirm",action:"win",id:e.id,title:"End it as a win?",
-          body:e.pay?"The fight ends now and the shares are paid as fought, like a kill.":"The fight ends now as a win. Nothing is paid."}),
-          { icon:"crown", disabled:e.pay&&!v.canPay, description:e.pay&&!v.canPay?"A paid event: needs the world boss right.":"The boss counts as down." }),
-        submenu("stop","Call it off",()=>openForm({kind:"confirm",action:"stop",id:e.id,title:"Call it off?",body:"The enemies disappear, the zone is told it got away, nobody is paid.",danger:true}),
-          { icon:"x", danger:true, description:"Ends it at once, nobody paid." }),
+        item("win","End it as a win",()=>direct("win",{id:e.id}),
+          { icon:"crown", disabled:busy||(e.pay&&!v.canPay), description:e.pay&&!v.canPay?"A paid event: needs the world boss right.":e.pay?"Now: the shares are paid as fought, like a kill.":"Now, as a win. Nothing is paid." }),
+        item("stop","Call it off",()=>direct("stop",{id:e.id}),
+          { icon:"x", danger:true, disabled:busy, description:"Now: the enemies disappear, nobody is paid." }),
       ]:[{ id:"ending", text:"Ending…", disabled:true }]),
     ]};
   }
@@ -174,7 +173,8 @@ export function eventsMenu(ctx:{
       { id:"silent", text:"Silent", type:"checkbox", checked:c.silent, run:()=>setLaunch({silent:!c.silent}), change:()=>setLaunch({silent:!c.silent}),
         description:"No city notice and no map pin: the players stumble on it." },
       { separator:true },
-      submenu("review","Review and launch",()=>openForm({kind:"launch"}),{ icon:"siren", disabled:r.problems.length>0||busy, description:r.problems[0] ?? "Name the place and the boss if you want, then confirm." }),
+      item("launchNow","Launch now",()=>direct("launch",r.payload),{ icon:"siren", disabled:r.problems.length>0||busy, description:r.problems[0] ?? "At once, with the options above." }),
+      submenu("review","Launch with a name…",()=>openForm({kind:"launch"}),{ icon:"siren", disabled:r.problems.length>0||busy, description:"Name the place the city is told and the boss, then launch." }),
       item("reset","Reset the options",()=>setLaunch({...LAUNCH_DEFAULT,minutes:v.minutes.default,radius:v.radius.default}),{ icon:"undo-2" }),
     ];
     return { title:"LAUNCH AN EVENT", subtitle:at(KINDS,c.kind)!.label.toUpperCase(), entries, content:<SummaryCard caption="WHAT WILL HAPPEN" lines={r.summary} problems={r.problems}/> };
@@ -184,8 +184,8 @@ export function eventsMenu(ctx:{
     const entries:Entry[] = running ? [
       { id:"status", text:`${running.label} · round ${running.round}/${running.rounds}`, disabled:true, meta:running.phase.toUpperCase(),
         description:`${running.won} of ${running.played} won · ${running.live} out${running.nextInMs!==undefined?` · next in ${mmss(running.nextInMs)}`:""} · by ${running.by}` },
-      submenu("stopNight","Stop the night",()=>openForm({kind:"confirm",action:"nightStop",title:`Stop ${running.label}?`,body:"No more rounds. Choose whether the events still out end now.",danger:true,callOff:false}),
-        { icon:"x", danger:true }),
+      item("stopNight","Stop the night",()=>direct("nightStop",{callOff:false}),{ icon:"x", danger:true, disabled:busy, description:"No more rounds; the events still out finish." }),
+      item("stopNightAll","Stop the night and its events",()=>direct("nightStop",{callOff:true}),{ icon:"x", danger:true, disabled:busy, description:"No more rounds, and the events still out are called off (nobody paid)." }),
     ] : [
       { id:"preset", text:"Night", type:"list", options:v.presets.map(p=>p.label), index:n.preset%Math.max(1,v.presets.length), change:p=>setNight({preset:p.index??0,rounds:0}), description:r.preset?.blurb },
       { id:"rounds", text:r.war?"Gangs":"Rounds", type:"slider", value:r.rounds, min:r.preset?.min??1, max:r.high, step:1, change:p=>setNight({rounds:p.value??0}),
@@ -196,7 +196,7 @@ export function eventsMenu(ctx:{
       { id:"pay", text:"Pay the fighters", type:"checkbox", checked:n.pay, disabled:!v.canPay, run:()=>setNight({pay:!n.pay}), change:()=>setNight({pay:!n.pay}),
         description:v.canPay?"On: each event pays like a world boss.":"Needs the world boss right." },
       { separator:true },
-      submenu("start","Review and start",()=>openForm({kind:"night"}),{ icon:"calendar", disabled:r.problems.length>0||busy, description:r.problems[0] ?? "Announced to the city, the first round after the countdown." }),
+      item("start","Start the night",()=>direct("night",r.payload),{ icon:"calendar", disabled:r.problems.length>0||busy, description:r.problems[0] ?? "Announced to the city now, the first round after the countdown." }),
     ];
     return { title:"EVENT NIGHTS", subtitle:running?running.label.toUpperCase():(r.preset?.label ?? "").toUpperCase(), entries,
       content:running?<SummaryCard caption="RUNNING" lines={[`${running.label}: round ${running.round} of ${running.rounds} (${running.phase})`, `${running.won} of ${running.played} fight(s) won so far.`, `Started by ${running.by}.`]}/>
@@ -218,7 +218,7 @@ export function eventsMenu(ctx:{
     return { title:"SPOT", subtitle:s.name, content:<SpotCard spot={s}/>, entries:[
       submenu("launchHere","Launch an event here",()=>{setLaunch({where:r2(c.kind),spot:index});push({kind:"eventLaunch"});},{ icon:"siren", description:"The launch page, set on this spot." }),
       item("goto","Go to this spot",()=>direct("goto",{spot:s.id}),{ icon:"navigation", disabled:busy }),
-      submenu("delete","Remove this spot",()=>openForm({kind:"confirm",action:"spotDelete",spot:s.id,title:`Remove "${s.name}"?`,body:"Events already out stay where they are.",danger:true}),{ icon:"trash-2", danger:true }),
+      item("delete","Remove this spot",()=>direct("spotDelete",{spot:s.id}),{ icon:"trash-2", danger:true, disabled:busy, description:"Now. Events already out stay where they are." }),
     ]};
   }
   return { title:"EVENTS", subtitle:"", entries:[], content:null };
@@ -249,7 +249,7 @@ function SummaryCard({caption,lines,problems=[]}:{caption:string;lines:string[];
 
 /** The right-hand panel for an event form: options, a note, a confirmation, then the server's answer. */
 export function EventFormPanel({form,view,launch,night,players,onCancel,onDone}:{form:EventForm;view:EventsView;launch:LaunchConfig;night:NightConfig;players:Person[];onCancel:()=>void;onDone:(message:string)=>void}) {
-  const [location,setLocation]=useState(""),[name,setName]=useState(""),[reason,setReason]=useState(""),[callOff,setCallOff]=useState(form.kind==="confirm"&&form.callOff===true);
+  const reason="";const [location,setLocation]=useState(""),[name,setName]=useState(""),[callOff,setCallOff]=useState(form.kind==="confirm"&&form.callOff===true);
   const [confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(""),[uncertain,setUncertain]=useState(false);
   const mutation=useRef<string>(),cancelRef=useRef<HTMLButtonElement>(null),ref=useFormFocus();
   useEffect(()=>{if(confirm)cancelRef.current?.focus();},[confirm]);
@@ -277,15 +277,14 @@ export function EventFormPanel({form,view,launch,night,players,onCancel,onDone}:
       {form.kind==="launch"&&(location||name)&&<p>{name?`Boss: ${name}`:""}{name&&location?" · ":""}{location?`Place: ${location}`:""}</p>}
       {reason&&<blockquote>{reason}</blockquote>}
       <footer><button ref={cancelRef} disabled={busy} onClick={()=>setConfirm(false)}>Cancel</button><button className={danger?"is-danger":"is-primary"} disabled={busy} onClick={send}>{busy?"Applying…":verb}</button></footer>
-    </div>:<form className="rp-support__form" ref={ref} onSubmit={e=>{e.preventDefault();mutation.current=undefined;setConfirm(true);}}>
+    </div>:<form className="rp-support__form" ref={ref} onSubmit={e=>{e.preventDefault();mutation.current=undefined;void send();}}>
       {form.kind==="launch"&&<>
         <label>Place name the city is told<input maxLength={40} value={location} onChange={e=>setLocation(e.target.value)} placeholder={plan&&"own" in plan&&plan.own?"As authored":"The spot's name, your district, or Night City"}/></label>
         <label>Boss name<input maxLength={32} value={name} onChange={e=>setName(e.target.value)} placeholder="A handle from the list, or the boss's own"/></label></>}
       {form.kind==="spotSave"&&<label>Spot name<input required minLength={1} maxLength={40} value={name} onChange={e=>setName(e.target.value)} placeholder="Market behind Tom's Diner"/></label>}
       {form.kind==="confirm"&&form.action==="nightStop"&&<label className="rp-support__check"><span><input type="checkbox" checked={callOff} onChange={e=>setCallOff(e.target.checked)}/>Also call off the events still out (nobody paid)</span></label>}
-      <label>Note for the staff history (optional)<textarea maxLength={500} rows={3} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Why, for whom: an event for the players online, a test…"/></label>
       {problems.map(p=><p key={p} className="rp-support__error" role="alert">{p}</p>)}
-      <footer><button type="button" onClick={onCancel}>Back</button><button className={danger?"is-danger":"is-primary"} disabled={uncertain||problems.length>0||(form.kind==="spotSave"&&!name.trim())}>Review</button></footer>
+      <footer><button type="button" onClick={onCancel}>Back</button><button className={danger?"is-danger":"is-primary"} disabled={busy||uncertain||problems.length>0||(form.kind==="spotSave"&&!name.trim())}>{busy?"Applying…":verb}</button></footer>
     </form>}{error&&<p className="rp-support__error" role="alert">{error}</p>}</div>;
 }
 export const eventAuditLabels:Record<string,string>={eventLaunch:"Launch an event",eventStop:"Call off an event",eventWin:"End an event as a win",eventGoto:"Go to an event",
