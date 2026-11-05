@@ -61,6 +61,8 @@ dofile("shared/parkour.lua")
 dofile("client/core/parkour.lua")
 dofile("client/core/parkour_editor.lua")
 local Parkour, Editor = LightRpParkourClient, LightRpParkourEditor
+-- the orbs' markers are created one per frame: every server event, then enough frames
+local function park(p) nets["op77_lightrp:parkour"](p); tick(20) end
 local page = { on = function(_, name, fn) pageHandlers[name] = fn end, setConsumedKeys = function() end, setFocus = function() return true end }
 LightRpUi.page = page
 Parkour.bind(page)
@@ -72,8 +74,9 @@ check(mappings["lightrp.parkour.restart"].key == "HOME" and mappings["lightrp.pa
 local list = {}
 for i = 1, 6 do list[i] = { id = "c" .. i, name = "C" .. i, start = { x = i * 20, y = 0, z = 10, radius = 3 } } end
 list[6].start.x = 900 -- out of sight
-nets["op77_lightrp:parkour"]({ kind = "courses", courses = list })
+park({ kind = "courses", courses = list })
 tick(2)
+tick(20)
 check(count(markers) == 12, "4 start orbs x 3 markers: " .. count(markers))
 
 -- keys do nothing outside a run
@@ -85,32 +88,32 @@ local course = { id = "c1", name = "C1", difficulty = "hard", revision = 1,
     start = { x = 0, y = 0, z = 10, radius = 3, heading = 0 },
     checkpoints = { { x = 20, y = 0, z = 10, radius = 3 }, { x = 40, y = 0, z = 10, radius = 3 } },
     finish = { x = 60, y = 0, z = 10, radius = 3 } }
-nets["op77_lightrp:parkour"]({ kind = "run", phase = "loading", course = course, attempt = 1, music = { file = "audio/x.webm", volume = 0.05 } })
+park({ kind = "run", phase = "loading", course = course, attempt = 1, music = { file = "audio/x.webm", volume = 0.05 } })
 check(lastPage("lightrp:ui:parkour", "run").music.volume == 0.05, "the run (and its music) reaches the page")
 check(lastPage("lightrp:ui:dialog:close").kind == "parkour", "the card closes when the run starts")
 -- next (core + trigger + beam) + later (core) + finish (core + beam) = 6
 check(count(markers) == 6, "run orbs: " .. count(markers))
-nets["op77_lightrp:parkour"]({ kind = "countdown", goInMs = 3000, attempt = 1 })
-nets["op77_lightrp:parkour"]({ kind = "go", attempt = 1 })
+park({ kind = "countdown", goInMs = 3000, attempt = 1 })
+park({ kind = "go", attempt = 1 })
 mappings["lightrp.parkour.restart"].fn()
 check(toServer[#toServer].name == "op77_lightrp:parkour:key" and toServer[#toServer].payload.op == "restart", "HOME restarts during a run")
 mappings["lightrp.parkour.checkpoint"].fn()
 check(toServer[#toServer].payload.op == "checkpoint", "END goes back to the last checkpoint")
-nets["op77_lightrp:parkour"]({ kind = "cp", index = 1, total = 2, elapsedMs = 2125, attempt = 1 })
+park({ kind = "cp", index = 1, total = 2, elapsedMs = 2125, attempt = 1 })
 -- next = checkpoint 2 (3) + finish shown as next-after? no: the one after is the finish -> next (3) + finish (2) = 5
 check(count(markers) == 5, "after checkpoint 1: " .. count(markers))
 check(lastPage("lightrp:ui:parkour", "cp").elapsedMs == 2125, "the split reaches the page")
-nets["op77_lightrp:parkour"]({ kind = "cp", index = 2, total = 2, elapsedMs = 4400, attempt = 1 })
+park({ kind = "cp", index = 2, total = 2, elapsedMs = 4400, attempt = 1 })
 check(count(markers) == 4, "next is the finish (core + trigger + beam + ring): " .. count(markers))
-nets["op77_lightrp:parkour"]({ kind = "finish", timeMs = 7125, splits = "2125,4400", attempt = 1 })
+park({ kind = "finish", timeMs = 7125, splits = "2125,4400", attempt = 1 })
 check(count(markers) == 0 and #sounds > 0, "finish: the orbs go, a jingle plays")
-nets["op77_lightrp:parkour"]({ kind = "result", timeMs = 7125, attempt = 1, rank = 1 })
+park({ kind = "result", timeMs = 7125, attempt = 1, rank = 1 })
 check(lastPage("lightrp:ui:parkour", "result").rank == 1, "the result reaches the page")
 pageHandlers["lightrp:ui:parkour"]({ op = "leave" })
 check(toServer[#toServer].payload.op == "leave", "the card's leave reaches the server")
-nets["op77_lightrp:parkour"]({ kind = "ended" })
+park({ kind = "ended" })
 check(Parkour.run == nil and lastPage("lightrp:ui:parkour", "ended"), "ended")
-tick(2)
+tick(30)
 check(count(markers) == 12, "start orbs back after the run")
 
 -- GPS to a course start
