@@ -8,7 +8,7 @@
 --     beam, the one after it a small dim orb, the finish a green orb and beam; a crossing
 --     plays the game's UI sounds and a burst. The page draws the clock, the splits, the
 --     countdown and the result card (ui/src/features/parkour/ParkourHud.tsx) and plays the
---     course music at 15 %.
+--     course music at 5 %.
 --   * Keys (rebindable): HOME restart, END back to the last checkpoint.
 local E, Ui = LightRpEvents, LightRpUi
 local P = LightRpParkour

@@ -29,7 +29,7 @@ P.config = {
     boardCache = 500,                            -- best times kept in memory per course
     resultHoldMs = 25000,                        -- after the finish: the card stays, then back
     restartCooldownMs = 1200,
-    music = { file = "audio/parkour-rooftop-momentum.webm", volume = 0.15 },
+    music = { file = "audio/parkour-rooftop-momentum.webm", volume = 0.05 },
     -- staff editor ACL (staff roles hold command.lightrp.*)
     permission = "command.lightrp.parkour",
 }

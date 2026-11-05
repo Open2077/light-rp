@@ -42,7 +42,8 @@ _G.Open77 = {
         teleport = function(id, at, opts)
             teleports[#teleports + 1] = { id = id, at = at, heading = opts and opts.heading }
             positions[id] = { x = at.x, y = at.y, z = at.z }
-            return { await = function() return true end }
+            -- like the runtime: resolves with the position reached
+            return { await = function() return { x = at.x, y = at.y, z = at.z } end }
         end,
         setFrozen = function(id, on) frozen[id] = on; return true end,
         setGodMode = function(id, on) god[id] = on; return true end,

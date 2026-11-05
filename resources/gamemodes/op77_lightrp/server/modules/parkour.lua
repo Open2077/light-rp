@@ -435,13 +435,15 @@ local function teleport(player, run, point, heading)
     run.prev = nil
     local promise, why = Open77.players.teleport(player, { x = point.x, y = point.y, z = point.z },
         { heading = heading or 0, fade = true, fadeOutMs = 150, fadeInMs = 200, dismount = true, timeoutMs = 8000 })
-    local placed = false
-    if promise then placed, why = promise:await() end
+    -- the promise resolves with the position reached (a table), and rejects with a reason
+    local result
+    if promise then result, why = promise:await() end
+    local placed = result ~= nil and result ~= false
     if runs[player] ~= run then return false end
     run.teleporting = false
     run.prev, run.graceUntil = nil, now() + 800
     if not placed then log("parkour: teleport of %d failed: %s", player, tostring(why)) end
-    return placed == true
+    return placed
 end
 
 local function statusPhase()

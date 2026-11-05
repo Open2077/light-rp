@@ -53,7 +53,7 @@ course has its own full leaderboard, with each runner's splits.
   - **Death** sends you back to the last checkpoint, clock running.
   - **Fall line** (optional, rooftop courses): drop below it and you go back to the last
     checkpoint, clock running.
-- **Music.** "Rooftop Momentum" plays from the page (WebUI audio) at **15 %** from the
+- **Music.** "Rooftop Momentum" plays from the page (WebUI audio) at **5 %** from the
   countdown. It loops through restarts and fades out when the run ends.
 
 ## Timing (server only)
