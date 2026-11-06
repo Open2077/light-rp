@@ -227,6 +227,7 @@ client_script "client/core/camera.lua"
 client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
 client_script "client/core/announce.lua"       -- the announcement halo's voice level (server/modules/announce.lua)
+client_script "client/core/staff_announce.lua" -- the staff announcement banner's sounds (server/modules/staff.lua)
 client_script "client/core/inventory.lua"
 client_script "client/core/tcg.lua"               -- closes the inventory when the TCG page takes the mouse
 client_script "client/core/armament.lua"
