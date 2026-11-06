@@ -256,7 +256,22 @@ end
 --- @param name    string   without the leading slash; the ACL permission is
 ---                         always `command.<name>`
 --- @param spec    table    { help, params, mutation, requiresPlayer, handler }
+-- Commands that never act on whoever typed them, even with an explicit `me`.
+local NEVER_SELF = { ["admin.moderate.kick"] = "kick", ["admin.moderate.ban"] = "ban" }
+
 local function register(name, spec)
+    local verb = NEVER_SELF[name]
+    if verb and type(spec) == "table" and type(spec.handler) == "function" then
+        local handler = spec.handler
+        spec.handler = function(source, args, ...)
+            local first = args and args[1]
+            local id = tonumber(first)
+            if source ~= nil and source > 0 and (first == "me" or first == "self" or id == source) then
+                return output(source, select(1, ...), false, "you cannot " .. verb .. " yourself")
+            end
+            return handler(source, args, ...)
+        end
+    end
     if registered[name] ~= nil then
         log("duplicate command refused: " .. name)
         return
@@ -337,9 +352,14 @@ end
 -- both are non-negotiable.
 -- ---------------------------------------------------------------------------
 
---- Resolve a target token to a player id. `me` means the caller.
+--- Resolve a target token to a player id. `me` means the caller, said out loud: a missing
+--- target is refused. It used to mean the caller too, and `/ban` alone banned the owner
+--- himself (Light RP Testing, 2026-11-06).
 local function resolveTarget(source, token)
-    if token == nil or token == "me" or token == "self" then
+    if token == nil or token == "" then
+        return nil, "name a player: their id (see /players), or 'me'"
+    end
+    if token == "me" or token == "self" then
         if source == nil or source <= 0 then return nil, "console has no player to target" end
         return source
     end
