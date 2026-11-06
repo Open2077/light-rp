@@ -2,8 +2,10 @@
 -- arrive (server/config/activities.lua). A terminal beside the arrival point
 -- opens the Activities panel (with its map pin); its Contracts tab lists the
 -- mission boards of the city, with a GPS route to each (the boards themselves
--- work as before). A `kind = "contracts"` terminal opens the panel on that tab. A terminal with
--- `npc = true` has the hub's `host` NPC standing on it instead of a floor marker. It also points
+-- work as before). A `kind = "contracts"` terminal opens the panel on that tab, a `kind = "rooms"`
+-- one the hosting menu (activity_rooms.lua). A terminal with `npc = true` has an NPC standing on
+-- it instead of a floor marker: its own `host`, else the hub's. A terminal's own `blip` is its map
+-- pin. It also points
 -- newcomers to The Crossing once their first day ends, and gives staff a survey command.
 local C = LightRpActivities
 local H = C.hub
@@ -36,14 +38,16 @@ local function register()
     if not C.enabled then return end
     for index, terminal in ipairs(H.terminals) do
         local id = "activities." .. terminal.id
+        local pin = terminal.blip or (terminal.kind == "activities" and H.blip) or nil
         local blip
-        if terminal.kind == "activities" and H.blip then
-            blip = { sprite = "objective", icon = "swords", title = H.blip.title, description = H.blip.description,
-                mapCategory = H.blip.mapCategory, mapColor = H.blip.mapColor, map = H.blip.map }
+        if pin then
+            blip = { sprite = "objective", icon = "swords", title = pin.title, description = pin.description,
+                mapCategory = pin.mapCategory, mapColor = pin.mapColor, map = pin.map }
         end
         -- a host NPC stands on it: no floor marker, the prompt at his chest
         local marker, promptHeight = H.marker, nil
-        if terminal.npc and type(H.host) == "table" then marker, promptHeight = nil, H.host.promptHeight end
+        local host = terminal.host or H.host
+        if terminal.npc and type(host) == "table" then marker, promptHeight = nil, host.promptHeight end
         Hub.points[id] = { kind = terminal.kind, index = index }
         LightRP.interaction(id, { position = Hub.placeOf(terminal), radius = H.interactRadius or 2.0, bucket = H.bucket or 0,
             label = terminal.label, prompt = terminal.prompt, key = "E", marker = marker, promptHeight = promptHeight,
@@ -53,14 +57,15 @@ end
 if LightRP.batchInteractions then LightRP.batchInteractions(register) else register() end
 
 -- ---------------------------------------------------------------------------
--- The host: an NPC standing on each `npc = true` terminal, facing its heading. Spawned as
+-- The host: an NPC standing on each `npc = true` terminal (its own `host`, else the hub's),
+-- facing its heading. Spawned as
 -- Johnny is (server/modules/guide.lua): records tried in order, AI off, invulnerable, no
 -- combat, perception or voice, and respawned if a cleanup removes him.
 
 Hub.hosts = {} -- terminal id -> NPC id
 
 function Hub.spawnHost(terminal)
-    local host = H.host
+    local host = terminal.host or H.host
     if type(host) ~= "table" or type(Open77.npcs) ~= "table" or type(Open77.npcs.create) ~= "function" then return nil end
     local at = Hub.placeOf(terminal)
     local yaw = tonumber(terminal.heading) or tonumber(H.heading) or 0
@@ -122,6 +127,10 @@ end)
 function Hub.onInteract(playerId, pointId)
     local point = Hub.points[pointId]
     if not point then return end
+    if point.kind == "rooms" then
+        LightRP.activityRooms.open(playerId)
+        return
+    end
     A.watch(playerId)
     LightRP.state(playerId, "activities")
     LightRP.dialog(playerId, "activities", { tab = point.kind == "contracts" and "contracts" or "activities" })

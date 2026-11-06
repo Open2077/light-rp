@@ -32,14 +32,33 @@ local function insideHall(p)
 end
 local function cityArrival()
     local a = LightRpConfig.spawn.afterTutorial or LightRpConfig.spawn.arrival
-    return { name = a.name, position = a.position, heading = a.heading, bucket = 0 }
+    -- spread: everyone leaving the hall lands on this square (server/main.lua Spawn.scatter)
+    return { name = a.name, position = a.position, heading = a.heading, bucket = 0, scatter = a.scatter or 3.0 }
 end
 local function hallArrival(player,step)
     if step and C.steps[step].kind=="context" then
         local a=C.practice.position
         return {name="tutorial_practice",position={x=a.x+3,y=a.y-5,z=a.z},heading=0,bucket=bucketOf(player,step)}
     end
-    return { name = L.arrival.name, position = L.arrival.position, heading = L.arrival.heading, bucket = L.bucket }
+    return { name = L.arrival.name, position = L.arrival.position, heading = L.arrival.heading, bucket = L.bucket,
+        scatter = L.arrival.scatter or 2.0 }
+end
+
+-- Out of the hall onto the square: the client circles it with the camera once the
+-- loading is over and the body stands there (client/core/arrival_tour.lua, C.arrivalTour).
+function Tutorial.tourCity(player)
+    local T = C.arrivalTour
+    if not (T and T.enabled) then return false end
+    local center = T.center or cityArrival().position
+    TriggerClientEvent(LightRpEvents.net.arrivalTour, player, { center = { x = center.x, y = center.y, z = center.z } })
+    return true
+end
+-- The hall's door to the city (the end, a skip, a pause, a retry): placed, then the tour.
+local function toCity(player)
+    if not (LightRP.spawn and LightRP.spawn.place) then return false, "placement_unavailable" end
+    local placed, reason = LightRP.spawn.place(player, cityArrival(), "lightrp:tutorial")
+    if placed then Tutorial.tourCity(player) end
+    return placed, reason
 end
 
 local function current(player, s)
@@ -110,6 +129,7 @@ local function relocate(player, step)
     if not (LightRP.spawn and LightRP.spawn.place) then return false, "placement_unavailable" end
     local ok, why = LightRP.spawn.place(player, point, "lightrp:tutorial")
     if not ok then LightRP.log("tutorial placement for %d at %s rejected: %s", player, point.name, tostring(why)) end
+    if ok and not inHall(step) then Tutorial.tourCity(player) end
     return ok, why
 end
 
@@ -348,7 +368,7 @@ local function pause(player, s)
     if not implantReady(player) then return false, "Install your Neural-Link first: press F2." end
     local ok, why = change(player, s, s.step, "paused")
     if ok and insideHall(Open77.players.position(player)) then
-        local placed = LightRP.spawn and LightRP.spawn.place and LightRP.spawn.place(player, cityArrival(), "lightrp:tutorial")
+        local placed = toCity(player)
         if not placed then LightRP.log("tutorial: %d paused in the hall and could not be taken to the city", player) end
     end
     return ok, why
@@ -402,7 +422,7 @@ local function leave(player, s)
     -- From the hall (or its private lesson) the door opens on the city; a player
     -- already out in the city stays where they are.
     if insideHall(Open77.players.position(player)) then
-        local placed, reason = LightRP.spawn and LightRP.spawn.place and LightRP.spawn.place(player, cityArrival(), "lightrp:tutorial")
+        local placed, reason = toCity(player)
         if not placed then
             LightRP.log("tutorial: %d skipped in the hall and could not be taken to the city (%s)", player, tostring(reason))
             return false, "The way to Night City is not ready. Use /tutorial skip to try again."
@@ -502,8 +522,16 @@ end)
 
 function Tutorial.onInventoryOpened(player) advance(player,"inventory",following.inventory) end
 -- A look saved in a fitting room (wardrobe.lua relays open77_appearance): dressed or not.
-function Tutorial.onDressed(player, dressed)
-    if dressed then advance(player,"dress",following.dress) end
+-- A look saved without trousers (or without a top) said nothing and the player thought the
+-- guide was stuck (LightRP Testing 2026-11-06: boots and underwear, no Legs): it now says
+-- what is missing.
+function Tutorial.onDressed(player, dressed, missing)
+    if dressed then advance(player,"dress",following.dress); return end
+    local s = active(player)
+    if not s or s.step ~= "dress" then return end
+    local what = type(missing) == "table" and #missing > 0 and table.concat(missing, " and ") or "a top and trousers"
+    LightRP.notice(player, {kind="warning", title="First day guide", durationMs=9000,
+        body="Almost: your saved look has no " .. what .. ". Put " .. (what:find(" and ") and "them" or "it") .. " on in the fitting room and save again."})
 end
 -- op77_neuralink installed the implant (neuralink_bridge.lua relays it).
 function Tutorial.onNeuralinkInstalled(player)
@@ -559,8 +587,7 @@ LightRP.command("tutorial",{usage="/tutorial [pause|resume|restart|skip]"},funct
             return true,why=="pending" and "Fitting your Neural-Link, then off to Night City." or "First day skipped. Welcome to Night City: /tutorial brings your guide back any time."
         end
         -- Retry of a skip whose way out was refused: the guide is done, the door still opens.
-        if insideHall(Open77.players.position(player)) and LightRP.spawn and LightRP.spawn.place
-            and LightRP.spawn.place(player, cityArrival(), "lightrp:tutorial") then
+        if insideHall(Open77.players.position(player)) and toCity(player) then
             return true,"On your way to Night City."
         end
         return true,"The first day guide is not running."

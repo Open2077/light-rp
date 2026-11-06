@@ -145,7 +145,8 @@
         "op77_race",
         "op77_chase",
         "op77_turf",
-        "op77_arena"
+        "op77_arena",
+        "op77_games"
     ],
     "autoStart": true,
     "watchIntervalMilliseconds": 0,

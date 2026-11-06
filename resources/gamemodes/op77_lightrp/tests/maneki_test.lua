@@ -14,6 +14,8 @@ local function tick(n)
 end
 _G.CreateThread = function(fn) local co = coroutine.create(fn); threads[#threads + 1] = co; local ok, err = coroutine.resume(co); if not ok then error(err) end end
 _G.Wait = function() coroutine.yield() end
+-- a timer runs from the next tick on (the module reschedules itself before each pass)
+_G.SetTimeout = function(_, fn) threads[#threads + 1] = coroutine.create(fn) end
 
 local positions, weapons, now = {}, {}, 0
 local sent, notices, bank, titles, states, chat = {}, {}, {}, {}, {}, {}
@@ -114,7 +116,7 @@ for _, r in ipairs(all) do if r.x == 10 then catA = r.id else catB = r.id end en
 assert(M.spots()[catB].scale == 1, "unknown scale -> 1")
 
 -- Streaming: only near, only unfound; the staff in the tool sees every cat.
-tick()
+tick(4) -- a pass streams two players per tick
 assert(ids(last(2, "near").spots) == ids({ { id = catA }, { id = catB } }), "player 2 gets both cats")
 assert(#last(3, "near").spots == 0, "player 3 is too far")
 assert(last(1, "near").editing == true, "the staff list is the editor list")
@@ -141,7 +143,7 @@ from(3, handlers["op77_lightrp:maneki:collect"], { id = catB, how = "take" })
 assert(count("found", 3) == 0, "not streamed yet -> refused")
 
 -- Shots: a weapon in hand, within range.
-tick()
+tick(4) -- a pass streams two players per tick
 weapons[4] = { fresh = true, drawn = false }
 from(4, handlers["op77_lightrp:maneki:collect"], { id = catB, how = "shot" })
 assert(count("found", 4) == 0, "no weapon in hand -> refused")
@@ -156,7 +158,7 @@ from(4, handlers["op77_lightrp:maneki:collect"], { id = catB, how = "shot" })
 assert(last(4, "found") and last(4, "found").how == "shot", "shot from 50 m with a weapon")
 
 -- Player 2 completes the set: milestone + title (completeMin 2 in this test).
-tick()
+tick(4) -- a pass streams two players per tick
 advance()
 from(2, handlers["op77_lightrp:maneki:collect"], { id = catB, how = "shot" })
 weapons[2] = { fresh = true, drawn = true }
@@ -192,10 +194,9 @@ local list = M.list(1, { sort = "near" })
 assert(list.cats == 2 and list.canEdit and #list.spots == 2, "desk list")
 for _, r in ipairs(list.spots) do if r.id == catB then assert(r.finds == 2, "cat B found twice") end end
 assert(M.list(2, {}) == nil, "players cannot list")
-local refused = M.action(1, { action = "manekiDelete", id = catA, confirmed = true, reason = "no", mutation = "desk:test:1" })
-assert(refused == nil, "a reason is required")
-local removed = M.action(1, { action = "manekiDelete", id = catA, confirmed = true, reason = "Bad spot, inside a wall", mutation = "desk:test:2" })
-assert(removed and removed.accepted, "removed")
+-- at once, no reason to type (owner, 2026-11-05): the staff history gets a default line
+local removed = M.action(1, { action = "manekiDelete", id = catA, reason = "", mutation = "desk:test:2" })
+assert(removed and removed.accepted, "removed without a reason or a confirmation")
 assert(#M.rows(1, {}) == 1 and providers.maneki(2).total == 1, "one cat left")
 local tp = M.action(1, { action = "manekiTeleport", id = catB, confirmed = true, reason = "Checking it", mutation = "desk:test:3" })
 assert(tp and tp.accepted and positions[1].x ~= 0, "teleported next to the cat")

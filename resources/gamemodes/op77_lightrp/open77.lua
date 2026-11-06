@@ -36,6 +36,7 @@ shared_script "shared/events.lua"
 shared_script "shared/notice.lua"         -- another resource's notice in the page (exports notice / Notice)
 shared_script "shared/safezones.lua"
 shared_script "shared/mission_defs.lua"   -- authored missions: format + validation (editor, engine, page)
+shared_script "shared/parkour.lua"        -- parkour courses: limits, validation, orb geometry (server, client, tests)
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
@@ -78,6 +79,7 @@ server_script "server/modules/casino_pool.lua"
 server_script "server/modules/board_games.lua"
 server_script "server/modules/armament_store.lua"
 server_script "server/modules/armament.lua"
+server_script "server/modules/armament_admin.lua"
 server_script "server/modules/grenades.lua"
 server_script "server/modules/hotbar.lua"
 server_script "server/modules/tcg.lua"            -- Cyberpunk TCG (op77_tcg): sealed product as inventory items
@@ -92,8 +94,12 @@ server_script "server/modules/parties.lua"
 server_script "server/modules/missions.lua"
 server_script "server/modules/mission_chimera.lua"
 server_script "server/modules/mission_engine.lua"  -- runtime of the authored missions
+server_script "client/core/state_json.lua"          -- the editors' large replies as JSON text (mission_editor.lua)
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
 server_script "server/modules/mission_repay.lua"   -- /lightrp.missions.repay: stored missions to the new payout scale
+server_script "server/modules/game_map_rules.lua"  -- game maps: validation against a game's schema
+server_script "server/config/game_maps_seed.lua"   -- one-time import data, nothing plays from it
+server_script "server/modules/game_maps.lua"       -- storage + staff editor protocol (/lightrp.maps), delivery to op77_games
 server_script "server/config/fixers.lua"
 server_script "server/modules/fixers.lua"          -- fixer gigs: offers by Neural-Link text, crews, meet point
 server_script "server/config/world_bosses.lua"
@@ -142,6 +148,8 @@ server_script "server/modules/housing_admin.lua"
 server_script "server/modules/board_games_admin.lua" -- staff: placed tables list / go to / remove (/admin, /lightrp.tables)
 server_script "server/config/maneki.lua"
 server_script "server/modules/maneki.lua"          -- Maneki-neko collectibles: streamed near players, E or a shot, staff tool (/lightrp.maneki)
+server_script "server/config/staff_events.lua"
+server_script "server/modules/staff_events.lua"    -- staff events: world bosses / cyberpsychos / gang attacks where the staff want, event nights (/admin > Events)
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"
@@ -153,8 +161,11 @@ server_script "server/modules/ripperdoc.lua"
 server_script "server/modules/pose_ghost.lua"       -- held poses are non-solid to other players (no push out of an emote/seat)
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
+server_script "server/modules/activity_kits.lua"   -- temporary kits for activities: a mission's kit, handed by the same code
+server_script "server/modules/parkour.lua"         -- parkour courses, runs against the clock, leaderboards, staff editor (/lightrp.parkour)
 server_script "server/modules/activity_queue.lua"  -- the queue panel: one queue per player (core, providers, mission boards), leave
 server_script "server/modules/activity_pay.lua"    -- eddies for activity results (PvP ranked, PvE), caps and anti-farm
+server_script "server/modules/activity_rooms.lua"  -- rooms: a player hosts an unranked match at The Crossing's rooms NPC
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
 server_script "server/config/halloffame.lua"
 server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards
@@ -165,6 +176,8 @@ server_script "server/modules/guide_dialogue.lua"  -- talking to Johnny: choices
 server_script "server/config/dogtown.lua"
 server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
 server_script "server/modules/pvp_marks.lua"       -- who is in a PvP fight (Dogtown, PvP/chase activities): their nameplates hidden
+server_script "server/modules/rp_names.lua"        -- the characters' names for the nameplates
+server_script "server/modules/staff_ghost.lua"     -- staff ghost mode: noclip, invisible, no nameplate or map dot
 server_script "server/config/events_board.lua"
 server_script "server/modules/events_board_fonts.lua" -- the board page's fonts (design system, base64)
 server_script "server/modules/events_board_page.lua"  -- the board page: HTML, CSS, JS
@@ -196,8 +209,10 @@ client_script "client/core/safezone_tile.lua" -- the green tile by the voice pla
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
 client_script "client/core/tutorial_voice.lua"
+client_script "client/core/tutorial_guide.lua" -- the way to the objective: beacon, page pointer, flight route
 client_script "client/core/tutorial.lua"
 client_script "client/core/tutorial_context.lua"
+client_script "client/core/arrival_tour.lua"     -- the camera tour of the central square on the way out of the hall
 client_script "client/core/weapon_hud.lua"
 client_script "client/core/hud.lua"
 client_script "client/core/map_icons.lua"
@@ -218,6 +233,7 @@ client_script "client/core/camera.lua"
 client_script "client/core/freecam.lua"
 client_script "client/core/talkers.lua"
 client_script "client/core/announce.lua"       -- the announcement halo's voice level (server/modules/announce.lua)
+client_script "client/core/staff_announce.lua" -- the staff announcement banner's sounds (server/modules/staff.lua)
 client_script "client/core/inventory.lua"
 client_script "client/core/tcg.lua"               -- closes the inventory when the TCG page takes the mouse
 client_script "client/core/armament.lua"
@@ -227,6 +243,7 @@ client_script "client/core/branding.lua"
 client_script "client/core/actions.lua"
 client_script "client/core/activity_hud.lua"   -- shared in-match HUD of the activity providers (exports ActivityHud*)
 client_script "client/core/medical.lua"
+client_script "client/core/death_cover.lua"   -- the flatline cover over the first-person death (ui features/medical/DeathCover)
 client_script "client/core/consumables.lua"
 client_script "client/core/refueling.lua"
 client_script "client/core/animations.lua"
@@ -234,6 +251,7 @@ client_script "client/core/job_runs.lua"
 client_script "client/core/job_work.lua"
 client_script "client/core/raid.lua"
 client_script "client/core/mission_editor.lua"
+client_script "client/core/map_editor.lua"     -- /lightrp.maps: the mission editor's build mode on a game map
 client_script "client/core/mission_run.lua"
 client_script "client/core/vehicle_context.lua"
 client_script "client/core/crew.lua"            -- crews: ALT + click on players, invite keys (server/modules/parties.lua)
@@ -241,9 +259,13 @@ client_script "client/core/queue.lua"           -- the queue panel's leave key (
 client_script "client/core/vehicle_customization.lua"
 client_script "client/core/guide.lua"           -- the guide NPC: page relay with the player's keys, ALT + click on him
 client_script "client/core/pvp_marks.lua"      -- nameplates (op77_playermarks) hidden in PvP
+client_script "client/core/rp_names.lua"       -- the characters' names on op77_playermarks' nameplates
+client_script "client/core/staff_ghost.lua"    -- staff ghost mode: noclip on/off, ghosts off the map
 client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
 client_script "client/core/maneki.lua"         -- Maneki-neko collectibles: local props, E prompt, shot detection
 client_script "client/core/maneki_editor.lua"  -- the staff placement tool for the cats
+client_script "client/core/parkour.lua"        -- parkour: start orbs, the run's orbs, keys, sounds (the page draws the clock)
+client_script "client/core/parkour_editor.lua" -- the staff parkour editor: relay, captures, 3D preview, build mode
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -267,9 +289,11 @@ permissions {
     "state.write",          -- vehicle keys live in state bags
     "players.life.read",
     "players.life.ghost",          -- pose_ghost: a held pose is non-solid to other players
+    "players.life.visibility",     -- staff ghost mode: the body hidden from the others
     "players.life.kill",
     "players.life.revive",
     "players.life.respawn",
+    "players.life.freeze",         -- parkour: the runner held on the start until GO
     "players.teleport",
     "players.damage.apply",
     "world.effects",        -- the raid's strikes: replicated explosions in the arena bucket

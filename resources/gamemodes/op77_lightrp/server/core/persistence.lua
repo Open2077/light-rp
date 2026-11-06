@@ -73,7 +73,18 @@ CreateThread(function()
     if ok then
         Db.ready = true
         LightRP.log("persistence ready (%d table(s))", #Db.pending)
-        LightRP.eachModule("onDatabaseReady")
+        -- Every module loads its rows here, and several register interaction points one by one
+        -- (the authored mission boards...). Each registration sent the whole list (~36 KB) to
+        -- every connected player: with two players reconnecting during a restart the resume ran
+        -- out of instructions ("Open77 instruction quota exceeded", LightRP Testing 2026-11-06
+        -- 00:48) and every module after it never loaded (Maneki-neko, parkour...). One list for
+        -- the whole chain, sent at its end.
+        if type(LightRP.batchInteractions) == "function" then
+            local okBatch, why = pcall(LightRP.batchInteractions, function() LightRP.eachModule("onDatabaseReady") end)
+            if not okBatch then LightRP.log("database-ready hooks failed: %s", tostring(why)) end
+        else
+            LightRP.eachModule("onDatabaseReady")
+        end
     else
         LightRP.log("persistence disabled: %s", tostring(err))
     end

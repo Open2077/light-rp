@@ -427,7 +427,7 @@ local settle = missions:find("payouts = LightRP.missionPay.settle(inst, point, d
 local paid = missions:find('pcall(LightRP.recap.reward, id, "mission|" .. tostring(inst.id)', 1, true)
 local _, homes = missions:gsub("pcall%(LightRP%.recap%.home, id%)", "")
 assert(ended and settle and paid and ended < settle and settle < paid and homes == 2, "before the pay, then each payout, then home")
-assert(source("server/modules/world_bosses.lua"):find("pcall(LightRP.recap.worldBossEnded, ev, success, why, C.reputation)", 1, true))
+assert(source("server/modules/world_bosses.lua"):find("pcall(LightRP.recap.worldBossEnded, ev, success, why, ev.noPay and 0 or C.reputation)", 1, true))
 assert(source("server/modules/mission_chimera.lua"):find('pcall(LightRP.recap.credit, id, "bossDamage", dealt)', 1, true))
 assert(source("server/modules/activity_pay.lua"):find("LightRP.recap.reward, id, entry.activity", 1, true))
 local manifest = source("open77.lua")

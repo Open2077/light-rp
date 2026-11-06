@@ -25,11 +25,12 @@ function Tutorial.publish()
         local key=LightRpConfig.keys[name]
         keys[name]=Open77.input.keyFor(key.id) or key.key
     end
-    for _,name in ipairs({"skip","way"}) do
+    for _,name in ipairs({"skip","way","quit"}) do
         if R[name] then keys[name]=Open77.input.keyFor(R[name].id) or R[name].key end
     end
     keys.context=Tutorial.contextKey or "ALT"
     LightRpUi.send(E.page.tutorial,{phase=phase,keys=keys})
+    if LightRpTutorialGuide then LightRpTutorialGuide.republish() end
 end
 -- The view goes back to the player; the body, the HUD and the voice are theirs again.
 local function releaseScene()
@@ -41,12 +42,9 @@ local function releaseScene()
     started=nil
 end
 local reveal
-local function clearRouteDots()
-    for _,dot in ipairs(reveal and reveal.dots or {}) do if dot.id then pcall(Open77.markers.remove,dot.id) end end
-end
 local function clearCamera()
     if camera then Open77.camera.destroy(camera); camera=nil end
-    if reveal then clearRouteDots(); reveal=nil; LightRpUi.send(E.page.tutorial,{reveal=false}) end
+    if reveal then LightRpTutorialGuide.routeStop(); reveal=nil; LightRpUi.send(E.page.tutorial,{reveal=false}) end
     releaseScene()
 end
 local function phaseTo(value)
@@ -68,57 +66,29 @@ local function confirmIntro()
         introRequestAt=now(); send("intro")
     end
 end
--- Where to go, in the world: a gold arrow bobbing over the objective (the
--- platform's arrow points down) and a few dots leading from the player towards
--- it, lit one after the other. Dots have no front: nothing can point the wrong way.
-local lead={dots={}}
-local sentDistance
-local LEAD={height=2.5,dots=5,first=2.2,spacing=1.5,hideWithin=7.0,
-    color={r=255,g=214,b=70,a=235},dotColor={r=255,g=214,b=70,a=200}}
-local function clearLead()
-    if lead.arrow then pcall(Open77.markers.remove,lead.arrow) end
-    for _,id in ipairs(lead.dots) do pcall(Open77.markers.remove,id) end
-    lead={dots={}}
-end
-local function publishDistance(metres)
-    if sentDistance==metres then return end
-    sentDistance=metres; LightRpUi.send(E.page.tutorial,{distance=metres or false})
-end
-local function updateLead()
-    local objective=state and state.active and state.objective
-    local markers=type(Open77.markers)=="table" and type(Open77.markers.create)=="function" and Open77.markers
-    if not objective or camera or not markers or not live() then
-        if lead.arrow or #lead.dots>0 then clearLead() end
-        publishDistance(nil); return
-    end
-    local t,p,o=now(),Open77.character.state().position,objective.position
-    local dx,dy=o.x-p.x,o.y-p.y
-    local distance=math.sqrt(dx*dx+dy*dy)
-    publishDistance(math.floor(distance+0.5))
-    local top={x=o.x,y=o.y,z=o.z+LEAD.height+0.22*math.sin(t*3.2)}
-    if lead.target~=objective then clearLead(); lead.target=objective end
-    if not lead.arrow then
-        lead.arrow=markers.create({shape="arrow",position=top,radius=0.42,height=1.0,color=LEAD.color,maxDistance=400})
-    else markers.update(lead.arrow,{position=top,rotation={x=0,y=0,z=(t*70)%360}}) end
-    local wanted=distance>LEAD.hideWithin and LEAD.dots or 0
-    for i=#lead.dots,wanted+1,-1 do pcall(markers.remove,lead.dots[i]); lead.dots[i]=nil end
-    if wanted==0 then return end
-    local ux,uy=dx/distance,dy/distance
-    for i=1,wanted do
-        local along=LEAD.first+(i-1)*LEAD.spacing
-        -- A wave runs from the player to the objective: each dot swells in turn.
-        local pulse=math.max(0,math.sin(t*4.5-i*0.9))
-        local radius=0.07+0.07*pulse
-        local position={x=p.x+ux*along,y=p.y+uy*along,z=p.z+0.95+0.05*pulse}
-        if not lead.dots[i] then
-            lead.dots[i]=markers.create({shape="sphere",position=position,radius=radius,height=radius*2,color=LEAD.dotColor,maxDistance=40})
-        else markers.update(lead.dots[i],{position=position,radius=radius,height=radius*2}) end
-    end
+-- Where to go: client/core/tutorial_guide.lua (a beacon on the objective, the page's
+-- pointer, the route during the flight). Asked ten times a second what it may show.
+local G=LightRpTutorialGuide
+local function guideSync()
+    local o=state and state.active and state.objective or nil
+    if not o then G.sync(nil); return end
+    local c=Open77.character.state()
+    -- Not grounded: a jump or a stair must not take the beacon away (and bring it back).
+    local present=c~=nil and c.alive and not Open77.screen.isLoading()
+    -- The opening and a conversation own the view; the flight to the stop shows the beacon.
+    -- The arrival (intro) waits for its scene: nothing placed only to be taken away.
+    local cinematic=camera~=nil and not reveal
+    local world=present and state.step~="intro" and not state.dialogue and not cinematic
+        and not (LightRpInteract and LightRpInteract.hidden)
+    local p=o.position
+    G.sync({key=string.format("%s:%s:%.1f:%.1f:%.1f",tostring(state.key),tostring(state.step),p.x,p.y,p.z),objective=o,
+        world=world,hud=world and camera==nil,position=c and c.position,yaw=c and c.yaw,label=o.label})
 end
 local function clearTarget()
     if LightRpInteract then LightRpInteract.setLocal("tutorial.current",nil) end
     blip,targetKey=nil,nil
-    clearLead(); publishDistance(nil)
+    -- a new step, a pause, a skip, the end, another character: nothing of the old way stays
+    G.clear()
 end
 local function updateTarget()
     local objective=state and state.active and state.objective
@@ -144,8 +114,9 @@ local function updateTarget()
     if blip and phase~="opening" then LightRpInteract.trackBlip(blip) end
 end
 -- The way to a new destination, shown before it is walked (C.reveal): the
--- camera rises behind the player, flies over the route while gold dots light
--- the ground towards the place, settles on it and blends back to the player.
+-- camera rises behind the player, flies over the route while gold chevrons light
+-- the ground towards the place (drawn, no markers: tutorial_guide.lua), settles on
+-- it over the beacon and blends back to the player.
 -- Skip key: back at once. Way key: the same flight again.
 local wanted,wantedAt,manual,previousStep
 local function vec(x,y,z) return {x=x,y=y,z=z} end
@@ -194,15 +165,9 @@ local function startReveal()
     frozen=Open77.character.setFrozen(true)==true
     hud=Open77.hud.setVisible("all",false)==true
     TriggerEvent("open-voice:setHudBlocked","op77_lightrp:tutorial",true)
-    -- The dots, from the player's feet to the place, each lit as the camera passes over it.
-    local spacing=(R.dots and R.dots.spacing) or 3.0
-    local count=math.min((R.dots and R.dots.max) or 40,math.floor(distance/spacing))
-    local dots={}
-    for i=1,count do
-        local at=i/(count+1)
-        dots[i]={at=at,position=vec(p.x+(o.x-p.x)*at,p.y+(o.y-p.y)*at,p.z+(o.z-p.z)*at+0.18)}
-    end
-    reveal={started=now(),phase="fly",keys={k1,k2,k3},look=look,target=target,fov=fov,dots=dots,
+    -- The route, from the player's feet to the place, lit as the camera passes over it.
+    LightRpTutorialGuide.routeStart(p,o,R.route)
+    reveal={started=now(),phase="fly",keys={k1,k2,k3},look=look,target=target,fov=fov,
         fly=R.flySeconds or 4.2,hold=R.holdSeconds or 1.4}
     phaseTo("reveal")
     LightRpUi.send(E.page.tutorial,{reveal={name=state.place or state.objective.label,direction=state.direction,
@@ -212,7 +177,7 @@ end
 -- Back to the player: the body is free at once, the view blends home.
 local function endReveal()
     if not reveal or reveal.phase=="return" then return end
-    clearRouteDots(); reveal.dots={}
+    LightRpTutorialGuide.routeStop()
     local released=camera and type(Open77.camera.deactivate)=="function" and Open77.camera.deactivate({blendMs=R.returnMs or 800})
     releaseScene()
     LightRpUi.send(E.page.tutorial,{reveal=false})
@@ -231,15 +196,7 @@ local function updateReveal()
         Open77.camera.setTransform(camera,{position=flight(r.keys,u),fov=r.fov+(50-r.fov)*u})
         Open77.camera.lookAt(camera,mix(r.look,r.target,smoother(t/(r.fly*0.4))))
     end
-    local lit=reduced and 1 or smoother(t/(r.fly*0.85))
-    for i,dot in ipairs(r.dots) do
-        if lit>=dot.at then
-            local radius=0.16+0.05*math.sin(t*5-i*0.45)
-            if not dot.id then
-                dot.id=Open77.markers.create({shape="sphere",position=dot.position,radius=radius,height=radius*2,color=LEAD.dotColor,maxDistance=300})
-            else Open77.markers.update(dot.id,{radius=radius,height=radius*2}) end
-        end
-    end
+    LightRpTutorialGuide.routeDraw(reduced and 1 or smoother(t/(r.fly*0.85)))
 end
 function Tutorial.cinematic() return camera~=nil end
 -- Asks for the flight to the current destination; the main loop starts it when nothing else owns the player.
@@ -298,8 +255,14 @@ function Tutorial.bind(page)
     end)
     if type(RegisterKeyMapping)~="function" then return end
     local pressed={
-        skip=function() if reveal then endReveal() end end,
+        -- the same key ends the square's tour after the hall (client/core/arrival_tour.lua)
+        skip=function()
+            if reveal then endReveal()
+            elseif LightRpArrivalTour and LightRpArrivalTour.active() then LightRpArrivalTour.skip() end
+        end,
         way=function() if not camera then wantReveal(true) end end,
+        -- skip the whole first day: the page asks for confirmation (its buttons take the cursor)
+        quit=function() if state and state.active then LightRpUi.send(E.page.tutorial,{skipAsk=true}) end end,
     }
     for name,fn in pairs(pressed) do
         local key=R[name]
@@ -366,11 +329,12 @@ CreateThread(function()
         elseif camera then clearCamera();phaseTo("idle") end
     end
 end)
+-- The guide never stops with an error: a failure is logged and everything it placed goes.
 CreateThread(function()
     while true do
-        local guided=state and state.active and state.objective
-        Wait(guided and 0 or 300)
-        updateLead()
+        Wait(100)
+        local ok,why=pcall(guideSync)
+        if not ok then LightRpUi.log("tutorial guide failed: %s",tostring(why)); pcall(G.clear) end
     end
 end)
 AddEventHandler("onClientResourceStop",function(name)

@@ -45,6 +45,23 @@ local nativeStale = nil
 -- Who chose the current waypoint: "native" = another resource through Open77.blips.
 local waypointOrigin = nil
 
+-- Display quality of the map and the minimap: "performance" (a flat 2D map without the
+-- costly effects, for small configurations) or "quality" (the 3D city). The player picks
+-- it the first time the map opens and switches it from the map's legend; the choice is
+-- kept on their machine (Open77.kvp) and reaches every surface.
+local QUALITY_KEY = "map3d:quality"
+local qualityConfig = C.quality or {}
+local function validQuality(v) return v == "performance" or v == "quality" end
+local function storedQuality()
+    if type(Open77.kvp) ~= "table" or type(Open77.kvp.get) ~= "function" then return nil end
+    local ok, v = pcall(Open77.kvp.get, QUALITY_KEY)
+    return ok and validQuality(v) and v or nil
+end
+local quality = storedQuality()
+local qualityChosen = quality ~= nil or qualityConfig.ask == false
+quality = quality or (validQuality(qualityConfig.default) and qualityConfig.default) or "performance"
+local function qualityPayload() return { mode = quality, chosen = qualityChosen } end
+
 local function warn(key, text)
     if warned[key] then return end
     warned[key] = true
@@ -204,6 +221,24 @@ end
 
 -- the map and the minimap draw areas; the holo GPS does not
 local function sendMaps(name, payload) sendTo("mini", name, payload); sendTo("full", name, payload) end
+
+-- The player's choice (from the open map) or a resource's (exports.setQuality): kept in
+-- KVP, sent to the map surfaces but the one it came from.
+local function setQuality(mode, fromRole)
+    if not validQuality(mode) then return false, "mode must be \"performance\" or \"quality\"" end
+    local changed = mode ~= quality
+    quality, qualityChosen = mode, true
+    if type(Open77.kvp) == "table" and type(Open77.kvp.set) == "function" then
+        local ok, done, why = pcall(Open77.kvp.set, QUALITY_KEY, mode)
+        if not ok or done == false then warn("kvp", "display quality not kept: " .. tostring(ok and why or done)) end
+    end
+    for _, role in ipairs({ "mini", "full" }) do
+        if role ~= fromRole then sendTo(role, "map3d:quality", qualityPayload()) end
+    end
+    dbg("display quality %s", mode)
+    if changed then TriggerEvent("op77_map3d:qualityChanged", mode) end
+    return true
+end
 local function sendArea(id, a) sendMaps("map3d:area", A.page(id, a)) end
 
 local function addArea(def, owner)
@@ -563,6 +598,7 @@ end)
 -- Other players around you.
 CreateThread(function()
     local cfg = C.nearbyPlayers or {}
+    if not cfg.enabled then return end   -- off: no loop at all
     while true do
         Wait(math.floor((cfg.interval or 1) * 1000))
         if pageReady and cfg.enabled and type(Open77.players.nearby) == "function" then
@@ -662,6 +698,8 @@ local function createSurface(role)
     local function hello()
         s.ready, pageReady = true, true
         page:send("map3d:role", { role = role })
+        -- before the city loads: the page builds the right renderer from the start
+        if role ~= "holo" then page:send("map3d:quality", qualityPayload()) end
         page:send("map3d:config", pageConfig)
         for _, patch in ipairs(configPatches) do page:send("map3d:config", patch) end
         page:send("map3d:minimap", { visible = minimapVisible })
@@ -713,6 +751,10 @@ local function createSurface(role)
         sendTo("mini", "map3d:prefs", p)
         syncMini()
         syncHolo()
+    end)
+    page:on("map3d:quality", function(p)
+        if role ~= "full" or type(p) ~= "table" then return end
+        setQuality(p.mode, role)
     end)
     page:on("map3d:holoPref", function(p)
         if role ~= "full" then return end
@@ -936,6 +978,10 @@ end)
 -- false shows again what the calling resource hid (README, "Player dots").
 exports("setPlayerDotsHidden", function(hidden, ids) return setPlayerDotsHidden(hidden, ids, caller()) end)
 exports("arePlayerDotsHidden", function(pid) return dotHidden(pid) end)
+-- Display quality ("performance" | "quality"): what the player chose (or the default, and
+-- whether they ever chose), and a way for a settings menu to change it.
+exports("getQuality", function() return quality, qualityChosen end)
+exports("setQuality", function(mode) return setQuality(mode, nil) end)
 exports("setMinimapVisible", function(visible)
     minimapVisible = visible ~= false
     send("map3d:minimap", { visible = minimapVisible })

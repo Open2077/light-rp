@@ -102,6 +102,7 @@ function C.normalize(input, metadata)
     local start = type(input.start) == "table" and input.start or nil
     local startPosition = start and position(start.position)
     if startPosition == nil then return nil, "start_missing" end
+    if input.parkour == true and vehicle.id ~= "on_foot" then return nil, "parkour_on_foot" end
     local grid, gridReason = normalizeGrid(input.grid, vehicle.id ~= "on_foot")
     if grid == nil then return nil, gridReason end
     if vehicle.id == "on_foot" then grid = {} end
@@ -134,6 +135,7 @@ function C.normalize(input, metadata)
         laps = laps,
         checkpointRadius = radius,
         vehicle = vehicle.id,
+        parkour = input.parkour == true or nil,
         start = { position = startPosition, heading = heading(start.heading) },
         grid = grid,
         checkpoints = checkpoints,
@@ -160,6 +162,7 @@ function C.summary(course)
         type = course.type,
         laps = course.laps,
         onFoot = S.onFoot(course),
+        parkour = course.parkour == true or nil,
         vehicle = course.vehicle,
         vehicleLabel = vehicle.label,
         checkpointCount = #course.checkpoints,
@@ -193,9 +196,11 @@ end
 
 -- Which courses an activity mode can run: the trial runs every course, a street race
 -- (against players or against AI) needs a vehicle course with at least two surveyed
--- slots, a rooftop race an on-foot one.
+-- slots, a rooftop race an on-foot one. A parkour course is the parkour race's alone: its
+-- checkpoints may take the abilities only that race lends.
 function C.eligible(course, mode)
     if course == nil then return false end
+    if course.parkour == true then return mode == "parkour" end
     if mode == "trial" then return true end
     if mode == "foot" then return S.onFoot(course) end
     if mode == "grid" or mode == "pve" then return not S.onFoot(course) and #(course.grid or {}) >= 2 end

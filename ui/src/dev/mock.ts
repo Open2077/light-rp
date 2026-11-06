@@ -9,8 +9,10 @@
    `?dialog=halloffame` opens the Hall of Fame (features/halloffame/mock.ts),
    `?dialog=recap&recap=ffa|team|race|chase|turf|mission|boss|test|unranked|draw|big` opens an
    end-of-match recap (features/recap/mock.ts),
+   `?tutorial=walk|edge|near|reveal` (with `?registered=1`) shows the first day guide's way to a stop (features/tutorial/mock.ts),
    `?dialog=dailies&tab=titles&dailies=mixed|fresh|budget|allpaid|off|loading&titles=shown|hidden|none&crew=1`
-   opens Dailies (features/dailies/mock.ts). */
+   opens Dailies (features/dailies/mock.ts),
+   `?death=1|downed|revive|loop` (with `?registered=1`) plays the flatline cover over a death (features/medical/mock.ts). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
@@ -19,9 +21,11 @@ import { jobFixture } from "./jobFixture";
 import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
 import { activitiesMock, missionMock } from "./missionFixture";
+import { roomsMock } from "./roomsFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
+import { mapEditorMock } from "@/features/mapeditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
 import { activityHudMock } from "@/features/activityhud/mock";
 import { hallOfFameMock } from "@/features/halloffame/mock";
@@ -29,6 +33,10 @@ import { recapMock } from "@/features/recap/mock";
 import { guideMock } from "@/features/guide/mock";
 import { dailiesMock } from "@/features/dailies/mock";
 import { manekiMock } from "@/features/maneki/mock";
+import { parkourMock } from "@/features/parkour/mock";
+import { adminMock } from "@/features/support/mock";
+import { tutorialMock } from "@/features/tutorial/mock";
+import { deathMock } from "@/features/medical/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -43,17 +51,23 @@ export function installMockBridge(): void {
   const activityHud = activityHudMock(fire, params);
   const guide = guideMock(fire, params); // ?dialog=guide: the guide NPC's FAQ
   const missionEditor = missionEditorMock(fire, params);
+  const mapEditor = mapEditorMock(fire, params);
   const armament = armamentMock(fire, params);
   const hallOfFame = hallOfFameMock(fire, params);
   const recap = recapMock(fire, params);
   const dailies = dailiesMock(fire, params);
   const maneki = manekiMock(fire, params); // ?maneki=tool|desk
+  const parkour = parkourMock(fire, params); // ?parkour=hud|count|result|record|dnf|browser|editor
+  const admin = adminMock(fire, params); // ?admin=1: the admin menu
+  const firstDay = tutorialMock(fire, params); // ?tutorial=walk|edge|near|reveal: the first day guide's way to a stop
+  const death = deathMock(fire, params); // ?death=1|downed|revive|loop: the flatline cover over a death
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
   const garage = garageFixture();
   const mission = missionMock(params, (n, p) => fire(n, p));
   const activities = activitiesMock(params, (n, p) => fire(n, p)); // ?dialog=activities (&lobby=search|widened|offer|match|friendly)
+  const rooms = roomsMock(params, (n, p) => fire(n, p)); // ?dialog=rooms (&room=host|member|private)
   const dealership = dealershipFixture();
   const step = (params.get("step") as CharacterState["step"] | null) ?? (registered ? "done" : "identity");
   const character: CharacterState = {
@@ -148,8 +162,10 @@ export function installMockBridge(): void {
     emit(name, payload) {
       console.log("[mock] emit", name, payload);
       if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
-      if (name === PAGE_EVENTS.support && maneki.receive(payload)) return;
+      if (name === PAGE_EVENTS.support && (maneki.receive(payload) || admin.receive(payload))) return;
       if (name === PAGE_EVENTS.missionEditor) { missionEditor.receive(payload); return; }
+      if (name === PAGE_EVENTS.mapEditor) { mapEditor.receive(payload); return; }
+      if (name === PAGE_EVENTS.parkourEditor) { parkour.editor(payload); return; }
       if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
       if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
     // the weapon wheel: Lua releases the focus and answers commit / cancel
@@ -174,6 +190,7 @@ export function installMockBridge(): void {
             hidden: { Face: "Items.Glasses_01_basic_01" }, slots: { ...state.worn.slots, Face: false } };
           safezones.boot();
           missionEditor.boot();
+          mapEditor.boot();
           armament.boot();
           setTimeout(() => activityHud.boot(), 60); // ?activity=race|trial|arena|turf|lobby|countdown|result|editor|demo
   // ?wheel=N: hold Control to open the wheel (as the CTRL key mapping does), ?wheelopen=1 opens it at once
@@ -184,7 +201,9 @@ export function installMockBridge(): void {
     window.addEventListener("keyup", e => { if (e.key === "Control" && open) { open = false; fire("lightrp:ui:weaponwheel", { kind: "commit" }); } });
     if (params.get("wheelopen") === "1") setTimeout(show, 600);
   }
+          if (firstDay.tutorial) state.tutorial = firstDay.tutorial;
           fire(PAGE_EVENTS.state, state);
+          firstDay.boot();
           // ?announce=listen|self[&radius=150]: a speaker on air, a speech-like voice level
           const an = params.get("announce");
           if (an) {
@@ -221,7 +240,17 @@ export function installMockBridge(): void {
           guide.boot();
           dailies.boot();
           maneki.boot();
+          parkour.boot();
+          death.boot();
+          // ?arrival=1: the central square's camera tour caption (client/core/arrival_tour.lua)
+          if (params.get("arrival") === "1") setTimeout(() => fire(PAGE_EVENTS.arrivalTour, { title: "THE CROSSING", subtitle: "Your hub in Night City",
+            lines: ["Adam Smasher: activities and contracts", "Jackie Welles: game rooms", "Johnny Silverhand: your guide, any time"], durationMs: 11000, skip: "SPACE" }), 300);
+          // ?broadcast=1: the staff announcement banner
+          if (params.get("broadcast") === "1") setTimeout(() => fire(PAGE_EVENTS.staffAnnounce, { title: "Staff announcement", from: "Nightwolf",
+            text: "Server restart in 10 minutes. Finish your runs and park your cars: everything is saved.", durationMs: 12000 }), 300);
+          admin.boot();
           if (params.get("dialog") === "activities") activities.boot();
+          if (params.get("dialog") === "rooms") rooms.boot();
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
           if (params.get("mission") === "1") mission.running();
@@ -286,7 +315,9 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.action) {
         const action = payload as UiAction;
         if (mission.handle(action)) return;
+        if (parkour.action(action as { type: string })) return;
         if (params.get("dialog") === "activities" && activities.handle(action)) return;
+        if (params.get("dialog") === "rooms" && rooms.handle(action)) return;
         if (hallOfFame.handle(action)) return;
         if (recap.handle(action)) return;
         if (guide.handle(action)) return;

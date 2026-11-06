@@ -436,6 +436,112 @@ function H.aiEvent(event, vehicleId, extra)
     runReady()
     return true
 end
+-- Dash (session grants) and cyberware (durable record, temporary lease), as the guides
+-- "dash" and "cyberware" describe them. Installed by the tests that use them. A lease ends
+-- by itself on death, a bucket change or expiry, and is restored over `restoreMs`.
+H.dash, H.durable, H.leases, H.abilityLog = {}, {}, {}, {}
+H.refuse = { define = false, revoke = 0, release = 0, lease = {}, grant = {} }
+H.restoreMs = 500
+function H.installAbilityNatives()
+    local leaseSequence = 0
+    local function record(op, id, extra) H.abilityLog[#H.abilityLog + 1] = { op = op, id = id, extra = extra } end
+    local function lease(id)
+        local l, p = H.leases[id], H.players[id]
+        if l == nil then return nil end
+        if l.phase == "pending" and H.clock >= l.activeAt then l.phase = "active" end
+        if l.phase ~= "restoring" and (p == nil or p.life ~= "alive" or p.bucket ~= l.bucket or H.clock >= l.expiresAt) then
+            l.phase, l.restoredAt = "restoring", H.clock + H.restoreMs
+        end
+        if l.phase == "restoring" and H.clock >= l.restoredAt then
+            H.leases[id] = nil
+            return nil
+        end
+        return l
+    end
+    H.leaseOf = lease
+    Open77.dash = {
+        define = function(def)
+            record("dash.define", nil, def)
+            if H.refuse.define then return nil, "dash_unavailable" end
+            return { ok = true }
+        end,
+        grant = function(id, definition)
+            record("dash.grant", id, definition)
+            local g, p = H.dash[id], H.players[id]
+            if g and g.owner ~= "op77_race" then return nil, "grant_owned" end
+            if H.refuse.grant[id] then return nil, "body_unavailable" end
+            if not p or p.life ~= "alive" then return nil, "body_unavailable" end
+            H.dash[id] = { owner = "op77_race", definition = definition, readyAt = H.clock + 200 }
+            return { ok = true }
+        end,
+        revoke = function(id)
+            record("dash.revoke", id)
+            if H.refuse.revoke > 0 then
+                H.refuse.revoke = H.refuse.revoke - 1
+                return nil, "invalid_operation"
+            end
+            local g = H.dash[id]
+            if g and g.owner == "op77_race" then H.dash[id] = nil end
+            return { ok = true }
+        end,
+        current = function(id)
+            record("dash.current", id)
+            local g = H.dash[id]
+            if g == nil then return nil end
+            return { projection = { status = H.clock >= (g.readyAt or 0) and "ready" or "pending" }, ownedByCaller = g.owner == "op77_race" }
+        end,
+    }
+    Open77.cyberware = {
+        define = function(def)
+            record("cyber.define", nil, def)
+            if H.refuse.define then return nil, "resource_stopping" end
+            return { ok = true }
+        end,
+        current = function(id)
+            record("cyber.current", id)
+            local r = H.durable[id]
+            if r == false then return nil end
+            return r or { revision = 1 }
+        end,
+        leaseState = function(id)
+            record("cyber.leaseState", id)
+            local l = lease(id)
+            if l == nil then return nil end
+            return { id = l.id, phase = l.phase, definition = l.definition, grade = l.grade }
+        end,
+        lease = function(id, definition, grade, options)
+            record("cyber.lease", id, { definition = definition, grade = grade, options = options })
+            local running = lease(id)
+            if running and running.phase ~= "failed" then return nil, "lease_active" end
+            if H.refuse.lease[id] then return nil, "player_unavailable" end
+            local duration = options and options.durationMs or 300000
+            if duration < 1000 or duration > 300000 then return nil, "invalid_options" end
+            leaseSequence = leaseSequence + 1
+            H.leases[id] = { id = "lease" .. leaseSequence, phase = "pending", definition = definition, grade = grade,
+                bucket = H.players[id].bucket, activeAt = H.clock + 300, expiresAt = H.clock + duration }
+            return { ok = true, lease = H.leases[id].id, ticket = "t" .. leaseSequence }
+        end,
+        releaseLease = function(id, leaseId)
+            record("cyber.releaseLease", id, leaseId)
+            if H.refuse.release > 0 then
+                H.refuse.release = H.refuse.release - 1
+                return nil, "cyberware_storage_unavailable"
+            end
+            local l = lease(id)
+            if l == nil or l.id ~= leaseId then return nil, "invalid_operation" end
+            if l.phase ~= "restoring" then l.phase, l.restoredAt = "restoring", H.clock + H.restoreMs end
+            return { ok = true, ticket = "r" }
+        end,
+    }
+end
+function H.abilityCalls(op, id)
+    local n = 0
+    for _, entry in ipairs(H.abilityLog) do
+        if entry.op == op and (id == nil or entry.id == id) then n = n + 1 end
+    end
+    return n
+end
+
 function H.placeVehicle(id, x, y, z) local v = H.vehicles[id]; v.x, v.y, v.z = x, y, z end
 function H.placeNpc(id, x, y, z) local n = H.npcs[id]; n.x, n.y, n.z = x, y, z end
 function H.count(map) local n = 0; for _ in pairs(map) do n = n + 1 end return n end
@@ -541,7 +647,7 @@ end
 H.SERVER = {
     "shared/config.lua", "shared/race.lua",
     "server/builtin_courses.lua", "server/courses.lua", "server/records.lua", "server/activity.lua",
-    "server/engine.lua", "server/bots.lua", "server/lobby.lua", "server/editor.lua", "server/main.lua",
+    "server/engine.lua", "server/bots.lua", "server/parkour.lua", "server/lobby.lua", "server/editor.lua", "server/main.lua",
 }
 
 -- ---------------------------------------------------------------- asserts --

@@ -179,33 +179,54 @@ local function streamTo(player, force)
 end
 M.streamTo = streamTo
 
-CreateThread(function()
-    local last = 0
-    while true do
-        Wait(500)
-        local now = LightRP.nowMs()
-        if dirty or now - last >= (C.scanMs or 2000) then
-            local force = dirty
-            dirty, last = false, now
-            for _, raw in ipairs(GetPlayers()) do
-                local id = tonumber(raw)
-                if id then
-                    local ok, err = pcall(streamTo, id, false)
-                    if not ok then log("maneki stream %d failed: %s", id, tostring(err)) end
-                end
-                if not force then Wait(0) end
-            end
+-- Players to stream now (joined, switched character, page up): only them, not everyone.
+-- Until 2026-11-06 each of these set `dirty`, and a dirty pass streamed every player in
+-- one tick (400 spots scanned and sorted per player): with ~90 players joining all the
+-- time it ran every 500 ms and spent op77_lightrp's whole instruction quota.
+local pendingFor = {}
+local function streamOne(id)
+    local ok, err = pcall(streamTo, id, false)
+    if not ok then log("maneki stream %d failed: %s", id, tostring(err)) end
+end
+local last, busyUntil = 0, 0
+local function pass()
+    local now = LightRP.nowMs()
+    if dirty or now - last >= (C.scanMs or 2000) then
+        dirty, last, pendingFor = false, now, {}
+        for index, raw in ipairs(GetPlayers()) do
+            local id = tonumber(raw)
+            if id then streamOne(id) end
+            if index % 2 == 0 then Wait(0) end
+        end
+    elseif next(pendingFor) then
+        local list, n = pendingFor, 0
+        pendingFor = {}
+        for id in pairs(list) do
+            streamOne(id)
+            n = n + 1
+            if n % 2 == 0 then Wait(0) end
         end
     end
-end)
+end
+-- The next pass is scheduled before this one runs: a pass killed by the instruction
+-- quota does not stop the streaming (a `while true` thread would die with it).
+local function step()
+    SetTimeout(500, step)
+    local now = LightRP.nowMs()
+    if now < busyUntil then return end
+    busyUntil = now + 15000
+    pass()
+    busyUntil = 0
+end
+SetTimeout(500, step)
 
 local function forget(player) sent[player], editors[player], lastCollect[player], stateFor[player] = nil, nil, nil, nil end
-function M.onCharacterLoaded(player) sent[player] = nil; dirty = true end
-function M.onCharacterSwitched(player) sent[player] = nil; dirty = true end
-function M.onCharacterActivated(player) sent[player] = nil; dirty = true; LightRP.state(player, "maneki") end
+function M.onCharacterLoaded(player) sent[player] = nil; pendingFor[player] = true end
+function M.onCharacterSwitched(player) sent[player] = nil; pendingFor[player] = true end
+function M.onCharacterActivated(player) sent[player] = nil; pendingFor[player] = true; LightRP.state(player, "maneki") end
 function M.onDisconnected(player) forget(player) end
 -- The page asks for its state when it comes up: it gets ours too (and the streamed set again).
-function M.onGameplayReady(player) sent[player] = nil; dirty = true end
+function M.onGameplayReady(player) sent[player] = nil; pendingFor[player] = true end
 
 -- ---------------------------------------------------------------------------
 -- Collecting
@@ -643,9 +664,8 @@ function M.action(player, p)
     end
     if op ~= "manekiTeleport" and op ~= "manekiDelete" then return nil, "Unknown Maneki-neko action." end
     if not desk(player, op == "manekiDelete" and "manekiEdit" or "maneki") then return nil, "You do not have permission for this action." end
-    if p.confirmed ~= true then return nil, "Confirm the selected cat and action first." end
-    local reason = S.text(p.reason, 500, 4)
-    if not reason then return nil, "Add a reason (4–500 characters) for the audit log." end
+    -- acts at once, the reason optional (owner, 2026-11-05); the staff history keeps a default line
+    local reason = S.text(p.reason, 500, 4) or (op == "manekiDelete" and "Cat removed via /admin." or "Go to cat via /admin.")
     if type(p.mutation) ~= "string" or #p.mutation < 8 or #p.mutation > 96 or not p.mutation:match("^[%w:_%-]+$") then return nil, "Invalid action request." end
     if type(p.id) ~= "string" or not spots[p.id] then return nil, "This cat no longer exists. Refresh the list." end
     if op == "manekiTeleport" then return M.teleport(player, p.id, reason, p.mutation) end

@@ -200,9 +200,20 @@ end)
 RegisterNetEvent("open77:presentation:takeAwayResult", function(ok, text)
     if opened then send("wardrobe:takeAwayResult", {ok=ok == true, text=type(text)=="string" and text or nil}) end
 end)
+-- The page shows pictures served from the Open77 CDN (cdn.open77.dev): the WebUI policy "images"
+-- lets it load remote HTTPS images (not scripts, fetch or frames). A client that refuses the
+-- option (raises) gets the page without it.
+local function createImagesPage(create, options)
+    options.policy = "images"
+    local called, page, why = pcall(create, options)
+    if called then return page, why end
+    options.policy = nil
+    return create(options)
+end
 AddEventHandler("onClientResourceStart", function(name)
     if name ~= GetCurrentResourceName() then return end
-    page = WebUI.create({entry="web/index.html",layer="menu",zIndex=710,width=1920,height=1080,fps=30,transparent=true,visible=true})
+    -- the garment icons come from the CDN (web/app.js ICON_CDN)
+    page = createImagesPage(WebUI.create, {entry="web/index.html",layer="menu",zIndex=710,width=1920,height=1080,fps=30,transparent=true,visible=true})
     if not page then print("[open77_wardrobe_ui] WebUI unavailable"); return end
     page:on("wardrobe:ready", function()
         if not ready then print("[open77_wardrobe_ui] page handshake complete") end

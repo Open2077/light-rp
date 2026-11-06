@@ -143,7 +143,7 @@ Spawn rings show the group spread. Defend and Wander also show their area.
 | `server/modules/mission_repay.lua` | `/lightrp.missions.repay [apply]`: stored missions to the new payout scale |
 | `server/modules/mission_engine.lua` | Runtime: spawns, retargeting, checkpoints, waves, perimeter, respawns, wipe, HUD view |
 | `server/modules/missions.lua` | `addPoint` / `removePoint` / `launchNow`, test runs, objective in `missionQueue` |
-| `client/core/mission_editor.lua` | Relay, build mode (crosshair trace, ghost, aimed element, keys, weapon block), preview |
+| `client/core/mission_editor.lua` | Relay, build mode (crosshair trace, ghost, aimed element, keys, weapon block), preview. The build mode is a session the map editor reuses ([map-editor.md](map-editor.md)) |
 | `client/core/mission_run.lua` | In-mission perimeter walls and checkpoint markers (`op77_lightrp:missionrun`) |
 | `ui/src/features/missioneditor/*` | Editor page; `build.ts` = build mode actions, `BuildHud.tsx`; mock `?registered=1&staff=1&missioneditor=1` |
 | `ui/src/features/missions/MissionObjectiveHud.tsx` | Objective tracker, out-of-zone warning; mock `?registered=1&mission=1&objective=eliminate\|waves\|oob` |

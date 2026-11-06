@@ -179,7 +179,7 @@ local function sessionKey(id)
     local inst = M and type(M.instanceOf) == "function" and M.instanceOf(id) or nil
     if inst and inst.id then return "mission|" .. tostring(inst.id), "mission", inst end
     local W = LightRP.worldBosses
-    local ev = W and type(W.current) == "function" and W.current() or nil
+    local ev = W and (type(W.zoneOf) == "function" and W.zoneOf(id) or type(W.current) == "function" and W.current()) or nil
     if ev and ev.phase == "fight" and type(ev.inZone) == "table" and ev.inZone[id] then return "worldboss|" .. tostring(ev.id), "worldboss" end
     return nil
 end
@@ -626,7 +626,7 @@ function R.worldBossEnded(ev, success, why, reputation)
                 -- past the daily world boss pay (world_bosses.lua C.dailyPaid): no pay, no reputation
                 m.players[id].rewards.eddiesReason = "daily_cap"
                 m.players[id].rewards.reputationAsked = math.max(0, math.floor(tonumber(reputation) or 0))
-            elseif success then m.players[id].rewards.eddiesReason = "share" end
+            elseif success then m.players[id].rewards.eddiesReason = ev.noPay and "staff_event" or "share" end
         end
         pend(id, key, now() + CONFIG.worldBossDelayMs)
     end

@@ -108,6 +108,10 @@ resources/standalone/op77_map3d/ui/node_modules/
 # Deathmatch engine hosted as a Light RP activity provider.
 !resources/standalone/op77_arena/
 !resources/standalone/op77_arena/**
+# Hosted minigames as Light RP activities (team deathmatch, CTF, control, gun game, red
+# light green light, prop hunt).
+!resources/standalone/op77_games/
+!resources/standalone/op77_games/**
 # Cyberpunk TCG collection (standalone). The four preload zips (~580 MiB, one over GitHub's 100 MB
 # limit each) are rebuilt from the mod archive by tools/build-assets.ps1; the database is runtime data.
 !resources/standalone/op77_tcg/
@@ -169,6 +173,7 @@ ripperdoc-ui/public/media/
 !tools/test-medical-client.py
 !tools/import-weapon-assets.py
 !tools/test-safezones-menu-ui.cjs
+!tools/upload-cdn-images.py
 # Platform packages whose out-of-character commands were made staff-only.
 !resources/system/open77_appearance/
 !resources/system/open77_appearance/**
@@ -227,3 +232,10 @@ ripperdoc-ui/scripts/__pycache__/
 # op77_tcg ships its binder catalogue under web/data (the server database stays ignored).
 !resources/standalone/op77_tcg/web/data/
 !resources/standalone/op77_tcg/web/data/**
+# Interface pictures live on the Open77 CDN (tools/upload-cdn-images.py), not in the resources:
+# the wardrobe's garment icons (the manifest stays) and the TCG's pictures.
+resources/system/open77_wardrobe_ui/web/icons/m/
+resources/system/open77_wardrobe_ui/web/icons/f/
+resources/standalone/op77_tcg/web/img/
+
+__pycache__/

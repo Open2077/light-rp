@@ -668,7 +668,8 @@ local function draw(playerId)
         notice(playerId, "warning", "MANTIS BLADES", "Not during this mission.")
         return
     end
-    if LightRP.activities and not LightRP.activities.allows(playerId, "rpWeapons") then
+    if LightRP.activities and (not LightRP.activities.allows(playerId, "rpWeapons")
+        or (LightRP.activities.handlesLoadout and LightRP.activities.handlesLoadout(playerId))) then
         notice(playerId, "warning", "MANTIS BLADES", "Not during this activity.")
         return
     end

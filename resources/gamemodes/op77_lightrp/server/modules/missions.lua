@@ -53,6 +53,196 @@ local function name(id) return LightRP.characters.displayName(id) end
 local function citizen(id) return string.format("%03d", id) end
 local function bucketOf(id) return type(GetPlayerRoutingBucket) == "function" and GetPlayerRoutingBucket(id) or 0 end
 
+-- ---------------------------------------------------------------------------
+-- The temporary kit: native weapons a mission or an activity hands out for a while
+-- (LightRpRaid.loadouts, or an explicit { primary, secondary, reserve }). One path for
+-- all of them: the authored missions (mission_engine.lua), the raid (mission_chimera.lua)
+-- and the activities' providers (activity_kits.lua). It lives here because every mission
+-- file loads after this one. It touches native slots only, never the inventory: the
+-- armament stands aside meanwhile and projects the character's own weapons again after.
+local K = {}
+LightRP.kits = K
+function K.list() return type(LightRpRaid) == "table" and LightRpRaid.loadouts or {} end
+function K.byId(id)
+    for _, kit in ipairs(K.list()) do if kit.id == id then return kit end end
+end
+-- What a mission preselects: the first kit.
+function K.default() return K.list()[1] end
+
+-- One native request, awaited (never from an export: it yields).
+local waitingWeapons = {}
+if type(AddEventHandler) == "function" then -- a mission test with no host events
+    AddEventHandler("open77:weapons:completed", function(player, request, _, accepted, reason, result)
+        waitingWeapons[tostring(player) .. ":" .. tostring(request)] = { accepted = accepted, reason = reason, result = result }
+    end)
+end
+function K.weapons(player, method, ...)
+    if type(Open77.weapons) ~= "table" or type(Open77.weapons[method]) ~= "function" then return nil, "weapons_api_unavailable" end
+    local ok, request, why = pcall(Open77.weapons[method], player, ...)
+    if not ok or not request then return nil, ok and why or request end
+    local key = tostring(player) .. ":" .. tostring(request)
+    local deadline = now() + 10000
+    while not waitingWeapons[key] and now() < deadline do Wait(50) end
+    local done = waitingWeapons[key]
+    waitingWeapons[key] = nil
+    if not done then return nil, "request_timeout" end
+    if not done.accepted then return nil, done.reason end
+    return done.result or true
+end
+function K.slots(snapshot) return type(snapshot) == "table" and (snapshot.slots or snapshot) or {} end
+function K.capacity(snapshot, slot)
+    for _, row in ipairs(K.slots(snapshot)) do
+        if type(row) == "table" and tonumber(row.slot) == slot and type(row.ammo) == "table" then return tonumber(row.ammo.capacity) end
+    end
+end
+-- In hand: slot 1 holds the kit's primary with rounds in it (a record without ammunition
+-- is what a refused draw leaves behind). A primary with no reserve is a melee weapon.
+function K.armed(snapshot, kit)
+    for _, row in ipairs(K.slots(snapshot)) do
+        if type(row) == "table" and tonumber(row.slot) == 1 then
+            local a = type(row.ammo) == "table" and row.ammo or {}
+            local rounds = tonumber(a.total) or ((tonumber(a.reserve) or 0) + (tonumber(a.magazine) or 0))
+            return row.record == kit.primary and (rounds > 0 or not kit.reserve[1])
+        end
+    end
+    return false
+end
+-- Any weapon of the kit still in a slot of this snapshot.
+function K.holds(snapshot, kit)
+    for _, row in ipairs(K.slots(snapshot)) do
+        if type(row) == "table" and row.record ~= nil and (row.record == kit.primary or row.record == kit.secondary) then return true end
+    end
+    return false
+end
+-- A kit with a melee weapon in an idle slot (the gun game's knife beside each step) gets every
+-- snapshot refused: the platform reads each idle slot's magazine and a knife has none
+-- (ammo_cache_unavailable). Every delivery then retried six times and gave up, at every kill and
+-- every respawn: the clear / assign / ammo requests piled up on every client and the gun game
+-- lagged more with each kill (2026-11-06, 257 refusals, all games.gungame; mission kits, firearms
+-- only, never). Such a refusal no longer fails a delivery whose assigns and draw were accepted.
+local SNAPSHOT_BLIND = "ammo_cache_unavailable"
+-- Records seen to blind every snapshot from an idle slot: a secondary with no reserve (a melee
+-- weapon) in a kit whose snapshot came back SNAPSHOT_BLIND. Their kits skip snapshots from then on.
+local BLINDING = {}
+K.blinding = BLINDING
+function K.markBlinding(kit)
+    if kit.secondary and not kit.reserve[2] and not BLINDING[kit.secondary] then
+        BLINDING[kit.secondary] = true
+        LightRP.log("kits: %s in an idle slot blinds the weapon snapshot; its kits skip snapshots", kit.secondary)
+    end
+end
+-- The slots as the accepted assigns reported them, in a snapshot's shape.
+function K.fromAssigns(kit, first, second)
+    local rows = {}
+    local function row(slot, record, result)
+        if type(result) == "table" then rows[#rows + 1] = { slot = slot, record = record, tweakDbId = result.tweakDbId } end
+    end
+    row(1, kit.primary, first)
+    if kit.secondary then row(2, kit.secondary, second) end
+    return { slots = rows }
+end
+-- The sequence, retried until the snapshot shows the kit (a client still loading answers
+-- nothing, then refuses with queue_full). Runs on the caller's thread and yields.
+--   o.tag        the log line's start ("mission 3: kit")
+--   o.settleMs   the wait before the first try (default: the body lands in the arena first)
+--   o.live()     false: stop before the next attempt
+--   o.again()    optional, true: stop instead of retrying (another run is due)
+--   o.stopped()  optional, true: no further request of this sequence goes out
+--   o.assigned(slot, result)  optional: an assign the platform accepted
+-- -> true, snapshot: in hand. false: every attempt failed. nil: stopped.
+function K.deliver(id, kit, o)
+    local function step(method, ...)
+        if o.stopped and o.stopped() then return nil end
+        local result, why = K.weapons(id, method, ...)
+        if not result and why ~= "weapon_slot_empty" and why ~= SNAPSHOT_BLIND then
+            LightRP.log("%s %s for %s: %s refused (%s)", o.tag, kit.id, name(id), method, tostring(why))
+        end
+        return result, why
+    end
+    Wait(o.settleMs or 1500)
+    -- A secondary already in slot 2 from the last kit (o.keep = { slot = 2, tweakDbId }): only
+    -- the primary changes, nothing is emptied (the gun game's step up, every kill).
+    local kept = type(o.keep) == "table" and o.keep.slot == 2 and kit.secondary ~= nil and o.keep or nil
+    for attempt = 1, 6 do
+        if not o.live() then return nil end
+        local swap = kept ~= nil and attempt == 1
+        if not swap then step("clear") end
+        local first = step("assign", kit.primary, 1, { active = true, addToInventory = true })
+        if first and o.assigned then o.assigned(1, first) end
+        local second
+        if kit.secondary and swap then
+            second = { tweakDbId = kept.tweakDbId }
+        elseif kit.secondary then
+            second = step("assign", kit.secondary, 2, { active = false, addToInventory = true })
+            if second and o.assigned then o.assigned(2, second) end
+        end
+        local blind = kit.secondary ~= nil and BLINDING[kit.secondary] == true
+        for slot = 1, 2 do
+            if kit.reserve[slot] then
+                step("setAmmo", slot, { reserve = kit.reserve[slot], activate = slot == 1 })
+                if not blind then
+                    local snapshot, why = step("requestSnapshot")
+                    if not snapshot and why == SNAPSHOT_BLIND then K.markBlinding(kit) end
+                    local capacity = K.capacity(snapshot, slot)
+                    if capacity then step("setAmmo", slot, { magazine = capacity, activate = slot == 1 }) end
+                end
+            end
+        end
+        local drawn = step("setActive", 1)
+        if o.stopped and o.stopped() then return nil end
+        blind = kit.secondary ~= nil and BLINDING[kit.secondary] == true
+        -- Known blind (a knife beside it): no snapshot at all, each one cost the client a second
+        -- of ammo reads for nothing. The accepted assigns and draw are the proof.
+        if blind and first and drawn and (not kit.secondary or second) then
+            return true, K.fromAssigns(kit, first, second)
+        end
+        local check, why = K.weapons(id, "requestSnapshot")
+        if not check and why == SNAPSHOT_BLIND then K.markBlinding(kit) end
+        if K.armed(check, kit) then return true, check end
+        -- The snapshot is blind, not the kit wrong: every assign and the draw were accepted.
+        if not check and why == SNAPSHOT_BLIND and first and drawn and (not kit.secondary or second) then
+            LightRP.log("%s %s for %s: in hand (assigns accepted; the snapshot cannot read a melee slot)", o.tag, kit.id, name(id))
+            return true, K.fromAssigns(kit, first, second)
+        end
+        if o.again and o.again() then return nil end
+        LightRP.log("%s %s for %s not in hand (attempt %d), retrying", o.tag, kit.id, name(id), attempt)
+        Wait(3000)
+    end
+    return false
+end
+-- The wheel picked a kit weapon (slot 1 primary, 2 secondary): drawn when the native
+-- slot holds it, else the kit is handed out again (it never reached the hands, or the
+-- player swapped it away). Holstering to the fists left no way back before (2026-11-02).
+function K.draw(id, slot, kit, reissue)
+    local record = slot == 2 and kit.secondary or kit.primary
+    CreateThread(function()
+        local snapshot, blind = K.weapons(id, "requestSnapshot")
+        local held = false
+        for _, row in ipairs(K.slots(snapshot)) do
+            if type(row) == "table" and tonumber(row.slot) == slot and row.record == record then held = true end
+        end
+        -- A blind snapshot (the knife in an idle slot, see SNAPSHOT_BLIND) proves nothing either way:
+        -- draw the slot; only a slot really empty hands the kit out again. Reissuing on every knife
+        -- pick re-sent the whole kit each time a gun game player switched weapons (2026-11-06).
+        if not snapshot and blind == SNAPSHOT_BLIND then
+            local ok, why = K.weapons(id, "setActive", slot)
+            if ok then return end
+            LightRP.log("kits: kit slot %d of %s could not be drawn (%s)%s", slot, name(id), tostring(why),
+                why == "weapon_slot_empty" and ", handing the kit out again" or "")
+            if why == "weapon_slot_empty" then pcall(reissue) end
+            return
+        end
+        if held then
+            local ok, why = K.weapons(id, "setActive", slot)
+            if not ok then LightRP.log("kits: %s could not draw kit slot %d (%s)", name(id), slot, tostring(why)) end
+        else
+            LightRP.log("kits: kit slot %d of %s missing, handing the kit out again", slot, name(id))
+            pcall(reissue)
+        end
+    end)
+    return true
+end
+
 -- A player's last known position (`position` is nil after two idle seconds).
 local function positionOf(id)
     local p = Open77.players.position(id)
@@ -679,31 +869,15 @@ function Missions.kitOf(id)
     local ok, kit = pcall(script.kitOf, inst, id)
     return ok and type(kit) == "table" and kit or nil
 end
--- The wheel picked a kit weapon (slot 1 primary, 2 secondary): drawn when the native
--- slot holds it, else the kit is handed out again (it never reached the hands, or the
--- player swapped it away). Holstering to the fists left no way back before (2026-11-02).
+-- The wheel picked a kit weapon: K.draw, the kit handed out again by the mission's script.
 function Missions.drawKit(id, slot)
     local inst = instanceOf[id] and instances[instanceOf[id]]
     local script = inst and scripts[inst.point]
     local kit = Missions.kitOf(id)
     if not kit or (slot ~= 1 and slot ~= 2) then return false, "No mission kit." end
-    local record = slot == 2 and kit.secondary or kit.primary
-    local weapons = LightRP.missionEngine and LightRP.missionEngine.weapons
-    CreateThread(function()
-        local snapshot = weapons and weapons(id, "requestSnapshot")
-        local held = false
-        for _, row in ipairs(type(snapshot) == "table" and (snapshot.slots or snapshot) or {}) do
-            if type(row) == "table" and tonumber(row.slot) == slot and row.record == record then held = true end
-        end
-        if held then
-            local ok, why = weapons(id, "setActive", slot)
-            if not ok then LightRP.log("missions: %s could not draw kit slot %d (%s)", name(id), slot, tostring(why)) end
-        elseif type(script.reissueKit) == "function" then
-            LightRP.log("missions: kit slot %d of %s missing, handing the kit out again", slot, name(id))
-            pcall(script.reissueKit, inst, id)
-        end
+    return K.draw(id, slot, kit, function()
+        if type(script.reissueKit) == "function" then script.reissueKit(inst, id) end
     end)
-    return true
 end
 local function restoreArms(id)
     CreateThread(function()

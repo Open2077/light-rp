@@ -105,11 +105,17 @@ end
 
 -- `opts` (another resource's announcement, below): { title, durationMs }; the
 -- title also signs the chat line. Without it: the staff announcement.
+-- The banner (2026-11-06, the owner: the platform's blue box replaced by our DA, animated, with a
+-- Cyberpunk sound): every player gets op77_lightrp:staffannounce, drawn by
+-- ui/src/features/announce/StaffBroadcast.tsx; the chat keeps its line for the log.
 function Staff.announce(text, opts)
-    local title = type(opts) == "table" and opts.title or nil
+    opts = type(opts) == "table" and opts or {}
+    local title = opts.title
     LightRP.chat.broadcast(title and title:upper() or "STAFF", text, Config.chat.colors.staff)
-    LightRP.broadcastNotice({ kind = "staff", title = title or "Staff announcement", body = text,
-        durationMs = type(opts) == "table" and opts.durationMs or 12000 })
+    local duration = math.floor(tonumber(opts.durationMs) or 0)
+    if duration <= 0 then duration = math.min(20000, math.max(8000, 5000 + #text * 70)) end
+    TriggerClientEvent(LightRpEvents.net.staffAnnounce, -1, { title = title or "Staff announcement", text = text,
+        from = type(opts.from) == "string" and opts.from:sub(1, 48) or nil, durationMs = duration })
 end
 
 -- The same announcement for other server resources (op77_fireworks...):
@@ -168,6 +174,16 @@ LightRP.action("staff.tp", gated("command.lightrp.tp", function(playerId, payloa
     end)
 end))
 
+-- The instance a moved player lands in: the destination's when it differs from theirs
+-- (a bring, a goto across instances), else nil (stays where they are).
+local function bucketTo(mover, destination)
+    local from = Open77.players.position(mover)
+    local to = destination and (destination.bucket or 0) or 0
+    if from and (from.bucket or 0) ~= to then return to end
+    return nil
+end
+Staff.bucketTo = bucketTo
+
 LightRP.action("staff.bring", gated("command.lightrp.bring", function(playerId, payload)
     local target = parseTarget(playerId, tostring(payload.target or ""))
     if target == nil or target == playerId then return LightRP.result(playerId, false, "Unknown target.", "staff.bring") end
@@ -175,7 +191,7 @@ LightRP.action("staff.bring", gated("command.lightrp.bring", function(playerId, 
     if here == nil then return LightRP.result(playerId, false, "Your position is unknown.", "staff.bring") end
     Staff.moveTo(target, { x = here.x + 1.5, y = here.y, z = here.z }, 0, function(ok, reason)
         LightRP.result(playerId, ok, ok and (LightRP.characters.displayName(target) .. " brought to you.") or ("Denied: " .. tostring(reason)), "staff.bring")
-    end)
+    end, bucketTo(target, here))
 end))
 
 LightRP.action("staff.heal", gated("command.lightrp.heal", function(playerId, payload)
@@ -225,7 +241,7 @@ LightRP.command("lightrp.bring", { restricted = true, usage = "/lightrp.bring <i
     if here == nil then return false, "Your position is unknown." end
     Staff.moveTo(target, { x = here.x + 1.5, y = here.y, z = here.z }, 0, function(ok, reason)
         LightRP.reply(source, raw, ok, ok and (LightRP.characters.displayName(target) .. " brought to you.") or ("Denied: " .. tostring(reason)))
-    end)
+    end, bucketTo(target, here))
 end)
 
 LightRP.command("lightrp.goto", { restricted = true, usage = "/lightrp.goto <id>" }, function(source, args, raw)
@@ -235,7 +251,18 @@ LightRP.command("lightrp.goto", { restricted = true, usage = "/lightrp.goto <id>
     if there == nil then return false, "Target position unknown." end
     Staff.moveTo(source, { x = there.x + 1.5, y = there.y, z = there.z }, 0, function(ok, reason)
         LightRP.reply(source, raw, ok, ok and ("You are next to " .. LightRP.characters.displayName(target)) or ("Denied: " .. tostring(reason)))
-    end)
+    end, bucketTo(source, there))
+end)
+
+-- /lightrp.bucket <id|me> <instance>: the player stays where they stand, in another instance.
+LightRP.command("lightrp.bucket", { restricted = true, usage = "/lightrp.bucket <id|me> <instance> (0 = the city)" }, function(source, args)
+    local target = parseTarget(source, args[1])
+    local bucket = tonumber(args[2])
+    if target == nil or not bucket or bucket < 0 or bucket ~= math.floor(bucket) then return false end
+    if type(SetPlayerRoutingBucket) ~= "function" then return false, "Instances are not available on this server." end
+    local ok, set = pcall(SetPlayerRoutingBucket, target, math.floor(bucket))
+    if not ok or set == false then return false, "The instance could not be changed." end
+    return true, ("%s moved to instance %d."):format(LightRP.characters.displayName(target), math.floor(bucket))
 end)
 
 LightRP.command("lightrp.heal", { restricted = true, usage = "/lightrp.heal <id|me>" }, function(source, args)
@@ -245,12 +272,17 @@ LightRP.command("lightrp.heal", { restricted = true, usage = "/lightrp.heal <id|
     return ok, ok and (LightRP.characters.displayName(target) .. " healed.") or ("Denied: " .. tostring(reason))
 end)
 
-LightRP.command("lightrp.announce", { restricted = true, usage = "/lightrp.announce <message>" }, function(_, args)
+local function announceCommand(source, args)
     local text = LightRP.joinArgs(args)
     if text == "" then return false end
-    Staff.announce(text:sub(1, 200))
-    return true, "Announcement sent."
-end)
+    Staff.announce(text:sub(1, 200), { from = source and source > 0 and (GetPlayerName(source) or nil) or "Server" })
+    return true, "announced: " .. text:sub(1, 200)
+end
+LightRP.command("lightrp.announce", { restricted = true, usage = "/lightrp.announce <message>" }, announceCommand)
+-- /announce answers here on a LightRP server, before open77_admin's (command dispatch walks the
+-- running resources in ordinal name order: op77_lightrp sorts first, as for /admin), so the
+-- announcement shows in Light RP's banner instead of the platform's box. Same right.
+LightRP.command("announce", { restricted = true, usage = "/announce <message>" }, announceCommand)
 
 LightRP.command("lightrp.setname", { restricted = true, usage = "/lightrp.setname <id> <FirstName> <LastName>" }, function(source, args)
     local target = parseTarget(source, args[1])

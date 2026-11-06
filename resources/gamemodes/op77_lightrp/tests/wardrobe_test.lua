@@ -99,6 +99,8 @@ assert(buckets[12] == nil and not W.inRoom(12), "the dead do not change")
 local function shown(equipment, active, outfit) return { equipment = equipment, wardrobe = { active = active, outfits = { ["1"] = outfit or {} } } } end
 assert(not W.dressed(shown({ UnderwearBottom = "x", InnerChest = false, Legs = false })), "underwear is not dressed")
 assert(not W.dressed(shown({ InnerChest = "shirt" })), "a top alone is not dressed")
+do local ok, missing = W.dressed(shown({ InnerChest = "shirt", Legs = false, Feet = "boots" }))
+    assert(not ok and #missing == 1 and missing[1] == "trousers", "boots are not trousers: trousers missing") end
 assert(W.dressed(shown({ InnerChest = "shirt", Legs = "jeans" })), "a top and trousers")
 assert(W.dressed(shown({ Outfit = "suit" })), "a full outfit")
 assert(W.dressed(shown({}, 1, { OuterChest = "jacket", Legs = "pants" })), "the active saved outfit counts")

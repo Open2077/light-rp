@@ -57,6 +57,18 @@ gamemode, and any server can load it.
 
 ## Decks, playmats and duels
 
+**The NEON DECK welcome.** The first time a collector stands within `TcgConfig.welcome.radius` (4.5 m) of the NEON DECK
+vendor for 1.5 s, the page shows a five-step guide (`client/welcome.lua`, `web/welcome.js`, `web/welcome.css`, in the
+Open//77 RP design system): what the shop is, getting cards, the binder (F1 > TCG binder or `/tcgbinder`), the lent
+starter decks, private rooms and the tutorial (which works in a private room when the shop's tables are taken).
+- **Once per collector:** "seen" is stored in `tcg.db` (`tcg_seen`, per character with a framework) and sent in the
+  state (`welcomed`); the client opens it only on an explicit `false`, and never twice in a session.
+- **Never over something else:** not during a loading screen, a duel, in a vehicle, with the binder or the rooms panel
+  open, a pack opening, another page holding the cursor or the keyboard (chat, F1 menu), or a game menu. The client
+  checks every 500 ms, and asks those natives only in range.
+- **Reopen:** `/tcgwelcome`, or "How NEON DECK works" in the host's private rooms panel. Next / Back / the step rail,
+  Right / Enter, Left / Backspace, Escape closes and hands the cursor back.
+
 **Learn to play.** A tutorial (Duel tab > Start the tutorial, or `/tcgtutorial`) sets a demonstration duel against
 the house at the nearest free NEON DECK table (`shared/tutorial.lua`).
 - **Concrete examples:** the decks, the card order and the dice are fixed, so each rule is shown on a real move: the
@@ -272,6 +284,15 @@ textures. `tools/fetch_official.py <resource> <work dir>` downloads the English 
 behind that site and matches each edition to its printing by comparing pictures (the mod's art variants are
 different printings). It writes `web/img/cards/<id>.webp` and a `report.json`.
 
+**The pictures are not shipped with the resource** (2026-11-06): every file of `web/img/` (cards,
+sealed products, playmats, rooms, interface art, ~42 MB) is served from the Open77 CDN,
+`https://cdn.open77.dev/assets/tcg/v1/img/...` (R2 bucket `open77`). `web/cdn.js` defines
+`tcgAsset("img/...")`, which every script uses; the CSS names the CDN URLs; images load
+`lazy`. The page is created with the WebUI policy `"images"` (`client/main.lua`). After a
+rebuild, upload under a **new version folder** and bump the base in `web/cdn.js` and the CSS:
+`python tools/upload-cdn-images.py resources/standalone/op77_tcg/web/img assets/tcg/v2/img`
+(light-rp root). `web/img/` is git-ignored.
+
 The source meshes are about 6 times the size of a real card, so the resource scales them to real size (63 x 88 mm):
 `TcgConfig.scale`.
 
@@ -287,6 +308,9 @@ a card, and the exports. `python tools/test_framework.py` runs the same script w
 collectors, starter items, `useSealed`, an opening and a display through the inventory, the no-room refund, the
 counter deferring to the vendor, and a character switch.
 
+`python tools/test_welcome.py` runs `client/welcome.lua` against stubbed natives: the radius and height, the settle
+time, every blocked state, shown once (server flag and session), the cursor handed back on close, reopening, disabled.
+
 `python tools/test_decks.py` checks the deck rules against the real card data and the table geometry.
 `python tools/test_duel.py` runs the duels end to end:
 - decks: drafts, legality and owned copies;
@@ -301,4 +325,4 @@ counter deferring to the vendor, and a character switch.
 Lua 5.4, as the server does (lupa's 5.5 build crashes in its GC).
 
 `web/index.html` also runs in a plain browser as a preview with a demo collection: `?tab=sealed`, `?tab=shop&shop=1`,
-`?open=1&reveal=12`, `?tab=decks`, `?tab=duel&challenged=1`, `?duel=walk|seated|mulligan|main`.
+`?open=1&reveal=12`, `?tab=decks`, `?tab=duel&challenged=1`, `?duel=walk|seated|mulligan|main`, `?welcome=1` (to `=5`).

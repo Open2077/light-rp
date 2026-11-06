@@ -4,11 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Cyberpunk TCG</title>
+  <link rel="preconnect" href="https://cdn.open77.dev" crossorigin>
+  <link rel="preload" as="image" href="https://cdn.open77.dev/assets/tcg/v1/img/backside.webp">
   <link rel="stylesheet" href="./app.css">
   <link rel="stylesheet" href="./duel.css">
   <link rel="stylesheet" href="./table.css">
   <link rel="stylesheet" href="./hud.css">
   <link rel="stylesheet" href="./rooms.css">
+  <link rel="stylesheet" href="./welcome.css">
 </head>
 <body>
   <div id="app" class="hidden">
@@ -17,7 +20,7 @@
     <!-- The binder and its tabs -->
     <section id="binder" class="screen">
       <header class="topbar">
-        <img class="logo" src="img/ui/logo.webp" alt="Cyberpunk TCG">
+        <img class="logo" src="https://cdn.open77.dev/assets/tcg/v1/img/ui/logo.webp" alt="Cyberpunk TCG" decoding="async">
         <nav class="tabs">
           <button data-tab="binder" class="active">Binder</button>
           <button data-tab="sealed">Sealed <span id="sealedCount" class="pill"></span></button>
@@ -28,8 +31,8 @@
         <div class="wallet">
           <div class="stat"><span class="k">Collection</span><span class="v" id="statEditions">0 / 320</span></div>
           <div class="stat"><span class="k">Cards</span><span class="v" id="statCards">0 / 151</span></div>
-          <div class="stat dust"><img src="img/ui/dust.webp" alt=""><span class="v" id="statDust">0</span></div>
-          <div class="stat dust"><img src="img/ui/dust_plus.webp" alt=""><span class="v" id="statDustPlus">0</span></div>
+          <div class="stat dust"><img src="https://cdn.open77.dev/assets/tcg/v1/img/ui/dust.webp" alt="" decoding="async"><span class="v" id="statDust">0</span></div>
+          <div class="stat dust"><img src="https://cdn.open77.dev/assets/tcg/v1/img/ui/dust_plus.webp" alt="" decoding="async"><span class="v" id="statDustPlus">0</span></div>
           <button class="close" id="closeBtn" title="Close (Esc)">&times;</button>
         </div>
       </header>
@@ -280,6 +283,7 @@
       <div class="dh-zoom hidden" id="dhZoom"></div>
     </div>
   </div>
+  <script src="./cdn.js"></script>
   <script src="./data/catalogue.js"></script>
   <script src="./data/cards.js"></script>
   <script src="./duel.js"></script>
@@ -287,6 +291,7 @@
   <script src="./tutorial.js"></script>
   <script src="./deckguide.js"></script>
   <script src="./rooms.js"></script>
+  <script src="./welcome.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

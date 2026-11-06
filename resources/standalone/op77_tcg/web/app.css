@@ -98,7 +98,7 @@ button { font: inherit; cursor: pointer; }
   background: linear-gradient(115deg, rgba(255, 255, 255, .0) 30%, rgba(255, 255, 255, .16) 45%, rgba(255, 255, 255, 0) 55%);
   mix-blend-mode: screen; }
 .card .holo, .card .sheen, .card .glare { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
-.card.foil .holo { opacity: .55; background-image: url("img/foil_spectrum.webp"); background-size: 260% 260%;
+.card.foil .holo { opacity: .55; background-image: url("https://cdn.open77.dev/assets/tcg/v1/img/foil_spectrum.webp"); background-size: 260% 260%;
   background-position: var(--mx) var(--my); mix-blend-mode: color-dodge; filter: saturate(1.6) contrast(1.1); }
 .card.foil .glare { opacity: .45; background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, .55), transparent 45%); mix-blend-mode: overlay; }
 .card.premium .sheen { opacity: .6; background: linear-gradient(calc(110deg + var(--tilt-y) * 3), transparent 30%, rgba(255, 214, 120, .55) 48%, transparent 64%);
@@ -107,7 +107,7 @@ button { font: inherit; cursor: pointer; }
   repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 2px, rgba(0, 0, 0, .05) 2px 4px),
   linear-gradient(calc(100deg + var(--tilt-y) * 4), transparent 25%, rgba(220, 235, 255, .55) 50%, transparent 72%);
   background-size: auto, 240% 240%; background-position: 0 0, var(--mx) var(--my); mix-blend-mode: overlay; }
-.card.secret .holo { opacity: .7; background-image: url("img/foil_spectrum.webp"); background-size: 200% 200%;
+.card.secret .holo { opacity: .7; background-image: url("https://cdn.open77.dev/assets/tcg/v1/img/foil_spectrum.webp"); background-size: 200% 200%;
   background-position: var(--my) var(--mx); mix-blend-mode: color-dodge; filter: hue-rotate(260deg) saturate(2); }
 
 /* page turn */

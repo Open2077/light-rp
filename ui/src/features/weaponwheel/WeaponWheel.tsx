@@ -47,7 +47,7 @@ function Fist({ size = 64 }: { size?: number }) {
 }
 
 function state(weapon: ArsenalWeapon, armament?: ArmamentState): { text: string; tone: string } {
-  if (weapon.kit) return { text: "MISSION KIT", tone: "accent" };
+  if (weapon.kit) return { text: weapon.kitScope === "match" ? "MATCH KIT" : "MISSION KIT", tone: "accent" };
   if (weapon.hand === "right" || weapon.hand === "left")
     return armament?.holstered ? { text: "HOLSTERED", tone: "steel" } : { text: weapon.hand === "left" ? "LEFT HAND" : "IN HAND", tone: "accent" };
   return { text: "IN POCKETS", tone: "dim" };
@@ -226,11 +226,11 @@ export function WeaponWheel() {
         <div className="ww__hub">
           <div key={`${hovered.key}:${kick}`} className="ww__hub-body">
             {hovered.kind === "weapon" && w && <>
-              <span className="ww__tag">{CLASS[w.class ?? ""] ?? "WEAPON"}</span>
+              <span className="ww__tag">{w.kitScope === "match" ? "MATCH KIT" : CLASS[w.class ?? ""] ?? "WEAPON"}</span>
               <b className="ww__name">{w.label}</b>
               {!w.kit && <div className="ww__ammo"><strong className={empty ? "is-empty" : ""}>{pad(w.rounds)}</strong><small>{(w.ammoLabel ?? "rounds").toUpperCase()}</small></div>}
               <span className={`ww__chip ww__chip--${empty ? "danger" : st!.tone}`}>{empty ? "NO AMMO" : st!.text}</span>
-              <span className="ww__serial">{w.kit ? "Issued for the mission" : `SN ${w.instanceId.slice(0, 8).toUpperCase()}`}</span>
+              <span className="ww__serial">{w.kit ? (w.kitScope === "match" ? "Issued for the match" : "Issued for the mission") : `SN ${w.instanceId.slice(0, 8).toUpperCase()}`}</span>
             </>}
             {hovered.kind === "unarmed" && <>
               <span className="ww__tag">HOLSTER</span>

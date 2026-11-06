@@ -2,6 +2,7 @@
 dofile("shared/events.lua"); dofile("shared/config.lua")
 LightRpConfig.characters.arrivalScene.autoStart = true
 LightRpConfig.characters.arrivalScene.bench = "furniture.bench.outdoor"
+LightRpConfig.characters.arrivalScene.seated = true -- the seated scene first; the standing one at the end
 local threads, events, net, page, sent, requests = {}, {}, {}, {}, {}, {}
 local now, opened, loading, frozen, hud, chat = 0, false, false, false, true, true
 local inWorkspot = true
@@ -107,4 +108,16 @@ local create=Open77.camera.create; Open77.camera.create=function() return nil, "
 fresh("slot7","male"); net[LightRpEvents.net.creator]({phase="error"}); tick(); tick()
 assert(not next(cameras) and sent[#sent].phase=="ready", "no camera at all: never a black screen")
 Open77.camera.create=create
+-- the standing scene (seated = false, the default since 2026-11-06): no seat asked, the camera frames
+-- the body's own position and facing, in front of its face
+LightRpConfig.characters.arrivalScene.seated = false
+standAt={x=50,y=60,z=10}
+fresh("slot8","female"); tick(4); assert(requests[#requests]=="start")
+local before=#requests
+relay("preparing"); relay("placed"); tick(1); tick()
+assert(#requests==before, "standing scene: no seat request")
+assert(next(cameras) and sent[#sent].phase=="ready" and frozen, "standing scene: on screen, the body held")
+-- facing yaw 90 (towards -X): the camera stands on the -X side, looking back at the body
+assert(lastCreate.position.x < 50 - 2 and math.abs(lastCreate.lookAt.x-50)<1 and math.abs(lastCreate.lookAt.y-60)<1, "the camera is in front of the face")
+tick(5); assert(requests[#requests]~="seat", "standing scene: never a seat request")
 print("PASS: native handoff, loading gate, low-angle camera, movement controls, audio/mute, cleanup, slot change, resource stop and the scene always shown (pose, refusal, silence, stuck arrival, missing body, camera refused)")

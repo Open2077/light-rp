@@ -34,6 +34,15 @@ Prod is a plain file copy of `main` (no git there). When copying `main` over it:
 
 ## To port by hand after the snapshot
 
+- **2026-11-05, game maps (`/lightrp.maps`):** no ACL change where a role holds
+  `command.lightrp.*`; a role with an explicit list needs `command.lightrp.maps`. The tables
+  `lightrp_game_maps` and `lightrp_game_map_marks` create themselves, and the maps that used to ship
+  in `op77_games` are imported once, on the first start with the database up and `op77_games`
+  running: the load order of the two does not matter, but until then no game is offered. The
+  import is logged (`game maps: import done: 22 map(s)`).
+- **2026-11-05, minigames and game rooms:** add `op77_games` to `resources.load`, after
+  `op77_lightrp` (a silent allowlist: without it the new games never register and the rooms
+  menu simply does not list them). The rooms NPC at The Crossing needs no entry.
 - **2026-11-04, economy decisions:** one staff money grant is capped at 10 000 €$
   (`/lightrp.givemoney` and the staff desk's Credit, a reason is now required). The bypass is
   the permission `lightrp.money.unlimited`, deliberately outside `command.lightrp.*` so the

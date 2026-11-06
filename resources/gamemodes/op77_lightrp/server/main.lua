@@ -34,15 +34,28 @@ local function placeAt(playerId, position, heading, weapon, bucket)
     if ok then placed[playerId] = true end
     return ok, reason
 end
+-- A point several players are sent to (the hall's arrival, the square after the hall) is
+-- spread over a disc of `radius` metres, never its exact centre: nobody lands inside
+-- another body. The ground there is flat; z is kept.
+function Spawn.scatter(position, radius, rand)
+    radius = tonumber(radius) or 0
+    if type(position) ~= "table" or radius <= 0 then return position end
+    rand = rand or math.random
+    local angle = rand() * 2 * math.pi
+    local r = radius * math.sqrt(0.12 + 0.88 * rand())
+    return { x = position.x + math.cos(angle) * r, y = position.y + math.sin(angle) * r, z = position.z }
+end
+
 -- For the modules that move a character themselves (the first day guide).
 -- A loading cover hides the move; the client lifts it once the body stands on
 -- the point (server/modules/zone_loading.lua).
 local PLACE_TITLES = { arrival_hall = "Arrival Hall", tutorial_practice = "Practice Area", city = "City Center West" }
 function Spawn.place(playerId, point, weapon)
+    local position = Spawn.scatter(point.position, point.scatter)
     local cover = LightRP.zoneLoading and LightRP.zoneLoading.cover(playerId, {
         title = point.label or PLACE_TITLES[point.name] or "Night City",
-        subtitle = (point.bucket or 0) ~= 0 and "First day" or "Shared city", target = point.position })
-    local ok, reason = placeAt(playerId, point.position, point.heading, weapon or "lightrp:place", point.bucket)
+        subtitle = (point.bucket or 0) ~= 0 and "First day" or "Shared city", target = position })
+    local ok, reason = placeAt(playerId, position, point.heading, weapon or "lightrp:place", point.bucket)
     if not ok and LightRP.zoneLoading then LightRP.zoneLoading.release(playerId, cover) end
     return ok, reason
 end
@@ -78,12 +91,13 @@ local function applyJoinSpawn(playerId)
     local function attempt()
         if joinSpawns[playerId] ~= "pending" then return end
         local point = joinPoint(playerId)
-        local ok, reason = placeAt(playerId, point.position, point.heading, "lightrp:join_spawn", point.bucket)
+        local position = Spawn.scatter(point.position, point.scatter)
+        local ok, reason = placeAt(playerId, position, point.heading, "lightrp:join_spawn", point.bucket)
         if ok then
             joinSpawns[playerId] = "complete"
             if point.home then LightRP.housing.arrived(playerId, point) end
             LightRP.log("player %d (%s) placed at %s (%.2f, %.2f, %.2f)", playerId, LightRP.characters.displayName(playerId),
-                point.name or "?", point.position.x, point.position.y, point.position.z)
+                point.name or "?", position.x, position.y, position.z)
             return
         end
         if (reason == "player_not_found" or reason == "transition_in_progress") and LightRP.nowMs() - startedAt < timeoutMs then

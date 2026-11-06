@@ -12,6 +12,8 @@
 --               description, minPlayers, maxPlayers,
 --               botFill = true|false,                             -- optional: honours options.fill
 --               modes = { { id, label, botFill = false } },       -- optional: per-mode opt-out
+--               offered = false,                                  -- optional: known, not listed
+--                                                                    nor joinable (no map left)
 --               caps = { rpWeapons, rpItems, needs, vehicles },   -- every cap false by default
 --               pve = true|false,                                 -- optional: players vs bots
 --               difficulties = { "standard", "hard", "critical" } } -- optional, PvE only
@@ -26,6 +28,30 @@
 --   notice(playerId, notice)                 -> true | false, reason   a player-facing message in
 --                                               Light RP's own notice, never a UI of the provider's
 --                                               (shared/notice.lua: { kind, title, body, durationMs })
+--   activityKit(playerId, activityId, kit, opts) -> true, hand | false, reason
+--       a temporary kit for a player this activity owns, handed by the core exactly as a
+--       mission's (server/modules/activity_kits.lua). Nothing to wait for: it runs on the
+--       core's thread and the result comes on op77_lightrp:activity:kit.
+--       kit = nil                                  the kit missions preselect (first of
+--                                                  LightRpRaid.loadouts)
+--             "assault"                            a kit of LightRpRaid.loadouts, by id
+--             { primary, secondary, reserve = { n1, n2 }, label, names = { a, b } }
+--                                                  an explicit one: records "Items.*";
+--                                                  secondary, names optional; a weapon
+--                                                  with no reserve is a melee weapon
+--       opts.immediate = true: no 1.5 s for the body to land (a swap mid-fight)
+--       A new call replaces the kit held, whichever it is: that is how to hand out a new
+--       one, and how to re-issue after a respawn (a dead body's kit stops at the death).
+--       Refused: invalid player, unknown activity, another resource's activity, a player
+--       this activity does not own (never entered, left, on the way back), an unknown kit.
+--   activityKitTake(playerId, activityId, opts) -> true | false, reason
+--       takes it back mid-activity; opts.hand: refuses a late call for an older kit. The
+--       core also takes it back at every exit by itself: leave, dropped, disconnect,
+--       character change, provider stop, Light RP stop, a body dead at the end. Then the
+--       slots are emptied and read back, and the RP weapons return as after a mission.
+--       Character weapons are never touched: only native slots are, nothing is written.
+--   While a kit is held the armament stands aside and the weapon wheel lists and draws the
+--   kit (reissuing it if the slot is empty), even with caps.rpWeapons.
 -- PvE and reputation (docs/pve-progression.md): only an activity with `pve = true`
 -- (or listed in server/config/activities.lua `pve.activities`) grants reputation;
 -- every other result records stats at 0 reputation, whatever it asks. A PvE
@@ -47,6 +73,13 @@
 --   core -> provider  op77_lightrp:activity:dropped (playerId, activityId, reason)
 --   core -> provider  op77_lightrp:activity:ready   ()  Light RP (re)started: register again
 --   core -> provider  op77_lightrp:activity:bots    (enabled)  staff bot mode toggled
+--   core -> provider  op77_lightrp:activity:kit     (playerId, activityId, report)
+--       report = { hand, kit, state, weapons = { { slot, tweakDbId } } }, for the hand
+--       activityKit answered: drop a report of an older hand. state "assigned": a weapon
+--       the platform verified, on its way to the hand; "armed": in hand with rounds;
+--       "failed": six attempts did not get it there, or the body never stood, tell the
+--       player. A hand on a body that is not up waits for its `alive` (a respawn answers
+--       before that), so re-issue at the respawn; a new hand replaces the waiting one.
 -- status = { phase = "idle"|"lobby"|"running", players, queued, joinable, detail, queue }
 --   queue (optional, v1): the provider's own queue, for the queued players' queue panel
 --   (activity_queue.lua; a provider without it keeps working, the panel then reads
@@ -81,6 +114,9 @@
 --   `lobby.fillAfterMs` the leader is offered a bot fill (unranked) or keeps waiting.
 --   A friendly crew match (action activities.lobby: friendly / move / balance / bots /
 --   start / cancel) is set up by the crew leader in the panel and is always unranked.
+--   A room (activity_rooms.lua: the NPC at The Crossing, action activities.rooms) is a
+--   friendly with no crew requirement (a crew leader brings the crew all the same): same
+--   launch (A.launchFriendly), always unranked.
 --   A.isRanked(entry | match | playerId), export activityRanked(playerId): the flag.
 --   A.result decides once per result: unranked (the entry's flag, staff bot mode,
 --   result.test / result.unranked, a PvP result with stats.bots or stats.vsAi) sets
@@ -111,6 +147,7 @@ local EV = {
     dropped = "op77_lightrp:activity:dropped",
     ready = "op77_lightrp:activity:ready",
     bots = "op77_lightrp:activity:bots",
+    kit = "op77_lightrp:activity:kit",
 }
 A.events = EV
 
@@ -204,6 +241,7 @@ local function foreign(resource)
     local by = caller()
     return by ~= nil and by ~= resource
 end
+A.foreign, A.clean = foreign, clean
 local function running(resource)
     if type(GetResourceState) ~= "function" then return true end
     local state = GetResourceState(resource)
@@ -593,7 +631,8 @@ local function validate(def)
     if def.botFill ~= nil and type(def.botFill) ~= "boolean" then return nil, "botFill must be true or false." end
     return { id = id, resource = resource, label = label, kind = def.kind, description = clean(def.description, 280) or "",
         minPlayers = minPlayers, maxPlayers = maxPlayers, caps = caps, modes = modes, modeKey = modeKey,
-        pve = pve, difficulties = difficulties, weight = weight, botFill = def.botFill == true }
+        pve = pve, difficulties = difficulties, weight = weight, botFill = def.botFill == true,
+        offered = def.offered ~= false }
 end
 
 local refreshTop -- defined with the stats below
@@ -613,6 +652,7 @@ function A.register(def)
     registry[a.id] = a
     if not tops[a.id] then CreateThread(function() refreshTop(a.id) end) end
     dirty()
+    if A.roomsListed then A.roomsListed() end
     LightRP.log("activities: %s registered by %s (%s, caps %s)", a.id, a.resource, a.kind,
         table.concat((function() local t = {}; for _, k in ipairs(CAPS) do if a.caps[k] then t[#t + 1] = k end end; return t end)(), ",") )
     return true
@@ -714,15 +754,15 @@ end
 
 -- RP weapons back once the activity's own are gone: the armament pushes at once
 -- (it stops standing aside) and projects again a moment later, like a mission's end.
-local function restoreArms(id, e)
-    if e.caps and e.caps.rpWeapons then return end
+-- `stays`: the player is still owned, by an activity that keeps RP weapons.
+local function rearm(id, stays)
     if LightRP.armament and type(LightRP.armament.push) == "function" then pcall(LightRP.armament.push, id) end
     -- 2026-11-03: the synchronization the push starts could still be running at 3 s
     -- ("Weapon synchronization is already in progress."), and the one try gave up.
     -- Wait for it and ask again, a few times, before calling it a failure.
     local tries = 0
     local function synchronize()
-        if A.owns(id) or not LightRP.armament or type(LightRP.armament.synchronize) ~= "function" then return end
+        if (A.owns(id) and not stays) or not LightRP.armament or type(LightRP.armament.synchronize) ~= "function" then return end
         tries = tries + 1
         local ok, done, why = pcall(LightRP.armament.synchronize, id)
         if ok and done ~= false then return end
@@ -731,6 +771,14 @@ local function restoreArms(id, e)
         LightRP.log("activities: weapons of %d not restored after %d tries (%s)", id, tries, reason)
     end
     SetTimeout(3000, synchronize)
+end
+A.rearm = rearm
+-- A temporary kit goes first (activity_kits.lua), even from an activity that keeps RP
+-- weapons: the kit took their projection. The way back continues when the slots are clean.
+local function restoreArms(id, e)
+    if A.withdrawKit and A.withdrawKit(id, function() rearm(id) end) then return end
+    if e.caps and e.caps.rpWeapons then return end
+    rearm(id)
 end
 
 -- The way back: the captured point, bucket included. A dead player respawns
@@ -828,6 +876,7 @@ local function forget(resource, since, reason)
         if a and a.resource == resource and a.generation <= since then
             registry[aid], tops[aid] = nil, nil
             if A.queueForget then A.queueForget(aid) end
+            if A.roomsForget then A.roomsForget(aid) end
             LightRP.log("activities: %s forgotten (%s %s)", aid, resource, tostring(reason))
         elseif a then kept[#kept + 1] = aid end
     end
@@ -844,6 +893,7 @@ AddEventHandler("onResourceStop", function(name, reason)
     if type(name) ~= "string" then return end
     if name == SELF then
         -- Light RP goes: the providers clean their side; the return points go with this VM.
+        if A.kitsStop then pcall(A.kitsStop) end
         for id, e in pairs(owned) do
             local p = e.returnPoint
             if type(SetPlayerRoutingBucket) == "function" then pcall(SetPlayerRoutingBucket, id, p.bucket) end
@@ -904,6 +954,7 @@ local function modeTakesBots(a, mode)
     return true
 end
 local function offersFriendly(a) return a ~= nil and not a.pve and lobbyOf(a).friendly == true and a.maxPlayers >= 2 end
+A.offersFriendly = offersFriendly
 local function fillAfterMs() return math.max(0, math.floor(tonumber(lobbyCfg().fillAfterMs) or 120000)) end
 -- "teams": sides of a fixed size (one size per mode allowed); "split": two halves of
 -- any size (turf war); "ffa": everyone for themselves (races, Combat Zone, Most Wanted).
@@ -912,6 +963,7 @@ local function shapeOf(l)
     if n and n >= 2 then return l.teamSize ~= nil and "teams" or "split", math.floor(n) end
     return "ffa", 1
 end
+A.shapeOf = shapeOf
 local function teamSizeOf(l, mode)
     if type(l.teamSize) == "table" then return mode ~= nil and tonumber(l.teamSize[mode]) or nil end
     return tonumber(l.teamSize)
@@ -1483,8 +1535,8 @@ local function balance(a, l, mode, members)
 end
 
 -- Bots in a friendly: the activity (and the mode) must take them, and the leader
--- turned them on.
-local function friendlyCanBots(a, f) return offersBots(a) and modeTakesBots(a, f.mode) end
+-- turned them on. A room (`noBots`) plays its humans only.
+local function friendlyCanBots(a, f) return not f.noBots and offersBots(a) and modeTakesBots(a, f.mode) end
 local function friendlyHasBots(a, f) return f.bots == true and friendlyCanBots(a, f) end
 
 -- The bots of a friendly: per team (team shapes) or AI opponents (free-for-all).
@@ -1527,6 +1579,12 @@ local function friendlyIssue(a, l, f)
         if humans < least then return string.format("%s needs %d players%s.", a.label, least, orBots) end
     end
     return nil
+end
+
+function A.friendlyIssueOf(f)
+    local a = registry[f.activity]
+    if not a then return "That activity is not available." end
+    return friendlyIssue(a, lobbyOf(a), f)
 end
 
 -- The set-up follows the crew: a member who left is dropped, a new one waits on the
@@ -1594,9 +1652,8 @@ end
 -- `to`: a team index (1, 2...) or 0 for the bench; without it, a cycle: team 1 ->
 -- team 2 -> ... -> bench -> team 1. A full team (fixed size) swaps: its last player
 -- takes the moved player's place. Free-for-all: in <-> bench.
-function A.friendlyMove(id, target, to)
-    local f, why = ownFriendly(id)
-    if not f then return false, why end
+-- `f.sideMax`: a room's side limit (a split shape of a friendly has none).
+function A.moveInSetup(f, target, to)
     target = pid(target)
     local a, l = registry[f.activity], lobbyOf(registry[f.activity])
     if not f.teams then
@@ -1606,7 +1663,6 @@ function A.friendlyMove(id, target, to)
             if #f.players >= a.maxPlayers then f.bench[#f.bench + 1] = table.remove(f.players) end
             f.players[#f.players + 1] = target
         else return false, "That player is not in the set-up." end
-        touchCrew(id)
         return true
     end
     local from, index
@@ -1624,7 +1680,7 @@ function A.friendlyMove(id, target, to)
     else
         to = from == 0 and 1 or (from < n and from + 1 or 0)
     end
-    local size = shapeOf(l) == "teams" and teamSizeOf(l, f.mode) or nil
+    local size = f.sideMax or (shapeOf(l) == "teams" and teamSizeOf(l, f.mode) or nil)
     local source = from == 0 and f.bench or f.teams[from]
     table.remove(source, index)
     if to == 0 then
@@ -1634,6 +1690,14 @@ function A.friendlyMove(id, target, to)
         if size and #dest >= size then table.insert(source, index, table.remove(dest)) end
         dest[#dest + 1] = target
     end
+    return true
+end
+
+function A.friendlyMove(id, target, to)
+    local f, why = ownFriendly(id)
+    if not f then return false, why end
+    local ok, refused = A.moveInSetup(f, target, to)
+    if not ok then return false, refused end
     touchCrew(id)
     return true
 end
@@ -1666,10 +1730,13 @@ function A.friendlyCancel(id)
     return true, "Friendly cancelled."
 end
 
-function A.friendlyStart(id)
-    local f, why = ownFriendly(id)
-    if not f then return false, why end
+-- Starts a set-up led by `id`: a crew's friendly, or a room (activity_rooms.lua, which
+-- passes opts.stuck, what the host may do about a player who cannot play). Every player
+-- is re-checked here; nothing starts unless all of them can. true, text | false, reason
+function A.launchFriendly(id, f, opts)
+    opts = opts or {}
     local a = registry[f.activity]
+    if not a then return false, "That activity is not available." end
     local l = lobbyOf(a)
     local issue = friendlyIssue(a, l, f)
     if issue then return false, issue end
@@ -1679,7 +1746,7 @@ function A.friendlyStart(id)
         local ok, reason = check(p, a.id)
         if not ok then
             return false, (p == id and "You cannot play: " or (displayName(p) .. " cannot play: ")) .. lowerFirst(reason)
-                .. (p == id and "" or " Bench them or wait.")
+                .. (p == id and "" or (opts.stuck or " Bench them or wait."))
         end
     end
     withdraw(players)
@@ -1687,10 +1754,9 @@ function A.friendlyStart(id)
     local teams
     if f.teams then teams = {}; for i, team in ipairs(f.teams) do teams[i] = copy(team) end end
     if not startMatch(a, players, { friendly = true, teams = teams, bots = bots, enemies = enemies, mode = f.mode,
-            options = {}, from = "friendly", lead = id }) then
+            options = {}, from = opts.from or "friendly", lead = id }) then
         return false, a.label .. " did not answer. Try again in a moment."
     end
-    friendlies[id] = nil
     for _, p in ipairs(players) do
         if p ~= id then
             local side
@@ -1704,8 +1770,19 @@ function A.friendlyStart(id)
         LightRP.notice(p, { kind = "info", title = "FRIENDLY MATCH", durationMs = 6000,
             body = displayName(id) .. " started a friendly " .. a.label .. ". You sit this one out." })
     end
-    touchCrew(id)
+    -- whoever goes in leaves a set-up of their own behind, as a join does (a room's host
+    -- may lead a crew with one)
+    if friendlies[id] then friendlies[id] = nil; touchCrew(id) end
+    for _, p in ipairs(players) do
+        if friendlies[p] then friendlies[p] = nil; touchCrew(p) end
+    end
     return true, "Friendly " .. a.label .. " starting · unranked."
+end
+
+function A.friendlyStart(id)
+    local f, why = ownFriendly(id)
+    if not f then return false, why end
+    return A.launchFriendly(id, f)
 end
 
 -- The set-up as the crew's panels show it (leader: editable; members: read only).
@@ -1984,6 +2061,10 @@ function A.requestLeave(id)
     end
     if returning[id] then return false, "You are already on your way back." end
     if internalOwner(id) == "missions" then return false, "You are on a mission: /mission leave abandons it." end
+    if A.roomLeave then
+        local left, text = A.roomLeave(id)
+        if left then return true, text end
+    end
     return false, "You are not in an activity."
 end
 
@@ -2388,6 +2469,7 @@ local function exported(name, fn)
         return table.unpack(result, 2, result.n)
     end)
 end
+A.exported, A.emit = exported, emit
 exported("activityRegister", A.register)
 exported("activityBots", function() return A.botsEnabled == true end)
 -- true | false | nil (no entry, no join): the entry's ranked flag (A.isRanked)
@@ -2455,13 +2537,17 @@ function A.onDisconnected(id)
     elseif q then pending[id] = nil; emit(EV.leaveRequest, id, q.activity) end
     pending[id], friendlies[id] = nil, nil
     returning[id], leaving[id], damagedAt[id], watchers[id], mine[id] = nil, nil, nil, nil, nil
+    if A.forgetKit then A.forgetKit(id) end -- gone, on the way back too: the slots went with the client
 end
 -- Another character (or the selector): the activity lets go, Light RP places the new one.
 local function characterChanged(id, c)
     local e = owned[id]
     if e and e.character ~= c then release(id, e, false, "character") end
     local back = returning[id]
-    if back and back.character ~= c then returning[id] = nil end
+    if back and back.character ~= c then
+        returning[id] = nil -- the way back stops here: so a kit goes now
+        if A.withdrawKit then A.withdrawKit(id, function() A.rearm(id) end) end
+    end
     local q = pending[id]
     if q and q.held then dropFromTicket(id, LightRP.characters.displayName(id) .. " changed character: the search ended.")
     elseif q then pending[id] = nil; emit(EV.leaveRequest, id, q.activity) end
@@ -2554,7 +2640,7 @@ function A.view(id)
     local list = {}
     for _, aid in ipairs(order) do
         local a = registry[aid]
-        if a then
+        if a and a.offered then
             local s, top = a.status, tops[aid]
             list[#list + 1] = {
                 id = a.id, label = a.label, kind = a.kind, description = a.description,

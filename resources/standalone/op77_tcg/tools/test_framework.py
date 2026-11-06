@@ -10,7 +10,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from tcg_harness import L, boot, check, checks, con, counts, fire, last  # noqa: E402
 
 # The fake framework: active characters, an inventory of sealed items with a number of free units (`room`).
+# The shipped config has no starter gift (Light RP's starting inventory carries the boosters): it is turned
+# on here so the gift's mechanism stays tested.
 boot("""
+TcgConfig.starter = { wnc = 3 }
 TcgConfig.framework = "op77_lightrp"
 TcgConfig.shops = { { x = 100.5, y = 200.0, z = 10.0, label = "NEON DECK" } }
 active = { [1] = { identifier = "lic-1", characterKey = "c1", name = "Yuki Tanaka" } }
@@ -108,6 +111,11 @@ check(last("state", 1)["extra"]["unboxFailed"] == "box", "no display: refused")
 fire("op77_tcg:buy", 1, "wnc")
 check("vendor" in notice() and inv("wnc") == 26, "the counter points at the vendor")
 
+# The NEON DECK welcome is seen per character.
+fire("op77_tcg:seen", 1, "welcome")
+fire("op77_tcg:state", 1)
+check(last("state", 1)["welcomed"] is True, "character 1 saw the welcome")
+
 # Another character is another collector with its own binder (and its own starter packs).
 owned_c1 = counts(last("state", 1))
 G.active[1] = L.table_from({"identifier": "lic-1", "characterKey": "c2", "name": "Vik"})
@@ -117,6 +125,7 @@ fire("op77_lightrp:characterChanged", 0, 1)
 st = last("state", 1)
 check(len(owned_c1) > 0 and counts(st) == {} and inv("wnc") == 3, "a switched character starts its own collection")
 check(con.execute("SELECT count(*) FROM tcg_profiles WHERE identifier LIKE 'lic-1#%'").fetchone()[0] == 2, "two collectors")
+check(st["welcomed"] is False, "the other character has the welcome still to see")
 
 print(f"PASS: op77_tcg with a framework ({checks[0]} checks: character collectors, starter items, useSealed, opening "
-      "and display through the inventory, no-room refund, counter defers to the vendor, character switch)")
+      "and display through the inventory, no-room refund, counter defers to the vendor, character switch, welcome per character)")

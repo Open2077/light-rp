@@ -480,6 +480,11 @@ local PAGE_ACTIONS = {
 TcgClient = {
     log = log, me = me, notify = notify, uikit = uikit, send = send, here = here, forward = forward, right = right,
     isOpen = function() return isOpen end,
+    -- The page answered ui:ready (a send before that is dropped); the server's last state (nil until it arrives);
+    -- a pack of mine still opening (client/welcome.lua waits for all three).
+    ready = function() return pageReady end,
+    state = function() return state end,
+    busy = function() return packBusy() end,
     -- A page action (page -> client); registered on the page now if it already exists.
     on = function(name, fn)
         PAGE_ACTIONS[name] = fn
@@ -495,11 +500,22 @@ TcgClient = {
     openBinder = function(tab) openBinder(tab) end,
 }
 
+-- The page shows pictures served from the Open77 CDN (cdn.open77.dev): the WebUI policy "images"
+-- lets it load remote HTTPS images (not scripts, fetch or frames). A client that refuses the
+-- option (raises) gets the page without it.
+local function createImagesPage(create, options)
+    options.policy = "images"
+    local called, page, why = pcall(create, options)
+    if called then return page, why end
+    options.policy = nil
+    return create(options)
+end
+
 CreateThread(function()
     -- The page: always created visible with a transparent body; the binder opens and closes inside it.
     local created, why
     for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
-        created, why = Open77.webui.create({ entry = "web/index.html", layer = "menu", zIndex = 44, width = 1920, height = 1080,
+        created, why = createImagesPage(Open77.webui.create, { entry = "web/index.html", layer = "menu", zIndex = 44, width = 1920, height = 1080,
             transparent = true, visible = true, fps = 60 })
         if created or why ~= "resource_preparing" then break end
         Wait(250)

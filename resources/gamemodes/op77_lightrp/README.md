@@ -29,9 +29,13 @@ op77_lightrp/
 
 ## Bureau staff RP et reports
 
-`/admin` ouvre le menu RP compact façon RageUI : file de reports, citoyens,
-interventions confirmées et historique, avec sous-menus au clavier et panneaux
-de détails voisins. Les déplacements restent libres pendant la navigation.
+`/admin` (ou `/lightrp.admin`) ouvre **le** menu admin du serveur, compact façon
+RageUI et dans la DA LIGHT/RP. Il réunit les outils de la plateforme (`open77_admin` :
+noclip, véhicules, météo, actions de masse…) et ceux de LightRP (missions, world
+bosses, gigs, objets, contenu) : reports, joueurs, outils perso, téléport,
+véhicules, objets et armes, monde, missions et événements, lieux et contenu,
+serveur, historique. Chaque entrée n'apparaît que si l'ACL l'autorise. Les
+déplacements restent libres pendant la navigation.
 `/report`, `/reports` ou **F1 → Reports & support** donnent aux
 joueurs un suivi privé et persistant, avec admin assigné, réponses, statuts,
 notifications et possibilité de réouverture. Les notes internes restent réservées
@@ -43,6 +47,12 @@ au staff. `/adminfull` conserve la console technique officielle.
 avec périmètre (avertissement puis mort hors zone), points de spawn ennemis, checkpoints déclencheurs, vagues, difficultés et test immédiat.
 Les missions enregistrées avant l'équilibrage passent au nouveau barème avec `/lightrp.missions.repay` (aperçu) puis
 `/lightrp.missions.repay apply` (staff). Voir [docs/mission-editor.md](docs/mission-editor.md).
+
+**Éditeur de cartes** (`/lightrp.maps`, ACL `command.lightrp.maps`) : créer en jeu les cartes des jeux d'`op77_games`, avec le mode construction
+de l'éditeur de missions : choisir un jeu, voir ses cartes, créer, dupliquer, renommer, activer ou désactiver, supprimer, ouvrir. Ce qu'une carte
+exige vient du `schema` que chaque jeu déclare à côté de ses règles ; le noyau stocke (`lightrp_game_maps`) et valide. Un brouillon incomplet
+s'enregistre mais ne s'active jamais, et un jeu n'offre que 8 cartes : la neuvième est refusée. Aucun redémarrage : les salons suivent, une partie
+en cours garde sa carte. Voir [docs/map-editor.md](docs/map-editor.md).
 
 ## Création de personnage et scène d'arrivée
 
@@ -158,12 +168,25 @@ Présentation (`LightRpTutorialConfig.reveal`, `ui/src/features/tutorial/`) :
 
 - **Montrer le chemin** : à chaque nouvelle destination à plus de 12 m, après
   le bandeau « Step complete », la caméra s'élève derrière le joueur, survole
-  l'itinéraire (des points dorés s'allument au sol à son passage), se pose sur
+  l'itinéraire (des chevrons dorés dessinés au sol, `debugDraw`, s'allument à son passage), se pose sur
   le lieu puis revient en fondu (~5,6 s). Le joueur est figé pendant le vol et
   libéré dès le retour. Bandes cinéma, nom du lieu, direction, distance et plan
   du hall à l'écran. `SPACE` passe (`lightrp.tutorial.skip`), `G` rejoue le vol
   à tout moment (`lightrp.tutorial.way`) : deux RegisterKeyMapping. Jamais par
   dessus un menu, un dialogue, la caméra libre ou en véhicule.
+- **Trouver l'objectif** (`client/core/tutorial_guide.lua`, `GuidePointer.tsx`) :
+  un anneau doré au sol et une colonne de lumière au-dessus de l'objectif (deux
+  marqueurs `ring` + `cylinder`, créés une fois par objectif, jamais mis à jour) ;
+  à l'écran, un repère épinglé sur l'objectif (ancre de page `tutorial.guide`) avec
+  son nom et la distance, ou, hors champ, une flèche sur un anneau autour du centre
+  de l'écran ; la même direction dans la carte d'objectif. Tout part aussitôt à la
+  conversation, au changement d'étape, à la mort, au chargement, à la pause, à la fin,
+  au changement de personnage et à l'arrêt de la ressource ; un marqueur en échec est
+  recréé (3 essais) ; le tracé du vol expire seul en 1 s s'il n'est plus redessiné.
+  Avant (2026-11-06, « les boules restent ») : une flèche et 5 sphères déplacées par
+  `markers.update` à chaque image (un update pendant le chargement relance le spawn),
+  des rayons sous le minimum de 0,1 m refusés une fois sur deux, et des trous dans la
+  liste d'ids qui laissaient des sphères dans le monde.
 - **Exemples d'interface** : une réplique peut être `{ text, demo }` ; la démo
   joue au-dessus du dialogue (compteur du véhicule avec la jauge qui descend en
   réserve, étapes de la pompe, clé et bips, location, carte d'identité, espèces
@@ -658,6 +681,8 @@ activités (`GetInvokingResource`).
 | `activityLeave(id, activityId, opts)` | Libère. `opts.returnPlayer` (vrai par défaut) : retour au point capturé, bucket compris, en descendant du véhicule ; un joueur mort y réapparaît (jamais laissé mort), puis soin complet et armes RP rendues, sur le thread de Light RP. |
 | `activityOwner(id)` | L'id de l'activité, `"missions"` pendant une mission, sinon `nil`. |
 | `activityPlayer(id)` | `{ name, identifier, characterKey, gang = { id, label, grade, gradeLabel, tag, color } \| nil, job = { id, label, grade, gradeLabel, tag } }` — `nil` sans personnage actif ; `gang` vaut `nil` sans affiliation, `job.id` vaut `unemployed` sans emploi. Le gang et le métier sont lus dans `server/modules/jobs.lua` (mêmes vues que les state bags `gang` / `job`). `job.onDuty` reste absent : Light RP n'a pas de prise de service. |
+| `activityKit(id, activityId, kit, opts)` → `true, hand` \| `false, raison` | Un kit temporaire de mission pour un joueur que cette activité possède, remis par le même code que les missions (`server/modules/activity_kits.lua`) : `kit` nul pour celui que les missions présélectionnent, l'id d'un kit de `LightRpRaid.loadouts`, ou `{ primary, secondary, reserve, label, names }`. L'issue arrive sur `op77_lightrp:activity:kit`. Pendant le kit, l'armement s'efface et la roue liste et dégaine le kit. Contrat complet : en-tête de `activities.lua`. |
+| `activityKitTake(id, activityId, opts)` → `true` \| `false, raison` | Reprend le kit en cours d'activité. Le cœur le reprend aussi seul à chaque sortie, puis rend les armes RP par le même chemin qu'après une mission. Les armes du personnage ne sont jamais touchées. |
 | `notice(id, notice)` → `true` \| `false, raison` | Un message au joueur dans la notice de Light RP (sa page, son design) : **un fournisseur n'affiche jamais d'interface à lui** (règle du 2026-11-02), il passe par là et ne retombe sur `open77_notifications` que sans Light RP. `notice = { kind, title, body, durationMs, source }` nettoyé par `shared/notice.lua` : `kind` ∈ `info`, `success`, `warning`, `error` (`danger` lu `warning`, autre → `info`), titre 48 car., texte 280 (requis ; `text` ou `message` acceptés), durée 2 à 20 s (6 s par défaut). Un seul joueur, jamais `-1`. Raisons : `Invalid player.`, `invalid_notice`, `empty_notice`. Ce que le noyau dit déjà (réponse d'inscription « Request sent to … », sortie de file, MATCH FOUND, panneau de file) n'est pas répété par le fournisseur. |
 
 Événements serveur, `TriggerEvent` / `AddEventHandler` uniquement (jamais `RegisterNetEvent` :
@@ -699,7 +724,7 @@ un client ne peut pas les lever) :
 Quand un fournisseur s'arrête, ses activités sont oubliées et ses joueurs ramenés ; lors d'un
 rechargement, ce que la nouvelle VM a déjà réenregistré est conservé.
 
-Buckets : arène `4100000–4199999`, course `4200000–4299999`, poursuite `4300000–4399999`
+Buckets : arène `4100000–4199999`, course `4200000–4299999`, poursuite `4300000–4399999`, jeux `4500000–4599999`
 (ville 0, hall 620000, pratique 700000+id, cabines 710000+id, logements 1000000+id, missions
 3000000+n). Le carburant ignore les véhicules de ces buckets ; clés et fourrière ne concernent
 que les véhicules du système RP (personnels, location, `/car`), jamais ceux qu'une activité crée.
@@ -802,12 +827,47 @@ Le panneau envoie l'action `activities.lobby` (`fill`, `friendly`, `move`, `bala
 `cancel`, `start`). Un ticket expire après 15 min, un match formé qui n'a pas démarré après 2 min.
 `/lightrp.bots on|off` (staff) reste disponible pour tester seul : rien n'est enregistré.
 
+### Salons de jeu (`server/modules/activity_rooms.lua`, `ui/src/features/rooms/`)
+
+Un joueur héberge une partie auprès du **PNJ des salons** de The Crossing (terminal
+`kind = "rooms"`, *Jackie Welles*, avec son propre `host` et sa propre épingle), ou par `/room`
+de n'importe où : il choisit le jeu, la carte, la taille des camps, salon public ou privé (un code
+de 5 caractères) ; les autres entrent ; l'hôte lance. Un jeu sans carte activée n'apparaît pas. **Un salon est un match amical sans crew** :
+même forme que la mise en place d'un amical, même lancement (`A.launchFriendly`, donc `startMatch`
+avec `friendly = true`). Le match, le récapitulatif et le retour sont ceux du noyau, et rien n'est
+enregistré (ni statistique, ni Hall of Fame, ni paie, ni réputation). Tout vit en mémoire.
+
+- **Ce qui s'héberge** : `rooms = true` dans `lobby.activities`, activité enregistrée, match amical
+  possible, forme sans `teamSize` fixe. Le menu ne montre que l'intersection de `rooms.games` et de
+  la liste `activities` : un fournisseur absent disparaît. Sans `modes` (`race.grid`,
+  `race.foot`), le fournisseur fait tourner ses parcours.
+- **Camps** : `teams = n` donne `n` camps d'au plus `size` joueurs, choisi par l'hôte entre
+  `ceil(min / n)` et `floor(max / n)` ; sinon tout le monde dans une liste de `size` au plus. Un
+  joueur qui entre rejoint le camp le plus petit. Pas de banc ni de bots. *Prop hunt* est sans camps
+  : le fournisseur tire ses chasseurs à chaque manche.
+- **Fin d'un salon** : l'hôte part, la main passe au membre suivant, le dernier ferme. Une
+  déconnexion, un changement de personnage, une autre activité ou une mission (vu toutes les 5 s)
+  sortent le joueur. `/leave` aussi. Dix minutes sans changement (`rooms.idleMs`) ferment le salon,
+  tout comme l'arrêt du fournisseur (`A.roomsForget`) et le lancement lui-même. `rooms.maxRooms` (24)
+  borne les salons du serveur, privés compris.
+- **Lancer** : réservé à l'hôte, chaque membre repasse `A.check`, et un seul membre refusé refuse
+  tout. Il faut au moins deux joueurs et aucun camp vide.
+- **Action** `activities.rooms` (`create`, `join`, `leave`, `kick`, `move`, `settings`, `start`,
+  `open`, `close`) : entrée hostile, tout est recherché côté serveur. Un exclu ne revient pas
+  dans ce salon. Un salon privé ne se trouve que par son code. La page espace ses actions de
+  260 ms (limite de 250 ms par type).
+- **État** : clé `rooms`, poussée au changement seulement (regroupée sur `rooms.pushMs`), aux membres,
+  et aux menus ouverts pour un salon public. Les libellés et cartes restent dans `activities`.
+
+Aperçu sans jeu : `npm run dev` puis `?registered=1&dialog=rooms` (`&room=host|member|private`).
+Tests : `lua tests/activity_rooms_test.lua`, `tests/rooms-model.test.ts`.
+
 ### Mise en place de The Crossing (en jeu)
 
 Les positions des terminaux sont des décalages plausibles depuis le point d'arrivée
 (`server/config/activities.lua`, `hub.terminals`, marqués `-- survey in game`). Sur place :
 `/lightrp.survey board`, coller la ligne en `position = { ... }` du terminal, idem pour
-`contracts`, puis `ensure op77_lightrp`. La zone de sécurité ne peut pas venir de la config
+`contracts` et `rooms` (le PNJ des salons, encore à son décalage par défaut), puis `ensure op77_lightrp`. La zone de sécurité ne peut pas venir de la config
 (ce sont des enregistrements audités en base) : **/admin → Safe zones**, nouvelle zone centrée
 sur l'esplanade (`-756.6, 777.3`), rayon d'environ 30 m, *blockShoot*, *blockMelee* et
 *blockGrenades* cochés, puis publier.

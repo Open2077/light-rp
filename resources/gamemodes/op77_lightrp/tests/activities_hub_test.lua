@@ -5,7 +5,8 @@
 dofile("shared/events.lua")
 dofile("shared/config.lua")
 dofile("server/config/activities.lua")
-assert(#LightRpActivities.hub.terminals == 1, "one terminal: activities and contracts are tabs of one panel")
+assert(#LightRpActivities.hub.terminals == 2 and LightRpActivities.hub.terminals[2].kind == "rooms",
+    "one activities terminal (activities and contracts are tabs of one panel), one rooms NPC")
 -- the live config: the owner's survey (2026-11-03), Adam Smasher standing on it
 do
     local t, host = LightRpActivities.hub.terminals[1], LightRpActivities.hub.host
@@ -14,6 +15,10 @@ do
     assert(host.name == "Adam Smasher" and host.candidates[1].record == "Character.main_boss_adam_smasher", "Smasher first")
     for _, c in ipairs(host.candidates) do assert(c.record:match("^Character%.[%w_]+$"), "a record name") end
     t.position = nil -- below: the offset path
+    -- the rooms NPC: a host of its own, Adam Smasher stays as he is
+    local rooms = LightRpActivities.hub.terminals[2]
+    assert(rooms.npc == true and rooms.host ~= host and #rooms.host.candidates >= 2 and rooms.offset and rooms.blip, "its own host and pin")
+    for _, c in ipairs(rooms.host.candidates) do assert(c.record:match("^Character%.[%w_]+$"), "a record name") end
 end
 -- a contracts terminal still works when a server adds one (it opens the same panel on its tab)
 table.insert(LightRpActivities.hub.terminals, { id = "contracts", kind = "contracts", label = "Contracts",
@@ -80,22 +85,30 @@ assert(board.blip and board.blip.title == "Activities" and board.blip.mapCategor
 assert(contracts.blip == nil, "one pin for the hub")
 assert(board.marker == nil and board.promptHeight == 1.4 and board.label == "Adam Smasher", "a host: no floor marker, the prompt on him")
 assert(contracts.marker == LightRpActivities.hub.marker, "a terminal without a host keeps its marker")
+local roomsPoint = interactions["activities.rooms"]
+assert(roomsPoint and roomsPoint.marker == nil and roomsPoint.label == "Jackie Welles" and roomsPoint.promptHeight == 1.1, "its own host's label and prompt")
+assert(roomsPoint.blip and roomsPoint.blip.title == "Game Rooms" and roomsPoint.blip.map == "crossing", "its own map pin")
+do
+    local d = math.sqrt((roomsPoint.position.x - (-783.885)) ^ 2 + (roomsPoint.position.y - 787.366) ^ 2)
+    assert(d > 3 and d < 7, "beside Adam Smasher's surveyed spot: " .. d)
+end
 
 -- the host: spawned on the terminal facing its heading, AI off, invulnerable; the boss
 -- record refused -> the next one; gone -> respawned
 refuse["Character.main_boss_adam_smasher"] = true
 local okThread, errThread = pcall(threads[#threads])
 assert(not okThread and errThread:find("stop-loop", 1, true), "the start thread spawns then watches: " .. tostring(errThread))
-assert(#created == 2, "first spawn, then the respawn of a body gone")
+assert(#created == 4, "both hosts spawned, then each respawned when its body is gone")
 local hostDef = created[1]
+assert(created[2].record == "Character.Jackie" and created[2].yaw == 240.96, "the rooms NPC: its own host's first record")
 assert(hostDef.record == "Character.Smasher", "the boss record refused: the next candidate")
 assert(math.abs(hostDef.position.x - board.position.x) < 1e-6 and hostDef.yaw == 240.96 and hostDef.bucket == 0)
 assert(hostDef.behavior.combatEnabled == false and hostDef.behavior.perceptionEnabled == false and hostDef.behavior.voiceEnabled == false)
 assert(hostDef.damagePolicy == "invulnerable" and hostDef.aiMode == "tasks" and hostDef.persistent == false and hostDef.despawnWhenUnobserved == false)
 assert(aiCalls[1].id == 901 and aiCalls[1].on == false, "AI off: he stands")
-assert(Hub.hosts.board == 902 and Hub.hosts.contracts == nil, "respawned; no host on a terminal without npc")
+assert(Hub.hosts.board == 903 and Hub.hosts.rooms == 904 and Hub.hosts.contracts == nil, "respawned; no host on a terminal without npc")
 Hub.spawnHosts()
-assert(removed[#removed] == 902 and Hub.hosts.board == 903, "a respawn removes the old body")
+assert(removed[#removed] == 904 and Hub.hosts.board == 905 and Hub.hosts.rooms == 906, "a respawn removes the old body")
 local surveyed = Hub.placeOf({ position = { x = 1, y = 2, z = 3 }, offset = { forward = 9 } })
 assert(surveyed.x == 1 and surveyed.z == 3, "a surveyed position replaces the offset")
 
@@ -104,6 +117,11 @@ Hub.onInteract(1, "activities.contracts")
 assert(dialogs[#dialogs].kind == "activities" and dialogs[#dialogs].payload.tab == "contracts")
 Hub.onInteract(1, "activities.board")
 assert(dialogs[#dialogs].payload.tab == "activities")
+local roomsOpened = {}
+LightRP.activityRooms = { open = function(id) roomsOpened[#roomsOpened + 1] = id end }
+local dialogsBefore = #dialogs
+Hub.onInteract(1, "activities.rooms")
+assert(roomsOpened[1] == 1 and #dialogs == dialogsBefore, "the rooms NPC opens the hosting menu, never the panel")
 
 -- contracts: boards only, nearest first, published ones included
 local view = providers.activities(1)

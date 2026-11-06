@@ -6,6 +6,7 @@ local A = RaceActivity
 local E = RaceEngine
 local L = RaceLobby
 local Ed = RaceEditor
+local P = RaceParkour
 
 local function log(text) print("[race] " .. tostring(text)) end
 
@@ -123,7 +124,8 @@ local function statusFor(def, now)
     else
         detail = ("%d courses"):format(courses)
     end
-    return { phase = phase, players = players, queued = queued, joinable = courses > 0, detail = detail,
+    local joinable = courses > 0 and (not def.abilities or P.available())
+    return { phase = phase, players = players, queued = queued, joinable = joinable, detail = detail,
         queue = def.mode ~= "trial" and L.queueOf(def, now) or nil }
 end
 
@@ -267,6 +269,7 @@ AddEventHandler("onPlayerDisconnected", function(value)
     local id = playerIdOf(value)
     if id == nil then return end
     E.disconnect(id)
+    P.forget(id)
     L.forget(id)
     Ed.forget(id)
     queueShown[id] = nil
@@ -337,7 +340,7 @@ end)
 -- ---------------------------------------------------------------- commands --
 
 local MODES = { trial = "trial", timetrial = "trial", grid = "grid", street = "grid", foot = "foot", rooftop = "foot",
-    pve = "pve", ai = "pve", vsai = "pve" }
+    pve = "pve", ai = "pve", vsai = "pve", parkour = "parkour" }
 
 -- /race opens Light RP's Activities panel, where every race is listed and joined.
 RegisterCommand("race", function(source)
@@ -357,7 +360,7 @@ RegisterCommand("race.join", function(source, args, raw)
     local id = playerIdOf(source)
     if id == nil then return output(source, raw, false, "race.join must be used in-game") end
     local def = A.byKey[MODES[tostring(args[1] or "trial"):lower()] or ""]
-    if def == nil then return output(source, raw, false, "usage: /race.join trial|street|rooftop|pve [course]") end
+    if def == nil then return output(source, raw, false, "usage: /race.join trial|street|rooftop|pve|parkour [course]") end
     local ok, why = joinAndReport(id, def, { course = args[2] })
     output(source, raw, ok, ok and ("Joined " .. def.label) or tostring(why))
 end, false)
@@ -388,16 +391,17 @@ RegisterCommand("race.status", function(source, _, raw)
     output(source, raw, true, table.concat(lines, " | "))
 end, false)
 
--- Staff: course editor. /race.editor open [courseId|--foot] | start | cp | grid | undo |
--- undogrid | name <text> | laps <n> | type circuit|sprint | radius <m> | vehicle <id> |
--- vehicles | save | close | list | delete <courseId>
+-- Staff: course editor. /race.editor open [courseId|--foot|--parkour] | start | cp | grid |
+-- undo | undogrid | name <text> | laps <n> | type circuit|sprint | parkour on|off |
+-- radius <m> | vehicle <id> | vehicles | save | close | list | delete <courseId>
 RegisterCommand("race.editor", function(source, args, raw)
     local id = playerIdOf(source)
     local action = tostring(args[1] or "open"):lower()
     if action == "list" then
         local names = {}
         for _, summary in ipairs(RaceCourses.list()) do
-            names[#names + 1] = ("%s (%s%s)"):format(summary.id, summary.onFoot and "foot" or summary.vehicle,
+            names[#names + 1] = ("%s (%s%s)"):format(summary.id,
+                summary.parkour and "parkour" or summary.onFoot and "foot" or summary.vehicle,
                 summary.builtin and ", built-in" or "")
         end
         return output(source, raw, true, table.concat(names, ", "))
@@ -429,7 +433,7 @@ end, true)
 -- Staff: start a queued street or rooftop race now, even below its minimum.
 RegisterCommand("race.force", function(source, args, raw)
     local def = A.byKey[MODES[tostring(args[1] or "grid"):lower()] or ""]
-    if def == nil or not def.queued then return output(source, raw, false, "usage: /race.force street|rooftop") end
+    if def == nil or not def.queued then return output(source, raw, false, "usage: /race.force street|rooftop|parkour") end
     if L.size(def.key) == 0 then return output(source, raw, false, "Nobody is queued") end
     local ok, reason = L.launch(def, E.nowMs(), true)
     output(source, raw, ok, ok and (def.label .. " started") or tostring(reason))
@@ -449,6 +453,8 @@ CreateThread(function()
         if not ok then log("engine tick failed: " .. tostring(err)) end
         ok, err = pcall(L.tick, now)
         if not ok then log("lobby tick failed: " .. tostring(err)) end
+        ok, err = pcall(P.tick, now)
+        if not ok then log("parkour tick failed: " .. tostring(err)) end
         ok, err = pcall(pushQueues, now)
         if not ok then log("queue push failed: " .. tostring(err)) end
         if statusDirty or now - lastStatusAt >= 2000 then

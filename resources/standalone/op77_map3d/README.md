@@ -18,7 +18,7 @@ customizable 3D map of Night City, built from the game's own 3D map assets:
   with speed, blips pinned to its edge when they matter, district and distance below.
 - **Blips** for any resource (client or server): built-in icons or your own SVG, colour,
   label, description, category (legend with toggles and counts), pulse, heading arrows,
-  edge pinning. Other players near you are shown.
+  edge pinning. Other players are not shown (`nearbyPlayers.enabled = false`, 0.2.1): the influence zones show where people gather.
 - **Areas** for any client resource: polygons (a danger zone, a turf, a no-go zone)
   draped over the ground, the roads and the buildings of the map and the minimap, with a
   translucent fill (solid or diagonal danger hatching), a border and a label.
@@ -28,6 +28,11 @@ customizable 3D map of Night City, built from the game's own 3D map assets:
   distance and ETA, automatic rerouting when you leave the route, arrival event.
   The waypoint is shared with the game's own (`Open77.blips` waypoint): a waypoint set by
   any other resource becomes this map's destination, and vice versa.
+
+- **Display quality**: **performance** by default, a flat 2D map seen from straight
+  above for small configurations; **quality**, the 3D city with every effect. The first
+  time a player opens the map they choose; the choice is kept on their machine and
+  switched at any time under DISPLAY in the legend (see "Display quality").
 
 The game's map key opens this map (rebindable: "City map (3D)" in the key settings);
 the game's own map and HUD minimap are switched off while the resource runs and come
@@ -57,7 +62,7 @@ back when it stops.
 | `playerRate` | Player position updates per second sent to the page. |
 | `fps` | `{ minimap, map }`: the two WebUI surfaces' frame rates (default 60 and 60). The minimap has its own surface cropped to its corner; the map's full-screen surface is hidden while closed. |
 | `debug` | Print open/close, waypoint changes (with their origin) and page keys to the client log. |
-| `nearbyPlayers` | `{ enabled, radius, interval, color }` other players as blips. |
+| `nearbyPlayers` | `{ enabled, radius, interval, color }` other players as blips. Off by default since 0.2.1 (no positions on the map; no loop runs). |
 | `page` | Everything the page uses, deep-merged over its defaults (below). |
 
 `page` (defaults in `ui/src/config.ts`):
@@ -116,13 +121,43 @@ map:setTheme({ accent = "#3FE0D0", buildingEdge = "#3FE0D0", roadEdge = "#3FE0D0
 map:setConfig({ minimap = { anchor = "bottom-right", shape = "circle" } })
 map:setMinimapVisible(false)
 map:setPlayerDotsHidden(true, { 12 })   -- see "Player dots"
+map:getQuality()               -- "performance" | "quality", and whether the player chose
+map:setQuality("performance")  -- see "Display quality"
 ```
 
 Blips belong to the resource that created them and disappear when it stops.
 
+### Display quality
+
+Two ways to draw the map and the minimap, the same look (colours, outlines, blips, areas,
+route, zones):
+
+| | performance (default) | quality |
+|---|---|---|
+| view | 2D, straight above (orthographic), rotation kept, no tilt | 3D orbit, tilt, 2D/3D button |
+| buildings | roofs only (one quad per box), outlined | lit volumes, outlines, x-ray cut on the minimap |
+| ground, water, landmarks | one flat colour (major grid kept) | lighting, minor grid, scan lines, rim light |
+| route | still chevrons | flowing chevrons, pulsing destination |
+| activity zones | still disc and rim | animated field, beacons, lit buildings |
+| antialiasing, resolution | none; map at screen pixels at most, minimap x1.25 | 4x MSAA; map up to x2, minimap x1.75 |
+| redraws | only on change; the player's arrow moves every update, the map under it 4 times a second; minimap 30 fps at most | idle animation 30 fps, minimap up to 60 fps |
+| open/close | short fade | blur, scale and scan line |
+
+The first time a player opens the map (never chosen: nothing in KVP), a DISPLAY MODE
+panel asks which one (1 / 2, arrows + Enter, or a click; Esc closes the map and asks
+again next time). The map behind it is already drawn in performance mode. The choice is
+kept in the client's KVP (`Open77.kvp`, key `map3d:quality`, per server) and reaches the
+minimap's surface at once; the legend's DISPLAY switch changes it at any time, without
+reloading the page.
+
+`config.quality = { default = "performance", ask = true }`: `ask = false` never asks
+(`default` until the player switches). A gamemode's settings menu can use
+`exports.op77_map3d:setQuality(mode)` / `getQuality()`; `op77_map3d:qualityChanged`
+(client event, the mode) fires on a change.
+
 ### Player dots
 
-The map draws the players within `nearbyPlayers.radius` (350 m) as dots. An activity
+With `nearbyPlayers.enabled = true` (off by default since 0.2.1), the map draws the players within `nearbyPlayers.radius` (350 m) as dots. An activity
 where that would give the game away (a chase: the cops would see the runner) hides them,
 opt-in, for as long as it needs:
 
@@ -271,7 +306,8 @@ The browser preview (`npm run dev`) runs a mock player and blips: `?open=1` open
 map, `?route=1` sets a route, `?drive=1` drives, `?dist=700&fx=-1450&fy=150` zooms,
 `?areas=1` (or `?areas=pulse`) adds Light RP's Dogtown danger zone and a solid area
 (`?areas=1&open=1&dist=2600&fx=-1750&fy=-2450`), `?px=-1800&py=-2550&pyaw=0` puts the
-player there (the minimap over a place).
+player there (the minimap over a place). The preview draws in performance mode;
+`?quality=quality` draws the 3D city, `?ask=1` shows the first opening's question.
 
 `npm run build` empties `web/` first (Vite's `emptyOutDir`), `web/data` included: restore
 it with `git checkout -- web/data`, or build with `npx vite build --outDir <elsewhere>` and

@@ -91,8 +91,9 @@ function Wardrobe.open(playerId, private, noTakeAway)
 end
 
 -- A top and a bottom on: what the fitting room shows (the active saved outfit over the equipment).
+-- Returns dressed, and what is missing ({ "a top", "trousers" }) when not.
 function Wardrobe.dressed(shown)
-    if type(shown) ~= "table" or type(shown.equipment) ~= "table" then return false end
+    if type(shown) ~= "table" or type(shown.equipment) ~= "table" then return false, { "a top", "trousers" } end
     local look = {}
     for slot, value in pairs(shown.equipment) do look[slot] = value end
     local wardrobe = shown.wardrobe
@@ -100,7 +101,12 @@ function Wardrobe.dressed(shown)
     local outfit = active and type(wardrobe.outfits) == "table" and wardrobe.outfits[tostring(active)]
     if type(outfit) == "table" then for slot, value in pairs(outfit) do look[slot] = value end end
     local function on(slot) return look[slot] ~= nil and look[slot] ~= false end
-    return (on("InnerChest") or on("OuterChest") or on("Outfit")) and (on("Legs") or on("Outfit"))
+    local top, bottom = on("InnerChest") or on("OuterChest") or on("Outfit"), on("Legs") or on("Outfit")
+    if top and bottom then return true end
+    local missing = {}
+    if not top then missing[#missing + 1] = "a top" end
+    if not bottom then missing[#missing + 1] = "trousers" end
+    return false, missing
 end
 function Wardrobe.isDressed(playerId)
     local ok, shown = pcall(function() return exports.open77_appearance:visibleOutfit(playerId) end)
@@ -166,7 +172,10 @@ end)
 -- A saved look: the first day's dressing step waits for one with clothes on.
 AddEventHandler("open77:presentation:committed", function(player, shown)
     player = tonumber(player)
-    if player and LightRP.tutorial and LightRP.tutorial.onDressed then LightRP.tutorial.onDressed(player, Wardrobe.dressed(shown)) end
+    if player and LightRP.tutorial and LightRP.tutorial.onDressed then
+        local dressed, missing = Wardrobe.dressed(shown)
+        LightRP.tutorial.onDressed(player, dressed, missing)
+    end
     -- A public fitting room in the city charges once per visit that saves a look
     -- (server/modules/economy_sinks.lua); homes, the wizard and the hall are free.
     local room = player and rooms[player]

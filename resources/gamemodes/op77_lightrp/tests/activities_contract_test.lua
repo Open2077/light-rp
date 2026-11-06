@@ -5,6 +5,7 @@
 -- the notice export (shared/notice.lua: a provider's message in Light RP's notice),
 -- the op77_lightrp:announce event (server/modules/staff.lua) in both shapes, and
 -- hunger / thirst frozen while owned (server/modules/needs.lua). No game, no DB.
+dofile("shared/events.lua")   -- staff.lua sends the banner on LightRpEvents.net.staffAnnounce
 dofile("shared/config.lua")
 dofile("server/config/activities.lua")
 -- race.grid joins its provider's own queue here (the core's ranked queue: activities_lobby_test.lua)
@@ -306,16 +307,16 @@ invoking = nil
 -- op77_lightrp:announce (staff.lua): the text and table shapes, cleaned, clamped, rate-limited
 local broadcasts, staffNotices = {}, {}
 LightRP.chat = { broadcast = function(title, text, color) broadcasts[#broadcasts + 1] = { title = title, text = text, color = color } end }
-LightRP.broadcastNotice = function(def) staffNotices[#staffNotices + 1] = def end
+-- the banner (client/core/staff_announce.lua, StaffBroadcast.tsx) since #137, not the notice
 LightRP.needs = { refill = noop }
 GetPlayerName = function() return nil end
-TriggerClientEvent = noop
+TriggerClientEvent = function(name, _, payload) if name == LightRpEvents.net.staffAnnounce then staffNotices[#staffNotices + 1] = payload end end
 dofile("server/modules/staff.lua")
 local announce = handlers["op77_lightrp:announce"]
 assert(announce, "the announce event is handled")
 announce("Opening night at The Crossing.", { title = "Fireworks", durationMs = 10000 })
 assert(broadcasts[1].title == "FIREWORKS" and broadcasts[1].text == "Opening night at The Crossing.")
-assert(staffNotices[1].title == "Fireworks" and staffNotices[1].durationMs == 10000 and staffNotices[1].kind == "staff")
+assert(staffNotices[1].title == "Fireworks" and staffNotices[1].durationMs == 10000)
 announce("Second one too soon.")
 assert(#broadcasts == 1, "one per second")
 t = t + 1000

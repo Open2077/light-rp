@@ -50,7 +50,9 @@ LightRpConfig = {
             marker = { shape = "cylinder", radius = 0.45, height = 0.25, color = { r = 255, g = 204, b = 0, a = 120 }, maxDistance = 20.0, groundOffset = 0.03 } },
         giveRange = 3.0,
         -- Granted once when a new character's inventory is created; existing inventories are kept.
-        starting = { { name = "water", count = 5 }, { name = "burrito", count = 5 } },
+        -- 3 TCG boosters (owner, 2026-11-06): op77_tcg's own one-time gift is off (TcgConfig.starter), so a
+        -- new character gets 3, not 6.
+        starting = { { name = "water", count = 5 }, { name = "burrito", count = 5 }, { name = "tcg_booster_wnc", count = 3 } },
         -- Persistent stashes in the world (pick positions with /pos).
         stashes = {
             -- { id = "citycenter", name = "Storage // City Center", position = { x = 0, y = 0, z = 0 }, slots = 40, weight = 250 },
@@ -556,6 +558,11 @@ LightRpConfig = {
     characters = {
         arrivalScene = {
             autoStart = true,
+            -- false (2026-11-06): the newcomer stands where the arrival put them, held still, and
+            -- the camera frames the body's real position and facing. Sat on the city's planter
+            -- bench, the body was pushed off the seat by the planter and the camera, set up for
+            -- the seat, filmed the back of a head over the concrete. true: the seated scene.
+            seated = false,
             -- Ground under the seat. Camera offsets use X right / Y forward.
             position = { x = -1529.316650, y = 982.267017, z = 23.607117 },
             heading = 0.0,

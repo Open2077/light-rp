@@ -111,7 +111,8 @@
       "op77_lightrp",
       "op77_scenes",
       "op77_ripperdoc",
-      "op77_neuralink"
+      "op77_neuralink",
+      "op77_games"
     ],
     "autoStart": true,
     "watchIntervalMilliseconds": 0,

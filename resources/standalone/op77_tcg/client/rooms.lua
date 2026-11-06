@@ -60,6 +60,9 @@ local function openPanel()
     TriggerServerEvent(NET .. "rooms")
 end
 
+-- The panel is open (client/welcome.lua does not open over it).
+K.roomsOpen = function() return panelOpen end
+
 -- E: the host (open the panel) or the room's door (back up).
 local function interact()
     if framed then return end -- the framework's E fires POINT_EVENT instead

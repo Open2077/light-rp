@@ -61,7 +61,10 @@ if (!inGame) {
     const yaw = (Math.atan2(-(bx - ax), by - ay) * 180) / Math.PI;
     dispatchLocal("map3d:player", { x: ax + (bx - ax) * f, y: ay + (by - ay) * f, z: 20, yaw, camYaw: yaw, speed: q.has("drive") ? 18 : 2, vehicle: q.has("drive") });
   };
+  // ?quality=quality: the 3D city (performance by default, as in game); ?ask=1: the first
+  // opening's question
   setTimeout(() => {
+    dispatchLocal("map3d:quality", { mode: q.get("quality") === "quality" ? "quality" : "performance", chosen: !q.has("ask") });
     if (q.has("theme")) dispatchLocal("map3d:config", { theme: { accent: "#3fe0d0", roadEdge: "#3fe0d0", buildingEdge: "#3fe0d0", terrainGrid: "#3fe0d0" } });
     dispatchLocal("map3d:blips", { set: [
       { id: "a", x: -1188, y: 320, icon: "store", label: "24/7 Store", category: "service", description: "Snacks, water and phone credit." },

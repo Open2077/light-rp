@@ -44,6 +44,7 @@
     var styles = (state.styles && state.styles.length ? state.styles : STYLE_FALLBACK);
     var r = state.room;
     var h = '<div class="rm-head"><span class="rm-dot"></span><span class="rm-kicker">NEON DECK &middot; LEVEL -1</span>' +
+      '<button class="rm-guide" id="rmGuide" title="The NEON DECK guide: cards, binder, lent decks, rooms, tutorial">How NEON DECK works</button>' +
       '<button class="rm-x" id="rmClose" title="Close">&times;</button></div>' +
       '<h2>Private rooms</h2><p class="rm-sub">A room of your own under the shop: a duel table, peace and quiet. Open one, then give the code to your friends.</p>';
     if (r) {
@@ -54,7 +55,7 @@
     } else {
       h += '<div class="rm-section"><span class="rm-kicker">OPEN A ROOM</span></div><div class="rm-styles">';
       styles.forEach(function (s) {
-        h += '<button class="rm-style" data-style="' + esc(s.id) + '"><span class="rm-shot" style="background-image:url(img/rooms/' + esc(s.id) + '.jpg)"><i class="rm-tag-' + esc(s.id) + '"></i></span>' +
+        h += '<button class="rm-style" data-style="' + esc(s.id) + '"><span class="rm-shot" style="background-image:url(' + tcgAsset("img/rooms/" + esc(s.id) + ".jpg") + ')"><i class="rm-tag-' + esc(s.id) + '"></i></span>' +
           "<b>" + esc(s.label) + "</b><small>" + esc(s.blurb) + '</small><span class="rm-go">Open this room</span></button>';
       });
       h += '</div><div class="rm-section"><span class="rm-kicker">JOIN YOUR FRIENDS</span></div>' +
@@ -64,6 +65,8 @@
     h += '<div class="rm-msg" id="rmMsg"></div>';
     p.innerHTML = '<div class="rm-card">' + h + "</div>";
     $("rmClose").onclick = close;
+    // The welcome guide (web/welcome.js, client/welcome.lua): the panel gives way to it.
+    $("rmGuide").onclick = function () { close(); emit("tcg:welcomeOpen", {}); };
     if (r) {
       $("rmLeave").onclick = function () { sfx("ui_menu_onpress"); msg("Going back up..."); emit("tcg:roomLeave", {}); };
     } else {

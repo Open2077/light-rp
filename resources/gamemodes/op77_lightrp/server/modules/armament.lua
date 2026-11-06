@@ -99,16 +99,27 @@ function W.standsAside(player)
         or (LightRP.cyberware and LightRP.cyberware.handlesLoadout and LightRP.cyberware.handlesLoadout(player))
         -- an activity without caps.rpWeapons hands out its own (server/modules/activities.lua)
         or (LightRP.activities and not LightRP.activities.allows(player, "rpWeapons"))
+        -- a temporary kit, whatever the activity's caps (server/modules/activity_kits.lua)
+        or (LightRP.activities and LightRP.activities.handlesLoadout and LightRP.activities.handlesLoadout(player))
         or false
 end
--- During a mission that hands out a kit, the wheel lists the kit's two weapons
--- (instanceId "kit:<slot>"), drawn back by Missions.drawKit.
+-- Who handed this player a kit, a mission or an activity: both answer kitOf and drawKit.
+local function kitSource(player)
+    for _,source in ipairs({LightRP.missions or false,LightRP.activities or false}) do
+        local kit=source and source.kitOf and source.kitOf(player)
+        if kit then return source,kit end
+    end
+end
+-- With a kit, the wheel lists its weapons (instanceId "kit:<slot>"), drawn back by the
+-- source's drawKit. A kit of one weapon lists one.
 local function kitArsenal(player)
-    local kit=LightRP.missions and LightRP.missions.kitOf and LightRP.missions.kitOf(player)
+    local source,kit=kitSource(player)
     if not kit then return nil end
     local names=type(kit.names)=="table" and kit.names or {}
-    return {{slot=1,instanceId="kit:1",name="kit",label=names[1] or tostring(kit.primary),class="kit",kit=true},
-        {slot=2,instanceId="kit:2",name="kit",label=names[2] or tostring(kit.secondary),class="kit",kit=true}}
+    local scope=source==LightRP.activities and "match" or nil
+    local list={{slot=1,instanceId="kit:1",name="kit",label=names[1] or tostring(kit.primary),class="kit",kit=true,kitScope=scope}}
+    if kit.secondary then list[2]={slot=2,instanceId="kit:2",name="kit",label=names[2] or tostring(kit.secondary),class="kit",kit=true,kitScope=scope} end
+    return list
 end
 function W.view(player)
     local rt=W.runtime[player];local inv=Inv.player(player)
@@ -865,9 +876,10 @@ function W.request(player,p)
     elseif operation=="select" and type(p.instanceId)=="string" and fastDraw(player,p) then
         return
     elseif operation=="select" and type(p.instanceId)=="string" and p.instanceId:match("^kit:[12]$") then
-        -- a mission kit weapon from the wheel
-        if not (LightRP.missions and LightRP.missions.drawKit) then ok,error=false,"No mission kit."
-        else ok,error=LightRP.missions.drawKit(player,tonumber(p.instanceId:sub(5))) end
+        -- a kit weapon from the wheel: a mission's or an activity's
+        local source=kitSource(player)
+        if not source then ok,error=false,"No mission kit."
+        else ok,error=source.drawKit(player,tonumber(p.instanceId:sub(5))) end
     elseif operation=="equip" or operation=="unequip" or operation=="ammo" or operation=="select" then
         traceStart(rt,operation)
         ok,error=beginMutation(player,p,function(accepted,why)

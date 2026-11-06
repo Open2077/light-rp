@@ -29,8 +29,19 @@ atlases (`base/gameplay/gui/common/icons/items/item_icons<N>.inkatlas`) with
 WolvenKit; `tools/build-icons.py` rebuilds the whole set from an installed
 game and the platform's `docs/generated/clothing-2.31.json`. Part names follow
 `clothing_player_<slot>_item_<appearanceName>_<Male|Female>_[TPP_]`, matched
-on the record's `appearanceName`. Icons are 128 px tall WebP, about 19 MB for
-both families; the WebUI host serves `.webp` as `image/webp`.
+on the record's `appearanceName`. Icons are 128 px tall WebP, about 29 MB for
+both families.
+
+**The icon files are not shipped with the resource** (2026-11-06): they are served from the
+Open77 CDN, `https://cdn.open77.dev/assets/wardrobe/v1/icons/<m|f>/<short-hash>.webp` (R2 bucket
+`open77`). The manifest stays in the resource (`web/icons/manifest.js`) and keeps the relative
+names, which the server's take-away checks; `web/app.js` (`ICON_CDN`, `iconUrl`) prefixes the CDN
+when it draws an icon, each `<img>` with `loading="lazy"` and `decoding="async"`. The page is
+created with the WebUI policy `"images"` (remote HTTPS images only; `client/main.lua`). After a
+rebuild of the set, upload it under a **new version folder** (the URLs are cached) and bump
+`ICON_CDN`, here and in LightRP's `ui/src/features/inventory/garment.ts`:
+`python tools/upload-cdn-images.py web/icons assets/wardrobe/v2/icons` (light-rp root). The
+built `web/icons/m|f/` folders are git-ignored.
 
 Icon filenames use the first 16 hexadecimal digits of SHA-256 of the clothing
 record ID. The manifest keeps the complete record IDs as keys. This keeps paths

@@ -13,6 +13,8 @@ LightRpSupportConfig = {
         gotoPlayer = "command.lightrp.goto",
         bring = "command.lightrp.bring",
         returnPlayer = "command.lightrp.bring",
+        -- Move a player into another instance (routing bucket), where they stand.
+        setBucket = "command.lightrp.bring",
         heal = "command.lightrp.heal",
         rename = "command.lightrp.setname",
         job = "command.lightrp.setjob",
@@ -32,5 +34,9 @@ LightRpSupportConfig = {
         manekiTeleport = "command.lightrp.maneki",
         manekiEdit = "command.lightrp.manekiedit",
         manekiDelete = "command.lightrp.manekiedit",
+        -- Staff events (server/modules/staff_events.lua): launch / stop / spots / nights for
+        -- fun (no pay), and the paid ones (they pay like a world boss) with the world boss right.
+        events = "command.lightrp.events",
+        eventsPay = "command.worldboss.start",
     },
 }

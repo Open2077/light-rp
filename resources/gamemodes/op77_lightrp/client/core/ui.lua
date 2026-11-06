@@ -95,6 +95,7 @@ function Ui.setMenuOpen(open)
     if Ui.page == nil then return end
     if open and LightRpSafezones and LightRpSafezones.active then return end
     if open and LightRpMissionEditor and LightRpMissionEditor.active then return end
+    if open and LightRpMapEditor and LightRpMapEditor.active then return end
     if open and LightRpMedical and LightRpMedical.isActive() then return end
     if open and (Ui.dialogs.tutorial or Ui.dialogs.support or Ui.dialogs.housing or Ui.dialogs.customization) then return end
     if open and LightRpAnimations then LightRpAnimations.close() end
@@ -199,8 +200,19 @@ function Ui.releaseActionFocus()
     if not Ui.menuOpen and not Ui.promptActive then Ui.page:setFocus(false, false) end
 end
 
+-- The page shows pictures served from the Open77 CDN (cdn.open77.dev): the WebUI policy "images"
+-- lets it load remote HTTPS images (not scripts, fetch or frames). A client that refuses the
+-- option (raises) gets the page without it.
+local function createImagesPage(create, options)
+    options.policy = "images"
+    local called, page, why = pcall(create, options)
+    if called then return page, why end
+    options.policy = nil
+    return create(options)
+end
 function Ui.create()
-    local page, err = WebUI.create({
+    -- the inventory's garment icons come from the CDN (ui/src/features/inventory/garment.ts)
+    local page, err = createImagesPage(WebUI.create, {
         entry = "web/index.html",
         layer = "hud",
         zIndex = 720, -- above open77_chat (700): the F1 menu draws over the chat log
@@ -217,6 +229,9 @@ function Ui.create()
     Ui.page = page
     if LightRpSafezones then LightRpSafezones.bind(page) end
     if LightRpMissionEditor then LightRpMissionEditor.bind(page) end
+    if LightRpMapEditor then LightRpMapEditor.bind(page) end
+    if LightRpParkourClient then LightRpParkourClient.bind(page) end
+    if LightRpParkourEditor then LightRpParkourEditor.bind(page) end
     if LightRpCreator then LightRpCreator.bind(page) end
     if LightRpTutorial then LightRpTutorial.bind(page) end
     if LightRpSupport then LightRpSupport.bind(page) end
@@ -225,6 +240,7 @@ function Ui.create()
     if LightRpHotbar then LightRpHotbar.bind(page) end
     if LightRpWeaponWheel then LightRpWeaponWheel.bind(page) end
     if LightRpMedical then LightRpMedical.bind(page) end
+    if LightRpDeathCover then LightRpDeathCover.bind(page) end
     syncVoiceHud() -- hidden until the authoritative character state is ready
     if LightRpActions then LightRpActions.bind(page) end
     if LightRpAnimations then LightRpAnimations.bind(page) end
@@ -266,6 +282,12 @@ function Ui.create()
         if payload.type == "maneki.map" then
             local ok, why = LightRpManeki and LightRpManeki.showOnMap(payload.id)
             if ok ~= true then Ui.send(E.page.result, { ok = false, text = tostring(why or "The city map is not available."), action = payload.type }) end
+            return
+        end
+        -- F1 > Parkour > GPS: the route to a course's start is local.
+        if payload.type == "parkour.gps" then
+            local ok, why = LightRpParkourClient and LightRpParkourClient.gps(payload.course)
+            Ui.send(E.page.result, { ok = ok == true, text = ok == true and "Route set to the start orb." or tostring(why or "The GPS is not available."), action = payload.type })
             return
         end
         -- The Cyberpunk TCG binder (op77_tcg, client side): the menu closes, the binder takes the mouse.

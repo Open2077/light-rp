@@ -32,22 +32,20 @@
     delete pending[name];
     return { ready: true, value: JSON.parse(entry.parts.join("")) };
   }
-  bridge.on = function (name, handler) {
+  // Some clients hand the page a frozen Open77 ("Cannot assign to read only property 'on'",
+  // 2026-11-05): nothing to wrap there; the app decodes the parts itself (src/bridge.ts).
+  var wrapped = function (name, handler) {
     return on(name, function (payload) {
       var out;
       try { out = decode(name, payload); }
       catch (e) { console.error("[ripperdoc] " + name + " did not decode", e); diag(name + " did not decode: " + e); return; }
       if (!out.ready) return;
-      if (name === "rd:open") {
-        var v = out.value;
-        diag("rd:open received: " + (v && typeof v === "object" ? Object.keys(v).length + " keys, catalogue " +
-          (v.catalogue ? (Array.isArray(v.catalogue) ? v.catalogue.length : "object") : "none") : typeof v));
-      }
       try { return handler(out.value); }
       catch (e) { diag(name + " handler threw: " + e); throw e; }
     });
   };
-  bridge.__partsWrapped = true;
+  try { bridge.on = wrapped; bridge.__partsWrapped = true; }
+  catch (e) { diag("bridge is read-only: the app decodes large messages itself"); }
   }
   if (window.Open77) { wrap(window.Open77); return; }
   // The bridge not injected yet: wrap it the moment it is.

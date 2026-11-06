@@ -113,7 +113,10 @@ LightRP.module("safezones",{
 })
 CreateThread(function()
     while true do
-        for _,raw in ipairs(GetPlayers()) do S.presence(tonumber(raw)) end
+        for index,raw in ipairs(GetPlayers()) do
+            S.presence(tonumber(raw))
+            if index%8==0 then Wait(0) end -- a few players per tick (shared instruction quota)
+        end
         Wait(500)
     end
 end)

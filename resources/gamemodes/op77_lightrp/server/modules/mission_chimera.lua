@@ -200,45 +200,7 @@ end
 -- aside while Missions.handlesLoadout says so, and projects the character's
 -- own weapons again when the mission is over).
 
-local waiting = {} -- "player:request" -> result
-AddEventHandler("open77:weapons:completed", function(player, request, _, accepted, reason, result)
-    waiting[tostring(player) .. ":" .. tostring(request)] = { accepted = accepted, reason = reason, result = result }
-end)
-local function weapons(player, method, ...)
-    if type(Open77.weapons) ~= "table" or type(Open77.weapons[method]) ~= "function" then return nil, "weapons_api_unavailable" end
-    local ok, request, why = pcall(Open77.weapons[method], player, ...)
-    if not ok or not request then return nil, ok and why or request end
-    local key = tostring(player) .. ":" .. tostring(request)
-    local deadline = now() + 10000
-    while not waiting[key] and now() < deadline do Wait(50) end
-    local done = waiting[key]
-    waiting[key] = nil
-    if not done then return nil, "request_timeout" end
-    if not done.accepted then return nil, done.reason end
-    return done.result or true
-end
-local function recordOf(snapshot, slot)
-    for _, row in ipairs(type(snapshot) == "table" and (snapshot.slots or snapshot) or {}) do
-        if type(row) == "table" and tonumber(row.slot) == slot then return row.record end
-    end
-end
--- The kit is in hand when slot 1 holds its primary with rounds in it (a record
--- without ammunition is what a refused draw leaves behind).
-local function armed(snapshot, kit)
-    for _, row in ipairs(type(snapshot) == "table" and (snapshot.slots or snapshot) or {}) do
-        if type(row) == "table" and tonumber(row.slot) == 1 then
-            local a = type(row.ammo) == "table" and row.ammo or {}
-            local rounds = tonumber(a.total) or ((tonumber(a.reserve) or 0) + (tonumber(a.magazine) or 0))
-            return row.record == kit.primary and rounds > 0
-        end
-    end
-    return false
-end
-local function capacityOf(snapshot, slot)
-    for _, row in ipairs(type(snapshot) == "table" and (snapshot.slots or snapshot) or {}) do
-        if type(row) == "table" and tonumber(row.slot) == slot and type(row.ammo) == "table" then return tonumber(row.ammo.capacity) end
-    end
-end
+local weapons, armed = LightRP.kits.weapons, LightRP.kits.armed
 
 -- The kit's reserve back to full on the weapons that ran low (all of them when forced).
 local function resupply(inst, raid, id, force)
@@ -288,33 +250,12 @@ function equip(inst, raid, id)
     raid.again[id] = nil
     local kit = kits[raid.loadouts[id]] or C.loadouts[1]
     CreateThread(function()
-        local function step(method, ...)
-            local result, why = weapons(id, method, ...)
-            if not result and why ~= "weapon_slot_empty" then LightRP.log("raid %s: loadout %s for %s: %s refused (%s)", inst.id, kit.id, name(id), method, tostring(why)) end
-            return result
-        end
         -- A client still loading answers nothing (request_timeout) and then refuses
         -- (queue_full): the sequence is retried until the snapshot shows the kit.
         -- the ready button hands the mouse back to the game: let it settle before drawing
-        Wait(1500)
-        for attempt = 1, 6 do
-            if raids[inst.id] ~= raid or not alive(id) then break end
-            step("clear")
-            step("assign", kit.primary, 1, { active = true, addToInventory = true })
-            step("assign", kit.secondary, 2, { active = false, addToInventory = true })
-            for slot = 1, 2 do
-                step("setAmmo", slot, { reserve = kit.reserve[slot], activate = slot == 1 })
-                local snapshot = step("requestSnapshot")
-                local capacity = capacityOf(snapshot, slot)
-                if capacity then step("setAmmo", slot, { magazine = capacity, activate = slot == 1 }) end
-            end
-            step("setActive", 1)
-            local check = weapons(id, "requestSnapshot")
-            if armed(check, kit) then break end
-            if raid.again[id] then break end
-            LightRP.log("raid %s: loadout %s for %s not in hand (attempt %d), retrying", inst.id, kit.id, name(id), attempt)
-            Wait(3000)
-        end
+        LightRP.kits.deliver(id, kit, { tag = "raid " .. tostring(inst.id) .. ": loadout",
+            live = function() return raids[inst.id] == raid and alive(id) end,
+            again = function() return raid.again[id] end })
         raid.equipping[id] = nil
         if raid.again[id] and raids[inst.id] == raid then equip(inst, raid, id) end
     end)

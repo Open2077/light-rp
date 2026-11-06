@@ -3,15 +3,27 @@ import { useStore } from "@/state/store";
 import { emit, on } from "@/bridge/open77";
 import { PAGE_EVENTS } from "@/bridge/protocol";
 import { RageMenu, isPickable, type RageMenuItem } from "@/design/components";
-import { request, key, list, date, label, type Scope, type TicketList, type Detail, type Overview, type Wire, type Person, type Profile, type Audit, type TableList, type PlacedTable, type ManekiList, type ManekiSpot } from "./api";
+import { request, key, list, date, label, type Scope, type TicketList, type Detail, type Overview, type Wire, type Person, type Profile, type Audit, type TableList, type PlacedTable, type ManekiList, type ManekiSpot, type EventsView, type LiveEvent, type EventSpot, type DeskResult } from "./api";
 import { ActionForm, ProfileCard, AuditEntry, actionLabels, auditLabels } from "./StaffTools";
 import { TableCard, TableActionForm, moneyLine } from "./TableTools";
 import { ManekiCard, ManekiActionForm, sizeLabel } from "./ManekiTools";
+import { eventsMenu, EventFormPanel, isEventPage, LAUNCH_DEFAULT, NIGHT_DEFAULT, type EventPageKind, type EventForm, type LaunchConfig, type NightConfig } from "./EventsTools";
 import { NewReport, MessageForm, SearchForm } from "./SupportForms";
+import { adminSection, contentEntries, playerTools, sectionHasAny, parseCatalog, CommandForm, type AdminKind, type AdminContext, type Catalog, type CommandSpec } from "./AdminMenu";
 import "./support.css";
 
-type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tools"|"tables"|"table"|"maneki"|"manekiSpot"; selected?:string; caseId?:number; person?:Person; history?:Audit[]; table?:PlacedTable; spot?:ManekiSpot };
-type Form = { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players"|"tables"|"maneki" } | { kind:"action"; action:string } | { kind:"tableAction"; action:"tableTeleport"|"tableDelete" } | { kind:"manekiAction"; action:"manekiTeleport"|"manekiDelete" };
+// A player's page: the moves at hand first, then the groups (ids of StaffTools actionLabels and AdminMenu playerTools).
+const PLAYER_QUICK=["gotoPlayer","bring","returnPlayer","setBucket","spectate","heal","reviveHere","tpPlace"];
+const PLAYER_GROUPS:Record<string,{label:string;icon:string;description:string;ids:string[]}>={
+  moderation:{label:"Moderation",icon:"shield-alert",description:"Warning, kick, ban (audited), god mode, kill.",ids:["warn","kick","ban","godOther","kill"]},
+  character:{label:"Character & money",icon:"id-card",description:"Name, job, affiliation, money (audited), needs, street cred, account.",ids:["rename","job","gang","credit","debit","needsOther","cred","acc"]},
+  give:{label:"Give",icon:"package",description:"A weapon (into their wheel) and rounds, an item, a vehicle for their garage or beside them.",ids:["giveWeapon","giveAmmo","theirWeapons","takeWeapon","giveItem","giveVehicle","spawnBeside"]},
+  activities:{label:"Missions & activities",icon:"swords",description:"Fixer gig, their running mission, daily contracts, their TCG room.",ids:["gig","missionWin","missionFail","dailies","roomExit"]},
+};
+const PATH_LABELS:Record<string,string>={root:"Admin",tickets:"Reports",ticket:"Case",players:"Players",player:"Player",vehicleList:"Models",items:"Items",weapons:"Weapons",ammo:"Ammo",teleport:"Teleport",self:"Tools",missions:"Missions",events:"Events",content:"Places",history:"History",voice:"Voice",bosses:"Bosses",gigs:"Gigs",contracts:"Contracts",manekiSpot:"Cat",table:"Table",tables:"Tables"};
+const ADMIN_KINDS:AdminKind[]=["self","teleport","vehicles","vehicleList","items","itemList","weapons","weaponClass","ammo","world","time","weather","voice","missions","bosses","gigs","contracts","server"];
+type Page = { kind:"root"|"tickets"|"ticket"|"assign"|"players"|"player"|"history"|"tables"|"table"|"maneki"|"manekiSpot"|"content"|"playerGroup"|AdminKind|EventPageKind; selected?:string; caseId?:number; person?:Person; history?:Audit[]; table?:PlacedTable; spot?:ManekiSpot; category?:string; event?:LiveEvent; place?:EventSpot };
+type Form = { kind:"command"; spec:CommandSpec } | { kind:"new"; body:string } | { kind:"message"; action:string } | { kind:"search"; target:"tickets"|"players"|"tables"|"maneki" } | { kind:"action"; action:string } | { kind:"tableAction"; action:"tableTeleport"|"tableDelete" } | { kind:"manekiAction"; action:"manekiTeleport"|"manekiDelete" } | { kind:"event"; form:EventForm };
 type Entry = RageMenuItem & { run?:()=>void; change?:(patch:Partial<RageMenuItem>)=>void };
 const filters=["active","open","in_progress","waiting_player","finished","all"];
 const filterNames=["Active","Waiting","In progress","Need reply","Finished","All"];
@@ -37,6 +49,8 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const [filter,setFilter]=useState(0),[mine,setMine]=useState(false),[query,setQuery]=useState(""),[citizenQuery,setCitizenQuery]=useState(""),[page,setPage]=useState(1);
   const [tables,setTables]=useState<TableList>(),[tablePage,setTablePage]=useState(1),[tableSort,setTableSort]=useState(0),[tableQuery,setTableQuery]=useState(""),[tableDetail,setTableDetail]=useState<TableList>();
   const [cats,setCats]=useState<ManekiList>(),[catPage,setCatPage]=useState(1),[catSort,setCatSort]=useState(1),[catQuery,setCatQuery]=useState(""),[catDetail,setCatDetail]=useState<ManekiList>();
+  const [catalog,setCatalog]=useState<Catalog>();
+  const [events,setEvents]=useState<EventsView>(),[launchCfg,setLaunchCfg]=useState<LaunchConfig>(LAUNCH_DEFAULT),[nightCfg,setNightCfg]=useState<NightConfig>(NIGHT_DEFAULT);
   const [epoch,setEpoch]=useState(0),[error,setError]=useState(""),[feedback,setFeedback]=useState(""),[busy,setBusy]=useState(false),[showConversation,setShowConversation]=useState(true);
   const top=stack[stack.length-1]!,panel=useRef<HTMLElement>(null),menu=useRef<HTMLDivElement>(null),working=useRef(false);
   const mutation=useRef<{signature:string;key:string}>();
@@ -45,6 +59,17 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const back=()=>{setError("");setFeedback("");if(form){setForm(null);return;}if(stack.length>1)setStack(s=>s.slice(0,-1));else close();};
   useEffect(()=>{if(initialDraft!==undefined)setForm({kind:"new",body:initialDraft});},[initialDraft]);
   useEffect(()=>on<Wire>(PAGE_EVENTS.support,p=>{if(p.kind==="changed")refresh();if(p.kind==="draft")setForm({kind:"new",body:p.body||""});}),[refresh]);
+  // The answer of a command run from the admin menu (or typed while it is open).
+  useEffect(()=>on<{kind?:string;ok?:boolean;text?:string;raw?:string}>(PAGE_EVENTS.support,p=>{
+    if(p.kind!=="commandResult")return;
+    const text=(p.text||"").trim()||(p.ok?"Done.":"Refused.");
+    if(p.ok){setError("");setFeedback(text);}else{setFeedback("");setError(text);}
+  }),[]);
+  useEffect(()=>{
+    let live=true;
+    if(staff&&!catalog)request<Parameters<typeof parseCatalog>[0]>("adminCatalog").then(v=>{if(live)setCatalog(parseCatalog(v));},()=>{});
+    return()=>{live=false;};
+  },[staff,catalog]);
   useEffect(()=>{const timer=setInterval(()=>{if(document.visibilityState!=="hidden")refresh();},12000);return()=>clearInterval(timer);},[refresh]);
   useEffect(()=>{
     let live=true;
@@ -80,6 +105,28 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
       if(r.close){close();return;}
       setFeedback(r.message);refresh();
     }catch(e){setError((e as Error).message);}finally{working.current=false;setBusy(false);}
+  };
+  const eventPage=isEventPage(top.kind);
+  useEffect(()=>{
+    let live=true;if(eventPage)request<EventsView>("events").then(v=>{if(live){setEvents(v);setError("");}},e=>{if(live){setEvents(undefined);setError(e.message);}});
+    return()=>{live=false;};
+  },[eventPage,top.kind,epoch]);
+  // a desk action with no form of its own (go to, random world bosses): one request, its answer shown
+  const eventDirect=async(action:string,extra:Record<string,unknown>={},after?:()=>void)=>{
+    if(working.current)return;working.current=true;setBusy(true);setError("");setFeedback("");
+    try{
+      const r=await request<DeskResult>("eventsAction",{action,confirmed:true,mutation:key(),...extra});
+      if(r.accepted){setFeedback(r.message);after?.();}else setError(r.message);refresh();
+    }catch(e){setError((e as Error).message);}finally{working.current=false;setBusy(false);}
+  };
+  // One desk request applied at once (owner, 2026-11-05: no confirmation, no reason): its answer
+  // shows under the menu; `after` runs on success.
+  const fast=async(operation:string,payload:Record<string,unknown>,after?:()=>void)=>{
+    if(working.current)return;working.current=true;setBusy(true);setError("");setFeedback("");
+    try{
+      const r=await request<{accepted?:boolean;outcome?:string;message?:string}>(operation,{confirmed:true,mutation:key(),reason:"",...payload});
+      if(r.accepted!==false&&r.outcome!=="failed"){setFeedback(r.message||"Done.");after?.();}else setError(r.message||"Refused.");
+    }catch(e){setError((e as Error).message);}finally{working.current=false;setBusy(false);refresh();}
   };
   const caseId=top.caseId;
   useEffect(()=>{
@@ -138,23 +185,48 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const openCitizen=(person:Person)=>{setProfile(undefined);push({kind:"player",person});};
   const item=(id:string,text:string,run:()=>void,options:Partial<Entry>={}):Entry=>({id,text,run,...options});
   const submenu=(id:string,text:string,run:()=>void,options:Partial<Entry>={}):Entry=>item(id,text,run,{type:"submenu",...options});
-  let title="LIGHT/RP",subtitle=staff?"STAFF MENU":"PLAYER SUPPORT",entries:Entry[]=[],content:ReactNode=null;
+  const granted=new Set(String((overview as {commands?:string}|undefined)?.commands||"").split(",").filter(Boolean));
+  const runCommand=(tokens:string[],options:{close?:boolean}={})=>{setError("");setFeedback(`Sent: /${tokens.join(" ")}`);emit(PAGE_EVENTS.support,{operation:"command",tokens,close:options.close===true});};
+  const ctx:AdminContext={
+    can:name=>granted.has(name),catalog,item,submenu,
+    run:(tokens,options={})=>runCommand(tokens,options),
+    // a command with nothing to fill runs at once (no confirmation step)
+    form:spec=>{setError("");setFeedback("");if(!spec.fields.length){runCommand(spec.build({}),{close:spec.close});return;}setForm({kind:"command",spec});},
+    open:(kind,extra={})=>push({kind,...extra}),
+  };
+  let title="LIGHT/RP",subtitle=staff?"ADMIN MENU":"PLAYER SUPPORT",entries:Entry[]=[],content:ReactNode=null;
   const loading:Entry={id:"loading",text:"Loading…",disabled:true};
   if(top.kind==="root"){
+    const section=(kind:AdminKind,text:string,icon:string,description:string)=>sectionHasAny(ctx,kind)?[submenu(kind,text,()=>push({kind}),{icon,description})]:[];
+    const places=overview?.permissions.tables||overview?.permissions.maneki||overview?.permissions.housing||overview?.permissions.safezones||ctx.can("lightrp.board")||ctx.can("lightrp.guide");
     entries=staff?[
       submenu("reports","Reports",()=>push({kind:"tickets"}),{icon:"message-square",disabled:!overview?.permissions.reports,description:"Take a case, answer the player and track its progress."}),
-      submenu("citizens","Citizens",()=>push({kind:"players"}),{icon:"users",meta:String(list(overview?.players).length),disabled:!overview,description:"RP records, moderation and character interventions."}),
+      submenu("citizens","Players",()=>push({kind:"players"}),{icon:"users",meta:String(list(overview?.players).length),disabled:!overview,description:"Every connected player: RP record, interventions, spectate, give items or vehicles, missions."}),
+      {id:"rootSep",separator:true} as Entry,
+      ...section("self","Personal tools","user","Noclip, fly, god mode, heal, the platform console."),
+      ...section("teleport","Teleport","navigation","Places, coordinates, the map; bring everyone."),
+      ...section("vehicles","Vehicles","car","Spawn, repair, refuel, impound, clean up."),
+      ...section("items","Items & weapons","package","Every item of the server, weapons and rounds included."),
+      ...section("world","World","cloud-sun","Time, weather, announcements, voice broadcast."),
+      ...(sectionHasAny(ctx,"missions")||overview?.permissions.events?[submenu("missions","Missions & events",()=>push({kind:"missions"}),{icon:"swords",description:"Mission editor, staff events (cyberpsychos, gang attacks, event nights), world bosses, fixer gigs, contracts, turf."})]:[]),
+      ...(places?[submenu("content","Places & content",()=>push({kind:"content"}),{icon:"building-2",description:"Housing, safe zones, Maneki-neko, placed tables, the world's NPC fixtures."})]:[]),
+      ...section("server","Server","server","Status, ambient bots, bulk actions."),
       ...(overview?.permissions.audit?[submenu("history","Staff history",()=>{setHistoryPage(1);push({kind:"history"});},{icon:"file-text",description:"Who acted, why and whether the intervention completed."})]:[]),
-      submenu("tools","Personal tools",()=>push({kind:"tools"}),{icon:"shield",disabled:!overview,description:"Noclip, god mode and the advanced console."}),
-      ...(overview?.permissions.tables?[submenu("tables","Placed tables",()=>{setTablePage(1);push({kind:"tables"});},{icon:"box",description:"Every placed board and casino table: owner, seats, open stakes. Go to one or remove it."})]:[]),
-      ...(overview?.permissions.maneki?[submenu("maneki","Maneki-neko",()=>{setCatPage(1);push({kind:"maneki"});},{icon:"coins",description:"The hidden lucky cats: hide new ones with the placement tool, list, visit or remove them."})]:[]),
-      ...(overview?.permissions.housing?[submenu("housing","Housing",()=>{close();emit(PAGE_EVENTS.action,{type:"housing.open",admin:true});},{icon:"map-pin",description:"Interior templates, dwellings and resident assignments."})]:[]),
-      ...(overview?.permissions.safezones?[submenu("safezones","Safe zones",()=>{close();emit(PAGE_EVENTS.safezones,{operation:"open"});},{icon:"shield",description:"Create and edit world-space PvP protection zones."})]:[]),
     ]:[submenu("reports","My reports",()=>push({kind:"tickets"}),{icon:"message-square",description:"Private conversations with staff, including closed cases."}),item("new","New report",()=>setForm({kind:"new",body:""}),{icon:"message-square",description:"Describe a problem and follow its handling here."})];
     entries.push({separator:true},item("refresh","Refresh",refresh,{icon:"activity"}),item("close","Close menu",close,{icon:"x"}));
-  }else if(top.kind==="tools"){
-    title="PERSONAL TOOLS";
-    entries=([["noclip","Noclip"],["god","God mode"],["advanced","Advanced console"]] as const).filter(([a])=>overview?.permissions[a]).map(([action,text])=>item(action,text,()=>emit(PAGE_EVENTS.support,{operation:"native",action}),{description:"Uses your server permissions. The menu closes when this tool starts."}));
+  }else if(ADMIN_KINDS.includes(top.kind as AdminKind)){
+    const s=adminSection(ctx,top.kind as AdminKind,{category:top.category});
+    title=s.title;subtitle=s.subtitle;entries=overview?s.entries:[loading];
+    // the staff events hub (EventsTools): launched where staff wants, nights, saved spots
+    if(top.kind==="missions"&&overview?.permissions.events)entries.splice(Math.min(1,entries.length),0,submenu("events","Staff events",()=>push({kind:"events"}),{icon:"siren",description:"World bosses, cyberpsychos and gang attacks where you want them, event nights, saved spots. For fun or paid."}));
+  }else if(top.kind==="content"){
+    title="PLACES & CONTENT";subtitle="EDITORS · FIXTURES";
+    entries=contentEntries(ctx,[
+      ...(overview?.permissions.tables?[submenu("tables","Placed tables",()=>{setTablePage(1);push({kind:"tables"});},{icon:"box",description:"Every placed board and casino table: owner, seats, open stakes. Go to one or remove it."})]:[]),
+      ...(overview?.permissions.maneki?[submenu("maneki","Maneki-neko",()=>{setCatPage(1);push({kind:"maneki"});},{icon:"coins",description:"The hidden lucky cats: hide new ones with the placement tool, list, visit or remove them."})]:[]),
+      ...(overview?.permissions.housing?[submenu("housing","Housing",()=>{close();emit(PAGE_EVENTS.action,{type:"housing.open",admin:true});},{icon:"house",description:"Interior templates, dwellings and resident assignments."})]:[]),
+      ...(overview?.permissions.safezones?[submenu("safezones","Safe zones",()=>{close();emit(PAGE_EVENTS.safezones,{operation:"open"});},{icon:"shield",description:"Create and edit world-space PvP protection zones."})]:[]),
+    ]);
   }else if(top.kind==="tickets"){
     title=staff?"REPORTS":"MY REPORTS";subtitle=`${cases?.total??"—"} CASES · PAGE ${page}`;
     entries=[{id:"filter",text:"Status",type:"list",options:filterNames,index:filter,change:p=>{setCases(undefined);setFilter(p.index||0);setPage(1);},description:"Use left / right to include finished cases."},
@@ -186,14 +258,27 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     title="ASSIGN CASE";subtitle=`CASE #${caseId}`;
     entries=list(overview?.staff).map(p=>item(`assign:${p.id}`,p.name,()=>{void mutate("assign","",{assignee:p.id}).then(ok=>{if(ok)back();});},{disabled:busy,description:"Transfer this case to this connected admin."}));
   }else if(top.kind==="players"){
-    title="CITIZENS";subtitle=`${list(overview?.players).length} CONNECTED`;
+    title="PLAYERS";subtitle=`${list(overview?.players).length} CONNECTED`;
     const people=list(overview?.players).filter(p=>`${p.id} ${p.name} ${p.accountName} ${p.job.label}`.toLowerCase().includes(citizenQuery.toLowerCase()));
-    entries=[item("search","Search citizens",()=>setForm({kind:"search",target:"players"}),{icon:"search",meta:citizenQuery||"ALL"}),{separator:true},...people.map(p=>submenu(`citizen:${p.account}:${p.character}`,`#${p.id} ${p.name}`,()=>openCitizen(p),{meta:p.life,description:`${p.accountName} · ${p.job.label} · ${p.gang.label}`})),...(!people.length?[{id:"empty",text:"No matching citizens",disabled:true}]:[]),item("refresh","Refresh",refresh)];
-  }else if(top.kind==="player"){
-    title="CITIZEN";subtitle=currentProfile?`#${currentProfile.id} · ${currentProfile.name}`:"Loading RP record";
+    entries=[item("search","Search players",()=>setForm({kind:"search",target:"players"}),{icon:"search",meta:citizenQuery||"ALL"}),{separator:true},...people.map(p=>submenu(`citizen:${p.account}:${p.character}`,`#${p.id} ${p.name}`,()=>openCitizen(p),{meta:p.life,description:`${p.accountName} · ${p.job.label} · ${p.gang.label}`})),...(!people.length?[{id:"empty",text:"No matching citizens",disabled:true}]:[]),item("refresh","Refresh",refresh)];
+  }else if(top.kind==="player"||top.kind==="playerGroup"){
+    title=top.kind==="player"?"PLAYER":`PLAYER · ${(PLAYER_GROUPS[top.category||""]?.label||"").toUpperCase()}`;
+    subtitle=currentProfile?`#${currentProfile.id} · ${currentProfile.name}`:"Loading RP record";
     if(!currentProfile)entries=[loading];else{
-      entries=Object.entries(actionLabels).filter(([a])=>overview?.permissions[a]&&(a!=="returnPlayer"||currentProfile.canReturn)).map(([a,text])=>submenu(a,text,()=>setForm({kind:"action",action:a}),{danger:["kick","ban","debit"].includes(a),description:`${currentProfile.name} · A reason and confirmation are required.`}));
-      if(overview?.permissions.audit)entries.push(submenu("history","Recent interventions",()=>push({kind:"history",history:currentProfile.history})));
+      // The audited LightRP interventions (a reason, a confirmation, the staff history) and the
+      // platform / LightRP admin tools, sorted into a few groups so the page stays short.
+      const p=currentProfile,instant=new Set(["gotoPlayer","bring","returnPlayer","heal","warn","kick"]);
+      const audited=Object.entries(actionLabels).filter(([a])=>a!=="announce"&&overview?.permissions[a]&&(a!=="returnPlayer"||p.canReturn)).map(([a,text])=>instant.has(a)
+        ?item(a,text,()=>{void fast("adminAction",{action:a,target:p.id,account:p.account,character:p.character});},{danger:a==="kick",disabled:busy,description:`${p.name} · at once.`})
+        :submenu(a,text,()=>setForm({kind:"action",action:a}),{danger:["ban","debit"].includes(a),description:`${p.name}`}));
+      const all=[...audited,...playerTools(ctx,currentProfile)],byId=new Map(all.map(e=>[e.id,e]));
+      const pick=(ids:string[])=>ids.map(id=>byId.get(id)).filter((e):e is Entry=>!!e);
+      if(top.kind==="player"){
+        entries=pick(PLAYER_QUICK);
+        const groups=Object.entries(PLAYER_GROUPS).filter(([,g])=>pick(g.ids).length);
+        if(groups.length)entries.push({id:"groupsSep",separator:true} as Entry,...groups.map(([key,g])=>submenu(`group:${key}`,g.label,()=>push({kind:"playerGroup",person:top.person,category:key}),{icon:g.icon,meta:String(pick(g.ids).length),description:g.description})));
+        if(overview?.permissions.audit)entries.push(submenu("history","Recent interventions",()=>push({kind:"history",history:currentProfile.history}),{icon:"file-text"}));
+      }else entries=pick(PLAYER_GROUPS[top.category||""]?.ids||[]);
       content=<ProfileCard profile={currentProfile}/>;
     }
   }else if(top.kind==="tables"){
@@ -213,8 +298,9 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     if(!tableDetail)entries=[loading];
     else if(!live)entries=[{id:"gone",text:"This table no longer exists",disabled:true}];
     else entries=[
-      ...(tableDetail?.canTeleport?[submenu("tableTeleport","Go to table",()=>setForm({kind:"tableAction",action:"tableTeleport"}),{icon:"navigation",description:"Teleport beside the table, facing it. A reason is recorded."})]:[]),
-      ...(tableDetail?.canDelete?[submenu("tableDelete","Remove table",()=>setForm({kind:"tableAction",action:"tableDelete"}),{icon:"trash-2",danger:true,description:"Refunds open stakes, unseats players, optionally gives the item back. A reason is recorded."})]:[]),
+      ...(tableDetail?.canTeleport?[item("tableTeleport","Go to table",()=>{void fast("tableAction",{action:"tableTeleport",table:live.id,kind:live.kind,returnItem:false});},{icon:"navigation",disabled:busy,description:"Beside the table, facing it."})]:[]),
+      ...(tableDetail?.canDelete?[item("tableDelete","Remove table (item back to its owner)",()=>{void fast("tableAction",{action:"tableDelete",table:live.id,kind:live.kind,returnItem:true},()=>{setTables(undefined);setStack(s=>s.slice(0,-1));});},{icon:"trash-2",danger:true,disabled:busy,description:"Refunds open stakes, unseats players, the item goes back to the owner."}),
+        item("tableDeleteKeep","Remove table (keep the item)",()=>{void fast("tableAction",{action:"tableDelete",table:live.id,kind:live.kind,returnItem:false},()=>{setTables(undefined);setStack(s=>s.slice(0,-1));});},{icon:"trash-2",danger:true,disabled:busy,description:"Refunds open stakes, unseats players, the item is NOT given back."})]:[]),
       item("refresh","Refresh table",refresh)];
     content=<TableCard table={t}/>;
   }else if(top.kind==="maneki"){
@@ -238,10 +324,18 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
     if(!catDetail)entries=[loading];
     else if(!live)entries=[{id:"gone",text:"This cat no longer exists",disabled:true}];
     else entries=[
-      ...(catDetail.canTeleport?[submenu("manekiTeleport","Go to this cat",()=>setForm({kind:"manekiAction",action:"manekiTeleport"}),{icon:"navigation",description:"Teleport a step in front of it. A reason is recorded."})]:[]),
-      ...(catDetail.canEdit?[submenu("manekiDelete","Remove this cat",()=>setForm({kind:"manekiAction",action:"manekiDelete"}),{icon:"trash-2",danger:true,description:"It disappears for everyone. A reason is recorded."})]:[]),
+      ...(catDetail.canTeleport?[item("manekiTeleport","Go to this cat",()=>{void fast("manekiAction",{action:"manekiTeleport",id:live.id});},{icon:"navigation",disabled:busy,description:"A step in front of it."})]:[]),
+      ...(catDetail.canEdit?[item("manekiDelete","Remove this cat",()=>{void fast("manekiAction",{action:"manekiDelete",id:live.id},()=>{setCats(undefined);setStack(s=>s.slice(0,-1));});},{icon:"trash-2",danger:true,disabled:busy,description:"It disappears for everyone."})]:[]),
       item("refresh","Refresh",refresh)];
     content=<ManekiCard spot={c}/>;
+  }else if(isEventPage(top.kind)){
+    const m=eventsMenu({page:{kind:top.kind,selected:top.selected,event:top.event,spot:top.place},view:events,players:list(overview?.players),busy,
+      launch:launchCfg,setLaunch:patch=>setLaunchCfg(c=>({...c,...patch})),night:nightCfg,setNight:patch=>setNightCfg(c=>({...c,...patch})),
+      push:p=>push({kind:p.kind,event:p.event,place:p.spot}),openForm:f=>{setError("");setForm({kind:"event",form:f});},direct:(a,x)=>{
+        // launched, ended, removed: back to the events hub (a spot removed: its list), as the panels did
+        const back=["launch","night","stop","win","spotDelete"].includes(a)?()=>setStack(s=>{const i=s.findIndex(p=>p.kind==="events");return i>=0?s.slice(0,a==="spotDelete"?i+2:i+1):s;}):undefined;
+        void eventDirect(a,x,back);},item,submenu});
+    title=m.title;subtitle=m.subtitle;entries=m.entries;content=m.content;
   }else if(top.kind==="history"){
     title="STAFF HISTORY";subtitle=top.history?"SELECTED CITIZEN":`PAGE ${historyPage}`;
     const rows=top.history||list(history?.entries);
@@ -254,15 +348,24 @@ function Desk({scope,initialDraft,close}:{scope:Scope;initialDraft?:string;close
   const selected=entries.findIndex(e=>e.id===top.selected&&isPickable(e));
   const index=selected>=0?selected:Math.max(0,entries.findIndex(isPickable));
   const cancel=()=>{setForm(null);setError("");};
-  if(form?.kind==="new")content=<NewReport initial={form.body} onCancel={cancel} onCreated={id=>{setForm(null);setDetail(undefined);setStack([{kind:"root",selected:"reports"},{kind:"tickets"},{kind:"ticket",caseId:id}]);refresh();}}/>;
+  if(form?.kind==="command")content=<CommandForm key={form.spec.title} spec={form.spec} onCancel={cancel} onRun={tokens=>{const close=form.spec.close;setForm(null);ctx.run(tokens,{close});}}/>;
+  else if(form?.kind==="new")content=<NewReport initial={form.body} onCancel={cancel} onCreated={id=>{setForm(null);setDetail(undefined);setStack([{kind:"root",selected:"reports"},{kind:"tickets"},{kind:"ticket",caseId:id}]);refresh();}}/>;
   else if(form?.kind==="search")content=<SearchForm initial={form.target==="tickets"?query:form.target==="tables"?tableQuery:form.target==="maneki"?catQuery:citizenQuery} onCancel={cancel} onSave={value=>{if(form.target==="tickets"){setCases(undefined);setQuery(value);setPage(1);}else if(form.target==="tables"){setTables(undefined);setTableQuery(value);setTablePage(1);}else if(form.target==="maneki"){setCats(undefined);setCatQuery(value);setCatPage(1);}else setCitizenQuery(value);cancel();}}/>;
   else if(form?.kind==="tableAction"&&top.table){const t=list(tableDetail?.tables).find(r=>r.id===top.table!.id)||top.table;content=<TableActionForm key={form.action} action={form.action} table={t} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);if(form.action==="tableDelete"){setTables(undefined);setStack(s=>s.slice(0,-1));}refresh();}}/>;}
   else if(form?.kind==="manekiAction"&&top.spot){const c=list(catDetail?.spots).find(r=>r.id===top.spot!.id)||top.spot;content=<ManekiActionForm key={form.action} action={form.action} spot={c} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);if(form.action==="manekiDelete"){setCats(undefined);setStack(s=>s.slice(0,-1));}refresh();}}/>;}
+  else if(form?.kind==="event"&&events){
+    const f=form.form;
+    content=<EventFormPanel key={JSON.stringify(f)} form={f} view={events} launch={launchCfg} night={nightCfg} players={list(overview?.players)} onCancel={cancel} onDone={message=>{
+      setFeedback(message);setForm(null);
+      // launched, ended or removed: back to the events hub (a spot saved stays on the spots)
+      if(f.kind==="launch"||f.kind==="night"||(f.kind==="confirm"&&f.action!=="nightStop"))setStack(s=>{const i=s.findIndex(p=>p.kind==="events");return i>=0?s.slice(0,f.kind==="confirm"&&f.action==="spotDelete"?i+2:i+1):s;});
+      refresh();}}/>;
+  }
   else if(form?.kind==="message")content=<MessageForm action={form.action} busy={busy} onCancel={cancel} onSend={async body=>{if(await mutate(form.action,body))setForm(null);}}/>;
   else if(form?.kind==="action"&&currentProfile&&overview)content=<ActionForm action={form.action} person={currentProfile} overview={overview} onCancel={cancel} onDone={message=>{setFeedback(message);setForm(null);refresh();}}/>;
-  return <section className="rp-support" aria-label={staff?"LightRP staff menu":"Reports and support"}>
+  return <section className="rp-support" aria-label={staff?"LightRP admin menu":"Reports and support"}>
     <div className="rp-support__menu" ref={menu} tabIndex={-1}>
-      <RageMenu title={title} subtitle={subtitle} tag={staff?"STAFF":"SUPPORT"} items={entries} index={index} path={stack.map(p=>p.kind.toUpperCase())} width={350} visibleRows={9} active={!form}
+      <RageMenu title={title} subtitle={subtitle} tag={staff?"ADMIN":"SUPPORT"} items={entries} index={index} path={stack.map(p=>(PATH_LABELS[p.kind]||(p.kind==="itemList"||p.kind==="playerGroup"||p.kind==="weaponClass"?String(p.category||p.kind):p.kind)).toUpperCase())} width={350} visibleRows={9} active={!form}
         onIndexChange={i=>setStack(s=>s.map((p,n)=>n===s.length-1?{...p,selected:entries[i]?.id}:p))}
         onSelect={(_,i)=>entries[i]?.run?.()} onChange={(_,i,patch)=>entries[i]?.change?.(patch)} onBack={back}
         footer={<><span>↑↓ MOVE</span><span>←→ CHANGE</span><span>ENTER SELECT</span><span>BKSP / ESC BACK</span></>}/>

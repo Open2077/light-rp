@@ -1,12 +1,14 @@
 /* The contract between this page and the client Lua (client/core/ui.lua), and the
    shapes the server pushes through it. Mirror of shared/events.lua: change both. */
 import type { DogtownState } from "@/features/dogtown/model";
+import type { ParkourDialogPayload } from "@/features/parkour/model";
 
 export const PAGE_EVENTS = {
   customization: "lightrp:ui:customization",
   armament: "lightrp:ui:armament",
   safezones: "lightrp:ui:safezones",
   missionEditor: "lightrp:ui:missioneditor",
+  mapEditor: "lightrp:ui:mapeditor",
   support: "lightrp:ui:support",
   animationsAction: "lightrp:ui:animations:action",
   animationsState: "lightrp:ui:animations:state",
@@ -22,9 +24,14 @@ export const PAGE_EVENTS = {
   dialogClose: "lightrp:ui:dialog:close", // Lua -> page: { kind } close that dialog
   creator: "lightrp:ui:creator",
   tutorial: "lightrp:ui:tutorial",
+  tutorialGuide: "lightrp:ui:tutorialguide", // Lua -> page: GuideMessage, the way to the objective (client/core/tutorial_guide.lua)
   jobRun: "lightrp:ui:jobrun", // Lua -> page: JobRunLive
   freecam: "lightrp:ui:freecam", // page -> Lua: { operation: "toggle" }; Lua -> page: FreecamState
   maneki: "lightrp:ui:maneki", // Lua -> page: ManekiToolState (client/core/maneki_editor.lua)
+  arrivalTour: "lightrp:ui:arrivaltour", // Lua -> page: ArrivalTourMessage | false, the square's camera tour (client/core/arrival_tour.lua)
+  staffAnnounce: "lightrp:ui:staffannounce", // Lua -> page: StaffBroadcastMessage (client/core/staff_announce.lua)
+  parkour: "lightrp:ui:parkour", // Lua -> page: the run HUD, the course card's leaderboard (client/core/parkour.lua); page -> Lua: { op }
+  parkourEditor: "lightrp:ui:parkoureditor", // page <-> Lua: the staff parkour editor (client/core/parkour_editor.lua)
   characterEditor: "lightrp:ui:character:editor", // Lua -> page: native editor handoff { active, error? }
   state: "lightrp:ui:state",
   hud: "lightrp:ui:hud",
@@ -167,6 +174,8 @@ export interface UiState {
 
   /** Arena, races, chases, events and The Crossing (server/modules/activities.lua A.view). */
   activities?: ActivitiesState;
+  /** The game rooms (server/modules/activity_rooms.lua R.view). */
+  rooms?: RoomsState;
   /** The Dogtown PvP zone (server/modules/dogtown.lua; features/dogtown). */
   dogtown?: DogtownState;
   /** A world boss whose zone you are in, or that you fought (server/modules/world_bosses.lua). */
@@ -221,6 +230,10 @@ export interface WorldBossState {
   id: string; title: string; location: string; boss: string; phase: "fight" | "cleanup" | "done";
   bossHealth: number; enemiesLeft: number; fighters: number; endsInMs?: number;
   share: number; minShare: number; eligible: boolean; damage: number; kills: number; reward: number; inZone: boolean;
+  /** The event's tag (WORLD BOSS, CYBERPSYCHO, GANG ATTACK: server/config/staff_events.lua). */
+  tag?: string;
+  /** A staff event for fun: nothing is paid or counted. */
+  noPay?: boolean;
   result?: { success: boolean; share: number; pay: number; eligible: boolean; damage: number; kills: number } | null;
 }
 export interface FixerGigState {
@@ -327,6 +340,32 @@ export interface ActivitiesState {
   crewLeader?: string;
 }
 export type ActivitiesTab = "activities" | "contracts" | "dailies" | "crew";
+
+/* ── Game rooms (server/modules/activity_rooms.lua): a friendly with no crew requirement ── */
+/** What can be hosted now. Labels, maps and limits come from the `activities` list.
+ *  `least` / `most`: the range of `size`, per side with `teams`, the whole room without. */
+export interface RoomGame { id: string; teams?: number; least: number; most: number }
+/** A public room, as the browse list shows it. */
+export interface RoomListing {
+  id: number; activity: string; label: string; mode?: string; modeLabel?: string; host: string; count: number; max: number; teams?: number;
+}
+export interface RoomPlayer { id: number; name: string; host?: boolean }
+/** The room this player is in. `code`: a private room's. `mine`: this player hosts. */
+export interface RoomView {
+  id: number; activity: string; label: string; mode?: string; modeLabel?: string; host: string; count: number; max: number;
+  private: boolean; code?: string; mine: boolean; size: number; least?: number; most?: number;
+  /** Why it cannot start yet. */
+  issue?: string;
+  teams?: RoomPlayer[][]; players?: RoomPlayer[];
+}
+export interface RoomsState {
+  enabled: boolean;
+  /** Free to host or join, else the reason in one sentence. */
+  eligible: boolean; reason?: string;
+  /** The server's room limit is reached. */
+  full: boolean;
+  games: RoomGame[]; list: RoomListing[]; room: false | RoomView;
+}
 
 /** The Hall of Fame at The Crossing (server/modules/halloffame.lua): one tab per
  *  dialog payload, from the server cache. Names are character names only. */
@@ -565,8 +604,9 @@ export type ArmamentOperation = "state" | "equip" | "unequip" | "holster" | "amm
 export interface ArsenalWeapon {
   slot: number; instanceId: string; name: string; label: string; class?: string; ammo?: string; ammoLabel?: string;
   rounds?: number; image?: string; dual?: boolean; hand?: "right" | "left";
-  /** A mission kit weapon (instanceId "kit:1" / "kit:2"), during a mission. */
+  /** A temporary kit weapon (instanceId "kit:1" / "kit:2"): a mission's, or a match's with kitScope "match". */
   kit?: boolean;
+  kitScope?: "match";
 }
 export interface ArmamentWeapon {
   instanceId: string; name: string; label: string; record: string; nativeSlot: 1 | 4;
@@ -685,8 +725,8 @@ export interface FuelDialogPayload {
   money: { currency: string; cash: number; bank: number };
 }
 export interface FuelVehicle { id: number; label: string; litres: number; capacity: number; moving: boolean; engineOn?: boolean; unavailable?: string; distance?: number }
-export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload
-  | RecapDialogPayload | DailiesDialogPayload | ManekiDialogPayload;
+export type DialogPayload = MissionDialogPayload | RentalDialogPayload | InventoryDialogPayload | ShopDialogPayload | JobCenterDialogPayload | GarageDialogPayload | DealershipDialogPayload | FuelDialogPayload | { kind: "support"; scope: "player" | "staff"; body?: string } | { kind: "housing"; admin: boolean } | { kind: "activities"; tab?: ActivitiesTab } | HallOfFameDialogPayload | GuideDialogPayload | { kind: "rooms" }
+  | RecapDialogPayload | DailiesDialogPayload | ManekiDialogPayload | ParkourDialogPayload;
 
 /** Johnny at The Crossing (server/modules/guide.lua): the dialog carries the index only;
  *  the search index and the topics follow as GuideMessage (features/guide/model.ts).
@@ -739,6 +779,13 @@ export type UiAction =
   | { type: "activities.lobby"; operation: "friendly"; id: string; mode?: string; bots?: boolean }
   | { type: "activities.lobby"; operation: "move"; target: number; team?: number }
   | { type: "activities.lobby"; operation: "bots"; on: boolean }
+  | { type: "activities.rooms"; operation: "open" | "leave" | "start" }
+  | { type: "activities.rooms.close" }
+  | { type: "activities.rooms"; operation: "create"; id: string; mode?: string; size?: number; private?: boolean }
+  | { type: "activities.rooms"; operation: "join"; id?: number; code?: string }
+  | { type: "activities.rooms"; operation: "kick"; target: number }
+  | { type: "activities.rooms"; operation: "move"; target: number; team: number }
+  | { type: "activities.rooms"; operation: "settings"; mode?: string; size?: number; private?: boolean }
   | { type: "halloffame.open" | "halloffame.tab"; tab?: HallOfFameTab; from?: string }
   | { type: "halloffame.refresh"; tab?: HallOfFameTab; key?: string }
   | { type: "halloffame.board"; key: string; tab: HallOfFameTab }
@@ -751,6 +798,10 @@ export type UiAction =
   | { type: "maneki.open" }
   | { type: "maneki.intro" }
   | { type: "maneki.map"; id: string }
+  | { type: "parkour.open"; course?: string }
+  | { type: "parkour.board"; course: string; page: number }
+  | { type: "parkour.start"; course: string }
+  | { type: "parkour.gps"; course: string }
   | { type: "titles.select"; id: string }
   | { type: "guide.open"; from?: string }
   | { type: "guide.topic"; id: string }

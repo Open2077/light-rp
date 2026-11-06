@@ -166,9 +166,32 @@ function LightRP.state(playerId, keys)
     end
 end
 
+-- The instruction quota (1M) is shared by every thread of the resource within one
+-- tick, and a quota error can take the whole server down (2026-11-06, 70 players:
+-- every join rebuilt the online list for everyone in one tick). Inside a thread the
+-- push is spread over ticks, a few players per tick.
+local BROADCAST_SLICE = 4
 function LightRP.broadcastState(keys)
-    for _, id in ipairs(GetPlayers()) do LightRP.state(id, keys) end
+    local yieldable = coroutine.isyieldable()
+    for index, id in ipairs(GetPlayers()) do
+        LightRP.state(id, keys)
+        if yieldable and index % BROADCAST_SLICE == 0 then Wait(0) end
+    end
 end
+
+-- Who is online changed (join, leave, rename): one coalesced push at most every
+-- 1.5 s from its own thread, never inside the connect/disconnect handlers.
+local onlineDirty = false
+function LightRP.onlineChanged() onlineDirty = true end
+if type(CreateThread) == "function" then CreateThread(function()
+    while true do
+        Wait(1500)
+        if onlineDirty then
+            onlineDirty = false
+            LightRP.broadcastState({ "server", "online" })
+        end
+    end
+end) end
 
 
 -- ---------------------------------------------------------------------------

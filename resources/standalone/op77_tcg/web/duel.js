@@ -76,7 +76,7 @@
     return { ok: errors.length === 0, errors: errors, count: count, limits: limits, used: used };
   }
 
-  function cardImg(slug) { return art[slug] || "img/backside.webp"; }
+  function cardImg(slug) { return art[slug] || tcgAsset("img/backside.webp"); }
   function miniCard(slug, cls) {
     var c = CARDS[slug] || {};
     var n = el("div", "tc " + (cls || ""));
@@ -303,7 +303,7 @@
     var mats = $("duMats"); mats.innerHTML = "";
     MATS.forEach(function (m) {
       var b = el("button", "du-mat" + (D.playmat === m.id ? " on" : ""));
-      b.innerHTML = '<img alt="" src="img/mats/' + m.id + '.webp"><span>' + esc(m.label) + "</span>" + (D.playmat === m.id ? '<em>ON YOUR SIDE</em>' : "");
+      b.innerHTML = '<img alt="" loading="lazy" decoding="async" src="' + tcgAsset("img/mats/" + m.id + ".webp") + '"><span>' + esc(m.label) + "</span>" + (D.playmat === m.id ? '<em>ON YOUR SIDE</em>' : "");
       b.onclick = function () { D.playmat = m.id; T.emit("tcg:setPlaymat", { id: m.id }); renderDuel(); };
       mats.appendChild(b);
     });
@@ -696,7 +696,7 @@
       var score = e.tier * 10 + (e.finish === "sleeved" ? 0 : 1);
       if (!b || score < b.score || (score === b.score && e.n < b.n)) best[e.card] = { score: score, n: e.n, id: e.id };
     });
-    Object.keys(best).forEach(function (k) { art[k] = "img/cards/" + best[k].id + ".webp"; });
+    Object.keys(best).forEach(function (k) { art[k] = tcgAsset("img/cards/" + best[k].id + ".webp"); });
     T.tab("decks", renderDecks);
     T.tab("duel", renderDuel);
     // What web/table.js (the game at the table) uses from here.

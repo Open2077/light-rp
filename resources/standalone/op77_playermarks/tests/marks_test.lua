@@ -59,10 +59,10 @@ PM.refresh()
 assert(PM.marks["7"] and PM.marks["8"] and not PM.marks["3"] and not PM.marks["9"], "the others with a body, never yourself")
 assert(anchorCount() == 2 and count("pm:add") == 2)
 assert(anchors[PM.marks["7"].anchor].tag == "playermark.7")
--- the plate's name: trimmed, a player without one shows its id
+-- the plate's name: the session id in front, trimmed, a player without one shows its id
 local adds = {}
 for _, s in ipairs(sent) do if s.name == "pm:add" then adds[s.payload.player] = s.payload.name end end
-assert(adds["7"] == "Archer Hella" and adds["8"] == "#8", tostring(adds["7"]) .. " / " .. tostring(adds["8"]))
+assert(adds["7"] == "[7] Archer Hella" and adds["8"] == "[8]", tostring(adds["7"]) .. " / " .. tostring(adds["8"]))
 
 -- a refresh with nothing new sends nothing
 local before = #sent
@@ -71,10 +71,10 @@ assert(#sent == before, "steady: no page traffic")
 -- a renamed player: only the name goes to the page
 nearby[1].name = "Archer Hella (Mayor)"
 PM.refresh()
-assert(#sent == before + 1 and sent[#sent].name == "pm:name" and sent[#sent].payload.name == "Archer Hella (Mayor)")
+assert(#sent == before + 1 and sent[#sent].name == "pm:name" and sent[#sent].payload.name == "[7] Archer Hella (Mayor)")
 nearby[1].name = "A very long name that goes on and on"
 PM.refresh()
-assert(#sent[#sent].payload.name == 24, "cut to nameMax")
+assert(#sent[#sent].payload.name == 24 + #"[7] ", "the name cut to nameMax, the id in front")
 before = #sent
 
 -- talking: only changes reach the page; quiet capture noise still shows the waves
@@ -140,6 +140,26 @@ assert(exported.setHidden(true, { 7 }))
 handlers.onClientResourceStop("op77_lightrp")
 PM.refresh()
 assert(PM.marks["7"], "the caller stopped: its hide went with it")
+
+-- setNames (op77_lightrp: the characters' names): the plate shows it, per caller
+_G.GetResourceState = function() return "running" end
+nearby = { { playerId = 7, isLocal = false, name = "AccountA" }, { playerId = 8, isLocal = false, name = "AccountB" } }
+hiddenOnMap[7] = nil
+PM.refresh()
+assert(PM.marks["7"].name:find("AccountA"), "the account's name by default")
+_G.GetInvokingResource = function() return "op77_lightrp" end
+assert(exported.setNames({ [7] = "Jake Rob", ["8"] = "  ", [9] = 42 }))
+PM.refresh()
+assert(PM.marks["7"].name:find("Jake Rob") and not PM.marks["7"].name:find("AccountA"), "the character's name: " .. PM.marks["7"].name)
+assert(PM.marks["8"].name:find("AccountB"), "a blank name keeps the account's")
+assert(exported.setNames(nil))
+PM.refresh()
+assert(PM.marks["7"].name:find("AccountA"), "cleared: the account's again")
+assert(exported.setNames({ [7] = "Jake Rob" }))
+handlers.onClientResourceStop("op77_lightrp")
+PM.refresh()
+assert(PM.marks["7"].name:find("AccountA"), "the caller stopped: its names went with it")
+_G.GetResourceState = function() return "missing" end
 
 -- map3d not running: nobody is hidden
 _G.GetResourceState = function() return "missing" end
