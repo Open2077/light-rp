@@ -17,6 +17,11 @@ P.config = {
     timeLimit = { default = 0, max = 60 },       -- minutes, 0 = none (a run still stops at maxRunMinutes)
     maxRunMinutes = 30,
     countdownMs = 3000,
+    -- After the teleport onto the start the 3-2-1 waits for the client to say it has landed: no
+    -- loading screen, the body alive, `landSettleMs` more (a far start loads the area: the countdown
+    -- and the first seconds ran under the loading screen, 2026-11-06). Past `landTimeoutMs` it goes anyway.
+    landSettleMs = 700,
+    landTimeoutMs = 15000,
     tickMs = 50,
     -- a sample further than this from the previous one (outside our own teleports) is not a run any more
     maxStepM = 45,

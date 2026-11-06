@@ -47,6 +47,9 @@ course has its own full leaderboard, with each runner's splits.
   choices (the most finished first).
 - **A run:**
   - **Start.** You are placed on the start, facing the course, held for 3-2-1, then GO.
+    - The 3-2-1 waits until your client says it has landed (no loading screen, alive, 0.7 s more;
+      at most 15 s): a far start used to play the countdown and the first seconds of the clock
+      under the loading screen (2026-11-06).
     - The server freezes the runner. This needs `players.life.freeze` in the manifest;
       without it the freeze was refused (`permission_denied`) and runners walked during
       the countdown until 2026-11-06.

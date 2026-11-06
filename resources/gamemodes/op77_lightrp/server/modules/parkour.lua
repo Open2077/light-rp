@@ -494,6 +494,21 @@ local function begin(player, run)
         endRun(player, "start_failed")
         return
     end
+    -- Landed first: the client reports once no loading screen covers it (client/core/parkour.lua,
+    -- op "landed"); held on the start meanwhile.
+    run.phase = "landing"
+    send(player, { kind = "landing", attempt = run.attempt })
+    local landBy, heldReported = now() + (C.landTimeoutMs or 15000), false
+    while run.landed ~= run.attempt and now() < landBy do
+        if runs[player] ~= run or run.token ~= token then return end
+        if type(Open77.players.setFrozen) == "function" then
+            local called, ok = pcall(Open77.players.setFrozen, player, true)
+            if called and ok == true then run.frozen = true elseif not heldReported then heldReported = true end
+        end
+        Wait(100)
+    end
+    if runs[player] ~= run or run.token ~= token then return end
+    if run.landed ~= run.attempt then log("parkour: %d never reported landing on %s, counting down anyway", player, run.course.name) end
     run.phase = "countdown"
     send(player, { kind = "countdown", goInMs = C.countdownMs, attempt = run.attempt })
     -- Held on the line until GO. One freeze right after the teleport did not hold (LightRP
@@ -536,7 +551,7 @@ function M.start(player, courseId, opts)
         if not course or not published(course) then return false, "That course is not available." end
     end
     local existing = runs[player]
-    if existing and existing.course.id == course.id and not opts.draft and existing.phase ~= "loading" then
+    if existing and existing.course.id == course.id and not opts.draft and existing.phase ~= "loading" and existing.phase ~= "landing" then
         return M.restart(player)
     end
     local life = Open77.players.getLifeState and Open77.players.getLifeState(player)
@@ -577,7 +592,7 @@ function M.restart(player)
     local run = runs[player]
     if not run then return false, "You are not running a course." end
     local t = now()
-    if run.phase == "loading" or t - (run.restartedAt or -1e9) < C.restartCooldownMs then return false, "pending" end
+    if run.phase == "loading" or run.phase == "landing" or t - (run.restartedAt or -1e9) < C.restartCooldownMs then return false, "pending" end
     run.restartedAt = t
     CreateThread(function()
         local ok, err = pcall(begin, player, run)
@@ -747,6 +762,12 @@ end)
 RegisterNetEvent(NET_KEY, function(p)
     local player = tonumber(source)
     if not player or type(p) ~= "table" then return end
+    -- landed on the start (no loading screen any more): the countdown may begin. Not a key: no throttle.
+    if p.op == "landed" then
+        local run = runs[player]
+        if run and run.phase == "landing" and tonumber(p.attempt) == run.attempt then run.landed = run.attempt end
+        return
+    end
     local t = now()
     if t - (lastKey[player] or -1e9) < 250 then return end
     lastKey[player] = t
