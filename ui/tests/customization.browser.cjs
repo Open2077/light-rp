@@ -270,6 +270,101 @@ const state={kind:'open',session:'custom:browser',nextRequest:1,price:1000,money
    await p.screenshot({path:path.join(output,`vehicle-customization-full-${width}.png`)});
   }
   await p.keyboard.press('Escape');assert.equal(await ui.count(),0);
-  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup; lights (presets, grey refusal, per-category drafts and purchase, factory lights), factory trim options and unsupported categories; full studio: compact grid, selectable locked categories, framing presets, rims and finish, exclusive body groups priced per group, neon presets/brightness/dark refusal, plate format and availability, stages without preview and removal fee, linked livery, client warnings, camera state and ten-category layout');
+  // Wave 2: sub-panels under neon and lights, the engine sound heard on request, stickers
+  // within the decal budget the server reports, the tag. (Lua sends an empty list as {}.)
+  const w2={...full,session:'custom:wave2',prices:{...full.prices,neonAnimation:2500,lightColors:1500,engineSound:6000,stickers:1500,tag:2000},
+   confirmed:{...full.confirmed,neon:{color:'#3CFF6E',intensity:'medium'},engineSound:'',stickers:{}},
+   categories:[...full.categories.slice(0,5),
+    {id:'neonAnimation',parent:'neon',label:'Animation',description:'Pulse, strobe, chase, rainbow',available:true,options:{
+     modes:[{id:'pulse',label:'Pulse',speed:true},{id:'strobe',label:'Strobe',speed:true},{id:'chase',label:'Chase',speed:true,color2:true},{id:'speed',label:'Follows speed'}],
+     speeds:[{id:'slow',label:'Slow'},{id:'medium',label:'Medium'},{id:'fast',label:'Fast'}],colors:[{id:'cyan',label:'Cyan',color:'#00E5FF'},{id:'amber',label:'Amber',color:'#FFB000'}]}},
+    full.categories[5],
+    {id:'lightColors',parent:'lights',label:'Lamp colors',description:'Brake, reverse, blinkers, interior',available:true,options:{
+     groups:[{id:'brake',label:'Brake lights',safety:true,refuse:['blue']},{id:'reverse',label:'Reverse lights',refuse:{}},{id:'blinkers',label:'Blinkers',safety:true,refuse:['red','blue']},{id:'interior',label:'Interior',refuse:{}}],
+     presets:['#FF1E3C','#FFB000','#00E5FF','#2F6BFF'],minBrightness:0.35}},
+    ...full.categories.slice(6,8),
+    {id:'stickers',label:'Stickers',description:"Decals from the city's crews",available:true,options:{maxPerCar:12,budget:{base:0,maximum:12},stickers:[
+     {id:'st.v1',label:'Valentinos I',group:'Valentinos',decals:1},{id:'st.v2',label:'Valentinos II',group:'Valentinos',decals:2},{id:'st.dealer',label:'Dealer stripe',group:'Dealer',decals:3}]}},
+    {id:'tag',label:'Tag',description:'Your own painted text',available:true,options:{fonts:[{id:'marker',label:'Marker'},{id:'block',label:'Block'}],
+     spots:[{id:'door_left',label:'Left door'},{id:'hood',label:'Hood'}],colors:['#F2F4FF','#FFCC00'],minLength:1,maxLength:12,charset:'A-Z a-z 0-9 space - . ! ? # &'}},
+    ...full.categories.slice(8),
+    {id:'engineSound',label:'Engine sound',description:'Engine and exhaust note',available:true,options:{preview:true,respawns:true,sounds:[{id:'s01',label:'Inline-six, rough'},{id:'s02',label:'V8, deep'}]}}]};
+  const wid=w2.session,reply=(request,extra)=>fire({kind:'response',session:wid,request,nextRequest:request+1,ok:true,...extra});
+  await p.setViewportSize({width:1920,height:1080});
+  await fire(w2);await ui.waitFor();
+  assert.equal(await nav.getByRole('button').count(),13,'sub-panels are listed under their parent, not in the nav');
+  base=(await calls()).length;
+  await nav.getByRole('button',{name:/^Neon/}).click();
+  await p.getByRole('group',{name:'Neon panels'}).getByRole('button',{name:'Animation'}).click();
+  assert.equal(await nav.getByRole('button',{name:/^Neon/}).getAttribute('aria-current'),'page','the parent stays current in the nav');
+  await p.waitForFunction(()=>testBridge.sent.filter(x=>x.payload?.command==='preset').at(-1)?.payload.category==='neonAnimation');
+  const modes=p.getByRole('group',{name:'Neon animations'});
+  await modes.getByRole('button',{name:'Pulse'}).click();
+  sent=await untilCalls(base+1);assert.deepEqual([sent.operation,sent.category,sent.mode,sent.speed,sent.color2],['preview','neonAnimation','pulse','medium',undefined]);await reply(1,{});
+  await modes.getByRole('button',{name:'Chase'}).click();
+  sent=await untilCalls(base+2);assert.deepEqual([sent.mode,sent.speed,sent.color2],['chase','medium','#00E5FF'],'a two-color mode gets a second color');await reply(2,{});
+  await p.getByRole('group',{name:'Second color'}).getByRole('button',{name:'Second color Amber'}).click();
+  sent=await untilCalls(base+3);assert.equal(sent.color2,'#FFB000');await reply(3,{});
+  await p.screenshot({path:path.join(output,'vehicle-customization-wave2-animation.png')});
+  await modes.getByRole('button',{name:'Follows speed'}).click();
+  sent=await untilCalls(base+4);assert.deepEqual([sent.mode,sent.speed,sent.color2],['speed',undefined,undefined],'a reactive mode has no speed');await reply(4,{});
+  assert.equal(await p.getByRole('group',{name:'Animation speed'}).count(),0);
+  await p.getByRole('button',{name:'Apply animation · €$ 2,500',exact:true}).waitFor();
+  // Lamp colors: the looks of an emergency vehicle are not offered.
+  await nav.getByRole('button',{name:/^Lights/}).click();
+  await p.getByRole('group',{name:'Lights panels'}).getByRole('button',{name:'Lamp colors'}).click();
+  assert(await p.getByRole('group',{name:'Blinkers',exact:true}).getByRole('button',{name:'Blinkers #FF1E3C'}).isDisabled(),'no red blinkers');
+  assert(await p.getByRole('group',{name:'Brake lights',exact:true}).getByRole('button',{name:'Brake lights #2F6BFF'}).isDisabled(),'no blue brake lights');
+  await p.getByRole('group',{name:'Reverse lights',exact:true}).getByRole('button',{name:'Reverse lights #00E5FF'}).click();
+  sent=await untilCalls(base+5);assert.deepEqual([sent.category,sent.lamps],['lightColors',{reverse:'#00E5FF'}]);await reply(5,{});
+  await p.getByRole('button',{name:'Apply lamp colors · €$ 1,500',exact:true}).waitFor();
+  await p.screenshot({path:path.join(output,'vehicle-customization-wave2-lamps.png')});
+  // Engine sound: choosing rebuilds nothing; the car plays it on request.
+  await nav.getByRole('button',{name:/^Engine sound/}).click();
+  await p.getByRole('group',{name:'Engine sounds'}).getByRole('button',{name:/V8, deep/}).click();await p.waitForTimeout(400);
+  assert.equal((await calls()).length,base+5,'choosing a sound rebuilds nothing');
+  await p.getByRole('button',{name:'Fit engine sound · €$ 6,000',exact:true}).waitFor();
+  await p.getByRole('button',{name:'Hear it on the car',exact:true}).click();
+  sent=await untilCalls(base+6);assert.deepEqual([sent.operation,sent.category,sent.sound],['preview','engineSound','s02']);await reply(6,{});
+  assert(await p.getByRole('button',{name:'Hear it on the car',exact:true}).isDisabled(),'the car already plays it');
+  // Stickers: per sticker added, within the budget the server reports (a livery preview changes it).
+  await nav.getByRole('button',{name:/^Stickers/}).click();
+  const meter=p.getByRole('meter',{name:'Decals'});assert.equal(await meter.getAttribute('aria-valuenow'),'0');
+  const valentinos=p.getByRole('group',{name:'Valentinos',exact:true});
+  await valentinos.getByRole('button',{name:/Valentinos I$/}).click();
+  sent=await untilCalls(base+7);assert.deepEqual(sent.stickers,['st.v1']);await reply(7,{budget:{base:0,maximum:12}});
+  await valentinos.getByRole('button',{name:/^Valentinos II/}).click();
+  sent=await untilCalls(base+8);assert.deepEqual(sent.stickers,['st.v1','st.v2']);await reply(8,{budget:{base:0,maximum:12}});
+  assert.equal(await meter.getAttribute('aria-valuenow'),'3');
+  await p.getByRole('button',{name:'Apply stickers · €$ 3,000',exact:true}).waitFor();
+  await nav.getByRole('button',{name:/^Livery/}).click();
+  await p.getByRole('group',{name:'Factory schemes'}).getByRole('button',{name:'Scheme 2'}).click();
+  sent=await untilCalls(base+9);assert.equal(sent.profile,'tt_2');await reply(9,{budget:{base:9,maximum:12}});
+  await nav.getByRole('button',{name:/^Stickers/}).click();
+  assert.equal(await meter.getAttribute('aria-valuenow'),'12','the livery preview takes its decals');
+  await p.getByRole('group',{name:'Dealer',exact:true}).getByRole('button',{name:/^Dealer stripe/}).click();
+  await p.getByText('Too many decals: 15 of 12. Remove a sticker.',{exact:true}).waitFor();await p.waitForTimeout(400);
+  assert.equal((await calls()).length,base+9,'over the budget, nothing is previewed');
+  assert(await p.getByRole('button',{name:/^Apply stickers/}).isDisabled());
+  await p.screenshot({path:path.join(output,'vehicle-customization-wave2-stickers.png')});
+  await p.getByRole('group',{name:'Dealer',exact:true}).getByRole('button',{name:/^Dealer stripe/}).click();
+  // Tag: spaces folded, the first font and spot by default, a character outside the set never sent.
+  await nav.getByRole('button',{name:/^Tag/}).click();
+  await p.getByRole('textbox',{name:'Tag text'}).fill('Night  Owl');
+  sent=await untilCalls(base+10);assert.deepEqual([sent.category,sent.text,sent.font,sent.spot,sent.color],['tag','Night Owl','marker','door_left','#F2F4FF']);await reply(10,{});
+  await p.getByRole('button',{name:'Paint tag · €$ 2,000',exact:true}).waitFor();
+  await p.screenshot({path:path.join(output,'vehicle-customization-wave2-tag.png')});
+  await p.getByRole('textbox',{name:'Tag text'}).fill('héllo');await p.waitForTimeout(400);
+  assert.equal((await calls()).length,base+10,'a character outside the set is never sent');
+  for(const [width,height]of[[1920,1080],[1280,720],[800,600]]){
+   await p.setViewportSize({width,height});await p.waitForTimeout(100);
+   const boxes=await Promise.all(['.workshop__panel','.workshop__checkout','.workshop__categories','.workshop__editor'].map(s=>p.locator(s).boundingBox()));
+   for(const box of boxes.slice(0,3))assert(box.x>=0&&box.y>=0&&box.x+box.width<=width&&box.y+box.height<=height,'thirteen categories fit at '+width+': '+JSON.stringify(boxes));
+   assert(boxes[2].y+boxes[2].height<=boxes[1].y,'the category grid stays above the checkout at '+width);
+   assert(boxes[3].height>=40,`the editor keeps room at ${width}: ${JSON.stringify(boxes[3])}`);
+   await p.screenshot({path:path.join(output,`vehicle-customization-wave2-${width}.png`)});
+  }
+  await p.keyboard.press('Escape');assert.equal(await ui.count(),0);
+  assert.deepEqual(errors,[]);console.log('PASS: automatic/coalesced palette and HEX previews, quoted bank payment, balances, unchanged paint and insufficient cash guards, DB errors, stale acknowledgements, camera and restored left-panel layout and cinematic HUD cleanup; lights (presets, grey refusal, per-category drafts and purchase, factory lights), factory trim options and unsupported categories; full studio: compact grid, selectable locked categories, framing presets, rims and finish, exclusive body groups priced per group, neon presets/brightness/dark refusal, plate format and availability, stages without preview and removal fee, linked livery, client warnings, camera state and ten-category layout; wave 2: sub-panels, neon animation modes, lamp colors without emergency looks, engine sound on request, stickers within the decal budget, tag, thirteen-category layout');
  }finally{await b.close()}
 })().catch(e=>{console.error(e);process.exit(1)});
