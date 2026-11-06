@@ -8,21 +8,45 @@ course has its own full leaderboard, with each runner's splits.
 |---|---|
 | Contract (limits, validation, orb geometry, time format) | `shared/parkour.lua` (`LightRpParkour`), mirrored by `ui/src/features/parkour/model.ts` |
 | Storage, start points, runs, leaderboards, Activities panel, staff editor protocol | `server/modules/parkour.lua` |
-| Start orbs, the run's orbs, keys, sounds, GPS | `client/core/parkour.lua` |
+| Uplinks, relays, downlink (RELAY markers), hold, bearing, keys, sounds, GPS | `client/core/parkour.lua` |
 | Staff editor: relay, captures, 3D preview, build mode | `client/core/parkour_editor.lua` |
 | Run HUD, countdown, result / DNF cards, music | `ui/src/features/parkour/ParkourHud.tsx`, `music.ts` |
 | F1 > Parkour (course list, card, leaderboard) | `ui/src/features/parkour/ParkourBrowser.tsx` |
 | Staff editor (RageMenu + build bar) | `ui/src/features/parkour/ParkourEditor.tsx` |
 | Music | `ui/public/audio/parkour-rooftop-momentum.webm` (Opus, from "Rooftop Momentum") |
 | Tests | `tests/parkour_test.lua` (server), `tests/parkour_client_test.lua` (client) |
-| Mock | `?parkour=hud|count|result|record|dnf|browser|editor[&build=1]&registered=1` |
+| Mock | `?parkour=hud|count|go|result|record|dnf|browser|editor[&build=1]&registered=1` |
 
 ## What a player sees
 
-- **Start orbs.** Every published course's start is a cyan orb with a light beam and a
-  ground ring. The 4 nearest within 160 m are drawn (native markers, 64 per resource).
-  The map shows a blip per course (category `parkour`, routable). At the orb, **E** opens
-  the course card.
+- **Art direction, "RELAY".** A course is a signal the runner carries from an **uplink**
+  (the start) through **relays** (the checkpoints) to the **downlink** (the finish). Every
+  point uses the same few native markers:
+
+  | Part | Marker | Role |
+  |---|---|---|
+  | Gate | `checkpoint`, a standing circular frame across the line | Sized to the trigger: what you see is what counts. You run through it. |
+  | Spine | `cylinder`, fading upward | A light column seen from far away (up to 500 m). |
+  | Node | `diamond`, turning and bobbing over the gate | The head of the spine. |
+  | Drip | 2 `chevron`s sliding down into the gate | Enter here. |
+  | Pad | `ring` on the ground | Where to stand. |
+
+  The colour carries the role:
+  - **cyan uplink**: a portal standing on the ground, facing the course;
+  - **gold relay**: the checkpoint to reach;
+  - **white ghost**: the one after it, its faint gate only, to read the line ahead;
+  - **green downlink**: two crossed gates turning like a gyroscope, with the tallest spine.
+
+  Motion:
+  - a relay **rises out of the ground** when it becomes the target;
+  - a crossed one is **sent**: it shoots up into the sky and goes, with a burst and a jingle;
+  - only positions and rotations move (20 times a second, groups within 180 m). A colour or
+    size change is a native rebuild, so they never change after creation.
+
+  Budget: markers are 64 per resource, shared with every LightRP point. The parkour leaves
+  10 free and drops the decoration (pad, drip, node, spine) before a gate when short.
+- **Uplinks.** The 3 nearest published starts within 160 m are drawn. The map shows a blip
+  per course (category `parkour`, routable). At the uplink, **E** opens the course card.
 - **F1 > Parkour** (or `/parkour`) lists every course:
   - sorting: nearest, most run, A–Z;
   - for each course: its record, your best, its length and checkpoints;
@@ -30,14 +54,23 @@ course has its own full leaderboard, with each runner's splits.
     of 50. A row opens its splits against the record. Your own row is pinned when it is off
     the page.
   - **START RUN** works from anywhere. The activity core captures where you stood and brings
-    you back there at the end. **GPS** routes to the start orb.
+    you back there at the end. **GPS** routes to the start.
 - **The Activities panel** lists *Parkour* (kind race), with up to 8 courses as join
   choices (the most finished first).
 - **A run:**
-  - **Start.** You are placed on the start, facing the course, held for 3-2-1, then GO. The hold is applied again every 200 ms, and a runner who still walks off the start orb is put back. God
-    mode is on, and the core puts the RP weapons aside and freezes the needs.
-  - **Orbs.** The next checkpoint is a gold orb, with its trigger sphere drawn around it and
-    a beam. The one after it is a small dim orb. The finish is a green orb with a beam.
+  - **Start.** You are placed on the start, facing the course, held for 3-2-1, then GO.
+    - The server freezes the runner. This needs `players.life.freeze` in the manifest;
+      without it the freeze was refused (`permission_denied`) and runners walked during
+      the countdown until 2026-11-06.
+    - The client also holds its own body (`Open77.character.setFrozen`).
+    - Both are applied again every 200 ms and released at GO.
+    - A runner who still walks off the start is put back.
+    - God mode is on, and the core puts the RP weapons aside and freezes the needs.
+  - **GO** stays on screen about a second after the start.
+  - **The bearing**, under the checkpoint pips:
+    - an arrow turned toward the next point from the camera, so an off-screen relay is
+      found at once;
+    - its name (CP n or FINISH), the distance, and the climb or drop (above 2 m).
   - **The HUD:**
     - a big clock and the checkpoint count;
     - your personal best and the record, and a pip per checkpoint (green ahead, red behind);

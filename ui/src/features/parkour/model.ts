@@ -59,6 +59,8 @@ export type ParkourEvent =
   | { kind: "dnf"; reason: string; text?: string; attempt: number; checkpoint: number; checkpoints: number }
   | { kind: "respawn"; reason: string; checkpoint: number }
   | { kind: "ended"; reason?: string }
+  // the client's compass: where the next point lies from the camera (degrees, + = left), how far and how high
+  | { kind: "bearing"; hide?: boolean; label?: string; angle?: number; distance?: number; rise?: number }
   | BoardPayload;
 export interface ParkourResult {
   kind: "result"; timeMs: number; splits: string; attempt: number; test?: boolean; checkpoints: number; course: string; name: string;

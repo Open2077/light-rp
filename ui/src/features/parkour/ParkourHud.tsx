@@ -8,7 +8,8 @@ import "./parkour.css";
 
 /* The run, drawn by the page (server/modules/parkour.lua decides, client/core/parkour.lua
    relays): the clock top centre, the checkpoint count and the delta to the personal best (else
-   the record) at each checkpoint, the splits on the right, the 3-2-1-GO, then the result card
+   the record) at each checkpoint, the bearing to the next point under them, the splits on the
+   right, the 3-2-1 then GO (held a moment after the start), then the result card
    (time, personal best, rank, splits, the top 5) or the DNF card. Passive: never the focus.
    The course music plays from the countdown to the end of the run (music.ts). */
 
@@ -26,6 +27,8 @@ const now = () => performance.now();
 export function ParkourHud() {
   const [run, setRun] = useState<RunState | null>(null);
   const [flash, setFlash] = useState<{ key: number; text: string; tone: "good" | "bad" | "info" } | null>(null);
+  // GO stays up a moment after the start (the countdown goes with the phase)
+  const [go, setGo] = useState<number | null>(null);
   const clock = useRef<HTMLElement>(null);
   const runRef = useRef<RunState | null>(null);
   runRef.current = run;
@@ -54,6 +57,7 @@ export function ParkourHud() {
         break;
       case "go":
         setRun((r) => r && { ...r, phase: "running", goAt: now(), countdownEnd: undefined });
+        setGo(now());
         break;
       case "cp":
         setRun((r) => {
@@ -80,7 +84,7 @@ export function ParkourHud() {
         break;
       case "ended":
         stopMusic();
-        setRun(null); setFlash(null);
+        setRun(null); setFlash(null); setGo(null);
         break;
       default: break;
     }
@@ -103,6 +107,7 @@ export function ParkourHud() {
     return () => cancelAnimationFrame(frame);
   }, []);
   useEffect(() => { if (!flash) return; const t = window.setTimeout(() => setFlash(null), 2600); return () => window.clearTimeout(t); }, [flash]);
+  useEffect(() => { if (go == null) return; const t = window.setTimeout(() => setGo(null), GO_MS); return () => window.clearTimeout(t); }, [go]);
   useEffect(() => () => stopMusic(0), []);
 
   if (!run) return null;
@@ -129,6 +134,7 @@ export function ParkourHud() {
         const s = run.splits.find((x) => x.index === i + 1);
         return <li key={i} className={cx(s && "is-done", s?.delta != null && (s.delta <= 0 ? "is-good" : "is-bad"), !s && i === passed && run.phase === "running" && "is-next")} />;
       })}<li className={cx("is-finish", run.phase === "finished" && !run.dnf && "is-done")} /></ol>}
+      {run.phase !== "finished" && <Bearing />}
     </header>
 
     {flash && <div key={flash.key} className={cx("pk-flash", `is-${flash.tone}`)}>{flash.text}</div>}
@@ -142,6 +148,7 @@ export function ParkourHud() {
     </aside>}
 
     {run.phase === "countdown" && run.countdownEnd && <Countdown end={run.countdownEnd} />}
+    {run.phase === "running" && go != null && <div key={go} className="pk-count pk-go" aria-live="assertive"><b className="is-go">GO</b><small>RUN</small></div>}
     {run.phase === "loading" && <div className="pk-banner">ON YOUR MARK</div>}
 
     {run.phase === "finished" && (run.dnf ? <DnfCard run={run} /> : <ResultCard run={run} />)}
@@ -151,6 +158,37 @@ export function ParkourHud() {
       <span><Keycap size="sm">END</Keycap>LAST CHECKPOINT</span>
       <span><Keycap size="sm">DEL</Keycap>LEAVE</span>
     </footer>}
+  </div>;
+}
+
+const GO_MS = 1100;
+
+/* The bearing: an arrow turned toward the next point from the camera, its name, the distance
+   and the climb (or drop). Written straight into the DOM: it changes up to 8 times a second. */
+function Bearing() {
+  const root = useRef<HTMLDivElement>(null);
+  const arrow = useRef<HTMLElement>(null);
+  const label = useRef<HTMLElement>(null);
+  const dist = useRef<HTMLElement>(null);
+  const rise = useRef<HTMLElement>(null);
+  useEffect(() => on<ParkourEvent>(PAGE_EVENTS.parkour, (e) => {
+    const el = root.current;
+    if (!e || e.kind !== "bearing" || !el) return;
+    if (e.hide) { el.hidden = true; return; }
+    el.hidden = false;
+    el.classList.toggle("is-finish", e.label === "FINISH");
+    if (arrow.current) arrow.current.style.transform = `rotate(${-(e.angle ?? 0)}deg)`;
+    if (label.current) label.current.textContent = e.label ?? "";
+    if (dist.current) dist.current.textContent = `${Math.max(0, e.distance ?? 0)} m`;
+    const r = e.rise ?? 0;
+    if (rise.current) {
+      rise.current.textContent = Math.abs(r) >= 2 ? `${r > 0 ? "\u25B2" : "\u25BC"} ${Math.abs(r)} m` : "";
+      rise.current.className = r > 0 ? "is-up" : "is-down";
+    }
+  }), []);
+  return <div className="pk-bearing" ref={root} hidden aria-hidden>
+    <i ref={arrow}><svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2 20 20 12 15.5 4 20Z" fill="currentColor" /></svg></i>
+    <b ref={label} /><span ref={dist} /><em ref={rise} />
   </div>;
 }
 
