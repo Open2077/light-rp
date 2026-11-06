@@ -281,13 +281,18 @@ LightRpVehicleCustomization = {
         -- Per-category framing, eased in over `presetMs`. `angle` is relative to the car's
         -- heading: 90 = in front, -90 = behind, 0 = right side, 180 = left side.
         -- `orbit = false` stops the auto orbit (the arrows still turn it).
+        -- `focus = { y, z }` frames a point of the car instead of its centre, from its real
+        -- extent: y -1 = rear end .. 1 = front end, z 0 = bottom .. 1 = top; `height` is then
+        -- the camera's height above that point. Turning the camera off it widens to `default`.
         presetMs = 700,
         presets = {
             default = { angle = 35, radius = 6.5, height = 2.1, targetHeight = 0.7, orbit = true },
             rims = { angle = 15, radius = 4.2, height = 0.75, targetHeight = 0.35, orbit = false },
             neon = { angle = 35, radius = 6, height = 0.45, targetHeight = 0, orbit = true },
             lights = { angle = 90, radius = 5.5, height = 1.1, targetHeight = 0.6, orbit = false },
-            plate = { angle = -90, radius = 4.2, height = 1, targetHeight = 0.5, orbit = false },
+            -- The plate hangs low on the rear bumper, under the wing: centred from 2.6 m
+            -- (the whole-car framing left it below the frame, 2026-11-06).
+            plate = { angle = -90, radius = 2.6, height = 0.35, focus = { y = -1, z = 0.22 }, orbit = false },
             body = { angle = -55, radius = 6.5, height = 2.4, targetHeight = 0.8, orbit = true },
             windows = { angle = 20, radius = 5.8, height = 1.5, targetHeight = 0.95, orbit = true },
             neonAnimation = { angle = 35, radius = 6, height = 0.45, targetHeight = 0, orbit = true },

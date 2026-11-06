@@ -42,9 +42,12 @@ local function unobstructed(s, p, position)
     if keep >= 1 then return nil end
     return { x = from.x + dx*keep, y = from.y + dy*keep, z = from.z + dz*keep }
 end
+-- The orbit turns around a point on the car's long axis, `s.focus` metres ahead of its
+-- origin (negative = towards the rear): 0 for the whole car, the rear bumper for the plate.
 local function shot(s, v)
     local a = math.rad(s.angle)
-    local p = v.position
+    local p, focus, yaw = v.position, s.focus or 0, math.rad(v.yaw or 0)
+    if focus ~= 0 then p = { x = p.x - math.sin(yaw)*focus, y = p.y + math.cos(yaw)*focus, z = p.z } end
     local position = { x = p.x + math.cos(a)*s.radius, y = p.y + math.sin(a)*s.radius, z = p.z+s.height }
     local radius, height = s.radius, s.height
     local clear = unobstructed(s, p, position)
@@ -124,15 +127,52 @@ end
 
 -- Per-category framing, eased in. Angles are relative to the car's heading.
 local function ease(t) return t < .5 and 2*t*t or 1 - (-2*t + 2)^2/2 end
+-- The car's own extent (Open77.world.entityGeometry: metres from its origin, +Y forward,
+-- +Z up, kit parts not included), read once per session. Without it, a mid-size car.
+local FALLBACK_EXTENT = { min = { y = -2.4, z = -0.4 }, max = { y = 2.4, z = 1.1 } }
+local function extent(s)
+    if s.extent then return s.extent end
+    local world = Open77.world
+    if type(world) == "table" and type(world.entityGeometry) == "function" then
+        local ok, geometry = pcall(world.entityGeometry, { kind = "vehicle", id = s.vehicle })
+        local b = ok and type(geometry) == "table" and geometry.bounds
+        if type(b) == "table" and type(b.min) == "table" and type(b.max) == "table"
+            and type(b.min.y) == "number" and type(b.max.y) == "number" and b.max.y > b.min.y
+            and type(b.min.z) == "number" and type(b.max.z) == "number" and b.max.z > b.min.z then
+            s.extent = b
+            return b
+        end
+    end
+    return FALLBACK_EXTENT
+end
+local function framing(s, v, target, angle)
+    local to = { angle = angle, radius = target.radius, height = target.height, targetHeight = target.targetHeight, focus = 0 }
+    local f = target.focus
+    if type(f) == "table" then
+        -- focus = { y = -1..1 along the car (-1 = rear end, 1 = front end), z = 0..1 of its height };
+        -- `height` is then the camera's height above that point.
+        local e, y, z = extent(s), tonumber(f.y) or 0, math.min(1, math.max(0, tonumber(f.z) or .5))
+        to.focus = y < 0 and -y * e.min.y or y * e.max.y
+        to.targetHeight = e.min.z + z * (e.max.z - e.min.z)
+        to.height = to.targetHeight + (target.height or 0)
+    end
+    s.blend = { at = GetGameTimer(), from = { angle = s.angle, radius = s.radius, height = s.height, targetHeight = s.targetHeight, focus = s.focus or 0 }, to = to }
+end
 local function preset(s, v, name)
     local target = C.presets and (C.presets[name] or C.presets.default)
     if not target then return end
     local yaw = v.yaw or 0
     -- shortest way round to the new angle
     local goal = s.angle + ((yaw + target.angle - s.angle + 180) % 360 - 180)
-    s.blend = { at = GetGameTimer(), from = { angle = s.angle, radius = s.radius, height = s.height, targetHeight = s.targetHeight },
-        to = { angle = goal, radius = target.radius, height = target.height, targetHeight = target.targetHeight } }
+    framing(s, v, target, goal)
     s.rotating = target.orbit ~= false
+end
+-- Turning the camera off a close-up (plate) goes back round the whole car: an orbit
+-- around the bumper would pass through the body.
+local function widen(s, angle)
+    if (s.focus or 0) == 0 or not (C.presets and C.presets.default) then return false end
+    framing(s, nil, C.presets.default, angle)
+    return true
 end
 local function blend(s, now)
     local b = s.blend
@@ -156,7 +196,7 @@ local function start(p)
     local v = Open77.vehicles.get(p.vehicle.vehicleId)
     if not v or not v.position or v.streamed == false then refuse(p.session, "vehicle not streamed " .. tostring(p.vehicle.vehicleId)); return end
     local s = { id = p.session, vehicle = p.vehicle.vehicleId, angle = (v.yaw or 0)+35, radius = C.radius,
-        height = C.height, targetHeight = C.targetHeight, rotating = true, clock = GetGameTimer(), anchor = v.position }
+        height = C.height, targetHeight = C.targetHeight, focus = 0, rotating = true, clock = GetGameTimer(), anchor = v.position }
     local transform = shot(s,v); transform.thirdPersonBody = true
     local camera, why = Open77.camera.create(transform)
     if not camera then refuse(p.session, "camera create: " .. tostring(why)); return end
@@ -232,11 +272,14 @@ function Custom.bind(page)
         if p.operation == "close" then stop(true)
         elseif p.operation == "camera" then
             if p.command ~= "preset" then s.blend = nil end -- a manual move ends the framing
-            if p.command == "rotate" then s.rotating = p.enabled == true
-            elseif p.command == "left" then s.angle = s.angle-20
-            elseif p.command == "right" then s.angle = s.angle+20
-            elseif p.command == "zoomIn" then s.radius = math.max(4,s.radius-.5)
-            elseif p.command == "zoomOut" then s.radius = math.min(10,s.radius+.5)
+            -- A close-up orbits a point on the bumper, nearer than the whole-car limits.
+            local close = (s.focus or 0) ~= 0
+            local nearest, farthest = close and MIN_RADIUS or 4, close and 6 or 10
+            if p.command == "rotate" then s.rotating = p.enabled == true; if s.rotating then widen(s, s.angle) end
+            elseif p.command == "left" then if not widen(s, s.angle-20) then s.angle = s.angle-20 end
+            elseif p.command == "right" then if not widen(s, s.angle+20) then s.angle = s.angle+20 end
+            elseif p.command == "zoomIn" then s.radius = math.max(math.min(nearest, s.radius), s.radius-.5)
+            elseif p.command == "zoomOut" then s.radius = math.min(math.max(farthest, s.radius), s.radius+.5)
             elseif p.command == "preset" and type(p.category) == "string" then
                 local v = Open77.vehicles.get(s.vehicle)
                 if v then preset(s, v, p.category) end
