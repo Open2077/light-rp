@@ -2,15 +2,20 @@
 
 **Nothing built is committed here.** The Auto Studio code (`op77_lightrp`) is complete
 and degrades cleanly without the packs: rims, body kit and performance stay greyed
-("…is not installed on this server yet.") until the lead installs the three resources
-below. The studio's catalogue (`server/config/vehicle_kit.lua`) is already generated
+("…is not installed on this server yet.") until the lead installs the resources
+below; pack liveries simply do not appear in the Livery list without theirs. The studio's catalogue (`server/config/vehicle_kit.lua`) is already generated
 from the same fit tables; it is Lua only and names the models as `asset:<pack>/<model>`.
 
-| Resource | Built by | Built copy (git-ignored, per worktree) | Manifest facts |
+| Resource | Built by (Open77 repo) | Built copy (git-ignored, in the Open77 checkout that built it) | Manifest facts |
 | --- | --- | --- | --- |
-| `lightrp_vk_rims` | E1, `scripts/vehicle-kit/build-pack.ps1` (Open77 repo, branch `vc/e1-rims`) | `C:\Games\cyberm\wt-vc-e1\artifacts\vehicle-kit\lightrp_vk_rims\resource\lightrp_vk_rims\` | `auto_start false`, `client_script register.lua`, `preload_mod dist/LightRPVehicleKitRims_71f872a21fa7.zip`, `props.register` |
-| `lightrp_vk_body` | E2, same script (branch `vc/e2-bodykit`) | `C:\Games\cyberm\wt-vc-e2\artifacts\vehicle-kit\lightrp_vk_body\resource\lightrp_vk_body\` | `auto_start false`, `preload_mod dist/LightRPVehicleKitBody_c774256c18e1.zip`, `props.register` |
-| `lightrp_vehicle_stages` | E5, `scripts/vehicle-kit/stages/build-stages.ps1` (branch `vc/e5-stages`) | `C:\Games\cyberm\wt-vc-e5\artifacts\vehicle-kit\stages\resource\lightrp_vehicle_stages\` | `auto_start true`, `dependency 'tweakxl >=1.12.0'`, `preload_mod dist/LightRPVehicleStages_ce7fa4c98a7e.zip`, exports `stageRecord` / `stageOf` |
+| `lightrp_vk_rims` | E1, `scripts/vehicle-kit/build-pack.ps1` | `artifacts/vehicle-kit/lightrp_vk_rims/resource/lightrp_vk_rims/` | `auto_start false`, `client_script register.lua`, `preload_mod dist/LightRPVehicleKitRims_f721d6538465.zip`, `props.register` |
+| `lightrp_vk_body` | E2, same script | `artifacts/vehicle-kit/lightrp_vk_body/resource/lightrp_vk_body/` | `auto_start false`, `preload_mod dist/LightRPVehicleKitBody_ed9c4dea033d.zip`, `props.register` |
+| `lightrp_vk_liveries` | E3, `scripts/vehicle-kit/liveries/build-liveries.ps1` | `artifacts/vehicle-kit/liveries/resource/lightrp_vk_liveries/` | `auto_start true`, `dependency 'tweakxl >=1.12.0'`, `preload_mod dist/LightRPVehicleLiveries_490d5fb1f73b.zip`, `world.vehicles` + `world.vehicles.appearance`; its server script calls `registerPaintProfiles` |
+| `lightrp_vehicle_stages` | E5, `scripts/vehicle-kit/stages/build-stages.ps1` | `artifacts/vehicle-kit/stages/resource/lightrp_vehicle_stages/` | `auto_start true`, `dependency 'tweakxl >=1.12.0'`, `preload_mod dist/LightRPVehicleStages_ce7fa4c98a7e.zip`, exports `stageRecord` / `stageOf` |
+
+Revisions: rims `f721d6538465` and body `ed9c4dea033d` are the packs checked frame by frame
+in game, liveries `490d5fb1f73b` the pack seen without a crash (all on one client,
+2026-11-06). The stage revision was not re-checked in this pass.
 
 The resource names are load-bearing: `KIT.rims.pack`, `KIT.body.pack` and
 `stages.resource` in `shared/vehicle_customization.lua` must match them, and the
@@ -32,7 +37,8 @@ server and every client check `GetResourceState(<name>) == "running"`.
    catalogue built from different tables put parts in the wrong place.
 2. **Copy each resource folder** next to the others in `resources/assets/models/`:
    `resources/assets/models/lightrp_vk_rims/`, `…/lightrp_vk_body/`,
-   `…/lightrp_vehicle_stages/` (same depth as `open77_maneki`, whose resolution is proven).
+   `…/lightrp_vk_liveries/`, `…/lightrp_vehicle_stages/` (same depth as `open77_maneki`,
+   whose resolution is proven).
    This `lightrp_vehicle_kit/` folder only holds this note.
 3. **Decide how they are versioned.** To track them like the other asset resources
    (`open77_maneki` commits its `dist/*.zip`), add to the repository `.gitignore`:
@@ -42,23 +48,25 @@ server and every client check `GetResourceState(<name>) == "running"`.
    !resources/assets/models/lightrp_vk_rims/**
    !resources/assets/models/lightrp_vk_body/
    !resources/assets/models/lightrp_vk_body/**
+   !resources/assets/models/lightrp_vk_liveries/
+   !resources/assets/models/lightrp_vk_liveries/**
    !resources/assets/models/lightrp_vehicle_stages/
    !resources/assets/models/lightrp_vehicle_stages/**
    ```
 
    Otherwise ship them by overlay on the host, as for the RP scripts.
-4. **TweakXL ≥ 1.12.0.** The stages resource depends on `tweakxl >=1.12.0`. The Open77
+4. **TweakXL ≥ 1.12.0.** The stages and liveries resources depend on `tweakxl >=1.12.0`. The Open77
    loader (`resources/assets/loaders/tweakxl`) is **1.12.0** on base
    `feat/vehicle-customization` (`b9af09d2`) and still **1.11.4** on base `main` as of
    2026-11-06. Without a 1.12.0 loader the stages resource does not start and Performance
    stays greyed. Use the 1.12.0 loader (E0.8 measured with it) and add `"tweakxl"` to
    `resources.load`.
    TweakXL is executable content: the world must stay `requiredMods.unsecured = true`.
-5. **`server.jsonc`** (not edited by this branch): add the three names to
+5. **`server.jsonc`** (not edited by this branch): add the four names to
    `resources.load`, **before** `"op77_lightrp"`, and ensure the two opt-in packs at start:
 
    ```jsonc
-   "load": [ …, "tweakxl", "lightrp_vk_rims", "lightrp_vk_body", "lightrp_vehicle_stages", …, "op77_lightrp", … ],
+   "load": [ …, "tweakxl", "lightrp_vk_rims", "lightrp_vk_body", "lightrp_vk_liveries", "lightrp_vehicle_stages", …, "op77_lightrp", … ],
    "startup": { "commands": [ …, "ensure lightrp_vk_rims", "ensure lightrp_vk_body" ] },
    ```
 
