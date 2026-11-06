@@ -8,7 +8,7 @@ course has its own full leaderboard, with each runner's splits.
 |---|---|
 | Contract (limits, validation, orb geometry, time format) | `shared/parkour.lua` (`LightRpParkour`), mirrored by `ui/src/features/parkour/model.ts` |
 | Storage, start points, runs, leaderboards, Activities panel, staff editor protocol | `server/modules/parkour.lua` |
-| Uplinks, relays, downlink (RELAY markers), hold, bearing, keys, sounds, GPS | `client/core/parkour.lua` |
+| Points (ring + light column), hold, bearing, keys, sounds, GPS | `client/core/parkour.lua` |
 | Staff editor: relay, captures, 3D preview, build mode | `client/core/parkour_editor.lua` |
 | Run HUD, countdown, result / DNF cards, music | `ui/src/features/parkour/ParkourHud.tsx`, `music.ts` |
 | F1 > Parkour (course list, card, leaderboard) | `ui/src/features/parkour/ParkourBrowser.tsx` |
@@ -19,34 +19,22 @@ course has its own full leaderboard, with each runner's splits.
 
 ## What a player sees
 
-- **Art direction, "RELAY".** A course is a signal the runner carries from an **uplink**
-  (the start) through **relays** (the checkpoints) to the **downlink** (the finish). Every
-  point uses the same few native markers:
-
-  | Part | Marker | Role |
-  |---|---|---|
-  | Gate | `checkpoint`, a standing circular frame across the line | Sized to the trigger: what you see is what counts. You run through it. |
-  | Spine | `cylinder`, fading upward | A light column seen from far away (up to 500 m). |
-  | Node | `diamond`, turning and bobbing over the gate | The head of the spine. |
-  | Drip | 2 `chevron`s sliding down into the gate | Enter here. |
-  | Pad | `ring` on the ground | Where to stand. |
-
-  The colour carries the role:
-  - **cyan uplink**: a portal standing on the ground, facing the course;
-  - **gold relay**: the checkpoint to reach;
-  - **white ghost**: the one after it, its faint gate only, to read the line ahead;
-  - **green downlink**: two crossed gates turning like a gyroscope, with the tallest spine.
-
-  Motion:
-  - a relay **rises out of the ground** when it becomes the target;
-  - a crossed one is **sent**: it shoots up into the sky and goes, with a burst and a jingle;
-  - only positions and rotations move (20 times a second, groups within 180 m). A colour or
-    size change is a native rebuild, so they never change after creation.
-
-  Budget: markers are 64 per resource, shared with every LightRP point. The parkour leaves
-  10 free and drops the decoration (pad, drip, node, spine) before a gate when short.
-- **Uplinks.** The 3 nearest published starts within 160 m are drawn. The map shows a blip
-  per course (category `parkour`, routable). At the uplink, **E** opens the course card.
+- **The points: simple and still.** Each point is a ring standing across the line, sized
+  to its trigger (what you see is what counts: you run through it), and a thin light
+  column fading into the sky to find it from far away.
+  - colours: the checkpoint to reach in gold, the finish in green, a start in cyan (its
+    ring standing on the ground, facing the course);
+  - a crossed checkpoint simply goes, with a burst and a sound, and the next one appears.
+  - **Never update a marker after creating it.** An update while it is still loading
+    restarts its spawn (client `Markers.cpp`, `stage != Ready`). A first animated version
+    (#130: rising gates, turning diamonds, sliding chevrons, 20 updates a second) made
+    the points vanish and come back all the time.
+  - Budget: markers are 64 per resource, shared with every LightRP point. The interaction
+    markers only exist near the player (`interact.lua` streamMarker, #132). The parkour
+    leaves 10 free and logs any shortfall or refusal.
+- **Starts.** The 3 nearest published starts within 160 m are drawn. The map shows a blip
+  per course (category `parkour`, routable). At the start, **E** opens the course card
+  (never offered during a run).
 - **F1 > Parkour** (or `/parkour`) lists every course:
   - sorting: nearest, most run, A–Z;
   - for each course: its record, your best, its length and checkpoints;
@@ -68,7 +56,7 @@ course has its own full leaderboard, with each runner's splits.
     - God mode is on, and the core puts the RP weapons aside and freezes the needs.
   - **GO** stays on screen about a second after the start.
   - **The bearing**, under the checkpoint pips:
-    - an arrow turned toward the next point from the camera, so an off-screen relay is
+    - an arrow turned toward the next point from the camera, so an off-screen checkpoint is
       found at once;
     - its name (CP n or FINISH), the distance, and the climb or drop (above 2 m).
   - **The HUD:**
