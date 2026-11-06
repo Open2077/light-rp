@@ -15,6 +15,10 @@ events, handlers, pageHandlers, requests, batches, threads, keys = {}, {}, {}, {
 played,soundHandles={},{}
 nativeProps,nextNativeId={},0
 createdProps,removedProps,movedProps=0,0,0
+-- The client quota is shared by the whole resource: foreignProps stands for what
+-- op77_lightrp holds besides the tables (the Maneki cats, up to 40).
+propQuota,foreignProps,quotaRefused=256,0,0
+LightRpManeki={count=0}
 clock=0; focus=false; placeAt={x=0,y=0,z=0}
 frozen=false; camera=nil; stoppedCamera=false; views={}
 LightRpEvents={page={notice='notice',ready='ready',dialogClose='dialogClose'},net={state='state'}}
@@ -139,6 +143,8 @@ function Open77.debugDraw.clear(tag)batches[tag]=nil;return true end
 function Open77.props.create(options)
  nativeCreatesInResume=(nativeCreatesInResume or 0)+1
  if mockCreateFailure then return nil,'invalid_model' end
+ local used=foreignProps;for _ in pairs(nativeProps) do used=used+1 end
+ if used>=propQuota then quotaRefused=quotaRefused+1;return nil,'quota_exceeded' end
  assert(options.model:find('open77\\assets\\op77_lightrp\\board_games\\',1,true)==1)
  assert(options.model:sub(-4)=='.ent' and options.kind=='prop')
  -- Table bases get a solid, mesh-less collider at scale 1; everything else stays non-solid.
@@ -612,11 +618,12 @@ assert(movedProps==idleMoves,'seven still tables cost no transform at all')
 -- allows, the rest show their base alone (1 prop), and coming closer brings
 -- the pieces back.
 local crowd={}
+foreignProps=40;LightRpManeki.count=40;quotaRefused=0 -- the 40 cats a player can have around
 for i=1,12 do crowd[i]={id=200+i,owned=false,position={x=60+i*4,y=0,z=0},rotation=0,players={},revision=1,kind='chess',game=LightRPBoardRules.new('chess')} end
 events['lightrp:boardGames:state']({boards=crowd});step()
 waitUntil(function() return propsForBoard(108,'chess')==1 and propsForBoard(64,'chess')==33 end,'far crowd: pieces near, bases beyond the quota')
 local total=0;for _ in pairs(nativeProps) do total=total+1 end
-assert(total<=220,'the far crowd stays within the prop budget: '..total)
+assert(total<=180,'the far crowd stays within the prop budget: '..total)
 local bases=0;for i=1,12 do if propsForBoard(60+i*4,'chess')==1 then bases=bases+1 end end
 assert(bases>=5 and propsForBoard(64,'chess')==33,'the farthest tables are drawn as bases: '..bases)
 assert(traced('render_base'),'a base-only table is traced')
@@ -626,7 +633,9 @@ waitUntil(function()
  local n=0;for _ in pairs(nativeProps) do n=n+1 end;peak=math.max(peak,n)
  return propsForBoard(108,'chess')==33 and propsForBoard(64,'chess')==1
 end,'walking over swaps the detail')
-assert(peak<=230,'never over the client quota on the way: '..peak)
+assert(peak<=190,'never over the client quota on the way: '..peak)
+assert(quotaRefused==0,'tables and cats fit together: '..quotaRefused..' refused')
+foreignProps=0;LightRpManeki.count=0
 Open77.character.state().position.x=0
 events['lightrp:boardGames:state']({boards=many});step()
 -- Solo: the human plays without a black seat. A camera held by another
@@ -640,6 +649,27 @@ assert(C.isActive() and C.isActor(solo) and C.isReady(solo) and C.member(solo)==
 assert(not camera and cameraCreates==creates and focus and frozen and view.active and view.camera==false,'no camera: cursor and bar only')
 assert(notices[#notices-1]:find('camera is unavailable',1,true),notices[#notices-1])
 waitUntil(function()return nativeCount(3)==33 end,'solo board')
+-- The quota full while seated: not a broken board. The seat and the table stay,
+-- no failure is reported, and the refused piece comes back once there is room.
+do
+ local promoted
+ for _,line in pairs(solo.game.board) do for _,p in pairs(line) do
+  if type(p)=='table' and p.kind=='pawn' then promoted=p end
+ end end
+ local reports,asked=#diagnostics,#requests
+ foreignProps=256;quotaRefused=0
+ promoted.kind='queen';solo.revision=solo.revision+1;events['lightrp:boardGames:state']({boards={solo}});step()
+ waitUntil(function()return quotaRefused>0 end,'the quota refuses the new piece')
+ for i=1,40 do step() end
+ assert(C.isActive() and nativeCount(3)==32,'a refused create keeps the seat and the rest of the table: '..nativeCount(3))
+ assert(quotaRefused<=2,'the render pass holds instead of retrying every frame: '..quotaRefused)
+ for i=reports+1,#diagnostics do assert(diagnostics[i].reason~='board_failed','a full quota is not a failed board') end
+ for i=asked+1,#requests do assert(requests[i].action~='leave','a full quota does not leave the table') end
+ foreignProps=0;clock=clock+2100
+ waitUntil(function()return nativeCount(3)==33 end,'the piece comes back with room')
+ promoted.kind='pawn';solo.revision=solo.revision+1;events['lightrp:boardGames:state']({boards={solo}});step()
+ for i=1,10 do step() end
+end
 play(5,7,5,5);assert(last().action=='move' and last().boardId==3,'solo human can play without a black seat')
 escape();foreignHeld=false;assert(not frozen and not focus)
 -- Another script taking the camera over (string or numeric ids alike) ends the view.

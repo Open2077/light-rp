@@ -79,13 +79,19 @@ local leftBoards={}
 local beats,generations,threadErrors={},{},{}
 local LOAD_GRACE_MS,RETRY_MS=15000,20000
 -- Tables render up to FAR_RADIUS metres away, nearest first, while their
--- props fit PROP_BUDGET (the client quota is 256 props per resource; the rest
--- is headroom for the placement ghost and new pieces). Three levels of detail
+-- props fit PROP_BUDGET. The client quota is 256 props per resource and the
+-- whole of op77_lightrp shares it, so the budget gives way to the Maneki cats
+-- around (LightRpManeki.count, up to 40 and 50 with the staff tool); the rest is
+-- headroom for the placement ghost and new pieces. Three levels of detail
 -- (renderAllowed[id]): "full" within RENDER_RADIUS (pieces and the solid
 -- collider), "far" beyond it (pieces, no collider: nobody walks into a table
 -- 100 m away), "base" when the pieces no longer fit (the table alone, 1 prop).
 -- The meshes are cooked LODMode AlwaysVisible, so a far table is drawn.
 local RENDER_RADIUS,FAR_RADIUS,PROP_BUDGET=40,150,220
+-- A refused create (the quota is also a global one, 1024) keeps what is drawn;
+-- nothing is created for a moment, then the render pass tries again.
+local QUOTA_HOLD_MS=2000
+local quotaHoldUntil=0
 local PROP_ESTIMATE={chess=34,checkers=42,connect4=44,roulette=4,slots=17,blackjack=61,fortune=46,pool=20}
 local ASSET_HELP="Close the game and rejoin through the launcher to install the board-game assets."
 local sounds, soundSequences = {}, {}
@@ -871,6 +877,13 @@ local function aliveBoard(board)
     return rendererRunning and renderAllowed[tostring(board.id)] and current and current.revision==board.revision
 end
 -- Whether the cached targets were computed from this very snapshot.
+-- quota_exceeded is not a broken board: the assets are fine and room comes back.
+local function quotaFull(id,why)
+    if not tostring(why or ""):find("quota_exceeded",1,true) then return false end
+    quotaHoldUntil=GetGameTimer()+QUOTA_HOLD_MS
+    trace("render_quota",id,"%s",tostring(why))
+    return true
+end
 local function fresh(cache,board)
     return cache.snapshot==board and cache.snapshotGame==board.game and cache.snapshotRevision==board.revision
 end
@@ -881,11 +894,12 @@ local function ensureBoard(board)
         if GetGameTimer()-failedAt<RETRY_MS then return end
         failedBoards[id]=nil
     end
+    if GetGameTimer()<quotaHoldUntil then return end
     local cache=renderCaches[id]
     if cache and cache.kind~=board.kind then clearGeometry(id);cache=nil end
     if not cache then
         local prop,why=createProp(board,nil,board.position,false)
-        if not prop then trace("render_create_failed",id,"kind=%s base %s",board.kind,tostring(why));failBoard(id,why);return end
+        if not prop then trace("render_create_failed",id,"kind=%s base %s",board.kind,tostring(why));if not quotaFull(id,why) then failBoard(id,why) end;return end
         trace("render_start",id,"kind=%s model=%s",board.kind,tostring(prop.name))
         -- moving: keys of props not yet at their goal (the only ones animate touches);
         -- goals: last world targets; snapshot/holdUntil: when to recompute them.
@@ -936,7 +950,7 @@ local function ensureBoard(board)
         local p=world(board,target.position.x,target.position.y,target.position.z)
         if board.kind=="connect4" and cache.initialized then p.z=board.position.z+1.05*SCALE end
         local prop,why=createProp(board,target.piece,p,false)
-        if not prop then trace("render_create_failed",id,"kind=%s piece=%s %s",board.kind,tostring(key),tostring(why));failBoard(id,why);return end
+        if not prop then trace("render_create_failed",id,"kind=%s piece=%s %s",board.kind,tostring(key),tostring(why));if not quotaFull(id,why) then failBoard(id,why) end;return end
         cache.pieces[key]=prop;cache.moving[key]=true -- e.g. a new disc starts above the grid
         Wait(0);beats.render=GetGameTimer()
         if not aliveBoard(board) or renderCaches[id]~=cache or renderAllowed[id]=="base" then return end
@@ -1863,14 +1877,15 @@ function Client.start()
                 -- does not fit either is not drawn.
                 renderCandidates={}
                 local props=0
+                local budget=PROP_BUDGET-(LightRpManeki and LightRpManeki.count or 0)
                 for _,entry in ipairs(near) do
                     local id=tostring(entry.board.id);local cache=renderCaches[id]
                     local close=entry.d<RENDER_RADIUS or (active~=nil and active.id==entry.board.id)
                     local pieces=PROP_ESTIMATE[entry.board.kind] or 45
                     if cache and cache.initialized and cache.count then pieces=cache.count end
                     local mode,cost=close and "full" or "far",1+pieces+(close and 1 or 0)
-                    if #renderCandidates>0 and props+cost>PROP_BUDGET then mode,cost="base",1 end
-                    if #renderCandidates==0 or props+cost<=PROP_BUDGET then
+                    if #renderCandidates>0 and props+cost>budget then mode,cost="base",1 end
+                    if #renderCandidates==0 or props+cost<=budget then
                         props=props+cost;renderCandidates[#renderCandidates+1]=entry;allowed[id]=mode
                     end
                 end

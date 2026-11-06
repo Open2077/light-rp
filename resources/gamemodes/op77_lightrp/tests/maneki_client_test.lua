@@ -153,4 +153,16 @@ for _, c in ipairs(mapCalls) do if c.method == "removeBlip" then removed = remov
 assert(removed == 2, "pins removed when the map closes")
 local back = lastPage("lightrp:ui:dialog")
 assert(#pageNamed > before and back.kind == "maneki" and back.intro == nil, "the panel comes back, without the explanation")
+-- The tables leave room for every cat held, drawn or not, and a cat the shared prop quota
+-- refused is built by the next list once they have.
+LightRpManeki.clear()
+assert(LightRpManeki.count == 0, "no cat held")
+local create = Open77.props.create
+Open77.props.create = function() return nil, "quota_exceeded" end
+local refusedList = { { id = "q1", x = 1, y = 1, z = 0 }, { id = "q2", x = 2, y = 1, z = 0 } }
+LightRpManeki.apply(refusedList); tick(2)
+assert(LightRpManeki.count == 2 and not LightRpManeki.cats.q1.handle, "a refused cat is still held")
+Open77.props.create = create
+LightRpManeki.apply(refusedList); tick(2)
+assert(LightRpManeki.cats.q1.handle and LightRpManeki.cats.q2.handle, "the next list builds the refused cats")
 print("maneki_client_test: ok")
