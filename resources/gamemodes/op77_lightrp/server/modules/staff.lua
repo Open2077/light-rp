@@ -64,8 +64,10 @@ end)
 
 local function parseTarget(source, value)
     if value == nil or value == "" or value == "me" then return source end
-    local id = tonumber(value)
-    if id == nil or GetPlayerName(id) == nil then return nil end
+    -- A player id is a whole number: "1.5" or a coordinate typed in the id's place
+    -- is no one (GetPlayerName raises on a number with no integer representation).
+    local id = math.tointeger(tonumber(value))
+    if id == nil or id < 1 or GetPlayerName(id) == nil then return nil end
     return id
 end
 
