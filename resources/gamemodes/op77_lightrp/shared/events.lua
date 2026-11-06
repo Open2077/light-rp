@@ -49,6 +49,7 @@ LightRpEvents = {
     net = {
         pvpPlayers = "op77_lightrp:pvp:players", -- server -> client: the player ids in a PvP fight (nameplates hidden)
         arrivalTour = "op77_lightrp:arrival:tour", -- server -> client: { center } the camera tour of the central square after the hall (server/modules/tutorial.lua)
+        rpNames = "op77_lightrp:rpnames", -- server -> client: { "id<TAB>First Last", ... } the characters' names for the nameplates (server/modules/rp_names.lua)
         staffGhosts = "op77_lightrp:staff:ghosts", -- server -> client: the staff in ghost mode (no nameplate, no map dot)
         staffGhost = "op77_lightrp:staff:ghost",   -- server -> the ghost: { on } (its client toggles the platform noclip)
         customization = "op77_lightrp:customization",

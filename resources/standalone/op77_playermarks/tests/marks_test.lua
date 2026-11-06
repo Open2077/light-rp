@@ -141,6 +141,26 @@ handlers.onClientResourceStop("op77_lightrp")
 PM.refresh()
 assert(PM.marks["7"], "the caller stopped: its hide went with it")
 
+-- setNames (op77_lightrp: the characters' names): the plate shows it, per caller
+_G.GetResourceState = function() return "running" end
+nearby = { { playerId = 7, isLocal = false, name = "AccountA" }, { playerId = 8, isLocal = false, name = "AccountB" } }
+hiddenOnMap[7] = nil
+PM.refresh()
+assert(PM.marks["7"].name:find("AccountA"), "the account's name by default")
+_G.GetInvokingResource = function() return "op77_lightrp" end
+assert(exported.setNames({ [7] = "Jake Rob", ["8"] = "  ", [9] = 42 }))
+PM.refresh()
+assert(PM.marks["7"].name:find("Jake Rob") and not PM.marks["7"].name:find("AccountA"), "the character's name: " .. PM.marks["7"].name)
+assert(PM.marks["8"].name:find("AccountB"), "a blank name keeps the account's")
+assert(exported.setNames(nil))
+PM.refresh()
+assert(PM.marks["7"].name:find("AccountA"), "cleared: the account's again")
+assert(exported.setNames({ [7] = "Jake Rob" }))
+handlers.onClientResourceStop("op77_lightrp")
+PM.refresh()
+assert(PM.marks["7"].name:find("AccountA"), "the caller stopped: its names went with it")
+_G.GetResourceState = function() return "missing" end
+
 -- map3d not running: nobody is hidden
 _G.GetResourceState = function() return "missing" end
 hiddenOnMap[7] = true
