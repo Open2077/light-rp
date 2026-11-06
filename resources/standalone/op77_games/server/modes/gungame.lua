@@ -297,6 +297,8 @@ AddEventHandler("onPlayerWeaponChanged", function(raw, _, record, drawn)
     if match == nil or match.def ~= def or match.phase ~= "running" then return end
     local p = match.players[id]
     if p == nil or not p.alive then return end
+    -- the kit's own clear / assign / draw while it is delivered: not a wrong weapon
+    if GamesCombat.delivering(p) then return end
     if drawn == false or drawn == "false" or drawn == "0" then return end
     if type(record) ~= "string" or not record:find("^Items%.") then return end
     if record == LADDER[p.gg.step].record or record == KNIFE then return end

@@ -193,12 +193,15 @@ end
 -- preselect). It replaces the one held. Until the core reports a verified id this player's
 -- shots are refused: a weapon that never verified cannot land damage.
 function C.arm(match, p, kit, immediate)
-    p.armed, p.plan, p.verified, p.hand = true, kit, {}, nil
+    -- `delivering` until the core says armed or failed: like a mission's `equipping`, nothing
+    -- re-arms a body whose kit is still on its way (C.delivering)
+    p.armed, p.plan, p.verified, p.hand, p.delivering = true, kit, {}, nil, true
     local ok, hand = GamesActivity.kit(p.id, match.def.id, kit or nil, immediate and { immediate = true } or nil)
     if ok == true then
         p.hand = hand
         return
     end
+    p.delivering = nil
     E.log(("%d refused a kit in %s: %s"):format(p.id, match.id, tostring(hand)))
     GamesActivity.notice(p.id, "error", match.def.label, "Your weapon could not be equipped.")
 end
@@ -220,7 +223,7 @@ function C.disarm(match, p)
     end
     if not p.armed then return end
     local hand = p.hand
-    p.armed, p.plan, p.verified, p.hand = nil, nil, nil, nil
+    p.armed, p.plan, p.verified, p.hand, p.delivering = nil, nil, nil, nil, nil
     if hand == nil then return end
     local ok, why = GamesActivity.kitTake(p.id, match.def.id, { hand = hand })
     -- The core died: nobody else is left to empty these slots until it restarts.
@@ -250,6 +253,9 @@ end
 
 function C.accepts(p, reported) return C.slotOf(p, reported) ~= nil end
 
+-- A kit is on its way to this body (asked, not yet armed or failed).
+function C.delivering(p) return p.delivering == true end
+
 -- The core's word on a kit (activities.lua): a verified id opens that weapon for the
 -- arbiter, a kit that never came is told, as the arena does. An older hand is dropped.
 AddEventHandler("op77_lightrp:activity:kit", function(playerId, activityId, report)
@@ -258,6 +264,7 @@ AddEventHandler("op77_lightrp:activity:kit", function(playerId, activityId, repo
     if match == nil or match.def.id ~= activityId or type(report) ~= "table" then return end
     local p = match.players[id]
     if p == nil or p.hand == nil or report.hand ~= p.hand then return end
+    if report.state == "armed" or report.state == "failed" then p.delivering = nil end
     if report.state == "failed" then
         E.log(("kit never reached %d in %s"):format(id, match.id))
         GamesActivity.notice(id, "error", match.def.label, "Your weapon could not be equipped.")

@@ -114,6 +114,23 @@ function K.holds(snapshot, kit)
     end
     return false
 end
+-- A kit with a melee weapon in an idle slot (the gun game's knife beside each step) gets every
+-- snapshot refused: the platform reads each idle slot's magazine and a knife has none
+-- (ammo_cache_unavailable). Every delivery then retried six times and gave up, at every kill and
+-- every respawn: the clear / assign / ammo requests piled up on every client and the gun game
+-- lagged more with each kill (2026-11-06, 257 refusals, all games.gungame; mission kits, firearms
+-- only, never). Such a refusal no longer fails a delivery whose assigns and draw were accepted.
+local SNAPSHOT_BLIND = "ammo_cache_unavailable"
+-- The slots as the accepted assigns reported them, in a snapshot's shape.
+function K.fromAssigns(kit, first, second)
+    local rows = {}
+    local function row(slot, record, result)
+        if type(result) == "table" then rows[#rows + 1] = { slot = slot, record = record, tweakDbId = result.tweakDbId } end
+    end
+    row(1, kit.primary, first)
+    if kit.secondary then row(2, kit.secondary, second) end
+    return { slots = rows }
+end
 -- The sequence, retried until the snapshot shows the kit (a client still loading answers
 -- nothing, then refuses with queue_full). Runs on the caller's thread and yields.
 --   o.tag        the log line's start ("mission 3: kit")
@@ -127,10 +144,10 @@ function K.deliver(id, kit, o)
     local function step(method, ...)
         if o.stopped and o.stopped() then return nil end
         local result, why = K.weapons(id, method, ...)
-        if not result and why ~= "weapon_slot_empty" then
+        if not result and why ~= "weapon_slot_empty" and why ~= SNAPSHOT_BLIND then
             LightRP.log("%s %s for %s: %s refused (%s)", o.tag, kit.id, name(id), method, tostring(why))
         end
-        return result
+        return result, why
     end
     Wait(o.settleMs or 1500)
     for attempt = 1, 6 do
@@ -138,8 +155,9 @@ function K.deliver(id, kit, o)
         step("clear")
         local first = step("assign", kit.primary, 1, { active = true, addToInventory = true })
         if first and o.assigned then o.assigned(1, first) end
+        local second
         if kit.secondary then
-            local second = step("assign", kit.secondary, 2, { active = false, addToInventory = true })
+            second = step("assign", kit.secondary, 2, { active = false, addToInventory = true })
             if second and o.assigned then o.assigned(2, second) end
         end
         for slot = 1, 2 do
@@ -149,10 +167,15 @@ function K.deliver(id, kit, o)
                 if capacity then step("setAmmo", slot, { magazine = capacity, activate = slot == 1 }) end
             end
         end
-        step("setActive", 1)
+        local drawn = step("setActive", 1)
         if o.stopped and o.stopped() then return nil end
-        local check = K.weapons(id, "requestSnapshot")
+        local check, why = K.weapons(id, "requestSnapshot")
         if K.armed(check, kit) then return true, check end
+        -- The snapshot is blind, not the kit wrong: every assign and the draw were accepted.
+        if not check and why == SNAPSHOT_BLIND and first and drawn and (not kit.secondary or second) then
+            LightRP.log("%s %s for %s: in hand (assigns accepted; the snapshot cannot read a melee slot)", o.tag, kit.id, name(id))
+            return true, K.fromAssigns(kit, first, second)
+        end
         if o.again and o.again() then return nil end
         LightRP.log("%s %s for %s not in hand (attempt %d), retrying", o.tag, kit.id, name(id), attempt)
         Wait(3000)
