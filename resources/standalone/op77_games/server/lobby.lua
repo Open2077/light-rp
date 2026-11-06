@@ -7,6 +7,10 @@
 --                   players are not owned yet: they keep playing until the launch. A game
 --                   already running is never joined (E.lateMatch: unless its mode opted in);
 --                   the queue makes the next one.
+--   options.squad   (the crew the core sends along, one join per member, no match) a crew
+--                   gets a place for everyone of it who can still come, or waits out whole;
+--                   in a team game it plays on one side, unless it is the whole lobby: then
+--                   nobody else is there to play and the deal splits it.
 -- Whoever we held without starting is released with activityLeave: Light RP lists them.
 local Config = GamesConfig
 local A = GamesActivity
@@ -19,7 +23,8 @@ local L = GamesLobby
 local queues = {}   -- def.id -> { members = { id... }, map, windowEndsAt }
 local gathers = {}  -- def.id .. "|" .. match id -> { key, id, def, expected, members, teams, friendly, map, at }
 local launched = {} -- the same key -> when it started
-L.queues, L.gathers = queues, gathers
+local squads = {}   -- playerId -> { id, members = { ids } } while queued with a crew
+L.queues, L.gathers, L.squads = queues, gathers, squads
 
 local REASONS = {
     no_scope = "Every fight slot is in use. Try again in a moment.",
@@ -64,6 +69,7 @@ function L.leave(id)
             found = true
         end
     end
+    squads[id] = nil
     for _, g in pairs(gathers) do
         local index = contains(g.members, id)
         if index then
@@ -79,6 +85,7 @@ end
 function L.clear()
     for key in pairs(queues) do queues[key] = nil end
     for key in pairs(gathers) do gathers[key] = nil end
+    for id in pairs(squads) do squads[id] = nil end
 end
 
 -- ids from the outside: positive whole numbers, no repeats, this many at most.
@@ -94,6 +101,59 @@ local function idList(value, seen, limit)
     return out
 end
 
+-- The crew a join came with, or nil: a crew of one, or one without this player, is none.
+local function squadOf(options, id)
+    local squad = options.squad
+    if type(squad) ~= "table" or squad.id == nil then return nil end
+    local members = idList(squad.members, {}, 64)
+    if #members < 2 or not contains(members, id) then return nil end
+    return { id = tostring(squad.id):sub(1, 64), members = members }
+end
+
+-- Places this join needs in the queue: theirs, and those of their crew still to come. A
+-- member who cannot come any more (the core told them) keeps no place.
+local function placesFor(def, q, id, squad)
+    local need = 1
+    for _, member in ipairs(squad and squad.members or {}) do
+        if member ~= id and not contains(q.members, member) and connected(member) and A.check(member, def.id) then
+            need = need + 1
+        end
+    end
+    return need
+end
+
+-- The sides of a public lobby: each crew whole, the biggest first, on the side with the fewest
+-- players; the deal (engine) spreads the others behind them. nil: no crew to keep together, or
+-- a single crew that is the whole lobby.
+local function crewSides(def, ids)
+    if not def.teams then return nil end
+    local crews, at = {}, {}
+    for _, id in ipairs(ids) do
+        local squad = squads[id]
+        if squad then
+            if not at[squad.id] then
+                at[squad.id] = { order = #crews + 1 }
+                crews[#crews + 1] = at[squad.id]
+            end
+            local crew = at[squad.id]
+            crew[#crew + 1] = id
+        end
+    end
+    if #crews == 0 or (#crews == 1 and #crews[1] == #ids) then return nil end
+    table.sort(crews, function(a, b)
+        if #a ~= #b then return #a > #b end
+        return a.order < b.order
+    end)
+    local teams = {}
+    for side = 1, def.teams do teams[side] = {} end
+    for _, crew in ipairs(crews) do
+        local side = teams[1]
+        for _, team in ipairs(teams) do if #team < #side then side = team end end
+        table.move(crew, 1, #crew, #side + 1, side)
+    end
+    return teams
+end
+
 -- The ones who can still go, the others told and released. Starts them, or holds nobody.
 local function launch(def, ids, opts)
     local ready, stuck = {}, {}
@@ -105,6 +165,11 @@ local function launch(def, ids, opts)
             if connected(id) then stuck[#stuck + 1] = { id = id, why = why } end
             release(def, id)
         end
+    end
+    -- the sides from who really goes: a crew whose opponents fell away is the whole lobby
+    if opts.crews then
+        opts.teams = crewSides(def, ready)
+        for _, id in ipairs(ids) do squads[id] = nil end
     end
     local match, reason = E.open(def, ready, opts)
     local tail = match == nil and opts.room and ROOM_GONE or ""
@@ -191,18 +256,26 @@ function L.join(id, def, options)
         q = { members = {} }
         queues[def.id] = q
     end
-    if #q.members >= def.maxPlayers then
+    local squad = squadOf(options, id)
+    local need = placesFor(def, q, id, squad)
+    if #q.members + need > def.maxPlayers then
+        if #q.members == 0 then queues[def.id] = nil end
         release(def, id)
+        if need > 1 then return false, "This lobby has no room for your whole crew. Try again in a moment." end
         return false, "This lobby is full. Try again in a moment."
     end
     q.members[#q.members + 1] = id
+    squads[id] = squad
     q.map = q.map or options.map
     return true
 end
 
 local function stepQueue(def, q, t)
     for index = #q.members, 1, -1 do
-        if not connected(q.members[index]) then table.remove(q.members, index) end
+        if not connected(q.members[index]) then
+            squads[q.members[index]] = nil
+            table.remove(q.members, index)
+        end
     end
     if #q.members < def.minPlayers then
         q.windowEndsAt = nil
@@ -214,7 +287,7 @@ local function stepQueue(def, q, t)
     if #q.members >= def.maxPlayers then q.windowEndsAt = math.min(q.windowEndsAt, t + lobby.fullWindowSeconds * 1000) end
     if t < q.windowEndsAt then return end
     queues[def.id] = nil
-    launch(def, q.members, { map = q.map })
+    launch(def, q.members, { map = q.map, crews = true })
 end
 
 function L.tick(t)

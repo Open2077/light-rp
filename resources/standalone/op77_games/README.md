@@ -62,8 +62,10 @@ No map lives here. Staff make them in game with `/lightrp.maps`; they are stored
 
 A join with `options.match` plays exactly those players, on their `teams`, after all arrive or
 `lobby.gatherSeconds`. A join without one queues for the next game; the first join's `options.map`
-picks the map. A running game is never joined unless its mode sets `joinInProgress`. The queue deals
-sides without keeping crews together.
+picks the map. A running game is never joined unless its mode sets `joinInProgress`. A crew that
+comes through the queue (`options.squad`, one join per member) gets a place for all who can still
+come or stays out whole, and plays on one side of a team game, unless it is the whole lobby: then
+the deal splits it, so it still plays.
 
 ## Every way out
 

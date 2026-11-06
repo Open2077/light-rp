@@ -1,7 +1,7 @@
 import { PAGE_EVENTS, type ActivitiesState, type ActivityEntry, type RoomView, type RoomsState, type UiAction } from "@/bridge/protocol";
 
 /* The hosting menu in the dev preview: ?dialog=rooms, &room=host|member|private for a
-   room already open. It answers like server/modules/activity_rooms.lua, without rules. */
+   room already open, &crew=leader|member for a crew of three. It answers like server/modules/activity_rooms.lua, without rules. */
 
 type Fire = (name: string, payload: unknown) => void;
 
@@ -38,7 +38,9 @@ export function roomsMock(params: URLSearchParams, fire: Fire) {
       { id: 7, activity: "games.prophunt", label: "Prop Hunt", host: "Kei Mori", count: 2, max: 12 },
     ],
   };
-  const push = () => fire(PAGE_EVENTS.state, { activities: structuredClone(activities), rooms: structuredClone(rooms) });
+  const crew = params.get("crew");
+  const party = crew ? { you: 7, leader: crew === "leader" ? 7 : 87, members: [{ id: 7 }, { id: 87 }, { id: 132 }] } : undefined;
+  const push = () => fire(PAGE_EVENTS.state, { activities: structuredClone(activities), rooms: structuredClone(rooms), ...(party ? { party } : {}) });
   const answer = (ok: boolean, text: string) => setTimeout(() => fire(PAGE_EVENTS.result, { ok, text, action: "activities.rooms" }), 120);
   const me = { id: 7, name: "Vi Asada", host: true };
   const issue = (r: RoomView) => r.teams?.some((t) => t.length === 0) ? "Team B is empty: move a player." : r.count < 2 ? `${r.label} needs 2 players.` : undefined;

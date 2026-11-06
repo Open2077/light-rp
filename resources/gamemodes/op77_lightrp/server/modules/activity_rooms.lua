@@ -11,8 +11,16 @@
 -- each (the host picks), else everyone in `players`, `size` at most. The start re-checks
 -- every member (A.check inside A.launchFriendly) and asks for at least two players.
 --
+-- Crews (server/modules/parties.lua): anyone in a crew creating or joining a room brings the
+-- whole crew, the owner's rule, wider than the panel's where only the leader can. Each member
+-- is checked like a join of their own: one who cannot come stays out and is told why, the
+-- others come. Whoever comes has to fit, on one team of a team game: else nobody moves and the
+-- one who asked hears why. Whoever brought the crew leaving takes along who came with them.
+-- A room is no crew's: whoever later leaves the crew, or the crew ending, changes nothing.
+--
 -- Everything in `activities.rooms` is hostile input: an id, a code, a map and a size are
 -- looked up, never trusted, and only the host may kick, move, change settings or start.
+-- The crew is read here, never sent.
 --
 -- The page: state key `rooms`, pushed on change only, to the open menus for a public room
 -- and to the members for any. `games` names what can be hosted; labels, maps and player
@@ -159,6 +167,7 @@ end
 -- Out of the room: the next member takes over, the last one closes it.
 local function drop(room, id)
     of[id] = nil
+    room.followed[id] = nil
     remove(room.members, id)
     if room.teams then
         for _, team in ipairs(room.teams) do remove(team, id) end
@@ -178,16 +187,33 @@ local function drop(room, id)
     changed(room)
 end
 
-local function place(room, id)
-    room.members[#room.members + 1] = id
-    of[id] = room
-    if not room.teams then
-        room.players[#room.players + 1] = id
-        return
+-- The team these players land on, together: of those with places for all of them, the one
+-- holding most of them, then the emptiest. nil: none.
+local function teamFor(room, ids)
+    local best, bestHeld
+    for _, team in ipairs(room.teams) do
+        local held = 0
+        for _, p in ipairs(ids) do if contains(team, p) then held = held + 1 end end
+        if #team - held + #ids <= room.size and (not best or held > bestHeld or (held == bestHeld and #team < #best)) then
+            best, bestHeld = team, held
+        end
     end
-    local best = room.teams[1]
-    for _, team in ipairs(room.teams) do if #team < #best then best = team end end
-    best[#best + 1] = id
+    return best
+end
+
+-- In the room, on `team` of a team game (a player already in moves there).
+local function place(room, ids, team)
+    for _, id in ipairs(ids) do
+        if of[id] ~= room then
+            room.members[#room.members + 1] = id
+            of[id] = room
+            if not room.teams then room.players[#room.players + 1] = id end
+        end
+        if room.teams and not contains(team, id) then
+            for _, other in ipairs(room.teams) do remove(other, id) end
+            team[#team + 1] = id
+        end
+    end
 end
 
 local function hostOnly(id)
@@ -195,6 +221,85 @@ local function hostOnly(id)
     if not room then return nil, "You are not in a room." end
     if room.host ~= id then return nil, "Only the host can do that." end
     return room
+end
+
+-- ---------------------------------------------------------------------------
+-- The crew. The server's own membership: nothing of this comes from the client.
+
+local function crewOf(id)
+    local P = LightRP.parties
+    local crew = P and type(P.of) == "function" and P.of(id) or nil
+    if crew and #(crew.members or {}) > 1 then return crew end
+    return nil
+end
+
+-- What a join of this member's own would answer. nil: they may come. room nil: being opened.
+local function refusal(member, room, activityId)
+    if of[member] then return "You are already in a room: leave it first." end
+    if room and room.banned[member] then return "The host removed you from this room." end
+    local free, why = A.check(member, activityId)
+    if not free then return why end
+    return nil
+end
+
+-- Who comes with `id` into `room` (nil: being opened). The rest of their crew, each on their
+-- own join's checks; a player alone brings nobody.
+--   { crew, coming = { ids }, inside = { ids already in this room }, out = { { id, why } } }
+local function following(id, room, activityId)
+    local crew = crewOf(id)
+    local group = { crew = crew, coming = {}, inside = {}, out = {} }
+    if not crew then return group end
+    for _, member in ipairs(crew.members) do
+        if member ~= id then
+            if room and of[member] == room then
+                group.inside[#group.inside + 1] = member
+            else
+                local why = refusal(member, room, activityId)
+                if why then group.out[#group.out + 1] = { id = member, why = why }
+                else group.coming[#group.coming + 1] = member end
+            end
+        end
+    end
+    return group
+end
+
+-- The joiner first, then whoever comes, then who is in already.
+local function together(id, group)
+    local ids = { id }
+    for _, p in ipairs(group.coming) do ids[#ids + 1] = p end
+    for _, p in ipairs(group.inside) do ids[#ids + 1] = p end
+    return ids
+end
+
+local function lowerFirst(text) return (tostring(text):gsub("^%u", string.lower)) end
+
+-- `did`: what the one who asked did, for the others. Who came is told how out; who did not, why.
+local function tellCrew(id, group, did)
+    for _, p in ipairs(group.coming) do
+        LightRP.notice(p, { kind = "contract", title = "CREW", durationMs = 6000,
+            body = name(id) .. " " .. did .. ": you are in it. /room opens it, /leave drops you out." })
+    end
+    for _, entry in ipairs(group.out) do
+        LightRP.notice(entry.id, { kind = "warning", title = "CREW", durationMs = 7000,
+            body = name(id) .. " " .. did .. ". You stay out: " .. lowerFirst(entry.why) })
+    end
+end
+
+-- What the join's answer adds, for the one who joined.
+local function crewLine(id, group)
+    local parts = {}
+    local n = #group.coming
+    if n > 0 then parts[1] = string.format(" %d crew member%s with you.", n, n == 1 and "" or "s") end
+    for _, entry in ipairs(group.out) do parts[#parts + 1] = " " .. name(entry.id) .. " stays out: " .. lowerFirst(entry.why) end
+    return table.concat(parts)
+end
+
+-- Everyone comes in together; who followed is remembered for the way out of who brought them.
+local function bring(room, id, group, team)
+    place(room, together(id, group), team)
+    if group.crew then
+        for _, p in ipairs(group.coming) do room.followed[p] = id end
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -213,6 +318,13 @@ function R.create(id, payload)
     local free, why = A.check(id, a.id)
     if not free then return false, why end
     if count() >= maxRooms() then return false, "Every room is taken. Join one, or try again in a moment." end
+    local group = following(id, nil, a.id)
+    local crewSize = 1 + #group.coming
+    if crewSize > size then
+        local _, most = limits(a, teams)
+        return false, string.format("Your crew is %d: this room takes %d%s. %s", crewSize, size, teams and " per side" or "",
+            crewSize <= most and "Pick a bigger room." or "Start a friendly match to play it inside the crew.")
+    end
     local private = payload.private == true
     local code
     if private then
@@ -221,7 +333,7 @@ function R.create(id, payload)
     end
     seq = seq + 1
     local room = { id = seq, host = id, activity = a.id, mode = mode, size = size, sideMax = size, private = private, code = code,
-        members = {}, banned = {}, seen = {}, bench = {}, noBots = true, at = now() }
+        members = {}, banned = {}, seen = {}, followed = {}, bench = {}, noBots = true, at = now() }
     if teams then
         room.teams = {}
         for i = 1, teams do room.teams[i] = {} end
@@ -229,11 +341,12 @@ function R.create(id, payload)
         room.players = {}
     end
     rooms[room.id] = room
-    place(room, id)
+    bring(room, id, group, room.teams and room.teams[1])
     changed(room)
-    LightRP.log("rooms: %s (%d) opened room %d: %s%s, %s", name(id), id, room.id, a.id, mode and (" " .. mode) or "",
-        private and "private" or "public")
-    return true, private and ("Room open. Code: " .. code) or "Room open."
+    tellCrew(id, group, "opened a " .. a.label .. " room")
+    LightRP.log("rooms: %s (%d) opened room %d: %s%s, %s, %d in", name(id), id, room.id, a.id, mode and (" " .. mode) or "",
+        private and "private" or "public", #room.members)
+    return true, (private and ("Room open. Code: " .. code .. ".") or "Room open.") .. crewLine(id, group)
 end
 
 function R.join(id, payload)
@@ -261,24 +374,48 @@ function R.join(id, payload)
     if #room.members >= capacity(room) then return false, "That room is full." end
     local free, why = A.check(id, a.id)
     if not free then return false, why end
-    place(room, id)
+    local group = following(id, room, a.id)
+    local ids = together(id, group)
+    local crewSize, left = 1 + #group.coming, capacity(room) - #room.members
+    if crewSize > left then
+        return false, string.format("Your crew is %d: this room has %d place%s left.", crewSize, left, left == 1 and "" or "s")
+    end
+    local team = room.teams and teamFor(room, ids)
+    if room.teams and not team then
+        return false, string.format("Your crew is %d: no team of this room has that many places.", #ids)
+    end
+    bring(room, id, group, team)
+    for _, p in ipairs(group.coming) do room.seen[p] = room.seen[p] or now() end
     -- Coming back keeps nothing alive and tells the host once per joinNoticeMs: a player
     -- going in and out can neither hold a room open nor flood its host.
     local t, seen = now(), room.seen[id]
     if seen == nil then room.at = t end
     if seen == nil or t - seen >= joinNoticeMs() then
         room.seen[id] = t
-        notify(room.host, "info", name(id) .. " joined your room.")
+        notify(room.host, "info", name(id) .. " joined your room" .. (#group.coming > 0
+            and string.format(" with %d crew member%s.", #group.coming, #group.coming == 1 and "" or "s") or "."))
     end
     changed(room)
-    return true, "You joined " .. name(room.host) .. "'s room."
+    tellCrew(id, group, "joined " .. name(room.host) .. "'s " .. a.label .. " room")
+    return true, "You joined " .. name(room.host) .. "'s room." .. crewLine(id, group)
 end
 
 function R.leave(id)
     local room = of[id]
     if not room then return false, "You are not in a room." end
+    -- whoever brought the crew in takes it out, as from a queue (A.requestLeave)
+    local crew, took = crewOf(id), 0
+    if crew then
+        for _, member in ipairs(crew.members) do
+            if member ~= id and of[member] == room and room.followed[member] == id then
+                drop(room, member)
+                took = took + 1
+                LightRP.notice(member, { kind = "info", title = "CREW", body = name(id) .. " left the room, and you with them." })
+            end
+        end
+    end
     drop(room, id)
-    return true, "You left the room."
+    return true, took > 0 and "You left the room with your crew." or "You left the room."
 end
 A.roomLeave = R.leave
 
