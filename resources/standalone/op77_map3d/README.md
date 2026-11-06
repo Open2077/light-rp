@@ -18,7 +18,7 @@ customizable 3D map of Night City, built from the game's own 3D map assets:
   with speed, blips pinned to its edge when they matter, district and distance below.
 - **Blips** for any resource (client or server): built-in icons or your own SVG, colour,
   label, description, category (legend with toggles and counts), pulse, heading arrows,
-  edge pinning. Other players near you are shown.
+  edge pinning. Other players are not shown (`nearbyPlayers.enabled = false`, 0.2.1): the influence zones show where people gather.
 - **Areas** for any client resource: polygons (a danger zone, a turf, a no-go zone)
   draped over the ground, the roads and the buildings of the map and the minimap, with a
   translucent fill (solid or diagonal danger hatching), a border and a label.
@@ -62,7 +62,7 @@ back when it stops.
 | `playerRate` | Player position updates per second sent to the page. |
 | `fps` | `{ minimap, map }`: the two WebUI surfaces' frame rates (default 60 and 60). The minimap has its own surface cropped to its corner; the map's full-screen surface is hidden while closed. |
 | `debug` | Print open/close, waypoint changes (with their origin) and page keys to the client log. |
-| `nearbyPlayers` | `{ enabled, radius, interval, color }` other players as blips. |
+| `nearbyPlayers` | `{ enabled, radius, interval, color }` other players as blips. Off by default since 0.2.1 (no positions on the map; no loop runs). |
 | `page` | Everything the page uses, deep-merged over its defaults (below). |
 
 `page` (defaults in `ui/src/config.ts`):
@@ -157,7 +157,7 @@ reloading the page.
 
 ### Player dots
 
-The map draws the players within `nearbyPlayers.radius` (350 m) as dots. An activity
+With `nearbyPlayers.enabled = true` (off by default since 0.2.1), the map draws the players within `nearbyPlayers.radius` (350 m) as dots. An activity
 where that would give the game away (a chase: the cops would see the runner) hides them,
 opt-in, for as long as it needs:
 

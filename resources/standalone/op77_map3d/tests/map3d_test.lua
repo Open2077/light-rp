@@ -1,6 +1,10 @@
 -- op77_map3d: blip and area validation, the client (page, blips, areas, owners, waypoint mirror, open)
 -- and the server (targets, late joiners, cleanup). Run: pwsh -File tests/run-lua.ps1
-dofile("shared/config.lua"); dofile("shared/blip.lua"); dofile("shared/jam.lua"); dofile("shared/area.lua"); dofile("shared/influence.lua")
+dofile("shared/config.lua")
+-- off on our servers (owner, 2026-11-06): no player positions on the map; the feature is still tested
+assert(Map3DConfig.nearbyPlayers.enabled == false, "player dots are off by default")
+for _, c in ipairs(Map3DConfig.page.categories) do assert(c.id ~= "player", "no Players entry in the legend") end
+Map3DConfig.nearbyPlayers.enabled = true; dofile("shared/blip.lua"); dofile("shared/jam.lua"); dofile("shared/area.lua"); dofile("shared/influence.lua")
 -- influence zones: touching cells are one zone, graded by players, densest first; a
 -- crowd only (5 by default, never fewer than 3 whatever the setting)
 do
