@@ -314,6 +314,7 @@ permissions {
     "players.controls",     -- walk modes (Open77.movement.setWalkMode)
     "players.read",         -- free camera: on foot or in a vehicle (Open77.players.isInVehicle)
     "camera.script",        -- arrival cinematic, including complete local body
+    "players.local.visibility", -- Auto Studio: hide the player's own avatar from the orbit camera (this screen only)
     "player.freeze",        -- creator owns/releases only its local freeze claim
     "world.environment",    -- noon/sun only in the private creation bucket
     "audio.play",           -- local, quiet creation soundtrack

@@ -18,6 +18,7 @@ local function stop(notify)
         if not restored then Ui.log("vehicle cinematic release failed: %s", tostring(reason)) end
     end
     if s.frozen then Open77.character.setFrozen(false) end
+    if s.puppetHidden then Open77.players.setLocalPuppetVisible(true) end
     Ui.dialogs.customization = nil
     Ui.setPromptFocus(false)
     Ui.send(PAGE, { kind = "closed", session = s.id })
@@ -156,6 +157,13 @@ local function start(p)
     local hidden, reason = Open77.hud.setCinematic(true, 0.01)
     if not hidden then Ui.log("vehicle cinematic unavailable: %s", tostring(reason)); refuse(p.session); return end
     s.cinematic = true
+    -- The orbit passes behind the player standing on the marker, who then hides the car
+    -- (measured 2026-11-06, Bay 01). Hide the avatar on this screen only: other players
+    -- still see them. A client without the native keeps the avatar visible.
+    if type(Open77.players) == "table" and type(Open77.players.setLocalPuppetVisible) == "function" then
+        local ok, why = Open77.players.setLocalPuppetVisible(false)
+        if ok == true then s.puppetHidden = true else Ui.log("studio avatar hide unavailable: %s", tostring(why)) end
+    end
     localChecks(p)
     Ui.send(PAGE, { kind = "presentation", session = s.id })
     CreateThread(function()
