@@ -1,12 +1,11 @@
 -- Parkour, client side (server/modules/parkour.lua, docs/parkour.md): what the player sees
 -- of the courses. Purely visual: the server alone decides every crossing.
 --
--- The points are kept simple and still (2026-11-06, the user: "simplify the gates"):
---   * the checkpoint to reach: a gold ring standing across the line, the size of its
---     trigger (what you see is what counts: you run through it), and a thin gold light
---     column fading into the sky, to find it from far away;
---   * the finish: the same in green; a start: the same in cyan, the ring on the ground,
---     facing the course.
+-- The points are kept simple and still (2026-11-06, the user: "un seul marker cercle au sol"):
+--   * the checkpoint to reach: a gold ring flat on the ground, the size of its trigger,
+--     and a gold light column into the sky, to find it from far away;
+--   * the finish: the same in green; a start: the same in cyan, seen only within
+--     startView (an activity is there, it does not call from across the city).
 -- A marker is never updated after its creation: an update while it is still loading
 -- restarts its spawn (client Markers.cpp, stage != Ready), and the earlier animated
 -- version (rising gates, turning diamonds, sliding chevrons, 20 updates a second) made
@@ -28,7 +27,7 @@ local PALETTE = {
     checkpoint = { r = 255, g = 204, b = 0 },
     finish = { r = 61, g = 220, b = 132 },
 }
-local START_VIEW, START_GROUPS = 160, 3
+local START_VIEW, START_GROUPS = C.startView + 20, 3
 -- 64 markers per resource, shared with every LightRP point (shops, rentals, missions...):
 -- the parkour leaves this many free (the interaction markers stream by distance).
 local MARKER_CAP, MARKER_RESERVE = 64, 10
@@ -110,17 +109,24 @@ end
 
 local function radiusOf(p) return tonumber(p.radius) or C.radius.default end
 
--- One point: the ring (the frame's origin is its bottom, its plane faces the way the
--- runner comes) and the column. `ground`: the ring stands on the ground (a start).
-local function point(kind, p, yaw, color, ground)
+-- One point, as simple as it gets (2026-11-06, the user: "un seul marker cercle au sol ... avec un
+-- beam qui part dans le ciel"): a ring flat on the ground, the size of the trigger, and a
+-- light column into the sky. Only the "ring" and "cylinder" shapes, every value inside the
+-- marker API's ranges (the standing "checkpoint" frame was refused with invalid_argument on
+-- LightRP Testing, so nothing showed). A start (an activity's entrance) is the same, seen
+-- only from close by (startView): it says "the activity is here", it does not call from afar.
+local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
+local function point(kind, p, _, color, start)
     local g = { kind = kind, handles = {} }
     if not markersOk() then return g end
-    local R = ground and 1.6 or radiusOf(p)
-    local bottom = ground and p.z or (p.z + LIFT - R)
+    local R = clamp(radiusOf(p), 0.5, 12)
+    local ringView = start and C.startView or 300
+    local beamView = start and C.startView or 500
     local defs = {
-        { position = { x = p.x, y = p.y, z = bottom }, rotation = { x = 0, y = 0, z = (yaw or 0) % 360 }, shape = "checkpoint",
-            radius = R, height = R * 2, color = rgba(color, 220), maxDistance = 400 },
-        { position = { x = p.x, y = p.y, z = p.z }, shape = "cylinder", radius = 0.22, height = 60, color = rgba(color, 130), maxDistance = 500 },
+        { position = { x = p.x, y = p.y, z = p.z + 0.05 }, shape = "ring", radius = R, height = 1,
+            color = rgba(color, 230), maxDistance = ringView },
+        { position = { x = p.x, y = p.y, z = p.z }, shape = "cylinder", radius = start and 0.35 or 0.3, height = start and 40 or 90,
+            color = rgba(color, start and 110 or 140), maxDistance = beamView },
     }
     local room = freeSlots()
     if room < #defs then warn("budget", "parkour: %s gets %d of %d markers (marker budget: %d free)", kind, math.max(0, room), #defs, room) end

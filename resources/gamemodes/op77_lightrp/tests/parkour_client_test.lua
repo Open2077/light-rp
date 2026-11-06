@@ -32,7 +32,12 @@ _G.Open77 = {
     character = { state = function() return { position = me, yaw = 45, alive = true, attached = true } end,
         setFrozen = function(v) frozen = v == true; return true end },
     markers = {
-        create = function(def) nextMarker = nextMarker + 1; markers[tostring(nextMarker)] = def; return tostring(nextMarker) end,
+        create = function(def)
+            -- the marker API's ranges (wiki/markers.md): anything outside is invalid_argument in game
+            assert(def.shape == "ring" or def.shape == "cylinder", "only rings and beams: " .. tostring(def.shape))
+            assert(def.radius >= 0.1 and def.radius <= 50 and def.height >= 0.01 and def.height <= 100, "radius/height in range")
+            assert(def.maxDistance >= 1 and def.maxDistance <= 500, "maxDistance in range")
+            nextMarker = nextMarker + 1; markers[tostring(nextMarker)] = def; return tostring(nextMarker) end,
         remove = function(id) markers[id] = nil; return true end,
         update = function(id, patch) if markers[id] then updates = updates + 1; markers[id].position = patch.position end; return true end,
         list = function() local out = {} for _, m in pairs(markers) do out[#out + 1] = m end return out end,
@@ -88,9 +93,10 @@ park({ kind = "courses", courses = list })
 tick(40)
 check(count(markers) == 6, "3 starts x 2 markers: " .. count(markers))
 local sh = shapes()
-check(sh.checkpoint == 3 and sh.cylinder == 3, "a start = a ring and a light column")
+check(sh.ring == 3 and sh.cylinder == 3, "a start = a ring on the ground and a light column")
 for _, m in pairs(markers) do
-    if m.shape == "checkpoint" then check(m.rotation.z == 90 and m.position.z == 10 and m.height == 3.2, "the start ring stands on the ground, facing the course") end
+    check(m.maxDistance == 80, "a start shows only from close by (80 m)")
+    if m.shape == "ring" then check(m.position.z == 10.05 and m.radius == 3, "the start ring lies on the ground, the trigger's size") end
 end
 tick(20)
 check(updates == 0, "no marker is ever updated")
@@ -111,7 +117,8 @@ check(lastPage("lightrp:ui:dialog:close").kind == "parkour", "the card closes wh
 tick(10)
 check(count(markers) == 4, "run markers: " .. count(markers))
 for _, m in pairs(markers) do
-    if m.shape == "checkpoint" and m.position.x == 20 then check(m.radius == 3 and m.height == 6 and m.position.z == 10 + 1 - 3, "the ring is the trigger's size, centred on it") end
+    if m.shape == "ring" and m.position.x == 20 then check(m.radius == 3 and m.position.z == 10.05, "the checkpoint ring lies on the ground, the trigger's size") end
+    if m.shape == "cylinder" then check(m.maxDistance == 500 and m.height == 90, "the beam is seen from far away") end
 end
 park({ kind = "countdown", goInMs = 3000, attempt = 1 })
 check(frozen == true, "held on the start during the countdown")
