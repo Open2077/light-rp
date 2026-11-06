@@ -211,8 +211,12 @@ local function newSession(cfg)
     end
 
     local partSeq = 0
-    local function sendParts(value)
-        local ok, text = pcall(encodeJson, value)
+    -- The pure-Lua encoder does not fit the client's script budget on a reply this large: the
+    -- game list of /lightrp.maps (1,345 values) never reached the page, "The server has not
+    -- answered". Native first, in a resume of its own, as ui.lua sends an oversized state key.
+    local function encodeParts(value)
+        local encoder = LightRpStateJson and LightRpStateJson.encode or encodeJson
+        local ok, text = pcall(encoder, value)
         if not ok or type(text) ~= "string" then
             report("parts:encode", "a large event could not be encoded (%s)", tostring(text))
             if value.kind == "response" then
@@ -235,6 +239,10 @@ local function newSession(cfg)
             at = stop + 1
         end
         for i, part in ipairs(parts) do send({ kind = "parts", id = id, part = i, parts = #parts, text = part }) end
+    end
+    local function sendParts(value)
+        if type(CreateThread) == "function" then CreateThread(function() encodeParts(value) end)
+        else encodeParts(value) end
     end
     Editor.sendParts = sendParts
 

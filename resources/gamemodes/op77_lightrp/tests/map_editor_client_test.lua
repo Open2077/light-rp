@@ -237,7 +237,42 @@ do
     local big = { kind = "response", request = "big", ok = true, data = {} }
     for i = 1, 400 do big.data[i] = { x = i, y = i } end
     net[NET](big)
+    step(1)
     assert(last("parts"), "parts")
+end
+-- the reply to "games" (1,345 values live): each game's schema goes through the native encoder, not
+-- through Lua in the net handler, whose budget ended it with "The server has not answered"
+do
+    dofile("client/core/state_json.lua")
+    local games = {}
+    for g = 1, 6 do
+        local points = {}
+        for i = 1, 70 do points[i] = { key = "p" .. i, label = "Point " .. i, color = "#ff0000ff" } end
+        games[g] = { id = "game" .. g, label = "Game " .. g, total = 1, enabled = 1, schema = { points = points } }
+    end
+    local reply = { kind = "response", request = "games", ok = true, data = { ready = true, games = games } }
+    local count = LightRpMissionEditor.countValues(reply)
+    assert(count > 1024, "as large as the live reply: " .. count)
+    local native = 0
+    local saved = Open77.json
+    Open77.json = { encode = function(value)
+        assert(LightRpMissionEditor.countValues(value) <= 1024, "the platform stops at 1,024 values")
+        native = native + 1
+        return LightRpStateJson.encode(value, false)
+    end }
+    local plain, before = LightRpStateJson.encode(reply, false), last("parts")
+    local accepted = Open77.json
+    Open77.json = { encode = function(value)
+        if LightRpMissionEditor.countValues(value) > 1024 then error("too many values") end
+        return accepted.encode(value)
+    end }
+    net[NET](reply)
+    assert(native == 0 and last("parts") == before, "nothing encoded inside the net handler")
+    step(1)
+    Open77.json = saved
+    assert(native == 6, "one native call per game: " .. native)
+    local whole = last("parts")
+    assert(whole ~= before and whole.parts == 1 and whole.text == plain, "the page gets the whole reply")
 end
 -- a refused wireframe is said, a nil refusal too
 do

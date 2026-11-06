@@ -92,6 +92,7 @@ server_script "server/modules/parties.lua"
 server_script "server/modules/missions.lua"
 server_script "server/modules/mission_chimera.lua"
 server_script "server/modules/mission_engine.lua"  -- runtime of the authored missions
+server_script "client/core/state_json.lua"          -- the editors' large replies as JSON text (mission_editor.lua)
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
 server_script "server/modules/mission_repay.lua"   -- /lightrp.missions.repay: stored missions to the new payout scale
 server_script "server/modules/game_map_rules.lua"  -- game maps: validation against a game's schema

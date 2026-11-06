@@ -178,6 +178,7 @@ do
     local before = #sentToPage
     local event = { kind = "response", request = "big-1", ok = true, data = data }
     net["op77_lightrp:missioneditor"](event)
+    step(1)
     json = savedJson
     local parts, joined, total = {}, {}, nil
     for i = before + 1, #sentToPage do

@@ -144,9 +144,49 @@ local function countValues(value, depth)
     return n
 end
 Editor.countValues = countValues
+-- A large reply as JSON text: the client then walks nothing and encodes nothing, it hands each
+-- part to the page (api.ts joins them). As a table, the game list of /lightrp.maps (1,345 values)
+-- never reached the page, latent or encoded native first: "The server has not answered". 20 KiB
+-- of text stays under the event's 48 KiB once its quotes are escaped; past MAX_TEXT, latent.
+local TEXT_PART, MAX_TEXT, textSeq = 20 * 1024, 256 * 1024, 0
+local function deliverText(net, player, response, count)
+    local encoder = LightRpStateJson and LightRpStateJson.encode
+    if not encoder then return false end
+    local ok, text = pcall(encoder, response)
+    if not ok or type(text) ~= "string" then
+        LightRP.log("%s: reply of %d values not encoded (%s)", net, count, tostring(text))
+        return false
+    end
+    if #text > MAX_TEXT then return false end
+    local parts, at = {}, 1
+    while at <= #text do
+        local stop = math.min(#text, at + TEXT_PART - 1)
+        -- never split a UTF-8 sequence: step back off continuation bytes
+        while stop < #text and stop > at do
+            local b = text:byte(stop + 1)
+            if b < 0x80 or b >= 0xC0 then break end
+            stop = stop - 1
+        end
+        parts[#parts + 1] = text:sub(at, stop)
+        at = stop + 1
+    end
+    textSeq = textSeq + 1
+    local id = "server:" .. textSeq
+    for i, part in ipairs(parts) do
+        local sent, why = TriggerClientEvent(net, player, { kind = "parts", id = id, part = i, parts = #parts, text = part })
+        if sent == false then
+            LightRP.log("%s: part %d of %d refused (%s)", net, i, #parts, tostring(why))
+            return true -- the page cannot finish this one: a second copy would be no better
+        end
+    end
+    LightRP.log("%s: reply of %d values sent as %d text part(s), %d bytes", net, count, #parts, #text)
+    return true
+end
+
 -- Also the map editor's way out (server/modules/game_maps.lua), on its own event.
 function Editor.deliver(net, player, response)
     local count = countValues(response)
+    if count > LATENT_VALUES and deliverText(net, player, response, count) then return end
     if count > LATENT_VALUES and type(TriggerLatentClientEvent) == "function" then
         local id, why = TriggerLatentClientEvent(net, player, LATENT_RATE, response)
         if id then LightRP.log("%s: reply of %d values sent as a latent event", net, count); return end

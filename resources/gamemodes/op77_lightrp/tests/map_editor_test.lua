@@ -128,6 +128,7 @@ local function boot()
         command = function(name, options, fn) commands[name] = { options = options, fn = fn } end,
     }
     dofile("server/core/persistence.lua")
+    dofile("client/core/state_json.lua")
     dofile("server/modules/mission_editor.lua")
     dofile("server/modules/game_map_rules.lua")
     dofile("server/config/game_maps_seed.lua")
@@ -172,10 +173,17 @@ local function ask(player, operation, payload)
     p.operation, p.request = operation, "r" .. seq
     if operation == "save" or operation == "enable" or operation == "delete" then p.mutation = p.mutation or ("mutation-" .. seq) end
     local before = #sent
+    -- a large reply leaves as text: the table it was made from stands for what the page parses
+    local encode, encoded = LightRpStateJson.encode, nil
+    LightRpStateJson.encode = function(value, ...) encoded = value; return encode(value, ...) end
     source = player
     net["op77_lightrp:mapeditor"](p)
     source = nil
     runThreads()
+    LightRpStateJson.encode = encode
+    if encoded and encoded.request == p.request then
+        for i = before + 1, #sent do if sent[i].payload.kind == "parts" then return encoded end end
+    end
     for i = before + 1, #sent do
         if sent[i].payload.kind == "response" and sent[i].payload.request == p.request then return sent[i].payload end
     end
@@ -695,13 +703,48 @@ do
     assert(exported.gameMap("games.control", "kang-tao").redSpawn, "whole")
 end
 
--- A list big enough to pass 900 values goes latent, as the mission editor's.
+-- A reply past 900 values reaches the client as text in small plain events, on its own event: the
+-- client walks nothing, encodes nothing. As a table it never reached the page (/lightrp.maps, 1,345 values).
 do
-    local big = { kind = "response", data = {} }
-    for i = 1, 400 do big.data[i] = { x = i, y = i } end
+    local fakeJson = _G.json
+    _G.json = nil -- this file's json is a marker, not an encoder: the real text is read here
+    local big = { kind = "response", request = "r", ok = true, data = {} }
+    for i = 1, 400 do big.data[i] = { x = i, y = "é" .. i } end
+    local before = #sent
     LightRP.missionEditor.deliver("op77_lightrp:mapeditor", 1, big)
-    eq(sent[#sent].latent, true, "latent past 900 values")
-    eq(sent[#sent].name, "op77_lightrp:mapeditor", "on its own event")
+    eq(#sent, before + 1, "one part for a reply of this size")
+    local part = sent[#sent]
+    eq(part.latent, nil, "not latent")
+    eq(part.name, "op77_lightrp:mapeditor", "on its own event")
+    eq(part.payload.kind, "parts", "text parts")
+    eq(part.payload.parts, 1, "numbered")
+    eq(part.payload.text, LightRpStateJson.encode(big, false), "the whole reply")
+    assert(LightRP.missionEditor.countValues(part.payload) < 20, "almost nothing for the client to walk")
+
+    -- longer than one part: every part fits the event once escaped, none starts inside a character
+    big.data = {}
+    for i = 1, 900 do big.data[i] = { name = "é" .. string.rep("x", 40) .. i } end
+    before = #sent
+    LightRP.missionEditor.deliver("op77_lightrp:mapeditor", 1, big)
+    local joined, id = {}, sent[before + 1].payload.id
+    for i = before + 1, #sent do
+        local p = sent[i].payload
+        eq(p.id, id, "one reply")
+        joined[p.part] = p.text
+        assert(#p.text * 2 < 48 * 1024, "under the event's limit, escaped")
+        local first = p.text:byte(1)
+        assert(first < 0x80 or first >= 0xC0, "a part starts on a character")
+    end
+    assert(#sent - before >= 2, "in parts")
+    eq(table.concat(joined), LightRpStateJson.encode(big, false), "joined back")
+
+    -- no encoder: latent, as before
+    local encoder = LightRpStateJson.encode
+    LightRpStateJson.encode = function() error("refused") end
+    LightRP.missionEditor.deliver("op77_lightrp:mapeditor", 1, big)
+    LightRpStateJson.encode = encoder
+    eq(sent[#sent].latent, true, "latent when it cannot be encoded")
+    _G.json = fakeJson
 end
 
 print("PASS: map editor (import once, after a failure, never over staff work, no deleted map back, ACL, hostile input, draft versus enable, stale saves, the ninth map, delete, no database, both start orders, provider contract)")
