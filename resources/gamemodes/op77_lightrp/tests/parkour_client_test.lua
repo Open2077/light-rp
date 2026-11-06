@@ -46,7 +46,9 @@ _G.Open77 = {
     vfx = { play = function() return 1 end },
     input = { isCaptured = function() return false end, isDown = function(k) return keysDown[k] == true end },
     camera = { aimRay = function() return { hit = true, position = { x = 12, y = 3, z = 10 }, distance = 12 } end },
-    debugDraw = { set = function(key, batch) draws[key] = batch; return true end, clear = function(key) draws[key] = nil end },
+    -- the real limits (Open77.debugDraw.set): 512 lines per batch, refused whole past it
+    debugDraw = { set = function(key, batch) if #batch.lines > 512 then return false, "invalid_debug_primitives" end; draws[key] = batch; return true end,
+        clear = function(key) draws[key] = nil end },
     blips = { setWaypoint = function(p) toServer[#toServer + 1] = { name = "waypoint", payload = p }; return true end },
 }
 _G.LightRpEvents = {
@@ -177,7 +179,20 @@ tick(1)
 check(toServer[#toServer].name == "op77_lightrp:parkour:editor" and toServer[#toServer].payload.operation == "list", "list forwarded to the server")
 pageHandlers["lightrp:ui:parkoureditor"]({ operation = "preview", course = course, focus = "checkpoint:1", tool = { name = "checkpoint", radius = 3 } })
 tick(3)
-check(draws["lightrp:parkour:draft"] and #draws["lightrp:parkour:draft"].lines > 100, "the draft is drawn")
+local function drawn() local n, parts = 0, 0 for k, b in pairs(draws) do if k:find("^lightrp:parkour:draft") then n = n + #b.lines; parts = parts + 1 end end return n, parts end
+local lines = drawn()
+check(lines > 100, "the draft is drawn")
+-- a long course (50 checkpoints): several batches, each under the 512-line limit, nothing refused
+local long = { start = course.start, finish = { x = 1100, y = 0, z = 10, radius = 3 }, checkpoints = {} }
+for i = 1, 50 do long.checkpoints[i] = { x = 20 * i, y = (i % 2) * 5, z = 10, radius = 3 } end
+pageHandlers["lightrp:ui:parkoureditor"]({ operation = "preview", course = long, tool = { name = "checkpoint", radius = 3 } })
+tick(80)
+local longLines, parts = drawn()
+check(longLines > 52 * 30 and parts >= 4, "a 50-checkpoint course is drawn whole, in several batches: " .. longLines .. " lines, " .. parts .. " batches")
+pageHandlers["lightrp:ui:parkoureditor"]({ operation = "preview", course = course, tool = { name = "checkpoint", radius = 3 } })
+tick(80)
+local _, fewer = drawn()
+check(fewer == 1, "back to a short course: the extra batches go (" .. fewer .. ")")
 -- build mode: a click places where the crosshair hits
 mappings["lightrp.parkour.editor.build"].fn()
 check(Editor.mode == "world" and supportMode == "closed", "F9: build mode")
@@ -191,6 +206,6 @@ check(Editor.hover == nil, "nothing hovered at x=12")
 mappings["lightrp.parkour.editor.build"].fn()
 check(Editor.mode == "menu", "F9: back to the menu")
 pageHandlers["lightrp:ui:parkoureditor"]({ operation = "close" })
-check(not Editor.active and draws["lightrp:parkour:draft"] == nil, "closed: the drawing goes")
+check(not Editor.active and select(2, drawn()) == 0, "closed: the drawing goes")
 
 print("parkour_client_test: ok")

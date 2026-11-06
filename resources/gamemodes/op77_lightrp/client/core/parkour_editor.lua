@@ -55,6 +55,13 @@ local function forward(payload)
 end
 
 local function clear(key) if Open77.debugDraw and Open77.debugDraw.clear then pcall(Open77.debugDraw.clear, key) end end
+-- the draft goes as several batches (DRAW:1..n, Editor.split below): all of them at once
+local MAX_BATCHES = 12
+local function clearDraft()
+    for i = 1, MAX_BATCHES do clear(DRAW .. ":" .. i) end
+    clear(DRAW)
+    LightRpParkourEditor.sentParts = 0
+end
 local claimed = false
 local function claimWeapons(on)
     if claimed == on then return end
@@ -78,7 +85,7 @@ end
 local function cleanup(notify)
     Editor.active, Editor.draft, Editor.focus, Editor.tool = false, nil, nil, nil
     input("closed")
-    clear(DRAW); clear(GHOST)
+    clearDraft(); clear(GHOST)
     if notify then send({ kind = "invalidate", error = notify }) end
 end
 
@@ -211,8 +218,25 @@ local function arrow(batch, p, heading, color)
     line(batch, tip, { x = tip.x - dx * 0.6 - dy * 0.4, y = tip.y - dy * 0.6 + dx * 0.4, z = tip.z }, color)
 end
 
+-- Open77.debugDraw takes at most 512 lines per batch and refuses a bigger one whole: a course
+-- past about ten checkpoints (45 lines a sphere) drew nothing at all, the orbs "sometimes"
+-- gone (2026-11-06). The draft is sent as several batches of at most BATCH_LINES (32 tags per
+-- resource, shared: MAX_BATCHES of them at most).
+local BATCH_LINES = 500
+function Editor.split(batch)
+    local parts = {}
+    for i = 1, #batch.lines, BATCH_LINES do
+        if #parts >= MAX_BATCHES then break end
+        local part = { lines = {}, triangles = {}, ttl = batch.ttl, maxDistance = batch.maxDistance }
+        for j = i, math.min(#batch.lines, i + BATCH_LINES - 1) do part.lines[#part.lines + 1] = batch.lines[j] end
+        parts[#parts + 1] = part
+    end
+    return parts
+end
+
 function Editor.geometry(course, focus, yield)
-    local batch = { lines = {}, triangles = {}, ttl = 2.5, maxDistance = 600 }
+    -- a long ttl, re-sent every 2 s: a busy frame never lets the drawing lapse
+    local batch = { lines = {}, triangles = {}, ttl = 6, maxDistance = 600 }
     if type(course) ~= "table" then return batch end
     local route = {}
     local function point(q) return type(q) == "table" and finite(q.x) and finite(q.y) and finite(q.z) end
@@ -288,7 +312,7 @@ function Editor.bind(page)
             Editor.focus = type(p.focus) == "string" and p.focus or nil
             Editor.tool = type(p.tool) == "table" and p.tool or nil
             Editor.version = (Editor.version or 0) + 1
-            if not Editor.draft then clear(DRAW) end
+            if not Editor.draft then clearDraft() end
         elseif p.operation == "input" then
             if Editor.active then input(p.mode) end
         elseif p.operation == "capture" then
@@ -365,11 +389,18 @@ local function start()
                         sentAt = -1e9
                         Wait(0)
                     end
-                    if cache.batch and now - sentAt >= 1500 and Editor.active and Editor.draft and Open77.debugDraw and Open77.debugDraw.set then
+                    if cache.batch and now - sentAt >= 2000 and Editor.active and Editor.draft and Open77.debugDraw and Open77.debugDraw.set then
                         sentAt = now
-                        local ok, result, why = pcall(Open77.debugDraw.set, DRAW, cache.batch)
-                        if not ok or result == false or result == nil then report("draw:" .. tostring(ok and why or result), "draft draw refused: %s %s", tostring(result), tostring(why))
-                        else report("draw:ok", "draft drawn (%d lines)", #cache.batch.lines) end
+                        local parts = Editor.split(cache.batch)
+                        for i, part in ipairs(parts) do
+                            local ok, result, why = pcall(Open77.debugDraw.set, DRAW .. ":" .. i, part)
+                            if not ok or result == false or result == nil then report("draw:" .. tostring(ok and why or result), "draft draw refused: %s %s", tostring(result), tostring(why))
+                            else report("draw:ok", "draft drawn (%d lines in %d batches)", #cache.batch.lines, #parts) end
+                        end
+                        -- fewer batches than last time (orbs removed): the extra ones go
+                        for i = #parts + 1, (Editor.sentParts or 0) do clear(DRAW .. ":" .. i) end
+                        Editor.sentParts = #parts
+                        Wait(0)
                     end
                 end
             else
