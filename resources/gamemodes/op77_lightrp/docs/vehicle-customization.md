@@ -35,11 +35,20 @@ client yet**: the [Lab checklist](#lab-checklist-two-clients) is still to run.
 | Livery (factory schemes) | Bought; came back after a server restart and an impound |
 | Livery (pack) | The 12 Hella liveries shown together without a crash, after the 12-decal fix. Not sold or stored yet |
 | Rims | 18 designs checked frame by frame on the Hella; bought; came back after a restart and an impound, and after a stream-in |
-| Body kit | GT wing and side skirts (the first, 8-part catalogue) bought and kept through a restart and an impound; the Hella's parts of the 30-part kit checked frame by frame, the three front lips refitted (+18 cm / -7 cm) |
+| Body kit | GT wing and side skirts (the first, 8-part catalogue) bought on the Hella and kept through a restart and an impound; the Hella's parts of the 30-part kit checked frame by frame, the three front lips refitted (+18 cm / -7 cm). See the side skirt note below |
 | Neon | Bought; kept through a restart and an impound |
 | Plate | Written on the car through `setPlate`, with the 9 m rebuild (see [Plate](#plate)); kept through a restart and an impound |
 | Windows | The switch works and the level is kept through a restart and an impound; the glass renders as factory. Closed |
 | Performance | Stage 1 bought and stored with the rest of the look; Performance greyed when TweakXL 1.12 is missing |
+
+**The Hella's side skirts.** The side skirts in the table were bought on the Hella with
+the first, 8-part catalogue, where `skirt_side` had a Hella fit. The 30-part kit keeps the id
+`skirt_side` but gives the Hella no fit for it, nor for `skirt_blade`, `skirt_rocker` or the
+rear louvers `louver_rear` (the 8-part catalogue had no rear louvers at all). So the studio
+no longer offers side skirts or rear louvers on the Hella. From the code, not seen in game: a
+Hella stored with those skirts comes out of the garage with the rest of its look, and the
+skirts stay stored as a dormant choice (`restorable` in `server/modules/garages.lua` keeps
+only the parts `Open77.vehicles.listParts` gives for the record).
 
 **Lab commands are not part of this repository.** The in-game checks used a lab
 harness that lives outside the repository. No lab command is a feature of Light RP,
