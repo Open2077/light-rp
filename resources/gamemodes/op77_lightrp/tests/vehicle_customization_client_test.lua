@@ -122,6 +122,11 @@ page({operation="save",request=9,category="performance",stage=1,pay="bank"});ass
 removed=true;tick();tick();assert(Custom.isActive(),"the car vanishing during a stage respawn keeps the studio")
 removed=false;moved=true;tick();assert(Custom.isActive(),"the rebuilt car may settle elsewhere");tick();assert(Custom.isActive())
 moved=false;now=now+9000;tick();assert(not Custom.isActive(),"after the grace, a car that moves closes the studio as before")
+-- An engine sound, preview included, rebuilds the car the same way.
+open();page({operation="preview",request=1,category="engineSound",sound="s02"});assert(requests[#requests].category=="engineSound")
+removed=true;tick();tick();assert(Custom.isActive(),"the car vanishing during an engine sound rebuild keeps the studio")
+removed=false;tick();assert(Custom.isActive())
+moved=true;now=now+9000;tick();assert(not Custom.isActive(),"after the grace, as before");moved=false
 -- Skipped parts: a warning once this game has applied the change.
 open()
 look.skipped={"attach:rims.fl:model_not_registered"};look.appliedRev=2
@@ -139,5 +144,5 @@ look.skipped={"profile:Vehicle.o77_livery_taxi_hella:not_for_model"}
 net["op77_lightrp:customization"]({kind="response",session="session",ok=true,category="livery",request=3});for _=1,20 do tick() end
 assert(lastSent("warning").text==Studio.warnings.not_for_model and lastSent("warning").category=="livery","a missing livery pack warns")
 page({operation="close"})
-print("customization client phase 2: pack/livery/stage greying from this game, eased framing presets, stage respawn grace, skipped-part warnings passed")
+print("customization client phase 2: pack/livery/stage greying from this game, eased framing presets, stage and engine sound respawn grace, skipped-part warnings passed")
 
