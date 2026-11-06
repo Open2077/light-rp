@@ -168,7 +168,7 @@ kbd { background: var(--yellow); color: var(--ink); padding: 1px 8px; font-weigh
 .dh-name b { display: block; font-size: 18px; }
 .dh-name small { color: var(--muted); font-size: 12px; letter-spacing: .06em; }
 .dh-legends { display: flex; gap: 6px; }
-.dh-legends .lg { width: 30px; height: 42px; border-radius: 3px; background: url(img/backside.webp) center / cover; box-shadow: 0 0 0 1px rgba(255, 255, 255, .15);
+.dh-legends .lg { width: 30px; height: 42px; border-radius: 3px; background: url(https://cdn.open77.dev/assets/tcg/v1/img/backside.webp) center / cover; box-shadow: 0 0 0 1px rgba(255, 255, 255, .15);
   transition: transform .3s; overflow: hidden; }
 .dh-legends .lg img { width: 100%; height: 100%; object-fit: cover; }
 .dh-legends .lg.spent { transform: rotate(90deg) scale(.9); opacity: .75; margin: 0 6px; }

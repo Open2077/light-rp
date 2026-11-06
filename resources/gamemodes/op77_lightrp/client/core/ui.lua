@@ -199,8 +199,19 @@ function Ui.releaseActionFocus()
     if not Ui.menuOpen and not Ui.promptActive then Ui.page:setFocus(false, false) end
 end
 
+-- The page shows pictures served from the Open77 CDN (cdn.open77.dev): the WebUI policy "images"
+-- lets it load remote HTTPS images (not scripts, fetch or frames). A client that refuses the
+-- option (raises) gets the page without it.
+local function createImagesPage(create, options)
+    options.policy = "images"
+    local called, page, why = pcall(create, options)
+    if called then return page, why end
+    options.policy = nil
+    return create(options)
+end
 function Ui.create()
-    local page, err = WebUI.create({
+    -- the inventory's garment icons come from the CDN (ui/src/features/inventory/garment.ts)
+    local page, err = createImagesPage(WebUI.create, {
         entry = "web/index.html",
         layer = "hud",
         zIndex = 720, -- above open77_chat (700): the F1 menu draws over the chat log

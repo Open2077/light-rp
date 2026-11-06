@@ -24,7 +24,15 @@ export function garmentTitle(record: string): string {
 export function garmentIcon(record: string, family: "m" | "f"): string {
   return `icons/${family}/${sha256(record).slice(0, 16)}.webp`;
 }
-export const WARDROBE_ROOT = "open77://open77_wardrobe_ui/web/";
+/** The garment icons live on the Open77 CDN, not in open77_wardrobe_ui any more (owner 2026-11-06:
+ *  images through the CDN, not downloaded with the resources). Items saved with the old
+ *  `open77://open77_wardrobe_ui/web/icons/...` path keep working: garmentArt maps them. */
+export const WARDROBE_ROOT = "https://cdn.open77.dev/assets/wardrobe/v1/";
+const LEGACY_ROOT = "open77://open77_wardrobe_ui/web/";
+/** An item image naming a garment icon (old resource path or CDN URL) -> its CDN URL. */
+export function garmentArt(image: string): string {
+  return image.startsWith(LEGACY_ROOT) ? WARDROBE_ROOT + image.slice(LEGACY_ROOT.length) : image;
+}
 
 const cache = new Map<string, string>();
 const K = new Uint32Array([

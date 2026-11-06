@@ -95,7 +95,7 @@
 .dh-seated.game .dh-card.chosen .tc.lg { box-shadow: 0 0 0 3px var(--yellow), 0 0 22px rgba(252, 238, 9, .55); }
 .dh-flip { position: relative; transform-style: preserve-3d; transition: transform .5s var(--ease-out); }
 .dh-flip > .tc { backface-visibility: hidden; }
-.dh-back { position: absolute; inset: 0; border-radius: 9px; background: url(img/backside.webp) center / cover; transform: rotateY(180deg);
+.dh-back { position: absolute; inset: 0; border-radius: 9px; background: url(https://cdn.open77.dev/assets/tcg/v1/img/backside.webp) center / cover; transform: rotateY(180deg);
   backface-visibility: hidden; box-shadow: 0 6px 14px rgba(0, 0, 0, .55); }
 /* A drawn card flies from the deck (right) into the fan, face down, and turns over. */
 .dh-seated.game .dh-card.drawn { animation: tbDraw .75s var(--ease-out) var(--d, 0ms) backwards; }
@@ -155,7 +155,7 @@
   55% { transform: rotate(8deg) scale(1.12); }
   80% { transform: rotate(0) scale(1); opacity: 1; }
   100% { transform: translateY(210px) scale(.35); opacity: 0; } }
-.tb-flyback { position: absolute; right: 120px; top: 380px; width: 70px; height: 98px; border-radius: 5px; background: url(img/backside.webp) center / cover;
+.tb-flyback { position: absolute; right: 120px; top: 380px; width: 70px; height: 98px; border-radius: 5px; background: url(https://cdn.open77.dev/assets/tcg/v1/img/backside.webp) center / cover;
   animation: tbFlyBack .9s var(--ease-out) both; }
 @keyframes tbFlyBack { to { transform: translate(-760px, -330px) rotate(-20deg) scale(.5); opacity: 0; } }
 .tb-reveal { position: absolute; left: 50%; top: 18%; display: flex; flex-direction: column; align-items: center; gap: 8px;
