@@ -175,10 +175,29 @@ V.getProperties = function(id)
         damage = { destroyed = v.destroyed == true, exploded = false }, visual = view(v) }
 end
 local PROPS = { version = 1, record = 1, appearance = 1, health = 1, paint = 1, damage = 1, visual = 1 }
-V.setProperties = function(id, p)
+local VISUAL = { profile = 1, neon = 1, parts = 1, wheels = 1, plate = 1, tint = 1, rev = 1 }
+local PAINT = { applied = 1, primary = 1, secondary = 1, lightsHue = 1 }
+-- As LuaResourceRuntime.Vehicles.cs vehicleUnknownProperties: the alphabetically first
+-- unknown key of each table, sorted; never the full list.
+local function firstUnknown(t, allowed, prefix)
+    local first
+    for k in pairs(type(t) == "table" and t or {}) do
+        if not allowed[k] and (first == nil or prefix .. k < first) then first = prefix .. k end
+    end
+    return first
+end
+V.setProperties = function(id, p, options)
     log("setProperties", id, clone(p))
     if failSetProperties == "all" or (failSetProperties == "visual" and p.visual ~= nil) then return false, "part_not_for_model" end
-    for k in pairs(p) do if not PROPS[k] then return false, "unsupported_property:" .. k end end
+    -- A key this build does not know: refused by name before anything is applied, or
+    -- skipped and listed (ignoreUnsupported; one per table, as the platform does).
+    local unknown = {}
+    unknown[#unknown + 1] = firstUnknown(p, PROPS, "")
+    unknown[#unknown + 1] = firstUnknown(p.paint, PAINT, "paint.")
+    unknown[#unknown + 1] = firstUnknown(p.visual, VISUAL, "visual.")
+    table.sort(unknown)
+    if #unknown > 0 and not (options and options.ignoreUnsupported) then return false, "unsupported_property:" .. unknown[1] end
+    local skipped = #unknown > 0 and unknown or nil
     local v = world[id]; if not v then return false, "vehicle_not_found" end
     if p.record ~= nil and p.record ~= v.record then return false, "record_mismatch" end
     local complete, plan = p.version ~= nil, nil
@@ -199,6 +218,7 @@ V.setProperties = function(id, p)
     if p.appearance ~= nil then v.appearance = p.appearance end
     if paint.lightsHue ~= nil or complete then v.paint.lightsHue = paint.lightsHue end
     if plan then publish(v, plan) end
+    if skipped then return true, nil, skipped end
     return true
 end
 V.getPaint = function(id) local v = world[id]; if v then return { applied = v.paint.applied, primary = clone(v.paint.primary), secondary = clone(v.paint.secondary) } end end
@@ -490,4 +510,53 @@ store(hella); car = retrieve(hella)
 n = #publishes; assert(world[car].visual.plate == "NEW0001" and G.plateOf(car) == "NEW0001")
 print("audit 10: plate previews stay out of properties.visual.plate; a purchase moves both copies")
 
-print("vehicle persistence audit: purchase writes, preview masking, idle close, store/retrieve, restart, impound paths, characters, failures, transfer, dormant liveries and plate previews passed")
+-- 11. Properties this server build does not know (written by a newer build, then a rollback) -
+-- The platform names ONE unknown key per table (the alphabetically first), so two top-level
+-- keys, one in paint and one in visual exercise every branch.
+local function newerBuild(props)
+    props.neonAnimation = { mode = "pulse", periodMs = 1200 }      -- wave-2 keys, top level
+    props.lightColors = { brake = { r = 255, g = 120, b = 0 } }
+    props.paint.pearl = 0.4                                          -- inside paint
+    props.visual.stickers = { "st.hella.valentinos_01" }             -- inside visual
+    return props
+end
+local function keptAll(props)
+    return props.neonAnimation.mode == "pulse" and props.lightColors.brake.g == 120 and props.paint.pearl == 0.4
+        and props.visual.stickers[1] == "st.hella.valentinos_01"
+end
+store(hella)
+local newer = newerBuild(stored(hella))
+-- Painted, so restorable hands setProperties the row's own paint table: stripping
+-- paint.pearl from it in place would lose it from the row.
+newer.paint.applied = true
+newer.paint.primary, newer.paint.secondary = { r = 20, g = 30, b = 200 }, { r = 10, g = 10, b = 10 }
+dbRows[hella].properties = json.encode(newer)
+boot()
+calls = {}; car = retrieve(hella)
+assert(count("setProperties", car) == 5, "four refusals by name, each before anything is applied, then the restore")
+assert(world[car].visual.profile == "hella_tt_1" and world[car].visual.neon and world[car].visual.wheels, "the car wears everything this build knows")
+assert(logged("does not know: lightColors, neonAnimation, paint.pearl, visual.stickers"), "every skipped key is logged")
+autosave()
+assert(keptAll(stored(hella)), "an autosave keeps every key this build skipped")
+t = studio(hella); assert(buy(t, { category = "windows", tint = 3 })); close(t)
+assert(keptAll(stored(hella)) and stored(hella).visual.tint == 3, "so does a purchase")
+store(hella)
+assert(keptAll(stored(hella)), "and parking")
+-- The newer build is back: everything is sent again, in one call.
+PROPS.neonAnimation, PROPS.lightColors, PAINT.pearl, VISUAL.stickers = 1, 1, 1, 1
+calls = {}; car = retrieve(hella)
+assert(count("setProperties", car) == 1 and keptAll(calls[2].args[2]), "a build that knows them gets them back")
+PROPS.neonAnimation, PROPS.lightColors, PAINT.pearl, VISUAL.stickers = nil, nil, nil, nil
+-- The whole visual refused at spawn as well: every field, known or not, stays stored.
+-- (The mock's newer build above accepts the keys without holding them: seed the row again.)
+store(hella)
+dbRows[hella].properties = json.encode(newerBuild(stored(hella))); boot()
+failSetProperties = "visual"; car = retrieve(hella); failSetProperties = nil
+autosave(); store(hella)
+assert(keptAll(stored(hella)) and stored(hella).visual.profile == "hella_tt_1" and stored(hella).visual.tint == 3, "a dormant visual carries every field")
+newer = stored(hella); newer.neonAnimation, newer.lightColors, newer.paint.pearl, newer.visual.stickers = nil, nil, nil, nil
+dbRows[hella].properties = json.encode(newer); boot()
+car = retrieve(hella)
+print("audit 11: keys this build does not know are skipped at spawn, never wiped by autosave, purchase or parking")
+
+print("vehicle persistence audit: purchase writes, preview masking, idle close, store/retrieve, restart, impound paths, characters, failures, transfer, dormant liveries, plate previews and unknown keys passed")

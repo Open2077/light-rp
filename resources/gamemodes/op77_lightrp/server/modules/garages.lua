@@ -168,8 +168,25 @@ local function wake(props, dormant)
     local v = props.visual
     v.parts = type(v.parts) == "table" and v.parts or {}
     for id, value in pairs(dormant.parts or {}) do if v.parts[id] == nil then v.parts[id] = copy(value) end end
-    for _, key in ipairs({ "wheels", "profile", "neon", "tint" }) do
-        if dormant[key] ~= nil and v[key] == nil then v[key] = copy(dormant[key]) end
+    -- wheels, profile, neon, tint, and any field a newer build stored (a whole visual goes
+    -- dormant when a delivery cannot wear it)
+    for key, value in pairs(dormant) do
+        if key ~= "parts" and v[key] == nil then v[key] = copy(value) end
+    end
+end
+-- Stored properties this server build skipped at spawn (`row.unsupported`, filled by
+-- applyKnown: "key" or "table.key"; a newer build wrote them, the server was rolled
+-- back): getProperties cannot read them, so they are carried over from the row.
+local function keepUnsupported(props, row)
+    local held = type(row.props) == "table" and row.props or {}
+    for _, name in ipairs(row.unsupported or {}) do
+        local parent, key = tostring(name):match("^([^.]+)%.(.+)$")
+        if parent then
+            if type(held[parent]) == "table" and held[parent][key] ~= nil then
+                props[parent] = type(props[parent]) == "table" and props[parent] or {}
+                if props[parent][key] == nil then props[parent][key] = copy(held[parent][key]) end
+            end
+        elseif held[name] ~= nil and props[name] == nil then props[name] = copy(held[name]) end
     end
 end
 local function capture(row)
@@ -181,6 +198,7 @@ local function capture(row)
         -- Autosaves and removal recovery keep the last confirmed look, never a preview.
         if row.edit then props = maskConfirmed(props, row.edit.saved) end
         if row.dormant then wake(props, row.dormant) end
+        keepUnsupported(props, row)
         row.props = props
         row.dirty = true
         row.revision = (row.revision or 0) + 1
@@ -843,6 +861,7 @@ function Garage.customize(playerId, token, change, commit, payment)
             for _, c in ipairs(linked(category)) do if DORMANT[c] then DORMANT[c](dormant) end end
             wake(props, dormant)
         end
+        keepUnsupported(props, row)
         -- Save the complete canonical properties before acknowledging success.
         local encoded = json.encode(props)
         if not encoded then return false, "Could not encode vehicle properties." end
@@ -927,6 +946,31 @@ local function restorable(row, record)
     return restore
 end
 
+-- setProperties on a fresh car, minus the keys this server build does not know (a newer
+-- build stored them, then the server was rolled back). The platform refuses them by name,
+-- "unsupported_property:<key>" or "<table>.<key>", before it touches the car: strip that
+-- key, list it in `skipped` (kept stored by keepUnsupported), try again. Not
+-- `ignoreUnsupported`: its skipped list names only the first unknown key of each table,
+-- and every other one would be lost at the next capture.
+local function applyKnown(id, restore, skipped)
+    for _ = 1, 64 do
+        local applied, err = Open77.vehicles.setProperties(id, restore)
+        local name = not applied and tostring(err):match("^unsupported_property:(.+)$") or nil
+        if not name then return applied, err end
+        local parent, key = name:match("^([^.]+)%.(.+)$")
+        local holder = restore
+        if parent then
+            if type(restore[parent]) ~= "table" then return applied, err end
+            restore[parent] = copy(restore[parent]) -- restorable shares tables with row.props
+            holder = restore[parent]
+        else key = name end
+        if holder[key] == nil then return applied, err end
+        holder[key] = nil
+        skipped[#skipped + 1] = name
+    end
+    return false, "too many unsupported properties"
+end
+
 -- `check` replaces the "at the garage marker" guard for a delivery that is not
 -- asked for at a garage (a dealership's bay).
 local function retrieve(playerId, row, place, check)
@@ -967,17 +1011,23 @@ local function retrieve(playerId, row, place, check)
         row.vehicleId, live[created] = created, row
         tag(created, row.id)
         local restore = restorable(row, record)
+        local skipped = {}
+        row.unsupported = nil
         if next(restore) ~= nil then
-            local applied, err = Open77.vehicles.setProperties(created, restore)
+            local applied, err = applyKnown(created, restore, skipped)
             if not applied and restore.visual ~= nil then
                 -- Never refuse a delivery over the look: the car comes out without its
                 -- visual choices, which stay stored until it can wear them again.
                 LightRP.log("garage: %s delivered without its visual (%s); kept dormant", row.id, tostring(err))
                 row.dormant = copy(type(row.props.visual) == "table" and row.props.visual or {})
                 restore.visual = nil
-                applied, err = Open77.vehicles.setProperties(created, restore)
+                applied, err = applyKnown(created, restore, skipped)
             end
             if not applied then return false, "Could not restore this vehicle: " .. tostring(err) end
+        end
+        if #skipped > 0 then
+            row.unsupported = skipped
+            LightRP.log("garage: %s keeps stored properties this server build does not know: %s", row.id, table.concat(skipped, ", "))
         end
         renderPlate(created, stored.plate)
         if LightRP.fuel then LightRP.fuel.restore(created, row.id) end
