@@ -270,7 +270,7 @@ for _,section in ipairs({"rims","body"})do
         assert(fits>=1 and fits<=512,"fits: "..id)
     end
 end
-assert(#KIT.rims.order==8 and #KIT.body.groups==5,"8 rims, 5 body groups")
+assert(#KIT.rims.order==18 and #KIT.body.groups==9,"18 rims, 9 body groups")
 local rim=KIT.rims.parts.rim_classic.fit
 local merrimac,apollo=rim["Vehicle.v_standard25_thorton_merrimac_player"],rim["Vehicle.v_sportbike3_brennan_apollo_player"]
 assert(merrimac and #merrimac.wheels==6,"Merrimac: the middle axle is listed")
@@ -289,7 +289,8 @@ C.windows.enabled=true -- the flow is tested open; the closed state is checked b
 dofile("server/modules/vehicle_customization.lua")
 local Custom=LightRP.vehicleCustomization
 local NET="op77_lightrp:customization"
-assert(calls.registerParts==16 and catalogue[NS.."rim_classic"] and catalogue[NS.."bull_bar"],"one registerParts call per kit part")
+local kitParts=#KIT.rims.order;for _ in pairs(KIT.body.parts)do kitParts=kitParts+1 end
+assert(kitParts==48 and calls.registerParts==kitParts and catalogue[NS.."rim_classic"] and catalogue[NS.."bull_bar"],"one registerParts call per kit part")
 assert(#catalogue[NS.."rim_classic"].fit["Vehicle.v_standard25_thorton_merrimac_player"].wheels==6,"per-wheel fits reach the server")
 
 -- Curated trims (server/config/vehicle_kit_trims.lua): every sold trim of a rim-fitted
@@ -367,8 +368,7 @@ local function checkBodyHides()
             for app,names in pairs((TRIMS.body[id] or {})[record] or {})do for _,n in ipairs(names)do assert(seen[n],id.." on "..app.." hides "..n) end end
         end
     end
-    local rack=catalogue[NS.."roof_rack"].fit["Vehicle.v_standard2_thorton_colby_player"].hide
-    assert(#rack==3 and has(rack,"roof_rack") and has(rack,"v_common_suitcase_01") and has(rack,"junk_solar"),"Colby rack: the trims' solar junk too")
+    assert(catalogue[NS.."roof_rack"].fit["Vehicle.v_standard2_thorton_colby_player"]==nil,"E2b: the basket no longer fits the Colby")
 end
 for _,id in ipairs(KIT.rims.order)do
     for record,fit in pairs(catalogue[NS..id].fit)do
@@ -499,7 +499,8 @@ assert(#livery.options==4 and livery.options[2].label=="Scheme 2" and livery.opt
     and livery.options[3].id=="Vehicle.o77_livery_taxi_hella" and livery.options[4].label=="Scheme 3","pack liveries carry their label")
 table.remove(profiles[HELLA]);table.remove(profiles[HELLA]);close();m=open(hella)
 local rims=category(m,"rims")
-assert(#rims.options==8 and rims.options[1].id=="rim_classic" and rims.options[1].label==KIT.rims.parts.rim_classic.label,"every rim, in catalogue order")
+local hellaRims=0;for _,id in ipairs(KIT.rims.order)do if KIT.rims.parts[id].fit[HELLA] then hellaRims=hellaRims+1 end end
+assert(hellaRims>=8 and #rims.options==hellaRims and rims.options[1].id=="rim_classic" and rims.options[1].label==KIT.rims.parts.rim_classic.label,"every rim, in catalogue order")
 assert(rims.options[1].variants[1].id=="chrome" and rims.options[1].variants[1].label=="Chrome","finishes ordered and labelled")
 local body=category(m,"body")
 local spoiler=body.options[1]
@@ -534,7 +535,7 @@ bank=M.get(1).bank
 
 -- 3. Rims: only offered rims and finishes, the server names the part.
 local setWheels=0;local real=V.setWheels;V.setWheels=function(...)setWheels=setWheels+1;return real(...)end
-for _,forged in ipairs({{rim="other_res:rim",variant="chrome"},{rim=NS.."rim_classic",variant="chrome"},{rim="rim_classic",variant="gold"},{rim="rim_classic"}})do
+for _,forged in ipairs({{rim="other_res:rim",variant="chrome"},{rim=NS.."rim_classic",variant="chrome"},{rim="rim_classic",variant="plaid"},{rim="rim_classic"}})do
     reply=issue("preview",{category="rims",rim=forged.rim,variant=forged.variant});assert(not reply.ok,"forged rim refused: "..tostring(forged.rim))
 end
 assert(setWheels==0,"no forged rim reaches setWheels")
@@ -683,7 +684,7 @@ close()
 local before=saved(hella)
 store(hella);assert(not world[car])
 reboot()
-assert(calls.registerParts==16,"the kit is registered again at start")
+assert(calls.registerParts==kitParts,"the kit is registered again at start")
 car=retrieve(hella)
 local v=world[car]
 assert(calls.create[#calls.create]==HELLA.."_o77s1" and v.record==HELLA.."_o77s1","spawned on its stage record")
@@ -756,7 +757,7 @@ close();store(kusanagi)
 -- for every trim; the client skips the names an appearance lacks).
 local logsBefore=#logs
 b3=false;reboot();b3=true
-assert(calls.registerParts==17,"one refused registration, then the merged rims ("..calls.registerParts..")")
+assert(calls.registerParts==kitParts+1,"one refused registration, then the merged rims ("..calls.registerParts..")")
 local notices=0;for i=logsBefore+1,#logs do if logs[i]:find("no per-appearance fits",1,true) then notices=notices+1 end end
 assert(notices==1 and logged("fit.appearances"),"the fallback is logged once, with the server's reason")
 local function checkMerged(fits,label)
@@ -789,7 +790,7 @@ checkMerged(legacy,"legacy")
 assert(#legacy[HELLA].hide==16 and has(legacy[HELLA].hide,"wheel_bl_01"),"the default-slot registration hides the trims' rims too")
 -- A trim, then rims, on a server with per-appearance fits: the rim resolves to that trim's
 -- own fit (its depth, size and stock rims), on the stage record too.
-reboot();assert(calls.registerParts==16)
+reboot();assert(calls.registerParts==kitParts)
 local _,suburban=G.grant(1,"hella");car=retrieve(suburban)
 m=open(suburban)
 local TRIM="archer_hella__basic_suburban_1"

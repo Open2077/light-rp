@@ -303,14 +303,8 @@ LightRpVehicleKitTrims = {
     -- Body parts: names a sold trim adds to a part's hide list, per part id, record and
     -- appearance, merged into the record fit on every server (E2's generated lists already
     -- name the other trims' parts: "names unknown on an entity are skipped").
-    body = {
-        roof_rack = {
-            ["Vehicle.v_standard2_thorton_colby_player"] = {
-                -- the solar-panel junk under the basket's footprint, as junk_solar on the
-                -- other cars' racks; the player appearance has the factory rack instead
-                thorton_colby__basic_suburban_2 = { "junk_solar" },
-                thorton_colby__basic_poor_2 = { "junk_solar" },
-            },
-        },
-    },
+    -- The Colby's roof_rack entry (junk_solar under the basket on suburban_2 and poor_2)
+    -- left with E2b: the basket no longer fits that car (it cut 2 cm into the body). Its
+    -- roof bars, light bar and scoop have no trim entry; unchecked on those two trims.
+    body = {},
 }

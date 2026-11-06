@@ -29,14 +29,19 @@ BIKE_WHEELS = ['wheel_front', 'wheel_back']
 FINISHES = {
     'chrome': 'Chrome', 'black': 'Black', 'white': 'White', 'bronze': 'Bronze', 'gunmetal': 'Gunmetal',
     'carbon': 'Carbon', 'alu': 'Aluminium', 'steel': 'Steel',
+    'gold': 'Gold', 'matte': 'Matte black', 'red': 'Red', 'yellow': 'Yellow', 'black_chrome': 'Black chrome',
 }
 # Body groups: one part per group on a car. The id is the spec's `kind`.
 GROUPS = [
     ('spoiler', 'Wing'),
+    ('louver', 'Rear louvers'),
     ('lip', 'Front lip'),
+    ('canard', 'Canards'),
     ('skirt', 'Side skirts'),
+    ('diffuser', 'Rear diffuser'),
+    ('hood', 'Hood'),
     ('roofrack', 'Roof'),
-    ('bullbar', 'Push bar'),
+    ('bullbar', 'Front protection'),
 ]
 DEFAULT_BODY_KINDS = {
     'wing_street': 'spoiler', 'wing_gt': 'spoiler', 'wing_duck': 'spoiler', 'wing_rally': 'spoiler',

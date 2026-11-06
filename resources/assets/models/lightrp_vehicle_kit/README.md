@@ -67,8 +67,8 @@ server and every client check `GetResourceState(<name>) == "running"`.
    projected by the launcher before the game starts (`reload_policy 'reconnect'`). A
    client without it sees the category greyed with "Your game has not loaded this
    workshop's parts…" or a warning after a preview.
-7. Read the server log at start: `auto studio: N kit parts registered` (16 = 8 rims + 8
-   body parts). `…rims without per-wheel fits (server predates them)` means the server
+7. Read the server log at start: `auto studio: N kit parts registered` (48 = 18 rims + 30
+   body parts, since E1e and E2b). `…rims without per-wheel fits (server predates them)` means the server
    build lacks B2 per-wheel lists: the Merrimac middle axle and the Apollo lose their rims.
 
 The full checklist, two clients, is in
