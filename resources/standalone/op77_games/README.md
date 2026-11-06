@@ -100,8 +100,9 @@ that lies about its position can still cheat, as in any mode.
 
 ## Gun game, control, CTF
 
-Gun game: a hit counts with the step's verified weapon or the knife (`damage` hook on top of the
-engine's gate), and a kill needs such a hit by that killer on that step. Nothing else scores: a kill
+Gun game: each step hands its weapon alone (the knife is the last step only: a knife in an idle slot
+made every client weapon snapshot fail, 2026-11-06). A hit counts with the step's verified weapon
+(`damage` hook on top of the engine's gate), and a kill needs such a hit by that killer on that step. Nothing else scores: a kill
 the platform reports without one costs the victim nothing either. Live setting `DASH_gungame` is on:
 a dash granted at GO, taken back on every exit (`left` hook); an implant's dash is left alone.
 

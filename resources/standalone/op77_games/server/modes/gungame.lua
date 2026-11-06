@@ -1,9 +1,10 @@
 -- Gun Game: a weapon ladder, everyone alone. A kill climbs one step and hands the next weapon at
--- once; a kill on the last step (the knife) wins. A knife kill below it does not climb: the victim
--- loses a step and the killer stays. A death nobody earned (a fall, the play area) costs a step.
+-- once; a kill on the last step (the knife) wins. Each step hands its weapon alone (no knife beside
+-- it since 2026-11-06), so there is no knife kill below the top step. A death nobody earned (a fall,
+-- the play area) costs a step.
 -- At the clock the highest step wins, reached first; nobody off the first step is nobody.
 --
--- Weapons are held strictly. A hit counts with the step's weapon or the knife, verified, and the
+-- Weapons are held strictly. A hit counts with the step's weapon, verified, and the
 -- arbiter remembers it: a kill the platform reports without such a hit by that killer, on that
 -- step, scores nothing and costs the victim nothing. Explosions and anything else never hurt, a
 -- body seen drawing something else is armed again, and no weapon changes hands without a server
@@ -51,12 +52,14 @@ local G = GamesGungame
 local LADDER = GG.ladder
 local TOP = #LADDER
 
--- One kit per step: the step's weapon, and the knife the rules need beside it (the top step
--- is the knife alone). p.plan == SETS[step] is what "armed for this step" means.
+-- One kit per step: the step's weapon alone (the top step is the knife alone). The knife is no
+-- longer handed beside each weapon (owner, 2026-11-06): a knife in an idle slot made every weapon
+-- snapshot fail on the clients (weapon HUD frozen, FPS drop, kits re-sent at every kill). So a knife
+-- kill below the top step no longer exists. p.plan == SETS[step] is what "armed for this step" means.
 local SETS = {}
 for step, entry in ipairs(LADDER) do
     SETS[step] = entry.melee and { primary = KNIFE, label = entry.name, names = { entry.name } } or {
-        primary = entry.record, secondary = KNIFE, reserve = { entry.reserve }, label = entry.name, names = { entry.name, "Knife" },
+        primary = entry.record, reserve = { entry.reserve }, label = entry.name, names = { entry.name },
     }
 end
 G.sets = SETS
@@ -157,7 +160,7 @@ end
 
 local def = E.mode({
     id = "games.gungame", key = "gungame", label = "Gun Game", kind = "pvp",
-    description = "Everyone alone on a ladder of 14 weapons. A kill climbs, a knife kill sends the victim down, a kill with the knife wins.",
+    description = "Everyone alone on a ladder of 14 weapons. A kill climbs, a kill with the knife on the last step wins.",
     minPlayers = 2, maxPlayers = 16,
     schema = {
         points = { { key = "centre", label = "Play area centre", color = "#ffcc00" } },
