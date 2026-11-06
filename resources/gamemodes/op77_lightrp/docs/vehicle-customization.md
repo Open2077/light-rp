@@ -21,10 +21,14 @@ its category with a reason and never fails.
 
 Two world access points use **E**, in bucket 0:
 
-- Auto Studio // Bay 01: `(-1034.573364, -1702.693726, 11.015274)`.
-- Auto Studio // Bay 02: `(-1025.970703, -1709.572754, 11.015274)`.
+- Auto Studio // Bay 01: marker `(-1031.373364, -1702.693726, 11.015274)`, bay centre
+  `(-1034.573364, -1702.693726)`.
+- Auto Studio // Bay 02: marker `(-1029.170703, -1709.572754, 11.015274)`, bay centre
+  `(-1025.970703, -1709.572754)`.
 
-Park your owned vehicle within 6 m of a point, step out, and approach its marker.
+Each marker stands 3.2 m beside its bay, like a public garage point, so a parked car
+never sits inside the marker's lit cylinder. Park your owned vehicle on the bay
+(within 6 m of the marker), step out, and approach the marker.
 The server selects the nearest vehicle owned by the active character; the same
 stationary/empty, proximity and persistence rules apply. The first bay carries
 the shared Auto Studio map marker, whose description lists every category. The

@@ -159,11 +159,16 @@ LightRpVehicleCustomization = {
     -- Colours below this HSV saturation (0..1) are refused.
     lightsMinSaturation = 0.25,
     sessionMs = 300000, previewIntervalMs = 200,
+    -- `position` is the marker the player walks to, like a public garage point: it stands
+    -- 3.2 m beside the bay, never on it. Parked on the marker, a car had the marker's lit
+    -- cylinder cutting through its sills (measured 2026-11-06, Hella on Bay 01). Bay centres:
+    -- 01 (-1034.573, -1702.694), 02 (-1025.971, -1709.573); a car on one bay is 8.75 m from the
+    -- other bay's marker, beyond storeRadius, so the studio never picks the neighbour's car.
     workshops = {
         { id = "auto_studio_1", name = "Auto Studio // Bay 01", bucket = 0, interactRadius = 3, storeRadius = 6,
-          position = { x = -1034.573364, y = -1702.693726, z = 11.015274 } },
+          position = { x = -1031.373364, y = -1702.693726, z = 11.015274 } },
         { id = "auto_studio_2", name = "Auto Studio // Bay 02", bucket = 0, interactRadius = 3, storeRadius = 6,
-          position = { x = -1025.970703, y = -1709.572754, z = 11.015274 } },
+          position = { x = -1029.170703, y = -1709.572754, z = 11.015274 } },
     },
     camera = { radius = 6.5, height = 2.1, targetHeight = 0.7, fov = 55, degreesPerSecond = 10, blendMs = 400,
         -- Per-category framing, eased in over `presetMs`. `angle` is relative to the car's
