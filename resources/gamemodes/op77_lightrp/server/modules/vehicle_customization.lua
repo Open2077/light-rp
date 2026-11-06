@@ -63,6 +63,8 @@ local function close(id)
     -- The studio kept the empty car's engine running so an engine sound could be heard:
     -- stop it (setEngine false also ends the hold) once the confirmed look is back.
     if s.engineHeld and type(Open77.vehicles.setEngine) == "function" then pcall(Open77.vehicles.setEngine, s.vehicle, false) end
+    -- The lamps a lamp preview switched on go back off.
+    if s.lampsBefore and type(Open77.vehicles.setLights) == "function" then pcall(Open77.vehicles.setLights, s.vehicle, s.lampsBefore) end
     TriggerClientEvent(NET, id, { kind = "closed", session = s.id })
 end
 local function color(value) return type(value) == "string" and value:match("^#%x%x%x%x%x%x$") and value:upper() or nil end
@@ -1027,6 +1029,18 @@ RegisterNetEvent(NET, function(p)
             if ok and C.engineSound.listen and native("setEngineHold") then
                 local held = Open77.vehicles.setEngineHold(s.vehicle, true)
                 if held then s.engineHeld = true else LightRP.log("auto studio: engine hold refused on %s", tostring(s.vehicle)) end
+            end
+        end
+        -- A lamp colour only shows with the lamps lit: a parked car's headlights are off by
+        -- day, so the first lamp preview switches them on until the studio closes
+        -- (2026-11-06: "je vois les phares [seulement de nuit]").
+        if ok and (change.category == "lights" or change.category == "lightColors") and C.showLamps ~= false
+            and s.lampsBefore == nil and type(Open77.vehicles.setLights) == "function" then
+            local v = Open77.vehicles.get(s.vehicle)
+            local flags = v and math.tointeger(v.flags or 0) or 0
+            if v and (flags & 64) == 0 and (flags & 128) == 0 then
+                local lit, why = Open77.vehicles.setLights(s.vehicle, "on")
+                if lit then s.lampsBefore = "off" else LightRP.log("auto studio: lamps refused on %s: %s", tostring(s.vehicle), tostring(why)) end
             end
         end
     end

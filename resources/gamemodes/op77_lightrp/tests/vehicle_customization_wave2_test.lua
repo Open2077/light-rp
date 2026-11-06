@@ -178,6 +178,8 @@ V.setProperties=function(id,p)
     return true end
 V.setEngine=function(id,on)local v=world[id];if v and on==false then v.engineHold=false;calls.engineOff=calls.engineOff+1 end;return true end
 V.setEngineHold=function(id,on)local v=world[id];if not v then return false,"vehicle_not_found" end;v.engineHold=on==true;calls.hold=calls.hold+1;return true end
+V.setLights=function(id,mode)local v=world[id];if not v then return false,"vehicle_not_found" end
+    local f=(v.flags or 0)&~(64|128);v.flags=mode=="on" and (f|64) or mode=="high" and (f|192) or f;calls.lights=(calls.lights or 0)+1;return true end
 V.isLocked=function()return false end
 V.setPaint=function(id,p)local v=world[id];if not v then return false,"vehicle_not_found" end
     v.paint={applied=true,primary=rgb(p.primary),secondary=rgb(p.secondary),lightsHue=v.paint.lightsHue};v.visual.profile=nil;return true end
@@ -427,8 +429,12 @@ r=issue("preview",{category="lightColors",lamps={brake="#300000"}});assert(not r
 r=issue("preview",{category="lightColors",lamps={horn="#FFFFFF"}});assert(not r.ok and r.text=="This lamp cannot be recolored.")
 r=issue("preview",{category="lightColors",lamps={}});assert(not r.ok and r.text=="Choose at least one lamp color, or Factory lamps.")
 assert(world[car].w2.lightColors==nil,"nothing reached the car")
+world[car].flags=(world[car].flags or 0)&~(64|128);calls.lights=0
 r=issue("preview",{category="lightColors",lamps={reverse="#00E5FF",interior="#FF2BD6"}});assert(r.ok,r.text)
 assert(same(world[car].w2.lightColors,{reverse={r=0,g=229,b=255},interior={r=255,g=43,b=214}}),"the native takes {r,g,b} per group")
+assert(world[car].flags&64~=0 and calls.lights==1,"a lamp preview lights the parked car's lamps")
+r=issue("preview",{category="lightColors",lamps={reverse="#00E5FF",interior="#FF2BD6"}});assert(r.ok,r.text)
+assert(calls.lights==1,"once per visit")
 autosave();assert(stored(hella,"lightColors")==nil,"a lamp preview is not autosaved")
 r=issue("save",{category="paint",primary="#101010",secondary="#202020"},"bank");assert(r.ok,r.text)
 assert(stored(hella,"lightColors")==nil,"another category's purchase keeps the lamp preview out")
@@ -446,6 +452,7 @@ r=issue("save",{category="lightColors",lamps={reverse="#FFE45C"}},"bank")
 failDb=false
 assert(not r.ok and M.get(1).bank==bank and world[car].w2.lightColors.reverse.g==229 and world[car].w2.lightColors.interior,"a failed purchase is rolled back")
 close()
+assert(world[car].flags&64==0 and calls.lights==2,"closing puts the lamps it lit back off")
 
 -- 6. Engine sound: a rebuild per change, one per cooldown, heard with the engine held,
 -- and kept through a stage.

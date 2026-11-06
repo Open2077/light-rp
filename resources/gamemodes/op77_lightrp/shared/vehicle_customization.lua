@@ -265,6 +265,9 @@ LightRpVehicleCustomization = {
     -- The engine stores one hue for the lights: a grey has no hue and would read as red.
     -- Colours below this HSV saturation (0..1) are refused.
     lightsMinSaturation = 0.25,
+    -- A lamp preview (Lights, Lamp colors) switches a parked car's headlights on until the
+    -- studio closes, so the colour shows by day; false keeps them as they are.
+    showLamps = true,
     sessionMs = 300000, previewIntervalMs = 200,
     -- `position` is the marker the player walks to, like a public garage point: it stands
     -- 3.2 m beside the bay, never on it. Parked on the marker, a car had the marker's lit
