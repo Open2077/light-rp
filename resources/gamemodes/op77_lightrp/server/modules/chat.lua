@@ -5,7 +5,9 @@ local Config = LightRpConfig.chat
 local colors = Config.colors
 local Chat = LightRP.module("chat", {})
 
-local function displayName(playerId) return LightRP.characters.displayName(playerId) end
+-- Every chat line names the speaker by the character's RP name (the account name only
+-- while there is no character yet), prefixed with the server id: "[12] Jake Rob".
+local function displayName(playerId) return "[" .. tostring(playerId) .. "] " .. LightRP.characters.displayName(playerId) end
 local function registered(playerId) return LightRP.characters.isRegistered(playerId) end
 
 function Chat.say(target, author, text, color, kind)
@@ -103,7 +105,7 @@ end)
 LightRP.command("ooc", { usage = "/ooc <message>" }, function(source, args)
     local text = join(args)
     if text == "" then return false end
-    Chat.say(-1, "OOC · " .. (GetPlayerName(source) or tostring(source)), text, colors.ooc)
+    Chat.say(-1, "OOC · " .. displayName(source), text, colors.ooc)
 end)
 
 LightRP.command("pm", { usage = "/pm <id> <message>" }, function(source, args)
@@ -111,8 +113,8 @@ LightRP.command("pm", { usage = "/pm <id> <message>" }, function(source, args)
     local text = join(args, 2)
     if target == nil or text == "" then return false end
     if GetPlayerName(target) == nil then return false, "No player with id " .. tostring(target) end
-    Chat.say(target, "PM from " .. (GetPlayerName(source) or tostring(source)) .. " (" .. tostring(source) .. ")", text, colors.ooc)
-    Chat.say(source, "PM to " .. (GetPlayerName(target) or tostring(target)), text, colors.ooc)
+    Chat.say(target, "PM from " .. displayName(source), text, colors.ooc)
+    Chat.say(source, "PM to " .. displayName(target), text, colors.ooc)
 end)
 
 LightRP.command("rules", {}, function(source)
