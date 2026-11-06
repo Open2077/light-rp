@@ -19,6 +19,7 @@ local function stop(notify)
     end
     if s.frozen then Open77.character.setFrozen(false) end
     if s.puppetHidden then Open77.players.setLocalPuppetVisible(true) end
+    if s.interactHidden then LightRpInteract.setHidden(false) end
     Ui.dialogs.customization = nil
     Ui.setPromptFocus(false)
     Ui.send(PAGE, { kind = "closed", session = s.id })
@@ -164,6 +165,9 @@ local function start(p)
         local ok, why = Open77.players.setLocalPuppetVisible(false)
         if ok == true then s.puppetHidden = true else Ui.log("studio avatar hide unavailable: %s", tostring(why)) end
     end
+    -- The studio marker's light cylinder crosses the foreground on part of the orbit, and
+    -- the bay's prompt would float over the car: hide markers, rings and prompts until close.
+    if LightRpInteract then LightRpInteract.setHidden(true); s.interactHidden = true end
     localChecks(p)
     Ui.send(PAGE, { kind = "presentation", session = s.id })
     CreateThread(function()
