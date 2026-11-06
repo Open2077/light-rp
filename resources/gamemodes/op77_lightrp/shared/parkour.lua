@@ -24,6 +24,8 @@ P.config = {
     maxSpeed = 42,
     -- start points: a player within this of the start orb can press E
     startPromptRadius = 4.0,
+    -- a course's start (its ring and beam) shows only within this many metres
+    startView = 80,
     streamLimit = 24,                            -- start points listed to each client (nearest)
     boardPage = 50,                              -- leaderboard rows per page
     boardCache = 500,                            -- best times kept in memory per course
