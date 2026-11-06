@@ -28,6 +28,7 @@ export const PAGE_EVENTS = {
   jobRun: "lightrp:ui:jobrun", // Lua -> page: JobRunLive
   freecam: "lightrp:ui:freecam", // page -> Lua: { operation: "toggle" }; Lua -> page: FreecamState
   maneki: "lightrp:ui:maneki", // Lua -> page: ManekiToolState (client/core/maneki_editor.lua)
+  arrivalTour: "lightrp:ui:arrivaltour", // Lua -> page: ArrivalTourMessage | false, the square's camera tour (client/core/arrival_tour.lua)
   staffAnnounce: "lightrp:ui:staffannounce", // Lua -> page: StaffBroadcastMessage (client/core/staff_announce.lua)
   parkour: "lightrp:ui:parkour", // Lua -> page: the run HUD, the course card's leaderboard (client/core/parkour.lua); page -> Lua: { op }
   parkourEditor: "lightrp:ui:parkoureditor", // page <-> Lua: the staff parkour editor (client/core/parkour_editor.lua)

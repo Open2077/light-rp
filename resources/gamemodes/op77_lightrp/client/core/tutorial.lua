@@ -255,7 +255,11 @@ function Tutorial.bind(page)
     end)
     if type(RegisterKeyMapping)~="function" then return end
     local pressed={
-        skip=function() if reveal then endReveal() end end,
+        -- the same key ends the square's tour after the hall (client/core/arrival_tour.lua)
+        skip=function()
+            if reveal then endReveal()
+            elseif LightRpArrivalTour and LightRpArrivalTour.active() then LightRpArrivalTour.skip() end
+        end,
         way=function() if not camera then wantReveal(true) end end,
         -- skip the whole first day: the page asks for confirmation (its buttons take the cursor)
         quit=function() if state and state.active then LightRpUi.send(E.page.tutorial,{skipAsk=true}) end end,

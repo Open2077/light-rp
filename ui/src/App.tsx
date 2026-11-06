@@ -15,6 +15,7 @@ import { JobCenterDialog } from "@/features/jobs/JobCenterDialog";
 import { JobRunHud } from "@/features/jobs/JobRunHud";
 import { JobGuide } from "@/features/jobs/JobGuide";
 import { ErrorBoundary } from "@/design/ErrorBoundary";
+import { ArrivalTour } from "@/features/arrival/ArrivalTour";
 import { InteractPrompt } from "@/features/hud/InteractPrompt";
 import { Actions } from "@/features/actions/Actions";
 import { ShopDialog } from "@/features/shop/ShopDialog";
@@ -138,6 +139,7 @@ export function App() {
       <ErrorBoundary name="world-boss"><WorldBossHud /></ErrorBoundary>
       <ErrorBoundary name="announce"><AnnounceHalo /></ErrorBoundary>
       <ErrorBoundary name="staff-broadcast"><StaffBroadcast /></ErrorBoundary>
+      <ErrorBoundary name="arrival-tour"><ArrivalTour /></ErrorBoundary>
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>
