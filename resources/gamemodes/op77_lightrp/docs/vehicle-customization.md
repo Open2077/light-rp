@@ -9,14 +9,42 @@ The sources of this work:
   kit, neon, plate, performance stages and per-category camera framing.
 - Window tint comes from `feat/auto-studio-full` on top of the native
   `Open77.vehicles.setWindowTint` (base `feat/vehicle-customization`, W1, 2026-11-06).
+  The category is built and **closed**: see [Windows](#windows).
 
 The phase-1 API mapping was checked with the Open77 Devkit MCP for
 **2.50.0+op77.156**. The phase-2 natives (`listPaintProfiles`, `setPaintProfile`,
 `setNeon`, `clearNeon`, `registerParts`, `listParts`, `setParts`, `setWheels`,
-`getVisual`, `respawnAs`, client `customizationAvailable`) are those of the phase-2
-platform build (`wt-vehicle-custom`). The devkit catalogue does not list them yet, so
-every one of them is **feature-detected**. A server or client without a native greys
-its category with a reason and never fails.
+`setPlate`, `setWindowTint`, `getVisual`, `respawnAs`, client
+`customizationAvailable`) are those of the phase-2 platform build
+(`feat/vehicle-customization`). The devkit catalogue does not list them yet, so every
+one of them is **feature-detected**. A server or client without a native greys its
+category with a reason and never fails.
+
+The platform side (every native, the FiveM aliases, packs and engine limits) is
+documented in the Open77 wiki, `wiki/vehicle-customization.md`.
+
+## Status in game
+
+Everything below was seen on **one client** in the lab (2026-11-05 and 2026-11-06,
+campaign ledger `PLAN-vehicle-custom.md` §10). **Nothing has been checked from a second
+client yet**: the [Lab checklist](#lab-checklist-two-clients) is still to run.
+
+| Category | Seen on one client |
+| --- | --- |
+| Body paint, lights, trim | Previewed, bought, ledger rows written, properties saved |
+| Livery (factory schemes) | Bought; came back after a server restart and an impound |
+| Livery (pack) | The 12 Hella liveries shown together without a crash, after the 12-decal fix. Not sold or stored yet |
+| Rims | 18 designs checked frame by frame on the Hella; bought; came back after a restart and an impound, and after a stream-in |
+| Body kit | GT wing and side skirts (the first, 8-part catalogue) bought and kept through a restart and an impound; the Hella's parts of the 30-part kit checked frame by frame, the three front lips refitted (+18 cm / -7 cm) |
+| Neon | Bought; kept through a restart and an impound |
+| Plate | Written on the car through `setPlate`, with the 9 m rebuild (see [Plate](#plate)); kept through a restart and an impound |
+| Windows | The switch works and the level is kept through a restart and an impound; the glass renders as factory. Closed |
+| Performance | Stage 1 bought and stored with the rest of the look; Performance greyed when TweakXL 1.12 is missing |
+
+**Lab commands are not part of this repository.** The in-game checks used a lab
+harness that lives outside the repository. No lab command is a feature of Light RP,
+and none is documented here. Players reach the studio only through the bays and the
+garage, as described below.
 
 ## Player flow
 
@@ -67,14 +95,14 @@ exception**: a stage is fitted on purchase and never previewed.
 | Category | Editor | Natives (server) | Price (`server/config/vehicle_customization.lua`) |
 | --- | --- | --- | --- |
 | Body paint | Primary / Secondary, 12 presets, picker, HEX, **Factory finish** | `setPaint`, `resetPaint` | **2,500 €$** (owner, 2026-11-05) |
-| Livery | **Plain paint** + the model's factory two-tone schemes ("Scheme N", main/secondary swatch) | `listPaintProfiles`, `setPaintProfile` | 4,000 €$, provisional |
+| Livery | **Plain paint** + the model's factory two-tone schemes ("Scheme N") + the liveries a pack registered (their own label), each with a main/secondary swatch | `listPaintProfiles`, `setPaintProfile` | 4,000 €$, provisional |
 | Rims | **Factory rims** + the rims that fit this record, then the finish | `listParts`, `setWheels` | 6,000 €$ per set, provisional |
 | Body kit | One row per group (Wing, Rear louvers, Front lip, Canards, Side skirts, Rear diffuser, Hood, Roof, Front protection): **None** + the parts that fit, then the finish | `listParts`, `setParts` | 3,500 €$ **per group changed**, provisional |
 | Neon | 8 presets, picker, HEX, brightness Low / Medium / High, **No neon** | `setNeon`, `clearNeon` | 5,000 €$, provisional |
 | Lights | 12 saturated presets, picker, HEX, **Factory lights** | `setHeadlightColor`, `clearLightsHue` (restore: `setLightsHue`) | 500 €$, provisional |
 | Trim | **Factory trim** + the variants curated for the model | `setAppearance` (`getAppearance` to skip restatements) | 2,500 €$, provisional |
-| Plate | Plate number field + plate visual; the server answers availability | none; stored by Light RP, `lightrpPlate` state bag | 2,500 €$, provisional |
-| Windows | **Closed: greyed "Coming soon"** (`windows.enabled = false`). Built and tested: Factory glass, Light smoke, Dark smoke, Limo (side and rear glass; the windshield stays clear) | `setWindowTint` (levels 1-3, nil = factory) | 1,500 €$, provisional, not sold while closed |
+| Plate | Plate number field + plate visual; the server answers availability | `setPlate` when the server has it; stored by Light RP, mirrored in the `lightrpPlate` state bag | 2,500 €$, provisional |
+| Windows | **Closed: greyed "Coming soon"** (`windows.enabled = false`). Built: Factory glass, Light smoke, Dark smoke, Limo (side and rear glass; the windshield stays clear). The switch works in game; the glass still renders as factory | `setWindowTint` (levels 1-3, nil = factory) | 1,500 €$, provisional, not sold while closed |
 | Performance | Stock / Stage 1 / Stage 2 / Stage 3, each with its price | `respawnAs` onto `Vehicle.<dealer record>_o77sN` | per model and stage, provisional; going down costs 1,000 €$ |
 
 #### Body paint
@@ -87,8 +115,19 @@ livery draft back to Plain paint.
 #### Livery
 
 A livery is one of the record's TwinTone profiles, listed by
-`listPaintProfiles(vehicleId)` in the order the engine gives them, labelled "Scheme N".
+`listPaintProfiles(vehicleId)`: the factory ones first, in the order the engine gives
+them, then the ones a running resource registered with `registerPaintProfiles`.
 
+- **Labels.** A factory profile has no name, so it is labelled "Scheme N", counting
+  factory profiles only. A pack profile keeps the `label` its resource registered.
+- **Pack liveries.** The Light RP livery pack is `lightrp_vk_liveries`, built in the
+  Open77 repository (`scripts/vehicle-kit/liveries`: 12 designs on the 11 dealer
+  models that take a TwinTone template, 132 records) and not committed here. It
+  needs TweakXL on every client. It registers its profiles at start; when it stops,
+  its profiles leave the list, and a car wearing one keeps the choice dormant.
+- **12-decal cap.** A livery template with more than 12 `customDecals` crashes the
+  client that spawns the car. The pack builder folds stripes into doors and refuses a
+  template above 12; do not hand-edit its YAML past that.
 - The server accepts only an id listed for this vehicle.
 - Applying a scheme first puts the car back on its factory paint layer, keeping the
   lights hue, then sets the profile. The page moves the paint draft to Factory finish.
@@ -99,15 +138,20 @@ A livery is one of the record's TwinTone profiles, listed by
 - A model with no profile is greyed "This model has no factory two-tone scheme."
 - A client whose `customizationAvailable` reports `twintone = false` greys it locally:
   "Your game reports no two-tone scheme on this vehicle."
+- A client whose game lacks the livery pack cannot draw a pack livery: its
+  `customizationAvailable().skipped` lists `profile:<id>:not_for_model`. The studio does
+  not check for it and shows no warning today (warnings cover rims, body kit and
+  windows only).
 
 #### Rims
 
-The rims are the 8 original rims of the vehicle kit (E1), 3 finishes each. They are
-offered only on records that have a fit: 14 dealer records, including the Merrimac's
-middle axle and the Apollo. The Kusanagi is excluded because its hubless front ring
-leaves no room for a spoked rim.
+The rims are the 18 original rims of the vehicle kit (E1 then E1e), 6 finishes each:
+108 models in the pack `lightrp_vk_rims`. They are offered only on records that have a
+fit: 14 dealer records, including the Merrimac's middle axle and the Apollo. The
+Kusanagi is excluded because its hubless front ring leaves no room for a spoked rim.
 
-- The fit is per wheel (B2): see [The vehicle kit catalogue](#the-vehicle-kit-catalogue).
+- The fit is per wheel (B2) and per trim (`fit.appearances`): see
+  [The vehicle kit catalogue](#the-vehicle-kit-catalogue).
 - The request names a rim and a finish that this vehicle's offer lists, and the server
   calls `setWheels(id, { rim = "op77_lightrp:<rim>", variant })`.
 - **Factory rims** calls `setWheels(id, nil)`.
@@ -115,15 +159,22 @@ leaves no room for a spoked rim.
 
 #### Body kit
 
-The body kit is the 8 parts of E2, with 75 fits on 16 models, all in the `Base` slot.
+The body kit is the 30 parts of E2 (then E2b), in 9 groups, with 82 variant models
+in the pack `lightrp_vk_body` and 238 fits on 13 records, all in the `Base` slot. The
+Thrax takes all 9 groups, the Merrimac 3; the Hella takes 25 parts in 7 groups (no
+rear louvers, no side skirts).
 
 | Group | Parts |
 | --- | --- |
-| Wing | `wing_street`, `wing_gt`, `wing_duck`, `wing_rally` |
-| Front lip | `lip_splitter` |
-| Side skirts | `skirt_side` |
-| Roof | `roof_rack` |
-| Push bar | `bull_bar` |
+| Wing | `wing_street`, `wing_gt`, `wing_duck`, `wing_rally`, `wing_lip`, `wing_low`, `wing_dual`, `wing_drift`, `wing_bat`, `wing_roof` |
+| Rear louvers | `louver_rear` |
+| Front lip | `lip_splitter`, `lip_race`, `lip_street` |
+| Canards | `canard_dive`, `canard_fin` |
+| Side skirts | `skirt_side`, `skirt_blade`, `skirt_rocker` |
+| Rear diffuser | `diffuser_street`, `diffuser_race` |
+| Hood | `hood_scoop`, `hood_vents` |
+| Roof | `roof_rack`, `roof_bars`, `roof_tray`, `roof_lightbar`, `roof_scoop` |
+| Front protection | `bull_bar`, `tow_strap` |
 
 **One part per group.** The native only refuses `conflicting_parts` when the catalogue
 declares a conflict, and this catalogue declares none. The exclusivity is therefore
@@ -164,7 +215,7 @@ identically, and a grey has no hue: the native would read it as red.
 #### Trim
 
 A trim is an entity appearance variant from the model's curated list in
-`shared/vehicle_customization.lua` `trims[catalogKey]`, measured for 12 models.
+`shared/vehicle_customization.lua` `trims[catalogKey]`, measured for 11 models.
 
 - The server accepts only an id listed for **that vehicle's** catalogue key, and
   applies the name from the table, never a client string.
@@ -191,17 +242,50 @@ and shown in the studio header, the garage list and the ALT vehicle info
   rows are loaded at start. A plate being written is held until its SQL transaction
   ends.
 - **Preview.** A preview is an availability check ("This plate is available.") and
-  sets the `lightrpPlate` state bag on the car.
-- **Rendering.** Nothing renders the text on the car yet: there is no native for it
-  (contract section 7 reserves `visual.plate`). Rendering is behind one function,
-  `renderPlate` in `server/modules/garages.lua`, marked `LEAD:`. Swap it there; it
-  runs on retrieval and after `respawnAs` too.
+  puts the text on the car like any preview; closing without buying restores the
+  stored plate.
+- **Rendering.** `renderPlate` in `server/modules/garages.lua` sets the `lightrpPlate`
+  state bag (read by the menus) and calls `Open77.vehicles.setPlate(id, plate)` when the
+  server has that native. It runs on preview, purchase, rollback and retrieval;
+  `respawnAs` carries the plate with the rest of the look and the state bag. A
+  server without `setPlate` keeps the data side only, and the car shows its factory
+  plate. Every Light RP plate (7 characters, `A-Z0-9`) passes the native's own rule
+  (`A-Z`, `0-9`, space and `-`, 1 to 10 characters).
+- **What a client needs.** The text is drawn by the plate pack (`open77_vehicle_plates`,
+  an ArchiveXL patch) and a script that ships with the Open77 client. A client without
+  the pack, or a model the pack does not cover, shows the factory plate.
+- **The 9 m rebuild.** The engine only builds the plate's text widget when the car is
+  born within about 10 m of the camera. A car born further away is rebuilt once by the
+  client when it comes within 9 m, empty and stopped; it vanishes for about 0.4 s. A
+  car that is moving or occupied keeps a blank plate until then. This is the Open77
+  client's behaviour (base `e13ceac4`), seen on one client with four cars.
 
 #### Windows
 
-There is no native, so the category is listed greyed **"Coming soon"** (`soon = true`).
-It stays selectable: the editor shows the reason and nothing can be bought. Its price
-entry is 0 and is not read.
+**Closed.** `windows.enabled = false` in `shared/vehicle_customization.lua`. The row is
+greyed "Coming soon." and stays selectable: the editor shows the reason, nothing can
+be bought, and the server refuses any request for it.
+
+**Why.** Everything else works. `Open77.vehicles.setWindowTint` stores the level, each
+client switches the side and rear glass to the tint pack's appearance, and the level
+came back after a server restart and an impound (one client). But the glass renders
+as factory: ArchiveXL leaves the tint pack's materials unresolved, with the Open77 fork
+and with the official 1.28.6 alike (base `docs/research/vehicles-api.md`, "W1 —
+teinte en jeu"). Selling it would take money for nothing visible.
+
+**What is built, ready for when it renders:**
+
+- three levels, Light smoke / Dark smoke / Limo (native levels 1 to 3), plus **Factory
+  glass**; the windshield is never tinted;
+- the price, 1,500 €$ provisional, for any level or for going back to factory glass;
+- ledger kind `vehicle_tint`, field `visual.tint` in the confirmed-property mask;
+- greying: the two bikes have no window (`support`), and the row is greyed "Window
+  tinting is not installed on this server yet." when `open77_vehicle_tint` is not
+  running;
+- the client warning `not_covered` when the client's game has no tinted glass for the
+  car.
+
+To reopen it, see the tinted glass in game first, then set `windows.enabled = true`.
 
 #### Performance
 
@@ -209,6 +293,12 @@ Stages 1 to 3 are the TweakXL records `Vehicle.<dealer record>_o77s1..3` of the 
 resource (E5). The server asks for them through its export:
 `Open77.exports.callSync("lightrp_vehicle_stages", "stageRecord", base, stage)`. A
 client record name is never used.
+
+**TweakXL 1.12.0 or later.** The stage resource declares `dependency 'tweakxl >=1.12.0'`.
+Without a 1.12 loader in `resources.load` it does not start, and Performance is greyed
+"Performance tuning is not installed on this server yet." A client whose game did not
+load the records greys the stages itself (see below). TweakXL is executable content:
+the world must stay `requiredMods.unsecured = true`.
 
 **Fitting a stage.** A purchase calls `respawnAs(id, record)`, which keeps the same
 id, the same place, the keys and the look. It runs only on an empty car at the
@@ -317,6 +407,7 @@ transaction** before success is acknowledged:
 | Rims | `vehicle_rims` |
 | Body kit | `vehicle_bodykit` |
 | Neon | `vehicle_neon` |
+| Windows | `vehicle_tint` (not sold while closed) |
 | Plate | `vehicle_plate` |
 | Performance | `vehicle_stage` |
 
@@ -340,6 +431,7 @@ category to the fields it owns:
 | `trim` | `appearance` |
 | `livery` | `visual.profile` |
 | `neon` | `visual.neon` |
+| `windows` | `visual.tint` |
 | `rims` | `visual.wheels` (`{ rim = "op77_lightrp:<rim>", variant }`) and that rim's entry in `visual.parts` |
 | `body` | `visual.parts["op77_lightrp:<part>"]` |
 | `plate` | `lightrp.plate` (Light RP's own field, never sent to `setProperties`) |
@@ -383,7 +475,8 @@ and their editor shows the reason.
 | Rims | No fit for the record; `lightrp_vk_rims` not running; no native |
 | Body kit | No fitting part; `lightrp_vk_body` not running; no native |
 | Neon | No native |
-| Performance | See [Performance](#performance) |
+| Lights | `support` (Bandit, Apollo: no tintable lights, E0.1) |
+| Performance | No stage price for the model; `lightrp_vehicle_stages` not running (no TweakXL 1.12 loader); no stage record; no native. See [Performance](#performance) |
 | Windows | `windows.enabled` is false (the shipped value: "Coming soon"); the model has no window (`support`: Apollo, Kusanagi); `open77_vehicle_tint` not running; no native |
 
 Two tables in `shared/vehicle_customization.lua` are keyed by the Light RP catalogue
@@ -451,6 +544,25 @@ The ids are local; the platform namespaces them as `op77_lightrp:<id>`.
 - **Body parts.** `{ kind = "part", slot = "Base", label, variants, fit = { [record] =
   { offset, rotation?, scale?, hide? } } }`. Keep `Base` for now: see the
   `evidence.lid` note in E2's `scripts/vehicle-kit/docs/bodykit.md`.
+- **Trims.** A curated trim is another appearance whose stock rims have other component
+  names and often another depth. `server/config/vehicle_kit_trims.lua` (E1b, E1c)
+  holds them; a rim's record fit carries them as `fit.appearances`, which the platform
+  resolves from the car's current appearance. A body part merges its trims' extra hide
+  names into the record fit.
+
+**Budgets, checked by the tests.** The fullest kit on one car is 230 JSON values and at
+most 3,773 bytes of `open77.visual` (caps 256 and 4,096, on the Thrax). The largest
+`registerParts` call is 1,558 values (marshaller cap 4,096). The largest studio
+category sent to a client is 405 values (client event cap 1,024).
+
+**Why categories travel as JSON text.** The page message carries `categoriesJson`,
+one JSON text per category, and the client decodes it. A Lua table nested 10 levels
+deep broke the client's event depth cap of 8 and was dropped with only
+`dropped malformed network event payload` (fixed `1160bbe6`). The whole tree as one
+text then broke `json.decode`'s former 1,024-value cap (fixed `816ebe10`; base
+`4b70192b` has since raised that cap to 65,536). The module still logs any category
+above `JSON_VALUES = 1000`, the old cap, which a client built before `4b70192b` still
+enforces.
 
 **Legacy fallback.** A server whose fits predate per-wheel lists refuses `wheels`.
 Such a rim is registered again without them, so the records on default slots keep it,
@@ -474,11 +586,16 @@ The rim fit of one model, the Archer Hella (the back axle sits 0.143 m further i
 },
 ```
 
-**Installing the packs.** The models ship in three pack resources that are **not
+**Installing the packs.** The models ship in pack resources that are **not
 committed** here: `lightrp_vk_rims`, `lightrp_vk_body` and `lightrp_vehicle_stages`.
 `resources/assets/models/lightrp_vehicle_kit/README.md` gives the lead's install
 steps: where to copy them, `.gitignore`, `server.jsonc` load and `ensure` entries,
-and the TweakXL ≥ 1.12.0 requirement.
+and the TweakXL ≥ 1.12.0 requirement. The livery pack (`lightrp_vk_liveries`), the
+plate pack (`open77_vehicle_plates`) and the tint pack (`open77_vehicle_tint`) are
+built in the Open77 repository under `scripts/vehicle-kit` and installed the same way.
+Every pack is a `preload_mod`: a new revision needs a server restart, and players
+must relaunch through the launcher. A client whose game mounted an older archive sees
+the car stock (`model_not_registered` in its `skipped` list).
 
 ## Clean presentation
 
@@ -503,20 +620,22 @@ losing their state.
 
 ## Native capability map
 
-All mutation APIs below are **server-side**. Runtime visual replication covers
-current viewers, late joins and streaming back in.
+All mutation APIs below are **server-side**. By design, runtime visual replication
+covers current viewers, late joins and streaming back in; streaming back in was seen on
+one client, late joins and other viewers are not checked yet (see
+[Status in game](#status-in-game)).
 
 | Category | Native APIs | Notes | Status |
 | --- | --- | --- | --- |
 | Body paint | `setPaint`, `resetPaint`, `getPaint` | Primary/secondary RGB, separate applied flag; clears a livery | Implemented |
-| Livery | `listPaintProfiles`, `setPaintProfile`, `getVisual` | TwinTone profiles of the record; `invalid_profile` refused | Implemented (phase 2) |
+| Livery | `listPaintProfiles`, `setPaintProfile`, `getVisual` (pack: `registerPaintProfiles`) | TwinTone profiles of the record, factory and pack; `invalid_profile` refused; at most 12 decals per template | Implemented (phase 2) |
 | Rims | `registerParts`, `listParts`, `setWheels`, `getVisual` | One rim set; B2 per-wheel fits; key `rims.<slot>` | Implemented (phase 2) |
 | Body kit | `registerParts`, `listParts`, `setParts`, `getVisual` | Slot `Base`; ≤ 16 attachments; exclusivity in Light RP | Implemented (phase 2) |
 | Neon | `setNeon`, `clearNeon`, `getVisual` | Colour, intensity 0–5000, radius | Implemented (phase 2) |
 | Light tint | `setHeadlightColor`, `clearLightsHue`, `setLightsHue`, `getLightsHue` | One hue in 0..1 | Implemented |
 | Trim | `getAppearance`, `setAppearance` | Curated names, `world.vehicles.appearance` | Implemented |
-| Performance | `respawnAs` (+ the stage resource's `stageRecord` export) | Same id; refuses `vehicle_occupied` / `invalid_record` | Implemented (phase 2) |
-| Plate text | `setPlate` | Normalized text on the car's own plates; state bag `lightrpPlate` for menus | Implemented |
+| Performance | `respawnAs` (+ the stage resource's `stageRecord` export) | Same id; refuses `vehicle_occupied` / `invalid_record`; the stage resource needs TweakXL ≥ 1.12.0 | Implemented (phase 2) |
+| Plate text | `setPlate` | Normalized text on the plate pack's screen; state bag `lightrpPlate` for menus; blank on a car born more than ~10 m from the camera until the 9 m rebuild | Implemented |
 | Window tint | `setWindowTint`, `getWindowTint`, `getVisual().tint` | Levels 1-3 on side and rear glass; nil = factory. The switch is proven in game, the tinted glass is not: ArchiveXL leaves the pack materials unresolved, so the glass renders as factory (base `docs/research/vehicles-api.md`, "W1 — teinte en jeu") | Closed until it renders |
 | Durable restoration | `getProperties`, `setProperties` | Version-1 visual is complete: unknown keys are refused | Through the garage |
 | Client checks | `customizationAvailable` (client, `vehicles.read`), `Open77.data.vehicle` | Greying and skip warnings only | Feature-detected |
@@ -609,8 +728,9 @@ reads its own game; every vehicle write is server-side.
 ## Lab checklist (two clients)
 
 **Setup.** The lead installs the packs (README above) with TweakXL ≥ 1.12.0, and the
-server log shows `auto studio: 16 kit parts registered`. Client **A** owns an Archer
-Hella, which has every category: 5 trims, all 8 body parts and split-axle rims. A
+server log shows `auto studio: 48 kit parts registered` (18 rims + 30 body parts).
+Client **A** owns an Archer Hella, which has every category: 5 trims, 25 of the 30
+body parts (7 groups) and split-axle rims. A
 Thorton Merrimac and a Brennan Apollo are also owned, by A or B. Client **B** stands
 within 20 m of Bay 01. Both clients connected after the packs were added.
 
@@ -622,8 +742,8 @@ within 20 m of Bay 01. Both clients connected after the packs were added.
 | 4 | Same with the Merrimac, then the Apollo | Merrimac: six wheels including the middle axle; Apollo: front and back rims on the bike slots. Kusanagi: Rims greyed "No rim fits this model yet." |
 | 5 | Body kit on the Hella: GT wing, then Street wing, then a lip | One wing at a time on both clients; the price reads 7,000 for wing + lip; buy; ledger `vehicle_bodykit` |
 | 6 | Neon: Cyan Medium, then a custom `#101010`, then Red High; buy; then No neon and close | B sees cyan, then red under the car; `#101010` is flagged and never shown; closing after No neon puts the bought red back |
-| 7 | Livery: Scheme 1 if the Hella lists one (otherwise test on a model that does) | Two-tone on B; the paint editor shows Factory finish; buy; then buy a body paint: the scheme goes away on both clients |
-| 8 | Plate: type `ab 12` (refused locally), `NCPD001` (reserved), `SH1T123` (not allowed), a free one; register it | Server messages as listed; "This plate is available." then purchase; the header, garage list and ALT info show it; B tries the same plate on his car: "already registered" |
+| 7 | Livery: Scheme 1 if the Hella lists one (otherwise test on a model that does), then a pack livery (`lightrp_vk_liveries` running) by its label | Two-tone, then the pack livery, on B; the paint editor shows Factory finish; buy; park, restart, retrieve: the livery comes back; then buy a body paint: the livery goes away on both clients |
+| 8 | Plate: type `ab 12` (refused locally), `NCPD001` (reserved), `SH1T123` (not allowed), a free one; register it | Server messages as listed; "This plate is available." then purchase; the header, garage list and ALT info show it; B reads the text on the Hella's plate once within 9 m of it; B tries the same plate on his car: "already registered" |
 | 9 | Performance: B gets into the Hella while A has the studio open; then A reopens it with the car empty and fits Stage 1 | B entering closes A's session (occupied car); then the car is rebuilt in place with the same keys and look on both clients; the header reads STAGE 1; driving shows the stage's top speed (E5 table); a second change within 10 min is refused with the minutes left |
 | 10 | Park, restart the server, retrieve; stop `lightrp_vehicle_stages`, retrieve again | Stage 1 comes back. With the stages resource stopped, the car spawns stock and the stage stays stored; Performance greyed "…not installed on this server yet." |
 | 11 | A client without the rims pack: B stays connected while the lead first starts `lightrp_vk_rims` (no reconnect), or B's download of it failed | B's studio greys Rims "Your game has not loaded this workshop's parts…"; note what B sees on A's car (stock wheels, or bare hubs if the hide applies without the part); if B's pack resource runs but its models are missing, B's own rim preview shows "…parts pack is missing…" |
@@ -644,7 +764,11 @@ drive as tabled.
 - **Plate format.** Seven characters A-Z/0-9 is a placeholder; a pattern such as
   `NC` + 5 or 3 letters + 4 digits, or a vanity length, is the owner's call. The
   banned and reserved lists also need the owner's extension.
-- **Labels.** The livery schemes are "Scheme N" because profiles have no name; the
-  rim names come from E1 (Classic 10, Lattice, Deep Dish 8, …); the body groups are
-  Wing / Front lip / Side skirts / Roof / Push bar; the finishes are Chrome, Black,
-  White, Bronze, Gunmetal, Carbon, Aluminium and Steel. All are the owner's to rename.
+- **Windows.** 1,500 €$ is configured but nothing is sold while the category is
+  closed. The price is to confirm once the tinted glass renders in game.
+- **Labels.** The factory livery schemes are "Scheme N" because factory profiles have
+  no name; pack liveries carry their pack's labels. The rim names come from E1
+  (Classic 10, Lattice, Deep Dish 8, …); the body groups are Wing, Rear louvers,
+  Front lip, Canards, Side skirts, Rear diffuser, Hood, Roof and Front protection; the
+  13 finishes are Chrome, Black chrome, Black, Matte black, White, Red, Yellow, Gold,
+  Bronze, Gunmetal, Carbon, Aluminium and Steel. All are the owner's to rename.

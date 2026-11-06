@@ -47,11 +47,12 @@ server and every client check `GetResourceState(<name>) == "running"`.
    ```
 
    Otherwise ship them by overlay on the host, as for the RP scripts.
-4. **TweakXL ≥ 1.12.0.** The stages resource depends on `tweakxl >=1.12.0`, but the only
-   loader in the Open77 tree (`resources/assets/loaders/tweakxl`) is **1.11.4**. Without a
-   1.12.0 loader the stages resource does not start and Performance stays greyed. Either
-   bump the loader (E0.8 measured with 1.12.0) and add `"tweakxl"` to `resources.load`, or
-   rebuild the stages with the dependency the loader satisfies after checking the YAML on it.
+4. **TweakXL ≥ 1.12.0.** The stages resource depends on `tweakxl >=1.12.0`. The Open77
+   loader (`resources/assets/loaders/tweakxl`) is **1.12.0** on base
+   `feat/vehicle-customization` (`b9af09d2`) and still **1.11.4** on base `main` as of
+   2026-11-06. Without a 1.12.0 loader the stages resource does not start and Performance
+   stays greyed. Use the 1.12.0 loader (E0.8 measured with it) and add `"tweakxl"` to
+   `resources.load`.
    TweakXL is executable content: the world must stay `requiredMods.unsecured = true`.
 5. **`server.jsonc`** (not edited by this branch): add the three names to
    `resources.load`, **before** `"op77_lightrp"`, and ensure the two opt-in packs at start:
