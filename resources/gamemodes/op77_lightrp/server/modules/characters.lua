@@ -339,7 +339,7 @@ function Characters.adminRename(playerId, firstName, lastName)
     c.firstName,c.lastName=first,last
     c.slots=loadSlots(c.identifier)
     LightRP.state(playerId,{"character","online"})
-    LightRP.broadcastState("online")
+    LightRP.onlineChanged()
     return true
 end
 
@@ -487,12 +487,20 @@ LightRP.stateProvider("character", function(playerId)
     }
 end)
 
+-- Built once per second at most: a broadcast asks it once per player.
+local onlineCache, onlineCacheAt = nil, -1e9
 LightRP.stateProvider("online", function()
+    local now = LightRP.nowMs()
+    if onlineCache and now - onlineCacheAt < 1000 then return onlineCache end
     local list = {}
     for _, id in ipairs(GetPlayers()) do list[#list + 1] = { id = id, name = Characters.displayName(id) } end
     table.sort(list, function(a, b) return a.id < b.id end)
+    onlineCache, onlineCacheAt = list, now
     return list
 end)
+-- a join, a leave or a rename drops the cached list at once
+local markOnline = LightRP.onlineChanged
+LightRP.onlineChanged = function() onlineCache = nil; if markOnline then markOnline() end end
 
 function Characters.onDatabaseReady()
     migrate()
@@ -515,7 +523,7 @@ function Characters.onDisconnected(playerId)
     CreateThread(function()
         save(playerId)
         characters[playerId] = nil
-        LightRP.broadcastState("online")
+        LightRP.onlineChanged()
     end)
 end
 
