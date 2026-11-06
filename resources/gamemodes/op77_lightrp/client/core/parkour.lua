@@ -90,6 +90,7 @@ end
 -- Creating a native marker costs (the client's markers module peaked at 16-24 ms in one frame
 -- when a run's markers were all created at once, LightRP Testing 2026-11-06 00:03): they
 -- are created one per frame from a queue, each at its pose of that moment.
+local warn -- below
 local queue, draining = {}, false
 local function drain()
     if draining then return end
@@ -103,15 +104,27 @@ local function drain()
                 local def = {}
                 for k, v in pairs(part.def) do def[k] = v end
                 def.position, def.rotation = pose(g, part, part.born)
-                local ok, handle = pcall(Open77.markers.create, def)
+                local ok, handle, why = pcall(Open77.markers.create, def)
                 if ok and handle then
                     if g.cancelled or g.sentAt then pcall(Open77.markers.remove, handle) else part.handle = handle end
+                else
+                    warn("create", "parkour: %s %s marker refused: %s", g.kind, tostring(def.shape), tostring(ok and why or handle))
                 end
                 Wait(0)
             end
         end
         draining = false
     end)
+end
+
+-- A refusal or a short budget is logged (at most every 30 s per kind): nothing failed
+-- silently again (2026-11-06: no point drawn at all, nothing in the log).
+local warnedAt = {}
+warn = function(key, ...)
+    local t = now()
+    if warnedAt[key] and t - warnedAt[key] < 30000 then return end
+    warnedAt[key] = t
+    log(...)
 end
 
 local function freeSlots()
@@ -128,6 +141,7 @@ local function group(kind, parts, opts)
     local g = { kind = kind, parts = {}, at = opts.at, rise = opts.rise }
     if not markersOk() then return g end
     local room = freeSlots()
+    if room < #parts then warn("budget", "parkour: %s gets %d of %d markers (marker budget: %d free)", kind, math.max(0, room), #parts, room) end
     for _, part in ipairs(parts) do
         if room <= 0 then break end
         room = room - 1

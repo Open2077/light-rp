@@ -204,6 +204,37 @@ local function createMarker(point, marker)
     return id
 end
 
+-- Markers follow the player: 3D markers are 64 per resource, and the 92 points of the
+-- city (stashes, garages, job centres, missions...) each held one wherever the player
+-- was, though none is drawn beyond its maxDistance (20-35 m). With LightRP at the cap,
+-- the parkour's points could not be created at all (2026-11-06). A point keeps its
+-- marker definition; its marker exists only within maxDistance + STREAM_IN of the
+-- player and goes beyond maxDistance + STREAM_OUT (the loop below, a few per resume).
+local STREAM_IN, STREAM_OUT, STREAM_RETRY_MS = 25, 45, 5000
+local function streamMarker(point, at)
+    local def = point.markerDef
+    if not def then return false end
+    if not markersAvailable() then
+        -- an older client: said once per point (createMarker logs it)
+        if not point.markerWarned then point.markerWarned = true; createMarker(point, def) end
+        return false
+    end
+    local range = tonumber(def.maxDistance) or 30.0
+    local dx, dy, dz = at.x - point.position.x, at.y - point.position.y, at.z - point.position.z
+    local d = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if point.marker then
+        if d <= range + STREAM_OUT then return false end
+        pcall(Open77.markers.remove, point.marker)
+        point.marker = nil
+        return true
+    end
+    if d > range + STREAM_IN or Interact.hidden or (point.markerRetryAt and GetGameTimer() < point.markerRetryAt) then return false end
+    point.marker = createMarker(point, def)
+    point.markerRetryAt = point.marker == nil and GetGameTimer() + STREAM_RETRY_MS or nil
+    return true
+end
+Interact.streamMarker = streamMarker
+
 -- Private client objectives share the same E key and proximity prompt as public
 -- desks, but survive a refresh of the server's public interaction list.
 function Interact.setLocal(id, entry, callback)
@@ -220,7 +251,11 @@ function Interact.setLocal(id, entry, callback)
     local point = { id = id, position = entry.position, radius = entry.radius or 2.6,
         prompt = entry.prompt, key = "E", promptHeight = 0.7, blip = entry.blip, callback = callback,
         passive = entry.passive == true }
-    if entry.marker then point.marker, point.markerVisible = createMarker(point, entry.marker), entry.marker.visible ~= false end
+    if entry.marker then
+        point.markerDef, point.markerVisible = entry.marker, entry.marker.visible ~= false
+        local at = Interact.position and Interact.position()
+        if at then streamMarker(point, at) end
+    end
     point.blip = createBlip(point)
     Interact.locals[id] = point
     return point.blip
@@ -256,7 +291,10 @@ local function addPoint(entry)
                 promptHeight = tonumber(entry.promptHeight) or 1.1, blip = entry.blip,
             }
             if type(entry.marker) == "table" then
-                point.marker, point.markerVisible = createMarker(point, entry.marker), entry.marker.visible ~= false
+                -- created by the stream when the player comes near (streamMarker)
+                point.markerDef, point.markerVisible = entry.marker, entry.marker.visible ~= false
+                local at = Interact.position and Interact.position()
+                if at then streamMarker(point, at) end
             elseif entry.ring ~= false and anchorsAvailable() then
                 local id, err = Open77.anchors.create({
                     position = point.position, maxDistance = tonumber(ring.maxDistance) or 8.0, render = "ring",
@@ -266,9 +304,9 @@ local function addPoint(entry)
             end
             point.blip = createBlip(point) -- nil when the point asks for none
             -- Kept across lists only when everything it asked for exists: a refused
-            -- marker or blip (quota, older client) is tried again with the next list.
-            local complete = (type(entry.marker) ~= "table" or point.marker ~= nil)
-                and (type(entry.blip) ~= "table" or point.blip ~= nil)
+            -- blip or ring (quota, older client) is tried again with the next list (a
+            -- refused marker: by the stream, a few seconds later).
+            local complete = (type(entry.blip) ~= "table" or point.blip ~= nil)
                 and (type(entry.marker) == "table" or entry.ring == false or not anchorsAvailable() or point.ring ~= nil)
             point.signature = complete and revisionOf(entry) or nil
             Interact.points[#Interact.points + 1] = point
@@ -389,6 +427,27 @@ local function localPosition()
     if not ok or type(state) ~= "table" or type(state.position) ~= "table" then return nil end
     return state.position
 end
+Interact.position = localPosition
+
+-- The marker stream: once a second, at most 4 creations or removals per resume.
+CreateThread(function()
+    while true do
+        Wait(1000)
+        local at = localPosition()
+        if at then
+            local list = {}
+            for _, point in ipairs(Interact.points) do if point.markerDef then list[#list + 1] = point end end
+            for _, point in pairs(Interact.locals) do if point.markerDef then list[#list + 1] = point end end
+            local calls = 0
+            for _, point in ipairs(list) do
+                if point.markerDef and streamMarker(point, at) then
+                    calls = calls + 1
+                    if calls % 4 == 0 then Wait(0) end
+                end
+            end
+        end
+    end
+end)
 
 local function setNear(point)
     if Interact.hidden then point = nil end -- a full-screen page (the fitting room) covers the world
@@ -408,12 +467,16 @@ CreateThread(function()
                 setNear(nil)
             else
                 local best, bestDistance
+                -- a runner is not offered the courses' cards (the start's E prompt)
+                local running = LightRpParkourClient and LightRpParkourClient.run ~= nil
                 for _, point in ipairs(Interact.points) do
+                    if running and type(point.id) == "string" and point.id:sub(1, 8) == "parkour." then goto continue end
                     local dx, dy, dz = p.x - point.position.x, p.y - point.position.y, p.z - point.position.z
                     local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
                     local fueling = LightRpRefueling and LightRpRefueling.isActive()
                     local seated = point.id:match("^fuel%.") and Open77.vehicles.getPlayerSeat and Open77.vehicles.getPlayerSeat()
                     if not fueling and not seated and distance <= point.radius and (bestDistance == nil or distance < bestDistance) then best, bestDistance = point, distance end
+                    ::continue::
                 end
                 for _, point in pairs(Interact.locals) do
                     local dx, dy, dz = p.x - point.position.x, p.y - point.position.y, p.z - point.position.z
