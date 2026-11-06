@@ -497,16 +497,33 @@ end
 local function neonSpec(neon)
     return { enabled = neon.enabled ~= false, color = neon.color, intensity = neon.intensity, radius = neon.radius }
 end
+-- True when the platform lists `profile` for this car's record right now.
+local function offered(id, profile)
+    if type(Open77.vehicles.listPaintProfiles) ~= "function" then return true end
+    for _, entry in ipairs(Open77.vehicles.listPaintProfiles(id) or {}) do if entry.id == profile then return true end end
+    return false
+end
 -- Puts the visual categories (livery, neon, window tint, rims, body kit) of `state` on the car,
 -- touching only what differs. Light RP's body parts only: other resources' stay.
-local function applyVisual(id, state)
+-- With `row` (a restore): a livery the record no longer offers (its pack stopped while the
+-- car was out) is kept dormant on the row, as at retrieval, and the car wears its factory
+-- scheme; refusing the whole restore would hold the lease forever.
+local function applyVisual(id, state, row)
     local V = Open77.vehicles
     if type(V.getVisual) ~= "function" then return true end
     local want = type(state.visual) == "table" and state.visual or {}
     local have = V.getVisual(id)
     if type(have) ~= "table" then return false, "Could not read the vehicle's look." end
     local ok, why = true, nil
-    if have.profile ~= want.profile then ok, why = V.setPaintProfile(id, want.profile) end
+    if have.profile ~= want.profile then
+        ok, why = V.setPaintProfile(id, want.profile)
+        if not ok and why == "invalid_profile" and row and want.profile ~= nil and not offered(id, want.profile) then
+            row.dormant = type(row.dormant) == "table" and row.dormant or {}
+            row.dormant.profile = want.profile
+            LightRP.log("garage: %s cannot wear its livery %s on this server right now; kept dormant", row.id, tostring(want.profile))
+            ok, why = V.setPaintProfile(id, nil)
+        end
+    end
     if ok and not same(have.neon, want.neon) then
         if type(want.neon) == "table" then ok, why = V.setNeon(id, neonSpec(want.neon)) else ok, why = V.clearNeon(id) end
     end
@@ -570,7 +587,7 @@ local function applyLook(id, state, row)
     if not ok then return false, why end
     ok, why = applyTrim(id, state.appearance)
     if not ok then return false, why end
-    ok, why = applyVisual(id, state)
+    ok, why = applyVisual(id, state, row)
     if not ok then return false, why end
     local stored = type(state.lightrp) == "table" and state.lightrp or {}
     ok, why = renderPlate(id, stored.plate)

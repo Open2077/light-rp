@@ -447,4 +447,27 @@ assert(same(lookOf(car), confirmed) and G.plateOf(car) == "ABC1234", "the new ow
 store(hella, 2); dbRows[hella].identifier = "alice"; boot()
 print("audit 8: properties travel with the row (owner columns only)")
 
-print("vehicle persistence audit: purchase writes, preview masking, idle close, store/retrieve, restart, impound paths, characters, failures and transfer passed")
+-- 9. A pack livery whose resource stops while the car is out ----------------------------
+-- The platform keeps the choice (dormant, getVisual still reads it, a restatement passes);
+-- the record no longer lists it, so it cannot be set again once cleared.
+car = retrieve(hella)
+t = studio(hella)
+assert(buy(t, { category = "livery", profile = PACK_LIVERY }) and stored(hella).visual.profile == PACK_LIVERY)
+close(t)
+packRunning = false
+t = studio(hella); assert(close(t) and not G.isBusy(1), "an idle close releases the lease (nothing to re-set)")
+t = studio(hella)
+assert(preview(t, { category = "livery", profile = "hella_tt_2" }))
+close(t)
+local co = coroutine.create(worker); for _ = 1, 3 do assert(coroutine.resume(co)); tick = tick + 2000 end
+assert(not G.isBusy(1), "a livery that can no longer be worn never holds the lease (garage, studio, character switch)")
+assert(world[car].visual.profile == nil, "the preview is gone: the car wears its factory scheme")
+autosave(); assert(stored(hella).visual.profile == PACK_LIVERY, "the bought pack livery stays stored (dormant)")
+assert(logged("cannot wear its livery"), "and the server says why")
+store(hella); packRunning = true
+car = retrieve(hella); assert(world[car].visual.profile == PACK_LIVERY, "worn again once its pack runs")
+t = studio(hella); assert(buy(t, { category = "livery", profile = "hella_tt_1" })); close(t)
+confirmed = storedLook(hella)
+print("audit 9: a pack livery stopped mid-session goes dormant on restore; the lease always closes")
+
+print("vehicle persistence audit: purchase writes, preview masking, idle close, store/retrieve, restart, impound paths, characters, failures, transfer and dormant liveries passed")
