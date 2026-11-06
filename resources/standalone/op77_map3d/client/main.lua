@@ -598,6 +598,7 @@ end)
 -- Other players around you.
 CreateThread(function()
     local cfg = C.nearbyPlayers or {}
+    if not cfg.enabled then return end   -- off: no loop at all
     while true do
         Wait(math.floor((cfg.interval or 1) * 1000))
         if pageReady and cfg.enabled and type(Open77.players.nearby) == "function" then

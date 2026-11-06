@@ -52,8 +52,10 @@ Map3DConfig = {
     -- (the page's own is 240 ms). 0 hides it at once.
     closeAnimationMs = 260,
 
-    -- Other players near you shown as blips (category "player").
-    nearbyPlayers = { enabled = true, radius = 350, interval = 1.0, color = "#3FE0D0" },
+    -- Other players near you shown as blips (category "player"). Off (owner, 2026-11-06): no
+    -- player's position on the map or the minimap; the influence zones below still show where
+    -- people gather, as zones only.
+    nearbyPlayers = { enabled = false, radius = 350, interval = 1.0, color = "#3FE0D0" },
 
     -- Influence zones: where players gather, drawn on the open map (never the minimap) so
     -- the others can find the action (a heat field on the ground, the buildings lit, a
@@ -123,7 +125,6 @@ Map3DConfig = {
             beaconLevel = 2,     -- from this level on, a column of light marks the zone
         },
         categories = {
-            { id = "player", label = "Players", icon = "user", color = "#3FE0D0" },
             { id = "service", label = "Services", icon = "store" },
             { id = "job", label = "Jobs", icon = "briefcase" },
             { id = "mission", label = "Missions", icon = "mission", color = "#FF2E3C" },
