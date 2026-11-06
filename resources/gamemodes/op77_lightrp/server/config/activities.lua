@@ -188,14 +188,16 @@ LightRpActivities = {
                 position = { x = -783.885, y = 787.366, z = 22.580 }, heading = 240.96, npc = true },
             -- The rooms NPC: not surveyed yet, about 4.5 m from Adam Smasher along the hub's
             -- right (survey in game, then `position`). `host` and `blip` are his own.
-            { id = "rooms", kind = "rooms", label = "The Croupier",
+            -- Jackie Welles since 2026-11-06 (the owner's call). Both records checked in the 2.5
+            -- tweakdb.bin; a dealer stays as the last resort if both bodies are refused.
+            { id = "rooms", kind = "rooms", label = "Jackie Welles",
                 prompt = "Host or join a game", offset = { forward = 27.0, right = -4.5, up = 0.13 }, heading = 240.96, npc = true,
                 host = {
-                    name = "The Croupier",
-                    candidates = {   -- the casino's dealers (shared/casino_blackjack.lua), same order
+                    name = "Jackie Welles",
+                    candidates = {
+                        { record = "Character.Jackie" },
+                        { record = "Character.Jackie_Puppet_Photomode" },
                         { record = "Character.sts_wat_kab_07_croupiers" },
-                        { record = "Character.mws_hey_07_zetatech_executive" },
-                        { record = "Character.sts_hey_rey_06_receptionist" },
                     },
                     streamingRadius = 150.0,
                     promptHeight = 1.1,

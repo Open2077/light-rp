@@ -817,7 +817,7 @@ Le panneau envoie l'action `activities.lobby` (`fill`, `friendly`, `move`, `bala
 ### Salons de jeu (`server/modules/activity_rooms.lua`, `ui/src/features/rooms/`)
 
 Un joueur héberge une partie auprès du **PNJ des salons** de The Crossing (terminal
-`kind = "rooms"`, *The Croupier*, avec son propre `host` et sa propre épingle), ou par `/room`
+`kind = "rooms"`, *Jackie Welles*, avec son propre `host` et sa propre épingle), ou par `/room`
 de n'importe où : il choisit le jeu, la carte, la taille des camps, salon public ou privé (un code
 de 5 caractères) ; les autres entrent ; l'hôte lance. Un jeu sans carte activée n'apparaît pas. **Un salon est un match amical sans crew** :
 même forme que la mise en place d'un amical, même lancement (`A.launchFriendly`, donc `startMatch`
