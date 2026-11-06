@@ -150,6 +150,9 @@ local LINKED = { paint = { "paint", "livery" }, livery = { "livery", "paint" } }
 local function linked(category) return LINKED[category] or { category } end
 -- Categories stored only by Light RP: the purchased value comes from the lease, not the car.
 local STORED = { plate = true, performance = true }
+-- Categories another module declares (Garage.registerCustomizationCategory, below): they
+-- join OWNS, UNCHANGED and RECEIPTS, and their own apply/restore steps.
+local EXTRA, extraOrder = {}, {}
 local function maskConfirmed(props, confirmed, except)
     local skip = {}
     for _, category in ipairs(except and linked(except) or {}) do skip[category] = true end
@@ -168,10 +171,11 @@ local function wake(props, dormant)
     local v = props.visual
     v.parts = type(v.parts) == "table" and v.parts or {}
     for id, value in pairs(dormant.parts or {}) do if v.parts[id] == nil then v.parts[id] = copy(value) end end
-    -- wheels, profile, neon, tint, and any field a newer build stored (a whole visual goes
-    -- dormant when a delivery cannot wear it)
+    -- wheels, profile, neon, tint, registered categories kept in `visual`, and any field a
+    -- newer build stored (a whole visual goes dormant when a delivery cannot wear it). A
+    -- registered category the car holds at the top level is not copied into `visual`.
     for key, value in pairs(dormant) do
-        if key ~= "parts" and v[key] == nil then v[key] = copy(value) end
+        if key ~= "parts" and v[key] == nil and not (EXTRA[key] and props[key] ~= nil) then v[key] = copy(value) end
     end
 end
 -- Stored properties this server build skipped at spawn (`row.unsupported`, filled by
@@ -189,6 +193,17 @@ local function keepUnsupported(props, row)
         elseif held[name] ~= nil and props[name] == nil then props[name] = copy(held[name]) end
     end
 end
+-- Registered categories a server build could not put on the car (restorable, below): put
+-- back into what is written, where they were stored, unless the car holds a value again.
+local function wakeExtra(props, parked)
+    for key, held in pairs(parked) do
+        local visual = type(props.visual) == "table" and props.visual or nil
+        if props[key] == nil and (not visual or visual[key] == nil) then
+            if held.visual then props.visual = visual or {}; props.visual[key] = copy(held.value)
+            else props[key] = copy(held.value) end
+        end
+    end
+end
 local function capture(row)
     if not row.vehicleId then return end
     local props = Open77.vehicles.getProperties(row.vehicleId)
@@ -198,6 +213,7 @@ local function capture(row)
         -- Autosaves and removal recovery keep the last confirmed look, never a preview.
         if row.edit then props = maskConfirmed(props, row.edit.saved) end
         if row.dormant then wake(props, row.dormant) end
+        if row.dormantExtra then wakeExtra(props, row.dormantExtra) end
         keepUnsupported(props, row)
         row.props = props
         row.dirty = true
@@ -513,9 +529,16 @@ local function liveRecord(id)
     local props = Open77.vehicles.getProperties(id)
     return type(props) == "table" and props.record or nil
 end
+-- An engine sound (Auto Studio wave 2) rides on the stage record: `Vehicle.<base>_o77a<k>`
+-- on a stock car, `Vehicle.<base>_o77s<n>a<k>` with a stage. The stage compares without it.
+local function stageBody(record)
+    if type(record) ~= "string" then return record end
+    local body = record:gsub("(_o77s%d+)a%d+$", "%1")
+    return (body:gsub("_o77a%d+$", ""))
+end
 -- Rebuilds the car on `record` (same id, same place, every look and key carried over).
 local function applyStage(id, record)
-    if not record or liveRecord(id) == record then return true end
+    if not record or stageBody(liveRecord(id)) == record then return true end
     if type(Open77.vehicles.respawnAs) ~= "function" then return false, "This server build cannot fit performance stages." end
     local result, why = Open77.vehicles.respawnAs(id, record)
     if not result then return false, explain(why, "The stage could not be fitted (" .. tostring(why) .. ").") end
@@ -607,9 +630,22 @@ local function applyTrim(id, appearance)
     if not ok then return false, why or "Vehicle trim was refused." end
     return true
 end
+-- The registered categories of `state`, in registration order: those that rebuild the car
+-- (`respawns`, an engine sound) after the stage, the others before the plate.
+local function applyExtras(id, state, respawns)
+    for _, name in ipairs(extraOrder) do
+        local spec = EXTRA[name]
+        if (spec.respawns == true) == respawns then
+            local ok, why = spec.restore(id, state)
+            if not ok then return false, why or ("The vehicle's " .. name .. " was refused.") end
+        end
+    end
+    return true
+end
 -- Puts a complete look back on the car: paint and lights hue, trim, then the visual
--- categories (a repaint clears the livery, so the livery comes after), the plate and
--- the performance stage of `row`.
+-- categories (a repaint clears the livery, so the livery comes after), the registered
+-- categories, the plate, the performance stage of `row` and the registered categories
+-- that rebuild the car.
 local function applyLook(id, state, row)
     local ok, why = applyPaint(id, state.paint or { applied = false }, true)
     if not ok then return false, why end
@@ -617,11 +653,16 @@ local function applyLook(id, state, row)
     if not ok then return false, why end
     ok, why = applyVisual(id, state, row)
     if not ok then return false, why end
+    ok, why = applyExtras(id, state, false)
+    if not ok then return false, why end
     local stored = type(state.lightrp) == "table" and state.lightrp or {}
     ok, why = renderPlate(id, stored.plate)
     if not ok then return false, why end
-    if row then return applyStage(id, stageRecord(row, stored.stage)) end
-    return true
+    if row then
+        ok, why = applyStage(id, stageRecord(row, stored.stage))
+        if not ok then return false, why end
+    end
+    return applyExtras(id, state, true)
 end
 local function editGuard(playerId, row)
     local edit = row and row.edit
@@ -663,11 +704,15 @@ function Garage.beginCustomization(playerId, ownedId, token, garageId)
     -- saved: the confirmed look (what the SQL row holds); shown: what the car wears now.
     local saved = { paint = copy(props.paint or { applied = false }), appearance = props.appearance,
         visual = copy(props.visual), lightrp = copy(type(row.props) == "table" and row.props.lightrp or nil) or {} }
+    -- a registered category's fields may live outside `visual`
+    for _, name in ipairs(extraOrder) do EXTRA[name].owns(saved, props) end
     row.edit = { player = playerId, token = token, place = place, vehicleId = row.vehicleId, saved = saved, shown = copy(saved) }
     edits[playerId] = row
-    return { id = row.id, vehicleId = row.vehicleId, label = label(row), model = row.model, record = row.record,
+    local state = { id = row.id, vehicleId = row.vehicleId, label = label(row), model = row.model, record = row.record,
         paint = copy(saved.paint), lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance),
         visual = copy(saved.visual), lightrp = copy(saved.lightrp) }
+    for _, name in ipairs(extraOrder) do EXTRA[name].owns(state, saved) end
+    return state
 end
 function Garage.customizationValid(playerId, token)
     local row = edits[playerId]
@@ -704,8 +749,10 @@ function Garage.customizationState(playerId, token)
     local row = edits[playerId]
     if not row or row.edit.token ~= token then return nil end
     local saved = row.edit.saved
-    return { paint = copy(saved.paint), lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance),
+    local state = { paint = copy(saved.paint), lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance),
         visual = copy(saved.visual), lightrp = copy(saved.lightrp) }
+    for _, name in ipairs(extraOrder) do EXTRA[name].owns(state, saved) end
+    return state
 end
 -- Plates are unique across every owned vehicle, held ones included while a purchase
 -- is being written. `plate` is already normalized (upper case).
@@ -776,6 +823,9 @@ local function applyChange(edit, change)
     elseif change.category == "performance" then
         local ok, why = applyStage(id, change.record)
         if not ok then return false, why end
+        -- a rebuild may drop what rides on the record (an engine sound): put the shown one back
+        ok, why = applyExtras(id, edit.shown, true)
+        if not ok then return false, why end
         own(edit.shown).stage = change.stage
     elseif change.category == "lights" then
         local ok, why
@@ -787,6 +837,14 @@ local function applyChange(edit, change)
         local ok, why = applyTrim(id, change.appearance)
         if not ok then return false, why end
         OWNS.trim(edit.shown, { appearance = change.appearance })
+    elseif EXTRA[change.category] then
+        local spec = EXTRA[change.category]
+        local ok, why = spec.apply(id, change)
+        if not ok then return false, why or "This change was refused." end
+        -- read back what the platform stored (it may normalise the value)
+        local props = V.getProperties(id)
+        if type(props) ~= "table" then return false, "Could not read the vehicle." end
+        spec.owns(edit.shown, props)
     else return false, "Unknown customization category." end
     return true
 end
@@ -820,6 +878,31 @@ local UNCHANGED = {
     plate = function(change, saved) return change.plate == (saved.lightrp or {}).plate, "This vehicle already wears that plate." end,
     performance = function(change, saved) return change.stage == ((saved.lightrp or {}).stage or 0), "This stage is already fitted." end,
 }
+-- A category another module declares (server/modules/vehicle_customization.lua, Auto
+-- Studio wave 2). `spec`:
+--   owns(to, from)            copies the category's confirmed fields from `from` to `to`
+--                             (both getProperties-shaped), like OWNS;
+--   apply(vehicleId, change)  puts a validated change on the car -> ok, player text;
+--   restore(vehicleId, state) puts `state`'s value back (close, rollback) -> ok, player text;
+--   unchanged(change, saved)  -> true when `saved` already holds it, plus the refusal text;
+--   available()               false on a server build without its native: a stored value
+--                             is then kept on the row (dormant), never sent nor dropped;
+--   receipt = { ledger kind (VARCHAR 24), note };  respawns = true when it rebuilds the car
+--   (restored after the stage).
+-- It then joins the confirmed mask, the unchanged check, the receipt, the rollback and the
+-- restore like a built-in category. Not STORED, not LINKED.
+function Garage.registerCustomizationCategory(id, spec)
+    assert(type(id) == "string" and OWNS[id] == nil and type(spec) == "table", "Invalid customization category " .. tostring(id))
+    for _, key in ipairs({ "owns", "apply", "restore", "unchanged", "available" }) do
+        assert(type(spec[key]) == "function", "Customization category " .. id .. " needs " .. key)
+    end
+    assert(type(spec.receipt) == "table" and type(spec.receipt[1]) == "string" and #spec.receipt[1] <= 24
+        and type(spec.receipt[2]) == "string", "Customization category " .. id .. " needs a receipt")
+    EXTRA[id], OWNS[id], UNCHANGED[id], RECEIPTS[id] = spec, spec.owns, spec.unchanged, spec.receipt
+    DORMANT[id] = function(d) d[id] = nil end -- a purchase replaces a dormant value
+    extraOrder[#extraOrder + 1] = id
+    return true
+end
 -- Trusted callers only (server/modules/vehicle_customization.lua validators): `change` is
 -- { category = "paint", paint = {...} } | { category = "lights", color = "#RRGGBB"|nil } |
 -- { category = "trim", appearance = name|"" } | { category = "livery", profile = id|"" } |
@@ -861,6 +944,10 @@ function Garage.customize(playerId, token, change, commit, payment)
             for _, c in ipairs(linked(category)) do if DORMANT[c] then DORMANT[c](dormant) end end
             wake(props, dormant)
         end
+        if row.dormantExtra then
+            local parked = copy(row.dormantExtra); parked[category] = nil
+            wakeExtra(props, parked)
+        end
         keepUnsupported(props, row)
         -- Save the complete canonical properties before acknowledging success.
         local encoded = json.encode(props)
@@ -878,6 +965,7 @@ function Garage.customize(playerId, token, change, commit, payment)
                     OWNS[c](edit.saved, props)
                     OWNS[c](row.props, props) -- removal during SQL cannot overwrite the purchase
                     if row.dormant and DORMANT[c] then DORMANT[c](row.dormant) end
+                    if row.dormantExtra then row.dormantExtra[c] = nil end
                 end
                 row.dirty = true
             end, receipt[1], receipt[2] .. row.id, "Auto Studio")
@@ -916,7 +1004,25 @@ local function restorable(row, record)
             if key ~= "primary" and key ~= "secondary" then restore.paint[key] = value end
         end
     end
-    row.dormant = nil
+    row.dormant, row.dormantExtra = nil, nil
+    -- A registered category this server build cannot put on a car (no native): kept on the
+    -- row, where it was stored, instead of refusing the delivery or dropping it.
+    for _, key in ipairs(extraOrder) do
+        local inVisual = type(restore.visual) == "table" and restore.visual[key] ~= nil
+        local value = inVisual and restore.visual[key] or restore[key]
+        if value ~= nil and not EXTRA[key].available() then
+            row.dormantExtra = row.dormantExtra or {}
+            row.dormantExtra[key] = { visual = inVisual, value = copy(value) }
+            if inVisual then restore.visual = copy(restore.visual); restore.visual[key] = nil else restore[key] = nil end
+        end
+    end
+    if row.dormantExtra then LightRP.log("garage: %s keeps studio choices this server build cannot put on it dormant", row.id) end
+    -- An engine sound rides on the record (`<stage record>a<k>`): named beside the record
+    -- the car was created on, setProperties refuses it (engine_sound_mismatch); without
+    -- `record` it applies the sound like setEngineSound. The stored record is never sent:
+    -- an autosave during a sound preview may hold the previewed one.
+    local sound = type(restore.visual) == "table" and restore.visual.engineSound or restore.engineSound
+    if sound ~= nil then restore.record = nil end
     local visual = restore.visual
     if type(visual) ~= "table" then restore.visual = nil; return restore end
     local V = Open77.vehicles
