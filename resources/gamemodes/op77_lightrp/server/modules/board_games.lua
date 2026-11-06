@@ -140,7 +140,48 @@ local function push(player)
     end
     sendState(player,list,bucket)
 end
-local function broadcast() for _,id in ipairs(GetPlayers()) do push(tonumber(id)) end end
+-- Who gets the tables' state. Every change used to push every board to every player,
+-- each push building and JSON-sizing all 18 boards: with ~90 players a single move cost
+-- far more than op77_lightrp's instruction quota (2026-11-06). Now only players within
+-- VIEW_RADIUS of a board in their bucket get it (plus one last, empty push when they
+-- leave), changes are coalesced, and the pushes are spread two players per tick.
+local VIEW_RADIUS=250
+local viewing={}
+local function seesBoards(player)
+    local p=Open77.players.position(player)
+    if not p then return viewing[player]==true end
+    local bucket=bucketOf(player) or p.bucket or 0
+    for _,b in pairs(boards) do
+        if (b.bucket or 0)==bucket and (p.x-b.position.x)^2+(p.y-b.position.y)^2+(p.z-b.position.z)^2<=VIEW_RADIUS^2 then return true end
+    end
+    return false
+end
+-- One pass: everyone who sees a board (or saw one at the last pass) gets the state.
+-- `entering` only: just the players who came into range since the last pass.
+local function pushViewers(entering)
+    local sentCount=0
+    for _,raw in ipairs(GetPlayers()) do
+        local id=tonumber(raw)
+        if id then
+            local sees=seesBoards(id)
+            if (sees and not (entering and viewing[id])) or (viewing[id] and not sees) then
+                viewing[id]=sees or nil
+                push(id)
+                sentCount=sentCount+1
+                if sentCount%2==0 and coroutine.isyieldable() then Wait(0) end
+            end
+        end
+    end
+end
+local broadcastQueued=false
+local function broadcast()
+    if broadcastQueued then return end
+    broadcastQueued=true
+    SetTimeout(100,function()
+        broadcastQueued=false
+        pushViewers(false)
+    end)
+end
 local function write(b)
     return {query="INSERT INTO lightrp_board_games (id,owner_inventory,data) VALUES (?,?,?) ON DUPLICATE KEY UPDATE data=VALUES(data)",
         values={b.id,b.ownerInventory,json.encode({id=b.id,kind=b.kind,position=b.position,rotation=b.rotation,bucket=b.bucket,game=b.game,revision=b.revision,
@@ -555,7 +596,7 @@ LightRP.module("board_games",{
         loaded=true;broadcast()
     end,
     onUiReady=push,
-    onDisconnected=function(player) last[player]=nil;lastDiagnostic[player]=nil;stateLogged[player]=nil;pushPending[player]=nil;stateSeq[player]=nil;release(player) end,
+    onDisconnected=function(player) viewing[player]=nil;last[player]=nil;lastDiagnostic[player]=nil;stateLogged[player]=nil;pushPending[player]=nil;stateSeq[player]=nil;release(player) end,
     onCharacterLoaded=function(player) release(player);deliver(player) end,
     onLifeState=function(player) if not active(player) then release(player) end end,
 })
@@ -579,7 +620,8 @@ CreateThread(function()
             end
         end
         refreshTick=refreshTick+1
-        if changed or refreshTick%5==0 then broadcast() end -- a lost part heals within 10 s
+        if changed or refreshTick%5==0 then broadcast() -- a lost part heals within 10 s
+        else pushViewers(true) end -- players walking up to the tables get them now
         for player in pairs(pushPending) do push(player) end
         if refreshTick%15==0 and next(returns) then for _,id in ipairs(GetPlayers()) do deliver(tonumber(id)) end end
         for _,b in pairs(boards) do queueAI(b) end
