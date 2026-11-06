@@ -153,6 +153,8 @@ LightRpVehicleCustomization = {
         not_covered = "Your game shows no tint on this vehicle: its window tint pack is missing. Reconnect to download it.",
         -- livery (`profile:<id>:not_for_model`): this game has no such template for the model
         not_for_model = "This livery cannot be shown in your game: its livery pack is missing or out of date. Reconnect to download it.",
+        -- plate (`plate:<record>:no_plate_widget`): the plate pack does not cover this model yet
+        no_plate_widget = "This model keeps its factory plate: custom plates do not show on it yet.",
     },
     -- Neon: presets, the custom colour and the brightness steps (intensity 0-5000, the
     -- native's default is 600). A very dark colour lights nothing and is refused.
