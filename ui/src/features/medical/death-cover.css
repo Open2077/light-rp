@@ -1,0 +1,81 @@
+/* The flatline cover (DeathCover.tsx). Opaque from 150 ms after the Dead event: a dim on the
+   first frame, nine slices tearing in from alternating sides, then two solid halves. The
+   reboot splits the halves from a CRT line in the middle. Below the medical panel (z55). */
+.death-cover{position:absolute;inset:0;z-index:28;overflow:hidden;pointer-events:none;color:var(--text-hi);contain:strict;
+  --dc-red:var(--o77-red,#ff2e3c);--dc-yellow:var(--o77-yellow-400,#ffcc00)}
+.death-cover__dim{position:absolute;inset:0;background:#050506;opacity:.6;animation:dc-dim .15s linear both}
+.death-cover__half{position:absolute;left:0;right:0;height:50.5%;background:radial-gradient(ellipse 80% 90% at 50% 100%,#1a0508 0%,#070608 55%,#050506 100%);animation:dc-solid .15s steps(1,end) both}
+.death-cover__half.is-top{top:0}
+.death-cover__half.is-bottom{bottom:0;background:radial-gradient(ellipse 80% 90% at 50% 0%,#1a0508 0%,#070608 55%,#050506 100%)}
+.death-cover__slices{position:absolute;inset:0}
+.death-cover__slices i{position:absolute;left:-2%;right:-2%;background:#050506;border-top:2px solid var(--dc-red);box-shadow:inset 0 1px 0 #ff2e3c55,inset 0 -1px 0 #ffcc0033;animation:dc-tear-l .48s cubic-bezier(.7,0,.3,1) both}
+.death-cover__slices i.is-right{border-top-color:var(--dc-yellow);animation-name:dc-tear-r}
+.death-cover__noise{position:absolute;inset:0;background:var(--tex-scanline),radial-gradient(ellipse 120% 90% at 50% 50%,transparent 55%,#ff2e3c1c 100%);opacity:.9}
+.death-cover__noise::after{content:"";position:absolute;left:0;right:0;height:18%;top:-20%;background:linear-gradient(180deg,transparent,#ffffff08 45%,#ff2e3c10 50%,transparent);animation:dc-roll 5.5s linear .6s infinite}
+.death-cover__readout{position:absolute;inset:0;transition:opacity .25s ease}
+.death-cover.is-downed .death-cover__readout{opacity:0}
+.death-cover__top{position:absolute;top:26px;left:32px;right:32px;display:flex;justify-content:space-between;align-items:center;font:14px var(--font-display);letter-spacing:.08em;animation:dc-fade .3s ease-out .35s both}
+.death-cover__top b{color:var(--dc-yellow);font-weight:400}.death-cover__top small{margin-left:12px;font:10px var(--font-mono);opacity:.65}
+.death-cover__status{display:flex;align-items:center;gap:8px;font:11px var(--font-mono);letter-spacing:.14em;color:var(--dc-red)}
+.death-cover__status::before{content:"";width:7px;height:7px;background:currentColor;box-shadow:0 0 8px currentColor;animation:dc-blink 1s steps(2,end) infinite}
+.death-cover__head{position:absolute;top:17%;left:0;right:0;display:flex;flex-direction:column;align-items:center;text-align:center}
+.death-cover__eyebrow{font:600 13px var(--font-mono);letter-spacing:.42em;padding-left:.42em;color:var(--dc-red);animation:dc-type .5s steps(18,end) .2s both}
+.death-cover__title{position:relative;margin:10px 0 0;font:400 clamp(60px,9vw,150px)/1 var(--font-display);letter-spacing:-.03em;color:var(--dc-red);text-shadow:0 0 34px #ff2e3c55;animation:dc-title .42s steps(7,end) .12s both}
+.death-cover__title::before,.death-cover__title::after{content:attr(data-text);position:absolute;inset:0;pointer-events:none}
+.death-cover__title::before{color:var(--dc-yellow);mix-blend-mode:screen;animation:dc-split-a 3.8s steps(1,end) .5s infinite;clip-path:inset(0 0 100% 0)}
+.death-cover__title::after{color:#3fe0d0;mix-blend-mode:screen;animation:dc-split-b 3.8s steps(1,end) .5s infinite;clip-path:inset(0 0 100% 0)}
+.death-cover__ekg{position:absolute;left:0;top:57%;width:100%;height:16%;fill:none;stroke-width:2.5;overflow:visible}
+.death-cover__ekg-track{stroke:#ff2e3c22;stroke-width:1}
+.death-cover__ekg-line{stroke:var(--dc-red);stroke-dasharray:1000;filter:drop-shadow(0 0 6px #ff2e3caa);animation:dc-draw 1.5s linear .15s both}
+.death-cover__ekg-beat{stroke:var(--dc-yellow);stroke-dasharray:1000;filter:drop-shadow(0 0 6px #ffcc00aa);animation:dc-draw .45s linear both}
+.death-cover__vitals{position:absolute;top:76%;left:0;right:0;display:flex;justify-content:center;gap:36px;font:12px var(--font-mono);letter-spacing:.18em;color:var(--text-dim);animation:dc-fade .3s ease-out .6s both}
+.death-cover__vitals b{color:var(--dc-red);font-weight:400;margin-left:6px}
+.death-cover__flash{position:absolute;left:0;right:0;top:50%;height:6px;margin-top:-3px;background:linear-gradient(180deg,transparent,#ffcc0066 30%,#fff6c2 50%,#ffcc0066 70%,transparent);opacity:0}
+
+/* reboot: the readout turns yellow, a beat runs, then the screen opens from a CRT line */
+.death-cover.is-out .death-cover__dim{animation:dc-gone .45s steps(1,end) both}
+.death-cover.is-out .death-cover__half.is-top{animation:dc-open-top .62s cubic-bezier(.85,0,.15,1) .45s both}
+.death-cover.is-out .death-cover__half.is-bottom{animation:dc-open-bottom .62s cubic-bezier(.85,0,.15,1) .45s both}
+.death-cover.is-out .death-cover__slices{display:none}
+.death-cover.is-out .death-cover__noise{animation:dc-out-fade .5s ease-in .5s both}
+.death-cover.is-out .death-cover__readout{animation:dc-out-readout .55s steps(5,end) .4s both}
+.death-cover.is-out .death-cover__eyebrow{color:var(--dc-yellow);animation:dc-type .3s steps(15,end) both}
+.death-cover.is-out .death-cover__title{color:var(--dc-yellow);text-shadow:0 0 34px #ffcc0055;animation:dc-title .3s steps(5,end) both}
+.death-cover.is-out .death-cover__status{color:var(--o77-green,#8fe04a)}
+.death-cover.is-out .death-cover__vitals b{color:var(--dc-yellow)}
+.death-cover__boot{display:inline-block;width:110px;height:6px;vertical-align:middle;background:linear-gradient(90deg,var(--dc-yellow) 0 var(--p,0%),#ffcc0022 var(--p,0%));animation:dc-boot .42s steps(10,end) both}
+.death-cover.is-out .death-cover__flash{animation:dc-flash .55s ease-out .4s both}
+
+@keyframes dc-dim{from{opacity:.6}to{opacity:1}}
+@keyframes dc-solid{from{opacity:0}to{opacity:1}}
+@keyframes dc-gone{from{opacity:1}to{opacity:0}}
+@keyframes dc-tear-l{0%{transform:translateX(-104%)}24%{transform:translateX(0)}38%{transform:translateX(2.5%)}50%{transform:translateX(-1%)}62%{transform:translateX(0);opacity:1}100%{transform:translateX(0);opacity:0}}
+@keyframes dc-tear-r{0%{transform:translateX(104%)}24%{transform:translateX(0)}38%{transform:translateX(-2.5%)}50%{transform:translateX(1%)}62%{transform:translateX(0);opacity:1}100%{transform:translateX(0);opacity:0}}
+@keyframes dc-roll{from{top:-20%}to{top:110%}}
+@keyframes dc-fade{from{opacity:0}to{opacity:1}}
+@keyframes dc-blink{50%{opacity:.15}}
+@keyframes dc-type{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes dc-title{0%{opacity:0;transform:translateX(-14px) skewX(-12deg);clip-path:inset(40% 0 35% 0)}
+  30%{opacity:1;transform:translateX(10px);clip-path:inset(0 0 60% 0)}
+  60%{transform:translateX(-4px) skewX(6deg);clip-path:inset(55% 0 0 0)}
+  100%{opacity:1;transform:none;clip-path:inset(-30% -10% -30% -10%)}}
+@keyframes dc-split-a{0%,88%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  89%{clip-path:inset(12% 0 62% 0);transform:translate(-6px,0)}91%{clip-path:inset(58% 0 18% 0);transform:translate(5px,0)}93%{clip-path:inset(30% 0 48% 0);transform:translate(-3px,0)}}
+@keyframes dc-split-b{0%,88%,100%{clip-path:inset(0 0 100% 0);transform:none}
+  89%{clip-path:inset(64% 0 10% 0);transform:translate(6px,0)}91%{clip-path:inset(20% 0 66% 0);transform:translate(-5px,0)}93%{clip-path:inset(46% 0 30% 0);transform:translate(4px,0)}}
+@keyframes dc-draw{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
+@keyframes dc-boot{from{--p:0%}to{--p:100%}}
+@keyframes dc-open-top{from{transform:none}to{transform:translateY(-101%)}}
+@keyframes dc-open-bottom{from{transform:none}to{transform:translateY(101%)}}
+@keyframes dc-out-fade{to{opacity:0}}
+@keyframes dc-out-readout{0%{opacity:1;transform:none}40%{opacity:.8;transform:translateX(6px) skewX(-8deg)}100%{opacity:0;transform:scaleY(.02)}}
+@keyframes dc-flash{0%{opacity:0;transform:scaleX(0)}12%{opacity:1;transform:scaleX(1)}35%{opacity:.75;transform:scaleY(4)}100%{opacity:0;transform:scaleY(24)}}
+@property --p{syntax:"<percentage>";inherits:false;initial-value:0%}
+
+@media(max-width:600px){.death-cover__top{left:18px;right:18px;font-size:11px}.death-cover__eyebrow{letter-spacing:.2em;font-size:11px}.death-cover__vitals{gap:14px;font-size:10px}}
+/* No motion: the cover appears and goes at once, still opaque in between. */
+@media(prefers-reduced-motion:reduce){
+  .death-cover *,.death-cover *::before,.death-cover *::after{animation:none!important}
+  .death-cover__dim{opacity:1}.death-cover__slices{display:none}
+  .death-cover.is-out{animation:dc-out-fade .2s linear .3s both}
+}

@@ -241,6 +241,7 @@ client_script "client/core/branding.lua"
 client_script "client/core/actions.lua"
 client_script "client/core/activity_hud.lua"   -- shared in-match HUD of the activity providers (exports ActivityHud*)
 client_script "client/core/medical.lua"
+client_script "client/core/death_cover.lua"   -- the flatline cover over the first-person death (ui features/medical/DeathCover)
 client_script "client/core/consumables.lua"
 client_script "client/core/refueling.lua"
 client_script "client/core/animations.lua"

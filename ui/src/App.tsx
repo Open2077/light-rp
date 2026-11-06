@@ -48,6 +48,7 @@ import { RaidHud } from "@/features/missions/RaidHud";
 import { ActivityHud } from "@/features/activityhud/ActivityHud";
 import { DogtownHud } from "@/features/dogtown/DogtownHud";
 import { Medical } from "@/features/medical/Medical";
+import { DeathCover } from "@/features/medical/DeathCover";
 import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
 import { MapEditor } from "@/features/mapeditor/MapEditor";
@@ -176,6 +177,8 @@ export function App() {
       <ErrorBoundary name="medical"><Medical /></ErrorBoundary>
       <ErrorBoundary name="animations"><AnimationMenu /></ErrorBoundary>
       </div>
+      {/* outside the gameplay interface: a death at a table or in the workshop is covered too */}
+      <ErrorBoundary name="death-cover"><DeathCover /></ErrorBoundary>
       <div hidden={customizationActive}><ErrorBoundary name="notices"><NoticeLane /></ErrorBoundary></div>
       <ErrorBoundary name="customization"><VehicleCustomization /></ErrorBoundary>
       <ErrorBoundary name="board-games"><TableBar /></ErrorBoundary>

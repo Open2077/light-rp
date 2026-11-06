@@ -11,7 +11,8 @@
    end-of-match recap (features/recap/mock.ts),
    `?tutorial=walk|edge|near|reveal` (with `?registered=1`) shows the first day guide's way to a stop (features/tutorial/mock.ts),
    `?dialog=dailies&tab=titles&dailies=mixed|fresh|budget|allpaid|off|loading&titles=shown|hidden|none&crew=1`
-   opens Dailies (features/dailies/mock.ts). */
+   opens Dailies (features/dailies/mock.ts),
+   `?death=1|downed|revive|loop` (with `?registered=1`) plays the flatline cover over a death (features/medical/mock.ts). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
 import type { Open77Bridge } from "@/bridge/open77";
 import { itemCatalogue } from "./itemCatalogue";
@@ -35,6 +36,7 @@ import { manekiMock } from "@/features/maneki/mock";
 import { parkourMock } from "@/features/parkour/mock";
 import { adminMock } from "@/features/support/mock";
 import { tutorialMock } from "@/features/tutorial/mock";
+import { deathMock } from "@/features/medical/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -58,6 +60,7 @@ export function installMockBridge(): void {
   const parkour = parkourMock(fire, params); // ?parkour=hud|count|result|record|dnf|browser|editor
   const admin = adminMock(fire, params); // ?admin=1: the admin menu
   const firstDay = tutorialMock(fire, params); // ?tutorial=walk|edge|near|reveal: the first day guide's way to a stop
+  const death = deathMock(fire, params); // ?death=1|downed|revive|loop: the flatline cover over a death
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -238,6 +241,7 @@ export function installMockBridge(): void {
           dailies.boot();
           maneki.boot();
           parkour.boot();
+          death.boot();
           // ?arrival=1: the central square's camera tour caption (client/core/arrival_tour.lua)
           if (params.get("arrival") === "1") setTimeout(() => fire(PAGE_EVENTS.arrivalTour, { title: "THE CROSSING", subtitle: "Your hub in Night City",
             lines: ["Adam Smasher: activities and contracts", "Jackie Welles: game rooms", "Johnny Silverhand: your guide, any time"], durationMs: 11000, skip: "SPACE" }), 300);
