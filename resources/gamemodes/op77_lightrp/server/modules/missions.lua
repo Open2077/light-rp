@@ -188,10 +188,21 @@ end
 function K.draw(id, slot, kit, reissue)
     local record = slot == 2 and kit.secondary or kit.primary
     CreateThread(function()
-        local snapshot = K.weapons(id, "requestSnapshot")
+        local snapshot, blind = K.weapons(id, "requestSnapshot")
         local held = false
         for _, row in ipairs(K.slots(snapshot)) do
             if type(row) == "table" and tonumber(row.slot) == slot and row.record == record then held = true end
+        end
+        -- A blind snapshot (the knife in an idle slot, see SNAPSHOT_BLIND) proves nothing either way:
+        -- draw the slot; only a slot really empty hands the kit out again. Reissuing on every knife
+        -- pick re-sent the whole kit each time a gun game player switched weapons (2026-11-06).
+        if not snapshot and blind == SNAPSHOT_BLIND then
+            local ok, why = K.weapons(id, "setActive", slot)
+            if ok then return end
+            LightRP.log("kits: kit slot %d of %s could not be drawn (%s)%s", slot, name(id), tostring(why),
+                why == "weapon_slot_empty" and ", handing the kit out again" or "")
+            if why == "weapon_slot_empty" then pcall(reissue) end
+            return
         end
         if held then
             local ok, why = K.weapons(id, "setActive", slot)

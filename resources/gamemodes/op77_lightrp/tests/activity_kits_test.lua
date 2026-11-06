@@ -562,6 +562,22 @@ do
     assert(opsOf(id, "assign", mark) == 2 and slots[id][2].record == kitOne.secondary, "reissued")
     assert(lastReport(id).hand == hand and lastReport(id).state == "armed", "the same hand")
 
+    -- A blind snapshot (a knife in an idle slot: ammo_cache_unavailable) proves nothing: the slot
+    -- is drawn, and only a slot really empty hands the kit out again (2026-11-06, the gun game
+    -- re-sent the whole kit at each knife pick).
+    refuse.requestSnapshot = function(who) return who == id and "ammo_cache_unavailable" or nil end
+    mark = #ops
+    W.request(id, { request = "w3", operation = "select", instanceId = "kit:2" })
+    advance(4000)
+    assert(opsOf(id, "setActive", mark) == 1 and opsOf(id, "assign", mark) == 0, "drawn, not handed out again")
+    refuse.setActive = function(who) return who == id and "weapon_slot_empty" or nil end
+    mark = #ops
+    W.request(id, { request = "w4", operation = "select", instanceId = "kit:2" })
+    advance(4000)
+    assert(opsOf(id, "assign", mark) >= 1, "an empty slot is still handed out again")
+    refuse.requestSnapshot, refuse.setActive = nil, nil
+    advance(10000)
+
     -- a kit of one weapon lists one, and refuses the other slot
     local one = player("games.tdm")
     handOut(one, { primary = "Items.Preset_Nova_Default", reserve = { 24 }, label = "Nova" })
