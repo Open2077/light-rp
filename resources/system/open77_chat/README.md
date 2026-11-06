@@ -27,10 +27,16 @@ resource and is not retained across resource stops or game restarts.
 - Arrow keys select a suggestion.
 - `Tab` completes the selected suggestion.
 
-The open panel also shows message length, connection state, and a new-message control if the player
-has scrolled away from the latest entry. Closing it folds the controls away; recent messages remain
-in the passive feed and fade after their configured duration. The passive feed is shorter than the
-open list and is always pinned to the newest row.
+The log has a fixed height (`--chat-log-h`, 248 px at 1920x1080) in both states, its lines stacked
+against the bottom edge: the newest line is always fully visible. Older lines dissolve into the top
+edge. New lines open their height (the ones above slide up), come in from the left with a sheen;
+a mention pulses, an error shakes, an announcement tears in. More than 3 lines in one frame (a
+history replay) arrive without animation.
+
+Open, the log becomes a scrollable panel. If the player has scrolled away from the newest line, new
+lines count on a NEW chip instead of moving the view. The length counter shows from 160 characters.
+Closed, the whole chat hides 10 s after the last message (a message's `duration` can keep it longer)
+and 6 s after closing; any new message brings it back.
 
 ## Messages and commands
 

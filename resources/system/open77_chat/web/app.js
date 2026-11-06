@@ -3,7 +3,12 @@
 
   const MAX_MESSAGES = 48;
   const MAX_MESSAGE_LENGTH = 4096;
-  const DEFAULT_STALE_DELAY = 8500;
+  // Closed, the whole chat hides this long after the last activity (a message's
+  // `duration` can keep it longer), and this long after it is closed.
+  const IDLE_MS = 10000;
+  const IDLE_AFTER_CLOSE_MS = 6000;
+  // More lines than this in one frame (history replay, a burst) arrive without animation.
+  const BURST_ANIMATED = 3;
   const KNOWN_KINDS = new Set([
     "message", "system", "announce", "warning", "error", "action", "join", "leave"
   ]);
@@ -20,12 +25,14 @@
   const ACCENT = "#FFCC00";
 
   const root = document.getElementById("chat");
-  const messages = document.getElementById("messages");
+  const messages = document.getElementById("messages");       // the scroller (fixed height)
+  const messageList = document.getElementById("messageList"); // the lines, pinned to its bottom
   const emptyState = document.getElementById("emptyState");
   const composer = document.getElementById("composer");
   const input = document.getElementById("input");
   const characterCount = document.getElementById("characterCount");
   const sendButton = document.getElementById("sendButton");
+  const footer = root.querySelector(".chat__foot");
 
   const suggestionsNode = document.getElementById("suggestions");
   const suggestionList = document.getElementById("suggestionList");
@@ -41,6 +48,12 @@
   let visibleSuggestions = [];
   let selectedSuggestion = 0;
   let unreadMessages = 0;
+  // Follow the newest line: always when closed, when open until the reader scrolls up.
+  let following = true;
+  let idleTimer = 0;
+  let idleDeadline = 0;
+  let arrivalsThisFrame = 0;
+  let arrivalsReset = 0;
 
   const bounded = (value, max = MAX_MESSAGE_LENGTH) => String(value ?? "").slice(0, max);
   const safeToken = (value, fallback) => {
@@ -55,47 +68,76 @@
   const timeNow = () => new Intl.DateTimeFormat("en-GB", {
     hour: "2-digit", minute: "2-digit", hour12: false
   }).format(new Date());
-  const isAtBottom = () => messages.scrollHeight - messages.scrollTop - messages.clientHeight < 28;
+  const isAtBottom = (slack = 24) => messages.scrollHeight - messages.scrollTop - messages.clientHeight < slack;
+  const element = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
 
-  function formatCount(value) {
-    return String(Math.max(0, value)).padStart(2, "0");
+  // ---------- pinning: the newest line is always fully in view ----------
+  function pinToBottom() {
+    messages.scrollTop = messages.scrollHeight;
+  }
+  // The list grows (new rows, their height animation, wrapping) without a scroll event:
+  // keep the bottom edge in view on every size change while following.
+  new ResizeObserver(() => {
+    if (!open || following) pinToBottom();
+  }).observe(messageList);
+  new ResizeObserver(() => {
+    if (!open || following) pinToBottom();
+  }).observe(messages);
+
+  // ---------- auto-hide ----------
+  function setIdle(value) {
+    root.classList.toggle("is-idle", value);
+  }
+  function wake(delay) {
+    setIdle(messageList.children.length === 0);
+    if (open) return;
+    idleDeadline = Math.max(idleDeadline, Date.now() + delay);
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      idleTimer = 0;
+      if (!open) setIdle(true);
+    }, Math.max(0, idleDeadline - Date.now()));
   }
 
   function updateEmptyState() {
-    const empty = messages.children.length === 0;
+    const empty = messageList.children.length === 0;
     root.classList.toggle("is-empty", empty);
     emptyState.setAttribute("aria-hidden", String(!empty));
+    if (empty && !open) setIdle(true);
   }
 
   function updateComposerState() {
     const length = input.value.length;
-    characterCount.textContent = `${String(length).padStart(3, "0")}/256`;
-    characterCount.classList.toggle("near-limit", length >= 224);
+    characterCount.textContent = `${length}/256`;
+    characterCount.classList.toggle("is-long", length >= 160);
+    characterCount.classList.toggle("near-limit", length >= 232);
     sendButton.disabled = input.value.trim().length === 0;
   }
 
   function updateUnread(value) {
     unreadMessages = Math.max(0, value);
     unreadCount.textContent = String(unreadMessages);
-    scrollLatest.hidden = !open || unreadMessages === 0;
+    const show = open && unreadMessages > 0;
+    if (show && scrollLatest.hidden) {
+      scrollLatest.hidden = false;
+    } else if (!show) {
+      scrollLatest.hidden = true;
+    }
   }
 
   function scrollToLatest(behavior = "auto") {
-    messages.scrollTo({ top: messages.scrollHeight, behavior });
+    following = true;
+    if (behavior === "smooth") messages.scrollTo({ top: messages.scrollHeight, behavior });
+    else pinToBottom();
     updateUnread(0);
   }
 
-  function scheduleStale(row, delay) {
-    if (row._staleTimer) clearTimeout(row._staleTimer);
-    row._staleTimer = 0;
-    row.classList.remove("stale");
-    if (open) return;
-    row._staleTimer = setTimeout(() => {
-      row._staleTimer = 0;
-      if (!open) row.classList.add("stale");
-    }, delay);
-  }
-
+  // ---------- messages ----------
   function normalizeKind(raw) {
     const source = safeToken(raw.kind || raw.type, "message");
     if (source === "player" || source === "default") return "message";
@@ -115,7 +157,9 @@
         (_, index) => bounded(args[Number(index)] ?? "", 1024));
     }
 
-    const kind = normalizeKind(raw);
+    let kind = normalizeKind(raw);
+    // Roleplay emotes arrive as plain lines whose author starts with "* " (/me, /do, /try).
+    if (kind === "message" && /^\*\s+\S/.test(author)) kind = "emote";
     const explicitChannel = Object.prototype.hasOwnProperty.call(CHANNELS, raw.channel);
     const channel = explicitChannel ? raw.channel : (kind === "warning" ? "admin" : "global");
     const channelColor = CHANNELS[channel].color;
@@ -138,13 +182,11 @@
   }
 
   function appendText(row, message) {
-    const text = document.createElement("span");
-    text.className = "message-text";
+    const text = element("span", "message-text");
     if (message.segments.length) {
       for (const source of message.segments.slice(0, 32)) {
-        const segment = document.createElement("span");
-        segment.className = `message-segment${source && source.bold ? " bold" : ""}`;
-        segment.textContent = bounded(source && source.text, 1024);
+        const segment = element("span", `message-segment${source && source.bold ? " bold" : ""}`,
+          bounded(source && source.text, 1024));
         if (source && source.color) segment.style.color = rgb(source.color);
         text.append(segment);
       }
@@ -154,118 +196,111 @@
     row.append(text);
   }
 
-  function appendTime(row, message) {
-    const time = document.createElement("time");
-    time.className = "message-time";
-    time.textContent = message.time;
-    row.append(time);
-  }
+  const appendTime = (row, message) => row.append(element("time", "message-time", message.time));
 
-  function buildMessageRow(message) {
-    const row = document.createElement("article");
-    row.className = `message message-${message.kind}`;
-    if (message.mention) row.classList.add("is-mention");
-    row.style.setProperty("--message-color", message.color);
-    row.style.setProperty("--channel-color", message.channelColor);
-    row._staleDelay = Math.max(2500, Number(message.duration) || DEFAULT_STALE_DELAY);
-
+  function buildBody(body, message) {
     if (message.kind === "announce") {
-      const heading = document.createElement("div");
-      heading.className = "message-announcement-heading";
-      const label = document.createElement("span");
-      label.textContent = `// ${message.title || "Server announcement"}`;
-      heading.append(label);
+      const heading = element("div", "message-announcement-heading");
+      heading.append(element("i"), element("span", "", message.title || "Server announcement"));
       appendTime(heading, message);
-      row.append(heading);
-      appendText(row, message);
-      return row;
+      body.append(heading);
+      appendText(body, message);
+      return;
     }
 
-    appendTime(row, message);
+    appendTime(body, message);
 
     if (message.kind === "system" || message.kind === "error" || message.kind === "warning") {
-      const marker = document.createElement("span");
-      marker.className = "message-marker";
-      marker.textContent = message.kind === "error" ? "!" : message.kind === "warning" ? "△" : "›";
-      row.append(marker);
-      if (message.author) {
-        const source = document.createElement("span");
-        source.className = "message-source";
-        source.textContent = message.author;
-        row.append(source);
-      }
-      appendText(row, message);
-      return row;
+      const label = message.author || (message.kind === "error" ? "Error" : message.kind === "warning" ? "Warning" : "System");
+      body.append(element("span", "message-tag", label));
+      appendText(body, message);
+      return;
     }
 
     if (message.kind === "join" || message.kind === "leave") {
-      const state = document.createElement("span");
-      state.className = "presence-state";
+      const state = element("span", "presence-state");
       state.setAttribute("aria-hidden", "true");
-      row.append(state);
-      const presence = document.createElement("span");
-      presence.className = "presence-text";
-      const action = message.kind === "join" ? "connected" : "disconnected";
-      presence.textContent = `${message.author || "Player"} ${action}${message.text ? ` · ${message.text}` : ""}`;
-      row.append(presence);
-      return row;
+      const presence = element("span", "presence-text");
+      presence.append(element("b", "", message.author || "Player"),
+        ` ${message.kind === "join" ? "connected" : "disconnected"}${message.text ? ` · ${message.text}` : ""}`);
+      body.append(state, presence);
+      return;
     }
 
-    if (message.kind === "action") {
-      const action = document.createElement("span");
-      action.className = "action-text";
-      action.textContent = `* ${message.author || "Player"} ${message.text}`;
-      row.append(action);
-      return row;
+    if (message.kind === "action" || message.kind === "emote") {
+      const name = message.kind === "emote" ? message.author.replace(/^\*\s+/, "") : (message.author || "Player");
+      const action = element("span", "action-text");
+      action.append("* ", element("span", "action-name", name), ` ${message.text}`);
+      body.append(action);
+      return;
     }
 
     if (message.explicitChannel) {
-      const channel = document.createElement("span");
-      channel.className = "message-channel";
-      channel.textContent = CHANNELS[message.channel].label.toUpperCase();
-      row.append(channel);
+      body.append(element("span", "message-channel", CHANNELS[message.channel].label.toUpperCase()));
     }
-
     if (/^\d+$/.test(message.playerId)) {
-      const id = document.createElement("span");
-      id.className = "message-player-id";
-      id.textContent = `[${message.playerId}]`;
-      row.append(id);
+      body.append(element("span", "message-player-id", `#${message.playerId}`));
     }
-
+    if (message.mention) body.append(element("span", "message-ping", "@"));
     if (message.author) {
-      const author = document.createElement("span");
-      author.className = `message-author${message.role ? ` role-${message.role}` : ""}`;
-      author.textContent = message.author;
-      if (message.role) {
-        const role = document.createElement("small");
-        role.textContent = `[${message.role}]`;
-        author.append(role);
-      }
-      row.append(author);
+      const author = element("span", `message-author${message.role ? ` role-${message.role}` : ""}`, message.author);
+      if (message.role) author.append(element("small", "", message.role));
+      body.append(author);
     }
-    appendText(row, message);
+    appendText(body, message);
+  }
+
+  function buildMessageRow(message) {
+    const row = element("article", `message message-${message.kind}`);
+    if (message.mention) row.classList.add("is-mention");
+    row.style.setProperty("--message-color", message.color);
+    row.style.setProperty("--channel-color", message.channelColor);
+    const body = element("div", "message__body");
+    buildBody(body, message);
+    row.append(body);
     return row;
+  }
+
+  // The row's height opens from 0 so the lines above slide up instead of jumping;
+  // its body animates in through CSS (.is-new). A burst arrives without animation.
+  function animateArrival(row) {
+    if (!arrivalsReset) {
+      arrivalsReset = requestAnimationFrame(() => { arrivalsThisFrame = 0; arrivalsReset = 0; });
+    }
+    arrivalsThisFrame += 1;
+    if (arrivalsThisFrame > BURST_ANIMATED || document.hidden) return;
+    row.classList.add("is-new");
+    const height = row.offsetHeight;
+    if (height > 0 && typeof row.animate === "function") {
+      row.style.overflow = "hidden";
+      const growth = row.animate([{ height: "0px", opacity: 0 }, { height: `${height}px`, opacity: 1 }],
+        { duration: 200, easing: "cubic-bezier(.2, .8, .2, 1)" });
+      growth.onfinish = growth.oncancel = () => { row.style.overflow = ""; };
+    }
+    setTimeout(() => row.classList.remove("is-new"), 1700);
   }
 
   function addMessage(raw) {
     const message = normalizeMessage(raw);
     if (!message.text && !message.segments.length) return;
 
-    const shouldFollow = !open || isAtBottom();
+    // Open: follow only when the reader is (still) at the bottom. Measured now, not only
+    // from scroll events, which arrive a frame late.
+    const follow = !open || (following && isAtBottom(40));
+    if (!follow) following = false;
     const row = buildMessageRow(message);
-    messages.append(row);
-    while (messages.children.length > MAX_MESSAGES) messages.firstElementChild.remove();
+    messageList.append(row);
+    while (messageList.children.length > MAX_MESSAGES) messageList.firstElementChild.remove();
 
     updateEmptyState();
-    if (shouldFollow) {
-      requestAnimationFrame(() => scrollToLatest());
-    } else {
-      updateUnread(unreadMessages + 1);
-    }
-    scheduleStale(row, row._staleDelay);
+    if (follow) pinToBottom();
+    else updateUnread(unreadMessages + 1);
+    animateArrival(row);
+    if (follow) pinToBottom();
+    wake(Math.max(IDLE_MS, Number(message.duration) || 0));
   }
 
+  // ---------- command index ----------
   function renderSuggestions() {
     suggestionList.replaceChildren();
     const query = input.value.trim().toLowerCase();
@@ -273,6 +308,7 @@
       visibleSuggestions = [];
       selectedSuggestion = 0;
       suggestionsNode.classList.remove("has-items");
+      root.classList.remove("has-suggestions");
       return;
     }
 
@@ -284,37 +320,21 @@
     selectedSuggestion = Math.max(0, Math.min(selectedSuggestion, visibleSuggestions.length - 1));
 
     visibleSuggestions.forEach((item, index) => {
-      const row = document.createElement("div");
-      row.className = `suggestion${index === selectedSuggestion ? " selected" : ""}`;
+      const row = element("div", `suggestion${index === selectedSuggestion ? " selected" : ""}`);
       row.setAttribute("role", "option");
       row.setAttribute("aria-selected", String(index === selectedSuggestion));
+      row.append(element("span", "suggestion-index", String(index + 1).padStart(2, "0")));
 
-      const indexNode = document.createElement("span");
-      indexNode.className = "suggestion-index";
-      indexNode.textContent = String(index + 1).padStart(2, "0");
-      row.append(indexNode);
-
-      const syntax = document.createElement("span");
-      syntax.className = "suggestion-syntax";
-      const command = document.createElement("strong");
-      command.className = "suggestion-command";
-      command.textContent = item.command;
-      syntax.append(command);
+      const syntax = element("span", "suggestion-syntax");
+      syntax.append(element("strong", "suggestion-command", item.command));
       // An empty Lua table arrives as {} (a JSON object), not []: only a real array lists parameters.
       for (const parameter of (Array.isArray(item.parameters) ? item.parameters : []).slice(0, 8)) {
-        const node = document.createElement("span");
-        node.className = "suggestion-params";
         const name = bounded(parameter && parameter.name || parameter, 40);
-        node.textContent = parameter && parameter.optional ? `[${name}]` : `<${name}>`;
+        const node = element("span", "suggestion-params", parameter && parameter.optional ? `[${name}]` : `<${name}>`);
         if (parameter && parameter.help) node.title = bounded(parameter.help, 240);
         syntax.append(node);
       }
-      row.append(syntax);
-
-      const help = document.createElement("span");
-      help.className = "suggestion-help";
-      help.textContent = bounded(item.help, 240);
-      row.append(help);
+      row.append(syntax, element("span", "suggestion-help", bounded(item.help, 240)));
       row.addEventListener("pointerdown", event => {
         event.preventDefault();
         selectedSuggestion = index;
@@ -322,7 +342,9 @@
       });
       suggestionList.append(row);
     });
-    suggestionsNode.classList.toggle("has-items", visibleSuggestions.length > 0);
+    const hasItems = visibleSuggestions.length > 0;
+    suggestionsNode.classList.toggle("has-items", hasItems);
+    root.classList.toggle("has-suggestions", hasItems);
   }
 
   function completeSuggestion() {
@@ -339,27 +361,24 @@
     return true;
   }
 
+  // ---------- open / close ----------
   function setOpen(value) {
     open = Boolean(value);
     root.classList.toggle("open", open);
     composer.setAttribute("aria-hidden", String(!open));
-    root.querySelector(".chat__foot")?.setAttribute("aria-hidden", String(!open));
-
-    for (const child of messages.children) {
-      if (open) {
-        if (child._staleTimer) clearTimeout(child._staleTimer);
-        child._staleTimer = 0;
-        child.classList.remove("stale");
-      } else {
-        scheduleStale(child, child._staleDelay || DEFAULT_STALE_DELAY);
-      }
-    }
+    footer.setAttribute("aria-hidden", String(!open));
+    following = true;
 
     if (open) {
+      clearTimeout(idleTimer);
+      idleTimer = 0;
+      idleDeadline = 0;
+      setIdle(false);
       input.focus();
       updateEmptyState();
+      pinToBottom();
       requestAnimationFrame(() => {
-        scrollToLatest();
+        pinToBottom();
         input.focus();
         window.Open77.emit("chat:requestSuggestions", {});
       });
@@ -370,15 +389,10 @@
       updateUnread(0);
       updateComposerState();
       renderSuggestions();
-      // The HUD list is shorter than the composer list (30vh vs 34vh, 4+4px vs
-      // 11+6px padding), so the scroll offset that was the maximum a moment ago
-      // now leaves the newest row below the clip edge — and with few rows the
-      // open list never scrolled at all, so the last line is cut in half on
-      // every send or Esc. `.messages` has no transition on its box, so the
-      // read of scrollHeight inside scrollToLatest() already sees the final
-      // layout; the HUD state has no scrolling affordance and is always pinned
-      // to the newest row.
-      scrollToLatest();
+      // Closed, the log has no scrolling: always pinned to the newest line.
+      pinToBottom();
+      updateEmptyState();
+      wake(IDLE_AFTER_CLOSE_MS);
     }
   }
 
@@ -440,13 +454,23 @@
       input.value = history[historyIndex] || "";
       updateComposerState();
       renderSuggestions();
+    } else if ((event.key === "PageUp" || event.key === "PageDown") && open) {
+      event.preventDefault();
+      if (event.key === "PageUp") following = false;
+      messages.scrollBy({ top: (event.key === "PageUp" ? -1 : 1) * messages.clientHeight * 0.8 });
     }
   });
 
   sendButton.addEventListener("click", submit);
   scrollLatest.addEventListener("click", () => scrollToLatest("smooth"));
+  // Reading back up stops following at once (the scroll event comes a frame later).
+  messages.addEventListener("wheel", event => {
+    if (open && event.deltaY < 0) following = false;
+  }, { passive: true });
   messages.addEventListener("scroll", () => {
-    if (isAtBottom()) updateUnread(0);
+    if (!open) return;
+    following = isAtBottom();
+    if (following) updateUnread(0);
   }, { passive: true });
 
   Open77.on("chat:open", () => setOpen(true));
@@ -458,10 +482,7 @@
   });
   Open77.on("chat:addMessage", addMessage);
   Open77.on("chat:clear", () => {
-    for (const row of messages.children) {
-      if (row._staleTimer) clearTimeout(row._staleTimer);
-    }
-    messages.replaceChildren();
+    messageList.replaceChildren();
     updateUnread(0);
     updateEmptyState();
   });
@@ -473,18 +494,19 @@
   Open77.on("chat:addTemplate", payload => {
     if (payload && payload.id) templates.set(String(payload.id), bounded(payload.template));
   });
+  const addSuggestion = item => {
+    if (!item || !item.command) return;
+    const command = String(item.command).startsWith("/") ? String(item.command) : `/${item.command}`;
+    suggestions.set(command.toLowerCase(), { ...item, command });
+  };
   Open77.on("chat:addSuggestion", payload => {
-    if (!payload || !payload.command) return;
-    const command = String(payload.command).startsWith("/") ? String(payload.command) : `/${payload.command}`;
-    suggestions.set(command.toLowerCase(), { ...payload, command });
+    addSuggestion(payload);
     renderSuggestions();
   });
   Open77.on("chat:addSuggestions", payload => {
-    for (const item of (payload && payload.suggestions) || []) {
-      if (!item || !item.command) continue;
-      const command = String(item.command).startsWith("/") ? String(item.command) : `/${item.command}`;
-      suggestions.set(command.toLowerCase(), { ...item, command });
-    }
+    // An empty Lua list arrives as {}: only a real array is walked.
+    const list = payload && Array.isArray(payload.suggestions) ? payload.suggestions : [];
+    for (const item of list) addSuggestion(item);
     renderSuggestions();
   });
   Open77.on("chat:removeSuggestion", payload => {
