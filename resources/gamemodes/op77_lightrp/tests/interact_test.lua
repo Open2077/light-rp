@@ -78,6 +78,7 @@ Open77.anchors.create = function(options)
     return anchorCreate(options)
 end
 Open77.character = { state = function() return { position = playerPosition } end }
+GetGameTimer = GetGameTimer or function() return 0 end
 LightRpUi = {
     page = {},
     log = function(format, ...) logs[#logs + 1] = string.format(format, ...) end,
@@ -92,6 +93,7 @@ RegisterKeyMapping = function() return true, "E" end
 local exported = {}
 exports = function(name, fn) exported[name] = fn end
 dofile("client/core/interact.lua")
+local proximityLoop = proximity -- the last thread at load; later builds start slice threads
 assert(type(exported.InteractSetLocal) == "function", "InteractSetLocal export")
 exports = nil -- the custom-icon cases below install their own exports table
 local build = handlers[LightRpEvents.net.interactions]
@@ -151,8 +153,22 @@ assert(LightRpInteract.press())
 Open77.markers = markerApi
 Open77.markers.create = function() return nil, "marker_quota_exceeded" end
 build(serverList)
-assert(LightRpInteract.points[1].marker == nil and ringCreates == 0)
-assert(logs[#logs - 1]:find("marker_quota_exceeded", 1, true))
+-- a refused marker is tried again by the stream (every few seconds), not by a new list
+local streamed = LightRpInteract.points[1]
+streamed.markerRetryAt = nil
+LightRpInteract.streamMarker(streamed, playerPosition)
+assert(streamed.marker == nil and ringCreates == 0)
+assert(logs[#logs]:find("marker_quota_exceeded", 1, true))
+assert(streamed.markerRetryAt ~= nil, "not retried before a few seconds")
+-- markers follow the player: none far away, created near, gone once far again
+Open77.markers.create = function(options) markerCreates = markerCreates + 1; return nativeCreate(options) end
+streamed.markerRetryAt = nil
+local far = { x = desk.position.x + 500, y = desk.position.y, z = desk.position.z }
+assert(not LightRpInteract.streamMarker(streamed, far) and streamed.marker == nil, "no marker 500 m away")
+assert(LightRpInteract.streamMarker(streamed, desk.position) and markers[streamed.marker], "created near the point")
+local held = streamed.marker
+assert(not LightRpInteract.streamMarker(streamed, { x = desk.position.x + (tonumber(rental.marker.maxDistance) or 30) + 30, y = desk.position.y, z = desk.position.z }) and streamed.marker == held, "kept a little past its range")
+assert(LightRpInteract.streamMarker(streamed, far) and streamed.marker == nil and markers[held] == nil, "removed once far")
 
 build({ { id = "legacy", position = desk.position } })
 assert(ringCreates == 1 and LightRpInteract.points[1].ring)
@@ -289,5 +305,16 @@ assert(next(mapBlips) == nil, "a new list replaces the old points on the map")
 mapState = "stopped"
 build({ { id = "shop.247", position = desk.position, ring = false, blip = { icon = "shopping-basket" } } })
 assert(#LightRpInteract.points == 1, "no map running: interactions still work")
+build({})
+-- a runner is not offered the courses' cards (the start's E prompt)
+playerPosition = desk.position
+build({ { id = "parkour.c1", position = desk.position, ring = false, radius = 3 } })
+LightRpParkourClient = { run = { phase = "running" } }
+assert(coroutine.resume(proximityLoop))
+assert(messages[LightRpEvents.page.interact].id == nil, "no parkour prompt during a run")
+LightRpParkourClient.run = nil
+assert(coroutine.resume(proximityLoop))
+assert(messages[LightRpEvents.page.interact].id == "parkour.c1", "the prompt is back after the run")
+LightRpParkourClient = nil
 build({})
 print("PASS: op77_map3d mirror (icons, drawn gun-store icons, categories, colour, re-sync on ready, private objectives, cleanup, map stopped)")
