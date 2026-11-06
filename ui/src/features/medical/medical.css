@@ -1,4 +1,5 @@
 .medical-overlay{position:absolute;inset:0;z-index:55;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;overflow:auto;background:radial-gradient(ellipse at 50% 42%,rgba(5,5,6,.52),rgba(5,5,6,.85) 80%),linear-gradient(0deg,rgba(5,5,6,.72),rgba(5,5,6,.12));color:var(--text-hi,#f2f3f5);pointer-events:auto;animation:medical-fade-in .65s ease-out both}
+.medical-overlay.is-covered{background:none}
 .medical-lifeline{position:absolute;inset:25% 0;width:100%;height:50%;fill:none;stroke:var(--o77-yellow-400,#ffcc00);stroke-width:2;opacity:1;pointer-events:none}
 .medical-lifeline__track{opacity:.12}.medical-lifeline__pulse{stroke-dasharray:100 900;animation:medical-heartbeat 4s linear infinite;opacity:.55;filter:drop-shadow(0 0 5px #ffcc0066)}
 @keyframes medical-heartbeat{from{stroke-dashoffset:100}to{stroke-dashoffset:-900}}

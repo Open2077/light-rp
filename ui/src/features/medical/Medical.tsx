@@ -11,7 +11,9 @@ interface MedicalState {
 export function Medical() {
   const [state,setState]=useState<MedicalState>({downed:false});
   const [receivedAt,setReceivedAt]=useState(0),[clock,setClock]=useState(0),[confirm,setConfirm]=useState(false);
-  useEffect(()=>on<{kind:string;state?:MedicalState}>(PAGE,p=>{
+  const [covered,setCovered]=useState(false);
+  useEffect(()=>on<{kind:string;state?:MedicalState;down?:boolean}>(PAGE,p=>{
+    if(p?.kind==="cover"){setCovered(p.down===true);return;} // DeathCover draws the opaque backdrop
     if(p.kind!=="state"||!p.state)return;
     setState(p.state);setReceivedAt(performance.now());
     if(!p.state.downed)setConfirm(false);
@@ -22,7 +24,7 @@ export function Medical() {
   const seconds=Math.ceil(remaining/1000),minutes=Math.floor(seconds/60);
   const transferring=state.phase==="hospital",recovering=state.phase==="reviving";
   const title=transferring?"Medical transfer":recovering?"Recovery in progress":"You are unconscious";
-  return <div className="medical-overlay">
+  return <div className={`medical-overlay${covered?" is-covered":""}`}>
     <svg className="medical-lifeline" viewBox="0 0 1600 400" preserveAspectRatio="none" aria-hidden="true">
       <defs><path id="medical-pulse" pathLength="1000" d="M0 220 H220 L250 200 L280 240 L310 220 H460 L500 180 L535 260 L580 25 L635 375 L685 145 L730 220 H970 L1000 195 L1030 245 L1060 220 H1600"/></defs>
       <use href="#medical-pulse" className="medical-lifeline__track"/>
