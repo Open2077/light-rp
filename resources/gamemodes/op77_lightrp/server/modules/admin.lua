@@ -123,6 +123,18 @@ function Admin.audit(player,p)
     return {entries=list,page=page,hasMore=more}
 end
 local DEFAULT_REASON={warn="Please respect the server rules.",kick="Kicked by staff.",ban="Banned by staff.",credit="Staff credit via /admin.",debit="Staff debit via /admin.",setBucket="Instance changed via /admin."}
+-- What the player is told after a staff action on them. "Go to" stays silent: a staff member may
+-- join someone discreetly (ghost mode), and players saw "gotoPlayer: Via /admin." (2026-11-06).
+local SILENT={gotoPlayer=true}
+local TOLD={warn="Warning from staff",bring="Brought by staff",returnPlayer="Taken back by staff",heal="Healed by staff",
+ credit="Money added by staff",debit="Money removed by staff",job="Job changed by staff",gang="Gang changed by staff",
+ rename="Name changed by staff",setBucket="Instance changed by staff"}
+function Admin.toldOf(op,reason)
+    if SILENT[op] then return nil end
+    local title=TOLD[op] or "Staff intervention"
+    if not reason or reason=="Via /admin." or reason==DEFAULT_REASON[op] then return title end
+    return title..": "..reason
+end
 local function actionDetail(p)
     if p.action=="job" or p.action=="gang" then return tostring(p.name).." / "..tostring(p.grade) end
     if p.action=="credit" or p.action=="debit" then return tostring(p.wallet).." / "..tostring(p.amount) end
@@ -229,7 +241,8 @@ function Admin.action(player,p)
         if current(player,actor) and current(target,c) and permitted(player,op) then success,why=execute(player,target,c,p,reason) end
         local label=success and "Action completed." or tostring(why or "Action refused.")
         local saved=Db.run("UPDATE lightrp_staff_audit SET outcome=?,detail=? WHERE actor_id=? AND request_key=?",{success and "success" or "failed",(actionDetail(p).." · "..label):sub(1,500),actor.identifier,p.mutation})
-        if success and current(target,c) and target~=player then LightRP.notice(target,{kind="staff",title="Staff intervention",body=op..": "..reason,durationMs=12000}) end
+        local told=success and current(target,c) and target~=player and Admin.toldOf(op,reason)
+        if told then LightRP.notice(target,{kind="staff",title="Staff intervention",body=told,durationMs=12000}) end
         return {accepted=success==true,outcome=saved and (success and "success" or "failed") or "pending",message=label..(saved and "" or " Audit confirmation pending; do not repeat this action.")}
     end)
     if busy[target]==c then busy[target]=nil end

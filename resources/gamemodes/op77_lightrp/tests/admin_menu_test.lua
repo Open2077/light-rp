@@ -112,4 +112,9 @@ r = A.action(1, { action = "setBucket", target = 2, account = "op77:b", characte
 assert(r and r.accepted and pos[2].bucket == 42, "Set instance moves the player in place")
 r = A.action(1, { action = "setBucket", target = 2, account = "op77:b", character = "default", bucket = -3, mutation = "mutation-bucket-2" })
 assert(r and not r.accepted and pos[2].bucket == 42, "an invalid instance is refused")
+-- what the player is told: nothing for "go to", a readable line otherwise
+assert(A.toldOf("gotoPlayer", "Via /admin.") == nil, "go to is silent")
+assert(A.toldOf("bring", "Via /admin.") == "Brought by staff", "no raw action name, no default reason")
+assert(A.toldOf("heal", "Fell off the roof") == "Healed by staff: Fell off the roof", "a typed reason is kept")
+assert(A.toldOf("warn", "Please respect the server rules.") == "Warning from staff", "the default reason is not repeated")
 print("admin_menu_test: ok")
