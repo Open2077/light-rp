@@ -325,19 +325,28 @@ local KEYS = {
         return table.concat({ tostring(t.text), tostring(t.font), colorKey(t.color), tostring(t.spot) }, "|")
     end,
 }
--- Native refusals a player can act on (names as the contract's natives are expected to use;
--- an unknown reason is shown with the category's text and the raw reason).
+-- Native refusals a player can act on. The contract does not name them: these are the names
+-- the wave 2 natives branch uses (vc/wave2-natives, 2026-11-06, `emergency_look:<what>` with a
+-- suffix), plus earlier guesses. An unknown reason is shown with the category's text and the
+-- raw reason.
 local DECALS = "Too many decals on this vehicle: remove a sticker or choose a lighter livery."
+local NO_SOUND = "This engine sound does not fit this vehicle."
 local REFUSED = {
     vehicle_occupied = "Everyone must step out of the vehicle first.",
-    decal_budget = DECALS, decal_limit = DECALS, too_many_decals = DECALS,
-    emergency_colors = EMERGENCY, emergency_colours = EMERGENCY, emergency_lights = EMERGENCY, emergency_look = EMERGENCY,
+    decal_budget_exceeded = DECALS, decal_budget = DECALS, decal_limit = DECALS, too_many_decals = DECALS,
+    emergency_look = EMERGENCY, emergency_colors = EMERGENCY, emergency_colours = EMERGENCY, emergency_lights = EMERGENCY,
     strobe_too_fast = "This strobe is too fast.",
-    unknown_sound = "This engine sound does not fit this vehicle.", sound_not_for_model = "This engine sound does not fit this vehicle.",
+    unknown_engine_sound = NO_SOUND, engine_sound_not_for_model = NO_SOUND, engine_sound_not_for_class = NO_SOUND,
+    unknown_sound = NO_SOUND, sound_not_for_model = NO_SOUND,
+    engine_sound_not_for_stage = "This engine sound is not made for this vehicle's performance stage.",
+    engine_sound_unregistered = "Engine sounds are not installed on this server right now.",
     unknown_sticker = "This sticker does not fit this vehicle.", sticker_not_for_model = "This sticker does not fit this vehicle.",
     invalid_tag = "This tag cannot be painted.", banned_text = "This tag is not allowed.",
 }
-local function refusal(why, text) return REFUSED[why] or (text .. " (" .. tostring(why) .. ")") end
+local function refusal(why, text)
+    local known = REFUSED[why] or (type(why) == "string" and REFUSED[why:match("^([^:]+):")]) or nil
+    return known or (text .. " (" .. tostring(why) .. ")")
+end
 -- `set`/`get`: the natives. `value(change)`: the native's argument for a validated change
 -- (nil = factory). `respawns`: applying it rebuilds the car, restored after the stage.
 local EXTRA = {

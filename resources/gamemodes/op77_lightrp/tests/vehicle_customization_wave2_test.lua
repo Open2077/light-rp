@@ -151,6 +151,12 @@ V.setProperties=function(id,p)
     for k in pairs(p)do if not PROPS[k] and not (server2 and WHERE=="top" and W2KEY[k]) then return false,"unsupported_property:"..k end end
     local v=world[id];if not v then return false,"vehicle_not_found" end
     if p.record~=nil and p.record~=v.record then return false,"record_mismatch" end
+    -- As the platform does: a record named beside an engine sound must carry that sound
+    -- (engine_sound_mismatch); without a record the sound is applied like setEngineSound.
+    if server2 and p.record~=nil then
+        local from=WHERE=="visual" and p.visual or p
+        if type(from)=="table" and from.engineSound~=nil and soundOf(p.record)~=from.engineSound then return false,"engine_sound_mismatch" end
+    end
     local visual
     if p.visual~=nil then -- complete: an absent field means none
         local x=p.visual
@@ -189,7 +195,7 @@ V.getVisual=function(id)local v=world[id];if not v then return nil,"vehicle_not_
 V.setPaintProfile=function(id,profile)
     local v=world[id];if not v then return false,"vehicle_not_found" end
     if profile~=nil and not profileOk(v.record,profile) then return false,"invalid_profile" end
-    if server2 and (LIVERY_DECALS[profile or ""] or 0)+stickerDecals(v.w2.stickers)>12 then return false,"decal_budget" end
+    if server2 and (LIVERY_DECALS[profile or ""] or 0)+stickerDecals(v.w2.stickers)>12 then return false,"decal_budget_exceeded" end
     v.visual.profile=profile;bump(v);return true end
 V.setNeon=function(id,spec)local v=world[id];if not v then return false,"vehicle_not_found" end;v.visual.neon=neonOf(spec);bump(v);return true end
 V.clearNeon=function(id)local v=world[id];v.visual.neon=nil;bump(v);return true end
@@ -199,12 +205,13 @@ V.respawnAs=function(id,record)
     if not known(record) then return nil,"invalid_record" end
     calls.respawnAs=calls.respawnAs+1;v.record=record;v.engineHold=false;return id end
 
--- Wave 2 natives, as the shared contract states them.
+-- Wave 2 natives, as the shared contract states them (refusal names: those of the natives
+-- branch, vc/wave2-natives).
 local function redOrBlue(c) if c==nil then return nil end;c=rgb(c)
     if c.r>=180 and c.g<=90 and c.b<=110 then return "red" end
     if c.b>=180 and c.r<=90 and c.g<=170 then return "blue" end end
 function soundOn(v,sound) -- an engine sound rides on the record: rebuilt like a stage
-    if sound~=nil and not soundK(sound) then return false,"unknown_sound" end
+    if sound~=nil and not soundK(sound) then return false,"unknown_engine_sound" end
     local record=withSound(v.record,sound)
     if record~=v.record then calls.soundRespawns=calls.soundRespawns+1;v.record=record;v.engineHold=false end
     return true end
@@ -219,7 +226,7 @@ function WAVE2.setNeonAnimation(id,a) local v=world[id];if not v then return fal
     if a.mode=="strobe" and a.periodMs<333 then return false,"strobe_too_fast" end
     local neon=v.visual.neon and v.visual.neon.color
     if (a.mode=="strobe" and redOrBlue(neon)) or (a.mode=="chase" and redOrBlue(neon) and redOrBlue(a.color2) and redOrBlue(neon)~=redOrBlue(a.color2)) then
-        return false,"emergency_colors" end
+        return false,"emergency_look:neonAnimation" end
     v.w2.neonAnimation={mode=a.mode,periodMs=a.periodMs,color2=a.color2 and rgb(a.color2)};return true end
 function WAVE2.getNeonAnimation(id) local v=world[id];return v and clone(v.w2.neonAnimation) end
 function WAVE2.setLightColors(id,l) local v=world[id];if not v then return false,"vehicle_not_found" end
@@ -227,7 +234,7 @@ function WAVE2.setLightColors(id,l) local v=world[id];if not v then return false
     if l==nil then v.w2.lightColors=nil;return true end
     local out,any={},false
     for group,c in pairs(l)do if not GROUPS[group] then return false,"unknown_group" end;out[group]=rgb(c);any=true end
-    if redOrBlue(out.blinkers) or redOrBlue(out.brake)=="blue" then return false,"emergency_colors" end
+    if redOrBlue(out.blinkers) or redOrBlue(out.brake)=="blue" then return false,redOrBlue(out.blinkers) and "emergency_look:blinkers" or "emergency_look:brake" end
     v.w2.lightColors=any and out or nil;return true end
 function WAVE2.getLightColors(id) local v=world[id];return v and clone(v.w2.lightColors) end
 function WAVE2.listEngineSounds(id) if not world[id] then return nil,"vehicle_not_found" end
@@ -242,7 +249,7 @@ function WAVE2.setStickers(id,list) local v=world[id];if not v then return false
     if stickerRefusal then return false,stickerRefusal end
     for _,sid in ipairs(list or {})do local fits;for _,s in ipairs(STICKERS)do if s.id==sid and s.model==base(v.record) then fits=true end end
         if not fits then return false,"unknown_sticker" end end
-    if (LIVERY_DECALS[v.visual.profile or ""] or 0)+stickerDecals(list)>12 then return false,"decal_budget" end
+    if (LIVERY_DECALS[v.visual.profile or ""] or 0)+stickerDecals(list)>12 then return false,"decal_budget_exceeded" end
     v.w2.stickers=list and #list>0 and clone(list) or nil;return true end
 function WAVE2.getStickers(id) local v=world[id];return v and clone(v.w2.stickers) end
 function WAVE2.getDecalBudget(id) local v=world[id];if not v then return nil,"vehicle_not_found" end;return decalsOf(v),12 end
@@ -484,8 +491,10 @@ assert(M.get(1).bank==bank-2*P.stickers and commits[#commits]=="vehicle_stickers
 r=issue("save",{category="stickers",stickers={V1,V2,TY}},"bank");assert(r.ok and M.get(1).bank==bank-P.stickers,"one added");bank=M.get(1).bank
 r=issue("save",{category="stickers",stickers={V1}},"bank");assert(r.ok and M.get(1).bank==bank-P.stickers,"removing only costs one");bank=M.get(1).bank
 r=issue("save",{category="stickers",stickers={V1}},"bank");assert(not r.ok and r.text=="Change at least one sticker before purchasing.")
-stickerRefusal="decal_budget"
+stickerRefusal="decal_budget_exceeded"
 r=issue("preview",{category="stickers",stickers={V1,TY}});assert(not r.ok and r.text:find("Too many decals on this vehicle",1,true),"the native's budget refusal, in words")
+stickerRefusal="emergency_look:stickers"
+r=issue("preview",{category="stickers",stickers={V1,TY}});assert(not r.ok and r.text=="This color reads as an emergency light: choose another.","a suffixed reason is read by its name")
 stickerRefusal="glue_dry"
 r=issue("preview",{category="stickers",stickers={V1,TY}});assert(not r.ok and r.text=="These stickers were refused (glue_dry)","an unknown refusal keeps its reason")
 stickerRefusal=nil

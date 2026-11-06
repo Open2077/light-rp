@@ -631,10 +631,16 @@ What the patch does in the garage:
   preview therefore writes the confirmed value, never the preview.
 - `applyChange` applies a registered change. Its performance branch puts the
   respawning ones (the engine sound) back after `applyStage`.
-- `applyLook` restores them on retrieval and rollback: the others before the plate,
+- `applyLook` restores them at close and on a rollback: the others before the plate,
   the respawning ones after the stage.
 - `applyStage` compares records without the engine sound suffix (`_o77a<k>`), so a
   car whose sound rides its stage record is not rebuilt for nothing.
+- At retrieval, `restorable` leaves `record` out of the table when the stored look has
+  an engine sound. `setProperties` then composes `<stage record>a<k>` from the sound;
+  named beside the plain stage record, the sound would be refused
+  (`engine_sound_mismatch` on the natives branch) and the car delivered without its
+  visual. The stored record is never sent: an autosave during a sound preview may hold
+  the previewed one.
 - `restorable` parks the values whose `available()` is false in `row.dormantExtra` and
   logs `garage: <owned id> keeps studio choices this server build cannot put on it dormant`.
   Every capture writes them back until a purchase of that category replaces them.
