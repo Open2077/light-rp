@@ -113,8 +113,8 @@ local function own(to) to.lightrp = type(to.lightrp) == "table" and to.lightrp o
 -- owns. While a lease is open, every write (autosave, removal, close, disconnect, the
 -- purchase of ANOTHER category) takes these fields from the last confirmed state,
 -- never from a preview. Paint and lights share the engine's one visual template, so
--- both live in `paint`; the trim is the entity appearance variant; livery, neon, rims
--- and body kit live in `visual`; plate and stage in Light RP's `lightrp`.
+-- both live in `paint`; the trim is the entity appearance variant; livery, neon, rims,
+-- body kit and window tint live in `visual`; plate and stage in Light RP's `lightrp`.
 local OWNS = {
     paint = function(to, from)
         local src = from.paint or { applied = false }
@@ -128,6 +128,7 @@ local OWNS = {
     trim = function(to, from) to.appearance = from.appearance end,
     livery = function(to, from) visualKey(to, from, "profile") end,
     neon = function(to, from) visualKey(to, from, "neon") end,
+    windows = function(to, from) visualKey(to, from, "tint") end,
     rims = function(to, from) visualParts(to, from, "rims"); visualKey(to, from, "wheels") end,
     body = function(to, from) visualParts(to, from, "body") end,
     plate = function(to, from) own(to).plate = type(from.lightrp) == "table" and from.lightrp.plate or nil end,
@@ -148,7 +149,7 @@ end
 -- Stored choices this car cannot wear right now (a part dropped from the catalogue, a
 -- server without visual support): kept in the row until the owner buys that category again.
 local DORMANT = {
-    livery = function(d) d.profile = nil end, neon = function(d) d.neon = nil end,
+    livery = function(d) d.profile = nil end, neon = function(d) d.neon = nil end, windows = function(d) d.tint = nil end,
     rims = function(d) d.wheels = nil; for id in pairs(d.parts or {}) do if kitKind(id) == "rims" then d.parts[id] = nil end end end,
     body = function(d) for id in pairs(d.parts or {}) do if kitKind(id) == "body" then d.parts[id] = nil end end end,
 }
@@ -157,7 +158,7 @@ local function wake(props, dormant)
     local v = props.visual
     v.parts = type(v.parts) == "table" and v.parts or {}
     for id, value in pairs(dormant.parts or {}) do if v.parts[id] == nil then v.parts[id] = copy(value) end end
-    for _, key in ipairs({ "wheels", "profile", "neon" }) do
+    for _, key in ipairs({ "wheels", "profile", "neon", "tint" }) do
         if dormant[key] ~= nil and v[key] == nil then v[key] = copy(dormant[key]) end
     end
 end
@@ -431,6 +432,7 @@ local RECEIPTS = { -- ledger kind (VARCHAR 24) and note, per category
     rims = { "vehicle_rims", "Rims for vehicle " },
     body = { "vehicle_bodykit", "Body kit for vehicle " },
     neon = { "vehicle_neon", "Neon for vehicle " },
+    windows = { "vehicle_tint", "Window tint for vehicle " },
     plate = { "vehicle_plate", "Registration plate for vehicle " },
     performance = { "vehicle_stage", "Performance stage for vehicle " },
 }
@@ -495,7 +497,7 @@ end
 local function neonSpec(neon)
     return { enabled = neon.enabled ~= false, color = neon.color, intensity = neon.intensity, radius = neon.radius }
 end
--- Puts the visual categories (livery, neon, rims, body kit) of `state` on the car,
+-- Puts the visual categories (livery, neon, window tint, rims, body kit) of `state` on the car,
 -- touching only what differs. Light RP's body parts only: other resources' stay.
 local function applyVisual(id, state)
     local V = Open77.vehicles
@@ -508,6 +510,7 @@ local function applyVisual(id, state)
     if ok and not same(have.neon, want.neon) then
         if type(want.neon) == "table" then ok, why = V.setNeon(id, neonSpec(want.neon)) else ok, why = V.clearNeon(id) end
     end
+    if ok and have.tint ~= want.tint and type(V.setWindowTint) == "function" then ok, why = V.setWindowTint(id, want.tint) end
     if ok and not same(have.wheels, want.wheels) then
         ok, why = V.setWheels(id, type(want.wheels) == "table" and { rim = want.wheels.rim, variant = want.wheels.variant } or nil)
     end
@@ -694,6 +697,10 @@ local function applyChange(edit, change)
         if change.neon then ok, why = V.setNeon(id, neonSpec(change.neon)) else ok, why = V.clearNeon(id) end
         if not ok then return false, explain(why, "The neon was refused.") end
         return readBack("neon")
+    elseif change.category == "windows" then
+        local ok, why = V.setWindowTint(id, change.tint or nil)
+        if not ok then return false, explain(why, "The window tint was refused.") end
+        return readBack("windows")
     elseif change.category == "rims" then
         local ok, why = V.setWheels(id, change.rim ~= "" and { rim = change.rim, variant = change.variant } or nil)
         if not ok then return false, explain(why, "These rims were refused.") end
@@ -737,6 +744,7 @@ local UNCHANGED = {
     trim = function(change, saved) return look(change.appearance) == look(saved.appearance), "Choose a different trim before purchasing." end,
     livery = function(change, saved) return change.profile == (savedVisual(saved).profile or ""), "Choose a different livery before purchasing." end,
     neon = function(change, saved) return neonKey(change.neon) == neonKey(savedVisual(saved).neon), "Choose a different neon before purchasing." end,
+    windows = function(change, saved) return (change.tint or nil) == savedVisual(saved).tint, "Choose a different window tint before purchasing." end,
     rims = function(change, saved)
         local held = savedVisual(saved).wheels
         if change.rim == "" then return held == nil, "These are already the factory rims." end
@@ -755,7 +763,7 @@ local UNCHANGED = {
 -- Trusted callers only (server/modules/vehicle_customization.lua validators): `change` is
 -- { category = "paint", paint = {...} } | { category = "lights", color = "#RRGGBB"|nil } |
 -- { category = "trim", appearance = name|"" } | { category = "livery", profile = id|"" } |
--- { category = "neon", neon = { color, intensity, radius }|false } |
+-- { category = "neon", neon = { color, intensity, radius }|false } | { category = "windows", tint = 1..3|false } |
 -- { category = "rims", rim = fullId|"", variant } | { category = "body", parts = { [fullId] = variant|false } } |
 -- { category = "plate", plate = text } | { category = "performance", stage = n, record = name },
 -- already validated against the shared tables; `payment` carries the server quote.

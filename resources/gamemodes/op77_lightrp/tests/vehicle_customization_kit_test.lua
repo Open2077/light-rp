@@ -1,7 +1,7 @@
 -- Auto Studio phase 2: livery, rims, body kit, neon, plate, windows and performance on the
 -- real economy + inventory + garage + customization modules. The native mock follows
 -- the server contract (docs/vehicle-visual-contract.md): registerParts / listParts /
--- setParts / setWheels / getVisual / setPaintProfile / setNeon / respawnAs, a complete
+-- setParts / setWheels / getVisual / setPaintProfile / setNeon / setWindowTint / respawnAs, a complete
 -- `visual` in setProperties, unknown property keys refused, repaints clear the livery.
 dofile("shared/config.lua"); dofile("shared/events.lua"); dofile("shared/items.lua")
 dofile("server/config/garages.lua"); dofile("server/config/dealerships.lua")
@@ -72,7 +72,7 @@ local HELLA="Vehicle.v_standard2_archer_hella_player"
 local world,vid,events,rpc,bags={},100,{},{},{}
 local calls={registerParts=0,respawnAs=0,setPaint=0,create={}}
 local catalogue,b2,b3,stagesOnServer,failRespawn,attachLimit,refusePart={},true,true,true,nil,16,{} -- b2: per-wheel fits, b3: per-appearance fits
-local packs={lightrp_vk_rims="running",lightrp_vk_body="running",lightrp_vehicle_stages="running"}
+local packs={lightrp_vk_rims="running",lightrp_vk_body="running",lightrp_vehicle_stages="running",open77_vehicle_tint="running"}
 GetResourceState=function(name) return packs[name] or "missing" end
 GetCurrentResourceName=function() return "op77_lightrp" end
 local function base(record) return (tostring(record):gsub("_o77s%d+$","")) end
@@ -87,7 +87,7 @@ local function rgb(v)if type(v)=="table"then return {r=v.r or v[1],g=v.g or v[2]
 local function fitFor(part,record) return part.fit[record] or part.fit[base(record)] end
 local function qualify(id) return id:find(":",1,true) and id or NS..id end
 local function view(v,rev)
-    local x=v.visual;local out={profile=x.profile,neon=clone(x.neon),parts=clone(x.parts),wheels=clone(x.wheels)}
+    local x=v.visual;local out={profile=x.profile,neon=clone(x.neon),parts=clone(x.parts),wheels=clone(x.wheels),tint=x.tint}
     if rev then out.rev=x.rev end;return out
 end
 local function bump(v) v.visual.rev=(v.visual.rev or 0)+1 end
@@ -129,7 +129,8 @@ V.setProperties=function(id,p)
     if p.visual~=nil then -- complete: an absent field means none; committed last
         local x=p.visual
         if x.profile~=nil and not profileOk(v.record,x.profile) then return false,"invalid_profile" end
-        visual={profile=x.profile,neon=x.neon and neonOf(x.neon),parts={},rev=(v.visual.rev or 0)+1}
+        if x.tint~=nil and (math.type(x.tint)~="integer" or x.tint<0 or x.tint>3) then return false,"invalid_tint" end
+        visual={profile=x.profile,neon=x.neon and neonOf(x.neon),parts={},tint=x.tint~=0 and x.tint or nil,rev=(v.visual.rev or 0)+1}
         for pid,value in pairs(x.parts or {})do local ok,why=choose(v.record,pid,value);if not ok then return false,why end;visual.parts[pid]=value end
         if x.wheels then
             local ok,why=choose(v.record,x.wheels.rim,x.wheels.variant);if not ok then return false,why end
@@ -200,6 +201,9 @@ V.setPaintProfile=function(id,profile)
     v.visual.profile=profile;bump(v);return true end
 V.setNeon=function(id,spec)local v=world[id];if not v then return false,"vehicle_not_found" end;v.visual.neon=neonOf(spec);bump(v);return true end
 V.clearNeon=function(id)local v=world[id];v.visual.neon=nil;bump(v);return true end
+V.setWindowTint=function(id,level)local v=world[id];if not v then return false,"vehicle_not_found" end
+    if level~=nil and (math.type(level)~="integer" or level<0 or level>3) then return false,"invalid_tint" end
+    v.visual.tint=level~=0 and level or nil;bump(v);return true end
 local function dropRims(v) for pid in pairs(v.visual.parts)do if catalogue[pid] and catalogue[pid].kind=="rim" then v.visual.parts[pid]=nil end end end
 V.setWheels=function(id,w)
     local v=world[id];if not v then return false,"vehicle_not_found" end
@@ -280,6 +284,8 @@ local M,G=LightRP.money,LightRP.garage
 LightRP.inventory.onCharacterLoaded(1,owner);M.onCharacterLoaded(1,owner);G.onDatabaseReady()
 dofile("shared/vehicle_customization.lua");dofile("server/config/vehicle_customization.lua")
 local P,C=LightRpCustomizationPricing,LightRpVehicleCustomization
+assert(C.windows.enabled==false,"window tint ships closed until the glass renders")
+C.windows.enabled=true -- the flow is tested open; the closed state is checked below
 dofile("server/modules/vehicle_customization.lua")
 local Custom=LightRP.vehicleCustomization
 local NET="op77_lightrp:customization"
@@ -478,9 +484,10 @@ fitsClient(messages[#messages],"the studio open message")
 local order={};for _,c in ipairs(m.categories)do order[#order+1]=c.id end
 assert(table.concat(order,",")=="paint,livery,rims,body,neon,lights,trim,plate,windows,performance","page order: "..table.concat(order,","))
 local windows=category(m,"windows")
-assert(windows.available==false and windows.soon and windows.reason=="Coming soon.","windows greyed, coming soon")
+assert(windows.available and not windows.soon and windows.pack=="open77_vehicle_tint" and #windows.options==3
+    and windows.options[1].id=="light" and windows.options[3].id=="limo" and windows.options[3].level==3,"window tint offered, three levels")
 for _,id in ipairs({"livery","rims","body","neon","plate","performance"})do assert(category(m,id).available,id.." offered on the Hella") end
-assert(m.prices.livery==P.livery and m.prices.rims==P.rims and m.prices.neon==P.neon and m.prices.plate==P.plate and m.prices.windows==nil)
+assert(m.prices.livery==P.livery and m.prices.rims==P.rims and m.prices.neon==P.neon and m.prices.plate==P.plate and m.prices.windows==P.windows and P.windows>0)
 local livery=category(m,"livery")
 assert(#livery.options==2 and livery.options[1].id=="hella_tt_1" and livery.options[1].label=="Scheme 1" and livery.options[1].main=="#C81414","factory schemes from listPaintProfiles")
 -- A livery a pack registered (registerPaintProfiles) follows the factory ones with its own name;
@@ -502,8 +509,9 @@ assert(second and second.id~="spoiler" and #second.parts>=1)
 local perf=category(m,"performance")
 assert(perf.options.current==0 and #perf.options.stages==4 and perf.options.stages[3].record==HELLA.."_o77s2" and perf.options.stages[3].price==P.performance.hella[2],"stages resolved by the stage resource")
 assert(perf.options.removal==P.performanceRemoval)
-assert(m.confirmed and m.confirmed.stage==0 and m.confirmed.plate=="" and m.confirmed.rim==nil and m.vehicle.visual==nil and m.vehicle.lightrp==nil,"confirmed view for the page")
-local reply=issue("preview",{category="windows",tint=3});assert(not reply.ok and reply.text=="Coming soon.","windows refused by the server")
+assert(m.confirmed and m.confirmed.stage==0 and m.confirmed.plate=="" and m.confirmed.rim==nil and m.confirmed.windows==""
+    and m.vehicle.visual==nil and m.vehicle.lightrp==nil,"confirmed view for the page")
+local reply=issue("preview",{category="windows",tint=3});assert(not reply.ok and world[car].visual.tint==nil,"a raw level is refused: the page names a level id")
 local bank=M.get(1).bank
 
 -- 2. Livery: free preview on the factory paint layer, paid save, paint replaces it.
@@ -592,6 +600,27 @@ close()
 assert(world[car].visual.neon.color.r==255 and world[car].visual.wheels==nil and bodyParts(car)[NS..wingB.id],"close restores the confirmed neon and keeps purchases")
 bank=M.get(1).bank
 
+-- 5b. Window tint: three levels by id, free preview, paid save, factory glass, unchanged refused.
+m=open(hella);bank=M.get(1).bank
+reply=issue("preview",{category="windows",tint="mirror"});assert(not reply.ok and reply.text=="Choose a window tint.","an unknown level is refused")
+reply=issue("preview",{category="windows",tint="limo"})
+assert(reply.ok and world[car].visual.tint==3 and M.get(1).bank==bank and reply.confirmed.windows=="","free tint preview, nothing confirmed")
+autosave();assert(saved(hella).visual.tint==nil,"autosave keeps factory glass, never a tint preview")
+reply=issue("save",{category="windows",tint="dark"},"bank")
+assert(reply.ok and world[car].visual.tint==2 and M.get(1).bank==bank-P.windows and commits[#commits]=="vehicle_tint","tint purchased")
+assert(saved(hella).visual.tint==2 and reply.confirmed.windows=="dark","tint persisted, confirmed for the page")
+reply=issue("save",{category="windows",tint="dark"},"bank");assert(not reply.ok and reply.text=="Choose a different window tint before purchasing.","unchanged tint refused")
+-- A tint preview is never persisted by another purchase, and close puts the paid tint back.
+issue("preview",{category="windows",tint="light"});assert(world[car].visual.tint==1)
+reply=issue("save",{category="neon",color="#9B3CFF",intensity="low"},"bank")
+assert(reply.ok and saved(hella).visual.tint==2 and saved(hella).visual.neon.color.r==155,"a neon purchase never persists the tint preview")
+close();assert(world[car].visual.tint==2,"close restores the paid tint")
+m=open(hella);assert(m.confirmed.windows=="dark")
+reply=issue("save",{category="windows",stock=true},"bank");assert(reply.ok and world[car].visual.tint==nil and saved(hella).visual.tint==nil,"back to factory glass")
+reply=issue("save",{category="windows",tint="limo"},"bank");assert(reply.ok and saved(hella).visual.tint==3)
+reply=issue("save",{category="neon",color="#FF1E3C",intensity="high"},"bank");assert(reply.ok)
+close();bank=M.get(1).bank
+
 -- 6. Plates: provisional format, banned and reserved words, unique across owned vehicles.
 local _,galena=G.grant(1,"galena")
 m=open(hella)
@@ -659,11 +688,12 @@ car=retrieve(hella)
 local v=world[car]
 assert(calls.create[#calls.create]==HELLA.."_o77s1" and v.record==HELLA.."_o77s1","spawned on its stage record")
 assert(v.visual.profile=="hella_tt_2" and v.visual.wheels.rim==NS.."rim_blade" and v.visual.neon.intensity==1200,"livery, rims and neon restored")
+assert(v.visual.tint==3,"window tint restored")
 assert(v.visual.parts[NS..wingB.id] and v.visual.parts[foreign]==nil,"bought body parts restored (the stopped resource's part is not)")
 assert(bags[car].lightrpPlate=="ZZZ9999" and G.plateOf(car)=="ZZZ9999","plate restored")
 assert(saved(hella).lightrp.plate=="ZZZ9999" and saved(hella).lightrp.stage==1)
 m=open(hella)
-assert(m.confirmed.stage==1 and m.confirmed.plate=="ZZZ9999" and m.confirmed.rim.id=="rim_blade" and m.confirmed.profile=="hella_tt_2")
+assert(m.confirmed.stage==1 and m.confirmed.plate=="ZZZ9999" and m.confirmed.rim.id=="rim_blade" and m.confirmed.profile=="hella_tt_2" and m.confirmed.windows=="limo")
 assert(category(m,"performance").options.current==1)
 close()
 assert(G.open(1,"citycenter"));local listed;for _,e in ipairs(dialog.vehicles)do if e.id==hella then listed=e end end
@@ -703,12 +733,23 @@ close();packs.lightrp_vk_rims="running";packs.lightrp_vk_body="running"
 local setNeon=V.setNeon;V.setNeon=nil
 m=open(hella);assert(category(m,"neon").available==false and category(m,"neon").reason==C.unsupported.native);close()
 V.setNeon=setNeon
+C.windows.enabled=false
+m=open(hella);assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.windowsSoon,"closed tint is greyed")
+reply=issue("preview",{category="windows",tint="limo"});assert(not reply.ok and reply.text==C.unsupported.windowsSoon,"the server refuses a closed tint")
+close();C.windows.enabled=true
+local setTint=V.setWindowTint;V.setWindowTint=nil
+m=open(hella);assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.native);close()
+V.setWindowTint=setTint;packs.open77_vehicle_tint=nil
+m=open(hella);assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.windowsPack)
+reply=issue("preview",{category="windows",tint="limo"});assert(not reply.ok and reply.text==C.unsupported.windowsPack,"the server refuses tint without its pack")
+close();packs.open77_vehicle_tint="running"
 store(hella)
 local _,kusanagi=G.grant(1,"kusanagi");car=retrieve(kusanagi)
 m=open(kusanagi)
 assert(category(m,"rims").available==false and category(m,"rims").reason==C.unsupported.rims,"Kusanagi: no rim fits")
 assert(category(m,"livery").available==false and category(m,"livery").reason==C.unsupported.livery,"no factory scheme")
 assert(category(m,"performance").available and category(m,"plate").available)
+assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.windows,"a bike has no window to tint")
 close();store(kusanagi)
 -- A server without per-appearance fits refuses `appearances` once: every rim registers
 -- with the record fit alone and every trim's hide names merged into it (the default fit
@@ -761,4 +802,4 @@ for _,record in ipairs({world[car].record,HELLA.."_o77s2"})do
 end
 close();store(suburban)
 for i,msg in ipairs(messages)do fitsClient(msg,"studio message "..i.." ("..tostring(msg.kind)..")")end
-print("customization kit: catalogue contract, livery, rims, body exclusivity and per-group price, neon, plates (format, words, uniqueness, hold), performance stages (sum, removal, cooldown, refusals), park+restart+retrieve, dormant choices and greying passed")
+print("customization kit: catalogue contract, livery, rims, body exclusivity and per-group price, neon, window tint, plates (format, words, uniqueness, hold), performance stages (sum, removal, cooldown, refusals), park+restart+retrieve, dormant choices and greying passed")

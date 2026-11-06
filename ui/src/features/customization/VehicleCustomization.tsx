@@ -15,18 +15,19 @@ interface Rim extends Option { variants:Option[] }
 interface BodyGroup extends Option { parts:Rim[] }
 interface NeonOptions { colors:(Option&{color:string})[]; intensities:(Option&{value:number})[] }
 interface PlateOptions { minLength:number; maxLength:number; charset?:string }
+interface TintLevel extends Option { level:number }
 interface Stage { stage:number; label:string; price?:number; record?:string; available?:boolean; missing?:boolean }
 interface PerformanceOptions { current:number; removal:number; stages:Stage[] }
 interface Category { id:string; label:string; description:string; icon?:string; price?:number; available?:boolean; reason?:string; soon?:boolean; options?:unknown }
 // The server's view of the confirmed (paid) look; phase-1 servers send paint/lightsHue/appearance only.
 interface Confirmed { paint?:Paint; lightsHue?:number; appearance?:string; profile?:string; neon?:{color:string;intensity:string};
-  rim?:{id:string;variant:string}; body?:Record<string,{part:string;variant:string}>; plate?:string; stage?:number }
+  rim?:{id:string;variant:string}; body?:Record<string,{part:string;variant:string}>; plate?:string; stage?:number; windows?:string }
 interface Vehicle { id:string; vehicleId:number; label:string; model?:string; paint:Paint; lightsHue?:number; appearance?:string }
 interface Session { kind:"open"; session:string; nextRequest:number; price:number; prices?:Record<string,number>; money:Wallet; vehicle:Vehicle; categories:Category[]; confirmed?:Confirmed }
 interface Response { kind:"response"|"closed"|"unavailable"|"presentation"|"warning"|"camera";session:string;request?:number;nextRequest?:number;operation?:string;category?:string;ok?:boolean;text?:string;money?:Wallet;paint?:Paint;confirmed?:Confirmed;rotating?:boolean }
 // Editors this page knows. Any other id the server lists stays greyed.
-type CategoryId = "paint"|"livery"|"rims"|"body"|"neon"|"lights"|"trim"|"plate"|"performance";
-const KNOWN:CategoryId[] = ["paint","livery","rims","body","neon","lights","trim","plate","performance"];
+type CategoryId = "paint"|"livery"|"rims"|"body"|"neon"|"lights"|"trim"|"plate"|"windows"|"performance";
+const KNOWN:CategoryId[] = ["paint","livery","rims","body","neon","lights","trim","plate","windows","performance"];
 interface PaintDraft { primary:string; secondary:string; stock:boolean }
 interface LightsDraft { color:string; stock:boolean }
 interface TrimDraft { trim:string } // "" = the record's own (factory) variant
@@ -35,8 +36,9 @@ interface RimsDraft { rim:string; variant:string } // "" = factory rims
 interface BodyDraft { parts:Partial<Record<string,{part:string;variant:string}>> } // a group left out = factory
 interface NeonDraft { color:string; intensity:string; stock:boolean }
 interface PlateDraft { plate:string }
+interface WindowsDraft { tint:string } // "" = factory glass
 interface PerformanceDraft { stage:number }
-interface Drafts { paint:PaintDraft; livery:LiveryDraft; rims:RimsDraft; body:BodyDraft; neon:NeonDraft; lights:LightsDraft; trim:TrimDraft; plate:PlateDraft; performance:PerformanceDraft }
+interface Drafts { paint:PaintDraft; livery:LiveryDraft; rims:RimsDraft; body:BodyDraft; neon:NeonDraft; lights:LightsDraft; trim:TrimDraft; plate:PlateDraft; windows:WindowsDraft; performance:PerformanceDraft }
 type Keys = Record<CategoryId,string>;
 // What the drafts are checked against: the options the server offered.
 interface Context { plate?:PlateOptions; performance?:PerformanceOptions }
@@ -74,6 +76,7 @@ const keyOf = {
   lights:(d:LightsDraft)=>d.stock?"factory":`hue:${Math.round(hue(d.color)*1000)%1000}`, // the engine keeps only the hue
   trim:(d:TrimDraft)=>d.trim||"factory",
   plate:(d:PlateDraft)=>plateText(d.plate),
+  windows:(d:WindowsDraft)=>d.tint||"factory",
   performance:(d:PerformanceDraft)=>`stage:${d.stage}`,
 };
 const validOf = {
@@ -84,6 +87,7 @@ const validOf = {
   neon:(d:NeonDraft)=>d.stock||(HEX.test(d.color)&&brightness(d.color)>=MIN_NEON&&!!d.intensity),
   lights:(d:LightsDraft)=>d.stock||(HEX.test(d.color)&&saturation(d.color)>=MIN_SATURATION),
   trim:(_:TrimDraft)=>true,
+  windows:(_:WindowsDraft)=>true,
   plate:(d:PlateDraft,x:Context)=>{const t=plateText(d.plate),o=x.plate;return !!o&&t.length>=o.minLength&&t.length<=o.maxLength&&/^[A-Z0-9]+$/.test(t);},
   performance:(d:PerformanceDraft,x:Context)=>{const s=list<Stage>(x.performance?.stages).find(s=>s.stage===d.stage);return !!s&&s.available!==false&&(s.stage===0||!!s.record);},
 };
@@ -101,6 +105,7 @@ function payload(c:CategoryId,d:Drafts) {
   case "body":return {category:"body",parts:Object.fromEntries(Object.entries(d.body.parts).filter(([,v])=>v?.part))};
   case "neon":return d.neon.stock?{category:"neon",stock:true}:{category:"neon",color:d.neon.color.toUpperCase(),intensity:d.neon.intensity};
   case "plate":return {category:"plate",plate:plateText(d.plate.plate)};
+  case "windows":return d.windows.tint?{category:"windows",tint:d.windows.tint}:{category:"windows",stock:true};
   case "performance":return {category:"performance",stage:d.performance.stage};
   }
 }
@@ -108,7 +113,7 @@ function draftsOf(v:Confirmed):Drafts {
   const neon=v.neon&&HEX.test(v.neon.color)?{color:v.neon.color.toUpperCase(),intensity:v.neon.intensity||"medium",stock:false}:{color:"#00E5FF",intensity:"medium",stock:true};
   return {paint:paintDraft(v.paint),lights:lightsDraft(v.lightsHue),trim:trimDraft(v.appearance),livery:{profile:v.profile??""},
     rims:v.rim?.id?{rim:v.rim.id,variant:v.rim.variant??""}:{rim:"",variant:""},body:{parts:{...map<{part:string;variant:string}>(v.body)}},
-    neon,plate:{plate:v.plate??""},performance:{stage:typeof v.stage==="number"?v.stage:0}};
+    neon,plate:{plate:v.plate??""},windows:{tint:v.windows??""},performance:{stage:typeof v.stage==="number"?v.stage:0}};
 }
 function keysOf(d:Drafts):Keys {return Object.fromEntries(KNOWN.map(c=>[c,key(c,d)])) as Keys;}
 const isKnown=(id:string):id is CategoryId=>(KNOWN as string[]).includes(id);
@@ -122,6 +127,7 @@ const TEXT:Record<CategoryId,{title:string;item:string;note:string;apply:string;
   neon:{title:"Choose your neon",item:"Neon",note:"Under-chassis light: color and brightness.",apply:"Apply neon",eyebrow:"YOUR NEON"},
   lights:{title:"Choose your light tint",item:"Light tint",note:"Headlights and lamps share one hue.",apply:"Apply lights",eyebrow:"YOUR LIGHTS"},
   trim:{title:"Choose a factory trim",item:"Trim",note:"A factory variant of this model.",apply:"Apply trim",eyebrow:"YOUR TRIM"},
+  windows:{title:"Choose your window tint",item:"Window tint",note:"Side and rear glass. The windshield stays clear.",apply:"Apply tint",eyebrow:"YOUR TINT"},
   plate:{title:"Register a plate",item:"Plate",note:"Unique in the city. Shown in your garage and the vehicle menu.",apply:"Register plate",eyebrow:"YOUR PLATE"},
   performance:{title:"Tune the engine",item:"Performance",note:"Fitted on purchase, no preview: the car is rebuilt with everyone out.",apply:"Fit stage",eyebrow:"YOUR TUNE"},
 };
@@ -275,6 +281,7 @@ function Workshop({session,close}:{session:Session;close():void}) {
   const neonOptions=(offered("neon")?.options??{}) as Partial<NeonOptions>;
   const neon=drafts.neon,neonHint=!neon.stock&&HEX.test(neon.color)&&brightness(neon.color)<MIN_NEON;
   const plate=drafts.plate,plateOptions=context.plate;
+  const tints=list<TintLevel>(offered("windows")?.options);
   const plateHint=plateOptions?`${plateOptions.minLength===plateOptions.maxLength?plateOptions.minLength:`${plateOptions.minLength} to ${plateOptions.maxLength}`} characters: capital letters A-Z and digits 0-9.`:"";
   const stages=list<Stage>(context.performance?.stages);
   const fittedStage=typeof confirmed.stage==="number"?confirmed.stage:context.performance?.current??0;
@@ -355,6 +362,14 @@ function Workshop({session,close}:{session:Session;close():void}) {
           <div className="workshop__plate" aria-hidden="true"><span>NIGHT CITY</span><strong>{plateText(plate.plate)||"·······"}</strong></div>
           <label className="workshop__hex"><span>Plate number</span><div><input aria-label="Plate number" maxLength={(plateOptions?.maxLength??8)+4} spellCheck={false} autoComplete="off" disabled={purchasing} value={plate.plate} onChange={e=>update("plate",{plate:e.target.value.toUpperCase()})}/></div></label>
           <p className={`workshop__hint${plate.plate&&!valid("plate",drafts,context)?" is-error":""}`}>{plateHint}</p>
+        </>}
+        {editable&&category==="windows"&&<>
+          <div className="workshop__trims" role="group" aria-label="Window tint">
+            <button aria-pressed={drafts.windows.tint===""} disabled={purchasing} onClick={()=>update("windows",{tint:""},true)}><RotateCcw size={14}/><span>Factory glass</span>{drafts.windows.tint===""&&<Check size={15}/>}</button>
+            {tints.map(t=><button key={t.id} aria-pressed={drafts.windows.tint===t.id} disabled={purchasing} onClick={()=>update("windows",{tint:t.id},true)}>
+              <i className="workshop__tint" aria-hidden="true" style={{background:`linear-gradient(rgba(5,5,6,${0.05+0.27*t.level}),rgba(5,5,6,${0.05+0.27*t.level})),linear-gradient(135deg,#C9DCE8 0%,#7F96A8 55%,#3E4E5C 100%)`}}/><span>{t.label}</span>{drafts.windows.tint===t.id&&<Check size={15}/>}</button>)}
+          </div>
+          <p className="workshop__hint">Every player sees the tint. The windshield is never tinted.</p>
         </>}
         {editable&&category==="performance"&&<div className="workshop__trims" role="group" aria-label="Performance stages">
           {stages.map(s=><button key={s.stage} aria-pressed={drafts.performance.stage===s.stage} disabled={purchasing||s.available===false} onClick={()=>update("performance",{stage:s.stage})}>

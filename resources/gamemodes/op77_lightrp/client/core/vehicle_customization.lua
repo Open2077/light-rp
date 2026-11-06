@@ -81,7 +81,7 @@ local function localChecks(p)
     end
     for _, entry in ipairs(type(p.categories) == "table" and p.categories or {}) do
         if entry.available then
-            if (entry.id == "rims" or entry.id == "body") and type(entry.pack) == "string" and not running(entry.pack) then
+            if (entry.id == "rims" or entry.id == "body" or entry.id == "windows") and type(entry.pack) == "string" and not running(entry.pack) then
                 grey(entry, Studio.unsupported.clientPack)
             elseif entry.id == "livery" and look and look.twintone == false then
                 grey(entry, Studio.unsupported.clientLivery)
@@ -97,15 +97,18 @@ local function localChecks(p)
         end
     end
 end
--- After a rims / body change, the parts this game skipped (customizationAvailable).
+-- After a rims / body / window tint change, what this game skipped (customizationAvailable).
+-- A tint still waiting for its glass meshes (`pending_mesh`) is checked again.
 local function skippedWarning(s, category)
     local ok, state = pcall(Open77.vehicles.customizationAvailable, s.vehicle)
     if not ok or type(state) ~= "table" then return nil, true end
     if (state.appliedRev or 0) < (state.rev or 0) then return nil, false end -- not applied yet
-    local prefix = category == "rims" and "attach:rims." or ("attach:" .. GetCurrentResourceName() .. ":")
+    local prefix = category == "rims" and "attach:rims." or category == "windows" and "tint:"
+        or ("attach:" .. GetCurrentResourceName() .. ":")
     for _, entry in ipairs(state.skipped or {}) do
         if type(entry) == "string" and entry:sub(1, #prefix) == prefix then
             local reason = entry:match(":([%w_]+)$")
+            if reason == "pending_mesh" then return nil, false end
             return Studio.warnings[reason] or Studio.warnings.other, true
         end
     end
@@ -195,7 +198,7 @@ RegisterNetEvent(NET, function(p)
     elseif session and p.session == session.id then
         if p.kind == "closed" then stop(false)
         else
-            if p.kind == "response" and p.ok and (p.category == "rims" or p.category == "body")
+            if p.kind == "response" and p.ok and (p.category == "rims" or p.category == "body" or p.category == "windows")
                 and type(Open77.vehicles.customizationAvailable) == "function" then
                 local now = GetGameTimer()
                 session.check = { category = p.category, at = now + WARNING_DELAY_MS, until_ = now + WARNING_GIVE_UP_MS }

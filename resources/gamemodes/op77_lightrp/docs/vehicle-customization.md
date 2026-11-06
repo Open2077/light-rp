@@ -6,8 +6,9 @@ The sources of this work:
 - Lights, trim and the per-model support table come from `vc/a-lightrp-phase1`
   (campaign plan `PLAN-vehicle-custom.md`, phase 1).
 - The complete studio (plan §3.10) comes from `vc/a3-studio-full`: livery, rims, body
-  kit, neon, plate, windows ("Coming soon"), performance stages and per-category
-  camera framing.
+  kit, neon, plate, performance stages and per-category camera framing.
+- Window tint comes from `feat/auto-studio-full` on top of the native
+  `Open77.vehicles.setWindowTint` (base `feat/vehicle-customization`, W1, 2026-11-06).
 
 The phase-1 API mapping was checked with the Open77 Devkit MCP for
 **2.50.0+op77.156**. The phase-2 natives (`listPaintProfiles`, `setPaintProfile`,
@@ -73,7 +74,7 @@ exception**: a stage is fitted on purchase and never previewed.
 | Lights | 12 saturated presets, picker, HEX, **Factory lights** | `setHeadlightColor`, `clearLightsHue` (restore: `setLightsHue`) | 500 €$, provisional |
 | Trim | **Factory trim** + the variants curated for the model | `setAppearance` (`getAppearance` to skip restatements) | 2,500 €$, provisional |
 | Plate | Plate number field + plate visual; the server answers availability | none; stored by Light RP, `lightrpPlate` state bag | 2,500 €$, provisional |
-| Windows | Greyed **"Coming soon"** (no native) | none | not sold |
+| Windows | **Closed: greyed "Coming soon"** (`windows.enabled = false`). Built and tested: Factory glass, Light smoke, Dark smoke, Limo (side and rear glass; the windshield stays clear) | `setWindowTint` (levels 1-3, nil = factory) | 1,500 €$, provisional, not sold while closed |
 | Performance | Stock / Stage 1 / Stage 2 / Stage 3, each with its price | `respawnAs` onto `Vehicle.<dealer record>_o77sN` | per model and stage, provisional; going down costs 1,000 €$ |
 
 #### Body paint
@@ -266,7 +267,8 @@ the car's heading. Angles: 90 = in front, -90 = behind, 0 = right side.
 
 | Preset | Angle | Radius | Height / target | Orbit |
 | --- | --- | --- | --- | --- |
-| default (paint, livery, trim, windows, performance) | 35° | 6.5 m | 2.1 / 0.7 m | on |
+| default (paint, livery, trim, performance) | 35° | 6.5 m | 2.1 / 0.7 m | on |
+| windows | 20° | 5.8 m | 1.5 / 0.95 m | on |
 | rims | 15° | 4.2 m | 0.75 / 0.35 m | off |
 | neon | 35° | 6 m | 0.45 / 0 m | on |
 | lights | 90° (front) | 5.5 m | 1.1 / 0.6 m | off |
@@ -382,32 +384,34 @@ and their editor shows the reason.
 | Body kit | No fitting part; `lightrp_vk_body` not running; no native |
 | Neon | No native |
 | Performance | See [Performance](#performance) |
-| Windows | Always: "Coming soon" |
+| Windows | `windows.enabled` is false (the shipped value: "Coming soon"); the model has no window (`support`: Apollo, Kusanagi); `open77_vehicle_tint` not running; no native |
 
 Two tables in `shared/vehicle_customization.lua` are keyed by the Light RP catalogue
 key (`hella`, `kusanagi`, …):
 
 - `support = { [catalogKey] = { category = false } }` greys a category for a model
-  (the Bandit's and the Apollo's lights). A model or category absent from the table is
+  (the Bandit's and the Apollo's lights, the two bikes' windows). A model or category absent from the table is
   allowed. The server refuses any request for a greyed category.
 - `trims = { [catalogKey] = { { id, label }, ... } }`: no entry hides the Trim row.
 
 **Client greying.** On open, each client also greys what **its own game** cannot show:
 
-- rims and body kit when the pack resource is not running for it
+- rims, body kit and windows when the pack resource is not running for it
   ("Your game has not loaded this workshop's parts. Reconnect…");
 - livery when `customizationAvailable` reports no TwinTone;
 - performance stages whose record its game does not know.
 
-**Client warnings.** After a rims or body-kit answer, the client reads
+**Client warnings.** After a rims, body-kit or window tint answer, the client reads
 `customizationAvailable(vehicleId).skipped`. It waits 1.5 s, then polls until 6 s,
-once `appliedRev ≥ rev`. A skipped `attach:rims.*` or `attach:op77_lightrp:*` entry
-shows a warning in the editor:
+once `appliedRev ≥ rev`. A skipped `attach:rims.*`, `attach:op77_lightrp:*` or
+`tint:*` entry shows a warning in the editor (a `tint:*:pending_mesh` entry is the
+client still waiting for the glass meshes: it is polled again):
 
 | Skip reason | Warning |
 | --- | --- |
 | `model_not_registered` | "These parts are invisible in your game: its parts pack is missing…" |
 | `slot_absent` | "This part has no mount point on this vehicle in your game." |
+| `not_covered` (window tint) | "Your game shows no tint on this vehicle: its window tint pack is missing…" |
 | anything else | "Part of this look could not be shown in your game." |
 
 The server stays authoritative throughout: client checks only grey and warn.
@@ -512,8 +516,8 @@ current viewers, late joins and streaming back in.
 | Light tint | `setHeadlightColor`, `clearLightsHue`, `setLightsHue`, `getLightsHue` | One hue in 0..1 | Implemented |
 | Trim | `getAppearance`, `setAppearance` | Curated names, `world.vehicles.appearance` | Implemented |
 | Performance | `respawnAs` (+ the stage resource's `stageRecord` export) | Same id; refuses `vehicle_occupied` / `invalid_record` | Implemented (phase 2) |
-| Plate text | none | `visual.plate` reserved; state bag `lightrpPlate` | Data only, render pending |
-| Window tint | none | — | "Coming soon" |
+| Plate text | `setPlate` | Normalized text on the car's own plates; state bag `lightrpPlate` for menus | Implemented |
+| Window tint | `setWindowTint`, `getWindowTint`, `getVisual().tint` | Levels 1-3 on side and rear glass; nil = factory. The switch is proven in game, the tinted glass is not: ArchiveXL leaves the pack materials unresolved, so the glass renders as factory (base `docs/research/vehicles-api.md`, "W1 — teinte en jeu") | Closed until it renders |
 | Durable restoration | `getProperties`, `setProperties` | Version-1 visual is complete: unknown keys are refused | Through the garage |
 | Client checks | `customizationAvailable` (client, `vehicles.read`), `Open77.data.vehicle` | Greying and skip warnings only | Feature-detected |
 

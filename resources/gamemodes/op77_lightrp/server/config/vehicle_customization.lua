@@ -9,7 +9,7 @@ LightRpCustomizationPricing = {
     body = 3500,    -- per body-kit group changed (wing, lip, skirts, roof, push bar) -- PROVISIONAL
     neon = 5000,    -- neon kit with its colour and brightness, or removing it -- PROVISIONAL
     plate = 2500,   -- a new registration number -- PROVISIONAL
-    windows = 0,    -- not sold yet (no native): the category is greyed "Coming soon"
+    windows = 1500, -- window tint, any level, or back to factory glass -- PROVISIONAL
     -- Performance: price of each stage, per catalogue key; an upgrade pays every stage
     -- between the fitted one and the target. Going down (or back to stock) costs
     -- `performanceRemoval` and refunds nothing. Proposal of docs/research STAGES.md

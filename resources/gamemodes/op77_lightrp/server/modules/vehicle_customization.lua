@@ -25,6 +25,7 @@ local SAVED = {
     body = "Body kit purchased and saved to your vehicle.",
     neon = "Neon purchased and saved to your vehicle.",
     plate = "Plate registered to your vehicle.",
+    windows = "Window tint purchased and saved to your vehicle.",
     performance = "Stage fitted and saved to your vehicle.",
 }
 local function copy(value)
@@ -284,6 +285,14 @@ local OFFER = {
         entry.options = { minLength = C.plate.minLength, maxLength = C.plate.maxLength, charset = C.plate.charset }
         return entry
     end,
+    windows = function(entry)
+        if C.windows.enabled ~= true then return entry, C.unsupported.windowsSoon end
+        if not native("setWindowTint", "getVisual") then return entry, C.unsupported.native end
+        if not running(C.windows.resource) then return entry, C.unsupported.windowsPack end
+        entry.pack, entry.options = C.windows.resource, {}
+        for i, level in ipairs(C.windows.levels) do entry.options[i] = { id = level.id, label = level.label, level = level.level } end
+        return entry
+    end,
     performance = function(entry, state)
         local list = (P.performance or {})[state.model]
         if not native("respawnAs") then return entry, C.unsupported.native end
@@ -326,7 +335,8 @@ local function view(state)
     local visual = type(state.visual) == "table" and state.visual or {}
     local out = { paint = copy(state.paint), lightsHue = state.lightsHue, appearance = state.appearance,
         profile = visual.profile or "", plate = type(state.lightrp) == "table" and state.lightrp.plate or "",
-        stage = stageOf(state), body = {} }
+        stage = stageOf(state), body = {}, windows = "" }
+    for _, level in ipairs(C.windows.levels) do if level.level == visual.tint then out.windows = level.id end end
     local neon = visual.neon
     if type(neon) == "table" and neon.enabled ~= false then
         local step, best = nil, math.huge
@@ -418,6 +428,12 @@ local validators = {
         local step = option(C.neon.intensities, p.intensity)
         if not step then return nil, "Choose a brightness." end
         return { category = "neon", neon = { color = value, intensity = step.value, radius = C.neon.radius } }
+    end,
+    windows = function(p)
+        if p.stock == true then return { category = "windows", tint = false } end
+        local level = type(p.tint) == "string" and option(C.windows.levels, p.tint)
+        if not level then return nil, "Choose a window tint." end
+        return { category = "windows", tint = level.level }
     end,
     plate = function(p, s)
         local plate = type(p.plate) == "string" and p.plate:upper():gsub("%s+", "") or nil
@@ -557,6 +573,6 @@ for index, place in ipairs(C.workshops) do
         radius = place.interactRadius, label = place.name, prompt = "Customize personal vehicle", key = "E",
         marker = LightRpGarages.marker, ring = false,
         blip = index == 1 and { icon = "palette", sprite = "Zzz01_CarForPurchaseVariant", title = "Auto Studio",
-            description = "Personal vehicle paint, livery, rims, body kit, neon, plate and performance" } or nil })
+            description = "Personal vehicle paint, livery, rims, body kit, neon, plate, window tint and performance" } or nil })
 end
 LightRP.log("vehicle customization ready: %d workshop points, %d categories", #C.workshops, #C.categories)

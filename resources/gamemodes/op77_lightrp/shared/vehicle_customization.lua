@@ -11,7 +11,7 @@ LightRpVehicleCustomization = {
         { id = "lights", label = "Lights", description = "Headlight and lamp tint", icon = "lightbulb" },
         { id = "trim", label = "Trim", description = "Factory variants of this model", icon = "car" },
         { id = "plate", label = "Plate", description = "Registration number", icon = "plate" },
-        { id = "windows", label = "Windows", description = "Window tint", icon = "windows", soon = true },
+        { id = "windows", label = "Windows", description = "Side and rear window tint", icon = "windows" },
         { id = "performance", label = "Performance", description = "Engine stages 1 to 3", icon = "performance" },
     },
     -- Factory trims (entity appearance variants), per Light RP catalogue key
@@ -94,9 +94,12 @@ LightRpVehicleCustomization = {
     -- the category in Auto Studio with `unsupported[category]` and the server refuses it.
     -- Measured (vehicles-api.md E0.1): all 15 dealer models are paintable; only the Bandit
     -- and the Apollo have `customizeLights = false`.
+    -- Window tint: the tint pack covers the side and rear glass of the 13 four-wheel dealer
+    -- models (base scripts/vehicle-kit/windows); the two bikes have no window to tint.
     support = {
         bandit = { lights = false },
-        apollo = { lights = false },
+        apollo = { lights = false, windows = false },
+        kusanagi = { windows = false },
     },
     unsupported = {
         paint = "This model has no custom paint layer.",
@@ -108,11 +111,13 @@ LightRpVehicleCustomization = {
         neon = "Neon is not available on this server.",
         plate = "Plates are not available on this server.",
         performance = "No performance stage exists for this model.",
-        windows = "Coming soon.",
+        windows = "This model has no window to tint.",
         native = "This server build has no support for it yet.",
         rimsPack = "The rim workshop is not installed on this server yet.",
         bodyPack = "The body shop is not installed on this server yet.",
         stagesPack = "Performance tuning is not installed on this server yet.",
+        windowsPack = "Window tinting is not installed on this server yet.",
+        windowsSoon = "Coming soon.",
         -- Checked by the client in its own game (the server cannot see it).
         clientPack = "Your game has not loaded this workshop's parts. Reconnect to the server to download them.",
         clientStages = "Your game has not loaded the performance stages (TweakXL). Reconnect to the server.",
@@ -124,6 +129,8 @@ LightRpVehicleCustomization = {
         model_not_registered = "These parts are invisible in your game: its parts pack is missing. Reconnect to download it.",
         slot_absent = "This part has no mount point on this vehicle in your game.",
         other = "Part of this look could not be shown in your game.",
+        -- window tint (`tint:<record>:<reason>`): the client found no tinted glass to switch to
+        not_covered = "Your game shows no tint on this vehicle: its window tint pack is missing. Reconnect to download it.",
     },
     -- Neon: presets, the custom colour and the brightness steps (intensity 0-5000, the
     -- native's default is 600). A very dark colour lights nothing and is refused.
@@ -146,9 +153,24 @@ LightRpVehicleCustomization = {
         radius = 3,
         minBrightness = 0.2, -- HSV value (0..1) below which a colour lights nothing visible
     },
+    -- Window tint: three levels of the native (Open77.vehicles.setWindowTint, 1 to 3) on
+    -- the side and rear glass; the windshield always stays clear. Labels PROVISIONAL.
+    windows = {
+        -- CLOSED until the tinted glass renders in game: the switch works on every glass
+        -- component, but ArchiveXL leaves the pack's materials unresolved, so the glass
+        -- shows as factory (base docs/research/vehicles-api.md, "W1 - teinte en jeu").
+        -- While false the category is greyed with `unsupported.windowsSoon` and refused.
+        enabled = false,
+        resource = "open77_vehicle_tint",
+        levels = {
+            { id = "light", label = "Light smoke", level = 1 },
+            { id = "dark", label = "Dark smoke", level = 2 },
+            { id = "limo", label = "Limo", level = 3 },
+        },
+    },
     -- Registration plate: PROVISIONAL format (owner to confirm): exactly 7 characters,
     -- capital letters and digits. Stored with the vehicle; shown in the studio, the
-    -- garage and the ALT vehicle menu. Nothing renders it on the car yet (no native).
+    -- garage and the ALT vehicle menu, and drawn on the car's plates for every player.
     plate = { minLength = 7, maxLength = 7, charset = "A-Z0-9", pattern = "^[A-Z0-9]+$" },
     -- Performance stages: the TweakXL records Vehicle.<dealer record>_o77s1..3 shipped by the
     -- `resource` (stageRecord / stageOf exports). Fitted on an empty car at the studio only;
@@ -182,5 +204,6 @@ LightRpVehicleCustomization = {
             lights = { angle = 90, radius = 5.5, height = 1.1, targetHeight = 0.6, orbit = false },
             plate = { angle = -90, radius = 4.2, height = 1, targetHeight = 0.5, orbit = false },
             body = { angle = -55, radius = 6.5, height = 2.4, targetHeight = 0.8, orbit = true },
+            windows = { angle = 20, radius = 5.8, height = 1.5, targetHeight = 0.95, orbit = true },
         } },
 }

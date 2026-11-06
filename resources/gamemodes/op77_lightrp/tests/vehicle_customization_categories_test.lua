@@ -140,10 +140,14 @@ for model,list in pairs(C.trims) do
   end
 end
 assert(shippedTrims==33,"33 measured trims ship")
-for model,s in pairs(C.support) do assert(LightRP.vehicles.byKey[model] and s.lights==false and s.paint==nil,model) end
-assert(C.support.bandit and C.support.apollo,"Bandit and Apollo refuse lights")
+for model,s in pairs(C.support) do
+  assert(LightRP.vehicles.byKey[model] and s.paint==nil,model)
+  for category,value in pairs(s) do assert((category=="lights" or category=="windows") and value==false,model.."."..category) end
+end
+assert(C.support.bandit.lights==false and C.support.apollo.lights==false,"Bandit and Apollo refuse lights")
+assert(C.support.apollo.windows==false and C.support.kusanagi.windows==false and C.support.bandit.windows==nil,"only the two bikes have no window to tint")
 local measured=0;for _ in pairs(C.support) do measured=measured+1 end
-assert(measured==2,"only Bandit and Apollo carry a support override")
+assert(measured==3,"only Bandit, Apollo and Kusanagi carry a support override")
 C.trims={hella={{id="hella_trim_a",label="Street"},{id="hella_trim_b",label="Sport"}},galena={}}
 C.support={kusanagi={paint=false},quartz={lights=false}}
 dofile("server/modules/vehicle_customization.lua")
