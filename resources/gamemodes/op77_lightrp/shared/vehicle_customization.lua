@@ -2,17 +2,28 @@
 -- (docs/vehicle-customization.md, "Adding a category").
 LightRpVehicleCustomization = {
     -- Page order. `soon` = shown greyed with "Coming soon" (no native yet).
+    -- `parent` = a sub-panel of that category's editor (not a row of its own in the page's
+    -- navigation), bought on its own. `capability` = the native the server must have for the
+    -- row to be listed at all (absent: no row, not even greyed).
+    -- Wave 2 (PLAN-vehicle-custom-wave2.md): neonAnimation, lightColors, engineSound, stickers,
+    -- tag. Their natives are feature-detected; until they and the garage's category registry
+    -- exist, the rows are greyed with their reason (tag: hidden).
     categories = {
         { id = "paint", label = "Body paint", description = "Primary and secondary colors", icon = "palette" },
         { id = "livery", label = "Livery", description = "Factory two-tone schemes", icon = "spray" },
         { id = "rims", label = "Rims", description = "Aftermarket wheels and finish", icon = "rims" },
         { id = "body", label = "Body kit", description = "Wings, lips, skirts, roof and bars", icon = "body" },
         { id = "neon", label = "Neon", description = "Under-chassis lights", icon = "neon" },
+        { id = "neonAnimation", parent = "neon", label = "Animation", description = "Pulse, strobe, chase, rainbow", icon = "neon" },
         { id = "lights", label = "Lights", description = "Headlight and lamp tint", icon = "lightbulb" },
+        { id = "lightColors", parent = "lights", label = "Lamp colors", description = "Brake, reverse, blinkers, interior", icon = "lightbulb" },
         { id = "trim", label = "Trim", description = "Factory variants of this model", icon = "car" },
         { id = "plate", label = "Plate", description = "Registration number", icon = "plate" },
+        { id = "stickers", label = "Stickers", description = "Decals from the city's crews", icon = "sticker" },
+        { id = "tag", label = "Tag", description = "Your own painted text", icon = "tag", capability = "setTag" },
         { id = "windows", label = "Windows", description = "Side and rear window tint", icon = "windows" },
         { id = "performance", label = "Performance", description = "Engine stages 1 to 3", icon = "performance" },
+        { id = "engineSound", label = "Engine sound", description = "Engine and exhaust note", icon = "engine" },
     },
     -- Factory trims (entity appearance variants), per Light RP catalogue key
     -- (shared/config.lua LightRpConfig.vehicles.catalog). The server only accepts an
@@ -118,6 +129,15 @@ LightRpVehicleCustomization = {
         stagesPack = "Performance tuning is not installed on this server yet.",
         windowsPack = "Window tinting is not installed on this server yet.",
         windowsSoon = "Coming soon.",
+        -- wave 2
+        neonAnimation = "Neon animations are not available on this server.",
+        lightColors = "This model's lamps cannot take other colors.",
+        engineSound = "No other engine sound fits this model.",
+        stickers = "No sticker fits this model.",
+        tag = "Tags are not available on this server.",
+        -- the natives exist but this server's garage cannot store the choice yet (it has no
+        -- Garage.registerCustomizationCategory): sold, it would be lost at the next autosave
+        garage = "This studio cannot store it on your vehicle yet.",
         -- Checked by the client in its own game (the server cannot see it).
         clientPack = "Your game has not loaded this workshop's parts. Reconnect to the server to download them.",
         clientStages = "Your game has not loaded the performance stages (TweakXL). Reconnect to the server.",
@@ -154,6 +174,69 @@ LightRpVehicleCustomization = {
         },
         radius = 3,
         minBrightness = 0.2, -- HSV value (0..1) below which a colour lights nothing visible
+    },
+    -- Wave 2 colour rules (Open77.vehicles natives refuse the same looks; the studio says
+    -- why before the native has to). Hues in degrees, a colour counts only when its HSV
+    -- saturation reaches `minSaturation` (a pale pink is not "red").
+    emergency = { red = { from = 340, to = 20 }, blue = { from = 195, to = 255 }, minSaturation = 0.35 },
+    -- W2.1 Neon animation, a sub-panel of Neon (Open77.vehicles.setNeonAnimation). Each mode
+    -- runs on the fitted neon colour; `color2` = the mode takes a second colour (chase).
+    -- `periodMs` is the native's 250..10000 cycle; the reactive modes (speed, brake) take
+    -- `reactivePeriodMs`. Strobe never runs faster than 3 Hz (`strobeMinPeriodMs`), and a
+    -- chase alternating red and blue is refused (an emergency light). Labels PROVISIONAL.
+    neonAnimation = {
+        modes = {
+            { id = "pulse", label = "Pulse", speed = true },
+            { id = "breathe", label = "Breathe", speed = true },
+            { id = "strobe", label = "Strobe", speed = true },
+            { id = "chase", label = "Chase", speed = true, color2 = true },
+            { id = "rainbow", label = "Rainbow", speed = true },
+            { id = "speed", label = "Follows speed" },
+            { id = "brake", label = "Flash on braking" },
+        },
+        speeds = {
+            { id = "slow", label = "Slow", periodMs = 2400 },
+            { id = "medium", label = "Medium", periodMs = 1200 },
+            { id = "fast", label = "Fast", periodMs = 600 },
+        },
+        reactivePeriodMs = 1000,
+        strobeMinPeriodMs = 333,
+    },
+    -- W2.2 Lamp colours, a sub-panel of Lights (Open77.vehicles.setLightColors): any subset of
+    -- the groups, nil = factory. Refused (emergency look): red or blue blinkers, blue brake
+    -- lights. Brake lights and blinkers must stay visible (`minBrightness`, HSV value 0..1).
+    lightColors = {
+        groups = {
+            { id = "brake", label = "Brake lights", safety = true, refuse = { "blue" } },
+            { id = "reverse", label = "Reverse lights" },
+            { id = "blinkers", label = "Blinkers", safety = true, refuse = { "red", "blue" } },
+            { id = "interior", label = "Interior" },
+        },
+        presets = { "#FF1E3C", "#FF5A1E", "#FFB000", "#FFE45C", "#F2F4FF", "#3CFF6E", "#00E5FF", "#2F6BFF", "#9B3CFF", "#FF2BD6" },
+        minBrightness = 0.35,
+    },
+    -- W2.3 Engine sound (Open77.vehicles.listEngineSounds / setEngineSound): the choices come
+    -- from the platform for this model's class. Applying one rebuilds the car on another
+    -- record, like a stage (~0.4 s gone). `preview = false` sells it without a preview, like
+    -- Performance. A preview waits `previewCooldownMs` after the previous one (each one is a
+    -- rebuild). `listen`: the studio keeps the empty car's engine running after a preview
+    -- (Open77.vehicles.setEngineHold) so the new note is heard, and stops it at the end.
+    engineSound = { preview = true, previewCooldownMs = 4000, listen = true },
+    -- W2.4 Stickers (Open77.vehicles.listStickers / setStickers / getDecalBudget): the stickers
+    -- that fit this model, from the sticker pack. Every sticker uses `decals` of the car's
+    -- decal budget, shared with the livery: 12 at most (13 crashes every client that sees the
+    -- car), enforced here and by the native.
+    stickers = { maxPerCar = 12 },
+    -- W2.5 Tag (stretch goal, Open77.vehicles.setTag): only listed when the server has the
+    -- native. Text is filtered with the plate's banned and reserved words. `fonts` and `spots`
+    -- must match the ids the native accepts: PROVISIONAL until the native lands.
+    tag = {
+        minLength = 1, maxLength = 12, pattern = "^[A-Za-z0-9 %-%.!%?#&]+$", charset = "A-Z a-z 0-9 space - . ! ? # &",
+        fonts = { { id = "marker", label = "Marker" }, { id = "block", label = "Block" }, { id = "script", label = "Script" } },
+        spots = { { id = "door_left", label = "Left door" }, { id = "door_right", label = "Right door" },
+            { id = "hood", label = "Hood" }, { id = "trunk", label = "Trunk" } },
+        colors = { "#F2F4FF", "#111114", "#FFCC00", "#FF1E3C", "#00E5FF", "#3CFF6E", "#FF2BD6", "#9B3CFF" },
+        minBrightness = 0.08,
     },
     -- Window tint: three levels of the native (Open77.vehicles.setWindowTint, 1 to 3) on
     -- the side and rear glass; the windshield always stays clear. Labels PROVISIONAL.
@@ -207,5 +290,11 @@ LightRpVehicleCustomization = {
             plate = { angle = -90, radius = 4.2, height = 1, targetHeight = 0.5, orbit = false },
             body = { angle = -55, radius = 6.5, height = 2.4, targetHeight = 0.8, orbit = true },
             windows = { angle = 20, radius = 5.8, height = 1.5, targetHeight = 0.95, orbit = true },
+            neonAnimation = { angle = 35, radius = 6, height = 0.45, targetHeight = 0, orbit = true },
+            -- brake, reverse and blinkers sit at the back: a rear three-quarter view
+            lightColors = { angle = -60, radius = 5.5, height = 1.2, targetHeight = 0.6, orbit = false },
+            engineSound = { angle = 60, radius = 5, height = 0.9, targetHeight = 0.5, orbit = false },
+            stickers = { angle = 0, radius = 6, height = 1.4, targetHeight = 0.7, orbit = true },
+            tag = { angle = 0, radius = 5.5, height = 1.3, targetHeight = 0.7, orbit = true },
         } },
 }
