@@ -177,7 +177,8 @@ local function bodyAnchor()
     local state = Open77.character.state()
     local p = state and state.position
     if type(p) ~= "table" or not tonumber(p.x) then return nil end
-    if (p.x-C.position.x)^2 + (p.y-C.position.y)^2 + (p.z-C.position.z)^2 < 4 then return nil end -- on the bench
+    -- on the bench (seated scene only): the seat's own framing
+    if C.seated ~= false and (p.x-C.position.x)^2 + (p.y-C.position.y)^2 + (p.z-C.position.z)^2 < 4 then return nil end
     local yaw = tonumber(state.yaw) or tonumber(state.heading) or 0
     -- the shots are authored for a seated body: lift them for a standing one
     return { position = { x = p.x, y = p.y, z = p.z + 0.35 }, heading = yaw }
@@ -225,6 +226,18 @@ CreateThread(function()
                 Creator.showAnyway("no_answer_to_start")
             elseif (phase == "waiting" or phase == "editor") and now-lastRequest > 3 then
                 request("start")
+            elseif phase == "placed" and not loading() and now-(placingAt or now) > 0.4 and C.seated == false then
+                -- the standing scene: the body where the arrival put it, framed from its own facing
+                if state and state.grounded then
+                    anchor, fallback = bodyAnchor(), true
+                    setPhase("camera")
+                    local ok, why = takeCamera()
+                    if not ok then
+                        release()
+                        LightRpUi.log("creator camera: %s", tostring(why))
+                        if why ~= "scene_changed" then Creator.showAnyway("camera_" .. tostring(why)) end
+                    end
+                end
             elseif phase == "placed" and not loading() and now-(placingAt or now) > 0.4 then
                 if state and state.grounded and now-lastRequest > 0.6 then request("seat") end
             elseif phase == "seated" and not loading()
