@@ -760,6 +760,23 @@ do
         if report.state == "armed" then armed = armed + 1 elseif report.state == "failed" then failed = failed + 1 end
     end
     assert(armed == 1 and failed == 0, "armed, never failed")
+    -- the next step (another firearm, the same knife): only slot 1 changes, nothing is emptied,
+    -- and a knife known to blind the snapshot costs no snapshot at all
+    local mark = #ops
+    assert(exported.activityKit(id, "games.tdm", { primary = "Items.Preset_Nova_Default", secondary = "Items.Preset_Knife_Default", reserve = { 24 } }))
+    advance(10000)
+    assert(opsOf(id, "clear", mark) == 0, "no clear on a step up")
+    assert(opsOf(id, "assign", mark) == 1 and slots[id][1].record == "Items.Preset_Nova_Default", "the primary alone")
+    assert(opsOf(id, "requestSnapshot", mark) == 0, "no blind snapshot")
+    assert(lastReport(id).state == "armed", "armed")
+    -- after a death the body holds nothing: the next kit is handed whole
+    life[id] = "dead"; LightRP.eachModule("onLifeState", id, "dead")
+    life[id] = "alive"; LightRP.eachModule("onLifeState", id, "alive")
+    advance(10000)
+    mark = #ops
+    assert(exported.activityKit(id, "games.tdm", { primary = "Items.Preset_Saratoga_Default", secondary = "Items.Preset_Knife_Default", reserve = { 120 } }))
+    advance(10000)
+    assert(opsOf(id, "clear", mark) == 1 and opsOf(id, "assign", mark) == 2, "after a death: cleared, both assigned")
     -- a blind snapshot after a refused assign proves nothing: retried, then failed
     local other = player("games.tdm")
     refuse.requestSnapshot = function(who) return (who == id or who == other) and "ammo_cache_unavailable" or nil end

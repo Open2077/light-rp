@@ -121,6 +121,16 @@ end
 -- lagged more with each kill (2026-11-06, 257 refusals, all games.gungame; mission kits, firearms
 -- only, never). Such a refusal no longer fails a delivery whose assigns and draw were accepted.
 local SNAPSHOT_BLIND = "ammo_cache_unavailable"
+-- Records seen to blind every snapshot from an idle slot: a secondary with no reserve (a melee
+-- weapon) in a kit whose snapshot came back SNAPSHOT_BLIND. Their kits skip snapshots from then on.
+local BLINDING = {}
+K.blinding = BLINDING
+function K.markBlinding(kit)
+    if kit.secondary and not kit.reserve[2] and not BLINDING[kit.secondary] then
+        BLINDING[kit.secondary] = true
+        LightRP.log("kits: %s in an idle slot blinds the weapon snapshot; its kits skip snapshots", kit.secondary)
+    end
+end
 -- The slots as the accepted assigns reported them, in a snapshot's shape.
 function K.fromAssigns(kit, first, second)
     local rows = {}
@@ -150,26 +160,44 @@ function K.deliver(id, kit, o)
         return result, why
     end
     Wait(o.settleMs or 1500)
+    -- A secondary already in slot 2 from the last kit (o.keep = { slot = 2, tweakDbId }): only
+    -- the primary changes, nothing is emptied (the gun game's step up, every kill).
+    local kept = type(o.keep) == "table" and o.keep.slot == 2 and kit.secondary ~= nil and o.keep or nil
     for attempt = 1, 6 do
         if not o.live() then return nil end
-        step("clear")
+        local swap = kept ~= nil and attempt == 1
+        if not swap then step("clear") end
         local first = step("assign", kit.primary, 1, { active = true, addToInventory = true })
         if first and o.assigned then o.assigned(1, first) end
         local second
-        if kit.secondary then
+        if kit.secondary and swap then
+            second = { tweakDbId = kept.tweakDbId }
+        elseif kit.secondary then
             second = step("assign", kit.secondary, 2, { active = false, addToInventory = true })
             if second and o.assigned then o.assigned(2, second) end
         end
+        local blind = kit.secondary ~= nil and BLINDING[kit.secondary] == true
         for slot = 1, 2 do
             if kit.reserve[slot] then
                 step("setAmmo", slot, { reserve = kit.reserve[slot], activate = slot == 1 })
-                local capacity = K.capacity(step("requestSnapshot"), slot)
-                if capacity then step("setAmmo", slot, { magazine = capacity, activate = slot == 1 }) end
+                if not blind then
+                    local snapshot, why = step("requestSnapshot")
+                    if not snapshot and why == SNAPSHOT_BLIND then K.markBlinding(kit) end
+                    local capacity = K.capacity(snapshot, slot)
+                    if capacity then step("setAmmo", slot, { magazine = capacity, activate = slot == 1 }) end
+                end
             end
         end
         local drawn = step("setActive", 1)
         if o.stopped and o.stopped() then return nil end
+        blind = kit.secondary ~= nil and BLINDING[kit.secondary] == true
+        -- Known blind (a knife beside it): no snapshot at all, each one cost the client a second
+        -- of ammo reads for nothing. The accepted assigns and draw are the proof.
+        if blind and first and drawn and (not kit.secondary or second) then
+            return true, K.fromAssigns(kit, first, second)
+        end
         local check, why = K.weapons(id, "requestSnapshot")
+        if not check and why == SNAPSHOT_BLIND then K.markBlinding(kit) end
         if K.armed(check, kit) then return true, check end
         -- The snapshot is blind, not the kit wrong: every assign and the draw were accepted.
         if not check and why == SNAPSHOT_BLIND and first and drawn and (not kit.secondary or second) then
