@@ -14,6 +14,12 @@ see resources/assets/models/lightrp_vehicle_kit/README.md).
 Rim fits use the per-wheel `wheels` list of contract section 5 (a back axle that
 differs, the Merrimac's middle axle, the Apollo's stock wheel slots). An entry lists
 only what differs from its fit, so the catalogue stays small.
+
+Body parts that sit on an opening panel name a `carrier` (contract section 5, "Carried
+parts"): the client draws them on that slot's movement, so a wing rises with the trunk
+lid and a hood scoop with the hood. The panel of each group is GROUP_PANELS, the slot of
+each panel CARRIER_SLOTS; the fit table's `evidence.lid` (body_fit.py lid_slot()) turns
+the carrier off on a car where the part does not rest on a lid.
 """
 from __future__ import annotations
 
@@ -47,6 +53,49 @@ DEFAULT_BODY_KINDS = {
     'wing_street': 'spoiler', 'wing_gt': 'spoiler', 'wing_duck': 'spoiler', 'wing_rally': 'spoiler',
     'lip_splitter': 'lip', 'skirt_side': 'skirt', 'roof_rack': 'roofrack', 'bull_bar': 'bullbar',
 }
+# THE carrier slot of each opening panel: the one place to change it. `trunk_a` / `hood_a`
+# are the kit's choice (their name, scripts/vehicle-kit/docs/bodykit.md, evidence.lid);
+# which slot really follows the lid is not measured in game yet. If `trunk_a` turns out
+# to stay put, swap it here (e.g. 'doorTrunk') and re-run, or edit the `carriers` table at
+# the top of the generated vehicle_kit.lua: every carried part refers to it.
+CARRIER_SLOTS = {'trunk': 'trunk_a', 'hood': 'hood_a'}
+# The panel a body group rides when it rests on a lid. Rear louvers sit on the rear glass
+# of a hatch (the lid itself); on a sedan whose glass is fixed they rest on the body, and
+# evidence.lid then gives that car a fit-level `carrier = false`.
+GROUP_PANELS = {'spoiler': 'trunk', 'louver': 'trunk', 'hood': 'hood'}
+# Never carried, whatever evidence.lid says: a roof wing is fixed to the roof edge.
+NO_CARRIER = {'wing_roof'}
+
+
+class Raw(str):
+    """A Lua expression written as is (a reference to the `carriers` table)."""
+
+
+def panel_of(slot: str) -> str | None:
+    for panel in CARRIER_SLOTS:
+        if slot.lower().startswith(panel):
+            return panel
+    return None
+
+
+def carrier_of(panel: str) -> Raw:
+    return Raw(f'carriers.{panel}')
+
+
+def fit_carrier(part_id: str, panel: str, record: str, evidence: dict):
+    """The fit-level carrier of a carried part on one record: None to inherit the part's,
+    False when evidence.lid finds no lid under the part, another panel's when the lid is
+    another panel. A record without evidence inherits."""
+    seen = evidence.get(record)
+    if seen is None:
+        return None
+    lid = (seen.get('lid') or {}).get('slot')
+    if not lid:
+        return False
+    other = panel_of(lid)
+    if other is None:
+        return lid  # a lid slot outside CARRIER_SLOTS: carried by it, named as measured
+    return None if other == panel else carrier_of(other)
 
 
 def number(value: float) -> str:
@@ -60,6 +109,8 @@ def vector(values) -> list[float]:
 
 def lua(value, indent: int = 0) -> str:
     pad = '    ' * indent
+    if isinstance(value, Raw):
+        return str(value)
     if isinstance(value, bool):
         return 'true' if value else 'false'
     if isinstance(value, (int, float)):
@@ -148,14 +199,21 @@ def main() -> None:
         group = kinds.get(part_id)
         if group not in groups:
             raise SystemExit(f'body part {part_id}: unknown group {group!r}')
+        panel = None if part_id in NO_CARRIER else GROUP_PANELS.get(group)
         fits = {}
         for record, fit in part['fit'].items():
             # keep offset/rotation/scale/hide; drop estimate (and excluded/evidence above)
             entry = {key: (vector(fit[key]) if key != 'hide' else list(fit[key]))
                      for key in ('offset', 'rotation', 'scale', 'hide') if key in fit}
+            if panel:
+                carrier = fit_carrier(part_id, panel, record, part.get('evidence', {}))
+                if carrier is not None:
+                    entry['carrier'] = carrier
             fits[record] = entry
-        body_parts[part_id] = {'kind': part['kind'], 'slot': part['slot'], 'label': part['label'],
-                               'variants': part['variants'], 'fit': fits}
+        body_parts[part_id] = {'kind': part['kind'], 'slot': part['slot']}
+        if panel:
+            body_parts[part_id]['carrier'] = carrier_of(panel)
+        body_parts[part_id].update({'label': part['label'], 'variants': part['variants'], 'fit': fits})
         groups[group].append(part_id)
 
     finishes = sorted({v for p in list(rim_parts.values()) + list(body_parts.values()) for v in p['variants']})
@@ -171,6 +229,10 @@ def main() -> None:
         '-- Every offset is an OFFLINE ESTIMATE from mesh data until seen in game (docs/vehicle-customization.md).',
         '-- Server only: the registerParts catalogue (parts.*.fit) and the studio data (order, groups,',
         '-- finishes). The models come from the packs `rims.pack` / `body.pack` (asset:<pack>/<model>).',
+        '-- The carrier slot of each opening panel (contract section 5, "Carried parts"): a part',
+        '-- with `carrier` follows the movement of that slot (a wing rises with the trunk lid).',
+        '-- Not measured in game: swap `trunk_a` here (e.g. "doorTrunk") if the lid does not move it.',
+        'local carriers = ' + lua(CARRIER_SLOTS, 0),
         f'local rimFit = {rim_fit_lua}',
         'LightRpVehicleKit = {',
         '    generator = 1,',
@@ -189,6 +251,7 @@ def main() -> None:
         '    },',
         '    body = {',
         f'        pack = {lua(body_src.get("resource", "lightrp_vk_body"))},',
+        '        carriers = carriers,',
         '        groups = {',
     ]
     for group, label in GROUPS:
@@ -199,7 +262,10 @@ def main() -> None:
     lines += ['        },', '    },', '}', '']
     args.output.write_text('\n'.join(lines), encoding='utf-8', newline='\n')
     fits = sum(len(p['fit']) for p in body_parts.values())
-    print(f'{args.output}: {len(rim_parts)} rims x {len(rim_fits)} records, {len(body_parts)} body parts, {fits} body fits')
+    carried = sum(1 for p in body_parts.values() if 'carrier' in p)
+    uncarried = sum(1 for p in body_parts.values() for f in p['fit'].values() if f.get('carrier') is False)
+    print(f'{args.output}: {len(rim_parts)} rims x {len(rim_fits)} records, {len(body_parts)} body parts, {fits} body fits, '
+          f'{carried} carried parts ({uncarried} fits without a lid)')
 
 
 if __name__ == '__main__':

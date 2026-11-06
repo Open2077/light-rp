@@ -139,6 +139,21 @@ local function withTrims(section, id, entry, perAppearance)
     end
     return entry
 end
+-- Carried parts (contract section 5): a wing or louvers name the trunk lid's slot as
+-- their `carrier`, a scoop or vents the hood's, so they follow the panel when it opens.
+-- A server that predates carriers refuses the key (`invalid_part:<id>.carrier`, or
+-- `.fit.carrier`): the kit then registers without any carrier, every part on its slot
+-- as before (it stays put when the lid opens).
+local carriers = true -- false once this server refused `carrier`
+local function withoutCarrier(entry)
+    entry.carrier = nil
+    for _, fit in pairs(entry.fit or {}) do fit.carrier = nil end
+    return entry
+end
+local function kitEntry(section, id, source)
+    local entry = withTrims(section, id, copy(source), appearanceFits)
+    return carriers and entry or withoutCarrier(entry)
+end
 local function bodyOrder()
     local list = {}
     for _, group in ipairs(KIT.body.groups) do
@@ -155,11 +170,22 @@ local function registerKit()
         for _, id in ipairs(order[section]) do
             local source = KIT[section].parts[id]
             partLabel[id] = source.label
-            local ok, why = Open77.vehicles.registerParts({ [id] = withTrims(section, id, copy(source), appearanceFits) })
-            if not ok and appearanceFits and tostring(why):find("fit.appearances", 1, true) then
-                appearanceFits = false
-                LightRP.log("auto studio: no per-appearance fits on this server build (%s); trims wear the default rim fit, their stock rims hidden", tostring(why))
-                ok, why = Open77.vehicles.registerParts({ [id] = withTrims(section, id, copy(source), false) })
+            local ok, why = Open77.vehicles.registerParts({ [id] = kitEntry(section, id, source) })
+            -- Each fallback is taken once for the whole kit, in whichever order the server
+            -- reports them (it names the first key it refuses).
+            for _ = 1, 2 do
+                if ok then break end
+                local reason = tostring(why)
+                if appearanceFits and reason:find("fit.appearances", 1, true) then
+                    appearanceFits = false
+                    LightRP.log("auto studio: no per-appearance fits on this server build (%s); trims wear the default rim fit, their stock rims hidden", reason)
+                elseif carriers and reason:find("%.carrier$") then
+                    carriers = false
+                    LightRP.log("auto studio: no carried parts on this server build (%s); wings and hood parts stay on the body when a lid opens", reason)
+                else
+                    break
+                end
+                ok, why = Open77.vehicles.registerParts({ [id] = kitEntry(section, id, source) })
             end
             if not ok and section == "rims" and tostring(why):find("wheels", 1, true) then
                 ok, why = Open77.vehicles.registerParts({ [id] = legacyRim(withTrims(section, id, copy(source), false)) })
