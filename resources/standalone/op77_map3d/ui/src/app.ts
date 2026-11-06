@@ -14,6 +14,11 @@ import { InfluenceLayer, type InfluenceZone } from "./influence";
 import { AreaLayer, areaUniforms } from "./areas";
 import { inGame } from "./bridge";
 
+// The display quality (the player's choice, kept by Lua in KVP): "performance" is a flat
+// 2D map seen from straight above, cheap materials, the buildings' roofs only, no running
+// effect and no antialiasing; "quality" the 3D city with every effect.
+export type Quality = "performance" | "quality";
+
 interface PlayerState { x: number; y: number; z: number; yaw: number; camYaw: number; speed: number; vehicle: boolean; valid: boolean }
 
 const DISTRICT_NAMES: Record<string, string> = {
@@ -51,6 +56,21 @@ export class MapApp {
   // "mini" draws only the minimap (its own small surface), "full" only the open map (a
   // surface hidden while closed), "both" is one page doing both (the browser preview).
   private role: "both" | "mini" | "full" | "holo" = "both";
+  private quality: Quality = "performance";
+  // false: the player never chose, the open map asks first (Lua says so in map3d:quality)
+  private qualityChosen = true;
+  private qualityPick: Quality = "performance";
+  // performance mode: the same views from straight above, without perspective
+  private mapOrtho = new THREE.OrthographicCamera(-1, 1, 1, -1, -6000, 20000);
+  private miniOrtho = new THREE.OrthographicCamera(-1, 1, 1, -1, -6000, 20000);
+  // quality mode draws through a multisampled target: the canvas has no antialiasing of
+  // its own, so performance mode pays none
+  private msaa: THREE.WebGLRenderTarget | null = null;
+  private blit: { scene: THREE.Scene; cam: THREE.OrthographicCamera; mat: THREE.ShaderMaterial } | null = null;
+  private bufSize = new THREE.Vector2();
+  // only the player moved: the open map in performance mode moves its arrow and redraws
+  // the city a few times a second
+  private markersDirty = false;
   private holo: HoloGps | null = null;
   private lastHolo = 0;
   // influence zones: the server's switch and zones, a resource's switch (the player's own
@@ -112,6 +132,7 @@ export class MapApp {
       if (p?.role === "mini" || p?.role === "full" || p?.role === "both" || p?.role === "holo") { this.role = p.role; this.applyMode(); }
       roleKnown();
     });
+    on("map3d:quality", (p) => this.setQuality(p));
     on("map3d:holo", (p) => this.holo?.setRoute(p && Array.isArray(p.pts) ? p : null));
     on("map3d:jam", (p) => this.setJam(p));
     on("map3d:influence", (p) => this.setInfluence(p));
@@ -193,8 +214,9 @@ export class MapApp {
       this.renderer.setClearColor(t.background, 1);
       this.controls.minDistance = this.cfg.map.minDistance;
       this.controls.maxDistance = this.cfg.map.maxDistance;
-      this.controls.maxPitch = THREE.MathUtils.degToRad(this.cfg.map.maxPitch);
+      this.controls.maxPitch = this.perf ? 0 : THREE.MathUtils.degToRad(this.cfg.map.maxPitch);
     }
+    this.renderChooser();
     this.routeView.setColors(t.accent);
     this.influence?.setLook(this.cfg.influence);
     this.holo?.setAccent(t.accent);
@@ -258,6 +280,16 @@ export class MapApp {
     ui.help = this.el("footer", "m3-help", ui.full);
     ui.close = this.el("button", "m3-close", ui.full, `<kbd>ESC</kbd> CLOSE`);
     ui.close.addEventListener("click", () => emit("map3d:close", {}));
+    // the first opening asks how the map is drawn
+    ui.chooser = this.el("div", "m3-quality", ui.full);
+    ui.chooser.addEventListener("click", (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>("[data-pick]");
+      if (b) this.chooseQuality(b.dataset.pick as Quality);
+    });
+    ui.chooser.addEventListener("pointerover", (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>("[data-pick]");
+      if (b) this.highlightPick(b.dataset.pick as Quality);
+    });
     // minimap
     ui.mini = this.el("div", "m3-mini", r);
     ui.miniFrame = this.el("div", "m3-mini__frame", ui.mini);
@@ -278,6 +310,14 @@ export class MapApp {
       if (!this.open || e.repeat) return;
       const k = keyName(e);
       emit("map3d:log", { message: `key ${k} (code "${e.code}", key "${e.key}", keyCode ${e.keyCode})` });
+      if (this.asking()) {
+        if (k === "Escape" || k === "KeyM") { e.preventDefault(); emit("map3d:close", {}); }
+        else if (e.key === "1") this.chooseQuality("performance");
+        else if (e.key === "2") this.chooseQuality("quality");
+        else if (k === "ArrowLeft" || k === "ArrowRight" || e.key === "Tab") { e.preventDefault(); this.highlightPick(this.qualityPick === "performance" ? "quality" : "performance"); }
+        else if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); this.chooseQuality(this.qualityPick); }
+        return;
+      }
       if (e.target === this.ui.searchInput) return; // typing: the search box handles its own keys
       if ((e.key === "/" || (e.ctrlKey && k === "KeyF")) && this.cfg.map.search) { e.preventDefault(); (this.ui.searchInput as HTMLInputElement).focus(); }
       else if (k === "Escape" || k === "KeyM") { e.preventDefault(); emit("map3d:close", {}); }
@@ -303,7 +343,10 @@ export class MapApp {
       const on = this.prefs[group][id] !== false;
       return `<button data-toggle="${group}:${id}" class="m3-toggle${on ? " is-on" : ""}"><span>${escapeHtml(label)}</span><i>${on ? "ON" : "OFF"}</i></button>`;
     };
-    this.ui.legend.innerHTML = `<h3>${escapeHtml(L.legend ?? "Legend")}</h3>` + cats.map((c) =>
+    const mode = (id: Quality, label: string) => `<button data-quality="${id}" class="${this.quality === id ? "is-on" : ""}">${escapeHtml(label)}</button>`;
+    this.ui.legend.innerHTML = `<h3>${escapeHtml(L.display ?? "DISPLAY")}</h3><div class="m3-qswitch">` +
+      mode("performance", L.performance ?? "2D · Performance") + mode("quality", L.quality ?? "3D · Quality") + `</div>` +
+      `<h3>${escapeHtml(L.legend ?? "Legend")}</h3>` + cats.map((c) =>
       `<button data-cat="${escapeHtml(c.id)}" class="${hidden.has(c.id) ? "is-off" : ""}" style="--chip:${escapeHtml(c.color ?? "var(--m3-accent)")}">${iconSvg(c.icon, 16)}<span>${escapeHtml(c.label)}</span><em data-count="${escapeHtml(c.id)}">0</em></button>`).join("") +
       `<h3>HUD</h3>` + toggle("hud", "minimap", L.minimap ?? "Minimap") + toggle("hud", "holo", L.holo ?? "Holo GPS") +
       `<h3>LAYERS</h3>` + toggle("layers", "buildings", "Buildings") + toggle("layers", "roadBorders", "Road lines") +
@@ -312,6 +355,7 @@ export class MapApp {
       const b = (e.target as HTMLElement).closest("button");
       if (!b) return;
       const p = this.prefs;
+      if (b.dataset.quality) { this.chooseQuality(b.dataset.quality as Quality); return; }
       if (b.dataset.cat) {
         const id = b.dataset.cat;
         p.hiddenCats = p.hiddenCats.includes(id) ? p.hiddenCats.filter((c) => c !== id) : [...p.hiddenCats, id];
@@ -366,7 +410,7 @@ export class MapApp {
   }
 
   /** Level and players over each zone, on the open map. */
-  private placeZoneLabels(W: number, H: number): void {
+  private placeZoneLabels(W: number, H: number, cam: THREE.Camera): void {
     const show = this.influence && this.influenceVisible(false) && this.cfg.influence.labels;
     const seen = new Set<string>();
     if (show) {
@@ -381,7 +425,7 @@ export class MapApp {
         const html = `<b>${escapeHtml(level?.label ?? "")}</b>` + (this.cfg.influence.showCount ? `<span>${count} ${escapeHtml(count === 1 ? L.player ?? "player" : L.players ?? "players")}</span>` : "");
         if (el.dataset.html !== html) { el.dataset.html = html; el.innerHTML = html; }
         el.style.setProperty("--zc", z.color);
-        const v = z.top.project(this.mapCam);
+        const v = z.top.project(cam);
         const vis = v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05 && z.alpha > 0.05;
         el.style.display = vis ? "" : "none";
         if (vis) { el.style.opacity = z.alpha.toFixed(2); el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(0)}px, ${((-v.y * 0.5 + 0.5) * H).toFixed(0)}px)`; }
@@ -429,7 +473,8 @@ export class MapApp {
 
   // ---------------------------------------------------------------- scene
   private initScene(): void {
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+    // no antialiasing on the canvas: quality mode draws through a multisampled target (drawScene)
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false, alpha: true, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.autoClear = false;
     this.world = new World(this.data, this.cfg.theme, this.areaU);
@@ -490,6 +535,7 @@ export class MapApp {
       this.districtEls.push({ el, pos: new THREE.Vector3(d.center[0], d.center[2] + 80, -d.center[1]), name: DISTRICT_NAMES[key] ?? key });
     }
     this.setConfig({});
+    this.applyQuality(this.quality, true);
     window.addEventListener("resize", () => { this.dirty = true; });
   }
 
@@ -497,12 +543,12 @@ export class MapApp {
     return new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
   }
   private pick(ndc: THREE.Vector2): THREE.Vector3 | null {
-    this.raycaster.setFromCamera(ndc, this.mapCam);
+    this.raycaster.setFromCamera(ndc, this.mapView());
     const hits = this.raycaster.intersectObjects(this.world.pickables, false);
     return hits.length ? hits[0].point : null;
   }
   private groundHover(ndc: THREE.Vector2): THREE.Vector3 | null {
-    this.raycaster.setFromCamera(ndc, this.mapCam);
+    this.raycaster.setFromCamera(ndc, this.mapView());
     const p = new THREE.Vector3();
     return this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.controls.current.target.y), p) ? p : null;
   }
@@ -538,7 +584,7 @@ export class MapApp {
     this.playerBlip.x = pl.x; this.playerBlip.y = pl.y; this.playerBlip.z = pl.z;
     if (this.holo) { this.holo.setPose(pl.x, pl.y, pl.vehicle ? pl.yaw : pl.camYaw, pl.z); return; }
     this.playerBlip.heading = Math.abs(delta) > 120 ? pl.yaw : prev + delta * 0.55;
-    this.dirty = true;
+    this.markersDirty = true;
     this.updateNavigation();
   }
 
@@ -572,7 +618,8 @@ export class MapApp {
     this.animate(open);
     if (!open && this.ready && this.controls) {
       const d = this.controls.desired;
-      this.savedView = { distance: d.distance, yaw: d.yaw, pitch: d.pitch };
+      // the flat map keeps the tilt the 3D one had
+      this.savedView = { distance: d.distance, yaw: d.yaw, pitch: this.perf ? this.savedView?.pitch ?? THREE.MathUtils.degToRad(this.cfg.map.initialPitch) : d.pitch };
       saveView(this.savedView);
     }
     if (open && this.ready) {
@@ -583,7 +630,7 @@ export class MapApp {
         // reopen as it was left, centred on the player (or the asked place)
         const t = toScene(focus);
         const c = this.controls.current;
-        c.target.copy(t); c.distance = v.distance; c.yaw = v.yaw; c.pitch = v.pitch;
+        c.target.copy(t); c.distance = v.distance; c.yaw = v.yaw; c.pitch = this.perf ? 0 : v.pitch;
         this.controls.flyTo(t, v.distance, v.yaw, v.pitch);
       } else if (focus) {
         const t = toScene(focus);
@@ -628,18 +675,22 @@ export class MapApp {
     r.classList.toggle("has-mini", this.role !== "full" && !shown && this.cfg.minimap.enabled && this.minimapVisible && this.ready);
     r.classList.toggle("has-route", !!this.route);
     r.classList.toggle("is-mini-role", this.role === "mini");
+    r.classList.toggle("is-perf", this.perf);
+    const asking = this.asking();
+    if (asking && !r.classList.contains("is-asking")) this.highlightPick(this.quality);
+    r.classList.toggle("is-asking", asking);
     r.classList.toggle("has-search", this.cfg.map.search);
     if (this.ui.routeClear) this.ui.routeClear.innerHTML = `&times; ${escapeHtml(this.cfg.locale.clearRoute)} <kbd>DEL</kbd>`;
     if (this.ui.searchInput) (this.ui.searchInput as HTMLInputElement).placeholder = this.cfg.locale.search ?? "Search";
     if (!this.open && this.ui.searchInput) { (this.ui.searchInput as HTMLInputElement).blur(); }
-    if (this.controls) this.controls.enabled = this.open;
+    if (this.controls) this.controls.enabled = this.open && !asking;
     this.renderHelp();
   }
 
   private renderHelp(): void {
     if (!this.ui.help) return;
     const k = this.cfg.keys;
-    const items: [string, string][] = [["DRAG", "Pan"], ["RIGHT DRAG", "Rotate / tilt"], ["WHEEL", "Zoom"], [k.waypoint ?? "Double click", "Waypoint"], [k.recenter ?? "SPACE", "Recenter"]];
+    const items: [string, string][] = [["DRAG", "Pan"], ["RIGHT DRAG", this.perf ? "Rotate" : "Rotate / tilt"], ["WHEEL", "Zoom"], [k.waypoint ?? "Double click", "Waypoint"], [k.recenter ?? "SPACE", "Recenter"]];
     this.ui.help.innerHTML = items.map(([a, b]) => `<span><kbd>${escapeHtml(a)}</kbd>${escapeHtml(b)}</span>`).join("");
   }
 
@@ -649,7 +700,7 @@ export class MapApp {
     if (act === "zoomin") d.distance = Math.max(this.controls.minDistance, d.distance * 0.6);
     else if (act === "zoomout") d.distance = Math.min(this.controls.maxDistance, d.distance * 1.6);
     else if (act === "north") d.yaw = Math.round(d.yaw / (Math.PI * 2)) * Math.PI * 2;
-    else if (act === "pitch") d.pitch = d.pitch > 0.15 ? 0 : THREE.MathUtils.degToRad(this.cfg.map.initialPitch);
+    else if (act === "pitch" && !this.perf) d.pitch = d.pitch > 0.15 ? 0 : THREE.MathUtils.degToRad(this.cfg.map.initialPitch);
     else if (act === "recenter" && this.player.valid) this.controls.flyTo(toScene(this.player), Math.min(d.distance, 900));
     this.dirty = true;
   }
@@ -892,7 +943,10 @@ export class MapApp {
   private placeCanvas(mode: "full" | "mini" | "none"): { w: number; h: number } {
     const W = window.innerWidth, H = window.innerHeight, dpr = window.devicePixelRatio || 1;
     const rect = mode === "mini" ? this.miniRect() : { x: 0, y: 0, w: mode === "full" ? W : 1, h: mode === "full" ? H : 1 };
-    const pr = mode === "mini" ? Math.min(3, dpr * Math.max(1, this.cfg.minimap.supersample)) : Math.min(2, dpr * Math.max(0.5, this.cfg.map.resolution));
+    // performance: the open map at screen pixels at most, the minimap barely supersampled
+    const pr = mode === "mini"
+      ? this.perf ? Math.min(2, dpr * 1.25) : Math.min(3, dpr * Math.max(1, this.cfg.minimap.supersample))
+      : Math.min(this.perf ? 1 : 2, dpr * Math.max(0.5, this.cfg.map.resolution));
     const key = `${mode}:${rect.x}:${rect.y}:${rect.w}:${rect.h}:${pr}:${this.cfg.minimap.shape}`;
     if (key !== this.canvasKey) {
       this.canvasKey = key;
@@ -917,11 +971,20 @@ export class MapApp {
     if (mode === "full") {
       // every frame while the camera moves; otherwise only for changes and the route's animation
       const moving = this.controls.update(dt);
-      const animate = (!!this.route || !!(this.influence?.active && this.influenceVisible(false)) || this.areas.pulsing("map")) && t - this.lastFull >= 1 / Math.max(1, this.cfg.map.idleFps);
+      // performance: nothing on the map runs by itself (still route, zones and areas)
+      const animate = !this.perf && (!!this.route || !!(this.influence?.active && this.influenceVisible(false)) || this.areas.pulsing("map")) && t - this.lastFull >= 1 / Math.max(1, this.cfg.map.idleFps);
       if (moving || this.dirty || animate) { this.lastFull = t; this.renderFull(t, rect.w, rect.h); }
+      else if (this.markersDirty) {
+        // only the player moved: the arrow follows every update, the city (the route's
+        // travelled part) is redrawn 4 times a second in performance mode
+        if (!this.perf || t - this.lastFull >= 0.25) { this.lastFull = t; this.renderFull(t, rect.w, rect.h); }
+        else this.projectFull(rect.w, rect.h);
+      }
     } else if (mode === "mini") {
-      const due = t - this.lastMini >= 1 / Math.max(1, this.cfg.minimap.fps) - 0.002;
-      if (due && (this.dirty || !!this.route || this.view.settling || this.areas.pulsing("minimap"))) { this.lastMini = t; this.renderMini(t, rect.w, rect.h); }
+      const fps = this.perf ? Math.min(30, this.cfg.minimap.fps) : this.cfg.minimap.fps;
+      const due = t - this.lastMini >= 1 / Math.max(1, fps) - 0.002;
+      const runs = !this.perf && (!!this.route || this.areas.pulsing("minimap"));
+      if (due && (this.dirty || this.markersDirty || runs || this.view.settling)) { this.lastMini = t; this.renderMini(t, rect.w, rect.h); }
     }
   };
 
@@ -931,34 +994,153 @@ export class MapApp {
     this.tickInfluence(t, false);
     this.mapCam.aspect = W / H;
     this.mapCam.updateProjectionMatrix();
+    const cam = this.mapView();
     const dist = this.controls.current.distance;
     this.world.updateFog(dist);
-    this.world.uniforms.uLod.value = 0.0022;
+    // performance: small boxes leave a little sooner
+    this.world.uniforms.uLod.value = this.perf ? 0.0032 : 0.0022;
     this.world.uniforms.uCut.value = 0;
     this.routeView.scaleMarkers(dist, t);
-    // hatching `areas.hatch` pixels apart: metres per pixel at the camera's target
+    // hatching `areas.hatch` pixels apart: metres per pixel at the camera's target (the
+    // flat view has the same scale there)
     const mpp = (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.mapCam.fov / 2))) / Math.max(1, H);
-    this.areas.prepare("map", t, this.cfg.areas.hatch * mpp, 1, this.mapCam);
+    this.areas.prepare("map", this.perf ? STILL_T : t, this.cfg.areas.hatch * mpp, 1, cam);
     const r = this.renderer;
     r.setScissorTest(false);
     r.setViewport(0, 0, W, H);
-    r.setClearColor(this.cfg.theme.background, 1);
-    r.clear();
-    r.render(this.scene, this.mapCam);
-    this.mapLayer.project(this.mapCam, { x: 0, y: 0, w: W, h: H }, { distance: dist });
-    this.areas.placeLabels(this.mapCam, W, H, this.cfg.areas.labels);
-    this.placeZoneLabels(W, H);
+    this.drawScene(cam);
+    this.projectFull(W, H);
+    this.dirty = false;
+  }
+
+  /** The open map's overlay (blips, labels, districts, compass) placed with its camera. */
+  private projectFull(W: number, H: number): void {
+    const cam = this.mapView();
+    const dist = this.controls.current.distance;
+    this.mapLayer.project(cam, { x: 0, y: 0, w: W, h: H }, { distance: dist });
+    this.areas.placeLabels(cam, W, H, this.cfg.areas.labels);
+    this.placeZoneLabels(W, H, cam);
     // district names and the compass
     const showDistricts = dist > 1400;
     for (const d of this.districtEls) {
-      const v = d.pos.clone().project(this.mapCam);
+      const v = d.pos.clone().project(cam);
       const vis = showDistricts && v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1;
       d.el.style.display = vis ? "" : "none";
       if (vis) d.el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(0)}px, ${((-v.y * 0.5 + 0.5) * H).toFixed(0)}px)`;
     }
     (this.ui.tools.querySelector(".m3-compass i") as HTMLElement).style.transform = `rotate(${this.controls.current.yaw}rad)`;
     (this.ui.tools.querySelector(".m3-pitch") as HTMLElement).textContent = this.controls.current.pitch > 0.15 ? this.cfg.locale.view2d : this.cfg.locale.view3d;
-    this.dirty = false;
+    this.markersDirty = false;
+  }
+
+  /** The camera the open map draws with: the orbit's, or straight above it in performance mode. */
+  private mapView(): THREE.Camera {
+    if (!this.perf || !this.controls) return this.mapCam;
+    const c = this.controls.current;
+    const halfH = c.distance * Math.tan(THREE.MathUtils.degToRad(this.mapCam.fov / 2));
+    return topDown(this.mapOrtho, c.target, c.distance, halfH * this.mapCam.aspect, halfH, c.yaw);
+  }
+
+  /** The scene into the canvas: straight in performance mode, through 4x MSAA in quality mode. */
+  private drawScene(cam: THREE.Camera): void {
+    const r = this.renderer;
+    r.setClearColor(this.cfg.theme.background, 1);
+    if (this.perf) {
+      r.setRenderTarget(null);
+      r.clear();
+      r.render(this.scene, cam);
+      return;
+    }
+    const size = r.getDrawingBufferSize(this.bufSize);
+    if (!this.msaa) this.msaa = new THREE.WebGLRenderTarget(size.x, size.y, { samples: 4 });
+    else if (this.msaa.width !== size.x || this.msaa.height !== size.y) this.msaa.setSize(size.x, size.y);
+    if (!this.blit) {
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uTex: { value: null } },
+        vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+        fragmentShader: `uniform sampler2D uTex; varying vec2 vUv; void main(){ gl_FragColor = texture2D(uTex, vUv); }`,
+        depthTest: false, depthWrite: false,
+      });
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
+      quad.frustumCulled = false;
+      const scene = new THREE.Scene();
+      scene.add(quad);
+      this.blit = { scene, cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), mat };
+    }
+    r.setRenderTarget(this.msaa);
+    r.clear();
+    r.render(this.scene, cam);
+    r.setRenderTarget(null);
+    this.blit.mat.uniforms.uTex.value = this.msaa.texture;
+    r.render(this.blit.scene, this.blit.cam);
+  }
+
+  // ---------------------------------------------------------------- display quality
+  get perf(): boolean { return this.quality === "performance"; }
+
+  /** The open map waits for the player's choice (never chosen yet). */
+  private asking(): boolean {
+    return this.open && this.ready && !this.qualityChosen && (this.role === "full" || this.role === "both");
+  }
+
+  /** From Lua: the stored mode, and whether the player ever chose. */
+  private setQuality(p: any): void {
+    if (p?.mode !== "performance" && p?.mode !== "quality") return;
+    this.qualityChosen = p.chosen !== false;
+    this.applyQuality(p.mode);
+  }
+
+  private applyQuality(mode: Quality, force = false): void {
+    const changed = mode !== this.quality;
+    this.quality = mode;
+    if (this.world && (changed || force)) {
+      const perf = this.perf;
+      this.world.setPerformance(perf);
+      this.influence?.setPerformance(perf);
+      this.routeView.setPerformance(perf);
+      if (perf) { this.msaa?.dispose(); this.msaa = null; }
+      const c = this.controls;
+      c.maxPitch = perf ? 0 : THREE.MathUtils.degToRad(this.cfg.map.maxPitch);
+      if (perf) { c.desired.pitch = 0; c.current.pitch = 0; }
+      // back to the tilted city the player left
+      else if (changed) c.desired.pitch = this.savedView?.pitch ?? THREE.MathUtils.degToRad(this.cfg.map.initialPitch);
+      this.canvasKey = ""; // the resolution follows the mode
+    } else this.routeView.setPerformance(this.perf);
+    this.buildLegend();
+    this.applyMode();
+    this.dirty = true;
+  }
+
+  /** The player's choice (the first opening's question, or the legend's switch): Lua keeps it. */
+  private chooseQuality(mode: Quality): void {
+    if (mode !== "performance" && mode !== "quality") return;
+    const wasAsking = this.asking();
+    if (mode === this.quality && this.qualityChosen) return;
+    this.qualityChosen = true;
+    this.applyQuality(mode);
+    emit("map3d:quality", { mode });
+    const L = this.cfg.locale;
+    if (!wasAsking) this.toast(mode === "performance" ? L.performanceOn ?? "PERFORMANCE MODE · 2D" : L.qualityOn ?? "QUALITY MODE · 3D", false);
+  }
+
+  private highlightPick(mode: Quality): void {
+    this.qualityPick = mode;
+    this.ui.chooser?.querySelectorAll<HTMLElement>("[data-pick]").forEach((b) => b.classList.toggle("is-on", b.dataset.pick === mode));
+  }
+
+  /** The first opening's question, in the map's look. */
+  private renderChooser(): void {
+    if (!this.ui.chooser) return;
+    const L = this.cfg.locale;
+    const card = (id: Quality, key: string, art: string, tag: string, title: string, text: string) =>
+      `<button data-pick="${id}" class="${this.qualityPick === id ? "is-on" : ""}"><i class="m3-quality__art">${art}</i>` +
+      `<div><em>${escapeHtml(tag)}</em><b>${escapeHtml(title)}</b><span>${escapeHtml(text)}</span></div><kbd>${key}</kbd></button>`;
+    this.ui.chooser.innerHTML = `<div class="m3-quality__panel">` +
+      `<header><span class="m3-tag">${escapeHtml(L.displayTag ?? "MAP")}</span><div><b>${escapeHtml(L.displayTitle ?? "DISPLAY MODE")}</b><small>${escapeHtml(L.displayQuestion ?? "HOW SHOULD THE CITY BE DRAWN?")}</small></div></header>` +
+      `<div class="m3-quality__cards">` +
+      card("performance", "1", ART_2D, L.performanceTag ?? "LIGHT · ANY PC", L.performanceTitle ?? "PERFORMANCE", L.performanceText ?? "A flat 2D map without the heavy effects, on the map and the minimap. Smooth on small configurations.") +
+      card("quality", "2", ART_3D, L.qualityTag ?? "RECENT GRAPHICS CARD", L.qualityTitle ?? "QUALITY", L.qualityText ?? "The 3D city: lit buildings, x-ray minimap, animated route and activity zones.") +
+      `</div><footer><span><kbd>ENTER</kbd>${escapeHtml(L.confirm ?? "Confirm")}</span><span>${escapeHtml(L.displayHint ?? "Switch at any time under DISPLAY in the legend.")}</span></footer></div>`;
   }
 
   private renderMini(t: number, w: number, h: number): void {
@@ -992,35 +1174,39 @@ export class MapApp {
     this.playerBlip.x = v.x; this.playerBlip.y = v.y;
     const radius = v.radius;
     const yaw = THREE.MathUtils.degToRad(v.yaw);
-    const pitch = THREE.MathUtils.degToRad(v.tilt);
+    // performance: always straight down (the tilt still pushes the view ahead in a car)
+    const pitch = this.perf ? 0 : THREE.MathUtils.degToRad(v.tilt);
     const dist = radius / Math.tan(THREE.MathUtils.degToRad(this.miniCam.fov / 2));
     const target = toScene({ x: v.x, y: v.y, z: v.z });
     // look a little ahead of the player so more of the road in front is visible
     target.add(new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(radius * THREE.MathUtils.mapLinear(v.tilt, m.tilt, Math.max(m.tilt + 1, m.vehicleTilt), 0.1, 0.32)));
-    const c = this.miniCam;
-    c.aspect = 1;
-    const off = new THREE.Vector3(Math.sin(yaw) * Math.sin(pitch), Math.cos(pitch), Math.cos(yaw) * Math.sin(pitch)).multiplyScalar(dist);
-    c.position.copy(target).add(off);
-    c.up.set(-Math.sin(yaw), 0, -Math.cos(yaw)).lerp(new THREE.Vector3(0, 1, 0), Math.min(1, pitch / 0.35));
-    c.lookAt(target);
-    c.near = Math.max(1, dist * 0.05);
-    c.far = dist * 6;
-    c.updateProjectionMatrix();
-    c.updateMatrixWorld();
+    let c: THREE.Camera;
+    if (this.perf) c = topDown(this.miniOrtho, target, dist, radius, radius, yaw);
+    else {
+      const pc = this.miniCam;
+      pc.aspect = 1;
+      const off = new THREE.Vector3(Math.sin(yaw) * Math.sin(pitch), Math.cos(pitch), Math.cos(yaw) * Math.sin(pitch)).multiplyScalar(dist);
+      pc.position.copy(target).add(off);
+      pc.up.set(-Math.sin(yaw), 0, -Math.cos(yaw)).lerp(new THREE.Vector3(0, 1, 0), Math.min(1, pitch / 0.35));
+      pc.lookAt(target);
+      pc.near = Math.max(1, dist * 0.05);
+      pc.far = dist * 6;
+      pc.updateProjectionMatrix();
+      pc.updateMatrixWorld();
+      c = pc;
+    }
     this.world.updateFog(dist * 0.9);
-    this.world.uniforms.uLod.value = 0.004;
+    this.world.uniforms.uLod.value = this.perf ? 0.005 : 0.004;
     this.world.uniforms.uFocus.value.copy(toScene({ x: v.x, y: v.y, z: v.z })).y += 1.5;
-    this.world.uniforms.uCut.value = Math.max(0, m.xray);
+    this.world.uniforms.uCut.value = this.perf ? 0 : Math.max(0, m.xray);
     this.routeView.scaleMarkers(dist * 0.6, t);
     // the minimap shows 2 x radius metres across its height
-    this.areas.prepare("minimap", t, this.cfg.areas.minimapHatch * (2 * radius) / Math.max(1, h), THREE.MathUtils.clamp(this.cfg.areas.minimapStrength, 0, 1), this.miniCam);
+    this.areas.prepare("minimap", this.perf ? STILL_T : t, this.cfg.areas.minimapHatch * (2 * radius) / Math.max(1, h), THREE.MathUtils.clamp(this.cfg.areas.minimapStrength, 0, 1), c);
     const r = this.renderer;
     r.setScissorTest(false);
     r.setViewport(0, 0, w, h);
-    r.setClearColor(this.cfg.theme.background, 1);
-    r.clear();
     this.routeView.group.visible = !!this.route && m.showRoute;
-    r.render(this.scene, c);
+    this.drawScene(c);
     this.routeView.group.visible = !!this.route;
     // the minimap overlay is positioned on the minimap: project in its own frame
     this.miniLayer.project(c, { x: 0, y: 0, w, h }, { distance: dist, edgeInset: 16 });
@@ -1038,8 +1224,44 @@ export class MapApp {
     const info = `${place}${left ? `<span>${iconSvg("waypoint", 13)}${left}</span>` : ""}`;
     if (info !== this.ui.miniInfo.dataset.html) { this.ui.miniInfo.dataset.html = info; this.ui.miniInfo.innerHTML = info; }
     this.dirty = false;
+    this.markersDirty = false;
   }
 }
+
+// A still frame time for the areas' pulse in performance mode (sin(2.6 t) near its top).
+const STILL_T = 0.6;
+
+/** An orthographic camera straight above `target`, `halfW` x `halfH` metres, heading `yaw` up. */
+function topDown(o: THREE.OrthographicCamera, target: THREE.Vector3, height: number, halfW: number, halfH: number, yaw: number): THREE.OrthographicCamera {
+  o.left = -halfW; o.right = halfW; o.top = halfH; o.bottom = -halfH;
+  // the near plane far above: the camera keeps its height (the buildings' level of detail
+  // reads it) and the tallest towers are never cut
+  o.near = -6000; o.far = height + 6000;
+  o.position.set(target.x, target.y + height, target.z);
+  o.up.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+  o.lookAt(target);
+  o.updateProjectionMatrix();
+  o.updateMatrixWorld();
+  return o;
+}
+
+/** The chooser's pictures: the flat map and the 3D city, in the map's colours. */
+const ART_2D = `<svg viewBox="0 0 120 72" width="120" height="72"><rect width="120" height="72" fill="#1f2128"/>` +
+  `<path d="M0 44H120M58 0V72" stroke="#41444f" stroke-width="7"/>` +
+  `<g fill="#3a3d4a" stroke="currentColor" stroke-width="1"><rect x="6" y="6" width="22" height="16"/><rect x="32" y="8" width="18" height="28"/><rect x="66" y="5" width="30" height="14"/>` +
+  `<rect x="100" y="6" width="14" height="30"/><rect x="66" y="23" width="14" height="13"/><rect x="84" y="23" width="12" height="13"/><rect x="6" y="26" width="22" height="10"/>` +
+  `<rect x="6" y="52" width="40" height="14"/><rect x="66" y="52" width="20" height="16"/><rect x="92" y="54" width="22" height="12"/></g>` +
+  `<path d="M2 44H58V70" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="5 3"/></svg>`;
+function isoBox(x: number, y: number, w: number, d: number, h: number): string {
+  const p = (...pts: number[][]) => pts.map(([a, b]) => `${a.toFixed(1)},${b.toFixed(1)}`).join(" ");
+  const b1 = [x + w * 0.87, y - w * 0.5], b3 = [x - d * 0.87, y - d * 0.5];
+  const t0 = [x, y - h], t1 = [b1[0], b1[1] - h], t3 = [b3[0], b3[1] - h], t2 = [t1[0] - d * 0.87, t1[1] - d * 0.5];
+  return `<polygon points="${p([x, y], b1, t1, t0)}" fill="#2c2f3a"/><polygon points="${p([x, y], b3, t3, t0)}" fill="#3a3d4a"/><polygon points="${p(t0, t1, t2, t3)}" fill="#666a7d"/>`;
+}
+const ART_3D = `<svg viewBox="0 0 120 72" width="120" height="72"><rect width="120" height="72" fill="#1f2128"/>` +
+  `<path d="M0 62 60 28 120 62" fill="none" stroke="#41444f" stroke-width="6"/>` +
+  `<g stroke="currentColor" stroke-width="1" stroke-linejoin="round">${isoBox(30, 60, 14, 12, 30)}${isoBox(62, 66, 18, 14, 46)}${isoBox(94, 58, 12, 12, 22)}${isoBox(78, 40, 10, 8, 16)}</g>` +
+  `<path d="M14 70 60 44 104 70" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="5 3"/></svg>`;
 
 const JAM_HTML = `<i class="m3-jam__noise"></i><i class="m3-jam__band"></i><div class="m3-jam__label"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 8.5a15 15 0 0 1 20 0"/><path d="M5.5 12a10 10 0 0 1 13 0"/><path d="M9 15.5a5 5 0 0 1 6 0"/><path d="M3 3l18 18"/></svg><b></b></div>`;
 

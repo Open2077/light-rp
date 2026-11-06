@@ -19,7 +19,7 @@ interface Live {
   x: number; y: number; z: number; radius: number; level: number;
   alpha: number; target: number; seed: number;
   field: THREE.Mesh; beacon: THREE.Mesh;
-  fieldMat: THREE.ShaderMaterial; beaconMat: THREE.ShaderMaterial;
+  fieldMat: THREE.ShaderMaterial; stillMat: THREE.ShaderMaterial; beaconMat: THREE.ShaderMaterial;
   color: THREE.Color;
 }
 
@@ -70,6 +70,19 @@ const FIELD_FRAGMENT = /* glsl */ `
     gl_FragColor = vec4(c * uAlpha * (1.0 - fog), 1.0);
   }`;
 
+// Performance mode: the same disc, still (no isolines, hex cells, waves or turning rim):
+// its colour fading from the centre and a plain rim on the radius.
+const STILL_FRAGMENT = /* glsl */ `
+  uniform vec3 uColor; uniform float uAlpha; uniform float uLevel;
+  varying vec2 vP;
+  void main(){
+    float r = length(vP) * ${FIELD.toFixed(2)};
+    if (r > ${FIELD.toFixed(2)}) discard;
+    float heat = pow(1.0 - smoothstep(0.0, 1.08, r), 1.7);
+    float rim = 1.0 - smoothstep(0.0, fwidth(r) * 2.0, abs(r - 1.0));
+    gl_FragColor = vec4(uColor * (heat * 0.4 + rim * 0.9) * (0.55 + 0.15 * uLevel) * uAlpha, 1.0);
+  }`;
+
 const BEACON_VERTEX = /* glsl */ `
   varying float vH; varying vec3 vWorld; varying vec3 vN;
   void main(){ vH = position.y; vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
@@ -95,6 +108,8 @@ export class InfluenceLayer {
   private beaconGeo = new THREE.CylinderGeometry(1, 1, 1, 40, 1, true).translate(0, 0.5, 0);
   private shown = true;
   private beacons = true;
+  // performance mode: still discs, no beacons, no lit buildings, no easing (no redraws)
+  private still = false;
 
   constructor(private uniforms: WorldUniforms) {
     this.group.name = "influence";
@@ -126,7 +141,12 @@ export class InfluenceLayer {
   }
 
   /** Something is drawn and moves: the view must keep redrawing. */
-  get active(): boolean { return this.shown && this.live.size > 0; }
+  get active(): boolean { return !this.still && this.shown && this.live.size > 0; }
+
+  setPerformance(on: boolean): void {
+    this.still = on;
+    for (const l of this.live.values()) l.field.material = on ? l.stillMat : l.fieldMat;
+  }
 
   zonesForLabels(): { zone: InfluenceZone; color: string; alpha: number; top: THREE.Vector3 }[] {
     const out = [];
@@ -138,21 +158,23 @@ export class InfluenceLayer {
   }
 
   tick(t: number, dt: number): void {
-    const ease = 1 - Math.exp(-dt * 3);
+    const ease = this.still ? 1 : 1 - Math.exp(-dt * 3);
     const zones = this.uniforms.uZone.value, colors = this.uniforms.uZoneColor.value;
     let n = 0;
     for (const [id, l] of this.live) {
       const z = l.zone;
       l.x += (z.x - l.x) * ease; l.y += (z.y - l.y) * ease; l.z += (z.z - l.z) * ease;
       l.radius += (z.radius - l.radius) * ease; l.level += (z.level - l.level) * ease;
-      l.alpha += (l.target - l.alpha) * (1 - Math.exp(-dt * (l.target > l.alpha ? 2.5 : 4)));
+      l.alpha = this.still ? l.target : l.alpha + (l.target - l.alpha) * (1 - Math.exp(-dt * (l.target > l.alpha ? 2.5 : 4)));
       if (l.target === 0 && l.alpha < 0.01) { this.dispose(l); this.live.delete(id); continue; }
       const R = l.radius * FIELD;
       l.field.position.set(l.x, l.z + 3, -l.y);
       l.field.scale.set(R, R, 1);
       const fu = l.fieldMat.uniforms;
       fu.uAlpha.value = l.alpha; fu.uLevel.value = l.level; fu.uTime.value = t; fu.uRadius.value = l.radius;
-      const beacon = this.beacons && z.level >= this.look.beaconLevel;
+      const su = l.stillMat.uniforms;
+      su.uAlpha.value = l.alpha; su.uLevel.value = l.level;
+      const beacon = this.beacons && !this.still && z.level >= this.look.beaconLevel;
       l.beacon.visible = beacon;
       if (beacon) {
         const rb = THREE.MathUtils.clamp(l.radius * 0.05, 5, 28);
@@ -161,7 +183,7 @@ export class InfluenceLayer {
         const bu = l.beaconMat.uniforms;
         bu.uAlpha.value = l.alpha; bu.uTime.value = t; bu.uLevel.value = l.level;
       }
-      if (this.look.buildings && n < MAX_ZONES) {
+      if (this.look.buildings && !this.still && n < MAX_ZONES) {
         zones[n].set(l.x, -l.y, l.radius, l.alpha * (0.55 + 0.12 * l.level));
         colors[n].copy(l.color);
         n++;
@@ -185,7 +207,12 @@ export class InfluenceLayer {
       vertexShader: BEACON_VERTEX, fragmentShader: BEACON_FRAGMENT,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     });
-    const field = new THREE.Mesh(this.fieldGeo, fieldMat);
+    const stillMat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: new THREE.Color() }, uAlpha: { value: 0 }, uLevel: { value: z.level } },
+      vertexShader: FIELD_VERTEX, fragmentShader: STILL_FRAGMENT,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    });
+    const field = new THREE.Mesh(this.fieldGeo, this.still ? stillMat : fieldMat);
     field.rotation.x = -Math.PI / 2;
     field.renderOrder = 3;
     field.frustumCulled = false;
@@ -194,7 +221,7 @@ export class InfluenceLayer {
     beacon.frustumCulled = false;
     this.group.add(field, beacon);
     const l: Live = { zone: z, x: z.x, y: z.y, z: z.z, radius: z.radius * 0.6, level: z.level, alpha: 0, target: 1,
-      seed: Math.random(), field, beacon, fieldMat, beaconMat, color: new THREE.Color() };
+      seed: Math.random(), field, beacon, fieldMat, stillMat, beaconMat, color: new THREE.Color() };
     this.paint(l);
     return l;
   }
@@ -203,12 +230,14 @@ export class InfluenceLayer {
     const c = this.look.colors;
     l.color.set(c[Math.max(0, Math.min(c.length - 1, Math.round(l.zone.level) - 1))] ?? "#FFCC00");
     l.fieldMat.uniforms.uColor.value.copy(l.color);
+    l.stillMat.uniforms.uColor.value.copy(l.color);
     l.beaconMat.uniforms.uColor.value.copy(l.color);
   }
 
   private dispose(l: Live): void {
     this.group.remove(l.field, l.beacon);
     l.fieldMat.dispose();
+    l.stillMat.dispose();
     l.beaconMat.dispose();
   }
 }
