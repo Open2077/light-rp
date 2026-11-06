@@ -148,9 +148,9 @@ them, then the ones a running resource registered with `registerPaintProfiles`.
 - A client whose `customizationAvailable` reports `twintone = false` greys it locally:
   "Your game reports no two-tone scheme on this vehicle."
 - A client whose game lacks the livery pack cannot draw a pack livery: its
-  `customizationAvailable().skipped` lists `profile:<id>:not_for_model`. The studio does
-  not check for it and shows no warning today (warnings cover rims, body kit and
-  windows only).
+  `customizationAvailable().skipped` lists `profile:<id>:not_for_model`. The pack
+  resource is server-only, so the client cannot grey the option beforehand; after a
+  livery preview the studio warns instead (see "Client warnings").
 
 #### Rims
 
@@ -503,10 +503,10 @@ key (`hella`, `kusanagi`, …):
 - livery when `customizationAvailable` reports no TwinTone;
 - performance stages whose record its game does not know.
 
-**Client warnings.** After a rims, body-kit or window tint answer, the client reads
+**Client warnings.** After a rims, body-kit, window tint or livery answer, the client reads
 `customizationAvailable(vehicleId).skipped`. It waits 1.5 s, then polls until 6 s,
-once `appliedRev ≥ rev`. A skipped `attach:rims.*`, `attach:op77_lightrp:*` or
-`tint:*` entry shows a warning in the editor (a `tint:*:pending_mesh` entry is the
+once `appliedRev ≥ rev`. A skipped `attach:rims.*`, `attach:op77_lightrp:*`, `tint:*` or
+`profile:*` entry shows a warning in the editor (a `tint:*:pending_mesh` entry is the
 client still waiting for the glass meshes: it is polled again):
 
 | Skip reason | Warning |
@@ -514,6 +514,7 @@ client still waiting for the glass meshes: it is polled again):
 | `model_not_registered` | "These parts are invisible in your game: its parts pack is missing…" |
 | `slot_absent` | "This part has no mount point on this vehicle in your game." |
 | `not_covered` (window tint) | "Your game shows no tint on this vehicle: its window tint pack is missing…" |
+| `not_for_model` (livery) | "This livery cannot be shown in your game: its livery pack is missing or out of date…" |
 | anything else | "Part of this look could not be shown in your game." |
 
 The server stays authoritative throughout: client checks only grey and warn.
