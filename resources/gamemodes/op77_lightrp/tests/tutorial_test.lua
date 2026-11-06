@@ -177,7 +177,7 @@ talk("station","attendant","collect")
 -- Pausing in the hall opens the door: nobody is left locked in.
 placed={};p=hall("attendant");action("pause")
 assert(state().status=="paused" and placed[1]==LightRpConfig.spawn.afterTutorial.name and p.bucket==0,"continuing alone leaves the hall for the city")
-assert(#tours>=1 and tours[#tours].target==1 and tours[#tours].payload.center.x==LightRpConfig.spawn.afterTutorial.position.x,"out on the square: the camera tour is asked for")
+assert(#tours>=1 and tours[#tours].target==1 and tours[#tours].payload.center.x==(LightRpTutorialConfig.arrivalTour.center or LightRpConfig.spawn.afterTutorial.position).x,"out on the square: the camera tour is asked for")
 T.onDisconnected(1);T.onCharacterLoaded(1,c);assert(state().status=="paused" and state().step=="collect")
 assert(T.spawnPoint(1)==nil and T.deathPoint(1)==nil,"a paused guide does not decide where one wakes up")
 assert(not T.allowsWork(1,"collect"),"a paused guide closes the practice sites")
