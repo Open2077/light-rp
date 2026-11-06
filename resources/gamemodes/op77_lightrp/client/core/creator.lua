@@ -12,6 +12,17 @@ local shot, from, target, changedAt, blendSeconds = "identity", nil, nil, 0, 4.5
 local muted, reduced, volume, lastAudio, lastRequest = false, false, 0, 0, -100
 local message, placingAt, runningAt = nil, nil, nil
 local phaseAt, lostSeatAt = 0, nil
+-- The scene is always shown (owner, 2026-11-05: "ça reste noir ... fiabilise que ça s'affiche
+-- anyway"). The page covers the screen until the phase is "ready"; every step that waits on the
+-- world (the server's start, the streamed arrival, the seat, the native pose) now has a deadline,
+-- after which the camera frames the character where they stand: never a black screen for good.
+local anchor = nil         -- what the shots frame: the bench (nil = the configured seat) or the body
+local fallback = false     -- the scene shows without the seated arrival
+local waitingAt = nil      -- since when the start has been asked with no answer
+local lastSeatAsk = -100
+local showWanted = nil     -- a fallback asked (net events, timeouts): the scene thread performs it
+local bodyWaitAt = nil     -- since when a draft has waited for its body with nothing on screen
+local SHOW_AFTER = { waiting = 10, placed = 8, seated = 3, preparing = 20, camera = 8 }
 local chatEnabled, generation = nil, 0
 local clock = function() return Open77.time.monotonic() end
 local function draft() return character and character.status ~= "active" end
@@ -29,9 +40,11 @@ local function setPhase(value, reason)
     Creator.publish()
 end
 local function world(x, y, z)
-    local angle = math.rad(C.heading)
-    return { x = C.position.x + math.cos(angle)*x - math.sin(angle)*y,
-        y = C.position.y + math.sin(angle)*x + math.cos(angle)*y, z = C.position.z + z }
+    local base, heading = C.position, C.heading
+    if anchor then base, heading = anchor.position, anchor.heading end
+    local angle = math.rad(heading)
+    return { x = base.x + math.cos(angle)*x - math.sin(angle)*y,
+        y = base.y + math.sin(angle)*x + math.cos(angle)*y, z = base.z + z }
 end
 local function release(keepChatHidden)
     generation = generation + 1
@@ -45,6 +58,7 @@ local function release(keepChatHidden)
         chatEnabled = nil
     end
     from, target, placingAt, runningAt, volume, lostSeatAt = nil, nil, nil, nil, 0, nil
+    anchor, fallback, waitingAt = nil, false, nil
 end
 local function request(operation)
     lastRequest = clock()
@@ -104,7 +118,12 @@ RegisterNetEvent(EVENT, function(value)
     if placing then return end
     if value.phase == "closed" then release(); setPhase("closed"); return end
     if not draft() or nativeOpen() then return end
-    if value.phase == "error" then release(); setPhase("error", value.error); return end
+    if value.phase == "error" then
+        release()
+        LightRpUi.log("creator: the server refused the arrival scene (%s): shown where the character stands", tostring(value.error))
+        Creator.showAnyway("server_" .. tostring(value.error))
+        return
+    end
     if value.phase == "preparing" then release(); setPhase("preparing")
     elseif value.phase == "placed" and phase ~= "ready" and phase ~= "camera" then
         if phase ~= "placed" then placingAt = clock(); setPhase("placed") end
@@ -115,7 +134,7 @@ end)
 
 local function takeCamera()
     local token = generation
-    if C.bench and not bench then
+    if C.bench and not bench and not anchor then
         local o = C.benchOffset
         local why
         bench, why = Open77.props.create({ model = C.bench, position = world(o.x,o.y,o.z), yaw = C.heading + C.benchYawOffset, collision = false })
@@ -151,10 +170,48 @@ local function takeCamera()
     return true
 end
 
+-- The scene without the seated arrival: the camera frames the body where it stands (the seat's own
+-- framing when the body is on it). Should even the camera fail, the cover goes anyway and the game's
+-- own view shows: the form is never behind a black screen.
+local function bodyAnchor()
+    local state = Open77.character.state()
+    local p = state and state.position
+    if type(p) ~= "table" or not tonumber(p.x) then return nil end
+    if (p.x-C.position.x)^2 + (p.y-C.position.y)^2 + (p.z-C.position.z)^2 < 4 then return nil end -- on the bench
+    local yaw = tonumber(state.yaw) or tonumber(state.heading) or 0
+    -- the shots are authored for a seated body: lift them for a standing one
+    return { position = { x = p.x, y = p.y, z = p.z + 0.35 }, heading = yaw }
+end
+-- Asked from anywhere; performed by the scene thread (the camera transition is awaited there).
+function Creator.showAnyway(why) showWanted = tostring(why) end
+local function show(why)
+    showWanted = nil
+    if placing or not draft() or nativeOpen() then return end
+    release(true)
+    anchor = bodyAnchor()
+    fallback = true
+    LightRpUi.log("creator: scene shown without the seated arrival (%s)", tostring(why))
+    setPhase("camera")
+    local ok, reason = takeCamera()
+    if not ok then
+        if cam then Open77.camera.destroy(cam); cam = nil end
+        LightRpUi.log("creator: fallback camera refused (%s): the game's own view shows", tostring(reason))
+        fallback = true
+        setPhase("ready")
+    end
+end
+
 CreateThread(function()
     while true do
         Wait(cam and 0 or 100)
-        if not placing and C.autoStart ~= false and readyBody() and not nativeOpen() then
+        -- A draft whose body never reached us (the appearance record late, lost) still sees the scene.
+        if draft() and not placing and not nativeOpen() and not readyBody() and phase == "waiting" then
+            bodyWaitAt = bodyWaitAt or clock()
+            if clock()-bodyWaitAt > 15 then bodyWaitAt = nil; showWanted = showWanted or "body_not_received" end
+        else bodyWaitAt = nil end
+        if showWanted and not placing and draft() and not nativeOpen() then
+            show(showWanted)
+        elseif not placing and C.autoStart ~= false and readyBody() and not nativeOpen() then
             local now = clock()
             local state = Open77.character.state()
             local p = state and state.position
@@ -163,24 +220,30 @@ CreateThread(function()
             -- puppet; character.inWorkspot reads the gameplay body and stays
             -- false. current(0) resolves the animation actually presented.
             local seated = atSeat and Open77.animations.current(0) == "sit_chair_lean180__2h_on_lap__01__long__01"
-            if (phase == "waiting" or phase == "editor") and now-lastRequest > 3 then
+            if phase == "waiting" then waitingAt = waitingAt or now else waitingAt = nil end
+            if phase == "waiting" and now-waitingAt > SHOW_AFTER.waiting then
+                Creator.showAnyway("no_answer_to_start")
+            elseif (phase == "waiting" or phase == "editor") and now-lastRequest > 3 then
                 request("start")
             elseif phase == "placed" and not loading() and now-(placingAt or now) > 0.4 then
                 if state and state.grounded and now-lastRequest > 0.6 then request("seat") end
-            elseif phase == "seated" and seated and not loading() and now-(placingAt or now) > 1 then
+            elseif phase == "seated" and not loading()
+                and ((seated and now-(placingAt or now) > 1) or (atSeat and now-(placingAt or now) > SHOW_AFTER.seated)) then
+                -- the server seated the body; the native pose is the best proof, its absence (another
+                -- clip name, a puppet not presenting it yet) no longer holds the scene back
+                if not seated then LightRpUi.log("creator: seated pose not presented, scene shown anyway") end
                 setPhase("camera")
                 local ok, why = takeCamera()
                 if not ok then
                     release()
-                    if why ~= "scene_changed" then setPhase("error", "The camera could not settle. Retry the arrival scene.") end
                     LightRpUi.log("creator camera: %s", tostring(why))
+                    if why ~= "scene_changed" then Creator.showAnyway("camera_" .. tostring(why)) end
                 end
             elseif phase == "ready" and cam and target then
-                if not seated then
+                -- off the seat (a push, a pose that ended): ask the seat again, keep the scene on screen
+                if not fallback and not seated then
                     lostSeatAt = lostSeatAt or now
-                    if now-lostSeatAt > 2 then
-                        release(); setPhase("waiting"); lastRequest = -100
-                    end
+                    if now-lostSeatAt > 2 and now-lastSeatAsk > 3 and atSeat then lastSeatAsk = now; request("seat") end
                 else lostSeatAt = nil end
                 if not cam then goto nextTick end
                 local t = reduced and 1 or math.min(1, (now-changedAt)/blendSeconds)
@@ -191,10 +254,9 @@ CreateThread(function()
                 Open77.camera.setTransform(cam, { position = world(s.x+drift,s.y,s.z), fov = s.fov })
                 Open77.camera.lookAt(cam, world(s.aimX,0,s.aimZ))
             end
-            if ((phase == "placed" or phase == "seated") and now-phaseAt > 15)
-                or (phase == "preparing" and now-phaseAt > 35) then
-                release(); request("pause")
-                setPhase("error", "The arrival scene did not settle. Please retry.")
+            local limit = SHOW_AFTER[phase]
+            if limit and phase ~= "waiting" and now-phaseAt > limit then
+                Creator.showAnyway(phase .. "_timeout")
             end
             if sound and now-lastAudio >= 0.08 then
                 local desired = (muted or loading()) and 0 or C.musicVolume
@@ -203,7 +265,7 @@ CreateThread(function()
                 Open77.audio.setVolume(sound, volume)
                 lastAudio = now
             end
-        elseif cam and not placing then release() end
+        elseif cam and not placing and not (fallback and draft() and not nativeOpen()) then release() end
         ::nextTick::
     end
 end)

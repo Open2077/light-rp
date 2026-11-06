@@ -52,12 +52,16 @@ local function drop(key)
     send("pm:remove", { player = key })
 end
 
--- The name a plate shows: the player's name as the platform lists it, trimmed.
+-- The name a plate shows: the player's name as the platform lists it, trimmed, with the
+-- session id in front ("[12] Archer Hella", config showId). A player without a name shows
+-- the id alone.
 local function nameOf(p)
+    local id = tostring(p.playerId or p.id or "?")
     local name = type(p.name) == "string" and p.name:gsub("^%s+", ""):gsub("%s+$", "") or ""
-    if name == "" then name = "#" .. tostring(p.playerId or p.id or "?") end
     if #name > C.nameMax then name = name:sub(1, C.nameMax) end
-    return name
+    if C.showId == false then return name ~= "" and name or ("#" .. id) end
+    if name == "" then return "[" .. id .. "]" end
+    return "[" .. id .. "] " .. name
 end
 
 -- The other players around with a streamed body: player id (string) -> { entity, name }.
@@ -155,7 +159,7 @@ PlayerMarks = { refresh = refresh, talk = talk, marks = marks, setHidden = setHi
 
 local function createPage()
     local created, why
-    for _ = 1, 120 do
+    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
         created, why = WebUI.create({
             entry = "web/index.html", layer = "hud", width = 1920, height = 1080,
             fps = 60, zIndex = 600, transparent = true, visible = true,

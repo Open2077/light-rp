@@ -50,3 +50,17 @@ export interface ManekiSpot {
   district:string; placedBy:string; placedAt:number; finds:number; distance?:number;
 }
 export interface ManekiList { spots:ManekiSpot[]; page:number; pageSize:number; total:number; cats:number; finders:number; mine:number; editing:boolean; canEdit:boolean; canTeleport:boolean }
+/** A world event out now, as the staff desk lists it (server/modules/staff_events.lua). */
+export interface LiveEvent {
+  id:string; kind:"boss"|"psycho"|"gang"; title:string; boss:string; location:string; phase:string; health:number; fighters:number;
+  enemies:number; endsInMs?:number; by:string; pay:boolean; silent?:boolean; night?:boolean; distance?:number;
+}
+export interface EventSpot { id:string; name:string; district:string; by:string; distance?:number }
+export interface EventNight { preset:string; label:string; round:number; rounds:number; phase:"intro"|"live"|"break"|"done"; nextInMs?:number; won:number; played:number; live:number; by:string }
+export interface EventsView {
+  live:LiveEvent[]; bosses:{id:string;title:string;location:string}[]; psychos:{id:string;label:string}[]; crews:{id:string;label:string}[];
+  levels:{id:string;label:string;blurb:string}[]; presets:{id:string;label:string;blurb:string;rounds:number;min:number}[]; spots:EventSpot[];
+  night?:EventNight|null; maxLive:number; maxRounds:number; random:{enabled:boolean;nextInMs?:number};
+  minutes:{default:number;min:number;max:number}; radius:{default:number;min:number;max:number}; canPay:boolean; inCity:boolean;
+}
+export interface DeskResult { accepted:boolean; outcome:string; message:string }

@@ -1,0 +1,189 @@
+-- Parkour, client side (client/core/parkour.lua, parkour_editor.lua) with the host stubbed:
+-- uplinks for the nearest courses only, the run's relays follow the checkpoints (a crossed
+-- one is sent up, then goes), the runner is held until GO, the bearing reaches the page, every
+-- server event reaches the page, the keys go to the server only during a run, the editor
+-- relays, captures, draws the draft and turns build clicks into page actions.
+local threads = {}
+_G.CreateThread = function(fn) local co = coroutine.create(fn); threads[#threads + 1] = co; local ok, err = coroutine.resume(co); if not ok then error(err, 0) end end
+_G.Wait = function() coroutine.yield() end
+local clock = 1000
+local function tick(n)
+    for _ = 1, n or 1 do
+        clock = clock + 50
+        for i = #threads, 1, -1 do
+            local co = threads[i]
+            if coroutine.status(co) == "dead" then table.remove(threads, i)
+            else local ok, err = coroutine.resume(co); if not ok then error(err, 0) end end
+        end
+    end
+end
+local nets, mappings, toServer, toPage, markers, nextMarker, sounds, draws = {}, {}, {}, {}, {}, 0, {}, {}
+_G.RegisterNetEvent = function(name, fn) nets[name] = fn end
+_G.RegisterKeyMapping = function(id, _, key, fn) mappings[id] = { key = key, fn = fn }; return true, key end
+_G.TriggerServerEvent = function(name, payload) toServer[#toServer + 1] = { name = name, payload = payload }; return true end
+_G.AddEventHandler = function() end
+_G.GetCurrentResourceName = function() return "op77_lightrp" end
+_G.GetGameTimer = function() return clock end
+local me = { x = 0, y = 0, z = 10 }
+local keysDown = {}
+local frozen, updates = false, 0
+_G.Open77 = {
+    character = { state = function() return { position = me, yaw = 45, alive = true, attached = true } end,
+        setFrozen = function(v) frozen = v == true; return true end },
+    markers = {
+        create = function(def) nextMarker = nextMarker + 1; markers[tostring(nextMarker)] = def; return tostring(nextMarker) end,
+        remove = function(id) markers[id] = nil; return true end,
+        update = function(id, patch) if markers[id] then updates = updates + 1; markers[id].position = patch.position end; return true end,
+        list = function() local out = {} for _, m in pairs(markers) do out[#out + 1] = m end return out end,
+    },
+    sfx = { play2d = function(e) sounds[#sounds + 1] = e end },
+    vfx = { play = function() return 1 end },
+    input = { isCaptured = function() return false end, isDown = function(k) return keysDown[k] == true end },
+    camera = { aimRay = function() return { hit = true, position = { x = 12, y = 3, z = 10 }, distance = 12 } end },
+    debugDraw = { set = function(key, batch) draws[key] = batch; return true end, clear = function(key) draws[key] = nil end },
+    blips = { setWaypoint = function(p) toServer[#toServer + 1] = { name = "waypoint", payload = p }; return true end },
+}
+_G.LightRpEvents = {
+    net = { parkour = "op77_lightrp:parkour", parkourKey = "op77_lightrp:parkour:key", parkourEditor = "op77_lightrp:parkour:editor" },
+    page = { parkour = "lightrp:ui:parkour", parkourEditor = "lightrp:ui:parkoureditor", dialogClose = "lightrp:ui:dialog:close" },
+}
+local pageHandlers = {}
+local supportMode
+_G.LightRpUi = {
+    log = function(fmt, ...) if os.getenv("PARKOUR_TEST_LOG") then print(string.format(fmt, ...)) end end,
+    send = function(name, payload) toPage[#toPage + 1] = { name = name, payload = payload } end,
+    setSupportInput = function(mode) supportMode = mode end, setMenuOpen = function() end,
+    characterReady = true,
+}
+local function check(cond, label) if not cond then error("FAILED: " .. label, 2) end end
+local function count(t) local n = 0 for _ in pairs(t) do n = n + 1 end return n end
+local function shapes() local out = {} for _, m in pairs(markers) do out[m.shape] = (out[m.shape] or 0) + 1 end return out end
+local function lastPage(name, kind)
+    for i = #toPage, 1, -1 do
+        local p = toPage[i]
+        if p.name == name and (not kind or (type(p.payload) == "table" and p.payload.kind == kind)) then return p.payload end
+    end
+end
+
+dofile("shared/parkour.lua")
+dofile("client/core/parkour.lua")
+dofile("client/core/parkour_editor.lua")
+local Parkour, Editor = LightRpParkourClient, LightRpParkourEditor
+-- the orbs' markers are created one per frame: every server event, then enough frames
+local function park(p) nets["op77_lightrp:parkour"](p); tick(20) end
+local page = { on = function(_, name, fn) pageHandlers[name] = fn end, setConsumedKeys = function() end, setFocus = function() return true end }
+LightRpUi.page = page
+Parkour.bind(page)
+Editor.bind(page)
+Parkour.start()
+check(mappings["lightrp.parkour.restart"].key == "HOME" and mappings["lightrp.parkour.checkpoint"].key == "END"
+    and mappings["lightrp.parkour.leave"].key == "DELETE", "run keys mapped (leave on DELETE: F1 is the menu)")
+
+-- uplinks: 6 courses, the 3 nearest within sight get one (gate + spine + node + pad)
+local list = {}
+for i = 1, 6 do list[i] = { id = "c" .. i, name = "C" .. i, start = { x = i * 20, y = 0, z = 10, radius = 3, heading = 90 } } end
+list[6].start.x = 900 -- out of sight
+park({ kind = "courses", courses = list })
+tick(40)
+check(count(markers) == 12, "3 uplinks x 4 markers: " .. count(markers))
+local sh = shapes()
+check(sh.checkpoint == 3 and sh.cylinder == 3 and sh.diamond == 3 and sh.ring == 3, "uplink = gate, spine, node, pad")
+for _, m in pairs(markers) do
+    if m.shape == "checkpoint" then check(m.rotation.z == 90 and m.position.z == 10 and m.height == 3.2, "the uplink gate stands on the ground, facing the course") end
+end
+local before = updates
+tick(4)
+check(updates > before, "the nodes turn (positions and rotations only)")
+
+-- keys do nothing outside a run
+mappings["lightrp.parkour.restart"].fn()
+check(#toServer == 0, "no key outside a run")
+
+-- a run: the start orbs go, the next checkpoint / the one after / the finish show
+local course = { id = "c1", name = "C1", difficulty = "hard", revision = 1,
+    start = { x = 0, y = 0, z = 10, radius = 3, heading = 0 },
+    checkpoints = { { x = 20, y = 0, z = 10, radius = 3 }, { x = 40, y = 0, z = 10, radius = 3 } },
+    finish = { x = 60, y = 0, z = 10, radius = 3 } }
+park({ kind = "run", phase = "loading", course = course, attempt = 1, music = { file = "audio/x.webm", volume = 0.05 } })
+check(lastPage("lightrp:ui:parkour", "run").music.volume == 0.05, "the run (and its music) reaches the page")
+check(lastPage("lightrp:ui:dialog:close").kind == "parkour", "the card closes when the run starts")
+-- relay (gate, spine, node, 2 drips) + ghost gate + downlink (2 gates, spine) = 9
+tick(10)
+check(count(markers) == 9, "run markers: " .. count(markers))
+sh = shapes()
+check(sh.checkpoint == 4 and sh.chevron == 2 and sh.diamond == 1 and sh.cylinder == 2, "relay + ghost + downlink parts")
+park({ kind = "countdown", goInMs = 3000, attempt = 1 })
+check(frozen == true, "held on the start during the countdown")
+park({ kind = "go", attempt = 1 })
+check(frozen == false, "released at GO")
+tick(4)
+local br = lastPage("lightrp:ui:parkour", "bearing")
+check(br and br.label == "CP 1" and br.distance == 20, "the bearing to checkpoint 1 reaches the page")
+mappings["lightrp.parkour.restart"].fn()
+check(toServer[#toServer].name == "op77_lightrp:parkour:key" and toServer[#toServer].payload.op == "restart", "HOME restarts during a run")
+mappings["lightrp.parkour.checkpoint"].fn()
+check(toServer[#toServer].payload.op == "checkpoint", "END goes back to the last checkpoint")
+mappings["lightrp.parkour.leave"].fn()
+check(toServer[#toServer].payload.op == "leave", "DELETE leaves the run")
+park({ kind = "cp", index = 1, total = 2, elapsedMs = 2125, attempt = 1 })
+-- checkpoint 1 sent and gone, checkpoint 2 the relay (5), no ghost (the finish is after), downlink (3)
+tick(20)
+check(count(markers) == 8, "after checkpoint 1: " .. count(markers))
+check(lastPage("lightrp:ui:parkour", "cp").elapsedMs == 2125, "the split reaches the page")
+park({ kind = "cp", index = 2, total = 2, elapsedMs = 4400, attempt = 1 })
+tick(20)
+check(count(markers) == 7, "next is the downlink (2 gates, spine, node, 2 drips, pad): " .. count(markers))
+check(lastPage("lightrp:ui:parkour", "bearing").label == "FINISH", "the bearing points at the finish")
+park({ kind = "finish", timeMs = 7125, splits = "2125,4400", attempt = 1 })
+tick(20)
+check(count(markers) == 0 and #sounds > 0, "finish: the downlink is sent and goes, a jingle plays")
+park({ kind = "result", timeMs = 7125, attempt = 1, rank = 1 })
+check(lastPage("lightrp:ui:parkour", "result").rank == 1, "the result reaches the page")
+pageHandlers["lightrp:ui:parkour"]({ op = "leave" })
+check(toServer[#toServer].payload.op == "leave", "the card's leave reaches the server")
+park({ kind = "ended" })
+check(Parkour.run == nil and lastPage("lightrp:ui:parkour", "ended"), "ended")
+tick(40)
+check(count(markers) == 12, "uplinks back after the run")
+check(lastPage("lightrp:ui:parkour", "bearing").hide == true, "the bearing hides after the run")
+
+-- GPS to a course start
+check(Parkour.gps("c2") == true and toServer[#toServer].payload.x == 40, "GPS to the start")
+check(Parkour.gps("nope") == false, "GPS refuses an unknown course")
+
+-- ---------------------------------------------------------------------------
+-- The editor
+nets["op77_lightrp:parkour:editor"]({ kind = "open" })
+check(Editor.active and supportMode == "menu", "editor open in menu mode")
+check(lastPage("lightrp:ui:parkoureditor", "open"), "open reaches the page")
+tick(2)
+tick(20)
+check(count(markers) == 0, "no uplinks while editing")
+pageHandlers["lightrp:ui:parkoureditor"]({ operation = "capture", mode = "feet", request = "r1" })
+local cap = lastPage("lightrp:ui:parkoureditor", "response")
+check(cap.ok and cap.data.position.x == 0 and cap.data.heading == 45, "capture at my feet")
+pageHandlers["lightrp:ui:parkoureditor"]({ operation = "capture", mode = "aim", request = "r2" })
+cap = lastPage("lightrp:ui:parkoureditor", "response")
+check(cap.ok and cap.data.position.x == 12, "capture where I aim")
+pageHandlers["lightrp:ui:parkoureditor"]({ operation = "list", request = "r3" })
+tick(1)
+check(toServer[#toServer].name == "op77_lightrp:parkour:editor" and toServer[#toServer].payload.operation == "list", "list forwarded to the server")
+pageHandlers["lightrp:ui:parkoureditor"]({ operation = "preview", course = course, focus = "checkpoint:1", tool = { name = "checkpoint", radius = 3 } })
+tick(3)
+check(draws["lightrp:parkour:draft"] and #draws["lightrp:parkour:draft"].lines > 100, "the draft is drawn")
+-- build mode: a click places where the crosshair hits
+mappings["lightrp.parkour.editor.build"].fn()
+check(Editor.mode == "world" and supportMode == "closed", "F9: build mode")
+keysDown.MOUSE1 = true
+tick(2)
+local build = lastPage("lightrp:ui:parkoureditor", "build")
+check(build and build.action == "place" and build.position.x == 12, "LEFT CLICK: a place action at the crosshair")
+keysDown.MOUSE1 = nil
+-- the aim at x=12 is not inside any orb (start r3 at 0, cp at 20): no hover
+check(Editor.hover == nil, "nothing hovered at x=12")
+mappings["lightrp.parkour.editor.build"].fn()
+check(Editor.mode == "menu", "F9: back to the menu")
+pageHandlers["lightrp:ui:parkoureditor"]({ operation = "close" })
+check(not Editor.active and draws["lightrp:parkour:draft"] == nil, "closed: the drawing goes")
+
+print("parkour_client_test: ok")

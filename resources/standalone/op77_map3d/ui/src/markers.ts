@@ -107,7 +107,7 @@ export class MarkerLayer {
   }
 
   /** rect = the view's rectangle in page pixels. */
-  project(camera: THREE.PerspectiveCamera, rect: { x: number; y: number; w: number; h: number }, opts: { distance: number; edgeInset?: number; rotate?: number }): void {
+  project(camera: THREE.Camera, rect: { x: number; y: number; w: number; h: number }, opts: { distance: number; edgeInset?: number; rotate?: number }): void {
     const inset = opts.edgeInset ?? 14;
     const labelsOn = this.showLabels === "always" || (this.showLabels === "zoom" && opts.distance < 1800);
     const dpr = window.devicePixelRatio || 1;

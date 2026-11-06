@@ -29,9 +29,13 @@ op77_lightrp/
 
 ## Bureau staff RP et reports
 
-`/admin` ouvre le menu RP compact façon RageUI : file de reports, citoyens,
-interventions confirmées et historique, avec sous-menus au clavier et panneaux
-de détails voisins. Les déplacements restent libres pendant la navigation.
+`/admin` (ou `/lightrp.admin`) ouvre **le** menu admin du serveur, compact façon
+RageUI et dans la DA LIGHT/RP. Il réunit les outils de la plateforme (`open77_admin` :
+noclip, véhicules, météo, actions de masse…) et ceux de LightRP (missions, world
+bosses, gigs, objets, contenu) : reports, joueurs, outils perso, téléport,
+véhicules, objets et armes, monde, missions et événements, lieux et contenu,
+serveur, historique. Chaque entrée n'apparaît que si l'ACL l'autorise. Les
+déplacements restent libres pendant la navigation.
 `/report`, `/reports` ou **F1 → Reports & support** donnent aux
 joueurs un suivi privé et persistant, avec admin assigné, réponses, statuts,
 notifications et possibilité de réouverture. Les notes internes restent réservées

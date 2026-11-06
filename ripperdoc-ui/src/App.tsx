@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CATALOGUE, DEMO, DEMO_CAPACITY, SECTION, SECTIONS, demoLocks, type Body, type Cyberware, type Guide, type OpenPayload, type Reputation } from "./data";
 import { project, refusal, simulate, usedPoints, type Capacity, type ClinicState } from "./model";
-import { emit, inGame, onClose, onOpen, onResult, onState, ready } from "./bridge";
+import { diag, emit, inGame, onClose, onOpen, onResult, onState, ready } from "./bridge";
 import { loadManifest, type Manifest } from "./media";
 import { play, preload } from "./sfx";
 import { Stage } from "./Stage";
@@ -29,7 +29,30 @@ export interface Session extends ClinicState {
   items: Record<string, Cyberware>;      // the same, by id
 }
 
-const fromPayload = (p: OpenPayload): Session => {
+/* Lua sends an empty list as {} (an object): every list the server sends is read through `list`, or
+   one empty list (a first visit's guide, an implant without stats) threw in a render and the whole
+   page went blank, the cursor alone on screen (LightRP Testing, 2026-11-05). */
+const list = <T,>(v: unknown): T[] =>
+  Array.isArray(v) ? (v as T[]) : v && typeof v === "object" ? (Object.values(v) as T[]) : [];
+const normalise = (raw: OpenPayload): OpenPayload => {
+  const p: OpenPayload = raw && typeof raw === "object" && !Array.isArray(raw) ? { ...raw } : {};
+  if (p.catalogue !== undefined) p.catalogue = list<Cyberware>(p.catalogue).map((x) => ({ ...x, stats: list(x.stats) }));
+  if (p.stock !== undefined) p.stock = list<string>(p.stock);
+  if (p.installed !== undefined) {
+    const installed: Record<string, string[]> = {};
+    if (p.installed && typeof p.installed === "object")
+      for (const [k, v] of Object.entries(p.installed)) installed[k] = list<string>(v);
+    p.installed = installed;
+  }
+  if (p.guide && typeof p.guide === "object") {
+    const g = p.guide;
+    p.guide = { ...g, tiers: list(g.tiers), gains: list(g.gains), drops: list(g.drops), keys: list(g.keys) };
+  } else if (p.guide !== undefined) delete p.guide;
+  return p;
+};
+
+const fromPayload = (raw: OpenPayload): Session => {
+  const p = normalise(raw);
   const live = p.live === true;
   const reputation = p.reputation ?? (live ? undefined : DEMO.reputation);
   const given = p.catalogue && p.catalogue.length > 0 ? p.catalogue : CATALOGUE;
@@ -103,7 +126,14 @@ export function App() {
   const open = useCallback((payload: OpenPayload) => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
-    const next = fromPayload(payload);
+    let next: Session;
+    try { next = fromPayload(payload); }
+    catch (err) {
+      // never a blank page holding the cursor: say why and give the game back
+      diag(`open payload refused: ${String(err)}`);
+      emit("rd:close", {});
+      return;
+    }
     setSession(next);
     setHovered(null);
     setProcedure(null);
@@ -134,7 +164,10 @@ export function App() {
       if (!p || (r.item && r.item !== p.item.id)) return;
       setProcedure({ ...p, result: { ok: r.ok === true, message: r.message } });
     });
-    onState((payload) => setSession((s) => ({ ...fromPayload(payload), body: payload.body ?? s.body })));
+    onState((payload) => {
+      try { const next = fromPayload(payload); setSession((s) => ({ ...next, body: payload.body ?? s.body })); }
+      catch (err) { diag(`state payload refused: ${String(err)}`); }
+    });
     ready();
     if (!inGame()) {
       // Browser preview: ?body=female, ?section=<id> opens straight on a section.

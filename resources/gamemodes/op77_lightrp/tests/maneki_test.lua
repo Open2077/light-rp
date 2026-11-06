@@ -192,10 +192,9 @@ local list = M.list(1, { sort = "near" })
 assert(list.cats == 2 and list.canEdit and #list.spots == 2, "desk list")
 for _, r in ipairs(list.spots) do if r.id == catB then assert(r.finds == 2, "cat B found twice") end end
 assert(M.list(2, {}) == nil, "players cannot list")
-local refused = M.action(1, { action = "manekiDelete", id = catA, confirmed = true, reason = "no", mutation = "desk:test:1" })
-assert(refused == nil, "a reason is required")
-local removed = M.action(1, { action = "manekiDelete", id = catA, confirmed = true, reason = "Bad spot, inside a wall", mutation = "desk:test:2" })
-assert(removed and removed.accepted, "removed")
+-- at once, no reason to type (owner, 2026-11-05): the staff history gets a default line
+local removed = M.action(1, { action = "manekiDelete", id = catA, reason = "", mutation = "desk:test:2" })
+assert(removed and removed.accepted, "removed without a reason or a confirmation")
 assert(#M.rows(1, {}) == 1 and providers.maneki(2).total == 1, "one cat left")
 local tp = M.action(1, { action = "manekiTeleport", id = catB, confirmed = true, reason = "Checking it", mutation = "desk:test:3" })
 assert(tp and tp.accepted and positions[1].x ~= 0, "teleported next to the cat")

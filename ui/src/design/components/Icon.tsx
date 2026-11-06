@@ -6,7 +6,7 @@ import {
   MessageSquare, Mic, MicOff, OctagonAlert, Package, Radio, Settings, Shield, ShieldAlert,
   Siren, Terminal, TriangleAlert, User, Users, Utensils, X, Zap, CheckCheck, Search, ArrowDown, ArrowRight, Backpack, Split, Video,
   Lock, LockOpen, ShoppingCart, MessageCircle, Coins, Send, Route, Gauge, Plus, MousePointerClick,
-  House, BookOpen, Building2, Navigation, Recycle, Bike, Timer, ArrowLeft, ListChecks, Scale, Shirt, Glasses, Eye, Crown, UserPlus, UserMinus, LogOut, Undo2, Swords, Crosshair, Globe, Bot, type LucideIcon,
+  House, BookOpen, Building2, Navigation, Recycle, Bike, Timer, ArrowLeft, ListChecks, Scale, Shirt, Glasses, Eye, Crown, UserPlus, UserMinus, LogOut, Undo2, Swords, Crosshair, Globe, Bot, Skull, CloudSun, Server, Flag, TrendingUp, Trophy, Play, Medal, type LucideIcon,
 } from "lucide-react";
 
 /* Lucide, bundled (the design system loads it from a CDN; the in-game host serves
@@ -28,7 +28,8 @@ const GLYPHS: Record<string, LucideIcon> = {
   user: User, users: Users, x: X, zap: Zap,
   house: House, "book-open": BookOpen, "building-2": Building2, navigation: Navigation, recycle: Recycle, bike: Bike,
   timer: Timer, "arrow-left": ArrowLeft, "list-checks": ListChecks, scale: Scale, shirt: Shirt, glasses: Glasses, eye: Eye,
-  crosshair: Crosshair, crown: Crown, "user-plus": UserPlus, "user-minus": UserMinus, "log-out": LogOut, "undo-2": Undo2, swords: Swords, globe: Globe, bot: Bot,
+  crosshair: Crosshair, crown: Crown, "user-plus": UserPlus, "user-minus": UserMinus, "log-out": LogOut, "undo-2": Undo2, swords: Swords, globe: Globe, bot: Bot, skull: Skull, "cloud-sun": CloudSun, server: Server,
+  flag: Flag, "trending-up": TrendingUp, trophy: Trophy, play: Play, medal: Medal,
 };
 
 export type IconName = keyof typeof GLYPHS | string;

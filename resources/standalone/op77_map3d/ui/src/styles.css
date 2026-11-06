@@ -271,3 +271,40 @@ button { all: unset; cursor: pointer; }
 @keyframes m3-band { from { top: -20%; } to { top: 110%; } }
 @keyframes m3-shake { 0% { translate: 0 0; } 50% { translate: calc(var(--m3-jam, 0) * 3px) calc(var(--m3-jam, 0) * -2px); } }
 @keyframes m3-flicker { 0%, 100% { opacity: 1; } 7% { opacity: .35; } 9% { opacity: 1; } 52% { opacity: .6; } 54% { opacity: 1; } }
+
+/* ---------------------------------------------------------------- display quality */
+/* the legend's switch: 2D performance / 3D quality */
+.m3-qswitch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 0 12px; }
+.m3-legend .m3-qswitch button { display: block; width: auto; padding: 7px 4px; text-align: center; border: 1px solid var(--m3-line); color: var(--m3-dim); font: 700 10px var(--m3-core); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.m3-legend .m3-qswitch button:hover { border-color: var(--m3-accent); color: var(--m3-text); background: none; }
+.m3-legend .m3-qswitch button.is-on { background: var(--m3-accent); border-color: var(--m3-accent); color: #050506; }
+
+/* the first opening's question, over the map (drawn flat behind it) */
+.m3-quality { position: absolute; inset: 0; z-index: 6; display: none; place-items: center; background: rgba(5, 5, 6, .72); }
+.m3.is-asking .m3-quality { display: grid; }
+.m3.is-asking .m3-full > :not(.m3-quality):not(.m3-markers):not(.m3-districts) { visibility: hidden; }
+.m3-quality__panel { width: 720px; max-width: calc(100% - 64px); padding: 22px 24px 18px; box-sizing: border-box; background: var(--m3-panel); border: 1px solid var(--m3-line);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); animation: m3-ui-in .2s ease-out both; }
+.m3-quality__panel header { display: flex; align-items: center; gap: 12px; }
+.m3-quality__panel header b { display: block; font: 400 26px var(--m3-display); letter-spacing: .04em; line-height: 1; }
+.m3-quality__panel header small { display: block; margin-top: 5px; font: 600 11px var(--m3-core); letter-spacing: .3em; color: var(--m3-accent); }
+.m3-quality__cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0 16px; }
+.m3-quality__cards button { position: relative; display: grid; gap: 12px; align-content: start; padding: 14px; border: 1px solid var(--m3-line); border-left: 3px solid var(--m3-line); background: rgba(255, 255, 255, .02);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
+.m3-quality__cards button.is-on { border-color: var(--m3-accent); background: rgba(255, 204, 0, .07); box-shadow: inset 0 0 0 1px var(--m3-accent-soft); }
+.m3-quality__art { display: block; color: var(--m3-dim); }
+.m3-quality__cards button.is-on .m3-quality__art { color: var(--m3-accent); }
+.m3-quality__art svg { display: block; width: 100%; height: auto; border: 1px solid rgba(255, 255, 255, .06); }
+.m3-quality__cards em { display: block; font: 600 10px var(--m3-core); font-style: normal; letter-spacing: .26em; color: var(--m3-accent); }
+.m3-quality__cards b { display: block; margin-top: 4px; font: 700 20px var(--m3-core); letter-spacing: .12em; }
+.m3-quality__cards span { display: block; margin-top: 6px; font: 500 13px/1.45 var(--m3-core); color: var(--m3-dim); }
+.m3-quality__cards kbd { position: absolute; right: 12px; top: 12px; margin: 0; }
+.m3-quality__panel footer { display: flex; justify-content: space-between; gap: 16px; font: 600 11px var(--m3-core); letter-spacing: .14em; color: var(--m3-dim); }
+
+/* performance mode: no blur, scale, vignette, scan line or shaking (each costs a full-screen pass) */
+.m3.is-perf .m3-full::after, .m3.is-perf .m3-full::before { display: none; }
+.m3.is-perf.is-opening .m3-canvas { animation: m3-ui-in .2s ease-out both; }
+.m3.is-perf.is-closing .m3-canvas { animation: m3-ui-out .2s ease-in both; }
+.m3.is-perf.is-jamming:not(.is-jammed) .m3-canvas { animation: none; }
+.m3.is-perf .m3-pitch { display: none; }
+.m3.is-perf .m3-blip__pin.is-arrow { filter: drop-shadow(0 0 2px rgba(0,0,0,.9)); }

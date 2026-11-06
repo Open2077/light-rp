@@ -36,6 +36,7 @@ shared_script "shared/events.lua"
 shared_script "shared/notice.lua"         -- another resource's notice in the page (exports notice / Notice)
 shared_script "shared/safezones.lua"
 shared_script "shared/mission_defs.lua"   -- authored missions: format + validation (editor, engine, page)
+shared_script "shared/parkour.lua"        -- parkour courses: limits, validation, orb geometry (server, client, tests)
 shared_script "shared/config.lua"
 shared_script "shared/tutorial.lua"
 shared_script "shared/items.lua"
@@ -78,6 +79,7 @@ server_script "server/modules/casino_pool.lua"
 server_script "server/modules/board_games.lua"
 server_script "server/modules/armament_store.lua"
 server_script "server/modules/armament.lua"
+server_script "server/modules/armament_admin.lua"
 server_script "server/modules/grenades.lua"
 server_script "server/modules/hotbar.lua"
 server_script "server/modules/tcg.lua"            -- Cyberpunk TCG (op77_tcg): sealed product as inventory items
@@ -144,6 +146,8 @@ server_script "server/modules/housing_admin.lua"
 server_script "server/modules/board_games_admin.lua" -- staff: placed tables list / go to / remove (/admin, /lightrp.tables)
 server_script "server/config/maneki.lua"
 server_script "server/modules/maneki.lua"          -- Maneki-neko collectibles: streamed near players, E or a shot, staff tool (/lightrp.maneki)
+server_script "server/config/staff_events.lua"
+server_script "server/modules/staff_events.lua"    -- staff events: world bosses / cyberpsychos / gang attacks where the staff want, event nights (/admin > Events)
 server_script "server/modules/housing_starter.lua"
 server_script "server/modules/ui.lua"
 server_script "server/modules/camera.lua"
@@ -152,9 +156,11 @@ server_script "server/modules/cyberware.lua"
 server_script "server/modules/cyberware_active.lua"  -- Berserk, Pain Editor, Second Heart, Kiroshi scan / crew mark
 server_script "server/modules/cyberware_iconics.lua" -- iconic implants: drops from world bosses and the Chimera on Critical
 server_script "server/modules/ripperdoc.lua"
+server_script "server/modules/pose_ghost.lua"       -- held poses are non-solid to other players (no push out of an emote/seat)
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
 server_script "server/modules/activity_kits.lua"   -- temporary kits for activities: a mission's kit, handed by the same code
+server_script "server/modules/parkour.lua"         -- parkour courses, runs against the clock, leaderboards, staff editor (/lightrp.parkour)
 server_script "server/modules/activity_queue.lua"  -- the queue panel: one queue per player (core, providers, mission boards), leave
 server_script "server/modules/activity_pay.lua"    -- eddies for activity results (PvP ranked, PvE), caps and anti-farm
 server_script "server/modules/activity_rooms.lua"  -- rooms: a player hosts an unranked match at The Crossing's rooms NPC
@@ -248,6 +254,8 @@ client_script "client/core/pvp_marks.lua"      -- nameplates (op77_playermarks) 
 client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
 client_script "client/core/maneki.lua"         -- Maneki-neko collectibles: local props, E prompt, shot detection
 client_script "client/core/maneki_editor.lua"  -- the staff placement tool for the cats
+client_script "client/core/parkour.lua"        -- parkour: start orbs, the run's orbs, keys, sounds (the page draws the clock)
+client_script "client/core/parkour_editor.lua" -- the staff parkour editor: relay, captures, 3D preview, build mode
 client_script "client/main.lua"
 
 -- The global WebUI. Created by the client (web_ui_auto_create false) so the
@@ -269,9 +277,11 @@ permissions {
     "world.props",          -- networked jerrycan, cleaned up with the action
     "state.write",          -- vehicle keys live in state bags
     "players.life.read",
+    "players.life.ghost",          -- pose_ghost: a held pose is non-solid to other players
     "players.life.kill",
     "players.life.revive",
     "players.life.respawn",
+    "players.life.freeze",         -- parkour: the runner held on the start until GO
     "players.teleport",
     "players.damage.apply",
     "world.effects",        -- the raid's strikes: replicated explosions in the arena bucket

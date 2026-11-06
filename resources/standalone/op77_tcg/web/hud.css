@@ -33,7 +33,7 @@
 #duelHud .dh-rhand { display: inline-flex; align-items: center; gap: 6px; }
 #duelHud .dh-rhand .fan { position: relative; display: inline-block; width: calc(18px + var(--n, 0) * 7px); height: 28px; }
 #duelHud .dh-rhand .fan i { position: absolute; left: calc(50% + var(--k) * 7px - 9px); bottom: 0; width: 18px; height: 26px;
-  background: url(img/backside.webp) center / cover; border: 1px solid rgba(255, 255, 255, .25); transform-origin: 50% 120%;
+  background: url(https://cdn.open77.dev/assets/tcg/v1/img/backside.webp) center / cover; border: 1px solid rgba(255, 255, 255, .25); transform-origin: 50% 120%;
   transform: rotate(calc(var(--k) * 8deg)); box-shadow: 0 2px 6px rgba(0, 0, 0, .6); }
 #duelHud .dh-rhand b { font-size: 18px; color: #fff; }
 #duelHud .dh-rhand small { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--da-dim); }

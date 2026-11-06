@@ -274,7 +274,7 @@ assert(opens[2] == "**II (Merc)**, 500 reputation: Hard missions and PvE activit
 assert(opens[5] == "**V (Legend)**, 10,000 reputation: rank V+ cyberware", opens[5])
 local ranks = Guide.listOf("cyberwareRanks")
 assert(ranks[1] == "Ranks I and II: from the start" and ranks[2] == "Rank III: tier II (Merc), 500 reputation" and ranks[5] == "Rank V+: tier V (Legend), 10,000 reputation", ranks[1])
-assert(Guide.resolve("{v:traumaKitPrice}") == "€$ 250" and Guide.resolve("{v:traumaKitShops}") == "Corner Market / City Center", "the trauma kit, in the city's market only")
+assert(Guide.resolve("{v:traumaKitPrice}") == "€$ 250" and Guide.resolve("{v:traumaKitShops}"):find("Corner Market / City Center", 1, true) and Guide.resolve("{v:traumaKitShops}"):find("Corner Market / Kabuki", 1, true), "the trauma kit, in the city's markets: " .. Guide.resolve("{v:traumaKitShops}"))
 assert(Guide.resolve("{v:cheapestFood}") == "€$ 9")
 for _, line in ipairs(Guide.listOf("foodPrices")) do assert(not line:find("Trauma", 1, true), "food prices list food and drinks only: " .. line) end
 local fees = table.concat(Guide.listOf("impoundFees"), "\n")

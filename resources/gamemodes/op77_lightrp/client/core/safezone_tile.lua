@@ -64,7 +64,7 @@ Tile.BOUNDS = { x = -410, y = -175, width = 250, height = 95 }
 
 local function create()
     local created, why
-    for _ = 1, 120 do
+    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
         created, why = WebUI.create({ entry = "web/safezone/index.html", layer = "hud", width = 1920, height = 1080,
             transparent = true, visible = true, fps = 30, zIndex = 758, drawBounds = Tile.BOUNDS })
         if created or why ~= "resource_preparing" then break end

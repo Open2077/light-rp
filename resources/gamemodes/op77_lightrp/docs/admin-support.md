@@ -2,8 +2,10 @@
 
 ## Accès en jeu
 
-- `/admin` ouvre le menu compact **LIGHT/RP**, au même emplacement que le menu
-  joueur : reports, citoyens connectés, historique et outils personnels.
+- `/admin` (et `/lightrp.admin`) ouvre le menu admin **LIGHT/RP**, au même
+  emplacement que le menu joueur. C'est le seul menu admin du serveur : il
+  réunit l'ancien menu compact de la plateforme et le bureau staff (voir
+  « Menu admin unifié » plus bas).
 - `/report` et `/reports` ouvrent les dossiers privés du joueur.
 - `/report message` ouvre un nouveau brouillon prérempli. Le joueur complète
   la catégorie et le sujet avant d'envoyer.
@@ -21,10 +23,52 @@
   masquer ce panneau pendant le traitement d'un dossier.
 - `/adminfull` conserve la console technique officielle, avec son ACL habituelle.
 
-La commande officielle `/admin` délègue à l'export `openAdmin` du gamemode
-lorsqu'il fonctionne. Conserver la modification de
-`resources/system/open77_admin/server/main.lua` après une mise à jour de la
-distribution. Sans LightRP, le comportement officiel reste disponible.
+`op77_lightrp` enregistre lui-même `/admin` (droit `command.admin`, le même que
+la plateforme). Le serveur cherche une commande dans les ressources lancées par
+ordre ordinal de nom, et `op77_lightrp` passe avant `open77_admin` : c'est donc
+ce menu qui répond. Le menu compact de la plateforme ne s'ouvre plus par-dessus.
+Aucune modification de `open77_admin` n'est nécessaire, et une mise à jour de la
+distribution ne casse rien. Sans LightRP, le `/admin` officiel reste disponible.
+
+## Menu admin unifié
+
+Les outils de la plateforme et ceux de LightRP sont lancés depuis le menu sous
+forme des commandes restreintes qu'ils sont déjà (`open77:command:execute`). L'ACL
+de l'hôte décide donc de chacune, comme si elle était tapée. La page n'accorde
+rien : la vue d'ensemble envoie la liste des commandes autorisées pour
+l'opérateur (`server/modules/admin.lua`, `COMMANDS`, une seule chaîne) et masque
+le reste. La réponse de chaque commande s'affiche sous le menu, en vert si elle a
+réussi, en rouge si elle a été refusée.
+
+| Section | Contenu |
+| --- | --- |
+| Reports | file des dossiers (inchangé) |
+| Players | fiche RP, puis aller à / ramener / spectate / soigner / ranimer / envoyer vers un lieu ; groupes **Moderation** (avertissement, kick, ban audités, god mode, kill), **Character & money** (nom, job, affiliation, argent audités, faim et soif, street cred, compte), **Give** (arme + munitions de son type, munitions, ses armes et munitions, retirer une arme qu'il n'a pas en main, objet, véhicule au garage, véhicule à côté), **Missions & activities** (gig, mission en cours, contrats, salle TCG) |
+| Personal tools | noclip, fly, vitesse, god mode, soin, réanimation, faim et soif, compte, console plateforme (`/adminfull`) |
+| Teleport | sur la carte (double-clic), coordonnées, lieux de `LightRpConfig.locations`, ramener tout le monde |
+| Vehicles | catalogue LightRP (`lightrp.car`), n'importe quel record du jeu, réparer et refaire le plein (`lightrp.repair`), plein seul, fourrière, locations, consommation, nettoyage, tout supprimer |
+| Items & weapons | **Weapons** par classe (avec des munitions de son type, l'arme arrive dans la roue des armes), **Ammunition** par type ou toutes, ses propres armes et munitions, puis chaque autre objet par catégorie |
+| World | **Time** (préréglages, heure exacte, figer, reprendre), **Weather** (chaque météo, suivante, aléatoire), **Announcements & voice** (annonce, broadcast vocal serveur / 150 m / off) |
+| Missions & events | éditeur de missions ; **Staff events** (cyberpsychos, attaques de gang, world bosses où l'on veut, soirées, spots : [staff-events.md](staff-events.md)) ; **World bosses** (planning, lancer, lancer celui choisi, programmer, finir en victoire, annuler), **Fixer gigs**, **Contracts & activities** (contrats du jour, activités, turf, Dogtown, salles TCG) |
+| Places & content | tables posées, Maneki-neko, housing, safe zones, panneau des jobs, PNJ guide, hall of fame |
+| Server | statut LightRP et plateforme, bots d'ambiance, ramener tout le monde, tout supprimer, annuler l'action de masse, console plateforme |
+| Staff history | journal des interventions auditées |
+
+**Tout part tout de suite** (choix du propriétaire, 2026-11-05 : « faut que ça
+soit rapide ») : aucune étape de confirmation, aucune raison à écrire. Les actions
+sans champ (aller à, ramener, soigner, kick, avertir, kill, aller à une table, la
+supprimer, un Maneki, finir ou annuler un événement, lancer et démarrer une
+soirée…) s'exécutent dès **Entrée** ; les autres n'affichent que leurs champs utiles
+(montant, durée de ban, nom…) puis **Apply / Run**. L'historique staff enregistre
+toujours chaque intervention, avec une ligne par défaut à la place de la raison. Les listes (véhicules,
+objets, lieux, météos) viennent de `adminCatalog`, sous forme de lignes `a|b|c`
+pour rester sous la limite de 1024 valeurs d'un événement réseau. Le clic droit
+sur un véhicule ou une porte (`open77_contextmenu`) ouvre toujours les actions
+ciblées de la plateforme.
+
+Test : `tests/admin_menu_test.lua` vérifie l'enregistrement de `/admin`, la
+projection ACL, la taille du catalogue et `/lightrp.repair`. En dev, le menu
+s'ouvre avec `ui` + `?admin=1`.
 
 ## Parcours joueur / admin
 
@@ -115,6 +159,17 @@ Commandes équivalentes : `/lightrp.tables [page | near]`,
 `/lightrp.tables tp <id>`, `/lightrp.tables delete <id> [return]` (la console
 serveur peut lister et supprimer). Détails : `docs/board-games.md`.
 
+## Events (modes anim)
+
+**Events** (droit `command.lightrp.events`) lance des world bosses, des cyberpsychos et
+des attaques de gang là où le staff veut (sa position, un joueur, un spot enregistré, ou
+la place d'origine d'un world boss), à trois niveaux, pour le fun (rien n'est payé ni
+compté) ou payés comme un world boss (droit `command.worldboss.start`). On y trouve aussi
+les événements en cours (aller voir, finir en victoire, annuler), les soirées enchaînées
+(Psycho Night, Boss Rush, Gang War, Siege), les spots enregistrés et l'interrupteur des
+world bosses aléatoires. Chaque action est auditée (`eventLaunch`, `eventStop`…).
+Commande équivalente : `/lightrp.event`. Détails : `docs/staff-events.md`.
+
 Les outils personnels **Noclip**, **God mode** et **Advanced console** réutilisent
 les commandes natives et leurs permissions. Leur journalisation reste celle
 du package officiel ; `lightrp_staff_audit` couvre les interventions du bureau RP.
@@ -144,6 +199,8 @@ sont contrôlées côté serveur, y compris après les lectures SQL asynchrones.
 | `command.lightrp.announce` | Annonce serveur |
 | `command.lightrp.tables` | Tables posées : liste et téléportation |
 | `command.lightrp.tabledelete` | Tables posées : suppression |
+| `command.lightrp.events` | Events : lancer, arrêter, spots, soirées, sans paie |
+| `command.worldboss.start` | Events payés, world bosses aléatoires |
 | `command.admin.self.noclip` / `god` | Outils personnels |
 | `command.adminfull` | Console technique |
 
@@ -220,3 +277,27 @@ afficher une réussite fictive. Sauvegarder ces tables avec le reste de la base 
 En jeu, vérifier avec un joueur et un admin : `/report`, prise en charge dans
 `/admin`, réponse publique, note privée absente côté joueur, résolution,
 reconnexion et consultation du dossier terminé.
+
+### Armes données par le staff
+
+`server/modules/armament_admin.lua` gère les armes données par le staff.
+
+**Commandes**
+
+| Commande | Effet |
+| --- | --- |
+| `/lightrp.giveweapon <id\|me> <arme> [munitions]` | donne une arme et, en option, des munitions de son type ; `<arme>` accepte `weapon_lexington`, `lexington`, le record ou le nom affiché |
+| `/lightrp.giveammo <id\|me> <pistol\|rifle\|shotgun\|sniper\|all> <munitions>` | donne des munitions en vrac |
+| `/lightrp.takeweapon <id\|me> <arme>` | retire un exemplaire qu'il n'a pas en main |
+| `/lightrp.weapons <id\|me>` | affiche ce que liste sa roue et ses munitions par type |
+
+Les droits viennent de `command.lightrp.*`. Un don est limité à 2000 munitions.
+
+**Pourquoi l'arme apparaît dans la roue :** une arme donnée est un vrai objet sérialisé. Son numéro de série est créé dans la transaction d'inventaire (`armament_store`), dans la même écriture que ses munitions. Ensuite :
+
+- la roue des armes du joueur est rafraîchie aussitôt ;
+- une arme en main charge les nouvelles munitions immédiatement.
+
+**À éviter :** les armes natives de la plateforme (`admin.weap.give`, console `/adminfull`) ne sont pas des objets LightRP. La projection les reprend, et elles n'apparaissent pas dans la roue.
+
+Test : `tests/armament_admin_test.lua`, qui utilise l'inventaire et le registre de numéros de série réels.

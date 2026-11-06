@@ -461,7 +461,7 @@ function WornArt({ record, family, fallback }: { record: string; family: "m" | "
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [record, family]);
   if (failed) return <Icon name={fallback} size={26} />;
-  return <img className="inv-worn__art" alt="" draggable={false} src={WARDROBE_ROOT + garmentIcon(record, family)} onError={() => setFailed(true)} />;
+  return <img className="inv-worn__art" alt="" draggable={false} loading="lazy" decoding="async" src={WARDROBE_ROOT + garmentIcon(record, family)} onError={() => setFailed(true)} />;
 }
 
 function ItemCard({ item, x, y }: { item: InventoryItem; x: number; y: number }) {

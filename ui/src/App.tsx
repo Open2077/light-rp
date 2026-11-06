@@ -27,6 +27,9 @@ import { AnimationMenu } from "@/features/animations/AnimationMenu";
 import { Freecam } from "@/features/freecam/Freecam";
 import { ManekiTool } from "@/features/maneki/ManekiTool";
 import { ManekiCollection } from "@/features/maneki/ManekiCollection";
+import { ParkourHud } from "@/features/parkour/ParkourHud";
+import { ParkourBrowser } from "@/features/parkour/ParkourBrowser";
+import { ParkourEditor } from "@/features/parkour/ParkourEditor";
 import { MissionDialog } from "@/features/missions/MissionDialog";
 import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
 import { RoomsDialog } from "@/features/rooms/RoomsDialog";
@@ -124,6 +127,7 @@ export function App() {
       <ErrorBoundary name="safezones"><Safezones /></ErrorBoundary>
       <ErrorBoundary name="mission-editor"><MissionEditor /></ErrorBoundary>
       <ErrorBoundary name="map-editor"><MapEditor /></ErrorBoundary>
+      <ErrorBoundary name="parkour-editor"><ParkourEditor /></ErrorBoundary>
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
       <ErrorBoundary name="fuel-route"><FuelApproach /></ErrorBoundary>
@@ -135,6 +139,7 @@ export function App() {
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>
+      <ErrorBoundary name="parkour-hud"><ParkourHud /></ErrorBoundary>
       <ErrorBoundary name="dogtown"><DogtownHud /></ErrorBoundary>
       <ErrorBoundary name="interact"><InteractPrompt /></ErrorBoundary>
       <ErrorBoundary name="weapon-wheel"><WeaponWheel /></ErrorBoundary>
@@ -157,6 +162,7 @@ export function App() {
       <ErrorBoundary name="guide"><GuideDialog /></ErrorBoundary>
       <ErrorBoundary name="dailies"><DailiesDialog /></ErrorBoundary>
       <ErrorBoundary name="maneki"><ManekiCollection /></ErrorBoundary>
+      <ErrorBoundary name="parkour"><ParkourBrowser /></ErrorBoundary>
       <ErrorBoundary name="fuel"><FuelDialog /></ErrorBoundary>
       <ErrorBoundary name="inventory"><InventoryDialog /></ErrorBoundary>
       <ErrorBoundary name="jobcenter"><JobCenterDialog /></ErrorBoundary>

@@ -12,9 +12,18 @@ local pending -- an open that arrived before the page was ready
 -- silent holds the keyboard and mouse with nothing on screen: every input blocked
 -- (LightRP Testing, 2026-11-04). Past ANSWER_MS without a word from the page, the focus
 -- goes back to the game, the interface closes and the patient gets up.
-local ANSWER_MS = 4000
+-- 5 s; then the open is sent once more (re-encoded, shown, focus taken: the menu shows
+-- "anyway", owner 2026-11-05), and only a second silence gives the game back.
+local ANSWER_MS = 5000
+local OPEN_TRIES = 2
 local openSeq, answered = 0, true
-local function log(fmt, ...) print("[ripperdoc] " .. fmt:format(...)) end
+-- Every line also goes to the server log (op77_ripperdoc:diag): a player whose interface does not show
+-- cannot read us their F8 console, the server log can (2026-11-05, a slow loader got no page).
+local function log(fmt, ...)
+    local text = fmt:format(...)
+    print("[ripperdoc] " .. text)
+    pcall(TriggerServerEvent, "op77_ripperdoc:diag", text:sub(1, 200))
+end
 
 local SOUNDS = {
     open = 0.85, close = 0.8, zoom_in = 0.8, zoom_out = 0.75, hover = 0.35, press = 0.6, menu_open = 0.7,
@@ -81,7 +90,14 @@ local ESCAPES = { ['"'] = '\\"', ["\\"] = "\\\\", ["\b"] = "\\b", ["\f"] = "\\f"
 local function encodeString(s)
     return '"' .. s:gsub('[%c"\\]', function(c) return ESCAPES[c] or string.format("\\u%04x", c:byte()) end) .. '"'
 end
+-- The clinic's payload is ~1600 values: encoded in one go, it ran past the client's script
+-- execution budget ("rd:open could not be encoded: ... budget exceeded", 2026-11-05, nothing
+-- reached the page). The encoder runs in a thread and yields every ENCODE_SLICE nodes.
+local ENCODE_SLICE = 120
+local encodeSteps = 0
 local function encode(value, depth, out)
+    encodeSteps = encodeSteps + 1
+    if encodeSteps % ENCODE_SLICE == 0 then Wait(0) end
     local t = type(value)
     if t == "nil" then out[#out + 1] = "null"
     elseif t == "boolean" then out[#out + 1] = value and "true" or "false"
@@ -118,12 +134,13 @@ local function encode(value, depth, out)
     else out[#out + 1] = "null" end
     return out
 end
-local function encodeJson(value) return table.concat(encode(value, 0, {})) end
+-- Thread only (it yields).
+local function encodeJson(value) encodeSteps = 0; return table.concat(encode(value, 0, {})) end
 local function sendLarge(name, payload)
     if not page or not pageReady then return false end
     local ok, text = pcall(encodeJson, payload == nil and {} or payload)
     if not ok or type(text) ~= "string" then
-        print("[ripperdoc] " .. name .. " could not be encoded: " .. tostring(text))
+        log("%s could not be encoded: %s", name, tostring(text))
         return false
     end
     if #text <= PART_BYTES then page:send(name, { __json = text }) return true end
@@ -144,26 +161,33 @@ local function sendLarge(name, payload)
 end
 
 local close
+local createPage, creating
 local function open(payload)
     if not page or not pageReady then
         pending = payload or {}
         log("open queued: page %s", page and "not ready yet" or "missing")
+        -- no surface at all (its creation gave up): try again now, the open runs once it is ready
+        if not page and not creating and createPage then CreateThread(createPage) end
         return
     end
     isOpen = true
     openSeq = openSeq + 1
     local seq = openSeq
     answered = false
-    pcall(function() page:show() end)
-    sendLarge("rd:open", payload or {})
-    local ok, why = pcall(function() return page:setFocus(true, true) end)
-    log("open sent (#%d), focus %s", seq, ok and "taken" or ("refused: " .. tostring(why)))
+    payload = payload or {}
     CreateThread(function()
-        Wait(ANSWER_MS)
-        if isOpen and openSeq == seq and not answered then
-            log("the page did not answer the open #%d in %d ms: focus released, interface closed", seq, ANSWER_MS)
-            close(true)
+        for try = 1, OPEN_TRIES do
+            if not isOpen or openSeq ~= seq or answered then return end
+            pcall(function() page:show() end)
+            local sent = sendLarge("rd:open", payload)
+            local ok, why = pcall(function() return page:setFocus(true, true) end)
+            log("open sent (#%d, try %d%s), focus %s", seq, try, sent and "" or ", NOT encoded", ok and "taken" or ("refused: " .. tostring(why)))
+            Wait(ANSWER_MS)
+            if not isOpen or openSeq ~= seq or answered then return end
+            if try < OPEN_TRIES then log("the page did not answer the open #%d in %d ms: sent again", seq, ANSWER_MS) end
         end
+        log("the page did not answer the open #%d after %d tries: focus released, interface closed", seq, OPEN_TRIES)
+        close(true)
     end)
 end
 
@@ -186,9 +210,11 @@ close = function(notify)
     if notify then TriggerServerEvent("op77_ripperdoc:closed") end
 end
 
-local function createPage()
+createPage = function()
+    if creating or page then return end
+    creating = true
     local created, why
-    for _ = 1, 120 do
+    for _ = 1, 2400 do -- up to 10 min: a slow first load keeps the resource preparing for minutes (2026-11-05)
         created, why = Open77.webui.create({
             entry = "web/index.html", layer = "menu", zIndex = 45, width = 1920, height = 1080,
             transparent = true, visible = true, fps = 60,
@@ -196,7 +222,8 @@ local function createPage()
         if created or why ~= "resource_preparing" then break end
         Wait(250)
     end
-    if not created then print("[ripperdoc] no WebUI surface: " .. tostring(why)) return end
+    creating = false
+    if not created then log("no WebUI surface: %s", tostring(why)) return end
     page = created
     page:on("ui:ready", function()
         pageReady = true
@@ -209,6 +236,11 @@ local function createPage()
         heard("sound")
         local name = type(payload) == "table" and type(payload.name) == "string" and payload.name or ""
         if name:match("^[%w_]+$") then playSound(name) end
+    end)
+    -- What the page received and the errors it hit (web/bridge-parts.js, App.tsx): the server log.
+    page:on("rd:diag", function(payload)
+        local text = type(payload) == "table" and type(payload.text) == "string" and payload.text or ""
+        if text ~= "" then log("page: %s", text:sub(1, 300)) end
     end)
     -- An install / removal: the server's clinic owner decides and answers (rd:result, rd:state).
     page:on("rd:action", function(payload)
@@ -233,7 +265,10 @@ if type(RegisterCommand) == "function" then
 end
 RegisterNetEvent("op77_ripperdoc:close", function() close(false) end)
 RegisterNetEvent("op77_ripperdoc:result", function(result) if isOpen then send("rd:result", type(result) == "table" and result or {}) end end)
-RegisterNetEvent("op77_ripperdoc:update", function(payload) if isOpen then sendLarge("rd:state", type(payload) == "table" and payload or {}) end end)
+RegisterNetEvent("op77_ripperdoc:update", function(payload)
+    if not isOpen then return end
+    CreateThread(function() if isOpen then sendLarge("rd:state", type(payload) == "table" and payload or {}) end end)
+end)
 
 AddEventHandler("onClientResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end

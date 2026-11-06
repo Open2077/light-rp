@@ -25,7 +25,11 @@ function WizardBody({ character }: { character: CharacterState }) {
   const nativePending = character.appearanceTracked && !character.bodyFamily;
   const [scene, setScene] = useState<{ phase: string; error?: string }>({ phase: "waiting" });
   const placing = scene.phase === "placement";
-  const sceneReady = scene.phase === "ready";
+  // The cover hides the arrival's teleport; it never stays for good (2026-11-05, a black screen at
+  // creation): the client shows the scene anyway after its own deadlines, and should that word never
+  // come, the cover lifts by itself after 30 s on whatever the game shows.
+  const [coverStale, setCoverStale] = useState(false);
+  const sceneReady = scene.phase === "ready" || coverStale;
   const [muted, setMuted] = useState(false);
   const [reduced, setReduced] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [editor, setEditor] = useState(false);
@@ -59,6 +63,12 @@ function WizardBody({ character }: { character: CharacterState }) {
     if (value.error) setFeedback(value.error);
   }), []);
   useEffect(() => on<{ phase: string; error?: string }>(PAGE_EVENTS.creator, setScene), []);
+  useEffect(() => {
+    setCoverStale(false);
+    if (scene.phase === "ready" || scene.phase === "closed" || scene.phase === "editor" || scene.phase === "placement") return;
+    const id = window.setTimeout(() => setCoverStale(true), 30000);
+    return () => window.clearTimeout(id);
+  }, [scene.phase]);
   useEffect(() => {
     emit(PAGE_EVENTS.creator, { shot: page, muted, reducedMotion: reduced });
   }, [page, muted, reduced, editor]);

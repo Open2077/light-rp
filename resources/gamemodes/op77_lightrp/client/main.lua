@@ -14,6 +14,7 @@ AddEventHandler("onClientResourceStart", function(name)
     if LightRpSafezones then LightRpSafezones.start() end
     if LightRpMissionEditor then LightRpMissionEditor.start() end
     if LightRpMapEditor then LightRpMapEditor.start() end
+    if LightRpParkourClient then LightRpParkourClient.start() end
 
     local key = Config.keys.menu
     local ok, effective = RegisterKeyMapping(key.id, key.name, key.key, function()

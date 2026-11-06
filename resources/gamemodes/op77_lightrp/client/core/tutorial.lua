@@ -25,7 +25,7 @@ function Tutorial.publish()
         local key=LightRpConfig.keys[name]
         keys[name]=Open77.input.keyFor(key.id) or key.key
     end
-    for _,name in ipairs({"skip","way"}) do
+    for _,name in ipairs({"skip","way","quit"}) do
         if R[name] then keys[name]=Open77.input.keyFor(R[name].id) or R[name].key end
     end
     keys.context=Tutorial.contextKey or "ALT"
@@ -300,6 +300,8 @@ function Tutorial.bind(page)
     local pressed={
         skip=function() if reveal then endReveal() end end,
         way=function() if not camera then wantReveal(true) end end,
+        -- skip the whole first day: the page asks for confirmation (its buttons take the cursor)
+        quit=function() if state and state.active then LightRpUi.send(E.page.tutorial,{skipAsk=true}) end end,
     }
     for name,fn in pairs(pressed) do
         local key=R[name]

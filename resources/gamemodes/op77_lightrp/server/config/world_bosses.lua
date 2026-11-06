@@ -8,6 +8,11 @@
 LightRpWorldBosses = {
     enabled = true,
 
+    -- World events out at once: the random world boss and the staff's events
+    -- (server/modules/staff_events.lua, /admin > Events). The random one only comes when
+    -- none is out.
+    maxLive = 4,
+
     schedule = {
         -- the first one this long after the server start, then a random wait between
         -- `minMinutes` and `maxMinutes` after the previous one ended

@@ -40,11 +40,18 @@
   const report=(where,e)=>{try{emit("wardrobe:pageError",{message:where+": "+String(e && (e.stack || e.message) || e).slice(0,400),line:0});}catch(_){}};
   // Bridge handlers report their own failures: the bridge swallows exceptions.
   const on=(name,fn)=>Open77.on(name,value=>{try{fn(value);}catch(e){report(name,e);}});
+  // The icon files are served from the Open77 CDN, not shipped with the resource (3,580 webp,
+  // ~29 MB the client no longer downloads): the manifest keeps their relative names (the
+  // server's take-away checks them), the page loads each one when it is shown (lazy). The
+  // page is created with the WebUI policy "images" (client/main.lua). A new icon set goes under
+  // a new version folder (tools/upload-icons-cdn.py).
+  const ICON_CDN="https://cdn.open77.dev/assets/wardrobe/v1/";
+  const iconUrl=src=>/^icons\/[mf]\//.test(String(src||""))?ICON_CDN+src:String(src||"");
   function iconFor(record){if(!record)return "";const entry=icons[record] || icons[canonical(record)] || {};return entry[family] || entry[family==="m"?"f":"m"] || "";}
   function art(record,className){
     const box=document.createElement("span");box.className=className;const src=iconFor(record);
     if(!src){box.classList.add("none");return box;}
-    const img=document.createElement("img");img.src=src;img.alt="";img.loading="lazy";img.draggable=false;img.decoding="async";
+    const img=document.createElement("img");img.alt="";img.loading="lazy";img.draggable=false;img.decoding="async";img.src=iconUrl(src);
     img.onerror=()=>{img.remove();box.classList.add("none");};box.append(img);return box;
   }
 
@@ -221,7 +228,7 @@
     const box=document.createElement("span");box.className=className;
     const pieces=["Head","OuterChest","InnerChest","Outfit","Legs","Feet","Face"].map(s=>visualValue(slots[s])).filter(Boolean).slice(0,4);
     if(!pieces.length){box.classList.add("empty");box.textContent="EMPTY";return box;}
-    pieces.forEach(r=>{const s=document.createElement("span");const src=iconFor(r);if(src){const img=document.createElement("img");img.src=src;img.alt="";img.loading="lazy";img.onerror=()=>img.remove();s.append(img);}box.append(s);});
+    pieces.forEach(r=>{const s=document.createElement("span");const src=iconFor(r);if(src){const img=document.createElement("img");img.decoding="async";img.src=iconUrl(src);img.alt="";img.loading="lazy";img.onerror=()=>img.remove();s.append(img);}box.append(s);});
     return box;
   }
   function renderOutfits() {
@@ -274,7 +281,7 @@
     for(const s of M.slots){const r=look[s];if(!r || (onlyNew && initialLook && M.equal(initialLook[s],r)))continue;list.push({slot:s,record:canonical(r),label:itemName(r),icon:iconFor(r)});}
     return list;
   }
-  function fillArt(box,pieces){box.replaceChildren();pieces.slice(0,4).forEach(p=>{const s=document.createElement("span");if(p.icon){const img=document.createElement("img");img.src=p.icon;img.alt="";s.append(img);}box.append(s);});}
+  function fillArt(box,pieces){box.replaceChildren();pieces.slice(0,4).forEach(p=>{const s=document.createElement("span");if(p.icon){const img=document.createElement("img");img.loading="lazy";img.decoding="async";img.src=iconUrl(p.icon);img.alt="";s.append(img);}box.append(s);});}
   function setTakeMode(next){takeMode=next;for(const [id,m] of [["take-pieces","pieces"],["take-outfit","outfit"]]){$(id).classList.toggle("selected",m===next);$(id).setAttribute("aria-checked",String(m===next));}$("take-name-row").hidden=next!=="outfit";}
   function offerTakeAway() {
     const look=takeLook || visibleLook(baseline),pieces=lookPieces(look,true),all=lookPieces(look,false);

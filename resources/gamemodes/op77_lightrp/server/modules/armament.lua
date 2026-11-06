@@ -763,8 +763,11 @@ LightRP.module("armament",{
             retire(player,"Weapon projection waits for a living character.")
         else attach(player) end
     end,
-    -- the LightRP page comes up in the world: a second proof, should gameplayReady not come
-    onUiReady=function(player) W.enterWorld(player,"ui ready");W.push(player) end,
+    -- the platform's readiness gate opened (onPlayerReady: incarnated, past the continue screen): the
+    -- second proof, should gameplayReady not reach us. NOT the page's ui ready: it comes during the
+    -- loading screen on a slow loader (Testing 2026-11-05, 2 min load: snapshots timed out, queue_full)
+    onReady=function(player) W.enterWorld(player,"player ready") end,
+    onUiReady=function(player) attach(player);W.push(player) end,
 })
 -- Puts away whatever is in the hands without changing the loadout: drawn Mantis Blades
 -- (sheathed), a pocket firearm, the bare fists. B and the wheel's top slot. With the
