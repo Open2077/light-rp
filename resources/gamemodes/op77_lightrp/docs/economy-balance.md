@@ -1067,7 +1067,8 @@ d'achat-revente n'est possible.
 
 ## 18. Auto Studio : prix provisoires (branche `vc/a3-studio-full`)
 
-Le studio complet vend dix catégories. Tous les tarifs sont dans **un seul tableau**
+Le studio complet propose dix catégories ; neuf sont en vente, les vitres sont fermées
+(voir la ligne Vitres). Tous les tarifs sont dans **un seul tableau**
 serveur, `LightRpCustomizationPricing` (`server/config/vehicle_customization.lua`).
 Le client n'envoie jamais de prix. Seule la peinture est décidée (propriétaire,
 2026-11-05). Tout le reste est **provisoire**, marqué `-- PROVISIONAL`, et attend la
@@ -1083,12 +1084,12 @@ référence de la §17 : J ≈ 2 200 €$/h au grade d'entrée, environ 3 300 �
 | Peinture | 2 500 | les deux canaux | 1,1 | `vehicle_paint` | décidée le 2026-11-05 (§17) |
 | Livrée | 4 000 | un schéma deux tons d'usine, ou retour à la peinture unie | 1,8 | `vehicle_livery` | au-dessus de la peinture : deux tons, posés sur la couche d'usine |
 | Jantes | 6 000 | le jeu complet (toutes les roues, une finition), ou retour aux jantes d'usine | 2,7 | `vehicle_rims` | 20 % d'une Hella (30 000) : le premier achat visible de loin |
-| Carrosserie | 3 500 | **par groupe changé** (aileron, lame, bas de caisse, toit, pare-buffle) | 1,6 par groupe | `vehicle_bodykit` | le kit complet de 5 groupes coûte 17 500, soit environ 8 h |
+| Carrosserie | 3 500 | **par groupe changé** (aileron, ouïes arrière, lame, canards, bas de caisse, diffuseur, capot, toit, protection avant) | 1,6 par groupe | `vehicle_bodykit` | 9 groupes au plus (Thrax) : 31 500, soit environ 14 h ; 7 groupes sur une Hella : 24 500 |
 | Néon | 5 000 | le kit avec couleur et intensité, ou son retrait | 2,3 | `vehicle_neon` | visible de nuit par tous, au niveau des jantes |
 | Phares | 500 | une teinte, ou retour aux phares d'usine | 0,2 | `vehicle_lights` | phase 1 : un seul paramètre (la teinte) |
 | Finition | 2 500 | une variante d'usine | 1,1 | `vehicle_trim` | phase 1 : au prix de la peinture |
 | Plaque | 2 500 | une nouvelle immatriculation | 1,1 | `vehicle_plate` | unique sur le serveur ; le prix freine les changements à répétition |
-| Vitres | — | non vendu (« Coming soon ») | — | — | aucun natif pour l'instant |
+| Vitres | 1 500 | une teinte, tout niveau, ou retour au verre d'usine | 0,7 | `vehicle_tint` | configuré mais **non vendu** : le natif existe et la bascule marche, mais le verre s'affiche encore comme celui d'usine ; catégorie fermée (« Coming soon ») |
 | Performance | par modèle et par palier (tableau ci-dessous) | les paliers entre l'actuel et la cible | — | `vehicle_stage` | proposition E5 |
 | Retrait d'un palier | 1 000 | redescendre, ou revenir au stock | 0,5 | `vehicle_stage` | rien n'est remboursé |
 
@@ -1138,21 +1139,25 @@ La source est `scripts/vehicle-kit/stages/STAGES.md`, dans le dépôt Open77.
 
 ### 18.2 Ordres de grandeur
 
-- **Cosmétique complet.** Une Hella avec peinture, jantes, kit de 5 groupes, néon,
-  plaque et phares coûte 34 000 €$ (113 % du prix de la voiture). Cela représente
-  environ 15,5 h au grade d'entrée, ou 10 h au grade 3.
-- **Cosmétique et palier 3.** Avec le palier 3 en plus, la même Hella coûte 45 000 €$
-  (150 % de la voiture), soit environ 20 h au grade d'entrée.
-- **Coût fixe.** Le cosmétique ne dépend pas du modèle : il pèse lourd sur une
-  MaiMai (340 % de 10 000) et peu sur une Semimaru (14 %). C'est voulu, pour que le
-  style soit accessible. Si le propriétaire préfère un prix proportionnel au
-  véhicule, il faut un coefficient par modèle, comme pour les paliers.
+- **Cosmétique complet.** Une Hella avec peinture, jantes, kit complet (les 7 groupes
+  qui lui vont), néon, plaque et phares coûte 41 000 €$ (137 % du prix de la voiture).
+  Cela représente environ 19 h au grade d'entrée, ou 12,5 h au grade 3. Avec le kit de
+  5 groupes de la première version, c'était 34 000 €$ (113 %).
+- **Cosmétique et palier 3.** Avec le palier 3 en plus, la même Hella coûte 52 000 €$
+  (173 % de la voiture), soit environ 24 h au grade d'entrée.
+- **Coût fixe.** Les prix cosmétiques ne dépendent pas du modèle ; seul le nombre de
+  groupes de carrosserie qui lui vont change le total. Le cosmétique complet pèse donc
+  lourd sur une MaiMai (34 000, 340 % de 10 000, 5 groupes) et peu sur une Semimaru
+  (37 500, 15 %, 6 groupes). C'est voulu, pour que le style soit accessible. Si le
+  propriétaire préfère un prix proportionnel au véhicule, il faut un coefficient par
+  modèle, comme pour les paliers.
 
 ### 18.3 Questions au propriétaire
 
 - **Prix cosmétiques.** Faut-il garder les prix provisoires (livrée 4 000, jantes
   6 000, carrosserie 3 500 par groupe, néon 5 000, plaque 2 500, phares 500, finition
-  2 500) ? Faut-il les rendre proportionnels au prix du véhicule ?
+  2 500, vitres 1 500 à la réouverture) ? Faut-il les rendre proportionnels au prix
+  du véhicule ?
 - **Paliers.** Faut-il garder la proposition E5, le retrait à 1 000 sans remboursement
   et le délai de 10 min ?
 - **Plaque.** Le format provisoire est de 7 caractères A-Z/0-9, et les listes de mots
