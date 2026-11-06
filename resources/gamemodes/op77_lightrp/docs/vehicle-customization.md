@@ -51,7 +51,7 @@ client yet**: the [Lab checklist](#lab-checklist-two-clients) is still to run.
 | Plate | Written on the car through `setPlate`, with the 9 m rebuild (see [Plate](#plate)); kept through a restart and an impound |
 | Windows | The switch works and the level is kept through a restart and an impound; the glass renders as factory. Closed |
 | Performance | Stage 1 bought and stored with the rest of the look; Performance greyed when TweakXL 1.12 is missing |
-| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Nothing: no build has their natives yet and the garage registry is still a patch. Covered by tests only |
+| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | The wave 2 build runs in the lab since 2026-11-06 14:45 (natives registered, `43 stickers … registerStickers: true`). The owner opened Stickers in the studio and saw the one set `lightrp_vehicle_stickers` gives each model. Nothing bought or checked row by row yet; the rest is covered by tests only |
 
 **The Hella's side skirts.** The side skirts in the table were bought on the Hella with
 the first, 8-part catalogue, where `skirt_side` had a Hella fit. The 30-part kit keeps the id
@@ -459,6 +459,13 @@ Ledger kind `vehicle_stickers`.
   now. A livery and stickers are never bought while the other is previewed ("Apply or
   undo your livery preview first: stickers share its decal budget.").
 - **Price per sticker added.** A change that only removes stickers costs one sticker.
+- **Theme packs.** Open77's original sticker pack (`lightrp_vehicle_original_stickers`,
+  built by `scripts/vehicle-kit/stickers` in the Open77 repository) registers one group
+  per theme: `Original: Race`, `Original: Graffiti`, `Original: Circuit`,
+  `Original: Wave and sun`, `Original: Pinstripe`. Each is its own section of the
+  page, with no change to Light RP. A theme's set takes 2 to 9 decals, so two themes on
+  one car can pass 12: the meter and the server refuse it, as above. Not seen in game
+  yet; the pack waits on the owner's choice of themes.
 
 #### Tag
 
@@ -996,7 +1003,7 @@ within 20 m of Bay 01. Both clients connected after the packs were added.
 | 12 | During any preview, A presses Escape / dies / drives off | The confirmed look of every category comes back on both clients; no ledger entry |
 | 13 | Read the server and client logs | No `part … not registered`, no `customization rollback pending`; client `red4ext/logs/open77-*.log` has no `attach:` skip for the Hella; `TweakXL-*.log` reads `LightRP\open77-lightrp-stages.yaml` |
 
-**Wave 2 (rows 14-21).** These need a server build with the wave 2 natives,
+**Wave 2 (rows 14-22).** These need a server build with the wave 2 natives,
 `server/modules/garages.lua` with the [category registry](#the-garages-category-registry),
 and the sticker and engine sound packs installed. The server log must not show
 `this garage has no category registry`.
@@ -1011,6 +1018,7 @@ and the sticker and engine sound packs installed. The server log must not show
 | 19 | Tag (if listed): `Night Owl`, Marker, Left door; then a reserved word such as `NCPD` | Painted on the left door for B; the reserved word is refused |
 | 20 | Park, restart, retrieve; then run a server build without the wave 2 natives and retrieve; then back | Every wave 2 choice comes back; on the older build the car comes out without them, the rows are greyed and the log reads `garage: … keeps studio choices this server build cannot put on it dormant`; back on the full build they return |
 | 21 | During any wave 2 preview: wait for an autosave, then Escape | The SQL row (`lightrp_owned_vehicles.properties`) holds the confirmed values, never the preview; Escape gives the confirmed look back on both clients, no ledger entry |
+| 22 | With `lightrp_vehicle_original_stickers` installed (both clients relaunched after it, since TweakXL makes its records at game start): on the Thrax, add the Race set, then the Pinstripe set | One section per theme; Race (9) shows on A and B; adding Pinstripe (9) is refused "Too many decals: 18 of 12…" and by the server (`decal_budget_exceeded`); no client crashes. Then park, restart, retrieve: the Race set comes back on both clients |
 
 Fill `support`, the rim and body fits, and the stage values from these
 measurements: which records render rims and parts where expected, and which stages
