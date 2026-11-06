@@ -194,6 +194,13 @@ in the pack `lightrp_vk_body` and 238 fits on 13 records, all in the `Base` slot
 Thrax takes all 9 groups, the Merrimac 3; the Hella takes 25 parts in 7 groups (no
 rear louvers, no side skirts).
 
+Parts on an opening panel follow it (contract section 5, "Carried parts"): the wings
+except `wing_roof` and the rear louvers name the trunk lid's slot as their `carrier`,
+the hood scoop and vents the hood's, so a wing rises with the trunk lid instead of
+staying in mid-air. On a car where the fit table's `evidence.lid` finds no lid under
+the part (the Bandit's, Quartz's or Semimaru's wings, the Thrax's louvers), the fit
+says `carrier = false` and the part stays on the body.
+
 | Group | Parts |
 | --- | --- |
 | Wing | `wing_street`, `wing_gt`, `wing_duck`, `wing_rally`, `wing_lip`, `wing_low`, `wing_dual`, `wing_drift`, `wing_bat`, `wing_roof` |
@@ -737,17 +744,25 @@ The ids are local; the platform namespaces them as `op77_lightrp:<id>`.
   wheel meshes), plus a B2 `wheels` list when the axles differ. A `wheels` list
   replaces the default slots, and each entry inherits the fit-level values and lists
   only what differs.
-- **Body parts.** `{ kind = "part", slot = "Base", label, variants, fit = { [record] =
-  { offset, rotation?, scale?, hide? } } }`. Keep `Base` for now: see the
-  `evidence.lid` note in E2's `scripts/vehicle-kit/docs/bodykit.md`.
+- **Body parts.** `{ kind = "part", slot = "Base", carrier?, label, variants, fit = {
+  [record] = { offset, rotation?, scale?, hide?, carrier? } } }`. The offsets stay
+  measured from `Base`; `carrier` only moves the part with its panel. Wings (except
+  `wing_roof`) and rear louvers carry `carriers.trunk`, hood parts `carriers.hood`:
+  the `carriers` table at the top of the generated file, set from `CARRIER_SLOTS` in
+  the generator (`trunk_a`, `hood_a`). Which slot really follows a lid is not measured
+  in game yet: if `trunk_a` stays put, swap it there for `doorTrunk` in one line. A fit
+  says `carrier = false` where `evidence.lid` finds no lid under the part. A server
+  that predates carriers refuses the key (`invalid_part:<id>.carrier`); the module logs
+  it once and registers the kit without any carrier, every part on `Base` as before.
 - **Trims.** A curated trim is another appearance whose stock rims have other component
   names and often another depth. `server/config/vehicle_kit_trims.lua` (E1b, E1c)
   holds them; a rim's record fit carries them as `fit.appearances`, which the platform
   resolves from the car's current appearance. A body part merges its trims' extra hide
   names into the record fit.
 
-**Budgets, checked by the tests.** The fullest kit on one car is 230 JSON values and at
-most 3,773 bytes of `open77.visual` (caps 256 and 4,096, on the Thrax). The largest
+**Budgets, checked by the tests.** The fullest kit on one car is 232 JSON values and at
+most 3,812 bytes of `open77.visual` (caps 256 and 4,096, on the Thrax; a carried part
+costs one value more). The largest
 `registerParts` call is 1,558 values (marshaller cap 4,096). The largest studio
 category sent to a client is 405 values (client event cap 1,024).
 
@@ -826,7 +841,7 @@ one client, late joins and other viewers are not checked yet (see
 | Body paint | `setPaint`, `resetPaint`, `getPaint` | Primary/secondary RGB, separate applied flag; clears a livery | Implemented |
 | Livery | `listPaintProfiles`, `setPaintProfile`, `getVisual` (pack: `registerPaintProfiles`) | TwinTone profiles of the record, factory and pack; `invalid_profile` refused; at most 12 decals per template | Implemented (phase 2) |
 | Rims | `registerParts`, `listParts`, `setWheels`, `getVisual` | One rim set; B2 per-wheel fits; key `rims.<slot>` | Implemented (phase 2) |
-| Body kit | `registerParts`, `listParts`, `setParts`, `getVisual` | Slot `Base`; ≤ 16 attachments; exclusivity in Light RP | Implemented (phase 2) |
+| Body kit | `registerParts`, `listParts`, `setParts`, `getVisual` | Slot `Base`, `carrier` for lid parts; ≤ 16 attachments; exclusivity in Light RP | Implemented (phase 2); carriers not seen in game |
 | Neon | `setNeon`, `clearNeon`, `getVisual` | Colour, intensity 0–5000, radius | Implemented (phase 2) |
 | Light tint | `setHeadlightColor`, `clearLightsHue`, `setLightsHue`, `getLightsHue` | One hue in 0..1 | Implemented |
 | Trim | `getAppearance`, `setAppearance` | Curated names, `world.vehicles.appearance` | Implemented |

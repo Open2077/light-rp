@@ -4,6 +4,10 @@
 -- Every offset is an OFFLINE ESTIMATE from mesh data until seen in game (docs/vehicle-customization.md).
 -- Server only: the registerParts catalogue (parts.*.fit) and the studio data (order, groups,
 -- finishes). The models come from the packs `rims.pack` / `body.pack` (asset:<pack>/<model>).
+-- The carrier slot of each opening panel (contract section 5, "Carried parts"): a part
+-- with `carrier` follows the movement of that slot (a wing rises with the trunk lid).
+-- Not measured in game: swap `trunk_a` here (e.g. "doorTrunk") if the lid does not move it.
+local carriers = { trunk = "trunk_a", hood = "hood_a" }
 local rimFit = {
     ["Vehicle.v_standard2_makigai_maimai_player"] = {
         offset = { 0.0156, 0, 0 },
@@ -297,6 +301,7 @@ LightRpVehicleKit = {
     },
     body = {
         pack = "lightrp_vk_body",
+        carriers = carriers,
         groups = {
             { id = "spoiler", label = "Wing", parts = { "wing_street", "wing_gt", "wing_duck", "wing_rally", "wing_lip", "wing_low", "wing_dual", "wing_drift", "wing_bat", "wing_roof" } },
             { id = "louver", label = "Rear louvers", parts = { "louver_rear" } },
@@ -312,6 +317,7 @@ LightRpVehicleKit = {
             wing_street = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Street wing",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_street_carbon",
@@ -320,8 +326,8 @@ LightRpVehicleKit = {
                 },
                 fit = {
                     ["Vehicle.v_standard2_archer_hella_player"] = { offset = { 0, -2.588, 0.184 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -2.07, 0.176 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -2.067, 0.179 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -2.07, 0.176 }, scale = { 1.1, 1, 1 }, carrier = false },
+                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -2.067, 0.179 }, scale = { 1.1, 1, 1 }, carrier = false },
                     ["Vehicle.v_standard2_villefort_cortes_player"] = { offset = { 0, -2.686, 0.136 }, scale = { 1.1, 1, 1 } },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = {
                         offset = { 0, -1.971, 0.291 },
@@ -329,12 +335,13 @@ LightRpVehicleKit = {
                         hide = { "wing_a", "wing_a_shadow" },
                     },
                     ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -2.886, 0.088 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -2.056, 0.265 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -2.056, 0.265 }, scale = { 1.1, 1, 1 }, carrier = false },
                 },
             },
             wing_gt = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "GT swan-neck wing",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_gt_carbon",
@@ -343,8 +350,8 @@ LightRpVehicleKit = {
                 },
                 fit = {
                     ["Vehicle.v_standard2_archer_hella_player"] = { offset = { 0, -2.384, 0.211 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -1.926, 0.307 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -1.944, 0.168 }, scale = { 1.06, 1, 1 } },
+                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -1.926, 0.307 }, scale = { 1.1, 1, 1 }, carrier = false },
+                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -1.944, 0.168 }, scale = { 1.06, 1, 1 }, carrier = false },
                     ["Vehicle.v_standard2_villefort_cortes_player"] = { offset = { 0, -2.464, 0.176 }, scale = { 1.1, 1, 1 } },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = {
                         offset = { 0, -1.495, 0.5 },
@@ -352,12 +359,13 @@ LightRpVehicleKit = {
                         hide = { "wing_a", "wing_a_shadow" },
                     },
                     ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -2.664, 0.112 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -1.965, 0.272 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -1.965, 0.272 }, scale = { 1.1, 1, 1 }, carrier = false },
                 },
             },
             wing_duck = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Ducktail",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_duck_carbon",
@@ -373,22 +381,40 @@ LightRpVehicleKit = {
                         rotation = { 14.5, 0, 0 },
                         scale = { 0.908, 1, 1 },
                         hide = { "trunk_spoiler", "trunk_spoiler_shadow" },
+                        carrier = false,
                     },
                     ["Vehicle.v_standard2_makigai_maimai_player"] = {
                         offset = { 0, -0.67, 0.956 },
                         rotation = { -2, 0, 0 },
                         scale = { 1.062, 1, 1 },
                         hide = { "v_standard2_makigai_maimai__ext01_spoiler_gt_01", "v_standard2_makigai_maimai__ext01_spoiler_gt_01_shadow" },
+                        carrier = false,
                     },
                     ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -3.07, 0.075 }, rotation = { 6, 0, 0 }, scale = { 1.25, 1, 1 } },
-                    ["Vehicle.v_standard25_mahir_supron_player"] = { offset = { 0, -1.79, 1.082 }, rotation = { 4.5, 0, 0 }, scale = { 0.95, 1, 1 } },
-                    ["Vehicle.v_standard25_villefort_columbus_player"] = { offset = { 0, -2.42, 1.089 }, rotation = { 8.5, 0, 0 }, scale = { 1.012, 1, 1 } },
-                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -2.24, 0.277 }, rotation = { 1, 0, 0 }, scale = { 0.731, 1, 1 } },
+                    ["Vehicle.v_standard25_mahir_supron_player"] = {
+                        offset = { 0, -1.79, 1.082 },
+                        rotation = { 4.5, 0, 0 },
+                        scale = { 0.95, 1, 1 },
+                        carrier = false,
+                    },
+                    ["Vehicle.v_standard25_villefort_columbus_player"] = {
+                        offset = { 0, -2.42, 1.089 },
+                        rotation = { 8.5, 0, 0 },
+                        scale = { 1.012, 1, 1 },
+                        carrier = false,
+                    },
+                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = {
+                        offset = { 0, -2.24, 0.277 },
+                        rotation = { 1, 0, 0 },
+                        scale = { 0.731, 1, 1 },
+                        carrier = false,
+                    },
                 },
             },
             wing_rally = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Tall rally wing",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_rally_carbon",
@@ -397,8 +423,8 @@ LightRpVehicleKit = {
                 },
                 fit = {
                     ["Vehicle.v_standard2_archer_hella_player"] = { offset = { 0, -2.585, 0.187 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -2.083, 0.154 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -1.995, 0.179 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -2.083, 0.154 }, scale = { 1.1, 1, 1 }, carrier = false },
+                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -1.995, 0.179 }, scale = { 1.1, 1, 1 }, carrier = false },
                     ["Vehicle.v_standard2_villefort_cortes_player"] = { offset = { 0, -2.709, 0.131 }, scale = { 1.1, 1, 1 } },
                     ["Vehicle.v_standard2_thorton_colby_player"] = { offset = { 0, -1.94, 0.566 }, scale = { 0.965, 1, 0.55 } },
                     ["Vehicle.v_standard2_thorton_galena_player"] = {
@@ -410,6 +436,7 @@ LightRpVehicleKit = {
                         offset = { 0, -0.58, 0.954 },
                         scale = { 1.064, 1, 0.55 },
                         hide = { "v_standard2_makigai_maimai__ext01_spoiler_gt_01", "v_standard2_makigai_maimai__ext01_spoiler_gt_01_shadow" },
+                        carrier = false,
                     },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = {
                         offset = { 0, -1.965, 0.291 },
@@ -417,12 +444,13 @@ LightRpVehicleKit = {
                         hide = { "wing_a", "wing_a_shadow" },
                     },
                     ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -2.909, 0.085 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -2.079, 0.274 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -2.079, 0.274 }, scale = { 1.1, 1, 1 }, carrier = false },
                 },
             },
             wing_lip = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Trunk lip spoiler",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_lip_carbon",
@@ -430,7 +458,12 @@ LightRpVehicleKit = {
                     matte = "asset:lightrp_vk_body/wing_lip_matte",
                 },
                 fit = {
-                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -2.32, 0.064 }, rotation = { 9.5, 0, 0 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_standard2_archer_quartz_player"] = {
+                        offset = { 0, -2.32, 0.064 },
+                        rotation = { 9.5, 0, 0 },
+                        scale = { 1.1, 1, 1 },
+                        carrier = false,
+                    },
                     ["Vehicle.v_standard2_villefort_cortes_player"] = { offset = { 0, -2.79, 0.127 }, rotation = { 10.5, 0, 0 }, scale = { 1.3, 1, 1 } },
                     ["Vehicle.v_standard2_thorton_colby_player"] = { offset = { 0, -2.03, 0.564 }, rotation = { 6.5, 0, 0 }, scale = { 0.95, 1, 1 } },
                     ["Vehicle.v_standard2_thorton_galena_player"] = {
@@ -444,6 +477,7 @@ LightRpVehicleKit = {
                         rotation = { -1, 0, 0 },
                         scale = { 1.113, 1, 1 },
                         hide = { "v_standard2_makigai_maimai__ext01_spoiler_gt_01", "v_standard2_makigai_maimai__ext01_spoiler_gt_01_shadow" },
+                        carrier = false,
                     },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = {
                         offset = { 0, -2.05, 0.287 },
@@ -452,14 +486,30 @@ LightRpVehicleKit = {
                         hide = { "wing_a", "wing_a_shadow" },
                     },
                     ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -3.07, 0.077 }, rotation = { 5.5, 0, 0 }, scale = { 1.3, 1, 1 } },
-                    ["Vehicle.v_standard25_mahir_supron_player"] = { offset = { 0, -1.75, 1.11 }, rotation = { -9, 0, 0 }, scale = { 1.048, 1, 1 } },
-                    ["Vehicle.v_standard25_villefort_columbus_player"] = { offset = { 0, -2.44, 1.078 }, rotation = { 16, 0, 0 }, scale = { 1.097, 1, 1 } },
-                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -2.24, 0.279 }, rotation = { 2, 0, 0 }, scale = { 0.739, 1, 1 } },
+                    ["Vehicle.v_standard25_mahir_supron_player"] = {
+                        offset = { 0, -1.75, 1.11 },
+                        rotation = { -9, 0, 0 },
+                        scale = { 1.048, 1, 1 },
+                        carrier = false,
+                    },
+                    ["Vehicle.v_standard25_villefort_columbus_player"] = {
+                        offset = { 0, -2.44, 1.078 },
+                        rotation = { 16, 0, 0 },
+                        scale = { 1.097, 1, 1 },
+                        carrier = false,
+                    },
+                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = {
+                        offset = { 0, -2.24, 0.279 },
+                        rotation = { 2, 0, 0 },
+                        scale = { 0.739, 1, 1 },
+                        carrier = false,
+                    },
                 },
             },
             wing_low = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Low bridge wing",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_low_carbon",
@@ -467,12 +517,13 @@ LightRpVehicleKit = {
                     red = "asset:lightrp_vk_body/wing_low_red",
                 },
                 fit = {
-                    ["Vehicle.v_standard2_archer_hella_player"] = { offset = { 0, -2.547, 0.166 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_standard2_archer_hella_player"] = { offset = { 0, -2.547, 0.166 }, scale = { 1.1, 1, 1 }, carrier = false },
                     ["Vehicle.v_standard2_villefort_cortes_player"] = { offset = { 0, -2.69, 0.129 }, scale = { 1.1, 1, 1 } },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = {
                         offset = { 0, -1.695, 0.654 },
                         scale = { 1.1, 1, 1 },
                         hide = { "wing_a", "wing_a_shadow" },
+                        carrier = false,
                     },
                     ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -2.954, 0.072 }, scale = { 1.1, 1, 1 } },
                 },
@@ -480,6 +531,7 @@ LightRpVehicleKit = {
             wing_dual = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Dual-element wing",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_dual_carbon",
@@ -488,8 +540,8 @@ LightRpVehicleKit = {
                 },
                 fit = {
                     ["Vehicle.v_standard2_archer_hella_player"] = { offset = { 0, -2.517, 0.186 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -2.07, 0.176 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -2.072, 0.175 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -2.07, 0.176 }, scale = { 1.1, 1, 1 }, carrier = false },
+                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -2.072, 0.175 }, scale = { 1.1, 1, 1 }, carrier = false },
                     ["Vehicle.v_standard2_villefort_cortes_player"] = { offset = { 0, -2.597, 0.153 }, scale = { 1.1, 1, 1 } },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = {
                         offset = { 0, -1.482, 0.505 },
@@ -497,12 +549,13 @@ LightRpVehicleKit = {
                         hide = { "wing_a", "wing_a_shadow" },
                     },
                     ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -2.797, 0.097 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -1.97, 0.273 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -1.97, 0.273 }, scale = { 1.1, 1, 1 }, carrier = false },
                 },
             },
             wing_drift = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Time-attack wing",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_drift_carbon",
@@ -511,18 +564,19 @@ LightRpVehicleKit = {
                 },
                 fit = {
                     ["Vehicle.v_standard2_archer_hella_player"] = { offset = { 0, -2.538, 0.185 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -2.015, 0.143 }, scale = { 1.016, 1, 1 } },
+                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -2.015, 0.143 }, scale = { 1.016, 1, 1 }, carrier = false },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = {
                         offset = { 0, -1.486, 0.504 },
                         scale = { 0.966, 1, 1 },
                         hide = { "wing_a", "wing_a_shadow" },
                     },
-                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -1.988, 0.276 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -1.988, 0.276 }, scale = { 1.1, 1, 1 }, carrier = false },
                 },
             },
             wing_bat = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Batwing",
                 variants = {
                     carbon = "asset:lightrp_vk_body/wing_bat_carbon",
@@ -531,8 +585,8 @@ LightRpVehicleKit = {
                 },
                 fit = {
                     ["Vehicle.v_standard2_archer_hella_player"] = { offset = { 0, -2.588, 0.186 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -2.11, 0.155 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -1.988, 0.166 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_standard2_archer_bandit_player"] = { offset = { 0, -2.11, 0.155 }, scale = { 1.1, 1, 1 }, carrier = false },
+                    ["Vehicle.v_standard2_archer_quartz_player"] = { offset = { 0, -1.988, 0.166 }, scale = { 1.1, 1, 1 }, carrier = false },
                     ["Vehicle.v_standard2_villefort_cortes_player"] = { offset = { 0, -2.73, 0.123 }, scale = { 1.1, 1, 1 } },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = {
                         offset = { 0, -1.988, 0.288 },
@@ -540,7 +594,7 @@ LightRpVehicleKit = {
                         hide = { "wing_a", "wing_a_shadow" },
                     },
                     ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -2.948, 0.081 }, scale = { 1.1, 1, 1 } },
-                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -2.118, 0.279 }, scale = { 1.1, 1, 1 } },
+                    ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -2.118, 0.279 }, scale = { 1.1, 1, 1 }, carrier = false },
                 },
             },
             wing_roof = {
@@ -577,6 +631,7 @@ LightRpVehicleKit = {
             louver_rear = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.trunk,
                 label = "Rear window louvers",
                 variants = {
                     matte = "asset:lightrp_vk_body/louver_rear_matte",
@@ -585,7 +640,12 @@ LightRpVehicleKit = {
                 fit = {
                     ["Vehicle.v_standard2_thorton_galena_player"] = { offset = { 0, -1.296, 0.683 }, rotation = { 37.5, 0, 0 }, scale = { 1.078, 0.711, 1 } },
                     ["Vehicle.v_standard2_mizutani_hozuki_player"] = { offset = { 0, -1.284, 0.642 }, rotation = { 25.5, 0, 0 }, scale = { 1.125, 1.193, 1 } },
-                    ["Vehicle.v_standard2_chevalier_thrax_player"] = { offset = { 0, -1.723, 0.443 }, rotation = { 26, 0, 0 }, scale = { 0.956, 0.623, 1 } },
+                    ["Vehicle.v_standard2_chevalier_thrax_player"] = {
+                        offset = { 0, -1.723, 0.443 },
+                        rotation = { 26, 0, 0 },
+                        scale = { 0.956, 0.623, 1 },
+                        carrier = false,
+                    },
                     ["Vehicle.v_sport1_yaiba_semimaru_player"] = { offset = { 0, -1.099, 0.426 }, rotation = { 14.5, 0, 0 }, scale = { 0.86, 0.875, 1 } },
                 },
             },
@@ -784,6 +844,7 @@ LightRpVehicleKit = {
             hood_scoop = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.hood,
                 label = "Hood scoop",
                 variants = {
                     carbon = "asset:lightrp_vk_body/hood_scoop_carbon",
@@ -802,6 +863,7 @@ LightRpVehicleKit = {
             hood_vents = {
                 kind = "part",
                 slot = "Base",
+                carrier = carriers.hood,
                 label = "Hood vents",
                 variants = {
                     carbon = "asset:lightrp_vk_body/hood_vents_carbon",

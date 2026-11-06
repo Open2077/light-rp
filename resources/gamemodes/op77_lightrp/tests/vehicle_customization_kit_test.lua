@@ -71,7 +71,7 @@ local NS="op77_lightrp:"
 local HELLA="Vehicle.v_standard2_archer_hella_player"
 local world,vid,events,rpc,bags={},100,{},{},{}
 local calls={registerParts=0,respawnAs=0,setPaint=0,create={}}
-local catalogue,b2,b3,stagesOnServer,failRespawn,attachLimit,refusePart={},true,true,true,nil,16,{} -- b2: per-wheel fits, b3: per-appearance fits
+local catalogue,b2,b3,b4,stagesOnServer,failRespawn,attachLimit,refusePart={},true,true,true,true,nil,16,{} -- b2: per-wheel fits, b3: per-appearance fits, b4: carried parts
 local packs={lightrp_vk_rims="running",lightrp_vk_body="running",lightrp_vehicle_stages="running",open77_vehicle_tint="running"}
 GetResourceState=function(name) return packs[name] or "missing" end
 GetCurrentResourceName=function() return "op77_lightrp" end
@@ -101,8 +101,8 @@ local function choose(record,id,value)
 end
 local function profileOk(record,profile) for _,p in ipairs(profiles[base(record)] or {})do if p.id==profile then return true end end end
 local function neonOf(spec) return {enabled=spec.enabled~=false,color=rgb(spec.color),intensity=spec.intensity or 600,radius=spec.radius or 3,layout="auto"} end
-local ENTRY={kind=1,label=1,slot=1,modType=1,variants=1,fit=1}
-local FIT={slot=1,offset=1,rotation=1,scale=1,hide=1,show=1,wheels=1}
+local ENTRY={kind=1,label=1,slot=1,carrier=1,modType=1,variants=1,fit=1}
+local FIT={slot=1,carrier=1,offset=1,rotation=1,scale=1,hide=1,show=1,wheels=1}
 local PROPS={version=1,record=1,health=1,paint=1,appearance=1,visual=1}
 Open77={players={getLifeState=function() return {phase="alive"} end,position=function()return{x=0,y=0,z=0,bucket=0}end},
     vehicles={getPlayerSeat=function() return nil end},
@@ -161,6 +161,7 @@ local function marshalled(v,depth,count) count=count or {n=0};depth=depth or 0
     if type(v)=="table" then for _,x in pairs(v)do if not marshalled(x,depth+1,count) then return false end end end
     return true,count.n end
 local largestCall=0
+local function slotName(s) return type(s)=="string" and #s<=64 and s:match("^[A-Za-z0-9_%-]*$")~=nil end
 local APPEARANCE_FIT={offset=1,rotation=1,scale=1,wheels=1,hide=1,show=1}
 V.registerParts=function(cat)
     calls.registerParts=calls.registerParts+1
@@ -171,8 +172,11 @@ V.registerParts=function(cat)
         n=n+1
         if refusePart[id] then return false,"invalid_part:"..id..".variants" end
         for k in pairs(e)do if not ENTRY[k] then return false,"invalid_part:"..id.."."..k end end
+        if e.carrier~=nil and (not b4 or e.kind~="part" or not slotName(e.carrier) or e.carrier=="") then return false,"invalid_part:"..id..".carrier" end
         for _,fit in pairs(e.fit)do for k,x in pairs(fit)do
-            if k=="appearances" and b3 then -- per-appearance overrides: no slot, 32 at most
+            if k=="carrier" then
+                if not b4 or e.kind~="part" or not (x==false or slotName(x)) then return false,"invalid_part:"..id..".fit.carrier" end
+            elseif k=="appearances" and b3 then -- per-appearance overrides: no slot, 32 at most
                 local count=0
                 for name,o in pairs(x)do
                     count=count+1
@@ -241,18 +245,34 @@ local trimsAt,studioAt=manifest:find('server/config/vehicle_kit_trims.lua',1,tru
 assert(trimsAt and studioAt and kitAt<trimsAt and trimsAt<studioAt,"the trims' hide lists load before the studio registers the kit")
 
 -- The generated catalogue honours the registerParts contract (VehiclePartCatalogue).
+-- Carried parts (contract section 5): wings and rear louvers ride the trunk lid's slot,
+-- hood scoop and vents the hood's, all through the kit's one `carriers` table; a roof
+-- wing rides nothing. A fit's `carrier = false` (no lid under the part on that car, from
+-- the fit table's evidence.lid) keeps it on its slot.
+assert(KIT.body.carriers.trunk=="trunk_a" and KIT.body.carriers.hood=="hood_a","the carrier slots, in one place")
+local carrierOf
+do
+    local panels,groupOf={spoiler="trunk",louver="trunk",hood="hood"},{}
+    for _,g in ipairs(KIT.body.groups)do for _,id in ipairs(g.parts)do groupOf[id]=g.id end end
+    carrierOf=function(section,id)
+        local panel=section=="body" and id~="wing_roof" and panels[groupOf[id]]
+        return panel and KIT.body.carriers[panel] or nil
+    end
+end
 local function idOk(s) return type(s)=="string" and #s<=64 and s:match("^[A-Za-z0-9_.%-]+$")~=nil end
 local function vecOk(t,low,high) if t==nil then return true end;if #t~=3 then return false end;for _,x in ipairs(t)do if type(x)~="number" or x<low or x>high then return false end end;return true end
 for _,section in ipairs({"rims","body"})do
     for id,e in pairs(KIT[section].parts)do
         assert(idOk(id) and type(e.label)=="string" and #e.label<=64,"part id/label: "..id)
         assert((section=="rims" and e.kind=="rim" and e.slot==nil) or (section=="body" and e.kind=="part" and e.slot=="Base"),"kind/slot: "..id)
+        assert(e.carrier==carrierOf(section,id),"carrier: "..id.." rides "..tostring(e.carrier))
         local n=0;for v,model in pairs(e.variants)do n=n+1;assert(idOk(v) and model:sub(1,6+#KIT[section].pack)=="asset:"..KIT[section].pack,"variant: "..id.."."..v)end
         assert(n>=1 and n<=32,"variants: "..id)
         local fits=0
         for record,fit in pairs(e.fit)do
             fits=fits+1
             for k in pairs(fit)do assert(FIT[k] and k~="slot" and k~="show","fit key "..k.." of "..id) end
+            assert(fit.carrier==nil or (e.carrier and (fit.carrier==false or slotName(fit.carrier) and fit.carrier~="")),"fit carrier: "..id.." "..record)
             assert(vecOk(fit.offset,-10,10) and vecOk(fit.rotation,-360,360) and vecOk(fit.scale,.01,10),"fit vectors: "..id.." "..record)
             assert(#(fit.hide or {})<=64,"hide list: "..id)
             for _,name in ipairs(fit.hide or {})do assert(type(name)=="string" and #name<=128) end
@@ -277,6 +297,15 @@ assert(merrimac and #merrimac.wheels==6,"Merrimac: the middle axle is listed")
 assert(apollo and #apollo.wheels==2 and apollo.wheels[1].slot=="wheel_front_rot_set","Apollo: its own wheel slots")
 assert(KIT.rims.excluded["Vehicle.v_sportbike1_yaiba_kusanagi_player"] and not rim["Vehicle.v_sportbike1_yaiba_kusanagi_player"],"Kusanagi is excluded")
 for _,group in ipairs(KIT.body.groups)do for _,id in ipairs(group.parts)do assert(KIT.body.parts[id],"group part exists: "..id) end end
+do
+    local body=KIT.body.parts
+    assert(body.wing_street.carrier=="trunk_a" and body.wing_street.fit[HELLA].carrier==nil,"Hella: the wing rides the trunk lid")
+    assert(body.wing_street.fit["Vehicle.v_standard2_archer_quartz_player"].carrier==false,"Quartz: no lid under the wing, it stays on the body")
+    assert(body.louver_rear.carrier=="trunk_a" and body.louver_rear.fit["Vehicle.v_standard2_chevalier_thrax_player"].carrier==false,"louvers ride the lid, not on the Thrax's fixed glass")
+    assert(body.hood_scoop.carrier=="hood_a" and body.hood_vents.carrier=="hood_a","hood parts ride the hood")
+    assert(body.wing_roof.carrier==nil and body.lip_splitter.carrier==nil and body.roof_rack.carrier==nil,"roof, lip and rack ride nothing")
+    for _,part in pairs(body)do if not part.carrier then for _,fit in pairs(part.fit)do assert(fit.carrier==nil) end end end
+end
 
 dofile("server/modules/inventory.lua");dofile("server/modules/economy.lua")
 local before=#threads;dofile("server/modules/garages.lua");local garageWorker=threads[before+1]
@@ -292,6 +321,7 @@ local NET="op77_lightrp:customization"
 local kitParts=#KIT.rims.order;for _ in pairs(KIT.body.parts)do kitParts=kitParts+1 end
 assert(kitParts==48 and calls.registerParts==kitParts and catalogue[NS.."rim_classic"] and catalogue[NS.."bull_bar"],"one registerParts call per kit part")
 assert(#catalogue[NS.."rim_classic"].fit["Vehicle.v_standard25_thorton_merrimac_player"].wheels==6,"per-wheel fits reach the server")
+assert(catalogue[NS.."wing_street"].carrier=="trunk_a" and catalogue[NS.."wing_street"].fit["Vehicle.v_standard2_archer_quartz_player"].carrier==false,"carriers reach the server")
 
 -- Curated trims (server/config/vehicle_kit_trims.lua): every sold trim of a rim-fitted
 -- model has its rim fit override in the platform's fit.appearances contract: offset,
@@ -390,7 +420,8 @@ assert(largestCall<=4096,"every registerParts call fits the marshaller")
 -- The heaviest car of every record and appearance (the longest rim on every wheel, the
 -- heaviest part of each body group, livery, neon, plate) still fits the visual bag:
 -- VehicleCustomizationService.FitsBag, 4 KiB and 256 JSON values; an attachment is 16
--- values, the rest 18, plus one per hide name. Bytes over-estimated (12 per number).
+-- values (17 with a carrier, `,"carrier":"<slot>"`), the rest 18, plus one per hide name.
+-- Bytes over-estimated (12 per number).
 local function longest(part) local n=0;for _,model in pairs(part.variants)do n=math.max(n,#model)end;return n end
 local function worstBag(record,appearance)
     local bytes,values,hide=300,18,{}
@@ -401,8 +432,10 @@ local function worstBag(record,appearance)
             if fit then
                 for _,n in ipairs(fit.hide or {})do if not hide[n] then hide[n]=true;bytes=bytes+#n+3;values=values+1 end end
                 local b,v=0,0
+                local carrier=fit.carrier;if carrier==nil then carrier=part.carrier end
                 for _,w in ipairs(rim and (fit.wheels or CAR_WHEELS) or {{slot=fit.slot or part.slot}})do
                     b=b+80+#(rim and "rims."..w.slot or NS..id)+longest(part)+#w.slot+9*12;v=v+16
+                    if carrier then b=b+13+#carrier;v=v+1 end
                 end
                 if b>most then most,count=b,v end
             end
@@ -789,6 +822,32 @@ local merged=catalogue[NS.."rim_dish"].fit[HELLA].hide
 assert(#merged==16 and merged[1]=="wheel_01_bl_a" and has(merged,"wheel_bl_01") and has(merged,"police_wheel_01_fl_0a"),"Hella: player, Suburban and Worn IV rims all hidden")
 assert(#KIT.rims.parts.rim_dish.fit[HELLA].hide==4 and KIT.rims.parts.rim_dish.fit[HELLA].appearances==nil,"the generated catalogue stays as measured")
 checkBodyHides();checkBags("merged fallback")
+-- A server without carried parts refuses `carrier` once (with its reason, by name): the
+-- kit registers without any, every body part on its Base slot as before. Together with
+-- the per-appearance fallback, each is taken once.
+do
+    local function plain(label)
+        for id in pairs(KIT.body.parts)do
+            local got=assert(catalogue[NS..id],label..": "..id.." registered")
+            assert(got.carrier==nil,label..": no carrier on "..id)
+            for record,fit in pairs(got.fit)do assert(fit.carrier==nil,label..": no carrier on "..id.." "..record) end
+        end
+    end
+    local function notices(from,text) local n=0;for i=from,#logs do if logs[i]:find(text,1,true) then n=n+1 end end;return n end
+    local from=#logs+1
+    b4=false;reboot();b4=true
+    assert(calls.registerParts==kitParts+1,"one refused registration, then the kit without carriers ("..calls.registerParts..")")
+    assert(notices(from,"no carried parts")==1 and notices(from,"invalid_part:wing_street.carrier")==1,"the fallback is logged once, with the server's reason")
+    plain("no carriers")
+    assert(catalogue[NS.."rim_classic"].fit[HELLA].appearances,"rims keep their per-appearance fits")
+    checkBags("no carriers")
+    from=#logs+1
+    b3=false;b4=false;reboot();b3=true;b4=true
+    assert(calls.registerParts==kitParts+2,"one refusal per missing key, then the kit ("..calls.registerParts..")")
+    assert(notices(from,"no carried parts")==1 and notices(from,"no per-appearance fits")==1)
+    plain("no carriers nor overrides")
+    assert(catalogue[NS.."rim_classic"].fit[HELLA].appearances==nil)
+end
 -- A server without per-wheel rim fits (nor per-appearance ones): rims register merged on
 -- the default slots, the records that need other slots lose them.
 b2=false;b3=false;reboot();b2=true;b3=true
