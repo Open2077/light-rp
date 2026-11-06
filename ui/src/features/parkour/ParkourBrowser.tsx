@@ -128,7 +128,6 @@ function Browser({ payload, onClose }: { payload: ParkourDialogPayload; onClose(
               <span><Icon name="route" size={12} />{formatLength(course.length)}</span>
               {course.timeLimit > 0 && <span><Icon name="timer" size={12} />{course.timeLimit} MIN LIMIT</span>}
               {course.fallLine && <span><Icon name="triangle-alert" size={12} />FALL LINE</span>}
-              {course.author && <span><Icon name="user" size={12} />BY {course.author.toUpperCase()}</span>}
             </span>
           </div>
           <div className="pk-detail__actions">
