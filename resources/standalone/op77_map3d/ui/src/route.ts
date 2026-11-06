@@ -51,6 +51,8 @@ export class RouteView {
   private hidden: THREE.Mesh;
   private beam: THREE.Mesh;
   private ring: THREE.Mesh;
+  // performance mode: the chevrons and the destination stand still (no redraw for them)
+  private still = false;
 
   constructor() {
     const visMat = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: false });
@@ -83,7 +85,8 @@ export class RouteView {
   setWidth(w: number) { this.uniforms.uWidth.value = w; }
   setSpeed(s: number) { this.uniforms.uSpeed.value = s; }
   setProgress(m: number) { this.uniforms.uProgress.value = m; }
-  tick(t: number) { this.uniforms.uTime.value = t; }
+  tick(t: number) { if (!this.still) this.uniforms.uTime.value = t; }
+  setPerformance(on: boolean) { this.still = on; }
 
   set(route: Route | null): void {
     if (!route) { this.group.visible = false; return; }
@@ -124,8 +127,8 @@ export class RouteView {
     const s = Math.max(4, cameraDistance * 0.012);
     this.beam.scale.set(s * 0.35, 120 + cameraDistance * 0.05, s * 0.35);
     this.beam.position.y = this.ring.position.y + this.beam.scale.y / 2;
-    const pulse = 1 + 0.35 * ((time * 0.8) % 1);
-    this.ring.scale.setScalar(s * 1.6 * pulse);
-    (this.ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - ((time * 0.8) % 1));
+    const phase = this.still ? 0.35 : (time * 0.8) % 1;
+    this.ring.scale.setScalar(s * 1.6 * (1 + 0.35 * phase));
+    (this.ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - phase);
   }
 }

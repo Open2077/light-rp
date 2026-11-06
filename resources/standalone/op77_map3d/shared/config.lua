@@ -23,6 +23,14 @@ Map3DConfig = {
     -- waypoint placed by another resource becomes this map's destination.
     mirrorNativeWaypoint = true,
 
+    -- Display quality of the map and the minimap. "performance": a flat 2D map seen from
+    -- straight above, without the costly effects (lighting, x-ray, animated route and
+    -- zones, antialiasing), for small configurations; "quality": the 3D city. The first
+    -- time a player opens the map they choose (ask = false: never asked, `default` until
+    -- they switch); the choice is kept on their machine (KVP) and switched at any time
+    -- under DISPLAY in the map's legend (exports.op77_map3d:setQuality from a resource).
+    quality = { default = "performance", ask = true },
+
     -- Print open/close and waypoint changes (with their origin) to the client log.
     debug = false,
 

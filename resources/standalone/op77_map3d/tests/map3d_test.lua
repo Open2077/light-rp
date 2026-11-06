@@ -75,7 +75,9 @@ end
 _G.WebUI = { create = function(o) return newPage(({ [700] = "mini", [781] = "full", [699] = "holo" })[o.zIndex], o) end }
 local nativeWp, blocked, hudMinimap = nil, nil, true
 local otherCursor = false
+local kvpStore = {}
 _G.Open77 = {
+    kvp = { get = function(k) return kvpStore[k] end, set = function(k, v) kvpStore[k] = v; return true end },
     character = { state = function() return { position = { x = 100, y = 200, z = 10 }, yaw = 10, forward = { x = -0.70710678, y = 0.70710678, z = 0 }, groundSpeed = 3, attached = true } end,
         isInVehicle = function() return false end },
     camera = { view = function() return { forward = { x = 0, y = 1, z = 0 } } end },
@@ -119,6 +121,34 @@ assert(z2.payload.dir == -1 and z2.payload.down == false)
 local set = lastPage("map3d:blips").set
 assert(#set == 1 and set[1].id == id and set[1].label == "24/7" and set[1].owner == nil, "ready: config + every blip")
 assert(lastPage("map3d:config").theme.accent == "#FFCC00")
+-- display quality: performance until the player chooses (the open map asks on its first
+-- opening), kept in KVP, followed by the other map surface, replayed to a reloaded page
+do
+  local q = lastPage("map3d:quality")
+  assert(q and q.mode == "performance" and q.chosen == false, "never chosen: performance, and the open map asks")
+  local before = #pageSent
+  pageHandlers["map3d:quality"]({ mode = "quality" })
+  assert(kvpStore["map3d:quality"] == "quality", "kept on this machine")
+  local toMini, toFull = nil, false
+  for i = before + 1, #pageSent do
+    local e = pageSent[i]
+    if e.name == "map3d:quality" then if e.role == "mini" then toMini = e.payload elseif e.role == "full" then toFull = true end end
+  end
+  assert(toMini and toMini.mode == "quality" and toMini.chosen and not toFull, "the minimap follows; the map that chose is not told again")
+  assert(lastEvent("op77_map3d:qualityChanged") == "quality")
+  miniHandlers["map3d:quality"]({ mode = "performance" })
+  assert(kvpStore["map3d:quality"] == "quality", "only the open map chooses")
+  assert(exported.setQuality("ultra") == false, "unknown mode refused")
+  assert(exported.setQuality("performance") and kvpStore["map3d:quality"] == "performance", "a resource can switch it")
+  local mode, chosen = exported.getQuality()
+  assert(mode == "performance" and chosen == true)
+  local saved = pageSent
+  pageSent = {}
+  pageHandlers["map3d:hello"]({})
+  local r = lastPage("map3d:quality")
+  assert(r.mode == "performance" and r.chosen == true, "a reloaded page gets the choice")
+  pageSent = saved
+end
 -- player feed and nearby players
 runThreads(3)
 local pl = lastPage("map3d:player")
