@@ -9,7 +9,7 @@
 -- Server: runtime configuration for everyone or one player.
 -- Page:   web/ (plain HTML/CSS/JS, no build step).
 resource "op77_weaponhud"
-version "0.1.0"
+version "0.1.1"
 open77_version ">=0.0.1"
 auto_start true
 -- The client owns a WebUI surface: a live reload would leave a stale one.

@@ -126,7 +126,7 @@ deliver = function(id, hand, settleMs)
         waitTurn(id)
         if not mine() then hand.delivering = false; return end
         busy[id] = hand
-        local done, snapshot = Kits().deliver(id, hand.kit, { tag = "activity " .. hand.activity .. ": kit", settleMs = 0,
+        local done, snapshot = Kits().deliver(id, hand.kit, { tag = "activity " .. hand.activity .. ": kit", settleMs = 0, keep = hand.keep,
             live = function() return mine() and A.owned[id] == hand.entry and alive(id) end,
             stopped = function() return not mine() end,
             assigned = function(slot, result)
@@ -146,7 +146,7 @@ deliver = function(id, hand, settleMs)
                 end
             end
             LightRP.log("activities: kit %s handed to %d (%s)", hand.kit.id, id, hand.activity)
-            hand.waits = nil
+            hand.waits, hand.armed = nil, true
             report(id, hand, "armed")
         elseif done == false then
             failed(id, hand)
@@ -158,6 +158,8 @@ end
 
 function A.onLifeState(id, phase)
     local hand = held[id]
+    -- a body that went down holds nothing of the kit any more: the next one is handed whole
+    if hand and phase ~= "alive" then hand.armed = nil end
     if phase == "alive" and hand and hand.waiting and not hand.taking then deliver(id, hand, SETTLE_MS) end
 end
 
@@ -170,6 +172,13 @@ function A.giveKit(playerId, activityId, kit, opts)
     if not resolved then return false, refused end
     handSeq = handSeq + 1
     local hand = { id = handSeq, activity = activityId, entry = e, kit = resolved, verified = {} }
+    -- The same secondary is still in slot 2 from the last kit, armed on this same body (the gun
+    -- game's step up: the knife stays): only the primary is swapped, nothing is emptied.
+    local before = held[id]
+    if before and before.armed and before.entry == e and not before.taking and resolved.secondary
+        and before.kit.secondary == resolved.secondary and before.verified[2] and alive(id) then
+        hand.keep = { slot = 2, tweakDbId = before.verified[2] }
+    end
     held[id] = hand -- the one before stops at its next request
     pushArmament(id)
     -- standing aside: this drops the projection, the way back owes it nothing (armament.lua)

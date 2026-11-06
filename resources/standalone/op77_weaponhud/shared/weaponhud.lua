@@ -18,6 +18,16 @@ local function color(v, default)
     return default
 end
 
+-- The wait before the next sampling step (config pollMs / restMs / idleMs, see shared/config.lua):
+-- fast only while hot (firing, reloading, a new weapon: until `hotUntil`), else a quiet rate.
+function W.interval(c, active, t, hotUntil)
+    local ms
+    if not active then ms = c.idleMs or 1000
+    elseif t < (hotUntil or 0) then ms = c.pollMs or 100
+    else ms = c.restMs or 1000 end
+    return math.max(50, math.floor(tonumber(ms) or 1000))
+end
+
 function W.copy(t)
     if type(t) ~= "table" then return t end
     local out = {}

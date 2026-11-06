@@ -52,10 +52,18 @@ WeaponHudConfig = {
     -- Names: records -> label. Gamemodes can also send labels at runtime (op77_weaponhud:labels).
     weaponNames = {},
 
-    -- Sampling: one Open77.weapons.snapshot() in flight, at most every `pollMs` while a weapon
-    -- is drawn; `idleMs` otherwise.
+    -- Sampling: one Open77.weapons.snapshot() in flight. A snapshot is not cheap: the client reads
+    -- every idle slot's magazine from the inventory, a second of work per snapshot, and a knife in
+    -- an idle slot makes every one fail (ammo_cache_unavailable). Polled 10 times a second it cost
+    -- the gun game its frame rate (2026-11-06). So: `pollMs` only while firing, reloading or just
+    -- after (`hotMs`), `restMs` with a weapon drawn but quiet, `idleMs` without one; after a refused
+    -- snapshot `backoffMs`, doubled up to `backoffMaxMs`.
     pollMs = 100,
-    idleMs = 300,
+    hotMs = 1500,
+    restMs = 1000,
+    idleMs = 1000,
+    backoffMs = 2000,
+    backoffMaxMs = 8000,
 
     fps = 30,
     zIndex = 705,     -- under LightRP's page (720), next to the speedometer (710)

@@ -11,6 +11,8 @@ local pageConfig = W.pageConfig(config)
 local page, pageReady, creating, boundsKey = nil, false, false, nil
 local pending = nil           -- { id, at, rows }
 local lastRequest = -100000
+local hotUntil = 0           -- fast sampling until then (firing, reloading, a new weapon)
+local backoff = 0            -- after a refused snapshot: the wait before the next one
 local held = nil              -- { key, magazine, reloading, ... } last published
 local shown = false
 local lastShow, lastData = nil, nil
@@ -162,6 +164,7 @@ local function publish(rows)
     local reloading = right.reloading or reloadingNow
     local cur = { key = key, magazine = right.magazine, reloading = reloading }
     local change = W.diff(held, cur)
+    if change.switched or (change.shots or 0) > 0 or reloading then hotUntil = now() + (tonumber(config.hotMs) or 1500) end
     if change.switched or not shown or (held and held.name == nil) then
         local d = describe(right.record)
         lastShow = { key = key, name = d.name, type = d.type, class = d.class, melee = d.melee, capacity = right.capacity }
@@ -196,12 +199,18 @@ local function step()
     local t = now()
     if pending and t - pending.at > 1500 then pending = nil end
     local armed = armedHint()
+    -- cheap reads: shooting or reloading makes the sampling fast for a moment
+    if read(type(Open77.character) == "table" and Open77.character.isFiring or nil) == true
+        or read(type(Open77.players) == "table" and Open77.players.isReloading or nil) == true then
+        hotUntil = t + (tonumber(config.hotMs) or 1500)
+    end
     if armed == false then
         pending = nil
         publish({})
         return false
     end
     if not pending and type(Open77.weapons) == "table" and type(Open77.weapons.snapshot) == "function" then
+        if backoff > 0 and t - lastRequest < backoff then return shown end
         lastRequest = t
         local ok, id = pcall(Open77.weapons.snapshot)
         if ok and id then pending = { id = tostring(id), at = t, rows = {} } end
@@ -218,7 +227,11 @@ AddEventHandler("open77:weapons:completed", function(id, operation, accepted)
     if not pending or tostring(id) ~= pending.id or operation ~= "snapshot" then return end
     local result = pending
     pending = nil
-    if accepted ~= "true" then return end
+    if accepted ~= "true" then
+        backoff = math.min(tonumber(config.backoffMaxMs) or 8000, math.max(tonumber(config.backoffMs) or 2000, backoff * 2))
+        return
+    end
+    backoff = 0
     publish(result.rows)
 end)
 
@@ -230,7 +243,7 @@ AddEventHandler("onClientResourceStart", function(name)
     CreateThread(function()
         while true do
             local active = step()
-            Wait(math.max(50, math.floor(tonumber(active and config.pollMs or config.idleMs) or 200)))
+            Wait(WeaponHud.interval(config, active, now(), hotUntil))
         end
     end)
     CreateThread(function()
