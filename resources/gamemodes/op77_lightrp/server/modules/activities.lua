@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Activities: the core every activity provider plugs into (op77_arena, op77_race,
 -- op77_chase, op77_fireworks...). A provider runs its own instances; Light RP
 -- owns the player while they play: it captures where they came from, puts the RP
@@ -541,7 +543,13 @@ local function audience()
 end
 local function pushAll()
     pushQueued = false
-    for id in pairs(audience()) do LightRP.state(id, "activities") end
+    -- a full panel per player (players x players for watchers): three per pass
+    local n = 0
+    for id in pairs(audience()) do
+        LightRP.state(id, "activities")
+        n = n + 1
+        if n % 3 == 0 and coroutine.isyieldable() then Wait(0) end
+    end
 end
 -- Coalesced: a provider may send a status every tick.
 local function dirty()
@@ -2811,8 +2819,8 @@ end)
 
 CreateThread(function()
     local sinceTops = 0
-    while true do
-        Wait(5000)
+    lightrpEvery(5000, function()
+        
         local t = now()
         for id, entries in pairs(recent) do
             for aid, e in pairs(entries) do if t - (e.leftAt or t) > C.resultGraceMs then entries[aid] = nil end end
@@ -2837,16 +2845,16 @@ CreateThread(function()
             sinceTops = 0
             for _, aid in ipairs(order) do refreshTop(aid) end
         end
-    end
+    end, "activities:2812")
 end)
 
 -- The lobby: the ranked queue, the bot fill offers (every second).
 CreateThread(function()
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         local ok, err = pcall(A.lobbyTick)
         if not ok then LightRP.log("activities: lobby tick failed: %s", tostring(err)) end
-    end
+    end, "activities:2844")
 end)
 
 -- Providers started before Light RP (or kept running across its restart) register again.
@@ -2854,3 +2862,8 @@ CreateThread(function()
     Wait(500)
     emit(EV.ready)
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("activities.locks", locks)
+expireFlags("activities.refreshing", refreshing)
+expireFlags("activities.returning", returning, 90000)

@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Who is in a PvP fight right now: in Dogtown (inside, or tagged after leaving it) or in an
 -- activity whose kind is in `KINDS` (the arena's modes and the turf war are "pvp", the
 -- chases "chase"). Every client gets the list when it changes (and on its page ready);
@@ -52,9 +53,9 @@ function PM.current() return current end
 function PM.onUiReady(playerId) TriggerClientEvent(E.pvpPlayers, playerId, current) end
 
 CreateThread(function()
-    while true do
-        Wait(TICK_MS)
+    lightrpEvery(TICK_MS, function()
+        
         local ok, err = pcall(PM.tick)
         if not ok then LightRP.log("pvp marks: %s", tostring(err)) end
-    end
+    end, "pvp_marks:54")
 end)

@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Staff voice announcements.
 --
 --   /lightrp.broadcast            on air for the whole server (again: off)
@@ -177,8 +178,8 @@ function A.onDisconnected(id)
 end
 
 CreateThread(function()
-    while true do
-        Wait(C.refreshMs)
+    lightrpEvery(C.refreshMs, function()
+        
         for speaker, cast in pairs(casts) do
             if not GetPlayerName(speaker) then stop(speaker, "gone")
             else
@@ -186,5 +187,5 @@ CreateThread(function()
                 if not ok then log("announce: refresh failed: %s", tostring(err)) end
             end
         end
-    end
+    end, "announce:179")
 end)

@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Fuel. Cyberpunk has no fuel model, so the tank is a STATE-BAG FIELD the
 -- server owns on every network vehicle: `fuel` (litres) and `fuelMax` (tank
 -- size) on Open77.state.entity("vehicle", id). Every client streaming the car
@@ -292,8 +293,8 @@ end
 
 CreateThread(function()
     local period = tonumber(Config.tickMs) or 1000
-    while true do
-        Wait(period)
+    lightrpEvery(period, function()
+        
         local ok, all = pcall(Open77.vehicles.all)
         if ok and type(all) == "table" then
             for _, snapshot in ipairs(all) do
@@ -303,7 +304,7 @@ CreateThread(function()
                 end
             end
         end
-    end
+    end, "fuel:293")
 end)
 
 AddEventHandler("onVehicleRemoved", function(id)

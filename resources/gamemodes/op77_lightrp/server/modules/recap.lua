@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- End-of-match recap (owner request 2026-11-03): when a PvP or PvE activity, a mission
 -- or a world boss ends, each player gets a complete screen of the match once back in
 -- the city -- who played (bots marked), the sides, kills, deaths, assists, damage dealt
@@ -990,9 +991,9 @@ function R.onActivityChanged(id, activityId)
 end
 
 CreateThread(function()
-    while true do
-        Wait(500)
+    lightrpEvery(500, function()
+        
         local ok, err = pcall(R.tick)
         if not ok then LightRP.log("recap: tick failed: %s", tostring(err)) end
-    end
+    end, "recap:992")
 end)

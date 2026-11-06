@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- The queue panel: one queue state per player (page state key `queue`), whatever they
 -- wait for. Fed by:
 --   * the core's joins (activities.lua `pending`): a ranked search the core holds (its
@@ -326,9 +327,9 @@ end
 Q.onCharacterLoaded, Q.onCharacterSwitched = characterChanged, characterChanged
 
 CreateThread(function()
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         local ok, err = pcall(Q.tick)
         if not ok then LightRP.log("activity queue: tick failed: %s", tostring(err)) end
-    end
+    end, "activity_queue:328")
 end)

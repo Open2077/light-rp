@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- World bosses: open-world events built from authored missions tagged "World boss" in
 -- the mission editor (shared/mission_defs.lua worldBoss). No board, no tag, no instance:
 --
@@ -677,8 +678,8 @@ end
 
 CreateThread(function()
     nextAt = now() + (C.schedule.firstDelayMinutes or 20) * 60000
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         if #events > 0 then
             for _, ev in ipairs(WB.events()) do
                 local ok, err = pcall(tick, ev)
@@ -692,7 +693,7 @@ CreateThread(function()
                 if not ok then log("world boss: random start refused (%s)", tostring(why)) end
             end
         end
-    end
+    end, "world_bosses:678")
 end)
 
 function WB.onDisconnected(id)

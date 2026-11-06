@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- The nameplates show the character's name, not the account's (owner, 2026-11-06): every client
 -- gets the list "id<TAB>First Last" of the players with an active character when it changes
 -- and when its page comes up; client/core/rp_names.lua hands it to op77_playermarks (setNames).
@@ -35,9 +36,9 @@ end
 function Names.onUiReady(playerId) TriggerClientEvent(E.rpNames, playerId, current) end
 
 CreateThread(function()
-    while true do
-        Wait(TICK_MS)
+    lightrpEvery(TICK_MS, function()
+        
         local ok, err = pcall(Names.tick)
         if not ok then LightRP.log("rp names: %s", tostring(err)) end
-    end
+    end, "rp_names:37")
 end)

@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Public production points. Each cycle grants real inventory items only after
 -- server time, life, ownership, position, inputs and capacity are checked again.
 local C, E, Inv, Db = LightRpJobWork, LightRpEvents, LightRP.inventory, LightRP.db
@@ -248,5 +249,5 @@ CreateThread(function()
             marker={shape="cylinder",radius=.6,height=.4,color={r=255,g=204,b=0,a=150},maxDistance=35},
             blip={icon=icon,sprite="tech",title=p.label,routable=true,description=p.kind=="sell" and (LightRP.money.format(p.definition.price).." per "..LightRpItems[p.definition.product].label) or (p.definition.tutorial and "First day guide · practice site" or "Your job · your own pace · items, weight and vehicle trunks")}})
     end
-    while true do Wait(250); Work.tick() end
+    lightrpEvery(250, function()  Work.tick() end, "job_work:241")
 end)

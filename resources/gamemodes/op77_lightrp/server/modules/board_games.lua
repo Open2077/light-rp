@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- The durable board and its inventory item change in the same SQL transaction.
 local Inv, Db = LightRP.inventory, LightRP.db
 local boards, pending, last, playerBusy = {}, {}, {}, {}
@@ -603,8 +605,8 @@ LightRP.module("board_games",{
 AddEventHandler("onPlayerBucketChange",function(player) release(tonumber(player)) end)
 local refreshTick=0
 CreateThread(function()
-    while true do
-        Wait(2000)
+    lightrpEvery(2000, function()
+        
         local changed=false
         for _,b in pairs(boards) do
             for side,id in pairs(b.players) do
@@ -646,5 +648,10 @@ CreateThread(function()
                 if not called or (ok==false) then LightRP.log("%s settlement failed board=%s: %s",b.kind,b.id,tostring(called and why or ok)) end
             end
         end
-    end
+    end, "board_games:605")
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlag("board_games.placement", function() return placementBusy end, function() placementBusy = false end)
+expireFlags("board_games.playerBusy", playerBusy)
+expireFlags("board_games.board.busy", boards, nil, "busy")

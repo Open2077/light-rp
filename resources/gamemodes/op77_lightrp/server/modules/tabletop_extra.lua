@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Casino tables plug in here. Stakes and payouts are durable inventory
 -- transactions: a disconnected winner has a claim bound to the character
 -- inventory, never to a recycled seat. Each game registers a handler:
@@ -279,5 +281,8 @@ LightRP.module("tabletop_extra",{onCharacterLoaded=function(player)
  X.claim(player)
 end})
 CreateThread(function()
- while true do Wait(1000);if Db.ready then for _,id in ipairs(GetPlayers()) do X.claim(tonumber(id)) end end end
+ lightrpEvery(1000, function() if Db.ready then for _,id in ipairs(GetPlayers()) do X.claim(tonumber(id)) end end end, "tabletop_extra:281")
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("tabletop_extra.paying", paying)

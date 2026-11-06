@@ -1,3 +1,4 @@
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Money. Cash is the zero-weight inventory item `cash`; wallet.cash is only a
 -- compatibility projection. Each active character also owns a bank
 -- account numbered XXX-XXX (letters and digits, no O/I/0/1 so it can be read
@@ -875,3 +876,7 @@ end)
 
 LightRP.log("economy ready: %s starting cash, %s in the bank, pay range %.0f m",
     Money.format(Config.startingCash or 0), Money.format(Config.startingBank or 0), Config.payRange or 6)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("economy.settling", settling)
+expireFlags("economy.wallet.busy", wallets, nil, "busy")

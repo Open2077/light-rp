@@ -1,3 +1,4 @@
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- The Hall of Fame at The Crossing (server/config/halloffame.lua): a real board
 -- beside the activities terminal. ALT + click on it (client/core/halloffame.lua) or
 -- E in front of it opens the `halloffame` dialog of the Light RP page: the best
@@ -1480,3 +1481,6 @@ if C.enabled ~= false then
         end
     end)
 end
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlag("halloffame.refreshing", function() return refreshing end, function() refreshing = false end, 120000)

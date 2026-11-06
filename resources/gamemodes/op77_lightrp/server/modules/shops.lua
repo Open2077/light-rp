@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Template-backed NPC shops. The browser sends only item IDs and quantities;
 -- this module owns prices, eligibility, sessions and replay protection.
 local Config, Items, E = LightRpShops, LightRpItems, LightRpEvents
@@ -237,8 +239,8 @@ CreateThread(function()
     end
 end)
 CreateThread(function()
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         for playerId, s in pairs(sessions) do
             if not s.busy then
                 local ok, reason = guard(playerId, s.spot)
@@ -251,7 +253,7 @@ CreateThread(function()
                 end
             end
         end
-    end
+    end, "shops:239")
 end)
 AddEventHandler("onNpcRemoved", function(id)
     for key, spot in pairs(locations) do
@@ -261,3 +263,6 @@ AddEventHandler("onNpcRemoved", function(id)
         end
     end
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("shops.busy", sessions, nil, "busy")

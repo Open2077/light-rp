@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Characters: the persistent identity of a player.
 --
 -- One account (the Master identity, GetPlayerIdentifier) owns up to
@@ -535,14 +536,14 @@ Characters.save = save
 -- every 60 s so a crash loses at most a minute of position and playtime.
 CreateThread(function()
     local ticks = 0
-    while true do
-        Wait(5000)
+    lightrpEvery(5000, function()
+        
         ticks = ticks + 1
         for playerId in pairs(characters) do Characters.samplePosition(playerId) end
         if ticks % 12 == 0 then
             for playerId, c in pairs(characters) do if c.status == "active" then save(playerId) end end
         end
-    end
+    end, "characters:536")
 end)
 
 -- ---------------------------------------------------------------------------

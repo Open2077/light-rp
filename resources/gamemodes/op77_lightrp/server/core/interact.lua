@@ -13,9 +13,15 @@
 local E = LightRpEvents
 local interactions = {}   -- id -> definition
 local order = {}          -- ids in registration order (stable client list)
-local batchDepth, batchDirty = 0, false
+local orderDirty = false  -- removals leave holes in `order`; compacted before the next build
 
+-- Every change is coalesced into one sliced push (broadcastInteractions below), so a
+-- batch needs no bookkeeping any more. It used to hold a depth counter across a pcall:
+-- a task killed by the instruction quota inside it left the counter up for good, and
+-- no point change ever reached the clients again (2026-11-06 audit).
+local batchDepth, batchDirty = 0, false -- only without a scheduler (tests): a plain, immediate batch
 function LightRP.batchInteractions(fn)
+    if type(SetTimeout) == "function" then return fn() end
     batchDepth = batchDepth + 1
     local result = table.pack(pcall(fn))
     batchDepth = batchDepth - 1
@@ -24,13 +30,23 @@ function LightRP.batchInteractions(fn)
     return table.unpack(result, 2, result.n)
 end
 
+local function compact()
+    if not orderDirty then return end
+    orderDirty = false
+    local seen, kept = {}, {}
+    for _, id in ipairs(order) do
+        if interactions[id] ~= nil and not seen[id] then seen[id] = true; kept[#kept + 1] = id end
+    end
+    order = kept
+end
+
 -- Every registration gets a new revision: the client keeps a point whose revision it
 -- already drew and rebuilds only the others (a cheap comparison; hashing every entry on
 -- the client overran its 2 ms script budget, 2026-11-02).
 local revision = 0
 function LightRP.interaction(id, definition)
     assert(type(id) == "string" and type(definition) == "table" and type(definition.position) == "table", "LightRP.interaction(id, { position = ... })")
-    if interactions[id] == nil then order[#order + 1] = id end
+    if interactions[id] == nil then compact(); order[#order + 1] = id end
     revision = revision + 1
     definition.rev = revision
     definition.id = id
@@ -44,7 +60,7 @@ end
 function LightRP.removeInteraction(id)
     if interactions[id] == nil then return end
     interactions[id] = nil
-    for i, key in ipairs(order) do if key == id then table.remove(order, i) break end end
+    orderDirty = true -- one compaction for many removals (a housing refresh removes hundreds)
     LightRP.broadcastInteractions()
 end
 
@@ -58,6 +74,7 @@ local function allowed(playerId, d)
 end
 
 local function clientList(playerId)
+    compact()
     local list = {}
     local bucket = type(GetPlayerRoutingBucket) == "function" and GetPlayerRoutingBucket(playerId) or 0
     local position=Open77.players.position(playerId)
@@ -147,9 +164,30 @@ function LightRP.sendInteractions(playerId, force)
     push(playerId, clientList(playerId), force)
 end
 
+-- Every player's list is rebuilt, JSON-sized and counted: 50-150k instructions each.
+-- Done for all ~90 players in one pass at every drop, pickup or cash drop, it spent the
+-- resource's whole instruction quota (2026-11-06). Changes are coalesced (one push at
+-- most every 150 ms) and the push is spread over the following passes, two players each.
+local flushScheduledAt = nil
+local function flush()
+    flushScheduledAt = nil
+    for index, raw in ipairs(GetPlayers()) do
+        local id = tonumber(raw) or raw
+        push(id, clientList(id))
+        if index % 2 == 0 then Wait(0) end
+    end
+end
 function LightRP.broadcastInteractions()
-    if batchDepth > 0 then batchDirty = true; return end
-    for _, id in ipairs(GetPlayers()) do push(tonumber(id) or id, clientList(id)) end
+    if type(SetTimeout) ~= "function" then -- no scheduler (tests): at once
+        if batchDepth > 0 then batchDirty = true; return end
+        for _, id in ipairs(GetPlayers()) do push(tonumber(id) or id, clientList(id)) end
+        return
+    end
+    local now = LightRP.nowMs()
+    -- a flush killed before it started (instruction quota) must not block the next one
+    if flushScheduledAt and now - flushScheduledAt < 5000 then return end
+    flushScheduledAt = now
+    SetTimeout(150, flush)
 end
 
 function LightRP.dialog(playerId, kind, payload)

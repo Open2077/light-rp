@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Inventories, the ox_inventory way: slot grids with a weight cap, stacks of
 -- identical items, and every move validated here. Kinds:
 --   player:<identifier>#<slot>  persistent, one per character, loaded with it
@@ -1265,14 +1267,14 @@ end
 
 -- Piles that nobody touched for a while go away.
 CreateThread(function()
-    while true do
-        Wait(30000)
+    lightrpEvery(30000, function()
+        
         local now = LightRP.nowMs()
         local ttl = (Config.drop.ttlMinutes or 10) * 60000
         for _, inv in pairs(registry) do
             if inv.kind == "drop" and not inv.busy and now - (inv.touchedAt or inv.createdAt or now) > ttl and next(inv.viewers) == nil then Inv.removeDrop(inv) end
         end
-    end
+    end, "inventory:1267")
 end)
 
 -- ---------------------------------------------------------------------------
@@ -1394,3 +1396,6 @@ Inv.transaction = serialise(function(playerId, fn)
 end, function(playerId) return { Inv.player(playerId) } end)
 
 LightRP.log("inventory ready: %d item template(s)", (function() local n = 0 for _ in pairs(Items) do n = n + 1 end return n end)())
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("inventory.busy", registry, nil, "busy")

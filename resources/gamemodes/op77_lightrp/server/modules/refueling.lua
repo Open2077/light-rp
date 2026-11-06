@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Server-owned pump reservations and timed service. A client can request or
 -- cancel a ticket; it cannot choose its duration, cost, effect or finish early.
 local C, E, F, M = LightRpConfig.fuel, LightRpEvents.net, LightRP.fuel, LightRpFuelModel
@@ -289,16 +290,32 @@ AddEventHandler("open77:playerDamaged",function(player,_,amount)
     local a=sessions[tonumber(player)]; if a and a.phase~="committing" and (tonumber(amount) or 0)>0 then clear(tonumber(player),a,false,"Refuelling interrupted by damage. Nothing was charged.") end
 end)
 CreateThread(function()
-    while true do
-        Wait(200)
+    lightrpEvery(200, function()
+        
         for player,a in pairs(sessions) do
             if a.phase~="committing" then
                 local p,why=valid(player,a)
                 if not p or now()>a.expires then clear(player,a,false,why or "The pump reservation expired. Nothing was charged.") end
             end
         end
-    end
+    end, "refueling:291")
 end)
 AddEventHandler("onResourceStop",function(name)
     if name==GetCurrentResourceName() then for player,a in pairs(sessions) do clear(player,a,false,nil,true) end end
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+-- A fill whose commit task was killed (instruction quota) kept its pump and its car
+-- locked for everyone: released after 60 s in "committing".
+CreateThread(function() lightrpEvery(5000, function()
+    local t = now()
+    for player, a in pairs(sessions) do
+        if a.phase == "committing" then
+            a.committingAt = a.committingAt or t
+            if t - a.committingAt > 60000 then
+                LightRP.log("refueling: fill of %s stuck committing for 60 s (its task died): released", tostring(player))
+                clear(player, a, false, "The fill could not be completed. Nothing was charged.")
+            end
+        end
+    end
+end, "refueling stuck-commit sweep") end)

@@ -1,3 +1,4 @@
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Temporary kits for the activities: a provider hands a player it owns the same kit a
 -- mission would, through the same code (LightRP.kits in missions.lua): assign, ammunition,
 -- the armed check, the retries. The contract is in the header of activities.lua.
@@ -279,3 +280,7 @@ end
 
 A.exported("activityKit", A.giveKit)
 A.exported("activityKitTake", A.takeKit)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("activity_kits.taking", held, nil, "taking")
+expireFlags("activity_kits.delivering", held, nil, "delivering")

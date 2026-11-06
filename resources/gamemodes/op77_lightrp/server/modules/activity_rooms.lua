@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Rooms: a player hosts a game at the rooms NPC of The Crossing (activities_hub.lua, a
 -- `kind = "rooms"` terminal): picks the game, the map, the sides' size, a public room or a
 -- private one with a code; others join; the host starts. A room is a friendly with no
@@ -602,18 +603,18 @@ function R.watchTick()
 end
 
 CreateThread(function()
-    while true do
-        Wait(5000)
+    lightrpEvery(5000, function()
+        
         local ok, err = pcall(R.tick)
         if not ok then LightRP.log("rooms: tick failed: %s", tostring(err)) end
-    end
+    end, "activity_rooms:604")
 end)
 CreateThread(function()
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         local ok, err = pcall(R.watchTick)
         if not ok then LightRP.log("rooms: menu check failed: %s", tostring(err)) end
-    end
+    end, "activity_rooms:611")
 end)
 
 -- ---------------------------------------------------------------------------

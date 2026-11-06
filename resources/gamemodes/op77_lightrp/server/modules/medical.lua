@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Persistent unconscious state and paid, timed assistance. Native life remains
 -- authoritative; the page can request actions, never choose health or deadlines.
 local M,C,Db,Inv=LightRP.medical,LightRpMedicalConfig,LightRP.db,LightRP.inventory
@@ -429,8 +430,8 @@ AddEventHandler("onResourceStop",function(name)
  if damageHandle then Open77.combat.offDamage(damageHandle)end
 end)
 CreateThread(function()
- while true do
-  Wait(250)
+ lightrpEvery(250, function()
+  
   for actor,a in pairs(M.treatments)do
    if a.phase=="preparing"then if now()>a.expires or not treatmentValid(a)then releaseTreatment(a,"Treatment interrupted. Your kit was kept.")end
    elseif a.phase=="playing"then
@@ -462,5 +463,5 @@ CreateThread(function()
     M.push(player)
    end
   end
- end
+ end, "medical:431")
 end)

@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Hunger and thirst. Server-owned percentages on the character, ticking down
 -- while the player is alive, shown on the HUD, refilled by eating and drinking.
 -- At 0 food or 0 drink the character starves (Config.starve): a share of max health
@@ -225,11 +226,11 @@ AddEventHandler("playerDropped", function()
 end)
 
 CreateThread(function()
-    while true do
-        Wait(Config.tickMs)
+    lightrpEvery(Config.tickMs, function()
+        
         local ok, err = pcall(tick)
         if not ok then LightRP.log("needs tick failed: %s", tostring(err)) end
-    end
+    end, "needs:227")
 end)
 
 CreateThread(function()
