@@ -274,6 +274,7 @@ permissions {
     "players.life.kill",
     "players.life.revive",
     "players.life.respawn",
+    "players.life.freeze",         -- parkour: the runner held on the start until GO
     "players.teleport",
     "players.damage.apply",
     "world.effects",        -- the raid's strikes: replicated explosions in the arena bucket

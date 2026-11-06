@@ -4,6 +4,7 @@ import type { BoardRow, Course, CourseCard } from "./model";
 /* Dev mock (no Open77 bridge):
    ?parkour=hud      a run in progress (clock, 3 of 6 checkpoints, deltas, splits)
    ?parkour=count    the 3-2-1-GO
+   ?parkour=go       GO just after the start (with the bearing)
    ?parkour=result   the result card (new personal best, rank 2 / 37)
    ?parkour=record   the result card with a course record
    ?parkour=dnf      the DNF card
@@ -51,9 +52,11 @@ export function parkourMock(fire: Fire, params: URLSearchParams) {
       if (mode === "count") { fire(PAGE_EVENTS.parkour, { kind: "countdown", goInMs: 3000, attempt: 3 }); return; }
       fire(PAGE_EVENTS.parkour, { kind: "countdown", goInMs: 0, attempt: 3 });
       fire(PAGE_EVENTS.parkour, { kind: "go", attempt: 3 });
-      const cps = mode === "hud" ? 3 : 6;
+      const cps = mode === "hud" ? 3 : mode === "go" ? 0 : 6;
       for (let i = 1; i <= cps; i += 1) fire(PAGE_EVENTS.parkour, { kind: "cp", index: i, total: 6, elapsedMs: 8100 + (i - 1) * 8790 + (i === 3 ? 400 : 0), bestMs: 8300 + (i - 1) * 8800, attempt: 3 });
-      if (mode === "hud") return;
+      // the bearing to checkpoint 4: ahead on the right, up on a roof (?parkour=go: GO still up)
+      setTimeout(() => fire(PAGE_EVENTS.parkour, { kind: "bearing", label: "CP 4", angle: -38, distance: 42, rise: 6 }), 50);
+      if (mode === "hud" || mode === "go") return;
       if (mode === "dnf") { fire(PAGE_EVENTS.parkour, { kind: "dnf", reason: "time", text: "Time limit reached.", attempt: 3, checkpoint: 4, checkpoints: 6 }); return; }
       const time = mode === "record" ? 60877 : 62480;
       fire(PAGE_EVENTS.parkour, { kind: "finish", timeMs: time, splits: "", attempt: 3 });
