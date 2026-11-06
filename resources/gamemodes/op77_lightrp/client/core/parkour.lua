@@ -1,21 +1,17 @@
 -- Parkour, client side (server/modules/parkour.lua, docs/parkour.md): what the player sees
 -- of the courses. Purely visual: the server alone decides every crossing.
 --
--- Art direction, "RELAY": a course is a signal the runner carries from an UPLINK (the
--- start) through RELAYS (the checkpoints) to the DOWNLINK (the finish). Every point is
--- drawn with one small vocabulary of native markers (Open77.markers):
---   * GATE   a standing circular frame across the line, the size of the trigger: what you
---            see is what counts, you run through it;
---   * SPINE  a light column fading into the sky, seen from far away;
---   * NODE   a diamond turning above the gate, the head of the spine;
---   * DRIP   two chevrons sliding down from the node into the gate: enter here;
---   * PAD    a ring on the ground.
--- Colours carry the role: uplink cyan, relay gold (the one to reach), ghost white (the one
--- after it, its gate only, to read the line), downlink green (two gates crossed into a
--- turning gyroscope). A relay rises out of the ground when it becomes the target; a
--- crossed one is SENT: it shoots up into the sky and goes. A marker never changes colour
--- or size after creation (a native rebuild): only positions and rotations move, 20 times
--- a second, for the groups near the player.
+-- The points are kept simple and still (2026-11-06, the user: "simplify the gates"):
+--   * the checkpoint to reach: a gold ring standing across the line, the size of its
+--     trigger (what you see is what counts: you run through it), and a thin gold light
+--     column fading into the sky, to find it from far away;
+--   * the finish: the same in green; a start: the same in cyan, the ring on the ground,
+--     facing the course.
+-- A marker is never updated after its creation: an update while it is still loading
+-- restarts its spawn (client Markers.cpp, stage != Ready), and the earlier animated
+-- version (rising gates, turning diamonds, sliding chevrons, 20 updates a second) made
+-- the points vanish and come back all the time. A crossed checkpoint simply goes, with a
+-- burst and a sound.
 --
 -- The page draws the clock, the splits, the countdown, GO, the bearing to the next point
 -- and the result card (ui/src/features/parkour/ParkourHud.tsx) and plays the course music.
@@ -28,17 +24,15 @@ LightRpParkourClient = Parkour
 
 local LIFT = C.orbLift
 local PALETTE = {
-    uplink = { r = 0, g = 240, b = 255 },
-    relay = { r = 255, g = 204, b = 0 },
-    ghost = { r = 226, g = 232, b = 240 },
-    downlink = { r = 61, g = 220, b = 132 },
+    start = { r = 0, g = 240, b = 255 },
+    checkpoint = { r = 255, g = 204, b = 0 },
+    finish = { r = 61, g = 220, b = 132 },
 }
 local START_VIEW, START_GROUPS = 160, 3
 -- 64 markers per resource, shared with every LightRP point (shops, rentals, missions...):
--- the parkour leaves this many free, and drops its decoration before its gates when short.
+-- the parkour leaves this many free (the interaction markers stream by distance).
 local MARKER_CAP, MARKER_RESERVE = 64, 10
-local FRAME_MS, ANIM_RANGE = 50, 180
-local RISE_MS, SEND_MS, SEND_HEIGHT = 450, 420, 16
+local FRAME_MS = 100
 
 local function log(...) Ui.log(...) end
 local function page(payload) Ui.send(E.page.parkour, payload) end
@@ -60,37 +54,22 @@ local function burst(p, effect)
     pcall(Open77.vfx.play, effect or "neon.loot_drop", { position = { x = p.x, y = p.y, z = p.z + LIFT }, duration = 1.5 })
 end
 
--- ---------------------------------------------------------------------------
--- Groups of markers
-
-local groups = {} -- every live group: the frame loop animates them
-
--- Where a part stands at time t: its base, turned (spin), bobbing, dripping, rising out of
--- the ground after its creation, shooting up once sent.
-local function pose(g, part, t)
-    local b = part.base
-    local z, yaw = b.z, part.yaw or 0
-    if part.spin then yaw = yaw + part.spin * t / 1000 end
-    if part.bob then z = z + math.sin(t / 1000 * 2.2 + (part.seed or 0)) * part.bob end
-    if part.drip then
-        local f = (t / part.drip.period + part.drip.phase) % 1
-        z = part.drip.top - (part.drip.top - part.drip.bottom) * f
-    end
-    if g.rise and part.born then
-        local k = math.min(1, math.max(0, (t - part.born) / RISE_MS))
-        z = z - (1 - k) ^ 3 * g.rise
-    end
-    if g.sentAt then
-        local k = math.min(1, math.max(0, (t - g.sentAt) / SEND_MS))
-        z = z + k * k * SEND_HEIGHT
-    end
-    return { x = b.x, y = b.y, z = z }, { x = 0, y = 0, z = yaw % 360 }
+-- A refusal or a short budget is logged (at most every 30 s per kind): nothing fails
+-- silently (2026-11-06: no point drawn at all, nothing in the log).
+local warnedAt = {}
+local function warn(key, ...)
+    local t = now()
+    if warnedAt[key] and t - warnedAt[key] < 30000 then return end
+    warnedAt[key] = t
+    log(...)
 end
+
+-- ---------------------------------------------------------------------------
+-- Points: a ring and a light column, created once, never updated
 
 -- Creating a native marker costs (the client's markers module peaked at 16-24 ms in one frame
 -- when a run's markers were all created at once, LightRP Testing 2026-11-06 00:03): they
--- are created one per frame from a queue, each at its pose of that moment.
-local warn -- below
+-- are created one per frame from a queue.
 local queue, draining = {}, false
 local function drain()
     if draining then return end
@@ -98,15 +77,11 @@ local function drain()
     CreateThread(function()
         while #queue > 0 do
             local job = table.remove(queue, 1)
-            local g, part = job.group, job.part
-            if not g.cancelled and not g.sentAt then
-                part.born = now()
-                local def = {}
-                for k, v in pairs(part.def) do def[k] = v end
-                def.position, def.rotation = pose(g, part, part.born)
+            local g, def = job.group, job.def
+            if not g.cancelled then
                 local ok, handle, why = pcall(Open77.markers.create, def)
                 if ok and handle then
-                    if g.cancelled or g.sentAt then pcall(Open77.markers.remove, handle) else part.handle = handle end
+                    if g.cancelled then pcall(Open77.markers.remove, handle) else g.handles[#g.handles + 1] = handle end
                 else
                     warn("create", "parkour: %s %s marker refused: %s", g.kind, tostring(def.shape), tostring(ok and why or handle))
                 end
@@ -115,16 +90,6 @@ local function drain()
         end
         draining = false
     end)
-end
-
--- A refusal or a short budget is logged (at most every 30 s per kind): nothing failed
--- silently again (2026-11-06: no point drawn at all, nothing in the log).
-local warnedAt = {}
-warn = function(key, ...)
-    local t = now()
-    if warnedAt[key] and t - warnedAt[key] < 30000 then return end
-    warnedAt[key] = t
-    log(...)
 end
 
 local function freeSlots()
@@ -136,115 +101,32 @@ local function freeSlots()
     return MARKER_CAP - MARKER_RESERVE - used - #queue
 end
 
--- `parts` in priority order (the gate first): what does not fit the free slots is left out.
-local function group(kind, parts, opts)
-    local g = { kind = kind, parts = {}, at = opts.at, rise = opts.rise }
-    if not markersOk() then return g end
-    local room = freeSlots()
-    if room < #parts then warn("budget", "parkour: %s gets %d of %d markers (marker budget: %d free)", kind, math.max(0, room), #parts, room) end
-    for _, part in ipairs(parts) do
-        if room <= 0 then break end
-        room = room - 1
-        g.parts[#g.parts + 1] = part
-        queue[#queue + 1] = { group = g, part = part }
-    end
-    groups[g] = true
-    drain()
-    return g
-end
-
 local function drop(g)
     if not g then return end
     g.cancelled = true
-    groups[g] = nil
-    for _, part in ipairs(g.parts) do
-        if part.handle then pcall(Open77.markers.remove, part.handle); part.handle = nil end
-    end
+    for _, h in ipairs(g.handles) do pcall(Open77.markers.remove, h) end
+    g.handles = {}
 end
 
--- Crossed: the decoration goes at once, the gates shoot up and go (the frame loop).
-local function send(g)
-    if not g or g.cancelled or g.sentAt then return end
-    g.sentAt = now()
-    for _, part in ipairs(g.parts) do
-        if not part.gate and part.handle then pcall(Open77.markers.remove, part.handle); part.handle = nil end
-    end
-end
-
--- The parts
-local function gate(center, radius, yaw, color, alpha, view)
-    -- the frame's origin is its bottom; its plane faces the way the runner comes
-    return { gate = true, yaw = yaw, base = { x = center.x, y = center.y, z = center.z - radius },
-        def = { shape = "checkpoint", radius = radius, height = radius * 2, color = rgba(color, alpha), maxDistance = view } }
-end
-local function spine(p, color, radius, height, alpha)
-    return { base = { x = p.x, y = p.y, z = p.z },
-        def = { shape = "cylinder", radius = radius, height = height, color = rgba(color, alpha), maxDistance = 500 } }
-end
-local function node(x, y, z, color, view)
-    return { spin = 70, bob = 0.18, seed = (x + y) % 6, base = { x = x, y = y, z = z },
-        def = { shape = "diamond", radius = 0.42, height = 1.0, color = rgba(color, 235), maxDistance = view } }
-end
-local function drips(x, y, top, bottom, yaw, color, out)
-    for i = 0, 1 do
-        out[#out + 1] = { yaw = yaw, drip = { top = top, bottom = bottom, period = 1100, phase = i * 0.5 }, base = { x = x, y = y, z = top },
-            def = { shape = "chevron", radius = 0.42, height = 0.5, color = rgba(color, 220), maxDistance = 140 } }
-    end
-    return out
-end
-local function pad(p, radius, color)
-    return { base = { x = p.x, y = p.y, z = p.z + 0.06 },
-        def = { shape = "ring", radius = radius, height = 1, color = rgba(color, 190), maxDistance = 120 } }
-end
 local function radiusOf(p) return tonumber(p.radius) or C.radius.default end
 
--- UPLINK: a portal standing on the ground at the start, facing the course.
-local function uplink(s)
-    local R = 1.6
-    local top = s.z + 2 * R
-    return group("uplink", {
-        gate({ x = s.x, y = s.y, z = s.z + R }, R, tonumber(s.heading) or 0, PALETTE.uplink, 210, START_VIEW + 40),
-        spine(s, PALETTE.uplink, 0.16, 55, 120),
-        node(s.x, s.y, top + 0.55, PALETTE.uplink, START_VIEW + 40),
-        pad(s, math.max(1.2, radiusOf(s) * 0.9), PALETTE.uplink),
-    }, { at = s })
-end
-
--- RELAY: the checkpoint to reach, risen out of the ground.
-local function relay(p, from)
-    local R = radiusOf(p)
-    local yaw = from and yawTo(from, p) or 0
-    local center = { x = p.x, y = p.y, z = p.z + LIFT }
-    local top = center.z + R
-    local parts = { gate(center, R, yaw, PALETTE.relay, 225, 400), spine(p, PALETTE.relay, 0.3, 60, 140),
-        node(p.x, p.y, top + 1.5, PALETTE.relay, 300) }
-    drips(p.x, p.y, top + 1.2, top + 0.15, yaw, PALETTE.relay, parts)
-    return group("relay", parts, { at = p, rise = 2 * R + 1 })
-end
-
--- GHOST: the checkpoint after it, its gate only, faint.
-local function ghost(p, from)
-    local R = radiusOf(p)
-    return group("ghost", { gate({ x = p.x, y = p.y, z = p.z + LIFT }, R, from and yawTo(from, p) or 0, PALETTE.ghost, 110, 220) }, { at = p })
-end
-
--- DOWNLINK: two gates crossed, turning (a gyroscope), and the tallest spine; when it is
--- the target it gets the node, the drip and the pad too, and rises like a relay.
-local function downlink(p, from, isNext)
-    local R = radiusOf(p)
-    local yaw = from and yawTo(from, p) or 0
-    local center = { x = p.x, y = p.y, z = p.z + LIFT }
-    local a = gate(center, R, yaw, PALETTE.downlink, isNext and 225 or 150, 600)
-    local b = gate(center, R, yaw + 90, PALETTE.downlink, isNext and 170 or 110, 600)
-    a.spin, b.spin = 24, 24
-    local parts = { a, spine(p, PALETTE.downlink, 0.4, 80, isNext and 170 or 120), b }
-    if isNext then
-        local top = center.z + R
-        parts[#parts + 1] = node(p.x, p.y, top + 1.5, PALETTE.downlink, 400)
-        drips(p.x, p.y, top + 1.2, top + 0.15, yaw, PALETTE.downlink, parts)
-        parts[#parts + 1] = pad(p, math.max(1, R * 0.9), PALETTE.downlink)
-    end
-    return group("downlink", parts, { at = p, rise = isNext and (2 * R + 1) or nil })
+-- One point: the ring (the frame's origin is its bottom, its plane faces the way the
+-- runner comes) and the column. `ground`: the ring stands on the ground (a start).
+local function point(kind, p, yaw, color, ground)
+    local g = { kind = kind, handles = {} }
+    if not markersOk() then return g end
+    local R = ground and 1.6 or radiusOf(p)
+    local bottom = ground and p.z or (p.z + LIFT - R)
+    local defs = {
+        { position = { x = p.x, y = p.y, z = bottom }, rotation = { x = 0, y = 0, z = (yaw or 0) % 360 }, shape = "checkpoint",
+            radius = R, height = R * 2, color = rgba(color, 220), maxDistance = 400 },
+        { position = { x = p.x, y = p.y, z = p.z }, shape = "cylinder", radius = 0.22, height = 60, color = rgba(color, 130), maxDistance = 500 },
+    }
+    local room = freeSlots()
+    if room < #defs then warn("budget", "parkour: %s gets %d of %d markers (marker budget: %d free)", kind, math.max(0, room), #defs, room) end
+    for i = 1, math.min(#defs, math.max(0, room)) do queue[#queue + 1] = { group = g, def = defs[i] } end
+    drain()
+    return g
 end
 
 -- ---------------------------------------------------------------------------
@@ -269,16 +151,16 @@ local function syncStarts()
     for i = 1, math.min(START_GROUPS, #near) do keep[near[i].c.id] = near[i].c end
     for id, g in pairs(starts) do if not keep[id] then drop(g); starts[id] = nil end end
     for id, c in pairs(keep) do
-        if not starts[id] then starts[id] = uplink(c.start) end
+        if not starts[id] then starts[id] = point("start", c.start, tonumber(c.start.heading) or 0, PALETTE.start, true) end
     end
 end
 
 -- ---------------------------------------------------------------------------
--- The run: the relay to reach, the ghost after it, the downlink
+-- The run: the checkpoint to reach and the finish
 
-local view = {} -- next, nextIndex, ghost, ghostIndex, finish, finishNext
+local view = {} -- next, nextIndex, finish, finishNext
 local function clearRun()
-    drop(view.next); drop(view.ghost); drop(view.finish)
+    drop(view.next); drop(view.finish)
     view = {}
 end
 local function pointAt(run, i)
@@ -287,35 +169,26 @@ local function pointAt(run, i)
     if i == #cps + 1 then return run.course.finish, true end
     return nil
 end
--- where the runner comes from to reach point i (the gate faces that way)
+-- where the runner comes from to reach point i (the ring faces that way)
 local function before(run, i)
     if i <= 1 then return run.course.start end
     return run.course.checkpoints[i - 1] or run.course.start
 end
 
--- `crossed`: the previous target was just passed (sent up, not dropped).
-local function syncRun(crossed)
+local function syncRun()
     local run = Parkour.run
     if not run or run.phase == "finished" then clearRun(); return end
     local cps = run.course.checkpoints
     local n = run.next
     local t, isFinish = pointAt(run, n)
     if view.nextIndex ~= n then
-        if crossed then send(view.next) else drop(view.next) end
+        drop(view.next)
         view.next, view.nextIndex = nil, n
-        if t and not isFinish then view.next = relay(t, before(run, n)) end
+        if t and not isFinish then view.next = point("checkpoint", t, yawTo(before(run, n), t), PALETTE.checkpoint) end
     end
-    local g, gFinish = pointAt(run, n + 1)
-    local gi = (g and not gFinish) and n + 1 or nil
-    if view.ghostIndex ~= gi then
-        drop(view.ghost)
-        view.ghost, view.ghostIndex = gi and ghost(g, before(run, gi)) or nil, gi
-    end
-    local finishNext = isFinish == true
-    if not view.finish or view.finishNext ~= finishNext then
-        drop(view.finish)
-        view.finish = downlink(run.course.finish, before(run, #cps + 1), finishNext)
-        view.finishNext = finishNext
+    -- the finish shows from the start (where the run ends); it is only rebuilt for nothing
+    if not view.finish then
+        view.finish = point("finish", run.course.finish, yawTo(before(run, #cps + 1), run.course.finish), PALETTE.finish)
     end
 end
 
@@ -372,27 +245,7 @@ local function syncBearing()
 end
 
 -- ---------------------------------------------------------------------------
--- The frame loop: animations 20 times a second, the hold and the bearing, the uplinks.
-
-local function animate()
-    local t = now()
-    local s = Open77.character.state()
-    local at = s and s.position
-    for g in pairs(groups) do
-        local near = not at or not g.at or P.distance(at, g.at) <= ANIM_RANGE
-        for _, part in ipairs(g.parts) do
-            if part.handle then
-                local moving = near and (part.spin or part.bob or part.drip)
-                local rising = g.rise and part.born and t - part.born <= RISE_MS + FRAME_MS
-                if moving or rising or g.sentAt then
-                    local position, rotation = pose(g, part, t)
-                    pcall(Open77.markers.update, part.handle, { position = position, rotation = rotation })
-                end
-            end
-        end
-        if g.sentAt and t - g.sentAt >= SEND_MS then drop(g) end
-    end
-end
+-- The frame loop: the hold and the bearing, the starts.
 
 local function stopRun()
     Parkour.run = nil
@@ -419,7 +272,7 @@ local function onServer(p)
         Parkour.run = { course = p.course, phase = p.phase or "loading", next = (tonumber(p.checkpoint) or 0) + 1, attempt = p.attempt }
         clearStarts()
         Ui.send(E.page.dialogClose, { kind = "parkour" })
-        syncRun(false)
+        syncRun()
         page(p)
         return
     end
@@ -431,7 +284,7 @@ local function onServer(p)
     if not run then return end
     if kind == "countdown" then
         run.phase, run.next = "countdown", 1
-        syncRun(false)
+        syncRun()
         syncHold()
         sound("sq024_race_countdown_start")
     elseif kind == "go" then
@@ -441,20 +294,19 @@ local function onServer(p)
     elseif kind == "cp" then
         local passed = run.course.checkpoints[p.index]
         run.next = (tonumber(p.index) or 0) + 1
-        syncRun(true)
+        syncRun()
         sound("ui_menu_onpress")
         sound("ui_jingle_quest_update")
         burst(passed)
     elseif kind == "finish" then
         run.phase = "finished"
-        send(view.finish); view.finish = nil
-        syncRun(false)
+        syncRun()
         syncHold()
         sound("ui_jingle_quest_success")
         burst(run.course.finish, "sparks.burst.small")
     elseif kind == "dnf" then
         run.phase = "finished"
-        syncRun(false)
+        syncRun()
         syncHold()
         sound("ui_menu_item_crafting_fail")
     elseif kind == "respawn" then
@@ -505,16 +357,12 @@ function Parkour.start()
         while true do
             Wait(FRAME_MS)
             frame = frame + 1
-            local ok, err = pcall(animate)
-            if not ok then log("parkour: animation failed: %s", tostring(err)) end
-            if frame % 4 == 0 then pcall(syncHold) end
-            if frame % 3 == 0 then
-                ok, err = pcall(syncBearing)
-                if not ok then log("parkour: bearing failed: %s", tostring(err)) end
-            end
-            if frame % 20 == 0 then
+            if frame % 2 == 0 then pcall(syncHold) end
+            local ok, err = pcall(syncBearing)
+            if not ok then log("parkour: bearing failed: %s", tostring(err)) end
+            if frame % 10 == 0 then
                 ok, err = pcall(syncStarts)
-                if not ok then log("parkour: uplinks failed: %s", tostring(err)) end
+                if not ok then log("parkour: starts failed: %s", tostring(err)) end
             end
         end
     end)

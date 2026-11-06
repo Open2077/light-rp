@@ -1,6 +1,7 @@
 -- Parkour, client side (client/core/parkour.lua, parkour_editor.lua) with the host stubbed:
--- uplinks for the nearest courses only, the run's relays follow the checkpoints (a crossed
--- one is sent up, then goes), the runner is held until GO, the bearing reaches the page, every
+-- a ring + light column for the nearest starts only, the run shows the checkpoint to reach and
+-- the finish, no marker is ever updated (an update while loading restarts it: the points
+-- flickered), the runner is held until GO, the bearing reaches the page, every
 -- server event reaches the page, the keys go to the server only during a run, the editor
 -- relays, captures, draws the draft and turns build clicks into page actions.
 local threads = {}
@@ -79,21 +80,20 @@ Parkour.start()
 check(mappings["lightrp.parkour.restart"].key == "HOME" and mappings["lightrp.parkour.checkpoint"].key == "END"
     and mappings["lightrp.parkour.leave"].key == "DELETE", "run keys mapped (leave on DELETE: F1 is the menu)")
 
--- uplinks: 6 courses, the 3 nearest within sight get one (gate + spine + node + pad)
+-- starts: 6 courses, the 3 nearest within sight get a ring and a light column
 local list = {}
 for i = 1, 6 do list[i] = { id = "c" .. i, name = "C" .. i, start = { x = i * 20, y = 0, z = 10, radius = 3, heading = 90 } } end
 list[6].start.x = 900 -- out of sight
 park({ kind = "courses", courses = list })
 tick(40)
-check(count(markers) == 12, "3 uplinks x 4 markers: " .. count(markers))
+check(count(markers) == 6, "3 starts x 2 markers: " .. count(markers))
 local sh = shapes()
-check(sh.checkpoint == 3 and sh.cylinder == 3 and sh.diamond == 3 and sh.ring == 3, "uplink = gate, spine, node, pad")
+check(sh.checkpoint == 3 and sh.cylinder == 3, "a start = a ring and a light column")
 for _, m in pairs(markers) do
-    if m.shape == "checkpoint" then check(m.rotation.z == 90 and m.position.z == 10 and m.height == 3.2, "the uplink gate stands on the ground, facing the course") end
+    if m.shape == "checkpoint" then check(m.rotation.z == 90 and m.position.z == 10 and m.height == 3.2, "the start ring stands on the ground, facing the course") end
 end
-local before = updates
-tick(4)
-check(updates > before, "the nodes turn (positions and rotations only)")
+tick(20)
+check(updates == 0, "no marker is ever updated")
 
 -- keys do nothing outside a run
 mappings["lightrp.parkour.restart"].fn()
@@ -107,11 +107,12 @@ local course = { id = "c1", name = "C1", difficulty = "hard", revision = 1,
 park({ kind = "run", phase = "loading", course = course, attempt = 1, music = { file = "audio/x.webm", volume = 0.05 } })
 check(lastPage("lightrp:ui:parkour", "run").music.volume == 0.05, "the run (and its music) reaches the page")
 check(lastPage("lightrp:ui:dialog:close").kind == "parkour", "the card closes when the run starts")
--- relay (gate, spine, node, 2 drips) + ghost gate + downlink (2 gates, spine) = 9
+-- the checkpoint to reach (ring + column) and the finish (ring + column)
 tick(10)
-check(count(markers) == 9, "run markers: " .. count(markers))
-sh = shapes()
-check(sh.checkpoint == 4 and sh.chevron == 2 and sh.diamond == 1 and sh.cylinder == 2, "relay + ghost + downlink parts")
+check(count(markers) == 4, "run markers: " .. count(markers))
+for _, m in pairs(markers) do
+    if m.shape == "checkpoint" and m.position.x == 20 then check(m.radius == 3 and m.height == 6 and m.position.z == 10 + 1 - 3, "the ring is the trigger's size, centred on it") end
+end
 park({ kind = "countdown", goInMs = 3000, attempt = 1 })
 check(frozen == true, "held on the start during the countdown")
 park({ kind = "go", attempt = 1 })
@@ -126,17 +127,16 @@ check(toServer[#toServer].payload.op == "checkpoint", "END goes back to the last
 mappings["lightrp.parkour.leave"].fn()
 check(toServer[#toServer].payload.op == "leave", "DELETE leaves the run")
 park({ kind = "cp", index = 1, total = 2, elapsedMs = 2125, attempt = 1 })
--- checkpoint 1 sent and gone, checkpoint 2 the relay (5), no ghost (the finish is after), downlink (3)
 tick(20)
-check(count(markers) == 8, "after checkpoint 1: " .. count(markers))
+check(count(markers) == 4, "after checkpoint 1: checkpoint 2 and the finish: " .. count(markers))
 check(lastPage("lightrp:ui:parkour", "cp").elapsedMs == 2125, "the split reaches the page")
 park({ kind = "cp", index = 2, total = 2, elapsedMs = 4400, attempt = 1 })
 tick(20)
-check(count(markers) == 7, "next is the downlink (2 gates, spine, node, 2 drips, pad): " .. count(markers))
+check(count(markers) == 2, "only the finish left: " .. count(markers))
 check(lastPage("lightrp:ui:parkour", "bearing").label == "FINISH", "the bearing points at the finish")
 park({ kind = "finish", timeMs = 7125, splits = "2125,4400", attempt = 1 })
 tick(20)
-check(count(markers) == 0 and #sounds > 0, "finish: the downlink is sent and goes, a jingle plays")
+check(count(markers) == 0 and #sounds > 0 and updates == 0, "finish: the points go, a jingle plays, nothing was ever updated")
 park({ kind = "result", timeMs = 7125, attempt = 1, rank = 1 })
 check(lastPage("lightrp:ui:parkour", "result").rank == 1, "the result reaches the page")
 pageHandlers["lightrp:ui:parkour"]({ op = "leave" })
@@ -144,7 +144,7 @@ check(toServer[#toServer].payload.op == "leave", "the card's leave reaches the s
 park({ kind = "ended" })
 check(Parkour.run == nil and lastPage("lightrp:ui:parkour", "ended"), "ended")
 tick(40)
-check(count(markers) == 12, "uplinks back after the run")
+check(count(markers) == 6, "starts back after the run")
 check(lastPage("lightrp:ui:parkour", "bearing").hide == true, "the bearing hides after the run")
 
 -- GPS to a course start
@@ -158,7 +158,7 @@ check(Editor.active and supportMode == "menu", "editor open in menu mode")
 check(lastPage("lightrp:ui:parkoureditor", "open"), "open reaches the page")
 tick(2)
 tick(20)
-check(count(markers) == 0, "no uplinks while editing")
+check(count(markers) == 0, "no starts while editing")
 pageHandlers["lightrp:ui:parkoureditor"]({ operation = "capture", mode = "feet", request = "r1" })
 local cap = lastPage("lightrp:ui:parkoureditor", "response")
 check(cap.ok and cap.data.position.x == 0 and cap.data.heading == 45, "capture at my feet")
