@@ -743,20 +743,22 @@ local function sample(player, run, t)
     run.prev, run.prevT = p, t
 end
 
-CreateThread(function()
-    while true do
-        Wait(C.tickMs)
-        local t = now()
-        for player, run in pairs(runs) do
-            if run.phase == "running" and not run.teleporting and run.startedAt then
-                local ok, err = pcall(sample, player, run, t)
-                if not ok then log("parkour: sample of %d failed: %s", player, tostring(err)) end
-            elseif run.phase == "finished" and t - (run.finishedAt or t) > C.resultHoldMs then
-                endRun(player, run.dnf and "dnf" or "finished")
-            end
+-- The next tick is scheduled before this one runs: with ~80 players the resource's
+-- instruction quota ran out and killed the old `while true` thread, and no checkpoint
+-- was ever crossed again until a restart (2026-11-06).
+local function tick()
+    SetTimeout(C.tickMs, tick)
+    local t = now()
+    for player, run in pairs(runs) do
+        if run.phase == "running" and not run.teleporting and run.startedAt then
+            local ok, err = pcall(sample, player, run, t)
+            if not ok then log("parkour: sample of %d failed: %s", player, tostring(err)) end
+        elseif run.phase == "finished" and t - (run.finishedAt or t) > C.resultHoldMs then
+            endRun(player, run.dnf and "dnf" or "finished")
         end
     end
-end)
+end
+SetTimeout(C.tickMs, tick)
 
 -- The run keys (client/core/parkour.lua).
 RegisterNetEvent(NET_KEY, function(p)
