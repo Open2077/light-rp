@@ -2,7 +2,8 @@
 -- the Light RP activity contract (op77_lightrp). Freeroam's race engine without
 -- Freeroam: admission and return go through Light RP, each race runs in its own
 -- routing bucket (4200000+), cars are loaners removed at the end, nothing is handed
--- out (no implants, no weapons) and results earn proposed reputation, never money.
+-- out (no implants, no weapons; only the parkour race lends double jump and dash, for
+-- the race) and results earn proposed reputation, never money.
 --
 -- Server: activity adapter, instances (engine), queues (lobby), courses, best times,
 --         staff course editor, commands.
@@ -31,6 +32,7 @@ server_script "server/records.lua"
 server_script "server/activity.lua"
 server_script "server/engine.lua"
 server_script "server/bots.lua"
+server_script "server/parkour.lua"
 server_script "server/lobby.lua"
 server_script "server/editor.lua"
 server_script "server/main.lua"
@@ -53,6 +55,12 @@ permissions {
     "players.stats.read",   -- Open77.players.getHealth (god mode before the race)
     "players.stats.apply",  -- Open77.players.setGodMode (gated by either of these two,
     "players.damage.apply", --   depending on the build)
+    "players.dash.define",  -- parkour race: its dash (a session grant)
+    "players.dash.manage",
+    "players.dash.read",
+    "players.cyberware.define",    -- parkour race: its double jump (legs, a temporary lease)
+    "players.cyberware.read",
+    "players.cyberware.temporary", -- never players.cyberware.manage: nothing owned can change
     "filesystem.read",      -- data/courses, data/records.json
     "filesystem.write",
     -- client

@@ -94,8 +94,12 @@ server_script "server/modules/parties.lua"
 server_script "server/modules/missions.lua"
 server_script "server/modules/mission_chimera.lua"
 server_script "server/modules/mission_engine.lua"  -- runtime of the authored missions
+server_script "client/core/state_json.lua"          -- the editors' large replies as JSON text (mission_editor.lua)
 server_script "server/modules/mission_editor.lua"  -- storage + staff editor protocol (/lightrp.missions)
 server_script "server/modules/mission_repay.lua"   -- /lightrp.missions.repay: stored missions to the new payout scale
+server_script "server/modules/game_map_rules.lua"  -- game maps: validation against a game's schema
+server_script "server/config/game_maps_seed.lua"   -- one-time import data, nothing plays from it
+server_script "server/modules/game_maps.lua"       -- storage + staff editor protocol (/lightrp.maps), delivery to op77_games
 server_script "server/config/fixers.lua"
 server_script "server/modules/fixers.lua"          -- fixer gigs: offers by Neural-Link text, crews, meet point
 server_script "server/config/world_bosses.lua"
@@ -155,9 +159,11 @@ server_script "server/modules/ripperdoc.lua"
 server_script "server/modules/pose_ghost.lua"       -- held poses are non-solid to other players (no push out of an emote/seat)
 server_script "server/config/activities.lua"
 server_script "server/modules/activities.lua"      -- activity providers' contract: ownership, return, stats (exports)
+server_script "server/modules/activity_kits.lua"   -- temporary kits for activities: a mission's kit, handed by the same code
 server_script "server/modules/parkour.lua"         -- parkour courses, runs against the clock, leaderboards, staff editor (/lightrp.parkour)
 server_script "server/modules/activity_queue.lua"  -- the queue panel: one queue per player (core, providers, mission boards), leave
 server_script "server/modules/activity_pay.lua"    -- eddies for activity results (PvP ranked, PvE), caps and anti-farm
+server_script "server/modules/activity_rooms.lua"  -- rooms: a player hosts an unranked match at The Crossing's rooms NPC
 server_script "server/modules/activities_hub.lua"  -- The Crossing: terminals, contracts board, first-day pointer
 server_script "server/config/halloffame.lua"
 server_script "server/modules/halloffame.lua"     -- The Crossing: the Hall of Fame board and its boards
@@ -237,6 +243,7 @@ client_script "client/core/job_runs.lua"
 client_script "client/core/job_work.lua"
 client_script "client/core/raid.lua"
 client_script "client/core/mission_editor.lua"
+client_script "client/core/map_editor.lua"     -- /lightrp.maps: the mission editor's build mode on a game map
 client_script "client/core/mission_run.lua"
 client_script "client/core/vehicle_context.lua"
 client_script "client/core/crew.lua"            -- crews: ALT + click on players, invite keys (server/modules/parties.lua)

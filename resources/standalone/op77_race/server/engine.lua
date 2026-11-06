@@ -9,7 +9,8 @@
 --   * admission and return go through the activity contract (server/activity.lua):
 --     the core captures the return point, puts the RP weapons aside and brings the
 --     player back; nothing is placed by kill -> respawn any more (runners teleport);
---   * no implant, Dash, Overdrive or weapon is handed out (no Athlete legs, no katana);
+--   * no implant, Dash, Overdrive or weapon is handed out (no Athlete legs, no katana),
+--     but for the parkour race, which lends double jump and dash (server/parkour.lua);
 --   * loaner cars are created in the instance bucket and removed at the end;
 --   * results go to the core (placement, time, proposed reputation), never cash;
 --   * per-checkpoint fireworks are rate-limited per instance (client effect quota).
@@ -61,6 +62,15 @@ local NO_BOTS = {
     rows = function() return {} end, entrant = function() return nil end,
 }
 local function bots() return RaceBots or NO_BOTS end
+
+-- The parkour race's lent abilities (server/parkour.lua, loaded after this file) follow
+-- the racer's state: called after every change of it, never for another race.
+local function abilities(inst, playerId)
+    if inst.abilities and RaceParkour then RaceParkour.sync(playerId) end
+end
+local function abilitiesReady(inst, now)
+    return not (inst.abilities and RaceParkour) or RaceParkour.readyForCountdown(inst, now)
+end
 
 -- Everyone on the line: the players plus the bots.
 local function fieldSize(inst) return #inst.members + bots().count(inst) end
@@ -396,7 +406,7 @@ end
 -- and checkpoints, or how it ended (dnf, left). A finisher's result carries the board as
 -- it stands at the line; resolve sends the final one (A.recap).
 local OUTCOME = { dnf = "dnf", left = "left" }
-local MODES = { trial = "Time trial", pve = "Race vs AI" }
+local MODES = { trial = "Time trial", pve = "Race vs AI", parkour = "Parkour" }
 function E.recapOf(inst)
     local now = nowMs()
     local list = {}
@@ -556,6 +566,8 @@ E.settled = settled
 local function release(inst, playerId, racer, opts)
     if racer.releasing then return end
     racer.releasing = true
+    -- before anything else, and before the core takes the player back
+    abilities(inst, playerId)
     opts = opts or { viaCore = true }
     CreateThread(function()
         local hadVehicle = racer.vehicleId ~= nil
@@ -591,6 +603,7 @@ local function disqualify(inst, playerId, racer, reason, text)
     if racer.state == "finished" or racer.state == "dnf" or racer.state == "left" then return end
     racer.state, racer.dnfReason = "dnf", reason
     racer.ready = false
+    abilities(inst, playerId)
     if text then E.hooks.notice(playerId, "error", inst.label, text) end
     log(("player %d DNF in %s: %s"):format(playerId, inst.id, tostring(reason)))
 end
@@ -644,6 +657,7 @@ local function placeRunner(inst, playerId, racer, slot)
         if placed then
             racer.placed = true
             holdRunner(inst, playerId, racer)
+            abilities(inst, playerId)
         else
             log(("runner %d could not reach the start: %s"):format(playerId, tostring(why)))
             disqualify(inst, playerId, racer, "placement_failed", "The start line did not load.")
@@ -674,7 +688,7 @@ local function newInstance(def, course)
         id = def.key .. ":" .. instanceSequence, key = def.key, activityId = def.id, mode = def.mode, label = def.label,
         bucket = bucket, course = course, members = {}, racers = {}, finishOrder = {},
         phase = "loading", run = 1, lastFireworkAt = -math.huge, lastRankingAt = 0, lastSeatPollAt = 0, lastHoldAt = 0,
-        lastProtectAt = 0,
+        lastProtectAt = 0, abilities = def.abilities == true or nil,
     }
 end
 
@@ -718,7 +732,7 @@ function E.start(def, course, playerIds, opts)
                     fallback = before and { x = before.x, y = before.y, z = before.z, heading = before.heading or 0,
                         bucket = before.bucket or 0 } or nil,
                     state = "loading",
-                    unranked = unranked[playerId] == true or nil,
+                    unranked = (unranked[playerId] == true or def.unranked == true) or nil,
                 }
                 inst.members[#inst.members + 1] = playerId
                 inst.racers[playerId] = racer
@@ -855,6 +869,7 @@ local function go(inst, now)
                 racer.lapStartedAt, racer.graceUntil = now, now
                 local p = Open77.players.position(playerId)
                 racer.lastPosition = p and { x = p.x, y = p.y, z = p.z, bucket = p.bucket } or nil
+                abilities(inst, playerId)
                 E.hooks.pulse(playerId, { kind = "go", instance = inst.id, run = inst.run })
             else
                 if seated then log("GO release failed: " .. tostring(why)) end
@@ -912,6 +927,7 @@ E.afterFinish = afterFinish
 
 local function finish(inst, playerId, racer, now)
     placeFinisher(inst, playerId, racer, now)
+    abilities(inst, playerId)
     -- The time trial's board takes time-trial runs only, never a race that had bots in
     -- it. A race vs AI keeps its own best per course (a separate board), personal only.
     -- An unranked run (Light RP's options.ranked = false) writes no best time at all.
@@ -998,6 +1014,7 @@ resolve = function(inst, reason)
         local racer = inst.racers[playerId]
         if racer.state == "racing" or racer.state == "countdown" or racer.state == "loading" then
             racer.state, racer.dnfReason = "dnf", reason or "timeout"
+            abilities(inst, playerId)
         end
     end
     bots().resolve(inst, reason or "timeout", now)
@@ -1051,7 +1068,7 @@ function E.tick(now)
                     end
                 elseif waiting == 0 and now >= inst.loadEndsAt then
                     -- bots still being seated get a short grace, then are dropped
-                    if bots().readyForCountdown(inst, now) then startCountdown(inst, now) end
+                    if bots().readyForCountdown(inst, now) and abilitiesReady(inst, now) then startCountdown(inst, now) end
                 elseif now >= inst.readyEndsAt then
                     for _, playerId in ipairs(inst.members) do
                         local racer = inst.racers[playerId]
@@ -1259,6 +1276,7 @@ end
 -- core returns the players (the contract: a stopping provider's players are released).
 function E.shutdown()
     bots().shutdown()
+    if RaceParkour then RaceParkour.shutdown() end
     for playerId, racer in pairs(racers) do
         if racer.vehicleId then removeVehicle(racer, "resource_stop") end
         if connected(playerId) then unprotect(playerId, racer) end

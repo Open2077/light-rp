@@ -19,9 +19,11 @@ import { jobFixture } from "./jobFixture";
 import { garageFixture } from "./garageFixture";
 import { dealershipFixture } from "./dealershipFixture";
 import { activitiesMock, missionMock } from "./missionFixture";
+import { roomsMock } from "./roomsFixture";
 import { basketSummary } from "@/features/shop/model";
 import { safezonesMock } from "@/features/safezones/mock";
 import { missionEditorMock } from "@/features/missioneditor/mock";
+import { mapEditorMock } from "@/features/mapeditor/mock";
 import { armamentMock } from "@/features/inventory/armamentMock";
 import { activityHudMock } from "@/features/activityhud/mock";
 import { hallOfFameMock } from "@/features/halloffame/mock";
@@ -45,6 +47,7 @@ export function installMockBridge(): void {
   const activityHud = activityHudMock(fire, params);
   const guide = guideMock(fire, params); // ?dialog=guide: the guide NPC's FAQ
   const missionEditor = missionEditorMock(fire, params);
+  const mapEditor = mapEditorMock(fire, params);
   const armament = armamentMock(fire, params);
   const hallOfFame = hallOfFameMock(fire, params);
   const recap = recapMock(fire, params);
@@ -58,6 +61,7 @@ export function installMockBridge(): void {
   const garage = garageFixture();
   const mission = missionMock(params, (n, p) => fire(n, p));
   const activities = activitiesMock(params, (n, p) => fire(n, p)); // ?dialog=activities (&lobby=search|widened|offer|match|friendly)
+  const rooms = roomsMock(params, (n, p) => fire(n, p)); // ?dialog=rooms (&room=host|member|private)
   const dealership = dealershipFixture();
   const step = (params.get("step") as CharacterState["step"] | null) ?? (registered ? "done" : "identity");
   const character: CharacterState = {
@@ -154,6 +158,7 @@ export function installMockBridge(): void {
       if (name === PAGE_EVENTS.safezones) { safezones.receive(payload); return; }
       if (name === PAGE_EVENTS.support && (maneki.receive(payload) || admin.receive(payload))) return;
       if (name === PAGE_EVENTS.missionEditor) { missionEditor.receive(payload); return; }
+      if (name === PAGE_EVENTS.mapEditor) { mapEditor.receive(payload); return; }
       if (name === PAGE_EVENTS.parkourEditor) { parkour.editor(payload); return; }
       if (name === "lightrp:ui:grenades") { armament.receiveGrenade(payload); return; }
       if (name === PAGE_EVENTS.armament) { armament.receive(payload); return; }
@@ -179,6 +184,7 @@ export function installMockBridge(): void {
             hidden: { Face: "Items.Glasses_01_basic_01" }, slots: { ...state.worn.slots, Face: false } };
           safezones.boot();
           missionEditor.boot();
+          mapEditor.boot();
           armament.boot();
           setTimeout(() => activityHud.boot(), 60); // ?activity=race|trial|arena|turf|lobby|countdown|result|editor|demo
   // ?wheel=N: hold Control to open the wheel (as the CTRL key mapping does), ?wheelopen=1 opens it at once
@@ -229,6 +235,7 @@ export function installMockBridge(): void {
           parkour.boot();
           admin.boot();
           if (params.get("dialog") === "activities") activities.boot();
+          if (params.get("dialog") === "rooms") rooms.boot();
           if (params.get("dialog") === "mission") mission.open();
           else if (params.get("queue") === "1") mission.queueOnly();
           if (params.get("mission") === "1") mission.running();
@@ -295,6 +302,7 @@ export function installMockBridge(): void {
         if (mission.handle(action)) return;
         if (parkour.action(action as { type: string })) return;
         if (params.get("dialog") === "activities" && activities.handle(action)) return;
+        if (params.get("dialog") === "rooms" && rooms.handle(action)) return;
         if (hallOfFame.handle(action)) return;
         if (recap.handle(action)) return;
         if (guide.handle(action)) return;

@@ -105,6 +105,10 @@ resources/standalone/op77_map3d/ui/node_modules/
 # Deathmatch engine hosted as a Light RP activity provider.
 !resources/standalone/op77_arena/
 !resources/standalone/op77_arena/**
+# Hosted minigames as Light RP activities (team deathmatch, CTF, control, gun game, red
+# light green light, prop hunt).
+!resources/standalone/op77_games/
+!resources/standalone/op77_games/**
 # Cyberpunk TCG collection (standalone). The four preload zips (~580 MiB, one over GitHub's 100 MB
 # limit each) are rebuilt from the mod archive by tools/build-assets.ps1; the database is runtime data.
 !resources/standalone/op77_tcg/

@@ -32,6 +32,7 @@ import { ParkourBrowser } from "@/features/parkour/ParkourBrowser";
 import { ParkourEditor } from "@/features/parkour/ParkourEditor";
 import { MissionDialog } from "@/features/missions/MissionDialog";
 import { ActivitiesDialog } from "@/features/activities/ActivitiesDialog";
+import { RoomsDialog } from "@/features/rooms/RoomsDialog";
 import { HallOfFameDialog } from "@/features/halloffame/HallOfFameDialog";
 import { RecapDialog } from "@/features/recap/RecapDialog";
 import { GuideDialog } from "@/features/guide/GuideDialog";
@@ -47,6 +48,7 @@ import { DogtownHud } from "@/features/dogtown/DogtownHud";
 import { Medical } from "@/features/medical/Medical";
 import { Safezones } from "@/features/safezones/Safezones";
 import { MissionEditor } from "@/features/missioneditor/MissionEditor";
+import { MapEditor } from "@/features/mapeditor/MapEditor";
 import { MissionObjectiveHud } from "@/features/missions/MissionObjectiveHud";
 import { WeaponWheel } from "@/features/weaponwheel/WeaponWheel";
 import { TableBar } from "@/features/board-games/TableBar";
@@ -124,6 +126,7 @@ export function App() {
       <div className="gameplay-interface" hidden={customizationActive || boardGamesActive}>
       <ErrorBoundary name="safezones"><Safezones /></ErrorBoundary>
       <ErrorBoundary name="mission-editor"><MissionEditor /></ErrorBoundary>
+      <ErrorBoundary name="map-editor"><MapEditor /></ErrorBoundary>
       <ErrorBoundary name="parkour-editor"><ParkourEditor /></ErrorBoundary>
       <ErrorBoundary name="hud"><Hud /></ErrorBoundary>
       <ErrorBoundary name="work-order"><JobRunHud /></ErrorBoundary>
@@ -153,6 +156,7 @@ export function App() {
       <ErrorBoundary name="dealership"><DealershipDialog /></ErrorBoundary>
       <ErrorBoundary name="mission"><MissionDialog /></ErrorBoundary>
       <ErrorBoundary name="activities"><ActivitiesDialog /></ErrorBoundary>
+      <ErrorBoundary name="rooms"><RoomsDialog /></ErrorBoundary>
       <ErrorBoundary name="halloffame"><HallOfFameDialog /></ErrorBoundary>
       <ErrorBoundary name="recap"><RecapDialog /></ErrorBoundary>
       <ErrorBoundary name="guide"><GuideDialog /></ErrorBoundary>

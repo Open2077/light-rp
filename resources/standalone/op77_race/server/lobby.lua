@@ -20,6 +20,9 @@
 --     (humans only) is raced and recorded like a heat of our queue.
 --   options.ranked == false (any activity): the run writes no best time and its result
 --     says `unranked`.
+--   Parkour race: queued like the rooftop race, but the course is a join choice
+--     (options.course, from the panel or a match): the first choice in the queue sets the
+--     heat's, a later different one is told so. Unranked and without bots, always.
 --   Race vs AI difficulty (options.difficulty + options.scaling): how many AI drivers and
 --     how they drive (Config.pve). One per race: a crew's first join sets it.
 local Config = RaceConfig
@@ -126,6 +129,7 @@ L.squadOf = squadOf
 
 -- Crew entries of a queue whose members all left it are forgotten.
 local function refreshCrews(q)
+    if #q.members == 0 then q.course = nil end
     local present = {}
     for _, playerId in ipairs(q.members) do
         local squad = squads[playerId]
@@ -216,7 +220,7 @@ function L.botMode() return A.bots == true end
 -- Bot mode on and this server can put bots of that kind on the course (natives present).
 -- Without them bot mode changes nothing: no lone heat that nobody joins.
 local function botsHere(def)
-    return def.queued == true and L.botMode() and RaceBots ~= nil and RaceBots.capable(def.mode == "foot")
+    return def.queued == true and not def.noBots and L.botMode() and RaceBots ~= nil and RaceBots.capable(def.mode == "foot")
 end
 L.botsHere = botsHere
 
@@ -334,6 +338,21 @@ local function courseFor(def, playerId, options)
     local ids = RaceCourses.ids(def.mode)
     if #ids == 0 then return nil, REASONS.course_unavailable end
     return RaceCourses.get(ids[1])
+end
+
+-- The course a parkour join asked for (nil when it asked for none), or nil and a sentence.
+local function chosenCourse(def, options)
+    local wanted = type(options) == "table" and (options.course or options.courseId) or nil
+    if wanted == nil then return nil end
+    local course = type(wanted) == "string" and RaceCourses.get(wanted) or nil
+    if course and RaceCourses.eligible(course, def.mode) then return course end
+    return nil, "That course does not exist."
+end
+
+-- The stored choice of a heat or a match, if it can still be raced.
+local function heatCourse(def, id)
+    local course = id and RaceCourses.get(id) or nil
+    return course and RaceCourses.eligible(course, def.mode) and course or nil
 end
 
 -- ---------------------------------------------------------------- vs AI --
@@ -515,7 +534,7 @@ end
 -- none on a server that cannot put bots of that kind on the course. A ranked match is
 -- humans only: never any.
 local function matchBots(m, def, capacity, players)
-    if m.fill <= 0 then return 0 end
+    if m.fill <= 0 or def.noBots then return 0 end
     if m.ranked then
         log(("%s match %s is ranked: its fill (%d) is ignored"):format(def.id, m.id, m.fill))
         return 0
@@ -541,7 +560,7 @@ local function launchMatch(m)
         L.hooks.changed()
         return false, "nobody_left"
     end
-    local course = RaceCourses.pick(def.mode, lastMatchCourse[def.key])
+    local course = heatCourse(def, m.course) or RaceCourses.pick(def.mode, lastMatchCourse[def.key])
     if course == nil then
         for _, playerId in ipairs(members) do
             L.hooks.notice(playerId, "error", def.label, REASONS.course_unavailable)
@@ -603,7 +622,7 @@ local function joinMatch(def, playerId, options, info)
     local m = matches[key]
     if m == nil then
         m = { key = key, id = info.id, def = def, expected = info.expected, members = {}, fill = 0,
-            friendly = info.friendly, ranked = info.ranked, at = E.nowMs() }
+            friendly = info.friendly, ranked = info.ranked, course = info.course, at = E.nowMs() }
         matches[key] = m
     elseif not contains(m.expected, playerId) then
         -- every join of a match lists the same players: the first one's list holds (a
@@ -611,6 +630,7 @@ local function joinMatch(def, playerId, options, info)
         m.expected[#m.expected + 1] = playerId
     end
     if not contains(m.members, playerId) then m.members[#m.members + 1] = playerId end
+    m.course = m.course or info.course
     m.fill = math.max(m.fill, fillOf(options))
     -- the others' joins arrive in the same tick: no notice while gathering
     if matchComplete(m) then launchMatch(m) else L.hooks.changed() end
@@ -627,9 +647,21 @@ function L.join(playerId, def, options)
     if E.busy(playerId) then return false, "You are already in a race." end
     local current = L.queuedIn(playerId)
     local gathering = L.matchIn(playerId)
+    local chosen
+    if def.mode == "parkour" then
+        local refused
+        if RaceParkour == nil or not RaceParkour.available() then refused = "Parkour races are not available right now." end
+        if refused == nil then chosen, refused = chosenCourse(def, options) end
+        if refused then
+            if current == nil then releaseQueued(def, playerId) end
+            return false, refused
+        end
+    end
     -- a match Light RP formed: its own heat, out of any queue of ours
     local match = def.queued and matchOf(options, playerId) or nil
     if match then
+        if def.unranked then match.ranked = false end
+        match.course = chosen and chosen.id or nil
         if gathering and gathering.def == def and gathering.id == match.id then return true end
         if current ~= nil then L.leave(playerId) end
         if #RaceCourses.ids(def.mode) == 0 then return false, REASONS.course_unavailable end
@@ -650,6 +682,12 @@ function L.join(playerId, def, options)
     if #RaceCourses.ids(def.mode) == 0 then return false, REASONS.course_unavailable end
     local q = queue(def.key)
     q.members[#q.members + 1] = playerId
+    if chosen and q.course == nil then
+        q.course = chosen.id
+    elseif chosen and q.course ~= chosen.id then
+        local heat = heatCourse(def, q.course)
+        L.hooks.notice(playerId, "info", def.label, ("This heat runs %s: the first choice in the queue sets it."):format(heat and heat.name or q.course))
+    end
     local squad = squadOf(options, playerId)
     squads[playerId] = squad
     if squad and q.crews[squad.id] == nil then q.crews[squad.id] = E.nowMs() end
@@ -670,7 +708,7 @@ function L.launch(def, now, force)
     local minimum = force and 1 or L.minimum(def)
     local q = queue(def.key)
     q.windowEndsAt = nil
-    local course = RaceCourses.pick(def.mode, q.lastCourse)
+    local course = heatCourse(def, q.course) or RaceCourses.pick(def.mode, q.lastCourse)
     if course == nil then
         for _, playerId in ipairs(q.members) do L.hooks.notice(playerId, "error", def.label, REASONS.course_unavailable) end
         return false, "course_unavailable"
@@ -722,6 +760,7 @@ function L.launch(def, now, force)
     for _, playerId in ipairs(chosen) do squads[playerId] = nil end
     refreshCrews(q)
     q.lastCourse = course.id
+    q.course = nil
     q.botWindow = nil
     local fillTo = botFill(def, capacity)
     local inst, reason = E.start(def, course, chosen, { fillTo = fillTo, unranked = unrankedOf(chosen) })

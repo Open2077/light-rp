@@ -4,7 +4,7 @@ H.load({ "shared/config.lua", "shared/race.lua", "server/builtin_courses.lua", "
 local C, R = RaceCourses, RaceRecords
 
 H.test("built-in courses load and validate", function()
-    H.eq(C.load(), 3, "three courses")
+    H.eq(C.load(), 4, "four courses")
     local street = C.get("street-circuit")
     H.ok(street, "street circuit")
     H.eq(#street.grid, 8, "eight surveyed slots")
