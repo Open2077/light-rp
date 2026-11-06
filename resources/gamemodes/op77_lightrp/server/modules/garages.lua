@@ -210,6 +210,11 @@ local function capture(row)
     if type(props) == "table" then
         props = copy(props)
         props.lightrp = copy(type(row.props) == "table" and row.props.lightrp or nil)
+        -- Runtime controls are not part of the car: fuel owns `drivable` (Fuel.restore cuts a
+        -- dry tank again on delivery) and the studio owns `engineHold` (an engine-sound
+        -- preview). Stored, they outlive their cause: a Hella parked once while dry came
+        -- back out of service on every delivery with a full tank (lab, 2026-11-06).
+        props.drivable, props.engineHold = nil, nil
         -- Autosaves and removal recovery keep the last confirmed look, never a preview.
         if row.edit then props = maskConfirmed(props, row.edit.saved) end
         if row.dormant then wake(props, row.dormant) end
@@ -989,12 +994,15 @@ function Garage.customizePaint(playerId, token, paint, commit, payment)
     return Garage.customize(playerId, token, { category = "paint", paint = paint }, commit, payment)
 end
 
+-- Never restored, whatever an older row holds: see capture. A fresh car is drivable and
+-- not held; the modules that own these bits set them again after the delivery.
+local RUNTIME_CONTROLS = { drivable = true, engineHold = true }
 -- The stored properties as setProperties takes them on a fresh car of `record`: no
 -- `lightrp` (Light RP's own fields), the spawned record, and only the visual choices
 -- this server can put on it; the others are kept dormant on the row.
 local function restorable(row, record)
     local props, restore = row.props, {}
-    for key, value in pairs(props) do if key ~= "lightrp" then restore[key] = value end end
+    for key, value in pairs(props) do if key ~= "lightrp" and not RUNTIME_CONTROLS[key] then restore[key] = value end end
     if restore.record ~= nil then restore.record = record end
     if type(props.paint) == "table" and props.paint.applied == false then
         -- On shipped hosts, sending colour channels also enables paint,

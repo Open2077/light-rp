@@ -85,11 +85,11 @@ V.create=function(d)
     nextVehicle=nextVehicle+1;world[nextVehicle]={id=nextVehicle,record=d.record,position=clone(d.position),bucket=d.bucket,health=1,speed=0,occupants={},persistent=d.persistent}
     return nextVehicle
 end
-V.getProperties=function(id) local v=world[id];if v then return {record=v.record,health=v.health,paint=v.paint} end end
+V.getProperties=function(id) local v=world[id];if v then return {record=v.record,health=v.health,paint=v.paint,drivable=v.drivable,engineHold=v.engineHold} end end
 V.setProperties=function(id,p)
     if failApply then return false,"bad_props" end
     assert(not (p.paint and p.paint.applied==false and (p.paint.primary or p.paint.secondary)),"stock livery must not submit custom colour channels")
-    world[id].health=p.health or 1;world[id].paint=p.paint;return true
+    lastSetProperties=p;world[id].health=p.health or 1;world[id].paint=p.paint;return true
 end
 V.setEngine=function() return true end
 V.isLocked=function(id) return world[id] and world[id].locked or false end
@@ -138,6 +138,17 @@ assert(perform("store",first) and not world[id],"park after save")
 assert(perform("retrieve",first));id=nextVehicle
 assert(world[id].health==.43 and Inv.count("personal:"..first,"water")==3,"condition and stable trunk restored")
 assert(world[id].paint.applied==false,"stock livery retained on retrieval")
+-- Out of service is not part of the car (lab, 2026-11-06): a Hella parked once while its
+-- tank was dry stored drivable=false and came back undrivable on every delivery.
+world[id].drivable=false;world[id].engineHold=true;event("onVehicleUpdated",tostring(id))
+assert(perform("store",first) and not world[id])
+local parked=json.decode(dbRows[first].properties)
+assert(parked.drivable==nil and parked.engineHold==nil,"runtime controls are never stored")
+local legacy=json.decode(dbRows[first].properties);legacy.drivable=false;legacy.engineHold=true
+dbRows[first].properties=json.encode(legacy) -- a row stored by an older build
+lastSetProperties=nil;assert(perform("retrieve",first));id=nextVehicle
+assert(lastSetProperties and lastSetProperties.drivable==nil and lastSetProperties.engineHold==nil,"nor restored from an older row")
+assert(world[id].health==.43,"the rest of the condition still comes back")
 V.remove(id);open()
 local function entry(rowId) for _,v in ipairs(lastDialog.vehicles) do if v.id==rowId then return v end end end
 assert(entry(first).status=="impound" and entry(first).impound.fee==LightRpGarages.impound.fees.lost,"a vehicle gone from the world is towed")
