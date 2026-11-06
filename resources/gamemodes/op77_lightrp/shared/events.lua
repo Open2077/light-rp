@@ -16,6 +16,7 @@ LightRpEvents = {
         characterEditor = "lightrp:ui:character:editor", -- Lua -> page: { active, error? } native editor handoff
         creator = "lightrp:ui:creator", -- scene state / camera and audio preferences
         tutorial = "lightrp:ui:tutorial", -- first-day controls / local presentation
+        tutorialGuide = "lightrp:ui:tutorialguide", -- Lua -> page: { label, distance, angle, rise } | { hide = true } the way to the objective (client/core/tutorial_guide.lua)
         jobRun = "lightrp:ui:jobrun",   -- Lua -> page: { distance, menuKey } live data of the work order tracker
         freecam = "lightrp:ui:freecam", -- page -> Lua: { operation = "toggle" }; Lua -> page: free camera state and keys
         maneki = "lightrp:ui:maneki",   -- Lua -> page: the Maneki-neko placement tool's bar (client/core/maneki_editor.lua)

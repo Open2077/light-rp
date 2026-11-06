@@ -55,10 +55,11 @@ LightRpTutorialConfig = {
     -- view back. Both keys are mappings (Pause > Settings > Key bindings).
     reveal = {
         enabled = true,
-        minDistance = 12,        -- closer than this, the arrow is enough
+        minDistance = 12,        -- closer than this, the beacon and the pointer are enough
         delay = 1.4,             -- seconds after the step changes: the "done" banner reads first
         flySeconds = 4.2, holdSeconds = 1.4, blendMs = 550, returnMs = 800,
-        dots = { spacing = 3.0, max = 40 },
+        -- the chevrons drawn on the ground during the flight (debugDraw, no markers)
+        route = { spacing = 3.0, max = 40 },
         skip = { id = "lightrp.tutorial.skip", name = "Light RP: skip the first day camera", key = "SPACE" },
         way = { id = "lightrp.tutorial.way", name = "Light RP: first day, show me the way", key = "G" },
         -- "Press F1 to skip" did not work for players (F1 is the player menu): skipping the first

@@ -206,6 +206,7 @@ client_script "client/core/safezone_tile.lua" -- the green tile by the voice pla
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
 client_script "client/core/tutorial_voice.lua"
+client_script "client/core/tutorial_guide.lua" -- the way to the objective: beacon, page pointer, flight route
 client_script "client/core/tutorial.lua"
 client_script "client/core/tutorial_context.lua"
 client_script "client/core/weapon_hud.lua"

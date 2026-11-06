@@ -9,6 +9,7 @@
    `?dialog=halloffame` opens the Hall of Fame (features/halloffame/mock.ts),
    `?dialog=recap&recap=ffa|team|race|chase|turf|mission|boss|test|unranked|draw|big` opens an
    end-of-match recap (features/recap/mock.ts),
+   `?tutorial=walk|edge|near|reveal` (with `?registered=1`) shows the first day guide's way to a stop (features/tutorial/mock.ts),
    `?dialog=dailies&tab=titles&dailies=mixed|fresh|budget|allpaid|off|loading&titles=shown|hidden|none&crew=1`
    opens Dailies (features/dailies/mock.ts). */
 import { PAGE_EVENTS, type CharacterState, type HudState, type UiAction, type UiState } from "@/bridge/protocol";
@@ -33,6 +34,7 @@ import { dailiesMock } from "@/features/dailies/mock";
 import { manekiMock } from "@/features/maneki/mock";
 import { parkourMock } from "@/features/parkour/mock";
 import { adminMock } from "@/features/support/mock";
+import { tutorialMock } from "@/features/tutorial/mock";
 
 const ORIGINS = [
   { key: "night_city", label: "Night City" }, { key: "badlands", label: "Badlands" }, { key: "ncus", label: "NUSA" },
@@ -55,6 +57,7 @@ export function installMockBridge(): void {
   const maneki = manekiMock(fire, params); // ?maneki=tool|desk
   const parkour = parkourMock(fire, params); // ?parkour=hud|count|result|record|dnf|browser|editor
   const admin = adminMock(fire, params); // ?admin=1: the admin menu
+  const firstDay = tutorialMock(fire, params); // ?tutorial=walk|edge|near|reveal: the first day guide's way to a stop
 
   const registered = params.get("registered") === "1";
   const shop = shopFixture();
@@ -195,7 +198,9 @@ export function installMockBridge(): void {
     window.addEventListener("keyup", e => { if (e.key === "Control" && open) { open = false; fire("lightrp:ui:weaponwheel", { kind: "commit" }); } });
     if (params.get("wheelopen") === "1") setTimeout(show, 600);
   }
+          if (firstDay.tutorial) state.tutorial = firstDay.tutorial;
           fire(PAGE_EVENTS.state, state);
+          firstDay.boot();
           // ?announce=listen|self[&radius=150]: a speaker on air, a speech-like voice level
           const an = params.get("announce");
           if (an) {

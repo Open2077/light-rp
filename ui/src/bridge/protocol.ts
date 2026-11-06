@@ -24,6 +24,7 @@ export const PAGE_EVENTS = {
   dialogClose: "lightrp:ui:dialog:close", // Lua -> page: { kind } close that dialog
   creator: "lightrp:ui:creator",
   tutorial: "lightrp:ui:tutorial",
+  tutorialGuide: "lightrp:ui:tutorialguide", // Lua -> page: GuideMessage, the way to the objective (client/core/tutorial_guide.lua)
   jobRun: "lightrp:ui:jobrun", // Lua -> page: JobRunLive
   freecam: "lightrp:ui:freecam", // page -> Lua: { operation: "toggle" }; Lua -> page: FreecamState
   maneki: "lightrp:ui:maneki", // Lua -> page: ManekiToolState (client/core/maneki_editor.lua)
