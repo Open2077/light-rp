@@ -54,7 +54,9 @@ local function shot(s, v)
     return { position = position,
         rotation = { yaw = (s.angle+90)%360, pitch = -math.deg(math.atan((height-s.targetHeight)/math.max(.1, radius))) }, fov = C.fov }
 end
-local function refuse(token, text)
+-- `why` goes to the client log only: the player reads the generic text.
+local function refuse(token, why, text)
+    Ui.log("auto studio refused: %s", tostring(why or "unknown"))
     if session and session.id == token then stop(false) end
     TriggerServerEvent(NET, { operation = "close", session = token })
     Ui.send(PAGE, { kind = "unavailable", session = token, text = text or "Vehicle preview is unavailable. Reopen the garage and try again." })
@@ -140,26 +142,28 @@ local function start(p)
     if session then stop(true) end
     local character = Open77.character.state()
     local registry = Open77.camera.cameras()
-    if not Ui.ready or not Ui.characterReady or Ui.creationActive or Ui.actionFocus or Ui.supportMode
-        or not character or not character.alive or not character.attached or not registry or registry.held then
-        refuse(p.session); return
-    end
+    local busy = (not Ui.ready and "ui not ready") or (not Ui.characterReady and "character not ready")
+        or (Ui.creationActive and "character creation") or (Ui.actionFocus and "action focus")
+        or (Ui.supportMode and ("support " .. tostring(Ui.supportMode)))
+        or ((not character or not character.alive or not character.attached) and "character not alive and attached")
+        or (not registry and "camera registry unavailable") or (registry.held and "camera held")
+    if busy then refuse(p.session, busy); return end
     local v = Open77.vehicles.get(p.vehicle.vehicleId)
-    if not v or not v.position or v.streamed == false then refuse(p.session); return end
+    if not v or not v.position or v.streamed == false then refuse(p.session, "vehicle not streamed " .. tostring(p.vehicle.vehicleId)); return end
     local s = { id = p.session, vehicle = p.vehicle.vehicleId, angle = (v.yaw or 0)+35, radius = C.radius,
         height = C.height, targetHeight = C.targetHeight, rotating = true, clock = GetGameTimer(), anchor = v.position }
     local transform = shot(s,v); transform.thirdPersonBody = true
     local camera, why = Open77.camera.create(transform)
-    if not camera then refuse(p.session); return end
+    if not camera then refuse(p.session, "camera create: " .. tostring(why)); return end
     s.camera, session = camera, s
-    local frozen = Open77.character.setFrozen(true)
-    if not frozen then refuse(p.session); return end
+    local frozen, frozenWhy = Open77.character.setFrozen(true)
+    if not frozen then refuse(p.session, "freeze: " .. tostring(frozenWhy)); return end
     s.frozen = true
     Ui.setMenuOpen(false)
     Ui.dialogs.customization = true
     Ui.setPromptFocus(true)
     local hidden, reason = Open77.hud.setCinematic(true, 0.01)
-    if not hidden then Ui.log("vehicle cinematic unavailable: %s", tostring(reason)); refuse(p.session); return end
+    if not hidden then refuse(p.session, "cinematic: " .. tostring(reason)); return end
     s.cinematic = true
     -- The orbit passes behind the player standing on the marker, who then hides the car
     -- (measured 2026-11-06, Bay 01). Hide the avatar on this screen only: other players
@@ -176,23 +180,31 @@ local function start(p)
     CreateThread(function()
         local ok, failure = pcall(function()
             local accepted, blend = Open77.camera.activate(camera, { blendMs = C.blendMs })
-            if not accepted then if session == s then refuse(p.session) end; return end
-            if blend then local _, reason = blend:await(); if reason then if session == s then refuse(p.session) end; return end end
+            if not accepted then if session == s then refuse(p.session, "camera activate: " .. tostring(blend)) end; return end
+            if blend then local _, reason = blend:await(); if reason then if session == s then refuse(p.session, "camera blend: " .. tostring(reason)) end; return end end
             if session ~= s then return end
             s.active = true
             Ui.send(PAGE, p)
         end)
-        if not ok and session == s then Ui.log("vehicle camera failed: %s", tostring(failure)); refuse(p.session) end
+        if not ok and session == s then refuse(p.session, "camera: " .. tostring(failure)) end
     end)
 end
 RegisterNetEvent(NET, function(p)
     if type(p) ~= "table" then return end
     if p.kind == "open" then
-        -- The server sends the category tree as JSON text (too deep for a net event).
-        if type(p.categoriesJson) == "string" then
-            local ok, decoded = pcall(json.decode, p.categoriesJson)
-            if not ok or type(decoded) ~= "table" then refuse(p.session); return end
-            p.categories, p.categoriesJson = decoded, nil
+        -- The server sends the category tree as JSON text (too deep for a net event), one
+        -- text per category (json.decode refuses a text over 1024 values).
+        if type(p.categoriesJson) == "table" then
+            local categories = {}
+            for i, text in ipairs(p.categoriesJson) do
+                local ok, decoded, why = pcall(json.decode, text)
+                if not ok or type(decoded) ~= "table" then
+                    refuse(p.session, string.format("category %d of %d (%d bytes): %s", i, #p.categoriesJson,
+                        type(text) == "string" and #text or 0, tostring(ok and why or decoded))); return
+                end
+                categories[i] = decoded
+            end
+            p.categories, p.categoriesJson = categories, nil
         end
         start(p)
     elseif session and p.session == session.id then

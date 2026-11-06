@@ -38,10 +38,11 @@ end
 -- here hands back the table the server encoded.
 local wire={}
 json={decode=function(s) return assert(wire[s],"not JSON") end}
+-- one JSON text per category
 local function open(token)
- wire.categories={{id="paint",available=true},{id="lights",available=false,reason="unsupported"},{id="trim",available=true,options={{id="a",label="A"}}}}
+ wire.cat1,wire.cat2,wire.cat3={id="paint",available=true},{id="lights",available=false,reason="unsupported"},{id="trim",available=true,options={{id="a",label="A"}}}
  net["op77_lightrp:customization"]({kind="open",session=token or "session",vehicle={vehicleId=1,model="hella",lightsHue=.5},
-  categoriesJson="categories",prices={paint=2500,lights=500,trim=2500}});tick()
+  categoriesJson={"cat1","cat2","cat3"},prices={paint=2500,lights=500,trim=2500}});tick()
 end
 local function page(command)
  command.session=command.session or "session";listeners["lightrp:ui:customization"](command)

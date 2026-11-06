@@ -442,8 +442,15 @@ end
 local session,request
 local function open(rowId)
     assert(Custom.open(1,rowId,"citycenter"));local raw=messages[#messages];session,request=raw.session,0
-    assert(type(raw.categoriesJson)=="string" and raw.categories==nil,"the category tree travels as JSON text")
-    local m={};for k,v in pairs(raw)do m[k]=v end;m.categories=json.decode(raw.categoriesJson);return m
+    assert(type(raw.categoriesJson)=="table" and raw.categories==nil,"the category tree travels as JSON text, one per category")
+    local m={};for k,v in pairs(raw)do m[k]=v end;m.categories={}
+    for i,text in ipairs(raw.categoriesJson)do
+        assert(type(text)=="string");m.categories[i]=json.decode(text)
+        -- the client's json.decode caps one text at 1024 values (every table and leaf)
+        local function count(v)if type(v)~="table"then return 1 end;local n=1;for _,x in pairs(v)do n=n+count(x)end;return n end
+        local values=count(m.categories[i]);assert(values<=1000,("category %s is %d JSON values, over the client's cap"):format(tostring(m.categories[i].id),values))
+        maxCategoryValues=math.max(maxCategoryValues or 0,values)
+    end;return m
 end
 local function issue(operation,fields,pay)
     request=request+1;tick=tick+300
@@ -803,4 +810,5 @@ for _,record in ipairs({world[car].record,HELLA.."_o77s2"})do
 end
 close();store(suburban)
 for i,msg in ipairs(messages)do fitsClient(msg,"studio message "..i.." ("..tostring(msg.kind)..")")end
+print(("largest studio category: %d JSON values (client cap 1024)"):format(maxCategoryValues))
 print("customization kit: catalogue contract, livery, rims, body exclusivity and per-group price, neon, window tint, plates (format, words, uniqueness, hold), performance stages (sum, removal, cooldown, refusals), park+restart+retrieve, dormant choices and greying passed")

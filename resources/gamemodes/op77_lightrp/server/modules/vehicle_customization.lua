@@ -32,6 +32,13 @@ local function copy(value)
     if type(value) ~= "table" then return value end
     local out = {}; for k, v in pairs(value) do out[k] = copy(v) end; return out
 end
+-- What the client's json.decode accepts in one text (the net event reader's cap, 1024
+-- values, every table and leaf counted); kept with a margin.
+local JSON_VALUES = 1000
+local function countValues(value)
+    if type(value) ~= "table" then return 1 end
+    local n = 1; for _, v in pairs(value) do n = n + countValues(v) end; return n
+end
 local function native(...)
     for _, name in ipairs({ ... }) do if type(Open77.vehicles[name]) ~= "function" then return false end end
     return true
@@ -501,9 +508,20 @@ function Custom.open(id, vehicle, garage)
     state.visual, state.lightrp = nil, nil
     -- The category tree nests deeper than the client's net event reader accepts (8 levels;
     -- body options > groups > parts > variants reach 10), and the client drops a too-deep
-    -- event whole: it travels as JSON text, which the client decodes for the page.
+    -- event whole: it travels as JSON text, which the client decodes for the page. One text
+    -- per category: the client's json.decode keeps the event reader's 1024-value cap, and
+    -- 18 rims with 30 body parts are over it as one text (15 KB, measured 2026-11-06).
+    local texts = {}
+    for i, entry in ipairs(categories) do
+        texts[i] = json.encode(entry)
+        local values = countValues(entry)
+        if values > JSON_VALUES then
+            LightRP.log("auto studio: category %s is %d JSON values for %s, over the client's %d: it will not open",
+                tostring(entry.id), values, tostring(state.model), JSON_VALUES)
+        end
+    end
     TriggerClientEvent(NET, id, { kind = "open", session = token, nextRequest = 1, vehicle = state,
-        categoriesJson = json.encode(categories), price = prices.paint, prices = prices, money = wallet(id),
+        categoriesJson = texts, price = prices.paint, prices = prices, money = wallet(id),
         confirmed = confirmed })
     return true
 end

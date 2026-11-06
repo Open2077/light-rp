@@ -167,8 +167,9 @@ end
 local session,request
 local function open(rowId)
     assert(Custom.open(1,rowId,"citycenter"));local raw=messages[#messages];session,request=raw.session,0
-    assert(type(raw.categoriesJson)=="string" and raw.categories==nil,"the category tree travels as JSON text")
-    local m={};for k,v in pairs(raw)do m[k]=v end;m.categories=json.decode(raw.categoriesJson);return m
+    assert(type(raw.categoriesJson)=="table" and raw.categories==nil,"the category tree travels as JSON text, one per category")
+    local m={};for k,v in pairs(raw)do m[k]=v end;m.categories={}
+    for i,text in ipairs(raw.categoriesJson)do assert(type(text)=="string");m.categories[i]=json.decode(text)end;return m
 end
 local function issue(operation,fields,pay)
     request=request+1;tick=tick+300
