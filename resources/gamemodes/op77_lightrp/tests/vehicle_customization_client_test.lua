@@ -134,6 +134,10 @@ look.skipped={"attach:op77_lightrp:wing_gt:slot_absent","attach:rims.fl:model_no
 net["op77_lightrp:customization"]({kind="response",session="session",ok=true,category="body",request=2});for _=1,20 do tick() end
 assert(lastSent("warning").text==Studio.warnings.slot_absent and lastSent("warning").category=="body","body parts warn by their own key")
 local after=0;for _,m in ipairs(sent)do if m.kind=="warning" then after=after+1 end end;assert(after==warnings+1,"one warning per change")
+-- A livery this game cannot show (its pack is missing or stale) warns by its own key.
+look.skipped={"profile:Vehicle.o77_livery_taxi_hella:not_for_model"}
+net["op77_lightrp:customization"]({kind="response",session="session",ok=true,category="livery",request=3});for _=1,20 do tick() end
+assert(lastSent("warning").text==Studio.warnings.not_for_model and lastSent("warning").category=="livery","a missing livery pack warns")
 page({operation="close"})
 print("customization client phase 2: pack/livery/stage greying from this game, eased framing presets, stage respawn grace, skipped-part warnings passed")
 

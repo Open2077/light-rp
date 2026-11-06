@@ -99,13 +99,17 @@ local function localChecks(p)
         end
     end
 end
--- After a rims / body / window tint change, what this game skipped (customizationAvailable).
+-- After a rims / body / window tint / livery change, what this game skipped (customizationAvailable).
+-- A livery whose template this game lacks (pack missing or older than the server's) is
+-- reported as `profile:<id>:not_for_model`: the pack resource is server-only, so its state
+-- cannot be read here beforehand.
 -- A tint still waiting for its glass meshes (`pending_mesh`) is checked again.
 local function skippedWarning(s, category)
     local ok, state = pcall(Open77.vehicles.customizationAvailable, s.vehicle)
     if not ok or type(state) ~= "table" then return nil, true end
     if (state.appliedRev or 0) < (state.rev or 0) then return nil, false end -- not applied yet
     local prefix = category == "rims" and "attach:rims." or category == "windows" and "tint:"
+        or category == "livery" and "profile:"
         or ("attach:" .. GetCurrentResourceName() .. ":")
     for _, entry in ipairs(state.skipped or {}) do
         if type(entry) == "string" and entry:sub(1, #prefix) == prefix then
@@ -210,7 +214,8 @@ RegisterNetEvent(NET, function(p)
     elseif session and p.session == session.id then
         if p.kind == "closed" then stop(false)
         else
-            if p.kind == "response" and p.ok and (p.category == "rims" or p.category == "body" or p.category == "windows")
+            if p.kind == "response" and p.ok and (p.category == "rims" or p.category == "body" or p.category == "windows"
+                or p.category == "livery")
                 and type(Open77.vehicles.customizationAvailable) == "function" then
                 local now = GetGameTimer()
                 session.check = { category = p.category, at = now + WARNING_DELAY_MS, until_ = now + WARNING_GIVE_UP_MS }
