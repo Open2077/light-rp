@@ -492,7 +492,7 @@ local function setView(board,view)
     return ok
 end
 local function startView(board)
-    if failedBoards[tostring(board.id)] then notice(ASSET_HELP);request("leave",{boardId=board.id});return end
+    if failedBoards[tostring(board.id)] then LightRpUi.log("board games: board %s cannot be drawn, leaving it",tostring(board.id));request("leave",{boardId=board.id});return end
     if active and active.id==board.id then return end
     if Client.isActive() then stop(true,"switch_board") end
     -- Every refusal is reported: a silent leave looks like "E does nothing".
@@ -766,8 +766,10 @@ local function modelName(board,piece)
     if not piece then return board.kind.."_board" end
     return board.kind.."_"..piece.side.."_"..piece.kind
 end
+-- A board that cannot be drawn (a missing asset, the prop quota) is only logged: the owner
+-- wants no "rejoin through the launcher" notice on screen, even when it fails (2026-11-06).
 local function unavailable(reason)
-    notice(ASSET_HELP.." "..tostring(reason or ""))
+    LightRpUi.log("board games: a board cannot be drawn (%s). %s",tostring(reason or "?"),ASSET_HELP)
 end
 local function failBoard(id,reason)
     if not failedBoards[id] then

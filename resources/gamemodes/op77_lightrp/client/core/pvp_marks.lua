@@ -3,7 +3,7 @@
 -- player is in it, no plate at all; otherwise the plates of those players are hidden.
 -- Without op77_playermarks this does nothing.
 local E = LightRpEvents
-local Marks = { list = {}, applied = nil }
+local Marks = { list = {}, ghosts = {}, applied = nil }
 LightRpPvpMarks = Marks
 
 local function localId()
@@ -28,9 +28,20 @@ function Marks.decide(list, me)
     return "ids", list
 end
 
+-- The staff in ghost mode (client/core/staff_ghost.lua) have no plate either, whatever the fight
+-- says; being a ghost oneself hides nobody else's. -> mode, ids
+function Marks.withGhosts(mode, ids, ghosts)
+    if mode == "all" or type(ghosts) ~= "table" or #ghosts == 0 then return mode, ids end
+    local out, seen = {}, {}
+    for _, id in ipairs(mode == "ids" and ids or {}) do seen[id] = true; out[#out + 1] = id end
+    for _, id in ipairs(ghosts) do if not seen[id] then seen[id] = true; out[#out + 1] = id end end
+    return "ids", out
+end
+
 function Marks.apply()
     if not running() then Marks.applied = nil; return false end
     local mode, ids = Marks.decide(Marks.list, localId())
+    mode, ids = Marks.withGhosts(mode, ids, Marks.ghosts)
     local applied = mode == "ids" and ("ids:" .. table.concat(ids, ",")) or mode
     if applied == Marks.applied then return true end
     local ok = pcall(function()

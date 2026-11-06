@@ -55,15 +55,37 @@ LightRpTutorialConfig = {
     -- view back. Both keys are mappings (Pause > Settings > Key bindings).
     reveal = {
         enabled = true,
-        minDistance = 12,        -- closer than this, the arrow is enough
+        minDistance = 12,        -- closer than this, the beacon and the pointer are enough
         delay = 1.4,             -- seconds after the step changes: the "done" banner reads first
         flySeconds = 4.2, holdSeconds = 1.4, blendMs = 550, returnMs = 800,
-        dots = { spacing = 3.0, max = 40 },
+        -- the chevrons drawn on the ground during the flight (debugDraw, no markers)
+        route = { spacing = 3.0, max = 40 },
         skip = { id = "lightrp.tutorial.skip", name = "Light RP: skip the first day camera", key = "SPACE" },
         way = { id = "lightrp.tutorial.way", name = "Light RP: first day, show me the way", key = "G" },
         -- "Press F1 to skip" did not work for players (F1 is the player menu): skipping the first
         -- day has its own key, which opens the "Skip the first day?" confirmation (clickable).
         quit = { id = "lightrp.tutorial.quit", name = "Light RP: skip the first day guide", key = "F6" },
+    },
+
+    -- Out of the hall, on the central square (the guide's end, a skip, a pause): once the
+    -- loading is over and the body stands there, the camera circles the square and shows it,
+    -- then blends back to the player (client/core/arrival_tour.lua). SPACE (the skip key
+    -- above) ends it. `center` unset: the city point after the guide (spawn.afterTutorial).
+    arrivalTour = {
+        enabled = true,
+        -- the middle of the square, picked by the owner in game (2026-11-06)
+        center = { x = -775.309631, y = 781.411621, z = 24.399994 },
+        radius = 26, endRadius = 17,       -- metres from the centre, at the start and at the end
+        height = 15, endHeight = 6,        -- above the centre
+        degrees = 250, seconds = 11,       -- how far round, and how long
+        lookHeight = 2.0, fov = 58, endFov = 50,
+        blendMs = 900, returnMs = 1100,
+        settleMs = 1800,                   -- after the loading cover lifted and the body stands there
+        nearMetres = 45,                   -- the body must be this close to the centre
+        waitSeconds = 60,                  -- given up after this without the conditions
+        title = "THE CROSSING",
+        subtitle = "Your hub in Night City",
+        lines = { "Adam Smasher: activities and contracts", "Jackie Welles: game rooms", "Johnny Silverhand: your guide, any time" },
     },
 
     total = 15,

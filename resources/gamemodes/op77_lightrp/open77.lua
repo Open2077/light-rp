@@ -174,6 +174,8 @@ server_script "server/modules/guide_dialogue.lua"  -- talking to Johnny: choices
 server_script "server/config/dogtown.lua"
 server_script "server/modules/dogtown.lua"         -- Dogtown PvP zone: combat scopes, tags, cash bags, stats (/lightrp.dogtown)
 server_script "server/modules/pvp_marks.lua"       -- who is in a PvP fight (Dogtown, PvP/chase activities): their nameplates hidden
+server_script "server/modules/rp_names.lua"        -- the characters' names for the nameplates
+server_script "server/modules/staff_ghost.lua"     -- staff ghost mode: noclip, invisible, no nameplate or map dot
 server_script "server/config/events_board.lua"
 server_script "server/modules/events_board_fonts.lua" -- the board page's fonts (design system, base64)
 server_script "server/modules/events_board_page.lua"  -- the board page: HTML, CSS, JS
@@ -205,8 +207,10 @@ client_script "client/core/safezone_tile.lua" -- the green tile by the voice pla
 client_script "client/core/support.lua"
 client_script "client/core/creator.lua"
 client_script "client/core/tutorial_voice.lua"
+client_script "client/core/tutorial_guide.lua" -- the way to the objective: beacon, page pointer, flight route
 client_script "client/core/tutorial.lua"
 client_script "client/core/tutorial_context.lua"
+client_script "client/core/arrival_tour.lua"     -- the camera tour of the central square on the way out of the hall
 client_script "client/core/weapon_hud.lua"
 client_script "client/core/hud.lua"
 client_script "client/core/map_icons.lua"
@@ -252,6 +256,8 @@ client_script "client/core/queue.lua"           -- the queue panel's leave key (
 client_script "client/core/vehicle_customization.lua"
 client_script "client/core/guide.lua"           -- the guide NPC: page relay with the player's keys, ALT + click on him
 client_script "client/core/pvp_marks.lua"      -- nameplates (op77_playermarks) hidden in PvP
+client_script "client/core/rp_names.lua"       -- the characters' names on op77_playermarks' nameplates
+client_script "client/core/staff_ghost.lua"    -- staff ghost mode: noclip on/off, ghosts off the map
 client_script "client/core/dogtown.lua"        -- Dogtown PvP zone: map pins, district probe for the staff survey
 client_script "client/core/maneki.lua"         -- Maneki-neko collectibles: local props, E prompt, shot detection
 client_script "client/core/maneki_editor.lua"  -- the staff placement tool for the cats
@@ -279,6 +285,7 @@ permissions {
     "state.write",          -- vehicle keys live in state bags
     "players.life.read",
     "players.life.ghost",          -- pose_ghost: a held pose is non-solid to other players
+    "players.life.visibility",     -- staff ghost mode: the body hidden from the others
     "players.life.kill",
     "players.life.revive",
     "players.life.respawn",

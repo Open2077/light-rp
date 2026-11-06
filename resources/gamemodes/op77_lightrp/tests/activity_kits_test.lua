@@ -728,4 +728,31 @@ assert(writes == baseWrites, "not one inventory write in the whole file: " .. (w
 assert(#notices == 0, "no RP notice about a kit: " .. tostring(notices[1] and notices[1].def.body))
 assert(K.default() == kitOne, "the kit missions preselect is the first of the list")
 
-print("PASS: activity kits (who may ask: stranger, foreign, stale, unknown kit; delivery, retries, failure, replace, melee; wheel view and draw, reissue, standsAside; every exit: leave, take, kept in place, dead at the end, refused removal, silent client, provider stop, character change, disconnect, core stop; inventory never written)")
+do
+    -- The gun game's kit: a firearm and the knife beside it. The platform refuses every snapshot of
+    -- a body with a knife in an idle slot (ammo_cache_unavailable); the accepted assigns and draw are
+    -- the proof: armed at the first attempt, no six-attempt storm at every kill (2026-11-06).
+    local knifeKit = { primary = "Items.Preset_Lexington_Default", secondary = "Items.Preset_Knife_Default", reserve = { 45 } }
+    local id = player("games.tdm")
+    refuse.requestSnapshot = function(who) return who == id and "ammo_cache_unavailable" or nil end
+    local before = opsOf(id, "clear")
+    assert(exported.activityKit(id, "games.tdm", knifeKit))
+    advance(40000)
+    assert(opsOf(id, "clear") - before == 1, "one attempt, not six: " .. (opsOf(id, "clear") - before))
+    local armed, failed = 0, 0
+    for _, report in ipairs(reportsOf(id)) do
+        if report.state == "armed" then armed = armed + 1 elseif report.state == "failed" then failed = failed + 1 end
+    end
+    assert(armed == 1 and failed == 0, "armed, never failed")
+    -- a blind snapshot after a refused assign proves nothing: retried, then failed
+    local other = player("games.tdm")
+    refuse.requestSnapshot = function(who) return (who == id or who == other) and "ammo_cache_unavailable" or nil end
+    refuse.assign = function(who) return who == other and "queue_full" or nil end
+    before = opsOf(other, "clear")
+    assert(exported.activityKit(other, "games.tdm", knifeKit))
+    advance(40000)
+    assert(opsOf(other, "clear") - before == 6, "a refused assign is still retried")
+    refuse.requestSnapshot, refuse.assign = nil, nil
+end
+
+print("PASS: activity kits (who may ask: stranger, foreign, stale, unknown kit; delivery, retries, failure, replace, melee, knife kit with a blind snapshot; wheel view and draw, reissue, standsAside; every exit: leave, take, kept in place, dead at the end, refused removal, silent client, provider stop, character change, disconnect, core stop; inventory never written)")

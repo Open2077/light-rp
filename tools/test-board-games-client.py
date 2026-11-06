@@ -46,7 +46,7 @@ logs,diagnostics={},{}
 function LightRpUi.log(...)
  local text=string.format(...)
  logs[#logs+1]=text
- if not text:find('board games stop:',1,true) and not text:find('Escape cannot be consumed',1,true) then error(text) end
+ if not text:find('board games stop:',1,true) and not text:find('Escape cannot be consumed',1,true) and not text:find('cannot be drawn',1,true) then error(text) end
 end
 function LightRpUi.setMenuOpen(v) LightRpUi.menuOpen=v end
 function RegisterNetEvent(n,f) events[n]=f end
@@ -322,10 +322,10 @@ local confirmed=#requests;edge('E');assert(#requests==confirmed,'E cannot place 
 events['lightrp:boardGames:place']({kind='checkers'})
 nativeProps[boardProp(0,'checkers')].backend='marker_fallback'
 pendingCount=#requests;step();assert(not C.isActive() and #requests==pendingCount)
-assert(lastNotice:find('rejoin through the launcher',1,true))
+do local drawn=false;for _,l in ipairs(logs) do if l:find('cannot be drawn',1,true) then drawn=true end end;for _,n in ipairs(notices) do assert(not tostring(n):find('rejoin through the launcher',1,true),'never shown: '..tostring(n)) end;assert(drawn,'logged: '..tostring(logs[#logs])..' / notice '..tostring(lastNotice)) end
 assert(traced('place_end').details:find('reason=preview_model_failed',1,true))
 mockCreateFailure=true;events['lightrp:boardGames:place']({kind='chess'})
-assert(not C.isActive() and not focus and lastNotice:find('invalid_model',1,true))
+assert(not C.isActive() and not focus and logs[#logs]:find('invalid_model',1,true) and not (lastNotice or ''):find('invalid_model',1,true))
 assert(traced('place_ghost_failed'))
 mockCreateFailure=false
 mockLoading=true;events['lightrp:boardGames:place']({kind='connect4'})
@@ -733,7 +733,7 @@ local failedHandle
 for id,p in pairs(nativeProps)do if p.name=='connect4_white_disc' then failedHandle=id;break end end
 assert(failedHandle);nativeProps[failedHandle].backend='placeholder_cube'
 waitUntil(function()return not C.isActive() and nativeCount(4)==0 end,'placeholder projection rejected')
-assert(lastNotice:find('rejoin through the launcher',1,true))
+do local drawn=false;for _,l in ipairs(logs) do if l:find('cannot be drawn',1,true) then drawn=true end end;for _,n in ipairs(notices) do assert(not tostring(n):find('rejoin through the launcher',1,true),'never shown: '..tostring(n)) end;assert(drawn,'logged: '..tostring(logs[#logs])..' / notice '..tostring(lastNotice)) end
 events['lightrp:boardGames:state']({boards={four}})
 assert(not C.isActive() and last().action=='leave','failed board projections must not reopen a seat')
 -- Checkers: a capture is mandatory, so only the man that can take is marked

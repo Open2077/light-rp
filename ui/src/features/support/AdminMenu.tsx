@@ -70,7 +70,7 @@ const needs = (e: Entry, command: string) => ({ ...e, needs: command });
 export function sectionHasAny(ctx: AdminContext, kind: AdminKind): boolean {
   const any = (...names: string[]) => names.some(n => ctx.can(n));
   switch (kind) {
-    case "self": return any("admin.self.noclip", "admin.self.fly", "admin.self.god", "admin.self.heal", "admin.self.revive", "lightrp.needs", "lightrp.account", "adminfull");
+    case "self": return any("lightrp.ghost", "admin.self.noclip", "admin.self.fly", "admin.self.god", "admin.self.heal", "admin.self.revive", "lightrp.needs", "lightrp.account", "adminfull");
     case "teleport": return any("lightrp.tp", "admin.self.maptravel", "admin.bulk.tpall");
     case "vehicles": return any("lightrp.car", "admin.veh.spawn", "lightrp.repair", "lightrp.refuel", "admin.veh.remove", "admin.world.cleanup", "admin.bulk.dvall");
     case "items": return any("lightrp.giveitem", "lightrp.giveweapon", "lightrp.giveammo");
@@ -115,6 +115,7 @@ const placeOptions = (c?: Catalog) => (c?.places || []).map(p => ({ value: p.nam
 export function adminSection(ctx: AdminContext, kind: AdminKind, extra: { category?: string } = {}): { title: string; subtitle: string; entries: Entry[] } {
   const { item, submenu, run, form, can } = ctx;
   if (kind === "self") return { title: "PERSONAL TOOLS", subtitle: "YOU", entries: allowed(ctx, [
+    needs(item("ghost", "Ghost mode", () => run(["lightrp.ghost"], { close: true }), { icon: "eye-off", description: "Toggle. Noclip, your body hidden from the players, no nameplate, off their map. The menu closes; /lightrp.ghost or Ghost mode again to come back." }), "lightrp.ghost"),
     needs(item("noclip", "Noclip", () => run(["admin.self.noclip"], { close: true }), { icon: "navigation", description: "Toggle. The menu closes; type /noclip or reopen /admin to stop." }), "admin.self.noclip"),
     needs(item("fly", "Fly", () => run(["admin.self.fly"], { close: true }), { icon: "navigation", description: "Same switch as noclip, granted separately." }), "admin.self.fly"),
     needs(item("speed", "Noclip speed…", () => form({ title: "Noclip speed", fields: [{ id: "v", label: "Metres per second", type: "select", initial: "25", options: ["5", "10", "25", "50", "100", "250"].map(v => ({ value: v, label: `${v} m/s` })) }], build: v => ["admin.self.speed", v.v!] }), { icon: "gauge" }), "admin.self.speed"),

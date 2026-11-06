@@ -70,7 +70,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await fire('tutorial', { phase: 'idle', reveal: false });
     await page.locator('.first-day__objective').waitFor();
     assert.equal(await page.locator('.first-day__reveal').count(), 0);
-    await page.locator('.first-day__waykey').waitFor();
+    await page.locator('.first-day__way .first-day__waykey').waitFor();
 
     // Examples in the objective card.
     for (const demo of ['menu', 'inventory', 'shop', 'drink', 'collect', 'process', 'sell']) {

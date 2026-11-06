@@ -168,12 +168,25 @@ Présentation (`LightRpTutorialConfig.reveal`, `ui/src/features/tutorial/`) :
 
 - **Montrer le chemin** : à chaque nouvelle destination à plus de 12 m, après
   le bandeau « Step complete », la caméra s'élève derrière le joueur, survole
-  l'itinéraire (des points dorés s'allument au sol à son passage), se pose sur
+  l'itinéraire (des chevrons dorés dessinés au sol, `debugDraw`, s'allument à son passage), se pose sur
   le lieu puis revient en fondu (~5,6 s). Le joueur est figé pendant le vol et
   libéré dès le retour. Bandes cinéma, nom du lieu, direction, distance et plan
   du hall à l'écran. `SPACE` passe (`lightrp.tutorial.skip`), `G` rejoue le vol
   à tout moment (`lightrp.tutorial.way`) : deux RegisterKeyMapping. Jamais par
   dessus un menu, un dialogue, la caméra libre ou en véhicule.
+- **Trouver l'objectif** (`client/core/tutorial_guide.lua`, `GuidePointer.tsx`) :
+  un anneau doré au sol et une colonne de lumière au-dessus de l'objectif (deux
+  marqueurs `ring` + `cylinder`, créés une fois par objectif, jamais mis à jour) ;
+  à l'écran, un repère épinglé sur l'objectif (ancre de page `tutorial.guide`) avec
+  son nom et la distance, ou, hors champ, une flèche sur un anneau autour du centre
+  de l'écran ; la même direction dans la carte d'objectif. Tout part aussitôt à la
+  conversation, au changement d'étape, à la mort, au chargement, à la pause, à la fin,
+  au changement de personnage et à l'arrêt de la ressource ; un marqueur en échec est
+  recréé (3 essais) ; le tracé du vol expire seul en 1 s s'il n'est plus redessiné.
+  Avant (2026-11-06, « les boules restent ») : une flèche et 5 sphères déplacées par
+  `markers.update` à chaque image (un update pendant le chargement relance le spawn),
+  des rayons sous le minimum de 0,1 m refusés une fois sur deux, et des trous dans la
+  liste d'ids qui laissaient des sphères dans le monde.
 - **Exemples d'interface** : une réplique peut être `{ text, demo }` ; la démo
   joue au-dessus du dialogue (compteur du véhicule avec la jauge qui descend en
   réserve, étapes de la pompe, clé et bips, location, carte d'identité, espèces

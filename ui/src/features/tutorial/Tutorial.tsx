@@ -7,11 +7,13 @@ import { DialogueDemo, HallMap, StepDemo } from "./demos";
 import "./tutorial.css";
 import { VoiceTutorial, type VoiceSetup } from "./VoiceTutorial";
 import { ContextLesson } from "./ContextLesson";
+import { GuidePointer, GuideReadout } from "./GuidePointer";
+import { useGuideFeed } from "./guide";
 
 type Keys = { menu: string; inventory: string; interact: string; context?: string; lock?: string; skip?: string; way?: string; quit?: string };
 /** The flight to a new destination (client/core/tutorial.lua, startReveal). */
 type Reveal = { name: string; direction?: string; distance: number; index?: number; total?: number; durationMs: number };
-type Presentation = { phase?: string; options?: boolean; skipAsk?: boolean; keys?: Keys; distance?: number | false; reveal?: Reveal | false; voice?: VoiceSetup; voiceError?: string };
+type Presentation = { phase?: string; options?: boolean; skipAsk?: boolean; keys?: Keys; reveal?: Reveal | false; voice?: VoiceSetup; voiceError?: string };
 const control = (operation: string) => emit(PAGE_EVENTS.tutorial, { operation });
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -56,6 +58,8 @@ export function Tutorial() {
   const connected = useStore(s => s.connected);
   const result = useStore(s => s.lastResult);
   const [presentation, setPresentation] = useState<Presentation>({ phase: "waiting" });
+  // The way to the objective (client/core/tutorial_guide.lua): heard here, always, for the pointer and the card.
+  useGuideFeed();
   const [options, setOptions] = useState(false);
   // "Skip the first day?": asked once more before the guide ends, from the arrival or the options.
   const [skipAsk, setSkipAsk] = useState(false);
@@ -192,6 +196,7 @@ export function Tutorial() {
       <div><span className="first-day__eyebrow">STEP COMPLETE</span><b>{done}</b></div>
       <ol aria-hidden="true">{Array.from({ length: total }, (_, i) => <li key={i} className={i + 1 < index ? "is-done" : i + 1 === index ? "is-now" : ""} />)}</ol>
     </div>}
+    {visible && !modal && !reveal && guide?.objective && <GuidePointer />}
     {visible && !modal && reveal && <RevealCard reveal={reveal} map={guide?.map} skip={keys.skip} />}
     {visible && !modal && !reveal && <aside className="first-day__objective" aria-label="First day objective">
       <header>
@@ -211,10 +216,7 @@ export function Tutorial() {
         {guide?.demo === "context" ? <ContextLesson step={guide.step} alt={keys.context} /> : guide?.demo && <StepDemo id={guide.demo} keys={keys} />}
         {guide?.practiceError && <p role="alert">{guide.practiceError} Type /tutorial resume to retry.</p>}
       </div>
-      {guide?.objective && typeof presentation.distance === "number" && <div className="first-day__distance">
-        <span className="first-day__beacon"><Icon name="arrow-down" size={13} /></span>
-        <b>{presentation.distance} m</b><span>{guide.objective.label}</span>
-      </div>}
+      {guide?.objective && <GuideReadout />}
       {guide?.line && <blockquote><span>{guideName.toUpperCase()}</span>{guide.line}</blockquote>}
       {/* Always in sight while the guide runs: its own key (F6 by default) opens the "Skip the first day?" confirmation. */}
       <div className="first-day__skip">Press <kbd className="first-day__waykey">{keys.quit}</kbd> to skip the tutorial</div>

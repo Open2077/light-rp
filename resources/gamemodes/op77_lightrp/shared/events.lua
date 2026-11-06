@@ -16,9 +16,11 @@ LightRpEvents = {
         characterEditor = "lightrp:ui:character:editor", -- Lua -> page: { active, error? } native editor handoff
         creator = "lightrp:ui:creator", -- scene state / camera and audio preferences
         tutorial = "lightrp:ui:tutorial", -- first-day controls / local presentation
+        tutorialGuide = "lightrp:ui:tutorialguide", -- Lua -> page: { label, distance, angle, rise } | { hide = true } the way to the objective (client/core/tutorial_guide.lua)
         jobRun = "lightrp:ui:jobrun",   -- Lua -> page: { distance, menuKey } live data of the work order tracker
         freecam = "lightrp:ui:freecam", -- page -> Lua: { operation = "toggle" }; Lua -> page: free camera state and keys
         maneki = "lightrp:ui:maneki",   -- Lua -> page: the Maneki-neko placement tool's bar (client/core/maneki_editor.lua)
+        arrivalTour = "lightrp:ui:arrivaltour", -- Lua -> page: { title, subtitle, lines, durationMs } or false (client/core/arrival_tour.lua)
         staffAnnounce = "lightrp:ui:staffannounce", -- Lua -> page: { title, text, from, durationMs } the staff broadcast banner (client/core/staff_announce.lua)
         parkour = "lightrp:ui:parkour", -- Lua -> page: the run HUD, the course card's leaderboard, the music (client/core/parkour.lua)
         parkourEditor = "lightrp:ui:parkoureditor", -- page <-> Lua: the staff parkour editor (client/core/parkour_editor.lua)
@@ -46,6 +48,10 @@ LightRpEvents = {
     -- client <-> server (network events)
     net = {
         pvpPlayers = "op77_lightrp:pvp:players", -- server -> client: the player ids in a PvP fight (nameplates hidden)
+        arrivalTour = "op77_lightrp:arrival:tour", -- server -> client: { center } the camera tour of the central square after the hall (server/modules/tutorial.lua)
+        rpNames = "op77_lightrp:rpnames", -- server -> client: { "id<TAB>First Last", ... } the characters' names for the nameplates (server/modules/rp_names.lua)
+        staffGhosts = "op77_lightrp:staff:ghosts", -- server -> client: the staff in ghost mode (no nameplate, no map dot)
+        staffGhost = "op77_lightrp:staff:ghost",   -- server -> the ghost: { on } (its client toggles the platform noclip)
         customization = "op77_lightrp:customization",
         support = "op77_lightrp:support",
         action = "op77_lightrp:action",       -- client -> server: a validated UI action

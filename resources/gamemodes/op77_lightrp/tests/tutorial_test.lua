@@ -43,6 +43,9 @@ Open77={players={position=function() return p end,getLifeState=function() return
 GetPlayerRoutingBucket=function() return p and p.bucket or 0 end
 SetPlayerRoutingBucket=function(_,bucket) if p and not refuseBucket then p.bucket=bucket;return true end;return false end
 GetPlayersInBucket=function(bucket) return p and p.bucket==bucket and {1} or {} end
+-- the square's camera tour, sent after each way out of the hall (client/core/arrival_tour.lua)
+local tours={}
+TriggerClientEvent=function(name,target,payload) if name==LightRpEvents.net.arrivalTour then tours[#tours+1]={target=target,payload=payload} end end
 local noop=function() return true end
 Open77.environment={getState=function()return {hour=0,minute=0,second=0,rate=8,timeFrozen=true,weather="sunny",weatherFrozen=true}end,
  setTime=noop,setTimeRate=noop,setTimeFrozen=noop,setWeather=noop,setWeatherFrozen=noop,clearBucket=noop}
@@ -174,6 +177,7 @@ talk("station","attendant","collect")
 -- Pausing in the hall opens the door: nobody is left locked in.
 placed={};p=hall("attendant");action("pause")
 assert(state().status=="paused" and placed[1]==LightRpConfig.spawn.afterTutorial.name and p.bucket==0,"continuing alone leaves the hall for the city")
+assert(#tours>=1 and tours[#tours].target==1 and tours[#tours].payload.center.x==(LightRpTutorialConfig.arrivalTour.center or LightRpConfig.spawn.afterTutorial.position).x,"out on the square: the camera tour is asked for")
 T.onDisconnected(1);T.onCharacterLoaded(1,c);assert(state().status=="paused" and state().step=="collect")
 assert(T.spawnPoint(1)==nil and T.deathPoint(1)==nil,"a paused guide does not decide where one wakes up")
 assert(not T.allowsWork(1,"collect"),"a paused guide closes the practice sites")

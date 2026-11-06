@@ -3,7 +3,7 @@ import { PAGE_EVENTS } from "@/bridge/protocol";
 /* Dev mock (no Open77 bridge): ?admin=1 opens the admin menu (/admin) with every right, two players,
    the catalogue and an answer to each command it runs. */
 type Fire = (name: string, payload: unknown) => void;
-const COMMANDS = ["admin.self.noclip", "admin.self.fly", "admin.self.speed", "admin.self.god", "admin.self.heal", "admin.self.revive", "admin.self.maptravel",
+const COMMANDS = ["lightrp.ghost", "admin.self.noclip", "admin.self.fly", "admin.self.speed", "admin.self.god", "admin.self.heal", "admin.self.revive", "admin.self.maptravel",
   "admin.player.revive", "admin.player.god", "admin.player.kill", "admin.player.observe", "admin.veh.spawn", "admin.veh.give", "admin.veh.remove", "admin.world.cleanup",
   "admin.bulk.tpall", "admin.bulk.dvall", "admin.bulk.cancel", "admin.server.status", "adminfull", "weather.set", "weather.next", "weather.random", "weather.time.set",
   "weather.time.freeze", "weather.time.resume", "lightrp.tp", "lightrp.car", "lightrp.repair", "lightrp.refuel", "lightrp.impound", "lightrp.rentals", "lightrp.fuelrate",
