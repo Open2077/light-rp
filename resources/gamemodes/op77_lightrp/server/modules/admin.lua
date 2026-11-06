@@ -35,7 +35,7 @@ local COMMANDS={
  "admin.veh.spawn","admin.veh.give","admin.veh.remove","admin.world.cleanup","admin.bulk.tpall","admin.bulk.dvall","admin.bulk.cancel",
  "admin.server.status","adminfull",
  "weather.set","weather.next","weather.random","weather.time.set","weather.time.freeze","weather.time.resume",
- "lightrp.tp","lightrp.car","lightrp.repair","lightrp.refuel","lightrp.impound","lightrp.rentals","lightrp.fuelrate",
+ "lightrp.ghost","lightrp.tp","lightrp.car","lightrp.repair","lightrp.refuel","lightrp.impound","lightrp.rentals","lightrp.fuelrate",
  "lightrp.giveitem","lightrp.giveweapon","lightrp.giveammo","lightrp.takeweapon","lightrp.weapons","lightrp.givevehicle","lightrp.needs","lightrp.account","lightrp.inv","lightrp.status","lightrp.bots",
  "lightrp.announce","lightrp.broadcast","lightrp.missions","lightrp.activities","lightrp.dailies","lightrp.dogtown",
  "lightrp.guide","lightrp.board","lightrp.halloffame",

@@ -46,6 +46,8 @@ LightRpEvents = {
     -- client <-> server (network events)
     net = {
         pvpPlayers = "op77_lightrp:pvp:players", -- server -> client: the player ids in a PvP fight (nameplates hidden)
+        staffGhosts = "op77_lightrp:staff:ghosts", -- server -> client: the staff in ghost mode (no nameplate, no map dot)
+        staffGhost = "op77_lightrp:staff:ghost",   -- server -> the ghost: { on } (its client toggles the platform noclip)
         customization = "op77_lightrp:customization",
         support = "op77_lightrp:support",
         action = "op77_lightrp:action",       -- client -> server: a validated UI action
