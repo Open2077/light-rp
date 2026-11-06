@@ -3,7 +3,8 @@ local C = Studio.camera
 local NET, PAGE = LightRpEvents.net.customization, LightRpEvents.page.customization
 local Custom, session = {}, nil
 LightRpVehicleCustomizationClient = Custom
--- A performance stage rebuilds the car (same id): it may vanish or shift for a moment.
+-- A performance stage or an engine sound (preview included) rebuilds the car (same id):
+-- it may vanish or shift for a moment.
 local RESPAWN_GRACE_MS, WARNING_DELAY_MS, WARNING_GIVE_UP_MS = 8000, 1500, 6000
 function Custom.isActive() return session ~= nil end
 local function stop(notify)
@@ -242,7 +243,9 @@ function Custom.bind(page)
                 Ui.send(PAGE, { kind = "camera", session = s.id, rotating = s.rotating })
             end
         elseif p.operation == "preview" or p.operation == "save" then
-            if p.operation == "save" and p.category == "performance" then s.graceUntil = GetGameTimer() + RESPAWN_GRACE_MS end
+            if (p.operation == "save" and p.category == "performance") or p.category == "engineSound" then
+                s.graceUntil = GetGameTimer() + RESPAWN_GRACE_MS
+            end
             TriggerServerEvent(NET,p)
         end
     end)

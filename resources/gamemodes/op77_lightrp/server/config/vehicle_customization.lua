@@ -10,6 +10,12 @@ LightRpCustomizationPricing = {
     neon = 5000,    -- neon kit with its colour and brightness, or removing it -- PROVISIONAL
     plate = 2500,   -- a new registration number -- PROVISIONAL
     windows = 1500, -- window tint, any level, or back to factory glass -- PROVISIONAL
+    -- Wave 2 (PLAN-vehicle-custom-wave2.md, "Auto Studio"): every one PROVISIONAL, owner to decide.
+    neonAnimation = 2500, -- an animation on the fitted neon (pulse, strobe, chase...), or back to static -- PROVISIONAL
+    lightColors = 1500,   -- brake/reverse/blinker/interior colours, any number of groups, or back to factory -- PROVISIONAL
+    engineSound = 6000,   -- another engine note (the car is rebuilt), or back to factory -- PROVISIONAL
+    stickers = 1500,      -- PER STICKER ADDED; removing stickers only costs one -- PROVISIONAL
+    tag = 2000,           -- a painted text tag (W2.5 stretch goal; the contract has no price) -- PROVISIONAL
     -- Performance: price of each stage, per catalogue key; an upgrade pays every stage
     -- between the fitted one and the target. Going down (or back to stock) costs
     -- `performanceRemoval` and refunds nothing. Proposal of docs/research STAGES.md

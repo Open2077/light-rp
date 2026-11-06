@@ -10,6 +10,10 @@ The sources of this work:
 - Window tint comes from `feat/auto-studio-full` on top of the native
   `Open77.vehicles.setWindowTint` (base `feat/vehicle-customization`, W1, 2026-11-06).
   The category is built and **closed**: see [Windows](#windows).
+- Wave 2 (neon animation, lamp colors, engine sound, stickers and the tag) comes from
+  `lr/studio-extras` (campaign plan `PLAN-vehicle-custom-wave2.md`, "Auto Studio"). It
+  was written against the shared contract of the wave 2 natives before any build had
+  them: see [Wave 2 categories](#wave-2-categories).
 
 The phase-1 API mapping was checked with the Open77 Devkit MCP for
 **2.50.0+op77.156**. The phase-2 natives (`listPaintProfiles`, `setPaintProfile`,
@@ -19,6 +23,13 @@ The phase-1 API mapping was checked with the Open77 Devkit MCP for
 (`feat/vehicle-customization`). The devkit catalogue does not list them yet, so every
 one of them is **feature-detected**. A server or client without a native greys its
 category with a reason and never fails.
+
+The wave 2 natives (`setNeonAnimation`, `getNeonAnimation`, `setLightColors`,
+`getLightColors`, `listEngineSounds`, `setEngineSound`, `getEngineSound`,
+`listStickers`, `setStickers`, `getStickers`, `getDecalBudget`, `setTag`) are
+feature-detected the same way. The five categories also need the garage's category
+registry, `Garage.registerCustomizationCategory`, which `server/modules/garages.lua`
+does not have yet: see [The garage's category registry](#the-garages-category-registry).
 
 The platform side (every native, the FiveM aliases, packs and engine limits) is
 documented in the Open77 wiki, `wiki/vehicle-customization.md`.
@@ -40,6 +51,7 @@ client yet**: the [Lab checklist](#lab-checklist-two-clients) is still to run.
 | Plate | Written on the car through `setPlate`, with the 9 m rebuild (see [Plate](#plate)); kept through a restart and an impound |
 | Windows | The switch works and the level is kept through a restart and an impound; the glass renders as factory. Closed |
 | Performance | Stage 1 bought and stored with the rest of the look; Performance greyed when TweakXL 1.12 is missing |
+| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Nothing: no build has their natives yet and the garage registry is still a patch. Covered by tests only |
 
 **The Hella's side skirts.** The side skirts in the table were bought on the Hella with
 the first, 8-part catalogue, where `skirt_side` had a Hella fit. The 30-part kit keeps the id
@@ -84,7 +96,10 @@ vehicles are not eligible.
 The page keeps the original full-height left panel:
 
 - the vehicle header, which shows the plate (or `#id`) and ` · STAGE n`;
-- the category navigation: a two-column grid once more than four categories are offered;
+- the category navigation: a two-column grid once more than four categories are offered,
+  and three columns of labels without icons when more than ten are offered on a screen
+  under 700 px tall. A sub-panel (Animation under Neon, Lamp colors under Lights) is not
+  a row of the navigation but a tab at the top of its parent's editor;
 - the category editor;
 - the payment footer.
 
@@ -99,7 +114,8 @@ and the car shows every current preview at once. **Apply** pays for the selected
 category only. A valid change previews automatically: presets and pickers at once,
 typed values after a short delay. Rapid clicks coalesce to the latest selection
 while a request is pending, so there is no Preview button. **Performance is the
-exception**: a stage is fitted on purchase and never previewed.
+exception**: a stage is fitted on purchase and never previewed. **Engine sound**
+previews only on request (**Hear it on the car**), since each change rebuilds the car.
 
 | Category | Editor | Natives (server) | Price (`server/config/vehicle_customization.lua`) |
 | --- | --- | --- | --- |
@@ -108,11 +124,16 @@ exception**: a stage is fitted on purchase and never previewed.
 | Rims | **Factory rims** + the rims that fit this record, then the finish | `listParts`, `setWheels` | 6,000 €$ per set, provisional |
 | Body kit | One row per group (Wing, Rear louvers, Front lip, Canards, Side skirts, Rear diffuser, Hood, Roof, Front protection): **None** + the parts that fit, then the finish | `listParts`, `setParts` | 3,500 €$ **per group changed**, provisional |
 | Neon | 8 presets, picker, HEX, brightness Low / Medium / High, **No neon** | `setNeon`, `clearNeon` | 5,000 €$, provisional |
+| Neon › Animation (wave 2) | A tab of Neon: **Static**, Pulse, Breathe, Strobe, Chase, Rainbow (speed Slow / Medium / Fast; Chase takes a second color), Follows speed, Flash on braking | `setNeonAnimation` (`getNeonAnimation`) | 2,500 €$, provisional |
 | Lights | 12 saturated presets, picker, HEX, **Factory lights** | `setHeadlightColor`, `clearLightsHue` (restore: `setLightsHue`) | 500 €$, provisional |
+| Lights › Lamp colors (wave 2) | A tab of Lights: Brake lights, Reverse lights, Blinkers, Interior, each factory, one of 10 presets or the picker | `setLightColors` (`getLightColors`) | 1,500 €$ for any number of groups, provisional |
 | Trim | **Factory trim** + the variants curated for the model | `setAppearance` (`getAppearance` to skip restatements) | 2,500 €$, provisional |
 | Plate | Plate number field + plate visual; the server answers availability | `setPlate` when the server has it; stored by Light RP, mirrored in the `lightrpPlate` state bag | 2,500 €$, provisional |
+| Stickers (wave 2) | **No stickers** + the stickers that fit, by group, with the decal meter | `listStickers`, `setStickers`, `getStickers`, `getDecalBudget` | 1,500 €$ **per sticker added**, provisional |
+| Tag (wave 2) | Listed only with `setTag`: **No tag**, text (1 to 12 characters), font, color, spot | `setTag` | 2,000 €$, provisional |
 | Windows | **Closed: greyed "Coming soon"** (`windows.enabled = false`). Built: Factory glass, Light smoke, Dark smoke, Limo (side and rear glass; the windshield stays clear). The switch works in game; the glass still renders as factory | `setWindowTint` (levels 1-3, nil = factory) | 1,500 €$, provisional, not sold while closed |
 | Performance | Stock / Stage 1 / Stage 2 / Stage 3, each with its price | `respawnAs` onto `Vehicle.<dealer record>_o77sN` | per model and stage, provisional; going down costs 1,000 €$ |
+| Engine sound (wave 2) | **Factory sound** + the sounds that fit; **Hear it on the car** | `listEngineSounds`, `setEngineSound` (`getEngineSound`), `setEngineHold` | 6,000 €$, provisional |
 
 #### Body paint
 
@@ -343,12 +364,113 @@ stored.
 **During the fit.** For 8 s the studio camera tolerates the car vanishing while it
 is rebuilt, and re-anchors on it wherever the engine puts it.
 
+#### Wave 2 categories
+
+Five categories of the wave 2 plan (`PLAN-vehicle-custom-wave2.md`, "Auto Studio"),
+written against the shared contract before any build had their natives. **None has
+been seen in game.** Each one is a `getProperties` field (`neonAnimation`,
+`lightColors`, `engineSound`, `stickers`, `tag`) read and written by its own natives.
+The contract names the keys but not their table, so the module reads them from
+`visual` or from the top level, and writes a copy where its source keeps it.
+
+They go through the same preview, purchase and persistence flow as the others, with
+one condition: the garage must have its category registry (see
+[The garage's category registry](#the-garages-category-registry)). Without it, an
+autosave during a preview would store the preview, so the five rows are greyed "This
+studio cannot store it on your vehicle yet." even when the natives exist.
+
+#### Neon animation
+
+A tab of the Neon editor, bought on its own (ledger kind `vehicle_neon_anim`).
+
+- **Modes.** Static, or one of seven: Pulse, Breathe, Strobe, Chase and Rainbow take a
+  speed (Slow 2.4 s, Medium 1.2 s, Fast 0.6 s per cycle); Follows speed and Flash on
+  braking run on a 1 s cycle. Chase takes a second color from the neon presets. The
+  cycle comes from the speed step, never from the client.
+- **It runs on the neon.** A preview needs a neon shown on the car, a purchase a neon
+  bought ("Buy a neon kit first: the animation runs on it.").
+- **Emergency looks are refused:** a strobe on a red or blue neon, and a chase
+  alternating red and blue. Strobe never runs faster than 3 Hz (`strobeMinPeriodMs`).
+  The neon editor checks the reverse: a red neon under a strobe the car shows or the
+  owner bought is refused too.
+
+#### Lamp colors
+
+A tab of the Lights editor, bought on its own (ledger kind `vehicle_lamps`).
+
+- **Groups.** Brake lights, Reverse lights, Blinkers and Interior, each factory or one
+  color (10 presets or the picker). One purchase covers any number of groups, and
+  putting every group back to factory is a change too.
+- **Refused, as emergency looks:** blue brake lights, red or blue blinkers ("Blinkers
+  cannot be red: it reads as an emergency vehicle."). The swatches are disabled and the
+  server refuses them.
+- **Visibility.** Brake lights and blinkers must keep an HSV value of 0.35 at least.
+- **What counts as red or blue.** A hue of 340-20° is red and 195-255° is blue, only
+  from an HSV saturation of 0.35: a pale pink is not red. The ranges are
+  `emergency` in `shared/vehicle_customization.lua`, mirrored in the page.
+
+#### Engine sound
+
+Ledger kind `vehicle_engine_sound`.
+
+- **Choices.** **Factory sound** + the sounds `listEngineSounds(vehicleId)` gives for
+  the model. With none, the row is greyed "No other engine sound fits this model."
+- **Every change rebuilds the car**, like a stage: the platform respawns it on
+  `Vehicle.<base>_o77a<k>`, or `Vehicle.<base>_o77s<n>a<k>` with a stage. So choosing
+  a sound sends nothing. **Hear it on the car** previews it (the status line reads
+  "PREVIEW ON REQUEST", then "REBUILDING…"), at most once per 4 s
+  (`engineSound.previewCooldownMs`). `engineSound.preview = false` sells it without a
+  preview, like Performance.
+- **Hearing it.** After a successful preview or purchase, the studio keeps the empty
+  car's engine running (`setEngineHold`, `engineSound.listen`); closing the studio stops
+  it (`setEngine(id, false)`). A refused hold is logged `auto studio: engine hold refused
+  on <id>`.
+- **During the rebuild.** As for a stage, the client camera tolerates the car vanishing
+  for 8 s and re-anchors on it.
+- **With a stage.** Fitting a stage keeps the sound: the garage puts it back after
+  `respawnAs` (registry patch).
+
+#### Stickers
+
+Ledger kind `vehicle_stickers`.
+
+- **Choices.** **No stickers** + the stickers `listStickers(vehicleId)` gives for the
+  car, grouped by their `group`. Each sticker takes `decals` of the decal budget (1 when
+  absent), goes on once, and the car takes 12 stickers at most (`stickers.maxPerCar`).
+- **The decal budget is shared with the livery**: 12 decals at most on one car, livery
+  included (13 crashed every client that saw the car, see
+  [Livery](#livery)). `getDecalBudget(vehicleId)` gives `used` and `maximum`; the module
+  subtracts the stickers the car wears to get what the livery leaves. The meter shows
+  that plus the chosen stickers; above the maximum, the page previews nothing ("Too many
+  decals: 15 of 12. Remove a sticker.") and the server refuses too.
+- **A livery preview moves the meter.** Every response carries the budget the car shows
+  now. A livery and stickers are never bought while the other is previewed ("Apply or
+  undo your livery preview first: stickers share its decal budget.").
+- **Price per sticker added.** A change that only removes stickers costs one sticker.
+
+#### Tag
+
+The stretch goal W2.5 (ledger kind `vehicle_tag`).
+
+- **Listed only when the server has `setTag`**: without it there is no row, not even
+  greyed (`capability = "setTag"` in `shared/vehicle_customization.lua`).
+- **Text.** 1 to 12 characters of `A-Z a-z 0-9 space - . ! ? # &`; runs of spaces are
+  folded. The plate's banned and reserved words apply ("This tag is not allowed.",
+  "This tag is reserved for city services.").
+- **Font** (Marker, Block, Script), **spot** (Left door, Right door, Hood, Trunk) and 8
+  colors. The font and spot ids are guesses until the native lands.
+- **No getter.** The contract has no `getTag`: the module reads the `tag` field of
+  `getProperties`.
+
 ### Prices
 
 The server-only `server/config/vehicle_customization.lua` owns every tariff, in one
 table, `LightRpCustomizationPricing`. Every price except paint is **provisional, for
 the owner to confirm**, and `docs/economy-balance.md` §18 explains the choices. The
 module refuses to load without a valid price for every sold category and every stage.
+
+Stickers are priced per sticker added; every other wave 2 category is one price per
+change.
 
 The page shows the quote and the balances. Insufficient funds and an unchanged
 selection disable the purchase, and client prices are ignored. No payment is sent
@@ -373,6 +495,11 @@ the car's heading. Angles: 90 = in front, -90 = behind, 0 = right side.
 | lights | 90° (front) | 5.5 m | 1.1 / 0.6 m | off |
 | plate | -90° (rear) | 4.2 m | 1 / 0.5 m | off |
 | body | -55° | 6.5 m | 2.4 / 0.8 m | on |
+| neonAnimation | 35° | 6 m | 0.45 / 0 m | on |
+| lightColors | -60° (rear three-quarter) | 5.5 m | 1.2 / 0.6 m | off |
+| engineSound | 60° | 5 m | 0.9 / 0.5 m | off |
+| stickers | 0° (right side) | 6 m | 1.4 / 0.7 m | on |
+| tag | 0° (right side) | 5.5 m | 1.3 / 0.7 m | on |
 
 A manual move cancels the blend, and the page's orbit button follows the preset's
 orbit state. All values are in `shared/vehicle_customization.lua` `camera.presets`.
@@ -391,6 +518,7 @@ Saving before closing keeps what was bought, and previews of other categories ar
 dropped. A save that is already committing when the client leaves is allowed to finish
 for the original owned vehicle. Its server response is not routed to a replacement
 session.
+If the studio kept the engine running for an engine sound, it stops it.
 
 ## Persistence and failure behavior
 
@@ -419,6 +547,11 @@ transaction** before success is acknowledged:
 | Windows | `vehicle_tint` (not sold while closed) |
 | Plate | `vehicle_plate` |
 | Performance | `vehicle_stage` |
+| Neon animation | `vehicle_neon_anim` |
+| Lamp colors | `vehicle_lamps` |
+| Stickers | `vehicle_stickers` |
+| Tag | `vehicle_tag` |
+| Engine sound | `vehicle_engine_sound` |
 
 **Guarantees.**
 
@@ -445,6 +578,7 @@ category to the fields it owns:
 | `body` | `visual.parts["op77_lightrp:<part>"]` |
 | `plate` | `lightrp.plate` (Light RP's own field, never sent to `setProperties`) |
 | `performance` | `lightrp.stage` (same) |
+| `neonAnimation`, `lightColors`, `engineSound`, `stickers`, `tag` (wave 2) | The field of the same name, in `visual` or at the top level, wherever `getProperties` keeps it. Declared through the [category registry](#the-garages-category-registry) |
 
 **What a capture writes.** Previews are authoritative, so other viewers see them.
 While a lease is open, every property capture (periodic autosave, removal recovery,
@@ -469,7 +603,47 @@ from the lease, not from the car.
 **dormant** in the row and comes back when it can. Examples: a part `listParts` no
 longer lists for the record (catalogue change, refused registration), a livery the
 record no longer offers, or a server without the visual natives. It is only dropped
-when the owner buys that category again.
+when the owner buys that category again. A wave 2 choice a server build cannot put on
+the car (its setter is missing) is kept the same way, in `row.dormantExtra`.
+
+### The garage's category registry
+
+The wave 2 categories are not written into `server/modules/garages.lua`: the studio
+declares them at load with `Garage.registerCustomizationCategory(id, spec)`.
+**That function is not in the garage yet.** It is a patch to
+`server/modules/garages.lua`, delivered with the wave 2 report for that module's owner
+to land. Until then the five wave 2 rows stay greyed and nothing changes for the other
+categories.
+
+| `spec` field | Role |
+| --- | --- |
+| `owns(to, from)` | Copies the category's fields from `from` into `to`: what a capture keeps of the confirmed look |
+| `receipt = { kind, label }` | The ledger kind (VARCHAR 24) and the receipt label prefix |
+| `respawns` | Applying it rebuilds the car: it is applied after the stage, and again after a stage purchase |
+| `available()` | False when this server build cannot put it on a car: a stored value stays dormant |
+| `apply(vehicleId, change)` | Puts a validated change on the car, for a preview or a purchase |
+| `restore(vehicleId, state)` | Puts the confirmed value back (rollback, close, retrieval) |
+| `unchanged(change, saved)` | True, with a message, when the purchase would change nothing |
+
+What the patch does in the garage:
+
+- `OWNS`, `UNCHANGED` and `RECEIPTS` gain the registered ids. A capture during a
+  preview therefore writes the confirmed value, never the preview.
+- `applyChange` applies a registered change. Its performance branch puts the
+  respawning ones (the engine sound) back after `applyStage`.
+- `applyLook` restores them at close and on a rollback: the others before the plate,
+  the respawning ones after the stage.
+- `applyStage` compares records without the engine sound suffix (`_o77a<k>`), so a
+  car whose sound rides its stage record is not rebuilt for nothing.
+- At retrieval, `restorable` leaves `record` out of the table when the stored look has
+  an engine sound. `setProperties` then composes `<stage record>a<k>` from the sound;
+  named beside the plain stage record, the sound would be refused
+  (`engine_sound_mismatch` on the natives branch) and the car delivered without its
+  visual. The stored record is never sent: an autosave during a sound preview may hold
+  the previewed one.
+- `restorable` parks the values whose `available()` is false in `row.dormantExtra` and
+  logs `garage: <owned id> keeps studio choices this server build cannot put on it dormant`.
+  Every capture writes them back until a purchase of that category replaces them.
 
 ### Per-model availability
 
@@ -487,6 +661,11 @@ and their editor shows the reason.
 | Lights | `support` (Bandit, Apollo: no tintable lights, E0.1) |
 | Performance | No stage price for the model; `lightrp_vehicle_stages` not running (no TweakXL 1.12 loader); no stage record; no native. See [Performance](#performance) |
 | Windows | `windows.enabled` is false (the shipped value: "Coming soon"); the model has no window (`support`: Apollo, Kusanagi); `open77_vehicle_tint` not running; no native |
+| Neon › Animation | No native; the garage has no category registry |
+| Lamp colors | No native; no registry |
+| Engine sound | `listEngineSounds` gives nothing for the car; no native; no registry |
+| Stickers | `listStickers` gives nothing for the car; the decal budget cannot be read; no native; no registry |
+| Tag | Not listed at all without `setTag`; no registry |
 
 Two tables in `shared/vehicle_customization.lua` are keyed by the Light RP catalogue
 key (`hella`, `kusanagi`, …):
@@ -495,6 +674,12 @@ key (`hella`, `kusanagi`, …):
   (the Bandit's and the Apollo's lights, the two bikes' windows). A model or category absent from the table is
   allowed. The server refuses any request for a greyed category.
 - `trims = { [catalogKey] = { { id, label }, ... } }`: no entry hides the Trim row.
+
+**No category registry.** While `server/modules/garages.lua` has no
+`Garage.registerCustomizationCategory`, the server logs at start
+`auto studio: this garage has no category registry; neon animation, lamp colors, engine sound, stickers and tag are greyed`.
+With the natives present, the five rows are then greyed "This studio cannot store it
+on your vehicle yet."
 
 **Client greying.** On open, each client also greys what **its own game** cannot show:
 
@@ -527,7 +712,8 @@ response. These are refused:
 - client-supplied native or record names;
 - unknown categories, categories not offered, and greyed categories;
 - ids outside this vehicle's offer (trim, livery profile, rim and finish, body part
-  and finish, neon step, stage).
+  and finish, neon step, stage, animation mode and speed, lamp group, engine sound,
+  sticker, tag font and spot).
 
 **Request pacing.** The server accepts one new preview per 200 ms, across all
 categories, and the UI spaces queued previews by 230 ms. Garage operations and
@@ -647,6 +833,11 @@ one client, late joins and other viewers are not checked yet (see
 | Performance | `respawnAs` (+ the stage resource's `stageRecord` export) | Same id; refuses `vehicle_occupied` / `invalid_record`; the stage resource needs TweakXL ≥ 1.12.0 | Implemented (phase 2) |
 | Plate text | `setPlate` | Normalized text on the plate pack's screen; state bag `lightrpPlate` for menus; blank on a car born more than ~10 m from the camera until the 9 m rebuild | Implemented |
 | Window tint | `setWindowTint`, `getWindowTint`, `getVisual().tint` | Levels 1-3 on side and rear glass; nil = factory. The switch is proven in game, the tinted glass is not: ArchiveXL leaves the pack materials unresolved, so the glass renders as factory (base `docs/research/vehicles-api.md`, "W1 — teinte en jeu") | Closed until it renders |
+| Neon animation | `setNeonAnimation`, `getNeonAnimation` | Mode, `periodMs` 250-10000, `color2` for a chase | Wave 2 contract; not in any build checked |
+| Lamp colors | `setLightColors`, `getLightColors` | Groups `brake`, `reverse`, `blinkers`, `interior`; nil = factory | Wave 2 contract; not in any build checked |
+| Engine sound | `listEngineSounds`, `setEngineSound`, `getEngineSound`; `setEngineHold` (op77.147) | Rebuilds the car on `_o77a<k>` / `_o77s<n>a<k>` | Wave 2 contract; not in any build checked |
+| Stickers | `listStickers`, `setStickers`, `getStickers`, `getDecalBudget` | 12 decals at most on a car, livery included | Wave 2 contract; not in any build checked |
+| Tag | `setTag` (no getter: `getProperties().tag`) | Stretch goal W2.5 | Wave 2 contract; not in any build checked |
 | Durable restoration | `getProperties`, `setProperties` | Version-1 visual is complete: unknown keys are refused | Through the garage |
 | Client checks | `customizationAvailable` (client, `vehicles.read`), `Open77.data.vehicle` | Greying and skip warnings only | Feature-detected |
 
@@ -658,7 +849,9 @@ reads its own game; every vehicle write is server-side.
 
 1. Register its ID, label and description in `shared/vehicle_customization.lua`, and
    its price in `server/config/vehicle_customization.lua`. The module refuses to load
-   without a valid price for every sold category.
+   without a valid price for every sold category. `parent` makes it a tab of another
+   category's editor; `capability` hides the row entirely on a server without that
+   native.
 2. Add a strict validator in `server/modules/vehicle_customization.lua`
    (`validators`) that returns a trusted change `{ category = id, ... }`. Add an `OFFER`
    entry when availability depends on the model, a native or a pack, and extend
@@ -671,6 +864,11 @@ reads its own game; every vehicle write is server-side.
    - its restore to `applyLook`;
    - its unchanged check to `UNCHANGED`;
    - its ledger kind (VARCHAR 24) to `RECEIPTS`.
+
+   Once the [category registry](#the-garages-category-registry) has landed, a category
+   whose value is one `getProperties` field can skip this step: declare it with
+   `Garage.registerCustomizationCategory`, as the wave 2 categories do (`EXTRA` in
+   `server/modules/vehicle_customization.lua`).
 4. Add its editor in `ui/src/features/customization/VehicleCustomization.tsx`:
    `KNOWN`, `keyOf`, `validOf`, `payload`, `draftsOf`, `TEXT`, `ICONS`, and
    `previewable` if it cannot be previewed. Send its confirmed value in `view()`.
@@ -712,6 +910,19 @@ reads its own game; every vehicle write is server-side.
   - **`tests/vehicle_customization_client_test.lua`:** relaying without any client
     vehicle write, local greying (pack, TwinTone, stage records), presets, the respawn
     grace and skip warnings.
+  - **`tests/vehicle_customization_wave2_test.lua`:** the five wave 2 categories
+    against a mock of the contract natives.
+    - On any garage: greying without the natives, and without the registry.
+    - With the registry: neon animation (emergency looks, the neon it runs on); lamp
+      colors (refused groups, a DB failure rolls back); engine sound (the rebuild
+      cooldown, the engine hold, the stop at close, a stage keeps the sound); stickers
+      (per-sticker price, the decal budget with a livery, the two purchase guards);
+      the tag; park + restart + retrieve; a build without the natives keeps the values
+      dormant and gives them back later; 60 stickers still fit the event caps.
+    - Against a garage without the registry it checks the greying, then prints a
+      `SKIP` line. Set `LIGHTRP_GARAGES=<path to a patched garages.lua>` to run the
+      whole flow. The runner runs it with the keys at the top level and, when that
+      run is complete, again with them in `visual` (`LIGHTRP_WAVE2_KEYS`).
 - Run `npm run build --prefix ui`. Then restore `web/safezone`, which is hand-written:
   vite's `emptyOutDir` deletes it, so run
   `git checkout -- resources/gamemodes/op77_lightrp/web/safezone`.
@@ -730,6 +941,11 @@ reads its own game; every vehicle write is server-side.
     - the linked livery and paint;
     - the camera state;
     - layouts at 1920x1080, 1280x720 and 800x600 with nothing widening the panel.
+  - **Wave 2:** thirteen top-level categories, the Neon and Lights tabs; animation
+    modes, speed and second color; lamp colors without the emergency looks; the engine
+    sound heard on request only; stickers within the budget the server reports (a
+    livery preview fills it, nothing is previewed above it); the tag (spaces folded, a
+    character outside the set never sent); the three layouts again.
 
   Screenshots go to the ignored `ui/artifacts/vehicle-customization-*.png`.
 - Run `pwsh -File scripts/check-lua.ps1 -Path <file>` from the Open77 repository on
@@ -760,6 +976,22 @@ within 20 m of Bay 01. Both clients connected after the packs were added.
 | 12 | During any preview, A presses Escape / dies / drives off | The confirmed look of every category comes back on both clients; no ledger entry |
 | 13 | Read the server and client logs | No `part … not registered`, no `customization rollback pending`; client `red4ext/logs/open77-*.log` has no `attach:` skip for the Hella; `TweakXL-*.log` reads `LightRP\open77-lightrp-stages.yaml` |
 
+**Wave 2 (rows 14-21).** These need a server build with the wave 2 natives,
+`server/modules/garages.lua` with the [category registry](#the-garages-category-registry),
+and the sticker and engine sound packs installed. The server log must not show
+`this garage has no category registry`.
+
+| # | Steps | Expected |
+| --- | --- | --- |
+| 14 | A opens the studio on the Hella | 13 rows (12 without `setTag`); Neon and Lights show the tabs Animation and Lamp colors; no wave 2 row greyed |
+| 15 | With a cyan neon bought: Animation Pulse Medium, then Chase with Amber; then a red neon preview with Strobe; buy Pulse | B sees the pulse, then the chase; the red strobe is refused "A red or blue strobe reads as an emergency light…"; ledger `vehicle_neon_anim`, 2,500 €$ |
+| 16 | Lamp colors: the red Blinkers and blue Brake lights swatches; Reverse cyan, Interior purple; buy; A drives off and reverses near B | Both swatches disabled; ledger `vehicle_lamps`, 1,500 €$; B sees the cyan reverse lights and factory brake lights |
+| 17 | Engine sound: pick one, **Hear it on the car**; again within 4 s; buy; close; later fit a stage | The car vanishes briefly and comes back running, with the new note for A and B; the second try reads "The car is still being rebuilt…"; ledger `vehicle_engine_sound`, 6,000 €$; closing stops the engine; after the stage the sound is still there |
+| 18 | Stickers: add two; then preview a livery with many decals; add a 3-decal sticker; buy two | The meter follows; over 12 the page refuses "Too many decals: … Remove a sticker."; 3,000 €$ for two, ledger `vehicle_stickers`; B sees them; no client crashes |
+| 19 | Tag (if listed): `Night Owl`, Marker, Left door; then a reserved word such as `NCPD` | Painted on the left door for B; the reserved word is refused |
+| 20 | Park, restart, retrieve; then run a server build without the wave 2 natives and retrieve; then back | Every wave 2 choice comes back; on the older build the car comes out without them, the rows are greyed and the log reads `garage: … keeps studio choices this server build cannot put on it dormant`; back on the full build they return |
+| 21 | During any wave 2 preview: wait for an autosave, then Escape | The SQL row (`lightrp_owned_vehicles.properties`) holds the confirmed values, never the preview; Escape gives the confirmed look back on both clients, no ledger entry |
+
 Fill `support`, the rim and body fits, and the stage values from these
 measurements: which records render rims and parts where expected, and which stages
 drive as tabled.
@@ -782,3 +1014,11 @@ drive as tabled.
   Front lip, Canards, Side skirts, Rear diffuser, Hood, Roof and Front protection; the
   13 finishes are Chrome, Black chrome, Black, Matte black, White, Red, Yellow, Gold,
   Bronze, Gunmetal, Carbon, Aluminium and Steel. All are the owner's to rename.
+- **Wave 2 prices.** Neon animation 2,500, lamp colors 1,500 for any number of
+  groups, engine sound 6,000, stickers 1,500 per sticker added, tag 2,000: all
+  provisional (`docs/economy-balance.md` §18).
+- **Wave 2 rules and labels.** The animation names and speeds (2.4 / 1.2 / 0.6 s),
+  the 3 Hz strobe cap, the emergency hue ranges (red 340-20°, blue 195-255°, from
+  saturation 0.35), the brake and blinker floor (HSV value 0.35), the free engine
+  sound preview (once per 4 s, engine kept running), and the tag (12 characters, its
+  character set, fonts, spots and colors) are all placeholders.

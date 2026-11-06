@@ -489,7 +489,10 @@ local function fitsClient(p,label) local nodes,depth=shape(p);nodes=nodes+1
     assert(depth<=8 and nodes<=1024,("%s exceeds the client event reader: depth %d (max 8), %d values (max 1024)"):format(label,depth,nodes)) end
 fitsClient(messages[#messages],"the studio open message")
 local order={};for _,c in ipairs(m.categories)do order[#order+1]=c.id end
-assert(table.concat(order,",")=="paint,livery,rims,body,neon,lights,trim,plate,windows,performance","page order: "..table.concat(order,","))
+assert(table.concat(order,",")=="paint,livery,rims,body,neon,neonAnimation,lights,lightColors,trim,plate,stickers,windows,performance,engineSound","page order: "..table.concat(order,","))
+-- Wave 2 rows (tests/vehicle_customization_wave2_test.lua) are greyed without their natives;
+-- the tag row is not listed at all without setTag.
+for _,id in ipairs({"neonAnimation","lightColors","stickers","engineSound"})do assert(not category(m,id).available and category(m,id).reason,id.." greyed without its native") end
 local windows=category(m,"windows")
 assert(windows.available and not windows.soon and windows.pack=="open77_vehicle_tint" and #windows.options==3
     and windows.options[1].id=="light" and windows.options[3].id=="limo" and windows.options[3].level==3,"window tint offered, three levels")

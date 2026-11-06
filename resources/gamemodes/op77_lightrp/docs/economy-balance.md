@@ -1068,7 +1068,9 @@ d'achat-revente n'est possible.
 ## 18. Auto Studio : prix provisoires (branche `vc/a3-studio-full`)
 
 Le studio complet propose dix catégories ; neuf sont en vente, les vitres sont fermées
-(voir la ligne Vitres). Tous les tarifs sont dans **un seul tableau**
+(voir la ligne Vitres). La vague 2 (branche `lr/studio-extras`) en ajoute cinq :
+animation du néon, couleurs des feux, son moteur, autocollants et tag. Elles restent
+grisées tant que leurs natifs et le registre de catégories du garage manquent. Tous les tarifs sont dans **un seul tableau**
 serveur, `LightRpCustomizationPricing` (`server/config/vehicle_customization.lua`).
 Le client n'envoie jamais de prix. Seule la peinture est décidée (propriétaire,
 2026-11-05). Tout le reste est **provisoire**, marqué `-- PROVISIONAL`, et attend la
@@ -1092,6 +1094,11 @@ référence de la §17 : J ≈ 2 200 €$/h au grade d'entrée, environ 3 300 �
 | Vitres | 1 500 | une teinte, tout niveau, ou retour au verre d'usine | 0,7 | `vehicle_tint` | configuré mais **non vendu** : le natif existe et la bascule marche, mais le verre s'affiche encore comme celui d'usine ; catégorie fermée (« Coming soon ») |
 | Performance | par modèle et par palier (tableau ci-dessous) | les paliers entre l'actuel et la cible | — | `vehicle_stage` | proposition E5 |
 | Retrait d'un palier | 1 000 | redescendre, ou revenir au stock | 0,5 | `vehicle_stage` | rien n'est remboursé |
+| Animation du néon (vague 2) | 2 500 | un mode (pulsation, stroboscope, chenillard…), ou retour au néon fixe | 1,1 | `vehicle_neon_anim` | la moitié du néon : elle n'existe que sur un néon déjà posé |
+| Couleurs des feux (vague 2) | 1 500 | stop, recul, clignotants et habitacle, autant de groupes qu'on veut, ou retour à l'usine | 0,7 | `vehicle_lamps` | plus que la teinte des phares (500) : quatre groupes en un achat |
+| Son moteur (vague 2) | 6 000 | un son, ou retour au son d'usine | 2,7 | `vehicle_engine_sound` | au prix des jantes : la voiture est reconstruite, et on l'entend de loin |
+| Autocollants (vague 2) | 1 500 | **par autocollant ajouté** ; n'en retirer coûte un autocollant | 0,7 par autocollant | `vehicle_stickers` | 12 décalques au plus, livrée comprise : 12 autocollants coûtent 18 000 |
+| Tag (vague 2) | 2 000 | un texte peint (police, couleur, emplacement), ou son retrait | 0,9 | `vehicle_tag` | objectif secondaire W2.5 : le contrat ne donne pas de prix |
 
 **Règles de prix.**
 
@@ -1107,6 +1114,11 @@ référence de la §17 : J ≈ 2 200 €$/h au grade d'entrée, environ 3 300 �
 - **Lien peinture–livrée.** Peinture et livrée sont liées. Acheter une peinture
   enlève la livrée, et acheter une livrée remet la peinture d'usine. On paie
   seulement la catégorie choisie.
+- **Autocollants.** Le prix est 1 500 multiplié par le nombre d'autocollants qui ne
+  sont pas déjà sur la voiture, avec un minimum de 1. Retirer des autocollants sans en
+  ajouter coûte donc 1 500.
+- **Son moteur.** Chaque essai reconstruit la voiture : un essai toutes les 4 s au plus,
+  gratuit. Seul l'achat est payant.
 
 ### 18.1 Paliers de performance (proposition E5)
 
@@ -1151,6 +1163,9 @@ La source est `scripts/vehicle-kit/stages/STAGES.md`, dans le dépôt Open77.
   (37 500, 15 %, 6 groupes). C'est voulu, pour que le style soit accessible. Si le
   propriétaire préfère un prix proportionnel au véhicule, il faut un coefficient par
   modèle, comme pour les paliers.
+- **Vague 2.** Animation, feux, son moteur, 4 autocollants et un tag coûtent
+  18 000 €$, soit environ 8 h au grade d'entrée. Ajoutés au cosmétique complet de la
+  Hella, cela fait 59 000 €$ (197 % de la voiture), 70 000 €$ avec le palier 3.
 
 ### 18.3 Questions au propriétaire
 
@@ -1163,3 +1178,7 @@ La source est `scripts/vehicle-kit/stages/STAGES.md`, dans le dépôt Open77.
 - **Plaque.** Le format provisoire est de 7 caractères A-Z/0-9, et les listes de mots
   interdits et réservés sont à compléter. Une plaque personnalisée doit-elle coûter
   plus cher qu'une plaque tirée au hasard ? (La plaque aléatoire n'existe pas encore.)
+- **Vague 2.** Faut-il garder l'animation du néon à 2 500, les couleurs des feux à
+  1 500 pour tous les groupes, le son moteur à 6 000, les autocollants à 1 500 pièce et
+  le tag à 2 000 ? Un autocollant doit-il coûter selon sa taille (ses décalques) plutôt
+  qu'à la pièce ? L'essai du son moteur doit-il rester gratuit ?
