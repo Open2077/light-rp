@@ -44,7 +44,7 @@ réussi, en rouge si elle a été refusée.
 | --- | --- |
 | Reports | file des dossiers (inchangé) |
 | Players | fiche RP, puis aller à / ramener / spectate / soigner / ranimer / envoyer vers un lieu ; groupes **Moderation** (avertissement, kick, ban audités, god mode, kill), **Character & money** (nom, job, affiliation, argent audités, faim et soif, street cred, compte), **Give** (arme + munitions de son type, munitions, ses armes et munitions, retirer une arme qu'il n'a pas en main, objet, véhicule au garage, véhicule à côté), **Missions & activities** (gig, mission en cours, contrats, salle TCG) |
-| Personal tools | noclip, fly, vitesse, god mode, soin, réanimation, faim et soif, compte, console plateforme (`/adminfull`) |
+| Personal tools | mode fantôme, noclip, fly, vitesse, god mode, soin, réanimation, faim et soif, compte, console plateforme (`/adminfull`) |
 | Teleport | sur la carte (double-clic), coordonnées, lieux de `LightRpConfig.locations`, ramener tout le monde |
 | Vehicles | catalogue LightRP (`lightrp.car`), n'importe quel record du jeu, réparer et refaire le plein (`lightrp.repair`), plein seul, fourrière, locations, consommation, nettoyage, tout supprimer |
 | Items & weapons | **Weapons** par classe (avec des munitions de son type, l'arme arrive dans la roue des armes), **Ammunition** par type ou toutes, ses propres armes et munitions, puis chaque autre objet par catégorie |
@@ -169,6 +169,14 @@ les événements en cours (aller voir, finir en victoire, annuler), les soirées
 (Psycho Night, Boss Rush, Gang War, Siege), les spots enregistrés et l'interrupteur des
 world bosses aléatoires. Chaque action est auditée (`eventLaunch`, `eventStop`…).
 Commande équivalente : `/lightrp.event`. Détails : `docs/staff-events.md`.
+
+**Mode fantôme** (`/lightrp.ghost [on|off]`, `server/modules/staff_ghost.lua`) : noclip, le corps
+caché aux autres joueurs (`Open77.players.setVisible`, relu toutes les 2 s car la plateforme le lève
+à la mort, au respawn et au changement d'instance), pas de nametag ni de point sur la carte. La
+liste des fantômes part à chaque client (`op77_lightrp:staff:ghosts`), qui la retire de la carte
+(op77_map3d) et des nametags (op77_playermarks, avec les joueurs en PvP). Le noclip est la commande
+`/admin.self.noclip` de la plateforme, lancée par le client du fantôme : l'ACL décide toujours.
+Droit : `command.lightrp.ghost` (le staff a `command.lightrp.*`).
 
 Les outils personnels **Noclip**, **God mode** et **Advanced console** réutilisent
 les commandes natives et leurs permissions. Leur journalisation reste celle
