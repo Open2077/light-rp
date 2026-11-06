@@ -6,7 +6,7 @@ local NET = "op77_tcg:"
 
 local db
 local ready = false
-local profiles = {}   -- identifier -> { dust, dustPlus, sealed = { [product] = n }, owned = { [id] = n }, lastFree, starter }
+local profiles = {}   -- identifier -> { dust, dustPlus, sealed = { [product] = n }, owned = { [id] = n }, lastFree, starter, seen = { [what] = true } }
 local loading = {}    -- identifier -> true while its rows load
 local sessions = {}   -- playerId -> { identifier, lastOpen, opening = { seq, cards, revealed, anchor } }
 local population = {} -- edition id -> times pulled or printed on this server
@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS tcg_pulls (
     id INTEGER PRIMARY KEY AUTOINCREMENT, identifier TEXT NOT NULL, product TEXT NOT NULL, editions TEXT NOT NULL, at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS tcg_shops (
     id INTEGER PRIMARY KEY AUTOINCREMENT, x REAL, y REAL, z REAL, yaw REAL, label TEXT, bucket INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS tcg_seen (
+    identifier TEXT NOT NULL, what TEXT NOT NULL, at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (identifier, what));
 ]]
 
 local function exec(sql, params) return db.execute.await(sql, params or {}) end
@@ -105,7 +107,7 @@ local function profile(identifier)
     while loading[identifier] do Wait(25) end
     if profiles[identifier] then return profiles[identifier] end
     loading[identifier] = true
-    local p = { dust = 0, dustPlus = 0, sealed = {}, owned = {}, lastFree = 0, starter = false }
+    local p = { dust = 0, dustPlus = 0, sealed = {}, owned = {}, lastFree = 0, starter = false, seen = {} }
     local rows = query("SELECT dust, dust_plus, last_free, starter FROM tcg_profiles WHERE identifier = ?", { identifier })
     local fresh = not rows[1]
     if rows[1] then
@@ -118,6 +120,7 @@ local function profile(identifier)
     for _, r in ipairs(query("SELECT edition, count FROM tcg_cards WHERE identifier = ? AND count > 0", { identifier })) do
         p.owned[r.edition] = tonumber(r.count) or 0
     end
+    for _, r in ipairs(query("SELECT what FROM tcg_seen WHERE identifier = ?", { identifier })) do p.seen[r.what] = true end
     if fresh then saveProfile(identifier, p) end
     profiles[identifier] = p
     loading[identifier] = nil
@@ -158,6 +161,8 @@ local function sendState(player, identifier, extra)
         population = encodeCounts(population), editions = c.editions, totalEditions = c.totalEditions,
         cards = c.cards, totalCards = c.totalCards, freeIn = freeReadyIn(p), paid = C.economy.resource ~= nil,
         prices = C.economy.prices, shops = shopList(), extra = extra,
+        -- The NEON DECK welcome was shown to this collector (client/welcome.lua opens it once, on false only).
+        welcomed = p.seen.welcome == true,
     })
 end
 
@@ -692,6 +697,16 @@ handler("place", place)
 handler("pickup", pickup)
 handler("offer", offer)
 handler("answer", answer)
+-- Things a collector was shown once (the NEON DECK welcome): kept per collector, never shown on its own again.
+local SEEN = { welcome = true }
+handler("seen", function(player, what)
+    local s = session(player)
+    if not s or type(what) ~= "string" or not SEEN[what] then return end
+    local p = profile(s.identifier)
+    if p.seen[what] then return end
+    p.seen[what] = true
+    exec("INSERT OR IGNORE INTO tcg_seen (identifier, what, at) VALUES (?, ?, ?)", { s.identifier, what, unix() })
+end)
 
 AddEventHandler("playerDropped", function()
     local player = source
