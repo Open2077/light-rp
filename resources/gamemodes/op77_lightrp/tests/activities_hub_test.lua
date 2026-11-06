@@ -86,7 +86,7 @@ assert(contracts.blip == nil, "one pin for the hub")
 assert(board.marker == nil and board.promptHeight == 1.4 and board.label == "Adam Smasher", "a host: no floor marker, the prompt on him")
 assert(contracts.marker == LightRpActivities.hub.marker, "a terminal without a host keeps its marker")
 local roomsPoint = interactions["activities.rooms"]
-assert(roomsPoint and roomsPoint.marker == nil and roomsPoint.label == "The Croupier" and roomsPoint.promptHeight == 1.1, "its own host's label and prompt")
+assert(roomsPoint and roomsPoint.marker == nil and roomsPoint.label == "Jackie Welles" and roomsPoint.promptHeight == 1.1, "its own host's label and prompt")
 assert(roomsPoint.blip and roomsPoint.blip.title == "Game Rooms" and roomsPoint.blip.map == "crossing", "its own map pin")
 do
     local d = math.sqrt((roomsPoint.position.x - (-783.885)) ^ 2 + (roomsPoint.position.y - 787.366) ^ 2)
@@ -100,7 +100,7 @@ local okThread, errThread = pcall(threads[#threads])
 assert(not okThread and errThread:find("stop-loop", 1, true), "the start thread spawns then watches: " .. tostring(errThread))
 assert(#created == 4, "both hosts spawned, then each respawned when its body is gone")
 local hostDef = created[1]
-assert(created[2].record == "Character.sts_wat_kab_07_croupiers" and created[2].yaw == 240.96, "the rooms NPC: its own host's first record")
+assert(created[2].record == "Character.Jackie" and created[2].yaw == 240.96, "the rooms NPC: its own host's first record")
 assert(hostDef.record == "Character.Smasher", "the boss record refused: the next candidate")
 assert(math.abs(hostDef.position.x - board.position.x) < 1e-6 and hostDef.yaw == 240.96 and hostDef.bucket == 0)
 assert(hostDef.behavior.combatEnabled == false and hostDef.behavior.perceptionEnabled == false and hostDef.behavior.voiceEnabled == false)
