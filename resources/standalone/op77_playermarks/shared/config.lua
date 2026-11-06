@@ -8,8 +8,11 @@ PlayerMarksConfig = {
     -- Metres above the body's origin (the feet): the plate's pin, just over the head
     -- (2.12 floated a hand's width too high in game).
     height = 1.92,
-    -- A name longer than this many bytes is cut.
+    -- A name longer than this many bytes is cut (the [id] in front is not counted).
     nameMax = 24,
+    -- The player's session id in front of the name, "[12] Archer Hella", so staff and players
+    -- read it at a glance (owner 2026-11-06).
+    showId = true,
     -- How often the list of players around is read, and the talkers.
     refreshMs = 500,
     talkMs = 100,
