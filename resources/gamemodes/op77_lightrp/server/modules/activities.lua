@@ -115,7 +115,8 @@
 --   A friendly crew match (action activities.lobby: friendly / move / balance / bots /
 --   start / cancel) is set up by the crew leader in the panel and is always unranked.
 --   A room (activity_rooms.lua: the NPC at The Crossing, action activities.rooms) is a
---   friendly with no crew requirement: same launch (A.launchFriendly), always unranked.
+--   friendly with no crew requirement (a crew leader brings the crew all the same): same
+--   launch (A.launchFriendly), always unranked.
 --   A.isRanked(entry | match | playerId), export activityRanked(playerId): the flag.
 --   A.result decides once per result: unranked (the entry's flag, staff bot mode,
 --   result.test / result.unranked, a PvP result with stats.bots or stats.vsAi) sets

@@ -8,7 +8,8 @@
 -- re-checks the distance, the weapon and that it streamed that cat to us.
 local E = LightRpEvents
 local Ui = LightRpUi
-local Maneki = { cats = {}, model = nil, height = 0.16, editing = false }
+-- count: the cats held, drawn or not: the tables leave them room in the shared prop quota.
+local Maneki = { cats = {}, model = nil, height = 0.16, editing = false, count = 0 }
 LightRpManeki = Maneki
 
 local PROMPT_RADIUS = 1.8
@@ -77,8 +78,13 @@ function Maneki.apply(list, editing)
             local c = { id = id, x = tonumber(w.x), y = tonumber(w.y), z = tonumber(w.z), yaw = tonumber(w.yaw) or 0, s = tonumber(w.s) or 1, f = w.f }
             Maneki.cats[id] = c
             queue[#queue + 1] = c
+        elseif not Maneki.cats[id].handle then
+            queue[#queue + 1] = Maneki.cats[id] -- refused earlier: the tables have made room since
         end
     end
+    local count = 0
+    for _ in pairs(Maneki.cats) do count = count + 1 end
+    Maneki.count = count
     CreateThread(function()
         for i, c in ipairs(queue) do
             if mine ~= generation then return end
@@ -92,6 +98,7 @@ end
 function Maneki.clear()
     generation = generation + 1
     for id, c in pairs(Maneki.cats) do despawn(c); Maneki.cats[id] = nil end
+    Maneki.count = 0
 end
 
 -- ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ActivitiesState, RoomView } from "../src/bridge/protocol.ts";
 import {
-  ROOMS_ACTION, ROOMS_ACTION_GAP_MS, ROOMS_CLOSE_ACTION, UNRANKED_LINE, cleanCode, escapeAction, holdMs, isFreshResult, roomsScreen, hostGames, isFull, mapLine, nextTeam, normalizeRooms, roomColumns, sizeChoices, sizeLabel, slots, waitLine,
+  ROOMS_ACTION, ROOMS_ACTION_GAP_MS, ROOMS_CLOSE_ACTION, UNRANKED_LINE, cleanCode, crewLine, escapeAction, holdMs, isFreshResult, roomsScreen, hostGames, isFull, mapLine, nextTeam, normalizeRooms, roomColumns, sizeChoices, sizeLabel, slots, waitLine,
 } from "../src/features/rooms/model.ts";
 
 // As server/modules/activity_rooms.lua sends it (nil fields left out, empty lists as {}).
@@ -120,4 +120,15 @@ test("a result is for this menu only if it is newer than its opening or its last
 
 test("closing has an action type of its own: the per-type limit cannot eat it after a click", () => {
   assert.notEqual(ROOMS_CLOSE_ACTION, ROOMS_ACTION);
+});
+
+test("the menu says what a join does with the crew", () => {
+  const member = (id: number) => ({ id, name: `P${id}`, leader: false, tier: 1 });
+  const trio = [member(1), member(2), member(3)];
+  assert.equal(crewLine(undefined), undefined);
+  assert.equal(crewLine({ you: 1 }), undefined, "no crew");
+  assert.equal(crewLine({ you: 1, leader: 1, members: [member(1)] }), undefined, "a crew of one still waiting for answers");
+  assert.match(crewLine({ you: 1, leader: 1, members: trio })!, /comes with you: 2 members/);
+  assert.match(crewLine({ you: 1, leader: 1, members: trio.slice(0, 2) })!, /1 member,/);
+  assert.match(crewLine({ you: 2, leader: 1, members: trio })!, /comes with you: 2 members/, "a member brings it too");
 });

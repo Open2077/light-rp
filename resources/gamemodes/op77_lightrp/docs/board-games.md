@@ -34,14 +34,18 @@ count limit; nearby props stream as needed.
 
 **Seen from far.** Tables are drawn up to 150 m away (`FAR_RADIUS` in
 `client/core/board_games.lua`), nearest first, within the client's quota of
-256 props per resource (`PROP_BUDGET` 220). Within 40 m (`RENDER_RADIUS`) a
+256 props per resource (`PROP_BUDGET` 220, less the Maneki cats around, which
+share that quota: up to 40). Within 40 m (`RENDER_RADIUS`) a
 table is complete: pieces and the solid collider. Beyond 40 m it keeps its
 pieces but drops the collider. When the pieces of the farther tables no longer
 fit, those tables are drawn as their base alone (1 prop, traced
 `render_base`), and they get their pieces back as soon as they fit again, for
 example when you walk closer. The render thread removes what a lower level no
 longer draws in slices, before it creates anything nearer, so the quota is
-never overrun on the way. The meshes are cooked `LODMode AlwaysVisible`.
+never overrun on the way. If the quota still refuses a prop (traced
+`render_quota`), that is not a failed board: the table and the seat stay, and
+the render pass tries again 2 seconds later. The meshes are cooked
+`LODMode AlwaysVisible`.
 
 **Sitting opens the game view.** E near a table (the interaction prompt) or
 *Sit* in the table's ALT menu takes a seat, and the client

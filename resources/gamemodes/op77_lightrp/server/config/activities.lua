@@ -141,7 +141,8 @@ LightRpActivities = {
 
     -- Rooms (server/modules/activity_rooms.lua): a player hosts a friendly at the NPC of a
     -- `kind = "rooms"` terminal, no crew needed; lobby `rooms = true` above lists what they
-    -- may host. Memory only: a restart closes every room.
+    -- may host. A crew leader creating or joining one brings the crew. Memory only: a
+    -- restart closes every room.
     rooms = {
         enabled = true,
         maxRooms = 24,          -- on this server, private ones included (the list stays small)

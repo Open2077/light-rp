@@ -5,7 +5,7 @@ import { useStore } from "@/state/store";
 import { Badge, Button, Icon, Input, Keycap, Toggle, cx } from "@/design/components";
 import { KIND_ICON, KIND_LABEL } from "@/features/activities/model";
 import "@/features/activities/activities.css";
-import { ROOMS_ACTION, ROOMS_CLOSE_ACTION, UNRANKED_LINE, cleanCode, escapeAction, holdMs, hostGames, isFreshResult, isFull, mapLine, nextTeam, roomColumns, roomsScreen, sizeChoices, sizeLabel, slots, waitLine, type HostGame } from "./model";
+import { ROOMS_ACTION, ROOMS_CLOSE_ACTION, UNRANKED_LINE, cleanCode, crewLine, escapeAction, holdMs, hostGames, isFreshResult, isFull, mapLine, nextTeam, roomColumns, roomsScreen, sizeChoices, sizeLabel, slots, waitLine, type HostGame } from "./model";
 import "./rooms.css";
 
 /* The hosting menu: the rooms NPC at The Crossing (server/modules/activity_rooms.lua), or
@@ -39,6 +39,7 @@ function RoomsBody({ onClose }: { onClose(): void }) {
   const root = useRef<HTMLDivElement>(null);
   const rooms = useStore((s) => s.state.rooms);
   const activities = useStore((s) => s.state.activities);
+  const crew = crewLine(useStore((s) => s.state.party));
   const result = useStore((s) => s.lastResult);
   const [creating, setCreating] = useState(false);
   const [waiting, setWaiting] = useState(false);
@@ -115,8 +116,8 @@ function RoomsBody({ onClose }: { onClose(): void }) {
     {!rooms ? <p className="activities__empty rooms__pad"><Icon name="loader" size={14} />Waiting for the rooms…</p>
       : !rooms.enabled ? <p className="activities__empty rooms__pad">Game rooms are closed.</p>
       : room ? <Room room={room} games={games} waiting={waiting} onAsk={ask} />
-      : screen === "create" ? <Create games={games} rooms={rooms} waiting={waiting} onAsk={ask} onBack={() => setCreating(false)} />
-      : <Browse rooms={rooms} games={games} waiting={waiting} onAsk={ask} onCreate={() => setCreating(true)} />}
+      : screen === "create" ? <Create games={games} rooms={rooms} crew={crew} waiting={waiting} onAsk={ask} onBack={() => setCreating(false)} />
+      : <Browse rooms={rooms} games={games} crew={crew} waiting={waiting} onAsk={ask} onCreate={() => setCreating(true)} />}
 
     <footer className="activities__foot">
       <span className={cx("activities__feedback", feedback?.error && "is-error")} role="status">
@@ -128,8 +129,8 @@ function RoomsBody({ onClose }: { onClose(): void }) {
 }
 
 /* The public rooms, a code, or host your own. */
-function Browse({ rooms, games, waiting, onAsk, onCreate }: {
-  rooms: RoomsState; games: HostGame[]; waiting: boolean; onAsk(action: RoomAction): void; onCreate(): void;
+function Browse({ rooms, games, crew, waiting, onAsk, onCreate }: {
+  rooms: RoomsState; games: HostGame[]; crew?: string; waiting: boolean; onAsk(action: RoomAction): void; onCreate(): void;
 }) {
   const [code, setCode] = useState("");
   const blocked = !rooms.eligible;
@@ -160,6 +161,7 @@ function Browse({ rooms, games, waiting, onAsk, onCreate }: {
       </div>
       {rooms.full && <span className="activity-detail__why is-info"><Icon name="users" size={13} />Every room is taken. Join one, or come back in a moment.</span>}
       {games.length === 0 && <span className="activity-detail__why is-info"><Icon name="clock" size={13} />No game can be hosted right now.</span>}
+      {crew && <span className="activity-detail__why is-info"><Icon name="users" size={13} />{crew}</span>}
       <h2 className="activity-detail__step">PRIVATE ROOM</h2>
       <form className="rooms__code" onSubmit={submit}>
         <Input label="ROOM CODE" icon="key-round" value={code} autoComplete="off" spellCheck={false} maxLength={8} placeholder="ABC12"
@@ -171,8 +173,8 @@ function Browse({ rooms, games, waiting, onAsk, onCreate }: {
 }
 
 /* Host: the game, its map, the teams' size, public or private. */
-function Create({ games, rooms, waiting, onAsk, onBack }: {
-  games: HostGame[]; rooms: RoomsState; waiting: boolean; onAsk(action: RoomAction): void; onBack(): void;
+function Create({ games, rooms, crew, waiting, onAsk, onBack }: {
+  games: HostGame[]; rooms: RoomsState; crew?: string; waiting: boolean; onAsk(action: RoomAction): void; onBack(): void;
 }) {
   const [picked, setPicked] = useState<string>();
   const [map, setMap] = useState<string>();
@@ -217,6 +219,7 @@ function Create({ games, rooms, waiting, onAsk, onBack }: {
         <Button variant="ghost" icon="undo-2" onClick={onBack}>BACK</Button>
       </div>
       {!game.activity.joinable && <span className="activity-detail__why"><Icon name="triangle-alert" size={13} />{game.activity.label} is not taking players right now.</span>}
+      {crew && <span className="activity-detail__why is-info"><Icon name="users" size={13} />{crew}</span>}
     </section> : <div />}
   </div>;
 }

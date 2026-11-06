@@ -5,6 +5,7 @@
 -- leader's course, or without the late member once the wait is over.
 local H = dofile("tests/harness.lua")
 H.installBotNatives()
+H.installAbilityNatives() -- race.parkour is offered
 local LOBBY = { x = -756.581, y = 777.257, z = 22.454, bucket = 0 }
 for id = 1, 8 do H.addPlayer(id, "P" .. id, { x = LOBBY.x + id * 3, y = LOBBY.y, z = LOBBY.z, bucket = 0 }) end
 math.randomseed(31)
@@ -159,6 +160,25 @@ H.test("a crew member leaving the gathering is no longer waited for", function()
     local inst = instance(5)
     H.ok(inst and instance(6) == nil, "player 5 goes; player 6 left")
     clear()
+end)
+
+H.test("parkour without options.match: a crew stays one block in the heat", function()
+    H.ok(A.byKey.parkour, "the activity")
+    local crew = squad("PK", 1, { 1, 2, 3 })
+    join(1, "race.parkour", crew)
+    join(2, "race.parkour", crew)
+    join(3, "race.parkour", crew)
+    H.eq(L.queuedIn(1), "parkour", "queued, not refused")
+    H.eq(L.squads[3].id, "PK", "with the crew")
+    local q = L.queues.parkour
+    H.eq(#q.members, 3)
+    H.fire("op77_lightrp:activity:leaveRequest", 2, "race.parkour")
+    H.eq(L.queuedIn(2), nil, "a member leaves alone")
+    H.eq(L.queuedIn(1), "parkour", "the others wait")
+    H.eq(L.squads[2], nil)
+    H.fire("op77_lightrp:activity:leaveRequest", 1, "race.parkour")
+    H.fire("op77_lightrp:activity:leaveRequest", 3, "race.parkour")
+    H.advance(400)
 end)
 
 H.done("crew_test")

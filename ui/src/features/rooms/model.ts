@@ -1,4 +1,4 @@
-import type { ActivitiesState, ActivityEntry, RoomGame, RoomListing, RoomPlayer, RoomView, RoomsState } from "@/bridge/protocol";
+import type { ActivitiesState, ActivityEntry, PartyState, RoomGame, RoomListing, RoomPlayer, RoomView, RoomsState } from "@/bridge/protocol";
 
 /* The hosting menu (server/modules/activity_rooms.lua), read once per push. No runtime
    import from "@/": the model tests run under node --test (tests/rooms-model.test.ts). */
@@ -98,6 +98,13 @@ export function roomColumns(room: RoomView): RoomColumn[] {
 export function nextTeam(room: RoomView, team: number): number | undefined {
   const n = room.teams?.length ?? 0;
   return n > 1 ? team % n + 1 : undefined;
+}
+/** What a join does with the player's crew: the whole crew comes. The server reads the crew
+    itself; this only says so. */
+export function crewLine(party: Pick<PartyState, "you" | "leader" | "members"> | undefined): string | undefined {
+  const others = (party?.members?.length ?? 0) - 1;
+  if (others < 1) return undefined;
+  return `Your crew comes with you: ${others} ${others === 1 ? "member" : "members"}, on one team in a team game.`;
 }
 /** What the footer says to a member who cannot start it. */
 export function waitLine(room: RoomView): string {
