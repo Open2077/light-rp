@@ -19,6 +19,7 @@ LightRpEvents = {
         jobRun = "lightrp:ui:jobrun",   -- Lua -> page: { distance, menuKey } live data of the work order tracker
         freecam = "lightrp:ui:freecam", -- page -> Lua: { operation = "toggle" }; Lua -> page: free camera state and keys
         maneki = "lightrp:ui:maneki",   -- Lua -> page: the Maneki-neko placement tool's bar (client/core/maneki_editor.lua)
+        staffAnnounce = "lightrp:ui:staffannounce", -- Lua -> page: { title, text, from, durationMs } the staff broadcast banner (client/core/staff_announce.lua)
         parkour = "lightrp:ui:parkour", -- Lua -> page: the run HUD, the course card's leaderboard, the music (client/core/parkour.lua)
         parkourEditor = "lightrp:ui:parkoureditor", -- page <-> Lua: the staff parkour editor (client/core/parkour_editor.lua)
         state = "lightrp:ui:state",     -- Lua -> page: full state or a patch
@@ -101,6 +102,7 @@ LightRpEvents = {
         maneki = "op77_lightrp:maneki",        -- server -> client: { kind = "near" | "found" | "editor" | "staff" } (server/modules/maneki.lua)
         manekiCollect = "op77_lightrp:maneki:collect", -- client -> server: { id, how = "take" | "shot" }
         manekiEdit = "op77_lightrp:maneki:edit",       -- client -> server: the staff placement tool { op = "place" | "delete" | "close", ... }
+        staffAnnounce = "op77_lightrp:staffannounce", -- server -> client: a staff announcement for the banner (server/modules/staff.lua Staff.announce)
         parkour = "op77_lightrp:parkour",          -- server -> client: { kind = "courses" | "run" | "countdown" | "go" | "cp" | "finish" | "result" | "dnf" | "respawn" | "ended" | "board" | "close" } (server/modules/parkour.lua)
         parkourKey = "op77_lightrp:parkour:key",   -- client -> server: { op = "restart" | "checkpoint" | "leave" | "ready" }
         parkourEditor = "op77_lightrp:parkour:editor", -- both ways: the staff editor's requests and responses

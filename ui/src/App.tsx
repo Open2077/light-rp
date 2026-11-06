@@ -42,6 +42,7 @@ import { QueuePanel } from "@/features/queue/QueuePanel";
 import { FixerGigHud } from "@/features/missions/FixerGigHud";
 import { WorldBossHud } from "@/features/missions/WorldBossHud";
 import { AnnounceHalo } from "@/features/announce/AnnounceHalo";
+import { StaffBroadcast } from "@/features/announce/StaffBroadcast";
 import { RaidHud } from "@/features/missions/RaidHud";
 import { ActivityHud } from "@/features/activityhud/ActivityHud";
 import { DogtownHud } from "@/features/dogtown/DogtownHud";
@@ -136,6 +137,7 @@ export function App() {
       <ErrorBoundary name="fixer-gig"><FixerGigHud /></ErrorBoundary>
       <ErrorBoundary name="world-boss"><WorldBossHud /></ErrorBoundary>
       <ErrorBoundary name="announce"><AnnounceHalo /></ErrorBoundary>
+      <ErrorBoundary name="staff-broadcast"><StaffBroadcast /></ErrorBoundary>
       <ErrorBoundary name="mission-objective"><MissionObjectiveHud /></ErrorBoundary>
       <ErrorBoundary name="raid"><RaidHud /></ErrorBoundary>
       <ErrorBoundary name="activity-hud"><ActivityHud /></ErrorBoundary>

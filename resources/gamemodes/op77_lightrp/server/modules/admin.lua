@@ -168,7 +168,7 @@ local function execute(player,target,c,p,reason)
         local identifier=Open77.players.identifier(target)
         if not identifier then return false,"No authenticated player identity." end
         return Open77.access.ban(identifier,reason,duration,GetPlayerName(target))
-    elseif op=="announce" then LightRP.staff.announce(reason);return true
+    elseif op=="announce" then LightRP.staff.announce(reason,{from=GetPlayerName(player)});return true
     elseif op=="setBucket" then
         -- the player stays where they stand, in another instance (routing bucket)
         local bucket=finite(p.bucket)

@@ -233,6 +233,9 @@ export function installMockBridge(): void {
           dailies.boot();
           maneki.boot();
           parkour.boot();
+          // ?broadcast=1: the staff announcement banner
+          if (params.get("broadcast") === "1") setTimeout(() => fire(PAGE_EVENTS.staffAnnounce, { title: "Staff announcement", from: "Nightwolf",
+            text: "Server restart in 10 minutes. Finish your runs and park your cars: everything is saved.", durationMs: 12000 }), 300);
           admin.boot();
           if (params.get("dialog") === "activities") activities.boot();
           if (params.get("dialog") === "rooms") rooms.boot();

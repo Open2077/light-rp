@@ -1,0 +1,63 @@
+/* The staff broadcast (StaffBroadcast.tsx): the activity HUD's plate (near-black, scanlines, chamfer,
+   yellow accent), a red LIVE dot, a glitch that tears it in and collapses it out, a draining bar. */
+.sb {
+  position: absolute; z-index: 46; top: calc(var(--hud-safe-y) + 64px); left: 50%; width: min(680px, 86vw);
+  transform: translateX(-50%); pointer-events: none; color: var(--text-body); font: var(--type-body);
+  padding: var(--sp-5) var(--sp-7) var(--sp-4) calc(var(--sp-7) + 4px);
+  background: var(--tex-scanline), linear-gradient(180deg, rgba(10, 10, 12, .94), rgba(6, 6, 8, .86));
+  box-shadow: var(--shadow-hud), 0 0 40px rgba(255, 204, 0, .12);
+  clip-path: var(--clip-chamfer-lg);
+  animation: sb-in .62s steps(1, end) both;
+}
+.sb::before { content: ""; position: absolute; inset: 0; pointer-events: none; border: 1px solid var(--line-soft); border-left: 3px solid var(--accent); clip-path: inherit; }
+.sb::after { /* a scan line sweeping down once */
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: .8; animation: sb-scan 1.1s .2s ease-out both; }
+.sb.is-leaving { animation: sb-out .52s steps(1, end) both; }
+
+/* the tear: three slices shifted sideways with a colour offset, during the entrance only */
+.sb__glitch { position: absolute; inset: 0; pointer-events: none; }
+.sb__glitch span { position: absolute; left: 0; right: 0; height: 18%; background: rgba(255, 204, 0, .22); mix-blend-mode: screen; opacity: 0; }
+.sb__glitch span:nth-child(1) { top: 12%; animation: sb-slice .5s .02s steps(2, end) both; }
+.sb__glitch span:nth-child(2) { top: 46%; background: rgba(0, 240, 255, .22); animation: sb-slice .5s .1s steps(2, end) both reverse; }
+.sb__glitch span:nth-child(3) { top: 74%; background: rgba(255, 63, 110, .2); animation: sb-slice .45s .18s steps(2, end) both; }
+.sb.is-leaving .sb__glitch span { animation-duration: .4s; animation-delay: 0s; }
+
+.sb__head { display: flex; align-items: center; gap: var(--sp-5); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line-hairline); }
+.sb__live { display: flex; align-items: center; gap: 6px; padding: 3px 9px 2px 7px; background: #ff3b3b; color: #fff; clip-path: var(--clip-tag);
+  font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: .18em; }
+.sb__live i { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: sb-blink 1s steps(2, end) infinite; }
+.sb__title { display: flex; align-items: center; gap: 6px; color: var(--text-accent); font: var(--fw-bold) var(--fs-label)/1 var(--font-mono); letter-spacing: var(--ls-label); }
+.sb__tag { margin-left: auto; color: var(--text-dim); font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: var(--ls-label); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+
+.sb__text { margin: var(--sp-4) 0 var(--sp-4); color: var(--text-hi); font: var(--fw-semibold) 20px/1.35 var(--font-core); letter-spacing: .01em;
+  text-shadow: 0 0 18px rgba(255, 204, 0, .15); overflow-wrap: anywhere; }
+.sb__unsaid { color: transparent; }
+.sb__caret { display: inline-block; width: .55em; height: 1em; margin-left: 2px; vertical-align: -2px; background: var(--accent); animation: sb-blink .6s steps(2, end) infinite; }
+
+.sb__foot { display: flex; align-items: center; gap: var(--sp-5); }
+.sb__from { color: var(--text-dim); font: var(--fw-bold) 10px/1 var(--font-mono); letter-spacing: var(--ls-label); white-space: nowrap; }
+.sb__from b { color: var(--text-accent); }
+.sb__bar { position: relative; flex: 1; height: 3px; background: #ffffff14; overflow: hidden; }
+.sb__bar i { position: absolute; inset: 0; background: linear-gradient(90deg, var(--o77-yellow-600), var(--accent)); transform-origin: left; animation: sb-drain var(--sb-ms) linear both; }
+
+@keyframes sb-in {
+  0% { opacity: 0; transform: translate(-50%, -8px) scaleY(.06); filter: brightness(2.2); }
+  12% { opacity: 1; transform: translate(calc(-50% + 14px), 0) scaleY(.3); }
+  24% { transform: translate(calc(-50% - 10px), 0) scaleY(1.04); filter: brightness(1.6) hue-rotate(40deg); }
+  36% { transform: translate(calc(-50% + 4px), 0) scaleY(1); clip-path: polygon(0 0, 100% 0, 100% 38%, 0 38%, 0 52%, 100% 52%, 100% 100%, 0 100%); }
+  48% { transform: translate(-50%, 0); filter: none; clip-path: var(--clip-chamfer-lg); }
+  60%, 100% { opacity: 1; transform: translate(-50%, 0); filter: none; }
+}
+@keyframes sb-out {
+  0% { opacity: 1; transform: translate(-50%, 0); }
+  25% { transform: translate(calc(-50% + 12px), 0); filter: brightness(1.8) hue-rotate(-40deg); }
+  50% { transform: translate(calc(-50% - 8px), 0) scaleY(.4); opacity: .8; }
+  75% { transform: translate(-50%, 0) scaleY(.06); opacity: .6; }
+  100% { transform: translate(-50%, 0) scaleY(0); opacity: 0; }
+}
+@keyframes sb-slice { 0% { opacity: 0; transform: translateX(0); } 30% { opacity: 1; transform: translateX(-22px); } 60% { opacity: .8; transform: translateX(16px); } 100% { opacity: 0; transform: translateX(0); } }
+@keyframes sb-scan { from { top: 0; opacity: .9; } to { top: 100%; opacity: 0; } }
+@keyframes sb-blink { 50% { opacity: .2; } }
+@keyframes sb-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .sb, .sb.is-leaving, .sb__glitch span, .sb::after { animation: none; } }
