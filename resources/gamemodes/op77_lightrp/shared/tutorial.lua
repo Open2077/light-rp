@@ -73,6 +73,8 @@ LightRpTutorialConfig = {
     -- above) ends it. `center` unset: the city point after the guide (spawn.afterTutorial).
     arrivalTour = {
         enabled = true,
+        -- the middle of the square, picked by the owner in game (2026-11-06)
+        center = { x = -775.309631, y = 781.411621, z = 24.399994 },
         radius = 26, endRadius = 17,       -- metres from the centre, at the start and at the end
         height = 15, endHeight = 6,        -- above the centre
         degrees = 250, seconds = 11,       -- how far round, and how long
