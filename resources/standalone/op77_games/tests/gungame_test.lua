@@ -102,10 +102,10 @@ H.test("every map: spawns inside the play area, each with a heading", function()
     end
 end)
 
-H.test("the ladder's first weapon and the knife are in hand before GO, no third", function()
+H.test("the ladder's first weapon is in hand before GO, alone (no knife beside it)", function()
     local match, ids = live(2)
     H.eq(H.weapons[ids[1]][1], "Items.Preset_Lexington_Default")
-    H.eq(H.weapons[ids[1]][2], G.knife)
+    H.eq(H.weapons[ids[1]][2], nil, "no knife in an idle slot: it blinded every weapon snapshot")
     H.eq(H.weapons[ids[1]][3], nil)
     H.eq(match.players[ids[1]].plan, G.sets[1])
     E.cancel(match)
@@ -120,7 +120,7 @@ H.test("a kill climbs one step and hands the next weapon at once", function()
     H.eq(stepOf(match, b), 1, "the victim keeps theirs")
     H.settle(400)
     H.eq(H.weapons[a][1], "Items.Preset_Nova_Default", "the next weapon")
-    H.eq(H.weapons[a][2], G.knife, "and the knife")
+    H.eq(H.weapons[a][2], nil, "alone")
     H.eq(H.hit(a, b, gun(2)), false, "b is still down")
     E.cancel(match)
     H.settle(500)
@@ -134,11 +134,10 @@ H.test("the ladder: every step is an explicit kit, handed at once, the old hand'
         local kit = G.sets[step]
         H.eq(kit.primary, entry.record, "the step's one weapon, in hand")
         H.eq(kit.label, entry.name)
+        H.eq(kit.secondary, nil, "one weapon per step, no knife beside it")
         if entry.melee then
-            H.eq(kit.secondary, nil, "the top step is the knife alone")
             H.eq(kit.reserve, nil, "a knife holds no rounds")
         else
-            H.eq(kit.secondary, G.knife, "the knife the rules need")
             H.eq(kit.reserve[1], entry.reserve)
         end
     end
@@ -222,40 +221,26 @@ H.test("a kill credited through an old hit made on an earlier step scores nothin
     H.settle(500)
 end)
 
-H.test("a knife kill: the victim drops one step, the killer stays", function()
+H.test("below the top step the knife is not handed: its hits never count, the step's gun in melee climbs", function()
     local match, ids = live(2)
     local a, b = ids[1], ids[2]
     match.players[a].gg.step, match.players[b].gg.step = 5, 4
     H.settle(500)
-    kill(match, a, b, KNIFE, "melee")
-    H.eq(stepOf(match, a), 5, "the killer stays")
-    H.eq(stepOf(match, b), 3, "the victim drops")
-    H.eq(match.players[a].gg.humiliations, 1)
-    H.ok(H.lastClient("op77_games:push", a).args[2].text:find("humiliated"), "the feed says so")
-    revive(b)
-    H.eq(H.weapons[b][1], R.ladder[3].record, "armed for the lower step on the way back")
+    H.eq(H.hit(a, b, KNIFE, { attackKind = "melee" }), false, "no knife in the kit: refused")
+    H.eq(match.players[a].gg.humiliations, 0)
     E.cancel(match)
     H.settle(500)
-end)
-
-H.test("a knife kill on the first step costs the victim nothing, a gun butt is a plain kill", function()
-    local match, ids = live(2)
-    local a, b = ids[1], ids[2]
-    kill(match, a, b, KNIFE, "melee")
-    H.eq(stepOf(match, a), 1)
-    H.eq(stepOf(match, b), 1)
-    revive(b)
+    match, ids = live(2)
+    a, b = ids[1], ids[2]
     kill(match, a, b, gun(1), "melee")
     H.eq(stepOf(match, a), 2, "the step's weapon in melee climbs")
     E.cancel(match)
     H.settle(500)
 end)
 
-H.test("a thrown knife: a plain hit below the top step, never a humiliation; refused on the top step", function()
+H.test("the top step: the knife alone, melee only", function()
     local match, ids = live(2)
     local a, b = ids[1], ids[2]
-    H.eq(H.hit(a, b, KNIFE, { attackKind = "ranged" }), true, "the source lets it through")
-    H.eq(match.players[b].gg.hit.knife, false, "not a knife kill")
     match.players[a].gg.step = G.rules and #G.rules.ladder or 14
     H.settle(300)
     H.eq(H.hit(a, b, KNIFE, { attackKind = "ranged" }), false, "the last step is melee only")
