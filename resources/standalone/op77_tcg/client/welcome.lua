@@ -65,6 +65,7 @@ local function payload(auto)
     end
     local gift = 0
     for _, n in pairs(TcgConfig.starter or {}) do gift = gift + n end
+    if gift == 0 then gift = tonumber(TcgConfig.starterNote) or 0 end -- the gamemode's starting inventory carries them
     local st = K.state()
     return { auto = auto == true, binder = W.binder, command = TcgConfig.command, tutorial = "tcgtutorial", welcome = W.command,
              starters = starters, gift = gift, store = type(st) == "table" and st.store or nil,

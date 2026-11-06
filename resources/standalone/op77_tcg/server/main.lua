@@ -652,8 +652,10 @@ local function welcome(player)
             if all then
                 p.starter = true
                 saveProfile(s.identifier, p)
-                local where = select(2, sealedOf(player, s.identifier)) and "your inventory" or ("the binder (/" .. C.command .. ")")
-                notify(player, "Welcome, collector: your starter packs are in " .. where .. ".", "loot")
+                if next(C.starter or {}) ~= nil then -- nothing given (the gamemode's starter carries them): nothing to say
+                    local where = select(2, sealedOf(player, s.identifier)) and "your inventory" or ("the binder (/" .. C.command .. ")")
+                    notify(player, "Welcome, collector: your starter packs are in " .. where .. ".", "loot")
+                end
             end
         end
         sendState(player, s.identifier)

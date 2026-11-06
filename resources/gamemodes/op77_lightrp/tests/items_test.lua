@@ -27,8 +27,9 @@ assert(Inv.player(1) == nil, "draft characters do not receive starting items")
 character.status = "active"
 Inv.onCharacterActivated(1, character)
 local inv = Inv.player(1)
-assert(#Inv.snapshot(inv).items == 2, "only water and burritos are granted at creation")
-assert(Inv.count(inv.id, "water") == 5 and Inv.count(inv.id, "burrito") == 5, "five of each starting item")
+assert(#Inv.snapshot(inv).items == 3, "only water, burritos and TCG boosters are granted at creation")
+assert(Inv.count(inv.id, "water") == 5 and Inv.count(inv.id, "burrito") == 5, "five of each food")
+assert(Inv.count(inv.id, "tcg_booster_wnc") == 3, "three TCG boosters")
 inv.items[1].count = 4
 Inv.onCharacterLoaded(1, character)
 assert(Inv.player(1) == inv and Inv.count(inv.id, "water") == 4 and Inv.count(inv.id, "burrito") == 5,

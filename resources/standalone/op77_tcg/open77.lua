@@ -9,7 +9,7 @@
 -- Assets: the Cyberpunk TCG Collectibles mod (Nexus 34654) archives, repacked into four preload packages
 -- (tools/build-assets.ps1). Server data: data/tcg.db (SQLite). Admin: ACL command.tcg.* (give, card, dust, shop).
 resource "op77_tcg"
-version "1.1.0"
+version "1.1.1"
 open77_version ">=0.0.1"
 auto_start true
 -- The client owns a WebUI surface: a live reload would leave a stale one.

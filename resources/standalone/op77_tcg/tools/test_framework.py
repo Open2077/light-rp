@@ -10,7 +10,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from tcg_harness import L, boot, check, checks, con, counts, fire, last  # noqa: E402
 
 # The fake framework: active characters, an inventory of sealed items with a number of free units (`room`).
+# The shipped config has no starter gift (Light RP's starting inventory carries the boosters): it is turned
+# on here so the gift's mechanism stays tested.
 boot("""
+TcgConfig.starter = { wnc = 3 }
 TcgConfig.framework = "op77_lightrp"
 TcgConfig.shops = { { x = 100.5, y = 200.0, z = 10.0, label = "NEON DECK" } }
 active = { [1] = { identifier = "lic-1", characterKey = "c1", name = "Yuki Tanaka" } }
