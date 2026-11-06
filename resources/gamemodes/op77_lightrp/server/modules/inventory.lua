@@ -1173,7 +1173,17 @@ function Inv.onCharacterLoaded(playerId, c)
     playerInv[playerId] = nil
     if c == nil or c.status ~= "active" or c.identifier == nil then return end
     local id = "player:" .. c.identifier .. "#" .. (c.key or "default")
-    while registry[id] and registry[id].busy do Wait(10) end
+    -- A task killed mid-transaction (instruction quota) never clears `busy`: waiting for
+    -- it forever left the player without an inventory. 20 s is far past any transaction.
+    local waited = 0
+    while registry[id] and registry[id].busy do
+        if waited >= 20000 then
+            LightRP.log("inventory %s busy for 20 s (its task died): released for %d", id, playerId)
+            registry[id].busy = nil
+            break
+        end
+        Wait(10); waited = waited + 10
+    end
     local inv = loadPersistent(id, "player", LightRP.characters.displayName(playerId), Config.player.slots, Config.player.weight, function(fresh)
         for _, start in ipairs(Config.starting or {}) do
             if template(start.name) then place(fresh, start.name, start.count or 1, start.metadata) end

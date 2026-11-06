@@ -256,6 +256,7 @@ local function load(playerId, key)
     end
     c.slots = loadSlots(identifier)
     LightRP.eachModule("onCharacterLoaded", playerId, c)
+    c.loadedAtMs = LightRP.nowMs()
     return c
 end
 
@@ -520,6 +521,7 @@ function Characters.onConnected(playerId)
 end
 
 function Characters.onDisconnected(playerId)
+    if Characters.forgetRepair then Characters.forgetRepair(playerId) end
     CreateThread(function()
         save(playerId)
         characters[playerId] = nil
@@ -631,10 +633,53 @@ for _, method in ipairs({ "select", "startNew" }) do
             or (LightRP.jobWork and LightRP.jobWork.isBusy(playerId))
             or (LightRP.garage and LightRP.garage.isBusy(playerId))
             or (LightRP.housing and LightRP.housing.isBusy(playerId)) then return false, "busy" end
-        Characters.switching[playerId] = true
+        Characters.switching[playerId] = LightRP.nowMs() -- a stamp: a dead switch is swept (below)
         local result = table.pack(pcall(original, playerId, ...))
         Characters.switching[playerId] = nil
         if not result[1] then error(result[2]) end
         return table.unpack(result, 2, result.n)
     end
 end
+
+-- ---------------------------------------------------------------------------
+-- Loads killed half-way. Past the instruction quota the host kills whichever task is
+-- running, through any pcall (2026-11-06, ~90 players): a character switch then kept
+-- its `switching` flag for good ("Finish loading your character first." at every door
+-- and shop), and a load stopped before the inventory or the wallet was read left an
+-- active character without them. A stale flag is swept, and an active character
+-- missing its inventory or wallet is loaded again (each on its own task).
+local SWITCH_STALE_MS, REPAIR_EVERY_MS, REPAIR_AFTER_MS = 30000, 10000, 20000
+local repairedAt = {}
+local function repairPass()
+    SetTimeout(REPAIR_EVERY_MS, repairPass) -- next pass first: a killed pass does not stop them
+    local t = LightRP.nowMs()
+    for id, since in pairs(Characters.switching) do
+        if type(since) ~= "number" or t - since > SWITCH_STALE_MS then
+            Characters.switching[id] = nil
+            LightRP.log("characters: switch flag of %s cleared (its task never finished)", tostring(id))
+        end
+    end
+    for index, raw in ipairs(GetPlayers()) do
+        local id = tonumber(raw)
+        local c = id and characters[id]
+        if c and c.status == "active" and c.identifier and not Characters.switching[id]
+            and t - (c.loadedAtMs or c.joinedAtMs or t) > REPAIR_AFTER_MS and t - (repairedAt[id] or -1e9) > 60000 then
+            local inv = LightRP.inventory and LightRP.inventory.player and LightRP.inventory.player(id)
+            local wallet = LightRP.money and LightRP.money.loaded and LightRP.money.loaded(id)
+            if not inv or wallet == false then
+                repairedAt[id] = t
+                LightRP.log("characters: %s (%d) active without %s: loading again", Characters.displayName(id), id,
+                    not inv and (wallet == false and "inventory and wallet" or "inventory") or "wallet")
+                if not inv and LightRP.inventory.onCharacterLoaded then
+                    SetTimeout(0, function() LightRP.inventory.onCharacterLoaded(id, c) end)
+                end
+                if wallet == false and LightRP.money.onCharacterLoaded then
+                    SetTimeout(0, function() if characters[id] == c then LightRP.money.onCharacterLoaded(id, c) end end)
+                end
+            end
+        end
+        if index % 16 == 0 then Wait(0) end
+    end
+end
+if type(SetTimeout) == "function" then SetTimeout(REPAIR_EVERY_MS, repairPass) end
+function Characters.forgetRepair(playerId) repairedAt[playerId] = nil end

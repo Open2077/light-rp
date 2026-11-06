@@ -389,6 +389,8 @@ function Money.onCharacterActivated(playerId, c)
 end
 
 function Money.onDisconnected(playerId) unload(playerId) end
+-- Whether the wallet is loaded (characters.lua reloads one a killed task never read).
+function Money.loaded(playerId) return wallets[playerId] ~= nil end
 
 function Money.onDatabaseReady()
     for _, id in ipairs(GetPlayers()) do
