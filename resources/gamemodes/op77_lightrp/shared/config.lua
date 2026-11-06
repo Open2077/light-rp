@@ -556,6 +556,11 @@ LightRpConfig = {
     characters = {
         arrivalScene = {
             autoStart = true,
+            -- false (2026-11-06): the newcomer stands where the arrival put them, held still, and
+            -- the camera frames the body's real position and facing. Sat on the city's planter
+            -- bench, the body was pushed off the seat by the planter and the camera, set up for
+            -- the seat, filmed the back of a head over the concrete. true: the seated scene.
+            seated = false,
             -- Ground under the seat. Camera offsets use X right / Y forward.
             position = { x = -1529.316650, y = 982.267017, z = 23.607117 },
             heading = 0.0,
