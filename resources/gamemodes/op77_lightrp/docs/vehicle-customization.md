@@ -177,8 +177,10 @@ them, then the ones a running resource registered with `registerPaintProfiles`.
 
 The rims are the 18 original rims of the vehicle kit (E1 then E1e), 6 finishes each:
 108 models in the pack `lightrp_vk_rims`. They are offered only on records that have a
-fit: 14 dealer records, including the Merrimac's middle axle and the Apollo. The
-Kusanagi is excluded because its hubless front ring leaves no room for a spoked rim.
+fit: 14 dealer records, including the Merrimac's middle axle and the Apollo, and the
+staff-only Rayfield Caliburn (15 records). The Kusanagi is excluded because its hubless
+front ring leaves no room for a spoked rim. The Caliburn's fit (2026-11-06) is an offline
+estimate that has not been seen in game.
 
 - The fit is per wheel (B2) and per trim (`fit.appearances`): see
   [The vehicle kit catalogue](#the-vehicle-kit-catalogue).
@@ -190,15 +192,18 @@ Kusanagi is excluded because its hubless front ring leaves no room for a spoked 
 #### Body kit
 
 The body kit is the 30 parts of E2 (then E2b), in 9 groups, with 82 variant models
-in the pack `lightrp_vk_body` and 238 fits on 13 records, all in the `Base` slot. The
+in the pack `lightrp_vk_body` and 251 fits on 14 records, all in the `Base` slot. The
 Thrax takes all 9 groups, the Merrimac 3; the Hella takes 25 parts in 7 groups (no
-rear louvers, no side skirts).
+rear louvers, no side skirts). The staff-only Caliburn (added 2026-11-06, offline
+estimate, not seen in game) takes 13 parts in 6 groups: seven wings, which hide its
+active rear wing and stand in its housing, the louvers on the engine glass, two lips,
+the street diffuser, the hood vents and the roof scoop.
 
 Parts on an opening panel follow it (contract section 5, "Carried parts"): the wings
 except `wing_roof` and the rear louvers name the trunk lid's slot as their `carrier`,
 the hood scoop and vents the hood's, so a wing rises with the trunk lid instead of
 staying in mid-air. On a car where the fit table's `evidence.lid` finds no lid under
-the part (the Bandit's, Quartz's or Semimaru's wings, the Thrax's louvers), the fit
+the part (the Bandit's, Quartz's, Semimaru's or Caliburn's wings, the Thrax's louvers), the fit
 says `carrier = false` and the part stays on the body.
 
 | Group | Parts |
