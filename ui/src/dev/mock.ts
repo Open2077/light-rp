@@ -238,6 +238,9 @@ export function installMockBridge(): void {
           dailies.boot();
           maneki.boot();
           parkour.boot();
+          // ?arrival=1: the central square's camera tour caption (client/core/arrival_tour.lua)
+          if (params.get("arrival") === "1") setTimeout(() => fire(PAGE_EVENTS.arrivalTour, { title: "THE CROSSING", subtitle: "Your hub in Night City",
+            lines: ["Adam Smasher: activities and contracts", "Jackie Welles: game rooms", "Johnny Silverhand: your guide, any time"], durationMs: 11000, skip: "SPACE" }), 300);
           // ?broadcast=1: the staff announcement banner
           if (params.get("broadcast") === "1") setTimeout(() => fire(PAGE_EVENTS.staffAnnounce, { title: "Staff announcement", from: "Nightwolf",
             text: "Server restart in 10 minutes. Finish your runs and park your cars: everything is saved.", durationMs: 12000 }), 300);

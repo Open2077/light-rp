@@ -209,6 +209,7 @@ client_script "client/core/tutorial_voice.lua"
 client_script "client/core/tutorial_guide.lua" -- the way to the objective: beacon, page pointer, flight route
 client_script "client/core/tutorial.lua"
 client_script "client/core/tutorial_context.lua"
+client_script "client/core/arrival_tour.lua"     -- the camera tour of the central square on the way out of the hall
 client_script "client/core/weapon_hud.lua"
 client_script "client/core/hud.lua"
 client_script "client/core/map_icons.lua"

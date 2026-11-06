@@ -67,6 +67,25 @@ LightRpTutorialConfig = {
         quit = { id = "lightrp.tutorial.quit", name = "Light RP: skip the first day guide", key = "F6" },
     },
 
+    -- Out of the hall, on the central square (the guide's end, a skip, a pause): once the
+    -- loading is over and the body stands there, the camera circles the square and shows it,
+    -- then blends back to the player (client/core/arrival_tour.lua). SPACE (the skip key
+    -- above) ends it. `center` unset: the city point after the guide (spawn.afterTutorial).
+    arrivalTour = {
+        enabled = true,
+        radius = 26, endRadius = 17,       -- metres from the centre, at the start and at the end
+        height = 15, endHeight = 6,        -- above the centre
+        degrees = 250, seconds = 11,       -- how far round, and how long
+        lookHeight = 2.0, fov = 58, endFov = 50,
+        blendMs = 900, returnMs = 1100,
+        settleMs = 1800,                   -- after the loading cover lifted and the body stands there
+        nearMetres = 45,                   -- the body must be this close to the centre
+        waitSeconds = 60,                  -- given up after this without the conditions
+        title = "THE CROSSING",
+        subtitle = "Your hub in Night City",
+        lines = { "Adam Smasher: activities and contracts", "Jackie Welles: game rooms", "Johnny Silverhand: your guide, any time" },
+    },
+
     total = 15,
     -- Reserved private buckets for the Alt lesson only; the rest of the hall is shared.
     practice = { position = at(-23, -12, 0.15), prop = "crate.small", vehicle = "Vehicle.v_standard2_archer_hella_player", bucketBase = 700000 },
