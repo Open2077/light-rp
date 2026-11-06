@@ -33,6 +33,9 @@ end
 
 -- What other resources hid (setHidden): owner -> true (every plate) or { [player id] = true }.
 local hiddenBy = {}
+-- The names other resources gave (setNames): owner -> { [player id] = name }. A roleplay
+-- gamemode shows the character's name instead of the account's (op77_lightrp).
+local namesBy = {}
 
 -- A player op77_map3d keeps off the map (a chase runner) gets no plate either, nor one a
 -- resource hid (op77_lightrp: the players in a PvP fight).
@@ -57,7 +60,11 @@ end
 -- the id alone.
 local function nameOf(p)
     local id = tostring(p.playerId or p.id or "?")
-    local name = type(p.name) == "string" and p.name:gsub("^%s+", ""):gsub("%s+$", "") or ""
+    local name = p.name
+    for _, names in pairs(namesBy) do
+        if type(names[id]) == "string" then name = names[id]; break end
+    end
+    name = type(name) == "string" and name:gsub("^%s+", ""):gsub("%s+$", "") or ""
     if #name > C.nameMax then name = name:sub(1, C.nameMax) end
     if C.showId == false then return name ~= "" and name or ("#" .. id) end
     if name == "" then return "[" .. id .. "]" end
@@ -153,8 +160,27 @@ exports("setHidden", function(on, ids)
 end)
 exports("arePlatesHidden", function(pid) return hidden(pid) end)
 
+-- setNames({ [player id] = name, ... }): the plates show these names instead of the accounts'
+-- (a roleplay character's name); setNames(nil) or {} gives the accounts' back. Each caller's
+-- list replaces its previous one and goes when it stops; the next refresh applies it.
+local function setNames(owner, names)
+    if type(names) ~= "table" then namesBy[owner] = nil; return true end
+    local set, any = {}, false
+    for id, name in pairs(names) do
+        if type(name) == "string" and name:match("%S") and tonumber(id) then
+            set[tostring(math.floor(tonumber(id)))] = name:sub(1, 64); any = true
+        end
+    end
+    namesBy[owner] = any and set or nil
+    return true
+end
+exports("setNames", function(names)
+    local owner = (type(GetInvokingResource) == "function" and GetInvokingResource()) or "export"
+    return setNames(owner, names)
+end)
+
 -- For the offline tests: the loop bodies and the state, no game needed.
-PlayerMarks = { refresh = refresh, talk = talk, marks = marks, setHidden = setHidden,
+PlayerMarks = { refresh = refresh, talk = talk, marks = marks, setHidden = setHidden, setNames = setNames,
     attach = function(p) page, pageReady = p, true end }
 
 local function createPage()
@@ -205,4 +231,5 @@ AddEventHandler("onClientResourceStop", function(name)
         return
     end
     hiddenBy[name] = nil
+    namesBy[name] = nil
 end)
