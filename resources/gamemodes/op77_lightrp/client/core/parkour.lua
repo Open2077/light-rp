@@ -206,7 +206,7 @@ end
 local held = false
 local function syncHold()
     local run = Parkour.run
-    local want = run ~= nil and run.phase == "countdown"
+    local want = run ~= nil and (run.phase == "countdown" or run.phase == "landing")
     if type(Open77.character) ~= "table" or type(Open77.character.setFrozen) ~= "function" then return end
     if want then
         local ok, frozen = pcall(Open77.character.setFrozen, true)
@@ -253,6 +253,22 @@ end
 -- ---------------------------------------------------------------------------
 -- The frame loop: the hold and the bearing, the starts.
 
+-- The body stands in the world: no loading screen (the game's or op77_loadscreen's cover), alive.
+function Parkour.landed()
+    local screen = Open77.screen
+    if screen and type(screen.isLoading) == "function" and screen.isLoading() then return false end
+    if screen and type(screen.loadingState) == "function" then
+        local ok, state = pcall(screen.loadingState)
+        if ok and type(state) == "table" and state.active == true then return false end
+    end
+    if type(GetResourceState) == "function" and GetResourceState("op77_loadscreen") == "running" then
+        local ok, covered = pcall(function() return exports.op77_loadscreen:isActive() end)
+        if ok and covered == true then return false end
+    end
+    local c = Open77.character and Open77.character.state and Open77.character.state()
+    return c ~= nil and c.alive ~= false
+end
+
 local function stopRun()
     Parkour.run = nil
     clearRun()
@@ -288,6 +304,29 @@ local function onServer(p)
         return
     end
     if not run then return end
+    if kind == "landing" then
+        run.phase = "landing"
+        syncHold()
+        -- Tell the server once the start has really loaded (no loading screen, alive, settled): the
+        -- 3-2-1 waits for it, so it is never played under the loading screen.
+        local attempt = p.attempt
+        CreateThread(function()
+            local since, deadline = nil, now() + (C.landTimeoutMs or 15000)
+            while Parkour.run == run and run.attempt == attempt and now() < deadline do
+                if Parkour.landed() then
+                    since = since or now()
+                    if now() - since >= (C.landSettleMs or 700) then
+                        TriggerServerEvent(E.net.parkourKey, { op = "landed", attempt = attempt })
+                        return
+                    end
+                else
+                    since = nil
+                end
+                Wait(100)
+            end
+        end)
+        return
+    end
     if kind == "countdown" then
         run.phase, run.next = "countdown", 1
         syncRun()

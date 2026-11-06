@@ -27,7 +27,19 @@ _G.GetPlayers = function() local t = {} for id in pairs(positions) do t[#t + 1] 
 _G.GetPlayerName = function(id) return "P" .. id end
 _G.GetPlayerIdentifier = function(id) return "acc" .. id end
 _G.GetCurrentResourceName = function() return "op77_lightrp" end
-_G.TriggerClientEvent = function(name, id, payload) sent[#sent + 1] = { name = name, id = id, payload = payload } end
+-- The client side of the landing: it answers "landed" a moment after the server asks (client/core/parkour.lua),
+-- unless autoLand[id] is false (a client that never lands).
+local autoLand = {}
+_G.TriggerClientEvent = function(name, id, payload)
+    sent[#sent + 1] = { name = name, id = id, payload = payload }
+    if type(payload) == "table" and payload.kind == "landing" and autoLand[id] ~= false then
+        SetTimeout(20, function()
+            local was = _G.source; _G.source = id
+            handlers["op77_lightrp:parkour:key"]({ op = "landed", attempt = payload.attempt })
+            _G.source = was
+        end)
+    end
+end
 _G.TriggerLatentClientEvent = nil
 _G.RegisterNetEvent = function(name, fn) handlers[name] = fn end
 _G.AddEventHandler = function(name, fn) events[name] = fn end
@@ -165,9 +177,15 @@ local function runTo(player, x, speed, opts)
 end
 local function startRun(player)
     _G.source = player
+    local mark = #sent
     actions["parkour.start"](player, { course = id })
     local runs = M.runs()
-    check(runs[player] and runs[player].phase == "countdown", "countdown after the teleport")
+    check(runs[player] and runs[player].phase == "landing" and lastTo(player, "landing"), "after the teleport: waits for the client to land")
+    local early = false
+    for i = mark + 1, #sent do if sent[i].id == player and sent[i].payload.kind == "countdown" then early = true end end
+    check(not early, "no countdown under the loading screen")
+    for _ = 1, 10 do step(50); if runs[player].phase == "countdown" then break end end
+    check(runs[player] and runs[player].phase == "countdown", "landed: the countdown starts")
     check(frozen[player] == true and god[player] == true, "held and god mode during the countdown")
     local cd = lastTo(player, "countdown")
     check(cd and cd.goInMs == 3000, "countdown event")
@@ -281,6 +299,27 @@ runTo(1, 40, 8)
 step(50); step(50)
 local tres = lastTo(1, "result")
 check(tres and tres.test and tres.rank == nil and #results == resultsBefore, "test result: not recorded, not reported")
+
+-- a client that never reports landing: the countdown still comes, after landTimeoutMs
+do
+    local runs = M.runs()
+    for player in pairs(runs) do events["op77_lightrp:activity:leaveRequest"](player, "parkour.run") end
+    step(50)
+    autoLand[3] = false
+    _G.source = 3
+    actions["parkour.start"](3, { course = id })
+    check(runs[3] ~= nil, "player 3 started again")
+    if runs[3] then
+        step(1000)
+        check(runs[3].phase == "landing", "still waiting for the client")
+        for _ = 1, 400 do step(50); if runs[3].phase ~= "landing" then break end end
+        check(runs[3].phase == "countdown" or runs[3].phase == "running", "no answer: the countdown after the timeout")
+    end
+    events["op77_lightrp:activity:leaveRequest"](3, "parkour.run")
+    autoLand[3] = nil
+    _G.source = 1
+    step(50)
+end
 
 -- ---------------------------------------------------------------------------
 -- Unpublish and delete
