@@ -5,6 +5,11 @@ local Config = LightRpConfig
 local Spawn = LightRP.module("spawn", {})
 
 local joinSpawns = {} -- playerId -> "waiting" | "pending" | "complete"
+-- Placed this session by one of the paths below. Until then the platform still holds
+-- the pre-spawn position (the lobby, around 0, 3.6, 0): sampling it would save it as
+-- the character's position (measured 2026-11-06, a reconnect before placement).
+local placed = {}
+function Spawn.placed(playerId) return placed[playerId] == true end
 
 local function readinessHeld(playerId)
     if type(Open77.ready) ~= "table" or type(Open77.ready.isReady) ~= "function" then return false end
@@ -22,10 +27,12 @@ local function placeAt(playerId, position, heading, weapon, bucket)
     elseif life.phase ~= "dead" then
         return false, "transition_in_progress"
     end
-    return Open77.players.respawn(playerId, {
+    local ok, reason = Open77.players.respawn(playerId, {
         position = position, heading = heading or 0, bucket = bucket or life.bucket or 0,
         health = Config.spawn.health, graceMs = Config.spawn.graceMs,
     })
+    if ok then placed[playerId] = true end
+    return ok, reason
 end
 -- For the modules that move a character themselves (the first day guide).
 -- A loading cover hides the move; the client lifts it once the body stands on
@@ -168,6 +175,7 @@ end
 
 function Spawn.onDisconnected(playerId)
     joinSpawns[playerId] = nil
+    placed[playerId] = nil
 end
 
 LightRP.log("%s framework ready: %d location(s), %d vehicle(s) in the catalogue, chat range %.0f m",

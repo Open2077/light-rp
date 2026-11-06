@@ -292,6 +292,8 @@ end
 function Characters.samplePosition(playerId)
     local c = characters[playerId]
     if c == nil then return end
+    -- Not placed yet this session: the platform position is the pre-spawn one.
+    if LightRP.spawn and LightRP.spawn.placed and not LightRP.spawn.placed(playerId) then return end
     local position = Open77.players.position(playerId)
     if LightRP.housing then position = LightRP.housing.savedPosition(playerId, position) end
     -- never a mission's or an activity's instance: the point it returns the player to
