@@ -11,7 +11,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from tcg_harness import L, animations, boot, check, checks, con, counts, fire, last, props  # noqa: E402
 
 # No framework: `exports` is only the registration function here, so exports.op77_lightrp does not exist.
-boot("TcgConfig.framework = nil")
+# The starter gift is off in the shipped config (Light RP's starting inventory carries the boosters);
+# the mechanism is still tested here with the old gift.
+boot("TcgConfig.framework = nil; TcgConfig.starter = { wnc = 3 }")
 
 # Hello: starter packs.
 fire("op77_tcg:hello", 1)

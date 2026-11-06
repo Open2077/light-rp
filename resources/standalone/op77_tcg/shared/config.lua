@@ -72,8 +72,11 @@ TcgConfig = {
         },
     },
 
-    -- New collectors receive a starter gift once.
-    starter = { wnc = 3 },
+    -- New collectors receive a starter gift once. Off on Light RP: its starting inventory carries the 3
+    -- boosters (op77_lightrp shared/config.lua inventory.starting); `starterNote` is what the welcome
+    -- guide announces instead.
+    starter = {},
+    starterNote = 3,
 
     -- A gamemode that owns characters and an inventory (LightRP). When it runs, each character is its own collector
     -- (exports characterIdentity, events <framework>:characterReady / :characterChanged), and sealed product lives
