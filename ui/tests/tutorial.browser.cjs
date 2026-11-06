@@ -7,7 +7,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.addInitScript(() => {
       const handlers = new Map();
-      window.testBridge = {sent: [],ready: false,fire: (name,payload) => (handlers.get('lightrp:ui:'+name)||[]).forEach(fn=>fn(payload))};
+      window.testBridge = {sent: [],ready: false,fire: (name,payload) => (handlers.get('lightrp:ui:'+name)||[]).forEach(fn=>fn(payload)),
+        raw: (name,payload) => (handlers.get(name)||[]).forEach(fn=>fn(payload))};
       window.Open77 = {on:(name,fn)=>handlers.set(name,[...(handlers.get(name)||[]),fn]), emit:(name,payload)=>{
         window.testBridge.sent.push({name,payload});if(name.endsWith(':ready'))window.testBridge.ready=true;
       }, ready() {}};
@@ -60,8 +61,25 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.locator('.first-day__todo li').count(),3);
     assert.equal(await page.locator('.first-day__steps li.is-done').count(),3);assert.equal(await page.locator('.first-day__steps li.is-now').count(),1);
     await page.locator('.first-day__done').filter({hasText:'First day'}).waitFor();
-    await fire('tutorial',{distance:42});assert.match(await page.locator('.first-day__distance').innerText(),/42 m/);
-    await fire('tutorial',{distance:false});assert.equal(await page.locator('.first-day__distance').count(),0);
+    // The way (client/core/tutorial_guide.lua): the card's line, the waypoint in view, the arrow on the ring out of view.
+    const anchors=list=>page.evaluate(list=>window.testBridge.raw('open77:anchors',{anchors:list}),list);
+    await fire('tutorialguide',{label:'Browse shop',distance:42,angle:30,rise:0});
+    assert.match(await page.locator('.first-day__distance').innerText(),/42 m[\s\S]*Browse shop/);
+    assert.equal(await page.locator('.fd-way__edge.is-shown').count(),1,'no anchor in view: the arrow on the ring');
+    await anchors([{tag:'tutorial.guide',x:.4,y:.45,depth:30,onScreen:true}]);
+    assert.equal(await page.locator('.fd-way__waypoint.is-shown').count(),1,'in view: the waypoint');
+    assert.equal(await page.locator('.fd-way__edge.is-shown').count(),0);
+    assert.match(await page.locator('.fd-way__waypoint').innerText(),/Browse shop[\s\S]*42 m/i);
+    await anchors([{tag:'tutorial.guide',x:.4,y:.45,depth:-3,onScreen:false}]);
+    assert.equal(await page.locator('.fd-way__edge.is-shown').count(),1,'behind the camera: the arrow again');
+    await fire('tutorialguide',{label:'Browse shop',distance:2,angle:0});
+    assert.equal(await page.locator('.is-shown').count(),0,'within reach the prompt takes over');
+    await fire('tutorialguide',{label:'Browse shop',distance:42,angle:30});
+    await fire('tutorialguide',{hide:true});assert.equal(await page.locator('.first-day__distance').count(),0);
+    assert.equal(await page.locator('.fd-way__waypoint.is-shown, .fd-way__edge.is-shown').count(),0,'hidden by the client: nothing left on screen');
+    await fire('tutorialguide',{label:'Browse shop',distance:42,angle:30});await page.waitForTimeout(4200);
+    assert.equal(await page.locator('.fd-way__edge.is-shown').count(),0,'a client that stopped talking: the pointer goes by itself');
+    assert.equal(await page.locator('.first-day__distance').count(),0);
     for(const [width,height] of [[1920,1080],[1366,768],[2560,1080],[1024,768]]) {
       await page.setViewportSize({width,height});
       const box=await page.locator('.first-day__objective').boundingBox();
