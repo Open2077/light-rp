@@ -52,12 +52,16 @@ local function drop(key)
     send("pm:remove", { player = key })
 end
 
--- The name a plate shows: the player's name as the platform lists it, trimmed.
+-- The name a plate shows: the player's name as the platform lists it, trimmed, with the
+-- session id in front ("[12] Archer Hella", config showId). A player without a name shows
+-- the id alone.
 local function nameOf(p)
+    local id = tostring(p.playerId or p.id or "?")
     local name = type(p.name) == "string" and p.name:gsub("^%s+", ""):gsub("%s+$", "") or ""
-    if name == "" then name = "#" .. tostring(p.playerId or p.id or "?") end
     if #name > C.nameMax then name = name:sub(1, C.nameMax) end
-    return name
+    if C.showId == false then return name ~= "" and name or ("#" .. id) end
+    if name == "" then return "[" .. id .. "]" end
+    return "[" .. id .. "] " .. name
 end
 
 -- The other players around with a streamed body: player id (string) -> { entity, name }.
