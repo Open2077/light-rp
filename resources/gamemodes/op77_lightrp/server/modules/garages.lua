@@ -523,11 +523,35 @@ local function applyVisual(id, state)
     if not ok then return false, explain(why, "The vehicle's look was refused (" .. tostring(why) .. ").") end
     return true
 end
-local function applyPaint(id, paint)
-    local ok, why
-    if paint.applied then ok, why = Open77.vehicles.setPaint(id, { primary = paint.primary, secondary = paint.secondary })
-    else ok, why = Open77.vehicles.resetPaint(id) end
+local function colorKey(value)
+    if type(value) == "string" then return value:upper() end
+    if type(value) == "table" then return string.format("#%02X%02X%02X", value.r, value.g, value.b) end
+end
+local function sameHue(a, b)
+    if a == nil or b == nil then return a == b end
+    local d = math.abs(a - b) % 1
+    return math.min(d, 1 - d) < 0.0005
+end
+-- True when the car already wears `paint` (the applied bit, and the colours when applied).
+local function wearsPaint(id, paint)
+    local have = type(Open77.vehicles.getPaint) == "function" and Open77.vehicles.getPaint(id) or nil
+    if type(have) ~= "table" or (have.applied == true) ~= (paint.applied == true) then return false end
+    return not paint.applied or (colorKey(have.primary) == colorKey(paint.primary) and colorKey(have.secondary) == colorKey(paint.secondary))
+end
+-- `restore`: put a known look back (close, rollback), writing only what moved. The server's
+-- setPaint and resetPaint clear a TwinTone livery even when the paint does not change, so a
+-- blind re-paint made every viewer see the livery drop and come back, and a livery whose pack
+-- stopped could then not be put back at all (invalid_profile): the lease never closed.
+local function applyPaint(id, paint, restore)
+    local ok, why = true, nil
+    if not (restore and wearsPaint(id, paint)) then
+        if paint.applied then ok, why = Open77.vehicles.setPaint(id, { primary = paint.primary, secondary = paint.secondary })
+        else ok, why = Open77.vehicles.resetPaint(id) end
+    end
     if not ok then return false, why or "Vehicle paint was refused." end
+    if restore and type(Open77.vehicles.getLightsHue) == "function" and sameHue(Open77.vehicles.getLightsHue(id), paint.lightsHue) then
+        return true
+    end
     return Open77.vehicles.setLightsHue(id, paint.lightsHue)
 end
 -- setAppearance only when the variant really changes: a restatement would reschedule
@@ -542,7 +566,7 @@ end
 -- categories (a repaint clears the livery, so the livery comes after), the plate and
 -- the performance stage of `row`.
 local function applyLook(id, state, row)
-    local ok, why = applyPaint(id, state.paint or { applied = false })
+    local ok, why = applyPaint(id, state.paint or { applied = false }, true)
     if not ok then return false, why end
     ok, why = applyTrim(id, state.appearance)
     if not ok then return false, why end
@@ -622,18 +646,9 @@ function Garage.endCustomization(playerId, token)
     capture(row)
     return true
 end
-local function colorKey(value)
-    if type(value) == "string" then return value:upper() end
-    if type(value) == "table" then return string.format("#%02X%02X%02X", value.r, value.g, value.b) end
-end
 local function samePaint(a,b)
     if a.applied ~= b.applied then return false end
     return not a.applied or (colorKey(a.primary) == colorKey(b.primary) and colorKey(a.secondary) == colorKey(b.secondary))
-end
-local function sameHue(a, b)
-    if a == nil or b == nil then return a == b end
-    local d = math.abs(a - b) % 1
-    return math.min(d, 1 - d) < 0.0005
 end
 function Garage.customizationPaint(playerId, token)
     local row = edits[playerId]
