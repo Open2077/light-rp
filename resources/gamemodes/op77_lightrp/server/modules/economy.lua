@@ -330,7 +330,12 @@ local function load(playerId, c)
     if c == nil or c.status ~= "active" then return nil end
     if not Db.ready or not Inv or not Inv.player(playerId) then return nil end
     local owner = tostring(c.identifier) .. "#" .. c.key
-    while settling[owner] do Wait(10) end
+    -- bounded: a settle killed by the instruction quota never clears its flag
+    local waited = 0
+    while settling[owner] do
+        if waited >= 20000 then LightRP.log("wallet %s settling for 20 s (its task died): released", owner); settling[owner] = nil; break end
+        Wait(10); waited = waited + 10
+    end
     local w, reason
     if Db.ready and c.identifier then
         local read, rows = Db.read("SELECT account_number, owner_name, cash, bank FROM lightrp_wallets WHERE identifier = ? AND character_key = ?", { c.identifier, c.key })

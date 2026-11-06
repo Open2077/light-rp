@@ -665,17 +665,17 @@ local function repairPass()
         if c and c.status == "active" and c.identifier and not Characters.switching[id]
             and t - (c.loadedAtMs or c.joinedAtMs or t) > REPAIR_AFTER_MS and t - (repairedAt[id] or -1e9) > 60000 then
             local inv = LightRP.inventory and LightRP.inventory.player and LightRP.inventory.player(id)
-            local wallet = LightRP.money and LightRP.money.loaded and LightRP.money.loaded(id)
-            if not inv or wallet == false then
+            -- what the page shows: nil = "Unavailable" bank (no wallet, or one not tied to this inventory)
+            local wallet = LightRP.money and LightRP.money.get and LightRP.money.get(id)
+            if not inv or not wallet then
                 repairedAt[id] = t
                 LightRP.log("characters: %s (%d) active without %s: loading again", Characters.displayName(id), id,
-                    not inv and (wallet == false and "inventory and wallet" or "inventory") or "wallet")
-                if not inv and LightRP.inventory.onCharacterLoaded then
-                    SetTimeout(0, function() LightRP.inventory.onCharacterLoaded(id, c) end)
-                end
-                if wallet == false and LightRP.money.onCharacterLoaded then
-                    SetTimeout(0, function() if characters[id] == c then LightRP.money.onCharacterLoaded(id, c) end end)
-                end
+                    not inv and "inventory and wallet" or "wallet")
+                -- in order, on one task: the wallet binds to the inventory it finds
+                SetTimeout(0, function()
+                    if not inv and LightRP.inventory.onCharacterLoaded then LightRP.inventory.onCharacterLoaded(id, c) end
+                    if characters[id] == c and LightRP.money.onCharacterLoaded then LightRP.money.onCharacterLoaded(id, c) end
+                end)
             end
         end
         if index % 16 == 0 then Wait(0) end
