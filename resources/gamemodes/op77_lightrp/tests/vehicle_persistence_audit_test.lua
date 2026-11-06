@@ -470,4 +470,24 @@ t = studio(hella); assert(buy(t, { category = "livery", profile = "hella_tt_1" }
 confirmed = storedLook(hella)
 print("audit 9: a pack livery stopped mid-session goes dormant on restore; the lease always closes")
 
-print("vehicle persistence audit: purchase writes, preview masking, idle close, store/retrieve, restart, impound paths, characters, failures, transfer and dormant liveries passed")
+-- 10. A plate preview is never durable, not even in the platform's copy (visual.plate) -----
+t = studio(hella)
+assert(preview(t, { category = "plate", plate = "PRV9999" }) and world[car].visual.plate == "PRV9999")
+autosave()
+assert(stored(hella).lightrp.plate == "ABC1234" and stored(hella).visual.plate == "ABC1234", "autosave keeps the registered plate in both copies")
+assert(buy(t, { category = "neon", neon = { color = "#9B3CFF", intensity = 300, radius = 3 } }))
+assert(stored(hella).visual.plate == "ABC1234", "another purchase never stores the plate preview")
+-- The server stops with the preview on the car: the restart shows only the registered plate.
+boot()
+n = #publishes
+assert(perform("recover", hella)); car = nextVehicle
+for _, pub in ipairs(since(n, car)) do assert(pub.visual.plate ~= "PRV9999", "no viewer ever sees the unpaid plate after a restart") end
+assert(world[car].visual.plate == "ABC1234" and world[car].bag.lightrpPlate == "ABC1234")
+-- Buying a plate moves both copies together.
+t = studio(hella); assert(buy(t, { category = "plate", plate = "NEW0001" })); close(t)
+assert(stored(hella).lightrp.plate == "NEW0001" and stored(hella).visual.plate == "NEW0001")
+store(hella); car = retrieve(hella)
+n = #publishes; assert(world[car].visual.plate == "NEW0001" and G.plateOf(car) == "NEW0001")
+print("audit 10: plate previews stay out of properties.visual.plate; a purchase moves both copies")
+
+print("vehicle persistence audit: purchase writes, preview masking, idle close, store/retrieve, restart, impound paths, characters, failures, transfer, dormant liveries and plate previews passed")

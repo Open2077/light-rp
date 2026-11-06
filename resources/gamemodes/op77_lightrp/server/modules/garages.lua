@@ -131,7 +131,17 @@ local OWNS = {
     windows = function(to, from) visualKey(to, from, "tint") end,
     rims = function(to, from) visualParts(to, from, "rims"); visualKey(to, from, "wheels") end,
     body = function(to, from) visualParts(to, from, "body") end,
-    plate = function(to, from) own(to).plate = type(from.lightrp) == "table" and from.lightrp.plate or nil end,
+    plate = function(to, from)
+        local plate = type(from.lightrp) == "table" and from.lightrp.plate or nil
+        own(to).plate = plate
+        -- The platform keeps its own copy (getProperties().visual.plate, setPlate): it follows
+        -- the registered plate, so a plate preview never reaches the row nor, at the next
+        -- spawn, every viewer before renderPlate corrects it.
+        if type(Open77.vehicles.setPlate) == "function" and (plate ~= nil or type(to.visual) == "table") then
+            to.visual = type(to.visual) == "table" and to.visual or {}
+            to.visual.plate = plate
+        end
+    end,
     performance = function(to, from) own(to).stage = type(from.lightrp) == "table" and from.lightrp.stage or nil end,
 }
 -- Generic paint replaces a TwinTone livery and a livery goes on the factory paint layer:
