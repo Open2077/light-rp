@@ -14,12 +14,12 @@ LightRP.stateProvider("server", function()
 end)
 
 function Ui.onConnected()
-    -- Everyone's population chip moves.
-    LightRP.broadcastState({ "server", "online" })
+    -- Everyone's population chip moves (coalesced: framework.lua onlineChanged).
+    LightRP.onlineChanged()
 end
 
 function Ui.onDisconnected()
-    LightRP.broadcastState({ "server", "online" })
+    LightRP.onlineChanged()
 end
 
 LightRP.action("menu.close", function() end) -- the client closes locally; nothing to do here
