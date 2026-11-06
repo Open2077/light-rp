@@ -131,7 +131,17 @@ local OWNS = {
     windows = function(to, from) visualKey(to, from, "tint") end,
     rims = function(to, from) visualParts(to, from, "rims"); visualKey(to, from, "wheels") end,
     body = function(to, from) visualParts(to, from, "body") end,
-    plate = function(to, from) own(to).plate = type(from.lightrp) == "table" and from.lightrp.plate or nil end,
+    plate = function(to, from)
+        local plate = type(from.lightrp) == "table" and from.lightrp.plate or nil
+        own(to).plate = plate
+        -- The platform keeps its own copy (getProperties().visual.plate, setPlate): it follows
+        -- the registered plate, so a plate preview never reaches the row nor, at the next
+        -- spawn, every viewer before renderPlate corrects it.
+        if type(Open77.vehicles.setPlate) == "function" and (plate ~= nil or type(to.visual) == "table") then
+            to.visual = type(to.visual) == "table" and to.visual or {}
+            to.visual.plate = plate
+        end
+    end,
     performance = function(to, from) own(to).stage = type(from.lightrp) == "table" and from.lightrp.stage or nil end,
 }
 -- Generic paint replaces a TwinTone livery and a livery goes on the factory paint layer:
@@ -158,8 +168,25 @@ local function wake(props, dormant)
     local v = props.visual
     v.parts = type(v.parts) == "table" and v.parts or {}
     for id, value in pairs(dormant.parts or {}) do if v.parts[id] == nil then v.parts[id] = copy(value) end end
-    for _, key in ipairs({ "wheels", "profile", "neon", "tint" }) do
-        if dormant[key] ~= nil and v[key] == nil then v[key] = copy(dormant[key]) end
+    -- wheels, profile, neon, tint, and any field a newer build stored (a whole visual goes
+    -- dormant when a delivery cannot wear it)
+    for key, value in pairs(dormant) do
+        if key ~= "parts" and v[key] == nil then v[key] = copy(value) end
+    end
+end
+-- Stored properties this server build skipped at spawn (`row.unsupported`, filled by
+-- applyKnown: "key" or "table.key"; a newer build wrote them, the server was rolled
+-- back): getProperties cannot read them, so they are carried over from the row.
+local function keepUnsupported(props, row)
+    local held = type(row.props) == "table" and row.props or {}
+    for _, name in ipairs(row.unsupported or {}) do
+        local parent, key = tostring(name):match("^([^.]+)%.(.+)$")
+        if parent then
+            if type(held[parent]) == "table" and held[parent][key] ~= nil then
+                props[parent] = type(props[parent]) == "table" and props[parent] or {}
+                if props[parent][key] == nil then props[parent][key] = copy(held[parent][key]) end
+            end
+        elseif held[name] ~= nil and props[name] == nil then props[name] = copy(held[name]) end
     end
 end
 local function capture(row)
@@ -171,6 +198,7 @@ local function capture(row)
         -- Autosaves and removal recovery keep the last confirmed look, never a preview.
         if row.edit then props = maskConfirmed(props, row.edit.saved) end
         if row.dormant then wake(props, row.dormant) end
+        keepUnsupported(props, row)
         row.props = props
         row.dirty = true
         row.revision = (row.revision or 0) + 1
@@ -497,16 +525,33 @@ end
 local function neonSpec(neon)
     return { enabled = neon.enabled ~= false, color = neon.color, intensity = neon.intensity, radius = neon.radius }
 end
+-- True when the platform lists `profile` for this car's record right now.
+local function offered(id, profile)
+    if type(Open77.vehicles.listPaintProfiles) ~= "function" then return true end
+    for _, entry in ipairs(Open77.vehicles.listPaintProfiles(id) or {}) do if entry.id == profile then return true end end
+    return false
+end
 -- Puts the visual categories (livery, neon, window tint, rims, body kit) of `state` on the car,
 -- touching only what differs. Light RP's body parts only: other resources' stay.
-local function applyVisual(id, state)
+-- With `row` (a restore): a livery the record no longer offers (its pack stopped while the
+-- car was out) is kept dormant on the row, as at retrieval, and the car wears its factory
+-- scheme; refusing the whole restore would hold the lease forever.
+local function applyVisual(id, state, row)
     local V = Open77.vehicles
     if type(V.getVisual) ~= "function" then return true end
     local want = type(state.visual) == "table" and state.visual or {}
     local have = V.getVisual(id)
     if type(have) ~= "table" then return false, "Could not read the vehicle's look." end
     local ok, why = true, nil
-    if have.profile ~= want.profile then ok, why = V.setPaintProfile(id, want.profile) end
+    if have.profile ~= want.profile then
+        ok, why = V.setPaintProfile(id, want.profile)
+        if not ok and why == "invalid_profile" and row and want.profile ~= nil and not offered(id, want.profile) then
+            row.dormant = type(row.dormant) == "table" and row.dormant or {}
+            row.dormant.profile = want.profile
+            LightRP.log("garage: %s cannot wear its livery %s on this server right now; kept dormant", row.id, tostring(want.profile))
+            ok, why = V.setPaintProfile(id, nil)
+        end
+    end
     if ok and not same(have.neon, want.neon) then
         if type(want.neon) == "table" then ok, why = V.setNeon(id, neonSpec(want.neon)) else ok, why = V.clearNeon(id) end
     end
@@ -523,11 +568,35 @@ local function applyVisual(id, state)
     if not ok then return false, explain(why, "The vehicle's look was refused (" .. tostring(why) .. ").") end
     return true
 end
-local function applyPaint(id, paint)
-    local ok, why
-    if paint.applied then ok, why = Open77.vehicles.setPaint(id, { primary = paint.primary, secondary = paint.secondary })
-    else ok, why = Open77.vehicles.resetPaint(id) end
+local function colorKey(value)
+    if type(value) == "string" then return value:upper() end
+    if type(value) == "table" then return string.format("#%02X%02X%02X", value.r, value.g, value.b) end
+end
+local function sameHue(a, b)
+    if a == nil or b == nil then return a == b end
+    local d = math.abs(a - b) % 1
+    return math.min(d, 1 - d) < 0.0005
+end
+-- True when the car already wears `paint` (the applied bit, and the colours when applied).
+local function wearsPaint(id, paint)
+    local have = type(Open77.vehicles.getPaint) == "function" and Open77.vehicles.getPaint(id) or nil
+    if type(have) ~= "table" or (have.applied == true) ~= (paint.applied == true) then return false end
+    return not paint.applied or (colorKey(have.primary) == colorKey(paint.primary) and colorKey(have.secondary) == colorKey(paint.secondary))
+end
+-- `restore`: put a known look back (close, rollback), writing only what moved. The server's
+-- setPaint and resetPaint clear a TwinTone livery even when the paint does not change, so a
+-- blind re-paint made every viewer see the livery drop and come back, and a livery whose pack
+-- stopped could then not be put back at all (invalid_profile): the lease never closed.
+local function applyPaint(id, paint, restore)
+    local ok, why = true, nil
+    if not (restore and wearsPaint(id, paint)) then
+        if paint.applied then ok, why = Open77.vehicles.setPaint(id, { primary = paint.primary, secondary = paint.secondary })
+        else ok, why = Open77.vehicles.resetPaint(id) end
+    end
     if not ok then return false, why or "Vehicle paint was refused." end
+    if restore and type(Open77.vehicles.getLightsHue) == "function" and sameHue(Open77.vehicles.getLightsHue(id), paint.lightsHue) then
+        return true
+    end
     return Open77.vehicles.setLightsHue(id, paint.lightsHue)
 end
 -- setAppearance only when the variant really changes: a restatement would reschedule
@@ -542,11 +611,11 @@ end
 -- categories (a repaint clears the livery, so the livery comes after), the plate and
 -- the performance stage of `row`.
 local function applyLook(id, state, row)
-    local ok, why = applyPaint(id, state.paint or { applied = false })
+    local ok, why = applyPaint(id, state.paint or { applied = false }, true)
     if not ok then return false, why end
     ok, why = applyTrim(id, state.appearance)
     if not ok then return false, why end
-    ok, why = applyVisual(id, state)
+    ok, why = applyVisual(id, state, row)
     if not ok then return false, why end
     local stored = type(state.lightrp) == "table" and state.lightrp or {}
     ok, why = renderPlate(id, stored.plate)
@@ -622,18 +691,9 @@ function Garage.endCustomization(playerId, token)
     capture(row)
     return true
 end
-local function colorKey(value)
-    if type(value) == "string" then return value:upper() end
-    if type(value) == "table" then return string.format("#%02X%02X%02X", value.r, value.g, value.b) end
-end
 local function samePaint(a,b)
     if a.applied ~= b.applied then return false end
     return not a.applied or (colorKey(a.primary) == colorKey(b.primary) and colorKey(a.secondary) == colorKey(b.secondary))
-end
-local function sameHue(a, b)
-    if a == nil or b == nil then return a == b end
-    local d = math.abs(a - b) % 1
-    return math.min(d, 1 - d) < 0.0005
 end
 function Garage.customizationPaint(playerId, token)
     local row = edits[playerId]
@@ -801,6 +861,7 @@ function Garage.customize(playerId, token, change, commit, payment)
             for _, c in ipairs(linked(category)) do if DORMANT[c] then DORMANT[c](dormant) end end
             wake(props, dormant)
         end
+        keepUnsupported(props, row)
         -- Save the complete canonical properties before acknowledging success.
         local encoded = json.encode(props)
         if not encoded then return false, "Could not encode vehicle properties." end
@@ -885,6 +946,31 @@ local function restorable(row, record)
     return restore
 end
 
+-- setProperties on a fresh car, minus the keys this server build does not know (a newer
+-- build stored them, then the server was rolled back). The platform refuses them by name,
+-- "unsupported_property:<key>" or "<table>.<key>", before it touches the car: strip that
+-- key, list it in `skipped` (kept stored by keepUnsupported), try again. Not
+-- `ignoreUnsupported`: its skipped list names only the first unknown key of each table,
+-- and every other one would be lost at the next capture.
+local function applyKnown(id, restore, skipped)
+    for _ = 1, 64 do
+        local applied, err = Open77.vehicles.setProperties(id, restore)
+        local name = not applied and tostring(err):match("^unsupported_property:(.+)$") or nil
+        if not name then return applied, err end
+        local parent, key = name:match("^([^.]+)%.(.+)$")
+        local holder = restore
+        if parent then
+            if type(restore[parent]) ~= "table" then return applied, err end
+            restore[parent] = copy(restore[parent]) -- restorable shares tables with row.props
+            holder = restore[parent]
+        else key = name end
+        if holder[key] == nil then return applied, err end
+        holder[key] = nil
+        skipped[#skipped + 1] = name
+    end
+    return false, "too many unsupported properties"
+end
+
 -- `check` replaces the "at the garage marker" guard for a delivery that is not
 -- asked for at a garage (a dealership's bay).
 local function retrieve(playerId, row, place, check)
@@ -925,17 +1011,23 @@ local function retrieve(playerId, row, place, check)
         row.vehicleId, live[created] = created, row
         tag(created, row.id)
         local restore = restorable(row, record)
+        local skipped = {}
+        row.unsupported = nil
         if next(restore) ~= nil then
-            local applied, err = Open77.vehicles.setProperties(created, restore)
+            local applied, err = applyKnown(created, restore, skipped)
             if not applied and restore.visual ~= nil then
                 -- Never refuse a delivery over the look: the car comes out without its
                 -- visual choices, which stay stored until it can wear them again.
                 LightRP.log("garage: %s delivered without its visual (%s); kept dormant", row.id, tostring(err))
                 row.dormant = copy(type(row.props.visual) == "table" and row.props.visual or {})
                 restore.visual = nil
-                applied, err = Open77.vehicles.setProperties(created, restore)
+                applied, err = applyKnown(created, restore, skipped)
             end
             if not applied then return false, "Could not restore this vehicle: " .. tostring(err) end
+        end
+        if #skipped > 0 then
+            row.unsupported = skipped
+            LightRP.log("garage: %s keeps stored properties this server build does not know: %s", row.id, table.concat(skipped, ", "))
         end
         renderPlate(created, stored.plate)
         if LightRP.fuel then LightRP.fuel.restore(created, row.id) end
