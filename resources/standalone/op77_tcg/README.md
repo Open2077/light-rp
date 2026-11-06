@@ -272,6 +272,15 @@ textures. `tools/fetch_official.py <resource> <work dir>` downloads the English 
 behind that site and matches each edition to its printing by comparing pictures (the mod's art variants are
 different printings). It writes `web/img/cards/<id>.webp` and a `report.json`.
 
+**The pictures are not shipped with the resource** (2026-11-06): every file of `web/img/` (cards,
+sealed products, playmats, rooms, interface art, ~42 MB) is served from the Open77 CDN,
+`https://cdn.open77.dev/assets/tcg/v1/img/...` (R2 bucket `open77`). `web/cdn.js` defines
+`tcgAsset("img/...")`, which every script uses; the CSS names the CDN URLs; images load
+`lazy`. The page is created with the WebUI policy `"images"` (`client/main.lua`). After a
+rebuild, upload under a **new version folder** and bump the base in `web/cdn.js` and the CSS:
+`python tools/upload-cdn-images.py resources/standalone/op77_tcg/web/img assets/tcg/v2/img`
+(light-rp root). `web/img/` is git-ignored.
+
 The source meshes are about 6 times the size of a real card, so the resource scales them to real size (63 x 88 mm):
 `TcgConfig.scale`.
 

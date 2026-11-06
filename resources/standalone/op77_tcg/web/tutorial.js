@@ -19,7 +19,7 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function L(o) { return o ? (o[lang] || o.en) : ""; }
   function el(tag, cls, html) { var n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
-  function img(slug) { return X && X.cardImg ? X.cardImg(slug) : "img/backside.webp"; }
+  function img(slug) { return X && X.cardImg ? X.cardImg(slug) : tcgAsset("img/backside.webp"); }
 
   /* ------------------------------------------------------------------------------------------------ words */
   var UI = {
@@ -51,7 +51,7 @@
       '" text-anchor="middle" font-size="' + (value != null ? 17 : 12) + '" font-weight="800" fill="#f2f6f8">' + (value != null ? value : kind) + "</text></svg>";
   }
   function cardPic(slug, cls) { return '<img class="tu-card ' + (cls || "") + '" alt="" src="' + img(slug) + '">'; }
-  function back(cls) { return '<img class="tu-card ' + (cls || "") + '" alt="" src="img/backside.webp">'; }
+  function back(cls) { return '<img class="tu-card ' + (cls || "") + '" alt="" src="' + tcgAsset("img/backside.webp") + '">'; }
   function arrow(label) { return '<div class="tu-arrow"><span>' + (label || "") + "</span></div>"; }
   function tag(text, cls) { return '<span class="tu-tag ' + (cls || "") + '">' + text + "</span>"; }
   function pin(n, x, y) { return '<i class="tu-pin" style="left:' + x + "%;top:" + y + '%">' + n + "</i>"; }

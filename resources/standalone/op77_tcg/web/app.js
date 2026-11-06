@@ -21,7 +21,7 @@
   };
   var TIER_NAME = { 1: "Common", 2: "Uncommon", 3: "Rare", 4: "Epic", 5: "Top tier", 6: "Secret" };
   function rc(card) { return "var(" + (RARITY[card.rarity] || "--r-common") + ")"; }
-  function img(card) { return "img/cards/" + card.id + ".webp"; }
+  function img(card) { return tcgAsset("img/cards/" + card.id + ".webp"); }
 
   var catalogue = [], byId = {};
   var state = { owned: {}, population: {}, sealed: {}, dust: 0, dustPlus: 0, shops: [], prices: {}, freeIn: 0, paid: false };
@@ -37,9 +37,9 @@
     return out;
   }
   var SEALED = {
-    wnc: { label: "Welcome to Night City", art: "img/ui/booster_wnc.webp", kind: "booster" },
-    beta: { label: "Beta Edition", art: "img/ui/booster_beta.webp", kind: "booster" },
-    box: { label: "Booster Display", art: "img/ui/box_retail.webp", kind: "box", contains: "wnc", count: 24 }
+    wnc: { label: "Welcome to Night City", art: tcgAsset("img/ui/booster_wnc.webp"), kind: "booster" },
+    beta: { label: "Beta Edition", art: tcgAsset("img/ui/booster_beta.webp"), kind: "booster" },
+    box: { label: "Booster Display", art: tcgAsset("img/ui/box_retail.webp"), kind: "box", contains: "wnc", count: 24 }
   };
   var RECYCLE = [0, 5, 10, 25, 60, 150, 400], PRINT = [0, 40, 80, 200, 500, 1600], SECRET_PLUS = 3;
 
@@ -200,7 +200,7 @@
       if (!n) return;
       any = true;
       var p = el("div", "product");
-      p.innerHTML = '<div class="art"><img src="' + SEALED[k].art + '" alt=""></div><h4>' + SEALED[k].label + '</h4><div class="n">x' + n + '</div>';
+      p.innerHTML = '<div class="art"><img src="' + SEALED[k].art + '" alt="" loading="lazy" decoding="async"></div><h4>' + SEALED[k].label + '</h4><div class="n">x' + n + '</div>';
       var b = el("div", "buttons");
       var open = el("button", "primary", SEALED[k].kind === "box" ? "Cut the wrap" : "Open a pack");
       open.onclick = function () {
@@ -232,7 +232,7 @@
       if (!state.paid && SEALED[k].kind !== "booster") return;
       var row = el("div", "row");
       var price = state.paid ? ((state.prices || {})[k] || 0) + " €$" : (state.freeIn > 0 ? "next free pack in " + Math.ceil(state.freeIn / 60) + " min" : "Free pack ready");
-      row.innerHTML = '<img src="' + SEALED[k].art + '" alt=""><div class="grow"><b>' + SEALED[k].label + '</b><br><small>' + price + '</small></div>';
+      row.innerHTML = '<img src="' + SEALED[k].art + '" alt="" loading="lazy" decoding="async"><div class="grow"><b>' + SEALED[k].label + '</b><br><small>' + price + '</small></div>';
       var b = el("button", "primary", state.paid ? "Buy" : "Take");
       b.disabled = !state.paid && state.freeIn > 0;
       b.onclick = function () { emit("tcg:buy", { product: k }); };
@@ -244,7 +244,7 @@
     dupes.forEach(function (c) {
       var n = state.owned[c.id] - 1, v = RECYCLE[c.tier] * n; total += v;
       var it = el("div", "item");
-      it.innerHTML = '<img src="' + img(c) + '" alt=""><div class="grow">' + escapeHtml(c.name) + '<small>' + c.rarity + ' &middot; ' + n + ' spare &middot; +' + v + ' Dust</small></div>';
+      it.innerHTML = '<img src="' + img(c) + '" alt="" loading="lazy" decoding="async"><div class="grow">' + escapeHtml(c.name) + '<small>' + c.rarity + ' &middot; ' + n + ' spare &middot; +' + v + ' Dust</small></div>';
       var b = el("button", "", "Recycle"); b.onclick = function () { emit("tcg:recycle", { id: c.id, count: n }); };
       it.appendChild(b); rl.appendChild(it);
     });
@@ -259,7 +259,7 @@
     catalogue.filter(function (c) { return !(state.owned[c.id] > 0) && (!q || c.name.toLowerCase().indexOf(q) >= 0); }).slice(0, 80).forEach(function (c) {
       var dust = c.tier === 6 ? 0 : PRINT[c.tier], plus = c.tier === 6 ? SECRET_PLUS : 0;
       var it = el("div", "item");
-      it.innerHTML = '<img src="' + img(c) + '" alt=""><div class="grow">' + escapeHtml(c.name) + '<small>' + c.rarity + ' &middot; ' + c.finish + ' &middot; ' +
+      it.innerHTML = '<img src="' + img(c) + '" alt="" loading="lazy" decoding="async"><div class="grow">' + escapeHtml(c.name) + '<small>' + c.rarity + ' &middot; ' + c.finish + ' &middot; ' +
         (plus ? plus + " Dust+" : dust + " Dust") + '</small></div>';
       var b = el("button", "", "Print");
       b.disabled = (state.dust || 0) < dust || (state.dustPlus || 0) < plus;
@@ -405,7 +405,7 @@
   })();
 
   var op = null;
-  var PACK_ART = { wnc: "img/ui/pack_wnc.webp", beta: "img/ui/pack_beta.webp" };
+  var PACK_ART = { wnc: tcgAsset("img/ui/pack_wnc.webp"), beta: tcgAsset("img/ui/pack_beta.webp") };
   function color(c) { return getComputedStyle(document.documentElement).getPropertyValue(RARITY[c.rarity] || "--r-common").trim() || "#ffffff"; }
   function hint(html) { var h = $("openingHint"); h.innerHTML = html; h.style.animation = "none"; void h.offsetWidth; h.style.animation = ""; }
   function centre() { var r = $("stage").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
@@ -592,7 +592,7 @@
       d.style.setProperty("--rc", rc(c));
       d.style.translate = (i * 0.8) + "px " + (i * -1.2) + "px";
       d.style.animationDelay = ((n - 1 - i) * 0.03) + "s";
-      d.innerHTML = '<div class="glow"></div><div class="cflip"><div class="side back"><img src="img/backside.webp" alt=""></div></div>';
+      d.innerHTML = '<div class="glow"></div><div class="cflip"><div class="side back"><img src="' + tcgAsset("img/backside.webp") + '" alt="" decoding="async"></div></div>';
       var front = el("div", "side front");
       front.appendChild(cardNode(c));
       if (op.fresh.charAt(i) === "1") front.appendChild(el("div", "stamp", "NEW"));

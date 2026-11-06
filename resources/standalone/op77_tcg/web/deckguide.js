@@ -12,9 +12,9 @@
   function lang() { return window.TCGTUTO ? window.TCGTUTO.lang() : "en"; }
   function L(o) { return o ? (o[lang()] || o.en) : ""; }
   function el(tag, cls, html) { var n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
-  function img(slug) { return window.TCGDUEL && window.TCGDUEL.cardImg ? window.TCGDUEL.cardImg(slug) : "img/backside.webp"; }
+  function img(slug) { return window.TCGDUEL && window.TCGDUEL.cardImg ? window.TCGDUEL.cardImg(slug) : tcgAsset("img/backside.webp"); }
   function card(slug, cls) { return '<img class="tu-card ' + (cls || "") + '" alt="" src="' + img(slug) + '">'; }
-  function back(cls) { return '<img class="tu-card ' + (cls || "") + '" alt="" src="img/backside.webp">'; }
+  function back(cls) { return '<img class="tu-card ' + (cls || "") + '" alt="" src="' + tcgAsset("img/backside.webp") + '">'; }
   function fr() { return lang() === "fr"; }
 
   var COLOURS = { Red: "#ff3d4a", Green: "#3fd28c", Blue: "#2fa4ff", Yellow: "#fcee09" };

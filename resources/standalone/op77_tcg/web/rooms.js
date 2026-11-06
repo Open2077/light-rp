@@ -54,7 +54,7 @@
     } else {
       h += '<div class="rm-section"><span class="rm-kicker">OPEN A ROOM</span></div><div class="rm-styles">';
       styles.forEach(function (s) {
-        h += '<button class="rm-style" data-style="' + esc(s.id) + '"><span class="rm-shot" style="background-image:url(img/rooms/' + esc(s.id) + '.jpg)"><i class="rm-tag-' + esc(s.id) + '"></i></span>' +
+        h += '<button class="rm-style" data-style="' + esc(s.id) + '"><span class="rm-shot" style="background-image:url(' + tcgAsset("img/rooms/" + esc(s.id) + ".jpg") + ')"><i class="rm-tag-' + esc(s.id) + '"></i></span>' +
           "<b>" + esc(s.label) + "</b><small>" + esc(s.blurb) + '</small><span class="rm-go">Open this room</span></button>';
       });
       h += '</div><div class="rm-section"><span class="rm-kicker">JOIN YOUR FRIENDS</span></div>' +
