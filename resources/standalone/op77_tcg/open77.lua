@@ -9,7 +9,7 @@
 -- Assets: the Cyberpunk TCG Collectibles mod (Nexus 34654) archives, repacked into four preload packages
 -- (tools/build-assets.ps1). Server data: data/tcg.db (SQLite). Admin: ACL command.tcg.* (give, card, dust, shop).
 resource "op77_tcg"
-version "1.0.0"
+version "1.1.0"
 open77_version ">=0.0.1"
 auto_start true
 -- The client owns a WebUI surface: a live reload would leave a stale one.
@@ -37,6 +37,7 @@ server_script "server/rooms.lua"
 client_script "client/main.lua"
 client_script "client/duel.lua"
 client_script "client/rooms.lua"
+client_script "client/welcome.lua"
 
 web_ui_page "web/index.html"
 web_ui_auto_create false
@@ -64,4 +65,7 @@ permissions {
     -- server: the private rooms' host behind the counter, and taking players down to their room / back up
     "world.npcs",
     "players.teleport",
+    -- client: the NEON DECK welcome waits for the loading screen and the game's menus to be gone
+    "screen.read",
+    "session.menus",
 }

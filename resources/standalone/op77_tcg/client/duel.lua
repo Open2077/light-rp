@@ -266,6 +266,9 @@ local function setOverlay(on)
     if on then K.show(true) elseif not K.isOpen() then K.release() end
 end
 
+-- In a duel (seating or playing): nothing else opens over it on its own (client/welcome.lua).
+K.inMatch = function() return match ~= nil end
+
 -- Seated at a duel table, the binder stays closed (client/main.lua asks): decks are built before a duel.
 K.binderBlocked = function() return seated() == true end
 

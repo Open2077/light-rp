@@ -1,0 +1,259 @@
+/* The NEON DECK welcome (web/welcome.js), in the Open//77 RP design system (ui/src/design/tokens.css): one yellow
+   accent, near-black chamfered panels, Chakra Petch, Share Tech Mono labels, mechanical motion. Scoped to #welcome. */
+@font-face { font-family: "Chakra Petch"; font-weight: 400; font-display: swap; src: url(./fonts/chakra-petch-400-latin.woff2) format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 500; font-display: swap; src: url(./fonts/chakra-petch-500-latin.woff2) format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 600; font-display: swap; src: url(./fonts/chakra-petch-600-latin.woff2) format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-display: swap; src: url(./fonts/chakra-petch-700-latin.woff2) format("woff2"); }
+@font-face { font-family: "Share Tech Mono"; font-weight: 400; font-display: swap; src: url(./fonts/share-tech-mono-400-latin.woff2) format("woff2"); }
+@font-face { font-family: "Zen Dots"; font-weight: 400; font-display: swap; src: url(./fonts/zen-dots-400-latin.woff2) format("woff2"); }
+
+#welcome {
+  --o77-black: #050506; --o77-ink-900: #0A0A0C; --o77-ink-800: #111114; --o77-ink-700: #17181C; --o77-ink-600: #202127;
+  --o77-ink-500: #2B2D34; --o77-ink-400: #3A3D46; --o77-ink-300: #565A66; --o77-ink-200: #8A8F9C; --o77-ink-100: #C3C7D1;
+  --o77-white: #F2F3F5; --accent: #FFCC00; --accent-hover: #FFDD40; --accent-press: #C99A00; --accent-deep: #241B00;
+  --accent-quiet: rgba(255, 204, 0, .12); --accent-quiet-strong: rgba(255, 204, 0, .22);
+  --line-hairline: rgba(255, 204, 0, .14); --line-soft: rgba(255, 204, 0, .28); --o77-cyan: #3FE0D0;
+  --font-display: "Zen Dots", "Chakra Petch", "Bahnschrift", sans-serif;
+  --font-core: "Chakra Petch", "Bahnschrift", "Segoe UI", sans-serif;
+  --font-mono: "Share Tech Mono", "Cascadia Mono", "Consolas", monospace;
+  --ease-mech: cubic-bezier(.2, .9, .1, 1);
+  --cut: 18px;
+  position: fixed; inset: 0; z-index: 120; display: grid; place-items: center;
+  font-family: var(--font-core); color: var(--o77-ink-100); user-select: none;
+}
+#welcome.hidden { display: none; }
+#welcome .mono { font-family: var(--font-mono); }
+
+.tw-scrim { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(10, 10, 12, .62), rgba(4, 4, 6, .9));
+  backdrop-filter: blur(10px) saturate(.6); animation: twFade .35s ease-out both; }
+#welcome.leaving .tw-scrim { animation: twFadeOut .28s ease-in both; }
+
+/* ------------------------------------------------------------------------------------------------- the card */
+.tw-card { position: relative; width: 1120px; height: 640px; display: grid; grid-template-rows: auto 1fr auto;
+  background: linear-gradient(180deg, rgba(23, 24, 28, .97), rgba(10, 10, 12, .98));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .72), 0 0 0 1px rgba(255, 204, 0, .28), 0 0 60px rgba(255, 204, 0, .06);
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  animation: twIn .62s var(--ease-mech) both; overflow: hidden; }
+#welcome.leaving .tw-card { animation: twOut .28s ease-in both; }
+/* hairline frame + grid + scanlines */
+.tw-card::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .55;
+  background: linear-gradient(rgba(255, 204, 0, .05) 1px, transparent 1px) 0 0 / 24px 24px,
+              linear-gradient(90deg, rgba(255, 204, 0, .05) 1px, transparent 1px) 0 0 / 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse at 70% 40%, #000 0%, transparent 70%); mask-image: radial-gradient(ellipse at 70% 40%, #000 0%, transparent 70%); }
+.tw-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: overlay;
+  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px); }
+/* the corner tabs: yellow cut on the top left, hazard tick on the bottom right */
+.tw-corner { position: absolute; top: 0; left: 0; width: 64px; height: 4px; background: var(--accent); z-index: 3; }
+.tw-corner.b { top: auto; left: auto; right: 0; bottom: 0; width: 120px; height: 6px;
+  background: repeating-linear-gradient(45deg, var(--accent) 0 8px, var(--o77-black) 8px 16px); opacity: .85; }
+/* the scan line that sweeps the card when it opens and at each step */
+.tw-sweep { position: absolute; left: 0; right: 0; top: -30%; height: 30%; pointer-events: none; z-index: 4;
+  background: linear-gradient(180deg, transparent, rgba(255, 204, 0, .08) 70%, rgba(255, 204, 0, .35) 98%, transparent);
+  animation: twSweep .9s var(--ease-mech) both; }
+
+/* ------------------------------------------------------------------------------------------------- header */
+.tw-head { position: relative; z-index: 2; display: flex; align-items: center; gap: 12px; height: 54px; padding: 0 22px 0 30px;
+  border-bottom: 1px solid var(--line-hairline); background: linear-gradient(90deg, var(--accent-quiet), transparent 55%); }
+.tw-led { width: 8px; height: 8px; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: twBlink 1.8s steps(2, jump-none) infinite; }
+.tw-tag { font: 400 13px/1 var(--font-mono); letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
+.tw-tag i { font-style: normal; color: var(--o77-ink-200); }
+.tw-count { margin-left: auto; font: 400 13px/1 var(--font-mono); letter-spacing: .18em; color: var(--o77-ink-200); }
+.tw-count b { color: var(--o77-white); font-weight: 400; }
+.tw-x { width: 34px; height: 34px; margin-left: 8px; border: 1px solid var(--o77-ink-400); background: transparent; color: var(--o77-ink-200);
+  font: 400 20px/1 var(--font-core); cursor: pointer; transition: color .15s, border-color .15s, background .15s;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.tw-x:hover { color: var(--o77-black); background: var(--accent); border-color: var(--accent); }
+
+/* ------------------------------------------------------------------------------------------------- body */
+.tw-body { position: relative; z-index: 2; display: grid; grid-template-columns: 236px 1fr; min-height: 0; }
+.tw-rail { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 26px 0 0; border-right: 1px solid var(--line-hairline);
+  background: linear-gradient(180deg, rgba(5, 5, 6, .55), rgba(5, 5, 6, .2)); }
+.tw-rail button { position: relative; display: grid; grid-template-columns: 44px 1fr; align-items: center; height: 58px; padding: 0 18px 0 26px;
+  border: 0; background: transparent; text-align: left; cursor: pointer; color: var(--o77-ink-300); transition: color .2s, background .2s; }
+.tw-rail button .n { font: 400 13px/1 var(--font-mono); letter-spacing: .1em; }
+.tw-rail button .l { font: 600 14px/1.15 var(--font-core); letter-spacing: .08em; text-transform: uppercase; }
+.tw-rail button:hover { color: var(--o77-ink-100); background: rgba(255, 255, 255, .025); }
+.tw-rail button.done { color: var(--o77-ink-200); }
+.tw-rail button.done .n { color: var(--accent-press); }
+.tw-rail button.on { color: var(--o77-white); background: linear-gradient(90deg, var(--accent-quiet-strong), transparent); }
+.tw-rail button.on .n { color: var(--accent); }
+/* the marker that slides to the current step */
+.tw-mark { position: absolute; top: 0; left: 0; width: 3px; height: 58px; background: var(--accent); box-shadow: 0 0 14px rgba(255, 204, 0, .6);
+  transition: transform .45s var(--ease-mech); }
+.tw-rail-foot { margin-top: auto; padding: 18px 26px 22px; font: 400 11px/1.5 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--o77-ink-300); }
+.tw-rail-foot b { color: var(--o77-ink-100); font-weight: 400; }
+
+.tw-stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 34px; padding: 30px 40px 18px 40px; min-height: 0; overflow: hidden; }
+.tw-copy { position: relative; min-width: 0; }
+.tw-kicker { display: flex; align-items: center; gap: 10px; font: 400 12px/1 var(--font-mono); letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
+.tw-kicker::after { content: ""; flex: 0 0 64px; height: 1px; background: linear-gradient(90deg, var(--line-soft), transparent); }
+.tw-copy h2 { margin: 12px 0 12px; font: 700 34px/1.05 var(--font-core); letter-spacing: .02em; text-transform: uppercase; color: var(--o77-white); }
+.tw-copy h2 em { font-style: normal; color: var(--accent); text-shadow: 0 0 12px rgba(255, 204, 0, .45); }
+.tw-lead { margin: 0 0 16px; font: 400 16px/1.5 var(--font-core); color: var(--o77-ink-100); max-width: 560px; }
+.tw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.tw-list li { position: relative; display: grid; grid-template-columns: 26px 1fr; gap: 8px; font: 400 14.5px/1.45 var(--font-core); color: var(--o77-ink-100); }
+.tw-list li::before { content: ""; width: 9px; height: 9px; margin: 6px 0 0 6px; background: var(--accent);
+  clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.tw-list li b { color: var(--o77-white); font-weight: 600; }
+.tw-list li .dim { color: var(--o77-ink-200); }
+.tw-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 0; }
+.tw-tabs span { padding: 5px 10px 6px; font: 600 12px/1 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--o77-ink-100);
+  background: var(--o77-ink-700); box-shadow: inset 0 0 0 1px var(--o77-ink-500); }
+kbd.tw-k, .tw-copy kbd { display: inline-block; min-width: 26px; padding: 2px 7px 3px; margin: 0 2px; font: 400 13px/1.2 var(--font-mono); text-align: center;
+  color: var(--o77-black); background: var(--accent); box-shadow: 0 2px 0 var(--accent-press);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px); }
+.tw-cmd { font: 400 13.5px/1 var(--font-mono); color: var(--accent); background: var(--accent-deep); padding: 2px 6px; box-shadow: inset 0 0 0 1px var(--line-hairline); }
+.tw-callout { position: relative; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; margin-top: 16px; padding: 14px 16px 14px 14px;
+  background: linear-gradient(90deg, var(--accent-quiet-strong), var(--accent-quiet) 60%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent); font: 400 14.5px/1.45 var(--font-core); color: var(--o77-white);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+.tw-callout svg { width: 30px; height: 30px; color: var(--accent); }
+.tw-callout b { color: var(--accent); font-weight: 700; }
+.tw-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.tw-block { padding: 12px 14px 13px; background: rgba(5, 5, 6, .45); box-shadow: inset 0 0 0 1px var(--o77-ink-500); }
+.tw-block h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font: 700 14px/1.1 var(--font-core); letter-spacing: .12em; text-transform: uppercase; color: var(--o77-white); }
+.tw-block h3 svg { width: 16px; height: 16px; color: var(--accent); }
+.tw-block p { margin: 0; font: 400 14px/1.45 var(--font-core); color: var(--o77-ink-100); }
+
+/* the staggered entrance of a step: each [data-i] line comes in after the previous one */
+.tw-in { opacity: 0; animation: twRise .5s var(--ease-mech) both; animation-delay: calc(80ms + var(--i, 0) * 55ms); }
+.tw-out .tw-copy, .tw-out .tw-visual { animation: twLeave .2s ease-in both; }
+.tw-back .tw-in { animation-name: twRiseBack; }
+
+/* ------------------------------------------------------------------------------------------------- the visuals */
+.tw-visual { position: relative; display: grid; place-items: center; min-height: 0; }
+.tw-visual .frame { position: relative; width: 340px; height: 400px; display: grid; place-items: center;
+  background: radial-gradient(ellipse at 50% 55%, rgba(255, 204, 0, .10), transparent 65%); }
+.tw-visual .frame::before { content: ""; position: absolute; inset: 0; border: 1px solid var(--line-hairline);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%); }
+.tw-visual .tick { position: absolute; width: 14px; height: 14px; border: 2px solid var(--accent); }
+.tw-visual .tick.tl { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.tw-visual .tick.br { right: 12px; bottom: -1px; border-left: 0; border-top: 0; }
+.tw-visual .cap { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font: 400 11px/1 var(--font-mono); letter-spacing: .22em; text-transform: uppercase; color: var(--o77-ink-200); }
+
+/* 1: three cards fanned out */
+.tw-fan { position: relative; width: 300px; height: 300px; }
+.tw-fan img, .tw-fan .ph { position: absolute; left: 50%; top: 50%; width: 140px; height: 196px; margin: -112px 0 0 -70px; object-fit: cover; border-radius: 7px;
+  background: var(--o77-ink-700); box-shadow: 0 18px 40px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .06);
+  transform-origin: 50% 120%; animation: twDeal .8s var(--ease-mech) both; }
+.tw-fan :nth-child(1) { --r: -12deg; --x: -58px; animation-delay: .15s; }
+.tw-fan :nth-child(2) { --r: 12deg; --x: 58px; animation-delay: .25s; }
+.tw-fan :nth-child(3) { --r: 0deg; --x: 0px; animation-delay: .35s; z-index: 2; }
+.tw-fan :nth-child(3) { box-shadow: 0 18px 40px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 204, 0, .6), 0 0 28px rgba(255, 204, 0, .35); }
+.tw-logo { position: absolute; left: 0; right: 0; margin: 0 auto; bottom: 46px; height: 46px; filter: drop-shadow(0 0 12px rgba(255, 204, 0, .25));
+  animation: twRise .6s var(--ease-mech) .5s both; }
+
+/* 2: the sealed products floating */
+.tw-sealed { position: relative; width: 320px; height: 320px; }
+.tw-sealed img { position: absolute; object-fit: contain; filter: drop-shadow(0 16px 26px rgba(0, 0, 0, .75)); animation: twPop .7s var(--ease-mech) both, twFloat 4s ease-in-out infinite; }
+.tw-sealed .box { width: 190px; left: 120px; top: 70px; animation-delay: .1s, .8s; }
+.tw-sealed .wnc { width: 118px; left: 18px; top: 40px; transform: rotate(-8deg); animation-delay: .2s, 1.2s; }
+.tw-sealed .beta { width: 108px; left: 64px; top: 150px; transform: rotate(6deg); animation-delay: .3s, 1.6s; }
+.tw-chip { position: absolute; padding: 4px 8px 5px; font: 400 11px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--o77-black); background: var(--accent); animation: twRise .5s var(--ease-mech) .6s both;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%); }
+
+/* 3: the F1 key and the player menu */
+.tw-menu { width: 270px; padding: 0 0 8px; background: rgba(10, 10, 12, .92); box-shadow: 0 0 0 1px var(--line-soft), 0 18px 40px rgba(0, 0, 0, .6);
+  animation: twSlide .6s var(--ease-mech) .35s both; }
+.tw-menu .mh { padding: 10px 14px 9px; background: var(--accent); color: var(--o77-black); }
+.tw-menu .mh b { display: block; font: 400 16px/1 var(--font-display); letter-spacing: .04em; }
+.tw-menu .mh small { font: 400 10px/1 var(--font-mono); letter-spacing: .22em; }
+.tw-menu .ms { padding: 9px 14px 4px; font: 400 10px/1 var(--font-mono); letter-spacing: .22em; color: var(--o77-ink-300); }
+.tw-menu .mi { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 14px; font: 500 13px/1 var(--font-core); color: var(--o77-ink-200); }
+.tw-menu .mi svg { width: 14px; height: 14px; }
+.tw-menu .mi.on { color: var(--o77-black); background: var(--accent); font-weight: 700; animation: twSelect .5s steps(3, end) .9s both; }
+.tw-f1 { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: -18px; }
+.tw-f1 .chev { width: 22px; height: 22px; color: var(--accent); animation: twRise .4s var(--ease-mech) .3s both; }
+.tw-keycap { position: relative; z-index: 2; display: grid; place-items: center; width: 74px; height: 70px;
+  font: 400 26px/1 var(--font-display); color: var(--o77-black); background: var(--accent);
+  box-shadow: 0 6px 0 var(--accent-press), 0 0 30px rgba(255, 204, 0, .45);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  animation: twPop .5s var(--ease-mech) .1s both, twPress 2.4s ease-in-out 1.2s infinite; }
+
+/* 4: the two lent decks */
+.tw-decks { display: grid; gap: 14px; width: 300px; }
+.tw-deck { position: relative; display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: center; padding: 10px;
+  background: rgba(5, 5, 6, .6); box-shadow: inset 0 0 0 1px var(--o77-ink-500); animation: twSlide .6s var(--ease-mech) both;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+.tw-deck:nth-child(2) { animation-delay: .15s; }
+.tw-deck .pic { position: relative; width: 92px; height: 128px; }
+.tw-deck .pic img, .tw-deck .pic i { position: absolute; inset: 0; width: 92px; height: 128px; object-fit: cover; border-radius: 5px; background: var(--o77-ink-700);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .6); }
+.tw-deck .pic i { transform: translate(6px, -5px) rotate(5deg); background: linear-gradient(160deg, #2b2d34, #111114); box-shadow: 0 0 0 1px var(--o77-ink-400); }
+.tw-deck b { display: block; font: 700 17px/1.1 var(--font-core); letter-spacing: .04em; text-transform: uppercase; color: var(--o77-white); }
+.tw-deck small { display: block; margin-top: 5px; font: 400 12.5px/1.35 var(--font-core); color: var(--o77-ink-200); }
+.tw-deck .lent { display: inline-block; margin-top: 9px; padding: 3px 8px 4px; font: 400 11px/1 var(--font-mono); letter-spacing: .2em; color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--line-soft); }
+
+/* 5: a private room and its code */
+.tw-room { position: relative; width: 320px; height: 210px; background: #0b0f18 center / cover no-repeat;
+  box-shadow: 0 0 0 1px var(--line-soft), 0 18px 40px rgba(0, 0, 0, .6); animation: twSlide .6s var(--ease-mech) .1s both;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%); }
+.tw-room::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5, 5, 6, .7), transparent 35%, transparent 60%, rgba(5, 5, 6, .6)); }
+.tw-room span { position: absolute; left: 12px; top: 12px; z-index: 1; font: 400 11px/1 var(--font-mono); letter-spacing: .2em; color: var(--o77-ink-100); }
+.tw-code { position: relative; margin-top: -26px; margin-left: 120px; z-index: 2; padding: 10px 16px 12px; background: var(--accent); color: var(--o77-black);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .55); animation: twPop .5s var(--ease-mech) .45s both;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+.tw-code small { display: block; font: 400 10px/1 var(--font-mono); letter-spacing: .22em; }
+.tw-code b { display: block; margin-top: 4px; font: 400 30px/1 var(--font-display); letter-spacing: .14em; }
+.tw-code b i { font-style: normal; display: inline-block; animation: twType .3s steps(2, end) both; }
+.tw-tut { display: flex; align-items: center; gap: 10px; margin-top: 18px; padding: 10px 12px; width: 300px; background: rgba(5, 5, 6, .6);
+  box-shadow: inset 0 0 0 1px var(--o77-ink-500); animation: twRise .5s var(--ease-mech) .7s both; }
+.tw-tut svg { width: 26px; height: 26px; color: var(--accent); flex: none; }
+.tw-tut b { display: block; font: 700 13px/1.1 var(--font-core); letter-spacing: .1em; text-transform: uppercase; color: var(--o77-white); }
+.tw-tut small { font: 400 12px/1.3 var(--font-core); color: var(--o77-ink-200); }
+
+/* ------------------------------------------------------------------------------------------------- footer */
+.tw-foot { position: relative; z-index: 2; display: flex; align-items: center; gap: 12px; height: 72px; padding: 0 24px 0 30px; border-top: 1px solid var(--line-hairline);
+  background: rgba(5, 5, 6, .55); }
+.tw-progress { display: flex; gap: 5px; }
+.tw-progress i { position: relative; width: 44px; height: 4px; background: var(--o77-ink-500); overflow: hidden; }
+.tw-progress i::after { content: ""; position: absolute; inset: 0; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform .45s var(--ease-mech); }
+.tw-progress i.on::after { transform: scaleX(1); }
+.tw-keys { margin-left: 18px; font: 400 12px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--o77-ink-300); }
+.tw-keys kbd { display: inline-block; padding: 2px 5px 3px; margin: 0 2px; font: 400 11px/1 var(--font-mono); color: var(--o77-ink-100); background: transparent; border-radius: 0; box-shadow: inset 0 0 0 1px var(--o77-ink-400); }
+.tw-spacer { flex: 1; }
+.tw-btn { position: relative; height: 44px; padding: 0 24px; border: 0; font: 700 14px/1 var(--font-core); letter-spacing: .14em; text-transform: uppercase; cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s, transform .1s;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+.tw-btn:active { transform: translateY(1px); }
+.tw-btn.primary { min-width: 168px; background: var(--accent); color: var(--o77-black); box-shadow: 0 0 0 1px rgba(255, 204, 0, .35), 0 0 18px rgba(255, 204, 0, .18); }
+.tw-btn.primary:hover { background: var(--accent-hover); box-shadow: 0 0 0 1px rgba(255, 204, 0, .6), 0 0 28px rgba(255, 204, 0, .35); }
+.tw-btn.primary svg { width: 16px; height: 16px; margin-left: 10px; vertical-align: -3px; transition: transform .2s var(--ease-mech); }
+.tw-btn.primary:hover svg { transform: translateX(4px); }
+.tw-btn.ghost { background: transparent; color: var(--o77-ink-100); box-shadow: inset 0 0 0 1px var(--o77-ink-400); }
+.tw-btn.ghost:hover { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tw-btn.alt { background: var(--accent-deep); color: var(--accent); box-shadow: inset 0 0 0 1px var(--line-soft); }
+.tw-btn.alt:hover { background: var(--accent-quiet-strong); }
+.tw-btn[disabled] { opacity: .3; pointer-events: none; }
+
+/* ------------------------------------------------------------------------------------------------- the reopen button in the rooms panel */
+.rm-guide { margin-left: auto; margin-right: 8px; padding: 6px 12px 7px; border: 0; cursor: pointer; font: 700 11px/1 "Bahnschrift", "Segoe UI", sans-serif;
+  letter-spacing: .14em; text-transform: uppercase; color: #fcee0a; background: transparent; box-shadow: inset 0 0 0 1px rgba(252, 238, 10, .45); }
+.rm-guide:hover { color: #00000f; background: #fcee0a; }
+.rm-head .rm-guide + .rm-x { margin-left: 0; }
+
+/* ------------------------------------------------------------------------------------------------- motion */
+@keyframes twFade { from { opacity: 0; } }
+@keyframes twFadeOut { to { opacity: 0; } }
+@keyframes twIn { 0% { opacity: 0; transform: translateY(22px) scale(.97); clip-path: polygon(var(--cut) 0, var(--cut) 0, var(--cut) 100%, var(--cut) 100%, 0 100%, 0 var(--cut)); }
+                  60% { opacity: 1; } }
+@keyframes twOut { to { opacity: 0; transform: translateY(10px) scale(.985); } }
+@keyframes twSweep { from { transform: translateY(0); } to { transform: translateY(440%); } }
+@keyframes twBlink { 50% { opacity: .35; } }
+@keyframes twRise { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes twRiseBack { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+@keyframes twLeave { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes twDeal { from { opacity: 0; transform: translate(0, 60px) rotate(0deg) scale(.9); }
+                    to { opacity: 1; transform: translate(var(--x), 0) rotate(var(--r)); } }
+@keyframes twPop { from { opacity: 0; transform: scale(.8) translateY(14px); } }
+@keyframes twFloat { 50% { translate: 0 -8px; } }
+@keyframes twSlide { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes twSelect { 0% { background: transparent; color: var(--o77-ink-200); } 100% { background: var(--accent); color: var(--o77-black); } }
+@keyframes twPress { 0%, 70%, 100% { translate: 0 0; box-shadow: 0 6px 0 var(--accent-press), 0 0 30px rgba(255, 204, 0, .45); }
+                     78% { translate: 0 5px; box-shadow: 0 1px 0 var(--accent-press), 0 0 40px rgba(255, 204, 0, .7); } }
+@keyframes twType { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) {
+  #welcome *, #welcome *::before, #welcome *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+}

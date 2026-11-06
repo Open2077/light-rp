@@ -119,6 +119,19 @@ check(last("state", 2)["sealed"]["beta"] == 2, "beta packs given by export")
 coll = L.eval("exported.getCollection")(1)
 check(coll["editions"] > 0 and coll["totalEditions"] == 320, "export getCollection")
 
+# The NEON DECK welcome (client/welcome.lua): "seen" is per collector, in tcg.db, and the state says it.
+check(last("state", 2)["welcomed"] is False, "a new collector has not seen the welcome")
+fire("op77_tcg:seen", 2, "welcome")
+check(con.execute("SELECT count(*) FROM tcg_seen WHERE identifier = 'id-2' AND what = 'welcome'").fetchone()[0] == 1, "welcome seen: stored")
+fire("op77_tcg:seen", 2, "welcome")
+check(con.execute("SELECT count(*) FROM tcg_seen").fetchone()[0] == 1, "seen twice: one row")
+fire("op77_tcg:seen", 2, "anything")
+check(con.execute("SELECT count(*) FROM tcg_seen").fetchone()[0] == 1, "an unknown flag is ignored")
+fire("op77_tcg:state", 2)
+check(last("state", 2)["welcomed"] is True, "the state says the welcome was seen")
+fire("op77_tcg:state", 1)
+check(last("state", 1)["welcomed"] is False, "another collector still has it to see")
+
 # Client: the pack-request lock is a local declared before the handlers that clear it (a later `local` made the
 # opening handler clear a global instead: "The server did not answer" 20 s after every pack, live 2026-11-05).
 src = (pathlib.Path(__file__).resolve().parent.parent / "client" / "main.lua").read_text(encoding="utf-8").splitlines()
@@ -126,4 +139,4 @@ decl = next(i for i, x in enumerate(src) if x.startswith("local pendingOpen"))
 first = next(i for i, x in enumerate(src) if "pendingOpen" in x.split("--")[0])
 check(first == decl, f"client/main.lua: pendingOpen declared (line {decl + 1}) before its first use (line {first + 1})")
 print(f"PASS: op77_tcg server ({checks[0]} checks: starter, opening persisted before reveal + witnesses + relay, shop, "
-      "recycle, print, free pack cooldown, display box, trade, show/place/pickup, exports)")
+      "recycle, print, free pack cooldown, display box, trade, show/place/pickup, exports, welcome seen)")

@@ -480,6 +480,11 @@ local PAGE_ACTIONS = {
 TcgClient = {
     log = log, me = me, notify = notify, uikit = uikit, send = send, here = here, forward = forward, right = right,
     isOpen = function() return isOpen end,
+    -- The page answered ui:ready (a send before that is dropped); the server's last state (nil until it arrives);
+    -- a pack of mine still opening (client/welcome.lua waits for all three).
+    ready = function() return pageReady end,
+    state = function() return state end,
+    busy = function() return packBusy() end,
     -- A page action (page -> client); registered on the page now if it already exists.
     on = function(name, fn)
         PAGE_ACTIONS[name] = fn

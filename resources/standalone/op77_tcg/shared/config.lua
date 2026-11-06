@@ -92,4 +92,21 @@ TcgConfig = {
     -- The binder opens with this chat command (no key: a gamemode adds its own entry, LightRP its F1 menu),
     -- or from another resource with TriggerEvent("op77_tcg:openBinder", tab).
     command = "tcgbinder",
+
+    -- The NEON DECK welcome (client/welcome.lua, web/welcome.js): a short guide the page shows once per collector
+    -- (per character with a framework) when they walk up to the vendor; "seen" is kept in tcg.db (tcg_seen).
+    -- Reopen it with /tcgwelcome or the "How NEON DECK works" button of the private rooms panel.
+    welcome = {
+        enabled = true,
+        -- The NEON DECK clerk behind the checkout counter (op77_lightrp server/config/shops.lua, tcgshop_neon_deck).
+        anchor = { x = -814.12, y = 933.52, z = 12.14 },
+        radius = 4.5,        -- metres on the ground, around the clerk
+        height = 2.5,        -- and at most this far above / below (the private rooms are 8 m under the shop)
+        checkMs = 500,       -- how often the client looks (one distance test, nothing per frame)
+        settleMs = 1500,     -- the player stays this long in range before it opens (not just walking past)
+        command = "tcgwelcome",
+        -- How the binder opens, as the guide words it. LightRP: the F1 player menu, entry "TCG binder".
+        -- nil: only the chat command (/tcgbinder).
+        binder = { key = "F1", menu = "player menu", entry = "TCG binder" },
+    },
 }
