@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Dogtown: the open PvP zone of Light RP (server/config/dogtown.lua; the owner's
 -- rules of 2026-11-03).
 --
@@ -795,7 +797,10 @@ end
 function D.sweep(force)
     local t = now()
     local list = {}
-    for _, raw in ipairs(GetPlayers()) do
+    -- every 500 ms over every player: a dozen per pass (shared instruction quota)
+    local yieldable = coroutine.isyieldable()
+    for index, raw in ipairs(GetPlayers()) do
+        if yieldable and index % 12 == 0 then Wait(0) end
         local player = pid(raw)
         if player then
             D.locate(player)
@@ -821,7 +826,8 @@ function D.sweep(force)
         bountyRefreshAt = t + int(B().refreshMs, 3000)
         refreshBounties()
     end
-    for _, raw in ipairs(GetPlayers()) do
+    for index, raw in ipairs(GetPlayers()) do
+        if yieldable and index % 12 == 0 then Wait(0) end
         local player = pid(raw)
         if player then D.push(player) end
     end
@@ -1798,7 +1804,7 @@ CreateThread(function()
         if player then mapCall("removeBlip", "srv:" .. RESOURCE .. ":" .. BOUNTY_PREFIX .. tostring(player)) end
     end
     D.refreshBoard(true)
-    while true do
+    lightrpEvery(Config.sweepMs or 500, function()
         local called, err = pcall(D.sweep)
         if not called then
             local t = now()
@@ -1813,8 +1819,8 @@ CreateThread(function()
         local Inv = LightRP.inventory
         for id in pairs(bags) do if not (Inv and Inv.get and Inv.get(id)) then bags[id] = nil end end
         if t - board.at >= ((Config.stats or {}).refreshMs or 60000) then pcall(D.refreshBoard) end
-        Wait(Config.sweepMs or 500)
-    end
+        
+    end, "dogtown:1793")
 end)
 
 -- Everything this module put in the world goes with it: scopes, teams, bounty pins, bags.
@@ -1838,3 +1844,6 @@ end)
 
 LightRP.log("dogtown: PvP zone %s, polygon of %d points (%s), stake %s, %d exit(s)", enabled and "ON" or "OFF", polygon and #polygon or 0, polygonSource,
     money(int(S().minCash, 0)), #D.exits())
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("dogtown.evicting", short, nil, "evicting")

@@ -179,19 +179,90 @@ function LightRP.broadcastState(keys)
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- Living with the instruction quota. Past it the host kills whichever task is running,
+-- through any pcall (2026-11-06, ~90 players). Two consequences, two tools:
+--
+-- LightRP.every(ms, fn, name[, busyMs]): a periodic job that survives a killed run. The
+-- next run is scheduled before this one starts (a `while true` thread dies with its first
+-- killed pass), and a run still going (fn may Wait) is not doubled: a newer run skips
+-- until it ends, or until `busyMs` (30 s) proves it was killed.
+function LightRP.every(ms, fn, name, busyMs)
+    ms = tonumber(ms) or 1000 -- never a tight loop on a missing setting
+    local busyUntil = 0
+    local function step()
+        SetTimeout(ms, step)
+        local now = LightRP.nowMs()
+        if now < busyUntil then return end
+        busyUntil = now + (busyMs or 30000)
+        local ok, err = pcall(fn)
+        busyUntil = 0
+        if not ok then LightRP.log("%s failed: %s", tostring(name or "periodic job"), tostring(err)) end
+    end
+    if type(SetTimeout) == "function" then SetTimeout(ms, step) end
+end
+
+-- LightRP.expireFlags(name, table, maxMs[, field]) / LightRP.expireFlag(name, isSet, clear, maxMs):
+-- a flag a killed task set and never cleared ("busy", "settling", a lock...) blocked its
+-- player, shop, garage or the whole server until a restart. Every 5 s each watched flag
+-- is sampled; one seen set at EVERY sample for maxMs (60 s by default; real operations
+-- hold them for milliseconds) is released and logged. `field`: the flag is t[key][field].
+local watchedFlags = {}
+function LightRP.expireFlags(name, tbl, maxMs, field)
+    watchedFlags[#watchedFlags + 1] = { name = name, tbl = tbl, maxMs = maxMs or 60000, field = field, seen = {} }
+end
+function LightRP.expireFlag(name, isSet, clear, maxMs)
+    watchedFlags[#watchedFlags + 1] = { name = name, isSet = isSet, clear = clear, maxMs = maxMs or 60000 }
+end
+local FLAG_SAMPLE_MS = 5000
+local function sweepFlags()
+    local now = LightRP.nowMs()
+    for _, w in ipairs(watchedFlags) do
+        if w.tbl then
+            local seen = {}
+            for key, value in pairs(w.tbl) do
+                local on
+                if w.field == nil then on = value else on = type(value) == "table" and value[w.field] end
+                if on then
+                    -- continuous only if it was also set at the previous sample
+                    local since = w.seen[key] or now
+                    if now - since >= w.maxMs then
+                        if w.field == nil then w.tbl[key] = nil else value[w.field] = nil end
+                        LightRP.log("stale flag %s[%s] released after %d s (the task holding it never finished)", w.name, tostring(key), math.floor((now - since) / 1000))
+                    else
+                        seen[key] = since
+                    end
+                end
+            end
+            w.seen = seen
+        else
+            local ok, on = pcall(w.isSet)
+            if ok and on then
+                w.since = w.since or now
+                if now - w.since >= w.maxMs then
+                    pcall(w.clear)
+                    LightRP.log("stale flag %s released after %d s (the task holding it never finished)", w.name, math.floor((now - w.since) / 1000))
+                    w.since = nil
+                end
+            else
+                w.since = nil
+            end
+        end
+    end
+end
+LightRP.every(FLAG_SAMPLE_MS, sweepFlags, "stale flag sweep")
+LightRP.sweepStaleFlags = sweepFlags -- tests
+
 -- Who is online changed (join, leave, rename): one coalesced push at most every
 -- 1.5 s from its own thread, never inside the connect/disconnect handlers.
 local onlineDirty = false
 function LightRP.onlineChanged() onlineDirty = true end
-if type(CreateThread) == "function" then CreateThread(function()
-    while true do
-        Wait(1500)
-        if onlineDirty then
-            onlineDirty = false
-            LightRP.broadcastState({ "server", "online" })
-        end
+LightRP.every(1500, function()
+    if onlineDirty then
+        onlineDirty = false
+        LightRP.broadcastState({ "server", "online" })
     end
-end) end
+end, "online list push")
 
 
 -- ---------------------------------------------------------------------------

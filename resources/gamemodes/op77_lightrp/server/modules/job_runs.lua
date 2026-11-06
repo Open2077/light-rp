@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Private, server-authoritative work orders. The client reports only an attempt
 -- token and its outcome: it cannot select locations, durations or rewards.
 local C, E, Db = LightRpJobRuns, LightRpEvents, LightRP.db
@@ -497,4 +499,9 @@ function Runs.tick()
         end
     end
 end
-CreateThread(function() while true do Wait(250); Runs.tick() end end)
+CreateThread(function() lightrpEvery(250, function()  Runs.tick() end, "job_runs:500") end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("job_runs.starting", starting)
+expireFlags("job_runs.run.busy", runs, nil, "busy")
+expireFlags("job_runs.accessBusy", accessBusy)

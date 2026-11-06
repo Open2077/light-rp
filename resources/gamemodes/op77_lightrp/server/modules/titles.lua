@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Prestige titles: a closed catalogue (server/config/titles.lua), earned from
 -- sources the server already trusts (reputation, mission clears, raid reports,
 -- world bosses, paid activity results, contracts, the Hall of Fame), stored per
@@ -434,14 +435,14 @@ end
 
 -- Reputation also comes from activities and world bosses: a light periodic check.
 CreateThread(function()
-    while true do
-        Wait(60000)
+    lightrpEvery(60000, function()
+        
         pcall(T.crownDogtown)
         for _, raw in ipairs(GetPlayers()) do
             local id = tonumber(raw)
             if id and keyOf(id) and loaded[keyOf(id)] then pcall(T.sync, id) end
         end
-    end
+    end, "titles:436")
 end)
 
 -- ---------------------------------------------------------------------------

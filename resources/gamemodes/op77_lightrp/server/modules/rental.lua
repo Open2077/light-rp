@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Vehicle rental. Rental desks are NPCs placed around the city, each with its
 -- own stock and prices. A player walks up (proximity interaction, E), picks a
 -- vehicle and a way to pay, and the car is delivered on the desk's parking spot
@@ -217,8 +218,8 @@ function Rental.onDisconnected(playerId) endRental(playerId, "disconnect") end
 function Rental.onCharacterSwitched(playerId) endRental(playerId, "switch") end
 
 CreateThread(function()
-    while true do
-        Wait(10000)
+    lightrpEvery(10000, function()
+        
         local now = LightRP.nowMs()
         for playerId, r in pairs(rentals) do
             if now >= r.expiresAt then
@@ -228,7 +229,7 @@ CreateThread(function()
                 end
             end
         end
-    end
+    end, "rental:219")
 end)
 
 local REASONS = {

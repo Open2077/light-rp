@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Fixer gigs: the fixers (server-side characters, server/config/fixers.lua) text
 -- online players jobs taken at random from the gig catalogue (authored missions
 -- tagged "Fixer gig" in the mission editor: no board in the city, nobody tags in).
@@ -660,8 +661,8 @@ end
 
 CreateThread(function()
     local nextDispatch = now() + (C.dispatch.firstDelaySeconds or 180) * 1000
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         local t = now()
         local ok, err = pcall(tick, t)
         if not ok then log("fixers: tick failed: %s", tostring(err)) end
@@ -670,7 +671,7 @@ CreateThread(function()
             ok, err = pcall(dispatch, t)
             if not ok then log("fixers: dispatch failed: %s", tostring(err)) end
         end
-    end
+    end, "fixers:661")
 end)
 
 -- ---------------------------------------------------------------------------

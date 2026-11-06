@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Blackjack table handler (see the contract in tabletop_extra.lua). The rules
 -- in shared/casino_blackjack.lua decide the hands; this file binds stakes to
 -- character inventories, seeds the shoe and turns settled hands into durable
@@ -151,11 +152,11 @@ function B.dealerTick(now)
 end
 CreateThread(function()
  Wait(1000) -- let the platform finish its own start-up before the world gets NPCs
- while true do
+ lightrpEvery(TICK, function()
   local ok,why=pcall(B.dealerTick,X.now())
   if not ok then LightRP.log("blackjack dealer tick failed: %s",tostring(why)) end
-  Wait(TICK)
- end
+  
+ end, "casino_blackjack:152")
 end)
 AddEventHandler("onResourceStop",function(name)
  if name~=GetCurrentResourceName() then return end

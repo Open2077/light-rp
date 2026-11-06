@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Each dwelling owns its bucket. Keys, money, storage and every spatial check
 -- are authoritative; the page submits IDs/revisions, never prices or positions.
 local C, S, Db = LightRpHousing, LightRP.housingStore, LightRP.db
@@ -185,8 +187,13 @@ function H.homes(player)
     return out
 end
 LightRP.stateProvider("homes",function(player) return H.homes(player) end)
+-- Each build scans every property (thousands with starter flats): a few players per pass.
 function H.syncHomes()
-    for _,id in ipairs(GetPlayers()) do id=tonumber(id);if id and character(id) then LightRP.state(id,"homes") end end
+    local yieldable=coroutine.isyieldable()
+    for index,id in ipairs(GetPlayers()) do
+        id=tonumber(id);if id and character(id) then LightRP.state(id,"homes") end
+        if yieldable and index%4==0 then Wait(0) end
+    end
 end
 
 function H.open(player, admin)
@@ -570,13 +577,16 @@ function H.onLifeState(player,phase)
     if phase=="dead" then forget(player,true) end
 end
 CreateThread(function()
-    while true do
-        Wait(2000)
+    lightrpEvery(2000, function()
+        
         if H.available() then
+            local sentLists=0
             for _,id in ipairs(GetPlayers()) do
                 local at=Open77.players.position(id)
                 if at and at.bucket==0 and S.distance(at,streamedFrom[id])>C.entranceRefreshDistance then
                     streamedFrom[id]=S.clone(at);LightRP.sendInteractions(id)
+                    -- a whole list build per mover (drivers): two per pass
+                    sentLists=sentLists+1;if sentLists%2==0 then Wait(0) end
                 end
             end
             for _,row in pairs(S.properties) do
@@ -593,7 +603,7 @@ CreateThread(function()
                 end
             end
         end
-    end
+    end, "housing:572")
 end)
 AddEventHandler("onResourceStop",function(name)
     if name~=GetCurrentResourceName() then return end
@@ -609,3 +619,6 @@ end)
 -- No /housing: F1 > My homes opens the menu, and its Leave entry also ends a stuck transfer.
 LightRP.command("housingadmin",{},function(player) return H.open(player,true) end)
 LightRP.admin.handlers.housing=H.handle
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlag("housing.writing", function() return writing end, function() writing = false; writingPlayers = {} end)

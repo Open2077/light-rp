@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Durable ownership is separate from a live network entity. SQL never stores a
 -- runtime vehicle ID; it stores where the vehicle is: `stored` (at garage_id),
 -- `out` (in the world) or `impound`. A vehicle still `out` when the server starts
@@ -844,8 +846,8 @@ assert(places[C.defaultGarage], "Unknown default personal garage")
 -- automatic retry when SQL was temporarily down. Never respawn a world entity.
 CreateThread(function()
     local elapsed = 0
-    while true do
-        Wait(2000); elapsed = elapsed + 2000
+    lightrpEvery(2000, function()
+         elapsed = elapsed + 2000
         if Db.ready and not loaded then Garage.onDatabaseReady() end
         for id, row in pairs(edits) do
             if row.edit.closeRequested or not editGuard(id, row) then Garage.endCustomization(id, row.edit.token) end
@@ -866,7 +868,7 @@ CreateThread(function()
                 end
             end
         end
-    end
+    end, "garages:845")
 end)
 LightRP.command("garage", {}, function(id)
     for _, place in pairs(places) do if guard(id, place) then return Garage.open(id, place.id) end end
@@ -893,3 +895,9 @@ LightRP.command("lightrp.givevehicle", { restricted = true, usage = "/lightrp.gi
     local ok, result = Garage.grant(target, args[2], args[3])
     return ok, ok and ("Personal vehicle granted: " .. result) or result
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("garages.place.busy", places, nil, "busy")
+expireFlags("garages.vehicle.busy", rows, nil, "busy")
+expireFlags("garages.ownerBusy", ownerBusy)
+expireFlag("garages.loading", function() return loading end, function() loading = false end, 120000)

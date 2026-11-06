@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 local S,G,Db=LightRP.safezones,LightRpSafezoneGeometry,LightRP.db
 local NET="op77_lightrp:safezones"
 local sessions,lastRequest,sequence={},{},0
@@ -116,13 +117,13 @@ LightRP.command("safezones",{restricted=true},function(player)
 end)
 AddEventHandler("onPlayerDisconnected",function(raw) local player=tonumber(raw);sessions[player]=nil;lastRequest[player]=nil end)
 CreateThread(function()
-    while true do
+    lightrpEvery(2000, function()
         local expired={}
         for player,s in pairs(sessions) do
             local p,bucket=position(player)
             if now()>s.expires or not S.allowed(player,"edit") or not p or bucket~=s.bucket or G.distance(p,s.anchor)>G.AUTHOR_RADIUS then expired[#expired+1]=player end
         end
         for _,player in ipairs(expired) do S.invalidate(player,"Your editing session expired or your position/access changed.") end
-        Wait(2000)
-    end
+        
+    end, "safezones_admin:118")
 end)

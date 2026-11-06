@@ -1,3 +1,4 @@
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- The Maneki-neko collection: lucky cats hidden by the staff around Night City
 -- (server/config/maneki.lua, docs/maneki.md).
 --
@@ -727,3 +728,6 @@ CreateThread(function()
         loadedSpots = true; log("maneki: no database, cats placed now last this session only")
     end
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("maneki.busy", busy)

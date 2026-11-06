@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Dealership demonstration cars (LightRpDealerships.displays): server-owned
 -- vehicles parked on their podium, locked for everyone, frozen in place and
 -- indestructible. Nobody holds their keys, so nobody can open or drive them. A
@@ -44,10 +45,10 @@ end
 
 CreateThread(function()
     Wait(1000)
-    while true do
+    lightrpEvery(15000, function()
         Showroom.refresh()
-        Wait(15000)
-    end
+        
+    end, "showroom:45")
 end)
 
 AddEventHandler("onResourceStop", function(name)

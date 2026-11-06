@@ -1,3 +1,4 @@
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Money. Cash is the zero-weight inventory item `cash`; wallet.cash is only a
 -- compatibility projection. Each active character also owns a bank
 -- account numbered XXX-XXX (letters and digits, no O/I/0/1 so it can be read
@@ -330,7 +331,12 @@ local function load(playerId, c)
     if c == nil or c.status ~= "active" then return nil end
     if not Db.ready or not Inv or not Inv.player(playerId) then return nil end
     local owner = tostring(c.identifier) .. "#" .. c.key
-    while settling[owner] do Wait(10) end
+    -- bounded: a settle killed by the instruction quota never clears its flag
+    local waited = 0
+    while settling[owner] do
+        if waited >= 20000 then LightRP.log("wallet %s settling for 20 s (its task died): released", owner); settling[owner] = nil; break end
+        Wait(10); waited = waited + 10
+    end
     local w, reason
     if Db.ready and c.identifier then
         local read, rows = Db.read("SELECT account_number, owner_name, cash, bank FROM lightrp_wallets WHERE identifier = ? AND character_key = ?", { c.identifier, c.key })
@@ -389,6 +395,8 @@ function Money.onCharacterActivated(playerId, c)
 end
 
 function Money.onDisconnected(playerId) unload(playerId) end
+-- Whether the wallet is loaded (characters.lua reloads one a killed task never read).
+function Money.loaded(playerId) return wallets[playerId] ~= nil end
 
 function Money.onDatabaseReady()
     for _, id in ipairs(GetPlayers()) do
@@ -868,3 +876,7 @@ end)
 
 LightRP.log("economy ready: %s starting cash, %s in the bank, pay range %.0f m",
     Money.format(Config.startingCash or 0), Money.format(Config.startingBank or 0), Config.payRange or 6)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("economy.settling", settling)
+expireFlags("economy.wallet.busy", wallets, nil, "busy")

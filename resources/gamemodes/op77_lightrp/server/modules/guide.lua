@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- The guide NPC of The Crossing: Johnny Silverhand, who has an answer to
 -- everything (server/config/guide.lua). E at his feet ("Talk to Johnny") or ALT +
 -- click on him opens the guide dialog of the page (ui/src/features/guide/): a
@@ -1095,13 +1096,13 @@ CreateThread(function()
     end
     Guide.spawn()
     -- He is invulnerable, but a cleanup or a lost body brings him back.
-    while true do
-        Wait(60000)
+    lightrpEvery(60000, function()
+        
         if Guide.npcId and type(Open77.npcs.get) == "function" then
             local ok, snapshot = pcall(Open77.npcs.get, Guide.npcId)
             if ok and snapshot == nil then LightRP.log("guide: NPC %s is gone, respawning", tostring(Guide.npcId)); Guide.npcId = nil; Guide.spawn() end
         end
-    end
+    end, "guide:1088")
 end)
 
 -- ---------------------------------------------------------------------------

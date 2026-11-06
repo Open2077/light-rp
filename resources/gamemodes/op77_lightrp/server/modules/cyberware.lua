@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Cyberware: what each character has under the skin, bought and installed at a ripperdoc
 -- (op77_ripperdoc, opened from a ripperdoc chair by server/modules/ripperdoc.lua).
 --
@@ -990,8 +992,8 @@ end
 -- Body, bucket and session changes invalidate session grants on the platform side: every 10 s
 -- whatever an implant should grant and is missing is granted again.
 CreateThread(function()
-    while true do
-        Wait(10000)
+    lightrpEvery(10000, function()
+        
         for playerId, st in pairs(state) do
             if not st.granting and not st.suspended and alive(playerId) then
                 for _, kind in ipairs(GRANTS) do
@@ -1007,7 +1009,7 @@ CreateThread(function()
                 end
             end
         end
-    end
+    end, "cyberware:992")
 end)
 
 AddEventHandler("onResourceStop", function(name)
@@ -1094,3 +1096,8 @@ RegisterCommand("lightrp.cyberware", function(src, args)
         reply(("cyberware %s %s for %d"):format(verb, item.id, target))
     end)
 end, true)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("cyberware.busy", state, nil, "busy")
+expireFlags("cyberware.drawing", state, nil, "drawing")
+expireFlags("cyberware.granting", state, nil, "granting")
