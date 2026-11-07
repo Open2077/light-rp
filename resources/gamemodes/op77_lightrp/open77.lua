@@ -133,6 +133,7 @@ server_script "server/config/vehicle_kit.lua"      -- Auto Studio rims + body ki
 server_script "server/config/vehicle_kit_trims.lua" -- stock names each curated trim adds to the kit's hide lists
 server_script "server/modules/garages.lua"
 server_script "server/config/vehicle_customization.lua"
+server_script "server/config/vehicle_stage_catalogue.lua" -- per-record stage prices + engine sound counts (generated, Open77 make_stages.py)
 server_script "server/modules/vehicle_customization.lua"
 server_script "server/config/dealerships.lua"
 server_script "server/modules/dealerships.lua"

@@ -18,6 +18,22 @@ local removal = assert(LightRP.money.validAmount(P.performanceRemoval), "Invalid
 for model, list in pairs(P.performance or {}) do
     for stage = 1, C.stages.max do assert(LightRP.money.validAmount(list[stage]), "Invalid stage price: " .. model) end
 end
+-- Every vanilla player car and bike the stage pack stages, by record
+-- (server/config/vehicle_stage_catalogue.lua, generated with the pack): a catalogue key in
+-- P.performance keeps its curated prices, any other model is priced by its record.
+local STAGED = type(LightRpVehicleStageCatalogue) == "table" and type(LightRpVehicleStageCatalogue.models) == "table"
+    and LightRpVehicleStageCatalogue.models or {}
+for record, entry in pairs(STAGED) do
+    for stage = 1, C.stages.max do
+        assert(LightRP.money.validAmount(type(entry.prices) == "table" and entry.prices[stage]), "Invalid generated stage price: " .. record)
+    end
+end
+local function stagePrices(model, record)
+    local list = (P.performance or {})[model]
+    if type(list) == "table" then return list end
+    local entry = STAGED[LightRpConfig.baseRecord(record)]
+    return entry and entry.prices or nil
+end
 local SAVED = {
     paint = "Paint purchased and saved to your vehicle.",
     lights = "Light tint purchased and saved to your vehicle.",
@@ -559,7 +575,7 @@ local OFFER = {
         return entry
     end,
     performance = function(entry, state)
-        local list = (P.performance or {})[state.model]
+        local list = stagePrices(state.model, state.record)
         if not native("respawnAs") then return entry, C.unsupported.native end
         if type(list) ~= "table" then return entry, C.unsupported.performance end
         if not running(C.stages.resource) then return entry, C.unsupported.stagesPack end
@@ -958,10 +974,11 @@ local function quote(change, s, confirmed)
         end
         return prices.body * math.max(1, changed)
     elseif change.category == "performance" then
-        local current, list = stageOf(confirmed), P.performance[s.model]
+        -- the stage prices this session offered (curated per catalogue key, else per record)
+        local current, offered = stageOf(confirmed), s.categories.performance.options.stages
         if change.stage <= current then return removal end
         local sum = 0
-        for stage = current + 1, change.stage do sum = sum + list[stage] end
+        for stage = current + 1, change.stage do sum = sum + offered[stage + 1].price end
         return sum
     end
     return prices[change.category]
