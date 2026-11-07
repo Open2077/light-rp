@@ -761,11 +761,12 @@ close()
 store(hella);packs.lightrp_vehicle_stages=nil;reboot()
 car=retrieve(hella)
 assert(world[car].record==HELLA and logged("stage records offline") and saved(hella).lightrp.stage==1,"stage kept dormant while its records are offline")
-m=open(hella)
+m=open(hella);assert(m.confirmed.stage==0 and saved(hella).lightrp.stage==1,"the page shows the stock car, not the dormant stage")
 assert(category(m,"performance").available==false and category(m,"performance").reason==C.unsupported.stagesPack)
 reply=issue("save",{category="performance",stage=2},"bank");assert(not reply.ok and reply.text==C.unsupported.stagesPack)
 close();store(hella);packs.lightrp_vehicle_stages="running";reboot()
 car=retrieve(hella);assert(world[car].record==HELLA.."_o77s1","the stage is worn again once its records are back")
+m=open(hella);assert(m.confirmed.stage==1,"the page shows the stage the car wears again");close()
 
 -- 10. Greying: packs, natives and models that cannot take a category.
 packs.lightrp_vk_rims=nil;packs.lightrp_vk_body=nil

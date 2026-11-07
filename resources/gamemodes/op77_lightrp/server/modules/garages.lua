@@ -754,8 +754,9 @@ function Garage.customizationState(playerId, token)
     local row = edits[playerId]
     if not row or row.edit.token ~= token then return nil end
     local saved = row.edit.saved
+    -- vehicleId and the stock record let the studio tell a fitted stage from a dormant one.
     local state = { paint = copy(saved.paint), lightsHue = saved.paint.lightsHue, appearance = look(saved.appearance),
-        visual = copy(saved.visual), lightrp = copy(saved.lightrp) }
+        visual = copy(saved.visual), lightrp = copy(saved.lightrp), vehicleId = row.vehicleId, record = row.record }
     for _, name in ipairs(extraOrder) do EXTRA[name].owns(state, saved) end
     return state
 end

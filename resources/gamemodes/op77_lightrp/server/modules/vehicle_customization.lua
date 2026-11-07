@@ -645,13 +645,26 @@ local function offer(state)
     end
     return list
 end
+-- The stage the car runs on. A stored stage whose record is offline (the stages resource
+-- stopped) spawns the car stock and stays dormant, and a car taken out while it was
+-- offline stays stock until it is respawned: the page must not claim either as fitted.
+local function fittedStage(state)
+    local stage = stageOf(state)
+    if stage <= 0 then return 0 end
+    local wanted = stageRecord(state.record, stage)
+    if not wanted then return 0 end
+    local live = state.vehicleId and Open77.vehicles.get(state.vehicleId)
+    local record = type(live) == "table" and live.record
+    if type(record) == "string" and record ~= wanted then return 0 end
+    return stage
+end
 -- The confirmed look as the page reads it (plus the phase-1 paint/lights/trim fields).
 local function view(state)
     if not state then return nil end
     local visual = type(state.visual) == "table" and state.visual or {}
     local out = { paint = copy(state.paint), lightsHue = state.lightsHue, appearance = state.appearance,
         profile = visual.profile or "", plate = type(state.lightrp) == "table" and state.lightrp.plate or "",
-        stage = stageOf(state), body = {}, windows = "" }
+        stage = fittedStage(state), body = {}, windows = "" }
     for _, level in ipairs(C.windows.levels) do if level.level == visual.tint then out.windows = level.id end end
     local neon = visual.neon
     if type(neon) == "table" and neon.enabled ~= false then
