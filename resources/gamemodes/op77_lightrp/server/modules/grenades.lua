@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Inventory owns every grenade; native gadgets are an exact, disposable projection.
 local W,Inv,Db,C=LightRP.armament,LightRP.inventory,LightRP.db,LightRpGrenades.items
 local G={states={},internal={}}
@@ -198,7 +199,7 @@ LightRP.module("grenades",{onDisconnected=function(player)lastRequest[player]=ni
  onLifeState=function(player)G.push(player)end,onCharacterLoaded=function(player)G.push(player)end,
  onDatabaseReady=function()LightRP.log("grenades ready: 9 finite charge kits; gadget stack sizes are not throw counts")end})
 CreateThread(function()
- while true do
+ lightrpEvery(500, function()
   for _,id in ipairs(GetPlayers())do
    local player=tonumber(id);local rt=runtime(player)
    -- an activity's own kit owns the native slots: no RP grenade projection over it
@@ -209,6 +210,6 @@ CreateThread(function()
     elseif rt.grenade.ready and rt.grenade.projected then G.start(player,"observe")end
    end
   end
-  Wait(500)
- end
+  
+ end, "grenades:200")
 end)

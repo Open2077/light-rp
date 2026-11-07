@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 local S,G=LightRP.safezones,LightRpSafezoneGeometry
 local NET="op77_lightrp:safezones"
 local buckets,arbiter={},nil
@@ -112,13 +113,13 @@ LightRP.module("safezones",{
     onDisconnected=function(player) lastPresence[player]=nil end,
 })
 CreateThread(function()
-    while true do
+    lightrpEvery(500, function()
         for index,raw in ipairs(GetPlayers()) do
             S.presence(tonumber(raw))
             if index%8==0 then Wait(0) end -- a few players per tick (shared instruction quota)
         end
-        Wait(500)
-    end
+        
+    end, "safezones:114")
 end)
 AddEventHandler("onResourceStop",function(name)
     if name~=GetCurrentResourceName() then return end

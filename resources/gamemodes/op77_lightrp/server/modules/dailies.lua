@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Daily and weekly contracts: three daily contracts (Street, Action, Shift), a
 -- crew contract and a weekly one, told by the city's fixers. Content and rules:
 -- docs/dailies-titles.md; numbers: server/config/dailies.lua.
@@ -281,12 +283,18 @@ D.available = available
 -- (Roadside) a car that actually needs help.
 
 local social = C.social or {}
+-- Asked for every player of every sample (players x players at ~90): counted once a second.
+local onlineCount, onlineCountAt, onlineCountOf = 0, -1e9, -1
 local function onlineAccounts()
+    local t, present = now(), #GetPlayers()
+    if t - onlineCountAt < 1000 and present == onlineCountOf then return onlineCount end
+    onlineCountOf = present
     local seen, n = {}, 0
     for _, id in ipairs(players()) do
         local a = accountOf(id)
         if a and not seen[a] then seen[a] = true; n = n + 1 end
     end
+    onlineCount, onlineCountAt = n, t
     return n
 end
 local function crowded() return onlineAccounts() >= (tonumber(social.minAccounts) or 4) end
@@ -1877,8 +1885,8 @@ D.forget = forget
 
 CreateThread(function()
     local lastSample, lastForget, lastDay = now(), now(), today()
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         local t = now()
         local ok, err = pcall(D.flush)
         if not ok then LightRP.log("dailies: flush failed: %s", tostring(err)) end
@@ -1893,5 +1901,9 @@ CreateThread(function()
             for _, id in ipairs(players()) do push(id) end
         end
         if t - lastForget >= 600000 then lastForget = t; pcall(forget) end
-    end
+    end, "dailies:1877")
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("dailies.busy", busy)
+expireFlags("dailies.loading", loading)

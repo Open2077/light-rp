@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 local C, Db, E = LightRpDealerships, LightRP.db, LightRpEvents
 local Dealer = LightRP.module("dealership", {})
 local locations, sessions, opening = {}, {}, {}
@@ -164,12 +166,15 @@ CreateThread(function()
     end
 end)
 CreateThread(function()
-    while true do
-        Wait(2000)
+    lightrpEvery(2000, function()
+        
         for id,session in pairs(sessions) do
             if not guard(id,session.place) or session.owner~=identity(id) or LightRP.nowMs()>session.expires then
                 TriggerClientEvent(E.net.dealership,id,{session=session.id,closed=true});sessions[id]=nil
             else send(id,session) end
         end
-    end
+    end, "dealerships:166")
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("dealerships.opening", opening)

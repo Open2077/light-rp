@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Server-side owner of the page's `server` state key and of the periodic push:
 -- name, population, version. Everything else comes from the module that owns it.
 local Config = LightRpConfig
@@ -25,8 +26,8 @@ end
 LightRP.action("menu.close", function() end) -- the client closes locally; nothing to do here
 
 CreateThread(function()
-    while true do
-        Wait(Config.statePushMs)
+    lightrpEvery(Config.statePushMs, function()
+        
         LightRP.broadcastState({ "server" })
-    end
+    end, "ui:27")
 end)

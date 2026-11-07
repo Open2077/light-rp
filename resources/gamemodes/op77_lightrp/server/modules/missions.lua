@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Missions, the entry half (The Division style). A mission point in the city
 -- opens its board: pick a difficulty, then tag in. Entry is by crew
 -- (server/modules/parties.lua): the crew leader tags the whole crew in, a member
@@ -1217,8 +1218,8 @@ end
 
 -- Countdowns, wanderers and clocks.
 CreateThread(function()
-    while true do
-        Wait(500)
+    lightrpEvery(500, function()
+        
         local t = now()
         for _, lobby in pairs(lobbies) do
             local point = points[lobby.point]
@@ -1252,7 +1253,7 @@ CreateThread(function()
                 viewers[id] = nil
             end
         end
-    end
+    end, "missions:1219")
 end)
 
 -- ---------------------------------------------------------------------------

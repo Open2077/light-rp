@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Staff events (/admin > Events, /lightrp.event): the staff launch world events where they
 -- want, on the world boss engine (server/modules/world_bosses.lua), and chain them into
 -- event nights. Config: server/config/staff_events.lua.
@@ -703,13 +704,13 @@ if LightRP.admin and LightRP.admin.handlers then
 end
 
 CreateThread(function()
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         if night then
             local ok, err = pcall(nightTick)
             if not ok then log("event night: tick failed: %s", tostring(err)) end
         end
-    end
+    end, "staff_events:705")
 end)
 
 -- ---------------------------------------------------------------------------

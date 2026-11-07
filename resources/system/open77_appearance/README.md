@@ -140,6 +140,16 @@ This fixes the join blocker caused by the head option `0x0731d84e0d92820c`
 affected players; this Lua fix does not require a client DLL rebuild or SQL
 migration. Data already deleted by a workaround cannot be reconstructed by it.
 
+### A mismatch no longer locks the player out (0.3.3)
+
+When the restore verification finds values that differ but the mirror did capture the player
+(at least one stored option matched), the failure is no longer latched. Before, such a player was
+never announced in game and the wardrobe and editor refused to open ("appearance still settling";
+18 players in 6 h on LightRP Testing, 2026-11-07). The client now keeps what the game shows, tells
+the player to check it in the wardrobe or the editor, and carries on; their next save rewrites the
+record. An empty or failed capture (`restore_failed`, `could not be captured`) still latches, since
+that is the case where the native mirror may still be open.
+
 ## Custom clothing (0.3.0)
 
 Resource-owned `Open77.clothing.register` declarations extend the built-in catalogue. Use a shared script for matching server/client metadata. Unknown client records remain rejected; temporarily unavailable stored mod items are preserved and hidden until their provider returns. See [the custom clothing API](../../../wiki/custom-clothing.md).

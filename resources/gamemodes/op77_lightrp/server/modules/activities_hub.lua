@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- The Crossing: the activities hub on the Westbrook esplanade where newcomers
 -- arrive (server/config/activities.lua). A terminal beside the arrival point
 -- opens the Activities panel (with its map pin); its Contracts tab lists the
@@ -109,8 +110,8 @@ CreateThread(function()
     if not C.enabled then return end
     Wait(900) -- after the platform's start-up, like Johnny and the desks
     Hub.spawnHosts()
-    while true do
-        Wait(60000)
+    lightrpEvery(60000, function()
+        
         for _, terminal in ipairs(H.terminals) do
             local id = Hub.hosts[terminal.id]
             if id and type(Open77.npcs.get) == "function" then
@@ -121,7 +122,7 @@ CreateThread(function()
                 end
             end
         end
-    end
+    end, "activities_hub:108")
 end)
 
 function Hub.onInteract(playerId, pointId)

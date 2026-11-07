@@ -1,3 +1,4 @@
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- The scene owns an isolated bucket and its environment, never the shared city.
 -- Clients request only lifecycle changes: the server selects every world value.
 local Config = LightRpConfig.characters.arrivalScene
@@ -140,3 +141,6 @@ AddEventHandler("onResourceStop", function(name)
     local ids = {}; for player in pairs(sessions) do ids[#ids+1] = player end
     for _, player in ipairs(ids) do Creator.stop(player) end
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("creator.preparing", sessions, nil, "preparing")

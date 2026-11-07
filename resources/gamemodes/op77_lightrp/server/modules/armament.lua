@@ -1,3 +1,5 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- RP ownership is durable; the client's native loadout is a replaceable projection.
 local W,C,Db,Inv=LightRP.armament,LightRpArmament,LightRP.db,LightRP.inventory
 local NET="op77_lightrp:armament"
@@ -968,13 +970,13 @@ for name in pairs(C.weapons) do Inv.onUse(name,function(player,item)
     LightRP.notice(player,{kind="error",title="Equipment",body=why});return false
 end) end
 CreateThread(function()
-    while true do
+    lightrpEvery(2000, function()
         for player,rt in pairs(W.runtime) do
             local s=W.states[rt.inventory]
             if current(rt) and s and s.right and rt.ready and not rt.busy and alive(player) then W.synchronize(player,true) end
         end
-        Wait(2000)
-    end
+        
+    end, "armament:970")
 end)
 -- This gate authorizes known RP firearm damage; it does not count shots. The
 -- native cache remains client-reported and is never used to mint ammunition.
@@ -1025,3 +1027,6 @@ end
 AddEventHandler("onResourceStop",function(name)
     if name==GetCurrentResourceName() and arbiter and Open77.combat.offDamage then Open77.combat.offDamage(arbiter) end
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("armament.busy", W.runtime, nil, "busy")

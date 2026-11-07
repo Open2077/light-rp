@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 local G, C = LightRP.garage, LightRpVehicleCustomization
 local Custom = LightRP.module("vehicleCustomization", {})
 local NET = LightRpEvents.net.customization
@@ -1072,12 +1073,12 @@ function Custom.onDisconnected(id) close(id) end
 function Custom.onCharacterLoaded(id) close(id) end
 function Custom.onLifeState(id, phase) if phase ~= "alive" then close(id) end end
 CreateThread(function()
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         for id, s in pairs(sessions) do
             if LightRP.nowMs() > s.expires or not G.customizationValid(id, s.id) then close(id) end
         end
-    end
+    end, "vehicle_customization:77")
 end)
 
 function Custom.onInteract(id, point)

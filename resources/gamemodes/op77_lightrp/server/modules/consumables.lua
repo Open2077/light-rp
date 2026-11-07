@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Timed, authoritative consumption. No inventory mutation until completion.
 -- Pending tickets are session-only and never survive disconnect/resource stop.
 local E = LightRpEvents.net
@@ -101,12 +102,12 @@ AddEventHandler("open77:playerDamaged", function(victim, _, amount)
     if a and a.phase ~= "committing" and (tonumber(amount) or 0) > 0 then clear(player, a, false) end
 end)
 CreateThread(function()
-    while true do
-        Wait(250)
+    lightrpEvery(250, function()
+        
         for player, a in pairs(pending) do
             if a.phase ~= "committing" and (now() > a.expires or not valid(player, a)) then clear(player, a, false) end
         end
-    end
+    end, "consumables:103")
 end)
 AddEventHandler("onResourceStop", function(name)
     if name ~= GetCurrentResourceName() then return end

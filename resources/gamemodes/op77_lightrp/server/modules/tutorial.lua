@@ -1,3 +1,4 @@
+local expireFlags, expireFlag = LightRP.expireFlags or function() end, LightRP.expireFlag or function() end -- framework.lua
 -- Persistent onboarding in the arrival hall (map resource `lobby`), driven by
 -- successful actions in the actual systems. Browser observations never grant
 -- items, money, jobs or a completed work order.
@@ -629,3 +630,7 @@ CreateThread(function()
         if not contact.npcId then LightRP.log("tutorial: no body accepted for %s; the contact still answers", contact.name) end
     end
 end)
+
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("tutorial.busy", sessions, nil, "busy")
+expireFlags("tutorial.loading", loading)

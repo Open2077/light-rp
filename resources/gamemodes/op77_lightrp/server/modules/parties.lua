@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Crews: the one way players group up for multiplayer content (missions, the
 -- Chimera raid, the activities, fixer gigs). A crew has a leader and up to
 -- `party.maxSize` members; the leader invites (ALT + click on a player, the
@@ -398,8 +399,8 @@ function Party.tick(t)
 end
 CreateThread(function()
     local beat = 0
-    while true do
-        Wait(1000)
+    lightrpEvery(1000, function()
+        
         beat = beat + 1
         local ok, err = pcall(Party.tick, now())
         if not ok then LightRP.log("crews: tick failed: %s", tostring(err)) end
@@ -409,7 +410,7 @@ CreateThread(function()
                 if not done then LightRP.log("crews: refresh failed: %s", tostring(why)) end
             end
         end
-    end
+    end, "parties:399")
 end)
 
 -- ---------------------------------------------------------------------------

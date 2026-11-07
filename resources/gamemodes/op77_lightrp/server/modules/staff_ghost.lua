@@ -1,3 +1,4 @@
+local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
 -- Staff ghost mode (/lightrp.ghost [on|off], /admin > Personal tools > Ghost mode): noclip,
 -- the body hidden from the other players, no nameplate and no map dot, so a staff member can
 -- watch a scene without being seen (owner, 2026-11-06).
@@ -92,11 +93,11 @@ function Ghost.tick()
 end
 
 CreateThread(function()
-    while true do
-        Wait(CHECK_MS)
+    lightrpEvery(CHECK_MS, function()
+        
         local ok, err = pcall(Ghost.tick)
         if not ok then LightRP.log("ghost: %s", tostring(err)) end
-    end
+    end, "staff_ghost:94")
 end)
 
 -- A page that comes up (a join, a reconnect, a resource restart) gets the list at once.
