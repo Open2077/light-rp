@@ -9,6 +9,9 @@ resource "op77_lightrp"
 version "0.2.0"
 open77_version ">=0.0.1"
 auto_start true
+-- Server Lua heap: the 64 MiB default stopped the whole gamemode at ~90 players (2026-11-07 02:59,
+-- "Lua memory quota exceeded"). 1024 is the most a manifest may declare.
+lua_memory_mb 1024
 -- The page owns WebUI surfaces: a live reload would leave a stale surface.
 reload_policy "reconnect"
 
