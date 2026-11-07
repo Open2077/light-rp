@@ -51,7 +51,7 @@ client yet**: the [Lab checklist](#lab-checklist-two-clients) is still to run.
 | Plate | Written on the car through `setPlate`, with the 9 m rebuild (see [Plate](#plate)); kept through a restart and an impound |
 | Windows | The switch works and the level is kept through a restart and an impound; the glass renders as factory. Closed |
 | Performance | Stage 1 bought and stored with the rest of the look; Performance greyed when TweakXL 1.12 is missing |
-| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Checked on two lab clients on 2026-11-07 (rows 12, 14-18, 20 on the current build, and 22 on the Hella; see [Wave 2 lab results](#wave-2-lab-results)). Neon animation, lamp colors, engine sound and stickers were bought, seen by B, and kept through a server restart and a late join. The neon animation needs the Open77 client fix `a0999cf9` (before it, the animated neon went dark). Tag waits for the `setTag` native |
+| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Checked on two lab clients on 2026-11-07 (rows 12, 14-18, 20 on the current build, 21, and 22 on the Hella; see [Wave 2 lab results](#wave-2-lab-results)). Neon animation, lamp colors, engine sound and stickers were bought, seen by B, and kept through a server restart and a late join. The neon animation needs the Open77 client fix `a0999cf9` (before it, the animated neon went dark), and stickers need `843f8cc4` (before it, a client that moved far from a car with stickers could crash). Tag waits for the `setTag` native |
 
 **The Hella's side skirts.** The side skirts in the table were bought on the Hella with
 the first, 8-part catalogue, where `skirt_side` had a Hella fit. The 30-part kit keeps the id
@@ -1035,9 +1035,10 @@ watches) and the Hella.
 | 14 | 12 rows: Tag is absent while the server has no `setTag` native, and Windows reads "Unavailable" |
 | 15 | B sees Pulse and Chase in step with A, on the server clock. The red strobe is refused with the right text. Pulse was bought for 2,500 (`vehicle_neon_anim`). The animated neon went dark until the Open77 client fix `a0999cf9`; after it, Pulse, Chase, Rainbow and Speed are visible on both clients |
 | 16 | Red blinkers, blue brake lights and a too-dark brake colour are refused. The purchase cost 1,500 (`vehicle_lamps`). While A reverses, B sees the Hella's two reverse lamps in cyan, next to the bought orange brake lamps |
-| 17 | The preview rebuild keeps the look on both clients, and the 4 s message is right. Sound s01 was bought for 6,000 (`vehicle_engine_sound`). Closing the studio and the later stage are not checked yet |
+| 17 | The preview rebuild keeps the look on both clients, and the 4 s message is right. Sound s01 was bought for 6,000 (`vehicle_engine_sound`). Closing the studio stops the engine the preview kept running, on A and B, and gives the bought sound back. A stage change from 3 to 2 keeps the sound and the whole look on both clients |
 | 18, 22 | 6th Street (5) + Race (7) = 12 decals, shown on A and B. Adding Graffiti is refused "Too many decals: 18 of 12"; a duplicate gets "Each sticker goes on once"; a Caliburn theme on the Hella gets "does not fit this vehicle". One added sticker cost 1,500 (`vehicle_stickers`). No client crashed |
 | 20 | After a server restart and a late join of both clients, every wave 2 choice comes back. The older-build part is not run yet |
+| 21 | An autosave during a preview stores the bought values (neon Pulse, sound s01), never the preview. Escape gives the bought look back on both clients, with no ledger entry. Only the `record` field of the stored properties can carry a previewed sound; the garage never reads it back (`restorable` rebuilds the record from the base model and the stage, then puts the bought sound on) |
 
 Other results:
 
@@ -1046,6 +1047,13 @@ Other results:
 - **Stream-in.** After a stream-in, lamp colors and stickers wait for the paint to
   settle. On a 30 fps client this takes about 2 to 3 s. A client running at a few
   frames per second (a background window) takes about 20 s.
+- **Ten studio cycles.** Ten open, paint, five rim sets, close cycles in a row: no
+  crash, no marker burst, 61 accepted requests.
+- **Stickers far from the camera.** A client that moved about 160 m away from the
+  Hella with 12 stickers crashed twice. The Open77 client now changes a car's decals
+  only within 40 m of the camera; with that fix, six round trips of 160 m to 1 km
+  crashed nothing and the stickers came back each time. An approaching car shows its
+  stickers from about 40 m on.
 
 ## Open questions for the owner
 
