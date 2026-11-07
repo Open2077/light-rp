@@ -64,11 +64,16 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.getByRole('button', { name: 'Start a run', exact: true }).click();
     const run = { active: true, id: 'test-order', index: 2, total: 6, label: 'Delivery run', icon: 'package', reward: 342,
       orders: 3, carried: 1, distanceKm: 2.4,
-      objective: { label: 'Pick up · Burger stand', kind: 'pickup', position: { x: 0, y: 0, z: 0 }, radius: 2.6 }, hint: 'Collect the order at the marker (E).' };
+      objective: { label: 'Pick up · Burger stand', kind: 'pickup', position: { x: 0, y: 0, z: 0 }, radius: 2.6 }, hint: 'Collect the order at the marker (E).',
+      // the work order tracker (cf14788a) lists the route: a courier's orders as pickup -> drop-off pairs
+      stops: [1, 2, 3].flatMap(order => [{ kind: 'pickup', order, place: 'Burger stand', state: order === 1 ? 'done' : order === 2 ? 'now' : 'todo' },
+        { kind: 'dropoff', order, place: 'Megabuilding H10', state: 'todo' }]) };
     await fire('state', { jobRun: run }); await fire('result', { ok: true, action: 'jobs.start', text: 'Route assigned.' });
     await page.waitForSelector('.jobcenter', { state: 'detached' });
-    assert(await page.locator('.job-run').isVisible());
-    assert.match(await page.locator('.job-run__orders').innerText(), /1 carried · 3 orders · 2.4 km/i);
+    const order = page.locator('aside[aria-label="Current work order"]');
+    assert(await order.isVisible());
+    assert.match(await order.locator('.wo-list__head').innerText(), /1 carried · 0\/3 delivered · 2\.4 km/i);
+    assert.match(await order.locator('.wo-next').innerText(), /Pick up · Burger stand/);
     if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/jobs-run-hud.png` });
     await fire('dialog', fixture); await page.getByRole('button', { name: /Cancel current run/ }).click();
     await page.getByRole('button', { name: 'Cancel this run', exact: true }).click();
@@ -76,28 +81,36 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await fire('state', { jobRun: { active: false } }); await fire('result', { ok: true, action: 'jobs.cancel', text: 'Cancelled.' });
     await page.waitForSelector('.jobcenter__confirm', { state: 'detached' });
     await page.keyboard.press('Escape'); await page.waitForSelector('.jobcenter', { state: 'detached' });
-    assert.equal(await page.locator('.job-run').count(), 0);
+    assert.equal(await page.locator('aside[aria-label="Current work order"]').count(), 0);
     const dialogEvents = await page.evaluate(() => window.sent.filter(([e]) => e === 'lightrp:ui:dialog:state').map(([,p]) => p));
     assert.deepEqual(dialogEvents.at(-1), { kind: 'jobcenter', open: false });
-    await fire('state', { job }); // neither employment nor a shift gates item work
+    // Item work is a job since cf14788a: hire first (its work points show once hired), then its GPS links, no shift.
+    await fire('state', { job });
+    await fire('dialog', fixture);
+    await page.getByRole('button', { name: 'Explore Scrapper', exact: true }).focus();
+    await page.mouse.move(2,2);
+    await page.getByText(/HIRE FIRST/).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Processing GPS', exact: true }).count(), 0, 'no work points before hiring');
+    await page.keyboard.press('Escape'); await page.waitForSelector('.jobcenter', { state: 'detached' });
+    await fire('state', { job: { name: 'scrapper', label: 'Scrapper', tag: 'WORK', grade: 0, gradeLabel: 'Picker', salary: 0 } });
     for (const [stage, button] of [['collect','Find a collection point'], ['process','Processing GPS'], ['sell','Buyer GPS']]) {
       await fire('dialog', fixture);
       await page.getByRole('button', { name: 'Explore Scrapper', exact: true }).focus();
       await page.mouse.move(2,2);
       assert.equal(await page.getByRole('button', { name: 'Start a run', exact: true }).count(), 0);
-      await page.getByText(/No shift or employment required/).waitFor();
+      await page.getByText(/YOUR OWN PACE, NO SHIFT/).waitFor();
       await page.getByRole('button', { name: button, exact: true }).click();
       assert.deepEqual((await actions()).at(-1), { type:'jobs.locate',job:'scrapper',stage });
       await fire('result', {ok:true,action:'jobs.locate',text:'GPS set.'});
       await page.waitForSelector('.jobcenter', {state:'detached'});
     }
     await fire('state', {jobWork:{active:true,kind:'collect',label:'Scrap collection',raw:'Scrap',product:'Salvaged Parts',rawCount:8,productCount:2,weight:12,maxWeight:40}});
-    assert.equal(await page.locator('.job-run').count(),0, 'free item work uses the activity bar without a duplicate mission panel');
+    assert.equal(await page.locator('aside[aria-label="Current work order"]').count(),0, 'free item work uses the activity bar without a duplicate mission panel');
     await fire('state', {jobWork:{active:false}});
     assert.equal(await page.getByLabel('Current item work').count(),0);
     await fire('dialog', { ...fixture, jobs: {} });
     await page.getByText('No openings right now.').waitFor(); await page.keyboard.press('Escape');
     assert.deepEqual(errors, []);
-    console.log('PASS: art/keyboard/confirmation, courier work orders, free collect/process/buyer GPS without employment or shift, no duplicate work panel, focus release, four resolutions, reduced motion');
+    console.log('PASS: art/keyboard/confirmation, courier work orders, item work hired first, then collect/process/buyer GPS without a shift, no duplicate work panel, focus release, four resolutions, reduced motion');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
