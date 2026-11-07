@@ -23,8 +23,18 @@ local function eligible(id)
     return owner and life and life.phase == "alive" and p and (p.bucket or 0) == 0
         and not (LightRP.characters.switching or {})[id]
 end
-local function near(id, p)
-    return eligible(id) and LightRP.nearInteraction(id, { position = p, radius = C.range, bucket = 0 }, 0.4)
+-- `verticalReach` (a point's own, server/config/delivery.lua): the horizontal reach as usual,
+-- with that much height difference allowed. The Coastview depot's marker sits about 10 m above
+-- the street where couriers stand (z 52.5 against ~42), so "Move closer" never cleared there.
+local function near(id, p, verticalReach)
+    if not eligible(id) then return false end
+    if verticalReach then
+        local at = Open77.players.position(id)
+        if not at then return false end
+        local dx, dy = at.x - p.x, at.y - p.y
+        return dx * dx + dy * dy <= (C.range + 0.4) ^ 2 and math.abs(at.z - p.z) <= verticalReach
+    end
+    return LightRP.nearInteraction(id, { position = p, radius = C.range, bucket = 0 }, 0.4)
 end
 local function current(id, run)
     return runs[id] == run and identity(id) == run.owner and LightRP.jobs.get(id).name == run.job and eligible(id)
@@ -62,11 +72,11 @@ function Generators.delivery(base, origin)
     local steps = {}
     for i, p in ipairs(draw(D.pickups, n)) do
         steps[#steps + 1] = { kind = "pickup", order = i, place = p.name, label = "Pick up · " .. p.name,
-            position = copyPoint(p.position), durationMs = D.pickupMs }
+            position = copyPoint(p.position), durationMs = D.pickupMs, verticalReach = p.verticalReach }
     end
     for i, d in ipairs(draw(D.dropoffs, n)) do
         steps[#steps + 1] = { kind = "dropoff", order = i, place = d.name, label = "Deliver · " .. d.name,
-            position = copyPoint(d.position), durationMs = D.dropoffMs }
+            position = copyPoint(d.position), durationMs = D.dropoffMs, verticalReach = d.verticalReach }
     end
     local length, last = 0, origin
     for _, step in ipairs(steps) do length = length + distance(last, step.position); last = step.position end
@@ -169,7 +179,8 @@ function Runs.snapshot(id)
         orders = run.route.orders, carried = run.carried, distanceKm = run.route.distanceKm,
         stops = stops(run), expiresInMs = math.max(0, run.expires - LightRP.nowMs()),
         duo = run.duo and { partner = run.duo.partnerName, half = run.duo.half } or nil, -- Big Contract (job_crew.lua)
-        objective = { label = step.label, place = step.place or step.label, kind = step.kind, position = step.position, radius = C.range },
+        objective = { label = step.label, place = step.place or step.label, kind = step.kind, position = step.position, radius = C.range,
+            verticalReach = step.verticalReach },
         hint = step.kind == "lift" and "Use the marked service access. No climbing required."
             or step.kind == "return" and "Return to dispatch to receive your bank payment."
             or step.kind == "pickup" and "Go to the yellow marker and press E to collect the order. It needs 1 kg free in your bag."
@@ -333,7 +344,7 @@ function Runs.begin(id, payload)
     if run.busy or run.work or not current(id, run) then return false end
     if LightRP.nowMs() > run.expires then return Runs.cancel(id, "This work order expired. Collect another at dispatch.") end
     local step = run.route.steps[run.index]
-    if not near(id, step.position) then notify(id, "Move closer to the marked work point.", "warning"); return false end
+    if not near(id, step.position, step.verticalReach) then notify(id, "Move closer to the marked work point.", "warning"); return false end
     local item = carriedItem(run)
     if step.kind == "pickup" and item then
         local inv = run.inv and LightRP.inventory.get(run.inv)
@@ -371,7 +382,7 @@ function Runs.finish(id, payload)
     if type(payload) ~= "table" or not run or not run.work or payload.token ~= run.work.token or run.busy then return false end
     local work, step = run.work, run.route.steps[run.index]
     run.work = nil -- consume before any yield: duplicate completion can never pay twice
-    if payload.status ~= "success" or not current(id, run) or not near(id, step.position)
+    if payload.status ~= "success" or not current(id, run) or not near(id, step.position, step.verticalReach)
         or LightRP.nowMs() - work.at < step.durationMs or LightRP.nowMs() > run.expires
         or LightRP.nowMs() - work.at > step.durationMs + 15000 then
         push(id); return false
@@ -494,7 +505,7 @@ function Runs.tick()
             elseif run.work and away then stopWork(id, run); push(id)
             elseif run.work then
                 local step = run.route.steps[run.index]
-                if not near(id, step.position) or LightRP.nowMs() - run.work.at > step.durationMs + 15000 then stopWork(id, run); push(id) end
+                if not near(id, step.position, step.verticalReach) or LightRP.nowMs() - run.work.at > step.durationMs + 15000 then stopWork(id, run); push(id) end
             end
         end
     end

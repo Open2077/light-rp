@@ -250,7 +250,7 @@ function Interact.setLocal(id, entry, callback)
     ensurePromptAnchor()
     local point = { id = id, position = entry.position, radius = entry.radius or 2.6,
         prompt = entry.prompt, key = "E", promptHeight = 0.7, blip = entry.blip, callback = callback,
-        passive = entry.passive == true }
+        passive = entry.passive == true, verticalReach = tonumber(entry.verticalReach) }
     if entry.marker then
         point.markerDef, point.markerVisible = entry.marker, entry.marker.visible ~= false
         local at = Interact.position and Interact.position()
@@ -480,7 +480,9 @@ CreateThread(function()
                 end
                 for _, point in pairs(Interact.locals) do
                     local dx, dy, dz = p.x - point.position.x, p.y - point.position.y, p.z - point.position.z
-                    local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+                    -- `verticalReach`: the horizontal distance, with that much height allowed (server: job_runs near)
+                    local distance = point.verticalReach and math.abs(dz) <= point.verticalReach and math.sqrt(dx * dx + dy * dy)
+                        or math.sqrt(dx * dx + dy * dy + dz * dz)
                     local allowed = not (LightRpRefueling and LightRpRefueling.isActive()) or point.id=="fuel.current"
                     if allowed and not point.passive and distance <= point.radius and (bestDistance == nil or distance <= bestDistance + 0.5) then best, bestDistance = point, distance end
                 end

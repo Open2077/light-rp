@@ -228,7 +228,7 @@ local function startCam()
     if old then SetTimeout(900, function() pcall(Open77.camera.destroy, old) end) end
 end
 
-K.on("tcg:camera", function(d)
+local function camera(d)
     if d.mode == "off" then camMode = 0
     elseif d.mode == "next" then camMode = (camMode % #VIEWS) + 1
     else
@@ -236,7 +236,8 @@ K.on("tcg:camera", function(d)
     end
     startCam()
     K.send("tcg:cameraMode", { mode = camMode == 0 and "off" or VIEWS[camMode] })
-end)
+end
+K.on("tcg:camera", camera)
 
 -- ---------------------------------------------------------------------------------------------
 -- The seat prompt and the overlay
@@ -263,7 +264,9 @@ end
 local function setOverlay(on)
     if on == overlay then return end
     overlay = on
-    if on then K.show(true) elseif not K.isOpen() then K.release() end
+    -- The cursor only: a page owning the keyboard turns push-to-talk off for the whole duel
+    -- (2026-11-07). V (the camera) is a key mapping below; Escape stays the game's.
+    if on then K.show(true, false) elseif not K.isOpen() then K.release() end
 end
 
 -- In a duel (seating or playing): nothing else opens over it on its own (client/welcome.lua).
@@ -273,7 +276,7 @@ K.inMatch = function() return match ~= nil end
 K.binderBlocked = function() return seated() == true end
 
 -- Closing the binder while seated hands the cursor back to the duel overlay.
-K.afterClose = function() if overlay then K.show(true) end end
+K.afterClose = function() if overlay then K.show(true, false) end end
 
 local function nearChair()
     local at = K.here()
@@ -333,6 +336,11 @@ end
 
 local called, okKey, why = pcall(RegisterKeyMapping, "op77_tcg.sit", "Cyberpunk TCG: sit at your duel table", "E", trySit)
 if not called or not okKey then K.log("sit key refused: %s", tostring(called and why or okKey)) end
+
+-- V: the next table view while seated (the overlay no longer owns the keyboard).
+local calledCam, okCam, whyCam = pcall(RegisterKeyMapping, "op77_tcg.camera", "Cyberpunk TCG: next table view", "V",
+    function() if overlay and seated() and not K.isOpen() then camera({ mode = "next" }) end end)
+if not calledCam or not okCam then K.log("camera key refused: %s", tostring(calledCam and whyCam or okCam)) end
 
 -- /tcgtutorial: a guided demonstration duel against the house at a NEON DECK table.
 RegisterCommand("tcgtutorial", function() TriggerServerEvent(NET .. "tutorial") end, false)

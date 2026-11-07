@@ -628,7 +628,10 @@
           duel.result = { won: d.won, winner: d.winner, reason: d.reason };
           setTimeout(function () { duel.result = null; renderBanner(); }, 7000);
         }
-        duel.match = null; zoom(null);
+        // The hover preview too: the card under the cursor is gone with the board and the page
+        // lost the cursor, so no mouseover would ever close it (2026-11-07: a won duel left the
+        // rival's card on screen).
+        duel.match = null; zoom(null); cardPreview(null);
         $("dhHand").dataset.hand = "";
         if (gameRenderer) gameRenderer.clear();
       } else {
@@ -676,6 +679,8 @@
     });
     // The clocks, the pending challenge when the binder opens, the duel tab's player list.
     setInterval(function () {
+      // A preview whose card is no longer hovered (removed, re-rendered, cursor released) closes.
+      if (previewing && !document.querySelector("[data-card]:hover")) cardPreview(null);
       if (duel.match && duel.match.deadline != null) {
         if (!duel.match.seats[duel.match.you].seated) renderBanner();
         else if (duel.match.phase === "game") { if (gameRenderer) gameRenderer.tick(); }
