@@ -159,7 +159,10 @@ local relayed = toServer[#toServer]
 assert(#toServer == before + 1 and relayed.name == "op77_lightrp:missionrun:npcHit" and relayed.payload == "7" and relayed.rest[1] == "4294967300"
     and relayed.rest[2] == "3" and relayed.rest[3] == "12.5", "relayed with victim, npc, epoch, amount")
 net["op77_lightrp:missionrun"]({ kind = "end", instance = "mission:1" })
-before = #toServer; events["open77:npcPlayerHit"]("7", "1", "1", "5", "2"); assert(#toServer == before, "no relay outside a mission")
+-- still relayed after the run: a world boss fights in the city, and the server ties each hit to its
+-- mission or world boss (client/core/mission_run.lua, eceb0b8f)
+before = #toServer; events["open77:npcPlayerHit"]("7", "1", "1", "5", "2")
+assert(#toServer == before + 1 and toServer[#toServer].name == "op77_lightrp:missionrun:npcHit", "relayed outside a mission too")
 count = 0; for _ in pairs(markers) do count = count + 1 end
 assert(count == 0 and drawn["lightrp:missions:perimeter"] == nil, "cleared at the end")
 -- a response past 900 values reaches the page as JSON text parts (page:send and the
