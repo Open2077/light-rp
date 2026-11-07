@@ -51,7 +51,7 @@ client yet**: the [Lab checklist](#lab-checklist-two-clients) is still to run.
 | Plate | Written on the car through `setPlate`, with the 9 m rebuild (see [Plate](#plate)); kept through a restart and an impound |
 | Windows | The switch works and the level is kept through a restart and an impound; the glass renders as factory. Closed |
 | Performance | Stage 1 bought and stored with the rest of the look; Performance greyed when TweakXL 1.12 is missing |
-| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | The wave 2 build runs in the lab since 2026-11-06 14:45 (natives registered, `43 stickers … registerStickers: true`). The owner opened Stickers in the studio and saw the one set `lightrp_vehicle_stickers` gives each model. Nothing bought or checked row by row yet; the rest is covered by tests only |
+| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Checked on two lab clients on 2026-11-07 (rows 12, 14-18, 20 on the current build, and 22 on the Hella; see [Wave 2 lab results](#wave-2-lab-results)). Neon animation, lamp colors, engine sound and stickers were bought, seen by B, and kept through a server restart and a late join. The neon animation needs the Open77 client fix `a0999cf9` (before it, the animated neon went dark). Tag waits for the `setTag` native |
 
 **The Hella's side skirts.** The side skirts in the table were bought on the Hella with
 the first, 8-part catalogue, where `skirt_side` had a Hella fit. The 30-part kit keeps the id
@@ -1023,6 +1023,29 @@ and the sticker and engine sound packs installed. The server log must not show
 Fill `support`, the rim and body fits, and the stage values from these
 measurements: which records render rims and parts where expected, and which stages
 drive as tabled.
+
+### Wave 2 lab results
+
+These were measured on 2026-11-07 in the lab server, with two clients (A drives, B
+watches) and the Hella.
+
+| # | Result |
+| --- | --- |
+| 12 | Escape during a neon animation preview gives the bought Pulse back on A and B, with no ledger entry and no pause menu |
+| 14 | 12 rows: Tag is absent while the server has no `setTag` native, and Windows reads "Unavailable" |
+| 15 | B sees Pulse and Chase in step with A, on the server clock. The red strobe is refused with the right text. Pulse was bought for 2,500 (`vehicle_neon_anim`). The animated neon went dark until the Open77 client fix `a0999cf9`; after it, Pulse, Chase, Rainbow and Speed are visible on both clients |
+| 16 | Red blinkers, blue brake lights and a too-dark brake colour are refused. The purchase cost 1,500 (`vehicle_lamps`). While A reverses, B sees the Hella's two reverse lamps in cyan, next to the bought orange brake lamps |
+| 17 | The preview rebuild keeps the look on both clients, and the 4 s message is right. Sound s01 was bought for 6,000 (`vehicle_engine_sound`). Closing the studio and the later stage are not checked yet |
+| 18, 22 | 6th Street (5) + Race (7) = 12 decals, shown on A and B. Adding Graffiti is refused "Too many decals: 18 of 12"; a duplicate gets "Each sticker goes on once"; a Caliburn theme on the Hella gets "does not fit this vehicle". One added sticker cost 1,500 (`vehicle_stickers`). No client crashed |
+| 20 | After a server restart and a late join of both clients, every wave 2 choice comes back. The older-build part is not run yet |
+
+Other results:
+
+- **Studio limit.** The studio session closed 5 min after opening, even during an edit.
+  It now counts idle time; this was fixed on 2026-11-07 and proven in game.
+- **Stream-in.** After a stream-in, lamp colors and stickers wait for the paint to
+  settle. On a 30 fps client this takes about 2 to 3 s. A client running at a few
+  frames per second (a background window) takes about 20 s.
 
 ## Open questions for the owner
 
