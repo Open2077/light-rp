@@ -46,6 +46,17 @@ function LightRP.eachModule(hook, ...)
     end
 end
 
+-- The same hook, every module but `except` (the restart adoption leaves `spawn` out).
+function LightRP.eachModuleExcept(except, hook, ...)
+    for _, definition in ipairs(modules) do
+        local fn = definition[hook]
+        if definition.name ~= except and type(fn) == "function" then
+            local ok, err = pcall(fn, ...)
+            if not ok then LightRP.log("module %s.%s failed: %s", definition.name, hook, tostring(err)) end
+        end
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- Answers to players
 

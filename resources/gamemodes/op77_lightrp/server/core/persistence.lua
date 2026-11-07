@@ -62,6 +62,35 @@ function Db.read(sql, params)
     return true, rows
 end
 
+-- A start with players already in the world: the host restarts a resource that a runtime
+-- error stopped (a Lua memory quota at ~90 players, 2026-11-07), or a staff `ensure`.
+-- Nobody connects again, so the players present are adopted as if they had just joined:
+-- character, inventory, wallet (onConnected -> characters.load -> onCharacterLoaded), then
+-- once those had time to load, their page and the in-world hooks. `spawn` is left out:
+-- they are standing somewhere already and must not be moved. A few players per pass.
+function LightRP.adoptConnectedPlayers()
+    if type(GetPlayers) ~= "function" then return end
+    local present = GetPlayers()
+    if #present == 0 then return end
+    LightRP.log("adopting %d connected player(s) after a restart", #present)
+    for index, raw in ipairs(present) do
+        local id = tonumber(raw)
+        if id and id > 0 then LightRP.eachModule("onConnected", id, GetPlayerName(id)) end
+        if index % 4 == 0 then Wait(0) end
+    end
+    Wait(5000)
+    for index, raw in ipairs(GetPlayers()) do
+        local id = tonumber(raw)
+        if id and id > 0 then
+            LightRP.eachModuleExcept("spawn", "onUiReady", id)
+            LightRP.eachModuleExcept("spawn", "onReady", id)
+            LightRP.eachModuleExcept("spawn", "onGameplayReady", id)
+        end
+        if index % 4 == 0 then Wait(0) end
+    end
+    LightRP.log("adopted %d player(s)", #present)
+end
+
 CreateThread(function()
     if not Db.available() then
         LightRP.log("no database bridge: everything is kept for this session only")
@@ -85,6 +114,7 @@ CreateThread(function()
         else
             LightRP.eachModule("onDatabaseReady")
         end
+        LightRP.adoptConnectedPlayers()
     else
         LightRP.log("persistence disabled: %s", tostring(err))
     end
