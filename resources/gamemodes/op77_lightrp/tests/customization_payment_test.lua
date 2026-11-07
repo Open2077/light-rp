@@ -138,4 +138,16 @@ tick=tick+idle-1000;reply=issue("preview","#0000FF");assert(reply.ok,"the studio
 tick=tick+idle+1;request=request+1
 source=1;rpc["op77_lightrp:customization"]({session=session,request=request,operation="preview",category="paint",primary="#FF0000",secondary="#FF0000"})
 assert(messages[#messages].kind=="closed","an idle studio closes")
-print("customization payment: real cash/bank atomicity, server quote, replay, unchanged paint, DB failure, insufficient funds, disconnect during commit and idle expiry passed")
+-- The studio waits for each answer and never sends again: a Lua error while applying, or
+-- while building the answer, must still answer and release the session for the next request.
+assert(C.open(1,id,"citycenter"));session=messages[#messages].session;request=0
+local customize=G.customize;G.customize=function() error("boom") end
+reply=issue("preview","#00FFFF");G.customize=customize
+assert(reply.kind=="response" and reply.request==request and not reply.ok and reply.text:find("could not apply"),"an apply error is refused and answered")
+reply=issue("preview","#00FFFF");assert(reply.kind=="response" and reply.ok,"the next request is served: the busy flag was released")
+local paintOf=G.customizationPaint;G.customizationPaint=function() error("boom") end
+reply=issue("preview","#FF00FF");G.customizationPaint=paintOf
+assert(reply.kind=="response" and reply.request==request and reply.ok,"a failed read still answers the request")
+reply=issue("preview","#00FF00");assert(reply.kind=="response" and reply.ok and reply.money,"and the studio goes on")
+C.onDisconnected(1)
+print("customization payment: real cash/bank atomicity, server quote, replay, unchanged paint, DB failure, insufficient funds, disconnect during commit, idle expiry and errors answered passed")

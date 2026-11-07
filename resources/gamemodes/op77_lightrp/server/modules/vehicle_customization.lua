@@ -1,4 +1,5 @@
 local lightrpEvery = LightRP.every or function(ms, fn) while true do Wait(tonumber(ms) or 1000); fn() end end -- framework.lua (tests: the plain loop, in the calling thread)
+local expireFlags = LightRP.expireFlags or function() end -- framework.lua
 local G, C = LightRP.garage, LightRpVehicleCustomization
 local Custom = LightRP.module("vehicleCustomization", {})
 local NET = LightRpEvents.net.customization
@@ -1035,9 +1036,22 @@ RegisterNetEvent(NET, function(p)
     s.lastAt, s.nextRequest, s.busy, s.expires = now, s.nextRequest + 1, true, now + C.sessionMs
     local ok = false
     if p.operation == "save" and p.pay ~= "cash" and p.pay ~= "bank" then change, error = nil, "Choose cash or bank." end
+    -- The studio waits for this answer and never sends again: a Lua error past this
+    -- point used to leave `s.busy` set and the studio stuck until it closed. A failed
+    -- quote or apply is refused; a failed side effect (engine hold, lamps) is only
+    -- logged, so a paid save is never reported as refused.
     if change then
-        local amount = p.operation == "save" and quote(change, s, G.customizationState(id, s.id) or {}) or nil
-        ok, error = G.customize(id, s.id, change, p.operation == "save", { method = p.pay, amount = amount })
+        local applied, failure = pcall(function()
+            local amount = p.operation == "save" and quote(change, s, G.customizationState(id, s.id) or {}) or nil
+            ok, error = G.customize(id, s.id, change, p.operation == "save", { method = p.pay, amount = amount })
+        end)
+        if not applied then
+            ok, error = false, "The workshop could not apply this change. Try again."
+            LightRP.log("auto studio: %s %s failed for %s: %s", tostring(p.operation), tostring(p.category), tostring(id), tostring(failure))
+        end
+    end
+    local effects, failure = pcall(function()
+        if not change then return end
         if ok and p.operation == "save" and change.category == "performance" then stageAt[s.owned] = LightRP.nowMs() end
         if change.category == "engineSound" then
             -- a change rebuilt the car (or tried to): the next one waits
@@ -1060,13 +1074,19 @@ RegisterNetEvent(NET, function(p)
                 if lit then s.lampsBefore = "off" else LightRP.log("auto studio: lamps refused on %s: %s", tostring(s.vehicle), tostring(why)) end
             end
         end
-    end
+    end)
+    if not effects then LightRP.log("auto studio: after %s %s for %s: %s", tostring(p.operation), tostring(p.category), tostring(id), tostring(failure)) end
     s.busy = nil
     local text = ok and (p.operation == "save" and SAVED[p.category] or (p.category == "plate" and "This plate is available." or "Preview applied.")) or error
-    s.last = { kind = "response", request = p.request, operation = p.operation, category = p.category, ok = ok, money = wallet(id),
-        paint = G.customizationPaint(id, s.id), confirmed = view(G.customizationState(id, s.id)), text = text }
-    -- the decal budget left by the livery the car shows now (a livery preview changes it)
-    if stickersSold(s) then s.last.budget = stickerBudget(s.vehicle, s.categories.stickers.options.stickers) end
+    local built, last = pcall(function()
+        local response = { kind = "response", request = p.request, operation = p.operation, category = p.category, ok = ok, money = wallet(id),
+            paint = G.customizationPaint(id, s.id), confirmed = view(G.customizationState(id, s.id)), text = text }
+        -- the decal budget left by the livery the car shows now (a livery preview changes it)
+        if stickersSold(s) then response.budget = stickerBudget(s.vehicle, s.categories.stickers.options.stickers) end
+        return response
+    end)
+    if not built then LightRP.log("auto studio: answer to %s %s for %s: %s", tostring(p.operation), tostring(p.category), tostring(id), tostring(last)) end
+    s.last = built and last or { kind = "response", request = p.request, operation = p.operation, category = p.category, ok = ok, text = text }
     reply(id, s, s.last)
 end)
 function Custom.onDisconnected(id) close(id) end
@@ -1080,6 +1100,8 @@ CreateThread(function()
         end
     end, "vehicle_customization:77")
 end)
+-- Stale flags left by tasks the instruction quota killed (framework.lua expireFlags).
+expireFlags("vehicle_customization.busy", sessions, nil, "busy")
 
 function Custom.onInteract(id, point)
     local workshop = type(point) == "string" and point:match("^customization%.(.+)$")

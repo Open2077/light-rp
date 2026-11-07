@@ -1119,6 +1119,15 @@ Other results:
 
 - **Studio limit.** The studio session closed 5 min after opening, even during an edit.
   It now counts idle time; this was fixed on 2026-11-07 and proven in game.
+- **Errors while applying.** The studio waits for each answer and never sends a request
+  again. A Lua error in the quote, the garage write or the answer used to leave the
+  session busy, and the studio froze until the player closed it. Since 2026-11-07 the
+  server answers anyway: a failed apply is refused with "The workshop could not apply
+  this change", and a failed side effect (engine hold, lamps) is only logged, so a paid
+  save is never reported as refused. A task the instruction quota kills is not answered.
+  Its busy flag is released after 60 s (`expireFlags`), and closing the studio always
+  works. Covered by `customization_payment_test.lua`. In game, a paint preview, a paid
+  save and a lamp preview still answered normally afterwards (lab 11855).
 - **Stream-in.** After a stream-in, lamp colors and stickers wait for the paint to
   settle. On a 30 fps client this takes about 2 to 3 s. A client running at a few
   frames per second (a background window) takes about 20 s.
