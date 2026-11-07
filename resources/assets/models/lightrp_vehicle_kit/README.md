@@ -35,6 +35,22 @@ server and every client check `GetResourceState(<name>) == "running"`.
 
    The catalogue header records the sha256 of both fit tables: a pack and a
    catalogue built from different tables put parts in the wrong place.
+
+   The rim fits of the **other vanilla player vehicles** (every `Vehicle.*_player*` record
+   the dealer table does not name) come from their own table and their own generated file,
+   so the dealer catalogue above stays as it is:
+
+   ```text
+   python resources/gamemodes/op77_lightrp/tools/build_vehicle_kit_player_rims.py \
+       --rims <open77>/scripts/vehicle-kit/specs/lightrp-rims-fit-player.json
+   ```
+
+   It writes `server/config/vehicle_kit_player_rims.lua` (Lua only; its header records the
+   sha256 of the player table and of the dealer table it extends). The studio merges these
+   fits into every rim part under the dealer fits. They reuse the rims pack as it is
+   (`f721d6538465`): no new model. Quest variants (`Vehicle.q<digits>_*`) are out of the
+   customization extension (owner's decision, 2026-11-07): the table never names them and the
+   generator refuses one that does.
 2. **Copy each resource folder** next to the others in `resources/assets/models/`:
    `resources/assets/models/lightrp_vk_rims/`, `…/lightrp_vk_body/`,
    `…/lightrp_vk_liveries/`, `…/lightrp_vehicle_stages/` (same depth as `open77_maneki`,
