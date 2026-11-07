@@ -313,8 +313,8 @@ local M,G=LightRP.money,LightRP.garage
 LightRP.inventory.onCharacterLoaded(1,owner);M.onCharacterLoaded(1,owner);G.onDatabaseReady()
 dofile("shared/vehicle_customization.lua");dofile("server/config/vehicle_customization.lua")
 local P,C=LightRpCustomizationPricing,LightRpVehicleCustomization
-assert(C.windows.enabled==false,"window tint ships closed until the glass renders")
-C.windows.enabled=true -- the flow is tested open; the closed state is checked below
+assert(C.windows.enabled==true,"window tint ships open: the glass renders (W1 resolved)")
+-- the closed state is checked below
 dofile("server/modules/vehicle_customization.lua")
 local Custom=LightRP.vehicleCustomization
 local NET="op77_lightrp:customization"

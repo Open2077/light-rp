@@ -243,11 +243,12 @@ LightRpVehicleCustomization = {
     -- Window tint: three levels of the native (Open77.vehicles.setWindowTint, 1 to 3) on
     -- the side and rear glass; the windshield always stays clear. Labels PROVISIONAL.
     windows = {
-        -- CLOSED until the tinted glass renders in game: the switch works on every glass
-        -- component, but ArchiveXL leaves the pack's materials unresolved, so the glass
-        -- shows as factory (base docs/research/vehicles-api.md, "W1 - teinte en jeu").
-        -- While false the category is greyed with `unsupported.windowsSoon` and refused.
-        enabled = false,
+        -- Open: the tinted glass renders with an Open77 client that switches glass by
+        -- resource load + refresh, and the pack revision 75b3fcbb2b6e or later, whose
+        -- client.lua lets the studio see the pack (base docs/research/vehicles-api.md,
+        -- "W1 résolu"). An older client shows factory glass; an older pack greys the menu.
+        -- Set false to grey the category with `unsupported.windowsSoon` and refuse it.
+        enabled = true,
         resource = "open77_vehicle_tint",
         levels = {
             { id = "light", label = "Light smoke", level = 1 },
