@@ -129,4 +129,13 @@ C.onDisconnected(1);M.onDisconnected(1)
 assert(coroutine.resume(co));yieldDb=false
 M.onCharacterLoaded(1,owner)
 assert(committed==3 and world[vid].paint.primary.r==255 and not G.isBusy(1),"disconnect during commit keeps paid finish and releases locks")
-print("customization payment: real cash/bank atomicity, server quote, replay, unchanged paint, DB failure, insufficient funds and disconnect during commit passed")
+-- The studio's session limit counts idle time, not time since opening: a player still
+-- previewing after more than sessionMs keeps the studio (2026-11-07 lab: it closed mid-edit).
+local idle=LightRpVehicleCustomization.sessionMs
+assert(C.open(1,id,"citycenter"));session=messages[#messages].session;request=0
+tick=tick+idle-1000;reply=issue("preview","#00FF00");assert(reply.ok,"a preview before the idle limit")
+tick=tick+idle-1000;reply=issue("preview","#0000FF");assert(reply.ok,"the studio stays open while it is used")
+tick=tick+idle+1;request=request+1
+source=1;rpc["op77_lightrp:customization"]({session=session,request=request,operation="preview",category="paint",primary="#FF0000",secondary="#FF0000"})
+assert(messages[#messages].kind=="closed","an idle studio closes")
+print("customization payment: real cash/bank atomicity, server quote, replay, unchanged paint, DB failure, insufficient funds, disconnect during commit and idle expiry passed")

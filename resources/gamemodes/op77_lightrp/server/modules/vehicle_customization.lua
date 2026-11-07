@@ -1015,7 +1015,10 @@ RegisterNetEvent(NET, function(p)
     else change, error = validate(p, s) end
     local now = LightRP.nowMs()
     if p.operation == "preview" and now - (s.lastAt or -1000) < C.previewIntervalMs then error = "Please wait before changing the finish again."; change = nil end
-    s.lastAt, s.nextRequest, s.busy = now, s.nextRequest + 1, true
+    -- `sessionMs` is an idle limit, as for a garage session: every request the studio
+    -- answers restarts it. Counted from the opening, it closed the studio mid-edit and
+    -- dropped the preview after five minutes of use (2026-11-07 lab).
+    s.lastAt, s.nextRequest, s.busy, s.expires = now, s.nextRequest + 1, true, now + C.sessionMs
     local ok = false
     if p.operation == "save" and p.pay ~= "cash" and p.pay ~= "bank" then change, error = nil, "Choose cash or bank." end
     if change then
