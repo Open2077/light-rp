@@ -662,10 +662,9 @@ the car (its setter is missing) is kept the same way, in `row.dormantExtra`.
 ### The garage's category registry
 
 The wave 2 categories are not written into `server/modules/garages.lua`: the studio
-declares them at load with `Garage.registerCustomizationCategory(id, spec)`.
-**That function is not in the garage yet.** It is a patch to
-`server/modules/garages.lua`, delivered with the wave 2 report for that module's owner
-to land. Until then the five wave 2 rows stay greyed and nothing changes for the other
+declares them at load with `Garage.registerCustomizationCategory(id, spec)`, defined in
+`server/modules/garages.lua` (landed with the wave 2 merge `2b6fd563`). A studio loaded
+without it keeps the five wave 2 rows greyed, and nothing changes for the other
 categories.
 
 | `spec` field | Role |
