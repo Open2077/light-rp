@@ -44,7 +44,7 @@ dofile("server/modules/rental.lua")
 threads[1]() -- create the desk, but never start the expiration loop
 local Rental = LightRP.rental
 Rental.onInteract(1, "rental.citycenter")
-assert(#opened.spot.stock == 5 and opened.spot.durationMinutes == 30)
+assert(#opened.spot.stock == 5 and opened.spot.durationMinutes == 60)
 assert(opened.spot.stock[2].image == "img/vehicles/agency.jpg", "agency image overrides catalogue")
 local ok, reason = Rental.rent(1, "wrong", "maimai", "cash")
 assert(not ok and reason == "unknown_desk")
@@ -71,16 +71,35 @@ actions["rental.rent"](1, { spot = "citycenter", key = "hella", pay = "bank", pr
 assert(result.ok and bank == 1380 and cash == 250, "browser cannot override price")
 assert(spawned.record == byKey.hella.record and spawned.bucket == 42)
 local current = providers.rental(1).active
-assert(current.image == "img/vehicles/agency.jpg" and current.remainingMs == 1800000 and current.paidWith == "bank")
+assert(current.image == "img/vehicles/agency.jpg" and current.remainingMs == 3600000 and current.paidWith == "bank")
+assert(current.extendPrice == 60 and current.extendMinutes == 30 and current.extensionsLeft == 4 and current.warnMs == 600000,
+    "an extension is priced pro rata: 120 per hour -> 60 for 30 min")
 now = now + 5000
-assert(providers.rental(1).active.remainingMs == 1795000)
-local attempts = creates
+assert(providers.rental(1).active.remainingMs == 3595000)
+
+-- Extending: +30 min for 60 (bank by default), at most maxExtensions, anywhere.
+assert(actions["rental.extend"], "the desk's Extend button")
+actions["rental.extend"](1, { pay = "bank" })
+assert(result.ok and bank == 1320 and providers.rental(1).active.remainingMs == 3595000 + 1800000, "paid and extended")
+actions["rental.extend"](1, { pay = "cash" })
+assert(result.ok and cash == 190 and providers.rental(1).active.extensionsLeft == 2)
+cash = 0
+local before = providers.rental(1).active.remainingMs
+actions["rental.extend"](1, { pay = "cash" })
+assert(not result.ok and providers.rental(1).active.remainingMs == before, "no money, no time")
+cash = 250
+actions["rental.extend"](1, { pay = "bank" }); actions["rental.extend"](1, { pay = "bank" })
+assert(result.ok and providers.rental(1).active.extensionsLeft == 0)
+local bankBefore = bank
+actions["rental.extend"](1, { pay = "bank" })
+assert(not result.ok and result.text:find("cannot be extended") and bank == bankBefore, "at most maxExtensions")
+local attempts, bankNow = creates, bank
 ok, reason = Rental.rent(1, "citycenter", "maimai", "bank")
-assert(not ok and reason == "already_renting" and bank == 1380 and creates == attempts)
+assert(not ok and reason == "already_renting" and bank == bankNow and creates == attempts)
 actions["rental.return"](1)
-assert(result.ok and removes == 1 and not Rental.get(1) and bank == 1380, "return removes car without refund")
+assert(result.ok and removes == 1 and not Rental.get(1) and bank == bankNow, "return removes car without refund")
 assert(not Rental.giveBack(1), "return is not repeated")
 assert(Rental.rent(1, "citycenter", "maimai", "cash"))
 Rental.onDisconnected(1)
 assert(not Rental.get(1) and removes == 2)
-print("PASS: rental images, stock, authoritative price/duration, proximity, life/character, funds, refunds, duplicate booking, return and disconnect")
+print("PASS: rental images, stock, authoritative price/duration, extensions (pro rata, bank/cash, max 4), proximity, life/character, funds, refunds, duplicate booking, return and disconnect")

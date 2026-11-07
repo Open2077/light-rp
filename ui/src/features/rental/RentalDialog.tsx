@@ -129,6 +129,13 @@ function RentalBody({ payload, onClose }: { payload: RentalDialogPayload; onClos
             <h2>{active.label}</h2><p className="rental-summary__intro">You already have a ride. Return it before choosing another.</p>
             <div className="rental-timer"><Icon name="clock" size={20} /><div><span>Time remaining</span><strong>{formatLeft(left)}</strong></div></div>
             <dl className="rental-facts"><div><dt>Collected from</dt><dd>{active.spotName}</dd></div><div><dt>Paid by {active.paidWith}</dt><dd>{fmt(active.price)}</dd></div></dl>
+            {(active.extensionsLeft ?? 0) > 0 && <div className="rental-extend" role="group" aria-label="Extend the rental">
+              <button className="rental__primary" disabled={!!sent || (!money.bank && money.cash < (active.extendPrice ?? 0))}
+                onClick={() => issue({ type: "rental.extend", pay: money.bank && money.bank.balance >= (active.extendPrice ?? 0) ? "bank" : "cash" })}>
+                {sent === "rental.extend" ? "Extending…" : `Extend +${active.extendMinutes ?? 30} min · ${fmt(active.extendPrice ?? 0)}`}<Icon name={sent === "rental.extend" ? "loader" : "clock"} size={16} />
+              </button>
+              <p className="rental-summary__hint">Or type <kbd>/extendrental</kbd> anywhere ({active.extensionsLeft} left).</p>
+            </div>}
             <div className="rental-summary__bottom">
               {confirmReturn ? <div className="rental-confirm" role="group" aria-label="Confirm return"><h3>Return this vehicle?</h3><p>It will be removed from the world. The rental fee is not refunded.</p><button className="rental__primary" disabled={!!sent} onClick={() => issue({ type: "rental.return" })}>{sent ? "Returning…" : "Confirm return"}<Icon name={sent ? "loader" : "check"} size={16} /></button><button className="rental__text-button" disabled={!!sent} onClick={() => setConfirmReturn(false)}>Keep my rental</button></div>
                 : <><button className="rental__secondary" disabled={!!sent} onClick={() => setConfirmReturn(true)}>Return vehicle<Icon name="arrow-left-right" size={16} /></button><p className="rental-summary__hint">Return at any rental desk.</p></>}

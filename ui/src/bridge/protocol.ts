@@ -742,6 +742,8 @@ export interface ActiveRental {
   image?: string;
   remainingMs: number; // at the time the state was pushed
   vehicleId?: number;
+  extendPrice?: number; extendMinutes?: number; extensionsLeft?: number;
+  warnMs?: number; // the countdown blinks (and shows how to extend) under this
 }
 export interface RentalState { active?: ActiveRental }
 
@@ -828,6 +830,7 @@ export type UiAction =
   | { type: "money.pay"; target: number; amount: number }
   | { type: "rental.rent"; spot: string; key: string; pay: "cash" | "bank" }
   | { type: "rental.return" }
+  | { type: "rental.extend"; pay: "cash" | "bank" }
   | { type: "fuel.buy"; spot: string; vehicle: number; litres: number; pay: "cash" | "bank" }
   | { type: "fuel.jerrycan"; spot: string; pay: "cash" | "bank" }
   | { type: "fuel.refresh"; spot: string }

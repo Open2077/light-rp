@@ -412,8 +412,15 @@ LightRpConfig = {
             color = { r = 255, g = 204, b = 0, a = 160 },
             maxDistance = 30.0, groundOffset = 0.05,
         }, -- translucent wall fading upwards; visual size is separate from interactRadius
-        durationMinutes = 30,
-        blip = { icon = "key-round", sprite = "Zzz01_CarForPurchaseVariant", title = "Rent-a-Ride", description = "Rent a car by the half hour. Return it at any desk." },
+        durationMinutes = 60,
+        -- Extending: /extendrental anywhere (bank by default, `cash` to pay cash) or Extend at a
+        -- desk adds extendMinutes, priced pro rata of the rental (price × extend / duration), at
+        -- most maxExtensions times. Notices at each warnMinutes before the end (the HUD chip
+        -- blinks from the first one).
+        extendMinutes = 30,
+        maxExtensions = 4,
+        warnMinutes = { 10, 2 },
+        blip = { icon = "key-round", sprite = "Zzz01_CarForPurchaseVariant", title = "Rent-a-Ride", description = "Rent a car by the hour. Extend it with /extendrental. Return it at any desk." },
         -- Crowd civilians (docs/generated/npc-records-2.31.csv, category civilian,
         -- risk candidate, reaction preset NoReaction: they neither flee nor
         -- panic). One is picked at random per desk; the list is tried until the
