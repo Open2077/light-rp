@@ -26,19 +26,78 @@ local function stop(notify)
     Ui.send(PAGE, { kind = "closed", session = s.id })
 end
 -- Workshop bays are narrow: the orbit would put the camera inside a pillar or a barrel.
--- One ray per frame from the car to the wanted spot; the camera stops short of the first
--- obstacle (never closer than MIN_RADIUS). The car itself never counts as an obstacle.
-local MIN_RADIUS, CLEARANCE = 2.0, 0.35
-local function unobstructed(s, p, position)
+-- The camera stops short of the first obstacle between the car and the wanted spot (never
+-- closer than MIN_RADIUS). The ray is geometry only and starts where it leaves the car's
+-- box (plus a margin for kit parts), so the car never counts as an obstacle.
+-- It used to ask the ray which entity it hit (`entities = true`), to skip the car. That
+-- answer is a search around the player, and it cost 20 to 50 ms a call (lab, 2026-11-07,
+-- 16 to 23 parts within 6 to 9 m). One call per frame kept the resource over its frame
+-- budget, so its other tasks never ran: the studio never received the answer to a purchase
+-- ("Processing payment...") and could not be closed. The ray now runs OBSTACLE_MS apart;
+-- the frames in between keep the last result.
+local MIN_RADIUS, CLEARANCE, KIT_MARGIN, OBSTACLE_MS = 2.0, 0.35, 0.6, 200
+-- The car's own extent (Open77.world.entityGeometry: metres from its origin, +X right,
+-- +Y forward, +Z up, kit parts not included), read once per session. Without it, a
+-- mid-size car.
+local FALLBACK_EXTENT = { min = { x = -1.1, y = -2.4, z = -0.4 }, max = { x = 1.1, y = 2.4, z = 1.1 } }
+local function extent(s)
+    if s.extent then return s.extent end
+    local world = Open77.world
+    if type(world) == "table" and type(world.entityGeometry) == "function" then
+        local ok, geometry = pcall(world.entityGeometry, { kind = "vehicle", id = s.vehicle })
+        local b = ok and type(geometry) == "table" and geometry.bounds
+        if type(b) == "table" and type(b.min) == "table" and type(b.max) == "table"
+            and type(b.min.y) == "number" and type(b.max.y) == "number" and b.max.y > b.min.y
+            and type(b.min.z) == "number" and type(b.max.z) == "number" and b.max.z > b.min.z then
+            s.extent = b
+            return b
+        end
+    end
+    return FALLBACK_EXTENT
+end
+-- Metres from `from` along `dir` (unit vector) until the ray leaves the car's box grown by
+-- KIT_MARGIN; 0 when it starts outside the box and never crosses it.
+local function leaveCar(s, v, from, dir)
+    local e, yaw = extent(s), math.rad(v.yaw or 0)
+    local fx, fy, rx, ry = -math.sin(yaw), math.cos(yaw), math.cos(yaw), math.sin(yaw)
+    local ox, oy, oz = from.x - v.position.x, from.y - v.position.y, from.z - v.position.z
+    local origin = { ox*rx + oy*ry, ox*fx + oy*fy, oz }
+    local direction = { dir.x*rx + dir.y*ry, dir.x*fx + dir.y*fy, dir.z }
+    local low = { (e.min.x or -1.1) - KIT_MARGIN, e.min.y - KIT_MARGIN, e.min.z - KIT_MARGIN }
+    local high = { (e.max.x or 1.1) + KIT_MARGIN, e.max.y + KIT_MARGIN, e.max.z + KIT_MARGIN }
+    local near, far = -math.huge, math.huge
+    for axis = 1, 3 do
+        local o, d = origin[axis], direction[axis]
+        if math.abs(d) < 1e-6 then
+            if o < low[axis] or o > high[axis] then return 0 end
+        else
+            local t1, t2 = (low[axis] - o) / d, (high[axis] - o) / d
+            near, far = math.max(near, math.min(t1, t2)), math.min(far, math.max(t1, t2))
+        end
+    end
+    if far < math.max(near, 0) then return 0 end
+    return math.max(0, far)
+end
+local function unobstructed(s, v, p, position)
     if type(Open77.world) ~= "table" or type(Open77.world.raycast) ~= "function" then return nil end
     local from = { x = p.x, y = p.y, z = p.z + s.targetHeight }
-    local ok, hit = pcall(Open77.world.raycast, from, position, { entities = true })
-    if not ok or type(hit) ~= "table" or not hit.hit or type(hit.distance) ~= "number" then return nil end
-    if type(hit.entity) == "table" and hit.entity.vehicleId == s.vehicle then return nil end
     local dx, dy, dz = position.x - from.x, position.y - from.y, position.z - from.z
     local length = math.sqrt(dx*dx + dy*dy + dz*dz)
-    if length <= 0 or hit.distance >= length then return nil end
-    local keep = math.max(MIN_RADIUS, hit.distance - CLEARANCE) / length
+    if length <= 0 then return nil end
+    local now = GetGameTimer()
+    if not s.obstacle or now >= s.obstacle.at then
+        local keep, dir = 1, { x = dx/length, y = dy/length, z = dz/length }
+        local start = leaveCar(s, v, from, dir)
+        if start < length then
+            local origin = { x = from.x + dir.x*start, y = from.y + dir.y*start, z = from.z + dir.z*start }
+            local ok, hit = pcall(Open77.world.raycast, origin, position)
+            if ok and type(hit) == "table" and hit.hit and type(hit.distance) == "number" and start + hit.distance < length then
+                keep = math.min(1, math.max(MIN_RADIUS, start + hit.distance - CLEARANCE) / length)
+            end
+        end
+        s.obstacle = { at = now + OBSTACLE_MS, keep = keep }
+    end
+    local keep = s.obstacle.keep
     if keep >= 1 then return nil end
     return { x = from.x + dx*keep, y = from.y + dy*keep, z = from.z + dz*keep }
 end
@@ -50,7 +109,7 @@ local function shot(s, v)
     if focus ~= 0 then p = { x = p.x - math.sin(yaw)*focus, y = p.y + math.cos(yaw)*focus, z = p.z } end
     local position = { x = p.x + math.cos(a)*s.radius, y = p.y + math.sin(a)*s.radius, z = p.z+s.height }
     local radius, height = s.radius, s.height
-    local clear = unobstructed(s, p, position)
+    local clear = unobstructed(s, v, p, position)
     if clear then
         position, height = clear, clear.z - p.z
         radius = math.sqrt((clear.x - p.x)^2 + (clear.y - p.y)^2)
@@ -129,24 +188,6 @@ end
 
 -- Per-category framing, eased in. Angles are relative to the car's heading.
 local function ease(t) return t < .5 and 2*t*t or 1 - (-2*t + 2)^2/2 end
--- The car's own extent (Open77.world.entityGeometry: metres from its origin, +Y forward,
--- +Z up, kit parts not included), read once per session. Without it, a mid-size car.
-local FALLBACK_EXTENT = { min = { y = -2.4, z = -0.4 }, max = { y = 2.4, z = 1.1 } }
-local function extent(s)
-    if s.extent then return s.extent end
-    local world = Open77.world
-    if type(world) == "table" and type(world.entityGeometry) == "function" then
-        local ok, geometry = pcall(world.entityGeometry, { kind = "vehicle", id = s.vehicle })
-        local b = ok and type(geometry) == "table" and geometry.bounds
-        if type(b) == "table" and type(b.min) == "table" and type(b.max) == "table"
-            and type(b.min.y) == "number" and type(b.max.y) == "number" and b.max.y > b.min.y
-            and type(b.min.z) == "number" and type(b.max.z) == "number" and b.max.z > b.min.z then
-            s.extent = b
-            return b
-        end
-    end
-    return FALLBACK_EXTENT
-end
 local function framing(s, v, target, angle)
     local to = { angle = angle, radius = target.radius, height = target.height, targetHeight = target.targetHeight, focus = 0 }
     local f = target.focus
