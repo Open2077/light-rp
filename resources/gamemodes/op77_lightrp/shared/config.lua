@@ -240,10 +240,11 @@ LightRpConfig = {
     fuel = {
         enabled = true,
         tickMs = 1000,
-        -- Game rates, not spec-sheet ones: a 55 L tank lasts about 45 min of
-        -- city driving (~60 km/h) and about 1h30 of idling.
-        litresPerHundredKm = 110.0,  -- burned by distance while moving (1 L every ~55 s at 60 km/h)
-        idleLitresPerMinute = 0.6,   -- burned by time while the engine idles
+        -- Game rates, not spec-sheet ones: a 55 L tank lasts about 2h15 of
+        -- city driving (~60 km/h) and about 4h30 of idling (divided by 3 on 2026-11-07:
+        -- was 110 L/100 km and 0.6 L/min, ~45 min of driving per tank).
+        litresPerHundredKm = 36.7,   -- burned by distance while moving (1 L every ~2 min 45 s at 60 km/h)
+        idleLitresPerMinute = 0.2,   -- burned by time while the engine idles
         multiplier = 1.0,            -- scales both rates (staff: /lightrp.fuelrate)
         tanks = { default = 60, Street = 55, Utility = 90, Sport = 65, Bikes = 30 }, -- litres, by vehicles.catalog category
         reserve = 0.15,              -- fraction: HUD turns amber and the driver is warned once
