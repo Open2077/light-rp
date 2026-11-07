@@ -9,7 +9,8 @@ The sources of this work:
   kit, neon, plate, performance stages and per-category camera framing.
 - Window tint comes from `feat/auto-studio-full` on top of the native
   `Open77.vehicles.setWindowTint` (base `feat/vehicle-customization`, W1, 2026-11-06).
-  The category is built and **closed**: see [Windows](#windows).
+  The category is **open** since `ba146785` (2026-11-07), once the tinted glass rendered
+  in game: see [Windows](#windows).
 - Wave 2 (neon animation, lamp colors, engine sound, stickers and the tag) comes from
   `lr/studio-extras` (campaign plan `PLAN-vehicle-custom-wave2.md`, "Auto Studio"). It
   was written against the shared contract of the wave 2 natives before any build had
@@ -36,22 +37,35 @@ documented in the Open77 wiki, `wiki/vehicle-customization.md`.
 
 ## Status in game
 
-Everything below was seen on **one client** in the lab (2026-11-05 and 2026-11-06,
-campaign ledger `PLAN-vehicle-custom.md` §10). **Nothing has been checked from a second
-client yet**: the [Lab checklist](#lab-checklist-two-clients) is still to run.
+Every category below was checked in the lab on **two clients** on 2026-11-07: A owns and
+buys, B watches (campaign ledger `PLAN-vehicle-custom.md` §10, results in
+[Wave 1 lab results](#wave-1-lab-results) and [Wave 2 lab results](#wave-2-lab-results)).
+The one-client checks of 2026-11-05 and 2026-11-06 (frame-by-frame fits, the 12-decal
+livery fix, the Caliburn) are in the ledger.
 
-| Category | Seen on one client |
+| Category | Seen on two clients |
 | --- | --- |
-| Body paint, lights, trim | Previewed, bought, ledger rows written, properties saved |
-| Livery (factory schemes) | Bought; came back after a server restart and an impound |
-| Livery (pack) | The 12 Hella liveries shown together without a crash, after the 12-decal fix. Not sold or stored yet |
-| Rims | 18 designs checked frame by frame on the Hella; bought; came back after a restart and an impound, and after a stream-in |
-| Body kit | GT wing and side skirts (the first, 8-part catalogue) bought on the Hella and kept through a restart and an impound; the Hella's parts of the 30-part kit checked frame by frame, the three front lips refitted (+18 cm / -7 cm). See the side skirt note below |
-| Neon | Bought; kept through a restart and an impound |
-| Plate | Written on the car through `setPlate`, with the 9 m rebuild (see [Plate](#plate)); kept through a restart and an impound |
-| Windows | The switch works and the level is kept through a restart and an impound; the glass renders as factory. Closed |
-| Performance | Stage 1 bought and stored with the rest of the look; Performance greyed when TweakXL 1.12 is missing |
-| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Checked on two lab clients on 2026-11-07 (rows 12, 14-18, 20 on the current build, 21, and 22 on the Hella; see [Wave 2 lab results](#wave-2-lab-results)). Neon animation, lamp colors, engine sound and stickers were bought, seen by B, and kept through a server restart and a late join. The neon animation needs the Open77 client fix `a0999cf9` (before it, the animated neon went dark), and stickers need `843f8cc4` (before it, a client that moved far from a car with stickers could crash). Tag waits for the `setTag` native |
+| Body paint | Bought; replaces a bought livery on A and B (the car is rebuilt, 1 to 3 s without its parts) |
+| Livery (factory and pack) | Factory scheme and the pack's taxi previewed, taxi bought; seen by B; back after a server restart, an impound and a redelivery |
+| Rims | Deep Dish 8 black previewed and bought; on the four wheels for B, nothing of the factory rim showing; back on A and B after a server restart, an impound, a redelivery and a stream-in; Factory rims gives the stock wheels back |
+| Body kit | GT wing, then Street wing alone, then a lip, for B; wing + lip bought for 7,000; back after a restart. See the delivery height note below |
+| Neon | Cyan, then red, for B; `#101010` refused; No neon then closing gives the bought red back on A and B |
+| Lights | Red, cyan and Factory lights previewed at night; the headlights change colour for B, glow and beam; cyan bought; back after closing the studio, a stream-out, and a server restart with an impound and a redelivery. Needs the Open77 client with `1ee95687`: older clients keep white headlights whatever the hue |
+| Plate | Reserved and banned plates refused, a plate already on another car refused; bought; B reads it within 9 m; back after a restart, rewritten when B comes within 9 m after a stream-in |
+| Windows | Limo bought in the studio for 1,500; seen by B and changed live; kept through a restart, an impound, a reconnect, a stream-out and the distance proxy. Needs the Open77 client with `b9f21aa3` and `15013360`, and the tint pack `75b3fcbb2b6e` |
+| Performance | B taking the wheel closes A's studio; Stage 1 rebuilds the car with its whole look on A and B; a second change within 10 min is refused; back after a restart |
+| Driver change | B drives A's car, then A drives it: the whole look stays on both clients |
+| Trim | `archer_hella__basic_poor_2` previewed and bought; B sees the variant with the paint, kit, rims, neon and headlight tint put back; kept through a stream-out and back, the body coming back directly in the variant; Factory trim bought: the factory front is back on A and B. Not run across a server restart |
+| Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Rows 12, 14-18, 20 on the current build, 21, and 22 on the Hella; see [Wave 2 lab results](#wave-2-lab-results). The neon animation needs the Open77 client fix `a0999cf9`, and stickers need `843f8cc4`. Tag waits for the `setTag` native |
+
+**Delivery height.** A car that the garage puts on a bay sits at the bay's height, and
+nobody simulates it until someone drives it. On Bay 01 the Hella's root is at z = 11.20, while
+driven it rests at 11.38 on a floor at 11.015. So a delivered car shows its tyres about 18 cm
+into the floor, and a front lip (offset −0.666 m from `Base`) sits under the floor until the car
+is driven. Measured on 2026-11-07: lip at z = 10.97, invisible; after a 5 m drive, lip at 11.55,
+red and visible on A and B. This is not a kit fault. The fix (bay heights at the rest height, or
+`Open77.world.groundZ` plus a measured rest height per model) changes every garage delivery and
+is for the owner to decide (`PLAN-vehicle-custom.md` §10).
 
 **The Hella's side skirts.** The side skirts in the table were bought on the Hella with
 the first, 8-part catalogue, where `skirt_side` had a Hella fit. The 30-part kit keeps the id
@@ -131,7 +145,7 @@ previews only on request (**Hear it on the car**), since each change rebuilds th
 | Plate | Plate number field + plate visual; the server answers availability | `setPlate` when the server has it; stored by Light RP, mirrored in the `lightrpPlate` state bag | 2,500 €$, provisional |
 | Stickers (wave 2) | **No stickers** + the stickers that fit, by group, with the decal meter | `listStickers`, `setStickers`, `getStickers`, `getDecalBudget` | 1,500 €$ **per sticker added**, provisional |
 | Tag (wave 2) | Listed only with `setTag`: **No tag**, text (1 to 12 characters), font, color, spot | `setTag` | 2,000 €$, provisional |
-| Windows | **Closed: greyed "Coming soon"** (`windows.enabled = false`). Built: Factory glass, Light smoke, Dark smoke, Limo (side and rear glass; the windshield stays clear). The switch works in game; the glass still renders as factory | `setWindowTint` (levels 1-3, nil = factory) | 1,500 €$, provisional, not sold while closed |
+| Windows | **Factory glass**, Light smoke, Dark smoke, Limo (side and rear glass; the windshield stays clear) | `setWindowTint` (levels 1-3, nil = factory) | 1,500 €$, provisional |
 | Performance | Stock / Stage 1 / Stage 2 / Stage 3, each with its price | `respawnAs` onto `Vehicle.<dealer record>_o77sN` | per model and stage, provisional; going down costs 1,000 €$ |
 | Engine sound (wave 2) | **Factory sound** + the sounds that fit; **Hear it on the car** | `listEngineSounds`, `setEngineSound` (`getEngineSound`), `setEngineHold` | 6,000 €$, provisional |
 
@@ -253,6 +267,13 @@ identically, and a grey has no hue: the native would read it as red.
 - **Factory lights** clears the tint and is a lights job.
 - The Bandit and the Apollo have `customizeLights = false` (E0.1), so `support` greys
   their Lights row.
+- **What shows is the headlights**, lamp glow and beam, at full saturation. The engine
+  keeps the hue in the template but does not tint the headlights from it: on 2026-11-07,
+  before the client fix, a red hue left the Hella's headlights white for both clients
+  (front lamp `242,237,232` against `241,235,228` stock). The Open77 client sets the
+  headlight colour itself since `1ee95687`. Measured for B after the fix, around the lamps:
+  red `216,91,118`, cyan `128,197,198`, stock `228,209,179`. Brake, reverse, blinker and
+  interior lamps are the [Lamp colors](#lamp-colors) tab.
 
 #### Trim
 
@@ -304,30 +325,31 @@ and shown in the studio header, the garage list and the ALT vehicle info
 
 #### Windows
 
-**Closed.** `windows.enabled = false` in `shared/vehicle_customization.lua`. The row is
-greyed "Coming soon." and stays selectable: the editor shows the reason, nothing can
-be bought, and the server refuses any request for it.
+**Open** since `ba146785` (`windows.enabled = true` in `shared/vehicle_customization.lua`).
+Factory glass, Light smoke, Dark smoke and Limo (native levels 1 to 3) on the side and
+rear glass; the windshield is never tinted. 1,500 €$ provisional, for any level or for
+going back to factory glass. Ledger kind `vehicle_tint`, field `visual.tint` in the
+confirmed-property mask.
 
-**Why.** Everything else works. `Open77.vehicles.setWindowTint` stores the level, each
-client switches the side and rear glass to the tint pack's appearance, and the level
-came back after a server restart and an impound (one client). But the glass renders
-as factory: ArchiveXL leaves the tint pack's materials unresolved, with the Open77 fork
-and with the official 1.28.6 alike (base `docs/research/vehicles-api.md`, "W1 —
-teinte en jeu"). Selling it would take money for nothing visible.
+**What it needs.** The tinted glass renders only with an Open77 client that switches the
+glass by a resource load followed by an appearance refresh (`b9f21aa3`), and that switches
+it again when the car comes back from the distance proxy (`15013360`). The tint pack
+`open77_vehicle_tint` must be revision `75b3fcbb2b6e` or later: its `client.lua` makes the
+pack visible to the client's resource state, which the studio checks. An older client
+shows factory glass; an older pack greys the row "Window tinting is not installed on this
+server yet." The cause and the measurements are in base `docs/research/vehicles-api.md`,
+"W1 résolu".
 
-**What is built, ready for when it renders:**
+**Proven on 2026-11-07, two clients.** On the Hella: free Limo preview, Apply tint charged
+1,500 from the bank, `visual.tint = 3`. B saw each level change live. The level came back
+after a server restart with an impound and a redelivery, after a reconnect, after a
+stream-out of 450 m, and through the distance proxy. Measured glass luminance on B: factory
+46.8, Limo 40.8.
 
-- three levels, Light smoke / Dark smoke / Limo (native levels 1 to 3), plus **Factory
-  glass**; the windshield is never tinted;
-- the price, 1,500 €$ provisional, for any level or for going back to factory glass;
-- ledger kind `vehicle_tint`, field `visual.tint` in the confirmed-property mask;
-- greying: the two bikes have no window (`support`), and the row is greyed "Window
-  tinting is not installed on this server yet." when `open77_vehicle_tint` is not
-  running;
-- the client warning `not_covered` when the client's game has no tinted glass for the
-  car.
-
-To reopen it, see the tinted glass in game first, then set `windows.enabled = true`.
+**Greying.** The two bikes have no window (`support`); the row is greyed when
+`open77_vehicle_tint` is not running or not visible; a server can close the category again
+with `windows.enabled = false`, which greys it "Coming soon." and refuses any request. The
+client warns `not_covered` when its game has no tinted glass for the car.
 
 #### Performance
 
@@ -563,7 +585,7 @@ transaction** before success is acknowledged:
 | Rims | `vehicle_rims` |
 | Body kit | `vehicle_bodykit` |
 | Neon | `vehicle_neon` |
-| Windows | `vehicle_tint` (not sold while closed) |
+| Windows | `vehicle_tint` |
 | Plate | `vehicle_plate` |
 | Performance | `vehicle_stage` |
 | Neon animation | `vehicle_neon_anim` |
@@ -679,7 +701,7 @@ and their editor shows the reason.
 | Neon | No native |
 | Lights | `support` (Bandit, Apollo: no tintable lights, E0.1) |
 | Performance | No stage price for the model; `lightrp_vehicle_stages` not running (no TweakXL 1.12 loader); no stage record; no native. See [Performance](#performance) |
-| Windows | `windows.enabled` is false (the shipped value: "Coming soon"); the model has no window (`support`: Apollo, Kusanagi); `open77_vehicle_tint` not running; no native |
+| Windows | `windows.enabled` set to false by the server ("Coming soon"); the model has no window (`support`: Apollo, Kusanagi); `open77_vehicle_tint` not running, or a pack older than `75b3fcbb2b6e` that the client cannot see; no native |
 | Neon › Animation | No native; the garage has no category registry |
 | Lamp colors | No native; no registry |
 | Engine sound | `listEngineSounds` gives nothing for the car; no native; no registry |
@@ -855,11 +877,11 @@ one client, late joins and other viewers are not checked yet (see
 | Rims | `registerParts`, `listParts`, `setWheels`, `getVisual` | One rim set; B2 per-wheel fits; key `rims.<slot>` | Implemented (phase 2) |
 | Body kit | `registerParts`, `listParts`, `setParts`, `getVisual` | Slot `Base`, `carrier` for lid parts; ≤ 16 attachments; exclusivity in Light RP | Implemented (phase 2); carriers not seen in game |
 | Neon | `setNeon`, `clearNeon`, `getVisual` | Colour, intensity 0–5000, radius | Implemented (phase 2) |
-| Light tint | `setHeadlightColor`, `clearLightsHue`, `setLightsHue`, `getLightsHue` | One hue in 0..1 | Implemented |
+| Light tint | `setHeadlightColor`, `clearLightsHue`, `setLightsHue`, `getLightsHue` | One hue in 0..1, shown on the headlights by the client since `1ee95687` | Implemented |
 | Trim | `getAppearance`, `setAppearance` | Curated names, `world.vehicles.appearance` | Implemented |
 | Performance | `respawnAs` (+ the stage resource's `stageRecord` export) | Same id; refuses `vehicle_occupied` / `invalid_record`; the stage resource needs TweakXL ≥ 1.12.0 | Implemented (phase 2) |
 | Plate text | `setPlate` | Normalized text on the plate pack's screen; state bag `lightrpPlate` for menus; blank on a car born more than ~10 m from the camera until the 9 m rebuild | Implemented |
-| Window tint | `setWindowTint`, `getWindowTint`, `getVisual().tint` | Levels 1-3 on side and rear glass; nil = factory. The switch is proven in game, the tinted glass is not: ArchiveXL leaves the pack materials unresolved, so the glass renders as factory (base `docs/research/vehicles-api.md`, "W1 — teinte en jeu") | Closed until it renders |
+| Window tint | `setWindowTint`, `getWindowTint`, `getVisual().tint` | Levels 1-3 on side and rear glass; nil = factory. The tinted glass renders with the Open77 client fixes `b9f21aa3` and `15013360` and the pack `75b3fcbb2b6e` (base `docs/research/vehicles-api.md`, "W1 résolu") | Implemented, sold since `ba146785` |
 | Neon animation | `setNeonAnimation`, `getNeonAnimation` | Mode, `periodMs` 250-10000, `color2` for a chase | Wave 2 contract; not in any build checked |
 | Lamp colors | `setLightColors`, `getLightColors` | Groups `brake`, `reverse`, `blinkers`, `interior`; nil = factory | Wave 2 contract; not in any build checked |
 | Engine sound | `listEngineSounds`, `setEngineSound`, `getEngineSound`; `setEngineHold` (op77.147) | Rebuilds the car on `_o77a<k>` / `_o77s<n>a<k>` | Wave 2 contract; not in any build checked |
@@ -989,7 +1011,7 @@ within 20 m of Bay 01. Both clients connected after the packs were added.
 
 | # | Steps | Expected |
 | --- | --- | --- |
-| 1 | A parks the Hella at Bay 01, steps out, presses E | 10 categories in a 2-column grid; Windows greyed "Coming soon", selectable, nothing to buy; the camera frames per category (rims low and close, plate from behind) |
+| 1 | A parks the Hella at Bay 01, steps out, presses E | 10 categories in a 2-column grid, Windows included (greyed only on the two bikes, or without the tint pack); the camera frames per category (rims low and close, plate from behind) |
 | 2 | A previews Deep Dish 8 black, then Factory rims | B sees the rims on all four wheels, the back pair flush with its tyres (its offset differs from the front), no stock rim showing through; Factory rims gives the stock wheels back on both clients |
 | 3 | A buys a rim set; parks; the server restarts; A retrieves | Wallet −6,000, ledger `vehicle_rims`; same rims on A and B, also after B streams the car out and back in (> 35 m) |
 | 4 | Same with the Merrimac, then the Apollo | Merrimac: six wheels including the middle axle; Apollo: front and back rims on the bike slots. Kusanagi: Rims greyed "No rim fits this model yet." |
@@ -1023,6 +1045,47 @@ and the sticker and engine sound packs installed. The server log must not show
 Fill `support`, the rim and body fits, and the stage values from these
 measurements: which records render rims and parts where expected, and which stages
 drive as tabled.
+
+### Wave 1 lab results
+
+These were measured on 2026-11-07 in the lab server, with two clients (A owns and
+buys, B watches from the bay) and a new Hella delivered at Bay 01.
+
+| # | Result |
+| --- | --- |
+| 2 | Deep Dish 8 black on the four wheels for B, nothing of the factory rim showing; Factory rims gives the stock wheels back on A and B |
+| 3 | Deep Dish 8 black bought by A ("Rims purchased and saved to your vehicle."), seen by B on the four wheels. After a server restart, the late join of both clients, an impound and a redelivery, the four rims are bound and rendered on A and B, with the kit, neon, plate and windows. B then went 450 m away and came back: the four rims, the kit and the plate were back after about 24 s |
+| 5 | GT wing, then Street wing alone (one wing at a time for B), then the race lip; wing + lip read 7,000 and were bought (`vehicle_bodykit`) |
+| 6 | Cyan Medium shows under the car for B; `#101010` is refused; Red High bought for 5,000 (`vehicle_neon`); No neon then Escape gives the bought red back on A and B |
+| 7 | Scheme 1, then the taxi livery of the pack, seen by B; the taxi livery was bought; it came back after a server restart, an impound and a redelivery; buying a body paint removes it on both clients |
+| 8 | `NCPD001`, a banned word and a too-short plate are refused with their messages; `VCB0707` was bought; B reads it on the plate within 9 m; the same plate on another car is refused "already registered" |
+| 9 | B getting into the Hella closes A's studio. With the car empty, Stage 1 rebuilds it in place with its whole look on A and B; a second change is refused "Come back in 10 min" |
+| 12 | Driving off during a preview gives the bought look back on both clients, with no ledger entry |
+| 13 | No `not registered` part, no `rollback pending`, no `attach:` skip for the Hella in the server and client logs |
+| Restart | After a server restart and the late join of both clients, the Hella comes back with stage 1, paint, kit, neon, plate and windows, on A and B |
+| Stream-in | B goes 450 m away and back: kit, neon, windows and paint come back; the plate is written again once B is within 9 m |
+| Driver change | B drives the car, then A does: the look stays the same on both clients |
+| P3.11 | A launcher started from an install without the vehicle packs: see below |
+
+Rows 4 (Merrimac and Apollo on two clients), 10 (stages resource stopped), 11 (a client
+without the rims pack) and the older-build part of row 20 were not run in game. Row 10
+is covered by `tests/vehicle_customization_kit_test.lua`; rows 4 and 11 were checked on
+one client on 2026-11-05 and 2026-11-06 (ledger).
+
+**Launcher (P3.11).** The 14 files of the vehicle packs (body kit, rims, liveries,
+stickers, original stickers, stages and engine sounds, plates, window tint) were taken
+out of the game folder. A launcher 2.50.0+op77.201, on its "Local development" source
+with a master on 127.0.0.1:8090, was given `open77://connect?endpoint=127.0.0.1:11855`.
+It listed the 25 required packages (52.4 MB, none reviewed), asked for consent,
+downloaded them from the server and wrote
+`world '127.0.0.1:11855': projected 14 file(s), removed 0, kept 60 in place.` The 14
+files were byte-identical to the ones taken out. It then started the game, which joined
+the world in 18 s; ArchiveXL loaded the plate and tint `.xl` files and TweakXL read the
+five Light RP YAML files. The launcher signs in with the player's real account, which
+was new on this server, so that client stopped at the Light RP character creator. The
+look of the Hella was then checked with the two lab clients on these same projected
+files: B saw the two-tone paint, the wing, the red neon, the tinted windows and the plate; A then bought
+the rims of row 3 on these files.
 
 ### Wave 2 lab results
 
@@ -1065,8 +1128,9 @@ Other results:
 - **Plate format.** Seven characters A-Z/0-9 is a placeholder; a pattern such as
   `NC` + 5 or 3 letters + 4 digits, or a vanity length, is the owner's call. The
   banned and reserved lists also need the owner's extension.
-- **Windows.** 1,500 €$ is configured but nothing is sold while the category is
-  closed. The price is to confirm once the tinted glass renders in game.
+- **Windows.** Sold at 1,500 €$ since 2026-11-07, for any level or for going back to
+  factory glass. The price and the three labels (Light smoke, Dark smoke, Limo) are the
+  owner's to confirm.
 - **Labels.** The factory livery schemes are "Scheme N" because factory profiles have
   no name; pack liveries carry their pack's labels. The rim names come from E1
   (Classic 10, Lattice, Deep Dish 8, …); the body groups are Wing, Rear louvers,
