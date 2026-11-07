@@ -1065,7 +1065,7 @@ buys, B watches from the bay) and a new Hella delivered at Bay 01.
 | --- | --- |
 | 2 | Deep Dish 8 black on the four wheels for B, nothing of the factory rim showing; Factory rims gives the stock wheels back on A and B |
 | 3 | Deep Dish 8 black bought by A ("Rims purchased and saved to your vehicle."), seen by B on the four wheels. After a server restart, the late join of both clients, an impound and a redelivery, the four rims are bound and rendered on A and B, with the kit, neon, plate and windows. B then went 450 m away and came back: the four rims, the kit and the plate were back after about 24 s |
-| 4 | Seen by B: a rim set on the Merrimac sits on its six wheels, the middle axle included; on the Apollo it sits on the front and back wheels. The Kusanagi was not run |
+| 4 | Seen by B: a rim set on the Merrimac sits on its six wheels, the middle axle included; on the Apollo it sits on the front and back wheels. The Kusanagi was not opened in game; `tests/vehicle_customization_kit_test.lua` checks its greyed Rims row and reason |
 | 5 | GT wing, then Street wing alone (one wing at a time for B), then the race lip; wing + lip read 7,000 and were bought (`vehicle_bodykit`) |
 | 6 | Cyan Medium shows under the car for B; `#101010` is refused; Red High bought for 5,000 (`vehicle_neon`); No neon then Escape gives the bought red back on A and B |
 | 7 | Scheme 1, then the taxi livery of the pack, seen by B; the taxi livery was bought; it came back after a server restart, an impound and a redelivery; buying a body paint removes it on both clients |
