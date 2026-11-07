@@ -789,6 +789,9 @@ m=open(hella);assert(category(m,"windows").available==false and category(m,"wind
 reply=issue("preview",{category="windows",tint="limo"});assert(not reply.ok and reply.text==C.unsupported.windowsPack,"the server refuses tint without its pack")
 close();packs.open77_vehicle_tint="running"
 store(hella)
+-- The mock gives the Kusanagi no paint profile, to cover the greyed livery path. In game
+-- (2026-11-07, lab 11855) it has a factory scheme: the studio offers "Scheme 1" and
+-- previews it. Rims, body kit and windows are greyed there too.
 local _,kusanagi=G.grant(1,"kusanagi");car=retrieve(kusanagi)
 m=open(kusanagi)
 assert(category(m,"rims").available==false and category(m,"rims").reason==C.unsupported.rims,"Kusanagi: no rim fits")
