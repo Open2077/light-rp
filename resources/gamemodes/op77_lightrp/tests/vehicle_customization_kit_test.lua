@@ -306,6 +306,30 @@ do
     assert(body.wing_roof.carrier==nil and body.lip_splitter.carrier==nil and body.roof_rack.carrier==nil,"roof, lip and rack ride nothing")
     for _,part in pairs(body)do if not part.carrier then for _,fit in pairs(part.fit)do assert(fit.carrier==nil) end end end
 end
+-- Every vanilla player car body (scripts/vehicle-kit/docs/bodykit.md, 2026-11-07): the body kit
+-- reaches records beyond the dealership, a trim sibling wears its body's fit, hide lists come
+-- from every appearance, and quest variant records (Vehicle.q<digits>_*) are left out.
+do
+    local body=KIT.body.parts
+    local SHION,SHION_BASE="Vehicle.v_sport2_mizutani_shion_player","Vehicle.v_sport2_mizutani_shion_base_player"
+    local TYPE66,EMPEROR="Vehicle.v_sport2_quadra_type66_player","Vehicle.v_standard3_chevalier_emperor_player"
+    local wing,base=body.wing_street.fit[SHION],body.wing_street.fit[SHION_BASE]
+    assert(wing and base and wing.offset[2]==base.offset[2] and wing.offset[3]==base.offset[3],"Shion: the base trim wears the Shion's fit")
+    local hide=body.wing_gt.fit[TYPE66].hide
+    assert(hide and hide[1]=="deathrace_spoiler_01" and hide[2]=="deathrace_spoiler_01_shadow","Type-66: a kit wing hides the Deathrace spoiler")
+    local r7=body.wing_street.fit["Vehicle.v_sport1_quadra_sport_r7_player"].hide
+    assert(#r7==8 and r7[1]=="spoiler","Sport R-7: a kit wing hides every trim's factory spoiler")
+    assert(body.roof_rack.fit[EMPEROR] and body.wing_street.fit[EMPEROR]==nil and body.wing_duck.fit[EMPEROR],"Emperor: roof items and roof-edge wings, no pedestal wing on a box SUV")
+    assert(body.wing_street.fit["Vehicle.v_sport1_herrera_outlaw_player"].carrier=="hood_a","Outlaw: the wing rides the rear engine cover (hood_a)")
+    assert(body.hood_scoop.fit["Vehicle.v_sport1_quadra_turbo_player"]==nil and body.hood_vents.fit["Vehicle.v_sport1_quadra_turbo_player"],"Turbo: vents but no ram scoop on a mid-engine car's front trunk")
+    assert(body.bull_bar.fit["Vehicle.v_utility4_chevalier_legatus_player"] and body.roof_rack.fit["Vehicle.v_utility4_chevalier_legatus_player"]==nil,"Legatus: a push bar, nothing on the turret roof")
+    local records,n={},0
+    for _,part in pairs(body)do for record in pairs(part.fit)do
+        assert(not record:match("^Vehicle%.q%d+_"),"quest variant records are left out: "..record)
+        if not records[record] then records[record]=true;n=n+1 end
+    end end
+    assert(n==71,"every vanilla player car record has a body fit ("..n..")")
+end
 
 dofile("server/modules/inventory.lua");dofile("server/modules/economy.lua")
 local before=#threads;dofile("server/modules/garages.lua");local garageWorker=threads[before+1]
@@ -799,6 +823,14 @@ assert(category(m,"livery").available==false and category(m,"livery").reason==C.
 assert(category(m,"performance").available and category(m,"plate").available)
 assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.windows,"a bike has no window to tint")
 close();store(kusanagi)
+-- The two staff-only catalogue cars beyond the dealership: the body kit is offered, not greyed.
+for _,key in ipairs({"shion","type66"})do
+    local _,row=G.grant(1,key);car=retrieve(row);m=open(row)
+    local kit=category(m,"body")
+    assert(kit.available and kit.options[1].id=="spoiler" and #kit.options[1].parts>=5,key..": the body kit is offered")
+    close();store(row)
+end
+assert(#V.listParts("Vehicle.v_standard3_chevalier_emperor_player")>0,"listParts answers for a car outside the catalogue")
 -- A server without per-appearance fits refuses `appearances` once: every rim registers
 -- with the record fit alone and every trim's hide names merged into it (the default fit
 -- for every trim; the client skips the names an appearance lacks).

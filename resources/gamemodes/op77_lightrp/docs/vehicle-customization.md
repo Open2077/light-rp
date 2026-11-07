@@ -208,19 +208,27 @@ estimate that has not been seen in game.
 #### Body kit
 
 The body kit is the 30 parts of E2 (then E2b), in 9 groups, with 82 variant models
-in the pack `lightrp_vk_body` and 251 fits on 14 records, all in the `Base` slot. The
-Thrax takes all 9 groups, the Merrimac 3; the Hella takes 25 parts in 7 groups (no
+in the pack `lightrp_vk_body`, all in the `Base` slot. Since 2026-11-07 the fit table
+covers every vanilla player car of the game (2.50): 996 fits on 71 records (69 bodies;
+the Caliburn `_02` and Shion `base` records wear their body's fit). Bikes and the quest
+variant records (`Vehicle.q<digits>_*`) are left out. The catalogue's cars:
+the Thrax takes all 9 groups, the Merrimac 3; the Hella takes 25 parts in 7 groups (no
 rear louvers, no side skirts). The staff-only Caliburn (added 2026-11-06, offline
 estimate, not seen in game) takes 13 parts in 6 groups: seven wings, which hide its
 active rear wing and stand in its housing, the louvers on the engine glass, two lips,
-the street diffuser, the hood vents and the roof scoop.
+the street diffuser, the hood vents and the roof scoop. The staff-only Type-66 takes 18
+parts in 5 groups (its wings hide the Deathrace spoiler `deathrace_spoiler_01`), the
+Shion 26 in 8 groups; neither is greyed any more. Each of the 71 records has at least one
+fit, so a car outside the catalogue opens the Body kit row too. Per-car coverage and
+every refusal: `scripts/vehicle-kit/docs/bodykit.md` in the Open77 repository.
 
 Parts on an opening panel follow it (contract section 5, "Carried parts"): the wings
 except `wing_roof` and the rear louvers name the trunk lid's slot as their `carrier`,
 the hood scoop and vents the hood's, so a wing rises with the trunk lid instead of
 staying in mid-air. On a car where the fit table's `evidence.lid` finds no lid under
 the part (the Bandit's, Quartz's, Semimaru's or Caliburn's wings, the Thrax's louvers), the fit
-says `carrier = false` and the part stays on the body.
+says `carrier = false` and the part stays on the body. On the Outlaw and the Riptide the
+rear engine cover is the component `hood_a`, so their wings carry `carriers.hood`.
 
 | Group | Parts |
 | --- | --- |
