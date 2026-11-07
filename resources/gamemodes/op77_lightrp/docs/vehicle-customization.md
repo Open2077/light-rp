@@ -401,8 +401,11 @@ is rebuilt, and re-anchors on it wherever the engine puts it.
 #### Wave 2 categories
 
 Five categories of the wave 2 plan (`PLAN-vehicle-custom-wave2.md`, "Auto Studio"),
-written against the shared contract before any build had their natives. **None has
-been seen in game.** Each one is a `getProperties` field (`neonAnimation`,
+written against the shared contract before any build had their natives. **Four of them
+were seen in game on two clients on 2026-11-07**: neon animation, lamp colors, engine
+sound and stickers (see [Status in game](#status-in-game) and
+[Wave 2 lab results](#wave-2-lab-results)). The tag waits for the `setTag` native, which no
+build has. Each one is a `getProperties` field (`neonAnimation`,
 `lightColors`, `engineSound`, `stickers`, `tag`) read and written by its own natives.
 The contract names the keys but not their table, so the module reads them from
 `visual` or from the top level, and writes a copy where its source keeps it.
@@ -486,8 +489,11 @@ Ledger kind `vehicle_stickers`.
   per theme: `Original: Race`, `Original: Graffiti`, `Original: Circuit`,
   `Original: Wave and sun`, `Original: Pinstripe`. Each is its own section of the
   page, with no change to Light RP. A theme's set takes 2 to 9 decals, so two themes on
-  one car can pass 12: the meter and the server refuse it, as above. Not seen in game
-  yet; the pack waits on the owner's choice of themes.
+  one car can pass 12: the meter and the server refuse it, as above. Seen in game on
+  2026-11-07, on the Hella, two clients: the Race set with a 6th Street sticker made 12
+  decals on A and B, and adding the Graffiti set was refused ("Too many decals: 18 of 12").
+  The Circuit, Wave and sun and Pinstripe themes were not shown in game. The owner kept
+  the five themes on 2026-11-07.
 
 #### Tag
 
@@ -866,9 +872,8 @@ losing their state.
 ## Native capability map
 
 All mutation APIs below are **server-side**. By design, runtime visual replication
-covers current viewers, late joins and streaming back in; streaming back in was seen on
-one client, late joins and other viewers are not checked yet (see
-[Status in game](#status-in-game)).
+covers current viewers, late joins and streaming back in; all three were seen on two
+clients on 2026-11-07 (see [Status in game](#status-in-game)).
 
 | Category | Native APIs | Notes | Status |
 | --- | --- | --- | --- |
@@ -882,10 +887,10 @@ one client, late joins and other viewers are not checked yet (see
 | Performance | `respawnAs` (+ the stage resource's `stageRecord` export) | Same id; refuses `vehicle_occupied` / `invalid_record`; the stage resource needs TweakXL ≥ 1.12.0 | Implemented (phase 2) |
 | Plate text | `setPlate` | Normalized text on the plate pack's screen; state bag `lightrpPlate` for menus; blank on a car born more than ~10 m from the camera until the 9 m rebuild | Implemented |
 | Window tint | `setWindowTint`, `getWindowTint`, `getVisual().tint` | Levels 1-3 on side and rear glass; nil = factory. The tinted glass renders with the Open77 client fixes `b9f21aa3` and `15013360` and the pack `75b3fcbb2b6e` (base `docs/research/vehicles-api.md`, "W1 résolu") | Implemented, sold since `ba146785` |
-| Neon animation | `setNeonAnimation`, `getNeonAnimation` | Mode, `periodMs` 250-10000, `color2` for a chase | Wave 2 contract; not in any build checked |
-| Lamp colors | `setLightColors`, `getLightColors` | Groups `brake`, `reverse`, `blinkers`, `interior`; nil = factory | Wave 2 contract; not in any build checked |
-| Engine sound | `listEngineSounds`, `setEngineSound`, `getEngineSound`; `setEngineHold` (op77.147) | Rebuilds the car on `_o77a<k>` / `_o77s<n>a<k>` | Wave 2 contract; not in any build checked |
-| Stickers | `listStickers`, `setStickers`, `getStickers`, `getDecalBudget` | 12 decals at most on a car, livery included | Wave 2 contract; not in any build checked |
+| Neon animation | `setNeonAnimation`, `getNeonAnimation` | Mode, `periodMs` 250-10000, `color2` for a chase | Implemented (wave 2); seen on two clients on 2026-11-07, with the Open77 client fix `a0999cf9` |
+| Lamp colors | `setLightColors`, `getLightColors` | Groups `brake`, `reverse`, `blinkers`, `interior`; nil = factory | Implemented (wave 2); seen on two clients on 2026-11-07 |
+| Engine sound | `listEngineSounds`, `setEngineSound`, `getEngineSound`; `setEngineHold` (op77.147) | Rebuilds the car on `_o77a<k>` / `_o77s<n>a<k>` | Implemented (wave 2); seen on two clients on 2026-11-07 |
+| Stickers | `listStickers`, `setStickers`, `getStickers`, `getDecalBudget` | 12 decals at most on a car, livery included | Implemented (wave 2); seen on two clients on 2026-11-07, with the Open77 client fix `843f8cc4` |
 | Tag | `setTag` (no getter: `getProperties().tag`) | Stretch goal W2.5 | Wave 2 contract; not in any build checked |
 | Durable restoration | `getProperties`, `setProperties` | Version-1 visual is complete: unknown keys are refused | Through the garage |
 | Client checks | `customizationAvailable` (client, `vehicles.read`), `Open77.data.vehicle` | Greying and skip warnings only | Feature-detected |
@@ -1095,7 +1100,7 @@ watches) and the Hella.
 | # | Result |
 | --- | --- |
 | 12 | Escape during a neon animation preview gives the bought Pulse back on A and B, with no ledger entry and no pause menu |
-| 14 | 12 rows: Tag is absent while the server has no `setTag` native, and Windows reads "Unavailable" |
+| 14 | 12 rows: Tag is absent while the server has no `setTag` native. At that run Windows read "Unavailable": the tint pack had no client script, so the client never saw it running. Fixed in pack `75b3fcbb2b6e`; Windows is open since `ba146785` (see [Windows](#windows)) |
 | 15 | B sees Pulse and Chase in step with A, on the server clock. The red strobe is refused with the right text. Pulse was bought for 2,500 (`vehicle_neon_anim`). The animated neon went dark until the Open77 client fix `a0999cf9`; after it, Pulse, Chase, Rainbow and Speed are visible on both clients |
 | 16 | Red blinkers, blue brake lights and a too-dark brake colour are refused. The purchase cost 1,500 (`vehicle_lamps`). While A reverses, B sees the Hella's two reverse lamps in cyan, next to the bought orange brake lamps |
 | 17 | The preview rebuild keeps the look on both clients, and the 4 s message is right. Sound s01 was bought for 6,000 (`vehicle_engine_sound`). Closing the studio stops the engine the preview kept running, on A and B, and gives the bought sound back. A stage change from 3 to 2 keeps the sound and the whole look on both clients |
