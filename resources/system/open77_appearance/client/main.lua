@@ -490,6 +490,16 @@ AddEventHandler("open77:appearance:confirmed", function()
             if valid then
                 settledSnapshot = record.snapshot
                 failed = nil
+            elseif matched > 0 then
+                -- The mirror applied and read the player back, but some stored values did not come
+                -- back as stored (an entry this client lacks, a value the mirror rewrites...).
+                -- Latching the failure kept the player out of the world for good: never announced
+                -- in game, wardrobe and editor refused ("appearance still settling"; 18 players in
+                -- 6 h on LightRP Testing, 2026-11-07). Keep what the game shows (settledSnapshot is
+                -- the capture above), carry on, and let the player fix it in the wardrobe or the
+                -- editor: their next save rewrites the record. A failed capture still latches below.
+                failed = nil
+                notify("info", "Part of your saved appearance could not be restored exactly. Check it in the wardrobe or the appearance editor.")
             else
                 failed = record.revision
                 notify("error", "Restored appearance does not match its stored options.")
