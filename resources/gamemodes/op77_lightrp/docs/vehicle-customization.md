@@ -198,6 +198,18 @@ staff-only Rayfield Caliburn (15 records). The Kusanagi is excluded because its 
 front ring leaves no room for a spoked rim. The Caliburn's fit (2026-11-06) is an offline
 estimate that has not been seen in game.
 
+Since 2026-11-07 the rims are also offered on **59 other vanilla player vehicles** (every
+`Vehicle.*_player*` record of game 2.50 the dealer table does not name, cars and
+motorcycles), among them the staff-only Quadra Type-66 and Mizutani Shion. Their fits come
+from `server/config/vehicle_kit_player_rims.lua` (generated, see
+[The vehicle kit catalogue](#the-vehicle-kit-catalogue)) and reuse the same 108 models.
+Eleven more are excluded: the Kusanagi body (Kusanagi `_02`, `_03`, Tyger Claws, and the Yaiba
+Muramasa, same hubless front ring) and seven cars whose tyre is not a separate component
+(Herrera Outlaw, Porsche 911 Turbo and cabriolet, four Type-66 variants), whose rim cannot be
+hidden without the tyre. Quest variants (`Vehicle.q<digits>_*`) are out of the customization
+extension by the owner's decision of 2026-11-07. These fits are offline estimates, not seen
+in game.
+
 - The fit is per wheel (B2) and per trim (`fit.appearances`): see
   [The vehicle kit catalogue](#the-vehicle-kit-catalogue).
 - The request names a rim and a finish that this vehicle's offer lists, and the server
@@ -319,6 +331,13 @@ and shown in the studio header, the garage list and the ALT vehicle info
 - **What a client needs.** The text is drawn by the plate pack (`open77_vehicle_plates`,
   an ArchiveXL patch) and a script that ships with the Open77 client. A client without
   the pack, or a model the pack does not cover, shows the factory plate.
+- **Coverage.** The Plate row is never greyed per model: a model the pack does not cover
+  answers `plate:<record>:no_plate_widget` in the editor after a preview. Pack revision
+  `d4412f3b864f` (2026-11-07) covers the spawned appearance of 66 of the 86 vanilla player
+  vehicles, including every Light RP dealer model and the three staff-only cars (Type-66,
+  Shion, Caliburn); the 20 others have no plate on their body (Nomad, Kurtz, NCU builds and
+  the like, listed in the Open77 repository's `scripts/vehicle-kit/plates/data/plates-dealer-2.50.md`).
+  No Light RP data changes with it.
 - **The 9 m rebuild.** The engine only builds the plate's text widget when the car is
   born within about 10 m of the camera. A car born further away is rebuilt once by the
   client when it comes within 9 m, empty and stopped; it vanishes for about 0.4 s. A
@@ -804,11 +823,21 @@ The ids are local; the platform namespaces them as `op77_lightrp:<id>`.
   holds them; a rim's record fit carries them as `fit.appearances`, which the platform
   resolves from the car's current appearance. A body part merges its trims' extra hide
   names into the record fit.
+- **Other player vehicles.** `server/config/vehicle_kit_player_rims.lua` is **generated** by
+  `tools/build_vehicle_kit_player_rims.py` from the Open77 repository's
+  `scripts/vehicle-kit/specs/lightrp-rims-fit-player.json`; its header records that table's
+  sha256 and the dealer table's. `LightRpVehicleKitPlayerRims.fit` is a record -> fit table in
+  the shape of `rimFit`; the module merges it into every rim part under the dealer fits (a
+  record both name keeps the dealer fit). A record whose spawned appearance is not fixed
+  (the Mackinaw NCU) carries its own `appearances` entries; on a server without per-appearance
+  fits their hide names are merged into the record fit, as for the trims. The generator
+  refuses a quest variant and a dealer record, and a table over 2,200 marshaller values.
 
 **Budgets, checked by the tests.** The fullest kit on one car is 232 JSON values and at
 most 3,812 bytes of `open77.visual` (caps 256 and 4,096, on the Thrax; a carried part
 costs one value more). The largest
-`registerParts` call is 1,558 values (marshaller cap 4,096). The largest studio
+`registerParts` call is 3,586 values since the player vehicles' fits (1,990 of them) ride
+in every rim part (marshaller cap 4,096). The largest studio
 category sent to a client is 405 values (client event cap 1,024).
 
 **Why categories travel as JSON text.** The page message carries `categoriesJson`,

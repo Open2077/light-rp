@@ -130,6 +130,22 @@ local function mergeHides(fit, byAppearance, field)
     end
     fit.hide = hide
 end
+-- Player vehicles beyond the dealer table (server/config/vehicle_kit_player_rims.lua,
+-- generated): every other vanilla Vehicle.*_player* record whose rims were measured,
+-- merged into each rim part under the dealer fits (a record both name keeps the dealer
+-- fit and its trims). Some carry their own `appearances` entries (a record whose spawned
+-- appearance is not fixed); a server without per-appearance fits gets their hide names
+-- merged into the record fit instead, as for the trims.
+local PLAYER_RIMS = type(LightRpVehicleKitPlayerRims) == "table" and type(LightRpVehicleKitPlayerRims.fit) == "table"
+    and LightRpVehicleKitPlayerRims.fit or {}
+local function withPlayerRims(section, entry)
+    if section ~= "rims" then return entry end
+    entry.fit = entry.fit or {}
+    for record, fit in pairs(PLAYER_RIMS) do
+        if entry.fit[record] == nil then entry.fit[record] = copy(fit) end
+    end
+    return entry
+end
 -- The kit entry with its trims: per-appearance rim overrides, or (perAppearance false)
 -- the rims' trim hide names merged into the record fit.
 local function withTrims(section, id, entry, perAppearance)
@@ -138,6 +154,8 @@ local function withTrims(section, id, entry, perAppearance)
         local extra = section == "body" and type(TRIMS.body) == "table" and type(TRIMS.body[id]) == "table" and TRIMS.body[id][record]
         if type(trims) == "table" then
             if perAppearance then fit.appearances = copy(trims) else mergeHides(fit, trims, "hide") end
+        elseif type(fit.appearances) == "table" and not perAppearance then
+            mergeHides(fit, fit.appearances, "hide"); fit.appearances = nil
         end
         if type(extra) == "table" then mergeHides(fit, extra) end
     end
@@ -155,7 +173,7 @@ local function withoutCarrier(entry)
     return entry
 end
 local function kitEntry(section, id, source)
-    local entry = withTrims(section, id, copy(source), appearanceFits)
+    local entry = withTrims(section, id, withPlayerRims(section, copy(source)), appearanceFits)
     return carriers and entry or withoutCarrier(entry)
 end
 local function bodyOrder()
@@ -192,7 +210,7 @@ local function registerKit()
                 ok, why = Open77.vehicles.registerParts({ [id] = kitEntry(section, id, source) })
             end
             if not ok and section == "rims" and tostring(why):find("wheels", 1, true) then
-                ok, why = Open77.vehicles.registerParts({ [id] = legacyRim(withTrims(section, id, copy(source), false)) })
+                ok, why = Open77.vehicles.registerParts({ [id] = legacyRim(withTrims(section, id, withPlayerRims(section, copy(source)), false)) })
                 if ok then degraded = degraded + 1 end
             end
             registered[section][id] = ok and true or nil
