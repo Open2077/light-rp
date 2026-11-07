@@ -84,7 +84,9 @@ local STAGED=SC.models
 -- Names: a trim or variant suffix survives every stage and sound suffix (baseRecord).
 for _,record in ipairs({KUSANAGI02,"Vehicle.v_sport2_quadra_type66_nomad_player_03","Vehicle.v_sport2_mizutani_shion_nomad_player_missiles",
     "Vehicle.v_standard3_makigai_tanishi_player_mr_hands","Vehicle.q000_hym_player_car"}) do
-    assert(STAGED[record],"staged: "..record)
+    -- quest variants (Vehicle.q<digits>_*) are out of the pack (owner, 2026-11-07); their names still parse
+    assert(STAGED[record] or record:match("^Vehicle%.q%d+_"),"staged: "..record)
+    assert(not (STAGED[record] and record:match("^Vehicle%.q%d+_")),"a quest variant is not staged: "..record)
     assert(LightRpConfig.baseRecord(record)==record,"a base record is its own base: "..record)
     for _,suffix in ipairs({"_o77s1","_o77s3","_o77a1","_o77a13","_o77s2a3","_o77s3a16"})do
         assert(LightRpConfig.baseRecord(record..suffix)==record,"baseRecord("..record..suffix..")")
@@ -208,11 +210,28 @@ for record,entry in pairs(STAGED)do
     for stage=1,SC.maxStage do assert(LightRP.money.validAmount(entry.prices[stage]),"price of "..record) end
     if entry.dealer then dealers=dealers+1 end
 end
-assert(count>=88 and dealers==15,("%d staged records, %d dealer models"):format(count,dealers))
+assert(count==86 and dealers==15,("%d staged records, %d dealer models"):format(count,dealers))
+assert(STAGED["Vehicle.q000_hym_player_car"]==nil and STAGED["Vehicle.q304_songbird_escape_player"]==nil,"no quest variant")
 for _,v in ipairs(LightRpConfig.vehicles.catalog)do
     if v.key~="unstaged" then assert(STAGED[v.record],"every catalogued model is staged: "..v.key) end
 end
 assert(STAGED[TYPE66].class=="car" and not STAGED[TYPE66].dealer and STAGED[KUSANAGI02].class=="bike" and not STAGED[KUSANAGI02].dealer)
+-- Owner decision (2026-11-07): an extended model at 2x its vanilla price, each stage capped at the
+-- dearest dealer stage of its class (Semimaru 25,000 / 37,500 / 50,000; Kusanagi 20,000 / 30,000 / 40,000).
+local function prices(record,want)
+    local got=STAGED[record].prices
+    assert(got[1]==want[1] and got[2]==want[2] and got[3]==want[3],
+        ("%s: %s / %s / %s"):format(record,tostring(got[1]),tostring(got[2]),tostring(got[3])))
+end
+prices(TYPE66,{9000,13000,17500})
+prices(KUSANAGI02,{15000,22500,30000})
+prices("Vehicle.v_sport1_rayfield_aerondight_player",{25000,37500,50000})
+prices("Vehicle.v_sport1_yaiba_semimaru_player",{25000,37500,50000})
+prices("Vehicle.v_sportbike1_yaiba_kusanagi_player",{20000,30000,40000})
+local CAP={car={25000,37500,50000},bike={20000,30000,40000}}
+for record,entry in pairs(STAGED)do
+    for stage=1,3 do assert(entry.prices[stage]<=CAP[entry.class][stage],"over the dealer cap: "..record) end
+end
 
 dofile("server/modules/garages.lua")
 local M,G=LightRP.money,LightRP.garage
