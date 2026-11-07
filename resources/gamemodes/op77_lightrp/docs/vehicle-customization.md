@@ -54,7 +54,7 @@ livery fix, the Caliburn) are in the ledger.
 | Plate | Reserved and banned plates refused, a plate already on another car refused; bought; B reads it within 9 m; back after a restart, rewritten when B comes within 9 m after a stream-in |
 | Windows | Limo bought in the studio for 1,500; seen by B and changed live; kept through a restart, an impound, a reconnect, a stream-out and the distance proxy. Needs the Open77 client with `b9f21aa3` and `15013360`, and the tint pack `75b3fcbb2b6e` |
 | Performance | B taking the wheel closes A's studio; Stage 1 rebuilds the car with its whole look on A and B; a second change within 10 min is refused; back after a restart |
-| Driver change | B drives A's car, then A drives it: the whole look stays on both clients |
+| Driver change | B drives A's car, then A drives it: the whole look stays on both clients. B, who holds no key, was also put at the wheel with the staff command `vehicle.warp` and drove off: the variant, the headlight tint, the taxi livery and the sticker stayed on A and B |
 | Trim | `archer_hella__basic_poor_2` previewed and bought; B sees the variant with the paint, kit, rims, neon and headlight tint put back; kept through a stream-out and back, the body coming back directly in the variant; Factory trim bought: the factory front is back on A and B. Bought again, then a server restart, both clients joining late and a redelivery from the garage: A and B see the variant with the whole look |
 | Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Rows 12, 14-18, 20 on the current build, 21, and 22 on the Hella; see [Wave 2 lab results](#wave-2-lab-results). The neon animation needs the Open77 client fix `a0999cf9`, and stickers need `843f8cc4`. Tag waits for the `setTag` native |
 
@@ -109,7 +109,9 @@ vehicles are not eligible.
 
 The page keeps the original full-height left panel:
 
-- the vehicle header, which shows the plate (or `#id`) and ` · STAGE n`;
+- the vehicle header, which shows the plate (or `#id`) and ` · STAGE n`. `n` is the stage the
+  car runs: a stage kept dormant because its records are offline does not show until the car
+  runs it again;
 - the category navigation: a two-column grid once more than four categories are offered,
   and three columns of labels without icons when more than ten are offered on a screen
   under 700 px tall. A sub-panel (Animation under Neon, Lamp colors under Lights) is not
@@ -480,6 +482,10 @@ Ledger kind `vehicle_stickers`.
   subtracts the stickers the car wears to get what the livery leaves. The meter shows
   that plus the chosen stickers; above the maximum, the page previews nothing ("Too many
   decals: 15 of 12. Remove a sticker.") and the server refuses too.
+- **Some liveries leave no room.** Measured on the Hella on 2026-11-07: the pack's racing
+  livery uses the 12 decals by itself, so any sticker on it is refused ("Too many decals: 13
+  of 12"); the taxi livery uses 11, so `st.hella.6th_street_01` still fits (12 of 12) and a
+  bigger sticker on top is refused.
 - **A livery preview moves the meter.** Every response carries the budget the car shows
   now. A livery and stickers are never bought while the other is previewed ("Apply or
   undo your livery preview first: stickers share its decal budget.").
@@ -1060,11 +1066,14 @@ buys, B watches from the bay) and a new Hella delivered at Bay 01.
 | --- | --- |
 | 2 | Deep Dish 8 black on the four wheels for B, nothing of the factory rim showing; Factory rims gives the stock wheels back on A and B |
 | 3 | Deep Dish 8 black bought by A ("Rims purchased and saved to your vehicle."), seen by B on the four wheels. After a server restart, the late join of both clients, an impound and a redelivery, the four rims are bound and rendered on A and B, with the kit, neon, plate and windows. B then went 450 m away and came back: the four rims, the kit and the plate were back after about 24 s |
+| 4 | Seen by B: a rim set on the Merrimac sits on its six wheels, the middle axle included; on the Apollo it sits on the front and back wheels. The Kusanagi was not run |
 | 5 | GT wing, then Street wing alone (one wing at a time for B), then the race lip; wing + lip read 7,000 and were bought (`vehicle_bodykit`) |
 | 6 | Cyan Medium shows under the car for B; `#101010` is refused; Red High bought for 5,000 (`vehicle_neon`); No neon then Escape gives the bought red back on A and B |
 | 7 | Scheme 1, then the taxi livery of the pack, seen by B; the taxi livery was bought; it came back after a server restart, an impound and a redelivery; buying a body paint removes it on both clients |
 | 8 | `NCPD001`, a banned word and a too-short plate are refused with their messages; `VCB0707` was bought; B reads it on the plate within 9 m; the same plate on another car is refused "already registered" |
 | 9 | B getting into the Hella closes A's studio. With the car empty, Stage 1 rebuilds it in place with its whole look on A and B; a second change is refused "Come back in 10 min" |
+| 10 | With `lightrp_vehicle_stages` left out of the server and a restart, the Hella with Stage 1 is delivered stock; the stage stays stored, Performance and Engine sound are greyed, and the header shows no stage. Before the fix of 2026-11-07 (`fittedStage` in `server/modules/vehicle_customization.lua`) the header still read STAGE 1. With the stages back and a restart, the car comes back on its stage 1 record |
+| 11 | B's game without `LightRPVehicleKitRims.archive`, the rims pack resource running: B's Rims row stays open, and B's own rim preview shows "These parts are invisible in your game: its parts pack is missing. Reconnect to download it." A's Hella, which wears bought rims, first stood on bare hubs for B: the factory rims were hidden and the new ones could not be drawn. Since the Open77 client fix `b2920336`, B sees the factory rims until it can draw the parts, and A still sees the four bought rims. The greyed case (the pack resource not running on B) was not run on two clients |
 | 12 | Driving off during a preview gives the bought look back on both clients, with no ledger entry |
 | 13 | No `not registered` part, no `rollback pending`, no `attach:` skip for the Hella in the server and client logs |
 | Restart | After a server restart and the late join of both clients, the Hella comes back with stage 1, paint, kit, neon, plate and windows, on A and B |
@@ -1072,10 +1081,9 @@ buys, B watches from the bay) and a new Hella delivered at Bay 01.
 | Driver change | B drives the car, then A does: the look stays the same on both clients |
 | P3.11 | A launcher started from an install without the vehicle packs: see below |
 
-Rows 4 (Merrimac and Apollo on two clients), 10 (stages resource stopped), 11 (a client
-without the rims pack) and the older-build part of row 20 were not run in game. Row 10
-is covered by `tests/vehicle_customization_kit_test.lua`; rows 4 and 11 were checked on
-one client on 2026-11-05 and 2026-11-06 (ledger).
+Rows 4, 10 and 11 and the older-build part of row 20 were run on 2026-11-07 between 08:10
+and 08:45, on new Hellas, a Merrimac and an Apollo given to A and B. Row 10 is also covered by
+`tests/vehicle_customization_kit_test.lua`.
 
 **Launcher (P3.11).** The 14 files of the vehicle packs (body kit, rims, liveries,
 stickers, original stickers, stages and engine sounds, plates, window tint) were taken
@@ -1105,7 +1113,7 @@ watches) and the Hella.
 | 16 | Red blinkers, blue brake lights and a too-dark brake colour are refused. The purchase cost 1,500 (`vehicle_lamps`). While A reverses, B sees the Hella's two reverse lamps in cyan, next to the bought orange brake lamps |
 | 17 | The preview rebuild keeps the look on both clients, and the 4 s message is right. Sound s01 was bought for 6,000 (`vehicle_engine_sound`). Closing the studio stops the engine the preview kept running, on A and B, and gives the bought sound back. A stage change from 3 to 2 keeps the sound and the whole look on both clients |
 | 18, 22 | 6th Street (5) + Race (7) = 12 decals, shown on A and B. Adding Graffiti is refused "Too many decals: 18 of 12"; a duplicate gets "Each sticker goes on once"; a Caliburn theme on the Hella gets "does not fit this vehicle". One added sticker cost 1,500 (`vehicle_stickers`). No client crashed |
-| 20 | After a server restart and a late join of both clients, every wave 2 choice comes back. The older-build part is not run yet |
+| 20 | After a server restart and a late join of both clients, every wave 2 choice comes back. On the older server build 2.50.0+op77.177, the Hella comes out without the choices that build cannot put on a car; the log reads `garage: <owned id> keeps studio choices this server build cannot put on it dormant`, and the studio greys every row but Body paint, Lights, Trim and Plate. Back on the full build, everything returns within 26 s of the delivery |
 | 21 | An autosave during a preview stores the bought values (neon Pulse, sound s01), never the preview. Escape gives the bought look back on both clients, with no ledger entry. Only the `record` field of the stored properties can carry a previewed sound; the garage never reads it back (`restorable` rebuilds the record from the base model and the stage, then puts the bought sound on) |
 
 Other results:
