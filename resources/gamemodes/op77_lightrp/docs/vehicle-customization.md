@@ -55,7 +55,7 @@ livery fix, the Caliburn) are in the ledger.
 | Windows | Limo bought in the studio for 1,500; seen by B and changed live; kept through a restart, an impound, a reconnect, a stream-out and the distance proxy. Needs the Open77 client with `b9f21aa3` and `15013360`, and the tint pack `75b3fcbb2b6e` |
 | Performance | B taking the wheel closes A's studio; Stage 1 rebuilds the car with its whole look on A and B; a second change within 10 min is refused; back after a restart |
 | Driver change | B drives A's car, then A drives it: the whole look stays on both clients |
-| Trim | `archer_hella__basic_poor_2` previewed and bought; B sees the variant with the paint, kit, rims, neon and headlight tint put back; kept through a stream-out and back, the body coming back directly in the variant; Factory trim bought: the factory front is back on A and B. Not run across a server restart |
+| Trim | `archer_hella__basic_poor_2` previewed and bought; B sees the variant with the paint, kit, rims, neon and headlight tint put back; kept through a stream-out and back, the body coming back directly in the variant; Factory trim bought: the factory front is back on A and B. Bought again, then a server restart, both clients joining late and a redelivery from the garage: A and B see the variant with the whole look |
 | Wave 2 (neon animation, lamp colors, engine sound, stickers, tag) | Rows 12, 14-18, 20 on the current build, 21, and 22 on the Hella; see [Wave 2 lab results](#wave-2-lab-results). The neon animation needs the Open77 client fix `a0999cf9`, and stickers need `843f8cc4`. Tag waits for the `setTag` native |
 
 **Delivery height.** A car that the garage puts on a bay sits at the bay's height, and
