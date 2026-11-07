@@ -21,7 +21,8 @@ LightRpDelivery = {
         { id = "charter_hill_depot",  name = "Charter Hill depot",  position = { x = -103.268875, y = 215.001312, z = 14.742729 } },
         { id = "charter_hill_market", name = "Charter Hill market", position = { x = -198.342453, y = 132.630508, z = 14.664162 } },
         { id = "downtown_food_stand", name = "Downtown food stand", position = { x = -679.844360, y = -370.317505, z = 8.614265 } },
-        { id = "coastview_depot",     name = "Coastview depot",     position = { x = -1822.422852, y = -1972.984253, z = 52.500000 } },
+        -- marker ~10 m above the street: reached from the ground (verticalReach, job_runs.lua near)
+        { id = "coastview_depot",     name = "Coastview depot",     position = { x = -1822.422852, y = -1972.984253, z = 52.500000 }, verticalReach = 12 },
     },
     dropoffs = {
         { id = "h10_mid",             name = "Megabuilding H10 // Mid floor",   position = { x = -1395.902344, y = 1286.751465, z = 119.082413 } },

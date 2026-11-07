@@ -111,17 +111,31 @@ end)
 
 local function remaining(r) return math.max(0, r.expiresAt - LightRP.nowMs()) end
 
+local function extendMinutes() return math.max(1, math.floor(tonumber(Config.extendMinutes) or 30)) end
+-- Pro rata of what the rental cost: price × extendMinutes / durationMinutes, rounded up.
+local function extendPrice(r)
+    local base = math.max(0, math.floor(tonumber(r.price) or 0))
+    return math.ceil(base * extendMinutes() / math.max(1, tonumber(Config.durationMinutes) or 60))
+end
+local function firstWarnMs()
+    local most = 0
+    for _, minutes in ipairs(Config.warnMinutes or { 10, 2 }) do most = math.max(most, tonumber(minutes) or 0) end
+    return most * 60000
+end
+
 local function view(playerId)
     local r = rentals[playerId]
     if r == nil then return nil end
     return { spotId = r.spotId, spotName = spots[r.spotId] and spots[r.spotId].name or r.spotId, key = r.key, label = r.label,
-        image = r.image, price = r.price, paidWith = r.paidWith, remainingMs = remaining(r), vehicleId = r.vehicleId }
+        image = r.image, price = r.price, paidWith = r.paidWith, remainingMs = remaining(r), vehicleId = r.vehicleId,
+        extendPrice = extendPrice(r), extendMinutes = extendMinutes(), warnMs = firstWarnMs(),
+        extensionsLeft = math.max(0, (tonumber(Config.maxExtensions) or 4) - (r.extensions or 0)) }
 end
 
 LightRP.stateProvider("rental", function(playerId) return { active = view(playerId) } end)
 
 local function dialogPayload(playerId, spot)
-    return { spot = { id = spot.id, name = spot.name, stock = spot.items, durationMinutes = Config.durationMinutes or 30 }, rental = view(playerId) }
+    return { spot = { id = spot.id, name = spot.name, stock = spot.items, durationMinutes = Config.durationMinutes or 60 }, rental = view(playerId) }
 end
 
 local function endRental(playerId, reason)
@@ -180,7 +194,7 @@ function Rental.rent(playerId, spotId, key, pay)
     LightRP.keys.lock(vehicleId, true, playerId)
     local now = LightRP.nowMs()
     local r = { spotId = spot.id, key = item.key, label = item.label, image = item.image, vehicleId = vehicleId, startedAt = now,
-        expiresAt = now + (Config.durationMinutes or 30) * 60000, price = item.price, paidWith = pay }
+        expiresAt = now + (Config.durationMinutes or 60) * 60000, price = item.price, paidWith = pay, extensions = 0, warned = {} }
     rentals[playerId] = r
     if Db.ready and c.identifier then
         local ok, result = Db.run("INSERT INTO lightrp_rentals (identifier, character_key, spot_id, vehicle_key, price, paid_with) VALUES (?, ?, ?, ?, ?, ?)",
@@ -190,9 +204,42 @@ function Rental.rent(playerId, spotId, key, pay)
     end
     LightRP.state(playerId, "rental")
     LightRP.notice(playerId, { kind = "success", title = spot.name, durationMs = 10000,
-        body = string.format("%s is parked outside for %d minutes. You have the keys: press L to unlock it. Bring it back to any desk when you are done.", item.label, Config.durationMinutes or 30) })
+        body = string.format("%s is parked outside for %d minutes. You have the keys: press L to unlock it. Type /extendrental to keep it longer; bring it back to any desk when you are done.",
+            item.label, Config.durationMinutes or 60) })
     LightRP.log("rental: %s rented %s at %s for %s (%s)", LightRP.characters.displayName(playerId), item.key, spot.id, LightRP.money.format(item.price), pay)
     return true, r
+end
+
+-- More time on the rental in progress, paid pro rata (bank unless `cash`); anywhere, by the
+-- command or the desk's Extend button.
+function Rental.extend(playerId, pay)
+    local r = rentals[playerId]
+    if r == nil then return false, "no_rental" end
+    if (r.extensions or 0) >= (tonumber(Config.maxExtensions) or 4) then return false, "max_extensions" end
+    if LightRP.money.get(playerId) == nil then return false, "no_wallet" end
+    pay = pay == "cash" and "cash" or "bank"
+    local price = extendPrice(r)
+    local desk = spots[r.spotId] and spots[r.spotId].name or "Rent-a-Ride"
+    if price > 0 then
+        local charge = pay == "bank" and LightRP.money.removeBank or LightRP.money.removeCash
+        local paid, reason = charge(playerId, price, "rental", "Rental extension: " .. r.label, desk)
+        if not paid then return false, reason end
+        if rentals[playerId] ~= r then -- taken back while the payment was written
+            local refund = pay == "bank" and LightRP.money.addBank or LightRP.money.addCash
+            refund(playerId, price, "refund", "Rental extension refunded: " .. r.label, desk)
+            return false, "no_rental"
+        end
+    end
+    local minutes = extendMinutes()
+    r.expiresAt = math.max(r.expiresAt, LightRP.nowMs()) + minutes * 60000
+    r.extensions = (r.extensions or 0) + 1
+    r.warned = {}
+    LightRP.state(playerId, "rental")
+    LightRP.notice(playerId, { kind = "success", title = "Rental extended", durationMs = 8000,
+        body = string.format("%s: %d more minutes for %s. %d min left in total.", r.label, minutes, LightRP.money.format(price),
+            math.ceil(remaining(r) / 60000)) })
+    LightRP.log("rental: %s extended %s by %d min for %s (%s)", LightRP.characters.displayName(playerId), r.key, minutes, LightRP.money.format(price), pay)
+    return true, { label = r.label, price = price, minutes = minutes }
 end
 
 function Rental.giveBack(playerId)
@@ -227,6 +274,23 @@ CreateThread(function()
                 if ended and GetPlayerName(playerId) then
                     LightRP.notice(playerId, { kind = "warning", title = "Rental over", body = ended.label .. " was taken back by the agency.", durationMs = 10000 })
                 end
+            else
+                -- The countdown notices (the HUD chip blinks from the first): how to keep the car.
+                r.warned = r.warned or {}
+                for _, minutes in ipairs(Config.warnMinutes or { 10, 2 }) do
+                    minutes = tonumber(minutes) or 0
+                    if minutes > 0 and r.expiresAt - now <= minutes * 60000 and not r.warned[minutes] then
+                        r.warned[minutes] = true
+                        if GetPlayerName(playerId) then
+                            local canExtend = (r.extensions or 0) < (tonumber(Config.maxExtensions) or 4)
+                            LightRP.notice(playerId, { kind = "warning", title = "Rental ending", durationMs = 12000,
+                                body = canExtend and string.format("%s goes back to the agency in %d min. Type /extendrental to add %d min for %s (bank; /extendrental cash to pay cash), or use Extend at any Rent-a-Ride desk.",
+                                    r.label, math.ceil((r.expiresAt - now) / 60000), extendMinutes(), LightRP.money.format(extendPrice(r)))
+                                    or string.format("%s goes back to the agency in %d min. It cannot be extended again.", r.label, math.ceil((r.expiresAt - now) / 60000)) })
+                            LightRP.state(playerId, "rental")
+                        end
+                    end
+                end
             end
         end
     end, "rental:219")
@@ -239,12 +303,24 @@ local REASONS = {
     no_rental = "You have no rental to return.", disabled = "Rentals are closed.",
     insufficient_funds = "Insufficient funds.", busy = "Another operation is still running, try again.",
     activity = "No rentals during an activity.",
+    max_extensions = "This rental cannot be extended any further. Return it and rent again.",
 }
 local function explain(reason) return REASONS[reason] or LightRP.money.explain(reason) end
 
 LightRP.action("rental.rent", function(playerId, payload)
     local ok, result = Rental.rent(playerId, payload.spot, payload.key, payload.pay)
     LightRP.result(playerId, ok, ok and string.format("%s rented for %s.", result.label, LightRP.money.format(result.price)) or explain(result), "rental.rent")
+end)
+
+LightRP.action("rental.extend", function(playerId, payload)
+    local ok, result = Rental.extend(playerId, payload.pay)
+    LightRP.result(playerId, ok, ok and string.format("%s extended by %d min for %s.", result.label, result.minutes, LightRP.money.format(result.price)) or explain(result), "rental.extend")
+end)
+
+LightRP.command("extendrental", { usage = "/extendrental [bank|cash]" }, function(source, args)
+    local ok, result = Rental.extend(tonumber(source) or source, args and args[1] and string.lower(tostring(args[1])) or "bank")
+    if ok then return true, string.format("%s extended by %d min for %s.", result.label, result.minutes, LightRP.money.format(result.price)) end
+    return false, explain(result)
 end)
 
 LightRP.action("rental.return", function(playerId)

@@ -490,11 +490,14 @@ TcgClient = {
         PAGE_ACTIONS[name] = fn
         if page then page:on(name, function(d) local ok, err = pcall(fn, type(d) == "table" and d or {}); if not ok then log("%s: %s", name, tostring(err)) end end) end
     end,
-    -- The page over the game: `focus` takes the cursor and the keyboard (a duel at the table, the binder).
-    show = function(focus)
+    -- The page over the game: `focus` takes the cursor, and the keyboard too unless `keyboard`
+    -- is false (the duel overlay: a page that owns the keyboard turns push-to-talk off,
+    -- open77_voice samples it only while no page captures input).
+    show = function(focus, keyboard)
         if not page then return end
         pcall(function() page:show() end)
-        pcall(function() page:setFocus(focus == true, focus == true) end)
+        local keys = focus == true and keyboard ~= false
+        pcall(function() page:setFocus(focus == true, keys) end)
     end,
     release = function() if page then pcall(function() page:setFocus(false, false) end) end end,
     openBinder = function(tab) openBinder(tab) end,

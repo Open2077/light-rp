@@ -8,7 +8,11 @@ local connectedOnce = false
 
 -- Parses `/command "an argument" plain\ value` into the exact string array
 -- expected by the server's authenticated command dispatcher.
-local function commandTokens(text)
+-- A quote opens a quoted argument only at the start of a word: the apostrophe of
+-- "/ooc I'm here" or "don't" is text. And a line whose quotes never close (/ooc 'sup)
+-- is read again with every quote as text, instead of refusing the message with
+-- "unterminated quote" (2026-11-07: players saw it on plain /ooc lines).
+local function commandTokens(text, literalQuotes)
     local source = tostring(text or ""):sub(2)
     local tokens, token, quote, escaped, started = {}, "", nil, false, false
     for index = 1, #source do
@@ -24,7 +28,7 @@ local function commandTokens(text)
             if character == quote then quote = nil
             else token = token .. character end
             started = true
-        elseif character == "\"" or character == "'" then
+        elseif not literalQuotes and not started and (character == "\"" or character == "'") then
             quote = character
             started = true
         elseif string.match(character, "%s") then
@@ -39,7 +43,10 @@ local function commandTokens(text)
         end
     end
     if escaped then return nil, "A command cannot end with an escape character." end
-    if quote ~= nil then return nil, "The command contains an unterminated quote." end
+    if quote ~= nil then
+        if literalQuotes then return nil, "The command contains an unterminated quote." end
+        return commandTokens(text, true)
+    end
     if started then
         tokens[#tokens + 1] = token
         if #tokens > 32 then return nil, "Commands are limited to 32 arguments." end

@@ -58,6 +58,7 @@ local function update(state)
         or jobIcons[run.job] or "map-pin"
     blip = LightRpInteract.setLocal("job.current", {
         position = objective.position, radius = objective.radius, prompt = objective.label,
+        verticalReach = tonumber(objective.verticalReach), -- a stop whose marker sits above the street (Coastview depot)
         -- the pin marks the stop; the route is the waypoint (routable here would compete for tracking)
         blip = { icon = icon, size = 48, sprite = "objective", routable = false, title = "Work order", description = objective.label },
         marker = { shape = "cylinder", radius = 0.6, height = 0.45, color = { r = 255, g = 204, b = 0, a = 160 }, style = "objective", maxDistance = 45 },

@@ -51,7 +51,16 @@ export function Hud() {
       </div>
 
       <div className="hud__bottom-right">
-        {rental.active && <StatusChip icon="car" label="RENTAL" tone="accent" value={countdown(rental.active.remainingMs - (Date.now() - rentalAt))} />}
+        {rental.active && (() => {
+          const left = rental.active.remainingMs - (Date.now() - rentalAt);
+          const ending = left <= (rental.active.warnMs ?? 600000);
+          return <div className={`hud__rental${ending ? " hud__rental--ending" : ""}`}>
+            <StatusChip icon="car" label="RENTAL" tone={ending ? "danger" : "accent"} value={countdown(left)} />
+            {ending && <span className="hud__rental-hint">{(rental.active.extensionsLeft ?? 0) > 0
+              ? `/extendrental · +${rental.active.extendMinutes ?? 30} min`
+              : "Return it at any desk"}</span>}
+          </div>;
+        })()}
         {hud.vehicle.active && <VehicleCluster vehicle={hud.vehicle} />}
       </div>
     </div>
