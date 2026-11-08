@@ -399,9 +399,21 @@ local function respawnTick(inst)
     for _, id in ipairs(inst.members) do
         if run.reviving[id] and t >= run.reviving[id] then run.reviving[id] = nil end
         local down = fallen(id)
+        local life = Open77.players.getLifeState(id)
+        local phase = life and life.phase
+        -- Back on their feet after a respawn: no longer down, even when the "alive" event never
+        -- reached onLifeState. That flag stayed set, so 15 s after a respawn nobody counted as
+        -- standing and the run failed "crew wiped" with team respawns left (2026-11-08).
+        if run.down[id] and not run.respawns[id] and not run.out[id] and phase == "alive" then
+            run.down[id], run.reviving[id], run.retries[id] = nil, nil, nil
+            run.dirty = true
+        end
         -- a death its event has not reported yet (a perimeter kill lands within the tick)
         if down and not run.down[id] and not run.out[id] and not run.respawns[id] and not run.reviving[id] then fall(inst, id) end
-        if (not down and not run.out[id] and not run.down[id]) or run.respawns[id] or run.reviving[id] then standing = standing + 1 end
+        -- standing: on their feet, coming back (respawn queued, reviving) or still recovering
+        -- from the respawn the platform is running
+        if not run.out[id] and (run.respawns[id] or run.reviving[id]
+            or (not down and (not run.down[id] or phase == "recovering"))) then standing = standing + 1 end
     end
     if standing == 0 and #inst.members > 0 then
         run.phase = "done"
