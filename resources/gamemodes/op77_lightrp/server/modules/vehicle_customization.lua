@@ -283,6 +283,20 @@ local function soundFits(record, sound)
     for _, s in ipairs(list) do if type(s) == "table" and s.id == sound then return true end end
     return false
 end
+-- Stored stickers a car can wear: every id listed for it (a vehicle id, so stickers bound to
+-- an appearance count, else a record) by a running pack, or the platform cannot tell. One
+-- missing (its pack stopped or dropped it) and setProperties refuses the whole look
+-- (unknown_sticker): the garage keeps the stickers dormant instead, the rest is worn.
+local function stickersFit(target, stickers)
+    if type(stickers) ~= "table" or #stickers == 0 or target == nil then return true end
+    if type(Open77.vehicles.listStickers) ~= "function" then return true end
+    local list = Open77.vehicles.listStickers(target)
+    if type(list) ~= "table" then return true end -- the platform decides, and refuses by name
+    local offered = {}
+    for _, s in ipairs(list) do if type(s) == "table" and s.id ~= nil then offered[s.id] = true end end
+    for _, id in ipairs(stickers) do if not offered[id] then return false end end
+    return true
+end
 
 -- Registration plates ---------------------------------------------------------------
 -- A word is found in the plate as written, or in its "leet" reading (SH1T reads SHIT).
@@ -440,7 +454,10 @@ local EXTRA = {
     stickers = { set = "setStickers", get = "getStickers",
         receipt = { "vehicle_stickers", "Stickers for vehicle " }, refused = "These stickers were refused",
         unchanged = "Change at least one sticker before purchasing.",
-        value = function(change) return change.stickers and copy(change.stickers) or nil end },
+        value = function(change) return change.stickers and copy(change.stickers) or nil end,
+        -- A stored sticker no running pack registers for the car any more stays dormant at
+        -- delivery, with the car's other stickers; the rest of the look is worn.
+        fits = function(record, stickers, vehicleId) return stickersFit(vehicleId or record, stickers) end },
     tag = { set = "setTag", get = "getTag",
         receipt = { "vehicle_tag", "Painted tag for vehicle " }, refused = "The tag was refused",
         unchanged = "This vehicle already wears that tag.",
@@ -454,7 +471,7 @@ local EXTRA = {
         value = function(change) return change.sound or nil end,
         -- A stored sound the car's record has no version of (the pack dropped that stage and
         -- sound for a TweakDBID collision, or is stopped) stays dormant at delivery.
-        fits = function(record, sound) return soundFits(record, sound) end },
+        fits = function(record, sound, vehicleId) return soundFits(vehicleId or record, sound) end },
 }
 -- What the car wears now: the native's getter, else its getProperties field.
 local function wearing(name, vehicleId)

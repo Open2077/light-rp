@@ -162,6 +162,14 @@ V.setProperties=function(id,p)
         local from=WHERE=="visual" and p.visual or p
         if type(from)=="table" and from.engineSound~=nil and soundOf(p.record)~=from.engineSound then return false,"engine_sound_mismatch" end
     end
+    -- As the platform does: a sticker no running pack registers for the car refuses the
+    -- whole table (unknown_sticker), before anything is applied.
+    if server2 then
+        local from=WHERE=="visual" and p.visual or p
+        for _,sid in ipairs(type(from)=="table" and from.stickers or {})do local fits
+            for _,s in ipairs(STICKERS)do if s.id==sid and s.model==base(v.record) then fits=true end end
+            if not fits then return false,"unknown_sticker" end end
+    end
     local visual
     if p.visual~=nil then -- complete: an absent field means none
         local x=p.visual
@@ -639,6 +647,19 @@ close();store(hella);reboot()
 car=retrieve(hella)
 assert(world[car].record==HELLA.."_o77s2a2","back on a stage with its record, the stored sound is worn again: "..world[car].record)
 HOLES={}
+-- A stored sticker no running pack registers any more (its pack stopped): the car comes out
+-- with the rest of its look, the stickers kept dormant on the row, worn again with the pack.
+store(hella);reboot();logs={}
+local packStickers=STICKERS;STICKERS={}
+car=retrieve(hella)
+assert(world[car].visual.profile=="hella_tt_2" and world[car].visual.neon and world[car].w2.tag.text=="Night Owl" and world[car].w2.stickers==nil,
+    "the look is worn without the stickers")
+assert(logged("keeps stickers dormant") and not logged("delivered without its visual"),"only the stickers are dormant")
+autosave()
+assert(same(stored(hella,"stickers"),{V1,V2}),"an autosave keeps the dormant stickers")
+store(hella);reboot();STICKERS=packStickers
+car=retrieve(hella)
+assert(same(world[car].w2.stickers,{V1,V2}) and world[car].record==HELLA.."_o77s2a2","the pack is back: the stickers are worn again")
 
 -- 13. The studio closes while a purchase is in SQL (the player closed it, left or died): the
 -- purchase completes, but nothing the studio switches on after it may outlive the session

@@ -908,9 +908,10 @@ local UNCHANGED = {
 --   unchanged(change, saved)  -> true when `saved` already holds it, plus the refusal text;
 --   available()               false on a server build without its native: a stored value
 --                             is then kept on the row (dormant), never sent nor dropped;
---   fits(record, value)       optional: false when the car spawned on `record` cannot wear
---                             the stored value (an engine sound the pack has no record for
---                             at that stage): kept dormant the same way, the rest restored;
+--   fits(record, value, vehicleId) optional: false when the car spawned on `record` (the
+--                             fresh `vehicleId`) cannot wear the stored value (an engine sound
+--                             the pack has no record for at that stage, a sticker whose pack
+--                             stopped): kept dormant the same way, the rest restored;
 --   receipt = { ledger kind (VARCHAR 24), note };  respawns = true when it rebuilds the car
 --   (restored after the stage).
 -- It then joins the confirmed mask, the unchanged check, the receipt, the rollback and the
@@ -1026,7 +1027,7 @@ local RUNTIME_CONTROLS = { drivable = true, engineHold = true }
 -- The stored properties as setProperties takes them on a fresh car of `record`: no
 -- `lightrp` (Light RP's own fields), the spawned record, and only the visual choices
 -- this server can put on it; the others are kept dormant on the row.
-local function restorable(row, record)
+local function restorable(row, record, vehicleId)
     local props, restore = row.props, {}
     for key, value in pairs(props) do if key ~= "lightrp" and not RUNTIME_CONTROLS[key] then restore[key] = value end end
     if restore.record ~= nil then restore.record = record end
@@ -1049,7 +1050,7 @@ local function restorable(row, record)
         local value = inVisual and restore.visual[key] or restore[key]
         local spec = EXTRA[key]
         local missing = value ~= nil and not spec.available()
-        local wrong = value ~= nil and not missing and spec.fits ~= nil and not spec.fits(record, value)
+        local wrong = value ~= nil and not missing and spec.fits ~= nil and not spec.fits(record, value, vehicleId)
         if missing or wrong then
             row.dormantExtra = row.dormantExtra or {}
             row.dormantExtra[key] = { visual = inVisual, value = copy(value) }
@@ -1160,7 +1161,7 @@ local function retrieve(playerId, row, place, check)
         if not created then return false, "Vehicle delivery failed: " .. tostring(reason) end
         row.vehicleId, live[created] = created, row
         tag(created, row.id)
-        local restore = restorable(row, record)
+        local restore = restorable(row, record, created)
         local skipped = {}
         row.unsupported = nil
         if next(restore) ~= nil then
