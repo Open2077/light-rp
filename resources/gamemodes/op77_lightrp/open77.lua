@@ -30,7 +30,9 @@ dependencies {
     "open77_animations >=1.0.0",
     "open77_icons >=1.0.0",
     "open77_weapons >=0.2.0",
-    "open77_chimera >=1.0.0", -- the raid boss (server/modules/mission_chimera.lua)
+    -- open77_chimera (the raid boss) is optional on purpose: it is not in the server
+    -- distribution, and a missing dependency stops the server from starting ANY resource.
+    -- Without it the Chimera board refuses to tag in (server/modules/mission_chimera.lua).
     "open77_maneki >=1.0.0",  -- the Maneki-neko collectible's visual host (client/core/maneki.lua)
 }
 
