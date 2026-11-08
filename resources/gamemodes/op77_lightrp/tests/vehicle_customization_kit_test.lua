@@ -208,6 +208,8 @@ V.clearNeon=function(id)local v=world[id];v.visual.neon=nil;bump(v);return true 
 V.setWindowTint=function(id,level)local v=world[id];if not v then return false,"vehicle_not_found" end
     if level~=nil and (math.type(level)~="integer" or level<0 or level>3) then return false,"invalid_tint" end
     v.visual.tint=level~=0 and level or nil;bump(v);return true end
+-- setPlate (contract section 7): without it the studio greys the plate (section 10).
+V.setPlate=function(id,text)local v=world[id];if not v then return false,"vehicle_not_found" end;v.plate=text;return true end
 local function dropRims(v) for pid in pairs(v.visual.parts)do if catalogue[pid] and catalogue[pid].kind=="rim" then v.visual.parts[pid]=nil end end end
 V.setWheels=function(id,w)
     local v=world[id];if not v then return false,"vehicle_not_found" end
@@ -782,6 +784,11 @@ C.windows.enabled=false
 m=open(hella);assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.windowsSoon,"closed tint is greyed")
 reply=issue("preview",{category="windows",tint="limo"});assert(not reply.ok and reply.text==C.unsupported.windowsSoon,"the server refuses a closed tint")
 close();C.windows.enabled=true
+local setPlate=V.setPlate;V.setPlate=nil
+m=open(hella);assert(category(m,"plate").available==false and category(m,"plate").reason==C.unsupported.native,"no setPlate: the plate is greyed")
+local plateBank=M.get(1).bank
+reply=issue("save",{category="plate",plate="NEW7777"},"bank");assert(not reply.ok and M.get(1).bank==plateBank and saved(hella).lightrp.plate=="ZZZ9999","no setPlate: nothing sold")
+close();V.setPlate=setPlate
 local setTint=V.setWindowTint;V.setWindowTint=nil
 m=open(hella);assert(category(m,"windows").available==false and category(m,"windows").reason==C.unsupported.native);close()
 V.setWindowTint=setTint;packs.open77_vehicle_tint=nil

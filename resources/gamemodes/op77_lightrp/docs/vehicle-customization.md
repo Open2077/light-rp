@@ -144,7 +144,7 @@ previews only on request (**Hear it on the car**), since each change rebuilds th
 | Lights | 12 saturated presets, picker, HEX, **Factory lights** | `setHeadlightColor`, `clearLightsHue` (restore: `setLightsHue`) | 500 €$, provisional |
 | Lights › Lamp colors (wave 2) | A tab of Lights: Brake lights, Reverse lights, Blinkers, Interior, each factory, one of 10 presets or the picker | `setLightColors` (`getLightColors`) | 1,500 €$ for any number of groups, provisional |
 | Trim | **Factory trim** + the variants curated for the model | `setAppearance` (`getAppearance` to skip restatements) | 2,500 €$, provisional |
-| Plate | Plate number field + plate visual; the server answers availability | `setPlate` when the server has it; stored by Light RP, mirrored in the `lightrpPlate` state bag | 2,500 €$, provisional |
+| Plate | Plate number field + plate visual; the server answers availability | `setPlate` (greyed without it); stored by Light RP, mirrored in the `lightrpPlate` state bag | 2,500 €$, provisional |
 | Stickers (wave 2) | **No stickers** + the stickers that fit, by group, with the decal meter | `listStickers`, `setStickers`, `getStickers`, `getDecalBudget` | 1,500 €$ **per sticker added**, provisional |
 | Tag (wave 2) | Listed only with `setTag`: **No tag**, text (1 to 12 characters), font, color, spot | `setTag` | 2,000 €$, provisional |
 | Windows | **Factory glass**, Light smoke, Dark smoke, Limo (side and rear glass; the windshield stays clear) | `setWindowTint` (levels 1-3, nil = factory) | 1,500 €$, provisional |
@@ -313,12 +313,17 @@ and shown in the studio header, the garage list and the ALT vehicle info
   state bag (read by the menus) and calls `Open77.vehicles.setPlate(id, plate)` when the
   server has that native. It runs on preview, purchase, rollback and retrieval;
   `respawnAs` carries the plate with the rest of the look and the state bag. A
-  server without `setPlate` keeps the data side only, and the car shows its factory
-  plate. Every Light RP plate (7 characters, `A-Z0-9`) passes the native's own rule
+  server without `setPlate` does not sell plates: the row is greyed with the
+  `native` reason and a purchase is refused, since the text would never be drawn.
+  A plate already stored keeps its data side there (menus, uniqueness) and the car
+  shows its factory plate. Every Light RP plate (7 characters, `A-Z0-9`) passes the native's own rule
   (`A-Z`, `0-9`, space and `-`, 1 to 10 characters).
 - **What a client needs.** The text is drawn by the plate pack (`open77_vehicle_plates`,
   an ArchiveXL patch) and a script that ships with the Open77 client. A client without
-  the pack, or a model the pack does not cover, shows the factory plate.
+  the pack, or a model the pack does not cover, shows the factory plate. Coverage
+  per model is only known in the client's game (`plate:<record>:no_plate_widget`,
+  the Caliburn on 2026-11-06), so the server still sells the plate there as a
+  registration and the studio warns after the preview.
 - **The 9 m rebuild.** The engine only builds the plate's text widget when the car is
   born within about 10 m of the camera. A car born further away is rebuilt once by the
   client when it comes within 9 m, empty and stopped; it vanishes for about 0.4 s. A

@@ -547,7 +547,10 @@ local OFFER = {
         return entry
     end,
     plate = function(entry)
-        entry.options = { minLength = C.plate.minLength, maxLength = C.plate.maxLength, charset = C.plate.charset }
+        -- Sold only where `setPlate` draws it on the car: without it the plate was paid for and
+        -- never shown (garages.lua renderPlate keeps a stored plate's data side only).
+        if not native("setPlate") then return entry, C.unsupported.native end
+        entry.options ={ minLength = C.plate.minLength, maxLength = C.plate.maxLength, charset = C.plate.charset }
         return entry
     end,
     windows = function(entry)
