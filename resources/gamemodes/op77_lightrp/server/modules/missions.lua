@@ -43,6 +43,12 @@ local lobbies = {}       -- id -> { id, point, difficulty, members = { { id, squ
 local queueOf = {}       -- playerId -> lobby id
 local instances = {}     -- id -> { id, point, difficulty, bucket, members = { ids }, startedAt, endsAt, state }
 local instanceOf = {}    -- playerId -> instance id
+-- playerId -> when they left an instance. A death the platform reports just after the
+-- release (an operator still dying when a "crew wiped" sent everyone home) is still the
+-- mission's: medical.lua captured it as a city incapacitation and put the player down
+-- again later, in their car (2026-11-08).
+local releasedAt = {}
+local DEATH_GRACE_MS = 30000
 local viewers = {}       -- playerId -> { session, point }
 local scripts = {}       -- point id -> mission script
 local reputation = {}    -- playerId -> { rep, completed }
@@ -785,6 +791,7 @@ local function finish(inst, success, why)
     end
     for slot, id in ipairs(inst.members) do
         instanceOf[id] = nil
+        releasedAt[id] = LightRP.nowMs()
         setMapJam(id, false)
         local pay = payouts[id] or { amount = 0, detail = "" }
         local gained = 0
@@ -854,7 +861,9 @@ function Missions.complete(instanceId) local inst = instances[instanceId]; if no
 function Missions.fail(instanceId, why) local inst = instances[instanceId]; if not inst then return false end finish(inst, false, why); return true end
 function Missions.instanceOf(id) return instanceOf[id] and instances[instanceOf[id]] end
 -- A death inside a running mission belongs to its script (no unconscious state, no hospital).
-function Missions.handlesDeath(id) return instanceOf[id] ~= nil end
+function Missions.handlesDeath(id)
+    return instanceOf[id] ~= nil or (releasedAt[id] ~= nil and LightRP.nowMs() - releasedAt[id] < DEATH_GRACE_MS)
+end
 -- A mission that hands out its own weapons (inst.loadout = true) owns the native
 -- slots meanwhile; the character's RP weapons come back when the player leaves it.
 function Missions.handlesLoadout(id)
@@ -903,7 +912,7 @@ function Missions.instances() local list = {}; for _, inst in pairs(instances) d
 local function leaveInstance(id, why, goHome)
     local inst = instanceOf[id] and instances[instanceOf[id]]
     instanceOf[id] = nil
-    if inst then setMapJam(id, false) end
+    if inst then releasedAt[id] = LightRP.nowMs(); setMapJam(id, false) end
     if not inst then return end
     removeMember(inst, id)
     local script = scripts[inst.point]

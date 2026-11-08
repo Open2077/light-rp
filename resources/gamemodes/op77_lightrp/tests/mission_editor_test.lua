@@ -87,7 +87,8 @@ _G.Open77 = {
                 while clock < at do Wait() end
                 life[id] = "alive"
                 positions[id] = { x = opts.position.x, y = opts.position.y, z = opts.position.z }
-                LightRP.eachModule("onLifeState", id, "alive")
+                -- dropAliveEvent: the new life is there but its event never arrives (2026-11-08)
+                if not _G.dropAliveEvent then LightRP.eachModule("onLifeState", id, "alive") end
             end)
             return true end,
     },
@@ -313,6 +314,7 @@ positions[1] = { x = 105, y = 200, z = 10 }
 seconds(1)
 assert(not providers.missionQueue(1).objective.outOfBoundsMs, "back inside: countdown cleared")
 positions[1] = { x = 160, y = 200, z = 10 }
+_G.dropAliveEvent = true -- this respawn's "alive" event will be lost
 seconds(7)
 assert(#killed == 1 and killed[1] == 1 and noticed("OPERATOR DOWN"), "killed after the 5 s delay, one team respawn spent")
 assert(providers.missionQueue(1).objective.respawnInMs > 0 and providers.missionQueue(1).objective.lives == 0, "respawn countdown")
@@ -323,6 +325,10 @@ actions["mission.loadout"](1, { id = "marksman" })
 assert(providers.missionQueue(1).objective.loadout == "marksman", "next life's kit picked")
 seconds(5)
 assert(life[1] == "alive" and positions[1].x == 100 and buckets[1] == inst.bucket, "respawned at the start, in the instance")
+seconds(20)
+assert(Missions.instanceOf(1) and not noticed("MISSION FAILED") and not inst.run.down[1],
+    "alive again without its event: not down, no crew wipe 15 s later")
+_G.dropAliveEvent = false
 positions[1] = { x = 160, y = 200, z = 10 }
 seconds(7)
 assert(#killed == 2 and noticed("OPERATOR LOST"), "no respawn left")

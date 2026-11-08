@@ -493,11 +493,13 @@ TcgClient = {
     -- The page over the game: `focus` takes the cursor, and the keyboard too unless `keyboard`
     -- is false (the duel overlay: a page that owns the keyboard turns push-to-talk off,
     -- open77_voice samples it only while no page captures input).
+    -- page:setFocus(KEYBOARD, CURSOR) -- FiveM SetNuiFocus order. 1.1.2 passed them the other
+    -- way round: the duel table took the keyboard and hid the cursor (no click, no leaving).
     show = function(focus, keyboard)
         if not page then return end
         pcall(function() page:show() end)
         local keys = focus == true and keyboard ~= false
-        pcall(function() page:setFocus(focus == true, keys) end)
+        pcall(function() page:setFocus(keys, focus == true) end)
     end,
     release = function() if page then pcall(function() page:setFocus(false, false) end) end end,
     openBinder = function(tab) openBinder(tab) end,

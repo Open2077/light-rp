@@ -235,8 +235,10 @@ function H.refreshPoints()
     end)
 end
 
+local function clock() return LightRP.nowMs and LightRP.nowMs() or 0 end
 local function relocation(player, s, point, targetBucket, arriving)
     s.phase=arriving and "entering" or "leaving"
+    s.phaseAt=clock()
     local c=character(player)
     LightRP.inventory.close(player)
     local cover=LightRP.zoneLoading and LightRP.zoneLoading.cover(player,{title=arriving and s.label or "Night City",
@@ -292,9 +294,30 @@ function H.preview(player,t)
     relocation(player,s,t.data.points.spawn,s.bucket,true)
     return {message="Previewing the interior. F1 > My homes > Leave returns you.",close=true}
 end
-function H.leave(player, forced)
-    local s=H.sessions[player]
+-- Stuck inside after a reconnect (2026-11-08, a Kabuki studio): the player stands in a
+-- dwelling's bucket with no session (the wake-up at home did not reopen one), so its exit
+-- answered "You are not inside a dwelling." for good. The exit they pressed (or the bucket
+-- they are in) opens a recovery session that walks them out to the building's entrance.
+local function strandedSession(player, row)
+    local b=GetPlayerRoutingBucket(player)
+    if not row and b and b>C.bucketBase then row=property(b-C.bucketBase) end
+    if not row or row.deleted or bucket(row)~=b then return nil end
+    local c=character(player)
+    if not c then return nil end
+    local s={property=row.id,contract=row.contract_id,bucket=b,exterior=S.clone(row.data.entrance),label=row.data.label,
+        character=c,phase="recovery"}
+    H.sessions[player]=s
+    LightRP.log("housing: %s found inside %s without a session: recovery exit",LightRP.characters.displayName(player),row.data.label)
+    return s
+end
+H.strandedSession=strandedSession
+-- A transfer that never finished (its task killed, a lost teleport answer) left the phase
+-- at entering/leaving and "Wait for the current transfer" forever: after this long it is a recovery.
+local STUCK_TRANSFER_MS=20000
+function H.leave(player, forced, row)
+    local s=H.sessions[player] or strandedSession(player,row)
     if not s then return nil,"You are not inside a dwelling." end
+    if (s.phase=="entering" or s.phase=="leaving") and clock()-(s.phaseAt or 0)>=STUCK_TRANSFER_MS then s.phase="recovery" end
     if s.phase=="entering" or s.phase=="leaving" then return nil,"Wait for the current transfer to finish." end
     local c,why=activePlayer(player)
     if not c then return nil,why end
@@ -348,7 +371,8 @@ function H.arrived(player,point)
     local c=character(player)
     local row,lease=sleeper(c)
     if not row or row.id~=point.home or H.sessions[player] then return end
-    local s={property=row.id,contract=lease.id,bucket=bucket(row),exterior=S.clone(row.data.entrance),label=row.data.label,character=c,phase="entering"}
+    local s={property=row.id,contract=lease.id,bucket=bucket(row),exterior=S.clone(row.data.entrance),label=row.data.label,character=c,phase="entering",
+        phaseAt=clock()}
     H.sessions[player]=s
     c.lastKnown=S.clone(s.exterior)
     setAsleep(lease,false)
@@ -541,7 +565,7 @@ function H.onInteract(player,id)
     if not action or not row then return end
     local result,why
     if action=="door" then result,why=H.open(player,false)
-    elseif action=="exit" then result,why=H.leave(player,false)
+    elseif action=="exit" then result,why=H.leave(player,false,row)
     elseif action=="stash" then result,why=H.openStorage(player,contract(row))
     elseif action=="wardrobe" then
         local s=H.sessions[player]
