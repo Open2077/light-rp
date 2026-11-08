@@ -134,6 +134,9 @@ LightRpVehicleCustomization = {
         lightColors = "This model's lamps cannot take other colors.",
         engineSound = "No other engine sound fits this model.",
         stickers = "No sticker fits this model.",
+        -- the original sticker pack covers this model (server/config/vehicle_decals.lua) but
+        -- this server has not started it
+        stickersPack = "Stickers are not installed on this server yet.",
         tag = "Tags are not available on this server.",
         -- the natives exist but this server's garage cannot store the choice yet (it has no
         -- Garage.registerCustomizationCategory): sold, it would be lost at the next autosave

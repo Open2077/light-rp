@@ -11,6 +11,7 @@
 dofile("shared/config.lua"); dofile("shared/events.lua"); dofile("shared/items.lua")
 dofile("server/config/garages.lua"); dofile("server/config/dealerships.lua")
 dofile("server/config/vehicle_kit.lua");dofile("server/config/vehicle_kit_trims.lua")
+dofile("server/config/vehicle_decals.lua") -- generated from the sticker and livery packs (tools/build_vehicle_decals.py)
 local WHERE=os.getenv("LIGHTRP_WAVE2_KEYS")=="visual" and "visual" or "top"
 local GARAGES=os.getenv("LIGHTRP_GARAGES") or "server/modules/garages.lua"
 local function noop() end
@@ -578,6 +579,42 @@ local full={};for i=1,60 do full[i]={id=("st.hella.crew_%02d"):format(i),label=(
 local saveStickers=STICKERS;STICKERS=full
 m=open(hella);assert(#category(m,"stickers").options.stickers==60)
 close();STICKERS=saveStickers
+
+-- 12. A model the dealership never sells (the Type-66, a staff-only key): the original sticker
+-- sets the pack carries for it (server/config/vehicle_decals.lua, generated from the pack) are
+-- offered and bought as on the Hella, its pack livery follows its factory scheme, and with
+-- the sticker pack stopped the row says "not installed" instead of "no sticker fits".
+local D=LightRpVehicleDecals
+-- the quest variants (Vehicle.q000_hym_player_car, ...) are out of the extension: no pack lists one
+for record in pairs(D.uncatalogued)do assert(not record:match("^Vehicle%.q%d+_"),"a quest variant in the decal packs: "..record) end
+local T66=LightRP.vehicles.byKey.type66.record
+assert(LightRP.vehicles.byKey.type66.staffOnly==true,"the Type-66 is not sold at the dealership")
+local sets=D.models.type66.stickers
+assert(#sets>=2 and D.models.type66.liveries>0,"the packs cover the Type-66")
+for _,id in ipairs(sets)do assert(id:match("^os%.type66%.[a-z]+$"),"an original set of the Type-66: "..id) end
+STICKERS={}
+for i,id in ipairs(sets)do STICKERS[i]={id=id,label="Original "..i,group="Original",model=T66,decals=2} end
+profiles[T66]={{id="t66_tt_1",main={r=20,g=20,b=200},appearances={"a"},hasPattern=false},
+    {id="Vehicle.o77_livery_taxi_type66",label="City Taxi",resource=D.packs.liveries,main={r=240,g=200,b=20},hasPattern=true}}
+packs[D.packs.stickers]="running"
+store(hella)
+local granted,t66=G.grant(1,"type66");assert(granted,t66)
+car=retrieve(t66);m=open(t66)
+local t66Stickers,t66Livery=category(m,"stickers"),category(m,"livery")
+assert(t66Stickers.available and #t66Stickers.options.stickers==#sets and t66Stickers.options.stickers[1].id==sets[1],"the Type-66 sets are offered")
+assert(same(t66Stickers.options.budget,{base=0,maximum=12}),"a stock Type-66 has the whole budget")
+assert(t66Livery.available and #t66Livery.options==2 and t66Livery.options[1].label=="Scheme 1" and t66Livery.options[2].label=="City Taxi","its pack livery after its factory scheme")
+bank=M.get(1).bank
+r=issue("save",{category="stickers",stickers={sets[1],sets[2]}},"bank");assert(r.ok,r.text)
+assert(M.get(1).bank==bank-2*P.stickers and same(world[car].w2.stickers,{sets[1],sets[2]}),"two Type-66 sets bought")
+r=issue("preview",{category="stickers",stickers={V1}});assert(not r.ok and r.text=="This sticker does not fit this vehicle.","a Hella set on the Type-66")
+close()
+STICKERS={};packs[D.packs.stickers]=nil
+m=open(t66);assert(category(m,"stickers").reason==C.unsupported.stickersPack,"a covered model with its pack stopped: not installed")
+close()
+local coverage=D.models.type66;D.models.type66={stickers={},liveries=0}
+m=open(t66);assert(category(m,"stickers").reason==C.unsupported.stickers,"a model the pack does not cover: no sticker fits")
+close();D.models.type66=coverage;STICKERS=saveStickers;store(t66)
 
 print(("customization wave 2 (%s keys): greying, neon animation, lamp colors, engine sound (rebuild, cooldown, engine hold, stage), stickers (budget, livery guard, per-sticker price), tag, previews never stored, park+restart+retrieve, a build without the natives passed; largest category %d JSON values"):format(WHERE,maxCategoryValues))
 return true
