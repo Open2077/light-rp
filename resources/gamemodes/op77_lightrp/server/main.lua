@@ -10,6 +10,14 @@ local joinSpawns = {} -- playerId -> "waiting" | "pending" | "complete"
 -- the character's position (measured 2026-11-06, a reconnect before placement).
 local placed = {}
 function Spawn.placed(playerId) return placed[playerId] == true end
+-- The pre-spawn body stands at the world origin, under the street (z 0; the ground of the
+-- Westbrook blocks around it is ~7.6 m up): a body within a few metres of it was never placed.
+local PRE_SPAWN, PRE_SPAWN_RADIUS = { x = 0, y = 3.6, z = 0 }, 5
+local function atPreSpawn(position)
+    if type(position) ~= "table" then return true end
+    local dx, dy, dz = (position.x or 0) - PRE_SPAWN.x, (position.y or 0) - PRE_SPAWN.y, (position.z or 0) - PRE_SPAWN.z
+    return dx * dx + dy * dy + dz * dz <= PRE_SPAWN_RADIUS * PRE_SPAWN_RADIUS
+end
 
 local function readinessHeld(playerId)
     if type(Open77.ready) ~= "table" or type(Open77.ready.isReady) ~= "function" then return false end
@@ -135,7 +143,21 @@ function Spawn.onReady(playerId)
     applyJoinSpawn(playerId)
 end
 
+-- A resource restart (LightRP.adoptConnectedPlayers) leaves everyone where they stand: a
+-- body away from the pre-spawn point was placed before the restart. One still at it was not
+-- (a join placement the restart cut short); one mid-respawn is marked once it recovers.
+function Spawn.onAdopted(playerId)
+    local life = Open77.players.getLifeState(playerId)
+    if life == nil or (life.phase ~= "alive" and life.phase ~= "recovering" and life.phase ~= "dead") then return end
+    if atPreSpawn(Open77.players.position(playerId)) then return end
+    placed[playerId] = true
+end
+
 function Spawn.onLifeState(playerId, phase)
+    -- Every respawn and revive ends in `recovering` once the client applied it, at the point a
+    -- module chose: the hospital below, the clinic (medical.lua), a mission arena, a staff
+    -- revive. All of them place the player, not only placeAt.
+    if phase == "recovering" then placed[playerId] = true end
     if phase ~= "dead" or readinessHeld(playerId) then return end
     if LightRP.medical and LightRP.medical.handlesDeath(playerId) then return end
     -- a mission respawns its own operators (in its arena, or at the point when it ends)

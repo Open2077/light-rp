@@ -16,7 +16,7 @@ local WHERE=os.getenv("LIGHTRP_WAVE2_KEYS")=="visual" and "visual" or "top"
 local GARAGES=os.getenv("LIGHTRP_GARAGES") or "server/modules/garages.lua"
 local function noop() end
 local tick, uid = 1000, 0
-local failDb = false
+local failDb, yieldDb = false, false
 local owner = {identifier="wave2-test",key="default",status="active"}
 local walletRow = {account_number="AAA-W2",owner_name="Test",cash=50000,bank=1000000}
 local owned, messages, actions, threads, points, commits, logs = {}, {}, {}, {}, {}, {}, {}
@@ -56,6 +56,7 @@ function Db.transaction(q)
         if w.query:find("INSERT INTO lightrp_transactions",1,true)then kind=w.values[3] end
     end
     assert(write and kind,"vehicle properties and the receipt are one transaction")
+    if yieldDb then coroutine.yield("transaction") end
     if failDb then return false,"database_error" end
     if bank then walletRow.bank=bank.values[1]end
     assert(Db.run(write.query,write.values));commits[#commits+1]=kind
@@ -580,7 +581,26 @@ local saveStickers=STICKERS;STICKERS=full
 m=open(hella);assert(#category(m,"stickers").options.stickers==60)
 close();STICKERS=saveStickers
 
--- 12. A model the dealership never sells (the Type-66, a staff-only key): the original sticker
+-- 12. The studio closes while a purchase is in SQL (the player closed it, left or died): the
+-- purchase completes, but nothing the studio switches on after it may outlive the session
+-- (close already ran): no engine hold, no lamps left lit.
+local function closedDuringPayment(category,fields)
+    m=open(hella);tick=tick+C.engineSound.previewCooldownMs
+    world[car].engineHold=false;world[car].flags=(world[car].flags or 0)&~(64|128)
+    local holds,lit,bought=calls.hold,calls.lights or 0,#commits
+    yieldDb=true
+    local pending=coroutine.create(function() return issue("save",fields,"bank") end)
+    local ok,at=coroutine.resume(pending);assert(ok and at=="transaction",category..": stopped inside the payment")
+    close();yieldDb=false
+    assert(coroutine.resume(pending))
+    assert(#commits==bought+1,category..": the purchase itself completes")
+    assert(world[car].engineHold~=true and calls.hold==holds,category..": no engine hold after the studio closed")
+    assert(world[car].flags&64==0 and (calls.lights or 0)==lit,category..": no lamps lit after the studio closed")
+end
+closedDuringPayment("engine sound",{category="engineSound",sound="s03"})
+closedDuringPayment("lamp colors",{category="lightColors",lamps={reverse="#FFE45C"}})
+
+-- 13. A model the dealership never sells (the Type-66, a staff-only key): the original sticker
 -- sets the pack carries for it (server/config/vehicle_decals.lua, generated from the pack) are
 -- offered and bought as on the Hella, its pack livery follows its factory scheme, and with
 -- the sticker pack stopped the row says "not installed" instead of "no sticker fits".

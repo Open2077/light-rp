@@ -85,6 +85,9 @@ function LightRP.adoptConnectedPlayers()
             LightRP.eachModuleExcept("spawn", "onUiReady", id)
             LightRP.eachModuleExcept("spawn", "onReady", id)
             LightRP.eachModuleExcept("spawn", "onGameplayReady", id)
+            -- ... and the spawn module learns they already stand somewhere (Spawn.onAdopted:
+            -- their position is saved again, server/modules/characters.lua samplePosition).
+            LightRP.eachModule("onAdopted", id)
         end
         if index % 4 == 0 then Wait(0) end
     end

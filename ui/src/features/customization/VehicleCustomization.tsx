@@ -31,8 +31,10 @@ interface TagOptions { fonts:Option[]; spots:Option[]; colors:string[]; minLengt
 // `parent`: a sub-panel of that category (its own purchase), listed under it rather than in the nav.
 interface Category { id:string; label:string; description:string; icon?:string; price?:number; available?:boolean; reason?:string; soon?:boolean; parent?:string; options?:unknown }
 // The server's view of the confirmed (paid) look; phase-1 servers send paint/lightsHue/appearance only.
+// `stage`: the stage the car runs on; `storedStage`: the one paid for, which the server quotes from
+// (they differ while a stored stage is dormant: the car came out while its records were offline).
 interface Confirmed { paint?:Paint; lightsHue?:number; appearance?:string; profile?:string; neon?:{color:string;intensity:string};
-  rim?:{id:string;variant:string}; body?:Record<string,{part:string;variant:string}>; plate?:string; stage?:number; windows?:string;
+  rim?:{id:string;variant:string}; body?:Record<string,{part:string;variant:string}>; plate?:string; stage?:number; storedStage?:number; windows?:string;
   neonAnimation?:{mode:string;speed?:string;color2?:string}; lightColors?:Record<string,string>; engineSound?:string; stickers?:string[];
   tag?:{text:string;font:string;color:string;spot:string} }
 interface Vehicle { id:string; vehicleId:number; label:string; model?:string; paint:Paint; lightsHue?:number; appearance?:string }
@@ -178,12 +180,14 @@ function payload(c:CategoryId,d:Drafts) {
   case "tag":return d.tag.stock?{category:"tag",stock:true}:{category:"tag",text:tagText(d.tag.text),font:d.tag.font,color:d.tag.color.toUpperCase(),spot:d.tag.spot};
   }
 }
+// The stage the server prices and compares from (older servers send `stage` only).
+function storedStageOf(v:Confirmed):number {return typeof v.storedStage==="number"?v.storedStage:typeof v.stage==="number"?v.stage:0;}
 function draftsOf(v:Confirmed):Drafts {
   const neon=v.neon&&HEX.test(v.neon.color)?{color:v.neon.color.toUpperCase(),intensity:v.neon.intensity||"medium",stock:false}:{color:"#00E5FF",intensity:"medium",stock:true};
   const a=v.neonAnimation,t=v.tag;
   return {paint:paintDraft(v.paint),lights:lightsDraft(v.lightsHue),trim:trimDraft(v.appearance),livery:{profile:v.profile??""},
     rims:v.rim?.id?{rim:v.rim.id,variant:v.rim.variant??""}:{rim:"",variant:""},body:{parts:{...map<{part:string;variant:string}>(v.body)}},
-    neon,plate:{plate:v.plate??""},windows:{tint:v.windows??""},performance:{stage:typeof v.stage==="number"?v.stage:0},
+    neon,plate:{plate:v.plate??""},windows:{tint:v.windows??""},performance:{stage:storedStageOf(v)},
     neonAnimation:a?.mode?{mode:a.mode,speed:a.speed??"",color2:(a.color2??"").toUpperCase()}:{mode:"",speed:"",color2:""},
     lightColors:{lamps:Object.fromEntries(Object.entries(map<string>(v.lightColors)).map(([g,c])=>[g,c.toUpperCase()]))},
     engineSound:{sound:v.engineSound??""},stickers:{stickers:list<string>(v.stickers)},
@@ -286,7 +290,8 @@ function Workshop({session,close}:{session:Session;close():void}) {
     }
     if(c==="performance"){
       const o=context.performance;if(!o)return undefined;
-      const current=typeof confirmed.stage==="number"?confirmed.stage:o.current,target=drafts.performance.stage;
+      // From the stored stage, as the server quotes (not the fitted one: a dormant stage is paid for).
+      const current=typeof confirmed.storedStage==="number"||typeof confirmed.stage==="number"?storedStageOf(confirmed):o.current,target=drafts.performance.stage;
       if(target<=current)return o.removal;
       return list<Stage>(o.stages).filter(s=>s.stage>current&&s.stage<=target).reduce((sum,s)=>sum+(s.price??0),0);
     }
@@ -388,6 +393,7 @@ function Workshop({session,close}:{session:Session;close():void}) {
   const plateHint=plateOptions?`${plateOptions.minLength===plateOptions.maxLength?plateOptions.minLength:`${plateOptions.minLength} to ${plateOptions.maxLength}`} characters: capital letters A-Z and digits 0-9.`:"";
   const stages=list<Stage>(context.performance?.stages);
   const fittedStage=typeof confirmed.stage==="number"?confirmed.stage:context.performance?.current??0;
+  const storedStage=typeof confirmed.storedStage==="number"?confirmed.storedStage:fittedStage;
   const selectedRim=rims.find(r=>r.id===drafts.rims.rim);
   const compact=top.length>4;
   const badge=(c:Category)=>c.soon?"Coming soon":"Unavailable";
@@ -505,7 +511,7 @@ function Workshop({session,close}:{session:Session;close():void}) {
         </>}
         {editable&&category==="performance"&&<div className="workshop__trims" role="group" aria-label="Performance stages">
           {stages.map(s=><button key={s.stage} aria-pressed={drafts.performance.stage===s.stage} disabled={purchasing||s.available===false} onClick={()=>update("performance",{stage:s.stage})}>
-            <Gauge size={14}/><span>{s.label}{s.stage===fittedStage&&<small> · fitted</small>}{s.missing&&<small> · not in your game</small>}</span>{s.stage>0&&s.price!==undefined&&<em>{amount(s.price)}</em>}{drafts.performance.stage===s.stage&&<Check size={15}/>}</button>)}
+            <Gauge size={14}/><span>{s.label}{s.stage===fittedStage&&<small> · fitted</small>}{s.stage===storedStage&&storedStage!==fittedStage&&<small> · paid, park the car to fit it</small>}{s.missing&&<small> · not in your game</small>}</span>{s.stage>0&&s.price!==undefined&&<em>{amount(s.price)}</em>}{drafts.performance.stage===s.stage&&<Check size={15}/>}</button>)}
         </div>}
         {editable&&category==="neonAnimation"&&<>
           <div className="workshop__tiles" role="group" aria-label="Neon animations">
