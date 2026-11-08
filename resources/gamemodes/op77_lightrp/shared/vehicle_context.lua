@@ -7,10 +7,11 @@ local catalog = {}
 for _, entry in ipairs(LightRpConfig.vehicles.catalog) do catalog[entry.record] = entry end
 
 function C.profile(vehicle)
-    local configured = Config.models[vehicle.record]
+    local base = LightRpConfig.baseRecord(vehicle.record) -- a performance stage is its dealer model
+    local configured = Config.models[vehicle.record] or Config.models[base]
     if configured then return configured end
     local record = tostring(vehicle.record or ""):lower()
-    local entry = catalog[vehicle.record]
+    local entry = catalog[base]
     if (entry and entry.category == "Bikes") or record:find("bike", 1, true) or record:find("motorcycle", 1, true) then
         return { doors = 0 }
     end
@@ -18,7 +19,8 @@ function C.profile(vehicle)
 end
 
 function C.label(vehicle)
-    return catalog[vehicle.record] and catalog[vehicle.record].label or "Vehicle"
+    local entry = catalog[LightRpConfig.baseRecord(vehicle.record)]
+    return entry and entry.label or "Vehicle"
 end
 
 function C.locked(v) return v.locked == true or ((v.flags or 0) & 2) ~= 0 end

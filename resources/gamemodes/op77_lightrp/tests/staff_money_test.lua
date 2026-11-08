@@ -67,7 +67,12 @@ LightRP = { db = db, module = function(n, t) LightRP[n] = t; return t end, log =
     characters = { get = function(id) return chars[id] end, displayName = function(id) return "Citizen " .. tostring(id) end } }
 local positions = { [1] = { x = 0, y = 0, z = 0, bucket = 0 }, [2] = { x = 1, y = 0, z = 0, bucket = 0 }, [3] = { x = 2, y = 0, z = 0, bucket = 0 } }
 Open77 = { players = { position = function(id) return positions[id] end, positions = function() return positions end }, vehicles = {} }
-GetPlayers = function() return { 1, 2, 3 } end; GetPlayerName = function(id) return chars[tonumber(id)] and ("Account " .. id) or nil end
+-- Like the server native: a number with no integer representation raises.
+GetPlayers = function() return { 1, 2, 3 } end
+GetPlayerName = function(id)
+    if math.type(id) ~= "integer" then error("bad argument #1 to 'GetPlayerName' (number has no integer representation)") end
+    return chars[id] and ("Account " .. id) or nil
+end
 TriggerClientEvent = noop; AddEventHandler = noop; CreateThread = noop; Wait = function() coroutine.yield("wait") end
 dofile("server/modules/inventory.lua"); dofile("server/modules/economy.lua"); dofile("server/config/economy.lua")
 local I, M = LightRP.inventory, LightRP.money
@@ -82,6 +87,13 @@ LightRpEconomy.staffGrants.dailyCapPerStaff = 0
 local give = commands["lightrp.givemoney"]
 local function line() return state.ledger[#state.ledger] end -- account, wallet, kind, amount, balance, counterparty, note
 local bank, cash, lines = M.get(2).bank, M.get(2).cash, #state.ledger
+
+-- A target that is not a whole player id (a coordinate typed in its place) is no one: refused, no error.
+for _, target in ipairs({ "1.5", "-1034.5", "0", "-2", "two" }) do
+    local refused, why = give(3, { target, "bank", "500", "lab grant" })
+    assert(refused == false, "target " .. target .. ": " .. tostring(why))
+end
+assert(M.get(2).bank == bank and #state.ledger == lines, "an invalid target moves nothing")
 
 -- No reason, or a reason under minReason: refused with the usage, nothing moves.
 local ok, text = give(1, { "2", "bank", "500" })

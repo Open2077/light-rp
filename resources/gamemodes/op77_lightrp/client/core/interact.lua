@@ -198,7 +198,7 @@ local function createMarker(point, marker)
         shape = marker.shape or "cylinder", radius = tonumber(marker.radius) or 0.9, height = tonumber(marker.height) or 0.65,
         color = marker.color, style = marker.style or "objective", scale = marker.scale, rotation = marker.rotation,
         minDistance = tonumber(marker.minDistance) or 0, maxDistance = tonumber(marker.maxDistance) or 30.0,
-        visible = marker.visible ~= false,
+        visible = marker.visible ~= false and not Interact.hidden, -- a refresh while a page hides them
     })
     if not id then log("3D marker refused for %s: %s", tostring(point.id), tostring(err)) end
     return id

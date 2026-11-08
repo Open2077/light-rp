@@ -129,8 +129,13 @@ server_script "server/modules/refueling.lua"
 server_script "server/modules/medical_store.lua"
 server_script "server/modules/medical.lua"
 server_script "server/config/garages.lua"
+server_script "server/config/vehicle_kit.lua"      -- Auto Studio rims + body kit catalogue (tools/build_vehicle_kit.py)
+server_script "server/config/vehicle_decals.lua"    -- what the sticker and livery packs cover per catalogue key (tools/build_vehicle_decals.py)
+server_script "server/config/vehicle_kit_trims.lua" -- stock names each curated trim adds to the kit's hide lists
+server_script "server/config/vehicle_kit_player_rims.lua" -- rim fits of the other vanilla player vehicles (tools/build_vehicle_kit_player_rims.py)
 server_script "server/modules/garages.lua"
 server_script "server/config/vehicle_customization.lua"
+server_script "server/config/vehicle_stage_catalogue.lua" -- per-record stage prices + engine sound counts (generated, Open77 make_stages.py)
 server_script "server/modules/vehicle_customization.lua"
 server_script "server/config/dealerships.lua"
 server_script "server/modules/dealerships.lua"
@@ -285,6 +290,7 @@ permissions {
     "local.events",
     -- server
     "world.vehicles",
+    "world.vehicles.appearance", -- Auto Studio factory trims: setAppearance to a curated variant, and its rollback (a restatement needs no grant)
     "world.props",          -- networked jerrycan, cleaned up with the action
     "state.write",          -- vehicle keys live in state bags
     "players.life.read",
@@ -338,6 +344,7 @@ permissions {
     "players.controls",     -- walk modes (Open77.movement.setWalkMode)
     "players.read",         -- free camera: on foot or in a vehicle (Open77.players.isInVehicle)
     "camera.script",        -- arrival cinematic, including complete local body
+    "players.local.visibility", -- Auto Studio: hide the player's own avatar from the orbit camera (this screen only)
     "player.freeze",        -- creator owns/releases only its local freeze claim
     "world.environment",    -- noon/sun only in the private creation bucket
     "audio.play",           -- local, quiet creation soundtrack

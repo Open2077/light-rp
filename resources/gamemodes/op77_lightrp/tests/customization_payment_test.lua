@@ -78,6 +78,8 @@ local function rgb(v)if type(v)=="table"then return clone(v)end;return{r=tonumbe
 V.setPaint=function(id,p)world[id].paint={applied=true,primary=rgb(p.primary),secondary=rgb(p.secondary)};return true end
 V.resetPaint=function(id)world[id].paint={applied=false};return true end
 V.setLightsHue=function(id,hue)world[id].paint.lightsHue=hue;return true end
+V.getAppearance=function(id)return world[id] and (world[id].appearance or "")end
+V.setAppearance=function(id,name)world[id].appearance=name;return true end
 V.remove=function(id)world[id]=nil;for _,fn in ipairs(events.onVehicleRemoved or{})do fn(tostring(id),"test")end;return true end
 RegisterNetEvent=function(name,fn)rpc[name]=fn end
 CreateThread=function(fn) threads[#threads+1]=fn end;Wait=function() coroutine.yield() end
@@ -127,4 +129,25 @@ C.onDisconnected(1);M.onDisconnected(1)
 assert(coroutine.resume(co));yieldDb=false
 M.onCharacterLoaded(1,owner)
 assert(committed==3 and world[vid].paint.primary.r==255 and not G.isBusy(1),"disconnect during commit keeps paid finish and releases locks")
-print("customization payment: real cash/bank atomicity, server quote, replay, unchanged paint, DB failure, insufficient funds and disconnect during commit passed")
+-- The studio's session limit counts idle time, not time since opening: a player still
+-- previewing after more than sessionMs keeps the studio (2026-11-07 lab: it closed mid-edit).
+local idle=LightRpVehicleCustomization.sessionMs
+assert(C.open(1,id,"citycenter"));session=messages[#messages].session;request=0
+tick=tick+idle-1000;reply=issue("preview","#00FF00");assert(reply.ok,"a preview before the idle limit")
+tick=tick+idle-1000;reply=issue("preview","#0000FF");assert(reply.ok,"the studio stays open while it is used")
+tick=tick+idle+1;request=request+1
+source=1;rpc["op77_lightrp:customization"]({session=session,request=request,operation="preview",category="paint",primary="#FF0000",secondary="#FF0000"})
+assert(messages[#messages].kind=="closed","an idle studio closes")
+-- The studio waits for each answer and never sends again: a Lua error while applying, or
+-- while building the answer, must still answer and release the session for the next request.
+assert(C.open(1,id,"citycenter"));session=messages[#messages].session;request=0
+local customize=G.customize;G.customize=function() error("boom") end
+reply=issue("preview","#00FFFF");G.customize=customize
+assert(reply.kind=="response" and reply.request==request and not reply.ok and reply.text:find("could not apply"),"an apply error is refused and answered")
+reply=issue("preview","#00FFFF");assert(reply.kind=="response" and reply.ok,"the next request is served: the busy flag was released")
+local paintOf=G.customizationPaint;G.customizationPaint=function() error("boom") end
+reply=issue("preview","#FF00FF");G.customizationPaint=paintOf
+assert(reply.kind=="response" and reply.request==request and reply.ok,"a failed read still answers the request")
+reply=issue("preview","#00FF00");assert(reply.kind=="response" and reply.ok and reply.money,"and the studio goes on")
+C.onDisconnected(1)
+print("customization payment: real cash/bank atomicity, server quote, replay, unchanged paint, DB failure, insufficient funds, disconnect during commit, idle expiry and errors answered passed")

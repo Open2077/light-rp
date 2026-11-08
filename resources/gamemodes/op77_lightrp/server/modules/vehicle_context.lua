@@ -67,7 +67,9 @@ function Context.perform(playerId, payload)
         lastHorn[playerId] = now
         ok, reason = Open77.vehicles.triggerHorn(id, math.max(100, math.min(2000, Config.hornDurationMs)))
     elseif kind == "info" then
-        return true, string.format("%s · %s · Engine %s · Lights %s · Condition %d%%", C.label(v),
+        -- A personal vehicle shows its registration plate (Auto Studio).
+        local plate = LightRP.garage and LightRP.garage.plateOf and LightRP.garage.plateOf(id)
+        return true, string.format("%s%s · %s · Engine %s · Lights %s · Condition %d%%", C.label(v), plate and (" · Plate " .. plate) or "",
             C.locked(v) and "Locked" or "Unlocked", C.engineOn(v) and "on" or "off", C.lights(v), math.floor((v.health or 0) * 100 + 0.5))
     end
     if not ok then return false, "Vehicle action refused: " .. tostring(reason or "unavailable") end

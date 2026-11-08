@@ -36,6 +36,9 @@
 !resources/assets/models/open77_casino_fortune/**
 !resources/assets/models/open77_maneki/
 !resources/assets/models/open77_maneki/**
+# Light RP vehicle kit: only the lead's install note; the packs are not committed yet.
+!resources/assets/models/lightrp_vehicle_kit/
+!resources/assets/models/lightrp_vehicle_kit/README.md
 !resources/assets/maps/lobby/
 !resources/assets/maps/lobby/**
 !resources/assets/maps/open77_lobby_cubes/

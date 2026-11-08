@@ -612,3 +612,12 @@ LightRpConfig = {
     -- How often the server pushes its light state (online count) to every client.
     statePushMs = 15000,
 }
+
+-- A performance stage or an engine sound is a derived record: Vehicle.<dealer
+-- record>_o77s<n> (stage), _o77a<k> (sound on the factory stage) or _o77s<n>a<k>
+-- (both). Every catalogue lookup by a live vehicle's record goes through its
+-- dealer record.
+function LightRpConfig.baseRecord(record)
+    local base = tostring(record or "")
+    return (base:gsub("_o77s%d+a%d+$", ""):gsub("_o77a%d+$", ""):gsub("_o77s%d+$", ""))
+end
