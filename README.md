@@ -1,113 +1,113 @@
-# Open//77 Official Roleplay — starter Light RP
+# Open//77 Official Roleplay — Light RP starter
 
-Projet de démarrage d'un serveur **Light Roleplay** pour OPEN//77 : la distribution serveur
-officielle (`2.31.13+op77.82`, Windows x64) déjà extraite ici, une configuration prête, un ACL, et
-le framework `op77_lightrp` (personnages, chat de proximité, besoins, véhicules civils, hôpital, staff) avec
-sa WebUI globale React + TypeScript habillée du design system Open//77 RP.
+Starter project for an OPEN//77 **Light Roleplay** server: the official server distribution
+(`2.31.13+op77.82`, Windows x64) already extracted here, a ready-to-use configuration, an ACL, and
+the `op77_lightrp` framework (characters, proximity chat, needs, civilian vehicles, hospital, staff) with
+its global React + TypeScript WebUI, styled with the Open//77 RP design system.
 
 ```
 E:\Open77\LightRP
-├── Open77.Server.exe, *.dll        distribution officielle (non versionnée)
-├── server.jsonc                    configuration de production (master + licence)
-├── server.local.jsonc              profil de test local (sans master ni licence)
-├── acl.jsonc                       droits en jeu : rôles helper/moderator/operator, owner
-├── server.env.example              variables d'environnement à copier dans server.env
-├── Start-LightRP.cmd               démarrage production (lit server.env)
-├── Start-LightRP-Local.cmd         démarrage local
-├── templates\op77_lightrp\         template pour l'assistant de première installation
-├── ui\                             source de la WebUI (Vite + React + TS) → build dans resources\...\op77_lightrp\web
-└── resources\gamemodes\op77_lightrp\  le framework (voir son README)
+├── Open77.Server.exe, *.dll        official distribution (not versioned)
+├── server.jsonc                    production configuration (master + licence)
+├── server.local.jsonc              local test profile (no master, no licence)
+├── acl.jsonc                       in-game rights: helper/moderator/operator roles, owner
+├── server.env.example              environment variables to copy into server.env
+├── Start-LightRP.cmd               production start (reads server.env)
+├── Start-LightRP-Local.cmd         local start
+├── templates\op77_lightrp\         template for the first-install wizard
+├── ui\                             WebUI source (Vite + React + TS) → builds into resources\...\op77_lightrp\web
+└── resources\gamemodes\op77_lightrp\  the framework (see its README)
 ```
 
-Seuls la configuration, l'ACL, les scripts de démarrage, le template, `ui/` (sans `node_modules`) et
-`resources/gamemodes/op77_lightrp` sont suivis par git (`.gitignore` en liste blanche). Les binaires
-viennent du zip.
+Only the configuration, the ACL, the start scripts, the template, `ui/` (without `node_modules`) and
+`resources/gamemodes/op77_lightrp` are tracked by git (`.gitignore` works as an allowlist). The binaries
+come from the zip.
 
 ## WebUI
 
-La page du framework se construit avec Node 20+ : `cd ui && npm install && npm run build`. Le
-résultat (`web/`) est versionné, donc un clone démarre sans Node. `npm run dev` ouvre la page dans
-un navigateur avec un bridge simulé pour travailler le design sans le jeu.
+The framework page is built with Node 20+: `cd ui && npm install && npm run build`. The
+output (`web/`) is committed, so a fresh clone starts without Node. `npm run dev` opens the page in
+a browser with a mock bridge, so you can work on the design without the game.
 
-## Démarrer en local (aujourd'hui)
+## Running locally (today)
 
-1. Base de données (facultatif mais recommandé) : MariaDB/MySQL locale avec une base
-   `open77_lightrp`. `server.env` contient déjà la chaîne pour la MariaDB de cette machine.
-2. Double-cliquer `Start-LightRP-Local.cmd`. Le serveur écoute en loopback : jeu `127.0.0.1:11828`,
-   téléchargement des ressources `11829`, Warden `http://127.0.0.1:11830`.
-3. Au premier démarrage la console affiche `Warden setup PIN: ########`. Ouvrir Warden, entrer le
-   PIN, créer le compte administrateur.
-4. Se connecter avec le client Open//77 en preset développement (source « Local development » du
-   launcher ou connexion directe) sur `127.0.0.1:11828`.
+1. Database (optional but recommended): a local MariaDB/MySQL with an `open77_lightrp`
+   database. `server.env` already holds the connection string for this machine's MariaDB.
+2. Double-click `Start-LightRP-Local.cmd`. The server listens on loopback: game `127.0.0.1:11828`,
+   resource downloads `11829`, Warden `http://127.0.0.1:11830`.
+3. On first start, the console shows `Warden setup PIN: ########`. Open Warden, enter the
+   PIN and create the administrator account.
+4. Connect with the Open//77 client using the development preset (the launcher's "Local development"
+   source, or a direct connection) to `127.0.0.1:11828`.
 
-Le profil local accepte des clients non authentifiés (`devLocalAuth`) et refuse de tourner en
-public : c'est un bac à sable.
+The local profile accepts unauthenticated clients (`devLocalAuth`) and refuses to run in
+public: it is a sandbox.
 
-## Passer en production
+## Going to production
 
-1. **Licence** : créer une clé `op77_live_…` sur <https://open2077.net/account/keys> et la coller
-   dans `server.env` (`OP77_LICENSE_KEY=`). Sans clé, `server.jsonc` refuse de démarrer.
-2. **Base de données** : créer une base et un utilisateur dédiés (modèle dans
-   `server.env.example`), renseigner `OP77_DATABASE_CONNECTION`.
-3. **Adresse** : dans `server.jsonc`, `network.publicEndpoint` = `IP.PUBLIQUE:11828` et
-   `resources.download.publicBaseUrl` = l'URL que les joueurs atteignent pour le port 11829.
-   Ouvrir 11828/UDP et 11829/TCP. Recommandé : un proxy TLS (Caddy, nginx) devant 11829 et
-   `publicBaseUrl` en `https://`, puis `allowInsecureHttp: false`.
-4. **Visibilité** : `identity.visibility` passe de `unlisted` à `public` quand tout répond.
-5. **Warden** : reste sur `127.0.0.1:11830`. L'atteindre par tunnel SSH
-   (`ssh -L 11830:127.0.0.1:11830 user@serveur`) ou derrière un proxy TLS. Jamais en HTTP nu
-   sur Internet.
-6. `Start-LightRP.cmd` (ou un service qui exécute `Open77.Server.exe --config server.jsonc --no-setup`
-   avec les mêmes variables d'environnement).
+1. **License**: create an `op77_live_…` key at <https://open2077.net/account/keys> and paste it
+   into `server.env` (`OP77_LICENSE_KEY=`). Without a key, `server.jsonc` refuses to start.
+2. **Database**: create a dedicated database and user (template in
+   `server.env.example`), then fill in `OP77_DATABASE_CONNECTION`.
+3. **Address**: in `server.jsonc`, `network.publicEndpoint` = `PUBLIC.IP:11828` and
+   `resources.download.publicBaseUrl` = the URL players use to reach port 11829.
+   Open 11828/UDP and 11829/TCP. Recommended: a TLS proxy (Caddy, nginx) in front of 11829, with
+   `publicBaseUrl` in `https://`, then `allowInsecureHttp: false`.
+4. **Visibility**: switch `identity.visibility` from `unlisted` to `public` once everything responds.
+5. **Warden**: stays on `127.0.0.1:11830`. Reach it through an SSH tunnel
+   (`ssh -L 11830:127.0.0.1:11830 user@server`) or behind a TLS proxy. Never over plain HTTP
+   on the Internet.
+6. `Start-LightRP.cmd` (or a service that runs `Open77.Server.exe --config server.jsonc --no-setup`
+   with the same environment variables).
 
-Sur un Linux, la même arborescence fonctionne avec l'archive `linux-x64` et `./Open77.Server`.
+On Linux, the same layout works with the `linux-x64` archive and `./Open77.Server`.
 
-## Droits en jeu
+## In-game rights
 
-`acl.jsonc` définit trois rôles (`helper`, `moderator`, `operator`, repris de `open77_admin`) et
-deux principaux : le propriétaire (`*`) et `w0dm4n` en `operator`. Pour ajouter quelqu'un :
-Warden → *In-game rights* → *Known identities* → *Rights*, ou à la main dans le fichier puis
-`acl.reload` dans la console. L'identité d'un joueur se lit avec `identity.dump` dans sa console
-de jeu, ou dans Warden.
+`acl.jsonc` defines three roles (`helper`, `moderator`, `operator`, taken from `open77_admin`) and
+two principals: the owner (`*`) and `w0dm4n` as `operator`. To add someone:
+Warden → *In-game rights* → *Known identities* → *Rights*, or by hand in the file, then
+`acl.reload` in the console. You can read a player's identity with `identity.dump` in their game
+console, or in Warden.
 
-Les commandes du framework réservées au staff sont sous `command.lightrp.*`.
-`/admin` ouvre désormais le bureau RP (ACL `command.admin`) ; `/adminfull` conserve
-la console technique officielle. Les reports ont leurs droits dédiés :
-[bureau staff et suivi des tickets](resources/gamemodes/op77_lightrp/docs/admin-support.md).
+The framework's staff-only commands live under `command.lightrp.*`.
+`/admin` now opens the RP desk (ACL `command.admin`); `/adminfull` keeps
+the official technical console. Reports have their own rights:
+[staff desk and ticket tracking](resources/gamemodes/op77_lightrp/docs/admin-support.md).
 
-## Jouer
+## Playing
 
-Les pistolets d'inventaire, boîtes de 30 balles et équipement des deux mains
-disposent d'un [guide de prototype et de ses limites natives](resources/gamemodes/op77_lightrp/docs/armament.md).
-Aucun grant d'arme ni de munitions n'est automatique à la connexion.
+Inventory pistols, 30-round boxes and two-hand equipping
+come with a [prototype guide and its native limits](resources/gamemodes/op77_lightrp/docs/armament.md).
+No weapon or ammo is granted automatically on connect.
 
-**1–5** utilisent les objets de la première ligne des poches ; maintenir **Tab**
-affiche la [hotbar](resources/gamemodes/op77_lightrp/docs/hotbar.md).
+**1–5** use the items in the first row of your pockets; hold **Tab**
+to show the [hotbar](resources/gamemodes/op77_lightrp/docs/hotbar.md).
 
-Un joueur inconscient attend au moins **90 secondes** avant de pouvoir abandonner.
-Un autre joueur peut le stabiliser en **8 secondes** avec un `trauma_kit` :
-[système médical](resources/gamemodes/op77_lightrp/docs/medical.md).
+An unconscious player waits at least **90 seconds** before they can give up.
+Another player can stabilize them in **8 seconds** with a `trauma_kit`:
+[medical system](resources/gamemodes/op77_lightrp/docs/medical.md).
 
-**F1** ouvre le menu joueur ; à la première connexion le parcours de création
-présente l'identité, l'apparence et l'arrivée en ville. Le chat normal est la parole en jeu à 20 m, `/ooc` pour le
-hors-jeu, `/me` `/do` `/try` `/roll`, `/car <modèle>` et `/dv` pour un véhicule, `/report` pour
-ouvrir un dossier privé suivi par le staff. Détails et réglages dans `resources/gamemodes/op77_lightrp/README.md`.
+**F1** opens the player menu; on first connect, the creation flow
+walks through identity, appearance and arrival in the city. Normal chat is in-character speech within 20 m, `/ooc` for
+out-of-character, `/me` `/do` `/try` `/roll`, `/car <model>` and `/dv` for a vehicle, `/report` to
+open a private case followed by staff. Details and settings in `resources/gamemodes/op77_lightrp/README.md`.
 
-## Mettre à jour le serveur
+## Updating the server
 
-Le zip est une installation neuve, pas une migration. Arrêter le serveur, sauvegarder `server.jsonc`,
-`acl.jsonc`, `server.env`, `.open77/` (identité Master et clé de signature des ressources) et la
-base, extraire la nouvelle archive par-dessus, remettre ces fichiers, redémarrer. Le framework
-`op77_lightrp` n'est pas dans l'archive : il ne bouge pas.
+The zip is a fresh install, not a migration. Stop the server, back up `server.jsonc`,
+`acl.jsonc`, `server.env`, `.open77/` (Master identity and resource signing key) and the
+database, extract the new archive on top, put those files back, and restart. The `op77_lightrp`
+framework is not in the archive: it stays untouched.
 
-## Packages plateforme rehabillés
+## Restyled platform packages
 
-`resources/system/open77_contextmenu` (menu ALT + clic), `resources/system/open-voice` (indicateur vocal F11) , `resources/system/open77_chat` (chat T) et `resources/system/open77_wardrobe_ui` (garde-robe) sont des copies de la distribution dont la page `web/` a été réécrite dans le design system Open//77 RP (tokens et polices copiés dans chaque `web/`, car une page WebUI ne charge que les fichiers de sa propre ressource). Le protocole Lua ↔ page est inchangé. Ils sont versionnés ici : après une mise à jour du serveur, vérifier avec `git status` que la nouvelle distribution n'a pas écrasé `web/` et rejouer le commit si besoin.
+`resources/system/open77_contextmenu` (ALT + click menu), `resources/system/open-voice` (F11 voice indicator), `resources/system/open77_chat` (T chat) and `resources/system/open77_wardrobe_ui` (wardrobe) are copies from the distribution whose `web/` page was rewritten in the Open//77 RP design system (tokens and fonts are copied into each `web/`, because a WebUI page only loads files from its own resource). The Lua ↔ page protocol is unchanged. They are tracked here: after a server update, check with `git status` that the new distribution did not overwrite `web/`, and replay the commit if needed.
 
-## Ports utilisés
+## Ports used
 
-| Port | Protocole | Rôle |
+| Port | Protocol | Role |
 |---|---|---|
-| 11828 | UDP | Jeu |
-| 11829 | TCP | Téléchargement des ressources par les joueurs |
+| 11828 | UDP | Game |
+| 11829 | TCP | Resource downloads by players |
 | 11830 | TCP | Warden (loopback) |

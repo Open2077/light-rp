@@ -1,147 +1,147 @@
-# Événements staff (modes anim)
+# Staff events (anim modes)
 
-Le staff lance des événements de monde là où il veut et les enchaîne en soirées :
-**/admin > Events**, ou `/lightrp.event` dans le chat. Tout tourne sur le moteur des
-world bosses (`server/modules/world_bosses.lua`) : monde ouvert (instance 0), HUD de
-zone, parts à la contribution (dégâts et kills validés par le serveur), laisse des
-ennemis, renforts à 66 % et 33 % de la vie du boss, épingle de carte et avis de fin.
+Staff launch world events wherever they want and chain them into event nights:
+**/admin > Events**, or `/lightrp.event` in chat. Everything runs on the world
+boss engine (`server/modules/world_bosses.lua`): open world (instance 0), zone HUD,
+contribution-based shares (damage and kills validated by the server), enemy leash,
+reinforcements at 66% and 33% of the boss's health, map pin and end notice.
 
-Fichiers : `server/modules/staff_events.lua` (la logique, le bureau, la commande),
-`server/config/staff_events.lua` (réglages), `ui/src/features/support/EventsTools.tsx`
-(les pages du bureau), tests `tests/staff_events_test.lua` et
+Files: `server/modules/staff_events.lua` (the logic, the desk, the command),
+`server/config/staff_events.lua` (settings), `ui/src/features/support/EventsTools.tsx`
+(the desk pages), tests `tests/staff_events_test.lua` and
 `ui/tests/staff-events.browser.cjs`.
 
-## Les trois types
+## The three types
 
-| Type | Ce qui sort | Réglages (`server/config/staff_events.lua`) |
+| Type | What spawns | Settings (`server/config/staff_events.lua`) |
 |---|---|---|
-| **Cyberpsycho** | Un seul cyberpsycho (un des 16 enregistrements *Psycho Squad* de `shared/mission_defs.lua`, ou au hasard), vie ×12, comportement *assault* : il chasse qui entre dans sa zone. Le nom affiché (« Static », « Red Line »…) est tiré de `psycho.names` si le staff n'en donne pas. | `psycho` |
-| **Gang attack** | Un chef de gang (vie ×15) qui tient le point, son escouade sur un anneau de 8 m, et deux vagues de renfort qui arrivent du bord de la zone (0,8 × le rayon). Sept gangs : 6th Street, Valentinos, Tyger Claws, Maelstrom, Voodoo Boys, Wraiths, Militech. | `gang.crews` |
-| **World boss** | Un world boss du catalogue (les missions tagguées *World boss* dans `/lightrp.missions`), à sa place d'origine avec son décor, ou déplacé. | — |
+| **Cyberpsycho** | A single cyberpsycho (one of the 16 *Psycho Squad* records in `shared/mission_defs.lua`, or random), health ×12, *assault* behavior: it hunts anyone who enters its zone. The displayed name ("Static", "Red Line"…) is drawn from `psycho.names` if the staff member does not give one. | `psycho` |
+| **Gang attack** | A gang leader (health ×15) who holds the point, their squad on an 8 m ring, and two reinforcement waves that arrive from the edge of the zone (0.8 × the radius). Seven gangs: 6th Street, Valentinos, Tyger Claws, Maelstrom, Voodoo Boys, Wraiths, Militech. | `gang.crews` |
+| **World boss** | A world boss from the catalog (the missions tagged *World boss* in `/lightrp.missions`), at its original place with its decor, or moved. | — |
 
-Un world boss **déplacé** (ici, sur un joueur, à un spot) prend une disposition compacte,
-car le décor écrit pour sa place d'origine ne veut plus rien dire ailleurs : le boss sur le
-point, ses autres groupes de départ sur un anneau de 9 m, ses renforts au bord de la zone,
-les patrouilles deviennent *defend* et les routes sont effacées. Il garde l'identifiant du
-catalogue, donc ses drops iconiques s'il est payé. Le staff peut le renommer.
+A **moved** world boss (here, on a player, at a spot) takes a compact layout,
+because the decor written for its original place means nothing elsewhere: the boss on the
+point, its other starting groups on a 9 m ring, its reinforcements at the edge of the zone,
+patrols become *defend* and routes are cleared. It keeps its catalog
+ID, so its iconic drops if it is paid. The staff can rename it.
 
-## Où
+## Where
 
-- **Its own place** (world boss seulement) : la zone et le décor d'origine ;
-- **Here** : un cercle autour du staff, refusé s'il est dans une instance ;
-- **On a player** : autour de la position du joueur au lancement, refusé s'il est dans
-  une instance (mission, activité, intérieur) ;
-- **Saved spot** : un point nommé enregistré à l'avance (`lightrp_event_spots`, 80 au
-  plus). On le prépare en noclip, on l'enregistre, on le réutilise.
+- **Its own place** (world boss only): the original zone and decor;
+- **Here**: a circle around the staff member, refused if they are in an instance;
+- **On a player**: around the player's position at launch, refused if they are in
+  an instance (mission, activity, interior);
+- **Saved spot**: a named point saved in advance (`lightrp_event_spots`, 80 at
+  most). Set it up in noclip, save it, reuse it.
 
-Le rayon de zone (25 à 150 m, 50 par défaut) et la durée (5 à 60 min, 15 par défaut ;
-pour un world boss, 0 garde sa durée d'origine) se règlent au lancement. Le nom du lieu
-annoncé vient du champ *Place name*, sinon du nom du spot, sinon du district que le client
-envoie (`Open77.world.district()`, un libellé jamais vérifié), sinon « Night City ».
+The zone radius (25 to 150 m, 50 by default) and the duration (5 to 60 min, 15 by default;
+for a world boss, 0 keeps its original duration) are set at launch. The announced place
+name comes from the *Place name* field, else from the spot name, else from the district the client
+sends (`Open77.world.district()`, a label that is never checked), else "Night City".
 
-## Niveaux
+## Levels
 
-| Niveau | Vie | Dégâts | Nombre |
+| Level | Health | Damage | Count |
 |---|---|---|---|
 | Normal | ×1 | ×1 | ×1 |
-| Hard | ×1,6 | ×1,25 | ×1,5 |
-| Brutal | ×2,5 | ×1,6 | ×2 |
+| Hard | ×1.6 | ×1.25 | ×1.5 |
+| Brutal | ×2.5 | ×1.6 | ×2 |
 
-Ils s'appliquent en plus de l'événement : la vie du cyberpsycho, la vie et les dégâts des
-ennemis d'un gang, la première difficulté et le nombre de gardes d'un world boss (le boss
-reste seul, un groupe ne dépasse jamais 12).
+They apply on top of the event: the cyberpsycho's health, the health and damage of
+a gang's enemies, the first difficulty and the guard count of a world boss (the boss
+stays alone, a group never goes above 12).
 
-## Payé ou pour le fun
+## Paid or for fun
 
-- **Sans paie** (le défaut, droit `command.lightrp.events`) : rien n'est payé ni compté.
-  Pas d'argent, pas de réputation, rien pour les dailies, les titres, les contrats ni les
-  drops iconiques (`onWorldBossFinished` / `onWorldEventEnded` ne partent pas). Les avis et
-  le HUD disent « staff event: no pay, just the glory », le récap affiche la raison
+- **Unpaid** (the default, permission `command.lightrp.events`): nothing is paid or counted.
+  No money, no reputation, nothing for dailies, titles, contracts or
+  iconic drops (`onWorldBossFinished` / `onWorldEventEnded` do not fire). The notices and
+  the HUD say "staff event: no pay, just the glory", the recap shows the reason
   `staff_event`.
-- **Payé** (droit `command.worldboss.start` en plus) : exactement un world boss. Cagnotte
-  `LightRpEconomy.worldBosses`, plafond quotidien `dailyPaid` partagé avec les world bosses
-  aléatoires, réputation, hooks.
+- **Paid** (permission `command.worldboss.start` as well): exactly one world boss. Pool
+  `LightRpEconomy.worldBosses`, daily cap `dailyPaid` shared with random world
+  bosses, reputation, hooks.
 
-**Silent** : ni avis à la ville ni épingle de carte, les joueurs tombent dessus. Un
-événement silencieux n'est jamais la « tête d'affiche » du tableau des événements.
+**Silent**: no notice to the city and no map pin; players stumble upon it. A
+silent event is never the "headliner" of the events board.
 
-## Plusieurs à la fois
+## Several at once
 
-Le moteur des world bosses tient jusqu'à `LightRpWorldBosses.maxLive` événements à la
-fois (4), le world boss aléatoire compris. L'aléatoire ne sort que quand aucun événement
-n'est dehors. Un même world boss du catalogue ne peut pas sortir deux fois en même temps.
-Chaque zone a son HUD (le tag : WORLD BOSS, CYBERPSYCHO, GANG ATTACK). Un événement staff
-construit de toutes pièces (cyberpsycho, gang) ne relance pas l'horloge de l'aléatoire ;
-un world boss du catalogue, si.
+The world boss engine holds up to `LightRpWorldBosses.maxLive` events at
+once (4), the random world boss included. The random one only spawns when no event
+is out. The same catalog world boss cannot be out twice at the same time.
+Each zone has its own HUD (the tag: WORLD BOSS, CYBERPSYCHO, GANG ATTACK). A staff event
+built from scratch (cyberpsycho, gang) does not restart the random clock;
+a catalog world boss does.
 
-## Soirées (Event nights)
+## Event nights
 
-Des rounds annoncés à toute la ville : 30 s avant le premier, 60 s de pause entre deux,
-un résumé à la fin (« 3 of 5 fight(s) won »). Un seul à la fois.
+Rounds announced to the whole city: 30 s before the first, a 60 s break between two,
+a summary at the end ("3 of 5 fight(s) won"). Only one at a time.
 
-| Soirée | Déroulé |
+| Night | How it runs |
 |---|---|
-| **Psycho Night** | Un cyberpsycho par round, à un spot différent à chaque fois (mélangés), de plus en plus dur. Avec deux spots ou plus, le dernier round en lâche deux en même temps. |
-| **Boss Rush** | Les world bosses du catalogue l'un après l'autre, chacun à sa place. |
-| **Gang War** | Un seul round : N gangs (2 à `maxLive`) frappent N spots en même temps. Il faut N spots enregistrés. |
-| **Siege** | Gang après gang au même endroit, de plus en plus dur ; un cyberpsycho mène le dernier. |
+| **Psycho Night** | One cyberpsycho per round, at a different spot each time (shuffled), harder and harder. With two or more spots, the last round releases two at the same time. |
+| **Boss Rush** | The catalog world bosses one after the other, each at its own place. |
+| **Gang War** | A single round: N gangs (2 to `maxLive`) hit N spots at the same time. N saved spots are needed. |
+| **Siege** | Gang after gang at the same place, harder and harder; a cyberpsycho leads the last one. |
 
-Le niveau part de celui choisi et monte au fil des rounds (sauf Gang War et Boss Rush).
-Un round qui ne peut pas sortir (moteur plein) est retenté six fois à 10 s d'intervalle,
-puis passé. *Stop the night* arrête les rounds ; l'option *call off* termine aussi les
-événements encore dehors, sans paie.
+The level starts at the one chosen and goes up over the rounds (except Gang War and Boss Rush).
+A round that cannot spawn (engine full) is retried six times at 10 s intervals,
+then skipped. *Stop the night* stops the rounds; the *call off* option also ends the
+events still out, without pay.
 
-## Le bureau : /admin > Events
+## The desk: /admin > Events
 
-- **Live now** : les événements dehors (boss, lieu, vie, combattants, temps restant, qui
-  l'a lancé, payé ou non). Sur un événement : *Go to the event* (au bord de la zone),
-  *End it as a win* (payé : les parts comme pour un kill, droit world boss requis),
-  *Call it off* (personne n'est payé).
-- **Launch an event** : le configurateur (type, boss / cyberpsycho / gang, où, joueur ou
-  spot, niveau, durée, rayon, paie, silencieux), un résumé de ce qui va se passer et ce qui
-  bloque, puis *Review and launch* : nom du lieu, nom du boss, note, confirmation.
-- **Event nights** : le choix de la soirée, des rounds (ou des gangs), du lieu, du niveau
-  de départ, de la paie ; l'état de la soirée en cours.
-- **Saved spots** : enregistrer sa position, aller à un spot, lancer à un spot, supprimer.
-- **Random world bosses** (droit world boss) : couper ou rallumer l'aléatoire jusqu'au
-  prochain redémarrage, et *Next random boss now*.
+- **Live now**: the events that are out (boss, place, health, fighters, time left, who
+  launched it, paid or not). On an event: *Go to the event* (at the edge of the zone),
+  *End it as a win* (paid: shares as for a kill, world boss permission required),
+  *Call it off* (nobody is paid).
+- **Launch an event**: the configurator (type, boss / cyberpsycho / gang, where, player or
+  spot, level, duration, radius, pay, silent), a summary of what will happen and what is
+  blocking, then *Review and launch*: place name, boss name, note, confirmation.
+- **Event nights**: the choice of night, rounds (or gangs), place, starting
+  level, pay; the state of the night in progress.
+- **Saved spots**: save your position, go to a spot, launch at a spot, delete.
+- **Random world bosses** (world boss permission): turn the random boss off or back on until the
+  next restart, and *Next random boss now*.
 
-Chaque action est inscrite dans `lightrp_staff_audit` avant d'agir, sous la clé de
-mutation de la page : une requête rejouée rend la première réponse, sans second
-lancement. Actions : `eventLaunch`, `eventStop`, `eventWin`, `eventGoto`, `eventNight`,
+Every action is written to `lightrp_staff_audit` before it runs, under the page's
+mutation key: a replayed request returns the first answer, with no second
+launch. Actions: `eventLaunch`, `eventStop`, `eventWin`, `eventGoto`, `eventNight`,
 `eventNightStop`, `eventSpotSave`, `eventSpotDelete`, `eventRandom`, `eventNext`.
 
 ## /lightrp.event
 
-Pour aller vite depuis le chat, toujours ici, sans paie, annoncé :
+For speed from chat; always here, unpaid, announced:
 
 ```text
 /lightrp.event psycho [psycho_id|random] [normal|hard|brutal]
-/lightrp.event gang [sixthstreet|valentinos|...|random] [niveau]
-/lightrp.event boss <titre> [here] [niveau]      (sans here : à sa place)
+/lightrp.event gang [sixthstreet|valentinos|...|random] [level]
+/lightrp.event boss <title> [here] [level]       (without here: at its own spot)
 /lightrp.event night <psycho_night|boss_rush|gang_war|siege> [rounds] [here]
 /lightrp.event stopnight
-/lightrp.event stop [all]                         (all : l'aléatoire aussi)
+/lightrp.event stop [all]                         (all: the random ones too)
 /lightrp.event list
 ```
 
-`/worldboss.list` et `/worldboss.stop [win] [all]` voient aussi tous les événements.
+`/worldboss.list` and `/worldboss.stop [win] [all]` also see every event.
 
 ## Permissions
 
-| Permission | Accès |
+| Permission | Access |
 |---|---|
-| `command.lightrp.events` | Bureau Events, événements sans paie, spots, soirées sans paie (moderator / operator par `command.lightrp.*`) |
-| `command.worldboss.start` | En plus : événements et soirées payés, victoire d'un événement payé, world bosses aléatoires (operator par `command.worldboss.*`) |
-| `command.lightrp.event` | La commande `/lightrp.event` (par `command.lightrp.*`) |
+| `command.lightrp.events` | Events desk, unpaid events, spots, unpaid nights (moderator / operator through `command.lightrp.*`) |
+| `command.worldboss.start` | In addition: paid events and nights, winning a paid event, random world bosses (operator through `command.worldboss.*`) |
+| `command.lightrp.event` | The `/lightrp.event` command (through `command.lightrp.*`) |
 
-## À valider en jeu
+## To validate in game
 
-Testé hors jeu (`tests/staff_events_test.lua`, `ui/tests/staff-events.browser.cjs`).
-Pas encore vu en jeu :
+Tested outside the game (`tests/staff_events_test.lua`, `ui/tests/staff-events.browser.cjs`).
+Not yet seen in game:
 
-- un cyberpsycho « here » et un gang « on a player » apparaissent au bon endroit,
-  projetés sur la navmesh, et chassent ;
-- un world boss déplacé en ville, renforts compris ;
-- deux événements à la fois, chacun avec son HUD ;
-- une Psycho Night de deux rounds, avec ses annonces.
+- a "here" cyberpsycho and an "on a player" gang appear in the right place,
+  projected onto the navmesh, and hunt;
+- a world boss moved into the city, reinforcements included;
+- two events at once, each with its own HUD;
+- a two-round Psycho Night, with its announcements.

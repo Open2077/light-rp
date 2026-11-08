@@ -1,1184 +1,1184 @@
-# Équilibrage de l'économie (ouverture publique)
+# Economy balance (public opening)
 
-Monnaie : eddies (€$). Tous les chiffres ci-dessous sont dans des fichiers de
-configuration ; le code ne porte que les règles (partage du pot, recharge, plafonds,
-factures, paie des activités). Les décisions du propriétaire du 2026-11-03 (D1 à D7)
-sont appliquées sur la branche `lightrp/economy-balance` ; ce qui reste à trancher est
-au §12. L'audit de la prod du 2026-11-04 (contrats de l'éditeur, boss mondiaux, casino)
-est au §15, ses questions au §15.7.
+Currency: eddies (€$). All the figures below live in configuration
+files; the code only holds the rules (pot sharing, cooldown, caps,
+bills, activity pay). The owner's decisions of 2026-11-03 (D1 to D7)
+are applied on the `lightrp/economy-balance` branch; what is still to be decided is
+in §12. The prod audit of 2026-11-04 (editor contracts, world bosses, casino)
+is in §15, its questions in §15.7.
 
-## 1. Constat de départ (branche `lightrp/activities`, avant équilibrage)
+## 1. Starting point (`lightrp/activities` branch, before balancing)
 
-**Revenus horaires mesurés** (simulation sur les vraies coordonnées des points ;
-hypothèses : voiture avec coffre, 50 à 70 km/h de moyenne, route réelle = 1,35 × la
-ligne droite, 1 min par arrêt de livraison, 3 min de manutention par boucle) :
+**Measured hourly income** (simulation on the real coordinates of the points;
+assumptions: car with a trunk, 50 to 70 km/h on average, real road = 1.35 × the
+straight line, 1 min per delivery stop, 3 min of handling per loop):
 
-| Source | Avant | Détail |
+| Source | Before | Detail |
 | --- | --- | --- |
-| Sanitation | 1 800 – 2 100 €$/h | 30 sacs (sac 40 kg + coffre 80 kg) × 18 €$, boucle 6 km |
-| Scrapper | 1 700 – 2 200 €$/h | 30 lots × 24 €$, boucle 8 à 9,6 km |
-| Courier | 2 300 – 2 900 €$/h | 748 €$ en moyenne par course de 7,5 km (vol d'oiseau), **39 % des courses butent sur le plafond de 900** |
-| Toit (AC Cleaner, hérité) | ~2 400 €$/h | 260 €$ pour 5 à 8 min |
-| Paie | 80 – 220 €$/h | 40 à 110 €$ toutes les 30 min, versée à tout joueur connecté (même immobile) |
-| Mission Chimera standard | **43 000 €$/h par tête** | 18 000 €$ pour 20 min, faisable seul, **versés en entier à chaque membre**, sans recharge |
-| Braquage Sector 04 critique | 40 000 €$ × 8 = **320 000 €$ créés** par partie | idem |
-| Gigs de fixers | 8 000 / 15 000 / 30 000 €$ par tête | 15 à 20 min, valeurs par défaut de l'éditeur |
-| Activités (arène, courses, poursuites, turf) | 0 €$ | réputation seulement |
+| Sanitation | 1,800 – 2,100 €$/h | 30 bags (40 kg bag + 80 kg trunk) × 18 €$, 6 km loop |
+| Scrapper | 1,700 – 2,200 €$/h | 30 lots × 24 €$, 8 to 9.6 km loop |
+| Courier | 2,300 – 2,900 €$/h | 748 €$ on average per 7.5 km run (as the crow flies), **39% of runs hit the 900 cap** |
+| Rooftop (AC Cleaner, legacy) | ~2,400 €$/h | 260 €$ for 5 to 8 min |
+| Paycheck | 80 – 220 €$/h | 40 to 110 €$ every 30 min, paid to every connected player (even idle ones) |
+| Standard Chimera mission | **43,000 €$/h per head** | 18,000 €$ for 20 min, doable solo, **paid in full to each member**, no cooldown |
+| Critical Sector 04 heist | 40,000 €$ × 8 = **320,000 €$ created** per run | same |
+| Fixer gigs | 8,000 / 15,000 / 30,000 €$ per head | 15 to 20 min, editor default values |
+| Activities (arena, races, chases, turf) | 0 €$ | reputation only |
 
-Une Chimera standard valait 6 à 9 h de travail ; une équipe de 4 créait 72 000 €$ en
-20 min. Les achats (voitures 4 000 – 60 000, cyberware 6 000 – 64 000, armes 1 200 –
-10 500) étaient épuisés après quelques missions, et il n'existait presque aucune
-dépense récurrente : l'argent s'accumulait puis ne valait plus rien.
+A standard Chimera was worth 6 to 9 h of work; a crew of 4 created 72,000 €$ in
+20 min. Purchases (cars 4,000 – 60,000, cyberware 6,000 – 64,000, weapons 1,200 –
+10,500) were used up after a few missions, and there was almost no
+recurring spending: money piled up and then was worth nothing.
 
-**Dépenses récurrentes vérifiées** : nourriture et boisson ≈ 33 €$/h, carburant 3 €$/L
-(1,1 L/km, ≈ 200 €$/h au volant), location 50 – 100 €$ par 30 min, fourrière 150 – 250 €$,
-peinture 1 000 €$. Gratuits : l'hôpital, la cabine d'essayage. Les kits de réanimation
-(`trauma_kit`) n'étaient vendus nulle part.
+**Verified recurring spending**: food and drink ≈ 33 €$/h, fuel 3 €$/L
+(1.1 L/km, ≈ 200 €$/h behind the wheel), rental 50 – 100 €$ per 30 min, impound 150 – 250 €$,
+paint 1,000 €$. Free: the hospital, the fitting booth. Revive kits
+(`trauma_kit`) were not sold anywhere.
 
-## 2. Courbe cible (décisions D1 du 2026-11-03)
+## 2. Target curve (decisions D1 of 2026-11-03)
 
-Référence : **J = 3 500 €$/h** pour un joueur actif au grade d'entrée, avec voiture
-(≈ 3 400 €$/h nets de carburant, nourriture et frais).
+Reference: **J = 3,500 €$/h** for an active player at the entry grade, with a car
+(≈ 3,400 €$/h net of fuel, food and costs).
 
-| Objectif du propriétaire | Cible | Résultat (joueur régulier, §7) |
+| Owner's goal | Target | Result (regular player, §7) |
 | --- | --- | --- |
-| Pas trop facile de maxer le cyberware ni d'avoir les meilleures voitures | — | voir les lignes suivantes |
-| Première voiture correcte (10 000 – 15 000) | ≈ 3 – 5 h | Hella 12 000 à 2,5 h, Colby 14 000 à 2,9 h, Supron 16 000 vers 3,5 h |
-| Meilleures voitures | ≈ 20 – 30 h | Kusanagi 80 000 à 18,8 h, Semimaru 100 000 à 23,7 h |
-| Set complet rang V+ | ≈ 60 – 90 h | 330 000 €$ (prix proposés, §9) : 80,3 h d'épargne |
-| Loadout complet haut de gamme | coûte plus que ce qu'on gagne en atteignant Legend | 557 000 €$ contre 197 000 €$ gagnés à Legend (48 h) |
-| Missions | ne doivent pas écraser les métiers | 1,7 à 1,8 × J par heure dans les 6 paies pleines, puis 0,44 × J |
-| Plafond 250 €$/min | tenu | missions 220 €$/min au plus, activités 87,5 €$/min au plus |
-| Activités PvP classées | joueur moyen ≈ J, bon joueur un peu plus | 0,91 × J (moyen), 1,04 × J (bon), plafond journalier |
-| Activités PvE | modestes, sous les missions | 0,48 à 0,60 × J, 0,27 à 0,36 × missions |
-| Premier jour | gratuit / abordable | studio gratuit, tutoriel inchangé, hôpital et cabine offerts les 120 premières minutes de jeu |
+| Not too easy to max out cyberware or own the best cars | — | see the following rows |
+| First decent car (10,000 – 15,000) | ≈ 3 – 5 h | Hella 12,000 at 2.5 h, Colby 14,000 at 2.9 h, Supron 16,000 around 3.5 h |
+| Best cars | ≈ 20 – 30 h | Kusanagi 80,000 at 18.8 h, Semimaru 100,000 at 23.7 h |
+| Full rank V+ set | ≈ 60 – 90 h | 330,000 €$ (proposed prices, §9): 80.3 h of saving |
+| Full high-end loadout | costs more than you earn by reaching Legend | 557,000 €$ against 197,000 €$ earned at Legend (48 h) |
+| Missions | must not crush jobs | 1.7 to 1.8 × J per hour within the 6 full payouts, then 0.44 × J |
+| 250 €$/min cap | held | missions 220 €$/min at most, activities 87.5 €$/min at most |
+| Ranked PvP activities | average player ≈ J, good player a bit more | 0.91 × J (average), 1.04 × J (good), daily cap |
+| PvE activities | modest, below missions | 0.48 to 0.60 × J, 0.27 to 0.36 × missions |
+| First day | free / affordable | free studio, tutorial unchanged, hospital and booth free for the first 120 minutes of play |
 
-## 3. Missions et gigs (`server/config/economy.lua` → `missions`, D2 et D3)
+## 3. Missions and gigs (`server/config/economy.lua` → `missions`, D2 and D3)
 
-1. **`payout` change de sens** : c'est la part **de chaque opérateur à l'équipage
-   minimum** de la difficulté (ce que le tableau affiche reste donc un maximum honnête).
-2. **Pot sous-linéaire, partagé** : au-delà du minimum, la part vaut
-   `payout × (équipage / minimum) ^ (exposant − 1)`, exposant **0,7**. Le pot total
-   grandit comme `équipage ^ 0,7` au lieu de `équipage` : 4 opérateurs créent 2,64 parts,
-   pas 4. L'équipage compté est celui qui termine.
+1. **`payout` changes meaning**: it is the share **of each operative at the minimum
+   crew** of the difficulty (so what the board shows stays an honest maximum).
+2. **Sub-linear, shared pot**: above the minimum, the share is
+   `payout × (crew / minimum) ^ (exponent − 1)`, exponent **0.7**. The total pot
+   grows like `crew ^ 0.7` instead of `crew`: 4 operatives create 2.64 shares,
+   not 4. The crew counted is the one that finishes.
 
-   | Équipage / minimum | 1 | 1,5 | 2 | 3 | 4 | 6 | 8 |
+   | Crew / minimum | 1 | 1.5 | 2 | 3 | 4 | 6 | 8 |
    | --- | --- | --- | --- | --- | --- | --- | --- |
-   | Part par tête | 100 % | 88,5 % | 81 % | 72 % | 66 % | 58 % | 54 % |
-   | Pot total (en parts) | 1 | 1,33 | 1,62 | 2,16 | 2,64 | 3,51 | 4,29 |
+   | Share per head | 100% | 88.5% | 81% | 72% | 66% | 58% | 54% |
+   | Total pot (in shares) | 1 | 1.33 | 1.62 | 2.16 | 2.64 | 3.51 | 4.29 |
 
-3. **Recharge par personnage et par point (D3)** : après une paie pleine, le même point
-   de mission (tableau ou gig) ne repaie en entier qu'après **60 min**.
-4. **Plafond journalier par compte (D2, D3)** : **6 paies pleines** par jour UTC, tous
-   personnages du compte confondus (`capScope = "account"`).
-5. **Au-delà** : la mission paie **25 %** de la part. Aider ses amis reste payé, farmer
-   ne l'est plus. La réputation suit le palier de chacun (un équipier sous le palier
-   gagne la réputation de son palier, `docs/pve-progression.md`) et, depuis le
-   2026-11-04, la même recharge par point : 25 % pendant 60 min après une réputation
-   pleine (§16.2) ; le plafond journalier ne la touche pas.
-6. **Garde-fou** : une part ne dépasse jamais **250 €$ par minute d'horloge** de la
-   difficulté.
-7. **Annonce** : au lancement, chaque opérateur reçoit sa paie attendue (et la raison
-   d'une réduction) ; à la fin, l'avis donne le montant, l'équipage et la réduction.
+3. **Cooldown per character and per point (D3)**: after a full payout, the same mission
+   point (board or gig) only pays in full again after **60 min**.
+4. **Daily cap per account (D2, D3)**: **6 full payouts** per UTC day, across all
+   characters of the account (`capScope = "account"`).
+5. **Beyond that**: the mission pays **25%** of the share. Helping your friends still pays;
+   farming no longer does. Reputation follows each player's tier (a crew member below the tier
+   earns the reputation of their own tier, `docs/pve-progression.md`) and, since
+   2026-11-04, the same per-point cooldown: 25% for 60 min after a full
+   reputation grant (§16.2); the daily cap does not affect it.
+6. **Safety cap**: a share never goes above **250 €$ per clock minute** of the
+   difficulty.
+7. **Announcement**: at launch, each operative gets their expected pay (and the reason
+   for any reduction); at the end, the notice gives the amount, the crew and the reduction.
 
-**Missions de l'éditeur déjà enregistrées** : `/lightrp.missions.repay` (aperçu) puis
-`/lightrp.missions.repay apply` (staff, ACL `command.lightrp.missions.repay`). Une
-difficulté dont la paie dépasse le garde-fou (250 €$ × ses minutes) est à l'ancienne
-échelle : elle est multipliée par nouveau / ancien défaut de sa difficulté (8 000 →
-2 400, 15 000 → 3 000, 30 000 → 4 400), arrondie à 50 et gardée sous le garde-fou ;
-une paie déjà sous le garde-fou reste celle du staff. Chaque mission est réécrite avec
-contrôle de révision (une mission éditée entre-temps est sautée, jamais écrasée) puis
-republiée, donc son tableau affiche le nouveau montant. Relancer ne change rien.
-*Étendu le 2026-11-04 (§15.5) : les missions de l'éditeur ont aussi une bande par
-difficulté et paient selon leur taille ; la commande en tient compte.*
+**Editor missions already saved**: `/lightrp.missions.repay` (preview) then
+`/lightrp.missions.repay apply` (staff, ACL `command.lightrp.missions.repay`). A
+difficulty whose pay is above the safety cap (250 €$ × its minutes) is on the old
+scale: it is multiplied by new / old default of its difficulty (8,000 →
+2,400, 15,000 → 3,000, 30,000 → 4,400), rounded to 50 and kept below the safety cap;
+a pay already below the safety cap stays as the staff set it. Each mission is rewritten with
+a revision check (a mission edited in the meantime is skipped, never overwritten) and then
+republished, so its board shows the new amount. Running it again changes nothing.
+*Extended on 2026-11-04 (§15.5): editor missions also have a band per
+difficulty and pay according to their size; the command takes this into account.*
 
-## 4. Paie des métiers : seulement aux joueurs actifs (D4)
+## 4. Job pay: active players only (D4)
 
-`server/modules/work_activity.lua`, `economy.lua` → `paychecks`. Light RP n'a pas de
-prise de service : **être en service = avoir un métier salarié**. La paie de grade
-(toutes les 30 min) n'est versée qu'à un joueur qui a fait quelque chose de réel dans les
-**30 dernières minutes**, d'après ce que le serveur voit lui-même, jamais une
-déclaration du client :
+`server/modules/work_activity.lua`, `economy.lua` → `paychecks`. Light RP has no
+clock-in: **being on duty = having a salaried job**. Grade pay
+(every 30 min) is only paid to a player who did something real in the
+**last 30 minutes**, based on what the server sees itself, never on a
+claim from the client:
 
-- une tâche du métier : un lot de travail libre (`onJobWorkCompleted`), un ordre de
-  travail accepté (`onJobRunStarted`) ou payé (`job_run`) ;
-- un patient stabilisé au kit (`onPatientStabilized`, nouveau crochet de `medical.lua`) ;
-- un virement reçu d'un autre joueur d'au moins **50 €$** (un client servi) ;
-- **75 m** parcourus en ville : positions relevées par le serveur toutes les 20 s, en
-  bucket 0, vivant, hors activité et hors mission ; un saut de plus de 2 km (téléport,
-  retour d'activité) ne compte pas, il réancre la mesure.
+- a job task: a free-work lot (`onJobWorkCompleted`), a work order
+  accepted (`onJobRunStarted`) or paid (`job_run`);
+- a patient stabilized with a kit (`onPatientStabilized`, new hook in `medical.lua`);
+- a transfer of at least **50 €$** received from another player (a customer served);
+- **75 m** traveled in the city: positions sampled by the server every 20 s, in
+  bucket 0, alive, outside activities and missions; a jump of more than 2 km (teleport,
+  return from an activity) does not count, it re-anchors the measurement.
 
-Un joueur inactif ne touche rien ; il en est averti **une fois** par période
-d'inactivité (notice « No paycheck ») et le serveur le journalise. Tout est réglable ;
-`requireActivity = false` rétablit l'ancienne règle.
+An idle player gets nothing; they are warned **once** per idle
+period (notice "No paycheck") and the server logs it. Everything is configurable;
+`requireActivity = false` restores the old rule.
 
-## 5. Activités : paie en eddies (exigence du 2026-11-03)
+## 5. Activities: pay in eddies (requirement of 2026-11-03)
 
-`server/modules/activity_pay.lua`, `economy.lua` → `activities`. Le noyau
-(`activities.lua`) lui passe chaque résultat accepté en **une ligne**, après avoir écarté
-le mode bots du staff et les résultats `test`.
+`server/modules/activity_pay.lua`, `economy.lua` → `activities`. The core
+(`activities.lua`) hands it every accepted result through **one line**, after filtering out
+the staff bot mode and `test` results.
 
-**PvP classé** (`arena.ffa`, `arena.blade`, `arena.teams`, `arena.duel`, `race.trial`,
-`race.grid`, `race.foot`, `chase.1v1`, `chase.wanted`, `turf.war`) :
+**Ranked PvP** (`arena.ffa`, `arena.blade`, `arena.teams`, `arena.duel`, `race.trial`,
+`race.grid`, `race.foot`, `chase.1v1`, `chase.wanted`, `turf.war`):
 
 ```
-paie = 70 €$ × taux du mode × minutes jouées (≤ maxSeconds du mode)
-       × min(1, joueurs réels / lobby plein du mode)
-       × (0,75 participation + 0,5 × résultat)
+pay = 70 €$ × mode rate × minutes played (≤ the mode's maxSeconds)
+      × min(1, real players / the mode's full lobby)
+      × (0.75 participation + 0.5 × result)
 ```
 
-- **Résultat** : 1 pour une victoire ou la première place, jusqu'à 0 pour la dernière
-  place (modes à classement : `(n − place) / (n − 1)`), 0,5 pour un nul, 0 pour une
-  défaite ; un contre-la-montre (`race.trial`, taux 0,5, solo) score un record personnel
-  ou de piste.
-- **Joueurs réels** : comptes que le serveur a vus dans la même activité et le même
-  bucket pendant le match (relevé toutes les 10 s et au résultat). Jamais un nombre
-  envoyé par le fournisseur ou le client. Lobby plein : 4 (FFA, blade, équipes, courses,
-  wanted), 2 (duel, 1v1), 6 (turf), 1 (contre-la-montre).
-- **Minutes jouées** : la mesure du fournisseur (`durationMs`, `timeMs`, `seconds`),
-  jamais plus que ce que le noyau a vu depuis l'entrée ou le résultat précédent.
-- Joueur moyen ≈ 3 360 €$/h bruts de match (80 % de l'heure en match), bon joueur
-  ≈ 3 860, gagnant de tout 4 200.
+- **Result**: 1 for a win or first place, down to 0 for last
+  place (ranking modes: `(n − place) / (n − 1)`), 0.5 for a draw, 0 for a
+  loss; a time trial (`race.trial`, rate 0,5, solo) scores a personal record
+  or a track record.
+- **Real players**: accounts the server saw in the same activity and the same
+  bucket during the match (sampled every 10 s and at the result). Never a number
+  sent by the provider or the client. Full lobby: 4 (FFA, blade, teams, races,
+  wanted), 2 (duel, 1v1), 6 (turf), 1 (time trial).
+- **Minutes played**: the provider's measurement (`durationMs`, `timeMs`, `seconds`),
+  never more than what the core saw since the entry or the previous result.
+- Average player ≈ 3,360 €$/h gross from matches (80% of the hour in matches), good player
+  ≈ 3,860, winner of everything 4,200.
 
-**PvE** (`arena.pve`, `race.pve`, `chase.pve`, `turf.pve`) : **40 / 50 / 60 €$ par
-minute** en Standard / Hard / Critical, la moitié sur une défaite. La difficulté est
-celle de l'entrée (choisie au panneau, `docs/pve-progression.md`), sinon celle du
-résultat, sinon celle du mode (Standard pour l'arène et la course, Hard pour l'évasion
-et le turf). Les bots y sont les adversaires : ils n'annulent rien.
+**PvE** (`arena.pve`, `race.pve`, `chase.pve`, `turf.pve`): **40 / 50 / 60 €$ per
+minute** on Standard / Hard / Critical, half on a loss. The difficulty is
+the one picked at entry (chosen in the panel, `docs/pve-progression.md`), else the one in the
+result, else the mode's (Standard for the arena and the race, Hard for the chase
+and turf). Bots are the opponents there: they cancel nothing.
 
-**Rien** pour :
+**Nothing** for:
 
-- un résultat non classé : mode bots du staff et `result.test` (écartés par le noyau),
-  `result.unranked = true`, un match PvP avec des bots (`stats.bots`, `vsAi`) ;
-- un départ : `stats.quit`, `stats.forfeit` (celui qui reste quand l'autre abandonne
-  garde la seule part de participation), une course abandonnée (`dnfReason` `left`,
-  `dropped`, `disconnect`) ;
-- un AFK : aucune des statistiques de progression du mode (kill ou assist en arène,
-  manche gagnée en duel / 1v1, points en wanted, capture, kill ou 30 s de tenue en turf,
-  arrivée ou 2 checkpoints en course, fuite ou semée en évasion) ;
-- un match plus court que le minimum du mode (1 à 3 min) ;
-- un match dont **tous les joueurs réels sont du même crew**.
+- an unranked result: staff bot mode and `result.test` (filtered out by the core),
+  `result.unranked = true`, a PvP match with bots (`stats.bots`, `vsAi`);
+- leaving: `stats.quit`, `stats.forfeit` (the one who stays when the other gives up
+  keeps only the participation share), an abandoned race (`dnfReason` `left`,
+  `dropped`, `disconnect`);
+- an AFK: none of the mode's progress stats (kill or assist in the arena,
+  round won in duel / 1v1, points in wanted, capture, kill or 30 s of holding in turf,
+  finish or 2 checkpoints in a race, escape or shake-off in a chase);
+- a match shorter than the mode's minimum (1 to 3 min);
+- a match where **all the real players are in the same crew**.
 
-**Anti-farm** : les mêmes comptes ne sont payés ensemble que **4 / 3 / 4 / 5 fois par
-heure** (ensembles de 1 / 2 / 3 / 4 comptes ; au-delà, pas de limite), avec une notice
-quand la limite tombe. **Plafond journalier par compte** (tous personnages) : **12 000 €$
-en PvP, 6 000 €$ en PvE** par jour UTC, en base (`lightrp_activity_pay_daily`), avec une
-notice une fois atteint.
+**Anti-farm**: the same accounts are only paid together **4 / 3 / 4 / 5 times per
+hour** (sets of 1 / 2 / 3 / 4 accounts; beyond that, no limit), with a notice
+when the limit kicks in. **Daily cap per account** (all characters): **12,000 €$
+in PvP, 6,000 €$ in PvE** per UTC day, stored in the database (`lightrp_activity_pay_daily`), with a
+notice once it is reached.
 
-Chaque paie passe par `LightRP.money.addBank` avec la ligne `activity_pvp` ou
-`activity_pve` et une notice « +€$ N — Combat Zone · #1 of 4 · 10 min ».
+Each payout goes through `LightRP.money.addBank` with the line `activity_pvp` or
+`activity_pve` and a notice "+€$ N — Combat Zone · #1 of 4 · 10 min".
 
-## 6. Dépenses récurrentes
+## 6. Recurring spending
 
-| Dépense | Règle | Montant |
+| Spending | Rule | Amount |
 | --- | --- | --- |
-| **Facture d'hôpital** | uniquement « Give up and go to hospital » ; jamais sur une réanimation, en mission ou en activité, ni pendant le premier jour et les 120 premières minutes ; banque puis liquide, **jamais en négatif** | **300 €$** |
-| **Cabine d'essayage** (D7) | une visite d'une cabine publique qui se termine par un look enregistré ; logement, création, premier jour et 120 premières minutes gratuits ; offerte si le joueur ne peut pas payer | **50 €$** |
-| **Kit de réanimation** (D5) | vendu au Corner Market (`street_food`), non repris ; réanime un allié à terre, jamais soi-même ; moins cher que la facture d'hôpital | **250 €$** |
-| **Fourrière** (D6) | **épave** (détruite, explosée ou santé 0 : drapeaux du moteur, événement de dégâts ou propriétés capturées), au redémarrage, au retrait ou à l'envoi par le propriétaire : franchise d'assurance, l'assurance la répare. **Perdu sans trace** (supprimé, nettoyé, perdu sur un bug) : 150. Envoi par le propriétaire d'un véhicule intact : 250. Staff : 500. Redémarrage d'un véhicule intact : gratuit. Une épave ne peut pas être garée. | **400 / 150 / 250 / 500** |
-| Carburant | 1,1 L/km : ≈ 260 €$/h au volant | 4 €$/L |
-| Nourriture | +50 % : ≈ 50 €$/h, 1,5 % du revenu | 9 – 36 €$ |
+| **Hospital bill** | only on "Give up and go to hospital"; never on a revive, in a mission or in an activity, nor during the first day and the first 120 minutes; bank first, then cash, **never below zero** | **300 €$** |
+| **Fitting booth** (D7) | a visit to a public booth that ends with a saved look; housing, character creation, the first day and the first 120 minutes are free; free if the player cannot pay | **50 €$** |
+| **Revive kit** (D5) | sold at the Corner Market (`street_food`), not bought back; revives a downed ally, never yourself; cheaper than the hospital bill | **250 €$** |
+| **Impound** (D6) | **wreck** (destroyed, exploded or at 0 health: game-engine flags, damage event or captured properties), on restart, on removal or when sent by the owner: insurance deductible, the insurance repairs it. **Lost without a trace** (deleted, cleaned up, lost to a bug): 150. Sent by the owner, vehicle intact: 250. Staff: 500. Restart of an intact vehicle: free. A wreck cannot be parked. | **400 / 150 / 250 / 500** |
+| Fuel | 1.1 L/km: ≈ 260 €$/h behind the wheel | 4 €$/L |
+| Food | +50%: ≈ 50 €$/h, 1.5% of income | 9 – 36 €$ |
 
-D6, limite connue : un véhicule qui explose puis disparaît **sans qu'aucun signal de
-dégâts ne soit parvenu au serveur** (ni mise à jour, ni événement, ni propriétés
-capturées) ne peut pas être distingué d'un véhicule perdu : il est facturé **150**.
+D6, known limit: a vehicle that explodes and then disappears **without any damage
+signal reaching the server** (no update, no event, no captured
+properties) cannot be told apart from a lost vehicle: it is billed **150**.
 
-## 7. Rythme de progression (pacing)
+## 7. Progression pace (pacing)
 
-Modèle : `pacing` du 2026-11-03, heures **de jeu**. Hypothèses : argent net de 8 % de
-frais courants ; départ 1 750 €$ ; métier 3 700 €$/h bruts (paie active comprise) ;
-missions : Chimera, Sector 04 et gigs mêlés, équipage moyen 1,5 × le minimum, réussite
-85 / 70 / 55 %, une réussite prend 70 % de l'horloge plus l'approche ; activités : 80 %
-de l'heure en match, PvE gagné à 85 / 70 / 55 % selon la difficulté. Réputation (règles
-de `docs/pve-progression.md`) : 180 / 280 / 375 par heure de PvE (missions et activités
-PvE), activités PvE plafonnées à 500 par jour, **aucune réputation en PvP**. Le joueur
-choisit la plus haute difficulté ouverte. Les colonnes « épargne » supposent qu'il
-n'achète rien d'autre ; le parcours cumulé achète dans l'ordre.
+Model: `pacing` of 2026-11-03, hours **of play**. Assumptions: money net of 8%
+running costs; start 1,750 €$; job 3,700 €$/h gross (active pay included);
+missions: Chimera, Sector 04 and gigs mixed, average crew 1.5 × the minimum, success
+85 / 70 / 55%, a success takes 70% of the clock plus the approach; activities: 80%
+of the hour in matches, PvE won at 85 / 70 / 55% depending on the difficulty. Reputation (rules
+of `docs/pve-progression.md`): 180 / 280 / 375 per hour of PvE (missions and PvE
+activities), PvE activities capped at 500 per day, **no reputation in PvP**. The player
+picks the highest open difficulty. The "saving" columns assume they buy
+nothing else; the cumulative path buys in order.
 
-Profils :
+Profiles:
 
-- **Régulier** : 2,5 h/jour = 1 h de missions, 0,5 h d'activités PvE, 1 h de métier
-  (≈ 4 100 €$/h).
-- **Grinder** : 6 h/jour = missions jusqu'aux 6 paies pleines, 0,5 h de PvE, métier
-  ensuite (≈ 5 300 €$/h).
-- **PvP** : 2,5 h/jour de PvP classé, joueur moyen ≈ 3 090 €$/h (bon joueur ≈ 3 560 entre
-  parenthèses).
-- **PvE** : 2,5 h/jour d'activités PvE seulement (≈ 1 850 à 2 030 €$/h selon le palier).
+- **Regular**: 2.5 h/day = 1 h of missions, 0.5 h of PvE activities, 1 h of job
+  (≈ 4,100 €$/h).
+- **Grinder**: 6 h/day = missions up to the 6 full payouts, 0.5 h of PvE, job
+  afterwards (≈ 5,300 €$/h).
+- **PvP**: 2.5 h/day of ranked PvP, average player ≈ 3,090 €$/h (good player ≈ 3,560 in
+  parentheses).
+- **PvE**: 2.5 h/day of PvE activities only (≈ 1,850 to 2,030 €$/h depending on the tier).
 
-### 7.1 Voitures et paliers
+### 7.1 Cars and tiers
 
-| Heures de jeu jusqu'à… | Régulier | Grinder | PvP (bon) | PvE |
+| Hours of play until… | Regular | Grinder | PvP (good) | PvE |
 | --- | --- | --- | --- | --- |
-| Hella 12 000 | 2,5 | 1,7 | 3,3 (2,9) | 5,8 |
-| Colby 14 000 (première voiture correcte) | 2,9 | 2,1 | 4,0 (3,5) | 6,9 |
-| Kusanagi 80 000 | 18,8 | 15,1 | 25,3 (22,0) | 39,1 |
-| Semimaru 100 000 (meilleure voiture) | 23,7 | 18,9 | 31,8 (27,6) | 48,8 |
-| Palier II (500) : rang III | 3,8 | 2,8 | jamais | 2,8 |
-| Palier III (1 500) : rang IV | 10,4 | 8,5 | jamais | 7,7 |
-| Palier IV (4 000) : rang V | 21,0 | 15,1 | jamais | 20,1 |
-| Palier V Legend (10 000) : rang V+ | 48,0 | 31,1 | jamais | 50,1 |
-| Gagné en atteignant Legend | 197 000 | 164 800 | — | 100 900 |
+| Hella 12,000 | 2.5 | 1.7 | 3.3 (2.9) | 5.8 |
+| Colby 14,000 (first decent car) | 2.9 | 2.1 | 4.0 (3.5) | 6.9 |
+| Kusanagi 80,000 | 18.8 | 15.1 | 25.3 (22.0) | 39.1 |
+| Semimaru 100,000 (best car) | 23.7 | 18.9 | 31.8 (27.6) | 48.8 |
+| Tier II (500): rank III | 3.8 | 2.8 | never | 2.8 |
+| Tier III (1,500): rank IV | 10.4 | 8.5 | never | 7.7 |
+| Tier IV (4,000): rank V | 21.0 | 15.1 | never | 20.1 |
+| Tier V Legend (10,000): rank V+ | 48.0 | 31.1 | never | 50.1 |
+| Earned on reaching Legend | 197,000 | 164,800 | — | 100,900 |
 
-### 7.2 Implants (épargne seule, à partir de l'ouverture du rang)
+### 7.2 Implants (saving only, from when the rank opens)
 
-| Rang (prix) | Régulier : premier / rang complet | Grinder | PvP (bon) | PvE |
+| Rank (price) | Regular: first / full rank | Grinder | PvP (good) | PvE |
 | --- | --- | --- | --- | --- |
-| II (6 000 ; 29 500) | 0,7 / 6,6 | 0,7 / 6,1 | 1,4 / 9,0 (1,2 / 7,8) | 2,6 / 14,5 |
-| III (8 500 ; 56 500) | 3,8 / 13,1 | 2,8 / 10,7 | jamais | 4,0 / 27,7 |
-| IV (16 000 ; 202 000) | 10,4 / 48,7 | 8,5 / 37,6 | jamais | 7,9 / 98,5 |
-| V (34 000 ; 238 000) | 21,0 / 57,8 | 15,1 / 44,2 | jamais | 20,1 / 116,1 |
-| V+ (70 000 ; set 330 000) | 48,0 / **80,3** | 31,1 / 61,1 | jamais | 50,1 / 160,9 |
-| Loadout complet haut de gamme (557 000) | 135,8 | 102,8 | rang V+ fermé | 271,4 |
-| Tout le catalogue (828 000) | 202,6 | 152,4 | rangs fermés | > 400 |
+| II (6,000 ; 29,500) | 0.7 / 6.6 | 0.7 / 6.1 | 1.4 / 9.0 (1.2 / 7.8) | 2.6 / 14.5 |
+| III (8,500 ; 56,500) | 3.8 / 13.1 | 2.8 / 10.7 | never | 4.0 / 27.7 |
+| IV (16,000 ; 202,000) | 10.4 / 48.7 | 8.5 / 37.6 | never | 7.9 / 98.5 |
+| V (34,000 ; 238,000) | 21.0 / 57.8 | 15.1 / 44.2 | never | 20.1 / 116.1 |
+| V+ (70,000 ; set 330,000) | 48.0 / **80.3** | 31.1 / 61.1 | never | 50.1 / 160.9 |
+| Full high-end loadout (557,000) | 135.8 | 102.8 | rank V+ closed | 271.4 |
+| The whole catalog (828,000) | 202.6 | 152.4 | ranks closed | > 400 |
 
-Loadout complet haut de gamme : le set V+, le meilleur implant de rang V de chaque autre
-famille (Iron Lungs Mk.2, Adrenaline Booster Mk.2, Bioplastic Blood Vessels, Electric
-Mantis Blades) et Reinforced Tendons Mk.2, Fortified Ankles, Kinetic Impact Frame.
+Full high-end loadout: the V+ set, the best rank V implant of every other
+family (Iron Lungs Mk.2, Adrenaline Booster Mk.2, Bioplastic Blood Vessels, Electric
+Mantis Blades) and Reinforced Tendons Mk.2, Fortified Ankles, Kinetic Impact Frame.
 
-### 7.3 Parcours cumulé
+### 7.3 Cumulative path
 
-Ordre : Colby, Reinforced Tendons, Neofiber, Sandevistan Mk.1, Semimaru, Sandevistan
-Mk.3, puis le set V+ (Neofiber Mk.3, Aegis, Rara Avis, Apogee). Heure de jeu de chaque
-achat :
+Order: Colby, Reinforced Tendons, Neofiber, Sandevistan Mk.1, Semimaru, Sandevistan
+Mk.3, then the V+ set (Neofiber Mk.3, Aegis, Rara Avis, Apogee). Hour of play of each
+purchase:
 
-| Achat | Régulier | Grinder | PvP (bon) | PvE |
+| Purchase | Regular | Grinder | PvP (good) | PvE |
 | --- | --- | --- | --- | --- |
-| Colby | 2,9 | 2,1 | 4,0 (3,5) | 6,9 |
-| Reinforced Tendons | 5,2 | 4,5 | 7,0 (6,1) | 11,6 |
-| Neofiber | 8,2 | 7,3 | rang fermé | 17,9 |
-| Sandevistan Mk.1 | 14,8 | 12,1 | rang fermé | 30,6 |
-| Semimaru | 39,2 | 30,4 | 39,4 (34,3) | 79,3 |
-| Sandevistan Mk.3 | 55,0 | 42,2 | rang fermé | 110,4 |
-| Neofiber Mk.3 | 72,1 | 55,0 | rang fermé | 144,5 |
-| Aegis Dermal Plating | 90,4 | 68,6 | rang fermé | 181,1 |
-| Rara Avis | 110,2 | 83,2 | rang fermé | 220,0 |
-| Zetatech Apogee (fin) | **135,7** | **102,7** | — | 271,2 |
+| Colby | 2.9 | 2.1 | 4.0 (3.5) | 6.9 |
+| Reinforced Tendons | 5.2 | 4.5 | 7.0 (6.1) | 11.6 |
+| Neofiber | 8.2 | 7.3 | rank closed | 17.9 |
+| Sandevistan Mk.1 | 14.8 | 12.1 | rank closed | 30.6 |
+| Semimaru | 39.2 | 30.4 | 39.4 (34.3) | 79.3 |
+| Sandevistan Mk.3 | 55.0 | 42.2 | rank closed | 110.4 |
+| Neofiber Mk.3 | 72.1 | 55.0 | rank closed | 144.5 |
+| Aegis Dermal Plating | 90.4 | 68.6 | rank closed | 181.1 |
+| Rara Avis | 110.2 | 83.2 | rank closed | 220.0 |
+| Zetatech Apogee (end) | **135.7** | **102.7** | — | 271.2 |
 
-### 7.4 Contrôles
+### 7.4 Checks
 
-- **Missions et métiers** : dans les 6 paies pleines, 5 760 – 6 020 €$/h nets, soit 1,7 à
-  1,8 × le métier ; au-delà (25 %), ≈ 1 450 – 1 500 €$/h, moins que le métier. Le grinder
-  repasse donc au métier après ≈ 2,5 à 5,5 h de missions par jour.
-- **Activités** : PvP moyen 0,91 × le métier, bon joueur 1,04 ×, plafond 12 000 €$/jour
-  (≈ 3,9 h de PvP moyen) ; PvE 0,48 à 0,60 × le métier, 6 000 €$/jour.
-- **Plafond 250 €$/min** : mission la plus chère par minute 220 €$ (critique de
-  l'éditeur, 4 400 pour 20 min) ; activité PvP 87,5 €$/min au plus (victoire, lobby
-  plein), PvE 60 €$/min.
-- **Loadout haut de gamme > argent gagné jusqu'à Legend** : 557 000 contre 197 000
-  (régulier), 164 800 (grinder), 100 900 (PvE) ; un joueur PvP pur n'atteint pas Legend.
-- **Set V+ en 60 – 90 h pour le régulier** : 80,3 h d'épargne avec les prix proposés
-  (330 000) ; aux prix actuels (390 000) il en faudrait ≈ 95.
+- **Missions and jobs**: within the 6 full payouts, 5,760 – 6,020 €$/h net, i.e. 1.7 to
+  1.8 × the job; beyond that (25%), ≈ 1,450 – 1,500 €$/h, less than the job. So the grinder
+  goes back to the job after ≈ 2.5 to 5.5 h of missions per day.
+- **Activities**: average PvP 0.91 × the job, good player 1.04 ×, cap 12,000 €$/day
+  (≈ 3.9 h of average PvP); PvE 0.48 to 0.60 × the job, 6,000 €$/day.
+- **250 €$/min cap**: the most expensive mission per minute pays 220 €$ (editor
+  critical, 4,400 for 20 min); PvP activity 87.5 €$/min at most (win, full
+  lobby), PvE 60 €$/min.
+- **High-end loadout > money earned up to Legend**: 557,000 against 197,000
+  (regular), 164,800 (grinder), 100,900 (PvE); a pure PvP player never reaches Legend.
+- **V+ set in 60 – 90 h for the regular**: 80.3 h of saving with the proposed prices
+  (330,000); at current prices (390,000) it would take ≈ 95.
 
-## 8. Tableau avant / après (chaque nombre modifié)
+## 8. Before / after table (every number changed)
 
-| Fichier | Clé | Avant | Après |
+| File | Key | Before | After |
 | --- | --- | --- | --- |
 | `server/config/job_work.lua` | `sanitation.price` | 18 | **30** |
 | | `scrapper.price` | 24 | **40** |
 | `server/config/delivery.lua` | `pay.base` / `perStop` / `perKm` | 40 / 20 / 90 | **60 / 30 / 120** |
-| | `pay.min` / `pay.max` | 80 / 900 | **150 / 1 400** |
+| | `pay.min` / `pay.max` | 80 / 900 | **150 / 1,400** |
 | `server/config/job_runs.lua` | `ac_cleaner.reward` | 260 | **400** |
-| `server/config/economy.lua` | `jobs.gradeBonus` | — | **0,10** par grade (vente, courses) |
-| `shared/jobs.lua` (paie / 30 min) | Sanitation 0–3 | 40 / 60 / 80 / 110 | **100 / 150 / 200 / 275** |
+| `server/config/economy.lua` | `jobs.gradeBonus` | — | **0.10** per grade (sales, runs) |
+| `shared/jobs.lua` (pay / 30 min) | Sanitation 0–3 | 40 / 60 / 80 / 110 | **100 / 150 / 200 / 275** |
 | | Scrapper 0–2 | 45 / 65 / 90 | **110 / 160 / 225** |
 | | AC Cleaner 0–2 | 50 / 75 / 100 | **110 / 160 / 225** |
 | | Courier 0–2 | 45 / 65 / 95 | **110 / 160 / 240** |
-| | Mécano 0–3 | 50 / 75 / 105 / 140 | **200 / 275 / 350 / 450** |
+| | Mechanic 0–3 | 50 / 75 / 105 / 140 | **200 / 275 / 350 / 450** |
 | | Taxi 0–1 | 50 / 70 | **200 / 275** |
-| | Médecin 0–2 | 55 / 85 / 120 | **225 / 325 / 425** |
+| | Medic 0–2 | 55 / 85 / 120 | **225 / 325 / 425** |
 | | NCPD 0–3 | 60 / 90 / 120 / 150 | **250 / 325 / 400 / 500** |
-| `server/config/economy.lua` | `paychecks` (D4) | versée à tout connecté | **active seulement** : 30 min, 75 m, virement ≥ 50, relevé 20 s, saut 2 km |
-| `server/config/missions.lua` | Sector 04 standard / hard / critical | 12 000 / 22 500 / 40 000 (par tête) | **3 500 / 5 000 / 9 000** (par tête à 2 / 4 / 6) |
-| | Chimera standard / hard / critical | 18 000 / 34 000 / 60 000 (par tête) | **3 000 / 4 500 / 6 000** (par tête à 1 / 2 / 4) |
-| `shared/mission_defs.lua` + éditeur | défauts standard / hard / critical | 8 000 / 15 000 / 30 000 | **2 400 / 3 000 / 4 400** ; missions déjà enregistrées : `/lightrp.missions.repay` |
-| `server/config/economy.lua` | `missions.crewExponent` | (paie pleine par tête) | **0,7** |
+| `server/config/economy.lua` | `paychecks` (D4) | paid to everyone connected | **active only**: 30 min, 75 m, transfer ≥ 50, sampling 20 s, jump 2 km |
+| `server/config/missions.lua` | Sector 04 standard / hard / critical | 12,000 / 22,500 / 40,000 (per head) | **3,500 / 5,000 / 9,000** (per head at 2 / 4 / 6) |
+| | Chimera standard / hard / critical | 18,000 / 34,000 / 60,000 (per head) | **3,000 / 4,500 / 6,000** (per head at 1 / 2 / 4) |
+| `shared/mission_defs.lua` + editor | standard / hard / critical defaults | 8,000 / 15,000 / 30,000 | **2,400 / 3,000 / 4,400**; missions already saved: `/lightrp.missions.repay` |
+| `server/config/economy.lua` | `missions.crewExponent` | (full pay per head) | **0.7** |
 | | `missions.cooldownMinutes` | — | **60** |
 | | `missions.dailyFullPayouts` / `capScope` | — | **6** / `account` |
-| | `missions.repeatShare` | — | **0,25** |
+| | `missions.repeatShare` | — | **0.25** |
 | | `missions.maxSharePerMinute` | — | **250** |
-| | `activities.pvp` | 0 (aucun eddie) | **70 €$/min**, participation **0,75**, résultat **0,5**, plafond **12 000/jour**, répétition **4 / 3 / 4 / 5 par heure** |
-| | `activities.pve` | 0 (aucun eddie) | **40 / 50 / 60 €$/min**, défaite **0,5**, plafond **6 000/jour** |
-| | `hospital.bill` / `graceMinutes` | gratuit | **300** / **120** |
-| | `fitting.fee` / `graceMinutes` | gratuit | **50** / **120** |
-| `server/config/garages.lua` | `impound.fees` destroyed / lost / requested / staff | — / 150 / 150 / 250 | **400 / 150 / 250 / 500** (restart 0 inchangé) |
-| `server/config/shops.lua` (`street_food`) | `trauma_kit` (achat) | non vendu | **250** (non repris) |
-| | eau, burrito, nouilles, raviolis, pizza | 8, 18, 24, 20, 16 | **12, 26, 36, 30, 24** |
-| | synthviande, onigiri, pomme, bonbon, barre | 15, 12, 10, 6, 14 | **22, 18, 15, 9, 20** |
-| | soda, café, jus, énergie, électrolytes | 10, 12, 12, 18, 16 | **15, 18, 18, 26, 24** |
+| | `activities.pvp` | 0 (no eddies) | **70 €$/min**, participation **0.75**, result **0.5**, cap **12,000/day**, repeats **4 / 3 / 4 / 5 per hour** |
+| | `activities.pve` | 0 (no eddies) | **40 / 50 / 60 €$/min**, loss **0.5**, cap **6,000/day** |
+| | `hospital.bill` / `graceMinutes` | free | **300** / **120** |
+| | `fitting.fee` / `graceMinutes` | free | **50** / **120** |
+| `server/config/garages.lua` | `impound.fees` destroyed / lost / requested / staff | — / 150 / 150 / 250 | **400 / 150 / 250 / 500** (restart 0 unchanged) |
+| `server/config/shops.lua` (`street_food`) | `trauma_kit` (purchase) | not sold | **250** (not bought back) |
+| | water, burrito, noodles, dumplings, pizza | 8, 18, 24, 20, 16 | **12, 26, 36, 30, 24** |
+| | synth-meat, onigiri, apple, candy, bar | 15, 12, 10, 6, 14 | **22, 18, 15, 9, 20** |
+| | soda, coffee, juice, energy, electrolytes | 10, 12, 12, 18, 16 | **15, 18, 18, 26, 24** |
 | `shared/config.lua` | `fuel.pricePerLitre` | 3 | **4** |
-| `server/config/dealerships.lua` | Hella / Colby / Supron | 10 000 / 12 000 / 14 000 | **12 000 / 14 000 / 16 000** |
-| | Quartz / Hozuki / Columbus | 16 000 / 19 000 / 22 000 | **19 000 / 24 000 / 30 000** |
-| | Cortes / Merrimac / Bandit | 28 000 / 32 000 / 35 000 | **38 000 / 46 000 / 52 000** |
-| | Thrax / Kusanagi / Semimaru | 42 000 / 45 000 / 60 000 | **62 000 / 80 000 / 100 000** |
-| `server/config/cyberware.lua` (**non modifié ici**, §9) | V+ : Neofiber Mk.3 / Aegis / Rara Avis / Apogee | 85 000 / 90 000 / 95 000 / 120 000 | **70 000 / 75 000 / 80 000 / 105 000** (proposé) |
+| `server/config/dealerships.lua` | Hella / Colby / Supron | 10,000 / 12,000 / 14,000 | **12,000 / 14,000 / 16,000** |
+| | Quartz / Hozuki / Columbus | 16,000 / 19,000 / 22,000 | **19,000 / 24,000 / 30,000** |
+| | Cortes / Merrimac / Bandit | 28,000 / 32,000 / 35,000 | **38,000 / 46,000 / 52,000** |
+| | Thrax / Kusanagi / Semimaru | 42,000 / 45,000 / 60,000 | **62,000 / 80,000 / 100,000** |
+| `server/config/cyberware.lua` (**not changed here**, §9) | V+: Neofiber Mk.3 / Aegis / Rara Avis / Apogee | 85,000 / 90,000 / 95,000 / 120,000 | **70,000 / 75,000 / 80,000 / 105,000** (proposed) |
 
-**Inchangé, volontairement** : argent de départ (250 + 1 500), studio de départ
-gratuit, paie de l'entraînement du tutoriel (40), premières voitures (MaiMai 4 000,
-Apollo 5 000, Galena 6 500), peinture (1 000), armes et munitions, location (50 – 100 €$
-par 30 min), virements gratuits, reprise en boutique, multiplicateur des gigs (1,0),
-cyberware des rangs II à V.
+**Unchanged, on purpose**: starting money (250 + 1,500), free starting
+studio, tutorial training pay (40), first cars (MaiMai 4,000,
+Apollo 5,000, Galena 6,500), paint (1,000), weapons and ammo, rental (50 – 100 €$
+per 30 min), free transfers, shop buy-back, gig multiplier (1.0),
+rank II to V cyberware.
 
-## 9. Cyberware : liste de prix exacte (pour le propriétaire du cyberware)
+## 9. Cyberware: exact price list (for the cyberware owner)
 
-> Mise à jour 2026-11-03 : les prix « Actuel » restent en place (set V+ à 390 000), six
-> implants s'ajoutent et chaque implant coûte des points de capacité : voir §14.
+> Update 2026-11-03: the "Current" prices stay in place (V+ set at 390,000), six
+> implants are added and every implant costs capacity points: see §14.
 
-`server/config/cyberware.lua` appartient à l'agent cyberware et n'est **pas modifié**
-par cette branche. Prix à appliquer, par id (`price`) :
+`server/config/cyberware.lua` belongs to the cyberware agent and is **not changed**
+by this branch. Prices to apply, by id (`price`):
 
-| Rang | id | Actuel | Proposé |
+| Rank | id | Current | Proposed |
 | --- | --- | --- | --- |
-| II | `iron_lungs` | 6 000 | 6 000 |
-| II | `subdermal_armor` | 6 500 | 6 500 |
-| II | `titanium_bones` | 7 500 | 7 500 |
-| II | `reinforced_tendons` | 9 500 | 9 500 |
-| III | `adrenaline_booster` | 8 500 | 8 500 |
-| III | `biomonitor` | 9 000 | 9 000 |
-| III | `fortified_ankles` | 11 000 | 11 000 |
-| III | `neofiber` | 13 000 | 13 000 |
-| III | `gorilla_arms` | 15 000 | 15 000 |
-| IV | `subdermal_armor_mk2` | 16 000 | 16 000 |
-| IV | `impact_frame` | 18 000 | 18 000 |
-| IV | `reinforced_tendons_mk2` | 24 000 | 24 000 |
-| IV | `epimorphic_skeleton` | 24 000 | 24 000 |
-| IV | `sandevistan_mk1` | 26 000 | 26 000 |
-| IV | `mantis_blades` | 28 000 | 28 000 |
-| IV | `neofiber_mk2` | 30 000 | 30 000 |
-| IV | `gorilla_arms_mk2` | 36 000 | 36 000 |
-| V | `iron_lungs_mk2` | 34 000 | 34 000 |
-| V | `adrenaline_booster_mk2` | 36 000 | 36 000 |
-| V | `bioplastic_blood_vessels` | 42 000 | 42 000 |
-| V | `mantis_blades_electric` | 62 000 | 62 000 |
-| V | `sandevistan_mk3` | 64 000 | 64 000 |
-| **V+** | **`neofiber_mk3`** | 85 000 | **70 000** |
-| **V+** | **`aegis_dermal_plating`** | 90 000 | **75 000** |
-| **V+** | **`rara_avis`** | 95 000 | **80 000** |
-| **V+** | **`zetatech_apogee`** | 120 000 | **105 000** |
+| II | `iron_lungs` | 6,000 | 6,000 |
+| II | `subdermal_armor` | 6,500 | 6,500 |
+| II | `titanium_bones` | 7,500 | 7,500 |
+| II | `reinforced_tendons` | 9,500 | 9,500 |
+| III | `adrenaline_booster` | 8,500 | 8,500 |
+| III | `biomonitor` | 9,000 | 9,000 |
+| III | `fortified_ankles` | 11,000 | 11,000 |
+| III | `neofiber` | 13,000 | 13,000 |
+| III | `gorilla_arms` | 15,000 | 15,000 |
+| IV | `subdermal_armor_mk2` | 16,000 | 16,000 |
+| IV | `impact_frame` | 18,000 | 18,000 |
+| IV | `reinforced_tendons_mk2` | 24,000 | 24,000 |
+| IV | `epimorphic_skeleton` | 24,000 | 24,000 |
+| IV | `sandevistan_mk1` | 26,000 | 26,000 |
+| IV | `mantis_blades` | 28,000 | 28,000 |
+| IV | `neofiber_mk2` | 30,000 | 30,000 |
+| IV | `gorilla_arms_mk2` | 36,000 | 36,000 |
+| V | `iron_lungs_mk2` | 34,000 | 34,000 |
+| V | `adrenaline_booster_mk2` | 36,000 | 36,000 |
+| V | `bioplastic_blood_vessels` | 42,000 | 42,000 |
+| V | `mantis_blades_electric` | 62,000 | 62,000 |
+| V | `sandevistan_mk3` | 64,000 | 64,000 |
+| **V+** | **`neofiber_mk3`** | 85,000 | **70,000** |
+| **V+** | **`aegis_dermal_plating`** | 90,000 | **75,000** |
+| **V+** | **`rara_avis`** | 95,000 | **80,000** |
+| **V+** | **`zetatech_apogee`** | 120,000 | **105,000** |
 
-Pourquoi baisser le V+ : aux prix actuels le set coûte 390 000 €$, ≈ 95 h d'épargne du
-joueur régulier, au-delà des 60 – 90 h visées ; à 330 000 il en faut 80. Le rang reste
-gardé par le palier Legend (48 h pour le régulier) : ces prix n'avancent pas l'accès,
-seulement la complétion. Les rangs II à V tiennent déjà la courbe (§7.2).
+Why lower V+: at current prices the set costs 390,000 €$, ≈ 95 h of saving for the
+regular player, beyond the 60 – 90 h target; at 330,000 it takes 80. The rank stays
+gated by the Legend tier (48 h for the regular): these prices do not bring access forward,
+only completion. Ranks II to V already fit the curve (§7.2).
 
-## 10. Bandes de prix pour les autres équipes
+## 10. Price bands for the other teams
 
-**Logement** (`/housingadmin`, valeurs en base) : bail de 7 jours ≈ 1,5 à 3 h de
-travail pour un petit appartement (5 000 – 10 000 €$), 15 000 – 25 000 €$ pour un moyen ;
-achat 60 000 – 250 000 €$ (revente à 50 % déjà en place). Le studio de Kabuki reste
-gratuit.
+**Housing** (`/housingadmin`, values in the database): a 7-day lease ≈ 1.5 to 3 h of
+work for a small apartment (5,000 – 10,000 €$), 15,000 – 25,000 €$ for a medium one;
+purchase 60,000 – 250,000 €$ (resale at 50% already in place). The Kabuki studio stays
+free.
 
-**Nouveaux véhicules** : 12 000 – 16 000 pour un véhicule « correct », 30 000 – 60 000
-pour le milieu de gamme, 80 000 – 100 000 pour le haut de gamme (≈ 20 – 25 h du joueur
-régulier).
+**New vehicles**: 12,000 – 16,000 for a "decent" vehicle, 30,000 – 60,000
+for the mid-range, 80,000 – 100,000 for the high end (≈ 20 – 25 h for the regular
+player).
 
-## 11. Vérifier en jeu
+## 11. Check in game
 
-- `/work sanitation sell` avec des lots : 30 €$ le lot (×1,1 au grade 1).
-- Chimera standard seul : 3 000 €$ ; à deux : 2 437 €$ chacun. Relancer aussitôt : 25 %.
-  Sept paies pleines dans la journée : la septième paie 25 %.
-- Paie : rester immobile 30 min avec un métier salarié → pas de paie, une notice
-  « No paycheck », une ligne de journal ; un lot vendu, un patient stabilisé ou 75 m à
-  pied → la paie suivante tombe.
-- Kit : Corner Market, 250 €$ ; non repris à la vente ; il réanime un allié.
-- Fourrière : faire exploser sa voiture puis la ramener → 400 €$, réparée ; une voiture
-  supprimée par le staff sans dégâts → 150 €$ ; épave impossible à garer.
-- Activités : FFA à 4 joueurs réels, 10 min, première place → +875 €$ et notice
-  « Combat Zone · #1 of 4 · 10 min » ; dernière avec un kill → 525 ; à deux → la moitié ;
-  quatrième duel de la même paire dans l'heure → rien, notice ; FFA avec bots → rien.
-  PvE arène Standard gagnée 10 min → 400.
-- `/lightrp.missions.repay` puis `apply` : les missions de l'éditeur passent au nouveau
-  barème ; un second passage ne change rien.
-- `/lightrp.account me` et `/bank` montrent les lignes `mission`, `gig`, `salary`,
+- `/work sanitation sell` with lots: 30 €$ per lot (×1.1 at grade 1).
+- Standard Chimera solo: 3,000 €$; as a duo: 2,437 €$ each. Run it again right away: 25%.
+  Seven full payouts in one day: the seventh pays 25%.
+- Paycheck: stand still for 30 min with a salaried job → no paycheck, a notice
+  "No paycheck", a log line; a lot sold, a patient stabilized or 75 m on
+  foot → the next paycheck comes in.
+- Kit: Corner Market, 250 €$; not bought back when sold; it revives an ally.
+- Impound: blow up your car, then bring it back → 400 €$, repaired; a car
+  deleted by staff without damage → 150 €$; a wreck cannot be parked.
+- Activities: FFA with 4 real players, 10 min, first place → +875 €$ and notice
+  "Combat Zone · #1 of 4 · 10 min"; last with one kill → 525; with two → half;
+  fourth duel of the same pair within the hour → nothing, notice; FFA with bots → nothing.
+  Standard PvE arena won in 10 min → 400.
+- `/lightrp.missions.repay` then `apply`: editor missions move to the new
+  scale; a second pass changes nothing.
+- `/lightrp.account me` and `/bank` show the lines `mission`, `gig`, `salary`,
   `activity_pvp`, `activity_pve`, `hospital`, `fitting`.
 
-## 12. À décider par le propriétaire
+## 12. For the owner to decide
 
-1. **Paie active (D4)** : elle s'applique à **tous** les métiers salariés (y compris les
-   métiers à boucle), faute de prise de service. Le signal « 75 m en 30 min » est
-   volontairement large (un taxi qui roule est actif) ; un joueur obstiné peut tourner
-   en rond. Une vraie prise de service serait le correctif durable.
-2. **Fourrière** : le redémarrage d'un véhicule **intact** reste gratuit ; et une épave
-   qui disparaît sans aucun signal de dégâts est facturée 150 (perdu), pas 400.
-3. **Prix V+** à appliquer côté cyberware (§9) — ou garder 390 000 et accepter ≈ 95 h.
-   *Tranché le 2026-11-03 : 390 000 gardé ; la capacité borne la puissance à la place
+1. **Active pay (D4)**: it applies to **all** salaried jobs (including
+   loop jobs), since there is no clock-in. The "75 m in 30 min" signal is
+   deliberately broad (a taxi that drives around is active); a stubborn player can drive
+   in circles. A real clock-in would be the lasting fix.
+2. **Impound**: restarting an **intact** vehicle stays free; and a wreck
+   that disappears without any damage signal is billed 150 (lost), not 400.
+3. **V+ prices** to apply on the cyberware side (§9) — or keep 390,000 and accept ≈ 95 h.
+   *Decided on 2026-11-03: 390,000 kept; capacity limits power instead
    (§14).*
-4. **Hausse des voitures** : le haut de gamme passe de 60 000 à 100 000. La Kusanagi
-   (80 000) tombe à 18,8 h pour le régulier, juste sous les 20 h ; la monter à 85 000 la
-   remettrait à ≈ 20 h.
-5. **Paie des activités** : 70 €$/min, 0,75 + 0,5 × résultat, lobbies pleins (4, 2, 6),
-   minimums de durée, plafonds 12 000 / 6 000, répétition 3 à 5 par heure.
-6. **PvP pur et cyberware** : avec les règles de `docs/pve-progression.md`, le PvP ne
-   donne aucune réputation ; un joueur 100 % PvP gagne de quoi tout acheter mais reste
-   au rang II. Accepter (le cyberware est la récompense du PvE), ou lui donner un filet
-   de réputation (`pvpGrants`).
-7. **Cas sévères assumés** : un 1v1 perdu 0-2 et une manche de FFA sans kill ni assist
-   ne paient rien (impossible de les distinguer d'un AFK avec les statistiques
-   actuelles) ; un vainqueur par forfait ne garde que la participation.
+4. **Car price increase**: the high end goes from 60,000 to 100,000. The Kusanagi
+   (80,000) drops to 18.8 h for the regular, just under 20 h; raising it to 85,000 would
+   put it back at ≈ 20 h.
+5. **Activity pay**: 70 €$/min, 0.75 + 0.5 × result, full lobbies (4, 2, 6),
+   minimum durations, caps 12,000 / 6,000, repeats 3 to 5 per hour.
+6. **Pure PvP and cyberware**: with the rules of `docs/pve-progression.md`, PvP gives
+   no reputation; a 100% PvP player earns enough to buy everything but stays
+   at rank II. Accept it (cyberware is the PvE reward), or give them a reputation
+   safety net (`pvpGrants`).
+7. **Harsh cases, accepted**: a 1v1 lost 0-2 and an FFA round with no kill or assist
+   pay nothing (impossible to tell apart from an AFK with the current
+   stats); a winner by forfeit keeps only the participation share.
 
-## 13. Risques
+## 13. Risks
 
-- **Baisse forte des missions** (÷5 à ÷10) : les soldes existants ne sont ni effacés ni
-  migrés, les premiers comptes gardent leur avance.
-- **Estimations de revenu horaire** : vitesse, manutention, part de l'heure en match et
-  taux de victoire sont supposés ; à recaler avec `lightrp_transactions` après quelques
-  jours (somme des `kind` par heure de jeu, en particulier `activity_pvp`).
-- **Joueurs réels** : comptés par compte, activité et bucket ; un fournisseur qui mêle
-  plusieurs matchs dans un même bucket compterait trop large (la paie reste plafonnée
-  au lobby plein). Plusieurs comptes d'une même personne ne sont bornés que par la
-  règle du crew, la limite de répétition et le plafond journalier.
-- **Limite de répétition et relevés** en mémoire : un redémarrage les remet à zéro (le
-  plafond journalier, lui, est en base).
-- **Statistiques des fournisseurs** : la détection AFK lit les clés actuelles
+- **Sharp cut in missions** (÷5 to ÷10): existing balances are neither wiped nor
+  migrated; the first accounts keep their head start.
+- **Hourly income estimates**: speed, handling, share of the hour in matches and
+  win rate are assumed; recalibrate with `lightrp_transactions` after a few
+  days (sum of each `kind` per hour of play, especially `activity_pvp`).
+- **Real players**: counted by account, activity and bucket; a provider that mixes
+  several matches in the same bucket would count too broadly (the pay stays capped
+  at the full lobby). Several accounts of the same person are only limited by the
+  crew rule, the repeat limit and the daily cap.
+- **Repeat limit and samples** are in memory: a restart resets them (the
+  daily cap, however, is in the database).
+- **Provider stats**: AFK detection reads the current keys
   (`kills`, `assists`, `roundsWon`, `points`, `captures`, `checkpoints`, `finished`,
-  `shakes`…). Un fournisseur qui les renomme fait tomber ses joueurs en « no_progress » :
-  à revoir avec `activity_pay_test.lua` à chaque changement de contrat.
-- **Recharge et plafonds des missions** en base (`lightrp_mission_payout_cooldowns`,
-  `lightrp_mission_payout_daily`) ; sans base de données ils ne vivent que le temps de
-  la session.
-- **Fusion** : `activities.lua` n'est touché que par une ligne (le crochet de paie),
-  `missions.lua` par les lignes de paie et l'annonce au lancement, `medical.lua` par le
-  crochet `onPatientStabilized`.
+  `shakes`…). A provider that renames them makes its players fall into "no_progress":
+  review with `activity_pay_test.lua` at every contract change.
+- **Mission cooldown and caps** are in the database (`lightrp_mission_payout_cooldowns`,
+  `lightrp_mission_payout_daily`); without a database they only last for
+  the session.
+- **Merge**: `activities.lua` is touched by only one line (the pay hook),
+  `missions.lua` by the pay lines and the launch announcement, `medical.lua` by the
+  `onPatientStabilized` hook.
 
-## 14. Cyberware : capacité, builds et kit attendu en PvE (branche `lightrp/cyberware-v2`)
+## 14. Cyberware: capacity, builds and expected kit in PvE (`lightrp/cyberware-v2` branch)
 
-Décision du 2026-11-03 : **les prix ne bougent pas**, le set V+ reste à 390 000 €$
-(Neofiber Mk.3 85 000, Aegis 90 000, Rara Avis 95 000, Apogee 120 000 ; la proposition
-du §9 n'est pas appliquée). Ce qui borne la puissance n'est plus l'argent seul mais la
-**capacité** du corps : chaque implant coûte des points, et le palier de réputation
-(PvE seulement) fixe le total. Tout est dans `server/config/cyberware.lua`
-(`capacity.byTier`, `capacity` de chaque implant, `fittingFee`, `iconics`).
+Decision of 2026-11-03: **prices do not move**, the V+ set stays at 390,000 €$
+(Neofiber Mk.3 85,000, Aegis 90,000, Rara Avis 95,000, Apogee 120,000; the proposal
+in §9 is not applied). What limits power is no longer money alone but the body's
+**capacity**: each implant costs points, and the reputation tier
+(PvE only) sets the total. Everything is in `server/config/cyberware.lua`
+(`capacity.byTier`, each implant's `capacity`, `fittingFee`, `iconics`).
 
-### 14.1 Capacité par palier
+### 14.1 Capacity per tier
 
-| Palier (réputation) | Rangs ouverts | Capacité | Ce qu'elle porte |
+| Tier (reputation) | Ranks opened | Capacity | What it holds |
 | --- | --- | --- | --- |
-| I Street (0) | I – II | **10** | tout le rang II (2 + 2 + 1 + 2 + 3 = 10) |
-| II Merc (500) | III | **14** | rang II, ou un mélange II / III (II + III = 26 points) |
-| III Operator (1 500) | IV | **18** | un cœur de rang IV : 3 à 4 implants |
-| IV Edgerunner (4 000) | V | **22** | 4 à 5 implants de haut rang |
-| V Legend (10 000) | V+ | **26** | un build : les quatre V+ seuls font **28**, le meilleur de chaque famille **67** |
+| I Street (0) | I – II | **10** | all of rank II (2 + 2 + 1 + 2 + 3 = 10) |
+| II Merc (500) | III | **14** | rank II, or a II / III mix (II + III = 26 points) |
+| III Operator (1,500) | IV | **18** | a rank IV core: 3 to 4 implants |
+| IV Edgerunner (4,000) | V | **22** | 4 to 5 high-rank implants |
+| V Legend (10,000) | V+ | **26** | one build: the four V+ alone make **28**, the best of each family **67** |
 
-Règles : la capacité est vérifiée par le serveur à chaque pose (message « Not enough
-capacity: X takes N points, F of your T are free »), la page l'affiche (used / total,
-points de chaque implant). Un personnage déjà au-delà garde tout, ne pose plus qu'un
-échange plus léger, et une ligne de journal le signale une fois. Sans module de missions
-(réputation illisible), la capacité vaut 26.
+Rules: capacity is checked by the server on every install (message "Not enough
+capacity: X takes N points, F of your T are free"), and the page shows it (used / total,
+points of each implant). A character already over the limit keeps everything, can only install a
+lighter swap, and a log line flags it once. Without the missions module
+(reputation unreadable), capacity is 26.
 
-### 14.2 Points par implant (32 en boutique + 2 iconiques)
+### 14.2 Points per implant (32 in the shop + 2 iconics)
 
-| Rang | Implants (points) |
+| Rank | Implants (points) |
 | --- | --- |
 | II | Kiroshi Optics 1 · Iron Lungs 2 · Subdermal Armor 2 · Titanium Bones 2 · Reinforced Tendons 3 |
 | III | Adrenaline Booster 2 · Fortified Ankles 2 · Biomonitor 3 · Pain Editor 3 · Neofiber 3 · Gorilla Arms 3 |
 | IV | Kiroshi Clairvoyant 3 · Subdermal Mk.2 4 · Impact Frame 4 · Tendons Mk.2 4 · Epimorphic 4 · Neofiber Mk.2 4 · Sandevistan Mk.1 5 · Berserk Mk.1 5 · Mantis Blades 5 · Gorilla Mk.2 5 |
 | V | Iron Lungs Mk.2 3 · Adrenaline Mk.2 3 · Bioplastic 5 · Second Heart 6 · Electric Mantis 6 · Sandevistan Mk.3 7 · Berserk Mk.3 7 |
 | V+ | Neofiber Mk.3 6 · Aegis 7 · Rara Avis 7 · Apogee 8 |
-| Iconique | Feral Biomonitor 6 (boss mondiaux) · Chimera Plating 7 (Chimera en Critical) |
+| Iconic | Feral Biomonitor 6 (world bosses) · Chimera Plating 7 (Chimera on Critical) |
 
-Prix des six nouveaux : Kiroshi Optics 7 000, Pain Editor 12 000, Kiroshi Clairvoyant
-22 000, Berserk Mk.1 26 000, Second Heart 55 000, Berserk Mk.3 64 000. Les iconiques ne
-s'achètent pas. Berserk et Sandevistan partagent la famille « os » (un seul posé).
+Prices of the six new ones: Kiroshi Optics 7,000, Pain Editor 12,000, Kiroshi Clairvoyant
+22,000, Berserk Mk.1 26,000, Second Heart 55,000, Berserk Mk.3 64,000. Iconics cannot be
+bought. Berserk and Sandevistan share the "os" family (only one installed).
 
-### 14.3 Builds types
+### 14.3 Typical builds
 
-| Palier | Build | Implants (points) | Total | Prix |
+| Tier | Build | Implants (points) | Total | Price |
 | --- | --- | --- | --- | --- |
-| Merc (14) | Polyvalent | Neofiber 3, Tendons 3, Biomonitor 3, Subdermal 2, Titanium 2, Kiroshi 1 | 14 | 52 500 |
-| Operator (18) | Duelliste | Sandevistan Mk.1 5, Neofiber Mk.2 4, Subdermal Mk.2 4, Epimorphic 4, Kiroshi 1 | 18 | 103 000 |
-| Operator (18) | Tenace | Berserk Mk.1 5, Subdermal Mk.2 4, Epimorphic 4, Biomonitor 3, Ankles 2 | 18 | 86 000 |
-| Legend (26) | **Tank** | Aegis 7, Rara Avis 7, Berserk Mk.3 7, Bioplastic 5 | 26 | 291 000 |
-| Legend (26) | **Mobilité** | Apogee 8, Neofiber Mk.3 6, Electric Mantis 6, Tendons Mk.2 4, Ankles 2 | 26 | 302 000 |
-| Legend (26) | **Soutien** | Second Heart 6, Bioplastic 5, Subdermal Mk.2 4, Epimorphic 4, Clairvoyant 3, Pain Editor 3 | 25 | 171 000 |
-| Legend (26) | **Bagarreur** | Berserk Mk.3 7, Gorilla Mk.2 5, Impact Frame 4, Tendons Mk.2 4, Adrenaline Mk.2 3, Iron Lungs Mk.2 3 | 26 | 212 000 |
+| Merc (14) | All-rounder | Neofiber 3, Tendons 3, Biomonitor 3, Subdermal 2, Titanium 2, Kiroshi 1 | 14 | 52,500 |
+| Operator (18) | Duelist | Sandevistan Mk.1 5, Neofiber Mk.2 4, Subdermal Mk.2 4, Epimorphic 4, Kiroshi 1 | 18 | 103,000 |
+| Operator (18) | Tenacious | Berserk Mk.1 5, Subdermal Mk.2 4, Epimorphic 4, Biomonitor 3, Ankles 2 | 18 | 86,000 |
+| Legend (26) | **Tank** | Aegis 7, Rara Avis 7, Berserk Mk.3 7, Bioplastic 5 | 26 | 291,000 |
+| Legend (26) | **Mobility** | Apogee 8, Neofiber Mk.3 6, Electric Mantis 6, Tendons Mk.2 4, Ankles 2 | 26 | 302,000 |
+| Legend (26) | **Support** | Second Heart 6, Bioplastic 5, Subdermal Mk.2 4, Epimorphic 4, Clairvoyant 3, Pain Editor 3 | 25 | 171,000 |
+| Legend (26) | **Brawler** | Berserk Mk.3 7, Gorilla Mk.2 5, Impact Frame 4, Tendons Mk.2 4, Adrenaline Mk.2 3, Iron Lungs Mk.2 3 | 26 | 212,000 |
 
-Le Tank porte +100 armure, +100 santé max, +3 santé / s, et +150 armure pendant 10 s
-(Berserk Mk.3). Le Soutien échange la défense brute contre l'équipage : marquage du
-Clairvoyant, réparation du Pain Editor, relève seul en ville (Second Heart). Le trio
-Apogee + Aegis + Rara Avis tient (22 points) mais ne laisse que 4 points : ni dash, ni
-régénération.
+The Tank carries +100 armor, +100 max health, +3 health / s, and +150 armor for 10 s
+(Berserk Mk.3). The Support trades raw defense for help to the crew: the
+Clairvoyant's marking, the Pain Editor's repair, self-revive in the city (Second Heart). The
+Apogee + Aegis + Rara Avis trio fits (22 points) but leaves only 4 points: no dash, no
+regeneration.
 
-### 14.4 Kit attendu en PvE difficile
+### 14.4 Expected kit in hard PvE
 
-Rappel des échelles : activités PvE (`activities.lua` `pve.difficulties`) Hard =
-ennemis × 1,5, santé × 1,5, dégâts × 1,25, IA vétéran, palier II ; Critical = ennemis × 2,
-santé × 2,25, dégâts × 1,6, palier III. Raid Chimera (`missions.lua`
-`LightRpRaid.scaling`) Hard = santé × 1,8 (+ 0,6 par opérateur), dégâts × 1,1, 6 vies,
-réapparition 18 s, 4 vagues, rage à 10 min ; Critical = santé × 3 (+ 0,75 par opérateur),
-dégâts × 1,5, **aucune réapparition**, 5 vagues, rage à 8 min ; roquette 35 / 55, purge
-40 / 60. L'armure se consomme point pour point avant la santé : le « tampon » ci-dessous
-est armure + santé max ajoutées.
+A reminder of the scales: PvE activities (`activities.lua` `pve.difficulties`) Hard =
+enemies × 1,5, health × 1,5, damage × 1,25, veteran AI, tier II; Critical = enemies × 2,
+health × 2,25, damage × 1,6, tier III. Chimera raid (`missions.lua`
+`LightRpRaid.scaling`) Hard = health × 1.8 (+ 0.6 per operative), damage × 1,1, 6 lives,
+respawn 18 s, 4 waves, enrage at 10 min; Critical = health × 3 (+ 0.75 per operative),
+damage × 1,5, **no respawn**, 5 waves, enrage at 8 min; rocket 35 / 55, purge
+40 / 60. Armor is used up point for point before health: the "buffer" below
+is added armor + added max health.
 
-| Contenu | Palier minimum | Kit attendu | Tampon ajouté |
+| Content | Minimum tier | Expected kit | Added buffer |
 | --- | --- | --- | --- |
-| Activités Hard | Merc (14) | Subdermal + Titanium + Biomonitor, plus mobilité (Neofiber ou Tendons) | ≈ 55 (30 + 25) et 1,5 / s : une roquette Hard et demie |
-| Chimera Hard | Merc (14) | le même, en équipage ; les 6 vies pardonnent | ≈ 55 |
-| Activités Critical | Operator (18) | Subdermal Mk.2 + Epimorphic + Berserk Mk.1 ou Sandevistan Mk.1 | ≈ 120 (60 + 60), + 80 pendant 8 s avec le Berserk |
-| Chimera Critical | Operator (18), réaliste à Edgerunner (22) | Tank ou Bagarreur, un Soutien dans l'équipage | 120 à 200 permanents (≈ 2 à 3,5 roquettes Critical), + 150 au Berserk Mk.3 |
+| Hard activities | Merc (14) | Subdermal + Titanium + Biomonitor, plus mobility (Neofiber or Tendons) | ≈ 55 (30 + 25) and 1.5 / s: one and a half Hard rockets |
+| Chimera Hard | Merc (14) | the same, as a crew; the 6 lives are forgiving | ≈ 55 |
+| Critical activities | Operator (18) | Subdermal Mk.2 + Epimorphic + Berserk Mk.1 or Sandevistan Mk.1 | ≈ 120 (60 + 60), + 80 for 8 s with the Berserk |
+| Chimera Critical | Operator (18), realistic at Edgerunner (22) | Tank or Brawler, with a Support in the crew | 120 to 200 permanent (≈ 2 to 3.5 Critical rockets), + 150 with the Berserk Mk.3 |
 
-Le Critical sans réapparition est le contenu qui justifie un build défensif : un
-joueur Operator le tente avec un tampon de ≈ 120, un Legend Tank avec ≈ 200 et
-+ 3 santé / s. Le Second Heart n'y joue **aucun** rôle : missions et activités gèrent
-leurs morts, et il est coupé dans Dogtown et dans toute activité classée ou PvP.
+Critical without respawn is the content that justifies a defensive build: an
+Operator player tries it with a buffer of ≈ 120, a Legend Tank with ≈ 200 and
++ 3 health / s. Second Heart plays **no** role there: missions and activities handle
+their own deaths, and it is disabled in Dogtown and in any ranked or PvP activity.
 
-### 14.5 Iconiques
+### 14.5 Iconics
 
-Jamais achetés, vendus ni échangés ; tirés côté serveur, annoncés à toute la ville,
-journalisés, rangés dans le stockage (pose 50 €$, points comptés). Un joueur qui possède
-déjà l'objet d'une source n'est plus tiré pour elle.
+Never bought, sold or traded; rolled server-side, announced to the whole city,
+logged, put in storage (install 50 €$, points counted). A player who already owns
+the item from a source is no longer rolled for it.
 
-| Source | Objet | Chance | Garanti au | Moyenne (avec garantie) |
+| Source | Item | Chance | Guaranteed at | Average (with the guarantee) |
 | --- | --- | --- | --- | --- |
-| Boss mondial vaincu, part payée (`eligible`) | Feral Biomonitor (6 pts : + 3,5 / s, + 20 santé max) | 8 % | 12e échec consécutif | ≈ 7,9 victoires |
-| Raid Chimera gagné en Critical (hors test) | Chimera Plating (7 pts : + 110 armure, + 1 / s) | 12 % | 8e échec consécutif | ≈ 5,3 victoires |
+| World boss defeated, paid share (`eligible`) | Feral Biomonitor (6 pts: + 3.5 / s, + 20 max health) | 8% | 12th miss in a row | ≈ 7.9 wins |
+| Chimera raid won on Critical (not a test) | Chimera Plating (7 pts: + 110 armor, + 1 / s) | 12% | 8th miss in a row | ≈ 5.3 wins |
 
-Ils valent un léger mieux que leur équivalent de boutique au même prix en points
-(Chimera Plating contre Aegis : + 10 armure et + 1 / s ; Feral contre Bioplastic :
-+ 0,5 / s et + 20 santé pour 1 point de plus), pas un saut de puissance : la vitrine
-compte plus que le chiffre.
+They are slightly better than their shop equivalent at the same point cost
+(Chimera Plating vs Aegis: + 10 armor and + 1 / s; Feral vs Bioplastic:
++ 0.5 / s and + 20 health for 1 more point), not a jump in power: showing it off
+matters more than the numbers.
 
-### 14.6 Ce que la capacité change au rythme
+### 14.6 What capacity changes in the pace
 
-- **Début de parcours inchangé** : jusqu'à Operator, c'est l'argent qui borne. Au palier
-  II (≈ 3,8 h pour le régulier, §7.1), il a gagné ≈ 15 000 €$ ; les rangs II et III
-  coûtent 105 000. La capacité ne mord pas encore.
-- **Fin de parcours bornée** : à Legend (≈ 48 h, ≈ 197 000 €$ gagnés), un build complet
-  coûte 170 000 à 300 000 €$, soit ≈ 41 à 73 h d'épargne seule à ≈ 4 100 €$/h, au lieu
-  de viser tout le set V+ (390 000, ≈ 95 h) puis le loadout complet (617 000 aux prix
-  actuels). Le premier build Legend complet arrive donc **plus tôt** que l'ancien
-  objectif « set V+ ».
-- **Le puits d'argent tardif devient la collection** : chaque implant acheté reste au
-  stockage ; changer de build coûte 50 €$ par pose. Posséder Tank et Mobilité ≈ 590 000,
-  le set V+ en entier reste à 390 000 mais ne se porte jamais d'un bloc.
-- **La réputation pèse plus** : +4 points par palier, c'est le PvE qui débloque la
-  puissance (le joueur 100 % PvP reste à 10 points, §12 point 6).
-- **PvP classé** : la capacité resserre l'écart entre un Legend riche et un Edgerunner
-  (26 contre 22 points au lieu de « tout » contre « rang V ») ; le matchmaking par rang
-  de cyberware (`activities.lua` `lobby.matchmaking`) reste pertinent.
+- **Early game unchanged**: up to Operator, money is the limit. At tier
+  II (≈ 3.8 h for the regular, §7.1), they have earned ≈ 15,000 €$; ranks II and III
+  cost 105,000. Capacity does not bite yet.
+- **Late game bounded**: at Legend (≈ 48 h, ≈ 197,000 €$ earned), a full build
+  costs 170,000 to 300,000 €$, i.e. ≈ 41 to 73 h of saving alone at ≈ 4,100 €$/h, instead
+  of aiming for the whole V+ set (390,000, ≈ 95 h) and then the full loadout (617,000 at current
+  prices). So the first full Legend build arrives **earlier** than the old
+  "V+ set" goal.
+- **The late money sink becomes the collection**: every implant bought stays in
+  storage; switching builds costs 50 €$ per install. Owning Tank and Mobility ≈ 590,000;
+  the whole V+ set still costs 390,000 but can never be worn all at once.
+- **Reputation matters more**: +4 points per tier, so PvE is what unlocks
+  power (the 100% PvP player stays at 10 points, §12 point 6).
+- **Ranked PvP**: capacity narrows the gap between a rich Legend and an Edgerunner
+  (26 vs 22 points instead of "everything" vs "rank V"); matchmaking by cyberware
+  rank (`activities.lua` `lobby.matchmaking`) stays relevant.
 
-À vérifier en jeu : la page affiche used / total et les points par implant ; une pose
-au-delà est refusée avec le message du serveur ; retirer un implant (50 €$) le range au
-stockage, le reposer coûte 50 €$ ; un iconique tiré apparaît au stockage avec l'annonce
-en ville.
+To check in game: the page shows used / total and the points per implant; an install
+over the limit is refused with the server's message; removing an implant (50 €$) puts it in
+storage, and installing it again costs 50 €$; a rolled iconic appears in storage with the
+announcement to the city.
 
-## 15. Audit de la prod 2026-11-04 (branche `lightrp/economy-prod-audit`)
+## 15. Prod audit 2026-11-04 (`lightrp/economy-prod-audit` branch)
 
-Sources : copie en lecture seule de `/opt/op77-lightrp` sur l'hôte de prod (sha256 de chaque
-`.lua`, `.json`, `.jsonc` et `.md` sous `resources/`, hors `data/`, plus `server.jsonc`),
-comparée à `origin/main` 0f01709 ; base MariaDB de Light RP en lecture, **agrégats
-seulement** (aucun identifiant de compte, aucune adresse). Modèle horaire : celui du §7
-(équipage 1,5 × le minimum, réussite 85 / 70 / 55 %, une réussite prend 70 % de l'horloge
-plus 6 min d'approche, 8 % de frais), J = 3 500 €$/h.
+Sources: a read-only copy of `/opt/op77-lightrp` on the prod host (sha256 of every
+`.lua`, `.json`, `.jsonc` and `.md` file under `resources/`, excluding `data/`, plus `server.jsonc`),
+compared with `origin/main` 0f01709; the Light RP MariaDB database, read-only, **aggregates
+only** (no account identifier, no address). Hourly model: the one from §7
+(crew 1.5 × the minimum, success 85 / 70 / 55%, a success takes 70% of the clock
+plus 6 min of approach, 8% costs), J = 3,500 €$/h.
 
-### 15.1 Dérive prod / main
+### 15.1 Prod / main drift
 
-| Ensemble | État en prod | Détail |
+| Set | State in prod | Detail |
 | --- | --- | --- |
-| `op77_lightrp` | **identique à main**, sauf 7 fichiers | 686 fichiers au même sha256 |
-| 7 fichiers en retard d'**un** commit | plus anciens (PR #55 et #56) | `server/config/activities.lua`, `server/config/halloffame.lua`, `tests/activities_hub_test.lua`, `tests/halloffame_test.lua` (prod = 2157054 / f67c4ed, main = 2cd3084, placements du crossing) ; `server/config/events_board.lua`, `server/modules/events_board.lua`, `tests/events_board_test.lua` (prod = eb85a3c, main = f3feb3d, masquage du tableau) |
-| `op77_playermarks` (PR #57) | **absent** | 5 fichiers, et absent de la liste `resources.load` de prod |
-| `op77_race`, `op77_chase`, `op77_turf`, `op77_arena`, `op77_fireworks` | identiques | — |
-| `server.jsonc`, `acl.jsonc` (racine) | **modifiés en prod seulement** | voir plus bas : un déploiement des fichiers racine de main les écraserait |
-| 292 fichiers propres à la prod | hors dépôt light-rp | distribution serveur : `gamemodes/freeroam`, `open77_chimera`, `open77_cyberware_lab`, `open77_freeroam`, `open77_equipment`, `open77_gizmos_*`, `open77_wardrobe`, `polyzone`, `assets/mods/winter_in_nc`, `system/open77_*` |
+| `op77_lightrp` | **identical to main**, except 7 files | 686 files with the same sha256 |
+| 7 files **one** commit behind | older (PR #55 and #56) | `server/config/activities.lua`, `server/config/halloffame.lua`, `tests/activities_hub_test.lua`, `tests/halloffame_test.lua` (prod = 2157054 / f67c4ed, main = 2cd3084, crossing placements); `server/config/events_board.lua`, `server/modules/events_board.lua`, `tests/events_board_test.lua` (prod = eb85a3c, main = f3feb3d, board hiding) |
+| `op77_playermarks` (PR #57) | **missing** | 5 files, and missing from the prod `resources.load` list |
+| `op77_race`, `op77_chase`, `op77_turf`, `op77_arena`, `op77_fireworks` | identical | — |
+| `server.jsonc`, `acl.jsonc` (root) | **changed in prod only** | see below: deploying main's root files would overwrite them |
+| 292 prod-only files | outside the light-rp repo | server distribution: `gamemodes/freeroam`, `open77_chimera`, `open77_cyberware_lab`, `open77_freeroam`, `open77_equipment`, `open77_gizmos_*`, `open77_wardrobe`, `polyzone`, `assets/mods/winter_in_nc`, `system/open77_*` |
 
-**Toutes nos modifications d'économie sont en prod** (2056471, 1cbf63a, 18f1ab8, 42d982a,
-7e7b80a, d90597b, 8c9739c) : les fichiers sont identiques, et le registre le confirme (parts
-de 1 949 = 2 400 à deux, une paie de recharge à 25 % le 2026-11-03, PvE à 40 €$/min). Ce
-qui manque à la prod n'est pas de l'économie : les PR #55, #56 et #57.
+**All our economy changes are in prod** (2056471, 1cbf63a, 18f1ab8, 42d982a,
+7e7b80a, d90597b, 8c9739c): the files are identical, and the ledger confirms it (shares
+of 1,949 = 2,400 for two, one cooldown payout at 25% on 2026-11-03, PvE at 40 €$/min). What
+prod is missing is not economy: PRs #55, #56 and #57.
 
-`server.jsonc` de prod (à ne **jamais** écraser par celui du dépôt) : nom et tags du serveur,
-visibilité publique, bloc `query`, point d'accès public, 32 places, bloc `combat`, limites de
-PNJ et de véhicules IA, réplication, voix 32 / 8, `winter_in_nc` et `open77_pedestrians` dans
-`resources.load` (et pas `op77_playermarks`), rcon désactivé, métriques, URL publique de
-Warden, limites HTTP. `acl.jsonc` de prod : sa propre équipe, et **pas**
-`command.lightrp.tables` (la gestion des tables n'est donc pas ouverte au staff en prod).
+Prod `server.jsonc` (**never** to be overwritten by the repo's): server name and tags,
+public visibility, `query` block, public endpoint, 32 slots, `combat` block, NPC and AI
+vehicle limits, replication, voice 32 / 8, `winter_in_nc` and `open77_pedestrians` in
+`resources.load` (and not `op77_playermarks`), rcon disabled, metrics, public Warden
+URL, HTTP limits. Prod `acl.jsonc`: its own team, and **not**
+`command.lightrp.tables` (so table management is not open to staff in prod).
 
-### 15.2 Ce que dit la base (agrégats du 2026-11-04)
+### 15.2 What the database says (aggregates of 2026-11-04)
 
-- 11 comptes, 11 personnages, tous actifs ; 6 vus dans les 24 h, 10 dans les 7 jours ;
-  49,4 h de jeu cumulées (moyenne 4,5 h, maximum 14,5 h).
-- Masse monétaire : 304 348 €$ en banque + 3 070 en liquide = **307 418 €$**. Par
-  personnage (banque + liquide) : minimum 814, **médiane ≈ 19 540**, moyenne 27 668,
-  maximum 143 078.
-- Registre `lightrp_transactions` : 143 lignes du 2026-10-05 au 2026-11-04.
+- 11 accounts, 11 characters, all active; 6 seen in the last 24 h, 10 in the last 7 days;
+  49.4 h of cumulative play (average 4.5 h, maximum 14.5 h).
+- Money supply: 304,348 €$ in the bank + 3,070 in cash = **307,418 €$**. Per
+  character (bank + cash): minimum 814, **median ≈ 19,540**, average 27,668,
+  maximum 143,078.
+- Ledger `lightrp_transactions`: 143 lines from 2026-10-05 to 2026-11-04.
 
-| Ligne | Lignes | Somme | Remarque |
+| Line | Rows | Sum | Note |
 | --- | --- | --- | --- |
-| `mission` | 22 | 237 116 | 180 000 = 10 Chimera standard à 18 000 (ancienne échelle, 10-28 → 11-02) ; 48 000 = 6 × 8 000 sur « BOUM BOUM » (contrat supprimé depuis), le 11-02 ; 4 000 The House ; après l'équilibrage : 2 × 1 949 et 2 × 609 sur WORLD BOSS A FINIR 4, **un seul ennemi** |
-| `staff` | — | 116 200 | 112 000 en banque + 4 200 en liquide |
-| ouverture | — | 19 250 | 16 500 + 2 750 |
-| `salary` | 49 | 3 165 | |
+| `mission` | 22 | 237,116 | 180,000 = 10 standard Chimeras at 18,000 (old scale, 10-28 → 11-02); 48,000 = 6 × 8,000 on "BOUM BOUM" (contract deleted since), on 11-02; 4,000 The House; after balancing: 2 × 1,949 and 2 × 609 on WORLD BOSS A FINIR 4, **a single enemy** |
+| `staff` | — | 116,200 | 112,000 in the bank + 4,200 in cash |
+| account opening | — | 19,250 | 16,500 + 2,750 |
+| `salary` | 49 | 3,165 | |
 | `activity_pve` | 6 | 308 | |
 | `shop_sell` | — | 514 | |
-| `vehicle_purchase` | — | −63 000 | Colby, Hozuki, Merrimac |
-| `shop_buy`, `hospital`, `rental`, `fuel` | — | −2 156, −600, −580, −183 | |
+| `vehicle_purchase` | — | −63,000 | Colby, Hozuki, Merrimac |
+| `shop_buy`, `hospital`, `rental`, `fuel` | — | −2,156, −600, −580, −183 | |
 
-- **77 % de l'argent des missions date de l'ancienne échelle** : l'équilibrage n'est pas
-  rétroactif (§13). Les **dons du staff (116 200) pèsent 38 % de la masse**, plus que toutes
-  les missions payées depuis l'équilibrage.
-- Sources − dépenses du registre = 310 034 €$ pour 307 418 en circulation : 2 616 €$
-  (0,9 %) sont sortis **hors registre** (inférence : le liquide du casino, qui n'y passe pas,
-  §15.4 point 7 ; non vérifié).
-- Aucune ligne `worldboss` ; `lightrp_roulette_claims` est vide : aucun boss mondial ni gain
-  de table n'a encore été payé en prod. Tables posées : un blackjack, des dames, des échecs,
-  un puissance 4. Réputation de mission : 7 personnages, maximum 938, moyenne 357. Logement :
-  les 7 studios de départ gratuits.
+- **77% of mission money dates from the old scale**: balancing is not
+  retroactive (§13). **Staff grants (116,200) make up 38% of the money supply**, more than all
+  the missions paid since balancing.
+- Ledger sources − spending = 310,034 €$ for 307,418 in circulation: 2,616 €$
+  (0.9%) left **outside the ledger** (inference: casino cash, which does not go through it,
+  §15.4 point 7; not verified).
+- No `worldboss` line; `lightrp_roulette_claims` is empty: no world boss or table
+  winnings have been paid in prod yet. Tables placed: a blackjack, a checkers board, a chess board,
+  a Connect 4. Mission reputation: 7 characters, maximum 938, average 357. Housing:
+  the 7 free starting studios.
 
-### 15.3 Les contrats de l'éditeur en prod
+### 15.3 Editor contracts in prod
 
-19 définitions en base (`lightrp_mission_defs`), ajoutées en jeu par l'équipe de Nightwolf :
-15 au tableau, 1 gig, 3 boss mondiaux. Partout : horloge 15 / 15 / 20 min, équipage
-minimum 1 / 1 / 2, multiplicateurs d'ennemis 1 / 1,5 / 2. « Ennemis » = ceux qu'il faut
-battre à la difficulté (départ, points de passage obligatoires, chaque vague). Par tête, à
-l'équipage minimum, Standard / Hard / Critical :
+19 definitions in the database (`lightrp_mission_defs`), added in game by Nightwolf's team:
+15 on the board, 1 gig, 3 world bosses. Everywhere: clock 15 / 15 / 20 min, minimum
+crew 1 / 1 / 2, enemy multipliers 1 / 1.5 / 2. "Enemies" = the ones you have to
+beat at that difficulty (start, mandatory waypoints, every wave). Per head, at the
+minimum crew, Standard / Hard / Critical:
 
-| Contrat | Ennemis | Enregistré | Payé jusqu'ici | Payé avec cette branche | Après `/lightrp.missions.repay` |
+| Contract | Enemies | Saved | Paid so far | Paid with this branch | After `/lightrp.missions.repay` |
 | --- | --- | --- | --- | --- | --- |
-| The House | 30 / 48 / 60 | 2 000 / 4 000 / 6 000 | 2 000 / 3 750 / 5 000 | 2 000 / 3 300 / 5 000 | 2 000 / 3 000 / 4 400 |
-| WAREHOUSE | 18 / 29 / 36 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
-| SHADY CORNER (survie) | 30 / 45 / 60 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
-| VALENTINOS DEAL | 12 / 18 / 24 | 5 000 / 10 000 / 15 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
-| FAVELA (survie) | 45 / 69 / 90 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
-| RUN MOTHERFUCKER RUN | 15 / 25 / 30 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
-| SNIPA | 28 / 42 / 56 | 8 000 / 15 000 / 30 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 400 / 3 000 / 4 400 |
-| THE PIER OF DEATH (survie) | 54 / 81 / 108 | 10 000 / 30 000 / 60 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 600 / 3 300 / 5 000 |
-| CORPO COLLABS | 17 / 29 / 34 | 10 000 / 25 000 / 50 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 600 / 3 300 / 5 000 |
-| VAMOS (survie) | 72 / 108 / 144 | 15 000 / 30 000 / 80 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 600 / 3 300 / 5 000 |
-| TERMINAL B | 20 / 30 / 40 | 12 000 / 25 000 / 80 000 | 3 750 / 3 750 / 5 000 | 2 600 / 3 300 / 5 000 | 2 600 / 3 300 / 5 000 |
-| GIG 1 (gig) | 3 / 5 / 6 | 1 000 / 1 500 / 2 000 | 1 000 / 1 500 / 2 000 | **250 / 417 / 500** | inchangé |
-| 6 7 TH STREET A FINIR | 3 / 5 / 6 | 2 400 / 3 000 / 4 400 | 2 400 / 3 000 / 4 400 | **600 / 833 / 1 100** | inchangé |
-| WORLD BOSS A FINIR 1, 3, 5 (au tableau) | 3 / 5 / 6 | 2 400 / 3 000 / 4 400 | 2 400 / 3 000 / 4 400 | **600 / 833 / 1 100** | inchangé |
-| WORLD BOSS TEST, A FINIR 4, A FINIR 2 | boss mondiaux, cagnottes 10 000 / 10 000 / 30 000 | | | §15.5 | WORLD BOSS TEST réécrit, sans effet (pas de tableau) |
+| The House | 30 / 48 / 60 | 2,000 / 4,000 / 6,000 | 2,000 / 3,750 / 5,000 | 2,000 / 3,300 / 5,000 | 2,000 / 3,000 / 4,400 |
+| WAREHOUSE | 18 / 29 / 36 | 8,000 / 15,000 / 30,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,400 / 3,000 / 4,400 |
+| SHADY CORNER (survival) | 30 / 45 / 60 | 8,000 / 15,000 / 30,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,400 / 3,000 / 4,400 |
+| VALENTINOS DEAL | 12 / 18 / 24 | 5,000 / 10,000 / 15,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,400 / 3,000 / 4,400 |
+| FAVELA (survival) | 45 / 69 / 90 | 8,000 / 15,000 / 30,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,400 / 3,000 / 4,400 |
+| RUN MOTHERFUCKER RUN | 15 / 25 / 30 | 8,000 / 15,000 / 30,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,400 / 3,000 / 4,400 |
+| SNIPA | 28 / 42 / 56 | 8,000 / 15,000 / 30,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,400 / 3,000 / 4,400 |
+| THE PIER OF DEATH (survival) | 54 / 81 / 108 | 10,000 / 30,000 / 60,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,600 / 3,300 / 5,000 |
+| CORPO COLLABS | 17 / 29 / 34 | 10,000 / 25,000 / 50,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,600 / 3,300 / 5,000 |
+| VAMOS (survival) | 72 / 108 / 144 | 15,000 / 30,000 / 80,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,600 / 3,300 / 5,000 |
+| TERMINAL B | 20 / 30 / 40 | 12,000 / 25,000 / 80,000 | 3,750 / 3,750 / 5,000 | 2,600 / 3,300 / 5,000 | 2,600 / 3,300 / 5,000 |
+| GIG 1 (gig) | 3 / 5 / 6 | 1,000 / 1,500 / 2,000 | 1,000 / 1,500 / 2,000 | **250 / 417 / 500** | unchanged |
+| 6 7 TH STREET A FINIR | 3 / 5 / 6 | 2,400 / 3,000 / 4,400 | 2,400 / 3,000 / 4,400 | **600 / 833 / 1,100** | unchanged |
+| WORLD BOSS A FINIR 1, 3, 5 (on the board) | 3 / 5 / 6 | 2,400 / 3,000 / 4,400 | 2,400 / 3,000 / 4,400 | **600 / 833 / 1,100** | unchanged |
+| WORLD BOSS TEST, A FINIR 4, A FINIR 2 | world bosses, pools 10,000 / 10,000 / 30,000 | | | §15.5 | WORLD BOSS TEST rewritten, no effect (no board) |
 
-Réputation par passage, Standard / Hard / Critical : 100 / 220 / 450 jusqu'ici partout ;
-avec cette branche, inchangée pour les contrats complets, **25 / 61 / 113** pour les
-contrats de 3 ennemis (GIG 1 compris).
+Reputation per run, Standard / Hard / Critical: 100 / 220 / 450 everywhere so far;
+with this branch, unchanged for full contracts, **25 / 61 / 113** for
+3-enemy contracts (GIG 1 included).
 
-### 15.4 Échelles cassées (avant cette branche)
+### 15.4 Broken scales (before this branch)
 
-1. **Le garde-fou était le seul plafond** : tout contrat enregistré à l'ancienne échelle
-   payait 250 × ses minutes, soit 3 750 / 3 750 / 5 000 = **2,59 / 2,05 / 1,69 × J** dans
-   les 6 paies pleines (cible §2 : 1,7 à 1,8 × J ; défauts de l'éditeur 1,66 / 1,64 / 1,49).
-   Plafond journalier d'un compte en Standard : 6 × 3 750 = 22 500 au lieu de 14 400.
-2. **Contournable** : le garde-fou suit l'horloge, que l'éditeur accepte jusqu'à 120 min ;
-   un contrat à 30 000 et 120 min payait 30 000 par tête.
-3. **Le tableau mentait** : il affichait le chiffre enregistré (jusqu'à 80 000), pas la paie.
-4. **Les petits contrats payaient plein** : un contrat de 3 ennemis bouclé en ≈ 9 min
-   (3 de combat, 6 d'approche) rapportait 2 400, ≈ **16 000 €$/h (4,6 × J)** dans les 6 paies
-   pleines, et sa réputation entière **sans plafond** : 100 / 220 / 450 par passage, ≈ 670 /
-   1 470 / 3 000 par heure contre 180 / 280 / 375 visés (§7) ; Legend (10 000) en 3 à 7 h de
-   farm au lieu de ≈ 48 h. Cinq contrats de ce genre sont au tableau (placeholders « A
-   FINIR » et GIG 1) ; le 11-03, deux joueurs ont touché 1 949 chacun pour **un** ennemi.
-5. **Boss mondiaux** : la cagnotte de l'éditeur (défaut 30 000) est partagée entre ceux qui
-   frappent, sans plafond par tête ni par jour. Il faut 3 joueurs en ligne ; à 3
-   combattants, **10 000 chacun** par boss, seul 30 000. Un boss toutes les ≈ 80 min (20
-   min d'attente au démarrage, puis 45 à 90 min après la fin du précédent) : jusqu'à
-   7 500 €$/h (2,1 × J) en plus, hors recharge et hors plafond journalier des missions.
-6. **Roulette sans limite** : 1 à 1 000 000 par pari, autant de paris que voulu par tour ;
-   100 000 sur un numéro plein rendent 3 600 000 (≈ 1 000 h de J). La roue de la fortune
-   (1 000 par pari, 5 000 par tour) et les machines à sous (1 000 par tirage) sont bornées.
-7. **Le casino n'est pas au registre** : mises et gains passent par le liquide de
-   l'inventaire et `lightrp_roulette_claims`, jamais par `lightrp_transactions`. En
-   espérance c'est un puits (avantage de la maison : roulette 2,7 %, machines à sous 5,6 %
-   (RTP 1 632 / 1 728), roue 11 à 24 % selon la case, blackjack ≈ 1 %), mais il est
-   invisible dans les comptes.
-8. Inchangés et sains : Dogtown (décisions du propriétaire : mise 1 000, perte 10 %, bonus
-   serveur 25 %, prime 250 par kill jusqu'à 1 500, bonus + primes ≤ 3 000 par jour et par
-   compte), quotidiens (250 / 400 / 250 / 300, hebdomadaire 3 000, budget 1 200 par jour),
-   bonus d'équipe des métiers (15 %, 2 000 par jour), Big Contract (20 / 35 %), gigs ×1,0,
-   Chimera 3 000 / 4 500 / 6 000 et Sector 04 3 500 / 5 000 / 9 000.
+1. **The safety cap was the only cap**: every contract saved at the old scale
+   paid 250 × its minutes, i.e. 3,750 / 3,750 / 5,000 = **2.59 / 2.05 / 1.69 × J** within
+   the 6 full payouts (target in §2: 1.7 to 1.8 × J; editor defaults 1.66 / 1.64 / 1.49).
+   Daily cap of an account on Standard: 6 × 3,750 = 22,500 instead of 14,400.
+2. **It could be bypassed**: the safety cap follows the clock, which the editor accepts up to 120 min;
+   a contract at 30,000 and 120 min paid 30,000 per head.
+3. **The board lied**: it showed the saved figure (up to 80,000), not the pay.
+4. **Small contracts paid in full**: a 3-enemy contract done in ≈ 9 min
+   (3 of combat, 6 of approach) brought in 2,400, ≈ **16,000 €$/h (4.6 × J)** within the 6 full
+   payouts, and its full reputation **with no cap**: 100 / 220 / 450 per run, ≈ 670 /
+   1,470 / 3,000 per hour against the 180 / 280 / 375 targeted (§7); Legend (10,000) in 3 to 7 h of
+   farming instead of ≈ 48 h. Five contracts of this kind are on the board ("A
+   FINIR" placeholders and GIG 1); on 11-03, two players got 1,949 each for **one** enemy.
+5. **World bosses**: the editor's pool (default 30,000) is split among those who
+   hit the boss, with no cap per head or per day. It takes 3 players online; with 3
+   fighters, **10,000 each** per boss, 30,000 solo. One boss every ≈ 80 min (20
+   min of waiting at startup, then 45 to 90 min after the previous one ends): up to
+   7,500 €$/h (2.1 × J) on top, outside the cooldown and outside the missions' daily cap.
+6. **Roulette with no limit**: 1 to 1,000,000 per bet, as many bets as you like per round;
+   100,000 on a single number returns 3,600,000 (≈ 1,000 h of J). The fortune wheel
+   (1,000 per bet, 5,000 per round) and the slot machines (1,000 per pull) are capped.
+7. **The casino is not in the ledger**: stakes and winnings go through inventory
+   cash and `lightrp_roulette_claims`, never through `lightrp_transactions`. On
+   expectation it is a sink (house edge: roulette 2.7%, slot machines 5.6%
+   (RTP 1,632 / 1,728), wheel 11 to 24% depending on the segment, blackjack ≈ 1%), but it is
+   invisible in the accounts.
+8. Unchanged and healthy: Dogtown (owner decisions: stake 1,000, loss 10%, server bonus
+   25%, bounty 250 per kill up to 1,500, bonus + bounties ≤ 3,000 per day and per
+   account), dailies (250 / 400 / 250 / 300, weekly 3,000, budget 1,200 per day),
+   job crew bonus (15%, 2,000 per day), Big Contract (20 / 35%), gigs ×1,0,
+   Chimera 3,000 / 4,500 / 6,000 and Sector 04 3,500 / 5,000 / 9,000.
 
-### 15.5 Ce que change cette branche (chiffres en configuration, règles dans le code)
+### 15.5 What this branch changes (numbers in configuration, rules in the code)
 
-| Fichier | Clé | Avant | Après |
+| File | Key | Before | After |
 | --- | --- | --- | --- |
-| `server/config/economy.lua` | `missions.authored.maxShare` | — (seul 250 × minutes) | **2 600 / 3 300 / 5 000** par tête, quelle que soit l'horloge : 1,80 / 1,81 / 1,69 × J (*remplacé au §16.1 : 2 400 / 3 000 / 4 400*) |
-| | `missions.authored.fullPayEnemies` | — | **12 / 18 / 24** : paie et réputation × ennemis ÷ ce seuil (au plus 1) |
-| `server/modules/mission_pay.lua` | `cap`, `contentScale` | garde-fou seul | garde-fou, puis bande, puis taille ; un gig n'est pas réduit deux fois |
-| `server/modules/missions.lua` | tableau, réputation | `payout` enregistré, 100 / 220 / 450 | **la paie réelle** ; réputation × la même taille (missions de l'éditeur et gigs) |
-| `shared/mission_defs.lua` | `M.enemies`, `point.difficulties[i].enemies` | — | ennemis à battre par difficulté, comme le moteur les met en file |
-| `server/config/economy.lua` | `worldBosses` | cagnotte = récompense de l'éditeur | **3 000 × combattants payés ^ 0,7**, au plus la récompense ; une part ≤ **250 × minutes** de l'événement |
-| `server/config/world_bosses.lua` | `announce.body` | « a share of {reward} » | « a share of **up to** {reward} » : la cagnotte maximale avec tous les joueurs en ligne |
-| `shared/tabletop_extra_rules.lua` | `R.MAX_BET`, `R.MAX_ROUND` | 1 000 000 par pari, aucune limite par tour | **1 000** par pari, **5 000** par personnage et par tour (comme la roue) (*divisés par 10 au §16.4*) |
-| `server/modules/mission_repay.lua` | règle de `/lightrp.missions.repay` | plafond = garde-fou | plafond = min(garde-fou, bande) ; au-dessus du garde-fou : ancienne échelle, jamais sous le nouveau défaut ; entre la bande et le garde-fou : la bande |
+| `server/config/economy.lua` | `missions.authored.maxShare` | — (only 250 × minutes) | **2,600 / 3,300 / 5,000** per head, whatever the clock: 1.80 / 1.81 / 1.69 × J (*replaced in §16.1: 2,400 / 3,000 / 4,400*) |
+| | `missions.authored.fullPayEnemies` | — | **12 / 18 / 24**: pay and reputation × enemies ÷ this threshold (at most 1) |
+| `server/modules/mission_pay.lua` | `cap`, `contentScale` | safety cap only | safety cap, then band, then size; a gig is not reduced twice |
+| `server/modules/missions.lua` | board, reputation | saved `payout`, 100 / 220 / 450 | **the real pay**; reputation × the same size (editor missions and gigs) |
+| `shared/mission_defs.lua` | `M.enemies`, `point.difficulties[i].enemies` | — | enemies to beat per difficulty, as the engine queues them |
+| `server/config/economy.lua` | `worldBosses` | pool = editor reward | **3,000 × paid fighters ^ 0.7**, at most the reward; a share ≤ **250 × minutes** of the event |
+| `server/config/world_bosses.lua` | `announce.body` | "a share of {reward}" | "a share of **up to** {reward}": the maximum pool with every player online |
+| `shared/tabletop_extra_rules.lua` | `R.MAX_BET`, `R.MAX_ROUND` | 1,000,000 per bet, no limit per round | **1,000** per bet, **5,000** per character and per round (like the wheel) (*divided by 10 in §16.4*) |
+| `server/modules/mission_repay.lua` | rule of `/lightrp.missions.repay` | cap = safety cap | cap = min(safety cap, band); above the safety cap: old scale, never below the new default; between the band and the safety cap: the band |
 
-Pourquoi ces nombres :
+Why these numbers:
 
-- **Bande** : le haut de la cible du propriétaire (1,8 × J, §2) à l'horloge par défaut de
-  l'éditeur ; 2 600 en Standard = 1,80 × J, 3 300 en Hard = 1,81 × J (220 €$/min, le chiffre
-  du §7.4) ; en Critical 1,8 × J dépasserait le garde-fou de 20 min, la bande vaut donc le
-  garde-fou (5 000, 1,69 × J). Chimera et Sector 04 n'ont pas d'`enemies` : non concernés.
-- **Taille** : 12 / 18 / 24, c'est 12 ennemis multipliés par les multiplicateurs par défaut
-  (1 / 1,5 / 2), soit un point d'apparition au maximum de l'éditeur ou six groupes de deux.
-  Le plus petit contrat complet de la prod (VALENTINOS DEAL : 12 / 18 / 24) touche la paie
-  entière ; les placeholders de 1 à 3 ennemis en touchent 8 à 25 %. Par ennemi, un petit
-  contrat rapporte désormais ce que rapporte un grand, et l'approche le rend moins rentable
-  à l'heure : le contrat de 3 ennemis du point 4 tombe à ≈ 4 000 €$/h (1,1 × J) et à
-  170 / 410 / 750 réputation par heure.
-- **Boss mondiaux** : même forme que le pot des missions (exposant 0,7). Par tête, avec la
-  récompense de 30 000 de l'éditeur :
+- **Band**: the top of the owner's target (1.8 × J, §2) at the editor's default
+  clock; 2,600 on Standard = 1.80 × J, 3,300 on Hard = 1.81 × J (220 €$/min, the figure
+  from §7.4); on Critical, 1.8 × J would exceed the safety cap for 20 min, so the band equals the
+  safety cap (5,000, 1.69 × J). Chimera and Sector 04 have no `enemies`: not affected.
+- **Size**: 12 / 18 / 24 is 12 enemies multiplied by the default multipliers
+  (1 / 1.5 / 2), i.e. one spawn point at the editor's maximum or six groups of two.
+  The smallest full contract in prod (VALENTINOS DEAL: 12 / 18 / 24) gets the
+  full pay; the 1- to 3-enemy placeholders get 8 to 25%. Per enemy, a small
+  contract now earns what a big one earns, and the approach makes it less profitable
+  per hour: the 3-enemy contract from point 4 drops to ≈ 4,000 €$/h (1.1 × J) and to
+  170 / 410 / 750 reputation per hour.
+- **World bosses**: same shape as the mission pot (exponent 0.7). Per head, with the
+  editor's 30,000 reward:
 
-  | Combattants payés | 1 | 2 | 3 | 5 | 10 | 20 | 30 |
+  | Paid fighters | 1 | 2 | 3 | 5 | 10 | 20 | 30 |
   | --- | --- | --- | --- | --- | --- | --- | --- |
-  | Avant, par tête | 30 000 | 15 000 | 10 000 | 6 000 | 3 000 | 1 500 | 1 000 |
-  | Cagnotte après | 3 000 | 4 874 | 6 473 | 9 256 | 15 036 | 24 425 | 30 000 |
-  | Après, par tête (moyenne) | 3 000 | 2 437 | 2 157 | 1 851 | 1 503 | 1 221 | 1 000 |
+  | Before, per head | 30,000 | 15,000 | 10,000 | 6,000 | 3,000 | 1,500 | 1,000 |
+  | Pool after | 3,000 | 4,874 | 6,473 | 9,256 | 15,036 | 24,425 | 30,000 |
+  | After, per head (average) | 3,000 | 2,437 | 2,157 | 1,851 | 1,503 | 1,221 | 1,000 |
 
-  Une part ne dépasse jamais 250 × les minutes du boss (5 000 pour 20 min) ; ce qui
-  dépasserait n'est pas versé. À 3 combattants et ≈ 0,75 boss par heure, ≈ 1 600 €$/h
-  (0,46 × J) au lieu de 7 500. L'annonce, la notice de zone et le HUD (`reward`, et
-  `rewardMax` pour la récompense de l'éditeur) donnent la cagnotte réelle.
-- **Roulette** : retour maximal par tour 36 000 (1 000 sur un numéro plein, mise comprise),
-  au niveau de la roue (41 000) ; refus avant tout débit. La barre de table du client borne le jeton et le
-  bouton à ces limites.
+  A share never exceeds 250 × the boss's minutes (5,000 for 20 min); anything
+  above that is not paid. With 3 fighters and ≈ 0.75 bosses per hour, ≈ 1,600 €$/h
+  (0.46 × J) instead of 7,500. The announcement, the zone notice and the HUD (`reward`, and
+  `rewardMax` for the editor's reward) give the real pool.
+- **Roulette**: maximum return per round 36,000 (1,000 on a single number, stake included),
+  on par with the wheel (41,000); refused before any debit. The client's table bar caps the chip and the
+  button at these limits.
 
-### 15.6 À déployer en prod (Nightwolf)
+### 15.6 To deploy in prod (Nightwolf)
 
-*Complété par le §16.8 (décisions du 2026-11-04), qui change aussi les chiffres à vérifier
-ci-dessous : bande 2 400 / 3 000 / 4 400, roulette 100 / 500.*
+*Completed by §16.8 (decisions of 2026-11-04), which also changes the figures to check
+below: band 2,400 / 3,000 / 4,400, roulette 100 / 500.*
 
-Copier dans `/opt/op77-lightrp/resources/gamemodes/op77_lightrp/` :
+Copy into `/opt/op77-lightrp/resources/gamemodes/op77_lightrp/`:
 
-- de cette branche : `server/config/economy.lua`, `server/config/world_bosses.lua`,
+- from this branch: `server/config/economy.lua`, `server/config/world_bosses.lua`,
   `server/modules/mission_pay.lua`, `server/modules/mission_repay.lua`,
   `server/modules/missions.lua`, `server/modules/world_bosses.lua`,
   `server/modules/tabletop_extra.lua`, `shared/mission_defs.lua`,
-  `shared/tabletop_extra_rules.lua`, `client/core/table_bar.lua` (les tests et la doc ne
-  servent pas à l'exécution) ;
-- de main, s'ils sont voulus : les 7 fichiers en retard du §15.1 et
-  `resources/standalone/op77_playermarks` (à ajouter alors à `resources.load`).
+  `shared/tabletop_extra_rules.lua`, `client/core/table_bar.lua` (the tests and docs are not
+  needed at runtime);
+- from main, if wanted: the 7 lagging files from §15.1 and
+  `resources/standalone/op77_playermarks` (then add it to `resources.load`).
 
-**Ne pas copier** `server.jsonc` ni `acl.jsonc` du dépôt. Redémarrer Light RP, puis en jeu
-(staff) `/lightrp.missions.repay` (aperçu : 12 contrats) et `/lightrp.missions.repay apply`.
-La paie est juste dès le redémarrage ; la commande ne fait que mettre l'éditeur d'accord.
+**Do not copy** the repo's `server.jsonc` or `acl.jsonc`. Restart Light RP, then in game
+(staff) `/lightrp.missions.repay` (preview: 12 contracts) and `/lightrp.missions.repay apply`.
+The pay is correct from the restart; the command only brings the editor into line.
 
-À vérifier en jeu : le tableau de WAREHOUSE affiche 2 600 / 3 300 / 5 000 avant la commande
-et 2 400 / 3 000 / 4 400 après ; 6 7 TH STREET en Standard affiche et paie 600, +25
-réputation ; un boss mondial à 3 joueurs annonce « up to » la cagnotte des joueurs en ligne
-et paie ≈ 2 160 chacun ; une mise de roulette de 1 001 est refusée, une sixième mise de 1 000
-dans le même tour aussi.
+To check in game: the WAREHOUSE board shows 2,600 / 3,300 / 5,000 before the command
+and 2,400 / 3,000 / 4,400 after it; 6 7 TH STREET on Standard shows and pays 600, +25
+reputation; a world boss with 3 players announces "up to" the pool for the players online
+and pays ≈ 2,160 each; a roulette stake of 1,001 is refused, and so is a sixth stake of 1,000
+in the same round.
 
-### 15.7 Questions au propriétaire
+### 15.7 Questions for the owner
 
-*Réponses du 2026-11-04 au §16 : 1 → les défauts de l'éditeur (§16.1) ; 2 → oui, 25 %
-pendant 60 min par point (§16.2) ; 3 → 3 boss payés par jour, réputation comprise
-(§16.3) ; 4 → mises ÷ 10 (§16.4) ; 5 → une ligne nette `casino` par manche (§16.5) ;
-6 → motif obligatoire, 10 000 par don (§16.6). 7 et 8 restent ouverts.*
+*Answers of 2026-11-04 in §16: 1 → the editor defaults (§16.1); 2 → yes, 25%
+for 60 min per point (§16.2); 3 → 3 paid bosses per day, reputation included
+(§16.3); 4 → stakes ÷ 10 (§16.4); 5 → one net `casino` line per round (§16.5);
+6 → reason required, 10,000 per grant (§16.6). 7 and 8 remain open.*
 
-1. **Bande des contrats** : 2 600 / 3 300 / 5 000 (le haut de la cible) — ou les défauts de
-   l'éditeur (2 400 / 3 000 / 4 400), plus prudents ?
-2. **Réputation des missions** : elle reste « sans plafond » (`docs/pve-progression.md`) ;
-   la taille ne règle que les petits contrats. Ajouter une recharge par point comme pour
-   l'argent (60 min) ?
-3. **Boss mondiaux** : un plafond par jour (aucun aujourd'hui) ? Et la réputation fixe de
-   150 par boss ?
-4. **Machines à sous** : jusqu'à 1 000 par tirage, triple sept ×200 = **200 000** (≈ 57 h de
-   J) une fois sur 1 728. À la mise maximale, jusqu'à ≈ 900 tirages par heure (3 s le
-   tirage) : ≈ 40 % de chances de toucher le jackpot dans l'heure pour 50 000 de perte
-   moyenne. À la roulette (5 000 par tour) ou au blackjack (5 000 par main), une heure à la
-   mise maximale fait varier un solde d'environ ±50 000 (≈ 14 h de J). Proposition : diviser les mises maximales par 10 (100 par pari ou tirage, 500
-   par tour, blackjack 500), si le casino doit rester du RP plutôt qu'un moyen de gagner une
-   voiture en une heure. Non modifié ici.
-5. **Casino au registre** : écrire mises et gains dans `lightrp_transactions`
-   (`casino_stake`, `casino_win`) pour suivre ce puits ?
-6. **Dons du staff** : 116 200 €$, 38 % de la masse monétaire. Les borner ou les tracer par
-   motif ?
-7. **Fichiers de prod** : versionner un `server.prod.jsonc` et un `acl.prod.jsonc` sans
-   secrets pour qu'aucun déploiement ne les écrase ; ouvrir `command.lightrp.tables` au staff
-   de prod ?
-8. **Dogtown et quotidiens** : décisions du propriétaire, non touchées ici (§15.4 point 8).
+1. **Contract band**: 2,600 / 3,300 / 5,000 (the top of the target) — or the editor
+   defaults (2,400 / 3,000 / 4,400), which are more cautious?
+2. **Mission reputation**: it stays "uncapped" (`docs/pve-progression.md`);
+   size only fixes small contracts. Add a per-point cooldown as for
+   money (60 min)?
+3. **World bosses**: a daily cap (none today)? And the fixed reputation of
+   150 per boss?
+4. **Slot machines**: up to 1,000 per pull, triple seven ×200 = **200,000** (≈ 57 h of
+   J) once in 1,728. At the maximum stake, up to ≈ 900 pulls per hour (3 s per
+   pull): ≈ 40% chance of hitting the jackpot within the hour, for an average loss
+   of 50,000. At roulette (5,000 per round) or blackjack (5,000 per hand), an hour at the
+   maximum stake swings a balance by about ±50,000 (≈ 14 h of J). Proposal: divide the maximum stakes by 10 (100 per bet or pull, 500
+   per round, blackjack 500), if the casino should stay RP rather than a way to win a
+   car in an hour. Not changed here.
+5. **Casino in the ledger**: write stakes and winnings to `lightrp_transactions`
+   (`casino_stake`, `casino_win`) to track this sink?
+6. **Staff grants**: 116,200 €$, 38% of the money supply. Cap them, or track them by
+   reason?
+7. **Prod files**: version a `server.prod.jsonc` and an `acl.prod.jsonc` without
+   secrets so that no deploy overwrites them; open `command.lightrp.tables` to prod
+   staff?
+8. **Dogtown and dailies**: owner decisions, not touched here (§15.4 point 8).
 
-Risques et limites : la taille compte des têtes, pas leur santé (un contrat de 3 ennemis à
-santé ×5 reste payé 25 %) ; un contrat dont tous les ennemis sont derrière des points de
-passage facultatifs compte 0 et ne paie rien ; rien n'a été testé en jeu (tests unitaires
-Lua seulement).
+Risks and limits: size counts heads, not their health (a 3-enemy contract with
+health ×5 is still paid 25%); a contract whose enemies are all behind optional
+waypoints counts 0 and pays nothing; nothing has been tested in game (Lua unit
+tests only).
 
-## 16. Décisions du propriétaire 2026-11-04 (branche `lightrp/economy-decisions`)
+## 16. Owner decisions 2026-11-04 (`lightrp/economy-decisions` branch)
 
-Réponses aux questions du §15.7 (1 à 6). Chaque nombre est en configuration ; les règles
-sont dans le code. Rien n'a été testé en jeu (tests Lua et Python seulement, §16.9).
+Answers to the questions in §15.7 (1 to 6). Every number is in configuration; the rules
+are in the code. Nothing has been tested in game (Lua and Python tests only, §16.9).
 
-### 16.1 Bande des contrats de l'éditeur = défauts de l'éditeur
+### 16.1 Editor contract band = editor defaults
 
-| Clé (`server/config/economy.lua`) | Avant (§15.5) | Après |
+| Key (`server/config/economy.lua`) | Before (§15.5) | After |
 | --- | --- | --- |
-| `missions.authored.maxShare` | 2 600 / 3 300 / 5 000 | **2 400 / 3 000 / 4 400** (= `shared/mission_defs.lua`), 1,66 / 1,64 / 1,49 × J |
-| `missions.authored.fullPayEnemies` | 12 / 18 / 24 | inchangé |
+| `missions.authored.maxShare` | 2,600 / 3,300 / 5,000 | **2,400 / 3,000 / 4,400** (= `shared/mission_defs.lua`), 1.66 / 1.64 / 1.49 × J |
+| `missions.authored.fullPayEnemies` | 12 / 18 / 24 | unchanged |
 
-Le tableau, la paie et `/lightrp.missions.repay` suivent la bande sans autre changement
-(`mission_repay.lua` plafonne à min(garde-fou, bande)). Le §15.3 devient, pour les onze
-contrats complets : **2 400 / 3 000 / 4 400 payés dès le redémarrage, et après la
-commande** (THE PIER OF DEATH, CORPO COLLABS, VAMOS et TERMINAL B compris, qui restaient à
-2 600 / 3 300 / 5 000) ; The House 2 000 / 3 000 / 4 400 ; les petits contrats ne
-changent pas (600 / 833 / 1 100, GIG 1 250 / 417 / 500 : ils sont sous la bande). Plafond
-journalier d'un compte en Standard : 6 × 2 400 = **14 400** (la cible du §15.4 point 1).
+The board, the pay and `/lightrp.missions.repay` follow the band with no other change
+(`mission_repay.lua` caps at min(safety cap, band)). For the eleven full contracts,
+§15.3 becomes: **2,400 / 3,000 / 4,400 paid from the restart, and after the
+command** (THE PIER OF DEATH, CORPO COLLABS, VAMOS and TERMINAL B included, which stayed at
+2,600 / 3,300 / 5,000); The House 2,000 / 3,000 / 4,400; small contracts do not
+change (600 / 833 / 1,100, GIG 1,250 / 417 / 500: they are below the band). Daily
+cap of an account on Standard: 6 × 2,400 = **14,400** (the target from §15.4 point 1).
 
-### 16.2 Réputation des missions : même règle de répétition que l'argent
+### 16.2 Mission reputation: same repeat rule as money
 
-| Clé (`missions`) | Valeur | Effet |
+| Key (`missions`) | Value | Effect |
 | --- | --- | --- |
-| `reputationCooldownMinutes` | **60** | fenêtre par personnage et par point de mission |
-| `reputationRepeatShare` | **0,25** | part de la réputation pendant la fenêtre (1 ou 0 min : règle coupée) |
+| `reputationCooldownMinutes` | **60** | window per character and per mission point |
+| `reputationRepeatShare` | **0.25** | share of reputation during the window (1 or 0 min: rule off) |
 
-Après une réussite qui lui a donné la réputation **pleine**, le même point (tableau, gig,
-Sector 04, raid Chimera) ne donne à ce personnage que 25 % de sa réputation pendant 60 min :
-100 / 220 / 450 → **25 / 55 / 113** (petits contrats 25 / 61 / 113 → 6 / 15 / 28). Une
-réputation réduite ne prolonge pas la fenêtre ; elle a sa propre fenêtre (table
-`lightrp_mission_rep_cooldowns`, créée au démarrage), lancée par chaque réputation pleine,
-même au-delà du plafond journalier de l'argent, lequel ne touche pas la réputation. Le
-joueur le lit à deux endroits : l'annonce au lancement (« Reputation: 25% of it, this job
-gave you its full reputation less than 60 min ago (full again in 42 min). ») et la notice
-de fin (« +55 reputation (25% of 220: this job gave you its full reputation less than
-60 min ago, full reputation again in 42 min). »). Sur un seul point, une heure de farm en
-Standard (≈ 3 passages) rapporte 100 + 25 + 25 = 150 au lieu de 300 ; changer de point
-garde la réputation pleine, comme pour l'argent. Fichiers : `server/modules/mission_pay.lua`
+After a completion that gave **full** reputation, the same point (board, gig,
+Sector 04, Chimera raid) gives that character only 25% of its reputation for 60 min:
+100 / 220 / 450 → **25 / 55 / 113** (small contracts 25 / 61 / 113 → 6 / 15 / 28). A
+reduced reputation grant does not extend the window; it has its own window (table
+`lightrp_mission_rep_cooldowns`, created at startup), started by each full reputation grant,
+even beyond the daily money cap, which does not affect reputation. The
+player sees it in two places: the announcement at launch ("Reputation: 25% of it, this job
+gave you its full reputation less than 60 min ago (full again in 42 min).") and the end
+notice ("+55 reputation (25% of 220: this job gave you its full reputation less than
+60 min ago, full reputation again in 42 min)."). On a single point, an hour of farming on
+Standard (≈ 3 runs) brings 100 + 25 + 25 = 150 instead of 300; switching points
+keeps full reputation, as with money. Files: `server/modules/mission_pay.lua`
 (`Pay.reputation`, `reputationQuote`, `reputationStatus`), `server/modules/missions.lua`.
 
-### 16.3 Boss mondiaux : 3 paies par personnage et par jour UTC
+### 16.3 World bosses: 3 payouts per character and per UTC day
 
-`server/config/world_bosses.lua` → **`dailyPaid = 3`** (0 coupe le plafond). Un personnage
-payé pour 3 boss mondiaux depuis 00:00 UTC (le même jour que le reste de l'économie,
-`floor(unix / 86400)`) ne touche plus ni part ni les 150 de réputation fixe jusqu'au
-lendemain. Le combat reste ouvert : il marque des points, aide les autres, voit le HUD ;
-il ne compte plus parmi les combattants payés (la cagnotte suit les autres). Sa part
-continue de compter pour ce qui n'est pas de la paie (contrats quotidiens, titres,
-tirages d'iconiques : `results.eligible`) ; seuls l'argent et la réputation s'arrêtent.
-Il est prévenu en entrant dans la zone et à la fin (« Daily world boss pay reached: you
+`server/config/world_bosses.lua` → **`dailyPaid = 3`** (0 turns the cap off). A character
+paid for 3 world bosses since 00:00 UTC (the same day as the rest of the economy,
+`floor(unix / 86400)`) no longer gets a share or the 150 fixed reputation until the
+next day. The fight stays open to them: they score points, help others, see the HUD;
+they no longer count among the paid fighters (the pool follows the others). Their share
+still counts for anything that is not pay (daily contracts, titles,
+iconic rolls: `results.eligible`); only money and reputation stop.
+They are warned when entering the zone and at the end ("Daily world boss pay reached: you
 were paid for 3 world bosses today. Fight on if you like; no pay or reputation from world
-bosses until 00:00 UTC. »), et le récapitulatif de fin affiche le motif `daily_cap`. Un
-boss raté ou une part sous le minimum ne compte pas ; une paie refusée par la banque non
-plus (le joueur est prévenu). Compte tenu dans `lightrp_worldboss_daily` (créée au
-démarrage), relu après un redémarrage. Maximum par jour à 3 combattants : ≈ 3 × 2 157 =
-6 500 €$ et 450 réputation ; seul, 3 × 3 000. Limite connue : le HUD web n'a pas de texte
-pour ce cas ; pour un personnage au plafond, il affiche la ligne générique « no reward »
-(la notice donne la raison). Le bundle `web/` de main n'est pas reproductible depuis
-`ui/` (une reconstruction change `app.js` et `app.css` et efface `web/safezone`), il n'a
-donc pas été reconstruit ici.
+bosses until 00:00 UTC."), and the end recap shows the reason `daily_cap`. A
+failed boss or a share below the minimum does not count; neither does a payment refused by the bank
+(the player is warned). Counted in `lightrp_worldboss_daily` (created at
+startup), read back after a restart. Daily maximum with 3 fighters: ≈ 3 × 2,157 =
+6,500 €$ and 450 reputation; solo, 3 × 3,000. Known limit: the web HUD has no text
+for this case; for a character at the cap, it shows the generic "no reward" line
+(the notice gives the reason). The `web/` bundle on main cannot be reproduced from
+`ui/` (a rebuild changes `app.js` and `app.css` and deletes `web/safezone`), so it
+was not rebuilt here.
 
-### 16.4 Casino : mises maximales divisées par 10
+### 16.4 Casino: maximum stakes divided by 10
 
-| Jeu (fichier `shared/`) | Avant | Après |
+| Game (file in `shared/`) | Before | After |
 | --- | --- | --- |
-| Machines à sous (`casino_slots.lua`, `S.MAX_BET`) | 1 – 1 000 par tirage | **1 – 100** |
-| Roulette (`tabletop_extra_rules.lua`, `R.MAX_BET` / `R.MAX_ROUND`) | 1 – 1 000 par pari, 5 000 par personnage et par tour | **1 – 100**, **500** |
-| Roue de la fortune (`casino_fortune.lua`, `F.MAX_BET` / `F.MAX_ROUND`) | 1 – 1 000 par pari, 5 000 par tour | **1 – 100**, **500** |
-| Blackjack (`casino_blackjack.lua`, `B.MAX_BET`) | 5 – 5 000 par main | **5 – 500** (un double porte la main à 1 000) |
+| Slot machines (`casino_slots.lua`, `S.MAX_BET`) | 1 – 1,000 per pull | **1 – 100** |
+| Roulette (`tabletop_extra_rules.lua`, `R.MAX_BET` / `R.MAX_ROUND`) | 1 – 1,000 per bet, 5,000 per character and per round | **1 – 100**, **500** |
+| Fortune wheel (`casino_fortune.lua`, `F.MAX_BET` / `F.MAX_ROUND`) | 1 – 1,000 per bet, 5,000 per round | **1 – 100**, **500** |
+| Blackjack (`casino_blackjack.lua`, `B.MAX_BET`) | 5 – 5,000 per hand | **5 – 500** (a double takes the hand to 1,000) |
 
-Il n'y a pas d'autre table d'argent (billard, échecs, dames, puissance 4 : sans mise). Le
-serveur refuse au-delà avant tout débit ; la barre de table du client lit ces constantes
-(jetons 1, 5, 10, 25, 50, 100 ; blackjack 5 à 500) : rien à reconstruire côté web.
-Seules les textures cuites gardent les anciens chiffres : le tapis du blackjack porte
-« TABLE LIMITS 5 – 5,000 » et la vitre des machines « BET 1 - 1000 ». Les scripts de
-cuisson les lisent dans ces constantes (`tools/build-casino-blackjack-props.py`,
-`tools/build-casino-slots-props.py`) : une recuisson et un nouvel archive client les
-mettront à jour (hors de cette branche, qui ne touche aucun asset).
+There is no other money table (pool, chess, checkers, Connect 4: no stakes). The
+server refuses anything above the limit before any debit; the client's table bar reads these constants
+(chips 1, 5, 10, 25, 50, 100; blackjack 5 to 500): nothing to rebuild on the web side.
+Only the baked textures keep the old figures: the blackjack felt reads
+"TABLE LIMITS 5 – 5,000" and the slot machine glass "BET 1 - 1000". The baking
+scripts read them from these constants (`tools/build-casino-blackjack-props.py`,
+`tools/build-casino-slots-props.py`): a re-bake and a new client archive will
+update them (outside this branch, which touches no asset).
 
-**Jackpot des machines à sous** : il n'est pas fixe. Toute combinaison paie un multiple de
-la mise (`S.THREE.seven = 200`, mise comprise) : le triple sept rapporte 200 × la mise,
-donc **20 000** à 100 (il en valait 200 000 à 1 000). Rien d'autre à mettre à l'échelle.
-À la mise maximale, une heure de machine à sous (≈ 900 tirages) coûte ≈ 5 000 en
-espérance et touche le jackpot avec ≈ 40 % de chances ; à la roulette ou au blackjack,
-une heure à la mise maximale fait varier un solde d'environ ±5 000 (≈ 1,4 h de J) au lieu
-de ±50 000.
+**Slot machine jackpot**: it is not fixed. Every combination pays a multiple of
+the stake (`S.THREE.seven = 200`, stake included): triple seven returns 200 × the stake,
+so **20,000** at 100 (it was worth 200,000 at 1,000). Nothing else to scale.
+At the maximum stake, an hour of slots (≈ 900 pulls) costs ≈ 5,000 on
+expectation and hits the jackpot with a ≈ 40% chance; at roulette or blackjack,
+an hour at the maximum stake swings a balance by about ±5,000 (≈ 1.4 h of J) instead
+of ±50,000.
 
-### 16.5 Casino au registre : une ligne nette par personnage et par manche
+### 16.5 Casino in the ledger: one net line per character and per round
 
-Chaque manche réglée (tour de roulette, tirage, tour de roue, résultat de blackjack)
-écrit **une** ligne `lightrp_transactions` par personnage qui y a misé : `kind = "casino"`,
-portefeuille `cash`, montant = retours bruts − mises de la manche (doubles compris),
-contrepartie « Roulette table » (« Slots table », « Fortune Wheel table », « Blackjack
-table »), note « Roulette: staked €$ 30, returned €$ 360 ». Elle est écrite dans la même
-transaction SQL que les créances de la manche (`lightrp_roulette_claims`) : une manche qui
-échoue n'écrit rien. Les jetons eux-mêmes n'écrivent plus de ligne : la mise, le paiement
-de la créance et le remboursement passent par une étiquette `silent` du brouillon
-d'inventaire (`Money.inventoryReceipt`) ; une manche remboursée (table rangée ou remise à
-zéro) ne laisse donc aucune ligne. `balance_after` = la poche une fois les gains arrivés ;
-0 si le personnage est hors ligne au règlement (la poche est dans l'inventaire, hors de
-portée du SQL). L'historique en jeu (`/bank`, état `money`) reçoit la ligne dès le
-règlement. Aucun changement de schéma. Code : `server/modules/economy.lua`
-(`Money.casinoLine`, étiquette `silent`), `server/modules/inventory.lua`,
+Each settled round (roulette round, slot pull, wheel spin, blackjack result)
+writes **one** `lightrp_transactions` line per character who staked in it: `kind = "casino"`,
+wallet `cash`, amount = gross returns − stakes of the round (doubles included),
+counterparty "Roulette table" ("Slots table", "Fortune Wheel table", "Blackjack
+table"), note "Roulette: staked €$ 30, returned €$ 360". It is written in the same
+SQL transaction as the round's claims (`lightrp_roulette_claims`): a round that
+fails writes nothing. The chips themselves no longer write a line: the stake, the claim
+payment and the refund go through a `silent` tag on the inventory
+draft (`Money.inventoryReceipt`); so a refunded round (table packed away or
+reset) leaves no line. `balance_after` = the pocket once the winnings have arrived;
+0 if the character is offline at settlement (the pocket is in the inventory, out of
+SQL's reach). The in-game history (`/bank`, `money` state) gets the line as soon as the round
+settles. No schema change. Code: `server/modules/economy.lua`
+(`Money.casinoLine`, `silent` tag), `server/modules/inventory.lua`,
 `server/modules/tabletop_extra.lua` (`X.ledgerLines`, `X.commitRound`, `X.stake`,
 `X.claim`), `casino_slots.lua`, `casino_fortune.lua`, `casino_blackjack.lua`,
-`board_games.lua` (le règlement minuté rafraîchit l'historique).
+`board_games.lua` (the timed settlement refreshes the history).
 
-**Les 2 616 €$ hors registre (§15.2).** Le casino n'était pas absent du registre : toute
-variation de la poche d'un joueur écrivait déjà une ligne, mais anonyme — `kind =
-"inventory"`, note « Physical cash moved » —, une par jeton misé et une par paiement de
-créance. Le tableau du §15.2 ne somme que les lignes nommées (`mission`, `staff`,
-`salary`…) ; il manque donc les lignes `inventory`. Or la seule table de casino posée en
-prod était un blackjack et `lightrp_roulette_claims` est vide : aucune main n'a jamais été
-payée, chaque mise perdue est sortie de la poche par une ligne `inventory` négative.
-Les autres mouvements de liquide hors de la poche (dépôt dans un coffre ou un coffre de
-véhicule, liquide posé au sol) passent par le même chemin : l'argent existe encore mais
-plus dans la masse comptée. **Inférence** : les 2 616 €$ sont la somme des lignes
-`inventory` (mises de blackjack perdues, plus le liquide rangé ou posé) ; à vérifier par
-`SELECT SUM(amount) FROM lightrp_transactions WHERE kind = 'inventory'` (non exécuté :
-pas d'accès à la base pour cette branche). Depuis cette branche, le casino a ses lignes
-`casino` et les lignes `inventory` ne décrivent plus que ces rangements.
+**The 2,616 €$ outside the ledger (§15.2).** The casino was not missing from the ledger: every
+change to a player's pocket already wrote a line, but an anonymous one — `kind =
+"inventory"`, note "Physical cash moved" —, one per chip staked and one per claim
+payment. The table in §15.2 only sums the named lines (`mission`, `staff`,
+`salary`…), so it leaves out the `inventory` lines. And the only casino table placed in
+prod was a blackjack, and `lightrp_roulette_claims` is empty: no hand was ever
+paid, and every lost stake left the pocket through a negative `inventory` line.
+Other cash movements out of the pocket (a deposit in a stash or a vehicle
+trunk, cash dropped on the ground) take the same path: the money still exists, but
+no longer in the counted supply. **Inference**: the 2,616 €$ are the sum of the
+`inventory` lines (lost blackjack stakes, plus the cash stored or dropped); to be checked with
+`SELECT SUM(amount) FROM lightrp_transactions WHERE kind = 'inventory'` (not run:
+no database access for this branch). Since this branch, the casino has its own
+`casino` lines and the `inventory` lines only describe that storing and dropping.
 
-Transition : une créance écrite avant le déploiement et payée après passe sans ligne (sa
-mise avait sa ligne `inventory`) ; une mise posée avant le redémarrage sur une manche
-réglée après compte deux fois (ligne `inventory` et ligne `casino`). Une seule fois, et de
-l'ordre d'une mise.
+Transition: a claim written before the deployment and paid after it goes through with no line (its
+stake had its `inventory` line); a stake placed before the restart on a round
+settled after it counts twice (an `inventory` line and a `casino` line). This happens only once, and
+is on the order of one stake.
 
-### 16.6 Dons du staff : motif obligatoire, 10 000 par don
+### 16.6 Staff grants: reason required, 10,000 per grant
 
-`server/config/economy.lua` → `staffGrants` :
+`server/config/economy.lua` → `staffGrants`:
 
-| Clé | Valeur | Effet |
+| Key | Value | Effect |
 | --- | --- | --- |
-| `maxGrant` | **10 000** | plafond d'un don (0 : pas de plafond) |
-| `minReason` | **4** | caractères minimum du motif |
-| `unlimitedPermission` | **`lightrp.money.unlimited`** | permission ACL qui lève le plafond |
+| `maxGrant` | **10,000** | cap on one grant (0: no cap) |
+| `minReason` | **4** | minimum characters in the reason |
+| `unlimitedPermission` | **`lightrp.money.unlimited`** | ACL permission that lifts the cap |
 
-`/lightrp.givemoney <id|me> <cash|bank> <montant> <motif>` refuse un don sans motif (il
-répond l'usage) et, au-delà de 10 000, un donneur qui n'a pas `lightrp.money.unlimited`.
-La console du serveur n'est pas plafonnée. Le motif devient la note de la ligne `staff`
-du registre. Le *Crédit* du bureau staff (`admin.lua`) suit la même règle ; son motif
-d'audit (4 à 500 caractères) est coupé à 160 octets, sans couper un caractère UTF-8,
-pour la note — auparavant un motif de plus de 160 caractères faisait échouer l'insertion
-de la ligne (MariaDB en mode strict) alors que l'argent était déjà versé. Le débit
-(`takemoney`) n'est pas plafonné.
+`/lightrp.givemoney <id|me> <cash|bank> <amount> <reason>` refuses a grant with no reason (it
+replies with the usage) and, above 10,000, a giver who does not have `lightrp.money.unlimited`.
+The server console is not capped. The reason becomes the note of the `staff` line
+in the ledger. The staff desk's *Credit* (`admin.lua`) follows the same rule; its audit
+reason (4 to 500 characters) is cut to 160 bytes, without splitting a UTF-8 character,
+for the note — before, a reason longer than 160 characters made the line insert
+fail (MariaDB in strict mode) even though the money had already been paid. The debit
+(`takemoney`) is not capped.
 
-**Pourquoi pas `command.lightrp.money.unlimited`** : `PermissionMatches` (base) accorde
-une permission par `*`, par égalité ou par préfixe `xxx.*`, sans refus. Les rôles
-moderator et operator du dépôt détiennent `command.lightrp.*` : ils recevraient la levée
-du plafond d'office. `lightrp.money.unlimited` est hors de l'espace `command.` : seul `*`
-(le propriétaire) ou une ligne explicite l'accorde. **À ajouter par Nightwolf dans
-l'`acl.jsonc` de prod**, au rôle voulu, puis `acl.reload` ; les fichiers `acl.jsonc` et
-`server.jsonc` ne sont pas modifiés ici.
+**Why not `command.lightrp.money.unlimited`**: `PermissionMatches` (base) grants
+a permission through `*`, by exact match or by an `xxx.*` prefix, with no deny. The
+repo's moderator and operator roles hold `command.lightrp.*`: they would get the cap lift
+automatically. `lightrp.money.unlimited` is outside the `command.` namespace: only `*`
+(the owner) or an explicit line grants it. **Nightwolf must add it to the prod
+`acl.jsonc`**, on the intended role, then run `acl.reload`; the `acl.jsonc` and
+`server.jsonc` files are not changed here.
 
-### 16.7 Ce qui reste ouvert
+### 16.7 What remains open
 
-§15.7 points 7 (fichiers de prod versionnés, `command.lightrp.tables`) et 8 (Dogtown,
-quotidiens) : non traités. Le HUD des boss mondiaux pour un personnage au plafond (§16.3)
-attend une reconstruction du bundle web ; les limites imprimées sur le tapis du blackjack
-et la vitre des machines (§16.4), une recuisson des props.
+§15.7 points 7 (versioned prod files, `command.lightrp.tables`) and 8 (Dogtown,
+dailies): not addressed. The world boss HUD for a character at the cap (§16.3)
+awaits a rebuild of the web bundle; the limits printed on the blackjack felt
+and the slot machine glass (§16.4) await a re-bake of the props.
 
-### 16.8 À déployer en prod (Nightwolf)
+### 16.8 To deploy in prod (Nightwolf)
 
-Copier de cette branche dans `/opt/op77-lightrp/resources/gamemodes/op77_lightrp/` :
+Copy from this branch into `/opt/op77-lightrp/resources/gamemodes/op77_lightrp/`:
 
-- `server/config/economy.lua`, `server/config/world_bosses.lua` ;
+- `server/config/economy.lua`, `server/config/world_bosses.lua`;
 - `server/modules/admin.lua`, `server/modules/board_games.lua`,
   `server/modules/casino_blackjack.lua`, `server/modules/casino_fortune.lua`,
   `server/modules/casino_slots.lua`, `server/modules/economy.lua`,
   `server/modules/inventory.lua`, `server/modules/mission_pay.lua`,
   `server/modules/missions.lua`, `server/modules/recap.lua`,
-  `server/modules/tabletop_extra.lua`, `server/modules/world_bosses.lua` ;
+  `server/modules/tabletop_extra.lua`, `server/modules/world_bosses.lua`;
 - `shared/casino_blackjack.lua`, `shared/casino_fortune.lua`, `shared/casino_slots.lua`,
   `shared/tabletop_extra_rules.lua`.
 
-Si le §15.6 n'a pas encore été déployé, copier aussi ses fichiers (identiques à main) :
+If §15.6 has not been deployed yet, also copy its files (identical to main):
 `server/modules/mission_repay.lua`, `shared/mission_defs.lua`, `client/core/table_bar.lua`.
-Ne pas copier `server.jsonc` ni `acl.jsonc` ; ajouter `lightrp.money.unlimited` à l'ACL de
-prod pour qui doit pouvoir dépasser 10 000. Redémarrer Light RP (les tables
-`lightrp_mission_rep_cooldowns` et `lightrp_worldboss_daily` se créent seules), puis
-`/lightrp.missions.repay` (aperçu) et `/lightrp.missions.repay apply`.
+Do not copy `server.jsonc` or `acl.jsonc`; add `lightrp.money.unlimited` to the prod ACL
+for whoever must be able to go above 10,000. Restart Light RP (the tables
+`lightrp_mission_rep_cooldowns` and `lightrp_worldboss_daily` create themselves), then run
+`/lightrp.missions.repay` (preview) and `/lightrp.missions.repay apply`.
 
-À vérifier en jeu : WAREHOUSE affiche et paie 2 400 / 3 000 / 4 400 ; refaire le même
-contrat dans l'heure donne 25 % de la réputation avec le motif ; un quatrième boss mondial
-payé dans la journée est refusé avec la notice ; une mise de 101 est refusée à la
-roulette, à la roue et aux machines, 501 au blackjack ; après un tour de roulette, `/bank`
-montre une ligne `casino` nette et aucune ligne `inventory` ; `/lightrp.givemoney me bank
-500` répond l'usage, `/lightrp.givemoney me bank 20000 test du plafond` est refusé sans la
+To check in game: WAREHOUSE shows and pays 2,400 / 3,000 / 4,400; doing the same
+contract again within the hour gives 25% of the reputation, with the reason; a fourth paid world boss
+in the same day is refused, with the notice; a stake of 101 is refused at
+roulette, the wheel and the slots, and 501 at blackjack; after a roulette round, `/bank`
+shows one net `casino` line and no `inventory` line; `/lightrp.givemoney me bank
+500` replies with the usage, and `/lightrp.givemoney me bank 20000 cap test` is refused without the
 permission.
 
 ### 16.9 Tests
 
-Lua (`tests/run-lua.ps1`) : `mission_pay_test` (bande, réputation répétée), `mission_repay_test`,
-`missions_test` (notice de réputation réduite), `world_boss_test` (plafond journalier),
-`roulette_limits_test` (100 / 500), `cash_test` (ligne `casino`, étiquettes `silent`),
-`staff_money_test` (nouveau : motif, plafond, permission, console, notes UTF-8, bureau),
-`dailies_flow_street_test` (`givemoney` avec motif). Python (`tools/`) : les tests du casino
-et des tables suivent les nouvelles limites ; `test-tabletop-extra-server.py`,
-`test-casino-slots-server.py`, `test-casino-fortune-server.py` et
-`test-casino-blackjack-server.py` vérifient une ligne nette par personnage et par manche,
-rien pour un remboursement, et que chaque mouvement de jetons est `silent`.
+Lua (`tests/run-lua.ps1`): `mission_pay_test` (band, repeated reputation), `mission_repay_test`,
+`missions_test` (reduced reputation notice), `world_boss_test` (daily cap),
+`roulette_limits_test` (100 / 500), `cash_test` (`casino` line, `silent` tags),
+`staff_money_test` (new: reason, cap, permission, console, UTF-8 notes, desk),
+`dailies_flow_street_test` (`givemoney` with a reason). Python (`tools/`): the casino
+and table tests follow the new limits; `test-tabletop-extra-server.py`,
+`test-casino-slots-server.py`, `test-casino-fortune-server.py` and
+`test-casino-blackjack-server.py` check one net line per character and per round,
+nothing for a refund, and that every chip movement is `silent`.
 
-## 17. Économie exigeante, 2026-11-05 (branche `feat/lightrp-economy-hard`)
+## 17. Demanding economy, 2026-11-05 (`feat/lightrp-economy-hard` branch)
 
-Demande du propriétaire : « un serveur pas simple, prendre du temps, que ce soit gratifiant d'acheter des choses ». Le
-revenu de référence passe de **J = 3 500 €$/h** à **J ≈ 2 200 €$/h** au grade d'entrée. Monter en grade compte davantage :
-le bonus par grade passe de 10 % à 15 %, soit environ 3 300 €$/h au grade 3. Les prix s'étalent pour que chaque achat
-soit un palier.
+The owner's request: "a server that isn't easy, that takes time, where buying things feels rewarding". The
+reference income goes from **J = 3,500 €$/h** to **J ≈ 2,200 €$/h** at the entry grade. Moving up in grade counts for more:
+the bonus per grade goes from 10% to 15%, about 3,300 €$/h at grade 3. Prices are spread out so that each purchase
+is a milestone.
 
-### État de Testing avant la refonte (base de données, 2026-11-05)
+### State of Testing before the overhaul (database, 2026-11-05)
 
-- 11 personnages pour environ 82 h de jeu cumulées, et 265 k €$ en banque.
-- 470 k €$ ont été créés en un mois et 108 k €$ seulement détruits.
-- Missions : 261 k €$, presque tout payé avant les plafonds du 2026-11-04 (Chimera à 18 000 €$ par tête, 11 fois).
-- Crédits staff : 156 k €$, dont un seul crédit de 100 k €$.
-- Les soldes ne sont **pas** remis à zéro : c'est irréversible et ça demande une décision explicite du propriétaire.
+- 11 characters for about 82 h of cumulative play, and 265 k €$ in the bank.
+- 470 k €$ were created in one month and only 108 k €$ destroyed.
+- Missions: 261 k €$, almost all of it paid before the caps of 2026-11-04 (Chimera at 18,000 €$ per head, 11 times).
+- Staff credits: 156 k €$, including a single credit of 100 k €$.
+- Balances are **not** reset to zero: that is irreversible and needs an explicit decision from the owner.
 
-### Failles fermées
+### Loopholes closed
 
-| Faille | Correction |
+| Loophole | Fix |
 |---|---|
-| AC Cleaner : 400 €$ toutes les 1 à 1,5 min sur le parcours de test (~20 k €$/h) | 120 €$ par tournée et `cooldownMs` de 3 min propre à la route (job_runs.lua) |
-| Bonus Big Contract hors de tout plafond | il compte maintenant dans `crewBonus.dailyCap`, réduit à 1 500 €$/jour (job_crew.lua) |
-| Relance gratuite des courses de coursier | `cancelCooldownMs` = 2 min après un abandon par le joueur (pas après une expiration, une chute ou un changement de métier) |
-| Sector 04 affichée mais sans script (expirait toujours sans payer) | `disabled = true` : ni tableau ni blip tant qu'elle n'a pas de script |
-| Crédits staff sans plafond journalier | `staffGrants.dailyCapPerStaff` = 25 000 €$ par compte staff et jour UTC (console et `lightrp.money.unlimited` exemptés) |
-| Personnages secondaires : 1 500 €$ en banque à chaque création, virements gratuits | `startingBankExtraCharacters = 0`, frais de virement de 2 % (minimum 10 €$) |
+| AC Cleaner: 400 €$ every 1 to 1.5 min on the test route (~20 k €$/h) | 120 €$ per run and a 3 min `cooldownMs` specific to the route (job_runs.lua) |
+| Big Contract bonus outside any cap | it now counts toward `crewBonus.dailyCap`, lowered to 1,500 €$/day (job_crew.lua) |
+| Free rerolls of courier runs | `cancelCooldownMs` = 2 min after the player abandons a run (not after an expiry, a fall or a job change) |
+| Sector 04 shown but with no script (it always expired without paying) | `disabled = true`: no board entry and no blip until it has a script |
+| Staff credits with no daily cap | `staffGrants.dailyCapPerStaff` = 25,000 €$ per staff account and per UTC day (console and `lightrp.money.unlimited` exempt) |
+| Alt characters: 1,500 €$ in the bank on every creation, free transfers | `startingBankExtraCharacters = 0`, 2% transfer fee (minimum 10 €$) |
 
-### Revenus
+### Income
 
-| Source | Avant | Après |
+| Source | Before | After |
 |---|---|---|
-| Éboueur / ferrailleur (par unité) | 30 / 40 | 20 / 26 |
-| Coursier (base, par arrêt, par km, bornes) | 60, 30, 120, 150–1 400 | 40, 20, 80, 100–900 |
-| Bonus par grade | 10 % | 15 % |
-| Salaires (toutes les 30 min) | 100 à 500 | divisés par deux (50 à 250) |
-| Déplacement qui vaut une activité pour le salaire | 75 m | 600 m |
-| Missions de l'éditeur, part max Standard / Hard / Critical | 2 400 / 3 000 / 4 400 | 1 500 / 2 400 / 3 600 |
-| Missions : plafond par minute, paies pleines par jour, attente, part en répétition | 250, 6, 60 min, 25 % | 150, 4, 90 min, 15 % |
-| Chimera par tête | 3 000 / 4 500 / 6 000 | 2 000 / 3 000 / 4 000 |
-| Boss de monde : par combattant, par minute, paies par jour | 3 000, 250, 3 | 2 000, 150, 2 |
-| Activités PvP : par minute, plafond par jour | 70, 12 000 | 45, 7 500 |
-| Activités PvE : par minute, plafond par jour | 40 / 50 / 60, 6 000 | 25 / 32 / 40, 4 000 |
-| Contrats quotidiens et budget du jour | 250 / 400 / 250 / 300, 1 200 | 175 / 275 / 175 / 200, 800 (l'hebdomadaire reste à 3 000) |
-| Maneki-neko : par chat, paliers | 500, 5 k / 15 k / 40 k | 250, 2,5 k / 7,5 k / 20 k |
+| Sanitation / Scrapper (per unit) | 30 / 40 | 20 / 26 |
+| Courier (base, per stop, per km, bounds) | 60, 30, 120, 150–1,400 | 40, 20, 80, 100–900 |
+| Bonus per grade | 10% | 15% |
+| Salaries (every 30 min) | 100 to 500 | halved (50 to 250) |
+| Distance traveled that counts as activity for the salary | 75 m | 600 m |
+| Editor missions, max share Standard / Hard / Critical | 2,400 / 3,000 / 4,400 | 1,500 / 2,400 / 3,600 |
+| Missions: cap per minute, full payouts per day, wait, repeat share | 250, 6, 60 min, 25% | 150, 4, 90 min, 15% |
+| Chimera per head | 3,000 / 4,500 / 6,000 | 2,000 / 3,000 / 4,000 |
+| World boss: per fighter, per minute, payouts per day | 3,000, 250, 3 | 2,000, 150, 2 |
+| PvP activities: per minute, daily cap | 70, 12,000 | 45, 7,500 |
+| PvE activities: per minute, daily cap | 40 / 50 / 60, 6,000 | 25 / 32 / 40, 4,000 |
+| Daily contracts and daily budget | 250 / 400 / 250 / 300, 1,200 | 175 / 275 / 175 / 200, 800 (the weekly stays at 3,000) |
+| Maneki-neko: per cat, tiers | 500, 5 k / 15 k / 40 k | 250, 2.5 k / 7.5 k / 20 k |
 
-### Dépenses
+### Spending
 
-| Poste | Avant | Après |
+| Item | Before | After |
 |---|---|---|
-| Armes | 1 200 à 10 500 | ×1,5, arrondi à 50 (1 800 à 15 750) |
-| Munitions (boîte : 9 mm, chevrotine, fusil, sniper) | 75 / 90 / 110 / 150 | 110 / 135 / 165 / 225 (rachat 25 / 30 / 40 / 55) |
-| Boosters TCG WNC / Beta, display | 120 / 180, 2 600 | 400 / 600, 8 500 (rachat 150 / 220 / 3 000) |
-| Véhicules | 4 000 à 100 000 | ×2,5, arrondi à 500 (MaiMai 10 000 … Semimaru 250 000) |
-| Fourrière : détruit / perdu / demandé / staff | 400 / 150 / 250 / 500 | 1 500 / 600 / 500 / 750 |
-| Peinture | 1 000 | 2 500 |
-| Essence | 4 €$/L | 6 €$/L (~400 €$/h au volant) |
-| Hôpital | 300 | 750 |
-| Nourriture | inchangée : ~12 €$/h, car la faim et la soif baissent 4 fois moins vite (choix du propriétaire) | |
+| Weapons | 1,200 to 10,500 | ×1,5, rounded to 50 (1,800 to 15,750) |
+| Ammo (box: 9 mm, buckshot, rifle, sniper) | 75 / 90 / 110 / 150 | 110 / 135 / 165 / 225 (buy-back 25 / 30 / 40 / 55) |
+| TCG boosters WNC / Beta, display | 120 / 180, 2,600 | 400 / 600, 8,500 (buy-back 150 / 220 / 3,000) |
+| Vehicles | 4,000 to 100,000 | ×2,5, rounded to 500 (MaiMai 10,000 … Semimaru 250,000) |
+| Impound: destroyed / lost / requested / staff | 400 / 150 / 250 / 500 | 1,500 / 600 / 500 / 750 |
+| Paint | 1,000 | 2,500 |
+| Fuel | 4 €$/L | 6 €$/L (~400 €$/h behind the wheel) |
+| Hospital | 300 | 750 |
+| Food | unchanged: ~12 €$/h, because hunger and thirst drop 4 times more slowly (owner's choice) | |
 
-Les 24 boosters d'un display, revendus, rapportent 3 600 €$, bien moins que les 8 500 €$ du display : aucune boucle
-d'achat-revente n'est possible.
+The 24 boosters of a display bring in 3,600 €$ when resold, far less than the 8,500 €$ of the display: no buy-and-resell
+loop is possible.
 
-### Pas encore fait (code à écrire)
+### Not done yet (code to write)
 
-- **Dette d'hôpital :** aujourd'hui, la facture n'est prélevée que sur l'argent disponible, jamais en négatif.
-- **Assurance véhicule :** optionnelle, 1 % du prix par semaine.
-- **Fourrière en % du prix du véhicule :** ce sont des forfaits pour l'instant.
-- **Paliers maneki par compte :** ils comptent encore par personnage.
-- **Plafond absolu des répétitions de mission :** la part tombe à 15 %, mais sans limite.
-- **Loyers et prix d'achat des logements :** ils sont en base, à régler avec `/housingadmin` (cible : petit appartement à 6 000 €$/semaine, moyen à 18 000 €$/semaine, achat de 120 k à 500 k €$).
+- **Hospital debt:** today, the bill is only taken from the money available, never below zero.
+- **Vehicle insurance:** optional, 1% of the price per week.
+- **Impound as a % of the vehicle price:** these are flat fees for now.
+- **Maneki tiers per account:** they still count per character.
+- **Hard cap on mission repeats:** the share drops to 15%, but with no limit.
+- **Housing rents and purchase prices:** they are in the database, to be set with `/housingadmin` (target: small apartment at 6,000 €$/week, medium at 18,000 €$/week, purchase from 120 k to 500 k €$).
 
-## 18. Auto Studio : prix provisoires (branche `vc/a3-studio-full`)
+## 18. Auto Studio: provisional prices (`vc/a3-studio-full` branch)
 
-Le studio complet propose dix catégories ; neuf sont en vente, les vitres sont fermées
-(voir la ligne Vitres). La vague 2 (branche `lr/studio-extras`) en ajoute cinq :
-animation du néon, couleurs des feux, son moteur, autocollants et tag. Elles restent
-grisées tant que leurs natifs et le registre de catégories du garage manquent. Tous les tarifs sont dans **un seul tableau**
-serveur, `LightRpCustomizationPricing` (`server/config/vehicle_customization.lua`).
-Le client n'envoie jamais de prix. Seule la peinture est décidée (propriétaire,
-2026-11-05). Tout le reste est **provisoire**, marqué `-- PROVISIONAL`, et attend la
-décision du propriétaire.
+The full studio offers ten categories; nine are on sale, and windows are closed
+(see the Windows row). Wave 2 (`lr/studio-extras` branch) adds five more:
+neon animation, lamp colors, engine sound, stickers and tag. They stay
+grayed out as long as their natives and the garage's category registry are missing. All prices are in **a single server
+table**, `LightRpCustomizationPricing` (`server/config/vehicle_customization.lua`).
+The client never sends a price. Only paint is decided (owner,
+2026-11-05). Everything else is **provisional**, marked `-- PROVISIONAL`, and awaits the
+owner's decision.
 
-Chaque achat est une destruction de monnaie pure : aucun revenu ne s'y rattache.
-Chaque achat passe une ligne au registre, dans la même transaction SQL que le débit et
-l'enregistrement du véhicule. Les heures ci-dessous sont comptées au revenu de
-référence de la §17 : J ≈ 2 200 €$/h au grade d'entrée, environ 3 300 €$/h au grade 3.
+Every purchase is pure money destruction: no income is tied to it.
+Every purchase writes a line to the ledger, in the same SQL transaction as the debit and
+the vehicle save. The hours below are counted at the reference income
+from §17: J ≈ 2,200 €$/h at the entry grade, about 3,300 €$/h at grade 3.
 
-| Catégorie | Prix | Unité | Heures (grade d'entrée) | Registre | Raisonnement |
+| Category | Price | Unit | Hours (entry grade) | Ledger | Reasoning |
 |---|---|---|---|---|---|
-| Peinture | 2 500 | les deux canaux | 1,1 | `vehicle_paint` | décidée le 2026-11-05 (§17) |
-| Livrée | 4 000 | un schéma deux tons d'usine, ou retour à la peinture unie | 1,8 | `vehicle_livery` | au-dessus de la peinture : deux tons, posés sur la couche d'usine |
-| Jantes | 6 000 | le jeu complet (toutes les roues, une finition), ou retour aux jantes d'usine | 2,7 | `vehicle_rims` | 20 % d'une Hella (30 000) : le premier achat visible de loin |
-| Carrosserie | 3 500 | **par groupe changé** (aileron, ouïes arrière, lame, canards, bas de caisse, diffuseur, capot, toit, protection avant) | 1,6 par groupe | `vehicle_bodykit` | 9 groupes au plus (Thrax) : 31 500, soit environ 14 h ; 7 groupes sur une Hella : 24 500 |
-| Néon | 5 000 | le kit avec couleur et intensité, ou son retrait | 2,3 | `vehicle_neon` | visible de nuit par tous, au niveau des jantes |
-| Phares | 500 | une teinte, ou retour aux phares d'usine | 0,2 | `vehicle_lights` | phase 1 : un seul paramètre (la teinte) |
-| Finition | 2 500 | une variante d'usine | 1,1 | `vehicle_trim` | phase 1 : au prix de la peinture |
-| Plaque | 2 500 | une nouvelle immatriculation | 1,1 | `vehicle_plate` | unique sur le serveur ; le prix freine les changements à répétition |
-| Vitres | 1 500 | une teinte, tout niveau, ou retour au verre d'usine | 0,7 | `vehicle_tint` | configuré mais **non vendu** : le natif existe et la bascule marche, mais le verre s'affiche encore comme celui d'usine ; catégorie fermée (« Coming soon ») |
-| Performance | par modèle et par palier (tableau ci-dessous) | les paliers entre l'actuel et la cible | — | `vehicle_stage` | proposition E5 |
-| Retrait d'un palier | 1 000 | redescendre, ou revenir au stock | 0,5 | `vehicle_stage` | rien n'est remboursé |
-| Animation du néon (vague 2) | 2 500 | un mode (pulsation, stroboscope, chenillard…), ou retour au néon fixe | 1,1 | `vehicle_neon_anim` | la moitié du néon : elle n'existe que sur un néon déjà posé |
-| Couleurs des feux (vague 2) | 1 500 | stop, recul, clignotants et habitacle, autant de groupes qu'on veut, ou retour à l'usine | 0,7 | `vehicle_lamps` | plus que la teinte des phares (500) : quatre groupes en un achat |
-| Son moteur (vague 2) | 6 000 | un son, ou retour au son d'usine | 2,7 | `vehicle_engine_sound` | au prix des jantes : la voiture est reconstruite, et on l'entend de loin |
-| Autocollants (vague 2) | 1 500 | **par autocollant ajouté** ; n'en retirer coûte un autocollant | 0,7 par autocollant | `vehicle_stickers` | 12 décalques au plus, livrée comprise : 12 autocollants coûtent 18 000 |
-| Tag (vague 2) | 2 000 | un texte peint (police, couleur, emplacement), ou son retrait | 0,9 | `vehicle_tag` | objectif secondaire W2.5 : le contrat ne donne pas de prix |
+| Paint | 2,500 | both channels | 1.1 | `vehicle_paint` | decided on 2026-11-05 (§17) |
+| Livery | 4,000 | a factory two-tone scheme, or back to solid paint | 1.8 | `vehicle_livery` | above paint: two tones, applied over the factory layer |
+| Rims | 6,000 | the full set (all wheels, one finish), or back to factory rims | 2.7 | `vehicle_rims` | 20% of a Hella (30,000): the first purchase you can see from afar |
+| Body kit | 3,500 | **per group changed** (wing, rear louvers, front lip, canards, side skirts, diffuser, hood, roof, front protection) | 1.6 per group | `vehicle_bodykit` | 9 groups at most (Thrax): 31,500, i.e. about 14 h; 7 groups on a Hella: 24,500 |
+| Neon | 5,000 | the kit with color and intensity, or its removal | 2.3 | `vehicle_neon` | visible at night to everyone, on a par with rims |
+| Headlights | 500 | a tint, or back to factory headlights | 0.2 | `vehicle_lights` | phase 1: a single parameter (the tint) |
+| Trim | 2,500 | a factory variant | 1.1 | `vehicle_trim` | phase 1: at the price of paint |
+| Plate | 2,500 | a new registration | 1.1 | `vehicle_plate` | unique on the server; the price discourages repeated changes |
+| Windows | 1,500 | a tint, any level, or back to factory glass | 0.7 | `vehicle_tint` | configured but **not sold**: the native exists and the toggle works, but the glass still displays as factory glass; category closed ("Coming soon") |
+| Performance | per model and per stage (table below) | the stages between the current one and the target | — | `vehicle_stage` | proposal E5 |
+| Stage removal | 1,000 | step down, or go back to stock | 0.5 | `vehicle_stage` | nothing is refunded |
+| Neon animation (wave 2) | 2,500 | a mode (pulse, strobe, chaser…), or back to steady neon | 1.1 | `vehicle_neon_anim` | half the neon price: it only exists on a neon already installed |
+| Lamp colors (wave 2) | 1,500 | brake, reverse, indicators and cabin, as many groups as you like, or back to factory | 0.7 | `vehicle_lamps` | more than the headlight tint (500): four groups in one purchase |
+| Engine sound (wave 2) | 6,000 | a sound, or back to the factory sound | 2.7 | `vehicle_engine_sound` | at the price of rims: the car is rebuilt, and you hear it from afar |
+| Stickers (wave 2) | 1,500 | **per sticker added**; removing some costs one sticker | 0.7 per sticker | `vehicle_stickers` | 12 decals at most, livery included: 12 stickers cost 18,000 |
+| Tag (wave 2) | 2,000 | a painted text (font, color, placement), or its removal | 0.9 | `vehicle_tag` | secondary objective W2.5: the contract gives no price |
 
-**Règles de prix.**
+**Pricing rules.**
 
-- **Carrosserie.** Le prix est 3 500 multiplié par le nombre de groupes qui diffèrent
-  du kit confirmé, avec un minimum de 1. Changer d'aileron et ajouter une lame coûte
-  donc 7 000.
-- **Montée de palier.** Elle paie chaque palier entre l'actuel et la cible : passer
-  du stock au palier 3 sur une Hella coûte 2 500 + 3 500 + 5 000 = 11 000.
-- **Descente de palier.** Redescendre coûte 1 000, quelle que soit la cible, sans
-  remboursement.
-- **Délai.** Un véhicule peut être modifié une fois toutes les 10 min
+- **Body kit.** The price is 3,500 times the number of groups that differ
+  from the confirmed kit, with a minimum of 1. So changing the wing and adding a front lip costs
+  7,000.
+- **Stage upgrade.** You pay for every stage between the current one and the target: going
+  from stock to stage 3 on a Hella costs 2,500 + 3,500 + 5,000 = 11,000.
+- **Stage downgrade.** Stepping down costs 1,000, whatever the target, with no
+  refund.
+- **Cooldown.** A vehicle can be modified once every 10 min
   (`stages.cooldownMs`).
-- **Lien peinture–livrée.** Peinture et livrée sont liées. Acheter une peinture
-  enlève la livrée, et acheter une livrée remet la peinture d'usine. On paie
-  seulement la catégorie choisie.
-- **Autocollants.** Le prix est 1 500 multiplié par le nombre d'autocollants qui ne
-  sont pas déjà sur la voiture, avec un minimum de 1. Retirer des autocollants sans en
-  ajouter coûte donc 1 500.
-- **Son moteur.** Chaque essai reconstruit la voiture : un essai toutes les 4 s au plus,
-  gratuit. Seul l'achat est payant.
+- **Paint–livery link.** Paint and livery are linked. Buying a paint
+  removes the livery, and buying a livery restores the factory paint. You only pay
+  for the category you chose.
+- **Stickers.** The price is 1,500 times the number of stickers that are not
+  already on the car, with a minimum of 1. So removing stickers without adding any
+  costs 1,500.
+- **Engine sound.** Each preview rebuilds the car: one preview every 4 s at most,
+  free. Only the purchase costs money.
 
-### 18.1 Paliers de performance (proposition E5)
+### 18.1 Performance stages (proposal E5)
 
-E5 fixe le prix de chaque palier ainsi :
+E5 sets the price of each stage like this:
 
-- prix concession × 10 / 15 / 20 % × poids de valeur ;
-- poids de valeur = 0,5 + 0,5 × la part de moteur réellement livrée (un modèle bridé
-  par le plafond de sa classe paie moins) ;
-- minimum de 1 000 / 1 500 / 2 000, arrondi au 500 supérieur.
+- dealership price × 10 / 15 / 20% × value weight;
+- value weight = 0.5 + 0.5 × the engine share actually delivered (a model held back
+  by its class ceiling pays less);
+- minimum of 1,000 / 1,500 / 2,000, rounded up to the next 500.
 
-La source est `scripts/vehicle-kit/stages/STAGES.md`, dans le dépôt Open77.
+The source is `scripts/vehicle-kit/stages/STAGES.md`, in the Open77 repository.
 
-| Modèle | Prix concession | Palier 1 | Palier 2 | Palier 3 | Les trois | Part du prix |
+| Model | Dealership price | Stage 1 | Stage 2 | Stage 3 | All three | Share of the price |
 |---|---|---|---|---|---|---|
-| Makigai MaiMai | 10 000 | 1 000 | 1 500 | 2 000 | 4 500 | 45 % |
-| Brennan Apollo | 12 500 | 1 000 | 1 500 | 2 000 | 4 500 | 36 % |
-| Thorton Galena | 16 000 | 1 500 | 2 000 | 2 500 | 6 000 | 38 % |
-| Archer Hella | 30 000 | 2 500 | 3 500 | 5 000 | 11 000 | 37 % |
-| Thorton Colby | 35 000 | 3 000 | 4 000 | 5 500 | 12 500 | 36 % |
-| Mahir Supron | 40 000 | 3 500 | 5 000 | 7 000 | 15 500 | 39 % |
-| Archer Quartz | 47 500 | 2 500 | 4 000 | 5 000 | 11 500 | 24 % |
-| Mizutani Hozuki | 60 000 | 6 000 | 9 000 | 12 000 | 27 000 | 45 % |
-| Villefort Columbus | 75 000 | 7 500 | 11 500 | 15 000 | 34 000 | 45 % |
-| Villefort Cortes | 95 000 | 9 500 | 14 500 | 19 000 | 43 000 | 45 % |
-| Thorton Merrimac | 115 000 | 11 500 | 17 500 | 23 000 | 52 000 | 45 % |
-| Archer Bandit | 130 000 | 11 000 | 16 500 | 22 000 | 49 500 | 38 % |
-| Chevalier Thrax | 155 000 | 15 500 | 23 500 | 31 000 | 70 000 | 45 % |
-| Yaiba Kusanagi | 200 000 | 20 000 | 30 000 | 40 000 | 90 000 | 45 % |
-| Yaiba Semimaru | 250 000 | 25 000 | 37 500 | 50 000 | 112 500 | 45 % |
+| Makigai MaiMai | 10,000 | 1,000 | 1,500 | 2,000 | 4,500 | 45% |
+| Brennan Apollo | 12,500 | 1,000 | 1,500 | 2,000 | 4,500 | 36% |
+| Thorton Galena | 16,000 | 1,500 | 2,000 | 2,500 | 6,000 | 38% |
+| Archer Hella | 30,000 | 2,500 | 3,500 | 5,000 | 11,000 | 37% |
+| Thorton Colby | 35,000 | 3,000 | 4,000 | 5,500 | 12,500 | 36% |
+| Mahir Supron | 40,000 | 3,500 | 5,000 | 7,000 | 15,500 | 39% |
+| Archer Quartz | 47,500 | 2,500 | 4,000 | 5,000 | 11,500 | 24% |
+| Mizutani Hozuki | 60,000 | 6,000 | 9,000 | 12,000 | 27,000 | 45% |
+| Villefort Columbus | 75,000 | 7,500 | 11,500 | 15,000 | 34,000 | 45% |
+| Villefort Cortes | 95,000 | 9,500 | 14,500 | 19,000 | 43,000 | 45% |
+| Thorton Merrimac | 115,000 | 11,500 | 17,500 | 23,000 | 52,000 | 45% |
+| Archer Bandit | 130,000 | 11,000 | 16,500 | 22,000 | 49,500 | 38% |
+| Chevalier Thrax | 155,000 | 15,500 | 23,500 | 31,000 | 70,000 | 45% |
+| Yaiba Kusanagi | 200,000 | 20,000 | 30,000 | 40,000 | 90,000 | 45% |
+| Yaiba Semimaru | 250,000 | 25,000 | 37,500 | 50,000 | 112,500 | 45% |
 
-### 18.2 Ordres de grandeur
+### 18.2 Orders of magnitude
 
-- **Cosmétique complet.** Une Hella avec peinture, jantes, kit complet (les 7 groupes
-  qui lui vont), néon, plaque et phares coûte 41 000 €$ (137 % du prix de la voiture).
-  Cela représente environ 19 h au grade d'entrée, ou 12,5 h au grade 3. Avec le kit de
-  5 groupes de la première version, c'était 34 000 €$ (113 %).
-- **Cosmétique et palier 3.** Avec le palier 3 en plus, la même Hella coûte 52 000 €$
-  (173 % de la voiture), soit environ 24 h au grade d'entrée.
-- **Coût fixe.** Les prix cosmétiques ne dépendent pas du modèle ; seul le nombre de
-  groupes de carrosserie qui lui vont change le total. Le cosmétique complet pèse donc
-  lourd sur une MaiMai (34 000, 340 % de 10 000, 5 groupes) et peu sur une Semimaru
-  (37 500, 15 %, 6 groupes). C'est voulu, pour que le style soit accessible. Si le
-  propriétaire préfère un prix proportionnel au véhicule, il faut un coefficient par
-  modèle, comme pour les paliers.
-- **Vague 2.** Animation, feux, son moteur, 4 autocollants et un tag coûtent
-  18 000 €$, soit environ 8 h au grade d'entrée. Ajoutés au cosmétique complet de la
-  Hella, cela fait 59 000 €$ (197 % de la voiture), 70 000 €$ avec le palier 3.
+- **Full cosmetics.** A Hella with paint, rims, a full kit (the 7 groups
+  that fit it), neon, plate and headlights costs 41,000 €$ (137% of the car's price).
+  That is about 19 h at the entry grade, or 12.5 h at grade 3. With the
+  5-group kit of the first version, it was 34,000 €$ (113%).
+- **Cosmetics and stage 3.** With stage 3 on top, the same Hella costs 52,000 €$
+  (173% of the car), about 24 h at the entry grade.
+- **Fixed cost.** Cosmetic prices do not depend on the model; only the number of
+  body kit groups that fit it changes the total. So full cosmetics weigh
+  heavily on a MaiMai (34,000, 340% of 10,000, 5 groups) and lightly on a Semimaru
+  (37,500, 15%, 6 groups). This is intended, so that style stays affordable. If the
+  owner prefers a price proportional to the vehicle, a coefficient per
+  model is needed, as for stages.
+- **Wave 2.** Animation, lamps, engine sound, 4 stickers and a tag cost
+  18,000 €$, about 8 h at the entry grade. Added to the Hella's full cosmetics,
+  that makes 59,000 €$ (197% of the car), or 70,000 €$ with stage 3.
 
-### 18.3 Questions au propriétaire
+### 18.3 Questions for the owner
 
-- **Prix cosmétiques.** Faut-il garder les prix provisoires (livrée 4 000, jantes
-  6 000, carrosserie 3 500 par groupe, néon 5 000, plaque 2 500, phares 500, finition
-  2 500, vitres 1 500 à la réouverture) ? Faut-il les rendre proportionnels au prix
-  du véhicule ?
-- **Paliers.** Faut-il garder la proposition E5, le retrait à 1 000 sans remboursement
-  et le délai de 10 min ?
-- **Plaque.** Le format provisoire est de 7 caractères A-Z/0-9, et les listes de mots
-  interdits et réservés sont à compléter. Une plaque personnalisée doit-elle coûter
-  plus cher qu'une plaque tirée au hasard ? (La plaque aléatoire n'existe pas encore.)
-- **Vague 2.** Faut-il garder l'animation du néon à 2 500, les couleurs des feux à
-  1 500 pour tous les groupes, le son moteur à 6 000, les autocollants à 1 500 pièce et
-  le tag à 2 000 ? Un autocollant doit-il coûter selon sa taille (ses décalques) plutôt
-  qu'à la pièce ? L'essai du son moteur doit-il rester gratuit ?
+- **Cosmetic prices.** Should the provisional prices be kept (livery 4,000, rims
+  6,000, body kit 3,500 per group, neon 5,000, plate 2,500, headlights 500, trim
+  2,500, windows 1,500 when they reopen)? Should they be made proportional to the
+  vehicle's price?
+- **Stages.** Should proposal E5, the removal at 1,000 with no refund
+  and the 10 min cooldown be kept?
+- **Plate.** The provisional format is 7 characters A-Z/0-9, and the lists of banned
+  and reserved words still need to be completed. Should a custom plate cost
+  more than a randomly drawn one? (Random plates do not exist yet.)
+- **Wave 2.** Should the neon animation stay at 2,500, the lamp colors at
+  1,500 for all groups, the engine sound at 6,000, the stickers at 1,500 each and
+  the tag at 2,000? Should a sticker cost according to its size (its decals) rather than
+  per piece? Should the engine sound preview stay free?

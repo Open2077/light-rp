@@ -1,7 +1,7 @@
 -- Talking to Johnny (server/modules/guide_dialogue.lua): a game dialogue over the
 -- FAQ of server/config/guide.lua. Johnny says a line, the player picks one of a few
 -- choices, Johnny answers, more choices. Server-only, English, edited without a
--- page rebuild. docs/guide-dialogue.md is the same tree in French, for review.
+-- page rebuild. docs/guide-dialogue.md restates the same tree, for review.
 --
 -- A node: `say` (Johnny's lines; one page holds up to `pageLines` lines and about
 -- `pageChars` characters, the rest pages) and `choices`. `variants` instead of

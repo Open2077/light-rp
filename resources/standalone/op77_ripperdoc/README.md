@@ -1,94 +1,94 @@
-# op77_ripperdoc — interface de clinique ripperdoc
+# op77_ripperdoc — ripperdoc clinic interface
 
-Interface plein écran du ripperdoc, dans la DA LightRP (jaune et noir). Elle est construite à partir
-des propres assets du jeu, retravaillés (étalonnage ambre et graphite) :
+Full-screen ripperdoc interface, in the LightRP art direction (yellow and black). It is built from
+the game's own assets, reworked (amber and graphite color grading):
 
-- les vidéos « paperdoll » : le corps entier qui boucle et un gros plan par système ;
-- les calques plein corps de chaque système (circulatoire, immunitaire, nerveux, peau, squelette) ;
-- les icônes de cyberware de l'inventaire ;
-- les sons de l'onglet cyberware, du zoom du paperdoll, de la pose d'implant et du menu.
+- the "paperdoll" videos: the full body on a loop and one close-up per system;
+- the full-body layers of each system (circulatory, immune, nervous, skin, skeleton);
+- the cyberware icons from the inventory;
+- the sounds of the cyberware tab, the paperdoll zoom, implant installation and the menu.
 
-**Sur LightRP, la clinique est réelle** (`op77_lightrp/server/modules/cyberware.lua`) :
-- le catalogue, les prix, les pièces et les effets viennent du serveur (`server/config/cyberware.lua`) ;
-- chaque opération est payée en eurodollars (banque), puis persistée par personnage ;
-- les implants sont réappliqués à chaque connexion, changement de personnage et réapparition.
+**On LightRP, the clinic is real** (`op77_lightrp/server/modules/cyberware.lua`):
+- the catalog, prices, parts and effects come from the server (`server/config/cyberware.lua`);
+- each operation is paid in eurodollars (bank), then saved per character;
+- implants are reapplied on every connect, character switch and respawn.
 
-**Gros messages.** Le pont WebUI refuse sans rien dire un message de plus de 1 024 valeurs, et
-l'ouverture (tout le catalogue) en fait environ 1 600. Le client envoie donc `rd:open` et `rd:state`
-en texte JSON (`{ __json }`, ou `{ __part }` par morceaux de 48 Ko), et `web/bridge-parts.js`, chargé
-avant `app.js`, les décode avant les handlers de la page. Ce fichier ne fait pas partie du build de
-`ripperdoc-ui` : le garder dans `index.html` quand la page est reconstruite.
+**Large messages.** The WebUI bridge silently drops any message with more than 1,024 values, and
+opening the clinic (the whole catalog) takes about 1,600. So the client sends `rd:open` and `rd:state`
+as JSON text (`{ __json }`, or `{ __part }` in 48 KB chunks), and `web/bridge-parts.js`, loaded
+before `app.js`, decodes them before the page handlers. This file is not part of the
+`ripperdoc-ui` build: keep it in `index.html` when the page is rebuilt.
 
-Sans serveur (aperçu navigateur, console `ripperdoc.open`), la page reprend son catalogue de démo et
-simule les opérations. Voir PROTOCOL.md.
+Without a server (browser preview, `ripperdoc.open` console), the page falls back to its demo catalog and
+simulates the operations. See PROTOCOL.md.
 
-## Cyberware LightRP (ce que la clinique pose vraiment)
+## LightRP cyberware (what the clinic actually installs)
 
-| Système | Implants | Effet réel (plateforme) |
+| System | Implants | Real effect (platform) |
 |---|---|---|
-| Jambes | Reinforced Tendons, Mk.2 / Fortified Ankles | Double saut durable (`Open77.cyberware`, legs) / plus de dégâts de chute |
-| Bras | Gorilla Arms, Mk.2 / Mantis Blades, Electric | Poings durables (`gorilla_arms`) / lames sur l'emplacement de bras, touche **B** |
-| Nerveux | Neofiber, Mk.2 | Dash et Air Dash (`Open77.dash`), **Ctrl** + direction |
-| Système d'exploitation | Sandevistan Mk.1, Mk.3 | Overdrive réflexe (`Open77.reflex`), touche **X** |
-| Squelette | Kinetic Impact Frame / Titanium Bones, Epimorphic Skeleton | Ground Slam (`Open77.abilities`), **G** en l'air / santé max |
-| Peau | Subdermal Armor, Mk.2 | Armure |
-| Circulatoire | Biomonitor, Iron Lungs, Adrenaline Booster | Régénération de la santé, endurance max, régénération de l'endurance |
+| Legs | Reinforced Tendons, Mk.2 / Fortified Ankles | Durable double jump (`Open77.cyberware`, legs) / no fall damage |
+| Arms | Gorilla Arms, Mk.2 / Mantis Blades, Electric | Durable fists (`gorilla_arms`) / blades on the arm slot, **B** key |
+| Nervous | Neofiber, Mk.2 | Dash and Air Dash (`Open77.dash`), **Ctrl** + direction |
+| Operating System | Sandevistan Mk.1, Mk.3 | Reflex overdrive (`Open77.reflex`), **X** key |
+| Skeleton | Kinetic Impact Frame / Titanium Bones, Epimorphic Skeleton | Ground Slam (`Open77.abilities`), **G** in the air / max health |
+| Skin | Subdermal Armor, Mk.2 | Armor |
+| Circulatory | Biomonitor, Iron Lungs, Adrenaline Booster | Health regeneration, max stamina, stamina regeneration |
 
-Les autres systèmes (cortex, yeux, visage, mains, immunitaire) restent vides : aucun implant que la
-plateforme sait appliquer pour l'instant.
+The other systems (cortex, eyes, face, hands, immune) stay empty: there is no implant the
+platform can apply yet.
 
-**Économie.** Tout s'achète en eurodollars (banque), sans autre ressource. Les prix sont calés sur
-le travail : environ 2 000 à 3 000 €$/h, en ignorant les récompenses de missions et de raids, qui
-ne sont pas encore équilibrées.
-- **Aucune limite** : pas de capacité, pas de prérequis, on équipe ce qu'on veut.
-- Une famille correspond à un seul emplacement natif (bras, jambes, Dash, Overdrive…) : un autre
-  modèle de la même famille remplace celui qui est installé.
-- Un retrait coûte 250 €$.
+**Economy.** Everything is bought with eurodollars (bank), no other resource. Prices are pegged to
+job income: about 2,000 to 3,000 €$/h, ignoring mission and raid rewards, which
+are not balanced yet.
+- **No limits**: no capacity, no prerequisites, equip whatever you want.
+- A family maps to a single native slot (arms, legs, Dash, Overdrive…): another
+  model from the same family replaces the installed one.
+- A removal costs 250 €$.
 
-Staff (console) : `lightrp.cyberware <id> list|status|blades|give <item>|take <item>`,
+Staff (console): `lightrp.cyberware <id> list|status|blades|give <item>|take <item>`,
 `ripperdoc.action <id> install|remove <item>`.
 
-## Parcours
+## Walkthrough
 
-1. **Ouverture** : handshake neural, puis balayage biométrique du corps. Les 12 systèmes se placent
-   de part et d'autre du corps, comme dans le jeu.
-2. **Vue d'ensemble** : la souris incline la pièce (parallaxe 3D). Au survol d'un système :
-   - le calque du jeu ou un halo s'allume sur la zone ;
-   - un tracé relie le groupe au point du corps ;
-   - une carte holographique flotte devant le corps.
-3. **Plongée** : un clic fait foncer la caméra dans la zone (zoom, flou, flash) jusqu'au gros plan
-   du système (la vidéo du jeu), incliné en profondeur.
-   - À gauche : les slots installés et le stock de la clinique (filtres, rareté, prix, REQ).
-   - À droite : la carte de l'implant.
-   - A/D : système précédent ou suivant.
-4. **Opération** : on maintient E ou le bouton, puis une procédure chirurgicale se déroule (étapes,
-   barre). La dernière étape attend la réponse du serveur. En cas d'échec, la procédure s'interrompt
-   et le paiement est remboursé.
-5. **Échap** remonte au corps entier, puis quitte. Sur LightRP, quitter fait se lever du fauteuil.
+1. **Opening**: neural handshake, then a biometric scan of the body. The 12 systems line up
+   on both sides of the body, as in the game.
+2. **Overview**: the mouse tilts the room (3D parallax). When you hover a system:
+   - the game's layer or a glow lights up on the area;
+   - a line links the group to its point on the body;
+   - a holographic card floats in front of the body.
+3. **Dive**: a click sends the camera rushing into the area (zoom, blur, flash) down to the close-up
+   of the system (the game's video), tilted in depth.
+   - Left: the installed slots and the clinic's stock (filters, rarity, price, REQ).
+   - Right: the implant card.
+   - A/D: previous or next system.
+4. **Operation**: hold E or the button, then a surgical procedure plays out (steps,
+   progress bar). The last step waits for the server's answer. If it fails, the procedure stops
+   and the payment is refunded.
+5. **Esc** goes back up to the full body, then quits. On LightRP, quitting makes you get up from the chair.
 
-## Déclenchement sur LightRP
+## How LightRP triggers it
 
-`op77_lightrp/server/modules/ripperdoc.lua` :
-- quand `op77_scenes` démarre la scène « ripperdoc » sur un fauteuil chirurgical, il ouvre
-  l'interface après l'animation d'assise (6,6 s) ;
-- il la ferme si la scène se termine autrement ;
-- il fait se lever le joueur quand celui-ci ferme l'interface.
+`op77_lightrp/server/modules/ripperdoc.lua`:
+- when `op77_scenes` starts the "ripperdoc" scene on a surgical chair, it opens
+  the interface after the sit-down animation (6.6 s);
+- it closes it if the scene ends some other way;
+- it makes the player stand up when they close the interface.
 
-## Construire
+## Build
 
 ```powershell
 cd ripperdoc-ui
 npm install
-python scripts/build-assets.py --probe <NCWE.Probe.exe>   # médias depuis le jeu local (public/media)
-npm run dev                                              # aperçu : http://localhost:5179/?body=female&section=circulatory
-npm run build                                            # écrit resources/standalone/op77_ripperdoc/web
+python scripts/build-assets.py --probe <NCWE.Probe.exe>   # media from the local game (public/media)
+npm run dev                                              # preview: http://localhost:5179/?body=female&section=circulatory
+npm run build                                            # writes resources/standalone/op77_ripperdoc/web
 ```
 
-Le script de build des assets :
-- décode les vidéos Bink 2 avec le `bin/x64/bink2w64.dll` du jeu (ffmpeg ne les lit pas) ;
-- les étalonne, puis les encode en VP9 avec alpha ;
-- exporte les icônes et les calques via WolvenKit ;
-- exporte les sons via la sonde NCWE (`--sound-export`).
+The asset build script:
+- decodes the Bink 2 videos with the game's `bin/x64/bink2w64.dll` (ffmpeg cannot read them);
+- color-grades them, then encodes them in VP9 with alpha;
+- exports the icons and layers through WolvenKit;
+- exports the sounds through the NCWE probe (`--sound-export`).
 
-Il ne lit que l'installation locale. Les droits sur l'art et les sons restent à CD PROJEKT RED : il
-faut les remplacer avant toute publication publique ou commerciale.
+It only reads the local install. The rights to the art and sounds remain with CD PROJEKT RED: they
+must be replaced before any public or commercial release.

@@ -1,45 +1,45 @@
-# Aperçu de portée vocale
+# Voice range preview
 
-F11 change le mode vocal dans `open-voice`. Chaque changement **confirmé par le
-serveur** affiche un cercle 3D jaune au sol pendant trois secondes, uniquement
-pour le joueur concerné. Il suit sa position et prend le rayon exact du mode :
-chuchotement 3 m, normal 20 m, cri 40 m.
+F11 changes the voice mode in `open-voice`. Each change **confirmed by the
+server** shows a yellow 3D circle on the ground for three seconds, only
+to the player concerned. It follows their position and uses the exact radius of the mode:
+whisper 3 m, normal 20 m, shout 40 m.
 
-Les distances se configurent dans `resources/system/open-voice/server/config.lua`.
-`LightRpConfig.voice.ranges` est une ancienne configuration du HUD, **pas** la
-source des portées F11. Le cercle utilise directement la réponse serveur.
-La couleur et la durée sont au début de `open-voice/client/range_preview.lua`.
+The distances are set in `resources/system/open-voice/server/config.lua`.
+`LightRpConfig.voice.ranges` is an old HUD setting, **not** the
+source of the F11 ranges. The circle uses the server's answer directly.
+The color and duration are at the top of `open-voice/client/range_preview.lua`.
 
-Le rendu natif `Open77.anchors.create({ render = "ring", ... })` projette des
-sommets définis dans le monde et échantillonne le relief/les obstacles. Il ne
-crée pas de surface CEF ni d'entité mesh. Les grandes portées peuvent sortir
-du champ de vision ; les obstacles peuvent masquer une partie du cercle.
-La limite de ce rendu est de 50 m de rayon : au-delà, un diagnostic est écrit
-sans bloquer la voix ni afficher un cercle de taille trompeuse.
+The native renderer `Open77.anchors.create({ render = "ring", ... })` projects
+vertices defined in world space and samples the terrain/obstacles. It does not
+create a CEF surface or a mesh entity. Large ranges can extend beyond
+the field of view; obstacles can hide part of the circle.
+This renderer is limited to a 50 m radius: beyond that, a diagnostic is logged,
+without blocking voice or showing a circle of misleading size.
 
-Un seul handle et une seule tâche temporaire : les changements rapides réutilisent
-le cercle et relancent son délai. La tâche s'arrête à l'expiration, à la mort,
-à la disparition du personnage ou au masquage du HUD vocal. Le cycle de vie de
-la ressource nettoie également les ancres à la déconnexion/à l'arrêt.
-La première synchronisation, les doublons et les demandes refusées ne l'affichent pas.
+One handle and one temporary task: quick changes reuse
+the circle and restart its timer. The task stops when it expires, on death,
+when the character disappears, or when the voice HUD is hidden. The resource
+lifecycle also cleans up the anchors on disconnect/stop.
+The first sync, duplicates and refused requests do not show it.
 
-## Validation — 22 septembre 2026
+## Validation — 22 September 2026
 
-Tests Lua réels, avec doubles déterministes des API natives :
+Real Lua tests, with deterministic doubles of the native APIs:
 
 ```powershell
 pwsh -NoProfile -File tests/run-lua.ps1 -Test voice_range_test.lua
 pwsh -NoProfile -File tests/run-lua.ps1 -Test voice_hud_test.lua
 ```
 
-Résultats : rayon, suivi, changements rapides, expiration non prolongée par les
-doublons, demandes refusées, NaN/infini, mort, perte du personnage, erreurs du
-rendu, indépendance des blocages UI et arrêt/reprise de ressource validés.
+Results: radius, following, quick changes, expiry not extended by
+duplicates, refused requests, NaN/infinity, death, loss of the character, renderer
+errors, independence from UI blocks, and resource stop/restart all validated.
 
-Validation en jeu local sur `127.0.0.1:11828` : entrée en monde confirmée par
-bootstrap terminé et personnage vivant ; F11 réel, cercles 3/20/40 m, suivi
-pendant la marche, disparition après trois secondes. Captures locales dans
-`.open77/voice-range-{whisper,normal,shout,follow,expired}.png` à la racine LightRP.
-Aucun nouveau diagnostic d'échec du cercle ni erreur Lua dans le journal.
-Le test concerne le retour visuel ; aucun changement de codec/routage audio
-et aucune nouvelle validation micro/réseau multi-joueurs ne sont revendiqués.
+Local in-game validation on `127.0.0.1:11828`: world entry confirmed by a
+finished bootstrap and a living character; real F11, 3/20/40 m circles, following
+while walking, gone after three seconds. Local screenshots in
+`.open77/voice-range-{whisper,normal,shout,follow,expired}.png` at the LightRP root.
+No new circle-failure diagnostic and no Lua error in the log.
+The test covers the visual feedback; no audio codec/routing change
+and no new multiplayer mic/network validation are claimed.
