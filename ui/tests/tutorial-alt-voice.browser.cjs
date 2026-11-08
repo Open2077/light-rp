@@ -54,7 +54,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'E:/Open77/Gta2CPP
     assert(await page.getByRole('button',{name:'Save & continue'}).isDisabled(),'a fake confirmation cannot pass without a measured input');
     await page.getByRole('button',{name:'Start local test'}).click();
     await page.evaluate(()=>{window.testBridge.voice.level=.55;window.testBridge.voice.signalDetected=true;window.testBridge.fire('tutorial',{voice:{...window.testBridge.voice}});});
-    assert.equal(await page.getByRole('meter').getAttribute('aria-valuenow'),'55');
+    // the meter renders on React's next pass, not inside the evaluate that fired the state: wait for it
+    await page.waitForFunction(()=>document.querySelector('[role=meter]')?.getAttribute('aria-valuenow')==='55',null,{timeout:5000});
     assert.match(await page.locator('.voice-lesson__range').innerText(),/F10/,'the server range key is shown');
     await page.getByLabel('I can hear myself clearly, without echo or distortion.').check();
     assert(await page.getByRole('button',{name:'Save & continue'}).isEnabled());

@@ -20,7 +20,8 @@ GetPlayersInBucket=function(bucket)local t={};for id,p in pairs(positions) do if
 SetPlayerRoutingBucket=function(id,bucket)positions[id].bucket=bucket end
 GetCurrentResourceName=function()return "op77_lightrp" end
 CreateThread=function(fn)threads[#threads+1]=coroutine.create(fn)end
-Wait=function()coroutine.yield("wait")end
+-- Wait(0) is a slice inside a pass (the 2 s loop yields every two movers): `pass` runs a whole pass.
+Wait=function(ms)coroutine.yield((tonumber(ms) or 0)>0 and "wait" or "slice")end
 RegisterNetEvent=noop;AddEventHandler=function(name,fn)events[name]=fn end
 TriggerClientEvent=noop
 local Db={ready=true,schema=function(q)assert(sql_run(q))end,run=sql_run,read=sql_read,transaction=sql_transaction}
@@ -41,6 +42,7 @@ Open77.players.teleport=function(id,point,opts)
     end}
 end
 local function step(co)local ok,why=coroutine.resume(co);assert(ok,why);return why end
+local function pass(co)local why;repeat why=step(co) until why~="slice";return why end
 local function lastTravel()local co=threads[#threads];step(co);return co end
 dofile("server/core/interact.lua")
 dofile("server/modules/inventory.lua");dofile("server/modules/economy.lua")
@@ -127,7 +129,7 @@ succeeds(2,"renew",{id=h2});assert(lease(h2).data.expires==oldExpiry+7*86400 and
 assert(S.load());assert(lease(h2).data.expires==oldExpiry+7*86400 and H.hasKey(2,lease(h2)))
 time=lease(h2).data.expires+1
 assert(not H.hasKey(2,lease(h2)));deny(2,"stash",{id=h2})
-step(expiryLoop);lastTravel();assert(row(h2).contract_id==nil and positions[2].bucket==0)
+pass(expiryLoop);lastTravel();assert(row(h2).contract_id==nil and positions[2].bucket==0)
 -- New tenants never inherit storage; old belongings remain recoverable, withdrawal only.
 local saleBalance=Money.get(1).bank
 succeeds(1,"sell",{id=h1});assert(Money.get(1).bank==saleBalance+25000)
