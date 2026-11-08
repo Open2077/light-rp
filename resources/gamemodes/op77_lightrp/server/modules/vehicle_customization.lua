@@ -1065,6 +1065,9 @@ RegisterNetEvent(NET, function(p)
             stageTriedAt[s.owned] = LightRP.nowMs()
             if ok then stageAt[s.owned] = LightRP.nowMs() end
         end
+        -- The studio may have closed during the payment's SQL write (closed, left, died):
+        -- close() already ran and would never undo an engine hold or lamps switched on now.
+        if sessions[id] ~= s then return end
         if change.category == "engineSound" then
             -- a change rebuilt the car (or tried to): the next one waits
             s.soundAt = LightRP.nowMs()
