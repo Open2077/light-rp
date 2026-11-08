@@ -262,8 +262,9 @@ LightRpVehicleCustomization = {
     plate = { minLength = 7, maxLength = 7, charset = "A-Z0-9", pattern = "^[A-Z0-9]+$" },
     -- Performance stages: the TweakXL records Vehicle.<dealer record>_o77s1..3 shipped by the
     -- `resource` (stageRecord / stageOf exports). Fitted on an empty car at the studio only;
-    -- one change per vehicle per `cooldownMs`.
-    stages = { resource = "lightrp_vehicle_stages", max = 3, cooldownMs = 600000,
+    -- one change per vehicle per `cooldownMs`; a refused purchase (it may have rebuilt the car
+    -- and rebuilt it back) waits `retryMs` before the next one.
+    stages = { resource = "lightrp_vehicle_stages", max = 3, cooldownMs = 600000, retryMs = 5000,
         labels = { [0] = "Stock", "Stage 1", "Stage 2", "Stage 3" } },
     -- The engine stores one hue for the lights: a grey has no hue and would read as red.
     -- Colours below this HSV saturation (0..1) are refused.

@@ -709,16 +709,26 @@ assert(saved(hella).lightrp.stage==2 and reply.confirmed.stage==2)
 assert(world[car].visual.neon and world[car].visual.neon.color.r==255,"respawnAs keeps the look")
 reply=issue("save",{category="performance",stage=3},"bank");assert(not reply.ok and reply.text:find("tuned recently"),"one stage change per cooldown")
 close();tick=tick+C.stages.cooldownMs;m=open(hella) -- a studio session lasts 5 min: reopen
+-- A purchase the wallet cannot pay never rebuilds the car (before: a rebuild and its rollback,
+-- broadcast to every viewer, per try), and a refused stage purchase waits before the next.
+local wallet=M.get(1);local held,rebuilds=wallet.bank,calls.respawnAs;wallet.bank=10
+reply=issue("save",{category="performance",stage=3},"bank")
+assert(not reply.ok and reply.text=="Insufficient funds." and calls.respawnAs==rebuilds and world[car].record==HELLA.."_o77s2","a purchase the wallet cannot pay never rebuilds the car")
+wallet.bank=held
+reply=issue("save",{category="performance",stage=3},"bank")
+assert(not reply.ok and reply.text:find("still being rebuilt",1,true) and calls.respawnAs==rebuilds,"a refused stage purchase waits before the next")
+tick=tick+C.stages.retryMs
 failRespawn="vehicle_occupied";bank=M.get(1).bank
 reply=issue("save",{category="performance",stage=3},"bank");failRespawn=nil
 assert(not reply.ok and reply.text:find("step out") and M.get(1).bank==bank and world[car].record==HELLA.."_o77s2" and saved(hella).lightrp.stage==2,"an occupied car is refused, nothing charged")
+tick=tick+C.stages.retryMs
 reply=issue("save",{category="performance",stage=0},"bank")
 assert(reply.ok and world[car].record==HELLA and M.get(1).bank==bank-P.performanceRemoval and saved(hella).lightrp.stage==0,"back to stock costs the removal fee")
 close();tick=tick+C.stages.cooldownMs;m=open(hella);bank=M.get(1).bank
 stagesOnServer=false
 reply=issue("save",{category="performance",stage=1},"bank")
 assert(not reply.ok and M.get(1).bank==bank and world[car].record==HELLA,"a stage record absent on the server is refused")
-stagesOnServer=true
+stagesOnServer=true;tick=tick+C.stages.retryMs
 reply=issue("save",{category="performance",stage=1},"bank");assert(reply.ok and world[car].record==HELLA.."_o77s1")
 -- Buy back a livery, the bought rims and neon stay.
 reply=issue("save",{category="livery",profile="hella_tt_2"},"bank");assert(reply.ok)

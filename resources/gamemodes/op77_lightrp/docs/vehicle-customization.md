@@ -379,7 +379,10 @@ studio, so `vehicle_occupied` answers "Everyone must step out of the vehicle fir
 stock to Stage 3 on a Hella is 2,500 + 3,500 + 5,000 = 11,000 €$. Going down, or back
 to stock, costs `performanceRemoval` (1,000 €$) and refunds nothing.
 
-**Cooldown.** A vehicle can be tuned once per 10 minutes (`stages.cooldownMs`).
+**Cooldown.** A vehicle can be tuned once per 10 minutes (`stages.cooldownMs`). A
+refused purchase waits 5 s (`stages.retryMs`) before the next one, and every purchase
+checks the wallet before the car is touched: a payment refused after a rebuild used to
+rebuild the car twice (the stage, then the rollback) for every viewer.
 
 **Persistence.** The stage is stored in the row (`lightrp.stage`), and retrieval
 spawns the stage record. If the stage record is missing on the server (resource

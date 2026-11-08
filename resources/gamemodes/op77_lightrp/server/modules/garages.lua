@@ -931,6 +931,12 @@ function Garage.customize(playerId, token, change, commit, payment)
         local unchanged, text = UNCHANGED[category](change, edit.saved)
         if unchanged then return false, text end
         if category == "plate" and Garage.plateTaken(change.plate, row.id) then return false, "This plate is already registered to another vehicle." end
+        -- The wallet before anything touches the car: a stage or an engine sound rebuilds it,
+        -- and a refused payment rebuilt it a second time (the rollback), for every viewer.
+        local w = LightRP.money.get(playerId)
+        if not w then return false, LightRP.money.explain("no_wallet") end
+        if w.busy then return false, LightRP.money.explain("busy") end
+        if (tonumber(w[payment.method]) or 0) < payment.amount then return false, LightRP.money.explain("insufficient_funds") end
     end
     row.busy, ownerBusy[key] = true, operation
     local held

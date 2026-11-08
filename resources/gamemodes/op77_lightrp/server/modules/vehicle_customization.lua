@@ -4,7 +4,7 @@ local G, C = LightRP.garage, LightRpVehicleCustomization
 local Custom = LightRP.module("vehicleCustomization", {})
 local NET = LightRpEvents.net.customization
 local P, KIT = LightRpCustomizationPricing, LightRpVehicleKit
-local sessions, sequence, stageAt = {}, 0, {}
+local sessions, sequence, stageAt, stageTriedAt = {}, 0, {}, {}
 local NS = (type(GetCurrentResourceName) == "function" and GetCurrentResourceName() or "op77_lightrp") .. ":"
 -- Server quotes (server/config/vehicle_customization.lua): a flat price per category,
 -- per changed group for the body kit, per stage for performance.
@@ -825,6 +825,10 @@ local validators = {
             return nil, string.format("This vehicle was tuned recently. Come back in %d min.",
                 math.ceil((C.stages.cooldownMs - (LightRP.nowMs() - last)) / 60000))
         end
+        local tried = stageTriedAt[s.owned]
+        if tried and LightRP.nowMs() - tried < (C.stages.retryMs or 0) then
+            return nil, "The car is still being rebuilt: wait a moment before the next stage."
+        end
         return { category = "performance", stage = stage, record = entry.record }
     end,
     -- Wave 2 ------------------------------------------------------------------------
@@ -1055,7 +1059,12 @@ RegisterNetEvent(NET, function(p)
     end
     local effects, failure = pcall(function()
         if not change then return end
-        if ok and p.operation == "save" and change.category == "performance" then stageAt[s.owned] = LightRP.nowMs() end
+        -- every stage purchase past the validators waits before the next one, a refused one too:
+        -- it may have rebuilt the car and rebuilt it back (UI-less spam = two rebuilds a try)
+        if p.operation == "save" and change.category == "performance" then
+            stageTriedAt[s.owned] = LightRP.nowMs()
+            if ok then stageAt[s.owned] = LightRP.nowMs() end
+        end
         if change.category == "engineSound" then
             -- a change rebuilt the car (or tried to): the next one waits
             s.soundAt = LightRP.nowMs()
