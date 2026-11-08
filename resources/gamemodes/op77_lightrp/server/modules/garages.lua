@@ -496,6 +496,10 @@ local REFUSALS = {
     unknown_part = "This part is not available on this server right now.",
     invalid_profile = "This livery does not exist for this vehicle.",
     invalid_plate = "This plate cannot be shown on a vehicle.",
+    -- a stage change keeps the engine sound, and the sound pack has no record for that pair
+    -- (a combination it dropped for a TweakDBID collision), or the sound pack is stopped
+    engine_sound_not_for_stage = "Your engine sound has no version for this stage: fit another engine sound first.",
+    engine_sound_unregistered = "Engine sounds are not installed on this server right now: try again later.",
 }
 local function explain(why, fallback) return REFUSALS[why] or fallback end
 local function same(a, b)
@@ -895,6 +899,9 @@ local UNCHANGED = {
 --   unchanged(change, saved)  -> true when `saved` already holds it, plus the refusal text;
 --   available()               false on a server build without its native: a stored value
 --                             is then kept on the row (dormant), never sent nor dropped;
+--   fits(record, value)       optional: false when the car spawned on `record` cannot wear
+--                             the stored value (an engine sound the pack has no record for
+--                             at that stage): kept dormant the same way, the rest restored;
 --   receipt = { ledger kind (VARCHAR 24), note };  respawns = true when it rebuilds the car
 --   (restored after the stage).
 -- It then joins the confirmed mask, the unchanged check, the receipt, the rollback and the
@@ -904,6 +911,7 @@ function Garage.registerCustomizationCategory(id, spec)
     for _, key in ipairs({ "owns", "apply", "restore", "unchanged", "available" }) do
         assert(type(spec[key]) == "function", "Customization category " .. id .. " needs " .. key)
     end
+    assert(spec.fits == nil or type(spec.fits) == "function", "Customization category " .. id .. ": fits must be a function")
     assert(type(spec.receipt) == "table" and type(spec.receipt[1]) == "string" and #spec.receipt[1] <= 24
         and type(spec.receipt[2]) == "string", "Customization category " .. id .. " needs a receipt")
     EXTRA[id], OWNS[id], UNCHANGED[id], RECEIPTS[id] = spec, spec.owns, spec.unchanged, spec.receipt
@@ -1016,18 +1024,28 @@ local function restorable(row, record)
         end
     end
     row.dormant, row.dormantExtra = nil, nil
-    -- A registered category this server build cannot put on a car (no native): kept on the
-    -- row, where it was stored, instead of refusing the delivery or dropping it.
+    -- A registered category this server build cannot put on a car (no native), or whose
+    -- stored value this car cannot wear (fits: an engine sound with no record at this
+    -- stage): kept on the row, where it was stored, instead of refusing the delivery,
+    -- dropping it, or sending the whole look dormant with it.
+    local unfit, unbuilt = {}, false
     for _, key in ipairs(extraOrder) do
         local inVisual = type(restore.visual) == "table" and restore.visual[key] ~= nil
         local value = inVisual and restore.visual[key] or restore[key]
-        if value ~= nil and not EXTRA[key].available() then
+        local spec = EXTRA[key]
+        local missing = value ~= nil and not spec.available()
+        local wrong = value ~= nil and not missing and spec.fits ~= nil and not spec.fits(record, value)
+        if missing or wrong then
             row.dormantExtra = row.dormantExtra or {}
             row.dormantExtra[key] = { visual = inVisual, value = copy(value) }
             if inVisual then restore.visual = copy(restore.visual); restore.visual[key] = nil else restore[key] = nil end
+            if wrong then unfit[#unfit + 1] = key else unbuilt = true end
         end
     end
-    if row.dormantExtra then LightRP.log("garage: %s keeps studio choices this server build cannot put on it dormant", row.id) end
+    if unbuilt then LightRP.log("garage: %s keeps studio choices this server build cannot put on it dormant", row.id) end
+    if #unfit > 0 then
+        LightRP.log("garage: %s keeps %s dormant: %s cannot wear it", row.id, table.concat(unfit, ", "), tostring(record))
+    end
     -- An engine sound rides on the record (`<stage record>a<k>`): named beside the record
     -- the car was created on, setProperties refuses it (engine_sound_mismatch); without
     -- `record` it applies the sound like setEngineSound. The stored record is never sent:

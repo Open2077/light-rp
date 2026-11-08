@@ -253,6 +253,18 @@ local function stageRecord(base, stage)
 end
 G.setStageResolver(stageRecord)
 local function stageOf(state) return math.tointeger(tonumber(type(state.lightrp) == "table" and state.lightrp.stage or 0) or 0) or 0 end
+-- An engine sound is a record per model and stage, and the pack may lack one (a combination
+-- dropped for a TweakDBID collision, STAGES.md of the generator): true when the platform
+-- lists `sound` for `record` (a vehicle id or a record), or cannot tell.
+local STAGE_SOUND = "Your engine sound has no version for this stage: fit another engine sound first."
+local function soundFits(record, sound)
+    if type(sound) ~= "string" or sound == "" or record == nil then return true end
+    if type(Open77.vehicles.listEngineSounds) ~= "function" then return true end
+    local list = Open77.vehicles.listEngineSounds(record)
+    if type(list) ~= "table" then return true end -- the platform decides, and refuses by name
+    for _, s in ipairs(list) do if type(s) == "table" and s.id == sound then return true end end
+    return false
+end
 
 -- Registration plates ---------------------------------------------------------------
 -- A word is found in the plate as written, or in its "leet" reading (SH1T reads SHIT).
@@ -421,7 +433,10 @@ local EXTRA = {
     engineSound = { set = "setEngineSound", get = "getEngineSound", respawns = true,
         receipt = { "vehicle_engine_sound", "Engine sound for vehicle " }, refused = "The engine sound could not be fitted",
         unchanged = "This engine sound is already fitted.",
-        value = function(change) return change.sound or nil end },
+        value = function(change) return change.sound or nil end,
+        -- A stored sound the car's record has no version of (the pack dropped that stage and
+        -- sound for a TweakDBID collision, or is stopped) stays dormant at delivery.
+        fits = function(record, sound) return soundFits(record, sound) end },
 }
 -- What the car wears now: the native's getter, else its getProperties field.
 local function wearing(name, vehicleId)
@@ -444,7 +459,7 @@ if registry then
     for _, name in ipairs(EXTRA_ORDER) do
         local spec = EXTRA[name]
         G.registerCustomizationCategory(name, {
-            owns = ownField(name), receipt = spec.receipt, respawns = spec.respawns == true,
+            owns = ownField(name), receipt = spec.receipt, respawns = spec.respawns == true, fits = spec.fits,
             -- a build without the setter keeps a stored value dormant on the row
             available = function() return type(Open77.vehicles[spec.set]) == "function" end,
             apply = function(vehicleId, change) return put(name, vehicleId, spec.value(change)) end,
@@ -580,12 +595,16 @@ local OFFER = {
         if type(list) ~= "table" then return entry, C.unsupported.performance end
         if not running(C.stages.resource) then return entry, C.unsupported.stagesPack end
         entry.options = { current = stageOf(state), removal = removal, stages = {} }
+        -- a stage keeps the car's engine sound: one the pack has no record of at that stage
+        -- greys it (the platform would refuse it, engine_sound_not_for_stage)
+        local sound = state.vehicleId and wearing("engineSound", state.vehicleId) or nil
         local any = false
         for stage = 0, C.stages.max do
             local record = stageRecord(state.record, stage)
             any = any or (stage > 0 and record ~= nil)
+            local fits = record == nil or soundFits(record, sound)
             entry.options.stages[stage + 1] = { stage = stage, label = C.stages.labels[stage], price = list[stage],
-                record = record, available = record ~= nil }
+                record = record, available = record ~= nil and fits, reason = not fits and STAGE_SOUND or nil }
         end
         if not any then return entry, C.unsupported.performance end
         return entry
@@ -833,6 +852,10 @@ local validators = {
         for _, candidate in ipairs(s.categories.performance.options.stages) do if candidate.stage == stage then entry = candidate end end
         if not entry or not entry.record then return nil, "This stage is not offered for this vehicle." end
         if not running(C.stages.resource) then return nil, C.unsupported.stagesPack end
+        -- the sound the car wears now (bought or previewed) is the one the rebuild keeps
+        if not soundFits(entry.record, wearing("engineSound", s.vehicle)) then
+            return nil, STAGE_SOUND
+        end
         local last = stageAt[s.owned]
         if last and LightRP.nowMs() - last < C.stages.cooldownMs then
             return nil, string.format("This vehicle was tuned recently. Come back in %d min.",

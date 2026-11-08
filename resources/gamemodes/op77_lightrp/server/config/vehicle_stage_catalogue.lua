@@ -9,8 +9,8 @@
 -- sounds the lightrp_vehicle_stages pack registers for that class (0: a stage-only pack).
 LightRpVehicleStageCatalogue = {
     generator = 1,
-    stagesYamlSha256 = '1da2fca7f899f00c614e6014d3aba2fb03d899e0a6a94d8fea9fa19b562aab56',
-    soundsYamlSha256 = '28472bf11d8d832f263e848422541c5c1951d5fa22028242e0991e8ea7d81adf',
+    stagesYamlSha256 = '4db316acf0c15d7b80d9de14e7c086d9ccd448a02d1af50bd161bd934f75f502',
+    soundsYamlSha256 = '4a7f1be13b47972f0d8f4851683d9b0581100aab6eaf0d3abe57b8d25632419d',
     maxStage = 3,
     sounds = { car = 12, bike = 4 },
     models = {

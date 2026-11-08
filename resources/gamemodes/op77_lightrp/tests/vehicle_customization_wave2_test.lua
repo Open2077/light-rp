@@ -4,7 +4,9 @@
 -- listEngineSounds / listStickers / getDecalBudget (livery included, 12 at most), the five
 -- getProperties keys (LIGHTRP_WAVE2_KEYS=visual keeps them in `visual`, else at the top
 -- level), an engine sound riding on the record (Vehicle.<base>_o77a<k>, _o77s<n>a<k>) and a
--- rebuild (respawnAs) that drops it.
+-- rebuild (respawnAs) that drops it. HOLES[base][stage][sound] marks a combination the sound
+-- pack did not generate (dropped for a TweakDBID collision): listEngineSounds leaves it out,
+-- setEngineSound refuses it, and so does a stage change that would keep it.
 -- The full flow needs Garage.registerCustomizationCategory, the garage's category registry;
 -- without it the categories must stay greyed. LIGHTRP_GARAGES=<path> runs this file against
 -- another garages.lua (the registry patch, before it is merged).
@@ -82,6 +84,7 @@ GetResourceState=function(name) return packs[name] or "missing" end
 GetCurrentResourceName=function() return "op77_lightrp" end
 -- Records: Vehicle.<base>, _o77s<n> (stage), _o77a<k> / _o77s<n>a<k> (engine sound k).
 local SOUNDS={{id="s01",label="Inline-six, rough",class="car",k=1},{id="s02",label="V8, deep",class="car",k=2},{id="s03",label="Electric whine",class="car",k=3}}
+local HOLES,listUnknown={},false
 local function plain(record) return (tostring(record):gsub("(_o77s%d+)a%d+$","%1"):gsub("_o77a%d+$","")) end
 local function base(record) return (plain(record):gsub("_o77s%d+$","")) end
 local function soundOf(record)
@@ -201,10 +204,14 @@ V.setPaintProfile=function(id,profile)
     v.visual.profile=profile;bump(v);return true end
 V.setNeon=function(id,spec)local v=world[id];if not v then return false,"vehicle_not_found" end;v.visual.neon=neonOf(spec);bump(v);return true end
 V.clearNeon=function(id)local v=world[id];v.visual.neon=nil;bump(v);return true end
--- The rebuild of a stage keeps the car but not what rides on its record.
+local function stageNumber(record) return tonumber(tostring(record):match("_o77s(%d+)a?%d*$")) or 0 end
+local function hole(record,sound) local h=HOLES[base(record)];return sound~=nil and h~=nil and h[stageNumber(record)]~=nil and h[stageNumber(record)][sound]==true end
+-- The rebuild of a stage keeps the car but not what rides on its record; the platform refuses
+-- it when the car's sound has no record at that stage (engine_sound_not_for_stage).
 V.respawnAs=function(id,record)
     local v=world[id];if not v then return nil,"vehicle_not_found" end
     if not known(record) then return nil,"invalid_record" end
+    if server2 and base(record)==base(v.record) and soundOf(record)==nil and hole(record,soundOf(v.record)) then return nil,"engine_sound_not_for_stage" end
     calls.respawnAs=calls.respawnAs+1;v.record=record;v.engineHold=false;return id end
 
 -- Wave 2 natives, as the shared contract states them (refusal names: those of the natives
@@ -214,6 +221,7 @@ local function redOrBlue(c) if c==nil then return nil end;c=rgb(c)
     if c.b>=180 and c.r<=90 and c.g<=170 then return "blue" end end
 function soundOn(v,sound) -- an engine sound rides on the record: rebuilt like a stage
     if sound~=nil and not soundK(sound) then return false,"unknown_engine_sound" end
+    if hole(v.record,sound) then return false,"engine_sound_not_for_model" end
     local record=withSound(v.record,sound)
     if record~=v.record then calls.soundRespawns=calls.soundRespawns+1;v.record=record;v.engineHold=false end
     return true end
@@ -239,8 +247,11 @@ function WAVE2.setLightColors(id,l) local v=world[id];if not v then return false
     if redOrBlue(out.blinkers) or redOrBlue(out.brake)=="blue" then return false,redOrBlue(out.blinkers) and "emergency_look:blinkers" or "emergency_look:brake" end
     v.w2.lightColors=any and out or nil;return true end
 function WAVE2.getLightColors(id) local v=world[id];return v and clone(v.w2.lightColors) end
-function WAVE2.listEngineSounds(id) if not world[id] then return nil,"vehicle_not_found" end
-    local out={};for _,s in ipairs(SOUNDS)do out[#out+1]={id=s.id,label=s.label,class=s.class} end;return out end
+function WAVE2.listEngineSounds(x) -- a vehicle id or a record, filtered by the stage it is on
+    if listUnknown then return nil,"unavailable" end
+    local record=type(x)=="string" and x or (world[x] and world[x].record)
+    if not record then return nil,"vehicle_not_found" end
+    local out={};for _,s in ipairs(SOUNDS)do if not hole(plain(record),s.id) then out[#out+1]={id=s.id,label=s.label,class=s.class} end end;return out end
 function WAVE2.setEngineSound(id,sound) local v=world[id];if not v then return false,"vehicle_not_found" end
     calls.w2=calls.w2+1;return soundOn(v,sound) end
 function WAVE2.getEngineSound(id) local v=world[id];return v and soundOf(v.record) end
@@ -579,5 +590,52 @@ local saveStickers=STICKERS;STICKERS=full
 m=open(hella);assert(#category(m,"stickers").options.stickers==60)
 close();STICKERS=saveStickers
 
-print(("customization wave 2 (%s keys): greying, neon animation, lamp colors, engine sound (rebuild, cooldown, engine hold, stage), stickers (budget, livery guard, per-sticker price), tag, previews never stored, park+restart+retrieve, a build without the natives passed; largest category %d JSON values"):format(WHERE,maxCategoryValues))
+-- 12. A sound pack without one stage + sound combination (a TweakDBID collision hole, as the
+-- Deleon stage 3 + s03 of 2026-11-08): the stage is greyed and refused before any charge, a
+-- refusal from the platform is put in words, and a stored combination the pack lost comes
+-- out without its sound (kept dormant) but with the rest of its look.
+local STAGE_SOUND="Your engine sound has no version for this stage: fit another engine sound first."
+local function stageEntry(m,stage) for _,s in ipairs(category(m,"performance").options.stages)do if s.stage==stage then return s end end end
+assert(world[car].record==HELLA.."_o77s1a2")
+HOLES[HELLA]={[2]={s02=true}}
+m=open(hella);bank=M.get(1).bank
+assert(stageEntry(m,2).available==false and stageEntry(m,2).reason==STAGE_SOUND,"stage 2 has no s02 record: greyed, with its reason")
+assert(stageEntry(m,3).available==true and stageEntry(m,0).available==true,"the other stages stay offered")
+assert(#category(m,"engineSound").options.sounds==3,"stage 1 takes every sound")
+respawns=calls.respawnAs
+r=issue("save",{category="performance",stage=2},"bank")
+assert(not r.ok and r.text==STAGE_SOUND,"refused before the platform: "..tostring(r.text))
+assert(M.get(1).bank==bank and calls.respawnAs==respawns and world[car].record==HELLA.."_o77s1a2","nothing charged, nothing rebuilt")
+listUnknown=true -- the platform cannot list: its own refusal, in words, still charges nothing
+r=issue("save",{category="performance",stage=2},"bank")
+listUnknown=false
+assert(not r.ok and r.text==STAGE_SOUND,"the platform's engine_sound_not_for_stage in words: "..tostring(r.text))
+assert(M.get(1).bank==bank and world[car].record==HELLA.."_o77s1a2" and commits[#commits]~="vehicle_stage","no charge")
+assert(stored(hella,"engineSound")=="s02" and (saved(hella).lightrp or {}).stage==1,"the stored car is untouched")
+r=issue("save",{category="performance",stage=3},"bank");assert(r.ok,r.text)
+assert(world[car].record==HELLA.."_o77s3a2" and M.get(1).bank<bank,"stage 3 has its s02 record: fitted and paid")
+close();store(hella)
+-- A later pack revision drops stage 3 + s02: the car comes out on stage 3 without the sound,
+-- with its livery, neon and the rest, and the row keeps the sound.
+HOLES[HELLA]={[3]={s02=true}}
+reboot();logs={}
+car=retrieve(hella)
+assert(world[car].record==HELLA.."_o77s3","delivered on its stage, factory sound: "..world[car].record)
+assert(world[car].visual.profile=="hella_tt_2" and world[car].visual.neon and same(world[car].w2.stickers,{V1,V2}) and world[car].w2.tag.text=="Night Owl",
+    "the rest of the look is worn, not sent dormant with the sound")
+assert(logged("keeps engineSound dormant") and not logged("delivered without its visual"),"only the sound is dormant")
+autosave()
+assert(stored(hella,"engineSound")=="s02","an autosave keeps the dormant sound")
+tick=tick+C.stages.cooldownMs -- past any stage cooldown, before the session opens
+m=open(hella)
+assert(m.confirmed.engineSound=="" and #category(m,"engineSound").options.sounds==2,"stage 3 does not offer s02 any more")
+assert(stageEntry(m,2).available and stageEntry(m,3).available,"a car without a sound takes every stage")
+r=issue("save",{category="performance",stage=2},"bank");assert(r.ok,r.text)
+assert(world[car].record==HELLA.."_o77s2" and stored(hella,"engineSound")=="s02","another purchase keeps the dormant sound")
+close();store(hella);reboot()
+car=retrieve(hella)
+assert(world[car].record==HELLA.."_o77s2a2","back on a stage with its record, the stored sound is worn again: "..world[car].record)
+HOLES={}
+
+print(("customization wave 2 (%s keys): greying, neon animation, lamp colors, engine sound (rebuild, cooldown, engine hold, stage, collision holes kept dormant), stickers (budget, livery guard, per-sticker price), tag, previews never stored, park+restart+retrieve, a build without the natives passed; largest category %d JSON values"):format(WHERE,maxCategoryValues))
 return true
